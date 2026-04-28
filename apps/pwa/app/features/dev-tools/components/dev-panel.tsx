@@ -11,6 +11,7 @@ import { cn } from "@dweb/ui-kit";
 import { useNetwork } from "@/app/features/network/providers/network-provider";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
+import { createPendingStartupAuthState } from "@/app/features/auth/services/startup-auth-state-contracts";
 import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store";
 import { loadGroupTombstones } from "@/app/features/groups/services/group-tombstone-store";
 import { getAbuseMetricsSnapshot } from "@/app/shared/abuse-observability";
@@ -73,7 +74,16 @@ export const DevPanel = ({ dmController }: { dmController?: any }) => {
     const { probeResults, isRunningProbe, lastProbeAtUnixMs, probeSummary } = relayProbeState;
     const windowRuntimeSnapshot = useWindowRuntimeSnapshot();
     const uiResponsiveness = useUiResponsivenessSnapshot();
-    const identityDiagnostics = identity.getIdentityDiagnostics?.() ?? { status: identity.state.status };
+    const identityDiagnostics = identity.getIdentityDiagnostics?.() ?? {
+        status: identity.state.status,
+        startupState: createPendingStartupAuthState({
+            storedPublicKeyHex: identity.state.stored?.publicKeyHex,
+        }),
+        storedPublicKeyHex: identity.state.stored?.publicKeyHex,
+        nativeSessionPublicKeyHex: null,
+        mismatchReason: undefined,
+        message: identity.state.error,
+    };
     const abuseMetrics = getAbuseMetricsSnapshot();
     const sybilRisk = getSybilRiskSnapshot();
     const filteredRuntimeIssues = useMemo(() => {
@@ -441,9 +451,11 @@ export const DevPanel = ({ dmController }: { dmController?: any }) => {
                             <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Identity Diagnostics</div>
                             <div className="mt-2 rounded-xl bg-zinc-100 p-2 text-[11px] dark:bg-zinc-800/50">
                                 <div>status: <span className="font-mono">{identityDiagnostics.status}</span></div>
+                                <div>startup: <span className="font-mono">{identityDiagnostics.startupState.kind}</span></div>
                                 <div>stored: <span className="font-mono">{identityDiagnostics.storedPublicKeyHex?.slice(0, 12) || "n/a"}</span></div>
                                 <div>native: <span className="font-mono">{identityDiagnostics.nativeSessionPublicKeyHex?.slice(0, 12) || "n/a"}</span></div>
                                 <div>mismatch: <span className="font-mono">{identityDiagnostics.mismatchReason || "none"}</span></div>
+                                <div>recovery: <span className="font-mono">{identityDiagnostics.startupState.recoveryActions.join(",") || "none"}</span></div>
                             </div>
                         </div>
 

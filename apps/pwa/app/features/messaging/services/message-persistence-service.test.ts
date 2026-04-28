@@ -325,7 +325,7 @@ describe("MessagePersistenceService batching", () => {
         service.init();
 
         window.dispatchEvent(new CustomEvent(CHAT_STATE_REPLACED_EVENT, {
-            detail: { publicKeyHex: myPublicKeyHex },
+            detail: { publicKeyHex: myPublicKeyHex, profileId: "default" },
         }));
         await Promise.resolve();
         await Promise.resolve();
@@ -357,18 +357,35 @@ describe("MessagePersistenceService batching", () => {
         service.init();
 
         window.dispatchEvent(new CustomEvent(CHAT_STATE_REPLACED_EVENT, {
-            detail: { publicKeyHex: myPublicKeyHex },
+            detail: { publicKeyHex: myPublicKeyHex, profileId: "default" },
         }));
         await Promise.resolve();
         await Promise.resolve();
 
-        expect(chatStateStoreMocks.load).toHaveBeenCalledWith(myPublicKeyHex);
+        expect(chatStateStoreMocks.load).toHaveBeenCalledWith(myPublicKeyHex, { profileId: "default" });
         expect(messagingDB.get).not.toHaveBeenCalled();
         expect(messagingDB.bulkPut).toHaveBeenCalledWith("messages", expect.arrayContaining([
             expect.objectContaining({
                 id: "restore-msg-memory-1",
             }),
         ]));
+
+        service.dispose();
+    });
+
+    it("ignores chat-state replaced events from another profile scope", async () => {
+        const myPublicKeyHex = "f".repeat(64);
+        const service = new MessagePersistenceService();
+        service.init();
+
+        window.dispatchEvent(new CustomEvent(CHAT_STATE_REPLACED_EVENT, {
+            detail: { publicKeyHex: myPublicKeyHex, profileId: "work" },
+        }));
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(chatStateStoreMocks.load).not.toHaveBeenCalled();
+        expect(messagingDB.bulkPut).not.toHaveBeenCalled();
 
         service.dispose();
     });
@@ -425,7 +442,7 @@ describe("MessagePersistenceService batching", () => {
         const service = new MessagePersistenceService();
         await service.migrateFromLegacy(myPublicKeyHex);
 
-        expect(chatStateStoreMocks.load).toHaveBeenCalledWith(myPublicKeyHex);
+        expect(chatStateStoreMocks.load).toHaveBeenCalledWith(myPublicKeyHex, { profileId: "default" });
         expect(messagingDB.get).toHaveBeenCalledWith("chatState", myPublicKeyHex);
         expect(messagingDB.bulkPut).toHaveBeenCalledWith("messages", expect.arrayContaining([
             expect.objectContaining({

@@ -22,6 +22,7 @@ import { toGroupConversationId } from "@/app/features/groups/utils/group-convers
 import { deriveCommunityId } from "@/app/features/groups/utils/community-identity";
 import { toDmConversationId } from "@/app/features/messaging/utils/dm-conversation-id";
 import { createDmConversation } from "@/app/features/messaging/utils/create-dm-conversation";
+import { logAppEvent } from "@/app/shared/log-app-event";
 
 const DEFAULT_DM_DISPLAY_NAME = "Unknown contact";
 
@@ -117,9 +118,23 @@ export function GlobalDialogManager() {
         }
         setIsCreatingGroup(true);
         try {
-            const { groupId, host, name, about, avatar, access } = info;
+            const { groupId, host, name, about, avatar, access, communityMode, relayCapabilityTier } = info;
             const relayUrl = host.startsWith("ws") ? host : `wss://${host}`;
             const creatorPubkey = myPublicKeyHex;
+
+            logAppEvent({
+                name: "groups.community_creation_mode_selected",
+                level: "info",
+                scope: { feature: "groups", action: "community_create" },
+                context: {
+                    publicKeySuffix: myPublicKeyHex.slice(-8),
+                    groupId,
+                    relayUrl,
+                    access,
+                    communityMode,
+                    relayCapabilityTier,
+                },
+            });
 
             // 1. Generate and store Room Key (Essential for ALL Sealed Communities)
             const roomKeyHex = await cryptoService.generateRoomKey();
@@ -130,7 +145,9 @@ export function GlobalDialogManager() {
                 name,
                 about,
                 picture: avatar,
-                access
+                access,
+                communityMode,
+                relayCapabilityTier,
             } as const;
 
             const groupService = new GroupService(myPublicKeyHex, myPrivateKeyHex);
@@ -185,7 +202,9 @@ export function GlobalDialogManager() {
                 access,
                 memberCount: 1,
                 adminPubkeys: [myPublicKeyHex],
-                avatar
+                avatar,
+                communityMode,
+                relayCapabilityTier,
             };
 
             addGroup(newGroup, { allowRevive: true });

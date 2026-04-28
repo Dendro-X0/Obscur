@@ -60,7 +60,7 @@ type TabId = "all" | "groups" | "discovery" | "invitations" | "blocked" | "manag
 export function NetworkDashboard() {
     const { t } = useTranslation();
     const { identity, peerTrust, requestsInbox, blocklist, presence } = useNetwork();
-    const { createdGroups, setIsNewGroupOpen } = useGroups();
+    const { createdGroups, communityKnownParticipantDirectoryByConversationId, communityRosterByConversationId, setIsNewGroupOpen } = useGroups();
     const {
         setIsNewChatOpen,
         createdConnections,
@@ -364,7 +364,11 @@ export function NetworkDashboard() {
                                             id={group.id}
                                             displayName={group.displayName}
                                             relayUrl={group.relayUrl}
-                                            memberCount={group.memberCount}
+                                            memberCount={
+                                                communityKnownParticipantDirectoryByConversationId[group.id]?.participantCount
+                                                ?? communityRosterByConversationId[group.id]?.memberCount
+                                                ?? group.memberCount
+                                            }
                                             avatar={group.avatar}
                                             onClick={() => {
                                                 router.push(getPublicGroupHref(group.id));

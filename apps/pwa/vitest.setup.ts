@@ -130,6 +130,22 @@ const createMockObjectStore = (dbName: string, storeName: string, onWriteComplet
 
       return request;
     }),
+    clear: vi.fn(() => {
+      const request: { result: unknown; error: Error | null; onsuccess: (() => void) | null; onerror: (() => void) | null } = {
+        result: undefined,
+        error: null,
+        onsuccess: null,
+        onerror: null,
+      };
+
+      defer(() => {
+        data.clear();
+        if (request.onsuccess) request.onsuccess();
+        if (onWriteComplete) onWriteComplete();
+      });
+
+      return request;
+    }),
     createIndex: vi.fn((name, keyPath, options) => {
       indexes.set(name, { keyPath, options });
     }),

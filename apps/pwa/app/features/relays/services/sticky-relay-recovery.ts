@@ -1,6 +1,7 @@
 "use client";
 
 import type { RelayReadinessState } from "./relay-recovery-policy";
+import type { RelayTransportRoutingMode } from "./relay-runtime-contracts";
 
 export const shouldAutoRecoverRelays = (params: Readonly<{
   enabledRelayCount: number;
@@ -14,21 +15,26 @@ export const getAutoRecoveryDelayMs = (params: Readonly<{
   readiness: RelayReadinessState;
   recoveryAttemptCount: number;
   fallbackWritableRelayCount?: number;
+  transportRoutingMode?: RelayTransportRoutingMode;
 }>): number => {
   const fallbackWritableRelayCount = params.fallbackWritableRelayCount ?? 0;
+  const privacyRouted = params.transportRoutingMode === "privacy_routed";
   if (fallbackWritableRelayCount > 0) {
     // Keep repairing configured relay coverage in the background, but at a
     // slower cadence while fallback is already carrying traffic.
-    return 12_000;
+    return privacyRouted ? 18_000 : 12_000;
   }
   if (params.readiness === "offline") {
-    return 1_200;
+    return privacyRouted ? 4_000 : 1_200;
   }
   if (params.readiness === "recovering") {
+    if (privacyRouted) {
+      return params.recoveryAttemptCount >= 2 ? 9_000 : 6_000;
+    }
     return params.recoveryAttemptCount >= 2 ? 3_500 : 2_000;
   }
   if (params.readiness === "degraded") {
-    return 2_500;
+    return privacyRouted ? 7_000 : 2_500;
   }
-  return 4_000;
+  return privacyRouted ? 8_000 : 4_000;
 };

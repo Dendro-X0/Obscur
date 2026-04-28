@@ -20,21 +20,27 @@ vi.mock("@/app/lib/utils", () => ({
   cn: (...classes: Array<string | false | null | undefined>) => classes.filter(Boolean).join(" "),
 }));
 
-vi.mock("framer-motion", () => ({
-  motion: {
-    div: React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
-      ({ children, ...props }, ref) => (
+vi.mock("framer-motion", () => {
+  const MockMotionDiv = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
+    function MockMotionDiv({ children, ...props }, ref) {
+      return (
         <div ref={ref} {...props}>
           {children}
         </div>
-      ),
-    ),
-  },
-  AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-  useMotionValue: () => ({ set: vi.fn(), get: () => 0 }),
-  useSpring: (value: unknown) => value,
-  useTransform: () => 0,
-}));
+      );
+    },
+  );
+
+  return {
+    motion: {
+      div: MockMotionDiv,
+    },
+    AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+    useMotionValue: () => ({ set: vi.fn(), get: () => 0 }),
+    useSpring: (value: unknown) => value,
+    useTransform: () => 0,
+  };
+});
 
 const createMediaItem = (overrides: Partial<VaultMediaItem> = {}): VaultMediaItem => ({
   id: "item-1",

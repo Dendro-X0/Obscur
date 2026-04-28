@@ -3,6 +3,7 @@ import type { DmConversation } from "../types";
 import {
     buildProjectionUnreadByConversationId,
     mergeProjectionUnreadByConversationId,
+    replaceProjectionUnreadByConversationId,
     unreadByConversationIdEqual
 } from "./projection-unread";
 
@@ -111,5 +112,24 @@ describe("projection unread helpers", () => {
         });
 
         expect(merged["dm:peer"]).toBe(3);
+    });
+
+    it("replaces stale DM unread keys while preserving group unread keys", () => {
+        const replaced = replaceProjectionUnreadByConversationId({
+            currentUnreadByConversationId: {
+                "community:alpha:wss://relay.one": 4,
+                "dm:stale": 8,
+                "dm:fresh": 1,
+            },
+            projectionConnections: [
+                { ...conversation("dm:fresh", 2), lastMessageTime: new Date(12_000) },
+            ],
+            selectedConversationId: null,
+            selectedConversationKind: "dm",
+        });
+
+        expect(replaced["community:alpha:wss://relay.one"]).toBe(4);
+        expect(replaced["dm:fresh"]).toBe(2);
+        expect(replaced["dm:stale"]).toBeUndefined();
     });
 });

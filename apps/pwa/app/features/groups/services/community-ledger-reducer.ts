@@ -1,4 +1,5 @@
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
+import type { CommunityControlEvent } from "@dweb/core/community-control-event-contracts";
 import type { GroupMembershipStatus } from "../types";
 
 export type CommunityMemberLifecycleStatus = "member" | "left" | "expelled";
@@ -66,6 +67,38 @@ export const reduceCommunityLedger = (
   };
 };
 
+export const toCommunityLedgerEventFromControlEvent = (
+  event: CommunityControlEvent,
+): CommunityLedgerEvent | null => {
+  switch (event.eventType) {
+    case "COMMUNITY_MEMBER_JOINED":
+      return {
+        type: "MEMBER_JOINED",
+        pubkey: event.subjectPublicKeyHex,
+        timestamp: event.createdAtUnixMs,
+      };
+    case "COMMUNITY_MEMBER_LEFT":
+      return {
+        type: "MEMBER_LEFT",
+        pubkey: event.subjectPublicKeyHex,
+        timestamp: event.createdAtUnixMs,
+      };
+    case "COMMUNITY_MEMBER_EXPELLED":
+      return {
+        type: "MEMBER_EXPELLED",
+        pubkey: event.subjectPublicKeyHex,
+        timestamp: event.createdAtUnixMs,
+      };
+    case "COMMUNITY_DISBANDED":
+      return {
+        type: "COMMUNITY_DISBANDED",
+        timestamp: event.createdAtUnixMs,
+      };
+    default:
+      return null;
+  }
+};
+
 const selectMembersByStatus = (
   state: CommunityLedgerState,
   status: CommunityMemberLifecycleStatus
@@ -101,4 +134,3 @@ export const selectMembershipStatus = (
   if (!mine) return "unknown";
   return mine.status === "member" ? "member" : "not_member";
 };
-

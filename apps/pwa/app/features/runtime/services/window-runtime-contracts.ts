@@ -1,4 +1,5 @@
 import type { RelayRuntimeSnapshot } from "@/app/features/relays/services/relay-runtime-contracts";
+import type { StartupAuthState } from "@/app/features/auth/services/startup-auth-state-contracts";
 
 export type WindowRuntimePhase =
   | "booting"
@@ -33,6 +34,7 @@ export type ProfileBoundSessionSnapshot = Readonly<{
   profileId: string;
   profileLabel: string;
   identityStatus: "loading" | "locked" | "unlocked" | "error";
+  startupState: StartupAuthState;
   storedPublicKeyHex?: string;
   unlockedPublicKeyHex?: string;
 }>;

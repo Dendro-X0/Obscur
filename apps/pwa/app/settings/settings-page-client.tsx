@@ -19,6 +19,7 @@ import {
   Activity,
   Bell,
   ShieldAlert,
+  Building2,
   Loader2,
   Wifi,
   Copy,
@@ -48,6 +49,7 @@ import { ThemeToggle } from "@/app/components/theme-toggle";
 import { LanguageSelector } from "@/app/components/language-selector";
 import useNavBadges from "@/app/features/main-shell/hooks/use-nav-badges";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
+import { createPendingStartupAuthState } from "@/app/features/auth/services/startup-auth-state-contracts";
 import { useProfile } from "@/app/features/profile/hooks/use-profile";
 import { ProfileCompletenessIndicator } from "@/app/features/profile/components/profile-completeness-indicator";
 import { seedProfileMetadataCache } from "@/app/features/profile/hooks/use-profile-metadata";
@@ -130,6 +132,10 @@ import { useAccountSyncSnapshot } from "@/app/features/account-sync/hooks/use-ac
 import { isSupportedPublicUrl, normalizePublicUrl } from "@/app/shared/public-url";
 import { relayResilienceObservability } from "@/app/features/relays/services/relay-resilience-observability";
 import { roomKeyStore } from "@/app/features/crypto/room-key-store";
+import {
+  assessRelayCapability,
+  getCommunityModeDefinition,
+} from "@/app/features/groups/services/community-mode-contract";
 
 const APP_VERSION: string = process.env.NEXT_PUBLIC_APP_VERSION ?? "dev";
 const ENABLE_API_HEALTH_PROBE =
@@ -873,6 +879,9 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
   }, [displayPublicKeyHex]);
 
   const identityDiagnostics = identity.getIdentityDiagnostics?.();
+  const startupState = identityDiagnostics?.startupState ?? createPendingStartupAuthState({
+    storedPublicKeyHex: identity.state.stored?.publicKeyHex,
+  });
 
   const identityStorageMode = useMemo<IdentityStorageMode>(() => {
     if (identity.state.privateKeyHex === NATIVE_KEY_SENTINEL) return "native";
@@ -894,10 +903,10 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
 
   const identityIntegrityState = useMemo<IdentityIntegrityState>(() => {
     if (!identity.state.stored?.publicKeyHex) return "unknown";
-    if (identityDiagnostics?.mismatchReason) return "mismatch";
+    if (startupState.kind === "mismatch") return "mismatch";
     if (derivedPublicKeyHex && derivedPublicKeyHex !== identity.state.stored.publicKeyHex) return "mismatch";
     return "ok";
-  }, [identity.state.stored?.publicKeyHex, identityDiagnostics?.mismatchReason, derivedPublicKeyHex]);
+  }, [derivedPublicKeyHex, identity.state.stored?.publicKeyHex, startupState.kind]);
 
   const securityCapabilityStates = useMemo<Readonly<{
     clipboard: CapabilityState;
@@ -2058,6 +2067,23 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
       recommendation,
     };
   }, [pool.connections, relayHealthMetricsMap, relayList.state.relays, relayRuntimeStatus]);
+
+  const relayCapabilityAssessment = useMemo(() => {
+    return assessRelayCapability({
+      enabledRelayUrls: relayList.state.relays
+        .filter((relay) => relay.enabled)
+        .map((relay) => relay.url),
+    });
+  }, [relayList.state.relays]);
+
+  const sovereignRoomDefinition = useMemo(
+    () => getCommunityModeDefinition("sovereign_room"),
+    [],
+  );
+  const managedWorkspaceDefinition = useMemo(
+    () => getCommunityModeDefinition("managed_workspace"),
+    [],
+  );
 
   const storageMode = useMemo<StorageMode>(() => {
     return deriveStorageMode(nip96Config.enabled, localMediaConfig.enabled);
@@ -3347,6 +3373,71 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
                   <div className="space-y-0.5">
                     <div className="text-sm font-bold">{translateRelayRuntimeText(relayRuntimeStatus.label)}</div>
                     <div className="text-xs opacity-70 leading-normal">{translateRelayRuntimeText(relayRuntimeStatus.actionText)}</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-black/5 bg-zinc-50/70 p-5 dark:border-white/10 dark:bg-zinc-900/40">
+                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                  <div className="space-y-1">
+                    <Label className="font-semibold text-base">
+                      {t("settings.relays.communityModesTitle", "Community Modes")}
+                    </Label>
+                    <p className="text-xs text-zinc-500">
+                      {t("settings.relays.communityModesDesc", "Relay settings are the transport baseline for honest community guarantees.")}
+                    </p>
+                  </div>
+                  <span className="rounded-full border border-black/5 bg-white px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500 dark:border-white/10 dark:bg-black/20 dark:text-zinc-300">
+                    {relayCapabilityAssessment.label}
+                  </span>
+                </div>
+
+                <p className="mt-3 text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
+                  {relayCapabilityAssessment.summary}
+                </p>
+                <p className="mt-2 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+                  {relayCapabilityAssessment.settingsHint}
+                </p>
+
+                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                  <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-2xl bg-primary/10">
+                        <Shield className="h-4 w-4 text-primary" />
+                      </div>
+                      <div>
+                        <div className="text-sm font-bold text-zinc-900 dark:text-white">
+                          {sovereignRoomDefinition.label}
+                        </div>
+                        <p className="mt-1 text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
+                          {sovereignRoomDefinition.shortDescription}
+                        </p>
+                        <p className="mt-2 text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-400">
+                          {sovereignRoomDefinition.caution}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-2xl bg-emerald-500/10">
+                        <Building2 className="h-4 w-4 text-emerald-500" />
+                      </div>
+                      <div>
+                        <div className="text-sm font-bold text-zinc-900 dark:text-white">
+                          {managedWorkspaceDefinition.label}
+                        </div>
+                        <p className="mt-1 text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
+                          {managedWorkspaceDefinition.shortDescription}
+                        </p>
+                        <p className="mt-2 text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-400">
+                          {relayCapabilityAssessment.supportsManagedWorkspace
+                            ? t("settings.relays.communityModesManagedAvailable", "This baseline can expose the advanced workspace path, but only for technical users who intentionally configured trusted/private relays.")
+                            : t("settings.relays.communityModesManagedHidden", "On the public/default relay path, this stays an advanced hidden path rather than a default promise.")}
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

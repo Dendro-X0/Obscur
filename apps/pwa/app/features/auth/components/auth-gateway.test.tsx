@@ -18,13 +18,23 @@ const authGatewayMocks = vi.hoisted(() => ({
       phase: "auth_required",
       session: {
         profileId: "default",
+        startupState: {
+          kind: "stored_locked",
+          identityStatus: "locked",
+        },
       },
     },
     unlockBoundProfile: vi.fn(),
   } as {
     snapshot: {
       phase: string;
-      session: { profileId: string };
+      session: {
+        profileId: string;
+        startupState: {
+          kind: string;
+          identityStatus: string;
+        };
+      };
     };
     unlockBoundProfile: ReturnType<typeof vi.fn>;
   },
@@ -46,6 +56,8 @@ vi.mock("@/app/features/runtime/components/profile-bound-auth-shell", () => ({
 }));
 
 vi.mock("@/app/features/auth/utils/auth-storage-keys", () => ({
+  LEGACY_REMEMBER_ME_KEY: "remember::legacy",
+  LEGACY_AUTH_TOKEN_KEY: "token::legacy",
   getRememberMeScopedStorageKeys: ({ profileId, includeLegacy }: { profileId: string; includeLegacy?: boolean }) => (
     profileId === "default" && includeLegacy
       ? [`remember::${profileId}`, "remember::legacy"]
@@ -73,6 +85,8 @@ describe("AuthGateway", () => {
     authGatewayMocks.retryNativeSessionUnlock.mockResolvedValue(false);
     authGatewayMocks.runtime.snapshot.phase = "auth_required";
     authGatewayMocks.runtime.snapshot.session.profileId = "default";
+    authGatewayMocks.runtime.snapshot.session.startupState.kind = "stored_locked";
+    authGatewayMocks.runtime.snapshot.session.startupState.identityStatus = "locked";
     authGatewayMocks.runtime.unlockBoundProfile.mockResolvedValue(undefined);
   });
 
@@ -81,6 +95,8 @@ describe("AuthGateway", () => {
     localStorage.setItem("token::bound-profile", "correct-passphrase");
     authGatewayMocks.runtime.snapshot.phase = "binding_profile";
     authGatewayMocks.runtime.snapshot.session.profileId = "default";
+    authGatewayMocks.runtime.snapshot.session.startupState.kind = "pending";
+    authGatewayMocks.runtime.snapshot.session.startupState.identityStatus = "loading";
 
     const view = render(
       <AuthGateway>
@@ -95,6 +111,8 @@ describe("AuthGateway", () => {
 
     authGatewayMocks.runtime.snapshot.phase = "auth_required";
     authGatewayMocks.runtime.snapshot.session.profileId = "bound-profile";
+    authGatewayMocks.runtime.snapshot.session.startupState.kind = "stored_locked";
+    authGatewayMocks.runtime.snapshot.session.startupState.identityStatus = "locked";
     view.rerender(
       <AuthGateway>
         <div>Runtime Children</div>
@@ -197,6 +215,8 @@ describe("AuthGateway", () => {
 
   it("ignores token candidates from other profile scopes", async () => {
     authGatewayMocks.runtime.snapshot.session.profileId = "bound-profile";
+    authGatewayMocks.runtime.snapshot.session.startupState.kind = "no_identity";
+    authGatewayMocks.runtime.snapshot.session.startupState.identityStatus = "locked";
     localStorage.setItem("obscur_auth_token::other-profile", "token-from-other-profile");
 
     render(

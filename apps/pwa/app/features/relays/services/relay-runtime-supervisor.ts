@@ -13,6 +13,7 @@ import {
   relayRuntimeContractsInternals,
   type RelayRecoveryStage,
   type RelayRuntimePhase,
+  type RelayTransportRoutingMode,
   type RelayRuntimeSnapshot,
 } from "./relay-runtime-contracts";
 import {
@@ -32,6 +33,8 @@ type RelayRuntimeScope = Readonly<{
   windowLabel: string;
   profileId: string;
   publicKeyHex?: string | null;
+  transportRoutingMode?: RelayTransportRoutingMode;
+  transportProxySummary?: string;
 }>;
 
 type RelayRuntimeConfig = Readonly<{
@@ -172,6 +175,8 @@ class RelayRuntimeSupervisor {
       windowLabel: scope?.windowLabel ?? this.snapshot.windowLabel,
       profileId: scope?.profileId ?? this.snapshot.profileId,
       publicKeyHexSummary: relayRuntimeContractsInternals.summarizePublicKeyHex(scope?.publicKeyHex),
+      transportRoutingMode: scope?.transportRoutingMode ?? "direct",
+      transportProxySummary: scope?.transportProxySummary,
       phase: toPhase({
         recovery,
         enabledRelayCount: enabledRelayUrls.length,
@@ -204,6 +209,8 @@ class RelayRuntimeSupervisor {
       || next.windowLabel !== this.snapshot.windowLabel
       || next.profileId !== this.snapshot.profileId
       || next.publicKeyHexSummary !== this.snapshot.publicKeyHexSummary
+      || next.transportRoutingMode !== this.snapshot.transportRoutingMode
+      || next.transportProxySummary !== this.snapshot.transportProxySummary
       || next.writableRelayCount !== this.snapshot.writableRelayCount
       || next.subscribableRelayCount !== this.snapshot.subscribableRelayCount
       || next.activeSubscriptionCount !== this.snapshot.activeSubscriptionCount
@@ -279,6 +286,7 @@ class RelayRuntimeSupervisor {
         performanceGateStatus: gate.status,
         performancePrimaryReasonCode: gate.primaryReasonCode,
         performanceReasonCodes: gate.reasons.join(","),
+        transportRoutingMode: snapshot.transportRoutingMode,
         observedWindowMs: gate.observedWindowMs,
         recoveryP95LatencyMs: gate.recoveryP95LatencyMs,
         replaySuccessRatio: gate.replaySuccessRatio,
@@ -312,6 +320,7 @@ class RelayRuntimeSupervisor {
       readiness: this.snapshot.recovery.readiness,
       recoveryAttemptCount: this.snapshot.recoveryAttemptCount,
       fallbackWritableRelayCount: this.snapshot.recovery.fallbackWritableRelayCount,
+      transportRoutingMode: this.snapshot.transportRoutingMode,
     }));
   }
 

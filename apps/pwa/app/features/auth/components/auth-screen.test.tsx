@@ -10,6 +10,13 @@ const authScreenMocks = vi.hoisted(() => ({
   hasStoredIdentity: true,
   identityDiagnostics: {
     status: "locked" as const,
+    startupState: {
+      kind: "pending",
+      identityStatus: "loading",
+      runtimePhaseHint: "binding_profile",
+      degradedReasonHint: "none",
+      recoveryActions: [],
+    },
     mismatchReason: undefined as "stored_public_key_invalid" | "native_mismatch" | "private_key_mismatch" | undefined,
     message: undefined as string | undefined,
   },
@@ -19,6 +26,12 @@ const authScreenMocks = vi.hoisted(() => ({
       phase: "auth_required",
       session: {
         profileId: "default",
+        startupState: {
+          kind: "stored_locked",
+          storedPublicKeyHex: "a".repeat(64) as string | undefined,
+          mismatchReason: undefined as "stored_public_key_invalid" | "native_mismatch" | "private_key_mismatch" | undefined,
+          message: undefined as string | undefined,
+        },
       },
     },
     createIdentityForBoundProfile: vi.fn(async () => undefined),
@@ -128,10 +141,20 @@ describe("AuthScreen mismatch recovery UX", () => {
     localStorage.clear();
     authScreenMocks.identityDiagnostics.mismatchReason = undefined;
     authScreenMocks.identityDiagnostics.message = undefined;
+    authScreenMocks.identityDiagnostics.startupState = {
+      kind: "pending",
+      identityStatus: "loading",
+      runtimePhaseHint: "binding_profile",
+      degradedReasonHint: "none",
+      recoveryActions: [],
+    };
     authScreenMocks.hasStoredIdentity = true;
     authScreenMocks.resetNativeSecureStorage.mockClear();
     authScreenMocks.runtime.snapshot.phase = "auth_required";
     authScreenMocks.runtime.snapshot.session.profileId = "default";
+    authScreenMocks.runtime.snapshot.session.startupState.kind = "stored_locked";
+    authScreenMocks.runtime.snapshot.session.startupState.storedPublicKeyHex = "a".repeat(64);
+    authScreenMocks.runtime.snapshot.session.startupState.mismatchReason = undefined;
     authScreenMocks.runtime.createIdentityForBoundProfile.mockClear();
     authScreenMocks.runtime.unlockBoundProfile.mockClear();
     authScreenMocks.runtime.importIdentityForBoundProfile.mockClear();
@@ -140,6 +163,9 @@ describe("AuthScreen mismatch recovery UX", () => {
   it("renders native secure storage mismatch recovery card", async () => {
     authScreenMocks.identityDiagnostics.mismatchReason = "native_mismatch";
     authScreenMocks.identityDiagnostics.message = "Secure storage belonged to another account.";
+    authScreenMocks.runtime.snapshot.session.startupState.kind = "mismatch";
+    authScreenMocks.runtime.snapshot.session.startupState.mismatchReason = "native_mismatch";
+    authScreenMocks.runtime.snapshot.session.startupState.message = "Secure storage belonged to another account.";
 
     render(<AuthScreen />);
 
@@ -151,6 +177,9 @@ describe("AuthScreen mismatch recovery UX", () => {
   it("renders private key mismatch recovery card", async () => {
     authScreenMocks.identityDiagnostics.mismatchReason = "private_key_mismatch";
     authScreenMocks.identityDiagnostics.message = "Private key does not match stored identity.";
+    authScreenMocks.runtime.snapshot.session.startupState.kind = "mismatch";
+    authScreenMocks.runtime.snapshot.session.startupState.mismatchReason = "private_key_mismatch";
+    authScreenMocks.runtime.snapshot.session.startupState.message = "Private key does not match stored identity.";
 
     render(<AuthScreen />);
 
@@ -185,6 +214,26 @@ describe("AuthScreen mismatch recovery UX", () => {
 
     const rememberCheckbox = await screen.findByLabelText("Keep me logged in on this device");
     expect(rememberCheckbox).toBeChecked();
+  });
+
+  it("auto-enters login mode from startup state when stored identity is present", async () => {
+    authScreenMocks.runtime.snapshot.session.startupState.kind = "stored_locked";
+    authScreenMocks.runtime.snapshot.session.startupState.storedPublicKeyHex = "a".repeat(64);
+
+    render(<AuthScreen />);
+
+    expect(await screen.findByText("Welcome Back")).toBeInTheDocument();
+  });
+
+  it("stays on the welcome screen when startup state reports no identity", async () => {
+    authScreenMocks.hasStoredIdentity = false;
+    authScreenMocks.runtime.snapshot.session.startupState.kind = "no_identity";
+    authScreenMocks.runtime.snapshot.session.startupState.storedPublicKeyHex = undefined;
+
+    render(<AuthScreen />);
+
+    expect(await screen.findByText("Create New Identity")).toBeInTheDocument();
+    expect(screen.queryByText("Welcome Back")).not.toBeInTheDocument();
   });
 
   it("surfaces retired-key warning before import continues", async () => {

@@ -13,6 +13,10 @@ const identityState = vi.hoisted(() => ({
   publicKeyHex: "a".repeat(64) as string | null,
 }));
 
+const profileScopeState = vi.hoisted(() => ({
+  activeProfileId: "default",
+}));
+
 vi.mock("@dweb/storage/indexed-db", () => ({
   messagingDB: {
     getAll: vaultHookMocks.getAll,
@@ -28,6 +32,10 @@ vi.mock("../../auth/hooks/use-identity", () => ({
   }),
 }));
 
+vi.mock("../../profiles/services/profile-scope", () => ({
+  getActiveProfileIdSafe: () => profileScopeState.activeProfileId,
+}));
+
 vi.mock("../services/local-media-store", () => ({
   deleteLocalMediaCacheItem: vi.fn(async () => undefined),
   downloadAttachmentToUserPath: vi.fn(async () => true),
@@ -39,6 +47,7 @@ describe("useVaultMedia", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     identityState.publicKeyHex = "a".repeat(64);
+    profileScopeState.activeProfileId = "default";
   });
 
   it("refreshes aggregated media when chat state is replaced", async () => {
@@ -113,6 +122,26 @@ describe("useVaultMedia", () => {
       expect(result.current.mediaItems).toHaveLength(1);
     });
     expect(result.current.mediaItems[0]?.attachment.fileName).toBe("voice.wav");
+  });
+
+  it("ignores refresh events from another profile scope", async () => {
+    vaultHookMocks.getAll.mockResolvedValue([]);
+
+    const { result } = renderHook(() => useVaultMedia());
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    vaultHookMocks.getAll.mockClear();
+
+    await act(async () => {
+      window.dispatchEvent(new CustomEvent(CHAT_STATE_REPLACED_EVENT, {
+        detail: { publicKeyHex: "a".repeat(64), profileId: "work" },
+      }));
+    });
+
+    expect(vaultHookMocks.getAll).not.toHaveBeenCalled();
   });
 
   it("clears aggregated media when the active identity signs out", async () => {

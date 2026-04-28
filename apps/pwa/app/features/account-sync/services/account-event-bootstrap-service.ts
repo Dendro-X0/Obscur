@@ -7,6 +7,7 @@ import { peerTrustInternals } from "@/app/features/network/hooks/use-peer-trust"
 import { syncCheckpointInternals } from "@/app/features/messaging/lib/sync-checkpoints";
 import { normalizePublicKeyHex } from "@/app/features/profile/utils/normalize-public-key-hex";
 import { parseCommandMessage } from "@/app/features/messaging/utils/commands";
+import { parseVoiceCallSignalPayload } from "@/app/features/messaging/services/realtime-voice-signaling";
 import { readHistoryResetCutoffUnixMs } from "./history-reset-cutoff-store";
 import type { EncryptedAccountBackupPayload } from "../account-sync-contracts";
 import type { AccountEvent, AccountEventSource } from "../account-event-contracts";
@@ -254,6 +255,12 @@ const isCommandMessage = (message: Readonly<{
   || (typeof message.content === "string" && parseCommandMessage(message.content) !== null)
 );
 
+const isTransportOnlyVoiceSignalMessage = (message: Readonly<{
+  content?: unknown;
+}>): boolean => (
+  typeof message.content === "string" && parseVoiceCallSignalPayload(message.content) !== null
+);
+
 const toMessageIdentityKeys = (message: Readonly<{
   id?: unknown;
   eventId?: unknown;
@@ -363,6 +370,9 @@ const collectFromChatState = (params: Readonly<{
     }, null);
     messages.forEach((message) => {
       if (isCommandMessage(message)) {
+        return;
+      }
+      if (isTransportOnlyVoiceSignalMessage(message)) {
         return;
       }
       const messageId = typeof message.id === "string" ? message.id.trim() : "";

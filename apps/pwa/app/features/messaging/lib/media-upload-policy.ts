@@ -17,9 +17,10 @@ export const MEDIA_COMPRESSION_TARGETS = {
 
 export const MEDIA_RUNTIME_SAFETY_LIMITS = {
     imagePreprocessBytes: 24 * 1024 * 1024,
-    videoPreprocessBytes: 64 * 1024 * 1024,
-    nativeDirectUploadBytes: 160 * 1024 * 1024,
+    videoPreprocessBytes: 32 * 1024 * 1024,
+    nativeDirectUploadBytes: 48 * 1024 * 1024,
     inMemorySentCacheBytes: 16 * 1024 * 1024,
+    localCacheBypassBytes: 24 * 1024 * 1024,
     pendingAttachmentBatchBytes: 384 * 1024 * 1024,
     maxVideoAttachmentsPerMessage: 1,
 } as const;
@@ -91,6 +92,14 @@ export const shouldPreferBrowserUploadForRuntimeSafety = (file: File, isNativeRu
 export const shouldAvoidInMemoryAttachmentCaching = (file: File): boolean => (
     file.size > MEDIA_RUNTIME_SAFETY_LIMITS.inMemorySentCacheBytes
 );
+
+export const shouldSkipLocalAttachmentCachingForRuntimeSafety = (file: File): boolean => {
+    const kind = getMediaKindForPolicy(file);
+    return (
+        (kind === "video" || kind === "audio" || kind === "file")
+        && file.size > MEDIA_RUNTIME_SAFETY_LIMITS.localCacheBypassBytes
+    );
+};
 
 export const validateAttachmentBatchForRuntimeSafety = (
     files: ReadonlyArray<File>,

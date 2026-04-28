@@ -17,6 +17,7 @@ import { getScopedStorageKey } from "@/app/features/profiles/services/profile-sc
 import type { DeliveryReasonCode } from "@dweb/core/security-foundation-contracts";
 import { normalizePublicUrl } from "@/app/shared/public-url";
 import { reportDevRuntimeIssue } from "@/app/shared/dev-runtime-issue-reporter";
+import { logAppEvent } from "@/app/shared/log-app-event";
 
 export interface Nip96Config {
     apiUrl?: string;
@@ -48,6 +49,10 @@ const DEV_ALLOW_TAURI_BROWSER_FALLBACK =
 const WEB_UPLOAD_ENABLE_LOCAL_API_FALLBACK =
     process.env.NEXT_PUBLIC_UPLOAD_ENABLE_LOCAL_API_FALLBACK === "1"
     || process.env.NEXT_PUBLIC_UPLOAD_ENABLE_LOCAL_API_FALLBACK === "true";
+const MIN_EXPECTED_UPLOAD_THROUGHPUT_BYTES_PER_SECOND = 300 * 1024;
+const MIN_UPLOAD_TIMEOUT_MS = 60_000;
+const MAX_UPLOAD_TIMEOUT_MS = 8 * 60 * 1000;
+const UPLOAD_TIMEOUT_OVERHEAD_MS = 20_000;
 
 type UploadOutcome = Readonly<{
     status: "failed";
@@ -55,6 +60,12 @@ type UploadOutcome = Readonly<{
     retryable: boolean;
     message: string;
 }>;
+
+type UploadTransportPath =
+    | "browser"
+    | "tauri"
+    | "tauri_browser_fallback"
+    | "local_api_fallback";
 
 const classifyUploadError = (error: UploadError): UploadOutcome => {
     if (error.code === UploadErrorCode.NETWORK_ERROR) {
@@ -134,6 +145,18 @@ const getUrlFromNip96Response = (obj: Nip96Response): string | null => {
         return getStringProp(dataValue as Nip96Response, "url");
     }
     return null;
+};
+
+const resolveUploadTimeoutMs = (params: Readonly<{
+    fileSizeBytes: number;
+    baselineTimeoutMs: number;
+}>): number => {
+    const transferBudgetMs = Math.ceil((params.fileSizeBytes / MIN_EXPECTED_UPLOAD_THROUGHPUT_BYTES_PER_SECOND) * 1000);
+    return Math.max(
+        params.baselineTimeoutMs,
+        MIN_UPLOAD_TIMEOUT_MS,
+        Math.min(MAX_UPLOAD_TIMEOUT_MS, transferBudgetMs + UPLOAD_TIMEOUT_OVERHEAD_MS),
+    );
 };
 
 
@@ -333,6 +356,44 @@ export class Nip96UploadService implements UploadService {
         })}`);
     }
 
+    private logTransportAttempt(params: Readonly<{
+        stage: "started" | "result";
+        attemptIndex: number;
+        providerUrl: string;
+        file: File;
+        transportPath: UploadTransportPath;
+        timeoutBudgetMs: number;
+        targetUrl?: string;
+        success?: boolean;
+        reasonCode?: DeliveryReasonCode;
+        retryable?: boolean;
+        errorMessage?: string;
+    }>): void {
+        logAppEvent({
+            name: params.stage === "started"
+                ? "messaging.transport.upload_attempt_started"
+                : "messaging.transport.upload_attempt_result",
+            level: params.stage === "started"
+                ? "info"
+                : (params.success ? "info" : "warn"),
+            scope: { feature: "messaging", action: "upload_attachment" },
+            context: {
+                attemptIndex: params.attemptIndex,
+                providerUrl: params.providerUrl,
+                targetUrl: params.targetUrl ?? params.providerUrl,
+                transportPath: params.transportPath,
+                timeoutBudgetMs: params.timeoutBudgetMs,
+                fileName: params.file.name,
+                fileSizeBytes: params.file.size,
+                attachmentKind: getAttachmentKind(params.file),
+                success: params.success ?? null,
+                reasonCode: params.reasonCode ?? null,
+                retryable: params.retryable ?? null,
+                hasErrorMessage: typeof params.errorMessage === "string" && params.errorMessage.length > 0,
+            },
+        });
+    }
+
     private async withTimeout<T>(promise: Promise<T>, timeoutMs: number, reason: string): Promise<T> {
         let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
         try {
@@ -396,10 +457,19 @@ export class Nip96UploadService implements UploadService {
     private async uploadViaTauriWithFallback(
         file: File,
         providerUrl: string,
+        attemptIndex: number,
         nativeTimeoutMs = TAURI_PROVIDER_TIMEOUT_MS,
         browserFallbackTimeoutMs = BROWSER_PROVIDER_TIMEOUT_MS
     ): Promise<Attachment> {
         try {
+            this.logTransportAttempt({
+                stage: "started",
+                attemptIndex,
+                providerUrl,
+                file,
+                transportPath: "tauri",
+                timeoutBudgetMs: nativeTimeoutMs,
+            });
             return await this.withTimeout(
                 this.uploadViaTauri(file, providerUrl),
                 nativeTimeoutMs,
@@ -409,6 +479,20 @@ export class Nip96UploadService implements UploadService {
             const nativeError = err instanceof UploadError
                 ? err
                 : new UploadError(UploadErrorCode.UNKNOWN, err?.message || String(err));
+            const normalizedNativeOutcome = classifyUploadError(nativeError);
+
+            this.logTransportAttempt({
+                stage: "result",
+                attemptIndex,
+                providerUrl,
+                file,
+                transportPath: "tauri",
+                timeoutBudgetMs: nativeTimeoutMs,
+                success: false,
+                reasonCode: normalizedNativeOutcome.reasonCode,
+                retryable: normalizedNativeOutcome.retryable,
+                errorMessage: normalizedNativeOutcome.message,
+            });
 
             if (!this.isRetryableNativeUploadError(nativeError)) {
                 throw nativeError;
@@ -430,8 +514,16 @@ export class Nip96UploadService implements UploadService {
             }
 
             console.warn("[NIP96] Native upload failed, trying browser fallback for provider:", providerUrl, nativeError.message);
+            this.logTransportAttempt({
+                stage: "started",
+                attemptIndex,
+                providerUrl,
+                file,
+                transportPath: "tauri_browser_fallback",
+                timeoutBudgetMs: browserFallbackTimeoutMs,
+            });
             return this.withTimeout(
-                this.uploadViaBrowser(file, providerUrl, browserFallbackKey),
+                this.uploadViaBrowser(file, providerUrl, browserFallbackKey, browserFallbackTimeoutMs),
                 browserFallbackTimeoutMs,
                 `browser fallback provider ${providerUrl}`
             );
@@ -492,11 +584,15 @@ export class Nip96UploadService implements UploadService {
             isNative: this.isTauri()
         });
 
-        for (const providerUrl of providers) {
+        for (const [providerIndex, providerUrl] of providers.entries()) {
             try {
                 let attachment: Attachment;
                 if (this.isTauri()) {
                     if (preferBrowserForRuntimeSafety) {
+                        const timeoutMs = resolveUploadTimeoutMs({
+                            fileSizeBytes: uploadFile.size,
+                            baselineTimeoutMs: BROWSER_PROVIDER_TIMEOUT_MS,
+                        });
                         const browserKey = await this.resolveFallbackPrivateKeyHex();
                         if (!browserKey) {
                             throw new UploadError(
@@ -507,38 +603,70 @@ export class Nip96UploadService implements UploadService {
                         this.logTelemetry("upload.attempt", {
                             providerUrl,
                             path: "browser-runtime-safety",
-                            timeoutMs: BROWSER_PROVIDER_TIMEOUT_MS
+                            timeoutMs
+                        });
+                        this.logTransportAttempt({
+                            stage: "started",
+                            attemptIndex: providerIndex + 1,
+                            providerUrl,
+                            file: uploadFile,
+                            transportPath: "browser",
+                            timeoutBudgetMs: timeoutMs,
                         });
                         attachment = await this.withTimeout(
-                            this.uploadViaBrowser(uploadFile, providerUrl, browserKey),
-                            BROWSER_PROVIDER_TIMEOUT_MS,
+                            this.uploadViaBrowser(uploadFile, providerUrl, browserKey, timeoutMs),
+                            timeoutMs,
                             `browser runtime-safe provider ${providerUrl}`
                         );
                     } else if (this.shouldPreferBrowserPathInDev()) {
+                        const browserTimeoutMs = resolveUploadTimeoutMs({
+                            fileSizeBytes: uploadFile.size,
+                            baselineTimeoutMs: DEV_BROWSER_PROVIDER_TIMEOUT_MS,
+                        });
                         this.logTelemetry("upload.attempt", {
                             providerUrl,
                             path: "browser-dev",
-                            timeoutMs: DEV_BROWSER_PROVIDER_TIMEOUT_MS
+                            timeoutMs: browserTimeoutMs
                         });
                         const browserKey = await this.resolveFallbackPrivateKeyHex();
                         if (!browserKey) {
                             throw new UploadError(UploadErrorCode.AUTH_MISSING_KEY, "Missing session key for browser upload in dev");
                         }
                         try {
+                            this.logTransportAttempt({
+                                stage: "started",
+                                attemptIndex: providerIndex + 1,
+                                providerUrl,
+                                file: uploadFile,
+                                transportPath: "browser",
+                                timeoutBudgetMs: browserTimeoutMs,
+                            });
                             attachment = await this.withTimeout(
-                                this.uploadViaBrowser(uploadFile, providerUrl, browserKey),
-                                DEV_BROWSER_PROVIDER_TIMEOUT_MS,
+                                this.uploadViaBrowser(uploadFile, providerUrl, browserKey, browserTimeoutMs),
+                                browserTimeoutMs,
                                 `browser provider ${providerUrl}`
                             );
                         } catch {
+                            const nativeTimeoutMs = resolveUploadTimeoutMs({
+                                fileSizeBytes: uploadFile.size,
+                                baselineTimeoutMs: DEV_TAURI_PROVIDER_TIMEOUT_MS,
+                            });
                             this.logTelemetry("upload.attempt", {
                                 providerUrl,
                                 path: "tauri-dev-fallback",
-                                timeoutMs: DEV_TAURI_PROVIDER_TIMEOUT_MS
+                                timeoutMs: nativeTimeoutMs
+                            });
+                            this.logTransportAttempt({
+                                stage: "started",
+                                attemptIndex: providerIndex + 1,
+                                providerUrl,
+                                file: uploadFile,
+                                transportPath: "tauri",
+                                timeoutBudgetMs: nativeTimeoutMs,
                             });
                             attachment = await this.withTimeout(
                                 this.uploadViaTauri(uploadFile, providerUrl),
-                                DEV_TAURI_PROVIDER_TIMEOUT_MS,
+                                nativeTimeoutMs,
                                 `native provider ${providerUrl}`
                             );
                         }
@@ -549,16 +677,25 @@ export class Nip96UploadService implements UploadService {
                         const browserFallbackTimeoutMs = this.shouldUseFastDevNativeTimeouts()
                             ? DEV_BROWSER_PROVIDER_TIMEOUT_MS
                             : BROWSER_PROVIDER_TIMEOUT_MS;
+                        const resolvedNativeTimeoutMs = resolveUploadTimeoutMs({
+                            fileSizeBytes: uploadFile.size,
+                            baselineTimeoutMs: nativeTimeoutMs,
+                        });
+                        const resolvedBrowserFallbackTimeoutMs = resolveUploadTimeoutMs({
+                            fileSizeBytes: uploadFile.size,
+                            baselineTimeoutMs: browserFallbackTimeoutMs,
+                        });
                         this.logTelemetry("upload.attempt", {
                             providerUrl,
                             path: "tauri-native-with-fallback",
-                            timeoutMs: nativeTimeoutMs
+                            timeoutMs: resolvedNativeTimeoutMs
                         });
                         attachment = await this.uploadViaTauriWithFallback(
                             uploadFile,
                             providerUrl,
-                            nativeTimeoutMs,
-                            browserFallbackTimeoutMs
+                            providerIndex + 1,
+                            resolvedNativeTimeoutMs,
+                            resolvedBrowserFallbackTimeoutMs
                         );
                     }
                 } else {
@@ -572,18 +709,51 @@ export class Nip96UploadService implements UploadService {
                                 providerUrl,
                                 targetUrl,
                                 path: "browser",
-                                timeoutMs: BROWSER_PROVIDER_TIMEOUT_MS
+                                timeoutMs: resolveUploadTimeoutMs({
+                                    fileSizeBytes: uploadFile.size,
+                                    baselineTimeoutMs: BROWSER_PROVIDER_TIMEOUT_MS,
+                                })
+                            });
+                            const timeoutMs = resolveUploadTimeoutMs({
+                                fileSizeBytes: uploadFile.size,
+                                baselineTimeoutMs: BROWSER_PROVIDER_TIMEOUT_MS,
+                            });
+                            this.logTransportAttempt({
+                                stage: "started",
+                                attemptIndex: providerIndex + 1,
+                                providerUrl,
+                                targetUrl,
+                                file: uploadFile,
+                                transportPath: "browser",
+                                timeoutBudgetMs: timeoutMs,
                             });
                             providerAttachment = await this.withTimeout(
-                                this.uploadViaBrowser(uploadFile, targetUrl),
-                                BROWSER_PROVIDER_TIMEOUT_MS,
+                                this.uploadViaBrowser(uploadFile, targetUrl, undefined, timeoutMs),
+                                timeoutMs,
                                 `browser provider ${targetUrl}`
                             );
                             break;
                         } catch (innerErr: any) {
-                            const uploadError = innerErr instanceof UploadError
+                        const uploadError = innerErr instanceof UploadError
                                 ? innerErr
                                 : new UploadError(UploadErrorCode.UNKNOWN, innerErr?.message || String(innerErr));
+                            const normalizedOutcome = classifyUploadError(uploadError);
+                            this.logTransportAttempt({
+                                stage: "result",
+                                attemptIndex: providerIndex + 1,
+                                providerUrl,
+                                targetUrl,
+                                file: uploadFile,
+                                transportPath: "browser",
+                                timeoutBudgetMs: resolveUploadTimeoutMs({
+                                    fileSizeBytes: uploadFile.size,
+                                    baselineTimeoutMs: BROWSER_PROVIDER_TIMEOUT_MS,
+                                }),
+                                success: false,
+                                reasonCode: normalizedOutcome.reasonCode,
+                                retryable: normalizedOutcome.retryable,
+                                errorMessage: normalizedOutcome.message,
+                            });
                             providerErrors.push(uploadError);
                         }
                     }
@@ -599,12 +769,49 @@ export class Nip96UploadService implements UploadService {
                     latencyMs: Date.now() - startTime,
                     url: attachment.url
                 });
+                this.logTransportAttempt({
+                    stage: "result",
+                    attemptIndex: providerIndex + 1,
+                    providerUrl,
+                    file: uploadFile,
+                    transportPath: this.isTauri()
+                        ? (preferBrowserForRuntimeSafety || this.shouldPreferBrowserPathInDev()
+                            ? "browser"
+                            : "tauri")
+                        : "browser",
+                    timeoutBudgetMs: 0,
+                    success: true,
+                });
 
                 return attachment;
             } catch (err: any) {
                 const uploadError = err instanceof UploadError
                     ? err
                     : new UploadError(UploadErrorCode.UNKNOWN, err.message || String(err));
+                const normalizedOutcome = classifyUploadError(uploadError);
+                const transportPath: UploadTransportPath = this.isTauri()
+                    ? (preferBrowserForRuntimeSafety || this.shouldPreferBrowserPathInDev()
+                        ? "browser"
+                        : "tauri")
+                    : "browser";
+                const baselineTimeoutMs = transportPath === "tauri"
+                    ? (this.shouldUseFastDevNativeTimeouts() ? DEV_TAURI_PROVIDER_TIMEOUT_MS : TAURI_PROVIDER_TIMEOUT_MS)
+                    : (this.shouldPreferBrowserPathInDev() ? DEV_BROWSER_PROVIDER_TIMEOUT_MS : BROWSER_PROVIDER_TIMEOUT_MS);
+                this.logTransportAttempt({
+                    stage: "result",
+                    attemptIndex: providerIndex + 1,
+                    providerUrl,
+                    file: uploadFile,
+                    transportPath,
+                    timeoutBudgetMs: resolveUploadTimeoutMs({
+                        fileSizeBytes: uploadFile.size,
+                        baselineTimeoutMs,
+                    }),
+                    success: false,
+                    reasonCode: normalizedOutcome.reasonCode,
+                    retryable: normalizedOutcome.retryable,
+                    errorMessage: normalizedOutcome.message,
+                });
 
                 // Log only if it's the last provider or a fatal one, otherwise stay silent to avoid dev overlays
                 errors.push(uploadError);
@@ -620,14 +827,26 @@ export class Nip96UploadService implements UploadService {
 
         if (!this.isTauri() && this.shouldUseLocalApiFallbackInWeb()) {
             try {
+                const timeoutMs = resolveUploadTimeoutMs({
+                    fileSizeBytes: uploadFile.size,
+                    baselineTimeoutMs: BROWSER_PROVIDER_TIMEOUT_MS,
+                });
                 this.logTelemetry("upload.attempt", {
                     providerUrl: "local:/api/upload",
                     path: "browser-local-fallback",
-                    timeoutMs: BROWSER_PROVIDER_TIMEOUT_MS,
+                    timeoutMs,
+                });
+                this.logTransportAttempt({
+                    stage: "started",
+                    attemptIndex: providers.length + 1,
+                    providerUrl: "local:/api/upload",
+                    file: uploadFile,
+                    transportPath: "local_api_fallback",
+                    timeoutBudgetMs: timeoutMs,
                 });
                 const localAttachment = await this.withTimeout(
                     this.uploadViaLocalApi(uploadFile),
-                    BROWSER_PROVIDER_TIMEOUT_MS,
+                    timeoutMs,
                     "local browser fallback /api/upload"
                 );
                 this.logTelemetry("upload.success", {
@@ -636,11 +855,36 @@ export class Nip96UploadService implements UploadService {
                     url: localAttachment.url,
                     fallback: true,
                 });
+                this.logTransportAttempt({
+                    stage: "result",
+                    attemptIndex: providers.length + 1,
+                    providerUrl: "local:/api/upload",
+                    file: uploadFile,
+                    transportPath: "local_api_fallback",
+                    timeoutBudgetMs: timeoutMs,
+                    success: true,
+                });
                 return localAttachment;
             } catch (localErr: any) {
                 const uploadError = localErr instanceof UploadError
                     ? localErr
                     : new UploadError(UploadErrorCode.UNKNOWN, localErr?.message || String(localErr));
+                const normalizedOutcome = classifyUploadError(uploadError);
+                this.logTransportAttempt({
+                    stage: "result",
+                    attemptIndex: providers.length + 1,
+                    providerUrl: "local:/api/upload",
+                    file: uploadFile,
+                    transportPath: "local_api_fallback",
+                    timeoutBudgetMs: resolveUploadTimeoutMs({
+                        fileSizeBytes: uploadFile.size,
+                        baselineTimeoutMs: BROWSER_PROVIDER_TIMEOUT_MS,
+                    }),
+                    success: false,
+                    reasonCode: normalizedOutcome.reasonCode,
+                    retryable: normalizedOutcome.retryable,
+                    errorMessage: normalizedOutcome.message,
+                });
                 errors.push(uploadError);
             }
         }
@@ -742,7 +986,12 @@ export class Nip96UploadService implements UploadService {
         }
     }
 
-    private async uploadViaBrowser(file: File, providerUrl: string, overridePrivateKeyHex?: string): Promise<Attachment> {
+    private async uploadViaBrowser(
+        file: File,
+        providerUrl: string,
+        overridePrivateKeyHex?: string,
+        fetchTimeoutMs: number = BROWSER_FETCH_TIMEOUT_MS,
+    ): Promise<Attachment> {
         const signingPrivateKeyHex = overridePrivateKeyHex ?? await this.resolveFallbackPrivateKeyHex();
         if (!signingPrivateKeyHex) {
             throw new UploadError(UploadErrorCode.AUTH_MISSING_KEY, "Private key required for NIP-98 authentication");
@@ -768,7 +1017,7 @@ export class Nip96UploadService implements UploadService {
 
             let response: Response;
             const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), BROWSER_FETCH_TIMEOUT_MS);
+            const timeout = setTimeout(() => controller.abort(), fetchTimeoutMs);
             try {
                 response = await fetch(providerUrl, {
                     method: "POST",
@@ -781,7 +1030,7 @@ export class Nip96UploadService implements UploadService {
             } catch (e) {
                 clearTimeout(timeout);
                 if (e instanceof DOMException && e.name === "AbortError") {
-                    const err = new UploadError(UploadErrorCode.NETWORK_ERROR, `Provider timeout after ${BROWSER_FETCH_TIMEOUT_MS}ms`);
+                    const err = new UploadError(UploadErrorCode.NETWORK_ERROR, `Provider timeout after ${fetchTimeoutMs}ms`);
                     errors.push(err);
                     continue;
                 }
@@ -912,6 +1161,7 @@ export class Nip96UploadService implements UploadService {
 
 export const nip96UploadInternals = {
     classifyUploadError,
+    resolveUploadTimeoutMs,
     toRootUploadVariants: Nip96UploadService.toRootUploadVariants,
     wellKnownDiscoveryTimeoutMs: WELL_KNOWN_DISCOVERY_TIMEOUT_MS,
 };

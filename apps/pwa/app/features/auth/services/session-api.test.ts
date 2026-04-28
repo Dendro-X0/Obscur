@@ -17,7 +17,7 @@ vi.mock("@/app/features/runtime/native-adapters", () => ({
 }));
 
 import { SessionApi } from "./session-api";
-import { getRememberMeStorageKey } from "@/app/features/auth/utils/auth-storage-keys";
+import { getRememberMeStorageKey, LEGACY_REMEMBER_ME_KEY } from "@/app/features/auth/utils/auth-storage-keys";
 import { getActiveProfileIdSafe } from "@/app/features/profiles/services/profile-scope";
 
 describe("SessionApi", () => {
@@ -114,6 +114,30 @@ describe("SessionApi", () => {
       undefined,
       { timeoutMs: 3_000 }
     );
+  });
+
+  it("accepts legacy remember-me state during native session restore scan", async () => {
+    runtimeMocks.hasNativeRuntime.mockReturnValue(true);
+    window.localStorage.setItem(LEGACY_REMEMBER_ME_KEY, "true");
+    adapterMocks.invokeNativeCommand
+      .mockResolvedValueOnce({
+        ok: true,
+        value: {
+          is_active: false,
+          npub: null,
+          is_native: true,
+        },
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        value: "npub1legacy",
+      });
+
+    await expect(SessionApi.getSessionStatus()).resolves.toEqual({
+      isActive: true,
+      npub: "npub1legacy",
+      isNative: true,
+    });
   });
 
   it("does not rehydrate via keychain fallback when remember-me is disabled", async () => {

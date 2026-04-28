@@ -194,8 +194,9 @@ const LEGACY_PROVIDER_URL_REWRITES: Readonly<Record<string, string>> = {
 };
 
 const DEFAULT_NIP96_PROVIDER_URLS: ReadonlyArray<string> = [
-    "https://nostr.build/api/v2/nip96/upload",
     "https://cdn.nostrcheck.me",
+    "https://nostr.build/api/v2/nip96/upload",
+    "https://api.sovbit.host/api/upload/files",
 ];
 
 const normalizeProviderUrls = (params: Readonly<{ apiUrl?: string; apiUrls?: ReadonlyArray<string> }>): ReadonlyArray<string> => {

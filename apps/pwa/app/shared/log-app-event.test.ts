@@ -182,6 +182,43 @@ describe("logAppEvent", () => {
       level: "warn",
       context: { indexedOutgoingCount: 0 },
     });
+    logAppEvent({
+      name: "messaging.conversation_history_authority_selected",
+      level: "warn",
+      context: {
+        conversationIdHint: "peer:abc",
+        selectedAuthority: "indexed",
+        selectedAuthorityReason: "indexed_primary",
+        selectedMessageCount: 1,
+        projectionMessageCount: 0,
+        projectionEvidenceMessageCount: 0,
+        projectionEvidenceOutgoingCount: 0,
+        projectionEvidenceIncomingCount: 0,
+        projectionBootstrapImportApplied: false,
+        projectionCanonicalEvidencePending: true,
+        projectionRestorePhaseActive: true,
+        indexedMessageCount: 1,
+        persistedFallbackMessageCount: 2,
+        persistedCompatibilityRestorePhaseIncomingRepairCandidate: true,
+        persistedCompatibilityRestorePhaseIncomingRepairReasonCode: "persisted_compatibility_restore_phase_missing_incoming",
+        projectionReadAuthorityReason: "shadow_mode",
+        criticalDriftCount: 0,
+      },
+    });
+    logAppEvent({
+      name: "messaging.conversation_list_authority_selected",
+      level: "info",
+      context: {
+        profileId: "default",
+        publicKeySuffix: "abc12345",
+        selectedAuthority: "persisted",
+        selectedAuthorityReason: "persisted_fallback",
+        projectionConversationCount: 0,
+        persistedConversationCount: 1,
+        projectionReadAuthorityReason: "shadow_mode",
+        criticalDriftCount: 0,
+      },
+    });
 
     const diagnosticsApi = (globalThis as Record<string, unknown>).obscurAppEvents as {
       getDigest: (count?: number) => {
@@ -206,6 +243,43 @@ describe("logAppEvent", () => {
     vi.spyOn(console, "info").mockImplementation(() => undefined);
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
 
+    logAppEvent({
+      name: "messaging.conversation_history_authority_selected",
+      level: "warn",
+      context: {
+        conversationIdHint: "peer:abc",
+        selectedAuthority: "indexed",
+        selectedAuthorityReason: "indexed_primary",
+        selectedMessageCount: 1,
+        projectionMessageCount: 0,
+        projectionEvidenceMessageCount: 0,
+        projectionEvidenceOutgoingCount: 0,
+        projectionEvidenceIncomingCount: 0,
+        projectionBootstrapImportApplied: false,
+        projectionCanonicalEvidencePending: true,
+        projectionRestorePhaseActive: true,
+        indexedMessageCount: 1,
+        persistedFallbackMessageCount: 2,
+        persistedCompatibilityRestorePhaseIncomingRepairCandidate: true,
+        persistedCompatibilityRestorePhaseIncomingRepairReasonCode: "persisted_compatibility_restore_phase_missing_incoming",
+        projectionReadAuthorityReason: "shadow_mode",
+        criticalDriftCount: 0,
+      },
+    });
+    logAppEvent({
+      name: "messaging.conversation_list_authority_selected",
+      level: "info",
+      context: {
+        profileId: "default",
+        publicKeySuffix: "abc12345",
+        selectedAuthority: "persisted",
+        selectedAuthorityReason: "persisted_fallback",
+        projectionConversationCount: 0,
+        persistedConversationCount: 1,
+        projectionReadAuthorityReason: "shadow_mode",
+        criticalDriftCount: 0,
+      },
+    });
     logAppEvent({
       name: "account_sync.backup_restore_apply_diagnostics",
       level: "info",
@@ -561,6 +635,11 @@ describe("logAppEvent", () => {
             latestMergedOutgoingCount: number | null;
             sparseOutgoingEvidence: boolean | null;
             idSplitDetectedCount: number;
+            persistedRecoveryIndexedEmptyCount: number;
+            persistedRecoveryIndexedMissingIncomingCount: number;
+            persistedRecoveryIndexedMissingOutgoingCount: number;
+            latestHistoryAuthority: string | null;
+            latestHistoryAuthorityReason: string | null;
           };
           membershipSendability: {
             riskLevel: "none" | "watch" | "high";
@@ -764,12 +843,36 @@ describe("logAppEvent", () => {
       accountSyncPhase: "ready",
     }));
     expect(digest.events["runtime.activation.profile_scope_mismatch"]?.[0]?.context).not.toHaveProperty("extraFieldShouldBeDropped");
+    expect(digest.events["messaging.conversation_history_authority_selected"]?.[0]?.context).toEqual(expect.objectContaining({
+      conversationIdHint: "peer:abc",
+      selectedAuthority: "indexed",
+      selectedAuthorityReason: "indexed_primary",
+      selectedMessageCount: 1,
+      indexedMessageCount: 1,
+      persistedFallbackMessageCount: 2,
+      persistedCompatibilityRestorePhaseIncomingRepairCandidate: true,
+      persistedCompatibilityRestorePhaseIncomingRepairReasonCode: "persisted_compatibility_restore_phase_missing_incoming",
+      projectionReadAuthorityReason: "shadow_mode",
+    }));
+    expect(digest.events["messaging.conversation_list_authority_selected"]?.[0]?.context).toEqual(expect.objectContaining({
+      profileId: "default",
+      publicKeySuffix: "abc12345",
+      selectedAuthority: "persisted",
+      selectedAuthorityReason: "persisted_fallback",
+      projectionConversationCount: 0,
+      persistedConversationCount: 1,
+    }));
     expect(digest.summary.selfAuthoredDmContinuity).toEqual(expect.objectContaining({
       riskLevel: "high",
       latestHydratedOutgoingCount: 1,
       latestMergedOutgoingCount: 0,
       sparseOutgoingEvidence: true,
       idSplitDetectedCount: 1,
+      persistedRecoveryIndexedEmptyCount: 0,
+      persistedRecoveryIndexedMissingIncomingCount: 1,
+      persistedRecoveryIndexedMissingOutgoingCount: 0,
+      latestHistoryAuthority: "indexed",
+      latestHistoryAuthorityReason: "indexed_primary",
     }));
     expect(digest.summary.membershipSendability).toEqual(expect.objectContaining({
       riskLevel: "high",

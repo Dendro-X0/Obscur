@@ -81,15 +81,15 @@ export async function compressImage(file: File): Promise<File> {
  * Target: 720p or lower, reduced bitrate
  */
 export async function compressVideo(file: File, onProgress?: (p: number) => void): Promise<File> {
+    const inputName = "input_" + file.name;
+    const outputName = "output.mp4";
+    let instance: FFmpeg | null = null;
     try {
-        const instance = await withTimeout(
+        instance = await withTimeout(
             loadFFmpeg(),
             FFMPEG_CORE_LOAD_TIMEOUT_MS,
             "FFmpeg preparation"
         );
-
-        const inputName = "input_" + file.name;
-        const outputName = "output.mp4";
 
         instance.on("log", ({ message }) => {
             console.debug("[FFmpeg]", message);
@@ -132,16 +132,21 @@ export async function compressVideo(file: File, onProgress?: (p: number) => void
         const buffer = typeof data === "string" ? new TextEncoder().encode(data) : data;
         const compressedBlob = new Blob([buffer as any], { type: "video/mp4" });
 
-        // Cleanup
-        await instance.deleteFile(inputName);
-        await instance.deleteFile(outputName);
-
         return new File([compressedBlob], file.name.replace(/\.[^/.]+$/, "") + ".mp4", {
             type: "video/mp4",
         });
     } catch (error) {
         console.error("Video compression failed:", error);
         return file; // Fallback to original
+    } finally {
+        if (instance) {
+            await instance.deleteFile(inputName).catch(() => {
+                // Best-effort FFmpeg FS cleanup.
+            });
+            await instance.deleteFile(outputName).catch(() => {
+                // Best-effort FFmpeg FS cleanup.
+            });
+        }
     }
 }
 

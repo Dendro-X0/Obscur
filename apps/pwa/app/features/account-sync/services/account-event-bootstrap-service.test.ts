@@ -484,6 +484,67 @@ describe("account-event-bootstrap-service", () => {
     ]));
   });
 
+  it("does not restore historical voice-call signal payloads as DM events", () => {
+    const payload = basePayload({
+      chatState: {
+        version: 2,
+        createdConnections: [],
+        createdGroups: [],
+        unreadByConversationId: {},
+        connectionOverridesByConnectionId: {},
+        messagesByConversationId: {
+          [PEER]: [
+            {
+              id: "legacy-voice-signal",
+              content: JSON.stringify({
+                type: "voice-call-signal",
+                version: 1,
+                roomId: "ghost-room",
+                signalType: "leave",
+                fromPubkey: ACCOUNT,
+              }),
+              timestampMs: 53_000,
+              isOutgoing: true,
+              status: "delivered",
+              pubkey: ACCOUNT,
+            },
+            {
+              id: "legacy-keep-after-signal",
+              content: "keep me",
+              timestampMs: 54_000,
+              isOutgoing: true,
+              status: "delivered",
+              pubkey: ACCOUNT,
+            },
+          ],
+        },
+        groupMessages: {},
+        connectionRequests: [],
+        pinnedChatIds: [],
+        hiddenChatIds: [],
+      },
+    });
+
+    const events = buildCanonicalBackupImportEvents({
+      profileId: PROFILE_ID,
+      accountPublicKeyHex: ACCOUNT,
+      payload,
+      source: "relay_sync",
+      idempotencyPrefix: "restore:test",
+    });
+
+    const dmEvents = events.filter((event) => event.type === "DM_SENT_CONFIRMED" || event.type === "DM_RECEIVED");
+    expect(dmEvents).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        type: "DM_SENT_CONFIRMED",
+        messageId: "legacy-keep-after-signal",
+      }),
+    ]));
+    expect(dmEvents).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ messageId: "legacy-voice-signal" }),
+    ]));
+  });
+
   it("keeps full plaintext previews for long attachment-bearing bootstrap messages", () => {
     const longAttachmentText = "clip [very-long-video-file-name-that-exceeds-old-preview-limit.mp4](https://video.nostr.build/i/abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890)";
     const payload = basePayload({

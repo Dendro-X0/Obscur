@@ -73,6 +73,13 @@ describe("community-membership-recovery", () => {
       relayUrl: "wss://relay.alpha",
       status: "joined",
     }));
+    expect(result.membershipProjections).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        communityId: "alpha:wss://relay.alpha",
+        status: "joined",
+        sourceOfTruth: "persisted_fallback",
+      }),
+    ]));
     expect(result.diagnostics.hydratedFromPersistedFallbackCount).toBe(1);
     expect(result.diagnostics.missingLedgerCoverageCount).toBe(1);
   });
@@ -96,6 +103,21 @@ describe("community-membership-recovery", () => {
       relayUrl: "wss://relay.beta",
       displayName: "Beta",
     }));
+    expect(result.descriptorProjections).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        communityId: "beta:wss://relay.beta",
+        conversationId: "community:beta:wss://relay.beta",
+        lifecycleState: "active",
+        visibilityState: "visible",
+      }),
+    ]));
+    expect(result.membershipProjections).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        communityId: "beta:wss://relay.beta",
+        status: "joined",
+        sourceOfTruth: "ledger",
+      }),
+    ]));
     expect(result.diagnostics.hydratedFromLedgerOnlyCount).toBe(1);
   });
 
@@ -215,6 +237,26 @@ describe("community-membership-recovery", () => {
         updatedAtUnixMs: 5_000,
       })],
       tombstones: new Set<string>(),
+    });
+
+    expect(result.groups).toHaveLength(1);
+    expect(result.groups[0]?.memberPubkeys).toEqual(expect.arrayContaining([PUBLIC_KEY, otherMember]));
+    expect(result.groups[0]?.memberCount).toBeGreaterThanOrEqual(2);
+  });
+
+  it("backfills invite-derived peer membership when persisted restore only knows the local member", () => {
+    const otherMember = "4".repeat(64);
+    const result = resolveCommunityMembershipRecovery({
+      publicKeyHex: PUBLIC_KEY,
+      persistedGroups: [createGroup({
+        memberPubkeys: [PUBLIC_KEY],
+        memberCount: 1,
+      })],
+      membershipLedger: [createLedgerEntry()],
+      tombstones: new Set<string>(),
+      inviteMemberPubkeysByGroupKey: {
+        "alpha@@wss://relay.alpha": [otherMember],
+      },
     });
 
     expect(result.groups).toHaveLength(1);

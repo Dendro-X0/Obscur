@@ -374,13 +374,27 @@ export const listLocalMediaCacheItems = async (): Promise<ReadonlyArray<LocalMed
     return items.filter((item): item is LocalMediaCacheItem => item !== null);
 };
 
-const fetchBytes = async (url: string): Promise<Uint8Array> => {
+const fetchBytes = async (url: string, fileType?: string, attempt = 1): Promise<Uint8Array> => {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 45_000);
+    // Use longer timeout for video files (they can be large)
+    const isVideo = fileType?.startsWith("video/") || url.match(/\.(mp4|webm|mov|avi|mkv)($|\?)/i);
+    const baseTimeoutMs = isVideo ? 300_000 : 120_000; // 5 min for video, 2 min for others
+    // Add extra time for retries (progressive backoff)
+    const timeoutMs = baseTimeoutMs + (attempt - 1) * 30_000;
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
     try {
         const res = await fetch(url, { method: "GET", signal: controller.signal });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return new Uint8Array(await res.arrayBuffer());
+    } catch (error) {
+        // Retry up to 3 times with exponential backoff
+        if (attempt < 3) {
+            const delayMs = Math.min(1000 * Math.pow(2, attempt), 10000);
+            console.log(`[LocalMediaStore] fetchBytes retry ${attempt + 1}/3 for ${url} after ${delayMs}ms`);
+            await new Promise(resolve => setTimeout(resolve, delayMs));
+            return fetchBytes(url, fileType, attempt + 1);
+        }
+        throw error;
     } finally {
         clearTimeout(timeout);
     }
@@ -413,7 +427,7 @@ export const cacheAttachmentLocally = async (
 
     try {
         await ensureStorageAbsoluteDir();
-        const bytes = localBytes ?? await fetchBytes(attachment.url);
+        const bytes = localBytes ?? await fetchBytes(attachment.url, attachment.contentType);
 
         // Ensure we don't save empty corrupted files
         if (bytes.byteLength === 0) {

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
     removeConversationIdFromHidden,
     removeGroupConversationIdsFromHidden,
+    sanitizeDmConversationIdList,
 } from "./conversation-visibility";
 
 describe("conversation visibility helpers", () => {
@@ -30,5 +31,18 @@ describe("conversation visibility helpers", () => {
         const next = removeConversationIdFromHidden(hidden, "eeeeeeee:ffffffff");
 
         expect(next).toBe(hidden);
+    });
+
+    it("drops stale dm ids while preserving valid dm ids and groups", () => {
+        const next = sanitizeDmConversationIdList([
+            "aaaaaaaa:bbbbbbbb",
+            "cccccccc:dddddddd",
+            "community:alpha:wss://relay.example",
+        ], new Set(["cccccccc:dddddddd"]));
+
+        expect(next).toEqual([
+            "cccccccc:dddddddd",
+            "community:alpha:wss://relay.example",
+        ]);
     });
 });

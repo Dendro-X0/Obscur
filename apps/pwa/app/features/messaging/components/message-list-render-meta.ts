@@ -329,21 +329,54 @@ export const buildMessageRenderCaches = (params: Readonly<{
     });
 
     const voiceCallRoomSummaryByRoomId = new Map<string, VoiceCallRoomRenderSummary>();
+    const nowUnixMs = Date.now();
+    const CALL_STALENESS_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
+
     voiceCallRoomAccumulatorByRoomId.forEach((accumulator, roomId) => {
         const connectedAtUnixMs = accumulator.connectedAtUnixMs;
         const endedAtUnixMs = accumulator.endedAtUnixMs;
         const hasConnectedAt = connectedAtUnixMs !== null;
         const hasEndedAt = endedAtUnixMs !== null;
-        const endedNormally = hasConnectedAt && hasEndedAt;
-        const durationSeconds = (hasConnectedAt && hasEndedAt)
-            ? Math.max(0, Math.floor((endedAtUnixMs - connectedAtUnixMs) / 1000))
+
+        // Ghost-call fix: Treat expired or stale calls as ended
+        let effectiveEndedAtUnixMs = endedAtUnixMs;
+        const expiresAtUnixMs = accumulator.expiresAtUnixMs;
+        const invitedAtUnixMs = accumulator.invitedAtUnixMs;
+
+        // If call has explicit expiry that has passed, consider it ended
+        if (expiresAtUnixMs !== null && expiresAtUnixMs < nowUnixMs && !hasEndedAt) {
+            effectiveEndedAtUnixMs = expiresAtUnixMs;
+        }
+
+        // If call was never connected and invite is very old, consider it ended (stale)
+        if (!hasConnectedAt && invitedAtUnixMs !== null) {
+            const inviteAgeMs = nowUnixMs - invitedAtUnixMs;
+            if (inviteAgeMs > CALL_STALENESS_THRESHOLD_MS && !hasEndedAt) {
+                effectiveEndedAtUnixMs = invitedAtUnixMs + CALL_STALENESS_THRESHOLD_MS;
+            }
+        }
+
+        // If call was connected but no leave signal and it's very old, consider it ended
+        if (hasConnectedAt && !hasEndedAt && connectedAtUnixMs !== null) {
+            const connectedDurationMs = nowUnixMs - connectedAtUnixMs;
+            // Calls longer than 2 hours are likely stale/abandoned
+            if (connectedDurationMs > 2 * 60 * 60 * 1000) {
+                effectiveEndedAtUnixMs = nowUnixMs;
+            }
+        }
+
+        const hasEffectiveEndedAt = effectiveEndedAtUnixMs !== null;
+        const endedNormally = hasConnectedAt && hasEffectiveEndedAt;
+        const durationSeconds = (hasConnectedAt && effectiveEndedAtUnixMs !== null)
+            ? Math.max(0, Math.floor((effectiveEndedAtUnixMs - connectedAtUnixMs) / 1000))
             : null;
+
         voiceCallRoomSummaryByRoomId.set(roomId, {
             roomId,
-            invitedAtUnixMs: accumulator.invitedAtUnixMs,
-            expiresAtUnixMs: accumulator.expiresAtUnixMs,
+            invitedAtUnixMs,
+            expiresAtUnixMs,
             connectedAtUnixMs,
-            endedAtUnixMs,
+            endedAtUnixMs: effectiveEndedAtUnixMs,
             endedNormally,
             durationSeconds,
         });

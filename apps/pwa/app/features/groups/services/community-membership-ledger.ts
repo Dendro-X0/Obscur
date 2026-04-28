@@ -1,4 +1,5 @@
 import type { GroupConversation } from "@/app/features/messaging/types";
+import type { CommunityMembershipStatus } from "@dweb/core/community-projection-contracts";
 import { getActiveProfileIdSafe, getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 import { emitAccountSyncMutation } from "@/app/shared/account-sync-mutation-signal";
 import { logAppEvent } from "@/app/shared/log-app-event";
@@ -9,8 +10,7 @@ const MEMBERSHIP_LEDGER_STORAGE_PREFIX = "obscur.group.membership_ledger.v1";
 export const LEDGER_ONLY_GROUP_PLACEHOLDER_MESSAGE = "Group key unavailable on this device";
 export const COMMUNITY_MEMBERSHIP_LEDGER_UPDATED_EVENT = "obscur:community-membership-ledger-updated";
 const ledgerLoadSignatureByScope = new Map<string, string>();
-
-export type CommunityMembershipStatus = "joined" | "left" | "expelled";
+export type { CommunityMembershipStatus } from "@dweb/core/community-projection-contracts";
 
 export type CommunityMembershipLedgerEntry = Readonly<{
   communityId: string;

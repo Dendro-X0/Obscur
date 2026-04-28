@@ -31,6 +31,7 @@ vi.mock("@/app/features/account-sync/services/account-projection-read-authority"
 }));
 
 vi.mock("../services/chat-state-store", () => ({
+  CHAT_STATE_REPLACED_EVENT: "obscur:chat-state-replaced",
   chatStateStoreService: {
     load: vi.fn(() => null),
     updateConnections: vi.fn(),

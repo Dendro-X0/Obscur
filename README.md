@@ -8,21 +8,23 @@
 
 Obscur is a cross-platform, decentralized, end-to-end encrypted (E2EE) communication app focused on user privacy, ownership, and self-custody identity.
 
-Project phase: community-maintained release hardening.
+Project phase: **v1.4.0 CRDT Protocol Rewrite — Released**
 
-Release prep status (`v1.3.16`):
+**Release highlights (`v1.4.0`):**
 
-- Desktop update distribution is now hardened around real release truth:
-  - the app can fall back deterministically to platform-specific installers when direct streaming install is unavailable,
-  - the release workflow now generates a signed Tauri `latest.json` updater feed alongside `streaming-update-policy.json`,
-  - true in-app streaming install still requires a tagged release run to confirm feed publication end to end.
-- The official website is now a real public release surface:
-  - `apps/website` renders current release highlights from `CHANGELOG.md`,
-  - `/download` resolves current platform download targets from release metadata,
-  - the site remains aligned to canonical repo/docs inputs rather than separate hand-maintained copy.
-- Core recovery work remains active:
-  - fresh-device DM restore and `B -> A` visibility convergence still require live runtime replay evidence before broader stability claims,
-  - the project remains independently developed, community-maintained, privacy-first, and local-first.
+- **CRDT Protocol Suite**: Complete implementation of 5-phase CRDT integration:
+  - LWW-Registers for profile and presence state,
+  - G-Counters for unread message counts and presence heartbeats,
+  - OR-Sets for community membership with proper merge semantics,
+  - Content-Addressed Media (CAS) for deduplicated blob storage,
+  - Call State CRDT with TTL-based expiration to eliminate ghost calls.
+- **Sync Protocol**: Full account-sync CRDT merge pipeline with namespace isolation, handler registration, and conflict resolution.
+- **Infrastructure improvements**:
+  - IndexedDB upgrade compatibility fixes for test environments,
+  - All 1858 tests passing across 309 test files,
+  - Type-safe CRDT operations with runtime validation.
+
+The project remains independently developed, community-maintained, privacy-first, and local-first.
 
 ## Core Positioning
 

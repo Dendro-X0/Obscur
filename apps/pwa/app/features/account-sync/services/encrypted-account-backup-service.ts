@@ -3,11 +3,9 @@
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { NostrEvent } from "@dweb/nostr/nostr-event";
-import type { UnsignedNostrEvent } from "@/app/features/crypto/crypto-service";
 import { cryptoService } from "@/app/features/crypto/crypto-service";
 import { roomKeyStore } from "@/app/features/crypto/room-key-store";
 import type { IdentityRecord } from "@dweb/core/identity-record";
-import { MessageQueue } from "@/app/features/messaging/lib/message-queue";
 import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store";
 import { messagePersistenceService } from "@/app/features/messaging/services/message-persistence-service";
 import {
@@ -15,7 +13,7 @@ import {
   normalizeMessageDeleteTombstoneEntries,
   replaceMessageDeleteTombstones,
 } from "@/app/features/messaging/services/message-delete-tombstone-store";
-import type { Attachment, PersistedChatState, PersistedGroupMessage, PersistedMessage } from "@/app/features/messaging/types";
+import type { PersistedChatState } from "@/app/features/messaging/types";
 import { requestFlowEvidenceStoreInternals } from "@/app/features/messaging/services/request-flow-evidence-store";
 import { syncCheckpointInternals } from "@/app/features/messaging/lib/sync-checkpoints";
 import { PrivacySettingsService, defaultPrivacySettings } from "@/app/features/settings/services/privacy-settings-service";
@@ -24,22 +22,13 @@ import { relayListInternals } from "@/app/features/relays/hooks/use-relay-list";
 import { contactRequestOutboxInternals } from "@/app/features/search/hooks/use-contact-request-outbox";
 import type { ContactRequestRecord } from "@/app/features/search/types/discovery";
 import { useProfileInternals } from "@/app/features/profile/hooks/use-profile";
-import { normalizePublicKeyHex } from "@/app/features/profile/utils/normalize-public-key-hex";
 import { getActiveProfileIdSafe, getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 import { publishViaRelayCore, type RelayPoolLike } from "@/app/features/relays/lib/nostr-core-relay";
-import { messagingDB } from "@dweb/storage/indexed-db";
-import { logAppEvent } from "@/app/shared/log-app-event";
-import { toDmConversationId } from "@/app/features/messaging/utils/dm-conversation-id";
-import { toGroupConversationId } from "@/app/features/groups/utils/group-conversation-id";
-import { extractAttachmentsFromContent } from "@/app/features/messaging/utils/logic";
-import { parseCommandMessage } from "@/app/features/messaging/utils/commands";
-import { collectMessageIdentityAliases } from "@/app/features/messaging/services/message-identity-alias-contract";
 import {
   loadCommunityMembershipLedger,
   mergeCommunityMembershipLedgerEntries,
   parseCommunityMembershipLedgerSnapshot,
   saveCommunityMembershipLedger,
-  selectJoinedCommunityMembershipLedgerEntries,
   toCommunityMembershipLedgerKey,
   type CommunityMembershipLedgerEntry,
 } from "@/app/features/groups/services/community-membership-ledger";
@@ -55,6 +44,50 @@ import {
 } from "@/app/features/vault/services/local-media-store";
 import { accountSyncStatusStore } from "./account-sync-status-store";
 import { buildCanonicalBackupImportEvents } from "./account-event-bootstrap-service";
+import {
+  resolveCanonicalBackupRestoreOwnerSelection,
+} from "./restore-import-contracts";
+import {
+  emitBackupRestoreSelectionDiagnostics,
+  maybeEmitBackupRestoreProfileScopeMismatch,
+  emitBackupRestoreOwnerSelection,
+  maybeEmitBackupRestoreHistoryRegression,
+  toPrefixedChatStateDiagnosticsContext,
+} from "./restore-diagnostics";
+import {
+  emitBackupPublishOrdering,
+  emitIdentityUnlockConflictPreservedLocal,
+  emitPortableBundleExport,
+  emitPortableBundleImport,
+} from "./restore-merge-diagnostics";
+import {
+  emitMergeCompletionDiagnostics,
+  emitApplyCompletionDiagnostics,
+  evaluatePublishConvergenceOutcome,
+  orchestrateRestoreMerge,
+} from "./restore-merge-module";
+import {
+  maybeConvergeBackupPayloadBeforePublish,
+  mergeBackupPayloadForPublishConvergence,
+  hasPortablePrivateStateEvidence,
+  buildBackupEnvelope,
+  buildBackupUnsignedEvent,
+  mapBackupDeliveryStatus,
+  isBackupPublishSuccessful,
+} from "./restore-merge-policy";
+import {
+  getPersistedGroupMessageCount,
+  getPersistedMessageCount,
+  hasReplayableChatHistory,
+  mergeChatState,
+  mergeMessageDeleteTombstones,
+  mergePersistedGroupMessages,
+  mergePersistedMessages,
+  sanitizePersistedChatStateMessagesByDeleteContract,
+  toMessageDeleteTombstoneIdSet,
+  uniqueStrings,
+} from "./restore-merge-chat-state";
+import { applyNonV1RestoreMaterialization } from "./restore-materialization";
 import { fetchLatestEventFromRelayUrls } from "./direct-relay-query";
 import { getStoredIdentity } from "@/app/features/auth/utils/get-stored-identity";
 import { saveStoredIdentity } from "@/app/features/auth/utils/save-stored-identity";
@@ -75,8 +108,12 @@ import type {
   UiSettingsSnapshot,
 } from "../account-sync-contracts";
 import { ACCOUNT_BACKUP_D_TAG, ACCOUNT_BACKUP_EVENT_KIND } from "../account-sync-contracts";
-import { accountEventStore } from "./account-event-store";
-import { replayAccountEvents } from "./account-event-reducer";
+import {
+  hydrateChatStateFromIndexedMessages,
+  summarizePersistedChatStateMessages,
+  toPersistedMessageFromIndexedRecord,
+  toPersistedGroupMessageFromIndexedRecord,
+} from "./restore-hydrate-indexed-messages";
 
 const BACKUP_FETCH_TIMEOUT_MS = 4_000;
 const RECOVERY_SNAPSHOT_STORAGE_PREFIX = "obscur.account_sync.recovery_snapshot.v1";
@@ -84,9 +121,6 @@ const CANONICAL_BACKUP_IMPORT_IDEMPOTENCY_PREFIX = "backup_restore_v1";
 const PORTABLE_ACCOUNT_BUNDLE_FORMAT: PortableAccountBundle["format"] = "obscur.portable_account_bundle.v1";
 const PORTABLE_BUNDLE_IMPORT_IDEMPOTENCY_PREFIX = "portable_bundle_import_v1";
 const ACCOUNT_BACKUP_CREATED_AT_MS_TAG = "obscur_backup_created_at_ms";
-const INDEXED_MESSAGE_BACKUP_SCAN_LIMIT = 2_000;
-const MESSAGE_QUEUE_BACKUP_SCAN_LIMIT = 2_000;
-const INDEXED_DB_READ_TIMEOUT_MS = 750;
 const THEME_STORAGE_KEY = "dweb.nostr.pwa.ui.theme";
 const ACCESSIBILITY_STORAGE_KEY = "dweb.nostr.pwa.ui.accessibility.v1";
 const DEFAULT_THEME_PREFERENCE: UiSettingsSnapshot["themePreference"] = "system";
@@ -157,14 +191,9 @@ const mergeIdentityUnlock = (
   if (current.encryptedPrivateKey !== incoming.encryptedPrivateKey) {
     // Preserve local unlock material on already-provisioned devices so
     // restore cannot silently invalidate a known-good local credential.
-    logAppEvent({
-      name: "account_sync.identity_unlock_conflict_preserved_local",
-      level: "warn",
-      scope: { feature: "account_sync", action: "backup_restore" },
-      context: {
-        localUsernamePresent: typeof current.username === "string" && current.username.trim().length > 0,
-        incomingUsernamePresent: typeof incoming.username === "string" && incoming.username.trim().length > 0,
-      },
+    emitIdentityUnlockConflictPreservedLocal({
+      localUsernamePresent: typeof current.username === "string" && current.username.trim().length > 0,
+      incomingUsernamePresent: typeof incoming.username === "string" && incoming.username.trim().length > 0,
     });
     return {
       encryptedPrivateKey: current.encryptedPrivateKey,
@@ -246,128 +275,6 @@ const nextBackupEventCreatedAtUnixSeconds = (
   ).createdAtUnixSeconds;
 };
 
-type BackupSelectionSource = "pool" | "direct" | "none";
-
-type BackupSelectionDiagnostics = Readonly<{
-  source: BackupSelectionSource;
-  publicKeyHex: PublicKeyHex;
-  selectedEvent: NostrEvent | null;
-  poolOpenRelayCount: number;
-  poolExpectedEoseRelayCount: number;
-  poolReceivedEoseRelayCount: number;
-  poolCandidateCount: number;
-  poolTimedOut: boolean;
-  fallbackRelayCount: number;
-}>;
-
-type BackupRestoreProfileScopeMismatchReasonCode =
-  | "requested_profile_not_active"
-  | "active_profile_changed_during_restore"
-  | "active_profile_changed_after_apply";
-
-type BackupRestoreProfileScopeDiagnostics = Readonly<{
-  publicKeyHex: PublicKeyHex;
-  backupEventId: string | null;
-  requestedProfileId: string | null;
-  effectiveProfileId: string;
-  activeProfileIdAtRestoreStart: string;
-  activeProfileIdBeforeApply: string;
-  activeProfileIdAfterApply: string;
-  hasCanonicalAppender: boolean;
-}>;
-
-const resolveBackupRestoreProfileScopeMismatchReasonCode = (
-  params: BackupRestoreProfileScopeDiagnostics,
-): BackupRestoreProfileScopeMismatchReasonCode | null => {
-  if (params.requestedProfileId && params.requestedProfileId !== params.activeProfileIdBeforeApply) {
-    return "requested_profile_not_active";
-  }
-  if (params.activeProfileIdBeforeApply !== params.activeProfileIdAtRestoreStart) {
-    return "active_profile_changed_during_restore";
-  }
-  if (params.activeProfileIdAfterApply !== params.activeProfileIdBeforeApply) {
-    return "active_profile_changed_after_apply";
-  }
-  return null;
-};
-
-const maybeEmitBackupRestoreProfileScopeMismatch = (
-  params: BackupRestoreProfileScopeDiagnostics,
-): void => {
-  const reasonCode = resolveBackupRestoreProfileScopeMismatchReasonCode(params);
-  if (!reasonCode) {
-    return;
-  }
-  logAppEvent({
-    name: "account_sync.backup_restore_profile_scope_mismatch",
-    level: "warn",
-    scope: { feature: "account_sync", action: "backup_restore" },
-    context: {
-      reasonCode,
-      publicKeySuffix: params.publicKeyHex.slice(-8),
-      backupEventId: params.backupEventId,
-      requestedProfileId: params.requestedProfileId,
-      effectiveProfileId: params.effectiveProfileId,
-      activeProfileIdAtRestoreStart: params.activeProfileIdAtRestoreStart,
-      activeProfileIdBeforeApply: params.activeProfileIdBeforeApply,
-      activeProfileIdAfterApply: params.activeProfileIdAfterApply,
-      hasCanonicalAppender: params.hasCanonicalAppender,
-    },
-  });
-};
-
-const emitBackupRestoreSelectionDiagnostics = (params: BackupSelectionDiagnostics): void => {
-  const selectedPayloadCreatedAtUnixMs = params.selectedEvent
-    ? parseBackupCreatedAtMsTag(params.selectedEvent)
-    : null;
-  logAppEvent({
-    name: "account_sync.backup_restore_selection",
-    level: "info",
-    scope: { feature: "account_sync", action: "backup_restore" },
-    context: {
-      source: params.source,
-      selectionComparator: "payload_ms_then_created_at_then_event_id",
-      publicKeySuffix: params.publicKeyHex.slice(-8),
-      poolOpenRelayCount: params.poolOpenRelayCount,
-      poolExpectedEoseRelayCount: params.poolExpectedEoseRelayCount,
-      poolReceivedEoseRelayCount: params.poolReceivedEoseRelayCount,
-      poolCandidateCount: params.poolCandidateCount,
-      poolTimedOut: params.poolTimedOut,
-      fallbackRelayCount: params.fallbackRelayCount,
-      selectedEventId: params.selectedEvent?.id ?? null,
-      selectedEventCreatedAtUnixSeconds: params.selectedEvent?.created_at ?? null,
-      selectedPayloadCreatedAtUnixMs,
-    },
-  });
-};
-
-const uniqueStrings = (values: ReadonlyArray<string>): ReadonlyArray<string> => Array.from(new Set(values.filter((value) => value.length > 0)));
-const PLACEHOLDER_GROUP_DISPLAY_NAME = "Private Group";
-const HASHED_COMMUNITY_ID_PATTERN = /^v2_[0-9a-f]{64}$/i;
-
-const hasMeaningfulGroupDisplayName = (value: string | undefined): boolean => {
-  const trimmed = value?.trim() ?? "";
-  return trimmed.length > 0 && trimmed !== PLACEHOLDER_GROUP_DISPLAY_NAME;
-};
-
-const pickPreferredGroupDisplayName = (
-  newerName: string | undefined,
-  olderName: string | undefined,
-): string => {
-  if (hasMeaningfulGroupDisplayName(newerName)) {
-    return (newerName ?? "").trim();
-  }
-  if (hasMeaningfulGroupDisplayName(olderName)) {
-    return (olderName ?? "").trim();
-  }
-  const fallback = (newerName ?? "").trim() || (olderName ?? "").trim();
-  return fallback.length > 0 ? fallback : PLACEHOLDER_GROUP_DISPLAY_NAME;
-};
-
-const isHashedCommunityId = (value: string | undefined): boolean => {
-  const trimmed = value?.trim() ?? "";
-  return HASHED_COMMUNITY_ID_PATTERN.test(trimmed);
-};
 
 const normalizeRoomKeySnapshot = (value: unknown): RoomKeySnapshot | null => {
   if (!value || typeof value !== "object") {
@@ -585,243 +492,6 @@ const persistUiSettingsSnapshot = (profileId: string, uiSettings: UiSettingsSnap
   );
 };
 
-const toPreview = (value: string): string => {
-  const normalized = value.replace(/\s+/g, " ").trim();
-  if (normalized.length <= 140) {
-    return normalized;
-  }
-  return `${normalized.slice(0, 140)}...`;
-};
-
-const withTimeout = async <T>(
-  promise: Promise<T>,
-  timeoutMs: number
-): Promise<T> => {
-  return await new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => {
-      reject(new Error("timeout"));
-    }, timeoutMs);
-    promise.then((value) => {
-      clearTimeout(timer);
-      resolve(value);
-    }).catch((error) => {
-      clearTimeout(timer);
-      reject(error);
-    });
-  });
-};
-
-const resolveDeleteCommandTargetMessageId = (message: Readonly<{
-  content?: unknown;
-}>): string | null => {
-  if (typeof message.content !== "string") {
-    return null;
-  }
-  const parsedCommand = parseCommandMessage(message.content);
-  if (!parsedCommand || parsedCommand.type !== "delete") {
-    return null;
-  }
-  const targetMessageId = parsedCommand.targetMessageId.trim();
-  return targetMessageId.length > 0 ? targetMessageId : null;
-};
-
-const isCommandDmMessage = (message: Readonly<{
-  kind?: unknown;
-  content?: unknown;
-}>): boolean => (
-  message.kind === "command"
-  || resolveDeleteCommandTargetMessageId(message) !== null
-);
-
-const toPersistedMessageIdentityKeys = (message: Readonly<{
-  id?: unknown;
-  eventId?: unknown;
-}>): ReadonlyArray<string> => {
-  return collectMessageIdentityAliases(message);
-};
-
-const toMessageDeleteTombstoneIdSet = (
-  tombstones: ReadonlyArray<MessageDeleteTombstoneSnapshotEntry> | undefined
-): ReadonlySet<string> => new Set(
-  (tombstones ?? [])
-    .map((entry) => entry.id.trim())
-    .filter((entry) => entry.length > 0)
-);
-
-const mergeMessageDeleteTombstones = (
-  current: ReadonlyArray<MessageDeleteTombstoneSnapshotEntry> | undefined,
-  incoming: ReadonlyArray<MessageDeleteTombstoneSnapshotEntry> | undefined,
-): ReadonlyArray<MessageDeleteTombstoneSnapshotEntry> => normalizeMessageDeleteTombstoneEntries([
-  ...(current ?? []),
-  ...(incoming ?? []),
-]);
-
-const isPersistedMessageDeleted = (message: Readonly<{
-  deletedAtMs?: unknown;
-}>): boolean => (
-  typeof message.deletedAtMs === "number"
-  && Number.isFinite(message.deletedAtMs)
-  && message.deletedAtMs > 0
-);
-
-const sanitizePersistedMessagesByDeleteContract = (
-  messages: ReadonlyArray<PersistedMessage>,
-  options?: Readonly<{
-    durableDeleteIds?: ReadonlySet<string>;
-  }>
-): ReadonlyArray<PersistedMessage> => {
-  if (messages.length === 0) {
-    return messages;
-  }
-  const normalizedMessages = messages.map((message) => normalizePersistedMessageAttachments(message));
-  const deleteTargetMessageIds = new Set<string>(options?.durableDeleteIds ?? []);
-  const commandMessageIds = new Set<string>();
-  normalizedMessages.forEach((message) => {
-    const messageId = typeof message.id === "string" ? message.id.trim() : "";
-    if (messageId.length > 0 && isCommandDmMessage(message)) {
-      commandMessageIds.add(messageId);
-    }
-    const targetMessageId = resolveDeleteCommandTargetMessageId(message);
-    if (targetMessageId) {
-      deleteTargetMessageIds.add(targetMessageId);
-    }
-    if (isPersistedMessageDeleted(message)) {
-      toPersistedMessageIdentityKeys(message).forEach((identityKey) => {
-        deleteTargetMessageIds.add(identityKey);
-      });
-    }
-  });
-  if (deleteTargetMessageIds.size > 0) {
-    const knownIdentityKeys = new Set<string>();
-    normalizedMessages.forEach((message) => {
-      toPersistedMessageIdentityKeys(message).forEach((identityKey) => {
-        knownIdentityKeys.add(identityKey);
-      });
-    });
-    const unresolvedTargets = Array.from(deleteTargetMessageIds).filter((targetMessageId) => !knownIdentityKeys.has(targetMessageId));
-    if (unresolvedTargets.length > 0) {
-      logAppEvent({
-        name: "account_sync.backup_restore_delete_target_unresolved",
-        level: "warn",
-        scope: { feature: "account_sync", action: "backup_restore" },
-        context: {
-          messageCount: messages.length,
-          commandMessageCount: commandMessageIds.size,
-          deleteTargetCount: deleteTargetMessageIds.size,
-          unresolvedDeleteTargetCount: unresolvedTargets.length,
-          unresolvedDeleteTargetSample: unresolvedTargets.slice(0, 5).join(","),
-        },
-      });
-    }
-  }
-  const filtered = normalizedMessages.filter((message) => {
-    const identityKeys = toPersistedMessageIdentityKeys(message);
-    if (identityKeys.length === 0) {
-      return false;
-    }
-    if (isPersistedMessageDeleted(message)) {
-      return false;
-    }
-    if (identityKeys.some((identityKey) => deleteTargetMessageIds.has(identityKey))) {
-      return false;
-    }
-    return !isCommandDmMessage(message);
-  });
-  if (filtered.length <= 1) {
-    return filtered;
-  }
-  return filtered.slice().sort((left, right) => Number(left.timestampMs ?? 0) - Number(right.timestampMs ?? 0));
-};
-
-const sanitizePersistedChatStateMessagesByDeleteContract = (
-  chatState: EncryptedAccountBackupPayload["chatState"],
-  options?: Readonly<{
-    durableDeleteIds?: ReadonlySet<string>;
-  }>
-): EncryptedAccountBackupPayload["chatState"] => {
-  if (!chatState) {
-    return chatState;
-  }
-
-  const sanitizedMessagesByConversationId: Record<string, ReadonlyArray<PersistedMessage>> = {};
-  Object.entries(chatState.messagesByConversationId ?? {}).forEach(([conversationId, messages]) => {
-    const sanitizedMessages = sanitizePersistedMessagesByDeleteContract(messages ?? [], options);
-    if (sanitizedMessages.length > 0) {
-      sanitizedMessagesByConversationId[conversationId] = sanitizedMessages;
-    }
-  });
-
-  const latestMessageByConversationId = new Map<string, PersistedMessage>();
-  Object.entries(sanitizedMessagesByConversationId).forEach(([conversationId, messages]) => {
-    const latest = messages[messages.length - 1];
-    if (latest) {
-      latestMessageByConversationId.set(conversationId, latest);
-    }
-  });
-
-  const sanitizedCreatedConnections = chatState.createdConnections.map((connection) => {
-    const latestMessage = latestMessageByConversationId.get(connection.id);
-    const parsedCommandPreview = parseCommandMessage(connection.lastMessage ?? "");
-    if (!latestMessage) {
-      if (!parsedCommandPreview) {
-        return connection;
-      }
-      return {
-        ...connection,
-        lastMessage: "",
-        lastMessageTimeMs: 0,
-      };
-    }
-    if (!parsedCommandPreview && latestMessage.timestampMs < connection.lastMessageTimeMs) {
-      return connection;
-    }
-    return {
-      ...connection,
-      lastMessage: toPreview(latestMessage.content ?? ""),
-      lastMessageTimeMs: latestMessage.timestampMs,
-    };
-  });
-
-  return {
-    ...chatState,
-    createdConnections: sanitizedCreatedConnections,
-    messagesByConversationId: sanitizedMessagesByConversationId,
-  };
-};
-
-const getPersistedMessageCount = (value: EncryptedAccountBackupPayload["chatState"]): number => {
-  if (!value) {
-    return 0;
-  }
-  return Object.values(value.messagesByConversationId).reduce((sum, messages) => sum + messages.length, 0);
-};
-
-const getPersistedGroupMessageCount = (value: EncryptedAccountBackupPayload["chatState"]): number => {
-  if (!value) {
-    return 0;
-  }
-  return Object.values(value.groupMessages ?? {}).reduce((sum, messages) => sum + messages.length, 0);
-};
-
-const getPersistedOutgoingMessageCount = (
-  value: EncryptedAccountBackupPayload["chatState"],
-  publicKeyHex: PublicKeyHex
-): number => {
-  if (!value) {
-    return 0;
-  }
-  return Object.values(value.messagesByConversationId).reduce((sum, messages) => {
-    const outgoingCount = messages.filter((message) => (
-      message.isOutgoing === true
-      || normalizePublicKeyHex(message.pubkey) === publicKeyHex
-    )).length;
-    return sum + outgoingCount;
-  }, 0);
-};
-
-const hasReplayableChatHistory = (value: EncryptedAccountBackupPayload["chatState"]): boolean => (
-  getPersistedMessageCount(value) > 0 || getPersistedGroupMessageCount(value) > 0
-);
 
 const isNonEmptyChatState = (value: EncryptedAccountBackupPayload["chatState"]): boolean => {
   if (!value) {
@@ -840,28 +510,6 @@ const isNonEmptyChatState = (value: EncryptedAccountBackupPayload["chatState"]):
     || persistedGroupMessageCount > 0;
 };
 
-const hasAcceptedRequestFlowEvidence = (snapshot: RequestFlowEvidenceStateSnapshot): boolean => (
-  Object.values(snapshot.byPeer).some((evidence) => evidence.acceptSeen)
-);
-
-const hasAcceptedConnectionRequest = (value: EncryptedAccountBackupPayload["chatState"]): boolean => (
-  Boolean(value?.connectionRequests?.some((request) => request.status === "accepted"))
-);
-
-const hasPortablePrivateStateEvidence = (payload: EncryptedAccountBackupPayload): boolean => {
-  const joinedCommunityCount = selectJoinedCommunityMembershipLedgerEntries(payload.communityMembershipLedger ?? []).length;
-  const roomKeyCount = parseRoomKeySnapshots(payload.roomKeys).length;
-  const hasDurableAcceptanceState = payload.peerTrust.acceptedPeers.length > 0
-    || hasAcceptedRequestFlowEvidence(payload.requestFlowEvidence)
-    || (payload.chatState?.createdConnections.length ?? 0) > 0
-    || (payload.chatState?.createdGroups.length ?? 0) > 0
-    || joinedCommunityCount > 0
-    || hasAcceptedConnectionRequest(payload.chatState)
-    || roomKeyCount > 0;
-  return payload.peerTrust.mutedPeers.length > 0
-    || hasDurableAcceptanceState
-    || hasReplayableChatHistory(payload.chatState);
-};
 
 const isDefaultPrivacySettings = (value: EncryptedAccountBackupPayload["privacySettings"]): boolean => {
   return JSON.stringify(value) === JSON.stringify(defaultPrivacySettings);
@@ -959,22 +607,6 @@ const persistIdentityUnlockSnapshot = async (params: Readonly<{
   });
 };
 
-const pickNewestBy = <T extends Record<string, unknown>>(
-  values: ReadonlyArray<T>,
-  getKey: (value: T) => string,
-  getUpdatedAt: (value: T) => number
-): ReadonlyArray<T> => {
-  const map = new Map<string, T>();
-  for (const value of values) {
-    const key = getKey(value);
-    const current = map.get(key);
-    if (!current || getUpdatedAt(value) >= getUpdatedAt(current)) {
-      map.set(key, value);
-    }
-  }
-  return Array.from(map.values());
-};
-
 const mergePeerTrust = (
   current: StoredPeerTrustSnapshot,
   incoming: StoredPeerTrustSnapshot
@@ -1046,1380 +678,6 @@ const mergeRelayList = (
   return Array.from(byUrl.values());
 };
 
-const mergePersistedAttachments = (
-  current: ReadonlyArray<Attachment> | undefined,
-  incoming: ReadonlyArray<Attachment> | undefined,
-): ReadonlyArray<Attachment> | undefined => {
-  const currentList = current ?? [];
-  const incomingList = incoming ?? [];
-  if (currentList.length === 0 && incomingList.length === 0) {
-    return undefined;
-  }
-  const byUrl = new Map<string, Attachment>();
-  [...currentList, ...incomingList].forEach((attachment) => {
-    const url = attachment.url?.trim();
-    if (!url) {
-      return;
-    }
-    byUrl.set(url, {
-      ...attachment,
-      url,
-    });
-  });
-  return Array.from(byUrl.values());
-};
-
-const mergePersistedMessageEntry = (
-  left: PersistedMessage,
-  right: PersistedMessage,
-): PersistedMessage => {
-  const rightIsNewer = Number(right.timestampMs ?? 0) >= Number(left.timestampMs ?? 0);
-  const primary = rightIsNewer ? right : left;
-  const secondary = rightIsNewer ? left : right;
-  const mergedAttachments = mergePersistedAttachments(secondary.attachments, primary.attachments);
-  return {
-    ...secondary,
-    ...primary,
-    ...(mergedAttachments && mergedAttachments.length > 0 ? { attachments: mergedAttachments } : {}),
-  };
-};
-
-const mergePersistedMessages = (
-  current: ReadonlyArray<PersistedMessage>,
-  incoming: ReadonlyArray<PersistedMessage>,
-): ReadonlyArray<PersistedMessage> => {
-  const byCanonicalIdentity = new Map<string, PersistedMessage>();
-  const canonicalIdentityByAlias = new Map<string, string>();
-  for (const message of [...current, ...incoming]) {
-    const identityKeys = toPersistedMessageIdentityKeys(message);
-    if (identityKeys.length === 0) {
-      continue;
-    }
-    const existingCanonicalIdentity = identityKeys.reduce<string | null>((resolved, identityKey) => {
-      if (resolved) {
-        return resolved;
-      }
-      return canonicalIdentityByAlias.get(identityKey) ?? null;
-    }, null);
-    const canonicalIdentity = existingCanonicalIdentity ?? identityKeys[0];
-    const existing = byCanonicalIdentity.get(canonicalIdentity);
-    const merged = existing
-      ? mergePersistedMessageEntry(existing, message)
-      : message;
-
-    const mergedIdentityKeys = toPersistedMessageIdentityKeys(merged);
-    mergedIdentityKeys.forEach((identityKey) => {
-      canonicalIdentityByAlias.set(identityKey, canonicalIdentity);
-    });
-    identityKeys.forEach((identityKey) => {
-      canonicalIdentityByAlias.set(identityKey, canonicalIdentity);
-    });
-
-    if (!existing) {
-      byCanonicalIdentity.set(canonicalIdentity, merged);
-      continue;
-    }
-    byCanonicalIdentity.set(canonicalIdentity, merged);
-  }
-  return Array.from(byCanonicalIdentity.values()).sort((a, b) => Number(a.timestampMs ?? 0) - Number(b.timestampMs ?? 0));
-};
-
-const mergePersistedGroupMessages = (
-  current: ReadonlyArray<PersistedGroupMessage>,
-  incoming: ReadonlyArray<PersistedGroupMessage>,
-): ReadonlyArray<PersistedGroupMessage> => {
-  const byId = new Map<string, PersistedGroupMessage>();
-  for (const message of [...current, ...incoming]) {
-    const key = message.id;
-    if (!key) {
-      continue;
-    }
-    const existing = byId.get(key);
-    if (!existing || Number(message.created_at ?? 0) >= Number(existing.created_at ?? 0)) {
-      byId.set(key, message);
-    }
-  }
-  return Array.from(byId.values()).sort((a, b) => Number(a.created_at ?? 0) - Number(b.created_at ?? 0));
-};
-
-const mergeMessageMaps = (
-  current: PersistedChatState["messagesByConversationId"],
-  incoming: PersistedChatState["messagesByConversationId"],
-): PersistedChatState["messagesByConversationId"] => {
-  const merged: Record<string, ReadonlyArray<PersistedMessage>> = {};
-  const keys = new Set([...Object.keys(current), ...Object.keys(incoming)]);
-  keys.forEach((conversationId) => {
-    const currentMessages = current[conversationId] ?? [];
-    const incomingMessages = incoming[conversationId] ?? [];
-    merged[conversationId] = mergePersistedMessages(currentMessages, incomingMessages);
-  });
-  return merged;
-};
-
-const mergeGroupMessageMaps = (
-  current: PersistedChatState["groupMessages"] | undefined,
-  incoming: PersistedChatState["groupMessages"] | undefined,
-): PersistedChatState["groupMessages"] => {
-  const currentMap = current ?? {};
-  const incomingMap = incoming ?? {};
-  const merged: Record<string, ReadonlyArray<PersistedGroupMessage>> = {};
-  const keys = new Set([...Object.keys(currentMap), ...Object.keys(incomingMap)]);
-  keys.forEach((conversationId) => {
-    const currentMessages = currentMap[conversationId] ?? [];
-    const incomingMessages = incomingMap[conversationId] ?? [];
-    merged[conversationId] = mergePersistedGroupMessages(currentMessages, incomingMessages);
-  });
-  return merged;
-};
-
-const toPersistedGroupMergeKey = (group: PersistedChatState["createdGroups"][number]): string => {
-  const groupId = String(group.groupId ?? "").trim();
-  const relayUrl = String(group.relayUrl ?? "").trim();
-  if (groupId.length > 0 && relayUrl.length > 0) {
-    return `${groupId}@@${relayUrl}`;
-  }
-  return String(group.id ?? "").trim();
-};
-
-const mergePersistedGroupConversations = (
-  current: PersistedChatState["createdGroups"],
-  incoming: PersistedChatState["createdGroups"],
-): PersistedChatState["createdGroups"] => {
-  const byKey = new Map<string, PersistedChatState["createdGroups"][number]>();
-
-  const mergeEntry = (
-    left: PersistedChatState["createdGroups"][number],
-    right: PersistedChatState["createdGroups"][number],
-  ): PersistedChatState["createdGroups"][number] => {
-    const rightIsNewer = Number(right.lastMessageTimeMs ?? 0) >= Number(left.lastMessageTimeMs ?? 0);
-    const newer = rightIsNewer ? right : left;
-    const older = rightIsNewer ? left : right;
-
-    const mergedGroupId = String(newer.groupId ?? older.groupId ?? "").trim();
-    const mergedRelayUrl = String(newer.relayUrl ?? older.relayUrl ?? "").trim();
-    const mergedCommunityIdCandidate = (
-      isHashedCommunityId(newer.communityId)
-        ? newer.communityId
-        : isHashedCommunityId(older.communityId)
-          ? older.communityId
-          : (newer.communityId ?? "").trim() || (older.communityId ?? "").trim() || undefined
-    );
-    const mergedGenesisEventId = newer.genesisEventId ?? older.genesisEventId;
-    const mergedCreatorPubkey = newer.creatorPubkey ?? older.creatorPubkey;
-
-    const mergedMemberPubkeys = uniqueStrings([
-      ...(left.memberPubkeys ?? []),
-      ...(right.memberPubkeys ?? []),
-      ...(left.creatorPubkey ? [left.creatorPubkey] : []),
-      ...(right.creatorPubkey ? [right.creatorPubkey] : []),
-    ]);
-    const mergedAdminPubkeys = uniqueStrings([
-      ...(left.adminPubkeys ?? []),
-      ...(right.adminPubkeys ?? []),
-    ]);
-    const mergedConversationId = (mergedGroupId.length > 0 && mergedRelayUrl.length > 0)
-      ? toGroupConversationId({
-        groupId: mergedGroupId,
-        relayUrl: mergedRelayUrl,
-        communityId: mergedCommunityIdCandidate,
-        genesisEventId: mergedGenesisEventId,
-        creatorPubkey: mergedCreatorPubkey,
-      })
-      : (newer.id || older.id);
-
-    const newerAvatar = newer.avatar?.trim();
-    const olderAvatar = older.avatar?.trim();
-    const newerAbout = newer.about?.trim();
-    const olderAbout = older.about?.trim();
-
-    return {
-      ...older,
-      ...newer,
-      id: mergedConversationId,
-      groupId: mergedGroupId,
-      relayUrl: mergedRelayUrl,
-      communityId: mergedCommunityIdCandidate,
-      genesisEventId: mergedGenesisEventId,
-      creatorPubkey: mergedCreatorPubkey,
-      displayName: pickPreferredGroupDisplayName(newer.displayName, older.displayName),
-      memberPubkeys: mergedMemberPubkeys,
-      adminPubkeys: mergedAdminPubkeys,
-      memberCount: Math.max(
-        left.memberCount ?? 0,
-        right.memberCount ?? 0,
-        mergedMemberPubkeys.length,
-      ),
-      lastMessage: (newer.lastMessage ?? "").trim().length > 0
-        ? newer.lastMessage
-        : older.lastMessage,
-      avatar: newerAvatar && newerAvatar.length > 0
-        ? newerAvatar
-        : olderAvatar && olderAvatar.length > 0
-          ? olderAvatar
-          : undefined,
-      about: newerAbout && newerAbout.length > 0
-        ? newerAbout
-        : olderAbout && olderAbout.length > 0
-          ? olderAbout
-          : undefined,
-    };
-  };
-
-  for (const group of [...current, ...incoming]) {
-    const key = toPersistedGroupMergeKey(group);
-    const existing = byKey.get(key);
-    if (!existing) {
-      byKey.set(key, group);
-      continue;
-    }
-    byKey.set(key, mergeEntry(existing, group));
-  }
-
-  return Array.from(byKey.values());
-};
-
-const mergeChatState = (
-  current: EncryptedAccountBackupPayload["chatState"],
-  incoming: EncryptedAccountBackupPayload["chatState"],
-  options?: Readonly<{
-    durableDeleteIds?: ReadonlySet<string>;
-  }>
-): EncryptedAccountBackupPayload["chatState"] => {
-  if (!current) {
-    return sanitizePersistedChatStateMessagesByDeleteContract(incoming, options);
-  }
-  if (!incoming) {
-    return sanitizePersistedChatStateMessagesByDeleteContract(current, options);
-  }
-  return sanitizePersistedChatStateMessagesByDeleteContract({
-    ...incoming,
-    createdConnections: pickNewestBy(
-      [...current.createdConnections, ...incoming.createdConnections],
-      (value) => String(value.id ?? ""),
-      (value) => Number(value.lastMessageTimeMs ?? 0)
-    ),
-    createdGroups: mergePersistedGroupConversations(
-      current.createdGroups,
-      incoming.createdGroups,
-    ),
-    connectionRequests: pickNewestBy(
-      [...(current.connectionRequests ?? []), ...(incoming.connectionRequests ?? [])],
-      (value) => String(value.id ?? ""),
-      (value) => Number(value.timestampMs ?? 0)
-    ),
-    pinnedChatIds: uniqueStrings([...(current.pinnedChatIds ?? []), ...(incoming.pinnedChatIds ?? [])]),
-    hiddenChatIds: uniqueStrings([...(current.hiddenChatIds ?? []), ...(incoming.hiddenChatIds ?? [])]),
-    unreadByConversationId: {
-      ...current.unreadByConversationId,
-      ...incoming.unreadByConversationId,
-    },
-    connectionOverridesByConnectionId: {
-      ...current.connectionOverridesByConnectionId,
-      ...incoming.connectionOverridesByConnectionId,
-    },
-    messagesByConversationId: mergeMessageMaps(
-      current.messagesByConversationId,
-      incoming.messagesByConversationId,
-    ),
-    groupMessages: mergeGroupMessageMaps(current.groupMessages, incoming.groupMessages),
-  }, options);
-};
-
-const normalizeMessageStatus = (value: unknown): PersistedMessage["status"] => {
-  switch (value) {
-    case "delivered":
-    case "sending":
-    case "accepted":
-    case "rejected":
-    case "queued":
-    case "failed":
-      return value;
-    default:
-      return "delivered";
-  }
-};
-
-const toTimestampMs = (value: unknown): number | null => {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return value;
-  }
-  if (value instanceof Date) {
-    const unixMs = value.getTime();
-    return Number.isFinite(unixMs) ? unixMs : null;
-  }
-  if (typeof value === "string") {
-    const parsed = Number(value);
-    if (Number.isFinite(parsed)) {
-      return parsed;
-    }
-    const dateValue = new Date(value).getTime();
-    return Number.isFinite(dateValue) ? dateValue : null;
-  }
-  return null;
-};
-
-const inferPeerFromConversationId = (params: Readonly<{
-  conversationId: string;
-  myPublicKeyHex: PublicKeyHex;
-}>): PublicKeyHex | null => {
-  const directPeer = normalizePublicKeyHex(params.conversationId);
-  if (directPeer && directPeer !== params.myPublicKeyHex) {
-    return directPeer;
-  }
-  const parts = params.conversationId.split(":");
-  if (parts.length !== 2) {
-    return null;
-  }
-  const left = normalizePublicKeyHex(parts[0]);
-  const right = normalizePublicKeyHex(parts[1]);
-  if (!left || !right) {
-    return null;
-  }
-  if (left === params.myPublicKeyHex && right !== params.myPublicKeyHex) {
-    return right;
-  }
-  if (right === params.myPublicKeyHex && left !== params.myPublicKeyHex) {
-    return left;
-  }
-  return null;
-};
-
-const isLikelyGroupConversationId = (conversationId: string): boolean => {
-  const trimmed = conversationId.trim();
-  return trimmed.startsWith("community:") || trimmed.startsWith("group:") || trimmed.includes("@");
-};
-
-const toPersistedGroupMessageFromIndexedRecord = (params: Readonly<{
-  record: Readonly<Record<string, unknown>>;
-  myPublicKeyHex: PublicKeyHex;
-}>): Readonly<{
-  conversationId: string;
-  persistedMessage: PersistedGroupMessage;
-}> | null => {
-  const conversationIdRaw = params.record.conversationId;
-  if (typeof conversationIdRaw !== "string") {
-    return null;
-  }
-  const conversationId = conversationIdRaw.trim();
-  if (!conversationId || !isLikelyGroupConversationId(conversationId)) {
-    return null;
-  }
-
-  const idRaw = params.record.id;
-  const eventIdRaw = params.record.eventId;
-  const normalizedEventId = typeof eventIdRaw === "string" && eventIdRaw.trim().length > 0
-    ? eventIdRaw.trim()
-    : null;
-  const normalizedId = typeof idRaw === "string" && idRaw.trim().length > 0
-    ? idRaw.trim()
-    : null;
-  const messageId = normalizedEventId ?? normalizedId;
-  if (!messageId) {
-    return null;
-  }
-
-  const timestampMs = toTimestampMs(params.record.timestampMs)
-    ?? toTimestampMs(params.record.timestamp)
-    ?? toTimestampMs(params.record.eventCreatedAt)
-    ?? Date.now();
-  const createdAtUnixSeconds = Math.max(0, Math.floor(timestampMs / 1000));
-
-  const senderPubkey = normalizePublicKeyHex(
-    typeof params.record.senderPubkey === "string" ? params.record.senderPubkey : undefined
-  ) ?? normalizePublicKeyHex(
-    typeof params.record.pubkey === "string" ? params.record.pubkey : undefined
-  ) ?? (
-    params.record.isOutgoing === true ? params.myPublicKeyHex : null
-  );
-  if (!senderPubkey) {
-    return null;
-  }
-
-  const content = typeof params.record.content === "string"
-    ? params.record.content
-    : "";
-
-  return {
-    conversationId,
-    persistedMessage: {
-      id: messageId,
-      pubkey: senderPubkey,
-      content,
-      created_at: createdAtUnixSeconds,
-    },
-  };
-};
-
-const toAttachmentKind = (value: unknown): Attachment["kind"] | null => {
-  if (value === "image" || value === "video" || value === "audio" || value === "voice_note" || value === "file") {
-    return value;
-  }
-  return null;
-};
-
-const extractAttachmentFileNameFromUrl = (url: string): string | null => {
-  const trimmed = url.trim();
-  if (trimmed.length === 0) {
-    return null;
-  }
-  const withoutQuery = trimmed.split("#")[0]?.split("?")[0] ?? trimmed;
-  const segment = withoutQuery.split("/").pop()?.trim() ?? "";
-  if (!segment) {
-    return null;
-  }
-  try {
-    const decoded = decodeURIComponent(segment).trim();
-    return decoded.length > 0 ? decoded : null;
-  } catch {
-    return segment;
-  }
-};
-
-const inferAttachmentKindFromCandidate = (params: Readonly<{
-  kindHint: Attachment["kind"] | null;
-  contentType: string;
-  fileName: string;
-  url: string;
-}>): Attachment["kind"] => {
-  if (params.kindHint) {
-    return params.kindHint;
-  }
-  const probe = `${params.contentType} ${params.fileName} ${params.url}`.toLowerCase();
-  if (probe.includes("voice-note") || probe.includes("voice_note")) {
-    return "voice_note";
-  }
-  if (probe.includes("image/") || /\.(png|jpe?g|webp|gif|bmp|avif|svg)$/i.test(probe)) {
-    return "image";
-  }
-  if (probe.includes("video/") || /\.(mp4|mov|m4v|mkv|webm|avi)$/i.test(probe)) {
-    return "video";
-  }
-  if (probe.includes("audio/") || /\.(mp3|wav|m4a|ogg|opus|aac|flac|weba)$/i.test(probe)) {
-    return "audio";
-  }
-  return "file";
-};
-
-const inferAttachmentContentTypeFromCandidate = (params: Readonly<{
-  explicit: string;
-  kind: Attachment["kind"];
-  fileName: string;
-  url: string;
-}>): string => {
-  if (params.explicit.length > 0) {
-    return params.explicit;
-  }
-  const probe = `${params.fileName} ${params.url}`.toLowerCase();
-  if (params.kind === "voice_note") return "audio/webm";
-  if (params.kind === "image") {
-    if (probe.includes(".png")) return "image/png";
-    if (probe.includes(".gif")) return "image/gif";
-    if (probe.includes(".webp")) return "image/webp";
-    return "image/jpeg";
-  }
-  if (params.kind === "video") {
-    if (probe.includes(".webm")) return "video/webm";
-    if (probe.includes(".mov")) return "video/quicktime";
-    return "video/mp4";
-  }
-  if (params.kind === "audio") {
-    if (probe.includes(".wav")) return "audio/wav";
-    if (probe.includes(".ogg")) return "audio/ogg";
-    if (probe.includes(".m4a")) return "audio/mp4";
-    return "audio/mpeg";
-  }
-  if (probe.includes(".pdf")) return "application/pdf";
-  return "application/octet-stream";
-};
-
-const parseAttachmentCandidate = (value: unknown): Attachment | null => {
-  if (!value || typeof value !== "object") {
-    return null;
-  }
-  const candidate = value as Partial<Attachment>;
-  const kindHint = toAttachmentKind(candidate.kind);
-  const url = typeof candidate.url === "string" ? candidate.url.trim() : "";
-  const contentType = typeof candidate.contentType === "string" ? candidate.contentType.trim() : "";
-  const fileName = typeof candidate.fileName === "string" ? candidate.fileName.trim() : "";
-  if (!url) {
-    return null;
-  }
-  const normalizedFileName = fileName || extractAttachmentFileNameFromUrl(url) || "attachment";
-  const kind = inferAttachmentKindFromCandidate({
-    kindHint,
-    contentType,
-    fileName: normalizedFileName,
-    url,
-  });
-  return {
-    kind,
-    url,
-    contentType: inferAttachmentContentTypeFromCandidate({
-      explicit: contentType,
-      kind,
-      fileName: normalizedFileName,
-      url,
-    }),
-    fileName: normalizedFileName,
-  };
-};
-
-const dedupeAttachments = (attachments: ReadonlyArray<Attachment>): ReadonlyArray<Attachment> => {
-  if (attachments.length <= 1) {
-    return attachments;
-  }
-  const byUrl = new Map<string, Attachment>();
-  attachments.forEach((attachment) => {
-    const url = attachment.url.trim();
-    if (!url || byUrl.has(url)) {
-      return;
-    }
-    byUrl.set(url, {
-      ...attachment,
-      url,
-    });
-  });
-  return Array.from(byUrl.values());
-};
-
-const normalizePersistedMessageAttachments = (message: PersistedMessage): PersistedMessage => {
-  const candidateRecord = message as unknown as Readonly<Record<string, unknown>>;
-  const fromArray = Array.isArray(message.attachments)
-    ? message.attachments
-      .map((attachment) => parseAttachmentCandidate(attachment))
-      .filter((attachment): attachment is Attachment => attachment !== null)
-    : [];
-  const fromLegacySingle = parseAttachmentCandidate(candidateRecord.attachment);
-  const normalizedAttachments = dedupeAttachments([
-    ...fromArray,
-    ...(fromLegacySingle ? [fromLegacySingle] : []),
-  ]);
-  if (normalizedAttachments.length === 0) {
-    const { attachments: _attachments, ...rest } = message as PersistedMessage & Readonly<{ attachments?: ReadonlyArray<Attachment> }>;
-    return rest;
-  }
-  return {
-    ...message,
-    attachments: normalizedAttachments,
-  };
-};
-
-const extractPersistedAttachmentsFromRecord = (
-  record: Readonly<Record<string, unknown>>,
-  content: string,
-): ReadonlyArray<Attachment> => {
-  const fromArray = Array.isArray(record.attachments)
-    ? record.attachments
-      .map((value) => parseAttachmentCandidate(value))
-      .filter((value): value is Attachment => value !== null)
-    : [];
-  const fromLegacySingle = parseAttachmentCandidate(record.attachment);
-  const fromRecord = dedupeAttachments([
-    ...fromArray,
-    ...(fromLegacySingle ? [fromLegacySingle] : []),
-  ]);
-  if (fromRecord.length > 0) {
-    return fromRecord;
-  }
-  return dedupeAttachments(extractAttachmentsFromContent(content));
-};
-
-const resolveDmRecordDirection = (params: Readonly<{
-  record: Readonly<Record<string, unknown>>;
-  conversationId: string;
-  myPublicKeyHex: PublicKeyHex;
-}>): Readonly<{
-  isOutgoing: boolean;
-  senderPubkey: PublicKeyHex | null;
-  recipientPubkey: PublicKeyHex | null;
-  peerPublicKeyHex: PublicKeyHex | null;
-}> => {
-  const senderPubkeyFromRecord = normalizePublicKeyHex(
-    typeof params.record.senderPubkey === "string" ? params.record.senderPubkey : undefined
-  ) ?? normalizePublicKeyHex(
-    typeof params.record.pubkey === "string" ? params.record.pubkey : undefined
-  );
-  const recipientPubkey = normalizePublicKeyHex(
-    typeof params.record.recipientPubkey === "string" ? params.record.recipientPubkey : undefined
-  );
-  const inferredPeerPublicKeyHex = inferPeerFromConversationId({
-    conversationId: params.conversationId,
-    myPublicKeyHex: params.myPublicKeyHex,
-  });
-
-  let isOutgoing = typeof params.record.isOutgoing === "boolean"
-    ? params.record.isOutgoing
-    : false;
-  let peerPublicKeyHex: PublicKeyHex | null = null;
-
-  if (
-    senderPubkeyFromRecord === params.myPublicKeyHex
-    && recipientPubkey
-    && recipientPubkey !== params.myPublicKeyHex
-  ) {
-    isOutgoing = true;
-    peerPublicKeyHex = recipientPubkey;
-  } else if (senderPubkeyFromRecord === params.myPublicKeyHex) {
-    isOutgoing = true;
-    peerPublicKeyHex = inferredPeerPublicKeyHex;
-  } else if (
-    recipientPubkey === params.myPublicKeyHex
-    && senderPubkeyFromRecord
-    && senderPubkeyFromRecord !== params.myPublicKeyHex
-  ) {
-    isOutgoing = false;
-    peerPublicKeyHex = senderPubkeyFromRecord;
-  } else if (
-    !senderPubkeyFromRecord
-    && recipientPubkey
-    && recipientPubkey !== params.myPublicKeyHex
-    && inferredPeerPublicKeyHex
-    && recipientPubkey === inferredPeerPublicKeyHex
-  ) {
-    // Legacy records can omit senderPubkey/isOutgoing while still carrying
-    // recipient and canonical conversation context.
-    isOutgoing = true;
-    peerPublicKeyHex = recipientPubkey;
-  } else {
-    peerPublicKeyHex = inferredPeerPublicKeyHex;
-  }
-
-  const senderPubkey = senderPubkeyFromRecord ?? (
-    isOutgoing
-      ? params.myPublicKeyHex
-      : peerPublicKeyHex
-  );
-
-  return {
-    isOutgoing,
-    senderPubkey,
-    recipientPubkey,
-    peerPublicKeyHex,
-  };
-};
-
-const toPersistedMessageFromIndexedRecord = (params: Readonly<{
-  record: Readonly<Record<string, unknown>>;
-  myPublicKeyHex: PublicKeyHex;
-}>): Readonly<{
-  conversationId: string;
-  persistedMessage: PersistedMessage;
-  peerPublicKeyHex: PublicKeyHex | null;
-}> | null => {
-  const conversationIdRaw = params.record.conversationId;
-  if (typeof conversationIdRaw !== "string") {
-    return null;
-  }
-  const conversationId = conversationIdRaw.trim();
-  if (conversationId.length === 0) {
-    return null;
-  }
-
-  const idRaw = params.record.id;
-  const eventIdRaw = params.record.eventId;
-  const normalizedEventId = typeof eventIdRaw === "string" && eventIdRaw.trim().length > 0
-    ? eventIdRaw.trim()
-    : null;
-  const normalizedId = typeof idRaw === "string" && idRaw.trim().length > 0
-    ? idRaw.trim()
-    : null;
-  const messageId = normalizedEventId ?? normalizedId;
-  if (!messageId) {
-    return null;
-  }
-
-  const timestampMs = toTimestampMs(params.record.timestampMs)
-    ?? toTimestampMs(params.record.timestamp)
-    ?? toTimestampMs(params.record.eventCreatedAt)
-    ?? Date.now();
-  const { isOutgoing, senderPubkey, peerPublicKeyHex } = resolveDmRecordDirection({
-    record: params.record,
-    conversationId,
-    myPublicKeyHex: params.myPublicKeyHex,
-  });
-
-  const content = typeof params.record.content === "string"
-    ? params.record.content
-    : "";
-  const attachments = extractPersistedAttachmentsFromRecord(params.record, content);
-
-  const kind = params.record.kind === "command" ? "command" : undefined;
-
-  return {
-    conversationId,
-    persistedMessage: {
-      id: messageId,
-      ...(normalizedEventId ? { eventId: normalizedEventId } : {}),
-      ...(kind ? { kind } : {}),
-      ...(senderPubkey ? { pubkey: senderPubkey } : {}),
-      content,
-      timestampMs,
-      isOutgoing,
-      status: normalizeMessageStatus(params.record.status),
-      ...(attachments.length > 0 ? { attachments } : {}),
-    },
-    peerPublicKeyHex,
-  };
-};
-
-const loadMessageQueueRecords = async (
-  publicKeyHex: PublicKeyHex
-): Promise<ReadonlyArray<Readonly<Record<string, unknown>>>> => {
-  try {
-    const messageQueue = new MessageQueue(publicKeyHex);
-    const messages = await withTimeout(
-      messageQueue.getAllMessages(MESSAGE_QUEUE_BACKUP_SCAN_LIMIT),
-      INDEXED_DB_READ_TIMEOUT_MS,
-    );
-    return messages as unknown as ReadonlyArray<Readonly<Record<string, unknown>>>;
-  } catch {
-    return [];
-  }
-};
-
-const loadIndexedMessageRecords = async (): Promise<ReadonlyArray<Readonly<Record<string, unknown>>>> => {
-  try {
-    return await withTimeout(
-      messagingDB.getAllByIndex<Readonly<Record<string, unknown>>>(
-        "messages",
-        "timestampMs",
-        undefined,
-        INDEXED_MESSAGE_BACKUP_SCAN_LIMIT,
-        "prev",
-      ),
-      INDEXED_DB_READ_TIMEOUT_MS,
-    );
-  } catch {
-    // Fallback for legacy environments/tests without index support.
-    try {
-      return await withTimeout(
-        messagingDB.getAll<Readonly<Record<string, unknown>>>("messages"),
-        INDEXED_DB_READ_TIMEOUT_MS,
-      );
-    } catch {
-      return [];
-    }
-  }
-};
-
-const hasOutgoingMessageEvidence = (
-  record: Readonly<Record<string, unknown>>,
-  myPublicKeyHex: PublicKeyHex
-): boolean => {
-  const conversationId = typeof record.conversationId === "string"
-    ? record.conversationId.trim()
-    : "";
-  return resolveDmRecordDirection({
-    record,
-    conversationId,
-    myPublicKeyHex,
-  }).isOutgoing;
-};
-
-type ChatStateMessageDiagnostics = Readonly<{
-  dmConversationCount: number;
-  dmCanonicalConversationCount: number;
-  dmMessageCount: number;
-  dmOutgoingCount: number;
-  dmIncomingCount: number;
-  dmMessageWithAttachmentsCount: number;
-  dmAttachmentCount: number;
-  dmIncomingOnlyConversationCount: number;
-  dmOutgoingOnlyConversationCount: number;
-  dmCanonicalConversationIdMismatchCount: number;
-  dmCanonicalCollisionCount: number;
-  dmCanonicalCollisionSample: string | null;
-  groupConversationCount: number;
-  groupMessageCount: number;
-  groupSelfAuthoredCount: number;
-  groupMessageWithAttachmentsCount: number;
-  groupAttachmentCount: number;
-}>;
-
-type MessageRecordDiagnostics = Readonly<{
-  recordCount: number;
-  rawConversationCount: number;
-  canonicalConversationCount: number;
-  canonicalConversationIdMismatchCount: number;
-  canonicalCollisionCount: number;
-  canonicalCollisionSample: string | null;
-  outgoingRecordCount: number;
-  incomingRecordCount: number;
-  incomingOnlyRawConversationCount: number;
-}>;
-
-const EMPTY_CHAT_STATE_MESSAGE_DIAGNOSTICS: ChatStateMessageDiagnostics = {
-  dmConversationCount: 0,
-  dmCanonicalConversationCount: 0,
-  dmMessageCount: 0,
-  dmOutgoingCount: 0,
-  dmIncomingCount: 0,
-  dmMessageWithAttachmentsCount: 0,
-  dmAttachmentCount: 0,
-  dmIncomingOnlyConversationCount: 0,
-  dmOutgoingOnlyConversationCount: 0,
-  dmCanonicalConversationIdMismatchCount: 0,
-  dmCanonicalCollisionCount: 0,
-  dmCanonicalCollisionSample: null,
-  groupConversationCount: 0,
-  groupMessageCount: 0,
-  groupSelfAuthoredCount: 0,
-  groupMessageWithAttachmentsCount: 0,
-  groupAttachmentCount: 0,
-};
-
-const EMPTY_MESSAGE_RECORD_DIAGNOSTICS: MessageRecordDiagnostics = {
-  recordCount: 0,
-  rawConversationCount: 0,
-  canonicalConversationCount: 0,
-  canonicalConversationIdMismatchCount: 0,
-  canonicalCollisionCount: 0,
-  canonicalCollisionSample: null,
-  outgoingRecordCount: 0,
-  incomingRecordCount: 0,
-  incomingOnlyRawConversationCount: 0,
-};
-
-const toConversationIdDiagnosticLabel = (value: string): string => {
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return "unknown";
-  }
-  if (trimmed.length <= 20) {
-    return trimmed;
-  }
-  return `${trimmed.slice(0, 8)}...${trimmed.slice(-8)}`;
-};
-
-const toCanonicalDmConversationId = (params: Readonly<{
-  conversationId: string;
-  myPublicKeyHex: PublicKeyHex;
-}>): string => {
-  const inferredPeer = inferPeerFromConversationId(params);
-  if (!inferredPeer) {
-    return params.conversationId;
-  }
-  return toDmConversationId({
-    myPublicKeyHex: params.myPublicKeyHex,
-    peerPublicKeyHex: inferredPeer,
-  }) ?? params.conversationId;
-};
-
-const summarizePersistedChatStateMessages = (
-  chatState: PersistedChatState | null | undefined,
-  myPublicKeyHex: PublicKeyHex,
-): ChatStateMessageDiagnostics => {
-  if (!chatState) {
-    return EMPTY_CHAT_STATE_MESSAGE_DIAGNOSTICS;
-  }
-  const conversationStatsById = new Map<string, Readonly<{ outgoing: number; incoming: number }>>();
-  const canonicalSourceIds = new Map<string, Set<string>>();
-  let dmCanonicalConversationIdMismatchCount = 0;
-  let dmMessageCount = 0;
-  let dmOutgoingCount = 0;
-  let dmIncomingCount = 0;
-  let dmMessageWithAttachmentsCount = 0;
-  let dmAttachmentCount = 0;
-
-  Object.entries(chatState.messagesByConversationId ?? {}).forEach(([conversationId, messages]) => {
-    const canonicalConversationId = toCanonicalDmConversationId({
-      conversationId,
-      myPublicKeyHex,
-    });
-    if (canonicalConversationId !== conversationId) {
-      dmCanonicalConversationIdMismatchCount += 1;
-    }
-    const canonicalSources = canonicalSourceIds.get(canonicalConversationId) ?? new Set<string>();
-    canonicalSources.add(conversationId);
-    canonicalSourceIds.set(canonicalConversationId, canonicalSources);
-
-    let outgoing = 0;
-    let incoming = 0;
-    messages.forEach((message) => {
-      const senderPubkey = normalizePublicKeyHex(message.pubkey);
-      const isOutgoing = message.isOutgoing === true || senderPubkey === myPublicKeyHex;
-      const attachmentCount = Array.isArray(message.attachments) ? message.attachments.length : 0;
-      if (isOutgoing) {
-        outgoing += 1;
-      } else {
-        incoming += 1;
-      }
-      if (attachmentCount > 0) {
-        dmMessageWithAttachmentsCount += 1;
-        dmAttachmentCount += attachmentCount;
-      }
-    });
-
-    dmMessageCount += messages.length;
-    dmOutgoingCount += outgoing;
-    dmIncomingCount += incoming;
-    conversationStatsById.set(conversationId, { outgoing, incoming });
-  });
-
-  const collisionEntries = Array.from(canonicalSourceIds.entries())
-    .filter(([, sourceIds]) => sourceIds.size > 1);
-  const dmCanonicalCollisionSample = collisionEntries.length === 0
-    ? null
-    : collisionEntries.slice(0, 3).map(([canonicalId, sourceIds]) => (
-      `${toConversationIdDiagnosticLabel(canonicalId)}<=${Array.from(sourceIds).slice(0, 3).map(toConversationIdDiagnosticLabel).join("|")}`
-    )).join(",");
-
-  const dmIncomingOnlyConversationCount = Array.from(conversationStatsById.values())
-    .filter((entry) => entry.incoming > 0 && entry.outgoing === 0).length;
-  const dmOutgoingOnlyConversationCount = Array.from(conversationStatsById.values())
-    .filter((entry) => entry.outgoing > 0 && entry.incoming === 0).length;
-
-  const groupMessages = chatState.groupMessages ?? {};
-  let groupMessageCount = 0;
-  let groupSelfAuthoredCount = 0;
-  let groupMessageWithAttachmentsCount = 0;
-  let groupAttachmentCount = 0;
-  Object.values(groupMessages).forEach((messages) => {
-    groupMessageCount += messages.length;
-    messages.forEach((message) => {
-      if (normalizePublicKeyHex(message.pubkey) === myPublicKeyHex) {
-        groupSelfAuthoredCount += 1;
-      }
-      const attachmentCandidate = (message as Readonly<Record<string, unknown>>).attachments;
-      const attachmentCount = Array.isArray(attachmentCandidate) ? attachmentCandidate.length : 0;
-      if (attachmentCount > 0) {
-        groupMessageWithAttachmentsCount += 1;
-        groupAttachmentCount += attachmentCount;
-      }
-    });
-  });
-
-  return {
-    dmConversationCount: conversationStatsById.size,
-    dmCanonicalConversationCount: canonicalSourceIds.size,
-    dmMessageCount,
-    dmOutgoingCount,
-    dmIncomingCount,
-    dmMessageWithAttachmentsCount,
-    dmAttachmentCount,
-    dmIncomingOnlyConversationCount,
-    dmOutgoingOnlyConversationCount,
-    dmCanonicalConversationIdMismatchCount,
-    dmCanonicalCollisionCount: collisionEntries.length,
-    dmCanonicalCollisionSample,
-    groupConversationCount: Object.keys(groupMessages).length,
-    groupMessageCount,
-    groupSelfAuthoredCount,
-    groupMessageWithAttachmentsCount,
-    groupAttachmentCount,
-  };
-};
-
-const summarizeMessageRecords = (
-  records: ReadonlyArray<Readonly<Record<string, unknown>>>,
-  myPublicKeyHex: PublicKeyHex,
-): MessageRecordDiagnostics => {
-  if (records.length === 0) {
-    return EMPTY_MESSAGE_RECORD_DIAGNOSTICS;
-  }
-
-  const canonicalSourceIds = new Map<string, Set<string>>();
-  const rawConversationStats = new Map<string, Readonly<{ outgoing: number; incoming: number }>>();
-  let canonicalConversationIdMismatchCount = 0;
-  let outgoingRecordCount = 0;
-
-  records.forEach((record) => {
-    const rawConversationId = typeof record.conversationId === "string" ? record.conversationId.trim() : "";
-    if (!rawConversationId) {
-      return;
-    }
-
-    const canonicalConversationId = toCanonicalDmConversationId({
-      conversationId: rawConversationId,
-      myPublicKeyHex,
-    });
-    if (canonicalConversationId !== rawConversationId) {
-      canonicalConversationIdMismatchCount += 1;
-    }
-    const canonicalSources = canonicalSourceIds.get(canonicalConversationId) ?? new Set<string>();
-    canonicalSources.add(rawConversationId);
-    canonicalSourceIds.set(canonicalConversationId, canonicalSources);
-
-    const hasOutgoingEvidence = hasOutgoingMessageEvidence(record, myPublicKeyHex);
-    if (hasOutgoingEvidence) {
-      outgoingRecordCount += 1;
-    }
-    const existingStats = rawConversationStats.get(rawConversationId) ?? { outgoing: 0, incoming: 0 };
-    rawConversationStats.set(rawConversationId, hasOutgoingEvidence
-      ? { outgoing: existingStats.outgoing + 1, incoming: existingStats.incoming }
-      : { outgoing: existingStats.outgoing, incoming: existingStats.incoming + 1 });
-  });
-
-  const collisionEntries = Array.from(canonicalSourceIds.entries())
-    .filter(([, sourceIds]) => sourceIds.size > 1);
-  const canonicalCollisionSample = collisionEntries.length === 0
-    ? null
-    : collisionEntries.slice(0, 3).map(([canonicalId, sourceIds]) => (
-      `${toConversationIdDiagnosticLabel(canonicalId)}<=${Array.from(sourceIds).slice(0, 3).map(toConversationIdDiagnosticLabel).join("|")}`
-    )).join(",");
-
-  const incomingOnlyRawConversationCount = Array.from(rawConversationStats.values())
-    .filter((stats) => stats.incoming > 0 && stats.outgoing === 0).length;
-
-  return {
-    recordCount: records.length,
-    rawConversationCount: rawConversationStats.size,
-    canonicalConversationCount: canonicalSourceIds.size,
-    canonicalConversationIdMismatchCount,
-    canonicalCollisionCount: collisionEntries.length,
-    canonicalCollisionSample,
-    outgoingRecordCount,
-    incomingRecordCount: Math.max(0, records.length - outgoingRecordCount),
-    incomingOnlyRawConversationCount,
-  };
-};
-
-const toPrefixedChatStateDiagnosticsContext = (
-  prefix: string,
-  diagnostics: ChatStateMessageDiagnostics,
-): Readonly<Record<string, string | number | boolean | null>> => ({
-  [`${prefix}DmConversationCount`]: diagnostics.dmConversationCount,
-  [`${prefix}DmCanonicalConversationCount`]: diagnostics.dmCanonicalConversationCount,
-  [`${prefix}DmMessageCount`]: diagnostics.dmMessageCount,
-  [`${prefix}DmOutgoingCount`]: diagnostics.dmOutgoingCount,
-  [`${prefix}DmIncomingCount`]: diagnostics.dmIncomingCount,
-  [`${prefix}DmMessageWithAttachmentsCount`]: diagnostics.dmMessageWithAttachmentsCount,
-  [`${prefix}DmAttachmentCount`]: diagnostics.dmAttachmentCount,
-  [`${prefix}DmIncomingOnlyConversationCount`]: diagnostics.dmIncomingOnlyConversationCount,
-  [`${prefix}DmOutgoingOnlyConversationCount`]: diagnostics.dmOutgoingOnlyConversationCount,
-  [`${prefix}DmCanonicalConversationIdMismatchCount`]: diagnostics.dmCanonicalConversationIdMismatchCount,
-  [`${prefix}DmCanonicalCollisionCount`]: diagnostics.dmCanonicalCollisionCount,
-  [`${prefix}DmCanonicalCollisionSample`]: diagnostics.dmCanonicalCollisionSample,
-  [`${prefix}GroupConversationCount`]: diagnostics.groupConversationCount,
-  [`${prefix}GroupMessageCount`]: diagnostics.groupMessageCount,
-  [`${prefix}GroupSelfAuthoredCount`]: diagnostics.groupSelfAuthoredCount,
-  [`${prefix}GroupMessageWithAttachmentsCount`]: diagnostics.groupMessageWithAttachmentsCount,
-  [`${prefix}GroupAttachmentCount`]: diagnostics.groupAttachmentCount,
-});
-
-const toPrefixedRecordDiagnosticsContext = (
-  prefix: string,
-  diagnostics: MessageRecordDiagnostics,
-): Readonly<Record<string, string | number | boolean | null>> => ({
-  [`${prefix}RecordCount`]: diagnostics.recordCount,
-  [`${prefix}RawConversationCount`]: diagnostics.rawConversationCount,
-  [`${prefix}CanonicalConversationCount`]: diagnostics.canonicalConversationCount,
-  [`${prefix}CanonicalConversationIdMismatchCount`]: diagnostics.canonicalConversationIdMismatchCount,
-  [`${prefix}CanonicalCollisionCount`]: diagnostics.canonicalCollisionCount,
-  [`${prefix}CanonicalCollisionSample`]: diagnostics.canonicalCollisionSample,
-  [`${prefix}OutgoingRecordCount`]: diagnostics.outgoingRecordCount,
-  [`${prefix}IncomingRecordCount`]: diagnostics.incomingRecordCount,
-  [`${prefix}IncomingOnlyRawConversationCount`]: diagnostics.incomingOnlyRawConversationCount,
-});
-
-type BackupRestoreHistoryRegressionStage =
-  | "incoming_to_merged"
-  | "merged_to_applied_store"
-  | "post_apply_to_post_canonical_append";
-
-const maybeEmitBackupRestoreHistoryRegression = (params: Readonly<{
-  publicKeyHex: PublicKeyHex;
-  stage: BackupRestoreHistoryRegressionStage;
-  from: ChatStateMessageDiagnostics;
-  to: ChatStateMessageDiagnostics;
-  restorePath?: "full_v1" | "non_v1_domains" | "relay_sync_append";
-  restoreChatStateDomains?: boolean;
-  canonicalEventCount?: number;
-}>): void => {
-  const dmOutgoingDelta = params.to.dmOutgoingCount - params.from.dmOutgoingCount;
-  const groupSelfAuthoredDelta = params.to.groupSelfAuthoredCount - params.from.groupSelfAuthoredCount;
-  const dmAttachmentDelta = params.to.dmAttachmentCount - params.from.dmAttachmentCount;
-  const groupAttachmentDelta = params.to.groupAttachmentCount - params.from.groupAttachmentCount;
-  if (
-    dmOutgoingDelta >= 0
-    && groupSelfAuthoredDelta >= 0
-    && dmAttachmentDelta >= 0
-    && groupAttachmentDelta >= 0
-  ) {
-    return;
-  }
-  logAppEvent({
-    name: "account_sync.backup_restore_history_regression",
-    level: "warn",
-    scope: { feature: "account_sync", action: "backup_restore" },
-    context: {
-      publicKeySuffix: params.publicKeyHex.slice(-8),
-      stage: params.stage,
-      restorePath: params.restorePath ?? null,
-      restoreChatStateDomains: typeof params.restoreChatStateDomains === "boolean"
-        ? params.restoreChatStateDomains
-        : null,
-      canonicalEventCount: typeof params.canonicalEventCount === "number"
-        ? params.canonicalEventCount
-        : null,
-      dmOutgoingDropped: dmOutgoingDelta < 0,
-      groupSelfAuthoredDropped: groupSelfAuthoredDelta < 0,
-      dmAttachmentDropped: dmAttachmentDelta < 0,
-      groupAttachmentDropped: groupAttachmentDelta < 0,
-      dmOutgoingDelta,
-      groupSelfAuthoredDelta,
-      dmAttachmentDelta,
-      groupAttachmentDelta,
-      fromDmOutgoingCount: params.from.dmOutgoingCount,
-      toDmOutgoingCount: params.to.dmOutgoingCount,
-      fromDmMessageCount: params.from.dmMessageCount,
-      toDmMessageCount: params.to.dmMessageCount,
-      fromDmAttachmentCount: params.from.dmAttachmentCount,
-      toDmAttachmentCount: params.to.dmAttachmentCount,
-      fromGroupSelfAuthoredCount: params.from.groupSelfAuthoredCount,
-      toGroupSelfAuthoredCount: params.to.groupSelfAuthoredCount,
-      fromGroupMessageCount: params.from.groupMessageCount,
-      toGroupMessageCount: params.to.groupMessageCount,
-      fromGroupAttachmentCount: params.from.groupAttachmentCount,
-      toGroupAttachmentCount: params.to.groupAttachmentCount,
-      fromDmCanonicalCollisionCount: params.from.dmCanonicalCollisionCount,
-      toDmCanonicalCollisionCount: params.to.dmCanonicalCollisionCount,
-      fromDmCanonicalCollisionSample: params.from.dmCanonicalCollisionSample,
-      toDmCanonicalCollisionSample: params.to.dmCanonicalCollisionSample,
-    },
-  });
-};
-
-const hydrateChatStateFromIndexedMessages = async (
-  publicKeyHex: PublicKeyHex,
-  chatState: PersistedChatState | null
-): Promise<PersistedChatState | null> => {
-  const baseState: PersistedChatState = chatState ?? {
-    version: 2,
-    createdConnections: [],
-    createdGroups: [],
-    unreadByConversationId: {},
-    connectionOverridesByConnectionId: {},
-    messagesByConversationId: {},
-    groupMessages: {},
-    connectionRequests: [],
-    pinnedChatIds: [],
-    hiddenChatIds: [],
-  };
-
-  const indexedRecords = await loadIndexedMessageRecords();
-  const convergenceGuardEnabled = PrivacySettingsService.getSettings().accountSyncConvergenceV091 === true;
-  const indexedConversationIds = new Set<string>();
-  const indexedConversationsWithOutgoingEvidence = new Set<string>();
-  indexedRecords.forEach((record) => {
-    const conversationId = typeof record.conversationId === "string" ? record.conversationId.trim() : "";
-    if (!conversationId) {
-      return;
-    }
-    indexedConversationIds.add(conversationId);
-    if (hasOutgoingMessageEvidence(record, publicKeyHex)) {
-      indexedConversationsWithOutgoingEvidence.add(conversationId);
-    }
-  });
-  const hasIndexedConversationWithoutOutgoingEvidence = Array.from(indexedConversationIds).some(
-    (conversationId) => !indexedConversationsWithOutgoingEvidence.has(conversationId),
-  );
-  const shouldScanQueueRecords = convergenceGuardEnabled
-    || indexedRecords.length === 0
-    || hasIndexedConversationWithoutOutgoingEvidence;
-  const queueRecords = shouldScanQueueRecords
-    ? await loadMessageQueueRecords(publicKeyHex)
-    : [];
-  const records = [...indexedRecords, ...queueRecords];
-  const recordDiagnostics = summarizeMessageRecords(records, publicKeyHex);
-  if (records.length === 0) {
-    return baseState;
-  }
-
-  const messagesByConversationId: Record<string, ReadonlyArray<PersistedMessage>> = {
-    ...baseState.messagesByConversationId,
-  };
-  const groupMessagesByConversationId: Record<string, ReadonlyArray<PersistedGroupMessage>> = {
-    ...(baseState.groupMessages ?? {}),
-  };
-  const conversationById = new Map<string, PersistedChatState["createdConnections"][number]>(
-    baseState.createdConnections.map((entry) => [entry.id, entry] as const)
-  );
-
-  records.forEach((record) => {
-    const ownerPubkey = normalizePublicKeyHex(
-      typeof record.ownerPubkey === "string" ? record.ownerPubkey : undefined
-    );
-    if (ownerPubkey && ownerPubkey !== publicKeyHex) {
-      return;
-    }
-    const parsedGroup = toPersistedGroupMessageFromIndexedRecord({
-      record,
-      myPublicKeyHex: publicKeyHex,
-    });
-    if (parsedGroup) {
-      const existingGroupMessages = groupMessagesByConversationId[parsedGroup.conversationId] ?? [];
-      groupMessagesByConversationId[parsedGroup.conversationId] = mergePersistedGroupMessages(
-        existingGroupMessages,
-        [parsedGroup.persistedMessage],
-      );
-      return;
-    }
-    const parsed = toPersistedMessageFromIndexedRecord({
-      record,
-      myPublicKeyHex: publicKeyHex,
-    });
-    if (!parsed) {
-      return;
-    }
-
-    const existingMessages = messagesByConversationId[parsed.conversationId] ?? [];
-    messagesByConversationId[parsed.conversationId] = mergePersistedMessages(existingMessages, [parsed.persistedMessage]);
-
-    if (!parsed.peerPublicKeyHex) {
-      return;
-    }
-    const existingConversation = conversationById.get(parsed.conversationId);
-    const nextLastMessageAtUnixMs = Math.max(
-      existingConversation?.lastMessageTimeMs ?? 0,
-      parsed.persistedMessage.timestampMs,
-    );
-    const nextConversation = {
-      id: parsed.conversationId,
-      displayName: existingConversation?.displayName ?? parsed.peerPublicKeyHex.slice(0, 8),
-      pubkey: parsed.peerPublicKeyHex,
-      lastMessage: toPreview(parsed.persistedMessage.content || existingConversation?.lastMessage || ""),
-      unreadCount: existingConversation?.unreadCount ?? 0,
-      lastMessageTimeMs: nextLastMessageAtUnixMs,
-    };
-    conversationById.set(parsed.conversationId, nextConversation);
-  });
-
-  let nextState: PersistedChatState = {
-    ...baseState,
-    createdConnections: Array.from(conversationById.values()),
-    messagesByConversationId,
-    groupMessages: groupMessagesByConversationId,
-  };
-
-  const outgoingCountBeforeProjectionFallback = getPersistedOutgoingMessageCount(nextState, publicKeyHex);
-  const hasOutgoingHistory = outgoingCountBeforeProjectionFallback > 0;
-  const sparseOutgoingEvidenceThreshold = Math.max(1, Math.floor(recordDiagnostics.recordCount * 0.03));
-  const hasSparseOutgoingEvidence = (
-    recordDiagnostics.recordCount >= 12
-    && recordDiagnostics.incomingRecordCount >= 8
-    && recordDiagnostics.outgoingRecordCount <= sparseOutgoingEvidenceThreshold
-  );
-  const shouldRunProjectionFallback = !hasOutgoingHistory || hasSparseOutgoingEvidence;
-  if (shouldRunProjectionFallback) {
-    try {
-      const profileId = getActiveProfileIdSafe();
-      const eventLogEntries = await accountEventStore.loadEvents({
-        profileId,
-        accountPublicKeyHex: publicKeyHex,
-      });
-      const projection = replayAccountEvents(eventLogEntries);
-      if (projection) {
-        const mergedMessagesByConversationId: Record<string, ReadonlyArray<PersistedMessage>> = {
-          ...nextState.messagesByConversationId,
-        };
-        const mergedConversationsById = new Map<string, PersistedChatState["createdConnections"][number]>(
-          nextState.createdConnections.map((conversation) => [conversation.id, conversation] as const),
-        );
-        Object.entries(projection.messagesByConversationId).forEach(([conversationId, timeline]) => {
-          if (timeline.length === 0) {
-            return;
-          }
-          const mappedMessages: ReadonlyArray<PersistedMessage> = timeline.map((entry) => {
-            const isOutgoing = entry.direction === "outgoing";
-            const fallbackAttachments = extractAttachmentsFromContent(entry.plaintextPreview, {
-              includeGenericLinksAsFiles: true,
-            });
-            return {
-              id: entry.messageId,
-              content: entry.plaintextPreview,
-              timestampMs: entry.eventCreatedAtUnixSeconds * 1000,
-              isOutgoing,
-              status: "delivered",
-              pubkey: isOutgoing ? publicKeyHex : entry.peerPublicKeyHex,
-              ...(fallbackAttachments.length > 0 ? { attachments: fallbackAttachments } : {}),
-            };
-          });
-          const existingMessages = mergedMessagesByConversationId[conversationId] ?? [];
-          const mergedMessages = mergePersistedMessages(existingMessages, mappedMessages);
-          mergedMessagesByConversationId[conversationId] = mergedMessages;
-          const lastMessage = mergedMessages[mergedMessages.length - 1];
-          const peerPublicKeyHex = projection.conversationsById[conversationId]?.peerPublicKeyHex
-            ?? timeline[timeline.length - 1]?.peerPublicKeyHex;
-          if (!lastMessage || !peerPublicKeyHex) {
-            return;
-          }
-          const existingConversation = mergedConversationsById.get(conversationId);
-          mergedConversationsById.set(conversationId, {
-            id: conversationId,
-            displayName: existingConversation?.displayName ?? peerPublicKeyHex.slice(0, 8),
-            pubkey: peerPublicKeyHex,
-            lastMessage: toPreview(lastMessage.content || existingConversation?.lastMessage || ""),
-            unreadCount: existingConversation?.unreadCount ?? 0,
-            lastMessageTimeMs: Math.max(
-              existingConversation?.lastMessageTimeMs ?? 0,
-              lastMessage.timestampMs,
-            ),
-          });
-        });
-        nextState = {
-          ...nextState,
-          createdConnections: Array.from(mergedConversationsById.values()),
-          messagesByConversationId: mergedMessagesByConversationId,
-        };
-        logAppEvent({
-          name: "account_sync.backup_payload_projection_fallback",
-          level: "info",
-          scope: { feature: "account_sync", action: "backup_publish" },
-          context: {
-            profileId,
-            reasonNoOutgoingHistory: !hasOutgoingHistory,
-            reasonSparseOutgoingEvidence: hasSparseOutgoingEvidence,
-            sparseOutgoingEvidenceThreshold,
-            eventLogCount: eventLogEntries.length,
-            outgoingCountBeforeFallback: outgoingCountBeforeProjectionFallback,
-            outgoingCountAfterFallback: getPersistedOutgoingMessageCount(nextState, publicKeyHex),
-            sourceRecordCount: recordDiagnostics.recordCount,
-            sourceOutgoingRecordCount: recordDiagnostics.outgoingRecordCount,
-            sourceIncomingRecordCount: recordDiagnostics.incomingRecordCount,
-            sourceIncomingOnlyRawConversationCount: recordDiagnostics.incomingOnlyRawConversationCount,
-            indexedRecordCount: indexedRecords.length,
-            queueRecordCount: queueRecords.length,
-          },
-        });
-      }
-    } catch (error) {
-      logAppEvent({
-        name: "account_sync.backup_payload_projection_fallback_failed",
-        level: "warn",
-        scope: { feature: "account_sync", action: "backup_publish" },
-        context: {
-          reason: error instanceof Error ? error.message : String(error),
-          indexedRecordCount: indexedRecords.length,
-          queueRecordCount: queueRecords.length,
-        },
-      });
-    }
-  }
-
-  nextState = sanitizePersistedChatStateMessagesByDeleteContract(nextState, {
-    durableDeleteIds: toMessageDeleteTombstoneIdSet(loadMessageDeleteTombstoneEntries()),
-  }) ?? nextState;
-
-  const hydratedChatStateDiagnostics = summarizePersistedChatStateMessages(nextState, publicKeyHex);
-  logAppEvent({
-    name: "account_sync.backup_payload_hydration_diagnostics",
-    level: "info",
-    scope: { feature: "account_sync", action: "backup_publish" },
-    context: {
-      publicKeySuffix: publicKeyHex.slice(-8),
-      indexedRecordCount: indexedRecords.length,
-      queueRecordCount: queueRecords.length,
-      shouldScanQueueRecords,
-      convergenceGuardEnabled,
-      hasIndexedConversationWithoutOutgoingEvidence,
-      ...toPrefixedRecordDiagnosticsContext("source", recordDiagnostics),
-      ...toPrefixedChatStateDiagnosticsContext("hydrated", hydratedChatStateDiagnostics),
-    },
-  });
-
-  return nextState;
-};
 
 const saveRecoverySnapshot = (publicKeyHex: PublicKeyHex, payload: EncryptedAccountBackupPayload): void => {
   if (typeof window === "undefined") {
@@ -2712,15 +970,18 @@ const fetchLatestBackupEvent = async (
   const poolExpectedEoseRelayCount = openRelayUrls.size;
   if (poolFetchResult.event) {
     emitBackupRestoreSelectionDiagnostics({
-      source: "pool",
-      publicKeyHex,
-      selectedEvent: poolFetchResult.event,
-      poolOpenRelayCount: openRelayUrls.size,
-      poolExpectedEoseRelayCount,
-      poolReceivedEoseRelayCount: poolFetchResult.receivedEoseRelayCount,
-      poolCandidateCount: poolFetchResult.candidateCount,
-      poolTimedOut: poolFetchResult.timedOut,
-      fallbackRelayCount: 0,
+      diagnostics: {
+        source: "pool",
+        publicKeyHex,
+        selectedEvent: poolFetchResult.event,
+        poolOpenRelayCount: openRelayUrls.size,
+        poolExpectedEoseRelayCount,
+        poolReceivedEoseRelayCount: poolFetchResult.receivedEoseRelayCount,
+        poolCandidateCount: poolFetchResult.candidateCount,
+        poolTimedOut: poolFetchResult.timedOut,
+        fallbackRelayCount: 0,
+      },
+      parseBackupCreatedAtMsTag,
     });
     return poolFetchResult.event;
   }
@@ -2741,15 +1002,18 @@ const fetchLatestBackupEvent = async (
     timeoutMs: BACKUP_FETCH_TIMEOUT_MS,
   });
   emitBackupRestoreSelectionDiagnostics({
-    source: fallbackEvent ? "direct" : "none",
-    publicKeyHex,
-    selectedEvent: fallbackEvent,
-    poolOpenRelayCount: openRelayUrls.size,
-    poolExpectedEoseRelayCount,
-    poolReceivedEoseRelayCount: poolFetchResult.receivedEoseRelayCount,
-    poolCandidateCount: poolFetchResult.candidateCount,
-    poolTimedOut: poolFetchResult.timedOut,
-    fallbackRelayCount: fallbackRelayUrls.length,
+    diagnostics: {
+      source: fallbackEvent ? "direct" : "none",
+      publicKeyHex,
+      selectedEvent: fallbackEvent,
+      poolOpenRelayCount: openRelayUrls.size,
+      poolExpectedEoseRelayCount,
+      poolReceivedEoseRelayCount: poolFetchResult.receivedEoseRelayCount,
+      poolCandidateCount: poolFetchResult.candidateCount,
+      poolTimedOut: poolFetchResult.timedOut,
+      fallbackRelayCount: fallbackRelayUrls.length,
+    },
+    parseBackupCreatedAtMsTag,
   });
   return fallbackEvent;
 };
@@ -2828,12 +1092,6 @@ const mergeIncomingRestorePayload = async (
       chatState: sanitizedIncomingChatState,
       syncCheckpoints: [],
     };
-  const {
-    communityMembershipLedger: _incomingCommunityMembershipLedger,
-    roomKeys: _incomingRoomKeys,
-    messageDeleteTombstones: _incomingMessageDeleteTombstones,
-    ...sanitizedIncomingPayloadWithoutCommunityState
-  } = sanitizedIncomingPayload;
   const existingLocalPrivateState = isExistingLocalPrivateState(publicKeyHex);
   const freshDevice = !existingLocalPrivateState;
   const existingLedgerEntries = loadCommunityMembershipLedger(publicKeyHex);
@@ -2855,13 +1113,17 @@ const mergeIncomingRestorePayload = async (
       || recoverySnapshotHasExplicitRoomKeyEvidence
     ),
   );
-  const canTrustIncomingPortableState = hasPortablePrivateStateEvidence(sanitizedIncomingPayload);
+  const canTrustIncomingPortableState = hasPortablePrivateStateEvidence(sanitizedIncomingPayload, hasReplayableChatHistory);
+  // CRITICAL FIX: Fresh devices with valid incoming backups need proper hydration
+  // to ensure local state is fully captured for merging. The previous logic would
+  // skip hydration on fresh devices when canTrustIncomingPortableState was true,
+  // causing message/media loss during restore.
   const shouldHydrateLocalMessages = (
     includeHydratedLocalMessages
     && (
-      !freshDevice
-      || !canTrustIncomingPortableState
-      || shouldUseRecoverySnapshot
+      !freshDevice                    // Existing device: always hydrate local state
+      || shouldUseRecoverySnapshot    // Fresh device with recovery snapshot: hydrate
+      || (!canTrustIncomingPortableState && !sanitizedIncomingPayload.chatState)  // Fresh device with no/empty backup: hydrate what exists locally
     )
   );
   const currentPayloadCandidate = includeHydratedLocalMessages
@@ -2900,186 +1162,79 @@ const mergeIncomingRestorePayload = async (
   if (currentPayload) {
     saveRecoverySnapshot(publicKeyHex, currentPayload);
   }
-  const incomingLedgerEntries = parseCommunityMembershipLedgerSnapshot(sanitizedIncomingPayload.communityMembershipLedger);
-  const currentLedgerEntries = parseCommunityMembershipLedgerSnapshot(currentPayload?.communityMembershipLedger);
-  const localExplicitLedgerEntries = currentLedgerEntries.length > 0
-    ? currentLedgerEntries
-    : existingLedgerEntries;
-  const incomingRoomKeySnapshotsRaw = parseRoomKeySnapshots(sanitizedIncomingPayload.roomKeys);
-  const currentRoomKeySnapshots = parseRoomKeySnapshots(currentPayload?.roomKeys);
-  const localExplicitRoomKeySnapshotsRaw = currentRoomKeySnapshots.length > 0
-    ? currentRoomKeySnapshots
-    : existingScopedRoomKeySnapshots;
-  const mergedMessageDeleteTombstones = mergeMessageDeleteTombstones(
-    currentPayload?.messageDeleteTombstones,
-    sanitizedIncomingPayload.messageDeleteTombstones,
-  );
-  const durableDeleteIds = toMessageDeleteTombstoneIdSet(mergedMessageDeleteTombstones);
-  const mergedChatState = currentPayload
-    ? mergeChatState(currentPayload.chatState, sanitizedIncomingPayload.chatState, { durableDeleteIds })
-    : sanitizePersistedChatStateMessagesByDeleteContract(sanitizedIncomingPayload.chatState, { durableDeleteIds });
-  const reconstructedIncomingLedgerEntries = reconstructCommunityMembershipFromChatState(sanitizedIncomingPayload.chatState);
-  const reconstructedMergedLedgerEntries = reconstructCommunityMembershipFromChatState(mergedChatState);
-  const reconciledIncomingLedgerEntries = reconcileIncomingLedgerWithReconstructedJoinedEvidence({
-    incomingExplicitEntries: incomingLedgerEntries,
-    reconstructedEntries: reconstructedIncomingLedgerEntries,
+  // Orchestrate restore merge via centralized module
+  const orchestrationResult = orchestrateRestoreMerge({
+    publicKeyHex,
+    sanitizedIncomingPayload,
+    currentPayload,
+    existingLedgerEntries,
+    existingRoomKeySnapshots: existingScopedRoomKeySnapshots,
+    freshDevice,
+    shouldHydrateLocalMessages,
+    canTrustIncomingPortableState,
+    recoverySnapshot,
+    recoverySnapshotHasReplayableHistory,
+    recoverySnapshotHasExplicitLedgerEvidence,
+    recoverySnapshotHasExplicitRoomKeyEvidence,
+    hasHydratedLocalReplayableHistory,
+    hasExplicitLocalLedgerEvidence,
+    hasExplicitLocalRoomKeyEvidence,
+    hasExplicitLocalMessageDeleteEvidence,
   });
-  const localExplicitRoomKeySnapshots = filterRoomKeySnapshotsToJoinedEvidence({
-    roomKeys: localExplicitRoomKeySnapshotsRaw,
-    explicitLedgerEntries: localExplicitLedgerEntries,
-    chatState: currentPayload?.chatState,
-  });
-  const incomingRoomKeySnapshots = filterRoomKeySnapshotsToJoinedEvidence({
-    roomKeys: incomingRoomKeySnapshotsRaw,
-    explicitLedgerEntries: reconciledIncomingLedgerEntries,
-    chatState: sanitizedIncomingPayload.chatState,
-  });
-  const mergedExplicitRoomKeys = mergeRoomKeySnapshots(localExplicitRoomKeySnapshots, incomingRoomKeySnapshots);
-  const incomingSupplementedLedgerEntries = supplementMembershipLedgerEntries({
-    explicitEntries: [
-      ...reconciledIncomingLedgerEntries,
-      ...localExplicitLedgerEntries,
-    ],
-    supplementalEntries: reconstructedMergedLedgerEntries,
-  });
-  const mergedCommunityMembershipLedger = mergeCommunityMembershipLedgerEntries(
+
+  const {
+    mergedPayload,
+    mergedMessageDeleteTombstones,
+    mergedChatState,
+    incomingLedgerEntries,
+    reconciledIncomingLedgerEntries,
+    reconstructedMergedLedgerEntries,
     localExplicitLedgerEntries,
-    incomingSupplementedLedgerEntries,
-  );
-  const mergedJoinedGroupIds = selectJoinedGroupIds(mergedCommunityMembershipLedger);
-  const reconstructedMergedRoomKeySnapshots = reconstructRoomKeySnapshotsFromChatState(mergedChatState, {
-    restrictToJoinedGroupIds: mergedJoinedGroupIds,
-  });
-  const mergedRoomKeys = mergeRoomKeySnapshots(mergedExplicitRoomKeys, reconstructedMergedRoomKeySnapshots);
-  const mergedPayload: EncryptedAccountBackupPayload = currentPayload
-    ? {
-      ...sanitizedIncomingPayloadWithoutCommunityState,
-      identityUnlock: mergeIdentityUnlock(
-        currentPayload.identityUnlock,
-        sanitizedIncomingPayload.identityUnlock,
-      ),
-      profile: {
-        ...currentPayload.profile,
-        ...sanitizedIncomingPayload.profile,
-      },
-      peerTrust: mergePeerTrust(currentPayload.peerTrust, sanitizedIncomingPayload.peerTrust),
-      requestFlowEvidence: mergeRequestFlowEvidence(currentPayload.requestFlowEvidence, sanitizedIncomingPayload.requestFlowEvidence),
-      requestOutbox: mergeOutbox(currentPayload.requestOutbox, sanitizedIncomingPayload.requestOutbox),
-      syncCheckpoints: mergeCheckpoints(currentPayload.syncCheckpoints, sanitizedIncomingPayload.syncCheckpoints),
-      ...(mergedMessageDeleteTombstones.length > 0 ? { messageDeleteTombstones: mergedMessageDeleteTombstones } : {}),
-      chatState: mergedChatState,
-      privacySettings: {
-        ...sanitizedIncomingPayload.privacySettings,
-        ...currentPayload.privacySettings,
-      },
-      relayList: mergeRelayList(currentPayload.relayList, sanitizedIncomingPayload.relayList),
-      uiSettings: {
-        themePreference: isThemePreference(sanitizedIncomingPayload.uiSettings?.themePreference)
-          ? sanitizedIncomingPayload.uiSettings.themePreference
-          : currentPayload.uiSettings?.themePreference ?? DEFAULT_THEME_PREFERENCE,
-        accessibilityPreferences: {
-          ...(currentPayload.uiSettings?.accessibilityPreferences ?? DEFAULT_ACCESSIBILITY_PREFERENCES),
-          ...parseAccessibilityPreferences(sanitizedIncomingPayload.uiSettings?.accessibilityPreferences),
-        },
-        localMediaStorageConfig: {
-          ...(currentPayload.uiSettings?.localMediaStorageConfig ?? DEFAULT_LOCAL_MEDIA_STORAGE_CONFIG),
-          ...(sanitizedIncomingPayload.uiSettings?.localMediaStorageConfig ?? {}),
-        },
-      },
-      ...(mergedCommunityMembershipLedger.length > 0
-        ? { communityMembershipLedger: mergedCommunityMembershipLedger }
-        : {}),
-      ...(mergedRoomKeys.length > 0
-        ? { roomKeys: mergedRoomKeys }
-        : {}),
-    }
-    : (
-      mergedCommunityMembershipLedger.length > 0 || mergedRoomKeys.length > 0
-        ? {
-          ...sanitizedIncomingPayloadWithoutCommunityState,
-          ...(mergedMessageDeleteTombstones.length > 0 ? { messageDeleteTombstones: mergedMessageDeleteTombstones } : {}),
-          chatState: mergedChatState,
-          ...(mergedCommunityMembershipLedger.length > 0
-            ? { communityMembershipLedger: mergedCommunityMembershipLedger }
-            : {}),
-          ...(mergedRoomKeys.length > 0
-            ? { roomKeys: mergedRoomKeys }
-            : {}),
-        }
-        : {
-          ...sanitizedIncomingPayloadWithoutCommunityState,
-          ...(mergedMessageDeleteTombstones.length > 0 ? { messageDeleteTombstones: mergedMessageDeleteTombstones } : {}),
-          chatState: mergedChatState,
-        }
-    );
-  const incomingChatDiagnostics = summarizePersistedChatStateMessages(
-    sanitizedIncomingPayload.chatState,
+    mergedCommunityMembershipLedger,
+    incomingRoomKeySnapshots,
+    localExplicitRoomKeySnapshots,
+    mergedExplicitRoomKeys,
+    reconstructedMergedRoomKeySnapshots,
+    mergedRoomKeys,
+  } = orchestrationResult;
+  emitMergeCompletionDiagnostics({
     publicKeyHex,
-  );
-  const localChatDiagnostics = summarizePersistedChatStateMessages(
-    currentPayload?.chatState,
-    publicKeyHex,
-  );
-  const mergedChatDiagnostics = summarizePersistedChatStateMessages(
-    mergedPayload.chatState,
-    publicKeyHex,
-  );
-  maybeEmitBackupRestoreHistoryRegression({
-    publicKeyHex,
-    stage: "incoming_to_merged",
-    from: incomingChatDiagnostics,
-    to: mergedChatDiagnostics,
-  });
-  logAppEvent({
-    name: "account_sync.backup_restore_merge_diagnostics",
-    level: "info",
-    scope: { feature: "account_sync", action: "backup_restore" },
-    context: {
-      publicKeySuffix: publicKeyHex.slice(-8),
-      freshDevice,
-      includeHydratedLocalMessages,
-      shouldHydrateLocalMessages,
-      canTrustIncomingPortableState,
-      localPayloadMerged: currentPayload !== null,
-      hasHydratedLocalReplayableHistory,
-      hasExplicitLocalLedgerEvidence,
-      hasExplicitLocalRoomKeyEvidence,
-      hasExplicitLocalMessageDeleteEvidence,
-      recoverySnapshotAvailable: recoverySnapshot !== null,
-      recoverySnapshotUsed: (
-        currentPayload !== null
-        && recoverySnapshot !== null
-        && currentPayload.createdAtUnixMs === recoverySnapshot.createdAtUnixMs
-      ),
-      recoverySnapshotHasReplayableHistory,
-      recoverySnapshotHasExplicitLedgerEvidence,
-      recoverySnapshotHasExplicitRoomKeyEvidence,
-      incomingMessageDeleteTombstoneCount: sanitizedIncomingPayload.messageDeleteTombstones?.length ?? 0,
-      localMessageDeleteTombstoneCount: currentPayload?.messageDeleteTombstones?.length ?? 0,
-      mergedMessageDeleteTombstoneCount: mergedMessageDeleteTombstones.length,
-      incomingLedgerEntryCount: incomingLedgerEntries.length,
-      incomingLedgerReconciledEntryCount: reconciledIncomingLedgerEntries.length,
-      mergedChatReconstructedLedgerEntryCount: reconstructedMergedLedgerEntries.length,
-      incomingLedgerJoinPromotionCount: reconciledIncomingLedgerEntries.reduce((count, entry, index) => {
-        const incomingEntry = incomingLedgerEntries[index];
-        if (!incomingEntry) {
-          return count;
-        }
-        return incomingEntry.status !== "joined" && entry.status === "joined"
-          ? count + 1
-          : count;
-      }, 0),
-      localLedgerEntryCount: localExplicitLedgerEntries.length,
-      mergedLedgerEntryCount: mergedCommunityMembershipLedger.length,
-      incomingRoomKeyCount: incomingRoomKeySnapshots.length,
-      localRoomKeyCount: localExplicitRoomKeySnapshots.length,
-      mergedExplicitRoomKeyCount: mergedExplicitRoomKeys.length,
-      mergedReconstructedRoomKeyCount: reconstructedMergedRoomKeySnapshots.length,
-      mergedRoomKeyCount: mergedRoomKeys.length,
-      ...toPrefixedChatStateDiagnosticsContext("incoming", incomingChatDiagnostics),
-      ...toPrefixedChatStateDiagnosticsContext("local", localChatDiagnostics),
-      ...toPrefixedChatStateDiagnosticsContext("merged", mergedChatDiagnostics),
-    },
+    freshDevice,
+    includeHydratedLocalMessages,
+    shouldHydrateLocalMessages,
+    canTrustIncomingPortableState,
+    localPayloadMerged: currentPayload !== null,
+    hasHydratedLocalReplayableHistory,
+    hasExplicitLocalLedgerEvidence,
+    hasExplicitLocalRoomKeyEvidence,
+    hasExplicitLocalMessageDeleteEvidence,
+    recoverySnapshotAvailable: recoverySnapshot !== null,
+    recoverySnapshotUsed: (
+      currentPayload !== null
+      && recoverySnapshot !== null
+      && currentPayload.createdAtUnixMs === recoverySnapshot.createdAtUnixMs
+    ),
+    recoverySnapshotHasReplayableHistory,
+    recoverySnapshotHasExplicitLedgerEvidence,
+    recoverySnapshotHasExplicitRoomKeyEvidence,
+    incomingMessageDeleteTombstones: sanitizedIncomingPayload.messageDeleteTombstones ?? [],
+    localMessageDeleteTombstones: currentPayload?.messageDeleteTombstones ?? [],
+    mergedMessageDeleteTombstones,
+    incomingLedgerEntries,
+    reconciledIncomingLedgerEntries,
+    reconstructedMergedLedgerEntries,
+    localExplicitLedgerEntries,
+    mergedCommunityMembershipLedger,
+    incomingRoomKeySnapshots,
+    localExplicitRoomKeySnapshots,
+    mergedExplicitRoomKeys,
+    reconstructedMergedRoomKeySnapshots,
+    mergedRoomKeys,
+    incomingPayload: sanitizedIncomingPayload,
+    currentPayload,
+    mergedPayload,
+    summarizeChatStateDiagnostics: summarizePersistedChatStateMessages,
+    toPrefixedChatStateDiagnosticsContext,
   });
   return mergedPayload;
 };
@@ -3112,7 +1267,10 @@ const applyBackupPayload = async (
   const mergedPayloadChatDiagnostics = summarizePersistedChatStateMessages(mergedPayload.chatState, publicKeyHex);
   if (mergedPayload.chatState) {
     // Backup restore should not immediately trigger mutation-driven backup publish.
-    chatStateStoreService.replace(publicKeyHex, mergedPayload.chatState, { emitMutationSignal: false });
+    chatStateStoreService.replace(publicKeyHex, mergedPayload.chatState, {
+      emitMutationSignal: false,
+      profileId,
+    });
     const restoredChatStateDiagnostics = summarizePersistedChatStateMessages(
       chatStateStoreService.load(publicKeyHex),
       publicKeyHex,
@@ -3126,20 +1284,13 @@ const applyBackupPayload = async (
       restoreChatStateDomains: true,
     });
   }
-  logAppEvent({
-    name: "account_sync.backup_restore_apply_diagnostics",
-    level: "info",
-    scope: { feature: "account_sync", action: "backup_restore" },
-    context: {
-      publicKeySuffix: publicKeyHex.slice(-8),
-      restorePath: "full_v1",
-      appliedRoomKeyCount: parseRoomKeySnapshots(mergedPayload.roomKeys).length,
-      appliedMessageDeleteTombstoneCount: mergedPayload.messageDeleteTombstones?.length ?? 0,
-      ...toPrefixedChatStateDiagnosticsContext(
-        "applied",
-        mergedPayloadChatDiagnostics,
-      ),
-    },
+  emitApplyCompletionDiagnostics({
+    publicKeyHex,
+    mergedPayload,
+    restorePath: "full_v1",
+    summarizeChatStateDiagnostics: summarizePersistedChatStateMessages,
+    toPrefixedChatStateDiagnosticsContext,
+    parseRoomKeySnapshots,
   });
   saveCommunityMembershipLedger(publicKeyHex, mergedPayload.communityMembershipLedger ?? []);
   await applyRoomKeySnapshots(mergedPayload.roomKeys ?? []);
@@ -3154,6 +1305,7 @@ const applyBackupPayloadNonV1Domains = async (
   profileId = getActiveProfileIdSafe(),
   options?: Readonly<{
     restoreChatStateDomains?: boolean;
+    restoreDmChatStateDomains?: boolean;
   }>,
 ): Promise<void> => {
   const mergedPayload = await mergeIncomingRestorePayload(publicKeyHex, payload, {
@@ -3167,47 +1319,16 @@ const applyBackupPayloadNonV1Domains = async (
   useProfileInternals.saveToStorage({ profile: mergedPayload.profile });
   useProfileInternals.setState({ profile: mergedPayload.profile });
   useProfileInternals.notify();
-  replaceMessageDeleteTombstones(mergedPayload.messageDeleteTombstones ?? []);
-  saveCommunityMembershipLedger(publicKeyHex, mergedPayload.communityMembershipLedger ?? []);
-  await applyRoomKeySnapshots(mergedPayload.roomKeys ?? []);
-  PrivacySettingsService.saveSettings(mergedPayload.privacySettings);
-  relayListInternals.saveRelayListToStorage(publicKeyHex, mergedPayload.relayList);
-  persistUiSettingsSnapshot(profileId, mergedPayload.uiSettings);
-  const mergedPayloadChatDiagnostics = summarizePersistedChatStateMessages(mergedPayload.chatState, publicKeyHex);
-  if (options?.restoreChatStateDomains && mergedPayload.chatState) {
-    // Canonical account-event append does not yet materialize all chat-state domains
-    // (group timelines/membership views and legacy message surfaces). Restore chat
-    // state domains directly so new-device rehydrate cannot drop self-authored history.
-    chatStateStoreService.replace(publicKeyHex, mergedPayload.chatState, { emitMutationSignal: false });
-    await messagePersistenceService.migrateFromLegacy(publicKeyHex);
-    const restoredChatStateDiagnostics = summarizePersistedChatStateMessages(
-      chatStateStoreService.load(publicKeyHex),
-      publicKeyHex,
-    );
-    maybeEmitBackupRestoreHistoryRegression({
-      publicKeyHex,
-      stage: "merged_to_applied_store",
-      from: mergedPayloadChatDiagnostics,
-      to: restoredChatStateDiagnostics,
-      restorePath: "non_v1_domains",
-      restoreChatStateDomains: true,
-    });
-  }
-  logAppEvent({
-    name: "account_sync.backup_restore_apply_diagnostics",
-    level: "info",
-    scope: { feature: "account_sync", action: "backup_restore" },
-    context: {
-      publicKeySuffix: publicKeyHex.slice(-8),
-      restorePath: "non_v1_domains",
-      restoreChatStateDomains: options?.restoreChatStateDomains === true,
-      appliedRoomKeyCount: parseRoomKeySnapshots(mergedPayload.roomKeys).length,
-      appliedMessageDeleteTombstoneCount: mergedPayload.messageDeleteTombstones?.length ?? 0,
-      ...toPrefixedChatStateDiagnosticsContext(
-        "applied",
-        mergedPayloadChatDiagnostics,
-      ),
-    },
+  await applyNonV1RestoreMaterialization({
+    publicKeyHex,
+    mergedPayload,
+    profileId,
+    options,
+    summarizeChatStateDiagnostics: summarizePersistedChatStateMessages,
+    buildPrefixedChatStateDiagnosticsContext: toPrefixedChatStateDiagnosticsContext,
+    emitRestoreHistoryRegression: maybeEmitBackupRestoreHistoryRegression,
+    applyRoomKeySnapshots,
+    persistUiSettingsSnapshot,
   });
 };
 
@@ -3215,280 +1336,6 @@ const isRelayPoolWithSubscribe = (pool: RelayPoolLike): pool is RelayPoolWithSub
   const candidate = pool as Partial<RelayPoolWithSubscribe>;
   return typeof candidate.sendToOpen === "function"
     && typeof candidate.subscribeToMessages === "function";
-};
-
-type BackupPayloadConvergenceDiagnostics = Readonly<{
-  dmOutgoingCount: number;
-  dmIncomingCount: number;
-  groupConversationCount: number;
-  groupMessageCount: number;
-  groupSelfAuthoredCount: number;
-  joinedLedgerCount: number;
-  roomKeyCount: number;
-  groupEvidenceCount: number;
-}>;
-
-const summarizeBackupPayloadConvergenceDiagnostics = (
-  payload: EncryptedAccountBackupPayload,
-  publicKeyHex: PublicKeyHex,
-): BackupPayloadConvergenceDiagnostics => {
-  const chatDiagnostics = summarizePersistedChatStateMessages(payload.chatState, publicKeyHex);
-  const joinedLedgerCount = selectJoinedCommunityMembershipLedgerEntries(
-    parseCommunityMembershipLedgerSnapshot(payload.communityMembershipLedger),
-  ).length;
-  const roomKeyCount = parseRoomKeySnapshots(payload.roomKeys).length;
-  const groupEvidenceCount = chatDiagnostics.groupConversationCount
-    + chatDiagnostics.groupMessageCount
-    + chatDiagnostics.groupSelfAuthoredCount
-    + joinedLedgerCount
-    + roomKeyCount;
-  return {
-    dmOutgoingCount: chatDiagnostics.dmOutgoingCount,
-    dmIncomingCount: chatDiagnostics.dmIncomingCount,
-    groupConversationCount: chatDiagnostics.groupConversationCount,
-    groupMessageCount: chatDiagnostics.groupMessageCount,
-    groupSelfAuthoredCount: chatDiagnostics.groupSelfAuthoredCount,
-    joinedLedgerCount,
-    roomKeyCount,
-    groupEvidenceCount,
-  };
-};
-
-const hasSparseDmOutgoingEvidenceForConvergenceFloor = (
-  diagnostics: BackupPayloadConvergenceDiagnostics,
-): boolean => {
-  const dmMessageCount = diagnostics.dmOutgoingCount + diagnostics.dmIncomingCount;
-  if (dmMessageCount < 12 || diagnostics.dmIncomingCount < 8) {
-    return false;
-  }
-  const sparseOutgoingEvidenceThreshold = Math.max(1, Math.floor(dmMessageCount * 0.03));
-  return diagnostics.dmOutgoingCount <= sparseOutgoingEvidenceThreshold;
-};
-
-type BackupPublishConvergenceFetchStatus =
-  | "not_required"
-  | "pool_unavailable"
-  | "no_backup"
-  | "degraded_backup"
-  | "fetched"
-  | "error";
-
-type BackupPublishConvergenceResult = Readonly<{
-  payload: EncryptedAccountBackupPayload;
-  localDiagnostics: BackupPayloadConvergenceDiagnostics;
-  remoteDiagnostics?: BackupPayloadConvergenceDiagnostics;
-  floorRequired: boolean;
-  localLowEvidence: boolean;
-  remoteHasBackup: boolean;
-  fetchStatus: BackupPublishConvergenceFetchStatus;
-}>;
-
-const isLowEvidenceBackupPayloadForPublish = (
-  payload: EncryptedAccountBackupPayload,
-  diagnostics: BackupPayloadConvergenceDiagnostics,
-): boolean => (
-  !hasReplayableChatHistory(payload.chatState)
-  && diagnostics.groupEvidenceCount === 0
-  && diagnostics.dmOutgoingCount === 0
-);
-
-const mergeBackupPayloadForPublishConvergence = (
-  localPayload: EncryptedAccountBackupPayload,
-  remotePayload: EncryptedAccountBackupPayload,
-): EncryptedAccountBackupPayload => {
-  const mergedMessageDeleteTombstones = mergeMessageDeleteTombstones(
-    localPayload.messageDeleteTombstones,
-    remotePayload.messageDeleteTombstones,
-  );
-  const mergedChatState = mergeChatState(localPayload.chatState, remotePayload.chatState, {
-    durableDeleteIds: toMessageDeleteTombstoneIdSet(mergedMessageDeleteTombstones),
-  });
-  const remoteLedgerEntries = parseCommunityMembershipLedgerSnapshot(remotePayload.communityMembershipLedger);
-  const localLedgerEntries = parseCommunityMembershipLedgerSnapshot(localPayload.communityMembershipLedger);
-  const reconstructedRemoteLedgerEntries = reconstructCommunityMembershipFromChatState(remotePayload.chatState);
-  const reconciledRemoteLedgerEntries = reconcileIncomingLedgerWithReconstructedJoinedEvidence({
-    incomingExplicitEntries: remoteLedgerEntries,
-    reconstructedEntries: reconstructedRemoteLedgerEntries,
-  });
-  const mergedExplicitLedgerEntries = mergeCommunityMembershipLedgerEntries(
-    localLedgerEntries,
-    reconciledRemoteLedgerEntries,
-  );
-  const mergedSupplementedLedgerEntries = supplementMembershipLedgerEntries({
-    explicitEntries: mergedExplicitLedgerEntries,
-    supplementalEntries: reconstructCommunityMembershipFromChatState(mergedChatState),
-  });
-  const mergedCommunityMembershipLedger = mergeCommunityMembershipLedgerEntries(
-    mergedExplicitLedgerEntries,
-    mergedSupplementedLedgerEntries,
-  );
-  const mergedExplicitRoomKeys = mergeRoomKeySnapshots(
-    parseRoomKeySnapshots(localPayload.roomKeys),
-    parseRoomKeySnapshots(remotePayload.roomKeys),
-  );
-  const mergedJoinedGroupIds = selectJoinedGroupIds(mergedCommunityMembershipLedger);
-  const reconstructedMergedRoomKeys = reconstructRoomKeySnapshotsFromChatState(mergedChatState, {
-    restrictToJoinedGroupIds: mergedJoinedGroupIds,
-  });
-  const mergedRoomKeys = mergeRoomKeySnapshots(
-    mergedExplicitRoomKeys,
-    reconstructedMergedRoomKeys,
-  );
-
-  return {
-    ...localPayload,
-    identityUnlock: mergeIdentityUnlock(localPayload.identityUnlock, remotePayload.identityUnlock),
-    peerTrust: mergePeerTrust(localPayload.peerTrust, remotePayload.peerTrust),
-    requestFlowEvidence: mergeRequestFlowEvidence(localPayload.requestFlowEvidence, remotePayload.requestFlowEvidence),
-    requestOutbox: mergeOutbox(localPayload.requestOutbox, remotePayload.requestOutbox),
-    syncCheckpoints: mergeCheckpoints(localPayload.syncCheckpoints, remotePayload.syncCheckpoints),
-    ...(mergedMessageDeleteTombstones.length > 0 ? { messageDeleteTombstones: mergedMessageDeleteTombstones } : {}),
-    chatState: mergedChatState,
-    relayList: mergeRelayList(localPayload.relayList, remotePayload.relayList),
-    ...(mergedCommunityMembershipLedger.length > 0
-      ? { communityMembershipLedger: mergedCommunityMembershipLedger }
-      : {}),
-    ...(mergedRoomKeys.length > 0
-      ? { roomKeys: mergedRoomKeys }
-      : {}),
-  };
-};
-
-const maybeConvergeBackupPayloadBeforePublish = async (params: Readonly<{
-  localPayload: EncryptedAccountBackupPayload;
-  publicKeyHex: PublicKeyHex;
-  privateKeyHex: PrivateKeyHex;
-  pool: RelayPoolLike;
-}>): Promise<BackupPublishConvergenceResult> => {
-  const localDiagnostics = summarizeBackupPayloadConvergenceDiagnostics(params.localPayload, params.publicKeyHex);
-  const applyGroupEvidenceFloor = localDiagnostics.groupEvidenceCount === 0;
-  const applySparseDmOutgoingFloor = hasSparseDmOutgoingEvidenceForConvergenceFloor(localDiagnostics);
-  const floorRequired = applyGroupEvidenceFloor || applySparseDmOutgoingFloor;
-  const localLowEvidence = isLowEvidenceBackupPayloadForPublish(
-    params.localPayload,
-    localDiagnostics,
-  );
-  if (!floorRequired) {
-    return {
-      payload: params.localPayload,
-      localDiagnostics,
-      floorRequired: false,
-      localLowEvidence,
-      remoteHasBackup: false,
-      fetchStatus: "not_required",
-    };
-  }
-  if (!isRelayPoolWithSubscribe(params.pool)) {
-    return {
-      payload: params.localPayload,
-      localDiagnostics,
-      floorRequired: true,
-      localLowEvidence,
-      remoteHasBackup: false,
-      fetchStatus: "pool_unavailable",
-    };
-  }
-
-  try {
-    const fetched = await encryptedAccountBackupService.fetchLatestEncryptedAccountBackupPayload({
-      publicKeyHex: params.publicKeyHex,
-      privateKeyHex: params.privateKeyHex,
-      pool: params.pool,
-    });
-    if (!fetched.hasBackup || !fetched.payload) {
-      return {
-        payload: params.localPayload,
-        localDiagnostics,
-        floorRequired: true,
-        localLowEvidence,
-        remoteHasBackup: false,
-        fetchStatus: "no_backup",
-      };
-    }
-    if (fetched.degradedReason) {
-      return {
-        payload: params.localPayload,
-        localDiagnostics,
-        floorRequired: true,
-        localLowEvidence,
-        remoteHasBackup: true,
-        fetchStatus: "degraded_backup",
-      };
-    }
-
-    const remoteDiagnostics = summarizeBackupPayloadConvergenceDiagnostics(
-      fetched.payload,
-      params.publicKeyHex,
-    );
-    const shouldConverge = remoteDiagnostics.groupEvidenceCount > localDiagnostics.groupEvidenceCount
-      || remoteDiagnostics.dmOutgoingCount > localDiagnostics.dmOutgoingCount;
-    if (!shouldConverge) {
-      return {
-        payload: params.localPayload,
-        localDiagnostics,
-        remoteDiagnostics,
-        floorRequired: true,
-        localLowEvidence,
-        remoteHasBackup: true,
-        fetchStatus: "fetched",
-      };
-    }
-
-    const convergedPayload = mergeBackupPayloadForPublishConvergence(params.localPayload, fetched.payload);
-    const convergedDiagnostics = summarizeBackupPayloadConvergenceDiagnostics(
-      convergedPayload,
-      params.publicKeyHex,
-    );
-    logAppEvent({
-      name: "account_sync.backup_publish_convergence_floor_applied",
-      level: "warn",
-      scope: { feature: "account_sync", action: "backup_publish" },
-      context: {
-        publicKeySuffix: params.publicKeyHex.slice(-8),
-        applyGroupEvidenceFloor,
-        applySparseDmOutgoingFloor,
-        localGroupEvidenceCount: localDiagnostics.groupEvidenceCount,
-        remoteGroupEvidenceCount: remoteDiagnostics.groupEvidenceCount,
-        convergedGroupEvidenceCount: convergedDiagnostics.groupEvidenceCount,
-        localJoinedLedgerCount: localDiagnostics.joinedLedgerCount,
-        remoteJoinedLedgerCount: remoteDiagnostics.joinedLedgerCount,
-        convergedJoinedLedgerCount: convergedDiagnostics.joinedLedgerCount,
-        localRoomKeyCount: localDiagnostics.roomKeyCount,
-        remoteRoomKeyCount: remoteDiagnostics.roomKeyCount,
-        convergedRoomKeyCount: convergedDiagnostics.roomKeyCount,
-        localDmOutgoingCount: localDiagnostics.dmOutgoingCount,
-        remoteDmOutgoingCount: remoteDiagnostics.dmOutgoingCount,
-        convergedDmOutgoingCount: convergedDiagnostics.dmOutgoingCount,
-      },
-    });
-    return {
-      payload: convergedPayload,
-      localDiagnostics,
-      remoteDiagnostics,
-      floorRequired: true,
-      localLowEvidence,
-      remoteHasBackup: true,
-      fetchStatus: "fetched",
-    };
-  } catch (error) {
-    logAppEvent({
-      name: "account_sync.backup_publish_convergence_floor_skipped",
-      level: "warn",
-      scope: { feature: "account_sync", action: "backup_publish" },
-      context: {
-        publicKeySuffix: params.publicKeyHex.slice(-8),
-        reason: error instanceof Error ? error.message : String(error),
-      },
-    });
-    return {
-      payload: params.localPayload,
-      localDiagnostics,
-      floorRequired: true,
-      localLowEvidence,
-      remoteHasBackup: false,
-      fetchStatus: "error",
-    };
-  }
 };
 
 export const encryptedAccountBackupService = {
@@ -3501,7 +1348,7 @@ export const encryptedAccountBackupService = {
     backupPayload: EncryptedAccountBackupPayload;
   }>> {
     const backupPayload = await buildBackupPayloadWithHydratedChatState(params.publicKeyHex);
-    if (!hasPortablePrivateStateEvidence(backupPayload)) {
+    if (!hasPortablePrivateStateEvidence(backupPayload, hasReplayableChatHistory)) {
       throw new Error("Portable bundle export skipped because private account state is empty.");
     }
     const plaintext = JSON.stringify(backupPayload);
@@ -3514,19 +1361,12 @@ export const encryptedAccountBackupService = {
       publicKeyHex: params.publicKeyHex,
       ciphertext,
     };
-    logAppEvent({
-      name: "account_sync.portable_bundle_export",
-      level: "info",
-      scope: { feature: "account_sync", action: "portable_bundle_export" },
-      context: {
-        publicKeySuffix: params.publicKeyHex.slice(-8),
-        payloadCreatedAtUnixMs: backupPayload.createdAtUnixMs,
-        exportedAtUnixMs: bundle.exportedAtUnixMs,
-        ...toPrefixedChatStateDiagnosticsContext(
-          "bundle",
-          summarizePersistedChatStateMessages(backupPayload.chatState, params.publicKeyHex),
-        ),
-      },
+    emitPortableBundleExport({
+      publicKeyHex: params.publicKeyHex,
+      payloadCreatedAtUnixMs: backupPayload.createdAtUnixMs,
+      exportedAtUnixMs: bundle.exportedAtUnixMs,
+      bundleChatDiagnostics: summarizePersistedChatStateMessages(backupPayload.chatState, params.publicKeyHex),
+      toPrefixedChatStateDiagnosticsContext,
     });
     return {
       bundle,
@@ -3581,8 +1421,21 @@ export const encryptedAccountBackupService = {
         source: "legacy_bridge",
         idempotencyPrefix: PORTABLE_BUNDLE_IMPORT_IDEMPOTENCY_PREFIX,
       });
+      const restoreOwnerSelection = resolveCanonicalBackupRestoreOwnerSelection({
+        profileId,
+        accountPublicKeyHex: params.publicKeyHex,
+      });
+      emitBackupRestoreOwnerSelection({
+        publicKeyHex: params.publicKeyHex,
+        profileId,
+        restoreSource: "portable_bundle",
+        canonicalEventCount: canonicalEvents.length,
+        selection: restoreOwnerSelection,
+        payloadDiagnostics: summarizePersistedChatStateMessages(payload.chatState, params.publicKeyHex),
+      });
       await applyBackupPayloadNonV1Domains(params.publicKeyHex, payload, profileId, {
         restoreChatStateDomains: true,
+        restoreDmChatStateDomains: restoreOwnerSelection.restoreDmChatStateDomains,
       });
       if (canonicalEvents.length > 0) {
         await params.appendCanonicalEvents({
@@ -3602,19 +1455,12 @@ export const encryptedAccountBackupService = {
       message: "Portable account bundle imported",
       lastRelayFailureReason: undefined,
     });
-    logAppEvent({
-      name: "account_sync.portable_bundle_import",
-      level: "info",
-      scope: { feature: "account_sync", action: "portable_bundle_import" },
-      context: {
-        publicKeySuffix: params.publicKeyHex.slice(-8),
-        exportedAtUnixMs: bundle.exportedAtUnixMs,
-        payloadCreatedAtUnixMs: payload.createdAtUnixMs,
-        ...toPrefixedChatStateDiagnosticsContext(
-          "bundle",
-          summarizePersistedChatStateMessages(payload.chatState, params.publicKeyHex),
-        ),
-      },
+    emitPortableBundleImport({
+      publicKeyHex: params.publicKeyHex,
+      exportedAtUnixMs: bundle.exportedAtUnixMs,
+      payloadCreatedAtUnixMs: payload.createdAtUnixMs,
+      bundleChatDiagnostics: summarizePersistedChatStateMessages(payload.chatState, params.publicKeyHex),
+      toPrefixedChatStateDiagnosticsContext,
     });
 
     return {
@@ -3633,46 +1479,64 @@ export const encryptedAccountBackupService = {
       localPayload: localBackupPayload,
       publicKeyHex: params.publicKeyHex,
       privateKeyHex: params.privateKeyHex,
-      pool: params.pool,
+      poolAvailable: isRelayPoolWithSubscribe(params.pool),
+      summarizeChatStateDiagnostics: summarizePersistedChatStateMessages,
+      hasReplayableChatHistory,
+      fetchLatestPayload: async ({ publicKeyHex, privateKeyHex }) => (
+        encryptedAccountBackupService.fetchLatestEncryptedAccountBackupPayload({
+          publicKeyHex,
+          privateKeyHex,
+          pool: params.pool as RelayPoolWithSubscribe,
+        })
+      ),
+      mergeForConvergence: ({ localPayload, remotePayload }) => mergeBackupPayloadForPublishConvergence({
+        localPayload,
+        remotePayload,
+        mergeMessageDeleteTombstones,
+        toMessageDeleteTombstoneIdSet,
+        mergeChatState,
+        parseCommunityMembershipLedgerSnapshot,
+        reconstructCommunityMembershipFromChatState,
+        reconcileIncomingLedgerWithReconstructedJoinedEvidence,
+        mergeCommunityMembershipLedgerEntries,
+        supplementMembershipLedgerEntries,
+        parseRoomKeySnapshots,
+        mergeRoomKeySnapshots,
+        selectJoinedGroupIds,
+        reconstructRoomKeySnapshotsFromChatState,
+        mergeIdentityUnlock,
+        mergePeerTrust,
+        mergeRequestFlowEvidence,
+        mergeOutbox,
+        mergeCheckpoints,
+        mergeRelayList,
+      }),
     });
     const backupPayload = convergedBackupPayload.payload;
-    const suppressLowEvidencePublish = convergedBackupPayload.localLowEvidence
-      && (
-        convergedBackupPayload.fetchStatus === "no_backup"
-        || convergedBackupPayload.fetchStatus === "degraded_backup"
-        || convergedBackupPayload.fetchStatus === "error"
-      );
-    if (suppressLowEvidencePublish) {
-      accountSyncStatusStore.updateSnapshot({
-        publicKeyHex: params.publicKeyHex,
-        message: "Waiting for relay convergence evidence before publishing low-evidence account backup",
-      });
-      logAppEvent({
-        name: "account_sync.backup_publish_low_evidence_suppressed",
-        level: "warn",
-        scope: { feature: "account_sync", action: "backup_publish" },
-        context: {
-          publicKeySuffix: params.publicKeyHex.slice(-8),
-          fetchStatus: convergedBackupPayload.fetchStatus,
-          floorRequired: convergedBackupPayload.floorRequired,
-          remoteHasBackup: convergedBackupPayload.remoteHasBackup,
-          localDmOutgoingCount: convergedBackupPayload.localDiagnostics.dmOutgoingCount,
-          localDmIncomingCount: convergedBackupPayload.localDiagnostics.dmIncomingCount,
-          localGroupEvidenceCount: convergedBackupPayload.localDiagnostics.groupEvidenceCount,
-        },
-      });
+    const convergenceOutcome = evaluatePublishConvergenceOutcome({
+      publicKeyHex: params.publicKeyHex,
+      payload: convergedBackupPayload.payload,
+      fetchStatus: convergedBackupPayload.fetchStatus,
+      floorRequired: convergedBackupPayload.floorRequired,
+      remoteHasBackup: convergedBackupPayload.remoteHasBackup,
+      localLowEvidence: convergedBackupPayload.localLowEvidence,
+      localDiagnostics: convergedBackupPayload.localDiagnostics,
+      remoteDiagnostics: convergedBackupPayload.remoteDiagnostics,
+      hasReplayableChatHistory,
+    });
+    if (convergenceOutcome.action === "suppress") {
       return {
         publishResult: {
           status: "unsupported" as const,
-          reasonCode: "low_evidence_convergence_unverified" as const,
-          message: "Skipped encrypted backup publish because relay convergence could not be verified for low-evidence local state.",
+          reasonCode: convergenceOutcome.result.reason,
+          message: convergenceOutcome.result.message,
         },
         envelope: null,
         backupPayload,
         signedEvent: null,
       };
     }
-    if (!hasPortablePrivateStateEvidence(backupPayload)) {
+    if (!hasPortablePrivateStateEvidence(backupPayload, hasReplayableChatHistory)) {
       accountSyncStatusStore.updateSnapshot({
         publicKeyHex: params.publicKeyHex,
         message: "Waiting for private account data before encrypted backup publish",
@@ -3688,48 +1552,37 @@ export const encryptedAccountBackupService = {
         signedEvent: null,
       };
     }
-    const plaintext = JSON.stringify(backupPayload);
-    const ciphertext = await cryptoService.encryptDM(plaintext, params.publicKeyHex, params.privateKeyHex);
-    const envelope = toEnvelope({
+    const envelope = await buildBackupEnvelope({
+      backupPayload,
       publicKeyHex: params.publicKeyHex,
-      ciphertext,
+      privateKeyHex: params.privateKeyHex,
+      encryptDM: cryptoService.encryptDM.bind(cryptoService),
     });
-    const createdAtReservation = reserveBackupEventCreatedAtUnixSeconds(
-      params.publicKeyHex,
-      backupPayload.createdAtUnixMs,
-    );
-    const unsignedEvent: UnsignedNostrEvent = {
-      kind: ACCOUNT_BACKUP_EVENT_KIND,
-      pubkey: params.publicKeyHex,
-      created_at: createdAtReservation.createdAtUnixSeconds,
-      tags: [
-        ["d", ACCOUNT_BACKUP_D_TAG],
-        [ACCOUNT_BACKUP_CREATED_AT_MS_TAG, String(backupPayload.createdAtUnixMs)],
-      ],
-      content: envelope.ciphertext,
-    };
+    const { unsignedEvent, createdAtReservation } = buildBackupUnsignedEvent({
+      envelope,
+      publicKeyHex: params.publicKeyHex,
+      backupPayload,
+      reserveCreatedAt: reserveBackupEventCreatedAtUnixSeconds,
+      accountBackupEventKind: ACCOUNT_BACKUP_EVENT_KIND,
+      accountBackupDTag: ACCOUNT_BACKUP_D_TAG,
+      accountBackupCreatedAtMsTag: ACCOUNT_BACKUP_CREATED_AT_MS_TAG,
+    });
     const openRelayCount = params.pool.connections.filter((connection) => connection.status === "open").length;
     const configuredRelayCount = (params.scopedRelayUrls && params.scopedRelayUrls.length > 0)
       ? params.scopedRelayUrls.length
       : params.pool.connections.length;
-    logAppEvent({
-      name: "account_sync.backup_publish_ordering",
-      level: "info",
-      scope: { feature: "account_sync", action: "backup_publish" },
-      context: {
-        publicKeySuffix: params.publicKeyHex.slice(-8),
-        selectionComparator: "payload_ms_then_created_at_then_event_id",
-        payloadCreatedAtUnixMs: backupPayload.createdAtUnixMs,
-        payloadCreatedAtUnixSeconds: createdAtReservation.candidateUnixSeconds,
-        eventCreatedAtUnixSeconds: createdAtReservation.createdAtUnixSeconds,
-        previousEventCreatedAtUnixSeconds: createdAtReservation.lastUsedUnixSeconds || null,
-        createdAtAdjustmentSeconds: (
-          createdAtReservation.createdAtUnixSeconds - createdAtReservation.candidateUnixSeconds
-        ),
-        monotonicBumpApplied: createdAtReservation.monotonicBumpApplied,
-        configuredRelayCount,
-        openRelayCount,
-      },
+    emitBackupPublishOrdering({
+      publicKeyHex: params.publicKeyHex,
+      payloadCreatedAtUnixMs: backupPayload.createdAtUnixMs,
+      payloadCreatedAtUnixSeconds: createdAtReservation.candidateUnixSeconds,
+      eventCreatedAtUnixSeconds: createdAtReservation.createdAtUnixSeconds,
+      previousEventCreatedAtUnixSeconds: createdAtReservation.lastUsedUnixSeconds || null,
+      createdAtAdjustmentSeconds: (
+        createdAtReservation.createdAtUnixSeconds - createdAtReservation.candidateUnixSeconds
+      ),
+      monotonicBumpApplied: createdAtReservation.monotonicBumpApplied,
+      configuredRelayCount,
+      openRelayCount,
     });
     const signedEvent = await cryptoService.signEvent(unsignedEvent, params.privateKeyHex);
     const publishResult = await publishViaRelayCore({
@@ -3738,13 +1591,7 @@ export const encryptedAccountBackupService = {
       scopedRelayUrls: params.scopedRelayUrls,
       waitForConnectionMs: 2_500,
     });
-    const backupDeliveryStatus = publishResult.status === "ok"
-      ? "sent_quorum"
-      : publishResult.status === "partial"
-        ? "sent_partial"
-        : publishResult.status === "queued"
-          ? "queued"
-          : "failed";
+    const backupDeliveryStatus = mapBackupDeliveryStatus(publishResult);
     accountSyncStatusStore.setBackupProof({
       publicKeyHex: params.publicKeyHex,
       eventId: signedEvent.id,
@@ -3756,7 +1603,7 @@ export const encryptedAccountBackupService = {
     accountSyncStatusStore.updateSnapshot({
       publicKeyHex: params.publicKeyHex,
       lastEncryptedBackupPublishAtUnixMs: Date.now(),
-      hasEncryptedBackup: publishResult.status === "ok" || publishResult.status === "partial" || publishResult.status === "queued",
+      hasEncryptedBackup: isBackupPublishSuccessful(publishResult.status),
       lastRelayFailureReason: publishResult.status === "failed" ? publishResult.message : undefined,
     });
     return {
@@ -3791,8 +1638,21 @@ export const encryptedAccountBackupService = {
         // unchanged backup payloads cannot endlessly append duplicate events.
         idempotencyPrefix: CANONICAL_BACKUP_IMPORT_IDEMPOTENCY_PREFIX,
       });
+      const restoreOwnerSelection = resolveCanonicalBackupRestoreOwnerSelection({
+        profileId,
+        accountPublicKeyHex: params.publicKeyHex,
+      });
+      emitBackupRestoreOwnerSelection({
+        publicKeyHex: params.publicKeyHex,
+        profileId,
+        restoreSource: "encrypted_backup",
+        canonicalEventCount: canonicalEvents.length,
+        selection: restoreOwnerSelection,
+        payloadDiagnostics: summarizePersistedChatStateMessages(fetched.payload.chatState, params.publicKeyHex),
+      });
       await applyBackupPayloadNonV1Domains(params.publicKeyHex, fetched.payload, profileId, {
         restoreChatStateDomains: true,
+        restoreDmChatStateDomains: restoreOwnerSelection.restoreDmChatStateDomains,
       });
       const postApplyDiagnostics = summarizePersistedChatStateMessages(
         chatStateStoreService.load(params.publicKeyHex),
@@ -3926,9 +1786,11 @@ export const encryptedAccountBackupServiceInternals = {
   hasReplayableChatHistory,
   parseBackupPayload,
   buildBackupPayloadWithHydratedChatState,
-  hasPortablePrivateStateEvidence,
   compareBackupEvents,
   parseBackupCreatedAtMsTag,
+  toPersistedMessageFromIndexedRecord,
+  toPersistedGroupMessageFromIndexedRecord,
+  resolveCanonicalBackupRestoreOwnerSelection,
   nextBackupEventCreatedAtUnixSeconds,
   resetBackupEventOrderingState: (): void => {
     lastBackupEventCreatedAtByPublicKey.clear();

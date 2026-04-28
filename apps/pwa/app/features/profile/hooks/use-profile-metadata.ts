@@ -99,6 +99,11 @@ export const seedProfileMetadataCache = (metadata: ProfileMetadata): void => {
     persistMetadata(metadata);
 };
 
+export const clearProfileMetadataCache = (): void => {
+    metadataCache.clear();
+    directFetchState.clear();
+};
+
 /**
  * Hook to resolve and subscribe to user metadata (Kind 0)
  */

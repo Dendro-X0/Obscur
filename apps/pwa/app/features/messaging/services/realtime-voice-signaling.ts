@@ -22,9 +22,9 @@ export type VoiceCallSignalPayload = Readonly<{
     candidate: string;
     sdpMid?: string | null;
     sdpMLineIndex?: number | null;
-    usernameFragment?: string | null;
+      usernameFragment?: string | null;
   }>;
-  sentAtUnixMs: number;
+  sentAtUnixMs?: number;
 }>;
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -133,7 +133,7 @@ export const parseVoiceCallSignalPayload = (content: string): VoiceCallSignalPay
   }
   const sentAtUnixMs = typeof parsed.sentAtUnixMs === "number" && Number.isFinite(parsed.sentAtUnixMs)
     ? Math.floor(parsed.sentAtUnixMs)
-    : Date.now();
+    : undefined;
 
   return {
     type: "voice-call-signal",
@@ -144,7 +144,7 @@ export const parseVoiceCallSignalPayload = (content: string): VoiceCallSignalPay
     toPubkey: toStringOrNull(parsed.toPubkey),
     sdp: parseSdp(parsed.sdp),
     candidate: parseCandidate(parsed.candidate),
-    sentAtUnixMs,
+    ...(typeof sentAtUnixMs === "number" ? { sentAtUnixMs } : {}),
   };
 };
 

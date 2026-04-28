@@ -2,6 +2,7 @@ import type { NostrFilter, Subscription, EnhancedDMControllerState } from "./dm-
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { logRuntimeEvent } from "@/app/shared/runtime-log-classification";
 import { deliveryDiagnosticsStore } from "../services/delivery-diagnostics-store";
+import { logDmVisibilityEvent } from "../services/dm-visibility-diagnostics";
 import { generateSubscriptionId, parseRelayEventMessage } from "./relay-utils";
 
 const LIVE_SUBSCRIPTION_SINCE_SKEW_SECONDS = 0;
@@ -68,12 +69,29 @@ export const subscribeToIncomingDMs = (params: SubscriptionManagerParams): void 
         subId = pool.subscribe(filters, onEvent);
     } else if (typeof pool.subscribeToMessages === "function" && typeof pool.sendToOpen === "function") {
         subId = generateSubscriptionId();
-        const legacyUnsubscribe = pool.subscribeToMessages(({ message, url }) => {
-            const parsedEvent = parseRelayEventMessage(message);
-            if (!parsedEvent) {
+        const onEventWrapper = (rawEvent: string, relayUrl: string) => {
+            const event = parseRelayEventMessage(rawEvent);
+            if (!event || typeof event !== "object") {
                 return;
             }
-            onEvent(parsedEvent, url);
+
+            // Log event receipt for B→A visibility diagnostics
+            const ev = event as Record<string, unknown>;
+            logDmVisibilityEvent({
+                eventId: String(ev.id ?? "unknown"),
+                authorPubkey: String(ev.pubkey ?? "unknown"),
+                kind: Number(ev.kind ?? 0),
+                relayUrl,
+                processingStage: "received",
+            });
+
+            onEvent(event, relayUrl);
+        };
+        const legacyUnsubscribe = pool.subscribeToMessages(({ message, url }) => {
+            if (!parseRelayEventMessage(message)) {
+                return;
+            }
+            onEventWrapper(message, url);
         });
         legacyUnsubscribeBySubscriptionId.set(subId, legacyUnsubscribe);
         pool.sendToOpen(JSON.stringify(["REQ", subId, ...filters]));

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useSyncExternalStore, useState } from "react";
 import { PROFILE_CHANGED_EVENT } from "@/app/features/profiles/services/profile-registry-service";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 
@@ -140,10 +140,18 @@ const updateAndPersist = (updater: (prev: ProfileState) => ProfileState): void =
 };
 
 export const useProfile = (): UseProfileResult => {
+  const [activeProfileKey, setActiveProfileKey] = useState<string>(getStorageKey());
+
   useEffect(() => {
     ensureLoaded();
     notify();
     const onProfileChanged = (): void => {
+      const newKey = getStorageKey();
+      // Reset state if profile scope changed to prevent stale avatar/data
+      if (newKey !== activeProfileKey) {
+        currentState = defaultState;
+        setActiveProfileKey(newKey);
+      }
       currentState = loadFromStorage();
       notify();
     };
@@ -151,7 +159,7 @@ export const useProfile = (): UseProfileResult => {
     return (): void => {
       window.removeEventListener(PROFILE_CHANGED_EVENT, onProfileChanged);
     };
-  }, []);
+  }, [activeProfileKey]);
 
   const state: ProfileState = useSyncExternalStore(
     subscribe,

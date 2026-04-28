@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { MotionConfig } from "framer-motion";
 import { useIsDesktop } from "@/app/features/desktop/hooks/use-tauri";
 
 /**
@@ -14,7 +15,9 @@ export function DesktopModeProvider({ children }: { children: React.ReactNode })
   useEffect(() => {
     if (shouldEnableDesktopMode) {
       document.body.classList.add("desktop-mode");
+      document.body.classList.add("desktop-safe-ui");
       document.documentElement.classList.add("desktop-mode");
+      document.documentElement.classList.add("desktop-safe-ui");
       
       // Hide PWA install prompts in desktop mode
       const style = document.createElement("style");
@@ -28,7 +31,9 @@ export function DesktopModeProvider({ children }: { children: React.ReactNode })
 
       return () => {
         document.body.classList.remove("desktop-mode");
+        document.body.classList.remove("desktop-safe-ui");
         document.documentElement.classList.remove("desktop-mode");
+        document.documentElement.classList.remove("desktop-safe-ui");
         const styleEl = document.getElementById("desktop-mode-styles");
         if (styleEl) {
           styleEl.remove();
@@ -37,5 +42,9 @@ export function DesktopModeProvider({ children }: { children: React.ReactNode })
     }
   }, [shouldEnableDesktopMode]);
 
-  return <>{children}</>;
+  return (
+    <MotionConfig reducedMotion={shouldEnableDesktopMode ? "always" : "user"}>
+      {children}
+    </MotionConfig>
+  );
 }

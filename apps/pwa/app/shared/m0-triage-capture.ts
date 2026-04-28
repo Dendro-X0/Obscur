@@ -66,6 +66,7 @@ const FOCUS_EVENT_LIMIT_PER_NAME = 6;
 
 const M0_FOCUS_EVENT_NAMES: Readonly<Record<M0FocusCategory, ReadonlyArray<string>>> = {
   startup: [
+    "runtime.startup_auth_state_transition",
     "runtime.profile_boot_stall_timeout",
     "runtime.profile_binding_refresh_timeout",
     "runtime.profile_binding_refresh_failed",
@@ -99,6 +100,8 @@ const M0_FOCUS_EVENT_NAMES: Readonly<Record<M0FocusCategory, ReadonlyArray<strin
     "groups.room_key_missing_send_blocked",
   ],
   media_hydration: [
+    "messaging.conversation_history_authority_selected",
+    "messaging.conversation_list_authority_selected",
     "messaging.conversation_hydration_diagnostics",
     "messaging.conversation_projection_merge_window_cap_applied",
   ],

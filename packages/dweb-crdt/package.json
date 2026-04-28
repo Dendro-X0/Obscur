@@ -1,0 +1,24 @@
+{
+  "name": "@dweb/crdt",
+  "version": "1.4.0",
+  "private": true,
+  "type": "module",
+  "description": "CRDT primitives for distributed state management - OR-Set, LWW-Register, G-Counter, VectorClock",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "exports": {
+    "./or-set": "./src/or-set.ts",
+    "./lww-register": "./src/lww-register.ts",
+    "./lww-element-set": "./src/lww-element-set.ts",
+    "./g-counter": "./src/g-counter.ts",
+    "./vector-clock": "./src/vector-clock.ts",
+    "./delta-state": "./src/delta-state.ts",
+    "./nostr-event-adapter": "./src/nostr-event-adapter.ts",
+    "./index": "./src/index.ts"
+  },
+  "devDependencies": {
+    "vitest": "^1.0.0"
+  }
+}

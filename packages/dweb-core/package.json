@@ -1,6 +1,6 @@
 {
   "name": "@dweb/core",
-  "version": "1.3.16",
+  "version": "1.4.0",
   "private": true,
   "type": "module",
   "dependencies": {
@@ -12,6 +12,11 @@
     "./bootstrap-config": "./src/bootstrap-config.ts",
     "./identity-record": "./src/identity-record.ts",
     "./security-foundation-contracts": "./src/security-foundation-contracts.ts",
-    "./release-download-targets": "./src/release-download-targets.ts"
+    "./release-download-targets": "./src/release-download-targets.ts",
+    "./community-sendability-contracts": "./src/community-sendability-contracts.ts",
+    "./community-control-event-contracts": "./src/community-control-event-contracts.ts",
+    "./community-projection-contracts": "./src/community-projection-contracts.ts",
+    "./community-content-contracts": "./src/community-content-contracts.ts",
+    "./community-media-descriptor-contracts": "./src/community-media-descriptor-contracts.ts"
   }
 }

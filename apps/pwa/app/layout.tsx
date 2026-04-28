@@ -91,8 +91,10 @@ export default function RootLayout({
                     return false;
                   }
                   document.documentElement.classList.add("desktop-mode");
+                  document.documentElement.classList.add("desktop-safe-ui");
                   if (document.body) {
                     document.body.classList.add("desktop-mode");
+                    document.body.classList.add("desktop-safe-ui");
                   }
                   return true;
                 };

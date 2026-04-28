@@ -69,9 +69,9 @@ describe('ConnectionRequestInbox', () => {
   it('renders canonical pending requests from requestsInbox', async () => {
     render(<ConnectionRequestInbox />);
 
-    expect(screen.getByText(/user 00000000/i)).toBeInTheDocument();
+    expect(screen.getByText(/unknown contact/i)).toBeInTheDocument();
+    expect(screen.getByText(/identity hidden/i)).toBeInTheDocument();
     expect(screen.getByText(/hello, let's connect!/i)).toBeInTheDocument();
-    expect(screen.getByText('0'.repeat(64))).toBeInTheDocument();
   });
 
   it('handles accept action via request transport', async () => {

@@ -106,6 +106,30 @@ describe("relay-runtime-supervisor", () => {
     expect(snapshot.lastSubscriptionReplayResult).toBe("ok");
   });
 
+  it("captures privacy-routed transport mode in the runtime snapshot", () => {
+    const supervisor = createRelayRuntimeSupervisor();
+    const pool = createPool({
+      writableRelayUrls: ["wss://relay.one"],
+      subscribableRelayCount: 1,
+      activeSubscriptionCount: 1,
+    });
+
+    supervisor.configure({
+      pool,
+      enabledRelayUrls: ["wss://relay.one"],
+      scope: {
+        windowLabel: "desktop-main",
+        profileId: "default",
+        transportRoutingMode: "privacy_routed",
+        transportProxySummary: "socks5h://127.0.0.1:9050",
+      },
+    });
+
+    const snapshot = supervisor.refresh();
+    expect(snapshot.transportRoutingMode).toBe("privacy_routed");
+    expect(snapshot.transportProxySummary).toBe("socks5h://127.0.0.1:9050");
+  });
+
   it("tracks reconnect recovery and resets on dispose", async () => {
     const supervisor = createRelayRuntimeSupervisor();
     const pool = createPool({

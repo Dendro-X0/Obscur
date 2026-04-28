@@ -52,6 +52,20 @@ Update (2026-04-14, v1.3.14 release prep):
 4. Community and realtime-voice reliability without introducing parallel owner paths.
 5. Documentation as architecture contract.
 
+## Current Phase Policy
+
+Obscur is still in a pre-public, community-maintained trust-building phase.
+
+In this phase:
+
+1. core reliability outranks broad feature expansion,
+2. explicit contracts/specs outrank ambient behavior,
+3. tests plus manual replay evidence outrank optimistic release claims,
+4. roadmap promises should stay downstream of what current runtime truth can defend.
+
+See:
+: `docs/trust/19-pre-public-reliability-and-trust-contract.md`
+
 ## Non-Goals
 
 1. Treating optimistic local UI state as network truth.

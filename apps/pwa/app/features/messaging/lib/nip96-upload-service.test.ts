@@ -126,4 +126,68 @@ describe("nip96-upload-service internals", () => {
     expect(attemptedTargets[0]).toBe("https://provider-one.example");
     expect(attemptedTargets[1]).toBe("https://provider-two.example");
   });
+
+  it("scales upload timeout with file size for low-bandwidth safety", () => {
+    expect(nip96UploadInternals.resolveUploadTimeoutMs({
+      fileSizeBytes: 5 * 1024 * 1024,
+      baselineTimeoutMs: 60_000,
+    })).toBe(60_000);
+
+    expect(nip96UploadInternals.resolveUploadTimeoutMs({
+      fileSizeBytes: 100 * 1024 * 1024,
+      baselineTimeoutMs: 60_000,
+    })).toBeGreaterThan(60_000);
+  });
+
+  it("honors the caller-provided browser fetch timeout for large uploads", async () => {
+    vi.useFakeTimers();
+    const service = new Nip96UploadService(["https://upload.example"], null, null);
+    let activeSignal: AbortSignal | null | undefined;
+    let resolveFetch: ((response: Response) => void) | undefined;
+    const fetchMock = vi.fn((_: RequestInfo | URL, init?: RequestInit) => {
+      activeSignal = init?.signal;
+      return new Promise<Response>((resolve, reject) => {
+        resolveFetch = resolve;
+        const signal = init?.signal;
+        if (signal) {
+          signal.addEventListener("abort", () => {
+            reject(new DOMException("Aborted", "AbortError"));
+          }, { once: true });
+        }
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    (service as any).resolveFallbackPrivateKeyHex = vi.fn(async () => "f".repeat(64));
+    (service as any).signNip98Header = vi.fn(async () => "signed-header");
+
+    const file = new File([new Uint8Array(1024)], "clip.mp4", { type: "video/mp4" });
+    const uploadPromise = (service as any).uploadViaBrowser(
+      file,
+      "https://upload.example",
+      "f".repeat(64),
+      120_000,
+    );
+
+    await vi.advanceTimersByTimeAsync(45_000);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    if (!activeSignal) {
+      throw new Error("Expected active fetch signal");
+    }
+    expect(activeSignal.aborted).toBe(false);
+
+    if (!resolveFetch) {
+      throw new Error("Expected fetch resolver to be set");
+    }
+    resolveFetch(new Response(JSON.stringify({
+      status: "success",
+      url: "https://upload.example/clip.mp4",
+    }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    }));
+
+    await expect(uploadPromise).resolves.toMatchObject({
+      url: "https://upload.example/clip.mp4",
+    });
+  });
 });

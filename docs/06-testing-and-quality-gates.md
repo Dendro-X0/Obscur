@@ -59,6 +59,24 @@ For auth, account sync, relay, request, and DM changes, leave at least one of:
 - new diagnostics surface,
 - docs update describing invariant/gate.
 
+## Pre-Public Core Reliability Rule
+
+While Obscur remains in pre-public/community phase, core functionality should
+not be pushed casually.
+
+For core flows, require all of:
+
+1. code inspection of the canonical owner path,
+2. focused automated tests for the touched contract,
+3. `tsc` and docs/release gates as appropriate,
+4. manual runtime replay for cross-device, relay-sensitive, restore-sensitive,
+   or lifecycle-sensitive changes.
+
+Reference:
+
+- `docs/trust/19-pre-public-reliability-and-trust-contract.md`
+- `docs/trust/20-core-function-verification-matrix.md`
+
 ## Phase 2 Boundary Checks (Rust Core)
 
 For Rust protocol boundary work, run:

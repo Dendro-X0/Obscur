@@ -19,3 +19,12 @@ export const removeConversationIdFromHidden = (
     }
     return hiddenChatIds.filter((existingConversationId) => existingConversationId !== normalizedConversationId);
 };
+
+export const sanitizeDmConversationIdList = (
+    conversationIds: ReadonlyArray<string>,
+    allowedDmConversationIds: ReadonlySet<string>
+): ReadonlyArray<string> => {
+    return conversationIds.filter((conversationId) => (
+        isGroupConversationId(conversationId) || allowedDmConversationIds.has(conversationId)
+    ));
+};

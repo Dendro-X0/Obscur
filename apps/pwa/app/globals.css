@@ -200,6 +200,10 @@
     position: relative;
   }
 
+  .desktop-safe-ui body {
+    background-attachment: scroll;
+  }
+
   /* Hazy center glow for light mode */
   body::before {
     content: "";
@@ -566,6 +570,9 @@
   }
 
   /* Accessibility: user-selected reduced motion */
+  .desktop-safe-ui *,
+  .desktop-safe-ui *::before,
+  .desktop-safe-ui *::after,
   .reduce-motion *,
   .reduce-motion *::before,
   .reduce-motion *::after {
@@ -573,6 +580,32 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+
+  .desktop-safe-ui .btn-enhanced:hover,
+  .desktop-safe-ui .nav-link:hover,
+  .desktop-safe-ui .titlebar-button:hover,
+  .desktop-safe-ui .media-viewer-control:hover,
+  .desktop-safe-ui .media-viewer-nav:hover {
+    transform: none !important;
+  }
+
+  .desktop-safe-ui [class*="backdrop-blur"],
+  .desktop-safe-ui .titlebar-glass,
+  .desktop-safe-ui .media-viewer-control,
+  .desktop-safe-ui .media-viewer-nav {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+
+  .desktop-safe-ui .page-transition,
+  .desktop-safe-ui .modal-transition {
+    animation: none !important;
+  }
+
+  .desktop-safe-ui .desktop-window-glow,
+  .desktop-safe-ui .dark .desktop-window-glow {
+    box-shadow: 0 0 0 1px oklch(1 0 0 / 0.08), 0 8px 24px -16px oklch(0 0 0 / 0.28) !important;
   }
 
   /* Accessibility: contrast assist */

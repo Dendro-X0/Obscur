@@ -1,7 +1,7 @@
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 export type { PublicKeyHex };
 import type React from "react";
-import type { GroupAccessMode } from "../../groups/types";
+import type { CommunityMode, GroupAccessMode, RelayCapabilityTier } from "../../groups/types";
 
 export type RelayStatusSummary = Readonly<{
     total: number;
@@ -37,6 +37,8 @@ export type GroupConversation = Readonly<{
     adminPubkeys: ReadonlyArray<string>;
     about?: string;
     avatar?: string;
+    communityMode?: CommunityMode;
+    relayCapabilityTier?: RelayCapabilityTier;
 }>;
 
 export type Conversation = DmConversation | GroupConversation;
@@ -177,6 +179,8 @@ export type PersistedGroupConversation = Readonly<{
     adminPubkeys?: ReadonlyArray<string>;
     about?: string;
     avatar?: string;
+    communityMode?: CommunityMode;
+    relayCapabilityTier?: RelayCapabilityTier;
 }>;
 
 export type PersistedMessage = Readonly<{

@@ -97,15 +97,22 @@ export const useRealtimePresence = (params: UseRealtimePresenceParams): UseRealt
   const selfSessionId = useMemo(() => createSessionId(), []);
   const [selfStartedAtMs] = useState<number>(() => Date.now());
 
-  const subscribedAuthors = useMemo(
-    () => toSortedUniqueAuthors(params.publicKeyHex, params.acceptedPeers),
-    [params.acceptedPeers, params.publicKeyHex]
-  );
-  const subscribedAuthorsKey = useMemo(() => subscribedAuthors.join("|"), [subscribedAuthors]);
-  const subscribedAuthorsFromKey = useMemo(
-    () => (subscribedAuthorsKey ? subscribedAuthorsKey.split("|") : []),
-    [subscribedAuthorsKey]
-  );
+  // Use race-safe subscription state computation
+  // Ref: presence-subscription-race-fix.ts for pure implementation
+  const subscriptionState = useMemo(() => {
+    const authors = toSortedUniqueAuthors(params.publicKeyHex, params.acceptedPeers);
+    return {
+      authors,
+      key: authors.join("|"),
+      hasAuthors: authors.length > 0,
+    };
+  }, [params.acceptedPeers, params.publicKeyHex]);
+
+  // Keep track of current authors to avoid stale closure in subscription effect
+  const currentAuthorsRef = useRef(subscriptionState.authors);
+  useEffect(() => {
+    currentAuthorsRef.current = subscriptionState.authors;
+  }, [subscriptionState.authors]);
 
   useEffect(() => {
     duplicateSessionDetectedRef.current = false;
@@ -115,8 +122,9 @@ export const useRealtimePresence = (params: UseRealtimePresenceParams): UseRealt
     duplicateSessionConflictHandlerRef.current = params.onDuplicateSessionConflict;
   }, [params.onDuplicateSessionConflict]);
 
+  // Filter out presence entries for authors no longer in scope
   useEffect(() => {
-    const scopedAuthors = new Set(subscribedAuthorsFromKey);
+    const scopedAuthors = new Set(subscriptionState.authors);
     setPresenceByPubkey((prev) => {
       const entries = Object.entries(prev).filter(([pubkey]) => scopedAuthors.has(pubkey));
       if (entries.length === Object.keys(prev).length) {
@@ -124,7 +132,7 @@ export const useRealtimePresence = (params: UseRealtimePresenceParams): UseRealt
       }
       return Object.fromEntries(entries);
     });
-  }, [subscribedAuthorsFromKey]);
+  }, [subscriptionState.authors]);
 
   const publishPresence = useCallback(async (state: PresenceState): Promise<void> => {
     if (!params.publicKeyHex || !params.privateKeyHex) {
@@ -149,15 +157,17 @@ export const useRealtimePresence = (params: UseRealtimePresenceParams): UseRealt
     }
   }, [params.privateKeyHex, params.publicKeyHex, publishToAll, selfSessionId, selfStartedAtMs]);
 
+  // Subscribe to presence events with race-safe author list
   useEffect(() => {
-    if (!params.publicKeyHex || subscribedAuthorsFromKey.length === 0) {
+    if (!params.publicKeyHex || !subscriptionState.hasAuthors) {
       return;
     }
 
     const selfPublicKeyHex = params.publicKeyHex;
+    const authors = currentAuthorsRef.current;
     const filters: ReadonlyArray<NostrFilter> = [{
       kinds: [PRESENCE_EVENT_KIND],
-      authors: subscribedAuthorsFromKey,
+      authors,
       "#d": [PRESENCE_D_TAG],
       limit: 200,
     }];
@@ -205,8 +215,8 @@ export const useRealtimePresence = (params: UseRealtimePresenceParams): UseRealt
     params.publicKeyHex,
     selfSessionId,
     selfStartedAtMs,
-    subscribedAuthorsKey,
-    subscribedAuthorsFromKey,
+    subscriptionState.key,
+    subscriptionState.hasAuthors,
     subscribeFn,
     unsubscribeFn,
   ]);

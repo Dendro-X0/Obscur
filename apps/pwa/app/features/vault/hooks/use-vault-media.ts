@@ -6,6 +6,7 @@ import type { Message, MediaItem } from "../../messaging/types";
 import { CHAT_STATE_REPLACED_EVENT } from "../../messaging/services/chat-state-store";
 import { MESSAGES_INDEX_REBUILT_EVENT } from "../../messaging/services/message-persistence-service";
 import { useIdentity } from "../../auth/hooks/use-identity";
+import { getActiveProfileIdSafe } from "../../profiles/services/profile-scope";
 import {
     deleteLocalMediaCacheItem,
     downloadAttachmentToUserPath,
@@ -99,8 +100,11 @@ export function useVaultMedia() {
             return;
         }
         const onScopedRefresh = (event: Event): void => {
-            const detail = (event as CustomEvent<{ publicKeyHex?: string }>).detail;
+            const detail = (event as CustomEvent<{ publicKeyHex?: string; profileId?: string }>).detail;
             if (detail?.publicKeyHex && publicKeyHex && detail.publicKeyHex !== publicKeyHex) {
+                return;
+            }
+            if (detail?.profileId && detail.profileId !== getActiveProfileIdSafe()) {
                 return;
             }
             void refresh();

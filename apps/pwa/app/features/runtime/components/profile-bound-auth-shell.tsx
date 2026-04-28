@@ -13,10 +13,11 @@ const PROFILE_BOOT_STALL_TIMEOUT_MS = 12_000;
 export function ProfileBoundAuthShell(): React.JSX.Element {
   const runtimeActions = useWindowRuntime();
   const runtime = runtimeActions.snapshot;
+  const startupState = runtime.session.startupState;
   const [profileBootStalled, setProfileBootStalled] = useState(false);
 
   useEffect(() => {
-    const isPendingProfileBoot = runtime.phase === "booting" || runtime.phase === "binding_profile";
+    const isPendingProfileBoot = startupState.kind === "pending" && (runtime.phase === "booting" || runtime.phase === "binding_profile");
     if (!isPendingProfileBoot) {
       setProfileBootStalled(false);
       return;
@@ -36,9 +37,9 @@ export function ProfileBoundAuthShell(): React.JSX.Element {
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [runtime.phase]);
+  }, [runtime.phase, startupState.kind]);
 
-  if ((runtime.phase === "booting" || runtime.phase === "binding_profile") && !profileBootStalled) {
+  if (startupState.kind === "pending" && (runtime.phase === "booting" || runtime.phase === "binding_profile") && !profileBootStalled) {
     return (
       <div className="flex-1 flex items-center justify-center bg-zinc-50 dark:bg-black">
         <div className="relative flex h-24 w-24 items-center justify-center">
@@ -49,7 +50,7 @@ export function ProfileBoundAuthShell(): React.JSX.Element {
     );
   }
 
-  if (runtime.phase === "booting" || runtime.phase === "binding_profile") {
+  if (startupState.kind === "pending" && (runtime.phase === "booting" || runtime.phase === "binding_profile")) {
     return (
       <div className="flex flex-1 items-center justify-center bg-zinc-50 text-zinc-700 dark:bg-black dark:text-zinc-200">
         <div className="w-full max-w-lg rounded-2xl border border-black/10 bg-white/80 px-5 py-4 text-sm font-medium shadow-sm dark:border-white/10 dark:bg-white/5">
@@ -86,7 +87,7 @@ export function ProfileBoundAuthShell(): React.JSX.Element {
     return (
       <div className="flex flex-1 items-center justify-center bg-zinc-50 text-zinc-700 dark:bg-black dark:text-zinc-200">
         <div className="w-full max-w-lg rounded-2xl border border-black/10 bg-white/80 px-5 py-4 text-sm font-medium shadow-sm dark:border-white/10 dark:bg-white/5">
-          <p>{runtime.lastError || "Profile runtime failed to start."}</p>
+          <p>{startupState.message || runtime.lastError || "Profile runtime failed to start."}</p>
           <div className="mt-4 flex items-center justify-end">
             <Button
               type="button"

@@ -325,6 +325,8 @@ describe("group-provider cross-device membership integration", () => {
             },
           },
         }),
+        "default",
+        { restoreChatStateDomains: true },
       );
     });
 

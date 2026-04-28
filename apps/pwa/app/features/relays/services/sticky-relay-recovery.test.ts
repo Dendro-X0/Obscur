@@ -52,4 +52,25 @@ describe("sticky relay recovery", () => {
       fallbackWritableRelayCount: 1,
     })).toBe(12_000);
   });
+
+  it("widens recovery delay budgets when transport is privacy routed", () => {
+    expect(getAutoRecoveryDelayMs({
+      readiness: "offline",
+      recoveryAttemptCount: 0,
+      transportRoutingMode: "privacy_routed",
+    })).toBe(4_000);
+
+    expect(getAutoRecoveryDelayMs({
+      readiness: "recovering",
+      recoveryAttemptCount: 3,
+      transportRoutingMode: "privacy_routed",
+    })).toBe(9_000);
+
+    expect(getAutoRecoveryDelayMs({
+      readiness: "degraded",
+      recoveryAttemptCount: 0,
+      fallbackWritableRelayCount: 1,
+      transportRoutingMode: "privacy_routed",
+    })).toBe(18_000);
+  });
 });

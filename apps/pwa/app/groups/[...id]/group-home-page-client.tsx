@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useTranslation } from "react-i18next";
@@ -36,7 +36,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@dweb/ui-kit";
 import { InviteConnectionsDialog } from "@/app/features/groups/components/invite-connections-dialog";
 import { cn } from "@dweb/ui-kit";
 import { toScopedRelayUrl, useSealedCommunity } from "@/app/features/groups/hooks/use-sealed-community";
-import { useUploadService } from "@/app/features/messaging/lib/upload-service";
 import { toast } from "@dweb/ui-kit";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import Image from "next/image";
@@ -54,9 +53,14 @@ import { resolveGroupRouteToken } from "@/app/features/groups/utils/group-route-
 import { toGroupConversationId } from "@/app/features/groups/utils/group-conversation-id";
 import { useAccessibilityPreferences } from "@/app/features/settings/hooks/use-accessibility-preferences";
 import { logAppEvent } from "@/app/shared/log-app-event";
-import { filterVisibleGroupMembers } from "@/app/features/groups/services/community-visible-members";
-import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store";
-import { collectGroupMessageAuthorPubkeys } from "@/app/features/groups/services/community-message-author-evidence";
+import {
+    filterVisibleGroupMembers,
+    resolveCommunitySeedMemberPubkeys,
+    resolveVisibleCommunityMemberPubkeys,
+    stabilizeCommunityMemberPubkeys,
+} from "@/app/features/groups/services/community-visible-members";
+import { useIsDesktop } from "@/app/features/desktop/hooks/use-tauri";
+import { shouldUseSafeCommunityRenderMode } from "@/app/features/groups/services/community-render-mode";
 
 export default function GroupHomePage() {
     const MEMBERS_PER_PAGE = 20;
@@ -68,12 +72,13 @@ export default function GroupHomePage() {
     });
     const router = useRouter();
     const { t } = useTranslation();
-    const { createdGroups, addGroup, leaveGroup, updateGroup } = useGroups();
+    const { createdGroups, communityKnownParticipantDirectoryByConversationId, communityRosterByConversationId, addGroup, leaveGroup } = useGroups();
     const { setSelectedConversation } = useMessaging();
     const { state: identityState } = useIdentity();
     const { relayPool } = useRelay();
     const { blocklist, presence } = useNetwork();
     const { preferences } = useAccessibilityPreferences();
+    const isDesktop = useIsDesktop();
     const discoveredRelay = searchParams.get("relay");
     const forceSafeRenderMode = searchParams.get("renderMode") === "safe";
     const [isLeaving, setIsLeaving] = useState(false);
@@ -95,9 +100,16 @@ export default function GroupHomePage() {
         constrained: false,
     });
     const didLogSafeRenderModeRef = React.useRef<boolean>(false);
-    const safeVisualMode = forceSafeRenderMode || preferences.reducedMotion || runtimeCapability.constrained;
+    const lastParticipantProjectionSignatureRef = React.useRef<string | null>(null);
+    const safeVisualMode = shouldUseSafeCommunityRenderMode({
+        forceSafeRenderMode,
+        reducedMotion: preferences.reducedMotion,
+        runtimeConstrained: runtimeCapability.constrained,
+        isDesktop,
+    });
 
     const group = id ? (resolveGroupConversationByToken(createdGroups, id) ?? undefined) : undefined;
+    const localMemberPubkey = (identityState.publicKeyHex || identityState.stored?.publicKeyHex || null) as PublicKeyHex | null;
 
     const effectiveRelay = toScopedRelayUrl(group?.relayUrl || discoveredRelay || "") ?? "";
     const isGuest = !group;
@@ -136,6 +148,7 @@ export default function GroupHomePage() {
                 forcedByQuery: forceSafeRenderMode,
                 reducedMotionEnabled: preferences.reducedMotion,
                 constrainedDevice: runtimeCapability.constrained,
+                desktopRuntime: isDesktop,
                 hardwareConcurrency: runtimeCapability.hardwareConcurrency,
                 deviceMemoryGb: runtimeCapability.deviceMemoryGb,
             },
@@ -146,6 +159,7 @@ export default function GroupHomePage() {
         runtimeCapability.constrained,
         runtimeCapability.deviceMemoryGb,
         runtimeCapability.hardwareConcurrency,
+        isDesktop,
         safeVisualMode,
     ]);
 
@@ -153,8 +167,7 @@ export default function GroupHomePage() {
         state: groupState,
         updateMetadata,
         leaveGroup: leaveNip29Group,
-        requestJoin: requestJoinNip29,
-        members: discoveredMembers
+        requestJoin: requestJoinNip29
     } = useSealedCommunity({
         groupId: group?.groupId || id || "",
         relayUrl: effectiveRelay,
@@ -163,30 +176,74 @@ export default function GroupHomePage() {
         myPublicKeyHex: identityState.publicKeyHex || null,
         myPrivateKeyHex: identityState.privateKeyHex || null,
         enabled: !!(group || discoveredRelay),
-        initialMembers: group?.memberPubkeys as ReadonlyArray<PublicKeyHex> | undefined
+        initialMembers: resolveCommunitySeedMemberPubkeys({
+            seededMemberPubkeys: [
+                ...((communityKnownParticipantDirectoryByConversationId[group?.id ?? ""]?.participantPubkeys ?? []) as ReadonlyArray<PublicKeyHex>),
+                ...(((group?.memberPubkeys as ReadonlyArray<PublicKeyHex> | undefined) ?? [])),
+            ],
+            projectionMemberPubkeys: communityRosterByConversationId[group?.id ?? ""]?.activeMemberPubkeys,
+            localMemberPubkey,
+        }),
     });
 
-    const allKnownMembers = React.useMemo(() => {
-        const identityPublicKeyHex = (identityState.publicKeyHex ?? identityState.stored?.publicKeyHex ?? null) as PublicKeyHex | null;
-        const authorEvidence = identityPublicKeyHex && group?.id
-            ? collectGroupMessageAuthorPubkeys({
-                chatState: chatStateStoreService.load(identityPublicKeyHex),
-                conversationId: group.id,
-            })
-            : [];
-        const merged = new Set<PublicKeyHex>([
-            ...((group?.memberPubkeys as ReadonlyArray<PublicKeyHex> | undefined) ?? []),
-            ...(discoveredMembers ?? []),
-            ...authorEvidence,
-        ]);
-        return Array.from(merged);
-    }, [discoveredMembers, group?.id, group?.memberPubkeys, identityState.publicKeyHex, identityState.stored?.publicKeyHex]);
-    const activeMembers = React.useMemo(() => {
-        if (allKnownMembers.length > 0) {
-            return allKnownMembers;
-        }
-        return ((group?.memberPubkeys as ReadonlyArray<PublicKeyHex> | undefined) ?? []);
-    }, [allKnownMembers, group?.memberPubkeys]);
+    const communityRosterProjection = group ? communityRosterByConversationId[group.id] : undefined;
+    const communityKnownParticipantDirectory = group ? communityKnownParticipantDirectoryByConversationId[group.id] : undefined;
+    const projectionMemberPubkeys = communityRosterProjection?.activeMemberPubkeys;
+    const knownParticipantPubkeys = communityKnownParticipantDirectory?.participantPubkeys;
+    const seededMemberEvidence = React.useMemo(
+        () => resolveCommunitySeedMemberPubkeys({
+            seededMemberPubkeys: [
+                ...((knownParticipantPubkeys ?? []) as ReadonlyArray<PublicKeyHex>),
+                ...(((group?.memberPubkeys as ReadonlyArray<PublicKeyHex> | undefined) ?? [])),
+            ],
+            projectionMemberPubkeys,
+            localMemberPubkey,
+        }),
+        [group?.memberPubkeys, knownParticipantPubkeys, localMemberPubkey, projectionMemberPubkeys]
+    );
+    const authorEvidencePubkeys = React.useMemo(
+        () => Array.from(new Set(
+            groupState.messages
+                .map((message) => message.pubkey?.trim() ?? "")
+                .filter((pubkey) => pubkey.length > 0)
+        )) as ReadonlyArray<PublicKeyHex>,
+        [groupState.messages]
+    );
+    const activeMembers = React.useMemo(
+        () => resolveVisibleCommunityMemberPubkeys({
+            seededMemberPubkeys: seededMemberEvidence,
+            projectionMemberPubkeys,
+            authorEvidencePubkeys,
+            localMemberPubkey,
+            leftMemberPubkeys: groupState.leftMembers,
+            expelledMemberPubkeys: groupState.expelledMembers,
+        }),
+        [authorEvidencePubkeys, groupState.expelledMembers, groupState.leftMembers, localMemberPubkey, projectionMemberPubkeys, seededMemberEvidence]
+    );
+    const [stableParticipantPubkeys, setStableParticipantPubkeys] = useState<ReadonlyArray<PublicKeyHex>>(activeMembers);
+    useEffect(() => {
+        setStableParticipantPubkeys((previous) => {
+            const result = stabilizeCommunityMemberPubkeys({
+                previousMemberPubkeys: previous,
+                nextMemberPubkeys: activeMembers,
+                leftMemberPubkeys: groupState.leftMembers,
+                expelledMemberPubkeys: groupState.expelledMembers,
+            });
+            // Log diagnostics for debugging member list updates
+            if (result.shouldApply || result.reasonCode === "missing_removal_evidence") {
+                // eslint-disable-next-line no-console
+                console.log("[MemberStabilization]", {
+                    reasonCode: result.reasonCode,
+                    shouldApply: result.shouldApply,
+                    previousCount: previous.length,
+                    nextCount: result.nextMemberPubkeys.length,
+                    confidence: result.confidence,
+                    guardRelaxed: result.guardRelaxed,
+                });
+            }
+            return result.nextMemberPubkeys.join(",") === previous.join(",") ? previous : result.nextMemberPubkeys;
+        });
+    }, [activeMembers, groupState.expelledMembers, groupState.leftMembers]);
     const fallbackGroupIdFromRoute = React.useMemo(() => {
         const routeToken = (id ?? "").trim();
         if (!routeToken) {
@@ -218,8 +275,8 @@ export default function GroupHomePage() {
         return fallbackCommunityIdFromRoute || undefined;
     }, [fallbackCommunityIdFromRoute, group?.communityId]);
     const visibleMembers = React.useMemo(
-        () => filterVisibleGroupMembers(allKnownMembers, (pubkey) => discoveryCache.getProfile(pubkey)),
-        [allKnownMembers]
+        () => filterVisibleGroupMembers(stableParticipantPubkeys, (pubkey) => discoveryCache.getProfile(pubkey)),
+        [stableParticipantPubkeys]
     );
     const displayMemberCount = visibleMembers.length;
     const onlineMembers = React.useMemo(
@@ -259,6 +316,68 @@ export default function GroupHomePage() {
         [offlineMembers, memberMatchesSearch]
     );
 
+    useEffect(() => {
+        if (!group) {
+            return;
+        }
+        const signature = [
+            group.id,
+            knownParticipantPubkeys?.length ?? 0,
+            projectionMemberPubkeys?.length ?? 0,
+            authorEvidencePubkeys.length,
+            activeMembers.length,
+            stableParticipantPubkeys.length,
+            visibleMembers.length,
+            onlineMembers.length,
+            offlineMembers.length,
+            groupState.membership.status,
+        ].join("|");
+        if (lastParticipantProjectionSignatureRef.current === signature) {
+            return;
+        }
+        lastParticipantProjectionSignatureRef.current = signature;
+
+        const visibleShrankBelowStable = visibleMembers.length < stableParticipantPubkeys.length;
+        const projectionThinnerThanKnown =
+            (projectionMemberPubkeys?.length ?? 0) < (knownParticipantPubkeys?.length ?? 0);
+        const projectionThinnerThanAuthors =
+            (projectionMemberPubkeys?.length ?? 0) < authorEvidencePubkeys.length;
+
+        logAppEvent({
+            name: "groups.page.participant_projection_state",
+            level: visibleShrankBelowStable || projectionThinnerThanKnown || projectionThinnerThanAuthors ? "warn" : "info",
+            scope: { feature: "groups", action: "participant_projection_state" },
+            context: {
+                conversationId: group.id,
+                groupId: group.groupId,
+                communityId: group.communityId ?? null,
+                membershipStatus: groupState.membership.status,
+                knownParticipantCount: knownParticipantPubkeys?.length ?? 0,
+                rosterProjectionCount: projectionMemberPubkeys?.length ?? 0,
+                authorEvidenceCount: authorEvidencePubkeys.length,
+                activeParticipantCount: activeMembers.length,
+                stableParticipantCount: stableParticipantPubkeys.length,
+                visibleParticipantCount: visibleMembers.length,
+                onlineParticipantCount: onlineMembers.length,
+                offlineParticipantCount: offlineMembers.length,
+                projectionThinnerThanKnown: projectionThinnerThanKnown ? 1 : 0,
+                projectionThinnerThanAuthors: projectionThinnerThanAuthors ? 1 : 0,
+                visibleShrankBelowStable: visibleShrankBelowStable ? 1 : 0,
+            },
+        });
+    }, [
+        activeMembers.length,
+        authorEvidencePubkeys.length,
+        group,
+        groupState.membership.status,
+        knownParticipantPubkeys?.length,
+        offlineMembers.length,
+        onlineMembers.length,
+        projectionMemberPubkeys?.length,
+        stableParticipantPubkeys.length,
+        visibleMembers.length,
+    ]);
+
     const onlineTotalPages = Math.max(1, Math.ceil(filteredOnlineMembers.length / MEMBERS_PER_PAGE));
     const offlineTotalPages = Math.max(1, Math.ceil(filteredOfflineMembers.length / MEMBERS_PER_PAGE));
 
@@ -285,29 +404,6 @@ export default function GroupHomePage() {
         setOfflinePage((current) => Math.min(current, offlineTotalPages));
     }, [offlineTotalPages]);
 
-    // Sync live member list back to the group provider so persistence stays current
-    React.useEffect(() => {
-        if (!group || allKnownMembers.length === 0) return;
-        const current = group.memberPubkeys ?? [];
-        const merged = Array.from(new Set([...current, ...allKnownMembers]));
-        const nextMembers = filterVisibleGroupMembers(merged.filter((pubkey) => (
-            !groupState.leftMembers.includes(pubkey) && !groupState.expelledMembers.includes(pubkey)
-        )), (pubkey) => discoveryCache.getProfile(pubkey));
-        const same = current.length === nextMembers.length &&
-            nextMembers.every(pk => current.includes(pk));
-        if (!same) {
-            updateGroup({
-                groupId: group.groupId,
-                relayUrl: group.relayUrl,
-                conversationId: group.id,
-                updates: {
-                    memberPubkeys: nextMembers,
-                    memberCount: nextMembers.length
-                }
-            });
-        }
-    }, [allKnownMembers, group?.groupId, group?.id, group?.relayUrl, group?.memberPubkeys, groupState.expelledMembers, groupState.leftMembers, updateGroup]);
-
     React.useEffect(() => {
         if (typeof window === "undefined") {
             return;
@@ -323,11 +419,11 @@ export default function GroupHomePage() {
             return;
         }
         const hasMembershipEvidence = groupState.membership.status === "member"
-            || allKnownMembers.includes(myPublicKeyHex);
+            || stableParticipantPubkeys.includes(myPublicKeyHex);
         if (!hasMembershipEvidence) {
             return;
         }
-        const memberPubkeys = Array.from(new Set([...allKnownMembers, myPublicKeyHex]));
+        const memberPubkeys = Array.from(new Set([...stableParticipantPubkeys, myPublicKeyHex]));
         const adminPubkeys = (groupState.admins ?? [])
             .map((admin) => admin.pubkey)
             .filter((pubkey): pubkey is PublicKeyHex => typeof pubkey === "string" && pubkey.trim().length > 0);
@@ -376,7 +472,7 @@ export default function GroupHomePage() {
         }));
     }, [
         addGroup,
-        allKnownMembers,
+        stableParticipantPubkeys,
         effectiveRelay,
         group,
         groupState.admins,
@@ -755,20 +851,20 @@ export default function GroupHomePage() {
                                         <Users className="h-7 w-7 text-purple-400" />
                                     </div>
                                     <span className="px-5 py-1.5 rounded-full bg-purple-500/10 text-purple-400 text-xs font-black uppercase tracking-widest border border-purple-500/20">
-                                        {groupState.membership.role}
+                                        Participants
                                     </span>
                                 </div>
                                 <div className="space-y-1">
-                                    <h3 className="text-3xl font-black text-zinc-900 dark:text-white">Community</h3>
-                                    <p className="font-medium text-zinc-700 dark:text-zinc-500">Connect with {displayMemberCount} active members in this space.</p>
+                                    <h3 className="text-3xl font-black text-zinc-900 dark:text-white">Community Access</h3>
+                                    <p className="font-medium text-zinc-700 dark:text-zinc-500">Open the encrypted chat, invite peers, and browse the participant list backed by current community evidence.</p>
                                     <p className="text-[11px] font-bold uppercase tracking-widest text-zinc-600 dark:text-zinc-500">
-                                        Click to view online and offline members
+                                        Membership, invite, and message evidence
                                     </p>
                                 </div>
                             </div>
                             <div className="flex items-center gap-3 pt-8 relative z-10">
                                 <div className="flex -space-x-3">
-                                    {activeMembers.slice(0, 5).map((pk, i) => (
+                                    {visibleMembers.slice(0, 5).map((pk, i) => (
                                         <div
                                             key={pk}
                                             className="group-hover/bento:-translate-y-1 transition-transform"
@@ -784,14 +880,14 @@ export default function GroupHomePage() {
                                             />
                                         </div>
                                     ))}
-                                    {activeMembers.length > 5 && (
+                                    {visibleMembers.length > 5 && (
                                         <div className="flex h-12 w-12 items-center justify-center rounded-2xl border-[3px] border-white bg-zinc-100 text-xs font-black text-zinc-600 shadow-xl dark:border-[#0C0C0E] dark:bg-zinc-900 dark:text-zinc-500">
-                                            +{activeMembers.length - 5}
+                                            +{visibleMembers.length - 5}
                                         </div>
                                     )}
                                 </div>
                                 <div className="h-1.5 w-1.5 rounded-full bg-zinc-700 mx-2" />
-                                <span className="text-xs font-black uppercase tracking-widest text-zinc-600 dark:text-zinc-400">{t("connections.status.active", "Online Now")}</span>
+                                <span className="text-xs font-black uppercase tracking-widest text-zinc-600 dark:text-zinc-400">Open Participants</span>
                             </div>
                         </Card>
                     </button>
@@ -909,7 +1005,7 @@ export default function GroupHomePage() {
                         communityId={group.communityId}
                         genesisEventId={group.genesisEventId}
                         creatorPubkey={group.creatorPubkey}
-                        currentMemberPubkeys={activeMembers}
+                        currentMemberPubkeys={stableParticipantPubkeys}
                         metadata={{
                             id: group.groupId,
                             name: displayName,
@@ -931,9 +1027,9 @@ export default function GroupHomePage() {
                         >
                             <div className="flex items-start justify-between gap-4 border-b border-black/10 p-6 dark:border-white/10">
                                 <div>
-                                    <h3 className="text-xl font-black text-zinc-900 dark:text-white">Community Members</h3>
+                                    <h3 className="text-xl font-black text-zinc-900 dark:text-white">Community Participants</h3>
                                     <p className="mt-1 text-xs font-bold uppercase tracking-widest text-zinc-600 dark:text-zinc-500">
-                                        {filteredOnlineMembers.length} online / {filteredOfflineMembers.length} offline
+                                        Projection-backed view from membership, invite, and message evidence
                                     </p>
                                 </div>
                                 <Button
@@ -952,7 +1048,7 @@ export default function GroupHomePage() {
                                     <Input
                                         value={memberSearchQuery}
                                         onChange={(event) => setMemberSearchQuery(event.target.value)}
-                                        placeholder="Search members by name, pubkey, or profile info..."
+                                        placeholder="Search participants by name, pubkey, or profile info..."
                                         className="h-11 rounded-xl border-black/10 bg-black/[0.04] pl-10 text-zinc-900 placeholder:text-zinc-500 focus:border-emerald-400/40 focus:ring-emerald-400/25 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-100 dark:placeholder:text-zinc-500"
                                     />
                                 </div>
@@ -961,7 +1057,7 @@ export default function GroupHomePage() {
                                 <div className="space-y-3 rounded-2xl border border-emerald-500/20 bg-gradient-to-b from-emerald-500/[0.08] via-emerald-500/[0.03] to-transparent p-3">
                                     <h4 className="px-1 text-xs font-black uppercase tracking-widest text-emerald-400">Online</h4>
                                     {filteredOnlineMembers.length === 0 ? (
-                                        <p className="px-1 py-2 text-xs text-zinc-600 dark:text-zinc-500">No online members detected.</p>
+                                        <p className="px-1 py-2 text-xs text-zinc-600 dark:text-zinc-500">No online participants detected.</p>
                                     ) : (
                                         pagedOnlineMembers.map((pk) => (
                                             <MemberProfileRow
@@ -1008,7 +1104,7 @@ export default function GroupHomePage() {
                                 <div className="space-y-3 rounded-2xl border border-violet-400/20 bg-gradient-to-b from-violet-500/[0.08] via-indigo-500/[0.03] to-transparent p-3">
                                     <h4 className="px-1 text-xs font-black uppercase tracking-widest text-violet-700 dark:text-violet-300">Offline</h4>
                                     {filteredOfflineMembers.length === 0 ? (
-                                        <p className="px-1 py-2 text-xs text-zinc-600 dark:text-zinc-500">No offline members detected.</p>
+                                        <p className="px-1 py-2 text-xs text-zinc-600 dark:text-zinc-500">No offline participants detected.</p>
                                     ) : (
                                         pagedOfflineMembers.map((pk) => (
                                             <MemberProfileRow
@@ -1097,10 +1193,8 @@ function MemberProfileRow({
     onOpenProfile: (pubkey: string) => void;
 }>): React.JSX.Element | null {
     const metadata = useResolvedProfileMetadata(pubkey);
-    if (metadata.isDeleted) {
-        return null;
-    }
-    const displayName = metadata?.displayName || "Unknown member";
+    const displayName = metadata?.displayName
+        || `Member ${pubkey.slice(0, 8)}`;
     const statusLabel = status === "online" ? "Online" : "Offline";
 
     return (
@@ -1136,7 +1230,7 @@ function MemberProfileRow({
                         </span>
                     </div>
                     <p className="mt-0.5 truncate text-[10px] uppercase tracking-[0.14em] text-zinc-600 dark:text-zinc-400">
-                        Identity hidden
+                        {metadata.isDeleted ? "Profile metadata unavailable" : "Identity hidden"}
                     </p>
                 </div>
                 <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-black/10 bg-black/[0.05] text-zinc-500 transition-colors group-hover:border-black/20 group-hover:text-zinc-900 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-400 dark:group-hover:border-white/20 dark:group-hover:text-white">

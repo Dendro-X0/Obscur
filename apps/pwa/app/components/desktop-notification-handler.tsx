@@ -14,6 +14,7 @@ import { isVoiceCallControlPayload, parseVoiceCallInvitePayload } from "@/app/fe
 import { discoveryCache } from "@/app/features/search/services/discovery-cache";
 import { useGlobalVoiceCallOverlayState } from "@/app/features/messaging/services/realtime-voice-global-ui-store";
 import { isMessageNotificationEnabledForIncomingEvent } from "@/app/features/notifications/utils/notification-target-preference";
+import type { Conversation } from "@/app/features/messaging/types";
 import {
     buildConversationNotificationHref,
     buildIncomingCallNotificationPresentation,
@@ -53,6 +54,28 @@ const isUnknownDisplayName = (value: string | null | undefined): boolean => {
     }
     const normalized = value.trim().toLowerCase();
     return !normalized || UNKNOWN_DISPLAY_NAME_VALUES.has(normalized);
+};
+
+const isViewingTargetConversation = (params: Readonly<{
+    pathname: string | null;
+    selectedConversation: Conversation | null;
+    incomingConversationId: string;
+    senderPubkey?: string;
+}>): boolean => {
+    if (params.pathname !== "/" || !params.selectedConversation) {
+        return false;
+    }
+    if (params.selectedConversation.id === params.incomingConversationId) {
+        return true;
+    }
+    if (params.selectedConversation.kind !== "dm") {
+        return false;
+    }
+    return (
+        typeof params.senderPubkey === "string"
+        && params.senderPubkey.trim().length > 0
+        && params.selectedConversation.pubkey === params.senderPubkey
+    );
 };
 
 /**
@@ -374,6 +397,18 @@ export const DesktopNotificationHandler = () => {
         if (currentUnread <= previousUnread) {
             return;
         }
+        // CRITICAL FIX: Skip notifications when unread count increases from restore/initialization
+        // rather than from live message events. On fresh device login, restored unread counts
+        // would otherwise trigger false "new message" notifications for historical messages.
+        const isRestoreTimeInitialization = previousUnread === 0 && currentUnread > 5;
+        if (isRestoreTimeInitialization) {
+            console.log("[NotificationHandler] Skipping notification for restore-time unread initialization:", {
+                previousUnread,
+                currentUnread,
+                reason: "fresh_device_restore",
+            });
+            return;
+        }
         if (isForeground()) {
             return;
         }
@@ -478,9 +513,13 @@ export const DesktopNotificationHandler = () => {
                 return;
             }
             const isViewingSameConversation = (
-                pathname === "/"
-                && selectedConversation?.id === event.conversationId
-                && isForeground()
+                isForeground()
+                && isViewingTargetConversation({
+                    pathname,
+                    selectedConversation,
+                    incomingConversationId: event.conversationId,
+                    senderPubkey: event.message.senderPubkey,
+                })
             );
             if (isViewingSameConversation) {
                 return;

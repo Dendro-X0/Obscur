@@ -41,7 +41,13 @@ import {
     getAuthTokenScopedStorageKeys,
     getRememberMeScopedStorageKeys,
 } from "../utils/auth-storage-keys";
+import { deriveRememberMeBootstrapPreference } from "../services/session-bootstrap-contracts";
 import { useWindowRuntime } from "@/app/features/runtime/services/window-runtime-supervisor";
+import {
+    shouldEnterLoginModeOnStartup,
+    startupAuthStateHasPrivateKeyMismatch,
+    startupAuthStateHasStoredIdentity,
+} from "@/app/features/auth/services/startup-auth-state-contracts";
 import { generateRandomInviteCode } from "@/app/features/invites/utils/invite-code-format";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import { isRetiredIdentityPublicKey } from "../utils/retired-identity-registry";
@@ -65,10 +71,10 @@ export function AuthScreen() {
     const { t } = useTranslation();
     const identity = useIdentity();
     const runtime = useWindowRuntime();
+    const startupState = runtime.snapshot.session.startupState;
     const profile = useProfile();
-    const identityDiagnostics = identity.getIdentityDiagnostics?.();
-    const hasNativeMismatch = identityDiagnostics?.mismatchReason === "native_mismatch";
-    const hasStoredIdentity = Boolean(identity.state.stored);
+    const hasNativeMismatch = startupState.mismatchReason === "native_mismatch";
+    const hasStoredIdentity = startupAuthStateHasStoredIdentity(startupState);
 
     const [mode, setMode] = useState<AuthMode>("welcome");
     const [step, setStep] = useState(1);
@@ -77,8 +83,7 @@ export function AuthScreen() {
     const [rememberMe, setRememberMe] = useState(true);
     const [loginTab, setLoginTab] = useState<"username" | "key">("username");
     const [authError, setAuthError] = useState<string | null>(null);
-    const hasPrivateKeyMismatch = identityDiagnostics?.mismatchReason === "private_key_mismatch"
-        || identityDiagnostics?.message?.toLowerCase().includes("does not match stored identity") === true
+    const hasPrivateKeyMismatch = startupAuthStateHasPrivateKeyMismatch(startupState)
         || authError?.toLowerCase().includes("does not match stored identity") === true;
     const [acknowledged, setAcknowledged] = useState(false);
     const [retiredKeyReuseAcknowledged, setRetiredKeyReuseAcknowledged] = useState(false);
@@ -157,26 +162,13 @@ export function AuthScreen() {
     }, [rememberProfileId]);
 
     React.useEffect(() => {
-        const rememberedValues = getRememberMeScopedStorageKeys({
+        const preference = deriveRememberMeBootstrapPreference({
             profileId: rememberProfileId,
-            includeLegacy: true,
-        })
-            .map((key) => localStorage.getItem(key))
-            .filter((value): value is string => value !== null);
-        const tokenValues = getAuthTokenScopedStorageKeys({
-            profileId: rememberProfileId,
-            includeLegacy: true,
-        })
-            .map((key) => localStorage.getItem(key))
-            .filter((value): value is string => value !== null && value.length > 0);
+            hasStoredIdentity,
+        });
         const currentProfileRememberValue = localStorage.getItem(getRememberMeStorageKey(rememberProfileId));
-
-        if (rememberedValues.includes("true") || tokenValues.length > 0) {
-            setRememberMe(true);
-        } else if (identity.state.stored) {
-            // Existing local identities should default to recoverable login persistence
-            // unless a token/remember true value is already present.
-            setRememberMe(true);
+        setRememberMe(preference.rememberMe);
+        if (preference.source === "stored_identity_default") {
             logAppEvent({
                 name: "auth.remember_me_bootstrap_defaulted_true",
                 level: "info",
@@ -184,27 +176,26 @@ export function AuthScreen() {
                 context: {
                     profileId: rememberProfileId,
                     hasStoredIdentity: true,
-                    tokenCandidateCount: tokenValues.length,
+                    startupDecision: startupState.kind,
+                    tokenCandidateCount: preference.tokenCandidateCount,
                     scopedRememberFalse: currentProfileRememberValue === "false",
                 },
             });
-        } else if (currentProfileRememberValue === "false") {
-            setRememberMe(false);
         }
-    }, [identity.state.stored, rememberProfileId]);
+    }, [hasStoredIdentity, rememberProfileId, startupState.kind]);
 
     React.useEffect(() => {
         if (hasAppliedInitialEntryRouteRef.current) {
             return;
         }
-        if (mode !== "welcome" || identity.state.status === "loading") {
+        if (mode !== "welcome" || startupState.kind === "pending") {
             return;
         }
-        if (hasNativeMismatch || identity.state.stored) {
+        if (shouldEnterLoginModeOnStartup(startupState)) {
             setMode("login");
         }
         hasAppliedInitialEntryRouteRef.current = true;
-    }, [hasNativeMismatch, identity.state.status, identity.state.stored, mode]);
+    }, [mode, startupState.kind]);
 
     const handleBack = () => {
         if (step > 1) {
@@ -458,7 +449,7 @@ export function AuthScreen() {
                                             {t("auth.secureStorageRecoveryTitle", "Secure Storage Needs Recovery")}
                                         </p>
                                         <p className="mt-2 text-sm font-medium leading-relaxed text-amber-700 dark:text-amber-200">
-                                            {identityDiagnostics?.message ?? t("auth.secureStorageRecoveryDesc", "Native auto-unlock was skipped for this profile.")}
+                                            {startupState.message ?? t("auth.secureStorageRecoveryDesc", "Native auto-unlock was skipped for this profile.")}
                                         </p>
                                     </div>
                                     <div className="flex flex-wrap gap-3">
@@ -489,7 +480,7 @@ export function AuthScreen() {
                                             {t("auth.privateKeyMismatchTitle", "Private Key Mismatch")}
                                         </p>
                                         <p className="mt-2 text-sm font-medium leading-relaxed text-orange-700 dark:text-orange-200">
-                                            {identityDiagnostics?.message ?? authError ?? t("auth.privateKeyMismatchDesc", "The entered private key does not match the account stored on this profile.")}
+                                            {startupState.message ?? authError ?? t("auth.privateKeyMismatchDesc", "The entered private key does not match the account stored on this profile.")}
                                         </p>
                                     </div>
                                     <p className="text-xs font-semibold text-orange-700/80 dark:text-orange-300/80">

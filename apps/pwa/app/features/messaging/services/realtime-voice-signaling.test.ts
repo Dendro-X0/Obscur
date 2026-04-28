@@ -43,6 +43,27 @@ describe("realtime-voice-signaling", () => {
     expect(parsed).toMatchObject(payload);
   });
 
+  it("does not treat missing signal timestamps as fresh now", () => {
+    const parsed = parseVoiceCallSignalPayload(JSON.stringify({
+      type: "voice-call-signal",
+      version: 1,
+      roomId: "legacy-room",
+      signalType: "leave",
+      fromPubkey: "f".repeat(64),
+    }));
+    expect(parsed).toEqual({
+      type: "voice-call-signal",
+      version: 1,
+      roomId: "legacy-room",
+      signalType: "leave",
+      fromPubkey: "f".repeat(64),
+      toPubkey: null,
+      sdp: undefined,
+      candidate: undefined,
+    });
+    expect(parsed?.sentAtUnixMs).toBeUndefined();
+  });
+
   it("builds signal payload with defaults", () => {
     const built = createVoiceCallSignalPayload({
       roomId: "room-x",

@@ -14,13 +14,20 @@ import { normalizePublicKeyHex } from "../../profile/utils/normalize-public-key-
 import { toDmConversationId } from "../utils/dm-conversation-id";
 import { extractAttachmentsFromContent } from "../utils/logic";
 import { parseCommandMessage } from "../utils/commands";
+import { fromPersistedMessagesByConversationId } from "../utils/persistence";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import { getActiveProfileIdSafe } from "@/app/features/profiles/services/profile-scope";
 import {
     loadSuppressedMessageDeleteIds,
     suppressMessageDeleteTombstone,
 } from "../services/message-delete-tombstone-store";
-import { CHAT_STATE_REPLACED_EVENT, chatStateStoreService } from "../services/chat-state-store";
+import { CHAT_STATE_REPLACED_EVENT, chatStateStoreService, type ChatStateReplacedEventDetail } from "../services/chat-state-store";
+import {
+    PERSISTED_INCOMING_REPAIR_INDEXED_MESSAGE_MAX,
+    hasIndexedThinnessEvidenceForPersistedIncomingRepair,
+    isPersistedCompatibilityRestorePhaseIncomingRepairCandidate,
+    resolveConversationHistoryAuthority,
+} from "../services/conversation-history-authority";
 
 interface UseConversationMessagesResult {
     messages: ReadonlyArray<Message>;
@@ -395,6 +402,38 @@ const loadConversationWindowAcrossAliases = async (params: Readonly<{
     });
 };
 
+const loadPersistedConversationFallbackMessages = (params: Readonly<{
+    persistedState: ReturnType<typeof chatStateStoreService.load>;
+    conversationIds: ReadonlyArray<string>;
+    myPublicKeyHex: PublicKeyHex | null;
+    persistentSuppressedMessageIds: ReadonlySet<string>;
+    localMessageRetentionDays: number | undefined;
+}>): ReadonlyArray<Message> => {
+    if (!params.persistedState) {
+        return [];
+    }
+
+    const normalizedMessagesByConversationId = fromPersistedMessagesByConversationId(
+        params.persistedState.messagesByConversationId ?? {},
+        { myPublicKeyHex: params.myPublicKeyHex },
+    );
+
+    const merged: Message[] = [];
+    params.conversationIds.forEach((conversationId) => {
+        const conversationMessages = normalizedMessagesByConversationId[conversationId] ?? [];
+        merged.push(...conversationMessages);
+    });
+
+    return filterMessagesByLocalRetention(
+        dedupeMessagesByIdentity(merged),
+        params.localMessageRetentionDays,
+    ).filter((message) => (
+        isDisplayableMessage(message)
+        && !params.persistentSuppressedMessageIds.has(message.id)
+        && !(message.eventId && params.persistentSuppressedMessageIds.has(message.eventId))
+    ));
+};
+
 const scanDisplayableHistoryWindow = async (params: Readonly<{
     conversationIds: ReadonlyArray<string>;
     initialRows: ReadonlyArray<any>;
@@ -624,10 +663,11 @@ export function useConversationMessages(
     const expandedHistoryRef = useRef(false);
     const projectionFallbackHydrationRef = useRef(false);
     const messagesRef = useRef<ReadonlyArray<Message>>([]);
+    const historyAuthorityLogKeyRef = useRef<string | null>(null);
     const deletedTombstonesRef = useRef<DeleteTombstones>(new Map());
     const persistedDeletedIdsRef = useRef<Set<string>>(new Set(loadSuppressedMessageDeleteIds()));
-    const projectionMessages = useMemo(() => {
-        if (!conversationId || !publicKeyHex || !projectionReadAuthority.useProjectionReads) {
+    const projectionEvidenceMessages = useMemo(() => {
+        if (!conversationId || !publicKeyHex) {
             return EMPTY_PROJECTION_MESSAGES;
         }
         const selected = selectProjectionConversationMessages({
@@ -648,15 +688,24 @@ export function useConversationMessages(
         accountProjectionSnapshot.projection,
         conversationId,
         localMessageRetentionDays,
-        projectionReadAuthority.useProjectionReads,
         publicKeyHex,
     ]);
+    const projectionMessages = useMemo(() => (
+        projectionReadAuthority.useProjectionReads
+            ? projectionEvidenceMessages
+            : EMPTY_PROJECTION_MESSAGES
+    ), [projectionEvidenceMessages, projectionReadAuthority.useProjectionReads]);
     const projectionMessagesRef = useRef<ReadonlyArray<Message>>(EMPTY_PROJECTION_MESSAGES);
+    const projectionEvidenceMessagesRef = useRef<ReadonlyArray<Message>>(EMPTY_PROJECTION_MESSAGES);
     const projectionReadAuthorityRef = useRef(projectionReadAuthority);
 
     useEffect(() => {
         projectionMessagesRef.current = projectionMessages;
     }, [projectionMessages]);
+
+    useEffect(() => {
+        projectionEvidenceMessagesRef.current = projectionEvidenceMessages;
+    }, [projectionEvidenceMessages]);
 
     useEffect(() => {
         projectionReadAuthorityRef.current = projectionReadAuthority;
@@ -722,33 +771,170 @@ export function useConversationMessages(
                 ? retentionFilteredMapped.slice(-LIVE_WINDOW_SOFT_LIMIT)
                 : retentionFilteredMapped;
             const projectionMessagesSnapshot = projectionMessagesRef.current;
+            const projectionEvidenceMessagesSnapshot = projectionEvidenceMessagesRef.current;
             const projectionReadAuthoritySnapshot = projectionReadAuthorityRef.current;
-
-            const shouldUseProjectionFallback = (
-                cappedHydratedMessages.length === 0
-                && projectionReadAuthoritySnapshot.useProjectionReads
-                && projectionMessagesSnapshot.length > 0
+            const projectionRestorePhaseActive = (
+                accountProjectionSnapshot.phase === "bootstrapping"
+                || accountProjectionSnapshot.phase === "replaying_event_log"
             );
-            const hydrated = shouldUseProjectionFallback
-                ? projectionMessagesSnapshot
-                : cappedHydratedMessages;
+            const projectionBootstrapImportApplied = (
+                accountProjectionSnapshot.projection?.sync.bootstrapImportApplied === true
+            );
+            const projectionCanonicalEvidencePending = (
+                accountProjectionSnapshot.accountProjectionReady !== true
+                || projectionRestorePhaseActive
+            );
+
+            const persistedStateFallbackMessages = normalizedPublicKeyHex
+                ? loadPersistedConversationFallbackMessages({
+                    persistedState: chatStateStoreService.load(normalizedPublicKeyHex),
+                    conversationIds,
+                    myPublicKeyHex: normalizedPublicKeyHex,
+                    persistentSuppressedMessageIds: persistedDeletedIdsRef.current,
+                    localMessageRetentionDays,
+                })
+                : [];
+            const persistedFallbackDirectionCounts = getMessageDirectionCounts(
+                persistedStateFallbackMessages,
+                normalizedPublicKeyHex,
+            );
+            const indexedThinnessEvidenceForPersistedIncomingRepair = (
+                hasIndexedThinnessEvidenceForPersistedIncomingRepair(cappedHydratedMessages.length)
+            );
+            const shouldUsePersistedStateFallback = (
+                cappedHydratedMessages.length === 0
+                && persistedStateFallbackMessages.length > 0
+            );
             const mappedDirectionCounts = getMessageDirectionCounts(retentionFilteredMapped, normalizedPublicKeyHex);
             const projectionDirectionCounts = getMessageDirectionCounts(projectionMessagesSnapshot, normalizedPublicKeyHex);
-
-            if (shouldUseProjectionFallback || (mappedDirectionCounts.outgoing === 0 && mappedDirectionCounts.incoming > 0)) {
+            const projectionEvidenceDirectionCounts = getMessageDirectionCounts(
+                projectionEvidenceMessagesSnapshot,
+                normalizedPublicKeyHex,
+            );
+            const persistedCompatibilityRestorePhaseIncomingRepairCandidate = (
+                isPersistedCompatibilityRestorePhaseIncomingRepairCandidate({
+                    indexedMessageCount: cappedHydratedMessages.length,
+                    indexedOutgoingCount: mappedDirectionCounts.outgoing,
+                    indexedIncomingCount: mappedDirectionCounts.incoming,
+                    persistedIncomingCount: persistedFallbackDirectionCounts.incoming,
+                    projectionIncomingCount: projectionEvidenceDirectionCounts.incoming,
+                    projectionBootstrapImportApplied,
+                    projectionCanonicalEvidencePending,
+                    projectionRestorePhaseActive,
+                    allowCoverageRepair: !projectionReadAuthoritySnapshot.useProjectionReads,
+                })
+            );
+            const authorityDecision = resolveConversationHistoryAuthority({
+                useProjectionReads: projectionReadAuthoritySnapshot.useProjectionReads,
+                projectionMessageCount: projectionEvidenceMessagesSnapshot.length,
+                projectionIncomingCount: projectionEvidenceDirectionCounts.incoming,
+                projectionBootstrapImportApplied,
+                projectionCanonicalEvidencePending,
+                projectionRestorePhaseActive,
+                indexedMessageCount: cappedHydratedMessages.length,
+                indexedOutgoingCount: mappedDirectionCounts.outgoing,
+                indexedIncomingCount: mappedDirectionCounts.incoming,
+                persistedMessageCount: persistedStateFallbackMessages.length,
+                persistedOutgoingCount: persistedFallbackDirectionCounts.outgoing,
+                persistedIncomingCount: persistedFallbackDirectionCounts.incoming,
+            });
+            const selectedAuthorityMessages = authorityDecision.authority === "projection"
+                ? projectionMessagesSnapshot
+                : authorityDecision.authority === "persisted"
+                ? persistedStateFallbackMessages
+                : cappedHydratedMessages;
+            const shouldCapSelectedAuthorityMessages = selectedAuthorityMessages.length > LIVE_WINDOW_SOFT_LIMIT;
+            const hydrated = shouldCapSelectedAuthorityMessages
+                ? selectedAuthorityMessages.slice(-LIVE_WINDOW_SOFT_LIMIT)
+                : selectedAuthorityMessages;
+            const authorityDiagnosticKey = [
+                cid,
+                authorityDecision.authority,
+                authorityDecision.reason,
+                projectionReadAuthoritySnapshot.reason,
+                projectionMessagesSnapshot.length,
+                projectionEvidenceMessagesSnapshot.length,
+                projectionEvidenceDirectionCounts.outgoing,
+                projectionEvidenceDirectionCounts.incoming,
+                cappedHydratedMessages.length,
+                persistedStateFallbackMessages.length,
+                projectionDirectionCounts.outgoing,
+                projectionDirectionCounts.incoming,
+                mappedDirectionCounts.outgoing,
+                mappedDirectionCounts.incoming,
+                persistedFallbackDirectionCounts.outgoing,
+                persistedFallbackDirectionCounts.incoming,
+                persistedCompatibilityRestorePhaseIncomingRepairCandidate,
+            ].join("::");
+            if (historyAuthorityLogKeyRef.current !== authorityDiagnosticKey) {
+                historyAuthorityLogKeyRef.current = authorityDiagnosticKey;
                 logAppEvent({
-                    name: "messaging.conversation_hydration_diagnostics",
-                    level: shouldUseProjectionFallback ? "info" : "warn",
-                    scope: { feature: "messaging", action: "conversation_hydrate" },
+                    name: "messaging.conversation_history_authority_selected",
+                    level: authorityDecision.authority === "persisted" ? "warn" : "info",
+                    scope: { feature: "messaging", action: "conversation_history_authority" },
                     context: {
                         conversationIdHint: toConversationIdDiagnosticLabel(cid),
-                        indexedMessageCount: retentionFilteredMapped.length,
-                        indexedOutgoingCount: mappedDirectionCounts.outgoing,
-                        indexedIncomingCount: mappedDirectionCounts.incoming,
+                        selectedAuthority: authorityDecision.authority,
+                        selectedAuthorityReason: authorityDecision.reason,
+                        selectedMessageCount: hydrated.length,
                         projectionMessageCount: projectionMessagesSnapshot.length,
                         projectionOutgoingCount: projectionDirectionCounts.outgoing,
                         projectionIncomingCount: projectionDirectionCounts.incoming,
-                        shouldUseProjectionFallback,
+                        projectionEvidenceMessageCount: projectionEvidenceMessagesSnapshot.length,
+                        projectionEvidenceOutgoingCount: projectionEvidenceDirectionCounts.outgoing,
+                        projectionEvidenceIncomingCount: projectionEvidenceDirectionCounts.incoming,
+                        projectionBootstrapImportApplied,
+                        projectionCanonicalEvidencePending,
+                        projectionRestorePhaseActive,
+                        indexedMessageCount: cappedHydratedMessages.length,
+                        indexedOutgoingCount: mappedDirectionCounts.outgoing,
+                        indexedIncomingCount: mappedDirectionCounts.incoming,
+                        persistedFallbackMessageCount: persistedStateFallbackMessages.length,
+                        persistedFallbackOutgoingCount: persistedFallbackDirectionCounts.outgoing,
+                        persistedFallbackIncomingCount: persistedFallbackDirectionCounts.incoming,
+                        indexedThinnessEvidenceForPersistedIncomingRepair,
+                        persistedCompatibilityRestorePhaseIncomingRepairCandidate,
+                        persistedCompatibilityRestorePhaseIncomingRepairReasonCode: "persisted_compatibility_restore_phase_missing_incoming",
+                        persistedIncomingRepairIndexedMessageMax: PERSISTED_INCOMING_REPAIR_INDEXED_MESSAGE_MAX,
+                        projectionReadAuthorityReason: projectionReadAuthoritySnapshot.reason,
+                        criticalDriftCount: projectionReadAuthoritySnapshot.criticalDriftCount,
+                    },
+                });
+            }
+
+            if (
+                authorityDecision.authority !== "indexed"
+                || (mappedDirectionCounts.outgoing === 0 && mappedDirectionCounts.incoming > 0)
+            ) {
+                logAppEvent({
+                    name: "messaging.conversation_hydration_diagnostics",
+                    level: authorityDecision.authority === "indexed" ? "warn" : "info",
+                    scope: { feature: "messaging", action: "conversation_hydrate" },
+                    context: {
+                        conversationIdHint: toConversationIdDiagnosticLabel(cid),
+                        selectedAuthority: authorityDecision.authority,
+                        selectedAuthorityReason: authorityDecision.reason,
+                        indexedMessageCount: retentionFilteredMapped.length,
+                        indexedOutgoingCount: mappedDirectionCounts.outgoing,
+                        indexedIncomingCount: mappedDirectionCounts.incoming,
+                        persistedFallbackMessageCount: persistedStateFallbackMessages.length,
+                        persistedFallbackOutgoingCount: persistedFallbackDirectionCounts.outgoing,
+                        persistedFallbackIncomingCount: persistedFallbackDirectionCounts.incoming,
+                        indexedThinnessEvidenceForPersistedIncomingRepair,
+                        persistedCompatibilityRestorePhaseIncomingRepairCandidate,
+                        persistedCompatibilityRestorePhaseIncomingRepairReasonCode: "persisted_compatibility_restore_phase_missing_incoming",
+                        persistedIncomingRepairIndexedMessageMax: PERSISTED_INCOMING_REPAIR_INDEXED_MESSAGE_MAX,
+                        shouldUsePersistedStateFallback,
+                        projectionMessageCount: projectionMessagesSnapshot.length,
+                        projectionOutgoingCount: projectionDirectionCounts.outgoing,
+                        projectionIncomingCount: projectionDirectionCounts.incoming,
+                        projectionEvidenceMessageCount: projectionEvidenceMessagesSnapshot.length,
+                        projectionEvidenceOutgoingCount: projectionEvidenceDirectionCounts.outgoing,
+                        projectionEvidenceIncomingCount: projectionEvidenceDirectionCounts.incoming,
+                        projectionBootstrapImportApplied,
+                        projectionCanonicalEvidencePending,
+                        projectionRestorePhaseActive,
+                        shouldUseProjectionFallback: authorityDecision.authority === "projection",
                         projectionReadAuthorityReason: projectionReadAuthoritySnapshot.reason,
                         criticalDriftCount: projectionReadAuthoritySnapshot.criticalDriftCount,
                     },
@@ -815,10 +1001,10 @@ export function useConversationMessages(
             }
 
             setMessages(hydrated);
-            setHasEarlier(shouldUseProjectionFallback
+            setHasEarlier((authorityDecision.authority !== "indexed")
                 ? false
                 : ((scannedWindow.hasEarlier || shouldCapHydratedHistoryWindow) && hydrated.length > 0));
-            projectionFallbackHydrationRef.current = shouldUseProjectionFallback;
+            projectionFallbackHydrationRef.current = authorityDecision.authority !== "indexed";
             expandedHistoryRef.current = false;
         } catch (e) {
             console.error("[useConversationMessages] Failed to hydrate history:", e);
@@ -845,6 +1031,7 @@ export function useConversationMessages(
         projectionFallbackHydrationRef.current = false;
         deletedTombstonesRef.current.clear();
         persistedDeletedIdsRef.current = new Set(loadSuppressedMessageDeleteIds());
+        historyAuthorityLogKeyRef.current = null;
 
         hydrateHistory(conversationId, conversationAliasIds);
     }, [conversationAliasIds, conversationId, hydrateHistory, publicKeyHex]);
@@ -857,9 +1044,12 @@ export function useConversationMessages(
             return;
         }
         const onChatStateReplaced = (event: Event): void => {
-            const detail = (event as CustomEvent<{ publicKeyHex?: string }>).detail;
+            const detail = (event as CustomEvent<Partial<ChatStateReplacedEventDetail>>).detail;
             const restoredPublicKeyHex = normalizePublicKeyHex(detail?.publicKeyHex);
             if (restoredPublicKeyHex && restoredPublicKeyHex !== normalizedPublicKeyHex) {
+                return;
+            }
+            if (detail?.profileId && detail.profileId !== getActiveProfileIdSafe()) {
                 return;
             }
 
@@ -873,6 +1063,7 @@ export function useConversationMessages(
             projectionFallbackHydrationRef.current = false;
             deletedTombstonesRef.current.clear();
             persistedDeletedIdsRef.current = new Set(loadSuppressedMessageDeleteIds());
+            historyAuthorityLogKeyRef.current = null;
 
             void hydrateHistory(conversationId, conversationAliasIds);
         };

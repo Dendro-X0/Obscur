@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { derivePublicKeyHex } from "@dweb/crypto/derive-public-key-hex";
+import { getRememberMeStorageKey } from "../utils/auth-storage-keys";
 
 vi.mock("../utils/get-stored-identity", () => ({
   getStoredIdentity: vi.fn(),
@@ -13,6 +14,25 @@ vi.mock("../utils/identity-profile-binding", () => ({
 
 vi.mock("../../runtime/runtime-capabilities", () => ({
   hasNativeRuntime: vi.fn(() => false),
+}));
+
+const cryptoServiceMocks = vi.hoisted(() => ({
+  hasNativeKey: vi.fn(),
+  getNativeNpub: vi.fn(),
+  initNativeSession: vi.fn(),
+  clearNativeSession: vi.fn(),
+  deleteNativeKey: vi.fn(),
+}));
+
+vi.mock("../../crypto/crypto-service", () => ({
+  cryptoService: {
+    hasNativeKey: cryptoServiceMocks.hasNativeKey,
+    getNativeNpub: cryptoServiceMocks.getNativeNpub,
+    initNativeSession: cryptoServiceMocks.initNativeSession,
+    clearNativeSession: cryptoServiceMocks.clearNativeSession,
+    deleteNativeKey: cryptoServiceMocks.deleteNativeKey,
+  },
+  NATIVE_KEY_SENTINEL: "native",
 }));
 
 vi.mock("../services/session-api", () => ({
@@ -32,10 +52,75 @@ describe("useIdentity rehydrate", () => {
   beforeEach(() => {
     useIdentityInternals.resetForTests();
     vi.clearAllMocks();
+    window.localStorage.clear();
     vi.mocked(hasNativeRuntime).mockReturnValue(false);
     vi.mocked(SessionApi.getSessionStatus).mockResolvedValue({ isActive: false, npub: null, isNative: false });
     vi.mocked(recoverStoredIdentityProfile).mockResolvedValue(null);
     vi.mocked(recoverSingleStoredIdentityProfile).mockResolvedValue(null);
+  });
+
+  it("bootstraps stored identity from the canonical SessionApi native restore path", async () => {
+    const stored = {
+      encryptedPrivateKey: "cipher",
+      publicKeyHex: "f".repeat(64) as any,
+      username: "alice",
+    };
+    vi.mocked(hasNativeRuntime).mockReturnValue(true);
+    vi.mocked(getStoredIdentity).mockResolvedValue({ record: stored });
+    vi.mocked(SessionApi.getSessionStatus).mockResolvedValue({
+      isActive: true,
+      npub: stored.publicKeyHex,
+      isNative: true,
+    });
+    window.localStorage.setItem(getRememberMeStorageKey("default"), "true");
+
+    await useIdentityInternals.ensureInitialized();
+
+    expect(useIdentityInternals.getIdentitySnapshot()).toEqual(expect.objectContaining({
+      status: "unlocked",
+      publicKeyHex: stored.publicKeyHex,
+      privateKeyHex: "native",
+      stored: expect.objectContaining({
+        publicKeyHex: stored.publicKeyHex,
+      }),
+    }));
+    expect(cryptoServiceMocks.hasNativeKey).not.toHaveBeenCalled();
+    expect(cryptoServiceMocks.getNativeNpub).not.toHaveBeenCalled();
+  });
+
+  it("does not run a second native key probe after SessionApi reports no restorable session", async () => {
+    const stored = {
+      encryptedPrivateKey: "cipher",
+      publicKeyHex: "f".repeat(64) as any,
+      username: "alice",
+    };
+    vi.mocked(hasNativeRuntime).mockReturnValue(true);
+    vi.mocked(getStoredIdentity).mockResolvedValue({ record: stored });
+    vi.mocked(SessionApi.getSessionStatus).mockResolvedValue({
+      isActive: false,
+      npub: null,
+      isNative: true,
+    });
+    cryptoServiceMocks.hasNativeKey.mockResolvedValue(true);
+    cryptoServiceMocks.getNativeNpub.mockResolvedValue(stored.publicKeyHex);
+    window.localStorage.setItem(getRememberMeStorageKey("default"), "true");
+
+    await useIdentityInternals.ensureInitialized();
+
+    expect(useIdentityInternals.getIdentitySnapshot()).toEqual(expect.objectContaining({
+      status: "locked",
+      stored: expect.objectContaining({
+        publicKeyHex: stored.publicKeyHex,
+      }),
+    }));
+    expect(useIdentityInternals.getIdentityDiagnosticsSnapshot()).toEqual(expect.objectContaining({
+      startupState: expect.objectContaining({
+        kind: "stored_locked",
+        runtimePhaseHint: "auth_required",
+      }),
+    }));
+    expect(cryptoServiceMocks.hasNativeKey).not.toHaveBeenCalled();
+    expect(cryptoServiceMocks.getNativeNpub).not.toHaveBeenCalled();
   });
 
   it("preserves unlocked identity when profile change keeps the same pubkey", async () => {
@@ -124,6 +209,10 @@ describe("useIdentity rehydrate", () => {
       storedPublicKeyHex: stored.publicKeyHex,
       nativeSessionPublicKeyHex: otherPublicKeyHex,
       mismatchReason: "native_mismatch",
+      startupState: expect.objectContaining({
+        kind: "mismatch",
+        degradedReasonHint: "native_session_mismatch",
+      }),
     }));
   });
 
@@ -149,6 +238,10 @@ describe("useIdentity rehydrate", () => {
       status: "locked",
       storedPublicKeyHex: stored.publicKeyHex,
       mismatchReason: "private_key_mismatch",
+      startupState: expect.objectContaining({
+        kind: "mismatch",
+        recoveryActions: ["login", "unlock_with_private_key"],
+      }),
     }));
   });
 

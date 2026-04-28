@@ -3,6 +3,7 @@ import {
   MEDIA_RUNTIME_SAFETY_LIMITS,
   shouldAvoidInMemoryAttachmentCaching,
   shouldPreferBrowserUploadForRuntimeSafety,
+  shouldSkipLocalAttachmentCachingForRuntimeSafety,
   shouldSkipPreprocessForRuntimeSafety,
   validateAttachmentBatchForRuntimeSafety,
 } from "./media-upload-policy";
@@ -86,5 +87,21 @@ describe("media-upload-policy runtime safety", () => {
     });
 
     expect(shouldAvoidInMemoryAttachmentCaching(hugeFile)).toBe(true);
+  });
+
+  it("skips local cache duplication for large non-image attachments", () => {
+    const hugeVideo = createFile({
+      name: "huge-video.mp4",
+      type: "video/mp4",
+      sizeBytes: MEDIA_RUNTIME_SAFETY_LIMITS.localCacheBypassBytes + 1,
+    });
+    const smallImage = createFile({
+      name: "small-image.jpg",
+      type: "image/jpeg",
+      sizeBytes: 512 * 1024,
+    });
+
+    expect(shouldSkipLocalAttachmentCachingForRuntimeSafety(hugeVideo)).toBe(true);
+    expect(shouldSkipLocalAttachmentCachingForRuntimeSafety(smallImage)).toBe(false);
   });
 });

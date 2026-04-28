@@ -4,10 +4,7 @@ import type React from "react";
 import { useEffect, useState } from "react";
 import type { Passphrase } from "@dweb/crypto/passphrase";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
-import {
-  getAuthTokenScopedStorageKeys,
-  getRememberMeScopedStorageKeys,
-} from "@/app/features/auth/utils/auth-storage-keys";
+import { scanStoredSessionBootstrap } from "@/app/features/auth/services/session-bootstrap-contracts";
 import { ProfileBoundAuthShell } from "@/app/features/runtime/components/profile-bound-auth-shell";
 import { useWindowRuntime } from "@/app/features/runtime/services/window-runtime-supervisor";
 import { logAppEvent } from "@/app/shared/log-app-event";
@@ -46,8 +43,7 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
   const [transientRetryStateByProfileId, setTransientRetryStateByProfileId] = useState<Readonly<Record<string, TransientRetryState>>>({});
   const [retryWakeNonce, setRetryWakeNonce] = useState(0);
 
-  const isIdentityLocked = identity.state.status === "locked";
-  const hasStoredIdentity = !!identity.state.stored;
+  const startupState = runtime.snapshot.session.startupState;
   const activeProfileId = runtime.snapshot.session.profileId;
   const hasAttemptedForActiveProfile = attemptedAutoUnlockProfileIds.includes(activeProfileId);
   const transientRetryState = transientRetryStateByProfileId[activeProfileId];
@@ -59,13 +55,12 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
   );
   const shouldResolveStoredSession = (
     runtime.snapshot.phase === "auth_required"
-    && isIdentityLocked
-    && hasStoredIdentity
+    && (startupState.kind === "stored_locked" || startupState.kind === "mismatch" || startupState.kind === "native_restorable")
     && (!hasAttemptedForActiveProfile || isTransientRetryDue)
   );
 
   useEffect(() => {
-    if (identity.state.status === "loading") {
+    if (startupState.identityStatus === "loading") {
       return;
     }
     if (!shouldResolveStoredSession) {
@@ -75,36 +70,28 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
     let retryTimerId: number | null = null;
     const run = async (): Promise<void> => {
       const profileId = runtime.snapshot.session.profileId;
-      const rememberKeys = getRememberMeScopedStorageKeys({ profileId, includeLegacy: true });
-      const tokenKeys = getAuthTokenScopedStorageKeys({ profileId, includeLegacy: true });
-      const rememberedValues = rememberKeys
-        .map((key) => localStorage.getItem(key))
-        .filter((value): value is string => value !== null);
-      const tokenCandidates = tokenKeys
-        .map((key) => localStorage.getItem(key))
-        .filter((value): value is string => value !== null && value.length > 0);
-      const uniqueTokenCandidates = Array.from(new Set(tokenCandidates));
-      const isRemembered = rememberedValues.some((value) => value === "true");
-      const hasTokenCandidates = uniqueTokenCandidates.length > 0;
-      const autoUnlockEligible = hasTokenCandidates;
-      const rememberSource = rememberedValues.length > 0 ? "scoped" : "none";
-      const tokenSource = tokenCandidates.length > 0 ? "scoped" : "none";
+      const bootstrapScan = scanStoredSessionBootstrap(profileId);
+      const uniqueTokenCandidates = bootstrapScan.tokenCandidates;
+      const isRemembered = bootstrapScan.rememberMeState === "enabled";
+      const autoUnlockEligible = bootstrapScan.autoUnlockEligible;
       logAppEvent({
         name: "auth.auto_unlock_scan",
         level: "info",
         scope: { feature: "auth", action: "auto_unlock" },
         context: {
           profileId,
-          rememberCandidateCount: rememberedValues.length,
+          rememberCandidateCount: bootstrapScan.rememberCandidateCount,
           rememberedTrue: isRemembered,
-          tokenCandidateCount: uniqueTokenCandidates.length,
+          tokenCandidateCount: bootstrapScan.tokenCandidateCount,
           autoUnlockEligible,
-          rememberSource,
-          tokenSource,
-          scopedRememberCandidateCount: rememberedValues.length,
-          scopedTokenCandidateCount: tokenCandidates.length,
+          autoUnlockPath: bootstrapScan.autoUnlockPath,
+          rememberSource: bootstrapScan.rememberSource,
+          tokenSource: bootstrapScan.tokenSource,
+          scopedRememberCandidateCount: bootstrapScan.rememberCandidateCount,
+          scopedTokenCandidateCount: bootstrapScan.tokenCandidateCount,
           runtimePhase: runtime.snapshot.phase,
-          identityStatus: identity.state.status,
+          identityStatus: startupState.identityStatus,
+          startupDecision: startupState.kind,
         },
       });
       if (autoUnlockEligible) {
@@ -131,8 +118,8 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
             scope: { feature: "auth", action: "auto_unlock" },
             context: {
               profileId,
-              scopedRememberCandidateCount: rememberedValues.length,
-              scopedTokenCandidateCount: tokenCandidates.length,
+              scopedRememberCandidateCount: bootstrapScan.rememberCandidateCount,
+              scopedTokenCandidateCount: bootstrapScan.tokenCandidateCount,
             },
           });
           setTransientRetryStateByProfileId((previous) => {
@@ -185,8 +172,7 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
       } else {
         let nativeSessionRecovered = false;
         if (
-          isRemembered
-          && uniqueTokenCandidates.length === 0
+          bootstrapScan.autoUnlockPath === "native_session"
           && typeof identity.retryNativeSessionUnlock === "function"
         ) {
           try {
@@ -201,9 +187,9 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
               scope: { feature: "auth", action: "auto_unlock" },
               context: {
                 profileId,
-                rememberSource,
-                tokenSource,
-                scopedRememberCandidateCount: rememberedValues.length,
+                rememberSource: bootstrapScan.rememberSource,
+                tokenSource: bootstrapScan.tokenSource,
+                scopedRememberCandidateCount: bootstrapScan.rememberCandidateCount,
                 runtimePhase: runtime.snapshot.phase,
               },
             });
@@ -226,12 +212,13 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
             context: {
               profileId,
               rememberedTrue: isRemembered,
-              tokenCandidateCount: uniqueTokenCandidates.length,
+              tokenCandidateCount: bootstrapScan.tokenCandidateCount,
               autoUnlockEligible,
-              rememberSource,
-              tokenSource,
-              scopedRememberCandidateCount: rememberedValues.length,
-              scopedTokenCandidateCount: tokenCandidates.length,
+              autoUnlockPath: bootstrapScan.autoUnlockPath,
+              rememberSource: bootstrapScan.rememberSource,
+              tokenSource: bootstrapScan.tokenSource,
+              scopedRememberCandidateCount: bootstrapScan.rememberCandidateCount,
+              scopedTokenCandidateCount: bootstrapScan.tokenCandidateCount,
               runtimePhase: runtime.snapshot.phase,
             },
           });
@@ -252,7 +239,7 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
         window.clearTimeout(retryTimerId);
       }
     };
-  }, [identity, identity.state.status, retryWakeNonce, runtime, shouldResolveStoredSession, transientRetryStateByProfileId]);
+  }, [identity, retryWakeNonce, runtime, shouldResolveStoredSession, startupState.identityStatus, transientRetryStateByProfileId]);
 
   if (runtime.snapshot.phase === "activating_runtime" || runtime.snapshot.phase === "ready" || runtime.snapshot.phase === "degraded") {
     return <>{children}</>;

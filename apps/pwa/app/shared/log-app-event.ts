@@ -45,6 +45,11 @@ type AppEventDiagnosticsApi = Readonly<{
         latestMergedOutgoingCount: number | null;
         sparseOutgoingEvidence: boolean | null;
         idSplitDetectedCount: number;
+        persistedRecoveryIndexedEmptyCount: number;
+        persistedRecoveryIndexedMissingIncomingCount: number;
+        persistedRecoveryIndexedMissingOutgoingCount: number;
+        latestHistoryAuthority: string | null;
+        latestHistoryAuthorityReason: string | null;
       }>;
       membershipSendability: Readonly<{
         riskLevel: "none" | "watch" | "high";
@@ -383,7 +388,44 @@ const CROSS_DEVICE_DIGEST_EVENT_CONFIG: Readonly<Record<string, ReadonlyArray<st
     "projectionMessageCount",
     "projectionOutgoingCount",
     "projectionIncomingCount",
+    "projectionEvidenceMessageCount",
+    "projectionEvidenceOutgoingCount",
+    "projectionEvidenceIncomingCount",
+    "projectionBootstrapImportApplied",
+    "projectionCanonicalEvidencePending",
+    "projectionRestorePhaseActive",
     "shouldUseProjectionFallback",
+    "projectionReadAuthorityReason",
+    "criticalDriftCount",
+  ],
+  "messaging.conversation_history_authority_selected": [
+    "conversationIdHint",
+    "selectedAuthority",
+    "selectedAuthorityReason",
+    "selectedMessageCount",
+    "projectionMessageCount",
+    "projectionEvidenceMessageCount",
+    "projectionEvidenceOutgoingCount",
+    "projectionEvidenceIncomingCount",
+    "projectionBootstrapImportApplied",
+    "projectionCanonicalEvidencePending",
+    "projectionRestorePhaseActive",
+    "indexedMessageCount",
+    "persistedFallbackMessageCount",
+    "indexedThinnessEvidenceForPersistedIncomingRepair",
+    "persistedCompatibilityRestorePhaseIncomingRepairCandidate",
+    "persistedCompatibilityRestorePhaseIncomingRepairReasonCode",
+    "persistedIncomingRepairIndexedMessageMax",
+    "projectionReadAuthorityReason",
+    "criticalDriftCount",
+  ],
+  "messaging.conversation_list_authority_selected": [
+    "profileId",
+    "publicKeySuffix",
+    "selectedAuthority",
+    "selectedAuthorityReason",
+    "projectionConversationCount",
+    "persistedConversationCount",
     "projectionReadAuthorityReason",
     "criticalDriftCount",
   ],
@@ -1000,6 +1042,17 @@ const CROSS_DEVICE_DIGEST_EVENT_CONFIG: Readonly<Record<string, ReadonlyArray<st
   "runtime.profile_boot_stall_timeout": [
     "phase",
     "timeoutMs",
+  ],
+  "runtime.startup_auth_state_transition": [
+    "profileId",
+    "windowLabel",
+    "fromKind",
+    "toKind",
+    "identityStatus",
+    "runtimePhaseHint",
+    "degradedReasonHint",
+    "mismatchReason",
+    "hasStoredIdentity",
   ],
   "runtime.activation.timeout": [
     "timeouts",
@@ -1968,6 +2021,19 @@ const installDiagnosticsApi = (): void => {
         && typeof event.context?.criticalDriftCount === "number"
         && event.context.criticalDriftCount > 0
       )).length;
+      const conversationHistoryAuthorityEvents = recent.filter((event) => (
+        event.name === "messaging.conversation_history_authority_selected"
+      ));
+      const persistedRecoveryIndexedEmptyCount = conversationHistoryAuthorityEvents.filter((event) => (
+        event.context?.selectedAuthorityReason === "persisted_recovery_indexed_empty"
+      )).length;
+      const persistedRecoveryIndexedMissingIncomingCount = conversationHistoryAuthorityEvents.filter((event) => (
+        event.context?.persistedCompatibilityRestorePhaseIncomingRepairCandidate === true
+      )).length;
+      const persistedRecoveryIndexedMissingOutgoingCount = conversationHistoryAuthorityEvents.filter((event) => (
+        event.context?.selectedAuthorityReason === "persisted_recovery_indexed_missing_outgoing"
+      )).length;
+      const latestConversationHistoryAuthorityEvent = conversationHistoryAuthorityEvents.at(-1);
       const dmAttachmentDropAcrossStages = (
         typeof latestHydratedDmAttachmentCount === "number"
         && typeof latestMergedDmAttachmentCount === "number"
@@ -1989,6 +2055,9 @@ const installDiagnosticsApi = (): void => {
       const selfAuthoredDmContinuityRiskLevel = getRiskLevel({
         watch: (
           sparseOutgoingEvidence === true
+          || persistedRecoveryIndexedEmptyCount > 0
+          || persistedRecoveryIndexedMissingIncomingCount > 0
+          || persistedRecoveryIndexedMissingOutgoingCount > 0
           || (
             latestHydratedOutgoingCount === 0
             && latestMergedOutgoingCount === 0
@@ -2156,6 +2225,15 @@ const installDiagnosticsApi = (): void => {
             latestMergedOutgoingCount,
             sparseOutgoingEvidence,
             idSplitDetectedCount,
+            persistedRecoveryIndexedEmptyCount,
+            persistedRecoveryIndexedMissingIncomingCount,
+            persistedRecoveryIndexedMissingOutgoingCount,
+            latestHistoryAuthority: toStringOrNull(
+              latestConversationHistoryAuthorityEvent?.context?.selectedAuthority,
+            ),
+            latestHistoryAuthorityReason: toStringOrNull(
+              latestConversationHistoryAuthorityEvent?.context?.selectedAuthorityReason,
+            ),
           },
           membershipSendability: {
             riskLevel: membershipSendabilityRiskLevel,

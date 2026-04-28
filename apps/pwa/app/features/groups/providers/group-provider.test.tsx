@@ -22,6 +22,14 @@ vi.mock("@/app/shared/account-sync-mutation-signal", () => ({
   emitAccountSyncMutation: vi.fn(),
 }));
 
+const { logAppEventMock } = vi.hoisted(() => ({
+  logAppEventMock: vi.fn(),
+}));
+
+vi.mock("@/app/shared/log-app-event", () => ({
+  logAppEvent: logAppEventMock,
+}));
+
 vi.mock("@dweb/storage/indexed-db", () => ({
   messagingDB: {
     put: vi.fn(async () => undefined),
@@ -83,6 +91,16 @@ describe("group-provider membership ledger integration", () => {
       groupId: "alpha",
       relayUrl: "wss://relay.alpha",
       displayName: "Alpha",
+    }));
+    expect(logAppEventMock).toHaveBeenCalledWith(expect.objectContaining({
+      name: "groups.membership_recovery_hydrate",
+      context: expect.objectContaining({
+        descriptorProjectionCount: 1,
+        membershipProjectionCount: 1,
+        projectionVisibleCount: 1,
+        projectionJoinedCount: 1,
+        projectionLedgerCount: 1,
+      }),
     }));
     expect(chatStateStoreService.load(PUBLIC_KEY_A)?.createdGroups).toHaveLength(1);
   });
@@ -514,6 +532,8 @@ describe("group-provider membership ledger integration", () => {
         access: "invite-only",
         memberCount: 1,
         adminPubkeys: [],
+        communityMode: "sovereign_room",
+        relayCapabilityTier: "public_default",
       }, { allowRevive: true });
     });
 
@@ -538,6 +558,8 @@ describe("group-provider membership ledger integration", () => {
         memberCount: 2,
         adminPubkeys: [PUBLIC_KEY_A],
         avatar: "https://cdn.example/avatar.png",
+        communityMode: "managed_workspace",
+        relayCapabilityTier: "trusted_private",
       }, { allowRevive: true });
     });
 
@@ -549,6 +571,8 @@ describe("group-provider membership ledger integration", () => {
       expect(group?.avatar).toBe("https://cdn.example/avatar.png");
       expect(group?.access).toBe("discoverable");
       expect(group?.memberCount).toBeGreaterThanOrEqual(3);
+      expect(group?.communityMode).toBe("managed_workspace");
+      expect(group?.relayCapabilityTier).toBe("trusted_private");
     });
   });
 
@@ -669,6 +693,114 @@ describe("group-provider membership ledger integration", () => {
     }));
   });
 
+  it("backfills invite-peer membership when restored groups only contain the local member", async () => {
+    const wrapper: React.FC<React.PropsWithChildren> = ({ children }) => (
+      <GroupProvider>{children}</GroupProvider>
+    );
+
+    activePublicKeyHex = PUBLIC_KEY_B;
+    await act(async () => {
+      await encryptedAccountBackupServiceInternals.applyBackupPayloadNonV1Domains(PUBLIC_KEY_B, {
+        version: 1,
+        publicKeyHex: PUBLIC_KEY_B,
+        createdAtUnixMs: Date.now(),
+        profile: {
+          username: "b-restored-membership",
+          about: "",
+          avatarUrl: "",
+          nip05: "",
+          inviteCode: "",
+        },
+        peerTrust: { acceptedPeers: [], mutedPeers: [] },
+        requestFlowEvidence: { byPeer: {} },
+        requestOutbox: { records: [] },
+        syncCheckpoints: [],
+        communityMembershipLedger: [{
+          communityId: "invite-peer:wss://relay.peer",
+          groupId: "invite-peer",
+          relayUrl: "wss://relay.peer",
+          status: "joined",
+          updatedAtUnixMs: 9_000,
+          displayName: "Invite Peer",
+        }],
+        chatState: {
+          ...createEmptyState(),
+          createdConnections: [{
+            id: `${PUBLIC_KEY_A}:${PUBLIC_KEY_B}`,
+            displayName: "Peer A",
+            pubkey: PUBLIC_KEY_A,
+            lastMessage: "accepted",
+            unreadCount: 0,
+            lastMessageTimeMs: 8_500,
+          }],
+          createdGroups: [{
+            id: "community:invite-peer:wss://relay.peer",
+            communityId: "invite-peer:wss://relay.peer",
+            groupId: "invite-peer",
+            relayUrl: "wss://relay.peer",
+            displayName: "Invite Peer",
+            memberPubkeys: [PUBLIC_KEY_B],
+            lastMessage: "restored self only",
+            unreadCount: 0,
+            lastMessageTimeMs: 9_000,
+            access: "invite-only",
+            memberCount: 1,
+            adminPubkeys: [],
+          }],
+          messagesByConversationId: {
+            [`${PUBLIC_KEY_A}:${PUBLIC_KEY_B}`]: [{
+              id: "invite-1",
+              content: JSON.stringify({
+                type: "community-invite",
+                groupId: "invite-peer",
+                relayUrl: "wss://relay.peer",
+                communityId: "invite-peer:wss://relay.peer",
+                roomKey: "rk",
+                metadata: { name: "Invite Peer" },
+              }),
+              timestampMs: 8_000,
+              isOutgoing: false,
+              status: "delivered",
+              pubkey: PUBLIC_KEY_A,
+            }, {
+              id: "invite-accept-1",
+              content: JSON.stringify({
+                type: "community-invite-response",
+                status: "accepted",
+                groupId: "invite-peer",
+                relayUrl: "wss://relay.peer",
+                communityId: "invite-peer:wss://relay.peer",
+              }),
+              timestampMs: 8_200,
+              isOutgoing: true,
+              status: "delivered",
+              pubkey: PUBLIC_KEY_B,
+            }],
+          },
+        },
+        privacySettings: PrivacySettingsService.getSettings(),
+        relayList: relayListInternals.DEFAULT_RELAYS,
+      }, "default", {
+        restoreChatStateDomains: true,
+      });
+    });
+
+    const hook = renderHook(() => useGroups(), { wrapper });
+    await waitFor(() => {
+      expect(hook.result.current.createdGroups).toHaveLength(1);
+    });
+
+    expect(hook.result.current.createdGroups[0]?.memberPubkeys).toEqual(expect.arrayContaining([
+      PUBLIC_KEY_A,
+      PUBLIC_KEY_B,
+    ]));
+    expect(hook.result.current.createdGroups[0]?.memberCount).toBeGreaterThanOrEqual(2);
+    expect(hook.result.current.communityKnownParticipantDirectoryByConversationId["community:invite-peer:wss://relay.peer"]?.participantPubkeys).toEqual(expect.arrayContaining([
+      PUBLIC_KEY_A,
+      PUBLIC_KEY_B,
+    ]));
+  });
+
   it("hydrates missing groups from runtime membership-confirmed evidence", async () => {
     const wrapper: React.FC<React.PropsWithChildren> = ({ children }) => (
       <GroupProvider>{children}</GroupProvider>
@@ -767,5 +899,311 @@ describe("group-provider membership ledger integration", () => {
       expect(hook.result.current.createdGroups).toHaveLength(0);
     });
     expect(loadCommunityMembershipLedger(PUBLIC_KEY_B)).toEqual([]);
+  });
+
+  it("updates active member roster from live membership snapshot events", async () => {
+    const wrapper: React.FC<React.PropsWithChildren> = ({ children }) => (
+      <GroupProvider>{children}</GroupProvider>
+    );
+
+    activePublicKeyHex = PUBLIC_KEY_A;
+    const hook = renderHook(() => useGroups(), { wrapper });
+    await waitFor(() => {
+      expect(hook.result.current.createdGroups).toHaveLength(0);
+    });
+
+    act(() => {
+      hook.result.current.addGroup({
+        kind: "group",
+        id: "community:lambda:wss://relay.lambda",
+        communityId: "lambda:wss://relay.lambda",
+        groupId: "lambda",
+        relayUrl: "wss://relay.lambda",
+        displayName: "Lambda",
+        memberPubkeys: [PUBLIC_KEY_A, PUBLIC_KEY_B],
+        lastMessage: "",
+        unreadCount: 0,
+        lastMessageTime: new Date(1_000),
+        access: "invite-only",
+        memberCount: 2,
+        adminPubkeys: [],
+      }, { allowRevive: true });
+    });
+
+    await waitFor(() => {
+      expect(hook.result.current.createdGroups).toHaveLength(1);
+    });
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent("obscur:group-membership-snapshot", {
+        detail: {
+          groupId: "lambda",
+          relayUrl: "wss://relay.lambda",
+          communityId: "lambda:wss://relay.lambda",
+          activeMemberPubkeys: [PUBLIC_KEY_A],
+          leftMembers: [PUBLIC_KEY_B],
+          expelledMembers: [],
+          disbandedAt: null,
+        },
+      }));
+    });
+
+    await waitFor(() => {
+      expect(hook.result.current.communityRosterByConversationId["community:lambda:wss://relay.lambda"]?.activeMemberPubkeys).toEqual([PUBLIC_KEY_A]);
+      expect(hook.result.current.createdGroups[0]?.memberPubkeys).toEqual([PUBLIC_KEY_A, PUBLIC_KEY_B]);
+    });
+    expect(logAppEventMock).toHaveBeenCalledWith(expect.objectContaining({
+      name: "groups.membership_snapshot_projection_result",
+      context: expect.objectContaining({
+        conversationId: "community:lambda:wss://relay.lambda",
+        groupId: "lambda",
+        relayUrl: "wss://relay.lambda",
+        reasonCode: "apply_snapshot",
+        currentMemberCount: 2,
+        incomingMemberCount: 1,
+        nextMemberCount: 1,
+        removedWithoutEvidenceCount: 0,
+      }),
+    }));
+  });
+
+  it("ignores thinner live membership snapshots that do not include leave or expel evidence", async () => {
+    const wrapper: React.FC<React.PropsWithChildren> = ({ children }) => (
+      <GroupProvider>{children}</GroupProvider>
+    );
+
+    activePublicKeyHex = PUBLIC_KEY_A;
+    const hook = renderHook(() => useGroups(), { wrapper });
+    await waitFor(() => {
+      expect(hook.result.current.createdGroups).toHaveLength(0);
+    });
+
+    act(() => {
+      hook.result.current.addGroup({
+        kind: "group",
+        id: "community:mu:wss://relay.mu",
+        communityId: "mu:wss://relay.mu",
+        groupId: "mu",
+        relayUrl: "wss://relay.mu",
+        displayName: "Mu",
+        memberPubkeys: [PUBLIC_KEY_A, PUBLIC_KEY_B],
+        lastMessage: "",
+        unreadCount: 0,
+        lastMessageTime: new Date(1_000),
+        access: "invite-only",
+        memberCount: 2,
+        adminPubkeys: [],
+      }, { allowRevive: true });
+    });
+
+    await waitFor(() => {
+      expect(hook.result.current.createdGroups).toHaveLength(1);
+    });
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent("obscur:group-membership-snapshot", {
+        detail: {
+          groupId: "mu",
+          relayUrl: "wss://relay.mu",
+          communityId: "mu:wss://relay.mu",
+          activeMemberPubkeys: [PUBLIC_KEY_A],
+          leftMembers: [],
+          expelledMembers: [],
+          disbandedAt: null,
+        },
+      }));
+    });
+
+    await waitFor(() => {
+      expect(hook.result.current.communityRosterByConversationId["community:mu:wss://relay.mu"]?.activeMemberPubkeys).toEqual([PUBLIC_KEY_A]);
+      expect(hook.result.current.communityRosterByConversationId["community:mu:wss://relay.mu"]?.memberCount).toBe(1);
+      expect(hook.result.current.createdGroups[0]?.memberPubkeys).toEqual([PUBLIC_KEY_A, PUBLIC_KEY_B]);
+    });
+    expect(logAppEventMock).toHaveBeenCalledWith(expect.objectContaining({
+      name: "groups.membership_snapshot_projection_result",
+      context: expect.objectContaining({
+        conversationId: "community:mu:wss://relay.mu",
+        groupId: "mu",
+        relayUrl: "wss://relay.mu",
+        reasonCode: "apply_snapshot",
+        currentMemberCount: 2,
+        incomingMemberCount: 1,
+        nextMemberCount: 1,
+        removedWithoutEvidenceCount: 0,
+      }),
+    }));
+  });
+
+  it("preserves roster projection when later descriptor updates keep stale memberPubkeys", async () => {
+    const wrapper: React.FC<React.PropsWithChildren> = ({ children }) => (
+      <GroupProvider>{children}</GroupProvider>
+    );
+
+    activePublicKeyHex = PUBLIC_KEY_A;
+    const hook = renderHook(() => useGroups(), { wrapper });
+    await waitFor(() => {
+      expect(hook.result.current.createdGroups).toHaveLength(0);
+    });
+
+    act(() => {
+      hook.result.current.addGroup({
+        kind: "group",
+        id: "community:nu:wss://relay.nu",
+        communityId: "nu:wss://relay.nu",
+        groupId: "nu",
+        relayUrl: "wss://relay.nu",
+        displayName: "Nu",
+        memberPubkeys: [PUBLIC_KEY_A, PUBLIC_KEY_B],
+        lastMessage: "",
+        unreadCount: 0,
+        lastMessageTime: new Date(1_000),
+        access: "invite-only",
+        memberCount: 2,
+        adminPubkeys: [],
+      }, { allowRevive: true });
+    });
+
+    await waitFor(() => {
+      expect(hook.result.current.communityRosterByConversationId["community:nu:wss://relay.nu"]?.activeMemberPubkeys).toEqual([PUBLIC_KEY_A, PUBLIC_KEY_B]);
+    });
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent("obscur:group-membership-snapshot", {
+        detail: {
+          groupId: "nu",
+          relayUrl: "wss://relay.nu",
+          communityId: "nu:wss://relay.nu",
+          activeMemberPubkeys: [PUBLIC_KEY_A],
+          leftMembers: [PUBLIC_KEY_B],
+          expelledMembers: [],
+          disbandedAt: null,
+        },
+      }));
+    });
+
+    await waitFor(() => {
+      expect(hook.result.current.communityRosterByConversationId["community:nu:wss://relay.nu"]?.activeMemberPubkeys).toEqual([PUBLIC_KEY_A]);
+    });
+
+    act(() => {
+      hook.result.current.updateGroup({
+        groupId: "nu",
+        relayUrl: "wss://relay.nu",
+        updates: {
+          displayName: "Nu Updated",
+        },
+      });
+    });
+
+    await waitFor(() => {
+      expect(hook.result.current.createdGroups[0]?.displayName).toBe("Nu Updated");
+      expect(hook.result.current.createdGroups[0]?.memberPubkeys).toEqual([PUBLIC_KEY_A, PUBLIC_KEY_B]);
+      expect(hook.result.current.communityRosterByConversationId["community:nu:wss://relay.nu"]?.activeMemberPubkeys).toEqual([PUBLIC_KEY_A]);
+    });
+  });
+
+  it("keeps a stable known-participants directory after live roster narrows", async () => {
+    const wrapper: React.FC<React.PropsWithChildren> = ({ children }) => (
+      <GroupProvider>{children}</GroupProvider>
+    );
+
+    activePublicKeyHex = PUBLIC_KEY_A;
+    const hook = renderHook(() => useGroups(), { wrapper });
+    await waitFor(() => {
+      expect(hook.result.current.createdGroups).toHaveLength(0);
+    });
+
+    act(() => {
+      hook.result.current.addGroup({
+        kind: "group",
+        id: "community:xi:wss://relay.xi",
+        communityId: "xi:wss://relay.xi",
+        groupId: "xi",
+        relayUrl: "wss://relay.xi",
+        displayName: "Xi",
+        memberPubkeys: [PUBLIC_KEY_A, PUBLIC_KEY_B],
+        lastMessage: "",
+        unreadCount: 0,
+        lastMessageTime: new Date(1_000),
+        access: "invite-only",
+        memberCount: 2,
+        adminPubkeys: [],
+      }, { allowRevive: true });
+    });
+
+    await waitFor(() => {
+      expect(hook.result.current.communityKnownParticipantDirectoryByConversationId["community:xi:wss://relay.xi"]?.participantPubkeys).toEqual([PUBLIC_KEY_A, PUBLIC_KEY_B]);
+    });
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent("obscur:group-membership-snapshot", {
+        detail: {
+          groupId: "xi",
+          relayUrl: "wss://relay.xi",
+          communityId: "xi:wss://relay.xi",
+          activeMemberPubkeys: [PUBLIC_KEY_A],
+          leftMembers: [],
+          expelledMembers: [],
+          disbandedAt: null,
+        },
+      }));
+    });
+
+    await waitFor(() => {
+      expect(hook.result.current.communityKnownParticipantDirectoryByConversationId["community:xi:wss://relay.xi"]?.participantPubkeys).toEqual([PUBLIC_KEY_A, PUBLIC_KEY_B]);
+      expect(hook.result.current.communityKnownParticipantDirectoryByConversationId["community:xi:wss://relay.xi"]?.participantCount).toBe(2);
+    });
+  });
+
+  it("persists richer observed known participants even when descriptor rows stay thin", async () => {
+    const wrapper: React.FC<React.PropsWithChildren> = ({ children }) => (
+      <GroupProvider>{children}</GroupProvider>
+    );
+
+    activePublicKeyHex = PUBLIC_KEY_A;
+    const hook = renderHook(() => useGroups(), { wrapper });
+    await waitFor(() => {
+      expect(hook.result.current.createdGroups).toHaveLength(0);
+    });
+
+    act(() => {
+      hook.result.current.addGroup({
+        kind: "group",
+        id: "community:omicron:wss://relay.omicron",
+        communityId: "omicron:wss://relay.omicron",
+        groupId: "omicron",
+        relayUrl: "wss://relay.omicron",
+        displayName: "Omicron",
+        memberPubkeys: [PUBLIC_KEY_A],
+        lastMessage: "",
+        unreadCount: 0,
+        lastMessageTime: new Date(1_000),
+        access: "invite-only",
+        memberCount: 1,
+        adminPubkeys: [],
+      }, { allowRevive: true });
+    });
+
+    await waitFor(() => {
+      expect(hook.result.current.communityKnownParticipantDirectoryByConversationId["community:omicron:wss://relay.omicron"]?.participantPubkeys).toEqual([PUBLIC_KEY_A]);
+    });
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent("obscur:community-known-participants-observed", {
+        detail: {
+          groupId: "omicron",
+          relayUrl: "wss://relay.omicron",
+          communityId: "omicron:wss://relay.omicron",
+          conversationId: "community:omicron:wss://relay.omicron",
+          participantPubkeys: [PUBLIC_KEY_A, PUBLIC_KEY_B],
+        },
+      }));
+    });
+
+    await waitFor(() => {
+      expect(hook.result.current.createdGroups[0]?.memberPubkeys).toEqual([PUBLIC_KEY_A]);
+      expect(hook.result.current.communityKnownParticipantDirectoryByConversationId["community:omicron:wss://relay.omicron"]?.participantPubkeys).toEqual([PUBLIC_KEY_A, PUBLIC_KEY_B]);
+      expect(hook.result.current.communityKnownParticipantDirectoryByConversationId["community:omicron:wss://relay.omicron"]?.participantCount).toBe(2);
+    });
   });
 });

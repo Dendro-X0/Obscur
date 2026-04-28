@@ -11,8 +11,14 @@ import { toDmConversationId } from "../utils/dm-conversation-id";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import { suppressMessageDeleteTombstone } from "./message-delete-tombstone-store";
 import { getActiveProfileIdSafe } from "@/app/features/profiles/services/profile-scope";
+import type { ChatStateReplacedEventDetail } from "./chat-state-store";
 
 export const MESSAGES_INDEX_REBUILT_EVENT = "obscur:messages-index-rebuilt";
+export type MessagesIndexRebuiltEventDetail = Readonly<{
+    publicKeyHex: string;
+    profileId: string;
+    messageCount: number;
+}>;
 
 const toConversationIdDiagnosticLabel = (value: string): string => {
     const trimmed = value.trim();
@@ -247,12 +253,20 @@ export class MessagePersistenceService {
         this.chatPerformanceV2Enabled = PrivacySettingsService.getSettings().chatPerformanceV2;
     };
     private readonly onChatStateReplaced = (event: Event): void => {
-        const customEvent = event as CustomEvent<Readonly<{ publicKeyHex?: string }>>;
+        const customEvent = event as CustomEvent<Readonly<Partial<ChatStateReplacedEventDetail>>>;
         const restoredPublicKeyHex = normalizePublicKeyHex(customEvent.detail?.publicKeyHex);
         if (!restoredPublicKeyHex) {
             return;
         }
-        void this.migrateFromLegacy(restoredPublicKeyHex);
+        const restoredProfileId = typeof customEvent.detail?.profileId === "string"
+            ? customEvent.detail.profileId.trim()
+            : "";
+        if (restoredProfileId.length > 0 && restoredProfileId !== getActiveProfileIdSafe()) {
+            return;
+        }
+        void this.migrateFromLegacy(restoredPublicKeyHex, {
+            profileId: restoredProfileId || undefined,
+        });
     };
 
     init() {
@@ -526,27 +540,30 @@ export class MessagePersistenceService {
      * Initial migration: Call this if we want to move messages from the 
      * legacy 'chatState' blob to the 'messages' store.
      */
-    async migrateFromLegacy(publicKeyHex: string) {
+    async migrateFromLegacy(publicKeyHex: string, options?: Readonly<{ profileId?: string }>) {
         try {
             const normalizedPublicKeyHex = normalizePublicKeyHex(publicKeyHex);
             if (!normalizedPublicKeyHex) {
                 return;
             }
-            const activeScopeKey = `${getActiveProfileIdSafe()}::${normalizedPublicKeyHex}`;
+            const profileId = options?.profileId ?? getActiveProfileIdSafe();
+            const activeScopeKey = `${profileId}::${normalizedPublicKeyHex}`;
             if (this.activeMessageStoreScopeKey !== activeScopeKey) {
                 await messagingDB.clear("messages");
                 this.activeMessageStoreScopeKey = activeScopeKey;
             }
-            const cachedChatState = chatStateStoreService.load(normalizedPublicKeyHex as PublicKeyHex);
+            const cachedChatState = chatStateStoreService.load(normalizedPublicKeyHex as PublicKeyHex, {
+                profileId,
+            });
             const dbState = hasLegacyChatTimelineDomains(cachedChatState)
                 ? cachedChatState
                 : (await messagingDB.get<any>("chatState", normalizedPublicKeyHex) ?? cachedChatState);
             if (!dbState) {
                 if (typeof window !== "undefined") {
-                    window.dispatchEvent(new CustomEvent(MESSAGES_INDEX_REBUILT_EVENT, {
+                    window.dispatchEvent(new CustomEvent<MessagesIndexRebuiltEventDetail>(MESSAGES_INDEX_REBUILT_EVENT, {
                         detail: {
                             publicKeyHex: normalizedPublicKeyHex,
-                            profileId: getActiveProfileIdSafe(),
+                            profileId,
                             messageCount: 0,
                         },
                     }));
@@ -555,6 +572,8 @@ export class MessagePersistenceService {
             }
 
             const allMessages: Array<Record<string, unknown>> = [];
+            let incomingCount = 0;
+            let outgoingCount = 0;
 
             const normalizedMessagesByConversationId = dbState.messagesByConversationId
                 ? fromPersistedMessagesByConversationId(
@@ -566,6 +585,11 @@ export class MessagePersistenceService {
                 : {};
             Object.entries(normalizedMessagesByConversationId).forEach(([cid, msgs]) => {
                 msgs.forEach((message) => {
+                    if (message.isOutgoing) {
+                        outgoingCount++;
+                    } else {
+                        incomingCount++;
+                    }
                     allMessages.push({
                         ...message,
                         conversationId: message.conversationId ?? cid,
@@ -573,6 +597,15 @@ export class MessagePersistenceService {
                     });
                 });
             });
+
+            if (allMessages.length > 0) {
+                console.log("[MessagePersistenceService] Migration directionality:", {
+                    total: allMessages.length,
+                    outgoing: outgoingCount,
+                    incoming: incomingCount,
+                    outgoingRatio: outgoingCount / allMessages.length,
+                });
+            }
 
             if (dbState.groupMessages) {
                 Object.entries(dbState.groupMessages).forEach(([cid, msgs]: [string, any]) => {
@@ -596,10 +629,10 @@ export class MessagePersistenceService {
                 console.info(`[MessagePersistenceService] Migrated ${allMessages.length} messages to 'messages' store.`);
             }
             if (typeof window !== "undefined") {
-                window.dispatchEvent(new CustomEvent(MESSAGES_INDEX_REBUILT_EVENT, {
+                window.dispatchEvent(new CustomEvent<MessagesIndexRebuiltEventDetail>(MESSAGES_INDEX_REBUILT_EVENT, {
                     detail: {
                         publicKeyHex: normalizedPublicKeyHex,
-                        profileId: getActiveProfileIdSafe(),
+                        profileId,
                         messageCount: allMessages.length,
                     },
                 }));
@@ -633,6 +666,7 @@ export class MessagePersistenceService {
                 scope: { feature: "messaging", action: "legacy_migration" },
                 context: {
                     publicKeySuffix: normalizedPublicKeyHex.slice(-8),
+                    profileId,
                     sourceConversationCount: sourceDmDiagnostics.sourceConversationCount,
                     canonicalConversationCount: sourceDmDiagnostics.canonicalConversationCount,
                     canonicalMismatchConversationCount: sourceDmDiagnostics.canonicalMismatchConversationCount,

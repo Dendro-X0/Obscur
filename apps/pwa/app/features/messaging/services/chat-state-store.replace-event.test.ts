@@ -44,15 +44,16 @@ describe("chat-state-store replace event", () => {
     window.localStorage.clear();
   });
 
-  it("emits CHAT_STATE_REPLACED_EVENT with public key when replace is called", () => {
+  it("emits CHAT_STATE_REPLACED_EVENT with public key and profile when replace is called", () => {
     const onReplaced = vi.fn();
     window.addEventListener(CHAT_STATE_REPLACED_EVENT, onReplaced);
 
     chatStateStoreService.replace(PK as any, createState(), { emitMutationSignal: false });
 
     expect(onReplaced).toHaveBeenCalledTimes(1);
-    const event = onReplaced.mock.calls[0]?.[0] as CustomEvent<{ publicKeyHex: string }>;
+    const event = onReplaced.mock.calls[0]?.[0] as CustomEvent<{ publicKeyHex: string; profileId: string }>;
     expect(event.detail?.publicKeyHex).toBe(PK);
+    expect(event.detail?.profileId).toBe("default");
     expect(emitMutationMock).not.toHaveBeenCalled();
 
     window.removeEventListener(CHAT_STATE_REPLACED_EVENT, onReplaced);

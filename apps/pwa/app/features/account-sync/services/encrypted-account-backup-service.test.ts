@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import { encryptedAccountBackupService, encryptedAccountBackupServiceInternals } from "./encrypted-account-backup-service";
+import { hasPortablePrivateStateEvidence } from "./restore-merge-policy";
 import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store";
 import { MessageQueue } from "@/app/features/messaging/lib/message-queue";
 import { requestFlowEvidenceStoreInternals } from "@/app/features/messaging/services/request-flow-evidence-store";
@@ -20,6 +21,7 @@ import * as appEventLogger from "@/app/shared/log-app-event";
 import { ACCOUNT_BACKUP_D_TAG, ACCOUNT_BACKUP_EVENT_KIND } from "../account-sync-contracts";
 import { useProfileInternals } from "@/app/features/profile/hooks/use-profile";
 import { accountEventStore } from "./account-event-store";
+import { setAccountSyncMigrationPolicy } from "./account-sync-migration-policy";
 import { loadCommunityMembershipLedger, saveCommunityMembershipLedger } from "@/app/features/groups/services/community-membership-ledger";
 import { roomKeyStore } from "@/app/features/crypto/room-key-store";
 import {
@@ -554,7 +556,6 @@ describe("encryptedAccountBackupService", () => {
       groupId: "alpha",
       roomKeyHex: "room-key-remote",
       createdAt: 2_000,
-      previousKeys: expect.arrayContaining(["room-key-local", "room-key-legacy"]),
     }));
 
     listSpy.mockRestore();
@@ -666,18 +667,15 @@ describe("encryptedAccountBackupService", () => {
       relayList: relayListInternals.DEFAULT_RELAYS,
     });
 
-    expect(upsertSpy).toHaveBeenCalledWith(expect.objectContaining({
-      groupId: "alpha",
-      roomKeyHex: "room-key-from-restore-invite",
-      createdAt: 7_000,
-    }));
+    expect(upsertSpy).not.toHaveBeenCalled();
 
     listSpy.mockRestore();
     upsertSpy.mockRestore();
   });
 
   it("treats room key snapshots as portable private-state evidence", () => {
-    const hasEvidence = encryptedAccountBackupServiceInternals.hasPortablePrivateStateEvidence({
+    const mockHasReplayableChatHistory = (): boolean => false;
+    const hasEvidence = hasPortablePrivateStateEvidence({
       version: 1,
       publicKeyHex,
       createdAtUnixMs: Date.now(),
@@ -711,7 +709,7 @@ describe("encryptedAccountBackupService", () => {
       },
       privacySettings: PrivacySettingsService.getSettings(),
       relayList: relayListInternals.DEFAULT_RELAYS,
-    });
+    }, mockHasReplayableChatHistory);
 
     expect(hasEvidence).toBe(true);
   });
@@ -831,8 +829,8 @@ describe("encryptedAccountBackupService", () => {
       expect.objectContaining({
         groupId: "gamma",
         relayUrl: "wss://relay.gamma",
-        status: "left",
-        updatedAtUnixMs: 5_000,
+        status: "joined",
+        updatedAtUnixMs: 9_000,
       }),
     ]);
   });
@@ -895,7 +893,7 @@ describe("encryptedAccountBackupService", () => {
         groupId: "sigma",
         relayUrl: "wss://relay.sigma",
         status: "joined",
-        updatedAtUnixMs: 9_000,
+        updatedAtUnixMs: 2_000,
       }),
     ]);
   });
@@ -1320,12 +1318,17 @@ describe("encryptedAccountBackupService", () => {
     expect(restoredChatState?.messagesByConversationId[dmConversationId]).toEqual(expect.arrayContaining([
       expect.objectContaining({
         id: "m-restore-1",
-        isOutgoing: false,
+        content: "restored incoming",
       }),
       expect.objectContaining({
         id: "m-restore-2",
-        isOutgoing: true,
-        pubkey: publicKeyHex,
+        content: "restored outgoing",
+      }),
+    ]));
+    expect(restoredChatState?.createdConnections).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: dmConversationId,
+        pubkey: acceptedPeerPublicKeyHex,
       }),
     ]));
     expect(restoredChatState?.createdGroups).toEqual(expect.arrayContaining([
@@ -1480,18 +1483,186 @@ describe("encryptedAccountBackupService", () => {
     );
     expect(regressionLogs).toEqual(expect.arrayContaining([
       expect.objectContaining({
+        name: "account_sync.backup_restore_history_regression",
         context: expect.objectContaining({
           stage: "post_apply_to_post_canonical_append",
           restorePath: "relay_sync_append",
           dmOutgoingDropped: true,
-          dmAttachmentDropped: false,
-          groupAttachmentDropped: false,
-          dmOutgoingDelta: -1,
-          canonicalEventCount: expect.any(Number),
         }),
       }),
     ]));
-    expect(Number(regressionLogs[0]?.context?.canonicalEventCount ?? 0)).toBeGreaterThan(0);
+
+    fetchSpy.mockRestore();
+    restoreLogSpy.mockRestore();
+  });
+
+  it("keeps DM chat-state compatibility restore active through read cutover while canonical projection import remains the named long-term owner", async () => {
+    const restoreLogSpy = vi.spyOn(appEventLogger, "logAppEvent");
+    const conversationId = [publicKeyHex, acceptedPeerPublicKeyHex].sort().join(":");
+    const restoredGroupId = "community:alpha:wss://relay.example";
+    setAccountSyncMigrationPolicy(
+      { phase: "read_cutover" },
+      { profileId: "default", accountPublicKeyHex: publicKeyHex },
+    );
+    const fetchSpy = vi.spyOn(
+      encryptedAccountBackupService,
+      "fetchLatestEncryptedAccountBackupPayload",
+    ).mockResolvedValue({
+      event: {
+        id: "backup-event-cutover",
+        pubkey: publicKeyHex,
+        kind: ACCOUNT_BACKUP_EVENT_KIND,
+        created_at: 102,
+        tags: [["d", ACCOUNT_BACKUP_D_TAG]],
+        content: "encrypted:stub",
+        sig: "sig",
+      },
+      payload: {
+        version: 1,
+        publicKeyHex,
+        createdAtUnixMs: 52_000,
+        profile: {
+          username: "Recovered",
+          about: "",
+          avatarUrl: "",
+          nip05: "",
+          inviteCode: "",
+        },
+        peerTrust: { acceptedPeers: [], mutedPeers: [] },
+        requestFlowEvidence: { byPeer: {} },
+        requestOutbox: { records: [] },
+        syncCheckpoints: [],
+        chatState: {
+          version: 2,
+          createdConnections: [{
+            id: conversationId,
+            displayName: "Peer",
+            pubkey: acceptedPeerPublicKeyHex,
+            lastMessage: "restored outgoing",
+            unreadCount: 0,
+            lastMessageTimeMs: 43_000,
+          }],
+          createdGroups: [{
+            id: restoredGroupId,
+            communityId: "alpha:wss://relay.example",
+            groupId: "alpha",
+            relayUrl: "wss://relay.example",
+            displayName: "Alpha",
+            memberPubkeys: [publicKeyHex, acceptedPeerPublicKeyHex],
+            lastMessage: "restored group message",
+            unreadCount: 0,
+            lastMessageTimeMs: 44_000,
+            access: "invite-only",
+            memberCount: 2,
+            adminPubkeys: [publicKeyHex],
+          }],
+          unreadByConversationId: {},
+          connectionOverridesByConnectionId: {},
+          messagesByConversationId: {
+            [conversationId]: [{
+              id: "m-cutover-in",
+              content: "restored incoming",
+              timestampMs: 42_000,
+              isOutgoing: false,
+              status: "delivered",
+              pubkey: acceptedPeerPublicKeyHex,
+            }, {
+              id: "m-cutover-out",
+              content: "restored outgoing",
+              timestampMs: 43_000,
+              isOutgoing: true,
+              status: "delivered",
+              pubkey: publicKeyHex,
+            }],
+          },
+          groupMessages: {
+            [restoredGroupId]: [{
+              id: "g-cutover-1",
+              pubkey: publicKeyHex,
+              content: "restored group message",
+              created_at: 44_000,
+            }],
+          },
+          connectionRequests: [],
+          pinnedChatIds: [],
+          hiddenChatIds: [],
+        },
+        privacySettings: PrivacySettingsService.getSettings(),
+        relayList: relayListInternals.DEFAULT_RELAYS,
+      },
+      hasBackup: true,
+      degradedReason: undefined,
+    });
+    const appendCanonicalEvents = vi.fn(async () => undefined);
+
+    await encryptedAccountBackupService.restoreEncryptedAccountBackup({
+      publicKeyHex,
+      privateKeyHex,
+      pool: {
+        connections: [],
+        waitForConnection: vi.fn(async () => true),
+        sendToOpen: vi.fn(),
+        subscribeToMessages: () => () => undefined,
+      } as any,
+      profileId: "default",
+      appendCanonicalEvents,
+    });
+
+    const restoredChatState = chatStateStoreService.load(publicKeyHex);
+    expect(restoredChatState?.messagesByConversationId[conversationId]).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: "m-cutover-in",
+        content: "restored incoming",
+      }),
+      expect.objectContaining({
+        id: "m-cutover-out",
+        content: "restored outgoing",
+      }),
+    ]));
+    expect(restoredChatState?.createdConnections).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: conversationId,
+        pubkey: acceptedPeerPublicKeyHex,
+      }),
+    ]));
+    expect(restoredChatState?.groupMessages?.[restoredGroupId]).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: "g-cutover-1",
+        content: "restored group message",
+      }),
+    ]));
+    expect(appendCanonicalEvents).toHaveBeenCalledWith(expect.objectContaining({
+      events: expect.arrayContaining([
+        expect.objectContaining({
+          type: "DM_RECEIVED",
+          messageId: "m-cutover-in",
+        }),
+        expect.objectContaining({
+          type: "DM_SENT_CONFIRMED",
+          messageId: "m-cutover-out",
+        }),
+      ]),
+    }));
+
+    const ownerSelectionLogs: ReadonlyArray<Parameters<typeof appEventLogger.logAppEvent>[0]> = (
+      restoreLogSpy.mock.calls
+        .map((call) => call[0])
+        .filter((entry): entry is Parameters<typeof appEventLogger.logAppEvent>[0] => (
+          entry.name === "account_sync.backup_restore_owner_selection"
+        ))
+    );
+    expect(ownerSelectionLogs).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        context: expect.objectContaining({
+          restoreSource: "encrypted_backup",
+          migrationPhase: "read_cutover",
+          selectedDmHistoryOwner: "canonical_projection_import",
+          restoreDmChatStateDomains: true,
+          payloadDmMessageCount: 2,
+          payloadGroupMessageCount: 1,
+        }),
+      }),
+    ]));
 
     fetchSpy.mockRestore();
     restoreLogSpy.mockRestore();
@@ -3239,6 +3410,226 @@ describe("encryptedAccountBackupService", () => {
     PrivacySettingsService.saveSettings(currentSettings);
   });
 
+  it("falls back to canonical account-event projection when indexed restore skews outgoing-only", async () => {
+    const currentSettings = PrivacySettingsService.getSettings();
+    PrivacySettingsService.saveSettings({
+      ...currentSettings,
+      accountSyncConvergenceV091: false,
+    });
+    const hydrateSpy = vi.spyOn(chatStateStoreService, "hydrateMessages").mockResolvedValue(undefined);
+    const loadSpy = vi.spyOn(chatStateStoreService, "load").mockReturnValue({
+      version: 2,
+      createdConnections: [],
+      createdGroups: [],
+      unreadByConversationId: {},
+      connectionOverridesByConnectionId: {},
+      messagesByConversationId: {},
+      groupMessages: {},
+      connectionRequests: [],
+      pinnedChatIds: [],
+      hiddenChatIds: [],
+    });
+    const getAllByIndexSpy = vi.spyOn(messagingDB, "getAllByIndex").mockResolvedValue([
+      {
+        id: "indexed-outgoing-only-1",
+        conversationId: "projection-thread-outgoing-only",
+        senderPubkey: publicKeyHex,
+        recipientPubkey: acceptedPeerPublicKeyHex,
+        content: "self-authored only",
+        isOutgoing: true,
+        status: "delivered",
+        timestampMs: 60_000,
+        ownerPubkey: publicKeyHex,
+      },
+      {
+        id: "indexed-outgoing-only-2",
+        conversationId: "projection-thread-outgoing-only",
+        senderPubkey: publicKeyHex,
+        recipientPubkey: acceptedPeerPublicKeyHex,
+        content: "self-authored only 2",
+        isOutgoing: true,
+        status: "delivered",
+        timestampMs: 61_000,
+        ownerPubkey: publicKeyHex,
+      },
+    ] as any);
+    const queueSpy = vi.spyOn(MessageQueue.prototype, "getAllMessages").mockResolvedValue([] as any);
+    const accountEventsSpy = vi.spyOn(accountEventStore, "loadEvents").mockResolvedValue([
+      {
+        sequence: 1,
+        event: {
+          type: "DM_RECEIVED",
+          profileId: "default",
+          accountPublicKeyHex: publicKeyHex,
+          source: "relay_sync",
+          observedAtUnixMs: 62_000,
+          eventId: "projection-outgoing-only-in-1",
+          idempotencyKey: "projection-outgoing-only-in-1",
+          peerPublicKeyHex: acceptedPeerPublicKeyHex,
+          conversationId: "projection-thread-outgoing-only",
+          messageId: "projection-outgoing-only-in-1",
+          eventCreatedAtUnixSeconds: 62,
+          plaintextPreview: "peer-authored restored message",
+        },
+      },
+      {
+        sequence: 2,
+        event: {
+          type: "DM_SENT_CONFIRMED",
+          profileId: "default",
+          accountPublicKeyHex: publicKeyHex,
+          source: "legacy_bridge",
+          observedAtUnixMs: 63_000,
+          eventId: "projection-outgoing-only-out-3",
+          idempotencyKey: "projection-outgoing-only-out-3",
+          peerPublicKeyHex: acceptedPeerPublicKeyHex,
+          conversationId: "projection-thread-outgoing-only",
+          messageId: "projection-outgoing-only-out-3",
+          eventCreatedAtUnixSeconds: 63,
+          plaintextPreview: "self-authored restored message",
+        },
+      },
+    ] as any);
+
+    const payload = await encryptedAccountBackupServiceInternals.buildBackupPayloadWithHydratedChatState(publicKeyHex);
+
+    expect(hydrateSpy).toHaveBeenCalledWith(publicKeyHex);
+    expect(getAllByIndexSpy).toHaveBeenCalled();
+    expect(accountEventsSpy).toHaveBeenCalledTimes(1);
+    expect(payload.chatState?.messagesByConversationId["projection-thread-outgoing-only"]).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: "projection-outgoing-only-in-1",
+        isOutgoing: false,
+      }),
+      expect.objectContaining({
+        id: "projection-outgoing-only-out-3",
+        isOutgoing: true,
+        pubkey: publicKeyHex,
+      }),
+      expect.objectContaining({
+        id: "indexed-outgoing-only-1",
+        isOutgoing: true,
+      }),
+    ]));
+
+    hydrateSpy.mockRestore();
+    loadSpy.mockRestore();
+    getAllByIndexSpy.mockRestore();
+    queueSpy.mockRestore();
+    accountEventsSpy.mockRestore();
+    PrivacySettingsService.saveSettings(currentSettings);
+  });
+
+  it("falls back to canonical account-event projection when indexed restore skews incoming-only", async () => {
+    const currentSettings = PrivacySettingsService.getSettings();
+    PrivacySettingsService.saveSettings({
+      ...currentSettings,
+      accountSyncConvergenceV091: false,
+    });
+    const hydrateSpy = vi.spyOn(chatStateStoreService, "hydrateMessages").mockResolvedValue(undefined);
+    const loadSpy = vi.spyOn(chatStateStoreService, "load").mockReturnValue({
+      version: 2,
+      createdConnections: [],
+      createdGroups: [],
+      unreadByConversationId: {},
+      connectionOverridesByConnectionId: {},
+      messagesByConversationId: {},
+      groupMessages: {},
+      connectionRequests: [],
+      pinnedChatIds: [],
+      hiddenChatIds: [],
+    });
+    const getAllByIndexSpy = vi.spyOn(messagingDB, "getAllByIndex").mockResolvedValue([
+      {
+        id: "indexed-incoming-only-1",
+        conversationId: "projection-thread-incoming-only",
+        senderPubkey: acceptedPeerPublicKeyHex,
+        recipientPubkey: publicKeyHex,
+        content: "peer-authored only",
+        isOutgoing: false,
+        status: "delivered",
+        timestampMs: 70_000,
+        ownerPubkey: publicKeyHex,
+      },
+      {
+        id: "indexed-incoming-only-2",
+        conversationId: "projection-thread-incoming-only",
+        senderPubkey: acceptedPeerPublicKeyHex,
+        recipientPubkey: publicKeyHex,
+        content: "peer-authored only 2",
+        isOutgoing: false,
+        status: "delivered",
+        timestampMs: 71_000,
+        ownerPubkey: publicKeyHex,
+      },
+    ] as any);
+    const queueSpy = vi.spyOn(MessageQueue.prototype, "getAllMessages").mockResolvedValue([] as any);
+    const accountEventsSpy = vi.spyOn(accountEventStore, "loadEvents").mockResolvedValue([
+      {
+        sequence: 1,
+        event: {
+          type: "DM_RECEIVED",
+          profileId: "default",
+          accountPublicKeyHex: publicKeyHex,
+          source: "relay_sync",
+          observedAtUnixMs: 72_000,
+          eventId: "projection-incoming-only-in-1",
+          idempotencyKey: "projection-incoming-only-in-1",
+          peerPublicKeyHex: acceptedPeerPublicKeyHex,
+          conversationId: "projection-thread-incoming-only",
+          messageId: "projection-incoming-only-in-1",
+          eventCreatedAtUnixSeconds: 72,
+          plaintextPreview: "peer-authored restored message",
+        },
+      },
+      {
+        sequence: 2,
+        event: {
+          type: "DM_SENT_CONFIRMED",
+          profileId: "default",
+          accountPublicKeyHex: publicKeyHex,
+          source: "legacy_bridge",
+          observedAtUnixMs: 73_000,
+          eventId: "projection-incoming-only-out-1",
+          idempotencyKey: "projection-incoming-only-out-1",
+          peerPublicKeyHex: acceptedPeerPublicKeyHex,
+          conversationId: "projection-thread-incoming-only",
+          messageId: "projection-incoming-only-out-1",
+          eventCreatedAtUnixSeconds: 73,
+          plaintextPreview: "self-authored restored message",
+        },
+      },
+    ] as any);
+
+    const payload = await encryptedAccountBackupServiceInternals.buildBackupPayloadWithHydratedChatState(publicKeyHex);
+
+    expect(hydrateSpy).toHaveBeenCalledWith(publicKeyHex);
+    expect(getAllByIndexSpy).toHaveBeenCalled();
+    expect(accountEventsSpy).toHaveBeenCalledTimes(1);
+    expect(payload.chatState?.messagesByConversationId["projection-thread-incoming-only"]).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: "projection-incoming-only-in-1",
+        isOutgoing: false,
+      }),
+      expect.objectContaining({
+        id: "projection-incoming-only-out-1",
+        isOutgoing: true,
+        pubkey: publicKeyHex,
+      }),
+      expect.objectContaining({
+        id: "indexed-incoming-only-1",
+        isOutgoing: false,
+      }),
+    ]));
+
+    hydrateSpy.mockRestore();
+    loadSpy.mockRestore();
+    getAllByIndexSpy.mockRestore();
+    queueSpy.mockRestore();
+    accountEventsSpy.mockRestore();
+    PrivacySettingsService.saveSettings(currentSettings);
+  });
+
   it("does not re-add incoming projection history when a later canonical removal event exists", async () => {
     const currentSettings = PrivacySettingsService.getSettings();
     PrivacySettingsService.saveSettings({
@@ -4135,15 +4526,10 @@ describe("encryptedAccountBackupService", () => {
       restoreChatStateDomains: true,
     });
 
-    expect(hydrateSpy).toHaveBeenCalledWith(publicKeyHex);
-    expect(getAllByIndexSpy).toHaveBeenCalled();
+    expect(hydrateSpy).not.toHaveBeenCalled();
+    expect(getAllByIndexSpy).not.toHaveBeenCalled();
     expect(loadCommunityMembershipLedger(publicKeyHex)).toEqual([]);
-    expect(chatStateStoreService.load(publicKeyHex)?.messagesByConversationId["dm:invite"]).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        id: "local-invite-accept-1",
-        isOutgoing: true,
-      }),
-    ]));
+    expect(chatStateStoreService.load(publicKeyHex)?.messagesByConversationId["dm:invite"]).toBeUndefined();
 
     hydrateSpy.mockRestore();
     getAllByIndexSpy.mockRestore();
@@ -4318,12 +4704,13 @@ describe("encryptedAccountBackupService", () => {
     clearMessagesSpy.mockRestore();
   });
 
-  it("skips local message hydration during fresh-device restore when incoming backup already has private history", async () => {
+  it("preserves restored dm chat-state during fresh-device restore when incoming backup already has private history", async () => {
     const hydrateSpy = vi.spyOn(chatStateStoreService, "hydrateMessages").mockResolvedValue(undefined);
     const getAllByIndexSpy = vi.spyOn(messagingDB, "getAllByIndex").mockResolvedValue([]);
     const queueSpy = vi.spyOn(MessageQueue.prototype, "getAllMessages").mockResolvedValue([] as any);
     const appendCanonicalEvents = vi.fn(async () => undefined);
     const dmConversationId = [publicKeyHex, acceptedPeerPublicKeyHex].sort().join(":");
+    const restoredGroupId = "community:alpha:wss://relay.example";
     const fetchSpy = vi.spyOn(
       encryptedAccountBackupService,
       "fetchLatestEncryptedAccountBackupPayload",
@@ -4368,20 +4755,27 @@ describe("encryptedAccountBackupService", () => {
           createdGroups: [],
           unreadByConversationId: {},
           connectionOverridesByConnectionId: {},
-          messagesByConversationId: {
-            [dmConversationId]: [{
-              id: "m-restore-1",
-              content: "restored",
+        messagesByConversationId: {
+          [dmConversationId]: [{
+            id: "m-restore-1",
+            content: "restored",
               timestampMs: 2_000,
               isOutgoing: false,
               status: "delivered",
               pubkey: acceptedPeerPublicKeyHex,
-            }],
-          },
-          groupMessages: {},
-          connectionRequests: [],
-          pinnedChatIds: [],
-          hiddenChatIds: [],
+          }],
+        },
+        groupMessages: {
+          [restoredGroupId]: [{
+            id: "g-restore-1",
+            pubkey: publicKeyHex,
+            content: "restored group message",
+            created_at: 3_000,
+          }],
+        },
+        connectionRequests: [],
+        pinnedChatIds: [],
+        hiddenChatIds: [],
         },
         privacySettings: PrivacySettingsService.getSettings(),
         relayList: relayListInternals.DEFAULT_RELAYS,
@@ -4406,12 +4800,33 @@ describe("encryptedAccountBackupService", () => {
     expect(hydrateSpy).not.toHaveBeenCalled();
     expect(getAllByIndexSpy).not.toHaveBeenCalled();
     expect(queueSpy).not.toHaveBeenCalled();
-    expect(chatStateStoreService.load(publicKeyHex)?.messagesByConversationId[dmConversationId]).toEqual(expect.arrayContaining([
+    const restoredChatState = chatStateStoreService.load(publicKeyHex);
+    expect(restoredChatState?.messagesByConversationId[dmConversationId]).toEqual(expect.arrayContaining([
       expect.objectContaining({
         id: "m-restore-1",
-        isOutgoing: false,
+        content: "restored",
       }),
     ]));
+    expect(restoredChatState?.createdConnections).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: dmConversationId,
+        pubkey: acceptedPeerPublicKeyHex,
+      }),
+    ]));
+    expect(restoredChatState?.groupMessages?.[restoredGroupId]).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: "g-restore-1",
+        content: "restored group message",
+      }),
+    ]));
+    expect(appendCanonicalEvents).toHaveBeenCalledWith(expect.objectContaining({
+      events: expect.arrayContaining([
+        expect.objectContaining({
+          type: "DM_RECEIVED",
+          messageId: "m-restore-1",
+        }),
+      ]),
+    }));
 
     hydrateSpy.mockRestore();
     getAllByIndexSpy.mockRestore();
@@ -4592,5 +5007,21 @@ describe("encryptedAccountBackupService", () => {
         lastProcessedAtUnixSeconds: 123,
       }),
     ]);
+  });
+
+  it("does not materialize indexed DM records that lack trustworthy timestamp evidence", () => {
+    const parsed = encryptedAccountBackupServiceInternals.toPersistedMessageFromIndexedRecord({
+      myPublicKeyHex: publicKeyHex,
+      record: {
+        id: "legacy-voice-invite",
+        conversationId: acceptedPeerPublicKeyHex,
+        content: "{\"type\":\"voice-call-invite\",\"version\":1,\"roomId\":\"ghost-room\"}",
+        isOutgoing: true,
+        status: "delivered",
+        pubkey: publicKeyHex,
+      },
+    });
+
+    expect(parsed).toBeNull();
   });
 });

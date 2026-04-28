@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import {
     X,
     Camera,
@@ -43,11 +44,14 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger
 } from "../../../components/ui/dropdown-menu";
-import { useSealedCommunity } from "../hooks/use-sealed-community";
+// Using fixed hook with CRDT-based member roster to prevent member thinning
+import { useSealedCommunityFixed as useSealedCommunity } from "../hooks/use-sealed-community-fixed";
 import { useUploadService } from "@/app/features/messaging/lib/upload-service";
 import { useGroups } from "../providers/group-provider";
 import { toast } from "../../../components/ui/toast";
 import { cn } from "../../../lib/cn";
+import { CommunitySyncIndicator } from "./community-sync-indicator";
+import { PresenceBadge } from "@/app/features/network/components/presence-indicator";
 import { ConfirmDialog } from "../../../components/ui/confirm-dialog";
 import { GroupQRCode } from "./group-qr-code";
 import { InviteMemberDialog } from "./invite-member-dialog";
@@ -59,13 +63,16 @@ import {
     isConversationNotificationsEnabled,
     setConversationNotificationsEnabled,
 } from "@/app/features/notifications/utils/notification-target-preference";
-import { getPublicGroupHref, toAbsoluteAppUrl } from "@/app/features/navigation/public-routes";
+import { getPublicGroupHref, getPublicProfileHref, toAbsoluteAppUrl } from "@/app/features/navigation/public-routes";
 import { useNetwork } from "@/app/features/network/providers/network-provider";
 import { summarizeCommunityOperatorHealth } from "../services/community-operator-health";
 import { discoveryCache } from "@/app/features/search/services/discovery-cache";
-import { filterVisibleGroupMembers } from "../services/community-visible-members";
-import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store";
-import { collectGroupMessageAuthorPubkeys } from "../services/community-message-author-evidence";
+import {
+    filterVisibleGroupMembers,
+    resolveCommunitySeedMemberPubkeys,
+    resolveVisibleCommunityMemberPubkeys,
+    stabilizeCommunityMemberPubkeys,
+} from "../services/community-visible-members";
 
 interface GroupManagementDialogProps {
     isOpen: boolean;
@@ -87,8 +94,21 @@ export function GroupManagementDialog({
     myPrivateKeyHex
 }: GroupManagementDialogProps) {
     const { t } = useTranslation();
-    const { leaveGroup, updateGroup } = useGroups();
+    const router = useRouter();
+    const { leaveGroup, communityKnownParticipantDirectoryByConversationId, communityRosterByConversationId } = useGroups();
     const { presence } = useNetwork();
+    const localMemberPubkey = myPublicKeyHex;
+    const initialMemberSeed = React.useMemo<ReadonlyArray<PublicKeyHex>>(
+        () => resolveCommunitySeedMemberPubkeys({
+            seededMemberPubkeys: [
+                ...((communityKnownParticipantDirectoryByConversationId[group.id]?.participantPubkeys ?? []) as ReadonlyArray<PublicKeyHex>),
+                ...(((group.memberPubkeys as ReadonlyArray<PublicKeyHex> | undefined) ?? [])),
+            ],
+            projectionMemberPubkeys: communityRosterByConversationId[group.id]?.activeMemberPubkeys,
+            localMemberPubkey,
+        }),
+        [communityKnownParticipantDirectoryByConversationId, communityRosterByConversationId, group.id, group.memberPubkeys, localMemberPubkey]
+    );
     const {
         state,
         approveJoin,
@@ -104,15 +124,15 @@ export function GroupManagementDialog({
         leaveGroup: leaveNip29Group,
         sendVoteKick,
         rotateRoomKey,
-        members,
         admins
     } = useSealedCommunity({
         groupId: group.groupId,
         relayUrl: group.relayUrl,
-        communityId: group.communityId,
+        ...(group.communityId ? { communityId: group.communityId } : {}),
         pool,
         myPublicKeyHex,
         myPrivateKeyHex,
+        initialMembers: initialMemberSeed,
     });
 
     const { uploadFile, pickFiles } = useUploadService();
@@ -133,7 +153,7 @@ export function GroupManagementDialog({
     const [notificationsEnabled, setNotificationsEnabled] = useState(true);
     const getScopedMutedMembersKey = (groupId: string): string => getScopedStorageKey(`obscur_group_muted_members_${groupId}`);
     const getLegacyMutedMembersKey = (groupId: string): string => `obscur_group_muted_members_${groupId}`;
-
+    
     const isLocalAdmin = group.adminPubkeys?.includes(myPublicKeyHex || "") || false;
     const isAdmin = state.membership.role === "member" || isLocalAdmin;
     const isOwner = isAdmin; // In Phase 1/2, all members are equal owners of the encrypted space
@@ -141,7 +161,17 @@ export function GroupManagementDialog({
     const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
     const [isLeaveConfirmOpen, setIsLeaveConfirmOpen] = useState(false);
     const [isPurgeConfirmOpen, setIsPurgeConfirmOpen] = useState(false);
-    const [isProcessing, setIsProcessing] = useState(false);
+    const [isProcessing, setIsProcessing] = React.useState(false);
+    const [currentTime, setCurrentTime] = React.useState(Date.now());
+
+    // Update current time every 10 seconds for presence indicators
+    React.useEffect(() => {
+        const interval = setInterval(() => {
+            setCurrentTime(Date.now());
+        }, 10000);
+        return () => clearInterval(interval);
+    }, []);
+
     const [roomKeyHex, setRoomKeyHex] = useState<string>();
 
     useEffect(() => {
@@ -224,25 +254,46 @@ export function GroupManagementDialog({
         }
     }, [state.metadata, group.displayName]);
 
-    const memberRegistry = React.useMemo<ReadonlyArray<PublicKeyHex>>(
-        () => {
-            const authorEvidence = myPublicKeyHex
-                ? collectGroupMessageAuthorPubkeys({
-                    chatState: chatStateStoreService.load(myPublicKeyHex),
-                    conversationId: group.id,
-                })
-                : [];
-            return Array.from(new Set([
-                ...((group.memberPubkeys as ReadonlyArray<PublicKeyHex> | undefined) ?? []),
-                ...(members ?? []),
-                ...authorEvidence,
-            ]));
-        },
-        [group.id, group.memberPubkeys, members, myPublicKeyHex]
+    const knownParticipantRegistry = React.useMemo<ReadonlyArray<PublicKeyHex>>(
+        () => initialMemberSeed,
+        [initialMemberSeed]
     );
+    const authorEvidencePubkeys = React.useMemo(
+        () => Array.from(new Set(
+            state.messages
+                .map((message) => message.pubkey?.trim() ?? "")
+                .filter((pubkey) => pubkey.length > 0)
+        )) as ReadonlyArray<PublicKeyHex>,
+        [state.messages]
+    );
+    const activeMemberRegistry = React.useMemo(
+        () => resolveVisibleCommunityMemberPubkeys({
+            seededMemberPubkeys: knownParticipantRegistry,
+            projectionMemberPubkeys: communityRosterByConversationId[group.id]?.activeMemberPubkeys,
+            authorEvidencePubkeys,
+            localMemberPubkey,
+            leftMemberPubkeys: state.leftMembers,
+            expelledMemberPubkeys: state.expelledMembers,
+        }),
+        [authorEvidencePubkeys, communityRosterByConversationId, group.id, knownParticipantRegistry, localMemberPubkey, state.expelledMembers, state.leftMembers]
+    );
+    const [stableParticipantRegistry, setStableParticipantRegistry] = useState<ReadonlyArray<PublicKeyHex>>(activeMemberRegistry);
+    useEffect(() => {
+        setStableParticipantRegistry((previous) => {
+            const next = stabilizeCommunityMemberPubkeys({
+                previousMemberPubkeys: previous,
+                nextMemberPubkeys: activeMemberRegistry,
+                leftMemberPubkeys: state.leftMembers,
+                expelledMemberPubkeys: state.expelledMembers,
+            });
+            return next.nextMemberPubkeys.join(",") === previous.join(",")
+                ? previous
+                : next.nextMemberPubkeys;
+        });
+    }, [activeMemberRegistry, state.expelledMembers, state.leftMembers]);
     const visibleMemberRegistry = React.useMemo(
-        () => filterVisibleGroupMembers(memberRegistry, (pubkey) => discoveryCache.getProfile(pubkey)),
-        [memberRegistry]
+        () => filterVisibleGroupMembers(stableParticipantRegistry, (pubkey) => discoveryCache.getProfile(pubkey)),
+        [stableParticipantRegistry]
     );
     const onlineMemberCount = React.useMemo(
         () => visibleMemberRegistry.filter((pubkey) => presence.isPeerOnline(pubkey)).length,
@@ -259,31 +310,6 @@ export function GroupManagementDialog({
         }),
         [onlineMemberCount, state.disbandedAt, state.expelledMembers, state.kickVotes, state.leftMembers, visibleMemberRegistry]
     );
-
-    // Background Sync: Replace persisted members with live truth
-    useEffect(() => {
-        if (!members.length) return;
-
-        const merged = Array.from(new Set([...(group.memberPubkeys ?? []), ...members]));
-        const filtered = merged.filter((pubkey) => (
-            !state.leftMembers.includes(pubkey as PublicKeyHex)
-            && !state.expelledMembers.includes(pubkey as PublicKeyHex)
-        ));
-        const live = [...filtered].sort();
-        const cached = [...(group.memberPubkeys ?? [])].sort();
-
-        if (JSON.stringify(live) !== JSON.stringify(cached)) {
-            updateGroup({
-                groupId: group.groupId,
-                relayUrl: group.relayUrl,
-                conversationId: group.id,
-                updates: {
-                    memberPubkeys: filtered,
-                    memberCount: filtered.length
-                }
-            });
-        }
-    }, [members, group.memberPubkeys, group.groupId, group.relayUrl, group.id, state.leftMembers, state.expelledMembers, updateGroup]);
 
     const handleLeave = async () => {
         setIsProcessing(true);
@@ -317,7 +343,7 @@ export function GroupManagementDialog({
 
     // Metadata subscription for member names
     useEffect(() => {
-        const activeMemberList = memberRegistry;
+        const activeMemberList = activeMemberRegistry;
         if (!isOpen || !activeMemberList.length || !pool) return;
         const subId = `mgmt-names-${Math.random().toString(36).substring(7)}`;
         const filter = { kinds: [0], authors: activeMemberList as string[] };
@@ -342,7 +368,7 @@ export function GroupManagementDialog({
         return () => {
             try { pool.sendToOpen(JSON.stringify(["CLOSE", subId])); cleanup(); } catch (e) { }
         };
-    }, [isOpen, memberRegistry, pool]);
+    }, [activeMemberRegistry, isOpen, pool]);
 
     if (!isOpen) return null;
 
@@ -369,7 +395,7 @@ export function GroupManagementDialog({
 
     const navItems = [
         { id: "general", label: "General", icon: Settings },
-        { id: "members", label: "Members", icon: Users },
+        { id: "members", label: "Participants", icon: Users },
         { id: "settings", label: "Safety & Privacy", icon: Shield },
     ];
 
@@ -571,9 +597,9 @@ export function GroupManagementDialog({
                                             <Users className="h-5 w-5 text-indigo-400" />
                                         </div>
                                         <div>
-                                            <p className="text-white font-black text-lg">{visibleMemberRegistry.length} Registered Members</p>
+                                            <p className="text-white font-black text-lg">{visibleMemberRegistry.length} Participants</p>
                                             <p className="text-zinc-500 text-[10px] font-black uppercase tracking-widest">
-                                                Global Group Registry - {onlineMemberCount} Online
+                                                Stable Participant Directory - {onlineMemberCount} Online
                                             </p>
                                         </div>
                                     </div>
@@ -588,7 +614,7 @@ export function GroupManagementDialog({
                                         <div className="relative w-64 group">
                                             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-600 group-focus-within:text-purple-400 transition-colors" />
                                             <Input
-                                                placeholder="Search registry..."
+                                                placeholder="Search participants..."
                                                 value={memberSearchQuery}
                                                 onChange={(e) => setMemberSearchQuery(e.target.value)}
                                                 className="pl-11 h-11 bg-[#0A0A0B] border-[#1A1A1E] text-white rounded-xl text-xs font-bold"
@@ -599,7 +625,7 @@ export function GroupManagementDialog({
 
                                 <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
                                     <div className="rounded-[24px] border border-[#1A1A1E] bg-[#0E0E10] p-5">
-                                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">Membership Health</p>
+                                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">Directory Health</p>
                                         <p className="mt-2 text-white text-2xl font-black">{operatorHealth.activeMemberCount}</p>
                                         <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">active / {operatorHealth.knownMemberCount} known</p>
                                         <div className="mt-4 flex items-center gap-2 text-[10px] font-black uppercase tracking-wider">
@@ -665,6 +691,13 @@ export function GroupManagementDialog({
                                     </div>
                                 </div>
 
+                                {/* Sync indicator shows when community is still synchronizing */}
+                                <CommunitySyncIndicator
+                                    confidenceLevel={(state as { relayEvidenceRef?: { confidenceLevel: "seed_only" | "warming_up" | "partial_eose" | "steady_state" } }).relayEvidenceRef?.confidenceLevel ?? "seed_only"}
+                                    memberCount={visibleMemberRegistry.length}
+                                    isConnected={pool !== null}
+                                />
+
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     {visibleMemberRegistry
                                         .filter(pk => {
@@ -678,20 +711,18 @@ export function GroupManagementDialog({
                                             const isMod = admin && !isOwner;
                                             const isMe = pk === myPublicKeyHex;
                                             const isMuted = mutedMembers.includes(pk);
-                                            const isMemberOnline = presence.isPeerOnline(pk as PublicKeyHex);
-
                                             return (
-                                                <div key={pk} className="flex items-center gap-4 p-5 bg-[#0E0E10] border border-[#1A1A1E] rounded-[24px] hover:border-purple-500/30 transition-all group/member">
+                                                <div
+                                                    key={pk}
+                                                    onClick={() => router.push(getPublicProfileHref(pk))}
+                                                    className="flex items-center gap-4 p-5 bg-[#0E0E10] border border-[#1A1A1E] rounded-[24px] hover:border-purple-500/30 transition-all group/member cursor-pointer"
+                                                >
                                                     <div className="relative h-12 w-12 rounded-2xl bg-[#1A1A1E] flex items-center justify-center border border-white/5 shrink-0">
                                                         {isMuted ? (
                                                             <Bell className="h-5 w-5 text-rose-500 opacity-50" />
                                                         ) : (
                                                             <Shield className="h-5 w-5 text-indigo-500/60" />
                                                         )}
-                                                        <span className={cn(
-                                                            "absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full border-2 border-[#0E0E10]",
-                                                            isMemberOnline ? "bg-emerald-500" : "bg-zinc-500"
-                                                        )} />
                                                     </div>
                                                     <div className="flex-1 min-w-0">
                                                         <div className="flex items-center gap-2">
@@ -700,27 +731,11 @@ export function GroupManagementDialog({
                                                             </p>
                                                             {isMe && <span className="text-[8px] font-black px-1.5 py-0.5 rounded bg-white/5 text-zinc-400 border border-white/5">ME</span>}
                                                             {isMuted && <span className="text-[8px] font-black px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-500 border border-rose-500/20 uppercase">MUTED</span>}
-                                                        </div>
-                                                        <div className="flex items-center gap-2 mt-0.5">
-                                                            <span className="text-[9px] font-black text-indigo-400 uppercase tracking-tighter">Member</span>
-                                                            <span className={cn(
-                                                                "text-[8px] font-black px-1.5 py-0.5 rounded border uppercase",
-                                                                isMemberOnline
-                                                                    ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/25"
-                                                                    : "bg-zinc-500/15 text-zinc-400 border-zinc-500/25"
-                                                            )}>
-                                                                {isMemberOnline ? "ONLINE" : "OFFLINE"}
-                                                            </span>
-                                                            {(state.kickVotes[pk]?.length || 0) > 0 && (
-                                                                <span className="text-[8px] font-black px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500 border border-amber-500/20 uppercase">
-                                                                    ⚠️ {(state.kickVotes[pk]?.length || 0)}/{(Math.floor((visibleMemberRegistry.length || 0) / 2) + 1)} Votes to Kick
-                                                                </span>
-                                                            )}
-                                                            {state.expelledMembers.includes(pk as PublicKeyHex) && (
-                                                                <span className="text-[8px] font-black px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-500 border border-rose-500/30 uppercase">
-                                                                    EXPELLED
-                                                                </span>
-                                                            )}
+                                                            {/* Presence badge - shows "Seen X ago" instead of binary online/offline */}
+                                                            <PresenceBadge
+                                                                publicKeyHex={pk as PublicKeyHex}
+                                                                currentTime={currentTime}
+                                                            />
                                                         </div>
                                                     </div>
 
@@ -732,12 +747,12 @@ export function GroupManagementDialog({
                                                                 </Button>
                                                             </DropdownMenuTrigger>
                                                             <DropdownMenuContent align="end" className="bg-[#1A1A1E] border-white/5 rounded-2xl p-2 w-48 shadow-2xl">
-                                                                <DropdownMenuLabel className="text-[10px] font-black uppercase p-2 text-zinc-500">Member Options</DropdownMenuLabel>
+                                                                <DropdownMenuLabel className="text-[10px] font-black uppercase p-2 text-zinc-500">Participant Options</DropdownMenuLabel>
                                                                 <DropdownMenuSeparator className="bg-white/5" />
 
                                                                 <DropdownMenuItem onClick={() => toggleMute(pk)} className="rounded-xl font-bold gap-3 focus:bg-indigo-500/10 focus:text-indigo-400 cursor-pointer">
                                                                     {isMuted ? <Bell className="h-4 w-4" /> : <X className="h-4 w-4" />}
-                                                                    {isMuted ? "Unmute Member" : "Mute Member"}
+                                                                    {isMuted ? "Unmute Participant" : "Mute Participant"}
                                                                 </DropdownMenuItem>
 
                                                                 {isAdmin && (
@@ -815,7 +830,7 @@ export function GroupManagementDialog({
                                             </div>
                                             <div className="flex-1">
                                                 <p className="text-white font-black">Rotate Room Key</p>
-                                                <p className="text-zinc-500 text-[11px] font-medium leading-relaxed mt-1">Generate a new Room Key and distribute it to all non-expelled members via NIP-17 DM.</p>
+                                                <p className="text-zinc-500 text-[11px] font-medium leading-relaxed mt-1">Generate a new Room Key and distribute it to all non-expelled participants with current membership evidence via NIP-17 DM.</p>
                                             </div>
                                             <Button
                                                 variant="ghost"
@@ -939,7 +954,7 @@ export function GroupManagementDialog({
                 communityId={group.communityId}
                 genesisEventId={group.genesisEventId}
                 creatorPubkey={group.creatorPubkey}
-                currentMemberPubkeys={members}
+                currentMemberPubkeys={stableParticipantRegistry}
                 metadata={{
                     id: group.groupId,
                     name: state.metadata?.name || group.displayName,

@@ -3,7 +3,8 @@
 import { useMemo, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "@dweb/ui-kit";
-import { useConversationMessages } from "../../messaging/hooks/use-conversation-messages";
+// Using fixed hook with diagnostics to track outgoing vs incoming messages
+import { useConversationMessagesFixed as useConversationMessages } from "../../messaging/hooks/use-conversation-messages-fixed";
 import { isPreviewableMediaAttachment } from "../../messaging/utils/logic";
 import type {
     Conversation,
@@ -75,6 +76,7 @@ export function useChatViewProps({
         handleLoadEarlier,
         handleCopyMyPubkey,
         handleCopyChatLink,
+        conversationHasHydrated: !isLoading,
         visibleMessages: messages,
         rawMessagesCount: messages.length,
         hasEarlierMessages: hasEarlier,

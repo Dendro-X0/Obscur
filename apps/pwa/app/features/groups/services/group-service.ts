@@ -1,5 +1,6 @@
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
+import type { CommunitySendBlockReasonCode } from "@dweb/core/community-sendability-contracts";
 import type { NostrEvent } from "@dweb/nostr/nostr-event";
 import type { UnsignedNostrEvent } from "../../crypto/crypto-interfaces";
 import { cryptoService } from "../../crypto/crypto-service";
@@ -9,6 +10,15 @@ import { getActiveProfileIdSafe } from "@/app/features/profiles/services/profile
 import { loadCommunityMembershipLedger } from "./community-membership-ledger";
 
 import { roomKeyStore } from "../../crypto/room-key-store";
+
+type GroupRoomKeyMissingReasonCode = Extract<
+    CommunitySendBlockReasonCode,
+    | "no_local_room_keys"
+    | "target_room_key_missing_local_profile_scope"
+    | "target_room_key_record_unreadable"
+    | "target_room_key_missing_after_membership_joined"
+    | "room_key_store_unavailable"
+>;
 
 /**
  * Service to handle Sealed Community operations.
@@ -40,7 +50,7 @@ export class GroupService {
             : await roomKeyStore.getRoomKeyRecord(params.groupId);
         const roomKeyHex = params.roomKeyHex || directRecord?.roomKeyHex || null;
         if (!roomKeyHex) {
-            let reasonCode: "no_local_room_keys" | "target_room_key_missing_local_profile_scope" | "target_room_key_record_unreadable" | "target_room_key_missing_after_membership_joined" | "room_key_store_unavailable" = "no_local_room_keys";
+            let reasonCode: GroupRoomKeyMissingReasonCode = "no_local_room_keys";
             let localRoomKeyCount: number | null = null;
             let hasTargetGroupRecord = false;
             let knownGroupHintSample = "none";

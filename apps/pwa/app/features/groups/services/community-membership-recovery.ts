@@ -1,4 +1,9 @@
 import type { GroupConversation } from "@/app/features/messaging/types";
+import type {
+  CommunityDescriptorProjection,
+  CommunityMembershipProjection,
+  CommunityMembershipSourceOfTruth,
+} from "@dweb/core/community-projection-contracts";
 import type { CommunityMembershipLedgerEntry } from "./community-membership-ledger";
 import {
   toCommunityMembershipLedgerEntryFromGroup,
@@ -35,6 +40,8 @@ export type CommunityMembershipRecoveryDiagnostics = Readonly<{
 export type CommunityMembershipRecoveryResult = Readonly<{
   groups: ReadonlyArray<GroupConversation>;
   missingLedgerCoverageEntries: ReadonlyArray<CommunityMembershipLedgerEntry>;
+  descriptorProjections: ReadonlyArray<CommunityDescriptorProjection>;
+  membershipProjections: ReadonlyArray<CommunityMembershipProjection>;
   diagnostics: CommunityMembershipRecoveryDiagnostics;
 }>;
 
@@ -157,8 +164,13 @@ const mergePersistedGroupWithLedger = (
   group: GroupConversation,
   entry: CommunityMembershipLedgerEntry,
   localPublicKeyHex: string,
+  inviteEvidenceMemberPubkeys: ReadonlyArray<string>,
 ): GroupConversation => {
-  const mergedMemberPubkeys = uniqueNonEmptyStrings([...(group.memberPubkeys ?? []), localPublicKeyHex]);
+  const mergedMemberPubkeys = uniqueNonEmptyStrings([
+    ...(group.memberPubkeys ?? []),
+    ...inviteEvidenceMemberPubkeys,
+    localPublicKeyHex,
+  ]);
   return {
     ...group,
     communityId: pickPreferredCommunityId(group.communityId, entry.communityId) ?? group.communityId,
@@ -169,12 +181,41 @@ const mergePersistedGroupWithLedger = (
   };
 };
 
+const toDescriptorProjectionFromGroup = (
+  group: GroupConversation,
+): CommunityDescriptorProjection => ({
+  communityId: group.communityId ?? "unknown",
+  groupId: group.groupId ?? "unknown",
+  conversationId: group.id,
+  relayScope: group.relayUrl,
+  displayName: group.displayName ?? "Private Group",
+  about: group.about,
+  avatarUrl: group.avatar,
+  lifecycleState: "active",
+  visibilityState: "visible",
+  lastDescriptorEventId: `recovery:${group.communityId}`,
+  lastDescriptorAtUnixMs: toLastMessageUnixMs(group) || Date.now(),
+});
+
+const toMembershipProjectionFromGroup = (params: Readonly<{
+  group: GroupConversation;
+  sourceOfTruth: CommunityMembershipSourceOfTruth;
+}>): CommunityMembershipProjection => ({
+  communityId: params.group.communityId ?? "unknown",
+  status: "joined",
+  sourceOfTruth: params.sourceOfTruth,
+  joinedAtUnixMs: toLastMessageUnixMs(params.group) || Date.now(),
+  lastMembershipEventId: `recovery:${params.group.communityId}`,
+  lastMembershipEvidenceAtUnixMs: toLastMessageUnixMs(params.group) || Date.now(),
+});
+
 export const resolveCommunityMembershipRecovery = (params: Readonly<{
   publicKeyHex: string;
   persistedGroups: ReadonlyArray<GroupConversation>;
   membershipLedger: ReadonlyArray<CommunityMembershipLedgerEntry>;
   tombstones: ReadonlySet<string>;
   groupMessageAuthorsByConversationId?: Readonly<Record<string, ReadonlyArray<string>>>;
+  inviteMemberPubkeysByGroupKey?: Readonly<Record<string, ReadonlyArray<string>>>;
 }>): CommunityMembershipRecoveryResult => {
   const persistedDedupe = dedupePersistedGroupsByKey(params.persistedGroups);
   const persistedByKey = persistedDedupe.byKey;
@@ -182,6 +223,8 @@ export const resolveCommunityMembershipRecovery = (params: Readonly<{
   const consumedKeys = new Set<string>();
   const groups: GroupConversation[] = [];
   const missingLedgerCoverageEntries: CommunityMembershipLedgerEntry[] = [];
+  const descriptorProjections: CommunityDescriptorProjection[] = [];
+  const membershipProjections: CommunityMembershipProjection[] = [];
 
   let hiddenByTombstoneCount = 0;
   let hiddenByLedgerStatusCount = 0;
@@ -204,7 +247,12 @@ export const resolveCommunityMembershipRecovery = (params: Readonly<{
       continue;
     }
     if (membershipEntry?.status === "joined") {
-      const mergedGroup = mergePersistedGroupWithLedger(persistedGroup, membershipEntry, params.publicKeyHex);
+      const mergedGroup = mergePersistedGroupWithLedger(
+        persistedGroup,
+        membershipEntry,
+        params.publicKeyHex,
+        params.inviteMemberPubkeysByGroupKey?.[key] ?? [],
+      );
       if (
         !hasMeaningfulDisplayName(persistedGroup.displayName)
         && hasMeaningfulDisplayName(mergedGroup.displayName)
@@ -215,16 +263,38 @@ export const resolveCommunityMembershipRecovery = (params: Readonly<{
         localMemberBackfillCount += 1;
       }
       groups.push(mergedGroup);
+      descriptorProjections.push(toDescriptorProjectionFromGroup(mergedGroup));
+      membershipProjections.push(toMembershipProjectionFromGroup({
+        group: mergedGroup,
+        sourceOfTruth: "ledger",
+      }));
       hydratedFromPersistedWithLedgerCount += 1;
       continue;
     }
 
-    groups.push(persistedGroup);
+    const inviteEvidenceMemberPubkeys = uniqueNonEmptyStrings([
+      ...(persistedGroup.memberPubkeys ?? []),
+      ...(params.inviteMemberPubkeysByGroupKey?.[key] ?? []),
+      params.publicKeyHex,
+    ]);
+    const recoveredPersistedGroup = inviteEvidenceMemberPubkeys.join(",") === (persistedGroup.memberPubkeys ?? []).join(",")
+      ? persistedGroup
+      : {
+        ...persistedGroup,
+        memberPubkeys: inviteEvidenceMemberPubkeys,
+        memberCount: Math.max(persistedGroup.memberCount ?? 0, inviteEvidenceMemberPubkeys.length, 1),
+      };
+    groups.push(recoveredPersistedGroup);
+    descriptorProjections.push(toDescriptorProjectionFromGroup(recoveredPersistedGroup));
+    membershipProjections.push(toMembershipProjectionFromGroup({
+      group: recoveredPersistedGroup,
+      sourceOfTruth: "persisted_fallback",
+    }));
     hydratedFromPersistedFallbackCount += 1;
     missingLedgerCoverageEntries.push(
-      toCommunityMembershipLedgerEntryFromGroup(persistedGroup, {
+      toCommunityMembershipLedgerEntryFromGroup(recoveredPersistedGroup, {
         status: "joined",
-        updatedAtUnixMs: toLastMessageUnixMs(persistedGroup) || Date.now(),
+        updatedAtUnixMs: toLastMessageUnixMs(recoveredPersistedGroup) || Date.now(),
       }),
     );
   }
@@ -251,11 +321,18 @@ export const resolveCommunityMembershipRecovery = (params: Readonly<{
     const groupMessageAuthorFallback = params.groupMessageAuthorsByConversationId?.[conversationId] ?? [];
     const fallbackMemberPubkeys = uniqueNonEmptyStrings([
       ...persistedMemberFallback,
+      ...(params.inviteMemberPubkeysByGroupKey?.[key] ?? []),
       ...groupMessageAuthorFallback,
       params.publicKeyHex,
     ]);
-    groups.push(toGroupConversationFromMembershipLedgerEntry(membershipEntry, {
+    const recoveredGroup = toGroupConversationFromMembershipLedgerEntry(membershipEntry, {
       fallbackMemberPubkeys,
+    });
+    groups.push(recoveredGroup);
+    descriptorProjections.push(toDescriptorProjectionFromGroup(recoveredGroup));
+    membershipProjections.push(toMembershipProjectionFromGroup({
+      group: recoveredGroup,
+      sourceOfTruth: "ledger",
     }));
     hydratedFromLedgerOnlyCount += 1;
   }
@@ -263,6 +340,8 @@ export const resolveCommunityMembershipRecovery = (params: Readonly<{
   return {
     groups,
     missingLedgerCoverageEntries,
+    descriptorProjections,
+    membershipProjections,
     diagnostics: {
       persistedGroupCount: persistedByKey.size,
       persistedDuplicateMergeCount: persistedDedupe.duplicateMergeCount,

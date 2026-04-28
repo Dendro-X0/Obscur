@@ -234,9 +234,12 @@ export const usePeerTrust = (params: UsePeerTrustParams): UsePeerTrustResult => 
       return;
     }
     const onChatStateReplaced = (event: Event): void => {
-      const detail = (event as CustomEvent<{ publicKeyHex?: string }>).detail;
+      const detail = (event as CustomEvent<{ publicKeyHex?: string; profileId?: string }>).detail;
       const restoredPublicKeyHex = normalizePublicKeyHex(detail?.publicKeyHex);
       if (restoredPublicKeyHex && restoredPublicKeyHex !== params.publicKeyHex) {
+        return;
+      }
+      if (detail?.profileId && detail.profileId !== getActiveProfileIdSafe()) {
         return;
       }
       hydrateAcceptedPeersFromChatState();

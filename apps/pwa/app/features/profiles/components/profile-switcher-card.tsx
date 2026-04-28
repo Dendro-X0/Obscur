@@ -8,6 +8,7 @@ import { ProfileRegistryService, PROFILE_CHANGED_EVENT, type ActiveProfileState 
 import { clearProfileLocalData } from "@/app/features/profiles/services/profile-data-cleanup";
 import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
 import { desktopProfileRuntime, useDesktopProfileIsolationSnapshot } from "@/app/features/profiles/services/desktop-profile-runtime";
+import { clearProfileMetadataCache } from "@/app/features/profile/hooks/use-profile-metadata";
 
 type Props = Readonly<{
   onBeforeSwitch: () => void;
@@ -97,6 +98,8 @@ export function ProfileSwitcherCard({ onBeforeSwitch }: Props): React.JSX.Elemen
   const handleSwitch = async (profileId: string): Promise<void> => {
     if (profileId === effectiveState.activeProfileId) return;
     onBeforeSwitch();
+    // Clear metadata cache to prevent stale avatars from previous account
+    clearProfileMetadataCache();
     if (isDesktopRuntime) {
       try {
         await desktopProfileRuntime.bindCurrentWindowProfile(profileId);

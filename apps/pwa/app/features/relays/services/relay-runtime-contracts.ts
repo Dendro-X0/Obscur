@@ -30,11 +30,17 @@ export type RelaySubscriptionReplayResult =
   | "skipped"
   | "failed";
 
+export type RelayTransportRoutingMode =
+  | "direct"
+  | "privacy_routed";
+
 export type RelayRuntimeSnapshot = Readonly<{
   instanceId: string;
   windowLabel: string;
   profileId: string;
   publicKeyHexSummary?: string;
+  transportRoutingMode: RelayTransportRoutingMode;
+  transportProxySummary?: string;
   phase: RelayRuntimePhase;
   recoveryStage?: RelayRecoveryStage;
   enabledRelayUrls: ReadonlyArray<string>;
@@ -89,6 +95,7 @@ export const createDefaultRelayRuntimeSnapshot = (params?: Readonly<{
     windowLabel: params?.windowLabel ?? "main",
     profileId: params?.profileId ?? "default",
     publicKeyHexSummary: summarizePublicKeyHex(params?.publicKeyHex),
+    transportRoutingMode: "direct",
     phase: "booting",
     enabledRelayUrls: [],
     writableRelayCount: 0,

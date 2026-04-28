@@ -1,4 +1,5 @@
 import type { DmConversation, UnreadByConversationId } from "../types";
+import { isGroupConversationId } from "@/app/features/groups/utils/group-conversation-id";
 
 const normalizeUnreadCount = (count: number): number => {
     if (!Number.isFinite(count) || count < 0) {
@@ -49,6 +50,26 @@ export const mergeProjectionUnreadByConversationId = (params: Readonly<{
         );
     });
     return next;
+};
+
+export const replaceProjectionUnreadByConversationId = (params: Readonly<{
+    currentUnreadByConversationId: UnreadByConversationId;
+    projectionConnections: ReadonlyArray<DmConversation>;
+    selectedConversationId: string | null;
+    selectedConversationKind?: "dm" | "group" | null;
+    lastSeenByConversationId?: Readonly<Record<string, number>>;
+}>): UnreadByConversationId => {
+    const projectionConversationIds = new Set(params.projectionConnections.map((conversation) => conversation.id));
+    const preserved: Record<string, number> = {};
+    Object.entries(params.currentUnreadByConversationId).forEach(([conversationId, unreadCount]) => {
+        if (projectionConversationIds.has(conversationId) || isGroupConversationId(conversationId)) {
+            preserved[conversationId] = unreadCount;
+        }
+    });
+    return mergeProjectionUnreadByConversationId({
+        ...params,
+        currentUnreadByConversationId: preserved,
+    });
 };
 
 export const unreadByConversationIdEqual = (

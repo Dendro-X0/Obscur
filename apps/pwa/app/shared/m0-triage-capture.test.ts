@@ -94,7 +94,9 @@ describe("m0-triage-capture", () => {
         return [{ name, atUnixMs: 3, level: "info" }];
       }
       if (
-        name === "messaging.conversation_hydration_diagnostics"
+        name === "messaging.conversation_history_authority_selected"
+        || name === "messaging.conversation_list_authority_selected"
+        || name === "messaging.conversation_hydration_diagnostics"
       ) {
         return [{ name, atUnixMs: 4, level: "warn" }];
       }
@@ -156,7 +158,11 @@ describe("m0-triage-capture", () => {
       || entry.name === "groups.membership_ledger_load"
       || entry.name === "groups.room_key_missing_send_blocked"
     ))).toBe(true);
-    expect(bundle.events.focusedByCategory.media_hydration.some((entry) => entry.name === "messaging.conversation_hydration_diagnostics")).toBe(true);
+    expect(bundle.events.focusedByCategory.media_hydration.some((entry) => (
+      entry.name === "messaging.conversation_history_authority_selected"
+      || entry.name === "messaging.conversation_list_authority_selected"
+      || entry.name === "messaging.conversation_hydration_diagnostics"
+    ))).toBe(true);
     expect(bundle.events.focusedByCategory.voice_realtime.some((entry) => entry.name === "messaging.realtime_voice.session_transition")).toBe(true);
     expect(bundle.events.focusedByCategory.voice_realtime.some((entry) => entry.name === "messaging.realtime_voice.session_event_ignored")).toBe(true);
     expect(bundle.events.focusedByCategory.voice_realtime.some((entry) => entry.name === "messaging.realtime_voice.connect_timeout_diagnostics")).toBe(true);

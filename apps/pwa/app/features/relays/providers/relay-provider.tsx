@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useRelayList } from "../hooks/use-relay-list";
 import { useRelayPool } from "../hooks/use-relay-pool";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
@@ -13,6 +13,9 @@ import type { RelayRecoveryReasonCode, RelayRecoverySnapshot } from "../services
 import type { RelayRuntimeSnapshot } from "../services/relay-runtime-contracts";
 import { useDesktopProfileIsolationSnapshot } from "@/app/features/profiles/services/desktop-profile-runtime";
 import { windowRuntimeSupervisor } from "@/app/features/runtime/services/window-runtime-supervisor";
+import { relayNativeAdapter } from "../hooks/relay-native-adapter";
+import { listenToNativeEvent } from "@/app/features/runtime/native-event-adapter";
+import { getRuntimeCapabilities } from "@/app/features/runtime/runtime-capabilities";
 
 interface RelayContextType {
   relayList: ReturnType<typeof useRelayList>;
@@ -44,10 +47,58 @@ export const RelayProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const relayRuntimeSupervisor = useMemo(() => createRelayRuntimeSupervisor(), []);
   const relayRuntime = useRelayRuntimeSnapshot(relayRuntimeSupervisor);
   const relayRuntimeRefreshRafRef = useRef<number | null>(null);
+  const [transportRoutingMode, setTransportRoutingMode] = useState<"direct" | "privacy_routed">("direct");
+  const [transportProxySummary, setTransportProxySummary] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     relayPoolRef.current = relayPool;
   }, [relayPool]);
+
+  useEffect(() => {
+    const runtimeCapabilities = getRuntimeCapabilities();
+    if (!runtimeCapabilities.supportsTor) {
+      setTransportRoutingMode("direct");
+      setTransportProxySummary(undefined);
+      return;
+    }
+
+    let active = true;
+    const summarizeProxyUrl = (proxyUrl: string): string | undefined => {
+      const trimmed = proxyUrl.trim();
+      if (trimmed.length === 0) {
+        return undefined;
+      }
+      return trimmed.length <= 32
+        ? trimmed
+        : `${trimmed.slice(0, 24)}...`;
+    };
+    const refreshRoutingMode = async (): Promise<void> => {
+      const torStatus = await relayNativeAdapter.getTorStatus();
+      if (!active) {
+        return;
+      }
+      setTransportRoutingMode(torStatus.configured ? "privacy_routed" : "direct");
+      setTransportProxySummary(torStatus.configured ? summarizeProxyUrl(torStatus.proxyUrl) : undefined);
+    };
+
+    void refreshRoutingMode();
+
+    let unlisten: (() => void) | undefined;
+    void listenToNativeEvent("tor-status", () => {
+      void refreshRoutingMode();
+    }).then((cleanup) => {
+      if (!active) {
+        cleanup();
+        return;
+      }
+      unlisten = cleanup;
+    });
+
+    return () => {
+      active = false;
+      unlisten?.();
+    };
+  }, []);
 
   useEffect(() => {
     relayRuntimeSupervisor.configure({
@@ -57,6 +108,8 @@ export const RelayProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         windowLabel: desktopSnapshot.currentWindow.windowLabel,
         profileId: desktopSnapshot.currentWindow.profileId,
         publicKeyHex,
+        transportRoutingMode,
+        transportProxySummary,
       },
     });
   }, [
@@ -64,6 +117,8 @@ export const RelayProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     desktopSnapshot.currentWindow.windowLabel,
     enabledRelayUrlsKey,
     publicKeyHex,
+    transportProxySummary,
+    transportRoutingMode,
     relayPool.getWritableRelaySnapshot,
     relayPool.getTransportActivitySnapshot,
     relayPool.reconnectAll,

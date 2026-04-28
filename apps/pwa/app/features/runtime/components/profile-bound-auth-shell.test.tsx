@@ -9,6 +9,10 @@ const profileBoundAuthShellMocks = vi.hoisted(() => ({
       lastError: "This profile was imported without a local password." as string | undefined,
       session: {
         identityStatus: "locked",
+        startupState: {
+          kind: "stored_locked",
+          message: undefined as string | undefined,
+        },
       },
     },
     lockBoundProfile: vi.fn(),
@@ -34,9 +38,14 @@ describe("ProfileBoundAuthShell", () => {
     profileBoundAuthShellMocks.runtime.snapshot.phase = "fatal";
     profileBoundAuthShellMocks.runtime.snapshot.lastError = "This profile was imported without a local password.";
     profileBoundAuthShellMocks.runtime.snapshot.session.identityStatus = "locked";
+    profileBoundAuthShellMocks.runtime.snapshot.session.startupState.kind = "stored_locked";
+    profileBoundAuthShellMocks.runtime.snapshot.session.startupState.message = undefined;
   });
 
   it("shows a recovery button in fatal phase and returns user to login flow", () => {
+    profileBoundAuthShellMocks.runtime.snapshot.session.startupState.kind = "fatal_storage_error";
+    profileBoundAuthShellMocks.runtime.snapshot.session.startupState.message = "This profile was imported without a local password.";
+
     render(<ProfileBoundAuthShell />);
 
     expect(screen.getByText("This profile was imported without a local password.")).toBeInTheDocument();
@@ -59,6 +68,8 @@ describe("ProfileBoundAuthShell", () => {
     profileBoundAuthShellMocks.runtime.snapshot.phase = "binding_profile";
     profileBoundAuthShellMocks.runtime.snapshot.lastError = undefined;
     profileBoundAuthShellMocks.runtime.snapshot.session.identityStatus = "loading";
+    profileBoundAuthShellMocks.runtime.snapshot.session.startupState.kind = "pending";
+    profileBoundAuthShellMocks.runtime.snapshot.session.startupState.message = undefined;
 
     render(<ProfileBoundAuthShell />);
     await act(async () => {

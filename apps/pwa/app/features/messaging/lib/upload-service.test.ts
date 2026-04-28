@@ -33,6 +33,14 @@ describe("upload-service provider normalization", () => {
     ]);
   });
 
+  it("keeps large-media friendly providers in the default provider set", () => {
+    expect(uploadServiceInternals.DEFAULT_NIP96_PROVIDER_URLS).toEqual(expect.arrayContaining([
+      "https://cdn.nostrcheck.me",
+      "https://nostr.build/api/v2/nip96/upload",
+      "https://api.sovbit.host/api/upload/files",
+    ]));
+  });
+
   it("normalizes local upload responses into absolute urls", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue({
       ok: true,

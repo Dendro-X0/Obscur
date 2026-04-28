@@ -15,6 +15,7 @@ import { chatStateStoreService } from "../../messaging/services/chat-state-store
 import {
     BEST_EFFORT_STORAGE_NOTE,
     shouldAvoidInMemoryAttachmentCaching,
+    shouldSkipLocalAttachmentCachingForRuntimeSafety,
 } from "../../messaging/lib/media-upload-policy";
 import { cacheAttachmentLocally } from "../../vault/services/local-media-store";
 import { shouldCacheAttachmentInVault } from "../../messaging/utils/attachment-storage-policy";
@@ -27,6 +28,7 @@ import { useResolvedProfileMetadata } from "@/app/features/profile/hooks/use-res
 import { canDeleteMessageForEveryone, getDeleteForEveryoneRejectionReason } from "../../messaging/services/message-delete-permissions";
 import { appendCanonicalDmRemovedEvent } from "@/app/features/account-sync/services/account-event-ingest-bridge";
 import { collectMessageIdentityAliases } from "../../messaging/services/message-identity-alias-contract";
+import type { Attachment } from "../../messaging/lib/message-queue";
 
 type MultiRelayPublishResult = Readonly<{
     success: boolean;
@@ -60,6 +62,29 @@ const isRetryableUploadError = (error: UploadError): boolean => (
 
 const delay = async (ms: number): Promise<void> => {
     await new Promise((resolve) => setTimeout(resolve, ms));
+};
+
+const runWithConcurrencyLimit = async <T>(
+    tasks: ReadonlyArray<() => Promise<T>>,
+    concurrency: number,
+): Promise<ReadonlyArray<T>> => {
+    const results: T[] = new Array(tasks.length);
+    const safeConcurrency = Math.max(1, Math.min(concurrency, tasks.length || 1));
+    let nextIndex = 0;
+
+    const worker = async (): Promise<void> => {
+        while (true) {
+            const currentIndex = nextIndex;
+            nextIndex += 1;
+            if (currentIndex >= tasks.length) {
+                return;
+            }
+            results[currentIndex] = await tasks[currentIndex]!();
+        }
+    };
+
+    await Promise.all(Array.from({ length: safeConcurrency }, () => worker()));
+    return results;
 };
 
 const fallbackDigestHex = (payload: string): string => {
@@ -99,6 +124,16 @@ const deriveNip17RumorId = async (params: Readonly<{
     } catch {
         return fallbackDigestHex(payload);
     }
+};
+
+const resolveAttachmentUploadConcurrency = (attachmentsCount: number): number => {
+    if (attachmentsCount <= 1) {
+        return 1;
+    }
+    if (attachmentsCount === 2) {
+        return 2;
+    }
+    return 3;
 };
 
 const buildAttachmentMarkdown = (attachments: Message["attachments"]): string => {
@@ -300,7 +335,7 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
 
         // 1. Upload Attachments if any
         let finalContent = messageInput;
-        const attachments = [];
+        const attachments: Attachment[] = [];
 
         if (pendingAttachments.length > 0) {
             setIsUploadingAttachment(true);
@@ -312,34 +347,56 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
                 setUploadStage("uploading");
 
                 const fileBytesMap = new Map<string, Uint8Array>();
-
-                // Upload sequentially to reduce provider rate-limit contention in dev mode.
-                for (const file of pendingAttachments) {
-                    try {
-                        let uploaded;
+                const uploadedFileByUrl = new Map<string, File>();
+                const uploadedResults = await runWithConcurrencyLimit(
+                    pendingAttachments.map((file) => async () => {
                         try {
-                            uploaded = await uploadService.uploadFile(file);
-                        } catch (firstError) {
-                            const normalizedFirstError = firstError instanceof UploadError
-                                ? firstError
-                                : new UploadError(UploadErrorCode.UNKNOWN, String(firstError));
-                            if (!isRetryableUploadError(normalizedFirstError)) {
-                                throw normalizedFirstError;
+                            let uploaded;
+                            try {
+                                uploaded = await uploadService.uploadFile(file);
+                            } catch (firstError) {
+                                const normalizedFirstError = firstError instanceof UploadError
+                                    ? firstError
+                                    : new UploadError(UploadErrorCode.UNKNOWN, String(firstError));
+                                if (!isRetryableUploadError(normalizedFirstError)) {
+                                    throw normalizedFirstError;
+                                }
+                                await delay(700);
+                                uploaded = await uploadService.uploadFile(file);
                             }
-                            await delay(700);
-                            uploaded = await uploadService.uploadFile(file);
+                            const cachedBytes = shouldAvoidInMemoryAttachmentCaching(file)
+                                ? null
+                                : new Uint8Array(await file.arrayBuffer());
+                            return {
+                                ok: true as const,
+                                uploaded,
+                                sourceFile: file,
+                                cachedBytes,
+                            };
+                        } catch (error) {
+                            const uploadError = error instanceof UploadError
+                                ? error
+                                : new UploadError(UploadErrorCode.UNKNOWN, String(error));
+                            return {
+                                ok: false as const,
+                                uploadError,
+                            };
                         }
-                        attachments.push(uploaded);
-                        if (!shouldAvoidInMemoryAttachmentCaching(file)) {
-                            fileBytesMap.set(uploaded.url, new Uint8Array(await file.arrayBuffer()));
-                        }
-                    } catch (error) {
-                        const uploadError = error instanceof UploadError
-                            ? error
-                            : new UploadError(UploadErrorCode.UNKNOWN, String(error));
-                        uploadErrors.push(uploadError);
+                    }),
+                    resolveAttachmentUploadConcurrency(pendingAttachments.length),
+                );
+
+                uploadedResults.forEach((result) => {
+                    if (!result.ok) {
+                        uploadErrors.push(result.uploadError);
+                        return;
                     }
-                }
+                    attachments.push(result.uploaded);
+                    uploadedFileByUrl.set(result.uploaded.url, result.sourceFile);
+                    if (result.cachedBytes) {
+                        fileBytesMap.set(result.uploaded.url, result.cachedBytes);
+                    }
+                });
 
                 if (attachments.length === 0) {
                     throw uploadErrors[0] || new UploadError(UploadErrorCode.UNKNOWN, "All uploads failed");
@@ -357,7 +414,16 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
                 }
 
                 // Do not block send path on local caching.
-                const cacheableAttachments = attachments.filter((attachment) => shouldCacheAttachmentInVault(attachment));
+                const cacheableAttachments = attachments.filter((attachment) => {
+                    if (!shouldCacheAttachmentInVault(attachment)) {
+                        return false;
+                    }
+                    const sourceFile = uploadedFileByUrl.get(attachment.url);
+                    if (!sourceFile) {
+                        return true;
+                    }
+                    return !shouldSkipLocalAttachmentCachingForRuntimeSafety(sourceFile);
+                });
                 void Promise.all(
                     cacheableAttachments.map((attachment) => cacheAttachmentLocally(attachment, "sent", fileBytesMap.get(attachment.url)))
                 ).catch((e) => {
@@ -855,6 +921,8 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
 }
 
 export const useChatActionsInternals = {
+    runWithConcurrencyLimit,
+    resolveAttachmentUploadConcurrency,
     buildAttachmentMarkdown,
     buildDeletePlaintextCandidates,
     buildDeleteCreatedAtCandidates,

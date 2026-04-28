@@ -8,6 +8,10 @@ import AppShell from "@/app/components/app-shell";
 import { useRuntimeMessagingTransportOwnerController } from "@/app/features/messaging/providers/runtime-messaging-transport-owner-provider";
 import { useNetwork } from "@/app/features/network/providers/network-provider";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
+import {
+  createPendingStartupAuthState,
+  shouldShowStoredIdentityLockScreen,
+} from "@/app/features/auth/services/startup-auth-state-contracts";
 import { toast } from "@dweb/ui-kit";
 import { useTranslation } from "react-i18next";
 import { ProfileSearchService } from "../search/services/profile-search-service";
@@ -95,6 +99,10 @@ import {
   readPendingVoiceCallRequest,
 } from "@/app/features/messaging/services/realtime-voice-pending-request";
 import {
+  resolveBootstrappedVoiceInviteReplayDecision,
+  resolveBootstrappedVoiceSignalReplayDecision,
+} from "@/app/features/messaging/services/realtime-voice-history-replay-policy";
+import {
   setGlobalVoiceCallOverlayState,
   setGlobalVoiceCallOverlayWaveAudioLevel,
 } from "@/app/features/messaging/services/realtime-voice-global-ui-store";
@@ -128,8 +136,6 @@ const VOICE_CALL_OFFER_RETRY_INTERVAL_MS = 3_000;
 const VOICE_CALL_OFFER_RETRY_MAX_ATTEMPTS = 6;
 const VOICE_CALL_LEAVE_SIGNAL_RETRY_INTERVAL_MS = 1_500;
 const VOICE_CALL_LEAVE_SIGNAL_RETRY_MAX_ATTEMPTS = 3;
-const VOICE_SIGNAL_BOOTSTRAP_REPLAY_WINDOW_MS = 2 * 60 * 1000;
-const VOICE_INVITE_BOOTSTRAP_REPLAY_WINDOW_MS = 5 * 60 * 1000;
 const REALTIME_VOICE_CALLS_ENABLED = isRealtimeVoiceCallsEnabled();
 const PRIVATE_CONTACT_DISPLAY_NAME = "Unknown contact";
 const PRIVATE_CALLER_DISPLAY_NAME = "Unknown caller";
@@ -148,21 +154,6 @@ const toRoomIdHint = (roomIdInput: string): string => {
 const toVoiceCallTombstoneKey = (params: Readonly<{ peerPubkey: string; roomId: string }>): string => (
   `${params.peerPubkey.trim()}|${params.roomId.trim()}`
 );
-
-const resolveVoiceMessageUnixMs = (params: Readonly<{
-  signalSentAtUnixMs?: number;
-  eventCreatedAt?: Date;
-  messageTimestamp: Date;
-}>): number => {
-  if (typeof params.signalSentAtUnixMs === "number" && Number.isFinite(params.signalSentAtUnixMs)) {
-    return Math.floor(params.signalSentAtUnixMs);
-  }
-  const createdAtUnixMs = params.eventCreatedAt?.getTime();
-  if (typeof createdAtUnixMs === "number" && Number.isFinite(createdAtUnixMs)) {
-    return createdAtUnixMs;
-  }
-  return params.messageTimestamp.getTime();
-};
 
 type ActiveVoiceCallSession = Readonly<{
   roomId: string;
@@ -239,7 +230,6 @@ function NostrMessengerContent() {
   const accountProjectionSnapshot = useAccountProjectionSnapshot();
   const {
     createdGroups, isNewGroupOpen, setIsNewGroupOpen,
-    updateGroup,
   } = useGroups();
 
   const [isUnlocking, setIsUnlocking] = useState(false);
@@ -260,7 +250,7 @@ function NostrMessengerContent() {
   const dmController = useRuntimeMessagingTransportOwnerController();
   const peerLastActiveByPeerPubkey = usePeerLastActiveByPeer(myPublicKeyHex as PublicKeyHex | null);
 
-  const { state: groupState, members: groupMembers } = useSealedCommunity({
+  const { state: groupState } = useSealedCommunity({
     pool: relayPool,
     relayUrl: selectedConversation?.kind === 'group' ? (selectedConversation as GroupConversation).relayUrl : '',
     groupId: selectedConversation?.kind === 'group' ? (selectedConversation as GroupConversation).groupId : '',
@@ -270,33 +260,6 @@ function NostrMessengerContent() {
     enabled: selectedConversation?.kind === 'group',
     initialMembers: selectedConversation?.kind === 'group' ? (selectedConversation as GroupConversation).memberPubkeys as ReadonlyArray<PublicKeyHex> : undefined
   });
-
-  // Sync live member list back to the group provider so persistence and UI stay current
-  useEffect(() => {
-    if (selectedConversation?.kind !== 'group' || groupMembers.length === 0) return;
-    const group = selectedConversation as GroupConversation;
-    const current = group.memberPubkeys ?? [];
-    const merged = Array.from(new Set([...current, ...groupMembers]));
-    const nextMembers = merged.filter((pubkey) => (
-      !groupState.leftMembers.includes(pubkey) && !groupState.expelledMembers.includes(pubkey)
-    ));
-    const same = current.length === nextMembers.length &&
-      nextMembers.every(pk => current.includes(pk));
-    if (!same) {
-      updateGroup({
-        groupId: group.groupId,
-        relayUrl: group.relayUrl,
-        conversationId: group.id,
-        updates: {
-          memberPubkeys: nextMembers,
-          memberCount: nextMembers.length
-        }
-      });
-    }
-  }, [groupMembers, groupState.expelledMembers, groupState.leftMembers, selectedConversation?.id, updateGroup]);
-
-
-
   const socialGraph = useMemo(() => new SocialGraphService(relayPool), [relayPool]);
 
   // Feature hooks
@@ -499,7 +462,7 @@ function NostrMessengerContent() {
     if (!hasHydrated || !myPublicKeyHex) return;
     if (restoredChatId === null) {
       const scopedKey = getScopedStorageKey(`obscur-last-chat-${myPublicKeyHex}`);
-      const savedId = localStorage.getItem(scopedKey) ?? localStorage.getItem(`obscur-last-chat-${myPublicKeyHex}`);
+      const savedId = localStorage.getItem(scopedKey);
       setRestoredChatId(savedId || "");
     }
   }, [hasHydrated, myPublicKeyHex, restoredChatId]);
@@ -2242,7 +2205,6 @@ function NostrMessengerContent() {
       return;
     }
     const bootstrappingNow = !voiceSignalsBootstrappedRef.current;
-    const nowUnixMs = Date.now();
     const processed = processedVoiceSignalMessageIdsRef.current;
     if (bootstrappingNow) {
       voiceSignalsBootstrappedRef.current = true;
@@ -2256,12 +2218,6 @@ function NostrMessengerContent() {
         return;
       }
       if (bootstrappingNow) {
-        const signalUnixMs = resolveVoiceMessageUnixMs({
-          signalSentAtUnixMs: signal.sentAtUnixMs,
-          eventCreatedAt: message.eventCreatedAt,
-          messageTimestamp: message.timestamp,
-        });
-        const ageMs = Math.max(0, nowUnixMs - signalUnixMs);
         const activeSessionMatches = (
           activeVoiceCallSessionRef.current?.roomId === signal.roomId
           && activeVoiceCallSessionRef.current.peerPubkey === (message.senderPubkey ?? signal.fromPubkey).trim()
@@ -2274,14 +2230,27 @@ function NostrMessengerContent() {
           voiceCallUiStatusRef.current?.roomId === signal.roomId
           && voiceCallUiStatusRef.current.peerPubkey === (message.senderPubkey ?? signal.fromPubkey).trim()
         );
-        const shouldReplay = (
-          ageMs <= VOICE_SIGNAL_BOOTSTRAP_REPLAY_WINDOW_MS
-          || activeSessionMatches
-          || pendingInviteMatches
-          || statusMatches
-        );
-        if (!shouldReplay) {
+        const replayDecision = resolveBootstrappedVoiceSignalReplayDecision({
+          activeSessionMatches,
+          pendingInviteMatches,
+          statusMatches,
+        });
+        if (!replayDecision.shouldReplay) {
           processed.add(message.id);
+          logAppEvent({
+            name: "messaging.realtime_voice.bootstrap_history_replay_ignored",
+            level: "info",
+            scope: { feature: "messaging", action: "realtime_voice_signal" },
+            context: {
+              payloadType: "voice-call-signal",
+              roomIdHint: toRoomIdHint(signal.roomId),
+              peerPubkeySuffix: (message.senderPubkey ?? signal.fromPubkey).trim().slice(-8),
+              reasonCode: replayDecision.reasonCode,
+              activeSessionMatches,
+              pendingInviteMatches,
+              statusMatches,
+            },
+          });
           return;
         }
       }
@@ -2302,7 +2271,6 @@ function NostrMessengerContent() {
       return;
     }
     const bootstrappingNow = !voiceInvitesBootstrappedRef.current;
-    const nowUnixMs = Date.now();
     pruneVoiceCallLeaveTombstones();
     const processed = processedVoiceInviteMessageIdsRef.current;
     if (bootstrappingNow) {
@@ -2327,19 +2295,27 @@ function NostrMessengerContent() {
         return;
       }
       if (bootstrappingNow) {
-        const inviteUnixMs = resolveVoiceMessageUnixMs({
-          signalSentAtUnixMs: invite.invitedAtUnixMs,
-          eventCreatedAt: message.eventCreatedAt,
-          messageTimestamp: message.timestamp,
-        });
-        const ageMs = Math.max(0, nowUnixMs - inviteUnixMs);
         const statusMatches = (
           voiceCallUiStatusRef.current?.roomId === invite.roomId
           && voiceCallUiStatusRef.current.peerPubkey === peerPubkey
         );
-        const shouldReplayInvite = ageMs <= VOICE_INVITE_BOOTSTRAP_REPLAY_WINDOW_MS || statusMatches;
-        if (!shouldReplayInvite) {
+        const replayDecision = resolveBootstrappedVoiceInviteReplayDecision({
+          statusMatches,
+        });
+        if (!replayDecision.shouldReplay) {
           processed.add(message.id);
+          logAppEvent({
+            name: "messaging.realtime_voice.bootstrap_history_replay_ignored",
+            level: "info",
+            scope: { feature: "messaging", action: "realtime_voice_invite" },
+            context: {
+              payloadType: "voice-call-invite",
+              roomIdHint: toRoomIdHint(invite.roomId),
+              peerPubkeySuffix: peerPubkey.slice(-8),
+              reasonCode: replayDecision.reasonCode,
+              statusMatches,
+            },
+          });
           return;
         }
       }
@@ -3222,6 +3198,7 @@ function NostrMessengerContent() {
     handleLoadEarlier,
     handleCopyMyPubkey,
     handleCopyChatLink,
+    conversationHasHydrated,
     visibleMessages,
     hasEarlierMessages,
     selectedConversationMediaItems,
@@ -3243,7 +3220,13 @@ function NostrMessengerContent() {
   }, [sidebarTab, requestsInbox.markAllRead, requestsInbox.state.items]);
 
   const isIdentityUnlocked = identity.state.status === "unlocked";
-  const shouldShowLockScreen = (isLocked || identity.state.status === "locked") && !!identity.state.stored;
+  const startupState = identity.getIdentityDiagnostics?.()?.startupState ?? createPendingStartupAuthState({
+    storedPublicKeyHex: identity.state.stored?.publicKeyHex,
+  });
+  const shouldShowLockScreen = shouldShowStoredIdentityLockScreen({
+    startupState,
+    isAutoLockLocked: isLocked,
+  });
   const activeProfileId = getActiveProfileIdSafe();
   const projectionReadAuthority = useMemo(() => (
     resolveProjectionReadAuthority({
@@ -3412,7 +3395,7 @@ function NostrMessengerContent() {
     return null;
   }
 
-  if (identity.state.status === "loading") {
+  if (startupState.kind === "pending") {
     return <AppLoadingScreen title="Restoring identity" detail="Unlocking profile context..." />;
   }
 
@@ -3571,7 +3554,7 @@ function NostrMessengerContent() {
             messages={visibleMessages}
             renderMetaMessages={visibleMessages}
             rawMessagesCount={visibleMessages.length}
-            hasHydrated={hasHydrated}
+            hasHydrated={hasHydrated || conversationHasHydrated}
             hasEarlierMessages={hasEarlierMessages}
             onLoadEarlier={handleLoadEarlier}
             nowMs={nowMs}

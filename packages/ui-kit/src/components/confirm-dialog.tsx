@@ -46,17 +46,17 @@ export function ConfirmDialog({
     return createPortal(
         <div className="fixed inset-0 z-[100] grid place-items-center p-4 sm:p-0">
             <div
-                className="fixed inset-0 bg-black/40 backdrop-blur-xl transition-all animate-in fade-in duration-300"
+                className="fixed inset-0 bg-black/80 backdrop-blur-xl transition-all animate-in fade-in duration-300"
                 aria-hidden="true"
                 onClick={onClose}
             />
             <Card
-                className="relative w-full max-w-sm z-10 shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-2 duration-200 border-white/10"
+                className="relative w-full max-w-sm z-10 shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-2 duration-200 border-white/5 bg-[#0A0A0B]"
             >
                 <div className="space-y-6">
                     <div className="flex flex-col items-center text-center space-y-3">
                         <div className={cn(
-                            "flex h-12 w-12 items-center justify-center rounded-full bg-opacity-20",
+                            "flex h-12 w-12 items-center justify-center rounded-full bg-opacity-90",
                             variant === "danger" ? "bg-red-500 text-red-500" : "bg-purple-500 text-purple-500"
                         )}>
                             {variant === "danger" ? <AlertTriangle className="h-6 w-6" /> : <Info className="h-6 w-6" />}

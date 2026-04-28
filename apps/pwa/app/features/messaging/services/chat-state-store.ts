@@ -16,6 +16,10 @@ import { getActiveProfileIdSafe } from "@/app/features/profiles/services/profile
 import { buildMessageSearchIndexText } from "@/app/features/messaging/services/message-search-index";
 
 export const CHAT_STATE_REPLACED_EVENT = "obscur:chat-state-replaced";
+export type ChatStateReplacedEventDetail = Readonly<{
+    publicKeyHex: string;
+    profileId: string;
+}>;
 
 type SaveOptions = Readonly<{
     debounceMs?: number;
@@ -24,6 +28,7 @@ type SaveOptions = Readonly<{
 
 type ReplaceOptions = Readonly<{
     emitMutationSignal?: boolean;
+    profileId?: string;
 }>;
 
 type PendingSave = {
@@ -237,7 +242,7 @@ class ChatStateStore {
     }
 
     replace(publicKeyHex: PublicKeyHex, nextState: PersistedChatState, options?: ReplaceOptions): void {
-        const profileId = getActiveProfileIdSafe();
+        const profileId = options?.profileId ?? getActiveProfileIdSafe();
         const scopeKey = toScopedCacheKey(publicKeyHex, profileId);
         const normalizedState = normalizePersistedGroupState(nextState);
         this.memoryCacheByScopeKey.set(scopeKey, normalizedState);
@@ -256,8 +261,8 @@ class ChatStateStore {
             },
         });
         if (typeof window !== "undefined") {
-            window.dispatchEvent(new CustomEvent(CHAT_STATE_REPLACED_EVENT, {
-                detail: { publicKeyHex }
+            window.dispatchEvent(new CustomEvent<ChatStateReplacedEventDetail>(CHAT_STATE_REPLACED_EVENT, {
+                detail: { publicKeyHex, profileId }
             }));
         }
         if (options?.emitMutationSignal !== false) {

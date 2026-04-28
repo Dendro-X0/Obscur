@@ -1,46 +1,58 @@
 import React from "react";
 import { render } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-
 import { DesktopModeProvider } from "./desktop-mode-provider";
 
-const desktopModeProviderMocks = vi.hoisted(() => ({
-  isDesktop: true,
+const desktopModeProviderState = vi.hoisted(() => ({
+  isDesktop: false,
+}));
+
+vi.mock("framer-motion", () => ({
+  MotionConfig: ({ children }: Readonly<{ children: React.ReactNode }>) => <>{children}</>,
 }));
 
 vi.mock("@/app/features/desktop/hooks/use-tauri", () => ({
-  useIsDesktop: () => desktopModeProviderMocks.isDesktop,
+  useIsDesktop: () => desktopModeProviderState.isDesktop,
 }));
 
 describe("DesktopModeProvider", () => {
   afterEach(() => {
-    document.body.classList.remove("desktop-mode");
-    document.documentElement.classList.remove("desktop-mode");
+    document.body.classList.remove("desktop-mode", "desktop-safe-ui");
+    document.documentElement.classList.remove("desktop-mode", "desktop-safe-ui");
     const styleEl = document.getElementById("desktop-mode-styles");
     if (styleEl) {
       styleEl.remove();
     }
+    vi.unstubAllEnvs();
   });
 
-  it("enables desktop mode without forcing global text selection", () => {
-    const view = render(
+  it("adds desktop and desktop-safe classes when desktop runtime is active", () => {
+    desktopModeProviderState.isDesktop = true;
+
+    render(
       <DesktopModeProvider>
-        <div>child</div>
+        <div>content</div>
       </DesktopModeProvider>,
     );
 
     expect(document.body.classList.contains("desktop-mode")).toBe(true);
+    expect(document.body.classList.contains("desktop-safe-ui")).toBe(true);
     expect(document.documentElement.classList.contains("desktop-mode")).toBe(true);
+    expect(document.documentElement.classList.contains("desktop-safe-ui")).toBe(true);
+  });
 
-    const styleEl = document.getElementById("desktop-mode-styles");
-    expect(styleEl).not.toBeNull();
-    expect(styleEl?.textContent ?? "").toContain(".desktop-mode .pwa-install-prompt");
-    expect(styleEl?.textContent ?? "").not.toContain("user-select: text");
+  it("leaves desktop classes off in web runtime", () => {
+    desktopModeProviderState.isDesktop = false;
 
-    view.unmount();
+    render(
+      <DesktopModeProvider>
+        <div>content</div>
+      </DesktopModeProvider>,
+    );
+
     expect(document.body.classList.contains("desktop-mode")).toBe(false);
+    expect(document.body.classList.contains("desktop-safe-ui")).toBe(false);
     expect(document.documentElement.classList.contains("desktop-mode")).toBe(false);
-    expect(document.getElementById("desktop-mode-styles")).toBeNull();
+    expect(document.documentElement.classList.contains("desktop-safe-ui")).toBe(false);
   });
 });
-

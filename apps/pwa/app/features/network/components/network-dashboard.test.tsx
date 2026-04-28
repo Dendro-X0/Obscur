@@ -82,6 +82,8 @@ vi.mock("../providers/network-provider", () => ({
 vi.mock("@/app/features/groups/providers/group-provider", () => ({
   useGroups: () => ({
     createdGroups: [],
+    communityKnownParticipantDirectoryByConversationId: {},
+    communityRosterByConversationId: {},
     setIsNewGroupOpen: networkDashboardMocks.setIsNewGroupOpen,
   }),
 }));

@@ -1,7 +1,7 @@
 import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
 import { invokeNativeCommand } from "@/app/features/runtime/native-adapters";
-import { getRememberMeStorageKey } from "@/app/features/auth/utils/auth-storage-keys";
 import { getActiveProfileIdSafe } from "@/app/features/profiles/services/profile-scope";
+import { isRememberMeEnabledForProfile } from "@/app/features/auth/services/session-bootstrap-contracts";
 
 export interface SessionStatus {
     isActive: boolean;
@@ -61,13 +61,7 @@ export class SessionApi {
         }
 
         const activeProfileId = getActiveProfileIdSafe();
-        const rememberEnabled = (() => {
-            if (typeof window === "undefined") {
-                return false;
-            }
-            // Strict per-profile check: do not fall back to other profiles/legacy keys here.
-            return window.localStorage.getItem(getRememberMeStorageKey(activeProfileId)) === "true";
-        })();
+        const rememberEnabled = isRememberMeEnabledForProfile(activeProfileId);
 
         const statusResult = await invokeNativeCommand<SessionStatusWire>("get_session_status", undefined, { timeoutMs: 3_000 });
         if (statusResult.ok) {

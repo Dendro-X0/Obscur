@@ -579,6 +579,16 @@ const parsePersistedGroupConversation = (value: unknown): PersistedGroupConversa
         : [];
     const about: string | undefined = isString(value.about) ? value.about : undefined;
     const avatar: string | undefined = isString(value.avatar) ? value.avatar : undefined;
+    const communityMode = value.communityMode === "managed_workspace" || value.communityMode === "sovereign_room"
+        ? value.communityMode
+        : undefined;
+    const relayCapabilityTier =
+        value.relayCapabilityTier === "unconfigured"
+        || value.relayCapabilityTier === "public_default"
+        || value.relayCapabilityTier === "trusted_private"
+        || value.relayCapabilityTier === "managed_intranet"
+            ? value.relayCapabilityTier
+            : undefined;
     const communityId: string | undefined = isString(value.communityId) && value.communityId.trim().length > 0
         ? value.communityId.trim()
         : undefined;
@@ -605,7 +615,9 @@ const parsePersistedGroupConversation = (value: unknown): PersistedGroupConversa
         memberCount,
         adminPubkeys,
         about,
-        avatar
+        avatar,
+        communityMode,
+        relayCapabilityTier,
     };
 };
 
@@ -863,6 +875,8 @@ export const toPersistedGroupConversation = (group: GroupConversation): Persiste
     adminPubkeys: [...(group.adminPubkeys || [])],
     avatar: group.avatar,
     about: group.about,
+    communityMode: group.communityMode,
+    relayCapabilityTier: group.relayCapabilityTier,
 });
 
 export const fromPersistedGroupConversation = (group: PersistedGroupConversation): GroupConversation => ({
@@ -883,6 +897,8 @@ export const fromPersistedGroupConversation = (group: PersistedGroupConversation
     adminPubkeys: group.adminPubkeys || [],
     avatar: group.avatar,
     about: group.about,
+    communityMode: group.communityMode,
+    relayCapabilityTier: group.relayCapabilityTier,
 });
 
 export const toPersistedOverridesByConnectionId = (

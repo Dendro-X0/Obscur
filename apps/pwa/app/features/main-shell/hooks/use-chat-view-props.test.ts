@@ -61,6 +61,7 @@ describe("useChatViewProps previewable media selection", () => {
       myPublicKeyHex: "f".repeat(64),
     }));
 
+    expect(result.current.conversationHasHydrated).toBe(true);
     const urls = result.current.selectedConversationMediaItems.map((item) => item.attachment.url);
     expect(urls).toEqual([
       "https://cdn.example.com/image.png",

@@ -211,19 +211,19 @@ export function InviteConnectionsDialog({
 
     return (
         <div
-            className="fixed inset-0 z-[140] flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm dark:bg-black/72"
+            className="fixed inset-0 z-[140] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm dark:bg-black/80"
             onClick={handleClose}
         >
             <div
-                className="relative w-full max-w-md overflow-hidden rounded-[32px] border border-black/10 bg-gradient-card p-0 shadow-[0_24px_80px_rgba(79,70,229,0.22)] dark:border-white/10 dark:shadow-[0_24px_90px_rgba(70,40,190,0.45)]"
+                className="relative w-full max-w-md overflow-hidden rounded-[32px] border border-black/10 bg-white p-0 shadow-[0_24px_80px_rgba(79,70,229,0.22)] dark:border-white/10 dark:bg-zinc-900 dark:shadow-[0_24px_90px_rgba(70,40,190,0.45)]"
                 onClick={(event) => event.stopPropagation()}
             >
-                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(129,140,248,0.18),transparent_54%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.14),transparent_48%)] dark:bg-[radial-gradient(circle_at_top_left,rgba(129,140,248,0.28),transparent_54%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.2),transparent_48%)]" />
-                <div className="p-8 pb-0">
+                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(129,140,248,0.12),transparent_54%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.08),transparent_48%)] dark:bg-[radial-gradient(circle_at_top_left,rgba(129,140,248,0.18),transparent_54%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.12),transparent_48%)]" />
+                <div className="relative p-8 pb-0">
                     <div className="flex items-start justify-between gap-3">
                         <div>
                             <h2 className="flex items-center gap-3 text-2xl font-black text-zinc-900 dark:text-zinc-50">
-                                <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-indigo-300/70 bg-indigo-100/80 text-indigo-700 shadow-[0_0_20px_rgba(99,102,241,0.22)] dark:border-indigo-300/45 dark:bg-indigo-500/20 dark:text-indigo-100 dark:shadow-[0_0_28px_rgba(99,102,241,0.45)]">
+                                <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-indigo-300/70 bg-indigo-100 text-indigo-700 shadow-[0_0_20px_rgba(99,102,241,0.22)] dark:border-indigo-300/45 dark:bg-indigo-500/30 dark:text-indigo-100 dark:shadow-[0_0_28px_rgba(99,102,241,0.45)]">
                                     <Users className="h-5 w-5" />
                                 </span>
                                 <span>Invite Connections</span>
@@ -232,21 +232,21 @@ export function InviteConnectionsDialog({
                                 Distribute Group Room Key
                             </p>
                         </div>
-                        <Button type="button" variant="ghost" size="icon" className="h-9 w-9 rounded-xl border border-black/10 bg-white/70 text-zinc-600 hover:border-indigo-300/50 hover:bg-indigo-50 hover:text-indigo-700 dark:border-indigo-300/25 dark:bg-indigo-500/5 dark:text-zinc-300 dark:hover:border-indigo-200/40 dark:hover:bg-indigo-500/20 dark:hover:text-indigo-100" onClick={handleClose}>
+                        <Button type="button" variant="ghost" size="icon" className="h-9 w-9 rounded-xl border border-black/10 bg-white text-zinc-600 hover:border-indigo-300/50 hover:bg-indigo-50 hover:text-indigo-700 dark:border-indigo-300/25 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:border-indigo-200/40 dark:hover:bg-indigo-500/30 dark:hover:text-indigo-100" onClick={handleClose}>
                             <X className="h-4 w-4" />
                         </Button>
                     </div>
                 </div>
 
-                <div className="p-8 space-y-6">
+                <div className="relative p-8 space-y-6">
                     <div className="group relative">
-                        <div className="absolute -inset-[1px] rounded-[24px] bg-gradient-to-r from-indigo-400/35 via-violet-400/25 to-fuchsia-400/30 opacity-80 blur-[1px] transition-opacity group-focus-within:opacity-100 dark:from-indigo-400/60 dark:via-violet-400/45 dark:to-fuchsia-400/50" />
-                        <Search className="absolute left-4 top-1/2 z-10 h-5 w-5 -translate-y-1/2 text-indigo-600/60 transition-colors group-focus-within:text-indigo-700 dark:text-indigo-200/55 dark:group-focus-within:text-indigo-100" />
+                        <div className="absolute -inset-[1px] rounded-[24px] bg-gradient-to-r from-indigo-400/30 via-violet-400/20 to-fuchsia-400/25 opacity-80 blur-[1px] transition-opacity group-focus-within:opacity-100 dark:from-indigo-400/50 dark:via-violet-400/35 dark:to-fuchsia-400/40" />
+                        <Search className="absolute left-4 top-1/2 z-10 h-5 w-5 -translate-y-1/2 text-indigo-600/70 transition-colors group-focus-within:text-indigo-700 dark:text-indigo-200/70 dark:group-focus-within:text-indigo-100" />
                         <Input
                             placeholder="Search your connections..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="relative z-10 h-14 rounded-[24px] !border-black/10 !bg-white/90 pl-12 font-bold !text-zinc-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_0_0_1px_rgba(99,102,241,0.14)] !placeholder:text-zinc-500 focus-visible:!border-indigo-400 focus-visible:!ring-2 focus-visible:!ring-indigo-400/30 focus-visible:!ring-offset-0 dark:!border-indigo-300/25 dark:!bg-zinc-950/90 dark:!text-indigo-50 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_0_1px_rgba(99,102,241,0.18)] dark:!placeholder:text-indigo-200/45 dark:focus-visible:!border-indigo-300 dark:focus-visible:!ring-indigo-300/35"
+                            className="relative z-10 h-14 rounded-[24px] !border-black/10 !bg-white pl-12 font-bold !text-zinc-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_0_0_1px_rgba(99,102,241,0.14)] !placeholder:text-zinc-500 focus-visible:!border-indigo-400 focus-visible:!ring-2 focus-visible:!ring-indigo-400/30 focus-visible:!ring-offset-0 dark:!border-indigo-300/25 dark:!bg-zinc-800 dark:!text-indigo-50 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_0_1px_rgba(99,102,241,0.18)] dark:!placeholder:text-indigo-200/60 dark:focus-visible:!border-indigo-300 dark:focus-visible:!ring-indigo-300/35"
                         />
                     </div>
 
@@ -276,8 +276,8 @@ export function InviteConnectionsDialog({
                 </div>
 
                 {selectedPubkeys.size > 0 && (
-                    <div className="animate-in slide-in-from-bottom-2 flex items-center justify-between border-t border-black/10 bg-white/70 p-6 dark:border-indigo-300/20 dark:bg-[linear-gradient(180deg,#12121A,#101015)]">
-                        <span className="rounded-full border border-indigo-300/60 bg-indigo-100 px-3 py-1.5 text-xs font-black uppercase tracking-widest text-indigo-700 dark:border-indigo-300/35 dark:bg-indigo-500/10 dark:text-indigo-200">
+                    <div className="animate-in slide-in-from-bottom-2 flex items-center justify-between border-t border-black/10 bg-white p-6 dark:border-indigo-300/30 dark:bg-zinc-900">
+                        <span className="rounded-full border border-indigo-300/70 bg-indigo-100 px-3 py-1.5 text-xs font-black uppercase tracking-widest text-indigo-700 dark:border-indigo-300/50 dark:bg-indigo-900/30 dark:text-indigo-200">
                             {selectedPubkeys.size} Selected
                         </span>
                         <Button
@@ -326,12 +326,12 @@ function ConnectionRow({
         <div
             onClick={isAlreadyMember ? undefined : onToggle}
             className={cn(
-                "group relative flex items-center justify-between overflow-hidden rounded-[24px] border bg-white/75 p-4 backdrop-blur-sm transition-all dark:bg-[#0E0E10]",
+                "group relative flex items-center justify-between overflow-hidden rounded-[24px] border p-4 transition-all dark:bg-zinc-900",
                 isAlreadyMember
-                    ? "cursor-not-allowed border-emerald-500/30 bg-emerald-500/8 opacity-80"
+                    ? "cursor-not-allowed border-emerald-500/40 bg-emerald-50 opacity-80 dark:border-emerald-500/30 dark:bg-emerald-900/20"
                     : isSelected
-                    ? "border-indigo-400/55 bg-gradient-to-r from-indigo-100/85 via-violet-100/70 to-fuchsia-100/80 shadow-[0_8px_22px_rgba(99,102,241,0.18)] dark:border-indigo-300/70 dark:from-indigo-500/15 dark:via-violet-500/10 dark:to-fuchsia-500/15 dark:shadow-[0_10px_26px_rgba(99,102,241,0.22)]"
-                    : "cursor-pointer border-black/10 hover:border-indigo-300/60 hover:bg-indigo-50/70 hover:shadow-[0_6px_16px_rgba(99,102,241,0.14)] dark:border-[#1A1A1E] dark:hover:border-indigo-300/35 dark:hover:bg-[#111115] dark:hover:shadow-[0_6px_20px_rgba(99,102,241,0.16)]"
+                    ? "border-indigo-400/60 bg-gradient-to-r from-indigo-100 via-violet-100 to-fuchsia-100 shadow-[0_8px_22px_rgba(99,102,241,0.18)] dark:border-indigo-300/70 dark:from-indigo-900/40 dark:via-violet-900/30 dark:to-fuchsia-900/30 dark:shadow-[0_10px_26px_rgba(99,102,241,0.22)]"
+                    : "cursor-pointer border-black/10 bg-white hover:border-indigo-300/60 hover:bg-indigo-50 hover:shadow-[0_6px_16px_rgba(99,102,241,0.14)] dark:border-zinc-700 dark:bg-zinc-800 dark:hover:border-indigo-300/50 dark:hover:bg-indigo-900/20 dark:hover:shadow-[0_6px_20px_rgba(99,102,241,0.16)]"
             )}
         >
             {!isAlreadyMember && (

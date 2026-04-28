@@ -18,12 +18,13 @@ import type {
     PersistedGroupMessage,
     PublicKeyHex
 } from "../types";
-import { CHAT_STATE_REPLACED_EVENT, chatStateStoreService } from "../services/chat-state-store";
+import { CHAT_STATE_REPLACED_EVENT, chatStateStoreService, type ChatStateReplacedEventDetail } from "../services/chat-state-store";
 import { isGroupConversationId } from "@/app/features/groups/utils/group-conversation-id";
 import { getActiveProfileIdSafe, getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 import { useAccountProjectionSnapshot } from "@/app/features/account-sync/hooks/use-account-projection-snapshot";
 import { resolveProjectionReadAuthority } from "@/app/features/account-sync/services/account-projection-read-authority";
 import { selectProjectionDmConversations } from "@/app/features/account-sync/services/account-projection-selectors";
+import { logAppEvent } from "@/app/shared/log-app-event";
 import {
     toPersistedDmConversation,
     fromPersistedDmConversation,
@@ -34,12 +35,14 @@ import {
     loadLastSeen,
     updateLastSeen,
 } from "../utils/persistence";
-import { mergeProjectionUnreadByConversationId, unreadByConversationIdEqual } from "./projection-unread";
+import { replaceProjectionUnreadByConversationId, unreadByConversationIdEqual } from "./projection-unread";
 import { applySelectedConversationUnreadIsolation } from "./unread-isolation";
 import {
     removeConversationIdFromHidden,
     removeGroupConversationIdsFromHidden,
+    sanitizeDmConversationIdList,
 } from "../utils/conversation-visibility";
+import { resolveConversationListAuthority } from "../services/conversation-list-authority";
 
 const hasMeaningfulMessagingState = (value: PersistedChatState | null | undefined): value is PersistedChatState => {
     if (!value) {
@@ -198,9 +201,10 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                 }
             }
         }
-        await messagePersistenceService.migrateFromLegacy(params.publicKeyHex);
+        await messagePersistenceService.migrateFromLegacy(params.publicKeyHex, {
+            profileId: params.profileId,
+        });
         const loadedLastSeen = loadLastSeen(params.publicKeyHex as PublicKeyHex);
-        lastSeenByConversationIdRef.current = loadedLastSeen;
         setLastViewedByConversationId(loadedLastSeen);
         setHasHydrated(true);
     }, []);
@@ -230,9 +234,9 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     const createdConnectionsRef = React.useRef(createdConnections);
     const unreadByConversationIdRef = React.useRef(unreadByConversationId);
-    const lastSeenByConversationIdRef = React.useRef<Readonly<Record<string, number>>>({});
     const connectionOverridesByConnectionIdRef = React.useRef(connectionOverridesByConnectionId);
     const hydratedScopeKeyRef = React.useRef<string | null>(null);
+    const conversationListAuthorityLogKeyRef = React.useRef<string | null>(null);
 
     // Initialize persistence service
     useEffect(() => {
@@ -247,7 +251,6 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
         createdConnectionsRef.current = [];
         unreadByConversationIdRef.current = {};
-        lastSeenByConversationIdRef.current = {};
         connectionOverridesByConnectionIdRef.current = {};
 
         setCreatedConnections([]);
@@ -258,6 +261,7 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         setPinnedChatIds([]);
         setHiddenChatIds([]);
         setHasHydrated(false);
+        conversationListAuthorityLogKeyRef.current = null;
     }, [hydrationScopeKey]);
 
     const togglePin = (conversationId: string) => {
@@ -316,8 +320,11 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             if (!publicKeyHex) {
                 return;
             }
-            const detail = (event as CustomEvent<{ publicKeyHex?: string }>).detail;
+            const detail = (event as CustomEvent<Partial<ChatStateReplacedEventDetail>>).detail;
             if (detail?.publicKeyHex && detail.publicKeyHex !== publicKeyHex) {
+                return;
+            }
+            if (detail?.profileId && detail.profileId !== activeProfileId) {
                 return;
             }
             void hydrateStoredMessagingState({
@@ -340,7 +347,6 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                 return;
             }
             const latest = loadLastSeen(publicKeyHex as PublicKeyHex);
-            lastSeenByConversationIdRef.current = latest;
             setLastViewedByConversationId(latest);
         };
         window.addEventListener("storage", onStorage);
@@ -358,11 +364,77 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             myPublicKeyHex: publicKeyHex as PublicKeyHex,
         });
     }, [accountProjectionSnapshot.projection, publicKeyHex]);
+    const legacyChatStateHasRicherDmContent = useMemo(() => {
+        if (!publicKeyHex) {
+            return false;
+        }
+        const persistedState = chatStateStoreService.load(publicKeyHex as PublicKeyHex, { profileId: activeProfileId });
+        const persistedConnections = persistedState?.createdConnections ?? [];
+        return persistedConnections.length > projectionConnections.length;
+    }, [activeProfileId, projectionConnections, publicKeyHex]);
+    const conversationListAuthority = useMemo(() => (
+        resolveConversationListAuthority({
+            useProjectionReads: projectionReadAuthority.useProjectionReads,
+            projectionConversationCount: projectionConnections.length,
+            legacyChatStateHasRicherDmContent,
+        })
+    ), [legacyChatStateHasRicherDmContent, projectionConnections.length, projectionReadAuthority.useProjectionReads]);
 
     useEffect(() => {
-        if (!projectionReadAuthority.useProjectionReads) {
+        if (!publicKeyHex) {
+            conversationListAuthorityLogKeyRef.current = null;
             return;
         }
+        const diagnosticKey = [
+            activeProfileId,
+            publicKeyHex,
+            conversationListAuthority.authority,
+            conversationListAuthority.reason,
+            projectionConnections.length,
+            createdConnections.length,
+            projectionReadAuthority.reason,
+            projectionReadAuthority.criticalDriftCount ?? 0,
+            legacyChatStateHasRicherDmContent ? 1 : 0,
+        ].join("::");
+        if (conversationListAuthorityLogKeyRef.current === diagnosticKey) {
+            return;
+        }
+        conversationListAuthorityLogKeyRef.current = diagnosticKey;
+        logAppEvent({
+            name: "messaging.conversation_list_authority_selected",
+            level: conversationListAuthority.authority === "projection" ? "info" : "warn",
+            scope: { feature: "messaging", action: "conversation_list_authority" },
+            context: {
+                profileId: activeProfileId,
+                publicKeySuffix: publicKeyHex.slice(-8),
+                selectedAuthority: conversationListAuthority.authority,
+                selectedAuthorityReason: conversationListAuthority.reason,
+                projectionConversationCount: projectionConnections.length,
+                persistedConversationCount: createdConnections.length,
+                legacyChatStateHasRicherDmContent,
+                projectionReadAuthorityReason: projectionReadAuthority.reason,
+                criticalDriftCount: projectionReadAuthority.criticalDriftCount ?? 0,
+            },
+        });
+    }, [
+        activeProfileId,
+        conversationListAuthority.authority,
+        conversationListAuthority.reason,
+        createdConnections.length,
+        legacyChatStateHasRicherDmContent,
+        projectionConnections.length,
+        projectionReadAuthority.criticalDriftCount,
+        projectionReadAuthority.reason,
+        publicKeyHex,
+    ]);
+
+    useEffect(() => {
+        if (conversationListAuthority.authority !== "projection") {
+            return;
+        }
+        const allowedProjectionDmConversationIds = new Set(
+            projectionConnections.map((connection) => connection.id)
+        );
         createdConnectionsRef.current = projectionConnections;
         setCreatedConnections(projectionConnections);
         if (selectedConversation?.kind === "dm") {
@@ -374,12 +446,12 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             }
         }
         setUnreadByConversationId((current) => {
-            const next = mergeProjectionUnreadByConversationId({
+            const next = replaceProjectionUnreadByConversationId({
                 currentUnreadByConversationId: current,
                 projectionConnections,
                 selectedConversationId: selectedConversation?.id ?? null,
                 selectedConversationKind: selectedConversation?.kind ?? null,
-                lastSeenByConversationId: lastSeenByConversationIdRef.current,
+                lastSeenByConversationId: lastViewedByConversationId,
             });
             if (unreadByConversationIdEqual(current, next)) {
                 unreadByConversationIdRef.current = current;
@@ -388,7 +460,19 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             unreadByConversationIdRef.current = next;
             return next;
         });
-    }, [projectionConnections, projectionReadAuthority.useProjectionReads, selectedConversation]);
+        setPinnedChatIds((current) => {
+            const next = sanitizeDmConversationIdList(current, allowedProjectionDmConversationIds);
+            return next.length === current.length && next.every((value, index) => value === current[index])
+                ? current
+                : next;
+        });
+        setHiddenChatIds((current) => {
+            const next = sanitizeDmConversationIdList(current, allowedProjectionDmConversationIds);
+            return next.length === current.length && next.every((value, index) => value === current[index])
+                ? current
+                : next;
+        });
+    }, [conversationListAuthority.authority, lastViewedByConversationId, projectionConnections, selectedConversation]);
 
     useEffect(() => {
         if (!selectedConversation || !hasHydrated || !publicKeyHex) {
@@ -399,20 +483,20 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         }
         const seenAtMs = Date.now();
         const conversationId = selectedConversation.id;
-        const latestSeenByConversationId = lastSeenByConversationIdRef.current;
-        if ((latestSeenByConversationId[conversationId] ?? 0) >= seenAtMs) {
-            return;
-        }
-        const nextSeenByConversationId = {
-            ...latestSeenByConversationId,
-            [conversationId]: seenAtMs,
-        };
-        lastSeenByConversationIdRef.current = nextSeenByConversationId;
-        setLastViewedByConversationId(nextSeenByConversationId);
-        updateLastSeen({
-            publicKeyHex: publicKeyHex as PublicKeyHex,
-            conversationId,
-            seenAtMs,
+        setLastViewedByConversationId((previous) => {
+            if ((previous[conversationId] ?? 0) >= seenAtMs) {
+                return previous;
+            }
+            const nextSeenByConversationId = {
+                ...previous,
+                [conversationId]: seenAtMs,
+            };
+            updateLastSeen({
+                publicKeyHex: publicKeyHex as PublicKeyHex,
+                conversationId,
+                seenAtMs,
+            });
+            return nextSeenByConversationId;
         });
     }, [selectedConversation?.id, selectedConversation?.kind, hasHydrated, publicKeyHex]);
 

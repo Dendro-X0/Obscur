@@ -2,12 +2,27 @@ import React from "react";
 import { act, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import NostrMessenger from "./main-shell";
+import { createPendingStartupAuthState } from "@/app/features/auth/services/startup-auth-state-contracts";
 
 const testState = vi.hoisted(() => ({
   identityMode: "unlocked" as "unlocked" | "loading" | "locked",
   pathname: "/" as string,
   projectionProfileId: "default" as string | null,
   projectionAccountPublicKeyHex: "a".repeat(64) as string | null,
+  startupStateKind: "restored" as "pending" | "stored_locked" | "restored" | "mismatch" | "no_identity",
+}));
+
+const messagingState = vi.hoisted(() => ({
+  selectedConversation: null as null
+    | Readonly<{ kind: "dm"; id: string; pubkey: string; displayName: string; lastMessage: string; unreadCount: number; lastMessageTime: Date }>
+    | Readonly<{ kind: "group"; id: string; communityId?: string; groupId: string; relayUrl: string; displayName: string; memberPubkeys: ReadonlyArray<string>; lastMessage: string; unreadCount: number; lastMessageTime: Date; access: "invite-only" | "open" | "discoverable"; memberCount: number; adminPubkeys: ReadonlyArray<string> }>,
+  createdConnections: [] as ReadonlyArray<Readonly<{ kind: "dm"; id: string; pubkey: string; displayName: string; lastMessage: string; unreadCount: number; lastMessageTime: Date }>>,
+  createdGroups: [] as ReadonlyArray<unknown>,
+}));
+
+const sealedCommunityState = vi.hoisted(() => ({
+  state: { admins: [] as string[], leftMembers: [] as string[], expelledMembers: [] as string[] },
+  members: [] as string[],
 }));
 
 const testFns = vi.hoisted(() => ({
@@ -152,6 +167,12 @@ vi.mock("@/app/features/auth/hooks/use-identity", () => ({
           privateKeyHex: null,
           stored: { publicKeyHex: "a".repeat(64), username: "alice" },
         },
+        getIdentityDiagnostics: () => ({
+          status: "loading" as const,
+          startupState: createPendingStartupAuthState({
+            storedPublicKeyHex: "a".repeat(64),
+          }),
+        }),
         unlockIdentity: testFns.unlockIdentity,
         unlockWithPrivateKeyHex: testFns.unlockWithPrivateKeyHex,
         forgetIdentity: testFns.forgetIdentity,
@@ -165,6 +186,19 @@ vi.mock("@/app/features/auth/hooks/use-identity", () => ({
           privateKeyHex: null,
           stored: { publicKeyHex: "a".repeat(64), username: "alice" },
         },
+        getIdentityDiagnostics: () => ({
+          status: "locked" as const,
+          startupState: {
+            kind: testState.startupStateKind,
+            identityStatus: testState.startupStateKind === "pending" ? "loading" : "locked",
+            runtimePhaseHint: testState.startupStateKind === "pending" ? "binding_profile" : "auth_required",
+            degradedReasonHint: "none" as const,
+            storedPublicKeyHex: testState.startupStateKind === "no_identity" ? undefined : "a".repeat(64),
+            mismatchReason: testState.startupStateKind === "mismatch" ? "private_key_mismatch" as const : undefined,
+            message: testState.startupStateKind === "mismatch" ? "Private key does not match stored identity." : undefined,
+            recoveryActions: [],
+          },
+        }),
         unlockIdentity: testFns.unlockIdentity,
         unlockWithPrivateKeyHex: testFns.unlockWithPrivateKeyHex,
         forgetIdentity: testFns.forgetIdentity,
@@ -177,6 +211,18 @@ vi.mock("@/app/features/auth/hooks/use-identity", () => ({
         privateKeyHex: "b".repeat(64),
         stored: { publicKeyHex: "a".repeat(64), username: "alice" },
       },
+      getIdentityDiagnostics: () => ({
+        status: "unlocked" as const,
+        startupState: {
+          kind: "restored" as const,
+          identityStatus: "unlocked" as const,
+          runtimePhaseHint: "activating_runtime" as const,
+          degradedReasonHint: "none" as const,
+          storedPublicKeyHex: "a".repeat(64),
+          unlockedPublicKeyHex: "a".repeat(64),
+          recoveryActions: [],
+        },
+      }),
       unlockIdentity: testFns.unlockIdentity,
       unlockWithPrivateKeyHex: testFns.unlockWithPrivateKeyHex,
       forgetIdentity: testFns.forgetIdentity,
@@ -193,7 +239,7 @@ vi.mock("@/app/features/settings/hooks/use-auto-lock", () => ({
 
 vi.mock("@/app/features/messaging/providers/messaging-provider", () => ({
   useMessaging: () => ({
-    selectedConversation: null,
+    selectedConversation: messagingState.selectedConversation,
     setSelectedConversation: testFns.setSelectedConversation,
     unreadByConversationId: {},
     setUnreadByConversationId: testFns.setUnreadByConversationId,
@@ -236,7 +282,7 @@ vi.mock("@/app/features/messaging/providers/messaging-provider", () => ({
     clearHistory: testFns.clearHistory,
     unhideConversation: testFns.unhideConversation,
     chatsUnreadCount: 0,
-    createdConnections: [],
+    createdConnections: messagingState.createdConnections,
     setCreatedConnections: testFns.setCreatedConnections,
   }),
 }));
@@ -250,7 +296,8 @@ vi.mock("@/app/features/relays/providers/relay-provider", () => ({
 
 vi.mock("@/app/features/groups/providers/group-provider", () => ({
   useGroups: () => ({
-    createdGroups: [],
+    createdGroups: messagingState.createdGroups,
+    communityRosterByConversationId: {},
     isNewGroupOpen: false,
     setIsNewGroupOpen: testFns.setIsNewGroupOpen,
     isGroupInfoOpen: false,
@@ -261,8 +308,8 @@ vi.mock("@/app/features/groups/providers/group-provider", () => ({
 
 vi.mock("@/app/features/groups/hooks/use-sealed-community", () => ({
   useSealedCommunity: () => ({
-    state: { admins: [], leftMembers: [], expelledMembers: [] },
-    members: [],
+    state: sealedCommunityState.state,
+    members: sealedCommunityState.members,
   }),
 }));
 
@@ -379,6 +426,13 @@ describe("main-shell hook stability", () => {
     testState.pathname = "/";
     testState.projectionProfileId = "default";
     testState.projectionAccountPublicKeyHex = "a".repeat(64);
+    testState.startupStateKind = "restored";
+    messagingState.selectedConversation = null;
+    messagingState.createdConnections = [];
+    messagingState.createdGroups = [];
+    sealedCommunityState.state = { admins: [], leftMembers: [], expelledMembers: [] };
+    sealedCommunityState.members = [];
+    window.localStorage.clear();
   });
 
   it("keeps hook order stable across identity loading transitions", async () => {
@@ -402,6 +456,26 @@ describe("main-shell hook stability", () => {
     } finally {
       consoleErrorSpy.mockRestore();
     }
+  });
+
+  it("shows the lock screen from startup auth-state when stored identity is locked", async () => {
+    testState.identityMode = "locked";
+    testState.startupStateKind = "stored_locked";
+
+    render(<NostrMessenger />);
+    await act(async () => Promise.resolve());
+
+    expect(screen.getByTestId("lock-screen")).toBeInTheDocument();
+  });
+
+  it("does not show the lock screen when startup state reports no stored identity", async () => {
+    testState.identityMode = "locked";
+    testState.startupStateKind = "no_identity";
+
+    render(<NostrMessenger />);
+    await act(async () => Promise.resolve());
+
+    expect(screen.queryByTestId("lock-screen")).not.toBeInTheDocument();
   });
 
   it("keeps runtime mounted but hides chat shell on non-chat routes", async () => {
@@ -431,5 +505,73 @@ describe("main-shell hook stability", () => {
     await act(async () => Promise.resolve());
 
     expect(testFns.setCreatedConnections).not.toHaveBeenCalled();
+  });
+
+  it("restores the last selected chat only from the active scoped key", async () => {
+    const myPublicKeyHex = "a".repeat(64);
+    const dmConversation = {
+      kind: "dm" as const,
+      id: `${myPublicKeyHex}:${"b".repeat(64)}`,
+      pubkey: "b".repeat(64),
+      displayName: "Scoped Peer",
+      lastMessage: "",
+      unreadCount: 0,
+      lastMessageTime: new Date(0),
+    };
+    messagingState.createdConnections = [dmConversation];
+    window.localStorage.setItem(`obscur-last-chat-${myPublicKeyHex}::default`, dmConversation.id);
+
+    render(<NostrMessenger />);
+    await act(async () => Promise.resolve());
+
+    expect(testFns.setSelectedConversation).toHaveBeenCalledWith(dmConversation);
+    expect(testFns.unhideConversation).toHaveBeenCalledWith(dmConversation.id);
+  });
+
+  it("ignores the legacy unscoped last-chat key", async () => {
+    const myPublicKeyHex = "a".repeat(64);
+    const dmConversation = {
+      kind: "dm" as const,
+      id: `${myPublicKeyHex}:${"b".repeat(64)}`,
+      pubkey: "b".repeat(64),
+      displayName: "Legacy Peer",
+      lastMessage: "",
+      unreadCount: 0,
+      lastMessageTime: new Date(0),
+    };
+    messagingState.createdConnections = [dmConversation];
+    window.localStorage.setItem(`obscur-last-chat-${myPublicKeyHex}`, dmConversation.id);
+
+    render(<NostrMessenger />);
+    await act(async () => Promise.resolve());
+
+    expect(testFns.setSelectedConversation).not.toHaveBeenCalled();
+    expect(testFns.unhideConversation).not.toHaveBeenCalled();
+  });
+
+  it("does not persist selected-group membership from main-shell render effects", async () => {
+    const groupConversation = {
+      kind: "group" as const,
+      id: "community:lambda:wss://relay.lambda",
+      communityId: "lambda:wss://relay.lambda",
+      groupId: "lambda",
+      relayUrl: "wss://relay.lambda",
+      displayName: "Lambda",
+      memberPubkeys: ["a".repeat(64)],
+      lastMessage: "",
+      unreadCount: 0,
+      lastMessageTime: new Date(0),
+      access: "invite-only" as const,
+      memberCount: 1,
+      adminPubkeys: [] as string[],
+    };
+    messagingState.selectedConversation = groupConversation;
+    messagingState.createdGroups = [groupConversation];
+    sealedCommunityState.members = ["a".repeat(64), "b".repeat(64)];
+
+    render(<NostrMessenger />);
+    await act(async () => Promise.resolve());
+
+    expect(testFns.updateGroup).not.toHaveBeenCalled();
   });
 });

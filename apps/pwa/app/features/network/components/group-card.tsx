@@ -61,7 +61,7 @@ export const GroupCard = ({ id, displayName, relayUrl, memberCount, avatar, onCl
                     <div className="hidden items-center gap-1.5 rounded-md border border-border bg-muted px-2 py-1 sm:flex">
                         <Users className="h-3 w-3 text-primary" />
                         <span className="text-[10px] font-bold text-muted-foreground">
-                            {memberCount ?? 0}
+                            Local
                         </span>
                     </div>
                     <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-muted-foreground shadow-sm transition-all group-hover:bg-emerald-500 group-hover:text-white">
@@ -112,13 +112,13 @@ export const GroupCard = ({ id, displayName, relayUrl, memberCount, avatar, onCl
                 <div className="flex items-center gap-2 bg-muted px-3 py-1.5 rounded-full border border-border/50 backdrop-blur-sm">
                     <Users className="h-3.5 w-3.5 text-primary" />
                     <span className="text-[11px] font-black text-muted-foreground">
-                        {memberCount ?? 0}
+                        Local Directory
                     </span>
                 </div>
                 <div className="flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5">
                     <div className="h-1 w-1 rounded-full bg-emerald-500" />
                     <span className="text-[9px] font-black uppercase tracking-widest text-emerald-500">
-                        Active
+                        Known
                     </span>
                 </div>
             </div>

@@ -1,4 +1,26 @@
-## [Unreleased]
+## [v1.4.0] - 2026-04-27
+
+### Changed
+
+- Defined `v1.4.0` as the in-place rewrite and resilience release lane:
+  - added `docs/roadmap/v1.4.0-in-place-rewrite-and-resilience-plan.md`,
+  - promoted docs `19-31` into the active spec packet for restore, community, protocol, rewrite, modularization, fragility, and long-term resilience work,
+  - updated canonical roadmap/docs index references so `v1.4.0` is now the explicit target lane for architecture-safe continuation work.
+- Pivoted community roster UX away from unsupported exact live member claims:
+  - added a durable `known participants` directory module for stable reload-safe community display,
+  - split descriptor rows from live roster projection state in the community provider,
+  - updated Network and Community surfaces to present stable `known participants` counts instead of promising exact synchronized membership,
+  - added `docs/32-community-system-reset-and-alternative-solutions.md` to record the product/design reset and the features that are now explicitly de-scoped.
+- Refocused `v1.4.0` planning around the community-system overhaul:
+  - added `docs/33-community-modes-and-relay-guarantees.md` to define sovereign-room vs managed-workspace guarantees from relay capability,
+  - updated the active `v1.4.0` roadmap and matrix so community-system overhaul + validation is now the primary release story,
+  - updated canonical roadmap/docs index references so future work starts from mode guarantees instead of universal roster promises.
+- Added rewrite-memory documentation for future systematic refactoring:
+  - `docs/34-codebase-cartography-and-black-box-atlas.md` maps real repository structure, owner anchors, complexity hotspots, and black-box files,
+  - `docs/35-data-sovereignty-and-unified-backend-rewrite-target.md` corrects the architectural target around data sovereignty with unified backend coordination,
+  - `docs/36-resilient-infrastructure-and-technical-protocols.md` defines the future infrastructure and protocol stack for resilient, maintainable refactoring.
+- Added an executable rewrite sequencing layer:
+  - `docs/37-owner-aligned-extraction-workstreams.md` maps current black-box owner files into future workstreams for session/startup, restore/import, DM read model, community membership/directory, relay transport, and coordination backend extraction.
 
 ## [v1.3.16] - 2026-04-16
 

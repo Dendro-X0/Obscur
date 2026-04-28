@@ -11,7 +11,8 @@ const routingMocks = vi.hoisted(() => ({
 }));
 
 const messagingMocks = vi.hoisted(() => ({
-  selectedConversationId: null as string | null,
+  selectedConversation:
+    null as null | Readonly<{ id: string; kind?: "dm" | "group"; pubkey?: string }>,
   chatsUnreadCount: 0 as number,
   setUnreadByConversationId: vi.fn(),
   createdConnections: [] as ReadonlyArray<Readonly<{ id: string; pubkey: string; displayName: string }>>,
@@ -79,9 +80,7 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("@/app/features/messaging/providers/messaging-provider", () => ({
   useMessaging: () => ({
-    selectedConversation: messagingMocks.selectedConversationId
-      ? { id: messagingMocks.selectedConversationId }
-      : null,
+    selectedConversation: messagingMocks.selectedConversation,
     chatsUnreadCount: messagingMocks.chatsUnreadCount,
     setUnreadByConversationId: messagingMocks.setUnreadByConversationId,
     createdConnections: messagingMocks.createdConnections,
@@ -171,7 +170,7 @@ describe("DesktopNotificationHandler", () => {
     notificationTargetPreferenceMocks.isMessageNotificationEnabledForIncomingEvent.mockReturnValue(true);
     routingMocks.pathname = "/";
     routingMocks.push.mockReset();
-    messagingMocks.selectedConversationId = null;
+    messagingMocks.selectedConversation = null;
     messagingMocks.chatsUnreadCount = 0;
     messagingMocks.setUnreadByConversationId.mockReset();
     messagingMocks.createdConnections = [];
@@ -244,15 +243,30 @@ describe("DesktopNotificationHandler", () => {
   });
 
   it("suppresses notifications while user is actively viewing the same chat", () => {
-    messagingMocks.selectedConversationId = "conv-1";
+    messagingMocks.selectedConversation = { id: "conv-1" };
     routingMocks.pathname = "/";
     render(<DesktopNotificationHandler />);
     messageBus.emitNewMessage("conv-1", createIncomingMessage("evt-2"));
     expect(notificationMocks.showNotification).not.toHaveBeenCalled();
   });
 
+  it("suppresses notifications when selected dm conversation matches sender by pubkey despite conversation id alias drift", () => {
+    messagingMocks.selectedConversation = {
+      id: "legacy-conv-id",
+      kind: "dm",
+      pubkey: "b".repeat(64),
+    };
+    routingMocks.pathname = "/";
+    render(<DesktopNotificationHandler />);
+    messageBus.emitNewMessage("dm:self:peer-canonical", createIncomingMessage("evt-alias", {
+      conversationId: "dm:self:peer-canonical",
+      senderPubkey: "b".repeat(64) as PublicKeyHex,
+    }));
+    expect(notificationMocks.showNotification).not.toHaveBeenCalled();
+  });
+
   it("shows notifications when app is backgrounded even for the same chat", () => {
-    messagingMocks.selectedConversationId = "conv-1";
+    messagingMocks.selectedConversation = { id: "conv-1" };
     Object.defineProperty(document, "visibilityState", {
       configurable: true,
       value: "hidden",
@@ -265,7 +279,7 @@ describe("DesktopNotificationHandler", () => {
   });
 
   it("increments badge from background notifications even when unread projection is zero", async () => {
-    messagingMocks.selectedConversationId = "conv-1";
+    messagingMocks.selectedConversation = { id: "conv-1" };
     messagingMocks.chatsUnreadCount = 0;
     Object.defineProperty(document, "visibilityState", {
       configurable: true,

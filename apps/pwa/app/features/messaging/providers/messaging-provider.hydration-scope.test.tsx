@@ -26,6 +26,23 @@ const messagingDbMocks = vi.hoisted(() => ({
   get: vi.fn(),
 }));
 
+const projectionSidebarState = vi.hoisted(() => ({
+  useProjectionReads: false,
+  projectionConnections: [] as Array<{
+    kind: "dm";
+    id: string;
+    displayName: string;
+    pubkey: string;
+    lastMessage: string;
+    unreadCount: number;
+    lastMessageTime: Date;
+  }>,
+}));
+
+const telemetryMocks = vi.hoisted(() => ({
+  logAppEvent: vi.fn(),
+}));
+
 vi.mock("../../auth/hooks/use-identity", () => ({
   useIdentity: () => ({
     state: {
@@ -49,12 +66,16 @@ vi.mock("@/app/features/account-sync/hooks/use-account-projection-snapshot", () 
 
 vi.mock("@/app/features/account-sync/services/account-projection-read-authority", () => ({
   resolveProjectionReadAuthority: () => ({
-    useProjectionReads: false,
+    useProjectionReads: projectionSidebarState.useProjectionReads,
   }),
 }));
 
 vi.mock("@/app/features/account-sync/services/account-projection-selectors", () => ({
-  selectProjectionDmConversations: () => [],
+  selectProjectionDmConversations: () => projectionSidebarState.projectionConnections,
+}));
+
+vi.mock("@/app/shared/log-app-event", () => ({
+  logAppEvent: telemetryMocks.logAppEvent,
 }));
 
 vi.mock("../services/chat-state-store", () => ({
@@ -109,6 +130,8 @@ const Harness = (): React.JSX.Element => {
       <div data-testid="connections">
         {messaging.createdConnections.map((connection) => connection.displayName).join("|")}
       </div>
+      <div data-testid="pinned">{messaging.pinnedChatIds.join("|")}</div>
+      <div data-testid="hidden">{messaging.hiddenChatIds.join("|")}</div>
     </div>
   );
 };
@@ -127,6 +150,9 @@ describe("messaging-provider hydration scope resets", () => {
     chatStateStoreMocks.deleteConversationMessages.mockReset();
     messagingDbMocks.get.mockReset();
     messagingDbMocks.get.mockResolvedValue(null);
+    telemetryMocks.logAppEvent.mockReset();
+    projectionSidebarState.useProjectionReads = false;
+    projectionSidebarState.projectionConnections = [];
 
     const accountA = "a".repeat(64);
     const accountB = "b".repeat(64);
@@ -328,6 +354,100 @@ describe("messaging-provider hydration scope resets", () => {
       expect(screen.getByTestId("hydrated").textContent).toBe("true");
       expect(screen.getByTestId("connections").textContent).toContain("Indexed Account B Contact");
       expect(screen.getByTestId("connections").textContent).not.toContain("Account A Contact");
+    });
+  });
+
+  it("ignores chat-state replaced events from another profile scope", async () => {
+    const accountA = "a".repeat(64);
+    chatStateStoreMocks.load.mockReturnValue(buildPersistedState({
+      displayName: "Account A Contact",
+      peerPublicKeyHex: "1".repeat(64),
+    }));
+
+    render(
+      <MessagingProvider>
+        <Harness />
+      </MessagingProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("connections").textContent).toContain("Account A Contact");
+    });
+
+    chatStateStoreMocks.load.mockClear();
+
+    await act(async () => {
+      window.dispatchEvent(new CustomEvent("obscur:chat-state-replaced", {
+        detail: { publicKeyHex: accountA, profileId: "work" },
+      }));
+    });
+
+    expect(chatStateStoreMocks.load).not.toHaveBeenCalled();
+  });
+
+  it("prefers projection sidebar conversations over persisted chat-state when projection authority is active", async () => {
+    projectionSidebarState.useProjectionReads = true;
+    projectionSidebarState.projectionConnections = [{
+      kind: "dm",
+      id: "dm-projection-alpha",
+      displayName: "Projection Contact",
+      pubkey: "9".repeat(64),
+      lastMessage: "projection",
+      unreadCount: 3,
+      lastMessageTime: new Date(2_000),
+    }];
+
+    render(
+      <MessagingProvider>
+        <Harness />
+      </MessagingProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("hydrated").textContent).toBe("true");
+      expect(screen.getByTestId("connections").textContent).toContain("Projection Contact");
+      expect(screen.getByTestId("connections").textContent).not.toContain("Account A Contact");
+    });
+    expect(telemetryMocks.logAppEvent).toHaveBeenCalledWith(expect.objectContaining({
+      name: "messaging.conversation_list_authority_selected",
+      context: expect.objectContaining({
+        selectedAuthority: "projection",
+        selectedAuthorityReason: "projection_read_cutover",
+        projectionConversationCount: 1,
+        persistedConversationCount: 1,
+      }),
+    }));
+  });
+
+  it("sanitizes stale dm hidden and pinned ids when projection authority is active", async () => {
+    chatStateStoreMocks.load.mockReturnValue({
+      ...buildPersistedState({
+        displayName: "Legacy Contact",
+        peerPublicKeyHex: "1".repeat(64),
+      }),
+      pinnedChatIds: ["dm-stale", "dm-projection-alpha"],
+      hiddenChatIds: ["dm-stale", "dm-projection-alpha"],
+    });
+    projectionSidebarState.useProjectionReads = true;
+    projectionSidebarState.projectionConnections = [{
+      kind: "dm",
+      id: "dm-projection-alpha",
+      displayName: "Projection Contact",
+      pubkey: "9".repeat(64),
+      lastMessage: "projection",
+      unreadCount: 3,
+      lastMessageTime: new Date(2_000),
+    }];
+
+    render(
+      <MessagingProvider>
+        <Harness />
+      </MessagingProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("pinned").textContent).toBe("dm-projection-alpha");
+      expect(screen.getByTestId("hidden").textContent).toBe("dm-projection-alpha");
     });
   });
 });

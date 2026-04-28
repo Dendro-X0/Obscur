@@ -14,7 +14,7 @@ export interface DBConfig {
 }
 
 const DEFAULT_DB_NAME = "dweb_messenger_db";
-const DEFAULT_VERSION = 1;
+const DEFAULT_VERSION = 2;
 
 export class IndexedDBService {
     private db: IDBDatabase | null = null;
@@ -36,13 +36,24 @@ export class IndexedDBService {
 
             request.onupgradeneeded = (event) => {
                 const db = (event.target as IDBOpenDBRequest).result;
+                const tx = (event.target as IDBOpenDBRequest).transaction;
                 Object.entries(this.stores).forEach(([storeName, keyPath]) => {
+                    let store: IDBObjectStore | undefined;
                     if (!db.objectStoreNames.contains(storeName)) {
-                        const store = db.createObjectStore(storeName, { keyPath });
-                        // Add index for common queries if needed
-                        if (storeName === "messages") {
+                        store = db.createObjectStore(storeName, { keyPath });
+                    } else if (tx) {
+                        store = tx.objectStore(storeName);
+                    }
+                    // Add index for common queries if needed (for both new and existing stores)
+                    if (store && storeName === "messages") {
+                        const indexList = this.getIndexNames(store);
+                        if (!indexList.includes("conversationId")) {
                             store.createIndex("conversationId", "conversationId", { unique: false });
+                        }
+                        if (!indexList.includes("timestampMs")) {
                             store.createIndex("timestampMs", "timestampMs", { unique: false });
+                        }
+                        if (!indexList.includes("conversation_timestamp")) {
                             store.createIndex("conversation_timestamp", ["conversationId", "timestampMs"], { unique: false });
                         }
                     }
@@ -56,6 +67,15 @@ export class IndexedDBService {
 
             request.onerror = () => reject(request.error);
         });
+    }
+
+    private getIndexNames(store: IDBObjectStore): string[] {
+        const indexNames = (store as IDBObjectStore & { indexNames?: DOMStringList | string[] | null }).indexNames;
+        if (!indexNames) {
+            return [];
+        }
+
+        return Array.from(indexNames);
     }
 
     async get<T>(storeName: string, key: string): Promise<T | null> {

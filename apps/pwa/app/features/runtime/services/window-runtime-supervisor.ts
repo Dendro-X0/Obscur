@@ -4,6 +4,7 @@ import { useEffect, useMemo, useSyncExternalStore } from "react";
 import type { Passphrase } from "@dweb/crypto/passphrase";
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
+import { createPendingStartupAuthState, type StartupAuthState } from "@/app/features/auth/services/startup-auth-state-contracts";
 import { desktopProfileRuntime, useDesktopProfileIsolationSnapshot } from "@/app/features/profiles/services/desktop-profile-runtime";
 import type { ProfileIsolationSnapshot } from "@/app/features/profiles/services/profile-isolation-contracts";
 import {
@@ -20,6 +21,7 @@ import {
   type WindowRuntimePhase,
   type WindowRuntimeSnapshot,
 } from "./window-runtime-contracts";
+import { logAppEvent } from "@/app/shared/log-app-event";
 
 type Listener = () => void;
 
@@ -32,6 +34,7 @@ const defaultSession: ProfileBoundSessionSnapshot = {
   profileId: "default",
   profileLabel: "Default",
   identityStatus: "loading",
+  startupState: createPendingStartupAuthState(),
 };
 
 const createDefaultTransportQueueSnapshot = (): TransportQueueSnapshot => ({
@@ -104,6 +107,44 @@ const setSnapshot = (next: WindowRuntimeSnapshot): void => {
   emit();
 };
 
+const emitStartupAuthStateTransition = (params: Readonly<{
+  previous: StartupAuthState;
+  next: StartupAuthState;
+  profileId: string;
+  windowLabel: string;
+}>): void => {
+  if (
+    params.previous.kind === params.next.kind
+    && params.previous.identityStatus === params.next.identityStatus
+    && params.previous.mismatchReason === params.next.mismatchReason
+    && params.previous.message === params.next.message
+    && params.previous.storedPublicKeyHex === params.next.storedPublicKeyHex
+    && params.previous.unlockedPublicKeyHex === params.next.unlockedPublicKeyHex
+    && params.previous.nativeSessionPublicKeyHex === params.next.nativeSessionPublicKeyHex
+  ) {
+    return;
+  }
+  const level = params.next.kind === "mismatch" || params.next.kind === "fatal_storage_error"
+    ? "warn"
+    : "info";
+  logAppEvent({
+    name: "runtime.startup_auth_state_transition",
+    level,
+    scope: { feature: "runtime", action: "startup_auth_state" },
+    context: {
+      profileId: params.profileId,
+      windowLabel: params.windowLabel,
+      fromKind: params.previous.kind,
+      toKind: params.next.kind,
+      identityStatus: params.next.identityStatus,
+      runtimePhaseHint: params.next.runtimePhaseHint,
+      degradedReasonHint: params.next.degradedReasonHint,
+      mismatchReason: params.next.mismatchReason ?? null,
+      hasStoredIdentity: Boolean(params.next.storedPublicKeyHex),
+    },
+  });
+};
+
 const transitionTo = (
   phase: WindowRuntimePhase,
   patch: Partial<WindowRuntimeSnapshot> = {},
@@ -131,11 +172,15 @@ const transitionTo = (
 };
 
 const bindProfile = (desktopSnapshot: ProfileIsolationSnapshot): void => {
+  const previousStartupState = snapshot.session.startupState;
   const nextSession: ProfileBoundSessionSnapshot = {
-    ...snapshot.session,
     windowLabel: desktopSnapshot.currentWindow.windowLabel,
     profileId: desktopSnapshot.currentWindow.profileId,
     profileLabel: desktopSnapshot.currentWindow.profileLabel,
+    identityStatus: "loading",
+    startupState: createPendingStartupAuthState(),
+    storedPublicKeyHex: undefined,
+    unlockedPublicKeyHex: undefined,
   };
   if (
     snapshot.session.windowLabel === nextSession.windowLabel
@@ -144,6 +189,12 @@ const bindProfile = (desktopSnapshot: ProfileIsolationSnapshot): void => {
   ) {
     return;
   }
+  emitStartupAuthStateTransition({
+    previous: previousStartupState,
+    next: nextSession.startupState,
+    profileId: nextSession.profileId,
+    windowLabel: nextSession.windowLabel,
+  });
   transitionTo("binding_profile", {
     degradedReason: "none",
     lastError: undefined,
@@ -236,50 +287,58 @@ export const windowRuntimeSupervisor = {
     });
   },
   syncIdentity(params: Readonly<{
-    identityStatus: ProfileBoundSessionSnapshot["identityStatus"];
-    storedPublicKeyHex?: string;
-    unlockedPublicKeyHex?: string;
-    error?: string;
+    startupState: StartupAuthState;
   }>): void {
+    const previousStartupState = snapshot.session.startupState;
     const identitySnapshotUnchanged = (
-      snapshot.session.identityStatus === params.identityStatus
-      && snapshot.session.storedPublicKeyHex === params.storedPublicKeyHex
-      && snapshot.session.unlockedPublicKeyHex === params.unlockedPublicKeyHex
-      && snapshot.lastError === params.error
+      snapshot.session.identityStatus === params.startupState.identityStatus
+      && snapshot.session.storedPublicKeyHex === params.startupState.storedPublicKeyHex
+      && snapshot.session.unlockedPublicKeyHex === params.startupState.unlockedPublicKeyHex
+      && snapshot.session.startupState.kind === params.startupState.kind
+      && snapshot.session.startupState.message === params.startupState.message
+      && snapshot.session.startupState.mismatchReason === params.startupState.mismatchReason
+      && snapshot.session.startupState.nativeSessionPublicKeyHex === params.startupState.nativeSessionPublicKeyHex
+      && snapshot.lastError === params.startupState.message
     );
     const phaseAlreadyAligned = (
-      (params.identityStatus === "loading" && snapshot.phase === "binding_profile")
-      || (params.identityStatus === "locked" && snapshot.phase === "auth_required")
-      || (params.identityStatus === "unlocked" && ["activating_runtime", "ready", "degraded"].includes(snapshot.phase))
-      || (params.identityStatus === "error" && snapshot.phase === "fatal")
+      snapshot.phase === params.startupState.runtimePhaseHint
+      && snapshot.degradedReason === params.startupState.degradedReasonHint
+      && snapshot.lastError === params.startupState.message
     );
     if (identitySnapshotUnchanged && phaseAlreadyAligned) {
       return;
     }
     const nextSession: ProfileBoundSessionSnapshot = {
       ...snapshot.session,
-      identityStatus: params.identityStatus,
-      storedPublicKeyHex: params.storedPublicKeyHex,
-      unlockedPublicKeyHex: params.unlockedPublicKeyHex,
+      identityStatus: params.startupState.identityStatus,
+      startupState: params.startupState,
+      storedPublicKeyHex: params.startupState.storedPublicKeyHex,
+      unlockedPublicKeyHex: params.startupState.unlockedPublicKeyHex,
     };
+    emitStartupAuthStateTransition({
+      previous: previousStartupState,
+      next: params.startupState,
+      profileId: nextSession.profileId,
+      windowLabel: nextSession.windowLabel,
+    });
     if (!identitySnapshotUnchanged) {
       setSnapshot({
         ...snapshot,
         session: nextSession,
-        lastError: params.error ?? snapshot.lastError,
+        lastError: params.startupState.message,
       });
     }
-    if (params.identityStatus === "error") {
+    if (params.startupState.runtimePhaseHint === "fatal") {
       transitionTo("fatal", {
-        degradedReason: "identity_error",
-        lastError: params.error ?? "Identity error",
+        degradedReason: params.startupState.degradedReasonHint,
+        lastError: params.startupState.message ?? "Identity error",
         session: nextSession,
-      }, params.error ?? "Identity error");
+      }, params.startupState.message ?? "Identity error");
       return;
     }
-    if (params.identityStatus === "loading") {
+    if (params.startupState.runtimePhaseHint === "binding_profile") {
       transitionTo("binding_profile", {
-        degradedReason: "none",
+        degradedReason: params.startupState.degradedReasonHint,
         session: nextSession,
         relayRuntime: createDefaultRelayRuntimeSnapshot({
           windowLabel: nextSession.windowLabel,
@@ -289,10 +348,10 @@ export const windowRuntimeSupervisor = {
       });
       return;
     }
-    if (params.identityStatus === "locked") {
+    if (params.startupState.runtimePhaseHint === "auth_required") {
       transitionTo("auth_required", {
-        degradedReason: "none",
-        lastError: undefined,
+        degradedReason: params.startupState.degradedReasonHint,
+        lastError: params.startupState.message,
         session: nextSession,
         relayRuntime: createDefaultRelayRuntimeSnapshot({
           windowLabel: nextSession.windowLabel,
@@ -302,9 +361,9 @@ export const windowRuntimeSupervisor = {
       });
       return;
     }
-    if (params.identityStatus === "unlocked" && !["ready", "degraded"].includes(snapshot.phase)) {
+    if (params.startupState.runtimePhaseHint === "activating_runtime" && !["ready", "degraded"].includes(snapshot.phase)) {
       transitionTo("activating_runtime", {
-        degradedReason: "none",
+        degradedReason: params.startupState.degradedReasonHint,
         lastError: undefined,
         session: nextSession,
       });
@@ -362,21 +421,25 @@ export const useWindowRuntime = () => {
   const identity = useIdentity();
   const desktopSnapshot = useDesktopProfileIsolationSnapshot();
   const runtimeSnapshot = useWindowRuntimeSnapshot();
+  const startupState = identity.getIdentityDiagnostics?.()?.startupState ?? createPendingStartupAuthState({
+    storedPublicKeyHex: identity.state.stored?.publicKeyHex,
+  });
 
   useEffect(() => {
     windowRuntimeSupervisor.bindProfile(desktopSnapshot);
     windowRuntimeSupervisor.syncIdentity({
-      identityStatus: identity.state.status,
-      storedPublicKeyHex: identity.state.stored?.publicKeyHex,
-      unlockedPublicKeyHex: identity.state.publicKeyHex,
-      error: identity.state.error,
+      startupState,
     });
   }, [
     desktopSnapshot,
-    identity.state.error,
-    identity.state.publicKeyHex,
-    identity.state.status,
-    identity.state.stored?.publicKeyHex,
+    startupState.degradedReasonHint,
+    startupState.identityStatus,
+    startupState.kind,
+    startupState.message,
+    startupState.mismatchReason,
+    startupState.nativeSessionPublicKeyHex,
+    startupState.storedPublicKeyHex,
+    startupState.unlockedPublicKeyHex,
   ]);
 
   return useMemo(() => ({

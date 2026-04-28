@@ -2,7 +2,11 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { NostrEvent } from "@dweb/nostr/nostr-event";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
-import { useSealedCommunity } from "./use-sealed-community";
+import {
+    COMMUNITY_KNOWN_PARTICIPANTS_OBSERVED_EVENT,
+    GROUP_MEMBERSHIP_SNAPSHOT_EVENT,
+    useSealedCommunity,
+} from "./use-sealed-community";
 import { cryptoService } from "../../crypto/crypto-service";
 import { roomKeyStore } from "../../crypto/room-key-store";
 import { messageBus } from "../../messaging/services/message-bus";
@@ -411,6 +415,39 @@ describe("use-sealed-community integration", () => {
         });
     });
 
+    it("exposes a shared-contract content timeline view for visible group messages", async () => {
+        const pool = createPool();
+        vi.mocked(cryptoService.decryptGroupMessage)
+            .mockResolvedValueOnce(JSON.stringify({ type: "message", pubkey: actor, created_at: 610, content: "shared timeline hello" }));
+
+        const { result } = renderHook(() => useSealedCommunity({
+            pool: pool as any,
+            relayUrl: scopedRelay,
+            groupId,
+            myPublicKeyHex: actor,
+            myPrivateKeyHex: "private-key" as any,
+            enabled: true,
+            initialMembers: [actor]
+        }));
+
+        expect(onEventHandler).toBeTruthy();
+        await act(async () => {
+            await onEventHandler?.(createEvent({ id: "timeline-1", createdAt: 610, pubkey: actor }), scopedRelay);
+        });
+
+        await waitFor(() => {
+            expect(result.current.contentTimeline).toEqual(expect.arrayContaining([
+                expect.objectContaining({
+                    logicalMessageId: "timeline-1",
+                    communityId: groupId,
+                    contentState: "visible",
+                    plaintextPreview: "shared timeline hello",
+                    sourceEventId: "timeline-1",
+                }),
+            ]));
+        });
+    });
+
     it("keeps deleted group message removed when stale replay arrives later", async () => {
         const pool = createPool();
         const emitDeletedSpy = vi.spyOn(messageBus, "emitMessageDeleted");
@@ -501,7 +538,7 @@ describe("use-sealed-community integration", () => {
         });
     });
 
-    it("removes stale active members when newer relay roster omits them", async () => {
+    it("does not demote active members when a newer relay roster omits them without explicit leave evidence", async () => {
         const pool = createPool();
 
         const { result } = renderHook(() => useSealedCommunity({
@@ -516,12 +553,183 @@ describe("use-sealed-community integration", () => {
 
         expect(onEventHandler).toBeTruthy();
         await act(async () => {
+            await onEventHandler?.(createMembersEvent({ id: "members-confirmed", createdAt: 701, members: [actor, peer] }), scopedRelay);
             await onEventHandler?.(createMembersEvent({ id: "members-pruned", createdAt: 702, members: [actor] }), scopedRelay);
         });
 
         await waitFor(() => {
+            expect([...result.current.members].sort()).toEqual([actor, peer].sort());
+            expect(result.current.state.leftMembers).not.toContain(peer);
+        });
+    });
+
+    it("does not prune compatibility-seeded members when a relay roster snapshot temporarily omits them", async () => {
+        const pool = createPool();
+
+        const { result } = renderHook(() => useSealedCommunity({
+            pool: pool as any,
+            relayUrl: scopedRelay,
+            groupId,
+            myPublicKeyHex: actor,
+            myPrivateKeyHex: "private-key" as any,
+            enabled: true,
+            initialMembers: [actor, peer]
+        }));
+
+        expect(onEventHandler).toBeTruthy();
+        await act(async () => {
+            await onEventHandler?.(createMembersEvent({ id: "members-self-only", createdAt: 704, members: [actor] }), scopedRelay);
+        });
+
+        await waitFor(() => {
+            expect([...result.current.members].sort()).toEqual([actor, peer].sort());
+            expect(result.current.state.leftMembers).not.toContain(peer);
+        });
+    });
+
+    it("does not reset live membership when initialMembers catches up from provider state", async () => {
+        const pool = createPool();
+
+        const { result, rerender } = renderHook((hookParams: Readonly<{
+            initialMembers: ReadonlyArray<PublicKeyHex>;
+        }>) => useSealedCommunity({
+            pool: pool as any,
+            relayUrl: scopedRelay,
+            groupId,
+            myPublicKeyHex: actor,
+            myPrivateKeyHex: "private-key" as any,
+            enabled: true,
+            initialMembers: hookParams.initialMembers,
+        }), {
+            initialProps: {
+                initialMembers: [actor] as ReadonlyArray<PublicKeyHex>,
+            },
+        });
+
+        expect(onEventHandler).toBeTruthy();
+        await act(async () => {
+            await onEventHandler?.(createMembersEvent({ id: "members-provider-catchup", createdAt: 703, members: [actor, peer] }), scopedRelay);
+        });
+
+        await waitFor(() => {
+            expect([...result.current.members].sort()).toEqual([actor, peer].sort());
+        });
+
+        rerender({
+            initialMembers: [actor, peer] as ReadonlyArray<PublicKeyHex>,
+        });
+
+        await waitFor(() => {
+            expect([...result.current.members].sort()).toEqual([actor, peer].sort());
+            expect(result.current.state.leftMembers).not.toContain(peer);
+        });
+    });
+
+    it("seeds restored initialMembers on first mount before relay roster replay arrives", async () => {
+        const pool = createPool();
+
+        const { result } = renderHook(() => useSealedCommunity({
+            pool: pool as any,
+            relayUrl: scopedRelay,
+            groupId,
+            myPublicKeyHex: actor,
+            myPrivateKeyHex: "private-key" as any,
+            enabled: true,
+            initialMembers: [actor, peer],
+        }));
+
+        await waitFor(() => {
+            expect([...result.current.members].sort()).toEqual([actor, peer].sort());
+            expect(result.current.state.leftMembers).not.toContain(peer);
+        });
+    });
+
+    it("does not emit a thinner self-only membership snapshot on mount when restored initialMembers already include peers", async () => {
+        const pool = createPool();
+        const dispatchSpy = vi.spyOn(window, "dispatchEvent");
+
+        renderHook(() => useSealedCommunity({
+            pool: pool as any,
+            relayUrl: scopedRelay,
+            groupId,
+            myPublicKeyHex: actor,
+            myPrivateKeyHex: "private-key" as any,
+            enabled: true,
+            initialMembers: [actor, peer],
+        }));
+
+        await waitFor(() => {
+            const snapshotCalls = dispatchSpy.mock.calls
+                .map(([event]) => event)
+                .filter((event): event is CustomEvent<{
+                    activeMemberPubkeys?: ReadonlyArray<PublicKeyHex>;
+                }> => event instanceof CustomEvent && event.type === GROUP_MEMBERSHIP_SNAPSHOT_EVENT);
+            expect(snapshotCalls.length).toBeGreaterThan(0);
+            expect(snapshotCalls.every((event) => (
+                (event.detail.activeMemberPubkeys ?? []).includes(actor)
+                && (event.detail.activeMemberPubkeys ?? []).includes(peer)
+            ))).toBe(true);
+        });
+    });
+
+    it("emits observed known participants so the stable directory can persist richer live evidence", async () => {
+        const pool = createPool();
+        const dispatchSpy = vi.spyOn(window, "dispatchEvent");
+
+        renderHook(() => useSealedCommunity({
+            pool: pool as any,
+            relayUrl: scopedRelay,
+            groupId,
+            myPublicKeyHex: actor,
+            myPrivateKeyHex: "private-key" as any,
+            enabled: true,
+            initialMembers: [actor, peer],
+        }));
+
+        await waitFor(() => {
+            const observedCalls = dispatchSpy.mock.calls
+                .map(([event]) => event)
+                .filter((event): event is CustomEvent<{
+                    participantPubkeys?: ReadonlyArray<PublicKeyHex>;
+                }> => event instanceof CustomEvent && event.type === COMMUNITY_KNOWN_PARTICIPANTS_OBSERVED_EVENT);
+            expect(observedCalls.length).toBeGreaterThan(0);
+            expect(observedCalls.some((event) => (
+                (event.detail.participantPubkeys ?? []).includes(actor)
+                && (event.detail.participantPubkeys ?? []).includes(peer)
+            ))).toBe(true);
+        });
+    });
+
+    it("backfills restored initialMembers when provider catch-up arrives after mount and live ledger is still self-only", async () => {
+        const pool = createPool();
+
+        const { result, rerender } = renderHook((hookParams: Readonly<{
+            initialMembers: ReadonlyArray<PublicKeyHex>;
+        }>) => useSealedCommunity({
+            pool: pool as any,
+            relayUrl: scopedRelay,
+            groupId,
+            myPublicKeyHex: actor,
+            myPrivateKeyHex: "private-key" as any,
+            enabled: true,
+            initialMembers: hookParams.initialMembers,
+        }), {
+            initialProps: {
+                initialMembers: [actor] as ReadonlyArray<PublicKeyHex>,
+            },
+        });
+
+        await waitFor(() => {
             expect([...result.current.members].sort()).toEqual([actor].sort());
-            expect(result.current.state.leftMembers).toContain(peer);
+        });
+
+        rerender({
+            initialMembers: [actor, peer] as ReadonlyArray<PublicKeyHex>,
+        });
+
+        await waitFor(() => {
+            expect([...result.current.members].sort()).toEqual([actor, peer].sort());
+            expect(result.current.state.leftMembers).not.toContain(peer);
         });
     });
 
