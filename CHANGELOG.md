@@ -1,15 +1,22 @@
 ## [v1.4.1] - 2026-04-28
 
+### Changed
+
+- **Removed mandatory signing requirements for desktop releases** (principled decision):
+  - Tauri updater artifacts are now disabled by default (`createUpdaterArtifacts: false`),
+  - The updater plugin is inactive (`active: false`) in base configuration,
+  - GitHub release workflow no longer requires `TAURI_SIGNING_PRIVATE_KEY` or password secrets,
+  - Desktop bundles build and release without any signing credentials,
+  - This aligns with the project's decentralized, privacy-first principles—releases
+    should not depend on centralized signing authorities or secrets,
+  - Users download updates directly from GitHub releases rather than through
+    auto-updater mechanisms that require trusted signatures.
+
 ### Fixed
 
-- Hardened the GitHub release workflow for unsigned desktop CI lanes:
-  - desktop release jobs now explicitly detect whether `TAURI_SIGNING_PRIVATE_KEY`
-    is available before bundling signed updater artifacts,
-  - unsigned CI runs temporarily disable Tauri updater artifact generation so
-    Linux and Windows desktop bundles no longer fail just because a public
-    updater key is present in repo config,
-  - release verification now requires `latest.json` only when desktop signing
-    secrets are actually available for that run.
+- Simplified release workflow by removing signing precheck logic and conditional
+  config patching that was causing build failures when secrets were present but
+  passwords were incorrect or missing.
 
 ## [v1.4.0] - 2026-04-27
 
