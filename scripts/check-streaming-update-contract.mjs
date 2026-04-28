@@ -19,7 +19,7 @@ const isObject = (value) => typeof value === "object" && value !== null;
 const isSemver = (value) => typeof value === "string" && /^\d+(\.\d+){1,3}(-[A-Za-z0-9.-]+)?$/.test(value.trim().replace(/^v/i, ""));
 const isChecksum = (value) => typeof value === "string" && /^[a-fA-F0-9]{64}$/.test(value.trim());
 
-const validateUpdatePolicy = (policy) => {
+const validateUpdatePolicy = (policy, isSignedBuild) => {
   const problems = [];
   if (!isObject(policy)) {
     return ["manifest must be an object"];
@@ -53,8 +53,9 @@ const validateUpdatePolicy = (policy) => {
       if (typeof artifact.url !== "string" || !artifact.url.startsWith("https://")) {
         problems.push(`artifact ${platform}.url must be https://`);
       }
-      if (typeof artifact.signature !== "string" || artifact.signature.trim().length === 0) {
-        problems.push(`artifact ${platform}.signature must be non-empty`);
+      // Only require signatures for signed builds
+      if (isSignedBuild && (typeof artifact.signature !== "string" || artifact.signature.trim().length === 0)) {
+        problems.push(`artifact ${platform}.signature must be non-empty for signed builds`);
       }
       if (!isChecksum(artifact.checksumSha256)) {
         problems.push(`artifact ${platform}.checksumSha256 must be 64 hex chars`);
@@ -69,27 +70,36 @@ const validateTauriUpdater = (config) => {
   if (!isObject(config)) {
     return ["tauri config must be an object"];
   }
-  if (config.bundle?.createUpdaterArtifacts !== true) {
-    problems.push("bundle.createUpdaterArtifacts must be true");
-  }
+
   const updater = config.plugins?.updater;
   if (!isObject(updater)) {
     return ["plugins.updater is missing"];
   }
-  if (updater.active !== true) {
-    problems.push("plugins.updater.active must be true");
+
+  // Allow both signed (active: true) and unsigned (active: false) configurations
+  // Unsigned builds are the default for decentralized distribution
+  const isSigned = config.bundle?.createUpdaterArtifacts === true && updater.active === true;
+  const isUnsigned = config.bundle?.createUpdaterArtifacts === false && updater.active === false;
+
+  if (!isSigned && !isUnsigned) {
+    problems.push("Invalid updater configuration: must be either fully signed (createUpdaterArtifacts: true, active: true) or fully unsigned (createUpdaterArtifacts: false, active: false)");
   }
-  if (!Array.isArray(updater.endpoints) || updater.endpoints.length === 0) {
-    problems.push("plugins.updater.endpoints must include at least one endpoint");
-  } else {
-    const hasLatestJson = updater.endpoints.some((endpoint) => typeof endpoint === "string" && endpoint.includes("latest.json"));
-    if (!hasLatestJson) {
-      problems.push("plugins.updater.endpoints must include a latest.json endpoint");
+
+  // Only validate signature-related fields for signed builds
+  if (isSigned) {
+    if (!Array.isArray(updater.endpoints) || updater.endpoints.length === 0) {
+      problems.push("plugins.updater.endpoints must include at least one endpoint");
+    } else {
+      const hasLatestJson = updater.endpoints.some((endpoint) => typeof endpoint === "string" && endpoint.includes("latest.json"));
+      if (!hasLatestJson) {
+        problems.push("plugins.updater.endpoints must include a latest.json endpoint");
+      }
+    }
+    if (typeof updater.pubkey !== "string" || updater.pubkey.trim().length === 0) {
+      problems.push("plugins.updater.pubkey must be configured for signed builds");
     }
   }
-  if (typeof updater.pubkey !== "string" || updater.pubkey.trim().length === 0) {
-    problems.push("plugins.updater.pubkey must be configured");
-  }
+
   return problems;
 };
 
@@ -101,8 +111,12 @@ const main = async () => {
   const policy = JSON.parse(policyRaw);
   const tauriConfig = JSON.parse(tauriRaw);
 
+  // Determine if this is a signed or unsigned build
+  const updater = tauriConfig.plugins?.updater;
+  const isSignedBuild = tauriConfig.bundle?.createUpdaterArtifacts === true && updater?.active === true;
+
   const problems = [
-    ...validateUpdatePolicy(policy).map((problem) => `update-policy: ${problem}`),
+    ...validateUpdatePolicy(policy, isSignedBuild).map((problem) => `update-policy: ${problem}`),
     ...validateTauriUpdater(tauriConfig).map((problem) => `tauri-updater: ${problem}`),
   ];
 
