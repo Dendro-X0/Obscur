@@ -709,6 +709,18 @@ jobs:
           name: streaming-update-assets
           path: ./release-assets/streaming-update
 
+      - name: Collect release files (flatten to avoid directory uploads)
+        shell: bash
+        run: |
+          mkdir -p ./release-files
+          # Find all files (not directories) and copy to flat release-files dir
+          find ./release-assets -type f \
+            \( -name "*.exe" -o -name "*.msi" -o -name "*.dmg" -o -name "*.AppImage" -o -name "*.deb" \
+               -o -name "*.apk" -o -name "*.aab" -o -name "*.ipa" -o -name "*.tar.gz" -o -name "*.json" \) \
+            -exec cp {} ./release-files/ \;
+          echo "Files to be released:"
+          ls -la ./release-files/
+
       - name: Create GitHub Release
         id: create_release
         uses: softprops/action-gh-release@v2
@@ -718,11 +730,4 @@ jobs:
           draft: false
           prerelease: false
           generate_release_notes: true
-          files: |
-            ./release-assets/windows/**/*
-            ./release-assets/macos/**/*
-            ./release-assets/linux/**/*
-            ./release-assets/android/**/*
-            ./release-assets/web/**/*
-            ./release-assets/ios/**/*
-            ./release-assets/streaming-update/**/*
+          files: ./release-files/*
