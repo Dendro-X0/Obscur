@@ -202,24 +202,6 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Configure unsigned desktop CI mode
-        if: ${{ needs.desktop-signing-precheck.outputs.desktop_signing_state != 'signed' }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          node <<'EOF'
-          const fs = require('node:fs');
-          const path = 'apps/desktop/src-tauri/tauri.conf.json';
-          const config = JSON.parse(fs.readFileSync(path, 'utf8'));
-          if (config.bundle) {
-            config.bundle.createUpdaterArtifacts = false;
-          }
-          if (config.plugins?.updater) {
-            config.plugins.updater.pubkey = '';
-          }
-          fs.writeFileSync(path, `${JSON.stringify(config, null, 2)}\n`);
-          EOF
-
       - name: Prepare PWA (Disable Dynamic Routes)
         shell: bash
         run: |

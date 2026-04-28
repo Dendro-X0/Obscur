@@ -1,3 +1,16 @@
+## [v1.4.1] - 2026-04-28
+
+### Fixed
+
+- Hardened the GitHub release workflow for unsigned desktop CI lanes:
+  - desktop release jobs now explicitly detect whether `TAURI_SIGNING_PRIVATE_KEY`
+    is available before bundling signed updater artifacts,
+  - unsigned CI runs temporarily disable Tauri updater artifact generation so
+    Linux and Windows desktop bundles no longer fail just because a public
+    updater key is present in repo config,
+  - release verification now requires `latest.json` only when desktop signing
+    secrets are actually available for that run.
+
 ## [v1.4.0] - 2026-04-27
 
 ### Changed

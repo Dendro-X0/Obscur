@@ -1,6 +1,6 @@
 # Current Session Handoff
 
-- Last Updated (UTC): 2026-04-27T20:30:00Z
+- Last Updated (UTC): 2026-04-28T12:19:26Z
 - Session Status: v1.4.0 RELEASED
 - Active Owner: v1.4.0 final release documentation and CHANGELOG updates
 - Active Owner: v1.4.0 community membership projection rewrite (provider-owned roster projection consumed by primary surfaces)
@@ -718,7 +718,8 @@ Final documentation updates and CHANGELOG completed.
 
 ## Next Atomic Step
 
-Verify restore/merge behavior remains intact after orchestrator extraction. Run focused tests:
+Commit the workflow/changelog update, push the new commit, create and push tag v1.4.1 from the updated commit, then verify the new release workflow run uses desktop_signing_state gating instead of the old unconditional updater signing path.
+
 1. Fresh device restore with community membership and room keys
 2. Existing device merge with incoming backup
 3. Message delete tombstone convergence
@@ -3133,5 +3134,9 @@ Capture `account_sync.backup_restore_merge_diagnostics`, `account_sync.backup_re
   2. Check if member list now shows all members
   3. Check if outgoing messages appear in chat
   4. Report results for further tuning
-
+### 2026-04-28T12:19:26Z checkpoint
+- Summary: Hardened release workflow so desktop tag builds no longer hard-fail when updater signing secrets are unavailable; added desktop-signing precheck, unsigned CI Tauri config patching, conditional latest.json verification, and CHANGELOG v1.4.1 entry for fresh release tag.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Commit the workflow/changelog update, push the new commit, create and push tag v1.4.1 from the updated commit, then verify the new release workflow run uses desktop_signing_state gating instead of the old unconditional updater signing path.
 <!-- CONTEXT_CHECKPOINTS_END -->
