@@ -1,6 +1,6 @@
 # Current Session Handoff
 
-- Last Updated (UTC): 2026-04-28T12:19:26Z
+- Last Updated (UTC): 2026-04-29T03:40:04Z
 - Session Status: v1.4.0 RELEASED
 - Active Owner: v1.4.0 final release documentation and CHANGELOG updates
 - Active Owner: v1.4.0 community membership projection rewrite (provider-owned roster projection consumed by primary surfaces)
@@ -718,7 +718,8 @@ Final documentation updates and CHANGELOG completed.
 
 ## Next Atomic Step
 
-Commit the workflow/changelog update, push the new commit, create and push tag v1.4.1 from the updated commit, then verify the new release workflow run uses desktop_signing_state gating instead of the old unconditional updater signing path.
+Commit the release asset curation update, push the new commit, and publish a fresh tag (recommended v1.4.2) so GitHub creates a clean release page with only curated installer artifacts instead of the bloated v1.4.1 asset set.
+
 
 1. Fresh device restore with community membership and room keys
 2. Existing device merge with incoming backup
@@ -3171,4 +3172,9 @@ Capture `account_sync.backup_restore_merge_diagnostics`, `account_sync.backup_re
 - Evidence: Versions synced across 6 files; validation script updated to recognize unsigned configurations as valid
 - Uncertainty: None
 - Next: Push all changes, force-push v1.4.1 tag, monitor full release workflow
+### 2026-04-29T03:40:04Z checkpoint
+- Summary: Restricted GitHub release asset publication to an explicit allowlist of final deliverables (Windows .exe, macOS .dmg, Linux .AppImage, Android .apk/.aab plus output-metadata.json, web tarball, streaming-update-policy.json, optional latest.json, optional .ipa) so future releases no longer publish entire bundle directories full of irrelevant files.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Commit the release asset curation update, push the new commit, and publish a fresh tag (recommended v1.4.2) so GitHub creates a clean release page with only curated installer artifacts instead of the bloated v1.4.1 asset set.
 <!-- CONTEXT_CHECKPOINTS_END -->

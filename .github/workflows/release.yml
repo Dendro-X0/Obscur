@@ -733,13 +733,38 @@ jobs:
       - name: Collect release files
         shell: bash
         run: |
+          set -euo pipefail
           mkdir -p ./release-files
-          # Copy all files from each artifact directory (artifacts are already clean)
-          for dir in ./release-assets/*/; do
-            if [ -d "$dir" ]; then
-              find "$dir" -type f -exec cp {} ./release-files/ \;
-            fi
-          done
+
+          copy_matches() {
+            local pattern="$1"
+            for file in $pattern; do
+              if [ -f "$file" ]; then
+                cp "$file" ./release-files/
+              fi
+            done
+          }
+
+          # Desktop installers only
+          copy_matches "./release-assets/windows/*.exe"
+          copy_matches "./release-assets/macos/*.dmg"
+          copy_matches "./release-assets/linux/*.AppImage"
+
+          # Mobile deliverables
+          copy_matches "./release-assets/android/*.apk"
+          copy_matches "./release-assets/android/*.aab"
+          copy_matches "./release-assets/android/output-metadata.json"
+
+          # Web/PWA bundle
+          copy_matches "./release-assets/web/*.tar.gz"
+
+          # Release policy / feed assets
+          copy_matches "./release-assets/streaming-update/streaming-update-policy.json"
+          copy_matches "./release-assets/streaming-update/latest.json"
+
+          # Optional iOS IPA
+          copy_matches "./release-assets/ios/*.ipa"
+
           echo "Files to be released:"
           ls -la ./release-files/
           echo "Total release files: $(ls ./release-files/ | wc -l)"
