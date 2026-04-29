@@ -428,7 +428,7 @@ export default function ConnectionProfileView() {
     return (
         <div className="flex h-full min-h-0 flex-col overflow-y-auto bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.12),_transparent_34%),linear-gradient(180deg,rgba(248,250,252,0.96),rgba(241,245,249,1))] text-zinc-900 dark:bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.14),_transparent_36%),linear-gradient(180deg,rgba(3,7,18,0.96),rgba(3,7,18,1))] dark:text-zinc-100">
             {/* Header */}
-            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-zinc-200/70 bg-background/80 p-4 backdrop-blur-xl dark:border-white/10 dark:bg-zinc-950/60">
+            <div className="sticky top-0 z-50 flex items-center justify-between border-b border-zinc-200/70 bg-background/80 p-4 backdrop-blur-xl dark:border-white/10 dark:bg-zinc-950/60">
                 <Button
                     variant="ghost"
                     size="icon"
@@ -718,6 +718,7 @@ export default function ConnectionProfileView() {
                 isOpen={isInviteDialogOpen}
                 onClose={() => setIsInviteDialogOpen(false)}
                 onInvite={handleInviteToGroup}
+                targetPubkey={pk}
             />
 
             <InvitationComposerDialog

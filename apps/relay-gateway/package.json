@@ -1,6 +1,6 @@
 {
   "name": "@obscur/relay-gateway",
-  "version": "1.4.1",
+  "version": "1.4.3",
   "private": true,
   "type": "module",
   "main": "dist/index.js",

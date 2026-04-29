@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { useRelayList } from "@/app/features/relays/hooks/use-relay-list";
 import { useMessaging } from "@/app/features/messaging/providers/messaging-provider";
@@ -29,6 +29,7 @@ const decodeRouteValue = (value: string): string => {
 
 export function useDeepLinks(handleRedeemInvite: (token: string) => Promise<void>) {
     const router = useRouter();
+    const pathname = usePathname();
     const searchParams = useSearchParams();
     const identity = useIdentity();
     const relayList = useRelayList({ publicKeyHex: identity.state.publicKeyHex ?? null });
@@ -139,7 +140,10 @@ export function useDeepLinks(handleRedeemInvite: (token: string) => Promise<void
             relayUrls.forEach(url => relayList.addRelay({ url }));
         }
 
-        if (pubkey) {
+        // Skip deep link redirect to DM if already on profile page - allow profile viewing
+        const isOnProfilePage = pathname?.startsWith("/network/") || pathname?.startsWith("/network/profile");
+        
+        if (pubkey && !isOnProfilePage) {
             const parsed = parsePublicKeyInput(pubkey);
             if (parsed.ok) {
                 queueMicrotask(() => {
@@ -182,5 +186,5 @@ export function useDeepLinks(handleRedeemInvite: (token: string) => Promise<void
         if (handled) {
             handledSearchParamRef.current = cacheKey;
         }
-    }, [searchParams, relayList, identity.state.publicKeyHex, handleRedeemInvite, router, setNewChatPubkey, setNewChatDisplayName, setIsNewChatOpen, createdGroups, createdConnections, setSelectedConversation, unhideConversation]);
+    }, [searchParams, pathname, relayList, identity.state.publicKeyHex, handleRedeemInvite, router, setNewChatPubkey, setNewChatDisplayName, setIsNewChatOpen, createdGroups, createdConnections, setSelectedConversation, unhideConversation]);
 }

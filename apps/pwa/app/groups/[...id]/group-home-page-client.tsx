@@ -15,7 +15,6 @@ import {
     Bell,
     BellOff,
     LogOut,
-    Loader2,
     UserPlus,
     Ban,
     X,
@@ -72,7 +71,7 @@ export default function GroupHomePage() {
     });
     const router = useRouter();
     const { t } = useTranslation();
-    const { createdGroups, communityKnownParticipantDirectoryByConversationId, communityRosterByConversationId, addGroup, leaveGroup } = useGroups();
+    const { createdGroups, communityKnownParticipantDirectoryByConversationId, communityRosterByConversationId, addGroup } = useGroups();
     const { setSelectedConversation } = useMessaging();
     const { state: identityState } = useIdentity();
     const { relayPool } = useRelay();
@@ -81,8 +80,6 @@ export default function GroupHomePage() {
     const isDesktop = useIsDesktop();
     const discoveredRelay = searchParams.get("relay");
     const forceSafeRenderMode = searchParams.get("renderMode") === "safe";
-    const [isLeaving, setIsLeaving] = useState(false);
-    const [isLeaveConfirmOpen, setIsLeaveConfirmOpen] = useState(false);
     const [isMemberListOpen, setIsMemberListOpen] = useState(false);
     const [memberSearchQuery, setMemberSearchQuery] = useState("");
     const [onlinePage, setOnlinePage] = useState(1);
@@ -166,7 +163,6 @@ export default function GroupHomePage() {
     const {
         state: groupState,
         updateMetadata,
-        leaveGroup: leaveNip29Group,
         requestJoin: requestJoinNip29
     } = useSealedCommunity({
         groupId: group?.groupId || id || "",
@@ -550,21 +546,6 @@ export default function GroupHomePage() {
         setIsBlockConfirmOpen(true);
     };
 
-    const handleLeave = async () => {
-        setIsLeaving(true);
-        try {
-            await leaveNip29Group();
-            leaveGroup({ groupId: group!.groupId, relayUrl: group!.relayUrl, conversationId: group!.id });
-            router.push("/network");
-            toast.success("Left community");
-        } catch (error) {
-            toast.error("Failed to leave community");
-        } finally {
-            setIsLeaving(false);
-            setIsLeaveConfirmOpen(false);
-        }
-    };
-
     const displayName = groupState.metadata?.name || group?.displayName || "Community";
     const aboutText = groupState.metadata?.about || group?.about || "This resilient community is built on decentralized protocols. Privacy first, always.";
     const avatarUrl = groupState.metadata?.picture || group?.avatar;
@@ -811,11 +792,19 @@ export default function GroupHomePage() {
 
                                                 <Button
                                                     variant="ghost"
-                                                    onClick={() => setIsLeaveConfirmOpen(true)}
-                                                    disabled={isLeaving}
+                                                    onClick={() => {
+                                                        const target = new URLSearchParams();
+                                                        target.set("id", resolvedGroupId || group?.groupId || id || "");
+                                                        target.set("relay", effectiveRelay);
+                                                        target.set("name", displayName);
+                                                        if (group?.communityId) {
+                                                            target.set("communityId", group.communityId);
+                                                        }
+                                                        router.push(`/groups/leave?${target.toString()}`);
+                                                    }}
                                                     className="h-14 w-14 rounded-xl text-rose-500 hover:bg-rose-500/10 transition-all hover:scale-110 active:scale-90"
                                                 >
-                                                    {isLeaving ? <Loader2 className="h-6 w-6 animate-spin" /> : <LogOut className="h-6 w-6" />}
+                                                    <LogOut className="h-6 w-6" />
                                                 </Button>
                                             </>
                                         )}
@@ -1166,18 +1155,6 @@ export default function GroupHomePage() {
                     cancelLabel="Cancel"
                     variant="danger"
                 />
-
-                <ConfirmDialog
-                    isOpen={isLeaveConfirmOpen}
-                    onClose={() => setIsLeaveConfirmOpen(false)}
-                    onConfirm={handleLeave}
-                    title="Leave Community"
-                    description={`Are you sure you want to leave "${displayName}"? You will miss out on future updates and conversations.`}
-                    confirmLabel="Leave Community"
-                    cancelLabel="Stay for now"
-                    variant="danger"
-                    isLoading={isLeaving}
-                />
             </div>
         </PageShell>
     );
@@ -1240,5 +1217,3 @@ function MemberProfileRow({
         </button>
     );
 }
-
-

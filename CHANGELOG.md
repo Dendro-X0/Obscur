@@ -1,3 +1,22 @@
+## [v1.4.3] - 2026-04-28
+
+### Added
+
+- **Duplicate invitation prevention** in "Invite to Group" dialog:
+  - Added check to detect if a contact is already a member of the target group,
+  - Groups where the target is already a member show a green checkmark and "Already a member" label,
+  - Disabled button state prevents clicking on already-member groups,
+  - Improved UX prevents users from accidentally re-inviting existing members.
+
+### Changed
+
+- **Light/dark theme compatibility** for dialog components:
+  - `ConfirmDialog` now uses theme-aware colors (`bg-white` light, `dark:bg-[#0b0b10]` dark),
+  - `InviteToGroupDialog` supports both light and dark themes,
+  - `LeaveCommunityPage` fully themed with proper gradient backgrounds for both modes,
+  - "Stay in Community" button now has white text in both themes,
+  - "Confirm Exit" section uses distinct rose-tinted gradients for each theme.
+
 ## [v1.4.1] - 2026-04-28
 
 ### Changed

@@ -2,7 +2,6 @@
 
 import React, { useState } from "react";
 import { Button } from "../../../components/ui/button";
-import { Card } from "../../../components/ui/card";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
 import { Textarea } from "../../../components/ui/textarea";
@@ -25,6 +24,13 @@ import {
     assessRelayCapability,
     type RelayCapabilityAssessment,
 } from "../services/community-mode-contract";
+
+const RELAY_SUGGESTIONS = [
+    { url: "nos.lol", type: "General" },
+    { url: "groups.fiatjaf.com", type: "NIP-29" },
+    { url: "relay.nostr.band", type: "General" },
+    { url: "relay.damus.io", type: "General" },
+];
 
 export interface GroupCreateInfo {
     host: string;
@@ -71,13 +77,6 @@ export function CreateGroupDialog({ isOpen, onClose, onCreate, isCreating }: Cre
         communityMode: "sovereign_room",
     }));
 
-    const RELAY_SUGGESTIONS = [
-        { url: "nos.lol", type: "General" },
-        { url: "groups.fiatjaf.com", type: "NIP-29" },
-        { url: "relay.nostr.band", type: "General" },
-        { url: "relay.damus.io", type: "General" },
-    ];
-
     const allRelays = React.useMemo(() => {
         const consolidated = [...RELAY_SUGGESTIONS.map(r => ({ url: r.url, type: r.type, isSuggestion: true }))];
 
@@ -109,7 +108,7 @@ export function CreateGroupDialog({ isOpen, onClose, onCreate, isCreating }: Cre
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4 backdrop-blur-md animate-in fade-in duration-200">
-            <Card className="w-full max-w-3xl max-h-[90vh] bg-white dark:bg-[#0a0a0c] border-zinc-200 dark:border-[#1a1a1c] shadow-2xl p-0 overflow-hidden rounded-[20px] flex flex-col">
+            <div className="w-full max-w-3xl max-h-[90vh] bg-[#fafafa] dark:bg-[#121214] border border-zinc-200 dark:border-[#1a1a1c] shadow-2xl overflow-hidden rounded-[20px] flex flex-col">
                 {/* Header - Compact */}
                 <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-100 dark:border-[#1a1a1c] bg-zinc-50/50 dark:bg-[#0f0f11]/50 shrink-0">
                     <div className="flex items-center gap-3">
@@ -215,20 +214,21 @@ export function CreateGroupDialog({ isOpen, onClose, onCreate, isCreating }: Cre
                                         placeholder="e.g. groups.fiatjaf.com"
                                         className="bg-zinc-50 dark:bg-[#121214] border-zinc-200 dark:border-[#222224] text-zinc-900 dark:text-white rounded-xl h-11 focus-visible:ring-primary/40 pr-28 text-sm font-medium"
                                     />
-                                    <div className="absolute right-1.5 top-1.5 bottom-1.5">
+                                    <div className="absolute inset-y-1.5 right-1.5 flex items-center">
                                         <DropdownMenu>
                                             <DropdownMenuTrigger asChild>
-                                                <Button
-                                                    variant="ghost"
-                                                    className="h-full px-3 rounded-lg text-[10px] font-black uppercase tracking-wider text-primary dark:text-primary hover:bg-primary/10"
+                                                <button
+                                                    type="button"
+                                                    className="inline-flex h-8 min-w-[96px] items-center justify-center gap-1.5 rounded-lg border border-transparent bg-zinc-100 px-3 text-[10px] font-black uppercase tracking-wider text-zinc-800 transition-colors hover:bg-zinc-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 dark:bg-[#2a2b33] dark:text-zinc-100 dark:hover:bg-[#343641]"
                                                 >
                                                     {t("common.select", "Select")}
                                                     <ChevronDown className="ml-1.5 h-3 w-3" />
-                                                </Button>
+                                                </button>
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent
                                                 align="end"
-                                                className="z-[200] w-56 rounded-2xl p-2 bg-white/95 dark:bg-[#0a0a0c]/95 backdrop-blur-2xl border border-zinc-200 dark:border-[#1a1a1c] shadow-2xl"
+                                                sideOffset={8}
+                                                className="z-[200] w-56 rounded-2xl p-2 bg-white dark:bg-[#0f0f11] border border-zinc-200 dark:border-[#1a1a1c] shadow-2xl"
                                             >
                                                 <div className="px-3 py-2 text-[9px] font-black uppercase tracking-[0.15em] text-zinc-400">
                                                     {t("groups.availableRelays", "Available Relays")}
@@ -239,7 +239,7 @@ export function CreateGroupDialog({ isOpen, onClose, onCreate, isCreating }: Cre
                                                             key={relay.url}
                                                             onClick={() => setInfo(prev => ({ ...prev, host: relay.url }))}
                                                             className={cn(
-                                                                "flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer transition-all text-sm",
+                                                                "flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer text-sm transition-colors duration-150 ease-out",
                                                                 info.host === relay.url
                                                                     ? "bg-primary/10 text-primary"
                                                                     : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-[#121214]"
@@ -465,7 +465,7 @@ export function CreateGroupDialog({ isOpen, onClose, onCreate, isCreating }: Cre
                         {createActionLabel}
                     </Button>
                 </div>
-            </Card>
+            </div>
         </div>
     );
 }
