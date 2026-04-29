@@ -709,17 +709,31 @@ jobs:
           name: streaming-update-assets
           path: ./release-assets/streaming-update
 
-      - name: Collect release files (flatten to avoid directory uploads)
+      - name: Collect release files (selective - only distributable artifacts)
         shell: bash
         run: |
           mkdir -p ./release-files
-          # Find all files (not directories) and copy to flat release-files dir
-          find ./release-assets -type f \
-            \( -name "*.exe" -o -name "*.msi" -o -name "*.dmg" -o -name "*.AppImage" -o -name "*.deb" \
-               -o -name "*.apk" -o -name "*.aab" -o -name "*.ipa" -o -name "*.tar.gz" -o -name "*.json" \) \
-            -exec cp {} ./release-files/ \;
+          # Copy only the actual installer/bundle artifacts, not build intermediates
+          # Windows: .exe, .msi
+          find ./release-assets/windows -maxdepth 2 -type f \( -name "*.exe" -o -name "*.msi" \) -exec cp {} ./release-files/ \; 2>/dev/null || true
+          # macOS: .dmg
+          find ./release-assets/macos -maxdepth 2 -type f -name "*.dmg" -exec cp {} ./release-files/ \; 2>/dev/null || true
+          # Linux: .AppImage, .deb (avoid .so files and build scripts)
+          find ./release-assets/linux -maxdepth 2 -type f \( -name "*.AppImage" -o -name "*.deb" \) -exec cp {} ./release-files/ \; 2>/dev/null || true
+          # Android: .apk, .aab
+          find ./release-assets/android -maxdepth 3 -type f \( -name "*.apk" -o -name "*.aab" \) -exec cp {} ./release-files/ \; 2>/dev/null || true
+          # iOS: .ipa
+          find ./release-assets/ios -maxdepth 2 -type f -name "*.ipa" -exec cp {} ./release-files/ \; 2>/dev/null || true
+          # Web: .tar.gz
+          find ./release-assets/web -maxdepth 2 -type f -name "*.tar.gz" -exec cp {} ./release-files/ \; 2>/dev/null || true
+          # Streaming update: only the policy json, not intermediate files
+          find ./release-assets/streaming-update -maxdepth 2 -type f -name "streaming-update-policy.json" -exec cp {} ./release-files/ \; 2>/dev/null || true
+          # Android metadata (optional but useful)
+          find ./release-assets/android -maxdepth 3 -type f -name "output-metadata.json" -exec cp {} ./release-files/ \; 2>/dev/null || true
+
           echo "Files to be released:"
           ls -la ./release-files/
+          echo "Total release files: $(ls ./release-files/ | wc -l)"
 
       - name: Create GitHub Release
         id: create_release
