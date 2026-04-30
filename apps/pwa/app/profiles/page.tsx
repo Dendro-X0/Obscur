@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button, ConfirmDialog, Input, toast } from "@dweb/ui-kit";
+import { Button, Input, toast } from "@dweb/ui-kit";
 import { ArrowLeft, Plus, Settings2, SquareArrowOutUpRight, Trash2 } from "lucide-react";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { PageShell } from "@/app/components/page-shell";
@@ -31,6 +31,7 @@ export default function ProfilesPage(): React.JSX.Element {
   const [newLabel, setNewLabel] = useState("");
   const [removeTarget, setRemoveTarget] = useState<Readonly<{ profileId: string; label: string }> | null>(null);
   const [isRemovingProfile, setIsRemovingProfile] = useState(false);
+
   const [previewByProfileId, setPreviewByProfileId] = useState<Readonly<Record<string, DesktopProfilePreview | undefined>>>({});
   const currentPublicKeyHex = identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex ?? undefined;
   const sessionMismatch = deriveDesktopProfileSessionMismatch({
@@ -141,8 +142,9 @@ export default function ProfilesPage(): React.JSX.Element {
       await desktopProfileRuntime.removeProfile(removeTarget.profileId);
       await clearProfileLocalData(removeTarget.profileId);
       setRemoveTarget(null);
-      toast.success("Profile removed.");
+      toast.success("Profile and all associated data removed.");
     } catch (error) {
+      console.error("[ProfilesPage] Failed to remove profile:", error);
       toast.error(error instanceof Error ? error.message : "Failed to remove profile.");
     } finally {
       setIsRemovingProfile(false);
@@ -270,23 +272,35 @@ export default function ProfilesPage(): React.JSX.Element {
           </aside>
         </div>
       </div>
-      <ConfirmDialog
-        isOpen={Boolean(removeTarget)}
-        onClose={() => {
-          if (!isRemovingProfile) {
-            setRemoveTarget(null);
-          }
-        }}
-        onConfirm={confirmRemoveProfile}
-        title="Remove Profile"
-        description={removeTarget
-          ? `Remove profile "${removeTarget.label}" from this device? This will delete local data for that profile in this app.`
-          : "Remove this profile from this device?"}
-        confirmLabel="Remove"
-        cancelLabel="Keep Profile"
-        variant="danger"
-        isLoading={isRemovingProfile}
-      />
+      {/* Inline confirmation - temporary replacement for ConfirmDialog */}
+      {removeTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+          <div className="w-full max-w-md rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl">
+            <h3 className="text-xl font-bold text-white">Remove Profile</h3>
+            <p className="mt-2 text-zinc-300">
+              Remove profile &quot;{removeTarget.label}&quot;? This deletes local data and the key.
+            </p>
+            <div className="mt-6 flex gap-3">
+              <Button
+                variant="secondary"
+                className="flex-1"
+                onClick={() => setRemoveTarget(null)}
+                disabled={isRemovingProfile}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                className="flex-1"
+                onClick={() => void confirmRemoveProfile()}
+                disabled={isRemovingProfile}
+              >
+                {isRemovingProfile ? "Removing..." : "Remove"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </PageShell>
   );
 }

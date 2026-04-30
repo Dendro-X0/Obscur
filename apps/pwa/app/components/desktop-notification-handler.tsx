@@ -15,6 +15,7 @@ import { discoveryCache } from "@/app/features/search/services/discovery-cache";
 import { useGlobalVoiceCallOverlayState } from "@/app/features/messaging/services/realtime-voice-global-ui-store";
 import { isMessageNotificationEnabledForIncomingEvent } from "@/app/features/notifications/utils/notification-target-preference";
 import type { Conversation } from "@/app/features/messaging/types";
+import { useAccountSyncSnapshot } from "@/app/features/account-sync/hooks/use-account-sync-snapshot";
 import {
     buildConversationNotificationHref,
     buildIncomingCallNotificationPresentation,
@@ -89,6 +90,7 @@ export const DesktopNotificationHandler = () => {
     const { selectedConversation, chatsUnreadCount, setUnreadByConversationId, createdConnections } = useMessaging();
     const { showNotification, enabled, channels } = useDesktopNotifications();
     const globalVoiceOverlay = useGlobalVoiceCallOverlayState();
+    const accountSyncSnapshot = useAccountSyncSnapshot();
     const unsubscribeRef = useRef<(() => void) | null>(null);
     const recentlyNotifiedMessageIdsRef = useRef<Map<string, number>>(new Map());
     const recentlyNotifiedCallKeysRef = useRef<Map<string, number>>(new Map());
@@ -505,6 +507,13 @@ export const DesktopNotificationHandler = () => {
             if (event.message.isOutgoing) {
                 return;
             }
+            // CRITICAL FIX: Skip notifications during account sync/restore
+            // Historical messages restored during account sync should not trigger
+            // "new message" notifications. Only live messages after sync is complete
+            // should notify the user.
+            if (accountSyncSnapshot.phase !== "ready") {
+                return;
+            }
             const messageUnixMs = (
                 event.message.eventCreatedAt?.getTime()
                 ?? event.message.timestamp.getTime()
@@ -673,7 +682,7 @@ export const DesktopNotificationHandler = () => {
         return (): void => {
             unsubscribeRef.current?.();
         };
-    }, [channels.dmMessages, createdConnections, enabled, enqueueInAppMessageToast, globalVoiceOverlay.status?.phase, notifyIncomingCall, pathname, playSubtleMessageTone, selectedConversation?.id, showNotification]);
+    }, [accountSyncSnapshot.phase, channels.dmMessages, createdConnections, enabled, enqueueInAppMessageToast, globalVoiceOverlay.status?.phase, notifyIncomingCall, pathname, playSubtleMessageTone, selectedConversation?.id, showNotification]);
 
     useEffect((): void => {
         const status = globalVoiceOverlay.status;

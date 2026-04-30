@@ -2301,20 +2301,27 @@ function NostrMessengerContent() {
         );
         const replayDecision = resolveBootstrappedVoiceInviteReplayDecision({
           statusMatches,
+          invitedAtUnixMs: invite.invitedAtUnixMs,
+          expiresAtUnixMs: invite.expiresAtUnixMs,
+          nowUnixMs: Date.now(),
         });
         if (!replayDecision.shouldReplay) {
           processed.add(message.id);
+          const logContext: Record<string, string | number | boolean | null> = {
+            payloadType: "voice-call-invite",
+            roomIdHint: toRoomIdHint(invite.roomId),
+            peerPubkeySuffix: peerPubkey.slice(-8),
+            reasonCode: replayDecision.reasonCode,
+            statusMatches,
+          };
+          if (typeof invite.invitedAtUnixMs === "number") {
+            logContext.invitedAtUnixMs = invite.invitedAtUnixMs;
+          }
           logAppEvent({
             name: "messaging.realtime_voice.bootstrap_history_replay_ignored",
             level: "info",
             scope: { feature: "messaging", action: "realtime_voice_invite" },
-            context: {
-              payloadType: "voice-call-invite",
-              roomIdHint: toRoomIdHint(invite.roomId),
-              peerPubkeySuffix: peerPubkey.slice(-8),
-              reasonCode: replayDecision.reasonCode,
-              statusMatches,
-            },
+            context: logContext,
           });
           return;
         }

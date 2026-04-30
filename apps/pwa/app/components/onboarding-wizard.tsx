@@ -6,7 +6,7 @@ import Image from "next/image";
 import { useTranslation } from "react-i18next";
 import type { Passphrase } from "@dweb/crypto/passphrase";
 import { decryptPrivateKeyHex } from "@dweb/crypto/decrypt-private-key-hex";
-import { useIdentity } from "@/app/features/auth/hooks/use-identity";
+import { useIdentity, type CreateIdentityProgress } from "@/app/features/auth/hooks/use-identity";
 import { useProfile } from "@/app/features/profile/hooks/use-profile";
 import { useProfilePublisher } from "@/app/features/profile/hooks/use-profile-publisher";
 import { Button } from "./ui/button";
@@ -45,6 +45,10 @@ export const OnboardingWizard = (props: OnboardingWizardProps): React.JSX.Elemen
   const [resolvedProfile, setResolvedProfile] = useState<ResolvedInvite | null>(null);
   const [error, setError] = useState<string>("");
 
+  // PoW progress tracking
+  const [powProgress, setPowProgress] = useState<CreateIdentityProgress | null>(null);
+  const [powAbortController, setPowAbortController] = useState<AbortController | null>(null);
+
   const identity = useIdentity();
   const profile = useProfile();
   const { resolveCode, isResolving, error: resolveError } = useInviteResolver({
@@ -75,9 +79,22 @@ export const OnboardingWizard = (props: OnboardingWizardProps): React.JSX.Elemen
 
     setStep("creating");
     setError("");
+    setPowProgress(null);
+
+    // Create abort controller for cancellation support
+    const abortController = new AbortController();
+    setPowAbortController(abortController);
 
     try {
-      await identity.createIdentity({ passphrase: quickPassword as Passphrase });
+      // Use PoW identity creation with progress tracking
+      await identity.createPoWIdentity({
+        passphrase: quickPassword as Passphrase,
+        difficulty: "medium",
+        onProgress: (progress) => {
+          setPowProgress(progress);
+        },
+        signal: abortController.signal,
+      });
 
       const stored = await getStoredIdentity();
       if (!stored.record) {
@@ -95,12 +112,27 @@ export const OnboardingWizard = (props: OnboardingWizardProps): React.JSX.Elemen
         pin: quickPassword
       });
 
+      // Clear progress and abort controller on success
+      setPowProgress(null);
+      setPowAbortController(null);
+
       // Move to username step
       setStep("username");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create identity");
+      // Don't show error if user aborted
+      if (err instanceof Error && err.message === "PoW generation aborted") {
+        setError("Identity creation was cancelled");
+      } else {
+        setError(err instanceof Error ? err.message : "Failed to create identity");
+      }
       setStep("welcome");
+      setPowProgress(null);
+      setPowAbortController(null);
     }
+  };
+
+  const handleCancelCreation = (): void => {
+    powAbortController?.abort();
   };
 
   const handleSetUsername = async (): Promise<void> => {
@@ -319,8 +351,12 @@ export const OnboardingWizard = (props: OnboardingWizardProps): React.JSX.Elemen
     );
   }
 
-  // Creating Identity Screen
+  // Creating Identity Screen with PoW progress
   if (step === "creating") {
+    const progressPercent = powProgress
+      ? Math.min(100, Math.round((powProgress.attempts / 256) * 100)) // 256 is expected for medium difficulty
+      : 0;
+
     return (
       <div className="flex min-h-screen items-center justify-center p-4">
         <Card className="w-full max-w-md">
@@ -330,12 +366,50 @@ export const OnboardingWizard = (props: OnboardingWizardProps): React.JSX.Elemen
             </div>
             <div>
               <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-50">
-                {t("onboarding.creating.title")}
+                Securing your identity...
               </h2>
               <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-                {t("onboarding.creating.desc")}
+                This prevents automated account creation and keeps Obscur secure. It takes just a few seconds.
               </p>
             </div>
+
+            {/* Progress Bar */}
+            <div className="space-y-2">
+              <div className="h-2 w-full rounded-full bg-zinc-200 dark:bg-zinc-800">
+                <div
+                  className="h-2 rounded-full bg-purple-600 transition-all duration-300 dark:bg-purple-400"
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+              <div className="flex justify-between text-xs text-zinc-500 dark:text-zinc-400">
+                <span>{powProgress ? `${powProgress.attempts.toLocaleString()} hashes computed` : "Starting..."}</span>
+                <span>{powProgress ? `${powProgress.hashesPerSecond.toLocaleString()} H/s` : ""}</span>
+              </div>
+            </div>
+
+            {/* Stats */}
+            {powProgress && (
+              <div className="rounded-lg bg-zinc-50 p-3 text-xs text-zinc-600 dark:bg-zinc-900/50 dark:text-zinc-400">
+                <div className="flex justify-between">
+                  <span>Time elapsed:</span>
+                  <span>{Math.round(powProgress.elapsedMs / 1000)}s</span>
+                </div>
+                <div className="flex justify-between mt-1">
+                  <span>Difficulty:</span>
+                  <span>Medium (~2-3 seconds)</span>
+                </div>
+              </div>
+            )}
+
+            {/* Cancel Button */}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleCancelCreation}
+              className="w-full"
+            >
+              Cancel
+            </Button>
           </div>
         </Card>
       </div>

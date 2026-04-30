@@ -8,6 +8,10 @@ import type { Passphrase } from "@dweb/crypto/passphrase";
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { clearStoredIdentity } from "../utils/clear-stored-identity";
+import {
+  generatePoWIdentity,
+  type PoWDifficulty,
+} from "../services/pow-key-generator";
 import { getStoredIdentity } from "../utils/get-stored-identity";
 import { saveStoredIdentity } from "../utils/save-stored-identity";
 import {
@@ -42,9 +46,22 @@ export type IdentityState = Readonly<{
   error?: string;
 }>;
 
+export type CreateIdentityProgress = Readonly<{
+  attempts: number;
+  elapsedMs: number;
+  hashesPerSecond: number;
+}>;
+
 type UseIdentityResult = Readonly<{
   state: IdentityState;
   createIdentity: (params: Readonly<{ passphrase: Passphrase; username?: string }>) => Promise<void>;
+  createPoWIdentity: (params: Readonly<{
+    passphrase: Passphrase;
+    username?: string;
+    difficulty?: PoWDifficulty;
+    onProgress?: (progress: CreateIdentityProgress) => void;
+    signal?: AbortSignal;
+  }>) => Promise<void>;
   importIdentity: (params: Readonly<{ privateKeyHex: PrivateKeyHex; passphrase: Passphrase; username?: string }>) => Promise<void>;
   unlockIdentity: (params: Readonly<{ passphrase: Passphrase }>) => Promise<void>;
   unlockWithPrivateKeyHex: (params: Readonly<{ privateKeyHex: PrivateKeyHex }>) => Promise<void>;
@@ -175,6 +192,7 @@ export const useIdentity = (): UseIdentityResult => {
   return useMemo(() => ({
     state,
     createIdentity: createIdentityAction,
+    createPoWIdentity: createPoWIdentityAction,
     importIdentity: importIdentityAction,
     unlockIdentity: unlockIdentityAction,
     unlockWithPrivateKeyHex: unlockWithPrivateKeyHexAction,
@@ -452,6 +470,58 @@ const createIdentityAction = async (params: Readonly<{ passphrase: Passphrase; u
     const { privateKeyHex } = assertIdentityKeyPair({
       privateKeyHex: decryptedPrivateKeyHex,
       expectedPublicKeyHex: record.publicKeyHex
+    });
+
+    setIdentityState(createUnlockedState({ stored: record, privateKeyHex }));
+    recordIdentityActivationRisk(record.publicKeyHex);
+    void syncNativeSessionInBackground({
+      publicKeyHex: record.publicKeyHex,
+      privateKeyHex,
+      stored: record,
+      context: "create",
+    });
+  } catch (error: unknown) {
+    const message: string = error instanceof Error ? error.message : "Unknown error";
+    setIdentityState(createErrorState(message, record));
+    throw error;
+  }
+};
+
+const createPoWIdentityAction = async (params: Readonly<{
+  passphrase: Passphrase;
+  username?: string;
+  difficulty?: PoWDifficulty;
+  onProgress?: (progress: CreateIdentityProgress) => void;
+  signal?: AbortSignal;
+}>): Promise<void> => {
+  let record: IdentityRecord | undefined;
+  try {
+    const powResult = await generatePoWIdentity(
+      params.difficulty ?? "medium",
+      params.onProgress,
+      params.signal,
+    );
+    const encryptedPrivateKey: string = await encryptPrivateKeyHex({
+      privateKeyHex: powResult.privateKeyHex,
+      passphrase: params.passphrase,
+    });
+    record = {
+      encryptedPrivateKey,
+      publicKeyHex: powResult.publicKeyHex,
+      username: params.username,
+    };
+    await ensureIdentityProfileBinding({
+      publicKeyHex: record.publicKeyHex,
+      username: record.username,
+    });
+    await saveStoredIdentity({ record });
+    const decryptedPrivateKeyHex: PrivateKeyHex = await decryptPrivateKeyHex({
+      payload: record.encryptedPrivateKey,
+      passphrase: params.passphrase,
+    });
+    const { privateKeyHex } = assertIdentityKeyPair({
+      privateKeyHex: decryptedPrivateKeyHex,
+      expectedPublicKeyHex: record.publicKeyHex,
     });
 
     setIdentityState(createUnlockedState({ stored: record, privateKeyHex }));

@@ -923,6 +923,7 @@ export const useEnhancedDMController = (
           projectionRuntimeSnapshot.accountProjectionReady
           && projectionRuntimeSnapshot.accountPublicKeyHex === p.myPublicKeyHex
         ),
+        accountPublicKeyHex: projectionRuntimeSnapshot.accountPublicKeyHex ?? undefined,
       },
       messageQueue,
       processingEvents: processingEvents.current,

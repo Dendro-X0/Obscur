@@ -121,6 +121,7 @@ export type IncomingDmParams = Readonly<{
   transportOwnerId?: string | null;
   controllerInstanceId?: string;
   accountProjectionReady?: boolean;
+  accountPublicKeyHex?: PublicKeyHex;
 }>;
 
 export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: ReadonlyArray<Message> }>>(params: Readonly<{
@@ -624,11 +625,21 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
     const hasAcceptedRequestState = requestState?.status === "accepted";
     const requestEvidence = requestFlowEvidenceStore.get(actualSenderPubkey);
     const conversationId = [currentParams.myPublicKeyHex, actualSenderPubkey].sort().join(":");
+    // Check historical conversation evidence as a fallback when:
+    // 1. Account projection is not ready (still loading), OR
+    // 2. Projection is ready but for a different account (key mismatch - projection not fully synced)
+    // This ensures messages from known contacts aren't blocked during these transient states.
+    const projectionKeyMismatch = (
+      currentParams.accountProjectionReady === true
+      && currentParams.myPublicKeyHex !== undefined
+      && currentParams.accountPublicKeyHex !== undefined
+      && currentParams.myPublicKeyHex !== currentParams.accountPublicKeyHex
+    );
     const shouldCheckHistoricalConversationEvidence = (
-      currentParams.accountProjectionReady === false
-      && !isAcceptedByTrust
-      && !isAcceptedByProjection
-      && !hasAcceptedRequestState
+      (!isAcceptedByTrust
+        && !isAcceptedByProjection
+        && !hasAcceptedRequestState)
+      && (currentParams.accountProjectionReady === false || projectionKeyMismatch)
     );
     let hasHistoricalConversationEvidence = false;
     if (shouldCheckHistoricalConversationEvidence) {

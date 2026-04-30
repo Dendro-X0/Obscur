@@ -1,3 +1,22 @@
+## [v1.4.4] - 2026-04-29
+
+### Added
+
+- **Proof-of-Work (PoW) account creation** to prevent automated bot signups:
+  - New accounts require computational work (~2-3 seconds) during key generation,
+  - Onboarding wizard shows real-time progress with hash count, rate, and time elapsed,
+  - Users can cancel the process at any time,
+  - Implemented `generatePoWIdentity()` with configurable difficulty (light/medium/hard),
+  - Medium difficulty (8 leading zero bits) selected as default balance between security and UX.
+
+### Fixed
+
+- **B→A DM visibility gap** - messages from Account B not appearing in real-time for Account A:
+  - Root cause: Historical conversation evidence check only ran when `accountProjectionReady === false`,
+  - Bug occurred when projection was ready but `accountPublicKeyHex` mismatched current identity,
+  - Fixed by also checking historical evidence when projection key mismatch detected,
+  - Added `accountPublicKeyHex` parameter to `handleIncomingDmEvent` for key comparison.
+
 ## [v1.4.3] - 2026-04-28
 
 ### Added

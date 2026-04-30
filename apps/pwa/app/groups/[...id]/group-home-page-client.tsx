@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useTranslation } from "react-i18next";
@@ -217,13 +217,25 @@ export default function GroupHomePage() {
         [authorEvidencePubkeys, groupState.expelledMembers, groupState.leftMembers, localMemberPubkey, projectionMemberPubkeys, seededMemberEvidence]
     );
     const [stableParticipantPubkeys, setStableParticipantPubkeys] = useState<ReadonlyArray<PublicKeyHex>>(activeMembers);
+    const leftMembersRef = useRef<ReadonlyArray<PublicKeyHex>>(groupState.leftMembers);
+    const expelledMembersRef = useRef<ReadonlyArray<PublicKeyHex>>(groupState.expelledMembers);
+
+    // Keep refs in sync with state to avoid stale closure issues in stabilization
+    useEffect(() => {
+        leftMembersRef.current = groupState.leftMembers;
+        expelledMembersRef.current = groupState.expelledMembers;
+    }, [groupState.leftMembers, groupState.expelledMembers]);
+
     useEffect(() => {
         setStableParticipantPubkeys((previous) => {
+            // Use refs to ensure we have the latest left/expelled lists
+            // This prevents race conditions where activeMembers is computed with new data
+            // but groupState hasn't propagated to the effect closure yet
             const result = stabilizeCommunityMemberPubkeys({
                 previousMemberPubkeys: previous,
                 nextMemberPubkeys: activeMembers,
-                leftMemberPubkeys: groupState.leftMembers,
-                expelledMemberPubkeys: groupState.expelledMembers,
+                leftMemberPubkeys: leftMembersRef.current,
+                expelledMemberPubkeys: expelledMembersRef.current,
             });
             // Log diagnostics for debugging member list updates
             if (result.shouldApply || result.reasonCode === "missing_removal_evidence") {
@@ -233,13 +245,15 @@ export default function GroupHomePage() {
                     shouldApply: result.shouldApply,
                     previousCount: previous.length,
                     nextCount: result.nextMemberPubkeys.length,
+                    leftCount: leftMembersRef.current.length,
+                    expelledCount: expelledMembersRef.current.length,
                     confidence: result.confidence,
                     guardRelaxed: result.guardRelaxed,
                 });
             }
             return result.nextMemberPubkeys.join(",") === previous.join(",") ? previous : result.nextMemberPubkeys;
         });
-    }, [activeMembers, groupState.expelledMembers, groupState.leftMembers]);
+    }, [activeMembers]);
     const fallbackGroupIdFromRoute = React.useMemo(() => {
         const routeToken = (id ?? "").trim();
         if (!routeToken) {

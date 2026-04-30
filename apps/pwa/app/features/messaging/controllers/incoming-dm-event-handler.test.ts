@@ -1181,6 +1181,58 @@ describe("incoming-dm-event-handler", () => {
         expect(upsertIncoming).not.toHaveBeenCalled();
     });
 
+    it("keeps inbound DMs for historically-known peers when projection key mismatches current identity", async () => {
+        const upsertIncoming = vi.fn();
+        const persistMessage = vi.fn(async () => undefined);
+        const event = {
+            id: "event-history-key-mismatch",
+            pubkey: SENDER_PUBLIC_KEY,
+            kind: 4,
+            created_at: 1456,
+            content: "cipher-history-mismatch",
+            tags: [["p", MY_PUBLIC_KEY]],
+        } as unknown as NostrEvent;
+
+        await handleIncomingDmEvent({
+            event,
+            currentParams: {
+                myPrivateKeyHex: "private-key",
+                myPublicKeyHex: MY_PUBLIC_KEY,
+                accountProjectionReady: true,
+                accountPublicKeyHex: "different-public-key", // Key mismatch - projection for wrong account
+                peerTrust: {
+                    isAccepted: () => false,
+                    acceptPeer: vi.fn(),
+                },
+                requestsInbox: {
+                    upsertIncoming,
+                    getRequestStatus: () => null,
+                    setStatus: vi.fn(),
+                },
+            },
+            messageQueue: {
+                getMessage: vi.fn(async () => null),
+                getLastMessageTimestamp: vi.fn(async () => new Date(1450 * 1000)),
+                persistMessage,
+            } as any,
+            processingEvents: new Set<string>(),
+            failedDecryptEvents: new Set<string>(),
+            existingMessages: [],
+            maxMessagesInMemory: 100,
+            syncConversationTimestamps: new Map<string, Date>(),
+            activeSubscriptions: new Map(),
+            scheduleUiUpdate: (fn) => fn(),
+            setState: vi.fn(),
+            createReadyState: (messages) => ({ messages }),
+            messageMemoryManager: { addMessages: vi.fn() },
+            uiPerformanceMonitor: { startTracking: () => () => ({ totalTime: 0 }) },
+        });
+
+        // Should accept the message based on historical evidence because projection key mismatches
+        expect(persistMessage).toHaveBeenCalledTimes(1);
+        expect(upsertIncoming).not.toHaveBeenCalled();
+    });
+
     it("does not bypass unknown-sender drop in ready state based on stale history alone", async () => {
         const upsertIncoming = vi.fn();
         const persistMessage = vi.fn(async () => undefined);

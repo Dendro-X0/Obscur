@@ -1,12 +1,104 @@
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
+use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder, Window};
 use tokio::sync::Mutex;
 use std::fs;
 
+use crate::session::SessionState;
+
 const REGISTRY_FILE: &str = "profiles_registry.json";
+const APP_SERVICE: &str = "app.obscur.desktop";
+const KEY_NAME: &str = "nsec";
 const DEFAULT_PROFILE_ID: &str = "default";
 const DEFAULT_PROFILE_LABEL: &str = "Default";
+
+fn key_name_for_profile(profile_id: &str) -> String {
+    format!("{KEY_NAME}::{profile_id}")
+}
+
+/// Clear the profile data directory containing WebView storage (IndexedDB, localStorage, etc.)
+/// This is best-effort and logs warnings on failure.
+fn clear_profile_data_directory(app: &AppHandle, profile_id: &str) {
+    let app_dir = match app.path().app_data_dir() {
+        Ok(dir) => dir,
+        Err(e) => {
+            eprintln!("[PROFILES] Warning: Failed to get app data dir: {}", e);
+            return;
+        }
+    };
+    let profile_data_dir = app_dir.join("profiles").join(profile_id);
+    if profile_data_dir.exists() {
+        match std::fs::remove_dir_all(&profile_data_dir) {
+            Ok(_) => eprintln!("[PROFILES] Cleared data directory for profile {}", profile_id),
+            Err(e) => eprintln!("[PROFILES] Warning: Failed to clear data directory for profile {}: {}", profile_id, e),
+        }
+    }
+}
+
+/// Clear all shared WebView storage directories to ensure complete profile isolation.
+/// This includes IndexedDB, Service Worker, Cache, etc. that may persist across profiles.
+/// This is best-effort and logs warnings on failure.
+fn clear_shared_webview_storage(app: &AppHandle) {
+    let app_dir = match app.path().app_data_dir() {
+        Ok(dir) => dir,
+        Err(e) => {
+            eprintln!("[PROFILES] Warning: Failed to get app data dir for shared storage cleanup: {}", e);
+            return;
+        }
+    };
+
+    // These directories contain shared WebView data that persists across profile windows
+    // Clearing them ensures a "fresh device" experience when creating a new profile
+    let shared_dirs_to_clear = [
+        "IndexedDB",
+        "Service Worker",
+        "Cache",
+        "Code Cache",
+        "GPUCache",
+        "EBWebView",
+        "WebView2",
+        "webview",
+    ];
+
+    for dir_name in &shared_dirs_to_clear {
+        let path = app_dir.join(dir_name);
+        if path.exists() {
+            match std::fs::remove_dir_all(&path) {
+                Ok(_) => eprintln!("[PROFILES] Cleared shared WebView storage: {}", dir_name),
+                Err(e) => eprintln!("[PROFILES] Warning: Failed to clear shared WebView storage {}: {}", dir_name, e),
+            }
+        }
+    }
+}
+
+/// Clear the native keychain and in-memory session for a specific profile.
+/// This is best-effort and does not fail if the keychain entry doesn't exist.
+async fn clear_native_credentials_for_profile(app: &AppHandle, profile_id: &str, session: &SessionState) {
+    // Clear profile data directory first (contains WebView IndexedDB, localStorage, etc.)
+    clear_profile_data_directory(app, profile_id);
+
+    // Clear in-memory session
+    session.clear(Some(profile_id)).await;
+    eprintln!("[PROFILES] Cleared session for profile {}", profile_id);
+
+    // Clear OS keychain (desktop only)
+    #[cfg(not(target_os = "android"))]
+    {
+        use keyring::Entry;
+        let entry = Entry::new(APP_SERVICE, &key_name_for_profile(profile_id));
+        if let Ok(e) = entry {
+            match e.delete_credential() {
+                Ok(_) => eprintln!("[PROFILES] Cleared keychain for profile {}", profile_id),
+                Err(keyring::Error::NoEntry) => {
+                    // No entry exists, which is fine
+                }
+                Err(e) => {
+                    eprintln!("[PROFILES] Warning: Failed to clear keychain for profile {}: {}", profile_id, e);
+                }
+            }
+        }
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -298,20 +390,78 @@ impl DesktopProfileState {
         })
     }
 
-    pub async fn remove_profile(&self, app: &AppHandle, current_window_label: &str, profile_id: &str) -> Result<ProfileIsolationSnapshot, String> {
+    pub async fn remove_profile(&self, app: &AppHandle, session: &SessionState, current_window_label: &str, profile_id: &str) -> Result<ProfileIsolationSnapshot, String> {
         if profile_id == DEFAULT_PROFILE_ID {
             return Err("Default profile cannot be removed.".to_string());
         }
-        let mut state = self.inner.lock().await;
-        state.profiles.retain(|profile| profile.profile_id != profile_id);
-        state.window_bindings.iter_mut().for_each(|binding| {
-            if binding.profile_id == profile_id {
-                binding.profile_id = DEFAULT_PROFILE_ID.to_string();
-                binding.profile_label = DEFAULT_PROFILE_LABEL.to_string();
-                binding.launch_mode = ProfileLaunchMode::Existing;
+        
+        // Close all windows associated with the profile being removed to release file locks
+        // This must happen BEFORE clearing data directories
+        let windows_to_close: Vec<String> = {
+            let state = self.inner.lock().await;
+            state.window_bindings
+                .iter()
+                .filter(|binding| binding.profile_id == profile_id)
+                .map(|binding| binding.window_label.clone())
+                .collect()
+        };
+        
+        // Window closing is only needed on desktop platforms to release file locks
+        #[cfg(desktop)]
+        {
+            for window_label in &windows_to_close {
+                if let Some(window) = app.get_webview_window(window_label) {
+                    eprintln!("[PROFILES] Closing window {} for deleted profile {}", window_label, profile_id);
+                    let _ = window.close();
+                }
             }
-        });
+            
+            // Give windows a moment to close and release file locks
+            if !windows_to_close.is_empty() {
+                tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+            }
+        }
+        
+        let mut state = self.inner.lock().await;
+        
+        // Remove the profile from the registry
+        let removed_profile = state.profiles.iter().find(|p| p.profile_id == profile_id).cloned();
+        state.profiles.retain(|profile| profile.profile_id != profile_id);
+        
+        // COMPLETELY REMOVE window bindings for the deleted profile rather than rebinding them
+        // This ensures no stale bindings remain that could cause confusion
+        let removed_bindings: Vec<ProfileWindowBinding> = state.window_bindings
+            .iter()
+            .filter(|binding| binding.profile_id == profile_id)
+            .cloned()
+            .collect();
+        state.window_bindings.retain(|binding| binding.profile_id != profile_id);
+        
+        eprintln!("[PROFILES] Removed {} window bindings for deleted profile {}", removed_bindings.len(), profile_id);
+        
         persist_registry(app, &state)?;
+        
+        // Log removed profile details for diagnostics
+        if let Some(profile) = removed_profile {
+            eprintln!("[PROFILES] Removed profile '{}' (ID: {}) from registry", profile.label, profile_id);
+        }
+        
+        // Clear in-memory session, native keychain, profile data directory, AND shared WebView storage
+        // for the removed profile to prevent auto-login and ensure complete isolation
+        // Drop the lock before async cleanup
+        drop(state);
+        
+        // Clear credentials and data
+        clear_native_credentials_for_profile(app, profile_id, session).await;
+        
+        // Clear shared WebView storage (IndexedDB, Service Worker, etc.) to ensure
+        // a "fresh device" experience when creating a new profile window
+        clear_shared_webview_storage(app);
+        
+        eprintln!("[PROFILES] Profile {} removal complete. Windows closed: {}", profile_id, windows_to_close.len());
+        
+        // Re-acquire lock to return updated snapshot
+        let mut state = self.inner.lock().await;
         Ok(ProfileIsolationSnapshot {
             current_window: ensure_window_binding(&mut state, current_window_label),
             profiles: state.profiles.clone(),

@@ -1158,9 +1158,10 @@ async fn desktop_remove_profile(
     app: tauri::AppHandle,
     window: WebviewWindow,
     profiles: tauri::State<'_, DesktopProfileState>,
+    session: tauri::State<'_, SessionState>,
     profile_id: String,
 ) -> Result<ProfileIsolationSnapshot, String> {
-    profiles.remove_profile(&app, window.label(), &profile_id).await
+    profiles.remove_profile(&app, &session, window.label(), &profile_id).await
 }
 
 // Save window state to storage

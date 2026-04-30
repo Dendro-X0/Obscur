@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   useProfileMetadata: vi.fn(),
   useProfile: vi.fn(),
   useIdentity: vi.fn(),
+  createPoWIdentity: vi.fn(),
 }));
 
 vi.mock("./use-profile-metadata", () => ({
