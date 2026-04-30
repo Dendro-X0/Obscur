@@ -1,3 +1,29 @@
+## [v1.4.6] - 2026-04-30
+
+### Added
+
+- **Key Verification**: Visual fingerprint/identicon for cross-device identity verification
+  - Generate deterministic identicons from public key hashes
+  - "Verify Identity" UI in contact profiles for high-trust verification
+  - Key fragment display for manual out-of-band verification
+  
+- **Key Change Detection**: Security alerts for unexpected identity key changes
+  - Detect when contact's public key changes unexpectedly
+  - Security alert banner in conversations
+  - Require re-verification before sending messages
+  
+- **Relay Trust Scoring**: Dynamic relay reputation system
+  - Track message delivery success rate per relay
+  - Monitor response latency and uptime metrics
+  - Green/yellow/red trust indicators in relay settings
+  - Automatic fallback to healthy backup relays
+  
+- **Security Audit Logging**: Local encrypted security event log
+  - Append-only log of security-relevant events
+  - Encrypted with user key at `~/.obscur/security-audit.log`
+  - Events: identity key changes, relay failures, suspicious connections
+  - "Security History" panel in settings for review
+
 ## [v1.4.5] - 2026-04-29
 
 ### Fixed
