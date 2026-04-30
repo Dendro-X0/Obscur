@@ -16,6 +16,10 @@ import type {
   BackupRestoreHistoryRegressionStage,
   ChatStateMessageDiagnostics,
 } from "./restore-diagnostics";
+import {
+  recoverMissingMediaFromCAS,
+  checkMediaRecoveryNeeded,
+} from "@/app/features/vault/services/cas-media-recovery";
 
 export type NonV1RestoreMaterializationOptions = Readonly<{
   restoreChatStateDomains?: boolean;
@@ -98,6 +102,14 @@ export const applyNonV1RestoreMaterialization = async (params: Readonly<{
       restorePath: "non_v1_domains",
       restoreChatStateDomains: true,
     });
+
+    // After chat state is restored, recover missing media from CAS
+    const recoveryNeeded = await checkMediaRecoveryNeeded(params.publicKeyHex);
+    if (recoveryNeeded) {
+      await recoverMissingMediaFromCAS(params.publicKeyHex, {
+        maxConcurrentFetches: 3,
+      });
+    }
   }
 
   logAppEvent({
