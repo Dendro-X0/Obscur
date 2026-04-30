@@ -3299,4 +3299,23 @@ Capture `account_sync.backup_restore_merge_diagnostics`, `account_sync.backup_re
   - ✅ Settings integration
 - Evidence: All changes committed and pushed (commit ea59e89b)
 - Next: Create GitHub release tag v1.4.6
+
+### 2026-04-30T15:25:00Z checkpoint — v1.4.6 RELEASED
+- Summary: Git tag v1.4.6 created and pushed, release workflow triggered
+- Tag Details:
+  - Name: `v1.4.6`
+  - Commit: `910ba34f` (handoff checkpoint)
+  - Message: Release v1.4.6 - Security Hardening
+  - Pushed to: `origin`
+- Release Workflow Status:
+  - GitHub Actions workflow `#115` should trigger automatically
+  - Expected artifacts: PWA build, Desktop installers (Windows .exe, macOS .dmg, Linux .AppImage)
+  - Check: https://github.com/Dendro-X0/Obscur/actions
+- Security Features in This Release:
+  1. Visual Identity Verification (identicons) — Settings → Security
+  2. Key Change Detection — Trust levels and security alerts
+  3. Relay Trust Scoring — Health metrics in relay management
+  4. Encrypted Security Audit Log — Local encrypted event logging
+- Evidence: Tag pushed successfully, workflow triggering
+- Next: Monitor workflow completion and verify artifact publication
 <!-- CONTEXT_CHECKPOINTS_END -->
