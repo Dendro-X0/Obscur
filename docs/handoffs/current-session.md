@@ -3342,4 +3342,31 @@ Capture `account_sync.backup_restore_merge_diagnostics`, `account_sync.backup_re
 - Target Date: 2026-05-15 (5 weeks)
 - Evidence: Roadmap document created and linked in current roadmap
 - Next: Begin M0 Baseline Lock for v1.4.7
+
+### 2026-04-30T17:15:00Z checkpoint — M0 Baseline Lock STARTED
+- Summary: Beginning v1.4.7 Milestone 0 (Baseline Lock)
+- M0 Gates Status:
+  - ✅ Typecheck: `pnpm -C apps/pwa exec tsc --noEmit` clean (exit 0)
+  - ⏭️ Tests: Will verify per-package as owners are touched
+- M0 Deliverables In Progress:
+  1. **Document current community mode state**
+     - Location: `docs/releases/v1.4.7-m0-baseline.md`
+     - Need to audit current community implementation vs modes spec
+  2. **Identify restore/media loss reproduction steps**
+     - Location: `docs/releases/v1.4.7-restore-repro-steps.md`
+     - Need to trace vault/restore flow in `encrypted-account-backup-service.ts`
+  3. **Create diagnostic capture for voice call issues**
+     - Voice call controller diagnostics already exist
+     - Verify ghost-call TTL logic from v1.4.4
+  4. **Define security event taxonomy**
+     - Location: `docs/security/security-event-taxonomy.md`
+     - Define events for audit log: identity, key changes, relay trust
+- Canonical Owners Identified:
+  - Goal 1 (Community Modes): `apps/pwa/app/features/groups/services/community-ledger-reducer.ts`
+  - Goal 2 (Restore): `apps/pwa/app/features/account-sync/services/encrypted-account-backup-service.ts`
+  - Goal 3 (Voice): `apps/pwa/app/features/voice/services/voice-call-controller.ts`
+  - Goal 4 (Security): `apps/pwa/app/features/security/services/` (existing v1.4.6)
+  - Goal 5 (Relay): `apps/pwa/app/features/relays/hooks/enhanced-relay-pool.ts`
+- Evidence: M0 initiated, gates checked, owners mapped
+- Next: Create M0 baseline documentation
 <!-- CONTEXT_CHECKPOINTS_END -->
