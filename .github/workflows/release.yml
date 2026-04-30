@@ -698,14 +698,12 @@ jobs:
           path: ./release-assets/linux
 
       - name: Download Android Artifacts
-        continue-on-error: true
         uses: actions/download-artifact@v4
         with:
           name: mobile-android
           path: ./release-assets/android
 
       - name: Download Android Metadata
-        continue-on-error: true
         uses: actions/download-artifact@v4
         with:
           name: mobile-android-metadata
