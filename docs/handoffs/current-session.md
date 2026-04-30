@@ -3242,4 +3242,16 @@ Capture `account_sync.backup_restore_merge_diagnostics`, `account_sync.backup_re
 - Evidence: All security services committed and pushed (commit a4268ce7)
 - Uncertainty: UI integration of security features (IdentityVerificationCard in profile pages, relay trust indicators in settings) not yet implemented
 - Next: Integrate security components into existing UI surfaces
+
+### 2026-04-30T13:40:00Z checkpoint — Theme Compatibility Fixes COMPLETE
+- Summary: Updated security and relay components to properly support both light and dark themes
+- Files Modified:
+  - `apps/pwa/app/features/security/components/identicon.tsx`: Added dark: variants for loading state (bg-zinc-200/800), key fragment text
+  - `apps/pwa/app/features/relays/components/relay-capability-badge.tsx`: Full theme support
+    - Status colors: light backgrounds (bg-emerald-100) with dark variants (bg-emerald-500/20)
+    - Loading state: border and background theme variants
+    - Container: bg-white dark:bg-[#0E0E10], border-zinc-200 dark:border-white/5
+    - Empty state: theme-aware colors
+- Evidence: Committed and pushed (commit 6156499e)
+- Next: Continue with UI integration work
 <!-- CONTEXT_CHECKPOINTS_END -->
