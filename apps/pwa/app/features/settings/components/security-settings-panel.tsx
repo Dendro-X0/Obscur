@@ -3,8 +3,7 @@
 import React, { useState } from "react";
 import { useIdentity } from "../../auth/hooks/use-identity";
 import { Identicon, IdentityVerificationCard } from "../../security/components/identicon";
-import { Shield, ShieldCheck, ShieldAlert, Key, Server, ClipboardCopy, Check } from "lucide-react";
-import { cn } from "../../../lib/cn";
+import { Shield, ShieldCheck, ShieldAlert, ClipboardCopy, Check } from "lucide-react";
 
 /**
  * Security Settings Panel
@@ -12,11 +11,9 @@ import { cn } from "../../../lib/cn";
  * Integrates v1.4.6 security features:
  * - Identity identicon display
  * - Key verification UI
- * - Security status overview
  */
 export const SecuritySettingsPanel: React.FC = () => {
   const identity = useIdentity();
-  const [activeTab, setActiveTab] = useState<"identity" | "relays" | "audit">("identity");
   const [copied, setCopied] = useState(false);
 
   const publicKeyHex = identity?.state?.publicKeyHex ?? "";
@@ -46,31 +43,8 @@ export const SecuritySettingsPanel: React.FC = () => {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-2 p-1 bg-zinc-100 dark:bg-zinc-800/50 rounded-lg">
-        {[
-          { id: "identity", label: "Identity", icon: Key },
-          { id: "relays", label: "Relays", icon: Server },
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id as typeof activeTab)}
-            className={cn(
-              "flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all",
-              activeTab === tab.id
-                ? "bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white shadow-sm"
-                : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
-            )}
-          >
-            <tab.icon className="w-4 h-4" />
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Identity Tab */}
-      {activeTab === "identity" && (
-        <div className="space-y-6">
+      {/* Identity Section */}
+      <div className="space-y-6">
           {/* Your Identity Card */}
           <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6">
             <h3 className="text-sm font-semibold text-zinc-900 dark:text-white mb-4">
@@ -151,54 +125,6 @@ export const SecuritySettingsPanel: React.FC = () => {
             </div>
           </div>
         </div>
-      )}
-
-      {/* Relays Tab */}
-      {activeTab === "relays" && (
-        <div className="space-y-6">
-          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6">
-            <h3 className="text-sm font-semibold text-zinc-900 dark:text-white mb-2">
-              Relay Trust Status
-            </h3>
-            <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
-              Your relay health is monitored automatically. Trust scores update based on delivery success rates.
-            </p>
-
-            {/* Placeholder for relay trust list */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between p-3 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg">
-                <div className="flex items-center gap-3">
-                  <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                  <div>
-                    <p className="text-sm font-medium text-zinc-900 dark:text-white">
-                      relay.damus.io
-                    </p>
-                    <p className="text-xs text-zinc-500">High trust • 98% delivery rate</p>
-                  </div>
-                </div>
-                <span className="text-xs px-2 py-1 bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 rounded font-medium">
-                  Verified
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between p-3 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg">
-                <div className="flex items-center gap-3">
-                  <div className="w-2 h-2 rounded-full bg-amber-500" />
-                  <div>
-                    <p className="text-sm font-medium text-zinc-900 dark:text-white">
-                      nos.lol
-                    </p>
-                    <p className="text-xs text-zinc-500">Medium trust • 85% delivery rate</p>
-                  </div>
-                </div>
-                <span className="text-xs px-2 py-1 bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 rounded font-medium">
-                  Watch
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
