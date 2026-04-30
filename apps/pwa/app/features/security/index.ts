@@ -49,3 +49,19 @@ export {
   type RelayMetrics,
   type RelayScore,
 } from "./services/relay-trust-scorer";
+
+// Security Integration (v1.4.7 Goal 4)
+export {
+  logSecurityEvent,
+  logRelaySecurityEvent,
+  logIdentitySecurityEvent,
+  logSettingsChange,
+  logBackupRestore,
+  checkContactKeyOnMessage,
+  verifyContactKey,
+  getContactVerificationStatus,
+  getRecentSecurityEvents,
+  clearSecurityAuditLog,
+  useIdenticon,
+  type KeyChangeResult,
+} from "./services/security-integration";

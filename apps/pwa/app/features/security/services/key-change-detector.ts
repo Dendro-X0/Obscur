@@ -257,3 +257,73 @@ export class KeyChangeDetector {
 export function createKeyChangeDetector(myPublicKey: string): KeyChangeDetector {
   return new KeyChangeDetector(myPublicKey);
 }
+
+/**
+ * Result of key change detection
+ */
+export interface KeyChangeResult {
+  /** Whether a key change was detected */
+  changed: boolean;
+  /** Severity of the change */
+  severity: "info" | "warning" | "critical";
+  /** Human-readable message */
+  message: string;
+  /** Timestamp when original key was first seen */
+  originalFirstSeenAt: number;
+  /** Timestamp when new key was first seen */
+  newFirstSeenAt: number;
+  /** Recommendation for user action */
+  recommendation: string;
+}
+
+/**
+ * Detect if a contact's key has changed
+ * @param originalPublicKeyHex - The key we've seen before
+ * @param newPublicKeyHex - The key we're seeing now
+ * @param originalFirstSeenAt - When we first saw the original key
+ * @returns KeyChangeResult if changed, null if same key
+ */
+export function detectKeyChange(
+  originalPublicKeyHex: string,
+  newPublicKeyHex: string,
+  originalFirstSeenAt: number,
+): KeyChangeResult | null {
+  if (originalPublicKeyHex === newPublicKeyHex) {
+    return null;
+  }
+
+  const now = Date.now();
+  const keyAgeMs = now - originalFirstSeenAt;
+  const keyAgeDays = Math.floor(keyAgeMs / (1000 * 60 * 60 * 24));
+
+  // Determine severity based on key age
+  let severity: "info" | "warning" | "critical";
+  let message: string;
+  let recommendation: string;
+
+  if (keyAgeDays > 30) {
+    // Key we've known for a long time changed - very suspicious
+    severity = "critical";
+    message = `Contact's key changed after ${keyAgeDays} days. This may indicate account compromise.`;
+    recommendation = "Verify this change with the contact through a trusted channel before trusting messages.";
+  } else if (keyAgeDays > 7) {
+    // Key we've known for a week+ changed - concerning
+    severity = "warning";
+    message = `Contact's key changed after ${keyAgeDays} days.`;
+    recommendation = "Confirm with the contact that they intentionally changed devices or keys.";
+  } else {
+    // New contact or recent key - less concerning
+    severity = "info";
+    message = "Contact's key has changed.";
+    recommendation = "This may be normal for a new contact or device change.";
+  }
+
+  return {
+    changed: true,
+    severity,
+    message,
+    originalFirstSeenAt,
+    newFirstSeenAt: now,
+    recommendation,
+  };
+}
