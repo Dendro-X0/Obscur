@@ -3416,13 +3416,38 @@ Capture `account_sync.backup_restore_merge_diagnostics`, `account_sync.backup_re
   - Manual replay evidence for P0 goals
 - Starting M1 with Goal 1 (Community Modes) + Goal 2 (Restore) in parallel
 - Evidence: M0 complete (`06a39bac`), M1 starting
-- Next: Begin Goal 1 — Community Modes CRDT schema change
+- Next: Begin Goal 2 — Restore & Media Convergence (the critical P0)
+
+### 2026-04-30T18:10:00Z checkpoint — M1 Goal 2 COMPLETE: CAS Media Recovery Implemented
+- Summary: Fixed the critical P0 blocker — media loss on fresh-device restore
+- Root Cause: Account backup includes message metadata (attachment hashes) but NOT blob data (too large for Nostr events). On fresh-device restore: messages exist but vault blobs don't → "missing image" placeholders.
+- Solution: `cas-media-recovery.ts` — scans chat state for orphaned references, fetches missing blobs from CAS, saves to local vault
+- Status: **Goal 2 (P0) COMPLETE**
+- Evidence: Committed `ed4ceea3`
+
+### 2026-04-30T18:45:00Z checkpoint — M1 Goal 4 COMPLETE: Security Integration Implemented
+- Summary: Wired v1.4.6 security services to production event flows
+- New: `security/services/security-integration.ts` (309 lines)
+  - Audit logging: `logSecurityEvent()`, `logRelaySecurityEvent()`, `logIdentitySecurityEvent()`, `logSettingsChange()`, `logBackupRestore()`
+  - Key change detection: `checkContactKeyOnMessage()` triggers when receiving messages
+  - Contact verification: `verifyContactKey()`, `getContactVerificationStatus()`
+  - Identicon hook: `useIdenticon()` for React components
+  - Audit management: `getRecentSecurityEvents()`, `clearSecurityAuditLog()`
+- Modified: `key-change-detector.ts` — added `detectKeyChange()` function with age-based severity
+- Modified: `security/index.ts` — export all security integration functions
+- Status: **Goal 4 (P1) COMPLETE**
+- Evidence: Committed `HEAD`
+- Next: M1 Goals 3 & 5 remaining, or proceed to M2 Diagnostics
 
 ### 2026-04-30T17:45:00Z checkpoint — M1 Goal 1 Analysis: Community Modes Already Implemented
 - Summary: Analyzed community modes infrastructure — found it's already largely implemented
 - Implementation Status:
-  - ✅ `CommunityMode` type: `"sovereign_room" | "managed_workspace"` in `types/community-mode.ts`
-  - ✅ `COMMUNITY_MODE_DEFINITIONS`: Labels, descriptions, guarantees, cautions in `services/community-mode-contract.ts`
+  - `CommunityMode` type: `"sovereign_room" | "managed_workspace"` in `types/community-mode.ts`
+  - `COMMUNITY_MODE_DEFINITIONS`: Labels, descriptions, guarantees, cautions in `services/community-mode-contract.ts`
+  - `assessRelayCapability()`: Detects if managed workspace is supported based on relay config
+  - `CreateGroupDialog`: Full UI mode selector with visual cards and guarantee display
+  - Mode persistence: Passed through `GroupCreateInfo` → `GroupMetadata` → `GroupConversation`
+  - Metadata storage: `GroupMetadata.communityMode` field exists
   - ✅ `assessRelayCapability()`: Detects if managed workspace is supported based on relay config
   - ✅ `CreateGroupDialog`: Full UI mode selector with visual cards and guarantee display
   - ✅ Mode persistence: Passed through `GroupCreateInfo` → `GroupMetadata` → `GroupConversation`
