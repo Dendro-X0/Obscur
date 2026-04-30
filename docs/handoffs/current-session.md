@@ -3442,4 +3442,3 @@ Capture `account_sync.backup_restore_merge_diagnostics`, `account_sync.backup_re
   4. Goal 1 remaining items (P2): Membership visibility improvements
 - Evidence: Code analysis confirms infrastructure complete (`create-group-dialog.tsx`, `community-mode-contract.ts`)
 - Next: Begin Goal 2 — Restore & Media Convergence (the critical P0)
-<!-- CONTEXT_CHECKPOINTS_END -->
