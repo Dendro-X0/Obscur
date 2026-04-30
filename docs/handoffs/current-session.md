@@ -3259,17 +3259,20 @@ Capture `account_sync.backup_restore_merge_diagnostics`, `account_sync.backup_re
 - Summary: Integrated new v1.4.6 security components into Settings > Security tab
 - Files Created:
   - `apps/pwa/app/features/settings/components/security-settings-panel.tsx`: New security panel with:
-    - Identity tab: Shows your identicon (visual fingerprint), public key with copy button, verification status
-    - Demo contact verification card with "Verify" action
-    - Security tips about visual fingerprint verification
-    - Relays tab: Placeholder for relay trust scoring (shows sample data)
+    - Your Identity card: Shows your identicon (visual fingerprint), public key with copy button, verification status
+    - Contact Verification Preview: Demo card showing how verification UI looks
+    - Security Tip: Guidance on visual fingerprint verification
 - Files Modified:
   - `apps/pwa/app/settings/settings-page-client.tsx`: Added SecuritySettingsPanel import, integrated into security tab
+- Simplification (2026-04-30T14:35):
+  - Removed Identity/Relays tabs that duplicated main navigation categories
+  - Single focused view for identity verification features
+  - Cleaner UX without confusing duplicate navigation
 - User Experience:
-  - Navigate to Settings → Security → Identity tab to see your identicon
+  - Navigate to Settings → Security to see your identicon
   - The identicon is a unique visual pattern generated from your public key
   - Copy your public key to share for out-of-band verification
   - Demo shows how contact verification will work
-- Evidence: Committed and pushed (commit d62e1213)
+- Evidence: Committed and pushed (commits d62e1213, bf6b6aaf)
 - Next: View the components in the app by going to Settings > Security
 <!-- CONTEXT_CHECKPOINTS_END -->
