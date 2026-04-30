@@ -3417,4 +3417,29 @@ Capture `account_sync.backup_restore_merge_diagnostics`, `account_sync.backup_re
 - Starting M1 with Goal 1 (Community Modes) + Goal 2 (Restore) in parallel
 - Evidence: M0 complete (`06a39bac`), M1 starting
 - Next: Begin Goal 1 — Community Modes CRDT schema change
+
+### 2026-04-30T17:45:00Z checkpoint — M1 Goal 1 Analysis: Community Modes Already Implemented
+- Summary: Analyzed community modes infrastructure — found it's already largely implemented
+- Implementation Status:
+  - ✅ `CommunityMode` type: `"sovereign_room" | "managed_workspace"` in `types/community-mode.ts`
+  - ✅ `COMMUNITY_MODE_DEFINITIONS`: Labels, descriptions, guarantees, cautions in `services/community-mode-contract.ts`
+  - ✅ `assessRelayCapability()`: Detects if managed workspace is supported based on relay config
+  - ✅ `CreateGroupDialog`: Full UI mode selector with visual cards and guarantee display
+  - ✅ Mode persistence: Passed through `GroupCreateInfo` → `GroupMetadata` → `GroupConversation`
+  - ✅ Metadata storage: `GroupMetadata.communityMode` field exists
+- What's Working:
+  - Users can select Sovereign Room (default) or Managed Workspace (if relays support it)
+  - UI shows honest capability descriptions and cautions
+  - Relay assessment automatically enables/disables Managed Workspace option
+  - Mode is stored in community metadata and persisted
+- Remaining Work (Lower Priority):
+  - Honest membership visibility with "last seen" timestamps (P1)
+  - Community header mode badge display (P2)
+- Revised M1 Priority:
+  1. **Goal 2 (P0)**: Restore & Media Convergence — Primary unresolved blocker
+  2. **Goal 4 (P1)**: Security Integration — Wire v1.4.6 services to production
+  3. **Goal 3 (P1)**: Voice Reliability — Verify ghost-call elimination
+  4. Goal 1 remaining items (P2): Membership visibility improvements
+- Evidence: Code analysis confirms infrastructure complete (`create-group-dialog.tsx`, `community-mode-contract.ts`)
+- Next: Begin Goal 2 — Restore & Media Convergence (the critical P0)
 <!-- CONTEXT_CHECKPOINTS_END -->
