@@ -69,11 +69,11 @@ const capabilityConfig: Record<
 };
 
 const statusColors: Record<CapabilityStatus, string> = {
-  ok: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
-  degraded: "bg-amber-500/20 text-amber-400 border-amber-500/30",
-  failed: "bg-rose-500/20 text-rose-400 border-rose-500/30",
-  unsupported: "bg-zinc-500/20 text-zinc-500 border-zinc-500/30",
-  unknown: "bg-zinc-500/10 text-zinc-600 border-zinc-500/20",
+  ok: "bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-500/30",
+  degraded: "bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-500/30",
+  failed: "bg-rose-100 dark:bg-rose-500/20 text-rose-700 dark:text-rose-400 border-rose-300 dark:border-rose-500/30",
+  unsupported: "bg-zinc-100 dark:bg-zinc-500/20 text-zinc-600 dark:text-zinc-400 border-zinc-300 dark:border-zinc-500/30",
+  unknown: "bg-zinc-50 dark:bg-zinc-500/10 text-zinc-500 dark:text-zinc-400 border-zinc-200 dark:border-zinc-500/20",
 };
 
 const statusDotColors: Record<CapabilityStatus, string> = {
@@ -99,12 +99,12 @@ export const RelayCapabilityBadge: React.FC<RelayCapabilityBadgeProps> = ({
     return (
       <div
         className={cn(
-          "inline-flex items-center gap-2 px-3 py-1.5 rounded-full border bg-zinc-500/10 border-zinc-500/20",
+          "inline-flex items-center gap-2 px-3 py-1.5 rounded-full border bg-zinc-100 dark:bg-zinc-500/10 border-zinc-300 dark:border-zinc-500/20",
           className
         )}
       >
-        <div className="h-2 w-2 rounded-full bg-zinc-500 animate-pulse" />
-        <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider">
+        <div className="h-2 w-2 rounded-full bg-zinc-400 dark:bg-zinc-500 animate-pulse" />
+        <span className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
           Probing...
         </span>
       </div>
@@ -144,15 +144,15 @@ export const RelayCapabilityBadge: React.FC<RelayCapabilityBadgeProps> = ({
   return (
     <div
       className={cn(
-        "flex flex-wrap gap-2 p-3 rounded-2xl border border-white/5 bg-[#0E0E10]",
+        "flex flex-wrap gap-2 p-3 rounded-2xl border border-zinc-200 dark:border-white/5 bg-white dark:bg-[#0E0E10] shadow-sm",
         className
       )}
     >
       <div className="w-full mb-2">
-        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">
+        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-500">
           Relay Capabilities
         </p>
-        <p className="text-xs text-zinc-600 truncate mt-0.5" title={relayUrl}>
+        <p className="text-xs text-zinc-500 dark:text-zinc-600 truncate mt-0.5" title={relayUrl}>
           {relayUrl.replace(/^wss?:\/\//, "")}
         </p>
       </div>
@@ -180,7 +180,7 @@ export const RelayCapabilityBadge: React.FC<RelayCapabilityBadgeProps> = ({
       })}
 
       {capabilities.length === 0 && (
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border bg-zinc-500/10 border-zinc-500/20 text-zinc-500">
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border bg-zinc-100 dark:bg-zinc-500/10 border-zinc-300 dark:border-zinc-500/20 text-zinc-500 dark:text-zinc-400">
           <WifiOff className="h-3 w-3" />
           <span className="text-[10px] font-bold uppercase tracking-wider">
             No capabilities detected

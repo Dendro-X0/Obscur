@@ -67,7 +67,7 @@ export const Identicon: React.FC<IdenticonProps> = ({
       <div className="relative">
         {isLoading ? (
           <div 
-            className="bg-zinc-800 rounded-lg animate-pulse"
+            className="bg-zinc-200 dark:bg-zinc-800 rounded-lg animate-pulse"
             style={{ width: size, height: size }}
           />
         ) : dataUrl ? (
@@ -97,7 +97,7 @@ export const Identicon: React.FC<IdenticonProps> = ({
       </div>
       
       {showKeyFragment && keyFragment && (
-        <code className="text-xs text-zinc-500 font-mono">
+        <code className="text-xs text-zinc-500 dark:text-zinc-400 font-mono">
           {keyFragment}
         </code>
       )}
