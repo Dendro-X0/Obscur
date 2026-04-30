@@ -3177,4 +3177,34 @@ Capture `account_sync.backup_restore_merge_diagnostics`, `account_sync.backup_re
 - Evidence: not provided
 - Uncertainty: not provided
 - Next: Commit the release asset curation update, push the new commit, and publish a fresh tag (recommended v1.4.2) so GitHub creates a clean release page with only curated installer artifacts instead of the bloated v1.4.1 asset set.
+
+### 2026-04-30T12:20:00Z checkpoint — Community UX Enhancements COMPLETE
+- Summary: Implemented Community UX improvements from roadmap: relay capability badges, loading states for async actions, empty states for member lists, and improved invite confirmation flow.
+- Files Created:
+  - `apps/pwa/app/features/relays/components/relay-capability-badge.tsx`: New component showing relay NIP capabilities (NIP-11, NIP-96, WebSocket, Publish, Subscribe)
+    - Visual badges with status colors (ok/degraded/failed/unsupported)
+    - Compact and full display modes
+    - Latency indicators for performance visibility
+  - `apps/pwa/app/features/relays/hooks/use-relay-capabilities.ts`: Hook for probing relay capabilities
+    - Uses existing `runRelayNipProbe` infrastructure
+    - Auto-probes when relay URL changes
+    - Returns capabilities array + summary statistics
+- Files Modified:
+  - `apps/pwa/app/features/groups/components/group-management-dialog.tsx`:
+    - Integrated RelayCapabilityBadge in General tab ("Relay Infrastructure" section)
+    - Added loading states for vote kick action (`kickingMemberPubkey` state, spinner in dropdown)
+    - Added loading states for key rotation (`isRotatingKey` state, "Rotating..." button text)
+    - Added empty state for member list when no members found (search vs. sync messaging)
+    - New handler functions: `handleVoteKick()`, `handleRotateKey()` with error handling
+  - `apps/pwa/app/features/groups/components/invite-member-dialog.tsx`:
+    - Dialog now closes automatically after successful invite send
+    - Cleaner UX flow: search → select → send → close → toast
+- Community UX Roadmap Items Addressed:
+  - ✅ Relay capability badges — Shows NIP support in community headers
+  - ✅ Loading states — Visual feedback for kick vote and key rotation
+  - ✅ Empty states — Better UX when member lists are empty
+  - ✅ Invite confirmation — Dialog closes after successful send
+- Evidence: Code committed and pushed to main (commit 4d3a680c)
+- Uncertainty: Full "undo invite" feature requires toast system support for action buttons (not currently available)
+- Next: Continue with remaining roadmap items or shift focus based on priority
 <!-- CONTEXT_CHECKPOINTS_END -->
