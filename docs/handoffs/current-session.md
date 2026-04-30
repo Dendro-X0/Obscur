@@ -3369,4 +3369,29 @@ Capture `account_sync.backup_restore_merge_diagnostics`, `account_sync.backup_re
   - Goal 5 (Relay): `apps/pwa/app/features/relays/hooks/enhanced-relay-pool.ts`
 - Evidence: M0 initiated, gates checked, owners mapped
 - Next: Create M0 baseline documentation
+
+### 2026-04-30T17:25:00Z checkpoint — M0 Baseline Lock DOCUMENTATION COMPLETE
+- Summary: M0 baseline documents created and committed
+- Files Created:
+  - `docs/releases/v1.4.7-m0-baseline.md` (220 lines): Current state baseline
+    - Goal 1 (Community Modes): No mode field exists, needs CRDT changes
+    - Goal 2 (Restore): Media loss confirmed as open blocker, needs repro steps
+    - Goal 3 (Voice): Ghost call TTL mitigation in place, needs verification
+    - Goal 4 (Security): Services exist but need wiring to production data
+    - Goal 5 (Relay): Badge component exists, needs capability probes
+  - `docs/security/security-event-taxonomy.md` (160 lines): Event definitions
+    - 6 categories: identity, verification, key_change, relay, message, auth
+    - Event schema with integrity hash chain
+    - Privacy-preserving design (no content, no PII, local only)
+- M0 Gates Status:
+  - ✅ Typecheck: Clean
+  - ✅ Owner map: 5 canonical owners identified
+  - ✅ Baseline docs: Created
+  - ⏭️ Repro steps: Next task
+- Remaining M0 Tasks:
+  1. Document restore/media loss reproduction steps
+  2. Verify voice call TTL logic from v1.4.4
+  3. Confirm M0 complete → proceed to M1
+- Evidence: Committed `68024737` with M0 baseline docs
+- Next: Finalize M0 with restore reproduction steps document
 <!-- CONTEXT_CHECKPOINTS_END -->
