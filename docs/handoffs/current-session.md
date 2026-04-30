@@ -3318,4 +3318,28 @@ Capture `account_sync.backup_restore_merge_diagnostics`, `account_sync.backup_re
   4. Encrypted Security Audit Log — Local encrypted event logging
 - Evidence: Tag pushed successfully, workflow triggering
 - Next: Monitor workflow completion and verify artifact publication
+
+### 2026-04-30T17:05:00Z checkpoint — v1.4.7 Roadmap Created
+- Summary: Created v1.4.7 roadmap document following release of v1.4.6
+- Files Created:
+  - `docs/roadmap/v1.4.7-community-modes-and-convergence.md`: Comprehensive roadmap with:
+    - 5 goals with priorities (P0-P2)
+    - Community modes implementation (sovereign room vs managed workspace)
+    - Restore & media convergence fixes
+    - Realtime voice reliability completion
+    - Security feature production wiring
+    - Relay capability badges
+    - Milestone slices (M0-M3) with gates
+    - Canonical references and exit criteria
+- Files Modified:
+  - `docs/roadmap/current-roadmap.md`: Updated to reference v1.4.7 as active primary
+- v1.4.7 Goals Summary:
+  1. P0: Community Modes — Honest UX that doesn't over-promise capabilities
+  2. P0: Restore & Media Convergence — Fix media loss on fresh-device restore
+  3. P1: Realtime Voice Reliability — Complete ghost-call elimination
+  4. P1: Security Integration — Wire v1.4.6 services to production data
+  5. P2: Relay Capability Badges — Show relay guarantees in community headers
+- Target Date: 2026-05-15 (5 weeks)
+- Evidence: Roadmap document created and linked in current roadmap
+- Next: Begin M0 Baseline Lock for v1.4.7
 <!-- CONTEXT_CHECKPOINTS_END -->

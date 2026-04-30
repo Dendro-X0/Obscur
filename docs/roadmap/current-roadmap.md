@@ -5,12 +5,17 @@ Version-specific phase plans are consolidated into general workstreams and miles
 
 ## Active Detailed Plan (Do Not Lose)
 
-### Current v1.4.0 Roadmap (NEW - April 2026)
-1. **[v1.4.0 CRDT Protocol Rewrite Roadmap](./v1.4.0-crdt-protocol-rewrite-roadmap.md)** ← **ACTIVE PRIMARY**
-   - Supersedes previous v1.4.0 plan
-   - CRDT-native architecture for community membership, chat history, presence
-   - Gossip protocol for real-time updates
-   - Content-addressed storage for media
+### Active Release Roadmaps
+
+1. **[v1.4.7 Community Modes & Convergence Roadmap](./v1.4.7-community-modes-and-convergence.md)** ← **ACTIVE PRIMARY**
+   - Community modes (sovereign room vs managed workspace)
+   - Restore & media convergence fixes
+   - Voice reliability completion
+   - Security feature production wiring
+
+2. **[v1.4.0 CRDT Protocol Rewrite Roadmap](./v1.4.0-crdt-protocol-rewrite-roadmap.md)** ← **ARCHIVED (Released)**
+   - Superseded by v1.4.7 plan
+   - CRDT-native architecture delivered in v1.4.0-v1.4.6
 
 ### Archived v1.4.0 Plans (For Reference)
 2. [v1.4.0 In-Place Rewrite and Resilience Plan](./v1.4.0-in-place-rewrite-and-resilience-plan.md) ← **SUPERSEDED**
