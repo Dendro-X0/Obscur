@@ -8,9 +8,19 @@
 
 Obscur is a cross-platform, decentralized, end-to-end encrypted (E2EE) communication app focused on user privacy, ownership, and self-custody identity.
 
-Project phase: **v1.4.0 CRDT Protocol Rewrite — Released**
+Project phase: **v1.4.6 Security Hardening — Released**
 
-**Release highlights (`v1.4.0`):**
+**Release highlights (`v1.4.6`):**
+
+- **Security Hardening Suite**: Comprehensive identity and transport security improvements:
+  - **Visual Identity Verification**: Deterministic identicon generation from public keys for cross-device identity confirmation,
+  - **Key Change Detection**: Automated monitoring and alerts for unexpected contact identity changes,
+  - **Relay Trust Scoring**: Dynamic health metrics and trust levels for relay selection (high/medium/low/untrusted),
+  - **Encrypted Security Audit Log**: Local AES-GCM encrypted append-only security event logging.
+- **Community UX Enhancements**: Relay capability badges, loading states, empty states, improved invite flows.
+- **Theme Compatibility**: Full light/dark theme support across all security components.
+
+**Previous release (`v1.4.0`):**
 
 - **CRDT Protocol Suite**: Complete implementation of 5-phase CRDT integration:
   - LWW-Registers for profile and presence state,
