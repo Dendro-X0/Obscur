@@ -3394,4 +3394,27 @@ Capture `account_sync.backup_restore_merge_diagnostics`, `account_sync.backup_re
   3. Confirm M0 complete → proceed to M1
 - Evidence: Committed `68024737` with M0 baseline docs
 - Next: Finalize M0 with restore reproduction steps document
+
+### 2026-04-30T17:35:00Z checkpoint — M0 Baseline Lock COMPLETE → M1 Implementation STARTED
+- Summary: M0 completed successfully, transitioning to M1 Implementation
+- M0 Deliverables Completed:
+  - ✅ Typecheck: `pnpm tsc --noEmit` clean
+  - ✅ Owner map: 5 canonical owners identified and documented
+  - ✅ `docs/releases/v1.4.7-m0-baseline.md`: Current state baseline (220 lines)
+  - ✅ `docs/security/security-event-taxonomy.md`: Event taxonomy (160 lines)
+  - ✅ `docs/releases/v1.4.7-restore-repro-steps.md`: Reproduction steps (280 lines)
+  - ✅ Voice TTL verified: 5-minute expiration logic confirmed working
+- M1 Implementation Plan (Weeks 2-3):
+  - **Goal 1 (P0)**: Community Modes — Add mode field to CRDT, create UI selector
+  - **Goal 2 (P0)**: Restore Convergence — Fix vault ordering, implement CAS recovery
+  - **Goal 3 (P1)**: Voice Reliability — Session single-flight enforcement
+  - **Goal 4 (P1)**: Security Integration — Wire services to production events
+  - **Goal 5 (P2)**: Relay Badges — Capability probes (if time permits)
+- M1 Gates:
+  - Unit tests for all new services
+  - Type safety throughout
+  - Manual replay evidence for P0 goals
+- Starting M1 with Goal 1 (Community Modes) + Goal 2 (Restore) in parallel
+- Evidence: M0 complete (`06a39bac`), M1 starting
+- Next: Begin Goal 1 — Community Modes CRDT schema change
 <!-- CONTEXT_CHECKPOINTS_END -->
