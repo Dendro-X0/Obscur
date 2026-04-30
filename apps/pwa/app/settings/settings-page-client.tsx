@@ -71,6 +71,7 @@ import { showDesktopNotification } from "@/app/features/notifications/utils/show
 import { TrustSettingsPanel } from "@/app/features/messaging/components/trust-settings-panel";
 import { PasswordResetPanel } from "@/app/features/settings/components/password-reset-panel";
 import { AutoLockSettingsPanel } from "@/app/features/settings/components/auto-lock-settings-panel";
+import { SecuritySettingsPanel } from "@/app/features/settings/components/security-settings-panel";
 import { useTheme } from "@/app/features/settings/hooks/use-theme";
 import { useAccessibilityPreferences, type TextScale } from "@/app/features/settings/hooks/use-accessibility-preferences";
 import { useBlocklist } from "@/app/features/network/hooks/use-blocklist";
@@ -3859,6 +3860,7 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
       {
         activeTab === "security" && (
           <div className="space-y-6">
+            <SecuritySettingsPanel />
             <Card title="Security Posture" description="Current protection status and capability checks." className="w-full">
               <div className="space-y-4">
                 <div className="flex items-center justify-between rounded-xl border border-black/5 bg-zinc-50 p-4 dark:border-white/10 dark:bg-zinc-900/50">
