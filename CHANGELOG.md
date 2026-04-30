@@ -1,3 +1,12 @@
+## [v1.4.5] - 2026-04-29
+
+### Fixed
+
+- **Android/mobile build compilation error** in profile isolation code:
+  - `window.close()` method is not available on mobile targets,
+  - Wrapped window closing logic in `#[cfg(desktop)]` conditional compilation,
+  - Ensures profile deletion works correctly across all platforms.
+
 ## [v1.4.4] - 2026-04-29
 
 ### Added

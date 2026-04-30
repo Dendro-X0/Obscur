@@ -1,6 +1,6 @@
 {
   "name": "@dweb/crdt",
-  "version": "1.4.4",
+  "version": "1.4.5",
   "private": true,
   "type": "module",
   "description": "CRDT primitives for distributed state management - OR-Set, LWW-Register, G-Counter, VectorClock",
