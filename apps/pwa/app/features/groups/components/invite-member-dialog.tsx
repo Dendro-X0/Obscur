@@ -8,7 +8,8 @@ import {
     Loader2,
     X,
     Send,
-    Users as InviteIcon
+    Users as InviteIcon,
+    RotateCcw
 } from "lucide-react";
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
@@ -163,7 +164,11 @@ export function InviteMemberDialog({
             // Update UI optimistically via message bus
             messageBus.emitNewMessage(conversationId, inviteMessage);
 
-            toast.success(`Invite sent successfully to ${user.displayName || user.name || 'user'}`);
+            // Show success toast with user feedback
+            toast.success(`Invite sent to ${user.displayName || user.name || 'user'}`);
+
+            // Close dialog after successful invite
+            onClose();
         } catch (error) {
             console.error("Failed to send invite:", error);
             toast.error("Failed to distribute room key. Encryption error.");

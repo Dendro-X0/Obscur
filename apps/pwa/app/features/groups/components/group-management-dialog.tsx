@@ -52,6 +52,8 @@ import { toast } from "../../../components/ui/toast";
 import { cn } from "../../../lib/cn";
 import { CommunitySyncIndicator } from "./community-sync-indicator";
 import { PresenceBadge } from "@/app/features/network/components/presence-indicator";
+import { RelayCapabilityBadge } from "@/app/features/relays/components/relay-capability-badge";
+import { useRelayCapabilities } from "@/app/features/relays/hooks/use-relay-capabilities";
 import { ConfirmDialog } from "../../../components/ui/confirm-dialog";
 import { GroupQRCode } from "./group-qr-code";
 import { InviteMemberDialog } from "./invite-member-dialog";
@@ -65,6 +67,7 @@ import {
 } from "@/app/features/notifications/utils/notification-target-preference";
 import { getPublicGroupHref, getPublicProfileHref, toAbsoluteAppUrl } from "@/app/features/navigation/public-routes";
 import { useNetwork } from "@/app/features/network/providers/network-provider";
+import { useRelay } from "@/app/features/relays/providers/relay-provider";
 import { summarizeCommunityOperatorHealth } from "../services/community-operator-health";
 import { discoveryCache } from "@/app/features/search/services/discovery-cache";
 import {
@@ -162,6 +165,8 @@ export function GroupManagementDialog({
     const [isLeaveConfirmOpen, setIsLeaveConfirmOpen] = useState(false);
     const [isPurgeConfirmOpen, setIsPurgeConfirmOpen] = useState(false);
     const [isProcessing, setIsProcessing] = React.useState(false);
+    const [kickingMemberPubkey, setKickingMemberPubkey] = useState<string | null>(null);
+    const [isRotatingKey, setIsRotatingKey] = useState(false);
     const [currentTime, setCurrentTime] = React.useState(Date.now());
 
     // Update current time every 10 seconds for presence indicators
@@ -173,6 +178,9 @@ export function GroupManagementDialog({
     }, []);
 
     const [roomKeyHex, setRoomKeyHex] = useState<string>();
+
+    // Relay capabilities for this community's relay
+    const { capabilities: relayCapabilities, isLoading: isRelayCapabilitiesLoading } = useRelayCapabilities(group.relayUrl);
 
     useEffect(() => {
         const fetchRoomKey = async () => {
@@ -338,6 +346,30 @@ export function GroupManagementDialog({
         } finally {
             setIsProcessing(false);
             setIsPurgeConfirmOpen(false);
+        }
+    };
+
+    const handleVoteKick = async (memberPubkey: string) => {
+        setKickingMemberPubkey(memberPubkey);
+        try {
+            await sendVoteKick(memberPubkey);
+            toast.success("Vote to kick submitted");
+        } catch (error) {
+            toast.error("Failed to submit kick vote");
+        } finally {
+            setKickingMemberPubkey(null);
+        }
+    };
+
+    const handleRotateKey = async () => {
+        setIsRotatingKey(true);
+        try {
+            await rotateRoomKey();
+            toast.success("Room key rotated and distributed to members");
+        } catch (error) {
+            toast.error("Failed to rotate room key");
+        } finally {
+            setIsRotatingKey(false);
         }
     };
 
@@ -574,6 +606,22 @@ export function GroupManagementDialog({
                                     </div>
                                 </div>
 
+                                {/* Relay Capability Badge - Shows NIP support and basic relay features */}
+                                <div className="space-y-4">
+                                    <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 ml-1">
+                                        Relay Infrastructure
+                                    </Label>
+                                    <RelayCapabilityBadge
+                                        capabilities={relayCapabilities}
+                                        relayUrl={group.relayUrl}
+                                        isLoading={isRelayCapabilitiesLoading}
+                                        className="w-full"
+                                    />
+                                    <p className="text-[10px] text-zinc-600 ml-1">
+                                        Shows which Nostr protocol features this relay supports. Used for media uploads and extended functionality.
+                                    </p>
+                                </div>
+
                                 {isAdmin && (
                                     <div className="pt-6 border-t border-white/[0.03]">
                                         <Button
@@ -763,10 +811,16 @@ export function GroupManagementDialog({
 
 
                                                                         <DropdownMenuItem
-                                                                            onClick={() => sendVoteKick(pk)}
-                                                                            className="rounded-xl font-bold gap-3 text-rose-500 focus:bg-rose-500/10 focus:text-rose-400 cursor-pointer"
+                                                                            onClick={() => handleVoteKick(pk)}
+                                                                            disabled={kickingMemberPubkey === pk}
+                                                                            className="rounded-xl font-bold gap-3 text-rose-500 focus:bg-rose-500/10 focus:text-rose-400 cursor-pointer disabled:opacity-50"
                                                                         >
-                                                                            <UserMinus className="h-4 w-4" /> Vote to Kick
+                                                                            {kickingMemberPubkey === pk ? (
+                                                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                                                            ) : (
+                                                                                <UserMinus className="h-4 w-4" />
+                                                                            )}
+                                                                            {kickingMemberPubkey === pk ? "Submitting Vote..." : "Vote to Kick"}
                                                                         </DropdownMenuItem>
                                                                     </>
                                                                 )}
@@ -777,6 +831,33 @@ export function GroupManagementDialog({
                                             );
                                         })}
                                 </div>
+
+                                {/* Empty state for member list */}
+                                {visibleMemberRegistry.filter(pk => {
+                                    const q = memberSearchQuery.toLowerCase();
+                                    const name = (resolvedNames[pk] || "").toLowerCase();
+                                    return pk.toLowerCase().includes(q) || name.includes(q);
+                                }).length === 0 && (
+                                    <div className="flex flex-col items-center justify-center py-16 px-6 bg-[#0E0E10] border border-[#1A1A1E] rounded-[28px]">
+                                        <div className="h-16 w-16 rounded-2xl bg-zinc-500/10 flex items-center justify-center mb-4">
+                                            <Users className="h-8 w-8 text-zinc-600" />
+                                        </div>
+                                        <h4 className="text-white font-black text-lg mb-2">
+                                            {memberSearchQuery ? "No members found" : "No members yet"}
+                                        </h4>
+                                        <p className="text-zinc-500 text-sm text-center max-w-xs leading-relaxed">
+                                            {memberSearchQuery
+                                                ? `No members match "${memberSearchQuery}". Try a different search term.`
+                                                : "This community doesn't have any visible members yet. You may be the first to join, or members are still syncing from the relay."}
+                                        </p>
+                                        {!memberSearchQuery && (
+                                            <div className="mt-6 flex items-center gap-2 text-xs text-zinc-600">
+                                                <Loader2 className="h-3 w-3 animate-spin" />
+                                                <span>Waiting for member gossip...</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         )}
 
@@ -834,10 +915,16 @@ export function GroupManagementDialog({
                                             </div>
                                             <Button
                                                 variant="ghost"
-                                                onClick={rotateRoomKey}
-                                                className="h-10 px-6 rounded-xl bg-rose-500/10 text-rose-500 font-bold gap-2 hover:bg-rose-500/20"
+                                                onClick={handleRotateKey}
+                                                disabled={isRotatingKey}
+                                                className="h-10 px-6 rounded-xl bg-rose-500/10 text-rose-500 font-bold gap-2 hover:bg-rose-500/20 disabled:opacity-50"
                                             >
-                                                <RotateCcw className="h-3.5 w-3.5" /> Rotate
+                                                {isRotatingKey ? (
+                                                                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                                ) : (
+                                                                                <RotateCcw className="h-3.5 w-3.5" />
+                                                )}
+                                                {isRotatingKey ? "Rotating..." : "Rotate"}
                                             </Button>
                                         </div>
 
