@@ -3275,4 +3275,28 @@ Capture `account_sync.backup_restore_merge_diagnostics`, `account_sync.backup_re
   - Demo shows how contact verification will work
 - Evidence: Committed and pushed (commits d62e1213, bf6b6aaf)
 - Next: View the components in the app by going to Settings > Security
+
+### 2026-04-30T15:00:00Z checkpoint — v1.4.6 Release Preparation COMPLETE
+- Summary: All packages synchronized to v1.4.6, README updated, ready for release
+- Version Updates:
+  - `version.json`: 1.4.6
+  - `package.json` (root): 1.4.6
+  - `apps/pwa/package.json`: 1.4.6
+  - `apps/desktop/package.json`: 1.4.6
+  - `apps/desktop/src-tauri/tauri.conf.json`: 1.4.6
+  - `apps/relay-gateway/package.json`: 1.4.6 (updated from 1.4.5)
+  - `apps/website/package.json`: 1.4.6 (updated from 1.4.5)
+- Documentation Updates:
+  - `README.md`: Updated project phase to "v1.4.6 Security Hardening — Released"
+  - Added v1.4.6 release highlights (identicons, key change detection, relay trust, audit log)
+  - `CHANGELOG.md`: Already at v1.4.6 with 2026-04-30 date
+- Security Features Complete:
+  - ✅ Identicon service and UI components
+  - ✅ Key change detector with trust levels
+  - ✅ Relay trust scorer with health metrics
+  - ✅ Security audit log with encryption
+  - ✅ Theme compatibility (light/dark)
+  - ✅ Settings integration
+- Evidence: All changes committed and pushed (commit ea59e89b)
+- Next: Create GitHub release tag v1.4.6
 <!-- CONTEXT_CHECKPOINTS_END -->
