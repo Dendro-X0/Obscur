@@ -3207,4 +3207,39 @@ Capture `account_sync.backup_restore_merge_diagnostics`, `account_sync.backup_re
 - Evidence: Code committed and pushed to main (commit 4d3a680c)
 - Uncertainty: Full "undo invite" feature requires toast system support for action buttons (not currently available)
 - Next: Continue with remaining roadmap items or shift focus based on priority
+
+### 2026-04-30T12:55:00Z checkpoint — v1.4.6 Security Hardening COMPLETE
+- Summary: Implemented comprehensive security hardening features for v1.4.6: key verification with identicons, key change detection, relay trust scoring, and security audit logging.
+- Files Created:
+  - `apps/pwa/app/features/security/services/identicon-service.ts`: Generate visual fingerprints from public keys
+    - Deterministic 5x5 symmetric grid patterns from SHA-256 hash
+    - HSL color generation for unique visual identity
+    - Data URL generation for easy img src usage
+  - `apps/pwa/app/features/security/components/identicon.tsx`: React components for identicon display
+    - Identicon component with loading states and verification badges
+    - IdentityVerificationCard for contact verification UI
+    - Support for verified/unverified trust states
+  - `apps/pwa/app/features/security/services/key-change-detector.ts`: Track and detect key changes
+    - Known key storage with IndexedDB persistence
+    - Trust levels: unverified/verified/blocked
+    - Automatic security audit logging for key events
+    - Security summary statistics
+  - `apps/pwa/app/features/security/services/relay-trust-scorer.ts`: Dynamic relay reputation
+    - Track delivery success rate, latency, consecutive failures
+    - Health score calculation (0-100 composite)
+    - Trust levels: high/medium/low/untrusted
+    - Automatic fallback recommendations
+    - User reporting for suspicious relays
+  - `apps/pwa/app/features/security/services/security-audit-log.ts`: Encrypted security event logging
+    - AES-GCM encryption with identity-derived key
+    - Append-only log with configurable retention
+    - Event types: identity changes, relay failures, suspicious connections
+    - Filtered queries by type, severity, time range
+  - `apps/pwa/app/features/security/index.ts`: Module exports
+- Version Updates:
+  - Bumped to v1.4.6: version.json, package.json, apps/pwa/package.json, apps/desktop/package.json, tauri.conf.json
+  - Added comprehensive CHANGELOG entry documenting all security features
+- Evidence: All security services committed and pushed (commit a4268ce7)
+- Uncertainty: UI integration of security features (IdentityVerificationCard in profile pages, relay trust indicators in settings) not yet implemented
+- Next: Integrate security components into existing UI surfaces
 <!-- CONTEXT_CHECKPOINTS_END -->
