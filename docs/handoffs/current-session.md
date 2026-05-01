@@ -3364,7 +3364,7 @@ Capture `account_sync.backup_restore_merge_diagnostics`, `account_sync.backup_re
 - Canonical Owners Identified:
   - Goal 1 (Community Modes): `apps/pwa/app/features/groups/services/community-ledger-reducer.ts`
   - Goal 2 (Restore): `apps/pwa/app/features/account-sync/services/encrypted-account-backup-service.ts`
-  - Goal 3 (Voice): `apps/pwa/app/features/voice/services/voice-call-controller.ts`
+  - Goal 3 (Voice): `apps/pwa/app/features/messaging/services/realtime-voice-history-replay-policy.ts`
   - Goal 4 (Security): `apps/pwa/app/features/security/services/` (existing v1.4.6)
   - Goal 5 (Relay): `apps/pwa/app/features/relays/hooks/enhanced-relay-pool.ts`
 - Evidence: M0 initiated, gates checked, owners mapped
