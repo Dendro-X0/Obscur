@@ -3519,12 +3519,36 @@ Capture `account_sync.backup_restore_merge_diagnostics`, `account_sync.backup_re
 - Status: **Goal 5 (P2) COMPLETE** — Relay capability badges displayed
 - Evidence: Committed `8c7d3e1f`
 - Summary: M1 Implementation Phase COMPLETE
-  - Goal 1 (Community Modes): Already implemented
-  - Goal 2 (Restore Convergence): CAS Media Recovery complete
-  - Goal 3 (Voice Reliability): Verified in M0
-  - Goal 4 (Security Integration): Security services wired
-  - Goal 5 (Relay Badges): Community mode badges complete
+  - Goal 1 (Community Modes): ✅ Already implemented
+  - Goal 2 (Restore Convergence): ✅ CAS Media Recovery complete
+  - Goal 3 (Voice Reliability): ✅ Verified in M0
+  - Goal 4 (Security Integration): ✅ Security services wired
+  - Goal 5 (Relay Badges): ✅ Community mode badges complete
 - Next: Proceed to M2 Diagnostics & Replay Verification
+
+### 2026-04-30T21:00:00Z checkpoint — M2 Started: Diagnostics & Replay Verification
+- Summary: Created M1 verification diagnostics and started replay test framework
+- Implementation:
+  1. **New**: `diagnostics/services/m1-verification-diagnostics.ts` (280 lines)
+     - `runM1Diagnostics()`: Comprehensive verification of all M1 goals
+     - `quickM1HealthCheck()`: Quick pass/fail health check
+     - Goal 2 verification: CAS Media Recovery service status
+     - Goal 4 verification: Security Integration (audit log, identicon, key change)
+     - Goal 5 verification: Relay Capability Badges (tier detection)
+     - Exposed to window as `window.obscurM1Diagnostics`
+- Console API:
+  ```javascript
+  // Run full diagnostics
+  await window.obscurM1Diagnostics.run()
+  
+  // Quick health check
+  await window.obscurM1Diagnostics.quickCheck()
+  ```
+- M2 Status:
+  - ✅ Diagnostics framework created
+  - 🔄 Replay verification tests (pending)
+  - 🔄 Integration with existing diagnostics (pending)
+- Next: Create replay verification test suite for critical paths
 
 ### 2026-04-30T17:45:00Z checkpoint — M1 Goal 1 Analysis: Community Modes Already Implemented
 - Summary: Analyzed community modes infrastructure — found it's already largely implemented
