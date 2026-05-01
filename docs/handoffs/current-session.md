@@ -1,8 +1,9 @@
 # Current Session Handoff
 
-- Last Updated (UTC): 2026-05-01T08:15:00Z
-- Session Status: v1.4.8 RELEASED, v1.4.9 IN PROGRESS
-- Active Owner: v1.4.9 mobile artifact publishing to GitHub Releases
+- Last Updated (UTC): 2026-05-01T09:03:00Z
+- Session Status: v1.4.9 RELEASE TRIGGERED (testing mobile artifact publishing)
+- Active Owner: Android CI build step verification
+- Tag: v1.4.9 pushed, workflow running
 - Active Owner: v1.4.0 final release documentation and CHANGELOG updates
 - Active Owner: v1.4.0 community membership projection rewrite (provider-owned roster projection consumed by primary surfaces)
 - Active Owner: v1.4.0 community membership projection rewrite (shared roster projection module adopted in hook/provider/readers)
