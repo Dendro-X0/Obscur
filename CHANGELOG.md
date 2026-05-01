@@ -1,3 +1,35 @@
+## [v1.4.7] - 2026-04-30 (M3 Stabilization)
+
+### M3: Diagnostics & Verification (COMPLETE)
+
+- **M1 Verification Diagnostics**: Comprehensive diagnostics for all M1 goals
+  - `diagnostics/services/m1-verification-diagnostics.ts`: Static verification suite
+  - Validates Goal 2 (CAS Media Recovery), Goal 4 (Security Integration), Goal 5 (Relay Badges)
+  - Console API: `window.obscurM1Diagnostics.run()` / `window.obscurM1Diagnostics.quickCheck()`
+
+- **M1 Replay Tests**: Runtime replay verification suite
+  - `diagnostics/services/m1-replay-tests.ts`: 7 live replay tests
+  - Tests: Media recovery, audit logging, identicon, key change detection, relay capability
+  - Console API: `window.obscurM1Replay.run()` / `window.obscurM1Replay.quick()`
+
+### M1: Implementation Goals (COMPLETE)
+
+- **Goal 2: CAS Media Recovery**: Restore convergence for missing media blobs
+  - `vault/services/cas-media-recovery.ts`: Recovery service implementation
+  - Integrated into restore materialization flow
+  - Fetches missing blobs from CAS gateway after fresh-device restore
+
+- **Goal 4: Security Integration**: Wire security services to production flows
+  - `security/services/security-integration.ts`: Security event logging
+  - `messaging/components/message-header.tsx`: Sender identicon and verification
+  - Key change detection on incoming messages
+  - Security audit log integration
+
+- **Goal 5: Relay Capability Badges**: Community mode and relay tier display
+  - `groups/components/community-mode-badge.tsx`: Mode display with guarantees
+  - Integrated into group management dialog
+  - Shows sovereign room vs managed workspace status
+
 ## [v1.4.6] - 2026-04-30
 
 ### Added

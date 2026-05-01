@@ -27,9 +27,8 @@ let auditLogInstance: SecurityAuditLog | null = null;
  */
 async function getAuditLog(publicKeyHex: PublicKeyHex): Promise<SecurityAuditLog> {
   if (!auditLogInstance) {
-    auditLogInstance = await createSecurityAuditLog(publicKeyHex, {
-      maxEntries: 1000,
-    });
+    auditLogInstance = createSecurityAuditLog(publicKeyHex);
+    await auditLogInstance.initialize();
   }
   return auditLogInstance;
 }
@@ -43,11 +42,12 @@ export async function logSecurityEvent(
 ): Promise<void> {
   try {
     const auditLog = await getAuditLog(publicKeyHex);
-    await auditLog.add({
-      ...event,
-      id: `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
-      timestamp: Date.now(),
-    });
+    await auditLog.logEvent(
+      event.type,
+      event.severity,
+      event.message ?? "Security event",
+      event.details
+    );
   } catch (error) {
     console.error("Failed to log security event:", error);
   }
@@ -290,7 +290,8 @@ export async function getRecentSecurityEvents(
 ): Promise<SecurityEvent[]> {
   try {
     const auditLog = await getAuditLog(publicKeyHex);
-    return await auditLog.getRecent(limit);
+    const events = await auditLog.getEvents({ limit });
+    return events;
   } catch (error) {
     console.error("Failed to get security events:", error);
     return [];
