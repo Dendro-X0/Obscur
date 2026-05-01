@@ -3545,10 +3545,46 @@ Capture `account_sync.backup_restore_merge_diagnostics`, `account_sync.backup_re
   await window.obscurM1Diagnostics.quickCheck()
   ```
 - M2 Status:
-  - ✅ Diagnostics framework created
-  - 🔄 Replay verification tests (pending)
-  - 🔄 Integration with existing diagnostics (pending)
+  - Diagnostics framework created
+  - Replay tests pending
+  - Integration with existing diagnostics pending
 - Next: Create replay verification test suite for critical paths
+
+### 2026-04-30T21:30:00Z checkpoint — M2 COMPLETE: Replay Verification Tests
+- Summary: Created comprehensive replay test suite for M1 implementation verification
+- Implementation:
+  1. **New**: `diagnostics/services/m1-replay-tests.ts` (268 lines)
+     - `runM1ReplayTests()`: Full replay test suite
+     - `quickReplayTest()`: Quick pass/fail summary
+     - 7 individual replay tests:
+       | Test | Goal | Coverage |
+       |------|------|----------|
+       | CAS Media Recovery: Service Available | Goal 2 | Functions exist and are callable |
+       | CAS Media Recovery: Summary Retrieval | Goal 2 | Can retrieve media recovery summary |
+       | Security Integration: Audit Logging | Goal 4 | Can log and retrieve security events |
+       | Security Integration: Identicon | Goal 4 | Identicon infrastructure present |
+       | Security Integration: Key Change | Goal 4 | Key change detection working |
+       | Relay Capability: Assessment | Goal 5 | assessRelayCapability() works |
+       | Relay Capability: Mode Detection | Goal 5 | Community mode detection working |
+     - Exposed to window as `window.obscurM1Replay`
+- Console API:
+  ```javascript
+  // Run full replay suite
+  await window.obscurM1Replay.run()
+  
+  // Quick replay test
+  await window.obscurM1Replay.quick()
+  ```
+- M2 Status: COMPLETE
+  - Diagnostics framework (m1-verification-diagnostics.ts)
+  - Replay verification tests (m1-replay-tests.ts)
+  - Console APIs for manual testing
+- Overall v1.4.7 Status:
+  - M0 (Critical Fixes): COMPLETE
+  - M1 (Implementation): COMPLETE (all 5 goals)
+  - M2 (Diagnostics): COMPLETE
+  - M3 (Stabilization): Pending
+- Next: Proceed to M3 Stabilization (final testing, docs cleanup, release prep)
 
 ### 2026-04-30T17:45:00Z checkpoint — M1 Goal 1 Analysis: Community Modes Already Implemented
 - Summary: Analyzed community modes infrastructure — found it's already largely implemented
