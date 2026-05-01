@@ -50,18 +50,18 @@ export {
   type RelayScore,
 } from "./services/relay-trust-scorer";
 
-// Security Integration (v1.4.7 Goal 4)
+// Security Integration (v1.4.7 Goal 4) - Production wiring for security services
 export {
   logSecurityEvent,
   logRelaySecurityEvent,
   logIdentitySecurityEvent,
   logSettingsChange,
   logBackupRestore,
+  useIdenticon,
   checkContactKeyOnMessage,
   verifyContactKey,
   getContactVerificationStatus,
   getRecentSecurityEvents,
   clearSecurityAuditLog,
-  useIdenticon,
   type KeyChangeResult,
 } from "./services/security-integration";

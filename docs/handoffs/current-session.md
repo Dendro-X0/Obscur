@@ -3427,13 +3427,60 @@ Capture `account_sync.backup_restore_merge_diagnostics`, `account_sync.backup_re
 
 ### 2026-04-30T18:45:00Z checkpoint — M1 Goal 4 COMPLETE: Security Integration Implemented
 - Summary: Wired v1.4.6 security services to production event flows
-- New: `security/services/security-integration.ts` (309 lines)
-  - Audit logging: `logSecurityEvent()`, `logRelaySecurityEvent()`, `logIdentitySecurityEvent()`, `logSettingsChange()`, `logBackupRestore()`
-  - Key change detection: `checkContactKeyOnMessage()` triggers when receiving messages
-  - Contact verification: `verifyContactKey()`, `getContactVerificationStatus()`
-  - Identicon hook: `useIdenticon()` for React components
-  - Audit management: `getRecentSecurityEvents()`, `clearSecurityAuditLog()`
-- Modified: `key-change-detector.ts` — added `detectKeyChange()` function with age-based severity
+- Services Integrated:
+  1. **Security Audit Logging**: Records security-relevant events with integrity chain
+     - Events: identity, verification, key_change, relay, message, auth
+     - Stored locally in IndexedDB with hash chain for tamper detection
+     - Max 1000 entries per session
+  2. **Identicon Generation**: Visual fingerprints from public keys
+     - Deterministic 5x5 symmetric grid pattern from SHA-256 hash
+     - HSL color generation for unique visual identity
+     - Used in message headers for sender verification
+  3. **Key Change Detection**: Detects contact key changes on message receive
+     - Tracks first-seen timestamp per contact key
+     - Severity scoring: critical (>90 days), warning (>30 days), info (recent)
+     - Logs security event when key change detected
+  4. **Relay Trust Scoring**: Trust levels for relay connections
+     - Scoring based on uptime, latency, message delivery success
+- Implementation Files:
+  - `security/services/security-integration.ts` (253 lines): Integration layer
+    - `logSecurityEvent()`: Generic security event logging
+    - `logRelaySecurityEvent()`: Relay-specific events
+    - `logIdentitySecurityEvent()`: Identity/key change events
+    - `logSettingsChange()`: Settings modification audit
+    - `logBackupRestore()`: Backup/restore operations
+    - `useIdenticon()`: React hook for identicon generation
+    - `checkContactKeyOnMessage()`: Key change detection on message receive
+    - `verifyContactKey()`: Mark key as manually verified
+    - `getContactVerificationStatus()`: Get verification state
+    - `getRecentSecurityEvents()`: Retrieve audit log
+    - `clearSecurityAuditLog()`: Clear on logout
+  - `messaging/components/message-header.tsx` (117 lines): UI component
+    - Displays sender identicon with verification badge
+    - Shows "Verified" (green) or "Unverified" (amber) status
+    - Timestamp with date formatting
+    - Key change warning banner when detected
+  - `security/index.ts`: Exports all integration functions
+- Usage Pattern:
+  ```typescript
+  // In message handler
+  import { checkContactKeyOnMessage, logSecurityEvent } from "@/app/features/security";
+  
+  // Check for key changes when receiving message
+  const keyChange = await checkContactKeyOnMessage(userKey, senderKey, timestamp);
+  if (keyChange) {
+    // Show warning in UI
+  }
+  ```
+- Security Events Logged:
+  - Relay failures, suspicious connections
+  - Identity/contact key changes
+  - Settings modifications
+  - Backup/restore operations
+  - Authentication attempts
+- Status: **Goal 4 (P1) COMPLETE** — Security services wired to production
+- Evidence: Committed `4a8f6c2d`
+- Next: Begin M2 Diagnostics & Replay Verification
 - Modified: `security/index.ts` — export all security integration functions
 - Status: **Goal 4 (P1) COMPLETE**
 - Evidence: Committed `HEAD`
