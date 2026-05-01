@@ -3481,10 +3481,50 @@ Capture `account_sync.backup_restore_merge_diagnostics`, `account_sync.backup_re
 - Status: **Goal 4 (P1) COMPLETE** — Security services wired to production
 - Evidence: Committed `4a8f6c2d`
 - Next: Begin M2 Diagnostics & Replay Verification
-- Modified: `security/index.ts` — export all security integration functions
-- Status: **Goal 4 (P1) COMPLETE**
-- Evidence: Committed `HEAD`
-- Next: M1 Goals 3 & 5 remaining, or proceed to M2 Diagnostics
+
+### 2026-04-30T19:20:00Z checkpoint — M1 Goal 5 COMPLETE: Relay Capability Badges
+- Summary: Show community relay guarantees in group management dialog
+- Implementation:
+  1. **New**: `groups/components/community-mode-badge.tsx` (196 lines)
+     - Displays Sovereign Room vs Managed Workspace mode
+     - Shows relay capability tier (unconfigured/public_default/trusted_private/managed_intranet)
+     - Lists honest guarantees with checkmarks
+     - Shows caution notice about operational assumptions
+     - Two modes: full card view and compact inline view
+     - `CommunityModeBadge`: Full card with guarantees and tier badge
+     - `CommunityModeBadgeInline`: Compact inline version for headers
+  2. **Modified**: `groups/components/group-management-dialog.tsx`
+     - Added import for CommunityModeBadge
+     - Added CommunityModeBadge component to General tab
+     - Positioned above Relay Capability Badge
+- Visual Hierarchy:
+  ```
+  ┌─ Community Mode Badge ──────────────────────────────┐
+  │ [Sovereign Room]  [Public Default]                  │
+  │ Guarantees:                                         │
+  │ ✓ Sovereign credentials (you own your keys)         │
+  │ ✓ No mandatory backend (federated by design)        │
+  │ ✓ Replay-safe history (bootstrapped from scratch)   │
+  │ ⚠️ Relay baseline is public: metadata may be visible│
+  └─────────────────────────────────────────────────────┘
+  ┌─ Relay Infrastructure ──────────────────────────────┐
+  │ [Socket] [Publish] [Subscribe] [NIP-11] [NIP-96]    │
+  └─────────────────────────────────────────────────────┘
+  ```
+- Integration with existing:
+  - Uses `assessRelayCapability()` from `community-mode-contract.ts`
+  - Uses `getCommunityModeDefinition()` for mode labels/descriptions
+  - Uses existing `useRelayCapabilities` hook for NIP support
+  - Uses existing `RelayCapabilityBadge` for NIP badges
+- Status: **Goal 5 (P2) COMPLETE** — Relay capability badges displayed
+- Evidence: Committed `8c7d3e1f`
+- Summary: M1 Implementation Phase COMPLETE
+  - Goal 1 (Community Modes): Already implemented
+  - Goal 2 (Restore Convergence): CAS Media Recovery complete
+  - Goal 3 (Voice Reliability): Verified in M0
+  - Goal 4 (Security Integration): Security services wired
+  - Goal 5 (Relay Badges): Community mode badges complete
+- Next: Proceed to M2 Diagnostics & Replay Verification
 
 ### 2026-04-30T17:45:00Z checkpoint — M1 Goal 1 Analysis: Community Modes Already Implemented
 - Summary: Analyzed community modes infrastructure — found it's already largely implemented

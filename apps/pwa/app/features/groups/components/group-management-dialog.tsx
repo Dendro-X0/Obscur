@@ -54,6 +54,7 @@ import { CommunitySyncIndicator } from "./community-sync-indicator";
 import { PresenceBadge } from "@/app/features/network/components/presence-indicator";
 import { RelayCapabilityBadge } from "@/app/features/relays/components/relay-capability-badge";
 import { useRelayCapabilities } from "@/app/features/relays/hooks/use-relay-capabilities";
+import { CommunityModeBadge } from "./community-mode-badge";
 import { ConfirmDialog } from "../../../components/ui/confirm-dialog";
 import { GroupQRCode } from "./group-qr-code";
 import { InviteMemberDialog } from "./invite-member-dialog";
@@ -605,6 +606,14 @@ export function GroupManagementDialog({
                                         </div>
                                     </div>
                                 </div>
+
+                                {/* Community Mode Badge - Shows Sovereign Room vs Managed Workspace */}
+                                <CommunityModeBadge
+                                    mode={group.communityMode}
+                                    enabledRelayUrls={[group.relayUrl].filter(Boolean)}
+                                    selectedRelayHost={group.relayUrl}
+                                    className="w-full"
+                                />
 
                                 {/* Relay Capability Badge - Shows NIP support and basic relay features */}
                                 <div className="space-y-4">
