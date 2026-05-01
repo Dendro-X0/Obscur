@@ -1,8 +1,8 @@
 # Current Session Handoff
 
-- Last Updated (UTC): 2026-04-30T06:45:00Z
-- Session Status: v1.4.7 RELEASED, v1.4.8 IN PROGRESS
-- Active Owner: v1.4.8 mobile CI integration and website completion
+- Last Updated (UTC): 2026-05-01T08:15:00Z
+- Session Status: v1.4.8 RELEASED, v1.4.9 IN PROGRESS
+- Active Owner: v1.4.9 mobile artifact publishing to GitHub Releases
 - Active Owner: v1.4.0 final release documentation and CHANGELOG updates
 - Active Owner: v1.4.0 community membership projection rewrite (provider-owned roster projection consumed by primary surfaces)
 - Active Owner: v1.4.0 community membership projection rewrite (shared roster projection module adopted in hook/provider/readers)
