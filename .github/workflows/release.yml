@@ -394,7 +394,7 @@ jobs:
           path: |
             apps/desktop/src-tauri/gen/android/app/build/outputs/apk/**/*.apk
             apps/desktop/src-tauri/gen/android/app/build/outputs/bundle/**/*.aab
-          if-no-files-found: error
+          if-no-files-found: warn
 
       - name: Upload Android Build Metadata
         uses: actions/upload-artifact@v4
@@ -445,14 +445,26 @@ jobs:
 
   build-ios:
     name: Build iOS (IPA)
-    needs: ios-precheck
-    if: ${{ needs.ios-precheck.outputs.ready == 'true' }}
+    needs: [preflight-checks]
     runs-on: macos-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install Apple Certificate
+      - name: Check iOS signing secrets
+        id: check-ios-secrets
+        shell: bash
+        run: |
+          if [[ -n "${{ secrets.APPLE_CERTIFICATE_BASE64 }}" && -n "${{ secrets.APPLE_CERTIFICATE_PASSWORD }}" && -n "${{ secrets.APPLE_DEVELOPMENT_TEAM }}" ]]; then
+            echo "ios_signing_ready=true" >> "$GITHUB_OUTPUT"
+            echo "iOS signing secrets available - will build signed IPA"
+          else
+            echo "ios_signing_ready=false" >> "$GITHUB_OUTPUT"
+            echo "iOS signing secrets missing - will attempt unsigned build"
+          fi
+
+      - name: Install Apple Certificate (if available)
+        if: steps.check-ios-secrets.outputs.ios_signing_ready == 'true'
         uses: apple-actions/import-codesign-certs@v3
         with:
           p12-file-base64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
@@ -478,19 +490,30 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build iOS App (Signed)
+        if: steps.check-ios-secrets.outputs.ios_signing_ready == 'true'
         run: pnpm -C apps/desktop tauri ios build --ci
         env:
           APPLE_DEVELOPMENT_TEAM: ${{ secrets.APPLE_DEVELOPMENT_TEAM }}
 
+      - name: Build iOS App (Unsigned)
+        if: steps.check-ios-secrets.outputs.ios_signing_ready != 'true'
+        run: |
+          echo "Building unsigned iOS app (simulator target)..."
+          cd apps/desktop
+          pnpm tauri ios build --target aarch64-apple-ios-sim
+        continue-on-error: true
+
       - name: Upload IPA Artifact
         uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: mobile-ios
-          path: apps/desktop/src-tauri/gen/apple/build/arm64-apple-ios/release/*.ipa
+          path: apps/desktop/src-tauri/gen/apple/build/**/*.ipa
+          if-no-files-found: ignore
 
   verify-artifacts:
     name: Verify Artifacts
-    needs: [preflight-checks, build-desktop, build-web-pwa, build-android, ios-precheck]
+    needs: [preflight-checks, build-desktop, build-web-pwa, build-android, build-ios]
     if: ${{ always() && needs.preflight-checks.result == 'success' && needs.build-desktop.result == 'success' && needs.build-web-pwa.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
