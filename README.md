@@ -8,9 +8,16 @@
 
 Obscur is a cross-platform, decentralized, end-to-end encrypted (E2EE) communication app focused on user privacy, ownership, and self-custody identity.
 
-Project phase: **v1.4.6 Security Hardening — Released**
+Project phase: **v1.4.7 Resilience & Verification — Released**
 
-**Release highlights (`v1.4.6`):**
+**Release highlights (`v1.4.7`):**
+
+- **M0: Critical Fixes**: Ghost call prevention (5-minute TTL), profile isolation (complete cleanup), historical notification fixes
+- **M1: Implementation Goals**: CAS Media Recovery (restore convergence), Security Integration (audit logging, identicon, key change detection), Relay Capability Badges (community mode display)
+- **M2: Diagnostics & Verification**: M1 verification diagnostics and 7-test replay suite exposed via console API
+- **M3: Stabilization**: Type fixes, comprehensive documentation, release preparation
+
+**Previous release (`v1.4.6`):**
 
 - **Security Hardening Suite**: Comprehensive identity and transport security improvements:
   - **Visual Identity Verification**: Deterministic identicon generation from public keys for cross-device identity confirmation,
@@ -20,7 +27,7 @@ Project phase: **v1.4.6 Security Hardening — Released**
 - **Community UX Enhancements**: Relay capability badges, loading states, empty states, improved invite flows.
 - **Theme Compatibility**: Full light/dark theme support across all security components.
 
-**Previous release (`v1.4.0`):**
+**Earlier release (`v1.4.0`):**
 
 - **CRDT Protocol Suite**: Complete implementation of 5-phase CRDT integration:
   - LWW-Registers for profile and presence state,
