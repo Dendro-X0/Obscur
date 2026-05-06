@@ -1,6 +1,6 @@
 {
   "name": "@dweb/core",
-  "version": "1.4.10",
+  "version": "1.4.11",
   "private": true,
   "type": "module",
   "dependencies": {
@@ -17,6 +17,7 @@
     "./community-control-event-contracts": "./src/community-control-event-contracts.ts",
     "./community-projection-contracts": "./src/community-projection-contracts.ts",
     "./community-content-contracts": "./src/community-content-contracts.ts",
-    "./community-media-descriptor-contracts": "./src/community-media-descriptor-contracts.ts"
+    "./community-media-descriptor-contracts": "./src/community-media-descriptor-contracts.ts",
+    "./community-runtime-contracts": "./src/community-runtime-contracts.ts"
   }
 }

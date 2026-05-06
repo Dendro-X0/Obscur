@@ -1,3 +1,34 @@
+## [v1.4.11] - 2026-05-06 (Relay Resilience)
+
+### Added
+
+- **DM Operation Ledger** (Shadow Mode): Foundation for message deletion reliability
+  - `messaging/dm-ledger/`: Append-only operation log for DM state changes
+  - Records `message_upsert` and `message_delete` operations with idempotency
+  - Identity alias tracking (optimistic UUID, relay event ID, rumor hash)
+  - Pure reducer derives visible messages and tombstones from operations
+  - Shadow mode: logs divergence without changing existing behavior
+  - Solves "resurrection" problem where deleted messages reappear after sync
+
+- **DM Message Queue**: Retry resilience for unreliable relays
+  - `messaging/services/dm-message-queue.ts`: Persistent message queue
+  - Automatic retry with exponential backoff (2s → 4s → 8s → 16s → 32s)
+  - localStorage persistence for page reload survival
+  - Max 5 attempts before dropping
+  - Detects rate limit vs permanent failure
+
+- **Send with Retry**: Drop-in replacement for send pipeline
+  - `messaging/controllers/v2/dm-send-with-retry.ts`
+  - Queues retryable failures (rate limits, network errors)
+  - Records intent to ledger immediately (no data loss)
+  - UI feedback for pending retries
+
+### Technical
+
+- 37 DM Ledger tests passing (reducer correctness, idempotency, anti-resurrection)
+- TypeScript: 0 errors
+- Non-invasive: existing behavior unchanged, ledger runs in shadow mode
+
 ## [v1.4.7] - 2026-04-30 (M3 Stabilization)
 
 ### M3: Diagnostics & Verification (COMPLETE)
