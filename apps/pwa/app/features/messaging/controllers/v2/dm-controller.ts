@@ -416,7 +416,30 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
       )
     );
 
-    return result;
+    // DM Ledger shadow mode: record outgoing message operation
+    void (async () => {
+      try {
+        await recordDmMessage({
+          conversationId: optimisticMessage.conversationId!, // Assert: always set for optimistic messages
+          message: {
+            ...optimisticMessage,
+            eventId: result.eventId || undefined,
+            status: immediateStatus,
+          },
+          identityIds: [optimisticId, result.eventId, result.messageId].filter((id): id is string => !!id),
+          senderPubkey: myPublicKeyHex,
+          isOutgoing: true,
+          source: "local_send",
+        });
+      } catch (err) {
+        console.error("[dm-ledger:shadow] record outgoing message error", err);
+      }
+    })();
+
+    return {
+      ...result,
+      messageId: optimisticId,
+    };
   }, [pool, myPublicKeyHex, myPrivateKeyHex]);
 
   // --- Send connection request ---
@@ -482,6 +505,21 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
       targetMessageIds: allTargetIds,
       conversationId: delParams.conversationId,
     });
+
+    // DM Ledger shadow mode: record local delete operation
+    void (async () => {
+      try {
+        await recordDmDelete({
+          conversationId: delParams.conversationId,
+          targetIdentityIds: allTargetIds,
+          deletedByPubkey: myPublicKeyHex,
+          isLocalDelete: true,
+          source: "local_delete",
+        });
+      } catch (err) {
+        console.error("[dm-ledger:shadow] record local delete error", err);
+      }
+    })();
   }, [pool, myPublicKeyHex, myPrivateKeyHex, onMessageDeleted]);
 
   // --- State ---
