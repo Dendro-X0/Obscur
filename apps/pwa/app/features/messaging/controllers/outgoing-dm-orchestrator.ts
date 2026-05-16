@@ -24,6 +24,7 @@ import type { RelaySendSnapshot } from "@/app/features/search/types/discovery";
 import { deliveryDiagnosticsStore } from "../services/delivery-diagnostics-store";
 import { reportSenderDeliveryIssue } from "../services/delivery-troubleshooting-reporter";
 import { peerRelayEvidenceStore } from "../services/peer-relay-evidence-store";
+import { resolveDmHybridRelayTargeting } from "../lib/resolve-dm-hybrid-relay-targets";
 
 /**
  * Parameters for orchestrating the outgoing DM flow
@@ -46,6 +47,7 @@ export interface OutgoingDmOrchestrationParams {
     setState: React.Dispatch<React.SetStateAction<EnhancedDMControllerState>>;
     createReadyState: (messages: ReadonlyArray<Message>) => EnhancedDMControllerState;
     createErrorState: (error: string, messages: ReadonlyArray<Message>, handledError: any) => EnhancedDMControllerState;
+    profileId?: string;
 }
 
 const getLiveRelaySendSnapshot = (pool: RelayPool): RelaySendSnapshot => {
@@ -182,104 +184,7 @@ const dedupeRelayUrls = (relayUrls: ReadonlyArray<string>): ReadonlyArray<string
     Array.from(new Set(relayUrls.map((url) => url.trim()).filter((url) => url.length > 0)))
 );
 
-type RecipientRelayScopeSource =
-    | "recipient_discovery"
-    | "recipient_write_relays"
-    | "peer_inbound_evidence"
-    | "sender_fallback";
-
-export const resolveTargetRelayUrls = (params: Readonly<{
-    customTags?: ReadonlyArray<ReadonlyArray<string>>;
-    discoveredRecipientRelayUrls: ReadonlyArray<string>;
-    senderOpenRelayUrls: ReadonlyArray<string>;
-    senderWriteRelayUrls: ReadonlyArray<string>;
-    recipientWriteRelayUrls: ReadonlyArray<string>;
-    recipientInboundRelayUrls: ReadonlyArray<string>;
-}>): Readonly<{
-    lifecycleTag: string | null;
-    targetRelayUrls: ReadonlyArray<string>;
-    recipientScopeRelayUrls: ReadonlyArray<string>;
-    recipientScopeSources: ReadonlyArray<RecipientRelayScopeSource>;
-    relayScopeSource: RecipientRelayScopeSource | "mixed_recipient_scope";
-    usedRecipientScopeOnly: boolean;
-}> => {
-    const lifecycleTag = getConnectionLifecycleTag(params.customTags);
-    const transportTag = getTransportTag(params.customTags);
-    const deleteCommandTransport = transportTag === "message-delete";
-    const recipientScopeSources: RecipientRelayScopeSource[] = [];
-    if (params.discoveredRecipientRelayUrls.length > 0) {
-        recipientScopeSources.push("recipient_discovery");
-    }
-    if (params.recipientWriteRelayUrls.length > 0) {
-        recipientScopeSources.push("recipient_write_relays");
-    }
-    if (params.recipientInboundRelayUrls.length > 0) {
-        recipientScopeSources.push("peer_inbound_evidence");
-    }
-    const recipientScopeRelayUrls = dedupeRelayUrls([
-        ...params.discoveredRecipientRelayUrls,
-        ...params.recipientWriteRelayUrls,
-        ...params.recipientInboundRelayUrls,
-    ]);
-    const relayScopeSource = recipientScopeSources.length === 0
-        ? "sender_fallback"
-        : recipientScopeSources.length === 1
-            ? recipientScopeSources[0]
-            : "mixed_recipient_scope";
-
-    if (deleteCommandTransport && recipientScopeRelayUrls.length > 0) {
-        return {
-            lifecycleTag: null,
-            targetRelayUrls: recipientScopeRelayUrls,
-            recipientScopeRelayUrls,
-            recipientScopeSources,
-            relayScopeSource,
-            usedRecipientScopeOnly: true,
-        };
-    }
-
-    if (lifecycleTag) {
-        if (recipientScopeRelayUrls.length > 0) {
-            return {
-                lifecycleTag,
-                targetRelayUrls: dedupeRelayUrls([
-                    ...recipientScopeRelayUrls,
-                    ...params.senderOpenRelayUrls,
-                    ...params.senderWriteRelayUrls,
-                ]),
-                recipientScopeRelayUrls,
-                recipientScopeSources,
-                relayScopeSource,
-                usedRecipientScopeOnly: false,
-            };
-        }
-
-        return {
-            lifecycleTag,
-            targetRelayUrls: dedupeRelayUrls([
-                ...params.senderOpenRelayUrls,
-                ...params.senderWriteRelayUrls,
-            ]),
-            recipientScopeRelayUrls,
-            recipientScopeSources,
-            relayScopeSource,
-            usedRecipientScopeOnly: false,
-        };
-    }
-
-    return {
-        lifecycleTag: null,
-        targetRelayUrls: dedupeRelayUrls([
-            ...recipientScopeRelayUrls,
-            ...params.senderOpenRelayUrls,
-            ...params.senderWriteRelayUrls,
-        ]),
-        recipientScopeRelayUrls,
-        recipientScopeSources,
-        relayScopeSource,
-        usedRecipientScopeOnly: false,
-    };
-};
+export const resolveTargetRelayUrls = resolveDmHybridRelayTargeting;
 
 const shouldPreferLegacyDmFormat = (params: Readonly<{
     customTags?: string[][];
@@ -369,7 +274,8 @@ export const orchestrateOutgoingDm = async (
         peerPublicKeyInput, plaintext, attachments, replyTo, customTags,
         myPublicKeyHex, myPrivateKeyHex, pool, messageQueue,
         recipientRelayCheckCache, recipientRelayResolutionCache, pendingMessages, relayRequestTimes,
-        maxMessagesInMemory, setState, createReadyState, createErrorState
+        maxMessagesInMemory, setState, createReadyState, createErrorState,
+        profileId,
     } = params;
 
     const networkCheck = errorHandler.canAttemptOperation();
@@ -428,7 +334,7 @@ export const orchestrateOutgoingDm = async (
         const rolloutPolicy = getV090RolloutPolicy(privacySettings);
         const usedCreatedAt = Math.floor(Date.now() / 1000);
         const tags: string[][] = [['p', recipientPubkey]];
-        const recipientInboundRelayUrls = peerRelayEvidenceStore.getRelayUrls(recipientPubkey);
+        const recipientInboundRelayUrls = peerRelayEvidenceStore.getRelayUrls(recipientPubkey, profileId);
         const configuredSenderRelayUrls = typeof pool.getWritableRelaySnapshot === "function"
             ? pool.getWritableRelaySnapshot().configuredRelayUrls
             : pool.connections.map((connection) => connection.url);
@@ -526,14 +432,26 @@ export const orchestrateOutgoingDm = async (
             relaySendSnapshot = getLiveRelaySendSnapshot(pool);
         }
 
-        const scopedWritableRelayUrls = targetRelayUrls.length > 0
+        let scopedWritableRelayUrls = targetRelayUrls.length > 0
             ? getScopedWritableRelayUrls({ pool, targetRelayUrls })
             : relaySendSnapshot.writableRelayUrls;
-        const scopedTargetRelayCount = targetRelayUrls.length > 0
+        let scopedTargetRelayCount = targetRelayUrls.length > 0
             ? targetRelayUrls.length
             : relaySendSnapshot.writableRelayUrls.length;
         const transportTag = getTransportTag(customTags);
         const realtimeVoiceTransport = isRealtimeVoiceTransportTag(transportTag);
+        const isDeleteCommand = transportTag === "message-delete";
+        if (isDeleteCommand && scopedWritableRelayUrls.length === 0 && relayTargeting.usedRecipientScopeOnly) {
+            const senderFallbackRelayUrls = relaySendSnapshot.writableRelayUrls;
+            if (senderFallbackRelayUrls.length > 0) {
+                scopedWritableRelayUrls = senderFallbackRelayUrls;
+                scopedTargetRelayCount = senderFallbackRelayUrls.length;
+                console.log("[DeleteForEveryone:relay-fallback] Recipient-scoped relays unavailable, falling back to sender relays", {
+                    recipientPubkey: recipientPubkey.slice(0, 16),
+                    senderRelayCount: senderFallbackRelayUrls.length,
+                });
+            }
+        }
         const requiredRelaySuccessMinimum = realtimeVoiceTransport
             ? 1
             : getDurableRelaySuccessMinimum(Math.max(1, scopedTargetRelayCount));
@@ -622,6 +540,20 @@ export const orchestrateOutgoingDm = async (
             pendingMessages.current.set(finalMessage.id, finalMessage);
             relayRequestTimes.current.set(finalMessage.id, Date.now());
         }
+
+        console.log("[DM:SEND:DIAG] publish complete", {
+            messageId: finalMessage.id.slice(0, 16),
+            status: finalMessage.status,
+            publishSuccess: publishResult.success,
+            successCount: publishResult.successCount,
+            totalRelays: publishResult.totalRelays,
+            reasonCode: publishResult.reasonCode ?? "none",
+            format: finalMessage.dmFormat,
+            targetRelayCount: targetRelayUrls.length,
+            targetRelays: targetRelayUrls.slice(0, 4),
+            relayResults: publishResult.results.map(r => ({ url: r.relayUrl.slice(0, 40), ok: r.success, err: r.error?.slice(0, 60) })),
+            relayScopeSource: relayTargeting.relayScopeSource,
+        });
 
         setState((prev: EnhancedDMControllerState) => {
             const updatedMessages = prev.messages.map((m: Message) => (m.id === (updatedSignedEvent ? prepared.messageId : finalMessage.id) ? finalMessage : m));

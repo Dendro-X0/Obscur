@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 
 type InviteId = string;
 
@@ -59,7 +60,7 @@ const isInvite = (value: unknown): value is Invite => {
 
 const getLegacyStorageKey = (publicKeyHex: string): string => `${STORAGE_PREFIX}.${publicKeyHex}`;
 
-const getStorageKey = (publicKeyHex: string): string => getScopedStorageKey(getLegacyStorageKey(publicKeyHex));
+const getStorageKey = (publicKeyHex: string): string => getScopedStorageKey(getLegacyStorageKey(publicKeyHex), getResolvedProfileId());
 
 const parsePersisted = (value: unknown): PersistedInvitesV1 | null => {
   if (!isRecord(value)) {

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getScopedStorageKey, setProfileScopeOverride } from "@/app/features/profiles/services/profile-scope";
+import { setProfileRuntimeScope } from "@/app/features/profiles/services/profile-runtime-scope";
 import { accountSyncMutationSignalInternals } from "@/app/shared/account-sync-mutation-signal";
 import {
   COMMUNITY_MEMBERSHIP_LEDGER_UPDATED_EVENT,
@@ -8,7 +9,7 @@ import {
   mergeCommunityMembershipLedgerEntries,
   saveCommunityMembershipLedger,
   selectJoinedCommunityMembershipLedgerEntries,
-  setCommunityMembershipStatus,
+  communityMembershipLedgerInternals,
   toCommunityMembershipLedgerKey,
   toGroupConversationFromMembershipLedgerEntry,
   type CommunityMembershipLedgerEntry,
@@ -17,6 +18,7 @@ import {
 const PUBLIC_KEY = "a".repeat(64);
 const LEGACY_STORAGE_KEY = `obscur.group.membership_ledger.v1.${PUBLIC_KEY}`;
 const SCOPED_STORAGE_KEY = getScopedStorageKey(LEGACY_STORAGE_KEY);
+const { setCommunityMembershipStatus } = communityMembershipLedgerInternals;
 
 const BASE_ENTRY: CommunityMembershipLedgerEntry = {
   communityId: "group-1:wss://relay.example",
@@ -31,6 +33,7 @@ describe("community-membership-ledger", () => {
   beforeEach(() => {
     window.localStorage.clear();
     setProfileScopeOverride(null);
+    setProfileRuntimeScope(null);
   });
 
   it("writes to scoped storage key and reads legacy key fallback", () => {
@@ -49,7 +52,7 @@ describe("community-membership-ledger", () => {
     }));
   });
 
-  it("keeps membership ledger readable across profile-scope transitions", () => {
+  it("does not read profile-a scoped membership from profile-b", () => {
     setProfileScopeOverride("profile-a");
     const scopedStorageKeyA = getScopedStorageKey(LEGACY_STORAGE_KEY, "profile-a");
     saveCommunityMembershipLedger(PUBLIC_KEY, [BASE_ENTRY]);
@@ -57,27 +60,38 @@ describe("community-membership-ledger", () => {
 
     setProfileScopeOverride("profile-b");
     const loaded = loadCommunityMembershipLedger(PUBLIC_KEY);
-    expect(loaded).toHaveLength(1);
-    expect(loaded[0]).toEqual(expect.objectContaining({
-      groupId: BASE_ENTRY.groupId,
-      relayUrl: BASE_ENTRY.relayUrl,
-      status: "joined",
-    }));
+    expect(loaded).toHaveLength(0);
   });
 
-  it("merges scoped and legacy snapshots instead of letting empty scoped data hide legacy membership", () => {
+  it("does not read legacy snapshots from named profile scope", () => {
     const scopedEmpty = getScopedStorageKey(LEGACY_STORAGE_KEY, "profile-b");
     setProfileScopeOverride("profile-b");
     window.localStorage.setItem(scopedEmpty, JSON.stringify([]));
     window.localStorage.setItem(LEGACY_STORAGE_KEY, JSON.stringify([BASE_ENTRY]));
 
     const loaded = loadCommunityMembershipLedger(PUBLIC_KEY);
-    expect(loaded).toHaveLength(1);
-    expect(loaded[0]).toEqual(expect.objectContaining({
-      groupId: BASE_ENTRY.groupId,
-      relayUrl: BASE_ENTRY.relayUrl,
-      status: "joined",
-    }));
+    expect(loaded).toHaveLength(0);
+  });
+
+  it("can read and write an explicit profile scope without ambient profile override", () => {
+    const explicitProfileKey = getScopedStorageKey(LEGACY_STORAGE_KEY, "profile-explicit");
+    window.localStorage.setItem(LEGACY_STORAGE_KEY, JSON.stringify([]));
+
+    saveCommunityMembershipLedger(PUBLIC_KEY, [BASE_ENTRY], {
+      profileId: "profile-explicit",
+    });
+
+    expect(window.localStorage.getItem(explicitProfileKey)).not.toBeNull();
+    expect(loadCommunityMembershipLedger(PUBLIC_KEY)).toHaveLength(0);
+    expect(loadCommunityMembershipLedger(PUBLIC_KEY, {
+      profileId: "profile-explicit",
+    })).toEqual([
+      expect.objectContaining({
+        groupId: BASE_ENTRY.groupId,
+        relayUrl: BASE_ENTRY.relayUrl,
+        status: "joined",
+      }),
+    ]);
   });
 
   it("merges by newest entry timestamp per community key", () => {
@@ -122,13 +136,13 @@ describe("community-membership-ledger", () => {
   it("tracks lifecycle transitions through setCommunityMembershipStatus", () => {
     setCommunityMembershipStatus(PUBLIC_KEY, {
       groupId: BASE_ENTRY.groupId,
-      relayUrl: BASE_ENTRY.relayUrl,
+      relayUrl: BASE_ENTRY.relayUrl!,
       status: "joined",
       updatedAtUnixMs: 100,
     });
     setCommunityMembershipStatus(PUBLIC_KEY, {
       groupId: BASE_ENTRY.groupId,
-      relayUrl: BASE_ENTRY.relayUrl,
+      relayUrl: BASE_ENTRY.relayUrl!,
       status: "left",
       updatedAtUnixMs: 150,
     });
@@ -157,15 +171,26 @@ describe("community-membership-ledger", () => {
   });
 
   it("emits update events only when snapshot changes", () => {
-    const listener = vi.fn();
-    window.addEventListener(COMMUNITY_MEMBERSHIP_LEDGER_UPDATED_EVENT, listener);
+    const { createProfileMessageBus } =
+      require("@dweb/core/profile-message-bus") as typeof import("@dweb/core/profile-message-bus");
+    const bus = createProfileMessageBus({ profileId: "default" });
+    setProfileRuntimeScope({ profileId: "default", bus });
+    const publishSpy = vi.spyOn(bus, "publish");
 
-    saveCommunityMembershipLedger(PUBLIC_KEY, [BASE_ENTRY]);
-    saveCommunityMembershipLedger(PUBLIC_KEY, [BASE_ENTRY]);
-    saveCommunityMembershipLedger(PUBLIC_KEY, [{ ...BASE_ENTRY, status: "left", updatedAtUnixMs: BASE_ENTRY.updatedAtUnixMs + 1 }]);
+    try {
+      saveCommunityMembershipLedger(PUBLIC_KEY, [BASE_ENTRY]);
+      saveCommunityMembershipLedger(PUBLIC_KEY, [BASE_ENTRY]);
+      saveCommunityMembershipLedger(PUBLIC_KEY, [{ ...BASE_ENTRY, status: "left", updatedAtUnixMs: BASE_ENTRY.updatedAtUnixMs! + 1 }]);
 
-    expect(listener).toHaveBeenCalledTimes(2);
-    window.removeEventListener(COMMUNITY_MEMBERSHIP_LEDGER_UPDATED_EVENT, listener);
+      expect(publishSpy).toHaveBeenCalledTimes(2);
+      expect(publishSpy.mock.calls.every(([event]) => (
+        typeof event === "object"
+        && event !== null
+        && (event as { type?: string }).type === "community-membership-ledger-updated"
+      ))).toBe(true);
+    } finally {
+      setProfileRuntimeScope(null);
+    }
   });
 
   it("emits account-sync mutation signal when snapshot changes", () => {

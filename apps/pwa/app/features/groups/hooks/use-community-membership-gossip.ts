@@ -21,17 +21,16 @@
  */
 
 import { useEffect, useRef, useCallback, useState, useMemo } from 'react';
-import { useIdentity } from '@/app/features/auth/hooks/use-identity.js';
+import { useIdentity } from '@/app/features/auth/hooks/use-identity';
 import {
-  useCommunityMembershipIntegration,
-  type UseCommunityMembershipIntegrationReturn,
-} from './use-community-membership-integration.js';
+  useCommunityMembershipCRDT,
+} from './use-community-membership-crdt';
 import {
   createMembershipRelayBridge,
   type MembershipRelayBridge,
   type BridgeStatus,
   type RelayPool,
-} from '../services/community-membership-relay-bridge.js';
+} from '../services/community-membership-relay-bridge';
 import { logAppEvent } from '@/app/shared/log-app-event';
 
 /**
@@ -43,15 +42,36 @@ interface NostrSigner {
 }
 
 /**
- * Hook return value extending integration hook.
+ * Hook return value for CRDT membership with gossip.
  */
-export interface UseCommunityMembershipGossipReturn extends UseCommunityMembershipIntegrationReturn {
+export interface UseCommunityMembershipGossipReturn {
+  /** Current member pubkeys */
+  memberPubkeys: string[];
+
+  /** Is CRDT path active */
+  isCRDTActive: boolean;
+
+  /** Is loading from storage */
+  isLoading: boolean;
+
+  /** Add a member */
+  addMember: (pubkey: string) => void;
+
+  /** Remove a member */
+  removeMember: (pubkey: string) => void;
+
+  /** Export CRDT state for gossip/backup */
+  exportCRDTState: () => string;
+
+  /** Import CRDT state (for restore/merge) */
+  importCRDTState: (serialized: string) => void;
+
   /** Bridge status for diagnostics */
   bridgeStatus: BridgeStatus | null;
-  
+
   /** Force immediate gossip */
   gossipNow: () => Promise<void>;
-  
+
   /** Is gossip bridge connected */
   isGossipConnected: boolean;
 }
@@ -69,9 +89,9 @@ export function useCommunityMembershipGossip(
   const identity = useIdentity();
   const bridgeRef = useRef<MembershipRelayBridge | null>(null);
   const [bridgeStatus, setBridgeStatus] = useState<BridgeStatus | null>(null);
-  
-  // Get base integration
-  const integration = useCommunityMembershipIntegration(communityId, legacyMembers);
+
+  // Get base CRDT hook
+  const crdt = useCommunityMembershipCRDT(communityId, identity.state.publicKeyHex ?? 'unknown', identity.state.publicKeyHex ?? 'unknown-device');
   
   // Generate stable device ID from public key
   const deviceId = useMemo(() => {
@@ -84,50 +104,50 @@ export function useCommunityMembershipGossip(
   // Create and manage relay bridge
   useEffect(() => {
     // Only create bridge if all prerequisites are met
-    if (!enabled || !integration.isCRDTActive || !relayPool || !signer) {
+    if (!enabled || !crdt.isEnabled || !relayPool || !signer) {
       bridgeRef.current?.stop();
       bridgeRef.current = null;
       setBridgeStatus(null);
       return;
     }
-    
-    // Get membership from integration
-    const membership = integration.exportCRDTState();
+
+    // Get membership from CRDT
+    const membership = crdt.exportState();
     if (!membership) {
       return;
     }
-    
+
     // Parse membership for bridge
     const parsedMembership = JSON.parse(membership);
-    
+
     // Create bridge
     bridgeRef.current = createMembershipRelayBridge(
       communityId,
       deviceId,
       () => {
-        // Get current membership from integration
-        const state = integration.exportCRDTState();
+        // Get current membership from CRDT
+        const state = crdt.exportState();
         return state ? JSON.parse(state) : parsedMembership;
       },
       (newMembership) => {
         // Apply received membership
         const serialized = JSON.stringify(newMembership);
-        integration.importCRDTState(serialized);
+        crdt.importState(serialized);
       },
       relayPool,
       signer
     );
-    
+
     // Start bridge
     bridgeRef.current.start();
-    
+
     // Update status periodically
     const statusInterval = setInterval(() => {
       if (bridgeRef.current) {
         setBridgeStatus(bridgeRef.current.getStatus());
       }
     }, 5000);
-    
+
     logAppEvent({
       name: 'crdt.gossip.hook_started',
       level: 'info',
@@ -137,13 +157,13 @@ export function useCommunityMembershipGossip(
         deviceId: deviceId.slice(0, 8),
       },
     });
-    
+
     // Cleanup
     return () => {
       clearInterval(statusInterval);
       bridgeRef.current?.stop();
       bridgeRef.current = null;
-      
+
       logAppEvent({
         name: 'crdt.gossip.hook_stopped',
         level: 'info',
@@ -154,7 +174,7 @@ export function useCommunityMembershipGossip(
         },
       });
     };
-  }, [communityId, deviceId, enabled, integration, relayPool, signer]);
+  }, [communityId, deviceId, enabled, crdt, relayPool, signer]);
   
   // Force gossip function
   const gossipNow = useCallback(async () => {
@@ -168,7 +188,13 @@ export function useCommunityMembershipGossip(
   }, []);
   
   return {
-    ...integration,
+    memberPubkeys: crdt.members,
+    isCRDTActive: crdt.isEnabled,
+    isLoading: crdt.isLoading,
+    addMember: crdt.addMember,
+    removeMember: crdt.removeMember,
+    exportCRDTState: crdt.exportState,
+    importCRDTState: crdt.importState,
     bridgeStatus,
     gossipNow,
     isGossipConnected: bridgeStatus?.isRunning ?? false,

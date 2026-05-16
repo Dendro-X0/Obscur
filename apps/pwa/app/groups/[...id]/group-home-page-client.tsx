@@ -35,29 +35,32 @@ import { Avatar, AvatarFallback, AvatarImage } from "@dweb/ui-kit";
 import { InviteConnectionsDialog } from "@/app/features/groups/components/invite-connections-dialog";
 import { cn } from "@dweb/ui-kit";
 import { toScopedRelayUrl, useSealedCommunity } from "@/app/features/groups/hooks/use-sealed-community";
+import { useCommunityParticipantRosterReadModel } from "@/app/features/groups/hooks/use-community-participant-roster-read-model";
 import { toast } from "@dweb/ui-kit";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import Image from "next/image";
 import { ConfirmDialog } from "@/app/components/ui/confirm-dialog";
 import { UserAvatar } from "@/app/features/profile/components/user-avatar";
 import { useResolvedProfileMetadata } from "@/app/features/profile/hooks/use-resolved-profile-metadata";
+import type { GroupAccessMode } from "@/app/features/groups/types";
+import {
+    dispatchGroupInviteReceived,
+    dispatchGroupMembershipConfirmed,
+} from "@/app/features/profiles/services/profile-bus-dispatch";
 import { discoveryCache } from "@/app/features/search/services/discovery-cache";
 import {
     isConversationNotificationsEnabled,
     setConversationNotificationsEnabled,
 } from "@/app/features/notifications/utils/notification-target-preference";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { getPublicGroupHref, getPublicProfileHref, toAbsoluteAppUrl } from "@/app/features/navigation/public-routes";
 import { resolveGroupConversationByToken } from "@/app/features/messaging/utils/conversation-target";
 import { resolveGroupRouteToken } from "@/app/features/groups/utils/group-route-token";
 import { toGroupConversationId } from "@/app/features/groups/utils/group-conversation-id";
 import { useAccessibilityPreferences } from "@/app/features/settings/hooks/use-accessibility-preferences";
 import { logAppEvent } from "@/app/shared/log-app-event";
-import {
-    filterVisibleGroupMembers,
-    resolveCommunitySeedMemberPubkeys,
-    resolveVisibleCommunityMemberPubkeys,
-    stabilizeCommunityMemberPubkeys,
-} from "@/app/features/groups/services/community-visible-members";
+import { filterVisibleGroupMembers } from "@/app/features/groups/services/community-visible-members";
+import { getResolvedClientGateway } from "@/app/features/profiles/services/resolve-client-gateway";
 import { useIsDesktop } from "@/app/features/desktop/hooks/use-tauri";
 import { shouldUseSafeCommunityRenderMode } from "@/app/features/groups/services/community-render-mode";
 
@@ -160,6 +163,21 @@ export default function GroupHomePage() {
         safeVisualMode,
     ]);
 
+    const communityRosterProjection = group ? communityRosterByConversationId[group.id] : undefined;
+    const communityKnownParticipantDirectory = group ? communityKnownParticipantDirectoryByConversationId[group.id] : undefined;
+    const projectionMemberPubkeys = communityRosterProjection?.activeMemberPubkeys;
+    const knownParticipantPubkeys = communityKnownParticipantDirectory?.participantPubkeys;
+
+    const seededMemberEvidence = React.useMemo(
+        () => getResolvedClientGateway().communityRoster.resolveSeedMemberPubkeysFromDirectory({
+            directory: communityKnownParticipantDirectory ?? null,
+            persistedGroupMemberPubkeys: group?.memberPubkeys,
+            projectionMemberPubkeys,
+            localMemberPubkey,
+        }),
+        [communityKnownParticipantDirectory, group?.memberPubkeys, localMemberPubkey, projectionMemberPubkeys],
+    );
+
     const {
         state: groupState,
         updateMetadata,
@@ -172,88 +190,50 @@ export default function GroupHomePage() {
         myPublicKeyHex: identityState.publicKeyHex || null,
         myPrivateKeyHex: identityState.privateKeyHex || null,
         enabled: !!(group || discoveredRelay),
-        initialMembers: resolveCommunitySeedMemberPubkeys({
-            seededMemberPubkeys: [
-                ...((communityKnownParticipantDirectoryByConversationId[group?.id ?? ""]?.participantPubkeys ?? []) as ReadonlyArray<PublicKeyHex>),
-                ...(((group?.memberPubkeys as ReadonlyArray<PublicKeyHex> | undefined) ?? [])),
-            ],
-            projectionMemberPubkeys: communityRosterByConversationId[group?.id ?? ""]?.activeMemberPubkeys,
-            localMemberPubkey,
-        }),
+        initialMembers: seededMemberEvidence,
     });
 
-    const communityRosterProjection = group ? communityRosterByConversationId[group.id] : undefined;
-    const communityKnownParticipantDirectory = group ? communityKnownParticipantDirectoryByConversationId[group.id] : undefined;
-    const projectionMemberPubkeys = communityRosterProjection?.activeMemberPubkeys;
-    const knownParticipantPubkeys = communityKnownParticipantDirectory?.participantPubkeys;
-    const seededMemberEvidence = React.useMemo(
-        () => resolveCommunitySeedMemberPubkeys({
-            seededMemberPubkeys: [
-                ...((knownParticipantPubkeys ?? []) as ReadonlyArray<PublicKeyHex>),
-                ...(((group?.memberPubkeys as ReadonlyArray<PublicKeyHex> | undefined) ?? [])),
-            ],
-            projectionMemberPubkeys,
-            localMemberPubkey,
-        }),
-        [group?.memberPubkeys, knownParticipantPubkeys, localMemberPubkey, projectionMemberPubkeys]
-    );
-    const authorEvidencePubkeys = React.useMemo(
-        () => Array.from(new Set(
-            groupState.messages
-                .map((message) => message.pubkey?.trim() ?? "")
-                .filter((pubkey) => pubkey.length > 0)
-        )) as ReadonlyArray<PublicKeyHex>,
-        [groupState.messages]
-    );
-    const activeMembers = React.useMemo(
-        () => resolveVisibleCommunityMemberPubkeys({
+    const { activeMemberPubkeys: activeMembers } = React.useMemo(
+        () => getResolvedClientGateway().communityRoster.resolveActiveMemberPubkeysFromConversation({
+            communityMessages: groupState.messages,
             seededMemberPubkeys: seededMemberEvidence,
             projectionMemberPubkeys,
-            authorEvidencePubkeys,
             localMemberPubkey,
             leftMemberPubkeys: groupState.leftMembers,
             expelledMemberPubkeys: groupState.expelledMembers,
         }),
-        [authorEvidencePubkeys, groupState.expelledMembers, groupState.leftMembers, localMemberPubkey, projectionMemberPubkeys, seededMemberEvidence]
+        [
+            groupState.messages,
+            groupState.expelledMembers,
+            groupState.leftMembers,
+            localMemberPubkey,
+            projectionMemberPubkeys,
+            seededMemberEvidence,
+        ],
     );
-    const [stableParticipantPubkeys, setStableParticipantPubkeys] = useState<ReadonlyArray<PublicKeyHex>>(activeMembers);
-    const leftMembersRef = useRef<ReadonlyArray<PublicKeyHex>>(groupState.leftMembers);
-    const expelledMembersRef = useRef<ReadonlyArray<PublicKeyHex>>(groupState.expelledMembers);
-
-    // Keep refs in sync with state to avoid stale closure issues in stabilization
-    useEffect(() => {
-        leftMembersRef.current = groupState.leftMembers;
-        expelledMembersRef.current = groupState.expelledMembers;
-    }, [groupState.leftMembers, groupState.expelledMembers]);
-
-    useEffect(() => {
-        setStableParticipantPubkeys((previous) => {
-            // Use refs to ensure we have the latest left/expelled lists
-            // This prevents race conditions where activeMembers is computed with new data
-            // but groupState hasn't propagated to the effect closure yet
-            const result = stabilizeCommunityMemberPubkeys({
-                previousMemberPubkeys: previous,
-                nextMemberPubkeys: activeMembers,
-                leftMemberPubkeys: leftMembersRef.current,
-                expelledMemberPubkeys: expelledMembersRef.current,
-            });
-            // Log diagnostics for debugging member list updates
-            if (result.shouldApply || result.reasonCode === "missing_removal_evidence") {
-                // eslint-disable-next-line no-console
-                console.log("[MemberStabilization]", {
-                    reasonCode: result.reasonCode,
-                    shouldApply: result.shouldApply,
-                    previousCount: previous.length,
-                    nextCount: result.nextMemberPubkeys.length,
-                    leftCount: leftMembersRef.current.length,
-                    expelledCount: expelledMembersRef.current.length,
-                    confidence: result.confidence,
-                    guardRelaxed: result.guardRelaxed,
-                });
-            }
-            return result.nextMemberPubkeys.join(",") === previous.join(",") ? previous : result.nextMemberPubkeys;
-        });
-    }, [activeMembers]);
+    const directoryParticipantPubkeys = React.useMemo(
+        () => (knownParticipantPubkeys ?? []) as ReadonlyArray<PublicKeyHex>,
+        [knownParticipantPubkeys],
+    );
+    const relayEvidenceConfidence = (
+        groupState as { relayEvidenceRef?: { confidenceLevel: "seed_only" | "warming_up" | "partial_eose" | "steady_state" } }
+    ).relayEvidenceRef?.confidenceLevel ?? "seed_only";
+    const { displayPubkeys: rosterDisplayPubkeys, authorEvidencePubkeys } = useCommunityParticipantRosterReadModel({
+        conversationId: group?.id ?? "",
+        directoryParticipantPubkeys,
+        persistedGroupMemberPubkeys: (group?.memberPubkeys ?? []) as ReadonlyArray<PublicKeyHex>,
+        projectionMemberPubkeys,
+        rosterSeedPubkeys: seededMemberEvidence,
+        communityMessages: groupState.messages,
+        localMemberPubkey,
+        leftMemberPubkeys: groupState.leftMembers as ReadonlyArray<PublicKeyHex>,
+        expelledMemberPubkeys: groupState.expelledMembers as ReadonlyArray<PublicKeyHex>,
+        relayEvidenceConfidence,
+        persistedEvidenceOwnerPubkey: localMemberPubkey,
+        ledgerGroupId: group?.groupId,
+        ledgerRelayUrl: group?.relayUrl,
+        applyTerminalMembershipExclusions: false,
+    });
     const fallbackGroupIdFromRoute = React.useMemo(() => {
         const routeToken = (id ?? "").trim();
         if (!routeToken) {
@@ -285,8 +265,8 @@ export default function GroupHomePage() {
         return fallbackCommunityIdFromRoute || undefined;
     }, [fallbackCommunityIdFromRoute, group?.communityId]);
     const visibleMembers = React.useMemo(
-        () => filterVisibleGroupMembers(stableParticipantPubkeys, (pubkey) => discoveryCache.getProfile(pubkey)),
-        [stableParticipantPubkeys]
+        () => filterVisibleGroupMembers(rosterDisplayPubkeys, (pubkey) => discoveryCache.getProfile(pubkey)),
+        [rosterDisplayPubkeys]
     );
     const displayMemberCount = visibleMembers.length;
     const onlineMembers = React.useMemo(
@@ -336,7 +316,7 @@ export default function GroupHomePage() {
             projectionMemberPubkeys?.length ?? 0,
             authorEvidencePubkeys.length,
             activeMembers.length,
-            stableParticipantPubkeys.length,
+            rosterDisplayPubkeys.length,
             visibleMembers.length,
             onlineMembers.length,
             offlineMembers.length,
@@ -347,7 +327,7 @@ export default function GroupHomePage() {
         }
         lastParticipantProjectionSignatureRef.current = signature;
 
-        const visibleShrankBelowStable = visibleMembers.length < stableParticipantPubkeys.length;
+        const visibleShrankBelowStable = visibleMembers.length < rosterDisplayPubkeys.length;
         const projectionThinnerThanKnown =
             (projectionMemberPubkeys?.length ?? 0) < (knownParticipantPubkeys?.length ?? 0);
         const projectionThinnerThanAuthors =
@@ -366,7 +346,7 @@ export default function GroupHomePage() {
                 rosterProjectionCount: projectionMemberPubkeys?.length ?? 0,
                 authorEvidenceCount: authorEvidencePubkeys.length,
                 activeParticipantCount: activeMembers.length,
-                stableParticipantCount: stableParticipantPubkeys.length,
+                stableParticipantCount: rosterDisplayPubkeys.length,
                 visibleParticipantCount: visibleMembers.length,
                 onlineParticipantCount: onlineMembers.length,
                 offlineParticipantCount: offlineMembers.length,
@@ -384,7 +364,7 @@ export default function GroupHomePage() {
         offlineMembers.length,
         onlineMembers.length,
         projectionMemberPubkeys?.length,
-        stableParticipantPubkeys.length,
+        rosterDisplayPubkeys.length,
         visibleMembers.length,
     ]);
 
@@ -429,24 +409,24 @@ export default function GroupHomePage() {
             return;
         }
         const hasMembershipEvidence = groupState.membership.status === "member"
-            || stableParticipantPubkeys.includes(myPublicKeyHex);
+            || rosterDisplayPubkeys.includes(myPublicKeyHex);
         if (!hasMembershipEvidence) {
             return;
         }
-        const memberPubkeys = Array.from(new Set([...stableParticipantPubkeys, myPublicKeyHex]));
+        const memberPubkeys = Array.from(new Set([...rosterDisplayPubkeys, myPublicKeyHex]));
         const adminPubkeys = (groupState.admins ?? [])
             .map((admin) => admin.pubkey)
             .filter((pubkey): pubkey is PublicKeyHex => typeof pubkey === "string" && pubkey.trim().length > 0);
         const displayName = groupState.metadata?.name || resolvedGroupId;
         const avatar = groupState.metadata?.picture;
-        const access = groupState.metadata?.access === "discoverable"
+        const access: GroupAccessMode = groupState.metadata?.access === "discoverable"
             ? "discoverable"
             : groupState.metadata?.access === "invite-only"
                 ? "invite-only"
                 : "open";
 
-        addGroup({
-            kind: "group",
+        const materializedGroup = {
+            kind: "group" as const,
             id: toGroupConversationId({
                 groupId: resolvedGroupId,
                 relayUrl: effectiveRelay,
@@ -464,25 +444,28 @@ export default function GroupHomePage() {
             access,
             memberCount: Math.max(memberPubkeys.length, 1),
             avatar,
-        }, { allowRevive: true });
+        };
+        addGroup(materializedGroup, { allowRevive: true });
+        dispatchGroupInviteReceived(materializedGroup);
 
-        window.dispatchEvent(new CustomEvent("obscur:group-membership-confirmed", {
-            detail: {
-                groupId: resolvedGroupId,
-                relayUrl: effectiveRelay,
-                communityId: resolvedCommunityId,
-                displayName,
-                avatar,
-                access,
-                memberPubkeys,
-                adminPubkeys,
-                memberCount: Math.max(memberPubkeys.length, 1),
-                lastMessageTimeUnixMs: Date.now(),
-            },
-        }));
+        // M4: include publicKeyHex so the provider can reject events dispatched
+        // for a different account in the same process (same-process A/B guard).
+        dispatchGroupMembershipConfirmed({
+            groupId: resolvedGroupId,
+            relayUrl: effectiveRelay,
+            communityId: resolvedCommunityId,
+            displayName,
+            avatar,
+            access,
+            memberPubkeys,
+            adminPubkeys,
+            memberCount: Math.max(memberPubkeys.length, 1),
+            lastMessageTimeUnixMs: Date.now(),
+            publicKeyHex: identityState.publicKeyHex ?? identityState.stored?.publicKeyHex,
+        });
     }, [
         addGroup,
-        stableParticipantPubkeys,
+        rosterDisplayPubkeys,
         effectiveRelay,
         group,
         groupState.admins,
@@ -503,10 +486,11 @@ export default function GroupHomePage() {
     }, [group, router, setSelectedConversation]);
 
     const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+    const notificationPreferenceProfileId = getResolvedProfileId();
 
     React.useEffect(() => {
         if (!group) return;
-        setNotificationsEnabled(isConversationNotificationsEnabled(group));
+        setNotificationsEnabled(isConversationNotificationsEnabled(group, notificationPreferenceProfileId));
 
         const fetchRoomKey = async () => {
             const { roomKeyStore } = await import("@/app/features/crypto/room-key-store");
@@ -514,7 +498,7 @@ export default function GroupHomePage() {
             if (key) setRoomKeyHex(key);
         };
         fetchRoomKey();
-    }, [group?.groupId]);
+    }, [group?.groupId, group?.id, notificationPreferenceProfileId]);
 
     const toggleNotifications = () => {
         const next = !notificationsEnabled;
@@ -523,6 +507,7 @@ export default function GroupHomePage() {
             setConversationNotificationsEnabled({
                 conversation: group,
                 enabled: next,
+                profileId: getResolvedProfileId(),
             });
             toast.success(next ? "Notifications enabled" : "Notifications disabled");
         }
@@ -1008,7 +993,7 @@ export default function GroupHomePage() {
                         communityId={group.communityId}
                         genesisEventId={group.genesisEventId}
                         creatorPubkey={group.creatorPubkey}
-                        currentMemberPubkeys={stableParticipantPubkeys}
+                        currentMemberPubkeys={rosterDisplayPubkeys}
                         metadata={{
                             id: group.groupId,
                             name: displayName,

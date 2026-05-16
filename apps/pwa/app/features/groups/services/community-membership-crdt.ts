@@ -51,16 +51,6 @@ import {
 } from '@dweb/crdt/or-set';
 
 /**
- * Feature flag for gradual CRDT rollout.
- * Set via runtime configuration or feature flags service.
- */
-export const FEATURE_FLAGS = {
-  useCRDTMembership: true,
-  logCRDTOperations: true,
-  enableGossipSync: false, // Phase 2
-} as const;
-
-/**
  * Community membership state using OR-Set CRDT.
  */
 export interface CommunityMembership {
@@ -169,9 +159,7 @@ export const addMember = (
     newClock
   );
   
-  if (FEATURE_FLAGS.logCRDTOperations) {
-    logMembershipOperation('add', membership.communityId, pubkey, deviceId);
-  }
+  logMembershipOperation('add', membership.communityId, pubkey, deviceId);
   
   return {
     ...membership,
@@ -198,9 +186,7 @@ export const removeMember = (
 ): CommunityMembership => {
   const newMemberSet = removeFromORSet(membership.memberSet, pubkey);
   
-  if (FEATURE_FLAGS.logCRDTOperations) {
-    logMembershipOperation('remove', membership.communityId, pubkey, deviceId);
-  }
+  logMembershipOperation('remove', membership.communityId, pubkey, deviceId);
   
   return {
     ...membership,
@@ -232,9 +218,7 @@ export const mergeMembership = (
   const mergedSet = mergeORSets(local.memberSet, remote.memberSet);
   const mergedClock = mergeClocks(local.vectorClock, remote.vectorClock);
   
-  if (FEATURE_FLAGS.logCRDTOperations) {
-    logMembershipMerge(local.communityId, local.localDeviceId, remote.localDeviceId);
-  }
+  logMembershipMerge(local.communityId, local.localDeviceId, remote.localDeviceId);
   
   return {
     ...local,

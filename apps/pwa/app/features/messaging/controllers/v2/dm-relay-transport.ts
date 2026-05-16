@@ -7,18 +7,32 @@
  */
 
 import type { NostrEvent } from "@dweb/nostr/nostr-event";
+import { logAppEvent } from "@/app/shared/log-app-event";
 import type {
   NostrFilter,
   PublishResult,
   RelayPoolContract,
 } from "./dm-controller-types";
+import { nip65Service } from "@/app/features/relays/utils/nip65-service";
+import { peerRelayEvidenceStore } from "../../services/peer-relay-evidence-store";
+import { resolveDmHybridRelayTargeting } from "../../lib/resolve-dm-hybrid-relay-targets";
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-const SUBSCRIBE_SINCE_SKEW_SECONDS = 30;
+/** REQ `since` lookback for DM subscriptions — a tiny window drops events on slow relays or clock skew. */
+const DM_SUBSCRIBE_HISTORY_LOOKBACK_SECONDS = 86400 * 7;
 const MIN_QUORUM = 1;
+
+// Well-known high-uptime relays used as delivery fallback when the recipient's
+// relay list is unknown. These mirror the pool's own offline fallback set.
+// Used only when both NIP-65 and inbound evidence are empty for the peer.
+const DM_DELIVERY_FALLBACK_RELAYS: ReadonlyArray<string> = [
+  "wss://relay.damus.io",
+  "wss://nos.lol",
+  "wss://relay.primal.net",
+];
 
 // ---------------------------------------------------------------------------
 // Publish
@@ -117,27 +131,73 @@ export const subscribeToIncomingDMs = (params: Readonly<{
 }>): SubscriptionHandle => {
   const { pool, myPublicKeyHex, onEvent } = params;
 
+  // `resolveTargetRelayUrls` can publish to delivery fallbacks when the peer has
+  // no NIP-65 / evidence. REQ must hit those same relays or recipients never see
+  // live events while history (restore / other fetches) still shows old traffic.
+  if (typeof pool.addTransientRelay === "function") {
+    for (const url of DM_DELIVERY_FALLBACK_RELAYS) {
+      pool.addTransientRelay(url);
+    }
+  }
+
+  const pubkeyLower = myPublicKeyHex.trim().toLowerCase();
   const sinceUnixSeconds = Math.max(
     0,
-    Math.floor(Date.now() / 1000) - SUBSCRIBE_SINCE_SKEW_SECONDS,
+    Math.floor(Date.now() / 1000) - DM_SUBSCRIBE_HISTORY_LOOKBACK_SECONDS,
   );
 
   const filters: ReadonlyArray<NostrFilter> = [
     {
       kinds: [4, 1059],
-      "#p": [myPublicKeyHex],
-      limit: 50,
+      "#p": [pubkeyLower],
+      limit: 200,
       since: sinceUnixSeconds,
     },
     {
       kinds: [4],
-      authors: [myPublicKeyHex],
-      limit: 50,
+      authors: [pubkeyLower],
+      limit: 200,
       since: sinceUnixSeconds,
     },
   ];
 
-  const subId = pool.subscribe(filters, onEvent);
+  const subId = pool.subscribe(filters, (event: NostrEvent, relayUrl: string) => {
+    logAppEvent({
+      name: "messaging.delete_for_everyone_remote_result",
+      level: "debug",
+      scope: { feature: "messaging", action: "delete_for_everyone" },
+      context: {
+        channel: "v2_subscription_event_received",
+        resultCode: "received",
+        reasonCode: null,
+        deliveryStatus: "received",
+        conversationIdHint: null,
+        messageIdHint: event.id.slice(0, 16),
+        conversationKind: "dm",
+        isOutgoing: event.pubkey === myPublicKeyHex,
+        deleteTargetCount: 0,
+        remoteMessageIdHint: event.id.slice(0, 16),
+      },
+    });
+    onEvent(event, relayUrl);
+  });
+  logAppEvent({
+    name: "messaging.delete_for_everyone_remote_result",
+    level: "info",
+    scope: { feature: "messaging", action: "delete_for_everyone" },
+    context: {
+      channel: "v2_subscription_started",
+      resultCode: "subscribed",
+      reasonCode: null,
+      deliveryStatus: "pending",
+      conversationIdHint: null,
+      messageIdHint: subId.slice(0, 16),
+      conversationKind: "dm",
+      isOutgoing: false,
+      deleteTargetCount: 0,
+      remoteMessageIdHint: null,
+    },
+  });
 
   return {
     id: subId,
@@ -147,6 +207,33 @@ export const subscribeToIncomingDMs = (params: Readonly<{
   };
 };
 
+const dedupeRelayUrlList = (relayUrls: ReadonlyArray<string>): ReadonlyArray<string> => (
+  Array.from(new Set(relayUrls.map((url) => url.trim()).filter((url) => url.length > 0)))
+);
+
+const resolveSenderOpenRelayUrls = (pool: RelayPoolContract): ReadonlyArray<string> => {
+  if (typeof pool.getWritableRelaySnapshot === "function") {
+    const snapshot = pool.getWritableRelaySnapshot();
+    if (snapshot.writableRelayUrls.length > 0) {
+      return snapshot.writableRelayUrls;
+    }
+  }
+  return pool.connections
+    .filter((c) => c.status === "open")
+    .map((c) => c.url);
+};
+
+const resolveConfiguredSenderRelayUrls = (pool: RelayPoolContract): ReadonlyArray<string> => {
+  if (typeof pool.getWritableRelaySnapshot === "function") {
+    const snapshot = pool.getWritableRelaySnapshot();
+    const configured = snapshot.configuredRelayUrls;
+    if (Array.isArray(configured) && configured.length > 0) {
+      return configured;
+    }
+  }
+  return pool.connections.map((c) => c.url);
+};
+
 // ---------------------------------------------------------------------------
 // Relay URL resolution
 // ---------------------------------------------------------------------------
@@ -154,18 +241,36 @@ export const subscribeToIncomingDMs = (params: Readonly<{
 export const resolveTargetRelayUrls = (params: Readonly<{
   pool: RelayPoolContract;
   peerPublicKeyHex: string;
+  senderPublicKeyHex: string;
+  customTags?: ReadonlyArray<ReadonlyArray<string>>;
+  profileId?: string;
 }>): ReadonlyArray<string> => {
-  const { pool } = params;
-  // Use writable relays if snapshot is available
-  if (pool.getWritableRelaySnapshot) {
-    const snapshot = pool.getWritableRelaySnapshot();
-    if (snapshot.writableRelayUrls.length > 0) {
-      return snapshot.writableRelayUrls;
-    }
-  }
+  const { pool, peerPublicKeyHex, senderPublicKeyHex, customTags, profileId } = params;
+  const recipientInboundRelayUrls = peerRelayEvidenceStore.getRelayUrls(peerPublicKeyHex, profileId);
+  const recipientWriteRelayUrls = nip65Service.getWriteRelays(peerPublicKeyHex as never);
+  const configuredSenderRelayUrls = resolveConfiguredSenderRelayUrls(pool);
+  const senderWriteRelayUrls = dedupeRelayUrlList([
+    ...nip65Service.getWriteRelays(senderPublicKeyHex as never),
+    ...configuredSenderRelayUrls,
+  ]);
+  const senderOpenRelayUrls = resolveSenderOpenRelayUrls(pool);
 
-  // Fallback: all open connections
-  return pool.connections
-    .filter(c => c.status === "open")
-    .map(c => c.url);
+  const targeting = resolveDmHybridRelayTargeting({
+    customTags,
+    discoveredRecipientRelayUrls: [],
+    senderOpenRelayUrls,
+    senderWriteRelayUrls,
+    recipientWriteRelayUrls,
+    recipientInboundRelayUrls,
+  });
+
+  let urls = [...targeting.targetRelayUrls];
+  if (
+    recipientInboundRelayUrls.length === 0
+    && recipientWriteRelayUrls.length === 0
+    && targeting.recipientScopeRelayUrls.length === 0
+  ) {
+    urls = [...dedupeRelayUrlList([...urls, ...DM_DELIVERY_FALLBACK_RELAYS])];
+  }
+  return dedupeRelayUrlList(urls);
 };

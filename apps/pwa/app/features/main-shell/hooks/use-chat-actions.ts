@@ -1,17 +1,16 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 import { toast } from "@dweb/ui-kit";
 import { useMessaging } from "@/app/features/messaging/providers/messaging-provider";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { useNetwork } from "@/app/features/network/providers/network-provider";
 import { createEmptyReactions, toReactionsByEmoji } from "@/app/features/messaging/utils/logic";
 import { type Message, type ReactionEmoji, UploadError, UploadErrorCode } from "@/app/features/messaging/types";
-import type { UseEnhancedDMControllerResult } from "../../messaging/controllers/enhanced-dm-controller";
+import type { UseDmControllerResult } from "../../messaging/controllers/v2/dm-controller";
 import { GroupService } from "@/app/features/groups/services/group-service";
 import { useUploadService } from "../../messaging/lib/upload-service";
 import { messageBus } from "../../messaging/services/message-bus";
-import { chatStateStoreService } from "../../messaging/services/chat-state-store";
 import {
     BEST_EFFORT_STORAGE_NOTE,
     shouldAvoidInMemoryAttachmentCaching,
@@ -22,13 +21,20 @@ import { shouldCacheAttachmentInVault } from "../../messaging/utils/attachment-s
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import { normalizeRelayUrl as normalizeRelayUrlBase } from "@dweb/nostr/relay-utils";
-import { createDeleteCommandMessage, encodeCommandMessage } from "../../messaging/utils/commands";
-import { suppressMessageDeleteTombstone } from "../../messaging/services/message-delete-tombstone-store";
 import { useResolvedProfileMetadata } from "@/app/features/profile/hooks/use-resolved-profile-metadata";
 import { canDeleteMessageForEveryone, getDeleteForEveryoneRejectionReason } from "../../messaging/services/message-delete-permissions";
-import { appendCanonicalDmRemovedEvent } from "@/app/features/account-sync/services/account-event-ingest-bridge";
+import { groupClientOperations } from "@/app/features/groups/services/group-client-operations";
 import { collectMessageIdentityAliases } from "../../messaging/services/message-identity-alias-contract";
 import type { Attachment } from "../../messaging/lib/message-queue";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
+import {
+    messagingClientOperations,
+} from "@/app/features/messaging/services/messaging-client-operations";
+import {
+    buildDeleteTargetIdsForDm,
+    buildLocalDeleteIdentityIdsForDm,
+    deriveNip17RumorId,
+} from "@/app/features/messaging/services/dm-delete-target-derivation";
 
 type MultiRelayPublishResult = Readonly<{
     success: boolean;
@@ -51,9 +57,9 @@ const toIdHint = (value: string | null | undefined): string | null => {
     return `${normalized.slice(0, 8)}...${normalized.slice(-8)}`;
 };
 
-const toLocalDeleteIdentityIds = (message: Message): ReadonlyArray<string> => {
-    return collectMessageIdentityAliases(message);
-};
+const toLocalDeleteIdentityIds = (message: Message): ReadonlyArray<string> => (
+    collectMessageIdentityAliases(message)
+);
 
 const isRetryableUploadError = (error: UploadError): boolean => (
     error.code === UploadErrorCode.NETWORK_ERROR
@@ -87,45 +93,6 @@ const runWithConcurrencyLimit = async <T>(
     return results;
 };
 
-const fallbackDigestHex = (payload: string): string => {
-    let hash = 0x811c9dc5;
-    for (let i = 0; i < payload.length; i += 1) {
-        hash ^= payload.charCodeAt(i);
-        hash = Math.imul(hash, 0x01000193) >>> 0;
-    }
-    return hash.toString(16).padStart(8, "0").repeat(8);
-};
-
-const deriveNip17RumorId = async (params: Readonly<{
-    senderPubkey: string;
-    recipientPubkey: string;
-    plaintext: string;
-    createdAtUnixSeconds: number;
-    replyToMessageId?: string | null;
-}>): Promise<string> => {
-    const tags: string[][] = [["p", params.recipientPubkey]];
-    const replyToMessageId = params.replyToMessageId?.trim();
-    if (replyToMessageId) {
-        tags.push(["e", replyToMessageId, "", "reply"]);
-    }
-    const payload = JSON.stringify([
-        0,
-        params.senderPubkey,
-        params.createdAtUnixSeconds,
-        14,
-        tags,
-        params.plaintext,
-    ]);
-    try {
-        const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(payload));
-        return Array.from(new Uint8Array(digest))
-            .map((byte) => byte.toString(16).padStart(2, "0"))
-            .join("");
-    } catch {
-        return fallbackDigestHex(payload);
-    }
-};
-
 const resolveAttachmentUploadConcurrency = (attachmentsCount: number): number => {
     if (attachmentsCount <= 1) {
         return 1;
@@ -134,130 +101,6 @@ const resolveAttachmentUploadConcurrency = (attachmentsCount: number): number =>
         return 2;
     }
     return 3;
-};
-
-const buildAttachmentMarkdown = (attachments: Message["attachments"]): string => {
-    if (!Array.isArray(attachments) || attachments.length === 0) {
-        return "";
-    }
-    return attachments
-        .map((attachment) => {
-            const fileName = typeof attachment?.fileName === "string" ? attachment.fileName.trim() : "";
-            const url = typeof attachment?.url === "string" ? attachment.url.trim() : "";
-            if (!fileName || !url) {
-                return "";
-            }
-            return `[${fileName}](${url})`;
-        })
-        .filter((value) => value.length > 0)
-        .join(" ");
-};
-
-const buildDeletePlaintextCandidates = (message: Message): ReadonlyArray<string> => {
-    const candidates = new Set<string>();
-    const content = typeof message.content === "string" ? message.content.trim() : "";
-    if (content.length > 0) {
-        candidates.add(content);
-    }
-    const attachmentMarkdown = buildAttachmentMarkdown(message.attachments);
-    if (attachmentMarkdown.length > 0) {
-        candidates.add(attachmentMarkdown);
-        if (content.length > 0 && !content.includes(attachmentMarkdown)) {
-            candidates.add(`${content}\n\n${attachmentMarkdown}`.trim());
-            candidates.add(`${content} ${attachmentMarkdown}`.trim());
-        }
-    }
-    return Array.from(candidates);
-};
-
-const buildDeleteCreatedAtCandidates = (message: Message): ReadonlyArray<number> => {
-    const candidates = new Set<number>();
-    const pushDate = (value: Date | undefined) => {
-        if (!(value instanceof Date)) {
-            return;
-        }
-        const unixSeconds = Math.floor(value.getTime() / 1000);
-        if (Number.isFinite(unixSeconds) && unixSeconds > 0) {
-            candidates.add(unixSeconds);
-        }
-    };
-    pushDate(message.eventCreatedAt);
-    pushDate(message.timestamp);
-    return Array.from(candidates);
-};
-
-const buildDeleteTargetIdsForDm = async (params: Readonly<{
-    message: Message;
-    senderPubkey: string | null;
-    recipientPubkey: string | null;
-}>): Promise<ReadonlyArray<string>> => {
-    const deleteTargetIds = new Set<string>();
-    const eventId = params.message.eventId?.trim();
-    if (eventId && eventId.length > 0) {
-        deleteTargetIds.add(eventId);
-    }
-    const directMessageId = params.message.id.trim();
-    if (directMessageId.length > 0) {
-        deleteTargetIds.add(directMessageId);
-    }
-
-    if (!params.senderPubkey || !params.recipientPubkey) {
-        return Array.from(deleteTargetIds);
-    }
-
-    const plaintextCandidates = buildDeletePlaintextCandidates(params.message);
-    const createdAtCandidates = buildDeleteCreatedAtCandidates(params.message);
-    const replyToMessageId = params.message.replyTo?.messageId?.trim();
-    const replyCandidates = replyToMessageId
-        ? [replyToMessageId, null]
-        : [null];
-
-    for (const plaintext of plaintextCandidates) {
-        if (plaintext.length === 0) {
-            continue;
-        }
-        for (const createdAtUnixSeconds of createdAtCandidates) {
-            for (const replyCandidate of replyCandidates) {
-                const rumorId = await deriveNip17RumorId({
-                    senderPubkey: params.senderPubkey,
-                    recipientPubkey: params.recipientPubkey,
-                    plaintext,
-                    createdAtUnixSeconds,
-                    replyToMessageId: replyCandidate,
-                });
-                const normalizedRumorId = rumorId.trim();
-                if (normalizedRumorId.length > 0) {
-                    deleteTargetIds.add(normalizedRumorId);
-                }
-            }
-        }
-    }
-
-    return Array.from(deleteTargetIds);
-};
-
-const buildLocalDeleteIdentityIdsForDm = async (params: Readonly<{
-    message: Message;
-    myPublicKeyHex: string | null;
-    peerPublicKeyHex: string | null;
-}>): Promise<ReadonlyArray<string>> => {
-    const directIds = toLocalDeleteIdentityIds(params.message);
-    if (!params.myPublicKeyHex || !params.peerPublicKeyHex) {
-        return directIds;
-    }
-
-    const senderPubkey = params.message.isOutgoing
-        ? params.myPublicKeyHex
-        : params.peerPublicKeyHex;
-    const recipientPubkey = params.message.isOutgoing
-        ? params.peerPublicKeyHex
-        : params.myPublicKeyHex;
-
-    return buildDeleteTargetIdsForDm({
-        message: params.message,
-        senderPubkey,
-        recipientPubkey,
-    });
 };
 
 const toScopedRelayUrl = (relayUrl: string): string | null => {
@@ -270,7 +113,7 @@ const toScopedRelayUrl = (relayUrl: string): string | null => {
 /**
  * Hook to manage chat actions like sending, deleting, and reacting to messages.
  */
-export function useChatActions(dmController: UseEnhancedDMControllerResult | null) {
+export function useChatActions(dmController: UseDmControllerResult | null) {
     const {
         selectedConversation,
         messageInput, setMessageInput,
@@ -292,10 +135,51 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
     );
     const isDeletedRecipient = selectedConversation?.kind === "dm" && recipientMetadata.isDeleted;
 
+    // Pre-connect community relay as transient when a group conversation is selected.
+    // This ensures the relay socket is established before the user attempts to send,
+    // avoiding the "no scoped relays connected" failure that occurs when the community
+    // relay is only added at publish time with a tight timeout.
+    const groupRelayUrl = selectedConversation?.kind === "group" ? selectedConversation.relayUrl : null;
+    useEffect(() => {
+        if (!groupRelayUrl) return;
+        const scopedUrl = toScopedRelayUrl(groupRelayUrl);
+        if (!scopedUrl) return;
+        if (typeof relayPool.addTransientRelay === "function") {
+            relayPool.addTransientRelay(scopedUrl);
+        }
+    }, [groupRelayUrl, relayPool]);
+
     const publishGroupEvent = useCallback(async (params: Readonly<{ relayUrl: string; event: Readonly<{ id: string }> }>): Promise<void> => {
         const payload = JSON.stringify(["EVENT", params.event]);
         const scopedRelayUrl = toScopedRelayUrl(params.relayUrl);
         let result: MultiRelayPublishResult;
+
+        // ── Diagnostic: capture relay state before publish attempt ──
+        const snapshot = typeof relayPool.getWritableRelaySnapshot === "function"
+            ? relayPool.getWritableRelaySnapshot(scopedRelayUrl ? [scopedRelayUrl] : undefined)
+            : null;
+        const poolConnections = relayPool.connections ?? [];
+        const openRelays = poolConnections.filter((c: { status: string }) => c.status === "open").map((c: { url: string }) => c.url);
+        console.warn("[publishGroupEvent] diagnostic", {
+            rawRelayUrl: params.relayUrl,
+            scopedRelayUrl,
+            eventIdHint: toIdHint(params.event.id),
+            openRelayCount: openRelays.length,
+            openRelays: openRelays.slice(0, 5),
+            writableSnapshot: snapshot ? {
+                writableCount: snapshot.writableRelayUrls?.length ?? 0,
+                writableUrls: snapshot.writableRelayUrls?.slice(0, 5),
+            } : "unavailable",
+            hasPublishToUrls: typeof relayPool.publishToUrls === "function",
+            hasAddTransientRelay: typeof relayPool.addTransientRelay === "function",
+        });
+
+        // Ensure the community relay is registered as transient before publishing.
+        // publishToUrls will also attempt this, but pre-warming here gives the socket
+        // more time to complete handshake before the publish timeout starts.
+        if (scopedRelayUrl && typeof relayPool.addTransientRelay === "function") {
+            relayPool.addTransientRelay(scopedRelayUrl);
+        }
 
         if (scopedRelayUrl && typeof relayPool.publishToUrls === "function") {
             result = await relayPool.publishToUrls([scopedRelayUrl], payload);
@@ -319,6 +203,20 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
             };
         } else {
             result = await relayPool.publishToAll(payload);
+        }
+
+        // Retry once on transient relay closure — the socket may have been torn down
+        // by concurrent activity (e.g. multi-profile relay reconnect storms).
+        if (!result.success && result.overallError?.includes("closed before OK")) {
+            if (scopedRelayUrl && typeof relayPool.reconnectRelay === "function") {
+                relayPool.reconnectRelay(scopedRelayUrl);
+            }
+            if (scopedRelayUrl && typeof relayPool.waitForScopedConnection === "function") {
+                await relayPool.waitForScopedConnection([scopedRelayUrl], 5000);
+            }
+            if (scopedRelayUrl && typeof relayPool.publishToUrls === "function") {
+                result = await relayPool.publishToUrls([scopedRelayUrl], payload);
+            }
         }
 
         if (!result.success) {
@@ -587,28 +485,25 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
                 })
                 : toLocalDeleteIdentityIds(params.message)
         );
+        const activeProfileId = getResolvedProfileId() || undefined;
         if (identity.state.publicKeyHex) {
-            chatStateStoreService.removeMessageIdentities(
-                identity.state.publicKeyHex,
-                params.conversationId,
-                deleteIds,
-            );
+            await messagingClientOperations.deleteDmForMe({
+                conversationId: params.conversationId,
+                messageIdentityIds: deleteIds,
+                accountPublicKeyHex: identity.state.publicKeyHex,
+                profileId: activeProfileId,
+                observedAtUnixMs: params.message.timestamp.getTime(),
+            });
+        } else {
+            await messagingClientOperations.persistDmSuppressionOnly({
+                conversationId: params.conversationId,
+                messageIdentityIds: deleteIds,
+                profileId: activeProfileId,
+            });
         }
         messageBus.emitMessageDeleted(params.conversationId, params.message.id, {
             messageIdentityIds: deleteIds,
         });
-        if (identity.state.publicKeyHex) {
-            deleteIds.forEach((messageId) => {
-                void appendCanonicalDmRemovedEvent({
-                    accountPublicKeyHex: identity.state.publicKeyHex!,
-                    conversationId: params.conversationId,
-                    messageId,
-                    observedAtUnixMs: params.message.timestamp.getTime(),
-                    idempotencySuffix: `local_delete_for_me:${messageId}`,
-                    source: "legacy_bridge",
-                });
-            });
-        }
     }, [identity.state.publicKeyHex, selectedConversation]);
 
     const deleteMessageForEveryone = useCallback(async (params: { conversationId: string; message: Message }) => {
@@ -664,25 +559,14 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
         if (selectedConversation?.kind === 'group') {
             const localDeleteIds = toLocalDeleteIdentityIds(params.message);
             if (identity.state.publicKeyHex) {
-                chatStateStoreService.removeMessageIdentities(
-                    identity.state.publicKeyHex,
-                    params.conversationId,
-                    localDeleteIds,
-                );
-                localDeleteIds.forEach((messageId) => {
-                    void appendCanonicalDmRemovedEvent({
-                        accountPublicKeyHex: identity.state.publicKeyHex!,
-                        conversationId: params.conversationId,
-                        messageId,
-                        observedAtUnixMs: params.message.timestamp.getTime(),
-                        idempotencySuffix: `group_local_delete:${messageId}`,
-                        source: "legacy_bridge",
-                    });
+                groupClientOperations.hideMessageForViewer({
+                    accountPublicKeyHex: identity.state.publicKeyHex,
+                    conversationId: params.conversationId,
+                    primaryMessageId: params.message.id,
+                    messageIdentityIds: localDeleteIds,
+                    observedAtUnixMs: params.message.timestamp.getTime(),
                 });
             }
-            messageBus.emitMessageDeleted(params.conversationId, params.message.id, {
-                messageIdentityIds: localDeleteIds,
-            });
             logAppEvent({
                 name: "messaging.delete_for_everyone_local_applied",
                 level: "info",
@@ -734,125 +618,30 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
         }
 
         if (selectedConversation.kind === "dm" && dmController) {
-            let localDeleteApplied = false;
-            const applyLocalDelete = (messageIdentityIds: ReadonlyArray<string>): void => {
-                if (identity.state.publicKeyHex) {
-                    chatStateStoreService.removeMessageIdentities(
-                        identity.state.publicKeyHex,
-                        params.conversationId,
-                        messageIdentityIds,
-                    );
-                    messageIdentityIds.forEach((messageId) => {
-                        void appendCanonicalDmRemovedEvent({
-                            accountPublicKeyHex: identity.state.publicKeyHex!,
-                            conversationId: params.conversationId,
-                            messageId,
-                            observedAtUnixMs: params.message.timestamp.getTime(),
-                            idempotencySuffix: `dm_local_delete:${messageId}`,
-                            source: "legacy_bridge",
-                        });
-                    });
-                }
-                messageBus.emitMessageDeleted(params.conversationId, params.message.id, {
-                    messageIdentityIds,
-                });
-                logAppEvent({
-                    name: "messaging.delete_for_everyone_local_applied",
-                    level: "info",
-                    scope: { feature: "messaging", action: "delete_message" },
-                    context: {
-                        ...baseContext,
-                        deleteTargetCount: messageIdentityIds.length,
-                    },
-                });
-                localDeleteApplied = true;
-            };
             try {
-                const fallbackLocalDeleteIds = toLocalDeleteIdentityIds(params.message);
-                applyLocalDelete(fallbackLocalDeleteIds);
-                const normalizedTargetIds = await buildDeleteTargetIdsForDm({
-                    message: params.message,
-                    senderPubkey: identity.state.publicKeyHex ?? null,
-                    recipientPubkey: selectedConversation.pubkey,
+                const myPubkey = identity.state.publicKeyHex;
+                const targetIdentityIds = myPubkey
+                    ? await buildDeleteTargetIdsForDm({
+                        message: params.message,
+                        senderPubkey: myPubkey,
+                        recipientPubkey: selectedConversation.pubkey,
+                    })
+                    : collectMessageIdentityAliases(params.message);
+                const deleted = await dmController.deleteMessage({
+                    messageId: params.message.id,
+                    conversationId: params.conversationId,
+                    peerPublicKeyHex: selectedConversation.pubkey,
+                    mode: "for_everyone",
+                    messageHint: params.message,
+                    targetIdentityIds,
                 });
-                const hasExpandedDeleteIds = normalizedTargetIds.some((targetId) => !fallbackLocalDeleteIds.includes(targetId));
-                if (hasExpandedDeleteIds) {
-                    applyLocalDelete(normalizedTargetIds);
-                }
-                normalizedTargetIds.forEach((targetId) => {
-                    suppressMessageDeleteTombstone(targetId);
-                });
-                const primaryTargetId = normalizedTargetIds[0] ?? params.message.id;
-                const encodedDeleteCommand = encodeCommandMessage(
-                    createDeleteCommandMessage(primaryTargetId)
-                );
-                const deleteCommandSendResult = await dmController.sendDm({
-                    peerPublicKeyInput: selectedConversation.pubkey,
-                    plaintext: encodedDeleteCommand,
-                    customTags: [
-                        ["t", "message-delete"],
-                        ...normalizedTargetIds.map((id) => ["e", id]),
-                    ],
-                });
-
-                if (deleteCommandSendResult.messageId) {
-                    messageBus.emitMessageDeleted(params.conversationId, deleteCommandSendResult.messageId);
-                }
-
-                if (deleteCommandSendResult.success) {
-                    logAppEvent({
-                        name: "messaging.delete_for_everyone_remote_result",
-                        level: "info",
-                        scope: { feature: "messaging", action: "delete_message" },
-                        context: {
-                            ...baseContext,
-                            channel: "dm",
-                            resultCode: "confirmed",
-                            deliveryStatus: deleteCommandSendResult.deliveryStatus ?? null,
-                            remoteMessageIdHint: toIdHint(deleteCommandSendResult.messageId ?? null),
-                            deleteTargetCount: normalizedTargetIds.length,
-                        },
-                    });
-                } else if (deleteCommandSendResult.deliveryStatus === "queued_retrying") {
-                    logAppEvent({
-                        name: "messaging.delete_for_everyone_remote_result",
-                        level: "warn",
-                        scope: { feature: "messaging", action: "delete_message" },
-                        context: {
-                            ...baseContext,
-                            channel: "dm",
-                            resultCode: "queued_retrying",
-                            reasonCode: "dm_delete_command_queued_retrying",
-                            deliveryStatus: deleteCommandSendResult.deliveryStatus,
-                            remoteMessageIdHint: toIdHint(deleteCommandSendResult.messageId ?? null),
-                            deleteTargetCount: normalizedTargetIds.length,
-                        },
-                    });
+                if (deleted) {
+                    toast.info("Message removed for everyone");
                 } else {
-                    logAppEvent({
-                        name: "messaging.delete_for_everyone_remote_result",
-                        level: "warn",
-                        scope: { feature: "messaging", action: "delete_message" },
-                        context: {
-                            ...baseContext,
-                            channel: "dm",
-                            resultCode: "failed",
-                            reasonCode: "dm_delete_command_delivery_failed",
-                            deliveryStatus: deleteCommandSendResult.deliveryStatus ?? null,
-                            remoteMessageIdHint: toIdHint(deleteCommandSendResult.messageId ?? null),
-                            deleteTargetCount: normalizedTargetIds.length,
-                        },
-                    });
-                }
-
-                if (!deleteCommandSendResult.success && deleteCommandSendResult.deliveryStatus !== "queued_retrying") {
-                    toast.warning("Delete command did not reach relays yet. Recipient removal may be delayed.");
+                    toast.warning("Failed to remove message for everyone.");
                 }
             } catch (error) {
-                if (!localDeleteApplied) {
-                    applyLocalDelete(toLocalDeleteIdentityIds(params.message));
-                }
-                console.error("Failed to send delete command:", error);
+                console.error("Failed to delete message for everyone:", error);
                 logAppEvent({
                     name: "messaging.delete_for_everyone_remote_result",
                     level: "warn",
@@ -861,10 +650,10 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
                         ...baseContext,
                         channel: "dm",
                         resultCode: "failed",
-                        reasonCode: "dm_delete_command_exception",
+                        reasonCode: "dm_delete_controller_exception",
                     },
                 });
-                toast.warning("Failed to sync delete command. Recipient may still see this message.");
+                toast.warning("Failed to sync redaction command. Recipient may still see this message.");
             }
             return;
         }
@@ -923,9 +712,6 @@ export function useChatActions(dmController: UseEnhancedDMControllerResult | nul
 export const useChatActionsInternals = {
     runWithConcurrencyLimit,
     resolveAttachmentUploadConcurrency,
-    buildAttachmentMarkdown,
-    buildDeletePlaintextCandidates,
-    buildDeleteCreatedAtCandidates,
     buildDeleteTargetIdsForDm,
     buildLocalDeleteIdentityIdsForDm,
     deriveNip17RumorId,

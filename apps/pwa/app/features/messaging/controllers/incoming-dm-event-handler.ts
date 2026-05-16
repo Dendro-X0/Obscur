@@ -23,10 +23,12 @@ import { failedIncomingEventStore } from "../services/failed-incoming-event-stor
 import { readInvitationSenderProfileFromTags } from "../services/invitation-sender-profile-tag";
 import { peerRelayEvidenceStore } from "../services/peer-relay-evidence-store";
 import { requestEventTombstoneStore } from "../services/request-event-tombstone-store";
-import { isMessageDeleteSuppressed } from "../services/message-delete-tombstone-store";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
+import { messagingClientOperations } from "../services/messaging-client-operations";
+import { dispatchGroupInviteResponseAccepted } from "@/app/features/profiles/services/profile-bus-dispatch";
 import { discoveryCache } from "@/app/features/search/services/discovery-cache";
 import { resolveUiPerformancePolicy } from "../lib/ui-performance";
-import { parseCommandMessage } from "../utils/commands";
+import { parseDeleteCommand } from "../utils/commands";
 import { evaluateIncomingRequestAntiAbuse } from "../services/incoming-request-anti-abuse";
 import { shouldCacheAttachmentInVault } from "../utils/attachment-storage-policy";
 import {
@@ -179,12 +181,13 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
 
   const isDuplicateInMemory = params.existingMessages.some(m => m.eventId === event.id);
   if (isDuplicateInMemory) {
-    console.debug("Ignoring duplicate message (in memory):", event.id);
+    console.log("[IncomingDM:dedup] Duplicate blocked (in-memory):", event.id.slice(0, 16), { existingMessageCount: params.existingMessages.length });
     endTracking();
     return;
   }
 
   params.processingEvents.add(event.id);
+  let processedRumorId: string | null = null;
 
   try {
     const isValidSignature = await cryptoService.verifyEventSignature(event);
@@ -321,6 +324,14 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
         );
       }
     } catch (decryptError) {
+      console.warn("[DM:RECV:DIAG] decrypt FAILED", {
+        eventId: event.id.slice(0, 16),
+        kind: event.kind,
+        senderPubkey: senderPubkey.slice(0, 16),
+        isSelfAuthored: isSelfAuthoredRelayEvent,
+        relay: relayUrl?.slice(0, 40),
+        error: decryptError instanceof Error ? decryptError.message.slice(0, 80) : String(decryptError).slice(0, 80),
+      });
       const decryptionClass = classifyDecryptFailure(decryptError);
       const requestStatusAtDecrypt = currentParams.requestsInbox?.getRequestStatus({
         peerPublicKeyHex: decryptionPeerPublicKeyHex,
@@ -376,6 +387,17 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
       return;
     }
 
+    console.log("[DM:RECV:DIAG] decrypted incoming event", {
+      eventId: usedEventId.slice(0, 16),
+      wrapperEventId: event.id.slice(0, 16),
+      kind: event.kind,
+      senderPubkey: actualSenderPubkey?.slice(0, 16),
+      isSelfAuthored: isSelfAuthoredRelayEvent,
+      contentPreview: plaintext.slice(0, 50),
+      relay: relayUrl?.slice(0, 40),
+      ingestSource: canonicalIngestSource,
+    });
+
     if (!actualSenderPubkey) {
       incrementAbuseMetric("quarantined_malformed_event");
       recordMalformedEventQuarantinedRisk();
@@ -387,9 +409,19 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
       return;
     }
 
+    const scopeProfileId = getResolvedProfileId();
+
     if (params.handledIncomingEventIds?.has(usedEventId)) {
       console.debug("Skipping already-handled incoming event payload:", usedEventId);
       return;
+    }
+    if (usedEventId !== event.id && params.processingEvents.has(usedEventId)) {
+      console.debug("Skipping concurrent processing of same rumor from different wrapper:", usedEventId);
+      return;
+    }
+    if (usedEventId !== event.id) {
+      params.processingEvents.add(usedEventId);
+      processedRumorId = usedEventId;
     }
     if (params.handledIncomingEventIds) {
       params.handledIncomingEventIds.add(event.id);
@@ -401,15 +433,26 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
       }
     }
 
-    const parsedCommand = parseCommandMessage(plaintext);
-    const deleteCommandTargetIds = parsedCommand?.type === "delete"
-      ? Array.from(new Set([
-          parsedCommand.targetMessageId,
-          ...(effectiveTags || [])
-            .filter((tag) => tag[0] === "e")
-            .map((tag) => tag[1] || ""),
-        ].map((value) => value.trim()).filter((value) => value.length > 0)))
-      : [];
+    const deleteCommandTargetIds = parseDeleteCommand(plaintext, effectiveTags || []) ?? [];
+    if (deleteCommandTargetIds.length > 0) {
+      logAppEvent({
+        name: "messaging.delete_for_everyone_remote_result",
+        level: "info",
+        scope: { feature: "messaging", action: "delete_for_everyone" },
+        context: {
+          channel: "enhanced_receive_parse",
+          resultCode: plaintext.startsWith("__dweb_cmd__delete:") ? "versioned_delete" : "legacy_delete",
+          reasonCode: null,
+          deliveryStatus: "received",
+          conversationIdHint: null,
+          messageIdHint: deleteCommandTargetIds[0]?.slice(0, 16) ?? null,
+          conversationKind: "dm",
+          isOutgoing: isSelfAuthoredRelayEvent,
+          deleteTargetCount: deleteCommandTargetIds.length,
+          remoteMessageIdHint: usedEventId.slice(0, 16),
+        },
+      });
+    }
 
     const applyDeleteCommand = async (commandParams: Readonly<{
       targetMessageIds: ReadonlyArray<string>;
@@ -471,6 +514,34 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
         )),
       ].map((value) => value.trim()).filter((value) => value.length > 0)));
       const resolvedMessageId = Array.from(matchedTargets.values())[0]?.id ?? normalizedTargetIds[0];
+      console.log("[IncomingDM:delete-command-apply]", {
+        deleteCommandEventId: commandParams.deleteCommandEventId.slice(0, 16),
+        deletedByPubkey: commandParams.deletedByPubkey.slice(0, 16),
+        normalizedTargetCount: normalizedTargetIds.length,
+        matchedTargetCount: matchedTargets.size,
+        resolvedDeletionCount: resolvedDeletionIds.length,
+        mismatchedTarget: mismatchedTarget ? {
+          id: mismatchedTarget.id.slice(0, 16),
+          senderPubkey: mismatchedTarget.senderPubkey?.slice(0, 16) ?? null,
+        } : null,
+      });
+      logAppEvent({
+        name: "messaging.delete_for_everyone_remote_result",
+        level: mismatchedTarget ? "warn" : "info",
+        scope: { feature: "messaging", action: "delete_for_everyone" },
+        context: {
+          channel: "enhanced_delete_apply",
+          resultCode: mismatchedTarget ? "rejected" : (matchedTargets.size > 0 ? "matched" : "no_match"),
+          reasonCode: mismatchedTarget ? "sender_mismatch" : (matchedTargets.size > 0 ? null : "target_not_found"),
+          deliveryStatus: "received",
+          conversationIdHint: commandParams.conversationId.slice(0, 32),
+          messageIdHint: normalizedTargetIds[0]?.slice(0, 16) ?? null,
+          conversationKind: "dm",
+          isOutgoing: commandParams.deletedByPubkey === currentParams.myPublicKeyHex,
+          deleteTargetCount: normalizedTargetIds.length,
+          remoteMessageIdHint: commandParams.deleteCommandEventId.slice(0, 16),
+        },
+      });
 
       if (mismatchedTarget) {
         logRuntimeEvent(
@@ -481,6 +552,16 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
         return;
       }
 
+      if (params.messageQueue) {
+        for (const deletionId of resolvedDeletionIds) {
+          try {
+            await params.messageQueue.deleteMessage(deletionId);
+          } catch (deleteError) {
+            console.warn("[IncomingDM:delete-command-persist] Failed to delete message from storage:", deletionId.slice(0, 16), deleteError);
+          }
+        }
+      }
+
       params.scheduleUiUpdate(() => {
         params.setState((prev: TState) => {
           const p = prev;
@@ -489,6 +570,24 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
             && !resolvedDeletionIds.includes(entry.id)
             && !(entry.eventId && resolvedDeletionIds.includes(entry.eventId))
           ));
+          const removedCount = p.messages.length - filteredMessages.length;
+          logAppEvent({
+            name: "messaging.delete_for_everyone_remote_result",
+            level: removedCount > 0 ? "info" : "warn",
+            scope: { feature: "messaging", action: "delete_for_everyone" },
+            context: {
+              channel: "enhanced_ui_apply",
+              resultCode: removedCount > 0 ? "removed" : "no_match",
+              reasonCode: removedCount > 0 ? null : "target_not_in_state",
+              deliveryStatus: "received",
+              conversationIdHint: commandParams.conversationId.slice(0, 32),
+              messageIdHint: resolvedDeletionIds[0]?.slice(0, 16) ?? null,
+              conversationKind: "dm",
+              isOutgoing: commandParams.deletedByPubkey === currentParams.myPublicKeyHex,
+              deleteTargetCount: resolvedDeletionIds.length,
+              remoteMessageIdHint: commandParams.deleteCommandEventId.slice(0, 16),
+            },
+          });
           params.messageMemoryManager.addMessages(commandParams.conversationId, [...filteredMessages]);
           return {
             ...params.createReadyState(filteredMessages),
@@ -510,6 +609,15 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
     if (isSelfAuthoredRelayEvent) {
       const peerPublicKeyHex = normalizedRecipient as PublicKeyHex;
       const conversationId = [currentParams.myPublicKeyHex, peerPublicKeyHex].sort().join(":");
+      console.log("[IncomingDM:self-authored-echo]", {
+        eventId: usedEventId.slice(0, 16),
+        peerPubkey: peerPublicKeyHex.slice(0, 16),
+        conversationId: conversationId.slice(0, 32),
+        isDeleteCommand: deleteCommandTargetIds.length > 0,
+        contentPreview: plaintext.slice(0, 40),
+        relayUrl: relayUrl?.slice(0, 48) ?? null,
+        ingestSource: canonicalIngestSource,
+      });
 
       if (deleteCommandTargetIds.length > 0) {
         await applyDeleteCommand({
@@ -536,6 +644,15 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
         encryptedContent: event.content,
         attachments: extractAttachmentsFromContent(plaintext),
       };
+
+      if (messagingClientOperations.isDmMessageSuppressed(usedEventId, getResolvedProfileId() ?? undefined)) {
+        logRuntimeEvent(
+          "incoming_dm.tombstoned_message_suppressed",
+          "degraded",
+          ["Ignoring self-authored relay echo because local tombstone suppresses it:", usedEventId],
+        );
+        return;
+      }
 
       if (params.messageQueue) {
         const existingMessage = await params.messageQueue.getMessage(usedEventId);
@@ -606,14 +723,36 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
         && parsedPayload.groupId.trim().length > 0
         && typeof window !== "undefined"
       ) {
-        window.dispatchEvent(new CustomEvent("obscur:group-invite-response-accepted", {
-          detail: {
-            groupId: parsedPayload.groupId.trim(),
-            relayUrl: typeof parsedPayload.relayUrl === "string" ? parsedPayload.relayUrl : undefined,
-            communityId: typeof parsedPayload.communityId === "string" ? parsedPayload.communityId : undefined,
-            memberPubkey: actualSenderPubkey,
-          }
-        }));
+        // M4: include recipient identity so the provider can reject events
+        // that were dispatched for a different account in the same process.
+        dispatchGroupInviteResponseAccepted({
+          groupId: parsedPayload.groupId.trim(),
+          relayUrl: typeof parsedPayload.relayUrl === "string" ? parsedPayload.relayUrl : undefined,
+          communityId: typeof parsedPayload.communityId === "string" ? parsedPayload.communityId : undefined,
+          memberPubkey: actualSenderPubkey,
+          recipientPublicKeyHex: currentParams.myPublicKeyHex,
+        });
+      } else if (
+        parsedPayload?.type === "community-invite-response"
+        && (parsedPayload.status === "declined" || parsedPayload.status === "canceled")
+        && typeof parsedPayload.groupId === "string"
+        && parsedPayload.groupId.trim().length > 0
+      ) {
+        // Phase 3 M3: inviter (or DM observer) path — do not mutate membership from DM-only payloads.
+        // Decline ledger for invitees is handled in CommunityInviteCard; inviter relay membership stays unchanged.
+        logAppEvent({
+          name: "messaging.incoming.community_invite_response_terminal_observed",
+          level: "info",
+          scope: { feature: "messaging", action: "receive_dm" },
+          context: {
+            responseStatus: parsedPayload.status,
+            groupIdHint: parsedPayload.groupId.trim().slice(0, 32),
+            relayUrlHint: typeof parsedPayload.relayUrl === "string"
+              ? parsedPayload.relayUrl.trim().slice(0, 64)
+              : null,
+            senderPubkeySuffix: actualSenderPubkey.slice(-8),
+          },
+        });
       }
     } catch {
       // Non-JSON content is expected for normal chat messages.
@@ -623,7 +762,7 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
     const isAcceptedByProjection = currentParams.isProjectionAcceptedPeer?.({ publicKeyHex: actualSenderPubkey }) || false;
     const requestState = currentParams.requestsInbox?.getRequestStatus({ peerPublicKeyHex: actualSenderPubkey });
     const hasAcceptedRequestState = requestState?.status === "accepted";
-    const requestEvidence = requestFlowEvidenceStore.get(actualSenderPubkey);
+    const requestEvidence = requestFlowEvidenceStore.get(actualSenderPubkey, scopeProfileId);
     const conversationId = [currentParams.myPublicKeyHex, actualSenderPubkey].sort().join(":");
     // Check historical conversation evidence as a fallback when:
     // 1. Account projection is not ready (still loading), OR
@@ -686,6 +825,25 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
       || isAcceptedByProjection
       || hasDurableAcceptEvidence
       || hasHistoricalConversationEvidence;
+    console.log("[IncomingDM:routing-decision]", {
+      eventId: usedEventId.slice(0, 16),
+      senderPubkey: actualSenderPubkey.slice(0, 16),
+      conversationId: conversationId.slice(0, 32),
+      isAcceptedContact,
+      isAcceptedByTrust,
+      isAcceptedByProjection,
+      hasAcceptedRequestState,
+      hasDurableAcceptEvidence,
+      hasHistoricalConversationEvidence,
+      projectionKeyMismatch,
+      accountProjectionReady: currentParams.accountProjectionReady,
+      requestStatus: requestState?.status ?? null,
+      requestIsOutgoing: requestState?.isOutgoing ?? null,
+      acceptSeen: requestEvidence.acceptSeen,
+      receiptAckSeen: requestEvidence.receiptAckSeen,
+      ingestSource: canonicalIngestSource,
+      relayUrl: relayUrl?.slice(0, 48) ?? null,
+    });
     if ((hasAcceptedRequestState || isAcceptedByProjection || hasDurableAcceptEvidence) && !isAcceptedByTrust) {
       currentParams.peerTrust?.acceptPeer({ publicKeyHex: actualSenderPubkey });
     }
@@ -724,6 +882,7 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
       peerRelayEvidenceStore.recordInboundRelay({
         peerPublicKeyHex: actualSenderPubkey,
         relayUrl,
+        profileId: getResolvedProfileId(),
       });
     }
     if (isConnectionRequest) {
@@ -767,6 +926,7 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
       requestFlowEvidenceStore.markReceiptAck({
         peerPublicKeyHex: actualSenderPubkey,
         requestEventId: extractReferencedEventId(effectiveTags || []),
+        profileId: scopeProfileId,
       });
       const hasOutgoingRequestState = !!(requestState?.isOutgoing && (requestState.status === "pending" || !requestState.status));
       if (hasOutgoingRequestState) {
@@ -804,7 +964,7 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
         idempotencySuffix: usedEventId,
         source: canonicalIngestSource,
       });
-      requestFlowEvidenceStore.reset(actualSenderPubkey);
+      requestFlowEvidenceStore.reset(actualSenderPubkey, scopeProfileId);
       return;
     }
 
@@ -833,7 +993,7 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
         idempotencySuffix: usedEventId,
         source: canonicalIngestSource,
       });
-      requestFlowEvidenceStore.reset(actualSenderPubkey);
+      requestFlowEvidenceStore.reset(actualSenderPubkey, scopeProfileId);
       return;
     }
 
@@ -842,9 +1002,10 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
       requestFlowEvidenceStore.markAccept({
         peerPublicKeyHex: actualSenderPubkey,
         requestEventId: extractReferencedEventId(effectiveTags || []),
+        profileId: scopeProfileId,
       });
       const rs = currentParams.requestsInbox?.getRequestStatus({ peerPublicKeyHex: actualSenderPubkey });
-      if (hasOutgoingRequestContext(rs, requestFlowEvidenceStore.get(actualSenderPubkey))) {
+      if (hasOutgoingRequestContext(rs, requestFlowEvidenceStore.get(actualSenderPubkey, scopeProfileId))) {
         logRuntimeEvent(
           "incoming_dm.connection_accept_acknowledged",
           "expected",
@@ -1036,6 +1197,7 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
             requestFlowEvidenceStore.markRequestPublished({
               peerPublicKeyHex: actualSenderPubkey,
               requestEventId: usedEventId,
+              profileId: scopeProfileId,
             });
             void currentParams.sendConnectionReceiptAck?.({
               peerPublicKeyHex: actualSenderPubkey,
@@ -1044,6 +1206,12 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
           }
           return;
         }
+        console.warn("[IncomingDM:dropped] Unknown sender without request context", {
+          eventId: usedEventId.slice(0, 16),
+          senderPubkey: actualSenderPubkey.slice(0, 16),
+          hasRequestsInbox: !!currentParams.requestsInbox,
+          isConnectionRequest,
+        });
         deliveryDiagnosticsStore.markIncoming({
           eventId: usedEventId,
           kind: event.kind,
@@ -1059,6 +1227,13 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
     }
 
     if (deleteCommandTargetIds.length > 0) {
+      console.log("[IncomingDM:delete-command-received]", {
+        eventId: usedEventId.slice(0, 16),
+        senderPubkey: actualSenderPubkey.slice(0, 16),
+        conversationId: conversationId.slice(0, 32),
+        targetIds: deleteCommandTargetIds.map((id) => id.slice(0, 16)),
+        relayUrl: relayUrl?.slice(0, 48) ?? null,
+      });
       await applyDeleteCommand({
         targetMessageIds: deleteCommandTargetIds,
         deletedByPubkey: actualSenderPubkey,
@@ -1084,7 +1259,7 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
       attachments: extractAttachmentsFromContent(plaintext)
     };
 
-    if (isMessageDeleteSuppressed(usedEventId)) {
+    if (messagingClientOperations.isDmMessageSuppressed(usedEventId, getResolvedProfileId() ?? undefined)) {
       logRuntimeEvent(
         "incoming_dm.tombstoned_message_suppressed",
         "degraded",
@@ -1109,7 +1284,7 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
     if (params.messageQueue) {
       const existingMessage = await params.messageQueue.getMessage(usedEventId);
       if (existingMessage) {
-        console.debug("Ignoring duplicate message (found in storage):", usedEventId);
+        console.log("[IncomingDM:dedup] Duplicate blocked (IndexedDB storage):", usedEventId.slice(0, 16));
         return;
       }
     }
@@ -1172,9 +1347,16 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
       });
     });
 
-    console.log("Processed incoming message from accepted connection:", usedEventId, {
+    console.log("[IncomingDM:accepted]", {
+      eventId: usedEventId.slice(0, 16),
+      senderPubkey: actualSenderPubkey.slice(0, 16),
+      conversationId: conversationId.slice(0, 32),
+      contentPreview: plaintext.slice(0, 40),
+      isOutgoing: false,
       transportOwnerId: currentParams.transportOwnerId ?? null,
       controllerInstanceId: currentParams.controllerInstanceId ?? null,
+      relayUrl: relayUrl?.slice(0, 48) ?? null,
+      ingestSource: canonicalIngestSource,
     });
 
     if (currentParams.onNewMessage) {
@@ -1192,5 +1374,8 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
     endTracking();
   } finally {
     params.processingEvents.delete(event.id);
+    if (processedRumorId) {
+      params.processingEvents.delete(processedRumorId);
+    }
   }
 };

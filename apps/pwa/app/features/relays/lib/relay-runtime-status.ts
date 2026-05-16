@@ -156,6 +156,7 @@ export const deriveRelayNodeStatus = (params: Readonly<{
   metrics?: RelayHealthMetrics;
   isFallback?: boolean;
   isConfigured?: boolean;
+  role?: "primary" | "standby";
   runtimePhase?: RelayRuntimePhase;
   lastInboundEventAtUnixMs?: number;
   nowUnixMs?: number;
@@ -166,9 +167,13 @@ export const deriveRelayNodeStatus = (params: Readonly<{
     ? "Disabled"
     : params.isFallback
       ? "Fallback"
-      : params.isConfigured === false
-        ? "Transient"
-        : "Configured";
+      : params.role === "primary"
+        ? "Primary"
+        : params.role === "standby"
+          ? "Standby"
+          : params.isConfigured === false
+            ? "Transient"
+            : "Configured";
   const successLabel = getSuccessLabel(metrics);
   const confidenceLabel = getConfidenceLabel(metrics);
   const staleEvents = isEventFlowStale({

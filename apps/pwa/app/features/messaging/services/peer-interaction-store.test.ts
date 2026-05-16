@@ -1,8 +1,9 @@
+import { createProfileMessageBus } from "@dweb/core/profile-message-bus";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
+import { setProfileRuntimeScope } from "@/app/features/profiles/services/profile-runtime-scope";
 import {
   loadPeerLastActiveByPeerPubkey,
-  peerInteractionStoreInternals,
   recordPeerLastActive,
 } from "./peer-interaction-store";
 
@@ -16,6 +17,7 @@ describe("peer-interaction-store", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    setProfileRuntimeScope(null);
   });
 
   it("records peer last-active timestamps monotonically", () => {
@@ -39,16 +41,27 @@ describe("peer-interaction-store", () => {
     expect(state[peerPubkey]).toBe(2_000);
   });
 
-  it("dispatches a window update event when peer activity changes", () => {
-    const dispatchSpy = vi.spyOn(window, "dispatchEvent");
+  it("publishes peer-interaction-updated on profile bus when peer activity changes", () => {
+    const bus = createProfileMessageBus({ profileId: "default" });
+    setProfileRuntimeScope({ profileId: "default", bus });
+    const handler = vi.fn();
+    const off = bus.subscribeTo("peer-interaction-updated", handler);
     recordPeerLastActive({
       publicKeyHex: accountPubkey,
       peerPublicKeyHex: peerPubkey,
       activeAtMs: 1_000,
     });
-    expect(dispatchSpy).toHaveBeenCalledWith(expect.objectContaining({
-      type: peerInteractionStoreInternals.storageUpdateEvent,
-    }));
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(handler).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "peer-interaction-updated",
+        detail: expect.objectContaining({
+          publicKeyHex: accountPubkey,
+          profileId: "default",
+        }),
+      }),
+    );
+    off();
   });
 
   it("ignores invalid timestamps", () => {

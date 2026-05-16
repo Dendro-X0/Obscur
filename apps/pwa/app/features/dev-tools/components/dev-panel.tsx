@@ -14,6 +14,7 @@ import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { createPendingStartupAuthState } from "@/app/features/auth/services/startup-auth-state-contracts";
 import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store";
 import { loadGroupTombstones } from "@/app/features/groups/services/group-tombstone-store";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { getAbuseMetricsSnapshot } from "@/app/shared/abuse-observability";
 import { getSybilRiskSnapshot } from "@/app/shared/sybil-risk-signals";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
@@ -30,6 +31,7 @@ import { useWindowRuntimeSnapshot } from "@/app/features/runtime/services/window
 import type { SenderDeliveryIssueReport } from "@/app/features/messaging/services/delivery-troubleshooting-reporter";
 import type { DevRuntimeIssue } from "@/app/shared/dev-runtime-issue-reporter";
 import { uiResponsivenessMonitor, useUiResponsivenessSnapshot } from "@/app/shared/ui-responsiveness-monitor";
+import { CommunityDataHealthPanel } from "@/app/features/groups/components/community-data-health-panel";
 
 type RuntimeIssueDomainFilter = DevRuntimeIssue["domain"] | "all";
 type RuntimeIssueSeverityFilter = DevRuntimeIssue["severity"] | "all";
@@ -59,6 +61,8 @@ export const DevPanel = ({ dmController }: { dmController?: any }) => {
     const [isCopyingAffectedKeys, setIsCopyingAffectedKeys] = useState(false);
     const [isRunAndCopyingAudit, setIsRunAndCopyingAudit] = useState(false);
     const [isCopyingRuntimeIssues, setIsCopyingRuntimeIssues] = useState(false);
+    const [isCopyingRelayProbe, setIsCopyingRelayProbe] = useState(false);
+    const [communityHealthOpen, setCommunityHealthOpen] = useState(false);
     const [senderDeliveryIssues, setSenderDeliveryIssues] = useState<ReadonlyArray<SenderDeliveryIssueReport>>([]);
     const [runtimeIssues, setRuntimeIssues] = useState<ReadonlyArray<DevRuntimeIssue>>([]);
     const [runtimeIssueDomainFilter, setRuntimeIssueDomainFilter] = useState<RuntimeIssueDomainFilter>("all");
@@ -250,7 +254,8 @@ export const DevPanel = ({ dmController }: { dmController?: any }) => {
             setAffectedCommunities([]);
             return null;
         }
-        const tombstones = loadGroupTombstones(publicKeyHex);
+        const profileId = getResolvedProfileId();
+        const tombstones = loadGroupTombstones(publicKeyHex, { profileId });
         const report = auditCommunityMigrationState({ state, tombstones });
         setMigrationAuditReport(report);
         const affected = state.createdGroups
@@ -357,6 +362,33 @@ export const DevPanel = ({ dmController }: { dmController?: any }) => {
             toast.info(`Probe done: ok=${summary.ok}, degraded=${summary.degraded}, failed=${summary.failed}, unsupported=${summary.unsupported}`);
         } catch (error) {
             toast.error(error instanceof Error ? error.message : "Relay/NIP probe failed");
+        }
+    };
+
+    const handleCopyRelayProbePayload = async () => {
+        if (typeof navigator === "undefined" || !navigator.clipboard) {
+            return;
+        }
+        if (probeResults.length === 0) {
+            toast.error("Run a probe first");
+            return;
+        }
+        try {
+            setIsCopyingRelayProbe(true);
+            await navigator.clipboard.writeText(JSON.stringify({
+                lastProbeAtUnixMs,
+                probeSummary,
+                enabledRelayUrls,
+                relayUrlsProbed: enabledRelayUrls.length > 0
+                    ? enabledRelayUrls
+                    : relayPool.connections.map((c) => c.url),
+                results: probeResults,
+            }, null, 2));
+            toast.success("Relay probe payload copied");
+        } catch {
+            toast.error("Failed to copy probe payload");
+        } finally {
+            setIsCopyingRelayProbe(false);
         }
     };
 
@@ -698,7 +730,7 @@ export const DevPanel = ({ dmController }: { dmController?: any }) => {
                                 <div>writable relays: <span className="font-mono">{relayRecovery.writableRelayCount}</span></div>
                                 <div>subscribable relays: <span className="font-mono">{relayRecovery.subscribableRelayCount}</span></div>
                                 <div>subscriptions: <span className="font-mono">{relayRuntime.activeSubscriptionCount}</span></div>
-                                <div>probe summary: <span className="font-mono">ok={probeSummary.ok} degraded={probeSummary.degraded} failed={probeSummary.failed}</span></div>
+                                <div>probe summary: <span className="font-mono">ok={probeSummary.ok} degraded={probeSummary.degraded} failed={probeSummary.failed} unsupported={probeSummary.unsupported}</span></div>
                             </div>
                             <div className="mt-2 rounded-xl bg-zinc-100 p-2 text-[11px] dark:bg-zinc-800/50">
                                 <div className="mb-2 rounded-lg bg-white/70 px-2 py-2 dark:bg-black/20">
@@ -726,19 +758,30 @@ export const DevPanel = ({ dmController }: { dmController?: any }) => {
                                         </div>
                                     ) : null}
                                 </div>
-                                <div className="mb-2 flex items-center justify-between gap-2">
+                                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                                     <div className="text-[10px] text-zinc-500">
                                         last: {lastProbeAtUnixMs ? new Date(lastProbeAtUnixMs).toLocaleTimeString() : "never"}
                                     </div>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="h-7 text-[10px]"
-                                        onClick={handleRunRelayProbe}
-                                        disabled={isRunningProbe}
-                                    >
-                                        {isRunningProbe ? "Running..." : "Run Probe"}
-                                    </Button>
+                                    <div className="flex items-center gap-1">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-7 text-[10px]"
+                                            onClick={handleRunRelayProbe}
+                                            disabled={isRunningProbe}
+                                        >
+                                            {isRunningProbe ? "Running..." : "Run Probe"}
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-7 text-[10px]"
+                                            onClick={handleCopyRelayProbePayload}
+                                            disabled={probeResults.length === 0 || isCopyingRelayProbe}
+                                        >
+                                            {isCopyingRelayProbe ? "Copying..." : "Copy JSON"}
+                                        </Button>
+                                    </div>
                                 </div>
                                 {probeResults.length === 0 ? (
                                     <div className="text-[10px] text-zinc-500">No probe results yet.</div>
@@ -939,9 +982,34 @@ export const DevPanel = ({ dmController }: { dmController?: any }) => {
                                 )}
                             </div>
                         </div>
+
+                        <div className="border-t pt-4 dark:border-white/10">
+                            <div className="flex items-center justify-between gap-2">
+                                <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+                                    Community data health
+                                </div>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-7 text-[10px]"
+                                    onClick={() => setCommunityHealthOpen(true)}
+                                >
+                                    Open panel
+                                </Button>
+                            </div>
+                            <p className="mt-1 text-[11px] leading-snug text-zinc-500">
+                                Membership ledger validation and per-group integrity (operator diagnostics).
+                            </p>
+                        </div>
                     </div>
                 </Card>
             )}
+
+            <CommunityDataHealthPanel
+                isOpen={communityHealthOpen}
+                onClose={() => setCommunityHealthOpen(false)}
+            />
         </div>
     );
 };

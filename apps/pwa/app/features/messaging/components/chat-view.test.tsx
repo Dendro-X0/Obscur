@@ -6,8 +6,16 @@ import { ChatView } from "./chat-view";
 import type { Conversation, Message } from "../types";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 
+type CapturedMessageListProps = Readonly<{
+    selectedMessageIds?: Set<string>;
+    jumpToMessageId?: string | null;
+    jumpToMessageTimestampMs?: number | null;
+    batchDeleteMode?: boolean;
+    onToggleSelectMessage?: (messageId: string) => void;
+}>;
+
 const messageListPropsRef = vi.hoisted(() => ({
-    current: null as Record<string, unknown> | null,
+    current: null as CapturedMessageListProps | null,
 }));
 const messageMenuPropsRef = vi.hoisted(() => ({
     current: null as Record<string, unknown> | null,
@@ -136,7 +144,7 @@ const createBaseProps = (): ChatViewProps => ({
     onSelectFiles: vi.fn(),
     removePendingAttachment: vi.fn(),
     clearPendingAttachment: vi.fn(),
-    relayStatus: { total: 1, openCount: 1, errorCount: 0 },
+    relayStatus: { total: 1, openCount: 1, errorCount: 0, coolingDownRelayCount: 0 },
     composerTextareaRef: React.createRef<HTMLTextAreaElement>(),
     onSendVoiceNote: vi.fn(),
     isProcessingMedia: false,
@@ -321,6 +329,48 @@ describe("ChatView history search", () => {
 });
 
 describe("ChatView batch delete", () => {
+    it("selects a vertical range with shift+click", async () => {
+        const messages = ["m1", "m2", "m3", "m4", "m5"].map((id, index) => createMessage({
+            id,
+            content: id,
+            timestamp: new Date(index * 1_000),
+        }));
+        const props = createBaseProps();
+        props.messages = messages;
+        props.rawMessagesCount = messages.length;
+        props.messageMenu = { messageId: messages[0]!.id, x: 0, y: 0 };
+
+        render(<ChatView {...props} />);
+
+        await waitFor(() => {
+            expect(screen.getByTestId("message-menu")).toBeInTheDocument();
+        });
+        await act(async () => {
+            const startMultiSelect = messageMenuPropsRef.current?.onStartMultiSelect as (() => void) | undefined;
+            startMultiSelect?.();
+        });
+        await waitFor(() => {
+            expect(messageListPropsRef.current?.batchDeleteMode).toBe(true);
+        });
+
+        const toggle = messageListPropsRef.current?.onToggleSelectMessage as
+            | ((params: Readonly<{ messageId: string; shiftKey: boolean }>) => void)
+            | undefined;
+
+        await act(async () => {
+            toggle?.({ messageId: "m2", shiftKey: false });
+        });
+        await act(async () => {
+            toggle?.({ messageId: "m5", shiftKey: true });
+        });
+
+        expect(messageListPropsRef.current?.selectedMessageIds?.size).toBe(4);
+        expect(messageListPropsRef.current?.selectedMessageIds?.has("m1")).toBe(false);
+        ["m2", "m3", "m4", "m5"].forEach((id) => {
+            expect(messageListPropsRef.current?.selectedMessageIds?.has(id)).toBe(true);
+        });
+    });
+
     it("deletes all selected messages for me through existing delete handler", async () => {
         const outgoingMessage = createMessage({ id: "m-outgoing", isOutgoing: true, content: "sent" });
         const incomingMessage = createMessage({ id: "m-incoming", isOutgoing: false, content: "received", timestamp: new Date(3_000) });
@@ -346,14 +396,20 @@ describe("ChatView batch delete", () => {
         expect(screen.getByText('"Delete for everyone" removes only messages you sent from all participants\' interfaces.')).toBeInTheDocument();
 
         await act(async () => {
-            const toggle = messageListPropsRef.current?.onToggleSelectMessage as ((messageId: string) => void) | undefined;
-            toggle?.(incomingMessage.id);
+            const toggle = messageListPropsRef.current?.onToggleSelectMessage as
+                | ((params: Readonly<{ messageId: string; shiftKey: boolean }>) => void)
+                | undefined;
+            toggle?.({ messageId: incomingMessage.id, shiftKey: false });
         });
 
         const deleteForMeButton = await screen.findByRole("button", { name: /Delete for me/i });
-        fireEvent.click(deleteForMeButton);
+        await act(async () => {
+            fireEvent.click(deleteForMeButton);
+        });
 
-        expect(props.onDeleteMessageForMe).toHaveBeenCalledTimes(2);
+        await waitFor(() => {
+            expect(props.onDeleteMessageForMe).toHaveBeenCalledTimes(2);
+        });
         expect(props.onDeleteMessageForMe).toHaveBeenNthCalledWith(1, outgoingMessage);
         expect(props.onDeleteMessageForMe).toHaveBeenNthCalledWith(2, incomingMessage);
         await waitFor(() => {
@@ -383,14 +439,20 @@ describe("ChatView batch delete", () => {
         });
 
         await act(async () => {
-            const toggle = messageListPropsRef.current?.onToggleSelectMessage as ((messageId: string) => void) | undefined;
-            toggle?.(incomingMessage.id);
+            const toggle = messageListPropsRef.current?.onToggleSelectMessage as
+                | ((params: Readonly<{ messageId: string; shiftKey: boolean }>) => void)
+                | undefined;
+            toggle?.({ messageId: incomingMessage.id, shiftKey: false });
         });
 
         const deleteForEveryoneButton = await screen.findByRole("button", { name: /Delete for everyone/i });
-        fireEvent.click(deleteForEveryoneButton);
+        await act(async () => {
+            fireEvent.click(deleteForEveryoneButton);
+        });
 
-        expect(props.onDeleteMessageForEveryone).toHaveBeenCalledTimes(1);
+        await waitFor(() => {
+            expect(props.onDeleteMessageForEveryone).toHaveBeenCalledTimes(1);
+        });
         expect(props.onDeleteMessageForEveryone).toHaveBeenCalledWith(outgoingMessage);
         expect(props.onDeleteMessageForMe).not.toHaveBeenCalled();
         await waitFor(() => {

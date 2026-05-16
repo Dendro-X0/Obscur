@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
-import { AlertTriangle, Loader2, RotateCcw, Wifi, WifiOff } from "lucide-react";
+import { AlertTriangle, Loader2, Radio, RotateCcw, Wifi, WifiOff } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
 import type { RelayRecoverySnapshot } from "@/app/features/relays/services/relay-recovery-policy";
@@ -60,9 +60,23 @@ const describeRecoveryReason = (snapshot: RelayRecoverySnapshot): string | null 
   }
 };
 
-export const getRelayStatusBadgePresentation = (snapshot: RelayRecoverySnapshot): BadgePresentation => {
+const formatPrimaryHostname = (primaryUrl: string | null | undefined): string => {
+  if (!primaryUrl) return "no relay";
+  try {
+    return new URL(primaryUrl).hostname;
+  } catch {
+    return primaryUrl.replace(/^wss?:\/\//, "").split("/")[0];
+  }
+};
+
+export const getRelayStatusBadgePresentation = (
+  snapshot: RelayRecoverySnapshot,
+  primaryUrl?: string | null,
+): BadgePresentation => {
   const activityLabel = formatRelativeTime(snapshot.lastInboundEventAtUnixMs ?? snapshot.lastSuccessfulPublishAtUnixMs);
   const reason = describeRecoveryReason(snapshot) ?? snapshot.lastFailureReason ?? "relay activity unavailable";
+  const primaryHost = formatPrimaryHostname(primaryUrl);
+  const isSwitching = snapshot.recoveryReasonCode === "no_writable_relays" && snapshot.readiness !== "healthy";
 
   switch (snapshot.readiness) {
     case "healthy":
@@ -70,21 +84,32 @@ export const getRelayStatusBadgePresentation = (snapshot: RelayRecoverySnapshot)
         label: "Connected",
         toneClassName: "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
         icon: <Wifi className="h-3.5 w-3.5 text-emerald-500" />,
-        detail: `${snapshot.writableRelayCount} writable / ${snapshot.subscribableRelayCount} readable${activityLabel ? `, active ${activityLabel}` : ""}`,
+        detail: primaryUrl
+          ? `via ${primaryHost}${activityLabel ? ` · active ${activityLabel}` : ""}`
+          : `active${activityLabel ? ` ${activityLabel}` : ""}`,
       };
     case "recovering":
-      return {
-        label: "Recovering connection",
-        toneClassName: "border-blue-500/25 bg-blue-500/10 text-blue-700 dark:text-blue-300",
-        icon: <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-500" />,
-        detail: `${reason}${snapshot.currentAction ? `, action: ${snapshot.currentAction.replace("_", " ")}` : ""}`,
-      };
+      return isSwitching
+        ? {
+            label: "Switching relay",
+            toneClassName: "border-orange-500/25 bg-orange-500/10 text-orange-700 dark:text-orange-300",
+            icon: <Radio className="h-3.5 w-3.5 animate-pulse text-orange-500" />,
+            detail: `Switching from ${primaryHost} to next standby relay`,
+          }
+        : {
+            label: "Retrying",
+            toneClassName: "border-sky-500/25 bg-sky-500/10 text-sky-700 dark:text-sky-300",
+            icon: <Loader2 className="h-3.5 w-3.5 animate-spin text-sky-500" />,
+            detail: `${reason}${snapshot.currentAction ? ` · ${snapshot.currentAction.replace(/_/g, " ")}` : ""}`,
+          };
     case "degraded":
       return {
-        label: "Connection degraded",
+        label: "Degraded",
         toneClassName: "border-amber-500/25 bg-amber-500/10 text-amber-700 dark:text-amber-300",
         icon: <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />,
-        detail: `${snapshot.writableRelayCount} writable / ${snapshot.subscribableRelayCount} readable, ${reason}`,
+        detail: primaryUrl
+          ? `${primaryHost} · ${reason}`
+          : reason,
       };
     case "offline":
     default:
@@ -99,9 +124,12 @@ export const getRelayStatusBadgePresentation = (snapshot: RelayRecoverySnapshot)
 
 export function RelayStatusBadge({ compact = false, compactNavigateHref }: RelayStatusBadgeProps) {
   const router = useRouter();
-  const { relayRecovery, triggerRelayRecovery } = useRelay();
+  const { relayRecovery, triggerRelayRecovery, relaySelection } = useRelay();
   const [isRecovering, setIsRecovering] = useState(false);
-  const presentation = useMemo(() => getRelayStatusBadgePresentation(relayRecovery), [relayRecovery]);
+  const presentation = useMemo(
+    () => getRelayStatusBadgePresentation(relayRecovery, relaySelection.primaryUrl),
+    [relayRecovery, relaySelection.primaryUrl],
+  );
   const compactCanNavigate = compact && typeof compactNavigateHref === "string" && compactNavigateHref.length > 0;
 
   const canTriggerRecovery = !isRecovering && (

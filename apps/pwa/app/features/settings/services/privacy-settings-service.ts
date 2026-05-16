@@ -1,4 +1,5 @@
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { normalizeV090Flags } from "./v090-rollout-policy";
 
 export interface PrivacySettings {
@@ -63,7 +64,7 @@ export class PrivacySettingsService {
     private static STORAGE_KEY = "obscur.settings.privacy";
 
     private static scopedStorageKey(): string {
-        return getScopedStorageKey(this.STORAGE_KEY);
+        return getScopedStorageKey(this.STORAGE_KEY, getResolvedProfileId());
     }
 
     private static normalizeTorProxyUrl(proxyUrl: string | undefined): string {

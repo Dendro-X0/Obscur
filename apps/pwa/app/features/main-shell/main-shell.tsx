@@ -52,12 +52,14 @@ import { Sidebar } from "@/app/features/messaging/components/sidebar";
 import { ChatView } from "@/app/features/messaging/components/chat-view";
 import { useAutoLock } from "@/app/features/settings/hooks/use-auto-lock";
 import { useSealedCommunity, type GroupMessageEvent } from "@/app/features/groups/hooks/use-sealed-community";
+import { getResolvedClientGateway } from "@/app/features/profiles/services/resolve-client-gateway";
 import { LockScreen } from "@/app/components/lock-screen";
 import type { Passphrase } from "@dweb/crypto/passphrase";
 import { EmptyConversationView } from "./components/empty-conversation-view";
 import { DevPanel } from "../dev-tools/components/dev-panel";
 import { useMessaging } from "@/app/features/messaging/providers/messaging-provider";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
+import { useContactRelayOverlap } from "@/app/features/messaging/hooks/use-contact-relay-overlap";
 import { useGroups } from "@/app/features/groups/providers/group-provider";
 import { PinLockService } from "@/app/features/auth/services/pin-lock-service";
 
@@ -74,7 +76,9 @@ import { toDmConversationId } from "@/app/features/messaging/utils/dm-conversati
 import { createDmConversation } from "@/app/features/messaging/utils/create-dm-conversation";
 import { resolveConversationByToken } from "@/app/features/messaging/utils/conversation-target";
 import { getIncomingInboxRequests } from "@/app/features/messaging/services/request-inbox-view";
-import { getActiveProfileIdSafe, getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
+import { useOptionalProfileMessageBus } from "@/app/features/profiles/providers/profile-runtime-provider";
 import { useRequestTransport } from "@/app/features/messaging/hooks/use-request-transport";
 import { configureInviteRequestStateBridge, configureInviteRequestTransportBridge } from "@/app/features/invites/utils/invite-manager";
 import type { Connection as LegacyInviteConnection, ConnectionRequest as LegacyInviteRequest } from "@/app/features/invites/utils/types";
@@ -98,21 +102,18 @@ import {
   PENDING_VOICE_CALL_REQUEST_MAX_AGE_MS,
   readPendingVoiceCallRequest,
 } from "@/app/features/messaging/services/realtime-voice-pending-request";
-import {
-  resolveBootstrappedVoiceInviteReplayDecision,
-  resolveBootstrappedVoiceSignalReplayDecision,
-} from "@/app/features/messaging/services/realtime-voice-history-replay-policy";
+import { useVoiceCallCRDT } from "@/app/features/messaging/hooks/use-voice-call-crdt";
 import {
   setGlobalVoiceCallOverlayState,
   setGlobalVoiceCallOverlayWaveAudioLevel,
 } from "@/app/features/messaging/services/realtime-voice-global-ui-store";
 import { resolveIncomingVoiceInviteExit } from "@/app/features/messaging/services/realtime-voice-invite-exit";
 import {
-  VOICE_CALL_OVERLAY_ACTION_EVENT_NAME,
   extractVoiceCallOverlayAction,
   readAndConsumePendingVoiceCallOverlayAction,
   type VoiceCallOverlayAction,
 } from "@/app/features/messaging/services/voice-call-overlay-action-bridge";
+import { subscribeVoiceCallOverlayActionDual } from "@/app/features/messaging/services/subscribe-voice-call-overlay-action-dual";
 import { resolveRealtimeVoiceConnectTimeoutDecision } from "@/app/features/messaging/services/realtime-voice-timeout-policy";
 import {
   advanceVoiceWaveAudioLevelChannel,
@@ -121,7 +122,7 @@ import {
 } from "@/app/features/messaging/services/realtime-voice-waveform-level";
 
 const LAST_PAGE_STORAGE_KEY = "obscur-last-page";
-const getLastPageStorageKey = (): string => getScopedStorageKey(LAST_PAGE_STORAGE_KEY);
+const getLastPageStorageKey = (): string => getScopedStorageKey(LAST_PAGE_STORAGE_KEY, getResolvedProfileId());
 const HISTORY_SYNC_NOTICE_FIRST_LOGIN_SEEN_KEY = "obscur.messaging.history_sync_notice.first_login_seen.v1";
 const DEFAULT_VISIBLE_MESSAGES = 50;
 const LOAD_EARLIER_STEP = 50;
@@ -225,11 +226,16 @@ function NostrMessengerContent() {
     createdConnections, setCreatedConnections
   } = useMessaging();
 
-  const { relayPool, relayStatus } = useRelay();
+  const optionalProfileBus = useOptionalProfileMessageBus();
+
+  const { relayPool, relayList, relayStatus, enabledRelayUrls } = useRelay();
+
   const accountSyncSnapshot = useAccountSyncSnapshot();
   const accountProjectionSnapshot = useAccountProjectionSnapshot();
   const {
     createdGroups, isNewGroupOpen, setIsNewGroupOpen,
+    communityKnownParticipantDirectoryByConversationId,
+    communityRosterByConversationId,
   } = useGroups();
 
   const [isUnlocking, setIsUnlocking] = useState(false);
@@ -250,6 +256,24 @@ function NostrMessengerContent() {
   const dmController = useRuntimeMessagingTransportOwnerController();
   const peerLastActiveByPeerPubkey = usePeerLastActiveByPeer(myPublicKeyHex as PublicKeyHex | null);
 
+  const sealedCommunityInitialMembers = useMemo((): ReadonlyArray<PublicKeyHex> | undefined => {
+    if (selectedConversation?.kind !== "group") {
+      return undefined;
+    }
+    const group = selectedConversation as GroupConversation;
+    return getResolvedClientGateway().communityRoster.resolveSeedMemberPubkeysFromDirectory({
+      directory: communityKnownParticipantDirectoryByConversationId[group.id] ?? null,
+      persistedGroupMemberPubkeys: group.memberPubkeys,
+      projectionMemberPubkeys: communityRosterByConversationId[group.id]?.activeMemberPubkeys,
+      localMemberPubkey: myPublicKeyHex as PublicKeyHex | null,
+    });
+  }, [
+    selectedConversation,
+    communityKnownParticipantDirectoryByConversationId,
+    communityRosterByConversationId,
+    myPublicKeyHex,
+  ]);
+
   const { state: groupState } = useSealedCommunity({
     pool: relayPool,
     relayUrl: selectedConversation?.kind === 'group' ? (selectedConversation as GroupConversation).relayUrl : '',
@@ -258,7 +282,7 @@ function NostrMessengerContent() {
     myPublicKeyHex,
     myPrivateKeyHex,
     enabled: selectedConversation?.kind === 'group',
-    initialMembers: selectedConversation?.kind === 'group' ? (selectedConversation as GroupConversation).memberPubkeys as ReadonlyArray<PublicKeyHex> : undefined
+    initialMembers: sealedCommunityInitialMembers,
   });
   const socialGraph = useMemo(() => new SocialGraphService(relayPool), [relayPool]);
 
@@ -383,11 +407,14 @@ function NostrMessengerContent() {
   }, [inviteStateBridge, myPublicKeyHex]);
   const { handleRedeemInvite } = useInviteRedemption(requestTransport);
   useDeepLinks(handleRedeemInvite);
+  const selectedDmConversationId = selectedConversation?.kind === "dm" ? selectedConversation.id : null;
   useDmSync(
     dmController.state.messages,
-    selectedConversation?.id || null,
+    selectedDmConversationId,
     setUnreadByConversationId,
-    dmController.state.status === "ready"
+    dmController.state.status === "ready",
+    hasHydrated,
+    lastViewedByConversationId,
   );
   useCommandMessages(dmController.state.messages);
   const { allConversations, filteredConversations } = useFilteredConversations(
@@ -461,7 +488,7 @@ function NostrMessengerContent() {
   useEffect(() => {
     if (!hasHydrated || !myPublicKeyHex) return;
     if (restoredChatId === null) {
-      const scopedKey = getScopedStorageKey(`obscur-last-chat-${myPublicKeyHex}`);
+      const scopedKey = getScopedStorageKey(`obscur-last-chat-${myPublicKeyHex}`, getResolvedProfileId());
       const savedId = localStorage.getItem(scopedKey);
       setRestoredChatId(savedId || "");
     }
@@ -488,6 +515,7 @@ function NostrMessengerContent() {
   const selectedConversationDmPubkey = selectedConversationView?.kind === "dm"
     ? selectedConversationView.pubkey
     : null;
+  const contactRelayOverlap = useContactRelayOverlap(selectedConversationDmPubkey, enabledRelayUrls, relayPool);
   const dmDisplayNameByPubkey = useMemo(() => {
     const map = new Map<string, string>();
     createdConnections.forEach((connection) => {
@@ -2204,11 +2232,19 @@ function NostrMessengerContent() {
     if (dmController.state.status !== "ready") {
       return;
     }
+    // CRITICAL: Skip voice signal replay during account sync/restore.
+    // Historical voice-call-signal rows restored during account sync must not
+    // trigger live WebRTC signaling. Only process signals after sync is complete.
+    if (accountSyncSnapshot.phase !== "ready") {
+      return;
+    }
     const bootstrappingNow = !voiceSignalsBootstrappedRef.current;
     const processed = processedVoiceSignalMessageIdsRef.current;
     if (bootstrappingNow) {
       voiceSignalsBootstrappedRef.current = true;
     }
+    const VOICE_SIGNAL_MAX_AGE_MS = 5 * 60 * 1000;
+    const nowMs = Date.now();
     dmController.state.messages.forEach((message) => {
       if (message.isOutgoing || processed.has(message.id)) {
         return;
@@ -2230,11 +2266,18 @@ function NostrMessengerContent() {
           voiceCallUiStatusRef.current?.roomId === signal.roomId
           && voiceCallUiStatusRef.current.peerPubkey === (message.senderPubkey ?? signal.fromPubkey).trim()
         );
-        const replayDecision = resolveBootstrappedVoiceSignalReplayDecision({
-          activeSessionMatches,
-          pendingInviteMatches,
-          statusMatches,
-        });
+        // Age-based replay gate: reject historical signals older than 5 minutes
+        // to prevent ghost calls from messages restored during account sync.
+        // The original realtime-voice-history-replay-policy was deleted during
+        // CRDT migration but the CRDT call-state was never wired in as a replacement.
+        const signalAge = typeof signal.sentAtUnixMs === "number"
+          ? nowMs - signal.sentAtUnixMs
+          : Infinity;
+        const signalTooOld = signalAge > VOICE_SIGNAL_MAX_AGE_MS;
+        const replayDecision = {
+          shouldReplay: !signalTooOld && !statusMatches,
+          reasonCode: signalTooOld ? "signal_too_old" : statusMatches ? "status_matches" : "accept",
+        };
         if (!replayDecision.shouldReplay) {
           processed.add(message.id);
           logAppEvent({
@@ -2261,13 +2304,19 @@ function NostrMessengerContent() {
       const lastIds = dmController.state.messages.slice(-1000).map((message) => message.id);
       processedVoiceSignalMessageIdsRef.current = new Set(lastIds);
     }
-  }, [dmController.state.messages, dmController.state.status, handleIncomingVoiceSignal]);
+  }, [dmController.state.messages, dmController.state.status, handleIncomingVoiceSignal, accountSyncSnapshot.phase]);
 
   useEffect(() => {
     if (!REALTIME_VOICE_CALLS_ENABLED) {
       return;
     }
     if (dmController.state.status !== "ready") {
+      return;
+    }
+    // CRITICAL: Skip voice invite replay during account sync/restore.
+    // Historical voice-call-invite rows restored during account sync must not
+    // trigger the ringing UI. Only process invites after sync is complete.
+    if (accountSyncSnapshot.phase !== "ready") {
       return;
     }
     const bootstrappingNow = !voiceInvitesBootstrappedRef.current;
@@ -2299,12 +2348,18 @@ function NostrMessengerContent() {
           voiceCallUiStatusRef.current?.roomId === invite.roomId
           && voiceCallUiStatusRef.current.peerPubkey === peerPubkey
         );
-        const replayDecision = resolveBootstrappedVoiceInviteReplayDecision({
-          statusMatches,
-          invitedAtUnixMs: invite.invitedAtUnixMs,
-          expiresAtUnixMs: invite.expiresAtUnixMs,
-          nowUnixMs: Date.now(),
-        });
+        // Age-based replay gate: reject historical invites older than 5 minutes
+        // to prevent ghost calls from messages restored during account sync.
+        const VOICE_INVITE_MAX_AGE_MS = 5 * 60 * 1000;
+        const nowMs = Date.now();
+        const inviteAge = typeof invite.invitedAtUnixMs === "number"
+          ? nowMs - invite.invitedAtUnixMs
+          : Infinity;
+        const inviteTooOld = inviteAge > VOICE_INVITE_MAX_AGE_MS;
+        const replayDecision = {
+          shouldReplay: !inviteTooOld && !statusMatches,
+          reasonCode: inviteTooOld ? "invite_too_old" : statusMatches ? "status_matches" : "accept",
+        };
         if (!replayDecision.shouldReplay) {
           processed.add(message.id);
           const logContext: Record<string, string | number | boolean | null> = {
@@ -2413,6 +2468,7 @@ function NostrMessengerContent() {
     voiceCallUiStatus?.phase,
     voiceCallUiStatus?.peerPubkey,
     activeVoiceCallUiState?.connectionState,
+    accountSyncSnapshot.phase,
   ]);
 
   useEffect(() => {
@@ -3127,17 +3183,10 @@ function NostrMessengerContent() {
       executeVoiceCallOverlayAction(action);
     };
 
-    const handleOverlayActionEvent = (event: Event): void => {
-      const custom = event as CustomEvent<unknown>;
-      applyOverlayActionPayload(custom.detail);
-    };
-
     readAndConsumePendingOverlayAction();
-    window.addEventListener(VOICE_CALL_OVERLAY_ACTION_EVENT_NAME, handleOverlayActionEvent as EventListener);
-    return () => {
-      window.removeEventListener(VOICE_CALL_OVERLAY_ACTION_EVENT_NAME, handleOverlayActionEvent as EventListener);
-    };
-  }, [executeVoiceCallOverlayAction]);
+    const unsubDual = subscribeVoiceCallOverlayActionDual(applyOverlayActionPayload, optionalProfileBus);
+    return unsubDual;
+  }, [executeVoiceCallOverlayAction, optionalProfileBus]);
   const interactionByConversationId = useMemo(() => {
     const map: Record<string, Readonly<{ lastActiveAtMs?: number; lastViewedAtMs?: number }>> = {};
     allConversations.forEach((conversation) => {
@@ -3234,7 +3283,7 @@ function NostrMessengerContent() {
     startupState,
     isAutoLockLocked: isLocked,
   });
-  const activeProfileId = getActiveProfileIdSafe();
+  const activeProfileId = getResolvedProfileId();
   const projectionReadAuthority = useMemo(() => (
     resolveProjectionReadAuthority({
       projectionSnapshot: accountProjectionSnapshot,
@@ -3728,6 +3777,10 @@ function NostrMessengerContent() {
               }
             }}
             onBlockPeer={() => selectedConversationView.kind === 'dm' && blocklist.addBlocked({ publicKeyInput: selectedConversationView.pubkey })}
+            relayOverlap={selectedConversationView.kind === 'dm' ? contactRelayOverlap : undefined}
+            deliveryRisk={selectedConversationView.kind === 'dm' ? contactRelayOverlap.status : null}
+            onAddRelay={(url) => { relayList.addRelay({ url }); }}
+            onNavigateToRelaySettings={() => { void router.push("/settings?tab=relays"); }}
           />
         )}
       </main>

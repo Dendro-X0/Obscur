@@ -26,6 +26,7 @@ export interface TauriNotification {
     title: string;
     body: string;
     tag?: string;
+    icon?: string;
     data?: Record<string, unknown>;
     requireInteraction?: boolean;
     actions?: ReadonlyArray<Readonly<{ action: string; title: string }>>;
@@ -178,6 +179,7 @@ export function createTauriAPI(): TauriAPI {
         title: string;
         body: string;
         tag?: string;
+        icon?: string;
         data?: Record<string, unknown>;
         requireInteraction?: boolean;
         actions?: ReadonlyArray<Readonly<{ action: string; title: string }>>;
@@ -185,7 +187,7 @@ export function createTauriAPI(): TauriAPI {
         if (!isDesktop) {
           // Fallback to web notifications
           if ("Notification" in window && Notification.permission === "granted") {
-            new Notification(options.title, { body: options.body });
+            new Notification(options.title, { body: options.body, icon: options.icon });
           }
           return;
         }
@@ -193,6 +195,7 @@ export function createTauriAPI(): TauriAPI {
           title: options.title,
           body: options.body,
           tag: options.tag,
+          icon: options.icon,
           data: options.data,
           requireInteraction: options.requireInteraction,
           actions: options.actions,

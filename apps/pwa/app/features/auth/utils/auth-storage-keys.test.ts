@@ -1,9 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/app/features/profiles/services/profile-scope", () => ({
-  getActiveProfileIdSafe: () => "active-profile",
   getDefaultProfileId: () => "default",
   getScopedStorageKey: (baseKey: string, profileId?: string) => `${baseKey}::${profileId ?? "active-profile"}`,
+}));
+
+vi.mock("@/app/features/profiles/services/profile-runtime-scope", () => ({
+  getResolvedProfileId: () => "active-profile",
 }));
 
 import {

@@ -19,11 +19,17 @@ export const collectMessageIdentityAliases = (
   const ids = new Set<string>();
   const messageId = normalizeIdentityValue(message.id);
   const eventId = normalizeIdentityValue(message.eventId);
+  const relayPublishedEventId = normalizeIdentityValue(
+    "relayPublishedEventId" in message ? (message as { relayPublishedEventId?: unknown }).relayPublishedEventId : undefined,
+  );
   if (messageId) {
     ids.add(messageId);
   }
   if (eventId) {
     ids.add(eventId);
+  }
+  if (relayPublishedEventId) {
+    ids.add(relayPublishedEventId);
   }
   return Array.from(ids);
 };

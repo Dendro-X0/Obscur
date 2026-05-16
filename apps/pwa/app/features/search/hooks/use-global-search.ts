@@ -10,7 +10,7 @@ import { useTanstackQueryRuntime } from "@/app/features/query/providers/tanstack
 import { queryKeyFactory } from "@/app/features/query/services/query-key-factory";
 import { markTanstackQueryPath } from "@/app/features/query/services/tanstack-query-diagnostics";
 import { createQueryScope } from "@/app/features/query/services/query-scope";
-import { getActiveProfileIdSafe } from "@/app/features/profiles/services/profile-scope";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import type {
     DiscoveryIntent,
     DiscoveryQueryState,
@@ -192,7 +192,7 @@ export function useGlobalSearch(options: UseGlobalSearchOptions) {
             };
 
             const queryScope = tanstackQueryRuntime?.scope ?? createQueryScope({
-                profileId: getActiveProfileIdSafe(),
+                profileId: getResolvedProfileId(),
                 publicKeyHex: options.myPublicKeyHex,
             });
             const searchQueryKey = queryKeyFactory.discoverySearch({

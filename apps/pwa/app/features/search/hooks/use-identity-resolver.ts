@@ -8,7 +8,7 @@ import { useTanstackQueryRuntime } from "@/app/features/query/providers/tanstack
 import { queryKeyFactory } from "@/app/features/query/services/query-key-factory";
 import { markTanstackQueryPath } from "@/app/features/query/services/tanstack-query-diagnostics";
 import { createQueryScope } from "@/app/features/query/services/query-scope";
-import { getActiveProfileIdSafe } from "@/app/features/profiles/services/profile-scope";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 
 type ResolverPhase = "idle" | "resolving" | "resolved" | "failed";
 type ResolveIdentityOptions = Readonly<{
@@ -46,7 +46,7 @@ export const useIdentityResolver = () => {
     try {
       const allowLegacyInviteCode = options?.allowLegacyInviteCode !== false;
       const scope = tanstackQueryRuntime?.scope ?? createQueryScope({
-        profileId: getActiveProfileIdSafe(),
+        profileId: getResolvedProfileId(),
         publicKeyHex: null,
       });
       const resolveQueryKey = queryKeyFactory.identityResolution({

@@ -2,13 +2,14 @@ import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { ContactRequestStatus } from "@/app/features/search/types/discovery";
 import type { ConnectionRequestStatusValue } from "@/app/features/messaging/types";
 import { appendCanonicalContactEvent } from "@/app/features/account-sync/services/account-event-ingest-bridge";
-import type { SendResult } from "../controllers/enhanced-dm-controller";
+import type { SendResult } from "../controllers/v2/dm-controller-types";
 import {
   createEmptyRequestFlowEvidence,
   type RequestConvergenceState,
   type RequestFlowEvidence,
   type RequestTransportStatus,
 } from "./request-flow-contracts";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { requestFlowEvidenceStore } from "./request-flow-evidence-store";
 
 type RequestInboxStatus = Readonly<{
@@ -17,15 +18,29 @@ type RequestInboxStatus = Readonly<{
 }> | null;
 
 type RequestEvidenceStore = Readonly<{
-  get: (peerPublicKeyHex: string) => RequestFlowEvidence;
-  markRequestPublished: (params: Readonly<{ peerPublicKeyHex: string; requestEventId?: string }>) => RequestFlowEvidence;
-  markReceiptAck: (params: Readonly<{ peerPublicKeyHex: string; requestEventId?: string }>) => RequestFlowEvidence;
-  markAccept: (params: Readonly<{ peerPublicKeyHex: string; requestEventId?: string }>) => RequestFlowEvidence;
-  markTerminalFailure: (params: Readonly<{ peerPublicKeyHex: string }>) => RequestFlowEvidence;
-  reset?: (peerPublicKeyHex: string) => void;
+  get: (peerPublicKeyHex: string, profileId?: string) => RequestFlowEvidence;
+  markRequestPublished: (params: Readonly<{
+    peerPublicKeyHex: string;
+    requestEventId?: string;
+    profileId?: string;
+  }>) => RequestFlowEvidence;
+  markReceiptAck: (params: Readonly<{
+    peerPublicKeyHex: string;
+    requestEventId?: string;
+    profileId?: string;
+  }>) => RequestFlowEvidence;
+  markAccept: (params: Readonly<{
+    peerPublicKeyHex: string;
+    requestEventId?: string;
+    profileId?: string;
+  }>) => RequestFlowEvidence;
+  markTerminalFailure: (params: Readonly<{ peerPublicKeyHex: string; profileId?: string }>) => RequestFlowEvidence;
+  reset?: (peerPublicKeyHex: string, profileId?: string) => void;
 }>;
 
 type RequestTransportDependencies = Readonly<{
+  /** Prefer window-bound profile scope; falls back to registry-backed id when omitted. */
+  profileId?: string;
   accountPublicKeyHex?: PublicKeyHex | null;
   sendConnectionRequest: (params: Readonly<{
     peerPublicKeyHex: PublicKeyHex;
@@ -184,11 +199,13 @@ const canCommitTerminalRequestState = (
 
 export const createRequestTransportService = (deps: RequestTransportDependencies) => {
   const evidenceStore = deps.evidenceStore ?? requestFlowEvidenceStore;
+  const evidenceProfileId = deps.profileId ?? getResolvedProfileId();
 
-  const createNoWritableRelayFailure = (peerPublicKeyHex: PublicKeyHex): SendResult => ({
+  const createNoWritableRelayFailure = (_peerPublicKeyHex: PublicKeyHex): SendResult => ({
     success: false,
     deliveryStatus: "failed",
     messageId: "",
+    eventId: "",
     relayResults: [],
     error: "No writable relays available. Obscur is still recovering the connection.",
     failureReason: "no_active_relays",
@@ -203,9 +220,13 @@ export const createRequestTransportService = (deps: RequestTransportDependencies
       evidenceStore.markRequestPublished({
         peerPublicKeyHex: params.peerPublicKeyHex,
         requestEventId: result.messageId || undefined,
+        profileId: evidenceProfileId,
       });
     } else if (mapSendResultToStatus(result) === "failed") {
-      evidenceStore.markTerminalFailure({ peerPublicKeyHex: params.peerPublicKeyHex });
+      evidenceStore.markTerminalFailure({
+        peerPublicKeyHex: params.peerPublicKeyHex,
+        profileId: evidenceProfileId,
+      });
     }
     return result;
   };
@@ -227,7 +248,7 @@ export const createRequestTransportService = (deps: RequestTransportDependencies
       });
     }
     const status = mapSendResultToStatus(result);
-    const evidence = evidenceStore.get(params.peerPublicKeyHex);
+    const evidence = evidenceStore.get(params.peerPublicKeyHex, evidenceProfileId);
     return toRequestTransportOutcome({
       status,
       result,
@@ -256,6 +277,7 @@ export const createRequestTransportService = (deps: RequestTransportDependencies
       evidenceStore.markAccept({
         peerPublicKeyHex: params.peerPublicKeyHex,
         requestEventId: params.requestEventId || undefined,
+        profileId: evidenceProfileId,
       });
       deps.peerTrust?.acceptPeer({ publicKeyHex: params.peerPublicKeyHex });
       deps.requestsInbox?.setStatus({
@@ -275,10 +297,13 @@ export const createRequestTransportService = (deps: RequestTransportDependencies
         });
       }
     } else if (status === "failed") {
-      evidenceStore.markTerminalFailure({ peerPublicKeyHex: params.peerPublicKeyHex });
+      evidenceStore.markTerminalFailure({
+        peerPublicKeyHex: params.peerPublicKeyHex,
+        profileId: evidenceProfileId,
+      });
     }
 
-    const evidence = evidenceStore.get(params.peerPublicKeyHex);
+    const evidence = evidenceStore.get(params.peerPublicKeyHex, evidenceProfileId);
     return toRequestTransportOutcome({
       status,
       result,
@@ -311,7 +336,7 @@ export const createRequestTransportService = (deps: RequestTransportDependencies
         status: "declined",
         isOutgoing: false,
       });
-      evidenceStore.reset?.(params.peerPublicKeyHex);
+      evidenceStore.reset?.(params.peerPublicKeyHex, evidenceProfileId);
       if (deps.accountPublicKeyHex) {
         await appendCanonicalContactEvent({
           accountPublicKeyHex: deps.accountPublicKeyHex,
@@ -324,10 +349,13 @@ export const createRequestTransportService = (deps: RequestTransportDependencies
         });
       }
     } else if (status === "failed") {
-      evidenceStore.markTerminalFailure({ peerPublicKeyHex: params.peerPublicKeyHex });
+      evidenceStore.markTerminalFailure({
+        peerPublicKeyHex: params.peerPublicKeyHex,
+        profileId: evidenceProfileId,
+      });
     }
 
-    const evidence = evidenceStore.get(params.peerPublicKeyHex);
+    const evidence = evidenceStore.get(params.peerPublicKeyHex, evidenceProfileId);
     return toRequestTransportOutcome({
       status,
       result,
@@ -360,7 +388,7 @@ export const createRequestTransportService = (deps: RequestTransportDependencies
         status: "canceled",
         isOutgoing: true,
       });
-      evidenceStore.reset?.(params.peerPublicKeyHex);
+      evidenceStore.reset?.(params.peerPublicKeyHex, evidenceProfileId);
       if (deps.accountPublicKeyHex) {
         await appendCanonicalContactEvent({
           accountPublicKeyHex: deps.accountPublicKeyHex,
@@ -373,10 +401,13 @@ export const createRequestTransportService = (deps: RequestTransportDependencies
         });
       }
     } else if (status === "failed") {
-      evidenceStore.markTerminalFailure({ peerPublicKeyHex: params.peerPublicKeyHex });
+      evidenceStore.markTerminalFailure({
+        peerPublicKeyHex: params.peerPublicKeyHex,
+        profileId: evidenceProfileId,
+      });
     }
 
-    const evidence = evidenceStore.get(params.peerPublicKeyHex);
+    const evidence = evidenceStore.get(params.peerPublicKeyHex, evidenceProfileId);
     return toRequestTransportOutcome({
       status,
       result,
@@ -396,22 +427,25 @@ export const createRequestTransportService = (deps: RequestTransportDependencies
       return evidenceStore.markAccept({
         peerPublicKeyHex: params.peerPublicKeyHex,
         requestEventId: params.requestEventId,
+        profileId: evidenceProfileId,
       });
     }
     if (params.type === "receipt_ack") {
       return evidenceStore.markReceiptAck({
         peerPublicKeyHex: params.peerPublicKeyHex,
         requestEventId: params.requestEventId,
+        profileId: evidenceProfileId,
       });
     }
     return evidenceStore.markRequestPublished({
       peerPublicKeyHex: params.peerPublicKeyHex,
       requestEventId: params.requestEventId,
+      profileId: evidenceProfileId,
     });
   };
 
   const getFlowEvidence = (peerPublicKeyHex: PublicKeyHex): RequestFlowEvidence => {
-    return evidenceStore.get(peerPublicKeyHex) ?? createEmptyRequestFlowEvidence();
+    return evidenceStore.get(peerPublicKeyHex, evidenceProfileId) ?? createEmptyRequestFlowEvidence();
   };
 
   return {

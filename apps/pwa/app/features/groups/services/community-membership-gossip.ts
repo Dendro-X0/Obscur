@@ -22,15 +22,16 @@
  * ```
  */
 
-import type { CommunityMembership, MembershipDelta } from './community-membership-crdt.js';
+import type { CommunityMembership, MembershipDelta } from './community-membership-crdt';
 import {
   createMembershipDelta,
   applyMembershipDelta,
   getMembershipClock,
-} from './community-membership-crdt.js';
+} from './community-membership-crdt';
 import type { VectorClock } from '@dweb/crdt/vector-clock';
 import { vectorCompare, mergeClocks } from '@dweb/crdt/vector-clock';
 import { logAppEvent } from '@/app/shared/log-app-event';
+import { getProfileRuntimeScope, getResolvedProfileId } from '@/app/features/profiles/services/profile-runtime-scope';
 
 /**
  * Nostr event kind for membership gossip.
@@ -403,15 +404,20 @@ export function createMembershipGossipManager(
     
     const encoded = encodeMembershipDelta(delta, membership);
     
-    // In a real implementation, this would create and sign a Nostr event
-    // For now, we emit a window event for the relay layer to pick up
-    window.dispatchEvent(new CustomEvent('obscur:crdt-membership-gossip', {
-      detail: {
-        communityId,
-        deviceId,
-        encoded,
-      }
-    }));
+    const profileId = getResolvedProfileId();
+    const gossipDetail = {
+      communityId,
+      deviceId,
+      encoded,
+      profileId,
+    };
+    const scopeGossip = getProfileRuntimeScope();
+    if (scopeGossip?.bus && scopeGossip.profileId === profileId) {
+      scopeGossip.bus.publish({
+        type: "crdt-membership-gossip",
+        detail: gossipDetail,
+      });
+    }
     
     lastGossipTime = Date.now();
     pendingDeltas = [];
@@ -430,13 +436,20 @@ export function createMembershipGossipManager(
     const membership = getMembership();
     const clock = getMembershipClock(membership);
     
-    window.dispatchEvent(new CustomEvent('obscur:crdt-anti-entropy-request', {
-      detail: {
-        communityId,
-        deviceId,
-        knownClock: clock,
-      }
-    }));
+    const profileIdAe = getResolvedProfileId();
+    const antiEntropyDetail = {
+      communityId,
+      deviceId,
+      knownClock: clock,
+      profileId: profileIdAe,
+    };
+    const scopeAe = getProfileRuntimeScope();
+    if (scopeAe?.bus && scopeAe.profileId === profileIdAe) {
+      scopeAe.bus.publish({
+        type: "crdt-anti-entropy-request",
+        detail: antiEntropyDetail,
+      });
+    }
   };
   
   return {

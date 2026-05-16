@@ -21,7 +21,7 @@ const createEmptyChatState = (): PersistedChatState => ({
 });
 
 describe("community-membership-reconstruction", () => {
-  it("reconstructs joined entries from persisted created groups", () => {
+  it("reconstructs historical entries from persisted created groups", () => {
     const chatState: PersistedChatState = {
       ...createEmptyChatState(),
       createdGroups: [{
@@ -46,14 +46,14 @@ describe("community-membership-reconstruction", () => {
         groupId: "alpha",
         relayUrl: "wss://relay.alpha",
         communityId: "alpha:wss://relay.alpha",
-        status: "joined",
+        status: "historical",
         updatedAtUnixMs: 1_000,
         displayName: "Alpha",
       }),
     ]);
   });
 
-  it("reconstructs joined entries from incoming accepted community invite responses in dm history", () => {
+  it("reconstructs historical entries from incoming accepted community invite responses in dm history", () => {
     const chatState: PersistedChatState = {
       ...createEmptyChatState(),
       messagesByConversationId: {
@@ -79,7 +79,7 @@ describe("community-membership-reconstruction", () => {
         groupId: "beta",
         relayUrl: "wss://relay.beta",
         communityId: "beta:wss://relay.beta",
-        status: "joined",
+        status: "historical",
         updatedAtUnixMs: 2_000,
       }),
     ]);
@@ -108,7 +108,7 @@ describe("community-membership-reconstruction", () => {
     expect(reconstructCommunityMembershipFromChatState(chatState)).toEqual([]);
   });
 
-  it("reconstructs joined entries from sender-local accepted response when matching room-key invite evidence exists", () => {
+  it("reconstructs historical entries from sender-local accepted response when matching room-key invite evidence exists", () => {
     const chatState: PersistedChatState = {
       ...createEmptyChatState(),
       messagesByConversationId: {
@@ -149,7 +149,7 @@ describe("community-membership-reconstruction", () => {
         groupId: "beta",
         relayUrl: "wss://relay.beta",
         communityId: "beta:wss://relay.beta",
-        status: "joined",
+        status: "historical",
         updatedAtUnixMs: 2_000,
         displayName: "TestClub1",
         avatar: "https://cdn.example.testclub/avatar.png",
@@ -157,7 +157,7 @@ describe("community-membership-reconstruction", () => {
     ]);
   });
 
-  it("reconstructs joined entries from persisted group-message timelines", () => {
+  it("reconstructs historical entries from persisted group-message timelines", () => {
     const chatState: PersistedChatState = {
       ...createEmptyChatState(),
       groupMessages: {
@@ -176,7 +176,7 @@ describe("community-membership-reconstruction", () => {
         groupId: "omega",
         relayUrl: "wss://relay.omega",
         communityId: "omega:wss://relay.omega",
-        status: "joined",
+        status: "historical",
         updatedAtUnixMs: 8_000,
       }),
     ]);

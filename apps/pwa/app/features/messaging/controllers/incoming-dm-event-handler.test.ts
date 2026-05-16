@@ -1,7 +1,9 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import type { NostrEvent } from "@dweb/nostr/nostr-event";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
+import { setProfileRuntimeScope } from "@/app/features/profiles/services/profile-runtime-scope";
 import { handleIncomingDmEvent } from "./incoming-dm-event-handler";
+import * as logAppEventModule from "@/app/shared/log-app-event";
 import { protocolCoreAdapter } from "@/app/features/runtime/protocol-core-adapter";
 import { getV090RolloutPolicy } from "@/app/features/settings/services/v090-rollout-policy";
 import { failedIncomingEventStore } from "../services/failed-incoming-event-store";
@@ -34,8 +36,22 @@ const { peerRelayEvidenceStoreMock } = vi.hoisted(() => ({
         getRelayUrls: vi.fn(() => []),
         clearPeer: vi.fn(),
         clear: vi.fn(),
+        subscribe: vi.fn(() => () => {}),
     },
 }));
+
+const incomingDmProfileBusRuntime = vi.hoisted(() => {
+    const { createProfileMessageBus } =
+        require("@dweb/core/profile-message-bus") as typeof import("@dweb/core/profile-message-bus");
+    const api = {
+        bus: createProfileMessageBus({ profileId: "default" }),
+        reset() {
+            api.bus = createProfileMessageBus({ profileId: "default" });
+            setProfileRuntimeScope({ profileId: "default", bus: api.bus });
+        },
+    };
+    return api;
+});
 
 vi.mock("@/app/features/crypto/crypto-service", () => ({
     cryptoService: {
@@ -89,13 +105,18 @@ vi.mock("../services/peer-relay-evidence-store", () => ({
     peerRelayEvidenceStore: peerRelayEvidenceStoreMock,
 }));
 
-vi.mock("../services/message-delete-tombstone-store", () => ({
+vi.mock("../services/message-delete-tombstone-store", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../services/message-delete-tombstone-store")>();
+  return {
+    ...actual,
     isMessageDeleteSuppressed: isMessageDeleteSuppressedMock,
-}));
+  };
+});
 
 describe("incoming-dm-event-handler", () => {
   beforeEach(() => {
         vi.restoreAllMocks();
+        incomingDmProfileBusRuntime.reset();
         failedIncomingEventStore.clear();
         requestEventTombstoneStore.clear();
         resetIncomingRequestAntiAbuseState();
@@ -272,6 +293,7 @@ describe("incoming-dm-event-handler", () => {
         expect(peerRelayEvidenceStoreMock.recordInboundRelay).toHaveBeenCalledWith({
             peerPublicKeyHex: SENDER_PUBLIC_KEY,
             relayUrl: "wss://relay-observed.example",
+            profileId: expect.any(String),
         });
     });
 
@@ -378,6 +400,81 @@ describe("incoming-dm-event-handler", () => {
 
         expect(onMessageDeleted).toHaveBeenCalledWith(expect.objectContaining({
             messageId: targetMessageId,
+            deletionEventId: deleteCommandEventId,
+        }));
+        expect(onNewMessage).not.toHaveBeenCalled();
+        expect(setState).toHaveBeenCalled();
+    });
+
+    it("applies versioned delete commands and suppresses command rendering", async () => {
+        const localTargetId = "local-target-msg-1";
+        const eventTargetId = "event-target-msg-1";
+        const deleteCommandEventId = "delete-cmd-versioned";
+        const deleteCommandPayload = `__dweb_cmd__delete:${JSON.stringify({
+            type: "message_delete_v1",
+            mode: "delete_for_everyone",
+            conversationId: `${MY_PUBLIC_KEY}:${SENDER_PUBLIC_KEY}`,
+            targetMessageIdentityIds: [localTargetId, eventTargetId],
+            targetAuthorPubkey: SENDER_PUBLIC_KEY,
+            deletedByPubkey: SENDER_PUBLIC_KEY,
+            deletedAt: Date.now(),
+            nonce: "nonce-versioned",
+        })}`;
+        const event = {
+            id: deleteCommandEventId,
+            pubkey: SENDER_PUBLIC_KEY,
+            kind: 4,
+            created_at: 1260,
+            content: "encrypted",
+            tags: [["p", MY_PUBLIC_KEY], ["t", "message-delete"], ["e", eventTargetId]]
+        } as unknown as NostrEvent;
+
+        vi.mocked(cryptoService.decryptDM).mockResolvedValueOnce(deleteCommandPayload);
+
+        const onMessageDeleted = vi.fn();
+        const onNewMessage = vi.fn();
+        const setState = vi.fn();
+
+        await handleIncomingDmEvent({
+            event,
+            currentParams: {
+                myPrivateKeyHex: "private-key",
+                myPublicKeyHex: MY_PUBLIC_KEY,
+                peerTrust: {
+                    isAccepted: () => true,
+                    acceptPeer: vi.fn(),
+                },
+                onMessageDeleted,
+                onNewMessage,
+            },
+            messageQueue: {
+                getMessage: vi.fn(async (id: string) => (
+                    id === eventTargetId
+                        ? {
+                            id: eventTargetId,
+                            eventId: eventTargetId,
+                            senderPubkey: SENDER_PUBLIC_KEY,
+                            conversationId: `${MY_PUBLIC_KEY}:${SENDER_PUBLIC_KEY}`,
+                        }
+                        : null
+                )),
+                persistMessage: vi.fn(async () => undefined),
+            } as any,
+            processingEvents: new Set<string>(),
+            failedDecryptEvents: new Set<string>(),
+            existingMessages: [],
+            maxMessagesInMemory: 100,
+            syncConversationTimestamps: new Map<string, Date>(),
+            activeSubscriptions: new Map(),
+            scheduleUiUpdate: (fn) => fn(),
+            setState,
+            createReadyState: (messages) => ({ messages }),
+            messageMemoryManager: { addMessages: vi.fn() },
+            uiPerformanceMonitor: { startTracking: () => () => ({ totalTime: 0 }) }
+        });
+
+        expect(onMessageDeleted).toHaveBeenCalledWith(expect.objectContaining({
+            messageId: eventTargetId,
             deletionEventId: deleteCommandEventId,
         }));
         expect(onNewMessage).not.toHaveBeenCalled();
@@ -531,7 +628,7 @@ describe("incoming-dm-event-handler", () => {
             relayUrl: "wss://relay.example"
         }));
 
-        const dispatchSpy = vi.spyOn(window, "dispatchEvent");
+        const publishSpy = vi.spyOn(incomingDmProfileBusRuntime.bus, "publish");
 
         await handleIncomingDmEvent({
             event,
@@ -560,9 +657,76 @@ describe("incoming-dm-event-handler", () => {
             uiPerformanceMonitor: { startTracking: () => () => ({ totalTime: 0 }) },
         });
 
-        expect(dispatchSpy).toHaveBeenCalledWith(expect.objectContaining({
-            type: "obscur:group-invite-response-accepted",
+        expect(publishSpy).toHaveBeenCalledWith(expect.objectContaining({
+            type: "group-invite-accepted",
+            groupId: "group-alpha",
+            memberPubkey: SENDER_PUBLIC_KEY,
+            recipientPublicKeyHex: MY_PUBLIC_KEY,
         }));
+    });
+
+    it.each([
+        ["declined"],
+        ["canceled"],
+    ] as const)("does not emit group-invite-accepted for community invite response %s (logs terminal observe only)", async (responseStatus) => {
+        const event = {
+            id: "event-invite-terminal",
+            pubkey: SENDER_PUBLIC_KEY,
+            kind: 4,
+            created_at: 1251,
+            content: "encrypted",
+            tags: [["p", MY_PUBLIC_KEY]]
+        } as unknown as NostrEvent;
+
+        vi.mocked(cryptoService.decryptDM).mockResolvedValueOnce(JSON.stringify({
+            type: "community-invite-response",
+            status: responseStatus,
+            groupId: "group-beta",
+            relayUrl: "wss://relay.example"
+        }));
+
+        const publishSpy = vi.spyOn(incomingDmProfileBusRuntime.bus, "publish");
+        const logSpy = vi.spyOn(logAppEventModule, "logAppEvent");
+
+        await handleIncomingDmEvent({
+            event,
+            currentParams: {
+                myPrivateKeyHex: "private-key",
+                myPublicKeyHex: MY_PUBLIC_KEY,
+                peerTrust: {
+                    isAccepted: () => true,
+                    acceptPeer: vi.fn(),
+                },
+            },
+            messageQueue: {
+                getMessage: vi.fn(async () => null),
+                persistMessage: vi.fn(async () => undefined),
+            } as any,
+            processingEvents: new Set<string>(),
+            failedDecryptEvents: new Set<string>(),
+            existingMessages: [],
+            maxMessagesInMemory: 100,
+            syncConversationTimestamps: new Map<string, Date>(),
+            activeSubscriptions: new Map(),
+            scheduleUiUpdate: (fn) => fn(),
+            setState: vi.fn(),
+            createReadyState: (messages) => ({ messages }),
+            messageMemoryManager: { addMessages: vi.fn() },
+            uiPerformanceMonitor: { startTracking: () => () => ({ totalTime: 0 }) },
+        });
+
+        const acceptedPublishes = publishSpy.mock.calls.filter(
+            (call) => (call[0] as { type?: string })?.type === "group-invite-accepted",
+        );
+        expect(acceptedPublishes).toHaveLength(0);
+        expect(logSpy).toHaveBeenCalledWith(expect.objectContaining({
+            name: "messaging.incoming.community_invite_response_terminal_observed",
+            context: expect.objectContaining({
+                responseStatus,
+                groupIdHint: "group-beta",
+            }),
+        }));
+        logSpy.mockRestore();
     });
 
     it("verifies v090_x3dr envelopes through protocol adapter before decrypting", async () => {
@@ -906,6 +1070,7 @@ describe("incoming-dm-event-handler", () => {
         expect(requestFlowEvidenceStoreMock.markAccept).toHaveBeenCalledWith({
             peerPublicKeyHex: SENDER_PUBLIC_KEY,
             requestEventId: undefined,
+            profileId: expect.any(String),
         });
         expect(acceptPeer).toHaveBeenCalledWith({ publicKeyHex: SENDER_PUBLIC_KEY });
         expect(setStatus).toHaveBeenCalledWith({
@@ -1633,7 +1798,7 @@ describe("incoming-dm-event-handler", () => {
             status: "declined",
             isOutgoing: true,
         });
-        expect(requestFlowEvidenceStoreMock.reset).toHaveBeenCalledWith(SENDER_PUBLIC_KEY);
+        expect(requestFlowEvidenceStoreMock.reset).toHaveBeenCalledWith(SENDER_PUBLIC_KEY, expect.any(String));
         expect(persistMessage).not.toHaveBeenCalled();
     });
 
@@ -1739,7 +1904,7 @@ describe("incoming-dm-event-handler", () => {
             status: "canceled",
             isOutgoing: false,
         });
-        expect(requestFlowEvidenceStoreMock.reset).toHaveBeenCalledWith(SENDER_PUBLIC_KEY);
+        expect(requestFlowEvidenceStoreMock.reset).toHaveBeenCalledWith(SENDER_PUBLIC_KEY, expect.any(String));
         expect(persistMessage).not.toHaveBeenCalled();
     });
 

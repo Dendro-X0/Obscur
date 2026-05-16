@@ -26,11 +26,13 @@
  */
 
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import type {
   CommunityMembership,
   MemberWithMetadata,
   SerializedMembership,
-} from '../services/community-membership-crdt.js';
+} from '../services/community-membership-crdt';
 import {
   createCommunityMembership,
   addMember,
@@ -46,8 +48,7 @@ import {
   compactMembership,
   getMembershipDiagnostics,
   migrateFromLegacy,
-  FEATURE_FLAGS,
-} from '../services/community-membership-crdt.js';
+} from '../services/community-membership-crdt';
 import { createVectorClock } from '@dweb/crdt/vector-clock';
 
 /**
@@ -105,8 +106,8 @@ export function useCommunityMembershipCRDT(
   localPubkey: string,
   deviceId: string
 ): UseCommunityMembershipCRDTReturn {
-  // Feature flag check
-  const isEnabled = FEATURE_FLAGS.useCRDTMembership;
+  // CRDT is always enabled (feature flags removed)
+  const isEnabled = true;
   
   // State
   const [membership, setMembership] = useState<CommunityMembership | null>(null);
@@ -195,19 +196,21 @@ export function useCommunityMembershipCRDT(
   
   // Callbacks
   const addMemberCallback = useCallback((pubkey: string) => {
-    if (!membershipRef.current || !isEnabled) return;
-    
-    const updated = addMember(membershipRef.current, pubkey, deviceId);
-    setMembership(updated);
-    logDebug('add', communityId, { pubkey, count: getMemberCount(updated) });
+    setMembership((prev) => {
+      if (!prev || !isEnabled) return prev;
+      const updated = addMember(prev, pubkey, deviceId);
+      logDebug('add', communityId, { pubkey, count: getMemberCount(updated) });
+      return updated;
+    });
   }, [deviceId, communityId, isEnabled]);
   
   const removeMemberCallback = useCallback((pubkey: string) => {
-    if (!membershipRef.current || !isEnabled) return;
-    
-    const updated = removeMember(membershipRef.current, pubkey, deviceId);
-    setMembership(updated);
-    logDebug('remove', communityId, { pubkey, count: getMemberCount(updated) });
+    setMembership((prev) => {
+      if (!prev || !isEnabled) return prev;
+      const updated = removeMember(prev, pubkey, deviceId);
+      logDebug('remove', communityId, { pubkey, count: getMemberCount(updated) });
+      return updated;
+    });
   }, [deviceId, communityId, isEnabled]);
   
   const isMemberCallback = useCallback((pubkey: string) => {
@@ -216,15 +219,16 @@ export function useCommunityMembershipCRDT(
   }, []);
   
   const syncWithRemoteCallback = useCallback((serializedRemote: string) => {
-    if (!membershipRef.current || !isEnabled) return;
-    
     try {
       const remote = deserializeMembership(JSON.parse(serializedRemote));
-      const merged = mergeMembership(membershipRef.current, remote);
-      setMembership(merged);
-      logDebug('sync', communityId, { 
-        remoteDevice: remote.localDeviceId,
-        count: getMemberCount(merged)
+      setMembership((prev) => {
+        if (!prev || !isEnabled) return prev;
+        const merged = mergeMembership(prev, remote);
+        logDebug('sync', communityId, {
+          remoteDevice: remote.localDeviceId,
+          count: getMemberCount(merged),
+        });
+        return merged;
       });
     } catch (err) {
       console.error('Failed to sync with remote:', err);
@@ -257,13 +261,13 @@ export function useCommunityMembershipCRDT(
   }, [communityId, isEnabled]);
   
   const compactCallback = useCallback(() => {
-    if (!membershipRef.current || !isEnabled) return;
-    
-    if (needsCompaction(membershipRef.current)) {
-      const compacted = compactMembership(membershipRef.current);
-      setMembership(compacted);
+    setMembership((prev) => {
+      if (!prev || !isEnabled) return prev;
+      if (!needsCompaction(prev)) return prev;
+      const compacted = compactMembership(prev);
       logDebug('compact', communityId, compacted);
-    }
+      return compacted;
+    });
   }, [communityId, isEnabled]);
   
   // Periodic compaction check
@@ -345,19 +349,28 @@ export function useMigrateToCRDT(
 // Storage helpers (use IndexedDB or localStorage)
 // ============================================================================
 
-const STORAGE_KEY_PREFIX = 'obscur:membership:crdt:';
+const STORAGE_KEY_PREFIX = 'obscur:membership:crdt:v1';
+
+const toMembershipCrdtStorageKey = (communityId: string, profileId?: string): string => (
+  getScopedStorageKey(`${STORAGE_KEY_PREFIX}:${communityId}`, profileId ?? getResolvedProfileId())
+);
+
+const toMembershipPersistenceKey = (communityId: string, profileId?: string): string => (
+  toMembershipCrdtStorageKey(communityId, profileId)
+);
 
 async function loadFromStorage(communityId: string): Promise<SerializedMembership | null> {
   if (typeof window === 'undefined') return null;
   
   try {
+    const persistenceKey = toMembershipPersistenceKey(communityId);
     // Try IndexedDB first
     const db = await openMembershipDB();
-    const data = await db.get('memberships', communityId);
+    const data = await db.get('memberships', persistenceKey);
     return (data as SerializedMembership | undefined) ?? null;
   } catch {
     // Fallback to localStorage
-    const key = `${STORAGE_KEY_PREFIX}${communityId}`;
+    const key = toMembershipPersistenceKey(communityId);
     const stored = localStorage.getItem(key);
     return stored ? JSON.parse(stored) as SerializedMembership : null;
   }
@@ -370,12 +383,13 @@ async function saveToStorage(
   if (typeof window === 'undefined') return;
   
   try {
+    const persistenceKey = toMembershipPersistenceKey(communityId);
     // Try IndexedDB first
     const db = await openMembershipDB();
-    await db.put('memberships', data, communityId);
+    await db.put('memberships', data, persistenceKey);
   } catch {
     // Fallback to localStorage
-    const key = `${STORAGE_KEY_PREFIX}${communityId}`;
+    const key = toMembershipPersistenceKey(communityId);
     localStorage.setItem(key, JSON.stringify(data));
   }
 }
@@ -403,12 +417,39 @@ function openMembershipDB(): Promise<IDBDatabase> {
   return dbPromise;
 }
 
-// Extend IDBDatabase for our store
-interface MembershipDB extends IDBDatabase {
-  get(storeName: string, key: string): Promise<SerializedMembership | undefined>;
-  put(storeName: string, value: SerializedMembership, key: string): Promise<void>;
+/** Clears IndexedDB handle + deletes DB so Vitest runs do not leak CRDT state across cases. Test-only. */
+export async function resetMembershipCrdtPersistenceForTests(): Promise<void> {
+  if (typeof localStorage !== "undefined") {
+    for (const key of Object.keys(localStorage)) {
+      if (key.startsWith(`${STORAGE_KEY_PREFIX}:`)) {
+        localStorage.removeItem(key);
+      }
+    }
+  }
+  if (typeof indexedDB === "undefined") return;
+  if (dbPromise) {
+    try {
+      const db = await dbPromise;
+      db.close();
+    } catch {
+      // ignore
+    }
+    dbPromise = null;
+  }
+  await Promise.race([
+    new Promise<void>((resolve, reject) => {
+      const req = indexedDB.deleteDatabase("ObscurMembershipCRDT");
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+      req.onblocked = () => resolve();
+    }),
+    new Promise<void>((resolve) => {
+      setTimeout(resolve, 50);
+    }),
+  ]);
 }
 
+// Extend IDBDatabase for our store
 declare global {
   interface IDBDatabase {
     get(storeName: string, key: string): Promise<unknown>;
@@ -425,8 +466,6 @@ function logDebug(
   communityId: string | null,
   data: unknown
 ): void {
-  if (!FEATURE_FLAGS.logCRDTOperations) return;
-  
   const prefix = `[useCommunityMembershipCRDT:${communityId ?? 'null'}]`;
   console.log(prefix, action, data);
 }

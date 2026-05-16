@@ -16,6 +16,7 @@ import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 export type DmOperationSource =
   | "local_send"      // User sent message from this device
   | "local_delete"    // User deleted message from this device
+  | "network_delete"  // Network delete command sent to peers
   | "relay_live"      // Real-time event from relay subscription
   | "relay_sync"      // Historical event from relay sync/backfill
   | "restore"         // Imported from backup/restore

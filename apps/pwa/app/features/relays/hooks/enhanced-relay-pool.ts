@@ -1702,7 +1702,11 @@ const publishToRelay = async (url: string, payload: string): Promise<PublishResu
 
     const handleSocketClose = (): void => {
       blockRelayWritesTemporarily(url);
-      healthMonitor.recordConnectionFailure(url, "Relay closed before OK response");
+      // Do NOT call recordConnectionFailure here. The connection-level "close"
+      // handler in connectToRelay already fires recordDisconnection for this url.
+      // Adding a second failure record here double-counts every clean server-side
+      // keepalive close that happens while a publish is in flight, which can
+      // open the circuit breaker after a single relay restart cycle.
       finalize({
         success: false,
         relayUrl: url,
@@ -1723,7 +1727,11 @@ const publishToRelay = async (url: string, payload: string): Promise<PublishResu
 
     const timer = setTimeout(() => {
       const latency = Date.now() - startTime;
-      healthMonitor.recordConnectionFailure(url, "Publish timeout (NIP-20 OK not received)");
+      // Record latency only — a slow/missing OK is a publish-layer timeout, not a
+      // connection failure. Calling recordConnectionFailure here would count toward
+      // the circuit breaker and could open it after a few slow relays, silently
+      // blocking all further sends without any user-visible error.
+      healthMonitor.recordLatency(url, latency);
       finalize({
         success: false,
         relayUrl: url,
@@ -1844,17 +1852,43 @@ const publishToUrls = async (urls: ReadonlyArray<string>, payload: string): Prom
 
   if (connected.length === 0) {
     normalized.forEach((url) => {
+      // Clear any temporary write block so the relay is writable once reconnected.
+      relayWriteBlockedUntilByUrl.delete(url);
       if (!socketsByUrl[url]) {
         addTransientRelay(url);
-        return;
       }
-      attemptReconnect(url);
+      // Force-reconnect to bypass circuit breaker — this is a user-initiated
+      // scoped publish, not an automatic background reconnect.
+      attemptReconnect(url, { force: true });
     });
-    await waitForScopedConnection(normalized, 3000);
+    await waitForScopedConnection(normalized, 8000);
     connected = getPreferredOpenRelayUrls(normalized);
   }
 
   if (connected.length === 0) {
+    // ── Diagnostic: why are scoped relays not connected? ──
+    const diagPerUrl = normalized.map((url) => {
+      const socket = socketsByUrl[url];
+      const status = statusByUrl[url];
+      return {
+        url,
+        hasSocket: !!socket,
+        readyState: socket?.readyState ?? -1,
+        status: status?.status ?? "unknown",
+        isTransient: transientRelayUrls.has(url),
+        isConfigured: relayUrlsKey.split("|").includes(url),
+        canWrite: canAttemptRelayWrite(url),
+        canConnect: healthMonitor.canConnect(url),
+      };
+    });
+    console.warn("[publishToUrls] DIAGNOSTIC: all scoped relays failed to connect", {
+      normalizedUrls: normalized,
+      diagPerUrl,
+      configuredRelayCount: relayUrlsKey.split("|").filter(Boolean).length,
+      transientRelayCount: transientRelayUrls.size,
+      totalSocketCount: Object.keys(socketsByUrl).length,
+    });
+
     relayResilienceObservability.recordScopedPublishReadiness({
       blockedByReadiness: true,
     });

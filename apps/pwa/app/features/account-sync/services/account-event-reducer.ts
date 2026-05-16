@@ -5,6 +5,7 @@ import type {
   ContactProjection,
   MessageProjection,
 } from "../account-event-contracts";
+import { messagingClientOperations } from "@/app/features/messaging/services/messaging-client-operations";
 
 const emptySnapshot = (profileId: string, accountPublicKeyHex: string): AccountProjectionSnapshot => ({
   profileId,
@@ -85,6 +86,9 @@ const upsertMessage = (
 ): AccountProjectionSnapshot => {
   const tombstonedAtUnixMs = current.removedMessageIds?.[params.message.messageId] ?? 0;
   if (tombstonedAtUnixMs > 0) {
+    return current;
+  }
+  if (messagingClientOperations.isDmMessageSuppressed(params.message.messageId, current.profileId)) {
     return current;
   }
   const existingConversationMessages = current.messagesByConversationId[params.message.conversationId] ?? [];

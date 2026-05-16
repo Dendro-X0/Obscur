@@ -178,16 +178,12 @@ describe("relay-runtime-supervisor", () => {
         },
       });
 
-      vi.setSystemTime(new Date("2026-01-01T00:00:09.000Z"));
-      await supervisor.triggerRecovery("manual");
-      vi.setSystemTime(new Date("2026-01-01T00:00:18.000Z"));
-      await supervisor.triggerRecovery("manual");
-      vi.setSystemTime(new Date("2026-01-01T00:00:27.000Z"));
-      await supervisor.triggerRecovery("manual");
-      vi.setSystemTime(new Date("2026-01-01T00:00:36.000Z"));
-      await supervisor.triggerRecovery("manual");
-      vi.setSystemTime(new Date("2026-01-01T00:00:45.000Z"));
-      const snapshot = await supervisor.triggerRecovery("manual");
+      const baseMs = new Date("2026-01-01T00:00:00.000Z").getTime();
+      let snapshot = supervisor.getSnapshot();
+      for (let i = 1; i <= 9; i += 1) {
+        vi.setSystemTime(new Date(baseMs + i * 9_000));
+        snapshot = await supervisor.triggerRecovery("manual");
+      }
 
       expect(snapshot.phase).toBe("fatal");
       expect(snapshot.recoveryStage).toBe("subsystem_recycle");

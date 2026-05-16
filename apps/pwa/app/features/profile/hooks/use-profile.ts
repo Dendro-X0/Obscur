@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useSyncExternalStore, useState } from "react";
 import { PROFILE_CHANGED_EVENT } from "@/app/features/profiles/services/profile-registry-service";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 
 export type UserProfile = Readonly<{
   username: string;
@@ -33,7 +34,7 @@ type PersistedProfileV1 = Readonly<{
 
 const STORAGE_KEY: string = "dweb.nostr.pwa.profile";
 
-const getStorageKey = (): string => getScopedStorageKey(STORAGE_KEY);
+const getStorageKey = (): string => getScopedStorageKey(STORAGE_KEY, getResolvedProfileId());
 
 const defaultProfile: UserProfile = { username: "", about: "", avatarUrl: "", nip05: "", inviteCode: "" };
 

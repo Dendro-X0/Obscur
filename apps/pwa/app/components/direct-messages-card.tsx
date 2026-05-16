@@ -45,7 +45,6 @@ export const DirectMessagesCard = () => {
     pool,
     autoSubscribeIncoming: false,
     enableIncomingTransport: false,
-    enableAutoQueueProcessing: false,
   });
 
   const formatErrorContext = (context: unknown): string | undefined => {
@@ -73,15 +72,10 @@ export const DirectMessagesCard = () => {
     return dmController.getMessagesByConversation(conversationId);
   }, [conversationId, dmController]);
 
-  // Update queue status from controller state
+  // Update queue status from controller state (v2 has no queueStatus; keep local state for UI compat)
   useEffect(() => {
-    if (dmController.state.queueStatus) {
-      setQueueStatus({
-        totalQueued: dmController.state.queueStatus.totalQueued,
-        isProcessing: dmController.state.queueStatus.isProcessing
-      });
-    }
-  }, [dmController.state.queueStatus]);
+    setQueueStatus(null);
+  }, [dmController.state.messages]);
 
   // Auto-subscribe to incoming DMs when ready
   useEffect(() => {
@@ -175,8 +169,8 @@ export const DirectMessagesCard = () => {
     <Card title="Direct messages" description="Private 1:1 chats (NIP-04, kind:4).">
       {/* Connection Status */}
       <ConnectionStatus
-        isOnline={dmController.state.networkState?.isOnline ?? true}
-        hasRelayConnection={dmController.state.networkState?.hasRelayConnection ?? false}
+        isOnline={dmController.state.networkState?.online ?? true}
+        hasRelayConnection={(dmController.state.networkState?.online && openRelayCount > 0) ?? false}
         connectedRelayCount={openRelayCount}
         totalRelayCount={totalRelayCount}
         className="mb-4"
@@ -209,24 +203,8 @@ export const DirectMessagesCard = () => {
         />
       </div>
 
-      {/* Error display with detailed information */}
-      {sendError && dmController.state.lastError && (
-        <ErrorDetails
-          title="Failed to send message"
-          message={sendError}
-          details={dmController.state.lastError.userMessage}
-          technicalDetails={formatErrorContext(dmController.state.lastError.context) ?? dmController.state.lastError.message}
-          className="mt-3"
-          onRetry={() => {
-            setSendError(undefined);
-            void send();
-          }}
-          retryLabel="Retry sending"
-        />
-      )}
-
-      {/* Simple error display when no detailed error available */}
-      {sendError && !dmController.state.lastError && (
+      {/* Simple error display */}
+      {sendError && (
         <div className="mt-3 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 dark:border-red-900/50 dark:bg-red-950/20">
           <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
           <span className="text-sm text-red-700 dark:text-red-300">{sendError}</span>
@@ -234,7 +212,7 @@ export const DirectMessagesCard = () => {
       )}
 
       {/* Offline notification */}
-      {dmController.state.networkState && !dmController.state.networkState.isOnline && (
+      {dmController.state.networkState && !dmController.state.networkState.online && (
         <div className="mt-3 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 dark:border-amber-900/50 dark:bg-amber-950/20">
           <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
           <span className="text-sm text-amber-700 dark:text-amber-300">
@@ -255,15 +233,6 @@ export const DirectMessagesCard = () => {
         />
       )}
 
-      {/* Sync progress indicator */}
-      {dmController.state.syncProgress && (
-        <div className="mt-3 flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 dark:border-blue-900/50 dark:bg-blue-950/20">
-          <RefreshCw className="h-4 w-4 text-blue-600 dark:text-blue-400 animate-spin" />
-          <span className="text-sm text-blue-700 dark:text-blue-300">
-            Syncing messages... {dmController.state.syncProgress.completed} of {dmController.state.syncProgress.total}
-          </span>
-        </div>
-      )}
 
       <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex gap-2">
@@ -273,7 +242,7 @@ export const DirectMessagesCard = () => {
           <Button
             type="button"
             onClick={() => void handleSyncMessages()}
-            disabled={!dmController.state.networkState?.hasRelayConnection}
+            disabled={!(dmController.state.networkState?.online && openRelayCount > 0)}
             variant="outline"
             title="Sync missed messages"
           >

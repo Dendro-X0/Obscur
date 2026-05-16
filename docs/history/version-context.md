@@ -7,17 +7,17 @@ This file defines how version history is represented after consolidating version
 ## Canonical Context Sources
 
 1. Program history and milestone consolidation:
-: `docs/11-program-milestones-and-stability-history.md`
+: `docs/encyclopedia/11-program-milestones-and-stability-history.md`
 2. Active roadmap:
-: `docs/roadmap/current-roadmap.md`
+: `docs/program/current-roadmap.md`
 3. Release execution:
-: `docs/07-operations-and-release-flow.md`
+: `docs/encyclopedia/07-operations-and-release-flow.md`
 : `docs/releases/release-closeout-guide.md`
 4. Architecture owner truth:
-: `docs/12-core-architecture-truth-map.md`
-: `docs/14-module-owner-index.md`
+: `docs/encyclopedia/12-core-architecture-truth-map.md`
+: `docs/encyclopedia/14-module-owner-index.md`
 5. Failure triage:
-: `docs/13-relay-and-startup-failure-atlas.md`
+: `docs/encyclopedia/13-relay-and-startup-failure-atlas.md`
 
 ## Historical Version Docs
 

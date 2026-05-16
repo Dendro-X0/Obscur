@@ -10,6 +10,7 @@ import { canPromoteToReadCutover, resolveProjectionReadAuthority } from "@/app/f
 import { getAccountSyncMigrationPolicy, setAccountSyncMigrationPolicy } from "@/app/features/account-sync/services/account-sync-migration-policy";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import type { RelayRuntimeSnapshot } from "@/app/features/relays/services/relay-runtime-contracts";
+import { useCommunityLeaveOutboxRetry } from "@/app/features/groups/hooks/use-community-leave-outbox-retry";
 
 const ACTIVATION_FAIL_OPEN_TIMEOUT_MS = 12_000;
 
@@ -167,6 +168,12 @@ export function RuntimeActivationManager(): null {
     privateKeyHex,
     pool: relayPool,
   });
+  const leaveOutboxRetryEnabled = (
+    runtimePhase === "ready"
+    || runtimePhase === "degraded"
+    || runtimePhase === "activating_runtime"
+  );
+  useCommunityLeaveOutboxRetry(leaveOutboxRetryEnabled);
   const activationStartedAtUnixMsRef = useRef<number | null>(null);
   const firstRelayOpenAtUnixMsRef = useRef<number | null>(null);
   const lastAccountSyncPhaseRef = useRef<string | null>(null);

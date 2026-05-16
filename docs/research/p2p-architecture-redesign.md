@@ -240,7 +240,7 @@ interface MediaRef {
 ### Week 1: Foundation
 - [ ] Add `crdt/` package with OR-Set, LWW-Set, G-Counter implementations
 - [ ] Create CRDT-based member list container
-- [ ] Add CRDT merge to `community-ledger-reducer.ts`
+- [ ] Add CRDT merge to `community-ledger-validator.ts`
 
 ### Week 2: Presence
 - [ ] Replace binary presence with G-Counter

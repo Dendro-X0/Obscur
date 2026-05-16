@@ -93,7 +93,6 @@ export function NetworkDashboard() {
         requestsInbox,
         autoSubscribeIncoming: false,
         enableIncomingTransport: false,
-        enableAutoQueueProcessing: false,
     });
     const requestTransport = useRequestTransport({
         dmController,

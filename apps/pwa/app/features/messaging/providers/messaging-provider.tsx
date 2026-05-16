@@ -18,9 +18,12 @@ import type {
     PersistedGroupMessage,
     PublicKeyHex
 } from "../types";
-import { CHAT_STATE_REPLACED_EVENT, chatStateStoreService, type ChatStateReplacedEventDetail } from "../services/chat-state-store";
+import { chatStateStoreService, type ChatStateReplacedEventDetail } from "../services/chat-state-store";
 import { isGroupConversationId } from "@/app/features/groups/utils/group-conversation-id";
-import { getActiveProfileIdSafe, getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { useOptionalProfileMessageBus, useResolvedClientGateway } from "@/app/features/profiles/providers/profile-runtime-provider";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
+import { subscribeChatStateReplacedDual } from "@/app/features/profiles/services/subscribe-chat-state-replaced-dual";
 import { useAccountProjectionSnapshot } from "@/app/features/account-sync/hooks/use-account-projection-snapshot";
 import { resolveProjectionReadAuthority } from "@/app/features/account-sync/services/account-projection-read-authority";
 import { selectProjectionDmConversations } from "@/app/features/account-sync/services/account-projection-selectors";
@@ -32,6 +35,7 @@ import {
     toPersistedMessagesByConversationId,
     fromPersistedOverridesByConnectionId,
     toPersistedOverridesByConnectionId,
+    getLastSeenStorageKey,
     loadLastSeen,
     updateLastSeen,
 } from "../utils/persistence";
@@ -43,6 +47,8 @@ import {
     sanitizeDmConversationIdList,
 } from "../utils/conversation-visibility";
 import { resolveConversationListAuthority } from "../services/conversation-list-authority";
+import { isTauri, dbGetConversations } from "@dweb/db";
+import type { ConversationRecord } from "@dweb/db";
 
 const hasMeaningfulMessagingState = (value: PersistedChatState | null | undefined): value is PersistedChatState => {
     if (!value) {
@@ -134,7 +140,9 @@ const MessagingContext = createContext<MessagingContextType | null>(null);
 export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const identity = useIdentity();
     const publicKeyHex = (identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex ?? null);
-    const activeProfileId = getActiveProfileIdSafe();
+    const optionalProfileBus = useOptionalProfileMessageBus();
+    const messageDeleteTombstonePersistence = useResolvedClientGateway().messageDeleteTombstones;
+    const activeProfileId = getResolvedProfileId();
     const hydrationScopeKey = `${activeProfileId}::${publicKeyHex ?? "signed_out"}`;
     const accountProjectionSnapshot = useAccountProjectionSnapshot();
     const projectionReadAuthority = useMemo(() => (
@@ -144,6 +152,7 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             expectedAccountPublicKeyHex: publicKeyHex,
         })
     ), [accountProjectionSnapshot, activeProfileId, publicKeyHex]);
+    const [sqliteConversations, setSqliteConversations] = useState<ReadonlyArray<DmConversation>>([]);
     const [createdConnections, setCreatedConnections] = useState<ReadonlyArray<DmConversation>>([]);
     const [selectedConversationState, setSelectedConversationState] = useState<Conversation | null>(null);
     const [unreadByConversationId, setUnreadByConversationId] = useState<UnreadByConversationId>({});
@@ -172,6 +181,43 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     const selectedConversation = selectedConversationState;
     const [hasHydrated, setHasHydrated] = useState(false);
+
+    const sqliteConvToRaw = (rec: ConversationRecord): DmConversation => ({
+        kind: "dm",
+        id: rec.id,
+        pubkey: rec.peer_pubkey as PublicKeyHex,
+        displayName: rec.peer_pubkey,
+        lastMessage: rec.last_plaintext_preview ?? "",
+        unreadCount: rec.unread_count,
+        lastMessageTime: rec.last_message_at != null ? new Date(rec.last_message_at) : new Date(0),
+    });
+
+    useEffect(() => {
+        if (!isTauri() || !activeProfileId) {
+            return;
+        }
+        let cancelled = false;
+        dbGetConversations(activeProfileId).then((recs) => {
+            if (cancelled) return;
+            setSqliteConversations(recs.map(sqliteConvToRaw));
+        }).catch(() => {});
+        return () => { cancelled = true; };
+    }, [activeProfileId]);
+
+    useEffect(() => {
+        if (typeof window === "undefined" || !isTauri() || !activeProfileId) {
+            return;
+        }
+        void messageDeleteTombstonePersistence.hydrateMessageDeleteTombstonesFromSqlite(activeProfileId).catch(() => {});
+    }, [activeProfileId, messageDeleteTombstonePersistence]);
+
+    useEffect(() => {
+        if (typeof window === "undefined" || isTauri()) {
+            return;
+        }
+        void messageDeleteTombstonePersistence.mergeMessageDeleteTombstonesFromIndexedDb(activeProfileId || undefined).catch(() => {});
+    }, [activeProfileId, messageDeleteTombstonePersistence]);
+
     const hydrateStoredMessagingState = useCallback(async (params: Readonly<{
         publicKeyHex: string;
         profileId: string;
@@ -204,7 +250,7 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         await messagePersistenceService.migrateFromLegacy(params.publicKeyHex, {
             profileId: params.profileId,
         });
-        const loadedLastSeen = loadLastSeen(params.publicKeyHex as PublicKeyHex);
+        const loadedLastSeen = loadLastSeen(params.publicKeyHex as PublicKeyHex, params.profileId);
         setLastViewedByConversationId(loadedLastSeen);
         setHasHydrated(true);
     }, []);
@@ -237,11 +283,14 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const connectionOverridesByConnectionIdRef = React.useRef(connectionOverridesByConnectionId);
     const hydratedScopeKeyRef = React.useRef<string | null>(null);
     const conversationListAuthorityLogKeyRef = React.useRef<string | null>(null);
-
     // Initialize persistence service
     useEffect(() => {
         messagePersistenceService.init();
     }, []);
+
+    useEffect(() => {
+        messagePersistenceService.bindProfileBusChatStateReplaced(optionalProfileBus);
+    }, [optionalProfileBus]);
 
     useEffect(() => {
         if (hydratedScopeKeyRef.current === hydrationScopeKey) {
@@ -316,11 +365,10 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         if (typeof window === "undefined") {
             return;
         }
-        const onScopedRefresh = (event: Event): void => {
+        const refreshForDetail = (detail?: Partial<ChatStateReplacedEventDetail>): void => {
             if (!publicKeyHex) {
                 return;
             }
-            const detail = (event as CustomEvent<Partial<ChatStateReplacedEventDetail>>).detail;
             if (detail?.publicKeyHex && detail.publicKeyHex !== publicKeyHex) {
                 return;
             }
@@ -332,28 +380,30 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                 profileId: activeProfileId,
             });
         };
-        window.addEventListener(CHAT_STATE_REPLACED_EVENT, onScopedRefresh);
-        return () => {
-            window.removeEventListener(CHAT_STATE_REPLACED_EVENT, onScopedRefresh);
-        };
-    }, [activeProfileId, hydrateStoredMessagingState, publicKeyHex]);
+
+        return subscribeChatStateReplacedDual(refreshForDetail, optionalProfileBus);
+    }, [activeProfileId, hydrateStoredMessagingState, publicKeyHex, optionalProfileBus]);
 
     useEffect(() => {
         if (!publicKeyHex || typeof window === "undefined") {
             return;
         }
         const onStorage = (event: StorageEvent): void => {
-            if (!event.key || !event.key.includes("dweb.nostr.pwa.last-seen")) {
+            if (!event.key || !publicKeyHex) {
                 return;
             }
-            const latest = loadLastSeen(publicKeyHex as PublicKeyHex);
+            const expectedKey = getLastSeenStorageKey(publicKeyHex as PublicKeyHex, activeProfileId);
+            if (event.key !== expectedKey) {
+                return;
+            }
+            const latest = loadLastSeen(publicKeyHex as PublicKeyHex, activeProfileId);
             setLastViewedByConversationId(latest);
         };
         window.addEventListener("storage", onStorage);
         return () => {
             window.removeEventListener("storage", onStorage);
         };
-    }, [publicKeyHex]);
+    }, [publicKeyHex, activeProfileId]);
 
     const projectionConnections = useMemo(() => {
         if (!publicKeyHex) {
@@ -374,11 +424,13 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }, [activeProfileId, projectionConnections, publicKeyHex]);
     const conversationListAuthority = useMemo(() => (
         resolveConversationListAuthority({
+            isTauri: isTauri(),
+            sqliteConversationCount: sqliteConversations.length,
             useProjectionReads: projectionReadAuthority.useProjectionReads,
             projectionConversationCount: projectionConnections.length,
             legacyChatStateHasRicherDmContent,
         })
-    ), [legacyChatStateHasRicherDmContent, projectionConnections.length, projectionReadAuthority.useProjectionReads]);
+    ), [legacyChatStateHasRicherDmContent, projectionConnections.length, projectionReadAuthority.useProjectionReads, sqliteConversations.length]);
 
     useEffect(() => {
         if (!publicKeyHex) {
@@ -427,6 +479,14 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         projectionReadAuthority.reason,
         publicKeyHex,
     ]);
+
+    useEffect(() => {
+        if (conversationListAuthority.authority !== "sqlite") {
+            return;
+        }
+        createdConnectionsRef.current = sqliteConversations;
+        setCreatedConnections(sqliteConversations);
+    }, [conversationListAuthority.authority, sqliteConversations]);
 
     useEffect(() => {
         if (conversationListAuthority.authority !== "projection") {
@@ -495,10 +555,11 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                 publicKeyHex: publicKeyHex as PublicKeyHex,
                 conversationId,
                 seenAtMs,
+                profileId: activeProfileId,
             });
             return nextSeenByConversationId;
         });
-    }, [selectedConversation?.id, selectedConversation?.kind, hasHydrated, publicKeyHex]);
+    }, [selectedConversation?.id, selectedConversation?.kind, hasHydrated, publicKeyHex, activeProfileId]);
 
     useEffect(() => {
         if (!selectedConversation || !hasHydrated) {

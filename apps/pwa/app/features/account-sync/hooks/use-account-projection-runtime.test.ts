@@ -35,7 +35,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/app/features/profiles/services/profile-scope", () => ({
-  getActiveProfileIdSafe: () => PROFILE_ID,
+  readRegistryBackedActiveProfileId: () => PROFILE_ID,
 }));
 
 vi.mock("../services/account-projection-runtime", () => ({

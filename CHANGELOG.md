@@ -1,3 +1,28 @@
+## [v1.5.0] - 2026-05-15 (Gateway & Membership)
+
+### Summary
+
+Architecture and reliability release: **ClientGateway** convergence, **profile-scoped runtime**, **relay-first community membership**, and **account projection** read cutover. User-visible DM “delete for everyone” is **deferred** (UI disabled); v1.6+ cooperative redaction design documented.
+
+### Added
+
+- **ClientGateway (R0–R2):** DM conversation materialization, suppression preparation, and community roster routing through `getResolvedClientGateway()`.
+- **Profile runtime:** `ProfileMessageBus`, `getResolvedProfileId()` migration, same-process profile isolation tests.
+- **Community Phase 3:** `community-membership-ingress`, coordinator-owned ledger mutations, provisional invite join, terminal decline paths.
+- **Cooperative redaction infrastructure (experimental, UI off):** display gate, thread redaction owner, `pnpm verify:dm-redaction`.
+- **Documentation restructure:** `/docs` root is navigation-only; encyclopedia, program, gateway, messaging, and archive shelves — see `docs/README.md`, `docs/program/PROGRAM.md`, `docs/releases/v1.5.0-release.md`.
+
+### Changed
+
+- DM read path favors account projection when read cutover is enabled.
+- Membership mutations converge on evidence-backed ingress (legacy DM-driven authoritative joins reduced).
+
+### Deferred / Known limitations
+
+- **DM cooperative redaction UI** — not shipped; see `docs/messaging/redaction-v1.5-deferred.md` and `docs/messaging/cooperative-redaction-future.md`.
+- Some dual-publish paths (`window` + profile bus) remain during migration.
+- Phase 3 M5 live gossip A/B may require manual closure per `docs/program/v1.5.0-phase3-scope.md`.
+
 ## [v1.4.11] - 2026-05-06 (Relay Resilience)
 
 ### Added

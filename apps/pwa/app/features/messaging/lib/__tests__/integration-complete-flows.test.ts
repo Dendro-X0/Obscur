@@ -60,6 +60,9 @@ vi.mock('../../lib/message-queue', () => {
     });
     getLastMessageTimestamp = vi.fn(async () => null);
     getAllMessages = vi.fn(async () => Array.from(this.messages.values()));
+    deleteMessage = vi.fn(async (id: string) => {
+      this.messages.delete(id);
+    });
 
     markMessagesSynced = vi.fn(async () => { });
     cleanupOldMessages = vi.fn(async () => { });

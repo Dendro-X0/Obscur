@@ -3,9 +3,10 @@ import { useEnhancedRelayPool, type EnhancedRelayPoolResult } from "./enhanced-r
 import { getMockPool } from "../../dev-tools/hooks/use-dev-mode";
 import { useMemo } from "react";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 
 const DEV_MODE_KEY = "obscur_dev_mode";
-const getDevModeStorageKey = (): string => getScopedStorageKey(DEV_MODE_KEY);
+const getDevModeStorageKey = (): string => getScopedStorageKey(DEV_MODE_KEY, getResolvedProfileId());
 
 /**
  * Compatibility hook for useRelayPool

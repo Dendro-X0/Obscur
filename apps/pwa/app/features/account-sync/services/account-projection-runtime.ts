@@ -4,7 +4,7 @@ import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { RelayPoolLike } from "@/app/features/relays/lib/nostr-core-relay";
 import { logAppEvent } from "@/app/shared/log-app-event";
-import { getActiveProfileIdSafe } from "@/app/features/profiles/services/profile-scope";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import type {
   AccountEvent,
   AccountProjectionRuntimeSnapshot,
@@ -13,9 +13,10 @@ import type {
 } from "../account-event-contracts";
 import { accountEventStore } from "./account-event-store";
 import { replayAccountEvents } from "./account-event-reducer";
-import { buildBootstrapAccountEvents } from "./account-event-bootstrap-service";
+import { buildBootstrapAccountEvents, buildBootstrapSealEvents } from "./account-event-bootstrap-service";
 import { createDriftReport, getLatestDriftReport } from "./account-sync-drift-detector";
 import { encryptedAccountBackupService } from "./encrypted-account-backup-service";
+import { messagingClientOperations } from "@/app/features/messaging/services/messaging-client-operations";
 
 type Listener = (snapshot: AccountProjectionRuntimeSnapshot) => void;
 
@@ -266,6 +267,10 @@ export const accountProjectionRuntime = {
       accountProjectionReady: false,
       lastError: undefined,
     });
+    await messagingClientOperations.ensureLocalDmVisibilityReady({
+      profileId: params.profileId,
+      accountPublicKeyHex: params.accountPublicKeyHex,
+    }).catch(() => {});
     const startedAtUnixMs = Date.now();
     const events = await accountEventStore.loadEvents({
       profileId: params.profileId,
@@ -316,7 +321,7 @@ export const accountProjectionRuntime = {
       subscribeToMessages: (handler: (params: Readonly<{ url: string; message: string }>) => void) => () => void;
     }>;
   }>): Promise<AccountProjectionRuntimeSnapshot> {
-    const profileId = params.profileId ?? getActiveProfileIdSafe();
+    const profileId = params.profileId ?? getResolvedProfileId();
     const bootstrapKey = makeBootstrapKey(profileId, params.accountPublicKeyHex);
     const existing = inflightBootstraps.get(bootstrapKey);
     if (existing) {
@@ -333,22 +338,33 @@ export const accountProjectionRuntime = {
         lastError: undefined,
       });
       try {
+        await messagingClientOperations.ensureLocalDmVisibilityReady({
+          profileId,
+          accountPublicKeyHex: params.accountPublicKeyHex,
+        }).catch(() => {});
         const existingEvents = await accountEventStore.loadEvents({
           profileId,
           accountPublicKeyHex: params.accountPublicKeyHex,
         });
         let bootstrapReport: BootstrapReport | undefined;
         if (!hasBootstrapMarker(existingEvents)) {
-          const backupResult = await encryptedAccountBackupService.fetchLatestEncryptedAccountBackupPayload({
-            publicKeyHex: params.accountPublicKeyHex,
-            privateKeyHex: params.privateKeyHex,
-            pool: params.pool,
-          });
-          const bootstrapEvents = await buildBootstrapAccountEvents({
-            profileId,
-            accountPublicKeyHex: params.accountPublicKeyHex,
-            backupPayload: backupResult.payload,
-          });
+          const bootstrapEvents = existingEvents.length > 0
+            ? await buildBootstrapSealEvents({
+              profileId,
+              accountPublicKeyHex: params.accountPublicKeyHex,
+            })
+            : await (async () => {
+              const backupResult = await encryptedAccountBackupService.fetchLatestEncryptedAccountBackupPayload({
+                publicKeyHex: params.accountPublicKeyHex,
+                privateKeyHex: params.privateKeyHex,
+                pool: params.pool,
+              });
+              return buildBootstrapAccountEvents({
+                profileId,
+                accountPublicKeyHex: params.accountPublicKeyHex,
+                backupPayload: backupResult.payload,
+              });
+            })();
           const appendResult = await accountEventStore.appendAccountEvents({
             profileId,
             accountPublicKeyHex: params.accountPublicKeyHex,
@@ -360,13 +376,16 @@ export const accountProjectionRuntime = {
             importApplied: appendResult.appendedCount > 0,
           };
           logAppEvent({
-            name: "account_projection.bootstrap_import",
+            name: existingEvents.length > 0
+              ? "account_projection.bootstrap_seal"
+              : "account_projection.bootstrap_import",
             level: "info",
             scope: { feature: "account_sync", action: "bootstrap_import" },
             context: {
               profileId,
               accountPublicKeyHex: params.accountPublicKeyHex.slice(0, 16),
-              hasBackupPayload: Boolean(backupResult.payload),
+              existingEventCount: existingEvents.length,
+              sealOnly: existingEvents.length > 0,
               appendedCount: appendResult.appendedCount,
               dedupeCount: appendResult.dedupeCount,
             },

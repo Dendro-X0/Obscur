@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
+import { useOptionalProfileRuntime } from "@/app/features/profiles/providers/profile-runtime-provider";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import type { ContactRequestRecord, ContactRequestStatus } from "@/app/features/search/types/discovery";
 import type { ConnectionRequestStatusValue, MessageActionFailureReason, RequestSendBlockReason } from "@/app/features/messaging/types";
 import { requestFlowEvidenceStore } from "@/app/features/messaging/services/request-flow-evidence-store";
@@ -42,15 +44,20 @@ type OutboxState = Readonly<{
   records: ReadonlyArray<ContactRequestRecord>;
 }>;
 
-const getStorageKey = (): string => getScopedStorageKey("obscur.discovery.contact_request_outbox.v1");
+const OUTBOX_STORAGE_KEY = "obscur.discovery.contact_request_outbox.v1";
+
+const resolveStorageKey = (profileId?: string): string => (
+  getScopedStorageKey(OUTBOX_STORAGE_KEY, profileId ?? getResolvedProfileId())
+);
+
 const RETRY_BASE_MS = 1500;
 const MAX_RETRY_MS = 60_000;
 const MAX_REQUEST_RETRY_ATTEMPTS = 5;
 
-const readState = (): OutboxState => {
+const readState = (profileId?: string): OutboxState => {
   if (typeof window === "undefined") return { records: [] };
   try {
-    const raw = window.localStorage.getItem(getStorageKey());
+    const raw = window.localStorage.getItem(resolveStorageKey(profileId));
     if (!raw) return { records: [] };
     const parsed = JSON.parse(raw) as OutboxState;
     if (!Array.isArray(parsed?.records)) return { records: [] };
@@ -60,10 +67,10 @@ const readState = (): OutboxState => {
   }
 };
 
-const writeState = (state: OutboxState): void => {
+const writeState = (state: OutboxState, profileId?: string): void => {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(getStorageKey(), JSON.stringify(state));
+    window.localStorage.setItem(resolveStorageKey(profileId), JSON.stringify(state));
   } catch {
     // Ignore cache write failures.
   }
@@ -262,6 +269,7 @@ const reconcileRequestStatusFromOutbox = (
   record: ContactRequestRecord,
   getRequestStatus: UseContactRequestOutboxParams["getRequestStatus"],
   setRequestStatus: UseContactRequestOutboxParams["setRequestStatus"] | undefined,
+  profileId?: string,
 ): void => {
   if (!setRequestStatus) {
     return;
@@ -279,11 +287,12 @@ const reconcileRequestStatusFromOutbox = (
   });
   requestFlowEvidenceStore.markTerminalFailure({
     peerPublicKeyHex: record.peerPubkey,
+    profileId: profileId ?? getResolvedProfileId(),
   });
 };
 
 export const contactRequestOutboxInternals = {
-  getStorageKey,
+  getStorageKey: resolveStorageKey,
   readState,
   writeState,
   nextRetryDelayMs,
@@ -298,7 +307,10 @@ export const contactRequestOutboxInternals = {
 };
 
 export const useContactRequestOutbox = (params: UseContactRequestOutboxParams) => {
-  const [state, setState] = useState<OutboxState>(() => readState());
+  const optionalRuntime = useOptionalProfileRuntime();
+  const profileId = optionalRuntime?.profileId ?? getResolvedProfileId();
+
+  const [state, setState] = useState<OutboxState>(() => readState(profileId));
   const processingRef = useRef(false);
   const pendingOutboundCount = useMemo(() => {
     return state.records.filter((record) => {
@@ -310,24 +322,24 @@ export const useContactRequestOutbox = (params: UseContactRequestOutboxParams) =
   }, [state.records]);
 
   useEffect(() => {
-    setState(readState());
-  }, [params.myPublicKeyHex]);
+    setState(readState(profileId));
+  }, [profileId, params.myPublicKeyHex]);
 
   useEffect(() => {
     setState((prev) => {
       const next = { records: syncResolvedStatuses(prev.records, params.getRequestStatus) };
-      writeState(next);
+      writeState(next, profileId);
       return next;
     });
-  }, [params.getRequestStatus]);
+  }, [params.getRequestStatus, profileId]);
 
   const setRecords = useCallback((updater: (records: ReadonlyArray<ContactRequestRecord>) => ReadonlyArray<ContactRequestRecord>) => {
     setState((prev) => {
       const next = { records: updater(prev.records) };
-      writeState(next);
+      writeState(next, profileId);
       return next;
     });
-  }, []);
+  }, [profileId]);
 
   const queueRequest = useCallback((payload: Readonly<{
     peerPubkey: PublicKeyHex;
@@ -366,9 +378,9 @@ export const useContactRequestOutbox = (params: UseContactRequestOutboxParams) =
     if (processingRef.current) return;
     processingRef.current = true;
     try {
-      const current = readState().records;
+      const current = readState(profileId).records;
       const normalized = syncResolvedStatuses(current, params.getRequestStatus);
-      writeState({ records: normalized });
+      writeState({ records: normalized }, profileId);
       const now = Date.now();
       const candidates = normalized.filter((record) => {
         if (record.status === "queued") return true;
@@ -382,12 +394,12 @@ export const useContactRequestOutbox = (params: UseContactRequestOutboxParams) =
       for (const candidate of candidates.slice(0, 3)) {
         const updated = await processOne(candidate);
         setRecords((records) => records.map((entry) => (entry.id === candidate.id ? updated : entry)));
-        reconcileRequestStatusFromOutbox(updated, params.getRequestStatus, params.setRequestStatus);
+        reconcileRequestStatusFromOutbox(updated, params.getRequestStatus, params.setRequestStatus, profileId);
       }
     } finally {
       processingRef.current = false;
     }
-  }, [params.getRequestStatus, processOne, setRecords]);
+  }, [params.getRequestStatus, processOne, profileId, setRecords]);
 
   useEffect(() => {
     const timer = setInterval(() => {

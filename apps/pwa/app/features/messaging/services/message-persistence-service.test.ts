@@ -21,6 +21,8 @@ vi.mock("@dweb/storage/indexed-db", () => ({
 
 const chatStateStoreMocks = vi.hoisted(() => ({
     load: vi.fn(),
+    removeMessageIdentities: vi.fn(),
+    removeMessageIdentitiesFromAllActiveScopes: vi.fn(),
 }));
 
 const profileScopeState = vi.hoisted(() => ({
@@ -33,10 +35,28 @@ vi.mock("./chat-state-store", () => ({
 }));
 
 vi.mock("@/app/features/profiles/services/profile-scope", () => ({
-    getActiveProfileIdSafe: () => profileScopeState.activeProfileId,
+    readRegistryBackedActiveProfileId: () => profileScopeState.activeProfileId,
     getScopedStorageKey: (baseKey: string, profileId?: string) =>
         `${baseKey}::${profileId ?? profileScopeState.activeProfileId}`,
 }));
+
+vi.mock("./messaging-client-operations", async () => {
+    const { suppressMessageDeleteTombstone } = await import("./message-delete-tombstone-store");
+    return {
+        messagingClientOperations: {
+            persistDmSuppressionOnly: vi.fn(async (params: Readonly<{
+                messageIdentityIds?: ReadonlyArray<string>;
+                deletedAtUnixMs?: number;
+                profileId?: string;
+            }>) => {
+                const ids = params.messageIdentityIds ?? [];
+                const deletedAtUnixMs = params.deletedAtUnixMs ?? Date.now();
+                ids.forEach((id) => suppressMessageDeleteTombstone(id, deletedAtUnixMs, params.profileId));
+                return ids;
+            }),
+        },
+    };
+});
 
 const createMessage = (id: string, content: string): Message => ({
     id,
@@ -53,10 +73,14 @@ describe("MessagePersistenceService batching", () => {
         vi.spyOn(performanceMonitor, "isEnabled").mockReturnValue(false);
         clearMessageDeleteTombstones();
         profileScopeState.activeProfileId = "default";
+        // Clear one-time migration guards so tests are independent
+        Object.keys(localStorage).filter(k => k.startsWith("obscur:msg_migration_done::")).forEach(k => localStorage.removeItem(k));
     });
 
     afterEach(() => {
         clearMessageDeleteTombstones();
+        // Clear one-time migration guards
+        Object.keys(localStorage).filter(k => k.startsWith("obscur:msg_migration_done::")).forEach(k => localStorage.removeItem(k));
         vi.useRealTimers();
         vi.restoreAllMocks();
         vi.clearAllMocks();
@@ -328,9 +352,12 @@ describe("MessagePersistenceService batching", () => {
             detail: { publicKeyHex: myPublicKeyHex, profileId: "default" },
         }));
         await Promise.resolve();
-        await Promise.resolve();
 
-        expect(messagingDB.bulkPut).toHaveBeenCalled();
+        // Legacy migration should not trigger immediate IndexedDB writes
+        // (messages come from chatStateStore via the event, not from bus)
+        expect(messagingDB.put).not.toHaveBeenCalled();
+        expect(messagingDB.bulkPut).not.toHaveBeenCalled();
+
         service.dispose();
     });
 
@@ -353,14 +380,12 @@ describe("MessagePersistenceService batching", () => {
         });
         vi.mocked(messagingDB.get).mockResolvedValue(null);
 
+        // Migration is a one-time operation per scope — call it directly.
+        // CHAT_STATE_REPLACED_EVENT no longer re-triggers migration after the first run.
         const service = new MessagePersistenceService();
         service.init();
 
-        window.dispatchEvent(new CustomEvent(CHAT_STATE_REPLACED_EVENT, {
-            detail: { publicKeyHex: myPublicKeyHex, profileId: "default" },
-        }));
-        await Promise.resolve();
-        await Promise.resolve();
+        await service.migrateFromLegacy(myPublicKeyHex);
 
         expect(chatStateStoreMocks.load).toHaveBeenCalledWith(myPublicKeyHex, { profileId: "default" });
         expect(messagingDB.get).not.toHaveBeenCalled();
@@ -454,26 +479,167 @@ describe("MessagePersistenceService batching", () => {
         ]));
     });
 
-    it("clears the derived messages index when the active hydration scope changes", async () => {
+    it("clears the derived messages index when the active hydration scope changes (first migration per scope only)", async () => {
         const accountA = "a".repeat(64);
         const accountB = "b".repeat(64);
         vi.mocked(messagingDB.get).mockResolvedValue(null);
 
         const service = new MessagePersistenceService();
 
+        // First call for accountA (default profile): clears and migrates
         await service.migrateFromLegacy(accountA);
         expect(messagingDB.clear).toHaveBeenCalledWith("messages");
 
         vi.mocked(messagingDB.clear).mockClear();
+        // Second call for same scope (accountA, default): one-time guard fires — no-op
         await service.migrateFromLegacy(accountA);
         expect(messagingDB.clear).not.toHaveBeenCalled();
 
+        // First call for accountB (default profile): new scope — clears and migrates
         await service.migrateFromLegacy(accountB);
         expect(messagingDB.clear).toHaveBeenCalledWith("messages");
 
         vi.mocked(messagingDB.clear).mockClear();
+        // Changing profile for accountB creates a new scope — but guard already
+        // stored it as done for the "work::accountB" scope on first write;
+        // since this is the first time for "work::accountB", clear fires.
         profileScopeState.activeProfileId = "work";
         await service.migrateFromLegacy(accountB);
         expect(messagingDB.clear).toHaveBeenCalledWith("messages");
+    });
+});
+
+// ---------------------------------------------------------------------------
+// Tauri / SQLite path regressions
+// ---------------------------------------------------------------------------
+
+const tauriDbMocks = vi.hoisted(() => ({
+    dbInsertMessage: vi.fn(async () => undefined),
+    dbInsertTombstone: vi.fn(async () => undefined),
+    dbDeleteMessages: vi.fn(async () => undefined),
+    dbUpsertConversation: vi.fn(async () => undefined),
+    isTauri: vi.fn(() => false),
+}));
+
+vi.mock("@dweb/db", () => ({
+    isTauri: tauriDbMocks.isTauri,
+    dbInsertMessage: tauriDbMocks.dbInsertMessage,
+    dbInsertTombstone: tauriDbMocks.dbInsertTombstone,
+    dbDeleteMessages: tauriDbMocks.dbDeleteMessages,
+    dbInsertTombstones: vi.fn(async () => undefined),
+    dbGetMessages: vi.fn(async () => []),
+    dbGetTombstones: vi.fn(async () => []),
+    dbUpsertConversation: tauriDbMocks.dbUpsertConversation,
+}));
+
+describe("MessagePersistenceService Tauri/SQLite path", () => {
+    beforeEach(() => {
+        vi.useFakeTimers();
+        vi.spyOn(performanceMonitor, "isEnabled").mockReturnValue(false);
+        vi.spyOn(PrivacySettingsService, "getSettings").mockReturnValue({
+            ...defaultPrivacySettings,
+            chatPerformanceV2: true,
+        });
+        profileScopeState.activeProfileId = "default";
+        tauriDbMocks.isTauri.mockReturnValue(true);
+        tauriDbMocks.dbInsertMessage.mockClear();
+        tauriDbMocks.dbInsertTombstone.mockClear();
+        tauriDbMocks.dbDeleteMessages.mockClear();
+        tauriDbMocks.dbUpsertConversation.mockClear();
+        Object.keys(localStorage).filter(k => k.startsWith("obscur:msg_migration_done::")).forEach(k => localStorage.removeItem(k));
+    });
+
+    afterEach(() => {
+        tauriDbMocks.isTauri.mockReturnValue(false);
+        Object.keys(localStorage).filter(k => k.startsWith("obscur:msg_migration_done::")).forEach(k => localStorage.removeItem(k));
+        vi.useRealTimers();
+        vi.restoreAllMocks();
+        vi.clearAllMocks();
+    });
+
+    it("does not write an optimistic UUID-only message to SQLite before eventId is known", async () => {
+        const service = new MessagePersistenceService();
+        service.init();
+
+        // Optimistic: id=UUID, no eventId
+        messageBus.emit({
+            type: "new_message",
+            conversationId: "conv-1",
+            message: {
+                id: "550e8400-e29b-41d4-a716-446655440000",
+                kind: "user",
+                content: "hello",
+                timestamp: new Date(1_700_000_000_000),
+                isOutgoing: true,
+                status: "sending",
+            },
+        });
+
+        await vi.runAllTimersAsync();
+        expect(tauriDbMocks.dbInsertMessage).not.toHaveBeenCalled();
+
+        service.dispose();
+    });
+
+    it("writes to SQLite exactly once when eventId is confirmed (no UUID duplicate row)", async () => {
+        const service = new MessagePersistenceService();
+        service.init();
+
+        const uuid = "550e8400-e29b-41d4-a716-446655440001";
+        const nostrId = "a".repeat(64);
+
+        // Phase 1: optimistic, no eventId — must be suppressed on Tauri
+        messageBus.emit({
+            type: "new_message",
+            conversationId: "conv-1",
+            message: { id: uuid, kind: "user", content: "hello", timestamp: new Date(1_700_000_000_000), isOutgoing: true, status: "sending" },
+        });
+        await vi.runAllTimersAsync();
+        expect(tauriDbMocks.dbInsertMessage).not.toHaveBeenCalled();
+
+        // Phase 2: confirmed, eventId known — must write exactly once with event_id = nostrId
+        messageBus.emit({
+            type: "message_updated",
+            conversationId: "conv-1",
+            message: { id: uuid, eventId: nostrId, kind: "user", content: "hello", timestamp: new Date(1_700_000_000_000), isOutgoing: true, status: "accepted" },
+        });
+        await vi.runAllTimersAsync();
+
+        expect(tauriDbMocks.dbInsertMessage).toHaveBeenCalledTimes(1);
+        expect(tauriDbMocks.dbInsertMessage).toHaveBeenCalledWith(
+            expect.objectContaining({ event_id: nostrId })
+        );
+
+        service.dispose();
+    });
+
+    it("hard-deletes both UUID and nostrId rows from SQLite on delete", async () => {
+        const service = new MessagePersistenceService();
+        service.init();
+
+        const uuid = "550e8400-e29b-41d4-a716-446655440002";
+        const nostrId = "b".repeat(64);
+
+        messageBus.emitMessageDeleted("conv-1", uuid, {
+            messageIdentityIds: [uuid, nostrId],
+        });
+        await vi.runAllTimersAsync();
+
+        const deletedIds = new Set(
+            (tauriDbMocks.dbDeleteMessages.mock.calls as unknown as Array<[string[], string]>).flatMap(
+                ([batch]) => batch,
+            ),
+        );
+        expect(deletedIds.has(uuid)).toBe(true);
+        expect(deletedIds.has(nostrId)).toBe(true);
+
+        // Belt-and-suspenders: tombstones are also written for receiver-side suppression
+        const tombstonedIds = (tauriDbMocks.dbInsertTombstone.mock.calls as unknown as Array<[{ event_id: string }]>).map(
+            (call) => call[0].event_id
+        );
+        expect(tombstonedIds).toContain(uuid);
+        expect(tombstonedIds).toContain(nostrId);
+
+        service.dispose();
     });
 });

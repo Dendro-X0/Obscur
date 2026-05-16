@@ -1,6 +1,6 @@
 {
   "name": "@dweb/core",
-  "version": "1.4.11",
+  "version": "1.5.0",
   "private": true,
   "type": "module",
   "dependencies": {
@@ -18,6 +18,7 @@
     "./community-projection-contracts": "./src/community-projection-contracts.ts",
     "./community-content-contracts": "./src/community-content-contracts.ts",
     "./community-media-descriptor-contracts": "./src/community-media-descriptor-contracts.ts",
-    "./community-runtime-contracts": "./src/community-runtime-contracts.ts"
+    "./community-runtime-contracts": "./src/community-runtime-contracts.ts",
+    "./profile-message-bus": "./src/profile-message-bus.ts"
   }
 }

@@ -1,10 +1,14 @@
 {
   "name": "@dweb/storage",
-  "version": "1.4.11",
+  "version": "1.5.0",
   "private": true,
   "type": "module",
+  "dependencies": {
+    "@dweb/storage-contracts": "workspace:*"
+  },
   "exports": {
     "./storage-key": "./src/storage-key.ts",
-    "./indexed-db": "./src/indexed-db.ts"
+    "./indexed-db": "./src/indexed-db.ts",
+    "./message-delete-tombstones-indexed-db": "./src/message-delete-tombstones-indexed-db.ts"
   }
 }

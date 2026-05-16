@@ -1,6 +1,6 @@
 {
   "name": "pwa",
-  "version": "1.4.11",
+  "version": "1.5.0",
   "private": true,
   "scripts": {
     "dev": "next dev --webpack --hostname 127.0.0.1 --port 3340",
@@ -19,8 +19,11 @@
     "@dweb/core": "workspace:*",
     "@dweb/crdt": "workspace:*",
     "@dweb/crypto": "workspace:*",
+    "@dweb/db": "workspace:^",
     "@dweb/nostr": "workspace:*",
     "@dweb/storage": "workspace:*",
+    "@dweb/client-gateway": "workspace:*",
+    "@dweb/storage-contracts": "workspace:*",
     "@dweb/ui-kit": "workspace:*",
     "@ffmpeg/ffmpeg": "^0.12.15",
     "@ffmpeg/util": "^0.12.2",

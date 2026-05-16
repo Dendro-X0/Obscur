@@ -135,7 +135,7 @@ Current owner anchors:
 
 1. `apps/pwa/app/features/groups/providers/group-provider.tsx`
 2. `apps/pwa/app/features/groups/hooks/use-sealed-community.ts`
-3. `apps/pwa/app/features/groups/services/community-ledger-reducer.ts`
+3. `apps/pwa/app/features/groups/services/community-ledger-validator.ts`
 4. `apps/pwa/app/features/groups/services/group-service.ts`
 
 Rules:

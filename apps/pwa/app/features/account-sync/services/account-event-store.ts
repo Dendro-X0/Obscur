@@ -95,6 +95,24 @@ const putRecord = async (db: IDBDatabase, record: StoredAccountEventRecord): Pro
   await transactionDone(transaction);
 };
 
+const deleteRecord = async (db: IDBDatabase, key: string): Promise<void> => {
+  const transaction = db.transaction(EVENTS_STORE, "readwrite");
+  const store = transaction.objectStore(EVENTS_STORE);
+  store.delete(key);
+  await transactionDone(transaction);
+};
+
+const isDmTimelineEventForMessageIds = (
+  event: AccountEvent,
+  messageIds: ReadonlySet<string>,
+): boolean => {
+  if (event.type !== "DM_RECEIVED" && event.type !== "DM_SENT_CONFIRMED") {
+    return false;
+  }
+  const messageId = event.messageId.trim();
+  return messageId.length > 0 && messageIds.has(messageId);
+};
+
 const loadPartitionRecords = async (db: IDBDatabase, partitionKey: string): Promise<ReadonlyArray<StoredAccountEventRecord>> => {
   const transaction = db.transaction(EVENTS_STORE, "readonly");
   const store = transaction.objectStore(EVENTS_STORE);
@@ -187,6 +205,35 @@ export const accountEventStore = {
     const sequence = await getLastSequence(db, partitionKey);
     db.close();
     return sequence;
+  },
+  /**
+   * Physically remove DM timeline events for the given message ids so replay cannot resurrect them.
+   * Used by delete-for-me after durable tombstones are written.
+   */
+  async redactDmTimelineEvents(params: Readonly<{
+    profileId: string;
+    accountPublicKeyHex: PublicKeyHex;
+    messageIds: ReadonlyArray<string>;
+  }>): Promise<Readonly<{ redactedCount: number }>> {
+    const messageIds = new Set(
+      params.messageIds.map((id) => id.trim()).filter((id) => id.length > 0),
+    );
+    if (messageIds.size === 0) {
+      return { redactedCount: 0 };
+    }
+    const db = await openDb();
+    const partitionKey = buildPartitionKey(params);
+    const records = await loadPartitionRecords(db, partitionKey);
+    let redactedCount = 0;
+    for (const record of records) {
+      if (!isDmTimelineEventForMessageIds(record.event, messageIds)) {
+        continue;
+      }
+      await deleteRecord(db, record.storageKey);
+      redactedCount += 1;
+    }
+    db.close();
+    return { redactedCount };
   },
 };
 

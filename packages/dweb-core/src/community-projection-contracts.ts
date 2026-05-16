@@ -23,6 +23,7 @@ export type CommunityMembershipStatus =
   | "pending"
   | "left"
   | "expelled"
+  | "historical"
   | "unknown";
 
 export type CommunityMembershipSourceOfTruth =

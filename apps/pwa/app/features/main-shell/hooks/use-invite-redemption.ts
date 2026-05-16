@@ -10,6 +10,7 @@ import { toast } from "@dweb/ui-kit";
 import { parsePublicKeyInput } from "@/app/features/profile/utils/parse-public-key-input";
 import { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import type { RequestTransportOutcome } from "@/app/features/messaging/services/request-transport-service";
 
 // Constants (moved from MainShell)
@@ -30,9 +31,9 @@ type InviteRequestTransport = Readonly<{
     }>) => Promise<RequestTransportOutcome>;
 }>;
 
-const getInviteRequestSentKey = (params: { redeemerPubkeyHex: string; inviteId: string }): string => {
-    return getScopedStorageKey(`${INVITE_REQUEST_SENT_PREFIX}.${params.redeemerPubkeyHex}.${params.inviteId}`);
-};
+const getInviteRequestSentKey = (params: { redeemerPubkeyHex: string; inviteId: string }): string => (
+    getScopedStorageKey(`${INVITE_REQUEST_SENT_PREFIX}.${params.redeemerPubkeyHex}.${params.inviteId}`, getResolvedProfileId())
+);
 
 const wasInviteRequestSent = (params: { redeemerPubkeyHex: string; inviteId: string }): boolean => {
     if (typeof window === "undefined") return false;

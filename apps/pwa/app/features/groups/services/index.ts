@@ -43,9 +43,8 @@ export {
   type SerializedMembership,
   type MembershipDiagnostics,
   type MembershipDelta,
-  FEATURE_FLAGS,
   MembershipError,
-} from './community-membership-crdt.js';
+} from './community-membership-crdt';
 
 // Gossip protocol
 export {
@@ -65,7 +64,7 @@ export {
   type AntiEntropyResponse,
   type GossipConfig,
   type GossipManager,
-} from './community-membership-gossip.js';
+} from './community-membership-gossip';
 
 // Relay bridge
 export {
@@ -76,4 +75,4 @@ export {
   type RelayBridgeConfig,
   type MembershipRelayBridge,
   type BridgeStatus,
-} from './community-membership-relay-bridge.js';
+} from './community-membership-relay-bridge';

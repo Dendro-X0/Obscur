@@ -2,8 +2,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { PersistedChatState } from "../types";
 import { messagingDB } from "@dweb/storage/indexed-db";
 import { emitAccountSyncMutation } from "@/app/shared/account-sync-mutation-signal";
+import { createProfileMessageBus } from "@dweb/core/profile-message-bus";
 import { setProfileScopeOverride } from "@/app/features/profiles/services/profile-scope";
-import { CHAT_STATE_REPLACED_EVENT, chatStateStoreService } from "./chat-state-store";
+import { setProfileRuntimeScope } from "@/app/features/profiles/services/profile-runtime-scope";
+import { chatStateStoreService } from "./chat-state-store";
 
 vi.mock("@/app/shared/account-sync-mutation-signal", () => ({
   emitAccountSyncMutation: vi.fn(),
@@ -41,22 +43,29 @@ describe("chat-state-store replace event", () => {
     emitMutationMock.mockClear();
     messagingDbPutMock.mockClear();
     setProfileScopeOverride(null);
+    setProfileRuntimeScope(null);
     window.localStorage.clear();
   });
 
-  it("emits CHAT_STATE_REPLACED_EVENT with public key and profile when replace is called", () => {
+  it("emits chat-state-replaced on profile bus when replace is called", () => {
+    const bus = createProfileMessageBus({ profileId: "default" });
+    setProfileRuntimeScope({ profileId: "default", bus });
     const onReplaced = vi.fn();
-    window.addEventListener(CHAT_STATE_REPLACED_EVENT, onReplaced);
+    const off = bus.subscribeTo("chat-state-replaced", onReplaced);
 
     chatStateStoreService.replace(PK as any, createState(), { emitMutationSignal: false });
 
     expect(onReplaced).toHaveBeenCalledTimes(1);
-    const event = onReplaced.mock.calls[0]?.[0] as CustomEvent<{ publicKeyHex: string; profileId: string }>;
-    expect(event.detail?.publicKeyHex).toBe(PK);
-    expect(event.detail?.profileId).toBe("default");
+    expect(onReplaced).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "chat-state-replaced",
+        publicKeyHex: PK,
+        profileId: "default",
+      }),
+    );
     expect(emitMutationMock).not.toHaveBeenCalled();
 
-    window.removeEventListener(CHAT_STATE_REPLACED_EVENT, onReplaced);
+    off();
   });
 
   it("keeps chat-state cache and pending writes isolated per profile scope for the same public key", async () => {

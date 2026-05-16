@@ -56,7 +56,8 @@ import type {
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
-import { useEnhancedDMController } from "@/app/features/messaging/controllers/enhanced-dm-controller";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
+import { useEnhancedDMController } from "@/app/features/messaging/hooks/use-enhanced-dm-controller";
 import { InvitationComposerDialog } from "@/app/features/messaging/components/invitation-composer-dialog";
 import {
   buildInvitationRequestMessage,
@@ -78,7 +79,7 @@ import type { RelayReadinessState } from "@/app/features/relays/services/relay-r
 type DiscoverySurface = "global" | "add_friend" | "communities";
 type DirectRequestPhase = "idle" | "sending" | "ok" | "partial" | "queued" | "failed" | "unsupported";
 
-const getRecentSearchesStorageKey = (): string => getScopedStorageKey("recent_searches");
+const getRecentSearchesStorageKey = (): string => getScopedStorageKey("recent_searches", getResolvedProfileId());
 const LEGACY_RECENT_SEARCHES_STORAGE_KEY = "recent_searches";
 const REQUEST_SEND_TIMEOUT_MS = 15_000;
 
@@ -352,7 +353,6 @@ export default function SearchPage() {
     requestsInbox,
     autoSubscribeIncoming: false,
     enableIncomingTransport: false,
-    enableAutoQueueProcessing: false,
   });
   const requestTransport = useRequestTransport({
     dmController,

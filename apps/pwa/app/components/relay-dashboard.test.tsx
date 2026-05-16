@@ -1,10 +1,13 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { RelayDashboard } from "./relay-dashboard";
+import { RelayDashboard, buildOrderedRelayDashboardUrls } from "./relay-dashboard";
 
 vi.mock("@/app/features/relays/providers/relay-provider", () => ({
   useRelay: vi.fn(() => ({
     enabledRelayUrls: ["wss://relay.damus.io"],
+    relaySelection: {
+      primaryUrl: "wss://relay.damus.io",
+    },
     relayPool: {
       connections: [
         { url: "wss://relay.damus.io", status: "open", updatedAtUnixMs: 1 },
@@ -34,6 +37,32 @@ vi.mock("@/app/features/relays/providers/relay-provider", () => ({
   })),
 }));
 
+describe("buildOrderedRelayDashboardUrls", () => {
+    it("places primary first, then remaining enabled relays, then others sorted", () => {
+        const ordered = buildOrderedRelayDashboardUrls({
+            metricsKeys: ["wss://z.example", "wss://a.example"],
+            enabledRelayUrls: ["wss://b.example", "wss://a.example", "wss://primary.example"],
+            connectionUrls: ["wss://orphan.example"],
+            fallbackRelayUrls: ["wss://z.example"],
+            primaryUrl: "wss://primary.example",
+        });
+        expect(ordered[0]).toBe("wss://primary.example");
+        expect(ordered.slice(1, 4)).toEqual(["wss://b.example", "wss://a.example", "wss://orphan.example"]);
+        expect(ordered[4]).toBe("wss://z.example");
+    });
+
+    it("omits empty primary string", () => {
+        const ordered = buildOrderedRelayDashboardUrls({
+            metricsKeys: ["wss://only.example"],
+            enabledRelayUrls: [],
+            connectionUrls: [],
+            fallbackRelayUrls: [],
+            primaryUrl: "",
+        });
+        expect(ordered).toEqual(["wss://only.example"]);
+    });
+});
+
 describe("RelayDashboard", () => {
   it("renders metrics from the live relay provider health snapshot", () => {
     render(<RelayDashboard />);
@@ -47,6 +76,9 @@ describe("RelayDashboard", () => {
     const { useRelay } = await import("@/app/features/relays/providers/relay-provider");
     vi.mocked(useRelay).mockReturnValue({
       enabledRelayUrls: ["wss://relay.empty.example"],
+      relaySelection: {
+        primaryUrl: "wss://relay.empty.example",
+      },
       relayPool: {
         connections: [
           { url: "wss://relay.empty.example", status: "open", updatedAtUnixMs: 1 },

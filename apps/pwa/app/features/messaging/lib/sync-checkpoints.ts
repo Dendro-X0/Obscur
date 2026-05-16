@@ -1,4 +1,5 @@
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 
 export type TimelineCheckpoint = Readonly<{
   timelineKey: string;
@@ -29,8 +30,10 @@ export type CheckpointRepairReport = Readonly<{
   message?: string;
 }>;
 
-const GLOBAL_CHECKPOINTS_KEY = "__obscur_sync_checkpoints__";
+const GLOBAL_CHECKPOINTS_BY_PROFILE_KEY = "__obscur_sync_checkpoints_by_profile__";
 const STORAGE_KEY = "obscur.messaging.sync_checkpoints.v1";
+
+const resolveProfileScope = (profileId?: string): string => profileId ?? getResolvedProfileId();
 const GAP_DETECTION_THRESHOLD_SECONDS = 6 * 60 * 60;
 const TARGETED_BACKFILL_WINDOW_SECONDS = 2 * 60 * 60;
 
@@ -39,7 +42,20 @@ type PersistedCheckpointState = Readonly<{
   checkpoints: ReadonlyArray<TimelineCheckpoint>;
 }>;
 
-const getStorageKey = (): string => getScopedStorageKey(STORAGE_KEY);
+const getStorageKey = (profileId?: string): string => (
+  getScopedStorageKey(STORAGE_KEY, resolveProfileScope(profileId))
+);
+
+const getCheckpointRoot = (): Map<string, Map<string, TimelineCheckpoint>> => {
+  const root = globalThis as Record<string, unknown>;
+  const existing = root[GLOBAL_CHECKPOINTS_BY_PROFILE_KEY];
+  if (existing instanceof Map) {
+    return existing as Map<string, Map<string, TimelineCheckpoint>>;
+  }
+  const next = new Map<string, Map<string, TimelineCheckpoint>>();
+  root[GLOBAL_CHECKPOINTS_BY_PROFILE_KEY] = next;
+  return next;
+};
 
 const toPersistedState = (state: Map<string, TimelineCheckpoint>): PersistedCheckpointState => ({
   version: 1,
@@ -76,12 +92,12 @@ const fromPersistedState = (value: unknown): Map<string, TimelineCheckpoint> => 
   return next;
 };
 
-const loadPersistedCheckpointState = (): Map<string, TimelineCheckpoint> => {
+const loadPersistedCheckpointState = (profileId?: string): Map<string, TimelineCheckpoint> => {
   if (typeof window === "undefined") {
     return new Map<string, TimelineCheckpoint>();
   }
   try {
-    const raw = window.localStorage.getItem(getStorageKey());
+    const raw = window.localStorage.getItem(getStorageKey(profileId));
     if (!raw) {
       return new Map<string, TimelineCheckpoint>();
     }
@@ -91,47 +107,56 @@ const loadPersistedCheckpointState = (): Map<string, TimelineCheckpoint> => {
   }
 };
 
-const persistCheckpointState = (state: Map<string, TimelineCheckpoint>): void => {
+const persistCheckpointState = (state: Map<string, TimelineCheckpoint>, profileId?: string): void => {
   if (typeof window === "undefined") {
     return;
   }
   try {
-    window.localStorage.setItem(getStorageKey(), JSON.stringify(toPersistedState(state)));
+    window.localStorage.setItem(getStorageKey(profileId), JSON.stringify(toPersistedState(state)));
   } catch {
     // Keep sync bookkeeping non-throwing during degraded storage conditions.
   }
 };
 
-const getCheckpointState = (): Map<string, TimelineCheckpoint> => {
-  const root = globalThis as Record<string, unknown>;
-  const existing = root[GLOBAL_CHECKPOINTS_KEY];
+const getCheckpointState = (profileId?: string): Map<string, TimelineCheckpoint> => {
+  const scope = resolveProfileScope(profileId);
+  const root = getCheckpointRoot();
+  const existing = root.get(scope);
   if (existing instanceof Map) {
-    return existing as Map<string, TimelineCheckpoint>;
+    return existing;
   }
-  const next = loadPersistedCheckpointState();
-  root[GLOBAL_CHECKPOINTS_KEY] = next;
+  const next = loadPersistedCheckpointState(profileId);
+  root.set(scope, next);
   return next;
 };
 
-export const getTimelineCheckpoint = (timelineKey: string): TimelineCheckpoint | null => {
-  const value = getCheckpointState().get(timelineKey);
+export const getTimelineCheckpoint = (timelineKey: string, profileId?: string): TimelineCheckpoint | null => {
+  const value = getCheckpointState(profileId).get(timelineKey);
   return value ?? null;
 };
 
-export const updateTimelineCheckpoint = (timelineKey: string, lastProcessedAtUnixSeconds: number): TimelineCheckpoint => {
+export const updateTimelineCheckpoint = (
+  timelineKey: string,
+  lastProcessedAtUnixSeconds: number,
+  profileId?: string,
+): TimelineCheckpoint => {
   const next: TimelineCheckpoint = {
     timelineKey,
     lastProcessedAtUnixSeconds,
     updatedAtUnixMs: Date.now(),
   };
-  const state = getCheckpointState();
+  const state = getCheckpointState(profileId);
   state.set(timelineKey, next);
-  persistCheckpointState(state);
+  persistCheckpointState(state, profileId);
   return next;
 };
 
-export const detectSyncGap = (timelineKey: string, requestedSinceUnixSeconds: number): SyncGap | null => {
-  const checkpoint = getTimelineCheckpoint(timelineKey);
+export const detectSyncGap = (
+  timelineKey: string,
+  requestedSinceUnixSeconds: number,
+  profileId?: string,
+): SyncGap | null => {
+  const checkpoint = getTimelineCheckpoint(timelineKey, profileId);
   if (!checkpoint) return null;
   const gapSeconds = checkpoint.lastProcessedAtUnixSeconds - requestedSinceUnixSeconds;
   if (gapSeconds <= GAP_DETECTION_THRESHOLD_SECONDS) return null;
@@ -172,10 +197,11 @@ export const createBackfillRequest = (
 
 export const repairTimelineCheckpoint = (
   timelineKey: string,
-  requestedSinceUnixSeconds: number
+  requestedSinceUnixSeconds: number,
+  profileId?: string,
 ): CheckpointRepairReport => {
   try {
-    const checkpoint = getTimelineCheckpoint(timelineKey);
+    const checkpoint = getTimelineCheckpoint(timelineKey, profileId);
     if (!checkpoint) {
       return {
         result: "ok",
@@ -187,7 +213,7 @@ export const repairTimelineCheckpoint = (
     const now = Math.floor(Date.now() / 1000);
     if (checkpoint.lastProcessedAtUnixSeconds > now + 60) {
       const repairedSinceUnixSeconds = Math.max(requestedSinceUnixSeconds, now - TARGETED_BACKFILL_WINDOW_SECONDS);
-      updateTimelineCheckpoint(timelineKey, now);
+      updateTimelineCheckpoint(timelineKey, now, profileId);
       return {
         result: "repaired",
         timelineKey,
@@ -198,7 +224,7 @@ export const repairTimelineCheckpoint = (
 
     if (checkpoint.lastProcessedAtUnixSeconds < 0) {
       const repairedSinceUnixSeconds = Math.max(0, requestedSinceUnixSeconds);
-      updateTimelineCheckpoint(timelineKey, repairedSinceUnixSeconds);
+      updateTimelineCheckpoint(timelineKey, repairedSinceUnixSeconds, profileId);
       return {
         result: "repaired",
         timelineKey,
@@ -222,11 +248,11 @@ export const repairTimelineCheckpoint = (
   }
 };
 
-export const resetTimelineCheckpointsForTests = (): void => {
-  const root = globalThis as Record<string, unknown>;
-  root[GLOBAL_CHECKPOINTS_KEY] = new Map<string, TimelineCheckpoint>();
+export const resetTimelineCheckpointsForTests = (profileId?: string): void => {
+  const scope = resolveProfileScope(profileId);
+  getCheckpointRoot().delete(scope);
   if (typeof window !== "undefined") {
-    window.localStorage.removeItem(getStorageKey());
+    window.localStorage.removeItem(getStorageKey(profileId));
   }
 };
 

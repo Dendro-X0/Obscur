@@ -2,7 +2,7 @@ import React from "react";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
-import type { PersistedChatState } from "@/app/features/messaging/types";
+import type { GroupConversation, PersistedChatState } from "@/app/features/messaging/types";
 
 const PUBLIC_KEY_A = "a".repeat(64) as PublicKeyHex;
 const PUBLIC_KEY_B = "b".repeat(64) as PublicKeyHex;
@@ -38,13 +38,52 @@ vi.mock("@dweb/storage/indexed-db", () => ({
   },
 }));
 
+const groupProviderTestBus = vi.hoisted(() => {
+  const { createProfileMessageBus } =
+    require("@dweb/core/profile-message-bus") as typeof import("@dweb/core/profile-message-bus");
+  return createProfileMessageBus({ profileId: "default" });
+});
+
+const { mockRuntimeProfileIdRef } = vi.hoisted(() => ({
+  mockRuntimeProfileIdRef: { current: "default" as string },
+}));
+
+vi.mock("@/app/features/profiles/providers/profile-runtime-provider", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/app/features/profiles/providers/profile-runtime-provider")>();
+  const { getResolvedStoragePorts } = await import("@/app/features/profiles/services/default-storage-ports");
+  const { getResolvedClientGateway } = await import("@/app/features/profiles/services/resolve-client-gateway");
+  return {
+    ...actual,
+    useOptionalProfileMessageBus: () => groupProviderTestBus,
+    useOptionalProfileRuntime: () => ({
+      profileId: mockRuntimeProfileIdRef.current,
+      bus: groupProviderTestBus,
+      storagePorts: getResolvedStoragePorts(),
+      clientGateway: getResolvedClientGateway(),
+    }),
+  };
+});
+
 import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store";
 import { setProfileScopeOverride } from "@/app/features/profiles/services/profile-scope";
-import { loadCommunityMembershipLedger, setCommunityMembershipStatus } from "../services/community-membership-ledger";
+import {
+  communityMembershipLedgerInternals,
+  loadCommunityMembershipLedger,
+  saveCommunityMembershipLedger,
+} from "../services/community-membership-ledger";
 import { GroupProvider, useGroups } from "./group-provider";
 import { encryptedAccountBackupServiceInternals } from "@/app/features/account-sync/services/encrypted-account-backup-service";
+import {
+  dispatchCommunityKnownParticipantsObserved,
+  dispatchGroupInviteResponseAccepted,
+  dispatchGroupMembershipConfirmed,
+  dispatchGroupMembershipSnapshot,
+} from "@/app/features/profiles/services/profile-bus-dispatch";
+import { setProfileRuntimeScope } from "@/app/features/profiles/services/profile-runtime-scope";
 import { PrivacySettingsService } from "@/app/features/settings/services/privacy-settings-service";
 import { relayListInternals } from "@/app/features/relays/hooks/use-relay-list";
+
+const { setCommunityMembershipStatus } = communityMembershipLedgerInternals;
 
 const createEmptyState = (): PersistedChatState => ({
   version: 2,
@@ -64,6 +103,8 @@ describe("group-provider membership ledger integration", () => {
     window.localStorage.clear();
     vi.clearAllMocks();
     setProfileScopeOverride(null);
+    mockRuntimeProfileIdRef.current = "default";
+    setProfileRuntimeScope({ profileId: "default", bus: groupProviderTestBus });
     activePublicKeyHex = PUBLIC_KEY_A;
     chatStateStoreService.replace(PUBLIC_KEY_A, createEmptyState(), { emitMutationSignal: false });
     chatStateStoreService.replace(PUBLIC_KEY_B, createEmptyState(), { emitMutationSignal: false });
@@ -103,6 +144,38 @@ describe("group-provider membership ledger integration", () => {
       }),
     }));
     expect(chatStateStoreService.load(PUBLIC_KEY_A)?.createdGroups).toHaveLength(1);
+  });
+
+  it("recordMembershipLedgerAfterInviteDecline writes terminal left ledger entry", async () => {
+    const wrapper: React.FC<React.PropsWithChildren> = ({ children }) => (
+      <GroupProvider>{children}</GroupProvider>
+    );
+    const { result } = renderHook(() => useGroups(), { wrapper });
+
+    const group: GroupConversation = {
+      kind: "group",
+      id: "community:decline-test:wss://relay.decline",
+      communityId: "decline-test:wss://relay.decline",
+      groupId: "decline-test",
+      relayUrl: "wss://relay.decline",
+      creatorPubkey: PUBLIC_KEY_B,
+      genesisEventId: "ev1",
+      displayName: "Decline G",
+      memberPubkeys: [PUBLIC_KEY_A, PUBLIC_KEY_B],
+      adminPubkeys: [PUBLIC_KEY_B],
+      lastMessage: "",
+      unreadCount: 0,
+      lastMessageTime: new Date(),
+      access: "invite-only",
+      memberCount: 2,
+    };
+
+    await act(async () => {
+      result.current.recordMembershipLedgerAfterInviteDecline(group);
+    });
+
+    const ledger = loadCommunityMembershipLedger(PUBLIC_KEY_A, { profileId: "default" });
+    expect(ledger.some((e) => e.groupId === "decline-test" && e.status === "left")).toBe(true);
   });
 
   it("suppresses persisted group visibility when ledger membership is left", async () => {
@@ -202,6 +275,137 @@ describe("group-provider membership ledger integration", () => {
     });
   });
 
+  it("REL-003: profile scope switch re-hydrates without stale groups when public key is unchanged", async () => {
+    const wrapper: React.FC<React.PropsWithChildren> = ({ children }) => (
+      <GroupProvider>{children}</GroupProvider>
+    );
+    const group = {
+      kind: "group" as const,
+      id: "community:rel003:wss://relay.rel003",
+      communityId: "rel003:wss://relay.rel003",
+      groupId: "rel003",
+      relayUrl: "wss://relay.rel003",
+      displayName: "REL003 Group",
+      memberPubkeys: [PUBLIC_KEY_A],
+      lastMessage: "",
+      unreadCount: 0,
+      lastMessageTime: new Date(2_000),
+      access: "invite-only" as const,
+      memberCount: 1,
+      adminPubkeys: [],
+    };
+
+    mockRuntimeProfileIdRef.current = "profile-a";
+    setProfileScopeOverride("profile-a");
+    setProfileRuntimeScope({ profileId: "profile-a", bus: groupProviderTestBus });
+    activePublicKeyHex = PUBLIC_KEY_A;
+    saveCommunityMembershipLedger(PUBLIC_KEY_A, [{
+      communityId: group.communityId,
+      groupId: group.groupId,
+      relayUrl: group.relayUrl,
+      status: "joined",
+      updatedAtUnixMs: 2_000,
+      displayName: group.displayName,
+      memberPubkeys: group.memberPubkeys,
+    }], { profileId: "profile-a" });
+    chatStateStoreService.replace(PUBLIC_KEY_A, {
+      ...createEmptyState(),
+      createdGroups: [{
+        id: group.id,
+        communityId: group.communityId,
+        groupId: group.groupId,
+        relayUrl: group.relayUrl,
+        displayName: group.displayName,
+        memberPubkeys: [...group.memberPubkeys],
+        lastMessage: group.lastMessage,
+        unreadCount: group.unreadCount,
+        lastMessageTimeMs: group.lastMessageTime.getTime(),
+      }],
+    }, { emitMutationSignal: false, profileId: "profile-a" });
+
+    const { result, rerender } = renderHook(() => useGroups(), { wrapper });
+    await waitFor(() => {
+      expect(result.current.createdGroups.some((entry) => entry.groupId === "rel003")).toBe(true);
+    });
+
+    mockRuntimeProfileIdRef.current = "profile-b";
+    setProfileScopeOverride("profile-b");
+    setProfileRuntimeScope({ profileId: "profile-b", bus: groupProviderTestBus });
+    rerender();
+
+    await waitFor(() => {
+      expect(result.current.createdGroups.some((entry) => entry.groupId === "rel003")).toBe(false);
+    });
+  });
+
+  it("forcePurgeCommunity clears only active profile ledger scope", async () => {
+    setProfileRuntimeScope({ profileId: "profile-b", bus: groupProviderTestBus });
+    const wrapper: React.FC<React.PropsWithChildren> = ({ children }) => (
+      <GroupProvider>{children}</GroupProvider>
+    );
+    const { result } = renderHook(() => useGroups(), { wrapper });
+
+    const group = {
+      kind: "group" as const,
+      id: "community:scoped:wss://relay.scoped",
+      communityId: "scoped:wss://relay.scoped",
+      groupId: "scoped",
+      relayUrl: "wss://relay.scoped",
+      displayName: "Scoped Group",
+      memberPubkeys: [PUBLIC_KEY_A],
+      lastMessage: "",
+      unreadCount: 0,
+      lastMessageTime: new Date(1_000),
+      access: "invite-only" as const,
+      memberCount: 1,
+      adminPubkeys: [],
+    };
+
+    act(() => {
+      result.current.addGroup(group);
+      saveCommunityMembershipLedger(PUBLIC_KEY_A, [{
+        communityId: group.communityId,
+        groupId: group.groupId,
+        relayUrl: group.relayUrl,
+        status: "joined",
+        updatedAtUnixMs: 2_000,
+      }], { profileId: "profile-b" });
+      saveCommunityMembershipLedger(PUBLIC_KEY_A, [{
+        communityId: group.communityId,
+        groupId: group.groupId,
+        relayUrl: group.relayUrl,
+        status: "joined",
+        updatedAtUnixMs: 2_100,
+      }], { profileId: "default" });
+    });
+
+    await waitFor(() => {
+      expect(result.current.createdGroups.some((entry) => entry.groupId === "scoped")).toBe(true);
+    });
+
+    act(() => {
+      result.current.forcePurgeCommunity({
+        groupId: group.groupId,
+        relayUrl: group.relayUrl,
+      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.createdGroups.some((entry) => entry.groupId === "scoped")).toBe(false);
+    });
+
+    expect(
+      loadCommunityMembershipLedger(PUBLIC_KEY_A, { profileId: "profile-b" }).some(
+        (entry) => entry.groupId === group.groupId && entry.relayUrl === group.relayUrl,
+      ),
+    ).toBe(false);
+    expect(
+      loadCommunityMembershipLedger(PUBLIC_KEY_A, { profileId: "default" }).some(
+        (entry) => entry.groupId === group.groupId && entry.relayUrl === group.relayUrl,
+      ),
+    ).toBe(true);
+  });
+
   it("refreshes mounted provider when backup restore writes membership ledger", async () => {
     const wrapper: React.FC<React.PropsWithChildren> = ({ children }) => (
       <GroupProvider>{children}</GroupProvider>
@@ -263,7 +467,133 @@ describe("group-provider membership ledger integration", () => {
     }));
   });
 
-  it("refreshes mounted provider when delayed backup reconstructs membership from chat-state evidence", async () => {
+  it("defers restore ledger refresh until restore materialization completes", async () => {
+    const wrapper: React.FC<React.PropsWithChildren> = ({ children }) => (
+      <GroupProvider>{children}</GroupProvider>
+    );
+    const { result } = renderHook(() => useGroups(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.createdGroups).toHaveLength(0);
+    });
+    logAppEventMock.mockClear();
+
+    await act(async () => {
+      await encryptedAccountBackupServiceInternals.applyBackupPayloadNonV1Domains(PUBLIC_KEY_A, {
+        version: 1,
+        publicKeyHex: PUBLIC_KEY_A,
+        createdAtUnixMs: Date.now(),
+        profile: {
+          username: "restore-order-user",
+          about: "",
+          avatarUrl: "",
+          nip05: "",
+          inviteCode: "",
+        },
+        peerTrust: { acceptedPeers: [], mutedPeers: [] },
+        requestFlowEvidence: { byPeer: {} },
+        requestOutbox: { records: [] },
+        syncCheckpoints: [],
+        communityMembershipLedger: [{
+          communityId: "restore-order:wss://relay.restore",
+          groupId: "restore-order",
+          relayUrl: "wss://relay.restore",
+          status: "joined",
+          updatedAtUnixMs: 3_000,
+          displayName: "Restore Order",
+        }],
+        chatState: createEmptyState(),
+        privacySettings: PrivacySettingsService.getSettings(),
+        relayList: relayListInternals.DEFAULT_RELAYS,
+      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.createdGroups).toHaveLength(1);
+    });
+    const refreshEvents = logAppEventMock.mock.calls
+      .map((call) => call[0])
+      .filter((event) => event?.name === "groups.membership_recovery_refresh_triggered");
+    expect(refreshEvents).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        context: expect.objectContaining({
+          triggerEvent: "obscur:community-membership-ledger-updated",
+        }),
+      }),
+    ]));
+    expect(refreshEvents).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        context: expect.objectContaining({
+          triggerEvent: "obscur:account-restore-materialization-completed",
+        }),
+      }),
+    ]));
+  });
+
+  it("defers full backup restore ledger refresh until restore materialization completes", async () => {
+    const wrapper: React.FC<React.PropsWithChildren> = ({ children }) => (
+      <GroupProvider>{children}</GroupProvider>
+    );
+    const { result } = renderHook(() => useGroups(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.createdGroups).toHaveLength(0);
+    });
+    logAppEventMock.mockClear();
+
+    await act(async () => {
+      await encryptedAccountBackupServiceInternals.applyBackupPayload(PUBLIC_KEY_A, {
+        version: 1,
+        publicKeyHex: PUBLIC_KEY_A,
+        createdAtUnixMs: Date.now(),
+        profile: {
+          username: "full-restore-order-user",
+          about: "",
+          avatarUrl: "",
+          nip05: "",
+          inviteCode: "",
+        },
+        peerTrust: { acceptedPeers: [], mutedPeers: [] },
+        requestFlowEvidence: { byPeer: {} },
+        requestOutbox: { records: [] },
+        syncCheckpoints: [],
+        communityMembershipLedger: [{
+          communityId: "full-restore-order:wss://relay.restore",
+          groupId: "full-restore-order",
+          relayUrl: "wss://relay.restore",
+          status: "joined",
+          updatedAtUnixMs: 3_000,
+          displayName: "Full Restore Order",
+        }],
+        chatState: createEmptyState(),
+        privacySettings: PrivacySettingsService.getSettings(),
+        relayList: relayListInternals.DEFAULT_RELAYS,
+      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.createdGroups).toHaveLength(1);
+    });
+    const refreshEvents = logAppEventMock.mock.calls
+      .map((call) => call[0])
+      .filter((event) => event?.name === "groups.membership_recovery_refresh_triggered");
+    expect(refreshEvents).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        context: expect.objectContaining({
+          triggerEvent: "obscur:community-membership-ledger-updated",
+        }),
+      }),
+    ]));
+    expect(refreshEvents).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        context: expect.objectContaining({
+          triggerEvent: "obscur:account-restore-materialization-completed",
+        }),
+      }),
+    ]));
+  });
+
+  it("does not surface live groups from delayed backup chat-state evidence alone (REL-002)", async () => {
     const wrapper: React.FC<React.PropsWithChildren> = ({ children }) => (
       <GroupProvider>{children}</GroupProvider>
     );
@@ -321,13 +651,8 @@ describe("group-provider membership ledger integration", () => {
     });
 
     await waitFor(() => {
-      expect(result.current.createdGroups).toHaveLength(1);
+      expect(result.current.createdGroups).toHaveLength(0);
     });
-    expect(result.current.createdGroups[0]).toEqual(expect.objectContaining({
-      groupId: "theta",
-      relayUrl: "wss://relay.theta",
-      communityId: "theta:wss://relay.theta",
-    }));
   });
 
   it("converges A invite-accept evidence and B restore into the same community identity", async () => {
@@ -363,14 +688,12 @@ describe("group-provider membership ledger integration", () => {
     });
 
     act(() => {
-      window.dispatchEvent(new CustomEvent("obscur:group-invite-response-accepted", {
-        detail: {
+      dispatchGroupInviteResponseAccepted({
           groupId: "delta",
           relayUrl: "wss://relay.delta",
           communityId: "delta:wss://relay.delta",
           memberPubkey: PUBLIC_KEY_B,
-        },
-      }));
+        });
     });
     await waitFor(() => {
       const members = accountAHook.result.current.createdGroups[0]?.memberPubkeys ?? [];
@@ -435,14 +758,12 @@ describe("group-provider membership ledger integration", () => {
     });
 
     act(() => {
-      window.dispatchEvent(new CustomEvent("obscur:group-invite-response-accepted", {
-        detail: {
+      dispatchGroupInviteResponseAccepted({
           groupId: "orphan-group",
           relayUrl: "wss://relay.orphan",
           communityId: "orphan-group:wss://relay.orphan",
           memberPubkey: PUBLIC_KEY_B,
-        },
-      }));
+        });
     });
 
     await act(async () => {
@@ -450,6 +771,57 @@ describe("group-provider membership ledger integration", () => {
     });
 
     expect(hook.result.current.createdGroups).toHaveLength(0);
+    expect(loadCommunityMembershipLedger(PUBLIC_KEY_A)).toHaveLength(0);
+  });
+
+  it("does not write joined ledger when invite-accept updates a provisional group", async () => {
+    const wrapper: React.FC<React.PropsWithChildren> = ({ children }) => (
+      <GroupProvider>{children}</GroupProvider>
+    );
+
+    activePublicKeyHex = PUBLIC_KEY_A;
+    const hook = renderHook(() => useGroups(), { wrapper });
+    await waitFor(() => {
+      expect(hook.result.current.createdGroups).toHaveLength(0);
+    });
+
+    act(() => {
+      hook.result.current.addGroup({
+        kind: "group",
+        id: "community:provisional:wss://relay.provisional",
+        communityId: "provisional:wss://relay.provisional",
+        groupId: "provisional",
+        relayUrl: "wss://relay.provisional",
+        displayName: "Provisional",
+        memberPubkeys: [PUBLIC_KEY_A],
+        lastMessage: "",
+        unreadCount: 0,
+        lastMessageTime: new Date(1_000),
+        access: "invite-only",
+        memberCount: 1,
+        adminPubkeys: [],
+      }, { provisionalJoin: true });
+    });
+
+    await waitFor(() => {
+      expect(hook.result.current.createdGroups).toHaveLength(1);
+    });
+    expect(loadCommunityMembershipLedger(PUBLIC_KEY_A)).toHaveLength(0);
+
+    act(() => {
+      dispatchGroupInviteResponseAccepted({
+        groupId: "provisional",
+        relayUrl: "wss://relay.provisional",
+        communityId: "provisional:wss://relay.provisional",
+        memberPubkey: PUBLIC_KEY_B,
+        recipientPublicKeyHex: PUBLIC_KEY_A,
+      });
+    });
+
+    await waitFor(() => {
+      const members = hook.result.current.createdGroups[0]?.memberPubkeys ?? [];
+      expect(members).toEqual(expect.arrayContaining([PUBLIC_KEY_A, PUBLIC_KEY_B]));
+    });
     expect(loadCommunityMembershipLedger(PUBLIC_KEY_A)).toHaveLength(0);
   });
 
@@ -490,20 +862,81 @@ describe("group-provider membership ledger integration", () => {
     );
 
     act(() => {
-      window.dispatchEvent(new CustomEvent("obscur:group-invite-response-accepted", {
-        detail: {
+      dispatchGroupInviteResponseAccepted({
           groupId: "self-heal",
           relayUrl: "wss://relay.self",
           communityId: "self-heal:wss://relay.self",
           memberPubkey: PUBLIC_KEY_B,
-        },
-      }));
+        });
     });
 
     await waitFor(() => {
       const members = hook.result.current.createdGroups[0]?.memberPubkeys ?? [];
       expect(members).toEqual(expect.arrayContaining([PUBLIC_KEY_A, PUBLIC_KEY_B]));
     });
+  });
+
+  it("does not mutate visible members from invite-accept evidence when ledger state is terminal", async () => {
+    const wrapper: React.FC<React.PropsWithChildren> = ({ children }) => (
+      <GroupProvider>{children}</GroupProvider>
+    );
+
+    activePublicKeyHex = PUBLIC_KEY_A;
+    setCommunityMembershipStatus(PUBLIC_KEY_A, {
+      groupId: "terminal-invite",
+      relayUrl: "wss://relay.terminal",
+      communityId: "terminal-invite:wss://relay.terminal",
+      status: "left",
+      updatedAtUnixMs: 2_000,
+      displayName: "Terminal Invite",
+    });
+    const hook = renderHook(() => useGroups(), { wrapper });
+    await waitFor(() => {
+      expect(hook.result.current.createdGroups).toHaveLength(0);
+    });
+
+    act(() => {
+      hook.result.current.setCreatedGroups([{
+        kind: "group",
+        id: "community:terminal-invite:wss://relay.terminal",
+        communityId: "terminal-invite:wss://relay.terminal",
+        groupId: "terminal-invite",
+        relayUrl: "wss://relay.terminal",
+        displayName: "Terminal Invite",
+        memberPubkeys: [PUBLIC_KEY_A],
+        lastMessage: "",
+        unreadCount: 0,
+        lastMessageTime: new Date(1_000),
+        access: "invite-only",
+        memberCount: 1,
+        adminPubkeys: [],
+      }]);
+    });
+    await waitFor(() => {
+      expect(hook.result.current.createdGroups).toHaveLength(1);
+    });
+
+    act(() => {
+      dispatchGroupInviteResponseAccepted({
+          groupId: "terminal-invite",
+          relayUrl: "wss://relay.terminal",
+          communityId: "terminal-invite:wss://relay.terminal",
+          memberPubkey: PUBLIC_KEY_B,
+          recipientPublicKeyHex: PUBLIC_KEY_A,
+        });
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(hook.result.current.createdGroups[0]?.memberPubkeys).toEqual([PUBLIC_KEY_A]);
+    expect(loadCommunityMembershipLedger(PUBLIC_KEY_A)).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        groupId: "terminal-invite",
+        relayUrl: "wss://relay.terminal",
+        status: "left",
+      }),
+    ]));
   });
 
   it("merges richer metadata when addGroup is called for an existing community row", async () => {
@@ -613,8 +1046,7 @@ describe("group-provider membership ledger integration", () => {
     });
 
     act(() => {
-      window.dispatchEvent(new CustomEvent("obscur:group-membership-confirmed", {
-        detail: {
+      dispatchGroupMembershipConfirmed({
           groupId: "canonical-group",
           relayUrl: "wss://relay.canonical",
           communityId: "canonical-group:wss://relay.canonical",
@@ -622,8 +1054,7 @@ describe("group-provider membership ledger integration", () => {
           memberPubkeys: [PUBLIC_KEY_B],
           memberCount: 2,
           lastMessageTimeUnixMs: 2_000,
-        },
-      }));
+        });
     });
 
     await waitFor(() => {
@@ -813,8 +1244,7 @@ describe("group-provider membership ledger integration", () => {
     });
 
     act(() => {
-      window.dispatchEvent(new CustomEvent("obscur:group-membership-confirmed", {
-        detail: {
+      dispatchGroupMembershipConfirmed({
           groupId: "omega",
           relayUrl: "wss://relay.omega",
           displayName: "Omega",
@@ -823,8 +1253,7 @@ describe("group-provider membership ledger integration", () => {
           adminPubkeys: [PUBLIC_KEY_A],
           memberCount: 2,
           lastMessageTimeUnixMs: 7_000,
-        },
-      }));
+        });
     });
 
     await waitFor(() => {
@@ -845,6 +1274,49 @@ describe("group-provider membership ledger integration", () => {
         groupId: "omega",
         relayUrl: "wss://relay.omega",
         status: "joined",
+      }),
+    ]));
+  });
+
+  it("does not resurrect a left group from runtime membership-confirmed evidence", async () => {
+    setCommunityMembershipStatus(PUBLIC_KEY_A, {
+      groupId: "omega-left",
+      relayUrl: "wss://relay.omega",
+      communityId: "omega-left:wss://relay.omega",
+      status: "left",
+      updatedAtUnixMs: 8_000,
+      displayName: "Omega Left",
+    });
+    const wrapper: React.FC<React.PropsWithChildren> = ({ children }) => (
+      <GroupProvider>{children}</GroupProvider>
+    );
+    activePublicKeyHex = PUBLIC_KEY_A;
+    const { result } = renderHook(() => useGroups(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.createdGroups).toHaveLength(0);
+    });
+
+    act(() => {
+      dispatchGroupMembershipConfirmed({
+          groupId: "omega-left",
+          relayUrl: "wss://relay.omega",
+          displayName: "Omega Left",
+          memberPubkeys: [PUBLIC_KEY_A, PUBLIC_KEY_B],
+          memberCount: 2,
+          lastMessageTimeUnixMs: 9_000,
+          publicKeyHex: PUBLIC_KEY_A,
+        });
+    });
+
+    await waitFor(() => {
+      expect(result.current.createdGroups).toHaveLength(0);
+    });
+    expect(loadCommunityMembershipLedger(PUBLIC_KEY_A)).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        groupId: "omega-left",
+        relayUrl: "wss://relay.omega",
+        status: "left",
       }),
     ]));
   });
@@ -935,8 +1407,7 @@ describe("group-provider membership ledger integration", () => {
     });
 
     act(() => {
-      window.dispatchEvent(new CustomEvent("obscur:group-membership-snapshot", {
-        detail: {
+      dispatchGroupMembershipSnapshot({
           groupId: "lambda",
           relayUrl: "wss://relay.lambda",
           communityId: "lambda:wss://relay.lambda",
@@ -944,8 +1415,7 @@ describe("group-provider membership ledger integration", () => {
           leftMembers: [PUBLIC_KEY_B],
           expelledMembers: [],
           disbandedAt: null,
-        },
-      }));
+        });
     });
 
     await waitFor(() => {
@@ -967,7 +1437,134 @@ describe("group-provider membership ledger integration", () => {
     }));
   });
 
-  it("ignores thinner live membership snapshots that do not include leave or expel evidence", async () => {
+  it("does NOT write local-user expelled roster snapshot to ledger — only signed events can expel", async () => {
+    // Three-tier architecture: relay snapshots are NEVER authoritative for the
+    // local user's membership status. Only explicit signed events (admin expel)
+    // can write terminal entries. The relay snapshot is ignored for ledger purposes.
+    const wrapper: React.FC<React.PropsWithChildren> = ({ children }) => (
+      <GroupProvider>{children}</GroupProvider>
+    );
+
+    activePublicKeyHex = PUBLIC_KEY_A;
+    const hook = renderHook(() => useGroups(), { wrapper });
+    await waitFor(() => {
+      expect(hook.result.current.createdGroups).toHaveLength(0);
+    });
+
+    act(() => {
+      hook.result.current.addGroup({
+        kind: "group",
+        id: "community:nu:wss://relay.nu",
+        communityId: "nu:wss://relay.nu",
+        groupId: "nu",
+        relayUrl: "wss://relay.nu",
+        displayName: "Nu",
+        memberPubkeys: [PUBLIC_KEY_A, PUBLIC_KEY_B],
+        lastMessage: "",
+        unreadCount: 0,
+        lastMessageTime: new Date(1_000),
+        access: "invite-only",
+        memberCount: 2,
+        adminPubkeys: [],
+      }, { allowRevive: true });
+    });
+
+    await waitFor(() => {
+      expect(hook.result.current.createdGroups).toHaveLength(1);
+    });
+
+    // Relay says user A is expelled, but this is NOT written to the ledger
+    act(() => {
+      dispatchGroupMembershipSnapshot({
+          groupId: "nu",
+          relayUrl: "wss://relay.nu",
+          communityId: "nu:wss://relay.nu",
+          activeMemberPubkeys: [PUBLIC_KEY_B],
+          leftMembers: [],
+          expelledMembers: [PUBLIC_KEY_A],
+          disbandedAt: null,
+        });
+    });
+
+    // Group should remain visible — relay snapshot does not write terminal entry
+    await waitFor(() => {
+      expect(hook.result.current.createdGroups).toHaveLength(1);
+    });
+
+    // Ledger should still show "joined" — no terminal entry written
+    const ledger = loadCommunityMembershipLedger(PUBLIC_KEY_A);
+    const expelledEntry = ledger.find((e) => e.groupId === "nu" && e.status === "expelled");
+    expect(expelledEntry).toBeUndefined();
+    expect(ledger).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        groupId: "nu",
+        relayUrl: "wss://relay.nu",
+        status: "joined",
+      }),
+    ]));
+  });
+
+  it("records relay disband snapshot evidence and removes the visible group", async () => {
+    const wrapper: React.FC<React.PropsWithChildren> = ({ children }) => (
+      <GroupProvider>{children}</GroupProvider>
+    );
+
+    activePublicKeyHex = PUBLIC_KEY_A;
+    const hook = renderHook(() => useGroups(), { wrapper });
+    await waitFor(() => {
+      expect(hook.result.current.createdGroups).toHaveLength(0);
+    });
+
+    act(() => {
+      hook.result.current.addGroup({
+        kind: "group",
+        id: "community:xi:wss://relay.xi",
+        communityId: "xi:wss://relay.xi",
+        groupId: "xi",
+        relayUrl: "wss://relay.xi",
+        displayName: "Xi",
+        memberPubkeys: [PUBLIC_KEY_A, PUBLIC_KEY_B],
+        lastMessage: "",
+        unreadCount: 0,
+        lastMessageTime: new Date(1_000),
+        access: "invite-only",
+        memberCount: 2,
+        adminPubkeys: [],
+      }, { allowRevive: true });
+    });
+
+    await waitFor(() => {
+      expect(hook.result.current.createdGroups).toHaveLength(1);
+    });
+
+    act(() => {
+      dispatchGroupMembershipSnapshot({
+          groupId: "xi",
+          relayUrl: "wss://relay.xi",
+          communityId: "xi:wss://relay.xi",
+          activeMemberPubkeys: [],
+          leftMembers: [],
+          expelledMembers: [],
+          disbandedAt: 7_000,
+        });
+    });
+
+    await waitFor(() => {
+      expect(hook.result.current.createdGroups).toHaveLength(0);
+    });
+    expect(loadCommunityMembershipLedger(PUBLIC_KEY_A)).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        groupId: "xi",
+        relayUrl: "wss://relay.xi",
+        status: "left",
+      }),
+    ]));
+    const disbandEntry = loadCommunityMembershipLedger(PUBLIC_KEY_A).find((entry) => entry.groupId === "xi");
+    expect(disbandEntry?.updatedAtUnixMs).toBeGreaterThanOrEqual(7_000);
+    expect(chatStateStoreService.load(PUBLIC_KEY_A)?.createdGroups).toHaveLength(0);
+  });
+
+    it("rejects thinner live membership snapshots that omit leave or expel evidence while relay confidence is low", async () => {
     const wrapper: React.FC<React.PropsWithChildren> = ({ children }) => (
       <GroupProvider>{children}</GroupProvider>
     );
@@ -1001,8 +1598,7 @@ describe("group-provider membership ledger integration", () => {
     });
 
     act(() => {
-      window.dispatchEvent(new CustomEvent("obscur:group-membership-snapshot", {
-        detail: {
+      dispatchGroupMembershipSnapshot({
           groupId: "mu",
           relayUrl: "wss://relay.mu",
           communityId: "mu:wss://relay.mu",
@@ -1010,13 +1606,15 @@ describe("group-provider membership ledger integration", () => {
           leftMembers: [],
           expelledMembers: [],
           disbandedAt: null,
-        },
-      }));
+        });
     });
 
     await waitFor(() => {
-      expect(hook.result.current.communityRosterByConversationId["community:mu:wss://relay.mu"]?.activeMemberPubkeys).toEqual([PUBLIC_KEY_A]);
-      expect(hook.result.current.communityRosterByConversationId["community:mu:wss://relay.mu"]?.memberCount).toBe(1);
+      expect(hook.result.current.communityRosterByConversationId["community:mu:wss://relay.mu"]?.activeMemberPubkeys).toEqual([
+        PUBLIC_KEY_A,
+        PUBLIC_KEY_B,
+      ]);
+      expect(hook.result.current.communityRosterByConversationId["community:mu:wss://relay.mu"]?.memberCount).toBe(2);
       expect(hook.result.current.createdGroups[0]?.memberPubkeys).toEqual([PUBLIC_KEY_A, PUBLIC_KEY_B]);
     });
     expect(logAppEventMock).toHaveBeenCalledWith(expect.objectContaining({
@@ -1025,11 +1623,11 @@ describe("group-provider membership ledger integration", () => {
         conversationId: "community:mu:wss://relay.mu",
         groupId: "mu",
         relayUrl: "wss://relay.mu",
-        reasonCode: "apply_snapshot",
+        reasonCode: "missing_removal_evidence",
         currentMemberCount: 2,
         incomingMemberCount: 1,
-        nextMemberCount: 1,
-        removedWithoutEvidenceCount: 0,
+        nextMemberCount: 2,
+        removedWithoutEvidenceCount: 1,
       }),
     }));
   });
@@ -1068,8 +1666,7 @@ describe("group-provider membership ledger integration", () => {
     });
 
     act(() => {
-      window.dispatchEvent(new CustomEvent("obscur:group-membership-snapshot", {
-        detail: {
+      dispatchGroupMembershipSnapshot({
           groupId: "nu",
           relayUrl: "wss://relay.nu",
           communityId: "nu:wss://relay.nu",
@@ -1077,8 +1674,7 @@ describe("group-provider membership ledger integration", () => {
           leftMembers: [PUBLIC_KEY_B],
           expelledMembers: [],
           disbandedAt: null,
-        },
-      }));
+        });
     });
 
     await waitFor(() => {
@@ -1136,8 +1732,7 @@ describe("group-provider membership ledger integration", () => {
     });
 
     act(() => {
-      window.dispatchEvent(new CustomEvent("obscur:group-membership-snapshot", {
-        detail: {
+      dispatchGroupMembershipSnapshot({
           groupId: "xi",
           relayUrl: "wss://relay.xi",
           communityId: "xi:wss://relay.xi",
@@ -1145,8 +1740,7 @@ describe("group-provider membership ledger integration", () => {
           leftMembers: [],
           expelledMembers: [],
           disbandedAt: null,
-        },
-      }));
+        });
     });
 
     await waitFor(() => {
@@ -1189,15 +1783,13 @@ describe("group-provider membership ledger integration", () => {
     });
 
     act(() => {
-      window.dispatchEvent(new CustomEvent("obscur:community-known-participants-observed", {
-        detail: {
+      dispatchCommunityKnownParticipantsObserved({
           groupId: "omicron",
           relayUrl: "wss://relay.omicron",
           communityId: "omicron:wss://relay.omicron",
           conversationId: "community:omicron:wss://relay.omicron",
           participantPubkeys: [PUBLIC_KEY_A, PUBLIC_KEY_B],
-        },
-      }));
+        });
     });
 
     await waitFor(() => {
@@ -1205,5 +1797,82 @@ describe("group-provider membership ledger integration", () => {
       expect(hook.result.current.communityKnownParticipantDirectoryByConversationId["community:omicron:wss://relay.omicron"]?.participantPubkeys).toEqual([PUBLIC_KEY_A, PUBLIC_KEY_B]);
       expect(hook.result.current.communityKnownParticipantDirectoryByConversationId["community:omicron:wss://relay.omicron"]?.participantCount).toBe(2);
     });
+  });
+});
+
+describe("group-provider relay snapshot terminal write guard", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    vi.clearAllMocks();
+    setProfileScopeOverride(null);
+    mockRuntimeProfileIdRef.current = "default";
+    setProfileRuntimeScope({ profileId: "default", bus: groupProviderTestBus });
+    activePublicKeyHex = PUBLIC_KEY_A;
+    chatStateStoreService.replace(PUBLIC_KEY_A, createEmptyState(), { emitMutationSignal: false });
+  });
+
+  it("relay snapshots NEVER write terminal entries for local user — three-tier architecture", async () => {
+    // Under the three-tier architecture, relay snapshots are never authoritative
+    // for the local user's membership status. This applies at ALL confidence levels,
+    // not just warming_up. Only explicit signed actions can write terminal entries.
+    const wrapper: React.FC<React.PropsWithChildren> = ({ children }) => (
+      <GroupProvider>{children}</GroupProvider>
+    );
+    const { result } = renderHook(() => useGroups(), { wrapper });
+
+    // Seed the group via addGroup so it is fully registered
+    act(() => {
+      result.current.addGroup({
+        kind: "group",
+        id: "community:relay-guard:wss://relay.guard",
+        communityId: "relay-guard:wss://relay.guard",
+        groupId: "relay-guard",
+        relayUrl: "wss://relay.guard",
+        displayName: "Relay Guard",
+        memberPubkeys: [PUBLIC_KEY_A, PUBLIC_KEY_B],
+        lastMessage: "",
+        unreadCount: 0,
+        lastMessageTime: new Date(1_000),
+        access: "invite-only",
+        memberCount: 2,
+        adminPubkeys: [],
+      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.createdGroups).toHaveLength(1);
+    });
+
+    // Verify joined state was written
+    expect(loadCommunityMembershipLedger(PUBLIC_KEY_A)).toEqual(expect.arrayContaining([
+      expect.objectContaining({ groupId: "relay-guard", status: "joined" }),
+    ]));
+
+    // Fire a snapshot where local user is in leftMembers.
+    // Under the new architecture, this is ALWAYS ignored for the local user.
+    act(() => {
+      dispatchGroupMembershipSnapshot({
+          groupId: "relay-guard",
+          relayUrl: "wss://relay.guard",
+          communityId: "relay-guard:wss://relay.guard",
+          activeMemberPubkeys: [PUBLIC_KEY_B],
+          leftMembers: [PUBLIC_KEY_A],
+          expelledMembers: [],
+          disbandedAt: null,
+        });
+    });
+
+    // Group must still be visible — relay never writes terminal entries for local user
+    await waitFor(() => {
+      expect(result.current.createdGroups).toHaveLength(1);
+    });
+
+    // Ledger must still have joined status; no terminal left entry should exist
+    const ledger = loadCommunityMembershipLedger(PUBLIC_KEY_A);
+    const leftEntry = ledger.find((e) => e.groupId === "relay-guard" && e.status === "left");
+    expect(leftEntry).toBeUndefined();
+    expect(ledger).toEqual(expect.arrayContaining([
+      expect.objectContaining({ groupId: "relay-guard", status: "joined" }),
+    ]));
   });
 });

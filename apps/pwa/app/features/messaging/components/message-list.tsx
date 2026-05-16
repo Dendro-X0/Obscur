@@ -52,6 +52,7 @@ import { resolveSearchJumpDomResolution, resolveSearchJumpStep } from "./message
 import { VoiceCallInviteCard } from "./voice-call-invite-card";
 import {
     buildMessageRenderCaches,
+    parseMessagePayloadForRender,
     type ParsedMessagePayload,
     type InviteResponseStatus,
     type VoiceCallRoomRenderSummary,
@@ -75,7 +76,7 @@ interface MessageListProps {
     openReactionPickerMessageId?: string | null;
     batchDeleteMode?: boolean;
     selectedMessageIds?: ReadonlySet<string>;
-    onToggleSelectMessage?: (messageId: string) => void;
+    onToggleSelectMessage?: (params: Readonly<{ messageId: string; shiftKey: boolean }>) => void;
     onMessageMenuAnchorHoverChange?: (params: { messageId: string; isHovered: boolean }) => void;
     onOpenReactionPicker: (params: { messageId: string; x: number; y: number }) => void;
     onToggleReaction: (message: Message, emoji: ReactionEmoji) => void;
@@ -1053,8 +1054,24 @@ function MessageListImpl({
                                 const attachmentUrlsExpanded = renderMeta?.attachmentUrlsExpanded ?? false;
                                 const hasVisualAttachments = renderMeta?.hasVisualAttachments ?? false;
                                 const hasAttachmentRelayUrlsInContent = renderMeta?.hasAttachmentRelayUrlsInContent ?? false;
-                                const textContentResult = renderMeta?.textContentResult ?? { content: message.content, hasHiddenAttachmentRelayUrls: false };
-                                const parsedPayload = renderMeta?.parsedPayload ?? null;
+                                // Fallback: if renderMeta is missing, parse payload directly from message.content
+                                // This ensures community invites are correctly identified even when renderMeta lookup fails
+                                const fallbackParsedPayload = (() => {
+                                    const parsed = parseMessagePayloadForRender(message.content);
+                                    if (
+                                        parsed?.type === "community-invite"
+                                        || parsed?.type === "community-invite-response"
+                                        || parsed?.type === "voice-call-invite"
+                                    ) {
+                                        return parsed;
+                                    }
+                                    return null;
+                                })();
+                                const isCommunityMessage = fallbackParsedPayload?.type === "community-invite" || fallbackParsedPayload?.type === "community-invite-response";
+                                const textContentResult = renderMeta?.textContentResult ?? (isCommunityMessage
+                                    ? { content: "", hasHiddenAttachmentRelayUrls: false } // Suppress raw JSON for community messages
+                                    : { content: message.content, hasHiddenAttachmentRelayUrls: false });
+                                const parsedPayload = renderMeta?.parsedPayload ?? fallbackParsedPayload;
                                 const voiceCallRoomSummary = (
                                     parsedPayload?.type === "voice-call-invite" && typeof parsedPayload.roomId === "string"
                                 )
@@ -1212,7 +1229,7 @@ type MessageRowProps = Readonly<{
     isReactionPickerAnchored: boolean;
     batchDeleteMode: boolean;
     isBatchSelected: boolean;
-    onToggleSelectMessage?: (messageId: string) => void;
+    onToggleSelectMessage?: (params: Readonly<{ messageId: string; shiftKey: boolean }>) => void;
     onMessageMenuAnchorHoverChange?: (params: { messageId: string; isHovered: boolean }) => void;
     onOpenReactionPicker: (params: { messageId: string; x: number; y: number }) => void;
     onToggleReaction: (message: Message, emoji: ReactionEmoji) => void;
@@ -1520,7 +1537,10 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
                 <div className="w-8 flex-shrink-0 flex items-center justify-center">
                     <button
                         type="button"
-                        onClick={() => onToggleSelectMessage?.(message.id)}
+                        onClick={(event) => onToggleSelectMessage?.({
+                            messageId: message.id,
+                            shiftKey: event.shiftKey,
+                        })}
                         className={cn(
                             "flex h-6 w-6 items-center justify-center rounded-full border transition-colors",
                             isBatchSelected
@@ -1569,7 +1589,10 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
                             }
                             event.preventDefault();
                             event.stopPropagation();
-                            onToggleSelectMessage?.(message.id);
+                            onToggleSelectMessage?.({
+                                messageId: message.id,
+                                shiftKey: event.shiftKey,
+                            });
                         }}
                         onMouseEnter={() => {
                             if (!batchDeleteMode) {

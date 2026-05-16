@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import { useResolvedProfileMetadata } from "../../profile/hooks/use-resolved-profile-metadata";
 import { ChatHeader } from "./chat-header";
 import { StrangerWarningBanner } from "./stranger-warning-banner";
+import { RelayOverlapBanner } from "./relay-overlap-banner";
+import type { ContactRelayOverlapResult } from "../hooks/use-contact-relay-overlap";
 import { MessageList } from "./message-list";
 import { Composer } from "./composer";
 import { MediaGallery } from "./media-gallery";
@@ -20,6 +22,7 @@ import Image from "next/image";
 import { cn } from "@/app/lib/utils";
 import { getVoiceNoteAttachmentMetadata } from "@/app/features/messaging/services/voice-note-metadata";
 import { logAppEvent } from "@/app/shared/log-app-event";
+import { applyBatchMessageSelectionToggle } from "../utils/batch-message-selection";
 
 type ChatHistorySearchResult = Readonly<{
     messageId: string;
@@ -94,8 +97,8 @@ export interface ChatViewProps {
     onCopyText: (text: string) => void;
     onCopyAttachmentUrl: (url: string) => void;
     onReferenceMessage: (message: Message) => void;
-    onDeleteMessageForMe: (message: Message) => void;
-    onDeleteMessageForEveryone: (message: Message) => void;
+    onDeleteMessageForMe: (message: Message) => void | Promise<void>;
+    onDeleteMessageForEveryone: (message: Message) => void | Promise<void>;
 
     // Reaction Picker
     reactionPicker: { messageId: string; x: number; y: number } | null;
@@ -140,6 +143,10 @@ export interface ChatViewProps {
     onAcceptPeer?: () => void;
     onBlockPeer?: () => void;
     groupAdmins?: ReadonlyArray<Readonly<{ pubkey: string; roles: ReadonlyArray<string> }>>;
+    relayOverlap?: ContactRelayOverlapResult;
+    onAddRelay?: (url: string) => void;
+    onNavigateToRelaySettings?: () => void;
+    deliveryRisk?: "no_overlap" | "unknown" | "overlap" | null;
 }
 
 
@@ -149,6 +156,7 @@ export function ChatView(props: ChatViewProps) {
     const [isBatchDeleteMode, setIsBatchDeleteMode] = useState(false);
     const [selectedMessageIds, setSelectedMessageIds] = useState<ReadonlySet<string>>(new Set());
     const [isBatchDeleteInFlight, setIsBatchDeleteInFlight] = useState(false);
+    const batchSelectionAnchorIdRef = React.useRef<string | null>(null);
     const [isHistorySearchOpen, setIsHistorySearchOpen] = useState(false);
     const [historySearchQuery, setHistorySearchQuery] = useState("");
     const [historySearchFilter, setHistorySearchFilter] = useState<"all" | "voice_note">("all");
@@ -368,6 +376,7 @@ export function ChatView(props: ChatViewProps) {
         };
     }, []);
     const handleCancelBatchDeleteMode = React.useCallback((): void => {
+        batchSelectionAnchorIdRef.current = null;
         setIsBatchDeleteMode(false);
         setSelectedMessageIds(new Set());
         setMessageMenu(null);
@@ -376,6 +385,7 @@ export function ChatView(props: ChatViewProps) {
         setIsMessageMenuHovered(false);
     }, [setMessageMenu, setReactionPicker]);
     const handleStartBatchDeleteModeForMessage = React.useCallback((messageId: string): void => {
+        batchSelectionAnchorIdRef.current = messageId;
         setIsBatchDeleteMode(true);
         setSelectedMessageIds(new Set([messageId]));
         setMessageMenu(null);
@@ -383,44 +393,48 @@ export function ChatView(props: ChatViewProps) {
         setMessageMenuAnchorHoverId(null);
         setIsMessageMenuHovered(false);
     }, [setMessageMenu, setReactionPicker]);
-    const handleToggleBatchMessageSelection = React.useCallback((messageId: string): void => {
+    const handleToggleBatchMessageSelection = React.useCallback((params: Readonly<{
+        messageId: string;
+        shiftKey: boolean;
+    }>): void => {
         if (!isBatchDeleteMode) {
             return;
         }
         setSelectedMessageIds((current) => {
-            const next = new Set(current);
-            if (next.has(messageId)) {
-                next.delete(messageId);
-            } else {
-                next.add(messageId);
-            }
-            return next;
+            const result = applyBatchMessageSelectionToggle({
+                messages: props.messages,
+                currentSelectedIds: current,
+                anchorMessageId: batchSelectionAnchorIdRef.current,
+                toggle: params,
+            });
+            batchSelectionAnchorIdRef.current = result.anchorMessageId;
+            return new Set(result.selectedIds);
         });
-    }, [isBatchDeleteMode]);
-    const handleBatchDeleteForMe = React.useCallback((): void => {
+    }, [isBatchDeleteMode, props.messages]);
+    const handleBatchDeleteForMe = React.useCallback(async (): Promise<void> => {
         if (selectedMessageCount === 0 || isBatchDeleteInFlight) {
             return;
         }
         setIsBatchDeleteInFlight(true);
         try {
-            selectedMessages.forEach((message) => {
-                onDeleteMessageForMe(message);
-            });
+            for (const message of selectedMessages) {
+                await Promise.resolve(onDeleteMessageForMe(message));
+            }
         } finally {
             setSelectedMessageIds(new Set());
             setIsBatchDeleteMode(false);
             setIsBatchDeleteInFlight(false);
         }
     }, [isBatchDeleteInFlight, onDeleteMessageForMe, selectedMessageCount, selectedMessages]);
-    const handleBatchDeleteForEveryone = React.useCallback((): void => {
+    const handleBatchDeleteForEveryone = React.useCallback(async (): Promise<void> => {
         if (selectedOutgoingMessageCount === 0 || isBatchDeleteInFlight) {
             return;
         }
         setIsBatchDeleteInFlight(true);
         try {
-            selectedOutgoingMessages.forEach((message) => {
-                onDeleteMessageForEveryone(message);
-            });
+            for (const message of selectedOutgoingMessages) {
+                await Promise.resolve(onDeleteMessageForEveryone(message));
+            }
         } finally {
             setSelectedMessageIds(new Set());
             setIsBatchDeleteMode(false);
@@ -624,6 +638,14 @@ export function ChatView(props: ChatViewProps) {
                     onBlock={() => props.onBlockPeer?.()}
                 />
             )}
+            {props.conversation.kind === 'dm' && props.relayOverlap && props.relayOverlap.status !== 'overlap' && (
+                <RelayOverlapBanner
+                    overlap={props.relayOverlap}
+                    contactDisplayName={resolvedName}
+                    onAddRelay={props.onAddRelay}
+                    onNavigateToRelaySettings={props.onNavigateToRelaySettings}
+                />
+            )}
             {isDeletedRecipient && (
                 <div className="mx-4 mt-3 rounded-2xl border border-amber-500/25 bg-amber-50/65 px-4 py-3 text-xs font-semibold text-amber-800 dark:border-amber-500/35 dark:bg-amber-900/20 dark:text-amber-200">
                     This contact account has been removed. You can still browse this chat, but new messages and calls cannot be delivered.
@@ -692,6 +714,12 @@ export function ChatView(props: ChatViewProps) {
                                 {t(
                                     "messaging.deletePermissionsIntro",
                                     "Deletion permissions:",
+                                )}
+                            </p>
+                            <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+                                {t(
+                                    "messaging.batchDeleteShiftHint",
+                                    "Tip: click one message, then Shift+click another to select the range in between.",
                                 )}
                             </p>
                             <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
@@ -927,6 +955,7 @@ export function ChatView(props: ChatViewProps) {
                 onSendVoiceNote={props.onSendVoiceNote}
                 isProcessingMedia={props.isProcessingMedia}
                 mediaProcessingProgress={props.mediaProcessingProgress}
+                deliveryRisk={props.deliveryRisk}
             />
 
             {!isBatchDeleteMode && props.messageMenu && activeMessage && (

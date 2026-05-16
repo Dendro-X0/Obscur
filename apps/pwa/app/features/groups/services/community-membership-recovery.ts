@@ -12,6 +12,7 @@ import {
 } from "./community-membership-ledger";
 import { toGroupTombstoneKey } from "./group-tombstone-store";
 import { pickPreferredCommunityId } from "../utils/community-identity";
+import { hasDurableCommunityLeaveIntent } from "./community-membership-leave-intent";
 
 export const COMMUNITY_MEMBERSHIP_RECOVERY_PRECEDENCE = Object.freeze([
   "tombstone",
@@ -34,6 +35,7 @@ export type CommunityMembershipRecoveryDiagnostics = Readonly<{
   localMemberBackfillCount: number;
   hiddenByTombstoneCount: number;
   hiddenByLedgerStatusCount: number;
+  hiddenByLeaveIntentCount: number;
   missingLedgerCoverageCount: number;
 }>;
 
@@ -152,8 +154,11 @@ const dedupeLedgerByKey = (
   const byKey = new Map<string, CommunityMembershipLedgerEntry>();
   for (const entry of entries) {
     const key = toCommunityMembershipLedgerKey(entry);
+    if (!key) {
+      continue;
+    }
     const current = byKey.get(key);
-    if (!current || entry.updatedAtUnixMs >= current.updatedAtUnixMs) {
+    if (!current || (entry.updatedAtUnixMs ?? 0) >= (current.updatedAtUnixMs ?? 0)) {
       byKey.set(key, entry);
     }
   }
@@ -211,6 +216,7 @@ const toMembershipProjectionFromGroup = (params: Readonly<{
 
 export const resolveCommunityMembershipRecovery = (params: Readonly<{
   publicKeyHex: string;
+  profileId?: string;
   persistedGroups: ReadonlyArray<GroupConversation>;
   membershipLedger: ReadonlyArray<CommunityMembershipLedgerEntry>;
   tombstones: ReadonlySet<string>;
@@ -228,6 +234,7 @@ export const resolveCommunityMembershipRecovery = (params: Readonly<{
 
   let hiddenByTombstoneCount = 0;
   let hiddenByLedgerStatusCount = 0;
+  let hiddenByLeaveIntentCount = 0;
   let hydratedFromPersistedWithLedgerCount = 0;
   let hydratedFromPersistedFallbackCount = 0;
   let hydratedFromLedgerOnlyCount = 0;
@@ -244,6 +251,17 @@ export const resolveCommunityMembershipRecovery = (params: Readonly<{
     }
     if (membershipEntry && membershipEntry.status !== "joined") {
       hiddenByLedgerStatusCount += 1;
+      continue;
+    }
+    if (hasDurableCommunityLeaveIntent({
+      publicKeyHex: params.publicKeyHex,
+      profileId: params.profileId,
+      groupId: persistedGroup.groupId,
+      relayUrl: persistedGroup.relayUrl,
+      ledgerEntry: membershipEntry,
+      tombstones: params.tombstones,
+    })) {
+      hiddenByLeaveIntentCount += 1;
       continue;
     }
     if (membershipEntry?.status === "joined") {
@@ -354,6 +372,7 @@ export const resolveCommunityMembershipRecovery = (params: Readonly<{
       localMemberBackfillCount,
       hiddenByTombstoneCount,
       hiddenByLedgerStatusCount,
+      hiddenByLeaveIntentCount,
       missingLedgerCoverageCount: missingLedgerCoverageEntries.length,
     },
   };

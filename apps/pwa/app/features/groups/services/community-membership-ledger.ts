@@ -1,27 +1,75 @@
 import type { GroupConversation } from "@/app/features/messaging/types";
 import type { CommunityMembershipStatus } from "@dweb/core/community-projection-contracts";
-import { getActiveProfileIdSafe, getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { getDefaultProfileId, getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { getProfileRuntimeScope, getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { emitAccountSyncMutation } from "@/app/shared/account-sync-mutation-signal";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import { deriveCommunityId, pickPreferredCommunityId } from "../utils/community-identity";
 import { toGroupConversationId } from "../utils/group-conversation-id";
+import {
+  validateLedgerEntry,
+  assertValidLedgerEntry,
+  validateLedgerEntries,
+  needsMigration,
+  CURRENT_LEDGER_VERSION,
+  type ValidationResult,
+} from "./community-ledger-validator";
+import { migrateLedgerEntries } from "./community-ledger-migration";
 
 const MEMBERSHIP_LEDGER_STORAGE_PREFIX = "obscur.group.membership_ledger.v1";
 export const LEDGER_ONLY_GROUP_PLACEHOLDER_MESSAGE = "Group key unavailable on this device";
 export const COMMUNITY_MEMBERSHIP_LEDGER_UPDATED_EVENT = "obscur:community-membership-ledger-updated";
+
+/** Window + profile-bus payload for ledger snapshot changes (`profileId` on v1.5+ bus/window emits). */
+export type CommunityMembershipLedgerUpdatedEventDetail = Readonly<{
+  publicKeyHex: string;
+  profileId?: string;
+}>;
 const ledgerLoadSignatureByScope = new Map<string, string>();
 export type { CommunityMembershipStatus } from "@dweb/core/community-projection-contracts";
 
+/**
+ * Community Membership Ledger Entry
+ *
+ * NOTE: Fields marked with (v2+) are required for data integrity and were
+ * added in schema version 2. Legacy entries may not have these fields.
+ *
+ * For new entries, ALL fields should be populated using toCommunityMembershipLedgerEntryFromGroup()
+ * which now includes proper member list preservation.
+ */
 export type CommunityMembershipLedgerEntry = Readonly<{
-  communityId: string;
+  // Core Identity (always required)
   groupId: string;
-  relayUrl: string;
+
+  // Membership State
   status: CommunityMembershipStatus;
-  updatedAtUnixMs: number;
-  lastEvidenceEventId?: string;
+  joinedAt?: number;
+
+  // Group Metadata
   displayName?: string;
+  avatarUrl?: string;
+
+  // CRITICAL (v2+): Member Lists - Required for complete recovery
+  // These fields prevent the "Private Group with 1 member" bug
+  memberPubkeys?: ReadonlyArray<string>;
+  adminPubkeys?: ReadonlyArray<string>;
+
+  // Ledger Metadata (v2+): For migrations and data integrity
+  ledgerVersion?: number;
+  publicKeyHex?: string;
+  createdAt?: number;
+  updatedAt?: number;
+
+  // Legacy fields (maintained for backward compatibility)
+  communityId?: string;
+  relayUrl?: string;
+  updatedAtUnixMs?: number;
+  lastEvidenceEventId?: string;
   avatar?: string;
 }>;
+
+/** Re-export validation types for convenience */
+export type { ValidationResult } from "./community-ledger-validator";
 
 const normalizeRelayUrl = (relayUrl: string | null | undefined): string => {
   const trimmed = (relayUrl ?? "").trim();
@@ -29,19 +77,27 @@ const normalizeRelayUrl = (relayUrl: string | null | undefined): string => {
 };
 
 const isCommunityMembershipStatus = (value: unknown): value is CommunityMembershipStatus => (
-  value === "joined" || value === "left" || value === "expelled"
+  value === "joined" || value === "left" || value === "expelled" ||
+  value === "historical" || value === "invited" || value === "pending" || value === "unknown"
 );
 
 export const toCommunityMembershipLedgerKey = (
-  params: Readonly<{ groupId: string; relayUrl: string }>
-): string => `${params.groupId.trim()}@@${normalizeRelayUrl(params.relayUrl)}`;
+  params: Readonly<{ groupId: string; relayUrl?: string }>
+): string | null => {
+  const trimmedGroupId = params.groupId.trim();
+  const trimmedRelayUrl = params.relayUrl?.trim();
+  if (trimmedGroupId.length === 0 || !trimmedRelayUrl || trimmedRelayUrl.length === 0) {
+    return null;
+  }
+  return `${trimmedGroupId}@@${normalizeRelayUrl(trimmedRelayUrl)}`;
+};
 
 const toLegacyStorageKey = (publicKeyHex: string): string => (
   `${MEMBERSHIP_LEDGER_STORAGE_PREFIX}.${publicKeyHex}`
 );
 
-const toStorageKey = (publicKeyHex: string): string => (
-  getScopedStorageKey(toLegacyStorageKey(publicKeyHex))
+const toStorageKey = (publicKeyHex: string, profileId?: string): string => (
+  getScopedStorageKey(toLegacyStorageKey(publicKeyHex), profileId ?? getResolvedProfileId())
 );
 
 const toPublicKeySuffix = (publicKeyHex: string): string => publicKeyHex.slice(-8);
@@ -96,13 +152,38 @@ const dedupeCommunityMembershipLedger = (
       continue;
     }
     const key = toCommunityMembershipLedgerKey(normalized);
+    if (!key) {
+      continue;
+    }
     const existing = byKey.get(key);
     if (!existing) {
       byKey.set(key, normalized);
       continue;
     }
-    const newer = normalized.updatedAtUnixMs >= existing.updatedAtUnixMs ? normalized : existing;
+    // M2: explicit user-intent statuses always beat historical reconstruction
+    // regardless of timestamp. Only fall back to timestamp when both entries
+    // carry the same class of authority.
+    const normalizedIsExplicit = normalized.status !== "historical" && normalized.status !== "unknown";
+    const existingIsExplicit = existing.status !== "historical" && existing.status !== "unknown";
+    const newerByPrecedence = (normalizedIsExplicit && !existingIsExplicit)
+      ? normalized
+      : (!normalizedIsExplicit && existingIsExplicit)
+        ? existing
+        : (normalized.updatedAtUnixMs ?? 0) >= (existing.updatedAtUnixMs ?? 0)
+          ? normalized
+          : existing;
+    const newer = newerByPrecedence;
     const older = newer === normalized ? existing : normalized;
+    // Merge memberPubkeys from both entries to avoid losing members
+    const mergedMemberPubkeys = Array.from(new Set([
+      ...(older.memberPubkeys ?? []),
+      ...(newer.memberPubkeys ?? []),
+    ]));
+    // Merge adminPubkeys from both entries
+    const mergedAdminPubkeys = Array.from(new Set([
+      ...(older.adminPubkeys ?? []),
+      ...(newer.adminPubkeys ?? []),
+    ]));
     byKey.set(key, {
       ...older,
       ...newer,
@@ -110,9 +191,11 @@ const dedupeCommunityMembershipLedger = (
       displayName: newer.displayName ?? older.displayName,
       avatar: newer.avatar ?? older.avatar,
       lastEvidenceEventId: newer.lastEvidenceEventId ?? older.lastEvidenceEventId,
+      memberPubkeys: mergedMemberPubkeys.length > 0 ? mergedMemberPubkeys : undefined,
+      adminPubkeys: mergedAdminPubkeys.length > 0 ? mergedAdminPubkeys : undefined,
     });
   }
-  return Array.from(byKey.values()).sort((left, right) => right.updatedAtUnixMs - left.updatedAtUnixMs);
+  return Array.from(byKey.values()).sort((left, right) => (right.updatedAtUnixMs ?? 0) - (left.updatedAtUnixMs ?? 0));
 };
 
 export const parseCommunityMembershipLedgerSnapshot = (
@@ -137,14 +220,23 @@ export const selectJoinedCommunityMembershipLedgerEntries = (
   entries.filter((entry) => entry.status === "joined")
 );
 
-const readCommunityMembershipLedger = (publicKeyHex: string): ReadonlyArray<CommunityMembershipLedgerEntry> => {
+const readCommunityMembershipLedger = (
+  publicKeyHex: string,
+  options?: Readonly<{ profileId?: string }>
+): ReadonlyArray<CommunityMembershipLedgerEntry> => {
   if (typeof window === "undefined") {
     return [];
   }
-  const profileId = getActiveProfileIdSafe();
+  const profileId = options?.profileId ?? getResolvedProfileId();
   try {
-    const scopedRaw = window.localStorage.getItem(toStorageKey(publicKeyHex));
-    const legacyRaw = window.localStorage.getItem(toLegacyStorageKey(publicKeyHex));
+    const scopedRaw = window.localStorage.getItem(toStorageKey(publicKeyHex, profileId));
+    // AB-08: only read the legacy (unscoped) key for the default profile.
+    // Named profiles must not fall back to the shared legacy key — that key
+    // is a migration path for the default profile only and must not leak
+    // default-profile data into named-profile reads.
+    const legacyRaw = profileId === getDefaultProfileId()
+      ? window.localStorage.getItem(toLegacyStorageKey(publicKeyHex))
+      : null;
 
     const scopedEntries = scopedRaw
       ? parseCommunityMembershipLedgerSnapshot(JSON.parse(scopedRaw))
@@ -174,7 +266,42 @@ const readCommunityMembershipLedger = (publicKeyHex: string): ReadonlyArray<Comm
       return [];
     }
     const mergedEntries = mergeCommunityMembershipLedgerEntries(scopedEntries, legacyEntries);
-    const signature = `profile:${profileId}|scoped:${scopedEntries.length}|legacy:${legacyEntries.length}|merged:${mergedEntries.length}`;
+
+    // Migration: Check for entries needing v1→v2 migration
+    const needsMigrationCount = mergedEntries.filter(e => needsMigration(e)).length;
+    if (needsMigrationCount > 0) {
+      // Log migration need (actual migration happens async via migrateLedgerEntries)
+      logAppEvent({
+        name: "groups.ledger_migration_needed",
+        level: "info",
+        scope: { feature: "groups", action: "ledger_load" },
+        context: {
+          publicKeySuffix: toPublicKeySuffix(publicKeyHex),
+          profileId,
+          needsMigrationCount,
+          totalEntries: mergedEntries.length,
+        },
+      });
+    }
+
+    // Validation: Check all entries for issues
+    const validationResults = validateLedgerEntries(mergedEntries, { allowLegacy: true });
+    if (validationResults.invalid > 0) {
+      logAppEvent({
+        name: "groups.ledger_validation_issues",
+        level: "warn",
+        scope: { feature: "groups", action: "ledger_load" },
+        context: {
+          publicKeySuffix: toPublicKeySuffix(publicKeyHex),
+          profileId,
+          invalidEntries: validationResults.invalid,
+          totalEntries: validationResults.total,
+          sampleErrors: validationResults.errors.slice(0, 3).join('; '),
+        },
+      });
+    }
+
+    const signature = `profile:${profileId}|scoped:${scopedEntries.length}|legacy:${legacyEntries.length}|merged:${mergedEntries.length}|needsMigration:${needsMigrationCount}|invalid:${validationResults.invalid}`;
     const scopeKey = `${publicKeyHex}::${profileId}`;
     if (ledgerLoadSignatureByScope.get(scopeKey) !== signature) {
       ledgerLoadSignatureByScope.set(scopeKey, signature);
@@ -188,6 +315,8 @@ const readCommunityMembershipLedger = (publicKeyHex: string): ReadonlyArray<Comm
           scopedEntryCount: scopedEntries.length,
           legacyEntryCount: legacyEntries.length,
           mergedEntryCount: mergedEntries.length,
+          needsMigrationCount,
+          invalidEntries: validationResults.invalid,
         },
       });
     }
@@ -198,20 +327,31 @@ const readCommunityMembershipLedger = (publicKeyHex: string): ReadonlyArray<Comm
 };
 
 export const loadCommunityMembershipLedger = (
-  publicKeyHex: string
-): ReadonlyArray<CommunityMembershipLedgerEntry> => readCommunityMembershipLedger(publicKeyHex);
-
-export const saveCommunityMembershipLedger = (
   publicKeyHex: string,
-  entries: ReadonlyArray<CommunityMembershipLedgerEntry>
+  options?: Readonly<{ profileId?: string }>
+): ReadonlyArray<CommunityMembershipLedgerEntry> => readCommunityMembershipLedger(publicKeyHex, options);
+
+const persistCommunityMembershipLedger = (
+  publicKeyHex: string,
+  entries: ReadonlyArray<CommunityMembershipLedgerEntry>,
+  options?: Readonly<{ profileId?: string; replace?: boolean }>
 ): void => {
   if (typeof window === "undefined") {
     return;
   }
   try {
-    const normalizedEntries = dedupeCommunityMembershipLedger(entries);
+    // AB-05: merge incoming entries with whatever is already stored so that
+    // a newer stored "left" entry cannot be silently overwritten by an older
+    // incoming "joined" entry. dedupeCommunityMembershipLedger keeps the
+    // entry with the higher updatedAtUnixMs when two entries share the same
+    // ledger key, which is the correct timestamp-precedence behaviour.
+    const activeProfileId = options?.profileId ?? getResolvedProfileId();
+    const existingStored = readCommunityMembershipLedger(publicKeyHex, { profileId: activeProfileId });
+    const normalizedEntries = options?.replace
+      ? dedupeCommunityMembershipLedger([...entries])
+      : dedupeCommunityMembershipLedger([...existingStored, ...entries]);
     const serialized = JSON.stringify(normalizedEntries);
-    const storageKey = toStorageKey(publicKeyHex);
+    const storageKey = toStorageKey(publicKeyHex, activeProfileId);
     const legacyStorageKey = toLegacyStorageKey(publicKeyHex);
     const existingScoped = window.localStorage.getItem(storageKey);
     const existingLegacy = window.localStorage.getItem(legacyStorageKey);
@@ -220,8 +360,13 @@ export const saveCommunityMembershipLedger = (
     if (existingScoped !== serialized) {
       window.localStorage.setItem(storageKey, serialized);
     }
-    if (existingLegacy !== serialized) {
-      // Keep account-scoped fallback stable across profile-scope transitions.
+    // AB-08: only write the legacy (unscoped) key for the default profile,
+    // or when no legacy key exists yet (bootstrap/first-write path). Named
+    // profiles must not overwrite an existing legacy key — that is the
+    // cross-profile leak vector. But a missing legacy key must be seeded so
+    // that the default-profile provider can find entries written during a
+    // bootstrap-scoped restore.
+    if ((activeProfileId === getDefaultProfileId() || existingLegacy === null) && existingLegacy !== serialized) {
       window.localStorage.setItem(legacyStorageKey, serialized);
     }
 
@@ -234,29 +379,110 @@ export const saveCommunityMembershipLedger = (
       scope: { feature: "groups", action: "membership_ledger" },
       context: {
         publicKeySuffix: toPublicKeySuffix(publicKeyHex),
-        profileId: getActiveProfileIdSafe(),
+        profileId: activeProfileId,
         savedEntryCount: normalizedEntries.length,
       },
     });
-    window.dispatchEvent(new CustomEvent(COMMUNITY_MEMBERSHIP_LEDGER_UPDATED_EVENT, {
-      detail: { publicKeyHex },
-    }));
+    const ledgerUpdatedDetail: CommunityMembershipLedgerUpdatedEventDetail = {
+      publicKeyHex,
+      profileId: activeProfileId,
+    };
+    const runtimeScope = getProfileRuntimeScope();
+    if (runtimeScope?.bus && runtimeScope.profileId === activeProfileId) {
+      runtimeScope.bus.publish({
+        type: "community-membership-ledger-updated",
+        detail: ledgerUpdatedDetail,
+      });
+    }
     emitAccountSyncMutation("community_membership_changed");
   } catch {
     return;
   }
 };
 
-export const upsertCommunityMembershipLedgerEntry = (
+export const saveCommunityMembershipLedger = (
   publicKeyHex: string,
-  entry: CommunityMembershipLedgerEntry
+  entries: ReadonlyArray<CommunityMembershipLedgerEntry>,
+  options?: Readonly<{ profileId?: string }>
 ): void => {
-  const current = readCommunityMembershipLedger(publicKeyHex);
-  const next = mergeCommunityMembershipLedgerEntries(current, [entry]);
-  saveCommunityMembershipLedger(publicKeyHex, next);
+  persistCommunityMembershipLedger(publicKeyHex, entries, options);
 };
 
-export const setCommunityMembershipStatus = (
+export const replaceCommunityMembershipLedger = (
+  publicKeyHex: string,
+  entries: ReadonlyArray<CommunityMembershipLedgerEntry>,
+  options?: Readonly<{ profileId?: string }>
+): void => {
+  persistCommunityMembershipLedger(publicKeyHex, entries, {
+    ...options,
+    replace: true,
+  });
+};
+
+export const upsertCommunityMembershipLedgerEntry = (
+  publicKeyHex: string,
+  entry: CommunityMembershipLedgerEntry,
+  options?: Readonly<{ profileId?: string }>
+): void => {
+  // Validate entry before saving (warn but don't block for backward compatibility)
+  const validation = validateLedgerEntry(entry, { context: 'upsert', allowLegacy: true });
+  if (!validation.valid) {
+    console.warn('[CommunityLedger] Validation failed for entry:', entry.groupId, validation.errors);
+    logAppEvent({
+      name: "groups.ledger_entry_invalid",
+      level: "warn",
+      scope: { feature: "groups", action: "ledger_upsert" },
+      context: {
+        groupId: entry.groupId,
+        errors: validation.errors.join('; '),
+        warnings: validation.warnings.join('; '),
+      },
+    });
+  }
+
+  const current = readCommunityMembershipLedger(publicKeyHex, options);
+  const next = mergeCommunityMembershipLedgerEntries(current, [entry]);
+  const activeProfileId = options?.profileId ?? getResolvedProfileId();
+  const ledgerKey = toCommunityMembershipLedgerKey({
+    groupId: entry.groupId,
+    relayUrl: entry.relayUrl,
+  });
+  const rowForKey = (
+    rows: ReadonlyArray<CommunityMembershipLedgerEntry>,
+    key: string,
+  ): CommunityMembershipLedgerEntry | undefined => (
+    rows.find((row) => toCommunityMembershipLedgerKey({
+      groupId: row.groupId,
+      relayUrl: row.relayUrl,
+    }) === key)
+  );
+  const mutationApplied = !ledgerKey
+    ? current.length !== next.length
+    : JSON.stringify(rowForKey(current, ledgerKey)) !== JSON.stringify(rowForKey(next, ledgerKey));
+
+  if (mutationApplied) {
+    const resolvedRow = ledgerKey ? rowForKey(next, ledgerKey) : undefined;
+    logAppEvent({
+      name: "groups.membership_ledger_mutation_applied",
+      level: "info",
+      scope: { feature: "groups", action: "membership_ledger" },
+      context: {
+        publicKeySuffix: toPublicKeySuffix(publicKeyHex),
+        profileId: activeProfileId,
+        ledgerKey: ledgerKey ?? null,
+        status: resolvedRow?.status ?? entry.status,
+        updatedAtUnixMs: resolvedRow?.updatedAtUnixMs ?? entry.updatedAtUnixMs ?? null,
+        lastEvidenceEventId: resolvedRow?.lastEvidenceEventId ?? entry.lastEvidenceEventId ?? null,
+        priorEntryCount: current.length,
+        nextEntryCount: next.length,
+      },
+    });
+  }
+
+  saveCommunityMembershipLedger(publicKeyHex, next, options);
+};
+
+const setCommunityMembershipStatus = (
   publicKeyHex: string,
   params: Readonly<{
     groupId: string;
@@ -267,7 +493,8 @@ export const setCommunityMembershipStatus = (
     displayName?: string;
     avatar?: string;
     lastEvidenceEventId?: string;
-  }>
+  }>,
+  options?: Readonly<{ profileId?: string }>
 ): void => {
   const communityId = deriveCommunityId({
     existingCommunityId: params.communityId,
@@ -283,8 +510,12 @@ export const setCommunityMembershipStatus = (
     displayName: params.displayName,
     avatar: params.avatar,
     lastEvidenceEventId: params.lastEvidenceEventId,
-  });
+  }, options);
 };
+
+export const communityMembershipLedgerInternals = {
+  setCommunityMembershipStatus,
+} as const;
 
 export const toCommunityMembershipLedgerEntryFromGroup = (
   group: GroupConversation,
@@ -293,22 +524,39 @@ export const toCommunityMembershipLedgerEntryFromGroup = (
     updatedAtUnixMs?: number;
     lastEvidenceEventId?: string;
   }>
-): CommunityMembershipLedgerEntry => ({
-  communityId: deriveCommunityId({
-    existingCommunityId: group.communityId,
+): CommunityMembershipLedgerEntry => {
+  const now = Date.now();
+  const entry: CommunityMembershipLedgerEntry = {
+    communityId: deriveCommunityId({
+      existingCommunityId: group.communityId,
+      groupId: group.groupId,
+      relayUrl: group.relayUrl,
+      genesisEventId: group.genesisEventId,
+      creatorPubkey: group.creatorPubkey,
+    }),
     groupId: group.groupId,
+    publicKeyHex: group.creatorPubkey ?? '',
     relayUrl: group.relayUrl,
-    genesisEventId: group.genesisEventId,
-    creatorPubkey: group.creatorPubkey,
-  }),
-  groupId: group.groupId,
-  relayUrl: group.relayUrl,
-  status: options?.status ?? "joined",
-  updatedAtUnixMs: options?.updatedAtUnixMs ?? Date.now(),
-  lastEvidenceEventId: options?.lastEvidenceEventId,
-  displayName: group.displayName,
-  avatar: group.avatar,
-});
+    status: options?.status ?? "joined",
+    updatedAtUnixMs: options?.updatedAtUnixMs ?? now,
+    lastEvidenceEventId: options?.lastEvidenceEventId,
+    displayName: group.displayName,
+    avatar: group.avatar,
+    memberPubkeys: group.memberPubkeys ?? [],
+    adminPubkeys: group.adminPubkeys ?? [],
+    ledgerVersion: CURRENT_LEDGER_VERSION,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  // Validate the new entry (log warnings but don't block)
+  const validation = validateLedgerEntry(entry, { context: 'fromGroup' });
+  if (!validation.valid) {
+    console.warn('[CommunityLedger] New entry validation failed:', validation.errors);
+  }
+
+  return entry;
+};
 
 export const toGroupConversationFromMembershipLedgerEntry = (
   entry: CommunityMembershipLedgerEntry,
@@ -327,22 +575,25 @@ export const toGroupConversationFromMembershipLedgerEntry = (
     relayUrl: entry.relayUrl,
     communityId,
   });
+  const entryMemberPubkeys = Array.from(new Set((entry.memberPubkeys ?? []).map((pubkey) => pubkey.trim()).filter((pubkey) => pubkey.length > 0)));
   const fallbackMemberPubkeys = Array.from(new Set((options?.fallbackMemberPubkeys ?? []).map((pubkey) => pubkey.trim()).filter((pubkey) => pubkey.length > 0)));
-  const memberCount = Math.max(fallbackMemberPubkeys.length, 1);
+  // Prefer member pubkeys from ledger entry, fall back to options if empty
+  const mergedMemberPubkeys = entryMemberPubkeys.length > 0 ? entryMemberPubkeys : fallbackMemberPubkeys;
+  const memberCount = Math.max(mergedMemberPubkeys.length, 1);
   return {
     kind: "group",
     id,
     communityId,
     groupId: entry.groupId,
-    relayUrl: entry.relayUrl,
+    relayUrl: entry.relayUrl ?? "",
     displayName: entry.displayName ?? options?.fallbackDisplayName ?? "Private Group",
-    memberPubkeys: fallbackMemberPubkeys,
+    memberPubkeys: mergedMemberPubkeys,
     lastMessage: LEDGER_ONLY_GROUP_PLACEHOLDER_MESSAGE,
     unreadCount: 0,
-    lastMessageTime: new Date(entry.updatedAtUnixMs),
+    lastMessageTime: new Date(entry.updatedAtUnixMs ?? entry.updatedAt ?? Date.now()),
     access: "invite-only",
     memberCount,
-    adminPubkeys: [],
+    adminPubkeys: Array.from(new Set((entry.adminPubkeys ?? []).map((pubkey) => pubkey.trim()).filter((pubkey) => pubkey.length > 0))),
     avatar: entry.avatar,
     about: undefined,
   };

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { PROFILE_CHANGED_EVENT } from "@/app/features/profiles/services/profile-registry-service";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 
 type ThemePreference = "system" | "light" | "dark";
 
@@ -19,6 +20,7 @@ type ThemeStore = Readonly<{
 }>;
 
 const STORAGE_KEY: string = "dweb.nostr.pwa.ui.theme";
+const getStorageKey = (): string => getScopedStorageKey(STORAGE_KEY, getResolvedProfileId());
 const SERVER_SNAPSHOT: ThemeSnapshot = { preference: "system" };
 
 const isThemePreference = (value: unknown): value is ThemePreference => {
@@ -128,4 +130,3 @@ const useTheme = (): UseThemeResult => {
 };
 
 export { useTheme };
-const getStorageKey = (): string => getScopedStorageKey(STORAGE_KEY);

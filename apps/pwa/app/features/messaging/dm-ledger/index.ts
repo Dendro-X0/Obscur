@@ -68,6 +68,7 @@ export {
   hasDmOperation,
   getDmOperationCount,
   clearDmOperationsForConversation,
+  deleteMessageUpsertOperations,
   exportAllDmOperations,
 } from "./dm-operation-store";
 

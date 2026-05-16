@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { AccountEvent } from "../account-event-contracts";
 import { replayAccountEvents } from "./account-event-reducer";
+import * as messagingOps from "@/app/features/messaging/services/messaging-client-operations";
 
 const PROFILE_ID = "default";
 const ACCOUNT = "a".repeat(64) as any;
@@ -274,6 +275,45 @@ describe("account-event-reducer", () => {
 
     expect(projection?.messagesByConversationId[conversationId]).toEqual([]);
     expect(projection?.removedMessageIds?.["msg-tombstoned"]).toBe(2_000);
+  });
+
+  it("blocks replayed DM_RECEIVED when durable delete tombstone applies to that message id", () => {
+    const spy = vi.spyOn(messagingOps.messagingClientOperations, "isDmMessageSuppressed")
+      .mockReturnValueOnce(false)
+      .mockReturnValue(true);
+    try {
+      const conversationId = `${ACCOUNT}:${PEER}`;
+      const projection = replayAccountEvents([
+        createEvent({
+          ...baseMeta,
+          type: "DM_RECEIVED",
+          eventId: "dm-in-initial",
+          idempotencyKey: "dm-in-initial",
+          observedAtUnixMs: 1_000,
+          peerPublicKeyHex: PEER,
+          conversationId,
+          messageId: "msg-tombstoned",
+          eventCreatedAtUnixSeconds: 10,
+          plaintextPreview: "first copy",
+        }, 1),
+        createEvent({
+          ...baseMeta,
+          type: "DM_RECEIVED",
+          eventId: "dm-in-stale-replay",
+          idempotencyKey: "dm-in-stale-replay",
+          observedAtUnixMs: 3_000,
+          peerPublicKeyHex: PEER,
+          conversationId,
+          messageId: "msg-tombstoned",
+          eventCreatedAtUnixSeconds: 10,
+          plaintextPreview: "stale replay",
+        }, 2),
+      ]);
+
+      expect(projection?.messagesByConversationId[conversationId]?.[0]?.plaintextPreview).toBe("first copy");
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it("does not regress accepted contact back to pending from stale request replay", () => {

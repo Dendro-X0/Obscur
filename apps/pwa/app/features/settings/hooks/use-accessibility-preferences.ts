@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { PROFILE_CHANGED_EVENT } from "@/app/features/profiles/services/profile-registry-service";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 
 type TextScale = 90 | 100 | 110 | 120;
 
@@ -27,7 +28,7 @@ type AccessibilityStore = Readonly<{
 }>;
 
 const STORAGE_KEY: string = "dweb.nostr.pwa.ui.accessibility.v1";
-const getStorageKey = (): string => getScopedStorageKey(STORAGE_KEY);
+const getStorageKey = (): string => getScopedStorageKey(STORAGE_KEY, getResolvedProfileId());
 const SERVER_SNAPSHOT: AccessibilitySnapshot = {
   preferences: { textScale: 100, reducedMotion: false, contrastAssist: false }
 };

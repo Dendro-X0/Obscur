@@ -5,6 +5,7 @@ import { cn } from "../../../lib/cn";
 import { useTranslation } from "react-i18next";
 import type { Message } from "../types";
 import { canDeleteMessageForEveryone, canDeleteMessageForMe } from "../services/message-delete-permissions";
+import { DM_DELETE_FOR_EVERYONE_UI_ENABLED } from "../config/dm-redaction-product";
 
 interface MessageMenuProps {
     x: number;
@@ -42,7 +43,8 @@ export function MessageMenu({
 }: MessageMenuProps) {
     const { t } = useTranslation();
     const canDeleteForMe = canDeleteMessageForMe(activeMessage);
-    const canDeleteForEveryone = canDeleteMessageForEveryone(activeMessage);
+    const canDeleteForEveryone = DM_DELETE_FOR_EVERYONE_UI_ENABLED
+        && canDeleteMessageForEveryone(activeMessage);
     const hasText: boolean = Boolean(activeMessage.content.trim());
     const hasAttachment: boolean = Boolean(activeMessage.attachments && activeMessage.attachments.length > 0);
     const [portalRoot, setPortalRoot] = React.useState<HTMLElement | null>(null);
@@ -187,17 +189,19 @@ export function MessageMenu({
                 >
                     {t("messaging.deleteForMe", "Delete for me")}
                 </button>
-                <button
-                    type="button"
-                    className={cn(
-                        "w-full px-3 py-2 text-left text-sm hover:bg-black/5 dark:hover:bg-white/5",
-                        !canDeleteForEveryone ? "opacity-50" : "text-red-600 dark:text-red-400"
-                    )}
-                    disabled={!canDeleteForEveryone}
-                    onClick={onDeleteForEveryone}
-                >
-                    {t("messaging.deleteForEveryone", "Delete for everyone")}
-                </button>
+                {DM_DELETE_FOR_EVERYONE_UI_ENABLED ? (
+                    <button
+                        type="button"
+                        className={cn(
+                            "w-full px-3 py-2 text-left text-sm hover:bg-black/5 dark:hover:bg-white/5",
+                            !canDeleteForEveryone ? "opacity-50" : "text-red-600 dark:text-red-400"
+                        )}
+                        disabled={!canDeleteForEveryone}
+                        onClick={onDeleteForEveryone}
+                    >
+                        {t("messaging.deleteForEveryone", "Delete for everyone")}
+                    </button>
+                ) : null}
             </div>
         </div>,
         portalRoot

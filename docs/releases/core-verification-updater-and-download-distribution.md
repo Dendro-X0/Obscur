@@ -32,7 +32,7 @@ This lane verifies:
 
 Reference contracts and history:
 
-1. `docs/roadmap/v1.3.8-streaming-update-contract.md`
+1. `docs/archive/consolidated/v1.3.8-streaming-update-contract.md`
 2. updater/distribution checkpoints recorded in
    `docs/handoffs/current-session.md`
 

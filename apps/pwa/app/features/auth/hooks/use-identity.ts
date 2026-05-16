@@ -23,7 +23,7 @@ import { cryptoService, NATIVE_KEY_SENTINEL } from "../../crypto/crypto-service"
 import { normalizePublicKeyHex } from "../../profile/utils/normalize-public-key-hex";
 import { recordIdentityActivationRisk } from "@/app/shared/sybil-risk-signals";
 import { PROFILE_CHANGED_EVENT } from "@/app/features/profiles/services/profile-registry-service";
-import { getActiveProfileIdSafe } from "@/app/features/profiles/services/profile-scope";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { resolveAccountImportEvidence } from "../services/account-import-evidence";
 import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
 import { accountSyncStatusStore } from "@/app/features/account-sync/services/account-sync-status-store";
@@ -423,7 +423,7 @@ const ensureInitialized = async (): Promise<void> => {
 
     // Auto-unlock with native keychain/session only when remember-me is enabled for this profile.
     const cs: NativeCryptoSessionApi = cryptoService as unknown as NativeCryptoSessionApi;
-    const activeProfileId = getActiveProfileIdSafe();
+    const activeProfileId = getResolvedProfileId();
     const allowNativeAutoUnlock = Boolean(stored) && canUseNativeSession() && isRememberMeEnabledStrict(activeProfileId);
     if (stored && allowNativeAutoUnlock) {
       const nativeSessionStatusResult = await tryNativeSessionUnlock({

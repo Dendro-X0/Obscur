@@ -25,6 +25,7 @@ import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { toGroupConversationId } from "@/app/features/groups/utils/group-conversation-id";
 import { deriveCommunityId } from "@/app/features/groups/utils/community-identity";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { toDmConversationId } from "./dm-conversation-id";
 
 const MAX_PERSISTED_MESSAGES_PER_CONVERSATION: number = 5000;
@@ -711,9 +712,18 @@ const parsePersistedChatState = (value: unknown): PersistedChatState | null => {
     if (!isNumber(version) || (version !== 1 && version !== PERSISTED_CHAT_STATE_VERSION)) return null;
 
     const connectionsSource = (Array.isArray(createdConnections) ? createdConnections : (Array.isArray(createdContacts) ? createdContacts : []));
-    const parsedCreatedConnections = connectionsSource
+    const parsedCreatedConnectionsRaw = connectionsSource
         .map(c => parsePersistedDmConversation(c))
         .filter((c): c is PersistedDmConversation => c !== null);
+    // Deduplicate by pubkey — keep the entry with the most recent lastMessageTime
+    const latestByPubkey = new Map<string, PersistedDmConversation>();
+    for (const conn of parsedCreatedConnectionsRaw) {
+        const existing = latestByPubkey.get(conn.pubkey);
+        if (!existing || (conn.lastMessageTimeMs ?? 0) > (existing.lastMessageTimeMs ?? 0)) {
+            latestByPubkey.set(conn.pubkey, conn);
+        }
+    }
+    const parsedCreatedConnections = Array.from(latestByPubkey.values());
 
     const parsedCreatedGroups = Array.isArray(createdGroups)
         ? createdGroups.map(g => parsePersistedGroupConversation(g)).filter((g): g is PersistedGroupConversation => g !== null)
@@ -1051,13 +1061,14 @@ export const fromPersistedMessagesByConversationId = (
     return result;
 };
 
-// Last seen specific
-const getLastSeenStorageKey = (pk: PublicKeyHex): string =>
-    getScopedStorageKey(`${LAST_SEEN_STORAGE_PREFIX}.${pk}`);
+// Last seen specific — scoped by profile so multi-profile windows do not share read receipts.
+export const getLastSeenStorageKey = (pk: PublicKeyHex, profileId?: string): string => (
+    getScopedStorageKey(`${LAST_SEEN_STORAGE_PREFIX}.${pk}`, profileId ?? getResolvedProfileId())
+);
 
-export const loadLastSeen = (pk: PublicKeyHex): LastSeenByConversationId => {
+export const loadLastSeen = (pk: PublicKeyHex, profileId?: string): LastSeenByConversationId => {
     try {
-        const raw = localStorage.getItem(getLastSeenStorageKey(pk));
+        const raw = localStorage.getItem(getLastSeenStorageKey(pk, profileId));
         if (!raw) return {};
         const parsed = JSON.parse(raw);
         if (!isRecord(parsed)) return {};
@@ -1073,17 +1084,22 @@ export const loadLastSeen = (pk: PublicKeyHex): LastSeenByConversationId => {
     }
 };
 
-export const saveLastSeen = (pk: PublicKeyHex, next: LastSeenByConversationId): void => {
+export const saveLastSeen = (pk: PublicKeyHex, next: LastSeenByConversationId, profileId?: string): void => {
     try {
-        localStorage.setItem(getLastSeenStorageKey(pk), JSON.stringify(next));
+        localStorage.setItem(getLastSeenStorageKey(pk, profileId), JSON.stringify(next));
     } catch {
         return;
     }
 };
 
-export const updateLastSeen = (params: Readonly<{ publicKeyHex: PublicKeyHex; conversationId: string; seenAtMs: number }>): void => {
-    const existing = loadLastSeen(params.publicKeyHex);
+export const updateLastSeen = (params: Readonly<{
+    publicKeyHex: PublicKeyHex;
+    conversationId: string;
+    seenAtMs: number;
+    profileId?: string;
+}>): void => {
+    const existing = loadLastSeen(params.publicKeyHex, params.profileId);
     if ((existing[params.conversationId] ?? 0) >= params.seenAtMs) return;
     const next = { ...existing, [params.conversationId]: params.seenAtMs };
-    saveLastSeen(params.publicKeyHex, next);
+    saveLastSeen(params.publicKeyHex, next, params.profileId);
 };

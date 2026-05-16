@@ -14,6 +14,7 @@ import { isVoiceCallControlPayload, parseVoiceCallInvitePayload } from "@/app/fe
 import { discoveryCache } from "@/app/features/search/services/discovery-cache";
 import { useGlobalVoiceCallOverlayState } from "@/app/features/messaging/services/realtime-voice-global-ui-store";
 import { isMessageNotificationEnabledForIncomingEvent } from "@/app/features/notifications/utils/notification-target-preference";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import type { Conversation } from "@/app/features/messaging/types";
 import { useAccountSyncSnapshot } from "@/app/features/account-sync/hooks/use-account-sync-snapshot";
 import {
@@ -22,6 +23,8 @@ import {
     buildMessageNotificationPresentation,
 } from "@/app/features/notifications/utils/notification-presentation";
 import { isTauri } from "@/app/lib/notification-service";
+import { useGroupsSafe } from "@/app/features/groups/providers/group-provider";
+import { isGroupConversationId } from "@/app/features/groups/utils/group-conversation-id";
 import {
     dispatchVoiceCallOverlayAction,
     extractVoiceCallOverlayAction,
@@ -32,6 +35,7 @@ const MAX_RECENT_MESSAGE_IDS = 400;
 const RECENT_MESSAGE_WINDOW_MS = 5 * 60_000;
 const MAX_MESSAGE_EVENT_AGE_MS = 2 * 60_000;
 const MESSAGE_TONE_COOLDOWN_MS = 2_200;
+const POST_SYNC_READY_SOUND_GRACE_MS = 5_000;
 const MAX_RECENT_CALL_NOTIFICATION_KEYS = 120;
 const RECENT_CALL_NOTIFICATION_WINDOW_MS = 2 * 60_000;
 const MAX_IN_APP_MESSAGE_TOASTS = 3;
@@ -91,6 +95,7 @@ export const DesktopNotificationHandler = () => {
     const { showNotification, enabled, channels } = useDesktopNotifications();
     const globalVoiceOverlay = useGlobalVoiceCallOverlayState();
     const accountSyncSnapshot = useAccountSyncSnapshot();
+    const groupContext = useGroupsSafe();
     const unsubscribeRef = useRef<(() => void) | null>(null);
     const recentlyNotifiedMessageIdsRef = useRef<Map<string, number>>(new Map());
     const recentlyNotifiedCallKeysRef = useRef<Map<string, number>>(new Map());
@@ -98,6 +103,8 @@ export const DesktopNotificationHandler = () => {
     const lastMessageNotificationAtUnixMsRef = useRef<number>(0);
     const previousUnreadCountRef = useRef<number>(0);
     const trayCallSyncKeyRef = useRef<string>("");
+    const syncReadyAtUnixMsRef = useRef<number>(0);
+    const hasSeenNonReadyPhaseRef = useRef<boolean>(false);
     const inAppMessageToastTimersRef = useRef<Map<string, number>>(new Map());
     const [backgroundAlertCount, setBackgroundAlertCount] = useState<number>(0);
     const [inAppMessageToasts, setInAppMessageToasts] = useState<ReadonlyArray<(IncomingMessageToastItem & Readonly<{
@@ -139,6 +146,7 @@ export const DesktopNotificationHandler = () => {
         senderDisplayName: string;
         senderAvatarUrl: string;
         preview: string;
+        contextLabel?: string;
         timestampLabel?: string;
         badges?: IncomingMessageToastItem["badges"];
     }>): void => {
@@ -152,6 +160,7 @@ export const DesktopNotificationHandler = () => {
                 senderDisplayName: entry.senderDisplayName,
                 senderAvatarUrl: entry.senderAvatarUrl,
                 preview: entry.preview,
+                contextLabel: entry.contextLabel,
                 timestampLabel: entry.timestampLabel,
                 badges: entry.badges,
             }, ...deduped];
@@ -411,6 +420,24 @@ export const DesktopNotificationHandler = () => {
             });
             return;
         }
+        // ADDITIONAL FIX: Skip notifications during account sync/restore
+        // This catches smaller unread increases (e.g., 0 -> 2) that slip through the threshold check above
+        if (accountSyncSnapshot.phase !== "ready") {
+            console.log("[NotificationHandler] Skipping unread notification during account sync:", {
+                previousUnread,
+                currentUnread,
+                phase: accountSyncSnapshot.phase,
+                reason: "sync_not_ready",
+            });
+            return;
+        }
+        // GRACE PERIOD: suppress sounds from sync flush after phase becomes ready
+        const msSinceSyncReady = syncReadyAtUnixMsRef.current > 0
+            ? Date.now() - syncReadyAtUnixMsRef.current
+            : Infinity;
+        if (msSinceSyncReady < POST_SYNC_READY_SOUND_GRACE_MS) {
+            return;
+        }
         if (isForeground()) {
             return;
         }
@@ -436,7 +463,7 @@ export const DesktopNotificationHandler = () => {
             }
         );
         playSubtleMessageTone();
-    }, [chatsUnreadCount, playSubtleMessageTone, router, showNotification]);
+    }, [chatsUnreadCount, playSubtleMessageTone, router, showNotification, accountSyncSnapshot.phase]);
 
     useEffect((): (() => void) => {
         if (typeof window === "undefined" || typeof document === "undefined") {
@@ -499,6 +526,19 @@ export const DesktopNotificationHandler = () => {
         }
     }, [fallbackIncomingCallCard, globalVoiceOverlay.status?.phase]);
 
+    useEffect((): void => {
+        if (accountSyncSnapshot.phase !== "ready") {
+            hasSeenNonReadyPhaseRef.current = true;
+            return;
+        }
+        // Only set the grace period timestamp when transitioning FROM non-ready TO ready.
+        // If the component mounts with phase already "ready" (established session),
+        // no grace period is needed.
+        if (hasSeenNonReadyPhaseRef.current && syncReadyAtUnixMsRef.current === 0) {
+            syncReadyAtUnixMsRef.current = Date.now();
+        }
+    }, [accountSyncSnapshot.phase]);
+
     useEffect((): (() => void) => {
         unsubscribeRef.current = messageBus.subscribe((event) => {
             if (event.type !== "new_message") {
@@ -512,6 +552,16 @@ export const DesktopNotificationHandler = () => {
             // "new message" notifications. Only live messages after sync is complete
             // should notify the user.
             if (accountSyncSnapshot.phase !== "ready") {
+                return;
+            }
+            // GRACE PERIOD: After sync transitions to "ready", the sync orchestrator
+            // may still flush recent relay messages. Suppress sounds during this
+            // brief window to prevent spurious notification tones on new-window login.
+            const msSinceSyncReady = syncReadyAtUnixMsRef.current > 0
+                ? Date.now() - syncReadyAtUnixMsRef.current
+                : Infinity;
+            const isInPostSyncGrace = msSinceSyncReady < POST_SYNC_READY_SOUND_GRACE_MS;
+            if (isInPostSyncGrace) {
                 return;
             }
             const messageUnixMs = (
@@ -536,6 +586,7 @@ export const DesktopNotificationHandler = () => {
             if (!isMessageNotificationEnabledForIncomingEvent({
                 conversationId: event.conversationId,
                 message: event.message,
+                profileId: getResolvedProfileId(),
             })) {
                 return;
             }
@@ -580,6 +631,12 @@ export const DesktopNotificationHandler = () => {
                         : (!isUnknownDisplayName(pubkeyDisplayName) ? pubkeyDisplayName : null))
             );
             const senderName = senderNameCandidate || "Unknown contact";
+            const isGroup = isGroupConversationId(event.conversationId);
+            const matchedGroup = isGroup
+                ? groupContext?.createdGroups.find((g) => g.id === event.conversationId)
+                : null;
+            const groupName = matchedGroup?.displayName || null;
+            const notificationIconUrl = matchedGroup?.avatar || senderProfile?.picture || undefined;
             const preview = event.message.content.trim();
             const normalizedPreview = preview.length > 0 ? preview : "Sent a message";
             const messageTimestampLabel = new Intl.DateTimeFormat(undefined, {
@@ -624,9 +681,10 @@ export const DesktopNotificationHandler = () => {
                 enqueueInAppMessageToast({
                     id: dedupeId || `${event.conversationId}-${messageUnixMs}`,
                     conversationId: event.conversationId,
-                    senderDisplayName: senderName,
-                    senderAvatarUrl: senderProfile?.picture || "",
+                    senderDisplayName: groupName ? `${senderName} in ${groupName}` : senderName,
+                    senderAvatarUrl: matchedGroup?.avatar || senderProfile?.picture || "",
                     preview: normalizedPreview.length > 140 ? `${normalizedPreview.slice(0, 140)}...` : normalizedPreview,
+                    contextLabel: isGroup ? (groupName || "Group") : "Direct message",
                     timestampLabel: messageTimestampLabel,
                     badges: messageBadges,
                 });
@@ -640,7 +698,9 @@ export const DesktopNotificationHandler = () => {
                 senderName,
                 preview: normalizedPreview,
                 conversationId: event.conversationId,
-                contextLabel: "Direct message",
+                contextLabel: isGroup ? (groupName || "Group") : "Direct message",
+                groupName: groupName || undefined,
+                iconUrl: notificationIconUrl,
                 timestampLabel: messageTimestampLabel,
             });
             if (enabled && channels.dmMessages) {
@@ -652,6 +712,7 @@ export const DesktopNotificationHandler = () => {
                         onClick: () => {
                             void router.push(presentation.href);
                         },
+                        icon: presentation.icon,
                         force: forceBackgroundNotification,
                         data: {
                             href: presentation.href,
@@ -669,6 +730,7 @@ export const DesktopNotificationHandler = () => {
                         onClick: () => {
                             void router.push(presentation.href);
                         },
+                        icon: presentation.icon,
                         force: forceBackgroundNotification,
                         data: {
                             href: presentation.href,
@@ -682,7 +744,7 @@ export const DesktopNotificationHandler = () => {
         return (): void => {
             unsubscribeRef.current?.();
         };
-    }, [accountSyncSnapshot.phase, channels.dmMessages, createdConnections, enabled, enqueueInAppMessageToast, globalVoiceOverlay.status?.phase, notifyIncomingCall, pathname, playSubtleMessageTone, selectedConversation?.id, showNotification]);
+    }, [accountSyncSnapshot.phase, channels.dmMessages, createdConnections, enabled, enqueueInAppMessageToast, globalVoiceOverlay.status?.phase, groupContext?.createdGroups, notifyIncomingCall, pathname, playSubtleMessageTone, selectedConversation?.id, showNotification]);
 
     useEffect((): void => {
         const status = globalVoiceOverlay.status;

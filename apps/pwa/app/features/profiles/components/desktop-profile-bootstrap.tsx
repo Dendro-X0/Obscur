@@ -5,6 +5,7 @@ import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
 import { desktopProfileRuntime } from "@/app/features/profiles/services/desktop-profile-runtime";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import { AppLoadingScreen } from "@/app/components/app-loading-screen";
+import { APP_BOOT_READY_EVENT } from "@/app/features/runtime/app-boot-ready-event";
 
 const PROFILE_REFRESH_RETRY_MS = 30_000;
 const PROFILE_REFRESH_BOOTSTRAP_DEADLINE_MS = 8_000;
@@ -21,7 +22,7 @@ const markBootReady = (): void => {
     return;
   }
   globalRoot.__obscurBootReady = true;
-  window.dispatchEvent(new Event("obscur:boot-ready"));
+  window.dispatchEvent(new Event(APP_BOOT_READY_EVENT));
 };
 
 export function DesktopProfileBootstrap(props: Readonly<{ children: React.ReactNode }>): React.JSX.Element | null {

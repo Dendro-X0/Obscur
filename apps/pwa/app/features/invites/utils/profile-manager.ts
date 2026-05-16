@@ -5,6 +5,7 @@ import type { UserProfile, PrivacySettings, ShareableProfile } from './types';
 import { cryptoService } from '../../crypto/crypto-service';
 import { USER_PROFILE_KEY, PRIVACY_SETTINGS_KEY } from './constants';
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 
 /**
  * Profile Manager implementation for managing user profiles and privacy settings
@@ -21,11 +22,11 @@ class ProfileManagerImpl implements ProfileManager {
   };
 
   private getProfileStorageKey(): string {
-    return getScopedStorageKey(USER_PROFILE_KEY);
+    return getScopedStorageKey(USER_PROFILE_KEY, getResolvedProfileId());
   }
 
   private getPrivacyStorageKey(): string {
-    return getScopedStorageKey(PRIVACY_SETTINGS_KEY);
+    return getScopedStorageKey(PRIVACY_SETTINGS_KEY, getResolvedProfileId());
   }
 
   /**

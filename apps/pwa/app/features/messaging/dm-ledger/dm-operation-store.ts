@@ -309,6 +309,44 @@ export const clearDmOperationsForConversation = async (
 // ---------------------------------------------------------------------------
 
 /**
+ * Hard-delete upsert rows for specific message identity IDs from the ledger.
+ * Called when a message is destructively deleted so no upsert record survives.
+ * The corresponding delete-op tombstone is left in place so the reducer keeps
+ * the message invisible if any upsert is re-appended from a sync.
+ */
+export const deleteMessageUpsertOperations = async (
+  identityIds: ReadonlyArray<string>,
+): Promise<void> => {
+  if (identityIds.length === 0) return;
+  const targetSet = new Set(identityIds);
+  const db = await openDb();
+
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, "readwrite");
+    const store = tx.objectStore(STORE_NAME);
+    const request = store.openCursor();
+
+    request.onsuccess = () => {
+      const cursor = request.result;
+      if (!cursor) { resolve(); return; }
+      const rec = cursor.value as DmOperationRecord;
+      if (rec.operation.op === "message_upsert") {
+        const op = rec.operation;
+        const shouldDelete = op.identityIds.some((id: string) => targetSet.has(id))
+          || targetSet.has(op.messageId);
+        if (shouldDelete) {
+          cursor.delete();
+        }
+      }
+      cursor.continue();
+    };
+
+    request.onerror = () => reject(request.error);
+    tx.onerror = () => reject(tx.error);
+  });
+};
+
+/**
  * Export all operations for debugging/backup.
  */
 export const exportAllDmOperations = async (): Promise<ReadonlyArray<DmOperation>> => {

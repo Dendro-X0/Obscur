@@ -1,5 +1,6 @@
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { PrivacySettingsService } from "@/app/features/settings/services/privacy-settings-service";
 
 export type SignedSharedIntelSubjectType = "relay_host" | "peer_public_key";
@@ -71,18 +72,13 @@ export type SignedSharedIntelIngestResult = Readonly<{
   rejectedSignalIdSamples: ReadonlyArray<string>;
 }>;
 
-type SharedIntelPolicyState = {
-  signals: SignedSharedIntelSignal[];
-  signatureVerifier: SharedIntelSignatureVerifier | null;
-};
-
 type PersistedSharedIntelSignals = Readonly<{
   version: "obscur.m10.shared_intel_store.v1";
   updatedAtUnixMs: number;
   signals: ReadonlyArray<SignedSharedIntelSignal>;
 }>;
 
-const GLOBAL_STATE_KEY = "__obscur_m10_shared_intel_policy_state__";
+const PROFILE_SIGNALS_CACHE_KEY = "__obscur_m10_shared_intel_signals_by_profile__";
 const SHARED_INTEL_SIGNALS_STORAGE_KEY = "obscur.messaging.shared_intel_signals.v1";
 const SHARED_INTEL_SIGNALS_STORAGE_VERSION = "obscur.m10.shared_intel_store.v1";
 const PLAIN_TEXT_BOUNDARY_KEYS: ReadonlySet<string> = new Set([
@@ -193,14 +189,31 @@ const toNormalizedSignal = (value: unknown): SignedSharedIntelSignal | null => {
   };
 };
 
-const getSignalsStorageKey = (): string => getScopedStorageKey(SHARED_INTEL_SIGNALS_STORAGE_KEY);
+const resolveProfileScope = (profileId?: string): string => profileId ?? getResolvedProfileId();
 
-const readPersistedSignedSharedIntelSignals = (): SignedSharedIntelSignal[] => {
+let sharedIntelSignatureVerifier: SharedIntelSignatureVerifier | null = null;
+
+const getSignalsStorageKey = (profileId?: string): string => (
+  getScopedStorageKey(SHARED_INTEL_SIGNALS_STORAGE_KEY, resolveProfileScope(profileId))
+);
+
+const getProfileSignalsRoot = (): Map<string, SignedSharedIntelSignal[]> => {
+  const root = globalThis as Record<string, unknown>;
+  const existing = root[PROFILE_SIGNALS_CACHE_KEY];
+  if (existing instanceof Map) {
+    return existing as Map<string, SignedSharedIntelSignal[]>;
+  }
+  const next = new Map<string, SignedSharedIntelSignal[]>();
+  root[PROFILE_SIGNALS_CACHE_KEY] = next;
+  return next;
+};
+
+const readPersistedSignedSharedIntelSignals = (profileId?: string): SignedSharedIntelSignal[] => {
   if (typeof window === "undefined") {
     return [];
   }
   try {
-    const raw = window.localStorage.getItem(getSignalsStorageKey());
+    const raw = window.localStorage.getItem(getSignalsStorageKey(profileId));
     if (!raw) {
       return [];
     }
@@ -216,7 +229,10 @@ const readPersistedSignedSharedIntelSignals = (): SignedSharedIntelSignal[] => {
   }
 };
 
-const writePersistedSignedSharedIntelSignals = (signals: ReadonlyArray<SignedSharedIntelSignal>): void => {
+const writePersistedSignedSharedIntelSignals = (
+  signals: ReadonlyArray<SignedSharedIntelSignal>,
+  profileId?: string,
+): void => {
   if (typeof window === "undefined") {
     return;
   }
@@ -225,28 +241,26 @@ const writePersistedSignedSharedIntelSignals = (signals: ReadonlyArray<SignedSha
     updatedAtUnixMs: Date.now(),
     signals: [...signals],
   };
-  window.localStorage.setItem(getSignalsStorageKey(), JSON.stringify(payload));
+  window.localStorage.setItem(getSignalsStorageKey(profileId), JSON.stringify(payload));
 };
 
-const clearPersistedSignedSharedIntelSignals = (): void => {
+const clearPersistedSignedSharedIntelSignals = (profileId?: string): void => {
   if (typeof window === "undefined") {
     return;
   }
-  window.localStorage.removeItem(getSignalsStorageKey());
+  window.localStorage.removeItem(getSignalsStorageKey(profileId));
 };
 
-const getState = (): SharedIntelPolicyState => {
-  const root = globalThis as Record<string, unknown>;
-  const existing = root[GLOBAL_STATE_KEY];
-  if (existing && typeof existing === "object") {
-    return existing as SharedIntelPolicyState;
+const getSignalsMutable = (profileId?: string): SignedSharedIntelSignal[] => {
+  const scope = resolveProfileScope(profileId);
+  const root = getProfileSignalsRoot();
+  const existing = root.get(scope);
+  if (existing) {
+    return existing;
   }
-  const created: SharedIntelPolicyState = {
-    signals: readPersistedSignedSharedIntelSignals(),
-    signatureVerifier: null,
-  };
-  root[GLOBAL_STATE_KEY] = created;
-  return created;
+  const loaded = readPersistedSignedSharedIntelSignals(profileId);
+  root.set(scope, [...loaded]);
+  return root.get(scope)!;
 };
 
 const getSignalPayload = (signal: SignedSharedIntelSignal): string => (
@@ -275,36 +289,40 @@ const scoreSignal = (signal: SignedSharedIntelSignal): number => {
 export const setSharedIntelSignatureVerifier = (
   verifier: SharedIntelSignatureVerifier | null,
 ): void => {
-  const state = getState();
-  state.signatureVerifier = verifier;
+  sharedIntelSignatureVerifier = verifier;
 };
 
 export const setSignedSharedIntelSignals = (
   signals: ReadonlyArray<SignedSharedIntelSignal>,
+  profileId?: string,
 ): void => {
-  const state = getState();
   const normalizedSignals = signals
     .map((signal) => toNormalizedSignal(signal))
     .filter((signal): signal is SignedSharedIntelSignal => signal !== null);
-  state.signals = [...normalizedSignals];
-  writePersistedSignedSharedIntelSignals(normalizedSignals);
+  const bucket = getSignalsMutable(profileId);
+  bucket.length = 0;
+  bucket.push(...normalizedSignals);
+  writePersistedSignedSharedIntelSignals(normalizedSignals, profileId);
 };
 
-export const getSignedSharedIntelSignals = (): ReadonlyArray<SignedSharedIntelSignal> => {
-  return [...getState().signals];
-};
+export const getSignedSharedIntelSignals = (profileId?: string): ReadonlyArray<SignedSharedIntelSignal> => (
+  [...getSignalsMutable(profileId)]
+);
 
-export const hydrateSignedSharedIntelSignalsFromStorage = (): ReadonlyArray<SignedSharedIntelSignal> => {
-  const signals = readPersistedSignedSharedIntelSignals();
-  const state = getState();
-  state.signals = [...signals];
+export const hydrateSignedSharedIntelSignalsFromStorage = (
+  profileId?: string,
+): ReadonlyArray<SignedSharedIntelSignal> => {
+  const signals = readPersistedSignedSharedIntelSignals(profileId);
+  const bucket = getSignalsMutable(profileId);
+  bucket.length = 0;
+  bucket.push(...signals);
   return [...signals];
 };
 
-export const clearSignedSharedIntelSignals = (): void => {
-  const state = getState();
-  state.signals = [];
-  clearPersistedSignedSharedIntelSignals();
+export const clearSignedSharedIntelSignals = (profileId?: string): void => {
+  const scope = resolveProfileScope(profileId);
+  getProfileSignalsRoot().delete(scope);
+  clearPersistedSignedSharedIntelSignals(profileId);
 };
 
 const DEFAULT_INGEST_REJECTION_COUNTERS: Readonly<Record<SharedIntelIngestRejectionReason, number>> = {
@@ -320,13 +338,15 @@ export const ingestSignedSharedIntelSignals = (params: Readonly<{
   requireSignatureVerification?: boolean;
   signatureVerifier?: SharedIntelSignatureVerifier | null;
   nowUnixMs?: number;
+  profileId?: string;
 }>): SignedSharedIntelIngestResult => {
+  const profileId = params.profileId;
   const nowUnixMs = params.nowUnixMs ?? Date.now();
   const requireSignatureVerification = params.requireSignatureVerification !== false;
-  const signatureVerifier = params.signatureVerifier ?? getState().signatureVerifier;
+  const signatureVerifier = params.signatureVerifier ?? sharedIntelSignatureVerifier;
   const existingById = new Map<string, SignedSharedIntelSignal>();
   if (!params.replaceExisting) {
-    getState().signals.forEach((signal) => {
+    getSignalsMutable(profileId).forEach((signal) => {
       existingById.set(signal.signalId, signal);
     });
   }
@@ -383,7 +403,7 @@ export const ingestSignedSharedIntelSignals = (params: Readonly<{
 
   const nextSignals = Array.from(existingById.values())
     .sort((left, right) => right.issuedAtUnixMs - left.issuedAtUnixMs);
-  setSignedSharedIntelSignals(nextSignals);
+  setSignedSharedIntelSignals(nextSignals, profileId);
   const rejectedCount = (
     rejectedByReason.invalid_shape
     + rejectedByReason.expired
@@ -399,13 +419,11 @@ export const ingestSignedSharedIntelSignals = (params: Readonly<{
   };
 };
 
-export const resetM10SharedIntelPolicyState = (): void => {
-  const root = globalThis as Record<string, unknown>;
-  root[GLOBAL_STATE_KEY] = {
-    signals: [],
-    signatureVerifier: null,
-  } as SharedIntelPolicyState;
-  clearPersistedSignedSharedIntelSignals();
+export const resetM10SharedIntelPolicyState = (profileId?: string): void => {
+  const scope = resolveProfileScope(profileId);
+  getProfileSignalsRoot().delete(scope);
+  clearPersistedSignedSharedIntelSignals(profileId);
+  sharedIntelSignatureVerifier = null;
 };
 
 export const getAttackModeSafetyProfile = (): AttackModeSafetyProfile => {
@@ -429,6 +447,7 @@ export const evaluateSignedSharedIntelRelayRisk = (params: Readonly<{
   signatureVerifier?: SharedIntelSignatureVerifier | null;
   payloadMetadata?: Readonly<Record<string, unknown>>;
   nowUnixMs?: number;
+  profileId?: string;
 }>): RelayRiskEvaluation => {
   if (containsPlaintextBoundaryKey(params.payloadMetadata)) {
     return {
@@ -444,8 +463,8 @@ export const evaluateSignedSharedIntelRelayRisk = (params: Readonly<{
 
   const relayHost = normalizeRelayHost(params.relayUrl);
   const nowUnixMs = params.nowUnixMs ?? Date.now();
-  const signatureVerifier = params.signatureVerifier ?? getState().signatureVerifier;
-  const signals = params.sharedIntelSignals ?? getState().signals;
+  const signatureVerifier = params.signatureVerifier ?? sharedIntelSignatureVerifier;
+  const signals = params.sharedIntelSignals ?? getSignalsMutable(params.profileId);
 
   let score = clampRiskScore(params.localRelayRiskScore ?? 0);
   let reasonCode: RelayRiskReasonCode = score > 0 ? "local_observation" : "none";

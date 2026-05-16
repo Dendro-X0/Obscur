@@ -3,12 +3,12 @@ import {
   PERSISTED_INCOMING_REPAIR_INDEXED_MESSAGE_MAX,
   hasIndexedThinnessEvidenceForPersistedIncomingRepair,
   isPersistedCompatibilityRestorePhaseIncomingRepairCandidate,
-  resolveConversationHistoryAuthority,
-} from "./conversation-history-authority";
+  resolveLegacyHydrationAuthority,
+} from "./dm-read-authority-contract";
 
-describe("resolveConversationHistoryAuthority", () => {
+describe("resolveLegacyHydrationAuthority", () => {
   it("prefers projection when projection reads are enabled and messages are present", () => {
-    expect(resolveConversationHistoryAuthority({
+    expect(resolveLegacyHydrationAuthority({
       useProjectionReads: true,
       projectionMessageCount: 5,
       projectionIncomingCount: 3,
@@ -28,7 +28,7 @@ describe("resolveConversationHistoryAuthority", () => {
   });
 
   it("prefers persisted when indexed history is empty", () => {
-    expect(resolveConversationHistoryAuthority({
+    expect(resolveLegacyHydrationAuthority({
       useProjectionReads: false,
       projectionMessageCount: 0,
       projectionIncomingCount: 0,
@@ -48,7 +48,7 @@ describe("resolveConversationHistoryAuthority", () => {
   });
 
   it("prefers persisted when restore-phase canonical evidence is pending and indexed history is thinner", () => {
-    expect(resolveConversationHistoryAuthority({
+    expect(resolveLegacyHydrationAuthority({
       useProjectionReads: false,
       projectionMessageCount: 0,
       projectionIncomingCount: 0,
@@ -68,7 +68,7 @@ describe("resolveConversationHistoryAuthority", () => {
   });
 
   it("keeps indexed as primary when outgoing-only indexed history is no longer thin enough for persisted incoming repair", () => {
-    expect(resolveConversationHistoryAuthority({
+    expect(resolveLegacyHydrationAuthority({
       useProjectionReads: false,
       projectionMessageCount: 0,
       projectionIncomingCount: 0,
@@ -88,7 +88,7 @@ describe("resolveConversationHistoryAuthority", () => {
   });
 
   it("prefers persisted when restore-phase indexed history is missing outgoing coverage", () => {
-    expect(resolveConversationHistoryAuthority({
+    expect(resolveLegacyHydrationAuthority({
       useProjectionReads: false,
       projectionMessageCount: 0,
       projectionIncomingCount: 0,
@@ -108,7 +108,7 @@ describe("resolveConversationHistoryAuthority", () => {
   });
 
   it("does not let persisted coverage repair outrank indexed history once read cutover is active", () => {
-    expect(resolveConversationHistoryAuthority({
+    expect(resolveLegacyHydrationAuthority({
       useProjectionReads: true,
       projectionMessageCount: 0,
       projectionIncomingCount: 0,
@@ -128,7 +128,7 @@ describe("resolveConversationHistoryAuthority", () => {
   });
 
   it("keeps indexed as the primary authority when it already has usable coverage", () => {
-    expect(resolveConversationHistoryAuthority({
+    expect(resolveLegacyHydrationAuthority({
       useProjectionReads: false,
       projectionMessageCount: 0,
       projectionIncomingCount: 0,
@@ -179,7 +179,7 @@ describe("resolveConversationHistoryAuthority", () => {
   });
 
   it("keeps indexed as primary when canonical projection already has incoming evidence", () => {
-    expect(resolveConversationHistoryAuthority({
+    expect(resolveLegacyHydrationAuthority({
       useProjectionReads: false,
       projectionMessageCount: 1,
       projectionIncomingCount: 1,
@@ -199,7 +199,7 @@ describe("resolveConversationHistoryAuthority", () => {
   });
 
   it("keeps indexed as primary when canonical bootstrap import already applied even if projection lacks incoming evidence", () => {
-    expect(resolveConversationHistoryAuthority({
+    expect(resolveLegacyHydrationAuthority({
       useProjectionReads: false,
       projectionMessageCount: 0,
       projectionIncomingCount: 0,
@@ -219,7 +219,7 @@ describe("resolveConversationHistoryAuthority", () => {
   });
 
   it("keeps indexed as primary when canonical evidence is no longer pending even if bootstrap import has not applied", () => {
-    expect(resolveConversationHistoryAuthority({
+    expect(resolveLegacyHydrationAuthority({
       useProjectionReads: false,
       projectionMessageCount: 0,
       projectionIncomingCount: 0,
@@ -239,7 +239,7 @@ describe("resolveConversationHistoryAuthority", () => {
   });
 
   it("keeps indexed as primary when canonical evidence is pending but restore phase is not active", () => {
-    expect(resolveConversationHistoryAuthority({
+    expect(resolveLegacyHydrationAuthority({
       useProjectionReads: false,
       projectionMessageCount: 0,
       projectionIncomingCount: 0,
@@ -259,7 +259,7 @@ describe("resolveConversationHistoryAuthority", () => {
   });
 
   it("keeps indexed as primary when restore-phase history is richer but not one-sidedly missing", () => {
-    expect(resolveConversationHistoryAuthority({
+    expect(resolveLegacyHydrationAuthority({
       useProjectionReads: false,
       projectionMessageCount: 0,
       projectionIncomingCount: 0,
@@ -279,7 +279,7 @@ describe("resolveConversationHistoryAuthority", () => {
   });
 
   it("prefers persisted when restore-phase indexed history is missing outgoing coverage", () => {
-    expect(resolveConversationHistoryAuthority({
+    expect(resolveLegacyHydrationAuthority({
       useProjectionReads: false,
       projectionMessageCount: 0,
       projectionIncomingCount: 0,

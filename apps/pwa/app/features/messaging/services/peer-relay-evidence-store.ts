@@ -3,6 +3,7 @@
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { normalizePublicKeyHex } from "@/app/features/profile/utils/normalize-public-key-hex";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { validateRelayUrl } from "@/app/features/relays/utils/validate-relay-url";
 
 type PeerRelayEvidence = Readonly<{
@@ -19,7 +20,9 @@ const MAX_PEER_ENTRIES = 256;
 const MAX_RELAY_URLS_PER_PEER = 8;
 const RELAY_EVIDENCE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
-const getStorageKey = (): string => getScopedStorageKey(STORAGE_KEY);
+const resolveStorageKey = (profileId?: string): string => (
+  getScopedStorageKey(STORAGE_KEY, profileId ?? getResolvedProfileId())
+);
 
 const createEmptyState = (): PeerRelayEvidenceState => ({
   byPeer: {},
@@ -73,12 +76,12 @@ const sanitizeState = (
   };
 };
 
-const readState = (): PeerRelayEvidenceState => {
+const readState = (profileId?: string): PeerRelayEvidenceState => {
   if (typeof window === "undefined") {
     return createEmptyState();
   }
   try {
-    const raw = window.localStorage.getItem(getStorageKey());
+    const raw = window.localStorage.getItem(resolveStorageKey(profileId));
     if (!raw) {
       return createEmptyState();
     }
@@ -92,12 +95,25 @@ const readState = (): PeerRelayEvidenceState => {
   }
 };
 
-const writeState = (state: PeerRelayEvidenceState): void => {
+const evidenceListeners = new Set<() => void>();
+
+const emitEvidenceChanged = (): void => {
+  evidenceListeners.forEach((listener) => {
+    try {
+      listener();
+    } catch {
+      // Subscriber errors must not break persistence.
+    }
+  });
+};
+
+const writeState = (state: PeerRelayEvidenceState, profileId?: string): void => {
   if (typeof window === "undefined") {
     return;
   }
   try {
-    window.localStorage.setItem(getStorageKey(), JSON.stringify(sanitizeState(state)));
+    window.localStorage.setItem(resolveStorageKey(profileId), JSON.stringify(sanitizeState(state)));
+    emitEvidenceChanged();
   } catch {
     // Keep transport path non-throwing when storage is unavailable.
   }
@@ -107,6 +123,7 @@ const recordInboundRelay = (params: Readonly<{
   peerPublicKeyHex: string;
   relayUrl: string;
   observedAtUnixMs?: number;
+  profileId?: string;
 }>): ReadonlyArray<string> => {
   const normalizedPeer = normalizePeer(params.peerPublicKeyHex);
   const trustedRelayUrl = toTrustedRelayUrl(params.relayUrl);
@@ -115,7 +132,8 @@ const recordInboundRelay = (params: Readonly<{
   }
 
   const nowUnixMs = params.observedAtUnixMs ?? Date.now();
-  const state = readState();
+  const profileId = params.profileId;
+  const state = readState(profileId);
   const current = state.byPeer[normalizedPeer];
   const relayUrls = sanitizeRelayUrls([
     trustedRelayUrl,
@@ -129,32 +147,40 @@ const recordInboundRelay = (params: Readonly<{
         lastObservedAtUnixMs: nowUnixMs,
       },
     },
-  });
+  }, profileId);
   return relayUrls;
 };
 
-const getRelayUrls = (peerPublicKeyHex: string): ReadonlyArray<string> => {
+const getRelayUrls = (peerPublicKeyHex: string, profileId?: string): ReadonlyArray<string> => {
   const normalizedPeer = normalizePeer(peerPublicKeyHex);
   if (!normalizedPeer) {
     return [];
   }
-  const state = readState();
+  const state = readState(profileId);
   return state.byPeer[normalizedPeer]?.relayUrls ?? [];
 };
 
-const clearPeer = (peerPublicKeyHex: string): void => {
+const clearPeer = (peerPublicKeyHex: string, profileId?: string): void => {
   const normalizedPeer = normalizePeer(peerPublicKeyHex);
   if (!normalizedPeer) {
     return;
   }
-  const state = readState();
+  const state = readState(profileId);
   const { [normalizedPeer]: _unused, ...rest } = state.byPeer;
   void _unused;
-  writeState({ byPeer: rest });
+  writeState({ byPeer: rest }, profileId);
 };
 
-const clear = (): void => {
-  writeState(createEmptyState());
+const clear = (profileId?: string): void => {
+  writeState(createEmptyState(), profileId);
+};
+
+/** For `useSyncExternalStore` / UI that must react to inbound relay evidence updates. */
+const subscribe = (onStoreChange: () => void): (() => void) => {
+  evidenceListeners.add(onStoreChange);
+  return () => {
+    evidenceListeners.delete(onStoreChange);
+  };
 };
 
 export const peerRelayEvidenceStore = {
@@ -162,6 +188,7 @@ export const peerRelayEvidenceStore = {
   getRelayUrls,
   clearPeer,
   clear,
+  subscribe,
 };
 
 export const peerRelayEvidenceStoreInternals = {
@@ -169,7 +196,7 @@ export const peerRelayEvidenceStoreInternals = {
   MAX_PEER_ENTRIES,
   MAX_RELAY_URLS_PER_PEER,
   RELAY_EVIDENCE_TTL_MS,
-  getStorageKey,
+  getStorageKey: resolveStorageKey,
   readState,
   writeState,
   sanitizeState,

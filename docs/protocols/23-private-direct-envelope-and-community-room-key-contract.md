@@ -44,7 +44,7 @@ Community room-key lifecycle owner chain:
 
 1. `apps/pwa/app/features/groups/services/group-service.ts`
 2. `apps/pwa/app/features/groups/hooks/use-sealed-community.ts`
-3. `apps/pwa/app/features/groups/services/community-ledger-reducer.ts`
+3. `apps/pwa/app/features/groups/services/community-ledger-validator.ts`
 4. `apps/pwa/app/features/crypto/room-key-store.ts`
 
 Hard rule:

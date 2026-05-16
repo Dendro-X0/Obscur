@@ -9,28 +9,44 @@
  */
 
 import { cryptoService } from "@/app/features/crypto/crypto-service";
+import { logAppEvent } from "@/app/shared/log-app-event";
 import type { NostrEvent } from "@dweb/nostr/nostr-event";
+import type { Message } from "../../types";
+import { parseCommandMessage } from "../../utils/commands";
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
-import type { Message } from "@/app/features/messaging/types";
 import type { BlocklistContract, PeerTrustContract } from "./dm-controller-types";
-import { isMessageDeleteSuppressed } from "../../services/message-delete-tombstone-store";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
+import { messagingClientOperations } from "../../services/messaging-client-operations";
+import { toDmConversationIdFromEvent } from "../../utils/dm-conversation-id";
+import { decodeDmDeleteCommandV1 } from "../../deletion/delete-command-codec";
 
 // ---------------------------------------------------------------------------
 // Dedup: track processed event IDs to prevent double-processing
 // ---------------------------------------------------------------------------
 
-const processedEventIds = new Set<string>();
+// NOTE: Do NOT use a module-level singleton set here. In single-process
+// multi-profile environments (e.g. A/B dev testing), both controllers
+// share the same module scope. A module-level set would cause Controller B
+// to mark an event as "processed" before Controller A sees it, silently
+// dropping B→A messages. Instead, callers pass their own per-instance set.
+
+export const createDedupSet = (): Set<string> => new Set<string>();
+
 const MAX_PROCESSED_CACHE = 2000;
 
-const markProcessed = (eventId: string): boolean => {
-  if (processedEventIds.has(eventId)) return false;
-  processedEventIds.add(eventId);
-  if (processedEventIds.size > MAX_PROCESSED_CACHE) {
-    // Evict oldest entries
-    const entries = Array.from(processedEventIds);
-    entries.slice(0, MAX_PROCESSED_CACHE / 2).forEach(id => processedEventIds.delete(id));
+const markProcessed = (dedupSet: Set<string>, eventId: string): boolean => {
+  if (dedupSet.has(eventId)) {
+    console.log("[dm-receive-pipeline] Dedup skipped", { eventId: eventId.slice(0, 16) });
+    return false;
   }
+  dedupSet.add(eventId);
+  if (dedupSet.size > MAX_PROCESSED_CACHE) {
+    // Evict oldest entries
+    const entries = Array.from(dedupSet);
+    entries.slice(0, MAX_PROCESSED_CACHE / 2).forEach(id => dedupSet.delete(id));
+  }
+  console.log("[dm-receive-pipeline] Marked as processed", { eventId: eventId.slice(0, 16) });
   return true;
 };
 
@@ -49,13 +65,26 @@ const decryptIncomingEvent = async (params: Readonly<{
 }>): Promise<DecryptResult> => {
   const { event, myPublicKeyHex, myPrivateKeyHex } = params;
 
+  console.log("[dm-receive] Decrypting event", {
+    eventId: event.id.slice(0, 16),
+    kind: event.kind,
+    pubkey: event.pubkey.slice(0, 16),
+    tags: event.tags,
+    contentLength: event.content.length,
+  });
+
   try {
     if (event.kind === 1059) {
       // NIP-17 gift-wrapped DM
       const rumor = await cryptoService.decryptGiftWrap(event, myPrivateKeyHex);
       if (!rumor || typeof rumor.content !== "string") {
+        console.log("[dm-receive] Gift wrap decrypt failed", { eventId: event.id.slice(0, 16) });
         return { ok: false, reason: "gift_wrap_decrypt_failed" };
       }
+      console.log("[dm-receive] Gift wrap decrypted", {
+        eventId: event.id.slice(0, 16),
+        plaintext: rumor.content.slice(0, 100),
+      });
       return {
         ok: true,
         plaintext: rumor.content,
@@ -74,6 +103,7 @@ const decryptIncomingEvent = async (params: Readonly<{
         : event.pubkey;
 
       if (!peerPubkey) {
+        console.log("[dm-receive] No peer pubkey", { eventId: event.id.slice(0, 16) });
         return { ok: false, reason: "no_peer_pubkey" };
       }
 
@@ -82,6 +112,11 @@ const decryptIncomingEvent = async (params: Readonly<{
         peerPubkey,
         myPrivateKeyHex,
       );
+      console.log("[dm-receive] NIP-04 decrypted", {
+        eventId: event.id.slice(0, 16),
+        plaintext: plaintext.slice(0, 100),
+        isSelfAuthored,
+      });
       return {
         ok: true,
         plaintext,
@@ -92,6 +127,7 @@ const decryptIncomingEvent = async (params: Readonly<{
       };
     }
 
+    console.log("[dm-receive] Unsupported kind", { kind: event.kind });
     return { ok: false, reason: `unsupported_kind_${event.kind}` };
   } catch (err) {
     console.warn("[dm-receive] decrypt failed", {
@@ -108,21 +144,66 @@ const decryptIncomingEvent = async (params: Readonly<{
 // ---------------------------------------------------------------------------
 
 const COMMAND_MESSAGE_PREFIX = "__dweb_cmd__";
+const DELETE_COMMAND_PREFIX = "__dweb_cmd__delete:";
 
 const parseDeleteCommand = (plaintext: string, tags?: ReadonlyArray<ReadonlyArray<string>>): ReadonlyArray<string> | null => {
-  // Strip the __dweb_cmd__ prefix if present (format used by use-chat-actions deleteForEveryone)
-  const jsonStr = plaintext.startsWith(COMMAND_MESSAGE_PREFIX)
-    ? plaintext.slice(COMMAND_MESSAGE_PREFIX.length)
-    : plaintext;
+  const trimmed = plaintext.trimStart();
+  const eTagIdsFromTags = tags
+    ?.filter((t) => t[0] === "e" && typeof t[1] === "string")
+    .map((t) => t[1].trim())
+    .filter((id) => id.length > 0) ?? [];
+
+  // Versioned delete-for-everyone: single source of truth with coordinator `processIncomingDmDeleteCommand`
+  if (trimmed.startsWith(DELETE_COMMAND_PREFIX)) {
+    const decoded = decodeDmDeleteCommandV1(trimmed);
+    const merged = new Set<string>();
+    if (decoded) {
+      for (const id of decoded.targetMessageIdentityIds) {
+        const t = id.trim();
+        if (t.length > 0) {
+          merged.add(t);
+        }
+      }
+    } else {
+      // Lenient fallback if codec tight validation lags a minor field
+      try {
+        const parsed = JSON.parse(trimmed.slice(DELETE_COMMAND_PREFIX.length)) as {
+          type?: unknown;
+          targetMessageIdentityIds?: unknown;
+        };
+        if (parsed?.type === "message_delete_v1" && Array.isArray(parsed.targetMessageIdentityIds)) {
+          for (const id of parsed.targetMessageIdentityIds) {
+            if (typeof id === "string") {
+              const idTrimmed = id.trim();
+              if (idTrimmed.length > 0) {
+                merged.add(idTrimmed);
+              }
+            }
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+    for (const id of eTagIdsFromTags) {
+      merged.add(id);
+    }
+    if (merged.size > 0) {
+      return Array.from(merged);
+    }
+    return null;
+  }
+
+  // Legacy: Strip the __dweb_cmd__ prefix if present (format used by legacy deleteForEveryone)
+  const jsonStr = trimmed.startsWith(COMMAND_MESSAGE_PREFIX)
+    ? trimmed.slice(COMMAND_MESSAGE_PREFIX.length)
+    : trimmed;
 
   try {
     const parsed = JSON.parse(jsonStr);
     if (parsed && parsed.type === "delete" && typeof parsed.targetMessageId === "string") {
-      // Also collect any "e" tag IDs (use-chat-actions sends these as additional delete targets)
-      const eTagIds = tags
-        ?.filter(t => t[0] === "e" && typeof t[1] === "string")
-        .map(t => t[1]) ?? [];
-      const allIds = new Set([parsed.targetMessageId, ...eTagIds]);
+      // Also collect any "e" tag IDs (legacy sends these as additional delete targets)
+      const allIds = new Set<string>([parsed.targetMessageId, ...eTagIdsFromTags]);
       return Array.from(allIds);
     }
     if (parsed && parsed.type === "delete" && Array.isArray(parsed.targetMessageIds)) {
@@ -141,73 +222,133 @@ const parseDeleteCommand = (plaintext: string, tags?: ReadonlyArray<ReadonlyArra
 export type IncomingDmResult =
   | { action: "message"; message: Message }
   | { action: "self_echo"; message: Message }
-  | { action: "delete"; targetMessageIds: ReadonlyArray<string>; senderPubkey: string; conversationId: string }
+  | { action: "delete"; targetMessageIds: ReadonlyArray<string>; senderPubkey: string; conversationId: string; plaintext: string }
   | { action: "skipped"; reason: string };
 
 export const processIncomingEvent = async (params: Readonly<{
   event: NostrEvent;
-  relayUrl: string;
-  ingestSource: "relay_live" | "relay_sync";
   myPublicKeyHex: PublicKeyHex;
   myPrivateKeyHex: PrivateKeyHex;
   blocklist?: BlocklistContract;
   peerTrust?: PeerTrustContract;
+  dedupSet: Set<string>;
 }>): Promise<IncomingDmResult> => {
-  const { event, relayUrl, ingestSource, myPublicKeyHex, myPrivateKeyHex, blocklist } = params;
+  const { event, myPublicKeyHex, myPrivateKeyHex, blocklist, dedupSet } = params;
 
-  // --- Basic validation ---
-  if (!event || !event.id || !event.pubkey) {
-    return { action: "skipped", reason: "invalid_event" };
+  console.log("[dm-receive] Processing incoming event", {
+    eventId: event.id.slice(0, 16),
+    kind: event.kind,
+    pubkey: event.pubkey.slice(0, 16),
+  });
+
+  // NOTE: Dedup gate is intentionally placed AFTER decryption and delete
+  // command detection. Delete commands must always bypass dedup so that
+  // the separate delete subscription (or a re-delivery from the relay)
+  // can apply the deletion even if the event was already seen as a message.
+  // This mirrors the v1.3.15 incoming-dm-event-handler.ts behavior.
+
+  // Decrypt
+  const decryptResult = await decryptIncomingEvent({
+    event,
+    myPublicKeyHex,
+    myPrivateKeyHex,
+  });
+
+  if (!decryptResult.ok) {
+    console.log("[dm-receive] Decrypt failed", {
+      eventId: event.id.slice(0, 16),
+      reason: decryptResult.reason,
+    });
+    return { action: "skipped", reason: decryptResult.reason };
   }
 
-  // --- Dedup ---
-  if (!markProcessed(event.id)) {
-    return { action: "skipped", reason: "already_processed" };
-  }
+  const { plaintext, senderPubkey, eventId, createdAt, tags } = decryptResult;
 
-  // --- Decrypt ---
-  const decrypted = await decryptIncomingEvent({ event, myPublicKeyHex, myPrivateKeyHex });
-  if (!decrypted.ok) {
-    return { action: "skipped", reason: `decrypt_failed:${decrypted.reason}` };
-  }
+  console.log("[dm-receive] Decrypted successfully", {
+    eventId: eventId.slice(0, 16),
+    plaintext: plaintext.slice(0, 100),
+    senderPubkey: senderPubkey.slice(0, 16),
+  });
 
-  const { plaintext, senderPubkey, eventId, createdAt, tags } = decrypted;
+  // Blocklist check
+  if (blocklist?.isBlocked({ publicKeyHex: senderPubkey })) {
+    console.log("[dm-receive] Blocked", { senderPubkey: senderPubkey.slice(0, 16) });
+    return { action: "skipped", reason: "blocked" };
+  }
 
   // --- Self-authored check ---
   const isSelfAuthored = senderPubkey === myPublicKeyHex;
+  const parsedCommandKind = parseCommandMessage(plaintext);
 
-  // --- Blocked sender ---
-  if (!isSelfAuthored && blocklist?.isBlocked({ publicKeyHex: senderPubkey })) {
-    return { action: "skipped", reason: "blocked_sender" };
-  }
-
-  // --- Tombstone check ---
-  if (isMessageDeleteSuppressed(eventId)) {
-    return { action: "skipped", reason: "tombstoned" };
-  }
-
-  // --- Delete command ---
-  const deleteTargets = parseDeleteCommand(plaintext, tags);
-  if (deleteTargets && deleteTargets.length > 0) {
-    const conversationId = [myPublicKeyHex, senderPubkey].sort().join(":");
-    console.log("[dm-receive] delete command received", {
+  // Classify as delete BEFORE dedup so delete commands always get applied.
+  // Check delete command early — before marking as processed.
+  const earlyDeleteTargets = parseDeleteCommand(plaintext, tags);
+  if (earlyDeleteTargets && earlyDeleteTargets.length > 0) {
+    const conversationId = toDmConversationIdFromEvent({
+      myPublicKeyHex,
+      senderPubkey,
+      tags,
+    }) ?? [myPublicKeyHex, senderPubkey].sort().join(":");
+    console.log("[dm-receive] delete command (dedup-bypass)", {
       eventId: eventId.slice(0, 16),
       senderPubkey: senderPubkey.slice(0, 16),
       isSelfAuthored,
-      targetMessageIds: deleteTargets.map(id => id.slice(0, 16)),
-      conversationId: conversationId.slice(0, 32),
-      tagCount: tags.length,
+      targetMessageIds: earlyDeleteTargets.map(id => id.slice(0, 16)),
     });
+    // Mark processed NOW so duplicate relay deliveries are skipped,
+    // but we already have the delete result to return.
+    markProcessed(dedupSet, event.id);
     return {
       action: "delete",
-      targetMessageIds: deleteTargets,
+      targetMessageIds: earlyDeleteTargets,
       senderPubkey,
       conversationId,
+      plaintext,
     };
   }
 
+  // Dedup: skip non-delete events we've already processed
+  if (!markProcessed(dedupSet, event.id)) {
+    console.log("[dm-receive] Skipped (dedup)", { eventId: event.id.slice(0, 16) });
+    return { action: "skipped", reason: "dedup" };
+  }
+  logAppEvent({
+    name: "messaging.delete_for_everyone_remote_result",
+    level: "debug",
+    scope: { feature: "messaging", action: "delete_for_everyone" },
+    context: {
+      channel: "dm_receive_plaintext_classified",
+      resultCode: plaintext.startsWith(DELETE_COMMAND_PREFIX)
+        ? "delete_prefix"
+        : parsedCommandKind?.type === "delete"
+          ? "legacy_command_delete"
+          : parsedCommandKind
+            ? `legacy_command:${parsedCommandKind.type}`
+            : "normal_plaintext",
+      reasonCode: null,
+      deliveryStatus: "received",
+      conversationIdHint: [myPublicKeyHex, senderPubkey].sort().join(":").slice(0, 32),
+      messageIdHint: eventId.slice(0, 16),
+      conversationKind: "dm",
+      isOutgoing: isSelfAuthored,
+      deleteTargetCount: 0,
+      remoteMessageIdHint: event.id.slice(0, 16),
+    },
+  });
+
+  // --- Tombstone check ---
+  const profileId = getResolvedProfileId();
+  if (messagingClientOperations.isDmMessageSuppressed(eventId, profileId ?? undefined)) {
+    console.log("[dm-receive] Tombstoned", { eventId: eventId.slice(0, 16), profileId: profileId?.slice(0, 16) });
+    return { action: "skipped", reason: "tombstoned" };
+  }
+
   // --- Build message ---
-  const conversationId = [myPublicKeyHex, senderPubkey].sort().join(":");
+  const conversationId = toDmConversationIdFromEvent({
+    myPublicKeyHex,
+    senderPubkey,
+    tags,
+  }) ?? [myPublicKeyHex, senderPubkey].sort().join(":");
   const message: Message = {
     id: eventId,
     conversationId,
@@ -217,6 +358,7 @@ export const processIncomingEvent = async (params: Readonly<{
     isOutgoing: isSelfAuthored,
     status: isSelfAuthored ? "delivered" : "delivered",
     eventId,
+    ...(event.kind === 1059 ? { relayPublishedEventId: event.id } : {}),
     eventCreatedAt: new Date(createdAt * 1000),
     senderPubkey,
     recipientPubkey: isSelfAuthored
@@ -225,12 +367,10 @@ export const processIncomingEvent = async (params: Readonly<{
     encryptedContent: event.content,
   };
 
-  console.log("[dm-receive] processed", {
+  console.log("[dm-receive] processed message", {
     eventId: eventId.slice(0, 16),
     sender: senderPubkey.slice(0, 16),
     isSelfAuthored,
-    ingestSource,
-    relay: relayUrl.slice(0, 40),
     contentPreview: plaintext.slice(0, 30),
   });
 
@@ -242,11 +382,61 @@ export const processIncomingEvent = async (params: Readonly<{
 };
 
 // ---------------------------------------------------------------------------
+// Dedicated delete-only processor — bypasses dedup
+// ---------------------------------------------------------------------------
+
+export type DeleteOnlyResult =
+  | { action: "delete"; targetMessageIds: ReadonlyArray<string>; senderPubkey: string; conversationId: string; plaintext: string }
+  | { action: "skipped"; reason: string };
+
+/**
+ * processDeleteEventDirect
+ *
+ * Decrypts and classifies an incoming event as a delete command WITHOUT
+ * consulting the shared dedup set. Called exclusively by the delete
+ * subscription so that delete commands are always applied even if the
+ * event was already processed as a normal message by the main subscription.
+ */
+export const processDeleteEventDirect = async (params: Readonly<{
+  event: NostrEvent;
+  myPublicKeyHex: PublicKeyHex;
+  myPrivateKeyHex: PrivateKeyHex;
+}>): Promise<DeleteOnlyResult> => {
+  const { event, myPublicKeyHex, myPrivateKeyHex } = params;
+
+  const decryptResult = await decryptIncomingEvent({ event, myPublicKeyHex, myPrivateKeyHex });
+  if (!decryptResult.ok) {
+    console.log("[dm-receive-delete] Decrypt failed", { eventId: event.id.slice(0, 16), reason: decryptResult.reason });
+    return { action: "skipped", reason: decryptResult.reason };
+  }
+
+  const { plaintext, senderPubkey, tags } = decryptResult;
+
+  const deleteTargets = parseDeleteCommand(plaintext, tags);
+  if (!deleteTargets || deleteTargets.length === 0) {
+    console.log("[dm-receive-delete] Not a delete command", { eventId: event.id.slice(0, 16), plaintextPrefix: plaintext.slice(0, 40) });
+    return { action: "skipped", reason: "not_delete_command" };
+  }
+
+  const conversationId = toDmConversationIdFromEvent({
+    myPublicKeyHex,
+    senderPubkey,
+    tags,
+  }) ?? [myPublicKeyHex, senderPubkey].sort().join(":");
+  console.log("[dm-receive-delete] Delete command confirmed (dedup-bypass)", {
+    eventId: event.id.slice(0, 16),
+    senderPubkey: senderPubkey.slice(0, 16),
+    targetMessageIds: deleteTargets.map(id => id.slice(0, 16)),
+    conversationId: conversationId.slice(0, 32),
+  });
+  return { action: "delete", targetMessageIds: deleteTargets, senderPubkey, conversationId, plaintext };
+};
+
+// ---------------------------------------------------------------------------
 // Internals for testing
 // ---------------------------------------------------------------------------
 
 export const dmReceivePipelineInternals = {
-  processedEventIds,
   markProcessed,
   decryptIncomingEvent,
   parseDeleteCommand,

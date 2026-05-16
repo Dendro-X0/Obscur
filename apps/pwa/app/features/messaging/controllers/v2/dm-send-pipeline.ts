@@ -27,6 +27,8 @@ import { dmReceivePipelineInternals } from "./dm-receive-pipeline";
 
 // Time-windowed dedup: blocks rapid double-fires from React strict mode
 // but allows legitimate re-sends of the same text after a short window.
+// NOTE: Delete commands have different dedup keys (different targetMessageId),
+// so this doesn't block rapid deletes of different messages.
 const DEDUP_WINDOW_MS = 500;
 const inflight = new Map<string, number>();
 
@@ -113,7 +115,15 @@ const buildDmEvent = async (params: Readonly<{
     content: encryptedContent,
     pubkey: params.senderPubkey,
   };
+  
   const signedEvent = await cryptoService.signEvent(unsigned, params.senderPrivateKeyHex);
+  
+  console.log("[dm-send-pipeline] NIP-04 signed event", {
+    eventId: signedEvent.id.slice(0, 16),
+    kind: signedEvent.kind,
+    tags: signedEvent.tags,
+  });
+  
   return { format: "nip04", signedEvent, canonicalEventId: signedEvent.id, encryptedContent };
 };
 
@@ -137,6 +147,8 @@ export const sendDm = async (params: Readonly<{
   customTags?: ReadonlyArray<ReadonlyArray<string>>;
   preferredFormat?: DmFormat;
   onConfirmed?: (confirmation: SendConfirmation) => void;
+  dedupSet?: Set<string>;
+  profileId?: string;
 }>): Promise<SendResult> => {
   const {
     pool,
@@ -147,6 +159,8 @@ export const sendDm = async (params: Readonly<{
     customTags,
     preferredFormat = "nip04",
     onConfirmed,
+    dedupSet,
+    profileId,
   } = params;
 
   // --- Dedup guard (time-windowed) ---
@@ -172,6 +186,11 @@ export const sendDm = async (params: Readonly<{
       customTags.forEach(tag => baseTags.push([...tag]));
     }
 
+    console.log("[dm-send-pipeline] Building event with tags", {
+      baseTags: baseTags,
+      plaintext: plaintext.slice(0, 100),
+    });
+
     // --- Build & encrypt ---
     const build = await buildDmEvent({
       format: preferredFormat,
@@ -182,8 +201,24 @@ export const sendDm = async (params: Readonly<{
       tags: baseTags,
     });
 
-    // --- Pre-register in receive dedup to suppress self-echo from relay ---
-    dmReceivePipelineInternals.markProcessed(build.signedEvent.id);
+    console.log("[dm-send-pipeline] Event built", {
+      eventId: build.signedEvent.id.slice(0, 16),
+      kind: build.signedEvent.kind,
+      tags: build.signedEvent.tags,
+    });
+
+    // Pre-register self-echo for ordinary messages only. Delete/redaction commands must
+    // still run through the receive classifier (delete-before-dedup) on relay echo.
+    const isDeleteCommandTransport = (
+      plaintext.startsWith("__dweb_cmd__delete:")
+      || customTags?.some((tag) => tag[0] === "t" && tag[1] === "message-delete")
+    );
+    if (dedupSet && !isDeleteCommandTransport) {
+      console.log("[dm-send-pipeline] Pre-registering in dedup", {
+        eventId: build.signedEvent.id.slice(0, 16),
+      });
+      dmReceivePipelineInternals.markProcessed(dedupSet, build.signedEvent.id);
+    }
 
     // --- Phase 1: Fire immediately via sendToOpen for instant delivery ---
     const eventPayload = JSON.stringify(["EVENT", build.signedEvent]);
@@ -200,6 +235,9 @@ export const sendDm = async (params: Readonly<{
     const targetRelayUrls = resolveTargetRelayUrls({
       pool,
       peerPublicKeyHex: recipientPublicKeyHex,
+      senderPublicKeyHex,
+      customTags,
+      profileId,
     });
 
     // Fire background confirmation — do NOT block on it (when onConfirmed is set)
@@ -248,6 +286,8 @@ export const sendDm = async (params: Readonly<{
     });
 
     // If no callback, await for backward compat (connection request, delete commands)
+    // NOTE: This causes sequential delay when deleting multiple messages rapidly.
+    // Each delete awaits full relay confirmation before the next can start.
     if (!onConfirmed) {
       await confirmationPromise;
       const conf = capturedConfirmation!;

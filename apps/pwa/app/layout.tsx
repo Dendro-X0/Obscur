@@ -391,7 +391,7 @@ export default function RootLayout({
                   } catch (e) {}
                 };
 
-                window.addEventListener("obscur:boot-ready", markBootReady, { once: true });
+                window.addEventListener("dweb:app-boot-ready", markBootReady, { once: true });
                 window.addEventListener("load", function() {
                   if (window.__obscurBootReady === true) {
                     removeOverlay();

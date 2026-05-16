@@ -6,12 +6,13 @@ import { Button } from "../../../components/ui/button";
 import { Textarea } from "../../../components/ui/textarea";
 import { cn } from "@/app/lib/utils";
 import { useTranslation } from "react-i18next";
-import { Paperclip, Send, X, FileText, Loader2, Smile, Play } from "lucide-react";
+import { AlertTriangle, Paperclip, Send, X, FileText, Loader2, Smile, Play } from "lucide-react";
 import EmojiPicker, { EmojiClickData, SuggestionMode, Theme } from "emoji-picker-react";
 import { VoiceRecorder } from "./voice-recorder";
 import type { ReplyTo, RelayStatusSummary } from "../types";
 import { BEST_EFFORT_STORAGE_NOTE } from "../lib/media-upload-policy";
 import { getVoiceNoteAttachmentMetadata } from "@/app/features/messaging/services/voice-note-metadata";
+import { extractHttpUrlHostsFromText } from "../utils/extract-http-url-hosts";
 
 interface ComposerProps {
     messageInput: string;
@@ -38,6 +39,7 @@ interface ComposerProps {
     isProcessingMedia: boolean;
     mediaProcessingProgress: number;
     recipientRemoved?: boolean;
+    deliveryRisk?: "no_overlap" | "unknown" | "overlap" | null;
 }
 
 export function Composer({
@@ -64,6 +66,7 @@ export function Composer({
     isProcessingMedia,
     mediaProcessingProgress,
     recipientRemoved = false,
+    deliveryRisk,
 }: ComposerProps) {
     const EMOJI_PICKER_DESKTOP_WIDTH_PX = 320;
     const EMOJI_PICKER_DESKTOP_HEIGHT_PX = 400;
@@ -190,6 +193,11 @@ export function Composer({
             window.removeEventListener("scroll", handleViewportChange, true);
         };
     }, [showEmojiPicker, updateEmojiPickerPosition]);
+
+    const outboundHttpHosts = React.useMemo(
+        () => extractHttpUrlHostsFromText(messageInput),
+        [messageInput],
+    );
 
     const onEmojiClick = (emojiData: EmojiClickData) => {
         const textarea = textareaRef.current;
@@ -441,6 +449,21 @@ export function Composer({
                 </div>
             )}
 
+            {outboundHttpHosts.length > 0 && (
+                <div
+                    className="mb-2 px-1 text-[10px] leading-snug text-zinc-500 dark:text-zinc-400"
+                    aria-live="polite"
+                >
+                    <span className="font-semibold tracking-tight text-zinc-600 dark:text-zinc-300">
+                        {t("messaging.composer.linkHosts")}
+                    </span>
+                    {" "}
+                    <span className="font-mono text-[10px] text-zinc-700 dark:text-zinc-200 break-all">
+                        {outboundHttpHosts.join(", ")}
+                    </span>
+                </div>
+            )}
+
             {/* Main Input Area */}
             <div className={cn(
                 "relative flex items-end gap-2 p-1.5 bg-black/5 dark:bg-black/40 rounded-[28px] ring-1 ring-black/[0.03] dark:ring-white/[0.05] transition-all duration-300 backdrop-blur-sm",
@@ -566,14 +589,26 @@ export function Composer({
             </div>
 
             {/* Footer Status */}
-            <div className="mt-3 flex items-center justify-between px-2 opacity-50">
+            <div className="mt-3 flex items-center justify-between px-2">
                 <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-widest text-zinc-500">
-                    <span className="flex items-center gap-1.5">
+                    <span className={cn("flex items-center gap-1.5 opacity-50")}>
                         <div className={cn("h-1.5 w-1.5 rounded-full", relayStatus.openCount > 0 ? "bg-emerald-500" : "bg-rose-500")} />
                         {t("messaging.connectedToRelays", { open: relayStatus.openCount, total: relayStatus.total })}
                     </span>
+                    {relayStatus.openCount === 0 && relayStatus.coolingDownRelayCount > 0 && (
+                        <span className="flex items-center gap-1 text-rose-600 dark:text-rose-400 normal-case tracking-normal font-semibold">
+                            <AlertTriangle className="h-3 w-3" />
+                            {t("messaging.relayCoolingDown", "Relay cooling down — retrying shortly")}
+                        </span>
+                    )}
+                    {deliveryRisk === "no_overlap" && relayStatus.openCount > 0 && (
+                        <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400 normal-case tracking-normal font-semibold">
+                            <AlertTriangle className="h-3 w-3" />
+                            {t("messaging.deliveryRisk", "Delivery uncertain — no shared relay")}
+                        </span>
+                    )}
                 </div>
-                <div className="text-[9px] font-medium text-zinc-400 uppercase tracking-tight">
+                <div className="text-[9px] font-medium text-zinc-400 uppercase tracking-tight opacity-50">
                     {t("messaging.e2eEncrypted")} • Ver. 0.4.0
                 </div>
             </div>

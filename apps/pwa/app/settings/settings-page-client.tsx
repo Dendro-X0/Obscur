@@ -64,8 +64,14 @@ import { GroupService } from "@/app/features/groups/services/group-service";
 import {
   loadCommunityMembershipLedger,
   selectJoinedCommunityMembershipLedgerEntries,
-  setCommunityMembershipStatus,
 } from "@/app/features/groups/services/community-membership-ledger";
+import { persistExplicitCommunityMembershipLeave } from "@/app/features/groups/services/community-membership-coordinator";
+import {
+  enqueueCommunityLeaveOutboxItem,
+  recordCommunityLeaveRelayPublishOutcome,
+} from "@/app/features/groups/services/community-leave-outbox";
+import { toGroupConversationId } from "@/app/features/groups/utils/group-conversation-id";
+import type { GroupConversation } from "@/app/features/messaging/types";
 import { requestNotificationPermission } from "@/app/features/notifications/utils/request-notification-permission";
 import { showDesktopNotification } from "@/app/features/notifications/utils/show-desktop-notification";
 import { TrustSettingsPanel } from "@/app/features/messaging/components/trust-settings-panel";
@@ -125,7 +131,7 @@ import {
   markRetiredIdentityPublicKey,
   restoreRetiredIdentityRegistrySnapshot,
 } from "@/app/features/auth/utils/retired-identity-registry";
-import { getActiveProfileIdSafe } from "@/app/features/profiles/services/profile-scope";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { getRuntimeCapabilities } from "@/app/features/runtime/runtime-capabilities";
 import { invokeNativeCommand } from "@/app/features/runtime/native-adapters";
 import { ProfileSwitcherCard } from "@/app/features/profiles/components/profile-switcher-card";
@@ -697,7 +703,7 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
     lastReport: profilePublishReport,
     error: profilePublishError
   } = useProfilePublisher();
-  const { relayPool: pool, relayList, relayRuntime, triggerRelayRecovery } = useRelay();
+  const { relayPool: pool, relayList, relayRuntime, triggerRelayRecovery, relaySelection } = useRelay();
   const blocklist = useBlocklist({ publicKeyHex });
 
   const userInviteCode = useUserInviteCode({
@@ -708,6 +714,7 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
   const [apiHealth, setApiHealth] = useState<ApiHealthState>({ status: "idle" });
   const [newRelayUrl, setNewRelayUrl] = useState<string>("");
   const [showAdvancedRelays, setShowAdvancedRelays] = useState<boolean>(false);
+  const [isDisableAllRelaysDialogOpen, setIsDisableAllRelaysDialogOpen] = useState(false);
   const [isVerifyingNip05, setIsVerifyingNip05] = useState(false);
   const [privacySettings, setPrivacySettings] = useState<PrivacySettings>(() => normalizeV090Flags(PrivacySettingsService.getSettings()));
   const rolloutPolicy = useMemo(() => getV090RolloutPolicy(privacySettings), [privacySettings]);
@@ -1158,11 +1165,45 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
 
     for (const entry of joinedEntries) {
       const groupId = entry.groupId.trim();
-      const relayUrl = entry.relayUrl.trim();
+      const relayUrl = entry.relayUrl?.trim() ?? "";
       if (groupId.length === 0 || relayUrl.length === 0) {
         leftPublishFailureCount += 1;
         continue;
       }
+
+      enqueueCommunityLeaveOutboxItem({
+        publicKeyHex,
+        groupId,
+        relayUrl,
+        communityId: entry.communityId,
+      });
+
+      const group: GroupConversation = {
+        kind: "group",
+        id: toGroupConversationId({
+          groupId,
+          relayUrl,
+          communityId: entry.communityId,
+        }),
+        communityId: entry.communityId,
+        groupId,
+        relayUrl,
+        displayName: entry.displayName ?? "Private Group",
+        memberPubkeys: entry.memberPubkeys ?? [publicKeyHex],
+        lastMessage: "",
+        unreadCount: 0,
+        lastMessageTime: new Date(entry.updatedAtUnixMs ?? Date.now()),
+        access: "invite-only",
+        memberCount: Math.max(1, entry.memberPubkeys?.length ?? 1),
+        adminPubkeys: entry.adminPubkeys ?? [],
+        avatar: entry.avatar,
+      };
+      persistExplicitCommunityMembershipLeave({
+        publicKeyHex,
+        group,
+        updatedAtUnixMs: Date.now(),
+        lastEvidenceEventId: entry.lastEvidenceEventId,
+      });
 
       let nip29LeavePublished = false;
       let sealedLeavePublished = true;
@@ -1179,7 +1220,7 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
 
       try {
         const roomKeyHex = await roomKeyStore.getRoomKey(groupId);
-        if (roomKeyHex) {
+        if (roomKeyHex && nip29LeavePublished) {
           const sealedLeave = await groupService.sendSealedLeave({
             groupId,
             roomKeyHex,
@@ -1193,22 +1234,19 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
         sealedLeavePublished = false;
       }
 
+      recordCommunityLeaveRelayPublishOutcome({
+        publicKeyHex,
+        groupId,
+        relayUrl,
+        success: nip29LeavePublished,
+        errorMessage: nip29LeavePublished ? undefined : "bulk_leave_publish_failed",
+      });
+
       if (nip29LeavePublished && sealedLeavePublished) {
         leftPublishedCount += 1;
       } else {
         leftPublishFailureCount += 1;
       }
-
-      setCommunityMembershipStatus(publicKeyHex, {
-        groupId,
-        relayUrl,
-        communityId: entry.communityId,
-        status: "left",
-        updatedAtUnixMs: Date.now(),
-        displayName: entry.displayName,
-        avatar: entry.avatar,
-        lastEvidenceEventId: entry.lastEvidenceEventId,
-      });
     }
 
     return {
@@ -1255,7 +1293,7 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
       setStorageActionPhase("working");
       setStorageActionMessage("Resetting local history and sync snapshots...");
       const report = await resetLocalHistoryKeepingIdentity({
-        profileId: getActiveProfileIdSafe(),
+        profileId: getResolvedProfileId(),
         publicKeyHex,
       });
       const warningCount = report.warnings.length;
@@ -1287,7 +1325,7 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
       if (publicKeyHex) {
         markRetiredIdentityPublicKey({
           publicKeyHex,
-          profileId: getActiveProfileIdSafe(),
+          profileId: getResolvedProfileId(),
         });
       }
       const publishResult = await publishProfile({
@@ -1541,7 +1579,7 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
         bundle: rawBundle,
         publicKeyHex,
         privateKeyHex,
-        profileId: getActiveProfileIdSafe(),
+        profileId: getResolvedProfileId(),
         appendCanonicalEvents: accountProjectionRuntime.appendCanonicalEvents.bind(accountProjectionRuntime),
       });
       toast.success("Portable account bundle imported.");
@@ -2144,6 +2182,65 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
     relayList.addRelay({ url: validated.normalizedUrl });
     setNewRelayUrl("");
     toast.success(t("settings.relays.relayAdded", "Relay added"));
+  };
+
+  const handleRelayBulkEnableAll = (): void => {
+    if (relayList.state.relays.length === 0) {
+      return;
+    }
+    relayList.replaceRelays({
+      relays: relayList.state.relays.map((r) => ({ url: r.url, enabled: true })),
+    });
+    toast.success(t("settings.relays.bulkEnableAll", "All relays enabled."));
+  };
+
+  const handleRelayBulkDisableAllRequest = (): void => {
+    if (relayList.state.relays.length === 0) {
+      return;
+    }
+    setIsDisableAllRelaysDialogOpen(true);
+  };
+
+  const handleRelayBulkDisableAllConfirm = (): void => {
+    if (relayList.state.relays.length === 0) {
+      setIsDisableAllRelaysDialogOpen(false);
+      return;
+    }
+    relayList.replaceRelays({
+      relays: relayList.state.relays.map((r) => ({ url: r.url, enabled: false })),
+    });
+    toast.success(t("settings.relays.bulkDisableAll", "All relays disabled."));
+    setIsDisableAllRelaysDialogOpen(false);
+  };
+
+  const handleRelayBulkRemoveDisabled = (): void => {
+    const kept = relayList.state.relays.filter((r) => r.enabled);
+    if (kept.length === 0) {
+      toast.error(t(
+        "settings.relays.bulkRemoveDisabledBlocked",
+        "Enable at least one relay first, or remove rows individually.",
+      ));
+      return;
+    }
+    if (kept.length === relayList.state.relays.length) {
+      toast.info(t("settings.relays.bulkRemoveDisabledNone", "No disabled relays to remove."));
+      return;
+    }
+    relayList.replaceRelays({ relays: kept });
+    toast.success(t("settings.relays.bulkRemoveDisabled", "Removed disabled relays from the list."));
+  };
+
+  const handleRelayBulkCopyList = async (): Promise<void> => {
+    if (typeof navigator === "undefined" || !navigator.clipboard) {
+      toast.error(t("settings.relays.bulkCopyUnavailable", "Clipboard unavailable in this environment."));
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(relayList.state.relays, null, 2));
+      toast.success(t("settings.relays.bulkCopySuccess", "Relay list copied as JSON."));
+    } catch {
+      toast.error(t("settings.relays.bulkCopyFailed", "Failed to copy relay list."));
+    }
   };
 
   const applyRelayPreset = (presetId: RelayPresetId): void => {
@@ -3293,9 +3390,11 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
                   <Label className="font-semibold text-base">{t("settings.relays.connectivityTitle", "Relay Connectivity")}</Label>
                   <p className="text-xs text-zinc-500">
                     {t("settings.relays.connectivityDesc", {
-                      defaultValue: "Basic mode uses optimized default relays. Active: {{active}}/{{total}}",
-                      active: relayList.state.relays.filter((relay) => relay.enabled).length,
+                      defaultValue:
+                        "Basic mode picks a primary relay from your enabled list; DM delivery still needs overlap with your peer's relays. Enabled {{enabled}} of {{total}} · Publish-ready {{writable}}.",
+                      enabled: relayList.state.relays.filter((relay) => relay.enabled).length,
                       total: relayList.state.relays.length,
+                      writable: relayRuntime.writableRelayCount,
                     })}
                   </p>
                 </div>
@@ -3313,13 +3412,35 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
 
               <div className="rounded-xl border border-black/5 bg-zinc-50 p-4 dark:border-white/10 dark:bg-zinc-900/50">
                 <div className="flex flex-wrap items-center gap-3 text-xs">
-                  <span className="rounded-full bg-zinc-100 px-2 py-1 font-semibold text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
-                    {t("settings.relays.connectedBadge", {
-                      defaultValue: "Connected {{open}}/{{enabled}}",
-                      open: relayQuickHealth.openCount,
-                      enabled: relayQuickHealth.enabledCount,
-                    })}
+                  <span className={cn(
+                    "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-semibold",
+                    relayRuntimeStatus.status === "healthy"
+                      ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+                      : relayRuntimeStatus.status === "recovering"
+                        ? "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300"
+                        : relayRuntimeStatus.status === "degraded"
+                          ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+                          : "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300"
+                  )}>
+                    <span className={cn(
+                      "h-1.5 w-1.5 rounded-full",
+                      relayRuntimeStatus.status === "healthy" ? "bg-emerald-500" :
+                        relayRuntimeStatus.status === "recovering" ? "bg-sky-500 animate-pulse" :
+                          relayRuntimeStatus.status === "degraded" ? "bg-amber-500" : "bg-rose-500"
+                    )} />
+                    {relayRuntimeStatus.status === "healthy"
+                      ? t("settings.relays.statusPrimary", "Primary active")
+                      : relayRuntimeStatus.status === "recovering"
+                        ? t("settings.relays.statusSwitching", "Switching relay")
+                        : relayRuntimeStatus.status === "degraded"
+                          ? t("settings.relays.statusDegraded", "Degraded")
+                          : t("settings.relays.statusOffline", "Offline")}
                   </span>
+                  {relaySelection.primaryUrl && (
+                    <span className="rounded-full bg-zinc-100 px-2 py-1 font-mono text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 truncate max-w-[180px]">
+                      {(() => { try { return new URL(relaySelection.primaryUrl).hostname; } catch { return relaySelection.primaryUrl; } })()}
+                    </span>
+                  )}
                   <span className="rounded-full bg-zinc-100 px-2 py-1 font-semibold text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
                     {t("settings.relays.avgLatencyBadge", {
                       defaultValue: "Avg Latency {{latency}}",
@@ -3459,6 +3580,33 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
                       <p className="text-xs text-zinc-500">{t("settings.relays.advancedConfigDesc", "Manually add, sort, and enable specific relay nodes for maximum redundancy.")}</p>
                     </div>
 
+                    <div className="flex flex-col gap-2">
+                      <Label className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                        {t("settings.relays.bulkTitle", "Bulk actions")}
+                      </Label>
+                      <div className="flex flex-wrap gap-2">
+                        <Button type="button" variant="outline" size="sm" onClick={handleRelayBulkEnableAll}>
+                          {t("settings.relays.bulkEnableAll", "Enable all")}
+                        </Button>
+                        <Button type="button" variant="outline" size="sm" onClick={handleRelayBulkDisableAllRequest}>
+                          {t("settings.relays.bulkDisableAll", "Disable all")}
+                        </Button>
+                        <Button type="button" variant="outline" size="sm" onClick={handleRelayBulkRemoveDisabled}>
+                          {t("settings.relays.bulkRemoveDisabledButton", "Remove disabled")}
+                        </Button>
+                        <Button type="button" variant="outline" size="sm" onClick={() => void handleRelayBulkCopyList()}>
+                          <Copy className="mr-1.5 h-3.5 w-3.5" />
+                          {t("settings.relays.bulkCopyJson", "Copy JSON")}
+                        </Button>
+                      </div>
+                      <p className="text-[11px] leading-relaxed text-zinc-500">
+                        {t(
+                          "settings.relays.bulkHint",
+                          "Disable all pauses publishing until you enable at least one relay again. Remove disabled drops rows that are toggled off.",
+                        )}
+                      </p>
+                    </div>
+
                     <div className="flex flex-col sm:flex-row gap-2 pt-2">
                       <Input
                         value={newRelayUrl}
@@ -3487,12 +3635,16 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
                       {relayList.state.relays.map((relay, index) => {
                         const connection = relayConnectionMap.get(relay.url);
                         const health = relayHealthMetricsMap.get(relay.url);
+                        const relayRole = relay.enabled && !relayRuntime.fallbackRelayUrls.includes(relay.url)
+                          ? (relaySelection.primaryUrl === relay.url ? "primary" : "standby")
+                          : undefined;
                         const derivedStatus = deriveRelayNodeStatus({
                           url: relay.url,
                           enabled: relay.enabled,
                           connection,
                           metrics: health,
                           isConfigured: true,
+                          role: relayRole,
                           isFallback: relayRuntime.fallbackRelayUrls.includes(relay.url),
                           runtimePhase: relayRuntime.phase,
                           lastInboundEventAtUnixMs: relayRuntime.lastInboundEventAtUnixMs,
@@ -3611,7 +3763,9 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
               phase={relayActionPhase}
               message={relayActionMessage || undefined}
               summary={t("settings.relays.actionsSummary", {
-                defaultValue: "Connected {{open}}/{{enabled}} enabled relays",
+                defaultValue:
+                  "Publish-ready {{writable}} of {{enabled}} · Open sockets {{open}} of {{enabled}}",
+                writable: relayRuntime.writableRelayCount,
                 open: relayQuickHealth.openCount,
                 enabled: relayQuickHealth.enabledCount,
               })}
@@ -4456,6 +4610,20 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
           </Card>
         )
       }
+
+      <ConfirmDialog
+        isOpen={isDisableAllRelaysDialogOpen}
+        onClose={() => setIsDisableAllRelaysDialogOpen(false)}
+        onConfirm={handleRelayBulkDisableAllConfirm}
+        title={t("settings.relays.disableAllDialogTitle", "Disable all relays?")}
+        description={t(
+          "settings.relays.disableAllDialogDesc",
+          "This turns off every relay in your list. Publishing and relay-backed sync stop until you enable at least one relay again.",
+        )}
+        confirmLabel={t("settings.relays.disableAllConfirm", "Disable all")}
+        cancelLabel={t("common.cancel", "Cancel")}
+        variant="danger"
+      />
 
       <ConfirmDialog
         isOpen={isClearDataDialogOpen}

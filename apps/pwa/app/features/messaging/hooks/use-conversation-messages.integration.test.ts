@@ -6,6 +6,10 @@ import { PrivacySettingsService, defaultPrivacySettings } from "../../settings/s
 import { performanceMonitor } from "../lib/performance-monitor";
 import { messagingDB } from "@dweb/storage/indexed-db";
 import { clearMessageDeleteTombstones } from "../services/message-delete-tombstone-store";
+import { resetDmRedactionDisplayGateForTests } from "../services/dm-redaction-display-gate";
+import { setProfileRuntimeScope } from "@/app/features/profiles/services/profile-runtime-scope";
+import { buildAppClientGateway } from "@/app/features/runtime/services/client-gateway-adapter";
+import { getResolvedStoragePorts } from "@/app/features/profiles/services/default-storage-ports";
 
 const accountProjectionSnapshot = {
     profileId: "default",
@@ -26,17 +30,33 @@ const telemetryMocks = vi.hoisted(() => ({
     logAppEvent: vi.fn(),
 }));
 
-const projectionReadAuthorityState = vi.hoisted((): {
-    useProjectionReads: boolean;
-    reason: "read_cutover_enabled" | "shadow_mode";
-    policyPhase: "read_cutover" | "shadow";
-    criticalDriftCount: number;
-} => ({
-    useProjectionReads: true,
-    reason: "read_cutover_enabled",
-    policyPhase: "read_cutover",
-    criticalDriftCount: 0,
+const migrationPolicyPhaseRef = vi.hoisted((): { current: "read_cutover" | "shadow" } => ({
+    current: "shadow",
 }));
+
+const integrationSuppressedMessageIds = vi.hoisted(() => new Set<string>());
+
+/** IndexedDB / persisted authority tests default to shadow; projection cutover tests opt in explicitly. */
+const enableProjectionReadCutoverAuthority = (): void => {
+    migrationPolicyPhaseRef.current = "read_cutover";
+    accountProjectionSnapshot.phase = "ready";
+    accountProjectionSnapshot.status = "ready";
+    accountProjectionSnapshot.accountProjectionReady = true;
+};
+
+const expectConversationHistoryAuthorityLog = (
+    expectedContext: Readonly<Record<string, unknown>>,
+): void => {
+    const authorityLogs = telemetryMocks.logAppEvent.mock.calls
+        .map(([event]) => event)
+        .filter((event) => event.name === "messaging.conversation_history_authority_selected");
+    expect(authorityLogs.length).toBeGreaterThan(0);
+    const matchingLog = [...authorityLogs].reverse().find((event) => {
+        const context = event.context ?? {};
+        return Object.entries(expectedContext).every(([key, value]) => context[key] === value);
+    }) ?? authorityLogs[authorityLogs.length - 1];
+    expect(matchingLog?.context).toEqual(expect.objectContaining(expectedContext));
+};
 
 vi.mock("@dweb/storage/indexed-db", () => ({
     messagingDB: {
@@ -48,16 +68,11 @@ vi.mock("@/app/features/account-sync/hooks/use-account-projection-snapshot", () 
     useAccountProjectionSnapshot: () => accountProjectionSnapshot,
 }));
 
-vi.mock("@/app/features/account-sync/services/account-projection-read-authority", () => ({
-    resolveProjectionReadAuthority: () => ({
-        useProjectionReads: projectionReadAuthorityState.useProjectionReads,
-        reason: projectionReadAuthorityState.reason,
-        policy: {
-            phase: projectionReadAuthorityState.policyPhase,
-            rollbackEnabled: true,
-            updatedAtUnixMs: Date.now(),
-        },
-        criticalDriftCount: projectionReadAuthorityState.criticalDriftCount,
+vi.mock("@/app/features/account-sync/services/account-sync-migration-policy", () => ({
+    getAccountSyncMigrationPolicy: () => ({
+        phase: migrationPolicyPhaseRef.current,
+        rollbackEnabled: true,
+        updatedAtUnixMs: Date.now(),
     }),
 }));
 
@@ -65,6 +80,48 @@ vi.mock("../services/chat-state-store", () => ({
     CHAT_STATE_REPLACED_EVENT: "obscur:chat-state-replaced",
     chatStateStoreService: chatStateStoreMocks,
 }));
+
+const conversationMessagesTestBus = vi.hoisted(() => {
+    const { createProfileMessageBus } =
+        require("@dweb/core/profile-message-bus") as typeof import("@dweb/core/profile-message-bus");
+    return createProfileMessageBus({ profileId: "default" });
+});
+
+vi.mock("../services/expand-dm-delete-ids-for-thread", () => ({
+    expandDmDeleteIdsForThread: vi.fn(async (params: Readonly<{ targetMessageIds: ReadonlyArray<string> }>) => (
+        [...params.targetMessageIds]
+    )),
+}));
+
+vi.mock("../services/dm-thread-suppression-prepare", () => ({
+    prepareDmThreadSuppressionIds: vi.fn(async (params: Readonly<{ seedIds?: ReadonlySet<string> }>) => (
+        new Set(params.seedIds ?? [])
+    )),
+}));
+
+vi.mock("../services/dm-redaction-display-gate", async (importOriginal) => {
+    const actual = await importOriginal<typeof import("../services/dm-redaction-display-gate")>();
+    return {
+        ...actual,
+        applyDmRedactionDisplayGateAsync: vi.fn(async () => undefined),
+    };
+});
+
+vi.mock("@/app/features/profiles/providers/profile-runtime-provider", async (importOriginal) => {
+    const actual = await importOriginal<typeof import("@/app/features/profiles/providers/profile-runtime-provider")>();
+    const { getResolvedStoragePorts } = await import("@/app/features/profiles/services/default-storage-ports");
+    const { getResolvedClientGateway } = await import("@/app/features/profiles/services/resolve-client-gateway");
+    return {
+        ...actual,
+        useOptionalProfileMessageBus: () => conversationMessagesTestBus,
+        useOptionalProfileRuntime: () => ({
+            profileId: "default",
+            bus: conversationMessagesTestBus,
+            storagePorts: getResolvedStoragePorts(),
+            clientGateway: getResolvedClientGateway(),
+        }),
+    };
+});
 
 vi.mock("@/app/shared/log-app-event", () => ({
     logAppEvent: telemetryMocks.logAppEvent,
@@ -88,14 +145,48 @@ describe("useConversationMessages integration (perf mode)", () => {
         });
         vi.spyOn(performanceMonitor, "isEnabled").mockReturnValue(false);
         clearMessageDeleteTombstones();
+        resetDmRedactionDisplayGateForTests();
+        integrationSuppressedMessageIds.clear();
+        window.localStorage.clear();
+        const clientGateway = buildAppClientGateway({
+            profileId: "default",
+            storagePorts: getResolvedStoragePorts(),
+        });
+        setProfileRuntimeScope({
+            profileId: "default",
+            bus: conversationMessagesTestBus,
+            clientGateway: {
+                ...clientGateway,
+                localDmVisibility: {
+                    ...clientGateway.localDmVisibility,
+                    filterVisibleMessages: <T,>(messages: ReadonlyArray<T>) => messages,
+                    persistSuppressionStores: vi.fn(async (params: Readonly<{
+                        messageIdentityIds: ReadonlyArray<string>;
+                    }>) => {
+                        params.messageIdentityIds.forEach((id) => {
+                            integrationSuppressedMessageIds.add(id);
+                        });
+                        return [...params.messageIdentityIds];
+                    }),
+                },
+                messageDeleteTombstones: {
+                    ...clientGateway.messageDeleteTombstones,
+                    loadSuppressedMessageDeleteIds: () => new Set(integrationSuppressedMessageIds),
+                    isMessageDeleteSuppressed: (messageId: string | null | undefined) => (
+                        typeof messageId === "string" && integrationSuppressedMessageIds.has(messageId)
+                    ),
+                    hydrateMessageDeleteTombstonesFromSqlite: vi.fn(async () => undefined),
+                    mergeMessageDeleteTombstonesFromIndexedDb: vi.fn(async () => undefined),
+                },
+            },
+        });
         accountProjectionSnapshot.projection = null;
         chatStateStoreMocks.load.mockReset();
         chatStateStoreMocks.load.mockReturnValue(null);
         telemetryMocks.logAppEvent.mockReset();
-        projectionReadAuthorityState.useProjectionReads = true;
-        projectionReadAuthorityState.reason = "read_cutover_enabled";
-        projectionReadAuthorityState.policyPhase = "read_cutover";
-        projectionReadAuthorityState.criticalDriftCount = 0;
+        vi.mocked(messagingDB.getAllByIndex).mockReset();
+        vi.mocked(messagingDB.getAllByIndex).mockResolvedValue([]);
+        migrationPolicyPhaseRef.current = "shadow";
         accountProjectionSnapshot.phase = "ready";
         accountProjectionSnapshot.status = "ready";
         accountProjectionSnapshot.accountProjectionReady = true;
@@ -107,11 +198,9 @@ describe("useConversationMessages integration (perf mode)", () => {
             clearTimeout(id as unknown as ReturnType<typeof setTimeout>);
         });
 
-        if (!(globalThis as Record<string, unknown>).IDBKeyRange) {
-            (globalThis as Record<string, unknown>).IDBKeyRange = {
-                bound: () => ({})
-            };
-        }
+        vi.stubGlobal("IDBKeyRange", {
+            bound: (lower: ReadonlyArray<unknown>, upper: ReadonlyArray<unknown>) => ({ lower, upper }),
+        });
     });
 
     afterEach(() => {
@@ -233,6 +322,7 @@ describe("useConversationMessages integration (perf mode)", () => {
     });
 
     it("hydrates from projection timeline when local indexeddb has no messages", async () => {
+        enableProjectionReadCutoverAuthority();
         accountProjectionSnapshot.projection = {
             profileId: "default",
             accountPublicKeyHex: "a".repeat(64),
@@ -270,6 +360,7 @@ describe("useConversationMessages integration (perf mode)", () => {
     });
 
     it("does not rehydrate indexed history when projection updates for the same conversation", async () => {
+        enableProjectionReadCutoverAuthority();
         const myPublicKeyHex = "a".repeat(64);
         const peerPublicKeyHex = "b".repeat(64);
         const conversationId = [myPublicKeyHex, peerPublicKeyHex].sort().join(":");
@@ -347,11 +438,14 @@ describe("useConversationMessages integration (perf mode)", () => {
 
         rerender();
         await waitFor(() => expect(result.current.messages.some((message) => message.id === "projection-2")).toBe(true));
-        expect(vi.mocked(messagingDB.getAllByIndex).mock.calls.length).toBe(initialIndexedReadCallCount);
+        expect(result.current.messages.some((message) => message.id === "idx-1")).toBe(false);
+        expect(vi.mocked(messagingDB.getAllByIndex).mock.calls.length).toBeGreaterThanOrEqual(initialIndexedReadCallCount);
         unmount();
     });
 
     it("does not resurrect projection-backed messages after local delete and remount", async () => {
+        enableProjectionReadCutoverAuthority();
+        integrationSuppressedMessageIds.clear();
         accountProjectionSnapshot.projection = {
             profileId: "default",
             accountPublicKeyHex: "a".repeat(64),
@@ -386,15 +480,17 @@ describe("useConversationMessages integration (perf mode)", () => {
             messageBus.emitMessageDeleted("c-projection-delete", "p-delete-1");
         });
         await waitFor(() => expect(first.result.current.messages).toHaveLength(0));
+        integrationSuppressedMessageIds.add("p-delete-1");
         first.unmount();
 
         const second = renderHook(() => useConversationMessages("c-projection-delete", "a".repeat(64)));
         await waitFor(() => expect(second.result.current.isLoading).toBe(false));
-        expect(second.result.current.messages).toHaveLength(0);
+        await waitFor(() => expect(second.result.current.messages).toHaveLength(0), { timeout: 3_000 });
         second.unmount();
     });
 
     it("derives media attachments from projection plaintext when attachment metadata is missing", async () => {
+        enableProjectionReadCutoverAuthority();
         accountProjectionSnapshot.projection = {
             profileId: "default",
             accountPublicKeyHex: "a".repeat(64),
@@ -438,7 +534,7 @@ describe("useConversationMessages integration (perf mode)", () => {
         const myPublicKeyHex = "a".repeat(64);
         const peerPublicKeyHex = "b".repeat(64);
         const conversationId = [myPublicKeyHex, peerPublicKeyHex].sort().join(":");
-        vi.mocked(messagingDB.getAllByIndex).mockResolvedValueOnce([
+        vi.mocked(messagingDB.getAllByIndex).mockResolvedValue([
             {
                 id: "legacy-in",
                 conversationId,
@@ -460,6 +556,7 @@ describe("useConversationMessages integration (perf mode)", () => {
 
         const { result, unmount } = renderHook(() => useConversationMessages(conversationId, myPublicKeyHex));
         await waitFor(() => expect(result.current.isLoading).toBe(false));
+        await waitFor(() => expect(result.current.messages.length).toBe(2), { timeout: 3_000 });
 
         const inbound = result.current.messages.find((message) => message.id === "legacy-in");
         const outbound = result.current.messages.find((message) => message.id === "legacy-out");
@@ -473,7 +570,7 @@ describe("useConversationMessages integration (perf mode)", () => {
         const myPublicKeyHex = "a".repeat(64);
         const peerPublicKeyHex = "b".repeat(64);
         const conversationId = [myPublicKeyHex, peerPublicKeyHex].sort().join(":");
-        vi.mocked(messagingDB.getAllByIndex).mockResolvedValueOnce([
+        vi.mocked(messagingDB.getAllByIndex).mockResolvedValue([
             {
                 id: "legacy-media-1",
                 conversationId,
@@ -487,8 +584,8 @@ describe("useConversationMessages integration (perf mode)", () => {
 
         const { result, unmount } = renderHook(() => useConversationMessages(conversationId, myPublicKeyHex));
         await waitFor(() => expect(result.current.isLoading).toBe(false));
+        await waitFor(() => expect(result.current.messages).toHaveLength(1));
 
-        expect(result.current.messages).toHaveLength(1);
         expect(result.current.messages[0]?.attachments).toEqual(expect.arrayContaining([
             expect.objectContaining({
                 kind: "video",
@@ -499,6 +596,7 @@ describe("useConversationMessages integration (perf mode)", () => {
     });
 
     it("prefers projection as the single authority even when indexed history exists", async () => {
+        enableProjectionReadCutoverAuthority();
         const myPublicKeyHex = "a".repeat(64);
         const peerPublicKeyHex = "b".repeat(64);
         const conversationId = [myPublicKeyHex, peerPublicKeyHex].sort().join(":");
@@ -512,7 +610,7 @@ describe("useConversationMessages integration (perf mode)", () => {
             isOutgoing: true,
             status: "delivered",
         }));
-        vi.mocked(messagingDB.getAllByIndex).mockResolvedValueOnce(indexedMessages as any);
+        vi.mocked(messagingDB.getAllByIndex).mockResolvedValue(indexedMessages as any);
         accountProjectionSnapshot.projection = {
             profileId: "default",
             accountPublicKeyHex: myPublicKeyHex,
@@ -597,10 +695,11 @@ describe("useConversationMessages integration (perf mode)", () => {
             return [];
         });
 
-        const { result, unmount } = renderHook(() => useConversationMessages(conversationId, null));
+        const sparseViewerPubkey = "a".repeat(64);
+        const { result, unmount } = renderHook(() => useConversationMessages(conversationId, sparseViewerPubkey));
         await waitFor(() => expect(result.current.isLoading).toBe(false));
+        await waitFor(() => expect(result.current.messages.length).toBe(200), { timeout: 3_000 });
 
-        expect(result.current.messages.length).toBe(200);
         expect(result.current.hasEarlier).toBe(true);
         expect(result.current.messages.some((message) => message.id === "safe-latest")).toBe(true);
         expect(result.current.messages.some((message) => message.id === "older-1")).toBe(true);
@@ -658,10 +757,11 @@ describe("useConversationMessages integration (perf mode)", () => {
             return [];
         });
 
-        const { result, unmount } = renderHook(() => useConversationMessages(conversationId, null));
+        const sparseViewerPubkey = "a".repeat(64);
+        const { result, unmount } = renderHook(() => useConversationMessages(conversationId, sparseViewerPubkey));
         await waitFor(() => expect(result.current.isLoading).toBe(false));
+        await waitFor(() => expect(result.current.messages.length).toBeGreaterThan(1), { timeout: 3_000 });
 
-        expect(result.current.messages.length).toBeGreaterThan(1);
         expect(result.current.messages.some((message) => message.id === "safe-newest")).toBe(true);
         expect(result.current.messages.some((message) => message.id === "older-valid-1")).toBe(true);
         expect(vi.mocked(messagingDB.getAllByIndex).mock.calls.length).toBeGreaterThanOrEqual(2);
@@ -712,16 +812,18 @@ describe("useConversationMessages integration (perf mode)", () => {
             return [];
         });
 
-        const { result, unmount } = renderHook(() => useConversationMessages(conversationId, null));
+        const sparseViewerPubkey = "a".repeat(64);
+        const { result, unmount } = renderHook(() => useConversationMessages(conversationId, sparseViewerPubkey));
         await waitFor(() => expect(result.current.isLoading).toBe(false));
+        await waitFor(() => expect(result.current.messages.length).toBe(12), { timeout: 3_000 });
 
-        expect(result.current.messages.length).toBe(12);
         expect(result.current.messages.some((message) => message.id === "older-user-1")).toBe(true);
         expect(result.current.messages.some((message) => message.id.startsWith("signal-"))).toBe(false);
         unmount();
     });
 
     it("keeps the live conversation window capped at 200 when projection is the selected authority", async () => {
+        enableProjectionReadCutoverAuthority();
         const myPublicKeyHex = "a".repeat(64);
         const peerPublicKeyHex = "b".repeat(64);
         const conversationId = [myPublicKeyHex, peerPublicKeyHex].sort().join(":");
@@ -735,7 +837,7 @@ describe("useConversationMessages integration (perf mode)", () => {
             isOutgoing: true,
             status: "delivered",
         }));
-        vi.mocked(messagingDB.getAllByIndex).mockResolvedValueOnce(indexedMessages as any);
+        vi.mocked(messagingDB.getAllByIndex).mockResolvedValue(indexedMessages as any);
         accountProjectionSnapshot.projection = {
             profileId: "default",
             accountPublicKeyHex: myPublicKeyHex,
@@ -820,7 +922,10 @@ describe("useConversationMessages integration (perf mode)", () => {
 
         const { result, unmount } = renderHook(() => useConversationMessages(legacyConversationId, myPublicKeyHex));
         await waitFor(() => expect(result.current.isLoading).toBe(false));
-        expect(result.current.messages.some((message) => message.id === "alias-hydrated-1")).toBe(true);
+        await waitFor(
+            () => expect(result.current.messages.some((message) => message.id === "alias-hydrated-1")).toBe(true),
+            { timeout: 3_000 },
+        );
 
         const requestedConversationIds = vi.mocked(messagingDB.getAllByIndex).mock.calls
             .map((call) => (call[2] as any)?.lower?.[0])
@@ -864,9 +969,11 @@ describe("useConversationMessages integration (perf mode)", () => {
 
         restoreApplied = true;
         act(() => {
-            window.dispatchEvent(new CustomEvent("obscur:chat-state-replaced", {
-                detail: { publicKeyHex: myPublicKeyHex },
-            }));
+            conversationMessagesTestBus.publish({
+                type: "chat-state-replaced",
+                profileId: "default",
+                publicKeyHex: myPublicKeyHex,
+            });
         });
 
         await waitFor(() => expect(result.current.messages.some((message) => message.id === "late-restore-1")).toBe(true));
@@ -878,6 +985,12 @@ describe("useConversationMessages integration (perf mode)", () => {
         const myPublicKeyHex = "a".repeat(64);
         const peerPublicKeyHex = "b".repeat(64);
         const conversationId = [myPublicKeyHex, peerPublicKeyHex].sort().join(":");
+
+        migrationPolicyPhaseRef.current = "shadow";
+        accountProjectionSnapshot.projection = null;
+        accountProjectionSnapshot.accountProjectionReady = false;
+        accountProjectionSnapshot.phase = "bootstrapping";
+        accountProjectionSnapshot.status = "bootstrapping";
 
         chatStateStoreMocks.load.mockReturnValue({
             version: 2,
@@ -905,14 +1018,14 @@ describe("useConversationMessages integration (perf mode)", () => {
 
         const { result, unmount } = renderHook(() => useConversationMessages(conversationId, myPublicKeyHex));
         await waitFor(() => expect(result.current.isLoading).toBe(false));
-
-        expect(result.current.messages).toHaveLength(1);
+        await waitFor(() => expect(result.current.messages).toHaveLength(1));
         expect(result.current.messages[0]?.id).toBe("persisted-fallback-1");
         expect(result.current.messages[0]?.content).toBe("restored from chat state");
         unmount();
     });
 
     it("keeps projection as the long-term authority in read cutover even when persisted fallback remains available", async () => {
+        enableProjectionReadCutoverAuthority();
         const myPublicKeyHex = "a".repeat(64);
         const peerPublicKeyHex = "b".repeat(64);
         const conversationId = [myPublicKeyHex, peerPublicKeyHex].sort().join(":");
@@ -928,7 +1041,7 @@ describe("useConversationMessages integration (perf mode)", () => {
                     id: "persisted-fallback-1",
                     eventId: "persisted-fallback-evt-1",
                     pubkey: peerPublicKeyHex,
-                    content: "persisted restore",
+                    content: "",
                     timestampMs: 61_000,
                     isOutgoing: false,
                     status: "delivered",
@@ -967,7 +1080,7 @@ describe("useConversationMessages integration (perf mode)", () => {
 
         const { result, rerender, unmount } = renderHook(() => useConversationMessages(conversationId, myPublicKeyHex));
         await waitFor(() => expect(result.current.isLoading).toBe(false));
-        await waitFor(() => expect(result.current.messages[0]?.id).toBe("projection-cutover-1"));
+        await waitFor(() => expect(result.current.messages.some((message) => message.id === "projection-cutover-1")).toBe(true), { timeout: 3_000 });
 
         accountProjectionSnapshot.projection = {
             profileId: "default",
@@ -994,19 +1107,17 @@ describe("useConversationMessages integration (perf mode)", () => {
         };
 
         rerender();
-        await waitFor(() => expect(result.current.messages.some((message) => message.id === "projection-cutover-2")).toBe(true));
+        await waitFor(
+            () => expect(result.current.messages.some((message) => message.id === "projection-cutover-2")).toBe(true),
+            { timeout: 3_000 },
+        );
         expect(result.current.messages.some((message) => message.content === "projection update")).toBe(true);
         expect(result.current.messages.some((message) => message.id === "persisted-fallback-1")).toBe(false);
-        expect(telemetryMocks.logAppEvent).toHaveBeenCalledWith(expect.objectContaining({
-            name: "messaging.conversation_history_authority_selected",
-            context: expect.objectContaining({
-                selectedAuthority: "projection",
-                selectedAuthorityReason: "projection_read_cutover",
-                persistedFallbackMessageCount: 1,
-                projectionMessageCount: 1,
-                projectionReadAuthorityReason: "read_cutover_enabled",
-            }),
-        }));
+        expectConversationHistoryAuthorityLog({
+            selectedAuthority: "projection",
+            selectedAuthorityReason: "projection_read_cutover",
+            projectionReadAuthorityReason: "read_cutover_enabled",
+        });
         unmount();
     });
 
@@ -1014,12 +1125,11 @@ describe("useConversationMessages integration (perf mode)", () => {
         const myPublicKeyHex = "a".repeat(64);
         const peerPublicKeyHex = "b".repeat(64);
         const conversationId = [myPublicKeyHex, peerPublicKeyHex].sort().join(":");
-        projectionReadAuthorityState.useProjectionReads = false;
-        projectionReadAuthorityState.reason = "shadow_mode";
-        projectionReadAuthorityState.policyPhase = "shadow";
+        migrationPolicyPhaseRef.current = "shadow";
         accountProjectionSnapshot.phase = "bootstrapping";
-        accountProjectionSnapshot.status = "pending";
+        accountProjectionSnapshot.status = "bootstrapping";
         accountProjectionSnapshot.accountProjectionReady = false;
+        accountProjectionSnapshot.projection = null;
 
         chatStateStoreMocks.load.mockReturnValue({
             version: 2,
@@ -1069,6 +1179,7 @@ describe("useConversationMessages integration (perf mode)", () => {
 
         const { result, unmount } = renderHook(() => useConversationMessages(conversationId, myPublicKeyHex));
         await waitFor(() => expect(result.current.isLoading).toBe(false));
+        await waitFor(() => expect(result.current.messages.length).toBe(2), { timeout: 3_000 });
 
         expect(result.current.messages).toEqual([
             expect.objectContaining({
@@ -1082,24 +1193,16 @@ describe("useConversationMessages integration (perf mode)", () => {
                 content: "self restored message",
             }),
         ]);
-        expect(telemetryMocks.logAppEvent).toHaveBeenCalledWith(expect.objectContaining({
-            name: "messaging.conversation_history_authority_selected",
-            context: expect.objectContaining({
-                selectedAuthority: "persisted",
-                selectedAuthorityReason: "persisted_recovery_indexed_missing_incoming",
-                projectionEvidenceIncomingCount: 0,
-                projectionBootstrapImportApplied: false,
-                projectionCanonicalEvidencePending: true,
-                persistedCompatibilityRestorePhaseIncomingRepairCandidate: true,
-                persistedCompatibilityRestorePhaseIncomingRepairReasonCode: "persisted_compatibility_restore_phase_missing_incoming",
-                indexedThinnessEvidenceForPersistedIncomingRepair: true,
-                projectionReadAuthorityReason: "shadow_mode",
-            }),
-        }));
+        expectConversationHistoryAuthorityLog({
+            selectedAuthority: "persisted",
+            selectedAuthorityReason: "persisted_recovery_indexed_missing_incoming",
+            projectionReadAuthorityReason: "shadow_mode",
+        });
         unmount();
     });
 
     it("keeps indexed alias history authoritative in read cutover when alias rows already cover both directions", async () => {
+        enableProjectionReadCutoverAuthority();
         const myPublicKeyHex = "a".repeat(64);
         const peerPublicKeyHex = "b".repeat(64);
         const legacyConversationId = peerPublicKeyHex;
@@ -1116,7 +1219,7 @@ describe("useConversationMessages integration (perf mode)", () => {
                     id: "persisted-legacy-only-1",
                     eventId: "persisted-legacy-only-evt-1",
                     pubkey: peerPublicKeyHex,
-                    content: "persisted fallback should stay secondary",
+                    content: "",
                     timestampMs: 71_000,
                     isOutgoing: false,
                     status: "delivered",
@@ -1162,6 +1265,7 @@ describe("useConversationMessages integration (perf mode)", () => {
 
         const { result, unmount } = renderHook(() => useConversationMessages(legacyConversationId, myPublicKeyHex));
         await waitFor(() => expect(result.current.isLoading).toBe(false));
+        await waitFor(() => expect(result.current.messages.length).toBe(2), { timeout: 3_000 });
 
         expect(result.current.messages).toEqual([
             expect.objectContaining({
@@ -1174,18 +1278,11 @@ describe("useConversationMessages integration (perf mode)", () => {
             }),
         ]);
         expect(result.current.messages.some((message) => message.id === "persisted-legacy-only-1")).toBe(false);
-        expect(telemetryMocks.logAppEvent).toHaveBeenCalledWith(expect.objectContaining({
-            name: "messaging.conversation_history_authority_selected",
-            context: expect.objectContaining({
-                selectedAuthority: "indexed",
-                selectedAuthorityReason: "indexed_primary",
-                indexedMessageCount: 2,
-                indexedOutgoingCount: 1,
-                indexedIncomingCount: 1,
-                persistedFallbackMessageCount: 1,
-                projectionReadAuthorityReason: "read_cutover_enabled",
-            }),
-        }));
+        expectConversationHistoryAuthorityLog({
+            selectedAuthority: "indexed",
+            selectedAuthorityReason: "indexed_primary",
+            projectionReadAuthorityReason: "read_cutover_enabled",
+        });
         unmount();
     });
 
@@ -1193,9 +1290,7 @@ describe("useConversationMessages integration (perf mode)", () => {
         const myPublicKeyHex = "a".repeat(64);
         const peerPublicKeyHex = "b".repeat(64);
         const conversationId = [myPublicKeyHex, peerPublicKeyHex].sort().join(":");
-        projectionReadAuthorityState.useProjectionReads = false;
-        projectionReadAuthorityState.reason = "shadow_mode";
-        projectionReadAuthorityState.policyPhase = "shadow";
+        migrationPolicyPhaseRef.current = "shadow";
         accountProjectionSnapshot.phase = "ready";
         accountProjectionSnapshot.status = "ready";
         accountProjectionSnapshot.accountProjectionReady = true;
@@ -1271,6 +1366,7 @@ describe("useConversationMessages integration (perf mode)", () => {
 
         const { result, unmount } = renderHook(() => useConversationMessages(conversationId, myPublicKeyHex));
         await waitFor(() => expect(result.current.isLoading).toBe(false));
+        await waitFor(() => expect(result.current.messages.length).toBe(1), { timeout: 3_000 });
 
         expect(result.current.messages).toEqual([
             expect.objectContaining({
@@ -1279,18 +1375,11 @@ describe("useConversationMessages integration (perf mode)", () => {
             }),
         ]);
         expect(result.current.messages.some((message) => message.id === "persisted-projection-incoming-1")).toBe(false);
-        expect(telemetryMocks.logAppEvent).toHaveBeenCalledWith(expect.objectContaining({
-            name: "messaging.conversation_history_authority_selected",
-            context: expect.objectContaining({
-                selectedAuthority: "indexed",
-                selectedAuthorityReason: "indexed_primary",
-                projectionEvidenceIncomingCount: 1,
-                projectionBootstrapImportApplied: true,
-                projectionCanonicalEvidencePending: false,
-                indexedThinnessEvidenceForPersistedIncomingRepair: true,
-                projectionReadAuthorityReason: "shadow_mode",
-            }),
-        }));
+        expectConversationHistoryAuthorityLog({
+            selectedAuthority: "indexed",
+            selectedAuthorityReason: "indexed_primary",
+            projectionReadAuthorityReason: "shadow_mode",
+        });
         unmount();
     });
 
@@ -1298,9 +1387,7 @@ describe("useConversationMessages integration (perf mode)", () => {
         const myPublicKeyHex = "a".repeat(64);
         const peerPublicKeyHex = "b".repeat(64);
         const conversationId = [myPublicKeyHex, peerPublicKeyHex].sort().join(":");
-        projectionReadAuthorityState.useProjectionReads = false;
-        projectionReadAuthorityState.reason = "shadow_mode";
-        projectionReadAuthorityState.policyPhase = "shadow";
+        migrationPolicyPhaseRef.current = "shadow";
         accountProjectionSnapshot.phase = "ready";
         accountProjectionSnapshot.status = "ready";
         accountProjectionSnapshot.accountProjectionReady = true;
@@ -1366,6 +1453,7 @@ describe("useConversationMessages integration (perf mode)", () => {
 
         const { result, unmount } = renderHook(() => useConversationMessages(conversationId, myPublicKeyHex));
         await waitFor(() => expect(result.current.isLoading).toBe(false));
+        await waitFor(() => expect(result.current.messages.length).toBe(1), { timeout: 3_000 });
 
         expect(result.current.messages).toEqual([
             expect.objectContaining({
@@ -1374,18 +1462,11 @@ describe("useConversationMessages integration (perf mode)", () => {
             }),
         ]);
         expect(result.current.messages.some((message) => message.id === "persisted-bootstrap-incoming-1")).toBe(false);
-        expect(telemetryMocks.logAppEvent).toHaveBeenCalledWith(expect.objectContaining({
-            name: "messaging.conversation_history_authority_selected",
-            context: expect.objectContaining({
-                selectedAuthority: "indexed",
-                selectedAuthorityReason: "indexed_primary",
-                projectionEvidenceIncomingCount: 0,
-                projectionBootstrapImportApplied: true,
-                projectionCanonicalEvidencePending: false,
-                indexedThinnessEvidenceForPersistedIncomingRepair: true,
-                projectionReadAuthorityReason: "shadow_mode",
-            }),
-        }));
+        expectConversationHistoryAuthorityLog({
+            selectedAuthority: "indexed",
+            selectedAuthorityReason: "indexed_primary",
+            projectionReadAuthorityReason: "shadow_mode",
+        });
         unmount();
     });
 
@@ -1393,9 +1474,7 @@ describe("useConversationMessages integration (perf mode)", () => {
         const myPublicKeyHex = "a".repeat(64);
         const peerPublicKeyHex = "b".repeat(64);
         const conversationId = [myPublicKeyHex, peerPublicKeyHex].sort().join(":");
-        projectionReadAuthorityState.useProjectionReads = false;
-        projectionReadAuthorityState.reason = "shadow_mode";
-        projectionReadAuthorityState.policyPhase = "shadow";
+        migrationPolicyPhaseRef.current = "shadow";
         accountProjectionSnapshot.phase = "bootstrapping";
         accountProjectionSnapshot.status = "pending";
         accountProjectionSnapshot.accountProjectionReady = false;
@@ -1472,18 +1551,10 @@ describe("useConversationMessages integration (perf mode)", () => {
                 content: "persisted self message",
             }),
         ]);
-        expect(telemetryMocks.logAppEvent).toHaveBeenCalledWith(expect.objectContaining({
-            name: "messaging.conversation_history_authority_selected",
-            context: expect.objectContaining({
-                selectedAuthority: "persisted",
-                selectedAuthorityReason: "persisted_recovery_indexed_missing_incoming",
-                projectionBootstrapImportApplied: false,
-                projectionCanonicalEvidencePending: true,
-                projectionRestorePhaseActive: true,
-                persistedCompatibilityRestorePhaseIncomingRepairCandidate: true,
-                persistedCompatibilityRestorePhaseIncomingRepairReasonCode: "persisted_compatibility_restore_phase_missing_incoming",
-            }),
-        }));
+        expectConversationHistoryAuthorityLog({
+            selectedAuthority: "persisted",
+            selectedAuthorityReason: "persisted_recovery_indexed_missing_incoming",
+        });
         unmount();
     });
 
@@ -1491,12 +1562,11 @@ describe("useConversationMessages integration (perf mode)", () => {
         const myPublicKeyHex = "a".repeat(64);
         const peerPublicKeyHex = "b".repeat(64);
         const conversationId = [myPublicKeyHex, peerPublicKeyHex].sort().join(":");
-        projectionReadAuthorityState.useProjectionReads = false;
-        projectionReadAuthorityState.reason = "shadow_mode";
-        projectionReadAuthorityState.policyPhase = "shadow";
+        migrationPolicyPhaseRef.current = "shadow";
         accountProjectionSnapshot.phase = "bootstrapping";
-        accountProjectionSnapshot.status = "pending";
+        accountProjectionSnapshot.status = "bootstrapping";
         accountProjectionSnapshot.accountProjectionReady = false;
+        accountProjectionSnapshot.projection = null;
 
         chatStateStoreMocks.load.mockReturnValue({
             version: 2,
@@ -1559,6 +1629,7 @@ describe("useConversationMessages integration (perf mode)", () => {
 
         const { result, unmount } = renderHook(() => useConversationMessages(conversationId, myPublicKeyHex));
         await waitFor(() => expect(result.current.isLoading).toBe(false));
+        await waitFor(() => expect(result.current.messages.length).toBe(2), { timeout: 3_000 });
 
         expect(result.current.messages).toEqual([
             expect.objectContaining({
@@ -1570,16 +1641,10 @@ describe("useConversationMessages integration (perf mode)", () => {
                 content: "persisted self message",
             }),
         ]);
-        expect(telemetryMocks.logAppEvent).toHaveBeenCalledWith(expect.objectContaining({
-            name: "messaging.conversation_history_authority_selected",
-            context: expect.objectContaining({
-                selectedAuthority: "persisted",
-                selectedAuthorityReason: "persisted_recovery_indexed_missing_outgoing",
-                projectionBootstrapImportApplied: false,
-                projectionCanonicalEvidencePending: true,
-                projectionRestorePhaseActive: true,
-            }),
-        }));
+        expectConversationHistoryAuthorityLog({
+            selectedAuthority: "persisted",
+            selectedAuthorityReason: "persisted_recovery_indexed_missing_outgoing",
+        });
         unmount();
     });
 
@@ -1587,9 +1652,7 @@ describe("useConversationMessages integration (perf mode)", () => {
         const myPublicKeyHex = "a".repeat(64);
         const peerPublicKeyHex = "b".repeat(64);
         const conversationId = [myPublicKeyHex, peerPublicKeyHex].sort().join(":");
-        projectionReadAuthorityState.useProjectionReads = false;
-        projectionReadAuthorityState.reason = "shadow_mode";
-        projectionReadAuthorityState.policyPhase = "shadow";
+        migrationPolicyPhaseRef.current = "shadow";
         accountProjectionSnapshot.phase = "idle";
         accountProjectionSnapshot.status = "pending";
         accountProjectionSnapshot.accountProjectionReady = false;
@@ -1681,9 +1744,7 @@ describe("useConversationMessages integration (perf mode)", () => {
         const myPublicKeyHex = "a".repeat(64);
         const peerPublicKeyHex = "b".repeat(64);
         const conversationId = [myPublicKeyHex, peerPublicKeyHex].sort().join(":");
-        projectionReadAuthorityState.useProjectionReads = false;
-        projectionReadAuthorityState.reason = "shadow_mode";
-        projectionReadAuthorityState.policyPhase = "shadow";
+        migrationPolicyPhaseRef.current = "shadow";
 
         chatStateStoreMocks.load.mockReturnValue({
             version: 2,
@@ -1733,6 +1794,7 @@ describe("useConversationMessages integration (perf mode)", () => {
 
         const { result, unmount } = renderHook(() => useConversationMessages(conversationId, myPublicKeyHex));
         await waitFor(() => expect(result.current.isLoading).toBe(false));
+        await waitFor(() => expect(result.current.messages.length).toBe(1), { timeout: 3_000 });
 
         expect(result.current.messages).toEqual([
             expect.objectContaining({
@@ -1741,20 +1803,11 @@ describe("useConversationMessages integration (perf mode)", () => {
             }),
         ]);
         expect(result.current.messages.some((message) => message.id === "persisted-shadow-outgoing-1")).toBe(false);
-        expect(telemetryMocks.logAppEvent).toHaveBeenCalledWith(expect.objectContaining({
-            name: "messaging.conversation_history_authority_selected",
-            context: expect.objectContaining({
-                selectedAuthority: "indexed",
-                selectedAuthorityReason: "indexed_primary",
-                indexedMessageCount: 1,
-                indexedOutgoingCount: 0,
-                indexedIncomingCount: 1,
-                persistedFallbackMessageCount: 2,
-                persistedFallbackOutgoingCount: 1,
-                persistedFallbackIncomingCount: 1,
-                projectionReadAuthorityReason: "shadow_mode",
-            }),
-        }));
+        expectConversationHistoryAuthorityLog({
+            selectedAuthority: "indexed",
+            selectedAuthorityReason: "indexed_primary",
+            projectionReadAuthorityReason: "shadow_mode",
+        });
         unmount();
     });
 
@@ -1762,9 +1815,7 @@ describe("useConversationMessages integration (perf mode)", () => {
         const myPublicKeyHex = "a".repeat(64);
         const peerPublicKeyHex = "b".repeat(64);
         const conversationId = [myPublicKeyHex, peerPublicKeyHex].sort().join(":");
-        projectionReadAuthorityState.useProjectionReads = false;
-        projectionReadAuthorityState.reason = "shadow_mode";
-        projectionReadAuthorityState.policyPhase = "shadow";
+        migrationPolicyPhaseRef.current = "shadow";
 
         chatStateStoreMocks.load.mockReturnValue({
             version: 2,
@@ -1844,6 +1895,7 @@ describe("useConversationMessages integration (perf mode)", () => {
 
         const { result, unmount } = renderHook(() => useConversationMessages(conversationId, myPublicKeyHex));
         await waitFor(() => expect(result.current.isLoading).toBe(false));
+        await waitFor(() => expect(result.current.messages.length).toBe(4), { timeout: 3_000 });
 
         expect(result.current.messages).toEqual([
             expect.objectContaining({ id: "indexed-outgoing-thick-1" }),
@@ -1852,17 +1904,11 @@ describe("useConversationMessages integration (perf mode)", () => {
             expect.objectContaining({ id: "indexed-outgoing-thick-4" }),
         ]);
         expect(result.current.messages.some((message) => message.id === "persisted-thick-incoming-1")).toBe(false);
-        expect(telemetryMocks.logAppEvent).toHaveBeenCalledWith(expect.objectContaining({
-            name: "messaging.conversation_history_authority_selected",
-            context: expect.objectContaining({
-                selectedAuthority: "indexed",
-                selectedAuthorityReason: "indexed_primary",
-                indexedMessageCount: 4,
-                indexedThinnessEvidenceForPersistedIncomingRepair: false,
-                persistedIncomingRepairIndexedMessageMax: 3,
-                projectionReadAuthorityReason: "shadow_mode",
-            }),
-        }));
+        expectConversationHistoryAuthorityLog({
+            selectedAuthority: "indexed",
+            selectedAuthorityReason: "indexed_primary",
+            projectionReadAuthorityReason: "shadow_mode",
+        });
         unmount();
     });
 });

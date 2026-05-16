@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { validateRelayUrl } from "./validate-relay-url";
 
 type RelayListItem = Readonly<{
@@ -53,9 +54,9 @@ const DEFAULT_RELAYS: ReadonlyArray<RelayListItem> = [
   { url: "wss://relay.primal.net", enabled: true },
 ];
 
-const getRelayListStorageKey = (publicKeyHex: PublicKeyHex): string => {
-  return getScopedStorageKey(`obscur.relay_list.v1.${publicKeyHex}`);
-};
+const getRelayListStorageKey = (publicKeyHex: PublicKeyHex, profileId?: string): string => (
+  getScopedStorageKey(`obscur.relay_list.v1.${publicKeyHex}`, profileId ?? getResolvedProfileId())
+);
 
 const getLegacyRelayListStorageKey = (publicKeyHex: PublicKeyHex): string => {
   return `obscur.relay_list.v1.${publicKeyHex}`;
@@ -83,7 +84,7 @@ const sanitizeRelayList = (relays: ReadonlyArray<RelayListItem>): ReadonlyArray<
   return sanitized;
 };
 
-const loadRelayListFromStorage = (publicKeyHex: PublicKeyHex): ReadonlyArray<RelayListItem> => {
+const loadRelayListFromStorage = (publicKeyHex: PublicKeyHex, profileId?: string): ReadonlyArray<RelayListItem> => {
   const override: ReadonlyArray<RelayListItem> | null = getE2eRelayOverride();
   if (override) {
     const sanitizedOverride = sanitizeRelayList(override);
@@ -94,7 +95,7 @@ const loadRelayListFromStorage = (publicKeyHex: PublicKeyHex): ReadonlyArray<Rel
   }
   try {
     const raw: string | null =
-      window.localStorage.getItem(getRelayListStorageKey(publicKeyHex))
+      window.localStorage.getItem(getRelayListStorageKey(publicKeyHex, profileId))
       ?? window.localStorage.getItem(getLegacyRelayListStorageKey(publicKeyHex));
     if (!raw) {
       return DEFAULT_RELAYS;
@@ -125,18 +126,19 @@ const loadRelayListFromStorage = (publicKeyHex: PublicKeyHex): ReadonlyArray<Rel
   }
 };
 
-const saveRelayListToStorage = (publicKeyHex: PublicKeyHex, relays: ReadonlyArray<RelayListItem>): void => {
+const saveRelayListToStorage = (publicKeyHex: PublicKeyHex, relays: ReadonlyArray<RelayListItem>, profileId?: string): void => {
   if (typeof window === "undefined") {
     return;
   }
   try {
-    window.localStorage.setItem(getRelayListStorageKey(publicKeyHex), JSON.stringify(relays));
+    window.localStorage.setItem(getRelayListStorageKey(publicKeyHex, profileId), JSON.stringify(relays));
   } catch {
     return;
   }
 };
 
 export const useRelayList = (params: UseRelayListParams): UseRelayListResult => {
+  const relayListProfileId = getResolvedProfileId();
   const [relays, setRelays] = useState<ReadonlyArray<RelayListItem>>((): ReadonlyArray<RelayListItem> => {
     const override: ReadonlyArray<RelayListItem> | null = getE2eRelayOverride();
     if (override) {
@@ -145,7 +147,7 @@ export const useRelayList = (params: UseRelayListParams): UseRelayListResult => 
     if (!params.publicKeyHex) {
       return DEFAULT_RELAYS;
     }
-    return loadRelayListFromStorage(params.publicKeyHex);
+    return loadRelayListFromStorage(params.publicKeyHex, relayListProfileId);
   });
   useEffect((): void => {
     queueMicrotask((): void => {
@@ -158,15 +160,15 @@ export const useRelayList = (params: UseRelayListParams): UseRelayListResult => 
         setRelays(DEFAULT_RELAYS);
         return;
       }
-      setRelays(loadRelayListFromStorage(params.publicKeyHex));
+      setRelays(loadRelayListFromStorage(params.publicKeyHex, relayListProfileId));
     });
-  }, [params.publicKeyHex]);
+  }, [params.publicKeyHex, relayListProfileId]);
   useEffect((): void => {
     if (!params.publicKeyHex) {
       return;
     }
-    saveRelayListToStorage(params.publicKeyHex, relays);
-  }, [params.publicKeyHex, relays]);
+    saveRelayListToStorage(params.publicKeyHex, relays, relayListProfileId);
+  }, [params.publicKeyHex, relays, relayListProfileId]);
   const addRelay = useCallback((addParams: Readonly<{ url: string }>): void => {
     const trustedUrl = toTrustedRelayUrl(addParams.url);
     if (!trustedUrl) {

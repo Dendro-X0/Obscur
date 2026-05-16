@@ -141,7 +141,7 @@ describe("outgoing-dm-orchestrator internals", () => {
     });
   });
 
-  it("scopes message-delete transport to recipient-facing relays only when available", () => {
+  it("unions sender relays for message-delete when recipient scope is known", () => {
     expect(outgoingDmOrchestratorInternals.resolveTargetRelayUrls({
       customTags: [["t", "message-delete"]],
       discoveredRecipientRelayUrls: ["wss://recipient-read.example"],
@@ -151,11 +151,16 @@ describe("outgoing-dm-orchestrator internals", () => {
       recipientInboundRelayUrls: [],
     })).toEqual({
       lifecycleTag: null,
-      targetRelayUrls: ["wss://recipient-read.example", "wss://recipient-write.example"],
+      targetRelayUrls: [
+        "wss://recipient-read.example",
+        "wss://recipient-write.example",
+        "wss://sender-open.example",
+        "wss://sender-write.example",
+      ],
       recipientScopeRelayUrls: ["wss://recipient-read.example", "wss://recipient-write.example"],
       recipientScopeSources: ["recipient_discovery", "recipient_write_relays"],
       relayScopeSource: "mixed_recipient_scope",
-      usedRecipientScopeOnly: true,
+      usedRecipientScopeOnly: false,
     });
   });
 

@@ -19,21 +19,32 @@ export const buildMessageNotificationPresentation = (params: Readonly<{
   conversationId: string;
   timestampLabel?: string;
   contextLabel?: string;
+  groupName?: string;
+  iconUrl?: string;
 }>): Readonly<{
   title: string;
   body: string;
   href: string;
+  icon?: string;
 }> => {
-  const contextLabel = clampInlineText(params.contextLabel || "Direct message");
+  const contextLabel = clampInlineText(
+    params.groupName
+      ? params.groupName
+      : (params.contextLabel || "Direct message"),
+  );
   const timestampLabel = clampInlineText(params.timestampLabel || "Just now");
   const preview = trimWithEllipsis(
     clampInlineText(params.preview || "Sent a message"),
     MAX_MESSAGE_NOTIFICATION_PREVIEW_LENGTH,
   );
+  const title = params.groupName
+    ? `${params.senderName} in ${params.groupName}`
+    : `New message from ${params.senderName}`;
   return {
-    title: `New message from ${params.senderName}`,
+    title,
     body: `${contextLabel} • ${timestampLabel}\n${preview}`,
     href: buildConversationNotificationHref(params.conversationId),
+    icon: params.iconUrl,
   };
 };
 

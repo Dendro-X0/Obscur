@@ -3,6 +3,7 @@
 import React, { useMemo } from "react";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { useNetwork } from "../providers/network-provider";
+import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 
 // Utility for combining class names
 const cn = (...classes: (string | false | undefined)[]) =>
@@ -208,15 +209,34 @@ export const PresenceBadge: React.FC<
   Pick<PresenceIndicatorProps, "publicKeyHex" | "currentTime" | "className">
 > = ({ publicKeyHex, currentTime, className }) => {
   const { presence } = useNetwork();
+  const identity = useIdentity();
+  
+  // Check if this is the current user
+  const isCurrentUser = useMemo(() => {
+    const localPubkey = identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex;
+    return localPubkey === publicKeyHex;
+  }, [identity.state.publicKeyHex, identity.state.stored?.publicKeyHex, publicKeyHex]);
 
-  const lastSeenAtMs = useMemo(() => {
+  const lastSeenAtMsRaw = useMemo(() => {
     return presence.getLastSeenAtMs(publicKeyHex);
   }, [presence, publicKeyHex]);
 
   const time = currentTime;
+  // Current user is always "online now" - use provided time or 0 (will be handled in status)
+  const lastSeenAtMs = isCurrentUser ? (time ?? 0) : lastSeenAtMsRaw;
 
   const status = useMemo(() => {
-    if (lastSeenAtMs === null) {
+    // Current user is always online
+    if (isCurrentUser) {
+      return {
+        label: "You",
+        bgColor: "bg-emerald-500/10",
+        textColor: "text-emerald-500",
+        borderColor: "border-emerald-500/20",
+      };
+    }
+    
+    if (lastSeenAtMs === null || lastSeenAtMs === 0) {
       return {
         label: "Unknown",
         bgColor: "bg-zinc-500/10",
@@ -269,7 +289,7 @@ export const PresenceBadge: React.FC<
       textColor: "text-zinc-500",
       borderColor: "border-zinc-500/20",
     };
-  }, [lastSeenAtMs, time]);
+  }, [lastSeenAtMs, time, isCurrentUser]);
 
   return (
     <span

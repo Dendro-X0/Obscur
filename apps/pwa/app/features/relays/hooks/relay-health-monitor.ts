@@ -72,7 +72,7 @@ interface BackoffConfig {
 const DEFAULT_CIRCUIT_BREAKER_CONFIG: CircuitBreakerConfig = {
   failureThreshold: 5, // Open circuit after 5 consecutive failures
   successThreshold: 2, // Close circuit after 2 consecutive successes
-  openDuration: 60000, // Keep circuit open for 60 seconds
+  openDuration: 15000, // Keep circuit open for 15 seconds
   halfOpenMaxAttempts: 3 // Allow 3 attempts in half-open state
 };
 

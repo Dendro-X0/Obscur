@@ -27,15 +27,15 @@ This lane verifies:
 1. `apps/pwa/app/features/groups/providers/group-provider.tsx`
 2. `apps/pwa/app/features/groups/services/community-membership-recovery.ts`
 3. `apps/pwa/app/features/groups/services/community-membership-reconstruction.ts`
-4. `apps/pwa/app/features/groups/services/community-ledger-reducer.ts`
+4. `apps/pwa/app/features/groups/services/community-ledger-validator.ts`
 5. `apps/pwa/app/features/groups/hooks/use-sealed-community.ts`
 6. `apps/pwa/app/features/groups/services/community-membership-ledger.ts`
 7. `apps/pwa/app/features/groups/services/group-tombstone-store.ts`
 
 Reference incidents and guardrails:
 
-1. `docs/16-cross-device-group-visibility-incident.md`
-2. `docs/18-account-scope-and-discovery-guardrails.md`
+1. `docs/encyclopedia/16-cross-device-group-visibility-incident.md`
+2. `docs/encyclopedia/18-account-scope-and-discovery-guardrails.md`
 
 ## Required Invariants
 
@@ -60,7 +60,7 @@ Reference incidents and guardrails:
 Run:
 
 ```bash
-pnpm -C apps/pwa exec vitest run app/features/groups/services/community-membership-recovery.test.ts app/features/groups/services/community-membership-ledger.test.ts app/features/groups/services/community-ledger-reducer.test.ts app/features/groups/providers/group-provider.cross-device-membership.integration.test.tsx app/features/groups/hooks/use-sealed-community.integration.test.ts app/features/groups/hooks/use-sealed-community.merge.test.ts app/features/groups/hooks/use-sealed-community.security.test.ts
+pnpm -C apps/pwa exec vitest run app/features/groups/services/community-membership-recovery.test.ts app/features/groups/services/community-membership-ledger.test.ts app/features/groups/services/community-ledger-validator.test.ts app/features/groups/providers/group-provider.cross-device-membership.integration.test.tsx app/features/groups/hooks/use-sealed-community.integration.test.ts app/features/groups/hooks/use-sealed-community.merge.test.ts app/features/groups/hooks/use-sealed-community.security.test.ts
 pnpm -C apps/pwa exec tsc --noEmit --pretty false
 pnpm docs:check
 ```
@@ -83,7 +83,7 @@ Expected focus:
    - scoped relay filtering,
    - delete replay suppression,
    - terminal-state behavior after disband.
-4. `community-ledger-reducer.test.ts` and
+4. `community-ledger-validator.test.ts` and
    `community-membership-ledger.test.ts`
    - signed membership status transitions,
    - local joined/left durability,

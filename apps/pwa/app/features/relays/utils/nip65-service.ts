@@ -1,9 +1,11 @@
 import { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { cryptoService } from "@/app/features/crypto/crypto-service";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { validateRelayUrl } from "./validate-relay-url";
 import { normalizePublicKeyHex } from "@/app/features/profile/utils/normalize-public-key-hex";
 import type { NostrEvent } from "@dweb/nostr/nostr-event";
+import type { NostrFilter } from "@/app/features/messaging/controllers/dm-controller-state";
 
 export interface RelayHint {
     url: string;
@@ -24,7 +26,7 @@ export type Nip65IngestResult =
     | Readonly<{ status: "ignored_no_trusted_relays" }>;
 
 const NIP65_CACHE_KEY = "obscur.nip65.cache";
-const getNip65CacheKey = (): string => getScopedStorageKey(NIP65_CACHE_KEY);
+const getNip65CacheKey = (): string => getScopedStorageKey(NIP65_CACHE_KEY, getResolvedProfileId());
 const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 
 const toTrustedRelayUrl = (candidate: string): string | null => {
@@ -173,6 +175,54 @@ export class Nip65Service {
         if (!list) return [];
         return list.relays.filter(r => r.write).map(r => r.url);
     }
+
+    /**
+     * Actively fetch a contact's NIP-65 relay list (kind 10002) from the relay
+     * pool and store the result in the cache. Resolves with the list when found,
+     * or null on timeout / parse failure. Safe to call concurrently — a per-pubkey
+     * in-flight set prevents duplicate subscriptions.
+     */
+    fetchContactRelayList(
+        pubkey: PublicKeyHex,
+        pool: Readonly<{
+            subscribe: (filters: ReadonlyArray<NostrFilter>, onEvent: (event: NostrEvent, url: string) => void) => string;
+            unsubscribe: (id: string) => void;
+        }>,
+        timeoutMs = 4000,
+    ): Promise<UserRelayList | null> {
+        if (this._fetchInFlight.has(pubkey)) {
+            return this._fetchInFlight.get(pubkey)!;
+        }
+
+        const promise = new Promise<UserRelayList | null>((resolve) => {
+            let settled = false;
+            const settle = (result: UserRelayList | null) => {
+                if (settled) return;
+                settled = true;
+                clearTimeout(timer);
+                pool.unsubscribe(subId);
+                this._fetchInFlight.delete(pubkey);
+                resolve(result);
+            };
+
+            const subId = pool.subscribe(
+                [{ kinds: [10002], authors: [pubkey], limit: 1 }],
+                async (event: NostrEvent) => {
+                    const result = await this.ingestVerifiedEvent(event);
+                    if (result.status === "accepted") {
+                        settle(result.list);
+                    }
+                },
+            );
+
+            const timer = setTimeout(() => settle(null), timeoutMs);
+        });
+
+        this._fetchInFlight.set(pubkey, promise);
+        return promise;
+    }
+
+    private readonly _fetchInFlight = new Map<string, Promise<UserRelayList | null>>();
 }
 
 export const nip65Service = new Nip65Service();

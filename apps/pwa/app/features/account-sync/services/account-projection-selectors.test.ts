@@ -337,4 +337,94 @@ describe("account-projection-selectors", () => {
 
     expect(messages.map((message) => message.id)).toEqual(["m-4", "m-5", "m-6"]);
   });
+
+  it("drops DM-scoped projection rows when reading a community timeline bucket", () => {
+    const my = "a".repeat(64);
+    const peer = "b".repeat(64);
+    const dmId = [my, peer].sort().join(":");
+    const groupId = "community:newtest-1@wss://nos.lol";
+    const projection: AccountProjectionSnapshot = {
+      ...PROJECTION,
+      messagesByConversationId: {
+        [groupId]: [
+          {
+            messageId: "g1",
+            conversationId: groupId,
+            peerPublicKeyHex: peer as any,
+            direction: "incoming",
+            eventCreatedAtUnixSeconds: 2,
+            plaintextPreview: "hello room",
+            observedAtUnixMs: 2_000,
+          },
+          {
+            messageId: "dm-leak",
+            conversationId: dmId,
+            peerPublicKeyHex: peer as any,
+            direction: "incoming",
+            eventCreatedAtUnixSeconds: 1,
+            plaintextPreview: "dm leak",
+            observedAtUnixMs: 1_000,
+          },
+        ],
+      },
+    };
+
+    const messages = selectProjectionConversationMessages({
+      projection,
+      conversationId: groupId,
+      myPublicKeyHex: my as any,
+    });
+
+    expect(messages.map((m) => m.id)).toEqual(["g1"]);
+    expect(messages[0]?.content).toBe("hello room");
+  });
+
+  it("omits projection timeline rows that are locally removed in the snapshot", () => {
+    const my = "a".repeat(64);
+    const peer = "b".repeat(64);
+    const conversationId = [my, peer].sort().join(":");
+    const projection: AccountProjectionSnapshot = {
+      ...PROJECTION,
+      conversationsById: {
+        [conversationId]: {
+          conversationId,
+          peerPublicKeyHex: peer as any,
+          lastMessagePreview: "keep",
+          lastMessageAtUnixMs: 3_000,
+          unreadCount: 0,
+        },
+      },
+      messagesByConversationId: {
+        [conversationId]: [
+          {
+            messageId: "gone",
+            conversationId,
+            peerPublicKeyHex: peer as any,
+            direction: "incoming",
+            eventCreatedAtUnixSeconds: 1,
+            plaintextPreview: "deleted",
+            observedAtUnixMs: 1_000,
+          },
+          {
+            messageId: "keep",
+            conversationId,
+            peerPublicKeyHex: peer as any,
+            direction: "incoming",
+            eventCreatedAtUnixSeconds: 2,
+            plaintextPreview: "keep",
+            observedAtUnixMs: 2_000,
+          },
+        ],
+      },
+      removedMessageIds: { gone: 5_000 },
+    };
+
+    const messages = selectProjectionConversationMessages({
+      projection,
+      conversationId,
+      myPublicKeyHex: my as any,
+    });
+
+    expect(messages.map((m) => m.id)).toEqual(["keep"]);
+  });
 });

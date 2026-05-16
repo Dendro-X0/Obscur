@@ -1,11 +1,12 @@
 import type { NostrFilter, Subscription, EnhancedDMControllerState } from "./dm-controller-state";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { logRuntimeEvent } from "@/app/shared/runtime-log-classification";
+import { logAppEvent } from "@/app/shared/log-app-event";
 import { deliveryDiagnosticsStore } from "../services/delivery-diagnostics-store";
 import { logDmVisibilityEvent } from "../services/dm-visibility-diagnostics";
 import { generateSubscriptionId, parseRelayEventMessage } from "./relay-utils";
 
-const LIVE_SUBSCRIPTION_SINCE_SKEW_SECONDS = 0;
+const LIVE_SUBSCRIPTION_SINCE_SKEW_SECONDS = 300;
 
 export interface SubscriptionManagerParams {
     myPublicKeyHex: PublicKeyHex | null;
@@ -66,7 +67,27 @@ export const subscribeToIncomingDMs = (params: SubscriptionManagerParams): void 
 
     let subId: string;
     if (typeof pool.subscribe === "function") {
-        subId = pool.subscribe(filters, onEvent);
+        subId = pool.subscribe(filters, (event: unknown, url: string) => {
+            const ev = event as Record<string, unknown>;
+            logAppEvent({
+                name: "messaging.delete_for_everyone_remote_result",
+                level: "debug",
+                scope: { feature: "messaging", action: "delete_for_everyone" },
+                context: {
+                    channel: "subscription_event_received",
+                    resultCode: "received",
+                    reasonCode: null,
+                    deliveryStatus: "received",
+                    conversationIdHint: null,
+                    messageIdHint: typeof ev.id === "string" ? ev.id.slice(0, 16) : null,
+                    conversationKind: "dm",
+                    isOutgoing: ev.pubkey === myPublicKeyHex,
+                    deleteTargetCount: 0,
+                    remoteMessageIdHint: typeof ev.id === "string" ? ev.id.slice(0, 16) : null,
+                },
+            });
+            onEvent(event, url);
+        });
     } else if (typeof pool.subscribeToMessages === "function" && typeof pool.sendToOpen === "function") {
         subId = generateSubscriptionId();
         const onEventWrapper = (rawEvent: string, relayUrl: string) => {
@@ -83,6 +104,23 @@ export const subscribeToIncomingDMs = (params: SubscriptionManagerParams): void 
                 kind: Number(ev.kind ?? 0),
                 relayUrl,
                 processingStage: "received",
+            });
+            logAppEvent({
+                name: "messaging.delete_for_everyone_remote_result",
+                level: "debug",
+                scope: { feature: "messaging", action: "delete_for_everyone" },
+                context: {
+                    channel: "subscription_event_received",
+                    resultCode: "received",
+                    reasonCode: null,
+                    deliveryStatus: "received",
+                    conversationIdHint: null,
+                    messageIdHint: String(ev.id ?? "").slice(0, 16) || null,
+                    conversationKind: "dm",
+                    isOutgoing: ev.pubkey === myPublicKeyHex,
+                    deleteTargetCount: 0,
+                    remoteMessageIdHint: String(ev.id ?? "").slice(0, 16) || null,
+                },
             });
 
             onEvent(event, relayUrl);
@@ -127,6 +165,23 @@ export const subscribeToIncomingDMs = (params: SubscriptionManagerParams): void 
         [`[DMController] Subscribing via central manager for incoming DMs on ${pool.connections.length} relays:`, filters],
         { maxPerWindow: 1, windowMs: 5_000 }
     );
+    logAppEvent({
+        name: "messaging.delete_for_everyone_remote_result",
+        level: "info",
+        scope: { feature: "messaging", action: "delete_for_everyone" },
+        context: {
+            channel: "subscription_started",
+            resultCode: "subscribed",
+            reasonCode: null,
+            deliveryStatus: "pending",
+            conversationIdHint: null,
+            messageIdHint: subId.slice(0, 16),
+            conversationKind: "dm",
+            isOutgoing: false,
+            deleteTargetCount: 0,
+            remoteMessageIdHint: null,
+        },
+    });
 
     deliveryDiagnosticsStore.markSubscription({
         subId,

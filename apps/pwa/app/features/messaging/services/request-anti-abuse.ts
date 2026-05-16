@@ -1,5 +1,6 @@
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 
 const REQUEST_COOLDOWN_PREFIX = "obscur:dm:request-cooldown:v1";
 const DEFAULT_REQUEST_COOLDOWN_MS = 2 * 60 * 1000;
@@ -10,8 +11,16 @@ type RequestCooldownRecord = Readonly<{
   updatedAtUnixMs: number;
 }>;
 
-const getRequestCooldownKey = (params: Readonly<{ myPublicKeyHex: PublicKeyHex; peerPublicKeyHex: PublicKeyHex }>): string =>
-  getScopedStorageKey(`${REQUEST_COOLDOWN_PREFIX}:${params.myPublicKeyHex}:${params.peerPublicKeyHex}`);
+const getRequestCooldownKey = (params: Readonly<{
+  myPublicKeyHex: PublicKeyHex;
+  peerPublicKeyHex: PublicKeyHex;
+  profileId?: string;
+}>): string => (
+  getScopedStorageKey(
+    `${REQUEST_COOLDOWN_PREFIX}:${params.myPublicKeyHex}:${params.peerPublicKeyHex}`,
+    params.profileId ?? getResolvedProfileId(),
+  )
+);
 
 const readRequestCooldownRecord = (storageKey: string): RequestCooldownRecord | null => {
   if (typeof window === "undefined") return null;
@@ -34,7 +43,11 @@ const readRequestCooldownRecord = (storageKey: string): RequestCooldownRecord | 
   }
 };
 
-export const getRequestCooldownRemainingMs = (params: Readonly<{ myPublicKeyHex: PublicKeyHex; peerPublicKeyHex: PublicKeyHex }>): number => {
+export const getRequestCooldownRemainingMs = (params: Readonly<{
+  myPublicKeyHex: PublicKeyHex;
+  peerPublicKeyHex: PublicKeyHex;
+  profileId?: string;
+}>): number => {
   const storageKey = getRequestCooldownKey(params);
   const record = readRequestCooldownRecord(storageKey);
   if (!record) return 0;
@@ -53,6 +66,7 @@ export const setRequestCooldown = (params: Readonly<{
   peerPublicKeyHex: PublicKeyHex;
   reason: "declined" | "canceled" | "manual";
   durationMs?: number;
+  profileId?: string;
 }>): void => {
   if (typeof window === "undefined") return;
   const now = Date.now();
@@ -66,7 +80,11 @@ export const setRequestCooldown = (params: Readonly<{
   window.localStorage.setItem(storageKey, JSON.stringify(next));
 };
 
-export const clearRequestCooldown = (params: Readonly<{ myPublicKeyHex: PublicKeyHex; peerPublicKeyHex: PublicKeyHex }>): void => {
+export const clearRequestCooldown = (params: Readonly<{
+  myPublicKeyHex: PublicKeyHex;
+  peerPublicKeyHex: PublicKeyHex;
+  profileId?: string;
+}>): void => {
   if (typeof window === "undefined") return;
   window.localStorage.removeItem(getRequestCooldownKey(params));
 };

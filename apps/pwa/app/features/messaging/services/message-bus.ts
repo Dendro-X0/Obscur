@@ -60,7 +60,10 @@ class MessageBus {
     emitMessageDeleted(
         conversationId: string,
         messageId: string,
-        options?: Readonly<{ messageIdentityIds?: ReadonlyArray<string> }>
+        options?: Readonly<{
+            messageIdentityIds?: ReadonlyArray<string>;
+            conversationIdOriginal?: string;
+        }>
     ): void {
         this.emit({
             type: 'message_deleted',
@@ -68,6 +71,9 @@ class MessageBus {
             messageId,
             ...(options?.messageIdentityIds && options.messageIdentityIds.length > 0
                 ? { messageIdentityIds: options.messageIdentityIds }
+                : {}),
+            ...(options?.conversationIdOriginal
+                ? { conversationIdOriginal: options.conversationIdOriginal }
                 : {}),
         });
     }

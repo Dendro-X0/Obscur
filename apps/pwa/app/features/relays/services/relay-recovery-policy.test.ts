@@ -127,19 +127,16 @@ describe("relay recovery policy", () => {
     const pool = createPool();
     controller.configure({ pool, enabledRelayUrls: [] });
 
-    vi.setSystemTime(new Date("2026-01-01T00:00:09.000Z"));
-    await controller.triggerRecovery("manual");
-    vi.setSystemTime(new Date("2026-01-01T00:00:18.000Z"));
-    await controller.triggerRecovery("manual");
-    vi.setSystemTime(new Date("2026-01-01T00:00:27.000Z"));
-    await controller.triggerRecovery("manual");
-    vi.setSystemTime(new Date("2026-01-01T00:00:36.000Z"));
-    await controller.triggerRecovery("manual");
-    vi.setSystemTime(new Date("2026-01-01T00:00:45.000Z"));
-    const exhausted = await controller.triggerRecovery("manual");
+    const baseMs = new Date("2026-01-01T00:00:00.000Z").getTime();
+    let last: Awaited<ReturnType<typeof controller.triggerRecovery>> | undefined;
+    for (let i = 1; i <= 9; i += 1) {
+      vi.setSystemTime(new Date(baseMs + i * 9_000));
+      last = await controller.triggerRecovery("manual");
+    }
 
-    expect(exhausted.currentAction).toBe("reload_required");
-    expect(exhausted.recoveryReasonCode).toBe("recovery_exhausted");
+    expect(last).toBeDefined();
+    expect(last!.currentAction).toBe("reload_required");
+    expect(last!.recoveryReasonCode).toBe("recovery_exhausted");
   });
 
   it("maps manual recovery to cyclic no_writable_relays when runtime is disconnected", async () => {

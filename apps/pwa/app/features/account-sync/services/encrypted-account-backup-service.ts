@@ -6,13 +6,11 @@ import type { NostrEvent } from "@dweb/nostr/nostr-event";
 import { cryptoService } from "@/app/features/crypto/crypto-service";
 import { roomKeyStore } from "@/app/features/crypto/room-key-store";
 import type { IdentityRecord } from "@dweb/core/identity-record";
+import { isTauri } from "@dweb/db";
 import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store";
 import { messagePersistenceService } from "@/app/features/messaging/services/message-persistence-service";
-import {
-  loadMessageDeleteTombstoneEntries,
-  normalizeMessageDeleteTombstoneEntries,
-  replaceMessageDeleteTombstones,
-} from "@/app/features/messaging/services/message-delete-tombstone-store";
+import { messagingClientOperations } from "@/app/features/messaging/services/messaging-client-operations";
+import { normalizeMessageDeleteTombstoneEntries } from "@dweb/storage-contracts/message-delete-tombstones";
 import type { PersistedChatState } from "@/app/features/messaging/types";
 import { requestFlowEvidenceStoreInternals } from "@/app/features/messaging/services/request-flow-evidence-store";
 import { syncCheckpointInternals } from "@/app/features/messaging/lib/sync-checkpoints";
@@ -22,8 +20,12 @@ import { relayListInternals } from "@/app/features/relays/hooks/use-relay-list";
 import { contactRequestOutboxInternals } from "@/app/features/search/hooks/use-contact-request-outbox";
 import type { ContactRequestRecord } from "@/app/features/search/types/discovery";
 import { useProfileInternals } from "@/app/features/profile/hooks/use-profile";
-import { getActiveProfileIdSafe, getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { publishViaRelayCore, type RelayPoolLike } from "@/app/features/relays/lib/nostr-core-relay";
+import {
+  fetchLeaveProofFromRelay,
+} from "@/app/features/groups/services/community-leave-proof-service";
 import {
   loadCommunityMembershipLedger,
   mergeCommunityMembershipLedgerEntries,
@@ -88,6 +90,9 @@ import {
   uniqueStrings,
 } from "./restore-merge-chat-state";
 import { applyNonV1RestoreMaterialization } from "./restore-materialization";
+import {
+  withAccountRestoreMaterializationEvents,
+} from "./restore-materialization-events";
 import { fetchLatestEventFromRelayUrls } from "./direct-relay-query";
 import { getStoredIdentity } from "@/app/features/auth/utils/get-stored-identity";
 import { saveStoredIdentity } from "@/app/features/auth/utils/save-stored-identity";
@@ -378,6 +383,18 @@ const selectJoinedGroupIds = (
   return joinedGroupIds;
 };
 
+const selectPortableRoomKeyGroupIds = (
+  entries: ReadonlyArray<CommunityMembershipLedgerEntry>,
+): ReadonlySet<string> => {
+  const portableGroupIds = new Set<string>();
+  entries.forEach((entry) => {
+    if ((entry.status === "joined" || entry.status === "historical") && entry.groupId.trim().length > 0) {
+      portableGroupIds.add(entry.groupId.trim());
+    }
+  });
+  return portableGroupIds;
+};
+
 const filterRoomKeySnapshotsToJoinedEvidence = (params: Readonly<{
   roomKeys: ReadonlyArray<RoomKeySnapshot>;
   explicitLedgerEntries: ReadonlyArray<CommunityMembershipLedgerEntry>;
@@ -392,7 +409,7 @@ const filterRoomKeySnapshotsToJoinedEvidence = (params: Readonly<{
     params.explicitLedgerEntries,
     reconstructedLedgerEntries,
   );
-  const joinedGroupIds = selectJoinedGroupIds(mergedLedgerEntries);
+  const joinedGroupIds = selectPortableRoomKeyGroupIds(mergedLedgerEntries);
   if (joinedGroupIds.size === 0) {
     return [];
   }
@@ -525,13 +542,13 @@ const isDefaultRelayList = (publicKeyHex: PublicKeyHex, relayList: RelayListSnap
   ));
 };
 
-const isExistingLocalPrivateState = (publicKeyHex: PublicKeyHex): boolean => {
+const isExistingLocalPrivateState = (publicKeyHex: PublicKeyHex, profileId?: string): boolean => {
   const peerTrust = peerTrustInternals.loadFromStorage(publicKeyHex);
-  const evidence = requestFlowEvidenceStoreInternals.readState();
-  const outbox = contactRequestOutboxInternals.readState();
-  const checkpoints = Array.from(syncCheckpointInternals.loadPersistedCheckpointState().values());
+  const evidence = requestFlowEvidenceStoreInternals.readState(profileId);
+  const outbox = contactRequestOutboxInternals.readState(profileId);
+  const checkpoints = Array.from(syncCheckpointInternals.loadPersistedCheckpointState(profileId).values());
   const chatState = chatStateStoreService.load(publicKeyHex);
-  const relayList = relayListInternals.loadRelayListFromStorage(publicKeyHex);
+  const relayList = relayListInternals.loadRelayListFromStorage(publicKeyHex, profileId);
   const profile = useProfileInternals.loadFromStorage().profile;
   const hasProfileDraft = profile.username.trim().length > 0
     || (profile.about ?? "").trim().length > 0
@@ -730,8 +747,8 @@ const buildBackupPayload = (
   chatStateOverride?: EncryptedAccountBackupPayload["chatState"],
   roomKeyOverride?: ReadonlyArray<RoomKeySnapshot>,
 ): EncryptedAccountBackupPayload => {
-  const profileId = getActiveProfileIdSafe();
-  const messageDeleteTombstones = loadMessageDeleteTombstoneEntries();
+  const profileId = getResolvedProfileId();
+  const messageDeleteTombstones = messagingClientOperations.loadDmTombstoneEntries(Date.now(), profileId);
   const chatState = sanitizePersistedChatStateMessagesByDeleteContract(
     chatStateOverride ?? chatStateStoreService.load(publicKeyHex),
     { durableDeleteIds: toMessageDeleteTombstoneIdSet(messageDeleteTombstones) }
@@ -748,13 +765,13 @@ const buildBackupPayload = (
     createdAtUnixMs: Date.now(),
     profile: useProfileInternals.loadFromStorage().profile,
     peerTrust: peerTrustInternals.loadFromStorage(publicKeyHex),
-    requestFlowEvidence: requestFlowEvidenceStoreInternals.readState(),
-    requestOutbox: contactRequestOutboxInternals.readState(),
-    syncCheckpoints: Array.from(syncCheckpointInternals.loadPersistedCheckpointState().values()),
+    requestFlowEvidence: requestFlowEvidenceStoreInternals.readState(profileId),
+    requestOutbox: contactRequestOutboxInternals.readState(profileId),
+    syncCheckpoints: Array.from(syncCheckpointInternals.loadPersistedCheckpointState(profileId).values()),
     ...(messageDeleteTombstones.length > 0 ? { messageDeleteTombstones } : {}),
     chatState,
     privacySettings: PrivacySettingsService.getSettings(),
-    relayList: relayListInternals.loadRelayListFromStorage(publicKeyHex),
+    relayList: relayListInternals.loadRelayListFromStorage(publicKeyHex, profileId),
     uiSettings: buildUiSettingsSnapshot(profileId),
   };
   if (communityMembershipLedger.length === 0 && roomKeys.length === 0) {
@@ -768,7 +785,14 @@ const buildBackupPayload = (
 };
 
 const buildBackupPayloadWithHydratedChatState = async (publicKeyHex: PublicKeyHex): Promise<EncryptedAccountBackupPayload> => {
-  await chatStateStoreService.hydrateMessages(publicKeyHex);
+  const profileIdForHydrate = getResolvedProfileId();
+  if (profileIdForHydrate) {
+    await messagingClientOperations.hydrateDmTombstonesFromSqlite(profileIdForHydrate);
+  }
+  // Tauri DM truth lives in SQLite; merging IndexedDB chatState here resurrects deleted rows during restore.
+  if (!isTauri()) {
+    await chatStateStoreService.hydrateMessages(publicKeyHex);
+  }
   const hydratedChatState = await hydrateChatStateFromIndexedMessages(
     publicKeyHex,
     chatStateStoreService.load(publicKeyHex)
@@ -795,7 +819,7 @@ const parseBackupPayload = (value: unknown): EncryptedAccountBackupPayload | nul
   if (parsed.version !== 1 || typeof parsed.publicKeyHex !== "string" || typeof parsed.createdAtUnixMs !== "number") {
     return null;
   }
-  const profileId = getActiveProfileIdSafe();
+  const profileId = getResolvedProfileId();
   const fallbackUiSettings = buildUiSettingsSnapshot(profileId);
   const parsedUiSettings = parsed.uiSettings && typeof parsed.uiSettings === "object"
     ? parsed.uiSettings as Partial<UiSettingsSnapshot>
@@ -1039,20 +1063,25 @@ const reconcileIncomingLedgerWithReconstructedJoinedEvidence = (params: Readonly
     if (entry.status !== "joined") {
       continue;
     }
-    reconstructedJoinedByKey.set(toCommunityMembershipLedgerKey(entry), entry);
+    const joinedKey = toCommunityMembershipLedgerKey(entry);
+    if (joinedKey) {
+      reconstructedJoinedByKey.set(joinedKey, entry);
+    }
   }
 
   return params.incomingExplicitEntries.map((entry) => {
     if (entry.status !== "left") {
       return entry;
     }
-    const reconstructedJoinedEntry = reconstructedJoinedByKey.get(
-      toCommunityMembershipLedgerKey(entry),
-    );
+    const entryKey = toCommunityMembershipLedgerKey(entry);
+    if (!entryKey) {
+      return entry;
+    }
+    const reconstructedJoinedEntry = reconstructedJoinedByKey.get(entryKey);
     if (!reconstructedJoinedEntry) {
       return entry;
     }
-    if (reconstructedJoinedEntry.updatedAtUnixMs < entry.updatedAtUnixMs) {
+    if ((reconstructedJoinedEntry.updatedAtUnixMs ?? 0) < (entry.updatedAtUnixMs ?? 0)) {
       return entry;
     }
     return {
@@ -1072,29 +1101,43 @@ const mergeIncomingRestorePayload = async (
   payload: EncryptedAccountBackupPayload,
   options?: Readonly<{
     includeHydratedLocalMessages?: boolean;
+    profileId?: string;
   }>,
 ): Promise<EncryptedAccountBackupPayload> => {
+  const profileIdForTombstones = options?.profileId ?? getResolvedProfileId();
+  await messagingClientOperations.hydrateDmTombstonesFromSqlite(profileIdForTombstones);
   const incomingMessageDeleteTombstones = normalizeMessageDeleteTombstoneEntries(
     payload.messageDeleteTombstones ?? []
   );
+  const localMessageDeleteTombstones = messagingClientOperations.loadDmTombstoneEntries(
+    Date.now(),
+    profileIdForTombstones,
+  );
+  const mergedSanitizedIncomingTombstones = mergeMessageDeleteTombstones(
+    normalizeMessageDeleteTombstoneEntries(localMessageDeleteTombstones),
+    incomingMessageDeleteTombstones,
+  );
+  const restoreDurableDeleteIds = toMessageDeleteTombstoneIdSet(mergedSanitizedIncomingTombstones);
   const sanitizedIncomingChatState = sanitizePersistedChatStateMessagesByDeleteContract(payload.chatState, {
-    durableDeleteIds: toMessageDeleteTombstoneIdSet(incomingMessageDeleteTombstones),
+    durableDeleteIds: restoreDurableDeleteIds,
   });
   const sanitizedIncomingPayload: EncryptedAccountBackupPayload = hasReplayableChatHistory(sanitizedIncomingChatState)
     ? {
       ...payload,
-      ...(incomingMessageDeleteTombstones.length > 0 ? { messageDeleteTombstones: incomingMessageDeleteTombstones } : {}),
+      ...(mergedSanitizedIncomingTombstones.length > 0 ? { messageDeleteTombstones: mergedSanitizedIncomingTombstones } : {}),
       chatState: sanitizedIncomingChatState,
     }
     : {
       ...payload,
-      ...(incomingMessageDeleteTombstones.length > 0 ? { messageDeleteTombstones: incomingMessageDeleteTombstones } : {}),
+      ...(mergedSanitizedIncomingTombstones.length > 0 ? { messageDeleteTombstones: mergedSanitizedIncomingTombstones } : {}),
       chatState: sanitizedIncomingChatState,
       syncCheckpoints: [],
     };
-  const existingLocalPrivateState = isExistingLocalPrivateState(publicKeyHex);
+  const existingLocalPrivateState = isExistingLocalPrivateState(publicKeyHex, options?.profileId);
   const freshDevice = !existingLocalPrivateState;
-  const existingLedgerEntries = loadCommunityMembershipLedger(publicKeyHex);
+  const existingLedgerEntries = loadCommunityMembershipLedger(publicKeyHex, {
+    profileId: options?.profileId,
+  });
   const existingRoomKeySnapshots = await loadLocalRoomKeySnapshots();
   const includeHydratedLocalMessages = options?.includeHydratedLocalMessages !== false;
   const recoverySnapshot = loadRecoverySnapshot(publicKeyHex);
@@ -1242,10 +1285,11 @@ const mergeIncomingRestorePayload = async (
 const applyBackupPayload = async (
   publicKeyHex: PublicKeyHex,
   payload: EncryptedAccountBackupPayload,
-  profileId = getActiveProfileIdSafe(),
+  profileId = getResolvedProfileId(),
 ): Promise<void> => {
   const mergedPayload = await mergeIncomingRestorePayload(publicKeyHex, payload, {
     includeHydratedLocalMessages: true,
+    profileId,
   });
 
   await persistIdentityUnlockSnapshot({
@@ -1258,51 +1302,60 @@ const applyBackupPayload = async (
   useProfileInternals.setState({ profile: mergedPayload.profile });
   useProfileInternals.notify();
   peerTrustInternals.saveToStorage(publicKeyHex, mergedPayload.peerTrust);
-  requestFlowEvidenceStoreInternals.writeState(mergedPayload.requestFlowEvidence);
-  contactRequestOutboxInternals.writeState(mergedPayload.requestOutbox);
+  requestFlowEvidenceStoreInternals.writeState(mergedPayload.requestFlowEvidence, profileId);
+  contactRequestOutboxInternals.writeState(mergedPayload.requestOutbox, profileId);
   syncCheckpointInternals.persistCheckpointState(new Map(
     mergedPayload.syncCheckpoints.map((checkpoint) => [checkpoint.timelineKey, checkpoint])
-  ));
-  replaceMessageDeleteTombstones(mergedPayload.messageDeleteTombstones ?? []);
-  const mergedPayloadChatDiagnostics = summarizePersistedChatStateMessages(mergedPayload.chatState, publicKeyHex);
-  if (mergedPayload.chatState) {
-    // Backup restore should not immediately trigger mutation-driven backup publish.
-    chatStateStoreService.replace(publicKeyHex, mergedPayload.chatState, {
-      emitMutationSignal: false,
-      profileId,
-    });
-    const restoredChatStateDiagnostics = summarizePersistedChatStateMessages(
-      chatStateStoreService.load(publicKeyHex),
-      publicKeyHex,
-    );
-    maybeEmitBackupRestoreHistoryRegression({
-      publicKeyHex,
-      stage: "merged_to_applied_store",
-      from: mergedPayloadChatDiagnostics,
-      to: restoredChatStateDiagnostics,
-      restorePath: "full_v1",
-      restoreChatStateDomains: true,
-    });
-  }
-  emitApplyCompletionDiagnostics({
+  ), profileId);
+  await withAccountRestoreMaterializationEvents({
     publicKeyHex,
-    mergedPayload,
-    restorePath: "full_v1",
-    summarizeChatStateDiagnostics: summarizePersistedChatStateMessages,
-    toPrefixedChatStateDiagnosticsContext,
-    parseRoomKeySnapshots,
+    profileId,
+  }, async () => {
+    messagingClientOperations.replaceDmTombstoneEntries(
+      mergedPayload.messageDeleteTombstones ?? [],
+      Date.now(),
+      profileId,
+    );
+    saveCommunityMembershipLedger(publicKeyHex, mergedPayload.communityMembershipLedger ?? [], { profileId });
+    await applyRoomKeySnapshots(mergedPayload.roomKeys ?? []);
+    const mergedPayloadChatDiagnostics = summarizePersistedChatStateMessages(mergedPayload.chatState, publicKeyHex);
+    if (mergedPayload.chatState) {
+      // Backup restore should not immediately trigger mutation-driven backup publish.
+      chatStateStoreService.replace(publicKeyHex, mergedPayload.chatState, {
+        emitMutationSignal: false,
+        profileId,
+      });
+      const restoredChatStateDiagnostics = summarizePersistedChatStateMessages(
+        chatStateStoreService.load(publicKeyHex),
+        publicKeyHex,
+      );
+      maybeEmitBackupRestoreHistoryRegression({
+        publicKeyHex,
+        stage: "merged_to_applied_store",
+        from: mergedPayloadChatDiagnostics,
+        to: restoredChatStateDiagnostics,
+        restorePath: "full_v1",
+        restoreChatStateDomains: true,
+      });
+    }
+    emitApplyCompletionDiagnostics({
+      publicKeyHex,
+      mergedPayload,
+      restorePath: "full_v1",
+      summarizeChatStateDiagnostics: summarizePersistedChatStateMessages,
+      toPrefixedChatStateDiagnosticsContext,
+      parseRoomKeySnapshots,
+    });
+    PrivacySettingsService.saveSettings(mergedPayload.privacySettings);
+    relayListInternals.saveRelayListToStorage(publicKeyHex, mergedPayload.relayList, profileId);
+    persistUiSettingsSnapshot(profileId, mergedPayload.uiSettings);
   });
-  saveCommunityMembershipLedger(publicKeyHex, mergedPayload.communityMembershipLedger ?? []);
-  await applyRoomKeySnapshots(mergedPayload.roomKeys ?? []);
-  PrivacySettingsService.saveSettings(mergedPayload.privacySettings);
-  relayListInternals.saveRelayListToStorage(publicKeyHex, mergedPayload.relayList);
-  persistUiSettingsSnapshot(profileId, mergedPayload.uiSettings);
 };
 
 const applyBackupPayloadNonV1Domains = async (
   publicKeyHex: PublicKeyHex,
   payload: EncryptedAccountBackupPayload,
-  profileId = getActiveProfileIdSafe(),
+  profileId = getResolvedProfileId(),
   options?: Readonly<{
     restoreChatStateDomains?: boolean;
     restoreDmChatStateDomains?: boolean;
@@ -1310,6 +1363,7 @@ const applyBackupPayloadNonV1Domains = async (
 ): Promise<void> => {
   const mergedPayload = await mergeIncomingRestorePayload(publicKeyHex, payload, {
     includeHydratedLocalMessages: options?.restoreChatStateDomains === true,
+    profileId,
   });
   await persistIdentityUnlockSnapshot({
     publicKeyHex,
@@ -1412,7 +1466,7 @@ export const encryptedAccountBackupService = {
       throw new Error("Portable bundle payload public key does not match the active account.");
     }
 
-    const profileId = params.profileId ?? getActiveProfileIdSafe();
+    const profileId = params.profileId ?? getResolvedProfileId();
     if (params.appendCanonicalEvents) {
       const canonicalEvents = buildCanonicalBackupImportEvents({
         profileId,
@@ -1620,19 +1674,70 @@ export const encryptedAccountBackupService = {
     profileId?: string;
     appendCanonicalEvents?: CanonicalBackupEventAppender;
   }>): Promise<AccountBackupFetchResult> {
-    const activeProfileIdAtRestoreStart = getActiveProfileIdSafe();
+    const activeProfileIdAtRestoreStart = getResolvedProfileId();
     const fetched = await encryptedAccountBackupService.fetchLatestEncryptedAccountBackupPayload(params);
     if (!fetched.hasBackup || !fetched.payload) {
       return fetched;
     }
+
+    // Fetch relay-evidence leave proofs published independently of the backup.
+    // These survive across devices and override stale backup state where the
+    // user left a community AFTER the backup was last published.
+    const leaveProofSnapshot = await fetchLeaveProofFromRelay({
+      publicKeyHex: params.publicKeyHex,
+      privateKeyHex: params.privateKeyHex,
+      pool: params.pool,
+      timeoutMs: 4000,
+    }).catch(() => null);
+
+    let restorePayload = fetched.payload;
+
+    if (leaveProofSnapshot && leaveProofSnapshot.entries.length > 0) {
+      const leaveProofLedgerEntries: CommunityMembershipLedgerEntry[] = leaveProofSnapshot.entries.map(
+        (entry) => ({
+          groupId: entry.groupId,
+          relayUrl: entry.relayUrl,
+          communityId: `${entry.groupId}:${entry.relayUrl}`,
+          publicKeyHex: params.publicKeyHex,
+          status: "left" as const,
+          updatedAtUnixMs: entry.leftAtUnixMs,
+          createdAt: entry.leftAtUnixMs,
+          updatedAt: entry.leftAtUnixMs,
+          memberPubkeys: [],
+          adminPubkeys: [],
+          ledgerVersion: 2,
+        }),
+      );
+
+      const existingLedger = parseCommunityMembershipLedgerSnapshot(
+        restorePayload.communityMembershipLedger,
+      );
+      const enrichedLedger = mergeCommunityMembershipLedgerEntries(
+        existingLedger,
+        leaveProofLedgerEntries,
+      );
+
+      console.info(
+        "[AccountSync] Leave proof enrichment: %d leave proofs injected into ledger (%d → %d entries)",
+        leaveProofSnapshot.entries.length,
+        existingLedger.length,
+        enrichedLedger.length,
+      );
+
+      restorePayload = {
+        ...restorePayload,
+        communityMembershipLedger: enrichedLedger,
+      };
+    }
+
     const requestedProfileId = params.profileId ?? null;
-    const activeProfileIdBeforeApply = getActiveProfileIdSafe();
+    const activeProfileIdBeforeApply = getResolvedProfileId();
     const profileId = params.profileId ?? activeProfileIdBeforeApply;
     if (params.appendCanonicalEvents) {
       const canonicalEvents = buildCanonicalBackupImportEvents({
         profileId,
         accountPublicKeyHex: params.publicKeyHex,
-        payload: fetched.payload,
+        payload: restorePayload,
         source: "relay_sync",
         // Keep canonical import idempotency stable across repeated restores so
         // unchanged backup payloads cannot endlessly append duplicate events.
@@ -1648,9 +1753,9 @@ export const encryptedAccountBackupService = {
         restoreSource: "encrypted_backup",
         canonicalEventCount: canonicalEvents.length,
         selection: restoreOwnerSelection,
-        payloadDiagnostics: summarizePersistedChatStateMessages(fetched.payload.chatState, params.publicKeyHex),
+        payloadDiagnostics: summarizePersistedChatStateMessages(restorePayload.chatState, params.publicKeyHex),
       });
-      await applyBackupPayloadNonV1Domains(params.publicKeyHex, fetched.payload, profileId, {
+      await applyBackupPayloadNonV1Domains(params.publicKeyHex, restorePayload, profileId, {
         restoreChatStateDomains: true,
         restoreDmChatStateDomains: restoreOwnerSelection.restoreDmChatStateDomains,
       });
@@ -1678,10 +1783,21 @@ export const encryptedAccountBackupService = {
           canonicalEventCount: canonicalEvents.length,
         });
       }
+      if (profileId) {
+        await messagingClientOperations.ensureLocalDmVisibilityReady({
+          profileId,
+          accountPublicKeyHex: params.publicKeyHex,
+        }).catch(() => {});
+        await messagingClientOperations.reconcileAccountEventLog({
+          profileId,
+          accountPublicKeyHex: params.publicKeyHex,
+          replayProjection: true,
+        }).catch(() => {});
+      }
     } else {
-      await applyBackupPayload(params.publicKeyHex, fetched.payload, profileId);
+      await applyBackupPayload(params.publicKeyHex, restorePayload, profileId);
     }
-    const activeProfileIdAfterApply = getActiveProfileIdSafe();
+    const activeProfileIdAfterApply = getResolvedProfileId();
     maybeEmitBackupRestoreProfileScopeMismatch({
       publicKeyHex: params.publicKeyHex,
       backupEventId: fetched.event?.id ?? null,

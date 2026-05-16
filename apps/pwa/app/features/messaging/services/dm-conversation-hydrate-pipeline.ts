@@ -1,0 +1,237 @@
+/**
+ * R1 — DM thread hydrate pipeline (orchestration owner).
+ * Prepares delete tombstones, loads the IndexedDB / SQLite hydration window, merges persisted chat-state
+ * fallback, runs `assembleDmHydrateThreadReadModel`, then optional sibling id-split diagnostics.
+ * `use-conversation-messages` keeps React refs/state and invokes this module as the single hydrate boundary.
+ */
+
+import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
+import { logAppEvent } from "@/app/shared/log-app-event";
+import type { AccountProjectionRuntimeSnapshot } from "@/app/features/account-sync/account-event-contracts";
+import type { ProjectionReadAuthority } from "@/app/features/account-sync/services/account-projection-read-authority";
+import type { MessageDeleteTombstonesPersistencePort } from "@/app/features/profiles/types/storage-ports";
+import { fromPersistedMessagesByConversationId } from "../utils/persistence";
+import type { Message } from "../types";
+import { chatStateStoreService } from "./chat-state-store";
+import { toConversationIdDiagnosticLabel } from "@dweb/client-gateway/messaging-diagnostics";
+import {
+  assembleDmHydrateThreadReadModel,
+  type AssembleDmHydrateThreadReadModelResult,
+} from "./dm-conversation-hydrate-read-model";
+import { loadInitialDmHydrationIndexedWindow } from "./dm-conversation-hydrate-indexed-scan";
+import { mapIndexedConversationRowsForDisplayableScan } from "./dm-conversation-hydrate-indexed-map-rows";
+import { normalizeDmConversationMessageRow } from "./dm-conversation-normalize-message";
+import { isDisplayableDmConversationMessage } from "./dm-conversation-displayable-message";
+import { isMessageIdentityInSuppressedIdSet } from "./conversation-message-visibility";
+import {
+  dedupeMessagesByIdentity,
+  filterMessagesByLocalRetention,
+} from "./dm-conversation-message-retention-dedupe";
+import { runDmHydrateSiblingIdSplitDiagnosticsIfNeeded } from "./dm-conversation-hydrate-sibling-diagnostics";
+import { prepareDmThreadSuppressionIds } from "./dm-thread-suppression-prepare";
+
+const loadPersistedConversationFallbackMessages = (params: Readonly<{
+  persistedState: ReturnType<typeof chatStateStoreService.load>;
+  conversationIds: ReadonlyArray<string>;
+  myPublicKeyHex: PublicKeyHex | null;
+  persistentSuppressedMessageIds: ReadonlySet<string>;
+  localMessageRetentionDays: number | undefined;
+}>): ReadonlyArray<Message> => {
+  if (!params.persistedState) {
+    return [];
+  }
+
+  const normalizedMessagesByConversationId = fromPersistedMessagesByConversationId(
+    params.persistedState.messagesByConversationId ?? {},
+    { myPublicKeyHex: params.myPublicKeyHex },
+  );
+
+  const merged: Message[] = [];
+  params.conversationIds.forEach((conversationId) => {
+    const conversationMessages = normalizedMessagesByConversationId[conversationId] ?? [];
+    merged.push(...conversationMessages);
+  });
+
+  return filterMessagesByLocalRetention(
+    dedupeMessagesByIdentity(merged),
+    params.localMessageRetentionDays,
+  ).filter((message) => (
+    isDisplayableDmConversationMessage(message)
+    && !isMessageIdentityInSuppressedIdSet(message, params.persistentSuppressedMessageIds)
+  ));
+};
+
+export type DmConversationHydratePipelineNumericConfig = Readonly<{
+  initialBatchSize: number;
+  initialHydrationVisibleTarget: number;
+  maxHydrationScanPasses: number;
+  liveWindowSoftLimit: number;
+}>;
+
+export type RunDmConversationHydrateReadModelPipelineParams = Readonly<{
+  conversationId: string;
+  conversationIds: ReadonlyArray<string>;
+  profileIdForTombstones: string | undefined;
+  messageDeleteTombstones: MessageDeleteTombstonesPersistencePort;
+  /** Mutated in place: durable + in-flight tombstone ids for this hydrate pass */
+  persistedDeletedIds: Set<string>;
+  publicKeyHex: PublicKeyHex | string | null;
+  normalizedPublicKeyHex: PublicKeyHex | null;
+  localMessageRetentionDays: number | undefined;
+  numeric: DmConversationHydratePipelineNumericConfig;
+  projectionMessagesSnapshot: ReadonlyArray<Message>;
+  projectionEvidenceMessagesSnapshot: ReadonlyArray<Message>;
+  projectionReadAuthoritySnapshot: ProjectionReadAuthority;
+  accountProjectionPhase: AccountProjectionRuntimeSnapshot["phase"];
+  accountProjection: AccountProjectionRuntimeSnapshot["projection"];
+  accountProjectionReady: AccountProjectionRuntimeSnapshot["accountProjectionReady"];
+  liveMessages: ReadonlyArray<Message>;
+  expandedHistory: boolean;
+  /** When set, hydrate telemetry logs only on authority key change. */
+  previousAuthorityDiagnosticKey?: string | null;
+}>;
+
+export async function runDmConversationHydrateReadModelPipeline(
+  params: RunDmConversationHydrateReadModelPipelineParams,
+): Promise<AssembleDmHydrateThreadReadModelResult> {
+  const {
+    conversationId: cid,
+    conversationIds,
+    profileIdForTombstones,
+    messageDeleteTombstones,
+    persistedDeletedIds,
+    publicKeyHex,
+    normalizedPublicKeyHex,
+    localMessageRetentionDays,
+    numeric,
+    projectionMessagesSnapshot,
+    projectionEvidenceMessagesSnapshot,
+    projectionReadAuthoritySnapshot,
+    accountProjectionPhase,
+    accountProjection,
+    accountProjectionReady,
+    liveMessages,
+    expandedHistory,
+  } = params;
+
+  const preparedSuppressionIds = await prepareDmThreadSuppressionIds({
+    profileId: profileIdForTombstones,
+    accountPublicKeyHex: normalizedPublicKeyHex,
+    projection: accountProjection,
+    messageDeleteTombstones,
+    seedIds: persistedDeletedIds,
+  });
+  persistedDeletedIds.clear();
+  preparedSuppressionIds.forEach((id) => persistedDeletedIds.add(id));
+
+  const mapRowsToDisplayableMessages = (rows: ReadonlyArray<any>): ReadonlyArray<Message> => (
+    mapIndexedConversationRowsForDisplayableScan({
+      pipeline: "initial_hydrate",
+      rows,
+      normalizeRow: (m: any) => normalizeDmConversationMessageRow(m, {
+        conversationId: typeof m?.conversationId === "string" ? m.conversationId : cid,
+        myPublicKeyHex: publicKeyHex,
+      }),
+      persistentSuppressedMessageIds: persistedDeletedIds,
+      isDisplayable: isDisplayableDmConversationMessage,
+      localMessageRetentionDays,
+    })
+  );
+
+  const indexedHydration = await loadInitialDmHydrationIndexedWindow({
+    conversationIds,
+    initialBatchSize: numeric.initialBatchSize,
+    mapRows: mapRowsToDisplayableMessages,
+    targetVisibleCount: numeric.initialHydrationVisibleTarget,
+    maxPassCount: numeric.maxHydrationScanPasses,
+    liveWindowSoftLimit: numeric.liveWindowSoftLimit,
+  });
+
+  const projectionRestorePhaseActive = (
+    accountProjectionPhase === "bootstrapping"
+    || accountProjectionPhase === "replaying_event_log"
+  );
+  const projectionBootstrapImportApplied = accountProjection?.sync?.bootstrapImportApplied === true;
+  const projectionCanonicalEvidencePending = (
+    accountProjectionReady !== true
+    || projectionRestorePhaseActive
+  );
+
+  const persistedStateFallbackMessages = normalizedPublicKeyHex
+    ? loadPersistedConversationFallbackMessages({
+      persistedState: chatStateStoreService.load(normalizedPublicKeyHex, {
+        profileId: profileIdForTombstones,
+      }),
+      conversationIds,
+      myPublicKeyHex: normalizedPublicKeyHex,
+      persistentSuppressedMessageIds: persistedDeletedIds,
+      localMessageRetentionDays,
+    })
+    : [];
+
+  const assembled = assembleDmHydrateThreadReadModel({
+    conversationId: cid,
+    conversationIds,
+    retentionFilteredMapped: indexedHydration.retentionFilteredMapped,
+    cappedHydratedMessages: indexedHydration.cappedHydratedMessages,
+    scannedWindowHasEarlier: indexedHydration.hasEarlier,
+    shouldCapHydratedHistoryWindow: indexedHydration.shouldCapHydratedHistoryWindow,
+    normalizedPublicKeyHex,
+    projectionMessagesSnapshot,
+    projectionEvidenceMessagesSnapshot,
+    projectionReadAuthoritySnapshot,
+    projectionRestorePhaseActive,
+    projectionBootstrapImportApplied,
+    projectionCanonicalEvidencePending,
+    persistedStateFallbackMessages,
+    liveMessages,
+    expandedHistory,
+    persistentSuppressedMessageIds: persistedDeletedIds,
+    liveWindowSoftLimit: numeric.liveWindowSoftLimit,
+  });
+
+  if (normalizedPublicKeyHex) {
+    await runDmHydrateSiblingIdSplitDiagnosticsIfNeeded({
+      conversationId: cid,
+      normalizedPublicKeyHex,
+      mappedDirectionCounts: assembled.mappedDirectionCounts,
+      initialBatchSize: numeric.initialBatchSize,
+      projectionReadAuthoritySnapshot,
+      normalizeIndexedRowToMessage: (entry: any, siblingConversationId) => normalizeDmConversationMessageRow(entry, {
+        conversationId: siblingConversationId,
+        myPublicKeyHex: normalizedPublicKeyHex,
+      }),
+    });
+  }
+
+  logDmHydrateReadModelTelemetry({
+    previousAuthorityDiagnosticKey: params.previousAuthorityDiagnosticKey ?? null,
+    assembled,
+  });
+
+  return assembled;
+}
+
+export function logDmHydrateReadModelTelemetry(params: Readonly<{
+  previousAuthorityDiagnosticKey: string | null;
+  assembled: AssembleDmHydrateThreadReadModelResult;
+}>): string {
+  const { assembled, previousAuthorityDiagnosticKey } = params;
+  if (previousAuthorityDiagnosticKey !== assembled.authorityDiagnosticKey) {
+    logAppEvent({
+      name: "messaging.conversation_history_authority_selected",
+      level: assembled.authorityDecision.authority === "persisted" ? "warn" : "info",
+      scope: { feature: "messaging", action: "conversation_history_authority" },
+      context: assembled.authorityLogContext,
+    });
+  }
+  if (assembled.hydrationDiagnosticsLogContext) {
+    logAppEvent({
+      name: "messaging.conversation_hydration_diagnostics",
+      level: assembled.authorityDecision.authority === "indexed" ? "warn" : "info",
+      scope: { feature: "messaging", action: "conversation_hydrate" },
+      context: assembled.hydrationDiagnosticsLogContext,
+    });
+  }
+  return assembled.authorityDiagnosticKey;
+}

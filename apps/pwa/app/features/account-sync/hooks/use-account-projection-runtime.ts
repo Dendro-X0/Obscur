@@ -4,7 +4,7 @@ import { useEffect, useMemo, useSyncExternalStore } from "react";
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { RelayPoolLike } from "@/app/features/relays/lib/nostr-core-relay";
-import { getActiveProfileIdSafe } from "@/app/features/profiles/services/profile-scope";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { accountProjectionRuntime } from "../services/account-projection-runtime";
 
 type UseAccountProjectionRuntimeParams = Readonly<{
@@ -30,7 +30,7 @@ export const useAccountProjectionRuntime = (params: UseAccountProjectionRuntimeP
       accountProjectionRuntime.reset();
       return;
     }
-    const profileId = getActiveProfileIdSafe();
+    const profileId = getResolvedProfileId();
     const snapshotBoundToActiveAccount = (
       snapshot.profileId === profileId
       && snapshot.accountPublicKeyHex === params.publicKeyHex

@@ -7,7 +7,7 @@ import { useTanstackQueryRuntime } from "@/app/features/query/providers/tanstack
 import { queryKeyFactory } from "@/app/features/query/services/query-key-factory";
 import { createQueryScope } from "@/app/features/query/services/query-scope";
 import { markTanstackQueryPath } from "@/app/features/query/services/tanstack-query-diagnostics";
-import { getActiveProfileIdSafe } from "@/app/features/profiles/services/profile-scope";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 
 const serverSnapshot: AccountSyncSnapshot = {
   publicKeyHex: null,
@@ -31,7 +31,7 @@ export const useAccountSyncSnapshot = (): AccountSyncSnapshot => {
 
   const scope = useMemo(() => (
     tanstackQueryRuntime?.scope ?? createQueryScope({
-      profileId: getActiveProfileIdSafe(),
+      profileId: getResolvedProfileId(),
       publicKeyHex: snapshot.publicKeyHex,
     })
   ), [snapshot.publicKeyHex, tanstackQueryRuntime?.scope]);

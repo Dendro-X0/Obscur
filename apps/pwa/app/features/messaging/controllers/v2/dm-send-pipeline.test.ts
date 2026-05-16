@@ -2,6 +2,14 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { sendDm, dmSendPipelineInternals } from "./dm-send-pipeline";
 import type { RelayPoolContract } from "./dm-controller-types";
 
+const nip65Mocks = vi.hoisted(() => ({
+  getWriteRelays: vi.fn(() => [] as string[]),
+}));
+
+const peerRelayEvidenceMocks = vi.hoisted(() => ({
+  getRelayUrls: vi.fn(() => [] as string[]),
+}));
+
 vi.mock("@/app/features/crypto/crypto-service", () => ({
   cryptoService: {
     encryptDM: vi.fn(async (plaintext: string) => `encrypted:${plaintext}`),
@@ -19,6 +27,19 @@ vi.mock("@/app/features/crypto/crypto-service", () => ({
       tags: [["p", "recipient"]],
       sig: "giftwrap-sig",
     })),
+  },
+}));
+
+vi.mock("@/app/features/relays/utils/nip65-service", () => ({
+  nip65Service: {
+    getWriteRelays: nip65Mocks.getWriteRelays,
+  },
+}));
+
+vi.mock("../../services/peer-relay-evidence-store", () => ({
+  peerRelayEvidenceStore: {
+    getRelayUrls: peerRelayEvidenceMocks.getRelayUrls,
+    subscribe: vi.fn(() => () => {}),
   },
 }));
 
@@ -52,6 +73,7 @@ const createMockPool = (overrides?: Partial<RelayPoolContract>): RelayPoolContra
   waitForConnection: vi.fn(async () => true),
   getWritableRelaySnapshot: vi.fn(() => ({
     writableRelayUrls: ["wss://relay1.example.com", "wss://relay2.example.com"],
+    configuredRelayUrls: ["wss://relay1.example.com", "wss://relay2.example.com"],
     connectedRelayCount: 2,
     writableRelayCount: 2,
   })),
@@ -61,6 +83,10 @@ const createMockPool = (overrides?: Partial<RelayPoolContract>): RelayPoolContra
 describe("dm-send-pipeline", () => {
   beforeEach(() => {
     dmSendPipelineInternals.inflight.clear();
+    nip65Mocks.getWriteRelays.mockReset();
+    nip65Mocks.getWriteRelays.mockReturnValue([]);
+    peerRelayEvidenceMocks.getRelayUrls.mockReset();
+    peerRelayEvidenceMocks.getRelayUrls.mockReturnValue([]);
   });
 
   it("sends a DM and returns success with relay results", async () => {
@@ -174,6 +200,87 @@ describe("dm-send-pipeline", () => {
 
     expect(result.success).toBe(true);
     expect(publishToAll).toHaveBeenCalled();
+  });
+
+  it("unions message-delete publish with sender relays when recipient-facing evidence exists", async () => {
+    const publishToUrls = vi.fn(async (_urls: ReadonlyArray<string>) => ({
+      success: true,
+      successCount: 1,
+      totalRelays: 1,
+      results: [{ relayUrl: "wss://recipient-write.example", success: true }],
+    }));
+    nip65Mocks.getWriteRelays.mockReturnValue(["wss://recipient-write.example"]);
+    peerRelayEvidenceMocks.getRelayUrls.mockReturnValue(["wss://recipient-inbound.example"]);
+
+    const pool = createMockPool({
+      publishToUrls,
+      getWritableRelaySnapshot: vi.fn((scopedRelayUrls?: ReadonlyArray<string>) => ({
+        writableRelayUrls: scopedRelayUrls?.includes("wss://recipient-write.example")
+          ? ["wss://recipient-write.example"]
+          : ["wss://relay1.example.com", "wss://relay2.example.com"],
+      })),
+    });
+
+    const result = await sendDm({
+      pool,
+      senderPublicKeyHex: "a".repeat(64),
+      senderPrivateKeyHex: "b".repeat(64) as any,
+      recipientPublicKeyHex: "c".repeat(64),
+      plaintext: "__dweb_cmd__delete:{}",
+      customTags: [["t", "message-delete"]],
+    });
+
+    expect(result.success).toBe(true);
+    expect(publishToUrls).toHaveBeenCalled();
+    const publishedUrls = publishToUrls.mock.calls[0]![0] as ReadonlyArray<string>;
+    expect(publishedUrls).toEqual(
+      expect.arrayContaining([
+        "wss://recipient-write.example",
+        "wss://recipient-inbound.example",
+        "wss://relay1.example.com",
+        "wss://relay2.example.com",
+      ]),
+    );
+    expect(publishedUrls).toHaveLength(4);
+  });
+
+  it("includes well-known fallback relays when peer relay evidence is unknown", async () => {
+    // Both nip65 and inbound evidence are empty — simulates a brand-new contact
+    nip65Mocks.getWriteRelays.mockReturnValue([]);
+    peerRelayEvidenceMocks.getRelayUrls.mockReturnValue([]);
+
+    const publishToUrls = vi.fn(async (urls: ReadonlyArray<string>) => ({
+      success: true,
+      successCount: urls.length,
+      totalRelays: urls.length,
+      results: urls.map(u => ({ relayUrl: u, success: true })),
+    }));
+
+    // getWritableRelaySnapshot always returns empty — forces the final fallback
+    // branch in resolveTargetRelayUrls to include DM_DELIVERY_FALLBACK_RELAYS.
+    const pool = createMockPool({
+      connections: [{ url: "wss://my-relay.example.com", status: "open" }],
+      publishToUrls,
+      getWritableRelaySnapshot: vi.fn(() => ({
+        writableRelayUrls: [] as string[],
+        connectedRelayCount: 0,
+        writableRelayCount: 0,
+      })),
+    });
+
+    await sendDm({
+      pool,
+      senderPublicKeyHex: "a".repeat(64),
+      senderPrivateKeyHex: "b".repeat(64) as any,
+      recipientPublicKeyHex: "c".repeat(64),
+      plaintext: "hello unknown peer",
+    });
+
+    expect(publishToUrls).toHaveBeenCalled();
+    const calledUrls: ReadonlyArray<string> = publishToUrls.mock.calls[0][0];
+    // Must include at least one well-known fallback so the recipient can receive
+    const fallbackRelays = ["wss://relay.damus.io", "wss://nos.lol", "wss://relay.primal.net"];
+    expect(fallbackRelays.some(r => calledUrls.includes(r))).toBe(true);
   });
 
   it("clears inflight guard even on error", async () => {

@@ -1,6 +1,7 @@
 "use client";
 
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import type { ResolvedIdentity } from "@/app/features/search/types/discovery";
 import { discoveryCache } from "./discovery-cache";
 
@@ -9,8 +10,8 @@ type CacheState = Readonly<{
   entries: ReadonlyArray<ResolvedIdentity & Readonly<{ updatedAtUnixMs: number }>>;
 }>;
 
-const getStorageKey = (): string => getScopedStorageKey("obscur.discovery.resolved_identity_cache.v1");
-const getMigrationMarkerKey = (): string => getScopedStorageKey("obscur.discovery.resolved_identity_cache.migrated.v1");
+const getStorageKey = (): string => getScopedStorageKey("obscur.discovery.resolved_identity_cache.v1", getResolvedProfileId());
+const getMigrationMarkerKey = (): string => getScopedStorageKey("obscur.discovery.resolved_identity_cache.migrated.v1", getResolvedProfileId());
 const MAX_ENTRIES = 300;
 
 const readState = (): CacheState => {

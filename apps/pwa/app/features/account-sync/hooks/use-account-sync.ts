@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { EnhancedRelayPoolResult } from "@/app/features/relays/hooks/enhanced-relay-pool";
-import { getActiveProfileIdSafe } from "@/app/features/profiles/services/profile-scope";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { PrivacySettingsService } from "@/app/features/settings/services/privacy-settings-service";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import { subscribeAccountSyncMutation } from "@/app/shared/account-sync-mutation-signal";
@@ -179,7 +179,7 @@ export const useAccountSync = (params: UseAccountSyncParams) => {
         publicKeyHex: params.publicKeyHex,
         privateKeyHex: params.privateKeyHex,
         pool: params.pool,
-        profileId: getActiveProfileIdSafe(),
+        profileId: getResolvedProfileId(),
         appendCanonicalEvents: accountProjectionRuntime.appendCanonicalEvents.bind(accountProjectionRuntime),
       });
       const mappedResult = mapRestoreResult(result);
@@ -564,7 +564,9 @@ export const useAccountSync = (params: UseAccountSyncParams) => {
         }
         void (async () => {
           await maybePublishBackup(publishReason);
-          if (convergenceGuardEnabled) {
+          // Local delete-for-me tombstones are authoritative; pulling relay backup
+          // immediately after publish can resurrect stale DM rows into chat-state.
+          if (convergenceGuardEnabled && publishReason !== "message_delete_tombstones_changed") {
             await maybeRestoreBackup("mutation_fast_follow");
           }
         })();

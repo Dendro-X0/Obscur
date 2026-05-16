@@ -1,6 +1,7 @@
 "use client";
 
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { normalizePublicUrl } from "@/app/shared/public-url";
 
 const LOCAL_PROFILE_STORAGE_KEY = "dweb.nostr.pwa.profile";
@@ -31,12 +32,14 @@ const normalizeText = (value: unknown, maxLength: number): string | undefined =>
   return trimmed.slice(0, maxLength);
 };
 
-const getLocalProfileStorageKey = (): string => getScopedStorageKey(LOCAL_PROFILE_STORAGE_KEY);
+const getLocalProfileStorageKey = (profileId?: string): string => (
+  getScopedStorageKey(LOCAL_PROFILE_STORAGE_KEY, profileId ?? getResolvedProfileId())
+);
 
-const readLocalInvitationSenderProfile = (): InvitationSenderProfile | null => {
+const readLocalInvitationSenderProfile = (profileId?: string): InvitationSenderProfile | null => {
   if (typeof window === "undefined") return null;
   try {
-    const raw = window.localStorage.getItem(getLocalProfileStorageKey());
+    const raw = window.localStorage.getItem(getLocalProfileStorageKey(profileId));
     if (!raw) return null;
     const parsed = JSON.parse(raw) as LocalProfileState;
     const profile = parsed?.profile;
@@ -56,8 +59,8 @@ const readLocalInvitationSenderProfile = (): InvitationSenderProfile | null => {
   }
 };
 
-export const buildInvitationSenderProfileTag = (): string[] | null => {
-  const profile = readLocalInvitationSenderProfile();
+export const buildInvitationSenderProfileTag = (profileId?: string): string[] | null => {
+  const profile = readLocalInvitationSenderProfile(profileId);
   if (!profile) return null;
   const encoded = JSON.stringify({ v: 1, ...profile });
   if (encoded.length > MAX_PROFILE_TAG_BYTES) {

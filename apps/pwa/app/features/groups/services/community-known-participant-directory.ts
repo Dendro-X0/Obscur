@@ -37,6 +37,26 @@ export const buildCommunityKnownParticipantDirectory = (params: Readonly<{
   };
 };
 
+/**
+ * Single read path for the durable known-participant OR-set used to **seed** roster UI and
+ * sealed-community hooks (before projection / author-evidence overlays).
+ *
+ * `buildCommunityKnownParticipantDirectory` already unions localStorage OR-set, roster projection,
+ * persisted `group.memberPubkeys`, and local member. Callers still pass **`persistedGroupMemberPubkeys`**
+ * so bootstrap works when the directory row is not yet hydrated. Union is idempotent when sources overlap.
+ * For sealed-community / management UI seeds that also fold roster projection + local, use
+ * **`resolveCommunitySeedMemberPubkeysFromDirectory`** in **`community-visible-members.ts`**.
+ */
+export const mergeKnownParticipantSeedPubkeys = (params: Readonly<{
+  directory?: CommunityKnownParticipantDirectory | null;
+  persistedGroupMemberPubkeys?: ReadonlyArray<PublicKeyHex> | null | undefined;
+}>): ReadonlyArray<PublicKeyHex> => (
+  dedupeCommunityMemberPubkeys([
+    ...(params.directory?.participantPubkeys ?? []),
+    ...(params.persistedGroupMemberPubkeys ?? []),
+  ])
+);
+
 export const buildCommunityKnownParticipantDirectoryByConversationId = (params: Readonly<{
   groups: ReadonlyArray<GroupConversation>;
   rosterProjectionByConversationId: Readonly<Record<string, CommunityRosterProjection>>;

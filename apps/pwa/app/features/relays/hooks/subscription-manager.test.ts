@@ -88,13 +88,64 @@ describe("SubscriptionManager", () => {
         });
         expect(onEvent).toHaveBeenCalledTimes(1);
 
+        // Events with unknown subscription IDs fall through to filter-based
+        // matching so they are still delivered when filters match.
         handler({
             url: "wss://relay.damus.io",
             message: JSON.stringify(["EVENT", "unknown-sub-id", buildEvent({ pubkey: "b".repeat(64) })]),
         });
-        expect(onEvent).toHaveBeenCalledTimes(1);
+        expect(onEvent).toHaveBeenCalledTimes(2);
+
+        // Events that do NOT match any active filter are still dropped.
+        handler({
+            url: "wss://relay.damus.io",
+            message: JSON.stringify(["EVENT", "unknown-sub-id", buildEvent({ kind: 9999, pubkey: "c".repeat(64) })]),
+        });
+        expect(onEvent).toHaveBeenCalledTimes(2);
         vi.useRealTimers();
     });
+
+  it("matches #p filter case-insensitively when subscription id is stale", () => {
+    vi.useFakeTimers();
+    const sentPayloads: string[] = [];
+    let messageHandler: ((params: Readonly<{ url: string; message: string }>) => void) | null = null;
+    const manager = new SubscriptionManager(
+      (payload) => sentPayloads.push(payload),
+      (handler) => {
+        messageHandler = handler;
+        return () => {
+          messageHandler = null;
+        };
+      },
+    );
+
+    const onEvent = vi.fn();
+    const lowerP = "a".repeat(64);
+    const upperP = "A".repeat(64);
+    manager.subscribe([{ kinds: [4], "#p": [lowerP] }], onEvent);
+    vi.advanceTimersByTime(120);
+
+    const handler = messageHandler as ((params: Readonly<{ url: string; message: string }>) => void) | null;
+    if (!handler) {
+      throw new Error("Expected message handler");
+    }
+
+    handler({
+      url: "wss://relay.example",
+      message: JSON.stringify([
+        "EVENT",
+        "unknown-sub-id",
+        buildEvent({
+          kind: 4,
+          pubkey: "b".repeat(64),
+          tags: [["p", upperP]],
+        }),
+      ]),
+    });
+
+    expect(onEvent).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
+  });
 
     it("records manual replay diagnostics", () => {
         const sentPayloads: string[] = [];

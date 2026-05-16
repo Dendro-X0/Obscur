@@ -27,8 +27,10 @@ const USER_B = "b".repeat(64) as PublicKeyHex;
 const createInMemoryEvidenceStore = (seed?: EvidenceStoreSnapshot) => {
   const state: Record<string, RequestFlowEvidence> = seed ? { ...seed } : {};
   return {
-    get: (peerPublicKeyHex: string): RequestFlowEvidence => state[peerPublicKeyHex] ?? { receiptAckSeen: false, acceptSeen: false },
-    markRequestPublished: ({ peerPublicKeyHex, requestEventId }: Readonly<{ peerPublicKeyHex: string; requestEventId?: string }>) => {
+    get: (peerPublicKeyHex: string, _profileId?: string): RequestFlowEvidence => (
+      state[peerPublicKeyHex] ?? { receiptAckSeen: false, acceptSeen: false }
+    ),
+    markRequestPublished: ({ peerPublicKeyHex, requestEventId }: Readonly<{ peerPublicKeyHex: string; requestEventId?: string; profileId?: string }>) => {
       const current = state[peerPublicKeyHex] ?? { receiptAckSeen: false, acceptSeen: false };
       const next = {
         ...current,
@@ -38,7 +40,7 @@ const createInMemoryEvidenceStore = (seed?: EvidenceStoreSnapshot) => {
       state[peerPublicKeyHex] = next;
       return next;
     },
-    markReceiptAck: ({ peerPublicKeyHex, requestEventId }: Readonly<{ peerPublicKeyHex: string; requestEventId?: string }>) => {
+    markReceiptAck: ({ peerPublicKeyHex, requestEventId }: Readonly<{ peerPublicKeyHex: string; requestEventId?: string; profileId?: string }>) => {
       const current = state[peerPublicKeyHex] ?? { receiptAckSeen: false, acceptSeen: false };
       const next = {
         ...current,
@@ -49,7 +51,7 @@ const createInMemoryEvidenceStore = (seed?: EvidenceStoreSnapshot) => {
       state[peerPublicKeyHex] = next;
       return next;
     },
-    markAccept: ({ peerPublicKeyHex, requestEventId }: Readonly<{ peerPublicKeyHex: string; requestEventId?: string }>) => {
+    markAccept: ({ peerPublicKeyHex, requestEventId }: Readonly<{ peerPublicKeyHex: string; requestEventId?: string; profileId?: string }>) => {
       const current = state[peerPublicKeyHex] ?? { receiptAckSeen: false, acceptSeen: false };
       const next = {
         ...current,
@@ -60,7 +62,7 @@ const createInMemoryEvidenceStore = (seed?: EvidenceStoreSnapshot) => {
       state[peerPublicKeyHex] = next;
       return next;
     },
-    markTerminalFailure: ({ peerPublicKeyHex }: Readonly<{ peerPublicKeyHex: string }>) => {
+    markTerminalFailure: ({ peerPublicKeyHex }: Readonly<{ peerPublicKeyHex: string; profileId?: string }>) => {
       const current = state[peerPublicKeyHex] ?? { receiptAckSeen: false, acceptSeen: false };
       const next = {
         ...current,

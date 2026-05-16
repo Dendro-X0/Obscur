@@ -37,13 +37,14 @@ type RelayRecoveryControllerConfig = Readonly<{
 }>;
 
 const WATCHDOG_INTERVAL_MS = 12_000;
-const STALE_INBOUND_WINDOW_MS = 45_000;
+const STALE_INBOUND_WINDOW_MS = 20_000;
 const RECOVERY_COOLDOWN_MS = 8_000;
-const MAX_RECOVERY_ATTEMPTS = 4;
+const MAX_RECOVERY_ATTEMPTS = 8;
 const CYCLIC_RECOVERY_REASONS: ReadonlyArray<RelayRecoveryReasonCode> = [
   "no_writable_relays",
   "write_queue_blocked",
   "cooldown_active",
+  "stale_event_flow",
 ];
 
 const isCyclicRecoveryReason = (

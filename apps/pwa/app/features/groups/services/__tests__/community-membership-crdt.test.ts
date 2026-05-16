@@ -22,7 +22,7 @@ import {
   getMembershipDiagnostics,
   migrateFromLegacy,
   MembershipError,
-} from '../community-membership-crdt.js';
+} from '../community-membership-crdt';
 
 describe('Community Membership CRDT', () => {
   const COMMUNITY_ID = 'test-community-123';

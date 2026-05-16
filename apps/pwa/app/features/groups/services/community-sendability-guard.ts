@@ -1,4 +1,5 @@
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
+import type { CommunityMembershipStatus } from "@dweb/core/community-projection-contracts";
 import type { GroupMembershipStatus } from "../types";
 
 export type CommunitySendabilityStatus = Readonly<{
@@ -6,6 +7,7 @@ export type CommunitySendabilityStatus = Readonly<{
   reasonCode:
     | "ready"
     | "no_membership"
+    | "historical_only"
     | "no_room_key"
     | "stale_room_key"
     | "expelled"
@@ -26,6 +28,10 @@ export type CommunitySendabilityCheckParams = Readonly<{
   groupId: string;
   localMemberPubkey: PublicKeyHex | null;
   membershipStatus: GroupMembershipStatus;
+  // M2: explicit ledger status takes precedence over runtime GroupMembershipStatus.
+  // When ledgerStatus is 'historical', sendability is blocked until the user
+  // takes an explicit join action.
+  ledgerStatus?: CommunityMembershipStatus;
   hasRoomKey: boolean;
   roomKeyEpochMs?: number;
   expelledPubkeys?: ReadonlySet<PublicKeyHex>;
@@ -61,6 +67,16 @@ export const checkCommunitySendability = (
     roomKeyEpochMs: params.roomKeyEpochMs,
     roomKeyAgeMs,
   };
+
+  // M2: historical ledger status blocks sendability — must take explicit join action
+  if (params.ledgerStatus === "historical") {
+    return {
+      canSend: false,
+      reasonCode: "historical_only",
+      reasonMessage: "Cannot send: membership is based on historical inference only. Re-join this community to send messages.",
+      debugContext,
+    };
+  }
 
   // Priority: expulsion and leaving block first
   if (isExpelled) {

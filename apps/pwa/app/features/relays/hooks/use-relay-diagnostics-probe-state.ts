@@ -10,7 +10,7 @@ import { useTanstackQueryRuntime } from "@/app/features/query/providers/tanstack
 import { queryKeyFactory } from "@/app/features/query/services/query-key-factory";
 import { createQueryScope } from "@/app/features/query/services/query-scope";
 import { markTanstackQueryPath } from "@/app/features/query/services/tanstack-query-diagnostics";
-import { getActiveProfileIdSafe } from "@/app/features/profiles/services/profile-scope";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 
 type RelayDiagnosticsProbeSnapshot = Readonly<{
   results: ReadonlyArray<RelayNipProbeResult>;
@@ -33,7 +33,7 @@ export const useRelayDiagnosticsProbeState = (params: UseRelayDiagnosticsProbeSt
 
   const scope = useMemo(() => (
     tanstackQueryRuntime?.scope ?? createQueryScope({
-      profileId: getActiveProfileIdSafe(),
+      profileId: getResolvedProfileId(),
       publicKeyHex: params.publicKeyHex ?? null,
     })
   ), [params.publicKeyHex, tanstackQueryRuntime?.scope]);

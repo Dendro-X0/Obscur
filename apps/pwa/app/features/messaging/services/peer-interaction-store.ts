@@ -1,5 +1,6 @@
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { getProfileRuntimeScope, getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 
 type PeerInteractionState = Readonly<{
   version: 1;
@@ -7,14 +8,21 @@ type PeerInteractionState = Readonly<{
 }>;
 
 const STORAGE_PREFIX = "obscur.messaging.peer-interaction.v1";
-const STORAGE_UPDATE_EVENT = "obscur:peer-interaction-updated";
+
+/** Legacy window + bus event when peer last-active map changes */
+export const PEER_INTERACTION_UPDATED_EVENT = "obscur:peer-interaction-updated" as const;
+
+export type PeerInteractionUpdatedEventDetail = Readonly<{
+  publicKeyHex: string;
+  profileId?: string;
+}>;
 
 const isRecord = (value: unknown): value is Record<string, unknown> => (
   typeof value === "object" && value !== null && !Array.isArray(value)
 );
 
-const getStorageKey = (publicKeyHex: PublicKeyHex): string => (
-  getScopedStorageKey(`${STORAGE_PREFIX}.${publicKeyHex}`)
+const getStorageKey = (publicKeyHex: PublicKeyHex, profileId?: string): string => (
+  getScopedStorageKey(`${STORAGE_PREFIX}.${publicKeyHex}`, profileId ?? getResolvedProfileId())
 );
 
 const normalizePeerActivityMap = (value: unknown): Readonly<Record<string, number>> => {
@@ -34,12 +42,12 @@ const normalizePeerActivityMap = (value: unknown): Readonly<Record<string, numbe
   return next;
 };
 
-const readState = (publicKeyHex: PublicKeyHex): PeerInteractionState => {
+const readState = (publicKeyHex: PublicKeyHex, profileId?: string): PeerInteractionState => {
   if (typeof window === "undefined") {
     return { version: 1, lastActiveByPeerPubkey: {} };
   }
   try {
-    const raw = window.localStorage.getItem(getStorageKey(publicKeyHex));
+    const raw = window.localStorage.getItem(getStorageKey(publicKeyHex, profileId));
     if (!raw) {
       return { version: 1, lastActiveByPeerPubkey: {} };
     }
@@ -56,37 +64,47 @@ const readState = (publicKeyHex: PublicKeyHex): PeerInteractionState => {
   }
 };
 
-const writeState = (publicKeyHex: PublicKeyHex, state: PeerInteractionState): void => {
+const writeState = (publicKeyHex: PublicKeyHex, state: PeerInteractionState, scopeProfileId?: string): void => {
   if (typeof window === "undefined") {
     return;
   }
   try {
-    window.localStorage.setItem(getStorageKey(publicKeyHex), JSON.stringify(state));
-    window.dispatchEvent(new CustomEvent(STORAGE_UPDATE_EVENT, {
-      detail: {
-        publicKeyHex,
-      },
-    }));
+    window.localStorage.setItem(getStorageKey(publicKeyHex, scopeProfileId), JSON.stringify(state));
+    const resolvedProfileIdForBus = scopeProfileId ?? getResolvedProfileId();
+    const detail: PeerInteractionUpdatedEventDetail = {
+      publicKeyHex,
+      profileId: resolvedProfileIdForBus,
+    };
+    const scope = getProfileRuntimeScope();
+    if (scope?.bus && scope.profileId === resolvedProfileIdForBus) {
+      scope.bus.publish({
+        type: "peer-interaction-updated",
+        detail,
+      });
+    }
   } catch {
     return;
   }
 };
 
 export const loadPeerLastActiveByPeerPubkey = (
-  publicKeyHex: PublicKeyHex
+  publicKeyHex: PublicKeyHex,
+  profileId?: string,
 ): Readonly<Record<string, number>> => {
-  return readState(publicKeyHex).lastActiveByPeerPubkey;
+  return readState(publicKeyHex, profileId).lastActiveByPeerPubkey;
 };
 
 export const recordPeerLastActive = (params: Readonly<{
   publicKeyHex: PublicKeyHex;
   peerPublicKeyHex: PublicKeyHex;
   activeAtMs: number;
+  profileId?: string;
 }>): void => {
   if (!Number.isFinite(params.activeAtMs) || params.activeAtMs <= 0) {
     return;
   }
-  const current = readState(params.publicKeyHex);
+  const profileId = params.profileId;
+  const current = readState(params.publicKeyHex, profileId);
   if ((current.lastActiveByPeerPubkey[params.peerPublicKeyHex] ?? 0) >= params.activeAtMs) {
     return;
   }
@@ -96,12 +114,12 @@ export const recordPeerLastActive = (params: Readonly<{
       ...current.lastActiveByPeerPubkey,
       [params.peerPublicKeyHex]: params.activeAtMs,
     },
-  });
+  }, profileId);
 };
 
 export const peerInteractionStoreInternals = {
   getStorageKey,
   storagePrefix: STORAGE_PREFIX,
-  storageUpdateEvent: STORAGE_UPDATE_EVENT,
+  storageUpdateEvent: PEER_INTERACTION_UPDATED_EVENT,
 };
 

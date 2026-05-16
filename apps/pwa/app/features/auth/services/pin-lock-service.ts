@@ -1,4 +1,5 @@
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 
 type PinPayloadV1 = Readonly<{
     version: 1;
@@ -12,7 +13,7 @@ const STORAGE_KEY_PREFIX = "obscur.pin_lock.v1.";
 
 const getLegacyStorageKey = (publicKeyHex: string): string => `${STORAGE_KEY_PREFIX}${publicKeyHex}`;
 
-const getStorageKey = (publicKeyHex: string): string => getScopedStorageKey(getLegacyStorageKey(publicKeyHex));
+const getStorageKey = (publicKeyHex: string): string => getScopedStorageKey(getLegacyStorageKey(publicKeyHex), getResolvedProfileId());
 
 const toB64 = (bytes: Uint8Array): string => {
     let binary = "";

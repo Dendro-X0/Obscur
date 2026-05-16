@@ -9,6 +9,7 @@ import { useRelay } from "../../relays/providers/relay-provider";
 import { useIdentity } from "../../auth/hooks/use-identity";
 import { useGroups } from "../providers/group-provider";
 import { toGroupConversationId } from "../utils/group-conversation-id";
+import { dispatchGroupInviteReceived } from "@/app/features/profiles/services/profile-bus-dispatch";
 
 /**
  * Props for GroupJoinDialog
@@ -54,8 +55,8 @@ export const GroupJoinDialog = ({ open, onOpenChange, groupId, relayUrl, onSucce
             await requestJoin();
 
             // Add to local state for immediate UI update
-            addGroup({
-                kind: "group",
+            const joinedGroup = {
+                kind: "group" as const,
                 id: toGroupConversationId({ groupId, relayUrl }),
                 groupId,
                 relayUrl,
@@ -64,11 +65,13 @@ export const GroupJoinDialog = ({ open, onOpenChange, groupId, relayUrl, onSucce
                 lastMessage: "Joining community...",
                 unreadCount: 0,
                 lastMessageTime: new Date(),
-                access: "open",
+                access: "open" as const,
                 memberCount: 0,
                 adminPubkeys: [], // Will be hydrated
                 avatar: groupState.metadata?.picture
-            }, { allowRevive: true });
+            };
+            addGroup(joinedGroup, { allowRevive: true });
+            dispatchGroupInviteReceived(joinedGroup);
 
             onSuccess?.();
             onOpenChange(false);

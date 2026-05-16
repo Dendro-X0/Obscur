@@ -1,6 +1,7 @@
 "use client";
 
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { INVITE_CODE_PREFIX } from "@/app/features/invites/utils/invite-code-format";
 
 export type DiscoveryProfileRecord = Readonly<{
@@ -19,7 +20,7 @@ type DiscoveryCacheState = Readonly<{
     profiles: ReadonlyArray<DiscoveryProfileRecord>;
 }>;
 
-const getStorageKey = (): string => getScopedStorageKey("obscur.discovery.cache.v1");
+const getStorageKey = (): string => getScopedStorageKey("obscur.discovery.cache.v1", getResolvedProfileId());
 const MAX_PROFILE_COUNT = 3000;
 const LEGACY_INVITE_CODE_PREFIX = "OBSCUR";
 const INVITE_CODE_PREFIXES = Array.from(new Set([INVITE_CODE_PREFIX, LEGACY_INVITE_CODE_PREFIX]));

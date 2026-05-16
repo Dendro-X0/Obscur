@@ -2,11 +2,24 @@ import { describe, expect, it } from "vitest";
 import {
   resolveDmReadAuthority,
   selectMessagesByAuthority,
+  resolveHydrationDmReadMessages,
   isCanonicalDmReadPath,
   formatDmReadAuthorityForDiagnostics,
   type DmReadAuthorityParams,
 } from "./dm-read-authority-contract";
 import type { Message } from "../types";
+import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
+
+const pkHydration = "a".repeat(64) as PublicKeyHex;
+
+const createMinimalMessage = (id: string): Message => ({
+  id,
+  kind: "user",
+  content: "x",
+  timestamp: new Date(0),
+  isOutgoing: false,
+  status: "delivered",
+});
 
 const createMockMessage = (id: string): Message => ({
   id,
@@ -249,6 +262,186 @@ describe("dm-read-authority-contract", () => {
       const formatted = formatDmReadAuthorityForDiagnostics(status);
       expect(formatted).toContain("[NON-CANONICAL]");
       expect(formatted).toContain("indexed_recovery");
+    });
+  });
+
+  describe("resolveHydrationDmReadMessages", () => {
+    it("uses legacy evidence count for authority (not projection row count)", () => {
+      const projectionMessages: Message[] = [];
+      const indexedMessages = [createMinimalMessage("idx-1")];
+      const r = resolveHydrationDmReadMessages({
+        identityPubkey: pkHydration,
+        conversationId: "dm:x:y",
+        projectionMessages,
+        indexedMessages,
+        legacyPersistedMessages: [],
+        projectionReady: true,
+        scopeVerified: true,
+        useProjectionReads: true,
+        legacyProjectionEvidenceMessageCount: 1,
+        projectionIncomingCount: 0,
+        projectionBootstrapImportApplied: false,
+        projectionCanonicalEvidencePending: false,
+        projectionRestorePhaseActive: false,
+        indexedOutgoingCount: 1,
+        indexedIncomingCount: 0,
+        persistedIncomingCount: 0,
+        persistedOutgoingCount: 0,
+      });
+      expect(r.messages.map((m) => m.id)).toEqual([]);
+      expect(r.status.source).toBe("projection");
+      expect(r.legacyAuthorityDecision).toEqual({
+        authority: "projection",
+        reason: "projection_read_cutover",
+      });
+    });
+
+    it("selects indexed when legacy picks indexed", () => {
+      const indexedMessages = [createMinimalMessage("i1")];
+      const r = resolveHydrationDmReadMessages({
+        identityPubkey: pkHydration,
+        conversationId: "dm:x:y",
+        projectionMessages: [],
+        indexedMessages,
+        legacyPersistedMessages: [],
+        projectionReady: false,
+        scopeVerified: true,
+        useProjectionReads: false,
+        projectionIncomingCount: 0,
+        projectionBootstrapImportApplied: false,
+        projectionCanonicalEvidencePending: false,
+        projectionRestorePhaseActive: false,
+        indexedOutgoingCount: 0,
+        indexedIncomingCount: 1,
+        persistedIncomingCount: 0,
+        persistedOutgoingCount: 0,
+      });
+      expect(r.status.source).toBe("indexed_recovery");
+      expect(r.messages.map((m) => m.id)).toEqual(["i1"]);
+      expect(r.legacyAuthorityDecision).toEqual({
+        authority: "indexed",
+        reason: "indexed_primary",
+      });
+    });
+
+    it("uses legacy selection when identity is null", () => {
+      const indexedMessages = [createMinimalMessage("i1")];
+      const r = resolveHydrationDmReadMessages({
+        identityPubkey: null,
+        conversationId: "dm:x:y",
+        projectionMessages: [],
+        indexedMessages,
+        legacyPersistedMessages: [],
+        projectionReady: false,
+        scopeVerified: true,
+        useProjectionReads: false,
+        projectionIncomingCount: 0,
+        projectionBootstrapImportApplied: false,
+        projectionCanonicalEvidencePending: false,
+        projectionRestorePhaseActive: false,
+        indexedOutgoingCount: 0,
+        indexedIncomingCount: 1,
+        persistedIncomingCount: 0,
+        persistedOutgoingCount: 0,
+      });
+      expect(r.status.source).toBe("indexed_recovery");
+      expect(r.messages.map((m) => m.id)).toEqual(["i1"]);
+      expect(r.legacyAuthorityDecision).toEqual({
+        authority: "indexed",
+        reason: "indexed_primary",
+      });
+    });
+
+    it("prefers persisted over indexed when legacy authority is persisted (restore-phase repair)", () => {
+      const indexedMessages = [{ ...createMinimalMessage("idx-out"), isOutgoing: true }];
+      const legacyPersistedMessages = [
+        { ...createMinimalMessage("pst-in"), isOutgoing: false },
+        { ...createMinimalMessage("pst-out"), isOutgoing: true },
+      ];
+      const r = resolveHydrationDmReadMessages({
+        identityPubkey: pkHydration,
+        conversationId: "dm:x:y",
+        projectionMessages: [],
+        indexedMessages,
+        legacyPersistedMessages,
+        projectionReady: false,
+        scopeVerified: true,
+        useProjectionReads: false,
+        projectionIncomingCount: 0,
+        projectionBootstrapImportApplied: false,
+        projectionCanonicalEvidencePending: true,
+        projectionRestorePhaseActive: true,
+        indexedOutgoingCount: 1,
+        indexedIncomingCount: 0,
+        persistedIncomingCount: 1,
+        persistedOutgoingCount: 1,
+      });
+      expect(r.status.source).toBe("legacy_persisted");
+      expect(r.messages.map((m) => m.id)).toEqual(["pst-in", "pst-out"]);
+      expect(r.legacyAuthorityDecision).toEqual({
+        authority: "persisted",
+        reason: "persisted_recovery_indexed_missing_incoming",
+      });
+    });
+
+    it("blocks restore-phase persisted repair when persisted layer would resurrect suppressed rows", () => {
+      const indexedMessages = [{ ...createMinimalMessage("idx-out"), isOutgoing: true }];
+      const legacyPersistedMessages = [
+        { ...createMinimalMessage("pst-in"), isOutgoing: false },
+        { ...createMinimalMessage("pst-out"), isOutgoing: true },
+      ];
+      const r = resolveHydrationDmReadMessages({
+        identityPubkey: pkHydration,
+        conversationId: "dm:x:y",
+        projectionMessages: [],
+        indexedMessages,
+        legacyPersistedMessages,
+        projectionReady: false,
+        scopeVerified: true,
+        useProjectionReads: false,
+        projectionIncomingCount: 0,
+        projectionBootstrapImportApplied: false,
+        projectionCanonicalEvidencePending: true,
+        projectionRestorePhaseActive: true,
+        indexedOutgoingCount: 1,
+        indexedIncomingCount: 0,
+        persistedIncomingCount: 1,
+        persistedOutgoingCount: 1,
+        suppressedMessageIds: new Set(["pst-in"]),
+      });
+      expect(r.status.source).toBe("indexed_recovery");
+      expect(r.messages.map((m) => m.id)).toEqual(["idx-out"]);
+      expect(r.legacyAuthorityDecision).toEqual({
+        authority: "indexed",
+        reason: "indexed_primary",
+      });
+    });
+
+    it("filters indexed and projection layers with suppressedMessageIds", () => {
+      const indexedMessages = [
+        createMinimalMessage("keep"),
+        createMinimalMessage("hide"),
+      ];
+      const r = resolveHydrationDmReadMessages({
+        identityPubkey: pkHydration,
+        conversationId: "dm:x:y",
+        projectionMessages: [],
+        indexedMessages,
+        legacyPersistedMessages: [],
+        projectionReady: false,
+        scopeVerified: true,
+        useProjectionReads: false,
+        projectionIncomingCount: 0,
+        projectionBootstrapImportApplied: false,
+        projectionCanonicalEvidencePending: false,
+        projectionRestorePhaseActive: false,
+        indexedOutgoingCount: 0,
+        indexedIncomingCount: 2,
+        persistedIncomingCount: 0,
+        persistedOutgoingCount: 0,
+        suppressedMessageIds: new Set(["hide"]),
+      });
+      expect(r.messages.map((m) => m.id)).toEqual(["keep"]);
     });
   });
 });

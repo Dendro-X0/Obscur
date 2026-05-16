@@ -9,6 +9,8 @@ import { useGroups } from "@/app/features/groups/providers/group-provider";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
 import { useSealedCommunity, toScopedRelayUrl } from "@/app/features/groups/hooks/use-sealed-community";
+import { getResolvedClientGateway } from "@/app/features/profiles/services/resolve-client-gateway";
+import { toGroupConversationId } from "@/app/features/groups/utils/group-conversation-id";
 import { resolveGroupConversationByToken } from "@/app/features/messaging/utils/conversation-target";
 import { resolveGroupRouteToken } from "@/app/features/groups/utils/group-route-token";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
@@ -17,7 +19,12 @@ import { toast } from "@dweb/ui-kit";
 export default function LeaveCommunityPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const { createdGroups, leaveGroup } = useGroups();
+    const {
+        createdGroups,
+        leaveGroup,
+        communityKnownParticipantDirectoryByConversationId,
+        communityRosterByConversationId,
+    } = useGroups();
     const { state: identityState } = useIdentity();
     const { relayPool } = useRelay();
     const [isLeaving, setIsLeaving] = useState(false);
@@ -43,6 +50,50 @@ export default function LeaveCommunityPage() {
     }, [group?.groupId, routeToken]);
     const displayName = group?.displayName || queryName || "Community";
 
+    const resolvedCommunityIdForScope = useMemo(() => {
+        const raw = (group?.communityId || queryCommunityId)?.trim();
+        return raw && raw.length > 0 ? raw : undefined;
+    }, [group?.communityId, queryCommunityId]);
+
+    const rosterLookupConversationId = useMemo((): string | null => {
+        if (group?.id) {
+            return group.id;
+        }
+        const gid = resolvedGroupId.trim();
+        const relay = effectiveRelay.trim();
+        if (!gid || !relay) {
+            return null;
+        }
+        return toGroupConversationId({
+            groupId: gid,
+            relayUrl: relay,
+            ...(resolvedCommunityIdForScope ? { communityId: resolvedCommunityIdForScope } : {}),
+        });
+    }, [effectiveRelay, group?.id, resolvedCommunityIdForScope, resolvedGroupId]);
+
+    const leaveSealedCommunityInitialMembers = useMemo((): ReadonlyArray<PublicKeyHex> | undefined => {
+        if (!rosterLookupConversationId) {
+            return getResolvedClientGateway().communityRoster.resolveSeedMemberPubkeysFromDirectory({
+                directory: null,
+                persistedGroupMemberPubkeys: group?.memberPubkeys,
+                projectionMemberPubkeys: undefined,
+                localMemberPubkey: localMemberPubkey,
+            });
+        }
+        return getResolvedClientGateway().communityRoster.resolveSeedMemberPubkeysFromDirectory({
+            directory: communityKnownParticipantDirectoryByConversationId[rosterLookupConversationId] ?? null,
+            persistedGroupMemberPubkeys: group?.memberPubkeys,
+            projectionMemberPubkeys: communityRosterByConversationId[rosterLookupConversationId]?.activeMemberPubkeys,
+            localMemberPubkey: localMemberPubkey,
+        });
+    }, [
+        communityKnownParticipantDirectoryByConversationId,
+        communityRosterByConversationId,
+        group?.memberPubkeys,
+        localMemberPubkey,
+        rosterLookupConversationId,
+    ]);
+
     const { leaveGroup: leaveNip29Group } = useSealedCommunity({
         groupId: resolvedGroupId,
         relayUrl: effectiveRelay,
@@ -50,6 +101,7 @@ export default function LeaveCommunityPage() {
         pool: relayPool,
         myPublicKeyHex: localMemberPubkey,
         myPrivateKeyHex: identityState.privateKeyHex ?? null,
+        initialMembers: leaveSealedCommunityInitialMembers,
     });
 
     const returnHref = useMemo(() => {
@@ -71,7 +123,6 @@ export default function LeaveCommunityPage() {
 
         setIsLeaving(true);
         try {
-            await leaveNip29Group();
             if (group) {
                 leaveGroup({
                     groupId: group.groupId,
@@ -84,6 +135,7 @@ export default function LeaveCommunityPage() {
                     relayUrl: effectiveRelay,
                 });
             }
+            await leaveNip29Group();
             toast.success("Left community");
             router.push("/network");
         } catch {

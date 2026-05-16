@@ -2,6 +2,7 @@
 
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import type { AccountSyncSnapshot } from "../account-sync-contracts";
 
 const STORAGE_KEY = "obscur.account_sync.status.v1";
@@ -18,7 +19,7 @@ const listeners = new Set<(snapshot: AccountSyncSnapshot) => void>();
 let currentSnapshot: AccountSyncSnapshot = defaultSnapshot;
 let hasLoadedFromStorage = false;
 
-const getStorageKey = (): string => getScopedStorageKey(STORAGE_KEY);
+const getStorageKey = (): string => getScopedStorageKey(STORAGE_KEY, getResolvedProfileId());
 
 const loadSnapshotFromStorage = (): AccountSyncSnapshot => {
   if (typeof window === "undefined") {

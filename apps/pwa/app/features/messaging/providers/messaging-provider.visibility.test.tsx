@@ -47,6 +47,7 @@ vi.mock("../services/message-persistence-service", () => ({
   messagePersistenceService: {
     init: vi.fn(),
     migrateFromLegacy: vi.fn(),
+    bindProfileBusChatStateReplaced: vi.fn(),
   },
 }));
 

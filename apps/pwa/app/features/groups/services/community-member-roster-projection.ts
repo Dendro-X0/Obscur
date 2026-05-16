@@ -10,7 +10,7 @@ export type CommunityMemberRosterProjection = Readonly<{
 
 export type CommunityMemberSnapshotApplication = Readonly<{
   shouldApply: boolean;
-  reasonCode: "equivalent" | "apply_snapshot" | "missing_removal_evidence";
+  reasonCode: "equivalent" | "apply_snapshot" | "apply_snapshot_guard_relaxed" | "missing_removal_evidence";
   nextMemberPubkeys: ReadonlyArray<PublicKeyHex>;
   removedWithoutEvidence: ReadonlyArray<PublicKeyHex>;
 }>;
@@ -42,6 +42,67 @@ export type StabilizeCommunityMemberPubkeysResult = Readonly<{
   confidence: RelayEvidenceConfidence;
   guardRelaxed: boolean;
 }>;
+
+/** Union current ∪ incoming; never drops current members unless excluded (leave/expel). */
+export const mergeMonotonicActiveCommunityMembers = (
+  current: ReadonlyArray<PublicKeyHex>,
+  incoming: ReadonlyArray<PublicKeyHex>,
+  options?: Readonly<{
+    excludePubkeys?: ReadonlyArray<PublicKeyHex>;
+    additionalPubkeys?: ReadonlyArray<PublicKeyHex>;
+  }>,
+): ReadonlyArray<PublicKeyHex> => {
+  const exclude = new Set(
+    (options?.excludePubkeys ?? []).map((pubkey) => pubkey.trim()).filter((pubkey) => pubkey.length > 0),
+  );
+  return dedupeCommunityMemberPubkeys([
+    ...current,
+    ...incoming,
+    ...(options?.additionalPubkeys ?? []),
+  ]).filter((pubkey) => !exclude.has(pubkey.trim()));
+};
+
+export type ResolveCommunityRosterSnapshotNextMembersParams = Readonly<{
+  currentMemberPubkeys: ReadonlyArray<PublicKeyHex>;
+  snapshotNextMemberPubkeys: ReadonlyArray<PublicKeyHex>;
+  leftMemberPubkeys?: ReadonlyArray<PublicKeyHex>;
+  expelledMemberPubkeys?: ReadonlyArray<PublicKeyHex>;
+  protectRemovalPubkeys?: ReadonlyArray<PublicKeyHex>;
+  guardRelaxed?: boolean;
+}>;
+
+/**
+ * Materialize roster projection updates from relay snapshots.
+ * Widens monotonically when the snapshot would drop members without leave/expel evidence.
+ */
+export const resolveCommunityRosterSnapshotNextMembers = (
+  params: ResolveCommunityRosterSnapshotNextMembersParams,
+): ReadonlyArray<PublicKeyHex> => {
+  const leftMemberPubkeys = params.leftMemberPubkeys ?? [];
+  const expelledMemberPubkeys = params.expelledMemberPubkeys ?? [];
+  const leftSet = new Set(leftMemberPubkeys.map((pubkey) => pubkey.trim()).filter((pubkey) => pubkey.length > 0));
+  const expelledSet = new Set(expelledMemberPubkeys.map((pubkey) => pubkey.trim()).filter((pubkey) => pubkey.length > 0));
+  const excludePubkeys = [...leftMemberPubkeys, ...expelledMemberPubkeys];
+  const currentMemberPubkeys = dedupeCommunityMemberPubkeys(params.currentMemberPubkeys);
+  const snapshotNextMemberPubkeys = dedupeCommunityMemberPubkeys(params.snapshotNextMemberPubkeys)
+    .filter((pubkey) => !leftSet.has(pubkey.trim()) && !expelledSet.has(pubkey.trim()));
+  const removedWithoutEvidence = currentMemberPubkeys.filter((pubkey) => (
+    !snapshotNextMemberPubkeys.includes(pubkey)
+    && !leftSet.has(pubkey.trim())
+    && !expelledSet.has(pubkey.trim())
+  ));
+  if (removedWithoutEvidence.length > 0 || params.guardRelaxed) {
+    return mergeMonotonicActiveCommunityMembers(
+      currentMemberPubkeys,
+      snapshotNextMemberPubkeys,
+      {
+        excludePubkeys,
+        additionalPubkeys: params.protectRemovalPubkeys,
+      },
+    );
+  }
+  return snapshotNextMemberPubkeys;
+};
 
 export const dedupeCommunityMemberPubkeys = (
   values: ReadonlyArray<PublicKeyHex>,
@@ -129,6 +190,12 @@ export const resolveCommunityMemberSnapshotApplication = (params: Readonly<{
   };
 };
 
+/**
+ * Thinner-snapshot guard: reject apparent member drops without leave/expel evidence,
+ * except during relay warm-up (`seed_only`, or `warming_up` with a tiny current roster).
+ *
+ * Canonical implementation; `community-visible-members` exposes a `previous`/`next` adapter.
+ */
 export const stabilizeCommunityMemberPubkeys = (
   params: StabilizeCommunityMemberPubkeysParams,
 ): StabilizeCommunityMemberPubkeysResult => {
@@ -168,12 +235,21 @@ export const stabilizeCommunityMemberPubkeys = (
     };
   }
 
+  const monotonicNextMemberPubkeys = removedWithoutEvidence.length > 0 && isRelayWarmUp
+    ? mergeMonotonicActiveCommunityMembers(currentMemberPubkeys, nextMemberPubkeys, {
+      excludePubkeys: [
+        ...(params.leftMemberPubkeys ?? []),
+        ...(params.expelledMemberPubkeys ?? []),
+      ],
+    })
+    : nextMemberPubkeys;
+
   return {
     shouldApply: true,
     reasonCode: removedWithoutEvidence.length > 0 && isRelayWarmUp
       ? "apply_snapshot_guard_relaxed"
       : "apply_snapshot",
-    nextMemberPubkeys,
+    nextMemberPubkeys: monotonicNextMemberPubkeys,
     removedWithoutEvidence: [],
     confidence: params.relayEvidenceConfidence ?? "unknown",
     guardRelaxed: isRelayWarmUp && removedWithoutEvidence.length > 0,

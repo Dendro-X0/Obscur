@@ -8,7 +8,7 @@ import { ChatHeader } from "./chat-header";
 const notificationPreferenceMocks = vi.hoisted(() => ({
   getNotificationTargetEnabled: vi.fn(() => true),
   setNotificationTargetEnabled: vi.fn(),
-  subscribeNotificationTargetPreferenceChanges: vi.fn(() => () => {}),
+  subscribeNotificationTargetPreferenceChangedDual: vi.fn(() => () => {}),
 }));
 
 vi.mock("react-i18next", () => ({
@@ -36,7 +36,14 @@ vi.mock("../../settings/services/privacy-settings-service", () => ({
 vi.mock("../../notifications/utils/notification-target-preference", () => ({
   getNotificationTargetEnabled: notificationPreferenceMocks.getNotificationTargetEnabled,
   setNotificationTargetEnabled: notificationPreferenceMocks.setNotificationTargetEnabled,
-  subscribeNotificationTargetPreferenceChanges: notificationPreferenceMocks.subscribeNotificationTargetPreferenceChanges,
+}));
+
+vi.mock("@/app/features/profiles/providers/profile-runtime-provider", () => ({
+  useOptionalProfileMessageBus: () => null,
+}));
+
+vi.mock("@/app/features/profiles/services/subscribe-notification-target-preference-changed-dual", () => ({
+  subscribeNotificationTargetPreferenceChangedDual: notificationPreferenceMocks.subscribeNotificationTargetPreferenceChangedDual,
 }));
 
 const createProps = (): ChatHeaderProps => ({
@@ -60,7 +67,7 @@ describe("ChatHeader", () => {
   beforeEach(() => {
     notificationPreferenceMocks.getNotificationTargetEnabled.mockClear();
     notificationPreferenceMocks.setNotificationTargetEnabled.mockClear();
-    notificationPreferenceMocks.subscribeNotificationTargetPreferenceChanges.mockClear();
+    notificationPreferenceMocks.subscribeNotificationTargetPreferenceChangedDual.mockClear();
     notificationPreferenceMocks.getNotificationTargetEnabled.mockReturnValue(true);
   });
 
@@ -78,10 +85,12 @@ describe("ChatHeader", () => {
     expect(toggleButton).toHaveAttribute("aria-pressed", "false");
     expect(toggleButton.className).toContain("border-rose-500/35");
 
-    expect(notificationPreferenceMocks.setNotificationTargetEnabled).toHaveBeenCalledWith({
-      target: { kind: "dm", peerPublicKeyHex: "a".repeat(64) },
-      enabled: false,
-    });
+    expect(notificationPreferenceMocks.setNotificationTargetEnabled).toHaveBeenCalledWith(
+      expect.objectContaining({
+        target: { kind: "dm", peerPublicKeyHex: "a".repeat(64) },
+        enabled: false,
+      }),
+    );
     expect(onToggleConversationNotifications).toHaveBeenCalledWith({
       conversation: props.conversation,
       enabled: false,

@@ -12,7 +12,7 @@ It should be read together with:
 1. `docs/protocols/25-community-ledger-and-projection-architecture-spec.md`
 2. `docs/protocols/26-community-projection-contract.md`
 3. `docs/protocols/23-private-direct-envelope-and-community-room-key-contract.md`
-4. `docs/10-community-and-groups-overhaul.md`
+4. `docs/encyclopedia/10-community-and-groups-overhaul.md`
 
 ## Purpose
 
@@ -54,7 +54,7 @@ Write-side/control-side owner chain:
 2. community event ingest/runtime owner
    - `apps/pwa/app/features/groups/hooks/use-sealed-community.ts`
 3. membership/governance reducer owner
-   - `apps/pwa/app/features/groups/services/community-ledger-reducer.ts`
+   - `apps/pwa/app/features/groups/services/community-ledger-validator.ts`
 4. membership ledger durability owner
    - `apps/pwa/app/features/groups/services/community-membership-ledger.ts`
 5. backup/import bridge owner

@@ -142,7 +142,7 @@ describe("dm-subscription-manager", () => {
       onEvent: vi.fn(),
     } as any);
 
-    const expectedSinceUnixSeconds = Math.floor(new Date("2026-03-14T00:00:00Z").getTime() / 1000);
+    const expectedSinceUnixSeconds = Math.floor(new Date("2026-03-14T00:00:00Z").getTime() / 1000) - 300;
     expect(pool.subscribe).toHaveBeenCalledWith(
       [
         expect.objectContaining({

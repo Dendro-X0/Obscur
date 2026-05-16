@@ -382,11 +382,12 @@ const isStaleOutgoingPendingRequestState = (
   requestState: RequestStatusSnapshot | null | undefined,
   peerPublicKeyHex?: PublicKeyHex,
   nowUnixMs = Date.now(),
-  staleAfterMs = PENDING_REQUEST_STALE_MS
+  staleAfterMs = PENDING_REQUEST_STALE_MS,
+  profileId?: string,
 ): boolean => {
   return isRetryEligiblePendingOutgoingRequest({
     requestStatus: requestState ?? null,
-    evidence: peerPublicKeyHex ? requestFlowEvidenceStore.get(peerPublicKeyHex) : undefined,
+    evidence: peerPublicKeyHex ? requestFlowEvidenceStore.get(peerPublicKeyHex, profileId) : undefined,
     nowUnixMs,
     resendGraceMs: staleAfterMs,
   });
@@ -492,7 +493,8 @@ export const useEnhancedDMController = (
     }
     return `${windowLabel}:${profileId}:${params.myPublicKeyHex}`;
   }, [params.myPublicKeyHex, runtimeSnapshot.session.profileId, runtimeSnapshot.session.windowLabel]);
-  const transportQueue = useProfileTransportQueue(transportScopeKey);
+  const transportQueueProfileId = runtimeSnapshot.session.profileId?.trim() || undefined;
+  const transportQueue = useProfileTransportQueue(transportScopeKey, transportQueueProfileId);
   const [state, setState] = useState<EnhancedDMControllerState>(createInitialState);
 
   // Initialize message queue
@@ -619,8 +621,9 @@ export const useEnhancedDMController = (
         transportOwnerId,
         controllerInstanceId,
       },
+      profileId: runtimeSnapshot.session.profileId?.trim() || undefined,
     }, since);
-  }, [controllerInstanceId, incomingTransportEnabled, params.myPublicKeyHex, params.pool, messageQueue, transportOwnerId]);
+  }, [controllerInstanceId, incomingTransportEnabled, params.myPublicKeyHex, params.pool, messageQueue, transportOwnerId, runtimeSnapshot.session.profileId]);
 
   /**
    * Monitor network state changes
@@ -736,7 +739,10 @@ export const useEnhancedDMController = (
         senderOpenRelayUrls: openRelayUrls,
         senderWriteRelayUrls: nip65Service.getWriteRelays(params.myPublicKeyHex),
         recipientWriteRelayUrls: nip65Service.getWriteRelays(ackParams.peerPublicKeyHex),
-        recipientInboundRelayUrls: peerRelayEvidenceStore.getRelayUrls(ackParams.peerPublicKeyHex),
+        recipientInboundRelayUrls: peerRelayEvidenceStore.getRelayUrls(
+          ackParams.peerPublicKeyHex,
+          runtimeSnapshot.session.profileId?.trim() || undefined,
+        ),
       });
       const targetRelayUrls = relayTargeting.targetRelayUrls;
       if (targetRelayUrls.length === 0 && openRelayUrls.length === 0) {
@@ -801,6 +807,7 @@ export const useEnhancedDMController = (
     params.pool,
     recipientRelayCheckCache,
     recipientRelayResolutionCache,
+    runtimeSnapshot.session.profileId,
   ]);
 
   /**
@@ -988,6 +995,14 @@ export const useEnhancedDMController = (
       closedSubscriptionIdsRef,
       setState,
       onEvent: (event, url) => {
+        console.log("[DM:RECV:DIAG] subscription event received", {
+          eventId: event.id?.slice(0, 16),
+          kind: event.kind,
+          sender: event.pubkey?.slice(0, 16),
+          relay: url?.slice(0, 40),
+          myPubkey: params.myPublicKeyHex?.slice(0, 16),
+          pTag: event.tags?.find((t: string[]) => t[0] === "p")?.[1]?.slice(0, 16),
+        });
         void handleIncomingEvent(event, url, "relay_live");
       },
     });
@@ -1291,9 +1306,10 @@ export const useEnhancedDMController = (
       maxMessagesInMemory: MAX_MESSAGES_IN_MEMORY,
       setState,
       createReadyState,
-      createErrorState
+      createErrorState,
+      profileId: runtimeSnapshot.session.profileId?.trim() || undefined,
     });
-  }, [params.myPrivateKeyHex, params.myPublicKeyHex, params.pool, messageQueue]);
+  }, [params.myPrivateKeyHex, params.myPublicKeyHex, params.pool, messageQueue, runtimeSnapshot.session.profileId]);
 
   const sendDm = useCallback(async (sendParams: Readonly<{
     peerPublicKeyInput: string;
@@ -1386,7 +1402,10 @@ export const useEnhancedDMController = (
       }
 
       const requestState = params.requestsInbox?.getRequestStatus({ peerPublicKeyHex: normalizedPeer });
-      const requestEvidence = requestFlowEvidenceStore.get(normalizedPeer);
+      const requestEvidence = requestFlowEvidenceStore.get(
+        normalizedPeer,
+        runtimeSnapshot.session.profileId?.trim() || undefined,
+      );
       const hasPendingOutgoing = !!(
         requestState?.isOutgoing &&
         (requestState.status === "pending" || !requestState.status)
@@ -1396,7 +1415,13 @@ export const useEnhancedDMController = (
         !requestState.isOutgoing &&
         requestState.status === "pending"
       );
-      const stalePendingOutgoing = isStaleOutgoingPendingRequestState(requestState, normalizedPeer);
+      const stalePendingOutgoing = isStaleOutgoingPendingRequestState(
+        requestState,
+        normalizedPeer,
+        Date.now(),
+        PENDING_REQUEST_STALE_MS,
+        runtimeSnapshot.session.profileId?.trim() || undefined,
+      );
       const recipientHasSeenPendingOutgoing = hasPendingOutgoing && requestEvidence.receiptAckSeen;
       if (hasPendingIncoming) {
         return createGuardFailureWithRisk("A connection request is already pending for this user.", "pending_request_exists");
@@ -1421,33 +1446,40 @@ export const useEnhancedDMController = (
         return createGuardFailureWithRisk("This connection request is already accepted.", "already_accepted");
       }
 
+      const cooldownProfileId = runtimeSnapshot.session.profileId?.trim() || undefined;
       const cooldownRemainingMs = getRequestCooldownRemainingMs({
         myPublicKeyHex: normalizedSelf,
-        peerPublicKeyHex: normalizedPeer
+        peerPublicKeyHex: normalizedPeer,
+        profileId: cooldownProfileId,
       });
       if (cooldownRemainingMs > 0) {
         clearRequestCooldown({
           myPublicKeyHex: normalizedSelf,
-          peerPublicKeyHex: normalizedPeer
+          peerPublicKeyHex: normalizedPeer,
+          profileId: cooldownProfileId,
         });
       }
 
       const writeRelays = params.myPublicKeyHex ? nip65Service.getWriteRelays(params.myPublicKeyHex) : [];
       const tags = [['t', 'connection-request']];
       if (writeRelays.length > 0) tags.push(['relays', ...writeRelays]);
-      const senderProfileTag = buildInvitationSenderProfileTag();
+      const senderProfileTag = buildInvitationSenderProfileTag(runtimeSnapshot.session.profileId?.trim() || undefined);
       if (senderProfileTag) {
         tags.push(senderProfileTag);
       }
 
       // Reset stale evidence so the UI tracks the NEW send attempt
-      requestFlowEvidenceStore.reset(normalizedPeer);
+      requestFlowEvidenceStore.reset(
+        normalizedPeer,
+        runtimeSnapshot.session.profileId?.trim() || undefined,
+      );
 
       const res = await sendDm({ peerPublicKeyInput: normalizedPeer, plaintext: req.introMessage || "Hello!", customTags: tags });
       if (params.myPublicKeyHex && hasRequestDeliveryEvidence(res)) {
         requestFlowEvidenceStore.markRequestPublished({
           peerPublicKeyHex: normalizedPeer,
           requestEventId: res.messageId || undefined,
+          profileId: runtimeSnapshot.session.profileId?.trim() || undefined,
         });
         params.requestsInbox?.setStatus({ peerPublicKeyHex: normalizedPeer, status: "pending", isOutgoing: true });
         void appendCanonicalContactEvent({
@@ -1470,7 +1502,7 @@ export const useEnhancedDMController = (
       }, peer);
       if (hasSubscribedRef.current) activeSubscriptions.current.forEach(sub => params.pool.sendToOpen(JSON.stringify(['REQ', sub.id, sub.filter])));
     }
-  }), [state, sendDm, messageQueue, syncMissedMessages, subscribeToIncomingDMsImpl, unsubscribeFromDMsImpl, params.pool, params.myPublicKeyHex, params.requestsInbox]);
+  }), [state, sendDm, messageQueue, syncMissedMessages, subscribeToIncomingDMsImpl, unsubscribeFromDMsImpl, params.pool, params.myPublicKeyHex, params.requestsInbox, runtimeSnapshot.session.profileId]);
 };
 
 export const enhancedDmControllerInternals = {

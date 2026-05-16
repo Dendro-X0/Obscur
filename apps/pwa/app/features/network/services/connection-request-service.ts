@@ -1,6 +1,7 @@
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { ConnectionRequest, ConnectionRequestStatusValue } from "@/app/features/messaging/types";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 
 export type StoredConnectionRequests = Readonly<{
     requests: ReadonlyArray<ConnectionRequest>;
@@ -55,7 +56,7 @@ const parseStoredRequest = (value: unknown): ConnectionRequest | null => {
 
 export class ConnectionRequestService {
     private static getStorageKey(myPubkey: string): string {
-        return getScopedStorageKey(`${STORAGE_KEY_PREFIX}${myPubkey}`);
+        return getScopedStorageKey(`${STORAGE_KEY_PREFIX}${myPubkey}`, getResolvedProfileId());
     }
 
     static async getRequests(myPubkey: string): Promise<ConnectionRequest[]> {

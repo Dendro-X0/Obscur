@@ -14,7 +14,7 @@ import { appendCanonicalContactEvent } from "@/app/features/account-sync/service
 import { resolveProjectionReadAuthority } from "@/app/features/account-sync/services/account-projection-read-authority";
 import { selectProjectionRequestsInboxItems } from "@/app/features/account-sync/services/account-projection-selectors";
 import { shouldWriteLegacyContactsDm } from "@/app/features/account-sync/services/account-sync-migration-policy";
-import { getActiveProfileIdSafe } from "@/app/features/profiles/services/profile-scope";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { clearRequestCooldown, setRequestCooldown } from "../services/request-anti-abuse";
 import { requestFlowEvidenceStore } from "../services/request-flow-evidence-store";
 import { requestEventTombstoneStore } from "../services/request-event-tombstone-store";
@@ -111,7 +111,7 @@ const shouldReleaseOutgoingPendingRequest = (
   if (!item.isOutgoing) return false;
   if (item.status && item.status !== "pending") return false;
 
-  const evidence = requestFlowEvidenceStore.get(item.peerPublicKeyHex);
+  const evidence = requestFlowEvidenceStore.get(item.peerPublicKeyHex, getResolvedProfileId());
   if (evidence.acceptSeen || evidence.receiptAckSeen) {
     return false;
   }
@@ -256,7 +256,7 @@ const shouldApplyStatusUpdate = (params: Readonly<{
 
 export const useRequestsInbox = (params: UseRequestsInboxParams): UseRequestsInboxResult => {
   const projectionSnapshot = useAccountProjectionSnapshot();
-  const activeProfileId = getActiveProfileIdSafe();
+  const activeProfileId = getResolvedProfileId();
   const projectionReadAuthority = useMemo(() => (
     resolveProjectionReadAuthority({
       projectionSnapshot,
@@ -487,7 +487,7 @@ export const useRequestsInbox = (params: UseRequestsInboxParams): UseRequestsInb
       }
       // Removing a request/contact entry must also drop request-flow evidence.
       // Otherwise stale receipt/accept evidence can misroute future DMs as pending.
-      requestFlowEvidenceStore.reset(normalizedPeer);
+      requestFlowEvidenceStore.reset(normalizedPeer, getResolvedProfileId());
       const next = { items: prev.items.filter((i: RequestsInboxItem): boolean => i.peerPublicKeyHex !== normalizedPeer) };
       persistChange(next);
       emitAccountSyncMutation("requests_inbox_status_changed");
@@ -530,7 +530,7 @@ export const useRequestsInbox = (params: UseRequestsInboxParams): UseRequestsInb
         if (item.eventId) {
           requestEventTombstoneStore.suppress(item.eventId);
         }
-        requestFlowEvidenceStore.reset(item.peerPublicKeyHex);
+        requestFlowEvidenceStore.reset(item.peerPublicKeyHex, getResolvedProfileId());
       });
       const next = { items: [] };
       persistChange(next);
@@ -552,22 +552,26 @@ export const useRequestsInbox = (params: UseRequestsInboxParams): UseRequestsInb
       const isOutgoing = p.isOutgoing ?? existing?.isOutgoing ?? false;
       const myPublicKey = publicKeyHexRef.current;
       if (myPublicKey && isOutgoing) {
+        const cooldownProfileId = getResolvedProfileId();
         if (p.status === "declined") {
           setRequestCooldown({
             myPublicKeyHex: myPublicKey,
             peerPublicKeyHex: normalizedPeer,
-            reason: "declined"
+            reason: "declined",
+            profileId: cooldownProfileId,
           });
         } else if (p.status === "canceled") {
           setRequestCooldown({
             myPublicKeyHex: myPublicKey,
             peerPublicKeyHex: normalizedPeer,
-            reason: "canceled"
+            reason: "canceled",
+            profileId: cooldownProfileId,
           });
         } else if (p.status === "accepted" || p.status === "pending") {
           clearRequestCooldown({
             myPublicKeyHex: myPublicKey,
-            peerPublicKeyHex: normalizedPeer
+            peerPublicKeyHex: normalizedPeer,
+            profileId: cooldownProfileId,
           });
         }
       }

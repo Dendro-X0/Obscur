@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { processIncomingEvent, dmReceivePipelineInternals } from "./dm-receive-pipeline";
+import { cryptoService } from "@/app/features/crypto/crypto-service";
+import { processIncomingEvent, createDedupSet } from "./dm-receive-pipeline";
 
 vi.mock("@/app/features/crypto/crypto-service", () => ({
   cryptoService: {
@@ -15,12 +16,28 @@ vi.mock("@/app/features/crypto/crypto-service", () => ({
   },
 }));
 
-vi.mock("../../services/message-delete-tombstone-store", () => ({
-  isMessageDeleteSuppressed: vi.fn(() => false),
+vi.mock("../../services/messaging-client-operations", () => ({
+  messagingClientOperations: {
+    isDmMessageSuppressed: vi.fn(() => false),
+    isDmMessageIdentitySuppressed: vi.fn(() => false),
+  },
+}));
+
+vi.mock("@/app/features/relays/utils/nip65-service", () => ({
+  nip65Service: {
+    getWriteRelays: vi.fn(() => []),
+  },
+}));
+
+vi.mock("../../services/peer-relay-evidence-store", () => ({
+  peerRelayEvidenceStore: {
+    getRelayUrls: vi.fn(() => []),
+    subscribe: vi.fn(() => () => {}),
+  },
 }));
 
 const myPubkey = "a".repeat(64);
-const myPrivkey = "b".repeat(64) as any;
+const myPrivkey = "b".repeat(64) as import("@dweb/crypto/private-key-hex").PrivateKeyHex;
 const peerPubkey = "c".repeat(64);
 
 const makeNip04Event = (overrides?: Partial<{ id: string; pubkey: string; content: string; created_at: number; tags: string[][] }>) => ({
@@ -44,8 +61,10 @@ const makeNip17Event = (overrides?: Partial<{ id: string; pubkey: string; conten
 });
 
 describe("dm-receive-pipeline", () => {
+  let dedupSet: Set<string>;
+
   beforeEach(() => {
-    dmReceivePipelineInternals.processedEventIds.clear();
+    dedupSet = createDedupSet();
     vi.clearAllMocks();
   });
 
@@ -53,10 +72,9 @@ describe("dm-receive-pipeline", () => {
     const event = makeNip04Event();
     const result = await processIncomingEvent({
       event,
-      relayUrl: "wss://relay1.example.com",
-      ingestSource: "relay_live",
       myPublicKeyHex: myPubkey,
       myPrivateKeyHex: myPrivkey,
+      dedupSet,
     });
 
     expect(result.action).toBe("message");
@@ -72,10 +90,9 @@ describe("dm-receive-pipeline", () => {
     const event = makeNip17Event();
     const result = await processIncomingEvent({
       event,
-      relayUrl: "wss://relay1.example.com",
-      ingestSource: "relay_live",
       myPublicKeyHex: myPubkey,
       myPrivateKeyHex: myPrivkey,
+      dedupSet,
     });
 
     expect(result.action).toBe("message");
@@ -89,24 +106,46 @@ describe("dm-receive-pipeline", () => {
     const event = makeNip04Event({ id: "duplicate-event-id" });
     const r1 = await processIncomingEvent({
       event,
-      relayUrl: "wss://relay1.example.com",
-      ingestSource: "relay_live",
       myPublicKeyHex: myPubkey,
       myPrivateKeyHex: myPrivkey,
+      dedupSet,
     });
     const r2 = await processIncomingEvent({
       event,
-      relayUrl: "wss://relay2.example.com",
-      ingestSource: "relay_live",
       myPublicKeyHex: myPubkey,
       myPrivateKeyHex: myPrivkey,
+      dedupSet,
     });
 
     expect(r1.action).toBe("message");
     expect(r2.action).toBe("skipped");
     if (r2.action === "skipped") {
-      expect(r2.reason).toBe("already_processed");
+      expect(r2.reason).toBe("dedup");
     }
+  });
+
+  it("does not mark decrypt-failed events as processed", async () => {
+    vi.mocked(cryptoService.decryptDM).mockRejectedValueOnce(new Error("decrypt failed"));
+    const event = makeNip04Event({ id: "retry-after-decrypt-failure" });
+
+    const r1 = await processIncomingEvent({
+      event,
+      myPublicKeyHex: myPubkey,
+      myPrivateKeyHex: myPrivkey,
+      dedupSet,
+    });
+    const r2 = await processIncomingEvent({
+      event,
+      myPublicKeyHex: myPubkey,
+      myPrivateKeyHex: myPrivkey,
+      dedupSet,
+    });
+
+    expect(r1.action).toBe("skipped");
+    if (r1.action === "skipped") {
+      expect(r1.reason).toBe("decrypt failed");
+    }
+    expect(r2.action).toBe("message");
   });
 
   it("recognizes self-authored messages", async () => {
@@ -116,10 +155,9 @@ describe("dm-receive-pipeline", () => {
     });
     const result = await processIncomingEvent({
       event,
-      relayUrl: "wss://relay1.example.com",
-      ingestSource: "relay_live",
       myPublicKeyHex: myPubkey,
       myPrivateKeyHex: myPrivkey,
+      dedupSet,
     });
 
     expect(result.action).toBe("self_echo");
@@ -132,18 +170,17 @@ describe("dm-receive-pipeline", () => {
     const event = makeNip04Event();
     const result = await processIncomingEvent({
       event,
-      relayUrl: "wss://relay1.example.com",
-      ingestSource: "relay_live",
       myPublicKeyHex: myPubkey,
       myPrivateKeyHex: myPrivkey,
       blocklist: {
         isBlocked: ({ publicKeyHex }) => publicKeyHex === peerPubkey,
       },
+      dedupSet,
     });
 
     expect(result.action).toBe("skipped");
     if (result.action === "skipped") {
-      expect(result.reason).toBe("blocked_sender");
+      expect(result.reason).toBe("blocked");
     }
   });
 
@@ -152,10 +189,9 @@ describe("dm-receive-pipeline", () => {
     const event = makeNip04Event({ content: `encrypted:${deletePayload}` });
     const result = await processIncomingEvent({
       event,
-      relayUrl: "wss://relay1.example.com",
-      ingestSource: "relay_live",
       myPublicKeyHex: myPubkey,
       myPrivateKeyHex: myPrivkey,
+      dedupSet,
     });
 
     expect(result.action).toBe("delete");
@@ -169,10 +205,9 @@ describe("dm-receive-pipeline", () => {
     const event = makeNip04Event({ content: `encrypted:${deletePayload}` });
     const result = await processIncomingEvent({
       event,
-      relayUrl: "wss://relay1.example.com",
-      ingestSource: "relay_live",
       myPublicKeyHex: myPubkey,
       myPrivateKeyHex: myPrivkey,
+      dedupSet,
     });
 
     expect(result.action).toBe("delete");
@@ -189,10 +224,9 @@ describe("dm-receive-pipeline", () => {
     });
     const result = await processIncomingEvent({
       event,
-      relayUrl: "wss://relay1.example.com",
-      ingestSource: "relay_live",
       myPublicKeyHex: myPubkey,
       myPrivateKeyHex: myPrivkey,
+      dedupSet,
     });
 
     expect(result.action).toBe("delete");
@@ -202,32 +236,113 @@ describe("dm-receive-pipeline", () => {
     }
   });
 
+  it("processes versioned delete commands without surfacing them as messages", async () => {
+    const deletePayload = `__dweb_cmd__delete:${JSON.stringify({
+      type: "message_delete_v1",
+      mode: "delete_for_everyone",
+      conversationId: [myPubkey, peerPubkey].sort().join(":"),
+      targetMessageIdentityIds: ["local-id", "event-id"],
+      targetAuthorPubkey: peerPubkey,
+      deletedByPubkey: peerPubkey,
+      deletedAt: Date.now(),
+      nonce: "nonce-1",
+    })}`;
+    const event = makeNip04Event({
+      content: `encrypted:${deletePayload}`,
+      tags: [["p", myPubkey], ["t", "message-delete"], ["e", "event-id"], ["e", "relay-extra-id"]],
+    });
+    const result = await processIncomingEvent({
+      event,
+      myPublicKeyHex: myPubkey,
+      myPrivateKeyHex: myPrivkey,
+      dedupSet,
+    });
+
+    expect(result.action).toBe("delete");
+    if (result.action === "delete") {
+      expect(new Set(result.targetMessageIds)).toEqual(new Set(["local-id", "event-id", "relay-extra-id"]));
+      expect(result.plaintext).toBe(deletePayload);
+    }
+  });
+
+  it("classifies versioned delete with leading whitespace (trim) so prefix decode succeeds", async () => {
+    const inner = `__dweb_cmd__delete:${JSON.stringify({
+      type: "message_delete_v1",
+      mode: "delete_for_everyone",
+      conversationId: [myPubkey, peerPubkey].sort().join(":"),
+      targetMessageIdentityIds: ["evt-trim-test"],
+      targetAuthorPubkey: peerPubkey,
+      deletedByPubkey: peerPubkey,
+      deletedAt: Date.now(),
+      nonce: "nonce-trim",
+    })}`;
+    const deletePayload = `\n  ${inner}`;
+    const event = makeNip04Event({
+      content: `encrypted:${deletePayload}`,
+      tags: [["p", myPubkey], ["t", "message-delete"], ["e", "evt-trim-test"]],
+    });
+    const result = await processIncomingEvent({
+      event,
+      myPublicKeyHex: myPubkey,
+      myPrivateKeyHex: myPrivkey,
+      dedupSet,
+    });
+
+    expect(result.action).toBe("delete");
+    if (result.action === "delete") {
+      expect(result.targetMessageIds).toContain("evt-trim-test");
+    }
+  });
+
+  it("round-trips encodeDmDeleteCommandV1 (same encoder as delete-for-everyone send) through the receive classifier", async () => {
+    const { encodeDmDeleteCommandV1 } = await import("../../deletion/delete-command-codec");
+    const conversationId = [myPubkey, peerPubkey].sort().join(":");
+    const deletePayload = encodeDmDeleteCommandV1({
+      conversationId,
+      targetMessageIdentityIds: ["prod-encode-id-a", "prod-encode-id-b"],
+      targetAuthorPubkey: peerPubkey as import("@dweb/crypto/public-key-hex").PublicKeyHex,
+      deletedByPubkey: peerPubkey as import("@dweb/crypto/public-key-hex").PublicKeyHex,
+    });
+    const event = makeNip04Event({
+      content: `encrypted:${deletePayload}`,
+      tags: [["p", myPubkey], ["t", "message-delete"], ["e", "prod-encode-id-a"]],
+    });
+    const result = await processIncomingEvent({
+      event,
+      myPublicKeyHex: myPubkey,
+      myPrivateKeyHex: myPrivkey,
+      dedupSet,
+    });
+    expect(result.action).toBe("delete");
+    if (result.action === "delete") {
+      expect(new Set(result.targetMessageIds)).toEqual(new Set(["prod-encode-id-a", "prod-encode-id-b"]));
+    }
+  });
+
   it("rejects invalid events", async () => {
     const result = await processIncomingEvent({
       event: { id: "", kind: 4, pubkey: "", content: "", tags: [], sig: "", created_at: 0 },
-      relayUrl: "wss://relay1.example.com",
-      ingestSource: "relay_live",
       myPublicKeyHex: myPubkey,
       myPrivateKeyHex: myPrivkey,
+      dedupSet,
     });
 
     expect(result.action).toBe("skipped");
     if (result.action === "skipped") {
-      expect(result.reason).toBe("invalid_event");
+      expect(result.reason).toBe("no_peer_pubkey");
     }
   });
 
   it("skips tombstoned messages", async () => {
-    const { isMessageDeleteSuppressed } = await import("../../services/message-delete-tombstone-store");
-    vi.mocked(isMessageDeleteSuppressed).mockReturnValueOnce(true);
+    const { messagingClientOperations } = await import("../../services/messaging-client-operations");
+    vi.mocked(messagingClientOperations.isDmMessageSuppressed).mockReturnValueOnce(true);
 
     const event = makeNip04Event({ id: "tombstoned-event" });
     const result = await processIncomingEvent({
       event,
-      relayUrl: "wss://relay1.example.com",
-      ingestSource: "relay_live",
       myPublicKeyHex: myPubkey,
       myPrivateKeyHex: myPrivkey,
+      dedupSet,
     });
 
     expect(result.action).toBe("skipped");

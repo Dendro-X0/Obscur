@@ -1,6 +1,7 @@
 import type { Conversation, Message } from "@/app/features/messaging/types";
 import { isGroupConversationId } from "@/app/features/groups/utils/group-conversation-id";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { getProfileRuntimeScope, getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 
 type NotificationTarget = Readonly<
   | {
@@ -17,7 +18,8 @@ type NotificationTarget = Readonly<
 const NOTIFICATION_TARGETS_DM_PREFIX = "dweb.nostr.pwa.notifications.targets.dm.";
 const NOTIFICATION_TARGETS_GROUP_PREFIX = "dweb.nostr.pwa.notifications.targets.group.";
 const LEGACY_GROUP_NOTIFICATIONS_KEY_PREFIX = "obscur_group_notifications_";
-const NOTIFICATION_TARGET_PREFERENCE_CHANGED_EVENT = "obscur:notification-target-preference-changed";
+/** Historical name for cross-tab/tests; runtime uses {@link ProfileMessageBus} `notification-target-preference-changed` only. */
+export const NOTIFICATION_TARGET_PREFERENCE_CHANGED_EVENT = "obscur:notification-target-preference-changed";
 
 const parseStoredPreferenceValue = (value: string | null): boolean | null => {
   if (value === null) {
@@ -32,20 +34,26 @@ const parseStoredPreferenceValue = (value: string | null): boolean | null => {
   return null;
 };
 
-const getNotificationTargetStorageKey = (target: NotificationTarget): string => {
+const resolvePreferenceProfileId = (profileId?: string): string => (
+  profileId ?? getResolvedProfileId()
+);
+
+const getNotificationTargetStorageKey = (target: NotificationTarget, profileId?: string): string => {
+  const scopeId = resolvePreferenceProfileId(profileId);
   if (target.kind === "dm") {
-    return getScopedStorageKey(`${NOTIFICATION_TARGETS_DM_PREFIX}${target.peerPublicKeyHex}`);
+    return getScopedStorageKey(`${NOTIFICATION_TARGETS_DM_PREFIX}${target.peerPublicKeyHex}`, scopeId);
   }
-  return getScopedStorageKey(`${NOTIFICATION_TARGETS_GROUP_PREFIX}${target.conversationId}`);
+  return getScopedStorageKey(`${NOTIFICATION_TARGETS_GROUP_PREFIX}${target.conversationId}`, scopeId);
 };
 
 const toLegacyGroupStorageKey = (groupId: string): string => (
   `${LEGACY_GROUP_NOTIFICATIONS_KEY_PREFIX}${groupId}`
 );
 
-const getGroupLegacyPreference = (groupId: string): boolean | null => {
+const getGroupLegacyPreference = (groupId: string, profileId?: string): boolean | null => {
+  const scopeId = resolvePreferenceProfileId(profileId);
   const scoped = parseStoredPreferenceValue(
-    window.localStorage.getItem(getScopedStorageKey(toLegacyGroupStorageKey(groupId)))
+    window.localStorage.getItem(getScopedStorageKey(toLegacyGroupStorageKey(groupId), scopeId))
   );
   if (scoped !== null) {
     return scoped;
@@ -54,10 +62,7 @@ const getGroupLegacyPreference = (groupId: string): boolean | null => {
 };
 
 const dispatchPreferenceChanged = (): void => {
-  if (typeof window === "undefined") {
-    return;
-  }
-  window.dispatchEvent(new Event(NOTIFICATION_TARGET_PREFERENCE_CHANGED_EVENT));
+  getProfileRuntimeScope()?.bus.publish({ type: "notification-target-preference-changed" });
 };
 
 const toNotificationTarget = (conversation: Conversation): NotificationTarget => {
@@ -74,13 +79,13 @@ const toNotificationTarget = (conversation: Conversation): NotificationTarget =>
   };
 };
 
-const getNotificationTargetEnabled = (target: NotificationTarget): boolean => {
+const getNotificationTargetEnabled = (target: NotificationTarget, profileId?: string): boolean => {
   if (typeof window === "undefined") {
     return true;
   }
 
   const scopedValue = parseStoredPreferenceValue(
-    window.localStorage.getItem(getNotificationTargetStorageKey(target))
+    window.localStorage.getItem(getNotificationTargetStorageKey(target, profileId))
   );
   if (scopedValue !== null) {
     return scopedValue;
@@ -89,7 +94,7 @@ const getNotificationTargetEnabled = (target: NotificationTarget): boolean => {
   if (target.kind === "group") {
     const fallbackGroupId = target.groupId?.trim();
     if (fallbackGroupId) {
-      const legacyValue = getGroupLegacyPreference(fallbackGroupId);
+      const legacyValue = getGroupLegacyPreference(fallbackGroupId, profileId);
       if (legacyValue !== null) {
         return legacyValue;
       }
@@ -100,13 +105,14 @@ const getNotificationTargetEnabled = (target: NotificationTarget): boolean => {
 };
 
 const setNotificationTargetEnabled = (
-  params: Readonly<{ target: NotificationTarget; enabled: boolean }>
+  params: Readonly<{ target: NotificationTarget; enabled: boolean; profileId?: string }>
 ): void => {
   if (typeof window === "undefined") {
     return;
   }
+  const scopeId = resolvePreferenceProfileId(params.profileId);
   window.localStorage.setItem(
-    getNotificationTargetStorageKey(params.target),
+    getNotificationTargetStorageKey(params.target, scopeId),
     params.enabled ? "1" : "0"
   );
 
@@ -114,7 +120,7 @@ const setNotificationTargetEnabled = (
     const fallbackGroupId = params.target.groupId?.trim();
     if (fallbackGroupId) {
       window.localStorage.setItem(
-        getScopedStorageKey(toLegacyGroupStorageKey(fallbackGroupId)),
+        getScopedStorageKey(toLegacyGroupStorageKey(fallbackGroupId), scopeId),
         params.enabled ? "on" : "off"
       );
     }
@@ -123,27 +129,28 @@ const setNotificationTargetEnabled = (
   dispatchPreferenceChanged();
 };
 
-const isConversationNotificationsEnabled = (conversation: Conversation): boolean => (
-  getNotificationTargetEnabled(toNotificationTarget(conversation))
+const isConversationNotificationsEnabled = (conversation: Conversation, profileId?: string): boolean => (
+  getNotificationTargetEnabled(toNotificationTarget(conversation), profileId)
 );
 
 const setConversationNotificationsEnabled = (
-  params: Readonly<{ conversation: Conversation; enabled: boolean }>
+  params: Readonly<{ conversation: Conversation; enabled: boolean; profileId?: string }>
 ): void => {
   setNotificationTargetEnabled({
     target: toNotificationTarget(params.conversation),
     enabled: params.enabled,
+    profileId: params.profileId,
   });
 };
 
 const isMessageNotificationEnabledForIncomingEvent = (
-  params: Readonly<{ conversationId: string; message: Message }>
+  params: Readonly<{ conversationId: string; message: Message; profileId?: string }>
 ): boolean => {
   if (isGroupConversationId(params.conversationId)) {
     return getNotificationTargetEnabled({
       kind: "group",
       conversationId: params.conversationId,
-    });
+    }, params.profileId);
   }
   const senderPubkey = params.message.senderPubkey?.trim();
   if (!senderPubkey) {
@@ -152,7 +159,7 @@ const isMessageNotificationEnabledForIncomingEvent = (
   return getNotificationTargetEnabled({
     kind: "dm",
     peerPublicKeyHex: senderPubkey,
-  });
+  }, params.profileId);
 };
 
 const isNotificationTargetPreferenceStorageKey = (key: string | null): boolean => {
@@ -166,16 +173,29 @@ const isNotificationTargetPreferenceStorageKey = (key: string | null): boolean =
   );
 };
 
+/** Storage keys with `::profile` suffix only notify listeners for that profile; legacy keys without `::` notify all (cross-tab compat). */
+const storageKeyMatchesNotificationPreferenceScope = (key: string | null, profileId: string): boolean => {
+  if (!isNotificationTargetPreferenceStorageKey(key) || !key) {
+    return false;
+  }
+  if (key.includes("::")) {
+    return key.endsWith(`::${profileId}`);
+  }
+  return true;
+};
+
 const subscribeNotificationTargetPreferenceChanges = (
-  listener: () => void
+  listener: () => void,
+  profileId?: string
 ): (() => void) => {
   if (typeof window === "undefined") {
     return () => {
       return;
     };
   }
+  const resolvedProfileId = resolvePreferenceProfileId(profileId);
   const onStorage = (event: StorageEvent): void => {
-    if (!isNotificationTargetPreferenceStorageKey(event.key)) {
+    if (!storageKeyMatchesNotificationPreferenceScope(event.key, resolvedProfileId)) {
       return;
     }
     listener();

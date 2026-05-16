@@ -34,7 +34,9 @@ export const resolveCanonicalBackupRestoreOwnerSelection = (params: Readonly<{
   return projectionOwnsDmHistory
     ? {
       migrationPhase: migrationPolicy.phase,
-      restoreDmChatStateDomains: migrationPolicy.phase !== "legacy_writes_disabled",
+      // DM message bodies live in the account event log; restoring chat-state DM
+      // rows after delete-for-me causes refresh resurrection via persisted fallback.
+      restoreDmChatStateDomains: false,
       dmHistoryOwner: "canonical_projection_import",
       reason: "projection_read_cutover",
     }

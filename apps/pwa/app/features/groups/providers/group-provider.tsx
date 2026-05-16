@@ -3,11 +3,36 @@
 import React, { createContext, useContext, useState, useMemo, useEffect, useRef, useCallback } from "react";
 import type { GroupConversation } from "@/app/features/messaging/types";
 import { CHAT_STATE_REPLACED_EVENT, chatStateStoreService } from "@/app/features/messaging/services/chat-state-store";
+import {
+    ACCOUNT_RESTORE_MATERIALIZATION_COMPLETED_EVENT,
+    ACCOUNT_RESTORE_MATERIALIZATION_STARTED_EVENT,
+} from "@/app/features/account-sync/services/restore-materialization-events";
 import { fromPersistedGroupConversation, toPersistedGroupConversation } from "@/app/features/messaging/utils/persistence";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { toGroupConversationId } from "@/app/features/groups/utils/group-conversation-id";
 import { deriveCommunityId, pickPreferredCommunityId } from "@/app/features/groups/utils/community-identity";
-import { getActiveProfileIdSafe } from "@/app/features/profiles/services/profile-scope";
+import {
+    useOptionalProfileMessageBus,
+    useOptionalProfileRuntime,
+} from "@/app/features/profiles/providers/profile-runtime-provider";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
+import { subscribeChatStateReplacedDual } from "@/app/features/profiles/services/subscribe-chat-state-replaced-dual";
+import { subscribeAccountRestoreMaterializationCompletedDual } from "@/app/features/profiles/services/subscribe-account-restore-materialization-completed-dual";
+import { subscribeAccountRestoreMaterializationStartedDual } from "@/app/features/profiles/services/subscribe-account-restore-materialization-started-dual";
+import { subscribeCommunityMembershipLedgerUpdatedDual } from "@/app/features/profiles/services/subscribe-community-membership-ledger-updated-dual";
+import { subscribeGroupInviteAcceptedDual } from "@/app/features/profiles/services/subscribe-group-invite-accepted-dual";
+import { subscribeGroupInviteReceivedDual } from "@/app/features/profiles/services/subscribe-group-invite-received-dual";
+import { subscribeCommunityMembershipIngress } from "@/app/features/profiles/services/subscribe-community-membership-ingress";
+import { applyCommunityMembershipIngress } from "@/app/features/groups/services/apply-community-membership-ingress";
+import type { CommunityMembershipIngressDetail } from "@/app/features/groups/services/community-membership-ingress-contract";
+import { subscribeGroupMembershipConfirmedDual } from "@/app/features/profiles/services/subscribe-group-membership-confirmed-dual";
+import { subscribeGroupRemoveDual } from "@/app/features/profiles/services/subscribe-group-remove-dual";
+import { subscribeGroupMembershipSnapshotDual } from "@/app/features/profiles/services/subscribe-group-membership-snapshot-dual";
+import { subscribeCommunityKnownParticipantsObservedDual } from "@/app/features/profiles/services/subscribe-community-known-participants-observed-dual";
+import type {
+    CommunityKnownParticipantsObservedDispatchDetail,
+    GroupMembershipSnapshotDispatchDetail,
+} from "@/app/features/profiles/services/profile-bus-dispatch";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import {
     addGroupTombstone,
@@ -22,21 +47,36 @@ import { logRuntimeEvent } from "@/app/shared/runtime-log-classification";
 import {
     COMMUNITY_MEMBERSHIP_LEDGER_UPDATED_EVENT,
     loadCommunityMembershipLedger,
-    setCommunityMembershipStatus,
-    toCommunityMembershipLedgerEntryFromGroup,
-    upsertCommunityMembershipLedgerEntry
+    replaceCommunityMembershipLedger,
+    toCommunityMembershipLedgerKey,
+    toGroupConversationFromMembershipLedgerEntry,
 } from "@/app/features/groups/services/community-membership-ledger";
-import { resolveCommunityMembershipRecovery } from "@/app/features/groups/services/community-membership-recovery";
 import {
-    COMMUNITY_KNOWN_PARTICIPANTS_OBSERVED_EVENT,
-    GROUP_MEMBERSHIP_SNAPSHOT_EVENT,
-} from "@/app/features/groups/hooks/use-sealed-community";
+    computeCommunityState,
+    getLocalMembershipState,
+    type ComputedCommunityState,
+} from "@/app/features/groups/services/community-crdt-engine";
+import {
+    resolveCommunityMembershipCoordinator,
+    resolveCommunityMembershipRuntimeEvidenceDecision,
+    type CommunityMembershipRuntimeEvidence,
+} from "@/app/features/groups/services/community-membership-coordinator";
+import {
+    applyCommunityMembershipLedgerMutations,
+    applyCommunityMembershipRuntimeEvidence,
+    persistCommunityMembershipDisband,
+    persistCommunityMembershipRosterTerminal,
+    persistExplicitCommunityMembershipLeave,
+} from "@/app/features/groups/services/community-membership-mutation-owner";
+import { enqueueCommunityLeaveOutboxItem } from "@/app/features/groups/services/community-leave-outbox";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import { normalizePublicKeyHex } from "@/app/features/profile/utils/normalize-public-key-hex";
 import {
     buildCommunityRosterProjection,
+    dedupeCommunityMemberPubkeys,
     type CommunityRosterProjection,
 } from "@/app/features/groups/services/community-member-roster-projection";
+import { getResolvedClientGateway } from "@/app/features/profiles/services/resolve-client-gateway";
 import {
     resolveEnhancedSnapshotApplication,
     type EnhancedSnapshotApplicationResult,
@@ -47,11 +87,11 @@ import {
 } from "@/app/features/groups/services/community-relay-evidence-policy";
 import {
     buildCommunityKnownParticipantDirectoryByConversationId,
+    mergeKnownParticipantSeedPubkeys,
     type CommunityKnownParticipantDirectory,
 } from "@/app/features/groups/services/community-known-participant-directory";
 import {
     loadCommunityKnownParticipantsEntries,
-    upsertCommunityKnownParticipantsEntry,
 } from "@/app/features/groups/services/community-known-participants-store";
 
 interface GroupContextType {
@@ -69,10 +109,13 @@ interface GroupContextType {
     setNewGroupName: (name: string) => void;
     newGroupMemberPubkeys: string;
     setNewGroupMemberPubkeys: (pubkeys: string) => void;
-    addGroup: (group: GroupConversation, options?: Readonly<{ allowRevive?: boolean }>) => void;
+    addGroup: (group: GroupConversation, options?: Readonly<{ allowRevive?: boolean; provisionalJoin?: boolean }>) => void;
     updateGroup: (params: Readonly<{ groupId: string; relayUrl?: string; conversationId?: string; updates: Partial<GroupConversation> }>) => void;
     leaveGroup: (params: Readonly<{ groupId: string; relayUrl?: string; conversationId?: string }>) => void;
     removeGroupConversation: (conversationId: string) => void;
+    forcePurgeCommunity: (params: Readonly<{ groupId: string; relayUrl?: string; conversationId?: string }>) => void;
+    /** Phase 3 M3: after invitee declines (DM response only), persist terminal ledger so ambient join evidence cannot resurrect membership. */
+    recordMembershipLedgerAfterInviteDecline: (group: GroupConversation) => void;
 }
 
 const GroupContext = createContext<GroupContextType | null>(null);
@@ -180,6 +223,7 @@ const buildInviteMemberPubkeysByGroupKey = (params: Readonly<{
 
 export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const identity = useIdentity();
+    const optionalProfileBus = useOptionalProfileMessageBus();
     const [createdGroups, setCreatedGroups] = useState<ReadonlyArray<GroupConversation>>([]);
     const [communityRosterByConversationId, setCommunityRosterByConversationId] = useState<Readonly<Record<string, CommunityRosterProjection>>>({});
     const relayEvidenceByGroupIdRef = useRef<Readonly<Record<string, {
@@ -189,13 +233,28 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         eventCount: number;
     }>>>({});
     const [communityKnownParticipantDirectoryByConversationId, setCommunityKnownParticipantDirectoryByConversationId] = useState<Readonly<Record<string, CommunityKnownParticipantDirectory>>>({});
+    const communityKnownParticipantDirectoryByConversationIdRef = useRef<Readonly<Record<string, CommunityKnownParticipantDirectory>>>({});
     const [isNewGroupOpen, setIsNewGroupOpen] = useState(false);
     const [isCreatingGroup, setIsCreatingGroup] = useState(false);
     const [isGroupInfoOpen, setIsGroupInfoOpen] = useState(false);
     const [newGroupName, setNewGroupName] = useState("");
     const [newGroupMemberPubkeys, setNewGroupMemberPubkeys] = useState("");
-    const lastHydratedPublicKeyRef = useRef<string | null>(null);
+    const lastHydratedScopeRef = useRef<string | null>(null);
+    const optionalProfileRuntime = useOptionalProfileRuntime();
+    const resolvedProfileId = optionalProfileRuntime?.profileId ?? getResolvedProfileId();
+
+    const toMembershipHydrationScopeKey = (pk: string, profileId: string): string => (
+        `${profileId}::${pk}`
+    );
+
+    const resetLiveGroupProjectionState = useCallback(() => {
+        setCreatedGroups([]);
+        setCommunityRosterByConversationId({});
+        communityKnownParticipantDirectoryByConversationIdRef.current = {};
+        setCommunityKnownParticipantDirectoryByConversationId({});
+    }, []);
     const createdGroupsRef = useRef<ReadonlyArray<GroupConversation>>([]);
+    const activeRestoreMaterializationRef = useRef<Readonly<{ publicKeyHex: string; profileId: string }> | null>(null);
     const dedupePubkeys = (values: ReadonlyArray<string>): ReadonlyArray<string> => (
         Array.from(new Set(values.map((value) => value.trim()).filter((value) => value.length > 0)))
     );
@@ -329,6 +388,10 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         createdGroupsRef.current = createdGroups;
     }, [createdGroups]);
 
+    useEffect(() => {
+        communityKnownParticipantDirectoryByConversationIdRef.current = communityKnownParticipantDirectoryByConversationId;
+    }, [communityKnownParticipantDirectoryByConversationId]);
+
     const areCommunityRosterProjectionsEquivalent = useCallback((
         left: Readonly<Record<string, CommunityRosterProjection>>,
         right: Readonly<Record<string, CommunityRosterProjection>>,
@@ -419,10 +482,11 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             return;
         }
         setCommunityKnownParticipantDirectoryByConversationId((previous) => {
+            const profileId = getResolvedProfileId();
             const next = buildCommunityKnownParticipantDirectoryByConversationId({
                 groups: createdGroups,
                 rosterProjectionByConversationId: communityRosterByConversationId,
-                storedEntries: loadCommunityKnownParticipantsEntries(pk as PublicKeyHex),
+                storedEntries: loadCommunityKnownParticipantsEntries(pk as PublicKeyHex, profileId),
                 localMemberPubkey: pk as PublicKeyHex,
             });
             return areCommunityKnownParticipantDirectoriesEquivalent(previous, next)
@@ -436,20 +500,22 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (!pk) {
             return;
         }
+        const profileId = getResolvedProfileId();
+        const storedEntries = loadCommunityKnownParticipantsEntries(pk as PublicKeyHex, profileId);
         Object.values(communityKnownParticipantDirectoryByConversationId).forEach((directory) => {
-            upsertCommunityKnownParticipantsEntry({
+            const storedEntry = storedEntries.find((entry) => (
+                entry.groupId === directory.groupId && entry.relayUrl === directory.relayUrl
+            ));
+            const group = createdGroups.find((g) => g.id === directory.conversationId);
+            getResolvedClientGateway().communityRoster.persistKnownParticipantDirectoryIfWidened({
                 publicKeyHex: pk as PublicKeyHex,
-                entry: {
-                    conversationId: directory.conversationId,
-                    groupId: directory.groupId,
-                    relayUrl: directory.relayUrl,
-                    communityId: directory.communityId,
-                    participantPubkeys: directory.participantPubkeys,
-                    updatedAtUnixMs: Date.now(),
-                },
+                profileId,
+                directory,
+                persistedGroupMemberPubkeys: (group?.memberPubkeys ?? []) as ReadonlyArray<PublicKeyHex>,
+                storedEntry,
             });
         });
-    }, [communityKnownParticipantDirectoryByConversationId, getPublicKeyHex]);
+    }, [communityKnownParticipantDirectoryByConversationId, createdGroups, getPublicKeyHex]);
 
     const upsertCommunityRosterProjection = useCallback((params: Readonly<{
         group: GroupConversation;
@@ -471,17 +537,6 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             const currentMembers = current?.activeMemberPubkeys ?? [];
             const allMembers = new Set([...groupMembers, ...knownParticipants, ...currentMembers]);
             const mergedMembers = Array.from(allMembers) as ReadonlyArray<PublicKeyHex>;
-
-            // Log for debugging when merge changes the count
-            if (groupMembers.length !== mergedMembers.length) {
-                console.log("[MemberFix] Roster merged (upsert):", {
-                    conversationId: params.group.id.slice(0, 8),
-                    groupMembers: groupMembers.length,
-                    knownParticipants: knownParticipants.length,
-                    currentMembers: currentMembers.length,
-                    merged: mergedMembers.length,
-                });
-            }
 
             const nextProjection: CommunityRosterProjection = {
                 conversationId: params.group.id,
@@ -530,10 +585,11 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return Array.from(map.values());
     };
 
-    const hydrateGroupsForPublicKey = useCallback((pk: string) => {
-        const profileId = getActiveProfileIdSafe();
+    const hydrateGroupsForPublicKey = useCallback((pk: string, options?: Readonly<{ profileId?: string }>) => {
+        const profileId = options?.profileId ?? getResolvedProfileId();
+
         const persisted = chatStateStoreService.load(pk);
-        const tombstones = loadGroupTombstones(pk);
+        const tombstones = loadGroupTombstones(pk, { profileId });
         const inviteMemberPubkeysByGroupKey = buildInviteMemberPubkeysByGroupKey({
             localPublicKeyHex: pk,
             chatState: persisted,
@@ -551,29 +607,24 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const persistedGroups = persisted?.createdGroups
             ? dedupeGroups(persisted.createdGroups.map(fromPersistedGroupConversation))
             : [];
-        const recovery = resolveCommunityMembershipRecovery({
+        const coordinator = resolveCommunityMembershipCoordinator({
             publicKeyHex: pk,
+            profileId,
             persistedGroups,
-            membershipLedger: loadCommunityMembershipLedger(pk),
+            membershipLedger: loadCommunityMembershipLedger(pk, { profileId }),
             tombstones,
             inviteMemberPubkeysByGroupKey,
             groupMessageAuthorsByConversationId: Object.fromEntries(
                 Object.entries(persisted?.groupMessages ?? {}).map(([conversationId, messages]) => ([
                     conversationId,
-                    Array.from(new Set(
-                        messages
-                            .map((message) => message.pubkey?.trim() ?? "")
-                            .filter((pubkey) => pubkey.length > 0)
-                    )),
+                    getResolvedClientGateway().communityRoster.resolveAuthorEvidencePubkeysFromMessages(messages),
                 ]))
             ),
         });
-        const groups = dedupeGroups(recovery.groups.map((group) => {
-            const messageAuthorPubkeys = Array.from(new Set(
-                (persisted?.groupMessages?.[group.id] ?? [])
-                    .map((message) => message.pubkey?.trim() ?? "")
-                    .filter((pubkey) => pubkey.length > 0)
-            ));
+        const groups = dedupeGroups(coordinator.groups.map((group) => {
+            const messageAuthorPubkeys = getResolvedClientGateway().communityRoster.resolveAuthorEvidencePubkeysFromMessages(
+                persisted?.groupMessages?.[group.id] ?? [],
+            );
             const mergedMemberPubkeys = dedupePubkeys([
                 ...(group.memberPubkeys ?? []),
                 ...messageAuthorPubkeys,
@@ -603,61 +654,126 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             context: {
                 publicKeySuffix: toPublicKeySuffix(pk),
                 profileId,
-                persistedGroupCount: recovery.diagnostics.persistedGroupCount,
-                persistedDuplicateMergeCount: recovery.diagnostics.persistedDuplicateMergeCount,
-                ledgerEntryCount: recovery.diagnostics.ledgerEntryCount,
-                visibleGroupCount: recovery.diagnostics.visibleGroupCount,
-                hydratedFromPersistedWithLedgerCount: recovery.diagnostics.hydratedFromPersistedWithLedgerCount,
-                hydratedFromPersistedFallbackCount: recovery.diagnostics.hydratedFromPersistedFallbackCount,
-                hydratedFromLedgerOnlyCount: recovery.diagnostics.hydratedFromLedgerOnlyCount,
-                descriptorProjectionCount: recovery.descriptorProjections.length,
-                membershipProjectionCount: recovery.membershipProjections.length,
-                projectionVisibleCount: recovery.descriptorProjections.filter((entry) => entry.visibilityState === "visible").length,
-                projectionJoinedCount: recovery.membershipProjections.filter((entry) => entry.status === "joined").length,
-                projectionPersistedFallbackCount: recovery.membershipProjections.filter((entry) => entry.sourceOfTruth === "persisted_fallback").length,
-                projectionLedgerCount: recovery.membershipProjections.filter((entry) => entry.sourceOfTruth === "ledger").length,
-                placeholderDisplayNameRecoveredCount: recovery.diagnostics.placeholderDisplayNameRecoveredCount,
-                localMemberBackfillCount: recovery.diagnostics.localMemberBackfillCount,
-                hiddenByTombstoneCount: recovery.diagnostics.hiddenByTombstoneCount,
-                hiddenByLedgerStatusCount: recovery.diagnostics.hiddenByLedgerStatusCount,
-                missingLedgerCoverageCount: recovery.diagnostics.missingLedgerCoverageCount,
-                missingLedgerCoverageBackfillCount: recovery.missingLedgerCoverageEntries.length,
+                persistedGroupCount: coordinator.diagnostics.persistedGroupCount,
+                persistedDuplicateMergeCount: coordinator.diagnostics.persistedDuplicateMergeCount,
+                ledgerEntryCount: coordinator.diagnostics.ledgerEntryCount,
+                visibleGroupCount: coordinator.diagnostics.visibleGroupCount,
+                hydratedFromPersistedWithLedgerCount: coordinator.diagnostics.hydratedFromPersistedWithLedgerCount,
+                hydratedFromPersistedFallbackCount: coordinator.diagnostics.hydratedFromPersistedFallbackCount,
+                hydratedFromLedgerOnlyCount: coordinator.diagnostics.hydratedFromLedgerOnlyCount,
+                descriptorProjectionCount: coordinator.descriptorProjections.length,
+                membershipProjectionCount: coordinator.membershipProjections.length,
+                projectionVisibleCount: coordinator.descriptorProjections.filter((entry) => entry.visibilityState === "visible").length,
+                projectionJoinedCount: coordinator.membershipProjections.filter((entry) => entry.status === "joined").length,
+                projectionPersistedFallbackCount: coordinator.membershipProjections.filter((entry) => entry.sourceOfTruth === "persisted_fallback").length,
+                projectionLedgerCount: coordinator.membershipProjections.filter((entry) => entry.sourceOfTruth === "ledger").length,
+                placeholderDisplayNameRecoveredCount: coordinator.diagnostics.placeholderDisplayNameRecoveredCount,
+                localMemberBackfillCount: coordinator.diagnostics.localMemberBackfillCount,
+                hiddenByTombstoneCount: coordinator.diagnostics.hiddenByTombstoneCount,
+                hiddenByLedgerStatusCount: coordinator.diagnostics.hiddenByLedgerStatusCount,
+                hiddenByLeaveIntentCount: coordinator.diagnostics.hiddenByLeaveIntentCount,
+                missingLedgerCoverageCount: coordinator.diagnostics.missingLedgerCoverageCount,
+                missingLedgerCoverageBackfillCount: coordinator.ledgerMutations.filter((mutation) => mutation.reason === "persisted_fallback_backfill").length,
+                coordinatorLedgerMutationCount: coordinator.diagnostics.ledgerMutationCount,
+                coordinatorRuntimeJoinSuppressedByTerminalCount: coordinator.diagnostics.runtimeJoinSuppressedByTerminalCount,
+                coordinatorExplicitTerminalLedgerCount: coordinator.diagnostics.explicitTerminalLedgerCount,
                 tombstoneCount: tombstones.size,
             },
         });
         // Self-heal legacy/non-canonical persisted group entries.
         chatStateStoreService.updateGroups(pk, groups.map(g => toPersistedGroupConversation(g)));
         groups.forEach((group) => {
-            upsertCommunityKnownParticipantsEntry({
+            getResolvedClientGateway().communityRoster.persistHydratedGroupKnownParticipants({
                 publicKeyHex: pk as PublicKeyHex,
-                entry: {
-                    conversationId: group.id,
-                    groupId: group.groupId,
-                    relayUrl: group.relayUrl,
-                    communityId: group.communityId,
-                    participantPubkeys: dedupePubkeys([
-                        ...(group.memberPubkeys ?? []),
-                        ...(inviteMemberPubkeysByGroupKey[toGroupTombstoneKey({ groupId: group.groupId, relayUrl: group.relayUrl })] ?? []),
-                        pk,
-                    ]) as ReadonlyArray<PublicKeyHex>,
-                    updatedAtUnixMs: Date.now(),
-                },
+                profileId,
+                group,
+                additionalParticipantPubkeys: dedupePubkeys(
+                    inviteMemberPubkeysByGroupKey[toGroupTombstoneKey({ groupId: group.groupId, relayUrl: group.relayUrl })] ?? [],
+                ) as ReadonlyArray<PublicKeyHex>,
             });
         });
-        recovery.missingLedgerCoverageEntries.forEach((entry) => {
-            upsertCommunityMembershipLedgerEntry(pk, entry);
-        });
+        applyCommunityMembershipLedgerMutations(pk, coordinator.ledgerMutations, { profileId });
     }, [getPublicKeyHex]);
+
+    const applyCoordinatorRuntimeMembershipEvidence = useCallback((
+        pk: string,
+        evidence: CommunityMembershipRuntimeEvidence,
+        options?: Readonly<{ profileId?: string }>,
+    ) => {
+        const profileId = options?.profileId ?? getResolvedProfileId();
+        return applyCommunityMembershipRuntimeEvidence({
+            publicKeyHex: pk,
+            profileId,
+            evidence,
+            membershipLedger: loadCommunityMembershipLedger(pk, { profileId }),
+            tombstones: loadGroupTombstones(pk, { profileId }),
+        });
+    }, []);
+
+    const applyCoordinatorExplicitLeave = useCallback((
+        pk: string,
+        group: GroupConversation,
+        options?: Readonly<{ profileId?: string }>,
+    ) => {
+        const profileId = options?.profileId ?? getResolvedProfileId();
+        return persistExplicitCommunityMembershipLeave({
+            publicKeyHex: pk,
+            group,
+            profileId,
+        });
+    }, []);
+
+    const applyCoordinatorRosterSnapshotTerminalEvidence = useCallback((params: Readonly<{
+        pk: string;
+        group: GroupConversation;
+        leftMemberPubkeys: ReadonlyArray<string>;
+        expelledMemberPubkeys: ReadonlyArray<string>;
+        updatedAtUnixMs?: number;
+        profileId?: string;
+    }>) => {
+        const profileId = params.profileId ?? getResolvedProfileId();
+        return persistCommunityMembershipRosterTerminal({
+            publicKeyHex: params.pk,
+            group: params.group,
+            leftMemberPubkeys: params.leftMemberPubkeys,
+            expelledMemberPubkeys: params.expelledMemberPubkeys,
+            updatedAtUnixMs: params.updatedAtUnixMs,
+            profileId,
+        });
+    }, []);
+
+    const applyCoordinatorDisbandEvidence = useCallback((params: Readonly<{
+        pk: string;
+        group: GroupConversation;
+        disbandedAtUnixMs: number;
+        profileId?: string;
+    }>) => {
+        const profileId = params.profileId ?? getResolvedProfileId();
+        return persistCommunityMembershipDisband({
+            publicKeyHex: params.pk,
+            group: params.group,
+            disbandedAtUnixMs: params.disbandedAtUnixMs,
+            profileId,
+        });
+    }, []);
+
+    const recordMembershipLedgerAfterInviteDecline = useCallback((group: GroupConversation) => {
+        const pk = getPublicKeyHex();
+        if (!pk) {
+            return;
+        }
+        applyCoordinatorExplicitLeave(pk, sanitizeGroup(group), { profileId: getResolvedProfileId() });
+    }, [applyCoordinatorExplicitLeave, getPublicKeyHex]);
 
     useEffect(() => {
         const pk = getPublicKeyHex();
         if (!pk) {
-            lastHydratedPublicKeyRef.current = null;
-            setCreatedGroups([]);
-            setCommunityRosterByConversationId({});
+            lastHydratedScopeRef.current = null;
+            resetLiveGroupProjectionState();
             return;
         }
-        if (lastHydratedPublicKeyRef.current === pk) {
+        const scopeKey = toMembershipHydrationScopeKey(pk, resolvedProfileId);
+        if (lastHydratedScopeRef.current === scopeKey) {
             return;
         }
         logAppEvent({
@@ -666,59 +782,105 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             scope: { feature: "groups", action: "membership_recovery" },
             context: {
                 publicKeySuffix: toPublicKeySuffix(pk),
-                profileId: getActiveProfileIdSafe(),
-                trigger: "identity_public_key_changed",
+                profileId: resolvedProfileId,
+                trigger: lastHydratedScopeRef.current === null
+                    ? "identity_or_profile_scope_initial"
+                    : "identity_or_profile_scope_changed",
             },
         });
-        hydrateGroupsForPublicKey(pk);
-        lastHydratedPublicKeyRef.current = pk;
-    }, [getPublicKeyHex, hydrateGroupsForPublicKey]);
+        resetLiveGroupProjectionState();
+        hydrateGroupsForPublicKey(pk, { profileId: resolvedProfileId });
+        lastHydratedScopeRef.current = scopeKey;
+    }, [getPublicKeyHex, hydrateGroupsForPublicKey, resetLiveGroupProjectionState, resolvedProfileId]);
 
     useEffect(() => {
         if (typeof window === "undefined") return;
-        const onScopedRefresh = (event: Event): void => {
+
+        const applyScopedHydrateRefresh = (
+            triggerEvent: string,
+            detail?: Readonly<{ publicKeyHex?: string; profileId?: string }>,
+        ): void => {
             const pk = getPublicKeyHex();
             if (!pk) return;
-            const detail = (event as CustomEvent<{ publicKeyHex?: string; profileId?: string }>).detail;
-        if (detail?.publicKeyHex && detail.publicKeyHex !== pk) {
-            return;
-        }
-        if (detail?.profileId && detail.profileId !== getActiveProfileIdSafe()) {
-            return;
-        }
-        logAppEvent({
-            name: "groups.membership_recovery_refresh_triggered",
-            level: "info",
+            const profileId = getResolvedProfileId();
+            if (detail?.publicKeyHex && detail.publicKeyHex !== pk) {
+                return;
+            }
+            if (detail?.profileId && detail.profileId !== profileId) {
+                return;
+            }
+            const activeRestore = activeRestoreMaterializationRef.current;
+            if (
+                triggerEvent === COMMUNITY_MEMBERSHIP_LEDGER_UPDATED_EVENT
+                && activeRestore?.publicKeyHex === pk
+                && activeRestore.profileId === profileId
+            ) {
+                return;
+            }
+            logAppEvent({
+                name: "groups.membership_recovery_refresh_triggered",
+                level: "info",
                 scope: { feature: "groups", action: "membership_recovery" },
                 context: {
                     publicKeySuffix: toPublicKeySuffix(pk),
-                    profileId: getActiveProfileIdSafe(),
-                    triggerEvent: event.type,
+                    profileId,
+                    triggerEvent,
                     scopedPublicKeyMatch: detail?.publicKeyHex ? 1 : 0,
                 },
             });
-            hydrateGroupsForPublicKey(pk);
-            lastHydratedPublicKeyRef.current = pk;
+            hydrateGroupsForPublicKey(pk, { profileId });
+            lastHydratedScopeRef.current = toMembershipHydrationScopeKey(pk, profileId);
         };
-        window.addEventListener(CHAT_STATE_REPLACED_EVENT, onScopedRefresh);
-        window.addEventListener(COMMUNITY_MEMBERSHIP_LEDGER_UPDATED_EVENT, onScopedRefresh);
-        return () => {
-            window.removeEventListener(CHAT_STATE_REPLACED_EVENT, onScopedRefresh);
-            window.removeEventListener(COMMUNITY_MEMBERSHIP_LEDGER_UPDATED_EVENT, onScopedRefresh);
-        };
-    }, [getPublicKeyHex, hydrateGroupsForPublicKey]);
 
-    const addGroup = useCallback((group: GroupConversation, options?: Readonly<{ allowRevive?: boolean }>) => {
+        const unsubChatDual = subscribeChatStateReplacedDual((detail) => {
+            applyScopedHydrateRefresh(CHAT_STATE_REPLACED_EVENT, detail);
+        }, optionalProfileBus);
+
+        const unsubRestoreStartedDual = subscribeAccountRestoreMaterializationStartedDual((detail) => {
+            activeRestoreMaterializationRef.current = {
+                publicKeyHex: detail.publicKeyHex,
+                profileId: detail.profileId,
+            };
+        }, optionalProfileBus);
+
+        const unsubRestoreCompletedDual = subscribeAccountRestoreMaterializationCompletedDual((detail) => {
+            const pk = getPublicKeyHex();
+            const profileId = getResolvedProfileId();
+            if (
+                !pk
+                || detail.publicKeyHex !== pk
+                || detail.profileId !== profileId
+            ) {
+                return;
+            }
+            activeRestoreMaterializationRef.current = null;
+            applyScopedHydrateRefresh(ACCOUNT_RESTORE_MATERIALIZATION_COMPLETED_EVENT, detail);
+        }, optionalProfileBus);
+
+        const unsubLedgerDual = subscribeCommunityMembershipLedgerUpdatedDual((detail) => {
+            applyScopedHydrateRefresh(COMMUNITY_MEMBERSHIP_LEDGER_UPDATED_EVENT, detail);
+        }, optionalProfileBus);
+
+        return () => {
+            unsubChatDual();
+            unsubRestoreStartedDual();
+            unsubRestoreCompletedDual();
+            unsubLedgerDual();
+        };
+    }, [getPublicKeyHex, hydrateGroupsForPublicKey, optionalProfileBus, resolvedProfileId]);
+
+    const addGroup = useCallback((group: GroupConversation, options?: Readonly<{ allowRevive?: boolean; provisionalJoin?: boolean }>) => {
         setCreatedGroups(prev => {
             const normalized = sanitizeGroup(group);
             const pk = getPublicKeyHex();
             if (pk) {
-                const tombstoned = isGroupTombstoned(pk, { groupId: normalized.groupId, relayUrl: normalized.relayUrl });
+                const profileId = getResolvedProfileId();
+                const tombstoned = isGroupTombstoned(pk, { groupId: normalized.groupId, relayUrl: normalized.relayUrl }, { profileId });
                 if (tombstoned && !options?.allowRevive) {
                     return prev;
                 }
                 if (options?.allowRevive) {
-                    removeGroupTombstone(pk, { groupId: normalized.groupId, relayUrl: normalized.relayUrl });
+                    removeGroupTombstone(pk, { groupId: normalized.groupId, relayUrl: normalized.relayUrl }, { profileId });
                 }
             }
             const hasExisting = prev.some(g => g.groupId === normalized.groupId && g.relayUrl === normalized.relayUrl);
@@ -736,11 +898,14 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 const merged = next.find((group) => (
                     group.groupId === normalized.groupId && group.relayUrl === normalized.relayUrl
                 )) ?? normalized;
-                if (pk) {
+                if (pk && !options?.provisionalJoin) {
                     chatStateStoreService.updateGroups(pk, next.map(g => toPersistedGroupConversation(g)));
-                    upsertCommunityMembershipLedgerEntry(pk, toCommunityMembershipLedgerEntryFromGroup(merged, {
-                        status: "joined",
-                    }));
+                    applyCoordinatorRuntimeMembershipEvidence(pk, {
+                        kind: options?.allowRevive ? "user_explicit_rejoin" : "user_explicit_join",
+                        group: merged,
+                    });
+                } else if (pk) {
+                    chatStateStoreService.updateGroups(pk, next.map(g => toPersistedGroupConversation(g)));
                 }
                 setCommunityRosterByConversationId((previous) => (
                     previous[merged.id]
@@ -757,11 +922,14 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                     : next;
             }
             const next = dedupeGroups([...prev, normalized]);
-            if (pk) {
+            if (pk && !options?.provisionalJoin) {
                 chatStateStoreService.updateGroups(pk, next.map(g => toPersistedGroupConversation(g)));
-                upsertCommunityMembershipLedgerEntry(pk, toCommunityMembershipLedgerEntryFromGroup(normalized, {
-                    status: "joined",
-                }));
+                applyCoordinatorRuntimeMembershipEvidence(pk, {
+                    kind: options?.allowRevive ? "user_explicit_rejoin" : "user_explicit_join",
+                    group: normalized,
+                });
+            } else if (pk) {
+                chatStateStoreService.updateGroups(pk, next.map(g => toPersistedGroupConversation(g)));
             }
             setCommunityRosterByConversationId((previous) => ({
                 ...previous,
@@ -769,7 +937,7 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             }));
             return next;
         });
-    }, [getPublicKeyHex]);
+    }, [applyCoordinatorRuntimeMembershipEvidence, getPublicKeyHex]);
 
     const updateGroup = useCallback((params: Readonly<{ groupId: string; relayUrl?: string; conversationId?: string; updates: Partial<GroupConversation> }>) => {
         setCreatedGroups(prev => {
@@ -784,13 +952,14 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             const pk = getPublicKeyHex();
             if (pk) {
                 chatStateStoreService.updateGroups(pk, next.map(g => toPersistedGroupConversation(g)));
-                upsertCommunityMembershipLedgerEntry(pk, toCommunityMembershipLedgerEntryFromGroup(next[index], {
-                    status: "joined",
-                }));
+                applyCoordinatorRuntimeMembershipEvidence(pk, {
+                    kind: "runtime_membership_confirmed",
+                    group: next[index],
+                });
             }
             return next;
         });
-    }, [getPublicKeyHex]);
+    }, [applyCoordinatorRuntimeMembershipEvidence, getPublicKeyHex]);
 
     const leaveGroup = useCallback((params: Readonly<{ groupId: string; relayUrl?: string; conversationId?: string }>) => {
         setCreatedGroups(prev => {
@@ -809,28 +978,29 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             });
             const pk = getPublicKeyHex();
             if (pk) {
+                const profileId = getResolvedProfileId();
                 removedGroups.forEach((group) => {
-                    setCommunityMembershipStatus(pk, {
+                    applyCoordinatorExplicitLeave(pk, group, { profileId });
+                    enqueueCommunityLeaveOutboxItem({
+                        publicKeyHex: pk,
                         groupId: group.groupId,
                         relayUrl: group.relayUrl,
                         communityId: group.communityId,
-                        status: "left",
-                        displayName: group.displayName,
-                        avatar: group.avatar,
+                        profileId,
                     });
                 });
                 if (params.conversationId && matched) {
-                    addGroupTombstone(pk, { groupId: matched.groupId, relayUrl: matched.relayUrl });
+                    addGroupTombstone(pk, { groupId: matched.groupId, relayUrl: matched.relayUrl }, { profileId });
                 } else if (params.relayUrl) {
-                    addGroupTombstone(pk, { groupId: params.groupId, relayUrl: params.relayUrl });
+                    addGroupTombstone(pk, { groupId: params.groupId, relayUrl: params.relayUrl }, { profileId });
                 } else if (params.conversationId) {
-                    addGroupTombstoneFromConversationId(pk, params.conversationId); // legacy fallback
+                    addGroupTombstoneFromConversationId(pk, params.conversationId, { profileId }); // legacy fallback
                 }
                 chatStateStoreService.updateGroups(pk, next.map(g => toPersistedGroupConversation(g)));
             }
             return next;
         });
-    }, [getPublicKeyHex]);
+    }, [applyCoordinatorExplicitLeave, getPublicKeyHex]);
 
     const removeGroupConversation = useCallback((conversationId: string) => {
         setCreatedGroups(prev => {
@@ -838,54 +1008,138 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             const next = prev.filter(g => g.id !== conversationId);
             const pk = getPublicKeyHex();
             if (pk) {
+                const profileId = getResolvedProfileId();
                 if (matched) {
-                    addGroupTombstone(pk, { groupId: matched.groupId, relayUrl: matched.relayUrl });
-                    setCommunityMembershipStatus(pk, {
-                        groupId: matched.groupId,
-                        relayUrl: matched.relayUrl,
-                        communityId: matched.communityId,
-                        status: "left",
-                        displayName: matched.displayName,
-                        avatar: matched.avatar,
-                    });
+                    addGroupTombstone(pk, { groupId: matched.groupId, relayUrl: matched.relayUrl }, { profileId });
+                    applyCoordinatorExplicitLeave(pk, matched, { profileId });
                 } else {
-                    addGroupTombstoneFromConversationId(pk, conversationId); // legacy fallback
+                    addGroupTombstoneFromConversationId(pk, conversationId, { profileId }); // legacy fallback
                 }
                 chatStateStoreService.updateGroups(pk, next.map(g => toPersistedGroupConversation(g)));
             }
             return next;
         });
+    }, [applyCoordinatorExplicitLeave, getPublicKeyHex]);
+
+    /**
+     * FORCE PURGE: Definitively removes a community regardless of member state
+     * This bypasses the normal disband check and clears ALL local state for the community
+     */
+    const forcePurgeCommunity = useCallback((params: Readonly<{
+        groupId: string;
+        relayUrl?: string;
+        conversationId?: string;
+    }>) => {
+        const pk = getPublicKeyHex();
+        if (!pk) return;
+
+        const { groupId, relayUrl, conversationId } = params;
+        const targetConversationId = conversationId ?? (groupId && relayUrl
+            ? toGroupConversationId({ groupId, relayUrl })
+            : undefined);
+
+        if (!targetConversationId) {
+            logAppEvent({
+                name: "groups.force_purge_failed",
+                level: "error",
+                context: { reason: "cannot_determine_conversation_id", groupId: groupId ?? null, relayUrl: relayUrl ?? null },
+            });
+            return;
+        }
+
+        // 1. Remove from UI state immediately
+        setCreatedGroups(prev => {
+            const profileId = getResolvedProfileId();
+            const matched = prev.find(g => g.id === targetConversationId);
+            const next = prev.filter(g => g.id !== targetConversationId);
+
+            // 2. Add tombstone to prevent re-hydration
+            if (matched) {
+                addGroupTombstone(pk, { groupId: matched.groupId, relayUrl: matched.relayUrl }, { profileId });
+            } else if (groupId && relayUrl) {
+                addGroupTombstone(pk, { groupId, relayUrl }, { profileId });
+            }
+
+            // 3. Clear from chat state
+            chatStateStoreService.updateGroups(pk, next.map(g => toPersistedGroupConversation(g)));
+
+            // 4. Clear ALL ledger entries for this community (critical fix)
+            const ledger = loadCommunityMembershipLedger(pk, { profileId });
+            const communityId = matched?.communityId ?? (groupId && relayUrl
+                ? deriveCommunityId({ groupId, relayUrl })
+                : undefined);
+
+            if (communityId) {
+                const cleanedLedger = ledger.filter(entry => {
+                    // Keep entries for OTHER communities, remove all for this one
+                    const entryCommunityId = entry.communityId ??
+                        (entry.groupId && entry.relayUrl
+                            ? deriveCommunityId({ groupId: entry.groupId, relayUrl: entry.relayUrl, existingCommunityId: entry.communityId })
+                            : undefined);
+                    return entryCommunityId !== communityId;
+                });
+
+                // Save cleaned ledger through canonical owner (do not write localStorage directly).
+                if (cleanedLedger.length !== ledger.length) {
+                    replaceCommunityMembershipLedger(pk, cleanedLedger, { profileId });
+                }
+            }
+
+            logAppEvent({
+                name: "groups.force_purge_complete",
+                level: "info",
+                context: {
+                    groupId: groupId ?? null,
+                    relayUrl: relayUrl ?? null,
+                    conversationId: targetConversationId,
+                    hadLocalGroup: !!matched,
+                },
+            });
+
+            return next;
+        });
     }, [getPublicKeyHex]);
 
     useEffect(() => {
-        const handleGroupInvite = (e: Event) => {
-            const customEvent = e as CustomEvent<GroupConversation>;
-            if (customEvent.detail) {
-                addGroup(customEvent.detail);
+        const shouldMaterializeRuntimeEvidence = (
+            pk: string | null | undefined,
+            evidence: CommunityMembershipRuntimeEvidence,
+            profileId?: string,
+        ): boolean => {
+            if (!pk) {
+                return true;
             }
+            return resolveCommunityMembershipRuntimeEvidenceDecision({
+                evidence,
+                membershipLedger: loadCommunityMembershipLedger(pk, { profileId }),
+            }).shouldMaterializeGroup;
         };
-        const handleGroupRemove = (e: Event) => {
-            const customEvent = e as CustomEvent<string>;
-            const conversationId = customEvent.detail;
+        const handleGroupRemoveConversationId = (conversationId: string) => {
             if (typeof conversationId === "string" && conversationId.length > 0) {
                 removeGroupConversation(conversationId);
             }
         };
-        const handleInviteAccepted = (e: Event) => {
-            const detail = (e as CustomEvent<{
-                groupId?: string;
-                relayUrl?: string;
-                communityId?: string;
-                memberPubkey?: string;
-            }>).detail;
+        const handleInviteAcceptedDetail = (detail: {
+            groupId?: string;
+            relayUrl?: string;
+            communityId?: string;
+            memberPubkey?: string;
+            recipientPublicKeyHex?: string;
+        }) => {
             const groupId = detail?.groupId?.trim();
             const memberPubkey = detail?.memberPubkey?.trim();
             if (!groupId || !memberPubkey) {
                 return;
             }
+            const localPublicKey = getPublicKeyHex();
+            const eventRecipient = detail?.recipientPublicKeyHex?.trim();
+            if (eventRecipient && localPublicKey && eventRecipient !== localPublicKey) {
+                logAppEvent({ name: "groups.event_quarantined_identity_mismatch", level: "warn", scope: { feature: "groups", action: "invite_accepted" }, context: { reason: "recipient_pubkey_mismatch", eventRecipientSuffix: eventRecipient.slice(-8), localPublicKeySuffix: localPublicKey.slice(-8), groupId } });
+                return;
+            }
             const relayHint = detail?.relayUrl?.trim();
             const communityHint = detail?.communityId?.trim();
-            const localPublicKey = getPublicKeyHex();
+            const profileId = getResolvedProfileId();
             setCreatedGroups((prev) => {
                 let changed = false;
                 const next = prev.map((group) => {
@@ -893,6 +1147,20 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                     const matchesRelay = relayHint ? group.relayUrl === relayHint : true;
                     const matchesCommunity = communityHint ? group.communityId === communityHint : true;
                     if (!matchesGroup || !matchesRelay || !matchesCommunity) {
+                        return group;
+                    }
+                    const evidenceGroup = sanitizeGroup({
+                        ...group,
+                        memberPubkeys: dedupePubkeys([
+                            ...group.memberPubkeys,
+                            memberPubkey,
+                            ...(localPublicKey ? [localPublicKey] : []),
+                        ]),
+                    });
+                    if (!shouldMaterializeRuntimeEvidence(localPublicKey, {
+                        kind: "runtime_invite_accepted",
+                        group: evidenceGroup,
+                    }, profileId)) {
                         return group;
                     }
                     const nextMembers = dedupePubkeys([
@@ -910,56 +1178,52 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                         memberCount: Math.max(group.memberCount ?? 0, nextMembers.length),
                     };
                 });
-                if (!changed) {
-                    return prev;
-                }
-                const pk = getPublicKeyHex();
-                if (pk) {
-                    chatStateStoreService.updateGroups(pk, next.map((group) => toPersistedGroupConversation(group)));
-                    const matchedGroup = next.find((group) => {
-                        const matchesGroup = group.groupId === groupId;
-                        const matchesRelay = relayHint ? group.relayUrl === relayHint : true;
-                        const matchesCommunity = communityHint ? group.communityId === communityHint : true;
-                        return matchesGroup && matchesRelay && matchesCommunity;
-                    });
-                    if (matchedGroup) {
-                        upsertCommunityMembershipLedgerEntry(pk, toCommunityMembershipLedgerEntryFromGroup(matchedGroup, {
-                            status: "joined",
-                        }));
-                    }
-                }
-                const matchedGroup = next.find((group) => {
+                // Always update roster projection for invite acceptance (even if member already exists)
+                // This ensures the UI reflects the latest member state
+                const matchedGroupForRoster = next.find((group) => {
                     const matchesGroup = group.groupId === groupId;
                     const matchesRelay = relayHint ? group.relayUrl === relayHint : true;
                     const matchesCommunity = communityHint ? group.communityId === communityHint : true;
                     return matchesGroup && matchesRelay && matchesCommunity;
                 });
-                if (matchedGroup) {
+                if (matchedGroupForRoster) {
                     upsertCommunityRosterProjection({
-                        group: matchedGroup,
-                        activeMemberPubkeys: matchedGroup.memberPubkeys,
+                        group: matchedGroupForRoster,
+                        activeMemberPubkeys: matchedGroupForRoster.memberPubkeys,
                     });
+                }
+
+                const pk = getPublicKeyHex();
+                if (pk && (changed || matchedGroupForRoster)) {
+                    chatStateStoreService.updateGroups(pk, next.map((group) => toPersistedGroupConversation(group)));
                 }
                 return next;
             });
         };
-        const handleMembershipConfirmed = (e: Event) => {
-            const detail = (e as CustomEvent<{
-                groupId?: string;
-                relayUrl?: string;
-                communityId?: string;
-                displayName?: string;
-                avatar?: string;
-                access?: GroupConversation["access"];
-                memberCount?: number;
-                memberPubkeys?: ReadonlyArray<string>;
-                adminPubkeys?: ReadonlyArray<string>;
-                lastMessage?: string;
-                lastMessageTimeUnixMs?: number;
-            }>).detail;
+        const applyMembershipConfirmedDetail = (detail: {
+            groupId?: string;
+            relayUrl?: string;
+            communityId?: string;
+            displayName?: string;
+            avatar?: string;
+            access?: string;
+            memberCount?: number;
+            memberPubkeys?: ReadonlyArray<string>;
+            adminPubkeys?: ReadonlyArray<string>;
+            lastMessage?: string;
+            lastMessageTimeUnixMs?: number;
+            publicKeyHex?: string;
+        }): void => {
             const groupId = detail?.groupId?.trim();
             const relayUrl = detail?.relayUrl?.trim();
             if (!groupId || !relayUrl) {
+                return;
+            }
+            const localPk = getPublicKeyHex();
+            const profileId = getResolvedProfileId();
+            const eventPk = detail?.publicKeyHex?.trim();
+            if (eventPk && localPk && eventPk !== localPk) {
+                logAppEvent({ name: "groups.event_quarantined_identity_mismatch", level: "warn", scope: { feature: "groups", action: "membership_confirmed" }, context: { reason: "public_key_mismatch", eventPkSuffix: eventPk.slice(-8), localPkSuffix: localPk.slice(-8), groupId, relayUrl } });
                 return;
             }
             const communityId = detail?.communityId?.trim();
@@ -975,34 +1239,40 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 ? detail.access
                 : "invite-only";
             const fallbackLastMessage = detail?.lastMessage?.trim() || "Group membership confirmed";
-            const pk = getPublicKeyHex();
+            const pk = localPk;
             const memberPubkeysWithIdentity = pk
                 ? dedupePubkeys([...memberPubkeys, pk])
                 : memberPubkeys;
+            const candidateGroup = sanitizeGroup({
+                kind: "group",
+                id: toGroupConversationId({ groupId, relayUrl, communityId }),
+                communityId,
+                groupId,
+                relayUrl,
+                displayName,
+                memberPubkeys: memberPubkeysWithIdentity,
+                lastMessage: fallbackLastMessage,
+                unreadCount: 0,
+                lastMessageTime: new Date(lastMessageTimeUnixMs),
+                access,
+                memberCount: Math.max(
+                    detail?.memberCount ?? 0,
+                    memberPubkeysWithIdentity.length,
+                    1,
+                ),
+                adminPubkeys,
+                avatar: detail?.avatar?.trim() || undefined,
+            });
+            if (!shouldMaterializeRuntimeEvidence(pk, {
+                kind: "runtime_membership_confirmed",
+                group: candidateGroup,
+                updatedAtUnixMs: lastMessageTimeUnixMs,
+            }, profileId)) {
+                return;
+            }
 
             setCreatedGroups((prev) => {
                 const existingIndex = prev.findIndex((group) => group.groupId === groupId && group.relayUrl === relayUrl);
-                const candidateGroup = sanitizeGroup({
-                    kind: "group",
-                    id: toGroupConversationId({ groupId, relayUrl, communityId }),
-                    communityId,
-                    groupId,
-                    relayUrl,
-                    displayName,
-                    memberPubkeys: memberPubkeysWithIdentity,
-                    lastMessage: fallbackLastMessage,
-                    unreadCount: 0,
-                    lastMessageTime: new Date(lastMessageTimeUnixMs),
-                    access,
-                    memberCount: Math.max(
-                        detail?.memberCount ?? 0,
-                        memberPubkeysWithIdentity.length,
-                        1,
-                    ),
-                    adminPubkeys,
-                    avatar: detail?.avatar?.trim() || undefined,
-                });
-
                 let next: ReadonlyArray<GroupConversation>;
                 if (existingIndex === -1) {
                     next = dedupeGroups([...prev, candidateGroup]);
@@ -1063,10 +1333,11 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                     chatStateStoreService.updateGroups(pk, next.map((group) => toPersistedGroupConversation(group)));
                     const persistedMatch = next.find((group) => group.groupId === groupId && group.relayUrl === relayUrl);
                     if (persistedMatch) {
-                        upsertCommunityMembershipLedgerEntry(pk, toCommunityMembershipLedgerEntryFromGroup(persistedMatch, {
-                            status: "joined",
+                        applyCoordinatorRuntimeMembershipEvidence(pk, {
+                            kind: "runtime_membership_confirmed",
+                            group: persistedMatch,
                             updatedAtUnixMs: lastMessageTimeUnixMs,
-                        }));
+                        }, { profileId });
                     }
                 }
                 const projectionMatch = next.find((group) => group.groupId === groupId && group.relayUrl === relayUrl);
@@ -1079,31 +1350,99 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 return next;
             });
         };
-        const handleMembershipSnapshot = (e: Event) => {
-            const detail = (e as CustomEvent<{
-                groupId?: string;
-                relayUrl?: string;
-                communityId?: string;
-                activeMemberPubkeys?: ReadonlyArray<string>;
-                leftMembers?: ReadonlyArray<string>;
-                expelledMembers?: ReadonlyArray<string>;
-                disbandedAt?: number | null;
-            }>).detail;
-            const groupId = detail?.groupId?.trim();
-            const relayUrl = detail?.relayUrl?.trim();
+        const applyMembershipSnapshotDetail = (detail: GroupMembershipSnapshotDispatchDetail) => {
+            const groupId = detail.groupId?.trim();
+            const relayUrl = detail.relayUrl?.trim();
             if (!groupId || !relayUrl) {
                 return;
             }
-            if (typeof detail?.disbandedAt === "number" && detail.disbandedAt > 0) {
+            if (typeof detail.disbandedAt === "number" && detail.disbandedAt > 0) {
                 const existing = createdGroupsRef.current.find((group) => group.groupId === groupId && group.relayUrl === relayUrl);
                 if (existing) {
-                    removeGroupConversation(existing.id);
+                    const pk = getPublicKeyHex();
+                    if (pk) {
+                        const profileId = getResolvedProfileId();
+                        applyCoordinatorDisbandEvidence({
+                            pk,
+                            group: existing,
+                            disbandedAtUnixMs: detail.disbandedAt,
+                            profileId,
+                        });
+                        addGroupTombstone(pk, { groupId: existing.groupId, relayUrl: existing.relayUrl }, { profileId });
+                        setCreatedGroups((prev) => {
+                            const next = prev.filter((group) => group.id !== existing.id);
+                            chatStateStoreService.updateGroups(pk, next.map((group) => toPersistedGroupConversation(group)));
+                            return next;
+                        });
+                    }
                 }
                 return;
             }
-            const activeMemberPubkeys = dedupePubkeys((detail?.activeMemberPubkeys ?? []) as ReadonlyArray<string>);
-            const leftMemberPubkeys = dedupePubkeys((detail?.leftMembers ?? []) as ReadonlyArray<string>);
-            const expelledMemberPubkeys = dedupePubkeys((detail?.expelledMembers ?? []) as ReadonlyArray<string>);
+            const activeMemberPubkeys = dedupePubkeys(detail.activeMemberPubkeys);
+            const leftMemberPubkeys = dedupePubkeys(detail.leftMembers);
+            const expelledMemberPubkeys = dedupePubkeys(detail.expelledMembers);
+
+            // Relay-evidence-backed rejoin recovery:
+            // If the local user appears in activeMemberPubkeys (NOT in leftMembers/expelledMembers)
+            // but their local ledger entry is terminal ("left"/"expelled"), and relay confidence
+            // has reached steady_state, the terminal entry was written spuriously (e.g. during a
+            // low-confidence reconnect phase). Recover by firing an explicit rejoin.
+            const pk = getPublicKeyHex();
+            if (pk) {
+                const profileId = getResolvedProfileId();
+                const localIsActiveInSnapshot = activeMemberPubkeys.map((p) => p.trim()).includes(pk);
+                const localIsInTerminalList = leftMemberPubkeys.map((p) => p.trim()).includes(pk)
+                    || expelledMemberPubkeys.map((p) => p.trim()).includes(pk);
+                if (localIsActiveInSnapshot && !localIsInTerminalList) {
+                    const currentLedger = loadCommunityMembershipLedger(pk, { profileId });
+                    const targetKey = toCommunityMembershipLedgerKey({ groupId, relayUrl });
+                    const terminalEntry = targetKey
+                        ? currentLedger.find((e) => (
+                            toCommunityMembershipLedgerKey(e) === targetKey
+                            && (e.status === "left" || e.status === "expelled")
+                        ))
+                        : undefined;
+                    if (terminalEntry) {
+                        // Only recover at steady_state — partial/warm-up evidence is not
+                        // authoritative enough to override an explicit terminal entry.
+                        const evidenceForConfidence = relayEvidenceByGroupIdRef.current[groupId] ?? {
+                            subscriptionEstablishedAt: null,
+                            lastEventReceivedAt: null,
+                            eoseReceivedAt: null,
+                            eventCount: 0,
+                        };
+                        const nowMsForConfidence = Date.now();
+                        const recoveryConfidence = resolveRelayEvidenceConfidence({ ...evidenceForConfidence, nowMs: nowMsForConfidence });
+                        if (recoveryConfidence === "steady_state") {
+                            // Prefer the live group from createdGroupsRef; fall back to
+                            // reconstructing from the terminal ledger entry itself. The
+                            // fallback is needed when the terminal status prevented hydration
+                            // entirely (the common case for a spuriously-left user).
+                            const matchingGroupForRevive = createdGroupsRef.current.find((g) =>
+                                g.groupId === groupId && g.relayUrl === relayUrl
+                            ) ?? toGroupConversationFromMembershipLedgerEntry(terminalEntry, {
+                                fallbackMemberPubkeys: activeMemberPubkeys,
+                            });
+                            logAppEvent({
+                                name: "groups.membership_snapshot_relay_rejoin_recovery",
+                                level: "info",
+                                scope: { feature: "groups", action: "membership_snapshot" },
+                                context: {
+                                    publicKeySuffix: pk.slice(-8),
+                                    groupId,
+                                    relayUrl: relayUrl ?? null,
+                                    previousStatus: terminalEntry.status,
+                                    confidence: recoveryConfidence,
+                                    fromLedgerFallback: !createdGroupsRef.current.find((g) =>
+                                        g.groupId === groupId && g.relayUrl === relayUrl
+                                    ),
+                                },
+                            });
+                            addGroup(matchingGroupForRevive, { allowRevive: true });
+                        }
+                    }
+                }
+            }
 
             // Update relay evidence tracking
             const nowMs = Date.now();
@@ -1122,7 +1461,7 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 const matchingGroup = createdGroupsRef.current.find((group) => {
                     const matchesGroup = group.groupId === groupId;
                     const matchesRelay = group.relayUrl === relayUrl;
-                    const matchesCommunity = detail?.communityId ? group.communityId === detail.communityId : true;
+                    const matchesCommunity = detail.communityId ? group.communityId === detail.communityId : true;
                     return matchesGroup && matchesRelay && matchesCommunity;
                 });
                 if (!matchingGroup) {
@@ -1139,12 +1478,19 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 const nowMs = Date.now();
                 const confidence = resolveRelayEvidenceConfidence({ ...relayEvidence, nowMs });
 
-                // Use enhanced snapshot application with relay evidence confidence
+                // Protect the same OR-set as UI seeds: directory ∪ persisted `group.memberPubkeys`
+                // (`mergeKnownParticipantSeedPubkeys` — single contract with group-home / management UIs).
+                const knownDirectory = communityKnownParticipantDirectoryByConversationIdRef.current[matchingGroup.id];
+                const protectRemovalPubkeys = mergeKnownParticipantSeedPubkeys({
+                    directory: knownDirectory ?? null,
+                    persistedGroupMemberPubkeys: matchingGroup.memberPubkeys,
+                });
                 const enhancedResult = resolveEnhancedSnapshotApplication({
                     currentMemberPubkeys: currentProjection.activeMemberPubkeys,
                     incomingActiveMemberPubkeys: activeMemberPubkeys,
                     leftMemberPubkeys,
                     expelledMemberPubkeys,
+                    protectRemovalPubkeys,
                     relayEvidenceParams: { ...relayEvidence, nowMs },
                     sourceHint: "relay_snapshot",
                 });
@@ -1158,7 +1504,7 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                             publicKeySuffix: (getPublicKeyHex() ?? "").slice(-8) || null,
                             groupId,
                             relayUrl,
-                            communityId: detail?.communityId ?? null,
+                            communityId: detail.communityId ?? null,
                             conversationId: matchingGroup.id,
                             reasonCode: snapshotApplication.reasonCode,
                             confidence,
@@ -1177,7 +1523,59 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                     return prev;
                 }
 
-                const nextMembers = snapshotApplication.nextMemberPubkeys as ReadonlyArray<PublicKeyHex>;
+                // Three-tier architecture: relay snapshots are NEVER authoritative for the
+                // local user's own membership status. Only explicit signed actions (user
+                // leave, admin expel via NIP events) can write terminal entries to the
+                // ledger. Relay evidence is kept in memory only (roster projections) and
+                // never persisted as membership truth for the local user.
+                const pk = getPublicKeyHex();
+                if (pk) {
+                    const profileId = getResolvedProfileId();
+                    // Only apply terminal evidence for NON-local members. For the local
+                    // user, we rely entirely on explicit signed events, not relay snapshots.
+                    const localUserInLeft = leftMemberPubkeys.map((p) => p.trim()).includes(pk);
+                    const localUserInExpelled = expelledMemberPubkeys.map((p) => p.trim()).includes(pk);
+                    const localUserInTerminal = localUserInLeft || localUserInExpelled;
+
+                    if (!localUserInTerminal) {
+                        // Safe to apply for other members — relay evidence is acceptable
+                        applyCoordinatorRosterSnapshotTerminalEvidence({
+                            pk,
+                            group: matchingGroup,
+                            leftMemberPubkeys,
+                            expelledMemberPubkeys,
+                            updatedAtUnixMs: nowMs,
+                            profileId,
+                        });
+                    } else {
+                        // Local user appears in terminal lists per relay, but we do NOT
+                        // write this to the ledger. The ledger only contains signed intent.
+                        // If the user is truly expelled, an admin-signed event will arrive
+                        // via the normal event flow and write the terminal entry then.
+                        logAppEvent({
+                            name: "groups.membership_snapshot_local_terminal_ignored",
+                            level: "info",
+                            scope: { feature: "groups", action: "membership_snapshot" },
+                            context: {
+                                publicKeySuffix: pk.slice(-8),
+                                groupId,
+                                relayUrl,
+                                localInLeft: localUserInLeft,
+                                localInExpelled: localUserInExpelled,
+                                reason: "relay_not_authoritative_for_local_user",
+                            },
+                        });
+                    }
+                }
+
+                const nextMembers = getResolvedClientGateway().communityRoster.resolveSnapshotNextMembers({
+                    currentMemberPubkeys: currentProjection.activeMemberPubkeys,
+                    snapshotNextMemberPubkeys: snapshotApplication.nextMemberPubkeys as ReadonlyArray<PublicKeyHex>,
+                    leftMemberPubkeys: leftMemberPubkeys as ReadonlyArray<PublicKeyHex>,
+                    expelledMemberPubkeys: expelledMemberPubkeys as ReadonlyArray<PublicKeyHex>,
+                    protectRemovalPubkeys,
+                    guardRelaxed: enhancedResult.guardRelaxed,
+                });
 
                 // Prevent infinite loop: skip update if projection is unchanged.
                 const currentKey = currentProjection.activeMemberPubkeys.join(",");
@@ -1200,21 +1598,14 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 };
             });
         };
-        const handleKnownParticipantsObserved = (e: Event) => {
-            const detail = (e as CustomEvent<{
-                groupId?: string;
-                relayUrl?: string;
-                communityId?: string;
-                conversationId?: string;
-                participantPubkeys?: ReadonlyArray<string>;
-            }>).detail;
-            const groupId = detail?.groupId?.trim();
-            const relayUrl = detail?.relayUrl?.trim();
-            const conversationId = detail?.conversationId?.trim();
+        const applyKnownParticipantsObservedDetail = (detail: CommunityKnownParticipantsObservedDispatchDetail) => {
+            const groupId = detail.groupId?.trim();
+            const relayUrl = detail.relayUrl?.trim();
+            const conversationId = detail.conversationId?.trim();
             if (!groupId || !relayUrl || !conversationId) {
                 return;
             }
-            const participantPubkeys = dedupePubkeys((detail?.participantPubkeys ?? []) as ReadonlyArray<string>);
+            const participantPubkeys = dedupePubkeys(detail.participantPubkeys);
             if (participantPubkeys.length === 0) {
                 return;
             }
@@ -1222,7 +1613,7 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 const matchesConversation = group.id === conversationId;
                 const matchesGroup = group.groupId === groupId;
                 const matchesRelay = group.relayUrl === relayUrl;
-                const matchesCommunity = detail?.communityId ? group.communityId === detail.communityId : true;
+                const matchesCommunity = detail.communityId ? group.communityId === detail.communityId : true;
                 return matchesConversation && matchesGroup && matchesRelay && matchesCommunity;
             });
             if (!matchingGroup) {
@@ -1230,8 +1621,10 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             }
             const pk = getPublicKeyHex();
             if (pk) {
-                upsertCommunityKnownParticipantsEntry({
+                const profileId = getResolvedProfileId();
+                getResolvedClientGateway().communityRoster.persistObservedKnownParticipants({
                     publicKeyHex: pk as PublicKeyHex,
+                    profileId,
                     entry: {
                         conversationId: matchingGroup.id,
                         groupId: matchingGroup.groupId,
@@ -1268,62 +1661,95 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             });
         };
 
-        window.addEventListener("obscur:group-invite", handleGroupInvite);
-        window.addEventListener("obscur:group-remove", handleGroupRemove);
-        window.addEventListener("obscur:group-invite-response-accepted", handleInviteAccepted);
-        window.addEventListener("obscur:group-membership-confirmed", handleMembershipConfirmed);
-        window.addEventListener(GROUP_MEMBERSHIP_SNAPSHOT_EVENT, handleMembershipSnapshot);
-        window.addEventListener(COMMUNITY_KNOWN_PARTICIPANTS_OBSERVED_EVENT, handleKnownParticipantsObserved);
-        return () => {
-            window.removeEventListener("obscur:group-invite", handleGroupInvite);
-            window.removeEventListener("obscur:group-remove", handleGroupRemove);
-            window.removeEventListener("obscur:group-invite-response-accepted", handleInviteAccepted);
-            window.removeEventListener("obscur:group-membership-confirmed", handleMembershipConfirmed);
-            window.removeEventListener(GROUP_MEMBERSHIP_SNAPSHOT_EVENT, handleMembershipSnapshot);
-            window.removeEventListener(COMMUNITY_KNOWN_PARTICIPANTS_OBSERVED_EVENT, handleKnownParticipantsObserved);
-        };
-    }, [addGroup, getPublicKeyHex, removeGroupConversation, upsertCommunityRosterProjection]);
-
-    // FIX: Persist group members to known participant directory whenever groups are updated
-    // This ensures member list survives page refresh
-    useEffect(() => {
-        const pk = getPublicKeyHex();
-        if (!pk || createdGroups.length === 0) return;
-
-        createdGroups.forEach((group) => {
-            const memberCount = group.memberPubkeys?.length ?? 0;
-            if (memberCount > 1) {
-                // Only save if we have multiple members (don't overwrite with thinned data)
-                const currentStored = loadCommunityKnownParticipantsEntries(pk);
-                const currentEntry = currentStored.find(e => e.conversationId === group.id);
-                const storedCount = currentEntry?.participantPubkeys?.length ?? 0;
-
-                // Only update if this group has MORE members than what's stored
-                if (memberCount > storedCount) {
-                    console.log("[MemberFix] Saving members to store:", {
-                        conversationId: group.id.slice(0, 8),
-                        memberCount,
-                        storedCount,
-                    });
-
-                    upsertCommunityKnownParticipantsEntry({
-                        publicKeyHex: pk as PublicKeyHex,
-                        entry: {
-                            conversationId: group.id,
-                            groupId: group.groupId,
-                            relayUrl: group.relayUrl,
-                            communityId: group.communityId,
-                            participantPubkeys: dedupePubkeys([
-                                ...(group.memberPubkeys ?? []),
-                                pk,
-                            ]) as ReadonlyArray<PublicKeyHex>,
-                            updatedAtUnixMs: Date.now(),
-                        },
-                    });
-                }
+        const handleMembershipIngressDetail = (detail: CommunityMembershipIngressDetail) => {
+            const profileId = getResolvedProfileId();
+            if (detail.profileId !== profileId) {
+                return;
             }
-        });
-    }, [createdGroups, getPublicKeyHex]);
+            const pk = getPublicKeyHex();
+            applyCommunityMembershipIngress({
+                detail,
+                localPublicKeyHex: pk,
+                resolveGroup: (communityId) => createdGroupsRef.current.find((group) => (
+                    group.communityId === communityId
+                )),
+                widenRoster: ({ group, memberPubkeys }) => {
+                    const mergedMemberPubkeys = dedupePubkeys([
+                        ...group.memberPubkeys,
+                        ...memberPubkeys,
+                        ...(pk ? [pk] : []),
+                    ]);
+                    setCreatedGroups((prev) => {
+                        const next = prev.map((entry) => (
+                            entry.id === group.id
+                                ? {
+                                    ...entry,
+                                    memberPubkeys: mergedMemberPubkeys,
+                                    memberCount: Math.max(entry.memberCount ?? 0, mergedMemberPubkeys.length),
+                                }
+                                : entry
+                        ));
+                        if (pk) {
+                            chatStateStoreService.updateGroups(pk, next.map((entry) => toPersistedGroupConversation(entry)));
+                        }
+                        const updated = next.find((entry) => entry.id === group.id) ?? group;
+                        upsertCommunityRosterProjection({
+                            group: updated,
+                            activeMemberPubkeys: mergedMemberPubkeys,
+                        });
+                        return next;
+                    });
+                },
+                applyLocalJoinFromRelay: (group) => {
+                    if (!pk) {
+                        return;
+                    }
+                    applyCoordinatorRuntimeMembershipEvidence(pk, {
+                        kind: "relay_gossip_ingress",
+                        group,
+                        updatedAtUnixMs: detail.receivedAtUnixMs,
+                        lastEvidenceEventId: detail.eventId,
+                    }, { profileId });
+                },
+                applyLocalLeaveFromRelay: (group) => {
+                    if (!pk) {
+                        return;
+                    }
+                    applyCoordinatorExplicitLeave(pk, group, { profileId });
+                },
+            });
+        };
+
+        const unsubInviteReceivedDual = subscribeGroupInviteReceivedDual((invite) => {
+            addGroup(invite as GroupConversation, { provisionalJoin: true });
+        }, optionalProfileBus);
+        const unsubMembershipIngress = subscribeCommunityMembershipIngress(
+            handleMembershipIngressDetail,
+            optionalProfileBus,
+        );
+        const unsubInviteDual = subscribeGroupInviteAcceptedDual(handleInviteAcceptedDetail, optionalProfileBus);
+        const unsubMembershipConfirmedDual = subscribeGroupMembershipConfirmedDual(applyMembershipConfirmedDetail, optionalProfileBus);
+        const unsubRemoveDual = subscribeGroupRemoveDual(handleGroupRemoveConversationId, optionalProfileBus);
+
+        const unsubMembershipSnapshotDual = subscribeGroupMembershipSnapshotDual(
+            applyMembershipSnapshotDetail,
+            optionalProfileBus,
+        );
+        const unsubKnownParticipantsDual = subscribeCommunityKnownParticipantsObservedDual(
+            applyKnownParticipantsObservedDetail,
+            optionalProfileBus,
+        );
+
+        return () => {
+            unsubInviteReceivedDual();
+            unsubInviteDual();
+            unsubMembershipConfirmedDual();
+            unsubRemoveDual();
+            unsubMembershipSnapshotDual();
+            unsubKnownParticipantsDual();
+            unsubMembershipIngress();
+        };
+    }, [addGroup, applyCoordinatorDisbandEvidence, applyCoordinatorExplicitLeave, applyCoordinatorRosterSnapshotTerminalEvidence, applyCoordinatorRuntimeMembershipEvidence, getPublicKeyHex, optionalProfileBus, removeGroupConversation, upsertCommunityRosterProjection]);
 
     const value = useMemo(() => ({
         createdGroups,
@@ -1343,8 +1769,10 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         addGroup,
         updateGroup,
         leaveGroup,
-        removeGroupConversation
-    }), [createdGroups, communityKnownParticipantDirectoryByConversationId, communityRosterByConversationId, isNewGroupOpen, isCreatingGroup, isGroupInfoOpen, newGroupName, newGroupMemberPubkeys, addGroup, updateGroup, leaveGroup, removeGroupConversation]);
+        removeGroupConversation,
+        forcePurgeCommunity,
+        recordMembershipLedgerAfterInviteDecline,
+    }), [createdGroups, communityKnownParticipantDirectoryByConversationId, communityRosterByConversationId, isNewGroupOpen, isCreatingGroup, isGroupInfoOpen, newGroupName, newGroupMemberPubkeys, addGroup, updateGroup, leaveGroup, removeGroupConversation, forcePurgeCommunity, recordMembershipLedgerAfterInviteDecline]);
 
     return <GroupContext.Provider value={value}>{children}</GroupContext.Provider>;
 };
@@ -1356,3 +1784,5 @@ export const useGroups = () => {
     }
     return context;
 };
+
+export const useGroupsSafe = (): GroupContextType | null => useContext(GroupContext);

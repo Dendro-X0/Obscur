@@ -128,7 +128,7 @@ describe("request-transport-service internals", () => {
       status: "declined",
       isOutgoing: false,
     });
-    expect(reset).toHaveBeenCalledWith("b".repeat(64));
+    expect(reset).toHaveBeenCalledWith("b".repeat(64), expect.any(String));
   });
 
   it("does not commit cancel state when cancel publish is only queued", async () => {

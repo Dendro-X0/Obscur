@@ -105,6 +105,10 @@ class InMemoryMessageQueue implements IMessageQueue {
   async getAllMessages(): Promise<Message[]> {
     return Array.from(this.messages.values());
   }
+
+  async deleteMessage(messageId: string): Promise<void> {
+    this.messages.delete(messageId);
+  }
 }
 
 type RelayMailbox = Readonly<{

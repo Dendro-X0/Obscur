@@ -23,6 +23,7 @@ import { deriveCommunityId } from "@/app/features/groups/utils/community-identit
 import { toDmConversationId } from "@/app/features/messaging/utils/dm-conversation-id";
 import { createDmConversation } from "@/app/features/messaging/utils/create-dm-conversation";
 import { logAppEvent } from "@/app/shared/log-app-event";
+import { dispatchGroupInviteReceived } from "@/app/features/profiles/services/profile-bus-dispatch";
 
 const DEFAULT_DM_DISPLAY_NAME = "Unknown contact";
 
@@ -59,7 +60,6 @@ export function GlobalDialogManager() {
         requestsInbox,
         autoSubscribeIncoming: false,
         enableIncomingTransport: false,
-        enableAutoQueueProcessing: false,
     });
     const requestTransport = useRequestTransport({
         dmController,
@@ -208,6 +208,7 @@ export function GlobalDialogManager() {
             };
 
             addGroup(newGroup, { allowRevive: true });
+            dispatchGroupInviteReceived(newGroup);
             setSelectedConversation(newGroup);
             setIsNewGroupOpen(false);
             toast.success(t("groups.created", "Sealed Community created successfully"));

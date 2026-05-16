@@ -45,7 +45,7 @@ Use this template to create or reset `docs/handoffs/current-session.md`.
 ## Next Thread Bootstrap Prompt
 
 ```text
-Read AGENTS.md, docs/08-maintainer-playbook.md, and docs/handoffs/current-session.md.
+Read AGENTS.md, docs/encyclopedia/08-maintainer-playbook.md, and docs/handoffs/current-session.md.
 Resume from the Next Atomic Step exactly.
 Keep edits scoped to that step and update docs/handoffs/current-session.md before finishing.
 ```

@@ -1,7 +1,7 @@
 # M10 Release Candidate Assets (v1.2.5)
 
 Canonical context:
-- `docs/11-program-milestones-and-stability-history.md`
+- `docs/encyclopedia/11-program-milestones-and-stability-history.md`
 - `docs/history/version-context.md`
 
 Canonical output files:

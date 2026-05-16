@@ -1,7 +1,7 @@
 "use client";
 
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
-import { getActiveProfileIdSafe } from "@/app/features/profiles/services/profile-scope";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 
 export type AccountSyncMigrationPhase =
   | "shadow"
@@ -50,7 +50,7 @@ const normalizePartitionSegment = (value: string | null | undefined, fallback: s
 
 const buildPartitionKey = (scope?: AccountSyncMigrationScope): string => {
   const profileId = normalizePartitionSegment(
-    scope?.profileId ?? getActiveProfileIdSafe(),
+    scope?.profileId ?? getResolvedProfileId(),
     DEFAULT_PROFILE_ID
   );
   const accountPublicKeyHex = normalizePartitionSegment(

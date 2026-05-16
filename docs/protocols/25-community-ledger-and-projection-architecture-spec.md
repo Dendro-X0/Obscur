@@ -68,7 +68,7 @@ Current/future owner chain should stay explicit:
 2. community event ingest/runtime owner
    - `apps/pwa/app/features/groups/hooks/use-sealed-community.ts`
 3. membership and governance reducer owner
-   - `apps/pwa/app/features/groups/services/community-ledger-reducer.ts`
+   - `apps/pwa/app/features/groups/services/community-ledger-validator.ts`
 4. community event construction/signing owner
    - `apps/pwa/app/features/groups/services/group-service.ts`
 5. membership ledger durability owner

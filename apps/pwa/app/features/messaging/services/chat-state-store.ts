@@ -8,11 +8,11 @@ import type {
     PersistedMessage,
     PersistedConnectionRequest
 } from "../types";
-import { loadPersistedChatState, normalizePersistedGroupState, savePersistedChatState, toPersistedOverridesByConnectionId } from "../utils/persistence";
+import { loadPersistedChatState, normalizePersistedGroupState, savePersistedChatState } from "../utils/persistence";
 import { messagingDB } from "@dweb/storage/indexed-db";
 import { emitAccountSyncMutation } from "@/app/shared/account-sync-mutation-signal";
 import { logAppEvent } from "@/app/shared/log-app-event";
-import { getActiveProfileIdSafe } from "@/app/features/profiles/services/profile-scope";
+import { getProfileRuntimeScope, getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { buildMessageSearchIndexText } from "@/app/features/messaging/services/message-search-index";
 
 export const CHAT_STATE_REPLACED_EVENT = "obscur:chat-state-replaced";
@@ -63,7 +63,7 @@ class ChatStateStore {
      * Use hydrateMessages() for async message loading.
      */
     load(publicKeyHex: PublicKeyHex, options?: Readonly<{ profileId?: string }>): PersistedChatState | null {
-        const profileId = options?.profileId ?? getActiveProfileIdSafe();
+        const profileId = options?.profileId ?? getResolvedProfileId();
         const scopeKey = toScopedCacheKey(publicKeyHex, profileId);
         const pending = this.pendingByScopeKey.get(scopeKey);
         if (pending?.latest) {
@@ -91,6 +91,10 @@ class ChatStateStore {
         try {
             const dbState = await messagingDB.get<PersistedChatState>("chatState", publicKeyHex);
             if (dbState) {
+                // Use silent:true — this is an internal read from IndexedDB during backup
+                // payload construction, not a user mutation. Emitting chat_state_changed
+                // here creates a publish feedback loop:
+                //   publishBackup → hydrateMessages → chat_state_changed → publishBackup ...
                 this.update(publicKeyHex, prev => ({
                     ...normalizePersistedGroupState({
                         ...prev,
@@ -103,7 +107,7 @@ class ChatStateStore {
                             ...dbState.groupMessages
                         }
                     })
-                }));
+                }), { silent: true });
             }
         } catch (e) {
             console.error("[ChatStateStore] Failed to hydrate messages from IndexedDB:", e);
@@ -112,9 +116,15 @@ class ChatStateStore {
 
     /**
      * Updates a slice of the chat state atomically.
+     * Pass `silent: true` to skip the mutation signal — use only for internal
+     * hydration reads that are not user-driven mutations (e.g. hydrateMessages).
      */
-    update(publicKeyHex: PublicKeyHex, updater: (prev: PersistedChatState) => PersistedChatState): void {
-        const profileId = getActiveProfileIdSafe();
+    update(
+        publicKeyHex: PublicKeyHex,
+        updater: (prev: PersistedChatState) => PersistedChatState,
+        options?: Readonly<{ silent?: boolean }>
+    ): void {
+        const profileId = getResolvedProfileId();
         const scopeKey = toScopedCacheKey(publicKeyHex, profileId);
         const current = this.load(publicKeyHex, { profileId }) || this.createInitialState();
         const next = updater(current);
@@ -123,7 +133,9 @@ class ChatStateStore {
         }
         this.memoryCacheByScopeKey.set(scopeKey, next);
         this.save(publicKeyHex, next, { profileId });
-        emitAccountSyncMutation("chat_state_changed");
+        if (!options?.silent) {
+            emitAccountSyncMutation("chat_state_changed");
+        }
     }
 
     /**
@@ -140,7 +152,7 @@ class ChatStateStore {
             scope: { feature: "messaging", action: "chat_state_store" },
             context: {
                 publicKeySuffix: toPublicKeySuffix(publicKeyHex),
-                profileId: getActiveProfileIdSafe(),
+                profileId: getResolvedProfileId(),
                 groupCount: groups.length,
             },
         });
@@ -204,7 +216,8 @@ class ChatStateStore {
             const existingGroupMessages = prev.groupMessages?.[conversationId] ?? [];
             const filteredGroupMessages = existingGroupMessages.filter((message) => {
                 const messageId = String(message.id ?? "").trim();
-                return !deleteIds.has(messageId);
+                const eventId = String((message as { eventId?: string }).eventId ?? "").trim();
+                return !deleteIds.has(messageId) && !deleteIds.has(eventId);
             });
             const nextMessagesByConversationId = {
                 ...prev.messagesByConversationId,
@@ -239,10 +252,71 @@ class ChatStateStore {
                 groupMessages: nextGroupMessages,
             };
         });
+        // Also scrub the IDB chatState blob so hydrateMessages() cannot
+        // re-introduce the deleted rows by merging stale IDB data over memory.
+        if (typeof window !== "undefined") {
+            messagingDB.get<PersistedChatState & { publicKeyHex?: string }>("chatState", publicKeyHex)
+                .then((blob) => {
+                    if (!blob) return;
+                    const conv = blob.messagesByConversationId?.[conversationId];
+                    const grp = blob.groupMessages?.[conversationId];
+                    if (!conv && !grp) return;
+                    const cleanedBlob = {
+                        ...blob,
+                        messagesByConversationId: {
+                            ...blob.messagesByConversationId,
+                            [conversationId]: (conv ?? []).filter((m) => {
+                                const mid = String(m.id ?? "").trim();
+                                const eid = String(m.eventId ?? "").trim();
+                                return !deleteIds.has(mid) && !deleteIds.has(eid);
+                            }),
+                        },
+                        groupMessages: {
+                            ...(blob.groupMessages ?? {}),
+                            [conversationId]: (grp ?? []).filter((m) => {
+                                return !deleteIds.has(String(m.id ?? "").trim());
+                            }),
+                        },
+                    };
+                    return messagingDB.put("chatState", cleanedBlob);
+                })
+                .catch(() => {});
+        }
+    }
+
+    removeMessageIdentitiesFromAllActiveScopes(
+        conversationId: string,
+        messageIdentityIds: ReadonlyArray<string>,
+    ): void {
+        const deleteIds = new Set(
+            messageIdentityIds
+                .map((v) => v.trim())
+                .filter((v) => v.length > 0),
+        );
+        if (deleteIds.size === 0) {
+            return;
+        }
+        // Collect all distinct publicKeyHex values from the in-memory scope cache.
+        const seenKeys = new Set<PublicKeyHex>();
+        for (const scopeKey of this.memoryCacheByScopeKey.keys()) {
+            const colonIdx = scopeKey.indexOf("::");
+            if (colonIdx >= 0) {
+                seenKeys.add(scopeKey.slice(colonIdx + 2) as PublicKeyHex);
+            }
+        }
+        for (const pendingScopeKey of this.pendingByScopeKey.keys()) {
+            const colonIdx = pendingScopeKey.indexOf("::");
+            if (colonIdx >= 0) {
+                seenKeys.add(pendingScopeKey.slice(colonIdx + 2) as PublicKeyHex);
+            }
+        }
+        seenKeys.forEach((publicKeyHex) => {
+            this.removeMessageIdentities(publicKeyHex, conversationId, messageIdentityIds);
+        });
     }
 
     replace(publicKeyHex: PublicKeyHex, nextState: PersistedChatState, options?: ReplaceOptions): void {
-        const profileId = options?.profileId ?? getActiveProfileIdSafe();
+        const profileId = options?.profileId ?? getResolvedProfileId();
         const scopeKey = toScopedCacheKey(publicKeyHex, profileId);
         const normalizedState = normalizePersistedGroupState(nextState);
         this.memoryCacheByScopeKey.set(scopeKey, normalizedState);
@@ -253,17 +327,20 @@ class ChatStateStore {
             scope: { feature: "messaging", action: "chat_state_store" },
             context: {
                 publicKeySuffix: toPublicKeySuffix(publicKeyHex),
-                profileId: getActiveProfileIdSafe(),
+                profileId,
                 createdConnectionCount: normalizedState.createdConnections.length,
                 createdGroupCount: normalizedState.createdGroups.length,
                 dmConversationCount: Object.keys(normalizedState.messagesByConversationId ?? {}).length,
                 groupConversationCount: Object.keys(normalizedState.groupMessages ?? {}).length,
             },
         });
-        if (typeof window !== "undefined") {
-            window.dispatchEvent(new CustomEvent<ChatStateReplacedEventDetail>(CHAT_STATE_REPLACED_EVENT, {
-                detail: { publicKeyHex, profileId }
-            }));
+        const runtime = getProfileRuntimeScope();
+        if (runtime?.bus) {
+            runtime.bus.publish({
+                type: "chat-state-replaced",
+                profileId,
+                publicKeyHex,
+            });
         }
         if (options?.emitMutationSignal !== false) {
             emitAccountSyncMutation("chat_state_changed");
@@ -274,7 +351,7 @@ class ChatStateStore {
      * Schedules a save operation for the state.
      */
     private save(publicKeyHex: PublicKeyHex, state: PersistedChatState, options?: SaveOptions): void {
-        const profileId = options?.profileId ?? getActiveProfileIdSafe();
+        const profileId = options?.profileId ?? getResolvedProfileId();
         const scopeKey = toScopedCacheKey(publicKeyHex, profileId);
         if (typeof window === "undefined") {
             savePersistedChatState(state, publicKeyHex, { profileId });
@@ -319,7 +396,7 @@ class ChatStateStore {
      * Immediately flushes any pending writes to storage.
      */
     async flush(publicKeyHex: PublicKeyHex, options?: Readonly<{ profileId?: string }>): Promise<void> {
-        const profileId = options?.profileId ?? getActiveProfileIdSafe();
+        const profileId = options?.profileId ?? getResolvedProfileId();
         const scopeKey = toScopedCacheKey(publicKeyHex, profileId);
         if (typeof window === "undefined") return;
         const pending = this.pendingByScopeKey.get(scopeKey);

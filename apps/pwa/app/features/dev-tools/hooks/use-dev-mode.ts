@@ -4,9 +4,10 @@ import { useState, useCallback, useEffect } from "react";
 import { MockPool } from "../mock-pool";
 import { BotEngine } from "../bot-engine";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 
 const DEV_MODE_KEY = "obscur_dev_mode";
-const getDevModeStorageKey = (): string => getScopedStorageKey(DEV_MODE_KEY);
+const getDevModeStorageKey = (): string => getScopedStorageKey(DEV_MODE_KEY, getResolvedProfileId());
 
 // Singleton instances for dev mode
 let mockPoolInstance: MockPool | null = null;

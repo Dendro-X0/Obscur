@@ -220,7 +220,7 @@ Canonical owners:
 1. `apps/pwa/app/features/groups/providers/group-provider.tsx`
 2. `apps/pwa/app/features/groups/hooks/use-sealed-community.ts`
 3. `apps/pwa/app/features/groups/services/community-membership-recovery.ts`
-4. `apps/pwa/app/features/groups/services/community-ledger-reducer.ts`
+4. `apps/pwa/app/features/groups/services/community-ledger-validator.ts`
 
 Minimum automated checks:
 
@@ -291,7 +291,7 @@ Canonical owners:
 
 Reference:
 
-1. `docs/17-dm-delete-restore-divergence-incident.md`
+1. `docs/encyclopedia/17-dm-delete-restore-divergence-incident.md`
 
 Minimum automated checks:
 

@@ -18,7 +18,7 @@ vi.mock("@/app/features/runtime/native-adapters", () => ({
 
 import { SessionApi } from "./session-api";
 import { getRememberMeStorageKey, LEGACY_REMEMBER_ME_KEY } from "@/app/features/auth/utils/auth-storage-keys";
-import { getActiveProfileIdSafe } from "@/app/features/profiles/services/profile-scope";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 
 describe("SessionApi", () => {
   beforeEach(() => {
@@ -39,7 +39,7 @@ describe("SessionApi", () => {
 
   it("returns adapter value when native runtime is available", async () => {
     runtimeMocks.hasNativeRuntime.mockReturnValue(true);
-    window.localStorage.setItem(getRememberMeStorageKey(getActiveProfileIdSafe()), "true");
+    window.localStorage.setItem(getRememberMeStorageKey(getResolvedProfileId()), "true");
     adapterMocks.invokeNativeCommand.mockResolvedValue({
       ok: true,
       value: {
@@ -63,7 +63,7 @@ describe("SessionApi", () => {
 
   it("normalizes snake_case payload from native session status command", async () => {
     runtimeMocks.hasNativeRuntime.mockReturnValue(true);
-    window.localStorage.setItem(getRememberMeStorageKey(getActiveProfileIdSafe()), "true");
+    window.localStorage.setItem(getRememberMeStorageKey(getResolvedProfileId()), "true");
     adapterMocks.invokeNativeCommand.mockResolvedValueOnce({
       ok: true,
       value: {
@@ -82,7 +82,7 @@ describe("SessionApi", () => {
 
   it("rehydrates status via get_native_npub fallback when session status appears inactive", async () => {
     runtimeMocks.hasNativeRuntime.mockReturnValue(true);
-    window.localStorage.setItem(getRememberMeStorageKey(getActiveProfileIdSafe()), "true");
+    window.localStorage.setItem(getRememberMeStorageKey(getResolvedProfileId()), "true");
     adapterMocks.invokeNativeCommand
       .mockResolvedValueOnce({
         ok: true,
@@ -142,7 +142,7 @@ describe("SessionApi", () => {
 
   it("does not rehydrate via keychain fallback when remember-me is disabled", async () => {
     runtimeMocks.hasNativeRuntime.mockReturnValue(true);
-    window.localStorage.setItem(getRememberMeStorageKey(getActiveProfileIdSafe()), "false");
+    window.localStorage.setItem(getRememberMeStorageKey(getResolvedProfileId()), "false");
     adapterMocks.invokeNativeCommand
       .mockResolvedValueOnce({
         ok: true,
@@ -173,7 +173,7 @@ describe("SessionApi", () => {
 
   it("falls back to inactive status when adapter returns failed", async () => {
     runtimeMocks.hasNativeRuntime.mockReturnValue(true);
-    window.localStorage.setItem(getRememberMeStorageKey(getActiveProfileIdSafe()), "true");
+    window.localStorage.setItem(getRememberMeStorageKey(getResolvedProfileId()), "true");
     adapterMocks.invokeNativeCommand
       .mockResolvedValueOnce({
         ok: false,

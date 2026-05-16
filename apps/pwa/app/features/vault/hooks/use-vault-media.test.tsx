@@ -1,9 +1,8 @@
 import React from "react";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { setProfileRuntimeScope } from "@/app/features/profiles/services/profile-runtime-scope";
 import { useVaultMedia } from "./use-vault-media";
-import { CHAT_STATE_REPLACED_EVENT } from "../../messaging/services/chat-state-store";
-import { MESSAGES_INDEX_REBUILT_EVENT } from "../../messaging/services/message-persistence-service";
 
 const vaultHookMocks = vi.hoisted(() => ({
   getAll: vi.fn(),
@@ -16,6 +15,27 @@ const identityState = vi.hoisted(() => ({
 const profileScopeState = vi.hoisted(() => ({
   activeProfileId: "default",
 }));
+
+const vaultBusRuntime = vi.hoisted(() => {
+  const { createProfileMessageBus } =
+    require("@dweb/core/profile-message-bus") as typeof import("@dweb/core/profile-message-bus");
+  const api = {
+    bus: createProfileMessageBus({ profileId: "default" }),
+    sync(profileId: string) {
+      api.bus = createProfileMessageBus({ profileId });
+      setProfileRuntimeScope({ profileId, bus: api.bus });
+    },
+  };
+  return api;
+});
+
+vi.mock("../../profiles/providers/profile-runtime-provider", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../profiles/providers/profile-runtime-provider")>();
+  return {
+    ...actual,
+    useOptionalProfileMessageBus: () => vaultBusRuntime.bus,
+  };
+});
 
 vi.mock("@dweb/storage/indexed-db", () => ({
   messagingDB: {
@@ -33,7 +53,7 @@ vi.mock("../../auth/hooks/use-identity", () => ({
 }));
 
 vi.mock("../../profiles/services/profile-scope", () => ({
-  getActiveProfileIdSafe: () => profileScopeState.activeProfileId,
+  readRegistryBackedActiveProfileId: () => profileScopeState.activeProfileId,
 }));
 
 vi.mock("../services/local-media-store", () => ({
@@ -48,6 +68,7 @@ describe("useVaultMedia", () => {
     vi.clearAllMocks();
     identityState.publicKeyHex = "a".repeat(64);
     profileScopeState.activeProfileId = "default";
+    vaultBusRuntime.sync("default");
   });
 
   it("refreshes aggregated media when chat state is replaced", async () => {
@@ -73,9 +94,11 @@ describe("useVaultMedia", () => {
     expect(result.current.mediaItems).toHaveLength(0);
 
     await act(async () => {
-      window.dispatchEvent(new CustomEvent(CHAT_STATE_REPLACED_EVENT, {
-        detail: { publicKeyHex: "a".repeat(64) },
-      }));
+      vaultBusRuntime.bus.publish({
+        type: "chat-state-replaced",
+        profileId: "default",
+        publicKeyHex: "a".repeat(64),
+      });
     });
 
     await waitFor(() => {
@@ -113,9 +136,14 @@ describe("useVaultMedia", () => {
     expect(result.current.mediaItems).toHaveLength(0);
 
     await act(async () => {
-      window.dispatchEvent(new CustomEvent(MESSAGES_INDEX_REBUILT_EVENT, {
-        detail: { publicKeyHex: "a".repeat(64) },
-      }));
+      vaultBusRuntime.bus.publish({
+        type: "messages-index-rebuilt",
+        detail: {
+          publicKeyHex: "a".repeat(64),
+          profileId: "default",
+          messageCount: 1,
+        },
+      });
     });
 
     await waitFor(() => {
@@ -136,9 +164,11 @@ describe("useVaultMedia", () => {
     vaultHookMocks.getAll.mockClear();
 
     await act(async () => {
-      window.dispatchEvent(new CustomEvent(CHAT_STATE_REPLACED_EVENT, {
-        detail: { publicKeyHex: "a".repeat(64), profileId: "work" },
-      }));
+      vaultBusRuntime.bus.publish({
+        type: "chat-state-replaced",
+        profileId: "work",
+        publicKeyHex: "a".repeat(64),
+      });
     });
 
     expect(vaultHookMocks.getAll).not.toHaveBeenCalled();

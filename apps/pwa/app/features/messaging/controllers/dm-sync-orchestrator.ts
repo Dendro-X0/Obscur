@@ -54,6 +54,8 @@ export interface SyncOrchestratorParams {
     transportOwnerId: string | null;
     controllerInstanceId: string;
   }>;
+  /** Explicit profile scope for DM sync checkpoints (prefer passing over ambient registry reads). */
+  profileId?: string;
 }
 
 const isReliabilityCoreEnabled = (): boolean => {
@@ -68,7 +70,7 @@ export const syncMissedMessages = async (
   params: SyncOrchestratorParams,
   since?: Date
 ): Promise<void> => {
-  const { myPublicKeyHex, messageQueue, pool, syncStateRef, setState, onIncomingEvent, diagnostics } = params;
+  const { myPublicKeyHex, messageQueue, pool, syncStateRef, setState, onIncomingEvent, diagnostics, profileId } = params;
 
   if (!myPublicKeyHex || !messageQueue) {
     console.warn("Cannot sync: identity or message queue not available");
@@ -145,7 +147,7 @@ export const syncMissedMessages = async (
     let syncLimit = isColdStartSync ? COLD_START_SYNC_LIMIT : DEFAULT_SYNC_LIMIT;
 
     if (isReliabilityCoreEnabled()) {
-      const repair = repairTimelineCheckpoint(DM_TIMELINE_KEY, syncTimestamp);
+      const repair = repairTimelineCheckpoint(DM_TIMELINE_KEY, syncTimestamp, profileId);
       targetSince = repair.repairedSinceUnixSeconds;
       if (repair.result === "repaired") {
         incrementReliabilityMetric("sync_checkpoint_repaired");
@@ -153,7 +155,7 @@ export const syncMissedMessages = async (
       if (replayOverlapSeconds > 0) {
         targetSince = Math.max(0, targetSince - replayOverlapSeconds);
       }
-      const gap = detectSyncGap(DM_TIMELINE_KEY, targetSince);
+      const gap = detectSyncGap(DM_TIMELINE_KEY, targetSince, profileId);
       if (gap) {
         incrementReliabilityMetric("sync_gap_detected");
         const backfillRequest = createBackfillRequest(DM_TIMELINE_KEY, targetSince, gap);
@@ -260,7 +262,7 @@ export const syncMissedMessages = async (
         checkpointUpdatedToUnixSeconds = typeof aggregateMaxSeenCreatedAtUnixSeconds === "number"
           ? Math.max(syncTimestamp, aggregateMaxSeenCreatedAtUnixSeconds)
           : syncTimestamp;
-        updateTimelineCheckpoint(DM_TIMELINE_KEY, checkpointUpdatedToUnixSeconds);
+        updateTimelineCheckpoint(DM_TIMELINE_KEY, checkpointUpdatedToUnixSeconds, profileId);
         void appendCanonicalSyncCheckpointEvent({
           accountPublicKeyHex: myPublicKeyHex,
           timelineKey: DM_TIMELINE_KEY,

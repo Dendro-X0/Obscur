@@ -3,7 +3,7 @@
 import React from "react";
 import { Card } from "../../../components/ui/card";
 import { Button } from "../../../components/ui/button";
-import { User, ShieldCheck, ShieldOff, VolumeX, Volume2, Search, Trash2, EyeOff, ShieldAlert } from "lucide-react";
+import { User, ShieldCheck, ShieldOff, VolumeX, Volume2, Search, EyeOff, ShieldAlert, Info } from "lucide-react";
 import { useNetwork } from "@/app/features/network/providers/network-provider";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
@@ -38,6 +38,28 @@ export function TrustSettingsPanel() {
 
     return (
         <div className="space-y-6">
+            <Card className="p-4 bg-zinc-50/60 dark:bg-zinc-900/40 border-zinc-200/80 dark:border-zinc-800 shadow-none">
+                <div className="flex items-start gap-4">
+                    <div className="h-10 w-10 shrink-0 rounded-xl bg-zinc-200/80 dark:bg-zinc-800 flex items-center justify-center">
+                        <Info className="h-5 w-5 text-zinc-700 dark:text-zinc-300" aria-hidden />
+                    </div>
+                    <div className="space-y-2 min-w-0">
+                        <h4 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                            {t("settings.security.decentralizedReality.title")}
+                        </h4>
+                        <p className="text-[11px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
+                            {t("settings.security.decentralizedReality.limits")}
+                        </p>
+                        <p className="text-[11px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
+                            {t("settings.security.decentralizedReality.redaction")}
+                        </p>
+                        <p className="text-[11px] text-zinc-500 dark:text-zinc-500 leading-relaxed border-t border-zinc-200/80 dark:border-zinc-800 pt-2 mt-1">
+                            {t("settings.security.decentralizedReality.roadmap")}
+                        </p>
+                    </div>
+                </div>
+            </Card>
+
             <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400" />
                 <Input

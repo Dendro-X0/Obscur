@@ -1,8 +1,8 @@
 import {
-  getActiveProfileIdSafe,
   getDefaultProfileId,
   getScopedStorageKey,
 } from "@/app/features/profiles/services/profile-scope";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 
 const REMEMBER_ME_BASE_KEY = "obscur_remember_me";
 const AUTH_TOKEN_BASE_KEY = "obscur_auth_token";
@@ -24,7 +24,7 @@ const unique = (values: ReadonlyArray<string>): ReadonlyArray<string> => Array.f
 const resolveProfileCandidates = (explicitProfileId?: string | null): ReadonlyArray<string> => {
   const candidates = [
     explicitProfileId?.trim(),
-    getActiveProfileIdSafe(),
+    getResolvedProfileId(),
     getDefaultProfileId(),
   ].filter((value): value is string => Boolean(value && value.length > 0));
   return unique(candidates);
@@ -43,11 +43,11 @@ const buildScopedStorageKeyCandidates = (
 };
 
 export const getRememberMeStorageKey = (profileId?: string): string => (
-  getScopedStorageKey(REMEMBER_ME_BASE_KEY, profileId ?? getActiveProfileIdSafe())
+  getScopedStorageKey(REMEMBER_ME_BASE_KEY, profileId ?? getResolvedProfileId())
 );
 
 export const getAuthTokenStorageKey = (profileId?: string): string => (
-  getScopedStorageKey(AUTH_TOKEN_BASE_KEY, profileId ?? getActiveProfileIdSafe())
+  getScopedStorageKey(AUTH_TOKEN_BASE_KEY, profileId ?? getResolvedProfileId())
 );
 
 const resolveScopedProfileId = (profileId?: string | null): string => {
@@ -55,7 +55,7 @@ const resolveScopedProfileId = (profileId?: string | null): string => {
   if (normalized && normalized.length > 0) {
     return normalized;
   }
-  return getActiveProfileIdSafe();
+  return getResolvedProfileId();
 };
 
 const buildScopedStorageKeys = (

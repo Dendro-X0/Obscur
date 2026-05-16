@@ -2,7 +2,7 @@
 
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { AccountEvent } from "../account-event-contracts";
-import { getActiveProfileIdSafe } from "@/app/features/profiles/services/profile-scope";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import { emitAccountSyncMutation } from "@/app/shared/account-sync-mutation-signal";
 import { accountProjectionRuntime } from "./account-projection-runtime";
@@ -54,7 +54,7 @@ const appendEventsSafely = async (params: Readonly<{
     }
     return;
   }
-  const profileId = params.profileId ?? getActiveProfileIdSafe();
+  const profileId = params.profileId ?? getResolvedProfileId();
   try {
     await accountProjectionRuntime.appendCanonicalEvents({
       profileId,
@@ -89,7 +89,7 @@ export const appendCanonicalContactEvent = async (params: Readonly<{
 }>): Promise<void> => {
   const event = accountProjectionRuntime.createContactEvent({
     type: params.type,
-    profileId: params.profileId ?? getActiveProfileIdSafe(),
+    profileId: params.profileId ?? getResolvedProfileId(),
     accountPublicKeyHex: params.accountPublicKeyHex,
     peerPublicKeyHex: params.peerPublicKeyHex,
     direction: params.direction,
@@ -123,7 +123,7 @@ export const appendCanonicalDmEvent = async (params: Readonly<{
 }>): Promise<void> => {
   const event = accountProjectionRuntime.createDmEvent({
     type: params.type,
-    profileId: params.profileId ?? getActiveProfileIdSafe(),
+    profileId: params.profileId ?? getResolvedProfileId(),
     accountPublicKeyHex: params.accountPublicKeyHex,
     peerPublicKeyHex: params.peerPublicKeyHex,
     conversationId: params.conversationId,
@@ -151,7 +151,7 @@ export const appendCanonicalDmRemovedEvent = async (params: Readonly<{
   source?: AccountEvent["source"];
 }>): Promise<void> => {
   const event = accountProjectionRuntime.createDmRemovedEvent({
-    profileId: params.profileId ?? getActiveProfileIdSafe(),
+    profileId: params.profileId ?? getResolvedProfileId(),
     accountPublicKeyHex: params.accountPublicKeyHex,
     messageId: params.messageId,
     conversationId: params.conversationId,
@@ -178,7 +178,7 @@ export const appendCanonicalDecryptFailedEvent = async (params: Readonly<{
   source?: AccountEvent["source"];
 }>): Promise<void> => {
   const event = accountProjectionRuntime.createDecryptFailedEvent({
-    profileId: params.profileId ?? getActiveProfileIdSafe(),
+    profileId: params.profileId ?? getResolvedProfileId(),
     accountPublicKeyHex: params.accountPublicKeyHex,
     peerPublicKeyHex: params.peerPublicKeyHex,
     messageId: params.messageId,
@@ -203,7 +203,7 @@ export const appendCanonicalSyncCheckpointEvent = async (params: Readonly<{
   source?: AccountEvent["source"];
 }>): Promise<void> => {
   const event = accountProjectionRuntime.createSyncCheckpointEvent({
-    profileId: params.profileId ?? getActiveProfileIdSafe(),
+    profileId: params.profileId ?? getResolvedProfileId(),
     accountPublicKeyHex: params.accountPublicKeyHex,
     timelineKey: params.timelineKey,
     lastProcessedAtUnixSeconds: params.lastProcessedAtUnixSeconds,

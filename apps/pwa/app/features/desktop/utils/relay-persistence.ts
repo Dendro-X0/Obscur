@@ -5,6 +5,7 @@
  * Maintains relay connections across app restarts
  */
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 
 export interface PersistedRelayState {
   url: string;
@@ -14,7 +15,7 @@ export interface PersistedRelayState {
 }
 
 const STORAGE_KEY = "obscur.relay.persistence";
-const getRelayPersistenceStorageKey = (): string => getScopedStorageKey(STORAGE_KEY);
+const getRelayPersistenceStorageKey = (): string => getScopedStorageKey(STORAGE_KEY, getResolvedProfileId());
 
 /**
  * Save relay state to persistent storage

@@ -9,6 +9,13 @@ import {
   suppressMessageDeleteTombstone,
 } from "./message-delete-tombstone-store";
 
+vi.mock("@dweb/db", () => ({
+  isTauri: () => false,
+  dbGetTombstones: vi.fn(async () => []),
+  dbInsertTombstone: vi.fn(async () => undefined),
+  dbDeleteAllTombstonesForProfile: vi.fn(async () => undefined),
+}));
+
 vi.mock("@/app/shared/account-sync-mutation-signal", () => ({
   emitAccountSyncMutation: vi.fn(),
 }));
@@ -33,8 +40,8 @@ describe("message-delete-tombstone-store", () => {
     expect(loadSuppressedMessageDeleteIds().size).toBe(0);
   });
 
-  it("replaces tombstones with normalized latest entries", () => {
-    replaceMessageDeleteTombstones([
+  it("replaces tombstones with normalized latest entries", async () => {
+    await replaceMessageDeleteTombstones([
       { id: " legacy-id ", deletedAtUnixMs: 1_000 },
       { id: "legacy-id", deletedAtUnixMs: 2_000 },
       { id: "stale-id", deletedAtUnixMs: -1 },
@@ -44,5 +51,32 @@ describe("message-delete-tombstone-store", () => {
       { id: "legacy-id", deletedAtUnixMs: 2_000 },
     ]);
     expect(emitAccountSyncMutation).toHaveBeenCalledWith("message_delete_tombstones_changed");
+  });
+
+  it("merges backup tombstones with locally-written tombstones so restore cannot resurrect deleted messages", async () => {
+    // Simulate: user deleted "local-only-id" locally after the last backup was taken.
+    suppressMessageDeleteTombstone("local-only-id", 3_000);
+
+    // Simulate: restore arrives with a backup that predates the local delete.
+    await replaceMessageDeleteTombstones([
+      { id: "backup-id", deletedAtUnixMs: 1_000 },
+    ], 3_001);
+
+    const ids = loadSuppressedMessageDeleteIds(3_001);
+    expect(ids.has("local-only-id")).toBe(true);
+    expect(ids.has("backup-id")).toBe(true);
+  });
+
+  it("keeps the most recent deletedAtUnixMs when both backup and local have an entry for the same id", async () => {
+    suppressMessageDeleteTombstone("shared-id", 5_000);
+
+    // Backup has an older timestamp for the same id.
+    await replaceMessageDeleteTombstones([
+      { id: "shared-id", deletedAtUnixMs: 2_000 },
+    ], 5_001);
+
+    const entries = loadMessageDeleteTombstoneEntries(5_001);
+    const entry = entries.find((e) => e.id === "shared-id");
+    expect(entry?.deletedAtUnixMs).toBe(5_000);
   });
 });

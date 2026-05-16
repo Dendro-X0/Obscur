@@ -298,6 +298,7 @@ vi.mock("@/app/features/groups/providers/group-provider", () => ({
   useGroups: () => ({
     createdGroups: messagingState.createdGroups,
     communityRosterByConversationId: {},
+    communityKnownParticipantDirectoryByConversationId: {},
     isNewGroupOpen: false,
     setIsNewGroupOpen: testFns.setIsNewGroupOpen,
     isGroupInfoOpen: false,

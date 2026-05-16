@@ -6,12 +6,11 @@ import { messagingDB } from "@dweb/storage/indexed-db";
 import { toDmConversationId } from "@/app/features/messaging/utils/dm-conversation-id";
 import { extractAttachmentsFromContent } from "@/app/features/messaging/utils/logic";
 import { isVoiceCallControlPayload } from "@/app/features/messaging/services/realtime-voice-signaling";
-import {
-  loadMessageDeleteTombstoneEntries,
-} from "@/app/features/messaging/services/message-delete-tombstone-store";
+import { messagingClientOperations } from "@/app/features/messaging/services/messaging-client-operations";
+import { toConversationIdDiagnosticLabel } from "@dweb/client-gateway/messaging-diagnostics";
 import type { Attachment, PersistedChatState, PersistedGroupMessage, PersistedMessage } from "@/app/features/messaging/types";
 import { normalizePublicKeyHex } from "@/app/features/profile/utils/normalize-public-key-hex";
-import { getActiveProfileIdSafe } from "@/app/features/profiles/services/profile-scope";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { PrivacySettingsService } from "@/app/features/settings/services/privacy-settings-service";
 import { accountEventStore } from "./account-event-store";
 import { replayAccountEvents } from "./account-event-reducer";
@@ -396,17 +395,6 @@ const hasOutgoingMessageEvidence = (
   }).isOutgoing;
 };
 
-const toConversationIdDiagnosticLabel = (value: string): string => {
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return "unknown";
-  }
-  if (trimmed.length <= 20) {
-    return trimmed;
-  }
-  return `${trimmed.slice(0, 8)}...${trimmed.slice(-8)}`;
-};
-
 const toCanonicalDmConversationId = (params: Readonly<{
   conversationId: string;
   myPublicKeyHex: PublicKeyHex;
@@ -762,23 +750,44 @@ export const hydrateChatStateFromIndexedMessages = async (
 
   if (shouldRunProjectionFallback) {
     try {
-      const profileId = getActiveProfileIdSafe();
+      const profileId = getResolvedProfileId();
       const eventLogEntries = await accountEventStore.loadEvents({
         profileId,
         accountPublicKeyHex: publicKeyHex,
       });
       const projection = replayAccountEvents(eventLogEntries);
       if (projection) {
-        const mergedMessagesByConversationId: Record<string, ReadonlyArray<PersistedMessage>> = {
-          ...nextState.messagesByConversationId,
-        };
+        const rawToCanonicalConvId = new Map<string, string>();
+        Object.entries(projection.conversationsById).forEach(([rawId, conv]) => {
+          if (!conv?.peerPublicKeyHex) return;
+          const canonical = toDmConversationId({ myPublicKeyHex: publicKeyHex, peerPublicKeyHex: conv.peerPublicKeyHex });
+          if (canonical) rawToCanonicalConvId.set(rawId, canonical);
+        });
+        const mergedMessagesByConversationId: Record<string, ReadonlyArray<PersistedMessage>> = {};
+        Object.entries(nextState.messagesByConversationId).forEach(([rawConvId, messages]) => {
+          if (messages.length === 0) return;
+          const canonicalId = rawToCanonicalConvId.get(rawConvId) ?? rawConvId;
+          const existing = mergedMessagesByConversationId[canonicalId] ?? [];
+          mergedMessagesByConversationId[canonicalId] = mergePersistedMessages(existing, messages);
+        });
         const mergedConversationsById = new Map<string, PersistedChatState["createdConnections"][number]>(
-          nextState.createdConnections.map((conversation) => [conversation.id, conversation] as const),
+          nextState.createdConnections.map((conversation) => {
+            const canonicalId = toDmConversationId({
+              myPublicKeyHex: publicKeyHex,
+              peerPublicKeyHex: conversation.pubkey,
+            }) ?? conversation.id;
+            return [canonicalId, { ...conversation, id: canonicalId }] as const;
+          }),
         );
         Object.entries(projection.messagesByConversationId).forEach(([conversationId, timeline]) => {
           if (timeline.length === 0) {
             return;
           }
+          const peerPublicKeyHex = projection.conversationsById[conversationId]?.peerPublicKeyHex
+            ?? timeline[timeline.length - 1]?.peerPublicKeyHex;
+          const canonicalConversationId = peerPublicKeyHex
+            ? (toDmConversationId({ myPublicKeyHex: publicKeyHex, peerPublicKeyHex }) ?? conversationId)
+            : conversationId;
           const mappedMessages: ReadonlyArray<PersistedMessage> = timeline.map((entry) => {
             const isOutgoing = entry.direction === "outgoing";
             const fallbackAttachments = extractAttachmentsFromContent(entry.plaintextPreview, {
@@ -794,18 +803,19 @@ export const hydrateChatStateFromIndexedMessages = async (
               ...(fallbackAttachments.length > 0 ? { attachments: fallbackAttachments } : {}),
             };
           });
-          const existingMessages = mergedMessagesByConversationId[conversationId] ?? [];
+          const existingMessages = mergedMessagesByConversationId[canonicalConversationId] ?? [];
           const mergedMessages = mergePersistedMessages(existingMessages, mappedMessages);
-          mergedMessagesByConversationId[conversationId] = mergedMessages;
+          mergedMessagesByConversationId[canonicalConversationId] = mergedMessages;
+          if (conversationId !== canonicalConversationId) {
+            delete mergedMessagesByConversationId[conversationId];
+          }
           const lastMessage = mergedMessages[mergedMessages.length - 1];
-          const peerPublicKeyHex = projection.conversationsById[conversationId]?.peerPublicKeyHex
-            ?? timeline[timeline.length - 1]?.peerPublicKeyHex;
           if (!lastMessage || !peerPublicKeyHex) {
             return;
           }
-          const existingConversation = mergedConversationsById.get(conversationId);
-          mergedConversationsById.set(conversationId, {
-            id: conversationId,
+          const existingConversation = mergedConversationsById.get(canonicalConversationId);
+          mergedConversationsById.set(canonicalConversationId, {
+            id: canonicalConversationId,
             displayName: existingConversation?.displayName ?? peerPublicKeyHex.slice(0, 8),
             pubkey: peerPublicKeyHex,
             lastMessage: toPreview(lastMessage.content || existingConversation?.lastMessage || ""),
@@ -850,7 +860,7 @@ export const hydrateChatStateFromIndexedMessages = async (
   }
 
   nextState = sanitizePersistedChatStateMessagesByDeleteContract(nextState, {
-    durableDeleteIds: toMessageDeleteTombstoneIdSet(loadMessageDeleteTombstoneEntries()),
+    durableDeleteIds: toMessageDeleteTombstoneIdSet(messagingClientOperations.loadDmTombstoneEntries()),
   }) ?? nextState;
 
   const hydratedChatStateDiagnostics = summarizePersistedChatStateMessages(nextState, publicKeyHex);

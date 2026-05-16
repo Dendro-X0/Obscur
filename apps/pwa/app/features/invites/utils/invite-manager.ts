@@ -23,6 +23,7 @@ import { connectionStore } from './connection-store';
 import { profileManager } from './profile-manager';
 import { openInviteDb } from './db/open-invite-db';
 import { getIdentitySnapshot } from '../../auth/hooks/use-identity';
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import {
   CONNECTION_REQUESTS_STORE,
   INVITE_LINKS_STORE,
@@ -142,9 +143,9 @@ const getCoordinationBaseUrl = (): string | null => {
   return null;
 };
 
-const getRelayListStorageKey = (publicKeyHex: string): string => {
-  return getScopedStorageKey(`obscur.relay_list.v1.${publicKeyHex}`);
-};
+const getRelayListStorageKey = (publicKeyHex: string): string => (
+  getScopedStorageKey(`obscur.relay_list.v1.${publicKeyHex}`, getResolvedProfileId())
+);
 
 const getLegacyRelayListStorageKey = (publicKeyHex: string): string => {
   return `obscur.relay_list.v1.${publicKeyHex}`;

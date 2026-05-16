@@ -54,7 +54,7 @@ const mocks = vi.hoisted(() => {
   return {
     setEntries,
     openIdentityDb,
-    getActiveProfileIdSafe: vi.fn(() => "default"),
+    getResolvedProfileId: vi.fn(() => "default"),
     getProfileScopeOverride: vi.fn<() => string | null>(() => null),
     getRegistryState: vi.fn(() => ({
       activeProfileId: "default",
@@ -78,9 +78,12 @@ vi.mock("./open-identity-db", () => ({
 }));
 
 vi.mock("@/app/features/profiles/services/profile-scope", () => ({
-  getActiveProfileIdSafe: mocks.getActiveProfileIdSafe,
   getProfileScopeOverride: mocks.getProfileScopeOverride,
   getProfileIdentityDbKey: (profileId: string) => `identity::${profileId}`,
+}));
+
+vi.mock("@/app/features/profiles/services/profile-runtime-scope", () => ({
+  getResolvedProfileId: mocks.getResolvedProfileId,
 }));
 
 vi.mock("@/app/features/profiles/services/profile-registry-service", () => ({
@@ -98,7 +101,7 @@ describe("identity-profile-binding", () => {
     localStorage.clear();
     sessionStorage.clear();
     mocks.setEntries([]);
-    mocks.getActiveProfileIdSafe.mockReturnValue("default");
+    mocks.getResolvedProfileId.mockReturnValue("default");
     mocks.getProfileScopeOverride.mockReturnValue(null);
     mocks.getRegistryState.mockReturnValue({
       activeProfileId: "default",
@@ -155,7 +158,7 @@ describe("identity-profile-binding", () => {
   });
 
   it("keeps the bound desktop profile slot authoritative when a profile scope override exists", async () => {
-    mocks.getActiveProfileIdSafe.mockReturnValue("profile-2");
+    mocks.getResolvedProfileId.mockReturnValue("profile-2");
     mocks.getProfileScopeOverride.mockReturnValue("profile-2");
 
     const { ensureIdentityProfileBinding } = await import("./identity-profile-binding");
@@ -178,7 +181,7 @@ describe("identity-profile-binding", () => {
       username: "Echo",
     };
     mocks.setEntries([{ key: "identity::profile-b", value: record }]);
-    mocks.getActiveProfileIdSafe.mockReturnValue("profile-a");
+    mocks.getResolvedProfileId.mockReturnValue("profile-a");
     mocks.getProfileScopeOverride.mockReturnValue("profile-a");
     localStorage.setItem(`dweb.nostr.pwa.chatState.v2.${record.publicKeyHex}::profile-b`, JSON.stringify({ createdConnections: [{ id: "peer-1" }] }));
     sessionStorage.setItem("obscur_auth_token::profile-b", "token-b");
@@ -198,7 +201,7 @@ describe("identity-profile-binding", () => {
 
   it("remaps account-scoped local state into explicit profile slot even when identity binding was cleared", async () => {
     const publicKeyHex = "f".repeat(64) as any;
-    mocks.getActiveProfileIdSafe.mockReturnValue("profile-a");
+    mocks.getResolvedProfileId.mockReturnValue("profile-a");
     mocks.getProfileScopeOverride.mockReturnValue("profile-a");
     localStorage.setItem(`dweb.nostr.pwa.chatState.v2.${publicKeyHex}::profile-b`, JSON.stringify({ createdConnections: [{ id: "peer-2" }] }));
 

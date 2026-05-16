@@ -12,7 +12,8 @@ import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import type { RelayPoolContract, DeleteResult } from "./dm-controller-types";
 import { sendDm } from "./dm-send-pipeline";
-import { suppressMessageDeleteTombstone } from "../../services/message-delete-tombstone-store";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
+import { messagingClientOperations } from "@/app/features/messaging/services/messaging-client-operations";
 import { createDeleteCommandMessage, encodeCommandMessage } from "../../utils/commands";
 
 // ---------------------------------------------------------------------------
@@ -33,9 +34,13 @@ export const deleteMessages = async (params: Readonly<{
     return { success: false, deletedMessageIds: [], error: "No message IDs to delete" };
   }
 
-  // Tombstone locally first — prevents re-processing from relay sync
   const nowMs = Date.now();
-  targetMessageIds.forEach(id => suppressMessageDeleteTombstone(id, nowMs));
+  await messagingClientOperations.persistDmSuppressionOnly({
+    conversationId: params.conversationId,
+    messageIdentityIds: targetMessageIds,
+    deletedAtUnixMs: nowMs,
+    profileId: getResolvedProfileId() ?? undefined,
+  });
 
   // Build delete command payload — use the canonical __dweb_cmd__ prefix
   // so the sender's controller marks it as kind:"command" and the receiver's

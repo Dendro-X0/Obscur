@@ -12,6 +12,7 @@ export type RuntimeNotificationParams = Readonly<{
   title: string;
   body: string;
   tag?: string;
+  icon?: string;
   onClick?: () => void;
   data?: Record<string, unknown>;
   requireInteraction?: boolean;
@@ -70,6 +71,7 @@ export const showRuntimeNotification = async (
       title: params.title,
       body: params.body,
       tag: params.tag,
+      icon: params.icon,
       data: params.data,
       requireInteraction: params.requireInteraction,
       actions: params.actions,
@@ -90,6 +92,7 @@ export const showRuntimeNotification = async (
             const serviceWorkerOptions: NotificationOptions = {
               body: params.body,
               tag: params.tag,
+              icon: params.icon,
               data: params.data,
               requireInteraction: params.requireInteraction,
             };
@@ -108,6 +111,7 @@ export const showRuntimeNotification = async (
     const browserOptions: NotificationOptions = {
       body: params.body,
       tag: params.tag,
+      icon: params.icon,
       data: params.data,
       requireInteraction: params.requireInteraction,
     };

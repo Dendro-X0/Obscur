@@ -44,8 +44,8 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger
 } from "../../../components/ui/dropdown-menu";
-// Using fixed hook with CRDT-based member roster to prevent member thinning
-import { useSealedCommunityFixed as useSealedCommunity } from "../hooks/use-sealed-community-fixed";
+import { useSealedCommunity } from "../hooks/use-sealed-community";
+import { useCommunityParticipantRosterReadModel } from "../hooks/use-community-participant-roster-read-model";
 import { useUploadService } from "@/app/features/messaging/lib/upload-service";
 import { useGroups } from "../providers/group-provider";
 import { toast } from "../../../components/ui/toast";
@@ -62,6 +62,7 @@ import type { GroupConversation } from "../../messaging/types";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { GroupAccessMode } from "../types";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import {
     isConversationNotificationsEnabled,
     setConversationNotificationsEnabled,
@@ -71,12 +72,8 @@ import { useNetwork } from "@/app/features/network/providers/network-provider";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
 import { summarizeCommunityOperatorHealth } from "../services/community-operator-health";
 import { discoveryCache } from "@/app/features/search/services/discovery-cache";
-import {
-    filterVisibleGroupMembers,
-    resolveCommunitySeedMemberPubkeys,
-    resolveVisibleCommunityMemberPubkeys,
-    stabilizeCommunityMemberPubkeys,
-} from "../services/community-visible-members";
+import { filterVisibleGroupMembers } from "../services/community-visible-members";
+import { getResolvedClientGateway } from "@/app/features/profiles/services/resolve-client-gateway";
 
 interface GroupManagementDialogProps {
     isOpen: boolean;
@@ -103,11 +100,9 @@ export function GroupManagementDialog({
     const { presence } = useNetwork();
     const localMemberPubkey = myPublicKeyHex;
     const initialMemberSeed = React.useMemo<ReadonlyArray<PublicKeyHex>>(
-        () => resolveCommunitySeedMemberPubkeys({
-            seededMemberPubkeys: [
-                ...((communityKnownParticipantDirectoryByConversationId[group.id]?.participantPubkeys ?? []) as ReadonlyArray<PublicKeyHex>),
-                ...(((group.memberPubkeys as ReadonlyArray<PublicKeyHex> | undefined) ?? [])),
-            ],
+        () => getResolvedClientGateway().communityRoster.resolveSeedMemberPubkeysFromDirectory({
+            directory: communityKnownParticipantDirectoryByConversationId[group.id] ?? null,
+            persistedGroupMemberPubkeys: group.memberPubkeys,
             projectionMemberPubkeys: communityRosterByConversationId[group.id]?.activeMemberPubkeys,
             localMemberPubkey,
         }),
@@ -155,9 +150,11 @@ export function GroupManagementDialog({
     const [resolvedNames, setResolvedNames] = useState<Record<string, string>>({});
     const [mutedMembers, setMutedMembers] = useState<string[]>([]);
     const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-    const getScopedMutedMembersKey = (groupId: string): string => getScopedStorageKey(`obscur_group_muted_members_${groupId}`);
+    const getScopedMutedMembersKey = (groupId: string): string => (
+        getScopedStorageKey(`obscur_group_muted_members_${groupId}`, getResolvedProfileId())
+    );
     const getLegacyMutedMembersKey = (groupId: string): string => `obscur_group_muted_members_${groupId}`;
-    
+    const notificationPreferenceProfileId = getResolvedProfileId();
     const isLocalAdmin = group.adminPubkeys?.includes(myPublicKeyHex || "") || false;
     const isAdmin = state.membership.role === "member" || isLocalAdmin;
     const isOwner = isAdmin; // In Phase 1/2, all members are equal owners of the encrypted space
@@ -232,8 +229,8 @@ export function GroupManagementDialog({
             } catch (e) { }
         }
 
-        setNotificationsEnabled(isConversationNotificationsEnabled(group));
-    }, [group.groupId]);
+        setNotificationsEnabled(isConversationNotificationsEnabled(group, notificationPreferenceProfileId));
+    }, [group.groupId, group.id, notificationPreferenceProfileId]);
 
     const toggleMute = (pk: string) => {
         const next = mutedMembers.includes(pk)
@@ -250,6 +247,7 @@ export function GroupManagementDialog({
         setConversationNotificationsEnabled({
             conversation: group,
             enabled: next,
+            profileId: getResolvedProfileId(),
         });
         toast.success(next ? "Notifications enabled" : "Notifications disabled");
     };
@@ -263,46 +261,34 @@ export function GroupManagementDialog({
         }
     }, [state.metadata, group.displayName]);
 
-    const knownParticipantRegistry = React.useMemo<ReadonlyArray<PublicKeyHex>>(
-        () => initialMemberSeed,
-        [initialMemberSeed]
+    const directoryParticipantPubkeys = React.useMemo(
+        () => (
+            communityKnownParticipantDirectoryByConversationId[group.id]?.participantPubkeys ?? []
+        ) as ReadonlyArray<PublicKeyHex>,
+        [communityKnownParticipantDirectoryByConversationId, group.id],
     );
-    const authorEvidencePubkeys = React.useMemo(
-        () => Array.from(new Set(
-            state.messages
-                .map((message) => message.pubkey?.trim() ?? "")
-                .filter((pubkey) => pubkey.length > 0)
-        )) as ReadonlyArray<PublicKeyHex>,
-        [state.messages]
-    );
-    const activeMemberRegistry = React.useMemo(
-        () => resolveVisibleCommunityMemberPubkeys({
-            seededMemberPubkeys: knownParticipantRegistry,
-            projectionMemberPubkeys: communityRosterByConversationId[group.id]?.activeMemberPubkeys,
-            authorEvidencePubkeys,
-            localMemberPubkey,
-            leftMemberPubkeys: state.leftMembers,
-            expelledMemberPubkeys: state.expelledMembers,
-        }),
-        [authorEvidencePubkeys, communityRosterByConversationId, group.id, knownParticipantRegistry, localMemberPubkey, state.expelledMembers, state.leftMembers]
-    );
-    const [stableParticipantRegistry, setStableParticipantRegistry] = useState<ReadonlyArray<PublicKeyHex>>(activeMemberRegistry);
-    useEffect(() => {
-        setStableParticipantRegistry((previous) => {
-            const next = stabilizeCommunityMemberPubkeys({
-                previousMemberPubkeys: previous,
-                nextMemberPubkeys: activeMemberRegistry,
-                leftMemberPubkeys: state.leftMembers,
-                expelledMemberPubkeys: state.expelledMembers,
-            });
-            return next.nextMemberPubkeys.join(",") === previous.join(",")
-                ? previous
-                : next.nextMemberPubkeys;
-        });
-    }, [activeMemberRegistry, state.expelledMembers, state.leftMembers]);
+    const relayEvidenceConfidence = (
+        state as { relayEvidenceRef?: { confidenceLevel: "seed_only" | "warming_up" | "partial_eose" | "steady_state" } }
+    ).relayEvidenceRef?.confidenceLevel ?? "seed_only";
+    const { displayPubkeys: rosterDisplayPubkeys } = useCommunityParticipantRosterReadModel({
+        conversationId: group.id,
+        directoryParticipantPubkeys,
+        persistedGroupMemberPubkeys: (group.memberPubkeys ?? []) as ReadonlyArray<PublicKeyHex>,
+        projectionMemberPubkeys: communityRosterByConversationId[group.id]?.activeMemberPubkeys as ReadonlyArray<PublicKeyHex> | undefined,
+        rosterSeedPubkeys: initialMemberSeed,
+        communityMessages: state.messages,
+        localMemberPubkey,
+        leftMemberPubkeys: state.leftMembers as ReadonlyArray<PublicKeyHex>,
+        expelledMemberPubkeys: state.expelledMembers as ReadonlyArray<PublicKeyHex>,
+        relayEvidenceConfidence,
+        persistedEvidenceOwnerPubkey: localMemberPubkey,
+        ledgerGroupId: group.groupId,
+        ledgerRelayUrl: group.relayUrl,
+        applyTerminalMembershipExclusions: false,
+    });
     const visibleMemberRegistry = React.useMemo(
-        () => filterVisibleGroupMembers(stableParticipantRegistry, (pubkey) => discoveryCache.getProfile(pubkey)),
-        [stableParticipantRegistry]
+        () => filterVisibleGroupMembers(rosterDisplayPubkeys, (pubkey) => discoveryCache.getProfile(pubkey)),
+        [discoveryCache, rosterDisplayPubkeys],
     );
     const onlineMemberCount = React.useMemo(
         () => visibleMemberRegistry.filter((pubkey) => presence.isPeerOnline(pubkey)).length,
@@ -323,8 +309,8 @@ export function GroupManagementDialog({
     const handleLeave = async () => {
         setIsProcessing(true);
         try {
-            await leaveNip29Group();
             leaveGroup({ groupId: group.groupId, relayUrl: group.relayUrl, conversationId: group.id });
+            await leaveNip29Group();
             onClose();
             toast.success("Connection Severed");
         } catch (error) {
@@ -338,8 +324,8 @@ export function GroupManagementDialog({
     const handlePurge = async () => {
         setIsProcessing(true);
         try {
-            await leaveNip29Group();
             leaveGroup({ groupId: group.groupId, relayUrl: group.relayUrl, conversationId: group.id });
+            await leaveNip29Group();
             onClose();
             toast.success("Community Purged");
         } catch (error) {
@@ -376,7 +362,7 @@ export function GroupManagementDialog({
 
     // Metadata subscription for member names
     useEffect(() => {
-        const activeMemberList = activeMemberRegistry;
+        const activeMemberList = visibleMemberRegistry;
         if (!isOpen || !activeMemberList.length || !pool) return;
         const subId = `mgmt-names-${Math.random().toString(36).substring(7)}`;
         const filter = { kinds: [0], authors: activeMemberList as string[] };
@@ -401,7 +387,7 @@ export function GroupManagementDialog({
         return () => {
             try { pool.sendToOpen(JSON.stringify(["CLOSE", subId])); cleanup(); } catch (e) { }
         };
-    }, [activeMemberRegistry, isOpen, pool]);
+    }, [visibleMemberRegistry, isOpen, pool]);
 
     if (!isOpen) return null;
 
@@ -1050,7 +1036,7 @@ export function GroupManagementDialog({
                 communityId={group.communityId}
                 genesisEventId={group.genesisEventId}
                 creatorPubkey={group.creatorPubkey}
-                currentMemberPubkeys={stableParticipantRegistry}
+                currentMemberPubkeys={rosterDisplayPubkeys}
                 metadata={{
                     id: group.groupId,
                     name: state.metadata?.name || group.displayName,

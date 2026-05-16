@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import { messagingDB } from "@dweb/storage/indexed-db";
 import type { Message, MediaItem } from "../../messaging/types";
-import { CHAT_STATE_REPLACED_EVENT } from "../../messaging/services/chat-state-store";
-import { MESSAGES_INDEX_REBUILT_EVENT } from "../../messaging/services/message-persistence-service";
+import { useOptionalProfileMessageBus } from "../../profiles/providers/profile-runtime-provider";
+import { getResolvedProfileId } from "../../profiles/services/profile-runtime-scope";
+import { subscribeChatStateReplacedDual } from "../../profiles/services/subscribe-chat-state-replaced-dual";
+import { subscribeMessagesIndexRebuiltDual } from "../../profiles/services/subscribe-messages-index-rebuilt-dual";
 import { useIdentity } from "../../auth/hooks/use-identity";
-import { getActiveProfileIdSafe } from "../../profiles/services/profile-scope";
 import {
     deleteLocalMediaCacheItem,
     downloadAttachmentToUserPath,
@@ -30,12 +31,13 @@ export type VaultMediaItem = Readonly<MediaItem & {
  */
 export function useVaultMedia() {
     const identity = useIdentity();
+    const optionalProfileBus = useOptionalProfileMessageBus();
     const publicKeyHex = identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex ?? null;
     const [mediaItems, setMediaItems] = useState<ReadonlyArray<VaultMediaItem>>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<Error | null>(null);
 
-    const refresh = async () => {
+    const refresh = useCallback(async () => {
         if (!publicKeyHex) {
             setMediaItems([]);
             setError(null);
@@ -89,33 +91,36 @@ export function useVaultMedia() {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [publicKeyHex]);
 
     useEffect(() => {
         void refresh();
-    }, [publicKeyHex]);
+    }, [publicKeyHex, refresh]);
 
     useEffect(() => {
-        if (typeof window === "undefined") {
-            return;
-        }
-        const onScopedRefresh = (event: Event): void => {
-            const detail = (event as CustomEvent<{ publicKeyHex?: string; profileId?: string }>).detail;
-            if (detail?.publicKeyHex && publicKeyHex && detail.publicKeyHex !== publicKeyHex) {
+        const unsubIndex = subscribeMessagesIndexRebuiltDual((detail) => {
+            if (detail.publicKeyHex && publicKeyHex && detail.publicKeyHex !== publicKeyHex) {
                 return;
             }
-            if (detail?.profileId && detail.profileId !== getActiveProfileIdSafe()) {
+            if (detail.profileId && detail.profileId !== getResolvedProfileId()) {
                 return;
             }
             void refresh();
-        };
-        window.addEventListener(CHAT_STATE_REPLACED_EVENT, onScopedRefresh);
-        window.addEventListener(MESSAGES_INDEX_REBUILT_EVENT, onScopedRefresh as EventListener);
+        }, optionalProfileBus);
+        const unsubChatReplace = subscribeChatStateReplacedDual((detail) => {
+            if (detail?.publicKeyHex && publicKeyHex && detail.publicKeyHex !== publicKeyHex) {
+                return;
+            }
+            if (detail?.profileId && detail.profileId !== getResolvedProfileId()) {
+                return;
+            }
+            void refresh();
+        }, optionalProfileBus);
         return () => {
-            window.removeEventListener(CHAT_STATE_REPLACED_EVENT, onScopedRefresh);
-            window.removeEventListener(MESSAGES_INDEX_REBUILT_EVENT, onScopedRefresh as EventListener);
+            unsubIndex();
+            unsubChatReplace();
         };
-    }, [publicKeyHex]);
+    }, [optionalProfileBus, publicKeyHex, refresh]);
 
     const stats = useMemo(() => {
         const imageCount = mediaItems.filter(item => item.attachment.kind === "image").length;

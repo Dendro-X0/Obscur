@@ -1,142 +1,146 @@
 # Obscur Documentation
 
-Use this folder as the canonical engineering encyclopedia for architecture,
-protocols, runtime ownership, roadmap execution, release truth, and recovery
-triage.
+**Navigation hub only.** All content lives in module folders below. Start here; do not expect canonical guides at the `/docs` root.
 
-## Reading Paths
+_Last reviewed: 2026-05-15 (v1.5.0 doc restructure)_
 
-### Fast Start
+---
 
-Read these first when resuming work:
+## Start here (humans and agents)
 
-1. [Project Overview](./01-project-overview.md)
-2. [Maintainer Playbook](./08-maintainer-playbook.md)
-3. [Current Session Handoff](./handoffs/current-session.md)
-4. [Core Architecture Truth Map](./12-core-architecture-truth-map.md)
-5. [Module Owner Index](./14-module-owner-index.md)
+| Priority | Document | Purpose |
+|----------|----------|---------|
+| 1 | [Maintainer playbook](./encyclopedia/08-maintainer-playbook.md) | How to run, test, triage, and ship |
+| 2 | [Current session handoff](./handoffs/current-session.md) | Live continuity — read before coding |
+| 3 | [Architecture truth map](./encyclopedia/12-core-architecture-truth-map.md) | Who owns what (single source) |
+| 4 | [Module owner index](./encyclopedia/14-module-owner-index.md) | File-level ownership |
+| 5 | [v1.5.0 release notes](./releases/v1.5.0-release.md) | What ships in this version |
 
-### Encyclopedia Path
+**Agent rules:** repository root [`AGENTS.md`](../AGENTS.md).
 
-Read in this order when you need the whole system picture:
+---
 
-1. [Repository Map](./02-repository-map.md)
-2. [Runtime Architecture](./03-runtime-architecture.md)
-3. [Messaging and Groups](./04-messaging-and-groups.md)
-4. [Trust Shelf](./trust/README.md)
-5. [Protocols Shelf](./protocols/README.md)
-6. [Rewrite Shelf](./rewrite/README.md)
+## Encyclopedia (numbered guides)
 
-## Shelves
+Canonical long-form guides — read in order when onboarding:
 
-### Root Canonical Docs
+| # | Guide |
+|---|--------|
+| 01 | [Project overview](./encyclopedia/01-project-overview.md) |
+| 02 | [Repository map](./encyclopedia/02-repository-map.md) |
+| 03 | [Runtime architecture](./encyclopedia/03-runtime-architecture.md) |
+| 04 | [Messaging and groups](./encyclopedia/04-messaging-and-groups.md) |
+| 05 | [Performance and load testing](./encyclopedia/05-performance-and-load-testing.md) |
+| 06 | [Testing and quality gates](./encyclopedia/06-testing-and-quality-gates.md) |
+| 07 | [Operations and release flow](./encyclopedia/07-operations-and-release-flow.md) |
+| 08 | [Maintainer playbook](./encyclopedia/08-maintainer-playbook.md) |
+| 09 | [Mobile / native parity](./encyclopedia/09-mobile-native-parity-matrix.md) |
+| 10 | [Community and groups overhaul](./encyclopedia/10-community-and-groups-overhaul.md) |
+| 11 | [Program milestones and stability history](./encyclopedia/11-program-milestones-and-stability-history.md) |
+| 12 | [Core architecture truth map](./encyclopedia/12-core-architecture-truth-map.md) |
+| 13 | [Relay and startup failure atlas](./encyclopedia/13-relay-and-startup-failure-atlas.md) |
+| 14 | [Module owner index](./encyclopedia/14-module-owner-index.md) |
+| 15 | [Relay foundation hardening](./encyclopedia/15-relay-foundation-hardening-spec.md) |
+| 16 | [Cross-device group visibility incident](./encyclopedia/16-cross-device-group-visibility-incident.md) |
+| 17 | [DM delete / restore divergence](./encyclopedia/17-dm-delete-restore-divergence-incident.md) |
+| 18 | [Account scope and discovery guardrails](./encyclopedia/18-account-scope-and-discovery-guardrails.md) |
+| 19 | [Community data integrity spec](./encyclopedia/19-community-data-integrity-spec.md) |
+| 20 | [Community verification guide](./encyclopedia/20-community-verification-guide.md) |
 
-These stay at the root because other repo contracts and startup instructions
-refer to them directly.
+---
 
-1. [01 Project Overview](./01-project-overview.md)
-2. [02 Repository Map](./02-repository-map.md)
-3. [03 Runtime Architecture](./03-runtime-architecture.md)
-4. [04 Messaging and Groups](./04-messaging-and-groups.md)
-5. [05 Performance and Load Testing](./05-performance-and-load-testing.md)
-6. [06 Testing and Quality Gates](./06-testing-and-quality-gates.md)
-7. [07 Operations and Release Flow](./07-operations-and-release-flow.md)
-8. [08 Maintainer Playbook](./08-maintainer-playbook.md)
-9. [09 Mobile Native Parity Matrix](./09-mobile-native-parity-matrix.md)
-10. [10 Community and Groups Overhaul](./10-community-and-groups-overhaul.md)
-11. [11 Program Milestones and Stability History](./11-program-milestones-and-stability-history.md)
-12. [12 Core Architecture Truth Map](./12-core-architecture-truth-map.md)
-13. [13 Relay and Startup Failure Atlas](./13-relay-and-startup-failure-atlas.md)
-14. [14 Module Owner Index](./14-module-owner-index.md)
-15. [15 Relay Foundation Hardening Spec](./15-relay-foundation-hardening-spec.md)
-16. [16 Cross-Device Group Visibility Incident](./16-cross-device-group-visibility-incident.md)
-17. [17 DM Delete/Restore Divergence Incident](./17-dm-delete-restore-divergence-incident.md)
-18. [18 Account-Scope and Discovery Guardrails](./18-account-scope-and-discovery-guardrails.md)
+## Module shelves
 
-### Trust
+### Program and releases
 
-1. [Trust Shelf Index](./trust/README.md)
-2. [19 Pre-Public Reliability and Trust Contract](./trust/19-pre-public-reliability-and-trust-contract.md)
-3. [20 Core Function Verification Matrix](./trust/20-core-function-verification-matrix.md)
+| Document | Purpose |
+|----------|---------|
+| [**Program overview (v1.5 active)**](./program/PROGRAM.md) | Consolidated roadmap, milestones, exit criteria |
+| [Current roadmap (detail)](./program/current-roadmap.md) | Active lanes and policies |
+| [v1.5.0 release](./releases/v1.5.0-release.md) | Release scope and known limitations |
+| [Release closeout guide](./releases/release-closeout-guide.md) | How to close a version |
+| [Version history context](./history/version-context.md) | Historical version narrative |
+
+v1.5 execution artifacts: [`program/`](./program/) (phase scope, refactor queue, checkpoints, known issues).
+
+Archived version plans: [`archive/consolidated/`](./archive/consolidated/).
+
+### Architecture and gateway
+
+| Document | Purpose |
+|----------|---------|
+| [Client unified gateway](./gateway/client-unified-gateway.md) | R0/R1/R2 ClientGateway contract |
+| [Architecture refactor queue](./program/v1.5.0-architecture-refactor-queue.md) | Slice order and exit gates |
+| [Radical overhaul v2 target](./architecture/roadmap-v2-draft.md) | Long-term v2.0 direction (draft) |
+
+### Messaging (DM)
+
+| Document | Purpose |
+|----------|---------|
+| [Cooperative redaction — future design](./messaging/cooperative-redaction-future.md) | Feasible “hide for everyone” under this stack |
+| [Deletion roster limitations](./messaging/deletion-roster-limitations.md) | Why true delete is not possible on Nostr |
+| [Redaction v1.5 — deferred](./messaging/redaction-v1.5-deferred.md) | Why UI “delete for everyone” is off in v1.5.0 |
+| [DM redaction release gate](./releases/v1.5.0-dm-sender-redaction-scope-and-gate.md) | v1.5.0 scope checklist (UI off, verify bundle) |
+| [Delete-for-everyone investigation](./messaging/investigation-delete-for-everyone.md) | Historical root-cause analysis |
+
+### Communities
+
+| Document | Purpose |
+|----------|---------|
+| [Membership sync architecture](./communities/membership-sync-architecture.md) | Relay-first membership model |
+| Encyclopedia **10**, **19**, **20** | Operating model, integrity, verification |
 
 ### Protocols
 
-1. [Protocols Shelf Index](./protocols/README.md)
-2. [21 Relay Transport Fault-Tolerance Spec](./protocols/21-relay-transport-fault-tolerance-spec.md)
-3. [22 Local-First Decentralized Protocol Architecture](./protocols/22-local-first-decentralized-protocol-architecture.md)
-4. [23 Private Direct Envelope and Community Room-Key Contract](./protocols/23-private-direct-envelope-and-community-room-key-contract.md)
-5. [24 DM History Sync Stabilization Plan](./protocols/24-dm-history-sync-stabilization-plan.md)
-6. [25 Community Ledger and Projection Architecture Spec](./protocols/25-community-ledger-and-projection-architecture-spec.md)
-7. [26 Community Projection Contract](./protocols/26-community-projection-contract.md)
-8. [27 Community Control and Governance Event Family](./protocols/27-community-control-and-governance-event-family.md)
+| Index | [protocols/README.md](./protocols/README.md) |
+|-------|---------------------------------------------|
+| Specs | Relay transport, envelopes, DM history, community ledger/projection |
 
-### Rewrite
+### Trust and verification
 
-1. [Rewrite Shelf Index](./rewrite/README.md)
-2. [28 In-Place Architecture Rewrite Plan](./rewrite/28-in-place-architecture-rewrite-plan.md)
-3. [29 In-Place Modularization and Test Contract](./rewrite/29-in-place-modularization-and-test-contract.md)
-4. [30 Fragility Analysis and Safe Iteration Contract](./rewrite/30-fragility-analysis-and-safe-iteration-contract.md)
-5. [31 Long-Term Resilience and Context-Limits Playbook](./rewrite/31-long-term-resilience-and-context-limits-playbook.md)
-6. [32 Community System Reset and Alternative Solutions](./rewrite/32-community-system-reset-and-alternative-solutions.md)
-7. [33 Community Modes and Relay Guarantees](./rewrite/33-community-modes-and-relay-guarantees.md)
-8. [34 Codebase Cartography and Black-Box Atlas](./rewrite/34-codebase-cartography-and-black-box-atlas.md)
-9. [35 Data Sovereignty and Unified Backend Rewrite Target](./rewrite/35-data-sovereignty-and-unified-backend-rewrite-target.md)
-10. [36 Resilient Infrastructure and Technical Protocols](./rewrite/36-resilient-infrastructure-and-technical-protocols.md)
-11. [37 Owner-Aligned Extraction Workstreams](./rewrite/37-owner-aligned-extraction-workstreams.md)
+| Index | [trust/README.md](./trust/README.md) |
+|-------|--------------------------------------|
+| Matrices | Pre-public contract, core function verification |
 
-### Roadmap
+### Operations
 
-1. [Current Roadmap](./roadmap/current-roadmap.md)
-2. [v1.4.0 In-Place Rewrite and Resilience Plan](./roadmap/v1.4.0-in-place-rewrite-and-resilience-plan.md)
-3. [v1.4.0 Specification and Test Matrix](./roadmap/v1.4.0-specification-and-test-matrix.md)
-4. [v1.4.0 Closeout and Documentation Consolidation Contract](./roadmap/v1.4.0-closeout-and-doc-consolidation.md)
-5. [v1.3.8 Roadmap and Execution Contract](./roadmap/v1.3.8-hybrid-offline-streaming-update-plan.md)
-6. [v1.3.8 Offline UI Asset Inventory and Local-First Policy](./roadmap/v1.3.8-offline-ui-asset-inventory.md)
-7. [v1.3.8 Streaming Update Contract](./roadmap/v1.3.8-streaming-update-contract.md)
-
-### Release and Verification
-
-1. [Release Closeout Guide](./releases/release-closeout-guide.md)
-2. [Identity and Session Ownership](./releases/core-verification-identity-session.md)
-3. [E2EE Direct Messaging](./releases/core-verification-e2ee-direct-messaging.md)
-4. [Cross-Device Restore, Sync, and Non-Resurrection](./releases/core-verification-cross-device-restore-and-non-resurrection.md)
-5. [Same-Device Account Isolation](./releases/core-verification-same-device-account-isolation.md)
-6. [Contacts, Trust, and Request Flows](./releases/core-verification-contacts-trust-and-request-flows.md)
-7. [Communities and Membership Integrity](./releases/core-verification-communities-and-membership-integrity.md)
-8. [Media and Vault Durability](./releases/core-verification-media-and-vault-durability.md)
-9. [Updater and Download Distribution](./releases/core-verification-updater-and-download-distribution.md)
+| Document | Purpose |
+|----------|---------|
+| Encyclopedia **05–08** | Performance, testing, release flow, maintainer |
+| [Playwright MCP quickstart](./operations/playwright-mcp-quickstart.md) | Browser automation setup |
 
 ### Continuity
 
-1. [Current Session Handoff](./handoffs/current-session.md)
-2. [Session Handoff Template](./handoffs/session-template.md)
+| Document | Purpose |
+|----------|---------|
+| [Current session](./handoffs/current-session.md) | Active handoff |
+| [Session template](./handoffs/session-template.md) | Handoff format |
 
-### History, Design, and Tooling
+### Research, design, security, assets
 
-1. [Version Context](./history/version-context.md)
-2. [Theme Contrast Guidelines](./design/theme-contrast-guidelines.md)
-3. [Playwright MCP Quickstart](./playwright-mcp-quickstart.md)
+| Shelf | Path |
+|-------|------|
+| Research | [`research/`](./research/) |
+| Design | [`design/`](./design/) |
+| Security | [`security/`](./security/) |
+| Demo / GIF assets | [`assets/`](./assets/) |
+| Legacy rewrite shelf (archive) | [`archive/rewrite-shelf/`](./archive/rewrite-shelf/) |
 
-## Assets and Archives
+---
 
-1. release evidence bundles live under `docs/assets/demo/`
-2. production GIF library lives under `docs/assets/gifs/`
-3. archive and historical version docs live under `docs/archive/`
+## LLM navigation hints
 
-## Maintenance Rules
+1. **Ownership question** → `encyclopedia/12` + `encyclopedia/14` + `gateway/client-unified-gateway.md`
+2. **Bug in DM UI** → `encyclopedia/04` + `messaging/` + truth map row for messaging
+3. **Community membership** → `program/v1.5.0-phase3-scope.md` + `communities/` + `protocols/25–27`
+4. **Release / ship** → `releases/v1.5.0-release.md` + `encyclopedia/07` + `encyclopedia/08`
+5. **Do not ship claim without** → `trust/20-core-function-verification-matrix.md` + runtime evidence
 
-1. Keep canonical docs synchronized with owner boundaries and release gates.
-2. Prefer rewriting and consolidating existing docs before adding new numbered
-   files.
-3. Keep runtime evidence bundles under `docs/assets/demo/`.
-4. Keep archive docs read-only unless doing historical correction.
-5. When architecture meaningfully changes, update:
-   `core doc` + `roadmap or release doc` + `CHANGELOG.md` in the same change set.
-6. When work spans multiple Codex threads, update:
-   `docs/handoffs/current-session.md` before ending the thread.
+---
 
-## Mandatory Check
+## Maintenance
 
-```bash
-pnpm docs:check
-```
+- Run `pnpm docs:check` after moving or renaming docs.
+- Update this file when adding a new top-level shelf.
+- Put version-specific execution plans in `program/`; merge into `program/PROGRAM.md` at release closeout.
+- Move superseded plans to `archive/consolidated/` with a one-line “superseded by” in `PROGRAM.md`.

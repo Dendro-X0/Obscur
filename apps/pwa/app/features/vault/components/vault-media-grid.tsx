@@ -35,6 +35,7 @@ import { useTranslation } from "react-i18next";
 import { cn } from "@/app/lib/utils";
 import type { VaultMediaItem } from "../hooks/use-vault-media";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { logRuntimeEvent } from "@/app/shared/runtime-log-classification";
 import { isGroupConversationId } from "@/app/features/groups/utils/group-conversation-id";
 
@@ -55,14 +56,14 @@ const FILTER_STORAGE_KEY = "obscur.vault.filter.preference";
 const FAVORITES_STORAGE_KEY = "obscur.vault.favorites";
 const LEGACY_HIDDEN_STORAGE_KEY = "obscur.vault.hidden";
 const REMOVED_STORAGE_KEY = "obscur.vault.removed";
-const scopedFilterStorageKey = (): string => getScopedStorageKey(FILTER_STORAGE_KEY);
-const scopedFavoritesStorageKey = (): string => getScopedStorageKey(FAVORITES_STORAGE_KEY);
-const scopedRemovedStorageKey = (): string => getScopedStorageKey(REMOVED_STORAGE_KEY);
+const scopedFilterStorageKey = (): string => getScopedStorageKey(FILTER_STORAGE_KEY, getResolvedProfileId());
+const scopedFavoritesStorageKey = (): string => getScopedStorageKey(FAVORITES_STORAGE_KEY, getResolvedProfileId());
+const scopedRemovedStorageKey = (): string => getScopedStorageKey(REMOVED_STORAGE_KEY, getResolvedProfileId());
 
 const readLegacyHidden = (): ReadonlySet<string> => {
     if (typeof window === "undefined") return new Set<string>();
     try {
-        const raw = localStorage.getItem(getScopedStorageKey(LEGACY_HIDDEN_STORAGE_KEY)) ?? localStorage.getItem(LEGACY_HIDDEN_STORAGE_KEY);
+        const raw = localStorage.getItem(getScopedStorageKey(LEGACY_HIDDEN_STORAGE_KEY, getResolvedProfileId())) ?? localStorage.getItem(LEGACY_HIDDEN_STORAGE_KEY);
         if (!raw) return new Set<string>();
         const parsed = JSON.parse(raw) as unknown;
         if (!Array.isArray(parsed)) return new Set<string>();
@@ -89,7 +90,7 @@ const readRemoved = (): ReadonlySet<string> => {
 const persistRemoved = (ids: ReadonlySet<string>): void => {
     if (typeof window === "undefined") return;
     localStorage.setItem(scopedRemovedStorageKey(), JSON.stringify(Array.from(ids)));
-    localStorage.removeItem(getScopedStorageKey(LEGACY_HIDDEN_STORAGE_KEY));
+    localStorage.removeItem(getScopedStorageKey(LEGACY_HIDDEN_STORAGE_KEY, getResolvedProfileId()));
     localStorage.removeItem(LEGACY_HIDDEN_STORAGE_KEY);
 };
 

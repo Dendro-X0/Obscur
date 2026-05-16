@@ -7,6 +7,7 @@ export type RelayStatusSummary = Readonly<{
     total: number;
     openCount: number;
     errorCount: number;
+    coolingDownRelayCount: number;
 }>;
 
 export type DmConversation = Readonly<{
@@ -101,6 +102,8 @@ export type Message = Readonly<{
     reactions?: ReactionsByEmoji;
     deletedAt?: Date;
     eventId?: string;
+    /** NIP-17: outer gift-wrap event id on relays; projection may key by this while live `id` is the rumor id. */
+    relayPublishedEventId?: string;
     eventCreatedAt?: Date;
     senderPubkey?: PublicKeyHex;
     recipientPubkey?: PublicKeyHex;
@@ -124,12 +127,13 @@ export type SendDirectMessageParams = Readonly<{
 export interface SendDirectMessageResult {
     success: boolean;
     messageId: string;
-    relayResults: Array<{
+    relayResults: ReadonlyArray<Readonly<{
         relayUrl: string;
         success: boolean;
         error?: string;
         latency?: number;
-    }>;
+        latencyMs?: number;
+    }>>;
     error?: string;
 }
 

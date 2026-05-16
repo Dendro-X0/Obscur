@@ -3,7 +3,7 @@
 Place generated demo artifacts for the M10 demo asset flow in this folder.
 
 Historical matrix details are consolidated in:
-- `docs/11-program-milestones-and-stability-history.md`
+- `docs/encyclopedia/11-program-milestones-and-stability-history.md`
 - `docs/history/version-context.md`
 
 Helper commands:

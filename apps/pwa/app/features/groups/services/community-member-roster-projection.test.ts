@@ -6,7 +6,9 @@ import {
   dedupeCommunityMemberPubkeys,
   projectCommunityMemberRoster,
   resolveCommunityMemberSnapshotApplication,
+  resolveCommunityRosterSnapshotNextMembers,
   seedCommunityMemberLedgerMembers,
+  stabilizeCommunityMemberPubkeys,
 } from "./community-member-roster-projection";
 import type { GroupConversation } from "@/app/features/messaging/types";
 
@@ -77,6 +79,40 @@ describe("community-member-roster-projection", () => {
       reasonCode: "apply_snapshot",
       nextMemberPubkeys: [MEMBER_A],
       removedWithoutEvidence: [],
+    });
+  });
+
+  it("widens roster projection monotonically when relay snapshot would drop members without evidence", () => {
+    expect(resolveCommunityRosterSnapshotNextMembers({
+      currentMemberPubkeys: [MEMBER_A, MEMBER_B],
+      snapshotNextMemberPubkeys: [MEMBER_A],
+      leftMemberPubkeys: [],
+      expelledMemberPubkeys: [],
+      protectRemovalPubkeys: [MEMBER_B],
+    })).toEqual([MEMBER_A, MEMBER_B]);
+  });
+
+  it("allows authoritative shrink when leave or expel evidence exists", () => {
+    expect(resolveCommunityRosterSnapshotNextMembers({
+      currentMemberPubkeys: [MEMBER_A, MEMBER_B],
+      snapshotNextMemberPubkeys: [MEMBER_A],
+      leftMemberPubkeys: [MEMBER_B],
+      expelledMemberPubkeys: [],
+    })).toEqual([MEMBER_A]);
+  });
+
+  it("widens during relay warm-up instead of replacing with a thinner snapshot", () => {
+    expect(stabilizeCommunityMemberPubkeys({
+      currentMemberPubkeys: [MEMBER_A, MEMBER_B],
+      incomingActiveMemberPubkeys: [MEMBER_A],
+      leftMemberPubkeys: [],
+      expelledMemberPubkeys: [],
+      relayEvidenceConfidence: "seed_only",
+    })).toMatchObject({
+      shouldApply: true,
+      reasonCode: "apply_snapshot_guard_relaxed",
+      nextMemberPubkeys: [MEMBER_A, MEMBER_B],
+      guardRelaxed: true,
     });
   });
 

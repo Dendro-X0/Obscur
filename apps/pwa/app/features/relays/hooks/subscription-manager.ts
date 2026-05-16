@@ -195,11 +195,13 @@ export class SubscriptionManager {
 
             if (subscriptionId) {
                 const directSubscription = this.activeSubscriptions.get(subscriptionId);
-                if (!directSubscription) {
+                if (directSubscription) {
+                    directSubscription.onEvent(event, params.url);
                     return;
                 }
-                directSubscription.onEvent(event, params.url);
-                return;
+                // Fall through to filter-based matching when relay sends
+                // events tagged with a subscription ID we no longer track
+                // (reconnects, resubscribes, stale relay state).
             }
 
             // Route event to all applicable active subscriptions
@@ -215,16 +217,33 @@ export class SubscriptionManager {
     }
 
     private matchesFilter(event: NostrEvent, filters: ReadonlyArray<NostrFilter>): boolean {
+        const normPub = (hex: string): string => hex.trim().toLowerCase();
         return filters.some((filter: NostrFilter) => {
             if (filter.kinds && !filter.kinds.includes(event.kind)) {
                 return false;
             }
-            if (filter.authors && !filter.authors.includes(event.pubkey)) {
-                return false;
+            if (filter.authors) {
+                const eventPub = normPub(event.pubkey);
+                if (!filter.authors.some((a: string) => normPub(a) === eventPub)) {
+                    return false;
+                }
             }
             if (filter["#p"]) {
-                const pTags: string[] = event.tags.filter((t: ReadonlyArray<string>) => t[0] === "p").map((t: ReadonlyArray<string>) => t[1] ?? "");
-                if (!filter["#p"].some((p: string) => pTags.includes(p))) {
+                const pTags: string[] = event.tags
+                    .filter((t: ReadonlyArray<string>) => t[0] === "p")
+                    .map((t: ReadonlyArray<string>) => normPub(t[1] ?? ""));
+                if (!filter["#p"].some((p: string) => pTags.includes(normPub(p)))) {
+                    return false;
+                }
+            }
+            // Support #t tag filtering for delete commands
+            if (filter["#t"]) {
+                const tTags: string[] = event.tags.filter((t: ReadonlyArray<string>) => t[0] === "t").map((t: ReadonlyArray<string>) => t[1] ?? "");
+                if (!filter["#t"].some((t: string) => tTags.includes(t))) {
+                    console.log("[subscription-manager] #t tag filter mismatch", {
+                        filterT: filter["#t"],
+                        eventT: tTags,
+                    });
                     return false;
                 }
             }

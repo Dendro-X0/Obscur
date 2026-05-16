@@ -1,8 +1,8 @@
 import React from "react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { act, render, screen, waitFor } from "@testing-library/react";
+import { setProfileRuntimeScope } from "@/app/features/profiles/services/profile-runtime-scope";
 import { MessagingProvider, useMessaging } from "./messaging-provider";
-
 const identityState = vi.hoisted(() => ({
   publicKeyHex: "a".repeat(64) as string | null,
 }));
@@ -53,7 +53,7 @@ vi.mock("../../auth/hooks/use-identity", () => ({
 }));
 
 vi.mock("@/app/features/profiles/services/profile-scope", () => ({
-  getActiveProfileIdSafe: () => profileScopeState.activeProfileId,
+  readRegistryBackedActiveProfileId: () => profileScopeState.activeProfileId,
   getScopedStorageKey: (baseKey: string, profileId?: string) =>
     `${baseKey}::${profileId ?? profileScopeState.activeProfileId}`,
 }));
@@ -91,6 +91,7 @@ vi.mock("../services/message-persistence-service", () => ({
   messagePersistenceService: {
     init: vi.fn(),
     migrateFromLegacy: vi.fn(),
+    bindProfileBusChatStateReplaced: vi.fn(),
   },
 }));
 
@@ -99,6 +100,27 @@ vi.mock("../services/message-bus", () => ({
     emit: vi.fn(),
   },
 }));
+
+const hydrationBusRuntime = vi.hoisted(() => {
+  const { createProfileMessageBus } =
+    require("@dweb/core/profile-message-bus") as typeof import("@dweb/core/profile-message-bus");
+  const api = {
+    bus: createProfileMessageBus({ profileId: "default" }),
+    syncRuntime(profileId: string) {
+      api.bus = createProfileMessageBus({ profileId });
+      setProfileRuntimeScope({ profileId, bus: api.bus });
+    },
+  };
+  return api;
+});
+
+vi.mock("@/app/features/profiles/providers/profile-runtime-provider", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/app/features/profiles/providers/profile-runtime-provider")>();
+  return {
+    ...actual,
+    useOptionalProfileMessageBus: () => hydrationBusRuntime.bus,
+  };
+});
 
 const buildPersistedState = (params: Readonly<{ displayName: string; peerPublicKeyHex: string }>) => ({
   version: 2,
@@ -140,6 +162,7 @@ describe("messaging-provider hydration scope resets", () => {
   beforeEach(() => {
     identityState.publicKeyHex = "a".repeat(64);
     profileScopeState.activeProfileId = "default";
+    hydrationBusRuntime.syncRuntime("default");
     chatStateStoreMocks.load.mockReset();
     chatStateStoreMocks.replace.mockReset();
     chatStateStoreMocks.updateConnections.mockReset();
@@ -230,6 +253,7 @@ describe("messaging-provider hydration scope resets", () => {
     });
 
     profileScopeState.activeProfileId = "work";
+    hydrationBusRuntime.syncRuntime("work");
     view.rerender(
       <MessagingProvider>
         <Harness />
@@ -276,9 +300,11 @@ describe("messaging-provider hydration scope resets", () => {
     });
 
     act(() => {
-      window.dispatchEvent(new CustomEvent("obscur:chat-state-replaced", {
-        detail: { publicKeyHex: accountA },
-      }));
+      hydrationBusRuntime.bus.publish({
+        type: "chat-state-replaced",
+        profileId: "default",
+        publicKeyHex: accountA,
+      });
     });
 
     await waitFor(() => {
@@ -377,9 +403,11 @@ describe("messaging-provider hydration scope resets", () => {
     chatStateStoreMocks.load.mockClear();
 
     await act(async () => {
-      window.dispatchEvent(new CustomEvent("obscur:chat-state-replaced", {
-        detail: { publicKeyHex: accountA, profileId: "work" },
-      }));
+      hydrationBusRuntime.bus.publish({
+        type: "chat-state-replaced",
+        profileId: "work",
+        publicKeyHex: accountA,
+      });
     });
 
     expect(chatStateStoreMocks.load).not.toHaveBeenCalled();

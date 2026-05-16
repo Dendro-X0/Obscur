@@ -14,6 +14,7 @@ import { toBase64 } from "@dweb/crypto/to-base64";
 import { getRuntimeHostInfo, hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
 import { invokeNativeCommand } from "@/app/features/runtime/native-adapters";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import type { DeliveryReasonCode } from "@dweb/core/security-foundation-contracts";
 import { normalizePublicUrl } from "@/app/shared/public-url";
 import { reportDevRuntimeIssue } from "@/app/shared/dev-runtime-issue-reporter";
@@ -26,7 +27,9 @@ export interface Nip96Config {
 }
 
 export const STORAGE_KEY_NIP96 = "obscur.storage.nip96";
-export const getNip96StorageKey = (): string => getScopedStorageKey(STORAGE_KEY_NIP96);
+export const getNip96StorageKey = (profileId?: string): string => (
+  getScopedStorageKey(STORAGE_KEY_NIP96, profileId ?? getResolvedProfileId())
+);
 
 type Nip96Event = Readonly<{
     tags?: ReadonlyArray<ReadonlyArray<string>>;

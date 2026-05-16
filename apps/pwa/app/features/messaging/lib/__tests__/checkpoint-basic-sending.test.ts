@@ -50,6 +50,9 @@ vi.mock('../message-queue', () => {
       queue.delete(id);
     });
     getAllMessages = vi.fn(async () => Array.from(messages.values()));
+    deleteMessage = vi.fn(async (id: string) => {
+      messages.delete(id);
+    });
   }
 
   return {

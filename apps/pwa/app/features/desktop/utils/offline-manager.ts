@@ -5,9 +5,10 @@
  * Handles connection state persistence and offline queue
  */
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 
 const OFFLINE_STATE_KEY = "obscur.offline.state";
-const getOfflineStateStorageKey = (): string => getScopedStorageKey(OFFLINE_STATE_KEY);
+const getOfflineStateStorageKey = (): string => getScopedStorageKey(OFFLINE_STATE_KEY, getResolvedProfileId());
 
 export interface OfflineState {
   isOnline: boolean;

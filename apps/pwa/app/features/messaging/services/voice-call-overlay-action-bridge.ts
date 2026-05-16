@@ -1,3 +1,5 @@
+import { getProfileRuntimeScope } from "@/app/features/profiles/services/profile-runtime-scope";
+
 export const VOICE_CALL_OVERLAY_ACTION_EVENT_NAME = "obscur:voice-call-overlay-action";
 export const VOICE_CALL_OVERLAY_ACTION_STORAGE_KEY = "obscur.voice_call.overlay_action.v1";
 export const VOICE_CALL_OVERLAY_ACTION_MAX_AGE_MS = 20_000;
@@ -43,9 +45,11 @@ export const dispatchVoiceCallOverlayAction = (action: VoiceCallOverlayAction): 
   } catch {
     // best effort bridge only
   }
-  window.dispatchEvent(new CustomEvent(VOICE_CALL_OVERLAY_ACTION_EVENT_NAME, {
-    detail: { action },
-  }));
+  const detail = { action };
+  getProfileRuntimeScope()?.bus.publish({
+    type: "voice-call-overlay-action",
+    detail,
+  });
 };
 
 export const readAndConsumePendingVoiceCallOverlayAction = (): VoiceCallOverlayAction | null => {

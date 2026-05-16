@@ -1,7 +1,9 @@
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { dedupeCommunityMemberPubkeys } from "./community-member-roster-projection";
 
+/** Durable OR-set for relay-observed / hydrated participants (localStorage). Writers: hydrate, `dispatchCommunityKnownParticipantsObserved`, richer multi-member group row effect, and `group-provider` directory sync only when the in-memory directory widens beyond stored ∪ descriptor ∪ local (see `group-provider` bulk persist gate). */
 const STORAGE_PREFIX = "obscur.groups.known_participants.v1";
 
 export type CommunityKnownParticipantsEntry = Readonly<{
@@ -13,8 +15,8 @@ export type CommunityKnownParticipantsEntry = Readonly<{
   updatedAtUnixMs: number;
 }>;
 
-const getStorageKey = (publicKeyHex: PublicKeyHex): string => (
-  getScopedStorageKey(`${STORAGE_PREFIX}.${publicKeyHex}`)
+const getStorageKey = (publicKeyHex: PublicKeyHex, profileId?: string): string => (
+  getScopedStorageKey(`${STORAGE_PREFIX}.${publicKeyHex}`, profileId ?? getResolvedProfileId())
 );
 
 const isRecord = (value: unknown): value is Record<string, unknown> => (
@@ -46,12 +48,15 @@ const parseEntry = (value: unknown): CommunityKnownParticipantsEntry | null => {
   };
 };
 
-const readEntries = (publicKeyHex: PublicKeyHex): ReadonlyArray<CommunityKnownParticipantsEntry> => {
+const readEntries = (
+  publicKeyHex: PublicKeyHex,
+  profileId?: string,
+): ReadonlyArray<CommunityKnownParticipantsEntry> => {
   if (typeof window === "undefined") {
     return [];
   }
   try {
-    const raw = window.localStorage.getItem(getStorageKey(publicKeyHex));
+    const raw = window.localStorage.getItem(getStorageKey(publicKeyHex, profileId));
     if (!raw) {
       return [];
     }
@@ -67,12 +72,16 @@ const readEntries = (publicKeyHex: PublicKeyHex): ReadonlyArray<CommunityKnownPa
   }
 };
 
-const writeEntries = (publicKeyHex: PublicKeyHex, entries: ReadonlyArray<CommunityKnownParticipantsEntry>): void => {
+const writeEntries = (
+  publicKeyHex: PublicKeyHex,
+  entries: ReadonlyArray<CommunityKnownParticipantsEntry>,
+  profileId?: string,
+): void => {
   if (typeof window === "undefined") {
     return;
   }
   try {
-    window.localStorage.setItem(getStorageKey(publicKeyHex), JSON.stringify(entries));
+    window.localStorage.setItem(getStorageKey(publicKeyHex, profileId), JSON.stringify(entries));
   } catch {
     return;
   }
@@ -80,13 +89,15 @@ const writeEntries = (publicKeyHex: PublicKeyHex, entries: ReadonlyArray<Communi
 
 export const loadCommunityKnownParticipantsEntries = (
   publicKeyHex: PublicKeyHex,
-): ReadonlyArray<CommunityKnownParticipantsEntry> => readEntries(publicKeyHex);
+  profileId?: string,
+): ReadonlyArray<CommunityKnownParticipantsEntry> => readEntries(publicKeyHex, profileId);
 
 export const upsertCommunityKnownParticipantsEntry = (params: Readonly<{
   publicKeyHex: PublicKeyHex;
   entry: CommunityKnownParticipantsEntry;
+  profileId?: string;
 }>): void => {
-  const current = readEntries(params.publicKeyHex);
+  const current = readEntries(params.publicKeyHex, params.profileId);
   const index = current.findIndex((entry) => (
     entry.groupId === params.entry.groupId
     && entry.relayUrl === params.entry.relayUrl
@@ -108,5 +119,5 @@ export const upsertCommunityKnownParticipantsEntry = (params: Readonly<{
     : current.map((entry, entryIndex) => (
         entryIndex === index ? nextEntry : entry
       ));
-  writeEntries(params.publicKeyHex, nextEntries);
+  writeEntries(params.publicKeyHex, nextEntries, params.profileId);
 };

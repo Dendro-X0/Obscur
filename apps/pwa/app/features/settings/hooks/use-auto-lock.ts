@@ -2,11 +2,12 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { PrivacySettingsService, type PrivacySettings } from "../services/privacy-settings-service";
 import { getRuntimeCapabilities } from "@/app/features/runtime/runtime-capabilities";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { invokeNativeCommand } from "@/app/features/runtime/native-adapters";
 import { listenToNativeEvent } from "@/app/features/runtime/native-event-adapter";
 
 const AUTOLOCK_STORAGE_KEY: string = "obscur.autolock.lastActivity";
-const getAutolockStorageKey = (): string => getScopedStorageKey(AUTOLOCK_STORAGE_KEY);
+const getAutolockStorageKey = (): string => getScopedStorageKey(AUTOLOCK_STORAGE_KEY, getResolvedProfileId());
 type TorRuntimeState = 'disconnected' | 'starting' | 'connected' | 'error' | 'stopped';
 type TorStatusSnapshot = Readonly<{
     state: TorRuntimeState;

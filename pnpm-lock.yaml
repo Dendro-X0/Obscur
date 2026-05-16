@@ -46,6 +46,9 @@ importers:
 
   apps/pwa:
     dependencies:
+      '@dweb/client-gateway':
+        specifier: workspace:*
+        version: link:../../packages/dweb-client-gateway
       '@dweb/core':
         specifier: workspace:*
         version: link:../../packages/dweb-core
@@ -55,12 +58,18 @@ importers:
       '@dweb/crypto':
         specifier: workspace:*
         version: link:../../packages/dweb-crypto
+      '@dweb/db':
+        specifier: workspace:^
+        version: link:../../packages/db
       '@dweb/nostr':
         specifier: workspace:*
         version: link:../../packages/dweb-nostr
       '@dweb/storage':
         specifier: workspace:*
         version: link:../../packages/dweb-storage
+      '@dweb/storage-contracts':
+        specifier: workspace:*
+        version: link:../../packages/dweb-storage-contracts
       '@dweb/ui-kit':
         specifier: workspace:*
         version: link:../../packages/ui-kit
@@ -299,6 +308,18 @@ importers:
         specifier: ^5
         version: 5.9.3
 
+  packages/db:
+    dependencies:
+      '@tauri-apps/api':
+        specifier: ^2.10.1
+        version: 2.10.1
+
+  packages/dweb-client-gateway:
+    dependencies:
+      '@dweb/storage-contracts':
+        specifier: workspace:*
+        version: link:../dweb-storage-contracts
+
   packages/dweb-core:
     dependencies:
       '@dweb/crypto':
@@ -332,7 +353,13 @@ importers:
         specifier: ^2.2.3
         version: 2.3.0
 
-  packages/dweb-storage: {}
+  packages/dweb-storage:
+    dependencies:
+      '@dweb/storage-contracts':
+        specifier: workspace:*
+        version: link:../dweb-storage-contracts
+
+  packages/dweb-storage-contracts: {}
 
   packages/ui-kit:
     dependencies:
@@ -8776,7 +8803,7 @@ snapshots:
 
   '@tauri-apps/plugin-dialog@2.6.0':
     dependencies:
-      '@tauri-apps/api': 2.9.1
+      '@tauri-apps/api': 2.10.1
 
   '@tauri-apps/plugin-fs@2.4.5':
     dependencies:
@@ -8788,7 +8815,7 @@ snapshots:
 
   '@tauri-apps/plugin-notification@2.3.3':
     dependencies:
-      '@tauri-apps/api': 2.9.1
+      '@tauri-apps/api': 2.10.1
 
   '@tauri-apps/plugin-shell@2.3.5':
     dependencies:

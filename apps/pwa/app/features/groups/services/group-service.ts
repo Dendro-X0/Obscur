@@ -6,7 +6,7 @@ import type { UnsignedNostrEvent } from "../../crypto/crypto-interfaces";
 import { cryptoService } from "../../crypto/crypto-service";
 import type { GroupMetadata } from "../types";
 import { logAppEvent } from "@/app/shared/log-app-event";
-import { getActiveProfileIdSafe } from "@/app/features/profiles/services/profile-scope";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { loadCommunityMembershipLedger } from "./community-membership-ledger";
 
 import { roomKeyStore } from "../../crypto/room-key-store";
@@ -57,7 +57,8 @@ export class GroupService {
             let joinedMembershipCount: number | null = null;
             let hasTargetJoinedMembership = false;
             try {
-                const membershipEntries = loadCommunityMembershipLedger(this.myPublicKeyHex);
+                const profileId = getResolvedProfileId();
+                const membershipEntries = loadCommunityMembershipLedger(this.myPublicKeyHex, { profileId });
                 const joinedEntries = membershipEntries.filter((entry) => entry.status === "joined");
                 joinedMembershipCount = joinedEntries.length;
                 hasTargetJoinedMembership = joinedEntries.some((entry) => entry.groupId === params.groupId);
@@ -94,7 +95,7 @@ export class GroupService {
                     reasonCode,
                     localRoomKeyCount,
                     hasTargetGroupRecord,
-                    activeProfileId: getActiveProfileIdSafe(),
+                    activeProfileId: getResolvedProfileId(),
                     senderPubkeySuffix: this.myPublicKeyHex.slice(-8),
                     knownGroupHintSample,
                     joinedMembershipCount,

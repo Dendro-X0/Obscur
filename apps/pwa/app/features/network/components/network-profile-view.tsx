@@ -45,6 +45,7 @@ import { toDmConversationId } from "@/app/features/messaging/utils/dm-conversati
 import { createDmConversation } from "@/app/features/messaging/utils/create-dm-conversation";
 import { getPublicProfileHref, toAbsoluteAppUrl } from "@/app/features/navigation/public-routes";
 import { requestFlowEvidenceStore } from "@/app/features/messaging/services/request-flow-evidence-store";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { deriveRequestProjection } from "@/app/features/messaging/services/request-status-projection";
 import { writePendingVoiceCallRequest } from "@/app/features/messaging/services/realtime-voice-pending-request";
 import {
@@ -87,7 +88,6 @@ export default function ConnectionProfileView() {
         requestsInbox,
         autoSubscribeIncoming: false,
         enableIncomingTransport: false,
-        enableAutoQueueProcessing: false,
     });
     const requestTransport = useRequestTransport({
         dmController,
@@ -117,7 +117,7 @@ export default function ConnectionProfileView() {
     const requestStatus = requestsInbox.getRequestStatus({ peerPublicKeyHex: pk as PublicKeyHex });
     const requestProjection = deriveRequestProjection({
         requestStatus,
-        evidence: requestFlowEvidenceStore.get(pk),
+        evidence: requestFlowEvidenceStore.get(pk, getResolvedProfileId()),
     });
     const connection = createdConnections.find(c => c.kind === 'dm' && c.pubkey === pk);
 

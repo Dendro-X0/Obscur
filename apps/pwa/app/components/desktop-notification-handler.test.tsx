@@ -59,6 +59,20 @@ const unreadTaskbarBadgeMocks = vi.hoisted(() => ({
   applyDesktopUnreadTaskbarBadge: vi.fn(),
 }));
 
+const accountSyncMocks = vi.hoisted(() => ({
+  phase: "ready" as string,
+}));
+
+vi.mock("@/app/features/account-sync/hooks/use-account-sync-snapshot", () => ({
+  useAccountSyncSnapshot: () => ({
+    publicKeyHex: null,
+    status: "identity_only",
+    portabilityStatus: "unknown",
+    phase: accountSyncMocks.phase,
+    message: "Test",
+  }),
+}));
+
 vi.mock("@/app/features/desktop/hooks/use-tauri", () => ({
   useTauri: vi.fn(),
 }));
@@ -168,6 +182,7 @@ describe("DesktopNotificationHandler", () => {
     voiceOverlayActionBridgeMocks.dispatchVoiceCallOverlayAction.mockReset();
     notificationTargetPreferenceMocks.isMessageNotificationEnabledForIncomingEvent.mockReset();
     notificationTargetPreferenceMocks.isMessageNotificationEnabledForIncomingEvent.mockReturnValue(true);
+    accountSyncMocks.phase = "ready";
     routingMocks.pathname = "/";
     routingMocks.push.mockReset();
     messagingMocks.selectedConversation = null;
@@ -533,6 +548,94 @@ describe("DesktopNotificationHandler", () => {
     rerender(<DesktopNotificationHandler />);
 
     expect(notificationMocks.showNotification).toHaveBeenCalledTimes(1);
+  });
+
+  it("suppresses all message notifications during account sync restoring_account_data phase", () => {
+    accountSyncMocks.phase = "restoring_account_data";
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      value: "hidden",
+    });
+    render(<DesktopNotificationHandler />);
+    act(() => {
+      messageBus.emitNewMessage("conv-1", createIncomingMessage("evt-sync-restore"));
+    });
+    expect(notificationMocks.showNotification).not.toHaveBeenCalled();
+  });
+
+  it("suppresses all message notifications during account sync syncing_messages_and_requests phase", () => {
+    accountSyncMocks.phase = "syncing_messages_and_requests";
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      value: "hidden",
+    });
+    render(<DesktopNotificationHandler />);
+    act(() => {
+      messageBus.emitNewMessage("conv-1", createIncomingMessage("evt-sync-msg"));
+    });
+    expect(notificationMocks.showNotification).not.toHaveBeenCalled();
+  });
+
+  it("suppresses in-app message toasts during account sync idle phase", () => {
+    accountSyncMocks.phase = "idle";
+    render(<DesktopNotificationHandler />);
+    act(() => {
+      messageBus.emitNewMessage("conv-1", createIncomingMessage("evt-sync-idle"));
+    });
+    expect(screen.queryByText("Alice")).toBeNull();
+    expect(screen.queryByText("hello from peer")).toBeNull();
+  });
+
+  it("allows message notifications once sync phase reaches ready", () => {
+    accountSyncMocks.phase = "ready";
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      value: "hidden",
+    });
+    render(<DesktopNotificationHandler />);
+    act(() => {
+      messageBus.emitNewMessage("conv-1", createIncomingMessage("evt-sync-ready"));
+    });
+    expect(notificationMocks.showNotification).toHaveBeenCalledTimes(1);
+  });
+
+  it("suppresses message notifications during found_account phase", () => {
+    accountSyncMocks.phase = "found_account";
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      value: "hidden",
+    });
+    render(<DesktopNotificationHandler />);
+    act(() => {
+      messageBus.emitNewMessage("conv-1", createIncomingMessage("evt-sync-found"));
+    });
+    expect(notificationMocks.showNotification).not.toHaveBeenCalled();
+  });
+
+  it("suppresses message notifications during restoring_profile phase", () => {
+    accountSyncMocks.phase = "restoring_profile";
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      value: "hidden",
+    });
+    render(<DesktopNotificationHandler />);
+    act(() => {
+      messageBus.emitNewMessage("conv-1", createIncomingMessage("evt-sync-profile"));
+    });
+    expect(notificationMocks.showNotification).not.toHaveBeenCalled();
+  });
+
+  it("suppresses message notifications during error phase", () => {
+    accountSyncMocks.phase = "error";
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      value: "hidden",
+    });
+    render(<DesktopNotificationHandler />);
+    act(() => {
+      messageBus.emitNewMessage("conv-1", createIncomingMessage("evt-sync-error"));
+    });
+    expect(notificationMocks.showNotification).not.toHaveBeenCalled();
   });
 
   it("forwards service-worker notification clicks into voice-call overlay action dispatch", () => {

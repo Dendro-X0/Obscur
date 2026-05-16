@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-// Mock dependencies before importing the module under test
-vi.mock("../../services/message-delete-tombstone-store", () => ({
-  suppressMessageDeleteTombstone: vi.fn(),
+vi.mock("@/app/features/messaging/services/messaging-client-operations", () => ({
+  messagingClientOperations: {
+    persistDmSuppressionOnly: vi.fn(async () => []),
+  },
 }));
 
 vi.mock("./dm-send-pipeline", () => ({
@@ -11,7 +12,7 @@ vi.mock("./dm-send-pipeline", () => ({
 
 import { deleteMessages } from "./dm-delete-pipeline";
 import { sendDm } from "./dm-send-pipeline";
-import { suppressMessageDeleteTombstone } from "../../services/message-delete-tombstone-store";
+import { messagingClientOperations } from "@/app/features/messaging/services/messaging-client-operations";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 
@@ -89,8 +90,12 @@ describe("dm-delete-pipeline", () => {
       conversationId: CONVERSATION_ID,
     });
 
-    expect(suppressMessageDeleteTombstone).toHaveBeenCalledWith("id-1", expect.any(Number));
-    expect(suppressMessageDeleteTombstone).toHaveBeenCalledWith("id-2", expect.any(Number));
+    expect(messagingClientOperations.persistDmSuppressionOnly).toHaveBeenCalledWith(
+      expect.objectContaining({
+        conversationId: CONVERSATION_ID,
+        messageIdentityIds: ["id-1", "id-2"],
+      }),
+    );
   });
 
   it("returns empty deletedMessageIds on send failure", async () => {

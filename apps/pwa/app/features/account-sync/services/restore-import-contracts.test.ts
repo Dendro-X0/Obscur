@@ -45,7 +45,7 @@ describe("restore-import-contracts", () => {
       accountPublicKeyHex: "a".repeat(64) as any,
     })).toEqual({
       migrationPhase: "read_cutover",
-      restoreDmChatStateDomains: true,
+      restoreDmChatStateDomains: false,
       dmHistoryOwner: "canonical_projection_import",
       reason: "projection_read_cutover",
     });

@@ -14,7 +14,7 @@
 
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store";
-import { getActiveProfileIdSafe } from "@/app/features/profiles/services/profile-scope";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { logAppEvent } from "@/app/shared/log-app-event";
 
 export type MediaRecoveryStatus =
@@ -62,7 +62,7 @@ const fetchBlobFromCAS = async (contentHash: string): Promise<Blob | null> => {
 
 const getVaultStore = async (): Promise<IDBDatabase | null> => {
   return new Promise((resolve) => {
-    const profileId = getActiveProfileIdSafe();
+    const profileId = getResolvedProfileId();
     const dbName = `obscur-vault-${profileId}`;
     const request = indexedDB.open(dbName);
 

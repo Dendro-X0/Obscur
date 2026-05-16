@@ -1,6 +1,6 @@
 import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
 import { invokeNativeCommand } from "@/app/features/runtime/native-adapters";
-import { getActiveProfileIdSafe } from "@/app/features/profiles/services/profile-scope";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { isRememberMeEnabledForProfile } from "@/app/features/auth/services/session-bootstrap-contracts";
 
 export interface SessionStatus {
@@ -60,7 +60,7 @@ export class SessionApi {
             return { isActive: false, npub: null, isNative: false };
         }
 
-        const activeProfileId = getActiveProfileIdSafe();
+        const activeProfileId = getResolvedProfileId();
         const rememberEnabled = isRememberMeEnabledForProfile(activeProfileId);
 
         const statusResult = await invokeNativeCommand<SessionStatusWire>("get_session_status", undefined, { timeoutMs: 3_000 });

@@ -244,11 +244,11 @@ export const loadSiteContent = async (): Promise<SiteContent> => {
     },
     {
       label: "Release Flow",
-      href: `${REPO_GITHUB_BASE}/blob/main/docs/07-operations-and-release-flow.md`,
+      href: `${REPO_GITHUB_BASE}/blob/main/docs/encyclopedia/07-operations-and-release-flow.md`,
     },
     {
       label: "Maintainer Playbook",
-      href: `${REPO_GITHUB_BASE}/blob/main/docs/08-maintainer-playbook.md`,
+      href: `${REPO_GITHUB_BASE}/blob/main/docs/encyclopedia/08-maintainer-playbook.md`,
     },
     {
       label: "Docs Index",
@@ -353,23 +353,23 @@ export const loadSiteContent = async (): Promise<SiteContent> => {
   const docsLinks: readonly SiteLink[] = [
     {
       label: "Project Overview",
-      href: `${REPO_GITHUB_BASE}/blob/main/docs/01-project-overview.md`,
+      href: `${REPO_GITHUB_BASE}/blob/main/docs/encyclopedia/01-project-overview.md`,
     },
     {
       label: "Runtime Architecture",
-      href: `${REPO_GITHUB_BASE}/blob/main/docs/03-runtime-architecture.md`,
+      href: `${REPO_GITHUB_BASE}/blob/main/docs/encyclopedia/03-runtime-architecture.md`,
     },
     {
       label: "Messaging And Groups",
-      href: `${REPO_GITHUB_BASE}/blob/main/docs/04-messaging-and-groups.md`,
+      href: `${REPO_GITHUB_BASE}/blob/main/docs/encyclopedia/04-messaging-and-groups.md`,
     },
     {
       label: "Testing And Quality Gates",
-      href: `${REPO_GITHUB_BASE}/blob/main/docs/06-testing-and-quality-gates.md`,
+      href: `${REPO_GITHUB_BASE}/blob/main/docs/encyclopedia/06-testing-and-quality-gates.md`,
     },
     {
-      label: "Current Roadmap",
-      href: `${REPO_GITHUB_BASE}/blob/main/docs/roadmap/current-roadmap.md`,
+      label: "Program Overview",
+      href: `${REPO_GITHUB_BASE}/blob/main/docs/program/PROGRAM.md`,
     },
     {
       label: "Release Evidence Packet",

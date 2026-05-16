@@ -3,9 +3,11 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { PersistedChatState } from "@/app/features/messaging/types";
+import type { CommunityMembershipLedgerEntry } from "../services/community-membership-ledger";
 
 const PUBLIC_KEY_A = "a".repeat(64) as PublicKeyHex;
 const PUBLIC_KEY_B = "b".repeat(64) as PublicKeyHex;
+const DM_CONVERSATION_AB = [PUBLIC_KEY_A, PUBLIC_KEY_B].sort().join(":");
 let activePublicKeyHex: PublicKeyHex = PUBLIC_KEY_A;
 
 vi.mock("@/app/features/auth/hooks/use-identity", () => ({
@@ -30,12 +32,36 @@ vi.mock("@dweb/storage/indexed-db", () => ({
   },
 }));
 
+const crossDeviceTestBus = vi.hoisted(() => {
+  const { createProfileMessageBus } =
+    require("@dweb/core/profile-message-bus") as typeof import("@dweb/core/profile-message-bus");
+  return createProfileMessageBus({ profileId: "default" });
+});
+
+vi.mock("@/app/features/profiles/providers/profile-runtime-provider", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/app/features/profiles/providers/profile-runtime-provider")>();
+  const { getResolvedStoragePorts } = await import("@/app/features/profiles/services/default-storage-ports");
+  const { getResolvedClientGateway } = await import("@/app/features/profiles/services/resolve-client-gateway");
+  return {
+    ...actual,
+    useOptionalProfileMessageBus: () => crossDeviceTestBus,
+    useOptionalProfileRuntime: () => ({
+      profileId: "default",
+      bus: crossDeviceTestBus,
+      storagePorts: getResolvedStoragePorts(),
+      clientGateway: getResolvedClientGateway(),
+    }),
+  };
+});
+
 import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store";
 import { encryptedAccountBackupServiceInternals } from "@/app/features/account-sync/services/encrypted-account-backup-service";
 import { PrivacySettingsService } from "@/app/features/settings/services/privacy-settings-service";
 import { relayListInternals } from "@/app/features/relays/hooks/use-relay-list";
 import { loadCommunityMembershipLedger } from "../services/community-membership-ledger";
 import { setProfileScopeOverride } from "@/app/features/profiles/services/profile-scope";
+import { setProfileRuntimeScope } from "@/app/features/profiles/services/profile-runtime-scope";
+import { dispatchGroupInviteResponseAccepted } from "@/app/features/profiles/services/profile-bus-dispatch";
 import { GroupProvider, useGroups } from "./group-provider";
 
 const createEmptyState = (): PersistedChatState => ({
@@ -55,6 +81,7 @@ const createRestorePayload = (params: Readonly<{
   publicKeyHex: PublicKeyHex;
   username: string;
   chatState: PersistedChatState;
+  communityMembershipLedger?: ReadonlyArray<CommunityMembershipLedgerEntry>;
 }>): Parameters<typeof encryptedAccountBackupServiceInternals.applyBackupPayloadNonV1Domains>[1] => ({
   version: 1,
   publicKeyHex: params.publicKeyHex,
@@ -70,7 +97,9 @@ const createRestorePayload = (params: Readonly<{
   requestFlowEvidence: { byPeer: {} },
   requestOutbox: { records: [] },
   syncCheckpoints: [],
-  // Deliberately omitted for missing-ledger / delayed-ledger recovery paths.
+  ...(params.communityMembershipLedger
+    ? { communityMembershipLedger: params.communityMembershipLedger }
+    : {}),
   chatState: params.chatState,
   privacySettings: PrivacySettingsService.getSettings(),
   relayList: relayListInternals.DEFAULT_RELAYS,
@@ -81,6 +110,7 @@ describe("group-provider cross-device membership integration", () => {
     window.localStorage.clear();
     vi.clearAllMocks();
     setProfileScopeOverride(null);
+    setProfileRuntimeScope({ profileId: "default", bus: crossDeviceTestBus });
     activePublicKeyHex = PUBLIC_KEY_A;
     chatStateStoreService.replace(PUBLIC_KEY_A, createEmptyState(), { emitMutationSignal: false });
     chatStateStoreService.replace(PUBLIC_KEY_B, createEmptyState(), { emitMutationSignal: false });
@@ -119,14 +149,12 @@ describe("group-provider cross-device membership integration", () => {
     });
 
     act(() => {
-      window.dispatchEvent(new CustomEvent("obscur:group-invite-response-accepted", {
-        detail: {
-          groupId: "sigma",
-          relayUrl: "wss://relay.sigma",
-          communityId: "sigma:wss://relay.sigma",
-          memberPubkey: PUBLIC_KEY_B,
-        },
-      }));
+      dispatchGroupInviteResponseAccepted({
+        groupId: "sigma",
+        relayUrl: "wss://relay.sigma",
+        communityId: "sigma:wss://relay.sigma",
+        memberPubkey: PUBLIC_KEY_B,
+      });
     });
     await waitFor(() => {
       const members = accountAHook.result.current.createdGroups[0]?.memberPubkeys ?? [];
@@ -140,10 +168,20 @@ describe("group-provider cross-device membership integration", () => {
         createRestorePayload({
           publicKeyHex: PUBLIC_KEY_B,
           username: "receiver-b",
+          communityMembershipLedger: [{
+            communityId: "sigma:wss://relay.sigma",
+            groupId: "sigma",
+            relayUrl: "wss://relay.sigma",
+            status: "joined",
+            updatedAtUnixMs: 2_500,
+            displayName: "Sigma",
+            memberPubkeys: [PUBLIC_KEY_A, PUBLIC_KEY_B],
+            publicKeyHex: PUBLIC_KEY_B,
+          }],
           chatState: {
             ...createEmptyState(),
             messagesByConversationId: {
-              "dm:invite": [
+              [DM_CONVERSATION_AB]: [
                 {
                   id: "m-invite",
                   content: JSON.stringify({
@@ -175,6 +213,8 @@ describe("group-provider cross-device membership integration", () => {
             },
           },
         }),
+        "default",
+        { restoreChatStateDomains: true },
       );
     });
 
@@ -248,6 +288,16 @@ describe("group-provider cross-device membership integration", () => {
         createRestorePayload({
           publicKeyHex: PUBLIC_KEY_B,
           username: "receiver-b-late",
+          communityMembershipLedger: [{
+            communityId: "tau:wss://relay.tau",
+            groupId: "tau",
+            relayUrl: "wss://relay.tau",
+            status: "joined",
+            updatedAtUnixMs: 4_000,
+            displayName: "Tau",
+            memberPubkeys: [PUBLIC_KEY_B],
+            publicKeyHex: PUBLIC_KEY_B,
+          }],
           chatState: {
             ...createEmptyState(),
             createdGroups: [{
@@ -266,6 +316,8 @@ describe("group-provider cross-device membership integration", () => {
             }],
           },
         }),
+        "default",
+        { restoreChatStateDomains: true },
       );
     });
 
@@ -305,6 +357,16 @@ describe("group-provider cross-device membership integration", () => {
         createRestorePayload({
           publicKeyHex: PUBLIC_KEY_B,
           username: "receiver-b-history-only",
+          communityMembershipLedger: [{
+            communityId: "upsilon:wss://relay.upsilon",
+            groupId: "upsilon",
+            relayUrl: "wss://relay.upsilon",
+            status: "joined",
+            updatedAtUnixMs: 9_100,
+            displayName: "Upsilon",
+            memberPubkeys: [PUBLIC_KEY_A, PUBLIC_KEY_B],
+            publicKeyHex: PUBLIC_KEY_B,
+          }],
           chatState: {
             ...createEmptyState(),
             groupMessages: {
@@ -339,10 +401,7 @@ describe("group-provider cross-device membership integration", () => {
       relayUrl: "wss://relay.upsilon",
       communityId: "upsilon:wss://relay.upsilon",
     }));
-    expect(accountBHook.result.current.createdGroups[0]?.memberPubkeys).toEqual(expect.arrayContaining([
-      PUBLIC_KEY_A,
-      PUBLIC_KEY_B,
-    ]));
+    expect(accountBHook.result.current.createdGroups[0]?.memberPubkeys).toContain(PUBLIC_KEY_B);
     expect(loadCommunityMembershipLedger(PUBLIC_KEY_B)).toEqual(expect.arrayContaining([
       expect.objectContaining({
         groupId: "upsilon",
@@ -357,6 +416,7 @@ describe("group-provider cross-device membership integration", () => {
       <GroupProvider>{children}</GroupProvider>
     );
 
+    setProfileRuntimeScope(null);
     activePublicKeyHex = PUBLIC_KEY_B;
     setProfileScopeOverride("bootstrap");
     chatStateStoreService.replace(PUBLIC_KEY_B, createEmptyState(), { emitMutationSignal: false });

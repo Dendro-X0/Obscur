@@ -5,14 +5,16 @@ import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { chatStateStoreService as chatStateStore } from "@/app/features/messaging/services/chat-state-store";
 import type { PersistedChatState } from "@/app/features/messaging/types";
 import { normalizePublicKeyHex, normalizePublicKeyHexList } from "@/app/features/profile/utils/normalize-public-key-hex";
-import { getActiveProfileIdSafe, getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { useOptionalProfileMessageBus } from "@/app/features/profiles/providers/profile-runtime-provider";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
+import { subscribeChatStateReplacedDual } from "@/app/features/profiles/services/subscribe-chat-state-replaced-dual";
 import { emitAccountSyncMutation } from "@/app/shared/account-sync-mutation-signal";
 import { appendCanonicalContactEvent } from "@/app/features/account-sync/services/account-event-ingest-bridge";
 import { useAccountProjectionSnapshot } from "@/app/features/account-sync/hooks/use-account-projection-snapshot";
 import { resolveProjectionReadAuthority } from "@/app/features/account-sync/services/account-projection-read-authority";
 import { selectProjectionAcceptedPeers } from "@/app/features/account-sync/services/account-projection-selectors";
 import { shouldWriteLegacyContactsDm } from "@/app/features/account-sync/services/account-sync-migration-policy";
-import { CHAT_STATE_REPLACED_EVENT } from "@/app/features/messaging/services/chat-state-store";
 
 type PeerTrustState = Readonly<{
   acceptedPeers: ReadonlyArray<PublicKeyHex>;
@@ -57,7 +59,7 @@ const getStorageKey = (publicKeyHex: PublicKeyHex): string => {
 };
 
 const DEBUG_PERSISTENCE_KEY = "obscur_debug_persistence";
-const getDebugPersistenceKey = (): string => getScopedStorageKey(DEBUG_PERSISTENCE_KEY);
+const getDebugPersistenceKey = (): string => getScopedStorageKey(DEBUG_PERSISTENCE_KEY, getResolvedProfileId());
 
 const shouldDebugPersistence = (): boolean => {
   if (typeof window === "undefined") {
@@ -140,7 +142,8 @@ const extractAcceptedPeersFromPersistedChatState = (
 
 export const usePeerTrust = (params: UsePeerTrustParams): UsePeerTrustResult => {
   const projectionSnapshot = useAccountProjectionSnapshot();
-  const activeProfileId = getActiveProfileIdSafe();
+  const optionalProfileBus = useOptionalProfileMessageBus();
+  const activeProfileId = getResolvedProfileId();
   const projectionReadAuthority = useMemo(() => (
     resolveProjectionReadAuthority({
       projectionSnapshot,
@@ -233,22 +236,17 @@ export const usePeerTrust = (params: UsePeerTrustParams): UsePeerTrustResult => 
     if (typeof window === "undefined" || !params.publicKeyHex) {
       return;
     }
-    const onChatStateReplaced = (event: Event): void => {
-      const detail = (event as CustomEvent<{ publicKeyHex?: string; profileId?: string }>).detail;
+    return subscribeChatStateReplacedDual((detail) => {
       const restoredPublicKeyHex = normalizePublicKeyHex(detail?.publicKeyHex);
       if (restoredPublicKeyHex && restoredPublicKeyHex !== params.publicKeyHex) {
         return;
       }
-      if (detail?.profileId && detail.profileId !== getActiveProfileIdSafe()) {
+      if (detail?.profileId && detail.profileId !== getResolvedProfileId()) {
         return;
       }
       hydrateAcceptedPeersFromChatState();
-    };
-    window.addEventListener(CHAT_STATE_REPLACED_EVENT, onChatStateReplaced);
-    return () => {
-      window.removeEventListener(CHAT_STATE_REPLACED_EVENT, onChatStateReplaced);
-    };
-  }, [hydrateAcceptedPeersFromChatState, params.publicKeyHex]);
+    }, optionalProfileBus);
+  }, [hydrateAcceptedPeersFromChatState, optionalProfileBus, params.publicKeyHex]);
 
   useEffect((): void => {
     if (!params.publicKeyHex || !hasHydrated) {

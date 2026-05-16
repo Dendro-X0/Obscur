@@ -34,6 +34,13 @@ export type MessageRenderCaches = Readonly<{
     voiceCallRoomSummaryByRoomId: ReadonlyMap<string, VoiceCallRoomRenderSummary>;
 }>;
 
+const isInviteResponseStatus = (status: unknown): status is InviteResponseStatus => {
+    return status === "pending"
+        || status === "accepted"
+        || status === "declined"
+        || status === "canceled";
+};
+
 const escapeRegex = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 const messageHasAttachmentRelayUrls = (params: Readonly<{
@@ -116,7 +123,7 @@ const parsePayload = (content: string): ParsedMessagePayload | null => {
     let candidate: unknown = content;
     for (let depth = 0; depth < 3; depth += 1) {
         if (typeof candidate === "string") {
-            const trimmed = candidate.trim();
+            const trimmed = candidate.trim().replace(/^\uFEFF/, "");
             if (!trimmed) {
                 return null;
             }
@@ -136,7 +143,7 @@ const parsePayload = (content: string): ParsedMessagePayload | null => {
     if (candidate && typeof candidate === "object") {
         return candidate as ParsedMessagePayload;
     }
-    const trimmed = content.trim();
+    const trimmed = content.trim().replace(/^\uFEFF/, "");
     if (!trimmed) {
         return null;
     }
@@ -200,15 +207,51 @@ const parsePayload = (content: string): ParsedMessagePayload | null => {
         };
     }
 
+    if (looseType === "community-invite") {
+        const groupId = readLooseStringField("groupId");
+        if (!groupId && !/"type"\s*:\s*"community-invite"/.test(trimmed)) {
+            return null;
+        }
+        const resolvedGroupId = groupId ?? "";
+        return {
+            type: "community-invite",
+            groupId: resolvedGroupId,
+            roomKey: readLooseStringField("roomKey") ?? "",
+            communityId: readLooseStringField("communityId"),
+            genesisEventId: readLooseStringField("genesisEventId"),
+            creatorPubkey: readLooseStringField("creatorPubkey"),
+            relayUrl: readLooseStringField("relayUrl"),
+            metadata: {
+                id: resolvedGroupId,
+                name: readLooseStringField("name") ?? "Private Group",
+                about: readLooseStringField("about"),
+                picture: readLooseStringField("picture"),
+                access: readLooseStringField("access"),
+                memberCount: readLooseNumberField("memberCount") ?? undefined,
+            },
+        };
+    }
+
+    if (looseType === "community-invite-response") {
+        const statusRaw = readLooseStringField("status");
+        const statusOk = statusRaw && isInviteResponseStatus(statusRaw);
+        if (!statusOk && !/"type"\s*:\s*"community-invite-response"/.test(trimmed)) {
+            return null;
+        }
+        const groupId = readLooseStringField("groupId") ?? "";
+        return {
+            type: "community-invite-response",
+            status: (statusOk ? statusRaw : "pending") as InviteResponseStatus,
+            groupId,
+            relayUrl: readLooseStringField("relayUrl"),
+            communityId: readLooseStringField("communityId"),
+        };
+    }
+
     return null;
 };
 
-const isInviteResponseStatus = (status: unknown): status is InviteResponseStatus => {
-    return status === "pending"
-        || status === "accepted"
-        || status === "declined"
-        || status === "canceled";
-};
+export const parseMessagePayloadForRender = parsePayload;
 
 type MutableVoiceCallRoomAccumulator = {
     roomId: string;
@@ -264,21 +307,26 @@ export const buildMessageRenderCaches = (params: Readonly<{
             content: message.content,
             attachments: message.attachments,
         });
-        const textContentResult = hasOnlyVoiceNoteAttachments
-            ? removeAttachmentRelayUrlsFromContent({
-                content: message.content,
-                attachments: message.attachments,
-            })
-            : getMessageContentForDisplay({
-                content: message.content,
-                attachments: message.attachments,
-                showAttachmentRelayUrls: attachmentUrlsExpanded,
-            });
+        // Check if this is a community invite/response - if so, we need to suppress the raw JSON text
+        const isCommunityInvite = parsedPayload?.type === "community-invite" || parsedPayload?.type === "community-invite-response";
+
+        const textContentResult = isCommunityInvite
+            ? { content: "", hasHiddenAttachmentRelayUrls: false } // Suppress raw JSON for invite cards
+            : hasOnlyVoiceNoteAttachments
+                ? removeAttachmentRelayUrlsFromContent({
+                    content: message.content,
+                    attachments: message.attachments,
+                })
+                : getMessageContentForDisplay({
+                    content: message.content,
+                    attachments: message.attachments,
+                    showAttachmentRelayUrls: attachmentUrlsExpanded,
+                });
 
         renderMetaByMessageId.set(message.id, {
             attachmentUrlsExpanded: hasOnlyVoiceNoteAttachments ? false : attachmentUrlsExpanded,
             hasVisualAttachments,
-            hasAttachmentRelayUrlsInContent,
+            hasAttachmentRelayUrlsInContent: isCommunityInvite ? false : hasAttachmentRelayUrlsInContent,
             textContentResult,
             parsedPayload,
         });

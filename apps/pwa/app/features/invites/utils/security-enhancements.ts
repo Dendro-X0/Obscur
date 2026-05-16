@@ -6,6 +6,7 @@
 import type { PublicKeyHex } from '@dweb/crypto/public-key-hex';
 import { cryptoService } from '../../crypto/crypto-service';
 import { getScopedStorageKey } from '../../profiles/services/profile-scope';
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 
 /**
  * Rate limiter for invite operations
@@ -234,7 +235,7 @@ export class InputValidator {
 export class SecureStorage {
   private static readonly ENCRYPTION_KEY_NAME = 'invite-encryption-key';
   private static toScopedKey(key: string): string {
-    return getScopedStorageKey(key);
+    return getScopedStorageKey(key, getResolvedProfileId());
   }
 
   /**

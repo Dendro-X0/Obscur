@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ProfileRegistryService } from "@/app/features/profiles/services/profile-registry-service";
 import { peerRelayEvidenceStore, peerRelayEvidenceStoreInternals } from "./peer-relay-evidence-store";
 
@@ -81,5 +81,21 @@ describe("peerRelayEvidenceStore", () => {
 
     expect(peerRelayEvidenceStore.getRelayUrls(PEER_A)).toEqual([]);
     expect(peerRelayEvidenceStoreInternals.readState().byPeer[PEER_A]).toBeUndefined();
+  });
+
+  it("notifies subscribe listeners when evidence is recorded", () => {
+    const listener = vi.fn();
+    const unsub = peerRelayEvidenceStore.subscribe(listener);
+    peerRelayEvidenceStore.recordInboundRelay({
+      peerPublicKeyHex: PEER_A,
+      relayUrl: "wss://relay-a.example",
+    });
+    expect(listener).toHaveBeenCalledTimes(1);
+    unsub();
+    peerRelayEvidenceStore.recordInboundRelay({
+      peerPublicKeyHex: PEER_A,
+      relayUrl: "wss://relay-b.example",
+    });
+    expect(listener).toHaveBeenCalledTimes(1);
   });
 });

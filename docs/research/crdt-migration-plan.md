@@ -10,10 +10,10 @@
 Member lists "thin" because we're using "snapshots" that overwrite instead of CRDT sets that merge.
 
 ### The Fix
-Convert `community-ledger-reducer.ts` to use OR-Set semantics.
+Convert `community-ledger-validator.ts` to use OR-Set semantics.
 
 **Files to Modify:**
-1. `apps/pwa/app/features/groups/services/community-ledger-reducer.ts`
+1. `apps/pwa/app/features/groups/services/community-ledger-validator.ts`
 2. `apps/pwa/app/features/groups/hooks/use-sealed-community.ts`
 3. `apps/pwa/app/features/groups/services/community-visible-members.ts`
 

@@ -3,6 +3,9 @@ import type { ConnectionRequestStatusValue, DmConversation, RequestsInboxItem } 
 import type { Message } from "@/app/features/messaging/types";
 import { normalizePublicKeyHex } from "@/app/features/profile/utils/normalize-public-key-hex";
 import type { AccountProjectionSnapshot } from "../account-event-contracts";
+import { isGroupConversationId } from "@/app/features/groups/utils/group-conversation-id";
+import { isAccountProjectionTimelineEntrySuppressed } from "@/app/features/messaging/services/conversation-message-visibility";
+import { messagingClientOperations } from "@/app/features/messaging/services/messaging-client-operations";
 
 const EMPTY_ITEMS: ReadonlyArray<RequestsInboxItem> = [];
 const EMPTY_PEERS: ReadonlyArray<PublicKeyHex> = [];
@@ -16,15 +19,13 @@ type PeerConversationSummary = Readonly<{
   conversationId: string;
 }>;
 
-const isLikelyGroupConversationId = (conversationId: string): boolean => {
-  const trimmed = conversationId.trim();
-  return trimmed.startsWith("community:") || trimmed.startsWith("group:") || trimmed.includes("@");
-};
-
 const inferPeerFromConversationId = (params: Readonly<{
   conversationId: string;
   myPublicKeyHex: PublicKeyHex;
 }>): PublicKeyHex | null => {
+  if (isGroupConversationId(params.conversationId)) {
+    return null;
+  }
   const directPeer = normalizePublicKeyHex(params.conversationId.trim());
   if (directPeer && directPeer !== params.myPublicKeyHex) {
     return directPeer;
@@ -73,8 +74,9 @@ const collectConversationTimelineEntries = (params: Readonly<{
   myPublicKeyHex: PublicKeyHex;
 }>): ReadonlyArray<AccountProjectionSnapshot["messagesByConversationId"][string][number]> => {
   const directTimeline = params.projection.messagesByConversationId[params.conversationId] ?? [];
-  if (isLikelyGroupConversationId(params.conversationId)) {
-    return directTimeline;
+  if (isGroupConversationId(params.conversationId)) {
+    const want = params.conversationId.trim();
+    return directTimeline.filter((entry) => entry.conversationId.trim() === want);
   }
   const resolvedPeer = resolveConversationPeer(params);
   if (!resolvedPeer) {
@@ -91,7 +93,7 @@ const collectConversationTimelineEntries = (params: Readonly<{
       if (entry.peerPublicKeyHex !== resolvedPeer) {
         return;
       }
-      if (isLikelyGroupConversationId(entry.conversationId)) {
+      if (isGroupConversationId(entry.conversationId)) {
         return;
       }
       const existing = byMessageId.get(entry.messageId);
@@ -213,8 +215,9 @@ export const selectProjectionConversationMessages = (params: Readonly<{
   if (!params.projection) {
     return EMPTY_MESSAGES;
   }
+  const projection = params.projection;
   const timeline = collectConversationTimelineEntries({
-    projection: params.projection,
+    projection,
     conversationId: params.conversationId,
     myPublicKeyHex: params.myPublicKeyHex,
   });
@@ -238,8 +241,17 @@ export const selectProjectionConversationMessages = (params: Readonly<{
     ? sortedTimeline.slice(-Math.floor(params.limit))
     : sortedTimeline;
 
-  return boundedTimeline
-    .map((entry): Message => {
+  const profileId = projection.profileId;
+
+  const visibleTimeline = boundedTimeline
+    .filter((entry) => !isAccountProjectionTimelineEntrySuppressed(
+      entry,
+      projection.removedMessageIds,
+      profileId,
+    ));
+
+  return messagingClientOperations.filterVisibleDmMessages(
+    visibleTimeline.map((entry): Message => {
       const isOutgoing = entry.direction === "outgoing";
       return {
         id: entry.messageId,
@@ -255,5 +267,7 @@ export const selectProjectionConversationMessages = (params: Readonly<{
         // Keep selector output aligned with requested conversation scope.
         conversationId: params.conversationId,
       };
-    });
+    }),
+    profileId,
+  );
 };

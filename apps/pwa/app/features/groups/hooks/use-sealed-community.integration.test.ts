@@ -2,14 +2,34 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { NostrEvent } from "@dweb/nostr/nostr-event";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
-import {
-    COMMUNITY_KNOWN_PARTICIPANTS_OBSERVED_EVENT,
-    GROUP_MEMBERSHIP_SNAPSHOT_EVENT,
-    useSealedCommunity,
-} from "./use-sealed-community";
+import { setProfileRuntimeScope } from "../../profiles/services/profile-runtime-scope";
+import { useSealedCommunity } from "./use-sealed-community";
+import { resetMembershipCrdtPersistenceForTests } from "./use-community-membership-crdt";
 import { cryptoService } from "../../crypto/crypto-service";
 import { roomKeyStore } from "../../crypto/room-key-store";
 import { messageBus } from "../../messaging/services/message-bus";
+
+const sealedCommunityBusRuntime = vi.hoisted(() => {
+    const { createProfileMessageBus } =
+        require("@dweb/core/profile-message-bus") as typeof import("@dweb/core/profile-message-bus");
+    const api = {
+        bus: createProfileMessageBus({ profileId: "default" }),
+        reset() {
+            api.bus = createProfileMessageBus({ profileId: "default" });
+            setProfileRuntimeScope({ profileId: "default", bus: api.bus });
+        },
+    };
+    return api;
+});
+
+function groupRemovedPublishCalls(publishSpy: ReturnType<typeof vi.spyOn>) {
+    return publishSpy.mock.calls
+        .map((call: readonly unknown[]) => call[0])
+        .filter((ev: unknown): ev is { type: "group-removed"; conversationId: string } =>
+            typeof ev === "object"
+            && ev !== null
+            && (ev as { type?: string }).type === "group-removed");
+}
 
 vi.mock("../../crypto/crypto-service", () => ({
     cryptoService: {
@@ -105,10 +125,12 @@ describe("use-sealed-community integration", () => {
         }))
     });
 
-    beforeEach(() => {
+    beforeEach(async () => {
         vi.clearAllMocks();
+        sealedCommunityBusRuntime.reset();
         onEventHandler = null;
         onEventHandlers.length = 0;
+        await resetMembershipCrdtPersistenceForTests();
         vi.mocked(roomKeyStore.getRoomKeyRecord).mockResolvedValue({
             groupId: "group-alpha",
             roomKeyHex: "room-key",
@@ -121,7 +143,7 @@ describe("use-sealed-community integration", () => {
     });
 
     it("emits group-remove once when disband is replayed repeatedly", async () => {
-        const dispatchSpy = vi.spyOn(window, "dispatchEvent");
+        const publishSpy = vi.spyOn(sealedCommunityBusRuntime.bus, "publish");
         const pool = createPool();
 
         vi.mocked(cryptoService.decryptGroupMessage)
@@ -145,11 +167,9 @@ describe("use-sealed-community integration", () => {
         });
 
         await waitFor(() => {
-            const removeCalls = dispatchSpy.mock.calls
-                .map(([evt]) => evt)
-                .filter((evt) => evt instanceof CustomEvent && evt.type === "obscur:group-remove") as CustomEvent<string>[];
+            const removeCalls = groupRemovedPublishCalls(publishSpy);
             expect(removeCalls).toHaveLength(1);
-            expect(removeCalls[0]?.detail).toBe(`community:${groupId}:${scopedRelay}`);
+            expect(removeCalls[0]?.conversationId).toBe(`community:${groupId}:${scopedRelay}`);
         });
     });
 
@@ -188,7 +208,7 @@ describe("use-sealed-community integration", () => {
     });
 
     it("does not implicitly disband on leave-only replay", async () => {
-        const dispatchSpy = vi.spyOn(window, "dispatchEvent");
+        const publishSpy = vi.spyOn(sealedCommunityBusRuntime.bus, "publish");
         const pool = createPool();
 
         vi.mocked(cryptoService.decryptGroupMessage)
@@ -213,10 +233,7 @@ describe("use-sealed-community integration", () => {
             expect(result.current.state.leftMembers).toContain(actor);
         });
 
-        const removeCalls = dispatchSpy.mock.calls
-            .map(([evt]) => evt)
-            .filter((evt) => evt instanceof CustomEvent && evt.type === "obscur:group-remove");
-        expect(removeCalls).toHaveLength(0);
+        expect(groupRemovedPublishCalls(publishSpy)).toHaveLength(0);
         expect(result.current.state.disbandedAt).toBeUndefined();
     });
 
@@ -244,7 +261,7 @@ describe("use-sealed-community integration", () => {
     });
 
     it("ignores disband replay from non-scope relay or wrong community tag", async () => {
-        const dispatchSpy = vi.spyOn(window, "dispatchEvent");
+        const publishSpy = vi.spyOn(sealedCommunityBusRuntime.bus, "publish");
         const pool = createPool();
 
         vi.mocked(cryptoService.decryptGroupMessage)
@@ -268,10 +285,7 @@ describe("use-sealed-community integration", () => {
         });
 
         expect(result.current.state.disbandedAt).toBeUndefined();
-        const removeCalls = dispatchSpy.mock.calls
-            .map(([evt]) => evt)
-            .filter((evt) => evt instanceof CustomEvent && evt.type === "obscur:group-remove");
-        expect(removeCalls).toHaveLength(0);
+        expect(groupRemovedPublishCalls(publishSpy)).toHaveLength(0);
     });
 
     it("converges to the same membership state across devices with reordered replay", async () => {
@@ -646,7 +660,7 @@ describe("use-sealed-community integration", () => {
 
     it("does not emit a thinner self-only membership snapshot on mount when restored initialMembers already include peers", async () => {
         const pool = createPool();
-        const dispatchSpy = vi.spyOn(window, "dispatchEvent");
+        const publishSpy = vi.spyOn(sealedCommunityBusRuntime.bus, "publish");
 
         renderHook(() => useSealedCommunity({
             pool: pool as any,
@@ -659,22 +673,24 @@ describe("use-sealed-community integration", () => {
         }));
 
         await waitFor(() => {
-            const snapshotCalls = dispatchSpy.mock.calls
+            const snapshotCalls = publishSpy.mock.calls
                 .map(([event]) => event)
-                .filter((event): event is CustomEvent<{
-                    activeMemberPubkeys?: ReadonlyArray<PublicKeyHex>;
-                }> => event instanceof CustomEvent && event.type === GROUP_MEMBERSHIP_SNAPSHOT_EVENT);
+                .filter((event): event is { type: "group-membership-snapshot"; detail: unknown } =>
+                    typeof event === "object"
+                    && event !== null
+                    && (event as { type?: string }).type === "group-membership-snapshot");
             expect(snapshotCalls.length).toBeGreaterThan(0);
-            expect(snapshotCalls.every((event) => (
-                (event.detail.activeMemberPubkeys ?? []).includes(actor)
-                && (event.detail.activeMemberPubkeys ?? []).includes(peer)
-            ))).toBe(true);
+            expect(snapshotCalls.every((event) => {
+                const detail = event.detail as { activeMemberPubkeys?: ReadonlyArray<PublicKeyHex> };
+                return (detail.activeMemberPubkeys ?? []).includes(actor)
+                    && (detail.activeMemberPubkeys ?? []).includes(peer);
+            })).toBe(true);
         });
     });
 
     it("emits observed known participants so the stable directory can persist richer live evidence", async () => {
         const pool = createPool();
-        const dispatchSpy = vi.spyOn(window, "dispatchEvent");
+        const publishSpy = vi.spyOn(sealedCommunityBusRuntime.bus, "publish");
 
         renderHook(() => useSealedCommunity({
             pool: pool as any,
@@ -687,16 +703,18 @@ describe("use-sealed-community integration", () => {
         }));
 
         await waitFor(() => {
-            const observedCalls = dispatchSpy.mock.calls
+            const observedCalls = publishSpy.mock.calls
                 .map(([event]) => event)
-                .filter((event): event is CustomEvent<{
-                    participantPubkeys?: ReadonlyArray<PublicKeyHex>;
-                }> => event instanceof CustomEvent && event.type === COMMUNITY_KNOWN_PARTICIPANTS_OBSERVED_EVENT);
+                .filter((event): event is { type: "community-known-participants-observed"; detail: unknown } =>
+                    typeof event === "object"
+                    && event !== null
+                    && (event as { type?: string }).type === "community-known-participants-observed");
             expect(observedCalls.length).toBeGreaterThan(0);
-            expect(observedCalls.some((event) => (
-                (event.detail.participantPubkeys ?? []).includes(actor)
-                && (event.detail.participantPubkeys ?? []).includes(peer)
-            ))).toBe(true);
+            expect(observedCalls.some((event) => {
+                const detail = event.detail as { participantPubkeys?: ReadonlyArray<PublicKeyHex> };
+                return (detail.participantPubkeys ?? []).includes(actor)
+                    && (detail.participantPubkeys ?? []).includes(peer);
+            })).toBe(true);
         });
     });
 

@@ -1,12 +1,15 @@
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { Attachment, PersistedChatState, PersistedGroupMessage, PersistedMessage } from "@/app/features/messaging/types";
-import { normalizeMessageDeleteTombstoneEntries } from "@/app/features/messaging/services/message-delete-tombstone-store";
+import { normalizeMessageDeleteTombstoneEntries } from "@dweb/storage-contracts/message-delete-tombstones";
 import { parseCommandMessage } from "@/app/features/messaging/utils/commands";
 import { toGroupConversationId } from "@/app/features/groups/utils/group-conversation-id";
 import { collectMessageIdentityAliases } from "@/app/features/messaging/services/message-identity-alias-contract";
 import { normalizePublicKeyHex } from "@/app/features/profile/utils/normalize-public-key-hex";
+import type { CommunityMembershipLedgerEntry } from "@/app/features/groups/services/community-membership-ledger";
 import type { EncryptedAccountBackupPayload, MessageDeleteTombstoneSnapshotEntry } from "../account-sync-contracts";
 import { emitRestoreDeleteTargetUnresolved } from "./restore-merge-diagnostics";
+import { toCommunityMembershipLedgerKey } from "@/app/features/groups/services/community-membership-ledger";
+import { sanitizeRestoredChatStateLiveCommunitySignals } from "./restore-live-community-boundary";
 
 export const uniqueStrings = (values: ReadonlyArray<string>): ReadonlyArray<string> =>
   Array.from(new Set(values.filter((value) => value.length > 0)));
@@ -688,10 +691,32 @@ const toPersistedGroupMergeKey = (group: PersistedChatState["createdGroups"][num
   return String(group.id ?? "").trim();
 };
 
+/**
+ * Check if a display name is meaningful (not empty and not the default placeholder).
+ * This prevents placeholder names from overwriting actual group names during restore.
+ */
+const isMeaningfulDisplayName = (name: string | undefined): boolean => {
+  if (!name || name.trim().length === 0) return false;
+  const PLACEHOLDER_NAMES = ["Private Group", "Group", ""];
+  return !PLACEHOLDER_NAMES.includes(name.trim());
+};
+
 const mergePersistedGroupConversations = (
   current: PersistedChatState["createdGroups"],
   incoming: PersistedChatState["createdGroups"],
+  ledgerEntries?: ReadonlyArray<CommunityMembershipLedgerEntry>,
 ): PersistedChatState["createdGroups"] => {
+  // Build set of group keys with non-live ledger status (left/expelled/historical).
+  const suppressedGroupKeys = new Set<string>();
+  if (ledgerEntries) {
+    for (const entry of ledgerEntries) {
+      if (entry.status === "left" || entry.status === "expelled" || entry.status === "historical") {
+        const key = toCommunityMembershipLedgerKey(entry);
+        if (key) suppressedGroupKeys.add(key);
+      }
+    }
+  }
+
   const byKey = new Map<string, PersistedChatState["createdGroups"][number]>();
 
   const mergeEntry = (
@@ -748,7 +773,11 @@ const mergePersistedGroupConversations = (
       communityId: mergedCommunityIdCandidate,
       genesisEventId: mergedGenesisEventId,
       creatorPubkey: mergedCreatorPubkey,
-      displayName: pickPreferredGroupDisplayName(newer.displayName, older.displayName),
+      displayName: isMeaningfulDisplayName(newer.displayName)
+        ? newer.displayName
+        : isMeaningfulDisplayName(older.displayName)
+          ? older.displayName
+          : (newer.displayName || older.displayName || "Private Group"),
       memberPubkeys: mergedMemberPubkeys,
       adminPubkeys: mergedAdminPubkeys,
       memberCount: Math.max(
@@ -772,17 +801,31 @@ const mergePersistedGroupConversations = (
     };
   };
 
-  for (const group of [...current, ...incoming]) {
-    const key = toPersistedGroupMergeKey(group);
-    const existing = byKey.get(key);
-    if (!existing) {
-      byKey.set(key, group);
+  const all = [...current, ...incoming];
+  for (const group of all) {
+    // Use toCommunityMembershipLedgerKey to match the format used for suppressedGroupKeys
+    // (groupId@@relayUrl format, NOT community:groupId:relayUrl format)
+    const ledgerKey = toCommunityMembershipLedgerKey({ groupId: group.groupId, relayUrl: group.relayUrl });
+
+    // Skip groups with terminal or historical-only ledger evidence (REL-001 / REL-002).
+    if (ledgerKey && suppressedGroupKeys.has(ledgerKey)) {
       continue;
     }
-    byKey.set(key, mergeEntry(existing, group));
-  }
 
+    const existing = byKey.get(ledgerKey ?? group.id);
+    byKey.set(ledgerKey ?? group.id, existing ? mergeEntry(existing, group) : group);
+  }
   return Array.from(byKey.values());
+};
+
+const applyRestoreLiveCommunityBoundary = (
+  chatState: EncryptedAccountBackupPayload["chatState"],
+  ledgerEntries?: ReadonlyArray<CommunityMembershipLedgerEntry>,
+): EncryptedAccountBackupPayload["chatState"] => {
+  if (!chatState || !ledgerEntries || ledgerEntries.length === 0) {
+    return chatState;
+  }
+  return sanitizeRestoredChatStateLiveCommunitySignals(chatState, ledgerEntries);
 };
 
 export const mergeChatState = (
@@ -790,15 +833,25 @@ export const mergeChatState = (
   incoming: EncryptedAccountBackupPayload["chatState"],
   options?: Readonly<{
     durableDeleteIds?: ReadonlySet<string>;
+    ledgerEntries?: ReadonlyArray<CommunityMembershipLedgerEntry>;
   }>
 ): EncryptedAccountBackupPayload["chatState"] => {
   if (!current) {
-    return sanitizePersistedChatStateMessagesByDeleteContract(incoming, options);
+    const sanitized = sanitizePersistedChatStateMessagesByDeleteContract(incoming, options);
+    // Even on first-restore (no current state), filter out groups the user has left/expelled.
+    // Without this, left communities resurrect when restoring on a new device.
+    if (sanitized && options?.ledgerEntries && options.ledgerEntries.length > 0) {
+      return applyRestoreLiveCommunityBoundary({
+        ...sanitized,
+        createdGroups: mergePersistedGroupConversations([], sanitized.createdGroups, options.ledgerEntries),
+      }, options.ledgerEntries);
+    }
+    return sanitized;
   }
   if (!incoming) {
     return sanitizePersistedChatStateMessagesByDeleteContract(current, options);
   }
-  return sanitizePersistedChatStateMessagesByDeleteContract({
+  return applyRestoreLiveCommunityBoundary(sanitizePersistedChatStateMessagesByDeleteContract({
     ...incoming,
     createdConnections: pickNewestBy(
       [...current.createdConnections, ...incoming.createdConnections],
@@ -808,6 +861,7 @@ export const mergeChatState = (
     createdGroups: mergePersistedGroupConversations(
       current.createdGroups,
       incoming.createdGroups,
+      options?.ledgerEntries,
     ),
     connectionRequests: pickNewestBy(
       [...(current.connectionRequests ?? []), ...(incoming.connectionRequests ?? [])],
@@ -829,5 +883,5 @@ export const mergeChatState = (
       incoming.messagesByConversationId,
     ),
     groupMessages: mergeGroupMessageMaps(current.groupMessages, incoming.groupMessages),
-  }, options);
+  }, options), options?.ledgerEntries);
 };

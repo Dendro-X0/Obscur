@@ -4,11 +4,15 @@ import {
   loadPeerLastActiveByPeerPubkey,
   peerInteractionStoreInternals,
 } from "@/app/features/messaging/services/peer-interaction-store";
+import { useOptionalProfileMessageBus, useOptionalProfileRuntime } from "@/app/features/profiles/providers/profile-runtime-provider";
+import { subscribePeerInteractionUpdatedDual } from "@/app/features/profiles/services/subscribe-peer-interaction-updated-dual";
 
 export const usePeerLastActiveByPeer = (
   publicKeyHex: PublicKeyHex | null
 ): Readonly<Record<string, number>> => {
   const [snapshot, setSnapshot] = React.useState<Readonly<Record<string, number>>>({});
+  const optionalProfileBus = useOptionalProfileMessageBus();
+  const optionalRuntime = useOptionalProfileRuntime();
 
   React.useEffect(() => {
     if (!publicKeyHex) {
@@ -17,18 +21,21 @@ export const usePeerLastActiveByPeer = (
     }
 
     const refresh = (): void => {
-      setSnapshot(loadPeerLastActiveByPeerPubkey(publicKeyHex));
+      setSnapshot(loadPeerLastActiveByPeerPubkey(publicKeyHex, optionalRuntime?.profileId));
     };
 
     refresh();
 
     if (typeof window === "undefined") {
-      return;
+      const unsubPeerDual = subscribePeerInteractionUpdatedDual((detail) => {
+        if (detail.publicKeyHex === publicKeyHex) {
+          refresh();
+        }
+      }, optionalProfileBus);
+      return (): void => {
+        unsubPeerDual();
+      };
     }
-
-    const onStoreUpdated = (): void => {
-      refresh();
-    };
 
     const onStorage = (event: StorageEvent): void => {
       if (!event.key || !event.key.includes(peerInteractionStoreInternals.storagePrefix)) {
@@ -37,13 +44,18 @@ export const usePeerLastActiveByPeer = (
       refresh();
     };
 
-    window.addEventListener(peerInteractionStoreInternals.storageUpdateEvent, onStoreUpdated);
+    const unsubPeerDual = subscribePeerInteractionUpdatedDual((detail) => {
+      if (detail.publicKeyHex === publicKeyHex) {
+        refresh();
+      }
+    }, optionalProfileBus);
+
     window.addEventListener("storage", onStorage);
     return () => {
-      window.removeEventListener(peerInteractionStoreInternals.storageUpdateEvent, onStoreUpdated);
+      unsubPeerDual();
       window.removeEventListener("storage", onStorage);
     };
-  }, [publicKeyHex]);
+  }, [publicKeyHex, optionalProfileBus, optionalRuntime?.profileId]);
 
   return snapshot;
 };

@@ -10,15 +10,18 @@
  * missing members were "removed without evidence". But during relay warm-up,
  * the initial "current state" may be optimistic seed data, not evidence-based.
  *
- * The fix: When relay evidence confidence is low (seed_only or warming_up),
- * allow thinner snapshots to replace seed data. Once confidence reaches
- * partial_eose or steady_state, enforce strict evidence requirements.
+ * The fix: When relay evidence confidence is low (seed_only or warming_up with a
+ * seed-sized roster), allow thinner snapshots to replace seed data. Once confidence
+ * reaches partial_eose or steady_state, enforce strict evidence requirements.
+ * `policyReasonCode` distinguishes confident applies, strict rejects, protected-member
+ * blocks, and guard-relaxed applies (for `groups.membership_snapshot_projection_result`).
  *
- * Canonical Owner: group-provider.tsx (snapshot application boundary)
+ * Canonical Owner: **`group-provider.tsx`** (relay snapshot → **`resolveEnhancedSnapshotApplication`**); **`protectRemovalPubkeys`** must match **`mergeKnownParticipantSeedPubkeys`** inputs at that boundary.
  */
 
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import {
+  mergeMonotonicActiveCommunityMembers,
   resolveCommunityMemberSnapshotApplication,
   type CommunityMemberSnapshotApplication,
 } from "./community-member-roster-projection";
@@ -34,6 +37,14 @@ export type EnhancedSnapshotApplicationParams = Readonly<{
   incomingActiveMemberPubkeys: ReadonlyArray<PublicKeyHex>;
   leftMemberPubkeys?: ReadonlyArray<PublicKeyHex>;
   expelledMemberPubkeys?: ReadonlyArray<PublicKeyHex>;
+  /**
+   * Pubkeys that must not be dropped from the roster solely because a thin relay
+   * snapshot omitted them during low-confidence warm-up (e.g. persisted group
+   * members or known-participant directory). Prefer the same union as
+   * **`mergeKnownParticipantSeedPubkeys`** (directory ∪ persisted `memberPubkeys`)
+   * so snapshot policy matches UI seed contracts.
+   */
+  protectRemovalPubkeys?: ReadonlyArray<PublicKeyHex> | ReadonlySet<string>;
   // Relay evidence for confidence assessment
   relayEvidenceParams: RelayEvidencePolicyParams;
   // Source tracking for diagnostics
@@ -48,6 +59,9 @@ export type EnhancedSnapshotApplicationResult = Readonly<{
     | "relay_evidence_confident"
     | "relay_evidence_seed_only_allowing_thinner"
     | "relay_evidence_warming_up_allowing_thinner"
+    /** Thinner snapshot would be allowed by confidence, but applying it would drop a protected pubkey. */
+    | "relay_evidence_relax_blocked_protected_member"
+    | "relay_evidence_warming_up_strict"
     | "relay_evidence_partial_eose_strict"
     | "relay_evidence_steady_state_strict";
 }>;
@@ -74,6 +88,17 @@ export const resolveEnhancedSnapshotApplication = (
     expelledMemberPubkeys: params.expelledMemberPubkeys,
   });
 
+  const protectRemovalSet = (() => {
+    const raw = params.protectRemovalPubkeys;
+    if (!raw) {
+      return null;
+    }
+    const list = [...raw];
+    return new Set(list.map((p) => p.trim()).filter((p) => p.length > 0));
+  })();
+  const relaxWouldDropProtectedMember = !!protectRemovalSet
+    && baseApplication.removedWithoutEvidence.some((pk) => protectRemovalSet.has(pk.trim()));
+
   // Check if we should relax the guard based on confidence
   const shouldRelax = shouldRelaxThinnerSnapshotGuard(
     confidence,
@@ -85,6 +110,7 @@ export const resolveEnhancedSnapshotApplication = (
   if (
     shouldRelax &&
     baseApplication.reasonCode === "missing_removal_evidence"
+    && !relaxWouldDropProtectedMember
   ) {
     const reasonCode: EnhancedSnapshotApplicationResult["reasonCode"] =
       confidence === "seed_only"
@@ -94,9 +120,21 @@ export const resolveEnhancedSnapshotApplication = (
     return {
       application: {
         shouldApply: true,
-        reasonCode: "apply_snapshot", // Override to allow
-        nextMemberPubkeys: params.incomingActiveMemberPubkeys,
-        removedWithoutEvidence: [], // Clear the "without evidence" list
+        reasonCode: "apply_snapshot_guard_relaxed",
+        nextMemberPubkeys: mergeMonotonicActiveCommunityMembers(
+          params.currentMemberPubkeys,
+          params.incomingActiveMemberPubkeys,
+          {
+            excludePubkeys: [
+              ...(params.leftMemberPubkeys ?? []),
+              ...(params.expelledMemberPubkeys ?? []),
+            ],
+            additionalPubkeys: params.protectRemovalPubkeys
+              ? [...params.protectRemovalPubkeys]
+              : undefined,
+          },
+        ),
+        removedWithoutEvidence: [],
       },
       confidence,
       guardRelaxed: true,
@@ -105,14 +143,12 @@ export const resolveEnhancedSnapshotApplication = (
   }
 
   // Otherwise, return base application with confidence context
-  const reasonCode: EnhancedSnapshotApplicationResult["reasonCode"] =
-    confidence === "seed_only"
-      ? "relay_evidence_seed_only_allowing_thinner"
-      : confidence === "warming_up"
-        ? "relay_evidence_warming_up_allowing_thinner"
-        : confidence === "partial_eose"
-          ? "relay_evidence_partial_eose_strict"
-          : "relay_evidence_steady_state_strict";
+  const reasonCode = resolveEnhancedSnapshotPolicyReasonCode({
+    confidence,
+    baseReasonCode: baseApplication.reasonCode,
+    shouldRelax,
+    relaxWouldDropProtectedMember,
+  });
 
   return {
     application: baseApplication,
@@ -120,6 +156,36 @@ export const resolveEnhancedSnapshotApplication = (
     guardRelaxed: false,
     reasonCode,
   };
+};
+
+type PolicyReasonContext = Readonly<{
+  confidence: RelayEvidenceConfidence;
+  baseReasonCode: CommunityMemberSnapshotApplication["reasonCode"];
+  shouldRelax: boolean;
+  relaxWouldDropProtectedMember: boolean;
+}>;
+
+const resolveEnhancedSnapshotPolicyReasonCode = (
+  ctx: PolicyReasonContext,
+): EnhancedSnapshotApplicationResult["reasonCode"] => {
+  if (ctx.baseReasonCode !== "missing_removal_evidence") {
+    return "relay_evidence_confident";
+  }
+  if (ctx.shouldRelax && ctx.relaxWouldDropProtectedMember) {
+    return "relay_evidence_relax_blocked_protected_member";
+  }
+  if (!ctx.shouldRelax) {
+    if (ctx.confidence === "warming_up") {
+      return "relay_evidence_warming_up_strict";
+    }
+    if (ctx.confidence === "partial_eose") {
+      return "relay_evidence_partial_eose_strict";
+    }
+    if (ctx.confidence === "steady_state") {
+      return "relay_evidence_steady_state_strict";
+    }
+  }
+  return "relay_evidence_confident";
 };
 
 /**

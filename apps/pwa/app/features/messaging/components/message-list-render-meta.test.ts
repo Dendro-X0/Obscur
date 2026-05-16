@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Attachment, Message } from "../types";
-import { buildMessageRenderCaches } from "./message-list-render-meta";
+import { buildMessageRenderCaches, parseMessagePayloadForRender } from "./message-list-render-meta";
 
 const createAttachment = (overrides: Partial<Attachment>): Attachment => ({
     kind: "file",
@@ -268,5 +268,31 @@ describe("message-list render meta cache", () => {
             roomId,
             signalType: "offer",
         });
+    });
+
+    it("strips BOM and suppresses community invite text when JSON is prefixed", () => {
+        const raw = `\uFEFF${JSON.stringify({
+            type: "community-invite",
+            groupId: "g1",
+            roomKey: "rk",
+            metadata: { id: "g1", name: "Test", access: "private" },
+        })}`;
+        const message = createMessage({ id: "msg-bom-invite", content: raw });
+        const caches = buildMessageRenderCaches({
+            messages: [message],
+            expandedRelayUrlsByMessageId: new Set(),
+        });
+        expect(caches.parsedPayloadByMessageId.get("msg-bom-invite")?.type).toBe("community-invite");
+        expect(caches.renderMetaByMessageId.get("msg-bom-invite")?.textContentResult.content).toBe("");
+    });
+
+    it("uses loose parsing for invite payloads when strict JSON.parse fails", () => {
+        const broken = '{"type":"community-invite","groupId":"abc","roomKey":"rk",';
+        expect(parseMessagePayloadForRender(broken)?.type).toBe("community-invite");
+        const meta = buildMessageRenderCaches({
+            messages: [createMessage({ id: "m1", content: broken })],
+            expandedRelayUrlsByMessageId: new Set(),
+        }).renderMetaByMessageId.get("m1");
+        expect(meta?.textContentResult.content).toBe("");
     });
 });

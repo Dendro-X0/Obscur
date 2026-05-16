@@ -1,12 +1,18 @@
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { CommunityMemberProjection } from "@dweb/core/community-projection-contracts";
 import {
+    mergeKnownParticipantSeedPubkeys,
+    type CommunityKnownParticipantDirectory,
+} from "./community-known-participant-directory";
+import {
     dedupeCommunityMemberPubkeys,
     projectCommunityMemberRoster,
+    stabilizeCommunityMemberPubkeys as stabilizeCommunityMemberPubkeysFromRoster,
 } from "./community-member-roster-projection";
 import type { RelayEvidenceConfidence } from "./community-member-roster-projection";
+import type { StabilizeCommunityMemberPubkeysResult } from "./community-member-roster-projection";
 
-export type { RelayEvidenceConfidence };
+export type { RelayEvidenceConfidence, StabilizeCommunityMemberPubkeysResult };
 
 export type GroupMemberProfileLike = Readonly<{
     displayName?: string | null;
@@ -40,6 +46,23 @@ export const resolveCommunitySeedMemberPubkeys = (params: Readonly<{
     }).allKnownMemberPubkeys
 );
 
+/** Directory ∪ persisted `memberPubkeys` → seed, then union with roster projection + local (sealed-community / management UIs). */
+export const resolveCommunitySeedMemberPubkeysFromDirectory = (params: Readonly<{
+    directory: CommunityKnownParticipantDirectory | null | undefined;
+    persistedGroupMemberPubkeys?: ReadonlyArray<PublicKeyHex> | null;
+    projectionMemberPubkeys?: ReadonlyArray<PublicKeyHex>;
+    localMemberPubkey?: PublicKeyHex | null;
+}>): ReadonlyArray<PublicKeyHex> => (
+    resolveCommunitySeedMemberPubkeys({
+        seededMemberPubkeys: mergeKnownParticipantSeedPubkeys({
+            directory: params.directory ?? null,
+            persistedGroupMemberPubkeys: params.persistedGroupMemberPubkeys,
+        }),
+        projectionMemberPubkeys: params.projectionMemberPubkeys,
+        localMemberPubkey: params.localMemberPubkey,
+    })
+);
+
 export const resolveVisibleCommunityMemberPubkeys = (params: Readonly<{
     seededMemberPubkeys?: ReadonlyArray<PublicKeyHex>;
     projectionMemberPubkeys?: ReadonlyArray<PublicKeyHex>;
@@ -57,6 +80,47 @@ export const resolveVisibleCommunityMemberPubkeys = (params: Readonly<{
         expelledMemberPubkeys: params.expelledMemberPubkeys,
     }).activeMemberPubkeys
 );
+
+/** Dedupe message `pubkey` values for `resolveVisibleCommunityMemberPubkeys` author-evidence input. Used by group home / management UIs, **`group-provider`** hydrate (`groupMessageAuthorsByConversationId` + member backfill), and **`collectGroupMessageAuthorPubkeys`**. Prefer **`resolveActiveCommunityMemberPubkeysFromConversation`** when computing active roster + author evidence together. */
+export const resolveAuthorEvidencePubkeysFromCommunityMessages = (
+    messages: ReadonlyArray<Readonly<{ pubkey?: string | null }>>,
+): ReadonlyArray<PublicKeyHex> => (
+    Array.from(new Set(
+        messages
+            .map((message) => message.pubkey?.trim() ?? "")
+            .filter((pubkey) => pubkey.length > 0),
+    )) as ReadonlyArray<PublicKeyHex>
+);
+
+export type ResolveActiveCommunityMemberPubkeysFromConversationParams = Readonly<{
+    communityMessages: ReadonlyArray<Readonly<{ pubkey?: string | null }>>;
+    seededMemberPubkeys: ReadonlyArray<PublicKeyHex>;
+    projectionMemberPubkeys?: ReadonlyArray<PublicKeyHex>;
+    localMemberPubkey?: PublicKeyHex | null;
+    leftMemberPubkeys?: ReadonlyArray<PublicKeyHex>;
+    expelledMemberPubkeys?: ReadonlyArray<PublicKeyHex>;
+}>;
+
+export type ActiveCommunityMemberPubkeysResolution = Readonly<{
+    activeMemberPubkeys: ReadonlyArray<PublicKeyHex>;
+    authorEvidencePubkeys: ReadonlyArray<PublicKeyHex>;
+}>;
+
+/** Single pass: timeline authors → `resolveVisibleCommunityMemberPubkeys` (group home / management). */
+export const resolveActiveCommunityMemberPubkeysFromConversation = (
+    params: ResolveActiveCommunityMemberPubkeysFromConversationParams,
+): ActiveCommunityMemberPubkeysResolution => {
+    const authorEvidencePubkeys = resolveAuthorEvidencePubkeysFromCommunityMessages(params.communityMessages);
+    const activeMemberPubkeys = resolveVisibleCommunityMemberPubkeys({
+        seededMemberPubkeys: params.seededMemberPubkeys,
+        projectionMemberPubkeys: params.projectionMemberPubkeys,
+        authorEvidencePubkeys,
+        localMemberPubkey: params.localMemberPubkey,
+        leftMemberPubkeys: params.leftMemberPubkeys,
+        expelledMemberPubkeys: params.expelledMemberPubkeys,
+    });
+    return { activeMemberPubkeys, authorEvidencePubkeys };
+};
 
 const isCommunityMemberProjection = (
     value: PublicKeyHex | CommunityMemberProjection,
@@ -95,6 +159,7 @@ export const filterActiveCommunityMemberPubkeys = (params: Readonly<{
     ));
 };
 
+/** Session/UI params (`previous` / `next`); implementation lives in `community-member-roster-projection`. React: `useStableCommunityParticipantPubkeys`. */
 export type StabilizeCommunityMemberPubkeysParams = Readonly<{
     previousMemberPubkeys?: ReadonlyArray<PublicKeyHex>;
     nextMemberPubkeys?: ReadonlyArray<PublicKeyHex>;
@@ -103,63 +168,14 @@ export type StabilizeCommunityMemberPubkeysParams = Readonly<{
     relayEvidenceConfidence?: RelayEvidenceConfidence;
 }>;
 
-export type StabilizeCommunityMemberPubkeysResult = Readonly<{
-    shouldApply: boolean;
-    reasonCode: "equivalent" | "apply_snapshot" | "apply_snapshot_guard_relaxed" | "missing_removal_evidence";
-    nextMemberPubkeys: ReadonlyArray<PublicKeyHex>;
-    removedWithoutEvidence: ReadonlyArray<PublicKeyHex>;
-    confidence: RelayEvidenceConfidence;
-    guardRelaxed: boolean;
-}>;
-
-export const stabilizeCommunityMemberPubkeys = (params: StabilizeCommunityMemberPubkeysParams): StabilizeCommunityMemberPubkeysResult => {
-    const currentMemberPubkeys = dedupeCommunityMemberPubkeys(params.previousMemberPubkeys ?? []);
-    const nextMemberPubkeys = dedupeCommunityMemberPubkeys(params.nextMemberPubkeys ?? []);
-    const leftMemberPubkeys = new Set<PublicKeyHex>(params.leftMemberPubkeys ?? []);
-    const expelledMemberPubkeys = new Set<PublicKeyHex>(params.expelledMemberPubkeys ?? []);
-
-    // Check for members that appear removed without evidence
-    const removedWithoutEvidence = currentMemberPubkeys.filter((pubkey) => (
-        !nextMemberPubkeys.includes(pubkey)
-        && !leftMemberPubkeys.has(pubkey)
-        && !expelledMemberPubkeys.has(pubkey)
-    ));
-
-    // During relay warm-up, allow snapshot even if it appears to remove members
-    // This handles the case where relay sends partial data initially
-    const isRelayWarmUp = params.relayEvidenceConfidence === "seed_only" ||
-        (params.relayEvidenceConfidence === "warming_up" && currentMemberPubkeys.length <= 2);
-
-    if (removedWithoutEvidence.length > 0 && !isRelayWarmUp) {
-        return {
-            shouldApply: false,
-            reasonCode: "missing_removal_evidence",
-            nextMemberPubkeys: currentMemberPubkeys,
-            removedWithoutEvidence,
-            confidence: params.relayEvidenceConfidence ?? "unknown",
-            guardRelaxed: false,
-        };
-    }
-
-    if (currentMemberPubkeys.join(",") === nextMemberPubkeys.join(",")) {
-        return {
-            shouldApply: false,
-            reasonCode: "equivalent",
-            nextMemberPubkeys: currentMemberPubkeys,
-            removedWithoutEvidence: [],
-            confidence: params.relayEvidenceConfidence ?? "unknown",
-            guardRelaxed: isRelayWarmUp && removedWithoutEvidence.length > 0,
-        };
-    }
-
-    return {
-        shouldApply: true,
-        reasonCode: removedWithoutEvidence.length > 0 && isRelayWarmUp
-            ? "apply_snapshot_guard_relaxed"
-            : "apply_snapshot",
-        nextMemberPubkeys,
-        removedWithoutEvidence: [],
-        confidence: params.relayEvidenceConfidence ?? "unknown",
-        guardRelaxed: isRelayWarmUp && removedWithoutEvidence.length > 0,
-    };
-};
+export const stabilizeCommunityMemberPubkeys = (
+    params: StabilizeCommunityMemberPubkeysParams,
+): StabilizeCommunityMemberPubkeysResult => (
+    stabilizeCommunityMemberPubkeysFromRoster({
+        currentMemberPubkeys: params.previousMemberPubkeys ?? [],
+        incomingActiveMemberPubkeys: params.nextMemberPubkeys ?? [],
+        leftMemberPubkeys: params.leftMemberPubkeys,
+        expelledMemberPubkeys: params.expelledMemberPubkeys,
+        relayEvidenceConfidence: params.relayEvidenceConfidence,
+    })
+);

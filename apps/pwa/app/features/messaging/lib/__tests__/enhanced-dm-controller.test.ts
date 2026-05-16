@@ -20,6 +20,7 @@ const { mockMessageQueueInstance } = vi.hoisted(() => ({
     getQueuedMessages: vi.fn(),
     removeFromQueue: vi.fn(),
     getAllMessages: vi.fn(),
+    deleteMessage: vi.fn(),
   },
 }));
 

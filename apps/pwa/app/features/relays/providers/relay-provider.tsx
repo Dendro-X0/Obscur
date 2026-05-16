@@ -3,6 +3,8 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useRelayList } from "../hooks/use-relay-list";
 import { useRelayPool } from "../hooks/use-relay-pool";
+import { useRelayPrimarySelection } from "../hooks/use-relay-primary-selection";
+import type { RelayPrimarySelection } from "../services/relay-primary-selector";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import type { RelayStatusSummary } from "@/app/features/messaging/types";
 import {
@@ -16,6 +18,8 @@ import { windowRuntimeSupervisor } from "@/app/features/runtime/services/window-
 import { relayNativeAdapter } from "../hooks/relay-native-adapter";
 import { listenToNativeEvent } from "@/app/features/runtime/native-event-adapter";
 import { getRuntimeCapabilities } from "@/app/features/runtime/runtime-capabilities";
+import { useStandbyLatencyProbe } from "../hooks/use-standby-latency-probe";
+import { useRelaySessionWatchdog } from "../hooks/use-relay-session-watchdog";
 
 interface RelayContextType {
   relayList: ReturnType<typeof useRelayList>;
@@ -25,6 +29,8 @@ interface RelayContextType {
   relayRecovery: RelayRecoverySnapshot;
   relayRuntime: RelayRuntimeSnapshot;
   triggerRelayRecovery: (reason?: RelayRecoveryReasonCode) => Promise<RelayRuntimeSnapshot>;
+  relaySelection: RelayPrimarySelection;
+  setPrimaryRelay: (url: string) => void;
 }
 
 const RelayContext = createContext<RelayContextType | null>(null);
@@ -42,7 +48,16 @@ export const RelayProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [relayList.state.relays]);
   const enabledRelayUrlsKey = useMemo(() => enabledRelayUrls.join("|"), [enabledRelayUrls]);
 
-  const relayPool = useRelayPool(enabledRelayUrls);
+  const poolHealthHints = useMemo(() => enabledRelayUrls.map((url) => ({ url, isOpen: false })), [enabledRelayUrlsKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  const { selection: relaySelection, triggerFailover, setPrimaryManual } = useRelayPrimarySelection(enabledRelayUrls, poolHealthHints);
+
+  const activeRelayUrls = useMemo(() => (
+    relaySelection.primaryUrl ? [relaySelection.primaryUrl] : enabledRelayUrls.slice(0, 1)
+  ), [relaySelection.primaryUrl, enabledRelayUrlsKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useStandbyLatencyProbe(relaySelection.standbyUrls);
+
+  const relayPool = useRelayPool(activeRelayUrls);
   const relayPoolRef = useRef(relayPool);
   const relayRuntimeSupervisor = useMemo(() => createRelayRuntimeSupervisor(), []);
   const relayRuntime = useRelayRuntimeSnapshot(relayRuntimeSupervisor);
@@ -100,10 +115,23 @@ export const RelayProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
   }, []);
 
+  const triggerFailoverRef = useRef(triggerFailover);
+  useEffect(() => { triggerFailoverRef.current = triggerFailover; }, [triggerFailover]);
+
+  useEffect(() => {
+    if (relayRuntime.recovery.readiness === "offline" || relayRuntime.recovery.writableRelayCount === 0) {
+      const hints = relayPool.connections.map((c) => ({
+        url: c.url,
+        isOpen: c.status === "open",
+      }));
+      triggerFailoverRef.current(hints);
+    }
+  }, [relayRuntime.recovery.readiness, relayRuntime.recovery.writableRelayCount]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     relayRuntimeSupervisor.configure({
       pool: relayPoolRef.current,
-      enabledRelayUrls,
+      enabledRelayUrls: activeRelayUrls,
       scope: {
         windowLabel: desktopSnapshot.currentWindow.windowLabel,
         profileId: desktopSnapshot.currentWindow.profileId,
@@ -115,6 +143,7 @@ export const RelayProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [
     desktopSnapshot.currentWindow.profileId,
     desktopSnapshot.currentWindow.windowLabel,
+    relaySelection.primaryUrl,
     enabledRelayUrlsKey,
     publicKeyHex,
     transportProxySummary,
@@ -125,6 +154,7 @@ export const RelayProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     relayPool.resubscribeAll,
     relayPool.recycle,
     relayRuntimeSupervisor,
+    activeRelayUrls,
   ]);
 
   useEffect(() => {
@@ -169,8 +199,11 @@ export const RelayProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (conn.status === "open") openCount++;
       if (conn.status === "error") errorCount++;
     });
-    return { total, openCount, errorCount };
-  }, [relayPool.connections]);
+    const coolingDownRelayCount = relayPool.getTransportActivitySnapshot().coolingDownRelayCount;
+    return { total, openCount, errorCount, coolingDownRelayCount };
+  }, [relayPool]);
+
+  useRelaySessionWatchdog(relayPool);
 
   const triggerRelayRecovery = useCallback((reason: RelayRecoveryReasonCode = "manual") => {
     return relayRuntimeSupervisor.triggerRecovery(reason);
@@ -184,7 +217,9 @@ export const RelayProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     relayRecovery: relayRuntime.recovery,
     relayRuntime,
     triggerRelayRecovery,
-  }), [enabledRelayUrls, relayList, relayPool, relayRuntime, relayStatus, triggerRelayRecovery]);
+    relaySelection,
+    setPrimaryRelay: setPrimaryManual,
+  }), [enabledRelayUrls, relayList, relayPool, relayRuntime, relayStatus, triggerRelayRecovery, relaySelection, setPrimaryManual]);
 
   return <RelayContext.Provider value={value}>{children}</RelayContext.Provider>;
 };

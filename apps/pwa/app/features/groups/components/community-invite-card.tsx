@@ -17,6 +17,7 @@ import type { GroupConversation, Message, SendDirectMessageParams, SendDirectMes
 import type { GroupAccessMode } from "../types";
 import { toGroupConversationId } from "../utils/group-conversation-id";
 import { deriveCommunityId } from "../utils/community-identity";
+import { dispatchGroupInviteReceived } from "@/app/features/profiles/services/profile-bus-dispatch";
 
 export interface InvitePayload {
     type: "community-invite";
@@ -56,7 +57,7 @@ export const CommunityInviteCard = ({
     const { t } = useTranslation();
     const { state: identityState } = useIdentity();
     const { relayPool } = useRelay();
-    const { addGroup } = useGroups();
+    const { addGroup, recordMembershipLedgerAfterInviteDecline } = useGroups();
     const [isProcessing, setIsProcessing] = useState(false);
     const [isDetailsOpen, setIsDetailsOpen] = useState(false);
 
@@ -197,6 +198,7 @@ export const CommunityInviteCard = ({
             }
 
             addGroup(newGroup, { allowRevive: true });
+            dispatchGroupInviteReceived(newGroup);
 
             await onSendDirectMessage({
                 recipientPubkey: message.senderPubkey || "",
@@ -234,6 +236,48 @@ export const CommunityInviteCard = ({
                 }),
                 replyTo: message.id
             });
+
+            const fallbackRelay = relayPool.connections.find((c: { url: string }) => c.url)?.url ?? "";
+            const relayUrl = (invite.relayUrl || fallbackRelay).trim();
+            if (relayUrl.length > 0) {
+                const creatorPubkey = invite.creatorPubkey ?? message.senderPubkey;
+                const genesisEventId = invite.genesisEventId ?? message.eventId ?? message.id;
+                const communityId = deriveCommunityId({
+                    existingCommunityId: invite.communityId,
+                    groupId: invite.groupId,
+                    relayUrl,
+                    genesisEventId,
+                    creatorPubkey,
+                });
+                const accessMode: GroupAccessMode =
+                    invite.metadata.access === "discoverable"
+                        ? "discoverable"
+                        : invite.metadata.access === "invite-only" || invite.metadata.access === "private"
+                            ? "invite-only"
+                            : "open";
+                recordMembershipLedgerAfterInviteDecline({
+                    kind: "group",
+                    id: toGroupConversationId({ groupId: invite.groupId, relayUrl, communityId }),
+                    communityId,
+                    creatorPubkey,
+                    genesisEventId,
+                    groupId: invite.groupId,
+                    relayUrl,
+                    displayName: invite.metadata.name || "Private Group",
+                    memberPubkeys: [
+                        identityState.publicKeyHex || "",
+                        message.senderPubkey || "",
+                    ].filter(Boolean) as string[],
+                    adminPubkeys: [message.senderPubkey || ""].filter(Boolean) as string[],
+                    lastMessage: "",
+                    unreadCount: 0,
+                    lastMessageTime: new Date(),
+                    access: accessMode,
+                    memberCount: 2,
+                    avatar: invite.metadata.picture,
+                });
+            }
+
             toast.info(t("groups.inviteDeclined", "You declined the invitation to {{name}}", { name: invite.metadata.name }));
         } catch (error) {
             console.error("Failed to decline invite:", error);
@@ -268,6 +312,8 @@ export const CommunityInviteCard = ({
                 }),
                 replyTo: message.id
             });
+            // Phase 3 M3: do not call recordMembershipLedgerAfterInviteDecline here — the inviter may still be
+            // relay-joined as admin; cancel only withdraws the invite to the peer, not local membership exit.
             toast.success(t("groups.inviteCanceled", "Invitation canceled successfully"));
         } catch (error) {
             console.error("Failed to cancel invite:", error);

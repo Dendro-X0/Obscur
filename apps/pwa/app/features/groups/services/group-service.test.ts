@@ -22,7 +22,7 @@ vi.mock("./community-membership-ledger", () => ({
 }));
 
 vi.mock("@/app/features/profiles/services/profile-scope", () => ({
-  getActiveProfileIdSafe: () => "profile-a",
+  readRegistryBackedActiveProfileId: () => "profile-a",
 }));
 
 const MY_PUBLIC_KEY = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" as PublicKeyHex;

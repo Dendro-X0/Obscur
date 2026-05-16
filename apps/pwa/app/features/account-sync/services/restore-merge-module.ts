@@ -8,7 +8,6 @@ import type {
 import {
   mergeChatState,
   mergeMessageDeleteTombstones,
-  sanitizePersistedChatStateMessagesByDeleteContract,
   toMessageDeleteTombstoneIdSet,
 } from "./restore-merge-chat-state";
 import {
@@ -417,17 +416,31 @@ export const orchestrateRestoreMerge = (
   // Build durable delete ID set for chat state sanitization
   const durableDeleteIds = toMessageDeleteTombstoneIdSet(mergedMessageDeleteTombstones);
 
-  // Merge chat state
-  const mergedChatState = currentPayload
-    ? mergeChatState(currentPayload.chatState, sanitizedIncomingPayload.chatState, { durableDeleteIds })
-    : sanitizePersistedChatStateMessagesByDeleteContract(sanitizedIncomingPayload.chatState, { durableDeleteIds });
-
-  // Parse ledger entries
+  // Parse ledger entries FIRST (needed to filter "left" groups during chat state merge)
   const incomingLedgerEntries = parseCommunityMembershipLedgerSnapshot(sanitizedIncomingPayload.communityMembershipLedger);
   const currentLedgerEntries = parseCommunityMembershipLedgerSnapshot(currentPayload?.communityMembershipLedger);
   const localExplicitLedgerEntries = currentLedgerEntries.length > 0
     ? currentLedgerEntries
     : existingLedgerEntries;
+
+  // Pre-merge ledger entries to detect "left" groups for chat state filtering
+  const preMergedLedgerForChatMerge = mergeCommunityMembershipLedgerEntries(
+    localExplicitLedgerEntries,
+    incomingLedgerEntries
+  );
+
+  // Merge chat state (filtering out groups with terminal left/expelled status in ledger).
+  // CRITICAL: Use mergeChatState even when currentPayload is null so that left/expelled
+  // groups are filtered on first-restore (new device). Without this, communities the user
+  // explicitly left will resurrect when restoring on a new device.
+  const mergedChatState = mergeChatState(
+    currentPayload?.chatState ?? null,
+    sanitizedIncomingPayload.chatState,
+    {
+      durableDeleteIds,
+      ledgerEntries: preMergedLedgerForChatMerge,
+    },
+  );
 
   // Parse and filter room key snapshots
   const incomingRoomKeySnapshotsRaw = parseRoomKeySnapshots(sanitizedIncomingPayload.roomKeys);
@@ -440,10 +453,13 @@ export const orchestrateRestoreMerge = (
   const reconstructedIncomingLedgerEntries = reconstructCommunityMembershipFromChatState(sanitizedIncomingPayload.chatState);
   const reconstructedMergedLedgerEntries = reconstructCommunityMembershipFromChatState(mergedChatState);
 
-  // Reconcile incoming ledger with reconstructed evidence
+  // Reconcile incoming ledger with reconstructed evidence.
+  // Pass localExplicitLedgerEntries so reconstruction is blocked for any group
+  // the local device has explicitly marked as left or expelled (AB-06).
   const reconciledIncomingLedgerEntries = reconcileIncomingLedgerWithReconstructedJoinedEvidence({
     incomingExplicitEntries: incomingLedgerEntries,
     reconstructedEntries: reconstructedIncomingLedgerEntries,
+    localExplicitEntries: localExplicitLedgerEntries,
   });
 
   // Filter room keys to joined evidence
@@ -524,29 +540,40 @@ export const orchestrateRestoreMerge = (
 };
 
 /**
- * Helper function to reconcile incoming ledger with reconstructed joined evidence
+ * Helper function to reconcile incoming ledger with reconstructed joined evidence.
+ *
+ * AB-06: reconstructed chat-state evidence must never promote a group to "joined"
+ * when the user has an explicit non-joined (left, expelled) entry in either the
+ * incoming backup ledger or the local device ledger. Both sources represent
+ * durable user intent that outranks historical chat-state reconstruction.
  */
 const reconcileIncomingLedgerWithReconstructedJoinedEvidence = (params: Readonly<{
   incomingExplicitEntries: ReadonlyArray<CommunityMembershipLedgerEntry>;
   reconstructedEntries: ReadonlyArray<CommunityMembershipLedgerEntry>;
+  localExplicitEntries: ReadonlyArray<CommunityMembershipLedgerEntry>;
 }>): ReadonlyArray<CommunityMembershipLedgerEntry> => {
-  const explicitByGroupId = new Map(params.incomingExplicitEntries.map(e => [e.groupId.trim(), e]));
+  const incomingByGroupId = new Map(params.incomingExplicitEntries.map(e => [e.groupId.trim(), e]));
+  const localByGroupId = new Map(params.localExplicitEntries.map(e => [e.groupId.trim(), e]));
   const result = [...params.incomingExplicitEntries];
 
   for (const reconstructed of params.reconstructedEntries) {
     const groupId = reconstructed.groupId.trim();
-    const explicit = explicitByGroupId.get(groupId);
+    const incomingExplicit = incomingByGroupId.get(groupId);
+    const localExplicit = localByGroupId.get(groupId);
 
-    if (!explicit) {
-      // No explicit entry for this group - add reconstructed if joined
+    // Block reconstruction when either ledger has a terminal user-intent status.
+    const hasTerminalIntent =
+      (incomingExplicit && incomingExplicit.status !== "joined") ||
+      (localExplicit && localExplicit.status !== "joined");
+
+    if (hasTerminalIntent) {
+      continue;
+    }
+
+    if (!incomingExplicit) {
+      // No explicit incoming entry for this group — add reconstructed if joined.
       if (reconstructed.status === "joined") {
         result.push(reconstructed);
-      }
-    } else if (explicit.status !== "joined" && reconstructed.status === "joined") {
-      // Explicit entry exists but not joined - promote to joined if reconstructed shows joined
-      const index = result.findIndex(e => e.groupId.trim() === groupId);
-      if (index >= 0) {
-        result[index] = { ...explicit, status: "joined" };
       }
     }
   }

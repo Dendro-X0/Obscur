@@ -1,0 +1,21 @@
+{
+  "name": "@dweb/client-gateway",
+  "version": "1.5.0",
+  "private": true,
+  "type": "module",
+  "description": "Unified client-side gateway contracts — single adapter surface for Web, desktop, and mobile.",
+  "dependencies": {
+    "@dweb/storage-contracts": "workspace:*"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./client-gateway": "./src/client-gateway.ts",
+    "./local-dm-visibility": "./src/local-dm-visibility-port.ts",
+    "./message-delete-tombstones": "./src/message-delete-tombstones-port.ts",
+    "./platform": "./src/client-platform.ts",
+    "./app-extensions": "./src/app-client-gateway-extensions.ts",
+    "./community-roster": "./src/community-roster-port-contract.ts",
+    "./dm-materialization": "./src/dm-materialization-port-contract.ts",
+    "./messaging-diagnostics": "./src/messaging-diagnostics.ts"
+  }
+}

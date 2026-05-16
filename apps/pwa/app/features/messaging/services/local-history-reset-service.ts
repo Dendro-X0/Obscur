@@ -3,7 +3,7 @@
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { messagingDB } from "@dweb/storage/indexed-db";
 import { normalizePublicKeyHex } from "@/app/features/profile/utils/normalize-public-key-hex";
-import { getActiveProfileIdSafe } from "@/app/features/profiles/services/profile-scope";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { accountProjectionRuntime } from "@/app/features/account-sync/services/account-projection-runtime";
 import { accountSyncStatusStore } from "@/app/features/account-sync/services/account-sync-status-store";
 import {
@@ -206,7 +206,7 @@ export const resetLocalHistoryKeepingIdentity = async (
   }>,
   dependencies: LocalHistoryResetDependencies = defaultDependencies
 ): Promise<LocalHistoryResetReport> => {
-  const profileId = params?.profileId?.trim() || getActiveProfileIdSafe();
+  const profileId = params?.profileId?.trim() || getResolvedProfileId();
   const normalizedPublicKeyHex = normalizePublicKeyHex(params?.publicKeyHex ?? undefined);
   const publicKeyHex = normalizedPublicKeyHex ?? null;
   const warnings: string[] = [];

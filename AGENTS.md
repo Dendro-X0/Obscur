@@ -144,7 +144,7 @@ Agents working here must optimize for correctness, explicit contracts, and long-
    - Always use `docs/handoffs/current-session.md` as the single source of ongoing progress.
 
 2. Start every substantial Codex thread with continuity replay.
-   - Read `AGENTS.md`, `docs/08-maintainer-playbook.md`, and `docs/handoffs/current-session.md` first.
+   - Read `AGENTS.md`, `docs/encyclopedia/08-maintainer-playbook.md`, and `docs/handoffs/current-session.md` first.
    - Resume from `Next Atomic Step` before broad re-exploration.
 
 3. Checkpoint progress whenever runtime truth changes.

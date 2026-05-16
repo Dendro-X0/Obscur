@@ -22,7 +22,15 @@ describe("relay-status-badge", () => {
       subscribableRelayCount: 2,
     }));
     expect(presentation.label).toBe("Connected");
-    expect(presentation.detail).toContain("2 writable / 2 readable");
+  });
+
+  it("maps healthy snapshot with primaryUrl to via-hostname detail", () => {
+    const presentation = getRelayStatusBadgePresentation(
+      createSnapshot({ readiness: "healthy", writableRelayCount: 1, subscribableRelayCount: 1 }),
+      "wss://relay.damus.io",
+    );
+    expect(presentation.label).toBe("Connected");
+    expect(presentation.detail).toContain("relay.damus.io");
   });
 
   it("maps degraded snapshot to degraded label with failure reason", () => {
@@ -32,19 +40,27 @@ describe("relay-status-badge", () => {
       subscribableRelayCount: 1,
       lastFailureReason: "timeout",
     }));
-    expect(presentation.label).toBe("Connection degraded");
+    expect(presentation.label).toBe("Degraded");
     expect(presentation.detail).toContain("timeout");
   });
 
-  it("maps recovering snapshot to recovery copy", () => {
+  it("maps recovering+no_writable_relays to switching relay label", () => {
     const presentation = getRelayStatusBadgePresentation(createSnapshot({
       readiness: "recovering",
       recoveryReasonCode: "no_writable_relays",
+      recoveryAttemptCount: 2,
+    }));
+    expect(presentation.label).toBe("Switching relay");
+  });
+
+  it("maps recovering+other reason to retrying label", () => {
+    const presentation = getRelayStatusBadgePresentation(createSnapshot({
+      readiness: "recovering",
+      recoveryReasonCode: "stale_subscriptions",
       currentAction: "resubscribe",
       recoveryAttemptCount: 2,
     }));
-    expect(presentation.label).toBe("Recovering connection");
-    expect(presentation.detail).toContain("no writable relays available");
+    expect(presentation.label).toBe("Retrying");
     expect(presentation.detail).toContain("resubscribe");
   });
 

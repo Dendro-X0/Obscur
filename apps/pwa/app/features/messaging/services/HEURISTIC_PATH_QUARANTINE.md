@@ -80,32 +80,17 @@ This causes:
 
 ---
 
-## Quarantine Entry 1: conversation-history-authority.ts
+## Quarantine Entry 1: conversation-history-authority.ts (removed)
 
-**Location**: `apps/pwa/app/features/messaging/services/conversation-history-authority.ts`
+**Former location**: `apps/pwa/app/features/messaging/services/conversation-history-authority.ts` — **deleted 2026-05-14**. Legacy count gates, thin-index repair predicates, and hydrate selection live in **`dm-read-authority-contract.ts`** (`resolveLegacyHydrationAuthority`, `PERSISTED_INCOMING_REPAIR_INDEXED_MESSAGE_MAX`, `hasIndexedThinnessEvidenceForPersistedIncomingRepair`, `isPersistedCompatibilityRestorePhaseIncomingRepairCandidate`, `resolveHydrationDmReadMessages`, `logDmReadHydrationDiagnostics`). The former **`conversation-history-authority-shared.ts`** surface was **folded into this contract** (2026-05-14).
 
-**Status**: Migration Bridge Created ✅
+**Canonical owner**: `dm-read-authority-contract.ts` (legacy gates + hydrate + materialization-facing authority types).
 
-**Violation**: Competing authority resolution between projection, indexed, and persisted sources.
+**Optional follow-up**: [x] Fold shared repair-gate helpers into contract (done 2026-05-14).
 
-**Current Behavior**:
-- Returns `"projection" | "indexed" | "persisted"` as authority sources
-- Complex fallback logic for "persisted recovery" scenarios
-- `isPersistedCompatibilityRestorePhaseIncomingRepairCandidate()` function provides heuristic repair paths
-
-**Canonical Owner**: Account Projection (via `dm-read-authority-contract.ts`)
-
-**Remediation Plan**:
-1. [x] Mark `conversation-history-authority.ts` as deprecated in JSDoc ✅
-2. [x] Add deprecation warning emission on first use ✅
-3. [x] Create `dm-read-authority-migration-bridge.ts` for gradual migration ✅
-4. [ ] Migrate `use-conversation-messages.ts` to use `dm-read-authority-contract.ts`
-5. [ ] Remove `isPersistedCompatibilityRestorePhaseIncomingRepairCandidate()` logic
-6. [ ] Delete file after all call sites migrated (v1.5.0+)
-
-**Call Sites to Migrate**:
-- `use-conversation-messages.ts` (line 28-30 imports)
-- `use-conversation-messages.ts` (line 869-881 usage)
+**Call sites (current)**:
+- `use-conversation-messages.ts` — hydrate + repair gates: **`dm-read-authority-contract.ts`**
+- `conversation-message-materialization.ts` — `ConversationHistoryAuthorityDecision` type from **`dm-read-authority-contract.ts`** (`import type` only)
 
 ---
 
@@ -116,8 +101,8 @@ This causes:
 **Violation**: Multiple competing message resolution paths in single hook.
 
 **Current Behavior**:
-- Lines 28-30: Imports from `conversation-history-authority`
-- Lines 1100+: `resolveConversationHistoryAuthority()` usage with complex fallback logic
+- Repair-gate symbols from **`dm-read-authority-contract.ts`** (same module as hydrate)
+- Hydrate path: `use-conversation-messages` calls `resolveHydrationDmReadMessages` + `logDmReadHydrationDiagnostics` in `dm-read-authority-contract.ts`.
 - `legacyChatStateHasRicherDmContent` heuristic bypasses projection
 
 **Remediation Plan**:
@@ -151,7 +136,7 @@ This causes:
 
 | Entry | Risk Level | Effort | Target Completion |
 |-------|------------|--------|-------------------|
-| conversation-history-authority.ts | High | Medium | v1.4.0 M3 |
+| conversation-history-authority.ts | ~~High~~ | ~~Medium~~ | **Removed 2026-05-14** — see `dm-read-authority-contract.ts` |
 | use-conversation-messages.ts heuristics | High | High | v1.4.0 M3 |
 | messaging-provider.tsx persistence | Medium | Medium | v1.5.0 |
 

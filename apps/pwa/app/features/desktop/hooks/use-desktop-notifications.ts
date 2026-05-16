@@ -10,6 +10,7 @@ const DESKTOP_NOTIFICATION_TAG: string = "obscur-notification";
 type NotificationChannelKey = keyof NotificationChannels;
 type ShowDesktopNotificationOptions = Readonly<{
   onClick?: () => void;
+  icon?: string;
   data?: Record<string, unknown>;
   requireInteraction?: boolean;
   actions?: ReadonlyArray<Readonly<{ action: string; title: string }>>;
@@ -53,6 +54,7 @@ export function useDesktopNotifications() {
         title,
         body,
         tag: DESKTOP_NOTIFICATION_TAG,
+        icon: options?.icon,
         onClick: options?.onClick,
         data: options?.data,
         requireInteraction: options?.requireInteraction,

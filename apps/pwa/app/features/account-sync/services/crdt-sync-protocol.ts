@@ -13,7 +13,7 @@
  * @module CRDTSyncProtocol
  */
 
-import { mergeMembership } from "../../groups/services/community-membership-crdt.js";
+import { mergeMembership } from "../../groups/services/community-membership-crdt";
 import { mergeCallStates } from "../../messaging/services/call-state-crdt.js";
 import { mergeMediaCASStores } from "../../vault/services/media-cas-store.js";
 

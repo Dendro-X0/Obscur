@@ -10,8 +10,8 @@ communities.
 It should be read together with:
 
 1. `docs/protocols/25-community-ledger-and-projection-architecture-spec.md`
-2. `docs/10-community-and-groups-overhaul.md`
-3. `docs/16-cross-device-group-visibility-incident.md`
+2. `docs/encyclopedia/10-community-and-groups-overhaul.md`
+3. `docs/encyclopedia/16-cross-device-group-visibility-incident.md`
 4. `docs/releases/core-verification-communities-and-membership-integrity.md`
 
 ## Purpose
@@ -59,7 +59,7 @@ Projection write/compute owner chain:
 1. community event ingest/runtime owner
    - `apps/pwa/app/features/groups/hooks/use-sealed-community.ts`
 2. membership/governance reducer owner
-   - `apps/pwa/app/features/groups/services/community-ledger-reducer.ts`
+   - `apps/pwa/app/features/groups/services/community-ledger-validator.ts`
 3. group lifecycle/persistence owner
    - `apps/pwa/app/features/groups/providers/group-provider.tsx`
 4. room-key durability owner

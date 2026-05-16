@@ -7,7 +7,7 @@ import { PROFILE_CHANGED_EVENT } from "@/app/features/profiles/services/profile-
 import { discoveryCache } from "@/app/features/search/services/discovery-cache";
 import { seedProfileMetadataCache } from "@/app/features/profile/hooks/use-profile-metadata";
 import { useProfileInternals, type UserProfile } from "@/app/features/profile/hooks/use-profile";
-import { getActiveProfileIdSafe } from "@/app/features/profiles/services/profile-scope";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { relayListInternals } from "@/app/features/relays/hooks/use-relay-list";
 import type { RelayPoolLike } from "@/app/features/relays/lib/nostr-core-relay";
 import { accountSyncStatusStore } from "./account-sync-status-store";
@@ -240,9 +240,10 @@ export const accountRehydrateService = {
       applyRelayProfile(relayProfile);
     }
 
-    const relayList = relayListEvent ? parseRelayListFromEvent(relayListEvent) : relayListInternals.loadRelayListFromStorage(params.publicKeyHex);
+    const profileId = getResolvedProfileId();
+    const relayList = relayListEvent ? parseRelayListFromEvent(relayListEvent) : relayListInternals.loadRelayListFromStorage(params.publicKeyHex, profileId);
     if (relayList.length > 0) {
-      relayListInternals.saveRelayListToStorage(params.publicKeyHex, relayList);
+      relayListInternals.saveRelayListToStorage(params.publicKeyHex, relayList, profileId);
     }
 
     accountSyncStatusStore.updateSnapshot({
@@ -258,8 +259,6 @@ export const accountRehydrateService = {
     let restoredBackupAtUnixMs: number | undefined;
     let latestBackupEventId: string | undefined;
     let degradedReason: string | undefined;
-    const profileId = getActiveProfileIdSafe();
-
     try {
       const restoreResult = params.cacheOnlyEncryptedBackup
         ? await encryptedAccountBackupService.fetchLatestEncryptedAccountBackupPayload({

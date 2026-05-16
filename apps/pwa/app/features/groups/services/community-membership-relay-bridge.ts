@@ -23,7 +23,7 @@
  * ```
  */
 
-import type { CommunityMembership } from './community-membership-crdt.js';
+import type { CommunityMembership } from './community-membership-crdt';
 import {
   createMembershipGossipManager,
   generateGossipDelta,
@@ -36,8 +36,13 @@ import {
   type GossipManager,
   type GossipConfig,
   DEFAULT_GOSSIP_CONFIG,
-} from './community-membership-gossip.js';
+} from './community-membership-gossip';
+import {
+  resolveMembershipIngressVerdict,
+  type MembershipIngressChannel,
+} from "./community-membership-ingress";
 import { logAppEvent } from '@/app/shared/log-app-event';
+import { getProfileRuntimeScope, getResolvedProfileId } from '@/app/features/profiles/services/profile-runtime-scope';
 
 /**
  * Relay pool interface for bridge integration.
@@ -137,6 +142,43 @@ export function createMembershipRelayBridge(
   let antiEntropySub: { unsubscribe: () => void } | null = null;
   let isRunning = false;
   let lastReceiveTime: number | null = null;
+
+  const publishIngressDomainEvent = (params: Readonly<{
+    event: NostrEvent;
+    channel: MembershipIngressChannel;
+    senderDeviceId: string;
+  }>): void => {
+    const profileId = getResolvedProfileId();
+    const scope = getProfileRuntimeScope();
+    if (!scope?.bus || scope.profileId !== profileId) {
+      logAppEvent({
+        name: "crdt.relay.membership_ingress_scope_mismatch",
+        level: "warn",
+        scope: { feature: "crdt", action: "membership" },
+        context: {
+          communityId,
+          profileId,
+          scopeProfileId: scope?.profileId ?? null,
+          channel: params.channel,
+          eventId: params.event.id.slice(0, 16),
+        },
+      });
+      return;
+    }
+    scope.bus.publish({
+      type: "community-membership-ingress",
+      detail: {
+        profileId,
+        communityId,
+        channel: params.channel,
+        eventId: params.event.id,
+        senderPubkey: params.event.pubkey,
+        senderDeviceId: params.senderDeviceId,
+        receivedAtUnixMs: Date.now(),
+        eventContent: params.channel === "gossip" ? params.event.content : undefined,
+      },
+    });
+  };
   
   /**
    * Publish membership gossip event to relays.
@@ -214,20 +256,33 @@ export function createMembershipRelayBridge(
    * Handle incoming gossip event from relay.
    */
   const handleGossipEvent = (event: NostrEvent): void => {
-    // Ignore self
-    if (event.pubkey === signer.getPublicKey()) {
+    const verdict = resolveMembershipIngressVerdict({
+      event,
+      expectedCommunityId: communityId,
+      selfPubkey: signer.getPublicKey(),
+    });
+    if (!verdict.accepted) {
+      logAppEvent({
+        name: "crdt.relay.membership_ingress_rejected",
+        level: "debug",
+        scope: { feature: "crdt", action: "membership" },
+        context: {
+          communityId,
+          reason: verdict.reason,
+          eventId: event.id.slice(0, 16),
+        },
+      });
       return;
     }
-    
-    // Verify community tag matches
-    const communityTag = event.tags.find(t => t[0] === 'e');
-    if (!communityTag || communityTag[1] !== communityId) {
+    if (verdict.channel !== "gossip") {
       return;
     }
-    
-    // Extract sender device
-    const deviceTag = event.tags.find(t => t[0] === 'd');
-    const senderDeviceId = deviceTag?.[1] ?? 'unknown';
+    const senderDeviceId = verdict.senderDeviceId;
+    publishIngressDomainEvent({
+      event,
+      channel: verdict.channel,
+      senderDeviceId,
+    });
     
     try {
       const encoded = {
@@ -237,15 +292,10 @@ export function createMembershipRelayBridge(
         payload: event.content,
         timestamp: event.created_at * 1000,
       };
-      
-      const currentMembership = getMembership();
-      const updated = mergeGossipDelta(
-        currentMembership,
-        encoded,
-        (newMembership) => {
-          setMembership(newMembership);
-        }
-      );
+
+      // Projection-only: coordinator applies authoritative join/leave via
+      // community-membership-ingress → GroupProvider (relay_gossip_ingress).
+      const updated = mergeGossipDelta(getMembership(), encoded);
       
       lastReceiveTime = Date.now();
       
@@ -258,19 +308,10 @@ export function createMembershipRelayBridge(
           senderDeviceId: senderDeviceId.slice(0, 8),
           eventId: event.id.slice(0, 16),
           memberCount: updated.memberSet.adds.size - updated.memberSet.removes.size,
+          crdtProjectionOnly: true,
         },
       });
-      
-      // Emit window event for other listeners
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('obscur:crdt-membership-received', {
-          detail: {
-            communityId,
-            senderDeviceId,
-            timestamp: Date.now(),
-          },
-        }));
-      }
+
     } catch (err) {
       logAppEvent({
         name: 'crdt.relay.gossip_receive_failed',
@@ -289,10 +330,19 @@ export function createMembershipRelayBridge(
    * Handle anti-entropy request.
    */
   const handleAntiEntropyRequest = async (event: NostrEvent): Promise<void> => {
-    // Ignore self
-    if (event.pubkey === signer.getPublicKey()) {
+    const verdict = resolveMembershipIngressVerdict({
+      event,
+      expectedCommunityId: communityId,
+      selfPubkey: signer.getPublicKey(),
+    });
+    if (!verdict.accepted || verdict.channel !== "anti_entropy_request") {
       return;
     }
+    publishIngressDomainEvent({
+      event,
+      channel: verdict.channel,
+      senderDeviceId: verdict.senderDeviceId,
+    });
     
     try {
       const request = JSON.parse(event.content) as AntiEntropyRequest;
@@ -334,7 +384,6 @@ export function createMembershipRelayBridge(
       };
       
       await relayPool.publish(responseEvent);
-      
       logAppEvent({
         name: 'crdt.relay.anti_entropy_responded',
         level: 'info',
@@ -363,30 +412,31 @@ export function createMembershipRelayBridge(
    * Handle anti-entropy response.
    */
   const handleAntiEntropyResponse = (event: NostrEvent): void => {
-    // Only process if addressed to us
-    const pTag = event.tags.find(t => t[0] === 'p');
-    if (!pTag || pTag[1] !== signer.getPublicKey()) {
+    const verdict = resolveMembershipIngressVerdict({
+      event,
+      expectedCommunityId: communityId,
+      selfPubkey: signer.getPublicKey(),
+    });
+    if (!verdict.accepted || verdict.channel !== "anti_entropy_response") {
       return;
     }
+    publishIngressDomainEvent({
+      event,
+      channel: verdict.channel,
+      senderDeviceId: verdict.senderDeviceId,
+    });
     
     try {
       const response = JSON.parse(event.content);
-      const currentMembership = getMembership();
-      
-      // Apply the delta
-      void mergeGossipDelta(
-        currentMembership,
-        {
-          communityId: response.communityId,
-          senderDeviceId: response.deviceId,
-          vectorClock: response.responderClock,
-          payload: JSON.stringify(response.delta),
-          timestamp: response.timestamp,
-        },
-        (newMembership) => {
-          setMembership(newMembership);
-        }
-      );
+
+      // Projection-only decode for telemetry; ingress handler owns ledger/roster.
+      void mergeGossipDelta(getMembership(), {
+        communityId: response.communityId,
+        senderDeviceId: response.deviceId,
+        vectorClock: response.responderClock,
+        payload: JSON.stringify(response.delta),
+        timestamp: response.timestamp,
+      });
       
       lastReceiveTime = Date.now();
       

@@ -1,37 +1,38 @@
 "use client";
 
+/**
+ * runtime-messaging-transport-owner-provider.tsx
+ *
+ * V2 messaging pipeline integration.
+ * Delegates to controllers/v2/dm-controller.ts for all messaging logic.
+ * Preserves the same exported component + hook names for zero-change integration.
+ */
+
 import type React from "react";
 import { createContext, useCallback, useContext, useEffect, useRef } from "react";
-import type { UseEnhancedDMControllerResult } from "@/app/features/messaging/controllers/enhanced-dm-controller";
-import { useEnhancedDmController } from "@/app/features/messaging/hooks/use-enhanced-dm-controller";
-import type { Message } from "@/app/features/messaging/lib/message-queue";
+import { useDmController, type UseDmControllerResult } from "@/app/features/messaging/controllers/v2/dm-controller";
+import type { Message } from "@/app/features/messaging/types";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { useNetwork } from "@/app/features/network/providers/network-provider";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
 import { useWindowRuntimeSnapshot } from "@/app/features/runtime/services/window-runtime-supervisor";
-import { useAccountProjectionSnapshot } from "@/app/features/account-sync/hooks/use-account-projection-snapshot";
 import { messageBus } from "@/app/features/messaging/services/message-bus";
 import { recordPeerLastActive } from "@/app/features/messaging/services/peer-interaction-store";
 import { logAppEvent } from "@/app/shared/log-app-event";
 
 const ACTIVE_OWNER_RUNTIME_PHASES = new Set(["activating_runtime", "ready", "degraded"]);
-const RUNTIME_TRANSPORT_OWNER_ID = "runtime_singleton_owner";
+const RUNTIME_TRANSPORT_OWNER_ID = "runtime_singleton_owner_v2";
 
-const RuntimeMessagingTransportOwnerContext = createContext<UseEnhancedDMControllerResult | null>(null);
+const RuntimeMessagingTransportOwnerContext = createContext<UseDmControllerResult | null>(null);
 
 export function RuntimeMessagingTransportOwnerProvider(props: Readonly<{ children: React.ReactNode }>): React.JSX.Element {
   const identity = useIdentity();
   const runtimeSnapshot = useWindowRuntimeSnapshot();
   const { relayPool } = useRelay();
-  const { blocklist, peerTrust, requestsInbox } = useNetwork();
-  const projection = useAccountProjectionSnapshot();
+  const { blocklist, peerTrust } = useNetwork();
   const activePublicKeyHex = identity.state.publicKeyHex ?? null;
   const runtimePhaseAllowsOwner = ACTIVE_OWNER_RUNTIME_PHASES.has(runtimeSnapshot.phase);
-  // Incoming relay transport must remain attached for the unlocked runtime owner
-  // even when account projection is replaying/degraded, otherwise one-way DM
-  // receive gaps can occur during projection lifecycle transitions.
-  const ownerEnabled = identity.state.status === "unlocked"
-    && runtimePhaseAllowsOwner;
+  const ownerEnabled = identity.state.status === "unlocked" && runtimePhaseAllowsOwner;
   const ownerGateReason = ownerEnabled
     ? "enabled"
     : identity.state.status !== "unlocked"
@@ -46,19 +47,13 @@ export function RuntimeMessagingTransportOwnerProvider(props: Readonly<{ childre
       runtimeSnapshot.phase,
       identity.state.status,
       identity.state.publicKeyHex ?? "none",
-      projection.phase,
-      projection.status,
-      projection.accountProjectionReady ? "projection_ready" : "projection_not_ready",
-      projection.accountPublicKeyHex ?? "none",
     ].join("|");
-    if (ownerGateLogKeyRef.current === logKey) {
-      return;
-    }
+    if (ownerGateLogKeyRef.current === logKey) return;
     ownerGateLogKeyRef.current = logKey;
     logAppEvent({
       name: ownerEnabled
-        ? "messaging.transport.runtime_owner_enabled"
-        : "messaging.transport.runtime_owner_disabled",
+        ? "messaging.transport.v2_runtime_owner_enabled"
+        : "messaging.transport.v2_runtime_owner_disabled",
       level: ownerEnabled ? "info" : "warn",
       scope: { feature: "messaging", action: "transport_owner_gate" },
       context: {
@@ -66,55 +61,56 @@ export function RuntimeMessagingTransportOwnerProvider(props: Readonly<{ childre
         runtimePhase: runtimeSnapshot.phase,
         identityStatus: identity.state.status,
         accountPublicKeyHex: identity.state.publicKeyHex?.slice(0, 16) ?? null,
-        projectionPhase: projection.phase,
-        projectionStatus: projection.status,
-        projectionReady: projection.accountProjectionReady,
-        projectionAccountPublicKeyHex: projection.accountPublicKeyHex?.slice(0, 16) ?? null,
       },
     });
-  }, [
-    identity.state.publicKeyHex,
-    identity.state.status,
-    ownerEnabled,
-    ownerGateReason,
-    projection.accountProjectionReady,
-    projection.accountPublicKeyHex,
-    projection.phase,
-    projection.status,
-    runtimeSnapshot.phase,
-  ]);
+  }, [identity.state.publicKeyHex, identity.state.status, ownerEnabled, ownerGateReason, runtimeSnapshot.phase]);
+
   const myPublicKeyHex = ownerEnabled ? (identity.state.publicKeyHex ?? null) : null;
   const myPrivateKeyHex = ownerEnabled ? (identity.state.privateKeyHex ?? null) : null;
+
   const handleNewMessage = useCallback((message: Message) => {
     if (!message.isOutgoing && activePublicKeyHex && message.senderPubkey) {
       recordPeerLastActive({
         publicKeyHex: activePublicKeyHex,
         peerPublicKeyHex: message.senderPubkey,
         activeAtMs: message.eventCreatedAt?.getTime() ?? message.timestamp.getTime(),
+        profileId: runtimeSnapshot.session.profileId?.trim() || undefined,
       });
     }
-    messageBus.emitNewMessage(message.conversationId, message);
-  }, [activePublicKeyHex]);
+    messageBus.emitNewMessage(message.conversationId ?? "", message);
+  }, [activePublicKeyHex, runtimeSnapshot.session.profileId]);
 
   const handleMessageDeleted = useCallback((params: Readonly<{
     conversationId: string;
-    messageId: string;
+    messageId?: string;
+    messageIdentityIds?: ReadonlyArray<string>;
+    conversationIdOriginal?: string;
   }>) => {
-    messageBus.emitMessageDeleted(params.conversationId, params.messageId);
+    const primaryMessageId = (
+      params.messageId?.trim()
+      || params.messageIdentityIds?.find((id) => id.trim().length > 0)?.trim()
+      || ""
+    );
+    if (!primaryMessageId) {
+      console.warn("[runtime-messaging] message delete bus emit skipped — no message id");
+      return;
+    }
+    messageBus.emitMessageDeleted(params.conversationId, primaryMessageId, {
+      messageIdentityIds: params.messageIdentityIds,
+      conversationIdOriginal: params.conversationIdOriginal,
+    });
   }, []);
 
-  const controller = useEnhancedDmController({
+  const controller = useDmController({
     myPublicKeyHex,
     myPrivateKeyHex,
     pool: relayPool,
     blocklist,
     peerTrust,
-    requestsInbox,
     onNewMessage: handleNewMessage,
     onMessageDeleted: handleMessageDeleted,
     autoSubscribeIncoming: ownerEnabled,
     enableIncomingTransport: ownerEnabled,
-    enableAutoQueueProcessing: ownerEnabled,
     transportOwnerId: RUNTIME_TRANSPORT_OWNER_ID,
   });
 
@@ -125,7 +121,7 @@ export function RuntimeMessagingTransportOwnerProvider(props: Readonly<{ childre
   );
 }
 
-export const useRuntimeMessagingTransportOwnerController = (): UseEnhancedDMControllerResult => {
+export const useRuntimeMessagingTransportOwnerController = (): UseDmControllerResult => {
   const context = useContext(RuntimeMessagingTransportOwnerContext);
   if (!context) {
     throw new Error("useRuntimeMessagingTransportOwnerController must be used within RuntimeMessagingTransportOwnerProvider");

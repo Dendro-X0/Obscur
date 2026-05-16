@@ -33,7 +33,7 @@ This lane verifies:
 
 Reference incidents and guardrails:
 
-1. `docs/18-account-scope-and-discovery-guardrails.md`
+1. `docs/encyclopedia/18-account-scope-and-discovery-guardrails.md`
 2. fresh-device video-loss runtime notes recorded in
    `docs/handoffs/current-session.md`
 

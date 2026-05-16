@@ -1,6 +1,10 @@
 import React from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+
+vi.mock("../config/dm-redaction-product", () => ({
+    DM_DELETE_FOR_EVERYONE_UI_ENABLED: true,
+}));
 import type { Message } from "../types";
 import { MessageMenu } from "./message-menu";
 

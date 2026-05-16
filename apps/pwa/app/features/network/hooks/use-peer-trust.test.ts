@@ -2,6 +2,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { PersistedChatState } from "@/app/features/messaging/types";
+import { setProfileRuntimeScope } from "@/app/features/profiles/services/profile-runtime-scope";
 import { peerTrustInternals, usePeerTrust } from "./use-peer-trust";
 
 const chatStateStoreMocks = vi.hoisted(() => ({
@@ -12,6 +13,20 @@ vi.mock("@/app/features/messaging/services/chat-state-store", () => ({
   CHAT_STATE_REPLACED_EVENT: "obscur:chat-state-replaced",
   chatStateStoreService: chatStateStoreMocks,
 }));
+
+const peerTrustTestBus = vi.hoisted(() => {
+  const { createProfileMessageBus } =
+    require("@dweb/core/profile-message-bus") as typeof import("@dweb/core/profile-message-bus");
+  return createProfileMessageBus({ profileId: "default" });
+});
+
+vi.mock("@/app/features/profiles/providers/profile-runtime-provider", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/app/features/profiles/providers/profile-runtime-provider")>();
+  return {
+    ...actual,
+    useOptionalProfileMessageBus: () => peerTrustTestBus,
+  };
+});
 
 vi.mock("@/app/features/account-sync/hooks/use-account-projection-snapshot", () => ({
   useAccountProjectionSnapshot: () => ({
@@ -44,7 +59,7 @@ vi.mock("@/app/features/account-sync/services/account-projection-selectors", () 
 }));
 
 vi.mock("@/app/features/profiles/services/profile-scope", () => ({
-  getActiveProfileIdSafe: () => "default",
+  readRegistryBackedActiveProfileId: () => "default",
   getScopedStorageKey: (key: string) => key,
 }));
 
@@ -84,6 +99,7 @@ describe("use-peer-trust internals", () => {
   beforeEach(() => {
     chatStateStoreMocks.load.mockReset();
     localStorage.clear();
+    setProfileRuntimeScope({ profileId: "default", bus: peerTrustTestBus });
   });
 
   it("builds unique contact mutation suffixes across repeated actions for the same peer", () => {
@@ -215,9 +231,11 @@ describe("use-peer-trust internals", () => {
 
     restoreApplied = true;
     act(() => {
-      window.dispatchEvent(new CustomEvent("obscur:chat-state-replaced", {
-        detail: { publicKeyHex: myPublicKeyHex },
-      }));
+      peerTrustTestBus.publish({
+        type: "chat-state-replaced",
+        profileId: "default",
+        publicKeyHex: myPublicKeyHex,
+      });
     });
 
     await waitFor(() => expect(result.current.state.acceptedPeers).toEqual([peerPublicKeyHex]));

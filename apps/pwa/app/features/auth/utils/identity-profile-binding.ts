@@ -3,7 +3,8 @@ import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { openIdentityDb } from "./open-identity-db";
 import { identityStoreName } from "./identity-store-name";
 import { ProfileRegistryService } from "@/app/features/profiles/services/profile-registry-service";
-import { getActiveProfileIdSafe, getProfileIdentityDbKey, getProfileScopeOverride } from "@/app/features/profiles/services/profile-scope";
+import { getProfileIdentityDbKey, getProfileScopeOverride } from "@/app/features/profiles/services/profile-scope";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 
 export type IdentityProfileBinding = Readonly<{
   profileId: string;
@@ -149,7 +150,7 @@ const selectPreferredStoredIdentityBinding = (
   };
 
   pushCandidate(getProfileScopeOverride());
-  pushCandidate(getActiveProfileIdSafe());
+  pushCandidate(getResolvedProfileId());
   collectRememberedProfileCandidates().forEach((profileId) => {
     pushCandidate(profileId);
   });
@@ -286,7 +287,7 @@ export const ensureIdentityProfileBinding = async (params: Readonly<{
 }>): Promise<string> => {
   const existing = await findStoredIdentityBindingByPublicKey(params.publicKeyHex);
   const explicitProfileScope = getProfileScopeOverride();
-  const currentActiveProfileId = getActiveProfileIdSafe();
+  const currentActiveProfileId = getResolvedProfileId();
   const targetProfileId = explicitProfileScope?.trim() || existing?.profileId || canonicalProfileIdForPublicKey(params.publicKeyHex);
   const label = existing?.record.username || defaultProfileLabelForPublicKey(params.publicKeyHex, params.username);
 

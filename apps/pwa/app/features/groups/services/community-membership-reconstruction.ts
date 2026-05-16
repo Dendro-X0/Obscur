@@ -278,8 +278,12 @@ const toInviteMetadataSnapshot = (
   const avatar = typeof parsed.metadata?.picture === "string" && parsed.metadata.picture.trim().length > 0
     ? parsed.metadata.picture.trim()
     : undefined;
+  const key = toCommunityMembershipLedgerKey(identity);
+  if (!key) {
+    return null;
+  }
   return {
-    identityKey: toCommunityMembershipLedgerKey(identity),
+    identityKey: key,
     metadata: {
       displayName,
       avatar,
@@ -369,7 +373,10 @@ export const reconstructCommunityMembershipFromChatState = (
       const group = fromPersistedGroupConversation(persistedGroup);
       candidates.push(
         toCommunityMembershipLedgerEntryFromGroup(group, {
-          status: "joined",
+          // M2: historical inference — not confirmed current membership.
+          // Projection layer must suppress this unless upgraded by an
+          // explicit ledger entry with status 'joined'.
+          status: "historical",
           updatedAtUnixMs: Number.isFinite(persistedGroup.lastMessageTimeMs) && persistedGroup.lastMessageTimeMs > 0
             ? persistedGroup.lastMessageTimeMs
             : Date.now(),
@@ -413,16 +420,19 @@ export const reconstructCommunityMembershipFromChatState = (
               relayUrl: parsed.relayUrl,
               communityId: parsed.communityId,
             });
-            return identity ? roomKeyInviteIdentityKeys.has(toCommunityMembershipLedgerKey(identity)) : false;
+            const key = identity ? toCommunityMembershipLedgerKey(identity) : null;
+            return key ? roomKeyInviteIdentityKeys.has(key) : false;
           })()
         ),
       });
       if (inviteEvidence) {
-        const matchedInviteMetadata = inviteMetadataByIdentityKey.get(
-          toCommunityMembershipLedgerKey(inviteEvidence),
-        );
+        const inviteKey = toCommunityMembershipLedgerKey(inviteEvidence);
+        const matchedInviteMetadata = inviteKey ? inviteMetadataByIdentityKey.get(inviteKey) : undefined;
         candidates.push({
           ...inviteEvidence,
+          // M2: historical inference — invite evidence from chat history
+          // must not be treated as confirmed current membership.
+          status: "historical",
           displayName: inviteEvidence.displayName ?? matchedInviteMetadata?.displayName,
           avatar: inviteEvidence.avatar ?? matchedInviteMetadata?.avatar,
         });
@@ -437,7 +447,9 @@ export const reconstructCommunityMembershipFromChatState = (
     }
     candidates.push({
       ...identity,
-      status: "joined",
+      // M2: historical inference — group message rows are evidence of past
+      // participation, not confirmed current membership.
+      status: "historical",
       updatedAtUnixMs: resolveLatestGroupMessageUnixMs(messages) || Date.now(),
     });
   }

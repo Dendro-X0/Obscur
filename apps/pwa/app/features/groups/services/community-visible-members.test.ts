@@ -5,6 +5,8 @@ import {
     filterActiveCommunityMemberPubkeys,
     filterVisibleGroupMembers,
     mergeKnownCommunityMemberPubkeys,
+    resolveActiveCommunityMemberPubkeysFromConversation,
+    resolveAuthorEvidencePubkeysFromCommunityMessages,
     resolveCommunitySeedMemberPubkeys,
     resolveVisibleCommunityMemberPubkeys,
     stabilizeCommunityMemberPubkeys,
@@ -129,6 +131,39 @@ describe("community-visible-members", () => {
         expect(visible).toEqual(["member-a"]);
     });
 
+    it("resolveActiveCommunityMemberPubkeysFromConversation matches separate author + visible steps", () => {
+        const pkA = "a".repeat(64) as PublicKeyHex;
+        const pkB = "b".repeat(64) as PublicKeyHex;
+        const messages = [{ pubkey: pkB }];
+        const combined = resolveActiveCommunityMemberPubkeysFromConversation({
+            communityMessages: messages,
+            seededMemberPubkeys: [pkA],
+            localMemberPubkey: pkA,
+        });
+        const author = resolveAuthorEvidencePubkeysFromCommunityMessages(messages);
+        const visible = resolveVisibleCommunityMemberPubkeys({
+            seededMemberPubkeys: [pkA],
+            authorEvidencePubkeys: author,
+            localMemberPubkey: pkA,
+        });
+        expect(combined.authorEvidencePubkeys).toEqual(author);
+        expect(combined.activeMemberPubkeys).toEqual(visible);
+    });
+
+    it("dedupes author evidence pubkeys from community messages", () => {
+        const pk = "a".repeat(64);
+        const pk2 = "b".repeat(64);
+        const evidence = resolveAuthorEvidencePubkeysFromCommunityMessages([
+            { pubkey: `  ${pk}  ` },
+            { pubkey: pk },
+            { pubkey: pk2 },
+            { pubkey: "" },
+            { pubkey: null },
+            {},
+        ]);
+        expect(evidence).toEqual([pk, pk2]);
+    });
+
     it("keeps previously evidenced participants visible until explicit removal evidence exists", () => {
         const stable = stabilizeCommunityMemberPubkeys({
             previousMemberPubkeys: ["member-a", "member-b"] as unknown as ReadonlyArray<PublicKeyHex>,
@@ -142,6 +177,21 @@ describe("community-visible-members", () => {
             removedWithoutEvidence: ["member-b"],
             confidence: "unknown",
             guardRelaxed: false,
+        });
+    });
+
+    it("widens during relay warm-up instead of replacing with a thinner snapshot", () => {
+        const stable = stabilizeCommunityMemberPubkeys({
+            previousMemberPubkeys: ["member-a", "member-b"] as unknown as ReadonlyArray<PublicKeyHex>,
+            nextMemberPubkeys: ["member-a"] as unknown as ReadonlyArray<PublicKeyHex>,
+            relayEvidenceConfidence: "seed_only",
+        });
+
+        expect(stable).toMatchObject({
+            shouldApply: true,
+            reasonCode: "apply_snapshot_guard_relaxed",
+            nextMemberPubkeys: ["member-a", "member-b"],
+            guardRelaxed: true,
         });
     });
 

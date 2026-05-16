@@ -9,9 +9,11 @@ import { PrivacySettingsService } from "../../settings/services/privacy-settings
 import {
     getNotificationTargetEnabled,
     setNotificationTargetEnabled,
-    subscribeNotificationTargetPreferenceChanges,
     type NotificationTarget,
 } from "../../notifications/utils/notification-target-preference";
+import { useOptionalProfileMessageBus } from "@/app/features/profiles/providers/profile-runtime-provider";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
+import { subscribeNotificationTargetPreferenceChangedDual } from "@/app/features/profiles/services/subscribe-notification-target-preference-changed-dual";
 import { Bell, BellOff, Copy, PhoneCall } from "lucide-react";
 
 export interface ChatHeaderProps {
@@ -67,6 +69,7 @@ export function ChatHeader({
 }: ChatHeaderProps) {
     const { t } = useTranslation();
     const metadata = useResolvedProfileMetadata(conversation.kind === "dm" ? conversation.pubkey : null);
+    const optionalProfileBus = useOptionalProfileMessageBus();
     const resolvedName = metadata?.displayName || conversation.displayName;
     const isDeletedRecipient = conversation.kind === "dm" && metadata?.isDeleted === true;
     const effectiveIsOnline = isOnline && !isDeletedRecipient;
@@ -92,20 +95,20 @@ export function ChatHeader({
         conversation.kind === "group" ? (conversation.groupId ?? "") : "",
     ]);
     const [notificationsEnabled, setNotificationsEnabled] = React.useState<boolean>(() => (
-        getNotificationTargetEnabled(notificationTarget)
+        getNotificationTargetEnabled(notificationTarget, getResolvedProfileId())
     ));
     const [isPubkeyPanelVisible, setIsPubkeyPanelVisible] = React.useState(false);
     React.useEffect(() => {
         setIsPubkeyPanelVisible(false);
     }, [conversation.id]);
     React.useEffect(() => {
-        setNotificationsEnabled(getNotificationTargetEnabled(notificationTarget));
+        setNotificationsEnabled(getNotificationTargetEnabled(notificationTarget, getResolvedProfileId()));
     }, [notificationTarget]);
     React.useEffect(() => {
-        return subscribeNotificationTargetPreferenceChanges(() => {
-            setNotificationsEnabled(getNotificationTargetEnabled(notificationTarget));
-        });
-    }, [notificationTarget]);
+        return subscribeNotificationTargetPreferenceChangedDual(() => {
+            setNotificationsEnabled(getNotificationTargetEnabled(notificationTarget, getResolvedProfileId()));
+        }, optionalProfileBus);
+    }, [notificationTarget, optionalProfileBus]);
     React.useEffect(() => {
         const onPrivacySettingsChanged = () => {
             const nextShowPublicKeyControls = PrivacySettingsService.getSettings().showPublicKeyControlsInChat === true;
@@ -134,7 +137,11 @@ export function ChatHeader({
     const handleToggleConversationNotifications = React.useCallback(() => {
         const next = !notificationsEnabled;
         setNotificationsEnabled(next);
-        setNotificationTargetEnabled({ target: notificationTarget, enabled: next });
+        setNotificationTargetEnabled({
+            target: notificationTarget,
+            enabled: next,
+            profileId: getResolvedProfileId(),
+        });
         onToggleConversationNotifications?.({ conversation, enabled: next });
     }, [conversation, notificationTarget, notificationsEnabled, onToggleConversationNotifications]);
     const notificationToggleLabel = notificationsEnabled

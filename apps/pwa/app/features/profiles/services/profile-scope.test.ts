@@ -11,7 +11,7 @@ vi.mock("./profile-registry-service", () => ({
 }));
 
 import {
-  getActiveProfileIdSafe,
+  readRegistryBackedActiveProfileId,
   getScopedStorageKey,
   setProfileScopeOverride,
 } from "./profile-scope";
@@ -25,14 +25,14 @@ describe("profile-scope", () => {
   it("uses the explicit window-bound profile override when present", () => {
     setProfileScopeOverride("profile-b");
 
-    expect(getActiveProfileIdSafe()).toBe("profile-b");
+    expect(readRegistryBackedActiveProfileId()).toBe("profile-b");
     expect(getScopedStorageKey("obscur.test")).toBe("obscur.test::profile-b");
   });
 
   it("falls back to the registry active profile when no override is set", () => {
     mocks.getActiveProfileId.mockReturnValue("profile-a");
 
-    expect(getActiveProfileIdSafe()).toBe("profile-a");
+    expect(readRegistryBackedActiveProfileId()).toBe("profile-a");
     expect(getScopedStorageKey("obscur.test")).toBe("obscur.test::profile-a");
   });
 });

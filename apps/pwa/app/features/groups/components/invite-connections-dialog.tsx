@@ -166,6 +166,8 @@ export function InviteConnectionsDialog({
                     content: JSON.stringify({
                         type: "community-invite",
                         groupId,
+                        roomKey: roomKeyHex,
+                        relayUrl: scopedRelayUrl,
                         metadata,
                         communityId,
                         genesisEventId,

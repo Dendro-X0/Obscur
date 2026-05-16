@@ -25,7 +25,6 @@ export const OutgoingConnectionRequests = () => {
     requestsInbox,
     autoSubscribeIncoming: false,
     enableIncomingTransport: false,
-    enableAutoQueueProcessing: false,
   });
   const requestTransport = useRequestTransport({
     dmController,

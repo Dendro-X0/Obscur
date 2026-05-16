@@ -4,6 +4,7 @@ type ShowDesktopNotificationParams = Readonly<{
   title: string;
   body: string;
   tag: string;
+  icon?: string;
   onClick?: () => void;
   data?: Record<string, unknown>;
   requireInteraction?: boolean;

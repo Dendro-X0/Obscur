@@ -119,7 +119,7 @@ export interface IMessageQueue {
    * Get recent messages across all conversations for initialization
    */
   getAllMessages(limit?: number): Promise<Message[]>;
-
+  deleteMessage(messageId: string): Promise<void>;
 }
 
 const MAX_MESSAGES_PER_CONVERSATION = 5000; // Increased due to IndexedDB
@@ -508,6 +508,16 @@ export class MessageQueue implements IMessageQueue {
         resolve(queuedMessages);
       };
       request.onerror = () => reject(request.error);
+    });
+  }
+
+  async deleteMessage(messageId: string): Promise<void> {
+    const db = await this.getDb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction("messages", "readwrite");
+      tx.objectStore("messages").delete(messageId);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
     });
   }
 

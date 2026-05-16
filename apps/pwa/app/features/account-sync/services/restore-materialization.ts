@@ -1,13 +1,13 @@
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
+import { dbDeleteMessage, dbDeleteMessages, isTauri } from "@dweb/db";
+import { messagingDB } from "@dweb/storage/indexed-db";
 import { PrivacySettingsService } from "@/app/features/settings/services/privacy-settings-service";
 import { relayListInternals } from "@/app/features/relays/hooks/use-relay-list";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store";
 import { messagePersistenceService } from "@/app/features/messaging/services/message-persistence-service";
 import type { PersistedChatState } from "@/app/features/messaging/types";
-import {
-  replaceMessageDeleteTombstones,
-} from "@/app/features/messaging/services/message-delete-tombstone-store";
+import { messagingClientOperations } from "@/app/features/messaging/services/messaging-client-operations";
 import {
   saveCommunityMembershipLedger,
 } from "@/app/features/groups/services/community-membership-ledger";
@@ -20,6 +20,36 @@ import {
   recoverMissingMediaFromCAS,
   checkMediaRecoveryNeeded,
 } from "@/app/features/vault/services/cas-media-recovery";
+import {
+  withAccountRestoreMaterializationEvents,
+} from "./restore-materialization-events";
+import { resolveRestoreMaterializationSuppressionContract } from "./restore-materialization-suppression-contract";
+
+const purgeSuppressedMessageIdentitiesFromDurableStores = async (
+  profileId: string,
+  deleteIds: ReadonlyArray<string>,
+): Promise<void> => {
+  const normalizedIds = Array.from(new Set(deleteIds.map((id) => id.trim()).filter((id) => id.length > 0)));
+  if (normalizedIds.length === 0) {
+    return;
+  }
+  await Promise.all(normalizedIds.map((deleteId) => (
+    messagingDB.delete("messages", deleteId).catch(() => undefined)
+  )));
+  if (!isTauri()) {
+    return;
+  }
+  try {
+    await dbDeleteMessages(normalizedIds, profileId);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (message.includes("db_delete_messages")) {
+      await Promise.all(normalizedIds.map((deleteId) => (
+        dbDeleteMessage(deleteId, profileId).catch(() => undefined)
+      )));
+    }
+  }
+};
 
 export type NonV1RestoreMaterializationOptions = Readonly<{
   restoreChatStateDomains?: boolean;
@@ -65,77 +95,101 @@ export const applyNonV1RestoreMaterialization = async (params: Readonly<{
     uiSettings: EncryptedAccountBackupPayload["uiSettings"],
   ) => void;
 }>): Promise<void> => {
-  replaceMessageDeleteTombstones(params.mergedPayload.messageDeleteTombstones ?? []);
-  saveCommunityMembershipLedger(params.publicKeyHex, params.mergedPayload.communityMembershipLedger ?? []);
-  await params.applyRoomKeySnapshots(params.mergedPayload.roomKeys ?? []);
-  PrivacySettingsService.saveSettings(params.mergedPayload.privacySettings);
-  relayListInternals.saveRelayListToStorage(params.publicKeyHex, params.mergedPayload.relayList);
-  params.persistUiSettingsSnapshot(params.profileId, params.mergedPayload.uiSettings);
+  await withAccountRestoreMaterializationEvents({
+    publicKeyHex: params.publicKeyHex,
+    profileId: params.profileId,
+  }, async () => {
+    const {
+      mergedTombstoneEntries,
+      durableDeleteIds,
+      materializedPayload,
+    } = await resolveRestoreMaterializationSuppressionContract({
+      publicKeyHex: params.publicKeyHex,
+      profileId: params.profileId,
+      mergedPayload: params.mergedPayload,
+    });
 
-  const mergedPayloadChatDiagnostics = params.summarizeChatStateDiagnostics(
-    params.mergedPayload.chatState,
-    params.publicKeyHex,
-  );
-
-  if (params.options?.restoreChatStateDomains && params.mergedPayload.chatState) {
-    const restoredChatState = params.options?.restoreDmChatStateDomains === false
-      ? stripDmDomainsFromChatState(params.mergedPayload.chatState)
-      : params.mergedPayload.chatState;
-    const restoredChatStateDiagnostics = params.summarizeChatStateDiagnostics(
-      restoredChatState,
-      params.publicKeyHex,
+    await messagingClientOperations.replaceDmTombstoneEntries(
+      mergedTombstoneEntries,
+      Date.now(),
+      params.profileId,
     );
-    chatStateStoreService.replace(params.publicKeyHex, restoredChatState, {
-      emitMutationSignal: false,
+    saveCommunityMembershipLedger(params.publicKeyHex, materializedPayload.communityMembershipLedger ?? [], {
       profileId: params.profileId,
     });
-    await messagePersistenceService.migrateFromLegacy(params.publicKeyHex, { profileId: params.profileId });
-    const storedChatStateDiagnostics = params.summarizeChatStateDiagnostics(
-      chatStateStoreService.load(params.publicKeyHex),
+    await params.applyRoomKeySnapshots(materializedPayload.roomKeys ?? []);
+    PrivacySettingsService.saveSettings(materializedPayload.privacySettings);
+    relayListInternals.saveRelayListToStorage(params.publicKeyHex, materializedPayload.relayList, params.profileId);
+    params.persistUiSettingsSnapshot(params.profileId, materializedPayload.uiSettings);
+
+    const mergedPayloadChatDiagnostics = params.summarizeChatStateDiagnostics(
+      materializedPayload.chatState,
       params.publicKeyHex,
     );
-    params.emitRestoreHistoryRegression({
-      publicKeyHex: params.publicKeyHex,
-      stage: "merged_to_applied_store",
-      from: restoredChatStateDiagnostics,
-      to: storedChatStateDiagnostics,
-      restorePath: "non_v1_domains",
-      restoreChatStateDomains: true,
-    });
 
-    // After chat state is restored, recover missing media from CAS
-    const recoveryNeeded = await checkMediaRecoveryNeeded(params.publicKeyHex);
-    if (recoveryNeeded) {
-      await recoverMissingMediaFromCAS(params.publicKeyHex, {
-        maxConcurrentFetches: 3,
+    if (params.options?.restoreChatStateDomains && materializedPayload.chatState) {
+      const restoredChatState = params.options?.restoreDmChatStateDomains === false
+        ? stripDmDomainsFromChatState(materializedPayload.chatState)
+        : materializedPayload.chatState;
+      const restoredChatStateDiagnostics = params.summarizeChatStateDiagnostics(
+        restoredChatState,
+        params.publicKeyHex,
+      );
+      chatStateStoreService.replace(params.publicKeyHex, restoredChatState, {
+        emitMutationSignal: false,
+        profileId: params.profileId,
       });
-    }
-  }
+      await messagePersistenceService.migrateFromLegacy(params.publicKeyHex, { profileId: params.profileId });
+      await purgeSuppressedMessageIdentitiesFromDurableStores(
+        params.profileId,
+        Array.from(durableDeleteIds),
+      );
+      const storedChatStateDiagnostics = params.summarizeChatStateDiagnostics(
+        chatStateStoreService.load(params.publicKeyHex),
+        params.publicKeyHex,
+      );
+      params.emitRestoreHistoryRegression({
+        publicKeyHex: params.publicKeyHex,
+        stage: "merged_to_applied_store",
+        from: restoredChatStateDiagnostics,
+        to: storedChatStateDiagnostics,
+        restorePath: "non_v1_domains",
+        restoreChatStateDomains: true,
+      });
 
-  logAppEvent({
-    name: "account_sync.backup_restore_apply_diagnostics",
-    level: "info",
-    scope: { feature: "account_sync", action: "backup_restore" },
-    context: {
-      publicKeySuffix: params.publicKeyHex.slice(-8),
-      restorePath: "non_v1_domains",
-      restoreChatStateDomains: params.options?.restoreChatStateDomains === true,
-      restoreDmChatStateDomains: params.options?.restoreDmChatStateDomains !== false,
-      ...params.buildPrefixedChatStateDiagnosticsContext(
-        "merged",
-        mergedPayloadChatDiagnostics,
-      ),
-      appliedRoomKeyCount: (params.mergedPayload.roomKeys ?? []).length,
-      appliedMessageDeleteTombstoneCount: params.mergedPayload.messageDeleteTombstones?.length ?? 0,
-      ...params.buildPrefixedChatStateDiagnosticsContext(
-        "applied",
-        params.options?.restoreDmChatStateDomains === false && params.mergedPayload.chatState
-          ? params.summarizeChatStateDiagnostics(
-            stripDmDomainsFromChatState(params.mergedPayload.chatState),
-            params.publicKeyHex,
-          )
-          : mergedPayloadChatDiagnostics,
-      ),
-    },
+      const recoveryNeeded = await checkMediaRecoveryNeeded(params.publicKeyHex);
+      if (recoveryNeeded) {
+        await recoverMissingMediaFromCAS(params.publicKeyHex, {
+          maxConcurrentFetches: 3,
+        });
+      }
+    }
+
+    logAppEvent({
+      name: "account_sync.backup_restore_apply_diagnostics",
+      level: "info",
+      scope: { feature: "account_sync", action: "backup_restore" },
+      context: {
+        publicKeySuffix: params.publicKeyHex.slice(-8),
+        restorePath: "non_v1_domains",
+        restoreChatStateDomains: params.options?.restoreChatStateDomains === true,
+        restoreDmChatStateDomains: params.options?.restoreDmChatStateDomains !== false,
+        ...params.buildPrefixedChatStateDiagnosticsContext(
+          "merged",
+          mergedPayloadChatDiagnostics,
+        ),
+        appliedRoomKeyCount: (materializedPayload.roomKeys ?? []).length,
+        appliedMessageDeleteTombstoneCount: mergedTombstoneEntries.length,
+        ...params.buildPrefixedChatStateDiagnosticsContext(
+          "applied",
+          params.options?.restoreDmChatStateDomains === false && materializedPayload.chatState
+            ? params.summarizeChatStateDiagnostics(
+              stripDmDomainsFromChatState(materializedPayload.chatState),
+              params.publicKeyHex,
+            )
+            : mergedPayloadChatDiagnostics,
+        ),
+      },
+    });
   });
 };

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { windowRuntimeSupervisor } from "@/app/features/runtime/services/window-runtime-supervisor";
 import { relayTransportJournal } from "@/app/features/relays/services/relay-transport-journal";
 
@@ -48,7 +49,11 @@ type QueueListeners = Set<() => void>;
 
 const HISTORY_LIMIT = 20;
 
-const createStorageKey = (scopeKey: string): string => getScopedStorageKey(`obscur.transport_queue.v1.${scopeKey}`);
+const TRANSPORT_QUEUE_STORAGE_PREFIX = "obscur.transport_queue.v1." as const;
+
+const resolveTransportQueueStorageKey = (scopeKey: string, profileId?: string): string => (
+  getScopedStorageKey(`${TRANSPORT_QUEUE_STORAGE_PREFIX}${scopeKey}`, profileId ?? getResolvedProfileId())
+);
 
 const createDefaultSnapshot = (): ProfileTransportQueueSnapshot => ({
   pendingCount: 0,
@@ -168,22 +173,23 @@ class ProfileTransportQueue {
   }
 }
 
-const queuesByScopeKey = new Map<string, ProfileTransportQueue>();
+const queuesByStorageKey = new Map<string, ProfileTransportQueue>();
 
-export const getProfileTransportQueue = (scopeKey: string): ProfileTransportQueue => {
-  const existing = queuesByScopeKey.get(scopeKey);
+export const getProfileTransportQueue = (scopeKey: string, profileId?: string): ProfileTransportQueue => {
+  const storageKey = resolveTransportQueueStorageKey(scopeKey, profileId);
+  const existing = queuesByStorageKey.get(storageKey);
   if (existing) {
     return existing;
   }
-  const created = new ProfileTransportQueue(createStorageKey(scopeKey));
-  queuesByScopeKey.set(scopeKey, created);
+  const created = new ProfileTransportQueue(storageKey);
+  queuesByStorageKey.set(storageKey, created);
   return created;
 };
 
-export const useProfileTransportQueue = (scopeKey: string | null) => {
+export const useProfileTransportQueue = (scopeKey: string | null, profileId?: string) => {
   const queue = useMemo(() => (
-    scopeKey ? getProfileTransportQueue(scopeKey) : null
-  ), [scopeKey]);
+    scopeKey ? getProfileTransportQueue(scopeKey, profileId) : null
+  ), [scopeKey, profileId]);
   const snapshot = useSyncExternalStore(
     queue ? queue.subscribe : () => () => {},
     queue ? queue.getSnapshot : () => EMPTY_SNAPSHOT,

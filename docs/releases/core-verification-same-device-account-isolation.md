@@ -29,7 +29,7 @@ This lane verifies:
 
 Reference guardrails:
 
-1. `docs/18-account-scope-and-discovery-guardrails.md`
+1. `docs/encyclopedia/18-account-scope-and-discovery-guardrails.md`
 
 ## Required Invariants
 

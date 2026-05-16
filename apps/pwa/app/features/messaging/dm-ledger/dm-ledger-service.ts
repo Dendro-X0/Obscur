@@ -31,6 +31,7 @@ import {
   appendDmOperation,
   appendDmOperations,
   loadDmOperationsForConversation,
+  deleteMessageUpsertOperations,
 } from "./dm-operation-store";
 
 // ---------------------------------------------------------------------------
@@ -139,6 +140,12 @@ export const recordDmDelete = async (
   };
 
   const wasAdded = await appendDmOperation(op);
+
+  // Hard-delete the upsert rows for these identity IDs so no raw message
+  // record survives in the ledger store after a destructive delete.
+  // The delete-op tombstone above is kept so the reducer still suppresses
+  // any upsert that arrives later from relay sync.
+  await deleteMessageUpsertOperations(params.targetIdentityIds).catch(() => {});
 
   // Update cache and notify listeners
   await applyOperationToCache(params.conversationId, op);

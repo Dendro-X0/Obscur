@@ -25,18 +25,39 @@ import type {
   DmControllerState,
 } from "./dm-controller-types";
 import { sendDm, sendConnectionRequest, type SendConfirmation } from "./dm-send-pipeline";
-import { processIncomingEvent } from "./dm-receive-pipeline";
-import { deleteMessages } from "./dm-delete-pipeline";
+import { processIncomingEvent, processDeleteEventDirect, createDedupSet, type IncomingDmResult } from "./dm-receive-pipeline";
+// deleteMessages replaced by new deletion coordinator
 import { subscribeToIncomingDMs, type SubscriptionHandle } from "./dm-relay-transport";
-import { suppressMessageDeleteTombstone } from "../../services/message-delete-tombstone-store";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
+import { executeDmDeleteForMe } from "../../services/dm-local-delete-persistence";
+// Delete-for-everyone + remote ingest
+import {
+  deleteMessageForEveryone,
+  commitNetworkDeleteTombstone,
+  updateNetworkTombstoneEvidence,
+  resolveMessageIdentity,
+} from "../../deletion";
+import { logAppEvent } from "@/app/shared/log-app-event";
 // DM Ledger shadow mode - divergence detection only, no behavior change
 import { checkDmDivergence, recordDmMessage, recordDmDelete } from "../../dm-ledger";
+import { appendCanonicalDmEvent } from "@/app/features/account-sync/services/account-event-ingest-bridge";
+import { peerRelayEvidenceStore } from "../../services/peer-relay-evidence-store";
+import { messagingClientOperations } from "../../services/messaging-client-operations";
+import { collectMessageIdentityAliases } from "../../services/message-identity-alias-contract";
+import { toDmConversationId } from "../../utils/dm-conversation-id";
+import { buildDeleteTargetIdsForDm } from "../../services/dm-delete-target-derivation";
+import { applyDmThreadRedaction } from "../../services/apply-dm-thread-redaction";
+import { applyDmRedactionDisplayGate } from "../../services/dm-redaction-display-gate";
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
 const MAX_MESSAGES_IN_MEMORY = 200;
+
+const isNostrEventId = (value: string | undefined): boolean => (
+  typeof value === "string" && /^[0-9a-f]{64}$/i.test(value.trim())
+);
 
 // ---------------------------------------------------------------------------
 // Hook params
@@ -50,7 +71,12 @@ export type UseDmControllerParams = Readonly<{
   peerTrust?: PeerTrustContract;
   requestsInbox?: RequestsInboxContract;
   onNewMessage?: (message: Message) => void;
-  onMessageDeleted?: (params: Readonly<{ conversationId: string; messageId: string; messageIdentityIds?: ReadonlyArray<string> }>) => void;
+  onMessageDeleted?: (params: Readonly<{
+    conversationId: string;
+    messageId: string;
+    messageIdentityIds?: ReadonlyArray<string>;
+    conversationIdOriginal?: string;
+  }>) => void;
   autoSubscribeIncoming?: boolean;
   enableIncomingTransport?: boolean;
   transportOwnerId?: string;
@@ -84,7 +110,12 @@ export type UseDmControllerResult = Readonly<{
     messageId: string;
     conversationId: string;
     peerPublicKeyHex: PublicKeyHex;
-  }>) => Promise<void>;
+    mode?: "for_me" | "for_everyone";
+    /** Chat read-model snapshot when the message is not in transport memory. */
+    messageHint?: Message;
+    /** Full alias set (eventId, rumorId, local id) for network delete targeting. */
+    targetIdentityIds?: ReadonlyArray<string>;
+  }>) => Promise<boolean>;
   // Compatibility stubs for methods the old controller exposed
   retryFailedMessage: (messageId: string) => Promise<void>;
   getMessageStatus: (messageId: string) => MessageStatus | null;
@@ -119,6 +150,9 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
   const [activeSubId, setActiveSubId] = useState<string | null>(null);
   const subscriptionRef = useRef<SubscriptionHandle | null>(null);
   const subscribedRef = useRef(false);
+  const messagesRef = useRef<ReadonlyArray<Message>>([]);
+  const dedupSetRef = useRef<Set<string>>(createDedupSet());
+  messagesRef.current = messages;
 
   // --- Stable refs for subscription callback dependencies ---
   // These refs allow the subscription event handler to always read the latest
@@ -139,40 +173,107 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
 
   // --- Incoming event handler (stable reference via refs) ---
   const handleIncomingEvent = useCallback(async (event: NostrEvent, relayUrl: string) => {
-    const pubKey = myPublicKeyHexRef.current;
-    const privKey = myPrivateKeyHexRef.current;
-    if (!pubKey || !privKey) {
-      console.warn("[dm-controller:v2] incoming event dropped — identity not available");
-      return;
-    }
-
-    console.log("[dm-controller:v2] incoming event", {
-      eventId: event.id?.slice(0, 16),
+    console.log("[dm-controller:v2] handleIncomingEvent", {
+      eventId: event.id.slice(0, 16),
       kind: event.kind,
-      from: event.pubkey?.slice(0, 16),
-      relay: relayUrl?.slice(0, 40),
+      relayUrl: relayUrl.slice(0, 32),
     });
+
+    const applyRemoteDelete = async (
+      deleteResult: Extract<IncomingDmResult, { action: "delete" }>,
+      nostrEvent: NostrEvent,
+    ): Promise<void> => {
+      const { targetMessageIds, conversationId, plaintext } = deleteResult;
+      const myPk = myPublicKeyHexRef.current;
+      if (!myPk) {
+        return;
+      }
+
+      const redactionResult = await applyDmThreadRedaction({
+        nostrEvent,
+        plaintext,
+        targetMessageIds,
+        conversationIdHint: conversationId,
+        relayUrl,
+        myPublicKeyHex: myPk,
+        onRedactionApplied: (applied) => {
+          onMessageDeletedRef.current?.(applied);
+        },
+      });
+
+      if (redactionResult.status === "duplicate_skipped") {
+        return;
+      }
+
+      if (redactionResult.resolvedIdentityIds.length > 0) {
+        void recordDmDelete({
+          conversationId: redactionResult.conversationId,
+          targetIdentityIds: redactionResult.resolvedIdentityIds,
+          deletedByPubkey: nostrEvent.pubkey as PublicKeyHex,
+          isLocalDelete: nostrEvent.pubkey === myPk,
+          source: "relay_live",
+        }).catch((err) => {
+          console.error("[dm-ledger:shadow] delete recording error", err);
+        });
+      }
+    };
 
     const result = await processIncomingEvent({
       event,
-      relayUrl,
-      ingestSource: "relay_live",
-      myPublicKeyHex: pubKey,
-      myPrivateKeyHex: privKey,
+      myPublicKeyHex: myPublicKeyHexRef.current ?? "",
+      myPrivateKeyHex: myPrivateKeyHexRef.current ?? "",
       blocklist: blocklistRef.current,
       peerTrust: peerTrustRef.current,
+      dedupSet: dedupSetRef.current,
     });
 
     console.log("[dm-controller:v2] process result", {
       action: result.action,
       reason: result.action === "skipped" ? result.reason : undefined,
     });
+    logAppEvent({
+      name: "messaging.delete_for_everyone_remote_result",
+      level: result.action === "skipped" ? "warn" : "info",
+      scope: { feature: "messaging", action: "delete_for_everyone" },
+      context: {
+        channel: "dm_process_result",
+        resultCode: result.action,
+        reasonCode: result.action === "skipped" ? result.reason : null,
+        deliveryStatus: "received",
+        conversationIdHint: result.action === "message" || result.action === "self_echo"
+          ? result.message.conversationId?.slice(0, 32) ?? null
+          : result.action === "delete"
+            ? result.conversationId.slice(0, 32)
+            : null,
+        messageIdHint: result.action === "message" || result.action === "self_echo"
+          ? result.message.id.slice(0, 16)
+          : result.action === "delete"
+            ? result.targetMessageIds[0]?.slice(0, 16) ?? null
+            : null,
+        conversationKind: "dm",
+        isOutgoing: event.pubkey === myPublicKeyHexRef.current,
+        deleteTargetCount: result.action === "delete" ? result.targetMessageIds.length : 0,
+        remoteMessageIdHint: event.id.slice(0, 16),
+      },
+    });
 
     switch (result.action) {
       case "message": {
         const msg = result.message;
+        const profileId = getResolvedProfileId();
+        const nowMs = Date.now();
+        if (messagingClientOperations.isDmMessageIdentitySuppressed(msg, profileId ?? undefined, nowMs)) {
+          break;
+        }
+        if (!msg.isOutgoing && msg.senderPubkey) {
+          peerRelayEvidenceStore.recordInboundRelay({
+            peerPublicKeyHex: msg.senderPubkey,
+            relayUrl,
+            profileId: getResolvedProfileId(),
+          });
+        }
         // Pre-compute for ledger shadow mode (outside async to capture values)
-        const msgConversationId = msg.conversationId || [pubKey, msg.senderPubkey].sort().join(":");
+        const msgConversationId = msg.conversationId || [myPublicKeyHex, msg.senderPubkey].sort().join(":");
         const msgIdentityIds = [msg.id, msg.eventId].filter((id): id is string => !!id);
 
         setMessages(prev => {
@@ -186,6 +287,24 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
           return next;
         });
         onNewMessageRef.current?.(msg);
+
+        // Write to account projection so hydrateHistory has projection evidence
+        // and restore cycles do not wipe this message from the UI.
+        // Projection timeline keys must match hydrated/live DM rows (rumor id for NIP-17).
+        // Using gift-wrap outer event.id here duplicates the same plaintext under two ids and breaks delete-for-everyone suppression merges.
+        if (msg.senderPubkey && myPublicKeyHexRef.current && !msg.isOutgoing) {
+          void appendCanonicalDmEvent({
+            accountPublicKeyHex: myPublicKeyHexRef.current as PublicKeyHex,
+            peerPublicKeyHex: msg.senderPubkey as PublicKeyHex,
+            type: "DM_RECEIVED",
+            conversationId: msgConversationId,
+            messageId: msg.id,
+            eventCreatedAtUnixSeconds: Math.floor((msg.timestamp?.getTime() ?? Date.now()) / 1000),
+            plaintextPreview: typeof msg.content === "string" ? msg.content.slice(0, 140) : "",
+          }).catch((err) => {
+            console.error("[dm-controller:v2] appendCanonicalDmEvent DM_RECEIVED failed", err);
+          });
+        }
 
         // DM Ledger shadow mode: record operation
         void (async () => {
@@ -209,11 +328,17 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
         break;
       }
 
-      case "self_echo":
+      case "self_echo": {
+        const echo = result.message;
+        const profileId = getResolvedProfileId();
+        const nowMs = Date.now();
+        if (messagingClientOperations.isDmMessageIdentitySuppressed(echo, profileId ?? undefined, nowMs)) {
+          break;
+        }
         setMessages(prev => {
           // Update existing outgoing message to "delivered" or add if not found
           const existingIdx = prev.findIndex(m =>
-            m.eventId === result.message.eventId || m.id === result.message.id
+            m.eventId === echo.eventId || m.id === echo.id
           );
           if (existingIdx >= 0) {
             const updated = [...prev];
@@ -221,64 +346,38 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
             return updated;
           }
           // Self-echo from another device
-          return [result.message, ...prev]
+          return [echo, ...prev]
             .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
             .slice(0, MAX_MESSAGES_IN_MEMORY);
         });
         break;
-
-      case "delete": {
-        const { targetMessageIds, conversationId } = result;
-        console.log("[dm-controller:v2] delete action", {
-          targetMessageIds: targetMessageIds.map(id => id.slice(0, 16)),
-          conversationId: conversationId.slice(0, 32),
-        });
-        targetMessageIds.forEach(id => suppressMessageDeleteTombstone(id));
-        setMessages(prev => {
-          const matchedIds = prev
-            .filter(m => targetMessageIds.includes(m.id) || targetMessageIds.includes(m.eventId || ""))
-            .map(m => ({ id: m.id.slice(0, 16), eventId: m.eventId?.slice(0, 16) }));
-          console.log("[dm-controller:v2] delete filter", {
-            prevCount: prev.length,
-            matchedCount: matchedIds.length,
-            matchedIds,
-          });
-          return prev.filter(m => !targetMessageIds.includes(m.id) && !targetMessageIds.includes(m.eventId || ""));
-        });
-        // Emit a single delete event with ALL target IDs so the UI layer
-        // can match against any identifier (UUID, eventId, rumor hash).
-        if (targetMessageIds.length > 0) {
-          onMessageDeletedRef.current?.({
-            conversationId,
-            messageId: targetMessageIds[0],
-            messageIdentityIds: targetMessageIds,
-          });
-        }
-
-        // DM Ledger shadow mode: record delete operation
-        void (async () => {
-          try {
-            await recordDmDelete({
-              conversationId,
-              targetIdentityIds: targetMessageIds,
-              deletedByPubkey: event.pubkey as PublicKeyHex,
-              isLocalDelete: event.pubkey === pubKey,
-              source: "relay_live",
-            });
-            // Divergence check moved to separate effect
-          } catch (err) {
-            console.error("[dm-ledger:shadow] delete recording error", err);
-          }
-        })();
-        break;
       }
 
+      case "delete":
+        await applyRemoteDelete(result, event);
+        break;
+
       case "skipped":
-        // No action needed
+        // No action needed (dedup recovery runs below when applicable)
         break;
     }
-  // Stable: no external dependencies — all values read from refs
-  }, []);
+
+    if (result.action === "skipped" && result.reason === "dedup") {
+      const pkRecover = myPublicKeyHexRef.current;
+      const skRecover = myPrivateKeyHexRef.current;
+      if (pkRecover && skRecover) {
+        const directDelete = await processDeleteEventDirect({
+          event,
+          myPublicKeyHex: pkRecover,
+          myPrivateKeyHex: skRecover,
+        });
+        if (directDelete.action === "delete") {
+          await applyRemoteDelete(directDelete, event);
+        }
+      }
+    }
+  // Stable: refs provide fresh values without recreating callback
+  }, [myPublicKeyHex]);
 
   // --- Subscribe ---
   const subscribe = useCallback(() => {
@@ -313,6 +412,7 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
     }
     subscribedRef.current = false;
     setActiveSubId(null);
+
   }, []);
 
   // --- Auto-subscribe ---
@@ -363,8 +463,10 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
       recipientPubkey: sendParams.peerPublicKeyInput,
     };
 
-    // Add to state immediately
-    setMessages(prev => [optimisticMessage, ...prev].slice(0, MAX_MESSAGES_IN_MEMORY));
+    // Add to state immediately (skip command messages - they should not appear in UI)
+    if (!isCommand) {
+      setMessages(prev => [optimisticMessage, ...prev].slice(0, MAX_MESSAGES_IN_MEMORY));
+    }
 
     // Background confirmation handler — upgrades status after relay OK responses
     const handleConfirmed = (confirmation: SendConfirmation): void => {
@@ -397,6 +499,8 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
       plaintext: sendParams.plaintext,
       customTags: sendParams.customTags?.map(t => [...t]),
       onConfirmed: handleConfirmed,
+      dedupSet: dedupSetRef.current,
+      profileId: getResolvedProfileId(),
     });
 
     // Update optimistic message with event ID from Phase 1 (instant).
@@ -404,12 +508,21 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
     // treat the message as brand-new (different key), emitting a duplicate
     // messageBus event and leaving an orphan entry in IndexedDB.
     const immediateStatus: MessageStatus = result.success ? "accepted" : "failed";
+    const canonicalDmId = result.messageId || result.eventId || undefined;
+    const nip17GiftWrapId = (
+      result.messageId
+      && result.eventId
+      && result.messageId !== result.eventId
+    )
+      ? result.eventId
+      : undefined;
     setMessages(prev =>
       prev.map(m =>
         m.id === optimisticId
           ? {
               ...m,
-              eventId: result.eventId || undefined,
+              eventId: canonicalDmId,
+              ...(nip17GiftWrapId ? { relayPublishedEventId: nip17GiftWrapId } : {}),
               status: immediateStatus,
             }
           : m
@@ -423,7 +536,8 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
           conversationId: optimisticMessage.conversationId!, // Assert: always set for optimistic messages
           message: {
             ...optimisticMessage,
-            eventId: result.eventId || undefined,
+            eventId: canonicalDmId,
+            ...(nip17GiftWrapId ? { relayPublishedEventId: nip17GiftWrapId } : {}),
             status: immediateStatus,
           },
           identityIds: [optimisticId, result.eventId, result.messageId].filter((id): id is string => !!id),
@@ -435,6 +549,22 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
         console.error("[dm-ledger:shadow] record outgoing message error", err);
       }
     })();
+
+    // Write to account projection so the outgoing message has projection evidence.
+    // This ensures restore cycles cannot wipe it from the UI before IndexedDB persistence.
+    if (result.success && canonicalDmId && sendParams.peerPublicKeyInput) {
+      void appendCanonicalDmEvent({
+        accountPublicKeyHex: myPublicKeyHex,
+        peerPublicKeyHex: sendParams.peerPublicKeyInput as PublicKeyHex,
+        type: "DM_SENT_CONFIRMED",
+        conversationId: optimisticMessage.conversationId!,
+        messageId: canonicalDmId,
+        eventCreatedAtUnixSeconds: Math.floor(Date.now() / 1000),
+        plaintextPreview: sendParams.plaintext.slice(0, 140),
+      }).catch((err) => {
+        console.error("[dm-controller:v2] appendCanonicalDmEvent DM_SENT_CONFIRMED failed", err);
+      });
+    }
 
     return {
       ...result,
@@ -472,55 +602,352 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
     messageId: string;
     conversationId: string;
     peerPublicKeyHex: PublicKeyHex;
+    mode?: "for_me" | "for_everyone"; // Defaults to "for_everyone" for own messages
+    messageHint?: Message;
+    targetIdentityIds?: ReadonlyArray<string>;
   }>) => {
-    if (!myPublicKeyHex || !myPrivateKeyHex) return;
+    const mode = delParams.mode ?? "for_everyone";
+    if (!myPublicKeyHex || !myPrivateKeyHex) return false;
 
-    // Collect all identity aliases for the target message so removal covers
-    // both the optimistic UUID and relay event ID.
-    let allTargetIds: ReadonlyArray<string> = [delParams.messageId];
-    setMessages(prev => {
-      const target = prev.find(m => m.id === delParams.messageId || m.eventId === delParams.messageId);
-      if (target) {
-        const ids = new Set<string>();
-        ids.add(target.id);
-        if (target.eventId) ids.add(target.eventId);
-        ids.add(delParams.messageId);
-        allTargetIds = Array.from(ids);
-      }
-      return prev.filter(m => !allTargetIds.includes(m.id) && !allTargetIds.includes(m.eventId || ""));
-    });
-
-    onMessageDeleted?.({
-      conversationId: delParams.conversationId,
-      messageId: delParams.messageId,
-      messageIdentityIds: allTargetIds,
-    });
-
-    // Publish delete command to peer
-    await deleteMessages({
-      pool,
-      senderPublicKeyHex: myPublicKeyHex,
-      senderPrivateKeyHex: myPrivateKeyHex,
+    const profileId = getResolvedProfileId();
+    const canonicalConversationId = toDmConversationId({
+      myPublicKeyHex,
       peerPublicKeyHex: delParams.peerPublicKeyHex,
-      targetMessageIds: allTargetIds,
-      conversationId: delParams.conversationId,
-    });
+    }) ?? delParams.conversationId;
+    if (!profileId) {
+      console.warn("[dm-controller:v2] delete failed - no active profile");
+      logAppEvent({
+        name: "messaging.delete_for_everyone_rejected",
+        level: "warn",
+        scope: { feature: "messaging", action: "delete_for_everyone" },
+        context: {
+          reasonCode: "no_active_profile",
+          conversationIdHint: canonicalConversationId.slice(0, 32),
+          messageIdHint: delParams.messageId.slice(0, 16),
+          conversationKind: "dm",
+          isOutgoing: false,
+          hasVoiceNoteAttachment: false,
+        },
+      });
+      return false;
+    }
 
-    // DM Ledger shadow mode: record local delete operation
-    void (async () => {
-      try {
-        await recordDmDelete({
-          conversationId: delParams.conversationId,
-          targetIdentityIds: allTargetIds,
-          deletedByPubkey: myPublicKeyHex,
-          isLocalDelete: true,
-          source: "local_delete",
-        });
-      } catch (err) {
-        console.error("[dm-ledger:shadow] record local delete error", err);
+    const hint = delParams.messageHint;
+    const target = messages.find(
+      (m: Message) => m.id === delParams.messageId || m.eventId === delParams.messageId,
+    ) ?? (
+      hint && (hint.id === delParams.messageId || hint.eventId === delParams.messageId)
+        ? hint
+        : undefined
+    );
+
+    const allTargetIdSet = new Set<string>([delParams.messageId]);
+    if (target) {
+      allTargetIdSet.add(target.id);
+      if (target.eventId) {
+        allTargetIdSet.add(target.eventId);
       }
-    })();
-  }, [pool, myPublicKeyHex, myPrivateKeyHex, onMessageDeleted]);
+    }
+    if (hint) {
+      collectMessageIdentityAliases(hint).forEach((id) => allTargetIdSet.add(id));
+    }
+    (delParams.targetIdentityIds ?? []).forEach((id) => {
+      const normalized = id.trim();
+      if (normalized.length > 0) {
+        allTargetIdSet.add(normalized);
+      }
+    });
+    const messageForDerivedTargets = target ?? hint;
+    if (messageForDerivedTargets) {
+      const derivedTargets = await buildDeleteTargetIdsForDm({
+        message: messageForDerivedTargets,
+        senderPubkey: myPublicKeyHex,
+        recipientPubkey: delParams.peerPublicKeyHex,
+      });
+      for (const derivedId of derivedTargets) {
+        const trimmedDerived = derivedId.trim();
+        if (trimmedDerived.length > 0) {
+          allTargetIdSet.add(trimmedDerived);
+        }
+      }
+    }
+    const allTargetIds = Array.from(allTargetIdSet);
+
+    if (mode === "for_everyone" && profileId && allTargetIds.length > 0) {
+      void applyDmRedactionDisplayGate({
+        profileId,
+        conversationId: canonicalConversationId,
+        identityIds: allTargetIds,
+        myPublicKeyHex,
+        deleteAuthorPubkey: myPublicKeyHex,
+      });
+    }
+
+    const senderPubkey = (
+      target?.senderPubkey
+      ?? hint?.senderPubkey
+      ?? (hint?.isOutgoing ? myPublicKeyHex : undefined)
+    );
+    const networkEventId = (
+      target?.eventId
+      ?? hint?.eventId
+      ?? (isNostrEventId(delParams.messageId) ? delParams.messageId : undefined)
+    );
+
+    // Build message identity
+    const messageIdentity = resolveMessageIdentity({
+      id: networkEventId ?? delParams.messageId,
+      eventId: networkEventId,
+      conversationId: canonicalConversationId,
+      senderPubkey: senderPubkey || myPublicKeyHex,
+      createdAt: target?.timestamp.getTime() ?? hint?.timestamp.getTime() ?? Date.now(),
+      additionalIds: allTargetIds,
+    });
+    if (mode === "for_everyone") {
+      console.log("[dm-controller:v2] delete for everyone requested", {
+        conversationId: canonicalConversationId.slice(0, 32),
+        messageId: delParams.messageId.slice(0, 16),
+        targetFound: !!target,
+        hintProvided: !!hint,
+        targetSenderPubkey: senderPubkey?.slice(0, 16) ?? null,
+        myPublicKeyHex: myPublicKeyHex.slice(0, 16),
+        peerPublicKeyHex: delParams.peerPublicKeyHex.slice(0, 16),
+        allTargetIds: allTargetIds.map(id => id.slice(0, 16)),
+        messageIdentityIds: messageIdentity.identityIds.map(id => id.slice(0, 16)),
+        hasEventId: !!networkEventId,
+      });
+      logAppEvent({
+        name: "messaging.delete_for_everyone_requested",
+        level: "info",
+        scope: { feature: "messaging", action: "delete_for_everyone" },
+        context: {
+          conversationIdHint: canonicalConversationId.slice(0, 32),
+          messageIdHint: delParams.messageId.slice(0, 16),
+          conversationKind: "dm",
+          isOutgoing: senderPubkey === myPublicKeyHex,
+          hasVoiceNoteAttachment: false,
+        },
+      });
+    }
+
+    if (mode === "for_me") {
+      await executeDmDeleteForMe({
+        conversationId: canonicalConversationId,
+        messageIdentityIds: messageIdentity.identityIds,
+        accountPublicKeyHex: myPublicKeyHex,
+        profileId,
+        observedAtUnixMs: target?.timestamp.getTime() ?? Date.now(),
+      });
+      setMessages((prev) => prev.filter((m) => (
+        !allTargetIds.includes(m.id)
+        && !allTargetIds.includes(m.eventId || "")
+        && !(m.relayPublishedEventId && allTargetIds.includes(m.relayPublishedEventId))
+      )));
+      onMessageDeleted?.({
+        conversationId: canonicalConversationId,
+        messageId: delParams.messageId,
+        messageIdentityIds: allTargetIds,
+      });
+      void recordDmDelete({
+        conversationId: canonicalConversationId,
+        targetIdentityIds: allTargetIds,
+        deletedByPubkey: myPublicKeyHex,
+        isLocalDelete: true,
+        source: "local_delete",
+      }).catch((err) => {
+        console.error("[dm-ledger:shadow] record delete error", err);
+      });
+      return true;
+    } else {
+      if (mode !== "for_everyone") {
+        return false;
+      }
+      const isMessageAuthor = hint?.isOutgoing === true || senderPubkey === myPublicKeyHex;
+      if (!isMessageAuthor) {
+        console.warn("[dm-controller:v2] delete for everyone rejected - not message author");
+        logAppEvent({
+          name: "messaging.delete_for_everyone_rejected",
+          level: "warn",
+          scope: { feature: "messaging", action: "delete_for_everyone" },
+          context: {
+            reasonCode: "not_message_author",
+            conversationIdHint: canonicalConversationId.slice(0, 32),
+            messageIdHint: delParams.messageId.slice(0, 16),
+            conversationKind: "dm",
+            isOutgoing: false,
+            hasVoiceNoteAttachment: false,
+          },
+        });
+        return false;
+      }
+
+      const prepared = await deleteMessageForEveryone({
+        targetMessage: messageIdentity,
+        profileId,
+        conversationId: canonicalConversationId,
+        myPublicKeyHex,
+      }, { deferLocalTombstone: true });
+
+      if (!prepared.success) {
+        console.warn("[dm-controller:v2] delete command encoding failed", { error: prepared.error });
+        logAppEvent({
+          name: "messaging.delete_for_everyone_rejected",
+          level: "warn",
+          scope: { feature: "messaging", action: "delete_for_everyone" },
+          context: {
+            reasonCode: prepared.error,
+            conversationIdHint: canonicalConversationId.slice(0, 32),
+            messageIdHint: delParams.messageId.slice(0, 16),
+            conversationKind: "dm",
+            isOutgoing: true,
+            hasVoiceNoteAttachment: false,
+          },
+        });
+        return false;
+      }
+
+      logAppEvent({
+        name: "messaging.delete_for_everyone_remote_result",
+        level: "debug",
+        scope: { feature: "messaging", action: "delete_for_everyone" },
+        context: {
+          channel: "dm_sender_plaintext_fingerprint",
+          resultCode: prepared.commandPayload?.startsWith("__dweb_cmd__delete:")
+            ? "delete_prefix_present"
+            : prepared.commandPayload?.startsWith("__dweb_cmd__")
+              ? "cmd_prefix_present"
+              : "normal_plaintext",
+          reasonCode: null,
+          deliveryStatus: "local_redaction",
+          conversationIdHint: canonicalConversationId.slice(0, 32),
+          messageIdHint: delParams.messageId.slice(0, 16),
+          conversationKind: "dm",
+          isOutgoing: true,
+          deleteTargetCount: allTargetIds.length,
+          remoteMessageIdHint: null,
+        },
+      });
+
+      await commitNetworkDeleteTombstone(prepared.tombstone);
+
+      try {
+        const { applyDestructiveDmDeleteForEveryoneLocal } = await import(
+          "../../services/dm-delete-for-everyone-local-destruction"
+        );
+        await applyDestructiveDmDeleteForEveryoneLocal({
+          conversationId: canonicalConversationId,
+          messageIdentityIds: allTargetIds,
+          accountPublicKeyHex: myPublicKeyHex,
+          profileId,
+          observedAtUnixMs: prepared.tombstone.deletedAt,
+        });
+      } catch (destructiveErr) {
+        console.error("[dm-controller:v2] destructive local purge failed before delete publish", destructiveErr);
+        logAppEvent({
+          name: "messaging.delete_for_everyone_local_destruction_failed",
+          level: "error",
+          scope: { feature: "messaging", action: "delete_for_everyone" },
+          context: {
+            channel: "dm_sender_destructive_purge",
+            conversationIdHint: canonicalConversationId.slice(0, 32),
+            messageIdHint: delParams.messageId.slice(0, 16),
+            reason: destructiveErr instanceof Error ? destructiveErr.message : String(destructiveErr),
+          },
+        });
+      }
+
+      setMessages((prev) => prev.filter((m) => (
+        !allTargetIds.includes(m.id)
+        && !allTargetIds.includes(m.eventId || "")
+        && !(m.relayPublishedEventId && allTargetIds.includes(m.relayPublishedEventId))
+      )));
+      onMessageDeleted?.({
+        conversationId: canonicalConversationId,
+        messageId: delParams.messageId,
+        messageIdentityIds: allTargetIds,
+      });
+
+      const sendResult = await sendDm({
+        pool,
+        senderPublicKeyHex: myPublicKeyHex,
+        senderPrivateKeyHex: myPrivateKeyHex,
+        recipientPublicKeyHex: delParams.peerPublicKeyHex,
+        plaintext: prepared.commandPayload,
+        customTags: [
+          ["p", delParams.peerPublicKeyHex],
+          ["t", "message-delete"],
+          ...allTargetIds.map(id => ["e", id] as [string, string]),
+        ],
+        dedupSet: dedupSetRef.current,
+        profileId: getResolvedProfileId(),
+      });
+
+      if (!sendResult.success) {
+        console.warn("[dm-controller:v2] delete command publish failed (local redaction already applied)", sendResult.error);
+        logAppEvent({
+          name: "messaging.delete_for_everyone_remote_result",
+          level: "warn",
+          scope: { feature: "messaging", action: "delete_for_everyone" },
+          context: {
+            channel: "dm_sender_publish",
+            resultCode: "failed_local_applied",
+            reasonCode: sendResult.error ?? "publish_failed",
+            deliveryStatus: sendResult.deliveryStatus,
+            conversationIdHint: canonicalConversationId.slice(0, 32),
+            messageIdHint: delParams.messageId.slice(0, 16),
+            conversationKind: "dm",
+            isOutgoing: true,
+            deleteTargetCount: prepared.tombstone.targetMessageIdentityIds.length,
+            remoteMessageIdHint: sendResult.eventId?.slice(0, 16) ?? null,
+          },
+        });
+        return true;
+      }
+
+      const successfulRelay = sendResult.relayResults?.find(r => r.success)?.relayUrl;
+      await updateNetworkTombstoneEvidence(
+        prepared.tombstone.tombstoneId,
+        profileId,
+        sendResult.eventId,
+        successfulRelay,
+      );
+
+      console.log("[dm-controller:v2] delete command published", {
+        eventId: sendResult.eventId.slice(0, 16),
+        tombstoneId: prepared.tombstone.tombstoneId.slice(0, 16),
+        relayEvidence: successfulRelay?.slice(0, 40) ?? null,
+        targetMessageIdentityIds: prepared.tombstone.targetMessageIdentityIds.map(id => id.slice(0, 16)),
+      });
+      logAppEvent({
+        name: "messaging.delete_for_everyone_remote_result",
+        level: "info",
+        scope: { feature: "messaging", action: "delete_for_everyone" },
+        context: {
+          channel: "dm_sender_publish",
+          resultCode: "success",
+          reasonCode: null,
+          deliveryStatus: sendResult.deliveryStatus,
+          conversationIdHint: canonicalConversationId.slice(0, 32),
+          messageIdHint: delParams.messageId.slice(0, 16),
+          conversationKind: "dm",
+          isOutgoing: true,
+          deleteTargetCount: prepared.tombstone.targetMessageIdentityIds.length,
+          remoteMessageIdHint: sendResult.eventId.slice(0, 16),
+        },
+      });
+
+      void recordDmDelete({
+        conversationId: canonicalConversationId,
+        targetIdentityIds: allTargetIds,
+        deletedByPubkey: myPublicKeyHex,
+        isLocalDelete: false,
+        source: "network_delete",
+      }).catch((err) => {
+        console.error("[dm-ledger:shadow] record delete error", err);
+      });
+      return true;
+    }
+  }, [pool, myPublicKeyHex, myPrivateKeyHex, onMessageDeleted, messages]);
 
   // --- State ---
   const messageStatusMap = useMemo(() => {

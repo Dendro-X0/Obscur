@@ -1,15 +1,18 @@
 /**
- * Community Groups Hooks - Phase 2.5 Exports
- * 
+ * Community Groups Hooks - CRDT Integration
+ *
  * React hooks for community membership with CRDT support.
  */
 
 export {
-  useCommunityMembershipIntegration,
-  type UseCommunityMembershipIntegrationReturn,
-} from './use-community-membership-integration.js';
+  useCommunityMembershipCRDT,
+  useMigrateToCRDT,
+  type UseCommunityMembershipCRDTReturn,
+} from './use-community-membership-crdt';
 
 export {
   useCommunityMembershipGossip,
   type UseCommunityMembershipGossipReturn,
-} from './use-community-membership-gossip.js';
+} from './use-community-membership-gossip';
+
+export { useCommunityParticipantRosterReadModel } from "./use-community-participant-roster-read-model";

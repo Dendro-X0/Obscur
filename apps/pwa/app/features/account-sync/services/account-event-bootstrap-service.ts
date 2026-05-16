@@ -2,13 +2,14 @@
 
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store";
-import { loadSuppressedMessageDeleteIds } from "@/app/features/messaging/services/message-delete-tombstone-store";
+import { messagingClientOperations } from "@/app/features/messaging/services/messaging-client-operations";
 import { peerTrustInternals } from "@/app/features/network/hooks/use-peer-trust";
 import { syncCheckpointInternals } from "@/app/features/messaging/lib/sync-checkpoints";
 import { normalizePublicKeyHex } from "@/app/features/profile/utils/normalize-public-key-hex";
 import { parseCommandMessage } from "@/app/features/messaging/utils/commands";
 import { parseVoiceCallSignalPayload } from "@/app/features/messaging/services/realtime-voice-signaling";
 import { readHistoryResetCutoffUnixMs } from "./history-reset-cutoff-store";
+import { getAccountSyncMigrationPolicy } from "./account-sync-migration-policy";
 import type { EncryptedAccountBackupPayload } from "../account-sync-contracts";
 import type { AccountEvent, AccountEventSource } from "../account-event-contracts";
 
@@ -430,7 +431,15 @@ const collectFromBackupPayload = (params: Readonly<{
   source: AccountEventSource;
   idempotencyPrefix: string;
   historyResetCutoffUnixMs?: number | null;
+  durableDeleteIds?: ReadonlySet<string>;
+  /** When true, only tombstones/REMOVE markers import — DM timeline stays in the event log. */
+  skipDmChatStateTimelineImport?: boolean;
 }>): void => {
+  const durableDeleteIds = params.durableDeleteIds ?? new Set(
+    (params.payload.messageDeleteTombstones ?? [])
+      .map((entry) => entry.id.trim())
+      .filter((entry) => entry.length > 0),
+  );
   params.payload.peerTrust.acceptedPeers.forEach((peerPublicKeyHex) => {
     params.events.push({
       ...createCommonEvent({
@@ -445,30 +454,30 @@ const collectFromBackupPayload = (params: Readonly<{
       direction: "unknown",
     });
   });
-  collectFromChatState({
-    profileId: params.profileId,
-    accountPublicKeyHex: params.accountPublicKeyHex,
-    events: params.events,
-    chatState: params.payload.chatState,
-    source: params.source,
-    idempotencyPrefix: params.idempotencyPrefix,
-    historyResetCutoffUnixMs: params.historyResetCutoffUnixMs,
-    durableDeleteIds: new Set(
-      (params.payload.messageDeleteTombstones ?? [])
-        .map((entry) => entry.id.trim())
-        .filter((entry) => entry.length > 0)
-    ),
-  });
-  (params.payload.messageDeleteTombstones ?? []).forEach((entry) => {
-    const messageId = entry.id.trim();
-    if (!messageId) {
-      return;
-    }
+  if (!params.skipDmChatStateTimelineImport) {
+    collectFromChatState({
+      profileId: params.profileId,
+      accountPublicKeyHex: params.accountPublicKeyHex,
+      events: params.events,
+      chatState: params.payload.chatState,
+      source: params.source,
+      idempotencyPrefix: params.idempotencyPrefix,
+      historyResetCutoffUnixMs: params.historyResetCutoffUnixMs,
+      durableDeleteIds,
+    });
+  }
+  const tombstoneDeletedAtById = new Map(
+    (params.payload.messageDeleteTombstones ?? []).map((entry) => [
+      entry.id.trim(),
+      entry.deletedAtUnixMs,
+    ] as const),
+  );
+  Array.from(durableDeleteIds).forEach((messageId) => {
     pushRemovedMessageEvent(params.events, {
       profileId: params.profileId,
       accountPublicKeyHex: params.accountPublicKeyHex,
       messageId,
-      observedAtUnixMs: entry.deletedAtUnixMs,
+      observedAtUnixMs: tombstoneDeletedAtById.get(messageId) ?? Date.now(),
       source: params.source,
       idempotencyPrefix: params.idempotencyPrefix,
     });
@@ -503,10 +512,30 @@ export const buildCanonicalBackupImportEvents = (params: Readonly<{
   payload: EncryptedAccountBackupPayload;
   source?: AccountEventSource;
   idempotencyPrefix?: string;
+  /** Merged local + backup tombstones; when omitted, backup payload + in-memory suppressions apply. */
+  durableDeleteIds?: ReadonlySet<string>;
 }>): ReadonlyArray<AccountEvent> => {
   const source = params.source ?? "relay_sync";
   const idempotencyPrefix = params.idempotencyPrefix ?? `restore:${params.payload.createdAtUnixMs}`;
   const historyResetCutoffUnixMs = readHistoryResetCutoffUnixMs(params.profileId);
+  const fromPayload = new Set(
+    (params.payload.messageDeleteTombstones ?? [])
+      .map((entry) => entry.id.trim())
+      .filter((entry) => entry.length > 0),
+  );
+  const fromLocal = messagingClientOperations.loadDmSuppressedIdentityIds(params.profileId);
+  const durableDeleteIds = params.durableDeleteIds ?? new Set([
+    ...fromPayload,
+    ...fromLocal,
+  ]);
+  const migrationPolicy = getAccountSyncMigrationPolicy({
+    profileId: params.profileId,
+    accountPublicKeyHex: params.accountPublicKeyHex,
+  });
+  const projectionOwnsDmHistory = (
+    migrationPolicy.phase === "read_cutover"
+    || migrationPolicy.phase === "legacy_writes_disabled"
+  );
   const events: AccountEvent[] = [];
   collectFromBackupPayload({
     profileId: params.profileId,
@@ -516,8 +545,48 @@ export const buildCanonicalBackupImportEvents = (params: Readonly<{
     source,
     idempotencyPrefix,
     historyResetCutoffUnixMs,
+    durableDeleteIds,
+    skipDmChatStateTimelineImport: projectionOwnsDmHistory,
   });
   return events;
+};
+
+/**
+ * Seal an already-live projection partition: apply durable delete tombstones to the event log
+ * and append BOOTSTRAP_IMPORT_APPLIED without re-importing legacy chat-state rows.
+ * Used when canonical events exist but the bootstrap marker was never written (common in dev).
+ */
+export const buildBootstrapSealEvents = async (params: Readonly<{
+  profileId: string;
+  accountPublicKeyHex: PublicKeyHex;
+}>): Promise<Readonly<{
+  events: ReadonlyArray<AccountEvent>;
+  sourceCounts: Readonly<Record<AccountEventSource, number>>;
+}>> => {
+  await messagingClientOperations.hydrateDmTombstonesFromSqlite(params.profileId);
+  const events: AccountEvent[] = [];
+  const durableDeleteIds = messagingClientOperations.loadDmSuppressedIdentityIds(params.profileId);
+  Array.from(durableDeleteIds).forEach((messageId) => {
+    pushRemovedMessageEvent(events, {
+      profileId: params.profileId,
+      accountPublicKeyHex: params.accountPublicKeyHex,
+      messageId,
+      observedAtUnixMs: Date.now(),
+      source: "local_bootstrap",
+      idempotencyPrefix: "bootstrap_seal",
+    });
+  });
+  const sourceCounts = toSourceCounts(events);
+  events.push(createBootstrapMarkerEvent({
+    profileId: params.profileId,
+    accountPublicKeyHex: params.accountPublicKeyHex,
+    sourceCounts,
+    dedupeCount: 0,
+  }));
+  return {
+    events,
+    sourceCounts,
+  };
 };
 
 export const buildBootstrapAccountEvents = async (params: Readonly<{
@@ -529,12 +598,13 @@ export const buildBootstrapAccountEvents = async (params: Readonly<{
   sourceCounts: Readonly<Record<AccountEventSource, number>>;
 }>> => {
   const historyResetCutoffUnixMs = readHistoryResetCutoffUnixMs(params.profileId);
+  await messagingClientOperations.hydrateDmTombstonesFromSqlite(params.profileId);
   await chatStateStoreService.hydrateMessages(params.accountPublicKeyHex);
   const events: AccountEvent[] = [];
   const peerTrust = peerTrustInternals.loadFromStorage(params.accountPublicKeyHex);
   const chatState = chatStateStoreService.load(params.accountPublicKeyHex);
-  const checkpoints = Array.from(syncCheckpointInternals.loadPersistedCheckpointState().values());
-  const durableDeleteIds = loadSuppressedMessageDeleteIds();
+  const checkpoints = Array.from(syncCheckpointInternals.loadPersistedCheckpointState(params.profileId).values());
+  const durableDeleteIds = messagingClientOperations.loadDmSuppressedIdentityIds(params.profileId);
 
   peerTrust.acceptedPeers.forEach((peerPublicKeyHex) => {
     events.push({

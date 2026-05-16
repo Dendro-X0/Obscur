@@ -8,14 +8,25 @@
 
 Obscur is a cross-platform, decentralized, end-to-end encrypted (E2EE) communication app focused on user privacy, ownership, and self-custody identity.
 
-Project phase: **v1.4.7 Resilience & Verification — Released**
+Project phase: **v1.5.0 Gateway & Membership — Release candidate**
 
-**Release highlights (`v1.4.7`):**
+**Release highlights (`v1.5.0`):**
 
-- **M0: Critical Fixes**: Ghost call prevention (5-minute TTL), profile isolation (complete cleanup), historical notification fixes
-- **M1: Implementation Goals**: CAS Media Recovery (restore convergence), Security Integration (audit logging, identicon, key change detection), Relay Capability Badges (community mode display)
-- **M2: Diagnostics & Verification**: M1 verification diagnostics and 7-test replay suite exposed via console API
-- **M3: Stabilization**: Type fixes, comprehensive documentation, release preparation
+- **ClientGateway (R0–R2):** DM materialization and community roster paths converge on `getResolvedClientGateway()` — fewer parallel state owners
+- **Profile runtime:** `ProfileMessageBus`, explicit `profileId`, same-process A/B isolation gates
+- **Community membership:** Relay-first ingress, coordinator-owned ledger, provisional vs authoritative join
+- **Account projection:** DM timeline evidence for restore and projection-first read cutover
+- **Cooperative DM redaction:** **Not shipped in UI** for v1.5.0 — deferred to v1.6+ ([design doc](docs/messaging/cooperative-redaction-future.md))
+
+Full notes: [docs/releases/v1.5.0-release.md](docs/releases/v1.5.0-release.md) · Program: [docs/program/PROGRAM.md](docs/program/PROGRAM.md)
+
+**Previous release (`v1.4.11`):**
+
+- DM operation ledger (shadow), send retry queue, relay resilience incremental work
+
+**Earlier (`v1.4.7`):**
+
+- M0–M3 stabilization, security integration, CAS media recovery, relay capability badges
 
 **Previous release (`v1.4.6`):**
 
@@ -64,7 +75,7 @@ The project remains independently developed, community-maintained, privacy-first
 - Rich media messaging (image/video/audio/file).
 - Voice notes and realtime voice call flow.
 - Local vault/media workflows.
-- Message deletion controls (`Delete for me` and `Delete for everyone` where supported by protocol flow).
+- Message deletion: **Delete for me** (local). Cooperative “remove for everyone” on DMs is **planned for v1.6+**, not v1.5.0 — see [docs/messaging/cooperative-redaction-future.md](docs/messaging/cooperative-redaction-future.md).
 - Light/dark themes, multilingual UI, and cross-platform UX parity improvements.
 - Runtime diagnostics and triage tooling for long-term maintainability.
 
@@ -157,15 +168,18 @@ pnpm release:preflight -- --tag vX.Y.Z
 
 ## Documentation Map
 
-- Docs index: `docs/README.md`
-- Project overview: `docs/01-project-overview.md`
-- Runtime architecture: `docs/03-runtime-architecture.md`
-- Messaging/groups architecture: `docs/04-messaging-and-groups.md`
-- Quality gates: `docs/06-testing-and-quality-gates.md`
-- Release operations: `docs/07-operations-and-release-flow.md`
-- Maintainer playbook: `docs/08-maintainer-playbook.md`
-- Roadmap: `docs/roadmap/current-roadmap.md`
-- Active issue ledger: `ISSUES.md`
+The `/docs` tree is the project encyclopedia. **Only** [docs/README.md](docs/README.md) lives at the docs root (navigation).
+
+| Shelf | Entry |
+|-------|--------|
+| Navigation | [docs/README.md](docs/README.md) |
+| Program (v1.5) | [docs/program/PROGRAM.md](docs/program/PROGRAM.md) |
+| Release notes | [docs/releases/v1.5.0-release.md](docs/releases/v1.5.0-release.md) |
+| Maintainer | [docs/encyclopedia/08-maintainer-playbook.md](docs/encyclopedia/08-maintainer-playbook.md) |
+| Architecture owners | [docs/encyclopedia/12-core-architecture-truth-map.md](docs/encyclopedia/12-core-architecture-truth-map.md) |
+| ClientGateway | [docs/gateway/client-unified-gateway.md](docs/gateway/client-unified-gateway.md) |
+| Handoff | [docs/handoffs/current-session.md](docs/handoffs/current-session.md) |
+| Issues | [ISSUES.md](ISSUES.md) |
 
 ## Repository Layout
 
