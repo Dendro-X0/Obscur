@@ -1,7 +1,10 @@
 //! Tray and notification helper functions
 
+#[cfg(desktop)]
 use tauri::{AppHandle, Emitter, Manager, WebviewWindow};
+#[cfg(desktop)]
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
+#[cfg(desktop)]
 use crate::models::tray::*;
 
 /// Create tray menu with optional incoming call state

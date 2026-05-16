@@ -1,5 +1,6 @@
 //! Window state and related models
 
+#[cfg(desktop)]
 use serde::{Deserialize, Serialize};
 
 /// Window state for persistence

@@ -1,7 +1,10 @@
 //! Window control commands
 
+#[cfg(desktop)]
 use crate::models::window::{WindowState, MAIN_WINDOW_LABEL, PERSIST_WINDOW_STATE_IN_DEBUG};
-use tauri::{AppHandle, Manager, WebviewWindow, Window};
+#[cfg(desktop)]
+use tauri::Manager;
+use tauri::{AppHandle, WebviewWindow, Window};
 
 /// Minimize the window
 #[tauri::command]

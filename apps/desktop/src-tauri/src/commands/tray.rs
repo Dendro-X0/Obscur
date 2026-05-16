@@ -1,8 +1,12 @@
 //! Tray and notification commands
 
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 use serde_json::json;
+#[cfg(desktop)]
+use tauri::Manager;
+#[cfg(desktop)]
 use crate::models::tray::*;
+#[cfg(desktop)]
 use crate::services::tray::*;
 
 /// Set tray unread badge count

@@ -1,7 +1,10 @@
 //! Tray and notification models
 
+#[cfg(desktop)]
 use serde::Serialize;
+#[cfg(desktop)]
 use std::collections::HashMap;
+#[cfg(desktop)]
 use std::sync::Mutex;
 
 /// Tray icon constants

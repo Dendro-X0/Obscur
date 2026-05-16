@@ -4,7 +4,9 @@
 use tauri::{
     tray::{TrayIconBuilder, TrayIconEvent},
 };
-use tauri::{Emitter, Manager, WebviewWindow};
+use tauri::{Emitter, Manager};
+#[cfg(desktop)]
+use tauri::WebviewWindow;
 // use tauri_plugin_updater::UpdaterExt;
 use serde_json::json;
 use std::sync::Mutex;
@@ -26,7 +28,9 @@ mod services;
 use profiles::DesktopProfileState;
 use session::SessionState;
 use commands::db::DbState;
-use commands::tor::{load_tor_settings, start_tor, stop_tor_child};
+use commands::tor::{load_tor_settings, start_tor};
+#[cfg(desktop)]
+use commands::tor::stop_tor_child;
 #[cfg(desktop)]
 use commands::window::{capture_window_state, write_window_state};
 
@@ -143,26 +147,32 @@ pub fn run() {
             let main_data_dir = app_dir.join("profiles").join("default");
             std::fs::create_dir_all(&main_data_dir).expect("Failed to create profile directory");
 
-            let mut window_builder = tauri::WebviewWindowBuilder::new(
+            #[cfg(desktop)]
+            let _window = {
+                let window_builder = tauri::WebviewWindowBuilder::new(
+                    app,
+                    "main",
+                    tauri::WebviewUrl::App("index.html".into()),
+                )
+                .data_directory(main_data_dir)
+                .title("Obscur")
+                .inner_size(1200.0, 800.0)
+                .min_inner_size(800.0, 600.0)
+                .resizable(true)
+                .decorations(false)
+                .shadow(true) // We keep window shadow but remove OS border decorations
+                .visible(false); // Hide initially to apply state
+                window_builder.build().expect("Failed to build main window")
+            };
+            #[cfg(mobile)]
+            let _window = tauri::WebviewWindowBuilder::new(
                 app,
                 "main",
                 tauri::WebviewUrl::App("index.html".into()),
             )
-            .data_directory(main_data_dir);
-
-            #[cfg(desktop)]
-            {
-                window_builder = window_builder
-                    .title("Obscur")
-                    .inner_size(1200.0, 800.0)
-                    .min_inner_size(800.0, 600.0)
-                    .resizable(true)
-                    .decorations(false)
-                    .shadow(true) // We keep window shadow but remove OS border decorations
-                    .visible(false); // Hide initially to apply state
-            }
-
-            let _window = window_builder.build().expect("Failed to build main window");
+            .data_directory(main_data_dir)
+            .build()
+            .expect("Failed to build main window");
             let profile_state = app.state::<DesktopProfileState>();
             let _ = tauri::async_runtime::block_on(profile_state.reset_startup_window_bindings(&app.handle()));
             #[cfg(desktop)]
@@ -291,102 +301,197 @@ pub fn run() {
 
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![
-            commands::system::check_for_updates,
-            commands::system::install_update,
-            commands::window::window_minimize,
-            commands::window::window_maximize,
-            commands::window::window_unmaximize,
-            commands::window::window_close,
-            commands::window::window_show_and_focus,
-            commands::window::window_is_maximized,
-            commands::window::window_set_fullscreen,
-            commands::window::window_is_fullscreen,
-            commands::window::save_window_state,
-            commands::system::reset_app_storage,
-            commands::system::register_push_token,
-            commands::system::restart_app,
-            commands::system::desktop_open_storage_path,
-            commands::profile::desktop_get_profile_isolation_snapshot,
-            commands::profile::desktop_list_profiles,
-            commands::profile::desktop_create_profile,
-            commands::profile::desktop_rename_profile,
-            commands::profile::desktop_open_profile_window,
-            commands::profile::desktop_bind_window_profile,
-            commands::profile::desktop_remove_profile,
-            commands::notification::show_notification,
-            commands::notification::request_notification_permission,
-            commands::notification::is_notification_permission_granted,
-            commands::tray::set_tray_unread_badge_count,
-            commands::tray::set_tray_incoming_call_state,
-            commands::tray::desktop_get_incoming_call_state,
-            commands::tray::desktop_incoming_call_action,
-            commands::system::get_system_theme,
-            commands::session::init_native_session,
-            commands::session::clear_native_session,
-            commands::session::get_session_status,
-            upload::nip96_upload,
-            upload::nip96_upload_v2,
-            relay::connect_relay,
-            relay::probe_relay,
-            relay::disconnect_relay,
-            relay::recycle_relays,
-            relay::publish_event,
-            relay::subscribe_relay,
-            relay::unsubscribe_relay,
-            relay::send_relay_message,
-            wallet::get_native_npub,
-            wallet::import_native_nsec,
-            wallet::generate_native_nsec,
-            wallet::sign_event_native,
-            wallet::logout_native,
-            wallet::encrypt_nip04,
-            wallet::decrypt_nip04,
-            wallet::encrypt_nip44,
-            wallet::decrypt_nip44,
-            wallet::encrypt_gift_wrap,
-            wallet::decrypt_gift_wrap,
-            wallet::get_session_nsec,
-            commands::tor::start_tor,
-            commands::tor::stop_tor,
-            commands::tor::get_tor_status,
-            commands::tor::get_tor_logs,
-            commands::tor::save_tor_settings,
-            commands::system::request_biometric_auth,
-            commands::system::mine_pow,
-            protocol::protocol_get_identity_root_state,
-            protocol::protocol_get_session_state,
-            protocol::protocol_authorize_device,
-            protocol::protocol_revoke_device,
-            protocol::protocol_x3dh_handshake,
-            protocol::protocol_get_ratchet_session,
-            protocol::protocol_verify_message_envelope,
-            protocol::protocol_publish_with_quorum,
-            protocol::protocol_check_storage_health,
-            protocol::protocol_run_storage_recovery,
-            commands::db::db_insert_message,
-            commands::db::db_get_messages,
-            commands::db::db_delete_message,
-            commands::db::db_delete_messages,
-            commands::db::db_insert_tombstone,
-            commands::db::db_insert_tombstones,
-            commands::db::db_get_tombstones,
-            commands::db::db_delete_all_tombstones_for_profile,
-            commands::db::db_upsert_conversation,
-            commands::db::db_get_conversations,
-            commands::db::db_upsert_group,
-            commands::db::db_get_groups,
-            commands::db::db_insert_group_message,
-            commands::db::db_get_group_messages,
-            commands::db::db_insert_group_tombstone,
-            commands::db::db_insert_call_record,
-            commands::db::db_update_call_record,
-            commands::db::db_get_call_records,
-            commands::db::db_upsert_relay_checkpoint,
-            commands::db::db_get_relay_checkpoint,
-            commands::db::db_get_relay_checkpoints,
-            commands::db::db_search_messages
-        ])
+        .invoke_handler({
+            #[cfg(desktop)]
+            {
+                tauri::generate_handler![
+                    commands::window::window_minimize,
+                    commands::window::window_maximize,
+                    commands::window::window_unmaximize,
+                    commands::window::window_close,
+                    commands::window::window_show_and_focus,
+                    commands::window::window_is_maximized,
+                    commands::window::window_set_fullscreen,
+                    commands::window::window_is_fullscreen,
+                    commands::window::save_window_state,
+                    commands::tray::set_tray_unread_badge_count,
+                    commands::tray::set_tray_incoming_call_state,
+                    commands::tray::desktop_get_incoming_call_state,
+                    commands::tray::desktop_incoming_call_action,
+                    commands::system::check_for_updates,
+                    commands::system::install_update,
+                    commands::system::reset_app_storage,
+                    commands::system::register_push_token,
+                    commands::system::restart_app,
+                    commands::system::desktop_open_storage_path,
+                    commands::profile::desktop_get_profile_isolation_snapshot,
+                    commands::profile::desktop_list_profiles,
+                    commands::profile::desktop_create_profile,
+                    commands::profile::desktop_rename_profile,
+                    commands::profile::desktop_open_profile_window,
+                    commands::profile::desktop_bind_window_profile,
+                    commands::profile::desktop_remove_profile,
+                    commands::notification::show_notification,
+                    commands::notification::request_notification_permission,
+                    commands::notification::is_notification_permission_granted,
+                    commands::system::get_system_theme,
+                    commands::session::init_native_session,
+                    commands::session::clear_native_session,
+                    commands::session::get_session_status,
+                    upload::nip96_upload,
+                    upload::nip96_upload_v2,
+                    relay::connect_relay,
+                    relay::probe_relay,
+                    relay::disconnect_relay,
+                    relay::recycle_relays,
+                    relay::publish_event,
+                    relay::subscribe_relay,
+                    relay::unsubscribe_relay,
+                    relay::send_relay_message,
+                    wallet::get_native_npub,
+                    wallet::import_native_nsec,
+                    wallet::generate_native_nsec,
+                    wallet::sign_event_native,
+                    wallet::logout_native,
+                    wallet::encrypt_nip04,
+                    wallet::decrypt_nip04,
+                    wallet::encrypt_nip44,
+                    wallet::decrypt_nip44,
+                    wallet::encrypt_gift_wrap,
+                    wallet::decrypt_gift_wrap,
+                    wallet::get_session_nsec,
+                    commands::tor::start_tor,
+                    commands::tor::stop_tor,
+                    commands::tor::get_tor_status,
+                    commands::tor::get_tor_logs,
+                    commands::tor::save_tor_settings,
+                    commands::system::request_biometric_auth,
+                    commands::system::mine_pow,
+                    protocol::protocol_get_identity_root_state,
+                    protocol::protocol_get_session_state,
+                    protocol::protocol_authorize_device,
+                    protocol::protocol_revoke_device,
+                    protocol::protocol_x3dh_handshake,
+                    protocol::protocol_get_ratchet_session,
+                    protocol::protocol_verify_message_envelope,
+                    protocol::protocol_publish_with_quorum,
+                    protocol::protocol_check_storage_health,
+                    protocol::protocol_run_storage_recovery,
+                    commands::db::db_insert_message,
+                    commands::db::db_get_messages,
+                    commands::db::db_delete_message,
+                    commands::db::db_delete_messages,
+                    commands::db::db_insert_tombstone,
+                    commands::db::db_insert_tombstones,
+                    commands::db::db_get_tombstones,
+                    commands::db::db_delete_all_tombstones_for_profile,
+                    commands::db::db_upsert_conversation,
+                    commands::db::db_get_conversations,
+                    commands::db::db_upsert_group,
+                    commands::db::db_get_groups,
+                    commands::db::db_insert_group_message,
+                    commands::db::db_get_group_messages,
+                    commands::db::db_insert_group_tombstone,
+                    commands::db::db_insert_call_record,
+                    commands::db::db_update_call_record,
+                    commands::db::db_get_call_records,
+                    commands::db::db_upsert_relay_checkpoint,
+                    commands::db::db_get_relay_checkpoint,
+                    commands::db::db_get_relay_checkpoints,
+                    commands::db::db_search_messages
+                ]
+            }
+            #[cfg(not(desktop))]
+            {
+                tauri::generate_handler![
+                    commands::tray::set_tray_unread_badge_count,
+                    commands::tray::set_tray_incoming_call_state,
+                    commands::tray::desktop_get_incoming_call_state,
+                    commands::tray::desktop_incoming_call_action,
+                    commands::system::check_for_updates,
+                    commands::system::install_update,
+                    commands::system::reset_app_storage,
+                    commands::system::register_push_token,
+                    commands::system::restart_app,
+                    commands::system::desktop_open_storage_path,
+                    commands::profile::desktop_get_profile_isolation_snapshot,
+                    commands::profile::desktop_list_profiles,
+                    commands::profile::desktop_create_profile,
+                    commands::profile::desktop_rename_profile,
+                    commands::profile::desktop_open_profile_window,
+                    commands::profile::desktop_bind_window_profile,
+                    commands::profile::desktop_remove_profile,
+                    commands::notification::show_notification,
+                    commands::notification::request_notification_permission,
+                    commands::notification::is_notification_permission_granted,
+                    commands::system::get_system_theme,
+                    commands::session::init_native_session,
+                    commands::session::clear_native_session,
+                    commands::session::get_session_status,
+                    upload::nip96_upload,
+                    upload::nip96_upload_v2,
+                    relay::connect_relay,
+                    relay::probe_relay,
+                    relay::disconnect_relay,
+                    relay::recycle_relays,
+                    relay::publish_event,
+                    relay::subscribe_relay,
+                    relay::unsubscribe_relay,
+                    relay::send_relay_message,
+                    wallet::get_native_npub,
+                    wallet::import_native_nsec,
+                    wallet::generate_native_nsec,
+                    wallet::sign_event_native,
+                    wallet::logout_native,
+                    wallet::encrypt_nip04,
+                    wallet::decrypt_nip04,
+                    wallet::encrypt_nip44,
+                    wallet::decrypt_nip44,
+                    wallet::encrypt_gift_wrap,
+                    wallet::decrypt_gift_wrap,
+                    wallet::get_session_nsec,
+                    commands::tor::start_tor,
+                    commands::tor::stop_tor,
+                    commands::tor::get_tor_status,
+                    commands::tor::get_tor_logs,
+                    commands::tor::save_tor_settings,
+                    commands::system::request_biometric_auth,
+                    commands::system::mine_pow,
+                    protocol::protocol_get_identity_root_state,
+                    protocol::protocol_get_session_state,
+                    protocol::protocol_authorize_device,
+                    protocol::protocol_revoke_device,
+                    protocol::protocol_x3dh_handshake,
+                    protocol::protocol_get_ratchet_session,
+                    protocol::protocol_verify_message_envelope,
+                    protocol::protocol_publish_with_quorum,
+                    protocol::protocol_check_storage_health,
+                    protocol::protocol_run_storage_recovery,
+                    commands::db::db_insert_message,
+                    commands::db::db_get_messages,
+                    commands::db::db_delete_message,
+                    commands::db::db_delete_messages,
+                    commands::db::db_insert_tombstone,
+                    commands::db::db_insert_tombstones,
+                    commands::db::db_get_tombstones,
+                    commands::db::db_delete_all_tombstones_for_profile,
+                    commands::db::db_upsert_conversation,
+                    commands::db::db_get_conversations,
+                    commands::db::db_upsert_group,
+                    commands::db::db_get_groups,
+                    commands::db::db_insert_group_message,
+                    commands::db::db_get_group_messages,
+                    commands::db::db_insert_group_tombstone,
+                    commands::db::db_insert_call_record,
+                    commands::db::db_update_call_record,
+                    commands::db::db_get_call_records,
+                    commands::db::db_upsert_relay_checkpoint,
+                    commands::db::db_get_relay_checkpoint,
+                    commands::db::db_get_relay_checkpoints,
+                    commands::db::db_search_messages
+                ]
+            }
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
