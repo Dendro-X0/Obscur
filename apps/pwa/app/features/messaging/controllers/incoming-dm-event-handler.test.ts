@@ -1,4 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
+import { createProfileMessageBus, type ProfileMessageBus } from "@dweb/core/profile-message-bus";
 import type { NostrEvent } from "@dweb/nostr/nostr-event";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { setProfileRuntimeScope } from "@/app/features/profiles/services/profile-runtime-scope";
@@ -40,18 +41,16 @@ const { peerRelayEvidenceStoreMock } = vi.hoisted(() => ({
     },
 }));
 
-const incomingDmProfileBusRuntime = vi.hoisted(() => {
-    const { createProfileMessageBus } =
-        require("@dweb/core/profile-message-bus") as typeof import("@dweb/core/profile-message-bus");
-    const api = {
-        bus: createProfileMessageBus({ profileId: "default" }),
-        reset() {
-            api.bus = createProfileMessageBus({ profileId: "default" });
-            setProfileRuntimeScope({ profileId: "default", bus: api.bus });
-        },
-    };
-    return api;
-});
+const incomingDmProfileBusRuntime: {
+    bus: ProfileMessageBus;
+    reset: () => void;
+} = {
+    bus: createProfileMessageBus({ profileId: "default" }),
+    reset() {
+        incomingDmProfileBusRuntime.bus = createProfileMessageBus({ profileId: "default" });
+        setProfileRuntimeScope({ profileId: "default", bus: incomingDmProfileBusRuntime.bus });
+    },
+};
 
 vi.mock("@/app/features/crypto/crypto-service", () => ({
     cryptoService: {

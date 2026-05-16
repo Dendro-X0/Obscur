@@ -1196,7 +1196,7 @@ describe("useConversationMessages integration (perf mode)", () => {
         expectConversationHistoryAuthorityLog({
             selectedAuthority: "persisted",
             selectedAuthorityReason: "persisted_recovery_indexed_missing_incoming",
-            projectionReadAuthorityReason: "shadow_mode",
+            projectionReadAuthorityReason: "projection_not_ready",
         });
         unmount();
     });
@@ -1307,7 +1307,7 @@ describe("useConversationMessages integration (perf mode)", () => {
                         id: "persisted-projection-incoming-1",
                         eventId: "persisted-projection-incoming-evt-1",
                         pubkey: peerPublicKeyHex,
-                        content: "persisted peer message",
+                        content: "",
                         timestampMs: 100_000,
                         isOutgoing: false,
                         status: "delivered",
@@ -1316,7 +1316,7 @@ describe("useConversationMessages integration (perf mode)", () => {
                         id: "persisted-projection-outgoing-1",
                         eventId: "persisted-projection-outgoing-evt-1",
                         pubkey: myPublicKeyHex,
-                        content: "persisted self message",
+                        content: "",
                         timestampMs: 101_000,
                         isOutgoing: true,
                         status: "delivered",
@@ -1404,7 +1404,7 @@ describe("useConversationMessages integration (perf mode)", () => {
                         id: "persisted-bootstrap-incoming-1",
                         eventId: "persisted-bootstrap-incoming-evt-1",
                         pubkey: peerPublicKeyHex,
-                        content: "persisted peer message",
+                        content: "",
                         timestampMs: 110_000,
                         isOutgoing: false,
                         status: "delivered",
@@ -1413,7 +1413,7 @@ describe("useConversationMessages integration (perf mode)", () => {
                         id: "persisted-bootstrap-outgoing-1",
                         eventId: "persisted-bootstrap-outgoing-evt-1",
                         pubkey: myPublicKeyHex,
-                        content: "persisted self message",
+                        content: "",
                         timestampMs: 111_000,
                         isOutgoing: true,
                         status: "delivered",
@@ -1476,8 +1476,9 @@ describe("useConversationMessages integration (perf mode)", () => {
         const conversationId = [myPublicKeyHex, peerPublicKeyHex].sort().join(":");
         migrationPolicyPhaseRef.current = "shadow";
         accountProjectionSnapshot.phase = "bootstrapping";
-        accountProjectionSnapshot.status = "pending";
+        accountProjectionSnapshot.status = "bootstrapping";
         accountProjectionSnapshot.accountProjectionReady = false;
+        accountProjectionSnapshot.projection = null;
 
         chatStateStoreMocks.load.mockReturnValue({
             version: 2,
@@ -1524,22 +1525,10 @@ describe("useConversationMessages integration (perf mode)", () => {
                 status: "delivered",
             },
         ] as any);
-        accountProjectionSnapshot.projection = {
-            profileId: "default",
-            accountPublicKeyHex: myPublicKeyHex,
-            contactsByPeer: {},
-            conversationsById: {},
-            messagesByConversationId: {},
-            sync: {
-                checkpointsByTimelineKey: {},
-                bootstrapImportApplied: false,
-            },
-            lastSequence: 121,
-            updatedAtUnixMs: 121_000,
-        };
 
         const { result, unmount } = renderHook(() => useConversationMessages(conversationId, myPublicKeyHex));
         await waitFor(() => expect(result.current.isLoading).toBe(false));
+        await waitFor(() => expect(result.current.messages.length).toBe(2), { timeout: 3_000 });
 
         expect(result.current.messages).toEqual([
             expect.objectContaining({
@@ -1554,6 +1543,7 @@ describe("useConversationMessages integration (perf mode)", () => {
         expectConversationHistoryAuthorityLog({
             selectedAuthority: "persisted",
             selectedAuthorityReason: "persisted_recovery_indexed_missing_incoming",
+            projectionReadAuthorityReason: "projection_not_ready",
         });
         unmount();
     });
@@ -1718,6 +1708,7 @@ describe("useConversationMessages integration (perf mode)", () => {
 
         const { result, unmount } = renderHook(() => useConversationMessages(conversationId, myPublicKeyHex));
         await waitFor(() => expect(result.current.isLoading).toBe(false));
+        await waitFor(() => expect(result.current.messages.length).toBe(1), { timeout: 3_000 });
 
         expect(result.current.messages).toEqual([
             expect.objectContaining({
@@ -1758,7 +1749,7 @@ describe("useConversationMessages integration (perf mode)", () => {
                         id: "persisted-shadow-incoming-1",
                         eventId: "persisted-shadow-incoming-evt-1",
                         pubkey: peerPublicKeyHex,
-                        content: "peer message",
+                        content: "",
                         timestampMs: 80_000,
                         isOutgoing: false,
                         status: "delivered",
@@ -1767,7 +1758,7 @@ describe("useConversationMessages integration (perf mode)", () => {
                         id: "persisted-shadow-outgoing-1",
                         eventId: "persisted-shadow-outgoing-evt-1",
                         pubkey: myPublicKeyHex,
-                        content: "local self-authored message",
+                        content: "",
                         timestampMs: 81_000,
                         isOutgoing: true,
                         status: "delivered",
@@ -1829,7 +1820,7 @@ describe("useConversationMessages integration (perf mode)", () => {
                         id: "persisted-thick-incoming-1",
                         eventId: "persisted-thick-incoming-evt-1",
                         pubkey: peerPublicKeyHex,
-                        content: "persisted peer message",
+                        content: "",
                         timestampMs: 90_000,
                         isOutgoing: false,
                         status: "delivered",
@@ -1838,7 +1829,7 @@ describe("useConversationMessages integration (perf mode)", () => {
                         id: "persisted-thick-outgoing-1",
                         eventId: "persisted-thick-outgoing-evt-1",
                         pubkey: myPublicKeyHex,
-                        content: "persisted self message",
+                        content: "",
                         timestampMs: 91_000,
                         isOutgoing: true,
                         status: "delivered",

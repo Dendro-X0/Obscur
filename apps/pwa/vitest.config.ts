@@ -12,6 +12,12 @@ export default defineConfig({
     clearMocks: true,
     mockReset: true,
     restoreMocks: true,
+    server: {
+      deps: {
+        // Workspace ESM packages must not be loaded via CJS require() in hoisted mocks.
+        inline: ['@dweb/core', '@dweb/core/profile-message-bus'],
+      },
+    },
     // Property-based testing configuration
     testTimeout: 30000, // Increased timeout for property tests
     hookTimeout: 30000,
