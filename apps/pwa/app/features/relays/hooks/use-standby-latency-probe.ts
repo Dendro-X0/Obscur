@@ -22,8 +22,8 @@ export const useStandbyLatencyProbe = (
   standbyUrls: ReadonlyArray<string>,
 ): void => {
   const standbyUrlsRef = useRef<ReadonlyArray<string>>(standbyUrls);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const initialTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const intervalRef = useRef<number | null>(null);
+  const initialTimerRef = useRef<number | null>(null);
   const runningRef = useRef(false);
 
   useEffect(() => {

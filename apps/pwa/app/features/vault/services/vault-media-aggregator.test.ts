@@ -19,12 +19,10 @@ vi.mock("./local-media-store", () => ({
 }));
 
 const message = (overrides: Partial<Message> & Pick<Message, "id">): Message => ({
-  id: overrides.id,
   conversationId: overrides.conversationId ?? "dm:a:b",
   timestamp: overrides.timestamp ?? new Date("2026-04-14T00:00:00.000Z"),
   sender: "a".repeat(64),
   content: "",
-  attachments: overrides.attachments,
   ...overrides,
 } as Message);
 
@@ -35,7 +33,7 @@ describe("vault-media-aggregator", () => {
         id: "m-1",
         attachments: [
           { kind: "image", url: "https://cdn.example.com/a.png", contentType: "image/png", fileName: "a.png" },
-          { kind: "voice", url: "https://cdn.example.com/voice", contentType: "audio/ogg", fileName: "v.ogg" },
+          { kind: "voice_note", url: "https://cdn.example.com/voice", contentType: "audio/ogg", fileName: "v.ogg" },
         ],
       }),
     ];
