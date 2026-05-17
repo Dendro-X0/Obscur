@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useState } from "react";
-import { Card } from "@dweb/ui-kit";
 import { Button } from "@dweb/ui-kit";
-import { ShieldCheck, Users, PartyPopper, Clock, XCircle, X } from "lucide-react";
+import { ShieldCheck, Users, Clock } from "lucide-react";
+import { CommunityInviteStatusBanner } from "./community-invite-status-banner";
 import { Avatar, AvatarImage, AvatarFallback } from "@dweb/ui-kit";
 import { useTranslation } from "react-i18next";
 import { toast } from "@dweb/ui-kit";
@@ -323,19 +323,47 @@ export const CommunityInviteCard = ({
         }
     };
 
-    // ----------------------------------------------------------------------
-    // UNIFIED VIEW (Single Card Style)
-    // ----------------------------------------------------------------------
+    const inviteCardShellClass = isOutgoing
+        ? cn(
+            "overflow-hidden border border-surface-contrast bg-gradient-surface-contrast text-surface-contrast-primary max-w-[320px] shadow-sm cursor-pointer transition-all hover:border-purple-500/50 group/invite rounded-[32px]",
+            "ring-1 ring-purple-400/20 dark:ring-purple-400/15",
+            isDetailsOpen && "ring-2 ring-purple-500/30 border-purple-500/50",
+        )
+        : cn(
+            "relative overflow-hidden max-w-[320px] cursor-pointer transition-all group/invite rounded-[28px]",
+            "border border-purple-300/55 bg-gradient-to-br from-purple-50 via-white to-indigo-50/90",
+            "text-foreground shadow-[0_10px_32px_rgba(88,28,135,0.14)]",
+            "hover:border-purple-400/70 hover:shadow-[0_12px_36px_rgba(88,28,135,0.18)]",
+            "dark:border-white/[0.07] dark:bg-gradient-to-br dark:from-zinc-950 dark:via-zinc-900 dark:to-zinc-900/95 dark:text-surface-contrast-primary dark:shadow-sm dark:shadow-black/25 dark:hover:border-purple-500/40",
+            isDetailsOpen && "ring-2 ring-purple-500/35 border-purple-400/70 dark:ring-purple-500/30 dark:border-purple-500/50",
+        );
+
+    const inviteTitleClass = isOutgoing
+        ? "text-sm font-black truncate group-hover/invite:text-purple-600 dark:group-hover/invite:text-purple-400 text-surface-contrast-primary"
+        : "text-sm font-black truncate text-zinc-900 group-hover/invite:text-purple-700 dark:text-surface-contrast-primary dark:group-hover/invite:text-purple-400";
+
+    const inviteDescriptionClass = isOutgoing
+        ? "text-[10px] line-clamp-2 mt-0.5 leading-relaxed text-surface-contrast-secondary"
+        : "text-[10px] line-clamp-2 mt-0.5 leading-relaxed text-zinc-600 dark:text-surface-contrast-secondary";
+
+    const inviteBadgeClass = isOutgoing
+        ? "flex items-center gap-1.5 px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest bg-black/5 dark:bg-white/5 text-surface-contrast-secondary"
+        : "flex items-center gap-1.5 px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-purple-200/70 bg-purple-500/10 text-purple-900 dark:border-transparent dark:bg-white/5 dark:text-surface-contrast-secondary";
+
     return (
         <>
             <div
+                data-testid="community-invite-card"
+                data-invite-direction={isOutgoing ? "outgoing" : "incoming"}
                 onClick={() => setIsDetailsOpen(true)}
-                className={cn(
-                    "overflow-hidden border border-surface-contrast bg-gradient-surface-contrast text-surface-contrast-primary max-w-[320px] shadow-sm cursor-pointer transition-all hover:border-purple-500/50 group/invite rounded-[32px]",
-                    isOutgoing && "ring-1 ring-purple-400/20 dark:ring-purple-400/15", // Keep outgoing distinction without sacrificing contrast
-                    isDetailsOpen && "ring-2 ring-purple-500/30 border-purple-500/50"
-                )}
+                className={inviteCardShellClass}
             >
+                {!isOutgoing ? (
+                    <div
+                        aria-hidden
+                        className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-primary dark:hidden"
+                    />
+                ) : null}
                 <div className="p-4 flex flex-col gap-4">
                     <div className="flex items-start gap-3">
                         <Avatar className="h-12 w-12 min-w-12 rounded-xl border border-black/5 dark:border-white/10 shadow-sm group-hover/invite:scale-105 transition-transform">
@@ -345,40 +373,28 @@ export const CommunityInviteCard = ({
                             </AvatarFallback>
                         </Avatar>
                         <div className="min-w-0 flex-1">
-                            <h4 className={cn(
-                                "text-sm font-black truncate group-hover/invite:text-purple-600 dark:group-hover/invite:text-purple-400",
-                                "text-surface-contrast-primary"
-                            )}>
+                            <h4 className={inviteTitleClass}>
                                 {invite.metadata.name}
                             </h4>
-                            <p className={cn(
-                                "text-[10px] line-clamp-2 mt-0.5 leading-relaxed",
-                                "text-surface-contrast-secondary"
-                            )}>
+                            <p className={inviteDescriptionClass}>
                                 {invite.metadata.about || t("groups.privateInviteDesc", "You've been invited to join this private encrypted community.")}
                             </p>
                         </div>
                     </div>
 
                     <div className="flex items-center gap-3">
-                        <div className={cn(
-                            "flex items-center gap-1.5 px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest",
-                            "bg-black/5 dark:bg-white/5 text-surface-contrast-secondary"
-                        )}>
+                        <div className={inviteBadgeClass}>
                             <ShieldCheck className="h-3 w-3" />
                             {t("groups.encrypted", "Encrypted")}
                         </div>
-                        <div className={cn(
-                            "flex items-center gap-1.5 px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest",
-                            "bg-black/5 dark:bg-white/5 text-surface-contrast-secondary"
-                        )}>
+                        <div className={inviteBadgeClass}>
                             <Users className="h-3 w-3" />
                             {t("groups.private", "Private")}
                         </div>
                         {invite.metadata.memberCount !== undefined && (
                             <div className={cn(
                                 "ml-auto text-[9px] font-bold",
-                                "text-surface-contrast-secondary opacity-80"
+                                isOutgoing ? "text-surface-contrast-secondary opacity-80" : "text-zinc-600 dark:text-surface-contrast-secondary dark:opacity-80"
                             )}>
                                 {invite.metadata.memberCount} {t("groups.members", "members")}
                             </div>
@@ -414,13 +430,13 @@ export const CommunityInviteCard = ({
                                             handleAccept();
                                         }}
                                         disabled={isProcessing}
-                                        className="flex-1 h-10 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl shadow-lg shadow-purple-600/20 transition-all hover:scale-[1.02] active:scale-95"
+                                        className="flex-1 h-10 bg-gradient-primary text-primary-foreground font-bold rounded-xl shadow-lg shadow-purple-600/25 transition-all hover:opacity-95 hover:scale-[1.02] active:scale-95"
                                     >
                                         {isProcessing ? t("common.processing", "Processing...") : t("common.accept", "Accept")}
                                     </Button>
                                     <Button
-                                        variant="ghost"
-                                        className="flex-1 h-10 font-bold rounded-xl text-zinc-500 hover:bg-zinc-200 dark:hover:bg-white/5 transition-all active:scale-95"
+                                        variant="outline"
+                                        className="flex-1 h-10 font-bold rounded-xl border-zinc-300/80 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-white/10 dark:bg-white/5 dark:text-zinc-300 dark:hover:bg-white/10 transition-all active:scale-95"
                                         disabled={isProcessing}
                                         onClick={(e) => {
                                             e.stopPropagation();
@@ -432,27 +448,10 @@ export const CommunityInviteCard = ({
                                 </div>
                             )
                         ) : (
-                            <div className={cn(
-                                "flex items-center gap-2 py-2.5 px-4 rounded-2xl border transition-all duration-300",
-                                status === 'accepted'
-                                    ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400"
-                                    : status === 'declined'
-                                        ? "bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400"
-                                        : "bg-zinc-500/10 border-zinc-500/20 text-zinc-500"
-                            )}>
-                                {status === 'accepted' ? (
-                                    <PartyPopper className="h-4 w-4 animate-bounce" />
-                                ) : status === 'declined' ? (
-                                    <XCircle className="h-4 w-4" />
-                                ) : (
-                                    <X className="h-4 w-4" />
-                                )}
-                                <span className="text-[10px] font-black uppercase tracking-[0.15em]">
-                                    {status === 'accepted' ? t("groups.acceptedTitle", "Invitation Accepted") :
-                                        status === 'declined' ? t("groups.declinedTitle", "Invitation Declined") :
-                                            t("groups.canceledTitle", "Invitation Canceled")}
-                                </span>
-                            </div>
+                            <CommunityInviteStatusBanner
+                                status={status}
+                                isOutgoing={isOutgoing}
+                            />
                         )}
                     </div>
                 </div>

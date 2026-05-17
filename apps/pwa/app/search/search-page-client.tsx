@@ -74,6 +74,7 @@ import { parsePublicKeyInput } from "@/app/features/profile/utils/parse-public-k
 import { PrivacySettingsService } from "@/app/features/settings/services/privacy-settings-service";
 import { getV090RolloutPolicy } from "@/app/features/settings/services/v090-rollout-policy";
 import { normalizePublicUrl } from "@/app/shared/public-url";
+import { scheduleIdleWork } from "@/app/shared/schedule-idle-work";
 import type { RelayReadinessState } from "@/app/features/relays/services/relay-recovery-policy";
 
 type DiscoverySurface = "global" | "add_friend" | "communities";
@@ -292,6 +293,7 @@ export default function SearchPage() {
   const [requestSecretCode, setRequestSecretCode] = useState<string>("");
   const [previewProfile, setPreviewProfile] = useState<PublicDiscoveryProfile | null>(null);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [friendSuggestionsReady, setFriendSuggestionsReady] = useState(false);
   const [diagnosticsTick, setDiagnosticsTick] = useState(0);
   const unknownContactLabel = t("search.discovery.identity.unknownContact", "Unknown contact");
   const resolvedMetadata = useResolvedProfileMetadata(resolvedIdentity?.pubkey ?? null);
@@ -465,45 +467,79 @@ export default function SearchPage() {
       setFriendCodeV3ExpiryUnixMs(null);
       return;
     }
+    if (surface !== "add_friend" && !shareDialogOpen) {
+      return;
+    }
     let cancelled = false;
-    void createSignedContactCard({
-      pubkey: publicKeyHex,
-      privateKeyHex,
-      relays: enabledRelayUrls,
-      label: profile.state.profile.username || undefined,
-      inviteCode: profile.state.profile.inviteCode || undefined,
-    }).then((card) => {
-      if (cancelled) return;
-      const encoded = encodeContactCard(card);
-      const deepLink = buildContactCardDeepLink(card);
-      const nextFriendCode = encodeFriendCodeV2({
+    const cancelIdle = scheduleIdleWork(() => {
+      if (cancelled) {
+        return;
+      }
+      void createSignedContactCard({
         pubkey: publicKeyHex,
+        privateKeyHex,
         relays: enabledRelayUrls,
-      }) ?? "";
-      const now = Date.now();
-      const ttlMs = 10 * 60 * 1000;
-      const nextFriendCodeV3 = encodeFriendCodeV3({
-        pubkey: publicKeyHex,
-        relays: enabledRelayUrls,
-        ttlMs,
-        singleUse: false,
-        nowUnixMs: now,
-      }) ?? "";
-      setShareCardEncoded(encoded);
-      setShareLink(deepLink);
-      setFriendCodeV2(nextFriendCode);
-      setFriendCodeV3(nextFriendCodeV3);
-      setFriendCodeV3ExpiryUnixMs(now + ttlMs);
-      void QRCode.toDataURL(deepLink, {
-        width: 260,
-        margin: 1,
-        color: { dark: "#111111", light: "#ffffff" },
-      }).then(setShareQrDataUrl).catch(() => setShareQrDataUrl(""));
+        label: profile.state.profile.username || undefined,
+        inviteCode: profile.state.profile.inviteCode || undefined,
+      }).then((card) => {
+        if (cancelled) return;
+        const encoded = encodeContactCard(card);
+        const deepLink = buildContactCardDeepLink(card);
+        const nextFriendCode = encodeFriendCodeV2({
+          pubkey: publicKeyHex,
+          relays: enabledRelayUrls,
+        }) ?? "";
+        const now = Date.now();
+        const ttlMs = 10 * 60 * 1000;
+        const nextFriendCodeV3 = encodeFriendCodeV3({
+          pubkey: publicKeyHex,
+          relays: enabledRelayUrls,
+          ttlMs,
+          singleUse: false,
+          nowUnixMs: now,
+        }) ?? "";
+        setShareCardEncoded(encoded);
+        setShareLink(deepLink);
+        setFriendCodeV2(nextFriendCode);
+        setFriendCodeV3(nextFriendCodeV3);
+        setFriendCodeV3ExpiryUnixMs(now + ttlMs);
+        void QRCode.toDataURL(deepLink, {
+          width: 260,
+          margin: 1,
+          color: { dark: "#111111", light: "#ffffff" },
+        }).then(setShareQrDataUrl).catch(() => setShareQrDataUrl(""));
+      });
     });
     return () => {
       cancelled = true;
+      cancelIdle();
     };
-  }, [publicKeyHex, privateKeyHex, enabledRelayUrls, profile.state.profile.username, profile.state.profile.inviteCode]);
+  }, [
+    enabledRelayUrls,
+    privateKeyHex,
+    profile.state.profile.inviteCode,
+    profile.state.profile.username,
+    publicKeyHex,
+    shareDialogOpen,
+    surface,
+  ]);
+
+  useEffect(() => {
+    if (!discoveryFeatureFlags.suggestionsV1) {
+      setFriendSuggestionsReady(false);
+      return;
+    }
+    let cancelled = false;
+    const cancelIdle = scheduleIdleWork(() => {
+      if (!cancelled) {
+        setFriendSuggestionsReady(true);
+      }
+    });
+    return () => {
+      cancelled = true;
+      cancelIdle();
+    };
+  }, [discoveryFeatureFlags.suggestionsV1]);
 
   useEffect(() => {
     const previous = outboxStatusMapRef.current;
@@ -635,7 +671,7 @@ export default function SearchPage() {
   }, [results, surface]);
 
   const friendSuggestions = useMemo(() => {
-    if (!discoveryFeatureFlags.suggestionsV1) {
+    if (!discoveryFeatureFlags.suggestionsV1 || !friendSuggestionsReady) {
       return [];
     }
     return buildFriendSuggestions({
@@ -649,6 +685,7 @@ export default function SearchPage() {
   }, [
     blocklist.state.blockedPublicKeys,
     discoveryFeatureFlags.suggestionsV1,
+    friendSuggestionsReady,
     peerTrust.state.acceptedPeers,
     publicKeyHex,
     requestsInbox.state.items,

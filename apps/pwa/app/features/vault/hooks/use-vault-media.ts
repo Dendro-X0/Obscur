@@ -1,8 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useMemo } from "react";
-import { messagingDB } from "@dweb/storage/indexed-db";
-import type { Message } from "../../messaging/types";
 import { useOptionalProfileMessageBus } from "../../profiles/providers/profile-runtime-provider";
 import { getResolvedProfileId } from "../../profiles/services/profile-runtime-scope";
 import { subscribeChatStateReplacedDual } from "../../profiles/services/subscribe-chat-state-replaced-dual";
@@ -14,10 +12,10 @@ import {
 } from "../services/local-media-store";
 import {
     buildVaultMediaItemsFast,
-    collectVaultMediaCandidates,
     enrichVaultMediaItemsWithLocalUrls,
     sortVaultMediaItemsNewestFirst,
 } from "../services/vault-media-aggregator";
+import { scanMessagesForVaultMedia } from "../services/vault-message-scan";
 import type { VaultMediaItem } from "../types/vault-media-item";
 
 export type { VaultMediaItem } from "../types/vault-media-item";
@@ -56,12 +54,12 @@ export function useVaultMedia() {
         }
 
         try {
-            const allMessages = await messagingDB.getAll<Message>("messages");
+            const candidates = await scanMessagesForVaultMedia({
+                isCancelled: () => generation !== refreshGenerationRef.current,
+            });
             if (generation !== refreshGenerationRef.current) {
                 return;
             }
-
-            const candidates = collectVaultMediaCandidates(allMessages);
             const fastItems = sortVaultMediaItemsNewestFirst(
                 buildVaultMediaItemsFast(candidates),
             );

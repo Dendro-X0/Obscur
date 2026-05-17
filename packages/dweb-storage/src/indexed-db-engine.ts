@@ -97,6 +97,68 @@ export class IndexedDBService {
         });
     }
 
+    /**
+     * Visit each record via cursor without loading the full store into memory.
+     * Return false from the visitor to stop early. When yieldEvery is set, yields to the
+     * main thread periodically so long scans do not freeze the UI.
+     */
+    async forEachInStore<T>(
+        storeName: string,
+        visitor: (value: T, visitIndex: number) => boolean | void | Promise<boolean | void>,
+        options?: Readonly<{
+            indexName?: string;
+            query?: IDBKeyRange;
+            direction?: IDBCursorDirection;
+            yieldEvery?: number;
+        }>,
+    ): Promise<number> {
+        const db = await this.ensureDB();
+        const yieldEvery = options?.yieldEvery;
+        let visitIndex = 0;
+
+        const yieldToMain = (): Promise<void> => new Promise((resolve) => {
+            if (typeof requestIdleCallback === "function") {
+                requestIdleCallback(() => resolve(), { timeout: 32 });
+                return;
+            }
+            setTimeout(resolve, 0);
+        });
+
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction(storeName, "readonly");
+            const store = transaction.objectStore(storeName);
+            const source = options?.indexName ? store.index(options.indexName) : store;
+            const request = source.openCursor(options?.query, options?.direction ?? "next");
+
+            const onCursor = (event: Event): void => {
+                void (async () => {
+                    const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result;
+                    if (!cursor) {
+                        resolve(visitIndex);
+                        return;
+                    }
+
+                    const shouldStop = await visitor(cursor.value as T, visitIndex);
+                    visitIndex += 1;
+
+                    if (shouldStop === false) {
+                        resolve(visitIndex);
+                        return;
+                    }
+
+                    if (yieldEvery && yieldEvery > 0 && visitIndex % yieldEvery === 0) {
+                        await yieldToMain();
+                    }
+
+                    cursor.continue();
+                })().catch(reject);
+            };
+
+            request.onsuccess = onCursor;
+            request.onerror = () => reject(request.error);
+        });
+    }
+
     async getAllByIndex<T>(
         storeName: string,
         indexName: string,

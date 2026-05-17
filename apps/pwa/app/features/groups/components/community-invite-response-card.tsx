@@ -1,12 +1,13 @@
 "use client";
 
 import React from "react";
-import { PartyPopper, Ban, X } from "lucide-react";
 import { cn } from "@dweb/ui-kit";
+import { CommunityInviteStatusBanner } from "./community-invite-status-banner";
+import type { CommunityInviteResolutionStatus } from "./community-invite-status-banner";
 
 export interface CommunityInviteResponseContent {
     type: "community-invite-response";
-    status: "accepted" | "declined" | "canceled";
+    status: CommunityInviteResolutionStatus;
     groupId: string;
 }
 
@@ -17,35 +18,29 @@ interface CommunityInviteResponseCardProps {
 
 export const CommunityInviteResponseCard: React.FC<CommunityInviteResponseCardProps> = ({
     response,
-    isOutgoing
+    isOutgoing,
 }) => {
-    const isAccepted = response.status === "accepted";
-    const isDeclined = response.status === "declined";
-    const isCanceled = response.status === "canceled";
-
     return (
-        <div className={cn(
-            "flex items-center gap-3 py-1 px-1",
-            isOutgoing ? "justify-end" : "justify-start"
-        )}>
-            <div className={cn(
-                "flex items-center gap-2 py-2.5 px-4 rounded-2xl border transition-all duration-300 max-w-fit shadow-sm",
-                isAccepted
-                    ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400"
-                    : isDeclined
-                        ? "bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400"
-                        : "bg-zinc-500/10 border-zinc-500/20 text-zinc-500 shadow-none border-zinc-200/50 dark:border-white/5"
-            )}>
-                {isAccepted ? (
-                    <PartyPopper className="h-4 w-4 animate-bounce" />
-                ) : isDeclined ? (
-                    <Ban className="h-4 w-4" />
-                ) : (
-                    <X className="h-4 w-4" />
+        <div
+            data-testid="community-invite-response-card"
+            data-invite-direction={isOutgoing ? "outgoing" : "incoming"}
+            className={cn(
+                "py-0.5",
+                isOutgoing ? "flex justify-end" : "flex justify-start",
+            )}
+        >
+            <div
+                className={cn(
+                    "min-w-[220px] max-w-[300px]",
+                    isOutgoing
+                        ? "rounded-[28px] bg-gradient-to-tr from-purple-600 to-indigo-500 p-3 shadow-md shadow-purple-500/20 dark:bg-gradient-to-tr dark:from-purple-950 dark:via-indigo-950 dark:to-indigo-900 dark:shadow-md dark:shadow-black/35"
+                        : "rounded-[28px] border border-purple-200/55 bg-gradient-to-br from-purple-50 via-white to-indigo-50/90 p-3 shadow-[0_10px_32px_rgba(88,28,135,0.12)] dark:border-white/[0.07] dark:bg-gradient-to-br dark:from-zinc-950 dark:via-zinc-900 dark:to-zinc-900/95 dark:shadow-sm dark:shadow-black/25",
                 )}
-                <span className="text-[10px] font-black uppercase tracking-[0.15em] whitespace-nowrap">
-                    {isAccepted ? "Invitation Accepted" : isDeclined ? "Invitation Declined" : "Invitation Canceled"}
-                </span>
+            >
+                <CommunityInviteStatusBanner
+                    status={response.status}
+                    isOutgoing={isOutgoing}
+                />
             </div>
         </div>
     );

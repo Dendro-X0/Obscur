@@ -2,10 +2,11 @@ import React from "react";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { setProfileRuntimeScope } from "@/app/features/profiles/services/profile-runtime-scope";
+import { collectVaultMediaCandidates } from "../services/vault-media-aggregator";
 import { useVaultMedia } from "./use-vault-media";
 
 const vaultHookMocks = vi.hoisted(() => ({
-  getAll: vi.fn(),
+  scanMessages: vi.fn(),
 }));
 
 const identityState = vi.hoisted(() => ({
@@ -37,10 +38,8 @@ vi.mock("../../profiles/providers/profile-runtime-provider", async (importOrigin
   };
 });
 
-vi.mock("@dweb/storage/indexed-db", () => ({
-  messagingDB: {
-    getAll: vaultHookMocks.getAll,
-  },
+vi.mock("../services/vault-message-scan", () => ({
+  scanMessagesForVaultMedia: (...args: unknown[]) => vaultHookMocks.scanMessages(...args),
 }));
 
 vi.mock("../../auth/hooks/use-identity", () => ({
@@ -72,19 +71,23 @@ describe("useVaultMedia", () => {
   });
 
   it("refreshes aggregated media when chat state is replaced", async () => {
-    vaultHookMocks.getAll
+    vaultHookMocks.scanMessages
       .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([{
+      .mockResolvedValueOnce(collectVaultMediaCandidates([{
         id: "m-1",
+        kind: "user",
+        content: "",
         conversationId: "dm:a:b",
         timestamp: new Date("2026-04-14T00:00:00.000Z"),
+        isOutgoing: false,
+        status: "delivered",
         attachments: [{
           kind: "image",
           url: "https://cdn.example.com/restore-image.png",
           contentType: "image/png",
           fileName: "restore-image.png",
         }],
-      }]);
+      } as Parameters<typeof collectVaultMediaCandidates>[0][number]]));
 
     const { result } = renderHook(() => useVaultMedia());
 
@@ -114,19 +117,23 @@ describe("useVaultMedia", () => {
   });
 
   it("refreshes aggregated media when the derived message index is rebuilt for the active account", async () => {
-    vaultHookMocks.getAll
+    vaultHookMocks.scanMessages
       .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([{
+      .mockResolvedValueOnce(collectVaultMediaCandidates([{
         id: "m-2",
+        kind: "user",
+        content: "",
         conversationId: "dm:a:c",
         timestamp: new Date("2026-04-14T00:00:00.000Z"),
+        isOutgoing: false,
+        status: "delivered",
         attachments: [{
           kind: "audio",
           url: "https://cdn.example.com/voice.wav",
           contentType: "audio/wav",
           fileName: "voice.wav",
         }],
-      }]);
+      } as Parameters<typeof collectVaultMediaCandidates>[0][number]]));
 
     const { result } = renderHook(() => useVaultMedia());
 
@@ -153,7 +160,7 @@ describe("useVaultMedia", () => {
   });
 
   it("ignores refresh events from another profile scope", async () => {
-    vaultHookMocks.getAll.mockResolvedValue([]);
+    vaultHookMocks.scanMessages.mockResolvedValue([]);
 
     const { result } = renderHook(() => useVaultMedia());
 
@@ -161,7 +168,7 @@ describe("useVaultMedia", () => {
       expect(result.current.isLoading).toBe(false);
     });
 
-    vaultHookMocks.getAll.mockClear();
+    vaultHookMocks.scanMessages.mockClear();
 
     await act(async () => {
       vaultBusRuntime.bus.publish({
@@ -171,21 +178,25 @@ describe("useVaultMedia", () => {
       });
     });
 
-    expect(vaultHookMocks.getAll).not.toHaveBeenCalled();
+    expect(vaultHookMocks.scanMessages).not.toHaveBeenCalled();
   });
 
   it("clears aggregated media when the active identity signs out", async () => {
-    vaultHookMocks.getAll.mockResolvedValue([{
+    vaultHookMocks.scanMessages.mockResolvedValue(collectVaultMediaCandidates([{
       id: "m-3",
+      kind: "user",
+      content: "",
       conversationId: "dm:a:d",
       timestamp: new Date("2026-04-14T00:00:00.000Z"),
+      isOutgoing: false,
+      status: "delivered",
       attachments: [{
         kind: "image",
         url: "https://cdn.example.com/photo.png",
         contentType: "image/png",
         fileName: "photo.png",
       }],
-    }]);
+    } as Parameters<typeof collectVaultMediaCandidates>[0][number]]));
 
     const { result, rerender } = renderHook(() => useVaultMedia());
 
@@ -203,31 +214,39 @@ describe("useVaultMedia", () => {
   });
 
   it("reloads media for the next active account instead of retaining the previous account's set", async () => {
-    vaultHookMocks.getAll.mockImplementation(async () => {
+    vaultHookMocks.scanMessages.mockImplementation(async () => {
       if (identityState.publicKeyHex === "b".repeat(64)) {
-        return [{
+        return collectVaultMediaCandidates([{
           id: "m-b-1",
+          kind: "user",
+          content: "",
           conversationId: "dm:c:d",
           timestamp: new Date("2026-04-14T00:00:00.000Z"),
+          isOutgoing: false,
+          status: "delivered",
           attachments: [{
             kind: "audio",
             url: "https://cdn.example.com/account-b.wav",
             contentType: "audio/wav",
             fileName: "account-b.wav",
           }],
-        }];
+        } as Parameters<typeof collectVaultMediaCandidates>[0][number]]);
       }
-      return [{
+      return collectVaultMediaCandidates([{
         id: "m-a-1",
+        kind: "user",
+        content: "",
         conversationId: "dm:a:b",
         timestamp: new Date("2026-04-14T00:00:00.000Z"),
+        isOutgoing: false,
+        status: "delivered",
         attachments: [{
           kind: "image",
           url: "https://cdn.example.com/account-a.png",
           contentType: "image/png",
           fileName: "account-a.png",
         }],
-      }];
+      } as Parameters<typeof collectVaultMediaCandidates>[0][number]]);
     });
 
     const { result, rerender } = renderHook(() => useVaultMedia());

@@ -1731,8 +1731,11 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
   };
 
   useEffect(() => {
+    if (activeTab !== "storage") {
+      return;
+    }
     void refreshLocalMediaAbsolutePath();
-  }, [localMediaConfig.subdir]);
+  }, [activeTab, localMediaConfig.subdir]);
 
   useEffect(() => {
     if (activeTab !== "storage") return;
@@ -1749,12 +1752,14 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
   }, [activeTab]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (activeTab !== "storage" || typeof window === "undefined") {
+      return;
+    }
     const timer = window.setInterval(() => {
       setReliabilityTick((prev) => prev + 1);
     }, 3_000);
     return () => window.clearInterval(timer);
-  }, []);
+  }, [activeTab]);
 
   const handleSavePrivacy = (newSettings: PrivacySettings) => {
     const normalized = normalizeV090Flags(newSettings);

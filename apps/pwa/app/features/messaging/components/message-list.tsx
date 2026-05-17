@@ -1317,6 +1317,10 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
     const voiceCallInviteRoomId = typeof voiceCallInvitePayload?.roomId === "string"
         ? voiceCallInvitePayload.roomId
         : null;
+    const isEmbeddedCommunityCard = (
+        (!message.isOutgoing && parsedPayload?.type === "community-invite")
+        || parsedPayload?.type === "community-invite-response"
+    );
     const markMenuAnchorHover = React.useCallback((isHovered: boolean): void => {
         onMessageMenuAnchorHoverChange?.({ messageId: message.id, isHovered });
     }, [message.id, onMessageMenuAnchorHoverChange]);
@@ -1612,7 +1616,9 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
                             "relative min-w-0 max-w-[90%] sm:max-w-[80%] group",
                             highLoadMode ? "transition-none" : "transition-all duration-200",
                             hasVisualAttachments && "min-w-[300px] sm:min-w-[420px] max-w-[95%] sm:max-w-[88%]",
-                            message.isOutgoing
+                            isEmbeddedCommunityCard
+                                ? "bg-transparent border-0 shadow-none text-inherit"
+                                : message.isOutgoing
                                 ? "bg-gradient-to-tr from-purple-600 to-indigo-500 text-white shadow-md shadow-purple-500/20 dark:from-zinc-100 dark:to-zinc-200 dark:text-zinc-900 dark:shadow-none"
                                 : "bg-white text-zinc-900 dark:bg-zinc-900 dark:text-zinc-100 shadow-sm border border-black/5 dark:border-white/[0.03]",
                             message.isOutgoing
@@ -1679,7 +1685,7 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
                             </div>
                         ) : null}
 
-                        <div className="px-4 py-2.5">
+                        <div className={cn("px-4 py-2.5", isEmbeddedCommunityCard && "px-1.5 py-1")}>
                             {message.deletedAt ? (
                                 <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest opacity-40 mb-1">
                                     <X className="h-3 w-3" /> {t("messaging.messageDeleted")}
