@@ -162,7 +162,7 @@ describe("useAccountProjectionRuntime", () => {
     expect(mocks.reset).not.toHaveBeenCalled();
   });
 
-  it("resets stale snapshot ownership before re-bootstrapping a different account", () => {
+  it("resets stale snapshot ownership and bootstraps the active account in the same effect pass", () => {
     mocks.snapshot = makeSnapshot({
       profileId: PROFILE_ID,
       accountPublicKeyHex: "c".repeat(64),
@@ -179,6 +179,15 @@ describe("useAccountProjectionRuntime", () => {
     }));
 
     expect(mocks.reset).toHaveBeenCalledTimes(1);
-    expect(mocks.bootstrapAndReplay).not.toHaveBeenCalled();
+    expect(mocks.bootstrapAndReplay).toHaveBeenCalledTimes(1);
+    expect(mocks.bootstrapAndReplay).toHaveBeenCalledWith({
+      profileId: PROFILE_ID,
+      accountPublicKeyHex: ACCOUNT_PUBKEY,
+      privateKeyHex: ACCOUNT_PRIVKEY,
+      pool: expect.objectContaining({
+        sendToOpen: expect.any(Function),
+        subscribeToMessages: expect.any(Function),
+      }),
+    });
   });
 });

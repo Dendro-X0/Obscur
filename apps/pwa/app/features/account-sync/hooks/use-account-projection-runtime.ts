@@ -42,7 +42,6 @@ export const useAccountProjectionRuntime = (params: UseAccountProjectionRuntimeP
     if (!snapshotBoundToActiveAccount && snapshotHasAccountScope) {
       lastBootstrapScopeKeyRef.current = null;
       accountProjectionRuntime.reset();
-      return;
     }
     const alreadyReadyForActiveAccount = (
       snapshotBoundToActiveAccount
