@@ -18,7 +18,7 @@ _Last reviewed: 2026-05-15 (v1.5.0 doc restructure)_
 | 6 | [v1.5.2 scope](./program/v1.5.2-scope.md) | **Current** release workstreams |
 | 7 | [v1.5.1 release](./releases/v1.5.1-release.md) | Shipped — honest hide |
 
-**Agent rules:** [`AGENTS.md`](../AGENTS.md) (bootstrap) → modular [`rules/`](../rules/README.md). Cursor: [`.cursor/rules/`](../.cursor/rules/).
+**Agent rules:** [`AGENTS.md`](../AGENTS.md) (bootstrap) → modular [`rules/`](../rules/README.md) (canonical; copy into local `.cursor/rules/` for Cursor IDE).
 
 ---
 
