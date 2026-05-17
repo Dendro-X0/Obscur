@@ -13,9 +13,21 @@
 
 ## Prerequisites
 
-- [ ] Desktop maintainer has pushed a green CI build that includes the mobile shell lane.
+- [ ] Build includes `TAURI_SHELL_TARGET=mobile` (full `v*` release **or** manual Android workflow below).
 - [ ] USB debugging enabled (physical device) or emulator image API 26+ available.
 - [ ] Optional: second test identity for DM smoke (M5); can defer if blocked.
+
+---
+
+## How to get a production-style APK (pick one)
+
+| Path | When to use | Where to download |
+|------|-------------|-------------------|
+| **A — Versioned release** | Desktop + mobile ship together | GitHub **Releases** for tag `v1.5.x` (`.apk` next to `.msi` / `.dmg`) after `Obscur Full Release` completes |
+| **B — Mobile preview (no desktop gate)** | Phone testing while desktop installer is still in progress | Actions → **Build Android (Manual)** → run on `main` with *Publish mobile preview* enabled → GitHub **Releases** → pre-release **`mobile-preview`** |
+| **C — CI artifact only** | Quick sideload via USB / file share | Same workflow → run summary → artifact **`obscur-android-apk`** |
+
+> Path **B** uses the same mobile-shell build as the full release Android lane; it does **not** require Windows/macOS/Linux installers to finish first.
 
 ---
 
@@ -23,7 +35,7 @@
 
 | Step | Action | Expected |
 |------|--------|----------|
-| 1 | Download `*.apk` from GitHub Release assets or CI artifact for this commit/tag. | Artifact matches tagged build. |
+| 1 | Download `*.apk` from **Releases** (`v*` tag or `mobile-preview`) or CI artifact `obscur-android-apk`. | APK matches the workflow/commit you intended. |
 | 2 | Install on device (`adb install -r obscur-*.apk` or file manager). | Install succeeds without signature errors. |
 | 3 | Launch app from launcher. | Splash → app shell loads; no immediate crash. |
 | 4 | Force-stop and relaunch once. | Cold start stable (no crash loop). |

@@ -32,9 +32,9 @@
 
 ## Next Atomic Step
 
-1. Push commits; run `pnpm release:test-pack` on CI path.
-2. Execute **M1–M3** on Android device/emulator; record pass/fail in mobile-verification.md.
-3. WS-C relay quiet recovery or continue MB-2 native boundary smoke if M1–M3 green.
+1. Run **Actions → Build Android (Manual)** on `main` (publishes `mobile-preview` pre-release APK) **or** complete full `v1.5.3` tag release for versioned assets.
+2. Execute **M1–M3** on device; record in `mobile-verification.md`.
+3. Desktop release lane can proceed in parallel; mobile smoke no longer blocked on desktop installers.
 
 ## Continuity references
 

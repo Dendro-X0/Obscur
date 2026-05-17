@@ -350,15 +350,6 @@ jobs:
           TAURI_ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEYALIAS }}
           TAURI_ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
 
-      - name: Upload Android Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: mobile-android
-          path: |
-            apps/desktop/src-tauri/gen/android/app/build/outputs/apk/**/*.apk
-            apps/desktop/src-tauri/gen/android/app/build/outputs/bundle/**/*.aab
-          if-no-files-found: warn
-
       - name: Prepare PWA (Disable Dynamic Routes)
         shell: bash
         run: |
