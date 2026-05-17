@@ -68,7 +68,8 @@
     "stability:core": "node scripts/check-core-stability.mjs",
     "version:check": "node scripts/check-version-alignment.mjs",
     "version:sync": "node scripts/sync-versions.mjs",
-    "version:bump": "node scripts/bump-version.js"
+    "version:bump": "node scripts/bump-version.js",
+    "icons:regenerate": "node scripts/regenerate-app-icons.mjs"
   },
   "devDependencies": {
     "@playwright/mcp": "^0.0.70"

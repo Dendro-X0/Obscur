@@ -2,7 +2,7 @@
 
 **Status:** Active program framing  
 **Last updated:** 2026-05-16  
-**Current release target:** v1.5.3 — stay smooth + mobile foundations; v1.5.2 shipped
+**Current release target:** v1.5.4 — one mark + desktop polish; v1.5.3 shipped
 
 ---
 
@@ -25,7 +25,8 @@ Obscur is **not** a failed experiment. It requires **adjusted goals**:
 | **3** | Encyclopedia / knowledge base reflects layers + honesty | Ongoing — [docs/README](../README.md) |
 | **4** | Ship **v1.5.1** — honest hide (shipped) | [v1.5.1-release](../releases/v1.5.1-release.md) |
 | **4b** | Ship **v1.5.2** — feel-fast UI + relay discipline | [v1.5.2-release](../releases/v1.5.2-release.md) (shipped) |
-| **4c** | Ship **v1.5.3** — stay smooth + mobile shell/CI | [v1.5.3-scope](./v1.5.3-scope.md) |
+| **4c** | Ship **v1.5.3** — stay smooth + mobile shell/CI | [v1.5.3-release](../releases/v1.5.3-release.md) (shipped) |
+| **4d** | Ship **v1.5.4** — unified installer icons + desktop polish | [v1.5.4-scope](./v1.5.4-scope.md) |
 | **5** | Kernel concepts in `docs/future/` only until chartered | No code gate from that folder |
 
 ---
@@ -37,8 +38,9 @@ Obscur is **not** a failed experiment. It requires **adjusted goals**:
 | **v1.5.0** | ClientGateway, profile isolation, membership (shipped / RC) |
 | **v1.5.1** | Honest hide, show again, profile-scoped bus (shipped) |
 | **v1.5.2** | Navigation warmup, community confirm pages, relay probe caps (shipped) |
-| **v1.5.3** | Stay smooth + mobile shell build + Android device gates |
-| **v1.5.4+** | Mobile-first UI (DM path); continue client polish |
+| **v1.5.3** | Stay smooth + mobile shell build + APK on tag releases (shipped) |
+| **v1.5.4** | One Mark — unified icons; desktop polish; mobile device testing paused |
+| **v1.5.5+** | Resume mobile device gates; mobile-first UI (DM path) |
 | **v1.5.x** | Stabilize Nostr client + mobile ship; no false marketing |
 | **v1.6+** | Cooperative recall hardening, optional features per charter |
 | **Kernel** | Gradual — see `docs/future/` |

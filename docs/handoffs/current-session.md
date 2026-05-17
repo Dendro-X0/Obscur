@@ -1,44 +1,39 @@
 # Current Session Handoff
 
-- Last Updated (UTC): 2026-05-17T00:40:00Z
-- Session Status: **v1.5.3 in progress** — WS-A landed locally; WS-B lifecycle fix landed; mobile M1–M3 matrix filled
-- Active Owner: Client perf/stability, mobile shell + Android CI
+- Last Updated (UTC): 2026-05-17T12:00:00Z
+- Session Status: **v1.5.3 shipped** — v1.5.4 (One Mark) active; mobile device testing suspended
+- Active Owner: Desktop/web polish + installer branding
 
 ## Active Objective
 
-1. **v1.5.3 Track A:** Vault cursor scan, settings/search deferral, lifecycle bootstrap on account switch (WS-B).
-2. **v1.5.3 Track B:** Mobile shell contract + device matrix M1–M3 (execute on hardware).
-3. **Stack:** Tauri Mobile + `NEXT_PUBLIC_MOBILE_SHELL` (see [mobile-ui-stack-evaluation.md](../program/mobile-ui-stack-evaluation.md)).
+1. **v1.5.4 Track A (BRAND):** Regenerate Tauri + Android icons from `apps/pwa/public/obscur-logo-dark.svg`.
+2. **v1.5.4 Track B:** WS-C relay discipline + one P1 desktop fix with test.
+3. **Mobile:** CI APK may continue on tag; **M1–M3 device matrix suspended** until v1.5.5.
 
 ## What is true now
 
-- **WS-A (local, committed pending push):**
-  - `forEachInStore` + `vault-message-scan.ts` (no `getAll` on messages)
-  - Settings: storage tab defers health/path polling until Storage opened
-  - Search: share artifacts + friend suggestions deferred via `scheduleIdleWork`
-  - Community invite/response capsule UI + dark-theme contrast pass
-- **WS-B (local):**
-  - `useAccountProjectionRuntime` bootstraps active account immediately after clearing stale snapshot ownership (no extra render stall)
-  - Regression: `use-account-projection-runtime.test.ts`
-- **MB matrix:** `docs/assets/demo/v1.5.3/mobile-verification.md` — M1–M3 step-by-step checklist ready for device run
+- **v1.5.3 shipped:** GitHub Release includes desktop installers + `Obscur_1.5.3_*-unsigned.apk` / `.aab`.
+- **Unsigned installs:** Expected on Windows (SmartScreen) and Android (no release keystore) — open-source self-build, not malware.
+- **Icons:** Windows desktop/installer already Obscur mark; Android launcher (and possibly macOS/Linux bundles) still Tauri template — parity in v1.5.4.
+- **User environment:** Android emulator blocked by C: disk; real device blocked by unsigned APK — mobile testing paused by choice.
 
 ## Open Risks Or Blockers
 
 | Risk | Mitigation |
 |------|------------|
-| Browser mobile ≠ device mobile | Run M1–M3 on APK before Android ship sign-off |
-| Android still WebView UI until v1.5.4 | Document in release notes |
-| Manual matrices unfilled | Maintainer device pass required for tag |
+| Tauri default icon erodes trust | BRAND-1..4 in v1.5.4 scope |
+| Unsigned APK on phones | Document in release notes; optional keystore secrets when testing resumes |
+| C: drive full for AVD | `ANDROID_AVD_HOME` on G: or defer emulator to v1.5.5 |
 
 ## Next Atomic Step
 
-1. Run **Actions → Build Android (Manual)** on `main` (publishes `mobile-preview` pre-release APK) **or** complete full `v1.5.3` tag release for versioned assets.
-2. Execute **M1–M3** on device; record in `mobile-verification.md`.
-3. Desktop release lane can proceed in parallel; mobile smoke no longer blocked on desktop installers.
+1. Commit regenerated `apps/desktop/src-tauri/icons/` + `icon-source.png` + `scripts/regenerate-app-icons.mjs`.
+2. Visual verify Windows shortcut unchanged (B1 regression) after local `pnpm -C apps/desktop build` if needed.
+3. Next tag will ship Android/macOS/Linux icons matching Windows; WS-C relay work remains.
 
 ## Continuity references
 
-- [v1.5.3-scope.md](../program/v1.5.3-scope.md)
-- [v1.5.3-gate.md](../releases/v1.5.3-gate.md)
-- [mobile-verification.md](../assets/demo/v1.5.3/mobile-verification.md)
+- [v1.5.4-scope.md](../program/v1.5.4-scope.md)
+- [v1.5.4-gate.md](../releases/v1.5.4-gate.md)
+- [v1.5.3-release.md](../releases/v1.5.3-release.md)
 - [strategic-direction.md](../program/strategic-direction.md)
