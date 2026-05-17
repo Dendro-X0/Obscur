@@ -109,6 +109,7 @@ jobs:
         run: pnpm -C apps/desktop tauri build
         env:
           TAURI_BUILD: true
+          TAURI_SHELL_TARGET: desktop
 
       - name: Collect bundle artifacts (Windows)
         if: matrix.os == 'windows-latest'
@@ -386,6 +387,7 @@ jobs:
             pnpm -C apps/desktop tauri android build --apk --aab
           fi
         env:
+          TAURI_SHELL_TARGET: mobile
           TAURI_ANDROID_KEYSTORE_PATH: "release.jks"
           TAURI_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           TAURI_ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEYALIAS }}

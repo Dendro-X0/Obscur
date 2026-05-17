@@ -19,6 +19,11 @@ import { TitleBar } from "./components/desktop/title-bar"
 import { NativeRuntimeGate } from "./components/native-runtime-gate"
 import { ProfileMigrationBootstrap } from "./components/profile-migration-bootstrap"
 import { DesktopWindowRootSurface } from "./components/desktop/desktop-window-root-surface"
+import { MobileModeProvider } from "./components/mobile/mobile-mode-provider"
+
+const MOBILE_SHELL_BUILD =
+  process.env.NEXT_PUBLIC_MOBILE_SHELL === "1" ||
+  process.env.NEXT_PUBLIC_MOBILE_SHELL === "true";
 
 export const metadata: Metadata = {
   title: "Obscur",
@@ -409,6 +414,7 @@ export default function RootLayout({
           <Preloader />
           <RootErrorBoundary>
             <DesktopModeProvider>
+              <MobileModeProvider>
               <ThemeController />
               <AccessibilityController />
               <StorageHealthBootstrap />
@@ -417,13 +423,15 @@ export default function RootLayout({
                 <PwaServiceWorkerRegistrar />
                 <ToastProvider />
                 <ErrorPanel />
-                <DesktopUpdater />
+                {!MOBILE_SHELL_BUILD ? <DesktopUpdater /> : null}
                 <OfflineIndicator />
                 <DeepLinkHandler />
                   <div className="flex flex-col h-screen overflow-hidden desktop-mode:desktop-window-glow">
-                    <div className="relative z-[9999]">
-                      <TitleBar />
-                    </div>
+                    {!MOBILE_SHELL_BUILD ? (
+                      <div className="relative z-[9999]">
+                        <TitleBar />
+                      </div>
+                    ) : null}
                     <main className="flex-1 min-h-0 relative flex flex-col">
                       <DesktopWindowRootSurface>
                         {children}
@@ -431,6 +439,7 @@ export default function RootLayout({
                     </main>
                   </div>
               </I18nProvider>
+              </MobileModeProvider>
             </DesktopModeProvider>
           </RootErrorBoundary>
         </NativeRuntimeGate>

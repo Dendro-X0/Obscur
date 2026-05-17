@@ -3,10 +3,8 @@
  * Provides TypeScript types and safe access to Tauri APIs with fallbacks for web environment
  */
 import { getRuntimeCapabilities, hasCallableNativeBridge } from "@/app/features/runtime/runtime-capabilities";
+import { isMobileShellProduct } from "@/app/features/runtime/shell-contract";
 import { logRuntimeEvent } from "@/app/shared/runtime-log-classification";
-
-const DESKTOP_SHELL_FLAG = process.env.NEXT_PUBLIC_DESKTOP_SHELL;
-const IS_FORCED_DESKTOP_SHELL = DESKTOP_SHELL_FLAG === "1" || DESKTOP_SHELL_FLAG === "true";
 
 // Type definitions for Tauri APIs
 export interface TauriWindow {
@@ -78,7 +76,10 @@ export interface TauriAPI {
  * Detect if running in Tauri desktop environment
  */
 export function isDesktopEnvironment(): boolean {
-  if (IS_FORCED_DESKTOP_SHELL && getRuntimeCapabilities().isNativeRuntime) {
+  if (isMobileShellProduct()) {
+    return false;
+  }
+  if (getRuntimeCapabilities().isDesktopShellBuild && getRuntimeCapabilities().isNativeRuntime) {
     return true;
   }
   return getRuntimeCapabilities().supportsWindowControls;

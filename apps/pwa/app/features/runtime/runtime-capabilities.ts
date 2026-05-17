@@ -1,7 +1,14 @@
+import {
+  isDesktopShellProduct,
+  isMobileShellProduct,
+} from "./shell-contract";
+
 export type RuntimeCapabilities = Readonly<{
   isNativeRuntime: boolean;
   isDesktop: boolean;
   isMobile: boolean;
+  isDesktopShellBuild: boolean;
+  isMobileShellBuild: boolean;
   supportsNativeCrypto: boolean;
   supportsWindowControls: boolean;
   supportsNativeNotifications: boolean;
@@ -59,12 +66,16 @@ const isLikelyNativeMobile = (): boolean => {
 
 export const getRuntimeCapabilities = (): RuntimeCapabilities => {
   const native = hasCallableNativeBridge();
-  const mobile = native && isLikelyNativeMobile();
-  const desktop = native && !mobile;
+  const mobileShellBuild = isMobileShellProduct();
+  const desktopShellBuild = isDesktopShellProduct();
+  const mobile = mobileShellBuild || (native && isLikelyNativeMobile() && !desktopShellBuild);
+  const desktop = desktopShellBuild || (native && !mobile && !mobileShellBuild);
   return {
     isNativeRuntime: native,
     isDesktop: desktop,
     isMobile: mobile,
+    isDesktopShellBuild: desktopShellBuild,
+    isMobileShellBuild: mobileShellBuild,
     supportsNativeCrypto: native,
     supportsWindowControls: desktop,
     supportsNativeNotifications: native,

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   getRuntimeCapabilities,
   getRuntimeShellInfo,
@@ -6,6 +6,10 @@ import {
 } from "./runtime-capabilities";
 
 describe("runtime-capabilities", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   beforeEach(() => {
     const w = window as Window & {
       __TAURI__?: unknown;
@@ -20,6 +24,17 @@ describe("runtime-capabilities", () => {
   it("returns non-native capabilities by default in web", () => {
     const caps = getRuntimeCapabilities();
     expect(caps.isNativeRuntime).toBe(false);
+    expect(caps.supportsWindowControls).toBe(false);
+  });
+
+  it("prefers mobile shell build over desktop detection", () => {
+    vi.stubEnv("NEXT_PUBLIC_MOBILE_SHELL", "1");
+    const w = window as Window & { __TAURI_INTERNALS__?: { invoke?: unknown; metadata?: { mobile?: boolean } } };
+    w.__TAURI_INTERNALS__ = { invoke: () => undefined, metadata: { mobile: false } };
+    const caps = getRuntimeCapabilities();
+    expect(caps.isMobileShellBuild).toBe(true);
+    expect(caps.isMobile).toBe(true);
+    expect(caps.isDesktop).toBe(false);
     expect(caps.supportsWindowControls).toBe(false);
   });
 

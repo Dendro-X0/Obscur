@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { MotionConfig } from "framer-motion";
 import { useIsDesktop } from "@/app/features/desktop/hooks/use-tauri";
+import { isMobileShellProduct } from "@/app/features/runtime/shell-contract";
 
 /**
  * Provider that adds desktop-mode class to body and manages desktop-specific behavior
@@ -10,7 +11,7 @@ import { useIsDesktop } from "@/app/features/desktop/hooks/use-tauri";
 export function DesktopModeProvider({ children }: { children: React.ReactNode }) {
   const isDesktop = useIsDesktop();
   const forceDesktopShell = process.env.NEXT_PUBLIC_DESKTOP_SHELL === "1" || process.env.NEXT_PUBLIC_DESKTOP_SHELL === "true";
-  const shouldEnableDesktopMode = forceDesktopShell || isDesktop;
+  const shouldEnableDesktopMode = !isMobileShellProduct() && (forceDesktopShell || isDesktop);
 
   useEffect(() => {
     if (shouldEnableDesktopMode) {

@@ -1,6 +1,6 @@
 # Program Overview
 
-**Active program:** v1.5.2 — UI responsiveness and relay efficiency. **Shipped:** v1.5.1 honest hide.  
+**Active program:** v1.5.3 — stay smooth + mobile foundations. **Shipped:** v1.5.2 feel fast, v1.5.1 honest hide.  
 **Strategic frame:** [strategic-direction.md](./strategic-direction.md) · [product layers](../architecture/product-layers-and-nostr.md) · [future/](../future/) (kernel concepts, not shipping gates)  
 **Previous release:** v1.5.0 — profile isolation, ClientGateway, membership (see [releases/v1.5.0-release.md](../releases/v1.5.0-release.md)).  
 _Last updated: 2026-05-16_

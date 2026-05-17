@@ -22,7 +22,8 @@ const PwaServiceWorkerRegistrar = (): PwaServiceWorkerRegistrarResult => {
       return;
     }
     const isDesktopShellBuild = process.env.NEXT_PUBLIC_DESKTOP_SHELL === "1";
-    if (isDesktopShellBuild) {
+    const isMobileShellBuild = process.env.NEXT_PUBLIC_MOBILE_SHELL === "1";
+    if (isDesktopShellBuild || isMobileShellBuild) {
       if ("serviceWorker" in navigator) {
         unregisterAllServiceWorkers();
       }

@@ -15,8 +15,9 @@ _Last reviewed: 2026-05-15 (v1.5.0 doc restructure)_
 | 3 | [Maintainer playbook](./encyclopedia/08-maintainer-playbook.md) | How to run, test, triage, and ship |
 | 4 | [Current session handoff](./handoffs/current-session.md) | Live continuity — read before coding |
 | 5 | [Architecture truth map](./encyclopedia/12-core-architecture-truth-map.md) | Who owns what (single source) |
-| 6 | [v1.5.2 scope](./program/v1.5.2-scope.md) | **Current** release workstreams |
-| 7 | [v1.5.1 release](./releases/v1.5.1-release.md) | Shipped — honest hide |
+| 6 | [v1.5.3 scope](./program/v1.5.3-scope.md) | **Current** release workstreams |
+| 7 | [Mobile UI stack](./program/mobile-ui-stack-evaluation.md) | Tauri mobile + shell decision |
+| 8 | [v1.5.2 release](./releases/v1.5.2-release.md) | Shipped — feel fast |
 
 **Agent rules:** [`AGENTS.md`](../AGENTS.md) (bootstrap) → modular [`rules/`](../rules/README.md) (canonical; copy into local `.cursor/rules/` for Cursor IDE).
 

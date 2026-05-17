@@ -60,6 +60,7 @@ const main = () => {
   console.log("[release:test-pack] Running focused reliability/runtime/profile/storage/P2P tests...");
   runPwaVitest([
     "app/features/runtime/runtime-capabilities.test.ts",
+    "app/features/runtime/shell-contract.test.ts",
     "app/features/runtime/native-adapters.test.ts",
     "app/features/runtime/native-event-adapter.test.ts",
     "app/features/runtime/native-host-adapter.test.ts",
