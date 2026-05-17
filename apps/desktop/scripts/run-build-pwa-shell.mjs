@@ -6,6 +6,11 @@ import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+if (process.env.SKIP_TAURI_BEFORE_BUILD === "1") {
+  console.log("[run-build-pwa-shell] skipped (SKIP_TAURI_BEFORE_BUILD=1)");
+  process.exit(0);
+}
+
 const desktopDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const repoRoot = path.resolve(desktopDir, "..", "..");
 const buildScript = path.join(repoRoot, "scripts", "build-pwa-shell.mjs");

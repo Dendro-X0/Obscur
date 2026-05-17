@@ -127,6 +127,14 @@ jobs:
         env:
           TAURI_SHELL_TARGET: mobile
 
+      - name: Verify Tauri beforeBuildCommand wiring
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'build:pwa-shell' apps/desktop/package.json
+          grep -q 'run-build-pwa-shell' apps/desktop/src-tauri/tauri.conf.json
+          ! grep -q '../../../scripts/build-pwa-shell' apps/desktop/src-tauri/tauri.conf.json
+
       - name: Build Android app (mobile shell)
         shell: bash
         run: |
@@ -140,6 +148,7 @@ jobs:
           fi
         env:
           TAURI_SHELL_TARGET: mobile
+          SKIP_TAURI_BEFORE_BUILD: "1"
           TAURI_ANDROID_KEYSTORE_PATH: release.jks
           TAURI_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           TAURI_ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEYALIAS }}

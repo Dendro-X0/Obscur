@@ -8,6 +8,7 @@
     "predev": "node ../../scripts/cleanup-tauri-sidecars.mjs && node ../../scripts/setup-tor.mjs",
     "dev": "tauri dev",
     "prebuild": "node ../../scripts/cleanup-tauri-sidecars.mjs && node ../../scripts/setup-tor.mjs",
+    "build:pwa-shell": "node scripts/run-build-pwa-shell.mjs",
     "build": "tauri build"
   },
   "dependencies": {
