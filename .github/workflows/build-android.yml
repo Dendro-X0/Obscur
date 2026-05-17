@@ -131,8 +131,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          grep -q 'build:pwa-shell' apps/desktop/package.json
-          grep -q 'run-build-pwa-shell' apps/desktop/src-tauri/tauri.conf.json
+          grep -q '"build:pwa-shell"' apps/desktop/package.json
+          grep -q 'pnpm run build:pwa-shell' apps/desktop/src-tauri/tauri.conf.json
+          test -f apps/desktop/scripts/run-build-pwa-shell.mjs
           ! grep -q '../../../scripts/build-pwa-shell' apps/desktop/src-tauri/tauri.conf.json
 
       - name: Build Android app (mobile shell)
