@@ -370,6 +370,11 @@ jobs:
             fi
           done
 
+      - name: Build PWA static export (mobile shell)
+        run: node scripts/build-pwa-shell.mjs
+        env:
+          TAURI_SHELL_TARGET: mobile
+
       - name: Build Android App (signed if keys exist, otherwise unsigned)
         run: |
           if [ "${ANDROID_SIGNING_READY}" = "true" ] && [ -n "${TAURI_ANDROID_KEYSTORE_PASSWORD}" ] && [ -n "${TAURI_ANDROID_KEY_ALIAS}" ] && [ -n "${TAURI_ANDROID_KEY_PASSWORD}" ]; then
@@ -379,6 +384,7 @@ jobs:
           fi
         env:
           TAURI_SHELL_TARGET: mobile
+          SKIP_TAURI_BEFORE_BUILD: "1"
           TAURI_ANDROID_KEYSTORE_PATH: "release.jks"
           TAURI_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           TAURI_ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEYALIAS }}
@@ -398,7 +404,7 @@ jobs:
           path: |
             apps/desktop/src-tauri/gen/android/app/build/outputs/apk/**/*.apk
             apps/desktop/src-tauri/gen/android/app/build/outputs/bundle/**/*.aab
-          if-no-files-found: warn
+          if-no-files-found: error
 
       - name: Upload Android Build Metadata
         uses: actions/upload-artifact@v4
@@ -518,7 +524,7 @@ jobs:
   verify-artifacts:
     name: Verify Artifacts
     needs: [preflight-checks, build-desktop, build-web-pwa, build-android, build-ios]
-    if: ${{ always() && needs.preflight-checks.result == 'success' && needs.build-desktop.result == 'success' && needs.build-web-pwa.result == 'success' }}
+    if: ${{ always() && needs.preflight-checks.result == 'success' && needs.build-desktop.result == 'success' && needs.build-web-pwa.result == 'success' && needs.build-android.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -554,14 +560,12 @@ jobs:
           path: ./release-assets/linux
           
       - name: Download Android Artifacts
-        continue-on-error: true
         uses: actions/download-artifact@v4
         with:
           name: mobile-android
           path: ./release-assets/android
 
       - name: Download Android Metadata
-        continue-on-error: true
         uses: actions/download-artifact@v4
         with:
           name: mobile-android-metadata
@@ -677,17 +681,17 @@ jobs:
             echo "Missing required Linux installer (.AppImage or .deb)." >&2
             exit 1
           fi
-          if [ "${ANDROID_JOB_RESULT}" = "success" ]; then
-            if [ "$has_android_apk" -ne 1 ]; then
-              echo "Android build succeeded but APK artifact is missing (.apk)." >&2
-              exit 1
-            fi
-            if [ "$has_android_aab" -ne 1 ]; then
-              echo "Android build succeeded but AAB artifact is missing (.aab)." >&2
-              exit 1
-            fi
-          else
-            echo "Android lane is non-blocking in this run (${ANDROID_JOB_RESULT}); continuing with desktop/web release verification."
+          if [ "${ANDROID_JOB_RESULT}" != "success" ]; then
+            echo "Android build is required for versioned releases but finished with: ${ANDROID_JOB_RESULT}" >&2
+            exit 1
+          fi
+          if [ "$has_android_apk" -ne 1 ]; then
+            echo "Android build succeeded but APK artifact is missing (.apk)." >&2
+            exit 1
+          fi
+          if [ "$has_android_aab" -ne 1 ]; then
+            echo "Android build succeeded but AAB artifact is missing (.aab)." >&2
+            exit 1
           fi
           if [ "$has_web_bundle" -ne 1 ]; then
             echo "Missing required Web/PWA static bundle (.tar.gz)." >&2
@@ -725,14 +729,12 @@ jobs:
           path: ./release-assets/linux
 
       - name: Download Android Artifacts
-        continue-on-error: true
         uses: actions/download-artifact@v4
         with:
           name: mobile-android
           path: ./release-assets/android
 
       - name: Download Android Metadata
-        continue-on-error: true
         uses: actions/download-artifact@v4
         with:
           name: mobile-android-metadata
@@ -762,6 +764,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p ./release-files
+          VERSION="${GITHUB_REF_NAME#v}"
 
           copy_matches() {
             local pattern="$1"
@@ -772,15 +775,29 @@ jobs:
             done
           }
 
-          # Desktop installers only
+          # Desktop installers
           copy_matches "./release-assets/windows/*.exe"
           copy_matches "./release-assets/macos/*.dmg"
           copy_matches "./release-assets/linux/*.AppImage"
 
-          # Mobile deliverables
-          copy_matches "./release-assets/android/*.apk"
-          copy_matches "./release-assets/android/*.aab"
-          copy_matches "./release-assets/android/output-metadata.json"
+          # Mobile deliverables (APK/AAB live in nested Gradle output dirs)
+          while IFS= read -r apk; do
+            [ -n "$apk" ] || continue
+            cp "$apk" "./release-files/Obscur_${VERSION}_$(basename "$apk")"
+          done < <(find ./release-assets/android -type f -iname "*.apk" | sort)
+
+          while IFS= read -r aab; do
+            [ -n "$aab" ] || continue
+            cp "$aab" "./release-files/Obscur_${VERSION}_$(basename "$aab")"
+          done < <(find ./release-assets/android -type f -iname "*.aab" | sort)
+
+          find ./release-assets/android -type f -name "output-metadata.json" -exec cp {} ./release-files/ \;
+
+          if ! find ./release-files -maxdepth 1 -type f -iname "*.apk" | grep -q .; then
+            echo "No Android APK collected for release upload." >&2
+            find ./release-assets/android -type f | sort || true
+            exit 1
+          fi
 
           # Web/PWA bundle
           copy_matches "./release-assets/web/*.tar.gz"

@@ -1,3 +1,28 @@
+## [v1.5.3] - 2026-05-17 (Stay Smooth)
+
+### Summary
+
+Desktop/web cold-path improvements on the v1.5.2 stack, account-switch lifecycle fix, and **Android APK/AAB on versioned GitHub Releases** via the mobile shell build pipeline.
+
+### Added
+
+- **Vault cursor scan** — `forEachInStore` + `vault-message-scan.ts` (bounded IndexedDB iteration instead of full `getAll`).
+- **Deferred heavy pages** — Settings storage health and Search share/suggestions via `scheduleIdleWork`.
+- **Mobile shell CI** — `TAURI_SHELL_TARGET=mobile`, manual `mobile-preview` APK lane, release workflow collects nested Gradle APK/AAB into tag assets.
+- **Community invite capsule UI** — status banner, response card, and dark-theme contrast pass.
+- Regression tests in `release:test-pack` for vault scan, idle scheduling, projection bootstrap, and invite UI.
+
+### Changed
+
+- **Account projection bootstrap (WS-B)** — active account projection starts immediately after stale snapshot scope reset (no extra render stall).
+- **Release CI** — `build-android` required for tag releases; PWA mobile shell built before `tauri android build` with `SKIP_TAURI_BEFORE_BUILD`.
+
+### Known limitations
+
+- Mobile UI remains responsive WebView shell + tab bar until v1.5.4 dedicated layouts.
+- iOS lane remains optional when signing secrets are absent.
+- Device smoke (M1–M3) should be recorded in `docs/assets/demo/v1.5.3/mobile-verification.md`.
+
 ## [v1.5.2] - 2026-05-15 (Feel Fast)
 
 ### Summary
