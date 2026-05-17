@@ -122,6 +122,11 @@ jobs:
             fi
           done
 
+      - name: Build PWA static export (mobile shell)
+        run: node scripts/build-pwa-shell.mjs
+        env:
+          TAURI_SHELL_TARGET: mobile
+
       - name: Build Android app (mobile shell)
         shell: bash
         run: |
