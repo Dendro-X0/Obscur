@@ -1,0 +1,36 @@
+{
+    "identifier": "desktop",
+    "windows": [
+        "main",
+        "profile-*"
+    ],
+    "permissions": [
+        "core:default",
+        "core:window:allow-start-dragging",
+        "allow-window-commands",
+        "allow-tor-commands",
+        "allow-misc-commands",
+        "allow-relay-commands",
+        "allow-wallet-commands",
+        "shell:allow-kill",
+        "shell:allow-open",
+        "http:default",
+        "upload:default",
+        "notification:default",
+        "fs:default",
+        "fs:allow-mkdir",
+        "fs:allow-write-file",
+        "fs:allow-remove",
+        "fs:scope-appdata-recursive",
+        "fs:allow-temp-write-recursive",
+        "dialog:default",
+        {
+            "identifier": "shell:allow-spawn",
+            "allow": [
+                {
+                    "sidecar": "tor"
+                }
+            ]
+        }
+    ]
+}

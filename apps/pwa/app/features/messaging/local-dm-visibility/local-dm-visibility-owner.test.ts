@@ -7,6 +7,10 @@ const storeMocks = vi.hoisted(() => ({
   appendAccountEvents: vi.fn(async () => ({ appendedCount: 0, dedupeCount: 0, lastSequence: 0 })),
 }));
 
+const tombstoneMocks = vi.hoisted(() => ({
+  liftMessageDeleteSuppression: vi.fn(),
+}));
+
 vi.mock("@/app/features/account-sync/services/account-event-store", () => ({
   accountEventStore: storeMocks,
 }));
@@ -28,6 +32,7 @@ vi.mock("@/app/features/profiles/services/default-storage-ports", () => ({
     messageDeleteTombstones: {
       loadSuppressedMessageDeleteIds: vi.fn(() => new Set(["hidden"])),
       suppressMessageDeleteTombstone: vi.fn(),
+      liftMessageDeleteSuppression: tombstoneMocks.liftMessageDeleteSuppression,
       hydrateMessageDeleteTombstonesFromSqlite: vi.fn(async () => undefined),
       mergeMessageDeleteTombstonesFromIndexedDb: vi.fn(async () => undefined),
     },
@@ -52,6 +57,10 @@ vi.mock("@/app/features/account-sync/services/account-projection-runtime", () =>
   accountProjectionRuntime: {
     createDmRemovedEvent: vi.fn((params: Readonly<{ messageId: string }>) => ({
       type: "DM_REMOVED_LOCALLY",
+      messageId: params.messageId,
+    })),
+    createDmRestoredEvent: vi.fn((params: Readonly<{ messageId: string }>) => ({
+      type: "DM_RESTORED_LOCALLY",
       messageId: params.messageId,
     })),
     replay: vi.fn(async () => ({})),
@@ -79,15 +88,55 @@ describe("localDmVisibilityOwner", () => {
     expect(filtered).toEqual([{ id: "visible", eventId: null }]);
   });
 
-  it("executeDeleteForMe reconciles the account event log", async () => {
+  it("executeDeleteForMe full reconcile without timeline redaction when not prioritizing UI", async () => {
     const account = "aa".repeat(32) as PublicKeyHex;
     await localDmVisibilityOwner.executeDeleteForMe({
       conversationId: "conv",
       messageIdentityIds: ["msg-1"],
       accountPublicKeyHex: account,
       profileId: "profile-1",
+      prioritizeUiResponse: false,
     });
 
-    expect(storeMocks.redactDmTimelineEvents).toHaveBeenCalled();
+    expect(storeMocks.redactDmTimelineEvents).not.toHaveBeenCalled();
+    expect(storeMocks.appendAccountEvents).toHaveBeenCalled();
+  });
+
+  it("executeDeleteForMe with prioritizeUiResponse returns before full event-log load", async () => {
+    const account = "aa".repeat(32) as PublicKeyHex;
+    storeMocks.loadEvents.mockImplementation(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      return [];
+    });
+
+    const started = Date.now();
+    await localDmVisibilityOwner.executeDeleteForMe({
+      conversationId: "conv",
+      messageIdentityIds: ["msg-1"],
+      accountPublicKeyHex: account,
+      profileId: "profile-1",
+      prioritizeUiResponse: true,
+    });
+    expect(Date.now() - started).toBeLessThan(200);
+    expect(storeMocks.loadEvents).not.toHaveBeenCalled();
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(storeMocks.appendAccountEvents).toHaveBeenCalled();
+  });
+
+  it("executeShowAgainOnDevice lifts tombstones and appends restore events", async () => {
+    const account = "aa".repeat(32) as PublicKeyHex;
+    await localDmVisibilityOwner.executeShowAgainOnDevice({
+      conversationId: "conv",
+      messageIdentityIds: ["msg-1"],
+      accountPublicKeyHex: account,
+      profileId: "profile-1",
+    });
+
+    expect(tombstoneMocks.liftMessageDeleteSuppression).toHaveBeenCalledWith(
+      ["msg-1"],
+      "profile-1",
+    );
+    expect(storeMocks.appendAccountEvents).toHaveBeenCalled();
   });
 });

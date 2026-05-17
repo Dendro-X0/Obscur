@@ -1,0 +1,31 @@
+{
+  "executedAtUtc": "2026-04-06T06:14:46.892Z",
+  "url": "http://127.0.0.1:3362",
+  "swReady": {
+    "hasController": true,
+    "registrationCount": 1,
+    "state": "activated",
+    "scope": "http://127.0.0.1:3362/"
+  },
+  "onlineSettingsTitle": "Obscur",
+  "offlineBootOk": true,
+  "offlineBootError": null,
+  "offlineNavOk": true,
+  "offlineNavError": null,
+  "offlineState": {
+    "title": "Obscur",
+    "url": "/settings",
+    "bodyTextSample": "",
+    "hasController": true
+  },
+  "reconnectState": {
+    "title": "Obscur",
+    "url": "/settings",
+    "hasController": true
+  },
+  "artifacts": [
+    "docs/assets/demo/v1.3.8/raw/pwa-online.png",
+    "docs/assets/demo/v1.3.8/raw/pwa-offline-settings.png",
+    "docs/assets/demo/v1.3.8/raw/pwa-reconnect.png"
+  ]
+}

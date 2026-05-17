@@ -141,6 +141,27 @@ describe("useAccountProjectionRuntime", () => {
     });
   });
 
+  it("does not auto-rebootstrap when active account projection is degraded", () => {
+    mocks.snapshot = makeSnapshot({
+      profileId: PROFILE_ID,
+      accountPublicKeyHex: ACCOUNT_PUBKEY,
+      phase: "degraded",
+      status: "degraded",
+      accountProjectionReady: false,
+      driftStatus: "unknown",
+      lastError: "bootstrap failed",
+    });
+
+    renderHook(() => useAccountProjectionRuntime({
+      publicKeyHex: ACCOUNT_PUBKEY,
+      privateKeyHex: ACCOUNT_PRIVKEY,
+      pool: createPoolStub(),
+    }));
+
+    expect(mocks.bootstrapAndReplay).not.toHaveBeenCalled();
+    expect(mocks.reset).not.toHaveBeenCalled();
+  });
+
   it("resets stale snapshot ownership before re-bootstrapping a different account", () => {
     mocks.snapshot = makeSnapshot({
       profileId: PROFILE_ID,

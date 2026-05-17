@@ -8,7 +8,10 @@
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { getResolvedClientGateway } from "@/app/features/profiles/services/resolve-client-gateway";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
-import type { ExecuteLocalDmDeleteForMeParams } from "@/app/features/messaging/local-dm-visibility";
+import type {
+  ExecuteLocalDmDeleteForMeParams,
+  ExecuteLocalDmShowAgainParams,
+} from "@/app/features/messaging/local-dm-visibility";
 import type { PersistLocalDmSuppressionParams } from "@dweb/client-gateway/local-dm-visibility";
 import type { Message } from "../types";
 import type { MessageDeleteTombstonesPersistencePort } from "@/app/features/profiles/types/storage-ports";
@@ -36,6 +39,12 @@ export const messagingClientOperations = {
     }>,
   ): Promise<ReadonlyArray<string>> => (
     gateway().localDmVisibility.executeDeleteForMe(params)
+  ),
+
+  showDmOnDeviceAgain: (
+    params: ExecuteLocalDmShowAgainParams,
+  ): Promise<ReadonlyArray<string>> => (
+    gateway().localDmVisibility.executeShowAgainOnDevice(params)
   ),
 
   /** Suppression only (no event-log reconcile). Requires conversation scope. */

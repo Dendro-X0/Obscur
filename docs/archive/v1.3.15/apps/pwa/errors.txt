@@ -1,0 +1,280 @@
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\components\invites\connection-list.tsx
+  43:10  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\components\invites\connection-list.tsx:43:10
+  41 |
+  42 |   useEffect(() => {
+> 43 |     void loadData();
+     |          ^^^^^^^^ Avoid calling setState() directly within an effect
+  44 |   }, []);
+  45 |
+  46 |   const handleSearch = useCallback(async () => {                                                           react-hooks/set-state-in-effect
+  75:10  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\components\invites\connection-list.tsx:75:10
+  73 |
+  74 |   useEffect(() => {
+> 75 |     void handleSearch();
+     |          ^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  76 |   }, [handleSearch]);
+  77 |
+  78 |   const handleTrustLevelChange = async (contactId: string, newLevel: TrustLevel) => {  react-hooks/set-state-in-effect
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\groups\components\group-discovery.tsx
+  127:9  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\groups\components\group-discovery.tsx:127:9
+  125 |     // Reset page when search changes
+  126 |     useEffect(() => {
+> 127 |         setCurrentPage(1);
+      |         ^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  128 |     }, [searchQuery, searchRelay]);
+  129 |
+  130 |     const handleJoin = (group: DiscoveredGroup) => {  react-hooks/set-state-in-effect
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\main-shell\hooks\use-filtered-conversations.ts
+  39:13  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\main-shell\hooks\use-filtered-conversations.ts:39:13
+  37 |     useEffect(() => {
+  38 |         if (!normalizedSearchQuery || normalizedSearchQuery.length < 2) {
+> 39 |             setMessageSearchResults([]);
+     |             ^^^^^^^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  40 |             return;
+  41 |         }
+  42 |  react-hooks/set-state-in-effect
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\hooks\use-requests-inbox.ts
+  67:7  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\hooks\use-requests-inbox.ts:67:7
+  65 |   useEffect((): void => {
+  66 |     if (!params.publicKeyHex) {
+> 67 |       setStored(createDefaultState());
+     |       ^^^^^^^^^ Avoid calling setState() directly within an effect
+  68 |       return;
+  69 |     }
+  70 |     const persisted = chatStateStoreService.load(params.publicKeyHex);  react-hooks/set-state-in-effect
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\providers\messaging-provider.tsx
+  207:13  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\providers\messaging-provider.tsx:207:13
+  205 |                 .filter((c: DmConversation | null): c is DmConversation => c !== null);
+  206 |
+> 207 |             setCreatedContacts(nextCreatedContacts);
+      |             ^^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  208 |             setUnreadByConversationId(persisted.unreadByConversationId);
+  209 |             setContactOverridesByContactId(fromPersistedOverridesByContactId(persisted.contactOverridesByContactId));
+  210 |                                                                                                                                                                                                                                                                                                                                                                                                                                                 react-hooks/set-state-in-effect
+  272:27  error  Compilation Skipped: Existing memoization could not be preserved
+
+React Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. The inferred dependencies did not match the manually specified dependencies, which could cause the value to change more or less frequently than expected. The inferred dependency was `updateCreatedContacts`, but the source dependencies were [createdContacts, selectedConversation, unreadByConversationId, contactOverridesByContactId, visibleMessageCountByConversationId, replyTo, pendingAttachments, pendingAttachmentPreviewUrls, isUploadingAttachment, attachmentError, isProcessingMedia, mediaProcessingProgress, hasHydrated, sidebarTab, messageInput, searchQuery, isNewChatOpen, newChatPubkey, newChatDisplayName, isMediaGalleryOpen, lightboxIndex, flashMessageId, pendingScrollTarget, messageMenu, reactionPicker, pinnedChatIds, hiddenChatIds, chatsUnreadCount, publicKeyHex, clearHistory]. Inferred different dependency than source.
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\providers\messaging-provider.tsx:272:27
+  270 |     }, [unreadByConversationId]);
+  271 |
+> 272 |     const value = useMemo(() => ({
+      |                           ^^^^^^^^
+> 273 |         createdContacts,
+      | ^^^^^^^^^^^^^^^^^^^^^^^^
+> 274 |         setCreatedContacts: updateCreatedContacts,
+      …
+      | ^^^^^^^^^^^^^^^^^^^^^^^^
+> 329 |         chatsUnreadCount
+      | ^^^^^^^^^^^^^^^^^^^^^^^^
+> 330 |     }), [
+      | ^^^^^^^ Could not preserve existing manual memoization
+  331 |         createdContacts,
+  332 |         selectedConversation,
+  333 |         unreadByConversationId,              react-hooks/preserve-manual-memoization
+  272:27  error  Compilation Skipped: Existing memoization could not be preserved
+
+React Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. The inferred dependencies did not match the manually specified dependencies, which could cause the value to change more or less frequently than expected. The inferred dependency was `setSelectedConversation`, but the source dependencies were [createdContacts, selectedConversation, unreadByConversationId, contactOverridesByContactId, visibleMessageCountByConversationId, replyTo, pendingAttachments, pendingAttachmentPreviewUrls, isUploadingAttachment, attachmentError, isProcessingMedia, mediaProcessingProgress, hasHydrated, sidebarTab, messageInput, searchQuery, isNewChatOpen, newChatPubkey, newChatDisplayName, isMediaGalleryOpen, lightboxIndex, flashMessageId, pendingScrollTarget, messageMenu, reactionPicker, pinnedChatIds, hiddenChatIds, chatsUnreadCount, publicKeyHex, clearHistory]. Inferred different dependency than source.
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\providers\messaging-provider.tsx:272:27
+  270 |     }, [unreadByConversationId]);
+  271 |
+> 272 |     const value = useMemo(() => ({
+      |                           ^^^^^^^^
+> 273 |         createdContacts,
+      | ^^^^^^^^^^^^^^^^^^^^^^^^
+> 274 |         setCreatedContacts: updateCreatedContacts,
+      …
+      | ^^^^^^^^^^^^^^^^^^^^^^^^
+> 329 |         chatsUnreadCount
+      | ^^^^^^^^^^^^^^^^^^^^^^^^
+> 330 |     }), [
+      | ^^^^^^^ Could not preserve existing manual memoization
+  331 |         createdContacts,
+  332 |         selectedConversation,
+  333 |         unreadByConversationId,            react-hooks/preserve-manual-memoization
+  272:27  error  Compilation Skipped: Existing memoization could not be preserved
+
+React Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. The inferred dependencies did not match the manually specified dependencies, which could cause the value to change more or less frequently than expected. The inferred dependency was `updateUnreadByConversationId`, but the source dependencies were [createdContacts, selectedConversation, unreadByConversationId, contactOverridesByContactId, visibleMessageCountByConversationId, replyTo, pendingAttachments, pendingAttachmentPreviewUrls, isUploadingAttachment, attachmentError, isProcessingMedia, mediaProcessingProgress, hasHydrated, sidebarTab, messageInput, searchQuery, isNewChatOpen, newChatPubkey, newChatDisplayName, isMediaGalleryOpen, lightboxIndex, flashMessageId, pendingScrollTarget, messageMenu, reactionPicker, pinnedChatIds, hiddenChatIds, chatsUnreadCount, publicKeyHex, clearHistory]. Inferred different dependency than source.
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\providers\messaging-provider.tsx:272:27
+  270 |     }, [unreadByConversationId]);
+  271 |
+> 272 |     const value = useMemo(() => ({
+      |                           ^^^^^^^^
+> 273 |         createdContacts,
+      | ^^^^^^^^^^^^^^^^^^^^^^^^
+> 274 |         setCreatedContacts: updateCreatedContacts,
+      …
+      | ^^^^^^^^^^^^^^^^^^^^^^^^
+> 329 |         chatsUnreadCount
+      | ^^^^^^^^^^^^^^^^^^^^^^^^
+> 330 |     }), [
+      | ^^^^^^^ Could not preserve existing manual memoization
+  331 |         createdContacts,
+  332 |         selectedConversation,
+  333 |         unreadByConversationId,       react-hooks/preserve-manual-memoization
+  272:27  error  Compilation Skipped: Existing memoization could not be preserved
+
+React Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. The inferred dependencies did not match the manually specified dependencies, which could cause the value to change more or less frequently than expected. The inferred dependency was `updateContactOverridesByContactId`, but the source dependencies were [createdContacts, selectedConversation, unreadByConversationId, contactOverridesByContactId, visibleMessageCountByConversationId, replyTo, pendingAttachments, pendingAttachmentPreviewUrls, isUploadingAttachment, attachmentError, isProcessingMedia, mediaProcessingProgress, hasHydrated, sidebarTab, messageInput, searchQuery, isNewChatOpen, newChatPubkey, newChatDisplayName, isMediaGalleryOpen, lightboxIndex, flashMessageId, pendingScrollTarget, messageMenu, reactionPicker, pinnedChatIds, hiddenChatIds, chatsUnreadCount, publicKeyHex, clearHistory]. Inferred different dependency than source.
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\providers\messaging-provider.tsx:272:27
+  270 |     }, [unreadByConversationId]);
+  271 |
+> 272 |     const value = useMemo(() => ({
+      |                           ^^^^^^^^
+> 273 |         createdContacts,
+      | ^^^^^^^^^^^^^^^^^^^^^^^^
+> 274 |         setCreatedContacts: updateCreatedContacts,
+      …
+      | ^^^^^^^^^^^^^^^^^^^^^^^^
+> 329 |         chatsUnreadCount
+      | ^^^^^^^^^^^^^^^^^^^^^^^^
+> 330 |     }), [
+      | ^^^^^^^ Could not preserve existing manual memoization
+  331 |         createdContacts,
+  332 |         selectedConversation,
+  333 |         unreadByConversationId,  react-hooks/preserve-manual-memoization
+  272:27  error  Compilation Skipped: Existing memoization could not be preserved
+
+React Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. The inferred dependencies did not match the manually specified dependencies, which could cause the value to change more or less frequently than expected. The inferred dependency was `togglePin`, but the source dependencies were [createdContacts, selectedConversation, unreadByConversationId, contactOverridesByContactId, visibleMessageCountByConversationId, replyTo, pendingAttachments, pendingAttachmentPreviewUrls, isUploadingAttachment, attachmentError, isProcessingMedia, mediaProcessingProgress, hasHydrated, sidebarTab, messageInput, searchQuery, isNewChatOpen, newChatPubkey, newChatDisplayName, isMediaGalleryOpen, lightboxIndex, flashMessageId, pendingScrollTarget, messageMenu, reactionPicker, pinnedChatIds, hiddenChatIds, chatsUnreadCount, publicKeyHex, clearHistory]. Inferred different dependency than source.
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\providers\messaging-provider.tsx:272:27
+  270 |     }, [unreadByConversationId]);
+  271 |
+> 272 |     const value = useMemo(() => ({
+      |                           ^^^^^^^^
+> 273 |         createdContacts,
+      | ^^^^^^^^^^^^^^^^^^^^^^^^
+> 274 |         setCreatedContacts: updateCreatedContacts,
+      …
+      | ^^^^^^^^^^^^^^^^^^^^^^^^
+> 329 |         chatsUnreadCount
+      | ^^^^^^^^^^^^^^^^^^^^^^^^
+> 330 |     }), [
+      | ^^^^^^^ Could not preserve existing manual memoization
+  331 |         createdContacts,
+  332 |         selectedConversation,
+  333 |         unreadByConversationId,                          react-hooks/preserve-manual-memoization
+  272:27  error  Compilation Skipped: Existing memoization could not be preserved
+
+React Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. The inferred dependencies did not match the manually specified dependencies, which could cause the value to change more or less frequently than expected. The inferred dependency was `hideConversation`, but the source dependencies were [createdContacts, selectedConversation, unreadByConversationId, contactOverridesByContactId, visibleMessageCountByConversationId, replyTo, pendingAttachments, pendingAttachmentPreviewUrls, isUploadingAttachment, attachmentError, isProcessingMedia, mediaProcessingProgress, hasHydrated, sidebarTab, messageInput, searchQuery, isNewChatOpen, newChatPubkey, newChatDisplayName, isMediaGalleryOpen, lightboxIndex, flashMessageId, pendingScrollTarget, messageMenu, reactionPicker, pinnedChatIds, hiddenChatIds, chatsUnreadCount, publicKeyHex, clearHistory]. Inferred different dependency than source.
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\providers\messaging-provider.tsx:272:27
+  270 |     }, [unreadByConversationId]);
+  271 |
+> 272 |     const value = useMemo(() => ({
+      |                           ^^^^^^^^
+> 273 |         createdContacts,
+      | ^^^^^^^^^^^^^^^^^^^^^^^^
+> 274 |         setCreatedContacts: updateCreatedContacts,
+      …
+      | ^^^^^^^^^^^^^^^^^^^^^^^^
+> 329 |         chatsUnreadCount
+      | ^^^^^^^^^^^^^^^^^^^^^^^^
+> 330 |     }), [
+      | ^^^^^^^ Could not preserve existing manual memoization
+  331 |         createdContacts,
+  332 |         selectedConversation,
+  333 |         unreadByConversationId,                   react-hooks/preserve-manual-memoization
+  272:27  error  Compilation Skipped: Existing memoization could not be preserved
+
+React Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. The inferred dependencies did not match the manually specified dependencies, which could cause the value to change more or less frequently than expected. The inferred dependency was `unhideConversation`, but the source dependencies were [createdContacts, selectedConversation, unreadByConversationId, contactOverridesByContactId, visibleMessageCountByConversationId, replyTo, pendingAttachments, pendingAttachmentPreviewUrls, isUploadingAttachment, attachmentError, isProcessingMedia, mediaProcessingProgress, hasHydrated, sidebarTab, messageInput, searchQuery, isNewChatOpen, newChatPubkey, newChatDisplayName, isMediaGalleryOpen, lightboxIndex, flashMessageId, pendingScrollTarget, messageMenu, reactionPicker, pinnedChatIds, hiddenChatIds, chatsUnreadCount, publicKeyHex, clearHistory]. Inferred different dependency than source.
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\providers\messaging-provider.tsx:272:27
+  270 |     }, [unreadByConversationId]);
+  271 |
+> 272 |     const value = useMemo(() => ({
+      |                           ^^^^^^^^
+> 273 |         createdContacts,
+      | ^^^^^^^^^^^^^^^^^^^^^^^^
+> 274 |         setCreatedContacts: updateCreatedContacts,
+      …
+      | ^^^^^^^^^^^^^^^^^^^^^^^^
+> 329 |         chatsUnreadCount
+      | ^^^^^^^^^^^^^^^^^^^^^^^^
+> 330 |     }), [
+      | ^^^^^^^ Could not preserve existing manual memoization
+  331 |         createdContacts,
+  332 |         selectedConversation,
+  333 |         unreadByConversationId,                 react-hooks/preserve-manual-memoization
+  272:27  error  Compilation Skipped: Existing memoization could not be preserved
+
+React Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. The inferred dependencies did not match the manually specified dependencies, which could cause the value to change more or less frequently than expected. The inferred dependency was `deleteConversation`, but the source dependencies were [createdContacts, selectedConversation, unreadByConversationId, contactOverridesByContactId, visibleMessageCountByConversationId, replyTo, pendingAttachments, pendingAttachmentPreviewUrls, isUploadingAttachment, attachmentError, isProcessingMedia, mediaProcessingProgress, hasHydrated, sidebarTab, messageInput, searchQuery, isNewChatOpen, newChatPubkey, newChatDisplayName, isMediaGalleryOpen, lightboxIndex, flashMessageId, pendingScrollTarget, messageMenu, reactionPicker, pinnedChatIds, hiddenChatIds, chatsUnreadCount, publicKeyHex, clearHistory]. Inferred different dependency than source.
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\messaging\providers\messaging-provider.tsx:272:27
+  270 |     }, [unreadByConversationId]);
+  271 |
+> 272 |     const value = useMemo(() => ({
+      |                           ^^^^^^^^
+> 273 |         createdContacts,
+      | ^^^^^^^^^^^^^^^^^^^^^^^^
+> 274 |         setCreatedContacts: updateCreatedContacts,
+      …
+      | ^^^^^^^^^^^^^^^^^^^^^^^^
+> 329 |         chatsUnreadCount
+      | ^^^^^^^^^^^^^^^^^^^^^^^^
+> 330 |     }), [
+      | ^^^^^^^ Could not preserve existing manual memoization
+  331 |         createdContacts,
+  332 |         selectedConversation,
+  333 |         unreadByConversationId,                 react-hooks/preserve-manual-memoization
+
+E:\Web Project\experimental-workspace\newstart\apps\pwa\app\features\network\components\network-dashboard.tsx
+  677:107  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+
+✖ 15 problems (15 errors, 0 warnings)
+

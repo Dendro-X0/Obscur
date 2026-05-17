@@ -1,0 +1,494 @@
+/**
+ * Performance Optimizations for Smart Invite System
+ * Implements caching, pagination, and efficient search algorithms
+ */
+
+import type { Connection, ConnectionGroup } from './types';
+
+/**
+ * LRU Cache implementation for connection data
+ */
+export class LRUCache<K, V> {
+  private cache: Map<K, V>;
+  private maxSize: number;
+
+  constructor(maxSize: number = 100) {
+    this.cache = new Map();
+    this.maxSize = maxSize;
+  }
+
+  get(key: K): V | undefined {
+    if (!this.cache.has(key)) {
+      return undefined;
+    }
+
+    // Move to end (most recently used)
+    const value = this.cache.get(key)!;
+    this.cache.delete(key);
+    this.cache.set(key, value);
+    return value;
+  }
+
+  set(key: K, value: V): void {
+    // Remove if exists (to update position)
+    if (this.cache.has(key)) {
+      this.cache.delete(key);
+    }
+
+    // Add to end
+    this.cache.set(key, value);
+
+    // Evict oldest if over capacity
+    if (this.cache.size > this.maxSize) {
+      const first = this.cache.keys().next();
+      if (!first.done) {
+        this.cache.delete(first.value);
+      }
+    }
+  }
+
+  has(key: K): boolean {
+    return this.cache.has(key);
+  }
+
+  clear(): void {
+    this.cache.clear();
+  }
+
+  get size(): number {
+    return this.cache.size;
+  }
+}
+
+/**
+ * Pagination helper for large connection lists
+ */
+export interface PaginationOptions {
+  page: number;
+  pageSize: number;
+}
+
+export interface PaginatedResult<T> {
+  items: T[];
+  totalItems: number;
+  totalPages: number;
+  currentPage: number;
+  pageSize: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+}
+
+export function paginateArray<T>(
+  items: T[],
+  options: PaginationOptions
+): PaginatedResult<T> {
+  const { page, pageSize } = options;
+  const totalItems = items.length;
+  const totalPages = Math.ceil(totalItems / pageSize);
+  const startIndex = (page - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+
+  return {
+    items: items.slice(startIndex, endIndex),
+    totalItems,
+    totalPages,
+    currentPage: page,
+    pageSize,
+    hasNextPage: page < totalPages,
+    hasPreviousPage: page > 1
+  };
+}
+
+/**
+ * Debounce function for search input
+ */
+export function debounce<T extends (...args: any[]) => any>(
+  func: T,
+  wait: number
+): (...args: Parameters<T>) => void {
+  let timeout: NodeJS.Timeout | null = null;
+
+  return function executedFunction(...args: Parameters<T>) {
+    const later = () => {
+      timeout = null;
+      func(...args);
+    };
+
+    if (timeout) {
+      clearTimeout(timeout);
+    }
+    timeout = setTimeout(later, wait);
+  };
+}
+
+/**
+ * Optimized search using Trie data structure for prefix matching
+ */
+export class ConnectionSearchIndex {
+  private root: TrieNode;
+  private connectionMap: Map<string, Connection>;
+
+  constructor() {
+    this.root = new TrieNode();
+    this.connectionMap = new Map();
+  }
+
+  get size(): number {
+    return this.connectionMap.size;
+  }
+
+  /**
+   * Add connection to search index
+   */
+  addConnection(connection: Connection): void {
+    this.connectionMap.set(connection.id, connection);
+
+    // Index display name
+    this.insertWord(connection.displayName.toLowerCase(), connection.id);
+
+    // Index bio if present
+    if (connection.bio) {
+      const bioWords = connection.bio.toLowerCase().split(/\s+/);
+      bioWords.forEach(word => this.insertWord(word, connection.id));
+    }
+
+    // Index public key prefix
+    const pubkeyPrefix = connection.publicKey.substring(0, 16).toLowerCase();
+    this.insertWord(pubkeyPrefix, connection.id);
+  }
+
+  /**
+   * Remove connection from search index
+   */
+  removeConnection(connectionId: string): void {
+    this.connectionMap.delete(connectionId);
+    // Note: For simplicity, we don't remove from trie
+    // In production, implement trie node removal or rebuild index periodically
+  }
+
+  /**
+   * Search connections by query
+   */
+  search(query: string): Connection[] {
+    if (!query || query.length === 0) {
+      return Array.from(this.connectionMap.values());
+    }
+
+    const lowercaseQuery = query.toLowerCase();
+    const connectionIds = this.searchPrefix(lowercaseQuery);
+    const uniqueIds = new Set(connectionIds);
+
+    return Array.from(uniqueIds)
+      .map(id => this.connectionMap.get(id))
+      .filter((connection): connection is Connection => connection !== undefined);
+  }
+
+  /**
+   * Clear the entire index
+   */
+  clear(): void {
+    this.root = new TrieNode();
+    this.connectionMap.clear();
+  }
+
+  /**
+   * Rebuild index from connections
+   */
+  rebuild(connections: Connection[]): void {
+    this.clear();
+    connections.forEach(connection => this.addConnection(connection));
+  }
+
+  private insertWord(word: string, connectionId: string): void {
+    let node = this.root;
+
+    for (const char of word) {
+      if (!node.children.has(char)) {
+        node.children.set(char, new TrieNode());
+      }
+      node = node.children.get(char)!;
+    }
+
+    node.connectionIds.add(connectionId);
+  }
+
+  private searchPrefix(prefix: string): string[] {
+    let node = this.root;
+
+    // Navigate to prefix node
+    for (const char of prefix) {
+      if (!node.children.has(char)) {
+        return [];
+      }
+      node = node.children.get(char)!;
+    }
+
+    // Collect all connection IDs from this node and descendants
+    return this.collectConnectionIds(node);
+  }
+
+  private collectConnectionIds(node: TrieNode): string[] {
+    const result: string[] = [];
+
+    // Add connection IDs from current node
+    result.push(...Array.from(node.connectionIds));
+
+    // Recursively collect from children
+    for (const child of node.children.values()) {
+      result.push(...this.collectConnectionIds(child));
+    }
+
+    return result;
+  }
+}
+
+class TrieNode {
+  children: Map<string, TrieNode>;
+  connectionIds: Set<string>;
+
+  constructor() {
+    this.children = new Map();
+    this.connectionIds = new Set();
+  }
+}
+
+/**
+ * Batch operations helper for bulk updates
+ */
+export class BatchProcessor<T> {
+  private batchSize: number;
+  private processFn: (batch: T[]) => Promise<void>;
+
+  constructor(batchSize: number, processFn: (batch: T[]) => Promise<void>) {
+    this.batchSize = batchSize;
+    this.processFn = processFn;
+  }
+
+  async process(items: T[]): Promise<void> {
+    const batches: T[][] = [];
+
+    for (let i = 0; i < items.length; i += this.batchSize) {
+      batches.push(items.slice(i, i + this.batchSize));
+    }
+
+    // Process batches sequentially to avoid overwhelming the system
+    for (const batch of batches) {
+      await this.processFn(batch);
+    }
+  }
+
+  async processParallel(items: T[], maxConcurrency: number = 3): Promise<void> {
+    const batches: T[][] = [];
+
+    for (let i = 0; i < items.length; i += this.batchSize) {
+      batches.push(items.slice(i, i + this.batchSize));
+    }
+
+    // Process batches with limited concurrency
+    for (let i = 0; i < batches.length; i += maxConcurrency) {
+      const batchGroup = batches.slice(i, i + maxConcurrency);
+      await Promise.all(batchGroup.map(batch => this.processFn(batch)));
+    }
+  }
+}
+
+/**
+ * QR Code generation cache
+ */
+export class QRCodeCache {
+  private cache: LRUCache<string, string>;
+
+  constructor(maxSize: number = 50) {
+    this.cache = new LRUCache(maxSize);
+  }
+
+  /**
+   * Get cached QR code data URL
+   */
+  get(key: string): string | undefined {
+    return this.cache.get(key);
+  }
+
+  /**
+   * Cache QR code data URL
+   */
+  set(key: string, dataUrl: string): void {
+    this.cache.set(key, dataUrl);
+  }
+
+  /**
+   * Generate cache key from QR data
+   */
+  generateKey(publicKey: string, options: any): string {
+    return `${publicKey}-${JSON.stringify(options)}`;
+  }
+
+  /**
+   * Clear cache
+   */
+  clear(): void {
+    this.cache.clear();
+  }
+}
+
+/**
+ * Virtual scrolling helper for large lists
+ */
+export interface VirtualScrollOptions {
+  itemHeight: number;
+  containerHeight: number;
+  overscan?: number;
+}
+
+export interface VirtualScrollResult {
+  startIndex: number;
+  endIndex: number;
+  offsetY: number;
+  totalHeight: number;
+}
+
+export function calculateVirtualScroll(
+  scrollTop: number,
+  totalItems: number,
+  options: VirtualScrollOptions
+): VirtualScrollResult {
+  const { itemHeight, containerHeight, overscan = 3 } = options;
+
+  const startIndex = Math.max(0, Math.floor(scrollTop / itemHeight) - overscan);
+  const visibleItems = Math.ceil(containerHeight / itemHeight);
+  const endIndex = Math.min(totalItems, startIndex + visibleItems + overscan * 2);
+
+  return {
+    startIndex,
+    endIndex,
+    offsetY: startIndex * itemHeight,
+    totalHeight: totalItems * itemHeight
+  };
+}
+
+/**
+ * Memoization helper for expensive computations
+ */
+export function memoize<T extends (...args: any[]) => any>(
+  fn: T,
+  keyGenerator?: (...args: Parameters<T>) => string
+): T {
+  const cache = new Map<string, ReturnType<T>>();
+
+  return ((...args: Parameters<T>): ReturnType<T> => {
+    const key = keyGenerator ? keyGenerator(...args) : JSON.stringify(args);
+
+    if (cache.has(key)) {
+      return cache.get(key)!;
+    }
+
+    const result = fn(...args);
+    cache.set(key, result);
+    return result;
+  }) as T;
+}
+
+/**
+ * Throttle function for rate limiting
+ */
+export function throttle<T extends (...args: any[]) => any>(
+  func: T,
+  limit: number
+): (...args: Parameters<T>) => void {
+  let inThrottle: boolean;
+
+  return function executedFunction(...args: Parameters<T>) {
+    if (!inThrottle) {
+      func(...args);
+      inThrottle = true;
+      setTimeout(() => (inThrottle = false), limit);
+    }
+  };
+}
+
+/**
+ * Performance monitoring helper
+ */
+export class PerformanceMonitor {
+  private measurements: Map<string, number[]>;
+
+  constructor() {
+    this.measurements = new Map();
+  }
+
+  /**
+   * Start timing an operation
+   */
+  start(label: string): () => void {
+    const startTime = performance.now();
+
+    return () => {
+      const duration = performance.now() - startTime;
+      this.record(label, duration);
+    };
+  }
+
+  /**
+   * Record a measurement
+   */
+  record(label: string, duration: number): void {
+    if (!this.measurements.has(label)) {
+      this.measurements.set(label, []);
+    }
+    this.measurements.get(label)!.push(duration);
+  }
+
+  /**
+   * Get statistics for a label
+   */
+  getStats(label: string): {
+    count: number;
+    avg: number;
+    min: number;
+    max: number;
+    total: number;
+  } | null {
+    const measurements = this.measurements.get(label);
+    if (!measurements || measurements.length === 0) {
+      return null;
+    }
+
+    const total = measurements.reduce((sum, val) => sum + val, 0);
+    const avg = total / measurements.length;
+    const min = Math.min(...measurements);
+    const max = Math.max(...measurements);
+
+    return {
+      count: measurements.length,
+      avg,
+      min,
+      max,
+      total
+    };
+  }
+
+  /**
+   * Clear all measurements
+   */
+  clear(): void {
+    this.measurements.clear();
+  }
+
+  /**
+   * Get all measurements
+   */
+  getAllStats(): Map<string, ReturnType<PerformanceMonitor['getStats']>> {
+    const stats = new Map();
+    for (const label of this.measurements.keys()) {
+      stats.set(label, this.getStats(label));
+    }
+    return stats;
+  }
+}
+
+/**
+ * Singleton instances
+ */
+export const connectionSearchIndex = new ConnectionSearchIndex();
+export const qrCodeCache = new QRCodeCache();
+export const performanceMonitor = new PerformanceMonitor();

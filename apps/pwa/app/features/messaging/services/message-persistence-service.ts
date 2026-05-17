@@ -307,7 +307,7 @@ export class MessagePersistenceService {
                     }
                     break;
             }
-        });
+        }, { profileId: getResolvedProfileId() });
 
         if (typeof document !== "undefined") {
             document.addEventListener("visibilitychange", this.onVisibilityChange);

@@ -46,7 +46,16 @@ export const probeStandbyRelayLatency = (
       settled = true;
       clearTimeout(frameTimer);
       clearTimeout(openTimer);
-      try { ws.close(); } catch { /* ignore */ }
+      const socket = ws;
+      window.setTimeout(() => {
+        try {
+          if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
+            socket.close(1000, "probe-complete");
+          }
+        } catch {
+          /* ignore */
+        }
+      }, 0);
       resolve(result);
     };
 

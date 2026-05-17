@@ -1,24 +1,22 @@
 "use client";
 /**
- * use-standby-latency-probe.ts
- *
  * Periodically probes standby relay URLs for latency without connecting them
- * to the relay pool.  Results are fed into relayHealthMonitor so the settings
- * dashboard can show latency even for disconnected standby nodes.
+ * to the relay pool. Results feed relayHealthMonitor for settings UI.
  *
- * Rules:
- *  - Only probes when the document is visible (no background battery drain).
- *  - Probes run sequentially per URL to avoid thundering-herd on startup.
- *  - Interval resets when the standby list changes.
- *  - Probe sockets are closed immediately after measurement.
+ * v1.5.2: defer first cycle until after shell paint; stagger sockets; respect visibility.
  */
 
 import { useEffect, useRef } from "react";
 import { relayHealthMonitor } from "../hooks/relay-health-monitor";
-import { probeStandbyRelayLatency } from "../services/standby-latency-prober";
+import {
+  runStandbyRelayProbeCycle,
+  STANDBY_PROBE_INITIAL_DELAY_MS,
+  STANDBY_PROBE_INTERVAL_MS,
+} from "../services/relay-standby-probe-schedule";
 
-const PROBE_INTERVAL_MS = 30_000;
-const INITIAL_PROBE_DELAY_MS = 4_000;
+const isDocumentVisible = (): boolean => (
+  typeof document === "undefined" || document.visibilityState !== "hidden"
+);
 
 export const useStandbyLatencyProbe = (
   standbyUrls: ReadonlyArray<string>,
@@ -38,15 +36,19 @@ export const useStandbyLatencyProbe = (
     }
 
     const runProbes = async (): Promise<void> => {
-      if (runningRef.current) return;
-      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+      if (runningRef.current || !isDocumentVisible()) {
+        return;
+      }
 
       runningRef.current = true;
       try {
-        for (const url of standbyUrlsRef.current) {
-          const result = await probeStandbyRelayLatency(url);
+        const results = await runStandbyRelayProbeCycle({
+          urls: standbyUrlsRef.current,
+          isVisible: isDocumentVisible,
+        });
+        for (const result of results) {
           if (result.ok && result.latencyMs > 0) {
-            relayHealthMonitor.recordLatency(url, result.latencyMs);
+            relayHealthMonitor.recordLatency(result.url, result.latencyMs);
           }
         }
       } finally {
@@ -54,21 +56,51 @@ export const useStandbyLatencyProbe = (
       }
     };
 
-    initialTimerRef.current = setTimeout(() => {
-      void runProbes();
-    }, INITIAL_PROBE_DELAY_MS);
+    const scheduleInitial = (): void => {
+      initialTimerRef.current = window.setTimeout(() => {
+        initialTimerRef.current = null;
+        void runProbes();
+      }, STANDBY_PROBE_INITIAL_DELAY_MS);
+    };
 
-    intervalRef.current = setInterval(() => {
+    if (typeof document !== "undefined" && document.readyState === "complete") {
+      scheduleInitial();
+    } else if (typeof window !== "undefined") {
+      window.addEventListener("load", scheduleInitial, { once: true });
+    } else {
+      scheduleInitial();
+    }
+
+    intervalRef.current = window.setInterval(() => {
       void runProbes();
-    }, PROBE_INTERVAL_MS);
+    }, STANDBY_PROBE_INTERVAL_MS);
+
+    const onVisibilityChange = (): void => {
+      if (isDocumentVisible()) {
+        return;
+      }
+      if (initialTimerRef.current !== null) {
+        window.clearTimeout(initialTimerRef.current);
+        initialTimerRef.current = null;
+      }
+    };
+    if (typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", onVisibilityChange);
+    }
 
     return () => {
+      if (typeof window !== "undefined") {
+        window.removeEventListener("load", scheduleInitial);
+      }
+      if (typeof document !== "undefined") {
+        document.removeEventListener("visibilitychange", onVisibilityChange);
+      }
       if (initialTimerRef.current !== null) {
-        clearTimeout(initialTimerRef.current);
+        window.clearTimeout(initialTimerRef.current);
         initialTimerRef.current = null;
       }
       if (intervalRef.current !== null) {
-        clearInterval(intervalRef.current);
+        window.clearInterval(intervalRef.current);
         intervalRef.current = null;
       }
     };

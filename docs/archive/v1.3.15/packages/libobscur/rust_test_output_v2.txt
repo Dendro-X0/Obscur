@@ -1,0 +1,16 @@
+   Compiling libobscur v0.1.0 (E:\Web Project\experimental-workspace\newstart\packages\libobscur)
+error: mismatched closing delimiter: `}`
+  --> src\crypto\pow.rs:59:18
+   |
+57 |     } else {
+   |            - closing delimiter possibly meant for this
+58 |         // Add nonce tag: ["nonce", "0", "difficulty"]
+59 |         tags.push(Tag::parse(vec!["nonce", "0", &target_difficulty.to_string()]).map_err(|e| e.to_string())?;
+   |                  ^ unclosed delimiter
+60 |         nonce_idx = Some(tags.len() - 1);
+61 |     }
+   |     ^ mismatched closing delimiter
+
+error: could not compile `libobscur` (lib) due to 1 previous error
+warning: build failed, waiting for other jobs to finish...
+error: could not compile `libobscur` (lib test) due to 1 previous error

@@ -29,6 +29,18 @@ vi.mock("react-i18next", () => ({
     }),
 }));
 
+vi.mock("../config/dm-local-visibility-product", async (importOriginal) => {
+    const actual = await importOriginal<typeof import("../config/dm-local-visibility-product")>();
+    return {
+        ...actual,
+        DM_LOCAL_VISIBILITY_COPY: {
+            ...actual.DM_LOCAL_VISIBILITY_COPY,
+            hideOnThisDeviceWithCount: "Hide on this device ({{count}})",
+            batchScopeHelper: "Hides selected messages on this device only. Other devices and relays may still have copies.",
+        },
+    };
+});
+
 vi.mock("next/image", () => ({
     default: (props: React.ImgHTMLAttributes<HTMLImageElement>) => <img {...props} alt={props.alt ?? ""} />,
 }));
@@ -392,8 +404,7 @@ describe("ChatView batch delete", () => {
             expect(messageListPropsRef.current?.batchDeleteMode).toBe(true);
         });
         expect(screen.getByText("Deletion permissions:")).toBeInTheDocument();
-        expect(screen.getByText('"Delete for me" hides selected messages only in your interface.')).toBeInTheDocument();
-        expect(screen.getByText('"Delete for everyone" removes only messages you sent from all participants\' interfaces.')).toBeInTheDocument();
+        expect(screen.getByText(/Hides selected messages on this device only/i)).toBeInTheDocument();
 
         await act(async () => {
             const toggle = messageListPropsRef.current?.onToggleSelectMessage as
@@ -402,7 +413,7 @@ describe("ChatView batch delete", () => {
             toggle?.({ messageId: incomingMessage.id, shiftKey: false });
         });
 
-        const deleteForMeButton = await screen.findByRole("button", { name: /Delete for me/i });
+        const deleteForMeButton = await screen.findByRole("button", { name: /Hide on this device/i });
         await act(async () => {
             fireEvent.click(deleteForMeButton);
         });
@@ -417,12 +428,11 @@ describe("ChatView batch delete", () => {
         });
     });
 
-    it("deletes only outgoing messages for everyone", async () => {
+    it("does not offer recall for everyone during batch delete", async () => {
         const outgoingMessage = createMessage({ id: "m-outgoing", isOutgoing: true, content: "sent" });
-        const incomingMessage = createMessage({ id: "m-incoming", isOutgoing: false, content: "received", timestamp: new Date(3_000) });
         const props = createBaseProps();
-        props.messages = [outgoingMessage, incomingMessage];
-        props.rawMessagesCount = 2;
+        props.messages = [outgoingMessage];
+        props.rawMessagesCount = 1;
         props.messageMenu = { messageId: outgoingMessage.id, x: 0, y: 0 };
 
         render(<ChatView {...props} />);
@@ -438,25 +448,7 @@ describe("ChatView batch delete", () => {
             expect(messageListPropsRef.current?.batchDeleteMode).toBe(true);
         });
 
-        await act(async () => {
-            const toggle = messageListPropsRef.current?.onToggleSelectMessage as
-                | ((params: Readonly<{ messageId: string; shiftKey: boolean }>) => void)
-                | undefined;
-            toggle?.({ messageId: incomingMessage.id, shiftKey: false });
-        });
-
-        const deleteForEveryoneButton = await screen.findByRole("button", { name: /Delete for everyone/i });
-        await act(async () => {
-            fireEvent.click(deleteForEveryoneButton);
-        });
-
-        await waitFor(() => {
-            expect(props.onDeleteMessageForEveryone).toHaveBeenCalledTimes(1);
-        });
-        expect(props.onDeleteMessageForEveryone).toHaveBeenCalledWith(outgoingMessage);
-        expect(props.onDeleteMessageForMe).not.toHaveBeenCalled();
-        await waitFor(() => {
-            expect(messageListPropsRef.current?.batchDeleteMode).toBe(false);
-        });
+        expect(screen.queryByRole("button", { name: /Recall for everyone/i })).toBeNull();
+        expect(props.onDeleteMessageForEveryone).not.toHaveBeenCalled();
     });
 });

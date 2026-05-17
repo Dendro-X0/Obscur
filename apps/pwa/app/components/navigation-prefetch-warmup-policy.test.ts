@@ -3,41 +3,37 @@ import { NAV_ITEMS } from "../lib/navigation/nav-items";
 import { resolveRoutePrefetchWarmupPlan } from "./navigation-prefetch-warmup-policy";
 
 describe("resolveRoutePrefetchWarmupPlan", () => {
-  it("skips automatic warmup in desktop runtime", () => {
+  it("warms all dynamic sidebar routes except the active pathname", () => {
     expect(resolveRoutePrefetchWarmupPlan({
       pathname: "/",
-      isDesktop: true,
       navItems: NAV_ITEMS,
       warmedHrefs: new Set<string>(),
     })).toEqual({
-      enabled: false,
-      reason: "desktop_runtime",
-      targets: [],
+      enabled: true,
+      targets: ["/network", "/vault", "/search", "/settings"],
     });
   });
 
-  it("limits warmup to lightweight routes that are not already warmed", () => {
+  it("skips routes that were already warmed", () => {
     expect(resolveRoutePrefetchWarmupPlan({
       pathname: "/",
-      isDesktop: false,
       navItems: NAV_ITEMS,
-      warmedHrefs: new Set<string>(["/network"]),
-    })).toEqual({
-      enabled: true,
-      targets: ["/vault"],
-    });
-  });
-
-  it("skips warmup when no eligible targets remain", () => {
-    expect(resolveRoutePrefetchWarmupPlan({
-      pathname: "/network",
-      isDesktop: false,
-      navItems: NAV_ITEMS,
-      warmedHrefs: new Set<string>(["/vault"]),
+      warmedHrefs: new Set<string>(["/network", "/vault", "/search", "/settings"]),
     })).toEqual({
       enabled: false,
       reason: "no_targets",
       targets: [],
+    });
+  });
+
+  it("does not warm the current route", () => {
+    expect(resolveRoutePrefetchWarmupPlan({
+      pathname: "/network",
+      navItems: NAV_ITEMS,
+      warmedHrefs: new Set<string>(),
+    })).toEqual({
+      enabled: true,
+      targets: ["/vault", "/search", "/settings"],
     });
   });
 });

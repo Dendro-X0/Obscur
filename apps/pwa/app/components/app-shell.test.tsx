@@ -13,6 +13,16 @@ const appShellMocks = vi.hoisted(() => ({
   refresh: vi.fn(),
   prefetch: vi.fn().mockResolvedValue(undefined),
   isDesktop: false,
+  warmRouteNavigationTargets: vi.fn(async (router: { prefetch: (href: string) => void }, targets: ReadonlyArray<string>) => {
+    for (const href of targets) {
+      router.prefetch(href);
+    }
+    return targets.map((href) => ({ href, status: "fulfilled" as const }));
+  }),
+}));
+
+vi.mock("./route-navigation-warmup", () => ({
+  warmRouteNavigationTargets: appShellMocks.warmRouteNavigationTargets,
 }));
 
 vi.mock("next/navigation", () => ({
@@ -117,13 +127,12 @@ describe("AppShell navigation", () => {
       await new Promise((resolve) => window.setTimeout(resolve, 40));
     });
 
-    const warmedTargets = ["/network", "/vault"];
+    const warmedTargets = ["/network", "/vault", "/search", "/settings"];
     expect(appShellMocks.prefetch).toHaveBeenCalledTimes(warmedTargets.length);
-    expect(appShellMocks.prefetch).toHaveBeenNthCalledWith(1, "/network");
-    expect(appShellMocks.prefetch).toHaveBeenNthCalledWith(2, "/vault");
+    for (const href of warmedTargets) {
+      expect(appShellMocks.prefetch).toHaveBeenCalledWith(href);
+    }
     expect(appShellMocks.prefetch).not.toHaveBeenCalledWith("/");
-    expect(appShellMocks.prefetch).not.toHaveBeenCalledWith("/search");
-    expect(appShellMocks.prefetch).not.toHaveBeenCalledWith("/settings");
 
     const prefetchStartedLogged = vi.mocked(logAppEvent).mock.calls.some(([event]) => (
       event.name === "navigation.route_prefetch_warmup_started"
@@ -139,20 +148,15 @@ describe("AppShell navigation", () => {
     expect(prefetchCompletedLogged).toBe(true);
   });
 
-  it("does not auto-prefetch routes in desktop runtime", async () => {
+  it("auto-prefetches routes in desktop runtime after mount", async () => {
     appShellMocks.isDesktop = true;
     await renderShell();
     await act(async () => {
       await new Promise((resolve) => window.setTimeout(resolve, 40));
     });
 
-    expect(appShellMocks.prefetch).not.toHaveBeenCalled();
-    const prefetchSkippedLogged = vi.mocked(logAppEvent).mock.calls.some(([event]) => (
-      event.name === "navigation.route_prefetch_warmup_skipped"
-      && event.context?.reason === "desktop_runtime"
-      && event.context?.isDesktop === true
-    ));
-    expect(prefetchSkippedLogged).toBe(true);
+    expect(appShellMocks.prefetch).toHaveBeenCalledWith("/network");
+    expect(appShellMocks.prefetch).toHaveBeenCalledWith("/settings");
   });
 
   it("marks the active route in sidebar", async () => {

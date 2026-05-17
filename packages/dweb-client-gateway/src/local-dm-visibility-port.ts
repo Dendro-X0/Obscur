@@ -14,6 +14,19 @@ export type ExecuteLocalDmDeleteForMeParams = Readonly<{
   accountPublicKeyHex: string;
   profileId?: string;
   observedAtUnixMs?: number;
+  /** When false, timeline rows stay in the event log for show-again (v1.5.1 hide). Default true. */
+  redactTimelineEvents?: boolean;
+  /** When true, tombstones apply synchronously; event-log reconcile + replay run in background. */
+  prioritizeUiResponse?: boolean;
+  replayProjection?: boolean;
+}>;
+
+export type ExecuteLocalDmShowAgainParams = Readonly<{
+  conversationId: string;
+  messageIdentityIds: ReadonlyArray<string>;
+  accountPublicKeyHex: string;
+  profileId?: string;
+  observedAtUnixMs?: number;
 }>;
 
 export type MessageLikeWithIdentity = Readonly<{
@@ -43,6 +56,8 @@ export type LocalDmVisibilityPort = Readonly<{
     accountPublicKeyHex: string;
     extraMessageIds?: ReadonlyArray<string>;
     replayProjection?: boolean | undefined;
+    redactTimelineEvents?: boolean;
   }>) => Promise<Readonly<{ redactedCount: number; removedEventsAppended: number }>>;
   executeDeleteForMe: (params: ExecuteLocalDmDeleteForMeParams) => Promise<ReadonlyArray<string>>;
+  executeShowAgainOnDevice: (params: ExecuteLocalDmShowAgainParams) => Promise<ReadonlyArray<string>>;
 }>;

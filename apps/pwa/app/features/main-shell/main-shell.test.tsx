@@ -333,6 +333,8 @@ vi.mock("./hooks/use-chat-actions", () => ({
     handleSendMessage: testFns.handleSendMessage,
     deleteMessageForMe: testFns.deleteMessageForMeAction,
     deleteMessageForEveryone: testFns.deleteMessageForEveryoneAction,
+    showMessageOnDeviceAgain: vi.fn(),
+    showAllHiddenMessagesOnDevice: vi.fn(),
     toggleReaction: testFns.toggleReactionAction,
   }),
 }));

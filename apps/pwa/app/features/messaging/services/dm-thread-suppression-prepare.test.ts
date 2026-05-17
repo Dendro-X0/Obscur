@@ -53,6 +53,7 @@ describe("prepareDmThreadSuppressionIds", () => {
         suppressMessageDeleteTombstone: vi.fn(),
         replaceMessageDeleteTombstones: vi.fn(),
         clearMessageDeleteTombstones: vi.fn(),
+        liftMessageDeleteSuppression: vi.fn(),
       },
       seedIds: new Set(["in-flight"]),
     });

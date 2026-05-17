@@ -6,6 +6,7 @@ export {
 } from "./client-gateway";
 export type {
   ExecuteLocalDmDeleteForMeParams,
+  ExecuteLocalDmShowAgainParams,
   LocalDmVisibilityPort,
   LocalDmVisibilityScope,
   MessageLikeWithIdentity,

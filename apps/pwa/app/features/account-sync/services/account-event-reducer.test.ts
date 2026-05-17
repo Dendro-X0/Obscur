@@ -228,9 +228,11 @@ describe("account-event-reducer", () => {
       }, 3),
     ]);
 
-    expect(projection?.messagesByConversationId[conversationId]).toEqual([
-      expect.objectContaining({ messageId: "msg-keep" }),
+    expect(projection?.messagesByConversationId[conversationId]?.map((entry) => entry.messageId)).toEqual([
+      "msg-delete-me",
+      "msg-keep",
     ]);
+    expect(projection?.removedMessageIds?.["msg-delete-me"]).toBe(3_000);
     expect(projection?.conversationsById[conversationId]?.lastMessagePreview).toBe("keep");
     expect(projection?.conversationsById[conversationId]?.unreadCount).toBe(0);
   });
@@ -273,8 +275,51 @@ describe("account-event-reducer", () => {
       }, 3),
     ]);
 
-    expect(projection?.messagesByConversationId[conversationId]).toEqual([]);
+    expect(projection?.messagesByConversationId[conversationId]?.map((entry) => entry.messageId)).toEqual([
+      "msg-tombstoned",
+    ]);
     expect(projection?.removedMessageIds?.["msg-tombstoned"]).toBe(2_000);
+  });
+
+  it("DM_RESTORED_LOCALLY clears removedMessageIds so timeline entry is visible again", () => {
+    const conversationId = `${ACCOUNT}:${PEER}`;
+    const projection = replayAccountEvents([
+      createEvent({
+        ...baseMeta,
+        type: "DM_RECEIVED",
+        eventId: "dm-in-restore",
+        idempotencyKey: "dm-in-restore",
+        observedAtUnixMs: 1_000,
+        peerPublicKeyHex: PEER,
+        conversationId,
+        messageId: "msg-restore",
+        eventCreatedAtUnixSeconds: 10,
+        plaintextPreview: "restore me",
+      }, 1),
+      createEvent({
+        ...baseMeta,
+        type: "DM_REMOVED_LOCALLY",
+        eventId: "dm-remove-restore",
+        idempotencyKey: "dm-remove-restore",
+        observedAtUnixMs: 2_000,
+        messageId: "msg-restore",
+        conversationId,
+      }, 2),
+      createEvent({
+        ...baseMeta,
+        type: "DM_RESTORED_LOCALLY",
+        eventId: "dm-restore-1",
+        idempotencyKey: "dm-restore-1",
+        observedAtUnixMs: 3_000,
+        messageId: "msg-restore",
+        conversationId,
+      }, 3),
+    ]);
+
+    expect(projection?.removedMessageIds?.["msg-restore"]).toBeUndefined();
+    expect(projection?.messagesByConversationId[conversationId]).toEqual([
+      expect.objectContaining({ messageId: "msg-restore", plaintextPreview: "restore me" }),
+    ]);
   });
 
   it("blocks replayed DM_RECEIVED when durable delete tombstone applies to that message id", () => {

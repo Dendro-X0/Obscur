@@ -250,24 +250,93 @@ export const selectProjectionConversationMessages = (params: Readonly<{
       profileId,
     ));
 
-  return messagingClientOperations.filterVisibleDmMessages(
-    visibleTimeline.map((entry): Message => {
-      const isOutgoing = entry.direction === "outgoing";
-      return {
-        id: entry.messageId,
-        kind: "user",
-        content: entry.plaintextPreview,
-        timestamp: new Date(entry.eventCreatedAtUnixSeconds * 1000),
-        isOutgoing,
-        status: "delivered",
-        eventId: entry.messageId,
-        eventCreatedAt: new Date(entry.eventCreatedAtUnixSeconds * 1000),
-        senderPubkey: isOutgoing ? params.myPublicKeyHex : entry.peerPublicKeyHex,
-        recipientPubkey: isOutgoing ? entry.peerPublicKeyHex : params.myPublicKeyHex,
-        // Keep selector output aligned with requested conversation scope.
-        conversationId: params.conversationId,
-      };
-    }),
+  return mapProjectionTimelineToMessages({
+    entries: visibleTimeline,
+    conversationId: params.conversationId,
+    myPublicKeyHex: params.myPublicKeyHex,
     profileId,
-  );
+  });
+};
+
+const mapProjectionTimelineToMessages = (params: Readonly<{
+  entries: ReadonlyArray<AccountProjectionSnapshot["messagesByConversationId"][string][number]>;
+  conversationId: string;
+  myPublicKeyHex: PublicKeyHex;
+  profileId: string;
+  applyVisibilityFilter?: boolean;
+}>): ReadonlyArray<Message> => {
+  const mapped = params.entries.map((entry): Message => {
+    const isOutgoing = entry.direction === "outgoing";
+    return {
+      id: entry.messageId,
+      kind: "user",
+      content: entry.plaintextPreview,
+      timestamp: new Date(entry.eventCreatedAtUnixSeconds * 1000),
+      isOutgoing,
+      status: "delivered",
+      eventId: entry.messageId,
+      eventCreatedAt: new Date(entry.eventCreatedAtUnixSeconds * 1000),
+      senderPubkey: isOutgoing ? params.myPublicKeyHex : entry.peerPublicKeyHex,
+      recipientPubkey: isOutgoing ? entry.peerPublicKeyHex : params.myPublicKeyHex,
+      conversationId: params.conversationId,
+    };
+  });
+  if (params.applyVisibilityFilter === false) {
+    return mapped;
+  }
+  return messagingClientOperations.filterVisibleDmMessages(mapped, params.profileId);
+};
+
+/** Locally hidden DM rows still on the projection timeline (v1.5.1 show-again UI). */
+export const selectHiddenProjectionConversationMessages = (params: Readonly<{
+  projection: AccountProjectionSnapshot | null;
+  conversationId: string;
+  myPublicKeyHex: PublicKeyHex;
+  limit?: number;
+}>): ReadonlyArray<Message> => {
+  if (!params.projection) {
+    return EMPTY_MESSAGES;
+  }
+  const projection = params.projection;
+  const timeline = collectConversationTimelineEntries({
+    projection,
+    conversationId: params.conversationId,
+    myPublicKeyHex: params.myPublicKeyHex,
+  });
+  if (timeline.length === 0) {
+    return EMPTY_MESSAGES;
+  }
+
+  const sortedTimeline = [...timeline].sort((left, right) => {
+    if (left.eventCreatedAtUnixSeconds !== right.eventCreatedAtUnixSeconds) {
+      return left.eventCreatedAtUnixSeconds - right.eventCreatedAtUnixSeconds;
+    }
+    return left.messageId.localeCompare(right.messageId);
+  });
+  const boundedTimeline = (
+    typeof params.limit === "number"
+    && Number.isFinite(params.limit)
+    && params.limit > 0
+    && sortedTimeline.length > Math.floor(params.limit)
+  )
+    ? sortedTimeline.slice(-Math.floor(params.limit))
+    : sortedTimeline;
+
+  const profileId = projection.profileId;
+  const hiddenTimeline = boundedTimeline.filter((entry) => (
+    isAccountProjectionTimelineEntrySuppressed(
+      entry,
+      projection.removedMessageIds,
+      profileId,
+    )
+    || messagingClientOperations.isDmMessageSuppressed(entry.messageId, profileId)
+  ));
+
+  return mapProjectionTimelineToMessages({
+    entries: hiddenTimeline,
+    conversationId: params.conversationId,
+    myPublicKeyHex: params.myPublicKeyHex,
+    profileId,
+    applyVisibilityFilter: false,
+  });
 };

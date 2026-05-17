@@ -312,6 +312,32 @@ describe("useAccountSync convergence orchestration", () => {
     expect(mocks.restoreBackupMock).not.toHaveBeenCalled();
   });
 
+  it("does not run mutation_fast_follow restore after dm_history publish when convergence is enabled", async () => {
+    mocks.getSettingsMock.mockReturnValue({ accountSyncConvergenceV091: true });
+
+    renderHook(() => useAccountSync({
+      publicKeyHex: ACCOUNT_PUBKEY,
+      privateKeyHex: ACCOUNT_PRIVKEY,
+      pool: {} as any,
+      enabledRelayUrls: ["wss://relay.example"],
+    }));
+
+    await waitFor(() => {
+      expect(mocks.subscribeMutationMock).toHaveBeenCalledTimes(1);
+    });
+    mocks.publishBackupMock.mockClear();
+    mocks.restoreBackupMock.mockClear();
+
+    act(() => {
+      mocks.triggerMutation("dm_history_changed");
+    });
+
+    await waitFor(() => {
+      expect(mocks.publishBackupMock).toHaveBeenCalledTimes(1);
+    });
+    expect(mocks.restoreBackupMock).not.toHaveBeenCalled();
+  });
+
   it("publishes immediately for DM history mutations (no mutation cooldown)", async () => {
     mocks.getSettingsMock.mockReturnValue({ accountSyncConvergenceV091: false });
 

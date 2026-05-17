@@ -1,0 +1,42 @@
+    Checking libobscur v0.1.0 (E:\Web Project\experimental-workspace\newstart\packages\libobscur)
+error[E0599]: no method named `sign_schnorr_no_aux` found for struct `Secp256k1<C>` in the current scope
+  --> src\crypto\nip01.rs:39:20
+   |
+39 |     let sig = secp.sign_schnorr_no_aux(&message, &keypair);
+   |                    ^^^^^^^^^^^^^^^^^^^
+   |
+help: there is a method `sign_schnorr_no_aux_rand` with a similar name
+   |
+39 |     let sig = secp.sign_schnorr_no_aux_rand(&message, &keypair);
+   |                                       +++++
+
+error[E0599]: no method named `encrypt_padded_vec_mut` found for struct `Encryptor<C>` in the current scope
+   --> src\crypto\nip04.rs:41:29
+    |
+ 41 |     let ciphertext = cipher.encrypt_padded_vec_mut::<Pkcs7>(plaintext);
+    |                             ^^^^^^^^^^^^^^^^^^^^^^
+    |
+help: there is a method `encrypt_padded_mut` with a similar name, but with different arguments
+   --> C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\cipher-0.4.4\src\block.rs:400:5
+    |
+400 | /     fn encrypt_padded_mut<P: Padding<Self::BlockSize>>(
+401 | |         self,
+402 | |         buf: &mut [u8],
+403 | |         msg_len: usize,
+404 | |     ) -> Result<&[u8], PadError> {
+    | |________________________________^
+
+error[E0599]: no method named `decrypt_padded_vec_mut` found for struct `Decryptor<C>` in the current scope
+  --> src\crypto\nip04.rs:78:28
+   |
+78 |     let decrypted = cipher.decrypt_padded_vec_mut::<Pkcs7>(&ciphertext).map_err(|e| e.to_string())?;
+   |                            ^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: there is a method `decrypt_padded_mut` with a similar name
+   |
+78 -     let decrypted = cipher.decrypt_padded_vec_mut::<Pkcs7>(&ciphertext).map_err(|e| e.to_string())?;
+78 +     let decrypted = cipher.decrypt_padded_mut::<Pkcs7>(&ciphertext).map_err(|e| e.to_string())?;
+   |
+
+For more information about this error, try `rustc --explain E0599`.
+error: could not compile `libobscur` (lib) due to 3 previous errors

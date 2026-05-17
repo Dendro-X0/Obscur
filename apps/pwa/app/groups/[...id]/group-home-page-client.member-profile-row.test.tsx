@@ -174,7 +174,6 @@ vi.mock("@/app/features/groups/components/invite-connections-dialog", () => ({
 }));
 
 vi.mock("@/app/components/ui/confirm-dialog", () => ({
-    ConfirmDialog: () => null,
 }));
 
 vi.mock("@/app/features/profile/components/user-avatar", () => ({

@@ -11,6 +11,7 @@ describe("client-gateway", () => {
       replaceMessageDeleteTombstones: vi.fn(async () => {}),
       isMessageDeleteSuppressed: vi.fn(() => false),
       clearMessageDeleteTombstones: vi.fn(),
+      liftMessageDeleteSuppression: vi.fn(),
       mergeMessageDeleteTombstonesFromIndexedDb: vi.fn(async () => {}),
       hydrateMessageDeleteTombstonesFromSqlite: vi.fn(async () => {}),
     };
@@ -21,6 +22,7 @@ describe("client-gateway", () => {
       persistSuppressionStores: vi.fn(async () => []),
       reconcileAccountEventLog: vi.fn(async () => ({ redactedCount: 0, removedEventsAppended: 0 })),
       executeDeleteForMe: vi.fn(async () => []),
+      executeShowAgainOnDevice: vi.fn(async () => []),
     };
 
     const gateway = buildClientGateway({

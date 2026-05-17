@@ -1,3 +1,55 @@
+## [v1.5.2] - 2026-05-15 (Feel Fast)
+
+### Summary
+
+UI responsiveness and relay discipline on the v1.5.1 stack: faster repeat navigation, bounded standby probing, and Vault first paint without multi-second skeleton stalls.
+
+### Added
+
+- **Route navigation warmup** — `route-navigation-warmup.ts`, expanded prefetch policy, idle preload for community home from Network.
+- **Relay standby probe schedule** — deferred first probe, capped concurrency, visibility-aware cadence (`relay-standby-probe-schedule.ts`).
+- **Vault two-phase media load** — sync index aggregation first, bounded async local URL resolve (`vault-media-aggregator.ts`).
+- **Community confirmation routes** — `/groups/block`, `/groups/purge` (with leave/block/purge dedicated pages).
+- Regression tests in `release:test-pack` for nav warmup, relay schedule, vault aggregator, and group action routes.
+
+### Changed
+
+- App shell page transitions shortened (150ms) with `motion-reduce` respect.
+- Network dashboard: `startTransition` tab switches; `GroupDiscovery` lazy-loaded behind `Suspense`.
+- Vault grid skeleton only when empty; 8 placeholders instead of 15.
+- Desktop updater uses GitHub Releases API for artifact checks (avoids dev WebView CORS noise).
+
+### Known limitations
+
+- First install still pays one-time chunk download per route.
+- Vault IndexedDB full-message scan remains; local file verification is deferred, not removed.
+- Cooperative recall / delete-for-everyone UI remains off.
+
+## [v1.5.1] - 2026-05-16 (Honest Hide)
+
+### Summary
+
+Trust patch on the v1.5.0 stack: **honest local hide**, **show again**, faster first navigation, and **dedicated community confirmation pages** (replacing broken modal overlays).
+
+### Added
+
+- **Hide on this device** — durable suppression across refresh/restore; **Show again on this device** reversal.
+- Dedicated routes: `/groups/leave`, `/groups/block`, `/groups/purge` for destructive community actions.
+- Sidebar/route **navigation warmup** (prefetch + dynamic chunk preload, including community home when Network warms).
+- Regression tests in `pnpm release:test-pack` for hide flags, blocklist safety, group action routes, and nav warmup.
+
+### Changed
+
+- Removed **Recall for everyone** from product UI (`DM_RECALL_FOR_EVERYONE_UI_ENABLED === false`); cooperative delete UI remains off.
+- Network dashboard tab switches use `startTransition`; reduced tab panel animation duration.
+- Desktop updater checks streaming artifacts via GitHub Releases API (avoids CORS-noisy direct download fetches in dev WebView).
+- Community block flow uses `useNetwork().blocklist` (profile-scoped) instead of the DM blocklist hook.
+
+### Known limitations
+
+- Hide is **local/device-scoped**; not network erasure — see `docs/messaging/deletion-roster-limitations.md`.
+- Streaming update policy manifest still requires native or same-origin fetch for full parsing in desktop shell.
+
 ## [v1.5.0] - 2026-05-15 (Gateway & Membership)
 
 ### Summary

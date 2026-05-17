@@ -1,0 +1,371 @@
+/**
+ * Tauri API Integration Layer
+ * Provides TypeScript types and safe access to Tauri APIs with fallbacks for web environment
+ */
+import { getRuntimeCapabilities, hasCallableNativeBridge } from "@/app/features/runtime/runtime-capabilities";
+import { logRuntimeEvent } from "@/app/shared/runtime-log-classification";
+
+const DESKTOP_SHELL_FLAG = process.env.NEXT_PUBLIC_DESKTOP_SHELL;
+const IS_FORCED_DESKTOP_SHELL = DESKTOP_SHELL_FLAG === "1" || DESKTOP_SHELL_FLAG === "true";
+
+// Type definitions for Tauri APIs
+export interface TauriWindow {
+  minimize(): Promise<void>;
+  maximize(): Promise<void>;
+  unmaximize(): Promise<void>;
+  close(): Promise<void>;
+  showAndFocus(): Promise<void>;
+  setTitle(title: string): Promise<void>;
+  isMaximized(): Promise<boolean>;
+  setFullscreen(fullscreen: boolean): Promise<void>;
+  isFullscreen(): Promise<boolean>;
+}
+
+export interface TauriNotification {
+  show(options: {
+    title: string;
+    body: string;
+    tag?: string;
+    data?: Record<string, unknown>;
+    requireInteraction?: boolean;
+    actions?: ReadonlyArray<Readonly<{ action: string; title: string }>>;
+  }): Promise<void>;
+  requestPermission(): Promise<"granted" | "denied" | "default">;
+  isPermissionGranted(): Promise<boolean>;
+}
+
+export interface TauriTray {
+  setUnreadBadgeCount(unreadCount: number): Promise<void>;
+  setIncomingCallState(params: Readonly<{ callerName: string; roomId: string }> | null): Promise<void>;
+}
+
+export interface TauriIncomingCall {
+  getState(): Promise<Readonly<{
+    active: boolean;
+    callerName: string;
+    roomId: string;
+  }>>;
+  performAction(action: "accept" | "decline" | "dismiss" | "open_chat"): Promise<void>;
+}
+
+export interface TauriTheme {
+  getTheme(): Promise<"light" | "dark" | null>;
+  onThemeChanged(callback: (theme: "light" | "dark") => void): Promise<() => void>;
+}
+
+export interface TauriUpdater {
+  checkForUpdates(): Promise<{ available: boolean; version?: string }>;
+  installUpdate(): Promise<void>;
+}
+
+export interface TauriFileSystem {
+  saveFile(data: string, filename: string): Promise<void>;
+  openFile(): Promise<string | null>;
+}
+
+export interface TauriAPI {
+  window: TauriWindow;
+  notification: TauriNotification;
+  tray: TauriTray;
+  incomingCall: TauriIncomingCall;
+  theme: TauriTheme;
+  updater: TauriUpdater;
+  fileSystem: TauriFileSystem;
+}
+
+/**
+ * Detect if running in Tauri desktop environment
+ */
+export function isDesktopEnvironment(): boolean {
+  if (IS_FORCED_DESKTOP_SHELL && getRuntimeCapabilities().isNativeRuntime) {
+    return true;
+  }
+  return getRuntimeCapabilities().supportsWindowControls;
+}
+
+/**
+ * Safe wrapper for Tauri invoke calls
+ */
+async function invokeTauri<T>(command: string, args?: Record<string, unknown>): Promise<T | null> {
+  if (!isDesktopEnvironment()) {
+    return null;
+  }
+  try {
+    const w = window as Window & {
+      __TAURI__?: { core?: { invoke?: unknown } };
+      __TAURI_INTERNALS__?: { invoke?: unknown };
+      __TAURI_IPC__?: unknown;
+    };
+    void w;
+    if (!hasCallableNativeBridge()) {
+      logRuntimeEvent(
+        `tauri.invoke.unsupported.${command}`,
+        "expected",
+        [`[TauriAPI] Command ${command} unsupported in current runtime.`],
+      );
+      return null;
+    }
+    const { invoke } = await import("@tauri-apps/api/core");
+    return (await invoke(command, args)) as T;
+  } catch (error) {
+    logRuntimeEvent(
+      `tauri.invoke.failed.${command}`,
+      "degraded",
+      [`[TauriAPI] Command ${command} failed.`, error],
+      { maxPerWindow: 2, windowMs: 20_000 }
+    );
+    return null;
+  }
+}
+
+/**
+ * Create Tauri API with fallbacks for web environment
+ */
+export function createTauriAPI(): TauriAPI {
+  const isDesktop = isDesktopEnvironment();
+
+  return {
+    window: {
+      async minimize() {
+        if (!isDesktop) return;
+        await invokeTauri("window_minimize");
+      },
+      async maximize() {
+        if (!isDesktop) return;
+        await invokeTauri("window_maximize");
+      },
+      async unmaximize() {
+        if (!isDesktop) return;
+        await invokeTauri("window_unmaximize");
+      },
+      async close() {
+        if (!isDesktop) return;
+        await invokeTauri("window_close");
+      },
+      async showAndFocus() {
+        if (!isDesktop) return;
+        await invokeTauri("window_show_and_focus");
+      },
+      async setTitle(title: string) {
+        if (!isDesktop) return;
+        // Title setting is handled by Tauri's built-in API
+        try {
+          const tauri = (window as any).__TAURI_INTERNALS__;
+          if (tauri && tauri.window) {
+            await tauri.window.getCurrent().setTitle(title);
+          }
+        } catch (error) {
+          console.error("Failed to set window title:", error);
+        }
+      },
+      async isMaximized() {
+        if (!isDesktop) return false;
+        const result = await invokeTauri<boolean>("window_is_maximized");
+        return result ?? false;
+      },
+      async setFullscreen(fullscreen: boolean) {
+        if (!isDesktop) return;
+        await invokeTauri("window_set_fullscreen", { fullscreen });
+      },
+      async isFullscreen() {
+        if (!isDesktop) return false;
+        const result = await invokeTauri<boolean>("window_is_fullscreen");
+        return result ?? false;
+      },
+    },
+    notification: {
+      async show(options: {
+        title: string;
+        body: string;
+        tag?: string;
+        data?: Record<string, unknown>;
+        requireInteraction?: boolean;
+        actions?: ReadonlyArray<Readonly<{ action: string; title: string }>>;
+      }) {
+        if (!isDesktop) {
+          // Fallback to web notifications
+          if ("Notification" in window && Notification.permission === "granted") {
+            new Notification(options.title, { body: options.body });
+          }
+          return;
+        }
+        await invokeTauri("show_notification", {
+          title: options.title,
+          body: options.body,
+          tag: options.tag,
+          data: options.data,
+          requireInteraction: options.requireInteraction,
+          actions: options.actions,
+        });
+      },
+      async requestPermission() {
+        if (!isDesktop) {
+          // Fallback to web notification permission
+          if ("Notification" in window) {
+            const permission = await Notification.requestPermission();
+            return permission;
+          }
+          return "denied";
+        }
+        const result = await invokeTauri<string>("request_notification_permission");
+        return (result as "granted" | "denied" | "default") ?? "denied";
+      },
+      async isPermissionGranted() {
+        if (!isDesktop) {
+          // Fallback to web notification permission
+          if ("Notification" in window) {
+            return Notification.permission === "granted";
+          }
+          return false;
+        }
+        const result = await invokeTauri<boolean>("is_notification_permission_granted");
+        return result ?? false;
+      },
+    },
+    tray: {
+      async setUnreadBadgeCount(unreadCount: number) {
+        if (!isDesktop) return;
+        await invokeTauri("set_tray_unread_badge_count", { unreadCount });
+      },
+      async setIncomingCallState(params: Readonly<{ callerName: string; roomId: string }> | null) {
+        if (!isDesktop) return;
+        await invokeTauri("set_tray_incoming_call_state", {
+          active: Boolean(params),
+          callerName: params?.callerName ?? null,
+          roomId: params?.roomId ?? null,
+        });
+      },
+    },
+    incomingCall: {
+      async getState() {
+        if (!isDesktop) {
+          return {
+            active: false,
+            callerName: "",
+            roomId: "",
+          };
+        }
+        const result = await invokeTauri<{
+          active?: boolean;
+          callerName?: string;
+          roomId?: string;
+        }>("desktop_get_incoming_call_state");
+        return {
+          active: result?.active === true,
+          callerName: typeof result?.callerName === "string" ? result.callerName : "",
+          roomId: typeof result?.roomId === "string" ? result.roomId : "",
+        };
+      },
+      async performAction(action: "accept" | "decline" | "dismiss" | "open_chat") {
+        if (!isDesktop) return;
+        await invokeTauri("desktop_incoming_call_action", { action });
+      },
+    },
+    theme: {
+      async getTheme() {
+        if (!isDesktop) {
+          // Fallback to web media query
+          if (typeof window !== "undefined" && window.matchMedia) {
+            const isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+            return isDark ? "dark" : "light";
+          }
+          return null;
+        }
+        const result = await invokeTauri<string>("get_system_theme");
+        return (result as "light" | "dark") ?? null;
+      },
+      async onThemeChanged(callback: (theme: "light" | "dark") => void) {
+        if (!isDesktop) {
+          // Fallback to web media query listener
+          if (typeof window !== "undefined" && window.matchMedia) {
+            const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+            const listener = (e: MediaQueryListEvent) => {
+              callback(e.matches ? "dark" : "light");
+            };
+            mediaQuery.addEventListener("change", listener);
+            return () => mediaQuery.removeEventListener("change", listener);
+          }
+          return () => {};
+        }
+        // For desktop, poll for theme changes (Tauri doesn't have built-in theme change events)
+        const checkTheme = async () => {
+          const theme = await invokeTauri<string>("get_system_theme");
+          if (theme) {
+            callback(theme as "light" | "dark");
+          }
+        };
+        
+        // Poll every 5 seconds
+        const interval = setInterval(checkTheme, 5000);
+        return () => clearInterval(interval);
+      },
+    },
+    updater: {
+      async checkForUpdates() {
+        if (!isDesktop) {
+          return { available: false };
+        }
+        const result = await invokeTauri<string>("check_for_updates");
+        if (result && result.includes("Update available")) {
+          const version = result.split(": ")[1];
+          return { available: true, version };
+        }
+        return { available: false };
+      },
+      async installUpdate() {
+        if (!isDesktop) return;
+        await invokeTauri("install_update");
+      },
+    },
+    fileSystem: {
+      async saveFile(data: string, filename: string) {
+        if (!isDesktop) {
+          // Fallback to web download
+          const blob = new Blob([data], { type: "text/plain" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = filename;
+          a.click();
+          URL.revokeObjectURL(url);
+          return;
+        }
+        await invokeTauri("save_file", { data, filename });
+      },
+      async openFile() {
+        if (!isDesktop) {
+          // Fallback to web file input
+          return new Promise<string | null>((resolve) => {
+            const input = document.createElement("input");
+            input.type = "file";
+            input.onchange = async (e) => {
+              const file = (e.target as HTMLInputElement).files?.[0];
+              if (file) {
+                const text = await file.text();
+                resolve(text);
+              } else {
+                resolve(null);
+              }
+            };
+            input.click();
+          });
+        }
+        const result = await invokeTauri<string>("open_file");
+        return result;
+      },
+    },
+  };
+}
+
+// Singleton instance
+let tauriAPI: TauriAPI | null = null;
+
+/**
+ * Get the Tauri API instance (singleton)
+ */
+export function getTauriAPI(): TauriAPI {
+  if (!tauriAPI) {
+    tauriAPI = createTauriAPI();
+  }
+  return tauriAPI;
+}

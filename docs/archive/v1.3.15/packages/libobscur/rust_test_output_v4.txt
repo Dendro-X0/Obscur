@@ -1,0 +1,118 @@
+   Compiling libobscur v0.1.0 (E:\Web Project\experimental-workspace\newstart\packages\libobscur)
+warning: unused import: `nostr::prelude::*`
+   --> src\crypto\pow.rs:110:9
+    |
+110 |     use nostr::prelude::*;
+    |         ^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+error[E0507]: cannot move out of index of `Vec<nostr::Tag>`
+   --> src\crypto\pow.rs:74:31
+    |
+ 74 |             let mut tag_vec = local_tags[nonce_idx].to_vec();
+    |                               ^^^^^^^^^^^^^^^^^^^^^ -------- value moved due to this method call
+    |                               |
+    |                               move occurs because value has type `nostr::Tag`, which does not implement the `Copy` trait
+    |
+note: `nostr::Tag::to_vec` takes ownership of the receiver `self`, which moves value
+   --> C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\nostr-0.38.0\src\event\tag\mod.rs:169:19
+    |
+169 |     pub fn to_vec(self) -> Vec<String> {
+    |                   ^^^^
+help: you can `clone` the value and consume it, but this might not be your desired behavior
+    |
+ 74 |             let mut tag_vec = <nostr::Tag as Clone>::clone(&local_tags[nonce_idx]).to_vec();
+    |                               ++++++++++++++++++++++++++++++                     +
+help: consider cloning the value if the performance cost is acceptable
+    |
+ 74 |             let mut tag_vec = local_tags[nonce_idx].clone().to_vec();
+    |                                                    ++++++++
+
+error[E0507]: cannot move out of index of `Vec<nostr::Tag>`
+   --> src\crypto\pow.rs:44:27
+    |
+ 44 |         let mut tag_vec = tags[idx].to_vec();
+    |                           ^^^^^^^^^ -------- value moved due to this method call
+    |                           |
+    |                           move occurs because value has type `nostr::Tag`, which does not implement the `Copy` trait
+    |
+note: `nostr::Tag::to_vec` takes ownership of the receiver `self`, which moves value
+   --> C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\nostr-0.38.0\src\event\tag\mod.rs:169:19
+    |
+169 |     pub fn to_vec(self) -> Vec<String> {
+    |                   ^^^^
+help: you can `clone` the value and consume it, but this might not be your desired behavior
+    |
+ 44 |         let mut tag_vec = <nostr::Tag as Clone>::clone(&tags[idx]).to_vec();
+    |                           ++++++++++++++++++++++++++++++         +
+help: consider cloning the value if the performance cost is acceptable
+    |
+ 44 |         let mut tag_vec = tags[idx].clone().to_vec();
+    |                                    ++++++++
+
+error[E0507]: cannot move out of index of `Vec<nostr::Tag>`
+  --> src\crypto\pow.rs:96:29
+   |
+96 |     let mut final_tag_vec = tags[nonce_idx].to_vec();
+   |                             ^^^^^^^^^^^^^^^ -------- value moved due to this method call
+   |                             |
+   |                             move occurs because value has type `nostr::Tag`, which does not implement the `Copy` trait
+   |
+help: you can `clone` the value and consume it, but this might not be your desired behavior
+   |
+96 |     let mut final_tag_vec = <nostr::Tag as Clone>::clone(&tags[nonce_idx]).to_vec();
+   |                             ++++++++++++++++++++++++++++++               +
+help: consider cloning the value if the performance cost is acceptable
+   |
+96 |     let mut final_tag_vec = tags[nonce_idx].clone().to_vec();
+   |                                            ++++++++
+
+error[E0382]: use of partially moved value: `event`
+   --> src\crypto\pow.rs:104:8
+    |
+102 |     event.id = Some(EventId::new(&event.pubkey, &event.created_at, &event.kind, &event.tags.to_vec(), &event.content));
+    |                                                                                             -------- `event.tags` partially moved due to this method call
+103 |     
+104 |     Ok(event)
+    |        ^^^^^ value used here after partial move
+    |
+note: `nostr::Tags::to_vec` takes ownership of the receiver `self`, which moves `event.tags`
+   --> C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\nostr-0.38.0\src\event\tag\list.rs:149:19
+    |
+149 |     pub fn to_vec(self) -> Vec<Tag> {
+    |                   ^^^^
+    = note: partial move occurs because `event.tags` has type `nostr::Tags`, which does not implement the `Copy` trait
+help: you can `clone` the value and consume it, but this might not be your desired behavior
+    |
+102 |     event.id = Some(EventId::new(&event.pubkey, &event.created_at, &event.kind, &event.tags.clone().to_vec(), &event.content));
+    |                                                                                            ++++++++
+
+error[E0507]: cannot move out of `*tag` which is behind a shared reference
+   --> src\crypto\pow.rs:127:23
+    |
+127 |             let vec = tag.to_vec();
+    |                       ^^^ -------- `*tag` moved due to this method call
+    |                       |
+    |                       move occurs because `*tag` has type `nostr::Tag`, which does not implement the `Copy` trait
+    |
+note: `nostr::Tag::to_vec` takes ownership of the receiver `self`, which moves `*tag`
+   --> C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\nostr-0.38.0\src\event\tag\mod.rs:169:19
+    |
+169 |     pub fn to_vec(self) -> Vec<String> {
+    |                   ^^^^
+help: you can `clone` the value and consume it, but this might not be your desired behavior
+    |
+127 |             let vec = <nostr::Tag as Clone>::clone(&tag).to_vec();
+    |                       ++++++++++++++++++++++++++++++   +
+help: consider cloning the value if the performance cost is acceptable
+    |
+127 |             let vec = tag.clone().to_vec();
+    |                          ++++++++
+
+Some errors have detailed explanations: E0382, E0507.
+For more information about an error, try `rustc --explain E0382`.
+error: could not compile `libobscur` (lib) due to 4 previous errors
+warning: build failed, waiting for other jobs to finish...
+warning: `libobscur` (lib test) generated 1 warning
+error: could not compile `libobscur` (lib test) due to 5 previous errors; 1 warning emitted

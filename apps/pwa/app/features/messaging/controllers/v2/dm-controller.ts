@@ -704,7 +704,7 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
       additionalIds: allTargetIds,
     });
     if (mode === "for_everyone") {
-      console.log("[dm-controller:v2] delete for everyone requested", {
+      console.info("[Obscur Recall] delete for everyone requested", {
         conversationId: canonicalConversationId.slice(0, 32),
         messageId: delParams.messageId.slice(0, 16),
         targetFound: !!target,
@@ -830,32 +830,6 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
 
       await commitNetworkDeleteTombstone(prepared.tombstone);
 
-      try {
-        const { applyDestructiveDmDeleteForEveryoneLocal } = await import(
-          "../../services/dm-delete-for-everyone-local-destruction"
-        );
-        await applyDestructiveDmDeleteForEveryoneLocal({
-          conversationId: canonicalConversationId,
-          messageIdentityIds: allTargetIds,
-          accountPublicKeyHex: myPublicKeyHex,
-          profileId,
-          observedAtUnixMs: prepared.tombstone.deletedAt,
-        });
-      } catch (destructiveErr) {
-        console.error("[dm-controller:v2] destructive local purge failed before delete publish", destructiveErr);
-        logAppEvent({
-          name: "messaging.delete_for_everyone_local_destruction_failed",
-          level: "error",
-          scope: { feature: "messaging", action: "delete_for_everyone" },
-          context: {
-            channel: "dm_sender_destructive_purge",
-            conversationIdHint: canonicalConversationId.slice(0, 32),
-            messageIdHint: delParams.messageId.slice(0, 16),
-            reason: destructiveErr instanceof Error ? destructiveErr.message : String(destructiveErr),
-          },
-        });
-      }
-
       setMessages((prev) => prev.filter((m) => (
         !allTargetIds.includes(m.id)
         && !allTargetIds.includes(m.eventId || "")
@@ -866,6 +840,37 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
         messageId: delParams.messageId,
         messageIdentityIds: allTargetIds,
       });
+
+      void (async () => {
+        try {
+          const { applyDestructiveDmDeleteForEveryoneLocal } = await import(
+            "../../services/dm-delete-for-everyone-local-destruction"
+          );
+          await applyDestructiveDmDeleteForEveryoneLocal({
+            conversationId: canonicalConversationId,
+            messageIdentityIds: allTargetIds,
+            accountPublicKeyHex: myPublicKeyHex,
+            profileId,
+            observedAtUnixMs: prepared.tombstone.deletedAt,
+            prioritizeUiResponse: true,
+            replayProjection: true,
+            redactTimelineEvents: true,
+          });
+        } catch (destructiveErr) {
+          console.error("[dm-controller:v2] destructive local purge failed after recall UI", destructiveErr);
+          logAppEvent({
+            name: "messaging.delete_for_everyone_local_destruction_failed",
+            level: "error",
+            scope: { feature: "messaging", action: "delete_for_everyone" },
+            context: {
+              channel: "dm_sender_destructive_purge",
+              conversationIdHint: canonicalConversationId.slice(0, 32),
+              messageIdHint: delParams.messageId.slice(0, 16),
+              reason: destructiveErr instanceof Error ? destructiveErr.message : String(destructiveErr),
+            },
+          });
+        }
+      })();
 
       const sendResult = await sendDm({
         pool,
@@ -912,7 +917,7 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
         successfulRelay,
       );
 
-      console.log("[dm-controller:v2] delete command published", {
+      console.info("[Obscur Recall] delete command published to relay", {
         eventId: sendResult.eventId.slice(0, 16),
         tombstoneId: prepared.tombstone.tombstoneId.slice(0, 16),
         relayEvidence: successfulRelay?.slice(0, 40) ?? null,

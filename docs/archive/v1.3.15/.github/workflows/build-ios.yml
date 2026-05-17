@@ -1,0 +1,81 @@
+name: Build iOS (Manual)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  ios-precheck:
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.check.outputs.ready }}
+    steps:
+      - name: Check required iOS signing secrets
+        id: check
+        shell: bash
+        run: |
+          missing=()
+          [[ -n "${{ secrets.APPLE_CERTIFICATE_BASE64 }}" ]] || missing+=("APPLE_CERTIFICATE_BASE64")
+          [[ -n "${{ secrets.APPLE_CERTIFICATE_PASSWORD }}" ]] || missing+=("APPLE_CERTIFICATE_PASSWORD")
+          [[ -n "${{ secrets.APPLE_DEVELOPMENT_TEAM }}" ]] || missing+=("APPLE_DEVELOPMENT_TEAM")
+
+          if [ ${#missing[@]} -eq 0 ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+            echo "iOS precheck passed: all required signing secrets are set." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "iOS precheck failed: missing secrets -> ${missing[*]}" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  build-ios:
+    needs: ios-precheck
+    if: ${{ needs.ios-precheck.outputs.ready == 'true' }}
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Apple Certificate
+        uses: apple-actions/import-codesign-certs@v3
+        with:
+          p12-file-base64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          p12-password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios,x86_64-apple-ios,aarch64-apple-ios-sim
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build iOS App (Signed)
+        run: pnpm -C apps/desktop tauri ios build --ci
+        env:
+          APPLE_DEVELOPMENT_TEAM: ${{ secrets.APPLE_DEVELOPMENT_TEAM }}
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: obscur-ios-ipa
+          path: apps/desktop/src-tauri/gen/apple/build/arm64-apple-ios/release/*.ipa
+
+      - name: Upload to TestFlight
+        if: github.event_name != 'pull_request' && (github.ref_type == 'tag' || github.event_name == 'workflow_dispatch')
+        uses: apple-actions/upload-testflight-build@v1
+        with:
+          app-path: apps/desktop/src-tauri/gen/apple/build/arm64-apple-ios/release/*.ipa
+          issuer-id: ${{ secrets.APP_STORE_CONNECT_API_KEY_ISSUER_ID }}
+          api-key-id: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          api-key-base64: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}
+

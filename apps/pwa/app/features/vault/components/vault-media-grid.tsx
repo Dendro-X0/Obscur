@@ -411,10 +411,10 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
         };
     }, [hasPreviewNext, hasPreviewPrevious, openMenuItemId, selectedItem, selectedItemIndex, visibleItems]);
 
-    if (props.isLoading) {
+    if (props.isLoading && props.mediaItems.length === 0) {
         return (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-6">
-                {Array.from({ length: 15 }).map((_, i) => (
+                {Array.from({ length: 8 }).map((_, i) => (
                     <div key={i} className="aspect-square rounded-[24px] bg-muted animate-pulse border border-border/50 overflow-hidden relative">
                         <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent" />
                         <div className="absolute bottom-4 left-4 right-8 h-2 bg-white/5 rounded-full" />

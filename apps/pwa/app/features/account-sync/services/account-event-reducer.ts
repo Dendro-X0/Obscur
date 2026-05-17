@@ -143,11 +143,10 @@ const removeMessage = (
   const targetConversationIds = params.conversationId
     ? [params.conversationId]
     : Object.keys(current.messagesByConversationId);
-  let nextMessagesByConversationId = current.messagesByConversationId;
   let nextConversationsById = current.conversationsById;
 
   targetConversationIds.forEach((conversationId) => {
-    const existingConversationMessages = nextMessagesByConversationId[conversationId] ?? [];
+    const existingConversationMessages = current.messagesByConversationId[conversationId] ?? [];
     if (existingConversationMessages.length === 0) {
       return;
     }
@@ -155,14 +154,13 @@ const removeMessage = (
     if (removedMessages.length === 0) {
       return;
     }
-    const remainingMessages = existingConversationMessages.filter((entry) => entry.messageId !== params.messageId);
+    const visibleMessages = existingConversationMessages.filter((entry) => {
+      const tombstonedAt = current.removedMessageIds?.[entry.messageId] ?? 0;
+      return entry.messageId !== params.messageId && tombstonedAt <= 0;
+    });
     const currentConversation = nextConversationsById[conversationId];
-    const latestMessage = remainingMessages[remainingMessages.length - 1];
+    const latestMessage = visibleMessages[visibleMessages.length - 1];
     const removedIncomingCount = removedMessages.filter((entry) => entry.direction === "incoming").length;
-    nextMessagesByConversationId = {
-      ...nextMessagesByConversationId,
-      [conversationId]: remainingMessages,
-    };
     if (currentConversation) {
       nextConversationsById = {
         ...nextConversationsById,
@@ -179,7 +177,6 @@ const removeMessage = (
   return {
     ...current,
     conversationsById: nextConversationsById,
-    messagesByConversationId: nextMessagesByConversationId,
     removedMessageIds: {
       ...(current.removedMessageIds ?? {}),
       [params.messageId]: Math.max(
@@ -259,6 +256,18 @@ export const reduceAccountEvent = (
         conversationId: accountEvent.conversationId,
         observedAtUnixMs: accountEvent.observedAtUnixMs,
       });
+      break;
+    }
+    case "DM_RESTORED_LOCALLY": {
+      const removed = next.removedMessageIds ?? {};
+      if (!(accountEvent.messageId in removed)) {
+        break;
+      }
+      const { [accountEvent.messageId]: _removedAt, ...restRemoved } = removed;
+      next = {
+        ...next,
+        removedMessageIds: restRemoved,
+      };
       break;
     }
     case "DM_DECRYPT_FAILED_QUARANTINED":

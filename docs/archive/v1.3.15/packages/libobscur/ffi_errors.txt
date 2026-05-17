@@ -1,0 +1,14 @@
+    Checking futures-core v0.3.32
+    Checking futures-io v0.3.31
+   Compiling libobscur v0.1.0 (E:\Web Project\experimental-workspace\newstart\packages\libobscur)
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `uniffi`
+ --> build.rs:2:5
+  |
+2 |     uniffi::setup_scaffolding("libobscur");
+  |     ^^^^^^ use of unresolved module or unlinked crate `uniffi`
+  |
+  = help: if you wanted to use a crate named `uniffi`, use `cargo add uniffi` to add it to your `Cargo.toml`
+
+For more information about this error, try `rustc --explain E0433`.
+error: could not compile `libobscur` (build script) due to 1 previous error
+warning: build failed, waiting for other jobs to finish...

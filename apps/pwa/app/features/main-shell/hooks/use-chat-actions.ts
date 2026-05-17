@@ -30,6 +30,9 @@ import { getResolvedProfileId } from "@/app/features/profiles/services/profile-r
 import {
     messagingClientOperations,
 } from "@/app/features/messaging/services/messaging-client-operations";
+import { accountProjectionRuntime } from "@/app/features/account-sync/services/account-projection-runtime";
+import { selectProjectionConversationMessages } from "@/app/features/account-sync/services/account-projection-selectors";
+import { emitAccountSyncMutation } from "@/app/shared/account-sync-mutation-signal";
 import {
     buildDeleteTargetIdsForDm,
     buildLocalDeleteIdentityIdsForDm,
@@ -475,8 +478,77 @@ export function useChatActions(dmController: UseDmControllerResult | null) {
         isDeletedRecipient
     ]);
 
-    const deleteMessageForMe = useCallback(async (params: { conversationId: string; message: Message }) => {
-        const deleteIds = (
+    const deleteMessageForMe = useCallback((params: { conversationId: string; message: Message }) => {
+        const immediateIds = toLocalDeleteIdentityIds(params.message);
+        messageBus.emitMessageDeleted(params.conversationId, params.message.id, {
+            messageIdentityIds: immediateIds,
+            sourceProfileId: getResolvedProfileId() || undefined,
+        });
+
+        void (async () => {
+            const deleteIds = (
+                selectedConversation?.kind === "dm"
+                    ? await buildLocalDeleteIdentityIdsForDm({
+                        message: params.message,
+                        myPublicKeyHex: identity.state.publicKeyHex ?? null,
+                        peerPublicKeyHex: selectedConversation.pubkey,
+                    })
+                    : immediateIds
+            );
+            const activeProfileId = getResolvedProfileId() || undefined;
+            if (identity.state.publicKeyHex) {
+                await messagingClientOperations.deleteDmForMe({
+                    conversationId: params.conversationId,
+                    messageIdentityIds: deleteIds,
+                    accountPublicKeyHex: identity.state.publicKeyHex,
+                    profileId: activeProfileId,
+                    observedAtUnixMs: params.message.timestamp.getTime(),
+                    prioritizeUiResponse: true,
+                    replayProjection: true,
+                    redactTimelineEvents: false,
+                });
+            } else {
+                await messagingClientOperations.persistDmSuppressionOnly({
+                    conversationId: params.conversationId,
+                    messageIdentityIds: deleteIds,
+                    profileId: activeProfileId,
+                });
+            }
+        })().catch((error) => {
+            console.error("[messaging] hide on device failed", error);
+        });
+    }, [identity.state.publicKeyHex, selectedConversation]);
+
+    const emitRestoredMessagesToBus = useCallback((
+        conversationId: string,
+        restoredIdentityIds: ReadonlyArray<string>,
+    ): void => {
+        const accountPublicKeyHex = identity.state.publicKeyHex;
+        if (!accountPublicKeyHex || restoredIdentityIds.length === 0) {
+            return;
+        }
+        const projection = accountProjectionRuntime.getSnapshot().projection;
+        if (!projection) {
+            return;
+        }
+        const restoredSet = new Set(restoredIdentityIds);
+        const visibleMessages = selectProjectionConversationMessages({
+            projection,
+            conversationId,
+            myPublicKeyHex: accountPublicKeyHex,
+        });
+        visibleMessages.forEach((message) => {
+            const aliases = collectMessageIdentityAliases(message);
+            if (!aliases.some((alias) => restoredSet.has(alias))) {
+                return;
+            }
+            messageBus.emitNewMessage(conversationId, message);
+        });
+        emitAccountSyncMutation("dm_history_changed");
+    }, [identity.state.publicKeyHex]);
+
+    const showMessageOnDeviceAgain = useCallback(async (params: { conversationId: string; message: Message }) => {
+        const identityIds = (
             selectedConversation?.kind === "dm"
                 ? await buildLocalDeleteIdentityIdsForDm({
                     message: params.message,
@@ -486,25 +558,49 @@ export function useChatActions(dmController: UseDmControllerResult | null) {
                 : toLocalDeleteIdentityIds(params.message)
         );
         const activeProfileId = getResolvedProfileId() || undefined;
-        if (identity.state.publicKeyHex) {
-            await messagingClientOperations.deleteDmForMe({
+        if (!identity.state.publicKeyHex) {
+            return;
+        }
+        const restoredIds = await messagingClientOperations.showDmOnDeviceAgain({
+            conversationId: params.conversationId,
+            messageIdentityIds: identityIds,
+            accountPublicKeyHex: identity.state.publicKeyHex,
+            profileId: activeProfileId,
+            observedAtUnixMs: params.message.timestamp.getTime(),
+        });
+        emitRestoredMessagesToBus(params.conversationId, restoredIds);
+    }, [emitRestoredMessagesToBus, identity.state.publicKeyHex, selectedConversation]);
+
+    const showAllHiddenMessagesOnDevice = useCallback(async (params: Readonly<{
+        conversationId: string;
+        messages: ReadonlyArray<Message>;
+    }>) => {
+        if (!identity.state.publicKeyHex || params.messages.length === 0) {
+            return;
+        }
+        const activeProfileId = getResolvedProfileId() || undefined;
+        const restoredIdSet = new Set<string>();
+        for (const message of params.messages) {
+            const identityIds = (
+                selectedConversation?.kind === "dm"
+                    ? await buildLocalDeleteIdentityIdsForDm({
+                        message,
+                        myPublicKeyHex: identity.state.publicKeyHex,
+                        peerPublicKeyHex: selectedConversation.pubkey,
+                    })
+                    : toLocalDeleteIdentityIds(message)
+            );
+            const restored = await messagingClientOperations.showDmOnDeviceAgain({
                 conversationId: params.conversationId,
-                messageIdentityIds: deleteIds,
+                messageIdentityIds: identityIds,
                 accountPublicKeyHex: identity.state.publicKeyHex,
                 profileId: activeProfileId,
-                observedAtUnixMs: params.message.timestamp.getTime(),
+                observedAtUnixMs: message.timestamp.getTime(),
             });
-        } else {
-            await messagingClientOperations.persistDmSuppressionOnly({
-                conversationId: params.conversationId,
-                messageIdentityIds: deleteIds,
-                profileId: activeProfileId,
-            });
+            restored.forEach((id) => restoredIdSet.add(id));
         }
-        messageBus.emitMessageDeleted(params.conversationId, params.message.id, {
-            messageIdentityIds: deleteIds,
-        });
-    }, [identity.state.publicKeyHex, selectedConversation]);
+        emitRestoredMessagesToBus(params.conversationId, Array.from(restoredIdSet));
+    }, [emitRestoredMessagesToBus, identity.state.publicKeyHex, selectedConversation]);
 
     const deleteMessageForEveryone = useCallback(async (params: { conversationId: string; message: Message }) => {
         if (!selectedConversation) {
@@ -620,13 +716,18 @@ export function useChatActions(dmController: UseDmControllerResult | null) {
         if (selectedConversation.kind === "dm" && dmController) {
             try {
                 const myPubkey = identity.state.publicKeyHex;
+                const immediateIds = collectMessageIdentityAliases(params.message);
+                messageBus.emitMessageDeleted(params.conversationId, params.message.id, {
+                    messageIdentityIds: immediateIds,
+                    sourceProfileId: getResolvedProfileId() || undefined,
+                });
                 const targetIdentityIds = myPubkey
                     ? await buildDeleteTargetIdsForDm({
                         message: params.message,
                         senderPubkey: myPubkey,
                         recipientPubkey: selectedConversation.pubkey,
                     })
-                    : collectMessageIdentityAliases(params.message);
+                    : immediateIds;
                 const deleted = await dmController.deleteMessage({
                     messageId: params.message.id,
                     conversationId: params.conversationId,
@@ -636,9 +737,11 @@ export function useChatActions(dmController: UseDmControllerResult | null) {
                     targetIdentityIds,
                 });
                 if (deleted) {
-                    toast.info("Message removed for everyone");
+                    toast.info("Recall sent — the other person’s Obscur app should hide this message when it receives the command.");
                 } else {
-                    toast.warning("Failed to remove message for everyone.");
+                    toast.warning(
+                        "Recall could not reach relays. The message is hidden on this device only — the other person may still see it.",
+                    );
                 }
             } catch (error) {
                 console.error("Failed to delete message for everyone:", error);
@@ -706,7 +809,14 @@ export function useChatActions(dmController: UseDmControllerResult | null) {
         }
     }, [selectedConversation, identity.state, publishGroupEvent]);
 
-    return { handleSendMessage, deleteMessageForMe, deleteMessageForEveryone, toggleReaction };
+    return {
+        handleSendMessage,
+        deleteMessageForMe,
+        deleteMessageForEveryone,
+        showMessageOnDeviceAgain,
+        showAllHiddenMessagesOnDevice,
+        toggleReaction,
+    };
 }
 
 export const useChatActionsInternals = {

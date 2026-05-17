@@ -1,0 +1,185 @@
+   Compiling libobscur v0.1.0 (E:\Web Project\experimental-workspace\newstart\packages\libobscur)
+error[E0425]: cannot find function `generate_key_pair` in module `nip01`
+  --> src\crypto\nip17.rs:86:43
+   |
+86 |         let (sk_a_hex, pk_a_hex) = nip01::generate_key_pair();
+   |                                           ^^^^^^^^^^^^^^^^^ not found in `nip01`
+   |
+help: consider importing one of these functions
+   |
+82 +     use crate::crypto::generate_key_pair;
+   |
+82 +     use crate::ffi::generate_key_pair;
+   |
+help: if you import `generate_key_pair`, refer to it directly
+   |
+86 -         let (sk_a_hex, pk_a_hex) = nip01::generate_key_pair();
+86 +         let (sk_a_hex, pk_a_hex) = generate_key_pair();
+   |
+
+error[E0425]: cannot find function `generate_key_pair` in module `nip01`
+  --> src\crypto\nip17.rs:87:43
+   |
+87 |         let (sk_b_hex, pk_b_hex) = nip01::generate_key_pair();
+   |                                           ^^^^^^^^^^^^^^^^^ not found in `nip01`
+   |
+help: consider importing one of these functions
+   |
+82 +     use crate::crypto::generate_key_pair;
+   |
+82 +     use crate::ffi::generate_key_pair;
+   |
+help: if you import `generate_key_pair`, refer to it directly
+   |
+87 -         let (sk_b_hex, pk_b_hex) = nip01::generate_key_pair();
+87 +         let (sk_b_hex, pk_b_hex) = generate_key_pair();
+   |
+
+warning: unused import: `nostr::prelude::*`
+   --> src\crypto\pow.rs:107:9
+    |
+107 |     use nostr::prelude::*;
+    |         ^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+error[E0608]: cannot index into a value of type `Tags`
+  --> src\crypto\pow.rs:42:57
+   |
+42 |         if let Tag::Generic(_, values) = &mut event.tags[idx] {
+   |                                                         ^^^^^
+
+error[E0599]: no associated item named `Generic` found for struct `nostr::Tag` in the current scope
+  --> src\crypto\pow.rs:42:21
+   |
+42 |         if let Tag::Generic(_, values) = &mut event.tags[idx] {
+   |                     ^^^^^^^ associated item not found in `nostr::Tag`
+
+error[E0599]: no method named `push` found for struct `Tags` in the current scope
+  --> src\crypto\pow.rs:54:20
+   |
+54 |         event.tags.push(Tag::Generic(TagKind::from("nonce"), vec!["0".to_string(), target_difficulty.to_string()]));
+   |                    ^^^^ method not found in `Tags`
+
+error[E0599]: no associated item named `Generic` found for struct `nostr::Tag` in the current scope
+   --> src\crypto\pow.rs:54:30
+    |
+ 54 |         event.tags.push(Tag::Generic(TagKind::from("nonce"), vec!["0".to_string(), target_difficulty.to_string()]));
+    |                              ^^^^^^^ associated item not found in `nostr::Tag`
+    |
+note: if you're trying to build a new `nostr::Tag` consider using one of the following associated functions:
+      nostr::Tag::parse
+      nostr::Tag::from_standardized
+      nostr::Tag::from_standardized_without_cell
+      nostr::Tag::event
+      and 16 others
+   --> C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\nostr-0.38.0\src\event\tag\mod.rs:96:5
+    |
+ 96 | /     pub fn parse<I, S>(tag: I) -> Result<Self, Error>
+ 97 | |     where
+ 98 | |         I: IntoIterator<Item = S>,
+ 99 | |         S: Into<String>,
+    | |________________________^
+...
+114 |       pub fn from_standardized(standardized: TagStandard) -> Self {
+    |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+119 |       pub fn from_standardized_without_cell(standardized: TagStandard) -> Self {
+    |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+176 |       pub fn event(event_id: EventId) -> Self {
+    |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0608]: cannot index into a value of type `Tags`
+  --> src\crypto\pow.rs:72:67
+   |
+72 |             if let Tag::Generic(_, values) = &mut local_event.tags[nonce_idx] {
+   |                                                                   ^^^^^^^^^^^
+
+error[E0599]: no associated item named `Generic` found for struct `nostr::Tag` in the current scope
+  --> src\crypto\pow.rs:72:25
+   |
+72 |             if let Tag::Generic(_, values) = &mut local_event.tags[nonce_idx] {
+   |                         ^^^^^^^ associated item not found in `nostr::Tag`
+
+error[E0599]: no method named `calculate_id` found for struct `nostr::UnsignedEvent` in the current scope
+  --> src\crypto\pow.rs:76:34
+   |
+76 |             let id = local_event.calculate_id();
+   |                                  ^^^^^^^^^^^^ method not found in `nostr::UnsignedEvent`
+
+error[E0608]: cannot index into a value of type `Tags`
+  --> src\crypto\pow.rs:94:53
+   |
+94 |     if let Tag::Generic(_, values) = &mut event.tags[nonce_idx] {
+   |                                                     ^^^^^^^^^^^
+
+error[E0599]: no associated item named `Generic` found for struct `nostr::Tag` in the current scope
+  --> src\crypto\pow.rs:94:17
+   |
+94 |     if let Tag::Generic(_, values) = &mut event.tags[nonce_idx] {
+   |                 ^^^^^^^ associated item not found in `nostr::Tag`
+
+error[E0599]: no method named `calculate_id` found for struct `nostr::UnsignedEvent` in the current scope
+  --> src\crypto\pow.rs:99:22
+   |
+99 |     event.id = event.calculate_id();
+   |                      ^^^^^^^^^^^^ method not found in `nostr::UnsignedEvent`
+
+error[E0061]: this function takes 1 argument but 2 arguments were supplied
+   --> src\crypto\pow.rs:112:23
+    |
+112 |         let builder = EventBuilder::text_note("Hello, PoW!", []);
+    |                       ^^^^^^^^^^^^^^^^^^^^^^^                -- unexpected argument #2 of type `[_; 0]`
+    |
+note: associated function defined here
+   --> C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\nostr-0.38.0\src\event\builder.rs:383:12
+    |
+383 |     pub fn text_note<S>(content: S) -> Self
+    |            ^^^^^^^^^
+help: remove the extra argument
+    |
+112 -         let builder = EventBuilder::text_note("Hello, PoW!", []);
+112 +         let builder = EventBuilder::text_note("Hello, PoW!");
+    |
+
+error[E0599]: no method named `to_unsigned_event` found for struct `nostr::EventBuilder` in the current scope
+   --> src\crypto\pow.rs:113:32
+    |
+113 |         let unsigned = builder.to_unsigned_event(keys.public_key());
+    |                                ^^^^^^^^^^^^^^^^^ method not found in `nostr::EventBuilder`
+
+error[E0308]: mismatched types
+   --> src\crypto\pow.rs:118:35
+    |
+118 |         assert!(get_leading_zeros(mined.id) >= difficulty);
+    |                 ----------------- ^^^^^^^^ expected `EventId`, found `Option<EventId>`
+    |                 |
+    |                 arguments to this function are incorrect
+    |
+    = note: expected struct `nostr::EventId`
+                 found enum `std::option::Option<nostr::EventId>`
+note: function defined here
+   --> src\crypto\pow.rs:7:8
+    |
+  7 | pub fn get_leading_zeros(id: EventId) -> u8 {
+    |        ^^^^^^^^^^^^^^^^^ -----------
+help: consider using `Option::expect` to unwrap the `std::option::Option<nostr::EventId>` value, panicking if the value is an `Option::None`
+    |
+118 |         assert!(get_leading_zeros(mined.id.expect("REASON")) >= difficulty);
+    |                                           +++++++++++++++++
+
+error[E0599]: no associated item named `Generic` found for struct `nostr::Tag` in the current scope
+   --> src\crypto\pow.rs:125:29
+    |
+125 |                 if let Tag::Generic(_, values) = tag {
+    |                             ^^^^^^^ associated item not found in `nostr::Tag`
+
+Some errors have detailed explanations: E0599, E0608.
+For more information about an error, try `rustc --explain E0599`.
+error: could not compile `libobscur` (lib) due to 10 previous errors
+warning: build failed, waiting for other jobs to finish...
+Some errors have detailed explanations: E0061, E0308, E0425, E0599, E0608.
+For more information about an error, try `rustc --explain E0061`.
+warning: `libobscur` (lib test) generated 1 warning
+error: could not compile `libobscur` (lib test) due to 16 previous errors; 1 warning emitted

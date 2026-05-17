@@ -1,8 +1,6 @@
 import type { NavItem } from "../lib/navigation/nav-item";
 
-export type RoutePrefetchWarmupSkipReason =
-  | "desktop_runtime"
-  | "no_targets";
+export type RoutePrefetchWarmupSkipReason = "no_targets";
 
 export type RoutePrefetchWarmupPlan = Readonly<
   | {
@@ -16,27 +14,21 @@ export type RoutePrefetchWarmupPlan = Readonly<
   }
 >;
 
+/** Sidebar routes that use `next/dynamic` page clients — warm after initial shell mount. */
 const PREFETCH_WARMUP_ALLOWED_HREFS = new Set<string>([
   "/network",
   "/vault",
+  "/search",
+  "/settings",
 ]);
 
 export const resolveRoutePrefetchWarmupPlan = (
   options: Readonly<{
     pathname: string;
-    isDesktop: boolean;
     navItems: ReadonlyArray<NavItem>;
     warmedHrefs: ReadonlySet<string>;
   }>,
 ): RoutePrefetchWarmupPlan => {
-  if (options.isDesktop) {
-    return {
-      enabled: false,
-      reason: "desktop_runtime",
-      targets: [],
-    };
-  }
-
   const targets = options.navItems
     .map((item) => item.href)
     .filter((href, index, allHrefs) => (

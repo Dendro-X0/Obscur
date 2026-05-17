@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { RelayPoolLike } from "@/app/features/relays/lib/nostr-core-relay";
@@ -24,19 +24,23 @@ export const useAccountProjectionRuntime = (params: UseAccountProjectionRuntimeP
     accountProjectionRuntime.getSnapshot,
     getServerSnapshot
   );
+  const lastBootstrapScopeKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!params.publicKeyHex || !params.privateKeyHex) {
+      lastBootstrapScopeKeyRef.current = null;
       accountProjectionRuntime.reset();
       return;
     }
     const profileId = getResolvedProfileId();
+    const scopeKey = `${profileId}:${params.publicKeyHex}`;
     const snapshotBoundToActiveAccount = (
       snapshot.profileId === profileId
       && snapshot.accountPublicKeyHex === params.publicKeyHex
     );
     const snapshotHasAccountScope = Boolean(snapshot.profileId || snapshot.accountPublicKeyHex);
     if (!snapshotBoundToActiveAccount && snapshotHasAccountScope) {
+      lastBootstrapScopeKeyRef.current = null;
       accountProjectionRuntime.reset();
       return;
     }
@@ -51,12 +55,31 @@ export const useAccountProjectionRuntime = (params: UseAccountProjectionRuntimeP
     if (alreadyReadyForActiveAccount || alreadyBootstrappingOrReplayingForActiveAccount) {
       return;
     }
-    void accountProjectionRuntime.bootstrapAndReplay({
-      profileId,
-      accountPublicKeyHex: params.publicKeyHex,
-      privateKeyHex: params.privateKeyHex,
-      pool: params.pool,
-    });
+    // Do not auto-rebootstrap a failed projection on every render; wait for scope change.
+    if (snapshotBoundToActiveAccount && snapshot.phase === "degraded" && snapshot.lastError) {
+      return;
+    }
+    if (lastBootstrapScopeKeyRef.current === scopeKey) {
+      return;
+    }
+    if (!profileId) {
+      return;
+    }
+    const accountPublicKeyHex = params.publicKeyHex;
+    const privateKeyHex = params.privateKeyHex;
+    lastBootstrapScopeKeyRef.current = scopeKey;
+    void (async () => {
+      try {
+        await accountProjectionRuntime.bootstrapAndReplay({
+          profileId,
+          accountPublicKeyHex,
+          privateKeyHex,
+          pool: params.pool,
+        });
+      } catch {
+        lastBootstrapScopeKeyRef.current = null;
+      }
+    })();
   }, [
     params.pool,
     params.privateKeyHex,

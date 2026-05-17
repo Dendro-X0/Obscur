@@ -1,0 +1,14 @@
+   Compiling libobscur v0.1.0 (E:\Web Project\experimental-workspace\newstart\packages\libobscur)
+error[E0423]: expected function, found macro `uniffi::setup_scaffolding`
+ --> build.rs:2:5
+  |
+2 |     uniffi::setup_scaffolding("libobscur");
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^ not a function
+  |
+help: use `!` to invoke the macro
+  |
+2 |     uniffi::setup_scaffolding!("libobscur");
+  |                              +
+
+For more information about this error, try `rustc --explain E0423`.
+error: could not compile `libobscur` (build script) due to 1 previous error

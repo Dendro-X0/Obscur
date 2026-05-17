@@ -1,0 +1,5 @@
+version: 1
+interface:
+  display_name: Obscur Context Continuity
+  short_description: Keep progress durable across context-window resets with canonical handoffs.
+  default_prompt: Maintain and update the canonical session handoff so work can resume safely in a new Codex thread.

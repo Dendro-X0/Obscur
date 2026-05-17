@@ -39,7 +39,7 @@ import { useCommunityParticipantRosterReadModel } from "@/app/features/groups/ho
 import { toast } from "@dweb/ui-kit";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import Image from "next/image";
-import { ConfirmDialog } from "@/app/components/ui/confirm-dialog";
+import { buildGroupBlockHref, buildGroupLeaveHref } from "@/app/features/groups/utils/group-action-route";
 import { UserAvatar } from "@/app/features/profile/components/user-avatar";
 import { useResolvedProfileMetadata } from "@/app/features/profile/hooks/use-resolved-profile-metadata";
 import type { GroupAccessMode } from "@/app/features/groups/types";
@@ -87,7 +87,6 @@ export default function GroupHomePage() {
     const [memberSearchQuery, setMemberSearchQuery] = useState("");
     const [onlinePage, setOnlinePage] = useState(1);
     const [offlinePage, setOfflinePage] = useState(1);
-    const [isBlockConfirmOpen, setIsBlockConfirmOpen] = useState(false);
     const [isInviteConnectionsOpen, setIsInviteConnectionsOpen] = useState(false);
     const [roomKeyHex, setRoomKeyHex] = useState<string>();
     const [runtimeCapability, setRuntimeCapability] = useState<Readonly<{
@@ -537,15 +536,26 @@ export default function GroupHomePage() {
         setOnlinePage(1);
         setOfflinePage(1);
     };
+    const displayName = groupState.metadata?.name || group?.displayName || "Community";
+    const groupActionRouteParams = React.useMemo(() => ({
+        routeToken: (resolvedGroupId || group?.groupId || id || "").trim(),
+        relayUrl: effectiveRelay || undefined,
+        displayName,
+        communityId: resolvedCommunityId,
+    }), [displayName, effectiveRelay, group?.groupId, id, resolvedCommunityId, resolvedGroupId]);
+
     const handleBlockAction = () => {
         if (isBlocked) {
             handleToggleBlock();
             return;
         }
-        setIsBlockConfirmOpen(true);
+        if (!groupActionRouteParams.routeToken) {
+            toast.error("Community details are missing; unable to open block confirmation.");
+            return;
+        }
+        router.push(buildGroupBlockHref(groupActionRouteParams));
     };
 
-    const displayName = groupState.metadata?.name || group?.displayName || "Community";
     const aboutText = groupState.metadata?.about || group?.about || "This resilient community is built on decentralized protocols. Privacy first, always.";
     const avatarUrl = groupState.metadata?.picture || group?.avatar;
     const relayScopeMismatchCount = groupState.relayFeedback.rejectionStats?.relayScopeMismatch ?? 0;
@@ -792,14 +802,11 @@ export default function GroupHomePage() {
                                                 <Button
                                                     variant="ghost"
                                                     onClick={() => {
-                                                        const target = new URLSearchParams();
-                                                        target.set("id", resolvedGroupId || group?.groupId || id || "");
-                                                        target.set("relay", effectiveRelay);
-                                                        target.set("name", displayName);
-                                                        if (group?.communityId) {
-                                                            target.set("communityId", group.communityId);
+                                                        if (!groupActionRouteParams.routeToken) {
+                                                            toast.error("Community details are missing; unable to open leave confirmation.");
+                                                            return;
                                                         }
-                                                        router.push(`/groups/leave?${target.toString()}`);
+                                                        router.push(buildGroupLeaveHref(groupActionRouteParams));
                                                     }}
                                                     className="h-14 w-14 rounded-xl text-rose-500 hover:bg-rose-500/10 transition-all hover:scale-110 active:scale-90"
                                                 >
@@ -1141,19 +1148,6 @@ export default function GroupHomePage() {
                     </div>
                 )}
 
-                <ConfirmDialog
-                    isOpen={isBlockConfirmOpen}
-                    onClose={() => setIsBlockConfirmOpen(false)}
-                    onConfirm={() => {
-                        handleToggleBlock();
-                        setIsBlockConfirmOpen(false);
-                    }}
-                    title="Block community"
-                    description={`Are you sure you want to block "${displayName}"? This will hide it and ignore its events.`}
-                    confirmLabel="Block community"
-                    cancelLabel="Cancel"
-                    variant="danger"
-                />
             </div>
         </PageShell>
     );

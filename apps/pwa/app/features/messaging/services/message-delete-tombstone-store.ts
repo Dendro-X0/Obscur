@@ -348,6 +348,40 @@ export const isMessageDeleteSuppressed = (
   return state.entries.some((entry) => entry.id === normalized);
 };
 
+const normalizeLiftIds = (messageIds: ReadonlyArray<string>): ReadonlySet<string> => {
+  const out = new Set<string>();
+  messageIds.forEach((value) => {
+    const normalized = value.trim();
+    if (normalized.length > 0) {
+      out.add(normalized);
+    }
+  });
+  return out;
+};
+
+/**
+ * Remove specific ids from local delete-for-me suppression (show-again path).
+ * Does not mutate relay or account-sync backup payloads.
+ */
+export const liftMessageDeleteSuppression = (
+  messageIds: ReadonlyArray<string>,
+  profileId?: string,
+): void => {
+  const liftIds = normalizeLiftIds(messageIds);
+  if (liftIds.size === 0) {
+    return;
+  }
+  const nowMs = Date.now();
+  const current = readState(nowMs, profileId);
+  const remaining = current.entries.filter((entry) => !liftIds.has(entry.id));
+  if (remaining.length === current.entries.length) {
+    return;
+  }
+  const next = normalizeMessageDeleteTombstoneState({ entries: remaining }, nowMs);
+  writeState(next, profileId);
+  emitAccountSyncMutation("message_delete_tombstones_changed");
+};
+
 export const clearMessageDeleteTombstones = (profileId?: string): void => {
   const pid = resolveProfileId(profileId);
   if (isNativeSqliteEnabled()) {

@@ -4,6 +4,7 @@ import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import type { AccountSyncSnapshot } from "../account-sync-contracts";
+import { areAccountSyncSnapshotsEqual } from "@/app/shared/store-snapshot-equality";
 
 const STORAGE_KEY = "obscur.account_sync.status.v1";
 
@@ -49,6 +50,9 @@ const readSnapshot = (): AccountSyncSnapshot => {
 };
 
 const writeSnapshot = (snapshot: AccountSyncSnapshot): void => {
+  if (areAccountSyncSnapshotsEqual(currentSnapshot, snapshot)) {
+    return;
+  }
   currentSnapshot = snapshot;
   if (typeof window !== "undefined") {
     try {

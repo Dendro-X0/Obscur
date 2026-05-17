@@ -31,7 +31,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: "20.11.0"
           cache: pnpm
 
       - name: Install dependencies
@@ -69,7 +69,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: "20.11.0"
           cache: pnpm
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -174,7 +174,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: "20.11.0"
           cache: pnpm
 
       - name: Install dependencies
@@ -280,7 +280,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: "20.11.0"
           cache: pnpm
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -539,7 +539,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: "20.11.0"
           cache: pnpm
       
       - name: Download Windows Artifacts

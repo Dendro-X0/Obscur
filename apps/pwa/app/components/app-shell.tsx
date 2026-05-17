@@ -31,6 +31,7 @@ import {
   type RouteMountDiagnosticsState,
 } from "./page-transition-recovery";
 import { resolveRoutePrefetchWarmupPlan } from "./navigation-prefetch-warmup-policy";
+import { warmRouteNavigationTargets } from "./route-navigation-warmup";
 
 type NavIcon = (props: Readonly<{ className?: string }>) => React.ReactNode;
 
@@ -152,7 +153,6 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
     const idleHandle = scheduler.schedule((): void => {
       const warmupPlan = resolveRoutePrefetchWarmupPlan({
         pathname,
-        isDesktop,
         navItems: NAV_ITEMS,
         warmedHrefs: warmedPrefetchTargetsRef.current,
       });
@@ -186,12 +186,12 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
         },
       });
 
-      void Promise.allSettled(prefetchTargets.map((href: string) => router.prefetch(href))).then((results) => {
+      void warmRouteNavigationTargets(router, prefetchTargets).then((results) => {
         for (const href of prefetchTargets) {
           warmedPrefetchTargetsRef.current.add(href);
         }
-        const failedTargets = results.flatMap((result, index): string[] => (
-          result.status === "rejected" ? [prefetchTargets[index]] : []
+        const failedTargets = results.flatMap((result) => (
+          result.status === "rejected" ? [result.href] : []
         ));
         logAppEvent({
           name: "navigation.route_prefetch_warmup_completed",
@@ -363,6 +363,14 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
       hardNavigate(targetHref);
     }, ROUTE_NAVIGATION_STALL_HARD_FALLBACK_MS);
   }, [activeRouteSurface, clearRouteFallback, enableNavigationFailOpen, pathname]);
+
+  const prefetchRouteOnIntent = useCallback((targetHref: string): void => {
+    if (!targetHref || targetHref === pathname || warmedPrefetchTargetsRef.current.has(targetHref)) {
+      return;
+    }
+    warmedPrefetchTargetsRef.current.add(targetHref);
+    void warmRouteNavigationTargets(router, [targetHref]);
+  }, [pathname, router]);
 
   useEffect((): (() => void) => {
     pageTransitionSequenceRef.current += 1;
@@ -747,6 +755,12 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
                     key={item.href}
                     href={item.href}
                     suppressHydrationWarning
+                    onPointerEnter={(): void => {
+                      prefetchRouteOnIntent(item.href);
+                    }}
+                    onFocus={(): void => {
+                      prefetchRouteOnIntent(item.href);
+                    }}
                     onClick={(event): void => {
                       if (event.button !== 0 || event.metaKey || event.altKey || event.ctrlKey || event.shiftKey) {
                         return;
@@ -830,14 +844,14 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
           <div
             aria-hidden="true"
             className={cn(
-              "pointer-events-none absolute inset-0 z-10 bg-gradient-to-br from-zinc-300/20 via-transparent to-zinc-300/10 dark:from-zinc-200/10 dark:to-transparent transition-opacity duration-300",
+              "pointer-events-none absolute inset-0 z-10 bg-gradient-to-br from-zinc-300/20 via-transparent to-zinc-300/10 dark:from-zinc-200/10 dark:to-transparent transition-opacity duration-150 motion-reduce:transition-none",
               isPageTransitionActive && arePageTransitionsEnabled ? "opacity-100" : "opacity-0",
             )}
           />
           <div
             className={cn(
               "relative z-0 flex min-h-0 flex-1 flex-col",
-              arePageTransitionsEnabled ? "transition-all duration-300" : "transition-none",
+              arePageTransitionsEnabled ? "transition-all duration-150 motion-reduce:transition-none" : "transition-none",
               isPageTransitionActive && arePageTransitionsEnabled ? "translate-y-1 opacity-95" : "translate-y-0 opacity-100",
             )}
           >

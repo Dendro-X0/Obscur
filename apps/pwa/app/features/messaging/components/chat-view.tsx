@@ -23,6 +23,13 @@ import { cn } from "@/app/lib/utils";
 import { getVoiceNoteAttachmentMetadata } from "@/app/features/messaging/services/voice-note-metadata";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import { applyBatchMessageSelectionToggle } from "../utils/batch-message-selection";
+import {
+    DM_LOCAL_VISIBILITY_COPY,
+    DM_RECALL_FOR_EVERYONE_UI_ENABLED,
+} from "../config/dm-local-visibility-product";
+import { DmHiddenMessagesPanel } from "./dm-hidden-messages-panel";
+import { useDmThreadHiddenMessages } from "../hooks/use-dm-thread-hidden-messages";
+import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 
 type ChatHistorySearchResult = Readonly<{
     messageId: string;
@@ -99,6 +106,9 @@ export interface ChatViewProps {
     onReferenceMessage: (message: Message) => void;
     onDeleteMessageForMe: (message: Message) => void | Promise<void>;
     onDeleteMessageForEveryone: (message: Message) => void | Promise<void>;
+    accountPublicKeyHex?: PublicKeyHex | null;
+    onShowMessageOnDeviceAgain?: (message: Message) => void | Promise<void>;
+    onShowAllHiddenMessagesOnDevice?: (messages: ReadonlyArray<Message>) => void | Promise<void>;
 
     // Reaction Picker
     reactionPicker: { messageId: string; x: number; y: number } | null;
@@ -156,6 +166,8 @@ export function ChatView(props: ChatViewProps) {
     const [isBatchDeleteMode, setIsBatchDeleteMode] = useState(false);
     const [selectedMessageIds, setSelectedMessageIds] = useState<ReadonlySet<string>>(new Set());
     const [isBatchDeleteInFlight, setIsBatchDeleteInFlight] = useState(false);
+    const [isHiddenPanelOpen, setIsHiddenPanelOpen] = useState(false);
+    const [isRestoreInFlight, setIsRestoreInFlight] = useState(false);
     const batchSelectionAnchorIdRef = React.useRef<string | null>(null);
     const [isHistorySearchOpen, setIsHistorySearchOpen] = useState(false);
     const [historySearchQuery, setHistorySearchQuery] = useState("");
@@ -169,6 +181,11 @@ export function ChatView(props: ChatViewProps) {
     const [messageMenuAnchorHoverId, setMessageMenuAnchorHoverId] = useState<string | null>(null);
     const [isMessageMenuHovered, setIsMessageMenuHovered] = useState(false);
     const [canUseMessageMenuHoverDismiss, setCanUseMessageMenuHoverDismiss] = useState(false);
+    const { hiddenMessages, refreshHiddenMessages } = useDmThreadHiddenMessages({
+        conversationId: props.conversation.id,
+        conversationKind: props.conversation.kind,
+        myPublicKeyHex: props.accountPublicKeyHex ?? null,
+    });
     const metadata = useResolvedProfileMetadata(props.conversation.kind === "dm" ? props.conversation.pubkey : null);
     const resolvedName = metadata?.displayName || props.conversation.displayName;
     const isDeletedRecipient = props.conversation.kind === "dm" && metadata?.isDeleted === true;
@@ -652,6 +669,36 @@ export function ChatView(props: ChatViewProps) {
                 </div>
             )}
 
+            {props.conversation.kind === "dm"
+                && props.onShowMessageOnDeviceAgain
+                && props.onShowAllHiddenMessagesOnDevice ? (
+                <DmHiddenMessagesPanel
+                    hiddenMessages={hiddenMessages}
+                    isOpen={isHiddenPanelOpen}
+                    onOpenChange={setIsHiddenPanelOpen}
+                    isRestoring={isRestoreInFlight}
+                    onShowAgain={async (message) => {
+                        setIsRestoreInFlight(true);
+                        try {
+                            await props.onShowMessageOnDeviceAgain?.(message);
+                            refreshHiddenMessages();
+                        } finally {
+                            setIsRestoreInFlight(false);
+                        }
+                    }}
+                    onShowAllAgain={async () => {
+                        setIsRestoreInFlight(true);
+                        try {
+                            await props.onShowAllHiddenMessagesOnDevice?.(hiddenMessages);
+                            refreshHiddenMessages();
+                            setIsHiddenPanelOpen(false);
+                        } finally {
+                            setIsRestoreInFlight(false);
+                        }
+                    }}
+                />
+            ) : null}
+
             <div className="pointer-events-none absolute bottom-[108px] right-4 z-40 flex w-[min(24rem,calc(100%-2rem))] flex-col items-end gap-2">
                 <button
                     type="button"
@@ -696,17 +743,27 @@ export function ChatView(props: ChatViewProps) {
                                 className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-black/10 bg-white px-3 text-xs font-semibold text-zinc-700 transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
                             >
                                 <Trash2 className="h-3.5 w-3.5" />
-                                {t("messaging.deleteForMeWithCount", "Delete for me ({{count}})", { count: selectedMessageCount })}
+                                {t(
+                                    "messaging.hideOnThisDeviceWithCount",
+                                    DM_LOCAL_VISIBILITY_COPY.hideOnThisDeviceWithCount,
+                                    { count: selectedMessageCount },
+                                )}
                             </button>
-                            <button
-                                type="button"
-                                onClick={handleBatchDeleteForEveryone}
-                                disabled={selectedOutgoingMessageCount === 0 || isBatchDeleteInFlight}
-                                className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-rose-400/35 bg-rose-500/10 px-3 text-xs font-semibold text-rose-700 transition-colors hover:bg-rose-500/20 disabled:cursor-not-allowed disabled:opacity-40 dark:border-rose-300/35 dark:bg-rose-400/15 dark:text-rose-200 dark:hover:bg-rose-400/25"
-                            >
-                                <Trash2 className="h-3.5 w-3.5" />
-                                {t("messaging.deleteForEveryoneWithCount", "Delete for everyone ({{count}})", { count: selectedOutgoingMessageCount })}
-                            </button>
+                            {DM_RECALL_FOR_EVERYONE_UI_ENABLED ? (
+                                <button
+                                    type="button"
+                                    onClick={handleBatchDeleteForEveryone}
+                                    disabled={selectedOutgoingMessageCount === 0 || isBatchDeleteInFlight}
+                                    className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-rose-400/35 bg-rose-500/10 px-3 text-xs font-semibold text-rose-700 transition-colors hover:bg-rose-500/20 disabled:cursor-not-allowed disabled:opacity-40 dark:border-rose-300/35 dark:bg-rose-400/15 dark:text-rose-200 dark:hover:bg-rose-400/25"
+                                >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                    {t(
+                                        "messaging.recallForEveryoneWithCount",
+                                        DM_LOCAL_VISIBILITY_COPY.recallForEveryoneWithCount,
+                                        { count: selectedOutgoingMessageCount },
+                                    )}
+                                </button>
+                            ) : null}
                         </div>
 
                         <div className="mt-2 rounded-xl border border-black/5 bg-zinc-50/80 p-2 dark:border-white/10 dark:bg-zinc-900/70">
@@ -724,19 +781,21 @@ export function ChatView(props: ChatViewProps) {
                             </p>
                             <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
                                 {t(
-                                    "messaging.deleteForMePermissionDescription",
-                                    "\"Delete for me\" hides selected messages only in your interface.",
+                                    "messaging.hideOnThisDeviceScopeDescription",
+                                    DM_LOCAL_VISIBILITY_COPY.batchScopeHelper,
                                 )}
                             </p>
-                            <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
-                                {t(
-                                    "messaging.deleteForEveryonePermissionDescription",
-                                    "\"Delete for everyone\" removes only messages you sent from all participants' interfaces.",
-                                )}
-                            </p>
+                            {DM_RECALL_FOR_EVERYONE_UI_ENABLED ? (
+                                <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+                                    {t(
+                                        "messaging.recallForEveryoneScopeDescription",
+                                        DM_LOCAL_VISIBILITY_COPY.recallScopeHelper,
+                                    )}
+                                </p>
+                            ) : null}
                         </div>
 
-                        {selectedMessageCount > 0 && selectedOutgoingMessageCount !== selectedMessageCount ? (
+                        {DM_RECALL_FOR_EVERYONE_UI_ENABLED && selectedMessageCount > 0 && selectedOutgoingMessageCount !== selectedMessageCount ? (
                             <p className="mt-2 text-[11px] text-zinc-500 dark:text-zinc-400">
                                 {t(
                                     "messaging.deleteForEveryoneOutgoingOnlyHint",

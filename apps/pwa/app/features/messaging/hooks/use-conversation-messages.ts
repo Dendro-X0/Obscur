@@ -79,7 +79,11 @@ export function useConversationMessages(
 ): UseConversationMessagesResult {
     const accountProjectionSnapshot = useAccountProjectionSnapshot();
     const optionalProfileBus = useOptionalProfileMessageBus();
-    const messageDeleteTombstones = messagingClientOperations.messageDeleteTombstonesPort();
+    const messageDeleteTombstones = useMemo(
+        () => messagingClientOperations.messageDeleteTombstonesPort(),
+        [],
+    );
+    const lastTombstoneMutationAtUnixMsRef = useRef(0);
     const [deleteTombstoneEpoch, setDeleteTombstoneEpoch] = useState(0);
     const [redactionGateEpoch, setRedactionGateEpoch] = useState(0);
     const activeProfileId = getResolvedProfileId();
@@ -144,6 +148,7 @@ export function useConversationMessages(
     const persistedDeletedIdsRef = useRef<Set<string>>(new Set(
         messagingClientOperations.loadDmSuppressedIdentityIds(getResolvedProfileId() || undefined),
     ));
+    const projectionSequence = accountProjectionSnapshot.projection?.lastSequence ?? 0;
     const projectionEvidenceMessages = useMemo(() => (
         messagingClientOperations.buildProjectionEvidenceMessages({
             conversationId,
@@ -162,6 +167,7 @@ export function useConversationMessages(
         conversationId,
         deleteTombstoneEpoch,
         localMessageRetentionDays,
+        projectionSequence,
         publicKeyHex,
     ]);
     const projectionMessages = useMemo(() => (
@@ -232,8 +238,12 @@ export function useConversationMessages(
             if (detail.reason !== "message_delete_tombstones_changed") {
                 return;
             }
+            if (detail.atUnixMs <= lastTombstoneMutationAtUnixMsRef.current) {
+                return;
+            }
+            lastTombstoneMutationAtUnixMsRef.current = detail.atUnixMs;
             void (async () => {
-                const profileId = getResolvedProfileId() || undefined;
+                const profileId = activeProfileId || undefined;
                 persistedDeletedIdsRef.current = await messagingClientOperations.prepareDmThreadSuppressionIds({
                     profileId,
                     accountPublicKeyHex: normalizedPublicKeyHex,
@@ -243,8 +253,8 @@ export function useConversationMessages(
                 });
                 setDeleteTombstoneEpoch((epoch) => epoch + 1);
             })();
-        });
-    }, [conversationId, messageDeleteTombstones, normalizedPublicKeyHex]);
+        }, { profileId: activeProfileId, replayOnSubscribe: false });
+    }, [activeProfileId, conversationId, messageDeleteTombstones, normalizedPublicKeyHex]);
 
     useEffect(() => {
         if (!conversationId || deleteTombstoneEpoch === 0) {
@@ -333,12 +343,12 @@ export function useConversationMessages(
 
         void applyPersistedDeletesAndHydrate();
     }, [
-        accountProjectionSnapshot.projection,
         conversationAliasIds,
         conversationId,
         hydrateHistory,
         messageDeleteTombstones,
         normalizedPublicKeyHex,
+        projectionSequence,
     ]);
 
     useEffect(() => {
@@ -382,13 +392,13 @@ export function useConversationMessages(
             })();
         }, optionalProfileBus);
     }, [
-        accountProjectionSnapshot.projection,
         conversationAliasIds,
         conversationId,
         hydrateHistory,
         messageDeleteTombstones,
         normalizedPublicKeyHex,
         optionalProfileBus,
+        projectionSequence,
     ]);
 
     useEffect(() => {
@@ -692,7 +702,7 @@ export function useConversationMessages(
             eventQueueRef.current.push(busEvent);
             setPendingEventCount(eventQueueRef.current.length);
             scheduleFlush();
-        });
+        }, { profileId: activeProfileId });
 
         return () => {
             unsubscribe();
@@ -703,7 +713,7 @@ export function useConversationMessages(
             eventQueueRef.current = [];
             setPendingEventCount(0);
         };
-    }, [conversationAliasIdSet, conversationId, chatPerformanceV2Enabled, localMessageRetentionDays, publicKeyHex, messageDeleteTombstones]);
+    }, [activeProfileId, conversationAliasIdSet, conversationId, chatPerformanceV2Enabled, localMessageRetentionDays, publicKeyHex, messageDeleteTombstones]);
 
     const loadEarlier = useCallback(async () => {
         if (!conversationId || messages.length === 0) return;

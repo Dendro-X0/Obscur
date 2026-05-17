@@ -287,7 +287,14 @@ function NostrMessengerContent() {
   const socialGraph = useMemo(() => new SocialGraphService(relayPool), [relayPool]);
 
   // Feature hooks
-  const { handleSendMessage, deleteMessageForMe, deleteMessageForEveryone, toggleReaction } = useChatActions(dmController);
+  const {
+    handleSendMessage,
+    deleteMessageForMe,
+    deleteMessageForEveryone,
+    showMessageOnDeviceAgain,
+    showAllHiddenMessagesOnDevice,
+    toggleReaction,
+  } = useChatActions(dmController);
   const requestTransport = useRequestTransport({
     dmController,
     peerTrust,
@@ -3677,6 +3684,15 @@ function NostrMessengerContent() {
             onReferenceMessage={(m) => setReplyTo({ messageId: m.id, previewText: m.content })}
             onDeleteMessageForMe={(message) => deleteMessageForMe({ conversationId: selectedConversationView.id, message })}
             onDeleteMessageForEveryone={(message) => deleteMessageForEveryone({ conversationId: selectedConversationView.id, message })}
+            accountPublicKeyHex={identity.state.publicKeyHex ?? null}
+            onShowMessageOnDeviceAgain={(message) => showMessageOnDeviceAgain({
+              conversationId: selectedConversationView.id,
+              message,
+            })}
+            onShowAllHiddenMessagesOnDevice={(messages) => showAllHiddenMessagesOnDevice({
+              conversationId: selectedConversationView.id,
+              messages,
+            })}
             reactionPicker={reactionPicker}
             setReactionPicker={setReactionPicker}
             reactionPickerRef={reactionPickerRef}

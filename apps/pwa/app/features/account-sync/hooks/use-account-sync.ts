@@ -113,6 +113,7 @@ export const useAccountSync = (params: UseAccountSyncParams) => {
   const pendingDeferredMutationPublishReasonRef = useRef<AccountSyncBackupPublishReason | null>(null);
   const suppressMutationPublishUntilUnixMsRef = useRef<number>(0);
   const convergenceGuardEnabled = PrivacySettingsService.getSettings().accountSyncConvergenceV091 === true;
+  const activeProfileId = getResolvedProfileId();
 
   const updateConvergenceDiagnostics = useCallback((
     patch: Partial<NonNullable<AccountSyncSnapshot["convergenceDiagnostics"]>>
@@ -564,14 +565,18 @@ export const useAccountSync = (params: UseAccountSyncParams) => {
         }
         void (async () => {
           await maybePublishBackup(publishReason);
-          // Local delete-for-me tombstones are authoritative; pulling relay backup
+          // Local tombstones and DM redaction are authoritative; pulling relay backup
           // immediately after publish can resurrect stale DM rows into chat-state.
-          if (convergenceGuardEnabled && publishReason !== "message_delete_tombstones_changed") {
+          if (
+            convergenceGuardEnabled
+            && publishReason !== "message_delete_tombstones_changed"
+            && publishReason !== "dm_history_changed"
+          ) {
             await maybeRestoreBackup("mutation_fast_follow");
           }
         })();
       });
-    });
+    }, { profileId: activeProfileId, replayOnSubscribe: false });
 
     if (snapshot.phase !== "ready") {
       return () => {
@@ -609,6 +614,7 @@ export const useAccountSync = (params: UseAccountSyncParams) => {
     params.privateKeyHex,
     params.publicKeyHex,
     snapshot.phase,
+    activeProfileId,
   ]);
 
   useEffect(() => {

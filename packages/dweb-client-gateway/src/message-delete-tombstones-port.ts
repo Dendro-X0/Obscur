@@ -29,6 +29,10 @@ export type MessageDeleteTombstonesPersistencePort = Readonly<{
     profileId?: string,
   ) => boolean;
   clearMessageDeleteTombstones: (profileId?: string) => void;
+  liftMessageDeleteSuppression: (
+    messageIds: ReadonlyArray<string>,
+    profileId?: string,
+  ) => void;
   mergeMessageDeleteTombstonesFromIndexedDb: (profileId?: string) => Promise<void>;
   hydrateMessageDeleteTombstonesFromSqlite: (profileId?: string) => Promise<void>;
 }>;

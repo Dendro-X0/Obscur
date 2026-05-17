@@ -21,12 +21,13 @@ import {
   type StreamingUpdateChannel,
 } from "@/app/features/updates/services/streaming-update-policy";
 
+type StreamingPolicyParseResult = ReturnType<typeof parseStreamingUpdateManifest>;
+
+/** Policy JSON is not fetched in the browser shell (GitHub download URLs lack CORS). */
+const loadStreamingPolicyManifestResult = (): StreamingPolicyParseResult | null => null;
+
 const GITHUB_LATEST_RELEASE_URL = "https://api.github.com/repos/Dendro-X0/Obscur/releases/latest";
 const GITHUB_RELEASES_PAGE_URL = "https://github.com/Dendro-X0/Obscur/releases";
-const STREAMING_UPDATE_FEED_URL = process.env.NEXT_PUBLIC_DESKTOP_UPDATE_FEED_URL
-  ?? "https://github.com/Dendro-X0/Obscur/releases/latest/download/latest.json";
-const STREAMING_UPDATE_POLICY_URL = process.env.NEXT_PUBLIC_DESKTOP_UPDATE_POLICY_URL
-  ?? "https://github.com/Dendro-X0/Obscur/releases/latest/download/streaming-update-policy.json";
 const OFFICIAL_DOWNLOAD_PAGE_URL = (() => {
   const explicit = process.env.NEXT_PUBLIC_OFFICIAL_DOWNLOAD_PAGE_URL?.trim();
   if (explicit) {
@@ -166,21 +167,21 @@ export const DesktopUpdater = ({ variant = "background" }: DesktopUpdaterProps) 
       const tauriCheckPromise = isDesktop
         ? invokeNativeCommand<string>("check_for_updates")
         : Promise.resolve({ ok: false as const, message: "desktop_runtime_unavailable" });
-      const [tauriResult, releaseResponse, policyResponse, feedResponse] = await Promise.all([
+      const [tauriResult, releaseResponse] = await Promise.all([
         tauriCheckPromise,
         fetch(GITHUB_LATEST_RELEASE_URL, { headers: { Accept: "application/vnd.github+json" } }),
-        fetch(STREAMING_UPDATE_POLICY_URL, { headers: { Accept: "application/json" } }).catch(() => null),
-        fetch(STREAMING_UPDATE_FEED_URL, { method: "HEAD" }).catch(() => null),
       ]);
 
       let latestTag = currentVersion;
       let htmlUrl: string | null = null;
       let preferredAsset: ReleaseAsset | null = null;
+      let releaseAssets: ReadonlyArray<ReleaseAsset> = [];
       if (releaseResponse.ok) {
         const release = (await releaseResponse.json()) as GitHubRelease;
         latestTag = normalizeVersion(release.tag_name || currentVersion);
         htmlUrl = release.html_url || null;
-        preferredAsset = pickPreferredDesktopAsset(release.assets ?? [], desktopPlatform);
+        releaseAssets = release.assets ?? [];
+        preferredAsset = pickPreferredDesktopAsset(releaseAssets, desktopPlatform);
       }
       setReleaseUrl(htmlUrl);
       const resolvedDownloadUrl = resolveDownloadFallbackUrl({
@@ -189,17 +190,13 @@ export const DesktopUpdater = ({ variant = "background" }: DesktopUpdaterProps) 
       });
       setDownloadUrl(resolvedDownloadUrl);
 
-      const parsedPolicy = (() => {
-        if (!policyResponse || !policyResponse.ok) {
-          return null;
-        }
-        return policyResponse
-          .json()
-          .then((value) => parseStreamingUpdateManifest(value))
-          .catch(() => ({ ok: false as const, reason: "invalid_json" }));
-      })();
-      const policyManifestResult = parsedPolicy ? await parsedPolicy : null;
-      const streamingFeedAvailable = feedResponse?.ok === true;
+      // GitHub release *download* URLs are not CORS-enabled in the dev webview; use the
+      // releases API asset list for publication truth and keep policy evaluation on fallback
+      // until a native or same-origin fetch path is available.
+      const streamingFeedAvailable = releaseAssets.some(
+        (asset) => asset.name === "latest.json",
+      );
+      const policyManifestResult = loadStreamingPolicyManifestResult();
 
       const tauriHasUpdate = tauriResult.ok && typeof tauriResult.value === "string" && tauriResult.value.includes("Update available");
       const tauriVersion = tauriHasUpdate && tauriResult.ok && typeof tauriResult.value === "string"

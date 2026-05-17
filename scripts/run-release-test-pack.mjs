@@ -124,6 +124,19 @@ const main = () => {
     "app/features/search/services/friend-code-v2.test.ts",
     "app/features/search/services/friend-code-v3.test.ts",
     "app/features/search/services/identity-resolver.test.ts",
+    // v1.5.1 regression — honest hide, navigation warmup, community confirmations
+    "app/features/messaging/config/dm-local-visibility-product.test.ts",
+    "app/features/messaging/lib/dms/use-blocklist.test.ts",
+    "app/features/messaging/components/message-menu.test.tsx",
+    "app/features/messaging/local-dm-visibility/local-dm-visibility-owner.test.ts",
+    "app/features/messaging/providers/runtime-messaging-transport-owner-provider.test.tsx",
+    "app/features/messaging/services/message-bus.profile-isolation.test.ts",
+    "app/features/groups/utils/group-action-route.test.ts",
+    "app/components/navigation-prefetch-warmup-policy.test.ts",
+    "app/components/route-navigation-warmup.test.ts",
+    "app/components/app-shell.test.tsx",
+    "app/features/relays/services/relay-standby-probe-schedule.test.ts",
+    "app/features/relays/services/standby-latency-prober.test.ts",
   ]);
 
   const skipPreflight = hasArg("--skip-preflight") || isEnabled(process.env.RELEASE_TEST_PACK_SKIP_PREFLIGHT);

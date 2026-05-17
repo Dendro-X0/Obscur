@@ -21,8 +21,11 @@ out/
 **/generated/
 
 # IDE and OS
+.cursor/
 .vscode/
 .idea/
+# Windows reserved device name (accidental `> nul` redirects)
+nul
 .DS_Store
 Thumbs.db
 

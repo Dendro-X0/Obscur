@@ -1,12 +1,24 @@
 # Program Overview
 
-**Active program:** v1.5.0 — profile isolation, ClientGateway convergence, community membership correctness.  
-**Status:** Release candidate (engineering complete for scoped lanes; see release notes for manual gates).  
-_Last updated: 2026-05-15_
+**Active program:** v1.5.2 — UI responsiveness and relay efficiency. **Shipped:** v1.5.1 honest hide.  
+**Strategic frame:** [strategic-direction.md](./strategic-direction.md) · [product layers](../architecture/product-layers-and-nostr.md) · [future/](../future/) (kernel concepts, not shipping gates)  
+**Previous release:** v1.5.0 — profile isolation, ClientGateway, membership (see [releases/v1.5.0-release.md](../releases/v1.5.0-release.md)).  
+_Last updated: 2026-05-16_
 
 ---
 
-## What v1.5.0 is
+## What we are building (adjusted goals)
+
+Obscur is a **Nostr client application** getting better under realistic limits — not a failed bet on “100% sovereignty.” Long term, Nostr stays as a **transport adapter**; a communication **kernel** matures gradually in `docs/future/`.
+
+| Bar | Meaning |
+|-----|---------|
+| **v1.5.x** | Decent Nostr client: E2E chat, groups, durable local hide, honest recall copy |
+| **Kernel** | Documented in `docs/future/`; code extraction is incremental, post–v1.5.1 |
+
+---
+
+## What v1.5.0 was
 
 v1.5.0 is an **architecture and reliability** release, not a feature marketing release.
 
@@ -72,8 +84,27 @@ Do not treat these as active requirements:
 
 ---
 
-## After v1.5.0
+## v1.5.2 active docs
 
-1. **v1.6 cooperative redaction** — canonical message id + display gate + optional relay tombstone topic (design: [messaging/cooperative-redaction-future.md](../messaging/cooperative-redaction-future.md)).
-2. **Gateway expansion** — remaining `getActiveProfileIdSafe` call sites and native storage parity.
-3. **v2 exploration** — only with explicit program decision ([architecture/roadmap-v2-draft.md](../architecture/roadmap-v2-draft.md)).
+| Doc | Use when |
+|-----|----------|
+| [v1.5.2-scope.md](./v1.5.2-scope.md) | Workstreams, perf matrix |
+| [v1.5.2-release.md](../releases/v1.5.2-release.md) | User-facing notes (planned) |
+| [v1.5.2-ui-performance-gate.md](../releases/v1.5.2-ui-performance-gate.md) | Automated + manual gates |
+
+## v1.5.1 (shipped)
+
+| Doc | Use when |
+|-----|----------|
+| [v1.5.1-scope.md](./v1.5.1-scope.md) | Historical workstreams |
+| [v1.5.1-release.md](../releases/v1.5.1-release.md) | Shipped release notes |
+| [v1.5.1-durable-hide-scope-and-gate.md](../releases/v1.5.1-durable-hide-scope-and-gate.md) | Closeout gates |
+
+---
+
+## After v1.5.1
+
+1. **v1.5.x stabilization** — Nostr client quality, docs honesty, gateway-only feature paths.
+2. **Kernel charter** — refine `docs/future/`; no big-bang rewrite without program sign-off.
+3. **v1.6+** — harder recall/sync gates, team-server concepts — per [cooperative-redaction-future.md](../messaging/cooperative-redaction-future.md).
+4. **SQLite / v2 draft** — evaluate against kernel ports ([architecture/roadmap-v2-draft.md](../architecture/roadmap-v2-draft.md)), not as default v1.5 path.

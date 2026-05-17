@@ -1,0 +1,14 @@
+{
+  "generatedAtUnixMs": null,
+  "eventWindowSize": 400,
+  "expectedStable": true,
+  "v130CloseoutCapture": null,
+  "digestSummaryAfterV130Event": null,
+  "cp4CloseoutEventContexts": [],
+  "v130CloseoutEventContexts": [],
+  "v130EvidenceGate": {
+    "pass": null,
+    "failedChecks": [],
+    "failedCheckSample": null
+  }
+}

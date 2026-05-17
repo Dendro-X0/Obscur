@@ -1,0 +1,69 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build outputs
+**/dist/
+**/build/
+.next/
+out/
+
+# Rust/Tauri build artifacts (CRITICAL - these caused the large file issue)
+**/target/
+.cargo-target/
+**/*.rlib
+**/*.pdb
+**/*.meta
+**/Cargo.lock
+
+# Generated files
+# **/gen/ - We now include gen for Android project structure
+**/generated/
+
+# IDE and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Testing
+**/test-results/
+**/playwright-report/
+**/coverage/
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+*.tsbuildinfo
+.tmp-ci-fix/
+.tmp-ci-head/
+.artifacts/
+
+# Package manager
+.pnpm-debug.log*
+.yarn/
+.pnp.*
+
+# Tauri specific
+apps/desktop/src-tauri/target/
+# apps/desktop/src-tauri/gen/
+
+# Tauri updater signing keys (CRITICAL - keep private keys secret!)
+**/updater-key.txt
+apps/desktop/src-tauri/updater-key.txt
+
+
+.playwright-mcp

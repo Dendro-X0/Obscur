@@ -10,13 +10,15 @@ _Last reviewed: 2026-05-15 (v1.5.0 doc restructure)_
 
 | Priority | Document | Purpose |
 |----------|----------|---------|
-| 1 | [Maintainer playbook](./encyclopedia/08-maintainer-playbook.md) | How to run, test, triage, and ship |
-| 2 | [Current session handoff](./handoffs/current-session.md) | Live continuity — read before coding |
-| 3 | [Architecture truth map](./encyclopedia/12-core-architecture-truth-map.md) | Who owns what (single source) |
-| 4 | [Module owner index](./encyclopedia/14-module-owner-index.md) | File-level ownership |
-| 5 | [v1.5.0 release notes](./releases/v1.5.0-release.md) | What ships in this version |
+| 1 | [Strategic direction](./program/strategic-direction.md) | Goals, sequence, decent Nostr client bar |
+| 2 | [Product layers & Nostr](./architecture/product-layers-and-nostr.md) | App / kernel / adapter framing |
+| 3 | [Maintainer playbook](./encyclopedia/08-maintainer-playbook.md) | How to run, test, triage, and ship |
+| 4 | [Current session handoff](./handoffs/current-session.md) | Live continuity — read before coding |
+| 5 | [Architecture truth map](./encyclopedia/12-core-architecture-truth-map.md) | Who owns what (single source) |
+| 6 | [v1.5.2 scope](./program/v1.5.2-scope.md) | **Current** release workstreams |
+| 7 | [v1.5.1 release](./releases/v1.5.1-release.md) | Shipped — honest hide |
 
-**Agent rules:** repository root [`AGENTS.md`](../AGENTS.md).
+**Agent rules:** [`AGENTS.md`](../AGENTS.md) (bootstrap) → modular [`rules/`](../rules/README.md). Cursor: [`.cursor/rules/`](../.cursor/rules/).
 
 ---
 
@@ -51,11 +53,21 @@ Canonical long-form guides — read in order when onboarding:
 
 ## Module shelves
 
+### Future kernel & protocol (concept shelf)
+
+| Document | Purpose |
+|----------|---------|
+| [**future/ — index**](./future/README.md) | Long-term kernel ideas; does not gate v1.5.x |
+| [Charter & vision](./future/00-charter-vision.md) | Trust model, Nostr as adapter |
+| [Kernel sketch](./future/01-kernel-transport-sketch.md) | Gradual path, transport ports |
+| [Assets from Obscur](./future/02-assets-from-obscur.md) | Harvest map from monorepo |
+
 ### Program and releases
 
 | Document | Purpose |
 |----------|---------|
-| [**Program overview (v1.5 active)**](./program/PROGRAM.md) | Consolidated roadmap, milestones, exit criteria |
+| [**Program overview**](./program/PROGRAM.md) | Active v1.5.1 + milestones |
+| [**Strategic direction**](./program/strategic-direction.md) | Implementation sequence |
 | [Current roadmap (detail)](./program/current-roadmap.md) | Active lanes and policies |
 | [v1.5.0 release](./releases/v1.5.0-release.md) | Release scope and known limitations |
 | [Release closeout guide](./releases/release-closeout-guide.md) | How to close a version |

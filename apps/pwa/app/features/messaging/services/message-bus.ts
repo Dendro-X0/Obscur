@@ -1,3 +1,6 @@
+"use client";
+
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import type { Message } from "../types";
 
 export type MessageBusEvent =
@@ -7,33 +10,87 @@ export type MessageBusEvent =
 
 type MessageBusHandler = (event: MessageBusEvent) => void;
 
+export type MessageBusSubscribeOptions = Readonly<{
+    /** When set, only events emitted for this profile are delivered. */
+    profileId?: string;
+}>;
+
+export type MessageBusEmitOptions = Readonly<{
+    /** Profile that originated the event; defaults to `getResolvedProfileId()` when omitted. */
+    sourceProfileId?: string;
+}>;
+
+type TaggedMessageBusEvent = MessageBusEvent & Readonly<{ _sourceProfileId: string }>;
+type TaggedMessageBusHandler = (event: TaggedMessageBusEvent) => void;
+
+const resolveEmitProfileId = (explicit?: string): string => {
+    const trimmed = explicit?.trim();
+    if (trimmed) {
+        return trimmed;
+    }
+    try {
+        return getResolvedProfileId().trim();
+    } catch {
+        return "";
+    }
+};
+
+const shouldDeliverToSubscriber = (
+    eventProfileId: string,
+    subscriberProfileId: string,
+): boolean => {
+    if (!subscriberProfileId) {
+        return true;
+    }
+    if (!eventProfileId) {
+        return false;
+    }
+    return eventProfileId === subscriberProfileId;
+};
+
 /**
  * MessageBus Service
- * 
+ *
  * Provides a transient, high-performance event stream for messaging events.
  * Decouples the message processing logic from the React rendering tree.
+ *
+ * Events are tagged with a source profile id so single-process multi-profile
+ * windows do not apply one profile's optimistic deletes to another's UI.
  */
 class MessageBus {
-    private handlers = new Set<MessageBusHandler>();
+    private handlers = new Set<TaggedMessageBusHandler>();
 
     /**
-     * Subscribe to all messaging events.
+     * Subscribe to messaging events, optionally scoped to one profile.
      * Returns an unsubscribe function.
      */
-    subscribe(handler: MessageBusHandler): () => void {
-        this.handlers.add(handler);
+    subscribe(handler: MessageBusHandler, options?: MessageBusSubscribeOptions): () => void {
+        const filterProfileId = options?.profileId?.trim() ?? "";
+        const wrapped: TaggedMessageBusHandler = (tagged) => {
+            if (!shouldDeliverToSubscriber(tagged._sourceProfileId, filterProfileId)) {
+                return;
+            }
+            const { _sourceProfileId: _ignored, ...publicEvent } = tagged;
+            handler(publicEvent);
+        };
+
+        this.handlers.add(wrapped);
         return () => {
-            this.handlers.delete(handler);
+            this.handlers.delete(wrapped);
         };
     }
 
     /**
-     * Emit a messaging event to all active subscribers.
+     * Emit a messaging event to subscribers for the originating profile.
      */
-    emit(event: MessageBusEvent): void {
-        this.handlers.forEach(handler => {
+    emit(event: MessageBusEvent, options?: MessageBusEmitOptions): void {
+        const tagged: TaggedMessageBusEvent = {
+            ...event,
+            _sourceProfileId: resolveEmitProfileId(options?.sourceProfileId),
+        };
+        this.handlers.forEach((handler) => {
             try {
-                handler(event);
+                handler(tagged);
             } catch (e) {
                 console.error("[MessageBus] Error in subscriber handler:", e);
             }
@@ -43,15 +100,23 @@ class MessageBus {
     /**
      * Helper to emit a new message event.
      */
-    emitNewMessage(conversationId: string, message: Message): void {
-        this.emit({ type: 'new_message', conversationId, message });
+    emitNewMessage(
+        conversationId: string,
+        message: Message,
+        options?: MessageBusEmitOptions,
+    ): void {
+        this.emit({ type: 'new_message', conversationId, message }, options);
     }
 
     /**
      * Helper to emit a message update event.
      */
-    emitMessageUpdated(conversationId: string, message: Message): void {
-        this.emit({ type: 'message_updated', conversationId, message });
+    emitMessageUpdated(
+        conversationId: string,
+        message: Message,
+        options?: MessageBusEmitOptions,
+    ): void {
+        this.emit({ type: 'message_updated', conversationId, message }, options);
     }
 
     /**
@@ -63,7 +128,8 @@ class MessageBus {
         options?: Readonly<{
             messageIdentityIds?: ReadonlyArray<string>;
             conversationIdOriginal?: string;
-        }>
+            sourceProfileId?: string;
+        }>,
     ): void {
         this.emit({
             type: 'message_deleted',
@@ -75,7 +141,7 @@ class MessageBus {
             ...(options?.conversationIdOriginal
                 ? { conversationIdOriginal: options.conversationIdOriginal }
                 : {}),
-        });
+        }, { sourceProfileId: options?.sourceProfileId });
     }
 }
 

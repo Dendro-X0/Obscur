@@ -10,6 +10,7 @@ export type AccountEventType =
   | "DM_RECEIVED"
   | "DM_SENT_CONFIRMED"
   | "DM_REMOVED_LOCALLY"
+  | "DM_RESTORED_LOCALLY"
   | "DM_DECRYPT_FAILED_QUARANTINED"
   | "SYNC_CHECKPOINT_ADVANCED"
   | "BOOTSTRAP_IMPORT_APPLIED";
@@ -98,6 +99,12 @@ export type DmRemovedLocallyEvent = AccountEventBase & Readonly<{
   conversationId?: string;
 }>;
 
+export type DmRestoredLocallyEvent = AccountEventBase & Readonly<{
+  type: "DM_RESTORED_LOCALLY";
+  messageId: string;
+  conversationId?: string;
+}>;
+
 export type DmDecryptFailedQuarantinedEvent = AccountEventBase & Readonly<{
   type: "DM_DECRYPT_FAILED_QUARANTINED";
   peerPublicKeyHex: PublicKeyHex;
@@ -127,6 +134,7 @@ export type AccountEvent =
   | DmReceivedEvent
   | DmSentConfirmedEvent
   | DmRemovedLocallyEvent
+  | DmRestoredLocallyEvent
   | DmDecryptFailedQuarantinedEvent
   | SyncCheckpointAdvancedEvent
   | BootstrapImportAppliedEvent;

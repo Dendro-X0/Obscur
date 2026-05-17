@@ -145,6 +145,7 @@ export const applyDmThreadRedaction = async (
       observedAtUnixMs: params.nostrEvent.created_at * 1000,
       replayProjection: true,
       skipEventLogReconcile: false,
+      redactTimelineEvents: true,
     });
     projectionRedacted = true;
   } catch (purgeErr) {

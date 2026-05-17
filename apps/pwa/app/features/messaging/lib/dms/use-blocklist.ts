@@ -135,7 +135,9 @@ const removeBlocked = (params: Readonly<{ publicKeyHex: PublicKeyHex }>): void =
   }));
 };
 
-export const useBlocklist = (params: Readonly<{ publicKeyHex: PublicKeyHex | null }>): UseBlocklistResult => {
+export const useBlocklist = (
+  params: Readonly<{ publicKeyHex: PublicKeyHex | null }> = { publicKeyHex: null },
+): UseBlocklistResult => {
   const storageKey: string | null = useMemo((): string | null => {
     if (!params.publicKeyHex) {
       return null;

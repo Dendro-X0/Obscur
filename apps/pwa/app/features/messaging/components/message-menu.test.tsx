@@ -1,10 +1,6 @@
 import React from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-
-vi.mock("../config/dm-redaction-product", () => ({
-    DM_DELETE_FOR_EVERYONE_UI_ENABLED: true,
-}));
 import type { Message } from "../types";
 import { MessageMenu } from "./message-menu";
 
@@ -39,34 +35,30 @@ const createProps = (activeMessage: Message) => ({
 });
 
 describe("MessageMenu deletion permissions", () => {
-    it("allows delete for me on incoming messages but disables delete for everyone", async () => {
-        const props = createProps(createMessage({ isOutgoing: false }));
-
-        render(<MessageMenu {...props} />);
-
-        const deleteForMeButton = await screen.findByRole("button", { name: /Delete for me/i });
-        const deleteForEveryoneButton = await screen.findByRole("button", { name: /Delete for everyone/i });
-
-        expect(deleteForMeButton).toBeEnabled();
-        expect(deleteForEveryoneButton).toBeDisabled();
-
-        fireEvent.click(deleteForMeButton);
-
-        expect(props.onDeleteForMe).toHaveBeenCalledTimes(1);
-        expect(props.onDeleteForEveryone).not.toHaveBeenCalled();
-    });
-
-    it("allows delete for everyone on self-authored messages", async () => {
+    it("does not surface recall for everyone in the product UI", async () => {
         const props = createProps(createMessage({ isOutgoing: true }));
 
         render(<MessageMenu {...props} />);
 
-        const deleteForEveryoneButton = await screen.findByRole("button", { name: /Delete for everyone/i });
+        expect(screen.queryByRole("button", { name: /Recall for everyone/i })).toBeNull();
+    });
 
-        expect(deleteForEveryoneButton).toBeEnabled();
+    it("allows hide on this device for incoming and outgoing messages", async () => {
+        const incomingProps = createProps(createMessage({ isOutgoing: false }));
+        const { unmount } = render(<MessageMenu {...incomingProps} />);
 
-        fireEvent.click(deleteForEveryoneButton);
+        const incomingHide = await screen.findByRole("button", { name: /Hide on this device/i });
+        expect(incomingHide).toBeEnabled();
+        fireEvent.click(incomingHide);
+        expect(incomingProps.onDeleteForMe).toHaveBeenCalledTimes(1);
+        unmount();
 
-        expect(props.onDeleteForEveryone).toHaveBeenCalledTimes(1);
+        const outgoingProps = createProps(createMessage({ isOutgoing: true }));
+        render(<MessageMenu {...outgoingProps} />);
+        const outgoingHide = await screen.findByRole("button", { name: /Hide on this device/i });
+        expect(outgoingHide).toBeEnabled();
+        fireEvent.click(outgoingHide);
+        expect(outgoingProps.onDeleteForMe).toHaveBeenCalledTimes(1);
+        expect(outgoingProps.onDeleteForEveryone).not.toHaveBeenCalled();
     });
 });

@@ -1,0 +1,5 @@
+version: 1
+interface:
+  display_name: Obscur Recovery
+  short_description: Recover core identity, relay, and messaging paths without adding drift.
+  default_prompt: Repair Obscur core flows by identifying the canonical owner, removing overlapping paths, and validating evidence-backed outcomes.

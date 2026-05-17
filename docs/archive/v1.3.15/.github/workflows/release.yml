@@ -1,0 +1,719 @@
+name: Obscur Full Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish_release:
+        description: "Publish GitHub Release after build/verification"
+        required: false
+        default: false
+        type: boolean
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  preflight-checks:
+    name: Preflight Checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check release source integrity
+        run: pnpm release:integrity-check
+
+      - name: Check version alignment
+        run: pnpm version:check
+
+      - name: Check docs consistency
+        run: pnpm docs:check
+
+      - name: Run release test pack (reliability gate)
+        env:
+          RELEASE_TEST_PACK_SKIP_PREFLIGHT: "1"
+        run: pnpm release:test-pack -- --skip-preflight
+
+  build-desktop:
+    name: Build Desktop (${{ matrix.os }})
+    needs: preflight-checks
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libappindicator3-dev librsvg2-dev patchelf build-essential pkg-config libssl-dev
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Prepare PWA (Disable Dynamic Routes)
+        shell: bash
+        run: |
+          # Hide API directory to avoid dynamic route errors in static export
+          if [ -d "apps/pwa/app/api" ]; then
+            mv apps/pwa/app/api apps/pwa/app/_api_hidden
+          fi
+          # Disable specific route files that use dynamic segmenting
+          for file in \
+            apps/pwa/app/api-backup/upload/route.ts \
+            apps/pwa/app/icon-192.png/route.ts \
+            apps/pwa/app/icon-512.png/route.ts \
+            apps/pwa/app/sw.js/route.ts \
+            apps/pwa/app/apple-touch-icon.png/route.ts \
+            apps/pwa/app/invites/page.tsx \
+            apps/pwa/app/groups/[...id]/page.tsx
+          do
+            if [ -f "$file" ]; then
+              mv "$file" "$file.ignored"
+            fi
+          done
+
+      - name: Build Desktop Bundles
+        run: pnpm -C apps/desktop tauri build
+        env:
+          TAURI_BUILD: true
+
+      - name: Upload Artifacts (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-windows
+          path: |
+            apps/desktop/src-tauri/target/release/bundle/nsis/*.exe
+            apps/desktop/src-tauri/target/release/bundle/msi/*.msi
+
+      - name: Upload Artifacts (macOS)
+        if: matrix.os == 'macos-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-macos
+          path: apps/desktop/src-tauri/target/release/bundle/dmg/*.dmg
+
+      - name: Upload Artifacts (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-linux
+          path: |
+            apps/desktop/src-tauri/target/release/bundle/appimage/*.AppImage
+            apps/desktop/src-tauri/target/release/bundle/deb/*.deb
+
+  build-web-pwa:
+    name: Build Web/PWA (static export)
+    needs: preflight-checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Prepare PWA (Disable Dynamic Routes)
+        shell: bash
+        run: |
+          if [ -d "apps/pwa/app/api" ]; then
+            mv apps/pwa/app/api apps/pwa/app/_api_hidden
+          fi
+          if [ -d "apps/pwa/app/api-backup" ]; then
+            mv apps/pwa/app/api-backup apps/pwa/app/_api-backup_hidden
+          fi
+          for file in \
+            apps/pwa/app/icon-192.png/route.ts \
+            apps/pwa/app/icon-512.png/route.ts \
+            apps/pwa/app/sw.js/route.ts \
+            apps/pwa/app/apple-touch-icon.png/route.ts \
+            apps/pwa/app/invites/page.tsx \
+            apps/pwa/app/groups/[...id]/page.tsx
+          do
+            if [ -f "$file" ]; then
+              mv "$file" "$file.ignored"
+            fi
+          done
+
+      - name: Build PWA static export
+        env:
+          TAURI_BUILD: true
+        run: pnpm -C apps/pwa build
+
+      - name: Package PWA artifact
+        shell: bash
+        run: |
+          test -f apps/pwa/out/index.html
+          tar -czf obscur-pwa-static.tar.gz -C apps/pwa/out .
+
+      - name: Upload Web/PWA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-pwa
+          path: obscur-pwa-static.tar.gz
+          if-no-files-found: error
+
+  build-android:
+    name: Build Android (APK + AAB)
+    needs: preflight-checks
+    runs-on: ubuntu-latest
+    outputs:
+      android_signing_state: ${{ steps.determine-signing.outputs.android_signing_state }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v2
+      - name: Resolve Android NDK path
+        shell: bash
+        run: |
+          set -euo pipefail
+          candidates=(
+            "${ANDROID_NDK_HOME:-}"
+            "${ANDROID_NDK_ROOT:-}"
+            "${ANDROID_NDK_LATEST_HOME:-}"
+            "${ANDROID_SDK_ROOT:-}/ndk-bundle"
+            "${ANDROID_HOME:-}/ndk-bundle"
+          )
+
+          if [ -n "${ANDROID_SDK_ROOT:-}" ] && [ -d "${ANDROID_SDK_ROOT}/ndk" ]; then
+            latest="$(ls -1 "${ANDROID_SDK_ROOT}/ndk" | sort -V | tail -n1 || true)"
+            if [ -n "${latest}" ]; then
+              candidates+=("${ANDROID_SDK_ROOT}/ndk/${latest}")
+            fi
+          fi
+
+          for path in "${candidates[@]}"; do
+            if [ -n "${path}" ] && [ -d "${path}" ]; then
+              echo "NDK_HOME=${path}" >> "$GITHUB_ENV"
+              echo "ANDROID_NDK_HOME=${path}" >> "$GITHUB_ENV"
+              echo "Resolved Android NDK: ${path}"
+              exit 0
+            fi
+          done
+
+          echo "Failed to resolve Android NDK path." >&2
+          echo "ANDROID_NDK_HOME=${ANDROID_NDK_HOME:-<unset>}" >&2
+          echo "ANDROID_NDK_ROOT=${ANDROID_NDK_ROOT:-<unset>}" >&2
+          echo "ANDROID_NDK_LATEST_HOME=${ANDROID_NDK_LATEST_HOME:-<unset>}" >&2
+          echo "ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT:-<unset>}" >&2
+          echo "ANDROID_HOME=${ANDROID_HOME:-<unset>}" >&2
+          exit 1
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Prepare Tauri Android bridge files
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f "apps/desktop/src-tauri/gen/android/tauri.settings.gradle" ]; then
+            echo "tauri.settings.gradle already present."
+            exit 0
+          fi
+
+          echo "tauri.settings.gradle missing in clean checkout; attempting tauri android init..."
+          pnpm -C apps/desktop tauri android init || true
+
+          if [ -f "apps/desktop/src-tauri/gen/android/tauri.settings.gradle" ]; then
+            echo "tauri.settings.gradle generated successfully."
+            exit 0
+          fi
+
+          echo "tauri.settings.gradle still missing. Fast-fail Kotlin compile will be skipped; tauri android build remains canonical gate."
+
+      - name: Fast-fail Kotlin compile (Android)
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -f "apps/desktop/src-tauri/gen/android/tauri.settings.gradle" ]; then
+            echo "Skipping Kotlin fast-fail: tauri.settings.gradle not present yet."
+            exit 0
+          fi
+          chmod +x apps/desktop/src-tauri/gen/android/gradlew
+          apps/desktop/src-tauri/gen/android/gradlew \
+            --project-dir apps/desktop/src-tauri/gen/android \
+            :app:compileUniversalReleaseKotlin \
+            --no-daemon
+
+      - name: Decode Android keystore (optional)
+        run: |
+          if [ -n "${ANDROID_KEYSTORE_BASE64:-}" ]; then
+            echo "${ANDROID_KEYSTORE_BASE64}" | base64 --decode > apps/desktop/src-tauri/release.jks
+            echo "ANDROID_SIGNING_READY=true" >> "$GITHUB_ENV"
+          else
+            echo "ANDROID_SIGNING_READY=false" >> "$GITHUB_ENV"
+          fi
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+
+      - name: Determine Android signing state
+        id: determine-signing
+        shell: bash
+        run: |
+          set -euo pipefail
+          signing_state="unsigned"
+          if [ "${ANDROID_SIGNING_READY:-false}" = "true" ] && [ -n "${TAURI_ANDROID_KEYSTORE_PASSWORD}" ] && [ -n "${TAURI_ANDROID_KEY_ALIAS}" ] && [ -n "${TAURI_ANDROID_KEY_PASSWORD}" ]; then
+            signing_state="signed"
+          fi
+          echo "android_signing_state=${signing_state}" >> "$GITHUB_OUTPUT"
+          echo "ANDROID_SIGNING_STATE=${signing_state}" >> "$GITHUB_ENV"
+        env:
+          TAURI_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          TAURI_ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEYALIAS }}
+          TAURI_ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+
+      - name: Prepare PWA (Disable Dynamic Routes)
+        shell: bash
+        run: |
+          if [ -d "apps/pwa/app/api" ]; then
+            mv apps/pwa/app/api apps/pwa/app/_api_hidden
+          fi
+          for file in \
+            apps/pwa/app/api-backup/upload/route.ts \
+            apps/pwa/app/icon-192.png/route.ts \
+            apps/pwa/app/icon-512.png/route.ts \
+            apps/pwa/app/sw.js/route.ts \
+            apps/pwa/app/apple-touch-icon.png/route.ts \
+            apps/pwa/app/invites/page.tsx \
+            apps/pwa/app/groups/[...id]/page.tsx
+          do
+            if [ -f "$file" ]; then
+              mv "$file" "$file.ignored"
+            fi
+          done
+
+      - name: Build Android App (signed if keys exist, otherwise unsigned)
+        run: |
+          if [ "${ANDROID_SIGNING_READY}" = "true" ] && [ -n "${TAURI_ANDROID_KEYSTORE_PASSWORD}" ] && [ -n "${TAURI_ANDROID_KEY_ALIAS}" ] && [ -n "${TAURI_ANDROID_KEY_PASSWORD}" ]; then
+            pnpm -C apps/desktop tauri android build --apk --aab --ci
+          else
+            pnpm -C apps/desktop tauri android build --apk --aab
+          fi
+        env:
+          TAURI_ANDROID_KEYSTORE_PATH: "release.jks"
+          TAURI_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          TAURI_ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEYALIAS }}
+          TAURI_ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+
+      - name: Debug Android output tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Android output tree (apk/bundle):"
+          find apps/desktop/src-tauri/gen/android/app/build/outputs -maxdepth 6 -type f | sort || true
+
+      - name: Upload Android Artifacts (APK + AAB)
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-android
+          path: |
+            apps/desktop/src-tauri/gen/android/app/build/outputs/apk/**/*.apk
+            apps/desktop/src-tauri/gen/android/app/build/outputs/bundle/**/*.aab
+          if-no-files-found: error
+
+      - name: Upload Android Build Metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-android-metadata
+          path: |
+            apps/desktop/src-tauri/gen/android/app/build/outputs/apk/**/output-metadata.json
+            apps/desktop/src-tauri/gen/android/app/build/outputs/bundle/**/output-metadata.json
+          if-no-files-found: error
+
+      - name: Android signing summary
+        shell: bash
+        run: |
+          {
+            echo "### Android Build Status";
+            echo "- Android signing state: ${ANDROID_SIGNING_STATE}";
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  ios-precheck:
+    name: iOS Signing Precheck
+    needs: preflight-checks
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.check.outputs.ready }}
+      ios_lane_state: ${{ steps.check.outputs.ios_lane_state }}
+    steps:
+      - name: Check required iOS signing secrets
+        id: check
+        shell: bash
+        run: |
+          missing=()
+          [[ -n "${{ secrets.APPLE_CERTIFICATE_BASE64 }}" ]] || missing+=("APPLE_CERTIFICATE_BASE64")
+          [[ -n "${{ secrets.APPLE_CERTIFICATE_PASSWORD }}" ]] || missing+=("APPLE_CERTIFICATE_PASSWORD")
+          [[ -n "${{ secrets.APPLE_DEVELOPMENT_TEAM }}" ]] || missing+=("APPLE_DEVELOPMENT_TEAM")
+          if [ ${#missing[@]} -eq 0 ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+            echo "ios_lane_state=executed" >> "$GITHUB_OUTPUT"
+            echo "### iOS Lane Status" >> "$GITHUB_STEP_SUMMARY"
+            echo "- iOS lane state: executed" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "ios_lane_state=skipped_missing_secrets" >> "$GITHUB_OUTPUT"
+            echo "Missing required iOS secrets: ${missing[*]}"
+            echo "### iOS Lane Status" >> "$GITHUB_STEP_SUMMARY"
+            echo "- iOS lane state: skipped_missing_secrets" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Missing secrets: ${missing[*]}" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  build-ios:
+    name: Build iOS (IPA)
+    needs: ios-precheck
+    if: ${{ needs.ios-precheck.outputs.ready == 'true' }}
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Apple Certificate
+        uses: apple-actions/import-codesign-certs@v3
+        with:
+          p12-file-base64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          p12-password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios,x86_64-apple-ios,aarch64-apple-ios-sim
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build iOS App (Signed)
+        run: pnpm -C apps/desktop tauri ios build --ci
+        env:
+          APPLE_DEVELOPMENT_TEAM: ${{ secrets.APPLE_DEVELOPMENT_TEAM }}
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-ios
+          path: apps/desktop/src-tauri/gen/apple/build/arm64-apple-ios/release/*.ipa
+
+  verify-artifacts:
+    name: Verify Artifacts
+    needs: [preflight-checks, build-desktop, build-web-pwa, build-android, ios-precheck]
+    if: ${{ always() && needs.preflight-checks.result == 'success' && needs.build-desktop.result == 'success' && needs.build-web-pwa.result == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      
+      - name: Download Windows Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: desktop-windows
+          path: ./release-assets/windows
+      
+      - name: Download macOS Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: desktop-macos
+          path: ./release-assets/macos
+      
+      - name: Download Linux Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: desktop-linux
+          path: ./release-assets/linux
+          
+      - name: Download Android Artifacts
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: mobile-android
+          path: ./release-assets/android
+
+      - name: Download Android Metadata
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: mobile-android-metadata
+          path: ./release-assets/android
+
+      - name: Download Web/PWA Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: web-pwa
+          path: ./release-assets/web
+
+      - name: Download iOS Artifacts
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: mobile-ios
+          path: ./release-assets/ios
+      
+      - name: Build streaming update manifest from downloaded artifacts
+        run: pnpm release:streaming-update-manifest:build -- --assets-dir release-assets --output release-assets/streaming-update-policy.json --release-notes-url "https://github.com/${{ github.repository }}/releases/latest"
+
+      - name: Upload streaming update manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: streaming-update-manifest
+          path: release-assets/streaming-update-policy.json
+          if-no-files-found: error
+
+      - name: Run desktop artifact version parity check
+        run: pnpm release:artifact-version-parity -- --assets-dir release-assets --skip-android
+
+      - name: Run Android artifact version parity check (non-blocking)
+        if: ${{ needs.build-android.result == 'success' }}
+        continue-on-error: true
+        run: pnpm release:artifact-version-parity -- --assets-dir release-assets
+
+      - name: Release lane summary
+        shell: bash
+        run: |
+          {
+            echo "### Release Lane Summary";
+            echo "- android_job_result: ${{ needs.build-android.result }}";
+            echo "- android_signing_state: ${{ needs.build-android.outputs.android_signing_state != '' && needs.build-android.outputs.android_signing_state || 'unavailable' }}";
+            echo "- ios_lane_state: ${{ needs.ios-precheck.outputs.ios_lane_state }}";
+            echo "- android_version_parity: check non-blocking (see step status)";
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Verify required artifact matrix
+        shell: bash
+        env:
+          ANDROID_JOB_RESULT: ${{ needs.build-android.result }}
+        run: |
+          set -euo pipefail
+
+          echo "Release asset tree:"
+          find release-assets -maxdepth 3 -type f | sort || true
+
+          has_windows_installer=0
+          if find release-assets/windows -type f \( -iname "*.exe" -o -iname "*.msi" \) | grep -q .; then
+            has_windows_installer=1
+          fi
+
+          has_macos_installer=0
+          if find release-assets/macos -type f -iname "*.dmg" | grep -q .; then
+            has_macos_installer=1
+          fi
+
+          has_linux_installer=0
+          if find release-assets/linux -type f \( -iname "*.appimage" -o -iname "*.deb" \) | grep -q .; then
+            has_linux_installer=1
+          fi
+
+          has_android_apk=0
+          if find release-assets/android -type f -iname "*.apk" | grep -q .; then
+            has_android_apk=1
+          fi
+
+          has_android_aab=0
+          if find release-assets/android -type f -iname "*.aab" | grep -q .; then
+            has_android_aab=1
+          fi
+
+          has_web_bundle=0
+          if find release-assets/web -type f -iname "*.tar.gz" | grep -q .; then
+            has_web_bundle=1
+          fi
+
+          echo "Artifact matrix status:"
+          echo "- windows installer (.exe/.msi): ${has_windows_installer}"
+          echo "- macOS installer (.dmg): ${has_macos_installer}"
+          echo "- linux installer (.AppImage/.deb): ${has_linux_installer}"
+          echo "- android apk (.apk): ${has_android_apk}"
+          echo "- android aab (.aab): ${has_android_aab}"
+          echo "- web pwa bundle (.tar.gz): ${has_web_bundle}"
+          echo "- ios ipa (.ipa, optional): $(find release-assets/ios -type f -iname \"*.ipa\" | wc -l || true)"
+          echo "- android build result: ${ANDROID_JOB_RESULT}"
+
+          if [ "$has_windows_installer" -ne 1 ]; then
+            echo "Missing required Windows installer (.exe or .msi)." >&2
+            exit 1
+          fi
+          if [ "$has_macos_installer" -ne 1 ]; then
+            echo "Missing required macOS installer (.dmg)." >&2
+            exit 1
+          fi
+          if [ "$has_linux_installer" -ne 1 ]; then
+            echo "Missing required Linux installer (.AppImage or .deb)." >&2
+            exit 1
+          fi
+          if [ "${ANDROID_JOB_RESULT}" = "success" ]; then
+            if [ "$has_android_apk" -ne 1 ]; then
+              echo "Android build succeeded but APK artifact is missing (.apk)." >&2
+              exit 1
+            fi
+            if [ "$has_android_aab" -ne 1 ]; then
+              echo "Android build succeeded but AAB artifact is missing (.aab)." >&2
+              exit 1
+            fi
+          else
+            echo "Android lane is non-blocking in this run (${ANDROID_JOB_RESULT}); continuing with desktop/web release verification."
+          fi
+          if [ "$has_web_bundle" -ne 1 ]; then
+            echo "Missing required Web/PWA static bundle (.tar.gz)." >&2
+            exit 1
+          fi
+
+          echo "Required artifact matrix verified."
+
+  publish-release:
+    name: Publish Release
+    needs: [verify-artifacts]
+    if: ${{ startsWith(github.ref, 'refs/tags/v') && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.publish_release == true)) }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download Windows Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: desktop-windows
+          path: ./release-assets/windows
+
+      - name: Download macOS Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: desktop-macos
+          path: ./release-assets/macos
+
+      - name: Download Linux Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: desktop-linux
+          path: ./release-assets/linux
+
+      - name: Download Android Artifacts
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: mobile-android
+          path: ./release-assets/android
+
+      - name: Download Android Metadata
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: mobile-android-metadata
+          path: ./release-assets/android
+
+      - name: Download Web/PWA Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: web-pwa
+          path: ./release-assets/web
+
+      - name: Download iOS Artifacts
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: mobile-ios
+          path: ./release-assets/ios
+
+      - name: Download Streaming Update Manifest
+        uses: actions/download-artifact@v4
+        with:
+          name: streaming-update-manifest
+          path: ./release-assets/streaming-update
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: "Obscur ${{ github.ref_name }}"
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: |
+            ./release-assets/windows/**/*
+            ./release-assets/macos/**/*
+            ./release-assets/linux/**/*
+            ./release-assets/android/**/*
+            ./release-assets/web/**/*
+            ./release-assets/ios/**/*
+            ./release-assets/streaming-update/**/*

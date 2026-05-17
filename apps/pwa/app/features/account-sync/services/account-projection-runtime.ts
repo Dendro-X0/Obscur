@@ -17,6 +17,7 @@ import { buildBootstrapAccountEvents, buildBootstrapSealEvents } from "./account
 import { createDriftReport, getLatestDriftReport } from "./account-sync-drift-detector";
 import { encryptedAccountBackupService } from "./encrypted-account-backup-service";
 import { messagingClientOperations } from "@/app/features/messaging/services/messaging-client-operations";
+import { areAccountProjectionRuntimeSnapshotsEqual } from "@/app/shared/store-snapshot-equality";
 
 type Listener = (snapshot: AccountProjectionRuntimeSnapshot) => void;
 
@@ -61,6 +62,9 @@ const emit = (): void => {
 };
 
 const setSnapshot = (next: AccountProjectionRuntimeSnapshot): void => {
+  if (areAccountProjectionRuntimeSnapshotsEqual(currentSnapshot, next)) {
+    return;
+  }
   currentSnapshot = next;
   emit();
 };
@@ -521,6 +525,27 @@ export const accountProjectionRuntime = {
       observedAtUnixMs: params.observedAtUnixMs ?? Date.now(),
       eventId: `DM_REMOVED_LOCALLY:${params.messageId}`,
       idempotencyKey: `DM_REMOVED_LOCALLY:${params.accountPublicKeyHex}:${params.messageId}:${params.idempotencySuffix}`,
+    };
+  },
+  createDmRestoredEvent(params: Readonly<{
+    profileId: string;
+    accountPublicKeyHex: PublicKeyHex;
+    messageId: string;
+    conversationId?: string;
+    observedAtUnixMs?: number;
+    idempotencySuffix: string;
+    source?: AccountEvent["source"];
+  }>): AccountEvent {
+    return {
+      type: "DM_RESTORED_LOCALLY",
+      profileId: params.profileId,
+      accountPublicKeyHex: params.accountPublicKeyHex,
+      messageId: params.messageId,
+      ...(params.conversationId ? { conversationId: params.conversationId } : {}),
+      source: params.source ?? "legacy_bridge",
+      observedAtUnixMs: params.observedAtUnixMs ?? Date.now(),
+      eventId: `DM_RESTORED_LOCALLY:${params.messageId}`,
+      idempotencyKey: `DM_RESTORED_LOCALLY:${params.accountPublicKeyHex}:${params.messageId}:${params.idempotencySuffix}`,
     };
   },
   createSyncCheckpointEvent(params: Readonly<{

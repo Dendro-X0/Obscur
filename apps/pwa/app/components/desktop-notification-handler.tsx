@@ -539,6 +539,8 @@ export const DesktopNotificationHandler = () => {
         }
     }, [accountSyncSnapshot.phase]);
 
+    const activeProfileId = getResolvedProfileId();
+
     useEffect((): (() => void) => {
         unsubscribeRef.current = messageBus.subscribe((event) => {
             if (event.type !== "new_message") {
@@ -740,11 +742,11 @@ export const DesktopNotificationHandler = () => {
                 lastMessageNotificationAtUnixMsRef.current = Date.now();
                 playSubtleMessageTone();
             }
-        });
+        }, { profileId: activeProfileId });
         return (): void => {
             unsubscribeRef.current?.();
         };
-    }, [accountSyncSnapshot.phase, channels.dmMessages, createdConnections, enabled, enqueueInAppMessageToast, globalVoiceOverlay.status?.phase, groupContext?.createdGroups, notifyIncomingCall, pathname, playSubtleMessageTone, selectedConversation?.id, showNotification]);
+    }, [accountSyncSnapshot.phase, activeProfileId, channels.dmMessages, createdConnections, enabled, enqueueInAppMessageToast, globalVoiceOverlay.status?.phase, groupContext?.createdGroups, notifyIncomingCall, pathname, playSubtleMessageTone, selectedConversation?.id, showNotification]);
 
     useEffect((): void => {
         const status = globalVoiceOverlay.status;

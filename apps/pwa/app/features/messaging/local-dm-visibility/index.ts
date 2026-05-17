@@ -1,5 +1,6 @@
 export type {
   ExecuteLocalDmDeleteForMeParams,
+  ExecuteLocalDmShowAgainParams,
   LocalDmVisibilityPort,
   LocalDmVisibilityScope,
   MessageLikeWithIdentity,

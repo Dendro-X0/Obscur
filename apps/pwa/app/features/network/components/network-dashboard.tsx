@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { startTransition, Suspense, useState, useMemo, lazy } from "react";
 import { useTranslation } from "react-i18next";
 import {
     Users,
@@ -39,7 +39,10 @@ import { AddConnectionModal } from "./add-connection-modal";
 
 import { ConnectionCard } from "./network-connection-card";
 import { GroupCard } from "./group-card";
-import { GroupDiscovery } from "@/app/features/groups/components/group-discovery";
+const GroupDiscoveryPanel = lazy(async () => {
+    const module = await import("@/app/features/groups/components/group-discovery");
+    return { default: module.GroupDiscovery };
+});
 import { Loader2 as LoaderIcon, QrCode, Scan, Download, Upload, User as UserIcon, Shield, Copy, CheckCircle2, ChevronRight } from "lucide-react";
 import { parsePublicKeyInput } from "@/app/features/profile/utils/parse-public-key-input";
 import { useInviteResolver } from "@/app/features/invites/utils/use-invite-resolver";
@@ -185,7 +188,7 @@ export function NetworkDashboard() {
     };
 
     const renderEmptyState = (title: string, description: string, icon: React.ElementType, action?: { label: string, onClick: () => void }) => (
-        <div className="flex-1 flex flex-col items-center justify-center p-8 min-h-[45vh] text-center animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="flex-1 flex flex-col items-center justify-center p-8 min-h-[45vh] text-center animate-in fade-in slide-in-from-bottom-4 duration-150">
             <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-[24px] bg-muted border border-border shadow-inner">
                 {React.createElement(icon, { className: "h-10 w-10 text-muted-foreground" })}
             </div>
@@ -280,7 +283,7 @@ export function NetworkDashboard() {
                     {tabs.map((tab) => (
                         <button
                             key={tab.id}
-                            onClick={() => setActiveTab(tab.id as TabId)}
+                            onClick={() => startTransition(() => setActiveTab(tab.id as TabId))}
                             className={cn(
                                 "relative flex h-10 flex-shrink-0 items-center gap-3 rounded-xl px-4 text-xs font-bold transition-all duration-300 lg:w-full",
                                 activeTab === tab.id
@@ -302,7 +305,7 @@ export function NetworkDashboard() {
                 {/* Main Content Pane */}
                 <div className="flex min-w-0 flex-1 flex-col p-3 pb-24 sm:p-6 lg:p-8 lg:pb-8 xl:px-10">
                     {activeTab === "all" && (
-                        <div className="space-y-12 animate-in fade-in duration-700 flex-1 flex flex-col">
+                        <div className="space-y-12 animate-in fade-in duration-150 flex-1 flex flex-col">
                             {/* Accepted Contacts Grid */}
                             <div className="space-y-6">
                                 <div className="flex items-center justify-between px-2">
@@ -347,13 +350,13 @@ export function NetworkDashboard() {
                     )}
 
                     {activeTab === "groups" && (
-                        <div className="animate-in fade-in duration-700 flex-1 flex flex-col">
+                        <div className="animate-in fade-in duration-150 flex-1 flex flex-col">
                             {filteredGroups.length === 0 ? (
                                 renderEmptyState(
                                     t("network.noGroupsFound"),
                                     t("network.noGroupsDesc"),
                                     Users,
-                                    { label: t("groups.actions.browseCommunities", "Browse Communities"), onClick: () => setActiveTab("discovery") }
+                                    { label: t("groups.actions.browseCommunities", "Browse Communities"), onClick: () => startTransition(() => setActiveTab("discovery")) }
                                 )
                             ) : (
                                 <div className={viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" : "flex flex-col"}>
@@ -381,13 +384,21 @@ export function NetworkDashboard() {
                     )}
 
                     {activeTab === "discovery" && (
-                        <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 h-full flex-1 flex flex-col">
-                            <GroupDiscovery searchQuery={searchQuery} />
+                        <div className="animate-in fade-in slide-in-from-bottom-4 duration-150 h-full flex-1 flex flex-col">
+                            <Suspense
+                                fallback={(
+                                    <div className="flex flex-1 items-center justify-center p-12 min-h-[40vh]">
+                                        <LoaderIcon className="h-8 w-8 animate-pulse text-primary/50" />
+                                    </div>
+                                )}
+                            >
+                                <GroupDiscoveryPanel searchQuery={searchQuery} />
+                            </Suspense>
                         </div>
                     )}
 
                     {activeTab === "invitations" && (
-                        <div className="space-y-10 max-w-3xl mx-auto w-full animate-in fade-in duration-700 flex-1 flex flex-col">
+                        <div className="space-y-10 max-w-3xl mx-auto w-full animate-in fade-in duration-150 flex-1 flex flex-col">
                             {filteredIncomingRequests.length === 0 && filteredOutgoingRequests.length === 0 && filteredDeclined.length === 0 ? (
                                 renderEmptyState(
                                     t("network.noRequestsFound"),
@@ -486,7 +497,7 @@ export function NetworkDashboard() {
                     )}
 
                     {activeTab === "blocked" && (
-                        <div className="max-w-3xl mx-auto w-full animate-in fade-in duration-700 flex-1 flex flex-col">
+                        <div className="max-w-3xl mx-auto w-full animate-in fade-in duration-150 flex-1 flex flex-col">
                             {filteredBlocked.length === 0 ? (
                                 renderEmptyState(
                                     t("network.noBlockedFound"),
@@ -532,7 +543,7 @@ export function NetworkDashboard() {
                     )}
 
                     {activeTab === "manage" && (
-                        <div className="max-w-3xl w-full animate-in fade-in duration-700 pb-10">
+                        <div className="max-w-3xl w-full animate-in fade-in duration-150 pb-10">
                             <div className="mb-6 px-2">
                                 <h3 className="text-xl font-black text-foreground">{t("network.settingsTitle", "Network Settings")}</h3>
                                 <p className="text-sm text-muted-foreground mt-1">Manage your connections, import backups, and configure trust.</p>

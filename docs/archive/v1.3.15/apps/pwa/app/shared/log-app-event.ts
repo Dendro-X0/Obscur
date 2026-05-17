@@ -1,0 +1,2527 @@
+import { logWithRateLimit } from "@/app/shared/log-hygiene";
+import { reportDevRuntimeIssue, type DevRuntimeIssueDomain } from "@/app/shared/dev-runtime-issue-reporter";
+
+type AppEventLevel = "debug" | "info" | "warn" | "error";
+
+type AppEvent = Readonly<{
+  name: string;
+  level: AppEventLevel;
+  atUnixMs: number;
+  scope?: Readonly<{ feature: string; action: string }>;
+  context?: Readonly<Record<string, string | number | boolean | null>>;
+}>;
+
+type LogAppEventParams = Readonly<{
+  name: string;
+  level?: AppEventLevel;
+  scope?: Readonly<{ feature: string; action: string }>;
+  context?: Readonly<Record<string, string | number | boolean | null>>;
+}>;
+
+type AppEventDiagnosticsApi = Readonly<{
+  getRecent: (count?: number) => ReadonlyArray<AppEvent>;
+  findByName: (name: string, count?: number) => ReadonlyArray<AppEvent>;
+  getDigest: (count?: number) => Readonly<{
+    total: number;
+    windowSize: number;
+    byLevel: Readonly<Record<AppEventLevel, number>>;
+    topNames: ReadonlyArray<Readonly<{ name: string; count: number }>>;
+    recentErrors: ReadonlyArray<Readonly<{ name: string; atUnixMs: number; reasonCode: string | null }>>;
+    warmUpSummary: ReadonlyArray<Readonly<{ name: string; toPhase: string | null; reasonCode: string | null; atUnixMs: number }>>;
+  }>;
+  getCrossDeviceSyncDigest: (count?: number) => Readonly<{
+    totalBufferedEvents: number;
+    windowSize: number;
+    generatedAtUnixMs: number;
+    events: Readonly<Record<string, ReadonlyArray<Readonly<{
+      atUnixMs: number;
+      level: AppEventLevel;
+      context: Readonly<Record<string, string | number | boolean | null>>;
+    }>>>>;
+    summary: Readonly<{
+      selfAuthoredDmContinuity: Readonly<{
+        riskLevel: "none" | "watch" | "high";
+        latestHydratedOutgoingCount: number | null;
+        latestMergedOutgoingCount: number | null;
+        sparseOutgoingEvidence: boolean | null;
+        idSplitDetectedCount: number;
+      }>;
+      membershipSendability: Readonly<{
+        riskLevel: "none" | "watch" | "high";
+        latestVisibleGroupCount: number | null;
+        latestChatStateGroupCount: number | null;
+        roomKeyMissingSendBlockedCount: number;
+        joinedMembershipRoomKeyMismatchCount: number;
+        localProfileScopeRoomKeyMissingCount: number;
+        noLocalRoomKeysCount: number;
+        latestReasonCode: string | null;
+      }>;
+      accountSwitchScopeConvergence: Readonly<{
+        riskLevel: "none" | "watch" | "high";
+        backupRestoreProfileScopeMismatchCount: number;
+        runtimeActivationProfileScopeMismatchCount: number;
+        autoUnlockScopeDriftDetectedCount: number;
+        latestBackupRestoreReasonCode: string | null;
+        latestRuntimeActivationReasonCode: string | null;
+        latestAutoUnlockReasonCode: string | null;
+      }>;
+      incomingRequestAntiAbuse: Readonly<{
+        riskLevel: "none" | "watch" | "high";
+        quarantinedCount: number;
+        peerRateLimitedCount: number;
+        peerCooldownActiveCount: number;
+        globalRateLimitedCount: number;
+        uniquePeerPrefixCount: number;
+        latestReasonCode: string | null;
+        latestPeerPubkeyPrefix: string | null;
+        latestCooldownRemainingMs: number | null;
+      }>;
+      m10TrustControls: Readonly<{
+        riskLevel: "none" | "watch" | "high";
+        cp2StabilityGateCount: number;
+        cp2StabilityGatePassCount: number;
+        cp2StabilityGateFailCount: number;
+        cp2StabilityGateUnexpectedFailCount: number;
+        cp3ReadinessGateCount: number;
+        cp3ReadinessGatePassCount: number;
+        cp3ReadinessGateFailCount: number;
+        cp3ReadinessGateUnexpectedFailCount: number;
+        cp3SuiteGateCount: number;
+        cp3SuiteGatePassCount: number;
+        cp3SuiteGateFailCount: number;
+        cp3SuiteGateUnexpectedFailCount: number;
+        cp4CloseoutGateCount: number;
+        cp4CloseoutGatePassCount: number;
+        cp4CloseoutGateFailCount: number;
+        cp4CloseoutGateUnexpectedFailCount: number;
+        v130CloseoutGateCount: number;
+        v130CloseoutGatePassCount: number;
+        v130CloseoutGateFailCount: number;
+        v130CloseoutGateUnexpectedFailCount: number;
+        v130EvidenceGateCount: number;
+        v130EvidenceGatePassCount: number;
+        v130EvidenceGateFailCount: number;
+        v130EvidenceGateUnexpectedFailCount: number;
+        latestExpectedStable: boolean | null;
+        latestPass: boolean | null;
+        latestFailedCheckSample: string | null;
+        latestCp3ExpectedStable: boolean | null;
+        latestCp3Pass: boolean | null;
+        latestCp3FailedCheckSample: string | null;
+        latestCp3SuiteExpectedStable: boolean | null;
+        latestCp3SuitePass: boolean | null;
+        latestCp3SuiteFailedCheckSample: string | null;
+        latestCp4CloseoutExpectedStable: boolean | null;
+        latestCp4CloseoutPass: boolean | null;
+        latestCp4CloseoutFailedCheckSample: string | null;
+        latestV130CloseoutExpectedStable: boolean | null;
+        latestV130CloseoutPass: boolean | null;
+        latestV130CloseoutFailedCheckSample: string | null;
+        latestV130EvidenceExpectedStable: boolean | null;
+        latestV130EvidencePass: boolean | null;
+        latestV130EvidenceFailedCheckSample: string | null;
+      }>;
+      communityLifecycleConvergence: Readonly<{
+        riskLevel: "none" | "watch" | "high";
+        latestPersistedGroupCount: number | null;
+        latestPersistedDuplicateMergeCount: number | null;
+        latestHydratedFromPersistedWithLedgerCount: number | null;
+        latestHydratedFromPersistedFallbackCount: number | null;
+        latestHydratedFromLedgerOnlyCount: number | null;
+        latestPlaceholderDisplayNameRecoveredCount: number | null;
+        latestLocalMemberBackfillCount: number | null;
+        latestMissingLedgerCoverageCount: number | null;
+        latestHiddenByLedgerStatusCount: number | null;
+        recoveryRepairSignalCount: number;
+      }>;
+      mediaHydrationParity: Readonly<{
+        riskLevel: "none" | "watch" | "high";
+        latestHydratedDmAttachmentCount: number | null;
+        latestMergedDmAttachmentCount: number | null;
+        latestAppliedDmAttachmentCount: number | null;
+        latestHydratedGroupAttachmentCount: number | null;
+        latestMergedGroupAttachmentCount: number | null;
+        latestAppliedGroupAttachmentCount: number | null;
+        attachmentDropRegressionCount: number;
+        criticalHydrationDriftCount: number;
+      }>;
+      searchJumpNavigation: Readonly<{
+        riskLevel: "none" | "watch" | "high";
+        requestedCount: number;
+        resolvedCount: number;
+        unresolvedCount: number;
+        timestampFallbackResolvedCount: number;
+        domUnresolvedCount: number;
+        loadExhaustedUnresolvedCount: number;
+        latestResolutionMode: string | null;
+        latestUnresolvedReasonCode: string | null;
+      }>;
+      uiResponsiveness: Readonly<{
+        riskLevel: "none" | "watch" | "high";
+        routeRequestCount: number;
+        routeSettledCount: number;
+        routeStallHardFallbackCount: number;
+        routeMountProbeSlowCount: number;
+        routeMountProbeSettledWarnCount: number;
+        routeMountPerformanceGuardEnabledCount: number;
+        pageTransitionWatchdogTimeoutCount: number;
+        pageTransitionEffectsDisabledCount: number;
+        startupProfileBootStallTimeoutCount: number;
+        latestRouteSurface: string | null;
+        latestRouteStallElapsedMs: number | null;
+        latestRouteMountProbeElapsedMs: number | null;
+        latestPageTransitionWatchdogElapsedMs: number | null;
+        latestStartupProfileBootPhase: string | null;
+      }>;
+      realtimeVoiceSession: Readonly<{
+        riskLevel: "none" | "watch" | "high";
+        transitionCount: number;
+        degradedCount: number;
+        unsupportedCount: number;
+        recoveryExhaustedCount: number;
+        staleEventIgnoredCount: number;
+        connectTimeoutDiagnosticsCount: number;
+        connectTimeoutNoOpenRelayCount: number;
+        connectingWatchdogGateCount: number;
+        connectingWatchdogGatePassCount: number;
+        connectingWatchdogGateFailCount: number;
+        unexpectedConnectingWatchdogGateFailCount: number;
+        connectingWatchdogSelfTestCount: number;
+        connectingWatchdogSelfTestPassCount: number;
+        connectingWatchdogSelfTestFailCount: number;
+        unexpectedConnectingWatchdogSelfTestFailCount: number;
+        connectingWatchdogIncidentBundleCount: number;
+        connectingWatchdogIncidentBundlePassCount: number;
+        connectingWatchdogIncidentBundleFailCount: number;
+        unexpectedConnectingWatchdogIncidentBundleFailCount: number;
+        connectingWatchdogIncidentGateCount: number;
+        connectingWatchdogIncidentGatePassCount: number;
+        connectingWatchdogIncidentGateFailCount: number;
+        unexpectedConnectingWatchdogIncidentGateFailCount: number;
+        connectingWatchdogIncidentGateEvidenceCount: number;
+        connectingWatchdogIncidentGateEvidencePassCount: number;
+        connectingWatchdogIncidentGateEvidenceFailCount: number;
+        unexpectedConnectingWatchdogIncidentGateEvidenceFailCount: number;
+        connectingWatchdogIncidentGateSelfTestCount: number;
+        connectingWatchdogIncidentGateSelfTestPassCount: number;
+        connectingWatchdogIncidentGateSelfTestFailCount: number;
+        unexpectedConnectingWatchdogIncidentGateSelfTestFailCount: number;
+        connectingWatchdogIncidentGateCloseoutCount: number;
+        connectingWatchdogIncidentGateCloseoutPassCount: number;
+        connectingWatchdogIncidentGateCloseoutFailCount: number;
+        unexpectedConnectingWatchdogIncidentGateCloseoutFailCount: number;
+        connectingWatchdogIncidentGateCloseoutSelfTestCount: number;
+        connectingWatchdogIncidentGateCloseoutSelfTestPassCount: number;
+        connectingWatchdogIncidentGateCloseoutSelfTestFailCount: number;
+        unexpectedConnectingWatchdogIncidentGateCloseoutSelfTestFailCount: number;
+        longSessionGateCount: number;
+        longSessionGatePassCount: number;
+        longSessionGateFailCount: number;
+        unexpectedLongSessionGateFailCount: number;
+        checkpointGateCount: number;
+        checkpointGatePassCount: number;
+        checkpointGateFailCount: number;
+        unexpectedCheckpointGateFailCount: number;
+        releaseReadinessGateCount: number;
+        releaseReadinessGatePassCount: number;
+        releaseReadinessGateFailCount: number;
+        unexpectedReleaseReadinessGateFailCount: number;
+        releaseEvidenceGateCount: number;
+        releaseEvidenceGatePassCount: number;
+        releaseEvidenceGateFailCount: number;
+        unexpectedReleaseEvidenceGateFailCount: number;
+        closeoutGateCount: number;
+        closeoutGatePassCount: number;
+        closeoutGateFailCount: number;
+        unexpectedCloseoutGateFailCount: number;
+        latestToPhase: string | null;
+        latestReasonCode: string | null;
+        latestIgnoredReasonCode: string | null;
+        latestConnectTimeoutRtcConnectionState: string | null;
+        latestConnectTimeoutOpenRelayCount: number | null;
+        latestConnectingWatchdogGatePass: boolean | null;
+        latestConnectingWatchdogGateFailedCheckSample: string | null;
+        latestConnectingWatchdogSelfTestPass: boolean | null;
+        latestConnectingWatchdogSelfTestFailedCheckSample: string | null;
+        latestConnectingWatchdogIncidentBundlePass: boolean | null;
+        latestConnectingWatchdogIncidentBundleFailedCheckSample: string | null;
+        latestConnectingWatchdogIncidentGatePass: boolean | null;
+        latestConnectingWatchdogIncidentGateFailedCheckSample: string | null;
+        latestConnectingWatchdogIncidentGateEvidencePass: boolean | null;
+        latestConnectingWatchdogIncidentGateEvidenceFailedCheckSample: string | null;
+        latestConnectingWatchdogIncidentGateSelfTestPass: boolean | null;
+        latestConnectingWatchdogIncidentGateSelfTestFailedCheckSample: string | null;
+        latestConnectingWatchdogIncidentGateCloseoutPass: boolean | null;
+        latestConnectingWatchdogIncidentGateCloseoutFailedCheckSample: string | null;
+        latestConnectingWatchdogIncidentGateCloseoutSelfTestPass: boolean | null;
+        latestConnectingWatchdogIncidentGateCloseoutSelfTestFailedCheckSample: string | null;
+        latestLongSessionGatePass: boolean | null;
+        latestLongSessionGateFailedCheckSample: string | null;
+        latestCheckpointGatePass: boolean | null;
+        latestCheckpointGateFailedCheckSample: string | null;
+        latestReleaseReadinessGatePass: boolean | null;
+        latestReleaseReadinessGateFailedCheckSample: string | null;
+        latestReleaseEvidenceGatePass: boolean | null;
+        latestReleaseEvidenceGateFailedCheckSample: string | null;
+        latestCloseoutGatePass: boolean | null;
+        latestCloseoutGateFailedCheckSample: string | null;
+      }>;
+      asyncVoiceNote: Readonly<{
+        riskLevel: "none" | "watch" | "high";
+        recordingCompleteCount: number;
+        recordingUnsupportedCount: number;
+        recordingStartFailedCount: number;
+        recordingEmptyCount: number;
+        latestReasonCode: string | null;
+      }>;
+      deleteConvergence: Readonly<{
+        riskLevel: "none" | "watch" | "high";
+        requestedCount: number;
+        localAppliedCount: number;
+        remoteConfirmedCount: number;
+        remoteQueuedCount: number;
+        remoteFailedCount: number;
+        rejectedCount: number;
+        latestChannel: string | null;
+        latestResultCode: string | null;
+        latestReasonCode: string | null;
+      }>;
+    }>;
+    recentWarnOrError: ReadonlyArray<Readonly<{
+      name: string;
+      atUnixMs: number;
+      level: AppEventLevel;
+      reasonCode: string | null;
+      message: string | null;
+    }>>;
+  }>;
+  clear: () => void;
+}>;
+
+const APP_EVENT_ISSUE_EXCLUSION_SET: ReadonlySet<string> = new Set([
+  "messaging.delivery.sender_delivery_failed",
+  "messaging.delivery.sender_delivery_queued",
+  "relay.runtime_performance_gate",
+]);
+
+const DEV_WARN_ONLY_ERROR_EVENT_SET: ReadonlySet<string> = new Set([
+  "messaging.delivery.sender_delivery_failed",
+  "relay.runtime_performance_gate",
+]);
+
+const APP_EVENT_BUFFER_KEY = "__obscur_app_event_buffer__";
+const APP_EVENT_API_KEY = "obscurAppEvents";
+const APP_EVENT_BUFFER_MAX = 500;
+const RUNTIME_WARN_EVENT_PATTERN = /(failed|failure|timeout|timed_out|unavailable|insufficient|rejected|degraded|cooldown|mismatch|error)/i;
+const SEARCH_JUMP_DOM_UNRESOLVED_REASON_CODES: ReadonlySet<string> = new Set([
+  "target_dom_not_resolved_after_index_match",
+  "timestamp_fallback_dom_not_resolved",
+]);
+const CROSS_DEVICE_DIGEST_EVENT_CONFIG: Readonly<Record<string, ReadonlyArray<string>>> = {
+  "account_sync.backup_restore_merge_diagnostics": [
+    "publicKeySuffix",
+    "freshDevice",
+    "includeHydratedLocalMessages",
+    "localPayloadMerged",
+    "incomingLedgerEntryCount",
+    "localLedgerEntryCount",
+    "mergedLedgerEntryCount",
+    "incomingDmOutgoingCount",
+    "localDmOutgoingCount",
+    "mergedDmOutgoingCount",
+    "incomingDmAttachmentCount",
+    "localDmAttachmentCount",
+    "mergedDmAttachmentCount",
+    "incomingGroupConversationCount",
+    "localGroupConversationCount",
+    "mergedGroupConversationCount",
+    "incomingGroupAttachmentCount",
+    "localGroupAttachmentCount",
+    "mergedGroupAttachmentCount",
+  ],
+  "account_sync.backup_restore_apply_diagnostics": [
+    "publicKeySuffix",
+    "restorePath",
+    "restoreChatStateDomains",
+    "appliedDmOutgoingCount",
+    "appliedDmIncomingCount",
+    "appliedDmMessageCount",
+    "appliedDmAttachmentCount",
+    "appliedGroupConversationCount",
+    "appliedGroupMessageCount",
+    "appliedGroupSelfAuthoredCount",
+    "appliedGroupAttachmentCount",
+  ],
+  "account_sync.backup_payload_projection_fallback": [
+    "profileId",
+    "reasonNoOutgoingHistory",
+    "reasonSparseOutgoingEvidence",
+    "sparseOutgoingEvidenceThreshold",
+    "outgoingCountBeforeFallback",
+    "outgoingCountAfterFallback",
+    "sourceRecordCount",
+    "sourceOutgoingRecordCount",
+    "sourceIncomingRecordCount",
+  ],
+  "account_sync.backup_payload_hydration_diagnostics": [
+    "publicKeySuffix",
+    "sourceRecordCount",
+    "sourceOutgoingRecordCount",
+    "sourceIncomingRecordCount",
+    "hydratedDmMessageCount",
+    "hydratedDmOutgoingCount",
+    "hydratedDmIncomingCount",
+    "hydratedDmIncomingOnlyConversationCount",
+    "hydratedDmAttachmentCount",
+    "hydratedGroupAttachmentCount",
+  ],
+  "messaging.conversation_hydration_diagnostics": [
+    "conversationIdHint",
+    "indexedMessageCount",
+    "indexedOutgoingCount",
+    "indexedIncomingCount",
+    "projectionMessageCount",
+    "projectionOutgoingCount",
+    "projectionIncomingCount",
+    "shouldUseProjectionFallback",
+    "projectionReadAuthorityReason",
+    "criticalDriftCount",
+  ],
+  "messaging.conversation_hydration_id_split_detected": [
+    "conversationIdHint",
+    "indexedIncomingOnlyCount",
+    "siblingConversationCount",
+    "siblingWithOutgoingCount",
+    "siblingOutgoingCount",
+    "siblingIncomingCount",
+    "projectionReadAuthorityReason",
+    "criticalDriftCount",
+  ],
+  "messaging.legacy_migration_diagnostics": [
+    "publicKeySuffix",
+    "sourceConversationCount",
+    "migratedConversationCount",
+    "migratedMessageCount",
+    "migratedOutgoingCount",
+    "migratedIncomingCount",
+    "incomingOnlyConversationCount",
+    "potentialConversationSplitDetected",
+  ],
+  "groups.membership_recovery_hydrate": [
+    "publicKeySuffix",
+    "profileId",
+    "persistedGroupCount",
+    "persistedDuplicateMergeCount",
+    "ledgerEntryCount",
+    "visibleGroupCount",
+    "hydratedFromPersistedWithLedgerCount",
+    "hydratedFromPersistedFallbackCount",
+    "hydratedFromLedgerOnlyCount",
+    "placeholderDisplayNameRecoveredCount",
+    "localMemberBackfillCount",
+    "hiddenByTombstoneCount",
+    "hiddenByLedgerStatusCount",
+    "missingLedgerCoverageCount",
+  ],
+  "groups.membership_ledger_load": [
+    "publicKeySuffix",
+    "profileId",
+    "scopedEntryCount",
+    "legacyEntryCount",
+    "mergedEntryCount",
+  ],
+  "groups.room_key_missing_send_blocked": [
+    "groupIdHint",
+    "reasonCode",
+    "localRoomKeyCount",
+    "hasTargetGroupRecord",
+    "activeProfileId",
+    "senderPubkeySuffix",
+    "knownGroupHintSample",
+  ],
+  "messaging.chat_state_replaced": [
+    "publicKeySuffix",
+    "profileId",
+    "createdConnectionCount",
+    "createdGroupCount",
+    "dmConversationCount",
+    "groupConversationCount",
+  ],
+  "messaging.chat_state_groups_update": [
+    "publicKeySuffix",
+    "profileId",
+    "groupCount",
+  ],
+  "messaging.request.incoming_quarantined": [
+    "reasonCode",
+    "peerPubkeyPrefix",
+    "peerWindowCount",
+    "globalWindowCount",
+    "peerLimit",
+    "globalLimit",
+    "windowMs",
+    "peerCooldownMs",
+    "cooldownRemainingMs",
+  ],
+  "messaging.m10.cp2_stability_gate": [
+    "expectedStable",
+    "cp2Pass",
+    "failedCheckCount",
+    "failedCheckSample",
+    "incomingRequestRiskLevel",
+    "incomingRequestQuarantinedCount",
+    "uiResponsivenessRiskLevel",
+    "uiRouteStallHardFallbackCount",
+    "uiPageTransitionEffectsDisabledCount",
+    "uiRouteMountPerformanceGuardEnabledCount",
+    "uiStartupProfileBootStallTimeoutCount",
+  ],
+  "messaging.m10.cp3_readiness_gate": [
+    "expectedStable",
+    "cp3Pass",
+    "failedCheckCount",
+    "failedCheckSample",
+    "cp2TriagePass",
+    "incomingRequestRiskLevel",
+    "uiResponsivenessRiskLevel",
+    "m10TrustControlsRiskLevel",
+    "cp2StabilityGateUnexpectedFailCount",
+  ],
+  "messaging.m10.cp3_suite_gate": [
+    "expectedStable",
+    "cp3SuitePass",
+    "failedCheckCount",
+    "failedCheckSample",
+    "cp3ReadinessPass",
+    "incomingRequestRiskLevel",
+    "uiResponsivenessRiskLevel",
+    "m10TrustControlsRiskLevel",
+    "cp3ReadinessGateCount",
+    "cp3ReadinessUnexpectedFailCount",
+  ],
+  "messaging.m10.cp4_closeout_gate": [
+    "expectedStable",
+    "cp4CloseoutPass",
+    "failedCheckCount",
+    "failedCheckSample",
+    "cp3SuitePass",
+    "incomingRequestRiskLevel",
+    "uiResponsivenessRiskLevel",
+    "m10TrustControlsRiskLevel",
+    "cp3SuiteGateCount",
+    "cp3SuiteUnexpectedFailCount",
+  ],
+  "messaging.m10.v130_closeout_gate": [
+    "expectedStable",
+    "v130CloseoutPass",
+    "failedCheckCount",
+    "failedCheckSample",
+    "cp4CloseoutPass",
+    "incomingRequestRiskLevel",
+    "uiResponsivenessRiskLevel",
+    "m10TrustControlsRiskLevel",
+    "cp4CloseoutGateCount",
+    "cp4CloseoutUnexpectedFailCount",
+  ],
+  "messaging.m10.v130_evidence_gate": [
+    "expectedStable",
+    "v130EvidencePass",
+    "failedCheckCount",
+    "failedCheckSample",
+    "v130CloseoutPass",
+    "cp4CloseoutPass",
+    "incomingRequestRiskLevel",
+    "uiResponsivenessRiskLevel",
+    "m10TrustControlsRiskLevel",
+    "cp4CloseoutGateCount",
+    "v130CloseoutGateCount",
+    "v130CloseoutUnexpectedFailCount",
+    "v130CloseoutEventCount",
+    "latestV130EventMatchesGate",
+  ],
+  "account_sync.backup_restore_result": [
+    "reason",
+    "result",
+    "guardEnabled",
+    "convergenceLatencyMs",
+  ],
+  "account_sync.backup_restore_profile_scope_mismatch": [
+    "reasonCode",
+    "publicKeySuffix",
+    "backupEventId",
+    "requestedProfileId",
+    "effectiveProfileId",
+    "activeProfileIdAtRestoreStart",
+    "activeProfileIdBeforeApply",
+    "activeProfileIdAfterApply",
+    "hasCanonicalAppender",
+  ],
+  "account_sync.backup_publish_result": [
+    "reason",
+    "result",
+    "guardEnabled",
+  ],
+  "account_sync.backup_restore_history_regression": [
+    "publicKeySuffix",
+    "stage",
+    "restorePath",
+    "dmOutgoingDropped",
+    "groupSelfAuthoredDropped",
+    "dmAttachmentDropped",
+    "groupAttachmentDropped",
+    "dmOutgoingDelta",
+    "groupSelfAuthoredDelta",
+    "dmAttachmentDelta",
+    "groupAttachmentDelta",
+    "fromDmAttachmentCount",
+    "toDmAttachmentCount",
+    "fromGroupAttachmentCount",
+    "toGroupAttachmentCount",
+  ],
+  "messaging.search_jump_requested": [
+    "conversationIdHint",
+    "conversationKind",
+    "targetMessageIdHint",
+    "targetTimestampMs",
+  ],
+  "messaging.search_jump_resolved": [
+    "resolutionMode",
+    "conversationIdHint",
+    "targetMessageIdHint",
+    "resolvedMessageIdHint",
+    "loadAttemptCount",
+    "renderResolveAttemptCount",
+    "messageWindowCount",
+  ],
+  "messaging.search_jump_unresolved": [
+    "reasonCode",
+    "conversationIdHint",
+    "targetMessageIdHint",
+    "loadAttemptCount",
+    "renderResolveAttemptCount",
+    "messageWindowCount",
+  ],
+  "messaging.realtime_voice.invite_send_attempt": [
+    "conversationKind",
+    "roomIdHint",
+  ],
+  "messaging.realtime_voice.invite_send_result": [
+    "status",
+    "roomIdHint",
+    "relayResultCount",
+    "hasError",
+  ],
+  "messaging.realtime_voice.invite_join_attempt": [
+    "conversationKind",
+    "roomIdHint",
+    "capabilitySupported",
+    "capabilityReasonCode",
+  ],
+  "messaging.realtime_voice.invite_join_result": [
+    "status",
+    "roomIdHint",
+    "phase",
+    "reasonCode",
+  ],
+  "messaging.realtime_voice.signal_send_result": [
+    "status",
+    "signalType",
+    "roomIdHint",
+    "relayResultCount",
+  ],
+  "messaging.realtime_voice.signal_received": [
+    "signalType",
+    "roomIdHint",
+  ],
+  "messaging.realtime_voice.rtc_state": [
+    "roomIdHint",
+    "connectionState",
+    "role",
+  ],
+  "messaging.realtime_voice.media_access_failed": [
+    "reasonCode",
+  ],
+  "messaging.realtime_voice.session_transition": [
+    "roomIdHint",
+    "mode",
+    "fromPhase",
+    "toPhase",
+    "reasonCode",
+    "participantCount",
+    "hasPeerSessionEvidence",
+    "recoveryAttemptCount",
+    "maxRecoveryAttempts",
+    "isRecoverable",
+  ],
+  "messaging.realtime_voice.session_event_ignored": [
+    "reasonCode",
+    "roomIdHint",
+    "phase",
+    "mode",
+    "eventUnixMs",
+    "lastTransitionAtUnixMs",
+  ],
+  "messaging.realtime_voice.connect_timeout_diagnostics": [
+    "roomIdHint",
+    "peerPubkeySuffix",
+    "role",
+    "phase",
+    "openRelayCount",
+    "configuredRelayCount",
+    "joinRequestRetryAttempts",
+    "offerRetryAttempts",
+    "hasActiveSession",
+    "activeSessionRole",
+    "rtcConnectionState",
+    "hasLocalDescription",
+    "hasRemoteDescription",
+  ],
+  "messaging.realtime_voice.connecting_watchdog_gate": [
+    "watchdogPass",
+    "expectedNoOpenRelay",
+    "failedCheckCount",
+    "failedCheckSample",
+    "connectTimeoutEventCount",
+    "digestConnectTimeoutDiagnosticsCount",
+    "digestConnectTimeoutNoOpenRelayCount",
+    "latestTimeoutOpenRelayCount",
+    "latestTimeoutRtcConnectionState",
+    "latestEventOpenRelayCount",
+    "latestEventRtcConnectionState",
+  ],
+  "messaging.realtime_voice.connecting_watchdog_self_test": [
+    "selfTestPass",
+    "failedCheckCount",
+    "failedCheckSample",
+    "nominalPass",
+    "nominalNoOpenRelayEvidenceObserved",
+    "failureRejected",
+    "failureFlagsNoOpenRelayEvidence",
+    "timeoutEventsObservedInBothScenarios",
+    "nominalWatchdogGatePass",
+    "failureWatchdogGatePass",
+  ],
+  "messaging.realtime_voice.connecting_watchdog_incident_bundle": [
+    "incidentPass",
+    "failedCheckCount",
+    "failedCheckSample",
+    "watchdogCapturePass",
+    "selfTestPass",
+    "captureAndSelfTestAligned",
+    "connectTimeoutEventsObserved",
+    "selfTestTimeoutEvidenceObserved",
+    "m0TriageCapturedWhenRequested",
+    "expectedNoOpenRelay",
+    "includeM0Triage",
+  ],
+  "messaging.realtime_voice.connecting_watchdog_incident_gate": [
+    "incidentGatePass",
+    "failedCheckCount",
+    "failedCheckSample",
+    "watchdogCapturePass",
+    "selfTestPass",
+    "captureAndSelfTestAligned",
+    "connectTimeoutEventsObserved",
+    "selfTestTimeoutEvidenceObserved",
+    "m0TriageCapturedWhenRequested",
+    "expectedNoOpenRelay",
+    "includeM0Triage",
+  ],
+  "messaging.realtime_voice.connecting_watchdog_incident_gate_evidence": [
+    "expectedPass",
+    "incidentGateEvidencePass",
+    "failedCheckCount",
+    "failedCheckSample",
+    "incidentGatePass",
+    "incidentGateMatchesExpected",
+    "incidentGateEventObserved",
+    "latestIncidentGateEventMatchesGate",
+    "digestSummaryPresent",
+    "digestIncidentGateCountObserved",
+    "digestLatestIncidentGateAligned",
+    "digestUnexpectedIncidentGateFailZeroWhenExpectedPass",
+    "digestRiskNotHighWhenExpectedPass",
+    "incidentGateEventCount",
+    "expectedNoOpenRelay",
+    "m0TriageCapturedWhenRequested",
+  ],
+  "messaging.realtime_voice.connecting_watchdog_incident_gate_self_test": [
+    "selfTestPass",
+    "failedCheckCount",
+    "failedCheckSample",
+    "nominalPass",
+    "nominalMatchesExpected",
+    "failureRejected",
+    "failureFlagsExpectedMismatch",
+    "incidentGateEvidenceObservedInBoth",
+    "nominalEvidenceGatePass",
+    "failureEvidenceGatePass",
+  ],
+  "messaging.realtime_voice.connecting_watchdog_incident_gate_closeout": [
+    "expectedPass",
+    "closeoutPass",
+    "failedCheckCount",
+    "failedCheckSample",
+    "incidentGateEvidencePass",
+    "incidentGateEvidenceMatchesExpected",
+    "selfTestPass",
+    "selfTestNominalPass",
+    "selfTestFailureRejected",
+    "digestSummaryPresent",
+    "digestRiskNotHighWhenExpectedPass",
+    "digestUnexpectedIncidentGateEvidenceFailZeroWhenExpectedPass",
+    "digestUnexpectedIncidentGateSelfTestFailZero",
+    "expectedNoOpenRelay",
+    "recentWarnOrErrorCount",
+  ],
+  "messaging.realtime_voice.connecting_watchdog_incident_gate_closeout_self_test": [
+    "selfTestPass",
+    "failedCheckCount",
+    "failedCheckSample",
+    "nominalPass",
+    "nominalMatchesExpected",
+    "failureRejected",
+    "failureFlagsExpectedMismatch",
+    "closeoutEvidenceObservedInBoth",
+    "nominalCloseoutGatePass",
+    "failureCloseoutGatePass",
+  ],
+  "messaging.realtime_voice.long_session_gate": [
+    "cp4Pass",
+    "failedCheckCount",
+    "failedCheckSample",
+    "cycleCount",
+    "injectRecoveryExhausted",
+    "finalPhase",
+    "finalReasonCode",
+    "transitionEventCount",
+    "degradedTransitionCount",
+    "recoveredActiveTransitionCount",
+    "endedTransitionCount",
+    "digestRecoveryExhaustedCount",
+    "digestRiskLevel",
+    "replayReadinessReadyForCp2",
+  ],
+  "messaging.realtime_voice.cp4_checkpoint_gate": [
+    "cp4CheckpointPass",
+    "expectedPass",
+    "failedCheckCount",
+    "failedCheckSample",
+    "longSessionGatePass",
+    "gateProbePass",
+    "selfTestGatePass",
+    "digestRiskNotHigh",
+    "digestUnexpectedGateFailZero",
+    "digestRiskLevel",
+    "digestUnexpectedLongSessionGateFailCount",
+    "cycleCount",
+    "injectRecoveryExhausted",
+  ],
+  "messaging.realtime_voice.cp4_release_readiness_gate": [
+    "cp4ReleaseReadinessPass",
+    "expectedPass",
+    "failedCheckCount",
+    "failedCheckSample",
+    "checkpointGatePass",
+    "checkpointEventObserved",
+    "digestSummaryPresent",
+    "digestCheckpointGateCountObserved",
+    "digestLatestCheckpointAligned",
+    "digestUnexpectedCheckpointFailZeroWhenExpectedPass",
+    "digestRiskNotHighWhenExpectedPass",
+    "digestRiskLevel",
+    "digestCheckpointGateCount",
+    "digestLatestCheckpointGatePass",
+    "digestUnexpectedCheckpointGateFailCount",
+    "cycleCount",
+    "injectRecoveryExhausted",
+  ],
+  "messaging.realtime_voice.cp4_release_evidence_gate": [
+    "cp4ReleaseEvidencePass",
+    "expectedPass",
+    "failedCheckCount",
+    "failedCheckSample",
+    "releaseReadinessGatePass",
+    "longSessionEventObserved",
+    "checkpointEventObserved",
+    "releaseReadinessEventObserved",
+    "latestReleaseReadinessEventMatchesGate",
+    "digestSummaryPresent",
+    "digestRiskNotHighWhenExpectedPass",
+    "digestUnexpectedReleaseReadinessFailZeroWhenExpectedPass",
+    "digestRiskLevel",
+    "digestUnexpectedReleaseReadinessGateFailCount",
+    "eventSliceLimit",
+    "cycleCount",
+    "injectRecoveryExhausted",
+  ],
+  "messaging.realtime_voice.v120_closeout_gate": [
+    "closeoutPass",
+    "expectedPass",
+    "failedCheckCount",
+    "failedCheckSample",
+    "cp3SuitePass",
+    "weakNetworkCp2Pass",
+    "accountSwitchCp2Pass",
+    "cp4ReleaseEvidencePass",
+    "cp4ReleaseReadinessPass",
+    "cp4CheckpointPass",
+    "weakDeleteRemoteFailureCount",
+    "accountDeleteRemoteFailureCount",
+    "longSessionDeleteRemoteFailureCount",
+    "digestRiskLevel",
+    "digestUnexpectedReleaseEvidenceGateFailCount",
+    "eventSliceLimit",
+  ],
+  "messaging.voice_note.recording_complete": [
+    "durationSeconds",
+    "mimeType",
+    "byteLength",
+  ],
+  "messaging.voice_note.recording_unsupported": [
+    "reasonCode",
+    "isTauri",
+    "isSecureContext",
+    "supportsMediaDevices",
+    "supportsMediaRecorder",
+    "supportsGetUserMedia",
+  ],
+  "messaging.voice_note.recording_start_failed": [
+    "reasonCode",
+    "errorName",
+    "errorMessage",
+  ],
+  "messaging.voice_note.recording_empty": [
+    "reasonCode",
+    "mimeType",
+  ],
+  "messaging.delete_for_everyone_requested": [
+    "conversationIdHint",
+    "messageIdHint",
+    "conversationKind",
+    "isOutgoing",
+    "hasVoiceNoteAttachment",
+  ],
+  "messaging.delete_for_everyone_rejected": [
+    "reasonCode",
+    "conversationIdHint",
+    "messageIdHint",
+    "conversationKind",
+    "isOutgoing",
+    "hasVoiceNoteAttachment",
+  ],
+  "messaging.delete_for_everyone_local_applied": [
+    "conversationIdHint",
+    "messageIdHint",
+    "conversationKind",
+    "isOutgoing",
+    "hasVoiceNoteAttachment",
+  ],
+  "messaging.delete_for_everyone_remote_result": [
+    "channel",
+    "resultCode",
+    "reasonCode",
+    "deliveryStatus",
+    "conversationIdHint",
+    "messageIdHint",
+    "conversationKind",
+    "isOutgoing",
+    "deleteTargetCount",
+    "remoteMessageIdHint",
+  ],
+  "navigation.route_request": [
+    "guardSource",
+    "fromPathname",
+    "fromRouteSurface",
+    "targetHref",
+    "targetRouteSurface",
+    "hardFallbackAfterMs",
+  ],
+  "navigation.route_settled": [
+    "guardSource",
+    "pathname",
+    "routeSurface",
+    "elapsedMs",
+  ],
+  "navigation.route_stall_hard_fallback": [
+    "guardSource",
+    "fromPathname",
+    "fromRouteSurface",
+    "currentPathname",
+    "currentRouteSurface",
+    "targetHref",
+    "targetRouteSurface",
+    "elapsedMs",
+    "hardFallbackAfterMs",
+  ],
+  "navigation.route_mount_probe_slow": [
+    "pathname",
+    "routeSurface",
+    "elapsedMs",
+    "warnThresholdMs",
+    "pendingTargetHref",
+  ],
+  "navigation.route_mount_probe_settled": [
+    "pathname",
+    "routeSurface",
+    "elapsedMs",
+    "firstFrameDelayMs",
+    "secondFrameDelayMs",
+    "routeRequestElapsedMs",
+    "warnThresholdMs",
+    "pageTransitionsEnabled",
+    "transitionWatchdogTimeoutCount",
+  ],
+  "navigation.route_mount_performance_guard_enabled": [
+    "pathname",
+    "routeSurface",
+    "elapsedMs",
+    "slowSampleCount",
+    "consecutiveSlowSampleCount",
+    "disableThreshold",
+    "warnThresholdMs",
+  ],
+  "navigation.page_transition_watchdog_timeout": [
+    "pathname",
+    "routeSurface",
+    "elapsedMs",
+    "timeoutCount",
+    "transitionsDisabled",
+    "watchdogTimeoutMs",
+  ],
+  "navigation.page_transition_effects_disabled": [
+    "pathname",
+    "routeSurface",
+    "timeoutCount",
+    "disableReason",
+    "consecutiveSlowSampleCount",
+    "disableThreshold",
+  ],
+  "runtime.profile_boot_stall_timeout": [
+    "phase",
+    "timeoutMs",
+  ],
+  "runtime.activation.timeout": [
+    "timeouts",
+    "projectionPhase",
+    "projectionStatus",
+    "relayOpenCount",
+    "relayTotalCount",
+  ],
+  "runtime.activation.profile_scope_mismatch": [
+    "reasonCode",
+    "runtimePhase",
+    "boundProfileId",
+    "projectionProfileId",
+    "identityPubkeySuffix",
+    "projectionPubkeySuffix",
+    "accountSyncPubkeySuffix",
+    "runtimeSessionPubkeySuffix",
+    "accountProjectionPhase",
+    "accountSyncPhase",
+  ],
+  "auth.auto_unlock_scope_drift_detected": [
+    "reasonCode",
+    "profileId",
+    "rememberSource",
+    "tokenSource",
+    "runtimePhase",
+    "identityStatus",
+    "resolvedRememberProfileId",
+    "resolvedTokenProfileId",
+  ],
+  "runtime.activation.degraded": [
+    "resultPhase",
+    "activationDurationMs",
+    "relayOpenWaitMs",
+    "relayOpenCount",
+    "relayTotalCount",
+  ],
+};
+
+const toStringOrNull = (value: unknown): string | null => (
+  typeof value === "string" && value.trim().length > 0 ? value : null
+);
+
+const toNumberOrNull = (value: unknown): number | null => (
+  typeof value === "number" && Number.isFinite(value) ? value : null
+);
+
+const toBooleanOrNull = (value: unknown): boolean | null => (
+  typeof value === "boolean" ? value : null
+);
+
+const toCompactContext = (
+  context: AppEvent["context"] | undefined,
+  keys: ReadonlyArray<string>,
+): Readonly<Record<string, string | number | boolean | null>> => {
+  const compact: Record<string, string | number | boolean | null> = {};
+  if (!context) {
+    return compact;
+  }
+  keys.forEach((key) => {
+    const value = context[key];
+    if (typeof value === "string" || typeof value === "number" || typeof value === "boolean" || value === null) {
+      compact[key] = value;
+    }
+  });
+  return compact;
+};
+
+const getLatestContext = (
+  events: Readonly<Record<string, ReadonlyArray<Readonly<{
+    atUnixMs: number;
+    level: AppEventLevel;
+    context: Readonly<Record<string, string | number | boolean | null>>;
+  }>>>>,
+  name: string,
+): Readonly<Record<string, string | number | boolean | null>> | null => {
+  const list = events[name];
+  if (!Array.isArray(list) || list.length === 0) {
+    return null;
+  }
+  return list[list.length - 1]?.context ?? null;
+};
+
+const getRiskLevel = (params: Readonly<{ watch: boolean; high: boolean }>): "none" | "watch" | "high" => {
+  if (params.high) {
+    return "high";
+  }
+  if (params.watch) {
+    return "watch";
+  }
+  return "none";
+};
+
+const getEventBuffer = (): AppEvent[] => {
+  const root = globalThis as Record<string, unknown>;
+  const existing = root[APP_EVENT_BUFFER_KEY];
+  if (Array.isArray(existing)) {
+    return existing as AppEvent[];
+  }
+  const next: AppEvent[] = [];
+  root[APP_EVENT_BUFFER_KEY] = next;
+  return next;
+};
+
+const installDiagnosticsApi = (): void => {
+  const root = globalThis as Record<string, unknown>;
+  if (root[APP_EVENT_API_KEY]) {
+    return;
+  }
+  const api: AppEventDiagnosticsApi = {
+    getRecent: (count = 100): ReadonlyArray<AppEvent> => {
+      const maxCount = Number.isFinite(count) ? Math.max(0, Math.floor(count)) : 100;
+      const buffer = getEventBuffer();
+      if (maxCount === 0) {
+        return [];
+      }
+      return buffer.slice(-maxCount);
+    },
+    findByName: (name: string, count = 100): ReadonlyArray<AppEvent> => {
+      const normalizedName = name.trim();
+      if (!normalizedName) {
+        return [];
+      }
+      const maxCount = Number.isFinite(count) ? Math.max(0, Math.floor(count)) : 100;
+      const matches = getEventBuffer().filter((event) => event.name === normalizedName);
+      if (maxCount === 0) {
+        return [];
+      }
+      return matches.slice(-maxCount);
+    },
+    getDigest: (count = 200) => {
+      const windowSize = Number.isFinite(count) ? Math.max(1, Math.floor(count)) : 200;
+      const recent = getEventBuffer().slice(-windowSize);
+      const byLevel: Record<AppEventLevel, number> = {
+        debug: 0,
+        info: 0,
+        warn: 0,
+        error: 0,
+      };
+      const byName = new Map<string, number>();
+      recent.forEach((event) => {
+        byLevel[event.level] += 1;
+        byName.set(event.name, (byName.get(event.name) ?? 0) + 1);
+      });
+      const topNames = Array.from(byName.entries())
+        .sort((left, right) => right[1] - left[1])
+        .slice(0, 8)
+        .map(([name, seen]) => ({ name, count: seen }));
+      const recentErrors = recent
+        .filter((event) => event.level === "error")
+        .slice(-8)
+        .map((event) => ({
+          name: event.name,
+          atUnixMs: event.atUnixMs,
+          reasonCode: typeof event.context?.reasonCode === "string"
+            ? event.context.reasonCode
+            : typeof event.context?.toReasonCode === "string"
+              ? event.context.toReasonCode
+              : typeof event.context?.primaryReasonCode === "string"
+                ? event.context.primaryReasonCode
+                : null,
+        }));
+      const warmUpSummary = recent
+        .filter((event) => event.name === "warmup.phase_transition" || event.name === "warmup.rollout_gate_result")
+        .slice(-12)
+        .map((event) => ({
+          name: event.name,
+          toPhase: typeof event.context?.toPhase === "string"
+            ? event.context.toPhase
+            : typeof event.context?.terminalPhase === "string"
+              ? event.context.terminalPhase
+              : null,
+          reasonCode: typeof event.context?.toReasonCode === "string"
+            ? event.context.toReasonCode
+            : typeof event.context?.primaryReasonCode === "string"
+              ? event.context.primaryReasonCode
+              : null,
+          atUnixMs: event.atUnixMs,
+        }));
+      return {
+        total: getEventBuffer().length,
+        windowSize: recent.length,
+        byLevel,
+        topNames,
+        recentErrors,
+        warmUpSummary,
+      };
+    },
+    getCrossDeviceSyncDigest: (count = 300) => {
+      const windowSize = Number.isFinite(count) ? Math.max(1, Math.floor(count)) : 300;
+      const recent = getEventBuffer().slice(-windowSize);
+      const events = Object.fromEntries(
+        Object.entries(CROSS_DEVICE_DIGEST_EVENT_CONFIG).map(([name, keys]) => {
+          const compactEvents = recent
+            .filter((event) => event.name === name)
+            .slice(-6)
+            .map((event) => ({
+              atUnixMs: event.atUnixMs,
+              level: event.level,
+              context: toCompactContext(event.context, keys),
+            }));
+          return [name, compactEvents] as const;
+        })
+      );
+      const latestHydration = getLatestContext(events, "account_sync.backup_payload_hydration_diagnostics");
+      const latestMerge = getLatestContext(events, "account_sync.backup_restore_merge_diagnostics");
+      const latestApply = getLatestContext(events, "account_sync.backup_restore_apply_diagnostics");
+      const latestFallback = getLatestContext(events, "account_sync.backup_payload_projection_fallback");
+      const latestMembershipHydrate = getLatestContext(events, "groups.membership_recovery_hydrate");
+      const latestChatStateGroups = getLatestContext(events, "messaging.chat_state_groups_update");
+      const idSplitDetectedCount = recent.filter((event) => (
+        event.name === "messaging.conversation_hydration_id_split_detected"
+      )).length;
+      const roomKeyMissingSendBlockedCount = recent.filter((event) => (
+        event.name === "groups.room_key_missing_send_blocked"
+      )).length;
+      const roomKeyMissingSendBlockedEvents = recent.filter((event) => (
+        event.name === "groups.room_key_missing_send_blocked"
+      ));
+      const backupRestoreProfileScopeMismatchEvents = recent.filter((event) => (
+        event.name === "account_sync.backup_restore_profile_scope_mismatch"
+      ));
+      const runtimeActivationProfileScopeMismatchEvents = recent.filter((event) => (
+        event.name === "runtime.activation.profile_scope_mismatch"
+      ));
+      const autoUnlockScopeDriftDetectedEvents = recent.filter((event) => (
+        event.name === "auth.auto_unlock_scope_drift_detected"
+      ));
+      const joinedMembershipRoomKeyMismatchCount = roomKeyMissingSendBlockedEvents.filter((event) => (
+        event.context?.reasonCode === "target_room_key_missing_after_membership_joined"
+      )).length;
+      const localProfileScopeRoomKeyMissingCount = roomKeyMissingSendBlockedEvents.filter((event) => (
+        event.context?.reasonCode === "target_room_key_missing_local_profile_scope"
+      )).length;
+      const noLocalRoomKeysCount = roomKeyMissingSendBlockedEvents.filter((event) => (
+        event.context?.reasonCode === "no_local_room_keys"
+      )).length;
+      const latestRoomKeyMissingSendBlockedReasonCode = toStringOrNull(
+        roomKeyMissingSendBlockedEvents.at(-1)?.context?.reasonCode,
+      );
+      const backupRestoreProfileScopeMismatchCount = backupRestoreProfileScopeMismatchEvents.length;
+      const runtimeActivationProfileScopeMismatchCount = runtimeActivationProfileScopeMismatchEvents.length;
+      const autoUnlockScopeDriftDetectedCount = autoUnlockScopeDriftDetectedEvents.length;
+      const latestBackupRestoreProfileScopeMismatchReasonCode = toStringOrNull(
+        backupRestoreProfileScopeMismatchEvents.at(-1)?.context?.reasonCode,
+      );
+      const latestRuntimeActivationProfileScopeMismatchReasonCode = toStringOrNull(
+        runtimeActivationProfileScopeMismatchEvents.at(-1)?.context?.reasonCode,
+      );
+      const latestAutoUnlockScopeDriftReasonCode = toStringOrNull(
+        autoUnlockScopeDriftDetectedEvents.at(-1)?.context?.reasonCode,
+      );
+      const incomingRequestQuarantineEvents = recent.filter((event) => (
+        event.name === "messaging.request.incoming_quarantined"
+      ));
+      const incomingRequestQuarantinedCount = incomingRequestQuarantineEvents.length;
+      const incomingRequestPeerRateLimitedCount = incomingRequestQuarantineEvents.filter((event) => (
+        event.context?.reasonCode === "incoming_connection_request_peer_rate_limited"
+      )).length;
+      const incomingRequestPeerCooldownActiveCount = incomingRequestQuarantineEvents.filter((event) => (
+        event.context?.reasonCode === "incoming_connection_request_peer_cooldown_active"
+      )).length;
+      const incomingRequestGlobalRateLimitedCount = incomingRequestQuarantineEvents.filter((event) => (
+        event.context?.reasonCode === "incoming_connection_request_global_rate_limited"
+      )).length;
+      const incomingRequestUniquePeerPrefixCount = new Set(
+        incomingRequestQuarantineEvents
+          .map((event) => toStringOrNull(event.context?.peerPubkeyPrefix))
+          .filter((value): value is string => typeof value === "string" && value.length > 0),
+      ).size;
+      const latestIncomingRequestQuarantineEvent = incomingRequestQuarantineEvents.at(-1);
+      const latestIncomingRequestReasonCode = toStringOrNull(
+        latestIncomingRequestQuarantineEvent?.context?.reasonCode,
+      );
+      const latestIncomingRequestPeerPubkeyPrefix = toStringOrNull(
+        latestIncomingRequestQuarantineEvent?.context?.peerPubkeyPrefix,
+      );
+      const latestIncomingRequestCooldownRemainingMs = toNumberOrNull(
+        latestIncomingRequestQuarantineEvent?.context?.cooldownRemainingMs,
+      );
+      const m10Cp2StabilityGateEvents = recent.filter((event) => (
+        event.name === "messaging.m10.cp2_stability_gate"
+      ));
+      const m10Cp2StabilityGateCount = m10Cp2StabilityGateEvents.length;
+      const m10Cp2StabilityGatePassCount = m10Cp2StabilityGateEvents.filter((event) => (
+        event.context?.cp2Pass === true
+      )).length;
+      const m10Cp2StabilityGateFailCount = m10Cp2StabilityGateEvents.filter((event) => (
+        event.context?.cp2Pass === false
+      )).length;
+      const m10Cp2StabilityGateUnexpectedFailCount = m10Cp2StabilityGateEvents.filter((event) => (
+        event.context?.cp2Pass === false
+        && event.context?.expectedStable === true
+      )).length;
+      const latestM10Cp2StabilityGateEvent = m10Cp2StabilityGateEvents.at(-1);
+      const latestM10Cp2StabilityGateExpectedStable = toBooleanOrNull(
+        latestM10Cp2StabilityGateEvent?.context?.expectedStable,
+      );
+      const latestM10Cp2StabilityGatePass = toBooleanOrNull(
+        latestM10Cp2StabilityGateEvent?.context?.cp2Pass,
+      );
+      const latestM10Cp2StabilityGateFailedCheckSample = toStringOrNull(
+        latestM10Cp2StabilityGateEvent?.context?.failedCheckSample,
+      );
+      const m10Cp3ReadinessGateEvents = recent.filter((event) => (
+        event.name === "messaging.m10.cp3_readiness_gate"
+      ));
+      const m10Cp3ReadinessGateCount = m10Cp3ReadinessGateEvents.length;
+      const m10Cp3ReadinessGatePassCount = m10Cp3ReadinessGateEvents.filter((event) => (
+        event.context?.cp3Pass === true
+      )).length;
+      const m10Cp3ReadinessGateFailCount = m10Cp3ReadinessGateEvents.filter((event) => (
+        event.context?.cp3Pass === false
+      )).length;
+      const m10Cp3ReadinessGateUnexpectedFailCount = m10Cp3ReadinessGateEvents.filter((event) => (
+        event.context?.cp3Pass === false
+        && event.context?.expectedStable === true
+      )).length;
+      const latestM10Cp3ReadinessGateEvent = m10Cp3ReadinessGateEvents.at(-1);
+      const latestM10Cp3ReadinessGateExpectedStable = toBooleanOrNull(
+        latestM10Cp3ReadinessGateEvent?.context?.expectedStable,
+      );
+      const latestM10Cp3ReadinessGatePass = toBooleanOrNull(
+        latestM10Cp3ReadinessGateEvent?.context?.cp3Pass,
+      );
+      const latestM10Cp3ReadinessGateFailedCheckSample = toStringOrNull(
+        latestM10Cp3ReadinessGateEvent?.context?.failedCheckSample,
+      );
+      const m10Cp3SuiteGateEvents = recent.filter((event) => (
+        event.name === "messaging.m10.cp3_suite_gate"
+      ));
+      const m10Cp3SuiteGateCount = m10Cp3SuiteGateEvents.length;
+      const m10Cp3SuiteGatePassCount = m10Cp3SuiteGateEvents.filter((event) => (
+        event.context?.cp3SuitePass === true
+      )).length;
+      const m10Cp3SuiteGateFailCount = m10Cp3SuiteGateEvents.filter((event) => (
+        event.context?.cp3SuitePass === false
+      )).length;
+      const m10Cp3SuiteGateUnexpectedFailCount = m10Cp3SuiteGateEvents.filter((event) => (
+        event.context?.cp3SuitePass === false
+        && event.context?.expectedStable === true
+      )).length;
+      const latestM10Cp3SuiteGateEvent = m10Cp3SuiteGateEvents.at(-1);
+      const latestM10Cp3SuiteGateExpectedStable = toBooleanOrNull(
+        latestM10Cp3SuiteGateEvent?.context?.expectedStable,
+      );
+      const latestM10Cp3SuiteGatePass = toBooleanOrNull(
+        latestM10Cp3SuiteGateEvent?.context?.cp3SuitePass,
+      );
+      const latestM10Cp3SuiteGateFailedCheckSample = toStringOrNull(
+        latestM10Cp3SuiteGateEvent?.context?.failedCheckSample,
+      );
+      const m10Cp4CloseoutGateEvents = recent.filter((event) => (
+        event.name === "messaging.m10.cp4_closeout_gate"
+      ));
+      const m10Cp4CloseoutGateCount = m10Cp4CloseoutGateEvents.length;
+      const m10Cp4CloseoutGatePassCount = m10Cp4CloseoutGateEvents.filter((event) => (
+        event.context?.cp4CloseoutPass === true
+      )).length;
+      const m10Cp4CloseoutGateFailCount = m10Cp4CloseoutGateEvents.filter((event) => (
+        event.context?.cp4CloseoutPass === false
+      )).length;
+      const m10Cp4CloseoutGateUnexpectedFailCount = m10Cp4CloseoutGateEvents.filter((event) => (
+        event.context?.cp4CloseoutPass === false
+        && event.context?.expectedStable === true
+      )).length;
+      const latestM10Cp4CloseoutGateEvent = m10Cp4CloseoutGateEvents.at(-1);
+      const latestM10Cp4CloseoutGateExpectedStable = toBooleanOrNull(
+        latestM10Cp4CloseoutGateEvent?.context?.expectedStable,
+      );
+      const latestM10Cp4CloseoutGatePass = toBooleanOrNull(
+        latestM10Cp4CloseoutGateEvent?.context?.cp4CloseoutPass,
+      );
+      const latestM10Cp4CloseoutGateFailedCheckSample = toStringOrNull(
+        latestM10Cp4CloseoutGateEvent?.context?.failedCheckSample,
+      );
+      const m10V130CloseoutGateEvents = recent.filter((event) => (
+        event.name === "messaging.m10.v130_closeout_gate"
+      ));
+      const m10V130CloseoutGateCount = m10V130CloseoutGateEvents.length;
+      const m10V130CloseoutGatePassCount = m10V130CloseoutGateEvents.filter((event) => (
+        event.context?.v130CloseoutPass === true
+      )).length;
+      const m10V130CloseoutGateFailCount = m10V130CloseoutGateEvents.filter((event) => (
+        event.context?.v130CloseoutPass === false
+      )).length;
+      const m10V130CloseoutGateUnexpectedFailCount = m10V130CloseoutGateEvents.filter((event) => (
+        event.context?.v130CloseoutPass === false
+        && event.context?.expectedStable === true
+      )).length;
+      const latestM10V130CloseoutGateEvent = m10V130CloseoutGateEvents.at(-1);
+      const latestM10V130CloseoutGateExpectedStable = toBooleanOrNull(
+        latestM10V130CloseoutGateEvent?.context?.expectedStable,
+      );
+      const latestM10V130CloseoutGatePass = toBooleanOrNull(
+        latestM10V130CloseoutGateEvent?.context?.v130CloseoutPass,
+      );
+      const latestM10V130CloseoutGateFailedCheckSample = toStringOrNull(
+        latestM10V130CloseoutGateEvent?.context?.failedCheckSample,
+      );
+      const m10V130EvidenceGateEvents = recent.filter((event) => (
+        event.name === "messaging.m10.v130_evidence_gate"
+      ));
+      const m10V130EvidenceGateCount = m10V130EvidenceGateEvents.length;
+      const m10V130EvidenceGatePassCount = m10V130EvidenceGateEvents.filter((event) => (
+        event.context?.v130EvidencePass === true
+      )).length;
+      const m10V130EvidenceGateFailCount = m10V130EvidenceGateEvents.filter((event) => (
+        event.context?.v130EvidencePass === false
+      )).length;
+      const m10V130EvidenceGateUnexpectedFailCount = m10V130EvidenceGateEvents.filter((event) => (
+        event.context?.v130EvidencePass === false
+        && event.context?.expectedStable === true
+      )).length;
+      const latestM10V130EvidenceGateEvent = m10V130EvidenceGateEvents.at(-1);
+      const latestM10V130EvidenceGateExpectedStable = toBooleanOrNull(
+        latestM10V130EvidenceGateEvent?.context?.expectedStable,
+      );
+      const latestM10V130EvidenceGatePass = toBooleanOrNull(
+        latestM10V130EvidenceGateEvent?.context?.v130EvidencePass,
+      );
+      const latestM10V130EvidenceGateFailedCheckSample = toStringOrNull(
+        latestM10V130EvidenceGateEvent?.context?.failedCheckSample,
+      );
+      const latestHydratedOutgoingCount = toNumberOrNull(
+        latestHydration?.hydratedDmOutgoingCount,
+      );
+      const latestMergedOutgoingCount = toNumberOrNull(
+        latestMerge?.mergedDmOutgoingCount,
+      );
+      const latestMergedIncomingCount = toNumberOrNull(
+        latestMerge?.mergedDmIncomingCount,
+      );
+      const sparseOutgoingEvidence = toBooleanOrNull(
+        latestFallback?.reasonSparseOutgoingEvidence,
+      );
+      const latestVisibleGroupCount = toNumberOrNull(
+        latestMembershipHydrate?.visibleGroupCount,
+      );
+      const latestPersistedGroupCount = toNumberOrNull(
+        latestMembershipHydrate?.persistedGroupCount,
+      );
+      const latestPersistedDuplicateMergeCount = toNumberOrNull(
+        latestMembershipHydrate?.persistedDuplicateMergeCount,
+      );
+      const latestHydratedFromPersistedWithLedgerCount = toNumberOrNull(
+        latestMembershipHydrate?.hydratedFromPersistedWithLedgerCount,
+      );
+      const latestHydratedFromPersistedFallbackCount = toNumberOrNull(
+        latestMembershipHydrate?.hydratedFromPersistedFallbackCount,
+      );
+      const latestHydratedFromLedgerOnlyCount = toNumberOrNull(
+        latestMembershipHydrate?.hydratedFromLedgerOnlyCount,
+      );
+      const latestPlaceholderDisplayNameRecoveredCount = toNumberOrNull(
+        latestMembershipHydrate?.placeholderDisplayNameRecoveredCount,
+      );
+      const latestLocalMemberBackfillCount = toNumberOrNull(
+        latestMembershipHydrate?.localMemberBackfillCount,
+      );
+      const latestMissingLedgerCoverageCount = toNumberOrNull(
+        latestMembershipHydrate?.missingLedgerCoverageCount,
+      );
+      const latestHiddenByLedgerStatusCount = toNumberOrNull(
+        latestMembershipHydrate?.hiddenByLedgerStatusCount,
+      );
+      const latestChatStateGroupCount = toNumberOrNull(
+        latestChatStateGroups?.groupCount,
+      );
+      const latestHydratedDmAttachmentCount = toNumberOrNull(
+        latestHydration?.hydratedDmAttachmentCount,
+      );
+      const latestMergedDmAttachmentCount = toNumberOrNull(
+        latestMerge?.mergedDmAttachmentCount,
+      );
+      const latestAppliedDmAttachmentCount = toNumberOrNull(
+        latestApply?.appliedDmAttachmentCount,
+      );
+      const latestHydratedGroupAttachmentCount = toNumberOrNull(
+        latestHydration?.hydratedGroupAttachmentCount,
+      );
+      const latestMergedGroupAttachmentCount = toNumberOrNull(
+        latestMerge?.mergedGroupAttachmentCount,
+      );
+      const latestAppliedGroupAttachmentCount = toNumberOrNull(
+        latestApply?.appliedGroupAttachmentCount,
+      );
+      const attachmentDropRegressionCount = recent.filter((event) => (
+        event.name === "account_sync.backup_restore_history_regression"
+        && (
+          event.context?.dmAttachmentDropped === true
+          || event.context?.groupAttachmentDropped === true
+        )
+      )).length;
+      const searchJumpRequestedCount = recent.filter((event) => (
+        event.name === "messaging.search_jump_requested"
+      )).length;
+      const searchJumpResolvedEvents = recent.filter((event) => (
+        event.name === "messaging.search_jump_resolved"
+      ));
+      const searchJumpUnresolvedEvents = recent.filter((event) => (
+        event.name === "messaging.search_jump_unresolved"
+      ));
+      const searchJumpResolvedCount = searchJumpResolvedEvents.length;
+      const searchJumpUnresolvedCount = searchJumpUnresolvedEvents.length;
+      const searchJumpTimestampFallbackResolvedCount = searchJumpResolvedEvents.filter((event) => (
+        event.context?.resolutionMode === "timestamp_fallback"
+      )).length;
+      const searchJumpDomUnresolvedCount = searchJumpUnresolvedEvents.filter((event) => (
+        typeof event.context?.reasonCode === "string"
+        && SEARCH_JUMP_DOM_UNRESOLVED_REASON_CODES.has(event.context.reasonCode)
+      )).length;
+      const searchJumpLoadExhaustedUnresolvedCount = searchJumpUnresolvedEvents.filter((event) => (
+        event.context?.reasonCode === "target_not_found_after_load_attempts"
+      )).length;
+      const membershipRecoveryRepairSignalCount = recent.filter((event) => (
+        event.name === "groups.membership_recovery_hydrate"
+        && (
+          (typeof event.context?.persistedDuplicateMergeCount === "number" && event.context.persistedDuplicateMergeCount > 0)
+          || (typeof event.context?.placeholderDisplayNameRecoveredCount === "number" && event.context.placeholderDisplayNameRecoveredCount > 0)
+          || (typeof event.context?.localMemberBackfillCount === "number" && event.context.localMemberBackfillCount > 0)
+        )
+      )).length;
+      const latestSearchJumpResolutionMode = toStringOrNull(
+        searchJumpResolvedEvents.at(-1)?.context?.resolutionMode,
+      );
+      const latestSearchJumpUnresolvedReasonCode = toStringOrNull(
+        searchJumpUnresolvedEvents.at(-1)?.context?.reasonCode,
+      );
+      const routeRequestEvents = recent.filter((event) => (
+        event.name === "navigation.route_request"
+      ));
+      const routeSettledEvents = recent.filter((event) => (
+        event.name === "navigation.route_settled"
+      ));
+      const routeStallHardFallbackEvents = recent.filter((event) => (
+        event.name === "navigation.route_stall_hard_fallback"
+      ));
+      const routeMountProbeSlowEvents = recent.filter((event) => (
+        event.name === "navigation.route_mount_probe_slow"
+      ));
+      const routeMountProbeSettledEvents = recent.filter((event) => (
+        event.name === "navigation.route_mount_probe_settled"
+      ));
+      const routeMountPerformanceGuardEnabledEvents = recent.filter((event) => (
+        event.name === "navigation.route_mount_performance_guard_enabled"
+      ));
+      const pageTransitionWatchdogTimeoutEvents = recent.filter((event) => (
+        event.name === "navigation.page_transition_watchdog_timeout"
+      ));
+      const pageTransitionEffectsDisabledEvents = recent.filter((event) => (
+        event.name === "navigation.page_transition_effects_disabled"
+      ));
+      const startupProfileBootStallTimeoutEvents = recent.filter((event) => (
+        event.name === "runtime.profile_boot_stall_timeout"
+      ));
+      const routeRequestCount = routeRequestEvents.length;
+      const routeSettledCount = routeSettledEvents.length;
+      const routeStallHardFallbackCount = routeStallHardFallbackEvents.length;
+      const routeMountProbeSlowCount = routeMountProbeSlowEvents.length;
+      const routeMountProbeSettledWarnCount = routeMountProbeSettledEvents.filter((event) => (
+        event.level === "warn"
+        || (
+          typeof event.context?.elapsedMs === "number"
+          && typeof event.context?.warnThresholdMs === "number"
+          && event.context.elapsedMs >= event.context.warnThresholdMs
+        )
+      )).length;
+      const routeMountPerformanceGuardEnabledCount = routeMountPerformanceGuardEnabledEvents.length;
+      const pageTransitionWatchdogTimeoutCount = pageTransitionWatchdogTimeoutEvents.length;
+      const pageTransitionEffectsDisabledCount = pageTransitionEffectsDisabledEvents.length;
+      const startupProfileBootStallTimeoutCount = startupProfileBootStallTimeoutEvents.length;
+      const latestRouteStallHardFallbackEvent = routeStallHardFallbackEvents.at(-1);
+      const latestRouteMountProbeSettledEvent = routeMountProbeSettledEvents.at(-1);
+      const latestRouteMountProbeSlowEvent = routeMountProbeSlowEvents.at(-1);
+      const latestPageTransitionWatchdogTimeoutEvent = pageTransitionWatchdogTimeoutEvents.at(-1);
+      const latestStartupProfileBootStallTimeoutEvent = startupProfileBootStallTimeoutEvents.at(-1);
+      const latestUiRouteSurface = toStringOrNull(
+        latestRouteStallHardFallbackEvent?.context?.targetRouteSurface
+        ?? latestRouteMountProbeSettledEvent?.context?.routeSurface
+        ?? latestRouteMountProbeSlowEvent?.context?.routeSurface
+        ?? routeSettledEvents.at(-1)?.context?.routeSurface,
+      );
+      const latestRouteStallElapsedMs = toNumberOrNull(
+        latestRouteStallHardFallbackEvent?.context?.elapsedMs,
+      );
+      const latestRouteMountProbeElapsedMs = toNumberOrNull(
+        latestRouteMountProbeSettledEvent?.context?.elapsedMs
+        ?? latestRouteMountProbeSlowEvent?.context?.elapsedMs,
+      );
+      const latestPageTransitionWatchdogElapsedMs = toNumberOrNull(
+        latestPageTransitionWatchdogTimeoutEvent?.context?.elapsedMs,
+      );
+      const latestStartupProfileBootPhase = toStringOrNull(
+        latestStartupProfileBootStallTimeoutEvent?.context?.phase,
+      );
+      const voiceSessionTransitionEvents = recent.filter((event) => (
+        event.name === "messaging.realtime_voice.session_transition"
+      ));
+      const voiceSessionTransitionCount = voiceSessionTransitionEvents.length;
+      const voiceSessionDegradedCount = voiceSessionTransitionEvents.filter((event) => (
+        event.context?.toPhase === "degraded"
+      )).length;
+      const voiceSessionUnsupportedCount = voiceSessionTransitionEvents.filter((event) => (
+        event.context?.toPhase === "unsupported"
+      )).length;
+      const voiceSessionRecoveryExhaustedCount = voiceSessionTransitionEvents.filter((event) => (
+        event.context?.reasonCode === "recovery_exhausted"
+      )).length;
+      const voiceSessionIgnoredEvents = recent.filter((event) => (
+        event.name === "messaging.realtime_voice.session_event_ignored"
+      ));
+      const voiceSessionStaleIgnoredCount = voiceSessionIgnoredEvents.filter((event) => (
+        event.context?.reasonCode === "stale_event"
+      )).length;
+      const voiceConnectTimeoutDiagnosticsEvents = recent.filter((event) => (
+        event.name === "messaging.realtime_voice.connect_timeout_diagnostics"
+      ));
+      const voiceConnectTimeoutDiagnosticsCount = voiceConnectTimeoutDiagnosticsEvents.length;
+      const voiceConnectTimeoutNoOpenRelayCount = voiceConnectTimeoutDiagnosticsEvents.filter((event) => (
+        typeof event.context?.openRelayCount === "number"
+        && event.context.openRelayCount <= 0
+      )).length;
+      const voiceConnectingWatchdogGateEvents = recent.filter((event) => (
+        event.name === "messaging.realtime_voice.connecting_watchdog_gate"
+      ));
+      const voiceConnectingWatchdogGateCount = voiceConnectingWatchdogGateEvents.length;
+      const voiceConnectingWatchdogGatePassCount = voiceConnectingWatchdogGateEvents.filter((event) => (
+        event.context?.watchdogPass === true
+      )).length;
+      const voiceConnectingWatchdogGateFailCount = voiceConnectingWatchdogGateEvents.filter((event) => (
+        event.context?.watchdogPass === false
+      )).length;
+      const voiceUnexpectedConnectingWatchdogGateFailCount = voiceConnectingWatchdogGateEvents.filter((event) => (
+        event.context?.watchdogPass === false
+      )).length;
+      const voiceConnectingWatchdogSelfTestEvents = recent.filter((event) => (
+        event.name === "messaging.realtime_voice.connecting_watchdog_self_test"
+      ));
+      const voiceConnectingWatchdogSelfTestCount = voiceConnectingWatchdogSelfTestEvents.length;
+      const voiceConnectingWatchdogSelfTestPassCount = voiceConnectingWatchdogSelfTestEvents.filter((event) => (
+        event.context?.selfTestPass === true
+      )).length;
+      const voiceConnectingWatchdogSelfTestFailCount = voiceConnectingWatchdogSelfTestEvents.filter((event) => (
+        event.context?.selfTestPass === false
+      )).length;
+      const voiceUnexpectedConnectingWatchdogSelfTestFailCount = voiceConnectingWatchdogSelfTestEvents.filter((event) => (
+        event.context?.selfTestPass === false
+      )).length;
+      const voiceConnectingWatchdogIncidentBundleEvents = recent.filter((event) => (
+        event.name === "messaging.realtime_voice.connecting_watchdog_incident_bundle"
+      ));
+      const voiceConnectingWatchdogIncidentBundleCount = voiceConnectingWatchdogIncidentBundleEvents.length;
+      const voiceConnectingWatchdogIncidentBundlePassCount = voiceConnectingWatchdogIncidentBundleEvents.filter((event) => (
+        event.context?.incidentPass === true
+      )).length;
+      const voiceConnectingWatchdogIncidentBundleFailCount = voiceConnectingWatchdogIncidentBundleEvents.filter((event) => (
+        event.context?.incidentPass === false
+      )).length;
+      const voiceUnexpectedConnectingWatchdogIncidentBundleFailCount = voiceConnectingWatchdogIncidentBundleEvents.filter((event) => (
+        event.context?.incidentPass === false
+      )).length;
+      const voiceConnectingWatchdogIncidentGateEvents = recent.filter((event) => (
+        event.name === "messaging.realtime_voice.connecting_watchdog_incident_gate"
+      ));
+      const voiceConnectingWatchdogIncidentGateCount = voiceConnectingWatchdogIncidentGateEvents.length;
+      const voiceConnectingWatchdogIncidentGatePassCount = voiceConnectingWatchdogIncidentGateEvents.filter((event) => (
+        event.context?.incidentGatePass === true
+      )).length;
+      const voiceConnectingWatchdogIncidentGateFailCount = voiceConnectingWatchdogIncidentGateEvents.filter((event) => (
+        event.context?.incidentGatePass === false
+      )).length;
+      const voiceUnexpectedConnectingWatchdogIncidentGateFailCount = voiceConnectingWatchdogIncidentGateEvents.filter((event) => (
+        event.context?.incidentGatePass === false
+      )).length;
+      const voiceConnectingWatchdogIncidentGateEvidenceEvents = recent.filter((event) => (
+        event.name === "messaging.realtime_voice.connecting_watchdog_incident_gate_evidence"
+      ));
+      const voiceConnectingWatchdogIncidentGateEvidenceCount = voiceConnectingWatchdogIncidentGateEvidenceEvents.length;
+      const voiceConnectingWatchdogIncidentGateEvidencePassCount = voiceConnectingWatchdogIncidentGateEvidenceEvents.filter((event) => (
+        event.context?.incidentGateEvidencePass === true
+      )).length;
+      const voiceConnectingWatchdogIncidentGateEvidenceFailCount = voiceConnectingWatchdogIncidentGateEvidenceEvents.filter((event) => (
+        event.context?.incidentGateEvidencePass === false
+      )).length;
+      const voiceUnexpectedConnectingWatchdogIncidentGateEvidenceFailCount = voiceConnectingWatchdogIncidentGateEvidenceEvents.filter((event) => (
+        event.context?.incidentGateEvidencePass === false
+        && event.context?.expectedPass === true
+      )).length;
+      const voiceConnectingWatchdogIncidentGateSelfTestEvents = recent.filter((event) => (
+        event.name === "messaging.realtime_voice.connecting_watchdog_incident_gate_self_test"
+      ));
+      const voiceConnectingWatchdogIncidentGateSelfTestCount = voiceConnectingWatchdogIncidentGateSelfTestEvents.length;
+      const voiceConnectingWatchdogIncidentGateSelfTestPassCount = voiceConnectingWatchdogIncidentGateSelfTestEvents.filter((event) => (
+        event.context?.selfTestPass === true
+      )).length;
+      const voiceConnectingWatchdogIncidentGateSelfTestFailCount = voiceConnectingWatchdogIncidentGateSelfTestEvents.filter((event) => (
+        event.context?.selfTestPass === false
+      )).length;
+      const voiceUnexpectedConnectingWatchdogIncidentGateSelfTestFailCount = voiceConnectingWatchdogIncidentGateSelfTestEvents.filter((event) => (
+        event.context?.selfTestPass === false
+      )).length;
+      const voiceConnectingWatchdogIncidentGateCloseoutEvents = recent.filter((event) => (
+        event.name === "messaging.realtime_voice.connecting_watchdog_incident_gate_closeout"
+      ));
+      const voiceConnectingWatchdogIncidentGateCloseoutCount = voiceConnectingWatchdogIncidentGateCloseoutEvents.length;
+      const voiceConnectingWatchdogIncidentGateCloseoutPassCount = voiceConnectingWatchdogIncidentGateCloseoutEvents.filter((event) => (
+        event.context?.closeoutPass === true
+      )).length;
+      const voiceConnectingWatchdogIncidentGateCloseoutFailCount = voiceConnectingWatchdogIncidentGateCloseoutEvents.filter((event) => (
+        event.context?.closeoutPass === false
+      )).length;
+      const voiceUnexpectedConnectingWatchdogIncidentGateCloseoutFailCount = voiceConnectingWatchdogIncidentGateCloseoutEvents.filter((event) => (
+        event.context?.closeoutPass === false
+        && event.context?.expectedPass === true
+      )).length;
+      const voiceConnectingWatchdogIncidentGateCloseoutSelfTestEvents = recent.filter((event) => (
+        event.name === "messaging.realtime_voice.connecting_watchdog_incident_gate_closeout_self_test"
+      ));
+      const voiceConnectingWatchdogIncidentGateCloseoutSelfTestCount = voiceConnectingWatchdogIncidentGateCloseoutSelfTestEvents.length;
+      const voiceConnectingWatchdogIncidentGateCloseoutSelfTestPassCount = voiceConnectingWatchdogIncidentGateCloseoutSelfTestEvents.filter((event) => (
+        event.context?.selfTestPass === true
+      )).length;
+      const voiceConnectingWatchdogIncidentGateCloseoutSelfTestFailCount = voiceConnectingWatchdogIncidentGateCloseoutSelfTestEvents.filter((event) => (
+        event.context?.selfTestPass === false
+      )).length;
+      const voiceUnexpectedConnectingWatchdogIncidentGateCloseoutSelfTestFailCount = voiceConnectingWatchdogIncidentGateCloseoutSelfTestEvents.filter((event) => (
+        event.context?.selfTestPass === false
+      )).length;
+      const voiceLongSessionGateEvents = recent.filter((event) => (
+        event.name === "messaging.realtime_voice.long_session_gate"
+      ));
+      const voiceLongSessionGateCount = voiceLongSessionGateEvents.length;
+      const voiceLongSessionGatePassCount = voiceLongSessionGateEvents.filter((event) => (
+        event.context?.cp4Pass === true
+      )).length;
+      const voiceLongSessionGateFailCount = voiceLongSessionGateEvents.filter((event) => (
+        event.context?.cp4Pass === false
+      )).length;
+      const voiceUnexpectedLongSessionGateFailCount = voiceLongSessionGateEvents.filter((event) => (
+        event.context?.cp4Pass === false
+        && event.context?.injectRecoveryExhausted !== true
+      )).length;
+      const voiceCheckpointGateEvents = recent.filter((event) => (
+        event.name === "messaging.realtime_voice.cp4_checkpoint_gate"
+      ));
+      const voiceCheckpointGateCount = voiceCheckpointGateEvents.length;
+      const voiceCheckpointGatePassCount = voiceCheckpointGateEvents.filter((event) => (
+        event.context?.cp4CheckpointPass === true
+      )).length;
+      const voiceCheckpointGateFailCount = voiceCheckpointGateEvents.filter((event) => (
+        event.context?.cp4CheckpointPass === false
+      )).length;
+      const voiceUnexpectedCheckpointGateFailCount = voiceCheckpointGateEvents.filter((event) => (
+        event.context?.cp4CheckpointPass === false
+        && event.context?.expectedPass === true
+      )).length;
+      const voiceReleaseReadinessGateEvents = recent.filter((event) => (
+        event.name === "messaging.realtime_voice.cp4_release_readiness_gate"
+      ));
+      const voiceReleaseReadinessGateCount = voiceReleaseReadinessGateEvents.length;
+      const voiceReleaseReadinessGatePassCount = voiceReleaseReadinessGateEvents.filter((event) => (
+        event.context?.cp4ReleaseReadinessPass === true
+      )).length;
+      const voiceReleaseReadinessGateFailCount = voiceReleaseReadinessGateEvents.filter((event) => (
+        event.context?.cp4ReleaseReadinessPass === false
+      )).length;
+      const voiceUnexpectedReleaseReadinessGateFailCount = voiceReleaseReadinessGateEvents.filter((event) => (
+        event.context?.cp4ReleaseReadinessPass === false
+        && event.context?.expectedPass === true
+      )).length;
+      const voiceReleaseEvidenceGateEvents = recent.filter((event) => (
+        event.name === "messaging.realtime_voice.cp4_release_evidence_gate"
+      ));
+      const voiceReleaseEvidenceGateCount = voiceReleaseEvidenceGateEvents.length;
+      const voiceReleaseEvidenceGatePassCount = voiceReleaseEvidenceGateEvents.filter((event) => (
+        event.context?.cp4ReleaseEvidencePass === true
+      )).length;
+      const voiceReleaseEvidenceGateFailCount = voiceReleaseEvidenceGateEvents.filter((event) => (
+        event.context?.cp4ReleaseEvidencePass === false
+      )).length;
+      const voiceUnexpectedReleaseEvidenceGateFailCount = voiceReleaseEvidenceGateEvents.filter((event) => (
+        event.context?.cp4ReleaseEvidencePass === false
+        && event.context?.expectedPass === true
+      )).length;
+      const voiceCloseoutGateEvents = recent.filter((event) => (
+        event.name === "messaging.realtime_voice.v120_closeout_gate"
+      ));
+      const voiceCloseoutGateCount = voiceCloseoutGateEvents.length;
+      const voiceCloseoutGatePassCount = voiceCloseoutGateEvents.filter((event) => (
+        event.context?.closeoutPass === true
+      )).length;
+      const voiceCloseoutGateFailCount = voiceCloseoutGateEvents.filter((event) => (
+        event.context?.closeoutPass === false
+      )).length;
+      const voiceUnexpectedCloseoutGateFailCount = voiceCloseoutGateEvents.filter((event) => (
+        event.context?.closeoutPass === false
+        && event.context?.expectedPass === true
+      )).length;
+      const latestVoiceSessionTransition = voiceSessionTransitionEvents.at(-1);
+      const latestVoiceSessionToPhase = toStringOrNull(
+        latestVoiceSessionTransition?.context?.toPhase,
+      );
+      const latestVoiceSessionReasonCode = toStringOrNull(
+        latestVoiceSessionTransition?.context?.reasonCode,
+      );
+      const latestVoiceSessionIgnoredReasonCode = toStringOrNull(
+        voiceSessionIgnoredEvents.at(-1)?.context?.reasonCode,
+      );
+      const latestVoiceConnectTimeoutDiagnostics = voiceConnectTimeoutDiagnosticsEvents.at(-1);
+      const latestVoiceConnectTimeoutRtcConnectionState = toStringOrNull(
+        latestVoiceConnectTimeoutDiagnostics?.context?.rtcConnectionState,
+      );
+      const latestVoiceConnectTimeoutOpenRelayCount = toNumberOrNull(
+        latestVoiceConnectTimeoutDiagnostics?.context?.openRelayCount,
+      );
+      const latestVoiceConnectingWatchdogGate = voiceConnectingWatchdogGateEvents.at(-1);
+      const latestVoiceConnectingWatchdogGatePass = toBooleanOrNull(
+        latestVoiceConnectingWatchdogGate?.context?.watchdogPass,
+      );
+      const latestVoiceConnectingWatchdogFailedCheckSample = toStringOrNull(
+        latestVoiceConnectingWatchdogGate?.context?.failedCheckSample,
+      );
+      const latestVoiceConnectingWatchdogSelfTest = voiceConnectingWatchdogSelfTestEvents.at(-1);
+      const latestVoiceConnectingWatchdogSelfTestPass = toBooleanOrNull(
+        latestVoiceConnectingWatchdogSelfTest?.context?.selfTestPass,
+      );
+      const latestVoiceConnectingWatchdogSelfTestFailedCheckSample = toStringOrNull(
+        latestVoiceConnectingWatchdogSelfTest?.context?.failedCheckSample,
+      );
+      const latestVoiceConnectingWatchdogIncidentBundle = voiceConnectingWatchdogIncidentBundleEvents.at(-1);
+      const latestVoiceConnectingWatchdogIncidentBundlePass = toBooleanOrNull(
+        latestVoiceConnectingWatchdogIncidentBundle?.context?.incidentPass,
+      );
+      const latestVoiceConnectingWatchdogIncidentBundleFailedCheckSample = toStringOrNull(
+        latestVoiceConnectingWatchdogIncidentBundle?.context?.failedCheckSample,
+      );
+      const latestVoiceConnectingWatchdogIncidentGate = voiceConnectingWatchdogIncidentGateEvents.at(-1);
+      const latestVoiceConnectingWatchdogIncidentGatePass = toBooleanOrNull(
+        latestVoiceConnectingWatchdogIncidentGate?.context?.incidentGatePass,
+      );
+      const latestVoiceConnectingWatchdogIncidentGateFailedCheckSample = toStringOrNull(
+        latestVoiceConnectingWatchdogIncidentGate?.context?.failedCheckSample,
+      );
+      const latestVoiceConnectingWatchdogIncidentGateEvidence = voiceConnectingWatchdogIncidentGateEvidenceEvents.at(-1);
+      const latestVoiceConnectingWatchdogIncidentGateEvidencePass = toBooleanOrNull(
+        latestVoiceConnectingWatchdogIncidentGateEvidence?.context?.incidentGateEvidencePass,
+      );
+      const latestVoiceConnectingWatchdogIncidentGateEvidenceFailedCheckSample = toStringOrNull(
+        latestVoiceConnectingWatchdogIncidentGateEvidence?.context?.failedCheckSample,
+      );
+      const latestVoiceConnectingWatchdogIncidentGateSelfTest = voiceConnectingWatchdogIncidentGateSelfTestEvents.at(-1);
+      const latestVoiceConnectingWatchdogIncidentGateSelfTestPass = toBooleanOrNull(
+        latestVoiceConnectingWatchdogIncidentGateSelfTest?.context?.selfTestPass,
+      );
+      const latestVoiceConnectingWatchdogIncidentGateSelfTestFailedCheckSample = toStringOrNull(
+        latestVoiceConnectingWatchdogIncidentGateSelfTest?.context?.failedCheckSample,
+      );
+      const latestVoiceConnectingWatchdogIncidentGateCloseout = voiceConnectingWatchdogIncidentGateCloseoutEvents.at(-1);
+      const latestVoiceConnectingWatchdogIncidentGateCloseoutPass = toBooleanOrNull(
+        latestVoiceConnectingWatchdogIncidentGateCloseout?.context?.closeoutPass,
+      );
+      const latestVoiceConnectingWatchdogIncidentGateCloseoutFailedCheckSample = toStringOrNull(
+        latestVoiceConnectingWatchdogIncidentGateCloseout?.context?.failedCheckSample,
+      );
+      const latestVoiceConnectingWatchdogIncidentGateCloseoutSelfTest = voiceConnectingWatchdogIncidentGateCloseoutSelfTestEvents.at(-1);
+      const latestVoiceConnectingWatchdogIncidentGateCloseoutSelfTestPass = toBooleanOrNull(
+        latestVoiceConnectingWatchdogIncidentGateCloseoutSelfTest?.context?.selfTestPass,
+      );
+      const latestVoiceConnectingWatchdogIncidentGateCloseoutSelfTestFailedCheckSample = toStringOrNull(
+        latestVoiceConnectingWatchdogIncidentGateCloseoutSelfTest?.context?.failedCheckSample,
+      );
+      const latestVoiceLongSessionGate = voiceLongSessionGateEvents.at(-1);
+      const latestVoiceLongSessionGatePass = toBooleanOrNull(
+        latestVoiceLongSessionGate?.context?.cp4Pass,
+      );
+      const latestVoiceLongSessionFailedCheckSample = toStringOrNull(
+        latestVoiceLongSessionGate?.context?.failedCheckSample,
+      );
+      const latestVoiceCheckpointGate = voiceCheckpointGateEvents.at(-1);
+      const latestVoiceCheckpointGatePass = toBooleanOrNull(
+        latestVoiceCheckpointGate?.context?.cp4CheckpointPass,
+      );
+      const latestVoiceCheckpointFailedCheckSample = toStringOrNull(
+        latestVoiceCheckpointGate?.context?.failedCheckSample,
+      );
+      const latestVoiceReleaseReadinessGate = voiceReleaseReadinessGateEvents.at(-1);
+      const latestVoiceReleaseReadinessGatePass = toBooleanOrNull(
+        latestVoiceReleaseReadinessGate?.context?.cp4ReleaseReadinessPass,
+      );
+      const latestVoiceReleaseReadinessFailedCheckSample = toStringOrNull(
+        latestVoiceReleaseReadinessGate?.context?.failedCheckSample,
+      );
+      const latestVoiceReleaseEvidenceGate = voiceReleaseEvidenceGateEvents.at(-1);
+      const latestVoiceReleaseEvidenceGatePass = toBooleanOrNull(
+        latestVoiceReleaseEvidenceGate?.context?.cp4ReleaseEvidencePass,
+      );
+      const latestVoiceReleaseEvidenceFailedCheckSample = toStringOrNull(
+        latestVoiceReleaseEvidenceGate?.context?.failedCheckSample,
+      );
+      const latestVoiceCloseoutGate = voiceCloseoutGateEvents.at(-1);
+      const latestVoiceCloseoutGatePass = toBooleanOrNull(
+        latestVoiceCloseoutGate?.context?.closeoutPass,
+      );
+      const latestVoiceCloseoutGateFailedCheckSample = toStringOrNull(
+        latestVoiceCloseoutGate?.context?.failedCheckSample,
+      );
+      const voiceNoteRecordingCompleteEvents = recent.filter((event) => (
+        event.name === "messaging.voice_note.recording_complete"
+      ));
+      const voiceNoteRecordingUnsupportedEvents = recent.filter((event) => (
+        event.name === "messaging.voice_note.recording_unsupported"
+      ));
+      const voiceNoteRecordingStartFailedEvents = recent.filter((event) => (
+        event.name === "messaging.voice_note.recording_start_failed"
+      ));
+      const voiceNoteRecordingEmptyEvents = recent.filter((event) => (
+        event.name === "messaging.voice_note.recording_empty"
+      ));
+      const voiceNoteRecordingCompleteCount = voiceNoteRecordingCompleteEvents.length;
+      const voiceNoteRecordingUnsupportedCount = voiceNoteRecordingUnsupportedEvents.length;
+      const voiceNoteRecordingStartFailedCount = voiceNoteRecordingStartFailedEvents.length;
+      const voiceNoteRecordingEmptyCount = voiceNoteRecordingEmptyEvents.length;
+      const latestVoiceNoteReasonCode = toStringOrNull(
+        voiceNoteRecordingStartFailedEvents.at(-1)?.context?.reasonCode
+        ?? voiceNoteRecordingUnsupportedEvents.at(-1)?.context?.reasonCode
+        ?? voiceNoteRecordingEmptyEvents.at(-1)?.context?.reasonCode,
+      );
+      const deleteForEveryoneRequestedEvents = recent.filter((event) => (
+        event.name === "messaging.delete_for_everyone_requested"
+      ));
+      const deleteForEveryoneRejectedEvents = recent.filter((event) => (
+        event.name === "messaging.delete_for_everyone_rejected"
+      ));
+      const deleteForEveryoneLocalAppliedEvents = recent.filter((event) => (
+        event.name === "messaging.delete_for_everyone_local_applied"
+      ));
+      const deleteForEveryoneRemoteResultEvents = recent.filter((event) => (
+        event.name === "messaging.delete_for_everyone_remote_result"
+      ));
+      const deleteForEveryoneRequestedCount = deleteForEveryoneRequestedEvents.length;
+      const deleteForEveryoneRejectedCount = deleteForEveryoneRejectedEvents.length;
+      const deleteForEveryoneLocalAppliedCount = deleteForEveryoneLocalAppliedEvents.length;
+      const deleteForEveryoneRemoteConfirmedCount = deleteForEveryoneRemoteResultEvents.filter((event) => (
+        event.context?.resultCode === "confirmed" || event.context?.resultCode === "published"
+      )).length;
+      const deleteForEveryoneRemoteQueuedCount = deleteForEveryoneRemoteResultEvents.filter((event) => (
+        event.context?.resultCode === "queued_retrying"
+      )).length;
+      const deleteForEveryoneRemoteFailedCount = deleteForEveryoneRemoteResultEvents.filter((event) => (
+        event.context?.resultCode === "failed"
+      )).length;
+      const latestDeleteForEveryoneRemoteResult = deleteForEveryoneRemoteResultEvents.at(-1);
+      const latestDeleteForEveryoneChannel = toStringOrNull(
+        latestDeleteForEveryoneRemoteResult?.context?.channel,
+      );
+      const latestDeleteForEveryoneResultCode = toStringOrNull(
+        latestDeleteForEveryoneRemoteResult?.context?.resultCode,
+      );
+      const latestDeleteForEveryoneReasonCode = toStringOrNull(
+        latestDeleteForEveryoneRemoteResult?.context?.reasonCode
+        ?? deleteForEveryoneRejectedEvents.at(-1)?.context?.reasonCode,
+      );
+      const criticalHydrationDriftCount = recent.filter((event) => (
+        event.name === "messaging.conversation_hydration_diagnostics"
+        && typeof event.context?.criticalDriftCount === "number"
+        && event.context.criticalDriftCount > 0
+      )).length;
+      const dmAttachmentDropAcrossStages = (
+        typeof latestHydratedDmAttachmentCount === "number"
+        && typeof latestMergedDmAttachmentCount === "number"
+        && latestMergedDmAttachmentCount < latestHydratedDmAttachmentCount
+      ) || (
+        typeof latestMergedDmAttachmentCount === "number"
+        && typeof latestAppliedDmAttachmentCount === "number"
+        && latestAppliedDmAttachmentCount < latestMergedDmAttachmentCount
+      );
+      const groupAttachmentDropAcrossStages = (
+        typeof latestHydratedGroupAttachmentCount === "number"
+        && typeof latestMergedGroupAttachmentCount === "number"
+        && latestMergedGroupAttachmentCount < latestHydratedGroupAttachmentCount
+      ) || (
+        typeof latestMergedGroupAttachmentCount === "number"
+        && typeof latestAppliedGroupAttachmentCount === "number"
+        && latestAppliedGroupAttachmentCount < latestMergedGroupAttachmentCount
+      );
+      const selfAuthoredDmContinuityRiskLevel = getRiskLevel({
+        watch: (
+          sparseOutgoingEvidence === true
+          || (
+            latestHydratedOutgoingCount === 0
+            && latestMergedOutgoingCount === 0
+            && typeof latestMergedIncomingCount === "number"
+            && latestMergedIncomingCount > 0
+          )
+        ),
+        high: idSplitDetectedCount > 0,
+      });
+      const membershipSendabilityRiskLevel = getRiskLevel({
+        watch: (
+          roomKeyMissingSendBlockedCount > 0
+          || (
+          typeof latestVisibleGroupCount === "number"
+          && typeof latestChatStateGroupCount === "number"
+          && latestChatStateGroupCount < latestVisibleGroupCount
+          )
+        ),
+        high: joinedMembershipRoomKeyMismatchCount > 0,
+      });
+      const accountSwitchScopeConvergenceRiskLevel = getRiskLevel({
+        watch: autoUnlockScopeDriftDetectedCount > 0,
+        high: (
+          backupRestoreProfileScopeMismatchCount > 0
+          || runtimeActivationProfileScopeMismatchCount > 0
+        ),
+      });
+      const incomingRequestAntiAbuseRiskLevel = getRiskLevel({
+        watch: incomingRequestQuarantinedCount > 0,
+        high: (
+          incomingRequestGlobalRateLimitedCount > 0
+          || incomingRequestPeerCooldownActiveCount >= 5
+        ),
+      });
+      const m10TrustControlsRiskLevel = getRiskLevel({
+        watch: (
+          m10Cp2StabilityGateFailCount > 0
+          || m10Cp3ReadinessGateFailCount > 0
+          || m10Cp3SuiteGateFailCount > 0
+          || m10Cp4CloseoutGateFailCount > 0
+          || m10V130CloseoutGateFailCount > 0
+          || m10V130EvidenceGateFailCount > 0
+        ),
+        high: (
+          m10Cp2StabilityGateUnexpectedFailCount > 0
+          || m10Cp3ReadinessGateUnexpectedFailCount > 0
+          || m10Cp3SuiteGateUnexpectedFailCount > 0
+          || m10Cp4CloseoutGateUnexpectedFailCount > 0
+          || m10V130CloseoutGateUnexpectedFailCount > 0
+          || m10V130EvidenceGateUnexpectedFailCount > 0
+        ),
+      });
+      const communityLifecycleConvergenceRiskLevel = getRiskLevel({
+        watch: (
+          membershipRecoveryRepairSignalCount > 0
+          || (typeof latestMissingLedgerCoverageCount === "number" && latestMissingLedgerCoverageCount > 0)
+        ),
+        high: roomKeyMissingSendBlockedCount > 0 && membershipRecoveryRepairSignalCount > 0,
+      });
+      const mediaHydrationParityRiskLevel = getRiskLevel({
+        watch: (
+          dmAttachmentDropAcrossStages
+          || groupAttachmentDropAcrossStages
+          || criticalHydrationDriftCount > 0
+        ),
+        high: attachmentDropRegressionCount > 0,
+      });
+      const searchJumpNavigationRiskLevel = getRiskLevel({
+        watch: searchJumpUnresolvedCount > 0,
+        high: searchJumpDomUnresolvedCount > 0,
+      });
+      const uiResponsivenessRiskLevel = getRiskLevel({
+        watch: (
+          routeMountProbeSlowCount > 0
+          || routeMountProbeSettledWarnCount > 0
+          || pageTransitionWatchdogTimeoutCount > 0
+          || startupProfileBootStallTimeoutCount > 0
+        ),
+        high: (
+          routeStallHardFallbackCount > 0
+          || pageTransitionEffectsDisabledCount > 0
+        ),
+      });
+      const realtimeVoiceSessionRiskLevel = getRiskLevel({
+        watch: (
+          voiceSessionDegradedCount > 0
+          || voiceSessionUnsupportedCount > 0
+          || voiceSessionStaleIgnoredCount > 0
+          || voiceConnectTimeoutDiagnosticsCount > 0
+          || voiceConnectingWatchdogGateFailCount > 0
+          || voiceConnectingWatchdogSelfTestFailCount > 0
+          || voiceConnectingWatchdogIncidentBundleFailCount > 0
+          || voiceConnectingWatchdogIncidentGateFailCount > 0
+          || voiceConnectingWatchdogIncidentGateEvidenceFailCount > 0
+          || voiceConnectingWatchdogIncidentGateSelfTestFailCount > 0
+          || voiceConnectingWatchdogIncidentGateCloseoutFailCount > 0
+          || voiceConnectingWatchdogIncidentGateCloseoutSelfTestFailCount > 0
+          || voiceLongSessionGateFailCount > 0
+          || voiceCheckpointGateFailCount > 0
+          || voiceReleaseReadinessGateFailCount > 0
+          || voiceReleaseEvidenceGateFailCount > 0
+          || voiceCloseoutGateFailCount > 0
+        ),
+        high: (
+          voiceSessionRecoveryExhaustedCount > 0
+          || voiceConnectTimeoutDiagnosticsCount >= 3
+          || voiceUnexpectedConnectingWatchdogGateFailCount > 0
+          || voiceUnexpectedConnectingWatchdogSelfTestFailCount > 0
+          || voiceUnexpectedConnectingWatchdogIncidentBundleFailCount > 0
+          || voiceUnexpectedConnectingWatchdogIncidentGateFailCount > 0
+          || voiceUnexpectedConnectingWatchdogIncidentGateEvidenceFailCount > 0
+          || voiceUnexpectedConnectingWatchdogIncidentGateSelfTestFailCount > 0
+          || voiceUnexpectedConnectingWatchdogIncidentGateCloseoutFailCount > 0
+          || voiceUnexpectedConnectingWatchdogIncidentGateCloseoutSelfTestFailCount > 0
+          || voiceUnexpectedLongSessionGateFailCount > 0
+          || voiceUnexpectedCheckpointGateFailCount > 0
+          || voiceUnexpectedReleaseReadinessGateFailCount > 0
+          || voiceUnexpectedReleaseEvidenceGateFailCount > 0
+          || voiceUnexpectedCloseoutGateFailCount > 0
+        ),
+      });
+      const asyncVoiceNoteRiskLevel = getRiskLevel({
+        watch: (
+          voiceNoteRecordingUnsupportedCount > 0
+          || voiceNoteRecordingEmptyCount > 0
+        ),
+        high: voiceNoteRecordingStartFailedCount > 0,
+      });
+      const deleteConvergenceRiskLevel = getRiskLevel({
+        watch: (
+          deleteForEveryoneRemoteQueuedCount > 0
+          || deleteForEveryoneRejectedCount > 0
+        ),
+        high: deleteForEveryoneRemoteFailedCount > 0,
+      });
+      const recentWarnOrError = recent
+        .filter((event) => event.level === "warn" || event.level === "error")
+        .slice(-12)
+        .map((event) => ({
+          name: event.name,
+          atUnixMs: event.atUnixMs,
+          level: event.level,
+          reasonCode: toStringOrNull(
+            event.context?.reasonCode
+            ?? event.context?.toReasonCode
+            ?? event.context?.primaryReasonCode
+            ?? event.context?.reason
+            ?? event.context?.errorCode
+          ),
+          message: toStringOrNull(
+            event.context?.message
+            ?? event.context?.error
+            ?? event.context?.detail
+          ),
+        }));
+      return {
+        totalBufferedEvents: getEventBuffer().length,
+        windowSize: recent.length,
+        generatedAtUnixMs: Date.now(),
+        events,
+        summary: {
+          selfAuthoredDmContinuity: {
+            riskLevel: selfAuthoredDmContinuityRiskLevel,
+            latestHydratedOutgoingCount,
+            latestMergedOutgoingCount,
+            sparseOutgoingEvidence,
+            idSplitDetectedCount,
+          },
+          membershipSendability: {
+            riskLevel: membershipSendabilityRiskLevel,
+            latestVisibleGroupCount,
+            latestChatStateGroupCount,
+            roomKeyMissingSendBlockedCount,
+            joinedMembershipRoomKeyMismatchCount,
+            localProfileScopeRoomKeyMissingCount,
+            noLocalRoomKeysCount,
+            latestReasonCode: latestRoomKeyMissingSendBlockedReasonCode,
+          },
+          accountSwitchScopeConvergence: {
+            riskLevel: accountSwitchScopeConvergenceRiskLevel,
+            backupRestoreProfileScopeMismatchCount,
+            runtimeActivationProfileScopeMismatchCount,
+            autoUnlockScopeDriftDetectedCount,
+            latestBackupRestoreReasonCode: latestBackupRestoreProfileScopeMismatchReasonCode,
+            latestRuntimeActivationReasonCode: latestRuntimeActivationProfileScopeMismatchReasonCode,
+            latestAutoUnlockReasonCode: latestAutoUnlockScopeDriftReasonCode,
+          },
+          incomingRequestAntiAbuse: {
+            riskLevel: incomingRequestAntiAbuseRiskLevel,
+            quarantinedCount: incomingRequestQuarantinedCount,
+            peerRateLimitedCount: incomingRequestPeerRateLimitedCount,
+            peerCooldownActiveCount: incomingRequestPeerCooldownActiveCount,
+            globalRateLimitedCount: incomingRequestGlobalRateLimitedCount,
+            uniquePeerPrefixCount: incomingRequestUniquePeerPrefixCount,
+            latestReasonCode: latestIncomingRequestReasonCode,
+            latestPeerPubkeyPrefix: latestIncomingRequestPeerPubkeyPrefix,
+            latestCooldownRemainingMs: latestIncomingRequestCooldownRemainingMs,
+          },
+          m10TrustControls: {
+            riskLevel: m10TrustControlsRiskLevel,
+            cp2StabilityGateCount: m10Cp2StabilityGateCount,
+            cp2StabilityGatePassCount: m10Cp2StabilityGatePassCount,
+            cp2StabilityGateFailCount: m10Cp2StabilityGateFailCount,
+            cp2StabilityGateUnexpectedFailCount: m10Cp2StabilityGateUnexpectedFailCount,
+            cp3ReadinessGateCount: m10Cp3ReadinessGateCount,
+            cp3ReadinessGatePassCount: m10Cp3ReadinessGatePassCount,
+            cp3ReadinessGateFailCount: m10Cp3ReadinessGateFailCount,
+            cp3ReadinessGateUnexpectedFailCount: m10Cp3ReadinessGateUnexpectedFailCount,
+            cp3SuiteGateCount: m10Cp3SuiteGateCount,
+            cp3SuiteGatePassCount: m10Cp3SuiteGatePassCount,
+            cp3SuiteGateFailCount: m10Cp3SuiteGateFailCount,
+            cp3SuiteGateUnexpectedFailCount: m10Cp3SuiteGateUnexpectedFailCount,
+            cp4CloseoutGateCount: m10Cp4CloseoutGateCount,
+            cp4CloseoutGatePassCount: m10Cp4CloseoutGatePassCount,
+            cp4CloseoutGateFailCount: m10Cp4CloseoutGateFailCount,
+            cp4CloseoutGateUnexpectedFailCount: m10Cp4CloseoutGateUnexpectedFailCount,
+            v130CloseoutGateCount: m10V130CloseoutGateCount,
+            v130CloseoutGatePassCount: m10V130CloseoutGatePassCount,
+            v130CloseoutGateFailCount: m10V130CloseoutGateFailCount,
+            v130CloseoutGateUnexpectedFailCount: m10V130CloseoutGateUnexpectedFailCount,
+            v130EvidenceGateCount: m10V130EvidenceGateCount,
+            v130EvidenceGatePassCount: m10V130EvidenceGatePassCount,
+            v130EvidenceGateFailCount: m10V130EvidenceGateFailCount,
+            v130EvidenceGateUnexpectedFailCount: m10V130EvidenceGateUnexpectedFailCount,
+            latestExpectedStable: latestM10Cp2StabilityGateExpectedStable,
+            latestPass: latestM10Cp2StabilityGatePass,
+            latestFailedCheckSample: latestM10Cp2StabilityGateFailedCheckSample,
+            latestCp3ExpectedStable: latestM10Cp3ReadinessGateExpectedStable,
+            latestCp3Pass: latestM10Cp3ReadinessGatePass,
+            latestCp3FailedCheckSample: latestM10Cp3ReadinessGateFailedCheckSample,
+            latestCp3SuiteExpectedStable: latestM10Cp3SuiteGateExpectedStable,
+            latestCp3SuitePass: latestM10Cp3SuiteGatePass,
+            latestCp3SuiteFailedCheckSample: latestM10Cp3SuiteGateFailedCheckSample,
+            latestCp4CloseoutExpectedStable: latestM10Cp4CloseoutGateExpectedStable,
+            latestCp4CloseoutPass: latestM10Cp4CloseoutGatePass,
+            latestCp4CloseoutFailedCheckSample: latestM10Cp4CloseoutGateFailedCheckSample,
+            latestV130CloseoutExpectedStable: latestM10V130CloseoutGateExpectedStable,
+            latestV130CloseoutPass: latestM10V130CloseoutGatePass,
+            latestV130CloseoutFailedCheckSample: latestM10V130CloseoutGateFailedCheckSample,
+            latestV130EvidenceExpectedStable: latestM10V130EvidenceGateExpectedStable,
+            latestV130EvidencePass: latestM10V130EvidenceGatePass,
+            latestV130EvidenceFailedCheckSample: latestM10V130EvidenceGateFailedCheckSample,
+          },
+          communityLifecycleConvergence: {
+            riskLevel: communityLifecycleConvergenceRiskLevel,
+            latestPersistedGroupCount,
+            latestPersistedDuplicateMergeCount,
+            latestHydratedFromPersistedWithLedgerCount,
+            latestHydratedFromPersistedFallbackCount,
+            latestHydratedFromLedgerOnlyCount,
+            latestPlaceholderDisplayNameRecoveredCount,
+            latestLocalMemberBackfillCount,
+            latestMissingLedgerCoverageCount,
+            latestHiddenByLedgerStatusCount,
+            recoveryRepairSignalCount: membershipRecoveryRepairSignalCount,
+          },
+          mediaHydrationParity: {
+            riskLevel: mediaHydrationParityRiskLevel,
+            latestHydratedDmAttachmentCount,
+            latestMergedDmAttachmentCount,
+            latestAppliedDmAttachmentCount,
+            latestHydratedGroupAttachmentCount,
+            latestMergedGroupAttachmentCount,
+            latestAppliedGroupAttachmentCount,
+            attachmentDropRegressionCount,
+            criticalHydrationDriftCount,
+          },
+          searchJumpNavigation: {
+            riskLevel: searchJumpNavigationRiskLevel,
+            requestedCount: searchJumpRequestedCount,
+            resolvedCount: searchJumpResolvedCount,
+            unresolvedCount: searchJumpUnresolvedCount,
+            timestampFallbackResolvedCount: searchJumpTimestampFallbackResolvedCount,
+            domUnresolvedCount: searchJumpDomUnresolvedCount,
+            loadExhaustedUnresolvedCount: searchJumpLoadExhaustedUnresolvedCount,
+            latestResolutionMode: latestSearchJumpResolutionMode,
+            latestUnresolvedReasonCode: latestSearchJumpUnresolvedReasonCode,
+          },
+          uiResponsiveness: {
+            riskLevel: uiResponsivenessRiskLevel,
+            routeRequestCount,
+            routeSettledCount,
+            routeStallHardFallbackCount,
+            routeMountProbeSlowCount,
+            routeMountProbeSettledWarnCount,
+            routeMountPerformanceGuardEnabledCount,
+            pageTransitionWatchdogTimeoutCount,
+            pageTransitionEffectsDisabledCount,
+            startupProfileBootStallTimeoutCount,
+            latestRouteSurface: latestUiRouteSurface,
+            latestRouteStallElapsedMs,
+            latestRouteMountProbeElapsedMs,
+            latestPageTransitionWatchdogElapsedMs,
+            latestStartupProfileBootPhase,
+          },
+          realtimeVoiceSession: {
+            riskLevel: realtimeVoiceSessionRiskLevel,
+            transitionCount: voiceSessionTransitionCount,
+            degradedCount: voiceSessionDegradedCount,
+            unsupportedCount: voiceSessionUnsupportedCount,
+            recoveryExhaustedCount: voiceSessionRecoveryExhaustedCount,
+            staleEventIgnoredCount: voiceSessionStaleIgnoredCount,
+            connectTimeoutDiagnosticsCount: voiceConnectTimeoutDiagnosticsCount,
+            connectTimeoutNoOpenRelayCount: voiceConnectTimeoutNoOpenRelayCount,
+            connectingWatchdogGateCount: voiceConnectingWatchdogGateCount,
+            connectingWatchdogGatePassCount: voiceConnectingWatchdogGatePassCount,
+            connectingWatchdogGateFailCount: voiceConnectingWatchdogGateFailCount,
+            unexpectedConnectingWatchdogGateFailCount: voiceUnexpectedConnectingWatchdogGateFailCount,
+            connectingWatchdogSelfTestCount: voiceConnectingWatchdogSelfTestCount,
+            connectingWatchdogSelfTestPassCount: voiceConnectingWatchdogSelfTestPassCount,
+            connectingWatchdogSelfTestFailCount: voiceConnectingWatchdogSelfTestFailCount,
+            unexpectedConnectingWatchdogSelfTestFailCount: voiceUnexpectedConnectingWatchdogSelfTestFailCount,
+            connectingWatchdogIncidentBundleCount: voiceConnectingWatchdogIncidentBundleCount,
+            connectingWatchdogIncidentBundlePassCount: voiceConnectingWatchdogIncidentBundlePassCount,
+            connectingWatchdogIncidentBundleFailCount: voiceConnectingWatchdogIncidentBundleFailCount,
+            unexpectedConnectingWatchdogIncidentBundleFailCount: voiceUnexpectedConnectingWatchdogIncidentBundleFailCount,
+            connectingWatchdogIncidentGateCount: voiceConnectingWatchdogIncidentGateCount,
+            connectingWatchdogIncidentGatePassCount: voiceConnectingWatchdogIncidentGatePassCount,
+            connectingWatchdogIncidentGateFailCount: voiceConnectingWatchdogIncidentGateFailCount,
+            unexpectedConnectingWatchdogIncidentGateFailCount: voiceUnexpectedConnectingWatchdogIncidentGateFailCount,
+            connectingWatchdogIncidentGateEvidenceCount: voiceConnectingWatchdogIncidentGateEvidenceCount,
+            connectingWatchdogIncidentGateEvidencePassCount: voiceConnectingWatchdogIncidentGateEvidencePassCount,
+            connectingWatchdogIncidentGateEvidenceFailCount: voiceConnectingWatchdogIncidentGateEvidenceFailCount,
+            unexpectedConnectingWatchdogIncidentGateEvidenceFailCount: voiceUnexpectedConnectingWatchdogIncidentGateEvidenceFailCount,
+            connectingWatchdogIncidentGateSelfTestCount: voiceConnectingWatchdogIncidentGateSelfTestCount,
+            connectingWatchdogIncidentGateSelfTestPassCount: voiceConnectingWatchdogIncidentGateSelfTestPassCount,
+            connectingWatchdogIncidentGateSelfTestFailCount: voiceConnectingWatchdogIncidentGateSelfTestFailCount,
+            unexpectedConnectingWatchdogIncidentGateSelfTestFailCount: voiceUnexpectedConnectingWatchdogIncidentGateSelfTestFailCount,
+            connectingWatchdogIncidentGateCloseoutCount: voiceConnectingWatchdogIncidentGateCloseoutCount,
+            connectingWatchdogIncidentGateCloseoutPassCount: voiceConnectingWatchdogIncidentGateCloseoutPassCount,
+            connectingWatchdogIncidentGateCloseoutFailCount: voiceConnectingWatchdogIncidentGateCloseoutFailCount,
+            unexpectedConnectingWatchdogIncidentGateCloseoutFailCount: voiceUnexpectedConnectingWatchdogIncidentGateCloseoutFailCount,
+            connectingWatchdogIncidentGateCloseoutSelfTestCount: voiceConnectingWatchdogIncidentGateCloseoutSelfTestCount,
+            connectingWatchdogIncidentGateCloseoutSelfTestPassCount: voiceConnectingWatchdogIncidentGateCloseoutSelfTestPassCount,
+            connectingWatchdogIncidentGateCloseoutSelfTestFailCount: voiceConnectingWatchdogIncidentGateCloseoutSelfTestFailCount,
+            unexpectedConnectingWatchdogIncidentGateCloseoutSelfTestFailCount: voiceUnexpectedConnectingWatchdogIncidentGateCloseoutSelfTestFailCount,
+            longSessionGateCount: voiceLongSessionGateCount,
+            longSessionGatePassCount: voiceLongSessionGatePassCount,
+            longSessionGateFailCount: voiceLongSessionGateFailCount,
+            unexpectedLongSessionGateFailCount: voiceUnexpectedLongSessionGateFailCount,
+            checkpointGateCount: voiceCheckpointGateCount,
+            checkpointGatePassCount: voiceCheckpointGatePassCount,
+            checkpointGateFailCount: voiceCheckpointGateFailCount,
+            unexpectedCheckpointGateFailCount: voiceUnexpectedCheckpointGateFailCount,
+            releaseReadinessGateCount: voiceReleaseReadinessGateCount,
+            releaseReadinessGatePassCount: voiceReleaseReadinessGatePassCount,
+            releaseReadinessGateFailCount: voiceReleaseReadinessGateFailCount,
+            unexpectedReleaseReadinessGateFailCount: voiceUnexpectedReleaseReadinessGateFailCount,
+            releaseEvidenceGateCount: voiceReleaseEvidenceGateCount,
+            releaseEvidenceGatePassCount: voiceReleaseEvidenceGatePassCount,
+            releaseEvidenceGateFailCount: voiceReleaseEvidenceGateFailCount,
+            unexpectedReleaseEvidenceGateFailCount: voiceUnexpectedReleaseEvidenceGateFailCount,
+            closeoutGateCount: voiceCloseoutGateCount,
+            closeoutGatePassCount: voiceCloseoutGatePassCount,
+            closeoutGateFailCount: voiceCloseoutGateFailCount,
+            unexpectedCloseoutGateFailCount: voiceUnexpectedCloseoutGateFailCount,
+            latestToPhase: latestVoiceSessionToPhase,
+            latestReasonCode: latestVoiceSessionReasonCode,
+            latestIgnoredReasonCode: latestVoiceSessionIgnoredReasonCode,
+            latestConnectTimeoutRtcConnectionState: latestVoiceConnectTimeoutRtcConnectionState,
+            latestConnectTimeoutOpenRelayCount: latestVoiceConnectTimeoutOpenRelayCount,
+            latestConnectingWatchdogGatePass: latestVoiceConnectingWatchdogGatePass,
+            latestConnectingWatchdogGateFailedCheckSample: latestVoiceConnectingWatchdogFailedCheckSample,
+            latestConnectingWatchdogSelfTestPass: latestVoiceConnectingWatchdogSelfTestPass,
+            latestConnectingWatchdogSelfTestFailedCheckSample: latestVoiceConnectingWatchdogSelfTestFailedCheckSample,
+            latestConnectingWatchdogIncidentBundlePass: latestVoiceConnectingWatchdogIncidentBundlePass,
+            latestConnectingWatchdogIncidentBundleFailedCheckSample: latestVoiceConnectingWatchdogIncidentBundleFailedCheckSample,
+            latestConnectingWatchdogIncidentGatePass: latestVoiceConnectingWatchdogIncidentGatePass,
+            latestConnectingWatchdogIncidentGateFailedCheckSample: latestVoiceConnectingWatchdogIncidentGateFailedCheckSample,
+            latestConnectingWatchdogIncidentGateEvidencePass: latestVoiceConnectingWatchdogIncidentGateEvidencePass,
+            latestConnectingWatchdogIncidentGateEvidenceFailedCheckSample: latestVoiceConnectingWatchdogIncidentGateEvidenceFailedCheckSample,
+            latestConnectingWatchdogIncidentGateSelfTestPass: latestVoiceConnectingWatchdogIncidentGateSelfTestPass,
+            latestConnectingWatchdogIncidentGateSelfTestFailedCheckSample: latestVoiceConnectingWatchdogIncidentGateSelfTestFailedCheckSample,
+            latestConnectingWatchdogIncidentGateCloseoutPass: latestVoiceConnectingWatchdogIncidentGateCloseoutPass,
+            latestConnectingWatchdogIncidentGateCloseoutFailedCheckSample: latestVoiceConnectingWatchdogIncidentGateCloseoutFailedCheckSample,
+            latestConnectingWatchdogIncidentGateCloseoutSelfTestPass: latestVoiceConnectingWatchdogIncidentGateCloseoutSelfTestPass,
+            latestConnectingWatchdogIncidentGateCloseoutSelfTestFailedCheckSample: latestVoiceConnectingWatchdogIncidentGateCloseoutSelfTestFailedCheckSample,
+            latestLongSessionGatePass: latestVoiceLongSessionGatePass,
+            latestLongSessionGateFailedCheckSample: latestVoiceLongSessionFailedCheckSample,
+            latestCheckpointGatePass: latestVoiceCheckpointGatePass,
+            latestCheckpointGateFailedCheckSample: latestVoiceCheckpointFailedCheckSample,
+            latestReleaseReadinessGatePass: latestVoiceReleaseReadinessGatePass,
+            latestReleaseReadinessGateFailedCheckSample: latestVoiceReleaseReadinessFailedCheckSample,
+            latestReleaseEvidenceGatePass: latestVoiceReleaseEvidenceGatePass,
+            latestReleaseEvidenceGateFailedCheckSample: latestVoiceReleaseEvidenceFailedCheckSample,
+            latestCloseoutGatePass: latestVoiceCloseoutGatePass,
+            latestCloseoutGateFailedCheckSample: latestVoiceCloseoutGateFailedCheckSample,
+          },
+          asyncVoiceNote: {
+            riskLevel: asyncVoiceNoteRiskLevel,
+            recordingCompleteCount: voiceNoteRecordingCompleteCount,
+            recordingUnsupportedCount: voiceNoteRecordingUnsupportedCount,
+            recordingStartFailedCount: voiceNoteRecordingStartFailedCount,
+            recordingEmptyCount: voiceNoteRecordingEmptyCount,
+            latestReasonCode: latestVoiceNoteReasonCode,
+          },
+          deleteConvergence: {
+            riskLevel: deleteConvergenceRiskLevel,
+            requestedCount: deleteForEveryoneRequestedCount,
+            localAppliedCount: deleteForEveryoneLocalAppliedCount,
+            remoteConfirmedCount: deleteForEveryoneRemoteConfirmedCount,
+            remoteQueuedCount: deleteForEveryoneRemoteQueuedCount,
+            remoteFailedCount: deleteForEveryoneRemoteFailedCount,
+            rejectedCount: deleteForEveryoneRejectedCount,
+            latestChannel: latestDeleteForEveryoneChannel,
+            latestResultCode: latestDeleteForEveryoneResultCode,
+            latestReasonCode: latestDeleteForEveryoneReasonCode,
+          },
+        },
+        recentWarnOrError,
+      };
+    },
+    clear: (): void => {
+      const buffer = getEventBuffer();
+      buffer.splice(0, buffer.length);
+    },
+  };
+  root[APP_EVENT_API_KEY] = api;
+};
+
+const bufferAppEvent = (event: AppEvent): void => {
+  const buffer = getEventBuffer();
+  buffer.push(event);
+  if (buffer.length > APP_EVENT_BUFFER_MAX) {
+    buffer.splice(0, buffer.length - APP_EVENT_BUFFER_MAX);
+  }
+  installDiagnosticsApi();
+};
+
+const toIssueDomain = (feature?: string): DevRuntimeIssueDomain => {
+  if (!feature) return "unknown";
+  if (feature === "relay" || feature === "relays") return "relay";
+  if (feature === "messaging") return "messaging";
+  if (feature === "runtime" || feature === "auth" || feature === "profile" || feature === "profiles") return "runtime";
+  if (feature === "storage") return "storage";
+  if (feature === "upload") return "upload";
+  return "unknown";
+};
+
+const shouldEscalateToRuntimeIssue = (event: AppEvent): boolean => {
+  if (APP_EVENT_ISSUE_EXCLUSION_SET.has(event.name)) {
+    return false;
+  }
+  if (event.level === "error") {
+    return true;
+  }
+  if (event.level === "warn" && RUNTIME_WARN_EVENT_PATTERN.test(event.name)) {
+    return true;
+  }
+  return false;
+};
+
+const emitRuntimeIssueFromAppEvent = (event: AppEvent): void => {
+  if (!shouldEscalateToRuntimeIssue(event)) {
+    return;
+  }
+  const reasonLike = event.context?.reasonCode
+    ?? event.context?.reason
+    ?? event.context?.errorCode
+    ?? null;
+  const messageLike = event.context?.message
+    ?? event.context?.error
+    ?? event.context?.detail
+    ?? null;
+
+  reportDevRuntimeIssue({
+    domain: toIssueDomain(event.scope?.feature),
+    operation: event.scope?.action ?? event.name,
+    severity: event.level === "error" ? "error" : "warn",
+    reasonCode: typeof reasonLike === "string" ? reasonLike : undefined,
+    message: typeof messageLike === "string" && messageLike.trim().length > 0
+      ? messageLike
+      : `App event signaled issue: ${event.name}`,
+    retryable: event.level !== "error",
+    source: "log-app-event",
+    context: {
+      eventName: event.name,
+      feature: event.scope?.feature ?? null,
+      action: event.scope?.action ?? null,
+      ...(event.context ?? {}),
+    },
+    fingerprint: [
+      "app_event",
+      event.level,
+      event.name,
+      typeof reasonLike === "string" ? reasonLike : "none",
+    ].join("|"),
+  });
+};
+
+export const logAppEvent = (params: LogAppEventParams): void => {
+  const event: AppEvent = {
+    name: params.name,
+    level: params.level ?? "info",
+    atUnixMs: Date.now(),
+    scope: params.scope,
+    context: params.context
+  };
+  bufferAppEvent(event);
+  emitRuntimeIssueFromAppEvent(event);
+  const payload: string = JSON.stringify(event);
+  const key = `app_event.${event.level}.${event.name}`;
+  if (event.level === "error") {
+    const shouldWarnOnlyInDev = (
+      process.env.NODE_ENV !== "production"
+      && DEV_WARN_ONLY_ERROR_EVENT_SET.has(event.name)
+    );
+    logWithRateLimit(shouldWarnOnlyInDev ? "warn" : "error", key, [payload], {
+      windowMs: 20_000,
+      maxPerWindow: 4,
+      summaryEverySuppressed: 10,
+    });
+    return;
+  }
+  if (event.level === "warn") {
+    logWithRateLimit("warn", key, [payload], {
+      windowMs: 20_000,
+      maxPerWindow: 6,
+      summaryEverySuppressed: 15,
+    });
+    return;
+  }
+  if (event.level === "debug") {
+    logWithRateLimit("debug", key, [payload], {
+      windowMs: 10_000,
+      maxPerWindow: 8,
+      summaryEverySuppressed: 25,
+    });
+    return;
+  }
+  logWithRateLimit("info", key, [payload], {
+    windowMs: 10_000,
+    maxPerWindow: 20,
+    summaryEverySuppressed: 50,
+  });
+};

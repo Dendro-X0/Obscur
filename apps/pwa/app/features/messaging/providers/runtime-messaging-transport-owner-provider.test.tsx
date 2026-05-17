@@ -207,7 +207,9 @@ describe("RuntimeMessagingTransportOwnerProvider", () => {
       activeAtMs: incoming.eventCreatedAt?.getTime(),
       profileId: "default",
     });
-    expect(busMocks.emitNewMessage).toHaveBeenCalledWith(incoming.conversationId, incoming);
+    expect(busMocks.emitNewMessage).toHaveBeenCalledWith(incoming.conversationId, incoming, {
+      sourceProfileId: "default",
+    });
   });
 
   it("does not record peer activity for outgoing messages", () => {
@@ -234,7 +236,9 @@ describe("RuntimeMessagingTransportOwnerProvider", () => {
     controllerParams.onNewMessage?.(outgoing);
 
     expect(peerInteractionMocks.recordPeerLastActive).not.toHaveBeenCalled();
-    expect(busMocks.emitNewMessage).toHaveBeenCalledWith(outgoing.conversationId, outgoing);
+    expect(busMocks.emitNewMessage).toHaveBeenCalledWith(outgoing.conversationId, outgoing, {
+      sourceProfileId: "default",
+    });
   });
 
   it("emits delete events from controller callback to the message bus", () => {
@@ -255,6 +259,8 @@ describe("RuntimeMessagingTransportOwnerProvider", () => {
 
     expect(busMocks.emitMessageDeleted).toHaveBeenCalledWith("conversation-delete", "msg-delete-1", {
       messageIdentityIds: undefined,
+      conversationIdOriginal: undefined,
+      sourceProfileId: "default",
     });
   });
 

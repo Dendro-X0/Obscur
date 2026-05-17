@@ -55,7 +55,7 @@ import { PresenceBadge } from "@/app/features/network/components/presence-indica
 import { RelayCapabilityBadge } from "@/app/features/relays/components/relay-capability-badge";
 import { useRelayCapabilities } from "@/app/features/relays/hooks/use-relay-capabilities";
 import { CommunityModeBadge } from "./community-mode-badge";
-import { ConfirmDialog } from "../../../components/ui/confirm-dialog";
+import { buildGroupLeaveHref, buildGroupPurgeHref } from "../utils/group-action-route";
 import { GroupQRCode } from "./group-qr-code";
 import { InviteMemberDialog } from "./invite-member-dialog";
 import type { GroupConversation } from "../../messaging/types";
@@ -96,7 +96,7 @@ export function GroupManagementDialog({
 }: GroupManagementDialogProps) {
     const { t } = useTranslation();
     const router = useRouter();
-    const { leaveGroup, communityKnownParticipantDirectoryByConversationId, communityRosterByConversationId } = useGroups();
+    const { communityKnownParticipantDirectoryByConversationId, communityRosterByConversationId } = useGroups();
     const { presence } = useNetwork();
     const localMemberPubkey = myPublicKeyHex;
     const initialMemberSeed = React.useMemo<ReadonlyArray<PublicKeyHex>>(
@@ -120,7 +120,6 @@ export function GroupManagementDialog({
         promoteUser,
         demoteUser,
         setGroupStatus,
-        leaveGroup: leaveNip29Group,
         sendVoteKick,
         rotateRoomKey,
         admins
@@ -160,9 +159,6 @@ export function GroupManagementDialog({
     const isOwner = isAdmin; // In Phase 1/2, all members are equal owners of the encrypted space
 
     const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
-    const [isLeaveConfirmOpen, setIsLeaveConfirmOpen] = useState(false);
-    const [isPurgeConfirmOpen, setIsPurgeConfirmOpen] = useState(false);
-    const [isProcessing, setIsProcessing] = React.useState(false);
     const [kickingMemberPubkey, setKickingMemberPubkey] = useState<string | null>(null);
     const [isRotatingKey, setIsRotatingKey] = useState(false);
     const [currentTime, setCurrentTime] = React.useState(Date.now());
@@ -306,34 +302,21 @@ export function GroupManagementDialog({
         [onlineMemberCount, state.disbandedAt, state.expelledMembers, state.kickVotes, state.leftMembers, visibleMemberRegistry]
     );
 
-    const handleLeave = async () => {
-        setIsProcessing(true);
-        try {
-            leaveGroup({ groupId: group.groupId, relayUrl: group.relayUrl, conversationId: group.id });
-            await leaveNip29Group();
-            onClose();
-            toast.success("Connection Severed");
-        } catch (error) {
-            toast.error("Failed to leave community");
-        } finally {
-            setIsProcessing(false);
-            setIsLeaveConfirmOpen(false);
-        }
+    const groupActionRouteParams = React.useMemo(() => ({
+        routeToken: group.groupId,
+        relayUrl: group.relayUrl,
+        displayName: state.metadata?.name || group.displayName,
+        communityId: group.communityId,
+    }), [group.communityId, group.displayName, group.groupId, group.relayUrl, state.metadata?.name]);
+
+    const openLeaveConfirmation = () => {
+        onClose();
+        router.push(buildGroupLeaveHref(groupActionRouteParams));
     };
 
-    const handlePurge = async () => {
-        setIsProcessing(true);
-        try {
-            leaveGroup({ groupId: group.groupId, relayUrl: group.relayUrl, conversationId: group.id });
-            await leaveNip29Group();
-            onClose();
-            toast.success("Community Purged");
-        } catch (error) {
-            toast.error("Failed to purge community");
-        } finally {
-            setIsProcessing(false);
-            setIsPurgeConfirmOpen(false);
-        }
+    const openPurgeConfirmation = () => {
+        onClose();
+        router.push(buildGroupPurgeHref(groupActionRouteParams));
     };
 
     const handleVoteKick = async (memberPubkey: string) => {
@@ -962,7 +945,7 @@ export function GroupManagementDialog({
                                                 </div>
                                             </div>
                                             <Button
-                                                onClick={() => setIsLeaveConfirmOpen(true)}
+                                                onClick={openLeaveConfirmation}
                                                 className="h-12 px-6 rounded-2xl bg-rose-500/10 text-rose-500 hover:bg-rose-600 hover:text-white border border-rose-500/20 font-black tracking-wide"
                                             >
                                                 Leave
@@ -983,7 +966,7 @@ export function GroupManagementDialog({
                                                 <Button
                                                     variant="danger"
                                                     className="h-12 px-8 rounded-2xl font-black uppercase tracking-widest text-[10px]"
-                                                    onClick={() => setIsPurgeConfirmOpen(true)}
+                                                    onClick={openPurgeConfirmation}
                                                 >
                                                     Purge Community
                                                 </Button>
@@ -1046,29 +1029,6 @@ export function GroupManagementDialog({
                 }}
             />
 
-            <ConfirmDialog
-                isOpen={isLeaveConfirmOpen}
-                onClose={() => setIsLeaveConfirmOpen(false)}
-                onConfirm={handleLeave}
-                title="Sever Connection"
-                description={`Are you sure you want to leave "${group.displayName}"? You will no longer receive updates from this instance.`}
-                confirmLabel="Sever Connection"
-                cancelLabel="Cancel"
-                variant="danger"
-                isLoading={isProcessing}
-            />
-
-            <ConfirmDialog
-                isOpen={isPurgeConfirmOpen}
-                onClose={() => setIsPurgeConfirmOpen(false)}
-                onConfirm={handlePurge}
-                title="Irreversible Purge"
-                description={`Are you absolutely sure you want to DESTROY "${group.displayName}"? This action is irreversible and will remove all local traces of this community.`}
-                confirmLabel="Destroy Everything"
-                cancelLabel="Abstain"
-                variant="danger"
-                isLoading={isProcessing}
-            />
         </div>
     );
 }

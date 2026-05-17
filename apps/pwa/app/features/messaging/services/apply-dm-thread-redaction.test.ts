@@ -64,6 +64,7 @@ describe("applyDmThreadRedaction", () => {
     expect(opsMocks.deleteDmForMe.mock.calls[0]![0]).toMatchObject({
       replayProjection: true,
       skipEventLogReconcile: false,
+      redactTimelineEvents: true,
     });
   });
 });

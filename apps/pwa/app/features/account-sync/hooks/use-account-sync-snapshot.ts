@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
+import { areAccountSyncSnapshotsEqual } from "@/app/shared/store-snapshot-equality";
 import { accountSyncStatusStore } from "../services/account-sync-status-store";
 import type { AccountSyncSnapshot } from "../account-sync-contracts";
 import { useTanstackQueryRuntime } from "@/app/features/query/providers/tanstack-query-runtime-provider";
@@ -40,10 +41,16 @@ export const useAccountSyncSnapshot = (): AccountSyncSnapshot => {
     queryKeyFactory.accountSyncSnapshot({ scope })
   ), [scope]);
 
+  const lastBridgedSnapshotRef = useRef<AccountSyncSnapshot | null>(null);
   useEffect(() => {
     if (!tanstackQueryRuntime?.enabled) {
       return;
     }
+    const previous = lastBridgedSnapshotRef.current;
+    if (previous && areAccountSyncSnapshotsEqual(previous, snapshot)) {
+      return;
+    }
+    lastBridgedSnapshotRef.current = snapshot;
     tanstackQueryRuntime.queryClient.setQueryData(queryKey, snapshot);
   }, [queryKey, snapshot, tanstackQueryRuntime]);
 

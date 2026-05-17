@@ -1,7 +1,9 @@
 "use client";
 
 import type React from "react";
+import { useEffect } from "react";
 import { PageShell } from "../components/page-shell";
+import { preloadGroupHomePageClient } from "@/app/components/route-navigation-warmup";
 import { NetworkDashboard } from "@/app/features/network/components/network-dashboard";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import useNavBadges from "@/app/features/main-shell/hooks/use-nav-badges";
@@ -18,6 +20,21 @@ export default function NetworkPageClient(): React.JSX.Element {
     const identity = useIdentity();
     const publicKeyHex: string | null = identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex ?? null;
     const navBadges = useNavBadges({ publicKeyHex: (publicKeyHex as PublicKeyHex | null) ?? null });
+
+    useEffect(() => {
+        if (!publicKeyHex) {
+            return;
+        }
+        const schedule = (): void => {
+            void preloadGroupHomePageClient();
+        };
+        if (typeof window.requestIdleCallback === "function") {
+            const handle = window.requestIdleCallback(schedule);
+            return () => window.cancelIdleCallback(handle);
+        }
+        const timer = window.setTimeout(schedule, 64);
+        return () => window.clearTimeout(timer);
+    }, [publicKeyHex]);
 
     if (!publicKeyHex) {
         return (

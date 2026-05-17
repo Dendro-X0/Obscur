@@ -77,7 +77,8 @@ export function RuntimeMessagingTransportOwnerProvider(props: Readonly<{ childre
         profileId: runtimeSnapshot.session.profileId?.trim() || undefined,
       });
     }
-    messageBus.emitNewMessage(message.conversationId ?? "", message);
+    const sourceProfileId = runtimeSnapshot.session.profileId?.trim() || undefined;
+    messageBus.emitNewMessage(message.conversationId ?? "", message, { sourceProfileId });
   }, [activePublicKeyHex, runtimeSnapshot.session.profileId]);
 
   const handleMessageDeleted = useCallback((params: Readonly<{
@@ -95,11 +96,13 @@ export function RuntimeMessagingTransportOwnerProvider(props: Readonly<{ childre
       console.warn("[runtime-messaging] message delete bus emit skipped — no message id");
       return;
     }
+    const sourceProfileId = runtimeSnapshot.session.profileId?.trim() || undefined;
     messageBus.emitMessageDeleted(params.conversationId, primaryMessageId, {
       messageIdentityIds: params.messageIdentityIds,
       conversationIdOriginal: params.conversationIdOriginal,
+      sourceProfileId,
     });
-  }, []);
+  }, [runtimeSnapshot.session.profileId]);
 
   const controller = useDmController({
     myPublicKeyHex,

@@ -1,6 +1,7 @@
 /** Re-export canonical contract from `@dweb/client-gateway` (do not duplicate types here). */
 export type {
   ExecuteLocalDmDeleteForMeParams,
+  ExecuteLocalDmShowAgainParams,
   LocalDmVisibilityPort,
   LocalDmVisibilityScope,
   MessageLikeWithIdentity,

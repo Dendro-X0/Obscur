@@ -23,6 +23,8 @@ export type DestructiveDmDeleteForEveryoneLocalParams = Readonly<{
   replayProjection?: boolean;
   /** Receiver ingest: durable stores only; event-log reconcile runs later via backup. */
   skipEventLogReconcile?: boolean;
+  prioritizeUiResponse?: boolean;
+  redactTimelineEvents?: boolean;
 }>;
 
 /**
@@ -45,10 +47,13 @@ export async function applyDestructiveDmDeleteForEveryoneLocal(
     observedAtUnixMs: params.observedAtUnixMs ?? Date.now(),
     replayProjection: params.replayProjection,
     skipEventLogReconcile: params.skipEventLogReconcile,
+    prioritizeUiResponse: params.prioritizeUiResponse,
+    redactTimelineEvents: params.redactTimelineEvents ?? true,
   });
 
-  emitAccountSyncMutation("message_delete_tombstones_changed");
-  emitAccountSyncMutation("dm_history_changed");
+  // Tombstones only — do not emit dm_history_changed here; account-sync treats that
+  // as a signal to pull relay backup and can resurrect messages recall just removed.
+  emitAccountSyncMutation("message_delete_tombstones_changed", { profileId });
 
   logAppEvent({
     name: "messaging.delete_for_everyone_local_destruction_applied",

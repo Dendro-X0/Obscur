@@ -1,0 +1,120 @@
+{
+  "generatedAtUnixMs": 1774501927175,
+  "structureOnly": true,
+  "ready": true,
+  "strictReady": true,
+  "errors": [],
+  "strictViolations": [],
+  "checks": [
+    {
+      "name": "required_file:m10-cp3-readiness-pass.json",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "required_file:m10-cp3-suite-pass.json",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "required_file:m10-cp4-closeout-pass.json",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "required_file:m10-v130-closeout-pass.json",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "required_file:m10-v130-evidence-pass.json",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "required_file:m10-digest-summary.json",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "required_file:m10-event-slices.json",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "required_file:m10-demo-storyboard.md",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "gate_shape:m10-cp3-readiness-pass.json:cp3ReadinessGate.pass",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "gate_shape:m10-cp3-suite-pass.json:cp3SuiteGate.pass",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "gate_shape:m10-cp4-closeout-pass.json:cp4CloseoutGate.pass",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "gate_shape:m10-v130-closeout-pass.json:v130CloseoutGate.pass",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "gate_shape:m10-v130-evidence-pass.json:v130EvidenceGate.pass",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "digest_summary_shape",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "event_slice_shape:cp2",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "event_slice_shape:cp3Readiness",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "event_slice_shape:cp3Suite",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "event_slice_shape:cp4Closeout",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "event_slice_shape:v130Closeout",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "event_slice_shape:v130Evidence",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "recent_warn_or_error_shape",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "storyboard_title",
+      "pass": true,
+      "detail": null
+    }
+  ]
+}

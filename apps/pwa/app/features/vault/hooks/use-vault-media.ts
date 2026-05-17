@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useRef, useState, useMemo } from "react";
 import { messagingDB } from "@dweb/storage/indexed-db";
-import type { Message, MediaItem } from "../../messaging/types";
+import type { Message } from "../../messaging/types";
 import { useOptionalProfileMessageBus } from "../../profiles/providers/profile-runtime-provider";
 import { getResolvedProfileId } from "../../profiles/services/profile-runtime-scope";
 import { subscribeChatStateReplacedDual } from "../../profiles/services/subscribe-chat-state-replaced-dual";
@@ -11,21 +11,20 @@ import { useIdentity } from "../../auth/hooks/use-identity";
 import {
     deleteLocalMediaCacheItem,
     downloadAttachmentToUserPath,
-    getLocalMediaIndexEntryByRemoteUrl,
-    resolveLocalMediaUrl
 } from "../services/local-media-store";
+import {
+    buildVaultMediaItemsFast,
+    collectVaultMediaCandidates,
+    enrichVaultMediaItemsWithLocalUrls,
+    sortVaultMediaItemsNewestFirst,
+} from "../services/vault-media-aggregator";
+import type { VaultMediaItem } from "../types/vault-media-item";
 
-export type VaultMediaItem = Readonly<MediaItem & {
-    id: string;
-    remoteUrl: string;
-    isLocalCached: boolean;
-    localRelativePath: string | null;
-    sourceConversationId: string | null;
-}>;
+export type { VaultMediaItem } from "../types/vault-media-item";
 
 /**
  * useVaultMedia
- * 
+ *
  * Aggregates all media (images, videos, audio, and files) from the local message database.
  * This is the core data provider for "The Vault".
  */
@@ -36,59 +35,56 @@ export function useVaultMedia() {
     const [mediaItems, setMediaItems] = useState<ReadonlyArray<VaultMediaItem>>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<Error | null>(null);
+    const refreshGenerationRef = useRef(0);
+    const hasPaintedVaultRef = useRef(false);
 
     const refresh = useCallback(async () => {
         if (!publicKeyHex) {
+            refreshGenerationRef.current += 1;
+            hasPaintedVaultRef.current = false;
             setMediaItems([]);
             setError(null);
             setIsLoading(false);
             return;
         }
-        setIsLoading(true);
+
+        const generation = refreshGenerationRef.current + 1;
+        refreshGenerationRef.current = generation;
+        const showBlockingLoader = !hasPaintedVaultRef.current;
+        if (showBlockingLoader) {
+            setIsLoading(true);
+        }
+
         try {
-            // Get all messages from IndexedDB
             const allMessages = await messagingDB.getAll<Message>("messages");
+            if (generation !== refreshGenerationRef.current) {
+                return;
+            }
 
-            const aggregated: VaultMediaItem[] = [];
+            const candidates = collectVaultMediaCandidates(allMessages);
+            const fastItems = sortVaultMediaItemsNewestFirst(
+                buildVaultMediaItemsFast(candidates),
+            );
 
-            const mediaCandidates: Array<{ msg: Message; attachment: NonNullable<Message["attachments"]>[number] }> = [];
-            allMessages.forEach((msg) => {
-                if (!msg.attachments || msg.attachments.length === 0) return;
-                msg.attachments.forEach((attachment) => {
-                    if (attachment.kind === "image" || attachment.kind === "video" || attachment.kind === "audio" || attachment.kind === "file") {
-                        mediaCandidates.push({ msg, attachment });
-                    }
-                });
-            });
-
-            const resolvedItems = await Promise.all(mediaCandidates.map(async ({ msg, attachment }, idx) => {
-                const localUrl = await resolveLocalMediaUrl(attachment.url);
-                const indexEntry = getLocalMediaIndexEntryByRemoteUrl(attachment.url);
-                return {
-                    id: `${msg.id}-${idx}-${attachment.url}`,
-                    messageId: msg.id,
-                    attachment: localUrl ? { ...attachment, url: localUrl } : attachment,
-                    timestamp: new Date(msg.timestamp),
-                    remoteUrl: attachment.url,
-                    isLocalCached: !!localUrl,
-                    localRelativePath: indexEntry?.relativePath ?? null,
-                    sourceConversationId: typeof msg.conversationId === "string" && msg.conversationId.trim().length > 0
-                        ? msg.conversationId
-                        : null,
-                } as VaultMediaItem;
-            }));
-
-            aggregated.push(...resolvedItems);
-
-            // Sort by timestamp descending
-            aggregated.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
-
-            setMediaItems(aggregated);
+            setMediaItems(fastItems);
             setError(null);
+            if (fastItems.length > 0) {
+                hasPaintedVaultRef.current = true;
+            }
+            setIsLoading(false);
+
+            const enrichedItems = await enrichVaultMediaItemsWithLocalUrls(fastItems);
+            if (generation !== refreshGenerationRef.current) {
+                return;
+            }
+
+            setMediaItems(sortVaultMediaItemsNewestFirst(enrichedItems));
         } catch (e) {
+            if (generation !== refreshGenerationRef.current) {
+                return;
+            }
             console.error("[useVaultMedia] Failed to aggregate media:", e);
             setError(e instanceof Error ? e : new Error("Unknown error during media aggregation"));
-        } finally {
             setIsLoading(false);
         }
     }, [publicKeyHex]);

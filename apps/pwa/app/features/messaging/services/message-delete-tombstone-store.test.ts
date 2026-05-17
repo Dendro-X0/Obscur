@@ -4,6 +4,7 @@ import {
   clearMessageDeleteTombstones,
   isMessageDeleteSuppressed,
   loadMessageDeleteTombstoneEntries,
+  liftMessageDeleteSuppression,
   loadSuppressedMessageDeleteIds,
   replaceMessageDeleteTombstones,
   suppressMessageDeleteTombstone,
@@ -65,6 +66,18 @@ describe("message-delete-tombstone-store", () => {
     const ids = loadSuppressedMessageDeleteIds(3_001);
     expect(ids.has("local-only-id")).toBe(true);
     expect(ids.has("backup-id")).toBe(true);
+  });
+
+  it("liftMessageDeleteSuppression removes ids for show-again", () => {
+    const nowMs = Date.now();
+    suppressMessageDeleteTombstone("m-hide", nowMs);
+    suppressMessageDeleteTombstone("m-keep-hidden", nowMs);
+    expect(isMessageDeleteSuppressed("m-hide", nowMs + 1)).toBe(true);
+
+    liftMessageDeleteSuppression(["m-hide"]);
+    expect(isMessageDeleteSuppressed("m-hide", nowMs + 1)).toBe(false);
+    expect(isMessageDeleteSuppressed("m-keep-hidden", nowMs + 1)).toBe(true);
+    expect(emitAccountSyncMutation).toHaveBeenCalledWith("message_delete_tombstones_changed");
   });
 
   it("keeps the most recent deletedAtUnixMs when both backup and local have an entry for the same id", async () => {

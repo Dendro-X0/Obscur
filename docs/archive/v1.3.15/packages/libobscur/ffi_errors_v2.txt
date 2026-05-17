@@ -1,0 +1,125 @@
+    Checking windows-sys v0.60.2
+   Compiling memchr v2.8.0
+    Checking anstyle v1.0.13
+    Checking utf8parse v0.2.2
+    Checking minimal-lexical v0.2.1
+    Checking once_cell_polyfill v1.70.2
+    Checking fs-err v2.11.0
+   Compiling basic-toml v0.1.10
+    Checking is_terminal_polyfill v1.70.2
+    Checking siphasher v0.3.11
+    Checking smawk v0.3.2
+    Checking colorchoice v1.0.4
+    Checking anstyle-parse v0.2.7
+    Checking scroll v0.12.0
+    Checking strsim v0.11.1
+    Checking askama_escape v0.10.3
+    Checking textwrap v0.16.2
+    Checking uniffi_testing v0.28.3
+    Checking plain v0.2.3
+    Checking uniffi_meta v0.28.3
+    Checking clap_lex v0.7.7
+    Checking nom v7.1.3
+   Compiling clap_derive v4.5.55
+    Checking toml v0.5.11
+    Checking glob v0.3.3
+    Checking goblin v0.8.2
+    Checking heck v0.5.0
+   Compiling uniffi_macros v0.28.3
+    Checking socket2 v0.6.2
+    Checking anstyle-query v1.1.5
+    Checking anstyle-wincon v3.0.11
+    Checking anstream v0.6.21
+    Checking weedle2 v5.0.0
+    Checking tokio v1.49.0
+    Checking clap_builder v4.5.55
+   Compiling askama_parser v0.2.1
+    Checking clap v4.5.55
+    Checking uniffi_udl v0.28.3
+   Compiling askama_derive v0.12.5
+    Checking askama v0.12.1
+    Checking async-compat v0.2.5
+    Checking tokio-native-tls v0.3.1
+    Checking tokio-socks v0.5.2
+    Checking uniffi_bindgen v0.28.3
+    Checking uniffi_core v0.28.3
+    Checking tokio-tungstenite v0.21.0
+    Checking uniffi v0.28.3
+    Checking libobscur v0.1.0 (E:\Web Project\experimental-workspace\newstart\packages\libobscur)
+error[E0277]: `ObscurError` doesn't implement `std::fmt::Display`
+  --> src\ffi.rs:29:1
+   |
+29 | #[uniffi::export]
+   | ^^^^^^^^^^^^^^^^^ unsatisfied trait bound
+   |
+help: the trait `std::fmt::Display` is not implemented for `ObscurError`
+  --> src\ffi.rs:4:1
+   |
+ 4 | pub enum ObscurError {
+   | ^^^^^^^^^^^^^^^^^^^^
+   = help: the trait `LowerReturn<UT>` is implemented for `Result<R, E>`
+   = note: required for `Result<std::string::String, ObscurError>` to implement `LowerReturn<UniFfiTag>`
+   = note: this error originates in the attribute macro `uniffi::export` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: `ObscurError` doesn't implement `std::fmt::Display`
+  --> src\ffi.rs:34:1
+   |
+34 | #[uniffi::export]
+   | ^^^^^^^^^^^^^^^^^ unsatisfied trait bound
+   |
+help: the trait `std::fmt::Display` is not implemented for `ObscurError`
+  --> src\ffi.rs:4:1
+   |
+ 4 | pub enum ObscurError {
+   | ^^^^^^^^^^^^^^^^^^^^
+   = help: the trait `LowerReturn<UT>` is implemented for `Result<R, E>`
+   = note: required for `Result<std::string::String, ObscurError>` to implement `LowerReturn<UniFfiTag>`
+   = note: this error originates in the attribute macro `uniffi::export` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: `ObscurError` doesn't implement `std::fmt::Display`
+  --> src\ffi.rs:39:1
+   |
+39 | #[uniffi::export]
+   | ^^^^^^^^^^^^^^^^^ unsatisfied trait bound
+   |
+help: the trait `std::fmt::Display` is not implemented for `ObscurError`
+  --> src\ffi.rs:4:1
+   |
+ 4 | pub enum ObscurError {
+   | ^^^^^^^^^^^^^^^^^^^^
+   = help: the trait `LowerReturn<UT>` is implemented for `Result<R, E>`
+   = note: required for `Result<std::string::String, ObscurError>` to implement `LowerReturn<UniFfiTag>`
+   = note: this error originates in the attribute macro `uniffi::export` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: `ObscurError` doesn't implement `std::fmt::Display`
+  --> src\ffi.rs:44:1
+   |
+44 | #[uniffi::export]
+   | ^^^^^^^^^^^^^^^^^ unsatisfied trait bound
+   |
+help: the trait `std::fmt::Display` is not implemented for `ObscurError`
+  --> src\ffi.rs:4:1
+   |
+ 4 | pub enum ObscurError {
+   | ^^^^^^^^^^^^^^^^^^^^
+   = help: the trait `LowerReturn<UT>` is implemented for `Result<R, E>`
+   = note: required for `Result<std::string::String, ObscurError>` to implement `LowerReturn<UniFfiTag>`
+   = note: this error originates in the attribute macro `uniffi::export` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: `ObscurError` doesn't implement `std::fmt::Display`
+  --> src\ffi.rs:49:1
+   |
+49 | #[uniffi::export]
+   | ^^^^^^^^^^^^^^^^^ unsatisfied trait bound
+   |
+help: the trait `std::fmt::Display` is not implemented for `ObscurError`
+  --> src\ffi.rs:4:1
+   |
+ 4 | pub enum ObscurError {
+   | ^^^^^^^^^^^^^^^^^^^^
+   = help: the trait `LowerReturn<UT>` is implemented for `Result<R, E>`
+   = note: required for `Result<std::string::String, ObscurError>` to implement `LowerReturn<UniFfiTag>`
+   = note: this error originates in the attribute macro `uniffi::export` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+For more information about this error, try `rustc --explain E0277`.
+error: could not compile `libobscur` (lib) due to 5 previous errors

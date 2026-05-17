@@ -1,0 +1,16 @@
+./app/components/providers.tsx:8:import { ContactsProvider } from "@/app/features/contacts/providers/contacts-provider";
+./app/features/dev-tools/components/dev-panel.tsx:10:import { useContacts } from "@/app/features/contacts/providers/contacts-provider";
+./app/features/main-shell/hooks/use-chat-actions.ts:7:import { useContacts } from "@/app/features/contacts/providers/contacts-provider";
+./app/features/main-shell/main-shell.tsx:8:import { useContacts } from "@/app/features/contacts/providers/contacts-provider";
+./app/features/messaging/components/global-dialog-manager.tsx:10:import { useContacts } from "@/app/features/contacts/providers/contacts-provider";
+./app/features/messaging/components/trust-settings-panel.tsx:7:import { useContacts } from "@/app/features/contacts/providers/contacts-provider";
+./app/features/network/components/contact-profile-view.tsx:17:import { useContacts } from "@/app/features/contacts/providers/contacts-provider";
+./app/network/page.tsx:5:import { ContactsDashboard } from "@/app/features/contacts/components/contacts-dashboard";
+./app/network/[pubkey]/page.tsx:1:import ContactProfileView from "@/app/features/contacts/components/contact-profile-view";
+./app/settings/page.tsx:59:import { useBlocklist } from "@/app/features/contacts/hooks/use-blocklist";
+./update-imports.js:13:    { from: /from "\.\.\/lib\/use-blocklist"/g, to: 'from "@/app/features/contacts/hooks/use-blocklist"' },
+./update-imports.js:14:    { from: /from "\.\.\/lib\/use-peer-trust"/g, to: 'from "@/app/features/contacts/hooks/use-peer-trust"' },
+./app/features/groups/components/invite-contacts-dialog.tsx:11:import { useContacts } from "../../contacts/providers/contacts-provider";
+./app/features/messaging/components/new-chat-dialog.tsx:16:import { SendRequestDialog } from "../../contacts/components/send-request-dialog";
+./app/features/messaging/hooks/use-conversations.ts:5:import { usePeerTrust } from "../../contacts/hooks/use-peer-trust";
+./app/features/network/components/contacts-dashboard.tsx:22:import { useContacts } from "../providers/contacts-provider";
