@@ -18,6 +18,34 @@ import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+const ANDROID_PROPERTIES_PATH = "apps/desktop/src-tauri/gen/android/app/tauri.properties";
+
+function semverToVersionCode(version) {
+  const match = version.match(/^(\d+)\.(\d+)\.(\d+)$/);
+  if (!match) {
+    throw new Error(`Cannot derive Android versionCode from version: ${version}`);
+  }
+  const [, major, minor, patch] = match;
+  return Number(major) * 10_000 + Number(minor) * 100 + Number(patch);
+}
+
+function writeAndroidTauriProperties(rootDir, version) {
+  const targetPath = resolve(rootDir, ANDROID_PROPERTIES_PATH);
+  const targetDir = dirname(targetPath);
+  if (!existsSync(targetDir)) {
+    console.warn(`[version:sync] Skipping Android properties (missing ${targetDir})`);
+    return;
+  }
+  const versionCode = semverToVersionCode(version);
+  const body = [
+    `tauri.android.versionName=${version}`,
+    `tauri.android.versionCode=${versionCode}`,
+    "",
+  ].join("\n");
+  writeFileSync(targetPath, body, "utf8");
+  console.log(`[version:sync] Updated ${targetPath} -> versionName=${version}, versionCode=${versionCode}`);
+}
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const rootDir = resolve(__dirname, "..");
 
@@ -70,6 +98,7 @@ function main() {
     for (const pkgPath of getPackageTargets()) {
       setJsonVersion(pkgPath, rootVersion);
     }
+    writeAndroidTauriProperties(rootDir, rootVersion);
     console.log("[version:sync] Complete");
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

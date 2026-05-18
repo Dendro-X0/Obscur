@@ -13,6 +13,9 @@ import type { ReplyTo, RelayStatusSummary } from "../types";
 import { BEST_EFFORT_STORAGE_NOTE } from "../lib/media-upload-policy";
 import { getVoiceNoteAttachmentMetadata } from "@/app/features/messaging/services/voice-note-metadata";
 import { extractHttpUrlHostsFromText } from "../utils/extract-http-url-hosts";
+import { useRelay } from "@/app/features/relays/providers/relay-provider";
+import { getRelaySendBlockCopy } from "@/app/features/relays/services/relay-readiness-copy";
+import { formatAppVersionLabel } from "@/app/lib/app-version";
 
 interface ComposerProps {
     messageInput: string;
@@ -74,8 +77,10 @@ export function Composer({
     const EMOJI_PICKER_MOBILE_MIN_HEIGHT_PX = 260;
     const EMOJI_PICKER_MOBILE_MAX_HEIGHT_PX = 360;
     const { t } = useTranslation();
+    const { relayRecovery } = useRelay();
+    const relayPublishBlockMessage = getRelaySendBlockCopy(relayRecovery);
     const isGated: boolean = isPeerAccepted === false && isInitiator === false;
-    const disableCompose = isGated || recipientRemoved;
+    const disableCompose = isGated || recipientRemoved || relayPublishBlockMessage !== null;
     const [showEmojiPicker, setShowEmojiPicker] = React.useState(false);
     const emojiPickerRef = React.useRef<HTMLDivElement>(null);
     const emojiButtonRef = React.useRef<HTMLDivElement>(null);
@@ -595,7 +600,13 @@ export function Composer({
                         <div className={cn("h-1.5 w-1.5 rounded-full", relayStatus.openCount > 0 ? "bg-emerald-500" : "bg-rose-500")} />
                         {t("messaging.connectedToRelays", { open: relayStatus.openCount, total: relayStatus.total })}
                     </span>
-                    {relayStatus.openCount === 0 && relayStatus.coolingDownRelayCount > 0 && (
+                    {relayPublishBlockMessage && (
+                        <span className="flex items-center gap-1 text-amber-700 dark:text-amber-300 normal-case tracking-normal font-semibold max-w-[min(100%,28rem)]">
+                            <AlertTriangle className="h-3 w-3 shrink-0" />
+                            {relayPublishBlockMessage}
+                        </span>
+                    )}
+                    {!relayPublishBlockMessage && relayStatus.openCount === 0 && relayStatus.coolingDownRelayCount > 0 && (
                         <span className="flex items-center gap-1 text-rose-600 dark:text-rose-400 normal-case tracking-normal font-semibold">
                             <AlertTriangle className="h-3 w-3" />
                             {t("messaging.relayCoolingDown", "Relay cooling down — retrying shortly")}
@@ -609,7 +620,7 @@ export function Composer({
                     )}
                 </div>
                 <div className="text-[9px] font-medium text-zinc-400 uppercase tracking-tight opacity-50">
-                    {t("messaging.e2eEncrypted")} • Ver. 0.4.0
+                    {t("messaging.e2eEncrypted")} • Ver. {formatAppVersionLabel()}
                 </div>
             </div>
         </div>

@@ -8,9 +8,12 @@ Desktop/web polish: unified Obscur icons on all installer surfaces (landed on ma
 
 - `pnpm icons:regenerate` — regen Tauri + Android icons from `obscur-logo-dark.svg`.
 - Relay pool: skip duplicate WebSocket opens when URL is already `OPEN` or `CONNECTING` (WS-C).
+- Chat relay readiness banner + sidebar **Degraded** state when publish path is partial/offline.
+- `NEXT_PUBLIC_APP_VERSION` injected at PWA shell build; composer footer shows real version.
 
 ### Changed
 
+- Android `versionName` / `versionCode` synced via `pnpm version:sync` → `tauri.properties`.
 - Workspace version `1.5.4`; BRAND track complete pending tag artifact spot-check.
 
 ### Known limitations

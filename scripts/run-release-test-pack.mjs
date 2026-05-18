@@ -92,6 +92,8 @@ const main = () => {
     "app/features/profile/hooks/use-profile-publisher.test.ts",
     "app/features/profile/hooks/use-resolved-profile-metadata.test.ts",
     "app/features/relays/hooks/enhanced-relay-pool.reliability.test.ts",
+    "app/features/relays/components/relay-status-indicator.test.ts",
+    "app/lib/app-version.test.ts",
     "app/features/relays/hooks/create-relay-websocket.test.ts",
     "app/features/relays/hooks/relay-native-adapter.test.ts",
     "app/features/relays/hooks/native-relay.test.ts",

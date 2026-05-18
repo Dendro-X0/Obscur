@@ -3,11 +3,13 @@
  * Build PWA static export for a specific product shell (desktop | mobile | web).
  * Used by Tauri beforeBuildCommand and CI Android lane.
  */
+import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const rootVersion = JSON.parse(readFileSync(path.join(repoRoot, "package.json"), "utf8")).version ?? "dev";
 const shellArg = (process.argv[2] ?? process.env.TAURI_SHELL_TARGET ?? "desktop").toLowerCase();
 
 const shellEnv = (() => {
@@ -24,6 +26,7 @@ const env = {
   ...process.env,
   ...shellEnv,
   TAURI_BUILD: "true",
+  NEXT_PUBLIC_APP_VERSION: rootVersion,
 };
 
 console.log(`[build-pwa-shell] target=${shellArg} env=${JSON.stringify(shellEnv)}`);

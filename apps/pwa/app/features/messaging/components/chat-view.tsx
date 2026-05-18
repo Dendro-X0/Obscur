@@ -3,6 +3,7 @@ import { useResolvedProfileMetadata } from "../../profile/hooks/use-resolved-pro
 import { ChatHeader } from "./chat-header";
 import { StrangerWarningBanner } from "./stranger-warning-banner";
 import { RelayOverlapBanner } from "./relay-overlap-banner";
+import { RelayReadinessInlineBanner } from "@/app/features/relays/components/relay-readiness-inline-banner";
 import type { ContactRelayOverlapResult } from "../hooks/use-contact-relay-overlap";
 import { MessageList } from "./message-list";
 import { Composer } from "./composer";
@@ -663,6 +664,7 @@ export function ChatView(props: ChatViewProps) {
                     onNavigateToRelaySettings={props.onNavigateToRelaySettings}
                 />
             )}
+            <RelayReadinessInlineBanner />
             {isDeletedRecipient && (
                 <div className="mx-4 mt-3 rounded-2xl border border-amber-500/25 bg-amber-50/65 px-4 py-3 text-xs font-semibold text-amber-800 dark:border-amber-500/35 dark:bg-amber-900/20 dark:text-amber-200">
                     This contact account has been removed. You can still browse this chat, but new messages and calls cannot be delivered.

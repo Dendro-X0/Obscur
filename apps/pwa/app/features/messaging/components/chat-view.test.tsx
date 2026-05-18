@@ -63,6 +63,10 @@ vi.mock("./stranger-warning-banner", () => ({
     StrangerWarningBanner: () => <div data-testid="stranger-banner" />,
 }));
 
+vi.mock("@/app/features/relays/components/relay-readiness-inline-banner", () => ({
+    RelayReadinessInlineBanner: () => null,
+}));
+
 vi.mock("./composer", () => ({
     Composer: () => <div data-testid="composer" />,
 }));
