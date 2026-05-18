@@ -1,10 +1,22 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { relayHealthMonitor } from "./relay-health-monitor";
-import { relayReliabilityInternals, type PublishResult } from "./enhanced-relay-pool";
+import { relayReliabilityInternals, shouldReuseRelaySocket, type PublishResult } from "./enhanced-relay-pool";
 
 describe("enhanced-relay-pool reliability internals", () => {
   beforeEach(() => {
     relayHealthMonitor.clearAllMetrics();
+  });
+
+  it("reuses open or connecting sockets and allows forced reconnect", () => {
+    const openSocket = { readyState: WebSocket.OPEN } as WebSocket;
+    const connectingSocket = { readyState: WebSocket.CONNECTING } as WebSocket;
+    const closedSocket = { readyState: WebSocket.CLOSED } as WebSocket;
+
+    expect(shouldReuseRelaySocket(openSocket, false)).toBe(true);
+    expect(shouldReuseRelaySocket(connectingSocket, false)).toBe(true);
+    expect(shouldReuseRelaySocket(closedSocket, false)).toBe(false);
+    expect(shouldReuseRelaySocket(openSocket, true)).toBe(false);
+    expect(relayReliabilityInternals.shouldReuseRelaySocket(connectingSocket, false)).toBe(true);
   });
 
   it("orders relays deterministically by health score", () => {

@@ -1,3 +1,23 @@
+## [v1.5.4] - Unreleased (One Mark)
+
+### Summary
+
+Desktop/web polish: unified Obscur icons on all installer surfaces (landed on main), relay connect dedupe, continued stability work. Mobile device smoke remains suspended; download signed/unsigned installers on next tag.
+
+### Added
+
+- `pnpm icons:regenerate` — regen Tauri + Android icons from `obscur-logo-dark.svg`.
+- Relay pool: skip duplicate WebSocket opens when URL is already `OPEN` or `CONNECTING` (WS-C).
+
+### Changed
+
+- Workspace version `1.5.4`; BRAND track complete pending tag artifact spot-check.
+
+### Known limitations
+
+- Release APKs remain unsigned until Android keystore GitHub secrets are configured.
+- Mobile M1–M3 matrix deferred to v1.5.5.
+
 ## [v1.5.3] - 2026-05-17 (Stay Smooth)
 
 ### Summary

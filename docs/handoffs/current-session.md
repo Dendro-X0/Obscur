@@ -1,39 +1,38 @@
 # Current Session Handoff
 
-- Last Updated (UTC): 2026-05-17T12:00:00Z
-- Session Status: **v1.5.3 shipped** — v1.5.4 (One Mark) active; mobile device testing suspended
-- Active Owner: Desktop/web polish + installer branding
+- Last Updated (UTC): 2026-05-18T06:00:00Z
+- Session Status: **v1.5.4 in progress** (One Mark) — BRAND landed; WS-C started
+- Active Owner: Desktop/web polish + relay discipline
 
 ## Active Objective
 
-1. **v1.5.4 Track A (BRAND):** Regenerate Tauri + Android icons from `apps/pwa/public/obscur-logo-dark.svg`.
-2. **v1.5.4 Track B:** WS-C relay discipline + one P1 desktop fix with test.
-3. **Mobile:** CI APK may continue on tag; **M1–M3 device matrix suspended** until v1.5.5.
+1. **v1.5.4 BRAND:** Icons regenerated from canonical SVG (`a2a998cc`); tag build confirms macOS/Linux/Android parity.
+2. **v1.5.4 WS-C:** Relay duplicate connect guard in `connectToRelay` (in progress).
+3. **v1.5.4 WS-D:** One P1 desktop fix with regression test (not started).
+4. **Mobile:** Device matrix suspended; user has E: emulator ready; unsigned APK needs debug sign for local install.
 
 ## What is true now
 
-- **v1.5.3 shipped:** GitHub Release includes desktop installers + `Obscur_1.5.3_*-unsigned.apk` / `.aab`.
-- **Unsigned installs:** Expected on Windows (SmartScreen) and Android (no release keystore) — open-source self-build, not malware.
-- **Icons:** Windows desktop/installer already Obscur mark; Android launcher (and possibly macOS/Linux bundles) still Tauri template — parity in v1.5.4.
-- **User environment:** Android emulator blocked by C: disk; real device blocked by unsigned APK — mobile testing paused by choice.
+- **Version:** `1.5.4` on `main` (development; not tagged).
+- **BRAND:** `pnpm icons:regenerate`; Android mipmaps + `gen/android` aligned to Obscur mark.
+- **WS-C:** `shouldReuseRelaySocket` + early return in `connectToRelay` to avoid parallel sockets per URL.
+- **User:** Android Studio on E: (`ANDROID_AVD_HOME`, SDK, Gradle); Pixel 5 API 37 emulator runs; unsigned APK requires debug signing for install.
 
 ## Open Risks Or Blockers
 
 | Risk | Mitigation |
 |------|------------|
-| Tauri default icon erodes trust | BRAND-1..4 in v1.5.4 scope |
-| Unsigned APK on phones | Document in release notes; optional keystore secrets when testing resumes |
-| C: drive full for AVD | `ANDROID_AVD_HOME` on G: or defer emulator to v1.5.5 |
+| Unsigned Release APK | Debug-sign locally for emulator; release secrets before v1.5.5 mobile resume |
+| WS-C degraded UI | Still need publish-path degraded surfacing |
 
 ## Next Atomic Step
 
-1. Commit regenerated `apps/desktop/src-tauri/icons/` + `icon-source.png` + `scripts/regenerate-app-icons.mjs`.
-2. Visual verify Windows shortcut unchanged (B1 regression) after local `pnpm -C apps/desktop build` if needed.
-3. Next tag will ship Android/macOS/Linux icons matching Windows; WS-C relay work remains.
+1. Run `pnpm release:test-pack` (or targeted relay test) for WS-C change.
+2. Pick WS-D P1 from manual matrix / triage.
+3. Tag `v1.5.4` when gates green; user will download desktop installer then.
 
 ## Continuity references
 
 - [v1.5.4-scope.md](../program/v1.5.4-scope.md)
 - [v1.5.4-gate.md](../releases/v1.5.4-gate.md)
-- [v1.5.3-release.md](../releases/v1.5.3-release.md)
-- [strategic-direction.md](../program/strategic-direction.md)
+- [v1.5.4-release.md](../releases/v1.5.4-release.md)

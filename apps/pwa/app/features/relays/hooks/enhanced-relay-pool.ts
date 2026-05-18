@@ -271,6 +271,17 @@ const moduleEvaluatePublishQuorum = (
   };
 };
 
+/** Reuse an in-flight or open socket instead of opening a duplicate WebSocket to the same URL. */
+export const shouldReuseRelaySocket = (
+  existing: WebSocket | undefined,
+  forceReconnect: boolean,
+): boolean => {
+  if (!existing || forceReconnect) {
+    return false;
+  }
+  return existing.readyState === WebSocket.OPEN || existing.readyState === WebSocket.CONNECTING;
+};
+
 export const relayReliabilityInternals = {
   toRelayHealthScore: moduleToRelayHealthScore,
   buildRelaySelectionDecision: moduleBuildRelaySelectionDecision,
@@ -282,6 +293,7 @@ export const relayReliabilityInternals = {
   isTransientRelayFailure,
   resolveHardFailureCooldownMs: moduleResolveHardFailureCooldownMs,
   resolveTransientFailureCooldownMs: moduleResolveTransientFailureCooldownMs,
+  shouldReuseRelaySocket,
 };
 
 const getUnixMs = (): number => Date.now();
@@ -972,6 +984,14 @@ const subscribe = (listener: () => void): Unsubscribe => {
  */
 const connectToRelay = (url: string, options?: RelayReconnectOptions): WebSocket | null => {
   const forceReconnect = options?.force === true;
+  const existingSocket = socketsByUrl[url];
+  if (shouldReuseRelaySocket(existingSocket, forceReconnect)) {
+    logWithRateLimit("debug", "relay.connect_skip_duplicate", [`Relay ${url} already open or connecting, reusing socket`], {
+      windowMs: 10_000,
+      maxPerWindow: 2,
+    });
+    return existingSocket ?? null;
+  }
   const nowUnixMs = Date.now();
   if (forceReconnect) {
     relayManualCooldownUntilByUrl.delete(url);
