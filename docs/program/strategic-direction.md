@@ -2,7 +2,7 @@
 
 **Status:** Active program framing  
 **Last updated:** 2026-05-18  
-**Current release target:** v1.5.4 — one mark + desktop polish (production); mobile same version, production later  
+**Current release target:** v1.5.5 — mobile production (same version as desktop); v1.5.4 shipped  
 **Mobile/desktop policy:** [mobile-desktop-version-policy.md](./mobile-desktop-version-policy.md)
 
 ---
@@ -27,7 +27,8 @@ Obscur is **not** a failed experiment. It requires **adjusted goals**:
 | **4** | Ship **v1.5.1** — honest hide (shipped) | [v1.5.1-release](../releases/v1.5.1-release.md) |
 | **4b** | Ship **v1.5.2** — feel-fast UI + relay discipline | [v1.5.2-release](../releases/v1.5.2-release.md) (shipped) |
 | **4c** | Ship **v1.5.3** — stay smooth + mobile shell/CI | [v1.5.3-release](../releases/v1.5.3-release.md) (shipped) |
-| **4d** | Ship **v1.5.4** — unified installer icons + desktop polish | [v1.5.4-scope](./v1.5.4-scope.md) |
+| **4d** | Ship **v1.5.4** — unified installer icons + desktop polish | [v1.5.4-release](../releases/v1.5.4-release.md) (shipped) |
+| **4e** | Ship **v1.5.5** — mobile production (signed APK, device gates) | [v1.5.5-scope](./v1.5.5-scope.md) |
 | **5** | Kernel concepts in `docs/future/` only until chartered | No code gate from that folder |
 
 ---

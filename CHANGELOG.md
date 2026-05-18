@@ -1,3 +1,21 @@
+## [v1.5.5] - Unreleased (Mobile Ready)
+
+### Summary
+
+Mobile production milestone: signed Android APK, device smoke M1–M3, version parity with desktop — same `1.5.5` tag and shared kernel.
+
+### Planned
+
+- Android release signing in CI.
+- Device verification matrix (M1–M3).
+- Native alignment (16 KB page size) if required.
+- Incremental push/background native hooks (best-effort).
+
+### Known limitations
+
+- iOS remains optional.
+- Mobile UI stays shell + incremental surfaces until later 1.5.x.
+
 ## [v1.5.4] - 2026-05-18 (One Mark)
 
 ### Summary
