@@ -7,7 +7,7 @@
 ## Active Objective
 
 1. **v1.5.4** closeout: tag when gates green; user will download desktop installer.
-2. **Mobile:** device matrix suspended; emulator ready for optional smoke.
+2. **Mobile:** same version/kernel as desktop; production mobile deferred to v1.5.5+ ([mobile-desktop-version-policy.md](../program/mobile-desktop-version-policy.md)).
 
 ## What is true now
 

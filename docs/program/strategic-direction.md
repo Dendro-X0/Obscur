@@ -1,8 +1,9 @@
 # Strategic direction & implementation sequence
 
 **Status:** Active program framing  
-**Last updated:** 2026-05-16  
-**Current release target:** v1.5.4 — one mark + desktop polish; v1.5.3 shipped
+**Last updated:** 2026-05-18  
+**Current release target:** v1.5.4 — one mark + desktop polish (production); mobile same version, production later  
+**Mobile/desktop policy:** [mobile-desktop-version-policy.md](./mobile-desktop-version-policy.md)
 
 ---
 
@@ -39,16 +40,25 @@ Obscur is **not** a failed experiment. It requires **adjusted goals**:
 | **v1.5.1** | Honest hide, show again, profile-scoped bus (shipped) |
 | **v1.5.2** | Navigation warmup, community confirm pages, relay probe caps (shipped) |
 | **v1.5.3** | Stay smooth + mobile shell build + APK on tag releases (shipped) |
-| **v1.5.4** | One Mark — unified icons; desktop polish; mobile device testing paused |
-| **v1.5.5+** | Resume mobile device gates; mobile-first UI (DM path) |
+| **v1.5.4** | One Mark — unified icons; **desktop production**; mobile CI artifacts only (same version) |
+| **v1.5.5+** | Mobile **production** gate: signing, native components, device matrix, DM-first UI slices |
 | **v1.5.x** | Stabilize Nostr client + mobile ship; no false marketing |
 | **v1.6+** | Cooperative recall hardening, optional features per charter |
 | **Kernel** | Gradual — see `docs/future/` |
 
 ---
 
+## Mobile vs desktop (v1.5.4+)
+
+- **One version number** across desktop, PWA, and Android metadata (`pnpm version:check`).
+- **One feature kernel** in shared packages — mobile shell is a build target, not a fork.
+- **Desktop ships first**; mobile production release waits until native shell + device evidence are ready ([mobile-desktop-version-policy.md](./mobile-desktop-version-policy.md)).
+
+---
+
 ## What we stop doing
 
+- Shipping a separate “mobile 1.0” version line while desktop is `1.5.x`.
 - Chasing “ultimate sovereignty” or global delete as a v1.5.x ship criterion.
 - Treating relay backup restore as overriding local tombstones.
 - Adding features that bypass ClientGateway or profile-scoped signals.
