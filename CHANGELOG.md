@@ -1,8 +1,8 @@
-## [v1.5.4] - Unreleased (One Mark)
+## [v1.5.4] - 2026-05-18 (One Mark)
 
 ### Summary
 
-Desktop/web polish: unified Obscur icons on all installer surfaces (landed on main), relay connect dedupe, continued stability work. Mobile device smoke remains suspended; download signed/unsigned installers on next tag.
+Desktop/web production release: unified Obscur installer icons, relay connect dedupe, degraded/offline relay UI in chat, and in-app version aligned to monorepo. Mobile APK on the same tag is a **preview shell** (same version); mobile production is v1.5.5+.
 
 ### Added
 
@@ -14,12 +14,12 @@ Desktop/web polish: unified Obscur icons on all installer surfaces (landed on ma
 ### Changed
 
 - Android `versionName` / `versionCode` synced via `pnpm version:sync` → `tauri.properties`.
-- Workspace version `1.5.4`; BRAND track complete pending tag artifact spot-check.
+- Mobile/desktop version policy documented ([mobile-desktop-version-policy.md](docs/program/mobile-desktop-version-policy.md)).
 
 ### Known limitations
 
 - Release APKs remain unsigned until Android keystore GitHub secrets are configured.
-- Mobile M1–M3 matrix deferred to v1.5.5.
+- Mobile production (signed APK, device matrix) deferred to v1.5.5.
 
 ## [v1.5.3] - 2026-05-17 (Stay Smooth)
 
