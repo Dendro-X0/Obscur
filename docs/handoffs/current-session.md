@@ -1,24 +1,29 @@
 # Current Session Handoff
 
-- Last Updated (UTC): 2026-05-18T22:40:00Z
-- Session Status: **v1.5.6** — M1 code + tests green; emulator smoke pending
-- Active Owner: Mobile shell + shared kernel (Lane M)
+- Last Updated (UTC): 2026-05-18T23:15:00Z
+- Session Status: **v1.5.6** — Lane M **paused** (no device/signing); **desktop-first** dev on shared kernel
+- Active Owner: Shared PWA / desktop shell (Lane R + U primary)
 
 ## Active Objective
 
-1. **Product:** [v1.5.6-scope.md](../program/v1.5.6-scope.md) — DM-first layout in mobile shell.
-2. **Roadmap:** [v1.5.x-feature-roadmap.md](../program/v1.5.x-feature-roadmap.md) — M1 primary; M2 next.
-3. **Not blocking:** signing, Play Store, F-Droid.
+1. **Baseline:** Desktop/web functional improvements in `apps/pwa` + shared `packages/*` — same owners, no parallel paths.
+2. **Paused:** Mobile emulator smoke, M2, and **v1.5.6 tag** until APK signing/install is unblocked for maintainers.
+3. **Policy:** [mobile-desktop-version-policy.md](../program/mobile-desktop-version-policy.md) — distro work resumes only when asked.
 
 ## Next Atomic Step
 
-Run **M1 emulator smoke** ([docs/assets/demo/v1.5.6/README.md](../assets/demo/v1.5.6/README.md)) on CI APK or `NEXT_PUBLIC_MOBILE_SHELL=1` Android build. Check off matrix, then tag v1.5.6 when `release:test-pack` is green.
+Pick **one** desktop-verifiable item from **Lane R** or **U** ([v1.5.x-feature-roadmap.md](../program/v1.5.x-feature-roadmap.md)):
 
-## M1 in tree (ready to commit)
+- **R4** — search/settings idle deferral gaps (after v1.5.3 baseline), or
+- **U1** — invite / group status copy polish.
 
-- Mobile shell: list ↔ thread via shared `Sidebar` / `ChatView` / `dmController`; `AppShell` `mobileDmMode`.
-- `activeChatView` single definition; `syncStatusBanners` + `sidebarNode` shared.
-- Tests: `main-shell.test.tsx` (mobile layout), `mobile-dm-thread-header.test.tsx`, `app-shell.test.tsx` (tab bar hidden).
+Ship with `pnpm release:test-pack` green; manual check on desktop/PWA is sufficient.
+
+## Lane M — parked (code on `main`, not gated)
+
+- **M1** merged (`e17a2385`): mobile shell list ↔ thread; unit tests only.
+- **Blocked on:** signing, sideload/install, emulator — no maintainer matrix until resolved.
+- Resume checklist: [docs/assets/demo/v1.5.6/README.md](../assets/demo/v1.5.6/README.md).
 
 ## Shipped (v1.5.5)
 
@@ -27,6 +32,6 @@ Run **M1 emulator smoke** ([docs/assets/demo/v1.5.6/README.md](../assets/demo/v1
 
 ## Continuity references
 
-- [v1.5.6-scope.md](../program/v1.5.6-scope.md)
+- [v1.5.6-scope.md](../program/v1.5.6-scope.md) (paused)
+- [v1.5.x-feature-roadmap.md](../program/v1.5.x-feature-roadmap.md)
 - [v1.5.6-gate.md](../releases/v1.5.6-gate.md)
-- [mobile-desktop-version-policy.md](../program/mobile-desktop-version-policy.md)

@@ -10,8 +10,12 @@ Mobile UI preview: DM-first layout slice in the WebView shell (auth → list →
 
 ### Planned
 
-- M2 — Safe areas and tab bar polish in emulator.
-- Optional unsigned APK on tag for preview.
+- M2 — Safe areas and tab bar polish in emulator (**paused** until signing/install).
+- Optional unsigned APK on tag for preview (**paused**).
+
+### Paused (maintainer)
+
+- Lane M emulator smoke and `v1.5.6` tag — no device/signing path on desktop. Desktop-first R/U work continues on shared `apps/pwa` / `packages/*`.
 
 ### Known limitations
 

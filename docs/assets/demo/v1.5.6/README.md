@@ -1,5 +1,7 @@
 # v1.5.6 verification
 
+> **Paused (2026-05-18):** Maintainer cannot run mobile-shell APK smoke (signing/install). M1 code is on `main` with unit tests; this matrix resumes when sideload is unblocked. **Active development:** desktop/PWA improvements on the shared kernel — see [handoff](../../../handoffs/current-session.md).
+
 Mobile UI preview (M1): DM-first flow in Android emulator / mobile shell.
 
 **Build env:** `TAURI_SHELL_TARGET=mobile` / `NEXT_PUBLIC_MOBILE_SHELL=1` (see [v1.5.3 mobile verification](../v1.5.3/mobile-verification.md) for APK install paths).
