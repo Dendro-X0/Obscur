@@ -1,5 +1,6 @@
 import { render } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createRelayRecoveryTestSnapshot } from "@/app/features/relays/services/relay-recovery-test-fixture";
 import { RuntimeActivationManager } from "./runtime-activation-manager";
 
 const gateHarness = vi.hoisted(() => ({
@@ -82,6 +83,7 @@ vi.mock("@/app/features/relays/providers/relay-provider", () => ({
     relayList: {
       replaceRelays: gateHarness.relayListReplaceRelays,
     },
+    relayRecovery: createRelayRecoveryTestSnapshot(),
   }),
 }));
 

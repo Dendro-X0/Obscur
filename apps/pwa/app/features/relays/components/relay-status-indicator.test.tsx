@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { RelayStatusIndicator } from "./relay-status-indicator";
+import { createRelayRecoveryTestSnapshot } from "../services/relay-recovery-test-fixture";
 
 vi.mock("../providers/relay-provider", () => ({
   useRelay: vi.fn(() => ({
@@ -14,6 +15,7 @@ vi.mock("../providers/relay-provider", () => ({
       writableRelayCount: 1,
       enabledRelayUrls: ["wss://relay.example"],
     },
+    relayRecovery: createRelayRecoveryTestSnapshot(),
   })),
 }));
 
@@ -42,7 +44,12 @@ describe("RelayStatusIndicator", () => {
         writableRelayCount: 0,
         enabledRelayUrls: ["wss://relay.example"],
       },
-    } as any);
+      relayRecovery: createRelayRecoveryTestSnapshot({
+        readiness: "offline",
+        writableRelayCount: 0,
+        subscribableRelayCount: 0,
+      }),
+    } as ReturnType<typeof useRelay>);
 
     render(<RelayStatusIndicator />);
 

@@ -6,6 +6,7 @@ import { getResolvedProfileId } from "../../profiles/services/profile-runtime-sc
 import { subscribeChatStateReplacedDual } from "../../profiles/services/subscribe-chat-state-replaced-dual";
 import { subscribeMessagesIndexRebuiltDual } from "../../profiles/services/subscribe-messages-index-rebuilt-dual";
 import { useIdentity } from "../../auth/hooks/use-identity";
+import { scheduleIdleWork } from "@/app/shared/schedule-idle-work";
 import {
     deleteLocalMediaCacheItem,
     downloadAttachmentToUserPath,
@@ -14,7 +15,10 @@ import {
     buildVaultMediaItemsFast,
     enrichVaultMediaItemsWithLocalUrls,
     sortVaultMediaItemsNewestFirst,
+    VAULT_INITIAL_ENRICH_LIMIT,
+    type VaultMediaCandidate,
 } from "../services/vault-media-aggregator";
+import { mergeVaultMediaCandidates } from "../services/vault-candidate-merge";
 import { scanMessagesForVaultMedia } from "../services/vault-message-scan";
 import type { VaultMediaItem } from "../types/vault-media-item";
 
@@ -35,8 +39,12 @@ export function useVaultMedia() {
     const [error, setError] = useState<Error | null>(null);
     const refreshGenerationRef = useRef(0);
     const hasPaintedVaultRef = useRef(false);
+    const deferredEnrichCancelRef = useRef<(() => void) | undefined>(undefined);
 
     const refresh = useCallback(async () => {
+        deferredEnrichCancelRef.current?.();
+        deferredEnrichCancelRef.current = undefined;
+
         if (!publicKeyHex) {
             refreshGenerationRef.current += 1;
             hasPaintedVaultRef.current = false;
@@ -53,30 +61,66 @@ export function useVaultMedia() {
             setIsLoading(true);
         }
 
-        try {
-            const candidates = await scanMessagesForVaultMedia({
-                isCancelled: () => generation !== refreshGenerationRef.current,
-            });
+        let accumulatedCandidates: VaultMediaCandidate[] = [];
+
+        const paintCandidates = (candidates: ReadonlyArray<VaultMediaCandidate>): void => {
             if (generation !== refreshGenerationRef.current) {
                 return;
             }
             const fastItems = sortVaultMediaItemsNewestFirst(
                 buildVaultMediaItemsFast(candidates),
             );
-
             setMediaItems(fastItems);
             setError(null);
-            if (fastItems.length > 0) {
-                hasPaintedVaultRef.current = true;
-            }
+            hasPaintedVaultRef.current = true;
             setIsLoading(false);
+        };
 
-            const enrichedItems = await enrichVaultMediaItemsWithLocalUrls(fastItems);
+        try {
+            await scanMessagesForVaultMedia({
+                isCancelled: () => generation !== refreshGenerationRef.current,
+                onCandidatesBatch: (batch) => {
+                    if (generation !== refreshGenerationRef.current || batch.length === 0) {
+                        return;
+                    }
+                    accumulatedCandidates = mergeVaultMediaCandidates(accumulatedCandidates, batch);
+                    paintCandidates(accumulatedCandidates);
+                },
+            });
+
             if (generation !== refreshGenerationRef.current) {
                 return;
             }
 
-            setMediaItems(sortVaultMediaItemsNewestFirst(enrichedItems));
+            const fastItems = sortVaultMediaItemsNewestFirst(
+                buildVaultMediaItemsFast(accumulatedCandidates),
+            );
+            setMediaItems(fastItems);
+            setError(null);
+            hasPaintedVaultRef.current = true;
+            setIsLoading(false);
+
+            const initialEnriched = await enrichVaultMediaItemsWithLocalUrls(fastItems, {
+                limit: VAULT_INITIAL_ENRICH_LIMIT,
+            });
+            if (generation !== refreshGenerationRef.current) {
+                return;
+            }
+            setMediaItems(sortVaultMediaItemsNewestFirst(initialEnriched));
+
+            if (fastItems.length > VAULT_INITIAL_ENRICH_LIMIT) {
+                deferredEnrichCancelRef.current = scheduleIdleWork(() => {
+                    void (async () => {
+                        const fullyEnriched = await enrichVaultMediaItemsWithLocalUrls(fastItems, {
+                            offset: VAULT_INITIAL_ENRICH_LIMIT,
+                        });
+                        if (generation !== refreshGenerationRef.current) {
+                            return;
+                        }
+                        setMediaItems(sortVaultMediaItemsNewestFirst(fullyEnriched));
+                    })();
+                });
+            }
         } catch (e) {
             if (generation !== refreshGenerationRef.current) {
                 return;
@@ -89,6 +133,10 @@ export function useVaultMedia() {
 
     useEffect(() => {
         void refresh();
+        return () => {
+            deferredEnrichCancelRef.current?.();
+            deferredEnrichCancelRef.current = undefined;
+        };
     }, [publicKeyHex, refresh]);
 
     useEffect(() => {

@@ -151,7 +151,7 @@ export function RuntimeActivationManager(): null {
   const markRuntimeReady = runtime.markRuntimeReady;
   const markRuntimeDegraded = runtime.markRuntimeDegraded;
   const identity = useIdentity();
-  const { relayPool, enabledRelayUrls, relayList } = useRelay();
+  const { relayPool, enabledRelayUrls, relayList, relayRecovery } = useRelay();
   const publicKeyHex = identity.state.publicKeyHex ?? null;
   const privateKeyHex = identity.state.privateKeyHex ?? null;
   const accountSync = useAccountSync({
@@ -167,6 +167,8 @@ export function RuntimeActivationManager(): null {
     publicKeyHex,
     privateKeyHex,
     pool: relayPool,
+    relayRecoveryReadiness: relayRecovery.readiness,
+    writableRelayCount: relayRecovery.writableRelayCount,
   });
   const leaveOutboxRetryEnabled = (
     runtimePhase === "ready"

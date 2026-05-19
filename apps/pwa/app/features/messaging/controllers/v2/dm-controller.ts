@@ -24,7 +24,9 @@ import type {
   RequestsInboxContract,
   DmControllerState,
 } from "./dm-controller-types";
+import { toast } from "@dweb/ui-kit";
 import { sendDm, sendConnectionRequest, type SendConfirmation } from "./dm-send-pipeline";
+import { getRelayPublishFailureUserMessage } from "@/app/features/relays/services/relay-publish-user-copy";
 import { processIncomingEvent, processDeleteEventDirect, createDedupSet, type IncomingDmResult } from "./dm-receive-pipeline";
 // deleteMessages replaced by new deletion coordinator
 import { subscribeToIncomingDMs, type SubscriptionHandle } from "./dm-relay-transport";
@@ -152,6 +154,7 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
   const subscribedRef = useRef(false);
   const messagesRef = useRef<ReadonlyArray<Message>>([]);
   const dedupSetRef = useRef<Set<string>>(createDedupSet());
+  const publishFeedbackShownRef = useRef<Set<string>>(new Set());
   messagesRef.current = messages;
 
   // --- Stable refs for subscription callback dependencies ---
@@ -487,6 +490,34 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
             : m
         )
       );
+
+      if (publishFeedbackShownRef.current.has(optimisticId)) {
+        return;
+      }
+      publishFeedbackShownRef.current.add(optimisticId);
+
+      if (!confirmation.success) {
+        toast.error(getRelayPublishFailureUserMessage({
+          reasonCode: confirmation.reasonCode,
+          error: confirmation.error,
+          successCount: confirmation.relayResults.filter(result => result.success).length,
+          totalRelays: confirmation.relayResults.length,
+          partialWireDelivery: confirmation.partialWireDelivery,
+        }));
+        return;
+      }
+
+      if (confirmation.partialWireDelivery) {
+        toast.warning(getRelayPublishFailureUserMessage({
+          partialWireDelivery: true,
+        }));
+      } else if (confirmation.deliveryStatus === "sent_partial") {
+        toast.warning(getRelayPublishFailureUserMessage({
+          reasonCode: "quorum_not_met",
+          successCount: confirmation.relayResults.filter(result => result.success).length,
+          totalRelays: confirmation.relayResults.length,
+        }));
+      }
     };
 
     // Execute send — returns immediately after sendToOpen (fire-and-forget).
@@ -507,7 +538,7 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
     // CRITICAL: Do NOT replace m.id — changing the ID causes useDmSync to
     // treat the message as brand-new (different key), emitting a duplicate
     // messageBus event and leaving an orphan entry in IndexedDB.
-    const immediateStatus: MessageStatus = result.success ? "accepted" : "failed";
+    const immediateStatus: MessageStatus = result.success ? "accepted" : "sending";
     const canonicalDmId = result.messageId || result.eventId || undefined;
     const nip17GiftWrapId = (
       result.messageId

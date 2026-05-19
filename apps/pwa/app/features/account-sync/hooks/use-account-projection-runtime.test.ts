@@ -47,6 +47,7 @@ vi.mock("../services/account-projection-runtime", () => ({
   },
 }));
 
+import type { RelayReadinessState } from "@/app/features/relays/services/relay-recovery-policy";
 import { useAccountProjectionRuntime } from "./use-account-projection-runtime";
 
 describe("useAccountProjectionRuntime", () => {
@@ -160,6 +161,55 @@ describe("useAccountProjectionRuntime", () => {
 
     expect(mocks.bootstrapAndReplay).not.toHaveBeenCalled();
     expect(mocks.reset).not.toHaveBeenCalled();
+  });
+
+  it("re-bootstraps degraded projection after relay recovery becomes healthy", () => {
+    mocks.snapshot = makeSnapshot({
+      profileId: PROFILE_ID,
+      accountPublicKeyHex: ACCOUNT_PUBKEY,
+      phase: "degraded",
+      status: "degraded",
+      accountProjectionReady: false,
+      driftStatus: "unknown",
+      lastError: "bootstrap failed",
+    });
+
+    const { rerender } = renderHook(
+      ({ readiness, writableRelayCount }: {
+        readiness: RelayReadinessState;
+        writableRelayCount: number;
+      }) => useAccountProjectionRuntime({
+        publicKeyHex: ACCOUNT_PUBKEY,
+        privateKeyHex: ACCOUNT_PRIVKEY,
+        pool: createPoolStub(),
+        relayRecoveryReadiness: readiness,
+        writableRelayCount,
+      }),
+      {
+        initialProps: {
+          readiness: "offline",
+          writableRelayCount: 0,
+        },
+      },
+    );
+
+    expect(mocks.bootstrapAndReplay).not.toHaveBeenCalled();
+
+    rerender({
+      readiness: "healthy",
+      writableRelayCount: 2,
+    });
+
+    expect(mocks.bootstrapAndReplay).toHaveBeenCalledTimes(1);
+    expect(mocks.bootstrapAndReplay).toHaveBeenCalledWith({
+      profileId: PROFILE_ID,
+      accountPublicKeyHex: ACCOUNT_PUBKEY,
+      privateKeyHex: ACCOUNT_PRIVKEY,
+      pool: expect.objectContaining({
+        sendToOpen: expect.any(Function),
+        subscribeToMessages: expect.any(Function),
+      }),
+    });
   });
 
   it("resets stale snapshot ownership and bootstraps the active account in the same effect pass", () => {

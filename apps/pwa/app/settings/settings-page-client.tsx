@@ -57,6 +57,7 @@ import { useNotificationPreference } from "@/app/features/notifications/hooks/us
 import { useProfilePublisher } from "@/app/features/profile/hooks/use-profile-publisher";
 import { discoveryCache } from "@/app/features/search/services/discovery-cache";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
+import { RelayReadinessSettingsBanner } from "@/app/features/relays/components/relay-readiness-settings-banner";
 import { deriveRelayNodeStatus, deriveRelayRuntimeStatus } from "@/app/features/relays/lib/relay-runtime-status";
 import { getApiBaseUrl } from "@/app/features/relays/utils/api-base-url";
 import { validateRelayUrl } from "@/app/features/relays/utils/validate-relay-url";
@@ -529,6 +530,8 @@ export default function SettingsPage(): React.JSX.Element {
   const displayPublicKeyHex: string = identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex ?? "";
   const publicKeyHex: PublicKeyHex | null = (displayPublicKeyHex as PublicKeyHex | null) ?? null;
   const navBadges = useNavBadges({ publicKeyHex });
+  const { relayRecovery } = useRelay();
+  const relayTransportNeedsAttention = relayRecovery.readiness !== "healthy";
 
   const [activeTab, setActiveTab] = useState<SettingsTabType>("profile");
   const [showMobileMenu, setShowMobileMenu] = useState(true);
@@ -579,7 +582,15 @@ export default function SettingsPage(): React.JSX.Element {
                           )}>
                             <Icon className={cn("h-4 w-4", active ? "text-white dark:text-purple-400" : "text-zinc-400")} />
                           </div>
-                          {t(item.labelKey)}
+                          <span className="flex min-w-0 flex-1 items-center gap-2">
+                            <span className="truncate">{t(item.labelKey)}</span>
+                            {item.id === "relays" && relayTransportNeedsAttention ? (
+                              <span
+                                className="h-2 w-2 shrink-0 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.8)]"
+                                aria-label={t("settings.relays.statusDegraded", "Degraded")}
+                              />
+                            ) : null}
+                          </span>
                         </button>
                       );
                     })}
@@ -3327,6 +3338,7 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
       {activeTab === "relays" && (
         <Card title={t("settings.relays.title")} description={t("settings.relays.desc")} className="w-full">
           <div className="space-y-6">
+            <RelayReadinessSettingsBanner />
             {/* API Status Panel */}
             <div className="space-y-4 rounded-2xl border border-black/5 p-5 dark:border-white/5 bg-zinc-50/50 dark:bg-zinc-900/50">
               <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-zinc-500">

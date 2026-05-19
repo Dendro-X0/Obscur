@@ -12,6 +12,7 @@ import { cryptoService, type UnsignedNostrEvent } from "@/app/features/crypto/cr
 import type { NostrEvent } from "@dweb/nostr/nostr-event";
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
+import type { DeliveryReasonCode } from "@dweb/core/security-foundation-contracts";
 import type {
   DmFormat,
   RelayPoolContract,
@@ -20,6 +21,7 @@ import type {
 } from "./dm-controller-types";
 import { publishToRelays, resolveTargetRelayUrls } from "./dm-relay-transport";
 import { dmReceivePipelineInternals } from "./dm-receive-pipeline";
+import { inferRelayPublishReasonCode } from "@/app/features/relays/services/relay-publish-user-copy";
 
 // ---------------------------------------------------------------------------
 // Dedup guard — prevents double-send from React strict mode or re-renders
@@ -136,7 +138,64 @@ export type SendConfirmation = Readonly<{
   deliveryStatus: SendResult["deliveryStatus"];
   relayResults: ReadonlyArray<RelayPublishOutcome>;
   error?: string;
+  reasonCode?: DeliveryReasonCode;
+  partialWireDelivery?: boolean;
 }>;
+
+const countOpenRelays = (pool: RelayPoolContract): number => (
+  pool.connections.filter(connection => connection.status === "open").length
+);
+
+const resolveWritableRelayCount = (pool: RelayPoolContract): number | undefined => {
+  const snapshot = pool.getWritableRelaySnapshot?.();
+  if (!snapshot) {
+    return undefined;
+  }
+  if (typeof snapshot.writableRelayCount === "number") {
+    return snapshot.writableRelayCount;
+  }
+  if (Array.isArray(snapshot.writableRelayUrls)) {
+    return snapshot.writableRelayUrls.length;
+  }
+  return undefined;
+};
+
+const buildSendConfirmation = (params: Readonly<{
+  pool: RelayPoolContract;
+  publishSuccess: boolean;
+  successCount: number;
+  totalRelays: number;
+  outcomes: ReadonlyArray<RelayPublishOutcome>;
+  overallError?: string;
+  firedToOpenCount: number;
+}>): SendConfirmation => {
+  const openRelayCount = countOpenRelays(params.pool);
+  const writableRelayCount = resolveWritableRelayCount(params.pool);
+  const partialWireDelivery = params.firedToOpenCount > 0 && !params.publishSuccess;
+  const effectiveSuccess = params.publishSuccess || params.firedToOpenCount > 0;
+  const deliveryStatus = params.publishSuccess
+    ? (params.successCount >= 2 ? "sent_quorum" as const : "sent_partial" as const)
+    : (params.firedToOpenCount > 0 ? "sent_partial" as const : "failed" as const);
+  const reasonCode = effectiveSuccess
+    ? undefined
+    : inferRelayPublishReasonCode({
+      success: false,
+      successCount: params.successCount,
+      totalRelays: params.totalRelays,
+      openRelayCount,
+      writableRelayCount,
+      overallError: params.overallError,
+    });
+
+  return {
+    success: effectiveSuccess,
+    deliveryStatus,
+    relayResults: params.outcomes,
+    error: effectiveSuccess ? undefined : params.overallError,
+    reasonCode,
+    partialWireDelivery,
+  };
+};
 
 export const sendDm = async (params: Readonly<{
   pool: RelayPoolContract;
@@ -255,30 +314,28 @@ export const sendDm = async (params: Readonly<{
         successCount: publishResult.successCount,
         totalRelays: publishResult.totalRelays,
       });
-      // If sendToOpen already fired to open relays, never downgrade to "failed".
-      // The event is already on the wire — confirmation just upgrades status.
-      const effectiveSuccess = publishResult.success || firedToOpenCount > 0;
-      const deliveryStatus = publishResult.success
-        ? (publishResult.successCount >= 2 ? "sent_quorum" as const : "sent_partial" as const)
-        : (firedToOpenCount > 0 ? "sent_partial" as const : "failed" as const);
-      const confirmation: SendConfirmation = {
-        success: effectiveSuccess,
-        deliveryStatus,
-        relayResults: publishResult.outcomes,
-        error: effectiveSuccess ? undefined : publishResult.overallError,
-      };
+      const confirmation = buildSendConfirmation({
+        pool,
+        publishSuccess: publishResult.success,
+        successCount: publishResult.successCount,
+        totalRelays: publishResult.totalRelays,
+        outcomes: publishResult.outcomes,
+        overallError: publishResult.overallError,
+        firedToOpenCount,
+      });
       capturedConfirmation = confirmation;
       onConfirmed?.(confirmation);
     }).catch(err => {
       console.error("[dm-send] confirmation error", err);
-      // If sendToOpen succeeded, treat as delivered despite confirmation error
-      const effectiveSuccess = firedToOpenCount > 0;
-      const confirmation: SendConfirmation = {
-        success: effectiveSuccess,
-        deliveryStatus: effectiveSuccess ? "sent_partial" : "failed",
-        relayResults: [],
-        error: effectiveSuccess ? undefined : (err instanceof Error ? err.message : String(err)),
-      };
+      const confirmation = buildSendConfirmation({
+        pool,
+        publishSuccess: false,
+        successCount: 0,
+        totalRelays: 0,
+        outcomes: [],
+        overallError: err instanceof Error ? err.message : String(err),
+        firedToOpenCount,
+      });
       capturedConfirmation = confirmation;
       onConfirmed?.(confirmation);
     }).finally(() => {
@@ -301,12 +358,12 @@ export const sendDm = async (params: Readonly<{
       };
     }
 
-    // Return optimistic success immediately — confirmation arrives via callback.
-    // The event is built and encrypted; Phase 2 publishToRelays will deliver it
-    // even if sendToOpen was partially blocked. Never show "failed" at this stage.
+    // Return immediately — confirmation arrives via callback.
+    // Only treat as optimistic success when sendToOpen had open relay evidence.
+    const hasWireEvidence = firedToOpenCount > 0;
     return {
-      success: true,
-      deliveryStatus: "sent_partial",
+      success: hasWireEvidence,
+      deliveryStatus: hasWireEvidence ? "sent_partial" : "sent_partial",
       messageId: build.canonicalEventId,
       eventId: build.signedEvent.id,
       relayResults: pool.connections

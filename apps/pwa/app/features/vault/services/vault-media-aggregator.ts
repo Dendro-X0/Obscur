@@ -63,7 +63,12 @@ export const sortVaultMediaItemsNewestFirst = (
 
 export type EnrichVaultMediaLocalUrlsOptions = Readonly<{
   concurrency?: number;
+  /** Only enrich items in `[offset, offset + limit)`; other rows are returned unchanged. */
+  offset?: number;
+  limit?: number;
 }>;
+
+export const VAULT_INITIAL_ENRICH_LIMIT = 48;
 
 const mapWithConcurrency = async <T, R>(
   items: ReadonlyArray<T>,
@@ -95,7 +100,15 @@ export const enrichVaultMediaItemsWithLocalUrls = async (
   options: EnrichVaultMediaLocalUrlsOptions = {},
 ): Promise<VaultMediaItem[]> => {
   const concurrency = options.concurrency ?? 4;
-  return mapWithConcurrency(items, concurrency, async (item) => {
+  const offset = Math.max(0, options.offset ?? 0);
+  const limit = options.limit ?? Math.max(0, items.length - offset);
+  if (limit <= 0 || offset >= items.length) {
+    return [...items];
+  }
+
+  const end = Math.min(items.length, offset + limit);
+  const slice = items.slice(offset, end);
+  const enrichedSlice = await mapWithConcurrency(slice, concurrency, async (item) => {
     if (!item.isLocalCached) {
       return item;
     }
@@ -109,4 +122,10 @@ export const enrichVaultMediaItemsWithLocalUrls = async (
       attachment: { ...item.attachment, url: localUrl },
     };
   });
+
+  const result = [...items];
+  for (let index = 0; index < enrichedSlice.length; index += 1) {
+    result[offset + index] = enrichedSlice[index]!;
+  }
+  return result;
 };

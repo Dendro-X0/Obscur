@@ -51,6 +51,27 @@ describe("scanMessagesForVaultMedia", () => {
     expect(candidates[0]?.attachment.fileName).toBe("m-1.png");
   });
 
+  it("streams candidate batches while scanning", async () => {
+    const batches: number[] = [];
+    scanMocks.forEachInStore.mockImplementation(async (
+      _store: string,
+      visitor: (value: Message) => boolean | void,
+    ) => {
+      await visitor(imageMessage("m-1"));
+      await visitor(imageMessage("m-2"));
+      return 2;
+    });
+
+    await scanMessagesForVaultMedia({
+      onCandidatesBatch: (batch) => {
+        batches.push(batch.length);
+      },
+    });
+
+    expect(batches.length).toBeGreaterThan(0);
+    expect(batches.reduce((sum, count) => sum + count, 0)).toBe(2);
+  });
+
   it("stops scanning when isCancelled returns true", async () => {
     scanMocks.forEachInStore.mockImplementation(async (
       _store: string,

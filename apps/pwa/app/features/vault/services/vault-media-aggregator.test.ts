@@ -89,6 +89,30 @@ describe("vault-media-aggregator", () => {
     expect(items[0]?.id).toBe("new");
   });
 
+  it("enriches only the requested slice when limit is set", async () => {
+    const { resolveLocalMediaUrl } = await import("./local-media-store");
+    const resolveMock = vi.mocked(resolveLocalMediaUrl);
+    resolveMock.mockClear();
+
+    const items = buildVaultMediaItemsFast(collectVaultMediaCandidates([
+      message({
+        id: "m-limit-a",
+        attachments: [
+          { kind: "image", url: "https://cdn.example.com/cached.png", contentType: "image/png", fileName: "a.png" },
+        ],
+      }),
+      message({
+        id: "m-limit-b",
+        attachments: [
+          { kind: "image", url: "https://cdn.example.com/cached.png", contentType: "image/png", fileName: "b.png" },
+        ],
+      }),
+    ]));
+
+    await enrichVaultMediaItemsWithLocalUrls(items, { limit: 1 });
+    expect(resolveMock).toHaveBeenCalledTimes(1);
+  });
+
   it("enriches cached items with bounded local url resolution", async () => {
     const items = buildVaultMediaItemsFast(collectVaultMediaCandidates([
       message({

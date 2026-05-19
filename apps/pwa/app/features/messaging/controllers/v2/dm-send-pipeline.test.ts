@@ -283,6 +283,45 @@ describe("dm-send-pipeline", () => {
     expect(fallbackRelays.some(r => calledUrls.includes(r))).toBe(true);
   });
 
+  it("reports failed confirmation with reason when no relays confirm", async () => {
+    const onConfirmed = vi.fn();
+    const pool = createMockPool({
+      connections: [],
+      publishToUrls: vi.fn(async () => ({
+        success: false,
+        successCount: 0,
+        totalRelays: 0,
+        results: [],
+        overallError: "no writable relays",
+      })),
+      publishToAll: vi.fn(async () => ({
+        success: false,
+        successCount: 0,
+        totalRelays: 0,
+        results: [],
+        overallError: "no writable relays",
+      })),
+      sendToOpen: vi.fn(),
+    });
+
+    const immediate = await sendDm({
+      pool,
+      senderPublicKeyHex: "a".repeat(64),
+      senderPrivateKeyHex: "b".repeat(64) as any,
+      recipientPublicKeyHex: "c".repeat(64),
+      plaintext: "async failure",
+      onConfirmed,
+    });
+
+    expect(immediate.success).toBe(false);
+    await vi.waitFor(() => {
+      expect(onConfirmed).toHaveBeenCalled();
+    });
+    const confirmation = onConfirmed.mock.calls[0]![0];
+    expect(confirmation.success).toBe(false);
+    expect(confirmation.reasonCode).toBe("no_writable_relays");
+  });
+
   it("clears inflight guard even on error", async () => {
     const pool = createMockPool({
       connections: [],

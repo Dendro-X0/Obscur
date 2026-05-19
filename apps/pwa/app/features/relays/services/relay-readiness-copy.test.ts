@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { getRelayReadinessBannerCopy, getRelaySendBlockCopy } from "./relay-readiness-copy";
+import {
+  getRelayReadinessBannerCopy,
+  getRelayReadinessDetailCopy,
+  getRelaySendBlockCopy,
+} from "./relay-readiness-copy";
 import type { RelayRecoverySnapshot } from "./relay-recovery-policy";
 
 const createSnapshot = (overrides: Partial<RelayRecoverySnapshot>): RelayRecoverySnapshot => ({
@@ -31,5 +35,15 @@ describe("relay-readiness-copy", () => {
   it("returns banner copy for degraded states", () => {
     const banner = getRelayReadinessBannerCopy(createSnapshot({ readiness: "degraded", writableRelayCount: 1 }));
     expect(banner).toContain("degraded");
+  });
+
+  it("returns settings detail copy with writable counts", () => {
+    const detail = getRelayReadinessDetailCopy(createSnapshot({
+      readiness: "offline",
+      writableRelayCount: 0,
+      subscribableRelayCount: 1,
+    }));
+    expect(detail).toMatch(/offline/i);
+    expect(detail).toMatch(/0 writable/);
   });
 });

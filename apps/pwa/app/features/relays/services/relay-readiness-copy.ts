@@ -29,6 +29,26 @@ export const getRelaySendBlockCopy = (snapshot: Pick<RelayRecoverySnapshot, "rea
   }
 };
 
+export const getRelayReadinessDetailCopy = (
+  snapshot: RelayRecoverySnapshot,
+): string | null => {
+  if (snapshot.readiness === "healthy") {
+    return null;
+  }
+
+  const writableLabel = `${snapshot.writableRelayCount} writable · ${snapshot.subscribableRelayCount} subscribable`;
+  switch (snapshot.readiness) {
+    case "recovering":
+      return `Obscur is reconnecting relays (${writableLabel}). Delivery may resume shortly.`;
+    case "offline":
+      return `Relay transport is offline (${writableLabel}). Relay-backed send and sync are paused until recovery.`;
+    case "degraded":
+      return `Relay transport is degraded (${writableLabel}). Obscur will only treat delivery as successful with relay evidence.`;
+    default:
+      return null;
+  }
+};
+
 export const getRelayReadinessTone = (readiness: RelayReadinessState): string => {
   switch (readiness) {
     case "recovering":

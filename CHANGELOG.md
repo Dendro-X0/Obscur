@@ -1,20 +1,25 @@
-## [v1.5.5] - Unreleased (Mobile Ready)
+## [v1.5.5] - 2026-05-18 (Client Depth)
 
 ### Summary
 
-Mobile production milestone: signed Android APK, device smoke M1–M3, version parity with desktop — same `1.5.5` tag and shared kernel.
+Desktop/web refinement patch: honest DM relay publish feedback, projection re-bootstrap after relay recovery, progressive vault cold open, and degraded relay visibility in Settings. Mobile store/signing remains optional — not a gate for this tag.
 
-### Planned
+### Added
 
-- Android release signing in CI.
-- Device verification matrix (M1–M3).
-- Native alignment (16 KB page size) if required.
-- Incremental push/background native hooks (best-effort).
+- `relay-publish-user-copy` — user-facing publish failure strings from `reasonCode`; DM confirmation failure toasts.
+- `RelayReadinessSettingsBanner` + Relays nav indicator when transport is not healthy.
+- Vault progressive cursor batches + capped local media enrich (first 48, idle for rest).
+
+### Changed
+
+- DM send stays `sending` until wire/relay evidence; no silent optimistic success (R1).
+- Account projection re-bootstraps after relay recovery to `healthy` (R2).
+- Vault first paint before full message-store scan (R3).
 
 ### Known limitations
 
-- iOS remains optional.
-- Mobile UI stays shell + incremental surfaces until later 1.5.x.
+- Android APK on tag may remain unsigned without keystore secrets.
+- Mobile production / device matrix deferred to a later milestone.
 
 ## [v1.5.4] - 2026-05-18 (One Mark)
 

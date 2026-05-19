@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { RelayPoolLike } from "@/app/features/relays/lib/nostr-core-relay";
+import type { RelayReadinessState } from "@/app/features/relays/services/relay-recovery-policy";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { accountProjectionRuntime } from "../services/account-projection-runtime";
 
@@ -14,6 +15,8 @@ type UseAccountProjectionRuntimeParams = Readonly<{
     sendToOpen: (payload: string) => void;
     subscribeToMessages: (handler: (params: Readonly<{ url: string; message: string }>) => void) => () => void;
   }>;
+  relayRecoveryReadiness?: RelayReadinessState;
+  writableRelayCount?: number;
 }>;
 
 const getServerSnapshot = () => accountProjectionRuntime.getSnapshot();
@@ -25,6 +28,7 @@ export const useAccountProjectionRuntime = (params: UseAccountProjectionRuntimeP
     getServerSnapshot
   );
   const lastBootstrapScopeKeyRef = useRef<string | null>(null);
+  const previousRelayReadinessRef = useRef<RelayReadinessState | null>(null);
 
   useEffect(() => {
     if (!params.publicKeyHex || !params.privateKeyHex) {
@@ -84,9 +88,67 @@ export const useAccountProjectionRuntime = (params: UseAccountProjectionRuntimeP
     params.privateKeyHex,
     params.publicKeyHex,
     snapshot.accountPublicKeyHex,
+    snapshot.lastError,
     snapshot.phase,
     snapshot.profileId,
     snapshot.status,
+  ]);
+
+  useEffect(() => {
+    if (!params.publicKeyHex || !params.privateKeyHex) {
+      previousRelayReadinessRef.current = null;
+      return;
+    }
+
+    const currentReadiness = params.relayRecoveryReadiness ?? null;
+    const previousReadiness = previousRelayReadinessRef.current;
+    previousRelayReadinessRef.current = currentReadiness;
+
+    if (!currentReadiness || previousReadiness === null) {
+      return;
+    }
+
+    const recoveredToHealthy = (
+      previousReadiness !== "healthy"
+      && currentReadiness === "healthy"
+      && (params.writableRelayCount ?? 0) > 0
+    );
+    if (!recoveredToHealthy) {
+      return;
+    }
+
+    const profileId = getResolvedProfileId();
+    const snapshotBoundToActiveAccount = (
+      snapshot.profileId === profileId
+      && snapshot.accountPublicKeyHex === params.publicKeyHex
+    );
+    if (
+      !snapshotBoundToActiveAccount
+      || snapshot.phase !== "degraded"
+      || !snapshot.lastError
+    ) {
+      return;
+    }
+
+    lastBootstrapScopeKeyRef.current = null;
+    const accountPublicKeyHex = params.publicKeyHex;
+    const privateKeyHex = params.privateKeyHex;
+    void accountProjectionRuntime.bootstrapAndReplay({
+      profileId,
+      accountPublicKeyHex,
+      privateKeyHex,
+      pool: params.pool,
+    });
+  }, [
+    params.pool,
+    params.privateKeyHex,
+    params.publicKeyHex,
+    params.relayRecoveryReadiness,
+    params.writableRelayCount,
+    snapshot.accountPublicKeyHex,
+    snapshot.lastError,
+    snapshot.phase,
+    snapshot.profileId,
   ]);
 
   return useMemo(() => ({

@@ -40,8 +40,8 @@ import { AddConnectionModal } from "./add-connection-modal";
 import { ConnectionCard } from "./network-connection-card";
 import { GroupCard } from "./group-card";
 const GroupDiscoveryPanel = lazy(async () => {
-    const module = await import("@/app/features/groups/components/group-discovery");
-    return { default: module.GroupDiscovery };
+    const discoveryModule = await import("@/app/features/groups/components/group-discovery");
+    return { default: discoveryModule.GroupDiscovery };
 });
 import { Loader2 as LoaderIcon, QrCode, Scan, Download, Upload, User as UserIcon, Shield, Copy, CheckCircle2, ChevronRight } from "lucide-react";
 import { parsePublicKeyInput } from "@/app/features/profile/utils/parse-public-key-input";

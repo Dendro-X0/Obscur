@@ -8,10 +8,14 @@ import {
   getRelayReadinessTone,
 } from "../services/relay-readiness-copy";
 
+type RelayReadinessInlineBannerProps = Readonly<{
+  className?: string;
+}>;
+
 /**
  * Conversation-level relay transport notice when publish path is degraded or offline.
  */
-export function RelayReadinessInlineBanner() {
+export function RelayReadinessInlineBanner({ className }: RelayReadinessInlineBannerProps = {}) {
   const { relayRecovery } = useRelay();
   const copy = getRelayReadinessBannerCopy(relayRecovery);
 
@@ -25,6 +29,7 @@ export function RelayReadinessInlineBanner() {
       className={cn(
         "mx-4 mt-2 mb-0 flex items-start gap-2 rounded-xl border px-3 py-2.5 text-xs leading-snug",
         getRelayReadinessTone(relayRecovery.readiness),
+        className,
       )}
     >
       <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-80" aria-hidden />

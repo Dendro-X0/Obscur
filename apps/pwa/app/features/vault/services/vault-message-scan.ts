@@ -9,6 +9,8 @@ export type ScanMessagesForVaultMediaOptions = Readonly<{
   /** Yield to the main thread every N messages visited (default 80). */
   yieldEvery?: number;
   isCancelled?: () => boolean;
+  /** Called whenever a scan batch yields new media candidates (enables progressive vault paint). */
+  onCandidatesBatch?: (batch: ReadonlyArray<VaultMediaCandidate>) => void;
 }>;
 
 const DEFAULT_YIELD_EVERY = 80;
@@ -28,8 +30,13 @@ export const scanMessagesForVaultMedia = async (
     if (batch.length === 0) {
       return;
     }
-    candidates.push(...collectVaultMediaCandidates(batch));
+    const collected = collectVaultMediaCandidates(batch);
     batch.length = 0;
+    if (collected.length === 0) {
+      return;
+    }
+    candidates.push(...collected);
+    options.onCandidatesBatch?.(collected);
   };
 
   const visitMessage = (raw: Message): boolean | void => {
