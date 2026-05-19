@@ -34,7 +34,11 @@
 
 ## [v1.5.7] - Unreleased
 
-Scope and tasks: [v1.5.7-scope.md](docs/program/v1.5.7-scope.md). Release gate: [v1.5.7-gate.md](docs/releases/v1.5.7-gate.md).
+Development line opened after **v1.5.6** (2026-05-19). **Scope:** [v1.5.7-scope.md](docs/program/v1.5.7-scope.md). **Gate:** [v1.5.7-gate.md](docs/releases/v1.5.7-gate.md).
+
+### Changed
+
+- **U3 (start)** — `getRelayPublishFailureUserMessage` now maps `failed`, `retry_scheduled`, upload-related reason codes, and `storage_unavailable` to explicit user-facing strings (still falls back to `error` when provided).
 
 ## [v1.5.5] - 2026-05-18 (Client Depth)
 

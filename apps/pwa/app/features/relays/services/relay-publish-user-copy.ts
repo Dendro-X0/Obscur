@@ -57,6 +57,18 @@ export const getRelayPublishFailureUserMessage = (params: Readonly<{
       return "Relay connection is degraded. Delivery could not be confirmed — try again after reconnect.";
     case "offline":
       return "You appear offline. Reconnect and resend.";
+    case "failed":
+      return params.error?.trim() || "Delivery could not be confirmed. Check your connection and try again.";
+    case "retry_scheduled":
+      return "Send is queued — Obscur will retry in the background when the network is ready.";
+    case "provider_unavailable":
+      return "The upload service is unavailable. Try again in a moment.";
+    case "upload_timeout":
+      return "Upload timed out. Check your connection and try again with a smaller attachment if needed.";
+    case "upload_provider_failed":
+      return "Upload could not be completed. Try again or pick a different file.";
+    case "storage_unavailable":
+      return "Local storage is unavailable. Free space or restart the app, then try again.";
     default:
       return params.error?.trim() || "Message could not be confirmed on relays. Check connection and retry.";
   }
