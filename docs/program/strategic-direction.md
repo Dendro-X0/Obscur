@@ -2,7 +2,8 @@
 
 **Status:** Active program framing  
 **Last updated:** 2026-05-18  
-**Current release target:** v1.5.5 — mobile production (same version as desktop); v1.5.4 shipped  
+**Current release target:** v1.5.5 — client refinement (features); v1.5.4 shipped; **distribution optional**
+**Feature roadmap:** [v1.5.x-feature-roadmap.md](./v1.5.x-feature-roadmap.md)  
 **Mobile/desktop policy:** [mobile-desktop-version-policy.md](./mobile-desktop-version-policy.md)
 
 ---
@@ -42,7 +43,8 @@ Obscur is **not** a failed experiment. It requires **adjusted goals**:
 | **v1.5.2** | Navigation warmup, community confirm pages, relay probe caps (shipped) |
 | **v1.5.3** | Stay smooth + mobile shell build + APK on tag releases (shipped) |
 | **v1.5.4** | One Mark — unified icons; **desktop production**; mobile CI artifacts only (same version) |
-| **v1.5.5+** | Mobile **production** gate: signing, native components, device matrix, DM-first UI slices |
+| **v1.5.5–6** | **Refine** desktop/web + shared kernel; optional mobile UI slice; **distro shelved** |
+| **v1.6+** | Cooperative recall UI; mobile/iOS distro if ever prioritized |
 | **v1.5.x** | Stabilize Nostr client + mobile ship; no false marketing |
 | **v1.6+** | Cooperative recall hardening, optional features per charter |
 | **Kernel** | Gradual — see `docs/future/` |
