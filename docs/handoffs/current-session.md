@@ -1,20 +1,20 @@
 # Current Session Handoff
 
-- Last Updated (UTC): 2026-05-19T23:30:00Z
-- Session Status: **v1.5.7** — version **1.5.7** on `main`; U3 copy slice landed; **G1/G2** next
+- Last Updated (UTC): 2026-05-20T00:15:00Z
+- Session Status: **v1.5.7** — **G2** landed (72h TTL, tie votes, resolved dedupe); **G1** matrix doc ready; **U3** partial
 - Active Owner: Shared PWA / desktop shell (**U3**, community **G1/G2**, **U4**)
 
 ## Active Objective
 
-1. **v1.5.6:** Shipped on `main` as commit `release: v1.5.6 desktop kernel and community Phase 1`. Optional **Git tag `v1.5.6`** when maintainer runs [v1.5.6-gate.md](../releases/v1.5.6-gate.md) (A1–A4 + D1).
+1. **v1.5.6:** Code + tag `v1.5.6` at `1d9f3e0b` on GitHub; **Full Release** workflow may not have published installers (check Actions → *Obscur Full Release*). Skipping retroactive v1.5.6 artifacts is OK — ship **v1.5.7** tag when ready.
 2. **v1.5.7:** Packages at **1.5.7** — continue [v1.5.7-scope.md](../program/v1.5.7-scope.md): **U3** (publish copy), **G1/G2**, **U4**.
 3. **Policy:** [mobile-desktop-version-policy.md](../program/mobile-desktop-version-policy.md) — distro work resumes only when asked.
 
 ## Next Atomic Step
 
-1. **U3:** Continue auditing relay/publish paths for raw `reasonCode` or missing user strings; extend `getRelayPublishFailureUserMessage` / call sites as needed.
-2. **G1:** Run and document **manual verify** — two-member rename approve → descriptor; three-member expel via governance (`docs/assets/demo/` or short addendum).
-3. **G2 (optional, product-prioritized):** Dedupe competing `governance.resolved`; tie votes; TTL **72h** vs code default — confirm before changing.
+1. **G1:** Execute [v1.5.7 manual matrix](../assets/demo/v1.5.7/README.md) and fill sign-off table.
+2. **U3:** Continue auditing relay/publish paths for raw `reasonCode` or missing user strings.
+3. **Release:** When scope is ready, tag **`v1.5.7`** at HEAD (not v1.5.6) after `pnpm release:test-pack` on clean tree.
 
 Canonical plans: [community-system-implementation-and-ui-plan.md](../program/community-system-implementation-and-ui-plan.md) · [community-system-overhaul-phased-roadmap.md](../program/community-system-overhaul-phased-roadmap.md) (Phase 1).
 

@@ -39,6 +39,11 @@ Development line opened after **v1.5.6** (2026-05-19). **Scope:** [v1.5.7-scope.
 ### Changed
 
 - **U3 (start)** — `getRelayPublishFailureUserMessage` now maps `failed`, `retry_scheduled`, upload-related reason codes, and `storage_unavailable` to explicit user-facing strings (still falls back to `error` when provided).
+- **G2** — Governance proposal TTL **72h** (was 7d); **tie votes** (`approve === reject` at quorum) close as rejected; duplicate `governance.resolved` with the same resolution is idempotent in the reducer.
+
+### Added
+
+- **G1** — Manual matrix: [docs/assets/demo/v1.5.7/README.md](docs/assets/demo/v1.5.7/README.md).
 
 ## [v1.5.5] - 2026-05-18 (Client Depth)
 

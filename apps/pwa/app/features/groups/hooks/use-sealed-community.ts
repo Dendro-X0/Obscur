@@ -44,12 +44,14 @@ import {
   getActiveGovernanceProposals,
   hasGovernanceQuorum,
   hasGovernanceRejectionQuorum,
+  hasGovernanceVoteTie,
   listExpiredOpenGovernanceProposalIds,
   reduceCommunityGovernance,
   type CommunityGovernanceReducerState,
   type GovernanceProposalRecord,
   type GovernanceReducerEvent,
 } from "../services/community-governance-reducer";
+import { computeGovernanceProposalExpiresAtUnixMs } from "../services/community-governance-policy";
 import { toGovernanceReducerEventFromSealed } from "../services/community-governance-sealed";
 import {
   parseStoredCommunityGovernanceState,
@@ -1865,7 +1867,11 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
       return;
     }
     const proposal = governanceRef.current.proposalsById[proposalId];
-    if (!proposal || proposal.resolution || !hasGovernanceRejectionQuorum(proposal)) {
+    if (
+      !proposal
+      || proposal.resolution
+      || (!hasGovernanceRejectionQuorum(proposal) && !hasGovernanceVoteTie(proposal))
+    ) {
       return;
     }
     governanceFinalizeInFlightRef.current.add(proposalId);
@@ -1882,7 +1888,11 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
         createdAtUnixMs: Date.now(),
         logicalEventId: `local-resolve-reject:${proposalId}`,
       });
-      toast.info("Governance proposal was rejected by member vote.");
+      toast.info(
+        hasGovernanceVoteTie(proposal)
+          ? "Governance proposal tied on votes and was closed without applying changes."
+          : "Governance proposal was rejected by member vote.",
+      );
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to finalize governance rejection.");
     } finally {
@@ -1904,7 +1914,11 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
     if (event.type === "VOTE_CAST" && !proposal.resolution && hasGovernanceQuorum(proposal)) {
       void finalizeGovernanceProposal(proposalId);
     }
-    if (event.type === "VOTE_CAST" && !proposal.resolution && hasGovernanceRejectionQuorum(proposal)) {
+    if (
+      event.type === "VOTE_CAST"
+      && !proposal.resolution
+      && (hasGovernanceRejectionQuorum(proposal) || hasGovernanceVoteTie(proposal))
+    ) {
       void finalizeGovernanceProposalRejected(proposalId);
     }
     if (event.type === "RESOLVED" && proposal.resolution === "accepted") {
@@ -2436,7 +2450,7 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
       picture: nextMetadata.picture,
       access: nextMetadata.access,
     };
-    const proposalExpiresAtUnixMs = Date.now() + (7 * 24 * 60 * 60 * 1000);
+    const proposalExpiresAtUnixMs = computeGovernanceProposalExpiresAtUnixMs();
     await publishGovernanceSealed("proposed", {
       proposalId,
       actionType: "update_descriptor",
@@ -2484,7 +2498,7 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
       targetPublicKeyHex: expelParams.targetPublicKeyHex,
       ...(expelParams.reason ? { reason: expelParams.reason } : {}),
     };
-    const proposalExpiresAtUnixMs = Date.now() + (7 * 24 * 60 * 60 * 1000);
+    const proposalExpiresAtUnixMs = computeGovernanceProposalExpiresAtUnixMs();
     await publishGovernanceSealed("proposed", {
       proposalId,
       actionType: "expel_member",

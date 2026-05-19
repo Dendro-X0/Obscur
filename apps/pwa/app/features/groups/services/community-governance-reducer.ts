@@ -131,6 +131,15 @@ export const hasGovernanceRejectionQuorum = (proposal: GovernanceProposalRecord)
   return reject >= proposal.quorumThreshold && reject > approve;
 };
 
+/** Approve and reject counts meet quorum but are equal — close as rejected without applying effects. */
+export const hasGovernanceVoteTie = (proposal: GovernanceProposalRecord): boolean => {
+  if (proposal.resolution) {
+    return false;
+  }
+  const { approve, reject } = countGovernanceVotes(proposal);
+  return approve === reject && approve >= proposal.quorumThreshold;
+};
+
 export const getActiveGovernanceProposals = (
   state: CommunityGovernanceReducerState,
   nowUnixMs: number = Date.now(),
@@ -265,6 +274,12 @@ export const reduceCommunityGovernance = (
         existing.resolution
         && existing.resolvedAtUnixMs
         && existing.resolvedAtUnixMs >= event.createdAtUnixMs
+      ) {
+        return touchMeta(event.logicalEventId, event.createdAtUnixMs);
+      }
+      if (
+        existing.resolution
+        && existing.resolution === event.resolution
       ) {
         return touchMeta(event.logicalEventId, event.createdAtUnixMs);
       }

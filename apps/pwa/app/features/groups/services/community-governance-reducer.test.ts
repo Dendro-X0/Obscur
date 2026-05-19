@@ -5,6 +5,7 @@ import {
   getActiveGovernanceProposals,
   hasGovernanceQuorum,
   hasGovernanceRejectionQuorum,
+  hasGovernanceVoteTie,
   listExpiredOpenGovernanceProposalIds,
   reduceCommunityGovernance,
 } from "./community-governance-reducer";
@@ -85,6 +86,90 @@ describe("community-governance-reducer", () => {
       logicalEventId: "e3",
     });
     expect(hasGovernanceRejectionQuorum(state.proposalsById.p2!)).toBe(true);
+  });
+
+  it("detects tied approve/reject counts at quorum as a tie", () => {
+    let state = createEmptyCommunityGovernanceState();
+    state = reduceCommunityGovernance(state, {
+      type: "PROPOSED",
+      proposalId: "p-tie",
+      actionType: "update_descriptor",
+      proposerPublicKeyHex: PROPOSER,
+      createdAtUnixMs: 1000,
+      quorumThreshold: 2,
+      payload: { name: "Tie" },
+      logicalEventId: "e1",
+    });
+    state = reduceCommunityGovernance(state, {
+      type: "VOTE_CAST",
+      proposalId: "p-tie",
+      voterPublicKeyHex: PROPOSER,
+      vote: "approve",
+      createdAtUnixMs: 1001,
+      logicalEventId: "e2",
+    });
+    state = reduceCommunityGovernance(state, {
+      type: "VOTE_CAST",
+      proposalId: "p-tie",
+      voterPublicKeyHex: VOTER_B,
+      vote: "reject",
+      createdAtUnixMs: 1002,
+      logicalEventId: "e3",
+    });
+    const extraVoter = "c".repeat(64);
+    state = reduceCommunityGovernance(state, {
+      type: "VOTE_CAST",
+      proposalId: "p-tie",
+      voterPublicKeyHex: extraVoter,
+      vote: "approve",
+      createdAtUnixMs: 1003,
+      logicalEventId: "e4",
+    });
+    state = reduceCommunityGovernance(state, {
+      type: "VOTE_CAST",
+      proposalId: "p-tie",
+      voterPublicKeyHex: "d".repeat(64),
+      vote: "reject",
+      createdAtUnixMs: 1004,
+      logicalEventId: "e5",
+    });
+    const proposal = state.proposalsById["p-tie"]!;
+    expect(hasGovernanceVoteTie(proposal)).toBe(true);
+    expect(hasGovernanceQuorum(proposal)).toBe(false);
+    expect(hasGovernanceRejectionQuorum(proposal)).toBe(false);
+  });
+
+  it("ignores duplicate RESOLVED events with the same resolution", () => {
+    let state = createEmptyCommunityGovernanceState();
+    state = reduceCommunityGovernance(state, {
+      type: "PROPOSED",
+      proposalId: "p1",
+      actionType: "update_descriptor",
+      proposerPublicKeyHex: PROPOSER,
+      createdAtUnixMs: 1000,
+      quorumThreshold: 1,
+      payload: { name: "Once" },
+      logicalEventId: "e1",
+    });
+    state = reduceCommunityGovernance(state, {
+      type: "RESOLVED",
+      proposalId: "p1",
+      resolution: "rejected",
+      resolverPublicKeyHex: PROPOSER,
+      createdAtUnixMs: 2000,
+      logicalEventId: "e2",
+    });
+    const afterDuplicate = reduceCommunityGovernance(state, {
+      type: "RESOLVED",
+      proposalId: "p1",
+      resolution: "rejected",
+      resolverPublicKeyHex: VOTER_B,
+      createdAtUnixMs: 3000,
+      logicalEventId: "e3",
+    });
+    expect(afterDuplicate.proposalsById.p1?.resolution).toBe("rejected");
+    expect(afterDuplicate.proposalsById.p1?.resolvedAtUnixMs).toBe(2000);
+    expect(afterDuplicate.lastGovernanceEventId).toBe("e3");
   });
 
   it("moves resolved proposals out of active list", () => {
