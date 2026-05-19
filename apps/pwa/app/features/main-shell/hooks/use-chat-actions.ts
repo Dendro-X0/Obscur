@@ -24,6 +24,7 @@ import {
     assertRelayPublishSuccess,
     resolveUserFacingErrorMessage,
 } from "@/app/features/relays/services/relay-publish-user-copy";
+import { getUploadFailureUserMessageFromUnknown } from "../../messaging/lib/upload-user-copy";
 import { normalizeRelayUrl as normalizeRelayUrlBase } from "@dweb/nostr/relay-utils";
 import { useResolvedProfileMetadata } from "@/app/features/profile/hooks/use-resolved-profile-metadata";
 import { canDeleteMessageForEveryone, getDeleteForEveryoneRejectionReason } from "../../messaging/services/message-delete-permissions";
@@ -335,20 +336,14 @@ export function useChatActions(dmController: UseDmControllerResult | null) {
                 ).catch((e) => {
                     console.warn("[Vault] Failed to cache sent attachments locally:", e);
                 });
-            } catch (error: any) {
+            } catch (error: unknown) {
                 console.warn("Failed to upload attachment:", error);
 
-                const errorMessage = error instanceof UploadError
-                    ? (error.code === UploadErrorCode.NO_SESSION ? "Session expired. Please lock/unlock." :
-                        error.code === UploadErrorCode.AUTH_MISSING_KEY ? "Login required for upload." :
-                            error.code === UploadErrorCode.FILE_TOO_LARGE ? error.message :
-                                error.code === UploadErrorCode.NETWORK_ERROR
-                                    ? (error.message.toLowerCase().includes("timeout")
-                                        ? `Upload timed out. Retry on a stable connection. ${BEST_EFFORT_STORAGE_NOTE}`
-                                        : "Network error during upload. Check connection and retry.")
-                                    :
-                                    error.message || "Upload failed. Try another provider in Storage settings.")
-                    : `Upload failed unexpectedly. Retry or switch provider in Storage settings. ${BEST_EFFORT_STORAGE_NOTE}`;
+                const errorMessage = getUploadFailureUserMessageFromUnknown(
+                    error,
+                    "Upload failed. Try another provider in Storage settings.",
+                    { storageNote: BEST_EFFORT_STORAGE_NOTE },
+                );
 
                 setAttachmentError(errorMessage);
                 toast.error(errorMessage);

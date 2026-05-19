@@ -24,6 +24,7 @@ import { useIdentity } from "../../auth/hooks/use-identity";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import { cacheAttachmentLocally } from "../services/local-media-store";
+import { getUploadFailureUserMessageFromUnknown } from "../../messaging/lib/upload-user-copy";
 
 interface VaultUploadModalProps {
     readonly isOpen: boolean;
@@ -82,9 +83,12 @@ export function VaultUploadModal({ isOpen, onClose, onUploadComplete }: VaultUpl
             }
 
             setSuccessUrl(lastUploadedUrl);
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error("[VaultUpload] Upload failed:", err);
-            setError(err.message || "Upload failed. Please try another provider or check your connection.");
+            setError(getUploadFailureUserMessageFromUnknown(
+                err,
+                "Upload failed. Please try another provider or check your connection.",
+            ));
         } finally {
             setIsUploading(false);
         }

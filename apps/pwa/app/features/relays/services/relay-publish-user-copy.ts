@@ -72,6 +72,8 @@ export const getRelayPublishFailureUserMessage = (params: Readonly<{
       return "Upload could not be completed. Try again or pick a different file.";
     case "storage_unavailable":
       return "Local storage is unavailable. Free space or restart the app, then try again.";
+    case "unsupported_runtime":
+      return "This action is not available in the current session. Unlock your identity and try again.";
     default:
       return params.error?.trim() || "Message could not be confirmed on relays. Check connection and retry.";
   }

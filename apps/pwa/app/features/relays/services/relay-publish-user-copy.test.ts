@@ -64,6 +64,10 @@ describe("relay-publish-user-copy", () => {
     expect(getRelayPublishFailureUserMessage({
       reasonCode: "upload_timeout",
     })).toMatch(/timed out/i);
+
+    expect(getRelayPublishFailureUserMessage({
+      reasonCode: "unsupported_runtime",
+    })).toMatch(/Unlock your identity/i);
   });
 
   it("formats publish failure from outcome with operation prefix", () => {

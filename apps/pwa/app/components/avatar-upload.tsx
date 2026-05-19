@@ -4,6 +4,7 @@ import React, { useRef, useState } from "react";
 import { Upload, X, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { Button } from "./ui/button";
 import { toast } from "./ui/toast";
+import { getUploadFailureUserMessageFromUnknown } from "@/app/features/messaging/lib/upload-user-copy";
 import { useUploadService } from "@/app/features/messaging/lib/upload-service";
 import { cn } from "@/app/lib/utils";
 import { getNip96StorageKey } from "@/app/features/messaging/lib/nip96-upload-service";
@@ -65,8 +66,10 @@ export function AvatarUpload({ currentAvatarUrl, onUploadSuccess, onClear, class
         } catch (error) {
             console.error("[AvatarUpload] Upload failed:", error);
             setStatus('error');
-            const message = error instanceof Error ? error.message : "Failed to upload avatar. Please try again.";
-            toast.error(message);
+            toast.error(getUploadFailureUserMessageFromUnknown(
+                error,
+                "Failed to upload avatar. Please try again.",
+            ));
         } finally {
             setIsUploading(false);
         }
