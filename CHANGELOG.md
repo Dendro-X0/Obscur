@@ -56,6 +56,10 @@ Desktop-first patch: governance TTL and tie handling, duplicate-resolution idemp
 
 **Scope:** [v1.5.8-scope.md](docs/program/v1.5.8-scope.md). **Gate:** [v1.5.8-gate.md](docs/releases/v1.5.8-gate.md).
 
+### Changed
+
+- **U3** — Shared `formatRelayPublishFailureMessage` / `assertRelayPublishSuccess` for community publish paths (messages, governance, descriptor, join, leave, vote-kick); profile partial/degraded toasts use `formatRelayPublishPartialCoverageMessage`; group send in main shell and management dialog errors use mapped copy.
+
 ## [v1.5.5] - 2026-05-18 (Client Depth)
 
 ### Summary

@@ -74,6 +74,7 @@ import { summarizeCommunityOperatorHealth } from "../services/community-operator
 import { discoveryCache } from "@/app/features/search/services/discovery-cache";
 import { filterVisibleGroupMembers } from "../services/community-visible-members";
 import { resolveCommunityDisplayName } from "../services/community-display-name";
+import { resolveUserFacingErrorMessage } from "@/app/features/relays/services/relay-publish-user-copy";
 import { getResolvedClientGateway } from "@/app/features/profiles/services/resolve-client-gateway";
 
 interface GroupManagementDialogProps {
@@ -339,7 +340,7 @@ export function GroupManagementDialog({
                 toast.success("Vote to kick submitted");
             }
         } catch (error) {
-            toast.error(error instanceof Error ? error.message : "Failed to submit removal");
+            toast.error(resolveUserFacingErrorMessage(error, "Failed to submit removal."));
         } finally {
             setKickingMemberPubkey(null);
         }
@@ -407,7 +408,7 @@ export function GroupManagementDialog({
                 toast.success("Community settings updated");
             }
         } catch (error) {
-            toast.error(error instanceof Error ? error.message : "Failed to update settings");
+            toast.error(resolveUserFacingErrorMessage(error, "Failed to update settings."));
         } finally {
             setIsSaving(false);
         }

@@ -20,6 +20,10 @@ import { cacheAttachmentLocally } from "../../vault/services/local-media-store";
 import { shouldCacheAttachmentInVault } from "../../messaging/utils/attachment-storage-policy";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
 import { logAppEvent } from "@/app/shared/log-app-event";
+import {
+    assertRelayPublishSuccess,
+    resolveUserFacingErrorMessage,
+} from "@/app/features/relays/services/relay-publish-user-copy";
 import { normalizeRelayUrl as normalizeRelayUrlBase } from "@dweb/nostr/relay-utils";
 import { useResolvedProfileMetadata } from "@/app/features/profile/hooks/use-resolved-profile-metadata";
 import { canDeleteMessageForEveryone, getDeleteForEveryoneRejectionReason } from "../../messaging/services/message-delete-permissions";
@@ -222,9 +226,10 @@ export function useChatActions(dmController: UseDmControllerResult | null) {
             }
         }
 
-        if (!result.success) {
-            throw new Error(result.overallError || "Failed to publish group event to relay scope");
-        }
+        assertRelayPublishSuccess(result, {
+            operation: "Could not publish to community relays",
+            fallback: "Failed to publish group event to relay scope.",
+        });
     }, [relayPool]);
 
     const handleSendMessage = useCallback(async () => {
@@ -441,15 +446,12 @@ export function useChatActions(dmController: UseDmControllerResult | null) {
             }
             setUploadStage("idle");
             setIsUploadingAttachment(false);
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error("Failed to send message:", error);
             const fallback = selectedConversation?.kind === "group"
                 ? "Failed to send group message. Check relay scope and retry."
                 : "Failed to send message. Check relay connection and retry.";
-            const detail = typeof error?.message === "string" && error.message.trim().length > 0
-                ? error.message
-                : fallback;
-            toast.error(detail);
+            toast.error(resolveUserFacingErrorMessage(error, fallback));
             // Restore input on failure
             setMessageInput(currentInput);
             setUploadStage("idle");

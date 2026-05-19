@@ -12,6 +12,11 @@ import { PrivacySettingsService } from "@/app/features/settings/services/privacy
 import { getV090RolloutPolicy } from "@/app/features/settings/services/v090-rollout-policy";
 import { protocolCoreAdapter } from "@/app/features/runtime/protocol-core-adapter";
 import { publishViaRelayCore } from "@/app/features/relays/lib/nostr-core-relay";
+import {
+    formatRelayPublishPartialCoverageMessage,
+    getRelayPublishFailureUserMessage,
+    inferRelayPublishReasonCode,
+} from "@/app/features/relays/services/relay-publish-user-copy";
 import { GLOBAL_DISCOVERY_RELAY_URLS, mergeRelaySets } from "@/app/features/relays/services/discovery-relay-set";
 import { discoveryCache } from "@/app/features/search/services/discovery-cache";
 import { seedProfileMetadataCache } from "./use-profile-metadata";
@@ -351,7 +356,10 @@ export const useProfilePublisher = (): UseProfilePublisherResult => {
                                         : "Profile published with degraded relay coverage.",
                                 });
                                 if (isPartialRelaySuccess(report.successCount, report.totalRelays)) {
-                                    toast.warning(`Profile saved with degraded relay coverage (${report.successCount}/${report.totalRelays}).`);
+                                    toast.warning(formatRelayPublishPartialCoverageMessage(
+                                        report.successCount,
+                                        report.totalRelays,
+                                    ));
                                 }
                                 mirrorProfileToGlobalDiscoveryRelays({
                                     pool,
@@ -403,7 +411,7 @@ export const useProfilePublisher = (): UseProfilePublisherResult => {
                                 message: relayCorePublish.message,
                             });
                             if (relayCorePublish.status === "partial" || isPartialRelaySuccess(successCount, totalRelays)) {
-                                toast.warning(`Profile saved with degraded relay coverage (${successCount}/${totalRelays}).`);
+                                toast.warning(formatRelayPublishPartialCoverageMessage(successCount, totalRelays));
                             }
                             mirrorProfileToGlobalDiscoveryRelays({
                                 pool,
@@ -453,7 +461,10 @@ export const useProfilePublisher = (): UseProfilePublisherResult => {
                                 message: result.overallError,
                             });
                             if (isPartialRelaySuccess(result.successCount, result.totalRelays)) {
-                                toast.warning(`Profile saved with degraded relay coverage (${result.successCount}/${result.totalRelays}).`);
+                                toast.warning(formatRelayPublishPartialCoverageMessage(
+                                    result.successCount,
+                                    result.totalRelays,
+                                ));
                             }
                             mirrorProfileToGlobalDiscoveryRelays({
                                 pool,
@@ -523,7 +534,15 @@ export const useProfilePublisher = (): UseProfilePublisherResult => {
                 message,
             });
             if (isDegradedFailure(message)) {
-                toast.warning("Relay network is degraded. Profile publish did not fully propagate.");
+                toast.warning(getRelayPublishFailureUserMessage({
+                    reasonCode: inferRelayPublishReasonCode({
+                        success: false,
+                        successCount: 0,
+                        totalRelays: enabledRelayUrls.length,
+                        overallError: message,
+                    }) ?? "relay_degraded",
+                    error: message,
+                }));
             }
             return false;
         } finally {

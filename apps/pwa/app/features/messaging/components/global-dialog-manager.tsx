@@ -23,6 +23,7 @@ import { deriveCommunityId } from "@/app/features/groups/utils/community-identit
 import { toDmConversationId } from "@/app/features/messaging/utils/dm-conversation-id";
 import { createDmConversation } from "@/app/features/messaging/utils/create-dm-conversation";
 import { logAppEvent } from "@/app/shared/log-app-event";
+import { resolveUserFacingErrorMessage } from "@/app/features/relays/services/relay-publish-user-copy";
 import { dispatchGroupInviteReceived } from "@/app/features/profiles/services/profile-bus-dispatch";
 
 const DEFAULT_DM_DISPLAY_NAME = "Unknown contact";
@@ -214,7 +215,12 @@ export function GlobalDialogManager() {
             toast.success(t("groups.created", "Sealed Community created successfully"));
         } catch (error: any) {
             console.error("Community creation failed:", error);
-            toast.error(error?.message || "Failed to create community. Verify relay host and try again.");
+            toast.error(
+                resolveUserFacingErrorMessage(
+                    error,
+                    "Failed to create community. Verify relay host and try again.",
+                ),
+            );
         } finally {
             setIsCreatingGroup(false);
         }

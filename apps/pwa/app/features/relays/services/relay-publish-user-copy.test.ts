@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  assertRelayPublishSuccess,
+  formatRelayPublishFailureMessage,
+  formatRelayPublishPartialCoverageMessage,
   getRelayPublishFailureUserMessage,
   inferRelayPublishReasonCode,
+  resolveUserFacingErrorMessage,
 } from "./relay-publish-user-copy";
 
 describe("relay-publish-user-copy", () => {
@@ -60,5 +64,35 @@ describe("relay-publish-user-copy", () => {
     expect(getRelayPublishFailureUserMessage({
       reasonCode: "upload_timeout",
     })).toMatch(/timed out/i);
+  });
+
+  it("formats publish failure from outcome with operation prefix", () => {
+    expect(formatRelayPublishFailureMessage({
+      success: false,
+      successCount: 0,
+      totalRelays: 2,
+      openRelayCount: 0,
+    }, { operation: "Could not publish community message" })).toMatch(
+      /Could not publish community message.*No writable relays/i,
+    );
+  });
+
+  it("formats partial coverage warning", () => {
+    expect(formatRelayPublishPartialCoverageMessage(1, 3)).toMatch(/partial \(1\/3\)/i);
+  });
+
+  it("assertRelayPublishSuccess throws user-facing message", () => {
+    expect(() => assertRelayPublishSuccess({
+      success: false,
+      successCount: 0,
+      totalRelays: 0,
+    }, { fallback: "Publish failed." })).toThrow(/No writable relays|Publish failed/i);
+  });
+
+  it("resolveUserFacingErrorMessage prefers Error message", () => {
+    expect(resolveUserFacingErrorMessage(new Error("Relay connection is degraded."), "Fallback")).toMatch(
+      /degraded/i,
+    );
+    expect(resolveUserFacingErrorMessage({}, "Fallback")).toBe("Fallback");
   });
 });

@@ -9,6 +9,9 @@ export type RelayPublishOutcomeContext = Readonly<{
   overallError?: string;
 }>;
 
+/** Minimal relay publish report shape used by community scope and relay pool. */
+export type RelayPublishOutcome = RelayPublishOutcomeContext;
+
 export const inferRelayPublishReasonCode = (
   context: RelayPublishOutcomeContext,
 ): DeliveryReasonCode | undefined => {
@@ -72,4 +75,67 @@ export const getRelayPublishFailureUserMessage = (params: Readonly<{
     default:
       return params.error?.trim() || "Message could not be confirmed on relays. Check connection and retry.";
   }
+};
+
+const DEFAULT_PUBLISH_FAILURE_FALLBACK =
+  "Message could not be confirmed on relays. Check connection and retry.";
+
+/** Map a relay publish outcome to user-facing copy (never raw `reasonCode`). */
+export const formatRelayPublishFailureMessage = (
+  outcome: RelayPublishOutcome,
+  options?: Readonly<{
+    fallback?: string;
+    /** Short lead-in, e.g. "Could not publish governance vote" */
+    operation?: string;
+  }>,
+): string => {
+  const reasonCode = inferRelayPublishReasonCode(outcome);
+  const body = getRelayPublishFailureUserMessage({
+    reasonCode,
+    error: outcome.overallError,
+    successCount: outcome.successCount,
+    totalRelays: outcome.totalRelays,
+  });
+  const fallback = options?.fallback ?? DEFAULT_PUBLISH_FAILURE_FALLBACK;
+  const message = body.trim().length > 0 ? body : fallback;
+  if (options?.operation) {
+    return `${options.operation}. ${message}`;
+  }
+  return message;
+};
+
+export const formatRelayPublishPartialCoverageMessage = (
+  successCount: number,
+  totalRelays: number,
+): string => (
+  getRelayPublishFailureUserMessage({
+    reasonCode: "quorum_not_met",
+    successCount,
+    totalRelays,
+  })
+);
+
+export const assertRelayPublishSuccess = (
+  outcome: RelayPublishOutcome,
+  options?: Readonly<{
+    fallback?: string;
+    operation?: string;
+  }>,
+): void => {
+  if (!outcome.success) {
+    throw new Error(formatRelayPublishFailureMessage(outcome, options));
+  }
+};
+
+export const resolveUserFacingErrorMessage = (
+  error: unknown,
+  fallback: string,
+): string => {
+  if (error instanceof Error) {
+    const trimmed = error.message.trim();
+    if (trimmed.length > 0) {
+      return trimmed;
+    }
+  }
+  return fallback;
 };

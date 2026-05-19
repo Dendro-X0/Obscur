@@ -1,7 +1,7 @@
 # Current Session Handoff
 
 - Last Updated (UTC): 2026-05-20T12:00:00Z
-- Session Status: **v1.5.8** — development line open at **1.5.8**; **v1.5.7** shipped on GitHub
+- Session Status: **v1.5.8** — **U3** community/profile publish copy wired; **G1** sign-off next
 - Active Owner: Shared PWA / desktop shell (**U3**, **G1** / Phase 1 exit, **U4**)
 
 ## Active Objective
@@ -12,7 +12,7 @@
 
 ## Next Atomic Step
 
-1. **U3:** Audit group/community publish and upload failure toasts for raw `reasonCode` / technical strings; wire to `getRelayPublishFailureUserMessage` (or domain helper) + tests.
+1. **U3 (continued):** Residual upload/DM surfaces if any still show raw errors; extend tests as needed.
 2. **G1:** Run [v1.5.7 manual matrix](../assets/demo/v1.5.7/README.md) and fill sign-off table (rename + expel).
 3. Ship slices with **`pnpm release:test-pack`** green; tag **`v1.5.8`** when scope closes.
 

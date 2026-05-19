@@ -39,6 +39,11 @@ import {
 } from "@/app/features/profiles/services/profile-bus-dispatch";
 import { pickPreferredCommunityDisplayName } from "../services/community-display-name";
 import {
+  assertRelayPublishSuccess,
+  formatRelayPublishFailureMessage,
+  resolveUserFacingErrorMessage,
+} from "@/app/features/relays/services/relay-publish-user-copy";
+import {
   computeGovernanceQuorumThreshold,
   createEmptyCommunityGovernanceState,
   getActiveGovernanceProposals,
@@ -1778,9 +1783,10 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
       operation: `Governance ${governanceType}`,
       allowGlobalFallback: true,
     });
-    if (!publishResult.success) {
-      throw new Error(publishResult.overallError || "Failed to publish governance event.");
-    }
+    assertRelayPublishSuccess(publishResult, {
+      operation: "Could not publish governance event",
+      fallback: "Failed to publish governance event.",
+    });
   }, [params.groupId, params.myPrivateKeyHex, params.myPublicKeyHex, publishToCommunityScopeWithRetry]);
 
   const applyGovernanceAcceptedEffects = useCallback(async (
@@ -1856,7 +1862,7 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
         logicalEventId: `local-resolve:${proposalId}`,
       });
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to finalize governance proposal.");
+      toast.error(resolveUserFacingErrorMessage(error, "Failed to finalize governance proposal."));
     } finally {
       governanceFinalizeInFlightRef.current.delete(proposalId);
     }
@@ -1894,7 +1900,7 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
           : "Governance proposal was rejected by member vote.",
       );
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to finalize governance rejection.");
+      toast.error(resolveUserFacingErrorMessage(error, "Failed to finalize governance rejection."));
     } finally {
       governanceFinalizeInFlightRef.current.delete(proposalId);
     }
@@ -2028,9 +2034,10 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
       });
 
       const publishResult = await publishToCommunityScope(signedEvent);
-      if (!publishResult.success) {
-        throw new Error(publishResult.overallError || "Failed to publish to community relay scope");
-      }
+      assertRelayPublishSuccess(publishResult, {
+        operation: "Could not send community message",
+        fallback: "Failed to send message. Check relay connection and try again.",
+      });
 
       // Optimistic update
       const optimisticMsg: GroupMessageEvent = {
@@ -2064,8 +2071,11 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
 
         return { ...prev, messages: newMessages };
       });
-    } catch (e: any) {
-      toast.error(e.message || "Failed to send message. Check relay connection and try again.");
+    } catch (e: unknown) {
+      toast.error(resolveUserFacingErrorMessage(
+        e,
+        "Failed to send message. Check relay connection and try again.",
+      ));
     }
   }, [conversationId, params.groupId, params.myPrivateKeyHex, params.myPublicKeyHex, publishToCommunityScope]);
 
@@ -2085,12 +2095,16 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
       });
 
       const publishResult = await publishToCommunityScope(signedEvent);
-      if (!publishResult.success) {
-        throw new Error(publishResult.overallError || "Failed to publish to community relay scope");
-      }
+      assertRelayPublishSuccess(publishResult, {
+        operation: "Could not publish vote to remove member",
+        fallback: "Failed to publish vote. Retry after relay reconnect.",
+      });
       toast.success("Vote to kick published");
-    } catch (e: any) {
-      toast.error(e.message || "Failed to publish vote. Retry after relay reconnect.");
+    } catch (e: unknown) {
+      toast.error(resolveUserFacingErrorMessage(
+        e,
+        "Failed to publish vote. Retry after relay reconnect.",
+      ));
     }
   }, [params.groupId, params.myPrivateKeyHex, params.myPublicKeyHex, publishToCommunityScope]);
 
@@ -2171,10 +2185,10 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
           profileId,
         });
         if (!nip29LeaveResult.success) {
-          toast.warning(
-            nip29LeaveResult.overallError
-              || "Leave saved locally; relay publish will retry when the network allows.",
-          );
+          toast.warning(formatRelayPublishFailureMessage(nip29LeaveResult, {
+            operation: "Could not confirm leave on relays",
+            fallback: "Leave saved locally; relay publish will retry when the network allows.",
+          }));
         }
 
         // 2. Tell other CLIENTS via sealed channel (Kind 10105) — best-effort after durable local leave
@@ -2273,7 +2287,10 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
         }
       } catch (e: any) {
         console.error("Failed to broadcast leave event(s):", e);
-        toast.error(e?.message || "Failed to leave via scoped relay. Try again or check relay status.");
+        toast.error(resolveUserFacingErrorMessage(
+          e,
+          "Failed to leave via scoped relay. Try again or check relay status.",
+        ));
       }
 
       // 3. Publish self-encrypted leave proof to the user's relay set.
@@ -2304,7 +2321,10 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
     });
     const deletionResult = await publishToCommunityScope(deletionEvent);
     if (!deletionResult.success) {
-      throw new Error(deletionResult.overallError || "Failed to publish delete to community relay scope");
+      assertRelayPublishSuccess(deletionResult, {
+        operation: "Could not publish message deletion",
+        fallback: "Failed to delete message on community relays.",
+      });
     }
     const deletedAtMs = Date.now();
     deletedMessageTombstonesRef.current.set(deleteParams.eventId, deletedAtMs);
@@ -2370,9 +2390,10 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
       operation: "Descriptor update (sealed)",
       allowGlobalFallback: true,
     });
-    if (!sealedResult.success) {
-      throw new Error(sealedResult.overallError || "Failed to publish descriptor update to community relay scope.");
-    }
+    assertRelayPublishSuccess(sealedResult, {
+      operation: "Could not publish community settings update",
+      fallback: "Failed to publish community settings update.",
+    });
 
     const relayMetaResult = await publishToCommunityScopeWithRetry({
       event: relayMetadataEvent,
@@ -2589,15 +2610,16 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
         operation: "Join request event",
         allowGlobalFallback: false
       });
-      if (!joinResult.success) {
-        throw new Error(joinResult.overallError || "Failed to publish join request to community relay scope");
-      }
+      assertRelayPublishSuccess(joinResult, {
+        operation: "Could not publish join request",
+        fallback: "Failed to send join request. Confirm relay scope and retry.",
+      });
       if (joinRequestPendingKey) {
         setJoinRequestStorageState(joinRequestPendingKey, { state: "pending" });
       }
       setState((prev) => ({ ...prev, joinRequestState: "pending", joinRequestBlockReason: undefined }));
       toast.success("Join request sent to relay");
-    } catch (e: any) {
+    } catch (e: unknown) {
       const failureState = classifyJoinRequestFailure(e);
       if (joinRequestPendingKey) {
         setJoinRequestStorageState(joinRequestPendingKey, { state: failureState });
@@ -2610,7 +2632,10 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
       toast.error(
         failureState === "denied"
           ? "Join request denied by relay policy. Retry later or contact community admins."
-          : (e.message || "Failed to send join request. Confirm relay scope and retry.")
+          : resolveUserFacingErrorMessage(
+            e,
+            "Failed to send join request. Confirm relay scope and retry.",
+          ),
       );
     }
   }, [joinRequestPendingKey, members, params.groupId, params.myPrivateKeyHex, params.myPublicKeyHex, publishToCommunityScopeWithRetry, state.membership.status]);
