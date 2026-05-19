@@ -59,6 +59,19 @@ export type GroupMembershipConfirmedDispatchDetail = Readonly<{
     publicKeyHex?: string;
 }>;
 
+export type GroupDescriptorUpdatedDispatchDetail = Readonly<{
+    groupId: string;
+    relayUrl: string;
+    communityId?: string;
+    displayName: string;
+    about?: string;
+    avatar?: string;
+    access?: string;
+    descriptorVersion: number;
+    lastEvidenceEventId?: string;
+    publicKeyHex?: string;
+}>;
+
 /** v1.5 Phase 1: group invite materialization — profile bus only. */
 export function dispatchGroupInviteReceived(invite: unknown): void {
     if (invite == null || typeof invite !== "object") {
@@ -78,6 +91,16 @@ export function dispatchGroupMembershipConfirmed(detail: GroupMembershipConfirme
     if (scope?.bus) {
         scope.bus.publish({
             type: "group-membership-confirmed",
+            detail,
+        });
+    }
+}
+
+export function dispatchGroupDescriptorUpdated(detail: GroupDescriptorUpdatedDispatchDetail): void {
+    const scope = getProfileRuntimeScope();
+    if (scope?.bus) {
+        scope.bus.publish({
+            type: "group-descriptor-updated",
             detail,
         });
     }

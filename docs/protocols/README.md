@@ -13,3 +13,5 @@ Recommended reading order:
 5. [25 Community Ledger and Projection Architecture Spec](./25-community-ledger-and-projection-architecture-spec.md)
 6. [26 Community Projection Contract](./26-community-projection-contract.md)
 7. [27 Community Control and Governance Event Family](./27-community-control-and-governance-event-family.md)
+
+**Product / UI:** [Community system — implementation and UI plan](../program/community-system-implementation-and-ui-plan.md) · [Phased roadmap by version](../program/community-system-overhaul-phased-roadmap.md).

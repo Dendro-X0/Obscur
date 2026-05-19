@@ -18,4 +18,6 @@ export interface GroupMetadata {
     memberCount?: number;
     communityMode?: CommunityMode;
     relayCapabilityTier?: RelayCapabilityTier;
+    /** Monotonic descriptor revision for COMMUNITY_DESCRIPTOR_UPDATED events. */
+    descriptorVersion?: number;
 }

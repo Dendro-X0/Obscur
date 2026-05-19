@@ -47,19 +47,27 @@ export function AddConnectionModal({ open, onOpenChange }: AddConnectionModalPro
     ];
 
     return createPortal(
-        <div className="fixed inset-0 z-[2000] grid place-items-center p-4 sm:p-6 lg:p-10 pointer-events-none">
-            {/* Backdrop */}
+        <div
+            className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/60 p-4 backdrop-blur-md dark:bg-black/80 sm:p-6 lg:p-10 animate-in fade-in duration-300"
+            onPointerDown={(event) => {
+                if (event.target === event.currentTarget) {
+                    onOpenChange(false);
+                }
+            }}
+            role="presentation"
+        >
             <div
-                className="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-md animate-in fade-in duration-300 pointer-events-auto"
-                onClick={() => onOpenChange(false)}
-            />
-
-            {/* Modal Body */}
-            <div className="relative w-full max-w-4xl bg-background border border-border/50 rounded-[32px] overflow-hidden shadow-2xl modal-transition flex flex-col pointer-events-auto max-h-[90vh]">
+                className="relative flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-[32px] border border-border/50 bg-background shadow-2xl modal-transition"
+                data-escape-layer="open"
+                onPointerDown={(event) => event.stopPropagation()}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="add-connection-modal-title"
+            >
                 {/* Header */}
                 <div className="p-6 pb-2 border-b border-border/10 bg-muted/5 flex items-center justify-between">
                     <div>
-                        <h2 className="text-xl font-black">{t("invites.title")}</h2>
+                        <h2 id="add-connection-modal-title" className="text-xl font-black">{t("invites.title")}</h2>
                         <p className="text-xs text-muted-foreground mt-1">
                             Share your identity or connect with others securely.
                         </p>

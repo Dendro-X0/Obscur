@@ -10,6 +10,8 @@ import { Button } from "../ui/button";
 import { Card } from "../ui/card";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
+import { SelectField } from "../ui/select";
+import { useTranslation } from "react-i18next";
 
 type CreatorState =
   | { status: "idle" }
@@ -17,7 +19,15 @@ type CreatorState =
   | { status: "success"; inviteLink: InviteLink }
   | { status: "error"; error: string };
 
+const EXPIRATION_OPTIONS = [
+  { value: "1h", labelKey: "invites.expiration.1h", fallback: "1 hour" },
+  { value: "1d", labelKey: "invites.expiration.1d", fallback: "1 day" },
+  { value: "1w", labelKey: "invites.expiration.1w", fallback: "1 week" },
+  { value: "never", labelKey: "invites.expiration.never", fallback: "Never" },
+] as const;
+
 export const InviteLinkCreator = () => {
+  const { t } = useTranslation();
   const identity = useIdentity();
   const [state, setState] = useState<CreatorState>({ status: "idle" });
   const [displayName, setDisplayName] = useState("");
@@ -184,19 +194,18 @@ export const InviteLinkCreator = () => {
             </div>
 
             <div>
-              <Label htmlFor="expiration">Expiration</Label>
-              <select
+              <Label htmlFor="expiration">{t("invites.expiration.label", "Expiration")}</Label>
+              <SelectField
                 id="expiration"
                 value={expirationType}
-                onChange={(e) => setExpirationType(e.target.value as typeof expirationType)}
+                onValueChange={(value) => setExpirationType(value as typeof expirationType)}
                 disabled={state.status === "creating"}
-                className="w-full min-h-10 rounded-xl border px-3 py-2 text-sm border-black/10 bg-gradient-card text-zinc-900 dark:border-white/10 dark:text-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400/50"
-              >
-                <option value="1h">1 hour</option>
-                <option value="1d">1 day</option>
-                <option value="1w">1 week</option>
-                <option value="never">Never</option>
-              </select>
+                className="mt-1"
+                options={EXPIRATION_OPTIONS.map((option) => ({
+                  value: option.value,
+                  label: t(option.labelKey, option.fallback),
+                }))}
+              />
             </div>
 
             <div>

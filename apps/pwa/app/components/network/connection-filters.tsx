@@ -3,6 +3,7 @@
 import type React from "react";
 import { Search, Filter, Users } from "lucide-react";
 import { Input } from "../ui/input";
+import { SelectField } from "../ui/select";
 import type { ConnectionGroup, TrustLevel } from "@/app/features/invites/utils/types";
 
 interface ConnectionFiltersProps {
@@ -50,16 +51,18 @@ export const ConnectionFilters = ({
                         <Filter className="h-3 w-3 text-zinc-400" />
                         <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">{t("invites.trustLevel")}</span>
                     </div>
-                    <select
+                    <SelectField
                         value={trustLevel}
-                        onChange={(e) => onTrustLevelChange(e.target.value as TrustLevel | "all")}
-                        className="w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-xs dark:border-white/10 dark:bg-zinc-900"
-                    >
-                        <option value="all">All Levels</option>
-                        <option value="trusted">Trusted Only</option>
-                        <option value="neutral">Neutral</option>
-                        <option value="blocked">Blocked</option>
-                    </select>
+                        onValueChange={(value) => onTrustLevelChange(value as TrustLevel | "all")}
+                        size="compact"
+                        className="text-xs"
+                        options={[
+                            { value: "all", label: t("invites.trustFilter.all", "All Levels") },
+                            { value: "trusted", label: t("invites.trustFilter.trusted", "Trusted Only") },
+                            { value: "neutral", label: t("invites.trustFilter.neutral", "Neutral") },
+                            { value: "blocked", label: t("invites.trustFilter.blocked", "Blocked") },
+                        ]}
+                    />
                 </div>
 
                 <div className="flex-1 min-w-[140px]">
@@ -67,18 +70,16 @@ export const ConnectionFilters = ({
                         <Users className="h-3 w-3 text-zinc-400" />
                         <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Group</span>
                     </div>
-                    <select
+                    <SelectField
                         value={groupId}
-                        onChange={(e) => onGroupChange(e.target.value)}
-                        className="w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-xs dark:border-white/10 dark:bg-zinc-900"
-                    >
-                        <option value="all">All Groups</option>
-                        {groups.map((group) => (
-                            <option key={group.id} value={group.id}>
-                                {group.name}
-                            </option>
-                        ))}
-                    </select>
+                        onValueChange={onGroupChange}
+                        size="compact"
+                        className="text-xs"
+                        options={[
+                            { value: "all", label: t("invites.groupFilter.all", "All Groups") },
+                            ...groups.map((group) => ({ value: group.id, label: group.name })),
+                        ]}
+                    />
                 </div>
             </div>
         </div>

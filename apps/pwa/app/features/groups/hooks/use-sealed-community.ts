@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState, useRef } from "react";
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { CommunityControlEvent } from "@dweb/core/community-control-event-contracts";
@@ -33,9 +33,29 @@ import { getResolvedProfileId } from "@/app/features/profiles/services/profile-r
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 import {
     dispatchCommunityKnownParticipantsObserved,
+    dispatchGroupDescriptorUpdated,
     dispatchGroupMembershipSnapshot,
     dispatchGroupRemove,
 } from "@/app/features/profiles/services/profile-bus-dispatch";
+import { pickPreferredCommunityDisplayName } from "../services/community-display-name";
+import {
+  computeGovernanceQuorumThreshold,
+  createEmptyCommunityGovernanceState,
+  getActiveGovernanceProposals,
+  hasGovernanceQuorum,
+  hasGovernanceRejectionQuorum,
+  listExpiredOpenGovernanceProposalIds,
+  reduceCommunityGovernance,
+  type CommunityGovernanceReducerState,
+  type GovernanceProposalRecord,
+  type GovernanceReducerEvent,
+} from "../services/community-governance-reducer";
+import { toGovernanceReducerEventFromSealed } from "../services/community-governance-sealed";
+import {
+  parseStoredCommunityGovernanceState,
+  serializeCommunityGovernanceState,
+} from "../services/community-governance-local-cache";
+import type { CommunityGovernanceVote } from "@dweb/core/community-control-event-contracts";
 import { incrementAbuseMetric } from "@/app/shared/abuse-observability";
 import { recordMalformedEventQuarantinedRisk } from "@/app/shared/sybil-risk-signals";
 import {
@@ -131,6 +151,7 @@ type Nip29GroupState = Readonly<{
   expelledMembers: ReadonlyArray<PublicKeyHex>;
   leftMembers: ReadonlyArray<PublicKeyHex>;
   disbandedAt?: number;
+  governance: CommunityGovernanceReducerState;
 }>;
 
 type UseSealedCommunityParams = Readonly<{
@@ -157,6 +178,10 @@ type UseSealedCommunityResult = Readonly<{
   denyAllJoinRequests: () => Promise<void>;
   sendMessage: (params: Readonly<{ content: string }>) => Promise<void>;
   sendVoteKick: (targetPubkey: string, reason?: string) => Promise<void>;
+  proposeDescriptorUpdate: (params: Readonly<GroupMetadata>) => Promise<void>;
+  proposeExpelMember: (params: Readonly<{ targetPublicKeyHex: PublicKeyHex; reason?: string }>) => Promise<void>;
+  castGovernanceVote: (params: Readonly<{ proposalId: string; vote: CommunityGovernanceVote }>) => Promise<void>;
+  activeGovernanceProposals: ReadonlyArray<GovernanceProposalRecord>;
   rotateRoomKey: () => Promise<void>;
   updateMetadata: (params: Readonly<GroupMetadata>) => Promise<void>;
   setGroupStatus: (params: Readonly<{ access: "open" | "invite-only" | "discoverable" }>) => Promise<void>;
@@ -378,7 +403,8 @@ const createInitialState = (): Nip29GroupState => {
     relayFeedback: {},
     kickVotes: {},
     expelledMembers: [],
-    leftMembers: []
+    leftMembers: [],
+    governance: createEmptyCommunityGovernanceState(),
   };
 };
 
@@ -454,11 +480,24 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
   const realtimeFlushFrameRef = useRef<number | null>(null);
   const deletedMessageTombstonesRef = useRef<Map<string, number>>(new Map());
   const initialMembersRef = useRef<ReadonlyArray<PublicKeyHex>>(params.initialMembers ?? []);
+  const descriptorVersionRef = useRef<number>(1);
+  const governanceRef = useRef<CommunityGovernanceReducerState>(createEmptyCommunityGovernanceState());
+  const governanceFinalizeInFlightRef = useRef<Set<string>>(new Set());
+  const appliedGovernanceProposalIdsRef = useRef<Set<string>>(new Set());
+  const governanceSessionLoadedKeyRef = useRef<string | null>(null);
+  const governanceSessionWrittenJsonRef = useRef<string | null>(null);
+  const governanceHydratedRef = useRef(false);
+  const ingestGovernanceEventRef = useRef<(event: GovernanceReducerEvent) => void>(() => { });
+  const updateMetadataRef = useRef<(metadata: GroupMetadata) => Promise<void>>(async () => { });
   const conversationId = useMemo(
     () => toGroupConversationId({ groupId: params.groupId, relayUrl: params.relayUrl, communityId: params.communityId }),
     [params.groupId, params.relayUrl, params.communityId]
   );
   const profileId = getResolvedProfileId();
+  const governanceSessionStorageKey = useMemo(
+    () => getScopedStorageKey(`obscur_community_governance_v1_${conversationId}`, profileId),
+    [conversationId, profileId],
+  );
   const joinRequestPendingKey = useMemo(() => {
     if (!params.myPublicKeyHex) return null;
     return toJoinRequestPendingKey({
@@ -468,6 +507,58 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
       profileId,
     });
   }, [params.groupId, params.myPublicKeyHex, params.relayUrl, profileId]);
+
+  useLayoutEffect(() => {
+    if (params.enabled === false || typeof sessionStorage === "undefined") {
+      return;
+    }
+    if (governanceSessionLoadedKeyRef.current === governanceSessionStorageKey) {
+      governanceHydratedRef.current = true;
+      return;
+    }
+    governanceSessionLoadedKeyRef.current = governanceSessionStorageKey;
+    governanceHydratedRef.current = false;
+    const raw = sessionStorage.getItem(governanceSessionStorageKey);
+    const restored = parseStoredCommunityGovernanceState(raw);
+    if (restored) {
+      governanceRef.current = restored;
+      setState((prev) => ({ ...prev, governance: restored }));
+      governanceSessionWrittenJsonRef.current = serializeCommunityGovernanceState(restored);
+    } else {
+      governanceSessionWrittenJsonRef.current = null;
+    }
+    governanceHydratedRef.current = true;
+  }, [governanceSessionStorageKey, params.enabled]);
+
+  useEffect(() => {
+    if (!governanceHydratedRef.current || params.enabled === false || typeof sessionStorage === "undefined") {
+      return;
+    }
+    const g = state.governance;
+    const hasData =
+      g.activeProposalIds.length > 0
+      || g.resolvedProposalIds.length > 0
+      || Object.keys(g.proposalsById).length > 0;
+    if (!hasData) {
+      governanceSessionWrittenJsonRef.current = null;
+      try {
+        sessionStorage.removeItem(governanceSessionStorageKey);
+      } catch {
+        // ignore
+      }
+      return;
+    }
+    const json = serializeCommunityGovernanceState(g);
+    if (json === governanceSessionWrittenJsonRef.current) {
+      return;
+    }
+    governanceSessionWrittenJsonRef.current = json;
+    try {
+      sessionStorage.setItem(governanceSessionStorageKey, json);
+    } catch {
+      // ignore quota / private mode
+    }
+  }, [state.governance, governanceSessionStorageKey, params.enabled]);
 
   useEffect(() => {
     if (initialHasLocalMembershipEvidence) {
@@ -1124,11 +1215,20 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
           if (innerPayload.type === "community.created") {
             const ts = innerPayload.created_at || event.created_at;
             if (innerPayload.metadata && typeof innerPayload.metadata === "object") {
+              const createdVersion = typeof innerPayload.descriptorVersion === "number"
+                ? innerPayload.descriptorVersion
+                : 1;
+              descriptorVersionRef.current = Math.max(descriptorVersionRef.current, createdVersion);
+              const mergedName = pickPreferredCommunityDisplayName(
+                typeof innerPayload.metadata.name === "string" ? innerPayload.metadata.name : undefined,
+                params.groupId,
+                { groupId: params.groupId, communityId: params.communityId },
+              );
               setState((prev) => ({
                 ...prev,
                 metadata: {
                   id: params.groupId,
-                  name: typeof innerPayload.metadata.name === "string" ? innerPayload.metadata.name : (prev.metadata?.name ?? params.groupId),
+                  name: mergedName,
                   about: typeof innerPayload.metadata.about === "string" ? innerPayload.metadata.about : prev.metadata?.about,
                   picture: typeof innerPayload.metadata.picture === "string" ? innerPayload.metadata.picture : prev.metadata?.picture,
                   access: (innerPayload.metadata.access === "open" || innerPayload.metadata.access === "invite-only" || innerPayload.metadata.access === "discoverable")
@@ -1144,6 +1244,7 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
                     || innerPayload.metadata.relayCapabilityTier === "managed_intranet"
                       ? innerPayload.metadata.relayCapabilityTier
                       : prev.metadata?.relayCapabilityTier,
+                  descriptorVersion: createdVersion,
                 }
               }));
             }
@@ -1155,6 +1256,83 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
                 subjectPublicKeyHex: actor,
               }));
             });
+            return;
+          }
+
+          if (innerPayload.type === "community.descriptor_updated") {
+            const ts = innerPayload.created_at || event.created_at;
+            const incomingVersion = typeof innerPayload.descriptorVersion === "number"
+              ? innerPayload.descriptorVersion
+              : descriptorVersionRef.current + 1;
+            if (incomingVersion < descriptorVersionRef.current) {
+              return;
+            }
+            descriptorVersionRef.current = incomingVersion;
+            const incomingMeta = innerPayload.metadata && typeof innerPayload.metadata === "object"
+              ? innerPayload.metadata
+              : {};
+            let mergedMetadata: GroupMetadata | undefined;
+            setState((prev) => {
+              const name = pickPreferredCommunityDisplayName(
+                typeof incomingMeta.name === "string" ? incomingMeta.name : undefined,
+                prev.metadata?.name,
+                { groupId: params.groupId, communityId: params.communityId },
+              );
+              const access = (incomingMeta.access === "open"
+                || incomingMeta.access === "invite-only"
+                || incomingMeta.access === "discoverable")
+                ? incomingMeta.access
+                : (prev.metadata?.access ?? "invite-only");
+              mergedMetadata = {
+                id: params.groupId,
+                name,
+                about: typeof incomingMeta.about === "string" ? incomingMeta.about : prev.metadata?.about,
+                picture: typeof incomingMeta.picture === "string" ? incomingMeta.picture : prev.metadata?.picture,
+                access,
+                communityMode: incomingMeta.communityMode === "managed_workspace" || incomingMeta.communityMode === "sovereign_room"
+                  ? incomingMeta.communityMode
+                  : prev.metadata?.communityMode,
+                relayCapabilityTier:
+                  incomingMeta.relayCapabilityTier === "unconfigured"
+                  || incomingMeta.relayCapabilityTier === "public_default"
+                  || incomingMeta.relayCapabilityTier === "trusted_private"
+                  || incomingMeta.relayCapabilityTier === "managed_intranet"
+                    ? incomingMeta.relayCapabilityTier
+                    : prev.metadata?.relayCapabilityTier,
+                descriptorVersion: incomingVersion,
+              };
+              return { ...prev, metadata: mergedMetadata };
+            });
+            if (mergedMetadata) {
+              dispatchGroupDescriptorUpdated({
+                groupId: params.groupId,
+                relayUrl: params.relayUrl,
+                communityId: params.communityId,
+                displayName: mergedMetadata.name,
+                about: mergedMetadata.about,
+                avatar: mergedMetadata.picture,
+                access: mergedMetadata.access,
+                descriptorVersion: incomingVersion,
+                lastEvidenceEventId: event.id,
+                publicKeyHex: actor,
+              });
+            }
+            return;
+          }
+
+          if (
+            innerPayload.type === "governance.proposed"
+            || innerPayload.type === "governance.vote"
+            || innerPayload.type === "governance.resolved"
+          ) {
+            const reducerEvent = toGovernanceReducerEventFromSealed(
+              innerPayload as Record<string, unknown>,
+              event.id,
+              actor,
+            );
+            if (reducerEvent) {
+              ingestGovernanceEventRef.current(reducerEvent);
+            }
             return;
           }
 
@@ -1303,11 +1481,54 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
 
       if (event.kind === GROUP_KIND_METADATA) {
         try {
-          const metadata = JSON.parse(event.content);
-          setState(prev => ({
-            ...prev,
-            metadata: { ...prev.metadata, ...metadata, id: params.groupId }
-          }));
+          const metadata = JSON.parse(event.content) as Partial<GroupMetadata>;
+          setState((prev) => {
+            const name = pickPreferredCommunityDisplayName(
+              typeof metadata.name === "string" ? metadata.name : undefined,
+              prev.metadata?.name,
+              { groupId: params.groupId, communityId: params.communityId },
+            );
+            const incomingVersion = typeof metadata.descriptorVersion === "number"
+              ? metadata.descriptorVersion
+              : descriptorVersionRef.current;
+            if (incomingVersion < descriptorVersionRef.current) {
+              return prev;
+            }
+            descriptorVersionRef.current = Math.max(descriptorVersionRef.current, incomingVersion);
+            const nextMetadata: GroupMetadata = {
+              id: params.groupId,
+              name,
+              about: typeof metadata.about === "string" ? metadata.about : prev.metadata?.about,
+              picture: typeof metadata.picture === "string" ? metadata.picture : prev.metadata?.picture,
+              access: (metadata.access === "open" || metadata.access === "invite-only" || metadata.access === "discoverable")
+                ? metadata.access
+                : (prev.metadata?.access ?? "invite-only"),
+              communityMode: metadata.communityMode === "managed_workspace" || metadata.communityMode === "sovereign_room"
+                ? metadata.communityMode
+                : prev.metadata?.communityMode,
+              relayCapabilityTier:
+                metadata.relayCapabilityTier === "unconfigured"
+                || metadata.relayCapabilityTier === "public_default"
+                || metadata.relayCapabilityTier === "trusted_private"
+                || metadata.relayCapabilityTier === "managed_intranet"
+                  ? metadata.relayCapabilityTier
+                  : prev.metadata?.relayCapabilityTier,
+              descriptorVersion: descriptorVersionRef.current,
+            };
+            dispatchGroupDescriptorUpdated({
+              groupId: params.groupId,
+              relayUrl: params.relayUrl,
+              communityId: params.communityId,
+              displayName: nextMetadata.name,
+              about: nextMetadata.about,
+              avatar: nextMetadata.picture,
+              access: nextMetadata.access,
+              descriptorVersion: descriptorVersionRef.current,
+              lastEvidenceEventId: event.id,
+              publicKeyHex: event.pubkey,
+            });
+            return { ...prev, metadata: nextMetadata };
+          });
         } catch {
           // ignore invalid metadata JSON
         }
@@ -1531,6 +1752,238 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
       overallError: `${publishParams.operation} failed`
     };
   }, [params.pool, publishToCommunityScope]);
+
+  const publishGovernanceSealed = useCallback(async (
+    governanceType: "proposed" | "vote" | "resolved",
+    body: Readonly<Record<string, unknown>>,
+  ): Promise<void> => {
+    if (!params.myPublicKeyHex || !params.myPrivateKeyHex) {
+      throw new Error("Unlock your identity to participate in governance.");
+    }
+    const roomKeyHex = await roomKeyStore.getRoomKey(params.groupId);
+    if (!roomKeyHex) {
+      throw new Error("Missing room key for this community on this device.");
+    }
+    const groupService = new GroupService(params.myPublicKeyHex, params.myPrivateKeyHex);
+    const signedEvent = await groupService.sendSealedGovernance({
+      groupId: params.groupId,
+      roomKeyHex,
+      governanceType,
+      body,
+    });
+    const publishResult = await publishToCommunityScopeWithRetry({
+      event: signedEvent,
+      operation: `Governance ${governanceType}`,
+      allowGlobalFallback: true,
+    });
+    if (!publishResult.success) {
+      throw new Error(publishResult.overallError || "Failed to publish governance event.");
+    }
+  }, [params.groupId, params.myPrivateKeyHex, params.myPublicKeyHex, publishToCommunityScopeWithRetry]);
+
+  const applyGovernanceAcceptedEffects = useCallback(async (
+    proposal: GovernanceProposalRecord,
+  ): Promise<void> => {
+    if (appliedGovernanceProposalIdsRef.current.has(proposal.proposalId)) {
+      return;
+    }
+    appliedGovernanceProposalIdsRef.current.add(proposal.proposalId);
+    if (proposal.actionType === "update_descriptor") {
+      const payload = proposal.payload;
+      const name = "name" in payload && typeof payload.name === "string" ? payload.name : undefined;
+      const about = "about" in payload && typeof payload.about === "string" ? payload.about : undefined;
+      const picture = "picture" in payload && typeof payload.picture === "string" ? payload.picture : undefined;
+      const access = "access" in payload && (
+        payload.access === "open" || payload.access === "invite-only" || payload.access === "discoverable"
+      ) ? payload.access : undefined;
+      await updateMetadataRef.current({
+        id: params.groupId,
+        name: name ?? state.metadata?.name ?? params.groupId,
+        about: about ?? state.metadata?.about,
+        picture: picture ?? state.metadata?.picture,
+        access: access ?? state.metadata?.access ?? "invite-only",
+      });
+      toast.success("Community rename approved and applied.");
+      return;
+    }
+    if (proposal.actionType === "expel_member") {
+      const target = "targetPublicKeyHex" in proposal.payload
+        ? proposal.payload.targetPublicKeyHex
+        : null;
+      if (!target) {
+        return;
+      }
+      applyControlEvent(createMembershipControlEventBase({
+        eventType: "COMMUNITY_MEMBER_EXPELLED",
+        logicalEventId: proposal.lastEventId ?? `governance-expel:${proposal.proposalId}`,
+        createdAtUnixMs: proposal.resolvedAtUnixMs ?? Date.now(),
+        subjectPublicKeyHex: target,
+      }));
+      toast.error(`Member ${target.slice(0, 8)}… expelled by community vote.`);
+    }
+  }, [
+    applyControlEvent,
+    createMembershipControlEventBase,
+    params.groupId,
+    state.metadata?.about,
+    state.metadata?.access,
+    state.metadata?.name,
+    state.metadata?.picture,
+  ]);
+
+  const finalizeGovernanceProposal = useCallback(async (proposalId: string): Promise<void> => {
+    if (governanceFinalizeInFlightRef.current.has(proposalId)) {
+      return;
+    }
+    const proposal = governanceRef.current.proposalsById[proposalId];
+    if (!proposal || proposal.resolution || !hasGovernanceQuorum(proposal)) {
+      return;
+    }
+    governanceFinalizeInFlightRef.current.add(proposalId);
+    try {
+      await publishGovernanceSealed("resolved", {
+        proposalId,
+        resolution: "accepted",
+      });
+      ingestGovernanceEventRef.current({
+        type: "RESOLVED",
+        proposalId,
+        resolution: "accepted",
+        resolverPublicKeyHex: params.myPublicKeyHex as PublicKeyHex,
+        createdAtUnixMs: Date.now(),
+        logicalEventId: `local-resolve:${proposalId}`,
+      });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to finalize governance proposal.");
+    } finally {
+      governanceFinalizeInFlightRef.current.delete(proposalId);
+    }
+  }, [params.myPublicKeyHex, publishGovernanceSealed]);
+
+  const finalizeGovernanceProposalRejected = useCallback(async (proposalId: string): Promise<void> => {
+    if (governanceFinalizeInFlightRef.current.has(proposalId)) {
+      return;
+    }
+    const proposal = governanceRef.current.proposalsById[proposalId];
+    if (!proposal || proposal.resolution || !hasGovernanceRejectionQuorum(proposal)) {
+      return;
+    }
+    governanceFinalizeInFlightRef.current.add(proposalId);
+    try {
+      await publishGovernanceSealed("resolved", {
+        proposalId,
+        resolution: "rejected",
+      });
+      ingestGovernanceEventRef.current({
+        type: "RESOLVED",
+        proposalId,
+        resolution: "rejected",
+        resolverPublicKeyHex: params.myPublicKeyHex as PublicKeyHex,
+        createdAtUnixMs: Date.now(),
+        logicalEventId: `local-resolve-reject:${proposalId}`,
+      });
+      toast.info("Governance proposal was rejected by member vote.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to finalize governance rejection.");
+    } finally {
+      governanceFinalizeInFlightRef.current.delete(proposalId);
+    }
+  }, [params.myPublicKeyHex, publishGovernanceSealed]);
+
+  const ingestGovernanceEvent = useCallback((event: GovernanceReducerEvent): void => {
+    const nextGov = reduceCommunityGovernance(governanceRef.current, event);
+    governanceRef.current = nextGov;
+    setState((prev) => ({ ...prev, governance: nextGov }));
+
+    const proposalId = event.proposalId;
+    const proposal = nextGov.proposalsById[proposalId];
+    if (!proposal) {
+      return;
+    }
+
+    if (event.type === "VOTE_CAST" && !proposal.resolution && hasGovernanceQuorum(proposal)) {
+      void finalizeGovernanceProposal(proposalId);
+    }
+    if (event.type === "VOTE_CAST" && !proposal.resolution && hasGovernanceRejectionQuorum(proposal)) {
+      void finalizeGovernanceProposalRejected(proposalId);
+    }
+    if (event.type === "RESOLVED" && proposal.resolution === "accepted") {
+      void applyGovernanceAcceptedEffects(proposal);
+    }
+  }, [applyGovernanceAcceptedEffects, finalizeGovernanceProposal, finalizeGovernanceProposalRejected]);
+
+  ingestGovernanceEventRef.current = ingestGovernanceEvent;
+
+  const expireGovernanceProposalsIfNeeded = useCallback(async (): Promise<void> => {
+    if (!params.myPublicKeyHex || !params.myPrivateKeyHex) {
+      return;
+    }
+    const now = Date.now();
+    const ids = listExpiredOpenGovernanceProposalIds(governanceRef.current, now);
+    if (ids.length === 0) {
+      return;
+    }
+    let closedCount = 0;
+    for (const proposalId of ids) {
+      if (governanceFinalizeInFlightRef.current.has(proposalId)) {
+        continue;
+      }
+      const proposal = governanceRef.current.proposalsById[proposalId];
+      if (!proposal || proposal.resolution) {
+        continue;
+      }
+      governanceFinalizeInFlightRef.current.add(proposalId);
+      try {
+        await publishGovernanceSealed("resolved", {
+          proposalId,
+          resolution: "expired",
+        });
+        ingestGovernanceEventRef.current({
+          type: "RESOLVED",
+          proposalId,
+          resolution: "expired",
+          resolverPublicKeyHex: params.myPublicKeyHex,
+          createdAtUnixMs: now,
+          logicalEventId: `local-resolve-expired:${proposalId}`,
+        });
+        closedCount += 1;
+      } catch (error) {
+        logAppEvent({
+          name: "groups.governance_expire_publish_failed",
+          level: "warn",
+          scope: { feature: "groups", action: "governance_expire" },
+          context: {
+            proposalIdHint: proposalId.slice(0, 16),
+            error: error instanceof Error ? error.message : String(error),
+          },
+        });
+      } finally {
+        governanceFinalizeInFlightRef.current.delete(proposalId);
+      }
+    }
+    if (closedCount > 0) {
+      toast.info(
+        closedCount === 1
+          ? "A governance proposal expired without a decision."
+          : `${closedCount} governance proposals expired without a decision.`,
+      );
+    }
+  }, [params.myPrivateKeyHex, params.myPublicKeyHex, publishGovernanceSealed]);
+
+  useEffect(() => {
+    if (params.enabled === false) {
+      return;
+    }
+    const tick = (): void => {
+      void expireGovernanceProposalsIfNeeded();
+    };
+    tick();
+    if (typeof window === "undefined") {
+      return;
+    }
+    const intervalId = window.setInterval(tick, 120_000);
+    return () => window.clearInterval(intervalId);
+  }, [expireGovernanceProposalsIfNeeded, params.enabled]);
 
   const contentTimeline = useMemo<ReadonlyArray<CommunityContentTimelineEntry>>(() => (
     state.messages.map((message) => ({
@@ -1858,8 +2311,232 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
   }, [conversationId, params.groupId, params.myPrivateKeyHex, params.myPublicKeyHex, publishToCommunityScope]);
 
   const noop = async () => { };
-  const updateMetadata = noop;
   const setGroupStatus = noop;
+
+  const updateMetadata = useCallback(async (nextMetadata: GroupMetadata): Promise<void> => {
+    if (!params.myPublicKeyHex || !params.myPrivateKeyHex) {
+      throw new Error("Unlock your identity to update community settings.");
+    }
+    const roomKeyHex = await roomKeyStore.getRoomKey(params.groupId);
+    if (!roomKeyHex) {
+      throw new Error("Missing room key for this community on this device.");
+    }
+
+    const previousVersion = descriptorVersionRef.current
+      ?? state.metadata?.descriptorVersion
+      ?? 1;
+    const nextVersion = previousVersion + 1;
+    const resolvedName = pickPreferredCommunityDisplayName(
+      nextMetadata.name,
+      state.metadata?.name,
+      { groupId: params.groupId, communityId: params.communityId },
+    );
+    const mergedMetadata: GroupMetadata = {
+      ...state.metadata,
+      ...nextMetadata,
+      id: params.groupId,
+      name: resolvedName,
+      descriptorVersion: nextVersion,
+    };
+
+    const groupService = new GroupService(params.myPublicKeyHex, params.myPrivateKeyHex);
+    const sealedEvent = await groupService.sendSealedDescriptorUpdated({
+      groupId: params.groupId,
+      roomKeyHex,
+      metadata: mergedMetadata,
+      descriptorVersion: nextVersion,
+    });
+    const relayMetadataEvent = await groupService.sendRelayMetadataHint({
+      groupId: params.groupId,
+      metadata: mergedMetadata,
+    });
+
+    const sealedResult = await publishToCommunityScopeWithRetry({
+      event: sealedEvent,
+      operation: "Descriptor update (sealed)",
+      allowGlobalFallback: true,
+    });
+    if (!sealedResult.success) {
+      throw new Error(sealedResult.overallError || "Failed to publish descriptor update to community relay scope.");
+    }
+
+    const relayMetaResult = await publishToCommunityScopeWithRetry({
+      event: relayMetadataEvent,
+      operation: "Descriptor update (relay metadata)",
+      allowGlobalFallback: true,
+    });
+    if (!relayMetaResult.success) {
+      logAppEvent({
+        name: "groups.descriptor_relay_metadata_publish_failed",
+        level: "warn",
+        scope: { feature: "groups", action: "descriptor_update" },
+        context: {
+          groupIdHint: params.groupId.slice(0, 24),
+          error: relayMetaResult.overallError ?? "publish_failed",
+        },
+      });
+    }
+
+    descriptorVersionRef.current = nextVersion;
+    setState((prev) => ({ ...prev, metadata: mergedMetadata }));
+
+    dispatchGroupDescriptorUpdated({
+      groupId: params.groupId,
+      relayUrl: params.relayUrl,
+      communityId: params.communityId,
+      displayName: mergedMetadata.name,
+      about: mergedMetadata.about,
+      avatar: mergedMetadata.picture,
+      access: mergedMetadata.access,
+      descriptorVersion: nextVersion,
+      lastEvidenceEventId: sealedEvent.id,
+      publicKeyHex: params.myPublicKeyHex,
+    });
+
+    logAppEvent({
+      name: "groups.descriptor_updated",
+      level: "info",
+      scope: { feature: "groups", action: "descriptor_update" },
+      context: {
+        groupId: params.groupId,
+        relayUrl: params.relayUrl,
+        descriptorVersion: nextVersion,
+      },
+    });
+  }, [
+    params.communityId,
+    params.groupId,
+    params.myPrivateKeyHex,
+    params.myPublicKeyHex,
+    params.relayUrl,
+    publishToCommunityScopeWithRetry,
+    state.metadata,
+  ]);
+  updateMetadataRef.current = updateMetadata;
+
+  const activeGovernanceProposals = useMemo(
+    () => getActiveGovernanceProposals(state.governance),
+    [state.governance],
+  );
+
+  const proposeDescriptorUpdate = useCallback(async (nextMetadata: GroupMetadata): Promise<void> => {
+    const activeMemberCount = membersRef.current.length;
+    if (activeMemberCount <= 1) {
+      await updateMetadata(nextMetadata);
+      return;
+    }
+    if (!params.myPublicKeyHex) {
+      throw new Error("Unlock your identity to propose community changes.");
+    }
+    const proposalId = `gov-desc-${params.groupId.slice(0, 8)}-${Date.now()}-${createRandomId()}`;
+    const quorumThreshold = computeGovernanceQuorumThreshold(activeMemberCount);
+    const payload = {
+      name: nextMetadata.name,
+      about: nextMetadata.about,
+      picture: nextMetadata.picture,
+      access: nextMetadata.access,
+    };
+    const proposalExpiresAtUnixMs = Date.now() + (7 * 24 * 60 * 60 * 1000);
+    await publishGovernanceSealed("proposed", {
+      proposalId,
+      actionType: "update_descriptor",
+      quorumThreshold,
+      proposalExpiresAtUnixMs,
+      payload,
+    });
+    ingestGovernanceEvent({
+      type: "PROPOSED",
+      proposalId,
+      actionType: "update_descriptor",
+      proposerPublicKeyHex: params.myPublicKeyHex,
+      createdAtUnixMs: Date.now(),
+      quorumThreshold,
+      proposalExpiresAtUnixMs,
+      payload,
+      logicalEventId: proposalId,
+    });
+    await publishGovernanceSealed("vote", { proposalId, vote: "approve" });
+    ingestGovernanceEvent({
+      type: "VOTE_CAST",
+      proposalId,
+      voterPublicKeyHex: params.myPublicKeyHex,
+      vote: "approve",
+      createdAtUnixMs: Date.now(),
+      logicalEventId: `${proposalId}:vote:${params.myPublicKeyHex}`,
+    });
+    toast.info("Rename proposal published. Waiting for other members to vote.");
+  }, [ingestGovernanceEvent, params.groupId, params.myPublicKeyHex, publishGovernanceSealed, updateMetadata]);
+
+  const proposeExpelMember = useCallback(async (expelParams: Readonly<{
+    targetPublicKeyHex: PublicKeyHex;
+    reason?: string;
+  }>): Promise<void> => {
+    const activeMemberCount = membersRef.current.length;
+    if (activeMemberCount <= 1) {
+      throw new Error("Expelling members requires at least one other active member.");
+    }
+    if (!params.myPublicKeyHex) {
+      throw new Error("Unlock your identity to propose expulsion.");
+    }
+    const proposalId = `gov-expel-${params.groupId.slice(0, 8)}-${Date.now()}-${createRandomId()}`;
+    const quorumThreshold = computeGovernanceQuorumThreshold(activeMemberCount);
+    const payload = {
+      targetPublicKeyHex: expelParams.targetPublicKeyHex,
+      ...(expelParams.reason ? { reason: expelParams.reason } : {}),
+    };
+    const proposalExpiresAtUnixMs = Date.now() + (7 * 24 * 60 * 60 * 1000);
+    await publishGovernanceSealed("proposed", {
+      proposalId,
+      actionType: "expel_member",
+      quorumThreshold,
+      proposalExpiresAtUnixMs,
+      payload,
+    });
+    ingestGovernanceEvent({
+      type: "PROPOSED",
+      proposalId,
+      actionType: "expel_member",
+      proposerPublicKeyHex: params.myPublicKeyHex,
+      createdAtUnixMs: Date.now(),
+      quorumThreshold,
+      proposalExpiresAtUnixMs,
+      payload,
+      logicalEventId: proposalId,
+    });
+    await publishGovernanceSealed("vote", { proposalId, vote: "approve" });
+    ingestGovernanceEvent({
+      type: "VOTE_CAST",
+      proposalId,
+      voterPublicKeyHex: params.myPublicKeyHex,
+      vote: "approve",
+      createdAtUnixMs: Date.now(),
+      logicalEventId: `${proposalId}:vote:${params.myPublicKeyHex}`,
+    });
+    toast.info("Expulsion proposal published. Waiting for member votes.");
+  }, [ingestGovernanceEvent, params.groupId, params.myPublicKeyHex, publishGovernanceSealed]);
+
+  const castGovernanceVote = useCallback(async (voteParams: Readonly<{
+    proposalId: string;
+    vote: CommunityGovernanceVote;
+  }>): Promise<void> => {
+    if (!params.myPublicKeyHex) {
+      throw new Error("Unlock your identity to vote.");
+    }
+    await publishGovernanceSealed("vote", {
+      proposalId: voteParams.proposalId,
+      vote: voteParams.vote,
+    });
+    ingestGovernanceEvent({
+      type: "VOTE_CAST",
+      proposalId: voteParams.proposalId,
+      voterPublicKeyHex: params.myPublicKeyHex,
+      vote: voteParams.vote,
+      createdAtUnixMs: Date.now(),
+      logicalEventId: `${voteParams.proposalId}:vote:${params.myPublicKeyHex}:${Date.now()}`,
+    });
+    toast.success("Vote recorded.");
+  }, [ingestGovernanceEvent, params.myPublicKeyHex, publishGovernanceSealed]);
+
   const requestJoin = useCallback(async (): Promise<void> => {
     if (!params.myPublicKeyHex || !params.myPrivateKeyHex) return;
     if (state.membership.status === "member" || members.includes(params.myPublicKeyHex)) {
@@ -1944,6 +2621,10 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
       denyAllJoinRequests,
       sendMessage,
       sendVoteKick,
+      proposeDescriptorUpdate,
+      proposeExpelMember,
+      castGovernanceVote,
+      activeGovernanceProposals,
       rotateRoomKey,
       updateMetadata,
       setGroupStatus,
@@ -1956,7 +2637,32 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
       members,
       admins: []
     };
-  }, [state, contentTimeline, refresh, requestJoin, approveJoin, denyJoin, approveAllJoinRequests, denyAllJoinRequests, sendMessage, sendVoteKick, rotateRoomKey, updateMetadata, setGroupStatus, putUser, removeUser, promoteUser, demoteUser, leaveGroup, deleteMessage, members]);
+  }, [
+    state,
+    contentTimeline,
+    refresh,
+    requestJoin,
+    approveJoin,
+    denyJoin,
+    approveAllJoinRequests,
+    denyAllJoinRequests,
+    sendMessage,
+    sendVoteKick,
+    proposeDescriptorUpdate,
+    proposeExpelMember,
+    castGovernanceVote,
+    activeGovernanceProposals,
+    rotateRoomKey,
+    updateMetadata,
+    setGroupStatus,
+    putUser,
+    removeUser,
+    promoteUser,
+    demoteUser,
+    leaveGroup,
+    deleteMessage,
+    members,
+  ]);
 
   return result;
 };

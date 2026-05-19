@@ -277,6 +277,88 @@ export class GroupService {
     }
 
     /**
+     * Sealed governance events (Kind 10105) — propose / vote / resolve (P1).
+     */
+    async sendSealedGovernance(params: {
+        groupId: string;
+        roomKeyHex: string;
+        governanceType: "proposed" | "vote" | "resolved";
+        body: Readonly<Record<string, unknown>>;
+    }): Promise<NostrEvent> {
+        const nowUnixSeconds = Math.floor(Date.now() / 1000);
+        const innerPayload = JSON.stringify({
+            type: `governance.${params.governanceType}`,
+            pubkey: this.myPublicKeyHex,
+            created_at: nowUnixSeconds,
+            ...params.body,
+        });
+        const encrypted = await cryptoService.encryptGroupMessage(innerPayload, params.roomKeyHex);
+        const unsigned: UnsignedNostrEvent = {
+            kind: 10105,
+            created_at: nowUnixSeconds,
+            tags: [["h", params.groupId], ["t", `governance.${params.governanceType}`]],
+            content: JSON.stringify(encrypted),
+            pubkey: this.myPublicKeyHex,
+        };
+        return await cryptoService.signEvent(unsigned, this.myPrivateKeyHex);
+    }
+
+    /**
+     * Sealed descriptor revision (Kind 10105). Canonical for Obscur clients.
+     */
+    async sendSealedDescriptorUpdated(params: {
+        groupId: string;
+        roomKeyHex: string;
+        metadata: GroupMetadata;
+        descriptorVersion: number;
+    }): Promise<NostrEvent> {
+        const nowUnixSeconds = Math.floor(Date.now() / 1000);
+        const innerPayload = JSON.stringify({
+            type: "community.descriptor_updated",
+            pubkey: this.myPublicKeyHex,
+            created_at: nowUnixSeconds,
+            descriptorVersion: params.descriptorVersion,
+            metadata: params.metadata,
+        });
+        const encrypted = await cryptoService.encryptGroupMessage(innerPayload, params.roomKeyHex);
+        const unsigned: UnsignedNostrEvent = {
+            kind: 10105,
+            created_at: nowUnixSeconds,
+            tags: [["h", params.groupId], ["t", "community.descriptor_updated"]],
+            content: JSON.stringify(encrypted),
+            pubkey: this.myPublicKeyHex,
+        };
+        return await cryptoService.signEvent(unsigned, this.myPrivateKeyHex);
+    }
+
+    /**
+     * Public relay metadata hint (Kind 39000) for discovery / thin clients.
+     */
+    async sendRelayMetadataHint(params: {
+        groupId: string;
+        metadata: GroupMetadata;
+    }): Promise<NostrEvent> {
+        const nowUnixSeconds = Math.floor(Date.now() / 1000);
+        const unsigned: UnsignedNostrEvent = {
+            kind: 39000,
+            created_at: nowUnixSeconds,
+            tags: [["h", params.groupId]],
+            content: JSON.stringify({
+                id: params.groupId,
+                name: params.metadata.name,
+                about: params.metadata.about ?? "",
+                picture: params.metadata.picture ?? "",
+                access: params.metadata.access,
+                communityMode: params.metadata.communityMode,
+                relayCapabilityTier: params.metadata.relayCapabilityTier,
+                descriptorVersion: params.metadata.descriptorVersion,
+            }),
+            pubkey: this.myPublicKeyHex,
+        };
+        return await cryptoService.signEvent(unsigned, this.myPrivateKeyHex);
+    }
+
+    /**
      * Sends a NIP-29 LEAVE event so the relay updates its Kind 39002 roster.
      */
     async sendNip29Leave(params: {

@@ -123,6 +123,7 @@ import {
 } from "@/app/features/messaging/services/storage-health-service";
 import { resetLocalHistoryKeepingIdentity } from "@/app/features/messaging/services/local-history-reset-service";
 import { getReliabilityMetricsSnapshot, getReliabilityRuntimeSnapshot } from "@/app/shared/reliability-observability";
+import { scheduleIdleWork } from "@/app/shared/schedule-idle-work";
 import { useSearchParams } from "next/navigation";
 import { derivePublicKeyHex } from "@dweb/crypto/derive-public-key-hex";
 import { normalizePublicKeyHex } from "@/app/features/profile/utils/normalize-public-key-hex";
@@ -1745,21 +1746,44 @@ function MainContentSection({ activeTab }: { activeTab: SettingsTabType }): Reac
     if (activeTab !== "storage") {
       return;
     }
-    void refreshLocalMediaAbsolutePath();
+    let cancelled = false;
+    const cancelIdle = scheduleIdleWork(() => {
+      if (!cancelled) {
+        void refreshLocalMediaAbsolutePath();
+      }
+    });
+    return () => {
+      cancelled = true;
+      cancelIdle();
+    };
   }, [activeTab, localMediaConfig.subdir]);
 
   useEffect(() => {
     if (activeTab !== "storage") return;
-    setStorageStatsTick((prev) => prev + 1);
-    void (async () => {
-      setIsCheckingStorageHealth(true);
-      try {
-        const health = await checkStorageHealth();
-        setStorageHealthState(health);
-      } finally {
-        setIsCheckingStorageHealth(false);
+    let cancelled = false;
+    const cancelIdle = scheduleIdleWork(() => {
+      if (cancelled) {
+        return;
       }
-    })();
+      setStorageStatsTick((prev) => prev + 1);
+      void (async () => {
+        setIsCheckingStorageHealth(true);
+        try {
+          const health = await checkStorageHealth();
+          if (!cancelled) {
+            setStorageHealthState(health);
+          }
+        } finally {
+          if (!cancelled) {
+            setIsCheckingStorageHealth(false);
+          }
+        }
+      })();
+    });
+    return () => {
+      cancelled = true;
+      cancelIdle();
+    };
   }, [activeTab]);
 
   useEffect(() => {

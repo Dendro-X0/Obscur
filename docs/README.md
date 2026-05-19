@@ -50,6 +50,8 @@ Canonical long-form guides — read in order when onboarding:
 | 19 | [Community data integrity spec](./encyclopedia/19-community-data-integrity-spec.md) |
 | 20 | [Community verification guide](./encyclopedia/20-community-verification-guide.md) |
 
+**Community system (in flight):** [Version phased roadmap](./program/community-system-overhaul-phased-roadmap.md) · [Implementation and UI plan](./program/community-system-implementation-and-ui-plan.md) — modes, governance, tabbed create/manage.
+
 ---
 
 ## Module shelves
@@ -69,6 +71,8 @@ Canonical long-form guides — read in order when onboarding:
 |----------|---------|
 | [**Program overview**](./program/PROGRAM.md) | Active v1.5.1 + milestones |
 | [**Strategic direction**](./program/strategic-direction.md) | Implementation sequence |
+| [**Community overhaul — phased roadmap (by version)**](./program/community-system-overhaul-phased-roadmap.md) | Phases 1–4 ↔ v1.5.x–v1.8+ milestones |
+| [**Community system — implementation & UI**](./program/community-system-implementation-and-ui-plan.md) | Modes, governance, create/manage backlog (P0–P4) |
 | [Current roadmap (detail)](./program/current-roadmap.md) | Active lanes and policies |
 | [v1.5.0 release](./releases/v1.5.0-release.md) | Release scope and known limitations |
 | [Release closeout guide](./releases/release-closeout-guide.md) | How to close a version |

@@ -6,6 +6,7 @@ export * from "./components/dialog";
 export * from "./components/dropdown-menu";
 export * from "./components/input";
 export * from "./components/label";
+export * from "./components/select";
 export * from "./components/pagination";
 export * from "./components/progress";
 export * from "./components/skeleton";

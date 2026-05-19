@@ -60,6 +60,7 @@ import { toGroupConversationId } from "@/app/features/groups/utils/group-convers
 import { useAccessibilityPreferences } from "@/app/features/settings/hooks/use-accessibility-preferences";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import { filterVisibleGroupMembers } from "@/app/features/groups/services/community-visible-members";
+import { resolveCommunityDisplayName } from "@/app/features/groups/services/community-display-name";
 import { getResolvedClientGateway } from "@/app/features/profiles/services/resolve-client-gateway";
 import { useIsDesktop } from "@/app/features/desktop/hooks/use-tauri";
 import { shouldUseSafeCommunityRenderMode } from "@/app/features/groups/services/community-render-mode";
@@ -180,7 +181,8 @@ export default function GroupHomePage() {
     const {
         state: groupState,
         updateMetadata,
-        requestJoin: requestJoinNip29
+        requestJoin: requestJoinNip29,
+        activeGovernanceProposals,
     } = useSealedCommunity({
         groupId: group?.groupId || id || "",
         relayUrl: effectiveRelay,
@@ -264,8 +266,8 @@ export default function GroupHomePage() {
         return fallbackCommunityIdFromRoute || undefined;
     }, [fallbackCommunityIdFromRoute, group?.communityId]);
     const visibleMembers = React.useMemo(
-        () => filterVisibleGroupMembers(rosterDisplayPubkeys, (pubkey) => discoveryCache.getProfile(pubkey)),
-        [rosterDisplayPubkeys]
+        () => filterVisibleGroupMembers(activeMembers, (pubkey) => discoveryCache.getProfile(pubkey)),
+        [activeMembers]
     );
     const displayMemberCount = visibleMembers.length;
     const onlineMembers = React.useMemo(
@@ -408,15 +410,21 @@ export default function GroupHomePage() {
             return;
         }
         const hasMembershipEvidence = groupState.membership.status === "member"
-            || rosterDisplayPubkeys.includes(myPublicKeyHex);
+            || activeMembers.includes(myPublicKeyHex);
         if (!hasMembershipEvidence) {
             return;
         }
-        const memberPubkeys = Array.from(new Set([...rosterDisplayPubkeys, myPublicKeyHex]));
+        const memberPubkeys = Array.from(new Set([...activeMembers, myPublicKeyHex]));
         const adminPubkeys = (groupState.admins ?? [])
             .map((admin) => admin.pubkey)
             .filter((pubkey): pubkey is PublicKeyHex => typeof pubkey === "string" && pubkey.trim().length > 0);
-        const displayName = groupState.metadata?.name || resolvedGroupId;
+        const displayName = resolveCommunityDisplayName({
+            metadataName: groupState.metadata?.name,
+            persistedDisplayName: undefined,
+            groupId: resolvedGroupId,
+            communityId: resolvedCommunityId,
+            fallback: resolvedGroupId,
+        });
         const avatar = groupState.metadata?.picture;
         const access: GroupAccessMode = groupState.metadata?.access === "discoverable"
             ? "discoverable"
@@ -464,7 +472,7 @@ export default function GroupHomePage() {
         });
     }, [
         addGroup,
-        rosterDisplayPubkeys,
+        activeMembers,
         effectiveRelay,
         group,
         groupState.admins,
@@ -536,7 +544,13 @@ export default function GroupHomePage() {
         setOnlinePage(1);
         setOfflinePage(1);
     };
-    const displayName = groupState.metadata?.name || group?.displayName || "Community";
+    const displayName = resolveCommunityDisplayName({
+        metadataName: groupState.metadata?.name,
+        persistedDisplayName: group?.displayName,
+        groupId: resolvedGroupId,
+        communityId: resolvedCommunityId,
+        fallback: "Community",
+    });
     const groupActionRouteParams = React.useMemo(() => ({
         routeToken: (resolvedGroupId || group?.groupId || id || "").trim(),
         relayUrl: effectiveRelay || undefined,
@@ -602,6 +616,22 @@ export default function GroupHomePage() {
                         <span className="text-xs font-black uppercase tracking-widest">Back to Network</span>
                     </button>
                 </div>
+
+                {activeGovernanceProposals.length > 0 && (
+                    <div
+                        role="status"
+                        className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-950 dark:text-amber-100"
+                    >
+                        <p className="font-semibold">
+                            {activeGovernanceProposals.length === 1
+                                ? "1 open governance proposal"
+                                : `${activeGovernanceProposals.length} open governance proposals`}
+                        </p>
+                        <p className="mt-1 text-xs opacity-90">
+                            Open community management → Governance to review and vote.
+                        </p>
+                    </div>
+                )}
 
                 {/* Immersive Hero Section */}
                 <div className="relative group/hero">
@@ -851,9 +881,9 @@ export default function GroupHomePage() {
                                 </div>
                                 <div className="space-y-1">
                                     <h3 className="text-3xl font-black text-zinc-900 dark:text-white">Community Access</h3>
-                                    <p className="font-medium text-zinc-700 dark:text-zinc-500">Open the encrypted chat, invite peers, and browse the participant list backed by current community evidence.</p>
+                                    <p className="font-medium text-zinc-700 dark:text-zinc-500">Open the encrypted chat, invite peers, and browse active members with leave and expulsion applied.</p>
                                     <p className="text-[11px] font-bold uppercase tracking-widest text-zinc-600 dark:text-zinc-500">
-                                        Membership, invite, and message evidence
+                                        Active membership evidence
                                     </p>
                                 </div>
                             </div>
@@ -1000,7 +1030,7 @@ export default function GroupHomePage() {
                         communityId={group.communityId}
                         genesisEventId={group.genesisEventId}
                         creatorPubkey={group.creatorPubkey}
-                        currentMemberPubkeys={rosterDisplayPubkeys}
+                        currentMemberPubkeys={activeMembers}
                         metadata={{
                             id: group.groupId,
                             name: displayName,
@@ -1024,7 +1054,7 @@ export default function GroupHomePage() {
                                 <div>
                                     <h3 className="text-xl font-black text-zinc-900 dark:text-white">Community Participants</h3>
                                     <p className="mt-1 text-xs font-bold uppercase tracking-widest text-zinc-600 dark:text-zinc-500">
-                                        Projection-backed view from membership, invite, and message evidence
+                                        Active members from membership evidence (leave and expulsion applied)
                                     </p>
                                 </div>
                                 <Button

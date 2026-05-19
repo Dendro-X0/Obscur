@@ -28,9 +28,11 @@ import type { CommunityMembershipIngressDetail } from "@/app/features/groups/ser
 import { subscribeGroupMembershipConfirmedDual } from "@/app/features/profiles/services/subscribe-group-membership-confirmed-dual";
 import { subscribeGroupRemoveDual } from "@/app/features/profiles/services/subscribe-group-remove-dual";
 import { subscribeGroupMembershipSnapshotDual } from "@/app/features/profiles/services/subscribe-group-membership-snapshot-dual";
+import { subscribeGroupDescriptorUpdatedDual } from "@/app/features/profiles/services/subscribe-group-descriptor-updated-dual";
 import { subscribeCommunityKnownParticipantsObservedDual } from "@/app/features/profiles/services/subscribe-community-known-participants-observed-dual";
 import type {
     CommunityKnownParticipantsObservedDispatchDetail,
+    GroupDescriptorUpdatedDispatchDetail,
     GroupMembershipSnapshotDispatchDetail,
 } from "@/app/features/profiles/services/profile-bus-dispatch";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
@@ -43,6 +45,8 @@ import {
     toGroupTombstoneKey
 } from "@/app/features/groups/services/group-tombstone-store";
 import { auditCommunityMigrationState } from "@/app/features/groups/services/community-migration-audit";
+import { pickPreferredCommunityDisplayName } from "@/app/features/groups/services/community-display-name";
+import { persistCommunityDescriptorUpdate } from "@/app/features/groups/services/community-descriptor-mutation-owner";
 import { logRuntimeEvent } from "@/app/shared/runtime-log-classification";
 import {
     COMMUNITY_MEMBERSHIP_LEDGER_UPDATED_EVENT,
@@ -174,7 +178,8 @@ const buildInviteMemberPubkeysByGroupKey = (params: Readonly<{
     localPublicKeyHex: string;
     chatState: ReturnType<typeof chatStateStoreService.load>;
 }>): Readonly<Record<string, ReadonlyArray<string>>> => {
-    const groupedPeers = new Map<string, Set<string>>();
+    const invitePeersByGroupKey = new Map<string, Set<string>>();
+    const terminalInvitePeersByGroupKey = new Map<string, Set<string>>();
     const createdConnections = params.chatState?.createdConnections ?? [];
     const peerByConversationId = new Map<string, string>();
     createdConnections.forEach((connection) => {
@@ -183,6 +188,18 @@ const buildInviteMemberPubkeysByGroupKey = (params: Readonly<{
             peerByConversationId.set(connection.id, normalizedPeer);
         }
     });
+
+    const recordTerminalInvitePeer = (groupKey: string, peerPublicKeyHex: string): void => {
+        const current = terminalInvitePeersByGroupKey.get(groupKey) ?? new Set<string>();
+        current.add(peerPublicKeyHex);
+        terminalInvitePeersByGroupKey.set(groupKey, current);
+    };
+
+    const recordInvitePeer = (groupKey: string, peerPublicKeyHex: string): void => {
+        const current = invitePeersByGroupKey.get(groupKey) ?? new Set<string>();
+        current.add(peerPublicKeyHex);
+        invitePeersByGroupKey.set(groupKey, current);
+    };
 
     Object.entries(params.chatState?.messagesByConversationId ?? {}).forEach(([conversationId, messages]) => {
         const peerPublicKeyHex = peerByConversationId.get(conversationId)
@@ -201,19 +218,33 @@ const buildInviteMemberPubkeysByGroupKey = (params: Readonly<{
             if (!parsed) {
                 return;
             }
-            if (parsed.type === "community-invite-response" && parsed.status !== "accepted") {
-                return;
-            }
             const groupId = typeof parsed.groupId === "string" ? parsed.groupId.trim() : "";
             const relayUrl = typeof parsed.relayUrl === "string" ? parsed.relayUrl.trim() : "";
             if (!groupId || !relayUrl) {
                 return;
             }
             const groupKey = toGroupTombstoneKey({ groupId, relayUrl });
-            const current = groupedPeers.get(groupKey) ?? new Set<string>();
-            current.add(peerPublicKeyHex);
-            groupedPeers.set(groupKey, current);
+            if (parsed.type === "community-invite-response") {
+                if (parsed.status === "declined" || parsed.status === "canceled") {
+                    recordTerminalInvitePeer(groupKey, peerPublicKeyHex);
+                } else if (parsed.status === "accepted") {
+                    recordInvitePeer(groupKey, peerPublicKeyHex);
+                }
+                return;
+            }
+            if (parsed.type === "community-invite") {
+                recordInvitePeer(groupKey, peerPublicKeyHex);
+            }
         });
+    });
+
+    const groupedPeers = new Map<string, Set<string>>();
+    invitePeersByGroupKey.forEach((peerSet, groupKey) => {
+        const terminalPeers = terminalInvitePeersByGroupKey.get(groupKey) ?? new Set<string>();
+        const activePeers = Array.from(peerSet).filter((peer) => !terminalPeers.has(peer));
+        if (activePeers.length > 0) {
+            groupedPeers.set(groupKey, new Set(activePeers));
+        }
     });
 
     return Object.fromEntries(
@@ -259,24 +290,6 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         Array.from(new Set(values.map((value) => value.trim()).filter((value) => value.length > 0)))
     );
     const PLACEHOLDER_GROUP_DISPLAY_NAME = "Private Group";
-    const hasMeaningfulDisplayName = (value: string | undefined): boolean => {
-        const trimmed = value?.trim() ?? "";
-        return trimmed.length > 0 && trimmed !== PLACEHOLDER_GROUP_DISPLAY_NAME;
-    };
-    const pickPreferredDisplayName = (
-        current: string | undefined,
-        incoming: string | undefined,
-    ): string => {
-        if (hasMeaningfulDisplayName(current)) {
-            return current!.trim();
-        }
-        if (hasMeaningfulDisplayName(incoming)) {
-            return incoming!.trim();
-        }
-        const currentTrimmed = current?.trim() ?? "";
-        const incomingTrimmed = incoming?.trim() ?? "";
-        return currentTrimmed || incomingTrimmed || PLACEHOLDER_GROUP_DISPLAY_NAME;
-    };
     const toPublicKeySuffix = (value: string): string => value.slice(-8);
 
     const sanitizeGroup = (group: GroupConversation): GroupConversation => {
@@ -337,7 +350,14 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             ...secondary,
             ...primary,
             communityId: pickPreferredCommunityId(primary.communityId, secondary.communityId),
-            displayName: pickPreferredDisplayName(primary.displayName, secondary.displayName),
+            displayName: pickPreferredCommunityDisplayName(
+                primary.displayName,
+                secondary.displayName,
+                {
+                    groupId: primary.groupId ?? secondary.groupId,
+                    communityId: pickPreferredCommunityId(primary.communityId, secondary.communityId),
+                },
+            ),
             memberPubkeys: mergedMemberPubkeys,
             adminPubkeys: mergedAdminPubkeys,
             memberCount: Math.max(
@@ -1350,6 +1370,80 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 return next;
             });
         };
+        const applyDescriptorUpdatedDetail = (detail: GroupDescriptorUpdatedDispatchDetail): void => {
+            const groupId = detail.groupId?.trim();
+            const relayUrl = detail.relayUrl?.trim();
+            if (!groupId || !relayUrl) {
+                return;
+            }
+            const pk = getPublicKeyHex();
+            const profileId = getResolvedProfileId();
+            const communityId = detail.communityId?.trim();
+            const incomingName = pickPreferredCommunityDisplayName(
+                detail.displayName,
+                undefined,
+                { groupId, communityId },
+            );
+            const access = detail.access === "open" || detail.access === "discoverable" || detail.access === "invite-only"
+                ? detail.access
+                : undefined;
+
+            setCreatedGroups((prev) => {
+                const existingIndex = prev.findIndex((group) => {
+                    const matchesGroup = group.groupId === groupId;
+                    const matchesRelay = group.relayUrl === relayUrl;
+                    const matchesCommunity = communityId ? group.communityId === communityId : true;
+                    return matchesGroup && matchesRelay && matchesCommunity;
+                });
+                if (existingIndex === -1) {
+                    return prev;
+                }
+                const existing = prev[existingIndex];
+                if (!existing) {
+                    return prev;
+                }
+                const resolvedCommunityId = pickPreferredCommunityId(existing.communityId, communityId);
+                const mergedDisplayName = pickPreferredCommunityDisplayName(
+                    incomingName,
+                    existing.displayName,
+                    { groupId, communityId: resolvedCommunityId },
+                );
+                const mergedGroup = sanitizeGroup({
+                    ...existing,
+                    communityId: resolvedCommunityId,
+                    displayName: mergedDisplayName,
+                    about: detail.about?.trim() || existing.about,
+                    avatar: detail.avatar?.trim() || existing.avatar,
+                    access: access ?? existing.access,
+                });
+                if (
+                    existing.communityId === mergedGroup.communityId
+                    && existing.displayName === mergedGroup.displayName
+                    && existing.about === mergedGroup.about
+                    && existing.avatar === mergedGroup.avatar
+                    && existing.access === mergedGroup.access
+                ) {
+                    return prev;
+                }
+                const mutableNext = [...prev];
+                mutableNext[existingIndex] = mergedGroup;
+                const next = mutableNext;
+                if (pk) {
+                    chatStateStoreService.updateGroups(pk, next.map((group) => toPersistedGroupConversation(group)));
+                    persistCommunityDescriptorUpdate({
+                        publicKeyHex: pk,
+                        group: mergedGroup,
+                        displayName: mergedDisplayName,
+                        about: mergedGroup.about,
+                        avatar: mergedGroup.avatar,
+                        access: mergedGroup.access,
+                        lastEvidenceEventId: detail.lastEvidenceEventId,
+                        profileId,
+                    });
+                }
+                return next;
+            });
+        };
         const applyMembershipSnapshotDetail = (detail: GroupMembershipSnapshotDispatchDetail) => {
             const groupId = detail.groupId?.trim();
             const relayUrl = detail.relayUrl?.trim();
@@ -1729,6 +1823,7 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         );
         const unsubInviteDual = subscribeGroupInviteAcceptedDual(handleInviteAcceptedDetail, optionalProfileBus);
         const unsubMembershipConfirmedDual = subscribeGroupMembershipConfirmedDual(applyMembershipConfirmedDetail, optionalProfileBus);
+        const unsubDescriptorUpdatedDual = subscribeGroupDescriptorUpdatedDual(applyDescriptorUpdatedDetail, optionalProfileBus);
         const unsubRemoveDual = subscribeGroupRemoveDual(handleGroupRemoveConversationId, optionalProfileBus);
 
         const unsubMembershipSnapshotDual = subscribeGroupMembershipSnapshotDual(
@@ -1744,6 +1839,7 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             unsubInviteReceivedDual();
             unsubInviteDual();
             unsubMembershipConfirmedDual();
+            unsubDescriptorUpdatedDual();
             unsubRemoveDual();
             unsubMembershipSnapshotDual();
             unsubKnownParticipantsDual();

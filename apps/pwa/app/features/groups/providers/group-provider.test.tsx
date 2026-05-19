@@ -1321,6 +1321,100 @@ describe("group-provider membership ledger integration", () => {
     ]));
   });
 
+  it("does not backfill declined invite peers into inviter roster evidence", async () => {
+    const wrapper: React.FC<React.PropsWithChildren> = ({ children }) => (
+      <GroupProvider>{children}</GroupProvider>
+    );
+
+    activePublicKeyHex = PUBLIC_KEY_A;
+    await act(async () => {
+      await encryptedAccountBackupServiceInternals.applyBackupPayloadNonV1Domains(PUBLIC_KEY_A, {
+        version: 1,
+        publicKeyHex: PUBLIC_KEY_A,
+        createdAtUnixMs: Date.now(),
+        profile: {
+          username: "inviter-terminal-decline",
+          about: "",
+          avatarUrl: "",
+          nip05: "",
+          inviteCode: "",
+        },
+        peerTrust: { acceptedPeers: [], mutedPeers: [] },
+        requestFlowEvidence: { byPeer: {} },
+        requestOutbox: { records: [] },
+        syncCheckpoints: [],
+        communityMembershipLedger: [{
+          communityId: "decline-peer:wss://relay.peer",
+          groupId: "decline-peer",
+          relayUrl: "wss://relay.peer",
+          status: "joined",
+          updatedAtUnixMs: 9_000,
+          displayName: "Decline Peer",
+        }],
+        chatState: {
+          ...createEmptyState(),
+          createdGroups: [{
+            id: "community:decline-peer:wss://relay.peer",
+            communityId: "decline-peer:wss://relay.peer",
+            groupId: "decline-peer",
+            relayUrl: "wss://relay.peer",
+            displayName: "Decline Peer",
+            memberPubkeys: [PUBLIC_KEY_A],
+            lastMessage: "inviter only",
+            unreadCount: 0,
+            lastMessageTimeMs: 9_000,
+            access: "invite-only",
+            memberCount: 1,
+            adminPubkeys: [PUBLIC_KEY_A],
+          }],
+          messagesByConversationId: {
+            [`${PUBLIC_KEY_A}:${PUBLIC_KEY_B}`]: [{
+              id: "invite-out-1",
+              content: JSON.stringify({
+                type: "community-invite",
+                groupId: "decline-peer",
+                relayUrl: "wss://relay.peer",
+                communityId: "decline-peer:wss://relay.peer",
+                roomKey: "rk",
+                metadata: { name: "Decline Peer" },
+              }),
+              timestampMs: 8_000,
+              isOutgoing: true,
+              status: "delivered",
+              pubkey: PUBLIC_KEY_A,
+            }, {
+              id: "invite-decline-1",
+              content: JSON.stringify({
+                type: "community-invite-response",
+                status: "declined",
+                groupId: "decline-peer",
+                relayUrl: "wss://relay.peer",
+                communityId: "decline-peer:wss://relay.peer",
+              }),
+              timestampMs: 8_200,
+              isOutgoing: false,
+              status: "delivered",
+              pubkey: PUBLIC_KEY_B,
+            }],
+          },
+        },
+        privacySettings: PrivacySettingsService.getSettings(),
+        relayList: relayListInternals.DEFAULT_RELAYS,
+      });
+    });
+
+    const hook = renderHook(() => useGroups(), { wrapper });
+    await waitFor(() => {
+      expect(hook.result.current.createdGroups).toHaveLength(1);
+    });
+
+    expect(hook.result.current.createdGroups[0]?.memberPubkeys).toEqual([PUBLIC_KEY_A]);
+    expect(hook.result.current.createdGroups[0]?.memberPubkeys).not.toContain(PUBLIC_KEY_B);
+    expect(
+      hook.result.current.communityKnownParticipantDirectoryByConversationId["community:decline-peer:wss://relay.peer"]?.participantPubkeys ?? [],
+    ).not.toContain(PUBLIC_KEY_B);
+  });
+
   it("does not materialize a placeholder private group from sender-local accepted invite response restore", async () => {
     const wrapper: React.FC<React.PropsWithChildren> = ({ children }) => (
       <GroupProvider>{children}</GroupProvider>

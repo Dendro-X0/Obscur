@@ -170,12 +170,10 @@ describe('InviteLinkCreator', () => {
     // Fill in custom options
     const displayNameInput = screen.getByLabelText(/display name/i);
     const messageInput = screen.getByLabelText(/personal message/i);
-    const expirationSelect = screen.getByLabelText(/expiration/i);
     const maxUsesInput = screen.getByLabelText(/max uses/i);
 
     fireEvent.change(displayNameInput, { target: { value: 'Test User' } });
     fireEvent.change(messageInput, { target: { value: 'Hello!' } });
-    fireEvent.change(expirationSelect, { target: { value: '1w' } });
     fireEvent.change(maxUsesInput, { target: { value: '10' } });
 
     const createButton = screen.getByRole('button', { name: /create invite link/i });

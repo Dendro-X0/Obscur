@@ -104,8 +104,8 @@ describe('ConnectionList', () => {
       expect(screen.getByText('Alice')).toBeInTheDocument();
     });
 
-    const trustLevelSelect = screen.getByLabelText(/trust level/i);
-    fireEvent.change(trustLevelSelect, { target: { value: 'trusted' } });
+    fireEvent.click(screen.getByLabelText(/^trust level$/i));
+    fireEvent.click(screen.getByRole('option', { name: /^trusted$/i }));
 
     await waitFor(() => {
       expect(screen.getByText('Alice')).toBeInTheDocument();
@@ -122,8 +122,8 @@ describe('ConnectionList', () => {
       expect(screen.getByText('Alice')).toBeInTheDocument();
     });
 
-    const groupSelect = screen.getByLabelText(/group/i);
-    fireEvent.change(groupSelect, { target: { value: 'group-1' } });
+    fireEvent.click(screen.getByLabelText(/^group$/i));
+    fireEvent.click(screen.getByRole('option', { name: /friends/i }));
 
     await waitFor(() => {
       expect(screen.getByText('Alice')).toBeInTheDocument();

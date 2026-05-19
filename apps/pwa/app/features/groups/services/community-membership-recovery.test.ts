@@ -263,4 +263,5 @@ describe("community-membership-recovery", () => {
     expect(result.groups[0]?.memberPubkeys).toEqual(expect.arrayContaining([PUBLIC_KEY, otherMember]));
     expect(result.groups[0]?.memberCount).toBeGreaterThanOrEqual(2);
   });
+
 });

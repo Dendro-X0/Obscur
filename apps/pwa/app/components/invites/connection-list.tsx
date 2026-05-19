@@ -9,6 +9,7 @@ import { Button } from "../ui/button";
 import { Card } from "../ui/card";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
+import { SelectField } from "../ui/select";
 
 type ConnectionListState =
   | { status: "loading" }
@@ -132,34 +133,32 @@ export const ConnectionList = () => {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label htmlFor="trustLevel">Trust Level</Label>
-              <select
+              <SelectField
                 id="trustLevel"
                 value={selectedTrustLevel}
-                onChange={(e) => setSelectedTrustLevel(e.target.value as TrustLevel | "all")}
-                className="mt-1 w-full min-h-10 rounded-xl border px-3 py-2 text-sm border-black/10 bg-gradient-card text-zinc-900 dark:border-white/10 dark:text-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400/50"
-              >
-                <option value="all">All</option>
-                <option value="trusted">Trusted</option>
-                <option value="neutral">Neutral</option>
-                <option value="blocked">Blocked</option>
-              </select>
+                onValueChange={(value) => setSelectedTrustLevel(value as TrustLevel | "all")}
+                className="mt-1"
+                options={[
+                  { value: "all", label: "All" },
+                  { value: "trusted", label: "Trusted" },
+                  { value: "neutral", label: "Neutral" },
+                  { value: "blocked", label: "Blocked" },
+                ]}
+              />
             </div>
 
             <div>
               <Label htmlFor="group">Group</Label>
-              <select
+              <SelectField
                 id="group"
                 value={selectedGroup}
-                onChange={(e) => setSelectedGroup(e.target.value)}
-                className="mt-1 w-full min-h-10 rounded-xl border px-3 py-2 text-sm border-black/10 bg-gradient-card text-zinc-900 dark:border-white/10 dark:text-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400/50"
-              >
-                <option value="all">All Groups</option>
-                {state.groups.map((group) => (
-                  <option key={group.id} value={group.id}>
-                    {group.name}
-                  </option>
-                ))}
-              </select>
+                onValueChange={setSelectedGroup}
+                className="mt-1"
+                options={[
+                  { value: "all", label: "All Groups" },
+                  ...state.groups.map((group) => ({ value: group.id, label: group.name })),
+                ]}
+              />
             </div>
           </div>
 
@@ -498,16 +497,17 @@ const ConnectionDetails = ({
         {/* Trust Level */}
         <div>
           <Label htmlFor="trustLevel">Trust Level</Label>
-          <select
+          <SelectField
             id="trustLevel"
             value={connection.trustLevel}
-            onChange={(e) => onTrustLevelChange(connection.id, e.target.value as TrustLevel)}
-            className="mt-1 w-full min-h-10 rounded-xl border px-3 py-2 text-sm border-black/10 bg-gradient-card text-zinc-900 dark:border-white/10 dark:text-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400/50"
-          >
-            <option value="trusted">Trusted</option>
-            <option value="neutral">Neutral</option>
-            <option value="blocked">Blocked</option>
-          </select>
+            onValueChange={(value) => onTrustLevelChange(connection.id, value as TrustLevel)}
+            className="mt-1"
+            options={[
+              { value: "trusted", label: "Trusted" },
+              { value: "neutral", label: "Neutral" },
+              { value: "blocked", label: "Blocked" },
+            ]}
+          />
         </div>
 
         {/* Groups */}

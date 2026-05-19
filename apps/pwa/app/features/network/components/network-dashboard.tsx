@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { useNetwork } from "../providers/network-provider";
 import { useGroups } from "@/app/features/groups/providers/group-provider";
+import { resolveCommunityDisplayName } from "@/app/features/groups/services/community-display-name";
 import { useMessaging } from "@/app/features/messaging/providers/messaging-provider";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
 import { UserAvatar } from "@/app/features/profile/components/user-avatar";
@@ -136,7 +137,12 @@ export function NetworkDashboard() {
 
     const filteredGroups = useMemo(() => {
         return createdGroups.filter(group => {
-            const name = group.displayName || group.id || "";
+            const name = resolveCommunityDisplayName({
+                persistedDisplayName: group.displayName,
+                groupId: group.groupId,
+                communityId: group.communityId,
+                fallback: group.id,
+            });
             return name.toLowerCase().includes(searchQuery.toLowerCase());
         });
     }, [createdGroups, searchQuery]);
@@ -364,7 +370,12 @@ export function NetworkDashboard() {
                                         <GroupCard
                                             key={group.id}
                                             id={group.id}
-                                            displayName={group.displayName}
+                                            displayName={resolveCommunityDisplayName({
+                                                persistedDisplayName: group.displayName,
+                                                groupId: group.groupId,
+                                                communityId: group.communityId,
+                                                fallback: group.id,
+                                            })}
                                             relayUrl={group.relayUrl}
                                             memberCount={
                                                 communityKnownParticipantDirectoryByConversationId[group.id]?.participantCount

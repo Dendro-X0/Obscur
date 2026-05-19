@@ -1,8 +1,9 @@
-## [v1.5.6] - Unreleased (Mobile Preview)
+## [v1.5.6] - 2026-05-19 (Mobile Preview + desktop shared kernel)
 
 ### Summary
 
-Mobile UI preview: DM-first layout slice in the WebView shell (auth → list → thread) on the shared kernel. Distribution/signing optional.
+**Mobile:** DM-first layout slice (M1) in the WebView shell — **Lane M product matrix paused** until signing/install.  
+**Desktop / shared kernel:** Reliability (R4, R5), invite UX (U1), themed selects, and **Phase 1 community** (descriptor + governance MVP, roster/display fixes) ship on the same `1.5.6` line while M is paused.
 
 ### Added
 
@@ -13,13 +14,27 @@ Mobile UI preview: DM-first layout slice in the WebView shell (auth → list →
 - M2 — Safe areas and tab bar polish in emulator (**paused** until signing/install).
 - Optional unsigned APK on tag for preview (**paused**).
 
+### Changed
+
+- **R4** — Settings storage-tab health/path probes and Search recent-history hydration defer via `scheduleIdleWork` (closes v1.5.3 idle deferral gap).
+- **U1** — Community invite status banners: direction-aware title/subtitle copy and stronger light/dark contrast.
+- **Themed selects** — `@dweb/ui-kit` `SelectField` replaces native `<select>` across invites, network filters, and dev tools (gradient/popover styling).
+- **R5 (MEM-005)** — Terminal invite decline/cancel no longer backfills declined peers into inviter roster evidence.
+- **MEM-002 (partial)** — Community home/management participant list and invite gate use **active** membership (`leftMembers` / `expelledMembers` applied) instead of widen-only discovery roster; display names prefer persisted `createdGroups.displayName` over relay hex group ids.
+- **SelectField** — Body-portaled menu for reliable dropdowns inside stacked modals (Add Connection expiration).
+- **Community Phase 1 (desktop)** — Sealed descriptor updates (`community.descriptor_updated`) with `persistCommunityDescriptorUpdate` and `descriptor_updated` ledger reason; Network `resolveCommunityDisplayName`; sealed governance propose / vote / resolve (accept, rejection-quorum reject, TTL `expired`); Governance tab + home banner; session governance cache; **expel** via governance when member count > 2 else legacy `vote-kick`; multi-member rename propose path.
+
 ### Paused (maintainer)
 
-- Lane M emulator smoke and `v1.5.6` tag — no device/signing path on desktop. Desktop-first R/U work continues on shared `apps/pwa` / `packages/*`.
+- Lane M emulator smoke — no device/signing path on desktop. **Desktop `v1.5.6` tag** may still ship with end-to-end gate **A1–A4** (plus community Track D desktop slice) per [v1.5.6-gate.md](docs/releases/v1.5.6-gate.md). Lane M remains optional.
 
 ### Known limitations
 
 - Store signing and device matrix production gates remain optional.
+
+## [v1.5.7] - Unreleased
+
+Scope and tasks: [v1.5.7-scope.md](docs/program/v1.5.7-scope.md). Release gate: [v1.5.7-gate.md](docs/releases/v1.5.7-gate.md).
 
 ## [v1.5.5] - 2026-05-18 (Client Depth)
 

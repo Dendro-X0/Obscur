@@ -2,9 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { Ghost, Bot, Zap, Settings, ChevronUp, ChevronDown, Trash2, Play, MessageSquare, UserPlus } from "lucide-react";
-import { Button } from "@dweb/ui-kit";
-import { Card } from "@dweb/ui-kit";
-import { toast } from "@dweb/ui-kit";
+import { Button, Card, SelectField, toast } from "@dweb/ui-kit";
 import { useDevMode } from "../hooks/use-dev-mode";
 import { SCENARIOS } from "../scenarios";
 import { cn } from "@dweb/ui-kit";
@@ -656,37 +654,40 @@ export const DevPanel = ({ dmController }: { dmController?: any }) => {
                             </div>
                             <div className="mt-2 rounded-xl bg-zinc-100 p-2 text-[11px] dark:bg-zinc-800/50">
                                 <div className="mb-2 grid grid-cols-3 gap-1">
-                                    <select
-                                        className="h-7 rounded border border-zinc-300 bg-white px-1 text-[10px] dark:border-zinc-700 dark:bg-zinc-900"
+                                    <SelectField
+                                        size="compact"
                                         value={runtimeIssueDomainFilter}
-                                        onChange={(event) => setRuntimeIssueDomainFilter(event.target.value as RuntimeIssueDomainFilter)}
-                                    >
-                                        <option value="all">domain: all</option>
-                                        <option value="relay">relay</option>
-                                        <option value="messaging">messaging</option>
-                                        <option value="upload">upload</option>
-                                        <option value="runtime">runtime</option>
-                                        <option value="storage">storage</option>
-                                        <option value="unknown">unknown</option>
-                                    </select>
-                                    <select
-                                        className="h-7 rounded border border-zinc-300 bg-white px-1 text-[10px] dark:border-zinc-700 dark:bg-zinc-900"
+                                        onValueChange={(value) => setRuntimeIssueDomainFilter(value as RuntimeIssueDomainFilter)}
+                                        options={[
+                                            { value: "all", label: "domain: all" },
+                                            { value: "relay", label: "relay" },
+                                            { value: "messaging", label: "messaging" },
+                                            { value: "upload", label: "upload" },
+                                            { value: "runtime", label: "runtime" },
+                                            { value: "storage", label: "storage" },
+                                            { value: "unknown", label: "unknown" },
+                                        ]}
+                                    />
+                                    <SelectField
+                                        size="compact"
                                         value={runtimeIssueSeverityFilter}
-                                        onChange={(event) => setRuntimeIssueSeverityFilter(event.target.value as RuntimeIssueSeverityFilter)}
-                                    >
-                                        <option value="all">severity: all</option>
-                                        <option value="error">error</option>
-                                        <option value="warn">warn</option>
-                                    </select>
-                                    <select
-                                        className="h-7 rounded border border-zinc-300 bg-white px-1 text-[10px] dark:border-zinc-700 dark:bg-zinc-900"
+                                        onValueChange={(value) => setRuntimeIssueSeverityFilter(value as RuntimeIssueSeverityFilter)}
+                                        options={[
+                                            { value: "all", label: "severity: all" },
+                                            { value: "error", label: "error" },
+                                            { value: "warn", label: "warn" },
+                                        ]}
+                                    />
+                                    <SelectField
+                                        size="compact"
                                         value={runtimeIssueRetryabilityFilter}
-                                        onChange={(event) => setRuntimeIssueRetryabilityFilter(event.target.value as RuntimeIssueRetryabilityFilter)}
-                                    >
-                                        <option value="all">retry: all</option>
-                                        <option value="retryable">retryable</option>
-                                        <option value="terminal">terminal</option>
-                                    </select>
+                                        onValueChange={(value) => setRuntimeIssueRetryabilityFilter(value as RuntimeIssueRetryabilityFilter)}
+                                        options={[
+                                            { value: "all", label: "retry: all" },
+                                            { value: "retryable", label: "retryable" },
+                                            { value: "terminal", label: "terminal" },
+                                        ]}
+                                    />
                                 </div>
                                 {filteredRuntimeIssues.length === 0 ? (
                                     <div className="text-zinc-500">No runtime issues captured.</div>

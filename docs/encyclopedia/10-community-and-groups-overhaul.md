@@ -36,10 +36,13 @@ Rule: do not introduce a second mutation owner for any lifecycle above.
 
 ## Governance Contract
 
-- Communities are decentralized and adminless.
-- Moderation actions are member-governed and evidence-backed.
-- Removal decisions and metadata-sensitive actions must resolve from signed governance events and reducer outcomes, never from optimistic UI state.
+- Communities are decentralized; **authority is policy-driven**, not a single global admin role.
+- **Sovereign room** mode: member-governed votes for sensitive actions when multiple active members exist; solo steward when alone.
+- **Managed workspace** mode: designated stewards on trusted relays (see implementation plan).
+- Moderation actions are evidence-backed; removal and descriptor changes must resolve from signed governance events and reducer outcomes, never from optimistic UI state.
 - Local safety actions (mute/hide) remain local-only and do not redefine global membership truth.
+
+**Implementation, UI, and version phases:** [`docs/program/community-system-implementation-and-ui-plan.md`](../program/community-system-implementation-and-ui-plan.md) · [`docs/program/community-system-overhaul-phased-roadmap.md`](../program/community-system-overhaul-phased-roadmap.md).
 
 ## Data Truth and Recovery Model
 

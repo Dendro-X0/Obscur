@@ -27,7 +27,8 @@ import {
     Download,
     ChevronRight,
     Search,
-    UserCheck
+    UserCheck,
+    Scale,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../../components/ui/button";
@@ -45,7 +46,6 @@ import {
     DropdownMenuTrigger
 } from "../../../components/ui/dropdown-menu";
 import { useSealedCommunity } from "../hooks/use-sealed-community";
-import { useCommunityParticipantRosterReadModel } from "../hooks/use-community-participant-roster-read-model";
 import { useUploadService } from "@/app/features/messaging/lib/upload-service";
 import { useGroups } from "../providers/group-provider";
 import { toast } from "../../../components/ui/toast";
@@ -73,6 +73,7 @@ import { useRelay } from "@/app/features/relays/providers/relay-provider";
 import { summarizeCommunityOperatorHealth } from "../services/community-operator-health";
 import { discoveryCache } from "@/app/features/search/services/discovery-cache";
 import { filterVisibleGroupMembers } from "../services/community-visible-members";
+import { resolveCommunityDisplayName } from "../services/community-display-name";
 import { getResolvedClientGateway } from "@/app/features/profiles/services/resolve-client-gateway";
 
 interface GroupManagementDialogProps {
@@ -84,7 +85,7 @@ interface GroupManagementDialogProps {
     myPrivateKeyHex: any;
 }
 
-type TabId = "general" | "members" | "requests" | "settings";
+type TabId = "general" | "members" | "governance" | "requests" | "settings";
 
 export function GroupManagementDialog({
     isOpen,
@@ -121,6 +122,11 @@ export function GroupManagementDialog({
         demoteUser,
         setGroupStatus,
         sendVoteKick,
+        proposeDescriptorUpdate,
+        proposeExpelMember,
+        castGovernanceVote,
+        activeGovernanceProposals,
+        members,
         rotateRoomKey,
         admins
     } = useSealedCommunity({
@@ -250,41 +256,44 @@ export function GroupManagementDialog({
 
     useEffect(() => {
         if (state.metadata) {
-            setEditName(state.metadata.name || group.displayName);
+            setEditName(
+                resolveCommunityDisplayName({
+                    metadataName: state.metadata.name,
+                    persistedDisplayName: group.displayName,
+                    groupId: group.groupId,
+                    communityId: group.communityId,
+                    fallback: group.displayName,
+                }),
+            );
             setEditAbout(state.metadata.about || "");
             setEditPicture(state.metadata.picture || "");
             setEditAccess(state.metadata.access || "public");
         }
-    }, [state.metadata, group.displayName]);
+    }, [state.metadata, group.communityId, group.displayName, group.groupId]);
 
-    const directoryParticipantPubkeys = React.useMemo(
-        () => (
-            communityKnownParticipantDirectoryByConversationId[group.id]?.participantPubkeys ?? []
-        ) as ReadonlyArray<PublicKeyHex>,
-        [communityKnownParticipantDirectoryByConversationId, group.id],
+    const projectionMemberPubkeys = communityRosterByConversationId[group.id]?.activeMemberPubkeys as
+        ReadonlyArray<PublicKeyHex> | undefined;
+    const { activeMemberPubkeys: activeMembers } = React.useMemo(
+        () => getResolvedClientGateway().communityRoster.resolveActiveMemberPubkeysFromConversation({
+            communityMessages: state.messages,
+            seededMemberPubkeys: initialMemberSeed,
+            projectionMemberPubkeys,
+            localMemberPubkey,
+            leftMemberPubkeys: state.leftMembers,
+            expelledMemberPubkeys: state.expelledMembers,
+        }),
+        [
+            initialMemberSeed,
+            localMemberPubkey,
+            projectionMemberPubkeys,
+            state.expelledMembers,
+            state.leftMembers,
+            state.messages,
+        ],
     );
-    const relayEvidenceConfidence = (
-        state as { relayEvidenceRef?: { confidenceLevel: "seed_only" | "warming_up" | "partial_eose" | "steady_state" } }
-    ).relayEvidenceRef?.confidenceLevel ?? "seed_only";
-    const { displayPubkeys: rosterDisplayPubkeys } = useCommunityParticipantRosterReadModel({
-        conversationId: group.id,
-        directoryParticipantPubkeys,
-        persistedGroupMemberPubkeys: (group.memberPubkeys ?? []) as ReadonlyArray<PublicKeyHex>,
-        projectionMemberPubkeys: communityRosterByConversationId[group.id]?.activeMemberPubkeys as ReadonlyArray<PublicKeyHex> | undefined,
-        rosterSeedPubkeys: initialMemberSeed,
-        communityMessages: state.messages,
-        localMemberPubkey,
-        leftMemberPubkeys: state.leftMembers as ReadonlyArray<PublicKeyHex>,
-        expelledMemberPubkeys: state.expelledMembers as ReadonlyArray<PublicKeyHex>,
-        relayEvidenceConfidence,
-        persistedEvidenceOwnerPubkey: localMemberPubkey,
-        ledgerGroupId: group.groupId,
-        ledgerRelayUrl: group.relayUrl,
-        applyTerminalMembershipExclusions: false,
-    });
     const visibleMemberRegistry = React.useMemo(
-        () => filterVisibleGroupMembers(rosterDisplayPubkeys, (pubkey) => discoveryCache.getProfile(pubkey)),
-        [discoveryCache, rosterDisplayPubkeys],
+        () => filterVisibleGroupMembers(activeMembers, (pubkey) => discoveryCache.getProfile(pubkey)),
+        [activeMembers],
     );
     const onlineMemberCount = React.useMemo(
         () => visibleMemberRegistry.filter((pubkey) => presence.isPeerOnline(pubkey)).length,
@@ -322,10 +331,15 @@ export function GroupManagementDialog({
     const handleVoteKick = async (memberPubkey: string) => {
         setKickingMemberPubkey(memberPubkey);
         try {
-            await sendVoteKick(memberPubkey);
-            toast.success("Vote to kick submitted");
+            // 3+ members: sealed governance proposal (P1). Two-member rooms keep legacy vote-kick consensus.
+            if (members.length > 2) {
+                await proposeExpelMember({ targetPublicKeyHex: memberPubkey as PublicKeyHex });
+            } else {
+                await sendVoteKick(memberPubkey);
+                toast.success("Vote to kick submitted");
+            }
         } catch (error) {
-            toast.error("Failed to submit kick vote");
+            toast.error(error instanceof Error ? error.message : "Failed to submit removal");
         } finally {
             setKickingMemberPubkey(null);
         }
@@ -374,30 +388,56 @@ export function GroupManagementDialog({
 
     if (!isOpen) return null;
 
+    const requiresMemberVote = members.length > 1;
+
     const handleSaveGeneral = async () => {
         setIsSaving(true);
         try {
-            // In Sealed Protocol, metadata updates are broadcast as Kind 39000 hints
-            // and eventually (Phase 4) as part of the encrypted Manifest.
-            await updateMetadata({
+            const metadataPayload = {
                 id: group.groupId,
                 name: editName,
                 about: editAbout,
                 picture: editPicture,
-                access: editAccess
-            });
-
-            toast.success("Community settings updated");
+                access: editAccess,
+            };
+            if (requiresMemberVote) {
+                await proposeDescriptorUpdate(metadataPayload);
+            } else {
+                await updateMetadata(metadataPayload);
+                toast.success("Community settings updated");
+            }
         } catch (error) {
-            toast.error("Failed to update settings");
+            toast.error(error instanceof Error ? error.message : "Failed to update settings");
         } finally {
             setIsSaving(false);
         }
     };
 
+    const describeGovernanceProposal = (proposal: (typeof activeGovernanceProposals)[number]): string => {
+        if (proposal.actionType === "update_descriptor") {
+            const name = "name" in proposal.payload && typeof proposal.payload.name === "string"
+                ? proposal.payload.name
+                : null;
+            return name ? `Rename community to “${name}”` : "Update community descriptor";
+        }
+        if (proposal.actionType === "expel_member") {
+            const target = "targetPublicKeyHex" in proposal.payload
+                ? proposal.payload.targetPublicKeyHex
+                : "member";
+            return `Expel member ${target.slice(0, 8)}…`;
+        }
+        return proposal.actionType;
+    };
+
     const navItems = [
         { id: "general", label: "General", icon: Settings },
         { id: "members", label: "Participants", icon: Users },
+        {
+            id: "governance",
+            label: "Governance",
+            icon: Scale,
+            badge: activeGovernanceProposals.length > 0 ? activeGovernanceProposals.length : undefined,
+        },
         { id: "settings", label: "Safety & Privacy", icon: Shield },
     ];
 
@@ -438,6 +478,11 @@ export function GroupManagementDialog({
                                 <div className="flex items-center gap-3">
                                     <item.icon className={cn("h-4 w-4", activeTab === item.id ? "text-white" : "text-zinc-600 group-hover:text-zinc-400")} />
                                     {item.label}
+                                    {"badge" in item && typeof item.badge === "number" && item.badge > 0 ? (
+                                        <span className="min-w-[1.25rem] rounded-full bg-amber-500/90 px-1.5 py-0.5 text-[10px] font-black text-black">
+                                            {item.badge}
+                                        </span>
+                                    ) : null}
                                 </div>
                                 <ChevronRight className={cn("h-3 w-3 transition-transform", activeTab === item.id ? "rotate-90 opacity-100" : "opacity-0 group-hover:opacity-40")} />
                             </button>
@@ -600,6 +645,11 @@ export function GroupManagementDialog({
                                     </p>
                                 </div>
 
+                                {requiresMemberVote && isAdmin && (
+                                    <p className="text-xs text-amber-400/90 font-medium leading-relaxed">
+                                        This room has multiple members. Name and descriptor changes require a member vote (Governance tab).
+                                    </p>
+                                )}
                                 {isAdmin && (
                                     <div className="pt-6 border-t border-white/[0.03]">
                                         <Button
@@ -608,8 +658,67 @@ export function GroupManagementDialog({
                                             className="h-14 px-10 rounded-[20px] bg-purple-600 hover:bg-purple-700 text-white font-black shadow-xl shadow-purple-600/20 transition-all hover:scale-105"
                                         >
                                             {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                                            Commit Identity Changes
+                                            {requiresMemberVote ? "Propose Identity Changes" : "Commit Identity Changes"}
                                         </Button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {activeTab === "governance" && (
+                            <div className="max-w-2xl space-y-8">
+                                <div>
+                                    <h4 className="text-white font-black text-xl">Open proposals</h4>
+                                    <p className="text-zinc-500 text-sm mt-2 leading-relaxed">
+                                        Member-vote governance for rename and expulsion. Accepted proposals apply when quorum is reached.
+                                    </p>
+                                </div>
+                                {activeGovernanceProposals.length === 0 ? (
+                                    <div className="p-8 bg-[#0E0E10] border border-[#1A1A1E] rounded-[28px] text-center">
+                                        <Scale className="h-8 w-8 text-zinc-600 mx-auto mb-3" />
+                                        <p className="text-zinc-500 text-sm">No open proposals.</p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-4">
+                                        {activeGovernanceProposals.map((proposal) => {
+                                            const myVote = myPublicKeyHex ? proposal.votes[myPublicKeyHex] : undefined;
+                                            const approveCount = Object.values(proposal.votes).filter((v) => v === "approve").length;
+                                            return (
+                                                <div
+                                                    key={proposal.proposalId}
+                                                    className="p-6 bg-[#0E0E10] border border-[#1A1A1E] rounded-[28px] space-y-4"
+                                                >
+                                                    <div>
+                                                        <p className="text-white font-black">{describeGovernanceProposal(proposal)}</p>
+                                                        <p className="text-[10px] text-zinc-500 mt-1 uppercase tracking-widest">
+                                                            {approveCount} / {proposal.quorumThreshold} approvals · proposed by {proposal.proposerPublicKeyHex.slice(0, 8)}…
+                                                        </p>
+                                                    </div>
+                                                    {!myVote && myPublicKeyHex && (
+                                                        <div className="flex gap-2">
+                                                            <Button
+                                                                size="sm"
+                                                                className="rounded-xl bg-emerald-600 hover:bg-emerald-700 font-bold"
+                                                                onClick={() => void castGovernanceVote({ proposalId: proposal.proposalId, vote: "approve" })}
+                                                            >
+                                                                Approve
+                                                            </Button>
+                                                            <Button
+                                                                size="sm"
+                                                                variant="secondary"
+                                                                className="rounded-xl font-bold"
+                                                                onClick={() => void castGovernanceVote({ proposalId: proposal.proposalId, vote: "reject" })}
+                                                            >
+                                                                Reject
+                                                            </Button>
+                                                        </div>
+                                                    )}
+                                                    {myVote && (
+                                                        <p className="text-xs text-zinc-500">You voted: {myVote}</p>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 )}
                             </div>
@@ -1019,10 +1128,16 @@ export function GroupManagementDialog({
                 communityId={group.communityId}
                 genesisEventId={group.genesisEventId}
                 creatorPubkey={group.creatorPubkey}
-                currentMemberPubkeys={rosterDisplayPubkeys}
+                currentMemberPubkeys={activeMembers}
                 metadata={{
                     id: group.groupId,
-                    name: state.metadata?.name || group.displayName,
+                    name: resolveCommunityDisplayName({
+                        metadataName: state.metadata?.name,
+                        persistedDisplayName: group.displayName,
+                        groupId: group.groupId,
+                        communityId: group.communityId,
+                        fallback: group.displayName,
+                    }),
                     about: state.metadata?.about || "",
                     picture: state.metadata?.picture || "",
                     access: state.metadata?.access || "invite-only"

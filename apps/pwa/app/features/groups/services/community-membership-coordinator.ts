@@ -42,7 +42,8 @@ export type CommunityMembershipLedgerMutationReason =
   | "explicit_leave"
   | "relay_roster_terminal"
   | "relay_disbanded"
-  | "runtime_join_confirmed";
+  | "runtime_join_confirmed"
+  | "descriptor_updated";
 
 export type CommunityMembershipLedgerMutation = Readonly<{
   reason: CommunityMembershipLedgerMutationReason;

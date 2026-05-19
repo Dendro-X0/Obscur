@@ -20,6 +20,7 @@ export type ProfileBusDomainEvent =
       }>
     | Readonly<{ type: "group-invite-received"; invite: unknown }>
     | Readonly<{ type: "group-membership-confirmed"; detail: unknown }>
+    | Readonly<{ type: "group-descriptor-updated"; detail: unknown }>
     | Readonly<{ type: "group-membership-snapshot"; detail: unknown }>
     | Readonly<{ type: "community-known-participants-observed"; detail: unknown }>
     | Readonly<{ type: "account-restore-materialization-started"; detail: unknown }>

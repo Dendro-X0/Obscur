@@ -13,6 +13,11 @@ import {
 import { toGroupTombstoneKey } from "./group-tombstone-store";
 import { pickPreferredCommunityId } from "../utils/community-identity";
 import { hasDurableCommunityLeaveIntent } from "./community-membership-leave-intent";
+import {
+  hasMeaningfulCommunityDisplayName,
+  pickPreferredCommunityDisplayName,
+  PLACEHOLDER_GROUP_DISPLAY_NAME,
+} from "./community-display-name";
 
 export const COMMUNITY_MEMBERSHIP_RECOVERY_PRECEDENCE = Object.freeze([
   "tombstone",
@@ -52,29 +57,7 @@ const toLastMessageUnixMs = (group: GroupConversation): number => {
   return Number.isFinite(value) ? value : 0;
 };
 
-const PLACEHOLDER_GROUP_DISPLAY_NAME = "Private Group";
-
 const normalizeDisplayName = (value: string | undefined): string => (value ?? "").trim();
-
-const hasMeaningfulDisplayName = (value: string | undefined): boolean => {
-  const trimmed = normalizeDisplayName(value);
-  return trimmed.length > 0 && trimmed !== PLACEHOLDER_GROUP_DISPLAY_NAME;
-};
-
-const pickPreferredDisplayName = (
-  preferred: string | undefined,
-  fallback: string | undefined,
-): string => {
-  if (hasMeaningfulDisplayName(preferred)) {
-    return normalizeDisplayName(preferred);
-  }
-  if (hasMeaningfulDisplayName(fallback)) {
-    return normalizeDisplayName(fallback);
-  }
-  const preferredTrimmed = normalizeDisplayName(preferred);
-  const fallbackTrimmed = normalizeDisplayName(fallback);
-  return preferredTrimmed || fallbackTrimmed || PLACEHOLDER_GROUP_DISPLAY_NAME;
-};
 
 const uniqueNonEmptyStrings = (values: ReadonlyArray<string>): ReadonlyArray<string> => (
   Array.from(new Set(values.map((value) => value.trim()).filter((value) => value.length > 0)))
@@ -103,7 +86,10 @@ const mergePersistedGroupEntries = (
   return {
     ...older,
     ...newer,
-    displayName: pickPreferredDisplayName(newer.displayName, older.displayName),
+    displayName: pickPreferredCommunityDisplayName(newer.displayName, older.displayName, {
+      groupId: newer.groupId ?? older.groupId,
+      communityId: pickPreferredCommunityId(newer.communityId, older.communityId),
+    }),
     memberPubkeys: mergedMemberPubkeys,
     adminPubkeys: mergedAdminPubkeys,
     memberCount: Math.max(
@@ -179,7 +165,10 @@ const mergePersistedGroupWithLedger = (
   return {
     ...group,
     communityId: pickPreferredCommunityId(group.communityId, entry.communityId) ?? group.communityId,
-    displayName: pickPreferredDisplayName(group.displayName, entry.displayName),
+    displayName: pickPreferredCommunityDisplayName(group.displayName, entry.displayName, {
+      groupId: group.groupId ?? entry.groupId,
+      communityId: pickPreferredCommunityId(group.communityId, entry.communityId),
+    }),
     memberPubkeys: mergedMemberPubkeys,
     memberCount: Math.max(group.memberCount ?? 0, mergedMemberPubkeys.length, 1),
     avatar: group.avatar ?? entry.avatar,
@@ -272,8 +261,14 @@ export const resolveCommunityMembershipRecovery = (params: Readonly<{
         params.inviteMemberPubkeysByGroupKey?.[key] ?? [],
       );
       if (
-        !hasMeaningfulDisplayName(persistedGroup.displayName)
-        && hasMeaningfulDisplayName(mergedGroup.displayName)
+        !hasMeaningfulCommunityDisplayName(persistedGroup.displayName, {
+          groupId: persistedGroup.groupId,
+          communityId: persistedGroup.communityId,
+        })
+        && hasMeaningfulCommunityDisplayName(mergedGroup.displayName, {
+          groupId: mergedGroup.groupId,
+          communityId: mergedGroup.communityId,
+        })
       ) {
         placeholderDisplayNameRecoveredCount += 1;
       }

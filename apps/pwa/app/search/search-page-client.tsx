@@ -410,16 +410,26 @@ export default function SearchPage() {
   const lastSearchedRef = useRef("");
 
   useEffect(() => {
-    const saved = localStorage.getItem(getRecentSearchesStorageKey()) ?? localStorage.getItem(LEGACY_RECENT_SEARCHES_STORAGE_KEY);
-    if (!saved) {
-      setRecentSearches([]);
-      return;
-    }
-    try {
-      setRecentSearches(JSON.parse(saved));
-    } catch {
-      setRecentSearches([]);
-    }
+    let cancelled = false;
+    const cancelIdle = scheduleIdleWork(() => {
+      if (cancelled) {
+        return;
+      }
+      const saved = localStorage.getItem(getRecentSearchesStorageKey()) ?? localStorage.getItem(LEGACY_RECENT_SEARCHES_STORAGE_KEY);
+      if (!saved) {
+        setRecentSearches([]);
+        return;
+      }
+      try {
+        setRecentSearches(JSON.parse(saved));
+      } catch {
+        setRecentSearches([]);
+      }
+    });
+    return () => {
+      cancelled = true;
+      cancelIdle();
+    };
   }, []);
 
   useEffect(() => {
