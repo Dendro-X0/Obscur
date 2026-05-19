@@ -32,18 +32,29 @@
 
 - Store signing and device matrix production gates remain optional.
 
-## [v1.5.7] - Unreleased
+## [v1.5.7] - 2026-05-20 (Governance hardening + publish copy)
 
-Development line opened after **v1.5.6** (2026-05-19). **Scope:** [v1.5.7-scope.md](docs/program/v1.5.7-scope.md). **Gate:** [v1.5.7-gate.md](docs/releases/v1.5.7-gate.md).
+### Summary
+
+Desktop-first patch: governance TTL and tie handling, duplicate-resolution idempotency, and expanded relay publish failure copy. Lane **M** still optional.
 
 ### Changed
 
-- **U3 (start)** — `getRelayPublishFailureUserMessage` now maps `failed`, `retry_scheduled`, upload-related reason codes, and `storage_unavailable` to explicit user-facing strings (still falls back to `error` when provided).
+- **U3** — `getRelayPublishFailureUserMessage` maps `failed`, `retry_scheduled`, upload-related reason codes, and `storage_unavailable` to explicit user-facing strings (still falls back to `error` when provided).
 - **G2** — Governance proposal TTL **72h** (was 7d); **tie votes** (`approve === reject` at quorum) close as rejected; duplicate `governance.resolved` with the same resolution is idempotent in the reducer.
 
 ### Added
 
 - **G1** — Manual matrix: [docs/assets/demo/v1.5.7/README.md](docs/assets/demo/v1.5.7/README.md).
+
+### Known limitations
+
+- **U3** audit of all publish call sites not fully closed (continues in v1.5.8).
+- Phase 1 manual sign-off (G1 matrix) may still be pending maintainer execution.
+
+## [v1.5.8] - Unreleased
+
+**Scope:** [v1.5.8-scope.md](docs/program/v1.5.8-scope.md). **Gate:** [v1.5.8-gate.md](docs/releases/v1.5.8-gate.md).
 
 ## [v1.5.5] - 2026-05-18 (Client Depth)
 
