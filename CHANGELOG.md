@@ -1,3 +1,19 @@
+## [v1.5.6] - Unreleased (Mobile Preview)
+
+### Summary
+
+Mobile UI preview: DM-first layout slice in the WebView shell (auth → list → thread) on the shared kernel. Distribution/signing optional.
+
+### Planned
+
+- M1 — DM-first mobile layout using shared hooks only.
+- M2 — Safe areas and tab bar polish in emulator.
+- Optional unsigned APK on tag for preview.
+
+### Known limitations
+
+- Store signing and device matrix production gates remain optional.
+
 ## [v1.5.5] - 2026-05-18 (Client Depth)
 
 ### Summary
