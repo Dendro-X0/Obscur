@@ -5,6 +5,11 @@ import { Suspense, startTransition, useCallback, useEffect, useMemo, useRef, use
 import { usePathname, useRouter } from "next/navigation";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import AppShell from "@/app/components/app-shell";
+import { MobileDmShellLayout } from "@/app/components/mobile/mobile-dm-shell-layout";
+import { MobileDmThreadHeader } from "@/app/components/mobile/mobile-dm-thread-header";
+import { useMobileDmBackNavigation } from "@/app/components/mobile/use-mobile-dm-back-navigation";
+import { isMobileShellProduct } from "@/app/features/runtime/shell-contract";
+
 import { useRuntimeMessagingTransportOwnerController } from "@/app/features/messaging/providers/runtime-messaging-transport-owner-provider";
 import { useNetwork } from "@/app/features/network/providers/network-provider";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
@@ -519,6 +524,12 @@ function NostrMessengerContent() {
   }, [restoredChatId, selectedConversation, setSelectedConversation, createdGroups, createdConnections, unhideConversation]);
 
   const selectedConversationView = selectedConversation ? applyConnectionOverrides(selectedConversation, connectionOverridesByConnectionId) : null;
+
+  const isMobileDmShell = isMobileShellProduct();
+  const handleLeaveMobileThread = useCallback(() => {
+    setSelectedConversation(null);
+  }, [setSelectedConversation]);
+  useMobileDmBackNavigation(isMobileDmShell && Boolean(selectedConversationView), handleLeaveMobileThread);
   const selectedConversationDmPubkey = selectedConversationView?.kind === "dm"
     ? selectedConversationView.pubkey
     : null;
@@ -3475,14 +3486,48 @@ function NostrMessengerContent() {
       />
     );
   }
+  const syncStatusBanners = (
+    <>
+      {accountSyncUiPolicy.showRestoreProgress ? (
+        <div className="border-b border-sky-500/20 bg-sky-500/10 px-4 py-2 text-sm text-sky-800 dark:text-sky-200">
+          <span className="font-semibold">Account Restore:</span> {accountSyncSnapshot.message}. You can keep using the app while relay recovery runs.
+        </div>
+      ) : null}
+      {accountSyncUiPolicy.showMissingSharedDataWarning ? (
+        <div className="border-b border-amber-500/20 bg-amber-500/10 px-4 py-2 text-sm text-amber-800 dark:text-amber-200">
+          <span className="font-semibold">Account Restore Warning:</span> Shared account data was not found on relays yet. Local identity access remains active.
+        </div>
+      ) : null}
+      {showHistorySyncNotice ? (
+        <div className="border-b border-indigo-500/20 bg-indigo-500/10 px-4 py-2 text-sm text-indigo-900 dark:text-indigo-100">
+          <span className="font-semibold">Syncing account history:</span> This device is still restoring contacts and messages. First-time recovery on a new device can take a few minutes.
+        </div>
+      ) : null}
+      {showProjectionScopeMismatchNotice ? (
+        <div className="flex flex-wrap items-center gap-2 border-b border-orange-500/25 bg-orange-500/10 px-4 py-2 text-sm text-orange-900 dark:text-orange-100">
+          <span className="font-semibold">{t("messaging.profileScopeMismatchNoticeTitle", "Profile Scope Notice")}:</span>
+          <span>
+            {t(
+              "messaging.profileScopeMismatchNoticeBody",
+              "This window is bound to a different local profile slot than this account's data. Open the saved profile that owns this account, or switch this window's profile before signing in."
+            )}
+          </span>
+          <button
+            type="button"
+            className="ml-auto rounded-md border border-orange-500/40 bg-orange-500/10 px-2 py-1 text-xs font-semibold text-orange-900 transition-colors hover:bg-orange-500/20 dark:text-orange-50"
+            onClick={() => {
+              void router.push("/profiles");
+            }}
+          >
+            {t("messaging.openProfiles", "Open Profiles")}
+          </button>
+        </div>
+      ) : null}
+    </>
+  );
 
-  return (
-    <AppShell
-      hideSidebar={!isIdentityUnlocked}
-      navBadgeCounts={{ "/": accurateChatsUnreadCount }}
-      sidebarContent={
-        isIdentityUnlocked ? (
-          <Sidebar
+  const sidebarNode = isIdentityUnlocked ? (
+    <Sidebar
             isNewChatOpen={isNewChatOpen}
             setIsNewChatOpen={setIsNewChatOpen}
             isNewGroupOpen={isNewGroupOpen}
@@ -3556,57 +3601,10 @@ function NostrMessengerContent() {
               });
             }}
           />
-        ) : null
-      }
-    >
-      {accountSyncUiPolicy.showRestoreProgress ? (
-        <div className="border-b border-sky-500/20 bg-sky-500/10 px-4 py-2 text-sm text-sky-800 dark:text-sky-200">
-          <span className="font-semibold">Account Restore:</span> {accountSyncSnapshot.message}. You can keep using the app while relay recovery runs.
-        </div>
-      ) : null}
-      {accountSyncUiPolicy.showMissingSharedDataWarning ? (
-        <div className="border-b border-amber-500/20 bg-amber-500/10 px-4 py-2 text-sm text-amber-800 dark:text-amber-200">
-          <span className="font-semibold">Account Restore Warning:</span> Shared account data was not found on relays yet. Local identity access remains active.
-        </div>
-      ) : null}
-      {showHistorySyncNotice ? (
-        <div className="border-b border-indigo-500/20 bg-indigo-500/10 px-4 py-2 text-sm text-indigo-900 dark:text-indigo-100">
-          <span className="font-semibold">Syncing account history:</span> This device is still restoring contacts and messages. First-time recovery on a new device can take a few minutes.
-        </div>
-      ) : null}
-      {showProjectionScopeMismatchNotice ? (
-        <div className="flex flex-wrap items-center gap-2 border-b border-orange-500/25 bg-orange-500/10 px-4 py-2 text-sm text-orange-900 dark:text-orange-100">
-          <span className="font-semibold">{t("messaging.profileScopeMismatchNoticeTitle", "Profile Scope Notice")}:</span>
-          <span>
-            {t(
-              "messaging.profileScopeMismatchNoticeBody",
-              "This window is bound to a different local profile slot than this account's data. Open the saved profile that owns this account, or switch this window's profile before signing in."
-            )}
-          </span>
-          <button
-            type="button"
-            className="ml-auto rounded-md border border-orange-500/40 bg-orange-500/10 px-2 py-1 text-xs font-semibold text-orange-900 transition-colors hover:bg-orange-500/20 dark:text-orange-50"
-            onClick={() => {
-              void router.push("/profiles");
-            }}
-          >
-            {t("messaging.openProfiles", "Open Profiles")}
-          </button>
-        </div>
-      ) : null}
-      <main className="flex flex-1 flex-col min-h-0 overflow-hidden bg-transparent">
-        {!selectedConversationView ? (
-          <EmptyConversationView
-            onNewChat={() => setIsNewChatOpen(true)}
-            showWelcome={showWelcome}
-            myPublicKeyHex={myPublicKeyHex ?? ""}
-            relayStatus={relayStatus}
-            onCopyMyPubkey={handleCopyMyPubkey}
-            onCopyChatLink={handleCopyChatLink}
-            showHistorySyncNotice={showHistorySyncNotice}
-          />
-        ) : (
-          <ChatView
+  ) : null;
+
+  const activeChatView = selectedConversationView ? (
+    <ChatView
             conversation={selectedConversationView}
             isPeerOnline={
               selectedConversationView.kind === "dm"
@@ -3798,6 +3796,69 @@ function NostrMessengerContent() {
             onAddRelay={(url) => { relayList.addRelay({ url }); }}
             onNavigateToRelaySettings={() => { void router.push("/settings?tab=relays"); }}
           />
+  ) : null;
+
+  if (isMobileDmShell) {
+    return (
+      <AppShell
+        hideSidebar
+        mobileDmMode
+        navBadgeCounts={{ "/": accurateChatsUnreadCount }}
+      >
+        {syncStatusBanners}
+        <MobileDmShellLayout>
+          {!selectedConversationView ? (
+            <div className="flex min-h-0 flex-1 flex-col">
+              {sidebarNode ?? (
+                <EmptyConversationView
+                  onNewChat={() => setIsNewChatOpen(true)}
+                  showWelcome={showWelcome}
+                  myPublicKeyHex={myPublicKeyHex ?? ""}
+                  relayStatus={relayStatus}
+                  onCopyMyPubkey={handleCopyMyPubkey}
+                  onCopyChatLink={handleCopyChatLink}
+                  showHistorySyncNotice={showHistorySyncNotice}
+                />
+              )}
+            </div>
+          ) : (
+            <>
+              <MobileDmThreadHeader
+                conversation={selectedConversationView}
+                onBack={handleLeaveMobileThread}
+              />
+              <main className="flex min-h-0 flex-1 flex-col overflow-hidden bg-transparent">
+                {activeChatView}
+              </main>
+            </>
+          )}
+        </MobileDmShellLayout>
+        <audio ref={voiceRemoteAudioElementRef} autoPlay playsInline className="hidden" />
+        <DevPanel dmController={dmController} />
+      </AppShell>
+    );
+  }
+
+  return (
+    <AppShell
+      hideSidebar={!isIdentityUnlocked}
+      navBadgeCounts={{ "/": accurateChatsUnreadCount }}
+      sidebarContent={isIdentityUnlocked ? sidebarNode : null}
+    >
+      {syncStatusBanners}
+      <main className="flex flex-1 flex-col min-h-0 overflow-hidden bg-transparent">
+        {!selectedConversationView ? (
+          <EmptyConversationView
+            onNewChat={() => setIsNewChatOpen(true)}
+            showWelcome={showWelcome}
+            myPublicKeyHex={myPublicKeyHex ?? ""}
+            relayStatus={relayStatus}
+            onCopyMyPubkey={handleCopyMyPubkey}
+            onCopyChatLink={handleCopyChatLink}
+            showHistorySyncNotice={showHistorySyncNotice}
+          />
+        ) : (
+          activeChatView
         )}
       </main>
       <audio ref={voiceRemoteAudioElementRef} autoPlay playsInline className="hidden" />
@@ -3805,6 +3866,8 @@ function NostrMessengerContent() {
     </AppShell>
   );
 }
+
+
 
 export default function NostrMessenger() {
   return (

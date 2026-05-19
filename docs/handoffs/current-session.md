@@ -1,18 +1,24 @@
 # Current Session Handoff
 
-- Last Updated (UTC): 2026-05-18T22:00:00Z
-- Session Status: **v1.5.6** — mobile UI preview (M1) on `main`
+- Last Updated (UTC): 2026-05-18T22:40:00Z
+- Session Status: **v1.5.6** — M1 code + tests green; emulator smoke pending
 - Active Owner: Mobile shell + shared kernel (Lane M)
 
 ## Active Objective
 
 1. **Product:** [v1.5.6-scope.md](../program/v1.5.6-scope.md) — DM-first layout in mobile shell.
-2. **Roadmap:** [v1.5.x-feature-roadmap.md](../program/v1.5.x-feature-roadmap.md) — M1 primary; R4/U1 optional.
+2. **Roadmap:** [v1.5.x-feature-roadmap.md](../program/v1.5.x-feature-roadmap.md) — M1 primary; M2 next.
 3. **Not blocking:** signing, Play Store, F-Droid.
 
 ## Next Atomic Step
 
-Implement **M1** — mobile shell route/layout for auth → conversation list → DM thread (shared hooks only). Record smoke in `docs/assets/demo/v1.5.6/README.md`.
+Run **M1 emulator smoke** ([docs/assets/demo/v1.5.6/README.md](../assets/demo/v1.5.6/README.md)) on CI APK or `NEXT_PUBLIC_MOBILE_SHELL=1` Android build. Check off matrix, then tag v1.5.6 when `release:test-pack` is green.
+
+## M1 in tree (ready to commit)
+
+- Mobile shell: list ↔ thread via shared `Sidebar` / `ChatView` / `dmController`; `AppShell` `mobileDmMode`.
+- `activeChatView` single definition; `syncStatusBanners` + `sidebarNode` shared.
+- Tests: `main-shell.test.tsx` (mobile layout), `mobile-dm-thread-header.test.tsx`, `app-shell.test.tsx` (tab bar hidden).
 
 ## Shipped (v1.5.5)
 

@@ -10,6 +10,11 @@ const testState = vi.hoisted(() => ({
   projectionProfileId: "default" as string | null,
   projectionAccountPublicKeyHex: "a".repeat(64) as string | null,
   startupStateKind: "restored" as "pending" | "stored_locked" | "restored" | "mismatch" | "no_identity",
+  isMobileShell: false,
+}));
+
+const appShellCapture = vi.hoisted(() => ({
+  lastProps: null as Record<string, unknown> | null,
 }));
 
 const messagingState = vi.hoisted(() => ({
@@ -90,13 +95,25 @@ vi.mock("@dweb/ui-kit", () => ({
   },
 }));
 
+vi.mock("@/app/features/runtime/shell-contract", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/app/features/runtime/shell-contract")>();
+  return {
+    ...actual,
+    isMobileShellProduct: () => testState.isMobileShell,
+  };
+});
+
 vi.mock("@/app/components/app-shell", () => ({
-  default: ({ children, sidebarContent }: Readonly<{ children: React.ReactNode; sidebarContent?: React.ReactNode }>) => (
-    <div data-testid="app-shell">
-      <div data-testid="sidebar-content">{sidebarContent}</div>
-      {children}
-    </div>
-  ),
+  default: (props: Readonly<{ children: React.ReactNode; sidebarContent?: React.ReactNode }>) => {
+    appShellCapture.lastProps = props as Record<string, unknown>;
+    return (
+      <div data-testid="app-shell">
+        <div data-testid="sidebar-content">{props.sidebarContent}</div>
+        {props.children}
+      </div>
+    );
+  },
 }));
 
 vi.mock("@/app/components/app-loading-screen", () => ({
@@ -121,6 +138,20 @@ vi.mock("@/app/features/messaging/components/sidebar", () => ({
 
 vi.mock("@/app/features/messaging/components/chat-view", () => ({
   ChatView: () => <div data-testid="chat-view">chat</div>,
+}));
+
+vi.mock("@/app/components/mobile/mobile-dm-shell-layout", () => ({
+  MobileDmShellLayout: ({ children }: Readonly<{ children: React.ReactNode }>) => (
+    <div data-testid="mobile-dm-shell-layout">{children}</div>
+  ),
+}));
+
+vi.mock("@/app/components/mobile/mobile-dm-thread-header", () => ({
+  MobileDmThreadHeader: () => <div data-testid="mobile-thread-header" />,
+}));
+
+vi.mock("@/app/components/mobile/use-mobile-dm-back-navigation", () => ({
+  useMobileDmBackNavigation: () => undefined,
 }));
 
 vi.mock("@/app/features/groups/components/group-management-dialog", () => ({
@@ -422,11 +453,17 @@ vi.mock("@/app/features/messaging/hooks/use-peer-last-active-by-peer", () => ({
   usePeerLastActiveByPeer: () => ({}),
 }));
 
+vi.mock("@/app/features/messaging/hooks/use-contact-relay-overlap", () => ({
+  useContactRelayOverlap: () => ({ status: "healthy" }),
+}));
+
 describe("main-shell hook stability", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     testState.identityMode = "unlocked";
     testState.pathname = "/";
+    testState.isMobileShell = false;
+    appShellCapture.lastProps = null;
     testState.projectionProfileId = "default";
     testState.projectionAccountPublicKeyHex = "a".repeat(64);
     testState.startupStateKind = "restored";
@@ -576,5 +613,35 @@ describe("main-shell hook stability", () => {
     await act(async () => Promise.resolve());
 
     expect(testFns.updateGroup).not.toHaveBeenCalled();
+  });
+
+  it("uses DM-first app shell on mobile shell product builds", async () => {
+    testState.isMobileShell = true;
+    render(<NostrMessenger />);
+    await act(async () => Promise.resolve());
+
+    expect(appShellCapture.lastProps?.mobileDmMode).toBe(true);
+    expect(appShellCapture.lastProps?.hideSidebar).toBe(true);
+    expect(screen.getByTestId("sidebar")).toBeInTheDocument();
+    expect(screen.queryByTestId("chat-view")).not.toBeInTheDocument();
+  });
+
+  it("shows the thread view when a conversation is selected on mobile shell", async () => {
+    testState.isMobileShell = true;
+    messagingState.selectedConversation = {
+      kind: "dm",
+      id: `${"a".repeat(64)}:${"b".repeat(64)}`,
+      pubkey: "b".repeat(64),
+      displayName: "Peer",
+      lastMessage: "",
+      unreadCount: 0,
+      lastMessageTime: new Date(0),
+    };
+
+    render(<NostrMessenger />);
+    await act(async () => Promise.resolve());
+
+    expect(screen.getByTestId("chat-view")).toBeInTheDocument();
+    expect(screen.queryByTestId("sidebar")).not.toBeInTheDocument();
   });
 });

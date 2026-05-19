@@ -4,9 +4,12 @@
 
 Mobile UI preview: DM-first layout slice in the WebView shell (auth → list → thread) on the shared kernel. Distribution/signing optional.
 
+### Added
+
+- **M1** — Mobile shell DM-first navigation: full-screen conversation list, thread header with back, shared `ChatView` / `dmController` (no parallel send path); `AppShell` `mobileDmMode` hides bottom tab bar.
+
 ### Planned
 
-- M1 — DM-first mobile layout using shared hooks only.
 - M2 — Safe areas and tab bar polish in emulator.
 - Optional unsigned APK on tag for preview.
 

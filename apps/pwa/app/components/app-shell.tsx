@@ -41,6 +41,8 @@ type AppShellProps = Readonly<{
   navBadgeCounts?: Readonly<Record<string, number>>;
   hideSidebar?: boolean;
   hideHeader?: boolean;
+  /** Mobile shell DM-first slice: no bottom tab bar and reduced bottom padding. */
+  mobileDmMode?: boolean;
 }>;
 
 const FOOTER_RELEASE_LABEL: string = process.env.NEXT_PUBLIC_RELEASE_LABEL?.trim() || "Preview";
@@ -840,7 +842,12 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
             <div className="w-11" /> {/* Spacer to balance hamburger menu */}
           </header>
         )}
-        <div className="relative flex flex-1 flex-col min-h-0 pb-[calc(env(safe-area-inset-bottom)+4.25rem)] md:pb-0">
+        <div className={cn(
+          "relative flex flex-1 flex-col min-h-0 md:pb-0",
+          props.mobileDmMode
+            ? "pb-[env(safe-area-inset-bottom)]"
+            : "pb-[calc(env(safe-area-inset-bottom)+4.25rem)]",
+        )}>
           <div
             aria-hidden="true"
             className={cn(
@@ -867,7 +874,9 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
           </div>
         </div>
       </div>
-      {!props.hideSidebar && <MobileTabBar navBadgeCounts={navBadgeCounts} />}
+      {!props.hideSidebar && !props.mobileDmMode ? (
+        <MobileTabBar navBadgeCounts={navBadgeCounts} />
+      ) : null}
     </div>
   );
 };

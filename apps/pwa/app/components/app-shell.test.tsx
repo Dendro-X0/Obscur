@@ -414,4 +414,18 @@ describe("AppShell navigation", () => {
       vi.useRealTimers();
     }
   });
+
+  it("hides the mobile tab bar in DM-first mobile shell mode", async () => {
+    render(
+      <AppShell hideSidebar mobileDmMode>
+        <div>Content</div>
+      </AppShell>,
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(screen.queryByTestId("mobile-tab-bar")).not.toBeInTheDocument();
+    expect(screen.getByText("Content")).toBeInTheDocument();
+  });
 });
