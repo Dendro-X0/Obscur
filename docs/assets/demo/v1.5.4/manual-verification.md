@@ -25,6 +25,12 @@
 
 ---
 
+## v1.5.8+ addendum
+
+Publish-copy and Phase 1 community exit: [v1.5.8 demo matrix](../v1.5.8/README.md) (U4 + G1 link).
+
+---
+
 ## Notes
 
 _Signing: unsigned installer may show SmartScreen — expected until Authenticode configured._

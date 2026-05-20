@@ -4,6 +4,10 @@ Desktop PWA or Tauri shell. Record outcomes in this file or linked evidence when
 
 **Prerequisites:** Two Obscur identities (A, B) for rename; three (A, B, C) for expel. Shared sealed community with room keys distributed.
 
+**Automated pre-check (CI, not a substitute for G1):** `pnpm release:test-pack` includes `community-governance-reducer`, `community-governance-sealed`, `community-display-name`, `relay-publish-user-copy`, and `upload-user-copy` unit tests.
+
+**Desktop regression (U4):** [v1.5.8 demo matrix](../v1.5.8/README.md).
+
 ---
 
 ## G1.1 — Two-member rename (governance)

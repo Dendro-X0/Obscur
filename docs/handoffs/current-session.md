@@ -1,7 +1,7 @@
 # Current Session Handoff
 
 - Last Updated (UTC): 2026-05-20T12:00:00Z
-- Session Status: **v1.5.8** — **U3** complete; **G1** manual sign-off next
+- Session Status: **v1.5.8** — **U3** + **U4 doc** done; **G1/U4 sign-off** pending maintainer
 - Active Owner: Shared PWA / desktop shell (**U3**, **G1** / Phase 1 exit, **U4**)
 
 ## Active Objective
@@ -12,9 +12,9 @@
 
 ## Next Atomic Step
 
-1. **G1:** Run [v1.5.7 manual matrix](../assets/demo/v1.5.7/README.md) and fill sign-off table (rename + expel).
-2. **U4:** Update desktop manual regression rows for community + relay/upload paths touched this cycle.
-3. Ship with **`pnpm release:test-pack`** green; tag **`v1.5.8`** when G1/U4 close.
+1. **G1:** Run [v1.5.7 manual matrix](../assets/demo/v1.5.7/README.md) — fill sign-off (rename + expel).
+2. **U4:** Run [v1.5.8 demo matrix](../assets/demo/v1.5.8/README.md) — publish/upload copy rows (U4-1 … U4-5).
+3. Tag **`v1.5.8`** when G1 + U4 sign-off and **`pnpm release:test-pack`** green on clean `main`.
 
 Canonical plans: [community-system-implementation-and-ui-plan.md](../program/community-system-implementation-and-ui-plan.md) · [community-system-overhaul-phased-roadmap.md](../program/community-system-overhaul-phased-roadmap.md) (Phase 1 exit).
 
