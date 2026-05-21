@@ -341,6 +341,22 @@ export function GroupManagementDialog({
         }),
         [onlineMemberCount, state.disbandedAt, state.expelledMembers, state.kickVotes, state.leftMembers, visibleMemberRegistry],
     );
+    const stewardPolicy = React.useMemo(
+        () => resolveCommunityStewardPolicy({
+            communityMode: state.metadata?.communityMode ?? group.communityMode,
+            stewardPubkeys: state.metadata?.stewardPubkeys,
+            actorPublicKeyHex: myPublicKeyHex,
+            activeMemberCount: activeMembers.length,
+        }),
+        [
+            activeMembers.length,
+            group.communityMode,
+            myPublicKeyHex,
+            state.metadata?.communityMode,
+            state.metadata?.stewardPubkeys,
+        ],
+    );
+    const requiresMemberVote = stewardPolicy.requiresGovernanceVoteForDescriptor;
 
     React.useEffect(() => {
         const profileId = getResolvedProfileId();
@@ -511,23 +527,6 @@ export function GroupManagementDialog({
     }, [visibleMemberRegistry, isOpen, pool]);
 
     if (!isOpen) return null;
-
-    const stewardPolicy = React.useMemo(
-        () => resolveCommunityStewardPolicy({
-            communityMode: state.metadata?.communityMode ?? group.communityMode,
-            stewardPubkeys: state.metadata?.stewardPubkeys,
-            actorPublicKeyHex: myPublicKeyHex,
-            activeMemberCount: activeMembers.length,
-        }),
-        [
-            activeMembers.length,
-            group.communityMode,
-            myPublicKeyHex,
-            state.metadata?.communityMode,
-            state.metadata?.stewardPubkeys,
-        ],
-    );
-    const requiresMemberVote = stewardPolicy.requiresGovernanceVoteForDescriptor;
 
     const handleSaveGeneral = async () => {
         if (!requireManagedWorkspaceRelayGate()) {

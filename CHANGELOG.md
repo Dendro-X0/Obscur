@@ -52,26 +52,21 @@ Desktop-first patch: governance TTL and tie handling, duplicate-resolution idemp
 - **U3** audit of all publish call sites not fully closed (continues in v1.5.8).
 - Phase 1 manual sign-off (G1 matrix) may still be pending maintainer execution.
 
-## [v1.7.0] - Unreleased
+## [v1.7.0] - 2026-05-21 (Phase 3 managed workspace honesty)
 
 **Scope:** [v1.7.0-scope.md](docs/program/v1.7.0-scope.md). **Gate:** [v1.7.0-gate.md](docs/releases/v1.7.0-gate.md).
 
 ### Added
 
 - **P3.1** — `resolveManagedWorkspaceRelayGate` + `isManagedWorkspaceRelayGateBlocking`; management shell banner across tabs; blocks descriptor save, invite, member removal, room-key rotate, and share-invite when Managed Workspace lacks trusted/private relay baseline; governance voting on existing proposals still allowed.
-- [v1.7.0 demo matrix](docs/assets/demo/v1.7.0/README.md) for P3.1 manual sign-off.
-
-### Added (continued)
-
 - **P3.2** — `stewardPubkeys` on `GroupMetadata`; `resolveCommunityStewardPolicy` (solo / member_vote / designated_stewards); creator seeded as steward on managed create; stewards bypass governance for descriptor + expel when policy allows.
+- **P3.3** — `resolveCommunityDirectoryMaterializationHonesty` + `CommunityDirectoryHonestyNotice` on group home hero, Participants bento, participant modal, and Members management tab.
+- [v1.7.0 demo matrix](docs/assets/demo/v1.7.0/README.md); [2.0 program roadmap](docs/program/obscur-2.0-milestone-roadmap.md) and [manual verification environment](docs/program/manual-verification-environment.md).
 
 ### Fixed
 
-- **G2.1** — `useCommunityGovernanceProjection` no longer triggers React “getSnapshot should be cached” infinite loop (stable empty governance store snapshot).
-
-### Added (continued)
-
-- **P3.3** — `resolveCommunityDirectoryMaterializationHonesty` + `CommunityDirectoryHonestyNotice` on group home hero, Participants bento, participant modal, and Members management tab.
+- **Governance projection** — Stable empty snapshot; no React `getSnapshot` infinite loop on group home.
+- **GroupManagementDialog** — Rules of Hooks: `stewardPolicy` `useMemo` runs before `isOpen` early return.
 
 ## [v1.6.0] - 2026-05-21 (Phase 2 governance projection)
 

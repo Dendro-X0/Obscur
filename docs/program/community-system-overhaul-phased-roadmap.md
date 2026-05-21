@@ -24,7 +24,7 @@ This document maps that backlog to **release phases**: each **phase** targets a 
 | **1** | **v1.5.x** (e.g. 1.5.6+) | Descriptor truth + sovereign governance MVP + roster/display honesty | P0 + P1 (core) |
 | **2** | **v1.6.x** | Governance + projection maturity; convergence hardening | P1 (complete) + contract 26 alignment |
 | **3** | **v1.7.x** | Managed workspace / stewards / relay-tier honesty | P2 |
-| **4** | **v1.8.x+** (or **2.0** if branding warrants) | Tabbed create/manage product shell + mode UX | P3 (+ P4 optional) |
+| **4** | **v1.8.x** patches → **v2.0.0** gate | Tabbed create/manage shell + UX + platform (no v1.9 line) | P3 (+ P4 optional) — [obscur-2.0-milestone-roadmap.md](./obscur-2.0-milestone-roadmap.md) |
 
 Cross-cutting work (tests, demo matrix rows, handoff updates) attaches to the milestone that introduces the behavior—not to a vague “ongoing” bucket.
 
@@ -119,7 +119,7 @@ Phase 1 (1.5.x) ──► Phase 2 (1.6.x) ──► Phase 3 (1.7.x)
 
 ## How to use this doc (agents + maintainers)
 
-1. Pick the **active phase** (today: **Phase 2** on v1.6.0 — governance projection; membership park per MEM-001).  
+1. Pick the **active phase** (today: **Phase 3** complete on `main`; **Phase 4** next — see [obscur-2.0-milestone-roadmap.md](./obscur-2.0-milestone-roadmap.md)).  
 2. Implement the **next milestone** with the smallest diff that satisfies the **exit criteria** for that milestone.  
 3. Update [`docs/handoffs/current-session.md`](../handoffs/current-session.md) with the milestone ID when scope changes.  
 4. When a **phase exit** is met, tag a version if product-visible; otherwise merge without tag per [v1.5.x feature roadmap](./v1.5.x-feature-roadmap.md) policy.

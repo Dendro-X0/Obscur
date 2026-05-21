@@ -71,7 +71,9 @@ Canonical long-form guides — read in order when onboarding:
 |----------|---------|
 | [**Program overview**](./program/PROGRAM.md) | Active v1.5.1 + milestones |
 | [**Strategic direction**](./program/strategic-direction.md) | Implementation sequence |
-| [**Community overhaul — phased roadmap (by version)**](./program/community-system-overhaul-phased-roadmap.md) | Phases 1–4 ↔ v1.5.x–v1.8+ milestones |
+| [**2.0.0 milestone roadmap**](./program/obscur-2.0-milestone-roadmap.md) | v1.7.x → v1.8.x patch bands; four lanes through v2.0.0 |
+| [**Manual verification environment**](./program/manual-verification-environment.md) | Tester 1/2, dark/light, desktop A/B |
+| [**Community overhaul — phased roadmap (by version)**](./program/community-system-overhaul-phased-roadmap.md) | Phases 1–4 ↔ v1.5.x–v2.0 milestones |
 | [**Community system — implementation & UI**](./program/community-system-implementation-and-ui-plan.md) | Modes, governance, create/manage backlog (P0–P4) |
 | [Current roadmap (detail)](./program/current-roadmap.md) | Active lanes and policies |
 | [v1.5.0 release](./releases/v1.5.0-release.md) | Release scope and known limitations |

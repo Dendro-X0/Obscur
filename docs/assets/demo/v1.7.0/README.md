@@ -1,10 +1,10 @@
-# v1.7.0 — Phase 3 managed workspace relay gate
+# v1.7.x — Phase 3 managed workspace relay gate
 
-**Release line:** v1.7.0 (in development)  
-**Tester:** _____________ **Date:** _____________  
-**Build:** Desktop PWA or Tauri shell at `1.7.0`
+**Release band:** **v1.7.x** (patch tags e.g. `v1.7.1` after matrix Pass)  
+**Environment:** [verification-environment.md](../verification-environment.md) — **Tester 1 (A, dark)** + **Tester 2 (B, light)**, desktop, two profile windows  
+**Date:** _____________ **Build:** Desktop Tauri at current `main` / tag  
 
-**Related:** [v1.6.0 governance matrix](../v1.6.0/README.md) · [v1.5.8 U4 copy](../v1.5.8/README.md)
+**Related:** [v1.6.0 governance matrix](../v1.6.0/README.md) · [2.0 milestone roadmap](../../../program/obscur-2.0-milestone-roadmap.md)
 
 ---
 

@@ -1,8 +1,8 @@
 # Mobile ↔ Desktop version & feature parity policy
 
 **Status:** Active  
-**Applies from:** v1.5.4+  
-**Related:** [strategic-direction.md](./strategic-direction.md), [mobile-ui-stack-evaluation.md](./mobile-ui-stack-evaluation.md)
+**Applies from:** v1.5.4+ · **v2.0 gate:** [obscur-2.0-milestone-roadmap.md](./obscur-2.0-milestone-roadmap.md) Lane P  
+**Related:** [strategic-direction.md](./strategic-direction.md), [mobile-ui-stack-evaluation.md](./mobile-ui-stack-evaluation.md), [manual-verification-environment.md](./manual-verification-environment.md)
 
 ---
 
@@ -50,14 +50,26 @@ Desktop release **must not wait** on mobile device smoke when mobile is in **art
 
 ---
 
-## What we build before “mobile production”
+## What we build before v2.0.0 (Lane P)
 
-1. **Native shell parity** — icons, `versionName`, signing, 16 KB page size where required.  
-2. **Native components** — push decrypt, secure storage hooks, background policy (see mobile stack evaluation).  
-3. **Dedicated mobile UI slices** — Auth → DM list → thread (incremental, not a second app).  
-4. **Evidence** — M1–M3+ on real device/emulator with signed builds.
+1. **Install path** — Android Studio build + **decentralized/local signing** (no purchased store certificates); install on emulator and at least one device.  
+2. **Native shell parity** — icons, `versionName`, 16 KB page size where required.  
+3. **Native components** — push decrypt, secure storage hooks, background policy (see mobile stack evaluation).  
+4. **SQLite** — native persistence aligned with desktop; shared contracts, one migration owner per domain.  
+5. **PWA / Web** — production shell (dev overlays off); same kernel as desktop.  
+6. **Evidence** — extend demo matrices when mobile rows open; until then desktop A/B (Tester 1 dark / Tester 2 light) is authoritative.
 
-Until then: treat mobile APK on Release as **“same version, preview shell”**, not a separate product launch.
+Until **v2.0.0**: mobile on Release tags is **“same version, must be installable for smoke”** — not a separate product version line.
+
+## Signing policy (testing)
+
+| Approach | Status |
+|----------|--------|
+| Purchased Play/App Store developer certificates | **Not required** for program testing |
+| Android Studio + local/debug or project keystore | **Canonical** test path |
+| Decentralized / self-managed signing workflow | **Preferred** — document in Lane P closeout |
+
+iOS production remains out of v2.0 gate unless explicitly chartered.
 
 ---
 
