@@ -52,7 +52,16 @@ Desktop-first patch: governance TTL and tie handling, duplicate-resolution idemp
 - **U3** audit of all publish call sites not fully closed (continues in v1.5.8).
 - Phase 1 manual sign-off (G1 matrix) may still be pending maintainer execution.
 
-## [v1.5.8] - Unreleased
+## [v1.6.0] - Unreleased
+
+**Scope:** [v1.6.0-scope.md](docs/program/v1.6.0-scope.md). **Gate:** [v1.6.0-gate.md](docs/releases/v1.6.0-gate.md).
+
+### Planned
+
+- **G2.1** — `governanceByCommunityId` projection owner (Phase 2); UI reads projection instead of hook-local governance state.
+- **G2.2–G2.4** — Governance lifecycle replay tests, ledger reasons, regression matrix (per phased roadmap).
+
+## [v1.5.8] - 2026-05-21 (Phase 1 exit)
 
 **Scope:** [v1.5.8-scope.md](docs/program/v1.5.8-scope.md). **Gate:** [v1.5.8-gate.md](docs/releases/v1.5.8-gate.md).
 
@@ -66,6 +75,7 @@ Desktop-first patch: governance TTL and tie handling, duplicate-resolution idemp
 ### Added
 
 - `pnpm test:community-invariants` / `pnpm test:shell-invariants` (PWA + root); both run in `pnpm release:test-pack`.
+- **Desktop** — Native keychain session persistence (`native_keychain`); Android build uses cfg-gated stubs (no `keyring` on `aarch64-linux-android`).
 
 ## [v1.5.5] - 2026-05-18 (Client Depth)
 

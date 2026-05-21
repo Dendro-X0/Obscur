@@ -119,7 +119,7 @@ Phase 1 (1.5.x) ──► Phase 2 (1.6.x) ──► Phase 3 (1.7.x)
 
 ## How to use this doc (agents + maintainers)
 
-1. Pick the **active phase** (today: **Phase 1** on v1.5.x desktop lane unless redirected).  
+1. Pick the **active phase** (today: **Phase 2** on v1.6.0 — governance projection; membership park per MEM-001).  
 2. Implement the **next milestone** with the smallest diff that satisfies the **exit criteria** for that milestone.  
 3. Update [`docs/handoffs/current-session.md`](../handoffs/current-session.md) with the milestone ID when scope changes.  
 4. When a **phase exit** is met, tag a version if product-visible; otherwise merge without tag per [v1.5.x feature roadmap](./v1.5.x-feature-roadmap.md) policy.

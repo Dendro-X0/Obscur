@@ -1,28 +1,29 @@
 # Current Session Handoff
 
-- Last Updated (UTC): 2026-05-20T16:00:00Z
-- Session Status: **v1.5.8** — **U3** + **U4 doc** done; **G1/U4 sign-off** pending maintainer
-- Active Owner: Shared PWA / desktop shell (**U3**, **G1** / Phase 1 exit, **U4**)
+- Last Updated (UTC): 2026-05-21T12:00:00Z
+- Session Status: **v1.5.8 shipped** — active line **v1.6.0** (Phase 2 governance projection)
+- Active Owner: Shared PWA / desktop — **G2.1** governance projection (`governanceByCommunityId`)
 
 ## Active Objective
 
-1. **v1.5.7:** Shipped — tag **v1.5.7** with Full Release artifacts (see GitHub Releases).
-2. **v1.5.8:** Execute [v1.5.8-scope.md](../program/v1.5.8-scope.md) — complete **U3**, **G1** manual sign-off, **U4** matrix, Phase 1 exit checkpoint.
-3. **Policy:** [mobile-desktop-version-policy.md](../program/mobile-desktop-version-policy.md) — Lane **M** optional.
+1. **v1.5.8:** Shipped — tag **v1.5.8** on GitHub Releases (includes Android keychain cfg fix on `bd27f9a2`).
+2. **v1.6.0:** Execute [v1.6.0-scope.md](../program/v1.6.0-scope.md) — Phase 2 milestone **2.1** (governance projection owner).
+3. **Policy:** [community-membership-invariants.md](../program/community-membership-invariants.md) — membership **park**; no new roster features until R2.
 
 ## Next Atomic Step
 
-1. **Release gate:** `pnpm -C apps/pwa typecheck` → `pnpm test:community-invariants` → `pnpm test:shell-invariants` → `pnpm release:test-pack` (invariants now in test pack). Maintainer: sign [v1.5.8 U4](../assets/demo/v1.5.8/README.md) + [v1.5.7 G1](../assets/demo/v1.5.7/README.md), then tag **v1.5.8**.
-2. **Park:** Community roster — [`community-membership-invariants.md`](../program/community-membership-invariants.md); no new features until R2. Cursor rule: `.cursor/rules/obscur-community-membership.mdc`.
-3. **After tag:** Next minor scope (Phase 2 governance projection per v1.5.8 non-goals) or Lane M if signing unblocks.
+1. **G2.1 scaffold:** Add `community-governance-projection` read owner (contract 26 shape) and route `group-management` governance panel + home banner to it; shrink `use-sealed-community` to ingest + dispatch only.
+2. **Before merge:** `pnpm -C apps/pwa typecheck` → `pnpm test:community-invariants` (if `groups/**` touched).
+3. **Optional:** Maintainer sign-off rows in [v1.5.8 U4](../assets/demo/v1.5.8/README.md) / [v1.5.7 G1](../assets/demo/v1.5.7/README.md) (not blocking `1.6.0` dev).
 
-Canonical plans: [community-system-implementation-and-ui-plan.md](../program/community-system-implementation-and-ui-plan.md) · [community-system-overhaul-phased-roadmap.md](../program/community-system-overhaul-phased-roadmap.md) (Phase 1 exit).
+Canonical plans: [community-system-overhaul-phased-roadmap.md](../program/community-system-overhaul-phased-roadmap.md) (Phase 2) · [community-system-implementation-and-ui-plan.md](../program/community-system-implementation-and-ui-plan.md).
 
-## Last shipped (v1.5.7)
+## Last shipped (v1.5.8)
 
-- **G2** — 72h governance TTL, tie → rejected, duplicate `RESOLVED` idempotency.
-- **U3 (partial)** — Extended `relay-publish-user-copy`.
-- **G1 doc** — Manual matrix at `docs/assets/demo/v1.5.7/README.md`.
+- **U3** — Publish failure user copy across community + uploads.
+- **Shell** — Theme persistence; startup overlay ready gates.
+- **MEM-001 baseline** — Relay steady-state gating; participation evidence; park mode doc + invariant tests.
+- **Desktop** — Native keychain session; Android-safe `native_keychain` cfg.
 
 ## Lane M — parked
 
@@ -30,7 +31,7 @@ Canonical plans: [community-system-implementation-and-ui-plan.md](../program/com
 
 ## Continuity references
 
-- [v1.5.8-scope.md](../program/v1.5.8-scope.md) (**active**)
-- [v1.5.8-gate.md](../releases/v1.5.8-gate.md)
-- [v1.5.7-scope.md](../program/v1.5.7-scope.md) · [v1.5.7-gate.md](../releases/v1.5.7-gate.md)
+- [v1.6.0-scope.md](../program/v1.6.0-scope.md) (**active**)
+- [v1.6.0-gate.md](../releases/v1.6.0-gate.md)
+- [v1.5.8-scope.md](../program/v1.5.8-scope.md) · [v1.5.8-gate.md](../releases/v1.5.8-gate.md)
 - [v1.5.x-feature-roadmap.md](../program/v1.5.x-feature-roadmap.md)
