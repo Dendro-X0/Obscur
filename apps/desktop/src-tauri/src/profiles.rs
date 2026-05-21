@@ -4,6 +4,7 @@ use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder}
 use tokio::sync::Mutex;
 use std::fs;
 
+#[cfg(not(target_os = "android"))]
 use crate::native_keychain;
 use crate::session::SessionState;
 

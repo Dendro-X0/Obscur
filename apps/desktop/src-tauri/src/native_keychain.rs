@@ -2,6 +2,7 @@
 //! `init_native_session` previously wrote a legacy entry (`nsec:: {profile_id}` with a space);
 //! restore paths read `nsec::{profile_id}`. Reads migrate legacy → canonical on success.
 
+#[cfg(not(target_os = "android"))]
 use keyring::Entry;
 #[cfg(not(target_os = "android"))]
 use zeroize::Zeroizing;
