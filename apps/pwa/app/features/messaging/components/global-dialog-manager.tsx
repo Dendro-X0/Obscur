@@ -263,12 +263,14 @@ export function GlobalDialogManager() {
                 isAccepted={(pk) => peerTrust.isAccepted({ publicKeyHex: pk })}
                 sendConnectionRequest={requestTransport.sendRequest}
             />
-            <CreateGroupDialog
-                isOpen={isNewGroupOpen}
-                onClose={() => setIsNewGroupOpen(false)}
-                onCreate={handleCreateGroup}
-                isCreating={isCreatingGroup}
-            />
+            {isNewGroupOpen ? (
+                <CreateGroupDialog
+                    isOpen
+                    onClose={() => setIsNewGroupOpen(false)}
+                    onCreate={handleCreateGroup}
+                    isCreating={isCreatingGroup}
+                />
+            ) : null}
         </>
     );
 }

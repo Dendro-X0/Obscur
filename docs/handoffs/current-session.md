@@ -1,14 +1,14 @@
 # Current Session Handoff
 
-- Last Updated (UTC): 2026-05-22T00:00:00Z
-- Session Status: **v1.8.0** tagged — **v1.8.1** in progress (C-4.1 on `main`)
+- Last Updated (UTC): 2026-05-22T00:25:00Z
+- Session Status: **v1.8.0** tagged — **v1.8.1** code ready; manual C4 matrix before tag
 - Active Owner: Maintainer — [v1.8.1-scope.md](../program/v1.8.1-scope.md)
 
 ## Active Objective
 
 1. **Shipped:** **v1.7.1**, **v1.8.0** tags on `origin`.
-2. **v1.8.1:** C-4.1 create relay gate (in progress on `main`).
-3. Manual: [v1.8.1 demo matrix](../assets/demo/v1.8.1/README.md) before tag.
+2. **v1.8.1:** C-4.1a/c on `main` (`e4c9b708` + create dialog mount-only-when-open).
+3. Manual: [v1.8.1 demo matrix](../assets/demo/v1.8.1/README.md) C4-1–C4-4 → tag **v1.8.1**.
 
 ## Next Atomic Step
 
