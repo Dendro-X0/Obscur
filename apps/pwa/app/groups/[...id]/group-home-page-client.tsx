@@ -35,6 +35,7 @@ import { Card } from "@dweb/ui-kit";
 import { Avatar, AvatarFallback, AvatarImage } from "@dweb/ui-kit";
 import { InviteConnectionsDialog } from "@/app/features/groups/components/invite-connections-dialog";
 import { GroupManagementDialog } from "@/app/features/groups/components/group-management-dialog";
+import { shouldMountGroupManagementDialog } from "@/app/features/groups/components/group-management-mount-policy";
 import { cn } from "@dweb/ui-kit";
 import { useCommunityGovernanceProjection } from "@/app/features/groups/hooks/use-community-governance-projection";
 import { useRelayList } from "@/app/features/relays/hooks/use-relay-list";
@@ -1338,9 +1339,9 @@ export default function GroupHomePage() {
                     </Card>
                 </div>
 
-                {!isGuest && group && (
+                {!isGuest && group && shouldMountGroupManagementDialog(isManagementOpen) ? (
                     <GroupManagementDialog
-                        isOpen={isManagementOpen}
+                        isOpen
                         onClose={() => setIsManagementOpen(false)}
                         group={group}
                         pool={relayPool}
@@ -1348,7 +1349,7 @@ export default function GroupHomePage() {
                         myPrivateKeyHex={identityState.privateKeyHex || null}
                         communityController={sealedCommunityController}
                     />
-                )}
+                ) : null}
 
                 {!isGuest && group && (
                     <InviteConnectionsDialog

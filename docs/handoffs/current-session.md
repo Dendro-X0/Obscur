@@ -11,9 +11,9 @@
 
 ## Next Atomic Step
 
-1. Execute v1.7.0 demo matrix on desktop Tester 1 (dark) + Tester 2 (light).
-2. Fix failures → patch tag `v1.7.2` if needed; else close v1.7.x when all rows Pass.
-3. Gates per patch: typecheck, lint, `test:community-invariants`, `release:test-pack`.
+1. Manual: matrix rows **P3-14/P3-15** + remainder ([demo matrix](../assets/demo/v1.7.0/README.md)) on Tester 1 (dark) + Tester 2 (light).
+2. `pnpm release:workflow-status -- --tag v1.7.0` — wait for Full Release run **169** green.
+3. Tag **v1.7.1** when matrix Pass + `release:test-pack` on clean `main` (mount fix on `main` pending push).
 
 ## Last shipped (v1.6.0)
 

@@ -56,6 +56,10 @@ Desktop-first patch: governance TTL and tie handling, duplicate-resolution idemp
 
 **Scope:** [v1.7.1-scope.md](docs/program/v1.7.1-scope.md). **Gate:** [v1.7.1-gate.md](docs/releases/v1.7.1-gate.md). Demo matrix sign-off and regressions only.
 
+### Fixed
+
+- **Group home** — Mount `GroupManagementDialog` only while management is open (avoids Rules-of-Hooks churn and idle hook work on group home).
+
 ## [v1.7.0] - 2026-05-21 (Phase 3 managed workspace honesty)
 
 **Scope:** [v1.7.0-scope.md](docs/program/v1.7.0-scope.md). **Gate:** [v1.7.0-gate.md](docs/releases/v1.7.0-gate.md).

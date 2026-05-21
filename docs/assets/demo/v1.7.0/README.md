@@ -46,6 +46,15 @@ Prerequisite: a community created or marked **Managed Workspace** on a private/t
 
 ---
 
+## P3.4 — Management dialog stability (v1.7.1)
+
+| ID | Step | Expected | Pass |
+|----|------|----------|------|
+| P3-14 | Open group home → Manage community | No React hook-order console error; dialog opens | ☐ |
+| P3-15 | Close management → reopen | Still no hook error; tabs load | ☐ |
+
+---
+
 ## Sign-off
 
 | Block | Date | Notes |
