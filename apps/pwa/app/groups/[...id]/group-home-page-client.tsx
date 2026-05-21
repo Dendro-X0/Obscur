@@ -432,9 +432,10 @@ export default function GroupHomePage() {
         }
         return fallbackCommunityIdFromRoute || undefined;
     }, [fallbackCommunityIdFromRoute, group?.communityId]);
+    /** Online/Offline columns = membership truth (invite-eligible), not widen-only discovery. */
     const visibleMembers = React.useMemo(
-        () => filterVisibleGroupMembers(effectiveActiveMembers, (pubkey) => discoveryCache.getProfile(pubkey)),
-        [effectiveActiveMembers]
+        () => filterVisibleGroupMembers(inviteEligibleMemberPubkeys, (pubkey) => discoveryCache.getProfile(pubkey)),
+        [inviteEligibleMemberPubkeys]
     );
     const provisionalVisibleCount = React.useMemo(
         () => visibleMembers.filter((pk) => (
@@ -479,23 +480,14 @@ export default function GroupHomePage() {
     }, [normalizedMemberSearch]);
 
     const terminalMemberEntries = React.useMemo(() => {
-        const activeParticipationSet = new Set(
-            [...activeMembers, ...conversationAuthorPubkeys].map((pk) => pk.trim().toLowerCase()),
-        );
-        const leftFiltered = rawLeftMemberPubkeys.filter(
-            (pubkey) => !activeParticipationSet.has(pubkey.trim().toLowerCase()),
-        );
-        const leftSet = new Set(leftFiltered.map((pk) => pk.trim().toLowerCase()));
+        const leftSet = new Set(rawLeftMemberPubkeys.map((pk) => pk.trim().toLowerCase()));
         return [
-            ...leftFiltered.map((pubkey) => ({ pubkey, kind: "left" as const })),
+            ...rawLeftMemberPubkeys.map((pubkey) => ({ pubkey, kind: "left" as const })),
             ...rawExpelledMemberPubkeys
-                .filter((pubkey) => (
-                    !leftSet.has(pubkey.trim().toLowerCase())
-                    && !activeParticipationSet.has(pubkey.trim().toLowerCase())
-                ))
+                .filter((pubkey) => !leftSet.has(pubkey.trim().toLowerCase()))
                 .map((pubkey) => ({ pubkey, kind: "expelled" as const })),
         ] as ReadonlyArray<Readonly<{ pubkey: PublicKeyHex; kind: CommunityTerminalMemberKind }>>;
-    }, [activeMembers, conversationAuthorPubkeys, rawExpelledMemberPubkeys, rawLeftMemberPubkeys]);
+    }, [rawExpelledMemberPubkeys, rawLeftMemberPubkeys]);
     const filteredTerminalMemberEntries = React.useMemo(
         () => terminalMemberEntries.filter((entry) => memberMatchesSearch(entry.pubkey)),
         [memberMatchesSearch, terminalMemberEntries],

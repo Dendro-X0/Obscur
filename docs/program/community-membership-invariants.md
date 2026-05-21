@@ -10,7 +10,7 @@
 
 | Evidence tier | Meaning | May remove from active roster? | May persist terminal cache? |
 |---------------|---------|--------------------------------|-----------------------------|
-| **Chat participation** | Sealed message author (live or persisted `groupMessages`) | No — strips stale terminal first | No |
+| **Chat participation** | Sealed message author (live or persisted `groupMessages`) | No — does **not** override sealed `leftMembers` for membership/invite | No |
 | **Relay warm-up** | 9021/9022/39002 before `steady_state` | **No** | **No** |
 | **Relay steady** | `resolveRelayEvidenceConfidence === "steady_state"` | Yes, if no newer chat participation | Yes, only after participation filter |
 | **Explicit local leave** | User leave / governance expel / ledger terminal | Yes | Yes (coordinator path) |
@@ -29,7 +29,8 @@
 |--------|-----------------|-------------|
 | Terminal `localStorage` | `saveCommunityTerminalMembershipCache` callers gated by `canApplyRelayInferredMemberRemoval` | Not write terminal keys directly |
 | Relay leave → CRDT | `use-sealed-community` `applyControlEvent` (relay source + steady gate) | Not call `crdt.removeMember` from snapshots |
-| Active pubkey list for UI | `resolveActiveCommunityMemberPubkeysFromConversation` + participation filter | Not filter roster only via thin `memberPubkeys` |
+| Active pubkey list for UI | `resolveActiveCommunityMemberPubkeysFromConversation` (terminal excludes) | Not filter roster only via thin `memberPubkeys` |
+| Participant modal Online/Offline | `inviteEligibleMemberPubkeys` | Not `rosterDisplayPubkeys` / widen-only session |
 | Participant display session | `community-participant-roster-read-model` | Not shrink session on relay `leftMembers` alone |
 | Membership snapshot bus | `use-sealed-community` dispatch | `group-provider` ingest only; no parallel terminal writes |
 
