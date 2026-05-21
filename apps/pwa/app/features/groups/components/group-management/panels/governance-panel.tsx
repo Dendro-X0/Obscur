@@ -12,11 +12,13 @@ export function GroupManagementGovernancePanel({
     myPublicKeyHex,
     describeProposal,
     onVote,
+    managedWorkspaceActionsBlocked = false,
 }: Readonly<{
     proposals: ReadonlyArray<GovernanceProposalRecord>;
     myPublicKeyHex: PublicKeyHex | null;
     describeProposal: (proposal: GovernanceProposalRecord) => string;
     onVote: (params: Readonly<{ proposalId: string; vote: "approve" | "reject" }>) => void;
+    managedWorkspaceActionsBlocked?: boolean;
 }>): React.JSX.Element {
     if (proposals.length === 0) {
         return (
@@ -26,6 +28,12 @@ export function GroupManagementGovernancePanel({
                 <p className="mt-1 text-xs text-zinc-500">
                     Rename and removal proposals from members appear here for a vote.
                 </p>
+                {managedWorkspaceActionsBlocked ? (
+                    <p className="mt-3 text-xs text-zinc-500">
+                        New rename or removal proposals require a trusted relay setup (see banner above).
+                        You can still vote on proposals already open.
+                    </p>
+                ) : null}
             </div>
         );
     }

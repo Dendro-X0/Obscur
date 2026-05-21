@@ -58,7 +58,8 @@ Desktop-first patch: governance TTL and tie handling, duplicate-resolution idemp
 
 ### Added
 
-- **P3.1 (start)** — `resolveManagedWorkspaceRelayGate`; group management General tab blocks descriptor saves when Managed Workspace relay tier is insufficient.
+- **P3.1** — `resolveManagedWorkspaceRelayGate` + `isManagedWorkspaceRelayGateBlocking`; management shell banner across tabs; blocks descriptor save, invite, member removal, room-key rotate, and share-invite when Managed Workspace lacks trusted/private relay baseline; governance voting on existing proposals still allowed.
+- [v1.7.0 demo matrix](docs/assets/demo/v1.7.0/README.md) for P3.1 manual sign-off.
 
 ### Planned
 

@@ -12,9 +12,9 @@
 
 ## Next Atomic Step
 
-1. **P3.1:** Extend relay gate to remaining manage/create surfaces; add demo matrix row.
-2. **P3.2:** Steward pubkeys on descriptor + capability matrix (when P3.1 stable).
-3. Before tag: `pnpm test:community-invariants` + `pnpm release:test-pack` on clean tree.
+1. **P3.1 sign-off:** [v1.7.0 demo matrix](../assets/demo/v1.7.0/README.md) on desktop with public-only relays.
+2. **P3.2:** `stewardPubkeys` on descriptor + steward capability matrix.
+3. Before v1.7.0 tag: `pnpm test:community-invariants` + `pnpm release:test-pack` on clean tree.
 
 ## Last shipped (v1.6.0)
 

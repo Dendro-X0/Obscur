@@ -43,6 +43,7 @@ export function GroupManagementSettingsPanel({
     onLeave,
     onPurge,
     showPurge,
+    managedWorkspaceActionsBlocked,
 }: Readonly<{
     notificationsEnabled: boolean;
     onToggleNotifications: () => void;
@@ -53,6 +54,7 @@ export function GroupManagementSettingsPanel({
     onLeave: () => void;
     onPurge: () => void;
     showPurge: boolean;
+    managedWorkspaceActionsBlocked: boolean;
 }>): React.JSX.Element {
     return (
         <div className="mx-auto max-w-2xl space-y-6">
@@ -85,7 +87,13 @@ export function GroupManagementSettingsPanel({
                     title="Invite link"
                     description="QR code and link for others to join."
                     action={
-                        <Button type="button" variant="secondary" size="sm" onClick={onShareInvite}>
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            onClick={onShareInvite}
+                            disabled={managedWorkspaceActionsBlocked}
+                        >
                             Share
                         </Button>
                     }
@@ -95,7 +103,13 @@ export function GroupManagementSettingsPanel({
                     title="Rotate room key"
                     description="Distribute a new encryption key to active members."
                     action={
-                        <Button type="button" variant="secondary" size="sm" onClick={onRotateKey} disabled={isRotatingKey}>
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            onClick={onRotateKey}
+                            disabled={isRotatingKey || managedWorkspaceActionsBlocked}
+                        >
                             {isRotatingKey ? <Loader2 className="h-4 w-4 animate-spin" /> : "Rotate"}
                         </Button>
                     }

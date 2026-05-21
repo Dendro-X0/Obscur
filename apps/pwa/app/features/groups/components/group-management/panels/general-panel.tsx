@@ -9,7 +9,10 @@ import { Textarea } from "@/app/components/ui/textarea";
 import { cn } from "@/app/lib/cn";
 import { CommunityModeBadge } from "../../community-mode-badge";
 import { RelayCapabilityBadge } from "@/app/features/relays/components/relay-capability-badge";
-import type { ManagedWorkspaceRelayGate } from "../../../services/community-mode-contract";
+import {
+    isManagedWorkspaceRelayGateBlocking,
+    type ManagedWorkspaceRelayGate,
+} from "../../../services/community-mode-contract";
 import type { GroupAccessMode } from "../../../types";
 import { mgmtFieldClass, mgmtSectionClass, mgmtTextareaClass } from "../constants";
 
@@ -48,18 +51,10 @@ export function GroupManagementGeneralPanel({
     isRelayCapabilitiesLoading: boolean;
     managedWorkspaceRelayGate: ManagedWorkspaceRelayGate;
 }>): React.JSX.Element {
-    const managedSettingsBlocked = !managedWorkspaceRelayGate.allowed
-        && managedWorkspaceRelayGate.reasonCode === "relay_tier_insufficient";
+    const managedSettingsBlocked = isManagedWorkspaceRelayGateBlocking(managedWorkspaceRelayGate);
 
     return (
         <div className="mx-auto max-w-2xl space-y-5">
-            {managedSettingsBlocked ? (
-                <p className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-100">
-                    {managedWorkspaceRelayGate.userMessage}
-                    {" "}
-                    {managedWorkspaceRelayGate.settingsHint}
-                </p>
-            ) : null}
             <section className={mgmtSectionClass}>
                 <Label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Avatar</Label>
                 <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:items-center">

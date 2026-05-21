@@ -246,3 +246,7 @@ export const resolveManagedWorkspaceRelayGate = (params: Readonly<{
         assessment,
     };
 };
+
+export const isManagedWorkspaceRelayGateBlocking = (
+    gate: ManagedWorkspaceRelayGate,
+): boolean => !gate.allowed && gate.reasonCode === "relay_tier_insufficient";

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
     assessRelayCapability,
     getCommunityModeDefinition,
+    isManagedWorkspaceRelayGateBlocking,
     resolveManagedWorkspaceRelayGate,
 } from "./community-mode-contract";
 
@@ -78,5 +79,21 @@ describe("community-mode-contract", () => {
 
         expect(gate.allowed).toBe(true);
         expect(gate.reasonCode).toBe("allowed");
+    });
+
+    it("isManagedWorkspaceRelayGateBlocking is false for sovereign communities", () => {
+        const gate = resolveManagedWorkspaceRelayGate({
+            communityMode: "sovereign_room",
+            enabledRelayUrls: ["wss://nos.lol"],
+        });
+        expect(isManagedWorkspaceRelayGateBlocking(gate)).toBe(false);
+    });
+
+    it("isManagedWorkspaceRelayGateBlocking is true when managed tier is insufficient", () => {
+        const gate = resolveManagedWorkspaceRelayGate({
+            communityMode: "managed_workspace",
+            enabledRelayUrls: ["wss://nos.lol"],
+        });
+        expect(isManagedWorkspaceRelayGateBlocking(gate)).toBe(true);
     });
 });

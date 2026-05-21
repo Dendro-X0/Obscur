@@ -45,6 +45,7 @@ export function GroupManagementMembersPanel({
     terminalRecordCount,
     onReconcileMembership,
     onClearTerminalMembership,
+    managedWorkspaceActionsBlocked,
 }: Readonly<{
     visibleMemberPubkeys: ReadonlyArray<PublicKeyHex>;
     relayBackedMemberPubkeys: ReadonlyArray<PublicKeyHex>;
@@ -67,6 +68,7 @@ export function GroupManagementMembersPanel({
     terminalRecordCount: number;
     onReconcileMembership: () => void;
     onClearTerminalMembership: () => void;
+    managedWorkspaceActionsBlocked: boolean;
 }>): React.JSX.Element {
     const router = useRouter();
     const { t } = useTranslation();
@@ -91,7 +93,12 @@ export function GroupManagementMembersPanel({
                         onReconcile={onReconcileMembership}
                         onClearTerminalConfirmed={onClearTerminalMembership}
                     />
-                    <Button type="button" onClick={onInvite} className="gap-2 rounded-lg bg-violet-600 hover:bg-violet-500">
+                    <Button
+                        type="button"
+                        onClick={onInvite}
+                        disabled={managedWorkspaceActionsBlocked}
+                        className="gap-2 rounded-lg bg-violet-600 hover:bg-violet-500 disabled:opacity-50"
+                    >
                         <UserPlus className="h-4 w-4" />
                         Invite
                     </Button>
@@ -192,7 +199,7 @@ export function GroupManagementMembersPanel({
                                                         <DropdownMenuSeparator />
                                                         <DropdownMenuItem
                                                             className="text-rose-500 focus:text-rose-400"
-                                                            disabled={kickingMemberPubkey === pubkey}
+                                                            disabled={managedWorkspaceActionsBlocked || kickingMemberPubkey === pubkey}
                                                             onClick={() => onVoteKick(pubkey)}
                                                         >
                                                             {kickingMemberPubkey === pubkey ? (

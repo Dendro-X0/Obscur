@@ -27,7 +27,11 @@ import { useNetwork } from "@/app/features/network/providers/network-provider";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { useRelayList } from "@/app/features/relays/hooks/use-relay-list";
 import { useRelayCapabilities } from "@/app/features/relays/hooks/use-relay-capabilities";
-import { resolveManagedWorkspaceRelayGate } from "../services/community-mode-contract";
+import {
+    isManagedWorkspaceRelayGateBlocking,
+    resolveManagedWorkspaceRelayGate,
+} from "../services/community-mode-contract";
+import { ManagedWorkspaceRelayGateBanner } from "./group-management/managed-workspace-relay-gate-banner";
 import { discoveryCache } from "@/app/features/search/services/discovery-cache";
 import { filterVisibleGroupMembers } from "../services/community-visible-members";
 import { resolveCommunityDisplayName } from "../services/community-display-name";
@@ -168,6 +172,18 @@ export function GroupManagementDialog({
         }),
         [group.communityMode, group.relayUrl, relayList.state.relays],
     );
+    const managedWorkspaceActionsBlocked = isManagedWorkspaceRelayGateBlocking(managedWorkspaceRelayGate);
+
+    const requireManagedWorkspaceRelayGate = React.useCallback((): boolean => {
+        if (!managedWorkspaceRelayGate.allowed) {
+            toast.error(
+                managedWorkspaceRelayGate.userMessage
+                || "Managed Workspace actions are unavailable on this relay setup.",
+            );
+            return false;
+        }
+        return true;
+    }, [managedWorkspaceRelayGate]);
 
     useEffect(() => {
         const fetchRoomKey = async () => {
@@ -408,6 +424,9 @@ export function GroupManagementDialog({
     };
 
     const handleVoteKick = async (memberPubkey: string) => {
+        if (!requireManagedWorkspaceRelayGate()) {
+            return;
+        }
         setKickingMemberPubkey(memberPubkey);
         try {
             if (activeMembers.length > 2) {
@@ -424,6 +443,9 @@ export function GroupManagementDialog({
     };
 
     const handleRotateKey = async () => {
+        if (!requireManagedWorkspaceRelayGate()) {
+            return;
+        }
         setIsRotatingKey(true);
         try {
             await rotateRoomKey();
@@ -477,8 +499,7 @@ export function GroupManagementDialog({
     const requiresMemberVote = activeMembers.length > 1;
 
     const handleSaveGeneral = async () => {
-        if (!managedWorkspaceRelayGate.allowed) {
-            toast.error(managedWorkspaceRelayGate.userMessage || "Managed Workspace settings are unavailable on this relay setup.");
+        if (!requireManagedWorkspaceRelayGate()) {
             return;
         }
         setIsSaving(true);
@@ -552,6 +573,9 @@ export function GroupManagementDialog({
             <GroupManagementShell
                 isOpen={isOpen}
                 onClose={onClose}
+                relayGateNotice={
+                    <ManagedWorkspaceRelayGateBanner gate={managedWorkspaceRelayGate} />
+                }
                 communityTitle={communityTitle}
                 communityInitial={communityInitial}
                 avatarUrl={state.metadata?.picture || editPicture || undefined}
@@ -565,8 +589,14 @@ export function GroupManagementDialog({
                             type="button"
                             variant="secondary"
                             size="sm"
-                            onClick={() => setIsQrModalOpen(true)}
-                            className="rounded-lg border-zinc-700 bg-zinc-900"
+                            onClick={() => {
+                                if (!requireManagedWorkspaceRelayGate()) {
+                                    return;
+                                }
+                                setIsQrModalOpen(true);
+                            }}
+                            disabled={managedWorkspaceActionsBlocked}
+                            className="rounded-lg border-zinc-700 bg-zinc-900 disabled:opacity-50"
                         >
                             <QrCode className="mr-2 h-4 w-4" />
                             Share invite
@@ -582,7 +612,7 @@ export function GroupManagementDialog({
                             <Button
                                 type="button"
                                 onClick={() => void handleSaveGeneral()}
-                                disabled={isSaving || !managedWorkspaceRelayGate.allowed}
+                                disabled={isSaving || managedWorkspaceActionsBlocked}
                                 className="rounded-lg bg-violet-600 px-6 hover:bg-violet-500"
                             >
                                 {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
@@ -628,7 +658,12 @@ export function GroupManagementDialog({
                         mutedMembers={mutedMembers}
                         kickingMemberPubkey={kickingMemberPubkey}
                         currentTime={currentTime}
-                        onInvite={() => setIsInviteModalOpen(true)}
+                        onInvite={() => {
+                            if (!requireManagedWorkspaceRelayGate()) {
+                                return;
+                            }
+                            setIsInviteModalOpen(true);
+                        }}
                         onToggleMute={toggleMute}
                         onVoteKick={(pubkey) => void handleVoteKick(pubkey)}
                         syncConfidenceLevel={syncConfidenceLevel}
@@ -636,6 +671,7 @@ export function GroupManagementDialog({
                         terminalRecordCount={terminalRecordCount}
                         onReconcileMembership={handleReconcileMembership}
                         onClearTerminalMembership={handleClearTerminalMembership}
+                        managedWorkspaceActionsBlocked={managedWorkspaceActionsBlocked}
                     />
                 ) : null}
 
@@ -645,6 +681,7 @@ export function GroupManagementDialog({
                         myPublicKeyHex={myPublicKeyHex}
                         describeProposal={describeGovernanceProposal}
                         onVote={(params) => void castGovernanceVote(params)}
+                        managedWorkspaceActionsBlocked={managedWorkspaceActionsBlocked}
                     />
                 ) : null}
 
@@ -652,13 +689,19 @@ export function GroupManagementDialog({
                     <GroupManagementSettingsPanel
                         notificationsEnabled={notificationsEnabled}
                         onToggleNotifications={toggleNotifications}
-                        onShareInvite={() => setIsQrModalOpen(true)}
+                        onShareInvite={() => {
+                            if (!requireManagedWorkspaceRelayGate()) {
+                                return;
+                            }
+                            setIsQrModalOpen(true);
+                        }}
                         isRotatingKey={isRotatingKey}
                         onRotateKey={() => void handleRotateKey()}
                         onExport={() => void exportCommunity()}
                         onLeave={openLeaveConfirmation}
                         onPurge={openPurgeConfirmation}
                         showPurge={isAdmin && isOwner}
+                        managedWorkspaceActionsBlocked={managedWorkspaceActionsBlocked}
                     />
                 ) : null}
             </GroupManagementShell>

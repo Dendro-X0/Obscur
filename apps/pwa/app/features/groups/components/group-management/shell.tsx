@@ -22,6 +22,7 @@ export function GroupManagementShell({
     governanceBadgeCount,
     headerAction,
     footer,
+    relayGateNotice,
     children,
 }: Readonly<{
     isOpen: boolean;
@@ -35,6 +36,8 @@ export function GroupManagementShell({
     governanceBadgeCount: number;
     headerAction?: React.ReactNode;
     footer?: React.ReactNode;
+    /** Shown above tab content when Managed Workspace relay tier is insufficient (P3.1). */
+    relayGateNotice?: React.ReactNode;
     children: React.ReactNode;
 }>): React.JSX.Element | null {
     if (!isOpen) {
@@ -120,6 +123,9 @@ export function GroupManagementShell({
                                 footer ? "pb-8" : "pb-4",
                             )}
                         >
+                            {relayGateNotice ? (
+                                <div className="mb-4">{relayGateNotice}</div>
+                            ) : null}
                             {children}
                         </div>
 
