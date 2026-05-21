@@ -24,7 +24,10 @@ import {
 } from "@/app/features/notifications/utils/notification-target-preference";
 import { getPublicGroupHref, toAbsoluteAppUrl } from "@/app/features/navigation/public-routes";
 import { useNetwork } from "@/app/features/network/providers/network-provider";
+import { useIdentity } from "@/app/features/auth/hooks/use-identity";
+import { useRelayList } from "@/app/features/relays/hooks/use-relay-list";
 import { useRelayCapabilities } from "@/app/features/relays/hooks/use-relay-capabilities";
+import { resolveManagedWorkspaceRelayGate } from "../services/community-mode-contract";
 import { discoveryCache } from "@/app/features/search/services/discovery-cache";
 import { filterVisibleGroupMembers } from "../services/community-visible-members";
 import { resolveCommunityDisplayName } from "../services/community-display-name";
@@ -155,6 +158,16 @@ export function GroupManagementDialog({
     const [roomKeyHex, setRoomKeyHex] = useState<string>();
 
     const { capabilities: relayCapabilities, isLoading: isRelayCapabilitiesLoading } = useRelayCapabilities(group.relayUrl);
+    const identity = useIdentity();
+    const relayList = useRelayList({ publicKeyHex: identity.state.publicKeyHex || null });
+    const managedWorkspaceRelayGate = React.useMemo(
+        () => resolveManagedWorkspaceRelayGate({
+            communityMode: group.communityMode,
+            enabledRelayUrls: relayList.state.relays.map((relay) => relay.url),
+            communityRelayUrl: group.relayUrl,
+        }),
+        [group.communityMode, group.relayUrl, relayList.state.relays],
+    );
 
     useEffect(() => {
         const fetchRoomKey = async () => {
@@ -464,6 +477,10 @@ export function GroupManagementDialog({
     const requiresMemberVote = activeMembers.length > 1;
 
     const handleSaveGeneral = async () => {
+        if (!managedWorkspaceRelayGate.allowed) {
+            toast.error(managedWorkspaceRelayGate.userMessage || "Managed Workspace settings are unavailable on this relay setup.");
+            return;
+        }
         setIsSaving(true);
         try {
             const metadataPayload = {
@@ -565,7 +582,7 @@ export function GroupManagementDialog({
                             <Button
                                 type="button"
                                 onClick={() => void handleSaveGeneral()}
-                                disabled={isSaving}
+                                disabled={isSaving || !managedWorkspaceRelayGate.allowed}
                                 className="rounded-lg bg-violet-600 px-6 hover:bg-violet-500"
                             >
                                 {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
@@ -592,6 +609,7 @@ export function GroupManagementDialog({
                         relayUrl={group.relayUrl}
                         relayCapabilities={relayCapabilities}
                         isRelayCapabilitiesLoading={isRelayCapabilitiesLoading}
+                        managedWorkspaceRelayGate={managedWorkspaceRelayGate}
                     />
                 ) : null}
 

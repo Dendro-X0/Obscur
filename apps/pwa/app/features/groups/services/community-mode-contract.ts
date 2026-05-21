@@ -193,3 +193,56 @@ export const assessRelayCapability = (params: Readonly<{
 export const getCommunityModeDefinition = (mode: CommunityMode): CommunityModeDefinition => (
     COMMUNITY_MODE_DEFINITIONS[mode]
 );
+
+export type ManagedWorkspaceRelayGateReason =
+    | "allowed"
+    | "not_managed"
+    | "relay_tier_insufficient";
+
+/** Phase 3.1: block managed-workspace management when relay baseline cannot support it. */
+export type ManagedWorkspaceRelayGate = Readonly<{
+    allowed: boolean;
+    reasonCode: ManagedWorkspaceRelayGateReason;
+    userMessage: string;
+    settingsHint: string;
+    assessment: RelayCapabilityAssessment;
+}>;
+
+export const resolveManagedWorkspaceRelayGate = (params: Readonly<{
+    communityMode: CommunityMode | null | undefined;
+    enabledRelayUrls: ReadonlyArray<string>;
+    communityRelayUrl?: string | null;
+}>): ManagedWorkspaceRelayGate => {
+    const assessment = assessRelayCapability({
+        enabledRelayUrls: params.enabledRelayUrls,
+        selectedRelayHost: params.communityRelayUrl,
+    });
+
+    if (params.communityMode !== "managed_workspace") {
+        return {
+            allowed: true,
+            reasonCode: "not_managed",
+            userMessage: "",
+            settingsHint: assessment.settingsHint,
+            assessment,
+        };
+    }
+
+    if (assessment.supportsManagedWorkspace) {
+        return {
+            allowed: true,
+            reasonCode: "allowed",
+            userMessage: "",
+            settingsHint: assessment.settingsHint,
+            assessment,
+        };
+    }
+
+    return {
+        allowed: false,
+        reasonCode: "relay_tier_insufficient",
+        userMessage: `Managed Workspace settings are paused because your relay setup (${assessment.label}) does not meet workspace requirements. ${assessment.summary}`,
+        settingsHint: assessment.settingsHint,
+        assessment,
+    };
+};

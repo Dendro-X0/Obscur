@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { assessRelayCapability, getCommunityModeDefinition } from "./community-mode-contract";
+import {
+    assessRelayCapability,
+    getCommunityModeDefinition,
+    resolveManagedWorkspaceRelayGate,
+} from "./community-mode-contract";
 
 describe("community-mode-contract", () => {
     it("keeps public default relays on sovereign-room guidance", () => {
@@ -40,5 +44,39 @@ describe("community-mode-contract", () => {
 
         expect(definition.label).toBe("Managed Workspace");
         expect(definition.guarantees).toContain("Relay-backed directory candidate");
+    });
+
+    it("allows sovereign room communities regardless of relay tier", () => {
+        const gate = resolveManagedWorkspaceRelayGate({
+            communityMode: "sovereign_room",
+            enabledRelayUrls: ["wss://nos.lol"],
+            communityRelayUrl: "wss://nos.lol",
+        });
+
+        expect(gate.allowed).toBe(true);
+        expect(gate.reasonCode).toBe("not_managed");
+    });
+
+    it("blocks managed workspace management on public-default relays", () => {
+        const gate = resolveManagedWorkspaceRelayGate({
+            communityMode: "managed_workspace",
+            enabledRelayUrls: ["wss://nos.lol", "wss://relay.damus.io"],
+            communityRelayUrl: "wss://nos.lol",
+        });
+
+        expect(gate.allowed).toBe(false);
+        expect(gate.reasonCode).toBe("relay_tier_insufficient");
+        expect(gate.userMessage).toContain("Managed Workspace");
+    });
+
+    it("allows managed workspace management on intranet relays", () => {
+        const gate = resolveManagedWorkspaceRelayGate({
+            communityMode: "managed_workspace",
+            enabledRelayUrls: ["wss://relay.internal"],
+            communityRelayUrl: "wss://relay.internal",
+        });
+
+        expect(gate.allowed).toBe(true);
+        expect(gate.reasonCode).toBe("allowed");
     });
 });

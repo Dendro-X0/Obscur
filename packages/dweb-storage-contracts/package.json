@@ -1,6 +1,6 @@
 {
   "name": "@dweb/storage-contracts",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "private": true,
   "type": "module",
   "description": "Shared storage ports, migration policy, and runtime capability flags for PWA vs native (SQLite/IndexedDB).",

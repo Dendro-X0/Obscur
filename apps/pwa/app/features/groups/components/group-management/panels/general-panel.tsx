@@ -9,6 +9,7 @@ import { Textarea } from "@/app/components/ui/textarea";
 import { cn } from "@/app/lib/cn";
 import { CommunityModeBadge } from "../../community-mode-badge";
 import { RelayCapabilityBadge } from "@/app/features/relays/components/relay-capability-badge";
+import type { ManagedWorkspaceRelayGate } from "../../../services/community-mode-contract";
 import type { GroupAccessMode } from "../../../types";
 import { mgmtFieldClass, mgmtSectionClass, mgmtTextareaClass } from "../constants";
 
@@ -28,6 +29,7 @@ export function GroupManagementGeneralPanel({
     relayUrl,
     relayCapabilities,
     isRelayCapabilitiesLoading,
+    managedWorkspaceRelayGate,
 }: Readonly<{
     editName: string;
     setEditName: (value: string) => void;
@@ -44,9 +46,20 @@ export function GroupManagementGeneralPanel({
     relayUrl: string;
     relayCapabilities: Parameters<typeof RelayCapabilityBadge>[0]["capabilities"];
     isRelayCapabilitiesLoading: boolean;
+    managedWorkspaceRelayGate: ManagedWorkspaceRelayGate;
 }>): React.JSX.Element {
+    const managedSettingsBlocked = !managedWorkspaceRelayGate.allowed
+        && managedWorkspaceRelayGate.reasonCode === "relay_tier_insufficient";
+
     return (
         <div className="mx-auto max-w-2xl space-y-5">
+            {managedSettingsBlocked ? (
+                <p className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-100">
+                    {managedWorkspaceRelayGate.userMessage}
+                    {" "}
+                    {managedWorkspaceRelayGate.settingsHint}
+                </p>
+            ) : null}
             <section className={mgmtSectionClass}>
                 <Label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Avatar</Label>
                 <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:items-center">
@@ -69,7 +82,7 @@ export function GroupManagementGeneralPanel({
                             <button
                                 type="button"
                                 onClick={onPickAvatar}
-                                disabled={isUploading}
+                                disabled={isUploading || managedSettingsBlocked}
                                 className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-lg bg-violet-600 text-white shadow-lg hover:bg-violet-500 disabled:opacity-50"
                                 aria-label="Upload community avatar"
                             >
@@ -93,7 +106,7 @@ export function GroupManagementGeneralPanel({
                             id="community-name"
                             value={editName}
                             onChange={(event) => setEditName(event.target.value)}
-                            disabled={!isAdmin}
+                            disabled={!isAdmin || managedSettingsBlocked}
                             className={mgmtFieldClass}
                             placeholder="My community"
                         />
@@ -106,7 +119,7 @@ export function GroupManagementGeneralPanel({
                             id="community-about"
                             value={editAbout}
                             onChange={(event) => setEditAbout(event.target.value)}
-                            disabled={!isAdmin}
+                            disabled={!isAdmin || managedSettingsBlocked}
                             placeholder="What is this community for?"
                             className={mgmtTextareaClass}
                         />
@@ -121,7 +134,7 @@ export function GroupManagementGeneralPanel({
                         <button
                             key={mode}
                             type="button"
-                            disabled={!isAdmin}
+                            disabled={!isAdmin || managedSettingsBlocked}
                             onClick={() => setEditAccess(mode)}
                             className={cn(
                                 "flex flex-col items-center gap-1.5 rounded-lg border px-3 py-3 text-center text-xs font-medium transition-colors disabled:opacity-50",

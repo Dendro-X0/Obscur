@@ -52,6 +52,18 @@ Desktop-first patch: governance TTL and tie handling, duplicate-resolution idemp
 - **U3** audit of all publish call sites not fully closed (continues in v1.5.8).
 - Phase 1 manual sign-off (G1 matrix) may still be pending maintainer execution.
 
+## [v1.7.0] - Unreleased
+
+**Scope:** [v1.7.0-scope.md](docs/program/v1.7.0-scope.md). **Gate:** [v1.7.0-gate.md](docs/releases/v1.7.0-gate.md).
+
+### Added
+
+- **P3.1 (start)** — `resolveManagedWorkspaceRelayGate`; group management General tab blocks descriptor saves when Managed Workspace relay tier is insufficient.
+
+### Planned
+
+- **P3.2–P3.3** — Steward model, directory/roster materialization (Phase 3 roadmap).
+
 ## [v1.6.0] - 2026-05-21 (Phase 2 governance projection)
 
 **Scope:** [v1.6.0-scope.md](docs/program/v1.6.0-scope.md). **Gate:** [v1.6.0-gate.md](docs/releases/v1.6.0-gate.md).
