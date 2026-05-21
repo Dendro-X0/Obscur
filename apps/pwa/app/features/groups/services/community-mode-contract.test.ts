@@ -70,6 +70,17 @@ describe("community-mode-contract", () => {
         expect(gate.userMessage).toContain("Managed Workspace");
     });
 
+    it("blocks managed workspace create when community relay host is public-default", () => {
+        const gate = resolveManagedWorkspaceRelayGate({
+            communityMode: "managed_workspace",
+            enabledRelayUrls: ["wss://relay.internal"],
+            communityRelayUrl: "wss://nos.lol",
+        });
+
+        expect(gate.allowed).toBe(false);
+        expect(isManagedWorkspaceRelayGateBlocking(gate)).toBe(true);
+    });
+
     it("allows managed workspace management on intranet relays", () => {
         const gate = resolveManagedWorkspaceRelayGate({
             communityMode: "managed_workspace",

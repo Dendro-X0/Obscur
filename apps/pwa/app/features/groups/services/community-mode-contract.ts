@@ -213,10 +213,15 @@ export const resolveManagedWorkspaceRelayGate = (params: Readonly<{
     enabledRelayUrls: ReadonlyArray<string>;
     communityRelayUrl?: string | null;
 }>): ManagedWorkspaceRelayGate => {
-    const assessment = assessRelayCapability({
-        enabledRelayUrls: params.enabledRelayUrls,
-        selectedRelayHost: params.communityRelayUrl,
-    });
+    // Gate honesty uses the community's relay host (create + manage), not unrelated enabled relays.
+    const assessment = params.communityRelayUrl
+        ? assessRelayCapability({
+            enabledRelayUrls: [],
+            selectedRelayHost: params.communityRelayUrl,
+        })
+        : assessRelayCapability({
+            enabledRelayUrls: params.enabledRelayUrls,
+        });
 
     if (params.communityMode !== "managed_workspace") {
         return {

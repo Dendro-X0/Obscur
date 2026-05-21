@@ -22,6 +22,8 @@ import type { GroupAccessMode, CommunityMode, RelayCapabilityTier } from "../typ
 import {
     COMMUNITY_MODE_DEFINITIONS,
     assessRelayCapability,
+    isManagedWorkspaceRelayGateBlocking,
+    resolveManagedWorkspaceRelayGate,
     type RelayCapabilityAssessment,
 } from "../services/community-mode-contract";
 
@@ -59,13 +61,6 @@ export function CreateGroupDialog({ isOpen, onClose, onCreate, isCreating }: Cre
     const identity = useIdentity();
     const relayList = useRelayList({ publicKeyHex: identity.state.publicKeyHex || null });
 
-    // Compute relay assessment directly from relay list
-    const relayAssessment: RelayCapabilityAssessment = React.useMemo(() => {
-        return assessRelayCapability({
-            enabledRelayUrls: relayList.state.relays.map(r => r.url),
-        });
-    }, [relayList.state.relays]);
-
     const [info, setInfo] = useState<GroupCreateInfo>(() => ({
         host: "nos.lol",
         groupId: typeof crypto !== "undefined" ? crypto.randomUUID().replace(/-/g, "") : Math.random().toString(36).substring(2),
@@ -76,6 +71,23 @@ export function CreateGroupDialog({ isOpen, onClose, onCreate, isCreating }: Cre
         relayCapabilityTier: "public_default",
         communityMode: "sovereign_room",
     }));
+
+    const relayAssessment: RelayCapabilityAssessment = React.useMemo(() => {
+        return assessRelayCapability({
+            enabledRelayUrls: relayList.state.relays.map((r) => r.url),
+            selectedRelayHost: info.host,
+        });
+    }, [info.host, relayList.state.relays]);
+
+    const managedCreateGate = React.useMemo(
+        () => resolveManagedWorkspaceRelayGate({
+            communityMode: info.communityMode,
+            enabledRelayUrls: relayList.state.relays.map((r) => r.url),
+            communityRelayUrl: info.host.startsWith("ws") ? info.host : `wss://${info.host}`,
+        }),
+        [info.communityMode, info.host, relayList.state.relays],
+    );
+    const managedCreateBlocked = isManagedWorkspaceRelayGateBlocking(managedCreateGate);
 
     const allRelays = React.useMemo(() => {
         const consolidated = [...RELAY_SUGGESTIONS.map(r => ({ url: r.url, type: r.type, isSuggestion: true }))];
@@ -450,6 +462,13 @@ export function CreateGroupDialog({ isOpen, onClose, onCreate, isCreating }: Cre
                     </div>
                 </div>
 
+                {info.communityMode === "managed_workspace" && managedCreateBlocked ? (
+                    <div className="mx-6 mb-0 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-900 dark:text-rose-100">
+                        <p className="font-semibold">{managedCreateGate.userMessage}</p>
+                        <p className="mt-1 text-xs opacity-90">{managedCreateGate.settingsHint}</p>
+                    </div>
+                ) : null}
+
                 {/* Footer */}
                 <div className="flex items-center justify-between p-6 border-t border-zinc-100 dark:border-[#1a1a1c] bg-zinc-50/50 dark:bg-[#0f0f11]/50 shrink-0">
                     <Button variant="ghost" onClick={onClose} disabled={isCreating}>
@@ -457,7 +476,7 @@ export function CreateGroupDialog({ isOpen, onClose, onCreate, isCreating }: Cre
                     </Button>
                     <Button
                         onClick={() => onCreate({ ...info, relayCapabilityTier: relayAssessment.tier })}
-                        disabled={!isValid || isCreating || isUploading}
+                        disabled={!isValid || isCreating || isUploading || managedCreateBlocked}
                     >
                         {isCreating ? (
                             <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white mr-2" />

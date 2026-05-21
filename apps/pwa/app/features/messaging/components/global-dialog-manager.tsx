@@ -10,6 +10,11 @@ import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { useNetwork } from "@/app/features/network/providers/network-provider";
 import { CreateGroupDialog, type GroupCreateInfo } from "@/app/features/groups/components/create-group-dialog";
 import { resolveInitialStewardPubkeysForCreate } from "@/app/features/groups/services/community-steward-policy";
+import {
+    isManagedWorkspaceRelayGateBlocking,
+    resolveManagedWorkspaceRelayGate,
+} from "@/app/features/groups/services/community-mode-contract";
+import { useRelayList } from "@/app/features/relays/hooks/use-relay-list";
 import { NewChatDialog } from "@/app/features/messaging/components/new-chat-dialog";
 import { GroupService } from "@/app/features/groups/services/group-service";
 import { cryptoService } from "../../crypto/crypto-service";
@@ -34,6 +39,7 @@ export function GlobalDialogManager() {
     const identity = useIdentity();
     const { peerTrust, blocklist, requestsInbox } = useNetwork();
     const { relayPool } = useRelay();
+    const relayList = useRelayList({ publicKeyHex: identity.state.publicKeyHex || null });
 
     const {
         isNewChatOpen, setIsNewChatOpen,
@@ -230,7 +236,17 @@ export function GlobalDialogManager() {
         } finally {
             setIsCreatingGroup(false);
         }
-    }, [myPrivateKeyHex, myPublicKeyHex, relayPool, addGroup, setSelectedConversation, setIsNewGroupOpen, setIsCreatingGroup, t]);
+    }, [
+        myPrivateKeyHex,
+        myPublicKeyHex,
+        relayList.state.relays,
+        relayPool,
+        addGroup,
+        setSelectedConversation,
+        setIsNewGroupOpen,
+        setIsCreatingGroup,
+        t,
+    ]);
 
     return (
         <>

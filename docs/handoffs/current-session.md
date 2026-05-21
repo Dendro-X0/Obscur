@@ -1,19 +1,19 @@
 # Current Session Handoff
 
 - Last Updated (UTC): 2026-05-22T00:00:00Z
-- Session Status: **v1.7.x exit** — tag **v1.7.1** then open **v1.8.0** band
-- Active Owner: Maintainer — [v1.8.0-scope.md](../program/v1.8.0-scope.md) → [v1.8.1-scope.md](../program/v1.8.1-scope.md)
+- Session Status: **v1.8.0** tagged — **v1.8.1** in progress (C-4.1 on `main`)
+- Active Owner: Maintainer — [v1.8.1-scope.md](../program/v1.8.1-scope.md)
 
 ## Active Objective
 
-1. Tag **v1.7.1** (manual sign-off recorded; no client errors reported).
-2. Tag **v1.8.0** — minor band opener (**before** any v1.8.1 feature tag).
-3. Implement **4.1** on `main` at **1.8.0** until ready to tag **v1.8.1**.
+1. **Shipped:** **v1.7.1**, **v1.8.0** tags on `origin`.
+2. **v1.8.1:** C-4.1 create relay gate (in progress on `main`).
+3. Manual: [v1.8.1 demo matrix](../assets/demo/v1.8.1/README.md) before tag.
 
 ## Next Atomic Step
 
-1. `git tag v1.7.1` + push → `pnpm version:bump minor` → tag **v1.8.0**.
-2. First feature patch: create-flow honesty ([v1.8.1-scope.md](../program/v1.8.1-scope.md)) — tag **v1.8.1** only when C4 matrix Pass.
+1. Verify C4-1–C4-4 on desktop A/B (Tester 1 dark / Tester 2 light).
+2. `pnpm release:test-pack` → tag **v1.8.1** when matrix Pass.
 
 ## Last shipped (v1.6.0)
 

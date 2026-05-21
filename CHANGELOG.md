@@ -64,6 +64,11 @@ Desktop-first patch: governance TTL and tie handling, duplicate-resolution idemp
 
 **Scope:** [v1.8.1-scope.md](docs/program/v1.8.1-scope.md). **Gate:** [v1.8.1-gate.md](docs/releases/v1.8.1-gate.md). Phase **4.1** — after **v1.8.0** tag.
 
+### Fixed
+
+- **C-4.1** — Managed Workspace create blocked when community relay host is public-default; gate assesses community relay only (not unrelated Settings relays).
+- Create dialog shows relay gate copy and disables Create when managed mode cannot be honestly created.
+
 ## [v1.7.1] - 2026-05-21 (Phase 3 stabilization)
 
 **Scope:** [v1.7.1-scope.md](docs/program/v1.7.1-scope.md). **Gate:** [v1.7.1-gate.md](docs/releases/v1.7.1-gate.md).
