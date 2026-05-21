@@ -65,9 +65,17 @@ Desktop-first patch: governance TTL and tie handling, duplicate-resolution idemp
 
 - **P3.2** — `stewardPubkeys` on `GroupMetadata`; `resolveCommunityStewardPolicy` (solo / member_vote / designated_stewards); creator seeded as steward on managed create; stewards bypass governance for descriptor + expel when policy allows.
 
+### Fixed
+
+- **G2.1** — `useCommunityGovernanceProjection` no longer triggers React “getSnapshot should be cached” infinite loop (stable empty governance store snapshot).
+
+### Added (continued)
+
+- **P3.3 (start)** — `resolveCommunityDirectoryMaterializationHonesty`; Members management tab shows non-authoritative directory copy on public/unconfigured relay tiers.
+
 ### Planned
 
-- **P3.3** — Directory/roster materialization (Phase 3 roadmap).
+- **P3.3 (remainder)** — Stronger relay-contract roster materialization paths.
 
 ## [v1.6.0] - 2026-05-21 (Phase 2 governance projection)
 

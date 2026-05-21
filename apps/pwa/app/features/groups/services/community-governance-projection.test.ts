@@ -28,6 +28,13 @@ describe("community-governance-projection", () => {
     resetCommunityGovernanceProjectionForTests();
   });
 
+  it("returns a stable empty reducer reference for unknown scopes (useSyncExternalStore)", () => {
+    const first = getCommunityGovernanceReducerState("unknown-scope-a");
+    const second = getCommunityGovernanceReducerState("unknown-scope-b");
+    expect(first).toBe(second);
+    expect(first).toEqual(createEmptyCommunityGovernanceState());
+  });
+
   it("resolves scope id from communityId when present", () => {
     expect(resolveCommunityGovernanceScopeId({
       communityId: "comm-1",

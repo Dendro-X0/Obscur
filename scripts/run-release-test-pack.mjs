@@ -107,6 +107,7 @@ const main = () => {
     "app/features/groups/services/community-governance-mutation-owner.test.ts",
     "app/features/groups/services/community-mode-contract.test.ts",
     "app/features/groups/services/community-steward-policy.test.ts",
+    "app/features/groups/services/community-directory-materialization-policy.test.ts",
     "app/features/groups/services/community-governance-sealed.test.ts",
     "app/features/groups/services/community-governance-local-cache.test.ts",
     "app/features/groups/services/community-display-name.test.ts",

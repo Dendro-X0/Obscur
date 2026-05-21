@@ -22,6 +22,7 @@ import type { summarizeCommunityOperatorHealth } from "../../../services/communi
 import { CommunityMembershipEvidenceChip } from "../../community-membership-evidence-chip";
 import { resolveCommunityMemberEvidenceTier } from "../../../utils/community-member-evidence-tier";
 import { CommunityMembershipEvidenceToolbar } from "../../community-membership-evidence-toolbar";
+import type { CommunityDirectoryMaterializationHonesty } from "../../../services/community-directory-materialization-policy";
 
 export function GroupManagementMembersPanel({
     visibleMemberPubkeys,
@@ -46,6 +47,7 @@ export function GroupManagementMembersPanel({
     onReconcileMembership,
     onClearTerminalMembership,
     managedWorkspaceActionsBlocked,
+    directoryHonesty,
 }: Readonly<{
     visibleMemberPubkeys: ReadonlyArray<PublicKeyHex>;
     relayBackedMemberPubkeys: ReadonlyArray<PublicKeyHex>;
@@ -69,6 +71,7 @@ export function GroupManagementMembersPanel({
     onReconcileMembership: () => void;
     onClearTerminalMembership: () => void;
     managedWorkspaceActionsBlocked: boolean;
+    directoryHonesty: CommunityDirectoryMaterializationHonesty;
 }>): React.JSX.Element {
     const router = useRouter();
     const { t } = useTranslation();
@@ -127,6 +130,14 @@ export function GroupManagementMembersPanel({
                         </li>
                     ))}
                 </ul>
+            ) : null}
+
+            {!directoryHonesty.claimsAuthoritativeDirectory ? (
+                <p className="rounded-lg border border-zinc-700 bg-zinc-900/50 px-3 py-2 text-xs text-zinc-400">
+                    <span className="font-medium text-zinc-300">{directoryHonesty.summary}.</span>
+                    {" "}
+                    {directoryHonesty.detail}
+                </p>
             ) : null}
 
             <CommunitySyncIndicator

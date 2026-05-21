@@ -20,6 +20,9 @@ export type CommunityGovernanceProjectionListener = () => void;
 const governanceReducerByScopeId = new Map<string, CommunityGovernanceReducerState>();
 const governanceListenersByScopeId = new Map<string, Set<CommunityGovernanceProjectionListener>>();
 
+/** Stable empty snapshot for `useSyncExternalStore` (must not allocate per getSnapshot). */
+const EMPTY_GOVERNANCE_REDUCER_STATE: CommunityGovernanceReducerState = createEmptyCommunityGovernanceState();
+
 export const resolveCommunityGovernanceScopeId = (params: Readonly<{
   communityId?: string | null;
   groupId: string;
@@ -44,7 +47,7 @@ const notifyGovernanceListeners = (scopeId: string): void => {
 export const getCommunityGovernanceReducerState = (
   scopeId: string,
 ): CommunityGovernanceReducerState => (
-  governanceReducerByScopeId.get(scopeId) ?? createEmptyCommunityGovernanceState()
+  governanceReducerByScopeId.get(scopeId) ?? EMPTY_GOVERNANCE_REDUCER_STATE
 );
 
 export const getCommunityGovernanceProjection = (

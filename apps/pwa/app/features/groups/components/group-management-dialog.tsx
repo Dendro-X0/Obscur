@@ -32,6 +32,7 @@ import {
     resolveManagedWorkspaceRelayGate,
 } from "../services/community-mode-contract";
 import { resolveCommunityStewardPolicy } from "../services/community-steward-policy";
+import { resolveCommunityDirectoryMaterializationHonesty } from "../services/community-directory-materialization-policy";
 import { ManagedWorkspaceRelayGateBanner } from "./group-management/managed-workspace-relay-gate-banner";
 import { discoveryCache } from "@/app/features/search/services/discovery-cache";
 import { filterVisibleGroupMembers } from "../services/community-visible-members";
@@ -175,6 +176,17 @@ export function GroupManagementDialog({
         [group.communityMode, group.relayUrl, relayList.state.relays],
     );
     const managedWorkspaceActionsBlocked = isManagedWorkspaceRelayGateBlocking(managedWorkspaceRelayGate);
+    const directoryHonesty = React.useMemo(
+        () => resolveCommunityDirectoryMaterializationHonesty({
+            communityMode: state.metadata?.communityMode ?? group.communityMode,
+            relayCapabilityTier: managedWorkspaceRelayGate.assessment.tier,
+        }),
+        [
+            group.communityMode,
+            managedWorkspaceRelayGate.assessment.tier,
+            state.metadata?.communityMode,
+        ],
+    );
 
     const requireManagedWorkspaceRelayGate = React.useCallback((): boolean => {
         if (!managedWorkspaceRelayGate.allowed) {
@@ -692,6 +704,7 @@ export function GroupManagementDialog({
                         onReconcileMembership={handleReconcileMembership}
                         onClearTerminalMembership={handleClearTerminalMembership}
                         managedWorkspaceActionsBlocked={managedWorkspaceActionsBlocked}
+                        directoryHonesty={directoryHonesty}
                     />
                 ) : null}
 

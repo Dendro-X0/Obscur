@@ -12,9 +12,9 @@
 
 ## Next Atomic Step
 
-1. **P3.3:** Stronger directory materialization when relay contract satisfied (no false full roster on Tier 1).
-2. Manual sign-off: [v1.7.0 demo matrix](../assets/demo/v1.7.0/README.md) P3-1 + steward flows (managed + steward actor).
-3. Before v1.7.0 tag: `pnpm test:community-invariants` + `pnpm release:test-pack` on clean tree.
+1. **Verify fix:** Reload group home — governance banner must not throw `getSnapshot` infinite loop.
+2. **P3.3:** Extend directory honesty to group home roster surfaces; stronger materialization when relay contract satisfied.
+3. Manual sign-off + `pnpm release:test-pack` before v1.7.0 tag.
 
 ## Last shipped (v1.6.0)
 
