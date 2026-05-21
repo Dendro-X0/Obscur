@@ -50,14 +50,19 @@ Prerequisite: a community created or marked **Managed Workspace** on a private/t
 
 | ID | Step | Expected | Pass |
 |----|------|----------|------|
-| P3-14 | Open group home → Manage community | No React hook-order console error; dialog opens | ☐ |
-| P3-15 | Close management → reopen | Still no hook error; tabs load | ☐ |
+| P3-14 | Open group home → Manage community | No React hook-order console error; dialog opens | ☑ |
+| P3-15 | Close management → reopen | Still no hook error; tabs load | ☑ |
 
 ---
 
 ## Sign-off
 
+**Environment:** Tester 1 (dark) + Tester 2 (light), desktop two-profile windows ([verification-environment.md](../verification-environment.md)).
+
 | Block | Date | Notes |
 |-------|------|-------|
-| P3.1 relay gate | | |
-| P3.2 stewards | | |
+| P3.1 relay gate | 2026-05-21 | No client console errors reported |
+| P3.2 stewards | 2026-05-21 | |
+| P3.3 directory honesty | 2026-05-21 | |
+| P3.4 dialog stability (v1.7.1) | 2026-05-21 | Mount-only-when-open + hook order fix |
+| **v1.7.x band exit** | 2026-05-21 | Ready for **v1.7.1** tag → **v1.8.x** |

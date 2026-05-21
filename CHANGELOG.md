@@ -52,13 +52,22 @@ Desktop-first patch: governance TTL and tie handling, duplicate-resolution idemp
 - **U3** audit of all publish call sites not fully closed (continues in v1.5.8).
 - Phase 1 manual sign-off (G1 matrix) may still be pending maintainer execution.
 
-## [v1.7.1] - Unreleased
+## [v1.8.1] - Unreleased
 
-**Scope:** [v1.7.1-scope.md](docs/program/v1.7.1-scope.md). **Gate:** [v1.7.1-gate.md](docs/releases/v1.7.1-gate.md). Demo matrix sign-off and regressions only.
+**Scope:** [v1.8.1-scope.md](docs/program/v1.8.1-scope.md). **Gate:** [v1.8.1-gate.md](docs/releases/v1.8.1-gate.md). Phase **4.1** — mode-aware create flow.
+
+## [v1.7.1] - 2026-05-21 (Phase 3 stabilization)
+
+**Scope:** [v1.7.1-scope.md](docs/program/v1.7.1-scope.md). **Gate:** [v1.7.1-gate.md](docs/releases/v1.7.1-gate.md).
 
 ### Fixed
 
 - **Group home** — Mount `GroupManagementDialog` only while management is open (avoids Rules-of-Hooks churn and idle hook work on group home).
+- **GroupManagementDialog** — `stewardPolicy` hooks ordered before `isOpen` early return (v1.7.0 carryover).
+
+### Verification
+
+- Desktop A/B manual matrix signed off 2026-05-21; no client-side console errors reported.
 
 ## [v1.7.0] - 2026-05-21 (Phase 3 managed workspace honesty)
 
