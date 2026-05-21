@@ -1,8 +1,8 @@
 # Current Session Handoff
 
-- Last Updated (UTC): 2026-05-21T12:00:00Z
+- Last Updated (UTC): 2026-05-21T18:00:00Z
 - Session Status: **v1.5.8 shipped** — active line **v1.6.0** (Phase 2 governance projection)
-- Active Owner: Shared PWA / desktop — **G2.1** governance projection (`governanceByCommunityId`)
+- Active Owner: Shared PWA / desktop — **G2.3/G2.4** governance ledger tags + regression
 
 ## Active Objective
 
@@ -12,9 +12,9 @@
 
 ## Next Atomic Step
 
-1. **G2.3:** Tag governance-driven descriptor/membership mutations in ledger where schema allows.
-2. **G2.4:** Extend manual matrix + replay tests for multi-device governance quorum.
-3. **Before merge:** `pnpm -C apps/pwa typecheck` → `pnpm test:community-invariants`.
+1. **Push** `main` if ahead of `origin/main` (G2.1–G2.4 commits).
+2. **v1.6.0 closeout:** `CHANGELOG.md`, [v1.6.0-gate.md](../releases/v1.6.0-gate.md), manual G2 matrix sign-off, tag when `pnpm release:test-pack` green.
+3. Optional: triage unrelated full-suite `pnpm test:run` failures before tag.
 
 Canonical plans: [community-system-overhaul-phased-roadmap.md](../program/community-system-overhaul-phased-roadmap.md) (Phase 2) · [community-system-implementation-and-ui-plan.md](../program/community-system-implementation-and-ui-plan.md).
 

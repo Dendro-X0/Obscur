@@ -1,6 +1,7 @@
 import type { GroupConversation } from "@/app/features/messaging/types";
 import { pickPreferredCommunityDisplayName } from "./community-display-name";
 import { toCommunityMembershipLedgerEntryFromGroup } from "./community-membership-ledger";
+import type { CommunityMembershipLedgerMutationReason } from "./community-membership-coordinator";
 import { persistCommunityMembershipLedgerMutation } from "./community-membership-mutation-owner";
 
 export const COMMUNITY_DESCRIPTOR_MUTATION_OWNER_ID = "community-descriptor-mutation-owner" as const;
@@ -15,6 +16,10 @@ export type PersistCommunityDescriptorUpdateParams = Readonly<{
   lastEvidenceEventId?: string;
   updatedAtUnixMs?: number;
   profileId?: string;
+  ledgerReason?: Extract<
+    CommunityMembershipLedgerMutationReason,
+    "descriptor_updated" | "governance_descriptor_accepted"
+  >;
 }>;
 
 /**
@@ -45,7 +50,17 @@ export const persistCommunityDescriptorUpdate = (
   });
 
   persistCommunityMembershipLedgerMutation(params.publicKeyHex, {
-    reason: "descriptor_updated",
+    reason: params.ledgerReason ?? "descriptor_updated",
     entry,
   }, { profileId: params.profileId });
+};
+
+/** Descriptor applied from an accepted governance proposal (G2.3). */
+export const persistCommunityGovernanceDescriptorAccepted = (
+  params: PersistCommunityDescriptorUpdateParams,
+): void => {
+  persistCommunityDescriptorUpdate({
+    ...params,
+    ledgerReason: "governance_descriptor_accepted",
+  });
 };

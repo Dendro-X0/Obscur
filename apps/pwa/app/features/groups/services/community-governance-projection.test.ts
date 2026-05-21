@@ -312,3 +312,64 @@ describe("community-governance-projection replay (G2.2)", () => {
     expect(getActiveCommunityGovernanceProposals(SCOPE, 1500)).toHaveLength(1);
   });
 });
+
+describe("community-governance-projection multi-device quorum (G2.4)", () => {
+  const SCOPE_A = "device-a-gov";
+  const SCOPE_B = "device-b-gov";
+  const PROPOSAL_ID = "p-quorum-accept";
+
+  const proposed = {
+    type: "PROPOSED" as const,
+    proposalId: PROPOSAL_ID,
+    actionType: "update_descriptor" as const,
+    proposerPublicKeyHex: ACTOR,
+    createdAtUnixMs: 1000,
+    quorumThreshold: 2,
+    payload: { name: "Quorum Rename" },
+    logicalEventId: "e-propose",
+  };
+  const voteA = {
+    type: "VOTE_CAST" as const,
+    proposalId: PROPOSAL_ID,
+    voterPublicKeyHex: ACTOR,
+    vote: "approve" as const,
+    createdAtUnixMs: 1001,
+    logicalEventId: "e-vote-a",
+  };
+  const voteB = {
+    type: "VOTE_CAST" as const,
+    proposalId: PROPOSAL_ID,
+    voterPublicKeyHex: VOTER_B,
+    vote: "approve" as const,
+    createdAtUnixMs: 1002,
+    logicalEventId: "e-vote-b",
+  };
+  const resolved = {
+    type: "RESOLVED" as const,
+    proposalId: PROPOSAL_ID,
+    resolution: "accepted" as const,
+    resolverPublicKeyHex: ACTOR,
+    createdAtUnixMs: 2000,
+    logicalEventId: "e-resolve",
+  };
+
+  beforeEach(() => {
+    resetCommunityGovernanceProjectionForTests();
+  });
+
+  it("converges accepted quorum when devices ingest votes in different orders", () => {
+    replayCommunityGovernanceEvents(SCOPE_A, [proposed, voteA, voteB, resolved]);
+    replayCommunityGovernanceEvents(SCOPE_B, [proposed, voteB, voteA, resolved]);
+
+    const proposalA = getCommunityGovernanceReducerState(SCOPE_A).proposalsById[PROPOSAL_ID]!;
+    const proposalB = getCommunityGovernanceReducerState(SCOPE_B).proposalsById[PROPOSAL_ID]!;
+
+    expect(proposalA.resolution).toBe("accepted");
+    expect(proposalB.resolution).toBe("accepted");
+    expect(proposalA.resolvedAtUnixMs).toBe(proposalB.resolvedAtUnixMs);
+    expect(hasGovernanceQuorum(proposalA)).toBe(true);
+    expect(hasGovernanceQuorum(proposalB)).toBe(true);
+    expect(getCommunityGovernanceProjection(SCOPE_A).resolvedVotes).toContain(PROPOSAL_ID);
+    expect(getCommunityGovernanceProjection(SCOPE_B).resolvedVotes).toContain(PROPOSAL_ID);
+  });
+});

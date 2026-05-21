@@ -43,7 +43,9 @@ export type CommunityMembershipLedgerMutationReason =
   | "relay_roster_terminal"
   | "relay_disbanded"
   | "runtime_join_confirmed"
-  | "descriptor_updated";
+  | "descriptor_updated"
+  | "governance_descriptor_accepted"
+  | "governance_member_expelled";
 
 export type CommunityMembershipLedgerMutation = Readonly<{
   reason: CommunityMembershipLedgerMutationReason;
@@ -176,6 +178,30 @@ export const resolveCommunityMembershipExplicitLeaveMutation = (params: Readonly
     updatedAtUnixMs: params.updatedAtUnixMs,
   }), params.publicKeyHex),
 });
+
+/** Governance vote expelled a member; local ledger records operator view or self expulsion. */
+export const resolveCommunityGovernanceMemberExpelledMutation = (params: Readonly<{
+  publicKeyHex: string;
+  group: GroupConversation;
+  targetPublicKeyHex: string;
+  updatedAtUnixMs?: number;
+  lastEvidenceEventId?: string;
+}>): CommunityMembershipLedgerMutation => {
+  const publicKeyHex = params.publicKeyHex.trim();
+  const targetPublicKeyHex = params.targetPublicKeyHex.trim();
+  const isLocalTarget = publicKeyHex === targetPublicKeyHex;
+  return {
+    reason: "governance_member_expelled",
+    entry: bindLedgerEntryToPublicKey(toCommunityMembershipLedgerEntryFromGroup({
+      ...params.group,
+      creatorPubkey: params.group.creatorPubkey ?? publicKeyHex,
+    }, {
+      status: isLocalTarget ? "expelled" : "joined",
+      updatedAtUnixMs: params.updatedAtUnixMs,
+      lastEvidenceEventId: params.lastEvidenceEventId,
+    }), publicKeyHex),
+  };
+};
 
 export const resolveCommunityMembershipRosterSnapshotTerminalMutation = (params: Readonly<{
   publicKeyHex: string;

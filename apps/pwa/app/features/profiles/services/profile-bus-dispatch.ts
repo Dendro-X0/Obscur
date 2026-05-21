@@ -70,6 +70,8 @@ export type GroupDescriptorUpdatedDispatchDetail = Readonly<{
     descriptorVersion: number;
     lastEvidenceEventId?: string;
     publicKeyHex?: string;
+    /** When set, descriptor ledger persistence uses `governance_descriptor_accepted`. */
+    governanceProposalId?: string;
 }>;
 
 /** v1.5 Phase 1: group invite materialization — profile bus only. */

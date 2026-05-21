@@ -36,6 +36,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@dweb/ui-kit";
 import { InviteConnectionsDialog } from "@/app/features/groups/components/invite-connections-dialog";
 import { GroupManagementDialog } from "@/app/features/groups/components/group-management-dialog";
 import { cn } from "@dweb/ui-kit";
+import { useCommunityGovernanceProjection } from "@/app/features/groups/hooks/use-community-governance-projection";
 import { toScopedRelayUrl, useSealedCommunity } from "@/app/features/groups/hooks/use-sealed-community";
 import { useCommunityParticipantRosterReadModel } from "@/app/features/groups/hooks/use-community-participant-roster-read-model";
 import { toast } from "@dweb/ui-kit";
@@ -221,10 +222,15 @@ export default function GroupHomePage() {
         state: groupState,
         updateMetadata,
         requestJoin: requestJoinNip29,
-        activeGovernanceProposals,
         refresh: refreshCommunityMembership,
         clearLocalTerminalMembershipEvidence,
     } = sealedCommunityController;
+
+    const { activeProposals: activeGovernanceProposals, activeProposalCount } = useCommunityGovernanceProjection({
+        groupId: group?.groupId || id || "",
+        communityId: group?.communityId,
+        enabled: !!(group || discoveredRelay),
+    });
 
     const terminalMembershipCache = React.useMemo(() => {
         const groupId = group?.groupId || id || "";
@@ -881,16 +887,16 @@ export default function GroupHomePage() {
                     </button>
                 </div>
 
-                {activeGovernanceProposals.length > 0 && (
+                {activeProposalCount > 0 && (
                     <button
                         type="button"
                         onClick={() => setIsManagementOpen(true)}
                         className="w-full rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-left text-sm text-amber-950 transition-colors hover:bg-amber-500/15 dark:text-amber-100 dark:hover:bg-amber-500/20"
                     >
                         <p className="font-semibold">
-                            {activeGovernanceProposals.length === 1
+                            {activeProposalCount === 1
                                 ? "1 open governance proposal"
-                                : `${activeGovernanceProposals.length} open governance proposals`}
+                                : `${activeProposalCount} open governance proposals`}
                         </p>
                         <p className="mt-1 text-xs opacity-90">
                             Open community management → Governance to review and vote.

@@ -104,6 +104,7 @@ const main = () => {
     "app/features/messaging/lib/upload-user-copy.test.ts",
     "app/features/groups/services/community-governance-reducer.test.ts",
     "app/features/groups/services/community-governance-projection.test.ts",
+    "app/features/groups/services/community-governance-mutation-owner.test.ts",
     "app/features/groups/services/community-governance-sealed.test.ts",
     "app/features/groups/services/community-governance-local-cache.test.ts",
     "app/features/groups/services/community-display-name.test.ts",

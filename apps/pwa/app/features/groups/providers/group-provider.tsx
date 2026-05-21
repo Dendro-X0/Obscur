@@ -59,7 +59,10 @@ import {
 } from "@/app/features/groups/services/group-tombstone-store";
 import { auditCommunityMigrationState } from "@/app/features/groups/services/community-migration-audit";
 import { pickPreferredCommunityDisplayName } from "@/app/features/groups/services/community-display-name";
-import { persistCommunityDescriptorUpdate } from "@/app/features/groups/services/community-descriptor-mutation-owner";
+import {
+    persistCommunityDescriptorUpdate,
+    persistCommunityGovernanceDescriptorAccepted,
+} from "@/app/features/groups/services/community-descriptor-mutation-owner";
 import { logRuntimeEvent } from "@/app/shared/runtime-log-classification";
 import {
     COMMUNITY_MEMBERSHIP_LEDGER_UPDATED_EVENT,
@@ -1453,7 +1456,10 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 const next = mutableNext;
                 if (pk) {
                     chatStateStoreService.updateGroups(pk, next.map((group) => toPersistedGroupConversation(group)));
-                    persistCommunityDescriptorUpdate({
+                    const persistDescriptor = detail.governanceProposalId
+                        ? persistCommunityGovernanceDescriptorAccepted
+                        : persistCommunityDescriptorUpdate;
+                    persistDescriptor({
                         publicKeyHex: pk,
                         group: mergedGroup,
                         displayName: mergedDisplayName,

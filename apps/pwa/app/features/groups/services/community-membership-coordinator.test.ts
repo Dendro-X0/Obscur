@@ -6,6 +6,7 @@ import {
   resolveCommunityMembershipDisbandMutation,
   persistExplicitCommunityMembershipLeave,
   resolveCommunityMembershipExplicitLeaveMutation,
+  resolveCommunityGovernanceMemberExpelledMutation,
   resolveCommunityMembershipRosterSnapshotTerminalMutation,
   resolveCommunityMembershipRuntimeEvidenceDecision,
 } from "./community-membership-coordinator";
@@ -228,6 +229,29 @@ describe("community-membership-coordinator", () => {
         updatedAtUnixMs: 5_000,
       }),
     }));
+  });
+
+  it("tags governance expulsion with governance_member_expelled reason", () => {
+    const target = "b".repeat(64);
+    const mutation = resolveCommunityGovernanceMemberExpelledMutation({
+      publicKeyHex: PUBLIC_KEY,
+      group: createGroup(),
+      targetPublicKeyHex: target,
+      updatedAtUnixMs: 5_500,
+      lastEvidenceEventId: "gov-expel-1",
+    });
+
+    expect(mutation.reason).toBe("governance_member_expelled");
+    expect(mutation.entry.status).toBe("joined");
+    expect(mutation.entry.lastEvidenceEventId).toBe("gov-expel-1");
+
+    const selfMutation = resolveCommunityGovernanceMemberExpelledMutation({
+      publicKeyHex: PUBLIC_KEY,
+      group: createGroup(),
+      targetPublicKeyHex: PUBLIC_KEY,
+      updatedAtUnixMs: 5_600,
+    });
+    expect(selfMutation.entry.status).toBe("expelled");
   });
 
   it("ignores roster snapshot terminal evidence for non-local members", () => {

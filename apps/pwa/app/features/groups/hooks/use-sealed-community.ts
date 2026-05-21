@@ -99,6 +99,8 @@ import {
   RELAY_KIND_MEMBERSHIP_SIGNAL,
 } from "../services/community-relay-membership-interop";
 import { COMMUNITY_MEMBERSHIP_RESTATE_INTERVAL_MS } from "../services/community-membership-evidence-actions";
+import { persistCommunityGovernanceMemberExpelled } from "../services/community-governance-mutation-owner";
+import type { GroupConversation } from "../../messaging/types";
 import { subscribeGroupInviteAcceptedDual } from "@/app/features/profiles/services/subscribe-group-invite-accepted-dual";
 import { useOptionalProfileMessageBus } from "@/app/features/profiles/providers/profile-runtime-provider";
 
@@ -216,7 +218,10 @@ export type UseSealedCommunityResult = Readonly<{
   proposeExpelMember: (params: Readonly<{ targetPublicKeyHex: PublicKeyHex; reason?: string }>) => Promise<void>;
   castGovernanceVote: (params: Readonly<{ proposalId: string; vote: CommunityGovernanceVote }>) => Promise<void>;
   rotateRoomKey: () => Promise<void>;
-  updateMetadata: (params: Readonly<GroupMetadata>) => Promise<void>;
+  updateMetadata: (
+    params: Readonly<GroupMetadata>,
+    options?: Readonly<{ governanceProposalId?: string }>,
+  ) => Promise<void>;
   setGroupStatus: (params: Readonly<{ access: "open" | "invite-only" | "discoverable" }>) => Promise<void>;
   putUser: (params: Readonly<{ publicKeyHex: PublicKeyHex; role?: GroupRole }>) => Promise<void>;
   removeUser: (params: Readonly<{ publicKeyHex: PublicKeyHex }>) => Promise<void>;
@@ -585,7 +590,10 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
   const governanceSessionWrittenJsonRef = useRef<string | null>(null);
   const governanceHydratedRef = useRef(false);
   const ingestGovernanceEventRef = useRef<(event: GovernanceReducerEvent) => void>(() => { });
-  const updateMetadataRef = useRef<(metadata: GroupMetadata) => Promise<void>>(async () => { });
+  const updateMetadataRef = useRef<(
+    metadata: GroupMetadata,
+    options?: Readonly<{ governanceProposalId?: string }>,
+  ) => Promise<void>>(async () => { });
   const conversationId = useMemo(
     () => toGroupConversationId({ groupId: params.groupId, relayUrl: params.relayUrl, communityId: params.communityId }),
     [params.groupId, params.relayUrl, params.communityId]
@@ -2304,7 +2312,7 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
         about: about ?? state.metadata?.about,
         picture: picture ?? state.metadata?.picture,
         access: access ?? state.metadata?.access ?? "invite-only",
-      });
+      }, { governanceProposalId: proposal.proposalId });
       toast.success("Community rename approved and applied.");
       return;
     }
@@ -2321,12 +2329,50 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
         createdAtUnixMs: proposal.resolvedAtUnixMs ?? Date.now(),
         subjectPublicKeyHex: target,
       }));
+      const operatorPk = params.myPublicKeyHex?.trim();
+      if (operatorPk) {
+        const conversationId = toGroupConversationId({
+          groupId: params.groupId,
+          relayUrl: params.relayUrl,
+          communityId: params.communityId,
+        });
+        const groupForLedger: GroupConversation = {
+          kind: "group",
+          id: conversationId,
+          groupId: params.groupId,
+          relayUrl: params.relayUrl,
+          communityId: params.communityId,
+          displayName: state.metadata?.name ?? params.groupId,
+          about: state.metadata?.about,
+          avatar: state.metadata?.picture,
+          access: state.metadata?.access ?? "invite-only",
+          memberPubkeys: [...membersRef.current],
+          adminPubkeys: params.myPublicKeyHex
+            ? [params.myPublicKeyHex]
+            : membersRef.current.slice(0, 1),
+          lastMessage: "",
+          unreadCount: 0,
+          lastMessageTime: new Date(),
+          memberCount: membersRef.current.length,
+        };
+        persistCommunityGovernanceMemberExpelled({
+          publicKeyHex: operatorPk,
+          group: groupForLedger,
+          targetPublicKeyHex: target,
+          lastEvidenceEventId: proposal.lastEventId ?? `governance-expel:${proposal.proposalId}`,
+          updatedAtUnixMs: proposal.resolvedAtUnixMs ?? Date.now(),
+          profileId: getResolvedProfileId(),
+        });
+      }
       toast.error(`Member ${target.slice(0, 8)}… expelled by community vote.`);
     }
   }, [
     applyControlEvent,
     createMembershipControlEventBase,
+    params.communityId,
     params.groupId,
+    params.myPublicKeyHex,
+    params.relayUrl,
     state.metadata?.about,
     state.metadata?.access,
     state.metadata?.name,
@@ -2840,7 +2886,10 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
   const noop = async () => { };
   const setGroupStatus = noop;
 
-  const updateMetadata = useCallback(async (nextMetadata: GroupMetadata): Promise<void> => {
+  const updateMetadata = useCallback(async (
+    nextMetadata: GroupMetadata,
+    options?: Readonly<{ governanceProposalId?: string }>,
+  ): Promise<void> => {
     if (!params.myPublicKeyHex || !params.myPrivateKeyHex) {
       throw new Error("Unlock your identity to update community settings.");
     }
@@ -2919,6 +2968,9 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
       descriptorVersion: nextVersion,
       lastEvidenceEventId: sealedEvent.id,
       publicKeyHex: params.myPublicKeyHex,
+      ...(options?.governanceProposalId
+        ? { governanceProposalId: options.governanceProposalId }
+        : {}),
     });
 
     logAppEvent({
