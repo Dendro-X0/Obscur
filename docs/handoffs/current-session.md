@@ -1,27 +1,23 @@
 # Current Session Handoff
 
-- Last Updated (UTC): 2026-05-22T00:25:00Z
-- Session Status: **v1.8.0** tagged — **v1.8.1** code ready; manual C4 matrix before tag
-- Active Owner: Maintainer — [v1.8.1-scope.md](../program/v1.8.1-scope.md)
+- Last Updated (UTC): 2026-05-22T00:55:00Z
+- Session Status: **v1.8.1 shipped** — active **v1.8.2** (Phase 4.2 manage hub)
+- Active Owner: Maintainer — [v1.8.2-scope.md](../program/v1.8.2-scope.md)
 
 ## Active Objective
 
-1. **Shipped:** **v1.7.1**, **v1.8.0** tags on `origin`.
-2. **v1.8.1:** C-4.1a/c on `main` (`e4c9b708` + create dialog mount-only-when-open).
-3. Manual: [v1.8.1 demo matrix](../assets/demo/v1.8.1/README.md) C4-1–C4-4 → tag **v1.8.1**.
+1. **Shipped:** **v1.7.1**, **v1.8.0**, **v1.8.1** on `origin`.
+2. **v1.8.2:** Phase **4.2** — tabbed manage hub canonical; home vs manage responsibilities.
+3. Manual: [v1.8.2 demo matrix](../assets/demo/v1.8.2/README.md) before tag.
 
 ## Next Atomic Step
 
-1. Verify C4-1–C4-4 on desktop A/B (Tester 1 dark / Tester 2 light).
-2. `pnpm release:test-pack` → tag **v1.8.1** when matrix Pass.
-
-## Last shipped (v1.6.0)
-
-- **G2.1–G2.4** — Governance projection owner, replay tests, ledger reasons, demo matrix.
+1. Implement **4.2a–4.2c** per [v1.8.2-scope.md](../program/v1.8.2-scope.md).
+2. Desktop A/B matrix C4-5–C4-8 when UI ready.
+3. `pnpm release:test-pack` → tag **v1.8.2**.
 
 ## Continuity references
 
-- [v1.8.0-scope.md](../program/v1.8.0-scope.md) (**band**)
-- [v1.8.1-scope.md](../program/v1.8.1-scope.md) (**next feature**)
+- [v1.8.2-scope.md](../program/v1.8.2-scope.md) (**active**)
+- [v1.8.1-release.md](../releases/v1.8.1-release.md) · tag **v1.8.1**
 - [obscur-2.0-milestone-roadmap.md](../program/obscur-2.0-milestone-roadmap.md)
-- [v1.6.0-scope.md](../program/v1.6.0-scope.md) · [v1.6.0-gate.md](../releases/v1.6.0-gate.md)
