@@ -9,6 +9,7 @@ import {
     projectCommunityMemberRoster,
     stabilizeCommunityMemberPubkeys as stabilizeCommunityMemberPubkeysFromRoster,
 } from "./community-member-roster-projection";
+import { filterTerminalMembersWithoutParticipationEvidence } from "../utils/community-membership-participation-evidence";
 import type { RelayEvidenceConfidence } from "./community-member-roster-projection";
 import type { StabilizeCommunityMemberPubkeysResult } from "./community-member-roster-projection";
 
@@ -94,6 +95,8 @@ export const resolveAuthorEvidencePubkeysFromCommunityMessages = (
 
 export type ResolveActiveCommunityMemberPubkeysFromConversationParams = Readonly<{
     communityMessages: ReadonlyArray<Readonly<{ pubkey?: string | null }>>;
+    /** Persisted chat authors when live `communityMessages` is empty (group home). */
+    persistedMessageAuthorPubkeys?: ReadonlyArray<PublicKeyHex>;
     seededMemberPubkeys: ReadonlyArray<PublicKeyHex>;
     projectionMemberPubkeys?: ReadonlyArray<PublicKeyHex>;
     localMemberPubkey?: PublicKeyHex | null;
@@ -110,14 +113,26 @@ export type ActiveCommunityMemberPubkeysResolution = Readonly<{
 export const resolveActiveCommunityMemberPubkeysFromConversation = (
     params: ResolveActiveCommunityMemberPubkeysFromConversationParams,
 ): ActiveCommunityMemberPubkeysResolution => {
-    const authorEvidencePubkeys = resolveAuthorEvidencePubkeysFromCommunityMessages(params.communityMessages);
+    const authorEvidencePubkeys = dedupeCommunityMemberPubkeys([
+        ...resolveAuthorEvidencePubkeysFromCommunityMessages(params.communityMessages),
+        ...(params.persistedMessageAuthorPubkeys ?? []),
+    ]);
+    const filteredTerminal = filterTerminalMembersWithoutParticipationEvidence({
+        leftMemberPubkeys: params.leftMemberPubkeys ?? [],
+        expelledMemberPubkeys: params.expelledMemberPubkeys ?? [],
+        communityMessages: params.communityMessages,
+        additionalParticipationPubkeys: [
+            ...authorEvidencePubkeys,
+            ...(params.persistedMessageAuthorPubkeys ?? []),
+        ],
+    });
     const activeMemberPubkeys = resolveVisibleCommunityMemberPubkeys({
         seededMemberPubkeys: params.seededMemberPubkeys,
         projectionMemberPubkeys: params.projectionMemberPubkeys,
         authorEvidencePubkeys,
         localMemberPubkey: params.localMemberPubkey,
-        leftMemberPubkeys: params.leftMemberPubkeys,
-        expelledMemberPubkeys: params.expelledMemberPubkeys,
+        leftMemberPubkeys: filteredTerminal.leftMemberPubkeys,
+        expelledMemberPubkeys: filteredTerminal.expelledMemberPubkeys,
     });
     return { activeMemberPubkeys, authorEvidencePubkeys };
 };

@@ -20,6 +20,8 @@
     "lint:pwa": "pnpm -C apps/pwa lint",
     "docs:check": "node scripts/docs-check.mjs",
     "verify:dm-redaction": "pnpm -C apps/pwa test:run app/features/messaging/controllers/v2/dm-receive-pipeline.test.ts app/features/messaging/controllers/v2/dm-send-pipeline.test.ts app/features/messaging/lib/resolve-dm-hybrid-relay-targets.test.ts app/features/messaging/deletion/message-deletion-coordinator.test.ts app/features/messaging/utils/extract-http-url-hosts.test.ts",
+    "test:community-invariants": "pnpm -C apps/pwa test:community-invariants",
+    "test:shell-invariants": "pnpm -C apps/pwa test:shell-invariants",
     "gateway:boundaries:check": "node scripts/verify-client-gateway-boundaries.mjs",
     "offline:asset-policy:check": "node scripts/check-offline-ui-asset-policy.mjs",
     "release:streaming-update-contract:check": "node scripts/check-streaming-update-contract.mjs",

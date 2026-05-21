@@ -16,8 +16,8 @@ type LaunchStep = Readonly<{
   status: LaunchStepStatus;
 }>;
 
-const STARTUP_OVERLAY_MIN_VISIBLE_MS = 900;
-const STARTUP_OVERLAY_BYPASS_THRESHOLD_MS = 10_000;
+const STARTUP_OVERLAY_MIN_VISIBLE_MS = 650;
+const STARTUP_OVERLAY_BYPASS_THRESHOLD_MS = 6_000;
 const STARTUP_OVERLAY_SESSION_KEY = "obscur.runtime.startup_overlay_seen.v1";
 
 const stepContribution = (status: LaunchStepStatus): number => {
@@ -52,24 +52,14 @@ export function StartupExperienceOverlay(): React.JSX.Element | null {
   const [startedAtUnixMs, setStartedAtUnixMs] = useState<number | null>(null);
   const [nowMs, setNowMs] = useState<number | null>(null);
 
-  useEffect(() => {
-    if (!overlayEligibleThisSession) {
-      return;
-    }
-    try {
-      window.sessionStorage.setItem(STARTUP_OVERLAY_SESSION_KEY, "1");
-    } catch {
-      // sessionStorage can be unavailable in some embedded runtimes.
-    }
-  }, [overlayEligibleThisSession]);
-
-  const runtimeSettled = runtime.phase === "ready" || runtime.phase === "degraded";
   const relayPhase = runtime.relayRuntime.phase;
   const relayConnected = runtime.relayRuntime.writableRelayCount > 0;
   const relaySettled = relayConnected || relayPhase === "healthy" || relayPhase === "degraded" || relayPhase === "recovering" || relayPhase === "offline" || relayPhase === "fatal";
-  const accountSyncReady = accountSyncSnapshot.phase === "ready" || accountSyncSnapshot.phase === "error";
+  const identityReady = runtime.session.identityStatus === "unlocked" || runtime.session.identityStatus === "error";
   const projectionReady = projectionSnapshot.phase === "ready" || projectionSnapshot.phase === "degraded";
-  const startupComplete = runtimeSettled && accountSyncReady && projectionReady && relaySettled;
+  /** Shell is usable once identity, projection, and relay are settled; account sync and runtime phase may finish afterward. */
+  const startupComplete = identityReady && projectionReady && relaySettled;
+  const accountSyncStillRunning = accountSyncSnapshot.phase !== "ready" && accountSyncSnapshot.phase !== "error";
   const startupTransitioning = runtime.phase === "booting" || runtime.phase === "binding_profile" || runtime.phase === "unlocking" || runtime.phase === "activating_runtime";
   const shouldParticipate = overlayEligibleThisSession && runtime.phase !== "auth_required" && runtime.phase !== "fatal" && runtime.session.identityStatus !== "locked";
   const shouldShow = shouldParticipate && !startupComplete && !manuallyDismissed && startupTransitioning;
@@ -89,6 +79,13 @@ export function StartupExperienceOverlay(): React.JSX.Element | null {
         setIsVisible(true);
         setStartedAtUnixMs(startedAt);
         setNowMs(startedAt);
+        if (overlayEligibleThisSession) {
+          try {
+            window.sessionStorage.setItem(STARTUP_OVERLAY_SESSION_KEY, "1");
+          } catch {
+            // sessionStorage can be unavailable in some embedded runtimes.
+          }
+        }
       }
       return;
     }
@@ -265,10 +262,12 @@ export function StartupExperienceOverlay(): React.JSX.Element | null {
           ))}
         </div>
 
-        <div className="mt-5 flex items-center justify-between">
+        <div className="mt-5 flex items-center justify-between gap-3">
           <p className="inline-flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
-            <Radio className="h-3.5 w-3.5 text-indigo-600 dark:text-cyan-300" />
-            Startup operations continue in the background if relays are unstable.
+            <Radio className="h-3.5 w-3.5 shrink-0 text-indigo-600 dark:text-cyan-300" />
+            {accountSyncStillRunning
+              ? "Account restore and relay sync continue in the background after you continue."
+              : "Relay sync continues in the background if needed."}
           </p>
           {canBypass ? (
             <button

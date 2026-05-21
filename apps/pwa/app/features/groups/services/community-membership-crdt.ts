@@ -150,6 +150,9 @@ export const addMember = (
   deviceId: DeviceId = membership.localDeviceId,
   clock?: VectorClock
 ): CommunityMembership => {
+  if (isMember(membership, pubkey)) {
+    return membership;
+  }
   const newClock = clock ?? incrementClock(membership.vectorClock, deviceId);
   
   const newMemberSet = addToORSet(
@@ -184,6 +187,9 @@ export const removeMember = (
   pubkey: string,
   deviceId: DeviceId = membership.localDeviceId
 ): CommunityMembership => {
+  if (!isMember(membership, pubkey)) {
+    return membership;
+  }
   const newMemberSet = removeFromORSet(membership.memberSet, pubkey);
   
   logMembershipOperation('remove', membership.communityId, pubkey, deviceId);

@@ -15,6 +15,7 @@ From [`rules/01-operating-principles.md`](./rules/01-operating-principles.md):
 - Local state ≠ network truth; UI success needs evidence.
 - One canonical path per user action; fix by subtraction when paths overlap.
 - Ship claims only when runtime + tests agree.
+- If a feature stalls after repeated iterations, stop patch-debug loops and run feasibility analysis (`rules/11-feasibility-and-modular-safety.md`).
 
 **Anti-patterns:** [`rules/09-anti-patterns.md`](./rules/09-anti-patterns.md)
 
@@ -37,6 +38,7 @@ From [`rules/01-operating-principles.md`](./rules/01-operating-principles.md):
 | Testing / release evidence | [`rules/06-testing-and-validation.md`](./rules/06-testing-and-validation.md) |
 | Documentation | [`rules/07-documentation.md`](./rules/07-documentation.md) |
 | Broken core flow | [`rules/10-recovery-heuristic.md`](./rules/10-recovery-heuristic.md) |
+| Feasibility / modular safety | [`rules/11-feasibility-and-modular-safety.md`](./rules/11-feasibility-and-modular-safety.md) |
 
 ## Broken core flow (quick)
 

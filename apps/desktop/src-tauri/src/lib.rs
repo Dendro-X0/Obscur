@@ -15,6 +15,7 @@ use tauri_plugin_deep_link::DeepLinkExt;
 // use tauri_plugin_shell::process::{CommandChild, CommandEvent};
 // use tauri_plugin_shell::ShellExt;
 mod net;
+mod native_keychain;
 mod protocol;
 mod profiles;
 mod relay;

@@ -63,18 +63,35 @@ export default function RootLayout({
             __html: `
               (function() {
                 try {
-                  var registryRaw = localStorage.getItem('obscur.profiles.registry.v1');
                   var activeProfileId = 'default';
-                  if (registryRaw) {
+                  var lastWindowProfile = localStorage.getItem('obscur.desktop.window_profile.last_known.v1');
+                  if (lastWindowProfile && lastWindowProfile.trim().length > 0) {
+                    activeProfileId = lastWindowProfile.trim();
+                  } else {
+                    var registryRaw = localStorage.getItem('obscur.profiles.registry.v1');
+                    if (registryRaw) {
+                      try {
+                        var registry = JSON.parse(registryRaw);
+                        if (registry && typeof registry.activeProfileId === 'string' && registry.activeProfileId.trim().length > 0) {
+                          activeProfileId = registry.activeProfileId.trim();
+                        }
+                      } catch (e) {}
+                    }
+                  }
+                  var preference = 'system';
+                  var lastKnownRaw = localStorage.getItem('obscur.ui.theme.last_known.v1');
+                  if (lastKnownRaw) {
                     try {
-                      var registry = JSON.parse(registryRaw);
-                      if (registry && typeof registry.activeProfileId === 'string' && registry.activeProfileId.trim().length > 0) {
-                        activeProfileId = registry.activeProfileId.trim();
+                      var lastKnown = JSON.parse(lastKnownRaw);
+                      if (lastKnown && lastKnown.profileId === activeProfileId && (lastKnown.preference === 'system' || lastKnown.preference === 'light' || lastKnown.preference === 'dark')) {
+                        preference = lastKnown.preference;
                       }
                     } catch (e) {}
                   }
-                  var scopedThemeKey = 'dweb.nostr.pwa.ui.theme::' + activeProfileId;
-                  var preference = localStorage.getItem(scopedThemeKey) || localStorage.getItem('dweb.nostr.pwa.ui.theme') || 'system';
+                  if (preference === 'system') {
+                    var scopedThemeKey = 'dweb.nostr.pwa.ui.theme::' + activeProfileId;
+                    preference = localStorage.getItem(scopedThemeKey) || localStorage.getItem('dweb.nostr.pwa.ui.theme') || 'system';
+                  }
                   var isDark = preference === 'dark' || (preference === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
                   document.documentElement.classList.toggle('dark', isDark);
                 } catch (e) {}

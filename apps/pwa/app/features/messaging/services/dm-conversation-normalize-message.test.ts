@@ -79,4 +79,24 @@ describe("normalizeDmConversationMessageRow", () => {
         expect(out.attachments).toBeDefined();
         expect(out.attachments?.length).toBeGreaterThan(0);
     });
+
+    it("does not infer attachments for community invite control payloads", () => {
+        const out = normalizeDmConversationMessageRow({
+            id: "m1",
+            kind: "user",
+            content: JSON.stringify({
+                type: "community-invite",
+                groupId: "g1",
+                roomKey: "rk",
+                metadata: {
+                    name: "Private Group",
+                    picture: "https://example.com/preview.png",
+                },
+            }),
+            isOutgoing: true,
+            status: "delivered",
+            timestamp: new Date(1),
+        });
+        expect(out.attachments).toBeUndefined();
+    });
 });

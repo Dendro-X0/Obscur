@@ -9,10 +9,12 @@
  * Solution: Subscribe to NIP-29 membership events on the community relay and process
  * them to maintain an eventually consistent view of the membership roster.
  * 
- * NIP-29 Events:
- * - Kind 39001: Group Join (public)
- * - Kind 39002: Group Leave (public)
- * - Kind 10105: Sealed Group Message (encrypted, for private communities)
+ * Relay-visible membership (cross-client):
+ * See `community-relay-membership-interop.ts` for kind classification.
+ * - 9021 / 9022: Obscur relay join/leave (also used by this app)
+ * - 39002: member roster snapshot (`p` tags)
+ * - 39001: join-like OR Obscur CRDT gossip (`t: membership-delta`)
+ * - 10105 sealed: join / leave / membership_restate (Obscur clients with room key)
  * 
  * This service provides:
  * 1. Subscription to membership events for specific groups

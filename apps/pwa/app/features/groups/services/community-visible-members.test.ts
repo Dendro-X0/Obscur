@@ -195,6 +195,19 @@ describe("community-visible-members", () => {
         });
     });
 
+    it("keeps persisted chat authors active when relay left list is stale", () => {
+        const PK_CREATOR = "a".repeat(64) as PublicKeyHex;
+        const PK_B = "b".repeat(64) as PublicKeyHex;
+        const { activeMemberPubkeys } = resolveActiveCommunityMemberPubkeysFromConversation({
+            communityMessages: [],
+            persistedMessageAuthorPubkeys: [PK_B],
+            seededMemberPubkeys: [PK_CREATOR],
+            leftMemberPubkeys: [PK_B],
+            expelledMemberPubkeys: [],
+        });
+        expect(activeMemberPubkeys).toEqual(expect.arrayContaining([PK_CREATOR, PK_B]));
+    });
+
     it("drops session-stable participants when explicit leave or expel evidence arrives", () => {
         const stable = stabilizeCommunityMemberPubkeys({
             previousMemberPubkeys: ["member-a", "member-b", "member-c"] as unknown as ReadonlyArray<PublicKeyHex>,

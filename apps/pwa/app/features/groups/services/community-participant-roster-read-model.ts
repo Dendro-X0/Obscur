@@ -66,14 +66,23 @@ export const resolveCommunityParticipantRosterEvidence = (
  * without explicit leave/expel evidence.
  */
 export const advanceCommunityParticipantRosterSession = (
-  params: CommunityParticipantRosterReadModelSessionAdvance,
+  params: CommunityParticipantRosterReadModelSessionAdvance & Readonly<{
+    /** Authors with sealed messages after a leave must stay visible until explicit newer removal. */
+    participationAuthorPubkeys?: ReadonlyArray<PublicKeyHex>;
+  }>,
 ): CommunityParticipantRosterReadModelResult => {
-  const excludePubkeys = params.applyTerminalMembershipExclusions === true
+  const participationAuthorSet = new Set(
+    (params.participationAuthorPubkeys ?? []).map((pubkey) => pubkey.trim().toLowerCase()).filter((pk) => pk.length > 0),
+  );
+  const terminalExcludeCandidates = params.applyTerminalMembershipExclusions === true
     ? dedupeCommunityMemberPubkeys([
       ...params.leftMemberPubkeys,
       ...params.expelledMemberPubkeys,
     ])
     : [];
+  const excludePubkeys = terminalExcludeCandidates.filter(
+    (pubkey) => !participationAuthorSet.has(pubkey.trim().toLowerCase()),
+  );
   const activeEvidence = mergeMonotonicActiveCommunityMembers(
     params.evidencePubkeys,
     [],
@@ -101,6 +110,10 @@ export const resolveCommunityParticipantRosterReadModel = (
   }>,
 ): CommunityParticipantRosterReadModelResult => {
   const { evidencePubkeys, authorEvidencePubkeys } = resolveCommunityParticipantRosterEvidence(params);
+  const participationAuthorPubkeys = dedupeCommunityMemberPubkeys([
+    ...authorEvidencePubkeys,
+    ...(params.persistedMessageAuthorPubkeys ?? []),
+  ]);
   const advanced = advanceCommunityParticipantRosterSession({
     sessionPubkeys: params.sessionPubkeys,
     evidencePubkeys,
@@ -108,6 +121,7 @@ export const resolveCommunityParticipantRosterReadModel = (
     expelledMemberPubkeys: params.expelledMemberPubkeys,
     relayEvidenceConfidence: params.relayEvidenceConfidence,
     applyTerminalMembershipExclusions: params.applyTerminalMembershipExclusions,
+    participationAuthorPubkeys,
   });
   return {
     ...advanced,

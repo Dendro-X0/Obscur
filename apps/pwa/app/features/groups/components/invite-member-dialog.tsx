@@ -26,6 +26,7 @@ import { messageBus } from "../../messaging/services/message-bus";
 import { MessageQueue } from "../../messaging/lib/message-queue";
 import type { Message } from "../../messaging/types";
 import { toDmConversationId } from "../../messaging/utils/dm-conversation-id";
+import { buildOutgoingCommunityInviteDmMessage } from "../utils/community-invite-dm-message";
 
 interface InviteMemberDialogProps {
     isOpen: boolean;
@@ -117,7 +118,7 @@ export function InviteMemberDialog({
         setSendingInviteTo(user.pubkey);
         try {
             const scopedRelayUrl = relayUrl || pool.connections.find((c: { url: string }) => c.url)?.url;
-            const inviteEvent = await groupService.current.distributeRoomKey({
+            const { giftWrapEvent, canonicalRumorEventId } = await groupService.current.distributeRoomKey({
                 recipientPubkey: user.pubkey as PublicKeyHex,
                 groupId,
                 roomKeyHex,
@@ -127,10 +128,8 @@ export function InviteMemberDialog({
                 genesisEventId,
                 creatorPubkey
             });
-            await pool.publishToAll(JSON.stringify(["EVENT", inviteEvent]));
+            await pool.publishToAll(JSON.stringify(["EVENT", giftWrapEvent]));
 
-            // Persist locally for sender visibility
-            const messageId = inviteEvent.id;
             const myPublicKeyHex = identityState.publicKeyHex || '';
             const conversationId = toDmConversationId({ myPublicKeyHex, peerPublicKeyHex: user.pubkey });
             if (!conversationId) {
@@ -138,25 +137,20 @@ export function InviteMemberDialog({
                 return;
             }
 
-            const inviteMessage: Message = {
-                id: messageId,
+            const inviteMessage: Message = buildOutgoingCommunityInviteDmMessage({
+                giftWrapEventId: giftWrapEvent.id,
+                canonicalRumorEventId,
                 conversationId,
-                kind: 'user',
-                content: JSON.stringify({
-                    type: "community-invite",
-                    groupId,
-                    metadata,
-                    communityId,
-                    genesisEventId,
-                    creatorPubkey
-                }),
-                timestamp: new Date(),
-                isOutgoing: true,
-                status: 'delivered',
-                eventId: inviteEvent.id,
-                senderPubkey: myPublicKeyHex as PublicKeyHex,
+                myPublicKeyHex: myPublicKeyHex as PublicKeyHex,
                 recipientPubkey: user.pubkey as PublicKeyHex,
-            };
+                groupId,
+                roomKeyHex: roomKeyHex,
+                metadata,
+                relayUrl: scopedRelayUrl,
+                communityId,
+                genesisEventId,
+                creatorPubkey,
+            });
 
             const mq = new MessageQueue(identityState.publicKeyHex!);
             await mq.persistMessage(inviteMessage as any);

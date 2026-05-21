@@ -1,6 +1,6 @@
 # Current Session Handoff
 
-- Last Updated (UTC): 2026-05-20T12:00:00Z
+- Last Updated (UTC): 2026-05-20T16:00:00Z
 - Session Status: **v1.5.8** — **U3** + **U4 doc** done; **G1/U4 sign-off** pending maintainer
 - Active Owner: Shared PWA / desktop shell (**U3**, **G1** / Phase 1 exit, **U4**)
 
@@ -12,9 +12,9 @@
 
 ## Next Atomic Step
 
-1. **G1:** Run [v1.5.7 manual matrix](../assets/demo/v1.5.7/README.md) — fill sign-off (rename + expel).
-2. **U4:** Run [v1.5.8 demo matrix](../assets/demo/v1.5.8/README.md) — publish/upload copy rows (U4-1 … U4-5).
-3. Tag **`v1.5.8`** when G1 + U4 sign-off and **`pnpm release:test-pack`** green on clean `main`.
+1. **Release gate:** `pnpm -C apps/pwa typecheck` → `pnpm test:community-invariants` → `pnpm test:shell-invariants` → `pnpm release:test-pack` (invariants now in test pack). Maintainer: sign [v1.5.8 U4](../assets/demo/v1.5.8/README.md) + [v1.5.7 G1](../assets/demo/v1.5.7/README.md), then tag **v1.5.8**.
+2. **Park:** Community roster — [`community-membership-invariants.md`](../program/community-membership-invariants.md); no new features until R2. Cursor rule: `.cursor/rules/obscur-community-membership.mdc`.
+3. **After tag:** Next minor scope (Phase 2 governance projection per v1.5.8 non-goals) or Lane M if signing unblocks.
 
 Canonical plans: [community-system-implementation-and-ui-plan.md](../program/community-system-implementation-and-ui-plan.md) · [community-system-overhaul-phased-roadmap.md](../program/community-system-overhaul-phased-roadmap.md) (Phase 1 exit).
 

@@ -1,5 +1,5 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { NostrEvent } from "@dweb/nostr/nostr-event";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { setProfileRuntimeScope } from "../../profiles/services/profile-runtime-scope";
@@ -107,6 +107,41 @@ describe("use-sealed-community integration", () => {
         content: "",
         tags: [["h", groupId]]
     });
+    const createNip29JoinEvent = (params: Readonly<{ id: string; createdAt: number; pubkey: PublicKeyHex }>): NostrEvent => ({
+        id: params.id,
+        pubkey: params.pubkey,
+        kind: 9021,
+        created_at: params.createdAt,
+        sig: "sig",
+        content: "",
+        tags: [["h", groupId]]
+    });
+
+    /** Relay-inferred removal requires steady_state (warm-up + enough events + quiet period). */
+    const advanceRelayEvidenceToSteadyState = async (handler: typeof onEventHandler): Promise<void> => {
+        expect(handler).toBeTruthy();
+        const bumpClock = (ms: number): void => {
+            vi.advanceTimersByTime(ms);
+            vi.setSystemTime(Date.now() + ms);
+        };
+        await act(async () => {
+            bumpClock(11_000);
+            await vi.runOnlyPendingTimersAsync();
+        });
+        for (let index = 0; index < 4; index += 1) {
+            await act(async () => {
+                await handler?.(createNip29JoinEvent({
+                    id: `steady-seed-${index}`,
+                    createdAt: Math.floor(Date.now() / 1000) + index,
+                    pubkey: actor,
+                }), scopedRelay);
+            });
+        }
+        await act(async () => {
+            bumpClock(6_000);
+            await vi.runOnlyPendingTimersAsync();
+        });
+    };
 
     const createPool = () => ({
         sendToOpen: vi.fn(),
@@ -123,6 +158,10 @@ describe("use-sealed-community integration", () => {
             totalRelays: 1,
             results: [{ success: true, relayUrl: scopedRelay }]
         }))
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
     });
 
     beforeEach(async () => {
@@ -208,6 +247,8 @@ describe("use-sealed-community integration", () => {
     });
 
     it("does not implicitly disband on leave-only replay", async () => {
+        vi.useFakeTimers();
+        vi.setSystemTime(100_000);
         const publishSpy = vi.spyOn(sealedCommunityBusRuntime.bus, "publish");
         const pool = createPool();
 
@@ -225,19 +266,22 @@ describe("use-sealed-community integration", () => {
         }));
 
         expect(onEventHandler).toBeTruthy();
+        await advanceRelayEvidenceToSteadyState(onEventHandler);
         await act(async () => {
             await onEventHandler?.(createEvent({ id: "leave-1", createdAt: 200 }), scopedRelay);
+            await vi.runOnlyPendingTimersAsync();
         });
 
-        await waitFor(() => {
-            expect(result.current.state.leftMembers).toContain(actor);
-        });
+        expect(result.current.state.leftMembers).toContain(actor);
 
         expect(groupRemovedPublishCalls(publishSpy)).toHaveLength(0);
         expect(result.current.state.disbandedAt).toBeUndefined();
+        vi.useRealTimers();
     });
 
     it("subtracts a member when scoped relay leave evidence arrives without sealed leave payload", async () => {
+        vi.useFakeTimers();
+        vi.setSystemTime(200_000);
         const pool = createPool();
         const { result } = renderHook(() => useSealedCommunity({
             pool: pool as any,
@@ -250,14 +294,15 @@ describe("use-sealed-community integration", () => {
         }));
 
         expect(onEventHandler).toBeTruthy();
+        await advanceRelayEvidenceToSteadyState(onEventHandler);
         await act(async () => {
             await onEventHandler?.(createNip29LeaveEvent({ id: "nip29-leave-peer", createdAt: 250, pubkey: peer }), scopedRelay);
+            await vi.runOnlyPendingTimersAsync();
         });
 
-        await waitFor(() => {
-            expect(result.current.state.leftMembers).toContain(peer);
-            expect(result.current.members).toEqual(expect.not.arrayContaining([peer]));
-        });
+        expect(result.current.state.leftMembers).toContain(peer);
+        expect(result.current.members).toEqual(expect.not.arrayContaining([peer]));
+        vi.useRealTimers();
     });
 
     it("ignores disband replay from non-scope relay or wrong community tag", async () => {
@@ -289,6 +334,8 @@ describe("use-sealed-community integration", () => {
     });
 
     it("converges to the same membership state across devices with reordered replay", async () => {
+        vi.useFakeTimers();
+        vi.setSystemTime(300_000);
         const poolA = createPool();
         const poolB = createPool();
 
@@ -336,30 +383,34 @@ describe("use-sealed-community integration", () => {
         const leaveLate = createEvent({ id: "e2", createdAt: 20, content: JSON.stringify({ payloadId: "leave-late" }) });
         const joinPeer = createEvent({ id: "e3", createdAt: 15, pubkey: peer, content: JSON.stringify({ payloadId: "join-peer" }) });
 
+        await advanceRelayEvidenceToSteadyState(handlerA);
+        await advanceRelayEvidenceToSteadyState(handlerB);
+
         await act(async () => {
             await handlerA?.(joinEarly, scopedRelay);
             await handlerA?.(joinPeer, scopedRelay);
             await handlerA?.(leaveLate, scopedRelay);
+            await vi.runOnlyPendingTimersAsync();
         });
 
         await act(async () => {
             await handlerB?.(leaveLate, scopedRelay);
             await handlerB?.(joinEarly, scopedRelay);
             await handlerB?.(joinPeer, scopedRelay);
+            await vi.runOnlyPendingTimersAsync();
         });
 
-        await waitFor(() => {
-            const membersA = [...hookA.result.current.members].sort();
-            const membersB = [...hookB.result.current.members].sort();
-            expect(membersA).toEqual(membersB);
-            expect(membersA).toEqual([peer].sort());
-            expect(hookA.result.current.state.membership.status).toBe(hookB.result.current.state.membership.status);
-            expect(hookA.result.current.state.membership.status).toBe("not_member");
-            expect(hookA.result.current.state.leftMembers).toEqual(hookB.result.current.state.leftMembers);
-            expect(hookA.result.current.state.leftMembers).toContain(actor);
-            expect(hookA.result.current.state.disbandedAt).toEqual(hookB.result.current.state.disbandedAt);
-            expect(hookA.result.current.state.disbandedAt).toBeUndefined();
-        });
+        const membersA = [...hookA.result.current.members].sort();
+        const membersB = [...hookB.result.current.members].sort();
+        expect(membersA).toEqual(membersB);
+        expect(membersA).toEqual([peer].sort());
+        expect(hookA.result.current.state.membership.status).toBe(hookB.result.current.state.membership.status);
+        expect(hookA.result.current.state.membership.status).toBe("not_member");
+        expect(hookA.result.current.state.leftMembers).toEqual(hookB.result.current.state.leftMembers);
+        expect(hookA.result.current.state.leftMembers).toContain(actor);
+        expect(hookA.result.current.state.disbandedAt).toEqual(hookB.result.current.state.disbandedAt);
+        expect(hookA.result.current.state.disbandedAt).toBeUndefined();
+        vi.useRealTimers();
     });
 
     it("ignores non-disband events after disband terminal state", async () => {

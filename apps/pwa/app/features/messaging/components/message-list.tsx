@@ -1104,6 +1104,7 @@ function MessageListImpl({
                                         localAttachmentUrlSet={localAttachmentUrlSet}
                                         localAttachmentFileNameByUrl={localAttachmentFileNameByUrl}
                                         inviteResponseStatus={inviteResponseStatusByMessageId.get(message.id)}
+                                        conversationMessages={messages}
                                         onOpenReactionPicker={onOpenReactionPicker}
                                         onOpenMessageMenu={onOpenMessageMenu}
                                         isMessageMenuAnchored={openMessageMenuMessageId === message.id}
@@ -1224,6 +1225,7 @@ type MessageRowProps = Readonly<{
     localAttachmentUrlSet: ReadonlySet<string>;
     localAttachmentFileNameByUrl: Readonly<Record<string, string>>;
     inviteResponseStatus?: InviteResponseStatus;
+    conversationMessages?: ReadonlyArray<Message>;
     onOpenMessageMenu: (params: { messageId: string; x: number; y: number }) => void;
     isMessageMenuAnchored: boolean;
     isReactionPickerAnchored: boolean;
@@ -1275,6 +1277,7 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
         localAttachmentUrlSet,
         localAttachmentFileNameByUrl,
         inviteResponseStatus,
+        conversationMessages = [],
         onOpenMessageMenu,
         isMessageMenuAnchored,
         isReactionPickerAnchored,
@@ -1751,6 +1754,7 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
                                                 invite={parsedPayload as any}
                                                 isOutgoing={message.isOutgoing}
                                                 message={message}
+                                                messages={conversationMessages}
                                                 responseStatus={inviteResponseStatus}
                                                 onSendDirectMessage={onSendDirectMessage}
                                             />
@@ -1881,6 +1885,7 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
         prev.parsedPayload === next.parsedPayload &&
         prev.voiceCallRoomSummary === next.voiceCallRoomSummary &&
         prev.inviteResponseStatus === next.inviteResponseStatus &&
+        prev.conversationMessages === next.conversationMessages &&
         prev.localAttachmentUrlSet === next.localAttachmentUrlSet &&
         prev.localAttachmentFileNameByUrl === next.localAttachmentFileNameByUrl &&
         prev.isMessageMenuAnchored === next.isMessageMenuAnchored &&

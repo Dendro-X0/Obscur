@@ -52,18 +52,25 @@ export const resolveRelayEvidenceConfidence = (
     return "warming_up";
   }
 
-  if (params.eoseReceivedAt !== null) {
-    const timeSinceLastEvent = params.lastEventReceivedAt !== null
-      ? params.nowMs - params.lastEventReceivedAt
-      : Infinity;
+  const timeSinceLastEvent = params.lastEventReceivedAt !== null
+    ? params.nowMs - params.lastEventReceivedAt
+    : Infinity;
+  const hasEnoughEvents = params.eventCount >= STEADY_STATE_MIN_EVENTS;
+  const isQuiet = timeSinceLastEvent > STEADY_STATE_QUIET_PERIOD_MS;
 
-    if (
-      params.eventCount >= STEADY_STATE_MIN_EVENTS &&
-      timeSinceLastEvent > STEADY_STATE_QUIET_PERIOD_MS
-    ) {
+  if (params.eoseReceivedAt !== null) {
+    if (hasEnoughEvents && isQuiet) {
       return "steady_state";
     }
+    return "partial_eose";
+  }
 
+  /** Many community relays omit EOSE; sufficient live traffic after warm-up still reaches steady_state. */
+  if (hasEnoughEvents && isQuiet) {
+    return "steady_state";
+  }
+
+  if (params.eventCount > 0) {
     return "partial_eose";
   }
 
@@ -77,6 +84,11 @@ export const resolveRelayEvidenceConfidence = (
  * because the seed may be stale or incomplete. Once we reach steady_state,
  * we enforce strict evidence requirements.
  */
+/** Relay-inferred leave/expel must not shrink CRDT or terminal cache until evidence is stable. */
+export const canApplyRelayInferredMemberRemoval = (
+  confidence: RelayEvidenceConfidence,
+): boolean => confidence === "steady_state";
+
 export const shouldRelaxThinnerSnapshotGuard = (
   confidence: RelayEvidenceConfidence,
   currentMemberCount: number,

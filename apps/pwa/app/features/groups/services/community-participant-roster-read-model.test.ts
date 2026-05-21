@@ -83,6 +83,18 @@ describe("community-participant-roster-read-model", () => {
     expect(afterLeave.displayPubkeys).toEqual([PK_CREATOR]);
   });
 
+  it("keeps authors visible when terminal exclusions are enabled but participation remains", () => {
+    const afterLeave = advanceCommunityParticipantRosterSession({
+      sessionPubkeys: [],
+      evidencePubkeys: [PK_CREATOR, PK_B],
+      leftMemberPubkeys: [PK_B],
+      expelledMemberPubkeys: [],
+      applyTerminalMembershipExclusions: true,
+      participationAuthorPubkeys: [PK_B],
+    });
+    expect(afterLeave.displayPubkeys).toEqual(expect.arrayContaining([PK_CREATOR, PK_B]));
+  });
+
   it("unions persisted message authors even when live communityMessages are empty", () => {
     const { evidencePubkeys } = resolveCommunityParticipantRosterEvidence({
       directoryParticipantPubkeys: [PK_CREATOR],
@@ -95,6 +107,22 @@ describe("community-participant-roster-read-model", () => {
       expelledMemberPubkeys: [],
     });
     expect(evidencePubkeys).toEqual(expect.arrayContaining([PK_CREATOR, PK_B]));
+  });
+
+  it("resolveCommunityParticipantRosterReadModel keeps persisted chat authors when terminal exclusions are enabled", () => {
+    const result = resolveCommunityParticipantRosterReadModel({
+      sessionPubkeys: [],
+      directoryParticipantPubkeys: [PK_CREATOR],
+      persistedGroupMemberPubkeys: [PK_CREATOR],
+      projectionMemberPubkeys: [PK_CREATOR],
+      persistedMessageAuthorPubkeys: [PK_B],
+      communityMessages: [],
+      localMemberPubkey: PK_CREATOR,
+      leftMemberPubkeys: [PK_B],
+      expelledMemberPubkeys: [],
+      applyTerminalMembershipExclusions: true,
+    });
+    expect(result.displayPubkeys).toEqual(expect.arrayContaining([PK_CREATOR, PK_B]));
   });
 
   it("resolveCommunityParticipantRosterReadModel preserves directory when persisted group thins", () => {

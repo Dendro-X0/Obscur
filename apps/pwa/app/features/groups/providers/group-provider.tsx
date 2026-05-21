@@ -28,6 +28,19 @@ import type { CommunityMembershipIngressDetail } from "@/app/features/groups/ser
 import { subscribeGroupMembershipConfirmedDual } from "@/app/features/profiles/services/subscribe-group-membership-confirmed-dual";
 import { subscribeGroupRemoveDual } from "@/app/features/profiles/services/subscribe-group-remove-dual";
 import { subscribeGroupMembershipSnapshotDual } from "@/app/features/profiles/services/subscribe-group-membership-snapshot-dual";
+import {
+    reinstateCommunityMemberTerminalEvidence,
+    saveCommunityTerminalMembershipCache,
+} from "../services/community-terminal-membership-cache";
+import {
+    canApplyRelayInferredMemberRemoval,
+    resolveRelayEvidenceConfidence,
+    type RelayEvidenceConfidence,
+} from "../services/community-relay-evidence-policy";
+import {
+    markCommunityProvisionalMembers,
+    stripProvisionalCommunityMembersConfirmedOnRelay,
+} from "../services/community-provisional-membership-cache";
 import { subscribeGroupDescriptorUpdatedDual } from "@/app/features/profiles/services/subscribe-group-descriptor-updated-dual";
 import { subscribeCommunityKnownParticipantsObservedDual } from "@/app/features/profiles/services/subscribe-community-known-participants-observed-dual";
 import type {
@@ -85,10 +98,6 @@ import {
     resolveEnhancedSnapshotApplication,
     type EnhancedSnapshotApplicationResult,
 } from "@/app/features/groups/services/community-member-snapshot-policy";
-import {
-    resolveRelayEvidenceConfidence,
-    type RelayEvidenceConfidence,
-} from "@/app/features/groups/services/community-relay-evidence-policy";
 import {
     buildCommunityKnownParticipantDirectoryByConversationId,
     mergeKnownParticipantSeedPubkeys,
@@ -1160,6 +1169,20 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             const relayHint = detail?.relayUrl?.trim();
             const communityHint = detail?.communityId?.trim();
             const profileId = getResolvedProfileId();
+            if (relayHint) {
+                reinstateCommunityMemberTerminalEvidence({
+                    groupId,
+                    relayUrl: relayHint,
+                    memberPubkeys: [memberPubkey],
+                    profileId,
+                });
+                markCommunityProvisionalMembers({
+                    groupId,
+                    relayUrl: relayHint,
+                    memberPubkeys: [memberPubkey],
+                    profileId,
+                });
+            }
             setCreatedGroups((prev) => {
                 let changed = false;
                 const next = prev.map((group) => {
@@ -1475,6 +1498,43 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             const activeMemberPubkeys = dedupePubkeys(detail.activeMemberPubkeys);
             const leftMemberPubkeys = dedupePubkeys(detail.leftMembers);
             const expelledMemberPubkeys = dedupePubkeys(detail.expelledMembers);
+            const activeSet = new Set(
+                activeMemberPubkeys.map((pubkey) => pubkey.trim().toLowerCase()).filter((pubkey) => pubkey.length > 0),
+            );
+            const persistLeft = leftMemberPubkeys.filter(
+                (pubkey) => !activeSet.has(pubkey.trim().toLowerCase()),
+            );
+            const persistExpelled = expelledMemberPubkeys.filter(
+                (pubkey) => !activeSet.has(pubkey.trim().toLowerCase()),
+            );
+            const evidenceForTerminalPersist = relayEvidenceByGroupIdRef.current[groupId] ?? {
+                subscriptionEstablishedAt: null,
+                lastEventReceivedAt: null,
+                eoseReceivedAt: null,
+                eventCount: 0,
+            };
+            const terminalPersistConfidence = resolveRelayEvidenceConfidence({
+                ...evidenceForTerminalPersist,
+                nowMs: Date.now(),
+            });
+            if (canApplyRelayInferredMemberRemoval(terminalPersistConfidence)) {
+                saveCommunityTerminalMembershipCache({
+                    groupId,
+                    relayUrl,
+                    leftMemberPubkeys: persistLeft as ReadonlyArray<PublicKeyHex>,
+                    expelledMemberPubkeys: persistExpelled as ReadonlyArray<PublicKeyHex>,
+                    disbandedAtUnixMs: detail.disbandedAt,
+                    profileId: getResolvedProfileId(),
+                });
+            }
+            if (activeMemberPubkeys.length > 0) {
+                stripProvisionalCommunityMembersConfirmedOnRelay({
+                    groupId,
+                    relayUrl,
+                    relayBackedMemberPubkeys: activeMemberPubkeys,
+                    profileId: getResolvedProfileId(),
+                });
+            }
 
             // Relay-evidence-backed rejoin recovery:
             // If the local user appears in activeMemberPubkeys (NOT in leftMembers/expelledMembers)

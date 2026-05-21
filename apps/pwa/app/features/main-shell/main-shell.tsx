@@ -279,6 +279,12 @@ function NostrMessengerContent() {
     myPublicKeyHex,
   ]);
 
+  const isGroupCommunityHomeRoute = Boolean(
+    pathname
+    && /^\/groups\/[^/]+/.test(pathname)
+    && !pathname.startsWith("/groups/leave")
+    && !pathname.startsWith("/groups/purge"),
+  );
   const { state: groupState } = useSealedCommunity({
     pool: relayPool,
     relayUrl: selectedConversation?.kind === 'group' ? (selectedConversation as GroupConversation).relayUrl : '',
@@ -286,7 +292,7 @@ function NostrMessengerContent() {
     communityId: selectedConversation?.kind === 'group' ? (selectedConversation as GroupConversation).communityId : undefined,
     myPublicKeyHex,
     myPrivateKeyHex,
-    enabled: selectedConversation?.kind === 'group',
+    enabled: selectedConversation?.kind === 'group' && !isGroupCommunityHomeRoute,
     initialMembers: sealedCommunityInitialMembers,
   });
   const socialGraph = useMemo(() => new SocialGraphService(relayPool), [relayPool]);

@@ -20,7 +20,8 @@ import {
     X,
     ChevronRight,
     ChevronLeft,
-    Search
+    Search,
+    Settings,
 } from "lucide-react";
 import { useGroups } from "@/app/features/groups/providers/group-provider";
 import { useMessaging } from "@/app/features/messaging/providers/messaging-provider";
@@ -33,6 +34,7 @@ import { useNetwork } from "@/app/features/network/providers/network-provider";
 import { Card } from "@dweb/ui-kit";
 import { Avatar, AvatarFallback, AvatarImage } from "@dweb/ui-kit";
 import { InviteConnectionsDialog } from "@/app/features/groups/components/invite-connections-dialog";
+import { GroupManagementDialog } from "@/app/features/groups/components/group-management-dialog";
 import { cn } from "@dweb/ui-kit";
 import { toScopedRelayUrl, useSealedCommunity } from "@/app/features/groups/hooks/use-sealed-community";
 import { useCommunityParticipantRosterReadModel } from "@/app/features/groups/hooks/use-community-participant-roster-read-model";
@@ -64,6 +66,30 @@ import { resolveCommunityDisplayName } from "@/app/features/groups/services/comm
 import { getResolvedClientGateway } from "@/app/features/profiles/services/resolve-client-gateway";
 import { useIsDesktop } from "@/app/features/desktop/hooks/use-tauri";
 import { shouldUseSafeCommunityRenderMode } from "@/app/features/groups/services/community-render-mode";
+import {
+    loadCommunityTerminalMembershipCache,
+    mergeTerminalMemberPubkeys,
+    stripTerminalCommunityMembersWithActiveEvidence,
+} from "@/app/features/groups/services/community-terminal-membership-cache";
+import {
+    loadCommunityProvisionalMemberPubkeys,
+    stripProvisionalCommunityMembersConfirmedOnRelay,
+} from "@/app/features/groups/services/community-provisional-membership-cache";
+import {
+    clearCommunityTerminalMembershipEvidence,
+    COMMUNITY_MEMBERSHIP_AUTO_RECONCILE_DEBOUNCE_MS,
+    reconcileCommunityMembershipEvidence,
+} from "@/app/features/groups/services/community-membership-evidence-actions";
+import { CommunityMembershipEvidenceChip } from "@/app/features/groups/components/community-membership-evidence-chip";
+import {
+    resolveCommunityMemberEvidenceTier,
+    type CommunityMemberEvidenceTier,
+    type CommunityTerminalMemberKind,
+} from "@/app/features/groups/utils/community-member-evidence-tier";
+import { CommunityMembershipEvidenceToolbar } from "@/app/features/groups/components/community-membership-evidence-toolbar";
+import { collectGroupMessageAuthorPubkeys } from "@/app/features/groups/services/community-message-author-evidence";
+import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store";
+import { filterTerminalMembersWithoutParticipationEvidence } from "@/app/features/groups/utils/community-membership-participation-evidence";
 
 export default function GroupHomePage() {
     const MEMBERS_PER_PAGE = 20;
@@ -86,9 +112,11 @@ export default function GroupHomePage() {
     const forceSafeRenderMode = searchParams.get("renderMode") === "safe";
     const [isMemberListOpen, setIsMemberListOpen] = useState(false);
     const [memberSearchQuery, setMemberSearchQuery] = useState("");
+    const [provisionalOverlayEpoch, setProvisionalOverlayEpoch] = useState(0);
     const [onlinePage, setOnlinePage] = useState(1);
     const [offlinePage, setOfflinePage] = useState(1);
     const [isInviteConnectionsOpen, setIsInviteConnectionsOpen] = useState(false);
+    const [isManagementOpen, setIsManagementOpen] = useState(false);
     const [roomKeyHex, setRoomKeyHex] = useState<string>();
     const [runtimeCapability, setRuntimeCapability] = useState<Readonly<{
         hardwareConcurrency: number | null;
@@ -101,6 +129,7 @@ export default function GroupHomePage() {
     });
     const didLogSafeRenderModeRef = React.useRef<boolean>(false);
     const lastParticipantProjectionSignatureRef = React.useRef<string | null>(null);
+    const materializedGuestRouteKeyRef = React.useRef<string | null>(null);
     const safeVisualMode = shouldUseSafeCommunityRenderMode({
         forceSafeRenderMode,
         reducedMotion: preferences.reducedMotion,
@@ -178,12 +207,7 @@ export default function GroupHomePage() {
         [communityKnownParticipantDirectory, group?.memberPubkeys, localMemberPubkey, projectionMemberPubkeys],
     );
 
-    const {
-        state: groupState,
-        updateMetadata,
-        requestJoin: requestJoinNip29,
-        activeGovernanceProposals,
-    } = useSealedCommunity({
+    const sealedCommunityController = useSealedCommunity({
         groupId: group?.groupId || id || "",
         relayUrl: effectiveRelay,
         communityId: group?.communityId,
@@ -193,25 +217,159 @@ export default function GroupHomePage() {
         enabled: !!(group || discoveredRelay),
         initialMembers: seededMemberEvidence,
     });
+    const {
+        state: groupState,
+        updateMetadata,
+        requestJoin: requestJoinNip29,
+        activeGovernanceProposals,
+        refresh: refreshCommunityMembership,
+        clearLocalTerminalMembershipEvidence,
+    } = sealedCommunityController;
 
-    const { activeMemberPubkeys: activeMembers } = React.useMemo(
+    const terminalMembershipCache = React.useMemo(() => {
+        const groupId = group?.groupId || id || "";
+        if (!groupId || !effectiveRelay) {
+            return null;
+        }
+        return loadCommunityTerminalMembershipCache({
+            groupId,
+            relayUrl: effectiveRelay,
+            profileId: getResolvedProfileId(),
+        });
+    }, [effectiveRelay, group?.groupId, id]);
+
+    const persistedConversationAuthorPubkeys = React.useMemo(() => {
+        if (!localMemberPubkey || !group?.id) {
+            return [] as ReadonlyArray<PublicKeyHex>;
+        }
+        return collectGroupMessageAuthorPubkeys({
+            chatState: chatStateStoreService.load(localMemberPubkey),
+            conversationId: group.id,
+        });
+    }, [group?.id, localMemberPubkey]);
+
+    const effectiveLeftMemberPubkeys = React.useMemo(() => {
+        const merged = mergeTerminalMemberPubkeys(
+            terminalMembershipCache?.leftMemberPubkeys ?? [],
+            groupState.leftMembers,
+        );
+        return filterTerminalMembersWithoutParticipationEvidence({
+            leftMemberPubkeys: merged,
+            expelledMemberPubkeys: [],
+            communityMessages: groupState.messages,
+            additionalParticipationPubkeys: [
+                ...persistedConversationAuthorPubkeys,
+                ...(projectionMemberPubkeys ?? []),
+                ...(knownParticipantPubkeys ?? []),
+            ],
+        }).leftMemberPubkeys;
+    }, [
+        groupState.leftMembers,
+        groupState.messages,
+        persistedConversationAuthorPubkeys,
+        projectionMemberPubkeys,
+        knownParticipantPubkeys,
+        terminalMembershipCache,
+    ]);
+    const effectiveExpelledMemberPubkeys = React.useMemo(() => {
+        const merged = mergeTerminalMemberPubkeys(
+            terminalMembershipCache?.expelledMemberPubkeys ?? [],
+            groupState.expelledMembers,
+        );
+        return filterTerminalMembersWithoutParticipationEvidence({
+            leftMemberPubkeys: [],
+            expelledMemberPubkeys: merged,
+            communityMessages: groupState.messages,
+            additionalParticipationPubkeys: [
+                ...persistedConversationAuthorPubkeys,
+                ...(projectionMemberPubkeys ?? []),
+                ...(knownParticipantPubkeys ?? []),
+            ],
+        }).expelledMemberPubkeys;
+    }, [
+        groupState.expelledMembers,
+        groupState.messages,
+        knownParticipantPubkeys,
+        persistedConversationAuthorPubkeys,
+        projectionMemberPubkeys,
+        terminalMembershipCache,
+    ]);
+
+    const { activeMemberPubkeys: activeMembers, authorEvidencePubkeys: conversationAuthorPubkeys } = React.useMemo(
         () => getResolvedClientGateway().communityRoster.resolveActiveMemberPubkeysFromConversation({
             communityMessages: groupState.messages,
+            persistedMessageAuthorPubkeys: persistedConversationAuthorPubkeys,
             seededMemberPubkeys: seededMemberEvidence,
             projectionMemberPubkeys,
             localMemberPubkey,
-            leftMemberPubkeys: groupState.leftMembers,
-            expelledMemberPubkeys: groupState.expelledMembers,
+            leftMemberPubkeys: effectiveLeftMemberPubkeys,
+            expelledMemberPubkeys: effectiveExpelledMemberPubkeys,
         }),
         [
+            effectiveExpelledMemberPubkeys,
+            effectiveLeftMemberPubkeys,
             groupState.messages,
-            groupState.expelledMembers,
-            groupState.leftMembers,
             localMemberPubkey,
             projectionMemberPubkeys,
             seededMemberEvidence,
         ],
     );
+    const provisionalMemberPubkeys = React.useMemo(() => {
+        const groupId = group?.groupId || id || "";
+        if (!groupId || !effectiveRelay) {
+            return [] as ReadonlyArray<PublicKeyHex>;
+        }
+        return loadCommunityProvisionalMemberPubkeys({
+            groupId,
+            relayUrl: effectiveRelay,
+            profileId: getResolvedProfileId(),
+        });
+    }, [effectiveRelay, group?.groupId, id, provisionalOverlayEpoch]);
+    const effectiveActiveMembers = React.useMemo(
+        () => Array.from(new Set([...activeMembers, ...provisionalMemberPubkeys])) as ReadonlyArray<PublicKeyHex>,
+        [activeMembers, provisionalMemberPubkeys],
+    );
+
+    useEffect(() => {
+        const groupId = group?.groupId || id || "";
+        if (!groupId || !effectiveRelay) {
+            return;
+        }
+        const profileId = getResolvedProfileId();
+        const terminalChanged = stripTerminalCommunityMembersWithActiveEvidence({
+            groupId,
+            relayUrl: effectiveRelay,
+            profileId,
+            relayBackedMemberPubkeys: activeMembers,
+            conversationAuthorPubkeys,
+        });
+        const provisionalChanged = stripProvisionalCommunityMembersConfirmedOnRelay({
+            groupId,
+            relayUrl: effectiveRelay,
+            profileId,
+            relayBackedMemberPubkeys: activeMembers,
+        });
+        if (terminalChanged || provisionalChanged) {
+            setProvisionalOverlayEpoch((e) => e + 1);
+        }
+    }, [activeMembers, conversationAuthorPubkeys, effectiveRelay, group?.groupId, id]);
+
+    useEffect(() => {
+        const groupId = group?.groupId || id || "";
+        if (!groupId || !effectiveRelay) {
+            return;
+        }
+        const timerId = window.setTimeout(() => {
+            reconcileCommunityMembershipEvidence({
+                groupId,
+                relayUrl: effectiveRelay,
+                profileId: getResolvedProfileId(),
+                refreshRelaySubscription: refreshCommunityMembership,
+            });
+        }, COMMUNITY_MEMBERSHIP_AUTO_RECONCILE_DEBOUNCE_MS);
+        return () => window.clearTimeout(timerId);
+    }, [effectiveRelay, group?.groupId, id, refreshCommunityMembership]);
+
     const directoryParticipantPubkeys = React.useMemo(
         () => (knownParticipantPubkeys ?? []) as ReadonlyArray<PublicKeyHex>,
         [knownParticipantPubkeys],
@@ -227,12 +385,13 @@ export default function GroupHomePage() {
         rosterSeedPubkeys: seededMemberEvidence,
         communityMessages: groupState.messages,
         localMemberPubkey,
-        leftMemberPubkeys: groupState.leftMembers as ReadonlyArray<PublicKeyHex>,
-        expelledMemberPubkeys: groupState.expelledMembers as ReadonlyArray<PublicKeyHex>,
+        leftMemberPubkeys: effectiveLeftMemberPubkeys,
+        expelledMemberPubkeys: effectiveExpelledMemberPubkeys,
         relayEvidenceConfidence,
         persistedEvidenceOwnerPubkey: localMemberPubkey,
         ledgerGroupId: group?.groupId,
         ledgerRelayUrl: group?.relayUrl,
+        /** MEM-001: relay-inferred terminal must not shrink the widen-only participant session. */
         applyTerminalMembershipExclusions: false,
     });
     const fallbackGroupIdFromRoute = React.useMemo(() => {
@@ -266,8 +425,21 @@ export default function GroupHomePage() {
         return fallbackCommunityIdFromRoute || undefined;
     }, [fallbackCommunityIdFromRoute, group?.communityId]);
     const visibleMembers = React.useMemo(
-        () => filterVisibleGroupMembers(activeMembers, (pubkey) => discoveryCache.getProfile(pubkey)),
-        [activeMembers]
+        () => filterVisibleGroupMembers(effectiveActiveMembers, (pubkey) => discoveryCache.getProfile(pubkey)),
+        [effectiveActiveMembers]
+    );
+    const provisionalVisibleCount = React.useMemo(
+        () => visibleMembers.filter((pk) => (
+            resolveCommunityMemberEvidenceTier(pk, {
+                activeMemberPubkeys: activeMembers,
+                provisionalMemberPubkeys,
+            }) === "provisional"
+        )).length,
+        [activeMembers, provisionalMemberPubkeys, visibleMembers],
+    );
+    const terminalRecordCount = React.useMemo(
+        () => new Set([...effectiveLeftMemberPubkeys, ...effectiveExpelledMemberPubkeys]).size,
+        [effectiveExpelledMemberPubkeys, effectiveLeftMemberPubkeys],
     );
     const displayMemberCount = visibleMembers.length;
     const onlineMembers = React.useMemo(
@@ -298,6 +470,29 @@ export default function GroupHomePage() {
         return haystack.includes(normalizedMemberSearch);
     }, [normalizedMemberSearch]);
 
+    const terminalMemberEntries = React.useMemo(() => {
+        const activeParticipationSet = new Set(
+            [...activeMembers, ...conversationAuthorPubkeys].map((pk) => pk.trim().toLowerCase()),
+        );
+        const leftFiltered = effectiveLeftMemberPubkeys.filter(
+            (pubkey) => !activeParticipationSet.has(pubkey.trim().toLowerCase()),
+        );
+        const leftSet = new Set(leftFiltered.map((pk) => pk.trim().toLowerCase()));
+        return [
+            ...leftFiltered.map((pubkey) => ({ pubkey, kind: "left" as const })),
+            ...effectiveExpelledMemberPubkeys
+                .filter((pubkey) => (
+                    !leftSet.has(pubkey.trim().toLowerCase())
+                    && !activeParticipationSet.has(pubkey.trim().toLowerCase())
+                ))
+                .map((pubkey) => ({ pubkey, kind: "expelled" as const })),
+        ] as ReadonlyArray<Readonly<{ pubkey: PublicKeyHex; kind: CommunityTerminalMemberKind }>>;
+    }, [activeMembers, conversationAuthorPubkeys, effectiveExpelledMemberPubkeys, effectiveLeftMemberPubkeys]);
+    const filteredTerminalMemberEntries = React.useMemo(
+        () => terminalMemberEntries.filter((entry) => memberMatchesSearch(entry.pubkey)),
+        [memberMatchesSearch, terminalMemberEntries],
+    );
+
     const filteredOnlineMembers = React.useMemo(
         () => onlineMembers.filter((pubkey) => memberMatchesSearch(pubkey)),
         [memberMatchesSearch, onlineMembers]
@@ -317,6 +512,7 @@ export default function GroupHomePage() {
             projectionMemberPubkeys?.length ?? 0,
             authorEvidencePubkeys.length,
             activeMembers.length,
+            provisionalMemberPubkeys.length,
             rosterDisplayPubkeys.length,
             visibleMembers.length,
             onlineMembers.length,
@@ -347,6 +543,7 @@ export default function GroupHomePage() {
                 rosterProjectionCount: projectionMemberPubkeys?.length ?? 0,
                 authorEvidenceCount: authorEvidencePubkeys.length,
                 activeParticipantCount: activeMembers.length,
+                provisionalParticipantCount: provisionalMemberPubkeys.length,
                 stableParticipantCount: rosterDisplayPubkeys.length,
                 visibleParticipantCount: visibleMembers.length,
                 onlineParticipantCount: onlineMembers.length,
@@ -358,6 +555,7 @@ export default function GroupHomePage() {
         });
     }, [
         activeMembers.length,
+        provisionalMemberPubkeys.length,
         authorEvidencePubkeys.length,
         group,
         groupState.membership.status,
@@ -410,11 +608,11 @@ export default function GroupHomePage() {
             return;
         }
         const hasMembershipEvidence = groupState.membership.status === "member"
-            || activeMembers.includes(myPublicKeyHex);
+            || effectiveActiveMembers.includes(myPublicKeyHex);
         if (!hasMembershipEvidence) {
             return;
         }
-        const memberPubkeys = Array.from(new Set([...activeMembers, myPublicKeyHex]));
+        const memberPubkeys = Array.from(new Set([...effectiveActiveMembers, myPublicKeyHex]));
         const adminPubkeys = (groupState.admins ?? [])
             .map((admin) => admin.pubkey)
             .filter((pubkey): pubkey is PublicKeyHex => typeof pubkey === "string" && pubkey.trim().length > 0);
@@ -431,6 +629,12 @@ export default function GroupHomePage() {
             : groupState.metadata?.access === "invite-only"
                 ? "invite-only"
                 : "open";
+
+        const materializeRouteKey = `${resolvedGroupId}|${effectiveRelay}|${resolvedCommunityId ?? ""}`;
+        if (materializedGuestRouteKeyRef.current === materializeRouteKey) {
+            return;
+        }
+        materializedGuestRouteKeyRef.current = materializeRouteKey;
 
         const materializedGroup = {
             kind: "group" as const,
@@ -452,12 +656,7 @@ export default function GroupHomePage() {
             memberCount: Math.max(memberPubkeys.length, 1),
             avatar,
         };
-        addGroup(materializedGroup, { allowRevive: true });
-        dispatchGroupInviteReceived(materializedGroup);
-
-        // M4: include publicKeyHex so the provider can reject events dispatched
-        // for a different account in the same process (same-process A/B guard).
-        dispatchGroupMembershipConfirmed({
+        const membershipConfirmedDetail = {
             groupId: resolvedGroupId,
             relayUrl: effectiveRelay,
             communityId: resolvedCommunityId,
@@ -469,10 +668,17 @@ export default function GroupHomePage() {
             memberCount: Math.max(memberPubkeys.length, 1),
             lastMessageTimeUnixMs: Date.now(),
             publicKeyHex: identityState.publicKeyHex ?? identityState.stored?.publicKeyHex,
+        };
+        queueMicrotask(() => {
+            addGroup(materializedGroup, { allowRevive: true });
+            dispatchGroupInviteReceived(materializedGroup);
+            // M4: include publicKeyHex so the provider can reject events dispatched
+            // for a different account in the same process (same-process A/B guard).
+            dispatchGroupMembershipConfirmed(membershipConfirmedDetail);
         });
     }, [
         addGroup,
-        activeMembers,
+        effectiveActiveMembers,
         effectiveRelay,
         group,
         groupState.admins,
@@ -544,6 +750,45 @@ export default function GroupHomePage() {
         setOnlinePage(1);
         setOfflinePage(1);
     };
+    const handleReconcileMembership = React.useCallback(() => {
+        const groupId = group?.groupId || id || "";
+        if (!groupId || !effectiveRelay) {
+            toast.error("Community details are missing; cannot reconcile.");
+            return;
+        }
+        reconcileCommunityMembershipEvidence({
+            groupId,
+            relayUrl: effectiveRelay,
+            profileId: getResolvedProfileId(),
+            refreshRelaySubscription: refreshCommunityMembership,
+        });
+        setProvisionalOverlayEpoch((e) => e + 1);
+        toast.success(
+            t(
+                "groups.membershipEvidence.reconcileToast",
+                "Cleared provisional overlay and requested a fresh relay pull.",
+            ),
+        );
+    }, [effectiveRelay, group?.groupId, id, refreshCommunityMembership, t]);
+    const handleClearTerminalMembership = React.useCallback(() => {
+        const groupId = group?.groupId || id || "";
+        if (!groupId || !effectiveRelay) {
+            toast.error("Community details are missing; cannot clear terminal cache.");
+            return;
+        }
+        clearCommunityTerminalMembershipEvidence({
+            groupId,
+            relayUrl: effectiveRelay,
+            clearLocalTerminalMembershipEvidence,
+            refreshRelaySubscription: refreshCommunityMembership,
+        });
+        toast.success(
+            t(
+                "groups.membershipEvidence.clearTerminalToast",
+                "Terminal membership cache cleared. Refreshing relay membership.",
+            ),
+        );
+    }, [clearLocalTerminalMembershipEvidence, effectiveRelay, group?.groupId, id, refreshCommunityMembership, t]);
     const displayName = resolveCommunityDisplayName({
         metadataName: groupState.metadata?.name,
         persistedDisplayName: group?.displayName,
@@ -580,6 +825,25 @@ export default function GroupHomePage() {
             ? `${relayScopeMismatchCount} out-of-scope events ignored`
             : (groupState.relayFeedback.lastNotice ?? "Some events were filtered by safety checks"))
         : "All scoped events are flowing normally";
+
+    const rosterEvidenceHeaderExtras = (
+        <>
+            {provisionalVisibleCount > 0 ? (
+                <div className="flex items-center gap-2 rounded-full border border-amber-500/25 bg-amber-500/10 px-4 py-1.5 dark:border-amber-500/30 dark:bg-amber-500/10">
+                    <span className="text-[11px] font-black uppercase tracking-widest text-amber-800 dark:text-amber-200">
+                        {t("groups.membershipEvidence.heroProvisional", "{{count}} provisional on roster", { count: provisionalVisibleCount })}
+                    </span>
+                </div>
+            ) : null}
+            {terminalRecordCount > 0 ? (
+                <div className="flex items-center gap-2 rounded-full border border-zinc-400/25 bg-zinc-500/10 px-4 py-1.5 dark:border-zinc-600/40 dark:bg-zinc-800/50">
+                    <span className="text-[11px] font-black uppercase tracking-widest text-zinc-700 dark:text-zinc-300">
+                        {t("groups.membershipEvidence.heroTerminal", "{{count}} terminal (left/expelled)", { count: terminalRecordCount })}
+                    </span>
+                </div>
+            ) : null}
+        </>
+    );
 
     if (!group && !discoveredRelay) {
         return (
@@ -618,9 +882,10 @@ export default function GroupHomePage() {
                 </div>
 
                 {activeGovernanceProposals.length > 0 && (
-                    <div
-                        role="status"
-                        className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-950 dark:text-amber-100"
+                    <button
+                        type="button"
+                        onClick={() => setIsManagementOpen(true)}
+                        className="w-full rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-left text-sm text-amber-950 transition-colors hover:bg-amber-500/15 dark:text-amber-100 dark:hover:bg-amber-500/20"
                     >
                         <p className="font-semibold">
                             {activeGovernanceProposals.length === 1
@@ -630,7 +895,7 @@ export default function GroupHomePage() {
                         <p className="mt-1 text-xs opacity-90">
                             Open community management → Governance to review and vote.
                         </p>
-                    </div>
+                    </button>
                 )}
 
                 {/* Immersive Hero Section */}
@@ -727,6 +992,7 @@ export default function GroupHomePage() {
                                                         {effectiveRelay.replace("wss://", "")}
                                                     </span>
                                                 </div>
+                                                {rosterEvidenceHeaderExtras}
                                             </>
                                         ) : (
                                             <>
@@ -749,6 +1015,7 @@ export default function GroupHomePage() {
                                                         {effectiveRelay.replace("wss://", "")}
                                                     </span>
                                                 </motion.div>
+                                                {rosterEvidenceHeaderExtras}
                                             </>
                                         )}
                                     </div>
@@ -780,6 +1047,8 @@ export default function GroupHomePage() {
                                     {!isGuest && (
                                         <Button
                                             onClick={() => setIsInviteConnectionsOpen(true)}
+                                            disabled={!roomKeyHex}
+                                            title={roomKeyHex ? undefined : "Loading community encryption keys…"}
                                             className={cn(
                                                 "h-16 gap-3 rounded-2xl border border-black/10 bg-zinc-900/90 px-8 text-white transition-all hover:scale-[1.02] hover:bg-zinc-800/90 active:scale-95 dark:border-white/5 dark:bg-zinc-800/80 dark:hover:bg-zinc-700/80",
                                                 safeVisualMode ? "backdrop-blur-none" : "backdrop-blur-md",
@@ -787,6 +1056,19 @@ export default function GroupHomePage() {
                                         >
                                             <UserPlus className="h-5 w-5" />
                                             Invite
+                                        </Button>
+                                    )}
+
+                                    {!isGuest && group && (
+                                        <Button
+                                            onClick={() => setIsManagementOpen(true)}
+                                            className={cn(
+                                                "h-16 gap-3 rounded-2xl border border-purple-500/30 bg-purple-600/90 px-8 text-white transition-all hover:scale-[1.02] hover:bg-purple-500/90 active:scale-95",
+                                                safeVisualMode ? "backdrop-blur-none" : "backdrop-blur-md",
+                                            )}
+                                        >
+                                            <Settings className="h-5 w-5" />
+                                            Manage community
                                         </Button>
                                     )}
 
@@ -1021,6 +1303,18 @@ export default function GroupHomePage() {
                 </div>
 
                 {!isGuest && group && (
+                    <GroupManagementDialog
+                        isOpen={isManagementOpen}
+                        onClose={() => setIsManagementOpen(false)}
+                        group={group}
+                        pool={relayPool}
+                        myPublicKeyHex={identityState.publicKeyHex || null}
+                        myPrivateKeyHex={identityState.privateKeyHex || null}
+                        communityController={sealedCommunityController}
+                    />
+                )}
+
+                {!isGuest && group && (
                     <InviteConnectionsDialog
                         isOpen={isInviteConnectionsOpen}
                         onClose={() => setIsInviteConnectionsOpen(false)}
@@ -1030,7 +1324,7 @@ export default function GroupHomePage() {
                         communityId={group.communityId}
                         genesisEventId={group.genesisEventId}
                         creatorPubkey={group.creatorPubkey}
-                        currentMemberPubkeys={activeMembers}
+                        currentMemberPubkeys={effectiveActiveMembers}
                         metadata={{
                             id: group.groupId,
                             name: displayName,
@@ -1051,21 +1345,28 @@ export default function GroupHomePage() {
                             onClick={(event) => event.stopPropagation()}
                         >
                             <div className="flex items-start justify-between gap-4 border-b border-black/10 p-6 dark:border-white/10">
-                                <div>
+                                <div className="min-w-0 flex-1">
                                     <h3 className="text-xl font-black text-zinc-900 dark:text-white">Community Participants</h3>
                                     <p className="mt-1 text-xs font-bold uppercase tracking-widest text-zinc-600 dark:text-zinc-500">
-                                        Active members from membership evidence (leave and expulsion applied)
+                                        {t("groups.membershipEvidence.participantModalSubtitle", "Relay-confirmed and provisional members; leave/expulsion and terminal cache applied to relay evidence.")}
                                     </p>
                                 </div>
-                                <Button
+                                <div className="flex shrink-0 items-start gap-2">
+                                    <CommunityMembershipEvidenceToolbar
+                                        terminalRecordCount={terminalRecordCount}
+                                        onReconcile={handleReconcileMembership}
+                                        onClearTerminalConfirmed={handleClearTerminalMembership}
+                                    />
+                                    <Button
                                     type="button"
                                     variant="ghost"
                                     size="icon"
-                                    className="h-9 w-9 text-zinc-600 hover:bg-black/[0.06] hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-white"
+                                    className="h-9 w-9 shrink-0 text-zinc-600 hover:bg-black/[0.06] hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-white"
                                     onClick={closeMemberList}
                                 >
                                     <X className="h-4 w-4" />
-                                </Button>
+                                    </Button>
+                                </div>
                             </div>
                             <div className="border-b border-black/10 p-6 dark:border-white/10">
                                 <div className="relative">
@@ -1089,6 +1390,10 @@ export default function GroupHomePage() {
                                                 key={`online-${pk}`}
                                                 pubkey={pk}
                                                 status="online"
+                                                evidenceTier={resolveCommunityMemberEvidenceTier(pk, {
+                                                    activeMemberPubkeys: activeMembers,
+                                                    provisionalMemberPubkeys,
+                                                })}
                                                 onOpenProfile={(memberPubkey) => {
                                                     closeMemberList();
                                                     router.push(getPublicProfileHref(memberPubkey));
@@ -1136,6 +1441,10 @@ export default function GroupHomePage() {
                                                 key={`offline-${pk}`}
                                                 pubkey={pk}
                                                 status="offline"
+                                                evidenceTier={resolveCommunityMemberEvidenceTier(pk, {
+                                                    activeMemberPubkeys: activeMembers,
+                                                    provisionalMemberPubkeys,
+                                                })}
                                                 onOpenProfile={(memberPubkey) => {
                                                     closeMemberList();
                                                     router.push(getPublicProfileHref(memberPubkey));
@@ -1174,6 +1483,26 @@ export default function GroupHomePage() {
                                     )}
                                 </div>
                             </div>
+                            {filteredTerminalMemberEntries.length > 0 ? (
+                                <div className="border-t border-black/10 p-6 dark:border-white/10">
+                                    <div className="space-y-3 rounded-2xl border border-zinc-400/25 bg-gradient-to-b from-zinc-500/[0.08] via-zinc-500/[0.03] to-transparent p-3">
+                                        <h4 className="px-1 text-xs font-black uppercase tracking-widest text-zinc-600 dark:text-zinc-400">
+                                            {t("groups.membershipEvidence.terminalSectionTitle", "Excluded from active roster")}
+                                        </h4>
+                                        {filteredTerminalMemberEntries.map((entry) => (
+                                            <TerminalMemberProfileRow
+                                                key={`terminal-${entry.kind}-${entry.pubkey}`}
+                                                pubkey={entry.pubkey}
+                                                terminalKind={entry.kind}
+                                                onOpenProfile={(memberPubkey) => {
+                                                    closeMemberList();
+                                                    router.push(getPublicProfileHref(memberPubkey));
+                                                }}
+                                            />
+                                        ))}
+                                    </div>
+                                </div>
+                            ) : null}
                         </div>
                     </div>
                 )}
@@ -1183,13 +1512,59 @@ export default function GroupHomePage() {
     );
 }
 
+function TerminalMemberProfileRow({
+    pubkey,
+    terminalKind,
+    onOpenProfile,
+}: Readonly<{
+    pubkey: string;
+    terminalKind: CommunityTerminalMemberKind;
+    onOpenProfile: (pubkey: string) => void;
+}>): React.JSX.Element {
+    const { t } = useTranslation();
+    const metadata = useResolvedProfileMetadata(pubkey);
+    const displayName = metadata?.displayName || `Member ${pubkey.slice(0, 8)}`;
+    const kindLabel = terminalKind === "left"
+        ? t("groups.membershipEvidence.terminalLeft", "Left")
+        : t("groups.membershipEvidence.terminalExpelled", "Expelled");
+
+    return (
+        <button
+            type="button"
+            onClick={() => onOpenProfile(pubkey)}
+            className="group w-full rounded-2xl border border-zinc-400/30 bg-gradient-to-r from-zinc-500/[0.12] via-zinc-500/[0.05] to-transparent p-3 text-left transition-all hover:border-zinc-400/45"
+        >
+            <div className="flex items-center gap-3">
+                <UserAvatar
+                    pubkey={pubkey}
+                    size="sm"
+                    showProfileOnClick={false}
+                    className="rounded-xl border border-black/10 dark:border-white/10 opacity-80"
+                />
+                <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <p className="truncate text-sm font-black text-zinc-800 dark:text-zinc-200">{displayName}</p>
+                        <CommunityMembershipEvidenceChip tier="terminal" />
+                        <span className="shrink-0 rounded-full bg-zinc-500/20 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-zinc-700 dark:text-zinc-300">
+                            {kindLabel}
+                        </span>
+                    </div>
+                </div>
+                <ChevronRight className="h-4 w-4 text-zinc-500" />
+            </div>
+        </button>
+    );
+}
+
 function MemberProfileRow({
     pubkey,
     status,
+    evidenceTier,
     onOpenProfile
 }: Readonly<{
     pubkey: string;
     status: "online" | "offline";
+    evidenceTier: CommunityMemberEvidenceTier;
     onOpenProfile: (pubkey: string) => void;
 }>): React.JSX.Element | null {
     const metadata = useResolvedProfileMetadata(pubkey);
@@ -1216,8 +1591,9 @@ function MemberProfileRow({
                     className="rounded-xl border border-black/10 dark:border-white/10"
                 />
                 <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                         <p className="truncate text-sm font-black text-zinc-900 dark:text-zinc-100">{displayName}</p>
+                        <CommunityMembershipEvidenceChip tier={evidenceTier} />
                         <span
                             className={cn(
                                 "shrink-0 rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-widest",

@@ -128,12 +128,14 @@ export const projectCommunityMemberRoster = (params: Readonly<{
     ...(params.authorEvidencePubkeys ?? []),
     ...(params.localMemberPubkey ? [params.localMemberPubkey] : []),
   ]);
-  const leftMemberPubkeys = new Set(params.leftMemberPubkeys ?? []);
-  const expelledMemberPubkeys = new Set(params.expelledMemberPubkeys ?? []);
+  const normalizePk = (pubkey: PublicKeyHex): string => pubkey.trim().toLowerCase();
+  const leftMemberPubkeys = new Set((params.leftMemberPubkeys ?? []).map(normalizePk));
+  const expelledMemberPubkeys = new Set((params.expelledMemberPubkeys ?? []).map(normalizePk));
   return {
     allKnownMemberPubkeys,
+    /** Terminal lists are pre-filtered upstream when chat participation disproves stale relay leave. */
     activeMemberPubkeys: allKnownMemberPubkeys.filter((pubkey) => (
-      !leftMemberPubkeys.has(pubkey) && !expelledMemberPubkeys.has(pubkey)
+      !leftMemberPubkeys.has(normalizePk(pubkey)) && !expelledMemberPubkeys.has(normalizePk(pubkey))
     )),
     leftMemberPubkeys,
     expelledMemberPubkeys,

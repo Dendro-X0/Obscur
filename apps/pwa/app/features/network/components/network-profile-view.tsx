@@ -42,6 +42,7 @@ import type { Message } from "@/app/features/messaging/types";
 import { messageBus } from "@/app/features/messaging/services/message-bus";
 import { InvitationComposerDialog } from "@/app/features/messaging/components/invitation-composer-dialog";
 import { toDmConversationId } from "@/app/features/messaging/utils/dm-conversation-id";
+import { buildOutgoingCommunityInviteDmMessage } from "@/app/features/groups/utils/community-invite-dm-message";
 import { createDmConversation } from "@/app/features/messaging/utils/create-dm-conversation";
 import { getPublicProfileHref, toAbsoluteAppUrl } from "@/app/features/navigation/public-routes";
 import { requestFlowEvidenceStore } from "@/app/features/messaging/services/request-flow-evidence-store";
@@ -356,9 +357,15 @@ export default function ConnectionProfileView() {
                 memberCount: group.memberCount
             };
 
-            const inviteEvent = await inviteEventBuilder(groupService, group, roomKeyHex, metadata, pk as PublicKeyHex);
+            const { giftWrapEvent, canonicalRumorEventId } = await inviteEventBuilder(
+                groupService,
+                group,
+                roomKeyHex,
+                metadata,
+                pk as PublicKeyHex,
+            );
 
-            await relayPool.publishToAll(JSON.stringify(["EVENT", inviteEvent]));
+            await relayPool.publishToAll(JSON.stringify(["EVENT", giftWrapEvent]));
 
             const conversationId = toDmConversationId({ myPublicKeyHex, peerPublicKeyHex: pk });
             if (!conversationId) {
@@ -366,28 +373,20 @@ export default function ConnectionProfileView() {
                 return;
             }
 
-            // Persist locally for sender visibility
-            const inviteMessage: Message = {
-                id: inviteEvent.id,
+            const inviteMessage: Message = buildOutgoingCommunityInviteDmMessage({
+                giftWrapEventId: giftWrapEvent.id,
+                canonicalRumorEventId,
                 conversationId,
-                kind: 'user',
-                content: JSON.stringify({
-                    type: "community-invite",
-                    groupId: group.groupId,
-                    roomKey: roomKeyHex,
-                    metadata,
-                    relayUrl: group.relayUrl,
-                    communityId: group.communityId,
-                    genesisEventId: group.genesisEventId,
-                    creatorPubkey: group.creatorPubkey
-                }),
-                timestamp: new Date(),
-                isOutgoing: true,
-                status: 'delivered',
-                eventId: inviteEvent.id,
-                senderPubkey: myPublicKeyHex as PublicKeyHex,
+                myPublicKeyHex,
                 recipientPubkey: pk as PublicKeyHex,
-            };
+                groupId: group.groupId,
+                roomKeyHex,
+                metadata,
+                relayUrl: group.relayUrl,
+                communityId: group.communityId,
+                genesisEventId: group.genesisEventId,
+                creatorPubkey: group.creatorPubkey,
+            });
 
             const mq = new MessageQueue(myPublicKeyHex);
             await mq.persistMessage(inviteMessage as any);
@@ -411,19 +410,17 @@ export default function ConnectionProfileView() {
         group: GroupConversation,
         roomKeyHex: string,
         metadata: GroupMetadata,
-        recipient: PublicKeyHex
-    ) => {
-        return await service.distributeRoomKey({
-            recipientPubkey: recipient,
-            groupId: group.groupId,
-            roomKeyHex,
-            metadata,
-            relayUrl: group.relayUrl,
-            communityId: group.communityId,
-            genesisEventId: group.genesisEventId,
-            creatorPubkey: group.creatorPubkey
-        });
-    };
+        recipient: PublicKeyHex,
+    ) => service.distributeRoomKey({
+        recipientPubkey: recipient,
+        groupId: group.groupId,
+        roomKeyHex,
+        metadata,
+        relayUrl: group.relayUrl,
+        communityId: group.communityId,
+        genesisEventId: group.genesisEventId,
+        creatorPubkey: group.creatorPubkey,
+    });
 
     return (
         <div className="flex h-full min-h-0 flex-col overflow-y-auto bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.12),_transparent_34%),linear-gradient(180deg,rgba(248,250,252,0.96),rgba(241,245,249,1))] text-zinc-900 dark:bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.14),_transparent_36%),linear-gradient(180deg,rgba(3,7,18,0.96),rgba(3,7,18,1))] dark:text-zinc-100">

@@ -25,10 +25,21 @@ describe("message-list render meta cache", () => {
         const relayUrl = "https://relay.example.com/media/photo.png";
         const messages: ReadonlyArray<Message> = [
             createMessage({
+                id: "msg-invite",
+                isOutgoing: true,
+                content: JSON.stringify({
+                    type: "community-invite",
+                    groupId: "g1",
+                    roomKey: "rk",
+                }),
+            }),
+            createMessage({
                 id: "msg-invite-response",
+                isOutgoing: false,
                 content: JSON.stringify({
                     type: "community-invite-response",
                     status: "accepted",
+                    groupId: "g1",
                 }),
                 replyTo: { messageId: "msg-invite", previewText: "invite preview" },
             }),
@@ -58,6 +69,7 @@ describe("message-list render meta cache", () => {
         expect(caches.parsedPayloadByMessageId.get("msg-invite-response")).toEqual({
             type: "community-invite-response",
             status: "accepted",
+            groupId: "g1",
         });
         expect(caches.parsedPayloadByMessageId.get("msg-plain")).toBeNull();
         expect(caches.inviteResponseStatusByMessageId.get("msg-invite")).toBe("accepted");

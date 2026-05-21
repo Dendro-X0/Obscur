@@ -72,9 +72,31 @@ import {
   projectCommunityMemberRoster,
 } from "../services/community-member-roster-projection";
 import {
+  canApplyRelayInferredMemberRemoval,
+  resolveRelayEvidenceConfidence,
+  type RelayEvidenceConfidence,
   type RelayEvidencePolicyParams,
 } from "../services/community-relay-evidence-policy";
 import { isSuppressedCommunityGroupMessageIdentity } from "../services/community-group-message-suppression";
+import {
+  loadCommunityTerminalMembershipCache,
+  reinstateCommunityMemberTerminalEvidence,
+  saveCommunityTerminalMembershipCache,
+  stripTerminalCommunityMembersWithActiveEvidence,
+} from "../services/community-terminal-membership-cache";
+import { resolveAuthorEvidencePubkeysFromCommunityMessages } from "../services/community-visible-members";
+import {
+  filterTerminalMembersWithoutParticipationEvidence,
+  resolveCommunityParticipationPubkeys,
+  shouldSuppressStaleCommunityMemberRemoval,
+} from "../utils/community-membership-participation-evidence";
+import {
+  classifyRelayMembershipEvent,
+  RELAY_KIND_MEMBERSHIP_SIGNAL,
+} from "../services/community-relay-membership-interop";
+import { COMMUNITY_MEMBERSHIP_RESTATE_INTERVAL_MS } from "../services/community-membership-evidence-actions";
+import { subscribeGroupInviteAcceptedDual } from "@/app/features/profiles/services/subscribe-group-invite-accepted-dual";
+import { useOptionalProfileMessageBus } from "@/app/features/profiles/providers/profile-runtime-provider";
 
 export { GROUP_MEMBERSHIP_SNAPSHOT_EVENT, COMMUNITY_KNOWN_PARTICIPANTS_OBSERVED_EVENT } from "@/app/features/profiles/services/profile-bus-dispatch";
 
@@ -174,10 +196,12 @@ type UseSealedCommunityParams = Readonly<{
   initialMembers?: ReadonlyArray<PublicKeyHex>;
 }>;
 
-type UseSealedCommunityResult = Readonly<{
+export type UseSealedCommunityResult = Readonly<{
   state: Nip29GroupState;
   contentTimeline: ReadonlyArray<CommunityContentTimelineEntry>;
   refresh: () => void;
+  /** Clears local left/expelled overlay (storage + in-memory). Relay leave/expel events may re-apply on sync. */
+  clearLocalTerminalMembershipEvidence: () => void;
   requestJoin: () => Promise<void>;
   approveJoin: (params: Readonly<{ publicKeyHex: PublicKeyHex; role?: GroupRole }>) => Promise<void>;
   denyJoin: (params: Readonly<{ publicKeyHex: PublicKeyHex }>) => Promise<void>;
@@ -420,6 +444,7 @@ const wait = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(
 type RelayEvidenceRuntimeState = Omit<RelayEvidencePolicyParams, "nowMs">;
 
 export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedCommunityResult => {
+  const optionalProfileBus = useOptionalProfileMessageBus();
   const dedupeMemberPubkeys = useCallback((values: ReadonlyArray<PublicKeyHex>): ReadonlyArray<PublicKeyHex> => (
     Array.from(new Set(values))
   ), []);
@@ -428,8 +453,27 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
     && (params.initialMembers ?? []).includes(params.myPublicKeyHex)
   );
   const [localMembershipEvidence, setLocalMembershipEvidence] = useState<boolean>(initialHasLocalMembershipEvidence);
-  const [state, setState] = useState<Nip29GroupState>(() => createInitialState());
+  const [state, setState] = useState<Nip29GroupState>(() => {
+    const base = createInitialState();
+    const groupId = params.groupId.trim();
+    const relayUrl = params.relayUrl.trim();
+    if (!groupId || !relayUrl) {
+      return base;
+    }
+    const cached = loadCommunityTerminalMembershipCache({ groupId, relayUrl });
+    if (!cached) {
+      return base;
+    }
+    return {
+      ...base,
+      leftMembers: cached.leftMemberPubkeys,
+      expelledMembers: cached.expelledMemberPubkeys,
+      ...(typeof cached.disbandedAtUnixMs === "number" ? { disbandedAt: cached.disbandedAtUnixMs } : {}),
+    };
+  });
   const [chatPerformanceV2Enabled, setChatPerformanceV2Enabled] = useState<boolean>(() => PrivacySettingsService.getSettings().chatPerformanceV2);
+  /** Bumps the relay timeline subscription so manual refresh can pull membership events again. */
+  const [membershipResyncEpoch, setMembershipResyncEpoch] = useState(0);
   
   // CRDT-based membership management — stable scope when optional communityId is omitted (tests + legacy callers).
   const crdtCommunityId =
@@ -442,6 +486,12 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
     params.myPublicKeyHex || "",
     params.myPublicKeyHex || "unknown-device"
   );
+  const crdtAddMemberRef = useRef(crdt.addMember);
+  crdtAddMemberRef.current = crdt.addMember;
+  const crdtRemoveMemberRef = useRef(crdt.removeMember);
+  crdtRemoveMemberRef.current = crdt.removeMember;
+  const crdtRemoveMembersRef = useRef(crdt.removeMembers);
+  crdtRemoveMembersRef.current = crdt.removeMembers;
   const members = useMemo(() => crdt.members, [crdt.members]);
   /** Stable primitive — avoids re-running seed effects when parents pass a fresh initialMembers array each render. */
   const compatibilitySeedFingerprint = useMemo(
@@ -466,7 +516,44 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
     eoseReceivedAt: null,
     eventCount: 0,
   });
+  /** Once steady_state is reached, stay latched until subscription scope resets (avoids leave events resetting quiet-period). */
+  const relaySteadyStateLatchedRef = useRef(false);
+  const readRelayEvidenceConfidence = useCallback((): RelayEvidenceConfidence => {
+    const confidence = resolveRelayEvidenceConfidence({
+      ...relayEvidenceRef.current,
+      nowMs: Date.now(),
+    });
+    if (confidence === "steady_state") {
+      relaySteadyStateLatchedRef.current = true;
+    }
+    return confidence;
+  }, []);
+  const canApplyRelayInferredRemovalNow = useCallback((): boolean => {
+    if (relaySteadyStateLatchedRef.current) {
+      return true;
+    }
+    if (canApplyRelayInferredMemberRemoval(readRelayEvidenceConfidence())) {
+      return true;
+    }
+    const evidence = relayEvidenceRef.current;
+    if (evidence.subscriptionEstablishedAt === null) {
+      return false;
+    }
+    const elapsedMs = Date.now() - evidence.subscriptionEstablishedAt;
+    return elapsedMs >= 10_000 && evidence.eventCount >= 3;
+  }, [readRelayEvidenceConfidence]);
+  const resolveParticipationPubkeysForTerminal = useCallback((): ReadonlyArray<PublicKeyHex> => (
+    resolveCommunityParticipationPubkeys({
+      communityMessages: communityMessagesRef.current,
+      additionalParticipationPubkeys: dedupeMemberPubkeys([
+        ...(params.initialMembers ?? []),
+        ...membersRef.current,
+        ...(params.myPublicKeyHex && localMembershipEvidenceRef.current ? [params.myPublicKeyHex] : []),
+      ]),
+    })
+  ), [dedupeMemberPubkeys, params.initialMembers, params.myPublicKeyHex]);
   const leftMembersRef = useRef<ReadonlyArray<PublicKeyHex>>(state.leftMembers);
+  const communityMessagesRef = useRef<ReadonlyArray<GroupMessageEvent>>(state.messages);
   const expelledMembersRef = useRef<ReadonlyArray<PublicKeyHex>>(state.expelledMembers);
   const disbandedAtRef = useRef<number | undefined>(state.disbandedAt);
   const disbandHandledRef = useRef(false);
@@ -616,7 +703,7 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
       switch (event.eventType) {
         case "COMMUNITY_MEMBER_JOINED": {
           if (disbandedAtRef.current !== undefined) return;
-          crdt.addMember(event.subjectPublicKeyHex);
+          crdtAddMemberRef.current(event.subjectPublicKeyHex);
           if (myPk && event.subjectPublicKeyHex === myPk) {
             setState((prev) => ({
               ...prev,
@@ -637,7 +724,14 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
           return;
         }
         case "COMMUNITY_MEMBER_LEFT": {
-          crdt.removeMember(event.subjectPublicKeyHex);
+          if (shouldSuppressStaleCommunityMemberRemoval({
+            subjectPubkey: event.subjectPublicKeyHex,
+            removalAtUnixMs: event.createdAtUnixMs,
+            communityMessages: communityMessagesRef.current,
+          })) {
+            return;
+          }
+          crdtRemoveMemberRef.current(event.subjectPublicKeyHex);
           setState((prev) => ({
             ...prev,
             leftMembers: prev.leftMembers.includes(event.subjectPublicKeyHex)
@@ -654,7 +748,14 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
           return;
         }
         case "COMMUNITY_MEMBER_EXPELLED": {
-          crdt.removeMember(event.subjectPublicKeyHex);
+          if (shouldSuppressStaleCommunityMemberRemoval({
+            subjectPubkey: event.subjectPublicKeyHex,
+            removalAtUnixMs: event.createdAtUnixMs,
+            communityMessages: communityMessagesRef.current,
+          })) {
+            return;
+          }
+          crdtRemoveMemberRef.current(event.subjectPublicKeyHex);
           setState((prev) => ({
             ...prev,
             expelledMembers: prev.expelledMembers.includes(event.subjectPublicKeyHex)
@@ -677,16 +778,14 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
 
     if (event.eventFamily === "terminal_lifecycle" && event.eventType === "COMMUNITY_DISBANDED") {
       disbandedAtRef.current = event.createdAtUnixMs;
-      const snapshot = [...membersRef.current];
-      snapshot.forEach((pubkey) => {
-        crdt.removeMember(pubkey);
-      });
-      setState((prev) => ({
-        ...prev,
-        disbandedAt: event.createdAtUnixMs,
-      }));
+      crdtRemoveMembersRef.current([...membersRef.current]);
+      setState((prev) => (
+        prev.disbandedAt === event.createdAtUnixMs
+          ? prev
+          : { ...prev, disbandedAt: event.createdAtUnixMs }
+      ));
     }
-  }, [crdt.addMember, crdt.removeMember, params.myPublicKeyHex]);
+  }, [params.myPublicKeyHex, readRelayEvidenceConfidence]);
 
   const createMembershipControlEventBase = useCallback((paramsForEvent: Readonly<{
     eventType: "COMMUNITY_MEMBER_JOINED" | "COMMUNITY_MEMBER_LEFT" | "COMMUNITY_MEMBER_EXPELLED";
@@ -946,7 +1045,8 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
     leftMembersRef.current = state.leftMembers;
     expelledMembersRef.current = state.expelledMembers;
     disbandedAtRef.current = state.disbandedAt;
-  }, [state.leftMembers, state.expelledMembers, state.disbandedAt]);
+    communityMessagesRef.current = state.messages;
+  }, [state.leftMembers, state.expelledMembers, state.disbandedAt, state.messages]);
 
   useEffect(() => {
     if (!params.myPublicKeyHex) return;
@@ -995,6 +1095,34 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
     state.leftMembers,
   ]);
 
+  useEffect(() => {
+    if (!params.enabled || state.messages.length === 0) {
+      return;
+    }
+    const filteredTerminal = filterTerminalMembersWithoutParticipationEvidence({
+      leftMemberPubkeys: state.leftMembers,
+      expelledMemberPubkeys: state.expelledMembers,
+      communityMessages: state.messages,
+      additionalParticipationPubkeys: resolveParticipationPubkeysForTerminal(),
+    });
+    const leftUnchanged = filteredTerminal.leftMemberPubkeys.join(",") === state.leftMembers.join(",");
+    const expelledUnchanged = filteredTerminal.expelledMemberPubkeys.join(",") === state.expelledMembers.join(",");
+    if (leftUnchanged && expelledUnchanged) {
+      return;
+    }
+    setState((prev) => ({
+      ...prev,
+      leftMembers: filteredTerminal.leftMemberPubkeys as ReadonlyArray<PublicKeyHex>,
+      expelledMembers: filteredTerminal.expelledMemberPubkeys as ReadonlyArray<PublicKeyHex>,
+    }));
+  }, [
+    params.enabled,
+    resolveParticipationPubkeysForTerminal,
+    state.expelledMembers,
+    state.leftMembers,
+    state.messages,
+  ]);
+
   const observedKnownParticipants = useMemo<ReadonlyArray<PublicKeyHex>>(() => (
     projectCommunityMemberRoster({
       seededMemberPubkeys: params.initialMembers,
@@ -1009,20 +1137,113 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
   ]);
 
   useEffect(() => {
+    const normalizedGroupId = params.groupId.trim();
+    const normalizedRelayUrl = normalizeRelayUrl(params.relayUrl);
+    if (!normalizedGroupId || !normalizedRelayUrl) {
+      return;
+    }
+    return subscribeGroupInviteAcceptedDual((detail) => {
+      const acceptedGroupId = detail.groupId?.trim();
+      const acceptedMemberPubkey = detail.memberPubkey?.trim();
+      if (!acceptedGroupId || !acceptedMemberPubkey || acceptedGroupId !== normalizedGroupId) {
+        return;
+      }
+      const relayHint = detail.relayUrl?.trim();
+      if (relayHint && normalizeRelayUrl(relayHint) !== normalizedRelayUrl) {
+        return;
+      }
+      if (detail.communityId?.trim() && params.communityId?.trim() && detail.communityId.trim() !== params.communityId.trim()) {
+        return;
+      }
+      reinstateCommunityMemberTerminalEvidence({
+        groupId: normalizedGroupId,
+        relayUrl: normalizedRelayUrl,
+        memberPubkeys: [acceptedMemberPubkey],
+        profileId: getResolvedProfileId(),
+      });
+      crdtAddMemberRef.current(acceptedMemberPubkey as PublicKeyHex);
+      setState((prev) => ({
+        ...prev,
+        leftMembers: prev.leftMembers.filter((pubkey) => pubkey !== acceptedMemberPubkey),
+        expelledMembers: prev.expelledMembers.filter((pubkey) => pubkey !== acceptedMemberPubkey),
+      }));
+    }, optionalProfileBus);
+  }, [optionalProfileBus, params.communityId, params.groupId, params.relayUrl]);
+
+  useEffect(() => {
+    const normalizedGroupId = params.groupId.trim();
+    const normalizedRelayUrl = normalizeRelayUrl(params.relayUrl);
+    if (!normalizedGroupId || !normalizedRelayUrl || state.messages.length === 0) {
+      return;
+    }
+    const participationPubkeys = resolveParticipationPubkeysForTerminal();
+    if (participationPubkeys.length === 0) {
+      return;
+    }
+    const profileId = getResolvedProfileId();
+    stripTerminalCommunityMembersWithActiveEvidence({
+      groupId: normalizedGroupId,
+      relayUrl: normalizedRelayUrl,
+      relayBackedMemberPubkeys: participationPubkeys,
+      conversationAuthorPubkeys: participationPubkeys,
+      profileId,
+    });
+    const reinstateSet = new Set(
+      participationPubkeys.map((pk) => pk.trim().toLowerCase()).filter((pk) => pk.length > 0),
+    );
+    if (reinstateSet.size === 0) {
+      return;
+    }
+    setState((prev) => {
+      const nextLeft = prev.leftMembers.filter((pk) => !reinstateSet.has(pk.trim().toLowerCase()));
+      const nextExpelled = prev.expelledMembers.filter((pk) => !reinstateSet.has(pk.trim().toLowerCase()));
+      if (nextLeft.length === prev.leftMembers.length && nextExpelled.length === prev.expelledMembers.length) {
+        return prev;
+      }
+      return {
+        ...prev,
+        leftMembers: nextLeft,
+        expelledMembers: nextExpelled,
+      };
+    });
+  }, [params.groupId, params.relayUrl, publishedSnapshotMembers, resolveParticipationPubkeysForTerminal, state.messages]);
+
+  const lastMembershipSnapshotFingerprintRef = useRef("");
+  useEffect(() => {
     if (typeof window === "undefined") {
       return;
     }
-    dispatchGroupMembershipSnapshot({
+    const fingerprint = [
+      publishedSnapshotMembers.slice().sort().join(","),
+      state.leftMembers.slice().sort().join(","),
+      state.expelledMembers.slice().sort().join(","),
+      String(state.disbandedAt ?? ""),
+    ].join("|");
+    if (fingerprint === lastMembershipSnapshotFingerprintRef.current) {
+      return;
+    }
+    lastMembershipSnapshotFingerprintRef.current = fingerprint;
+    const filteredTerminal = filterTerminalMembersWithoutParticipationEvidence({
+      leftMemberPubkeys: state.leftMembers,
+      expelledMemberPubkeys: state.expelledMembers,
+      communityMessages: communityMessagesRef.current,
+      additionalParticipationPubkeys: resolveParticipationPubkeysForTerminal(),
+    });
+    const detail = {
       groupId: params.groupId,
       relayUrl: normalizeRelayUrl(params.relayUrl),
       communityId: params.communityId,
       activeMemberPubkeys: publishedSnapshotMembers,
-      leftMembers: state.leftMembers,
-      expelledMembers: state.expelledMembers,
+      leftMembers: filteredTerminal.leftMemberPubkeys,
+      expelledMembers: filteredTerminal.expelledMemberPubkeys,
       disbandedAt: state.disbandedAt ?? null,
+    };
+    queueMicrotask(() => {
+      dispatchGroupMembershipSnapshot(detail);
     });
-  }, [params.communityId, params.groupId, params.relayUrl, publishedSnapshotMembers, state.disbandedAt, state.expelledMembers, state.leftMembers]);
+  }, [params.communityId, params.groupId, params.relayUrl, publishedSnapshotMembers, resolveParticipationPubkeysForTerminal, state.disbandedAt, state.expelledMembers, state.leftMembers]);
 
+  const lastKnownParticipantsFingerprintRef = useRef("");
   useEffect(() => {
     if (typeof window === "undefined") {
       return;
@@ -1030,22 +1251,36 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
     if (observedKnownParticipants.length === 0) {
       return;
     }
-    dispatchCommunityKnownParticipantsObserved({
+    const fingerprint = observedKnownParticipants.slice().sort().join(",");
+    if (fingerprint === lastKnownParticipantsFingerprintRef.current) {
+      return;
+    }
+    lastKnownParticipantsFingerprintRef.current = fingerprint;
+    const detail = {
       groupId: params.groupId,
       relayUrl: normalizeRelayUrl(params.relayUrl),
       communityId: params.communityId,
       conversationId,
       participantPubkeys: observedKnownParticipants,
+    };
+    queueMicrotask(() => {
+      dispatchCommunityKnownParticipantsObserved(detail);
     });
   }, [conversationId, observedKnownParticipants, params.communityId, params.groupId, params.relayUrl]);
 
+  const localBootstrapAppliedRef = useRef(false);
   useEffect(() => {
     if (!params.myPublicKeyHex || !localMembershipEvidence) return;
     if (crdt.isLoading) return;
     if (disbandedAtRef.current !== undefined) return;
     if (leftMembersRef.current.includes(params.myPublicKeyHex)) return;
     if (expelledMembersRef.current.includes(params.myPublicKeyHex)) return;
-    if (membersRef.current.includes(params.myPublicKeyHex)) return;
+    if (membersRef.current.includes(params.myPublicKeyHex)) {
+      localBootstrapAppliedRef.current = true;
+      return;
+    }
+    if (localBootstrapAppliedRef.current) return;
+    localBootstrapAppliedRef.current = true;
     applyControlEvent(createMembershipControlEventBase({
       eventType: "COMMUNITY_MEMBER_JOINED",
       logicalEventId: `local-bootstrap:${params.myPublicKeyHex}`,
@@ -1053,6 +1288,10 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
       subjectPublicKeyHex: params.myPublicKeyHex,
     }));
   }, [applyControlEvent, createMembershipControlEventBase, crdt.isLoading, localMembershipEvidence, params.myPublicKeyHex]);
+
+  useEffect(() => {
+    localBootstrapAppliedRef.current = false;
+  }, [params.groupId, params.relayUrl, params.myPublicKeyHex]);
 
   // LEDGER-BASED INITIALIZATION DELETED - CRDT handles initialization
   useEffect(() => {
@@ -1087,10 +1326,15 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
       return;
     }
 
+    const terminalExcluded = new Set([
+      ...state.leftMembers,
+      ...state.expelledMembers,
+      ...leftMembersRef.current,
+      ...expelledMembersRef.current,
+    ].map((pubkey) => pubkey.trim().toLowerCase()));
     const nextMissingMembers = compatibilitySeedMembers.filter((pubkey) => (
       !activeMembers.includes(pubkey)
-      && !leftMembersRef.current.includes(pubkey)
-      && !expelledMembersRef.current.includes(pubkey)
+      && !terminalExcluded.has(pubkey.trim().toLowerCase())
     ));
     if (nextMissingMembers.length === 0) {
       return;
@@ -1113,13 +1357,143 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
     localMembershipEvidence,
     membersSortedFingerprint,
     params.myPublicKeyHex,
+    state.expelledMembers,
+    state.leftMembers,
   ]);
+
+  useEffect(() => {
+    lastMembershipSnapshotFingerprintRef.current = "";
+    lastKnownParticipantsFingerprintRef.current = "";
+  }, [params.groupId, params.relayUrl, params.myPublicKeyHex]);
+
+  useEffect(() => {
+    if (!params.groupId.trim() || !params.relayUrl.trim() || params.enabled === false) {
+      return;
+    }
+    if (!canApplyRelayInferredRemovalNow()) {
+      return;
+    }
+    const filteredTerminal = filterTerminalMembersWithoutParticipationEvidence({
+      leftMemberPubkeys: state.leftMembers,
+      expelledMemberPubkeys: state.expelledMembers,
+      communityMessages: communityMessagesRef.current,
+      additionalParticipationPubkeys: resolveParticipationPubkeysForTerminal(),
+    });
+    saveCommunityTerminalMembershipCache({
+      groupId: params.groupId,
+      relayUrl: params.relayUrl,
+      leftMemberPubkeys: filteredTerminal.leftMemberPubkeys,
+      expelledMemberPubkeys: filteredTerminal.expelledMemberPubkeys,
+      disbandedAtUnixMs: state.disbandedAt ?? null,
+    });
+  }, [
+    params.enabled,
+    params.groupId,
+    params.relayUrl,
+    publishedSnapshotMembers,
+    state.disbandedAt,
+    state.expelledMembers,
+    state.leftMembers,
+    state.messages,
+    canApplyRelayInferredRemovalNow,
+    resolveParticipationPubkeysForTerminal,
+  ]);
+
+  useEffect(() => {
+    if (params.enabled === false || !params.groupId.trim() || !params.relayUrl.trim()) {
+      return;
+    }
+    relaySteadyStateLatchedRef.current = false;
+    const intervalId = setInterval((): void => {
+      if (canApplyRelayInferredMemberRemoval(readRelayEvidenceConfidence())) {
+        relaySteadyStateLatchedRef.current = true;
+      }
+    }, 1000);
+    return (): void => {
+      clearInterval(intervalId);
+    };
+  }, [
+    params.enabled,
+    params.groupId,
+    params.relayUrl,
+    membershipResyncEpoch,
+    readRelayEvidenceConfidence,
+  ]);
+
+  useLayoutEffect(() => {
+    const normalizedGroupId = params.groupId.trim();
+    const normalizedRelayUrl = normalizeRelayUrl(params.relayUrl);
+    if (!normalizedGroupId || !normalizedRelayUrl || compatibilitySeedFingerprint.length === 0) {
+      return;
+    }
+    const seedPubkeys = compatibilitySeedFingerprint.split(",").filter((pk) => pk.length > 0) as ReadonlyArray<PublicKeyHex>;
+    reinstateCommunityMemberTerminalEvidence({
+      groupId: normalizedGroupId,
+      relayUrl: normalizedRelayUrl,
+      memberPubkeys: seedPubkeys,
+      profileId: getResolvedProfileId(),
+    });
+    const reinstateSet = new Set(seedPubkeys.map((pk) => pk.trim().toLowerCase()));
+    setState((prev) => {
+      const nextLeft = prev.leftMembers.filter((pk) => !reinstateSet.has(pk.trim().toLowerCase()));
+      const nextExpelled = prev.expelledMembers.filter((pk) => !reinstateSet.has(pk.trim().toLowerCase()));
+      if (nextLeft.length === prev.leftMembers.length && nextExpelled.length === prev.expelledMembers.length) {
+        return prev;
+      }
+      return { ...prev, leftMembers: nextLeft, expelledMembers: nextExpelled };
+    });
+  }, [compatibilitySeedFingerprint, params.groupId, params.relayUrl]);
+
+  const poolRef = useRef(params.pool);
+  poolRef.current = params.pool;
+  const applyControlEventRef = useRef(applyControlEvent);
+  applyControlEventRef.current = applyControlEvent;
+  const createMembershipControlEventBaseRef = useRef(createMembershipControlEventBase);
+  createMembershipControlEventBaseRef.current = createMembershipControlEventBase;
+  const createTerminalControlEventBaseRef = useRef(createTerminalControlEventBase);
+  createTerminalControlEventBaseRef.current = createTerminalControlEventBase;
+  const queueDeferredMembershipApplyRef = useRef(queueDeferredMembershipApply);
+  queueDeferredMembershipApplyRef.current = queueDeferredMembershipApply;
+  const queueRealtimeMessageRef = useRef(queueRealtimeMessage);
+  queueRealtimeMessageRef.current = queueRealtimeMessage;
+  const logRejectedEventRef = useRef(logRejectedEvent);
+  logRejectedEventRef.current = logRejectedEvent;
 
   useEffect((): (() => void) => {
     if (!params.groupId || params.enabled === false) {
       return (): void => { };
     }
     const scopedRelayUrl = toScopedRelayUrl(params.relayUrl);
+    const applyControlEvent = (event: CommunityControlEvent): void => {
+      applyControlEventRef.current(event);
+    };
+    const createMembershipControlEventBase = (
+      paramsForEvent: Parameters<typeof createMembershipControlEventBaseRef.current>[0],
+    ): ReturnType<typeof createMembershipControlEventBaseRef.current> => (
+      createMembershipControlEventBaseRef.current(paramsForEvent)
+    );
+    const createTerminalControlEventBase = (
+      paramsForEvent: Parameters<typeof createTerminalControlEventBaseRef.current>[0],
+    ): ReturnType<typeof createTerminalControlEventBaseRef.current> => (
+      createTerminalControlEventBaseRef.current(paramsForEvent)
+    );
+    const queueDeferredMembershipApply = (
+      sortAt: number,
+      tieBreak: string,
+      fn: () => void,
+    ): void => {
+      queueDeferredMembershipApplyRef.current(sortAt, tieBreak, fn);
+    };
+    const queueRealtimeMessage = (
+      entry: Parameters<typeof queueRealtimeMessageRef.current>[0],
+    ): void => {
+      queueRealtimeMessageRef.current(entry);
+    };
+    const logRejectedEvent = (
+      rejected: Parameters<typeof logRejectedEventRef.current>[0],
+    ): void => {
+      logRejectedEventRef.current(rejected);
+    };
 
     // Connection load only. Membership must be derived from explicit lifecycle events.
     setState(prev => {
@@ -1311,7 +1685,7 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
               return { ...prev, metadata: mergedMetadata };
             });
             if (mergedMetadata) {
-              dispatchGroupDescriptorUpdated({
+              const descriptorDetail = {
                 groupId: params.groupId,
                 relayUrl: params.relayUrl,
                 communityId: params.communityId,
@@ -1322,6 +1696,9 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
                 descriptorVersion: incomingVersion,
                 lastEvidenceEventId: event.id,
                 publicKeyHex: actor,
+              };
+              queueMicrotask(() => {
+                dispatchGroupDescriptorUpdated(descriptorDetail);
               });
             }
             return;
@@ -1382,12 +1759,33 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
           if (innerPayload.type === "leave") {
             const leaver = actor;
             const ts = innerPayload.created_at || event.created_at;
-            queueDeferredMembershipApply(ts, `leave:${event.id}`, () => {
+            if (!shouldSuppressStaleCommunityMemberRemoval({
+              subjectPubkey: leaver,
+              removalAtUnixMs: ts,
+              communityMessages: communityMessagesRef.current,
+            }) && canApplyRelayInferredRemovalNow()) {
+              queueDeferredMembershipApply(ts, `leave:${event.id}`, () => {
+                applyControlEvent(createMembershipControlEventBase({
+                  eventType: "COMMUNITY_MEMBER_LEFT",
+                  logicalEventId: event.id,
+                  createdAtUnixMs: ts,
+                  subjectPublicKeyHex: leaver,
+                }));
+              });
+            }
+            return;
+          }
+
+          // Stealth membership ping (control plane only — no chat line)
+          if (innerPayload.type === "membership_restate") {
+            const member = actor;
+            const ts = innerPayload.created_at || event.created_at;
+            queueDeferredMembershipApply(ts, `restate:${event.id}`, () => {
               applyControlEvent(createMembershipControlEventBase({
-                eventType: "COMMUNITY_MEMBER_LEFT",
-                logicalEventId: event.id,
+                eventType: "COMMUNITY_MEMBER_JOINED",
+                logicalEventId: `restate:${event.id}`,
                 createdAtUnixMs: ts,
-                subjectPublicKeyHex: leaver,
+                subjectPublicKeyHex: member,
               }));
             });
             return;
@@ -1489,6 +1887,7 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
       if (event.kind === GROUP_KIND_METADATA) {
         try {
           const metadata = JSON.parse(event.content) as Partial<GroupMetadata>;
+          let descriptorDetail: Parameters<typeof dispatchGroupDescriptorUpdated>[0] | undefined;
           setState((prev) => {
             const name = pickPreferredCommunityDisplayName(
               typeof metadata.name === "string" ? metadata.name : undefined,
@@ -1522,7 +1921,7 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
                   : prev.metadata?.relayCapabilityTier,
               descriptorVersion: descriptorVersionRef.current,
             };
-            dispatchGroupDescriptorUpdated({
+            descriptorDetail = {
               groupId: params.groupId,
               relayUrl: params.relayUrl,
               communityId: params.communityId,
@@ -1533,78 +1932,103 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
               descriptorVersion: descriptorVersionRef.current,
               lastEvidenceEventId: event.id,
               publicKeyHex: event.pubkey,
-            });
+            };
             return { ...prev, metadata: nextMetadata };
           });
+          if (descriptorDetail) {
+            const detail = descriptorDetail;
+            queueMicrotask(() => {
+              dispatchGroupDescriptorUpdated(detail);
+            });
+          }
         } catch {
           // ignore invalid metadata JSON
         }
         return;
       }
 
-      if (event.kind === GROUP_KIND_MEMBERS) {
-        // Treat relay roster events as additive seeds only. A thinner roster snapshot
-        // is not evidence that a peer actually left; explicit leave/expel/disband
-        // events remain the canonical removal path.
-        const rosterMembers = event.tags
-          .filter(t => t[0] === 'p')
-          .map(t => t[1] as PublicKeyHex)
-          .filter(pk => !leftMembersRef.current.includes(pk) && !expelledMembersRef.current.includes(pk));
-        if (
-          localMembershipEvidenceRef.current
-          && params.myPublicKeyHex
-          && !rosterMembers.includes(params.myPublicKeyHex)
-        ) {
-          rosterMembers.push(params.myPublicKeyHex);
+      const relayMembership = classifyRelayMembershipEvent(event, params.groupId);
+      if (relayMembership) {
+        if (relayMembership.kind === "obscur_gossip_delta") {
+          return;
         }
-        const rosterTimestamp = event.created_at;
-        rosterMembers.forEach((pubkey) => {
-          queueDeferredMembershipApply(rosterTimestamp, `${event.id}:roster:${pubkey}`, () => {
+        if (relayMembership.kind === "relay_join" && relayMembership.subjectPubkey) {
+          const joinTimestamp = relayMembership.createdAtUnixMs;
+          queueDeferredMembershipApply(joinTimestamp, `relay-join:${event.id}`, () => {
             applyControlEvent(createMembershipControlEventBase({
               eventType: "COMMUNITY_MEMBER_JOINED",
-              logicalEventId: `${event.id}:roster-seed:${pubkey}`,
-              createdAtUnixMs: rosterTimestamp,
-              subjectPublicKeyHex: pubkey,
+              logicalEventId: relayMembership.logicalEventId,
+              createdAtUnixMs: joinTimestamp,
+              subjectPublicKeyHex: relayMembership.subjectPubkey!,
             }));
           });
-        });
-        const currentVisibleMembers = Array.from(new Set([
-          ...membersRef.current,
-          ...(params.initialMembers ?? []),
-          ...(params.myPublicKeyHex && localMembershipEvidenceRef.current ? [params.myPublicKeyHex] : []),
-        ]));
-        const omittedMembers = currentVisibleMembers.filter((pubkey) => !rosterMembers.includes(pubkey));
-        if (omittedMembers.length > 0) {
-          logAppEvent({
-            name: "groups.membership_roster_seed_result",
-            level: "warn",
-            scope: { feature: "groups", action: "membership_roster_seed" },
-            context: {
-              groupId: params.groupId,
-              relayUrl: normalizeRelayUrl(params.relayUrl),
-              communityId: params.communityId ?? null,
-              reasonCode: "missing_removal_evidence",
-              currentMemberCount: currentVisibleMembers.length,
-              incomingMemberCount: rosterMembers.length,
-              omittedMemberCount: omittedMembers.length,
-            },
-          });
+          return;
         }
-        return;
-      }
-
-      if (event.kind === GROUP_KIND_LEAVE) {
-        const leaveTimestamp = event.created_at;
-        const leavingPubkey = event.pubkey as PublicKeyHex;
-        queueDeferredMembershipApply(leaveTimestamp, `nip29-leave:${event.id}`, () => {
-          applyControlEvent(createMembershipControlEventBase({
-            eventType: "COMMUNITY_MEMBER_LEFT",
-            logicalEventId: event.id,
-            createdAtUnixMs: leaveTimestamp,
-            subjectPublicKeyHex: leavingPubkey,
-          }));
-        });
-        return;
+        if (relayMembership.kind === "relay_leave" && relayMembership.subjectPubkey) {
+          const leavingPubkey = relayMembership.subjectPubkey;
+          const leaveTimestamp = relayMembership.createdAtUnixMs;
+          if (!shouldSuppressStaleCommunityMemberRemoval({
+            subjectPubkey: leavingPubkey,
+            removalAtUnixMs: leaveTimestamp,
+            communityMessages: communityMessagesRef.current,
+          }) && canApplyRelayInferredRemovalNow()) {
+            queueDeferredMembershipApply(leaveTimestamp, `relay-leave:${event.id}`, () => {
+              applyControlEvent(createMembershipControlEventBase({
+                eventType: "COMMUNITY_MEMBER_LEFT",
+                logicalEventId: relayMembership.logicalEventId,
+                createdAtUnixMs: leaveTimestamp,
+                subjectPublicKeyHex: leavingPubkey,
+              }));
+            });
+          }
+          return;
+        }
+        if (relayMembership.kind === "roster_seed" && relayMembership.rosterMemberPubkeys) {
+          const rosterMembers = [...relayMembership.rosterMemberPubkeys].filter(
+            (pk) => !leftMembersRef.current.includes(pk) && !expelledMembersRef.current.includes(pk),
+          );
+          if (
+            localMembershipEvidenceRef.current
+            && params.myPublicKeyHex
+            && !rosterMembers.includes(params.myPublicKeyHex)
+          ) {
+            rosterMembers.push(params.myPublicKeyHex);
+          }
+          const rosterTimestamp = relayMembership.createdAtUnixMs;
+          rosterMembers.forEach((pubkey) => {
+            queueDeferredMembershipApply(rosterTimestamp, `${event.id}:roster:${pubkey}`, () => {
+              applyControlEvent(createMembershipControlEventBase({
+                eventType: "COMMUNITY_MEMBER_JOINED",
+                logicalEventId: `${event.id}:roster-seed:${pubkey}`,
+                createdAtUnixMs: rosterTimestamp,
+                subjectPublicKeyHex: pubkey,
+              }));
+            });
+          });
+          const currentVisibleMembers = Array.from(new Set([
+            ...membersRef.current,
+            ...(params.initialMembers ?? []),
+            ...(params.myPublicKeyHex && localMembershipEvidenceRef.current ? [params.myPublicKeyHex] : []),
+          ]));
+          const omittedMembers = currentVisibleMembers.filter((pubkey) => !rosterMembers.includes(pubkey));
+          if (omittedMembers.length > 0) {
+            logAppEvent({
+              name: "groups.membership_roster_seed_result",
+              level: "warn",
+              scope: { feature: "groups", action: "membership_roster_seed" },
+              context: {
+                groupId: params.groupId,
+                relayUrl: normalizeRelayUrl(params.relayUrl),
+                communityId: params.communityId ?? null,
+                reasonCode: "missing_removal_evidence",
+                currentMemberCount: currentVisibleMembers.length,
+                incomingMemberCount: rosterMembers.length,
+                omittedMemberCount: omittedMembers.length,
+              },
+            });
+          }
+          return;
+        }
       }
     };
 
@@ -1618,7 +2042,7 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
       eventCount: existingEvidence?.eventCount ?? 0,
     };
 
-    const timelineSubId = params.pool.subscribe([{
+    const timelineSubId = poolRef.current.subscribe([{
       kinds: [
         GROUP_KIND_SEALED,
         GROUP_KIND_DELETE,
@@ -1626,6 +2050,7 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
         GROUP_KIND_MEMBERS,
         GROUP_KIND_REQUEST_JOIN,
         GROUP_KIND_LEAVE,
+        RELAY_KIND_MEMBERSHIP_SIGNAL,
       ],
       "#h": [params.groupId],
       limit: 100
@@ -1636,25 +2061,39 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
     });
 
     return (): void => {
-      params.pool.unsubscribe(timelineSubId);
+      poolRef.current.unsubscribe(timelineSubId);
     };
   }, [
-    applyControlEvent,
-    createMembershipControlEventBase,
-    queueDeferredMembershipApply,
     params.groupId,
-    params.pool,
     params.relayUrl,
     params.enabled,
-    queueRealtimeMessage,
-    params.myPublicKeyHex,
     conversationId,
-    logRejectedEvent,
+    membershipResyncEpoch,
   ]);
 
   const refresh = useCallback((): void => {
-    // Refresh logic here if needed
+    setMembershipResyncEpoch((n) => n + 1);
   }, []);
+
+  const clearLocalTerminalMembershipEvidence = useCallback((): void => {
+    if (!params.groupId.trim() || !params.relayUrl.trim()) {
+      return;
+    }
+    saveCommunityTerminalMembershipCache({
+      groupId: params.groupId,
+      relayUrl: params.relayUrl,
+      leftMemberPubkeys: [],
+      expelledMemberPubkeys: [],
+      disbandedAtUnixMs: state.disbandedAt ?? null,
+    });
+    leftMembersRef.current = [];
+    expelledMembersRef.current = [];
+    setState((prev) => ({
+      ...prev,
+      leftMembers: [],
+      expelledMembers: [],
+    }));
+  }, [params.groupId, params.relayUrl, state.disbandedAt]);
 
   const publishToCommunityScope = useCallback(async (event: NostrEvent): Promise<MultiRelayPublishResult> => {
     const payload = JSON.stringify(["EVENT", event]);
@@ -1788,6 +2227,53 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
       fallback: "Failed to publish governance event.",
     });
   }, [params.groupId, params.myPrivateKeyHex, params.myPublicKeyHex, publishToCommunityScopeWithRetry]);
+
+  useEffect(() => {
+    const myPublicKeyHex = params.myPublicKeyHex;
+    const myPrivateKeyHex = params.myPrivateKeyHex;
+    if (!params.enabled || !myPublicKeyHex || !myPrivateKeyHex) {
+      return;
+    }
+    if (state.membership.status !== "member") {
+      return;
+    }
+    let cancelled = false;
+    const publishMembershipRestate = async (): Promise<void> => {
+      try {
+        const roomKeyHex = await roomKeyStore.getRoomKey(params.groupId);
+        if (!roomKeyHex || cancelled) {
+          return;
+        }
+        const groupService = new GroupService(myPublicKeyHex, myPrivateKeyHex);
+        const signedEvent = await groupService.sendSealedMembershipRestate({
+          groupId: params.groupId,
+          roomKeyHex,
+        });
+        await publishToCommunityScopeWithRetry({
+          event: signedEvent,
+          operation: "membership_restate",
+          maxAttempts: 2,
+        });
+      } catch {
+        // Best-effort stealth control-plane ping; roster also ingests foreign relay joins.
+      }
+    };
+    void publishMembershipRestate();
+    const timerId = window.setInterval(() => {
+      void publishMembershipRestate();
+    }, COMMUNITY_MEMBERSHIP_RESTATE_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timerId);
+    };
+  }, [
+    params.enabled,
+    params.groupId,
+    params.myPrivateKeyHex,
+    params.myPrivateKeyHex,
+    publishToCommunityScopeWithRetry,
+    state.membership.status,
+  ]);
 
   const applyGovernanceAcceptedEffects = useCallback(async (
     proposal: GovernanceProposalRecord,
@@ -2127,7 +2613,7 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
         if (state.expelledMembers.includes(memberPk)) continue;
         if (memberPk === params.myPublicKeyHex) continue;
 
-        const inviteEvent = await groupService.distributeRoomKey({
+        const { giftWrapEvent } = await groupService.distributeRoomKey({
           recipientPubkey: memberPk,
           groupId: params.groupId,
           roomKeyHex: newKey,
@@ -2135,7 +2621,7 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
           relayUrl: params.relayUrl,
           communityId: params.communityId
         });
-        await params.pool.publishToAll(JSON.stringify(["EVENT", inviteEvent]));
+        await params.pool.publishToAll(JSON.stringify(["EVENT", giftWrapEvent]));
         count++;
       }
 
@@ -2455,7 +2941,9 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
   );
 
   const proposeDescriptorUpdate = useCallback(async (nextMetadata: GroupMetadata): Promise<void> => {
-    const activeMemberCount = membersRef.current.length;
+    const activeMemberCount = membersRef.current.filter(
+      (pubkey) => !leftMembersRef.current.includes(pubkey) && !expelledMembersRef.current.includes(pubkey),
+    ).length;
     if (activeMemberCount <= 1) {
       await updateMetadata(nextMetadata);
       return;
@@ -2506,7 +2994,9 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
     targetPublicKeyHex: PublicKeyHex;
     reason?: string;
   }>): Promise<void> => {
-    const activeMemberCount = membersRef.current.length;
+    const activeMemberCount = membersRef.current.filter(
+      (pubkey) => !leftMembersRef.current.includes(pubkey) && !expelledMembersRef.current.includes(pubkey),
+    ).length;
     if (activeMemberCount <= 1) {
       throw new Error("Expelling members requires at least one other active member.");
     }
@@ -2653,6 +3143,7 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
       state,
       contentTimeline,
       refresh,
+      clearLocalTerminalMembershipEvidence,
       requestJoin,
       approveJoin,
       denyJoin,
@@ -2680,6 +3171,7 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
     state,
     contentTimeline,
     refresh,
+    clearLocalTerminalMembershipEvidence,
     requestJoin,
     approveJoin,
     denyJoin,

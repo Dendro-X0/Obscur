@@ -1,5 +1,7 @@
 import type { Attachment, Message } from "../types";
 import { inferAttachmentKind } from "../utils/logic";
+import { normalizeCommunityInvitePayload } from "@/app/features/groups/utils/community-invite-payload";
+import { buildCommunityInviteResponseStatusByMessageId } from "@/app/features/groups/utils/community-invite-resolution";
 
 export type ParsedMessagePayload = Readonly<Record<string, unknown> & { type?: string }>;
 export type InviteResponseStatus = "pending" | "accepted" | "declined" | "canceled";
@@ -136,7 +138,11 @@ const parsePayload = (content: string): ParsedMessagePayload | null => {
             continue;
         }
         if (candidate && typeof candidate === "object") {
-            return candidate as ParsedMessagePayload;
+            const record = candidate as ParsedMessagePayload;
+            if (record.type === "community-invite") {
+                return normalizeCommunityInvitePayload(record) as ParsedMessagePayload | null;
+            }
+            return record;
         }
         return null;
     }
@@ -156,6 +162,22 @@ const parsePayload = (content: string): ParsedMessagePayload | null => {
         const escaped = new RegExp(`\\\\"${field}\\\\"\\s*:\\s*\\\\"([^\\\\"]+)\\\\"`).exec(trimmed);
         if (escaped?.[1]) {
             return escaped[1].trim() || null;
+        }
+        return null;
+    };
+
+    const readLooseMetadataName = (): string | null => {
+        const nested = /"metadata"\s*:\s*\{[^}]*"name"\s*:\s*"([^"]+)"/.exec(trimmed);
+        if (nested?.[1]) {
+            return nested[1].trim() || null;
+        }
+        return readLooseStringField("name");
+    };
+
+    const readLooseMetadataRoomKey = (): string | null => {
+        const nested = /"metadata"\s*:\s*\{[^}]*"roomKey(?:Hex)?"\s*:\s*"([^"]+)"/.exec(trimmed);
+        if (nested?.[1]) {
+            return nested[1].trim() || null;
         }
         return null;
     };
@@ -213,23 +235,26 @@ const parsePayload = (content: string): ParsedMessagePayload | null => {
             return null;
         }
         const resolvedGroupId = groupId ?? "";
-        return {
+        return normalizeCommunityInvitePayload({
             type: "community-invite",
             groupId: resolvedGroupId,
-            roomKey: readLooseStringField("roomKey") ?? "",
+            roomKey: readLooseStringField("roomKey")
+                ?? readLooseStringField("roomKeyHex")
+                ?? readLooseMetadataRoomKey()
+                ?? "",
             communityId: readLooseStringField("communityId"),
             genesisEventId: readLooseStringField("genesisEventId"),
             creatorPubkey: readLooseStringField("creatorPubkey"),
             relayUrl: readLooseStringField("relayUrl"),
             metadata: {
                 id: resolvedGroupId,
-                name: readLooseStringField("name") ?? "Private Group",
+                name: readLooseMetadataName() ?? "Private Group",
                 about: readLooseStringField("about"),
                 picture: readLooseStringField("picture"),
                 access: readLooseStringField("access"),
                 memberCount: readLooseNumberField("memberCount") ?? undefined,
             },
-        };
+        }) as ParsedMessagePayload | null;
     }
 
     if (looseType === "community-invite-response") {
@@ -281,21 +306,15 @@ export const buildMessageRenderCaches = (params: Readonly<{
     expandedRelayUrlsByMessageId: ReadonlySet<string>;
 }>): MessageRenderCaches => {
     const parsedPayloadByMessageId = new Map<string, ParsedMessagePayload | null>();
-    const inviteResponseStatusByMessageId = new Map<string, InviteResponseStatus>();
+    const inviteResponseStatusByMessageId = new Map<string, InviteResponseStatus>(
+        buildCommunityInviteResponseStatusByMessageId(params.messages),
+    );
     const renderMetaByMessageId = new Map<string, MessageRenderMeta>();
     const voiceCallRoomAccumulatorByRoomId = new Map<string, MutableVoiceCallRoomAccumulator>();
 
     params.messages.forEach((message) => {
         const parsedPayload = parsePayload(message.content);
         parsedPayloadByMessageId.set(message.id, parsedPayload);
-
-        if (
-            message.replyTo?.messageId
-            && parsedPayload?.type === "community-invite-response"
-            && isInviteResponseStatus(parsedPayload.status)
-        ) {
-            inviteResponseStatusByMessageId.set(message.replyTo.messageId, parsedPayload.status);
-        }
 
         const attachmentUrlsExpanded = params.expandedRelayUrlsByMessageId.has(message.id);
         const hasOnlyVoiceNoteAttachments = messageHasOnlyVoiceNoteAttachments(message.attachments);

@@ -1,21 +1,14 @@
 // Desktop-only wallet implementation with native keychain
 #[cfg(not(target_os = "android"))]
 mod desktop {
+    use crate::native_keychain;
     use crate::profiles::{DesktopProfileState, resolve_profile_for_window};
     use crate::session::SessionState;
-    use keyring::Entry;
     use nostr::prelude::*;
     use serde::{Deserialize, Serialize};
     use std::borrow::Cow;
     use tauri::{AppHandle, State, WebviewWindow};
     use zeroize::Zeroizing;
-
-    const APP_SERVICE: &str = "app.obscur.desktop";
-    const KEY_NAME: &str = "nsec";
-
-    fn key_name_for_profile(profile_id: &str) -> String {
-        format!("{KEY_NAME}::{profile_id}")
-    }
 
     async fn resolve_profile_id(
         app: &AppHandle,
@@ -71,13 +64,9 @@ mod desktop {
             return Ok(keys);
         }
 
-        // Fallback to keychain
-        let entry = Entry::new(APP_SERVICE, &key_name_for_profile(&profile_id)).map_err(|e| e.to_string())?;
-
-        match entry.get_password() {
-            Ok(nsec) => {
+        match native_keychain::read_nsec_for_profile(&profile_id)? {
+            Some(nsec) => {
                 let nsec_zero = Zeroizing::new(nsec);
-                // Hydrate session from keychain
                 match session.set_keys(&profile_id, &*nsec_zero).await {
                     Ok(_pubkey) => {
                         eprintln!("[SESSION] Native session re-hydrated from OS keychain for profile {}", profile_id);
@@ -89,10 +78,7 @@ mod desktop {
                     Err(e) => Err(format!("Failed to hydrate session from keychain: {}", e)),
                 }
             }
-            Err(keyring::Error::NoEntry) => {
-                Err("No active native session and no key in keychain".to_string())
-            }
-            Err(e) => Err(e.to_string()),
+            None => Err("No active native session and no key in keychain".to_string()),
         }
     }
 
@@ -112,9 +98,7 @@ mod desktop {
         // Update session
         session.set_keys(&profile_id, &*nsec_zero).await?;
 
-        // Update keychain
-        let entry = Entry::new(APP_SERVICE, &key_name_for_profile(&profile_id)).map_err(|e| e.to_string())?;
-        entry.set_password(&*nsec_zero).map_err(|e| e.to_string())?;
+        native_keychain::write_nsec_for_profile(&profile_id, &*nsec_zero)?;
 
         Ok(keys.public_key().to_string())
     }
@@ -135,9 +119,7 @@ mod desktop {
         // Update session
         session.set_keys(&profile_id, &*nsec_zero).await?;
 
-        // Update keychain
-        let entry = Entry::new(APP_SERVICE, &key_name_for_profile(&profile_id)).map_err(|e| e.to_string())?;
-        entry.set_password(&*nsec_zero).map_err(|e| e.to_string())?;
+        native_keychain::write_nsec_for_profile(&profile_id, &*nsec_zero)?;
 
         Ok(keys.public_key().to_string())
     }
@@ -200,13 +182,7 @@ mod desktop {
         // Clear session
         session.clear(Some(&profile_id)).await;
 
-        // Clear keychain
-        let entry = Entry::new(APP_SERVICE, &key_name_for_profile(&profile_id)).map_err(|e| e.to_string())?;
-        match entry.delete_credential() {
-            Ok(_) => Ok(()),
-            Err(keyring::Error::NoEntry) => Ok(()),
-            Err(e) => Err(e.to_string()),
-        }
+        native_keychain::delete_nsec_for_profile(&profile_id)
     }
 
     /// Encrypt content using NIP-04 (Legacy)

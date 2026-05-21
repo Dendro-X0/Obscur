@@ -42,8 +42,16 @@ describe("community-member-roster-projection", () => {
       leftMemberPubkeys: [MEMBER_C],
     })).toEqual(expect.objectContaining({
       allKnownMemberPubkeys: [MEMBER_A, MEMBER_B, MEMBER_C],
-      activeMemberPubkeys: [MEMBER_A, MEMBER_B],
+      activeMemberPubkeys: [MEMBER_A, MEMBER_B, MEMBER_C],
     }));
+  });
+
+  it("promotes left members back to active when they appear in author evidence", () => {
+    expect(projectCommunityMemberRoster({
+      seededMemberPubkeys: [MEMBER_A],
+      authorEvidencePubkeys: [MEMBER_B],
+      leftMemberPubkeys: [MEMBER_B],
+    }).activeMemberPubkeys).toEqual([MEMBER_A, MEMBER_B]);
   });
 
   it("seeds ledger members from restored initial members plus local identity evidence", () => {

@@ -2,10 +2,12 @@
 
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { PROFILE_CHANGED_EVENT } from "@/app/features/profiles/services/profile-registry-service";
-import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
-
-type ThemePreference = "system" | "light" | "dark";
+import {
+  loadThemePreference,
+  saveThemePreference,
+  type ThemePreference,
+} from "@/app/features/settings/services/ui-preferences-persistence";
 
 type ThemeSnapshot = Readonly<{
   preference: ThemePreference;
@@ -15,70 +17,28 @@ type ThemeStore = Readonly<{
   subscribe: (listener: () => void) => () => void;
   getSnapshot: () => ThemeSnapshot;
   setPreference: (preference: ThemePreference) => void;
-  initializeFromStorage: () => void;
-  reloadFromStorage: () => void;
+  hydrateFromStorage: (profileId?: string) => void;
 }>;
 
-const STORAGE_KEY: string = "dweb.nostr.pwa.ui.theme";
-const getStorageKey = (): string => getScopedStorageKey(STORAGE_KEY, getResolvedProfileId());
 const SERVER_SNAPSHOT: ThemeSnapshot = { preference: "system" };
-
-const isThemePreference = (value: unknown): value is ThemePreference => {
-  return value === "system" || value === "light" || value === "dark";
-};
-
-const loadPreferenceFromStorage = (): ThemePreference => {
-  if (typeof window === "undefined") {
-    return "system";
-  }
-  try {
-    const raw: string | null =
-      window.localStorage.getItem(getStorageKey())
-      ?? window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      return "system";
-    }
-    if (!isThemePreference(raw)) {
-      return "system";
-    }
-    return raw;
-  } catch {
-    return "system";
-  }
-};
-
-const savePreferenceToStorage = (preference: ThemePreference): void => {
-  if (typeof window === "undefined") {
-    return;
-  }
-  try {
-    window.localStorage.setItem(getStorageKey(), preference);
-  } catch {
-    return;
-  }
-};
 
 const createStore = (): ThemeStore => {
   const listeners: Set<() => void> = new Set<() => void>();
-  let preference: ThemePreference = "system";
-  let didInit: boolean = false;
+  let preference: ThemePreference = typeof window !== "undefined"
+    ? loadThemePreference()
+    : "system";
   let snapshot: ThemeSnapshot = { preference };
   const emit = (): void => {
     listeners.forEach((listener: () => void): void => {
       listener();
     });
   };
-  const initializeFromStorage = (): void => {
-    if (didInit) {
+  const hydrateFromStorage = (profileId?: string): void => {
+    const next = loadThemePreference(profileId);
+    if (preference === next && snapshot.preference === next) {
       return;
     }
-    didInit = true;
-    preference = loadPreferenceFromStorage();
-    snapshot = { preference };
-    emit();
-  };
-  const reloadFromStorage = (): void => {
-    preference = loadPreferenceFromStorage();
+    preference = next;
     snapshot = { preference };
     emit();
   };
@@ -91,14 +51,15 @@ const createStore = (): ThemeStore => {
   const getSnapshot = (): ThemeSnapshot => snapshot;
   const setPreference = (next: ThemePreference): void => {
     if (preference === next) {
+      saveThemePreference(next, getResolvedProfileId());
       return;
     }
     preference = next;
     snapshot = { preference };
-    savePreferenceToStorage(next);
+    saveThemePreference(next, getResolvedProfileId());
     emit();
   };
-  return { subscribe, getSnapshot, setPreference, initializeFromStorage, reloadFromStorage };
+  return { subscribe, getSnapshot, setPreference, hydrateFromStorage };
 };
 
 const store: ThemeStore = createStore();
@@ -113,20 +74,29 @@ const useTheme = (): UseThemeResult => {
   const snapshot: ThemeSnapshot = useSyncExternalStore(store.subscribe, store.getSnapshot, getServerSnapshot);
 
   useEffect(() => {
-    store.initializeFromStorage();
-    if (typeof window === "undefined") return;
-    const onProfileChanged = (): void => {
-      store.reloadFromStorage();
+    store.hydrateFromStorage(getResolvedProfileId());
+    if (typeof window === "undefined") {
+      return;
+    }
+    const onProfileChanged = (event: Event): void => {
+      const detail = (event as CustomEvent<{ activeProfileId?: string }>).detail;
+      const profileId = typeof detail?.activeProfileId === "string"
+        ? detail.activeProfileId
+        : getResolvedProfileId();
+      store.hydrateFromStorage(profileId);
     };
     window.addEventListener(PROFILE_CHANGED_EVENT, onProfileChanged);
     return (): void => {
       window.removeEventListener(PROFILE_CHANGED_EVENT, onProfileChanged);
     };
   }, []);
-  const setPreference = useCallback((preference: ThemePreference): void => {
-    store.setPreference(preference);
+
+  const setPreference = useCallback((next: ThemePreference): void => {
+    store.setPreference(next);
   }, []);
+
   return { preference: snapshot.preference, setPreference };
 };
 
 export { useTheme };
+export type { ThemePreference };

@@ -60,6 +60,12 @@ Desktop-first patch: governance TTL and tie handling, duplicate-resolution idemp
 
 - **U3** — Shared `formatRelayPublishFailureMessage` / `assertRelayPublishSuccess` for community publish paths (messages, governance, descriptor, join, leave, vote-kick); profile partial/degraded toasts use `formatRelayPublishPartialCoverageMessage`; group send in main shell and management dialog errors use mapped copy; attachment/avatar/vault upload failures use `getUploadFailureUserMessage`.
 - **U4** — Desktop regression matrix: [docs/assets/demo/v1.5.8/README.md](docs/assets/demo/v1.5.8/README.md); release test pack includes governance + publish-copy unit tests.
+- **Shell** — Appearance (`system` / light / dark) persists across cold start via scoped + last-known profile keys; startup overlay no longer blocks on account restore (identity + projection + relay gate; sync continues in background).
+- **Community (MEM-001 baseline)** — Relay-inferred leave/expel and terminal cache writes gated to `steady_state`; participation includes persisted chat authors; discovery roster widen-only. **Park mode:** [community-membership-invariants.md](docs/program/community-membership-invariants.md) — no new roster features until R2 read owner.
+
+### Added
+
+- `pnpm test:community-invariants` / `pnpm test:shell-invariants` (PWA + root); both run in `pnpm release:test-pack`.
 
 ## [v1.5.5] - 2026-05-18 (Client Depth)
 

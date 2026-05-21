@@ -10,6 +10,7 @@ import { getResolvedProfileId } from "@/app/features/profiles/services/profile-r
 import { loadCommunityMembershipLedger } from "./community-membership-ledger";
 
 import { roomKeyStore } from "../../crypto/room-key-store";
+import { deriveCommunityInviteRumorEventId } from "../utils/community-invite-dm-message";
 
 type GroupRoomKeyMissingReasonCode = Extract<
     CommunitySendBlockReasonCode,
@@ -218,6 +219,37 @@ export class GroupService {
     }
 
     /**
+     * Stealth control-plane signal: asserts active membership without a chat line.
+     * Other Obscur clients decrypt; foreign clients may ignore (relay join kinds still apply).
+     */
+    async sendSealedMembershipRestate(params: {
+        groupId: string;
+        roomKeyHex: string;
+        membershipVersion?: number;
+    }): Promise<NostrEvent> {
+        const nowUnixSeconds = Math.floor(Date.now() / 1000);
+
+        const innerPayload = JSON.stringify({
+            type: "membership_restate",
+            pubkey: this.myPublicKeyHex,
+            created_at: nowUnixSeconds,
+            membershipVersion: params.membershipVersion ?? 1,
+        });
+
+        const encrypted = await cryptoService.encryptGroupMessage(innerPayload, params.roomKeyHex);
+
+        const unsigned: UnsignedNostrEvent = {
+            kind: 10105,
+            created_at: nowUnixSeconds,
+            tags: [["h", params.groupId], ["t", "membership_restate"]],
+            content: JSON.stringify(encrypted),
+            pubkey: this.myPublicKeyHex,
+        };
+
+        return await cryptoService.signEvent(unsigned, this.myPrivateKeyHex);
+    }
+
+    /**
      * Broadcasts that the community is disbanded.
      * This is emitted when the last known member leaves.
      */
@@ -403,25 +435,37 @@ export class GroupService {
         communityId?: string;
         genesisEventId?: string;
         creatorPubkey?: string;
-    }): Promise<NostrEvent> {
+    }): Promise<Readonly<{ giftWrapEvent: NostrEvent; canonicalRumorEventId: string }>> {
+        const createdAtUnixSeconds = Math.floor(Date.now() / 1000);
+        const plaintext = JSON.stringify({
+            type: "community-invite",
+            groupId: params.groupId,
+            roomKey: params.roomKeyHex,
+            metadata: params.metadata,
+            relayUrl: params.relayUrl,
+            communityId: params.communityId,
+            genesisEventId: params.genesisEventId,
+            creatorPubkey: params.creatorPubkey,
+        });
+        const canonicalRumorEventId = await deriveCommunityInviteRumorEventId({
+            senderPubkey: this.myPublicKeyHex,
+            recipientPubkey: params.recipientPubkey,
+            plaintext,
+            createdAtUnixSeconds,
+        });
         const rumor: UnsignedNostrEvent = {
-            kind: 1059, // NIP-17 Gift Wrap subtype (Invite)
-            created_at: Math.floor(Date.now() / 1000),
+            kind: 1059,
+            created_at: createdAtUnixSeconds,
             tags: [["p", params.recipientPubkey]],
-            content: JSON.stringify({
-                type: "community-invite",
-                groupId: params.groupId,
-                roomKey: params.roomKeyHex,
-                metadata: params.metadata,
-                relayUrl: params.relayUrl,
-                communityId: params.communityId,
-                genesisEventId: params.genesisEventId,
-                creatorPubkey: params.creatorPubkey
-            }),
-            pubkey: this.myPublicKeyHex
+            content: plaintext,
+            pubkey: this.myPublicKeyHex,
         };
-
-        return await cryptoService.encryptGiftWrap(rumor, this.myPrivateKeyHex, params.recipientPubkey);
+        const giftWrapEvent = await cryptoService.encryptGiftWrap(
+            rumor,
+            this.myPrivateKeyHex,
+            params.recipientPubkey,
+        );
+        return { giftWrapEvent, canonicalRumorEventId };
     }
 
     /**

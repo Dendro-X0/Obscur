@@ -12,7 +12,9 @@ import { useRelay } from "../../relays/providers/relay-provider";
 import { useIdentity } from "../../auth/hooks/use-identity";
 import { MessageQueue } from "../../messaging/lib/message-queue";
 import { messageBus } from "../../messaging/services/message-bus";
-import type { Message } from "../../messaging/types";
+import { chatStateStoreService } from "../../messaging/services/chat-state-store";
+import type { Message, PersistedMessage } from "../../messaging/types";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { GroupService } from "../services/group-service";
 import type { GroupMetadata } from "../types";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
@@ -25,6 +27,7 @@ import {
     resolveInviteConnectionDisplayName,
     toInviteConnectionSearchText
 } from "./invite-connection-display";
+import { buildOutgoingCommunityInviteDmMessage } from "../utils/community-invite-dm-message";
 
 interface InviteConnectionsDialogProps {
     isOpen: boolean;
@@ -133,25 +136,36 @@ export function InviteConnectionsDialog({
 
     const handleSendInvites = async () => {
         if (!groupService.current || selectedPubkeys.size === 0) return;
+        const trimmedRoomKeyHex = roomKeyHex.trim();
+        if (!trimmedRoomKeyHex) {
+            toast.error("Community encryption is still loading. Wait a moment and try again.");
+            return;
+        }
+        if (!identityState.publicKeyHex) {
+            toast.error("Unlock your identity before sending invites.");
+            return;
+        }
         setIsSending(true);
 
         try {
-            const mq = new MessageQueue(identityState.publicKeyHex!);
+            const mq = new MessageQueue(identityState.publicKeyHex);
+            const profileId = getResolvedProfileId();
             const newMessages: Record<string, Message> = {};
+            const persistedByConversation: Record<string, PersistedMessage[]> = {};
 
             const promises = Array.from(selectedPubkeys).map(async (pubkey) => {
                 const scopedRelayUrl = relayUrl || relayPool.connections.find((c: { url: string }) => c.url)?.url;
-                const inviteEvent = await groupService.current!.distributeRoomKey({
+                const { giftWrapEvent, canonicalRumorEventId } = await groupService.current!.distributeRoomKey({
                     recipientPubkey: pubkey as PublicKeyHex,
                     groupId,
-                    roomKeyHex,
+                    roomKeyHex: trimmedRoomKeyHex,
                     metadata,
                     relayUrl: scopedRelayUrl,
                     communityId,
                     genesisEventId,
                     creatorPubkey
                 });
-                await relayPool.publishToAll(JSON.stringify(["EVENT", inviteEvent]));
+                await relayPool.publishToAll(JSON.stringify(["EVENT", giftWrapEvent]));
 
                 const myPublicKeyHex = identityState.publicKeyHex || '';
                 const conversationId = toDmConversationId({ myPublicKeyHex, peerPublicKeyHex: pubkey });
@@ -159,37 +173,59 @@ export function InviteConnectionsDialog({
                     return;
                 }
 
-                const inviteMessage: Message = {
-                    id: inviteEvent.id,
+                const inviteMessage: Message = buildOutgoingCommunityInviteDmMessage({
+                    giftWrapEventId: giftWrapEvent.id,
+                    canonicalRumorEventId,
                     conversationId,
-                    kind: 'user',
-                    content: JSON.stringify({
-                        type: "community-invite",
-                        groupId,
-                        roomKey: roomKeyHex,
-                        relayUrl: scopedRelayUrl,
-                        metadata,
-                        communityId,
-                        genesisEventId,
-                        creatorPubkey
-                    }),
-                    timestamp: new Date(),
-                    isOutgoing: true,
-                    status: 'delivered',
-                    eventId: inviteEvent.id,
-                    senderPubkey: myPublicKeyHex as PublicKeyHex,
+                    myPublicKeyHex: myPublicKeyHex as PublicKeyHex,
                     recipientPubkey: pubkey as PublicKeyHex,
-                };
+                    groupId,
+                    roomKeyHex: trimmedRoomKeyHex,
+                    metadata,
+                    relayUrl: scopedRelayUrl,
+                    communityId,
+                    genesisEventId,
+                    creatorPubkey,
+                });
 
                 await mq.persistMessage(inviteMessage as any);
                 newMessages[conversationId] = inviteMessage;
+                const persistedMessage: PersistedMessage = {
+                    id: inviteMessage.id,
+                    eventId: inviteMessage.eventId,
+                    kind: inviteMessage.kind,
+                    content: inviteMessage.content,
+                    timestampMs: inviteMessage.timestamp.getTime(),
+                    isOutgoing: true,
+                    status: inviteMessage.status,
+                };
+                const existingPersisted = persistedByConversation[conversationId] ?? [];
+                if (!existingPersisted.some((entry) => entry.id === persistedMessage.id)) {
+                    persistedByConversation[conversationId] = [...existingPersisted, persistedMessage];
+                }
             });
 
             await Promise.all(promises);
 
+            const chatState = chatStateStoreService.load(identityState.publicKeyHex, { profileId });
+            const mergedPersistedByConversation: Record<string, PersistedMessage[]> = {};
+            Object.entries(persistedByConversation).forEach(([convId, persistedMessages]) => {
+                const existing = chatState?.messagesByConversationId?.[convId] ?? [];
+                const merged = [...existing];
+                persistedMessages.forEach((persistedMessage) => {
+                    if (!merged.some((entry) => entry.id === persistedMessage.id)) {
+                        merged.push(persistedMessage);
+                    }
+                });
+                mergedPersistedByConversation[convId] = merged;
+            });
+            if (Object.keys(mergedPersistedByConversation).length > 0) {
+                chatStateStoreService.updateMessages(identityState.publicKeyHex, mergedPersistedByConversation);
+            }
+
             // Update UI optimistically via message bus
             Object.entries(newMessages).forEach(([convId, msg]) => {
-                messageBus.emitNewMessage(convId, msg);
+                messageBus.emitNewMessage(convId, msg, { sourceProfileId: profileId });
             });
 
             toast.success(`Invites sent securely to ${selectedPubkeys.size} connections`);
@@ -284,7 +320,7 @@ export function InviteConnectionsDialog({
                         </span>
                         <Button
                             onClick={handleSendInvites}
-                            disabled={isSending}
+                            disabled={isSending || roomKeyHex.trim().length === 0}
                             className="h-12 rounded-[20px] bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500 px-6 font-black text-white shadow-[0_10px_24px_rgba(129,140,248,0.3)] transition-all hover:brightness-110 dark:shadow-[0_12px_30px_rgba(129,140,248,0.4)]"
                         >
                             {isSending ? (

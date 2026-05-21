@@ -116,9 +116,35 @@ describe("StartupExperienceOverlay", () => {
     expect(screen.queryByRole("button", { name: "Continue" })).not.toBeInTheDocument();
 
     act(() => {
-      vi.advanceTimersByTime(10_500);
+      vi.advanceTimersByTime(6_500);
     });
 
     expect(screen.getByRole("button", { name: "Continue" })).toBeInTheDocument();
+  });
+
+  it("dismisses when shell is ready during activating_runtime even if account sync is still restoring", () => {
+    startupOverlayMocks.runtimeSnapshot.phase = "activating_runtime";
+    startupOverlayMocks.runtimeSnapshot.relayRuntime.phase = "healthy";
+    startupOverlayMocks.runtimeSnapshot.relayRuntime.writableRelayCount = 1;
+    startupOverlayMocks.projectionSnapshot.phase = "ready";
+    startupOverlayMocks.projectionSnapshot.accountProjectionReady = true;
+    startupOverlayMocks.accountSyncSnapshot.phase = "restoring_profile";
+
+    render(<StartupExperienceOverlay />);
+
+    expect(screen.queryByText("Preparing your workspace")).not.toBeInTheDocument();
+  });
+
+  it("dismisses when runtime is ready even if account sync is still restoring", () => {
+    startupOverlayMocks.runtimeSnapshot.phase = "ready";
+    startupOverlayMocks.runtimeSnapshot.relayRuntime.phase = "healthy";
+    startupOverlayMocks.runtimeSnapshot.relayRuntime.writableRelayCount = 1;
+    startupOverlayMocks.projectionSnapshot.phase = "ready";
+    startupOverlayMocks.projectionSnapshot.accountProjectionReady = true;
+    startupOverlayMocks.accountSyncSnapshot.phase = "restoring_account_data";
+
+    render(<StartupExperienceOverlay />);
+
+    expect(screen.queryByText("Preparing your workspace")).not.toBeInTheDocument();
   });
 });

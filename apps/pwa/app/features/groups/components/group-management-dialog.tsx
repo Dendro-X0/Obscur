@@ -1,81 +1,55 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
-import {
-    X,
-    Camera,
-    Users,
-    Shield,
-    ShieldCheck,
-    Settings,
-    UserPlus,
-    MoreVertical,
-    UserCog,
-    UserMinus,
-    Globe,
-    Lock,
-    Bell,
-    Trash2,
-    LogOut,
-    Check,
-    Loader2,
-    QrCode,
-    Share2,
-    RotateCcw,
-    Download,
-    ChevronRight,
-    Search,
-    UserCheck,
-    Scale,
-} from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { Loader2, QrCode, Share2 } from "lucide-react";
 import { Button } from "../../../components/ui/button";
-import { Card } from "../../../components/ui/card";
-import { Input } from "../../../components/ui/input";
-import { Label } from "../../../components/ui/label";
-import { Textarea } from "../../../components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../../components/ui/dialog";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuLabel,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger
-} from "../../../components/ui/dropdown-menu";
-import { useSealedCommunity } from "../hooks/use-sealed-community";
+import { useSealedCommunity, type UseSealedCommunityResult } from "../hooks/use-sealed-community";
 import { useUploadService } from "@/app/features/messaging/lib/upload-service";
 import { useGroups } from "../providers/group-provider";
 import { toast } from "../../../components/ui/toast";
-import { cn } from "../../../lib/cn";
-import { CommunitySyncIndicator } from "./community-sync-indicator";
-import { PresenceBadge } from "@/app/features/network/components/presence-indicator";
-import { RelayCapabilityBadge } from "@/app/features/relays/components/relay-capability-badge";
-import { useRelayCapabilities } from "@/app/features/relays/hooks/use-relay-capabilities";
-import { CommunityModeBadge } from "./community-mode-badge";
-import { buildGroupLeaveHref, buildGroupPurgeHref } from "../utils/group-action-route";
 import { GroupQRCode } from "./group-qr-code";
 import { InviteMemberDialog } from "./invite-member-dialog";
 import type { GroupConversation } from "../../messaging/types";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
-import type { GroupAccessMode } from "../types";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import {
     isConversationNotificationsEnabled,
     setConversationNotificationsEnabled,
 } from "@/app/features/notifications/utils/notification-target-preference";
-import { getPublicGroupHref, getPublicProfileHref, toAbsoluteAppUrl } from "@/app/features/navigation/public-routes";
+import { getPublicGroupHref, toAbsoluteAppUrl } from "@/app/features/navigation/public-routes";
 import { useNetwork } from "@/app/features/network/providers/network-provider";
-import { useRelay } from "@/app/features/relays/providers/relay-provider";
-import { summarizeCommunityOperatorHealth } from "../services/community-operator-health";
+import { useRelayCapabilities } from "@/app/features/relays/hooks/use-relay-capabilities";
 import { discoveryCache } from "@/app/features/search/services/discovery-cache";
 import { filterVisibleGroupMembers } from "../services/community-visible-members";
 import { resolveCommunityDisplayName } from "../services/community-display-name";
+import {
+    loadCommunityProvisionalMemberPubkeys,
+    stripProvisionalCommunityMembersConfirmedOnRelay,
+} from "../services/community-provisional-membership-cache";
+import {
+    clearCommunityTerminalMembershipEvidence,
+    reconcileCommunityMembershipEvidence,
+} from "../services/community-membership-evidence-actions";
+import {
+    loadCommunityTerminalMembershipCache,
+    mergeTerminalMemberPubkeys,
+    stripTerminalCommunityMembersWithActiveEvidence,
+} from "../services/community-terminal-membership-cache";
 import { resolveUserFacingErrorMessage } from "@/app/features/relays/services/relay-publish-user-copy";
 import { getResolvedClientGateway } from "@/app/features/profiles/services/resolve-client-gateway";
+import { buildGroupLeaveHref, buildGroupPurgeHref } from "../utils/group-action-route";
+import { summarizeCommunityOperatorHealth } from "../services/community-operator-health";
+import type { GroupAccessMode } from "../types";
+import { GroupManagementShell } from "./group-management/shell";
+import type { GroupManagementTabId } from "./group-management/constants";
+import { GroupManagementGeneralPanel } from "./group-management/panels/general-panel";
+import { GroupManagementMembersPanel } from "./group-management/panels/members-panel";
+import { GroupManagementGovernancePanel } from "./group-management/panels/governance-panel";
+import { GroupManagementSettingsPanel } from "./group-management/panels/settings-panel";
 
 interface GroupManagementDialogProps {
     isOpen: boolean;
@@ -84,9 +58,9 @@ interface GroupManagementDialogProps {
     pool: any;
     myPublicKeyHex: PublicKeyHex | null;
     myPrivateKeyHex: any;
+    /** When provided, reuses the parent subscription instead of opening a second `useSealedCommunity`. */
+    communityController?: UseSealedCommunityResult;
 }
-
-type TabId = "general" | "members" | "governance" | "requests" | "settings";
 
 export function GroupManagementDialog({
     isOpen,
@@ -94,10 +68,11 @@ export function GroupManagementDialog({
     group,
     pool,
     myPublicKeyHex,
-    myPrivateKeyHex
+    myPrivateKeyHex,
+    communityController,
 }: GroupManagementDialogProps) {
-    const { t } = useTranslation();
     const router = useRouter();
+    const { t } = useTranslation();
     const { communityKnownParticipantDirectoryByConversationId, communityRosterByConversationId } = useGroups();
     const { presence } = useNetwork();
     const localMemberPubkey = myPublicKeyHex;
@@ -108,29 +83,9 @@ export function GroupManagementDialog({
             projectionMemberPubkeys: communityRosterByConversationId[group.id]?.activeMemberPubkeys,
             localMemberPubkey,
         }),
-        [communityKnownParticipantDirectoryByConversationId, communityRosterByConversationId, group.id, group.memberPubkeys, localMemberPubkey]
+        [communityKnownParticipantDirectoryByConversationId, communityRosterByConversationId, group.id, group.memberPubkeys, localMemberPubkey],
     );
-    const {
-        state,
-        approveJoin,
-        denyJoin,
-        approveAllJoinRequests,
-        denyAllJoinRequests,
-        updateMetadata,
-        putUser,
-        removeUser,
-        promoteUser,
-        demoteUser,
-        setGroupStatus,
-        sendVoteKick,
-        proposeDescriptorUpdate,
-        proposeExpelMember,
-        castGovernanceVote,
-        activeGovernanceProposals,
-        members,
-        rotateRoomKey,
-        admins
-    } = useSealedCommunity({
+    const internalCommunity = useSealedCommunity({
         groupId: group.groupId,
         relayUrl: group.relayUrl,
         ...(group.communityId ? { communityId: group.communityId } : {}),
@@ -138,21 +93,34 @@ export function GroupManagementDialog({
         myPublicKeyHex,
         myPrivateKeyHex,
         initialMembers: initialMemberSeed,
+        enabled: isOpen && !communityController,
     });
+    const {
+        state,
+        updateMetadata,
+        proposeDescriptorUpdate,
+        proposeExpelMember,
+        sendVoteKick,
+        castGovernanceVote,
+        activeGovernanceProposals,
+        rotateRoomKey,
+        refresh: refreshCommunityMembership,
+        clearLocalTerminalMembershipEvidence,
+    } = communityController ?? internalCommunity;
 
     const { uploadFile, pickFiles } = useUploadService();
-    const [activeTab, setActiveTab] = useState<TabId>("general");
+    const [activeTab, setActiveTab] = useState<GroupManagementTabId>("general");
     const [isSaving, setIsSaving] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
     const [isQrModalOpen, setIsQrModalOpen] = useState(false);
 
-    // Edit state
     const [editName, setEditName] = useState("");
     const [editAbout, setEditAbout] = useState("");
     const [editPicture, setEditPicture] = useState("");
     const [editAccess, setEditAccess] = useState<GroupAccessMode>("invite-only");
 
     const [memberSearchQuery, setMemberSearchQuery] = useState("");
+    const [provisionalOverlayEpoch, setProvisionalOverlayEpoch] = useState(0);
     const [resolvedNames, setResolvedNames] = useState<Record<string, string>>({});
     const [mutedMembers, setMutedMembers] = useState<string[]>([]);
     const [notificationsEnabled, setNotificationsEnabled] = useState(true);
@@ -163,14 +131,13 @@ export function GroupManagementDialog({
     const notificationPreferenceProfileId = getResolvedProfileId();
     const isLocalAdmin = group.adminPubkeys?.includes(myPublicKeyHex || "") || false;
     const isAdmin = state.membership.role === "member" || isLocalAdmin;
-    const isOwner = isAdmin; // In Phase 1/2, all members are equal owners of the encrypted space
+    const isOwner = isAdmin;
 
     const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
     const [kickingMemberPubkey, setKickingMemberPubkey] = useState<string | null>(null);
     const [isRotatingKey, setIsRotatingKey] = useState(false);
     const [currentTime, setCurrentTime] = React.useState(Date.now());
 
-    // Update current time every 10 seconds for presence indicators
     React.useEffect(() => {
         const interval = setInterval(() => {
             setCurrentTime(Date.now());
@@ -180,7 +147,6 @@ export function GroupManagementDialog({
 
     const [roomKeyHex, setRoomKeyHex] = useState<string>();
 
-    // Relay capabilities for this community's relay
     const { capabilities: relayCapabilities, isLoading: isRelayCapabilitiesLoading } = useRelayCapabilities(group.relayUrl);
 
     useEffect(() => {
@@ -189,7 +155,7 @@ export function GroupManagementDialog({
             const key = await roomKeyStore.getRoomKey(group.groupId);
             if (key) setRoomKeyHex(key);
         };
-        fetchRoomKey();
+        void fetchRoomKey();
     }, [group.groupId]);
 
     const exportCommunity = async () => {
@@ -202,7 +168,7 @@ export function GroupManagementDialog({
                 groupId: group.groupId,
                 metadata: state.metadata,
                 keys: record || { roomKeyHex: roomKeyHex, previousKeys: [] },
-                exportedAt: new Date().toISOString()
+                exportedAt: new Date().toISOString(),
             };
 
             const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
@@ -229,7 +195,9 @@ export function GroupManagementDialog({
         if (saved) {
             try {
                 setMutedMembers(JSON.parse(saved));
-            } catch (e) { }
+            } catch {
+                // ignore corrupt storage
+            }
         }
 
         setNotificationsEnabled(isConversationNotificationsEnabled(group, notificationPreferenceProfileId));
@@ -237,7 +205,7 @@ export function GroupManagementDialog({
 
     const toggleMute = (pk: string) => {
         const next = mutedMembers.includes(pk)
-            ? mutedMembers.filter(m => m !== pk)
+            ? mutedMembers.filter((member) => member !== pk)
             : [...mutedMembers, pk];
         setMutedMembers(next);
         localStorage.setItem(getScopedMutedMembersKey(group.groupId), JSON.stringify(next));
@@ -274,7 +242,7 @@ export function GroupManagementDialog({
 
     const projectionMemberPubkeys = communityRosterByConversationId[group.id]?.activeMemberPubkeys as
         ReadonlyArray<PublicKeyHex> | undefined;
-    const { activeMemberPubkeys: activeMembers } = React.useMemo(
+    const { activeMemberPubkeys: activeMembers, authorEvidencePubkeys } = React.useMemo(
         () => getResolvedClientGateway().communityRoster.resolveActiveMemberPubkeysFromConversation({
             communityMessages: state.messages,
             seededMemberPubkeys: initialMemberSeed,
@@ -292,13 +260,25 @@ export function GroupManagementDialog({
             state.messages,
         ],
     );
+    const provisionalMemberPubkeys = React.useMemo(
+        () => loadCommunityProvisionalMemberPubkeys({
+            groupId: group.groupId,
+            relayUrl: group.relayUrl,
+            profileId: getResolvedProfileId(),
+        }),
+        [group.groupId, group.relayUrl, provisionalOverlayEpoch],
+    );
+    const mergedManagementMemberPubkeys = React.useMemo(
+        () => Array.from(new Set([...activeMembers, ...provisionalMemberPubkeys])) as ReadonlyArray<PublicKeyHex>,
+        [activeMembers, provisionalMemberPubkeys],
+    );
     const visibleMemberRegistry = React.useMemo(
-        () => filterVisibleGroupMembers(activeMembers, (pubkey) => discoveryCache.getProfile(pubkey)),
-        [activeMembers],
+        () => filterVisibleGroupMembers(mergedManagementMemberPubkeys, (pubkey) => discoveryCache.getProfile(pubkey)),
+        [mergedManagementMemberPubkeys],
     );
     const onlineMemberCount = React.useMemo(
         () => visibleMemberRegistry.filter((pubkey) => presence.isPeerOnline(pubkey)).length,
-        [visibleMemberRegistry, presence]
+        [visibleMemberRegistry, presence],
     );
     const operatorHealth = React.useMemo(
         () => summarizeCommunityOperatorHealth({
@@ -307,10 +287,88 @@ export function GroupManagementDialog({
             expelledMembers: state.expelledMembers,
             onlineMemberCount,
             kickVotes: state.kickVotes,
-            disbandedAt: state.disbandedAt
+            disbandedAt: state.disbandedAt,
         }),
-        [onlineMemberCount, state.disbandedAt, state.expelledMembers, state.kickVotes, state.leftMembers, visibleMemberRegistry]
+        [onlineMemberCount, state.disbandedAt, state.expelledMembers, state.kickVotes, state.leftMembers, visibleMemberRegistry],
     );
+
+    React.useEffect(() => {
+        const profileId = getResolvedProfileId();
+        const terminalChanged = stripTerminalCommunityMembersWithActiveEvidence({
+            groupId: group.groupId,
+            relayUrl: group.relayUrl,
+            profileId,
+            relayBackedMemberPubkeys: activeMembers,
+            conversationAuthorPubkeys: authorEvidencePubkeys,
+        });
+        const provisionalChanged = stripProvisionalCommunityMembersConfirmedOnRelay({
+            groupId: group.groupId,
+            relayUrl: group.relayUrl,
+            profileId,
+            relayBackedMemberPubkeys: activeMembers,
+        });
+        if (terminalChanged || provisionalChanged) {
+            setProvisionalOverlayEpoch((e) => e + 1);
+        }
+    }, [activeMembers, authorEvidencePubkeys, group.groupId, group.relayUrl]);
+
+    const handleReconcileMembership = React.useCallback(() => {
+        reconcileCommunityMembershipEvidence({
+            groupId: group.groupId,
+            relayUrl: group.relayUrl,
+            profileId: getResolvedProfileId(),
+            refreshRelaySubscription: refreshCommunityMembership,
+        });
+        setProvisionalOverlayEpoch((e) => e + 1);
+        toast.success(
+            t(
+                "groups.membershipEvidence.reconcileToast",
+                "Cleared provisional overlay and requested a fresh relay pull.",
+            ),
+        );
+    }, [group.groupId, group.relayUrl, refreshCommunityMembership, t]);
+
+    const terminalMembershipCache = React.useMemo(
+        () => loadCommunityTerminalMembershipCache({
+            groupId: group.groupId,
+            relayUrl: group.relayUrl,
+            profileId: getResolvedProfileId(),
+        }),
+        [group.groupId, group.relayUrl],
+    );
+    const effectiveLeftMemberPubkeys = React.useMemo(
+        () => mergeTerminalMemberPubkeys(
+            terminalMembershipCache?.leftMemberPubkeys ?? [],
+            state.leftMembers,
+        ),
+        [state.leftMembers, terminalMembershipCache],
+    );
+    const effectiveExpelledMemberPubkeys = React.useMemo(
+        () => mergeTerminalMemberPubkeys(
+            terminalMembershipCache?.expelledMemberPubkeys ?? [],
+            state.expelledMembers,
+        ),
+        [state.expelledMembers, terminalMembershipCache],
+    );
+    const terminalRecordCount = React.useMemo(
+        () => new Set([...effectiveLeftMemberPubkeys, ...effectiveExpelledMemberPubkeys]).size,
+        [effectiveExpelledMemberPubkeys, effectiveLeftMemberPubkeys],
+    );
+
+    const handleClearTerminalMembership = React.useCallback(() => {
+        clearCommunityTerminalMembershipEvidence({
+            groupId: group.groupId,
+            relayUrl: group.relayUrl,
+            clearLocalTerminalMembershipEvidence,
+            refreshRelaySubscription: refreshCommunityMembership,
+        });
+        toast.success(
+            t(
+                "groups.membershipEvidence.clearTerminalToast",
+                "Terminal membership cache cleared. Refreshing relay membership.",
+            ),
+        );
+    }, [clearLocalTerminalMembershipEvidence, group.groupId, group.relayUrl, refreshCommunityMembership, t]);
 
     const groupActionRouteParams = React.useMemo(() => ({
         routeToken: group.groupId,
@@ -332,8 +390,7 @@ export function GroupManagementDialog({
     const handleVoteKick = async (memberPubkey: string) => {
         setKickingMemberPubkey(memberPubkey);
         try {
-            // 3+ members: sealed governance proposal (P1). Two-member rooms keep legacy vote-kick consensus.
-            if (members.length > 2) {
+            if (activeMembers.length > 2) {
                 await proposeExpelMember({ targetPublicKeyHex: memberPubkey as PublicKeyHex });
             } else {
                 await sendVoteKick(memberPubkey);
@@ -351,14 +408,13 @@ export function GroupManagementDialog({
         try {
             await rotateRoomKey();
             toast.success("Room key rotated and distributed to members");
-        } catch (error) {
+        } catch {
             toast.error("Failed to rotate room key");
         } finally {
             setIsRotatingKey(false);
         }
     };
 
-    // Metadata subscription for member names
     useEffect(() => {
         const activeMemberList = visibleMemberRegistry;
         if (!isOpen || !activeMemberList.length || !pool) return;
@@ -374,22 +430,31 @@ export function GroupManagementDialog({
                         try {
                             const metadata = JSON.parse(event.content);
                             const name = metadata.display_name || metadata.name;
-                            if (name) setResolvedNames(prev => ({ ...prev, [event.pubkey]: name }));
-                        } catch (e) { }
+                            if (name) setResolvedNames((prev) => ({ ...prev, [event.pubkey]: name }));
+                        } catch {
+                            // ignore bad metadata
+                        }
                     }
                 }
-            } catch (e) { }
+            } catch {
+                // ignore parse errors
+            }
         });
 
         pool.sendToOpen(JSON.stringify(["REQ", subId, filter]));
         return () => {
-            try { pool.sendToOpen(JSON.stringify(["CLOSE", subId])); cleanup(); } catch (e) { }
+            try {
+                pool.sendToOpen(JSON.stringify(["CLOSE", subId]));
+                cleanup();
+            } catch {
+                // ignore close errors
+            }
         };
     }, [visibleMemberRegistry, isOpen, pool]);
 
     if (!isOpen) return null;
 
-    const requiresMemberVote = members.length > 1;
+    const requiresMemberVote = activeMembers.length > 1;
 
     const handleSaveGeneral = async () => {
         setIsSaving(true);
@@ -403,6 +468,7 @@ export function GroupManagementDialog({
             };
             if (requiresMemberVote) {
                 await proposeDescriptorUpdate(metadataPayload);
+                toast.success("Governance proposal created");
             } else {
                 await updateMetadata(metadataPayload);
                 toast.success("Community settings updated");
@@ -430,674 +496,156 @@ export function GroupManagementDialog({
         return proposal.actionType;
     };
 
-    const navItems = [
-        { id: "general", label: "General", icon: Settings },
-        { id: "members", label: "Participants", icon: Users },
-        {
-            id: "governance",
-            label: "Governance",
-            icon: Scale,
-            badge: activeGovernanceProposals.length > 0 ? activeGovernanceProposals.length : undefined,
-        },
-        { id: "settings", label: "Safety & Privacy", icon: Shield },
-    ];
+    const handlePickAvatar = async () => {
+        const files = await pickFiles();
+        if (!files?.[0]) return;
+        setIsUploading(true);
+        try {
+            const res = await uploadFile(files[0]);
+            setEditPicture(res.url);
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
+    const communityTitle = resolveCommunityDisplayName({
+        metadataName: state.metadata?.name,
+        persistedDisplayName: group.displayName,
+        groupId: group.groupId,
+        communityId: group.communityId,
+        fallback: "Community",
+    });
+    const communityInitial = communityTitle.trim().slice(0, 1).toUpperCase() || "C";
+    const relayHost = group.relayUrl.replace(/^wss:\/\//, "").replace(/^https?:\/\//, "");
+    const syncConfidenceLevel =
+        (state as { relayEvidenceRef?: { confidenceLevel: "seed_only" | "warming_up" | "partial_eose" | "steady_state" } })
+            .relayEvidenceRef?.confidenceLevel ?? "seed_only";
+
+    const showShareInHeader = activeTab === "general" || activeTab === "settings";
 
     return (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/80 backdrop-blur-xl p-4 sm:p-6 animate-in fade-in duration-300">
-            <Card className="w-full max-w-5xl h-[85vh] bg-[#0A0A0B] border-[#1A1A1E] shadow-[0_0_100px_rgba(0,0,0,0.8)] overflow-hidden rounded-[32px] flex flex-col sm:flex-row">
-                {/* Sidebar Navigation */}
-                <div className="w-full sm:w-64 bg-[#0E0E10] border-r border-[#1A1A1E] flex flex-col">
-                    <div className="p-8 pb-4">
-                        <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-600 mb-8 px-2">Community Engine</h2>
-                        <div className="flex items-center gap-4 px-2 mb-10">
-                            <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shrink-0 overflow-hidden relative">
-                                {state.metadata?.picture ? (
-                                    <Image src={state.metadata.picture} alt="Group" fill unoptimized className="object-cover" />
-                                ) : (
-                                    <span className="text-xl font-black text-white">{group.displayName[0]}</span>
-                                )}
-                            </div>
-                            <div className="min-w-0">
-                                <p className="text-sm font-black text-white truncate">{state.metadata?.name || group.displayName}</p>
-                                <p className="text-[10px] font-bold text-zinc-500 truncate">{group.groupId.slice(0, 12)}...</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <nav className="flex-1 px-4 space-y-1">
-                        {navItems.map((item) => (
-                            <button
-                                key={item.id}
-                                onClick={() => setActiveTab(item.id as TabId)}
-                                className={cn(
-                                    "w-full flex items-center justify-between px-4 py-3.5 rounded-2xl text-xs font-black uppercase tracking-widest transition-all duration-300 group",
-                                    activeTab === item.id
-                                        ? "bg-purple-600 text-white shadow-lg shadow-purple-600/20"
-                                        : "text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.03]"
-                                )}
-                            >
-                                <div className="flex items-center gap-3">
-                                    <item.icon className={cn("h-4 w-4", activeTab === item.id ? "text-white" : "text-zinc-600 group-hover:text-zinc-400")} />
-                                    {item.label}
-                                    {"badge" in item && typeof item.badge === "number" && item.badge > 0 ? (
-                                        <span className="min-w-[1.25rem] rounded-full bg-amber-500/90 px-1.5 py-0.5 text-[10px] font-black text-black">
-                                            {item.badge}
-                                        </span>
-                                    ) : null}
-                                </div>
-                                <ChevronRight className={cn("h-3 w-3 transition-transform", activeTab === item.id ? "rotate-90 opacity-100" : "opacity-0 group-hover:opacity-40")} />
-                            </button>
-                        ))}
-                    </nav>
-
-                    <div className="p-6 border-t border-white/[0.03]">
+        <>
+            <GroupManagementShell
+                isOpen={isOpen}
+                onClose={onClose}
+                communityTitle={communityTitle}
+                communityInitial={communityInitial}
+                avatarUrl={state.metadata?.picture || editPicture || undefined}
+                relayHost={relayHost}
+                activeTab={activeTab}
+                onTabChange={setActiveTab}
+                governanceBadgeCount={activeGovernanceProposals.length}
+                headerAction={
+                    showShareInHeader ? (
                         <Button
-                            variant="ghost"
-                            onClick={onClose}
-                            className="w-full h-12 rounded-2xl bg-[#1A1A1E] text-zinc-400 hover:text-white font-black uppercase tracking-widest text-[10px]"
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => setIsQrModalOpen(true)}
+                            className="rounded-lg border-zinc-700 bg-zinc-900"
                         >
-                            <X className="h-4 w-4 mr-2" />
-                            Close Portal
+                            <QrCode className="mr-2 h-4 w-4" />
+                            Share invite
                         </Button>
-                    </div>
-                </div>
-
-                {/* Main Content Area */}
-                <div className="flex-1 flex flex-col bg-[#0A0A0B] overflow-hidden">
-                    <header className="px-10 py-8 border-b border-white/[0.03] flex items-center justify-between shrink-0">
-                        <div>
-                            <h3 className="text-2xl font-black text-white tracking-tight">
-                                {navItems.find(i => i.id === activeTab)?.label}
-                            </h3>
-                            <p className="text-xs font-bold text-zinc-500 mt-1 uppercase tracking-widest opacity-60">
-                                Global Community Identity & Metadata
-                            </p>
-                        </div>
-                        <div className="flex items-center gap-3">
+                    ) : undefined
+                }
+                footer={
+                    activeTab === "general" && isAdmin ? (
+                        <div className="flex justify-end gap-3">
+                            <Button type="button" variant="ghost" onClick={onClose} className="rounded-lg text-zinc-400 hover:text-white">
+                                Cancel
+                            </Button>
                             <Button
-                                variant="secondary"
-                                size="sm"
-                                onClick={() => setIsQrModalOpen(true)}
-                                className="rounded-xl bg-[#1A1A1E] border border-white/5 font-bold"
+                                type="button"
+                                onClick={() => void handleSaveGeneral()}
+                                disabled={isSaving}
+                                className="rounded-lg bg-violet-600 px-6 hover:bg-violet-500"
                             >
-                                <QrCode className="h-4 w-4 mr-2" />
-                                Share Access
+                                {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                                {requiresMemberVote ? "Propose changes" : "Save changes"}
                             </Button>
                         </div>
-                    </header>
+                    ) : undefined
+                }
+            >
+                {activeTab === "general" ? (
+                    <GroupManagementGeneralPanel
+                        editName={editName}
+                        setEditName={setEditName}
+                        editAbout={editAbout}
+                        setEditAbout={setEditAbout}
+                        editPicture={editPicture}
+                        editAccess={editAccess}
+                        setEditAccess={setEditAccess}
+                        isAdmin={isAdmin}
+                        isUploading={isUploading}
+                        onPickAvatar={() => void handlePickAvatar()}
+                        requiresMemberVote={requiresMemberVote}
+                        communityMode={group.communityMode}
+                        relayUrl={group.relayUrl}
+                        relayCapabilities={relayCapabilities}
+                        isRelayCapabilitiesLoading={isRelayCapabilitiesLoading}
+                    />
+                ) : null}
 
-                    <div className="flex-1 overflow-y-auto p-10 custom-scrollbar">
-                        {activeTab === "general" && (
-                            <div className="max-w-2xl space-y-10">
-                                {/* Community Branding */}
-                                <div className="space-y-6">
-                                    <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-purple-500">Visual Identity</Label>
-                                    <div className="flex items-center gap-8">
-                                        <div className="relative group/avatar shrink-0">
-                                            <div className="h-32 w-32 rounded-[40px] bg-[#1A1A1E] border-2 border-dashed border-[#2A2A2E] flex items-center justify-center overflow-hidden transition-all group-hover/avatar:border-purple-500/50">
-                                                {editPicture ? (
-                                                    <Image src={editPicture} alt="Avatar" fill unoptimized className="object-cover" />
-                                                ) : (
-                                                    <Camera className="h-8 w-8 text-zinc-700" />
-                                                )}
-                                                {isUploading && (
-                                                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                                                        <Loader2 className="h-6 w-6 text-white animate-spin" />
-                                                    </div>
-                                                )}
-                                            </div>
-                                            {isAdmin && (
-                                                <button
-                                                    onClick={async () => {
-                                                        const files = await pickFiles();
-                                                        if (files?.[0]) {
-                                                            setIsUploading(true);
-                                                            try {
-                                                                const res = await uploadFile(files[0]);
-                                                                setEditPicture(res.url);
-                                                            } finally {
-                                                                setIsUploading(false);
-                                                            }
-                                                        }
-                                                    }}
-                                                    className="absolute -bottom-2 -right-2 h-10 w-10 rounded-2xl bg-purple-600 text-white flex items-center justify-center shadow-xl hover:scale-110 active:scale-95 transition-all"
-                                                >
-                                                    <Camera className="h-4 w-4" />
-                                                </button>
-                                            )}
-                                        </div>
-                                        <div className="space-y-2">
-                                            <h4 className="text-white font-black text-lg">Community Avatar</h4>
-                                            <p className="text-zinc-500 text-sm leading-relaxed max-w-xs font-medium">
-                                                The primary icon for discovery. Recommended size 512x512. Max 5MB.
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
+                {activeTab === "members" ? (
+                    <GroupManagementMembersPanel
+                        visibleMemberPubkeys={visibleMemberRegistry}
+                        relayBackedMemberPubkeys={activeMembers}
+                        provisionalMemberPubkeys={provisionalMemberPubkeys}
+                        memberSearchQuery={memberSearchQuery}
+                        setMemberSearchQuery={setMemberSearchQuery}
+                        resolvedNames={resolvedNames}
+                        onlineMemberCount={onlineMemberCount}
+                        operatorHealth={operatorHealth}
+                        myPublicKeyHex={myPublicKeyHex}
+                        isAdmin={isAdmin}
+                        mutedMembers={mutedMembers}
+                        kickingMemberPubkey={kickingMemberPubkey}
+                        currentTime={currentTime}
+                        onInvite={() => setIsInviteModalOpen(true)}
+                        onToggleMute={toggleMute}
+                        onVoteKick={(pubkey) => void handleVoteKick(pubkey)}
+                        syncConfidenceLevel={syncConfidenceLevel}
+                        isPoolConnected={pool !== null}
+                        terminalRecordCount={terminalRecordCount}
+                        onReconcileMembership={handleReconcileMembership}
+                        onClearTerminalMembership={handleClearTerminalMembership}
+                    />
+                ) : null}
 
-                                {/* Form Fields */}
-                                <div className="space-y-8">
-                                    <div className="space-y-3">
-                                        <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 ml-1">Community Name</Label>
-                                        <Input
-                                            value={editName}
-                                            onChange={(e) => setEditName(e.target.value)}
-                                            disabled={!isAdmin}
-                                            className="h-14 bg-[#0E0E10] border-[#1A1A1E] text-white rounded-[20px] font-bold focus:ring-purple-500/30"
-                                        />
-                                    </div>
-                                    <div className="space-y-3">
-                                        <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 ml-1">About / Manifest</Label>
-                                        <Textarea
-                                            value={editAbout}
-                                            onChange={(e) => setEditAbout(e.target.value)}
-                                            disabled={!isAdmin}
-                                            placeholder="What is the purpose of this community?"
-                                            className="min-h-[140px] bg-[#0E0E10] border-[#1A1A1E] text-white rounded-[24px] font-medium resize-none focus:ring-purple-500/30 leading-relaxed"
-                                        />
-                                    </div>
+                {activeTab === "governance" ? (
+                    <GroupManagementGovernancePanel
+                        proposals={activeGovernanceProposals}
+                        myPublicKeyHex={myPublicKeyHex}
+                        describeProposal={describeGovernanceProposal}
+                        onVote={(params) => void castGovernanceVote(params)}
+                    />
+                ) : null}
 
-                                    {/* Privacy Toggles */}
-                                    <div className="space-y-4">
-                                        <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 ml-1">Privacy Mode</Label>
-                                        <div className="grid grid-cols-3 bg-[#0E0E10] p-1.5 rounded-[24px] border border-[#1A1A1E] gap-2">
-                                            {(["open", "discoverable", "invite-only"] as const).map((mode) => (
-                                                <button
-                                                    key={mode}
-                                                    onClick={() => setEditAccess(mode)}
-                                                    className={cn(
-                                                        "flex flex-col items-center justify-center py-4 rounded-[20px] transition-all duration-300",
-                                                        editAccess === mode
-                                                            ? "bg-[#1A1A1E] text-white shadow-xl ring-1 ring-white/5"
-                                                            : "text-zinc-600 hover:text-zinc-400 opacity-60 grayscale"
-                                                    )}
-                                                >
-                                                    {mode === "open" && <Globe className={cn("h-5 w-5 mb-2", editAccess === mode ? "text-purple-400" : "")} />}
-                                                    {mode === "discoverable" && <Users className={cn("h-5 w-5 mb-2", editAccess === mode ? "text-purple-400" : "")} />}
-                                                    {mode === "invite-only" && <Lock className={cn("h-5 w-5 mb-2", editAccess === mode ? "text-rose-400" : "")} />}
-                                                    <span className="text-[10px] font-black uppercase tracking-widest">{mode === "discoverable" ? "Listed" : mode}</span>
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Community Mode Badge - Shows Sovereign Room vs Managed Workspace */}
-                                <CommunityModeBadge
-                                    mode={group.communityMode}
-                                    enabledRelayUrls={[group.relayUrl].filter(Boolean)}
-                                    selectedRelayHost={group.relayUrl}
-                                    className="w-full"
-                                />
-
-                                {/* Relay Capability Badge - Shows NIP support and basic relay features */}
-                                <div className="space-y-4">
-                                    <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 ml-1">
-                                        Relay Infrastructure
-                                    </Label>
-                                    <RelayCapabilityBadge
-                                        capabilities={relayCapabilities}
-                                        relayUrl={group.relayUrl}
-                                        isLoading={isRelayCapabilitiesLoading}
-                                        className="w-full"
-                                    />
-                                    <p className="text-[10px] text-zinc-600 ml-1">
-                                        Shows which Nostr protocol features this relay supports. Used for media uploads and extended functionality.
-                                    </p>
-                                </div>
-
-                                {requiresMemberVote && isAdmin && (
-                                    <p className="text-xs text-amber-400/90 font-medium leading-relaxed">
-                                        This room has multiple members. Name and descriptor changes require a member vote (Governance tab).
-                                    </p>
-                                )}
-                                {isAdmin && (
-                                    <div className="pt-6 border-t border-white/[0.03]">
-                                        <Button
-                                            onClick={handleSaveGeneral}
-                                            disabled={isSaving}
-                                            className="h-14 px-10 rounded-[20px] bg-purple-600 hover:bg-purple-700 text-white font-black shadow-xl shadow-purple-600/20 transition-all hover:scale-105"
-                                        >
-                                            {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                                            {requiresMemberVote ? "Propose Identity Changes" : "Commit Identity Changes"}
-                                        </Button>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                        {activeTab === "governance" && (
-                            <div className="max-w-2xl space-y-8">
-                                <div>
-                                    <h4 className="text-white font-black text-xl">Open proposals</h4>
-                                    <p className="text-zinc-500 text-sm mt-2 leading-relaxed">
-                                        Member-vote governance for rename and expulsion. Accepted proposals apply when quorum is reached.
-                                    </p>
-                                </div>
-                                {activeGovernanceProposals.length === 0 ? (
-                                    <div className="p-8 bg-[#0E0E10] border border-[#1A1A1E] rounded-[28px] text-center">
-                                        <Scale className="h-8 w-8 text-zinc-600 mx-auto mb-3" />
-                                        <p className="text-zinc-500 text-sm">No open proposals.</p>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-4">
-                                        {activeGovernanceProposals.map((proposal) => {
-                                            const myVote = myPublicKeyHex ? proposal.votes[myPublicKeyHex] : undefined;
-                                            const approveCount = Object.values(proposal.votes).filter((v) => v === "approve").length;
-                                            return (
-                                                <div
-                                                    key={proposal.proposalId}
-                                                    className="p-6 bg-[#0E0E10] border border-[#1A1A1E] rounded-[28px] space-y-4"
-                                                >
-                                                    <div>
-                                                        <p className="text-white font-black">{describeGovernanceProposal(proposal)}</p>
-                                                        <p className="text-[10px] text-zinc-500 mt-1 uppercase tracking-widest">
-                                                            {approveCount} / {proposal.quorumThreshold} approvals · proposed by {proposal.proposerPublicKeyHex.slice(0, 8)}…
-                                                        </p>
-                                                    </div>
-                                                    {!myVote && myPublicKeyHex && (
-                                                        <div className="flex gap-2">
-                                                            <Button
-                                                                size="sm"
-                                                                className="rounded-xl bg-emerald-600 hover:bg-emerald-700 font-bold"
-                                                                onClick={() => void castGovernanceVote({ proposalId: proposal.proposalId, vote: "approve" })}
-                                                            >
-                                                                Approve
-                                                            </Button>
-                                                            <Button
-                                                                size="sm"
-                                                                variant="secondary"
-                                                                className="rounded-xl font-bold"
-                                                                onClick={() => void castGovernanceVote({ proposalId: proposal.proposalId, vote: "reject" })}
-                                                            >
-                                                                Reject
-                                                            </Button>
-                                                        </div>
-                                                    )}
-                                                    {myVote && (
-                                                        <p className="text-xs text-zinc-500">You voted: {myVote}</p>
-                                                    )}
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                        {activeTab === "members" && (
-                            <div className="space-y-8">
-                                <div className="flex items-center justify-between bg-[#0E0E10] p-6 rounded-[28px] border border-[#1A1A1E]">
-                                    <div className="flex items-center gap-5">
-                                        <div className="h-12 w-12 rounded-[18px] bg-indigo-500/10 flex items-center justify-center border border-indigo-500/20">
-                                            <Users className="h-5 w-5 text-indigo-400" />
-                                        </div>
-                                        <div>
-                                            <p className="text-white font-black text-lg">{visibleMemberRegistry.length} Participants</p>
-                                            <p className="text-zinc-500 text-[10px] font-black uppercase tracking-widest">
-                                                Stable Participant Directory - {onlineMemberCount} Online
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-4">
-                                        <Button
-                                            onClick={() => setIsInviteModalOpen(true)}
-                                            className="h-11 px-6 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs gap-3 shadow-lg shadow-indigo-600/20"
-                                        >
-                                            <UserPlus className="h-4 w-4" />
-                                            Invite Peer
-                                        </Button>
-                                        <div className="relative w-64 group">
-                                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-600 group-focus-within:text-purple-400 transition-colors" />
-                                            <Input
-                                                placeholder="Search participants..."
-                                                value={memberSearchQuery}
-                                                onChange={(e) => setMemberSearchQuery(e.target.value)}
-                                                className="pl-11 h-11 bg-[#0A0A0B] border-[#1A1A1E] text-white rounded-xl text-xs font-bold"
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-                                    <div className="rounded-[24px] border border-[#1A1A1E] bg-[#0E0E10] p-5">
-                                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">Directory Health</p>
-                                        <p className="mt-2 text-white text-2xl font-black">{operatorHealth.activeMemberCount}</p>
-                                        <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">active / {operatorHealth.knownMemberCount} known</p>
-                                        <div className="mt-4 flex items-center gap-2 text-[10px] font-black uppercase tracking-wider">
-                                            <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-1 text-emerald-400">{operatorHealth.onlineMemberCount} online</span>
-                                            <span className="rounded-full border border-zinc-500/25 bg-zinc-500/10 px-2 py-1 text-zinc-400">{operatorHealth.offlineMemberCount} offline</span>
-                                        </div>
-                                    </div>
-
-                                    <div className="rounded-[24px] border border-[#1A1A1E] bg-[#0E0E10] p-5">
-                                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">Governance Pressure</p>
-                                        <p className="mt-2 text-white text-2xl font-black">{operatorHealth.targetsWithKickVotes}</p>
-                                        <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">targets with active kick votes</p>
-                                        <p className="mt-3 text-[11px] text-zinc-300">
-                                            Total votes: <span className="font-black text-white">{operatorHealth.totalKickVotes}</span> · quorum: <span className="font-black text-white">{operatorHealth.quorumThreshold}</span>
-                                        </p>
-                                        {operatorHealth.highestKickPressure && (
-                                            <p className="mt-2 text-[10px] font-bold uppercase tracking-wider text-amber-300">
-                                                Highest pressure {operatorHealth.highestKickPressure.voteCount}/{Math.max(operatorHealth.quorumThreshold, 1)}
-                                                {operatorHealth.highestKickPressure.nearQuorum ? " (near quorum)" : ""}
-                                            </p>
-                                        )}
-                                    </div>
-
-                                    <div className="rounded-[24px] border border-[#1A1A1E] bg-[#0E0E10] p-5">
-                                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">Lifecycle Drift</p>
-                                        <div className="mt-3 flex flex-wrap gap-2 text-[10px] font-black uppercase tracking-wider">
-                                            <span className="rounded-full border border-zinc-500/25 bg-zinc-500/10 px-2 py-1 text-zinc-300">{operatorHealth.leftMemberCount} left</span>
-                                            <span className="rounded-full border border-rose-500/25 bg-rose-500/10 px-2 py-1 text-rose-300">{operatorHealth.expelledMemberCount} expelled</span>
-                                            <span className={cn(
-                                                "rounded-full border px-2 py-1",
-                                                operatorHealth.disbanded
-                                                    ? "border-rose-500/40 bg-rose-500/10 text-rose-300"
-                                                    : "border-emerald-500/25 bg-emerald-500/10 text-emerald-300"
-                                            )}>
-                                                {operatorHealth.disbanded ? "disbanded" : "active"}
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="rounded-[24px] border border-[#1A1A1E] bg-[#0E0E10] p-5">
-                                    <div className="flex items-center gap-2">
-                                        <ShieldCheck className="h-4 w-4 text-indigo-400" />
-                                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">Operator Signals</p>
-                                    </div>
-                                    <div className="mt-3 space-y-2">
-                                        {operatorHealth.signals.map((signal) => (
-                                            <div
-                                                key={signal.id}
-                                                className={cn(
-                                                    "rounded-2xl border px-3 py-2",
-                                                    signal.severity === "critical"
-                                                        ? "border-rose-500/30 bg-rose-500/10 text-rose-200"
-                                                        : signal.severity === "warn"
-                                                            ? "border-amber-500/30 bg-amber-500/10 text-amber-100"
-                                                            : "border-indigo-500/25 bg-indigo-500/10 text-indigo-100"
-                                                )}
-                                            >
-                                                <p className="text-[10px] font-black uppercase tracking-[0.14em]">{signal.label}</p>
-                                                <p className="mt-1 text-[11px] leading-relaxed opacity-90">{signal.detail}</p>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                {/* Sync indicator shows when community is still synchronizing */}
-                                <CommunitySyncIndicator
-                                    confidenceLevel={(state as { relayEvidenceRef?: { confidenceLevel: "seed_only" | "warming_up" | "partial_eose" | "steady_state" } }).relayEvidenceRef?.confidenceLevel ?? "seed_only"}
-                                    memberCount={visibleMemberRegistry.length}
-                                    isConnected={pool !== null}
-                                />
-
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {visibleMemberRegistry
-                                        .filter(pk => {
-                                            const q = memberSearchQuery.toLowerCase();
-                                            const name = (resolvedNames[pk] || "").toLowerCase();
-                                            return pk.toLowerCase().includes(q) || name.includes(q);
-                                        })
-                                        .map((pk) => {
-                                            const admin = admins.find(a => a.pubkey === pk);
-                                            const isOwner = admin?.roles.some(r => ["owner", "admin"].includes(r.toLowerCase()));
-                                            const isMod = admin && !isOwner;
-                                            const isMe = pk === myPublicKeyHex;
-                                            const isMuted = mutedMembers.includes(pk);
-                                            return (
-                                                <div
-                                                    key={pk}
-                                                    onClick={() => router.push(getPublicProfileHref(pk))}
-                                                    className="flex items-center gap-4 p-5 bg-[#0E0E10] border border-[#1A1A1E] rounded-[24px] hover:border-purple-500/30 transition-all group/member cursor-pointer"
-                                                >
-                                                    <div className="relative h-12 w-12 rounded-2xl bg-[#1A1A1E] flex items-center justify-center border border-white/5 shrink-0">
-                                                        {isMuted ? (
-                                                            <Bell className="h-5 w-5 text-rose-500 opacity-50" />
-                                                        ) : (
-                                                            <Shield className="h-5 w-5 text-indigo-500/60" />
-                                                        )}
-                                                    </div>
-                                                    <div className="flex-1 min-w-0">
-                                                        <div className="flex items-center gap-2">
-                                                            <p className="text-sm font-black text-white truncate">
-                                                                {resolvedNames[pk] || "Unknown member"}
-                                                            </p>
-                                                            {isMe && <span className="text-[8px] font-black px-1.5 py-0.5 rounded bg-white/5 text-zinc-400 border border-white/5">ME</span>}
-                                                            {isMuted && <span className="text-[8px] font-black px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-500 border border-rose-500/20 uppercase">MUTED</span>}
-                                                            {/* Presence badge - shows "Seen X ago" instead of binary online/offline */}
-                                                            <PresenceBadge
-                                                                publicKeyHex={pk as PublicKeyHex}
-                                                                currentTime={currentTime}
-                                                            />
-                                                        </div>
-                                                    </div>
-
-                                                    {!isMe && (
-                                                        <DropdownMenu>
-                                                            <DropdownMenuTrigger asChild>
-                                                                <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl opacity-0 group-hover/member:opacity-100 bg-[#1A1A1E] text-zinc-500">
-                                                                    <MoreVertical className="h-4 w-4" />
-                                                                </Button>
-                                                            </DropdownMenuTrigger>
-                                                            <DropdownMenuContent align="end" className="bg-[#1A1A1E] border-white/5 rounded-2xl p-2 w-48 shadow-2xl">
-                                                                <DropdownMenuLabel className="text-[10px] font-black uppercase p-2 text-zinc-500">Participant Options</DropdownMenuLabel>
-                                                                <DropdownMenuSeparator className="bg-white/5" />
-
-                                                                <DropdownMenuItem onClick={() => toggleMute(pk)} className="rounded-xl font-bold gap-3 focus:bg-indigo-500/10 focus:text-indigo-400 cursor-pointer">
-                                                                    {isMuted ? <Bell className="h-4 w-4" /> : <X className="h-4 w-4" />}
-                                                                    {isMuted ? "Unmute Participant" : "Mute Participant"}
-                                                                </DropdownMenuItem>
-
-                                                                {isAdmin && (
-                                                                    <>
-                                                                        <DropdownMenuSeparator className="bg-white/5" />
-                                                                        <DropdownMenuLabel className="text-[10px] font-black uppercase p-2 text-zinc-500">Moderation</DropdownMenuLabel>
-
-
-
-                                                                        <DropdownMenuItem
-                                                                            onClick={() => handleVoteKick(pk)}
-                                                                            disabled={kickingMemberPubkey === pk}
-                                                                            className="rounded-xl font-bold gap-3 text-rose-500 focus:bg-rose-500/10 focus:text-rose-400 cursor-pointer disabled:opacity-50"
-                                                                        >
-                                                                            {kickingMemberPubkey === pk ? (
-                                                                                <Loader2 className="h-4 w-4 animate-spin" />
-                                                                            ) : (
-                                                                                <UserMinus className="h-4 w-4" />
-                                                                            )}
-                                                                            {kickingMemberPubkey === pk ? "Submitting Vote..." : "Vote to Kick"}
-                                                                        </DropdownMenuItem>
-                                                                    </>
-                                                                )}
-                                                            </DropdownMenuContent>
-                                                        </DropdownMenu>
-                                                    )}
-                                                </div>
-                                            );
-                                        })}
-                                </div>
-
-                                {/* Empty state for member list */}
-                                {visibleMemberRegistry.filter(pk => {
-                                    const q = memberSearchQuery.toLowerCase();
-                                    const name = (resolvedNames[pk] || "").toLowerCase();
-                                    return pk.toLowerCase().includes(q) || name.includes(q);
-                                }).length === 0 && (
-                                    <div className="flex flex-col items-center justify-center py-16 px-6 bg-[#0E0E10] border border-[#1A1A1E] rounded-[28px]">
-                                        <div className="h-16 w-16 rounded-2xl bg-zinc-500/10 flex items-center justify-center mb-4">
-                                            <Users className="h-8 w-8 text-zinc-600" />
-                                        </div>
-                                        <h4 className="text-white font-black text-lg mb-2">
-                                            {memberSearchQuery ? "No members found" : "No members yet"}
-                                        </h4>
-                                        <p className="text-zinc-500 text-sm text-center max-w-xs leading-relaxed">
-                                            {memberSearchQuery
-                                                ? `No members match "${memberSearchQuery}". Try a different search term.`
-                                                : "This community doesn't have any visible members yet. You may be the first to join, or members are still syncing from the relay."}
-                                        </p>
-                                        {!memberSearchQuery && (
-                                            <div className="mt-6 flex items-center gap-2 text-xs text-zinc-600">
-                                                <Loader2 className="h-3 w-3 animate-spin" />
-                                                <span>Waiting for member gossip...</span>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-
-
-                        {activeTab === "settings" && (
-                            <div className="max-w-2xl space-y-12">
-                                <div className="space-y-6">
-                                    <h4 className="text-white font-black text-xl">Governance & Safety</h4>
-
-                                    <div className="space-y-4">
-                                        {/* Notifications */}
-                                        <div className="p-6 bg-[#0E0E10] border border-[#1A1A1E] rounded-[28px] flex items-center gap-6 group hover:border-[#2A2A2E] transition-all">
-                                            <div className="h-14 w-14 rounded-2xl bg-indigo-500/10 flex items-center justify-center border border-indigo-500/20 group-hover:bg-indigo-500/20 transition-all">
-                                                <Bell className="h-6 w-6 text-indigo-400" />
-                                            </div>
-                                            <div className="flex-1">
-                                                <p className="text-white font-black">Feed Notifications</p>
-                                                <p className="text-zinc-500 text-[11px] font-medium leading-relaxed mt-1">Toggle browser and system push notifications for new community activity.</p>
-                                            </div>
-                                            <button
-                                                onClick={toggleNotifications}
-                                                className={cn(
-                                                    "h-8 w-14 rounded-full border border-white/5 flex items-center px-1 transition-all duration-300",
-                                                    notificationsEnabled ? "bg-indigo-600" : "bg-[#1A1A1E]"
-                                                )}
-                                            >
-                                                <div className={cn(
-                                                    "h-6 w-6 rounded-full transition-all duration-300 shadow-sm",
-                                                    notificationsEnabled ? "bg-white ml-6" : "bg-zinc-600 ml-0"
-                                                )} />
-                                            </button>
-                                        </div>
-
-                                        {/* External Links */}
-                                        <div className="p-6 bg-[#0E0E10] border border-[#1A1A1E] rounded-[28px] flex items-center gap-6 group hover:border-[#2A2A2E] transition-all">
-                                            <div className="h-14 w-14 rounded-2xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20">
-                                                <Share2 className="h-6 w-6 text-emerald-400" />
-                                            </div>
-                                            <div className="flex-1">
-                                                <p className="text-white font-black">External Portals</p>
-                                                <p className="text-zinc-500 text-[11px] font-medium leading-relaxed mt-1">Generate deep-links and QR codes for external cross-relay discovery.</p>
-                                            </div>
-                                            <Button variant="secondary" className="h-10 rounded-xl bg-[#1A1A1E] border-white/5 font-bold" onClick={() => setIsQrModalOpen(true)}>Generate</Button>
-                                        </div>
-
-                                        {/* Key Rotation */}
-                                        <div className="p-6 bg-[#0E0E10] border border-[#1A1A1E] rounded-[28px] flex items-center gap-6 group hover:border-[#2A2A2E] transition-all">
-                                            <div className="h-14 w-14 rounded-2xl bg-rose-500/10 flex items-center justify-center border border-rose-500/20 group-hover:bg-rose-500/20 transition-all">
-                                                <RotateCcw className="h-6 w-6 text-rose-400" />
-                                            </div>
-                                            <div className="flex-1">
-                                                <p className="text-white font-black">Rotate Room Key</p>
-                                                <p className="text-zinc-500 text-[11px] font-medium leading-relaxed mt-1">Generate a new Room Key and distribute it to all non-expelled participants with current membership evidence via NIP-17 DM.</p>
-                                            </div>
-                                            <Button
-                                                variant="ghost"
-                                                onClick={handleRotateKey}
-                                                disabled={isRotatingKey}
-                                                className="h-10 px-6 rounded-xl bg-rose-500/10 text-rose-500 font-bold gap-2 hover:bg-rose-500/20 disabled:opacity-50"
-                                            >
-                                                {isRotatingKey ? (
-                                                                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                                ) : (
-                                                                                <RotateCcw className="h-3.5 w-3.5" />
-                                                )}
-                                                {isRotatingKey ? "Rotating..." : "Rotate"}
-                                            </Button>
-                                        </div>
-
-                                        {/* Export & Backup */}
-                                        <div className="p-6 bg-[#0E0E10] border border-[#1A1A1E] rounded-[28px] flex items-center gap-6 group hover:border-[#2A2A2E] transition-all">
-                                            <div className="h-14 w-14 rounded-2xl bg-amber-500/10 flex items-center justify-center border border-amber-500/20">
-                                                <Download className="h-6 w-6 text-amber-400" />
-                                            </div>
-                                            <div className="flex-1">
-                                                <p className="text-white font-black">Backup Community</p>
-                                                <p className="text-zinc-500 text-[11px] font-medium leading-relaxed mt-1">Export community metadata and Room Keys to a secure JSON file.</p>
-                                            </div>
-                                            <Button
-                                                variant="ghost"
-                                                onClick={exportCommunity}
-                                                className="h-10 px-6 rounded-xl bg-[#1A1A1E] text-white font-bold gap-2 hover:bg-[#252529]"
-                                            >
-                                                <Download className="h-3.5 w-3.5" /> Backup
-                                            </Button>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Danger Zone */}
-                                <div className="space-y-6 pt-10 border-t border-white/[0.03]">
-                                    <div className="flex items-center gap-3">
-                                        <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-rose-500">Hazard Boundary</Label>
-                                        <div className="h-px flex-1 bg-gradient-to-r from-rose-500/20 to-transparent" />
-                                    </div>
-
-                                    <div className="grid grid-cols-1 gap-4">
-                                        <div className="p-6 bg-rose-500/[0.03] border border-rose-500/10 rounded-[28px] flex items-center justify-between group">
-                                            <div className="flex items-center gap-5">
-                                                <div className="h-12 w-12 rounded-2xl bg-rose-500/10 flex items-center justify-center border border-rose-500/20">
-                                                    <LogOut className="h-5 w-5 text-rose-500" />
-                                                </div>
-                                                <div>
-                                                    <p className="text-white font-black">Sever Connection</p>
-                                                    <p className="text-zinc-600 text-[10px] font-bold uppercase tracking-widest mt-0.5">Leave Community Instance</p>
-                                                </div>
-                                            </div>
-                                            <Button
-                                                onClick={openLeaveConfirmation}
-                                                className="h-12 px-6 rounded-2xl bg-rose-500/10 text-rose-500 hover:bg-rose-600 hover:text-white border border-rose-500/20 font-black tracking-wide"
-                                            >
-                                                Leave
-                                            </Button>
-                                        </div>
-
-                                        {isAdmin && isOwner && (
-                                            <div className="p-6 bg-rose-900/10 border border-rose-500/20 rounded-[28px] flex items-center justify-between">
-                                                <div className="flex items-center gap-5">
-                                                    <div className="h-12 w-12 rounded-2xl bg-rose-600 flex items-center justify-center shadow-lg shadow-rose-600/20">
-                                                        <Trash2 className="h-5 w-5 text-white" />
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-white font-black">Total Deletion</p>
-                                                        <p className="text-rose-500/60 text-[10px] font-black uppercase tracking-widest mt-0.5">Irreversible Group Destruction</p>
-                                                    </div>
-                                                </div>
-                                                <Button
-                                                    variant="danger"
-                                                    className="h-12 px-8 rounded-2xl font-black uppercase tracking-widest text-[10px]"
-                                                    onClick={openPurgeConfirmation}
-                                                >
-                                                    Purge Community
-                                                </Button>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            </Card>
+                {activeTab === "settings" ? (
+                    <GroupManagementSettingsPanel
+                        notificationsEnabled={notificationsEnabled}
+                        onToggleNotifications={toggleNotifications}
+                        onShareInvite={() => setIsQrModalOpen(true)}
+                        isRotatingKey={isRotatingKey}
+                        onRotateKey={() => void handleRotateKey()}
+                        onExport={() => void exportCommunity()}
+                        onLeave={openLeaveConfirmation}
+                        onPurge={openPurgeConfirmation}
+                        showPurge={isAdmin && isOwner}
+                    />
+                ) : null}
+            </GroupManagementShell>
 
             <Dialog open={isQrModalOpen} onOpenChange={setIsQrModalOpen}>
-                <DialogContent className="sm:max-w-md bg-[#0A0A0B] border-white/10 p-0 overflow-hidden rounded-[32px]">
-                    <DialogHeader className="p-8 pb-0 text-center">
-                        <DialogTitle className="text-white font-black text-xl">Universal Discovery Portal</DialogTitle>
-                        <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest mt-2">Scan to Join Grid</p>
+                <DialogContent className="border-zinc-800 bg-zinc-950 sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="text-white">Invite to community</DialogTitle>
+                        <p className="text-sm text-zinc-500">Scan the code or copy the join link.</p>
                     </DialogHeader>
-                    <div className="p-8">
-                        <div className="bg-white p-6 rounded-[32px] shadow-2xl overflow-hidden mb-8 transform hover:scale-[1.02] transition-all">
+                    <div className="space-y-4 p-2">
+                        <div className="overflow-hidden rounded-xl bg-white p-4">
                             <GroupQRCode
                                 groupId={group.groupId}
                                 relayUrl={group.relayUrl}
@@ -1106,15 +654,16 @@ export function GroupManagementDialog({
                             />
                         </div>
                         <Button
-                            className="w-full h-14 bg-indigo-500 hover:bg-indigo-600 text-white rounded-[20px] font-black shadow-xl shadow-indigo-500/20"
+                            type="button"
+                            className="w-full rounded-lg bg-violet-600 hover:bg-violet-500"
                             onClick={() => {
                                 const url = `${toAbsoluteAppUrl(getPublicGroupHref(group.groupId, group.relayUrl))}${roomKeyHex ? `#k=${roomKeyHex}` : ""}`;
-                                navigator.clipboard.writeText(url);
-                                toast.success("Access link copied to clipboard");
+                                void navigator.clipboard.writeText(url);
+                                toast.success("Join link copied");
                             }}
                         >
-                            <Share2 className="h-5 w-5 mr-3" />
-                            Copy Access Link
+                            <Share2 className="mr-2 h-4 w-4" />
+                            Copy join link
                         </Button>
                     </div>
                 </DialogContent>
@@ -1129,7 +678,7 @@ export function GroupManagementDialog({
                 communityId={group.communityId}
                 genesisEventId={group.genesisEventId}
                 creatorPubkey={group.creatorPubkey}
-                currentMemberPubkeys={activeMembers}
+                currentMemberPubkeys={mergedManagementMemberPubkeys}
                 metadata={{
                     id: group.groupId,
                     name: resolveCommunityDisplayName({
@@ -1141,10 +690,9 @@ export function GroupManagementDialog({
                     }),
                     about: state.metadata?.about || "",
                     picture: state.metadata?.picture || "",
-                    access: state.metadata?.access || "invite-only"
+                    access: state.metadata?.access || "invite-only",
                 }}
             />
-
-        </div>
+        </>
     );
 }

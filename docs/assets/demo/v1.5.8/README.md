@@ -35,6 +35,7 @@ Complete sign-off in [v1.5.7/README.md](../v1.5.7/README.md):
 | G1.1 | Two-member rename approve → descriptor | ☐ |
 | G1.2 | Three-member expel via governance | ☐ |
 | G1.3 | Tie vote close (optional) | ☐ |
+| G1.4 | Invite accept + evidence tiers / re-invite recovery | ☐ |
 
 ---
 

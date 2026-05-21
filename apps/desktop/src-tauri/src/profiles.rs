@@ -4,17 +4,12 @@ use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder}
 use tokio::sync::Mutex;
 use std::fs;
 
+use crate::native_keychain;
 use crate::session::SessionState;
 
 const REGISTRY_FILE: &str = "profiles_registry.json";
-const APP_SERVICE: &str = "app.obscur.desktop";
-const KEY_NAME: &str = "nsec";
 const DEFAULT_PROFILE_ID: &str = "default";
 const DEFAULT_PROFILE_LABEL: &str = "Default";
-
-fn key_name_for_profile(profile_id: &str) -> String {
-    format!("{KEY_NAME}::{profile_id}")
-}
 
 /// Clear the profile data directory containing WebView storage (IndexedDB, localStorage, etc.)
 /// This is best-effort and logs warnings on failure.
@@ -81,22 +76,10 @@ async fn clear_native_credentials_for_profile(app: &AppHandle, profile_id: &str,
     session.clear(Some(profile_id)).await;
     eprintln!("[PROFILES] Cleared session for profile {}", profile_id);
 
-    // Clear OS keychain (desktop only)
     #[cfg(not(target_os = "android"))]
-    {
-        use keyring::Entry;
-        let entry = Entry::new(APP_SERVICE, &key_name_for_profile(profile_id));
-        if let Ok(e) = entry {
-            match e.delete_credential() {
-                Ok(_) => eprintln!("[PROFILES] Cleared keychain for profile {}", profile_id),
-                Err(keyring::Error::NoEntry) => {
-                    // No entry exists, which is fine
-                }
-                Err(e) => {
-                    eprintln!("[PROFILES] Warning: Failed to clear keychain for profile {}: {}", profile_id, e);
-                }
-            }
-        }
+    match native_keychain::delete_nsec_for_profile(profile_id) {
+        Ok(()) => eprintln!("[PROFILES] Cleared keychain for profile {}", profile_id),
+        Err(e) => eprintln!("[PROFILES] Warning: Failed to clear keychain for profile {}: {}", profile_id, e),
     }
 }
 

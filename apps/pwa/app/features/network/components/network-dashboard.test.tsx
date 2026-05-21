@@ -1,5 +1,5 @@
 import React from "react";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NetworkDashboard } from "./network-dashboard";
 
@@ -11,7 +11,12 @@ const networkDashboardMocks = vi.hoisted(() => ({
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
-    t: (key: string, fallback?: string) => fallback ?? key,
+    t: (key: string, fallback?: string) => fallback ?? ({
+      "network.tabs.groups": "Groups",
+      "network.tabs.all": "All",
+      "network.noGroupsFound": "No groups",
+      "network.noGroupsDesc": "No groups yet",
+    }[key] ?? key),
   }),
 }));
 
@@ -160,13 +165,15 @@ describe("NetworkDashboard recovery navigation", () => {
     networkDashboardMocks.addToast.mockReset();
   });
 
-  it("routes an empty Groups tab into Discovery instead of opening a new local group flow", () => {
+  it("routes an empty Groups tab into Discovery instead of opening a new local group flow", async () => {
     render(<NetworkDashboard />);
 
-    fireEvent.click(screen.getByRole("button", { name: "network.tabs.groups" }));
+    fireEvent.click(screen.getByRole("button", { name: "Groups" }));
     fireEvent.click(screen.getByRole("button", { name: /Browse Communities/i }));
 
-    expect(screen.getByText("Mock Discovery Surface")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText("Mock Discovery Surface")).toBeInTheDocument();
+    });
     expect(networkDashboardMocks.setIsNewGroupOpen).not.toHaveBeenCalled();
   });
 });

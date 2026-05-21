@@ -2,9 +2,8 @@
 
 import React, { useState } from "react";
 import { Button } from "@dweb/ui-kit";
-import { ShieldCheck, Users, Clock } from "lucide-react";
+import { ShieldCheck, Users, Clock, AlertTriangle } from "lucide-react";
 import { CommunityInviteStatusBanner } from "./community-invite-status-banner";
-import { Avatar, AvatarImage, AvatarFallback } from "@dweb/ui-kit";
 import { useTranslation } from "react-i18next";
 import { toast } from "@dweb/ui-kit";
 import { roomKeyStore } from "@/app/features/crypto/room-key-store";
@@ -18,24 +17,33 @@ import type { GroupAccessMode } from "../types";
 import { toGroupConversationId } from "../utils/group-conversation-id";
 import { deriveCommunityId } from "../utils/community-identity";
 import { dispatchGroupInviteReceived } from "@/app/features/profiles/services/profile-bus-dispatch";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
+import { reinstateCommunityMemberTerminalEvidence } from "../services/community-terminal-membership-cache";
+import {
+    normalizeCommunityInvitePayload,
+    type InvitePayload,
+} from "../utils/community-invite-payload";
+import {
+    resolveCommunityInvitePayloadFromMessage,
+    resolveCommunityInviteReplyTargetId,
+    resolveCommunityInviteRoomKeyHex,
+} from "../utils/community-invite-resolution";
+import {
+    applyCommunityInviteMessageSnapshot,
+    pinCommunityInviteMessageSnapshot,
+} from "../utils/community-invite-message-snapshot";
+import {
+    PLACEHOLDER_GROUP_DISPLAY_NAME,
+    resolveCommunityDisplayName,
+} from "../services/community-display-name";
+import {
+    isCommunityInviteActionableStatus,
+    isCommunityInviteHistoricalStatus,
+    resolveCommunityInviteCardStatus,
+    type CommunityInviteCardStatus,
+} from "../utils/community-invite-lifecycle";
 
-export interface InvitePayload {
-    type: "community-invite";
-    groupId: string;
-    roomKey: string;
-    communityId?: string;
-    genesisEventId?: string;
-    creatorPubkey?: string;
-    metadata: {
-        id: string;
-        name: string;
-        about?: string;
-        picture?: string;
-        access?: string;
-        memberCount?: number;
-    };
-    relayUrl?: string; // Optional but recommended
-}
+export type { InvitePayload };
 
 interface CommunityInviteCardProps {
     invite: InvitePayload;
@@ -47,58 +55,97 @@ interface CommunityInviteCardProps {
 }
 
 export const CommunityInviteCard = ({
-    invite,
+    invite: inviteProp,
     isOutgoing,
     message,
     messages = [],
     responseStatus,
     onSendDirectMessage
 }: CommunityInviteCardProps) => {
+    const invite = React.useMemo(() => {
+        const resolved = resolveCommunityInvitePayloadFromMessage(message, inviteProp)
+            ?? normalizeCommunityInvitePayload(inviteProp)
+            ?? inviteProp;
+        return applyCommunityInviteMessageSnapshot(message?.id, resolved) ?? resolved;
+    }, [inviteProp, message]);
+    const [storedRoomKeyHex, setStoredRoomKeyHex] = useState("");
+    React.useEffect(() => {
+        let cancelled = false;
+        void roomKeyStore.getRoomKey(invite.groupId).then((value) => {
+            if (!cancelled) {
+                setStoredRoomKeyHex(value?.trim() ?? "");
+            }
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [invite.groupId]);
+    const roomKeyHex = React.useMemo(() => {
+        const fromInvite = resolveCommunityInviteRoomKeyHex(invite, message);
+        return fromInvite || storedRoomKeyHex;
+    }, [invite, message, storedRoomKeyHex]);
+    React.useEffect(() => {
+        pinCommunityInviteMessageSnapshot(message?.id, invite);
+    }, [invite, message?.id]);
     const { t } = useTranslation();
     const { state: identityState } = useIdentity();
     const { relayPool } = useRelay();
-    const { addGroup, recordMembershipLedgerAfterInviteDecline } = useGroups();
+    const { createdGroups, addGroup, recordMembershipLedgerAfterInviteDecline } = useGroups();
     const [isProcessing, setIsProcessing] = useState(false);
     const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+    const [localResolutionStatus, setLocalResolutionStatus] = useState<
+        'accepted' | 'declined' | 'canceled' | null
+    >(null);
 
-    const resolvedResponseStatus = (() => {
-        if (responseStatus) {
-            return responseStatus;
+    const status = React.useMemo(() => {
+        if (localResolutionStatus) {
+            return localResolutionStatus;
         }
-
-        // Fallback: scan surrounding messages if caller did not pre-resolve status.
-        const response = message ? [...messages].reverse().find((m) => {
-            if (!m.replyTo || m.replyTo.messageId !== message.id) return false;
-            try {
-                const parsed = JSON.parse(m.content);
-                return parsed.type === "community-invite-response";
-            } catch {
-                return false;
-            }
-        }) : null;
-
-        if (!response) {
-            return "pending" as const;
+        if (!message) {
+            return responseStatus && responseStatus !== "pending" ? responseStatus : "pending";
         }
-
-        try {
-            const parsed = JSON.parse(response.content);
-            if (["accepted", "declined", "canceled"].includes(parsed.status)) {
-                return parsed.status as 'accepted' | 'declined' | 'canceled';
-            }
-        } catch {
-            // fallback to pending
-        }
-        return "pending" as const;
-    })();
-
-    const status = resolvedResponseStatus;
+        return resolveCommunityInviteCardStatus({
+            message,
+            messages,
+            responseStatus,
+        });
+    }, [localResolutionStatus, message, messages, responseStatus]);
+    const isHistorical = isCommunityInviteHistoricalStatus(status);
+    const isActionable = isCommunityInviteActionableStatus(status);
+    const persistedGroup = React.useMemo(
+        () => createdGroups.find((group) => (
+            group.kind === "group"
+            && group.groupId === invite.groupId
+            && (!invite.relayUrl || group.relayUrl === invite.relayUrl)
+        )),
+        [createdGroups, invite.groupId, invite.relayUrl],
+    );
+    const inviteDisplayName = React.useMemo(
+        () => resolveCommunityDisplayName({
+            metadataName: invite.metadata.name,
+            persistedDisplayName: persistedGroup?.displayName,
+            groupId: invite.groupId,
+            communityId: invite.communityId,
+            fallback: PLACEHOLDER_GROUP_DISPLAY_NAME,
+        }),
+        [invite.communityId, invite.groupId, invite.metadata.name, persistedGroup?.displayName],
+    );
+    const showRetryJoin = !isOutgoing && status === "accepted";
+    const isInviteDefective = !isOutgoing && isActionable && roomKeyHex.length === 0;
 
     const handleAccept = async () => {
-        if (!message || !onSendDirectMessage) return;
+        if (!isActionable || !message || !onSendDirectMessage) return;
+        let roomKeyToUse = roomKeyHex;
+        if (!roomKeyToUse) {
+            roomKeyToUse = (await roomKeyStore.getRoomKey(invite.groupId))?.trim() ?? "";
+        }
+        if (!roomKeyToUse) {
+            toast.error(t("groups.inviteMissingRoomKey", "This invitation is missing encryption keys. Ask the sender to resend the invite."));
+            return;
+        }
         try {
             setIsProcessing(true);
-            await roomKeyStore.saveRoomKey(invite.groupId, invite.roomKey);
+            await roomKeyStore.saveRoomKey(invite.groupId, roomKeyToUse);
 
             // Prefer the relay URL embedded in the invite. Fall back to the first
             // open relay in the pool rather than a hardcoded address.
@@ -128,7 +175,7 @@ export const CommunityInviteCard = ({
                 genesisEventId,
                 groupId: invite.groupId,
                 relayUrl: relayUrl,
-                displayName: invite.metadata.name || "Private Group",
+                displayName: inviteDisplayName,
                 memberPubkeys: [
                     identityState.publicKeyHex || "",
                     message.senderPubkey || ""
@@ -186,7 +233,7 @@ export const CommunityInviteCard = ({
             const nip29Join = await groupService.sendNip29Join({ groupId: invite.groupId });
             const sealedJoin = await groupService.sendSealedJoin({
                 groupId: invite.groupId,
-                roomKeyHex: invite.roomKey
+                roomKeyHex: roomKeyToUse,
             });
 
             const [nip29JoinPublished, sealedJoinPublished] = await Promise.all([
@@ -199,6 +246,17 @@ export const CommunityInviteCard = ({
 
             addGroup(newGroup, { allowRevive: true });
             dispatchGroupInviteReceived(newGroup);
+            if (relayUrl) {
+                reinstateCommunityMemberTerminalEvidence({
+                    groupId: invite.groupId,
+                    relayUrl,
+                    memberPubkeys: [
+                        identityState.publicKeyHex || "",
+                        message.senderPubkey || "",
+                    ].filter(Boolean),
+                    profileId: getResolvedProfileId(),
+                });
+            }
 
             await onSendDirectMessage({
                 recipientPubkey: message.senderPubkey || "",
@@ -209,10 +267,15 @@ export const CommunityInviteCard = ({
                     relayUrl,
                     communityId
                 }),
-                replyTo: message.id
+                replyTo: resolveCommunityInviteReplyTargetId(message),
             });
 
-            toast.success(t("groups.inviteAccepted", "You have joined {{name}}", { name: invite.metadata.name }));
+            setLocalResolutionStatus("accepted");
+            toast.success(t(
+                "groups.inviteAcceptedRelayHonest",
+                "Acceptance recorded for {{name}}. Relay-visible membership may still lag—verify participants when needed.",
+                { name: inviteDisplayName },
+            ));
         } catch (error) {
             console.error("Failed to accept invite:", error);
             toast.error(t("groups.inviteError", "Failed to join group. Secret key error."));
@@ -222,7 +285,7 @@ export const CommunityInviteCard = ({
     };
 
     const handleDecline = async () => {
-        if (!message || !onSendDirectMessage) return;
+        if (!isActionable || !message || !onSendDirectMessage) return;
         try {
             setIsProcessing(true);
             await onSendDirectMessage({
@@ -234,7 +297,7 @@ export const CommunityInviteCard = ({
                     relayUrl: invite.relayUrl,
                     communityId: invite.communityId
                 }),
-                replyTo: message.id
+                replyTo: resolveCommunityInviteReplyTargetId(message),
             });
 
             const fallbackRelay = relayPool.connections.find((c: { url: string }) => c.url)?.url ?? "";
@@ -263,7 +326,7 @@ export const CommunityInviteCard = ({
                     genesisEventId,
                     groupId: invite.groupId,
                     relayUrl,
-                    displayName: invite.metadata.name || "Private Group",
+                    displayName: inviteDisplayName,
                     memberPubkeys: [
                         identityState.publicKeyHex || "",
                         message.senderPubkey || "",
@@ -278,7 +341,8 @@ export const CommunityInviteCard = ({
                 });
             }
 
-            toast.info(t("groups.inviteDeclined", "You declined the invitation to {{name}}", { name: invite.metadata.name }));
+            setLocalResolutionStatus("declined");
+            toast.info(t("groups.inviteDeclined", "You declined the invitation to {{name}}", { name: inviteDisplayName }));
         } catch (error) {
             console.error("Failed to decline invite:", error);
             toast.error(t("groups.declineError", "Failed to send decline response."));
@@ -288,7 +352,7 @@ export const CommunityInviteCard = ({
     };
 
     const handleCancel = async () => {
-        if (!message || !onSendDirectMessage) return;
+        if (!isActionable || !message || !onSendDirectMessage) return;
         try {
             setIsProcessing(true);
 
@@ -310,10 +374,11 @@ export const CommunityInviteCard = ({
                     relayUrl: invite.relayUrl,
                     communityId: invite.communityId
                 }),
-                replyTo: message.id
+                replyTo: resolveCommunityInviteReplyTargetId(message),
             });
             // Phase 3 M3: do not call recordMembershipLedgerAfterInviteDecline here — the inviter may still be
             // relay-joined as admin; cancel only withdraws the invite to the peer, not local membership exit.
+            setLocalResolutionStatus("canceled");
             toast.success(t("groups.inviteCanceled", "Invitation canceled successfully"));
         } catch (error) {
             console.error("Failed to cancel invite:", error);
@@ -325,17 +390,18 @@ export const CommunityInviteCard = ({
 
     const inviteCardShellClass = isOutgoing
         ? cn(
-            "overflow-hidden border border-surface-contrast bg-gradient-surface-contrast text-surface-contrast-primary max-w-[320px] shadow-sm cursor-pointer transition-all hover:border-purple-500/50 group/invite rounded-[32px]",
-            "ring-1 ring-purple-400/20 dark:ring-purple-400/15",
-            isDetailsOpen && "ring-2 ring-purple-500/30 border-purple-500/50",
+            "overflow-hidden border max-w-[320px] shadow-sm transition-all group/invite rounded-[32px]",
+            isHistorical
+                ? "cursor-default border-zinc-500/25 bg-zinc-900/85 text-zinc-300 opacity-90 ring-0"
+                : "cursor-pointer border-surface-contrast bg-gradient-surface-contrast text-surface-contrast-primary hover:border-purple-500/50 ring-1 ring-purple-400/20 dark:ring-purple-400/15",
+            isDetailsOpen && !isHistorical && "ring-2 ring-purple-500/30 border-purple-500/50",
         )
         : cn(
-            "relative overflow-hidden max-w-[320px] cursor-pointer transition-all group/invite rounded-[28px]",
-            "border border-purple-300/55 bg-gradient-to-br from-purple-50 via-white to-indigo-50/90",
-            "text-foreground shadow-[0_10px_32px_rgba(88,28,135,0.14)]",
-            "hover:border-purple-400/70 hover:shadow-[0_12px_36px_rgba(88,28,135,0.18)]",
-            "dark:border-white/[0.07] dark:bg-gradient-to-br dark:from-zinc-950 dark:via-zinc-900 dark:to-zinc-900/95 dark:text-surface-contrast-primary dark:shadow-sm dark:shadow-black/25 dark:hover:border-purple-500/40",
-            isDetailsOpen && "ring-2 ring-purple-500/35 border-purple-400/70 dark:ring-purple-500/30 dark:border-purple-500/50",
+            "relative overflow-hidden max-w-[320px] transition-all group/invite rounded-[28px]",
+            isHistorical
+                ? "cursor-default border-zinc-300/50 bg-zinc-100/90 text-zinc-600 opacity-95 shadow-sm dark:border-zinc-600/40 dark:bg-zinc-900/80 dark:text-zinc-400"
+                : "cursor-pointer border border-purple-300/55 bg-gradient-to-br from-purple-50 via-white to-indigo-50/90 text-foreground shadow-[0_10px_32px_rgba(88,28,135,0.14)] hover:border-purple-400/70 hover:shadow-[0_12px_36px_rgba(88,28,135,0.18)] dark:border-white/[0.07] dark:bg-gradient-to-br dark:from-zinc-950 dark:via-zinc-900 dark:to-zinc-900/95 dark:text-surface-contrast-primary dark:shadow-sm dark:shadow-black/25 dark:hover:border-purple-500/40",
+            isDetailsOpen && !isHistorical && "ring-2 ring-purple-500/35 border-purple-400/70 dark:ring-purple-500/30 dark:border-purple-500/50",
         );
 
     const inviteTitleClass = isOutgoing
@@ -355,31 +421,34 @@ export const CommunityInviteCard = ({
             <div
                 data-testid="community-invite-card"
                 data-invite-direction={isOutgoing ? "outgoing" : "incoming"}
+                data-invite-lifecycle={isHistorical ? "historical" : isActionable ? "active" : "closed"}
+                data-invite-status={status}
                 onClick={() => setIsDetailsOpen(true)}
                 className={inviteCardShellClass}
             >
-                {!isOutgoing ? (
+                {!isOutgoing && !isHistorical ? (
                     <div
                         aria-hidden
                         className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-primary dark:hidden"
                     />
                 ) : null}
+                {isHistorical ? (
+                    <div
+                        aria-hidden
+                        className={cn(
+                            "pointer-events-none absolute inset-x-0 top-0 h-0.5",
+                            isOutgoing ? "bg-zinc-500/40" : "bg-zinc-400/50 dark:bg-zinc-600/50",
+                        )}
+                    />
+                ) : null}
                 <div className="p-4 flex flex-col gap-4">
-                    <div className="flex items-start gap-3">
-                        <Avatar className="h-12 w-12 min-w-12 rounded-xl border border-black/5 dark:border-white/10 shadow-sm group-hover/invite:scale-105 transition-transform">
-                            <AvatarImage src={invite.metadata.picture} alt={invite.metadata.name} />
-                            <AvatarFallback className="bg-purple-100 text-purple-600 font-bold">
-                                {invite.metadata.name?.slice(0, 2).toUpperCase()}
-                            </AvatarFallback>
-                        </Avatar>
-                        <div className="min-w-0 flex-1">
-                            <h4 className={inviteTitleClass}>
-                                {invite.metadata.name}
-                            </h4>
-                            <p className={inviteDescriptionClass}>
-                                {invite.metadata.about || t("groups.privateInviteDesc", "You've been invited to join this private encrypted community.")}
-                            </p>
-                        </div>
+                    <div className="min-w-0 flex flex-col gap-1">
+                        <h4 className={inviteTitleClass}>
+                            {inviteDisplayName}
+                        </h4>
+                        <p className={inviteDescriptionClass}>
+                            {invite.metadata.about || t("groups.privateInviteDesc", "You've been invited to join this private encrypted community.")}
+                        </p>
                     </div>
 
                     <div className="flex items-center gap-3">
@@ -402,7 +471,28 @@ export const CommunityInviteCard = ({
                     </div>
 
                     <div className="flex flex-col gap-2 pt-1">
-                        {status === 'pending' ? (
+                        {isInviteDefective ? (
+                            <div
+                                role="status"
+                                data-testid="community-invite-defective-banner"
+                                className="flex w-full flex-col items-center justify-center gap-1 rounded-[22px] border border-amber-400/70 bg-gradient-to-r from-amber-50 via-white to-amber-50/80 px-4 py-3 text-center shadow-sm dark:border-amber-500/40 dark:from-amber-950/80 dark:via-zinc-950 dark:to-zinc-950"
+                            >
+                                <div className="flex items-center justify-center gap-2 text-amber-900 dark:text-amber-200">
+                                    <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
+                                    <span className="text-[10px] font-black uppercase tracking-[0.15em]">
+                                        {t("groups.inviteDefectiveTitle", "Invitation incomplete")}
+                                    </span>
+                                </div>
+                                <p className="max-w-[28rem] text-[11px] font-medium leading-snug text-amber-800/90 dark:text-amber-200/90">
+                                    {t(
+                                        "groups.inviteDefectiveHint",
+                                        "This invite was sent without encryption keys. Ask {{name}} to send a new invitation from the community page.",
+                                        { name: inviteDisplayName },
+                                    )}
+                                </p>
+                            </div>
+                        ) : null}
+                        {isActionable && !isInviteDefective ? (
                             isOutgoing ? (
                                 <div className="flex flex-col gap-2">
                                     <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-surface-contrast-secondary opacity-90">
@@ -447,40 +537,46 @@ export const CommunityInviteCard = ({
                                     </Button>
                                 </div>
                             )
-                        ) : (
-                            <CommunityInviteStatusBanner
-                                status={status}
-                                isOutgoing={isOutgoing}
-                            />
-                        )}
+                        ) : !isActionable ? (
+                            <div className="flex flex-col gap-2">
+                                <CommunityInviteStatusBanner
+                                    status={status}
+                                    isOutgoing={isOutgoing}
+                                    compact={status !== "accepted"}
+                                />
+                                {showRetryJoin ? (
+                                    <Button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setLocalResolutionStatus(null);
+                                            void handleAccept();
+                                        }}
+                                        disabled={isProcessing}
+                                        className="h-10 w-full rounded-xl bg-gradient-primary font-bold text-primary-foreground shadow-lg shadow-purple-600/25"
+                                    >
+                                        {isProcessing
+                                            ? t("common.processing", "Processing...")
+                                            : t("groups.inviteRetryJoin", "Complete join on relay")}
+                                    </Button>
+                                ) : null}
+                            </div>
+                        ) : null}
                     </div>
                 </div>
             </div>
 
             <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
-                <DialogContent className="sm:max-w-md bg-white dark:bg-zinc-900 border-zinc-200 dark:border-white/10 rounded-[32px] overflow-hidden p-0">
-                    <div className="relative h-32 bg-gradient-to-br from-purple-600 to-indigo-700">
-                        <DialogHeader className="p-0">
-                            <div className="absolute -bottom-12 left-8 p-1 bg-white dark:bg-zinc-900 rounded-[24px]">
-                                <Avatar className="h-24 w-24 rounded-[20px] shadow-2xl border-2 border-white dark:border-zinc-800">
-                                    <AvatarImage src={invite.metadata.picture} />
-                                    <AvatarFallback className="bg-purple-100 text-purple-600 text-2xl font-black">
-                                        {invite.metadata.name?.slice(0, 2).toUpperCase()}
-                                    </AvatarFallback>
-                                </Avatar>
-                            </div>
-                        </DialogHeader>
-                    </div>
-
-                    <div className="pt-16 pb-8 px-8 space-y-6">
-                        <div>
+                <DialogContent className="sm:max-w-md bg-white dark:bg-zinc-900 border-zinc-200 dark:border-white/10 rounded-[28px] overflow-hidden p-0">
+                    <div className="h-1.5 w-full bg-gradient-to-r from-purple-600 via-indigo-500 to-violet-500" aria-hidden />
+                    <div className="pb-8 px-8 pt-8 space-y-6">
+                        <DialogHeader className="space-y-2 text-left p-0">
                             <DialogTitle className="text-2xl font-black text-zinc-900 dark:text-white">
-                                {invite.metadata.name}
+                                {inviteDisplayName}
                             </DialogTitle>
-                            <DialogDescription className="text-zinc-500 font-bold text-xs uppercase tracking-widest mt-1">
+                            <DialogDescription className="text-zinc-500 font-bold text-xs uppercase tracking-widest">
                                 {invite.metadata.access || "Private"} Community • {invite.metadata.memberCount || 0} Members
                             </DialogDescription>
-                        </div>
+                        </DialogHeader>
 
                         <div className="space-y-2">
                             <h5 className="text-[10px] font-black uppercase tracking-widest text-zinc-400">About this community</h5>
@@ -502,7 +598,7 @@ export const CommunityInviteCard = ({
                             </div>
                         </div>
 
-                        {status === 'pending' && (
+                        {isActionable && !isInviteDefective && (
                             <div className="flex gap-3 pt-2">
                                 <Button
                                     onClick={() => {
@@ -528,14 +624,28 @@ export const CommunityInviteCard = ({
                             </div>
                         )}
 
-                        {status !== 'pending' && (
-                            <div className={cn(
-                                "p-4 rounded-2xl border text-center font-black uppercase tracking-widest text-xs",
-                                status === 'accepted' ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600" : "bg-zinc-500/10 border-zinc-500/20 text-zinc-500"
-                            )}>
-                                {status === 'accepted' ? t("groups.alreadyJoined", "You are a member") : t("groups.inviteClosed", "Invitation Closed")}
-                            </div>
+                        {!isActionable && (
+                            <CommunityInviteStatusBanner
+                                status={status}
+                                isOutgoing={isOutgoing}
+                                compact
+                            />
                         )}
+                        {status === "accepted" && showRetryJoin ? (
+                            <Button
+                                onClick={() => {
+                                    setLocalResolutionStatus(null);
+                                    void handleAccept();
+                                    setIsDetailsOpen(false);
+                                }}
+                                disabled={isProcessing}
+                                className="h-12 w-full rounded-2xl bg-gradient-primary font-bold text-primary-foreground"
+                            >
+                                {isProcessing
+                                    ? t("common.processing", "Processing...")
+                                    : t("groups.inviteRetryJoin", "Complete join on relay")}
+                            </Button>
+                        ) : null}
                     </div>
                 </DialogContent>
             </Dialog>

@@ -10,8 +10,12 @@
 
 3. **Avoid cross-feature reach-through.**
    - A feature should not import deep internals from another feature when a contract/service boundary can be introduced.
+   - During hotfixes, do not trade one bug for two regressions; isolate changes behind module boundaries.
 
 4. **Keep files single-purpose.**
    - If a file owns more than one lifecycle or more than one domain concern, split it.
+
+5. **Prefer replace-over-patch for stalled modules.**
+   - When repeated tweaks fail to improve reliability, redesign the module boundary and owner contract instead of stacking conditionals.
 
 **Layout reference:** `docs/encyclopedia/02-repository-map.md`

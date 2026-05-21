@@ -11,6 +11,35 @@ export type NormalizeDmConversationMessageRowOptions = Readonly<{
     myPublicKeyHex?: string | null;
 }>;
 
+const shouldInferAttachmentsFromContent = (content: string): boolean => {
+    const trimmed = content.trim();
+    if (!trimmed) {
+        return false;
+    }
+
+    // Community control payloads may include image URLs in metadata (picture),
+    // but these are not chat attachments and should not render preview blocks.
+    try {
+        const parsed = JSON.parse(trimmed) as { type?: unknown };
+        if (
+            parsed?.type === "community-invite"
+            || parsed?.type === "community-invite-response"
+            || parsed?.type === "voice-call-invite"
+            || parsed?.type === "voice-call-signal"
+        ) {
+            return false;
+        }
+    } catch {
+        // Non-JSON user text can still infer attachments.
+    }
+
+    return (
+        content.includes("https://")
+        || content.includes("http://")
+        || content.includes("/uploads/")
+    );
+};
+
 /**
  * Normalizes persisted / bus / IndexedDB DM rows into a display `Message`.
  * Canonicalizes `conversationId` when `myPublicKeyHex` + peer can be inferred.
@@ -72,7 +101,7 @@ export const normalizeDmConversationMessageRow = (
     const inferredAttachments = (
         storedAttachments.length === 0
         && content.length > 0
-        && (content.includes("https://") || content.includes("http://") || content.includes("/uploads/"))
+        && shouldInferAttachmentsFromContent(content)
     )
         ? extractAttachmentsFromContent(content)
         : [];

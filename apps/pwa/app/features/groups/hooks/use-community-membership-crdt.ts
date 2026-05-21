@@ -69,6 +69,9 @@ export interface UseCommunityMembershipCRDTReturn {
   
   /** Remove a member */
   removeMember: (pubkey: string) => void;
+
+  /** Remove many members in one state update */
+  removeMembers: (pubkeys: ReadonlyArray<string>) => void;
   
   /** Check if pubkey is member */
   isMember: (pubkey: string) => boolean;
@@ -173,10 +176,21 @@ export function useCommunityMembershipCRDT(
     return () => clearTimeout(timeoutId);
   }, [membership, isEnabled]);
   
-  // Derived values
+  // Derived values — keep array reference stable when membership metadata changes without roster drift.
+  const membersStableRef = useRef<string[]>([]);
   const members = useMemo(() => {
-    if (!membership) return [];
-    return Array.from(queryMembers(membership));
+    if (!membership) {
+      membersStableRef.current = [];
+      return membersStableRef.current;
+    }
+    const next = Array.from(queryMembers(membership));
+    const nextFingerprint = next.slice().sort().join(",");
+    const prevFingerprint = membersStableRef.current.slice().sort().join(",");
+    if (nextFingerprint === prevFingerprint) {
+      return membersStableRef.current;
+    }
+    membersStableRef.current = next;
+    return next;
   }, [membership]);
   
   const membersWithMetadata = useMemo(() => {
@@ -198,6 +212,7 @@ export function useCommunityMembershipCRDT(
   const addMemberCallback = useCallback((pubkey: string) => {
     setMembership((prev) => {
       if (!prev || !isEnabled) return prev;
+      if (isMember(prev, pubkey)) return prev;
       const updated = addMember(prev, pubkey, deviceId);
       logDebug('add', communityId, { pubkey, count: getMemberCount(updated) });
       return updated;
@@ -207,8 +222,26 @@ export function useCommunityMembershipCRDT(
   const removeMemberCallback = useCallback((pubkey: string) => {
     setMembership((prev) => {
       if (!prev || !isEnabled) return prev;
+      if (!isMember(prev, pubkey)) return prev;
       const updated = removeMember(prev, pubkey, deviceId);
       logDebug('remove', communityId, { pubkey, count: getMemberCount(updated) });
+      return updated;
+    });
+  }, [deviceId, communityId, isEnabled]);
+
+  const removeMembersCallback = useCallback((pubkeys: ReadonlyArray<string>) => {
+    if (pubkeys.length === 0) return;
+    setMembership((prev) => {
+      if (!prev || !isEnabled) return prev;
+      let updated = prev;
+      let changed = false;
+      for (const pubkey of pubkeys) {
+        if (!isMember(updated, pubkey)) continue;
+        updated = removeMember(updated, pubkey, deviceId);
+        changed = true;
+      }
+      if (!changed) return prev;
+      logDebug('remove-batch', communityId, { count: getMemberCount(updated) });
       return updated;
     });
   }, [deviceId, communityId, isEnabled]);
@@ -289,6 +322,7 @@ export function useCommunityMembershipCRDT(
     memberCount,
     addMember: addMemberCallback,
     removeMember: removeMemberCallback,
+    removeMembers: removeMembersCallback,
     isMember: isMemberCallback,
     syncWithRemote: syncWithRemoteCallback,
     exportState: exportStateCallback,
