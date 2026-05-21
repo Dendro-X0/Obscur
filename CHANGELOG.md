@@ -52,7 +52,7 @@ Desktop-first patch: governance TTL and tie handling, duplicate-resolution idemp
 - **U3** audit of all publish call sites not fully closed (continues in v1.5.8).
 - Phase 1 manual sign-off (G1 matrix) may still be pending maintainer execution.
 
-## [v1.6.0] - Unreleased
+## [v1.6.0] - 2026-05-21 (Phase 2 governance projection)
 
 **Scope:** [v1.6.0-scope.md](docs/program/v1.6.0-scope.md). **Gate:** [v1.6.0-gate.md](docs/releases/v1.6.0-gate.md).
 
@@ -60,10 +60,8 @@ Desktop-first patch: governance TTL and tie handling, duplicate-resolution idemp
 
 - **G2.1** — `community-governance-projection` store + `useCommunityGovernanceProjection`; group home banner and management governance tab read projection; `use-sealed-community` ingests only.
 - **G2.2** — `replayCommunityGovernanceEvents`; projection replay tests (tie → rejected, duplicate `resolved`, TTL expired, reordered votes); `toCommunityGovernanceProjection` `activeVotes` excludes expired proposals.
-
-### Planned
-
-- **G2.3–G2.4** — Ledger mutation reasons, regression matrix (per phased roadmap).
+- **G2.3** — Ledger reasons `governance_descriptor_accepted` and `governance_member_expelled`; `community-governance-mutation-owner`; `governanceProposalId` on descriptor bus for governance-accepted renames.
+- **G2.4** — [v1.6.0 manual matrix](docs/assets/demo/v1.6.0/README.md); multi-device quorum replay test; governance mutation tests in `pnpm test:community-invariants` and `pnpm release:test-pack`.
 
 ## [v1.5.8] - 2026-05-21 (Phase 1 exit)
 
