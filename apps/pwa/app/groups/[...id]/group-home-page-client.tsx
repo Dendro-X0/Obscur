@@ -1299,13 +1299,20 @@ export default function GroupHomePage() {
                     </Card>
                 </div>
 
-                {/* Management Controls */}
+                {/* Local-only actions — full configuration lives in Manage community */}
                 <div className="space-y-6">
-                    <div className="flex items-center gap-3 px-2">
-                        <div className="h-1.5 w-1.5 rounded-full bg-rose-500" />
-                        <h3 className="text-xs font-black uppercase tracking-[0.2em] text-zinc-600">
-                            Management Controls
-                        </h3>
+                    <div className="space-y-1 px-2">
+                        <div className="flex items-center gap-3">
+                            <div className="h-1.5 w-1.5 rounded-full bg-rose-500" />
+                            <h3 className="text-xs font-black uppercase tracking-[0.2em] text-zinc-600">
+                                Personal controls
+                            </h3>
+                        </div>
+                        <p className="pl-5 text-xs text-zinc-500">
+                            Block or unblock this community on your device. Open{" "}
+                            <span className="font-semibold text-zinc-600 dark:text-zinc-400">Manage community</span>{" "}
+                            for members, governance, relay settings, and invites.
+                        </p>
                     </div>
 
                     <Card

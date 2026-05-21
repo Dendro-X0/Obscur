@@ -30,7 +30,12 @@ import {
   recordPageTransitionWatchdogTimeout,
   type RouteMountDiagnosticsState,
 } from "./page-transition-recovery";
-import { resolveRoutePrefetchWarmupPlan } from "./navigation-prefetch-warmup-policy";
+import {
+  hasIntelligentNavigationWarmupWork,
+  resolveIntelligentNavigationWarmupPlan,
+  type NavigationWarmupSpecialTask,
+} from "./intelligent-navigation-warmup-policy";
+import { runIntelligentNavigationWarmup } from "./intelligent-navigation-warmup-runner";
 import { warmRouteNavigationTargets } from "./route-navigation-warmup";
 
 type NavIcon = (props: Readonly<{ className?: string }>) => React.ReactNode;
@@ -134,6 +139,8 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
   const routeStallHardFallbackCountRef = useRef<number>(0);
   const navigationFailOpenEnabledRef = useRef<boolean>(false);
   const warmedPrefetchTargetsRef = useRef<Set<string>>(new Set());
+  const warmedSpecialWarmupTasksRef = useRef<Set<NavigationWarmupSpecialTask>>(new Set());
+  const navigationWarmupGenerationRef = useRef(0);
   const isDesktop = useIsDesktop();
   useDesktopLayout();
 
@@ -151,68 +158,103 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
   }, [arePageTransitionsEnabled]);
 
   useEffect((): (() => void) => {
-    const scheduler = createIdleScheduler();
-    const idleHandle = scheduler.schedule((): void => {
-      const warmupPlan = resolveRoutePrefetchWarmupPlan({
-        pathname,
-        navItems: NAV_ITEMS,
-        warmedHrefs: warmedPrefetchTargetsRef.current,
-      });
+    const generation = navigationWarmupGenerationRef.current + 1;
+    navigationWarmupGenerationRef.current = generation;
+    const isStale = (): boolean => navigationWarmupGenerationRef.current !== generation;
 
-      if (!warmupPlan.enabled) {
+    const warmupPlan = resolveIntelligentNavigationWarmupPlan({
+      pathname,
+      routeSurface: activeRouteSurface,
+      navItems: NAV_ITEMS,
+      warmedHrefs: warmedPrefetchTargetsRef.current,
+      warmedSpecialTasks: warmedSpecialWarmupTasksRef.current,
+    });
+
+    if (!hasIntelligentNavigationWarmupWork(warmupPlan)) {
+      logAppEvent({
+        name: "navigation.intelligent_warmup_skipped",
+        level: "debug",
+        scope: { feature: "navigation", action: "route_prefetch" },
+        context: {
+          pathname,
+          routeSurface: activeRouteSurface,
+          reason: "no_targets",
+          isDesktop,
+        },
+      });
+      return (): void => {
+        navigationWarmupGenerationRef.current += 1;
+      };
+    }
+
+    logAppEvent({
+      name: "navigation.intelligent_warmup_started",
+      level: "info",
+      scope: { feature: "navigation", action: "route_prefetch" },
+      context: {
+        pathname,
+        routeSurface: activeRouteSurface,
+        criticalCount: warmupPlan.critical.length,
+        contextCount: warmupPlan.context.length,
+        backgroundCount: warmupPlan.background.length,
+        specialTaskCount: warmupPlan.specialTasks.length,
+        isDesktop,
+      },
+    });
+
+    const scheduler = createIdleScheduler();
+    void runIntelligentNavigationWarmup(router, warmupPlan, {
+      isStale,
+      scheduleIdle: (callback) => scheduler.schedule(callback),
+      onPhaseComplete: (summary) => {
+        if (isStale()) {
+          return;
+        }
+        for (const result of summary.hrefResults) {
+          if (result.status === "fulfilled") {
+            warmedPrefetchTargetsRef.current.add(result.href);
+          }
+        }
+        for (const task of summary.specialTasks) {
+          warmedSpecialWarmupTasksRef.current.add(task);
+        }
+        const failedTargets = summary.hrefResults.flatMap((result) => (
+          result.status === "rejected" ? [result.href] : []
+        ));
         logAppEvent({
-          name: "navigation.route_prefetch_warmup_skipped",
-          level: "debug",
+          name: "navigation.intelligent_warmup_phase_completed",
+          level: failedTargets.length > 0 ? "warn" : "debug",
           scope: { feature: "navigation", action: "route_prefetch" },
           context: {
             pathname,
             routeSurface: activeRouteSurface,
-            reason: warmupPlan.reason,
+            phase: summary.phase,
+            warmedHrefCount: summary.hrefResults.length,
+            failedTargetCount: failedTargets.length,
+            failedTargetsSummary: failedTargets.join(","),
+            specialTasksSummary: summary.specialTasks.join(","),
             isDesktop,
           },
         });
+      },
+    }).then(() => {
+      if (isStale()) {
         return;
       }
-
-      const prefetchTargets = warmupPlan.targets;
-
       logAppEvent({
-        name: "navigation.route_prefetch_warmup_started",
+        name: "navigation.intelligent_warmup_settled",
         level: "info",
         scope: { feature: "navigation", action: "route_prefetch" },
         context: {
           pathname,
           routeSurface: activeRouteSurface,
-          targetCount: prefetchTargets.length,
           isDesktop,
         },
-      });
-
-      void warmRouteNavigationTargets(router, prefetchTargets).then((results) => {
-        for (const href of prefetchTargets) {
-          warmedPrefetchTargetsRef.current.add(href);
-        }
-        const failedTargets = results.flatMap((result) => (
-          result.status === "rejected" ? [result.href] : []
-        ));
-        logAppEvent({
-          name: "navigation.route_prefetch_warmup_completed",
-          level: failedTargets.length > 0 ? "warn" : "info",
-          scope: { feature: "navigation", action: "route_prefetch" },
-          context: {
-            pathname,
-            routeSurface: activeRouteSurface,
-            targetCount: prefetchTargets.length,
-            failedTargetCount: failedTargets.length,
-            failedTargetsSummary: failedTargets.join(","),
-            isDesktop,
-          },
-        });
       });
     });
 
     return (): void => {
-      scheduler.cancel(idleHandle);
+      navigationWarmupGenerationRef.current += 1;
     };
   }, [activeRouteSurface, isDesktop, pathname, router]);
 

@@ -17,6 +17,7 @@ export function GroupManagementShell({
     communityInitial,
     avatarUrl,
     relayHost,
+    communityModeLabel,
     activeTab,
     onTabChange,
     governanceBadgeCount,
@@ -31,6 +32,7 @@ export function GroupManagementShell({
     communityInitial: string;
     avatarUrl?: string;
     relayHost: string;
+    communityModeLabel: string;
     activeTab: GroupManagementTabId;
     onTabChange: (tab: GroupManagementTabId) => void;
     governanceBadgeCount: number;
@@ -78,7 +80,12 @@ export function GroupManagementShell({
                             <p id="community-management-title" className="truncate text-sm font-semibold text-zinc-900 dark:text-white">
                                 {communityTitle}
                             </p>
-                            <p className="truncate text-xs text-zinc-500">{relayHost}</p>
+                            <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
+                                <span className="shrink-0 rounded-md border border-violet-500/25 bg-violet-500/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-700 dark:text-violet-300">
+                                    {communityModeLabel}
+                                </span>
+                                <span className="truncate text-xs text-zinc-500">{relayHost}</span>
+                            </div>
                         </div>
                     </div>
                     <button

@@ -28,9 +28,11 @@ import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { useRelayList } from "@/app/features/relays/hooks/use-relay-list";
 import { useRelayCapabilities } from "@/app/features/relays/hooks/use-relay-capabilities";
 import {
+    COMMUNITY_MODE_DEFINITIONS,
     isManagedWorkspaceRelayGateBlocking,
     resolveManagedWorkspaceRelayGate,
 } from "../services/community-mode-contract";
+import type { CommunityMode } from "../types/community-mode";
 import { resolveCommunityStewardPolicy } from "../services/community-steward-policy";
 import { resolveCommunityDirectoryMaterializationHonesty } from "../services/community-directory-materialization-policy";
 import { ManagedWorkspaceRelayGateBanner } from "./group-management/managed-workspace-relay-gate-banner";
@@ -592,6 +594,14 @@ export function GroupManagementDialog({
     });
     const communityInitial = communityTitle.trim().slice(0, 1).toUpperCase() || "C";
     const relayHost = group.relayUrl.replace(/^wss:\/\//, "").replace(/^https?:\/\//, "");
+    const effectiveCommunityMode: CommunityMode = (
+        state.metadata?.communityMode === "managed_workspace" || state.metadata?.communityMode === "sovereign_room"
+    )
+        ? state.metadata.communityMode
+        : group.communityMode === "managed_workspace"
+            ? "managed_workspace"
+            : "sovereign_room";
+    const communityModeLabel = COMMUNITY_MODE_DEFINITIONS[effectiveCommunityMode].label;
     const syncConfidenceLevel =
         (state as { relayEvidenceRef?: { confidenceLevel: "seed_only" | "warming_up" | "partial_eose" | "steady_state" } })
             .relayEvidenceRef?.confidenceLevel ?? "seed_only";
@@ -610,6 +620,7 @@ export function GroupManagementDialog({
                 communityInitial={communityInitial}
                 avatarUrl={state.metadata?.picture || editPicture || undefined}
                 relayHost={relayHost}
+                communityModeLabel={communityModeLabel}
                 activeTab={activeTab}
                 onTabChange={setActiveTab}
                 governanceBadgeCount={activeProposalCount}

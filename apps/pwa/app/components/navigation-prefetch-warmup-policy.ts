@@ -1,4 +1,5 @@
 import type { NavItem } from "../lib/navigation/nav-item";
+import { NAVIGATION_WARMUP_ALLOWED_HREFS } from "./intelligent-navigation-warmup-policy";
 
 export type RoutePrefetchWarmupSkipReason = "no_targets";
 
@@ -14,14 +15,6 @@ export type RoutePrefetchWarmupPlan = Readonly<
   }
 >;
 
-/** Sidebar routes that use `next/dynamic` page clients — warm after initial shell mount. */
-const PREFETCH_WARMUP_ALLOWED_HREFS = new Set<string>([
-  "/network",
-  "/vault",
-  "/search",
-  "/settings",
-]);
-
 export const resolveRoutePrefetchWarmupPlan = (
   options: Readonly<{
     pathname: string;
@@ -34,7 +27,7 @@ export const resolveRoutePrefetchWarmupPlan = (
     .filter((href, index, allHrefs) => (
       href !== options.pathname
       && allHrefs.indexOf(href) === index
-      && PREFETCH_WARMUP_ALLOWED_HREFS.has(href)
+      && NAVIGATION_WARMUP_ALLOWED_HREFS.has(href)
       && !options.warmedHrefs.has(href)
     ));
 

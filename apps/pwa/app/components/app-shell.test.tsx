@@ -91,11 +91,24 @@ vi.mock("@/app/shared/log-app-event", () => ({
   logAppEvent: vi.fn(),
 }));
 
+const flushIntelligentWarmup = async (): Promise<void> => {
+  await act(async () => {
+    await new Promise((resolve) => window.setTimeout(resolve, 120));
+  });
+};
+
 describe("AppShell navigation", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     appShellMocks.pathname = "/";
     appShellMocks.isDesktop = false;
+    vi.stubGlobal("requestIdleCallback", (callback: IdleRequestCallback) => {
+      const handle = window.setTimeout(() => callback({ didTimeout: false, timeRemaining: () => 50 } as IdleDeadline), 0);
+      return handle;
+    });
+    vi.stubGlobal("cancelIdleCallback", (handle: number) => {
+      window.clearTimeout(handle);
+    });
   });
 
   const renderShell = async (
@@ -121,39 +134,35 @@ describe("AppShell navigation", () => {
     expect(screen.getByRole("link", { name: "nav.settings" })).toHaveAttribute("href", "/settings");
   });
 
-  it("warms core route prefetches after mount", async () => {
+  it("warms navigation targets in phased order after mount", async () => {
     await renderShell();
-    await act(async () => {
-      await new Promise((resolve) => window.setTimeout(resolve, 40));
-    });
+    await flushIntelligentWarmup();
 
     const warmedTargets = ["/network", "/vault", "/search", "/settings"];
-    expect(appShellMocks.prefetch).toHaveBeenCalledTimes(warmedTargets.length);
     for (const href of warmedTargets) {
       expect(appShellMocks.prefetch).toHaveBeenCalledWith(href);
     }
     expect(appShellMocks.prefetch).not.toHaveBeenCalledWith("/");
 
-    const prefetchStartedLogged = vi.mocked(logAppEvent).mock.calls.some(([event]) => (
-      event.name === "navigation.route_prefetch_warmup_started"
-      && Number(event.context?.targetCount) === warmedTargets.length
+    const warmupStartedLogged = vi.mocked(logAppEvent).mock.calls.some(([event]) => (
+      event.name === "navigation.intelligent_warmup_started"
+      && event.context?.routeSurface === "chats"
+      && Number(event.context?.contextCount) === 1
+      && Number(event.context?.backgroundCount) === 3
+    ));
+    const contextPhaseLogged = vi.mocked(logAppEvent).mock.calls.some(([event]) => (
+      event.name === "navigation.intelligent_warmup_phase_completed"
+      && event.context?.phase === "context"
       && event.context?.routeSurface === "chats"
     ));
-    const prefetchCompletedLogged = vi.mocked(logAppEvent).mock.calls.some(([event]) => (
-      event.name === "navigation.route_prefetch_warmup_completed"
-      && Number(event.context?.failedTargetCount) === 0
-      && event.context?.routeSurface === "chats"
-    ));
-    expect(prefetchStartedLogged).toBe(true);
-    expect(prefetchCompletedLogged).toBe(true);
+    expect(warmupStartedLogged).toBe(true);
+    expect(contextPhaseLogged).toBe(true);
   });
 
   it("auto-prefetches routes in desktop runtime after mount", async () => {
     appShellMocks.isDesktop = true;
     await renderShell();
-    await act(async () => {
-      await new Promise((resolve) => window.setTimeout(resolve, 40));
-    });
+    await flushIntelligentWarmup();
 
     expect(appShellMocks.prefetch).toHaveBeenCalledWith("/network");
     expect(appShellMocks.prefetch).toHaveBeenCalledWith("/settings");
