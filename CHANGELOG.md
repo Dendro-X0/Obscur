@@ -52,6 +52,10 @@ Desktop-first patch: governance TTL and tie handling, duplicate-resolution idemp
 - **U3** audit of all publish call sites not fully closed (continues in v1.5.8).
 - Phase 1 manual sign-off (G1 matrix) may still be pending maintainer execution.
 
+## [v1.7.1] - Unreleased
+
+**Scope:** [v1.7.1-scope.md](docs/program/v1.7.1-scope.md). **Gate:** [v1.7.1-gate.md](docs/releases/v1.7.1-gate.md). Demo matrix sign-off and regressions only.
+
 ## [v1.7.0] - 2026-05-21 (Phase 3 managed workspace honesty)
 
 **Scope:** [v1.7.0-scope.md](docs/program/v1.7.0-scope.md). **Gate:** [v1.7.0-gate.md](docs/releases/v1.7.0-gate.md).
