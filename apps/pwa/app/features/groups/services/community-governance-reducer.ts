@@ -172,9 +172,10 @@ export const listExpiredOpenGovernanceProposalIds = (
 export const toCommunityGovernanceProjection = (
   communityId: string,
   state: CommunityGovernanceReducerState,
+  nowUnixMs: number = Date.now(),
 ): CommunityGovernanceProjection => ({
   communityId,
-  activeVotes: [...state.activeProposalIds],
+  activeVotes: getActiveGovernanceProposals(state, nowUnixMs).map((proposal) => proposal.proposalId),
   resolvedVotes: [...state.resolvedProposalIds],
   policyState: {},
   moderationState: {},

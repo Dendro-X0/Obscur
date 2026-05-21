@@ -6,7 +6,9 @@ import { useTranslation } from "react-i18next";
 import { Loader2, QrCode, Share2 } from "lucide-react";
 import { Button } from "../../../components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../../components/ui/dialog";
+import { useCommunityGovernanceProjection } from "../hooks/use-community-governance-projection";
 import { useSealedCommunity, type UseSealedCommunityResult } from "../hooks/use-sealed-community";
+import type { GovernanceProposalRecord } from "../services/community-governance-reducer";
 import { useUploadService } from "@/app/features/messaging/lib/upload-service";
 import { useGroups } from "../providers/group-provider";
 import { toast } from "../../../components/ui/toast";
@@ -102,11 +104,16 @@ export function GroupManagementDialog({
         proposeExpelMember,
         sendVoteKick,
         castGovernanceVote,
-        activeGovernanceProposals,
         rotateRoomKey,
         refresh: refreshCommunityMembership,
         clearLocalTerminalMembershipEvidence,
     } = communityController ?? internalCommunity;
+
+    const { activeProposals: activeGovernanceProposals, activeProposalCount } = useCommunityGovernanceProjection({
+        groupId: group.groupId,
+        communityId: group.communityId,
+        enabled: isOpen,
+    });
 
     const { uploadFile, pickFiles } = useUploadService();
     const [activeTab, setActiveTab] = useState<GroupManagementTabId>("general");
@@ -480,7 +487,7 @@ export function GroupManagementDialog({
         }
     };
 
-    const describeGovernanceProposal = (proposal: (typeof activeGovernanceProposals)[number]): string => {
+    const describeGovernanceProposal = (proposal: GovernanceProposalRecord): string => {
         if (proposal.actionType === "update_descriptor") {
             const name = "name" in proposal.payload && typeof proposal.payload.name === "string"
                 ? proposal.payload.name
@@ -534,7 +541,7 @@ export function GroupManagementDialog({
                 relayHost={relayHost}
                 activeTab={activeTab}
                 onTabChange={setActiveTab}
-                governanceBadgeCount={activeGovernanceProposals.length}
+                governanceBadgeCount={activeProposalCount}
                 headerAction={
                     showShareInHeader ? (
                         <Button

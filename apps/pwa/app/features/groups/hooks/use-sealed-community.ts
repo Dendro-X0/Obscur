@@ -46,16 +46,20 @@ import {
 import {
   computeGovernanceQuorumThreshold,
   createEmptyCommunityGovernanceState,
-  getActiveGovernanceProposals,
   hasGovernanceQuorum,
   hasGovernanceRejectionQuorum,
   hasGovernanceVoteTie,
   listExpiredOpenGovernanceProposalIds,
-  reduceCommunityGovernance,
   type CommunityGovernanceReducerState,
   type GovernanceProposalRecord,
   type GovernanceReducerEvent,
 } from "../services/community-governance-reducer";
+import {
+  getCommunityGovernanceReducerState,
+  hydrateCommunityGovernanceState,
+  ingestCommunityGovernanceEvent,
+  subscribeCommunityGovernance,
+} from "../services/community-governance-projection";
 import { computeGovernanceProposalExpiresAtUnixMs } from "../services/community-governance-policy";
 import { toGovernanceReducerEventFromSealed } from "../services/community-governance-sealed";
 import {
@@ -180,7 +184,6 @@ type Nip29GroupState = Readonly<{
   expelledMembers: ReadonlyArray<PublicKeyHex>;
   leftMembers: ReadonlyArray<PublicKeyHex>;
   disbandedAt?: number;
-  governance: CommunityGovernanceReducerState;
 }>;
 
 type UseSealedCommunityParams = Readonly<{
@@ -212,7 +215,6 @@ export type UseSealedCommunityResult = Readonly<{
   proposeDescriptorUpdate: (params: Readonly<GroupMetadata>) => Promise<void>;
   proposeExpelMember: (params: Readonly<{ targetPublicKeyHex: PublicKeyHex; reason?: string }>) => Promise<void>;
   castGovernanceVote: (params: Readonly<{ proposalId: string; vote: CommunityGovernanceVote }>) => Promise<void>;
-  activeGovernanceProposals: ReadonlyArray<GovernanceProposalRecord>;
   rotateRoomKey: () => Promise<void>;
   updateMetadata: (params: Readonly<GroupMetadata>) => Promise<void>;
   setGroupStatus: (params: Readonly<{ access: "open" | "invite-only" | "discoverable" }>) => Promise<void>;
@@ -435,7 +437,6 @@ const createInitialState = (): Nip29GroupState => {
     kickVotes: {},
     expelledMembers: [],
     leftMembers: [],
-    governance: createEmptyCommunityGovernanceState(),
   };
 };
 
@@ -481,6 +482,8 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
       ? params.communityId.trim()
       : null)
     ?? (params.groupId.trim().length > 0 ? params.groupId : null);
+  /** Canonical governance scope (contract 26); matches CRDT community id. */
+  const governanceScopeId = crdtCommunityId ?? params.groupId.trim();
   const crdt = useCommunityMembershipCRDT(
     crdtCommunityId,
     params.myPublicKeyHex || "",
@@ -615,44 +618,49 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
     const raw = sessionStorage.getItem(governanceSessionStorageKey);
     const restored = parseStoredCommunityGovernanceState(raw);
     if (restored) {
+      hydrateCommunityGovernanceState(governanceScopeId, restored);
       governanceRef.current = restored;
-      setState((prev) => ({ ...prev, governance: restored }));
       governanceSessionWrittenJsonRef.current = serializeCommunityGovernanceState(restored);
     } else {
       governanceSessionWrittenJsonRef.current = null;
     }
     governanceHydratedRef.current = true;
-  }, [governanceSessionStorageKey, params.enabled]);
+  }, [governanceScopeId, governanceSessionStorageKey, params.enabled]);
 
   useEffect(() => {
     if (!governanceHydratedRef.current || params.enabled === false || typeof sessionStorage === "undefined") {
       return;
     }
-    const g = state.governance;
-    const hasData =
-      g.activeProposalIds.length > 0
-      || g.resolvedProposalIds.length > 0
-      || Object.keys(g.proposalsById).length > 0;
-    if (!hasData) {
-      governanceSessionWrittenJsonRef.current = null;
-      try {
-        sessionStorage.removeItem(governanceSessionStorageKey);
-      } catch {
-        // ignore
+    const persistGovernanceSession = (): void => {
+      const g = getCommunityGovernanceReducerState(governanceScopeId);
+      governanceRef.current = g;
+      const hasData =
+        g.activeProposalIds.length > 0
+        || g.resolvedProposalIds.length > 0
+        || Object.keys(g.proposalsById).length > 0;
+      if (!hasData) {
+        governanceSessionWrittenJsonRef.current = null;
+        try {
+          sessionStorage.removeItem(governanceSessionStorageKey);
+        } catch {
+          // ignore
+        }
+        return;
       }
-      return;
-    }
-    const json = serializeCommunityGovernanceState(g);
-    if (json === governanceSessionWrittenJsonRef.current) {
-      return;
-    }
-    governanceSessionWrittenJsonRef.current = json;
-    try {
-      sessionStorage.setItem(governanceSessionStorageKey, json);
-    } catch {
-      // ignore quota / private mode
-    }
-  }, [state.governance, governanceSessionStorageKey, params.enabled]);
+      const json = serializeCommunityGovernanceState(g);
+      if (json === governanceSessionWrittenJsonRef.current) {
+        return;
+      }
+      governanceSessionWrittenJsonRef.current = json;
+      try {
+        sessionStorage.setItem(governanceSessionStorageKey, json);
+      } catch {
+        // ignore quota / private mode
+      }
+    };
+    persistGovernanceSession();
+    return subscribeCommunityGovernance(governanceScopeId, persistGovernanceSession);
+  }, [governanceScopeId, governanceSessionStorageKey, params.enabled]);
 
   useEffect(() => {
     if (initialHasLocalMembershipEvidence) {
@@ -2393,9 +2401,8 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
   }, [params.myPublicKeyHex, publishGovernanceSealed]);
 
   const ingestGovernanceEvent = useCallback((event: GovernanceReducerEvent): void => {
-    const nextGov = reduceCommunityGovernance(governanceRef.current, event);
+    const nextGov = ingestCommunityGovernanceEvent(governanceScopeId, event);
     governanceRef.current = nextGov;
-    setState((prev) => ({ ...prev, governance: nextGov }));
 
     const proposalId = event.proposalId;
     const proposal = nextGov.proposalsById[proposalId];
@@ -2416,7 +2423,7 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
     if (event.type === "RESOLVED" && proposal.resolution === "accepted") {
       void applyGovernanceAcceptedEffects(proposal);
     }
-  }, [applyGovernanceAcceptedEffects, finalizeGovernanceProposal, finalizeGovernanceProposalRejected]);
+  }, [applyGovernanceAcceptedEffects, finalizeGovernanceProposal, finalizeGovernanceProposalRejected, governanceScopeId]);
 
   ingestGovernanceEventRef.current = ingestGovernanceEvent;
 
@@ -2935,11 +2942,6 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
   ]);
   updateMetadataRef.current = updateMetadata;
 
-  const activeGovernanceProposals = useMemo(
-    () => getActiveGovernanceProposals(state.governance),
-    [state.governance],
-  );
-
   const proposeDescriptorUpdate = useCallback(async (nextMetadata: GroupMetadata): Promise<void> => {
     const activeMemberCount = membersRef.current.filter(
       (pubkey) => !leftMembersRef.current.includes(pubkey) && !expelledMembersRef.current.includes(pubkey),
@@ -3154,7 +3156,6 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
       proposeDescriptorUpdate,
       proposeExpelMember,
       castGovernanceVote,
-      activeGovernanceProposals,
       rotateRoomKey,
       updateMetadata,
       setGroupStatus,
@@ -3182,7 +3183,6 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
     proposeDescriptorUpdate,
     proposeExpelMember,
     castGovernanceVote,
-    activeGovernanceProposals,
     rotateRoomKey,
     updateMetadata,
     setGroupStatus,

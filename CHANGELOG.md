@@ -56,10 +56,14 @@ Desktop-first patch: governance TTL and tie handling, duplicate-resolution idemp
 
 **Scope:** [v1.6.0-scope.md](docs/program/v1.6.0-scope.md). **Gate:** [v1.6.0-gate.md](docs/releases/v1.6.0-gate.md).
 
+### Added
+
+- **G2.1** — `community-governance-projection` store + `useCommunityGovernanceProjection`; group home banner and management governance tab read projection; `use-sealed-community` ingests only.
+- **G2.2** — `replayCommunityGovernanceEvents`; projection replay tests (tie → rejected, duplicate `resolved`, TTL expired, reordered votes); `toCommunityGovernanceProjection` `activeVotes` excludes expired proposals.
+
 ### Planned
 
-- **G2.1** — `governanceByCommunityId` projection owner (Phase 2); UI reads projection instead of hook-local governance state.
-- **G2.2–G2.4** — Governance lifecycle replay tests, ledger reasons, regression matrix (per phased roadmap).
+- **G2.3–G2.4** — Ledger mutation reasons, regression matrix (per phased roadmap).
 
 ## [v1.5.8] - 2026-05-21 (Phase 1 exit)
 

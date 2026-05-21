@@ -12,9 +12,9 @@
 
 ## Next Atomic Step
 
-1. **G2.1 scaffold:** Add `community-governance-projection` read owner (contract 26 shape) and route `group-management` governance panel + home banner to it; shrink `use-sealed-community` to ingest + dispatch only.
-2. **Before merge:** `pnpm -C apps/pwa typecheck` → `pnpm test:community-invariants` (if `groups/**` touched).
-3. **Optional:** Maintainer sign-off rows in [v1.5.8 U4](../assets/demo/v1.5.8/README.md) / [v1.5.7 G1](../assets/demo/v1.5.7/README.md) (not blocking `1.6.0` dev).
+1. **G2.3:** Tag governance-driven descriptor/membership mutations in ledger where schema allows.
+2. **G2.4:** Extend manual matrix + replay tests for multi-device governance quorum.
+3. **Before merge:** `pnpm -C apps/pwa typecheck` → `pnpm test:community-invariants`.
 
 Canonical plans: [community-system-overhaul-phased-roadmap.md](../program/community-system-overhaul-phased-roadmap.md) (Phase 2) · [community-system-implementation-and-ui-plan.md](../program/community-system-implementation-and-ui-plan.md).
 
