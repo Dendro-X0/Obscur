@@ -1044,6 +1044,13 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 if (matched) {
                     addGroupTombstone(pk, { groupId: matched.groupId, relayUrl: matched.relayUrl }, { profileId });
                     applyCoordinatorExplicitLeave(pk, matched, { profileId });
+                    enqueueCommunityLeaveOutboxItem({
+                        publicKeyHex: pk,
+                        groupId: matched.groupId,
+                        relayUrl: matched.relayUrl,
+                        communityId: matched.communityId,
+                        profileId,
+                    });
                 } else {
                     addGroupTombstoneFromConversationId(pk, conversationId, { profileId }); // legacy fallback
                 }

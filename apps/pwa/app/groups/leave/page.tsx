@@ -136,7 +136,7 @@ export default function LeaveCommunityPage() {
                 });
             }
             await leaveNip29Group();
-            toast.success("Left community");
+            toast.success("Left community on this device. Relay confirmation may finish in the background.");
             router.push("/network");
         } catch {
             toast.error("Failed to leave community");

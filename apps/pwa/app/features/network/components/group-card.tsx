@@ -11,12 +11,23 @@ interface GroupCardProps {
     relayUrl: string;
     memberCount?: number;
     avatar?: string;
+    leavePublishShortLabel?: string;
     onClick: () => void;
     className?: string;
     viewMode?: "list" | "grid";
 }
 
-export const GroupCard = ({ id, displayName, relayUrl, memberCount, avatar, onClick, className, viewMode = "list" }: GroupCardProps) => {
+export const GroupCard = ({
+    id,
+    displayName,
+    relayUrl,
+    memberCount,
+    avatar,
+    leavePublishShortLabel,
+    onClick,
+    className,
+    viewMode = "list",
+}: GroupCardProps) => {
     let relayHost = relayUrl;
     try {
         relayHost = new URL(relayUrl).hostname;
@@ -49,6 +60,14 @@ export const GroupCard = ({ id, displayName, relayUrl, memberCount, avatar, onCl
                             <h4 className="font-bold text-sm text-foreground truncate group-hover:text-primary transition-colors">
                                 {displayName}
                             </h4>
+                            {leavePublishShortLabel ? (
+                                <span
+                                    data-testid="group-card-leave-publish-badge"
+                                    className="shrink-0 rounded-md border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-amber-700 dark:text-amber-300"
+                                >
+                                    {leavePublishShortLabel}
+                                </span>
+                            ) : null}
                         </div>
                         <div className="flex items-center gap-2 text-[11px] text-muted-foreground font-mono truncate">
                             <Globe className="h-3 w-3 shrink-0" />

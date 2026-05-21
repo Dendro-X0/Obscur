@@ -122,7 +122,7 @@ export const enqueueCommunityLeaveOutboxItem = (params: Readonly<{
   profileId?: string;
 }>): CommunityLeaveOutboxItem => {
   const existing = readCommunityLeaveOutbox(params.publicKeyHex, params.profileId);
-  const id = `${params.groupId}@@${params.relayUrl}`;
+  const id = toCommunityLeaveOutboxItemId(params.groupId, params.relayUrl);
 
   const item: CommunityLeaveOutboxItem = {
     id,
@@ -167,7 +167,7 @@ export const updateCommunityLeaveOutboxItem = (params: Readonly<{
   profileId?: string;
 }>): void => {
   const existing = readCommunityLeaveOutbox(params.publicKeyHex, params.profileId);
-  const id = `${params.groupId}@@${params.relayUrl}`;
+  const id = toCommunityLeaveOutboxItemId(params.groupId, params.relayUrl);
   const now = params.nowUnixMs ?? Date.now();
 
   const updated = existing.map((item): CommunityLeaveOutboxItem => {
@@ -212,7 +212,7 @@ export const removeCommunityLeaveOutboxItem = (params: Readonly<{
   relayUrl: string;
   profileId?: string;
 }>): void => {
-  const id = `${params.groupId}@@${params.relayUrl}`;
+  const id = toCommunityLeaveOutboxItemId(params.groupId, params.relayUrl);
   const existing = readCommunityLeaveOutbox(params.publicKeyHex, params.profileId);
   saveCommunityLeaveOutbox(
     params.publicKeyHex,
@@ -220,6 +220,29 @@ export const removeCommunityLeaveOutboxItem = (params: Readonly<{
     params.profileId,
   );
 };
+
+export const toCommunityLeaveOutboxItemId = (
+  groupId: string,
+  relayUrl: string,
+): string => `${groupId}@@${relayUrl}`;
+
+export const findCommunityLeaveOutboxItem = (params: Readonly<{
+  publicKeyHex: string;
+  groupId: string;
+  relayUrl: string;
+  profileId?: string;
+}>): CommunityLeaveOutboxItem | null => {
+  const id = toCommunityLeaveOutboxItemId(params.groupId, params.relayUrl);
+  return readCommunityLeaveOutbox(params.publicKeyHex, params.profileId).find((item) => item.id === id) ?? null;
+};
+
+/** Items that still need relay attention or honest terminal surfacing (excludes published). */
+export const listCommunityLeaveOutboxItemsAwaitingRelay = (
+  publicKeyHex: string,
+  profileId?: string,
+): ReadonlyArray<CommunityLeaveOutboxItem> => (
+  readCommunityLeaveOutbox(publicKeyHex, profileId).filter((item) => item.status !== "published")
+);
 
 export const getPendingCommunityLeaveOutboxItems = (
   publicKeyHex: string,

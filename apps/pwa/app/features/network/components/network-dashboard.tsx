@@ -40,6 +40,12 @@ import { AddConnectionModal } from "./add-connection-modal";
 
 import { ConnectionCard } from "./network-connection-card";
 import { GroupCard } from "./group-card";
+import { CommunityLeaveOutboxSummaryBanner } from "@/app/features/groups/components/community-leave-publish-pending-notice";
+import {
+    resolveLeaveOutboxScopeId,
+    useCommunityLeaveOutboxIndex,
+} from "@/app/features/groups/hooks/use-community-leave-outbox-index";
+import { resolveCommunityLeavePublishSurfaceCopy } from "@/app/features/groups/services/community-leave-publish-copy";
 const GroupDiscoveryPanel = lazy(async () => {
     const discoveryModule = await import("@/app/features/groups/components/group-discovery");
     return { default: discoveryModule.GroupDiscovery };
@@ -78,6 +84,7 @@ export function NetworkDashboard() {
     const [revealedByPubkey, setRevealedByPubkey] = useState<Readonly<Record<string, boolean>>>({});
     const [isAddConnectionOpen, setIsAddConnectionOpen] = useState(false);
     const { addToast } = useToasts();
+    const { byScopeId: leaveOutboxByScopeId } = useCommunityLeaveOutboxIndex();
 
     // Group Join State
     const [isJoinInputOpen, setIsJoinInputOpen] = useState(false);
@@ -357,6 +364,7 @@ export function NetworkDashboard() {
 
                     {activeTab === "groups" && (
                         <div className="animate-in fade-in duration-150 flex-1 flex flex-col">
+                            <CommunityLeaveOutboxSummaryBanner className="mb-4" />
                             {filteredGroups.length === 0 ? (
                                 renderEmptyState(
                                     t("network.noGroupsFound"),
@@ -366,7 +374,14 @@ export function NetworkDashboard() {
                                 )
                             ) : (
                                 <div className={viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" : "flex flex-col"}>
-                                    {filteredGroups.map(group => (
+                                    {filteredGroups.map(group => {
+                                        const leaveOutboxItem = leaveOutboxByScopeId.get(
+                                            resolveLeaveOutboxScopeId(group.groupId, group.relayUrl),
+                                        );
+                                        const leavePublishShortLabel = leaveOutboxItem
+                                            ? resolveCommunityLeavePublishSurfaceCopy(leaveOutboxItem).shortLabel
+                                            : undefined;
+                                        return (
                                         <GroupCard
                                             key={group.id}
                                             id={group.id}
@@ -377,6 +392,7 @@ export function NetworkDashboard() {
                                                 fallback: group.id,
                                             })}
                                             relayUrl={group.relayUrl}
+                                            leavePublishShortLabel={leavePublishShortLabel}
                                             memberCount={
                                                 communityKnownParticipantDirectoryByConversationId[group.id]?.participantCount
                                                 ?? communityRosterByConversationId[group.id]?.memberCount
@@ -388,7 +404,8 @@ export function NetworkDashboard() {
                                             }}
                                             viewMode={viewMode}
                                         />
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             )}
                         </div>
