@@ -6,9 +6,9 @@
 
 ## Active Objective
 
-1. **v1.8.3 REL-004:** Durable leave + honest pending-relay UX (Lane T).
-2. **Done on `main` (uncommitted/push pending):** path audit tests, outbox index hook, Network banner/card badges, `removeGroupConversation` outbox enqueue.
-3. **Remaining:** desktop demo T4-2–T4-5, tag **v1.8.3**.
+1. **v1.8.3 REL-004 + MEM-002:** Leave outbox UX + observer roster honors sealed leave over chat history.
+2. **Fix shipped:** participation filter no longer reverts `leftMembers`; invite uses eligible roster.
+3. **Remaining:** re-test A leaves / B roster / re-invite (screenshot scenario), demo matrix, tag **v1.8.3**.
 
 ## Next Atomic Step
 
