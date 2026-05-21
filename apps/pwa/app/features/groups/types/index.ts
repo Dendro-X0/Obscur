@@ -20,4 +20,6 @@ export interface GroupMetadata {
     relayCapabilityTier?: RelayCapabilityTier;
     /** Monotonic descriptor revision for COMMUNITY_DESCRIPTOR_UPDATED events. */
     descriptorVersion?: number;
+    /** Managed workspace: pubkeys allowed direct descriptor/expel without governance vote. */
+    stewardPubkeys?: ReadonlyArray<string>;
 }

@@ -384,6 +384,7 @@ export class GroupService {
                 communityMode: params.metadata.communityMode,
                 relayCapabilityTier: params.metadata.relayCapabilityTier,
                 descriptorVersion: params.metadata.descriptorVersion,
+                stewardPubkeys: params.metadata.stewardPubkeys,
             }),
             pubkey: this.myPublicKeyHex,
         };

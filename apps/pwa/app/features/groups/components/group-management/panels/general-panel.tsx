@@ -13,6 +13,7 @@ import {
     isManagedWorkspaceRelayGateBlocking,
     type ManagedWorkspaceRelayGate,
 } from "../../../services/community-mode-contract";
+import type { CommunityStewardPolicy } from "../../../services/community-steward-policy";
 import type { GroupAccessMode } from "../../../types";
 import { mgmtFieldClass, mgmtSectionClass, mgmtTextareaClass } from "../constants";
 
@@ -28,6 +29,7 @@ export function GroupManagementGeneralPanel({
     isUploading,
     onPickAvatar,
     requiresMemberVote,
+    stewardPolicy,
     communityMode,
     relayUrl,
     relayCapabilities,
@@ -45,6 +47,7 @@ export function GroupManagementGeneralPanel({
     isUploading: boolean;
     onPickAvatar: () => void;
     requiresMemberVote: boolean;
+    stewardPolicy: CommunityStewardPolicy;
     communityMode: GroupConversationCommunityMode;
     relayUrl: string;
     relayCapabilities: Parameters<typeof RelayCapabilityBadge>[0]["capabilities"];
@@ -152,6 +155,11 @@ export function GroupManagementGeneralPanel({
                     This community has multiple members. Saving will create a governance proposal instead of applying immediately.
                 </p>
             ) : null}
+            {communityMode === "managed_workspace" && stewardPolicy.isDesignatedSteward && isAdmin ? (
+                <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-100">
+                    You are a designated steward — descriptor and member removal can apply without a community vote.
+                </p>
+            ) : null}
 
             <details className="rounded-xl border border-zinc-800 bg-zinc-900/30 px-4 py-3">
                 <summary className="cursor-pointer text-sm font-medium text-zinc-400">Relay & protocol details</summary>
@@ -168,6 +176,12 @@ export function GroupManagementGeneralPanel({
                         isLoading={isRelayCapabilitiesLoading}
                         className="w-full"
                     />
+                    {communityMode === "managed_workspace" ? (
+                        <p className="text-xs text-zinc-500">
+                            Authority: {stewardPolicy.authorityMode.replace(/_/g, " ")}
+                            {stewardPolicy.isDesignatedSteward ? " · you are a steward" : ""}
+                        </p>
+                    ) : null}
                 </div>
             </details>
         </div>

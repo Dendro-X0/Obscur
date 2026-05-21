@@ -9,6 +9,7 @@ import { useRelay } from "@/app/features/relays/providers/relay-provider";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { useNetwork } from "@/app/features/network/providers/network-provider";
 import { CreateGroupDialog, type GroupCreateInfo } from "@/app/features/groups/components/create-group-dialog";
+import { resolveInitialStewardPubkeysForCreate } from "@/app/features/groups/services/community-steward-policy";
 import { NewChatDialog } from "@/app/features/messaging/components/new-chat-dialog";
 import { GroupService } from "@/app/features/groups/services/group-service";
 import { cryptoService } from "../../crypto/crypto-service";
@@ -141,6 +142,10 @@ export function GlobalDialogManager() {
             const roomKeyHex = await cryptoService.generateRoomKey();
             await roomKeyStore.saveRoomKey(groupId, roomKeyHex);
 
+            const stewardPubkeys = resolveInitialStewardPubkeysForCreate({
+                communityMode,
+                creatorPublicKeyHex: creatorPubkey as PublicKeyHex,
+            });
             const metadata = {
                 id: groupId,
                 name,
@@ -149,6 +154,7 @@ export function GlobalDialogManager() {
                 access,
                 communityMode,
                 relayCapabilityTier,
+                ...(stewardPubkeys.length > 0 ? { stewardPubkeys } : {}),
             } as const;
 
             const groupService = new GroupService(myPublicKeyHex, myPrivateKeyHex);

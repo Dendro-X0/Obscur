@@ -26,8 +26,20 @@ Prerequisite: a community created or marked **Managed Workspace** on a private/t
 
 ---
 
+## P3.2 — Steward model
+
+| ID | Step | Expected | Pass |
+|----|------|----------|------|
+| P3-8 | Create **Managed Workspace** on private relay | Creator is initial steward; metadata includes `stewardPubkeys` |
+| P3-9 | As steward with 3+ members: rename in General | Saves **without** governance proposal (direct descriptor) |
+| P3-10 | As steward: remove another member | Applies **without** governance proposal |
+| P3-11 | As non-steward member in same community | Save creates governance proposal; removal uses vote/expel proposal |
+
+---
+
 ## Sign-off
 
 | Block | Date | Notes |
 |-------|------|-------|
 | P3.1 relay gate | | |
+| P3.2 stewards | | |

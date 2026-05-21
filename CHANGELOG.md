@@ -61,9 +61,13 @@ Desktop-first patch: governance TTL and tie handling, duplicate-resolution idemp
 - **P3.1** — `resolveManagedWorkspaceRelayGate` + `isManagedWorkspaceRelayGateBlocking`; management shell banner across tabs; blocks descriptor save, invite, member removal, room-key rotate, and share-invite when Managed Workspace lacks trusted/private relay baseline; governance voting on existing proposals still allowed.
 - [v1.7.0 demo matrix](docs/assets/demo/v1.7.0/README.md) for P3.1 manual sign-off.
 
+### Added (continued)
+
+- **P3.2** — `stewardPubkeys` on `GroupMetadata`; `resolveCommunityStewardPolicy` (solo / member_vote / designated_stewards); creator seeded as steward on managed create; stewards bypass governance for descriptor + expel when policy allows.
+
 ### Planned
 
-- **P3.2–P3.3** — Steward model, directory/roster materialization (Phase 3 roadmap).
+- **P3.3** — Directory/roster materialization (Phase 3 roadmap).
 
 ## [v1.6.0] - 2026-05-21 (Phase 2 governance projection)
 

@@ -100,6 +100,10 @@ import {
 } from "../services/community-relay-membership-interop";
 import { COMMUNITY_MEMBERSHIP_RESTATE_INTERVAL_MS } from "../services/community-membership-evidence-actions";
 import { persistCommunityGovernanceMemberExpelled } from "../services/community-governance-mutation-owner";
+import {
+    readStewardPubkeysFromMetadataField,
+    resolveCommunityStewardPolicy,
+} from "../services/community-steward-policy";
 import type { GroupConversation } from "../../messaging/types";
 import { subscribeGroupInviteAcceptedDual } from "@/app/features/profiles/services/subscribe-group-invite-accepted-dual";
 import { useOptionalProfileMessageBus } from "@/app/features/profiles/providers/profile-runtime-provider";
@@ -216,6 +220,8 @@ export type UseSealedCommunityResult = Readonly<{
   sendVoteKick: (targetPubkey: string, reason?: string) => Promise<void>;
   proposeDescriptorUpdate: (params: Readonly<GroupMetadata>) => Promise<void>;
   proposeExpelMember: (params: Readonly<{ targetPublicKeyHex: PublicKeyHex; reason?: string }>) => Promise<void>;
+  /** Designated steward or solo-member direct expel (P3.2). */
+  expelMemberDirect: (params: Readonly<{ targetPublicKeyHex: PublicKeyHex; reason?: string }>) => Promise<void>;
   castGovernanceVote: (params: Readonly<{ proposalId: string; vote: CommunityGovernanceVote }>) => Promise<void>;
   rotateRoomKey: () => Promise<void>;
   updateMetadata: (
@@ -1642,6 +1648,10 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
                       ? innerPayload.metadata.relayCapabilityTier
                       : prev.metadata?.relayCapabilityTier,
                   descriptorVersion: createdVersion,
+                  stewardPubkeys: (() => {
+                    const stewards = readStewardPubkeysFromMetadataField(innerPayload.metadata.stewardPubkeys);
+                    return stewards.length > 0 ? stewards : prev.metadata?.stewardPubkeys;
+                  })(),
                 }
               }));
             }
@@ -1697,6 +1707,10 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
                     ? incomingMeta.relayCapabilityTier
                     : prev.metadata?.relayCapabilityTier,
                 descriptorVersion: incomingVersion,
+                stewardPubkeys: (() => {
+                  const stewards = readStewardPubkeysFromMetadataField(incomingMeta.stewardPubkeys);
+                  return stewards.length > 0 ? stewards : prev.metadata?.stewardPubkeys;
+                })(),
               };
               return { ...prev, metadata: mergedMetadata };
             });
@@ -1936,6 +1950,10 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
                   ? metadata.relayCapabilityTier
                   : prev.metadata?.relayCapabilityTier,
               descriptorVersion: descriptorVersionRef.current,
+              stewardPubkeys: (() => {
+                const stewards = readStewardPubkeysFromMetadataField(metadata.stewardPubkeys);
+                return stewards.length > 0 ? stewards : prev.metadata?.stewardPubkeys;
+              })(),
             };
             descriptorDetail = {
               groupId: params.groupId,
@@ -2994,17 +3012,91 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
   ]);
   updateMetadataRef.current = updateMetadata;
 
-  const proposeDescriptorUpdate = useCallback(async (nextMetadata: GroupMetadata): Promise<void> => {
-    const activeMemberCount = membersRef.current.filter(
+  const countActiveMembers = useCallback((): number => (
+    membersRef.current.filter(
       (pubkey) => !leftMembersRef.current.includes(pubkey) && !expelledMembersRef.current.includes(pubkey),
-    ).length;
-    if (activeMemberCount <= 1) {
+    ).length
+  ), []);
+
+  const resolveStewardPolicyForActor = useCallback(() => (
+    resolveCommunityStewardPolicy({
+      communityMode: state.metadata?.communityMode,
+      stewardPubkeys: state.metadata?.stewardPubkeys,
+      actorPublicKeyHex: params.myPublicKeyHex ?? null,
+      activeMemberCount: countActiveMembers(),
+    })
+  ), [countActiveMembers, params.myPublicKeyHex, state.metadata?.communityMode, state.metadata?.stewardPubkeys]);
+
+  const expelMemberDirect = useCallback(async (expelParams: Readonly<{
+    targetPublicKeyHex: PublicKeyHex;
+    reason?: string;
+  }>): Promise<void> => {
+    const policy = resolveStewardPolicyForActor();
+    if (!policy.canDirectMemberExpel) {
+      throw new Error("Only designated stewards can remove members without a governance vote.");
+    }
+    applyControlEvent(createMembershipControlEventBase({
+      eventType: "COMMUNITY_MEMBER_EXPELLED",
+      logicalEventId: `steward-expel:${Date.now()}`,
+      createdAtUnixMs: Date.now(),
+      subjectPublicKeyHex: expelParams.targetPublicKeyHex,
+    }));
+    const operatorPk = params.myPublicKeyHex?.trim();
+    if (operatorPk) {
+      const conversationId = toGroupConversationId({
+        groupId: params.groupId,
+        relayUrl: params.relayUrl,
+        communityId: params.communityId,
+      });
+      persistCommunityGovernanceMemberExpelled({
+        publicKeyHex: operatorPk,
+        group: {
+          kind: "group",
+          id: conversationId,
+          groupId: params.groupId,
+          relayUrl: params.relayUrl,
+          communityId: params.communityId,
+          displayName: state.metadata?.name ?? params.groupId,
+          about: state.metadata?.about,
+          avatar: state.metadata?.picture,
+          access: state.metadata?.access ?? "invite-only",
+          memberPubkeys: [...membersRef.current],
+          adminPubkeys: params.myPublicKeyHex ? [params.myPublicKeyHex] : membersRef.current.slice(0, 1),
+          lastMessage: "",
+          unreadCount: 0,
+          lastMessageTime: new Date(),
+          memberCount: membersRef.current.length,
+        },
+        targetPublicKeyHex: expelParams.targetPublicKeyHex,
+        lastEvidenceEventId: `steward-expel:${expelParams.targetPublicKeyHex.slice(0, 8)}`,
+        profileId: getResolvedProfileId(),
+      });
+    }
+    toast.success(`Member ${expelParams.targetPublicKeyHex.slice(0, 8)}… removed by steward action.`);
+  }, [
+    applyControlEvent,
+    createMembershipControlEventBase,
+    params.communityId,
+    params.groupId,
+    params.myPublicKeyHex,
+    params.relayUrl,
+    resolveStewardPolicyForActor,
+    state.metadata?.about,
+    state.metadata?.access,
+    state.metadata?.name,
+    state.metadata?.picture,
+  ]);
+
+  const proposeDescriptorUpdate = useCallback(async (nextMetadata: GroupMetadata): Promise<void> => {
+    const policy = resolveStewardPolicyForActor();
+    if (policy.canDirectDescriptorUpdate) {
       await updateMetadata(nextMetadata);
       return;
     }
     if (!params.myPublicKeyHex) {
       throw new Error("Unlock your identity to propose community changes.");
     }
+    const activeMemberCount = countActiveMembers();
     const proposalId = `gov-desc-${params.groupId.slice(0, 8)}-${Date.now()}-${createRandomId()}`;
     const quorumThreshold = computeGovernanceQuorumThreshold(activeMemberCount);
     const payload = {
@@ -3042,15 +3134,18 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
       logicalEventId: `${proposalId}:vote:${params.myPublicKeyHex}`,
     });
     toast.info("Rename proposal published. Waiting for other members to vote.");
-  }, [ingestGovernanceEvent, params.groupId, params.myPublicKeyHex, publishGovernanceSealed, updateMetadata]);
+  }, [countActiveMembers, ingestGovernanceEvent, params.groupId, params.myPublicKeyHex, publishGovernanceSealed, resolveStewardPolicyForActor, updateMetadata]);
 
   const proposeExpelMember = useCallback(async (expelParams: Readonly<{
     targetPublicKeyHex: PublicKeyHex;
     reason?: string;
   }>): Promise<void> => {
-    const activeMemberCount = membersRef.current.filter(
-      (pubkey) => !leftMembersRef.current.includes(pubkey) && !expelledMembersRef.current.includes(pubkey),
-    ).length;
+    const policy = resolveStewardPolicyForActor();
+    if (policy.canDirectMemberExpel) {
+      await expelMemberDirect(expelParams);
+      return;
+    }
+    const activeMemberCount = countActiveMembers();
     if (activeMemberCount <= 1) {
       throw new Error("Expelling members requires at least one other active member.");
     }
@@ -3092,7 +3187,7 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
       logicalEventId: `${proposalId}:vote:${params.myPublicKeyHex}`,
     });
     toast.info("Expulsion proposal published. Waiting for member votes.");
-  }, [ingestGovernanceEvent, params.groupId, params.myPublicKeyHex, publishGovernanceSealed]);
+  }, [countActiveMembers, expelMemberDirect, ingestGovernanceEvent, params.groupId, params.myPublicKeyHex, publishGovernanceSealed, resolveStewardPolicyForActor]);
 
   const castGovernanceVote = useCallback(async (voteParams: Readonly<{
     proposalId: string;
@@ -3207,6 +3302,7 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
       sendVoteKick,
       proposeDescriptorUpdate,
       proposeExpelMember,
+      expelMemberDirect,
       castGovernanceVote,
       rotateRoomKey,
       updateMetadata,
@@ -3234,6 +3330,7 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
     sendVoteKick,
     proposeDescriptorUpdate,
     proposeExpelMember,
+    expelMemberDirect,
     castGovernanceVote,
     rotateRoomKey,
     updateMetadata,

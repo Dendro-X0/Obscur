@@ -31,6 +31,7 @@ import {
     isManagedWorkspaceRelayGateBlocking,
     resolveManagedWorkspaceRelayGate,
 } from "../services/community-mode-contract";
+import { resolveCommunityStewardPolicy } from "../services/community-steward-policy";
 import { ManagedWorkspaceRelayGateBanner } from "./group-management/managed-workspace-relay-gate-banner";
 import { discoveryCache } from "@/app/features/search/services/discovery-cache";
 import { filterVisibleGroupMembers } from "../services/community-visible-members";
@@ -109,6 +110,7 @@ export function GroupManagementDialog({
         updateMetadata,
         proposeDescriptorUpdate,
         proposeExpelMember,
+        expelMemberDirect,
         sendVoteKick,
         castGovernanceVote,
         rotateRoomKey,
@@ -429,7 +431,9 @@ export function GroupManagementDialog({
         }
         setKickingMemberPubkey(memberPubkey);
         try {
-            if (activeMembers.length > 2) {
+            if (stewardPolicy.canDirectMemberExpel) {
+                await expelMemberDirect({ targetPublicKeyHex: memberPubkey as PublicKeyHex });
+            } else if (activeMembers.length > 2) {
                 await proposeExpelMember({ targetPublicKeyHex: memberPubkey as PublicKeyHex });
             } else {
                 await sendVoteKick(memberPubkey);
@@ -496,7 +500,22 @@ export function GroupManagementDialog({
 
     if (!isOpen) return null;
 
-    const requiresMemberVote = activeMembers.length > 1;
+    const stewardPolicy = React.useMemo(
+        () => resolveCommunityStewardPolicy({
+            communityMode: state.metadata?.communityMode ?? group.communityMode,
+            stewardPubkeys: state.metadata?.stewardPubkeys,
+            actorPublicKeyHex: myPublicKeyHex,
+            activeMemberCount: activeMembers.length,
+        }),
+        [
+            activeMembers.length,
+            group.communityMode,
+            myPublicKeyHex,
+            state.metadata?.communityMode,
+            state.metadata?.stewardPubkeys,
+        ],
+    );
+    const requiresMemberVote = stewardPolicy.requiresGovernanceVoteForDescriptor;
 
     const handleSaveGeneral = async () => {
         if (!requireManagedWorkspaceRelayGate()) {
@@ -635,6 +654,7 @@ export function GroupManagementDialog({
                         isUploading={isUploading}
                         onPickAvatar={() => void handlePickAvatar()}
                         requiresMemberVote={requiresMemberVote}
+                        stewardPolicy={stewardPolicy}
                         communityMode={group.communityMode}
                         relayUrl={group.relayUrl}
                         relayCapabilities={relayCapabilities}
