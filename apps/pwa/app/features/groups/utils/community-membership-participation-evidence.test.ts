@@ -35,7 +35,7 @@ describe("community-membership-participation-evidence", () => {
     })).toBe(false);
   });
 
-  it("strips terminal pubkeys that still have author evidence", () => {
+  it("filterTerminalMembersWithoutParticipationEvidence strips terminal when only legacy participation exists", () => {
     const filtered = filterTerminalMembersWithoutParticipationEvidence({
       leftMemberPubkeys: [PK_B],
       expelledMemberPubkeys: [],

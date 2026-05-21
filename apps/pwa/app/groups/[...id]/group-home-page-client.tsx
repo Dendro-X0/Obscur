@@ -95,7 +95,7 @@ import {
 import { CommunityMembershipEvidenceToolbar } from "@/app/features/groups/components/community-membership-evidence-toolbar";
 import { collectGroupMessageAuthorPubkeys } from "@/app/features/groups/services/community-message-author-evidence";
 import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store";
-import { filterTerminalMembersWithoutParticipationEvidence } from "@/app/features/groups/utils/community-membership-participation-evidence";
+import { resolveInviteEligibleMemberPubkeys } from "@/app/features/groups/services/community-visible-members";
 
 export default function GroupHomePage() {
     const MEMBERS_PER_PAGE = 20;
@@ -276,52 +276,20 @@ export default function GroupHomePage() {
         });
     }, [group?.id, localMemberPubkey]);
 
-    const effectiveLeftMemberPubkeys = React.useMemo(() => {
-        const merged = mergeTerminalMemberPubkeys(
+    const rawLeftMemberPubkeys = React.useMemo(
+        () => mergeTerminalMemberPubkeys(
             terminalMembershipCache?.leftMemberPubkeys ?? [],
             groupState.leftMembers,
-        );
-        return filterTerminalMembersWithoutParticipationEvidence({
-            leftMemberPubkeys: merged,
-            expelledMemberPubkeys: [],
-            communityMessages: groupState.messages,
-            additionalParticipationPubkeys: [
-                ...persistedConversationAuthorPubkeys,
-                ...(projectionMemberPubkeys ?? []),
-                ...(knownParticipantPubkeys ?? []),
-            ],
-        }).leftMemberPubkeys;
-    }, [
-        groupState.leftMembers,
-        groupState.messages,
-        persistedConversationAuthorPubkeys,
-        projectionMemberPubkeys,
-        knownParticipantPubkeys,
-        terminalMembershipCache,
-    ]);
-    const effectiveExpelledMemberPubkeys = React.useMemo(() => {
-        const merged = mergeTerminalMemberPubkeys(
+        ),
+        [groupState.leftMembers, terminalMembershipCache],
+    );
+    const rawExpelledMemberPubkeys = React.useMemo(
+        () => mergeTerminalMemberPubkeys(
             terminalMembershipCache?.expelledMemberPubkeys ?? [],
             groupState.expelledMembers,
-        );
-        return filterTerminalMembersWithoutParticipationEvidence({
-            leftMemberPubkeys: [],
-            expelledMemberPubkeys: merged,
-            communityMessages: groupState.messages,
-            additionalParticipationPubkeys: [
-                ...persistedConversationAuthorPubkeys,
-                ...(projectionMemberPubkeys ?? []),
-                ...(knownParticipantPubkeys ?? []),
-            ],
-        }).expelledMemberPubkeys;
-    }, [
-        groupState.expelledMembers,
-        groupState.messages,
-        knownParticipantPubkeys,
-        persistedConversationAuthorPubkeys,
-        projectionMemberPubkeys,
-        terminalMembershipCache,
-    ]);
+        ),
+        [groupState.expelledMembers, terminalMembershipCache],
+    );
 
     const { activeMemberPubkeys: activeMembers, authorEvidencePubkeys: conversationAuthorPubkeys } = React.useMemo(
         () => getResolvedClientGateway().communityRoster.resolveActiveMemberPubkeysFromConversation({
@@ -330,12 +298,12 @@ export default function GroupHomePage() {
             seededMemberPubkeys: seededMemberEvidence,
             projectionMemberPubkeys,
             localMemberPubkey,
-            leftMemberPubkeys: effectiveLeftMemberPubkeys,
-            expelledMemberPubkeys: effectiveExpelledMemberPubkeys,
+            leftMemberPubkeys: rawLeftMemberPubkeys,
+            expelledMemberPubkeys: rawExpelledMemberPubkeys,
         }),
         [
-            effectiveExpelledMemberPubkeys,
-            effectiveLeftMemberPubkeys,
+            rawExpelledMemberPubkeys,
+            rawLeftMemberPubkeys,
             groupState.messages,
             localMemberPubkey,
             projectionMemberPubkeys,
@@ -357,6 +325,14 @@ export default function GroupHomePage() {
         () => Array.from(new Set([...activeMembers, ...provisionalMemberPubkeys])) as ReadonlyArray<PublicKeyHex>,
         [activeMembers, provisionalMemberPubkeys],
     );
+    const inviteEligibleMemberPubkeys = React.useMemo(
+        () => resolveInviteEligibleMemberPubkeys({
+            activeMemberPubkeys: effectiveActiveMembers,
+            leftMemberPubkeys: rawLeftMemberPubkeys,
+            expelledMemberPubkeys: rawExpelledMemberPubkeys,
+        }),
+        [effectiveActiveMembers, rawExpelledMemberPubkeys, rawLeftMemberPubkeys],
+    );
 
     useEffect(() => {
         const groupId = group?.groupId || id || "";
@@ -370,6 +346,10 @@ export default function GroupHomePage() {
             profileId,
             relayBackedMemberPubkeys: activeMembers,
             conversationAuthorPubkeys,
+            protectedTerminalMemberPubkeys: mergeTerminalMemberPubkeys(
+                rawLeftMemberPubkeys,
+                rawExpelledMemberPubkeys,
+            ),
         });
         const provisionalChanged = stripProvisionalCommunityMembersConfirmedOnRelay({
             groupId,
@@ -380,7 +360,7 @@ export default function GroupHomePage() {
         if (terminalChanged || provisionalChanged) {
             setProvisionalOverlayEpoch((e) => e + 1);
         }
-    }, [activeMembers, conversationAuthorPubkeys, effectiveRelay, group?.groupId, id]);
+    }, [activeMembers, conversationAuthorPubkeys, effectiveRelay, group?.groupId, id, rawExpelledMemberPubkeys, rawLeftMemberPubkeys]);
 
     useEffect(() => {
         const groupId = group?.groupId || id || "";
@@ -413,8 +393,8 @@ export default function GroupHomePage() {
         rosterSeedPubkeys: seededMemberEvidence,
         communityMessages: groupState.messages,
         localMemberPubkey,
-        leftMemberPubkeys: effectiveLeftMemberPubkeys,
-        expelledMemberPubkeys: effectiveExpelledMemberPubkeys,
+        leftMemberPubkeys: rawLeftMemberPubkeys,
+        expelledMemberPubkeys: rawExpelledMemberPubkeys,
         relayEvidenceConfidence,
         persistedEvidenceOwnerPubkey: localMemberPubkey,
         ledgerGroupId: group?.groupId,
@@ -466,8 +446,8 @@ export default function GroupHomePage() {
         [activeMembers, provisionalMemberPubkeys, visibleMembers],
     );
     const terminalRecordCount = React.useMemo(
-        () => new Set([...effectiveLeftMemberPubkeys, ...effectiveExpelledMemberPubkeys]).size,
-        [effectiveExpelledMemberPubkeys, effectiveLeftMemberPubkeys],
+        () => new Set([...rawLeftMemberPubkeys, ...rawExpelledMemberPubkeys]).size,
+        [rawExpelledMemberPubkeys, rawLeftMemberPubkeys],
     );
     const displayMemberCount = visibleMembers.length;
     const onlineMembers = React.useMemo(
@@ -502,20 +482,20 @@ export default function GroupHomePage() {
         const activeParticipationSet = new Set(
             [...activeMembers, ...conversationAuthorPubkeys].map((pk) => pk.trim().toLowerCase()),
         );
-        const leftFiltered = effectiveLeftMemberPubkeys.filter(
+        const leftFiltered = rawLeftMemberPubkeys.filter(
             (pubkey) => !activeParticipationSet.has(pubkey.trim().toLowerCase()),
         );
         const leftSet = new Set(leftFiltered.map((pk) => pk.trim().toLowerCase()));
         return [
             ...leftFiltered.map((pubkey) => ({ pubkey, kind: "left" as const })),
-            ...effectiveExpelledMemberPubkeys
+            ...rawExpelledMemberPubkeys
                 .filter((pubkey) => (
                     !leftSet.has(pubkey.trim().toLowerCase())
                     && !activeParticipationSet.has(pubkey.trim().toLowerCase())
                 ))
                 .map((pubkey) => ({ pubkey, kind: "expelled" as const })),
         ] as ReadonlyArray<Readonly<{ pubkey: PublicKeyHex; kind: CommunityTerminalMemberKind }>>;
-    }, [activeMembers, conversationAuthorPubkeys, effectiveExpelledMemberPubkeys, effectiveLeftMemberPubkeys]);
+    }, [activeMembers, conversationAuthorPubkeys, rawExpelledMemberPubkeys, rawLeftMemberPubkeys]);
     const filteredTerminalMemberEntries = React.useMemo(
         () => terminalMemberEntries.filter((entry) => memberMatchesSearch(entry.pubkey)),
         [memberMatchesSearch, terminalMemberEntries],
@@ -1368,7 +1348,7 @@ export default function GroupHomePage() {
                         communityId={group.communityId}
                         genesisEventId={group.genesisEventId}
                         creatorPubkey={group.creatorPubkey}
-                        currentMemberPubkeys={effectiveActiveMembers}
+                        currentMemberPubkeys={inviteEligibleMemberPubkeys}
                         metadata={{
                             id: group.groupId,
                             name: displayName,

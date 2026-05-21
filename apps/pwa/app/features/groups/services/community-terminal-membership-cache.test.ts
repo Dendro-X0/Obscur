@@ -84,6 +84,23 @@ describe("community-terminal-membership-cache", () => {
     expect(loadCommunityTerminalMembershipCache({ groupId: GROUP_ID, relayUrl: RELAY_URL })).toBeNull();
   });
 
+  it("does not clear protected sealed leave evidence when author participation exists", () => {
+    saveCommunityTerminalMembershipCache({
+      groupId: GROUP_ID,
+      relayUrl: RELAY_URL,
+      leftMemberPubkeys: [PK_LEFT],
+      expelledMemberPubkeys: [],
+    });
+    const changed = stripTerminalCommunityMembersWithActiveEvidence({
+      groupId: GROUP_ID,
+      relayUrl: RELAY_URL,
+      conversationAuthorPubkeys: [PK_LEFT],
+      protectedTerminalMemberPubkeys: [PK_LEFT],
+    });
+    expect(changed).toBe(false);
+    expect(loadCommunityTerminalMembershipCache({ groupId: GROUP_ID, relayUrl: RELAY_URL })?.leftMemberPubkeys).toEqual([PK_LEFT]);
+  });
+
   it("clearCommunityTerminalMembershipCache removes persisted terminal evidence", () => {
     saveCommunityTerminalMembershipCache({
       groupId: GROUP_ID,

@@ -1117,33 +1117,8 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
     state.leftMembers,
   ]);
 
-  useEffect(() => {
-    if (!params.enabled || state.messages.length === 0) {
-      return;
-    }
-    const filteredTerminal = filterTerminalMembersWithoutParticipationEvidence({
-      leftMemberPubkeys: state.leftMembers,
-      expelledMemberPubkeys: state.expelledMembers,
-      communityMessages: state.messages,
-      additionalParticipationPubkeys: resolveParticipationPubkeysForTerminal(),
-    });
-    const leftUnchanged = filteredTerminal.leftMemberPubkeys.join(",") === state.leftMembers.join(",");
-    const expelledUnchanged = filteredTerminal.expelledMemberPubkeys.join(",") === state.expelledMembers.join(",");
-    if (leftUnchanged && expelledUnchanged) {
-      return;
-    }
-    setState((prev) => ({
-      ...prev,
-      leftMembers: filteredTerminal.leftMemberPubkeys as ReadonlyArray<PublicKeyHex>,
-      expelledMembers: filteredTerminal.expelledMemberPubkeys as ReadonlyArray<PublicKeyHex>,
-    }));
-  }, [
-    params.enabled,
-    resolveParticipationPubkeysForTerminal,
-    state.expelledMembers,
-    state.leftMembers,
-    state.messages,
-  ]);
+  // Do not prune `leftMembers`/`expelledMembers` from chat participation — that reverts
+  // sealed leave for observers (MEM-002) and blocks re-invite.
 
   const observedKnownParticipants = useMemo<ReadonlyArray<PublicKeyHex>>(() => (
     projectCommunityMemberRoster({
@@ -1245,19 +1220,13 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
       return;
     }
     lastMembershipSnapshotFingerprintRef.current = fingerprint;
-    const filteredTerminal = filterTerminalMembersWithoutParticipationEvidence({
-      leftMemberPubkeys: state.leftMembers,
-      expelledMemberPubkeys: state.expelledMembers,
-      communityMessages: communityMessagesRef.current,
-      additionalParticipationPubkeys: resolveParticipationPubkeysForTerminal(),
-    });
     const detail = {
       groupId: params.groupId,
       relayUrl: normalizeRelayUrl(params.relayUrl),
       communityId: params.communityId,
       activeMemberPubkeys: publishedSnapshotMembers,
-      leftMembers: filteredTerminal.leftMemberPubkeys,
-      expelledMembers: filteredTerminal.expelledMemberPubkeys,
+      leftMembers: state.leftMembers,
+      expelledMembers: state.expelledMembers,
       disbandedAt: state.disbandedAt ?? null,
     };
     queueMicrotask(() => {
@@ -1395,17 +1364,11 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
     if (!canApplyRelayInferredRemovalNow()) {
       return;
     }
-    const filteredTerminal = filterTerminalMembersWithoutParticipationEvidence({
-      leftMemberPubkeys: state.leftMembers,
-      expelledMemberPubkeys: state.expelledMembers,
-      communityMessages: communityMessagesRef.current,
-      additionalParticipationPubkeys: resolveParticipationPubkeysForTerminal(),
-    });
     saveCommunityTerminalMembershipCache({
       groupId: params.groupId,
       relayUrl: params.relayUrl,
-      leftMemberPubkeys: filteredTerminal.leftMemberPubkeys,
-      expelledMemberPubkeys: filteredTerminal.expelledMemberPubkeys,
+      leftMemberPubkeys: state.leftMembers,
+      expelledMemberPubkeys: state.expelledMembers,
       disbandedAtUnixMs: state.disbandedAt ?? null,
     });
   }, [

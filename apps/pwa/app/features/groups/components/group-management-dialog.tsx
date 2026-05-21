@@ -37,7 +37,7 @@ import { resolveCommunityStewardPolicy } from "../services/community-steward-pol
 import { resolveCommunityDirectoryMaterializationHonesty } from "../services/community-directory-materialization-policy";
 import { ManagedWorkspaceRelayGateBanner } from "./group-management/managed-workspace-relay-gate-banner";
 import { discoveryCache } from "@/app/features/search/services/discovery-cache";
-import { filterVisibleGroupMembers } from "../services/community-visible-members";
+import { filterVisibleGroupMembers, resolveInviteEligibleMemberPubkeys } from "../services/community-visible-members";
 import { resolveCommunityDisplayName } from "../services/community-display-name";
 import {
     loadCommunityProvisionalMemberPubkeys,
@@ -323,6 +323,14 @@ export function GroupManagementDialog({
     const mergedManagementMemberPubkeys = React.useMemo(
         () => Array.from(new Set([...activeMembers, ...provisionalMemberPubkeys])) as ReadonlyArray<PublicKeyHex>,
         [activeMembers, provisionalMemberPubkeys],
+    );
+    const inviteEligibleMemberPubkeys = React.useMemo(
+        () => resolveInviteEligibleMemberPubkeys({
+            activeMemberPubkeys: mergedManagementMemberPubkeys,
+            leftMemberPubkeys: state.leftMembers,
+            expelledMemberPubkeys: state.expelledMembers,
+        }),
+        [mergedManagementMemberPubkeys, state.expelledMembers, state.leftMembers],
     );
     const visibleMemberRegistry = React.useMemo(
         () => filterVisibleGroupMembers(mergedManagementMemberPubkeys, (pubkey) => discoveryCache.getProfile(pubkey)),
@@ -789,7 +797,7 @@ export function GroupManagementDialog({
                 communityId={group.communityId}
                 genesisEventId={group.genesisEventId}
                 creatorPubkey={group.creatorPubkey}
-                currentMemberPubkeys={mergedManagementMemberPubkeys}
+                currentMemberPubkeys={inviteEligibleMemberPubkeys}
                 metadata={{
                     id: group.groupId,
                     name: resolveCommunityDisplayName({

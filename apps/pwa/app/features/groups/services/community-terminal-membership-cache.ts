@@ -163,6 +163,8 @@ export const stripTerminalCommunityMembersWithActiveEvidence = (params: Readonly
   relayUrl: string;
   relayBackedMemberPubkeys?: ReadonlyArray<PublicKeyHex | string>;
   conversationAuthorPubkeys?: ReadonlyArray<PublicKeyHex | string>;
+  /** Sealed leave/expel evidence — never cleared because of chat authors alone. */
+  protectedTerminalMemberPubkeys?: ReadonlyArray<PublicKeyHex | string>;
   profileId?: string;
 }>): boolean => {
   const before = loadCommunityTerminalMembershipCache({
@@ -173,10 +175,13 @@ export const stripTerminalCommunityMembersWithActiveEvidence = (params: Readonly
   if (!before) {
     return false;
   }
+  const protectedSet = new Set(
+    (params.protectedTerminalMemberPubkeys ?? []).map((pubkey) => pubkey.trim().toLowerCase()).filter(Boolean),
+  );
   const reinstatePubkeys = mergeTerminalMemberPubkeys(
     params.relayBackedMemberPubkeys ?? [],
     params.conversationAuthorPubkeys ?? [],
-  );
+  ).filter((pubkey) => !protectedSet.has(pubkey.trim().toLowerCase()));
   if (reinstatePubkeys.length === 0) {
     return false;
   }

@@ -131,6 +131,19 @@ describe("community-visible-members", () => {
         expect(visible).toEqual(["member-a"]);
     });
 
+    it("excludes sealed left members from active roster even when chat author evidence exists", () => {
+        const pkA = "a".repeat(64) as PublicKeyHex;
+        const pkB = "b".repeat(64) as PublicKeyHex;
+        const combined = resolveActiveCommunityMemberPubkeysFromConversation({
+            communityMessages: [{ pubkey: pkB }],
+            seededMemberPubkeys: [pkA, pkB],
+            leftMemberPubkeys: [pkB],
+            localMemberPubkey: pkA,
+        });
+        expect(combined.activeMemberPubkeys).toEqual([pkA]);
+        expect(combined.authorEvidencePubkeys).toContain(pkB);
+    });
+
     it("resolveActiveCommunityMemberPubkeysFromConversation matches separate author + visible steps", () => {
         const pkA = "a".repeat(64) as PublicKeyHex;
         const pkB = "b".repeat(64) as PublicKeyHex;
@@ -195,7 +208,7 @@ describe("community-visible-members", () => {
         });
     });
 
-    it("keeps persisted chat authors active when relay left list is stale", () => {
+    it("excludes left members from active roster even when persisted chat authors exist", () => {
         const PK_CREATOR = "a".repeat(64) as PublicKeyHex;
         const PK_B = "b".repeat(64) as PublicKeyHex;
         const { activeMemberPubkeys } = resolveActiveCommunityMemberPubkeysFromConversation({
@@ -205,7 +218,7 @@ describe("community-visible-members", () => {
             leftMemberPubkeys: [PK_B],
             expelledMemberPubkeys: [],
         });
-        expect(activeMemberPubkeys).toEqual(expect.arrayContaining([PK_CREATOR, PK_B]));
+        expect(activeMemberPubkeys).toEqual([PK_CREATOR]);
     });
 
     it("drops session-stable participants when explicit leave or expel evidence arrives", () => {

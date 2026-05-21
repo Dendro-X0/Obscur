@@ -9,7 +9,6 @@ import {
     projectCommunityMemberRoster,
     stabilizeCommunityMemberPubkeys as stabilizeCommunityMemberPubkeysFromRoster,
 } from "./community-member-roster-projection";
-import { filterTerminalMembersWithoutParticipationEvidence } from "../utils/community-membership-participation-evidence";
 import type { RelayEvidenceConfidence } from "./community-member-roster-projection";
 import type { StabilizeCommunityMemberPubkeysResult } from "./community-member-roster-projection";
 
@@ -117,22 +116,16 @@ export const resolveActiveCommunityMemberPubkeysFromConversation = (
         ...resolveAuthorEvidencePubkeysFromCommunityMessages(params.communityMessages),
         ...(params.persistedMessageAuthorPubkeys ?? []),
     ]);
-    const filteredTerminal = filterTerminalMembersWithoutParticipationEvidence({
-        leftMemberPubkeys: params.leftMemberPubkeys ?? [],
-        expelledMemberPubkeys: params.expelledMemberPubkeys ?? [],
-        communityMessages: params.communityMessages,
-        additionalParticipationPubkeys: [
-            ...authorEvidencePubkeys,
-            ...(params.persistedMessageAuthorPubkeys ?? []),
-        ],
-    });
+    // Terminal left/expel from sealed control events must exclude members from the active
+    // roster and invite gates even when pre-leave chat history exists. Stale-leave filtering
+    // belongs at ingress (`shouldSuppressStaleCommunityMemberRemoval`), not here.
     const activeMemberPubkeys = resolveVisibleCommunityMemberPubkeys({
         seededMemberPubkeys: params.seededMemberPubkeys,
         projectionMemberPubkeys: params.projectionMemberPubkeys,
         authorEvidencePubkeys,
         localMemberPubkey: params.localMemberPubkey,
-        leftMemberPubkeys: filteredTerminal.leftMemberPubkeys,
-        expelledMemberPubkeys: filteredTerminal.expelledMemberPubkeys,
+        leftMemberPubkeys: params.leftMemberPubkeys ?? [],
+        expelledMemberPubkeys: params.expelledMemberPubkeys ?? [],
     });
     return { activeMemberPubkeys, authorEvidencePubkeys };
 };
@@ -161,6 +154,19 @@ export const filterVisibleGroupMembers = (
             isCommunityMemberProjection(member) ? member.memberPublicKeyHex : member
         ));
 };
+
+/** Members eligible for a new invite (active roster minus terminal left/expel). */
+export const resolveInviteEligibleMemberPubkeys = (params: Readonly<{
+    activeMemberPubkeys: ReadonlyArray<PublicKeyHex>;
+    leftMemberPubkeys?: ReadonlyArray<PublicKeyHex>;
+    expelledMemberPubkeys?: ReadonlyArray<PublicKeyHex>;
+}>): ReadonlyArray<PublicKeyHex> => (
+    filterActiveCommunityMemberPubkeys({
+        memberPubkeys: params.activeMemberPubkeys,
+        leftMembers: params.leftMemberPubkeys,
+        expelledMembers: params.expelledMemberPubkeys,
+    })
+);
 
 export const filterActiveCommunityMemberPubkeys = (params: Readonly<{
     memberPubkeys: ReadonlyArray<PublicKeyHex>;
