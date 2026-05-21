@@ -52,9 +52,13 @@ Desktop-first patch: governance TTL and tie handling, duplicate-resolution idemp
 - **U3** audit of all publish call sites not fully closed (continues in v1.5.8).
 - Phase 1 manual sign-off (G1 matrix) may still be pending maintainer execution.
 
+## [v1.8.0] - Unreleased
+
+**Scope:** [v1.8.0-scope.md](docs/program/v1.8.0-scope.md). Opens **v1.8.x** band (minor after v1.7.1). No feature milestone — version line + program docs only.
+
 ## [v1.8.1] - Unreleased
 
-**Scope:** [v1.8.1-scope.md](docs/program/v1.8.1-scope.md). **Gate:** [v1.8.1-gate.md](docs/releases/v1.8.1-gate.md). Phase **4.1** — mode-aware create flow.
+**Scope:** [v1.8.1-scope.md](docs/program/v1.8.1-scope.md). **Gate:** [v1.8.1-gate.md](docs/releases/v1.8.1-gate.md). Phase **4.1** — after **v1.8.0** tag.
 
 ## [v1.7.1] - 2026-05-21 (Phase 3 stabilization)
 

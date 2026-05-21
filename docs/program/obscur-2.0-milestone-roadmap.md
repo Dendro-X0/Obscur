@@ -3,7 +3,12 @@
 **Status:** Active program framing (2026-05-21, revised)  
 **North star:** Ship **v2.0.0** only after **all** plans outlined here and in linked program docs are complete — community overhaul, trust register, experience lane, **platform parity** (desktop + PWA/web + mobile installable), and **SQLite** as the unified persistence story across surfaces.
 
-**Version policy:** Use **narrow patch bands** — **`v1.7.x`** then **`v1.8.x`** — not large jumps (`v1.7.0` → `v1.8.0` → `v1.9.0`). Each milestone gets a **patch tag** when its demo matrix + `release:test-pack` are green. **No v1.9 line**; remaining work folds into **v1.8.x** before **v2.0.0**.
+**Version policy:**
+
+- **Two bands** before v2.0.0: **`v1.7.x`** (Phase 3 closeout) then **`v1.8.x`** (everything else). That is **not** “two tags total.”
+- **Band opener = minor tag:** `v1.7.0`, then `v1.8.0` after the last `v1.7.x` patch. **Never skip `v1.8.0`.**
+- **Work ships in patch tags:** `v1.7.1`, `v1.8.1`, `v1.8.2`, … — one milestone per tag when possible.
+- **No v1.9 line**; no jump `v1.7.1` → `v1.8.1` without **`v1.8.0`** in between.
 
 **Manual verification:** [manual-verification-environment.md](./manual-verification-environment.md) — desktop **Tester 1 (dark)** + **Tester 2 (light)**, two profile windows, no third account.
 
@@ -98,7 +103,7 @@ All former **v1.8.0 / v1.9.0** scope lives here as **ordered patches** (suggeste
 | **X3** | Voice call UI polish |
 | **X4–X6** | Image / audio / video preview components |
 
-Suggested patch split: `v1.8.1` (C-4.1), `v1.8.2` (C-4.2), `v1.8.3+` (T batches), `v1.8.5+` (X1–X6) — adjust numbers when tagging; keep **one lane focus per tag** when possible.
+Suggested patch split: **`v1.8.0`** (band opener) → **`v1.8.1`** (C-4.1) → **`v1.8.2`** (C-4.2) → **`v1.8.3+`** (T) → **`v1.8.6+`** (X) → **`v1.8.10+`** (P). Expect **on the order of 10–15+ patch tags** in v1.8.x, not two releases. See [v1.8.0-scope.md](./v1.8.0-scope.md).
 
 ### v1.8.x — Lane P (platform + SQLite)
 
@@ -110,6 +115,30 @@ Suggested patch split: `v1.8.1` (C-4.1), `v1.8.2` (C-4.2), `v1.8.3+` (T batches)
 | **P4** | PWA/web production parity check on same tag as desktop |
 
 **Exit (leave v1.8.x):** All Lane C/T/X/P rows above + v1.8 demo matrix Pass on desktop A/B; mobile install row Pass on Android Studio environment.
+
+---
+
+## What “all plans in /docs” means for v2.0.0
+
+**In scope for v2.0.0 gate** (must be done or explicitly accepted-with-copy):
+
+| Source | Contents |
+|--------|----------|
+| [community-system-overhaul-phased-roadmap.md](./community-system-overhaul-phased-roadmap.md) | Phases 1–4 (1–3 shipped; 4 in v1.8.x) |
+| [community-system-implementation-and-ui-plan.md](./community-system-implementation-and-ui-plan.md) | P0–P3 + P4 decision |
+| [v1.5.0-known-issues-and-investigation-queue.md](./v1.5.0-known-issues-and-investigation-queue.md) | Open **P0/P1** rows (not MEM-001 / DM-001 accepted limitations) |
+| This doc | Lanes **C, T, X, P** |
+
+**Out of scope for v2.0.0** unless you re-charter:
+
+| Source | Why |
+|--------|-----|
+| `docs/archive/**`, `docs/future/**` | Historical or kernel-long-term; not shipping gates |
+| [v1.5.0-architecture-refactor-queue.md](./v1.5.0-architecture-refactor-queue.md) | Dedicated refactor milestone (ARCH-001) |
+| Cooperative delete-for-everyone UI | Separate messaging charter |
+| Full kernel/SQLite rewrite in [radical-overhaul-v2-target.md](../architecture/radical-overhaul-v2-target.md) | Lane **P** is **convergence**, not big-bang rewrite |
+
+**Honest pace:** v2.0.0 is **many** patch releases away (roughly **10–15+** tags in v1.8.x alone), not “one more update after v1.7.1.”
 
 ---
 
