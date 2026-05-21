@@ -37,6 +37,15 @@ Prerequisite: a community created or marked **Managed Workspace** on a private/t
 
 ---
 
+## P3.3 — Directory honesty (group home)
+
+| ID | Step | Expected | Pass |
+|----|------|----------|------|
+| P3-12 | Open group home on public relays | Sky honesty banner under title; Participants bento uses “best-effort” copy |
+| P3-13 | Open Participants modal | Subtitle reflects non-authoritative directory when applicable |
+
+---
+
 ## Sign-off
 
 | Block | Date | Notes |

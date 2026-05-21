@@ -71,11 +71,7 @@ Desktop-first patch: governance TTL and tie handling, duplicate-resolution idemp
 
 ### Added (continued)
 
-- **P3.3 (start)** — `resolveCommunityDirectoryMaterializationHonesty`; Members management tab shows non-authoritative directory copy on public/unconfigured relay tiers.
-
-### Planned
-
-- **P3.3 (remainder)** — Stronger relay-contract roster materialization paths.
+- **P3.3** — `resolveCommunityDirectoryMaterializationHonesty` + `CommunityDirectoryHonestyNotice` on group home hero, Participants bento, participant modal, and Members management tab.
 
 ## [v1.6.0] - 2026-05-21 (Phase 2 governance projection)
 

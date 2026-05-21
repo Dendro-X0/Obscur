@@ -2,7 +2,7 @@
 
 - Last Updated (UTC): 2026-05-21T20:30:00Z
 - Session Status: **v1.6.0 shipped** — active line **v1.7.0** (Phase 3 managed workspace)
-- Active Owner: Shared PWA / desktop — **P3.3** directory/roster
+- Active Owner: Maintainer — **v1.7.0** closeout (manual matrix + release pack)
 
 ## Active Objective
 
@@ -12,9 +12,9 @@
 
 ## Next Atomic Step
 
-1. **Verify fix:** Reload group home — governance banner must not throw `getSnapshot` infinite loop.
-2. **P3.3:** Extend directory honesty to group home roster surfaces; stronger materialization when relay contract satisfied.
-3. Manual sign-off + `pnpm release:test-pack` before v1.7.0 tag.
+1. Manual sign-off: [v1.7.0 demo matrix](../assets/demo/v1.7.0/README.md) (P3.1–P3.3 + steward flows).
+2. `pnpm release:test-pack` on clean `main` → tag **v1.7.0** when green.
+3. Optional: R2 roster read owner (architecture queue) — still parked for new roster features.
 
 ## Last shipped (v1.6.0)
 

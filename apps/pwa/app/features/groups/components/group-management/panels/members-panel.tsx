@@ -23,6 +23,7 @@ import { CommunityMembershipEvidenceChip } from "../../community-membership-evid
 import { resolveCommunityMemberEvidenceTier } from "../../../utils/community-member-evidence-tier";
 import { CommunityMembershipEvidenceToolbar } from "../../community-membership-evidence-toolbar";
 import type { CommunityDirectoryMaterializationHonesty } from "../../../services/community-directory-materialization-policy";
+import { CommunityDirectoryHonestyNotice } from "../../community-directory-honesty-notice";
 
 export function GroupManagementMembersPanel({
     visibleMemberPubkeys,
@@ -132,13 +133,7 @@ export function GroupManagementMembersPanel({
                 </ul>
             ) : null}
 
-            {!directoryHonesty.claimsAuthoritativeDirectory ? (
-                <p className="rounded-lg border border-zinc-700 bg-zinc-900/50 px-3 py-2 text-xs text-zinc-400">
-                    <span className="font-medium text-zinc-300">{directoryHonesty.summary}.</span>
-                    {" "}
-                    {directoryHonesty.detail}
-                </p>
-            ) : null}
+            <CommunityDirectoryHonestyNotice honesty={directoryHonesty} compact />
 
             <CommunitySyncIndicator
                 confidenceLevel={syncConfidenceLevel}

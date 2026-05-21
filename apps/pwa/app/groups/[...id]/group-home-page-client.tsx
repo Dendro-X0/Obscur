@@ -37,6 +37,10 @@ import { InviteConnectionsDialog } from "@/app/features/groups/components/invite
 import { GroupManagementDialog } from "@/app/features/groups/components/group-management-dialog";
 import { cn } from "@dweb/ui-kit";
 import { useCommunityGovernanceProjection } from "@/app/features/groups/hooks/use-community-governance-projection";
+import { useRelayList } from "@/app/features/relays/hooks/use-relay-list";
+import { assessRelayCapability } from "@/app/features/groups/services/community-mode-contract";
+import { resolveCommunityDirectoryMaterializationHonesty } from "@/app/features/groups/services/community-directory-materialization-policy";
+import { CommunityDirectoryHonestyNotice } from "@/app/features/groups/components/community-directory-honesty-notice";
 import { toScopedRelayUrl, useSealedCommunity } from "@/app/features/groups/hooks/use-sealed-community";
 import { useCommunityParticipantRosterReadModel } from "@/app/features/groups/hooks/use-community-participant-roster-read-model";
 import { toast } from "@dweb/ui-kit";
@@ -231,6 +235,23 @@ export default function GroupHomePage() {
         communityId: group?.communityId,
         enabled: !!(group || discoveredRelay),
     });
+
+    const relayList = useRelayList({ publicKeyHex: identityState.publicKeyHex || null });
+    const directoryHonesty = React.useMemo(
+        () => resolveCommunityDirectoryMaterializationHonesty({
+            communityMode: groupState.metadata?.communityMode ?? group?.communityMode,
+            relayCapabilityTier: assessRelayCapability({
+                enabledRelayUrls: relayList.state.relays.map((relay) => relay.url),
+                selectedRelayHost: effectiveRelay,
+            }).tier,
+        }),
+        [
+            effectiveRelay,
+            group?.communityMode,
+            groupState.metadata?.communityMode,
+            relayList.state.relays,
+        ],
+    );
 
     const terminalMembershipCache = React.useMemo(() => {
         const groupId = group?.groupId || id || "";
@@ -834,6 +855,9 @@ export default function GroupHomePage() {
 
     const rosterEvidenceHeaderExtras = (
         <>
+            {!directoryHonesty.claimsAuthoritativeDirectory ? (
+                <CommunityDirectoryHonestyNotice honesty={directoryHonesty} className="w-full max-w-2xl" />
+            ) : null}
             {provisionalVisibleCount > 0 ? (
                 <div className="flex items-center gap-2 rounded-full border border-amber-500/25 bg-amber-500/10 px-4 py-1.5 dark:border-amber-500/30 dark:bg-amber-500/10">
                     <span className="text-[11px] font-black uppercase tracking-widest text-amber-800 dark:text-amber-200">
@@ -1169,9 +1193,15 @@ export default function GroupHomePage() {
                                 </div>
                                 <div className="space-y-1">
                                     <h3 className="text-3xl font-black text-zinc-900 dark:text-white">Community Access</h3>
-                                    <p className="font-medium text-zinc-700 dark:text-zinc-500">Open the encrypted chat, invite peers, and browse active members with leave and expulsion applied.</p>
+                                    <p className="font-medium text-zinc-700 dark:text-zinc-500">
+                                        {directoryHonesty.claimsAuthoritativeDirectory
+                                            ? "Open the encrypted chat, invite peers, and browse active members with leave and expulsion applied."
+                                            : directoryHonesty.summary}
+                                    </p>
                                     <p className="text-[11px] font-bold uppercase tracking-widest text-zinc-600 dark:text-zinc-500">
-                                        Active membership evidence
+                                        {directoryHonesty.claimsAuthoritativeDirectory
+                                            ? "Active membership evidence"
+                                            : "Best-effort participant list"}
                                     </p>
                                 </div>
                             </div>
@@ -1354,7 +1384,12 @@ export default function GroupHomePage() {
                                 <div className="min-w-0 flex-1">
                                     <h3 className="text-xl font-black text-zinc-900 dark:text-white">Community Participants</h3>
                                     <p className="mt-1 text-xs font-bold uppercase tracking-widest text-zinc-600 dark:text-zinc-500">
-                                        {t("groups.membershipEvidence.participantModalSubtitle", "Relay-confirmed and provisional members; leave/expulsion and terminal cache applied to relay evidence.")}
+                                        {directoryHonesty.claimsAuthoritativeDirectory
+                                            ? t(
+                                                "groups.membershipEvidence.participantModalSubtitle",
+                                                "Relay-confirmed and provisional members; leave/expulsion and terminal cache applied to relay evidence.",
+                                            )
+                                            : directoryHonesty.detail}
                                     </p>
                                 </div>
                                 <div className="flex shrink-0 items-start gap-2">
