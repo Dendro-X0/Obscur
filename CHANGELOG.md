@@ -60,14 +60,20 @@ Desktop-first patch: governance TTL and tie handling, duplicate-resolution idemp
 
 - **Version line** — Minor bump `1.7.x` → `1.8.x`; feature work proceeds in `v1.8.1+` patches per program roadmap.
 
-## [v1.8.1] - Unreleased
+## [v1.8.2] - Unreleased
 
-**Scope:** [v1.8.1-scope.md](docs/program/v1.8.1-scope.md). **Gate:** [v1.8.1-gate.md](docs/releases/v1.8.1-gate.md). Phase **4.1** — after **v1.8.0** tag.
+**Scope:** [v1.8.2-scope.md](docs/program/v1.8.2-scope.md). **Gate:** [v1.8.2-gate.md](docs/releases/v1.8.2-gate.md). Phase **4.2** — manage hub.
+
+## [v1.8.1] - 2026-05-22 (Phase 4.1 mode-aware create)
+
+**Scope:** [v1.8.1-scope.md](docs/program/v1.8.1-scope.md). **Gate:** [v1.8.1-gate.md](docs/releases/v1.8.1-gate.md).
 
 ### Fixed
 
 - **C-4.1** — Managed Workspace create blocked when community relay host is public-default; gate assesses community relay only (not unrelated Settings relays).
 - Create dialog shows relay gate copy and disables Create when managed mode cannot be honestly created.
+- **Relay gate honesty** — `resolveManagedWorkspaceRelayGate` assesses the community relay host only (fixes false allow when Settings has private relays but community uses `nos.lol`).
+- Create dialog mounts only while open (parity with management dialog).
 
 ## [v1.7.1] - 2026-05-21 (Phase 3 stabilization)
 

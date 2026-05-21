@@ -20,4 +20,4 @@
 
 | Block | Date | Notes |
 |-------|------|-------|
-| C-4.1 create | | |
+| C-4.1 create | 2026-05-22 | Maintainer sign-off; no client console errors reported |
