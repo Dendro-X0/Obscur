@@ -62,7 +62,7 @@ pub async fn window_close(window: Window, app: AppHandle) -> Result<(), String> 
     }
 }
 
-/// Show and focus the window
+/// Show and focus the invoking window (used after profile boot in secondary windows).
 #[tauri::command]
 pub async fn window_show_and_focus(window: Window, app: AppHandle) -> Result<(), String> {
     #[cfg(desktop)]
@@ -71,7 +71,7 @@ pub async fn window_show_and_focus(window: Window, app: AppHandle) -> Result<(),
             .get_webview_window(window.label())
             .or_else(|| app.get_webview_window(MAIN_WINDOW_LABEL));
         let Some(target_window) = target_window else {
-            return Err("Main window unavailable".to_string());
+            return Err("Window unavailable".to_string());
         };
         target_window.unminimize().map_err(|e| e.to_string())?;
         target_window.show().map_err(|e| e.to_string())?;
@@ -82,6 +82,23 @@ pub async fn window_show_and_focus(window: Window, app: AppHandle) -> Result<(),
     {
         let _ = window;
         let _ = app;
+        Ok(())
+    }
+}
+
+/// Reveal the current webview after frontend boot — secondary profile windows start hidden.
+#[tauri::command]
+pub async fn window_reveal_current(window: WebviewWindow) -> Result<(), String> {
+    #[cfg(desktop)]
+    {
+        window.unminimize().map_err(|e| e.to_string())?;
+        window.show().map_err(|e| e.to_string())?;
+        window.set_focus().map_err(|e| e.to_string())?;
+        return Ok(());
+    }
+    #[cfg(mobile)]
+    {
+        let _ = window;
         Ok(())
     }
 }

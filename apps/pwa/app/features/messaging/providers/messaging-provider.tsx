@@ -4,7 +4,6 @@ import React, { createContext, useContext, useState, useMemo, useEffect, useCall
 import { useIdentity } from "../../auth/hooks/use-identity";
 import { messageBus } from "../services/message-bus";
 import { messagePersistenceService } from "../services/message-persistence-service";
-import { messagingDB } from "@dweb/storage/indexed-db";
 import type {
     Conversation,
     UnreadByConversationId,
@@ -24,10 +23,15 @@ import { getScopedStorageKey } from "@/app/features/profiles/services/profile-sc
 import { useOptionalProfileMessageBus, useResolvedClientGateway } from "@/app/features/profiles/providers/profile-runtime-provider";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { subscribeChatStateReplacedDual } from "@/app/features/profiles/services/subscribe-chat-state-replaced-dual";
+import { subscribeMessagesIndexRebuiltDual } from "@/app/features/profiles/services/subscribe-messages-index-rebuilt-dual";
 import { useAccountProjectionSnapshot } from "@/app/features/account-sync/hooks/use-account-projection-snapshot";
 import { resolveProjectionReadAuthority } from "@/app/features/account-sync/services/account-projection-read-authority";
 import { selectProjectionDmConversations } from "@/app/features/account-sync/services/account-projection-selectors";
 import { logAppEvent } from "@/app/shared/log-app-event";
+import {
+    scheduleExperimentIdleWork,
+    shouldDeferExperimentHeavyWork,
+} from "@/app/features/runtime/experiment-shell-policy";
 import {
     toPersistedDmConversation,
     fromPersistedDmConversation,
@@ -42,11 +46,17 @@ import {
 import { replaceProjectionUnreadByConversationId, unreadByConversationIdEqual } from "./projection-unread";
 import { applySelectedConversationUnreadIsolation } from "./unread-isolation";
 import {
+    buildDmConnectionsFromPersistedChatState,
+    mergeDmConversationLists,
+    touchDmConversationFromMessage,
+} from "../utils/dm-conversation-list-merge";
+import {
     removeConversationIdFromHidden,
     removeGroupConversationIdsFromHidden,
     sanitizeDmConversationIdList,
 } from "../utils/conversation-visibility";
 import { resolveConversationListAuthority } from "../services/conversation-list-authority";
+import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
 import { isTauri, dbGetConversations } from "@dweb/db";
 import type { ConversationRecord } from "@dweb/db";
 
@@ -192,23 +202,64 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         lastMessageTime: rec.last_message_at != null ? new Date(rec.last_message_at) : new Date(0),
     });
 
+    const reloadSqliteConversations = useCallback((): void => {
+        if (!isTauri() || !activeProfileId) {
+            return;
+        }
+        void dbGetConversations(activeProfileId).then((recs) => {
+            setSqliteConversations(recs.map(sqliteConvToRaw));
+        }).catch(() => {});
+    }, [activeProfileId]);
+
     useEffect(() => {
         if (!isTauri() || !activeProfileId) {
             return;
         }
         let cancelled = false;
-        dbGetConversations(activeProfileId).then((recs) => {
-            if (cancelled) return;
-            setSqliteConversations(recs.map(sqliteConvToRaw));
-        }).catch(() => {});
-        return () => { cancelled = true; };
+        const loadConversations = (): void => {
+            void dbGetConversations(activeProfileId).then((recs) => {
+                if (cancelled) {
+                    return;
+                }
+                setSqliteConversations(recs.map(sqliteConvToRaw));
+            }).catch(() => {});
+        };
+        if (shouldDeferExperimentHeavyWork()) {
+            const cancelIdle = scheduleExperimentIdleWork(loadConversations);
+            return (): void => {
+                cancelled = true;
+                cancelIdle();
+            };
+        }
+        loadConversations();
+        return (): void => {
+            cancelled = true;
+        };
     }, [activeProfileId]);
+
+    useEffect(() => {
+        if (!isTauri() || !activeProfileId) {
+            return;
+        }
+        return subscribeMessagesIndexRebuiltDual((detail) => {
+            if (detail.profileId !== activeProfileId) {
+                return;
+            }
+            reloadSqliteConversations();
+        }, optionalProfileBus);
+    }, [activeProfileId, optionalProfileBus, reloadSqliteConversations]);
 
     useEffect(() => {
         if (typeof window === "undefined" || !isTauri() || !activeProfileId) {
             return;
         }
-        void messageDeleteTombstonePersistence.hydrateMessageDeleteTombstonesFromSqlite(activeProfileId).catch(() => {});
+        const hydrateTombstones = (): void => {
+            void messageDeleteTombstonePersistence.hydrateMessageDeleteTombstonesFromSqlite(activeProfileId).catch(() => {});
+        };
+        if (shouldDeferExperimentHeavyWork()) {
+            return scheduleExperimentIdleWork(hydrateTombstones);
+        }
+        hydrateTombstones();
     }, [activeProfileId, messageDeleteTombstonePersistence]);
 
     useEffect(() => {
@@ -218,21 +269,42 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         void messageDeleteTombstonePersistence.mergeMessageDeleteTombstonesFromIndexedDb(activeProfileId || undefined).catch(() => {});
     }, [activeProfileId, messageDeleteTombstonePersistence]);
 
+    const hydrateStoredMessagingStateFast = useCallback((params: Readonly<{
+        publicKeyHex: string;
+        profileId: string;
+    }>): void => {
+        const persisted = chatStateStoreService.load(params.publicKeyHex, { profileId: params.profileId });
+        if (persisted) {
+            const nextCreatedConnections = buildDmConnectionsFromPersistedChatState(
+                persisted,
+                params.publicKeyHex,
+            );
+
+            setCreatedConnections(nextCreatedConnections);
+            setUnreadByConversationId(persisted.unreadByConversationId);
+            setConnectionOverridesByConnectionId(fromPersistedOverridesByConnectionId(persisted.connectionOverridesByConnectionId));
+
+            if (persisted.pinnedChatIds) setPinnedChatIds(persisted.pinnedChatIds);
+            if (persisted.hiddenChatIds) {
+                const sanitizedHiddenChatIds = removeGroupConversationIdsFromHidden(persisted.hiddenChatIds);
+                setHiddenChatIds(sanitizedHiddenChatIds);
+            }
+        }
+        const loadedLastSeen = loadLastSeen(params.publicKeyHex as PublicKeyHex, params.profileId);
+        setLastViewedByConversationId(loadedLastSeen);
+        setHasHydrated(true);
+    }, []);
+
     const hydrateStoredMessagingState = useCallback(async (params: Readonly<{
         publicKeyHex: string;
         profileId: string;
     }>): Promise<void> => {
-        let persisted = chatStateStoreService.load(params.publicKeyHex, { profileId: params.profileId });
-        if (!hasMeaningfulMessagingState(persisted)) {
-            const indexedPersisted = await messagingDB.get<PersistedChatState>("chatState", params.publicKeyHex);
-            if (hasMeaningfulMessagingState(indexedPersisted)) {
-                persisted = indexedPersisted;
-            }
-        }
+        const persisted = chatStateStoreService.load(params.publicKeyHex, { profileId: params.profileId });
         if (persisted) {
-            const nextCreatedConnections: ReadonlyArray<DmConversation> = persisted.createdConnections
-                .map((c: PersistedDmConversation): DmConversation | null => fromPersistedDmConversation(c))
-                .filter((c: DmConversation | null): c is DmConversation => c !== null);
+            const nextCreatedConnections = buildDmConnectionsFromPersistedChatState(
+                persisted,
+                params.publicKeyHex,
+            );
 
             setCreatedConnections(nextCreatedConnections);
             setUnreadByConversationId(persisted.unreadByConversationId);
@@ -333,11 +405,17 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     const clearHistory = (conversationId: string) => {
         chatStateStoreService.deleteConversationMessages(conversationId);
-        messageBus.emit({ type: 'message_deleted', conversationId, messageId: 'all' });
-        // Also update the conversation list last message preview
-        setCreatedConnections(prev => prev.map(c =>
-            c.id === conversationId ? { ...c, lastMessage: '', lastMessageTime: new Date() } : c
+        messageBus.emit({ type: "message_deleted", conversationId, messageId: "all" });
+        const next = createdConnectionsRef.current.map((connection) => (
+            connection.id === conversationId
+                ? { ...connection, lastMessage: "", lastMessageTime: new Date() }
+                : connection
         ));
+        createdConnectionsRef.current = next;
+        setCreatedConnections(next);
+        if (publicKeyHex) {
+            chatStateStoreService.updateConnections(publicKeyHex, next.map((connection) => toPersistedDmConversation(connection)));
+        }
     };
 
     const deleteConversation = (conversationId: string) => {
@@ -355,11 +433,24 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         if (hasHydrated) return;
         if (!publicKeyHex) return;
 
+        if (shouldDeferExperimentHeavyWork()) {
+            hydrateStoredMessagingStateFast({
+                publicKeyHex,
+                profileId: activeProfileId,
+            });
+            return scheduleExperimentIdleWork(() => {
+                void hydrateStoredMessagingState({
+                    publicKeyHex,
+                    profileId: activeProfileId,
+                });
+            });
+        }
+
         void hydrateStoredMessagingState({
             publicKeyHex,
             profileId: activeProfileId,
         });
-    }, [publicKeyHex, hasHydrated, activeProfileId, hydrateStoredMessagingState]);
+    }, [publicKeyHex, hasHydrated, activeProfileId, hydrateStoredMessagingState, hydrateStoredMessagingStateFast]);
 
     useEffect(() => {
         if (typeof window === "undefined") {
@@ -414,23 +505,21 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             myPublicKeyHex: publicKeyHex as PublicKeyHex,
         });
     }, [accountProjectionSnapshot.projection, publicKeyHex]);
-    const legacyChatStateHasRicherDmContent = useMemo(() => {
+    const persistedDmConnections = useMemo(() => {
         if (!publicKeyHex) {
-            return false;
+            return [] as ReadonlyArray<DmConversation>;
         }
         const persistedState = chatStateStoreService.load(publicKeyHex as PublicKeyHex, { profileId: activeProfileId });
-        const persistedConnections = persistedState?.createdConnections ?? [];
-        return persistedConnections.length > projectionConnections.length;
-    }, [activeProfileId, projectionConnections, publicKeyHex]);
+        return buildDmConnectionsFromPersistedChatState(persistedState, publicKeyHex);
+    }, [activeProfileId, publicKeyHex, hasHydrated, createdConnections.length]);
     const conversationListAuthority = useMemo(() => (
         resolveConversationListAuthority({
-            isTauri: isTauri(),
+            isNativeRuntime: hasNativeRuntime(),
             sqliteConversationCount: sqliteConversations.length,
             useProjectionReads: projectionReadAuthority.useProjectionReads,
             projectionConversationCount: projectionConnections.length,
-            legacyChatStateHasRicherDmContent,
         })
-    ), [legacyChatStateHasRicherDmContent, projectionConnections.length, projectionReadAuthority.useProjectionReads, sqliteConversations.length]);
+    ), [projectionConnections.length, projectionReadAuthority.useProjectionReads, sqliteConversations.length]);
 
     useEffect(() => {
         if (!publicKeyHex) {
@@ -446,7 +535,7 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             createdConnections.length,
             projectionReadAuthority.reason,
             projectionReadAuthority.criticalDriftCount ?? 0,
-            legacyChatStateHasRicherDmContent ? 1 : 0,
+            persistedDmConnections.length,
         ].join("::");
         if (conversationListAuthorityLogKeyRef.current === diagnosticKey) {
             return;
@@ -463,7 +552,7 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                 selectedAuthorityReason: conversationListAuthority.reason,
                 projectionConversationCount: projectionConnections.length,
                 persistedConversationCount: createdConnections.length,
-                legacyChatStateHasRicherDmContent,
+                persistedDmThreadCount: persistedDmConnections.length,
                 projectionReadAuthorityReason: projectionReadAuthority.reason,
                 criticalDriftCount: projectionReadAuthority.criticalDriftCount ?? 0,
             },
@@ -473,7 +562,7 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         conversationListAuthority.authority,
         conversationListAuthority.reason,
         createdConnections.length,
-        legacyChatStateHasRicherDmContent,
+        persistedDmConnections.length,
         projectionConnections.length,
         projectionReadAuthority.criticalDriftCount,
         projectionReadAuthority.reason,
@@ -492,13 +581,17 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         if (conversationListAuthority.authority !== "projection") {
             return;
         }
-        const allowedProjectionDmConversationIds = new Set(
-            projectionConnections.map((connection) => connection.id)
+        const mergedProjectionConnections = mergeDmConversationLists(
+            projectionConnections,
+            persistedDmConnections,
         );
-        createdConnectionsRef.current = projectionConnections;
-        setCreatedConnections(projectionConnections);
+        const allowedProjectionDmConversationIds = new Set(
+            mergedProjectionConnections.map((connection) => connection.id)
+        );
+        createdConnectionsRef.current = mergedProjectionConnections;
+        setCreatedConnections(mergedProjectionConnections);
         if (selectedConversation?.kind === "dm") {
-            const canonicalSelected = projectionConnections.find((connection) => (
+            const canonicalSelected = mergedProjectionConnections.find((connection) => (
                 connection.pubkey === selectedConversation.pubkey
             ));
             if (canonicalSelected && canonicalSelected.id !== selectedConversation.id) {
@@ -508,7 +601,7 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         setUnreadByConversationId((current) => {
             const next = replaceProjectionUnreadByConversationId({
                 currentUnreadByConversationId: current,
-                projectionConnections,
+                projectionConnections: mergedProjectionConnections,
                 selectedConversationId: selectedConversation?.id ?? null,
                 selectedConversationKind: selectedConversation?.kind ?? null,
                 lastSeenByConversationId: lastViewedByConversationId,
@@ -532,7 +625,13 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                 ? current
                 : next;
         });
-    }, [conversationListAuthority.authority, lastViewedByConversationId, projectionConnections, selectedConversation]);
+    }, [
+        conversationListAuthority.authority,
+        lastViewedByConversationId,
+        persistedDmConnections,
+        projectionConnections,
+        selectedConversation,
+    ]);
 
     useEffect(() => {
         if (!selectedConversation || !hasHydrated || !publicKeyHex) {
@@ -622,6 +721,35 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             chatStateStoreService.updateConnectionOverrides(publicKeyHex, toPersistedOverridesByConnectionId(next));
         }
     }, [publicKeyHex]);
+
+    useEffect(() => {
+        if (!publicKeyHex || !hasHydrated) {
+            return;
+        }
+        const unsubscribe = messageBus.subscribe((event) => {
+            if (event.type !== "new_message" && event.type !== "message_updated") {
+                return;
+            }
+            if (event.message.kind === "command") {
+                return;
+            }
+            const conversationId = event.conversationId?.trim() ?? "";
+            if (!conversationId) {
+                return;
+            }
+            const preview = typeof event.message.content === "string"
+                ? event.message.content.trim().slice(0, 120)
+                : "";
+            updateCreatedConnections((previous) => touchDmConversationFromMessage({
+                connections: previous,
+                conversationId,
+                myPublicKeyHex: publicKeyHex,
+                messagePreview: preview,
+                messageTime: event.message.timestamp,
+            }));
+        }, { profileId: activeProfileId });
+        return unsubscribe;
+    }, [activeProfileId, hasHydrated, publicKeyHex, updateCreatedConnections]);
 
     useEffect(() => {
         createdConnectionsRef.current = createdConnections;
@@ -763,3 +891,6 @@ export const useMessaging = () => {
     }
     return context;
 };
+
+/** Optional messaging context — for components that may mount before unlock or outside chat routes. */
+export const useMessagingSafe = (): MessagingContextType | null => useContext(MessagingContext);

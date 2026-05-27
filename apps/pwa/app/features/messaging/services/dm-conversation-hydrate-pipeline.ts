@@ -29,6 +29,8 @@ import {
 } from "./dm-conversation-message-retention-dedupe";
 import { runDmHydrateSiblingIdSplitDiagnosticsIfNeeded } from "./dm-conversation-hydrate-sibling-diagnostics";
 import { prepareDmThreadSuppressionIds } from "./dm-thread-suppression-prepare";
+import { requiresSqlitePersistence } from "@/app/features/runtime/native-persistence-policy";
+import { loadNativeOutgoingCommunityInviteRepairMessages } from "./dm-conversation-native-invite-repair";
 
 const loadPersistedConversationFallbackMessages = (params: Readonly<{
   persistedState: ReturnType<typeof chatStateStoreService.load>;
@@ -89,6 +91,8 @@ export type RunDmConversationHydrateReadModelPipelineParams = Readonly<{
   expandedHistory: boolean;
   /** When set, hydrate telemetry logs only on authority key change. */
   previousAuthorityDiagnosticKey?: string | null;
+  /** When true, hydrate uses sqlite/indexed authority even if projection read cutover is enabled. */
+  preferIndexedAuthority?: boolean;
 }>;
 
 export async function runDmConversationHydrateReadModelPipeline(
@@ -106,13 +110,22 @@ export async function runDmConversationHydrateReadModelPipeline(
     numeric,
     projectionMessagesSnapshot,
     projectionEvidenceMessagesSnapshot,
-    projectionReadAuthoritySnapshot,
+    projectionReadAuthoritySnapshot: projectionReadAuthorityInput,
     accountProjectionPhase,
     accountProjection,
     accountProjectionReady,
     liveMessages,
     expandedHistory,
+    preferIndexedAuthority = false,
   } = params;
+
+  const projectionReadAuthoritySnapshot = preferIndexedAuthority
+    ? {
+      ...projectionReadAuthorityInput,
+      useProjectionReads: false,
+      reason: "projection_not_ready" as const,
+    }
+    : projectionReadAuthorityInput;
 
   const preparedSuppressionIds = await prepareDmThreadSuppressionIds({
     profileId: profileIdForTombstones,
@@ -157,7 +170,9 @@ export async function runDmConversationHydrateReadModelPipeline(
     || projectionRestorePhaseActive
   );
 
-  const persistedStateFallbackMessages = normalizedPublicKeyHex
+  const persistedStateFallbackMessages = (
+    normalizedPublicKeyHex && !requiresSqlitePersistence()
+  )
     ? loadPersistedConversationFallbackMessages({
       persistedState: chatStateStoreService.load(normalizedPublicKeyHex, {
         profileId: profileIdForTombstones,
@@ -190,6 +205,27 @@ export async function runDmConversationHydrateReadModelPipeline(
     liveWindowSoftLimit: numeric.liveWindowSoftLimit,
   });
 
+  const nativeInviteRepairMessages = (
+    normalizedPublicKeyHex && profileIdForTombstones
+  )
+    ? loadNativeOutgoingCommunityInviteRepairMessages({
+      conversationIds,
+      myPublicKeyHex: normalizedPublicKeyHex,
+      profileId: profileIdForTombstones,
+    })
+    : [];
+
+  const mergedFinalMessages = nativeInviteRepairMessages.length > 0
+    ? dedupeMessagesByIdentity([...assembled.finalMessages, ...nativeInviteRepairMessages])
+    : assembled.finalMessages;
+
+  const assembledWithInviteRepair: AssembleDmHydrateThreadReadModelResult = nativeInviteRepairMessages.length > 0
+    ? {
+      ...assembled,
+      finalMessages: mergedFinalMessages,
+    }
+    : assembled;
+
   if (normalizedPublicKeyHex) {
     await runDmHydrateSiblingIdSplitDiagnosticsIfNeeded({
       conversationId: cid,
@@ -206,10 +242,10 @@ export async function runDmConversationHydrateReadModelPipeline(
 
   logDmHydrateReadModelTelemetry({
     previousAuthorityDiagnosticKey: params.previousAuthorityDiagnosticKey ?? null,
-    assembled,
+    assembled: assembledWithInviteRepair,
   });
 
-  return assembled;
+  return assembledWithInviteRepair;
 }
 
 export function logDmHydrateReadModelTelemetry(params: Readonly<{

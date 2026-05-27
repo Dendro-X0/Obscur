@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   getRelayReadinessBannerCopy,
   getRelayReadinessDetailCopy,
-  getRelaySendBlockCopy,
+  getRelayTransportQueueHint,
 } from "./relay-readiness-copy";
 import type { RelayRecoverySnapshot } from "./relay-recovery-policy";
 
@@ -22,14 +22,19 @@ const createSnapshot = (overrides: Partial<RelayRecoverySnapshot>): RelayRecover
 });
 
 describe("relay-readiness-copy", () => {
-  it("returns a blocking message when no writable relays exist", () => {
-    const message = getRelaySendBlockCopy(createSnapshot({ readiness: "recovering" }));
-    expect(message).toContain("recovering");
+  it("returns a queue hint when no writable relays exist", () => {
+    const message = getRelayTransportQueueHint(createSnapshot({ readiness: "recovering" }));
+    expect(message).toMatch(/queue/i);
   });
 
-  it("does not block when writable relays exist", () => {
-    const message = getRelaySendBlockCopy(createSnapshot({ readiness: "degraded", writableRelayCount: 1 }));
+  it("returns no hint when writable relays exist", () => {
+    const message = getRelayTransportQueueHint(createSnapshot({ readiness: "degraded", writableRelayCount: 1 }));
     expect(message).toBeNull();
+  });
+
+  it("mentions queued sends in offline banner copy", () => {
+    const banner = getRelayReadinessBannerCopy(createSnapshot({ readiness: "offline" }));
+    expect(banner).toMatch(/queue/i);
   });
 
   it("returns banner copy for degraded states", () => {

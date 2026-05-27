@@ -119,9 +119,18 @@ vi.mock("@/app/shared/log-app-event", () => ({
   logAppEvent: runtimeActivationMocks.logAppEvent,
 }));
 
+const experimentPolicyMocks = vi.hoisted(() => ({
+  isExperimentOfflineStubEnabled: vi.fn(() => false),
+}));
+
+vi.mock("../experiment-shell-policy", () => ({
+  isExperimentOfflineStubEnabled: experimentPolicyMocks.isExperimentOfflineStubEnabled,
+}));
+
 describe("RuntimeActivationManager", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    experimentPolicyMocks.isExperimentOfflineStubEnabled.mockReturnValue(false);
     runtimeActivationMocks.runtime.snapshot.phase = "activating_runtime";
     runtimeActivationMocks.runtime.snapshot.degradedReason = "none";
     runtimeActivationMocks.runtime.snapshot.lastError = undefined;
@@ -154,6 +163,22 @@ describe("RuntimeActivationManager", () => {
     runtimeActivationMocks.projectionSnapshot.driftReport = undefined;
     runtimeActivationMocks.migrationPolicy.phase = "shadow";
     runtimeActivationMocks.migrationPolicy.rollbackEnabled = true;
+  });
+
+  it("marks runtime ready immediately in experiment offline stub (Phase 1 path)", () => {
+    experimentPolicyMocks.isExperimentOfflineStubEnabled.mockReturnValue(true);
+    runtimeActivationMocks.accountSyncSnapshot.phase = "restoring_account_data";
+    runtimeActivationMocks.projectionSnapshot.phase = "bootstrapping";
+    runtimeActivationMocks.projectionSnapshot.accountProjectionReady = false;
+
+    render(<RuntimeActivationManager />);
+
+    expect(runtimeActivationMocks.runtime.markRuntimeReady).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: "Experiment shell: interactive without relay/projection gate",
+        relayOpenCount: 0,
+      }),
+    );
   });
 
   it("marks runtime ready when account sync and projection gates are ready", () => {
@@ -382,7 +407,7 @@ describe("RuntimeActivationManager", () => {
     vi.useRealTimers();
   });
 
-  it("degrades activation when relay runtime gate is degraded even after projection/account-sync convergence", () => {
+  it("activates locally when projection is ready even if relay runtime is degraded (O1)", () => {
     runtimeActivationMocks.runtime.snapshot.phase = "activating_runtime";
     runtimeActivationMocks.runtime.snapshot.relayRuntime.phase = "degraded";
     runtimeActivationMocks.runtime.snapshot.relayRuntime.recovery.readiness = "degraded";
@@ -391,7 +416,7 @@ describe("RuntimeActivationManager", () => {
     runtimeActivationMocks.runtime.snapshot.relayRuntime.subscribableRelayCount = 0;
     runtimeActivationMocks.runtime.snapshot.relayRuntime.enabledRelayUrls = ["wss://relay.one"];
     runtimeActivationMocks.runtime.snapshot.relayRuntime.lastFailureReason = "No writable relay connection";
-    runtimeActivationMocks.accountSyncSnapshot.phase = "ready";
+    runtimeActivationMocks.accountSyncSnapshot.phase = "restoring_account_data";
     runtimeActivationMocks.accountSyncSnapshot.status = "public_restored";
     runtimeActivationMocks.projectionSnapshot.phase = "ready";
     runtimeActivationMocks.projectionSnapshot.status = "ready";
@@ -399,13 +424,14 @@ describe("RuntimeActivationManager", () => {
 
     render(<RuntimeActivationManager />);
 
-    expect(runtimeActivationMocks.runtime.markRuntimeReady).not.toHaveBeenCalled();
-    expect(runtimeActivationMocks.runtime.markRuntimeDegraded).toHaveBeenCalledWith(
-      "relay_runtime_degraded",
+    expect(runtimeActivationMocks.runtime.markRuntimeReady).toHaveBeenCalledWith(
       expect.objectContaining({
-        degradedReason: "relay_runtime_degraded",
-        message: "No writable relay connection",
+        message: "Runtime activated locally; account sync continues in background",
       }),
+    );
+    expect(runtimeActivationMocks.runtime.markRuntimeDegraded).not.toHaveBeenCalledWith(
+      "relay_runtime_degraded",
+      expect.anything(),
     );
   });
 

@@ -30,6 +30,37 @@ describe("resolveCommunityInviteCardStatus", () => {
         })).toBe("canceled");
     });
 
+    it("does not supersede duplicate hydrate copies that share the same inviteId", () => {
+        const inviteId = "inv-stable-1";
+        const duplicateOlder = baseMessage({
+            id: "invite-dup-a",
+            isOutgoing: false,
+            timestamp: new Date(1_700_000_000_000),
+            content: JSON.stringify({
+                type: "community-invite",
+                inviteId,
+                groupId: "g1",
+                roomKey: "rk",
+            }),
+        });
+        const duplicateNewer = baseMessage({
+            id: "invite-dup-b",
+            isOutgoing: false,
+            timestamp: new Date(1_700_000_200_000),
+            content: JSON.stringify({
+                type: "community-invite",
+                inviteId,
+                groupId: "g1",
+                roomKey: "rk",
+            }),
+        });
+        expect(resolveCommunityInviteCardStatus({
+            message: duplicateOlder,
+            messages: [duplicateOlder, duplicateNewer],
+            nowMs: 1_700_000_300_000,
+        })).toBe("pending");
+    });
+
     it("marks older pending invite superseded when a newer invite exists", () => {
         const oldInvite = baseMessage({
             id: "invite-old",
@@ -50,7 +81,7 @@ describe("resolveCommunityInviteCardStatus", () => {
         })).toBe("superseded");
     });
 
-    it("marks older pending invite superseded when a later cancel exists for the group", () => {
+    it("stays pending when an unlinked terminal response exists for the same group", () => {
         const oldInvite = baseMessage({
             id: "invite-old",
             isOutgoing: false,
@@ -68,7 +99,7 @@ describe("resolveCommunityInviteCardStatus", () => {
             message: oldInvite,
             messages: [oldInvite, cancel],
             nowMs: 1_700_000_400_000,
-        })).toBe("superseded");
+        })).toBe("pending");
     });
 
     it("expires pending invite after TTL", () => {

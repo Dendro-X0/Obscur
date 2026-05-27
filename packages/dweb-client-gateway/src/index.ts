@@ -35,3 +35,20 @@ export type {
   DmHydrateThreadReadModelResultContract,
 } from "./dm-materialization-port-contract";
 export { toConversationIdDiagnosticLabel } from "./messaging-diagnostics";
+export type {
+  CommunityMembershipPort,
+  CommunityMembershipScope,
+  MembershipControlApplyResult,
+  MembershipControlEventInput,
+  MembershipStatePatch,
+  MembershipStateSnapshot,
+} from "./community-membership-port-contract";
+export type {
+  CommunityControlHandler,
+  PublishResult as TransportPublishResult,
+  SemanticCommunityEvent,
+  SemanticCommunityMemberEvent,
+  TransportKind,
+  TransportPort,
+  Unsubscribe as TransportUnsubscribe,
+} from "./community-transport-port-contract";

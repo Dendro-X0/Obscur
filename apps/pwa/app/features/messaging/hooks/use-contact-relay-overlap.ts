@@ -14,6 +14,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useRelayPoolRef } from "@/app/features/relays/hooks/use-relay-pool-ref";
 import { nip65Service } from "@/app/features/relays/utils/nip65-service";
 import type { UserRelayList } from "@/app/features/relays/utils/nip65-service";
 import { peerRelayEvidenceStore } from "@/app/features/messaging/services/peer-relay-evidence-store";
@@ -92,6 +93,7 @@ export const useContactRelayOverlap = (
     : undefined;
 
   const [fetchedList, setFetchedList] = useState<UserRelayList | null | undefined>(undefined);
+  const poolRef = useRelayPoolRef(pool ?? null);
 
   const ourRelaysKey = ourRelays.join("|");
 
@@ -107,11 +109,12 @@ export const useContactRelayOverlap = (
   );
 
   const triggerFetch = useCallback(() => {
-    if (!contactPubkey || !pool) return;
+    const relayPool = poolRef.current;
+    if (!contactPubkey || !relayPool) return;
     void nip65Service
-      .fetchContactRelayList(contactPubkey as PublicKeyHex, pool)
+      .fetchContactRelayList(contactPubkey as PublicKeyHex, relayPool)
       .then((result) => { setFetchedList(result); });
-  }, [contactPubkey, pool]);
+  }, [contactPubkey, poolRef]);
 
   useEffect(() => {
     setFetchedList(undefined);

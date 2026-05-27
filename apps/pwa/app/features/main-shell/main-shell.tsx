@@ -1,10 +1,10 @@
 "use client";
 
-import type React from "react";
-import { Suspense, startTransition, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import React, { Suspense, startTransition, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
-import AppShell from "@/app/components/app-shell";
+import { useRegisterAppChrome } from "@/app/components/app-chrome-registry";
+import { ChatSidebarPortal } from "@/app/components/app-shell-sidebar-portal";
 import { MobileDmShellLayout } from "@/app/components/mobile/mobile-dm-shell-layout";
 import { MobileDmThreadHeader } from "@/app/components/mobile/mobile-dm-thread-header";
 import { useMobileDmBackNavigation } from "@/app/components/mobile/use-mobile-dm-back-navigation";
@@ -19,10 +19,8 @@ import {
 } from "@/app/features/auth/services/startup-auth-state-contracts";
 import { toast } from "@dweb/ui-kit";
 import { useTranslation } from "react-i18next";
-import { ProfileSearchService } from "../search/services/profile-search-service";
-import { SocialGraphService } from "../social-graph/services/social-graph-service";
-
 import type {
+  Conversation,
   DmConversation,
   GroupConversation,
   Message,
@@ -57,6 +55,8 @@ import { Sidebar } from "@/app/features/messaging/components/sidebar";
 import { ChatView } from "@/app/features/messaging/components/chat-view";
 import { useAutoLock } from "@/app/features/settings/hooks/use-auto-lock";
 import { useSealedCommunity, type GroupMessageEvent } from "@/app/features/groups/hooks/use-sealed-community";
+import { mapSealedGroupMessagesToChatMessages } from "@/app/features/groups/utils/map-sealed-group-messages-to-chat";
+import { hasWritableCommunityRelayTransport } from "@/app/features/groups/services/community-relay-transport";
 import { getResolvedClientGateway } from "@/app/features/profiles/services/resolve-client-gateway";
 import { LockScreen } from "@/app/components/lock-screen";
 import type { Passphrase } from "@dweb/crypto/passphrase";
@@ -76,6 +76,7 @@ import { useFilteredConversations } from "./hooks/use-filtered-conversations";
 import { useAttachmentHandler } from "./hooks/use-attachment-handler";
 import { useDmSync } from "./hooks/use-dm-sync";
 import { useChatViewProps } from "./hooks/use-chat-view-props";
+import { usePinnedDmForMessageHook } from "./hooks/use-pinned-dm-for-message-hook";
 import { installChatPerformanceDevTools } from "../messaging/dev/chat-performance-dev-tools";
 import { toDmConversationId } from "@/app/features/messaging/utils/dm-conversation-id";
 import { createDmConversation } from "@/app/features/messaging/utils/create-dm-conversation";
@@ -195,6 +196,7 @@ function NostrMessengerContent() {
   const { t } = useTranslation();
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const isChatRoute = pathname === "/";
   const identity = useIdentity();
   const { blocklist, peerTrust, requestsInbox, presence } = useNetwork();
@@ -285,6 +287,17 @@ function NostrMessengerContent() {
     && !pathname.startsWith("/groups/leave")
     && !pathname.startsWith("/groups/purge"),
   );
+  const selectedGroupHasRelayTransport = useMemo((): boolean => {
+    if (selectedConversation?.kind !== "group") {
+      return false;
+    }
+    return hasWritableCommunityRelayTransport((selectedConversation as GroupConversation).relayUrl);
+  }, [selectedConversation]);
+  const sealedCommunityShellEnabled = (
+    selectedConversation?.kind === "group"
+    && !isGroupCommunityHomeRoute
+    && selectedGroupHasRelayTransport
+  );
   const { state: groupState } = useSealedCommunity({
     pool: relayPool,
     relayUrl: selectedConversation?.kind === 'group' ? (selectedConversation as GroupConversation).relayUrl : '',
@@ -292,10 +305,9 @@ function NostrMessengerContent() {
     communityId: selectedConversation?.kind === 'group' ? (selectedConversation as GroupConversation).communityId : undefined,
     myPublicKeyHex,
     myPrivateKeyHex,
-    enabled: selectedConversation?.kind === 'group' && !isGroupCommunityHomeRoute,
+    enabled: sealedCommunityShellEnabled,
     initialMembers: sealedCommunityInitialMembers,
   });
-  const socialGraph = useMemo(() => new SocialGraphService(relayPool), [relayPool]);
 
   // Feature hooks
   const {
@@ -520,6 +532,21 @@ function NostrMessengerContent() {
         connections: createdConnections,
       });
       if (resolved) {
+        if (resolved.kind === "group" && !hasWritableCommunityRelayTransport(resolved.relayUrl)) {
+          if (myPublicKeyHex) {
+            const scopedKey = getScopedStorageKey(
+              `obscur-last-chat-${myPublicKeyHex}`,
+              getResolvedProfileId(),
+            );
+            try {
+              localStorage.removeItem(scopedKey);
+            } catch {
+              // ignore storage failures
+            }
+          }
+          setRestoredChatId("");
+          return;
+        }
         setSelectedConversation(resolved);
         if (resolved.kind === "dm") {
           unhideConversation(resolved.id);
@@ -527,7 +554,15 @@ function NostrMessengerContent() {
         setRestoredChatId("");
       }
     }
-  }, [restoredChatId, selectedConversation, setSelectedConversation, createdGroups, createdConnections, unhideConversation]);
+  }, [
+    createdConnections,
+    createdGroups,
+    myPublicKeyHex,
+    restoredChatId,
+    selectedConversation,
+    setSelectedConversation,
+    unhideConversation,
+  ]);
 
   const selectedConversationView = selectedConversation ? applyConnectionOverrides(selectedConversation, connectionOverridesByConnectionId) : null;
 
@@ -3274,23 +3309,46 @@ function NostrMessengerContent() {
     }
   };
 
+  const pinnedDmForMessageHook = usePinnedDmForMessageHook(selectedConversationView);
+
   const {
     handleLoadEarlier,
     handleCopyMyPubkey,
     handleCopyChatLink,
     conversationHasHydrated,
-    visibleMessages,
+    visibleMessages: dmVisibleMessages,
     hasEarlierMessages,
     selectedConversationMediaItems,
     pendingEventCount
   } = useChatViewProps({
-    selectedConversation,
+    selectedConversation: pinnedDmForMessageHook,
     myPublicKeyHex
   });
+  const groupChatMessages = useMemo(() => {
+    if (selectedConversationView?.kind !== "group") {
+      return null;
+    }
+    return mapSealedGroupMessagesToChatMessages({
+      conversationId: selectedConversationView.id,
+      messages: groupState.messages,
+      myPublicKeyHex,
+    });
+  }, [groupState.messages, myPublicKeyHex, selectedConversationView]);
+  const visibleMessages = groupChatMessages ?? dmVisibleMessages;
+  const conversationHasHydratedForView = selectedConversationView?.kind === "group"
+    ? groupState.status === "ready" || groupState.messages.length > 0
+    : conversationHasHydrated;
   const updateSidebarTab = (tab: "chats" | "requests") => {
     startTransition(() => setSidebarTab(tab));
     localStorage.setItem(getLastPageStorageKey(), JSON.stringify({ type: 'tab', id: tab }));
   };
+
+  const handleSelectConversation = useCallback((conversation: Conversation) => {
+    setSelectedConversation(conversation);
+  if (searchParams.get("convId")) {
+      router.replace("/");
+    }
+  }, [router, searchParams, setSelectedConversation]);
 
   // Clear unread marks when switching to invitations tab
   useEffect(() => {
@@ -3368,6 +3426,25 @@ function NostrMessengerContent() {
       return acc + (unreadByConversationId[c.id] ?? c.unreadCount);
     }, 0)
   ), [selectedConversation?.id, unreadByConversationId, visibleChatsList]);
+  const chatNavBadgeCounts = useMemo(
+    (): Readonly<Record<string, number>> => ({ "/": accurateChatsUnreadCount }),
+    [accurateChatsUnreadCount],
+  );
+
+  useRegisterAppChrome(
+    isMobileDmShell
+      ? {
+          hideSidebar: true,
+          mobileDmMode: true,
+          navBadgeCounts: chatNavBadgeCounts,
+        }
+      : {
+          hideSidebar: !isIdentityUnlocked,
+          mobileDmMode: false,
+          navBadgeCounts: chatNavBadgeCounts,
+        },
+  );
+
   const hasVisibleConversations = visibleChatsList.length > 0;
   const accountSyncUiPolicy = resolveAccountSyncUiPolicy({
     isIdentityUnlocked,
@@ -3548,7 +3625,7 @@ function NostrMessengerContent() {
             nowMs={nowMs}
             activeTab={sidebarTab}
             setActiveTab={updateSidebarTab}
-            selectConversation={setSelectedConversation}
+            selectConversation={handleSelectConversation}
             interactionByConversationId={interactionByConversationId}
             requests={getIncomingInboxRequests(requestsInbox.state.items)}
             pinnedChatIds={pinnedChatIds}
@@ -3621,7 +3698,7 @@ function NostrMessengerContent() {
             messages={visibleMessages}
             renderMetaMessages={visibleMessages}
             rawMessagesCount={visibleMessages.length}
-            hasHydrated={hasHydrated || conversationHasHydrated}
+            hasHydrated={hasHydrated || conversationHasHydratedForView}
             hasEarlierMessages={hasEarlierMessages}
             onLoadEarlier={handleLoadEarlier}
             nowMs={nowMs}
@@ -3806,11 +3883,8 @@ function NostrMessengerContent() {
 
   if (isMobileDmShell) {
     return (
-      <AppShell
-        hideSidebar
-        mobileDmMode
-        navBadgeCounts={{ "/": accurateChatsUnreadCount }}
-      >
+      <>
+        {isIdentityUnlocked ? <ChatSidebarPortal>{sidebarNode}</ChatSidebarPortal> : null}
         {syncStatusBanners}
         <MobileDmShellLayout>
           {!selectedConversationView ? (
@@ -3841,16 +3915,13 @@ function NostrMessengerContent() {
         </MobileDmShellLayout>
         <audio ref={voiceRemoteAudioElementRef} autoPlay playsInline className="hidden" />
         <DevPanel dmController={dmController} />
-      </AppShell>
+      </>
     );
   }
 
   return (
-    <AppShell
-      hideSidebar={!isIdentityUnlocked}
-      navBadgeCounts={{ "/": accurateChatsUnreadCount }}
-      sidebarContent={isIdentityUnlocked ? sidebarNode : null}
-    >
+    <>
+      {isIdentityUnlocked ? <ChatSidebarPortal>{sidebarNode}</ChatSidebarPortal> : null}
       {syncStatusBanners}
       <main className="flex flex-1 flex-col min-h-0 overflow-hidden bg-transparent">
         {!selectedConversationView ? (
@@ -3869,7 +3940,7 @@ function NostrMessengerContent() {
       </main>
       <audio ref={voiceRemoteAudioElementRef} autoPlay playsInline className="hidden" />
       <DevPanel dmController={dmController} />
-    </AppShell>
+    </>
   );
 }
 

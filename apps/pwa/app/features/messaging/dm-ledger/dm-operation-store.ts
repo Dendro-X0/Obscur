@@ -2,7 +2,7 @@
  * dm-operation-store.ts
  *
  * Append-only storage for DM operations.
- * Uses IndexedDB with object-per-operation model.
+ * In-memory append-only ledger (IndexedDB permanently excluded).
  * Never updates existing records - only appends new ones.
  */
 
@@ -11,10 +11,6 @@ import type { DmOperation } from "./dm-operation-types";
 // ---------------------------------------------------------------------------
 // Database Schema
 // ---------------------------------------------------------------------------
-
-const DB_NAME = "DmLedger";
-const DB_VERSION = 1;
-const STORE_NAME = "operations";
 
 interface DmOperationRecord {
   /** Primary key: operation ID */
@@ -29,48 +25,21 @@ interface DmOperationRecord {
   /** The full operation */
   readonly operation: DmOperation;
 
-  /** When this record was written to IndexedDB */
   readonly storedAtMs: number;
 }
 
-// ---------------------------------------------------------------------------
-// Database Connection
-// ---------------------------------------------------------------------------
+const operationsById = new Map<string, DmOperationRecord>();
 
-let dbPromise: Promise<IDBDatabase> | null = null;
-
-const openDb = (): Promise<IDBDatabase> => {
-  if (dbPromise) return dbPromise;
-
-  dbPromise = new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
-
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve(request.result);
-
-    request.onupgradeneeded = (event) => {
-      const db = (event.target as IDBOpenDBRequest).result;
-
-      // Operations store - append only, never updated
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        const store = db.createObjectStore(STORE_NAME, { keyPath: "opId" });
-
-        // Index for efficient conversation queries
-        store.createIndex("conversationId", "conversationId", { unique: false });
-
-        // Index for time-ordered queries
-        store.createIndex("observedAtMs", "observedAtMs", { unique: false });
-
-        // Compound index for conversation + time (most common query)
-        store.createIndex("conversationTime", ["conversationId", "observedAtMs"], {
-          unique: false,
-        });
-      }
-    };
-  });
-
-  return dbPromise;
-};
+const matchesConversationTimeRange = (
+  record: DmOperationRecord,
+  conversationId: string,
+  lowerMs: number,
+  upperMs: number,
+): boolean => (
+  record.conversationId === conversationId
+  && record.observedAtMs >= lowerMs
+  && record.observedAtMs <= upperMs
+);
 
 // ---------------------------------------------------------------------------
 // Append Operations
@@ -83,32 +52,17 @@ const openDb = (): Promise<IDBDatabase> => {
 export const appendDmOperation = async (
   operation: DmOperation,
 ): Promise<boolean> => {
-  const db = await openDb();
-
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, "readwrite");
-    const store = tx.objectStore(STORE_NAME);
-
-    const record: DmOperationRecord = {
-      opId: operation.opId,
-      conversationId: operation.conversationId,
-      observedAtMs: operation.observedAtMs,
-      operation,
-      storedAtMs: Date.now(),
-    };
-
-    const request = store.add(record);
-
-    request.onsuccess = () => resolve(true);
-    request.onerror = () => {
-      // ConstraintError (duplicate key) means already exists - that's OK
-      if (request.error?.name === "ConstraintError") {
-        resolve(false); // Already existed
-      } else {
-        reject(request.error);
-      }
-    };
+  if (operationsById.has(operation.opId)) {
+    return false;
+  }
+  operationsById.set(operation.opId, {
+    opId: operation.opId,
+    conversationId: operation.conversationId,
+    observedAtMs: operation.observedAtMs,
+    operation,
+    storedAtMs: Date.now(),
   });
+  return true;
 };
 
 /**
@@ -118,53 +72,13 @@ export const appendDmOperation = async (
 export const appendDmOperations = async (
   operations: ReadonlyArray<DmOperation>,
 ): Promise<number> => {
-  if (operations.length === 0) return 0;
-
-  const db = await openDb();
-
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, "readwrite");
-    const store = tx.objectStore(STORE_NAME);
-
-    let added = 0;
-    let completed = 0;
-
-    for (const operation of operations) {
-      const record: DmOperationRecord = {
-        opId: operation.opId,
-        conversationId: operation.conversationId,
-        observedAtMs: operation.observedAtMs,
-        operation,
-        storedAtMs: Date.now(),
-      };
-
-      const request = store.add(record);
-
-      request.onsuccess = () => {
-        added++;
-        completed++;
-        if (completed === operations.length) {
-          resolve(added);
-        }
-      };
-
-      request.onerror = () => {
-        completed++;
-        // ConstraintError is OK (already exists), other errors are not
-        if (request.error?.name !== "ConstraintError") {
-          tx.abort();
-          reject(request.error);
-          return;
-        }
-        if (completed === operations.length) {
-          resolve(added);
-        }
-      };
+  let added = 0;
+  for (const operation of operations) {
+    if (await appendDmOperation(operation)) {
+      added += 1;
     }
-
-    tx.oncomplete = () => resolve(added);
-    tx.onerror = () => reject(tx.error);
-  });
+  }
+  return added;
 };
 
 // ---------------------------------------------------------------------------
@@ -178,32 +92,11 @@ export const loadDmOperationsForConversation = async (
   conversationId: string,
   sinceMs?: number,
 ): Promise<ReadonlyArray<DmOperation>> => {
-  const db = await openDb();
-
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, "readonly");
-    const store = tx.objectStore(STORE_NAME);
-    const index = store.index("conversationTime");
-
-    const range = sinceMs
-      ? IDBKeyRange.bound([conversationId, sinceMs], [conversationId, Infinity])
-      : IDBKeyRange.bound([conversationId, 0], [conversationId, Infinity]);
-
-    const request = index.openCursor(range);
-    const operations: DmOperation[] = [];
-
-    request.onsuccess = () => {
-      const cursor = request.result;
-      if (cursor) {
-        operations.push((cursor.value as DmOperationRecord).operation);
-        cursor.continue();
-      } else {
-        resolve(operations);
-      }
-    };
-
-    request.onerror = () => reject(request.error);
-  });
+  const lowerMs = typeof sinceMs === "number" ? sinceMs : 0;
+  return [...operationsById.values()]
+    .filter((record) => matchesConversationTimeRange(record, conversationId, lowerMs, Number.POSITIVE_INFINITY))
+    .sort((left, right) => left.observedAtMs - right.observedAtMs)
+    .map((record) => record.operation);
 };
 
 /**
@@ -212,47 +105,17 @@ export const loadDmOperationsForConversation = async (
  */
 export const loadDmOperationsSince = async (
   sinceMs: number,
-): Promise<ReadonlyArray<DmOperation>> => {
-  const db = await openDb();
-
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, "readonly");
-    const store = tx.objectStore(STORE_NAME);
-    const index = store.index("observedAtMs");
-
-    const range = IDBKeyRange.lowerBound(sinceMs);
-    const request = index.openCursor(range);
-    const operations: DmOperation[] = [];
-
-    request.onsuccess = () => {
-      const cursor = request.result;
-      if (cursor) {
-        operations.push((cursor.value as DmOperationRecord).operation);
-        cursor.continue();
-      } else {
-        resolve(operations);
-      }
-    };
-
-    request.onerror = () => reject(request.error);
-  });
-};
+): Promise<ReadonlyArray<DmOperation>> => (
+  [...operationsById.values()]
+    .filter((record) => record.observedAtMs >= sinceMs)
+    .sort((left, right) => left.observedAtMs - right.observedAtMs)
+    .map((record) => record.operation)
+);
 
 /**
  * Check if an operation already exists by ID.
  */
-export const hasDmOperation = async (opId: string): Promise<boolean> => {
-  const db = await openDb();
-
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, "readonly");
-    const store = tx.objectStore(STORE_NAME);
-    const request = store.count(opId);
-
-    request.onsuccess = () => resolve(request.result > 0);
-    request.onerror = () => reject(request.error);
-  });
-};
+export const hasDmOperation = async (opId: string): Promise<boolean> => operationsById.has(opId);
 
 // ---------------------------------------------------------------------------
 // Stats & Maintenance
@@ -261,19 +124,9 @@ export const hasDmOperation = async (opId: string): Promise<boolean> => {
 /**
  * Get operation count for a conversation.
  */
-export const getDmOperationCount = async (conversationId: string): Promise<number> => {
-  const db = await openDb();
-
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, "readonly");
-    const store = tx.objectStore(STORE_NAME);
-    const index = store.index("conversationId");
-    const request = index.count(conversationId);
-
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
-};
+export const getDmOperationCount = async (conversationId: string): Promise<number> => (
+  [...operationsById.values()].filter((record) => record.conversationId === conversationId).length
+);
 
 /**
  * Clear all operations for a conversation.
@@ -282,26 +135,11 @@ export const getDmOperationCount = async (conversationId: string): Promise<numbe
 export const clearDmOperationsForConversation = async (
   conversationId: string,
 ): Promise<void> => {
-  const db = await openDb();
-
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, "readwrite");
-    const store = tx.objectStore(STORE_NAME);
-    const index = store.index("conversationId");
-    const request = index.openCursor(conversationId);
-
-    request.onsuccess = () => {
-      const cursor = request.result;
-      if (cursor) {
-        store.delete(cursor.primaryKey);
-        cursor.continue();
-      } else {
-        resolve();
-      }
-    };
-
-    request.onerror = () => reject(request.error);
-  });
+  for (const [opId, record] of operationsById) {
+    if (record.conversationId === conversationId) {
+      operationsById.delete(opId);
+    }
+  }
 };
 
 // ---------------------------------------------------------------------------
@@ -319,55 +157,22 @@ export const deleteMessageUpsertOperations = async (
 ): Promise<void> => {
   if (identityIds.length === 0) return;
   const targetSet = new Set(identityIds);
-  const db = await openDb();
-
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, "readwrite");
-    const store = tx.objectStore(STORE_NAME);
-    const request = store.openCursor();
-
-    request.onsuccess = () => {
-      const cursor = request.result;
-      if (!cursor) { resolve(); return; }
-      const rec = cursor.value as DmOperationRecord;
-      if (rec.operation.op === "message_upsert") {
-        const op = rec.operation;
-        const shouldDelete = op.identityIds.some((id: string) => targetSet.has(id))
-          || targetSet.has(op.messageId);
-        if (shouldDelete) {
-          cursor.delete();
-        }
-      }
-      cursor.continue();
-    };
-
-    request.onerror = () => reject(request.error);
-    tx.onerror = () => reject(tx.error);
-  });
+  for (const [opId, record] of operationsById) {
+    if (record.operation.op !== "message_upsert") {
+      continue;
+    }
+    const op = record.operation;
+    const shouldDelete = op.identityIds.some((id: string) => targetSet.has(id))
+      || targetSet.has(op.messageId);
+    if (shouldDelete) {
+      operationsById.delete(opId);
+    }
+  }
 };
 
 /**
  * Export all operations for debugging/backup.
  */
-export const exportAllDmOperations = async (): Promise<ReadonlyArray<DmOperation>> => {
-  const db = await openDb();
-
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, "readonly");
-    const store = tx.objectStore(STORE_NAME);
-    const request = store.openCursor();
-    const operations: DmOperation[] = [];
-
-    request.onsuccess = () => {
-      const cursor = request.result;
-      if (cursor) {
-        operations.push((cursor.value as DmOperationRecord).operation);
-        cursor.continue();
-      } else {
-        resolve(operations);
-      }
-    };
-
-    request.onerror = () => reject(request.error);
-  });
-};
+export const exportAllDmOperations = async (): Promise<ReadonlyArray<DmOperation>> => (
+  [...operationsById.values()].map((record) => record.operation)
+);

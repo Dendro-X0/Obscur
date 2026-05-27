@@ -1,8 +1,20 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { getAutoRecoveryDelayMs, shouldAutoRecoverRelays } from "./sticky-relay-recovery";
 
 describe("sticky relay recovery", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("does not auto-recover when the browser is offline", () => {
+    vi.stubGlobal("navigator", { onLine: false });
+    expect(shouldAutoRecoverRelays({
+      enabledRelayCount: 3,
+      writableRelayCount: 0,
+    })).toBe(false);
+  });
+
   it("auto-recovers only when enabled relays exist but none are writable", () => {
     expect(shouldAutoRecoverRelays({
       enabledRelayCount: 3,
@@ -24,6 +36,14 @@ describe("sticky relay recovery", () => {
       writableRelayCount: 0,
       fallbackWritableRelayCount: 1,
     })).toBe(true);
+  });
+
+  it("does not auto-recover when automatic recovery is exhausted", () => {
+    expect(shouldAutoRecoverRelays({
+      enabledRelayCount: 3,
+      writableRelayCount: 0,
+      recoveryReasonCode: "recovery_exhausted",
+    })).toBe(false);
   });
 
   it("uses shorter recovery delays when relays are fully offline", () => {

@@ -7,11 +7,54 @@ import {
 } from "./dm-read-authority-contract";
 
 describe("resolveLegacyHydrationAuthority", () => {
+  it("still prefers projection when indexed is outgoing-only and projection has incoming peer evidence", () => {
+    expect(resolveLegacyHydrationAuthority({
+      useProjectionReads: true,
+      projectionMessageCount: 1,
+      projectionIncomingCount: 1,
+      projectionOutgoingCount: 0,
+      projectionBootstrapImportApplied: true,
+      projectionCanonicalEvidencePending: false,
+      projectionRestorePhaseActive: false,
+      indexedMessageCount: 200,
+      indexedOutgoingCount: 200,
+      indexedIncomingCount: 0,
+      persistedMessageCount: 0,
+      persistedOutgoingCount: 0,
+      persistedIncomingCount: 0,
+    })).toEqual({
+      authority: "projection",
+      reason: "projection_read_cutover",
+    });
+  });
+
+  it("prefers indexed when projection reads are enabled but projection is missing outgoing coverage indexed already has", () => {
+    expect(resolveLegacyHydrationAuthority({
+      useProjectionReads: true,
+      projectionMessageCount: 2,
+      projectionIncomingCount: 2,
+      projectionOutgoingCount: 0,
+      projectionBootstrapImportApplied: true,
+      projectionCanonicalEvidencePending: false,
+      projectionRestorePhaseActive: false,
+      indexedMessageCount: 4,
+      indexedOutgoingCount: 2,
+      indexedIncomingCount: 2,
+      persistedMessageCount: 0,
+      persistedOutgoingCount: 0,
+      persistedIncomingCount: 0,
+    })).toEqual({
+      authority: "indexed",
+      reason: "indexed_primary_projection_direction_incomplete",
+    });
+  });
+
   it("prefers projection when projection reads are enabled and messages are present", () => {
     expect(resolveLegacyHydrationAuthority({
       useProjectionReads: true,
       projectionMessageCount: 5,
       projectionIncomingCount: 3,
+      projectionOutgoingCount: 2,
       projectionBootstrapImportApplied: true,
       projectionCanonicalEvidencePending: false,
       projectionRestorePhaseActive: false,
@@ -32,6 +75,7 @@ describe("resolveLegacyHydrationAuthority", () => {
       useProjectionReads: false,
       projectionMessageCount: 0,
       projectionIncomingCount: 0,
+      projectionOutgoingCount: 0,
       projectionBootstrapImportApplied: false,
       projectionCanonicalEvidencePending: false,
       projectionRestorePhaseActive: false,
@@ -52,6 +96,7 @@ describe("resolveLegacyHydrationAuthority", () => {
       useProjectionReads: false,
       projectionMessageCount: 0,
       projectionIncomingCount: 0,
+      projectionOutgoingCount: 0,
       projectionBootstrapImportApplied: false,
       projectionCanonicalEvidencePending: true,
       projectionRestorePhaseActive: true,
@@ -72,6 +117,7 @@ describe("resolveLegacyHydrationAuthority", () => {
       useProjectionReads: false,
       projectionMessageCount: 0,
       projectionIncomingCount: 0,
+      projectionOutgoingCount: 0,
       projectionBootstrapImportApplied: false,
       projectionCanonicalEvidencePending: true,
       projectionRestorePhaseActive: true,
@@ -92,6 +138,7 @@ describe("resolveLegacyHydrationAuthority", () => {
       useProjectionReads: false,
       projectionMessageCount: 0,
       projectionIncomingCount: 0,
+      projectionOutgoingCount: 0,
       projectionBootstrapImportApplied: false,
       projectionCanonicalEvidencePending: true,
       projectionRestorePhaseActive: true,
@@ -112,6 +159,7 @@ describe("resolveLegacyHydrationAuthority", () => {
       useProjectionReads: true,
       projectionMessageCount: 0,
       projectionIncomingCount: 0,
+      projectionOutgoingCount: 0,
       projectionBootstrapImportApplied: true,
       projectionCanonicalEvidencePending: false,
       projectionRestorePhaseActive: false,
@@ -132,6 +180,7 @@ describe("resolveLegacyHydrationAuthority", () => {
       useProjectionReads: false,
       projectionMessageCount: 0,
       projectionIncomingCount: 0,
+      projectionOutgoingCount: 0,
       projectionBootstrapImportApplied: false,
       projectionCanonicalEvidencePending: true,
       projectionRestorePhaseActive: true,
@@ -183,6 +232,7 @@ describe("resolveLegacyHydrationAuthority", () => {
       useProjectionReads: false,
       projectionMessageCount: 1,
       projectionIncomingCount: 1,
+      projectionOutgoingCount: 0,
       projectionBootstrapImportApplied: true,
       projectionCanonicalEvidencePending: false,
       projectionRestorePhaseActive: false,
@@ -203,6 +253,7 @@ describe("resolveLegacyHydrationAuthority", () => {
       useProjectionReads: false,
       projectionMessageCount: 0,
       projectionIncomingCount: 0,
+      projectionOutgoingCount: 0,
       projectionBootstrapImportApplied: true,
       projectionCanonicalEvidencePending: false,
       projectionRestorePhaseActive: false,
@@ -223,6 +274,7 @@ describe("resolveLegacyHydrationAuthority", () => {
       useProjectionReads: false,
       projectionMessageCount: 0,
       projectionIncomingCount: 0,
+      projectionOutgoingCount: 0,
       projectionBootstrapImportApplied: false,
       projectionCanonicalEvidencePending: false,
       projectionRestorePhaseActive: false,
@@ -243,6 +295,7 @@ describe("resolveLegacyHydrationAuthority", () => {
       useProjectionReads: false,
       projectionMessageCount: 0,
       projectionIncomingCount: 0,
+      projectionOutgoingCount: 0,
       projectionBootstrapImportApplied: false,
       projectionCanonicalEvidencePending: true,
       projectionRestorePhaseActive: false,
@@ -263,6 +316,7 @@ describe("resolveLegacyHydrationAuthority", () => {
       useProjectionReads: false,
       projectionMessageCount: 0,
       projectionIncomingCount: 0,
+      projectionOutgoingCount: 0,
       projectionBootstrapImportApplied: false,
       projectionCanonicalEvidencePending: true,
       projectionRestorePhaseActive: true,
@@ -283,6 +337,7 @@ describe("resolveLegacyHydrationAuthority", () => {
       useProjectionReads: false,
       projectionMessageCount: 0,
       projectionIncomingCount: 0,
+      projectionOutgoingCount: 0,
       projectionBootstrapImportApplied: false,
       projectionCanonicalEvidencePending: true,
       projectionRestorePhaseActive: true,

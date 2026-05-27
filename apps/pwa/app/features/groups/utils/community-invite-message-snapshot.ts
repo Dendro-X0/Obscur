@@ -1,9 +1,24 @@
 import type { InvitePayload } from "./community-invite-payload";
 import { normalizeCommunityInvitePayload } from "./community-invite-payload";
-import { hasMeaningfulCommunityDisplayName } from "../services/community-display-name";
+import {
+    hasMeaningfulCommunityDisplayName,
+    resolveCommunityDisplayName,
+} from "../services/community-display-name";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
+import { collectCommunityInviteMessageIdentityAliases } from "./community-invite-dm-message";
 
 const STORAGE_KEY_PREFIX = "obscur:community-invite-snapshot:v1";
+
+export const COMMUNITY_INVITE_SNAPSHOT_PINNED_EVENT = "obscur:community-invite-snapshot-pinned";
+
+const notifyInviteSnapshotPinned = (messageId: string): void => {
+    if (typeof window === "undefined") {
+        return;
+    }
+    window.dispatchEvent(new CustomEvent(COMMUNITY_INVITE_SNAPSHOT_PINNED_EVENT, {
+        detail: { messageId },
+    }));
+};
 
 export type CommunityInviteMessageSnapshot = Readonly<{
     groupId: string;
@@ -50,7 +65,11 @@ const readSnapshotRecord = (raw: unknown): CommunityInviteMessageSnapshot | null
 
 const snapshotFromInvite = (invite: InvitePayload): CommunityInviteMessageSnapshot | null => {
     const roomKey = invite.roomKey?.trim() ?? "";
-    const metadataName = invite.metadata.name?.trim() ?? "";
+    const metadataName = resolveCommunityDisplayName({
+        metadataName: invite.metadata.name,
+        groupId: invite.groupId,
+        communityId: invite.communityId,
+    });
     const meaningfulName = hasMeaningfulCommunityDisplayName(metadataName, {
         groupId: invite.groupId,
         communityId: invite.communityId,
@@ -61,7 +80,7 @@ const snapshotFromInvite = (invite: InvitePayload): CommunityInviteMessageSnapsh
     return {
         groupId: invite.groupId,
         roomKey,
-        metadataName: metadataName || "Private Group",
+        metadataName,
         metadataAbout: invite.metadata.about,
         metadataPicture: invite.metadata.picture,
         metadataAccess: invite.metadata.access,
@@ -122,6 +141,23 @@ export const loadCommunityInviteMessageSnapshot = (
     }
 };
 
+const snapshotsEqual = (
+    left: CommunityInviteMessageSnapshot | null,
+    right: CommunityInviteMessageSnapshot,
+): boolean => {
+    if (!left) {
+        return false;
+    }
+    return left.groupId === right.groupId
+        && left.roomKey === right.roomKey
+        && left.metadataName === right.metadataName
+        && left.metadataAbout === right.metadataAbout
+        && left.metadataPicture === right.metadataPicture
+        && left.metadataAccess === right.metadataAccess
+        && left.relayUrl === right.relayUrl
+        && left.communityId === right.communityId;
+};
+
 export const pinCommunityInviteMessageSnapshot = (
     messageId: string | undefined,
     invite: InvitePayload | null,
@@ -134,7 +170,11 @@ export const pinCommunityInviteMessageSnapshot = (
     if (!next) {
         return;
     }
-    const merged = mergeSnapshots(loadCommunityInviteMessageSnapshot(trimmedId), next);
+    const current = loadCommunityInviteMessageSnapshot(trimmedId);
+    const merged = mergeSnapshots(current, next);
+    if (snapshotsEqual(current, merged)) {
+        return;
+    }
     memoryByMessageId.set(trimmedId, merged);
     if (typeof window === "undefined") {
         return;
@@ -147,6 +187,28 @@ export const pinCommunityInviteMessageSnapshot = (
     } catch {
         // Quota / private mode — memory pin still helps for this session.
     }
+    notifyInviteSnapshotPinned(trimmedId);
+};
+
+/** Pin the same invite snapshot on every DM identity alias (gift-wrap, rumor, relay ids). */
+export const pinCommunityInviteMessageSnapshotForMessage = (
+    message: Readonly<{ id?: string; eventId?: string; relayPublishedEventId?: string }> | undefined,
+    invite: InvitePayload | null,
+): void => {
+    if (!message || !invite) {
+        return;
+    }
+    const aliasSource = {
+        id: message.id?.trim() || message.eventId?.trim() || "",
+        eventId: message.eventId,
+        relayPublishedEventId: message.relayPublishedEventId,
+    };
+    if (!aliasSource.id && !aliasSource.eventId?.trim()) {
+        return;
+    }
+    collectCommunityInviteMessageIdentityAliases(aliasSource).forEach((aliasId) => {
+        pinCommunityInviteMessageSnapshot(aliasId, invite);
+    });
 };
 
 export const applyCommunityInviteMessageSnapshot = (
@@ -158,7 +220,6 @@ export const applyCommunityInviteMessageSnapshot = (
     }
     const snapshot = loadCommunityInviteMessageSnapshot(messageId);
     if (!snapshot || snapshot.groupId !== invite.groupId) {
-        pinCommunityInviteMessageSnapshot(messageId, invite);
         return invite;
     }
     const merged = normalizeCommunityInvitePayload({
@@ -179,8 +240,5 @@ export const applyCommunityInviteMessageSnapshot = (
         relayUrl: invite.relayUrl || snapshot.relayUrl,
         communityId: invite.communityId || snapshot.communityId,
     });
-    if (merged) {
-        pinCommunityInviteMessageSnapshot(messageId, merged);
-    }
     return merged ?? invite;
 };

@@ -208,7 +208,7 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{
             __html: `
               (function() {
-                var BOOT_STALL_TIMEOUT_MS = 12000;
+                var BOOT_STALL_TIMEOUT_MS = 45000;
                 var OVERLAY_ID = "obscur-boot-stall-overlay";
                 var AUTO_RECOVERY_ATTEMPT_STORAGE_KEY = "obscur.boot.watchdog.auto_recovery_attempts.v1";
                 var AUTO_RECOVERY_LAST_EVENT_STORAGE_KEY = "obscur.boot.watchdog.auto_recovery_last_event.v1";

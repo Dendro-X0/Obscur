@@ -3,6 +3,7 @@
 import type { Message } from "../types";
 import { resolveDmReadAuthority, type DmReadAuthorityStatus } from "./dm-read-authority-contract";
 import { logAppEvent } from "@/app/shared/log-app-event";
+import { requiresSqlitePersistence } from "@/app/features/runtime/native-persistence-policy";
 
 export interface DriftDetectionParams {
   conversationId: string;
@@ -35,8 +36,8 @@ export const detectDmAuthorityDrift = (params: DriftDetectionParams): DriftRepor
     projectionMessages: params.projectionMessages,
     indexedMessages: params.indexedMessages,
     legacyPersistedMessages: params.persistedMessages,
-    allowIndexedRecovery: true,
-    allowLegacyRecovery: true,
+    allowIndexedRecovery: !requiresSqlitePersistence(),
+    allowLegacyRecovery: !requiresSqlitePersistence(),
   });
 
   const report: DriftReport = {

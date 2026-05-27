@@ -20,6 +20,12 @@ import type {
   ApplyRealtimeBufferedEventsParams,
 } from "./dm-conversation-materialization-realtime";
 import type { PrepareDmThreadSuppressionParams } from "./dm-thread-suppression-prepare";
+import type {
+  filterMessagesBySuppressedIds,
+  mergeHydratedBaseWithLiveOverlayMessages,
+} from "./conversation-message-materialization";
+
+export const DM_CONVERSATION_MATERIALIZATION_OWNER_ID = "dm-conversation-materialization-owner" as const;
 
 export type {
   DmConversationHydratePipelineNumericConfig,
@@ -53,6 +59,15 @@ export type DmConversationMaterializationPort = Readonly<{
   applyRealtimeBufferedEvents: (
     params: ApplyRealtimeBufferedEventsParams,
   ) => ReadonlyArray<Message>;
+  filterThreadMessagesBySuppression: (
+    messages: ReadonlyArray<Message>,
+    suppressedIds: ReadonlySet<string>,
+  ) => ReturnType<typeof filterMessagesBySuppressedIds>;
+  mergeHydratedBaseWithLiveOverlay: (
+    baseHydrated: ReadonlyArray<Message>,
+    liveOverlay: ReadonlyArray<Message>,
+    overlayConversationScope: ReadonlySet<string>,
+  ) => ReturnType<typeof mergeHydratedBaseWithLiveOverlayMessages>;
 }>;
 
 export type { ApplyRealtimeBufferedEventsParams };

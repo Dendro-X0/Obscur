@@ -18,6 +18,7 @@ import { createDriftReport, getLatestDriftReport } from "./account-sync-drift-de
 import { encryptedAccountBackupService } from "./encrypted-account-backup-service";
 import { messagingClientOperations } from "@/app/features/messaging/services/messaging-client-operations";
 import { areAccountProjectionRuntimeSnapshotsEqual } from "@/app/shared/store-snapshot-equality";
+import { requiresSqlitePersistence } from "@/app/features/runtime/native-persistence-policy";
 
 type Listener = (snapshot: AccountProjectionRuntimeSnapshot) => void;
 
@@ -215,6 +216,21 @@ export const accountProjectionRuntime = {
     inflightBootstraps.clear();
     setSnapshot(createDefaultSnapshot());
   },
+  markExperimentShellReady(params: Readonly<{
+    profileId: string;
+    accountPublicKeyHex: PublicKeyHex;
+  }>): void {
+    setSnapshot({
+      profileId: params.profileId,
+      accountPublicKeyHex: params.accountPublicKeyHex,
+      projection: null,
+      phase: "ready",
+      status: "ready",
+      accountProjectionReady: true,
+      driftStatus: "unknown",
+      updatedAtUnixMs: Date.now(),
+    });
+  },
   async appendCanonicalEvents(params: Readonly<{
     profileId: string;
     accountPublicKeyHex: PublicKeyHex;
@@ -357,18 +373,23 @@ export const accountProjectionRuntime = {
               profileId,
               accountPublicKeyHex: params.accountPublicKeyHex,
             })
-            : await (async () => {
-              const backupResult = await encryptedAccountBackupService.fetchLatestEncryptedAccountBackupPayload({
-                publicKeyHex: params.accountPublicKeyHex,
-                privateKeyHex: params.privateKeyHex,
-                pool: params.pool,
-              });
-              return buildBootstrapAccountEvents({
+            : requiresSqlitePersistence()
+              ? await buildBootstrapAccountEvents({
                 profileId,
                 accountPublicKeyHex: params.accountPublicKeyHex,
-                backupPayload: backupResult.payload,
-              });
-            })();
+              })
+              : await (async () => {
+                const backupResult = await encryptedAccountBackupService.fetchLatestEncryptedAccountBackupPayload({
+                  publicKeyHex: params.accountPublicKeyHex,
+                  privateKeyHex: params.privateKeyHex,
+                  pool: params.pool,
+                });
+                return buildBootstrapAccountEvents({
+                  profileId,
+                  accountPublicKeyHex: params.accountPublicKeyHex,
+                  backupPayload: backupResult.payload,
+                });
+              })();
           const appendResult = await accountEventStore.appendAccountEvents({
             profileId,
             accountPublicKeyHex: params.accountPublicKeyHex,

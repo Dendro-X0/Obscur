@@ -30,6 +30,7 @@ import { accountSyncStatusStore } from "@/app/features/account-sync/services/acc
 import { emitAccountSyncMutation } from "@/app/shared/account-sync-mutation-signal";
 import { SessionApi } from "@/app/features/auth/services/session-api";
 import { isRememberMeEnabledForProfile } from "@/app/features/auth/services/session-bootstrap-contracts";
+import { NATIVE_SECURE_SESSION_RESTORE_ENABLED } from "@/app/features/auth/services/session-credential-policy";
 import {
   createMismatchStartupAuthState,
   createPendingStartupAuthState,
@@ -227,6 +228,16 @@ const isRememberMeEnabledStrict = (profileId: string): boolean => {
   return isRememberMeEnabledForProfile(profileId);
 };
 
+let identityMutationInFlight = 0;
+
+const beginIdentityMutation = (): void => {
+  identityMutationInFlight += 1;
+};
+
+const endIdentityMutation = (): void => {
+  identityMutationInFlight = Math.max(0, identityMutationInFlight - 1);
+};
+
 let identityState: IdentityState = createLoadingState();
 let hasInitialized: boolean = false;
 const listeners: Set<() => void> = new Set();
@@ -295,6 +306,9 @@ const subscribeToIdentity = (listener: () => void): (() => void) => {
   };
 };
 
+/** External-store subscribe for identity — use from root binding owners only. */
+export const subscribeIdentityStore = subscribeToIdentity;
+
 export const getIdentitySnapshot = (): IdentityState => {
   return identityState;
 };
@@ -357,7 +371,14 @@ const tryNativeSessionUnlock = async (params: Readonly<{
 };
 
 const rehydrateIdentityForActiveProfile = async (): Promise<void> => {
+  if (identityMutationInFlight > 0) {
+    return;
+  }
   const current = getIdentitySnapshot();
+  // Profile switches during import/create must not downgrade a live unlock (race with PROFILE_CHANGED).
+  if (current.status === "unlocked" && current.privateKeyHex && current.stored?.publicKeyHex) {
+    return;
+  }
   try {
     let { record: stored } = await getStoredIdentity();
     if (!stored) {
@@ -393,14 +414,11 @@ const ensureInitialized = async (): Promise<void> => {
   hasInitialized = true;
   let stored: IdentityRecord | undefined;
   try {
-    stored = (await getStoredIdentity()).record;
+    const recoveredBinding = await recoverStoredIdentityProfile()
+      ?? await recoverSingleStoredIdentityProfile();
+    stored = recoveredBinding?.record;
     if (!stored) {
-      const recovered = await recoverStoredIdentityProfile();
-      stored = recovered?.record;
-    }
-    if (!stored) {
-      const recovered = await recoverSingleStoredIdentityProfile();
-      stored = recovered?.record;
+      stored = (await getStoredIdentity()).record;
     }
     if (stored) {
       const normalizedStored = normalizeStoredIdentityRecord(stored);
@@ -412,20 +430,10 @@ const ensureInitialized = async (): Promise<void> => {
         await saveStoredIdentity({ record: normalizedStored });
       }
       stored = normalizedStored;
-      setIdentityDiagnostics({
-        status: identityState.status,
-        startupState: createPendingStartupAuthState({
-          storedPublicKeyHex: stored.publicKeyHex,
-        }),
-        storedPublicKeyHex: stored.publicKeyHex
-      });
     }
 
-    // Auto-unlock with native keychain/session only when remember-me is enabled for this profile.
-    const cs: NativeCryptoSessionApi = cryptoService as unknown as NativeCryptoSessionApi;
-    const activeProfileId = getResolvedProfileId();
-    const allowNativeAutoUnlock = Boolean(stored) && canUseNativeSession() && isRememberMeEnabledStrict(activeProfileId);
-    if (stored && allowNativeAutoUnlock) {
+    // Native: restore unlocked session from OS secure storage (no web passphrase tokens).
+    if (stored && canUseNativeSession() && NATIVE_SECURE_SESSION_RESTORE_ENABLED) {
       const nativeSessionStatusResult = await tryNativeSessionUnlock({
         stored,
         context: "bootstrap",
@@ -540,6 +548,7 @@ const createPoWIdentityAction = async (params: Readonly<{
 };
 
 const importIdentityAction = async (params: Readonly<{ privateKeyHex: PrivateKeyHex; passphrase: Passphrase; username?: string }>): Promise<void> => {
+  beginIdentityMutation();
   let record: IdentityRecord | undefined;
   try {
     const { privateKeyHex, publicKeyHex } = assertIdentityKeyPair({ privateKeyHex: params.privateKeyHex });
@@ -599,6 +608,8 @@ const importIdentityAction = async (params: Readonly<{ privateKeyHex: PrivateKey
     const message: string = error instanceof Error ? error.message : "Import failed";
     setIdentityState(createErrorState(message, record));
     throw error;
+  } finally {
+    endIdentityMutation();
   }
 };
 

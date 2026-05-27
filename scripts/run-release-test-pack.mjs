@@ -51,6 +51,9 @@ const main = () => {
   console.log("[release:test-pack] Running apps/pwa typecheck...");
   runPwaTypecheck();
 
+  console.log("[release:test-pack] Checking transport boundaries (v1.9.0 B0)...");
+  run("pnpm", ["transport:boundaries:check"]);
+
   console.log("[release:test-pack] Checking offline UI asset policy...");
   run("pnpm", ["offline:asset-policy:check"]);
 
@@ -115,6 +118,10 @@ const main = () => {
     "app/features/groups/services/community-relay-evidence-policy.test.ts",
     "app/features/groups/services/community-participant-roster-read-model.test.ts",
     "app/features/groups/services/community-visible-members.test.ts",
+    "app/features/groups/services/community-membership-semantic-ingress.test.ts",
+    "app/features/groups/services/community-membership-port.test.ts",
+    "app/features/groups/services/community-coordination-membership-client.test.ts",
+    "app/features/profiles/services/resolve-client-gateway.test.ts",
     "app/features/groups/utils/community-membership-participation-evidence.test.ts",
     "app/features/settings/services/ui-preferences-persistence.test.ts",
     "app/features/runtime/components/startup-experience-overlay.test.tsx",

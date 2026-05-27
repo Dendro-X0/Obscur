@@ -3,7 +3,6 @@ import type { IntegrityMigrationReport, PersistedChatState, PersistedConnectionR
 import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store";
 import { normalizePublicKeyHex, normalizePublicKeyHexList } from "@/app/features/profile/utils/normalize-public-key-hex";
 import { incrementAbuseMetric } from "@/app/shared/abuse-observability";
-import { messagingDB } from "@dweb/storage/indexed-db";
 import { toDmConversationIdUnsafe } from "@/app/features/messaging/utils/dm-conversation-id";
 
 const MIGRATION_DONE_KEY_PREFIX = "obscur:integrity-migration:v085:done";
@@ -87,26 +86,7 @@ const remapConversationIdRecord = <TValue>(
   return { remapped: next, remappedCount };
 };
 
-const remapMessageConversationIds = async (remap: ReadonlyMap<string, string>): Promise<number> => {
-  if (remap.size === 0) return 0;
-  try {
-    const rows = await messagingDB.getAll<Record<string, unknown>>("messages");
-    const updates: Array<Record<string, unknown>> = [];
-    rows.forEach((row) => {
-      const currentConversationId = typeof row.conversationId === "string" ? row.conversationId : null;
-      if (!currentConversationId) return;
-      const mappedConversationId = remap.get(currentConversationId);
-      if (!mappedConversationId || mappedConversationId === currentConversationId) return;
-      updates.push({ ...row, conversationId: mappedConversationId });
-    });
-    if (updates.length > 0) {
-      await messagingDB.bulkPut("messages", updates);
-    }
-    return updates.length;
-  } catch {
-    return 0;
-  }
-};
+const remapMessageConversationIds = async (_remap: ReadonlyMap<string, string>): Promise<number> => 0;
 
 const remapConversationIdList = (
   source: ReadonlyArray<string> | undefined,

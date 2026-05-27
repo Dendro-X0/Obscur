@@ -1,17 +1,32 @@
+import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { getIdentityDbKey } from "./identity-db-key";
 import { identityStoreName } from "./identity-store-name";
 import { openIdentityDb } from "./open-identity-db";
+import {
+  clearIdentityRecordsFromLocalStorage,
+  profileIdFromIdentityStorageKey,
+  readIdentityRecordFromLocalStorage,
+} from "./identity-persistence";
 
 export const clearStoredIdentity = async (): Promise<void> => {
-  const db: IDBDatabase = await openIdentityDb();
   const identityDbKey = getIdentityDbKey();
+  const profileId = profileIdFromIdentityStorageKey(identityDbKey);
+  const durableRecord = readIdentityRecordFromLocalStorage(profileId);
+  const publicKeyHex = durableRecord?.publicKeyHex as PublicKeyHex | undefined;
+
+  clearIdentityRecordsFromLocalStorage({
+    profileId,
+    publicKeyHex,
+  });
+
+  const db: IDBDatabase = await openIdentityDb();
   return new Promise((resolve, reject) => {
     const tx: IDBTransaction = db.transaction(identityStoreName, "readwrite");
     const store: IDBObjectStore = tx.objectStore(identityStoreName);
     const readCurrentRequest: IDBRequest = store.get(identityDbKey);
     readCurrentRequest.onsuccess = () => {
       const current = readCurrentRequest.result as { publicKeyHex?: unknown } | undefined;
-      const publicKeyHex = typeof current?.publicKeyHex === "string" ? current.publicKeyHex : null;
+      const memoryPublicKeyHex = typeof current?.publicKeyHex === "string" ? current.publicKeyHex : null;
       const keysToDelete = new Set<string>([identityDbKey]);
       const cursorRequest = store.openCursor();
       cursorRequest.onsuccess = () => {
@@ -19,11 +34,12 @@ export const clearStoredIdentity = async (): Promise<void> => {
         if (cursor) {
           const key = typeof cursor.key === "string" ? cursor.key : null;
           const value = cursor.value as { publicKeyHex?: unknown } | undefined;
+          const targetPublicKeyHex = publicKeyHex ?? memoryPublicKeyHex;
           if (
             key
-            && publicKeyHex
+            && targetPublicKeyHex
             && typeof value?.publicKeyHex === "string"
-            && value.publicKeyHex === publicKeyHex
+            && value.publicKeyHex === targetPublicKeyHex
           ) {
             keysToDelete.add(key);
           }

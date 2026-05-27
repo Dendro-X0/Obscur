@@ -8,6 +8,12 @@ import { markRetiredIdentityPublicKey } from "../utils/retired-identity-registry
 
 const authScreenMocks = vi.hoisted(() => ({
   hasStoredIdentity: true,
+  identityState: {
+    status: "locked" as const,
+    stored: {
+      publicKeyHex: "a".repeat(64),
+    },
+  },
   identityDiagnostics: {
     status: "locked" as const,
     startupState: {
@@ -95,14 +101,12 @@ vi.mock("@dweb/ui-kit", () => {
 
 vi.mock("@/app/features/auth/hooks/use-identity", () => ({
   useIdentity: () => ({
-    state: {
-      status: "locked",
-      stored: authScreenMocks.hasStoredIdentity
-        ? {
-            publicKeyHex: "a".repeat(64),
-          }
-        : null,
-    },
+    state: authScreenMocks.hasStoredIdentity
+      ? authScreenMocks.identityState
+      : {
+          status: "locked" as const,
+          stored: undefined,
+        },
     getIdentityDiagnostics: () => authScreenMocks.identityDiagnostics,
     resetNativeSecureStorage: authScreenMocks.resetNativeSecureStorage,
   }),
@@ -139,6 +143,12 @@ vi.mock("@/app/shared/log-app-event", () => ({
 describe("AuthScreen mismatch recovery UX", () => {
   beforeEach(() => {
     localStorage.clear();
+    authScreenMocks.identityState = {
+      status: "locked",
+      stored: {
+        publicKeyHex: "a".repeat(64),
+      },
+    };
     authScreenMocks.identityDiagnostics.mismatchReason = undefined;
     authScreenMocks.identityDiagnostics.message = undefined;
     authScreenMocks.identityDiagnostics.startupState = {
@@ -188,32 +198,22 @@ describe("AuthScreen mismatch recovery UX", () => {
     expect(screen.queryByText("Secure Storage Needs Recovery")).not.toBeInTheDocument();
   });
 
-  it("persists remember-me credentials when importing with private key and skip-password", async () => {
+  it("shows session policy notice instead of remember-me controls", async () => {
     render(<AuthScreen />);
 
-    fireEvent.click(await screen.findByRole("button", { name: "Import Key" }));
-    fireEvent.change(screen.getByPlaceholderText("nsec1..."), {
-      target: { value: "a".repeat(64) },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Skip Password" }));
-
-    await waitFor(() => {
-      expect(authScreenMocks.runtime.importIdentityForBoundProfile).toHaveBeenCalledTimes(1);
-    });
-
-    expect(localStorage.getItem("obscur_remember_me::default")).toBe("true");
-    const token = localStorage.getItem("obscur_auth_token::default");
-    expect(typeof token).toBe("string");
-    expect((token ?? "").length).toBeGreaterThan(0);
+    expect(await screen.findByText(/Manual unlock every time|Secure session on this device/)).toBeInTheDocument();
+    expect(screen.queryByLabelText("Trust this device")).not.toBeInTheDocument();
   });
 
-  it("defaults remember-me to enabled for stored identities even when a stale false marker exists", async () => {
-    localStorage.setItem("obscur_remember_me::default", "false");
+  it("clears legacy remember-me markers on auth screen mount", async () => {
+    localStorage.setItem("obscur_remember_me::default", "true");
+    localStorage.setItem("obscur_auth_token::default", "legacy-token");
     render(<AuthScreen />);
 
-    const rememberCheckbox = await screen.findByLabelText("Keep me logged in on this device");
-    expect(rememberCheckbox).toBeChecked();
+    await waitFor(() => {
+      expect(localStorage.getItem("obscur_remember_me::default")).toBeNull();
+      expect(localStorage.getItem("obscur_auth_token::default")).toBeNull();
+    });
   });
 
   it("auto-enters login mode from startup state when stored identity is present", async () => {
@@ -227,6 +227,10 @@ describe("AuthScreen mismatch recovery UX", () => {
 
   it("stays on the welcome screen when startup state reports no identity", async () => {
     authScreenMocks.hasStoredIdentity = false;
+    authScreenMocks.identityState = {
+      status: "locked",
+      stored: undefined,
+    } as unknown as typeof authScreenMocks.identityState;
     authScreenMocks.runtime.snapshot.session.startupState.kind = "no_identity";
     authScreenMocks.runtime.snapshot.session.startupState.storedPublicKeyHex = undefined;
 
@@ -234,6 +238,55 @@ describe("AuthScreen mismatch recovery UX", () => {
 
     expect(await screen.findByText("Create New Identity")).toBeInTheDocument();
     expect(screen.queryByText("Welcome Back")).not.toBeInTheDocument();
+  });
+
+  it("opens login when device has stored identity but startup session is still no_identity", async () => {
+    authScreenMocks.hasStoredIdentity = true;
+    authScreenMocks.identityState = {
+      status: "locked",
+      stored: {
+        publicKeyHex: "a".repeat(64),
+      },
+    };
+    authScreenMocks.runtime.snapshot.session.startupState.kind = "no_identity";
+    authScreenMocks.runtime.snapshot.session.startupState.storedPublicKeyHex = undefined;
+
+    render(<AuthScreen />);
+
+    expect(await screen.findByText("Welcome Back")).toBeInTheDocument();
+    expect(screen.queryByText("Create New Identity")).not.toBeInTheDocument();
+  });
+
+  it("stays on welcome until identity finishes loading even when startup is no_identity", async () => {
+    authScreenMocks.hasStoredIdentity = true;
+    authScreenMocks.identityState = {
+      status: "loading",
+      stored: undefined,
+    } as unknown as typeof authScreenMocks.identityState;
+    authScreenMocks.runtime.snapshot.session.startupState.kind = "no_identity";
+    authScreenMocks.runtime.snapshot.session.startupState.storedPublicKeyHex = undefined;
+
+    render(<AuthScreen />);
+
+    expect(await screen.findByText("Create New Identity")).toBeInTheDocument();
+    expect(screen.queryByText("Welcome Back")).not.toBeInTheDocument();
+  });
+
+  it("imports private key directly without the secure-session password step", async () => {
+    const privateKeyHex = "b".repeat(64) as PrivateKeyHex;
+
+    render(<AuthScreen />);
+    fireEvent.click(await screen.findByRole("button", { name: "Import Key" }));
+    fireEvent.change(screen.getByPlaceholderText("nsec1..."), {
+      target: { value: privateKeyHex },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+    await waitFor(() => {
+      expect(authScreenMocks.runtime.importIdentityForBoundProfile).toHaveBeenCalledTimes(1);
+    });
+    expect(screen.queryByText("Secure Your Session")).not.toBeInTheDocument();
+    expect(screen.queryByText("Skip Password")).not.toBeInTheDocument();
   });
 
   it("surfaces retired-key warning before import continues", async () => {

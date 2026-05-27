@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
+import { useRelayPoolRef } from "@/app/features/relays/hooks/use-relay-pool-ref";
 import { resolveIdentity } from "@/app/features/search/services/identity-resolver";
 import type { ResolveResult } from "@/app/features/search/types/discovery";
 import { useTanstackQueryRuntime } from "@/app/features/query/providers/tanstack-query-runtime-provider";
@@ -17,6 +18,7 @@ type ResolveIdentityOptions = Readonly<{
 
 export const useIdentityResolver = () => {
   const { relayPool } = useRelay();
+  const poolRef = useRelayPoolRef(relayPool);
   const tanstackQueryRuntime = useTanstackQueryRuntime();
   const [phase, setPhase] = useState<ResolverPhase>("idle");
   const [result, setResult] = useState<ResolveResult | null>(null);
@@ -60,7 +62,7 @@ export const useIdentityResolver = () => {
           queryKey: resolveQueryKey,
           queryFn: ({ signal }) => resolveIdentity({
             query,
-            pool: relayPool,
+            pool: poolRef.current,
             indexBaseUrl: process.env.NEXT_PUBLIC_DISCOVERY_INDEX_URL,
             signal,
             allowLegacyInviteCode,
@@ -68,7 +70,7 @@ export const useIdentityResolver = () => {
         })
         : await resolveIdentity({
           query,
-          pool: relayPool,
+          pool: poolRef.current,
           indexBaseUrl: process.env.NEXT_PUBLIC_DISCOVERY_INDEX_URL,
           signal: controller.signal,
           allowLegacyInviteCode: options?.allowLegacyInviteCode,
@@ -90,7 +92,7 @@ export const useIdentityResolver = () => {
         abortRef.current = null;
       }
     }
-  }, [relayPool, tanstackQueryRuntime]);
+  }, [poolRef, tanstackQueryRuntime]);
 
   const reset = useCallback(() => {
     if (abortRef.current) {

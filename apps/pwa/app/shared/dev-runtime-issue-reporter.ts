@@ -52,7 +52,9 @@ declare global {
 
 const MAX_ISSUES = 200;
 const DEDUPE_WINDOW_MS = 8_000;
+const RUNTIME_RECURSIVE_DEDUPE_WINDOW_MS = 60_000;
 const REPEAT_SUMMARY_INTERVAL = 10;
+const RECURSIVE_UPDATE_PATTERN = /Maximum update depth exceeded/i;
 let issueIdCounter = 0;
 let issues: ReadonlyArray<DevRuntimeIssue> = [];
 
@@ -135,6 +137,26 @@ export const reportDevRuntimeIssue = (
     message: params.message,
     fingerprint: params.fingerprint,
   });
+  if (RECURSIVE_UPDATE_PATTERN.test(params.message)) {
+    const recursiveIndex = issues.findIndex((issue) =>
+      RECURSIVE_UPDATE_PATTERN.test(issue.message)
+      && now - issue.lastSeenAtUnixMs <= RUNTIME_RECURSIVE_DEDUPE_WINDOW_MS
+    );
+    if (recursiveIndex >= 0) {
+      const existing = issues[recursiveIndex];
+      issues = [
+        ...issues.slice(0, recursiveIndex),
+        {
+          ...existing,
+          atUnixMs: now,
+          lastSeenAtUnixMs: now,
+          occurrenceCount: existing.occurrenceCount + 1,
+        },
+        ...issues.slice(recursiveIndex + 1),
+      ];
+      return existing;
+    }
+  }
   const context = normalizeContext(params.context);
   const severity = params.severity ?? "error";
   const existingIndex = issues.findIndex((issue) =>
@@ -161,7 +183,6 @@ export const reportDevRuntimeIssue = (
       next,
       ...issues.slice(existingIndex + 1),
     ];
-    installDevTools();
     announceIssue(next, true);
     return next;
   }

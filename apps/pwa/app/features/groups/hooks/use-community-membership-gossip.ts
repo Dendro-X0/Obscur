@@ -21,6 +21,7 @@
  */
 
 import { useEffect, useRef, useCallback, useState, useMemo } from 'react';
+import { useRelayPoolRef } from '@/app/features/relays/hooks/use-relay-pool-ref';
 import { useIdentity } from '@/app/features/auth/hooks/use-identity';
 import {
   useCommunityMembershipCRDT,
@@ -87,6 +88,7 @@ export function useCommunityMembershipGossip(
   enabled: boolean = true
 ): UseCommunityMembershipGossipReturn {
   const identity = useIdentity();
+  const relayPoolRef = useRelayPoolRef(relayPool);
   const bridgeRef = useRef<MembershipRelayBridge | null>(null);
   const [bridgeStatus, setBridgeStatus] = useState<BridgeStatus | null>(null);
 
@@ -103,8 +105,9 @@ export function useCommunityMembershipGossip(
   
   // Create and manage relay bridge
   useEffect(() => {
+    const pool = relayPoolRef.current;
     // Only create bridge if all prerequisites are met
-    if (!enabled || !crdt.isEnabled || !relayPool || !signer) {
+    if (!enabled || !crdt.isEnabled || !pool || !signer) {
       bridgeRef.current?.stop();
       bridgeRef.current = null;
       setBridgeStatus(null);
@@ -134,7 +137,7 @@ export function useCommunityMembershipGossip(
         const serialized = JSON.stringify(newMembership);
         crdt.importState(serialized);
       },
-      relayPool,
+      pool,
       signer
     );
 
@@ -174,7 +177,7 @@ export function useCommunityMembershipGossip(
         },
       });
     };
-  }, [communityId, deviceId, enabled, crdt, relayPool, signer]);
+  }, [communityId, deviceId, enabled, crdt, relayPoolRef, signer]);
   
   // Force gossip function
   const gossipNow = useCallback(async () => {

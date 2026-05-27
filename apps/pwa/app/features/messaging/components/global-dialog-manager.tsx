@@ -1,14 +1,19 @@
 "use client";
 
-import React, { useCallback } from "react";
+import React, { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "@dweb/ui-kit";
 import { useMessaging } from "@/app/features/messaging/providers/messaging-provider";
 import { useGroups } from "@/app/features/groups/providers/group-provider";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
+import { useRelayPoolRef } from "@/app/features/relays/hooks/use-relay-pool-ref";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { useNetwork } from "@/app/features/network/providers/network-provider";
-import { CreateGroupDialog, type GroupCreateInfo } from "@/app/features/groups/components/create-group-dialog";
+import {
+    CreateGroupDialog,
+    type CommunityCreateWaitPhase,
+    type GroupCreateInfo,
+} from "@/app/features/groups/components/create-group-dialog";
 import { resolveInitialStewardPubkeysForCreate } from "@/app/features/groups/services/community-steward-policy";
 import {
     isManagedWorkspaceRelayGateBlocking,
@@ -19,8 +24,7 @@ import { NewChatDialog } from "@/app/features/messaging/components/new-chat-dial
 import { GroupService } from "@/app/features/groups/services/group-service";
 import { cryptoService } from "../../crypto/crypto-service";
 import { roomKeyStore } from "../../crypto/room-key-store";
-import { SocialGraphService } from "@/app/features/social-graph/services/social-graph-service";
-import { ProfileSearchService } from "@/app/features/search/services/profile-search-service";
+import { useProfileSearchServiceRef } from "@/app/features/search/hooks/use-profile-search-service-ref";
 import type { GroupConversation, PublicKeyHex } from "@/app/features/messaging/types";
 import { useEnhancedDmController } from "@/app/features/messaging/hooks/use-enhanced-dm-controller";
 import { useRequestTransport } from "@/app/features/messaging/hooks/use-request-transport";
@@ -28,9 +32,54 @@ import { toGroupConversationId } from "@/app/features/groups/utils/group-convers
 import { deriveCommunityId } from "@/app/features/groups/utils/community-identity";
 import { toDmConversationId } from "@/app/features/messaging/utils/dm-conversation-id";
 import { createDmConversation } from "@/app/features/messaging/utils/create-dm-conversation";
+import { upsertDmConversationInList } from "@/app/features/messaging/utils/dm-conversation-list-merge";
 import { logAppEvent } from "@/app/shared/log-app-event";
+import { describeCoordinationFetchError } from "@/app/features/groups/services/community-coordination-fetch";
 import { resolveUserFacingErrorMessage } from "@/app/features/relays/services/relay-publish-user-copy";
 import { dispatchGroupInviteReceived } from "@/app/features/profiles/services/profile-bus-dispatch";
+import { assessWorkspaceCommunityTrustAsync } from "@/app/features/groups/services/community-trust-policy";
+import {
+    ensureWorkspaceMembershipSyncMode,
+    publishWorkspaceMemberJoin,
+} from "@/app/features/groups/services/community-workspace-membership";
+import { hasWritableCommunityRelayTransport } from "@/app/features/groups/services/community-relay-transport";
+import { isCoordinationOnlyWorkspaceDevMode } from "@/app/features/groups/services/community-dev-flags";
+import { LOCAL_DEV_RELAY_URL } from "@/app/features/relays/hooks/use-relay-list";
+
+const RELAY_PUBLISH_TIMEOUT_MS = 12_000;
+
+const publishCommunityEventWithTimeout = async (
+    relayPool: {
+        publishToUrls?: (urls: ReadonlyArray<string>, payload: string) => Promise<unknown>;
+        publishToUrl?: (url: string, payload: string) => Promise<unknown>;
+        publishToRelay?: (url: string, payload: string) => Promise<unknown>;
+        publishToAll?: (payload: string) => Promise<unknown>;
+    },
+    relayUrl: string,
+    payload: string,
+): Promise<void> => {
+    const publishPromise = (async (): Promise<void> => {
+        if (typeof relayPool.publishToUrls === "function") {
+            await relayPool.publishToUrls([relayUrl], payload);
+            return;
+        }
+        if (typeof relayPool.publishToUrl === "function") {
+            await relayPool.publishToUrl(relayUrl, payload);
+            return;
+        }
+        if (typeof relayPool.publishToRelay === "function") {
+            await relayPool.publishToRelay(relayUrl, payload);
+            return;
+        }
+        if (typeof relayPool.publishToAll === "function") {
+            await relayPool.publishToAll(payload);
+        }
+    })();
+    const timeoutPromise = new Promise<never>((_, reject) => {
+        window.setTimeout(() => reject(new Error("relay_publish_timeout")), RELAY_PUBLISH_TIMEOUT_MS);
+    });
+    await Promise.race([publishPromise, timeoutPromise]);
+};
 
 const DEFAULT_DM_DISPLAY_NAME = "Unknown contact";
 
@@ -39,6 +88,7 @@ export function GlobalDialogManager() {
     const identity = useIdentity();
     const { peerTrust, blocklist, requestsInbox } = useNetwork();
     const { relayPool } = useRelay();
+    const relayPoolRef = useRelayPoolRef(relayPool);
     const relayList = useRelayList({ publicKeyHex: identity.state.publicKeyHex || null });
 
     const {
@@ -46,6 +96,7 @@ export function GlobalDialogManager() {
         newChatPubkey, setNewChatPubkey,
         newChatDisplayName, setNewChatDisplayName,
         createdConnections,
+        setCreatedConnections,
         setSelectedConversation,
         unhideConversation
     } = useMessaging();
@@ -58,6 +109,7 @@ export function GlobalDialogManager() {
 
     const myPublicKeyHex = identity.state.publicKeyHex || null;
     const myPrivateKeyHex = identity.state.privateKeyHex || null;
+    const [createWaitPhase, setCreateWaitPhase] = useState<CommunityCreateWaitPhase | null>(null);
 
     const dmController = useEnhancedDmController({
         myPublicKeyHex,
@@ -75,8 +127,10 @@ export function GlobalDialogManager() {
         requestsInbox,
     });
 
-    const socialGraph = React.useMemo(() => new SocialGraphService(relayPool), [relayPool]);
-    const profileSearch = React.useMemo(() => new ProfileSearchService(relayPool, socialGraph, myPublicKeyHex || undefined), [relayPool, socialGraph, myPublicKeyHex]);
+    const { searchByName: searchProfilesByName } = useProfileSearchServiceRef(
+        relayPool,
+        myPublicKeyHex ?? undefined,
+    );
 
     const handleCreateChat = useCallback((explicitPubkey?: string) => {
         const targetPubkey = explicitPubkey || newChatPubkey;
@@ -111,13 +165,14 @@ export function GlobalDialogManager() {
                 toast.error("Invalid conversation identity. Please verify the target public key.");
                 return;
             }
+            setCreatedConnections((previous) => upsertDmConversationInList(previous, newConv));
             setSelectedConversation(newConv);
         }
         setIsNewChatOpen(false);
         setNewChatPubkey("");
         setNewChatDisplayName("");
         toast.success(t("messaging.chatCreated", "Conversation started"));
-    }, [newChatPubkey, newChatDisplayName, createdConnections, myPublicKeyHex, setSelectedConversation, setIsNewChatOpen, setNewChatPubkey, setNewChatDisplayName, t, unhideConversation, requestsInbox, peerTrust]);
+    }, [newChatPubkey, newChatDisplayName, createdConnections, myPublicKeyHex, setCreatedConnections, setSelectedConversation, setIsNewChatOpen, setNewChatPubkey, setNewChatDisplayName, t, unhideConversation, requestsInbox, peerTrust]);
 
     const handleCreateGroup = useCallback(async (info: GroupCreateInfo) => {
         if (!myPrivateKeyHex || !myPublicKeyHex) {
@@ -125,10 +180,37 @@ export function GlobalDialogManager() {
             return;
         }
         setIsCreatingGroup(true);
+        setCreateWaitPhase("local");
         try {
-            const { groupId, host, name, about, avatar, access, communityMode, relayCapabilityTier } = info;
-            const relayUrl = host.startsWith("ws") ? host : `wss://${host}`;
+            const { groupId, host, name, about, avatar, access, relayCapabilityTier } = info;
+            const relayUrl = (() => {
+                const trimmedHost = host.trim();
+                if (!trimmedHost && isCoordinationOnlyWorkspaceDevMode()) {
+                    return LOCAL_DEV_RELAY_URL;
+                }
+                return trimmedHost.startsWith("ws") ? trimmedHost : `wss://${trimmedHost}`;
+            })();
+            const communityMode = "managed_workspace" as const;
             const creatorPubkey = myPublicKeyHex;
+
+            const trust = await assessWorkspaceCommunityTrustAsync({
+                communityRelayUrl: relayUrl,
+                enabledRelayUrls: relayList.state.relays.map((relay) => relay.url),
+            });
+            if (!trust.allowed) {
+                toast.error(trust.userMessage);
+                return;
+            }
+
+            const relayTransportReady = hasWritableCommunityRelayTransport(relayUrl);
+            ensureWorkspaceMembershipSyncMode();
+            if (relayTransportReady) {
+                relayList.addRelay({ url: relayUrl });
+                const pool = relayPoolRef.current;
+                if (typeof pool.addTransientRelay === "function") {
+                    pool.addTransientRelay(relayUrl);
+                }
+            }
 
             logAppEvent({
                 name: "groups.community_creation_mode_selected",
@@ -147,6 +229,7 @@ export function GlobalDialogManager() {
             // 1. Generate and store Room Key (Essential for ALL Sealed Communities)
             const roomKeyHex = await cryptoService.generateRoomKey();
             await roomKeyStore.saveRoomKey(groupId, roomKeyHex);
+            setCreateWaitPhase("relay");
 
             const stewardPubkeys = resolveInitialStewardPubkeysForCreate({
                 communityMode,
@@ -170,15 +253,25 @@ export function GlobalDialogManager() {
                 metadata
             });
 
-            const createdPayload = JSON.stringify(["EVENT", createdEvent]);
-            if (typeof relayPool.publishToUrls === "function") {
-                await relayPool.publishToUrls([relayUrl], createdPayload);
-            } else if (typeof relayPool.publishToUrl === "function") {
-                await relayPool.publishToUrl(relayUrl, createdPayload);
-            } else if (typeof relayPool.publishToRelay === "function") {
-                await relayPool.publishToRelay(relayUrl, createdPayload);
-            } else {
-                await relayPool.publishToAll(createdPayload);
+            if (relayTransportReady) {
+                const createdPayload = JSON.stringify(["EVENT", createdEvent]);
+                try {
+                    await publishCommunityEventWithTimeout(relayPoolRef.current, relayUrl, createdPayload);
+                } catch (error) {
+                    logAppEvent({
+                        name: "groups.community_creation_relay_publish_failed",
+                        level: "warn",
+                        scope: { feature: "groups", action: "community_create" },
+                        context: {
+                            relayUrl,
+                            error: error instanceof Error ? error.message : "publish_failed",
+                        },
+                    });
+                    toast.error(t(
+                        "groups.relayPublishFailed",
+                        "Community saved locally, but relay publish timed out or failed. Check the relay host and try Reconcile membership later.",
+                    ));
+                }
             }
 
             const genesisEventId = createdEvent.id;
@@ -222,25 +315,47 @@ export function GlobalDialogManager() {
 
             addGroup(newGroup, { allowRevive: true });
             dispatchGroupInviteReceived(newGroup);
-            setSelectedConversation(newGroup);
+            setCreateWaitPhase("directory");
+
+            const joinPublish = await publishWorkspaceMemberJoin({
+                communityId,
+                memberPubkey: myPublicKeyHex as PublicKeyHex,
+                actorPubkey: myPublicKeyHex as PublicKeyHex,
+                actorPrivateKeyHex: myPrivateKeyHex,
+            });
+            if (!joinPublish.success) {
+                const detail = joinPublish.errorMessage?.trim();
+                const coordinationHint = describeCoordinationFetchError(detail);
+                toast.error(
+                    t(
+                        "groups.coordinationJoinPublishFailedDetail",
+                        "Community created locally, but coordination membership publish failed. {{hint}} Retry Reconcile membership after coordination is healthy.",
+                        { hint: coordinationHint },
+                    ),
+                );
+            }
+
+            if (relayTransportReady) {
+                setSelectedConversation(newGroup);
+            }
             setIsNewGroupOpen(false);
-            toast.success(t("groups.created", "Sealed Community created successfully"));
-        } catch (error: any) {
+            toast.success(t("groups.created", "Workspace community created"));
+        } catch (error: unknown) {
             console.error("Community creation failed:", error);
-            toast.error(
-                resolveUserFacingErrorMessage(
-                    error,
-                    "Failed to create community. Verify relay host and try again.",
-                ),
-            );
+            const rawMessage = error instanceof Error ? error.message.trim() : "";
+            const fallback = rawMessage === "Failed to fetch"
+                ? describeCoordinationFetchError("coordination_unreachable")
+                : "Failed to create community. Verify relay host and try again.";
+            toast.error(resolveUserFacingErrorMessage(error, fallback));
         } finally {
             setIsCreatingGroup(false);
+            setCreateWaitPhase(null);
         }
     }, [
         myPrivateKeyHex,
         myPublicKeyHex,
         relayList.state.relays,
-        relayPool,
+        relayPoolRef,
         addGroup,
         setSelectedConversation,
         setIsNewGroupOpen,
@@ -259,7 +374,7 @@ export function GlobalDialogManager() {
                 setDisplayName={setNewChatDisplayName}
                 onCreate={handleCreateChat}
                 verifyRecipient={dmController.verifyRecipient}
-                searchProfiles={(query) => profileSearch.searchByName(query)}
+                searchProfiles={searchProfilesByName}
                 isAccepted={(pk) => peerTrust.isAccepted({ publicKeyHex: pk })}
                 sendConnectionRequest={requestTransport.sendRequest}
             />
@@ -269,6 +384,7 @@ export function GlobalDialogManager() {
                     onClose={() => setIsNewGroupOpen(false)}
                     onCreate={handleCreateGroup}
                     isCreating={isCreatingGroup}
+                    createWaitPhase={createWaitPhase}
                 />
             ) : null}
         </>

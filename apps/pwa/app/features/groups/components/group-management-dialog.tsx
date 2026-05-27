@@ -26,6 +26,7 @@ import { getPublicGroupHref, toAbsoluteAppUrl } from "@/app/features/navigation/
 import { useNetwork } from "@/app/features/network/providers/network-provider";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { useRelayList } from "@/app/features/relays/hooks/use-relay-list";
+import { useRelayPoolRef } from "@/app/features/relays/hooks/use-relay-pool-ref";
 import { useRelayCapabilities } from "@/app/features/relays/hooks/use-relay-capabilities";
 import {
     COMMUNITY_MODE_DEFINITIONS,
@@ -35,9 +36,19 @@ import {
 import type { CommunityMode } from "../types/community-mode";
 import { resolveCommunityStewardPolicy } from "../services/community-steward-policy";
 import { resolveCommunityDirectoryMaterializationHonesty } from "../services/community-directory-materialization-policy";
+import { readMembershipSyncMode } from "../services/community-membership-sync-mode";
+import type { MembershipEvidenceUiContext } from "../utils/community-membership-evidence-display";
 import { ManagedWorkspaceRelayGateBanner } from "./group-management/managed-workspace-relay-gate-banner";
 import { discoveryCache } from "@/app/features/search/services/discovery-cache";
-import { filterVisibleGroupMembers, resolveInviteEligibleMemberPubkeys } from "../services/community-visible-members";
+import { filterVisibleGroupMembers } from "../services/community-visible-members";
+import { resolveCommunityInviteMemberBlocklist } from "../services/community-invite-eligibility-read-model";
+import {
+    mergeCoordinationTerminalMemberPubkeys,
+    resolveCommunityParticipantDisplayPubkeys,
+    shouldApplyTerminalMembershipExclusionsToParticipantRoster,
+} from "../services/community-participant-display-read-model";
+import { useCoordinationMembershipDirectory } from "../hooks/use-coordination-membership-directory";
+import { useCommunityParticipantRosterReadModel } from "../hooks/use-community-participant-roster-read-model";
 import { resolveCommunityDisplayName } from "../services/community-display-name";
 import {
     loadCommunityProvisionalMemberPubkeys,
@@ -45,14 +56,16 @@ import {
 } from "../services/community-provisional-membership-cache";
 import {
     clearCommunityTerminalMembershipEvidence,
-    reconcileCommunityMembershipEvidence,
 } from "../services/community-membership-evidence-actions";
+import { reconcileWorkspaceMembershipEvidence } from "../services/community-workspace-membership-reconcile";
+import { usesCoordinationMembershipDirectory } from "../services/community-workspace-transport-policy";
 import {
     loadCommunityTerminalMembershipCache,
     mergeTerminalMemberPubkeys,
     stripTerminalCommunityMembersWithActiveEvidence,
 } from "../services/community-terminal-membership-cache";
 import { resolveUserFacingErrorMessage } from "@/app/features/relays/services/relay-publish-user-copy";
+import { hasWritableCommunityRelayTransport } from "../services/community-relay-transport";
 import { getResolvedClientGateway } from "@/app/features/profiles/services/resolve-client-gateway";
 import { buildGroupLeaveHref, buildGroupPurgeHref } from "../utils/group-action-route";
 import { summarizeCommunityOperatorHealth } from "../services/community-operator-health";
@@ -84,6 +97,7 @@ export function GroupManagementDialog({
     myPrivateKeyHex,
     communityController,
 }: GroupManagementDialogProps) {
+    const poolRef = useRelayPoolRef(pool);
     const router = useRouter();
     const { t } = useTranslation();
     const { communityKnownParticipantDirectoryByConversationId, communityRosterByConversationId } = useGroups();
@@ -99,6 +113,7 @@ export function GroupManagementDialog({
         [communityKnownParticipantDirectoryByConversationId, communityRosterByConversationId, group.id, group.memberPubkeys, localMemberPubkey],
     );
     const internalCommunity = useSealedCommunity({
+        communityMode: group.communityMode,
         groupId: group.groupId,
         relayUrl: group.relayUrl,
         ...(group.communityId ? { communityId: group.communityId } : {}),
@@ -119,12 +134,18 @@ export function GroupManagementDialog({
         rotateRoomKey,
         refresh: refreshCommunityMembership,
         clearLocalTerminalMembershipEvidence,
+        applyCoordinationSemanticMemberEvent,
     } = communityController ?? internalCommunity;
+
+    const communityRelayTransportReady = React.useMemo(
+        () => hasWritableCommunityRelayTransport(group.relayUrl),
+        [group.relayUrl],
+    );
 
     const { activeProposals: activeGovernanceProposals, activeProposalCount } = useCommunityGovernanceProjection({
         groupId: group.groupId,
         communityId: group.communityId,
-        enabled: isOpen,
+        enabled: isOpen && communityRelayTransportReady,
     });
 
     const { uploadFile, pickFiles } = useUploadService();
@@ -178,14 +199,21 @@ export function GroupManagementDialog({
         [group.communityMode, group.relayUrl, relayList.state.relays],
     );
     const managedWorkspaceActionsBlocked = isManagedWorkspaceRelayGateBlocking(managedWorkspaceRelayGate);
+    const membershipSyncMode = readMembershipSyncMode();
+    const membershipEvidenceUiContext = React.useMemo(
+        (): MembershipEvidenceUiContext => ({ membershipSyncMode }),
+        [membershipSyncMode],
+    );
     const directoryHonesty = React.useMemo(
         () => resolveCommunityDirectoryMaterializationHonesty({
             communityMode: state.metadata?.communityMode ?? group.communityMode,
             relayCapabilityTier: managedWorkspaceRelayGate.assessment.tier,
+            membershipSyncMode,
         }),
         [
             group.communityMode,
             managedWorkspaceRelayGate.assessment.tier,
+            membershipSyncMode,
             state.metadata?.communityMode,
         ],
     );
@@ -324,17 +352,118 @@ export function GroupManagementDialog({
         () => Array.from(new Set([...activeMembers, ...provisionalMemberPubkeys])) as ReadonlyArray<PublicKeyHex>,
         [activeMembers, provisionalMemberPubkeys],
     );
-    const inviteEligibleMemberPubkeys = React.useMemo(
-        () => resolveInviteEligibleMemberPubkeys({
-            activeMemberPubkeys: mergedManagementMemberPubkeys,
-            leftMemberPubkeys: state.leftMembers,
-            expelledMemberPubkeys: state.expelledMembers,
-        }),
-        [mergedManagementMemberPubkeys, state.expelledMembers, state.leftMembers],
+    const communityModeForR1 = (
+        state.metadata?.communityMode === "managed_workspace" || state.metadata?.communityMode === "sovereign_room"
+            ? state.metadata.communityMode
+            : group.communityMode
     );
+    const directoryParticipantPubkeys = React.useMemo(
+        () => (communityKnownParticipantDirectoryByConversationId[group.id]?.participantPubkeys ?? []) as ReadonlyArray<PublicKeyHex>,
+        [communityKnownParticipantDirectoryByConversationId, group.id],
+    );
+    const relayEvidenceConfidence = (
+        state as { relayEvidenceRef?: { confidenceLevel: "seed_only" | "warming_up" | "partial_eose" | "steady_state" } }
+    ).relayEvidenceRef?.confidenceLevel ?? "seed_only";
+
+    const terminalMembershipCache = React.useMemo(
+        () => loadCommunityTerminalMembershipCache({
+            groupId: group.groupId,
+            relayUrl: group.relayUrl,
+            profileId: getResolvedProfileId(),
+        }),
+        [group.groupId, group.relayUrl],
+    );
+    const effectiveLeftMemberPubkeys = React.useMemo(
+        () => mergeTerminalMemberPubkeys(
+            terminalMembershipCache?.leftMemberPubkeys ?? [],
+            state.leftMembers,
+        ),
+        [state.leftMembers, terminalMembershipCache],
+    );
+    const effectiveExpelledMemberPubkeys = React.useMemo(
+        () => mergeTerminalMemberPubkeys(
+            terminalMembershipCache?.expelledMemberPubkeys ?? [],
+            state.expelledMembers,
+        ),
+        [state.expelledMembers, terminalMembershipCache],
+    );
+
+    const coordinationMembershipDirectory = useCoordinationMembershipDirectory(
+        group.communityId ?? group.groupId,
+    );
+
+    const inviteEligibleMemberPubkeys = React.useMemo(
+        () => resolveCommunityInviteMemberBlocklist({
+            communityMode: communityModeForR1,
+            coordinationDirectory: coordinationMembershipDirectory,
+            hybridActiveMemberPubkeys: mergedManagementMemberPubkeys,
+            leftMemberPubkeys: effectiveLeftMemberPubkeys,
+            expelledMemberPubkeys: effectiveExpelledMemberPubkeys,
+        }),
+        [
+            communityModeForR1,
+            coordinationMembershipDirectory,
+            effectiveExpelledMemberPubkeys,
+            effectiveLeftMemberPubkeys,
+            mergedManagementMemberPubkeys,
+        ],
+    );
+
+    const rosterLeftMemberPubkeys = React.useMemo(
+        () => mergeCoordinationTerminalMemberPubkeys(
+            effectiveLeftMemberPubkeys,
+            coordinationMembershipDirectory,
+            "left",
+        ),
+        [coordinationMembershipDirectory, effectiveLeftMemberPubkeys],
+    );
+    const rosterExpelledMemberPubkeys = React.useMemo(
+        () => mergeCoordinationTerminalMemberPubkeys(
+            effectiveExpelledMemberPubkeys,
+            coordinationMembershipDirectory,
+            "expelled",
+        ),
+        [coordinationMembershipDirectory, effectiveExpelledMemberPubkeys],
+    );
+
+    const { displayPubkeys: rosterDisplayPubkeys } = useCommunityParticipantRosterReadModel({
+        conversationId: group.id,
+        directoryParticipantPubkeys,
+        persistedGroupMemberPubkeys: (group.memberPubkeys ?? []) as ReadonlyArray<PublicKeyHex>,
+        projectionMemberPubkeys,
+        rosterSeedPubkeys: initialMemberSeed,
+        communityMessages: state.messages,
+        localMemberPubkey,
+        leftMemberPubkeys: rosterLeftMemberPubkeys,
+        expelledMemberPubkeys: rosterExpelledMemberPubkeys,
+        relayEvidenceConfidence,
+        persistedEvidenceOwnerPubkey: localMemberPubkey,
+        ledgerGroupId: group.groupId,
+        ledgerRelayUrl: group.relayUrl,
+        applyTerminalMembershipExclusions: shouldApplyTerminalMembershipExclusionsToParticipantRoster(
+            communityModeForR1,
+            coordinationMembershipDirectory,
+        ),
+    });
+
+    const participantDisplayPubkeys = React.useMemo(
+        () => resolveCommunityParticipantDisplayPubkeys({
+            communityMode: communityModeForR1,
+            coordinationDirectory: coordinationMembershipDirectory,
+            monotonicDisplayPubkeys: rosterDisplayPubkeys,
+            localMemberPubkey,
+        }),
+        [
+            communityModeForR1,
+            coordinationMembershipDirectory,
+            localMemberPubkey,
+            rosterDisplayPubkeys,
+        ],
+    );
+
     const visibleMemberRegistry = React.useMemo(
-        () => filterVisibleGroupMembers(mergedManagementMemberPubkeys, (pubkey) => discoveryCache.getProfile(pubkey)),
-        [mergedManagementMemberPubkeys],
+        () => filterVisibleGroupMembers(participantDisplayPubkeys, (pubkey) => discoveryCache.getProfile(pubkey)),
+        [participantDisplayPubkeys],
     );
     const onlineMemberCount = React.useMemo(
         () => visibleMemberRegistry.filter((pubkey) => presence.isPeerOnline(pubkey)).length,
@@ -388,44 +517,51 @@ export function GroupManagementDialog({
         }
     }, [activeMembers, authorEvidencePubkeys, group.groupId, group.relayUrl]);
 
-    const handleReconcileMembership = React.useCallback(() => {
-        reconcileCommunityMembershipEvidence({
+    const handleReconcileMembership = React.useCallback(async () => {
+        const outcome = await reconcileWorkspaceMembershipEvidence({
             groupId: group.groupId,
             relayUrl: group.relayUrl,
             profileId: getResolvedProfileId(),
+            communityId: group.communityId,
+            communityMode: group.communityMode,
             refreshRelaySubscription: refreshCommunityMembership,
+            onSemanticMemberEvent: usesCoordinationMembershipDirectory(group.communityMode)
+                ? applyCoordinationSemanticMemberEvent
+                : undefined,
         });
         setProvisionalOverlayEpoch((e) => e + 1);
+        if (outcome.coordination && !outcome.coordination.ok) {
+            toast.error(
+                t(
+                    "groups.membershipEvidence.reconcileCoordinationFailed",
+                    "Relay refresh started, but coordination directory sync failed. Check coordination URL and retry.",
+                ),
+            );
+            return;
+        }
+        const coordinationApplied = outcome.coordination?.appliedDeltaCount ?? 0;
         toast.success(
-            t(
-                "groups.membershipEvidence.reconcileToast",
-                "Cleared provisional overlay and requested a fresh relay pull.",
-            ),
+            outcome.coordination
+                ? t(
+                    "groups.membershipEvidence.reconcileToastCoordination",
+                    "Cleared provisional overlay, refreshed relay, and applied {{count}} coordination update(s).",
+                    { count: coordinationApplied },
+                )
+                : t(
+                    "groups.membershipEvidence.reconcileToast",
+                    "Cleared provisional overlay and requested a fresh relay pull.",
+                ),
         );
-    }, [group.groupId, group.relayUrl, refreshCommunityMembership, t]);
+    }, [
+        applyCoordinationSemanticMemberEvent,
+        group.communityId,
+        group.communityMode,
+        group.groupId,
+        group.relayUrl,
+        refreshCommunityMembership,
+        t,
+    ]);
 
-    const terminalMembershipCache = React.useMemo(
-        () => loadCommunityTerminalMembershipCache({
-            groupId: group.groupId,
-            relayUrl: group.relayUrl,
-            profileId: getResolvedProfileId(),
-        }),
-        [group.groupId, group.relayUrl],
-    );
-    const effectiveLeftMemberPubkeys = React.useMemo(
-        () => mergeTerminalMemberPubkeys(
-            terminalMembershipCache?.leftMemberPubkeys ?? [],
-            state.leftMembers,
-        ),
-        [state.leftMembers, terminalMembershipCache],
-    );
-    const effectiveExpelledMemberPubkeys = React.useMemo(
-        () => mergeTerminalMemberPubkeys(
-            terminalMembershipCache?.expelledMemberPubkeys ?? [],
-            state.expelledMembers,
-        ),
-        [state.expelledMembers, terminalMembershipCache],
-    );
     const terminalRecordCount = React.useMemo(
         () => new Set([...effectiveLeftMemberPubkeys, ...effectiveExpelledMemberPubkeys]).size,
         [effectiveExpelledMemberPubkeys, effectiveLeftMemberPubkeys],
@@ -474,8 +610,8 @@ export function GroupManagementDialog({
             } else if (activeMembers.length > 2) {
                 await proposeExpelMember({ targetPublicKeyHex: memberPubkey as PublicKeyHex });
             } else {
-                await sendVoteKick(memberPubkey);
-                toast.success("Vote to kick submitted");
+            await sendVoteKick(memberPubkey);
+            toast.success("Vote to kick submitted");
             }
         } catch (error) {
             toast.error(resolveUserFacingErrorMessage(error, "Failed to submit removal."));
@@ -500,12 +636,19 @@ export function GroupManagementDialog({
     };
 
     useEffect(() => {
+        if (isOpen && !communityRelayTransportReady) {
+            setActiveTab("settings");
+        }
+    }, [communityRelayTransportReady, isOpen]);
+
+    useEffect(() => {
         const activeMemberList = visibleMemberRegistry;
-        if (!isOpen || !activeMemberList.length || !pool) return;
+        const relayPool = poolRef.current;
+        if (!isOpen || !communityRelayTransportReady || !activeMemberList.length || !relayPool) return;
         const subId = `mgmt-names-${Math.random().toString(36).substring(7)}`;
         const filter = { kinds: [0], authors: activeMemberList as string[] };
 
-        const cleanup = pool.subscribeToMessages(({ message }: { message: string }) => {
+        const cleanup = relayPool.subscribeToMessages(({ message }: { message: string }) => {
             try {
                 const parsed = JSON.parse(message);
                 if (parsed[0] === "EVENT" && parsed[1] === subId) {
@@ -517,24 +660,24 @@ export function GroupManagementDialog({
                             if (name) setResolvedNames((prev) => ({ ...prev, [event.pubkey]: name }));
                         } catch {
                             // ignore bad metadata
-                        }
                     }
+                }
                 }
             } catch {
                 // ignore parse errors
             }
         });
 
-        pool.sendToOpen(JSON.stringify(["REQ", subId, filter]));
+        relayPool.sendToOpen(JSON.stringify(["REQ", subId, filter]));
         return () => {
             try {
-                pool.sendToOpen(JSON.stringify(["CLOSE", subId]));
+                relayPool.sendToOpen(JSON.stringify(["CLOSE", subId]));
                 cleanup();
             } catch {
                 // ignore close errors
             }
         };
-    }, [visibleMemberRegistry, isOpen, pool]);
+    }, [communityRelayTransportReady, visibleMemberRegistry, isOpen, poolRef]);
 
     if (!isOpen) return null;
 
@@ -556,7 +699,7 @@ export function GroupManagementDialog({
                 toast.success("Governance proposal created");
             } else {
                 await updateMetadata(metadataPayload);
-                toast.success("Community settings updated");
+            toast.success("Community settings updated");
             }
         } catch (error) {
             toast.error(resolveUserFacingErrorMessage(error, "Failed to update settings."));
@@ -582,15 +725,15 @@ export function GroupManagementDialog({
     };
 
     const handlePickAvatar = async () => {
-        const files = await pickFiles();
+                                                        const files = await pickFiles();
         if (!files?.[0]) return;
-        setIsUploading(true);
-        try {
-            const res = await uploadFile(files[0]);
-            setEditPicture(res.url);
-        } finally {
-            setIsUploading(false);
-        }
+                                                            setIsUploading(true);
+                                                            try {
+                                                                const res = await uploadFile(files[0]);
+                                                                setEditPicture(res.url);
+                                                            } finally {
+                                                                setIsUploading(false);
+                                                            }
     };
 
     const communityTitle = resolveCommunityDisplayName({
@@ -634,7 +777,7 @@ export function GroupManagementDialog({
                 governanceBadgeCount={activeProposalCount}
                 headerAction={
                     showShareInHeader ? (
-                        <Button
+                                        <Button
                             type="button"
                             variant="secondary"
                             size="sm"
@@ -649,7 +792,7 @@ export function GroupManagementDialog({
                         >
                             <QrCode className="mr-2 h-4 w-4" />
                             Share invite
-                        </Button>
+                                        </Button>
                     ) : undefined
                 }
                 footer={
@@ -658,7 +801,7 @@ export function GroupManagementDialog({
                             <Button type="button" variant="ghost" onClick={onClose} className="rounded-lg text-zinc-400 hover:text-white">
                                 Cancel
                             </Button>
-                            <Button
+                                        <Button
                                 type="button"
                                 onClick={() => void handleSaveGeneral()}
                                 disabled={isSaving || managedWorkspaceActionsBlocked}
@@ -666,8 +809,8 @@ export function GroupManagementDialog({
                             >
                                 {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                                 {requiresMemberVote ? "Propose changes" : "Save changes"}
-                            </Button>
-                        </div>
+                                        </Button>
+                                        </div>
                     ) : undefined
                 }
             >
@@ -707,7 +850,7 @@ export function GroupManagementDialog({
                         isAdmin={isAdmin}
                         mutedMembers={mutedMembers}
                         kickingMemberPubkey={kickingMemberPubkey}
-                        currentTime={currentTime}
+                                                                currentTime={currentTime}
                         onInvite={() => {
                             if (!requireManagedWorkspaceRelayGate()) {
                                 return;
@@ -723,6 +866,7 @@ export function GroupManagementDialog({
                         onClearTerminalMembership={handleClearTerminalMembership}
                         managedWorkspaceActionsBlocked={managedWorkspaceActionsBlocked}
                         directoryHonesty={directoryHonesty}
+                        membershipEvidenceUiContext={membershipEvidenceUiContext}
                     />
                 ) : null}
 
@@ -751,7 +895,7 @@ export function GroupManagementDialog({
                         onExport={() => void exportCommunity()}
                         onLeave={openLeaveConfirmation}
                         onPurge={openPurgeConfirmation}
-                        showPurge={isAdmin && isOwner}
+                        showPurge={isLocalAdmin || !communityRelayTransportReady}
                         managedWorkspaceActionsBlocked={managedWorkspaceActionsBlocked}
                     />
                 ) : null}

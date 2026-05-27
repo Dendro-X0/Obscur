@@ -13,6 +13,7 @@ import {
 import { toGroupTombstoneKey } from "./group-tombstone-store";
 import { pickPreferredCommunityId } from "../utils/community-identity";
 import { hasDurableCommunityLeaveIntent } from "./community-membership-leave-intent";
+import { isRadicalMembershipTruthEnforced } from "./community-radical-truth-policy";
 import {
   hasMeaningfulCommunityDisplayName,
   pickPreferredCommunityDisplayName,
@@ -41,6 +42,7 @@ export type CommunityMembershipRecoveryDiagnostics = Readonly<{
   hiddenByTombstoneCount: number;
   hiddenByLedgerStatusCount: number;
   hiddenByLeaveIntentCount: number;
+  hiddenByRadicalTruthCount: number;
   missingLedgerCoverageCount: number;
 }>;
 
@@ -224,6 +226,7 @@ export const resolveCommunityMembershipRecovery = (params: Readonly<{
   let hiddenByTombstoneCount = 0;
   let hiddenByLedgerStatusCount = 0;
   let hiddenByLeaveIntentCount = 0;
+  let hiddenByRadicalTruthCount = 0;
   let hydratedFromPersistedWithLedgerCount = 0;
   let hydratedFromPersistedFallbackCount = 0;
   let hydratedFromLedgerOnlyCount = 0;
@@ -282,6 +285,11 @@ export const resolveCommunityMembershipRecovery = (params: Readonly<{
         sourceOfTruth: "ledger",
       }));
       hydratedFromPersistedWithLedgerCount += 1;
+      continue;
+    }
+
+    if (isRadicalMembershipTruthEnforced()) {
+      hiddenByRadicalTruthCount += 1;
       continue;
     }
 
@@ -368,6 +376,7 @@ export const resolveCommunityMembershipRecovery = (params: Readonly<{
       hiddenByTombstoneCount,
       hiddenByLedgerStatusCount,
       hiddenByLeaveIntentCount,
+      hiddenByRadicalTruthCount,
       missingLedgerCoverageCount: missingLedgerCoverageEntries.length,
     },
   };

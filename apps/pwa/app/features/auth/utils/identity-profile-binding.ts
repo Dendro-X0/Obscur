@@ -2,6 +2,10 @@ import type { IdentityRecord } from "@dweb/core/identity-record";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { openIdentityDb } from "./open-identity-db";
 import { identityStoreName } from "./identity-store-name";
+import {
+  listIdentityRecordsFromLocalStorage,
+  parseIdentityRecord as parseIdentityRecordFromPersistence,
+} from "./identity-persistence";
 import { ProfileRegistryService } from "@/app/features/profiles/services/profile-registry-service";
 import { getProfileIdentityDbKey, getProfileScopeOverride } from "@/app/features/profiles/services/profile-scope";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
@@ -185,24 +189,28 @@ const defaultProfileLabelForPublicKey = (publicKeyHex: PublicKeyHex, username?: 
 };
 
 export const listStoredIdentityBindings = async (): Promise<ReadonlyArray<IdentityProfileBinding>> => {
+  const merged = new Map<string, IdentityRecord>();
+  listIdentityRecordsFromLocalStorage().forEach(({ profileId, record }) => {
+    merged.set(profileId, record);
+  });
+
   const db = await openIdentityDb();
-  return new Promise((resolve, reject) => {
+  await new Promise<void>((resolve, reject) => {
     const tx = db.transaction(identityStoreName, "readonly");
     const store = tx.objectStore(identityStoreName);
-    const bindings: IdentityProfileBinding[] = [];
     const request = store.openCursor();
     request.onsuccess = () => {
       const cursor = request.result;
       if (!cursor) {
-        resolve(bindings);
+        resolve();
         return;
       }
-      const record = parseIdentityRecord(cursor.value);
+      const record = parseIdentityRecordFromPersistence(cursor.value) ?? parseIdentityRecord(cursor.value);
       if (record && typeof cursor.key === "string") {
-        bindings.push({
-          profileId: profileIdFromIdentityDbKey(cursor.key),
-          record,
-        });
+        const profileId = profileIdFromIdentityDbKey(cursor.key);
+        if (!merged.has(profileId)) {
+          merged.set(profileId, record);
+        }
       }
       cursor.continue();
     };
@@ -210,6 +218,8 @@ export const listStoredIdentityBindings = async (): Promise<ReadonlyArray<Identi
       reject(request.error ?? new Error("Failed to enumerate stored identities"));
     };
   });
+
+  return Array.from(merged.entries()).map(([profileId, record]) => ({ profileId, record }));
 };
 
 export const findStoredIdentityBindingByPublicKey = async (

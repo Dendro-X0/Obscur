@@ -74,6 +74,8 @@ const readTargetDescriptor = (event: Event): string | null => {
   return null;
 };
 
+const RECURSIVE_UPDATE_PATTERN = /Maximum update depth exceeded/i;
+
 export const DevRuntimeIssueCapture = (): null => {
   useEffect(() => {
     if (!isCaptureEnabled()) {
@@ -82,6 +84,9 @@ export const DevRuntimeIssueCapture = (): null => {
 
     const onError = (event: Event): void => {
       const message = getWindowErrorMessage(event);
+      if (RECURSIVE_UPDATE_PATTERN.test(message)) {
+        event.preventDefault?.();
+      }
       const targetDescriptor = readTargetDescriptor(event);
       reportDevRuntimeIssue({
         domain: "runtime",

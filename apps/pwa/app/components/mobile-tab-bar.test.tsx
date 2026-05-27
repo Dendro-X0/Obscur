@@ -40,6 +40,14 @@ vi.mock("react-i18next", () => ({
     }),
 }));
 
+vi.mock("./global-navigation-loading", () => ({
+    useGlobalNavigationLoadingActions: () => ({
+        beginNavigation: vi.fn(),
+        beginChunkLoad: vi.fn(),
+        endChunkLoad: vi.fn(),
+    }),
+}));
+
 vi.mock("framer-motion", () => ({
     motion: {
         div: (props: React.HTMLAttributes<HTMLDivElement> & Record<string, unknown>) => {

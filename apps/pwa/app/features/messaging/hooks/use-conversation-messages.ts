@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { usePathname } from "next/navigation";
 import type { Message } from "../types";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { messageBus, type MessageBusEvent } from "../services/message-bus";
@@ -15,11 +16,15 @@ import { subscribeAccountSyncMutation } from "@/app/shared/account-sync-mutation
 import { useOptionalProfileMessageBus } from "@/app/features/profiles/providers/profile-runtime-provider";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { subscribeChatStateReplacedDual } from "@/app/features/profiles/services/subscribe-chat-state-replaced-dual";
+import { subscribeMessagesIndexRebuiltDual } from "@/app/features/profiles/services/subscribe-messages-index-rebuilt-dual";
 import { chatStateStoreService, type ChatStateReplacedEventDetail } from "../services/chat-state-store";
+import { requiresSqlitePersistence } from "@/app/features/runtime/native-persistence-policy";
+import { isCommunityInviteThreadPayloadContent } from "../services/dm-community-invite-thread-payload";
 import {
-    filterMessagesBySuppressedIds,
-    mergeHydratedBaseWithLiveOverlayMessages,
-} from "../services/conversation-message-materialization";
+    augmentCommunityDmInviteThreadMessages,
+    COMMUNITY_DM_INVITE_LEDGER_CHANGED_EVENT,
+} from "@/app/features/groups/services/community-dm-invite-pipeline";
+import { fromPersistedMessagesByConversationId } from "../utils/persistence";
 import { isMessageIdentityInSuppressedIdSet } from "../services/conversation-message-visibility";
 import { isDisplayableDmConversationMessage } from "../services/dm-conversation-displayable-message";
 import { toDeletedMessageIdentityIds } from "../services/dm-conversation-delete-identity-ids";
@@ -33,6 +38,25 @@ import {
     normalizeLocalRetentionDays,
 } from "../services/dm-conversation-message-retention-dedupe";
 import { inferPeerFromConversationId, buildDmSiblingConversationIds } from "../utils/dm-conversation-sibling-ids";
+import { isGroupConversationId } from "@/app/features/groups/utils/group-conversation-id";
+import {
+    buildHydrateSupplementalMessages,
+    DM_THREAD_DIRECTION_COVERAGE_HYDRATE_MAX_ATTEMPTS,
+    DM_THREAD_STALE_EMPTY_HYDRATE_BASE_DELAY_MS,
+    DM_THREAD_STALE_EMPTY_HYDRATE_MAX_ATTEMPTS,
+    evaluatePartialThreadRetryPolicy,
+    evaluateProjectionMergePolicy,
+    evaluateStaleEmptyHydrateRetryPolicy,
+    finalizeDmThreadHydrateRead,
+    hasPartialDirectionCoverage,
+    resolveDisplayMessagesWithCacheFallback,
+    resolveInitialConversationPaint,
+    shouldPersistDmThreadDisplayCache,
+} from "../services/dm-thread-read-model";
+import {
+    readDmThreadDisplayCache,
+    writeDmThreadDisplayCache,
+} from "../services/dm-thread-display-cache";
 import {
     applyDmRedactionDisplayGateAsync,
     filterMessagesThroughDmRedactionDisplayGate,
@@ -67,6 +91,40 @@ const getLoadEarlierBatchSize = (chatPerformanceV2Enabled: boolean): number =>
 
 const getInitialHydrationVisibleTarget = (): number => INITIAL_HYDRATION_VISIBLE_TARGET_DEFAULT;
 
+const loadSyncPersistedThreadSeed = (params: Readonly<{
+    conversationAliasIds: ReadonlyArray<string>;
+    publicKeyHex: PublicKeyHex;
+    profileId: string | undefined;
+    persistentSuppressedMessageIds: ReadonlySet<string>;
+    localMessageRetentionDays: number | undefined;
+}>): ReadonlyArray<Message> => {
+    if (requiresSqlitePersistence()) {
+        return [];
+    }
+    const persistedState = chatStateStoreService.load(params.publicKeyHex, {
+        profileId: params.profileId,
+    });
+    if (!persistedState?.messagesByConversationId) {
+        return [];
+    }
+    const normalizedByConversationId = fromPersistedMessagesByConversationId(
+        persistedState.messagesByConversationId,
+        { myPublicKeyHex: params.publicKeyHex },
+    );
+    const merged: Message[] = [];
+    params.conversationAliasIds.forEach((aliasId) => {
+        merged.push(...(normalizedByConversationId[aliasId] ?? []));
+    });
+    const deduped = Array.from(new Map(merged.map((message) => [message.id, message])).values());
+    return [...filterMessagesByLocalRetention(
+        deduped.filter((message) => (
+            isDisplayableDmConversationMessage(message)
+            && !isMessageIdentityInSuppressedIdSet(message, params.persistentSuppressedMessageIds)
+        )),
+        params.localMessageRetentionDays,
+    )].sort((left, right) => left.timestamp.getTime() - right.timestamp.getTime());
+};
+
 /**
  * useConversationMessages Hook
  * 
@@ -91,17 +149,28 @@ export function useConversationMessages(
         if (!conversationId || !publicKeyHex) {
             return false;
         }
+        // Native desktop hydrate never reads chat-state; disabling projection here only hides
+        // rows that exist in projection/SQLite bus paths (e.g. outgoing community invites).
+        if (requiresSqlitePersistence()) {
+            return false;
+        }
         if (conversationId.startsWith("community:") || conversationId.startsWith("group:") || conversationId.includes("@")) {
             return false;
         }
         const persistedState = chatStateStoreService.load(publicKeyHex as PublicKeyHex, {
             profileId: getResolvedProfileId() || undefined,
         });
-        const persistedMessages = persistedState?.messagesByConversationId?.[conversationId] ?? [];
-        return persistedMessages.some((message) => (
-            (typeof message.content === "string" && message.content.trim().length > 0)
-            || (Array.isArray(message.attachments) && message.attachments.length > 0)
-        ));
+        const aliasIds = buildDmSiblingConversationIds({
+            conversationId,
+            myPublicKeyHex: normalizePublicKeyHex(publicKeyHex) ?? (publicKeyHex as PublicKeyHex),
+        });
+        return aliasIds.some((aliasId) => {
+            const persistedMessages = persistedState?.messagesByConversationId?.[aliasId] ?? [];
+            return persistedMessages.some((message) => (
+                (typeof message.content === "string" && message.content.trim().length > 0)
+                || (Array.isArray(message.attachments) && message.attachments.length > 0)
+            ));
+        });
     }, [conversationId, publicKeyHex]);
     const projectionReadAuthority = useMemo(() => (
         resolveProjectionReadAuthority({
@@ -137,13 +206,37 @@ export function useConversationMessages(
     const conversationAliasIdSet = useMemo(() => (
         new Set(conversationAliasIds)
     ), [conversationAliasIds]);
+    const isDmThread = Boolean(conversationId?.trim() && !isGroupConversationId(conversationId));
+
+    const withInviteThreadAugment = useCallback((msgs: ReadonlyArray<Message>): ReadonlyArray<Message> => {
+        if (!conversationId?.trim() || !isDmThread) {
+            return msgs;
+        }
+        return augmentCommunityDmInviteThreadMessages(
+            msgs,
+            conversationId.trim(),
+            activeProfileId || undefined,
+            normalizedPublicKeyHex,
+        );
+    }, [activeProfileId, conversationId, isDmThread, normalizedPublicKeyHex]);
 
     const eventQueueRef = useRef<MessageBusEvent[]>([]);
     const rafFlushRef = useRef<number | null>(null);
+    const activeConversationIdRef = useRef<string | undefined>(undefined);
+    const hydrateGenerationRef = useRef(0);
+    const suppressProjectionMergeUntilHydrateRef = useRef(false);
     const expandedHistoryRef = useRef(false);
     const projectionFallbackHydrationRef = useRef(false);
     const messagesRef = useRef<ReadonlyArray<Message>>([]);
     const historyAuthorityLogKeyRef = useRef<string | null>(null);
+    const staleEmptyHydrateAttemptRef = useRef(0);
+    const partialHydrateAttemptRef = useRef(false);
+    const directionCoverageHydrateAttemptRef = useRef(0);
+    const forceIndexedHydrationRef = useRef(false);
+    const isLoadingRef = useRef(false);
+    const pathname = usePathname();
+    const isChatRouteActive = pathname === "/";
+    const wasChatRouteActiveRef = useRef(isChatRouteActive);
     const deletedTombstonesRef = useRef<DeleteTombstones>(new Map());
     const persistedDeletedIdsRef = useRef<Set<string>>(new Set(
         messagingClientOperations.loadDmSuppressedIdentityIds(getResolvedProfileId() || undefined),
@@ -194,6 +287,10 @@ export function useConversationMessages(
     useEffect(() => {
         messagesRef.current = messages;
     }, [messages]);
+
+    useEffect(() => {
+        isLoadingRef.current = isLoading;
+    }, [isLoading]);
 
     useEffect(() => {
         setMessages((previousMessages) => filterMessagesByLocalRetention(previousMessages, localMessageRetentionDays));
@@ -261,15 +358,28 @@ export function useConversationMessages(
             return;
         }
         setMessages((prev) => filterMessagesByLocalRetention(
-            filterMessagesBySuppressedIds(prev, persistedDeletedIdsRef.current),
+            messagingClientOperations.filterDmThreadMessagesBySuppression(prev, persistedDeletedIdsRef.current),
             localMessageRetentionDays,
         ));
     }, [conversationId, deleteTombstoneEpoch, localMessageRetentionDays]);
 
     // Initial load from IndexedDB
-    const hydrateHistory = useCallback(async (cid: string, conversationIds: ReadonlyArray<string>) => {
+    const hydrateHistory = useCallback(async (
+        cid: string,
+        conversationIds: ReadonlyArray<string>,
+        options?: Readonly<{ includeLiveOverlay?: boolean; generation?: number }>,
+    ) => {
+        const generation = options?.generation;
         setIsLoading(true);
         try {
+            const includeLiveOverlay = options?.includeLiveOverlay !== false;
+            const preferIndexedAuthority = (
+                forceIndexedHydrationRef.current
+                || (
+                    requiresSqlitePersistence()
+                    && hasPartialDirectionCoverage(messagesRef.current, normalizedPublicKeyHex)
+                )
+            );
             const assembled = await messagingClientOperations.hydrateDmThreadReadModel({
                 conversationId: cid,
                 conversationIds,
@@ -282,28 +392,87 @@ export function useConversationMessages(
                 numeric: {
                     initialBatchSize: getInitialBatchSize(chatPerformanceV2Enabled),
                     initialHydrationVisibleTarget: getInitialHydrationVisibleTarget(),
-                    maxHydrationScanPasses: INITIAL_HYDRATION_MAX_SCAN_PASSES,
+                    maxHydrationScanPasses: preferIndexedAuthority
+                        ? INITIAL_HYDRATION_MAX_SCAN_PASSES * 2
+                        : INITIAL_HYDRATION_MAX_SCAN_PASSES,
                     liveWindowSoftLimit: LIVE_WINDOW_SOFT_LIMIT,
                 },
                 projectionMessagesSnapshot: projectionMessagesRef.current,
                 projectionEvidenceMessagesSnapshot: projectionEvidenceMessagesRef.current,
                 projectionReadAuthoritySnapshot: projectionReadAuthorityRef.current,
+                preferIndexedAuthority,
                 accountProjectionPhase: accountProjectionSnapshot.phase,
                 accountProjection: accountProjectionSnapshot.projection,
                 accountProjectionReady: accountProjectionSnapshot.accountProjectionReady,
-                liveMessages: messagesRef.current,
+                liveMessages: includeLiveOverlay ? messagesRef.current : [],
                 expandedHistory: expandedHistoryRef.current,
                 previousAuthorityDiagnosticKey: historyAuthorityLogKeyRef.current,
             });
             historyAuthorityLogKeyRef.current = assembled.authorityDiagnosticKey;
-            setMessages(assembled.finalMessages);
+            const previousMessages = messagesRef.current;
+            const supplementalMessages = buildHydrateSupplementalMessages(
+                assembled.finalMessages,
+                normalizedPublicKeyHex,
+                projectionEvidenceMessagesRef.current,
+            );
+            const finalizeResult = finalizeDmThreadHydrateRead({
+                assembledMessages: assembled.finalMessages,
+                previousMessages,
+                supplementalMessages,
+                conversationIds,
+                myPublicKeyHex: normalizedPublicKeyHex,
+                directionCoverageAttempt: directionCoverageHydrateAttemptRef.current,
+                maxDirectionCoverageAttempts: DM_THREAD_DIRECTION_COVERAGE_HYDRATE_MAX_ATTEMPTS,
+            });
+            const hydratedMessages = finalizeResult.messages;
+            if (finalizeResult.directionCoveragePreserved) {
+                logAppEvent({
+                    name: "messaging.conversation_hydrate_direction_coverage_preserved",
+                    level: "warn",
+                    scope: { feature: "messaging", action: "conversation_hydrate" },
+                    context: {
+                        conversationIdHint: toConversationIdDiagnosticLabel(cid),
+                        previousMessageCount: previousMessages.length,
+                        assembledMessageCount: assembled.finalMessages.length,
+                        preservedMessageCount: hydratedMessages.length,
+                    },
+                });
+            }
+            if (generation !== undefined && generation !== hydrateGenerationRef.current) {
+                return;
+            }
+            const augmentedMessages = withInviteThreadAugment(hydratedMessages);
+            setMessages(augmentedMessages);
+            messagesRef.current = augmentedMessages;
             setHasEarlier(assembled.hasEarlier);
             projectionFallbackHydrationRef.current = assembled.projectionFallbackHydration;
             expandedHistoryRef.current = false;
+            suppressProjectionMergeUntilHydrateRef.current = false;
+            if (
+                normalizedPublicKeyHex
+                && !hasPartialDirectionCoverage(hydratedMessages, normalizedPublicKeyHex)
+            ) {
+                partialHydrateAttemptRef.current = false;
+                forceIndexedHydrationRef.current = false;
+            }
+            if (
+                finalizeResult.reconcilePolicy.shouldRetryHydrate
+            ) {
+                directionCoverageHydrateAttemptRef.current += 1;
+                forceIndexedHydrationRef.current = finalizeResult.reconcilePolicy.forceIndexedAuthority;
+                historyAuthorityLogKeyRef.current = null;
+                void hydrateHistory(cid, conversationIds, {
+                    includeLiveOverlay: true,
+                    generation: hydrateGenerationRef.current,
+                });
+            }
         } catch (e) {
             console.error("[useConversationMessages] Failed to hydrate history:", e);
+            suppressProjectionMergeUntilHydrateRef.current = false;
         } finally {
-            setIsLoading(false);
+            if (generation === undefined || generation === hydrateGenerationRef.current) {
+                setIsLoading(false);
+            }
         }
     }, [
         chatPerformanceV2Enabled,
@@ -311,10 +480,73 @@ export function useConversationMessages(
         messageDeleteTombstones,
         publicKeyHex,
         normalizedPublicKeyHex,
+        withInviteThreadAugment,
     ]);
 
+    const requestConversationHydrate = useCallback((
+        trigger: string,
+        options?: Readonly<{ onlyIfEmpty?: boolean; bypassLoadingGuard?: boolean }>,
+    ) => {
+        if (!conversationId || !isDmThread) {
+            return;
+        }
+        if (!options?.bypassLoadingGuard && isLoadingRef.current) {
+            return;
+        }
+        if (options?.onlyIfEmpty && messagesRef.current.length > 0) {
+            return;
+        }
+        logAppEvent({
+            name: "messaging.conversation_hydrate_retry",
+            level: "info",
+            scope: { feature: "messaging", action: "conversation_hydrate_retry" },
+            context: {
+                conversationIdHint: toConversationIdDiagnosticLabel(conversationId),
+                trigger,
+            },
+        });
+        void hydrateHistory(conversationId, conversationAliasIds, {
+            includeLiveOverlay: true,
+            generation: hydrateGenerationRef.current,
+        });
+    }, [conversationAliasIds, conversationId, hydrateHistory, isDmThread]);
+
     useEffect(() => {
-        if (!conversationId) return;
+        staleEmptyHydrateAttemptRef.current = 0;
+        partialHydrateAttemptRef.current = false;
+        directionCoverageHydrateAttemptRef.current = 0;
+    }, [conversationId]);
+
+    useEffect(() => {
+        if (!conversationId || !isDmThread) {
+            return;
+        }
+
+        const generation = hydrateGenerationRef.current + 1;
+        hydrateGenerationRef.current = generation;
+
+        const conversationChanged = activeConversationIdRef.current !== conversationId;
+        activeConversationIdRef.current = conversationId;
+
+        if (conversationChanged) {
+            suppressProjectionMergeUntilHydrateRef.current = true;
+            directionCoverageHydrateAttemptRef.current = 0;
+            partialHydrateAttemptRef.current = false;
+            forceIndexedHydrationRef.current = requiresSqlitePersistence();
+            const cached = readDmThreadDisplayCache(activeProfileId ?? undefined, conversationId) ?? [];
+            const initialPaint = resolveInitialConversationPaint({
+                displayCache: cached,
+                syncSeed: [],
+                myPublicKeyHex: normalizedPublicKeyHex,
+            });
+            if (initialPaint.shouldPaint) {
+                messagesRef.current = initialPaint.messages;
+                setMessages(initialPaint.messages);
+            } else {
+                messagesRef.current = [];
+                setMessages([]);
+            }
+        }
 
         if (rafFlushRef.current !== null) {
             cancelAnimationFrame(rafFlushRef.current);
@@ -325,6 +557,9 @@ export function useConversationMessages(
         expandedHistoryRef.current = false;
         projectionFallbackHydrationRef.current = false;
         deletedTombstonesRef.current.clear();
+        if (conversationChanged) {
+            partialHydrateAttemptRef.current = false;
+        }
         // Union semantics: keep any in-memory deleted IDs already in the ref,
         // then add the durable persisted set. This prevents losing Tauri delete
         // state which is held only in-memory until SQLite commits.
@@ -337,8 +572,31 @@ export function useConversationMessages(
                 messageDeleteTombstones,
                 seedIds: persistedDeletedIdsRef.current,
             });
-        historyAuthorityLogKeyRef.current = null;
-            await hydrateHistory(conversationId, conversationAliasIds);
+            historyAuthorityLogKeyRef.current = null;
+            if (conversationChanged && normalizedPublicKeyHex) {
+                const syncSeed = loadSyncPersistedThreadSeed({
+                    conversationAliasIds,
+                    publicKeyHex: normalizedPublicKeyHex,
+                    profileId,
+                    persistentSuppressedMessageIds: persistedDeletedIdsRef.current,
+                    localMessageRetentionDays,
+                });
+                const cached = readDmThreadDisplayCache(activeProfileId ?? undefined, conversationId) ?? [];
+                const seedPaint = resolveInitialConversationPaint({
+                    displayCache: cached,
+                    syncSeed,
+                    myPublicKeyHex: normalizedPublicKeyHex,
+                });
+                if (seedPaint.shouldPaint) {
+                    messagesRef.current = seedPaint.messages;
+                    setMessages(seedPaint.messages);
+                }
+            }
+            await hydrateHistory(
+                conversationId,
+                conversationAliasIds,
+                { includeLiveOverlay: !conversationChanged, generation },
+            );
         };
 
         void applyPersistedDeletesAndHydrate();
@@ -346,16 +604,99 @@ export function useConversationMessages(
         conversationAliasIds,
         conversationId,
         hydrateHistory,
+        isDmThread,
         messageDeleteTombstones,
         normalizedPublicKeyHex,
         projectionSequence,
     ]);
 
     useEffect(() => {
+        if (!conversationId || !isDmThread) {
+            return;
+        }
+        return subscribeMessagesIndexRebuiltDual((detail) => {
+            if (detail.profileId && detail.profileId !== activeProfileId) {
+                return;
+            }
+            requestConversationHydrate("messages_index_rebuilt");
+        }, optionalProfileBus);
+    }, [activeProfileId, conversationId, isDmThread, optionalProfileBus, requestConversationHydrate]);
+
+    useEffect(() => {
+        const becameChatRouteActive = isChatRouteActive && !wasChatRouteActiveRef.current;
+        wasChatRouteActiveRef.current = isChatRouteActive;
+        if (!becameChatRouteActive || !conversationId || !isDmThread) {
+            return;
+        }
+        requestConversationHydrate("chat_route_active");
+    }, [conversationId, isChatRouteActive, isDmThread, requestConversationHydrate]);
+
+    useEffect(() => {
+        if (!conversationId || !isDmThread || isLoadingRef.current) {
+            return;
+        }
+        if (messagesRef.current.length > 0) {
+            return;
+        }
+        const retryPolicy = evaluateStaleEmptyHydrateRetryPolicy({
+            messageCount: messagesRef.current.length,
+            isLoading: isLoadingRef.current,
+            projectionHasMessages: projectionMessages.length > 0,
+            useProjectionReads: projectionReadAuthority.useProjectionReads,
+            attempt: staleEmptyHydrateAttemptRef.current,
+            maxAttempts: DM_THREAD_STALE_EMPTY_HYDRATE_MAX_ATTEMPTS,
+            baseDelayMs: DM_THREAD_STALE_EMPTY_HYDRATE_BASE_DELAY_MS,
+        });
+        if (!retryPolicy.shouldSchedule) {
+            return;
+        }
+        const timer = window.setTimeout(() => {
+            staleEmptyHydrateAttemptRef.current += 1;
+            requestConversationHydrate("stale_empty_retry", { onlyIfEmpty: true });
+        }, retryPolicy.delayMs);
+        return () => window.clearTimeout(timer);
+    }, [
+        conversationId,
+        isDmThread,
+        isLoading,
+        projectionMessages.length,
+        projectionReadAuthority.useProjectionReads,
+        requestConversationHydrate,
+    ]);
+
+    useEffect(() => {
+        if (!conversationId || !isDmThread || !normalizedPublicKeyHex || isLoadingRef.current) {
+            return;
+        }
+        if (partialHydrateAttemptRef.current) {
+            return;
+        }
+        const partialRetryPolicy = evaluatePartialThreadRetryPolicy({
+            messages: messagesRef.current,
+            myPublicKeyHex: normalizedPublicKeyHex,
+            isLoading: isLoadingRef.current,
+            alreadyAttempted: partialHydrateAttemptRef.current,
+        });
+        if (!partialRetryPolicy.shouldRetry) {
+            return;
+        }
+        partialHydrateAttemptRef.current = true;
+        forceIndexedHydrationRef.current = partialRetryPolicy.forceIndexedAuthority;
+        requestConversationHydrate("partial_thread_retry", { bypassLoadingGuard: true });
+    }, [
+        conversationId,
+        isDmThread,
+        isLoading,
+        messages.length,
+        normalizedPublicKeyHex,
+        requestConversationHydrate,
+    ]);
+
+    useEffect(() => {
         if (typeof window === "undefined") {
             return;
         }
-        if (!conversationId || !normalizedPublicKeyHex) {
+        if (!conversationId || !isDmThread || !normalizedPublicKeyHex) {
             return;
         }
         return subscribeChatStateReplacedDual((detail) => {
@@ -402,10 +743,16 @@ export function useConversationMessages(
     ]);
 
     useEffect(() => {
-        if (!conversationId || !projectionReadAuthority.useProjectionReads) {
+        if (!isDmThread || !conversationId || !projectionReadAuthority.useProjectionReads) {
             return;
         }
-        if (projectionMessages.length === 0) {
+        const projectionMergePolicy = evaluateProjectionMergePolicy({
+            projectionMessages,
+            previousMessages: messagesRef.current,
+            myPublicKeyHex: normalizedPublicKeyHex,
+            suppressUntilHydrate: suppressProjectionMergeUntilHydrateRef.current,
+        });
+        if (!projectionMergePolicy.shouldMerge) {
             return;
         }
         const previousMessages = messagesRef.current;
@@ -440,19 +787,29 @@ export function useConversationMessages(
             return;
         }
 
-        setMessages(retentionFilteredNextMessages);
-        messagesRef.current = retentionFilteredNextMessages;
+        const augmentedNext = withInviteThreadAugment(retentionFilteredNextMessages);
+        setMessages(augmentedNext);
+        messagesRef.current = augmentedNext;
 
         if (projectionFallbackHydrationRef.current) {
             setHasEarlier(false);
         } else if (shouldCapToLiveWindow) {
             setHasEarlier(true);
         }
-    }, [conversationAliasIdSet, conversationId, deleteTombstoneEpoch, localMessageRetentionDays, projectionMessages, projectionReadAuthority.useProjectionReads]);
+    }, [
+        conversationAliasIdSet,
+        conversationId,
+        deleteTombstoneEpoch,
+        localMessageRetentionDays,
+        normalizedPublicKeyHex,
+        projectionMessages,
+        projectionReadAuthority.useProjectionReads,
+        isDmThread,
+    ]);
 
     // Handle incoming real-time messages
     useEffect(() => {
-        if (!conversationId) return;
+        if (!isDmThread || !conversationId) return;
 
         const flushEventQueue = () => {
             rafFlushRef.current = null;
@@ -515,6 +872,31 @@ export function useConversationMessages(
             if (!belongsToConversation) return;
 
             const busEvent: MessageBusEvent = event;
+            if (
+                busEvent.type === "new_message"
+                && isCommunityInviteThreadPayloadContent(busEvent.message.content)
+            ) {
+                const merged = withInviteThreadAugment(filterMessagesByLocalRetention(
+                    messagingClientOperations.applyRealtimeBufferedEvents({
+                        previous: messagesRef.current,
+                        events: [busEvent],
+                        chatPerformanceV2Enabled,
+                        allowExpandedHistory: expandedHistoryRef.current,
+                        tombstones: deletedTombstonesRef.current,
+                        nowMs: Date.now(),
+                        myPublicKeyHex: publicKeyHex,
+                        persistentSuppressedMessageIds: persistedDeletedIdsRef.current,
+                        liveWindowSoftLimit: LIVE_WINDOW_SOFT_LIMIT,
+                    }),
+                    localMessageRetentionDays,
+                ));
+                messagesRef.current = merged;
+                setMessages(merged);
+                if (conversationId && shouldPersistDmThreadDisplayCache(merged, publicKeyHex)) {
+                    writeDmThreadDisplayCache(activeProfileId ?? undefined, conversationId, merged);
+                }
+                return;
+            }
             if (event.type === "message_deleted" && event.messageId !== "all") {
                 if (!conversationId) {
                     return;
@@ -532,7 +914,7 @@ export function useConversationMessages(
                     };
                     if (!chatPerformanceV2Enabled) {
                         setMessages((prev) => filterMessagesByLocalRetention(
-                            filterMessagesBySuppressedIds(
+                            messagingClientOperations.filterDmThreadMessagesBySuppression(
                                 messagingClientOperations.applyRealtimeBufferedEvents({
                                     previous: prev,
                                     events: [resolvedBusEvent],
@@ -650,7 +1032,7 @@ export function useConversationMessages(
                     };
             if (!chatPerformanceV2Enabled) {
                 setMessages((prev) => filterMessagesByLocalRetention(
-                            filterMessagesBySuppressedIds(
+                            messagingClientOperations.filterDmThreadMessagesBySuppression(
                                 messagingClientOperations.applyRealtimeBufferedEvents({
                                     previous: prev,
                                     events: [resolvedBusEvent],
@@ -713,10 +1095,28 @@ export function useConversationMessages(
             eventQueueRef.current = [];
             setPendingEventCount(0);
         };
-    }, [activeProfileId, conversationAliasIdSet, conversationId, chatPerformanceV2Enabled, localMessageRetentionDays, publicKeyHex, messageDeleteTombstones]);
+    }, [activeProfileId, conversationAliasIdSet, conversationId, chatPerformanceV2Enabled, isDmThread, localMessageRetentionDays, publicKeyHex, messageDeleteTombstones, withInviteThreadAugment]);
+
+    useEffect(() => {
+        if (!isDmThread || !conversationId?.trim() || typeof window === "undefined") {
+            return;
+        }
+        const onLedgerChanged = (event: Event): void => {
+            const detail = (event as CustomEvent<{ conversationId?: string; profileId?: string }>).detail;
+            if (detail?.conversationId !== conversationId.trim()) {
+                return;
+            }
+            if (detail?.profileId && detail.profileId !== activeProfileId) {
+                return;
+            }
+            setMessages((previous) => withInviteThreadAugment(previous));
+        };
+        window.addEventListener(COMMUNITY_DM_INVITE_LEDGER_CHANGED_EVENT, onLedgerChanged);
+        return () => window.removeEventListener(COMMUNITY_DM_INVITE_LEDGER_CHANGED_EVENT, onLedgerChanged);
+    }, [activeProfileId, conversationId, isDmThread, withInviteThreadAugment]);
 
     const loadEarlier = useCallback(async () => {
-        if (!conversationId || messages.length === 0) return;
+        if (!isDmThread || !conversationId || messages.length === 0) return;
 
         const earliestTimestamp = messages[0].timestamp.getTime();
         const loadEarlierBatchSize = getLoadEarlierBatchSize(chatPerformanceV2Enabled);
@@ -740,17 +1140,35 @@ export function useConversationMessages(
         } catch (e) {
             console.error("[useConversationMessages] Failed to load earlier messages:", e);
         }
-    }, [chatPerformanceV2Enabled, conversationAliasIds, conversationId, localMessageRetentionDays, messages, publicKeyHex]);
+    }, [chatPerformanceV2Enabled, conversationAliasIds, conversationId, isDmThread, localMessageRetentionDays, messages, publicKeyHex]);
 
-    const displayMessages = useMemo(() => (
-        filterMessagesThroughDmRedactionDisplayGate(messages, activeProfileId ?? undefined)
-    ), [activeProfileId, messages, redactionGateEpoch]);
+    useEffect(() => {
+        if (!conversationId || !isDmThread || messages.length === 0) {
+            return;
+        }
+        if (!shouldPersistDmThreadDisplayCache(messages, normalizedPublicKeyHex)) {
+            return;
+        }
+        writeDmThreadDisplayCache(activeProfileId ?? undefined, conversationId, messages);
+    }, [activeProfileId, conversationId, isDmThread, messages, normalizedPublicKeyHex]);
+
+    const displayMessages = useMemo(() => {
+        if (!isDmThread) {
+            return EMPTY_PROJECTION_MESSAGES;
+        }
+        const withCacheFallback = resolveDisplayMessagesWithCacheFallback({
+            messages,
+            displayCache: readDmThreadDisplayCache(activeProfileId ?? undefined, conversationId),
+            myPublicKeyHex: normalizedPublicKeyHex,
+        });
+        return filterMessagesThroughDmRedactionDisplayGate(withCacheFallback, activeProfileId ?? undefined);
+    }, [activeProfileId, conversationId, isDmThread, messages, normalizedPublicKeyHex, redactionGateEpoch]);
 
     return {
         messages: displayMessages,
-        isLoading,
-        hasEarlier,
+        isLoading: isDmThread ? isLoading : false,
+        hasEarlier: isDmThread ? hasEarlier : false,
         loadEarlier,
-        pendingEventCount
+        pendingEventCount: isDmThread ? pendingEventCount : 0,
     };
 }

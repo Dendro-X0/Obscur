@@ -9,6 +9,11 @@ import { useGroups } from "@/app/features/groups/providers/group-provider";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
 import { useSealedCommunity, toScopedRelayUrl } from "@/app/features/groups/hooks/use-sealed-community";
+import { hasWritableCommunityRelayTransport } from "@/app/features/groups/services/community-relay-transport";
+import {
+    CommunityNetworkTimeoutError,
+    withCommunityNetworkTimeout,
+} from "@/app/features/groups/services/community-network-timeout";
 import { getResolvedClientGateway } from "@/app/features/profiles/services/resolve-client-gateway";
 import { toGroupConversationId } from "@/app/features/groups/utils/group-conversation-id";
 import { resolveGroupConversationByToken } from "@/app/features/messaging/utils/conversation-target";
@@ -96,6 +101,11 @@ export default function PurgeCommunityPage() {
         rosterLookupConversationId,
     ]);
 
+    const purgeRelayTransportReady = useMemo(
+        () => hasWritableCommunityRelayTransport(effectiveRelay),
+        [effectiveRelay],
+    );
+
     const { leaveGroup: leaveNip29Group } = useSealedCommunity({
         groupId: resolvedGroupId,
         relayUrl: effectiveRelay,
@@ -104,6 +114,7 @@ export default function PurgeCommunityPage() {
         myPublicKeyHex: localMemberPubkey,
         myPrivateKeyHex: identityState.privateKeyHex ?? null,
         initialMembers: purgeSealedCommunityInitialMembers,
+        enabled: purgeRelayTransportReady,
     });
 
     const returnHref = useMemo(() => buildGroupViewHref({
@@ -133,16 +144,25 @@ export default function PurgeCommunityPage() {
                     relayUrl: effectiveRelay,
                 });
             }
-            await leaveNip29Group();
             forcePurgeCommunity({
                 groupId: resolvedGroupId,
                 relayUrl: effectiveRelay,
                 conversationId: group?.id,
             });
+            if (purgeRelayTransportReady && identityState.privateKeyHex) {
+                try {
+                    await withCommunityNetworkTimeout(leaveNip29Group());
+                } catch (error) {
+                    if (error instanceof CommunityNetworkTimeoutError) {
+                        toast.warning("Purged locally. Relay leave timed out.");
+                    }
+                }
+            }
             toast.success("Community purged");
             router.push("/network");
         } catch {
             toast.error("Failed to purge community");
+            router.push("/network");
         } finally {
             setIsPurging(false);
         }

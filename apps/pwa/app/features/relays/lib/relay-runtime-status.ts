@@ -157,6 +157,7 @@ export const deriveRelayNodeStatus = (params: Readonly<{
   isFallback?: boolean;
   isConfigured?: boolean;
   role?: "primary" | "standby";
+  isActivePoolMember?: boolean;
   runtimePhase?: RelayRuntimePhase;
   lastInboundEventAtUnixMs?: number;
   nowUnixMs?: number;
@@ -168,12 +169,14 @@ export const deriveRelayNodeStatus = (params: Readonly<{
     : params.isFallback
       ? "Fallback"
       : params.role === "primary"
-        ? "Primary"
-        : params.role === "standby"
-          ? "Standby"
-          : params.isConfigured === false
-            ? "Transient"
-            : "Configured";
+        ? "Active transport"
+        : params.isActivePoolMember
+          ? "Pool member"
+          : params.role === "standby"
+            ? "Standby"
+            : params.isConfigured === false
+              ? "Transient"
+              : "Configured";
   const successLabel = getSuccessLabel(metrics);
   const confidenceLabel = getConfidenceLabel(metrics);
   const staleEvents = isEventFlowStale({
@@ -271,9 +274,28 @@ export const deriveRelayNodeStatus = (params: Readonly<{
     }
     return {
       status: "healthy",
-      badge: samples < 5 ? "Connected" : "Connected",
-      detail: "Socket open and contributing to this window's relay runtime.",
+      badge: params.role === "primary" || params.isActivePoolMember ? "Active transport" : "Connected",
+      detail: params.role === "primary"
+        ? "This relay is the active pool connection for publish and subscribe in this window."
+        : params.isActivePoolMember
+          ? "Connected in the redundancy pool for publish and subscribe in this window."
+          : "Socket open and contributing to this window's relay runtime.",
       roleLabel,
+      successLabel,
+      confidenceLabel,
+    };
+  }
+
+  if (
+    params.role === "standby"
+    && enabled
+    && (metrics?.latencyHistory.length ?? 0) > 0
+  ) {
+    return {
+      status: "degraded",
+      badge: "Probed",
+      detail: "Background reachability check succeeded. Standby relays are not active transport until promoted by failover or manual selection.",
+      roleLabel: "Standby (probed)",
       successLabel,
       confidenceLabel,
     };
@@ -282,7 +304,9 @@ export const deriveRelayNodeStatus = (params: Readonly<{
   return {
     status: "unavailable",
     badge: "Disconnected",
-    detail: "This relay is configured but does not currently have an active socket.",
+    detail: params.role === "standby"
+      ? "Not in the active transport pool. Enable and reorder relays, or wait for automatic failover when the primary fails."
+      : "This relay is configured but does not currently have an active socket.",
     roleLabel,
     successLabel,
     confidenceLabel,

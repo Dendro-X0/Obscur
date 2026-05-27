@@ -1,10 +1,34 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { relayHealthMonitor } from "./relay-health-monitor";
-import { relayReliabilityInternals, shouldReuseRelaySocket, type PublishResult } from "./enhanced-relay-pool";
+import { relayReliabilityInternals, shouldReuseRelaySocket, createEnhancedRelayPoolRuntime, type PublishResult } from "./enhanced-relay-pool";
 
 describe("enhanced-relay-pool reliability internals", () => {
   beforeEach(() => {
     relayHealthMonitor.clearAllMetrics();
+  });
+
+  it("treats relay pool snapshots as equal when only timestamps drift", () => {
+    const snapshot = {
+      connections: [{ url: "wss://relay.example", status: "open" as const, updatedAtUnixMs: 1 }],
+      healthMetrics: [],
+    };
+    const next = {
+      connections: [{ url: "wss://relay.example", status: "open" as const, updatedAtUnixMs: 9_999 }],
+      healthMetrics: [],
+    };
+    expect(relayReliabilityInternals.areRelayPoolSnapshotsEqual(snapshot, next)).toBe(true);
+  });
+
+  it("does not notify subscribers when the relay snapshot is unchanged", () => {
+    const runtime = createEnhancedRelayPoolRuntime();
+    let notifications = 0;
+    runtime.subscribe(() => {
+      notifications += 1;
+    });
+    runtime.setRelayUrls(["wss://relay.example"]);
+    const baseline = notifications;
+    runtime.recomputeSnapshot();
+    expect(notifications).toBe(baseline);
   });
 
   it("reuses open or connecting sockets and allows forced reconnect", () => {

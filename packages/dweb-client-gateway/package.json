@@ -5,7 +5,10 @@
   "type": "module",
   "description": "Unified client-side gateway contracts — single adapter surface for Web, desktop, and mobile.",
   "dependencies": {
-    "@dweb/storage-contracts": "workspace:*"
+    "@dweb/core": "workspace:*",
+    "@dweb/crypto": "workspace:*",
+    "@dweb/storage-contracts": "workspace:*",
+    "@dweb/transport-contracts": "workspace:*"
   },
   "exports": {
     ".": "./src/index.ts",
@@ -16,6 +19,8 @@
     "./app-extensions": "./src/app-client-gateway-extensions.ts",
     "./community-roster": "./src/community-roster-port-contract.ts",
     "./dm-materialization": "./src/dm-materialization-port-contract.ts",
-    "./messaging-diagnostics": "./src/messaging-diagnostics.ts"
+    "./messaging-diagnostics": "./src/messaging-diagnostics.ts",
+    "./community-transport": "./src/community-transport-port-contract.ts",
+    "./community-membership": "./src/community-membership-port-contract.ts"
   }
 }

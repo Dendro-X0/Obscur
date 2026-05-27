@@ -3,10 +3,10 @@
  * R1: I/O + row merge lives here; row→Message mapping stays caller-supplied (typically **`normalizeDmConversationMessageRow`** in **`dm-conversation-normalize-message.ts`**).
  */
 
-import { messagingDB } from "@dweb/storage/indexed-db";
-import { isTauri, dbGetMessages } from "@dweb/db";
+import { dbGetMessages } from "@dweb/db";
 import type { MessageRecord } from "@dweb/db";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
+import { requiresSqlitePersistence } from "@/app/features/runtime/native-persistence-policy";
 import type { Message } from "../types";
 
 const sqliteRowToRaw = (rec: MessageRecord): Record<string, unknown> => ({
@@ -28,7 +28,7 @@ export const loadConversationWindow = async (params: Readonly<{
   limit: number;
   beforeTimestampMs?: number;
 }>): Promise<ReadonlyArray<any>> => {
-  if (isTauri()) {
+  if (requiresSqlitePersistence()) {
     try {
       const profileId = getResolvedProfileId();
       const recs = await dbGetMessages(
@@ -39,23 +39,11 @@ export const loadConversationWindow = async (params: Readonly<{
       );
       return recs.map(sqliteRowToRaw);
     } catch {
-      // fall through to IndexedDB on any SQLite error
+      return [];
     }
   }
-  const upperTimestampMs = typeof params.beforeTimestampMs === "number"
-    ? Math.max(0, params.beforeTimestampMs - 1)
-    : Date.now();
-  const rows = await messagingDB.getAllByIndex<any>(
-    "messages",
-    "conversation_timestamp",
-    IDBKeyRange.bound([params.conversationId, 0], [params.conversationId, upperTimestampMs]),
-    params.limit,
-    "prev",
-  );
-  if (!Array.isArray(rows)) {
-    return [];
-  }
-  return rows;
+  void params;
+  return [];
 };
 
 const toRowTimestampMs = (row: any): number => {

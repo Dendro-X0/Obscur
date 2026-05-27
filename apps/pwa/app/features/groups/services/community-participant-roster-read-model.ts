@@ -4,7 +4,7 @@ import {
   mergeMonotonicActiveCommunityMembers,
   type RelayEvidenceConfidence,
 } from "./community-member-roster-projection";
-import { resolveAuthorEvidencePubkeysFromCommunityMessages } from "./community-visible-members";
+import { resolveAuthorEvidencePubkeysFromCommunityMessages } from "./community-message-author-evidence";
 
 export const COMMUNITY_PARTICIPANT_ROSTER_READ_MODEL_OWNER_ID = "community-participant-roster-read-model" as const;
 

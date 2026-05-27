@@ -16,7 +16,9 @@ impl Database {
             None => Connection::open_in_memory()?,
         };
         // Enable WAL mode for better concurrent read performance
-        conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;")?;
+        conn.execute_batch(
+            "PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=8000;",
+        )?;
         let db = Database { conn };
         db.apply_migrations()?;
         Ok(db)

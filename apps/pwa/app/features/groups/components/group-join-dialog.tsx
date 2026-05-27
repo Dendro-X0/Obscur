@@ -5,11 +5,18 @@ import { Button } from "@dweb/ui-kit";
 import { Avatar, AvatarImage, AvatarFallback } from "@dweb/ui-kit";
 import { Users, ShieldCheck, X } from "lucide-react";
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useRelay } from "../../relays/providers/relay-provider";
+import { useRelayPoolRef } from "../../relays/hooks/use-relay-pool-ref";
 import { useIdentity } from "../../auth/hooks/use-identity";
 import { useGroups } from "../providers/group-provider";
 import { toGroupConversationId } from "../utils/group-conversation-id";
 import { dispatchGroupInviteReceived } from "@/app/features/profiles/services/profile-bus-dispatch";
+import {
+    assertWorkspaceCommunityJoinAllowed,
+    useWorkspaceCommunityTrustGate,
+} from "../hooks/use-workspace-community-trust-gate";
+import { ensureWorkspaceMembershipSyncMode } from "../services/community-workspace-membership";
 
 /**
  * Props for GroupJoinDialog
@@ -26,16 +33,22 @@ export type GroupJoinDialogProps = Readonly<{
  * Dialog to show group information before joining
  */
 export const GroupJoinDialog = ({ open, onOpenChange, groupId, relayUrl, onSuccess }: GroupJoinDialogProps) => {
+    const router = useRouter();
     const { relayPool: pool } = useRelay();
+    const poolRef = useRelayPoolRef(pool);
     const { state: identityState } = useIdentity();
     const { addGroup } = useGroups();
+    const { trust: workspaceTrust, blocked: workspaceJoinBlocked } = useWorkspaceCommunityTrustGate({
+        communityRelayUrl: relayUrl,
+        active: open,
+    });
 
     // Ensure the group's relay is connected as a transient relay
     useEffect(() => {
         if (open && relayUrl) {
-            pool.addTransientRelay(relayUrl);
+            poolRef.current.addTransientRelay(relayUrl);
         }
-    }, [open, relayUrl, pool]);
+    }, [open, relayUrl, poolRef]);
 
     const { state: groupState, requestJoin } = useSealedCommunity({
         pool: pool as any, // Cast to any to satisfy the local interface in use-sealed-community
@@ -52,6 +65,12 @@ export const GroupJoinDialog = ({ open, onOpenChange, groupId, relayUrl, onSucce
         try {
             setError(null);
             setIsJoining(true);
+            const trust = await assertWorkspaceCommunityJoinAllowed({ communityRelayUrl: relayUrl });
+            if (!trust.allowed) {
+                setError(trust.userMessage);
+                return;
+            }
+            ensureWorkspaceMembershipSyncMode();
             await requestJoin();
 
             // Add to local state for immediate UI update
@@ -127,6 +146,26 @@ export const GroupJoinDialog = ({ open, onOpenChange, groupId, relayUrl, onSucce
                         </div>
                     </div>
 
+                    {workspaceJoinBlocked ? (
+                        <div
+                            className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 mb-6 text-center text-xs text-rose-900 dark:text-rose-100"
+                            data-testid="group-join-workspace-blocked"
+                        >
+                            <p className="font-bold">{workspaceTrust.userMessage}</p>
+                            <p className="mt-1 opacity-90">{workspaceTrust.settingsHint}</p>
+                            <button
+                                type="button"
+                                className="mt-2 font-bold uppercase tracking-widest underline"
+                                onClick={() => {
+                                    onOpenChange(false);
+                                    router.push("/settings?tab=relays#membership-sync-settings");
+                                }}
+                            >
+                                Open relay settings
+                            </button>
+                        </div>
+                    ) : null}
+
                     {error && (
                         <div className="bg-destructive/10 text-destructive text-xs font-bold p-4 rounded-2xl mb-6 border border-destructive/20 text-center">
                             {error}
@@ -136,7 +175,7 @@ export const GroupJoinDialog = ({ open, onOpenChange, groupId, relayUrl, onSucce
                     <div className="flex flex-col gap-3">
                         <Button
                             onClick={handleJoin}
-                            disabled={isJoining}
+                            disabled={isJoining || workspaceJoinBlocked}
                             className="w-full h-14 rounded-2xl text-base font-bold bg-gradient-to-r from-primary to-secondary hover:shadow-lg transition-all"
                         >
                             {isJoining ? "Sending Request..." : "Join Community"}

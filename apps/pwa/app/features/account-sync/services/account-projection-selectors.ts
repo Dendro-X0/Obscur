@@ -6,6 +6,28 @@ import type { AccountProjectionSnapshot } from "../account-event-contracts";
 import { isGroupConversationId } from "@/app/features/groups/utils/group-conversation-id";
 import { isAccountProjectionTimelineEntrySuppressed } from "@/app/features/messaging/services/conversation-message-visibility";
 import { messagingClientOperations } from "@/app/features/messaging/services/messaging-client-operations";
+import { applyCommunityInviteMessageSnapshot } from "@/app/features/groups/utils/community-invite-message-snapshot";
+import { normalizeCommunityInvitePayload } from "@/app/features/groups/utils/community-invite-payload";
+import { buildCommunityInvitePlaintext } from "@/app/features/groups/utils/community-invite-dm-message";
+import type { GroupMetadata } from "@/app/features/groups/types";
+import type { InvitePayload } from "@/app/features/groups/utils/community-invite-payload";
+
+const toInviteGroupMetadata = (metadata: InvitePayload["metadata"]): GroupMetadata => {
+  const access = metadata.access;
+  const normalizedAccess: GroupMetadata["access"] = (
+    access === "open" || access === "discoverable" || access === "invite-only"
+  )
+    ? access
+    : "invite-only";
+  return {
+    id: metadata.id,
+    name: metadata.name,
+    about: metadata.about,
+    picture: metadata.picture,
+    access: normalizedAccess,
+    memberCount: metadata.memberCount,
+  };
+};
 
 const EMPTY_ITEMS: ReadonlyArray<RequestsInboxItem> = [];
 const EMPTY_PEERS: ReadonlyArray<PublicKeyHex> = [];
@@ -258,6 +280,47 @@ export const selectProjectionConversationMessages = (params: Readonly<{
   });
 };
 
+const resolveProjectionMessageContent = (
+  messageId: string,
+  plaintextPreview: string,
+): string => {
+  const trimmedPreview = plaintextPreview.trim();
+  if (!trimmedPreview) {
+    return plaintextPreview;
+  }
+  try {
+    const parsed = normalizeCommunityInvitePayload(JSON.parse(trimmedPreview));
+    if (parsed?.type !== "community-invite") {
+      return plaintextPreview;
+    }
+    const merged = applyCommunityInviteMessageSnapshot(messageId, parsed);
+    if (!merged) {
+      return plaintextPreview;
+    }
+    const parsedRoomKey = parsed.roomKey.trim();
+    const mergedRoomKey = merged.roomKey.trim();
+    const needsRoomKeyRepair = mergedRoomKey.length > 0 && parsedRoomKey.length === 0;
+    const needsNameRepair = (
+      merged.metadata.name.trim().length > 0
+      && merged.metadata.name !== parsed.metadata.name
+    );
+    if (!needsRoomKeyRepair && !needsNameRepair) {
+      return plaintextPreview;
+    }
+    return buildCommunityInvitePlaintext({
+      groupId: merged.groupId,
+      roomKeyHex: mergedRoomKey || parsedRoomKey,
+      metadata: toInviteGroupMetadata(merged.metadata),
+      relayUrl: merged.relayUrl,
+      communityId: merged.communityId,
+      genesisEventId: merged.genesisEventId,
+      creatorPubkey: merged.creatorPubkey,
+    });
+  } catch {
+    return plaintextPreview;
+  }
+};
+
 const mapProjectionTimelineToMessages = (params: Readonly<{
   entries: ReadonlyArray<AccountProjectionSnapshot["messagesByConversationId"][string][number]>;
   conversationId: string;
@@ -270,7 +333,7 @@ const mapProjectionTimelineToMessages = (params: Readonly<{
     return {
       id: entry.messageId,
       kind: "user",
-      content: entry.plaintextPreview,
+      content: resolveProjectionMessageContent(entry.messageId, entry.plaintextPreview),
       timestamp: new Date(entry.eventCreatedAtUnixSeconds * 1000),
       isOutgoing,
       status: "delivered",

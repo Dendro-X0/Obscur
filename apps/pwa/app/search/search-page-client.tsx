@@ -75,6 +75,12 @@ import { PrivacySettingsService } from "@/app/features/settings/services/privacy
 import { getV090RolloutPolicy } from "@/app/features/settings/services/v090-rollout-policy";
 import { normalizePublicUrl } from "@/app/shared/public-url";
 import { scheduleIdleWork } from "@/app/shared/schedule-idle-work";
+import {
+  DISCOVERY_EXACT_MATCH_ELEMENT_ID,
+  discoverySearchResultElementId,
+  discoverySuggestionElementId,
+  focusSearchTargetById,
+} from "@/app/shared/search-target-highlight";
 import type { RelayReadinessState } from "@/app/features/relays/services/relay-recovery-policy";
 
 type DiscoverySurface = "global" | "add_friend" | "communities";
@@ -305,6 +311,28 @@ export default function SearchPage() {
     }
     router.push(getPublicProfileHref(targetPubkey));
   }, [publicKeyHex, router]);
+
+  const focusDiscoveryTargetThen = React.useCallback((
+    elementId: string,
+    action: () => void,
+    options?: Readonly<{ scrollDelayMs?: number; actionDelayMs?: number }>,
+  ): void => {
+    focusSearchTargetById(elementId, {
+      scrollDelayMs: options?.scrollDelayMs ?? 40,
+      block: "center",
+    });
+    window.setTimeout(action, options?.actionDelayMs ?? 420);
+  }, []);
+
+  React.useEffect(() => {
+    if (!resolvedIdentity) {
+      return;
+    }
+    focusSearchTargetById(DISCOVERY_EXACT_MATCH_ELEMENT_ID, {
+      scrollDelayMs: 180,
+      block: "center",
+    });
+  }, [resolvedIdentity?.pubkey]);
 
   const buildResolvedPreviewProfile = React.useCallback((identity: ResolvedIdentity): PublicDiscoveryProfile => {
     const base = mapResolvedIdentityToPublicDiscoveryProfile(identity);
@@ -1096,6 +1124,7 @@ export default function SearchPage() {
                 <div className="mt-4 space-y-3">
                   {resolvedIdentity ? (
                     <div
+                      id={DISCOVERY_EXACT_MATCH_ELEMENT_ID}
                       role="button"
                       tabIndex={0}
                       onClick={() => navigateToProfile(resolvedIdentity.pubkey)}
@@ -1301,7 +1330,11 @@ export default function SearchPage() {
                   </div>
                   <div className="space-y-2">
                     {friendSuggestions.map((suggestion) => (
-                      <div key={suggestion.pubkey} className="flex items-center justify-between gap-3 rounded-2xl border border-border/50 bg-muted/20 px-3 py-3">
+                      <div
+                        key={suggestion.pubkey}
+                        id={discoverySuggestionElementId(suggestion.pubkey)}
+                        className="flex items-center justify-between gap-3 rounded-2xl border border-border/50 bg-muted/20 px-3 py-3"
+                      >
                         <div className="min-w-0 flex items-center gap-3">
                           <Avatar className="h-10 w-10 border border-border/60">
                             <AvatarImage src={suggestion.picture} alt={suggestion.displayName} className="object-cover" />
@@ -1327,6 +1360,12 @@ export default function SearchPage() {
                                 confidence: "cached_only",
                               });
                               setResolverMessage("Resolved via local suggestion cache");
+                              window.setTimeout(() => {
+                                focusSearchTargetById(DISCOVERY_EXACT_MATCH_ELEMENT_ID, {
+                                  scrollDelayMs: 80,
+                                  block: "center",
+                                });
+                              }, 120);
                             }}
                           >
                             Use
@@ -1334,7 +1373,12 @@ export default function SearchPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => navigateToProfile(suggestion.pubkey)}
+                            onClick={() => {
+                              focusDiscoveryTargetThen(
+                                discoverySuggestionElementId(suggestion.pubkey),
+                                () => navigateToProfile(suggestion.pubkey),
+                              );
+                            }}
                           >
                             View
                           </Button>
@@ -1445,13 +1489,20 @@ export default function SearchPage() {
                   <SearchResultCard
                     key={result.canonicalId}
                     result={result}
+                    targetElementId={discoverySearchResultElementId(result.canonicalId)}
                     onClick={(entry) => {
-                      if ((entry.kind === "person" || entry.kind === "invite" || entry.kind === "contact_card") && entry.display.pubkey) {
-                        navigateToProfile(entry.display.pubkey);
+                      const targetId = discoverySearchResultElementId(entry.canonicalId);
+                      const pubkey = entry.display.pubkey;
+                      if ((entry.kind === "person" || entry.kind === "invite" || entry.kind === "contact_card") && pubkey) {
+                        focusDiscoveryTargetThen(targetId, () => navigateToProfile(pubkey));
                         return;
                       }
-                      if (entry.kind === "community" && entry.display.communityId) {
-                        router.push(getPublicGroupHref(entry.display.communityId, entry.display.relayUrl));
+                      const communityId = entry.display.communityId;
+                      if (entry.kind === "community" && communityId) {
+                        focusDiscoveryTargetThen(
+                          targetId,
+                          () => router.push(getPublicGroupHref(communityId, entry.display.relayUrl)),
+                        );
                       }
                     }}
                     onAdd={(entry) => {

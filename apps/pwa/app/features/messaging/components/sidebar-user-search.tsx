@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useTranslation } from "react-i18next";
-import { ProfileSearchService, type ProfileSearchResult } from "../../search/services/profile-search-service";
+import type { ProfileSearchResult } from "../../search/services/profile-search-service";
+import { useDebouncedProfileSearch } from "../../search/hooks/use-debounced-profile-search";
 import { useRelay } from "../../relays/providers/relay-provider";
 import { Avatar, AvatarImage, AvatarFallback } from "@dweb/ui-kit";
 import { Button } from "@dweb/ui-kit";
@@ -24,59 +25,17 @@ export const SidebarUserSearch = ({ query, onQueryChange, inputRef, onUserSelect
     const { state: identityState } = useIdentity();
     const pathname = usePathname();
 
-    const [results, setResults] = useState<ProfileSearchResult[]>([]);
-    const [isSearching, setIsSearching] = useState(false);
     const [showResults, setShowResults] = useState(false);
     const containerRef = useRef<HTMLDivElement | null>(null);
 
     const normalizedQuery = query.trim();
     const shouldSearchGlobalUsers = normalizedQuery.length >= 3;
 
-    const searchService = useMemo(() => {
-        if (!pool) {
-            return null;
-        }
-
-        return new ProfileSearchService(
-            pool as any,
-            undefined,
-            identityState.publicKeyHex
-        );
-    }, [identityState.publicKeyHex, pool]);
-
-    useEffect(() => {
-        if (!shouldSearchGlobalUsers) {
-            setResults([]);
-            setIsSearching(false);
-            return;
-        }
-
-        if (!searchService) {
-            setIsSearching(false);
-            return;
-        }
-
-        let cancelled = false;
-        setIsSearching(true);
-
-        const timeoutId = window.setTimeout(async () => {
-            try {
-                const searchResults = await searchService.searchByName(normalizedQuery);
-                if (!cancelled) {
-                    setResults(searchResults);
-                }
-            } finally {
-                if (!cancelled) {
-                    setIsSearching(false);
-                }
-            }
-        }, 350);
-
-        return () => {
-            cancelled = true;
-            window.clearTimeout(timeoutId);
-        };
-    }, [normalizedQuery, searchService, shouldSearchGlobalUsers]);
+    const { results, isSearching } = useDebouncedProfileSearch({
+        query,
+        pool,
+        publicKeyHex: identityState.publicKeyHex ?? undefined,
+    });
 
     useEffect(() => {
         if (!shouldSearchGlobalUsers) {

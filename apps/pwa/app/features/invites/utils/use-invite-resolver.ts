@@ -3,6 +3,7 @@
 import { useState, useCallback, useMemo } from "react";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { useRelay } from "../../relays/providers/relay-provider";
+import { useRelayPoolRef } from "@/app/features/relays/hooks/use-relay-pool-ref";
 import { isValidInviteCode } from "./invite-parser";
 import type { NostrFilter } from "../../relays/types/nostr-filter";
 import { discoveryCache } from "@/app/features/search/services/discovery-cache";
@@ -68,8 +69,7 @@ export const inviteResolverInternals = {
 export const useInviteResolver = (params: { myPublicKeyHex: PublicKeyHex | null }) => {
     void params;
     const { relayPool: pool } = useRelay();
-
-
+    const poolRef = useRelayPoolRef(pool);
     const [isResolving, setIsResolving] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -94,7 +94,7 @@ export const useInviteResolver = (params: { myPublicKeyHex: PublicKeyHex | null 
 
         try {
             const records = await queryRelayProfiles({
-                pool,
+                pool: poolRef.current,
                 mode: "invite",
                 query: code,
                 timeoutMs: 7_000,
@@ -118,7 +118,7 @@ export const useInviteResolver = (params: { myPublicKeyHex: PublicKeyHex | null 
         } finally {
             setIsResolving(false);
         }
-    }, [pool]);
+    }, [poolRef]);
 
     return useMemo(() => ({
         resolveCode,

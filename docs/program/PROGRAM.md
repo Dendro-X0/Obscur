@@ -1,20 +1,21 @@
 # Program Overview
 
-**Active program:** v1.5.3 — stay smooth + mobile foundations. **Shipped:** v1.5.2 feel fast, v1.5.1 honest hide.  
-**Strategic frame:** [strategic-direction.md](./strategic-direction.md) · [product layers](../architecture/product-layers-and-nostr.md) · [future/](../future/) (kernel concepts, not shipping gates)  
-**Previous release:** v1.5.0 — profile isolation, ClientGateway, membership (see [releases/v1.5.0-release.md](../releases/v1.5.0-release.md)).  
-_Last updated: 2026-05-16_
+**Active program:** v1.8.3 (Lane T) → **v1.9.x Lane K** (kernel + coordination backend).  
+**Strategic frame:** [strategic-direction.md](./strategic-direction.md) · [obscur-2.0-milestone-roadmap.md](./obscur-2.0-milestone-roadmap.md) · [v1.9.0-kernel-backend-roadmap.md](./v1.9.0-kernel-backend-roadmap.md)  
+**Next major refactor:** [v1.9.0-kernel-backend-spec.md](./v1.9.0-kernel-backend-spec.md) — TransportPort, membership kernel, coordination directory.  
+_Last updated: 2026-05-22_
 
 ---
 
 ## What we are building (adjusted goals)
 
-Obscur is a **Nostr client application** getting better under realistic limits — not a failed bet on “100% sovereignty.” Long term, Nostr stays as a **transport adapter**; a communication **kernel** matures gradually in `docs/future/`.
+Obscur is a **communication product** on a **kernel + transport** stack. Nostr is a **long-term adapter**, not membership authority. **v1.9.x** implements the backend refactor chartered in [v1.9.0-kernel-backend-roadmap.md](./v1.9.0-kernel-backend-roadmap.md).
 
 | Bar | Meaning |
 |-----|---------|
-| **v1.5.x** | Decent Nostr client: E2E chat, groups, durable local hide, honest recall copy |
-| **Kernel** | Documented in `docs/future/`; code extraction is incremental, post–v1.5.1 |
+| **v1.8.x** | Trust + Phase 4 patches on current stack (Lane T/C/X) |
+| **v1.9.x** | Kernel ports + coordination backend — **usable** leave/roster/DM materialization |
+| **v2.0.0** | Platform gate (SQLite, Android) **after** Lane K exit |
 
 ---
 
@@ -60,6 +61,8 @@ Full narrative: [encyclopedia/11-program-milestones-and-stability-history.md](..
 | [refactor-verification-and-docs-policy.md](./v1.5.0-refactor-verification-and-docs-policy.md) | When testing counts as “done” |
 | [known-issues-and-investigation-queue.md](./v1.5.0-known-issues-and-investigation-queue.md) | Open P0/P1 |
 | [current-roadmap.md](./current-roadmap.md) | Policy and lane priority |
+| [auth-ux-redesign-future.md](./auth-ux-redesign-future.md) | **Deferred** — registration/login UX target model (future versions) |
+| [phase3-desktop-online-gate.md](./phase3-desktop-online-gate.md) | **Active** — G6 online modules (relay → sync → DM) |
 
 ---
 

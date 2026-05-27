@@ -1,13 +1,14 @@
 export type ConversationListAuthority = "sqlite" | "projection" | "persisted";
 
 export type ConversationListAuthorityReason =
-  | "sqlite_tauri"
+  | "sqlite_native"
   | "projection_read_cutover"
   | "legacy_richer_than_projection"
   | "persisted_fallback";
 
 export type ResolveConversationListAuthorityParams = Readonly<{
-  isTauri: boolean;
+  /** Native desktop/mobile — SQLite is always list authority. */
+  isNativeRuntime: boolean;
   sqliteConversationCount: number;
   useProjectionReads: boolean;
   projectionConversationCount: number;
@@ -22,10 +23,10 @@ export type ConversationListAuthorityDecision = Readonly<{
 export const resolveConversationListAuthority = (
   params: ResolveConversationListAuthorityParams,
 ): ConversationListAuthorityDecision => {
-  if (params.isTauri && params.sqliteConversationCount > 0) {
+  if (params.isNativeRuntime) {
     return {
       authority: "sqlite",
-      reason: "sqlite_tauri",
+      reason: "sqlite_native",
     };
   }
   if (params.legacyChatStateHasRicherDmContent) {

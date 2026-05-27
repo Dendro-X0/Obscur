@@ -20,6 +20,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useRelayPoolRef } from '@/app/features/relays/hooks/use-relay-pool-ref';
 import type { SimplePool } from 'nostr-tools';
 import {
   createPresenceState,
@@ -87,6 +88,9 @@ export function usePresenceGossip({
   );
   const [currentTime, setCurrentTime] = useState(() => Date.now());
   const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const relayPoolRef = useRelayPoolRef(relayPool);
+  const presenceStateRef = useRef(presenceState);
+  presenceStateRef.current = presenceState;
 
   // Keep time current for status calculations
   useEffect(() => {
@@ -104,13 +108,13 @@ export function usePresenceGossip({
 
   // Broadcast heartbeat to network
   const broadcastHeartbeat = useCallback(() => {
-    if (!enableGossip || !myPubkey || !relayPool) return;
+    if (!enableGossip || !myPubkey || !relayPoolRef.current) return;
 
     // Record locally first
     recordOwn();
 
     // Create and broadcast gossip payload
-    const payload = createGossipPayload(presenceState, myPubkey, myDeviceId);
+    const payload = createGossipPayload(presenceStateRef.current, myPubkey, myDeviceId);
 
     // TODO: Implement actual relay broadcast via Nostr event
     // For now, this is a placeholder for the gossip protocol
@@ -122,7 +126,7 @@ export function usePresenceGossip({
 
     // Future: Broadcast via relay
     // relayPool.publish(relays, createPresenceEvent(payload));
-  }, [enableGossip, myPubkey, myDeviceId, relayPool, presenceState, recordOwn]);
+  }, [enableGossip, myPubkey, myDeviceId, relayPoolRef, recordOwn]);
 
   // Periodic heartbeat
   useEffect(() => {

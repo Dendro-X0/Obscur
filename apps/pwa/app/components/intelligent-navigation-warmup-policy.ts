@@ -1,7 +1,7 @@
 import type { NavItem } from "../lib/navigation/nav-item";
 import type { RouteSurface } from "./page-transition-recovery";
 
-/** Sidebar routes backed by `next/dynamic` page clients. */
+/** Sidebar routes with lazy page clients on web/mobile; desktop uses eager page entries. */
 export const NAVIGATION_WARMUP_ALLOWED_HREFS = new Set<string>([
   "/network",
   "/vault",

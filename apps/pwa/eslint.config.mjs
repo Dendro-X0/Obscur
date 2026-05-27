@@ -82,6 +82,9 @@ const eslintConfig = defineConfig([
       "app/features/groups/services/community-roster-persistence.ts",
       "app/features/groups/services/community-membership-mutation-owner.ts",
       "app/features/groups/services/community-membership-ledger.ts",
+      "app/features/groups/services/community-transport-owner.ts",
+      "app/features/groups/services/community-membership-semantic-ingress.ts",
+      "app/features/groups/services/community-membership-port-owner.ts",
       "app/features/messaging/services/dm-conversation-materialization-realtime.ts",
     ],
     rules: {
@@ -106,6 +109,17 @@ const eslintConfig = defineConfig([
               importNames: ["prepareDmThreadSuppressionIds"],
               message:
                 "Route through getResolvedClientGateway().dmConversationMaterialization.prepareThreadSuppressionIds (R1).",
+            },
+            {
+              name: "@/app/features/messaging/services/conversation-message-materialization",
+              importNames: [
+                "filterMessagesBySuppressedIds",
+                "mergeHydratedBaseWithLiveOverlayMessages",
+                "mergeProjectionFirstWithOverlayMessages",
+                "selectMessagesForConversationHistoryAuthority",
+              ],
+              message:
+                "Route through messagingClientOperations or dmConversationMaterialization port (R1).",
             },
             {
               name: "@/app/features/messaging/services/dm-conversation-hydrate-pipeline",
@@ -224,6 +238,8 @@ const eslintConfig = defineConfig([
       "app/features/messaging/controllers/v2/dm-controller.ts",
       "app/features/messaging/controllers/incoming-dm-event-handler.ts",
       "app/features/messaging/services/conversation-message-visibility.ts",
+      "app/features/messaging/services/dm-read-authority-contract.ts",
+      "app/features/messaging/services/conversation-message-materialization.ts",
       "app/features/groups/services/community-group-message-suppression.ts",
       "app/features/messaging/controllers/v2/dm-delete-pipeline.ts",
       "app/features/runtime/services/client-gateway-adapter.ts",

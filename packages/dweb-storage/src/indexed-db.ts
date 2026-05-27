@@ -1,8 +1,7 @@
 
 /**
- * IndexedDB entry: main messenger DB (`messagingDB`).
- * Implementation lives in `./indexed-db-engine` so other modules (e.g. tombstones)
- * can use the engine without going through this file (important for partial Vitest mocks).
+ * Messenger storage entry (`messagingDB`) — in-memory engine only (IndexedDB permanently excluded).
+ * Implementation lives in `./indexed-db-engine`.
  */
 
 export type { DBConfig } from "./indexed-db-engine";

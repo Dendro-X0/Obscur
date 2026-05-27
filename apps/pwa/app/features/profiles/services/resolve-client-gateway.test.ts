@@ -19,6 +19,8 @@ describe("resolve-client-gateway", () => {
     expect(getResolvedClientGateway()).toBe(gateway);
     expect(getResolvedClientGateway().dmConversationMaterialization).toBeDefined();
     expect(getResolvedClientGateway().communityRoster).toBeDefined();
+    expect(getResolvedClientGateway().communityTransport.kind).toBe("nostr");
+    expect(getResolvedClientGateway().communityMembership.ownerId).toBe("community-membership-port-owner");
     setProfileRuntimeScope(null);
   });
 });

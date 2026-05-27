@@ -6,6 +6,7 @@ import { useAccountProjectionSnapshot } from "@/app/features/account-sync/hooks/
 import { useAccountSyncSnapshot } from "@/app/features/account-sync/hooks/use-account-sync-snapshot";
 import { useWindowRuntime } from "@/app/features/runtime/services/window-runtime-supervisor";
 import { cn } from "@/app/lib/utils";
+import { isExperimentShellEnabled } from "../experiment-shell-policy";
 
 type LaunchStepStatus = "pending" | "active" | "done" | "degraded";
 
@@ -34,6 +35,7 @@ const stepContribution = (status: LaunchStepStatus): number => {
 };
 
 export function StartupExperienceOverlay(): React.JSX.Element | null {
+  const experimentShell = isExperimentShellEnabled();
   const runtime = useWindowRuntime().snapshot;
   const accountSyncSnapshot = useAccountSyncSnapshot();
   const projectionSnapshot = useAccountProjectionSnapshot();
@@ -54,11 +56,13 @@ export function StartupExperienceOverlay(): React.JSX.Element | null {
 
   const relayPhase = runtime.relayRuntime.phase;
   const relayConnected = runtime.relayRuntime.writableRelayCount > 0;
-  const relaySettled = relayConnected || relayPhase === "healthy" || relayPhase === "degraded" || relayPhase === "recovering" || relayPhase === "offline" || relayPhase === "fatal";
   const identityReady = runtime.session.identityStatus === "unlocked" || runtime.session.identityStatus === "error";
   const projectionReady = projectionSnapshot.phase === "ready" || projectionSnapshot.phase === "degraded";
-  /** Shell is usable once identity, projection, and relay are settled; account sync and runtime phase may finish afterward. */
-  const startupComplete = identityReady && projectionReady && relaySettled;
+  /**
+   * O1: Local shell is usable once identity + projection are ready.
+   * Relay/transport must not block UI — status shows in the relay step only.
+   */
+  const startupComplete = identityReady && projectionReady;
   const accountSyncStillRunning = accountSyncSnapshot.phase !== "ready" && accountSyncSnapshot.phase !== "error";
   const startupTransitioning = runtime.phase === "booting" || runtime.phase === "binding_profile" || runtime.phase === "unlocking" || runtime.phase === "activating_runtime";
   const shouldParticipate = overlayEligibleThisSession && runtime.phase !== "auth_required" && runtime.phase !== "fatal" && runtime.session.identityStatus !== "locked";
@@ -147,8 +151,9 @@ export function StartupExperienceOverlay(): React.JSX.Element | null {
     const relayStep: LaunchStepStatus = relayConnected
       ? "done"
       : relayPhase === "degraded" || relayPhase === "offline" || relayPhase === "fatal"
+        || relayPhase === "connecting" || relayPhase === "recovering"
         ? "degraded"
-        : relayPhase === "connecting" || relayPhase === "recovering" || relayPhase === "booting"
+        : relayPhase === "booting"
           ? "active"
           : "pending";
 
@@ -203,7 +208,7 @@ export function StartupExperienceOverlay(): React.JSX.Element | null {
     : 0;
   const canBypass = elapsedMs >= STARTUP_OVERLAY_BYPASS_THRESHOLD_MS;
 
-  if (!isVisible) {
+  if (experimentShell || !isVisible) {
     return null;
   }
 

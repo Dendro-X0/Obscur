@@ -15,21 +15,57 @@ use std::time::{Duration, Instant};
 use tauri::{State, WebviewWindow};
 
 pub struct ProtocolState {
+    db_path: Mutex<PathBuf>,
     runtime: Mutex<Option<ProtocolRuntime>>,
     init_error: Mutex<Option<String>>,
 }
 
 impl ProtocolState {
+    /// Opens protocol storage lazily on first command — keeps Tauri setup off the hot path.
     pub fn new(db_path: PathBuf) -> Self {
-        match ProtocolRuntime::new(db_path.to_string_lossy().to_string()) {
-            Ok(runtime) => Self {
-                runtime: Mutex::new(Some(runtime)),
-                init_error: Mutex::new(None),
-            },
-            Err(err) => Self {
-                runtime: Mutex::new(None),
-                init_error: Mutex::new(Some(err)),
-            },
+        Self {
+            db_path: Mutex::new(db_path),
+            runtime: Mutex::new(None),
+            init_error: Mutex::new(None),
+        }
+    }
+
+    fn ensure_runtime(&self) -> Result<(), String> {
+        let mut runtime_guard = self
+            .runtime
+            .lock()
+            .map_err(|_| "Protocol runtime lock poisoned.".to_string())?;
+        if runtime_guard.is_some() {
+            return Ok(());
+        }
+
+        if let Some(message) = self
+            .init_error
+            .lock()
+            .ok()
+            .and_then(|guard| guard.clone())
+        {
+            return Err(message);
+        }
+
+        let db_path = self
+            .db_path
+            .lock()
+            .map_err(|_| "Protocol runtime lock poisoned.".to_string())?;
+        let path_str = db_path.to_string_lossy().to_string();
+        drop(db_path);
+
+        match ProtocolRuntime::new(path_str) {
+            Ok(runtime) => {
+                *runtime_guard = Some(runtime);
+                Ok(())
+            }
+            Err(err) => {
+                if let Ok(mut init_error_guard) = self.init_error.lock() {
+                    *init_error_guard = Some(err.clone());
+                }
+                Err(err)
+            }
         }
     }
 
@@ -47,6 +83,9 @@ impl ProtocolState {
         &self,
         action: impl FnOnce(&ProtocolRuntime) -> ProtocolCommandResult<T>,
     ) -> ProtocolCommandResult<T> {
+        if let Err(message) = self.ensure_runtime() {
+            return ProtocolCommandResult::failed(SecurityReasonCode::StorageUnavailable, message, true);
+        }
         match self.runtime.lock() {
             Ok(guard) => match guard.as_ref() {
                 Some(runtime) => action(runtime),

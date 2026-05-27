@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRelayPoolRef } from "@/app/features/relays/hooks/use-relay-pool-ref";
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { EnhancedRelayPoolResult } from "@/app/features/relays/hooks/enhanced-relay-pool";
@@ -12,6 +13,7 @@ import { accountRehydrateService } from "../services/account-rehydrate-service";
 import { accountProjectionRuntime } from "../services/account-projection-runtime";
 import { encryptedAccountBackupService } from "../services/encrypted-account-backup-service";
 import { accountSyncStatusStore } from "../services/account-sync-status-store";
+import { isExperimentOfflineStubEnabled } from "@/app/features/runtime/experiment-shell-policy";
 import type {
   AccountSyncBackupPublishReason,
   AccountSyncBackupPublishResult,
@@ -101,6 +103,7 @@ const resolveRestoreCooldownMs = (reason: AccountSyncBackupRestoreReason): numbe
 };
 
 export const useAccountSync = (params: UseAccountSyncParams) => {
+  const poolRef = useRelayPoolRef(params.pool);
   const [snapshot, setSnapshot] = useState<AccountSyncSnapshot>(() => accountSyncStatusStore.getSnapshot());
   const rehydratedForKeyRef = useRef<string | null>(null);
   const backupInFlightRef = useRef(false);
@@ -179,7 +182,7 @@ export const useAccountSync = (params: UseAccountSyncParams) => {
       const result = await encryptedAccountBackupService.restoreEncryptedAccountBackup({
         publicKeyHex: params.publicKeyHex,
         privateKeyHex: params.privateKeyHex,
-        pool: params.pool,
+        pool: poolRef.current,
         profileId: getResolvedProfileId(),
         appendCanonicalEvents: accountProjectionRuntime.appendCanonicalEvents.bind(accountProjectionRuntime),
       });
@@ -258,7 +261,7 @@ export const useAccountSync = (params: UseAccountSyncParams) => {
     } finally {
       restoreInFlightRef.current = false;
     }
-  }, [convergenceGuardEnabled, params.pool, params.privateKeyHex, params.publicKeyHex, updateConvergenceDiagnostics]);
+  }, [convergenceGuardEnabled, poolRef, params.privateKeyHex, params.publicKeyHex, updateConvergenceDiagnostics]);
 
   const maybePublishBackup = useCallback(async (
     reason: AccountSyncBackupPublishReason
@@ -322,7 +325,7 @@ export const useAccountSync = (params: UseAccountSyncParams) => {
       const publishResult = await encryptedAccountBackupService.publishEncryptedAccountBackup({
         publicKeyHex: params.publicKeyHex,
         privateKeyHex: params.privateKeyHex,
-        pool: params.pool,
+        pool: poolRef.current,
         scopedRelayUrls: params.enabledRelayUrls,
       });
       const mappedResult = mapPublishResult(publishResult);
@@ -366,7 +369,7 @@ export const useAccountSync = (params: UseAccountSyncParams) => {
     } finally {
       backupInFlightRef.current = false;
     }
-  }, [convergenceGuardEnabled, params.enabledRelayUrls, params.pool, params.privateKeyHex, params.publicKeyHex, updateConvergenceDiagnostics]);
+  }, [convergenceGuardEnabled, params.enabledRelayUrls, poolRef, params.privateKeyHex, params.publicKeyHex, updateConvergenceDiagnostics]);
 
   useEffect(() => accountSyncStatusStore.subscribe(setSnapshot), []);
 
@@ -388,6 +391,16 @@ export const useAccountSync = (params: UseAccountSyncParams) => {
     if (rehydratedForKeyRef.current === key) {
       return;
     }
+    if (isExperimentOfflineStubEnabled()) {
+      rehydratedForKeyRef.current = key;
+      accountSyncStatusStore.updateSnapshot({
+        publicKeyHex: params.publicKeyHex!,
+        phase: "ready",
+        status: "identity_only",
+        message: "Experiment shell: account sync deferred",
+      });
+      return;
+    }
     rehydratedForKeyRef.current = key;
     let cancelled = false;
 
@@ -396,7 +409,7 @@ export const useAccountSync = (params: UseAccountSyncParams) => {
         const report = await accountRehydrateService.rehydrateAccount({
           publicKeyHex: params.publicKeyHex!,
           privateKeyHex: params.privateKeyHex!,
-          pool: params.pool,
+          pool: poolRef.current,
           cacheOnlyEncryptedBackup: true,
         });
         if (cancelled) {
@@ -447,7 +460,7 @@ export const useAccountSync = (params: UseAccountSyncParams) => {
     maybePublishBackup,
     maybeRestoreBackup,
     params.onRelayListRestored,
-    params.pool,
+    poolRef,
     params.privateKeyHex,
     params.publicKeyHex,
   ]);
@@ -481,6 +494,9 @@ export const useAccountSync = (params: UseAccountSyncParams) => {
   ]);
 
   useEffect(() => {
+    if (isExperimentOfflineStubEnabled()) {
+      return;
+    }
     if (!params.publicKeyHex || !params.privateKeyHex) {
       return;
     }
@@ -618,6 +634,9 @@ export const useAccountSync = (params: UseAccountSyncParams) => {
   ]);
 
   useEffect(() => {
+    if (isExperimentOfflineStubEnabled()) {
+      return;
+    }
     if (!params.publicKeyHex || !params.privateKeyHex || snapshot.phase !== "ready") {
       return;
     }
@@ -655,7 +674,7 @@ export const useAccountSync = (params: UseAccountSyncParams) => {
       const publishResult = await encryptedAccountBackupService.publishEncryptedAccountBackup({
         publicKeyHex: params.publicKeyHex,
         privateKeyHex: params.privateKeyHex,
-        pool: params.pool,
+        pool: poolRef.current,
         scopedRelayUrls: params.enabledRelayUrls,
       });
       if (wasBackupPublished(publishResult)) {
@@ -668,5 +687,5 @@ export const useAccountSync = (params: UseAccountSyncParams) => {
       });
       return publishResult;
     },
-  }), [params.enabledRelayUrls, params.pool, params.privateKeyHex, params.publicKeyHex, snapshot, updateConvergenceDiagnostics]);
+  }), [params.enabledRelayUrls, poolRef, params.privateKeyHex, params.publicKeyHex, snapshot, updateConvergenceDiagnostics]);
 };

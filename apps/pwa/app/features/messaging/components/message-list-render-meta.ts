@@ -304,10 +304,16 @@ const toMessageUnixMs = (message: Message): number => {
 export const buildMessageRenderCaches = (params: Readonly<{
     messages: ReadonlyArray<Message>;
     expandedRelayUrlsByMessageId: ReadonlySet<string>;
+    conversationId?: string;
+    profileId?: string;
 }>): MessageRenderCaches => {
     const parsedPayloadByMessageId = new Map<string, ParsedMessagePayload | null>();
     const inviteResponseStatusByMessageId = new Map<string, InviteResponseStatus>(
-        buildCommunityInviteResponseStatusByMessageId(params.messages),
+        buildCommunityInviteResponseStatusByMessageId(
+            params.messages,
+            params.conversationId,
+            params.profileId,
+        ),
     );
     const renderMetaByMessageId = new Map<string, MessageRenderMeta>();
     const voiceCallRoomAccumulatorByRoomId = new Map<string, MutableVoiceCallRoomAccumulator>();

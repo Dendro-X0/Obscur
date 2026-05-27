@@ -26,81 +26,32 @@ const buildStorageKey = (partitionKey: string, idempotencyKey: string): string =
   `${partitionKey}${IDENTITY_PARTITION_SEPARATOR}${idempotencyKey}`
 );
 
-const openDb = async (): Promise<IDBDatabase> => {
-  if (typeof indexedDB === "undefined") {
-    throw new Error("IndexedDB is unavailable in this runtime.");
-  }
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
-    request.onupgradeneeded = () => {
-      const db = request.result;
-      if (!db.objectStoreNames.contains(EVENTS_STORE)) {
-        const store = db.createObjectStore(EVENTS_STORE, { keyPath: "storageKey" });
-        store.createIndex("partition_sequence", ["partitionKey", "sequence"], { unique: false });
-        store.createIndex("partition_idempotency", ["partitionKey", "idempotencyKey"], { unique: true });
-      }
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error ?? new Error("Failed to open account event database."));
-  });
-};
+/** In-memory account event log (IndexedDB permanently excluded). */
+const recordsByStorageKey = new Map<string, StoredAccountEventRecord>();
 
-const transactionDone = (transaction: IDBTransaction): Promise<void> => (
-  new Promise((resolve, reject) => {
-    transaction.oncomplete = () => resolve();
-    transaction.onerror = () => reject(transaction.error ?? new Error("IndexedDB transaction failed."));
-    transaction.onabort = () => reject(transaction.error ?? new Error("IndexedDB transaction aborted."));
-  })
+const getRecord = async (_db: null, key: string): Promise<StoredAccountEventRecord | null> => (
+  recordsByStorageKey.get(key) ?? null
 );
 
-const getRecord = async (db: IDBDatabase, key: string): Promise<StoredAccountEventRecord | null> => {
-  const transaction = db.transaction(EVENTS_STORE, "readonly");
-  const store = transaction.objectStore(EVENTS_STORE);
-  const request = store.get(key);
-  const record = await new Promise<StoredAccountEventRecord | null>((resolve, reject) => {
-    request.onsuccess = () => resolve((request.result as StoredAccountEventRecord | undefined) ?? null);
-    request.onerror = () => reject(request.error ?? new Error("Failed to read account event."));
-  });
-  await transactionDone(transaction);
-  return record;
+const getLastSequence = async (_db: null, partitionKey: string): Promise<number> => {
+  let max = 0;
+  for (const record of recordsByStorageKey.values()) {
+    if (record.partitionKey === partitionKey && record.sequence > max) {
+      max = record.sequence;
+    }
+  }
+  return max;
 };
 
-const getLastSequence = async (db: IDBDatabase, partitionKey: string): Promise<number> => {
-  const transaction = db.transaction(EVENTS_STORE, "readonly");
-  const store = transaction.objectStore(EVENTS_STORE);
-  const index = store.index("partition_sequence");
-  const lowerBound = [partitionKey, Number.MIN_SAFE_INTEGER];
-  const upperBound = [partitionKey, Number.MAX_SAFE_INTEGER];
-  const request = index.openCursor(IDBKeyRange.bound(lowerBound, upperBound), "prev");
-  const sequence = await new Promise<number>((resolve, reject) => {
-    request.onsuccess = () => {
-      const cursor = request.result;
-      if (!cursor) {
-        resolve(0);
-        return;
-      }
-      const record = cursor.value as StoredAccountEventRecord;
-      resolve(record.sequence);
-    };
-    request.onerror = () => reject(request.error ?? new Error("Failed to inspect account event sequence."));
-  });
-  await transactionDone(transaction);
-  return sequence;
+const putRecord = async (_db: null, record: StoredAccountEventRecord): Promise<void> => {
+  recordsByStorageKey.set(record.storageKey, record);
 };
 
-const putRecord = async (db: IDBDatabase, record: StoredAccountEventRecord): Promise<void> => {
-  const transaction = db.transaction(EVENTS_STORE, "readwrite");
-  const store = transaction.objectStore(EVENTS_STORE);
-  store.put(record);
-  await transactionDone(transaction);
+const deleteRecord = async (_db: null, key: string): Promise<void> => {
+  recordsByStorageKey.delete(key);
 };
 
-const deleteRecord = async (db: IDBDatabase, key: string): Promise<void> => {
-  const transaction = db.transaction(EVENTS_STORE, "readwrite");
-  const store = transaction.objectStore(EVENTS_STORE);
-  store.delete(key);
-  await transactionDone(transaction);
-};
+const openDb = async (): Promise<null> => null;
 
 const isDmTimelineEventForMessageIds = (
   event: AccountEvent,
@@ -113,24 +64,9 @@ const isDmTimelineEventForMessageIds = (
   return messageId.length > 0 && messageIds.has(messageId);
 };
 
-const loadPartitionRecords = async (db: IDBDatabase, partitionKey: string): Promise<ReadonlyArray<StoredAccountEventRecord>> => {
-  const transaction = db.transaction(EVENTS_STORE, "readonly");
-  const store = transaction.objectStore(EVENTS_STORE);
-  const index = store.index("partition_sequence");
-  const request = index.getAll(IDBKeyRange.bound(
-    [partitionKey, Number.MIN_SAFE_INTEGER],
-    [partitionKey, Number.MAX_SAFE_INTEGER],
-  ));
-  const records = await new Promise<ReadonlyArray<StoredAccountEventRecord>>((resolve, reject) => {
-    request.onsuccess = () => {
-      const value = (request.result as ReadonlyArray<StoredAccountEventRecord> | undefined) ?? [];
-      resolve(value);
-    };
-    request.onerror = () => reject(request.error ?? new Error("Failed to load account event records."));
-  });
-  await transactionDone(transaction);
-  const ordered = [...records];
-  ordered.sort((left: StoredAccountEventRecord, right: StoredAccountEventRecord) => left.sequence - right.sequence);
+const loadPartitionRecords = async (_db: null, partitionKey: string): Promise<ReadonlyArray<StoredAccountEventRecord>> => {
+  const ordered = [...recordsByStorageKey.values()].filter((record) => record.partitionKey === partitionKey);
+  ordered.sort((left, right) => left.sequence - right.sequence);
   return ordered;
 };
 
@@ -176,7 +112,6 @@ export const accountEventStore = {
       await putRecord(db, record);
       appendedCount += 1;
     }
-    db.close();
     return {
       appendedCount,
       dedupeCount,
@@ -190,7 +125,6 @@ export const accountEventStore = {
     const db = await openDb();
     const partitionKey = buildPartitionKey(params);
     const records = await loadPartitionRecords(db, partitionKey);
-    db.close();
     return records.map((record) => ({
       sequence: record.sequence,
       event: record.event,
@@ -202,9 +136,7 @@ export const accountEventStore = {
   }>): Promise<number> {
     const db = await openDb();
     const partitionKey = buildPartitionKey(params);
-    const sequence = await getLastSequence(db, partitionKey);
-    db.close();
-    return sequence;
+    return getLastSequence(db, partitionKey);
   },
   /**
    * Physically remove DM timeline events for the given message ids so replay cannot resurrect them.
@@ -232,7 +164,6 @@ export const accountEventStore = {
       await deleteRecord(db, record.storageKey);
       redactedCount += 1;
     }
-    db.close();
     return { redactedCount };
   },
 };

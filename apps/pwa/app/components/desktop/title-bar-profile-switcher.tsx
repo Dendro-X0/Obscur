@@ -10,7 +10,6 @@ import { cn } from "@/app/lib/utils";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { getAuthTokenStorageKey } from "@/app/features/auth/utils/auth-storage-keys";
 import { clearAuthSessionPersistence } from "@/app/features/auth/utils/clear-auth-session-persistence";
-import { isRememberMeEnabledForProfile } from "@/app/features/auth/utils/remember-me-state";
 import { cryptoService } from "@/app/features/crypto/crypto-service";
 import { useTauri } from "@/app/features/desktop/hooks/use-tauri";
 import { useProfile } from "@/app/features/profile/hooks/use-profile";
@@ -108,9 +107,7 @@ export function TitleBarProfileSwitcher({ title }: Props): React.JSX.Element | n
   const shouldRenderProfileChip = isUnlocked && Boolean(currentPublicKeyHex);
 
   const handleLock = (): void => {
-    if (!isRememberMeEnabledForProfile(snapshot.currentWindow.profileId)) {
-      localStorage.removeItem(getAuthTokenStorageKey(snapshot.currentWindow.profileId));
-    }
+    localStorage.removeItem(getAuthTokenStorageKey(snapshot.currentWindow.profileId));
     identity.lockIdentity();
     setOpen(false);
     toast.success("Session locked.");

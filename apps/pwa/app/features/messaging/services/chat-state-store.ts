@@ -9,7 +9,6 @@ import type {
     PersistedConnectionRequest
 } from "../types";
 import { loadPersistedChatState, normalizePersistedGroupState, savePersistedChatState } from "../utils/persistence";
-import { messagingDB } from "@dweb/storage/indexed-db";
 import { emitAccountSyncMutation } from "@/app/shared/account-sync-mutation-signal";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import { getProfileRuntimeScope, getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
@@ -82,36 +81,9 @@ class ChatStateStore {
         return reloaded;
     }
 
-    /**
-     * Async hydration of messages from IndexedDB.
-     */
-    async hydrateMessages(publicKeyHex: PublicKeyHex): Promise<void> {
-        if (typeof window === "undefined") return;
-
-        try {
-            const dbState = await messagingDB.get<PersistedChatState>("chatState", publicKeyHex);
-            if (dbState) {
-                // Use silent:true — this is an internal read from IndexedDB during backup
-                // payload construction, not a user mutation. Emitting chat_state_changed
-                // here creates a publish feedback loop:
-                //   publishBackup → hydrateMessages → chat_state_changed → publishBackup ...
-                this.update(publicKeyHex, prev => ({
-                    ...normalizePersistedGroupState({
-                        ...prev,
-                        messagesByConversationId: {
-                            ...prev.messagesByConversationId,
-                            ...dbState.messagesByConversationId
-                        },
-                        groupMessages: {
-                            ...prev.groupMessages,
-                            ...dbState.groupMessages
-                        }
-                    })
-                }), { silent: true });
-            }
-        } catch (e) {
-            console.error("[ChatStateStore] Failed to hydrate messages from IndexedDB:", e);
-        }
+    /** No-op — IndexedDB hydration permanently excluded. */
+    async hydrateMessages(_publicKeyHex: PublicKeyHex): Promise<void> {
+        return;
     }
 
     /**
@@ -252,36 +224,6 @@ class ChatStateStore {
                 groupMessages: nextGroupMessages,
             };
         });
-        // Also scrub the IDB chatState blob so hydrateMessages() cannot
-        // re-introduce the deleted rows by merging stale IDB data over memory.
-        if (typeof window !== "undefined") {
-            messagingDB.get<PersistedChatState & { publicKeyHex?: string }>("chatState", publicKeyHex)
-                .then((blob) => {
-                    if (!blob) return;
-                    const conv = blob.messagesByConversationId?.[conversationId];
-                    const grp = blob.groupMessages?.[conversationId];
-                    if (!conv && !grp) return;
-                    const cleanedBlob = {
-                        ...blob,
-                        messagesByConversationId: {
-                            ...blob.messagesByConversationId,
-                            [conversationId]: (conv ?? []).filter((m) => {
-                                const mid = String(m.id ?? "").trim();
-                                const eid = String(m.eventId ?? "").trim();
-                                return !deleteIds.has(mid) && !deleteIds.has(eid);
-                            }),
-                        },
-                        groupMessages: {
-                            ...(blob.groupMessages ?? {}),
-                            [conversationId]: (grp ?? []).filter((m) => {
-                                return !deleteIds.has(String(m.id ?? "").trim());
-                            }),
-                        },
-                    };
-                    return messagingDB.put("chatState", cleanedBlob);
-                })
-                .catch(() => {});
-        }
     }
 
     removeMessageIdentitiesFromAllActiveScopes(
@@ -372,21 +314,7 @@ class ChatStateStore {
             pending.latest = null;
             if (!latest) return;
 
-            // Partition and Save:
-            // 1. Full state to IndexedDB for high-capacity storage
-            try {
-                await messagingDB.put("chatState", { ...latest, publicKeyHex });
-            } catch (e) {
-                console.warn("[ChatStateStore] IndexedDB put failed, falling back to LocalStorage only", e);
-            }
-
-            // 2. Metadata-only state to localStorage to keep it under the limit
-            const metadataOnly: PersistedChatState = {
-                ...latest,
-                messagesByConversationId: {},
-                groupMessages: {}
-            };
-            savePersistedChatState(metadataOnly, publicKeyHex, { profileId });
+            savePersistedChatState(latest, publicKeyHex, { profileId });
         }, debounceMs);
 
         this.pendingByScopeKey.set(scopeKey, pending);
@@ -410,18 +338,7 @@ class ChatStateStore {
         pending.timeoutId = null;
         pending.latest = null;
 
-        try {
-            await messagingDB.put("chatState", { ...latest, publicKeyHex });
-        } catch (e) {
-            console.warn("[ChatStateStore] Flush to IndexedDB failed", e);
-        }
-
-        const metadataOnly: PersistedChatState = {
-            ...latest,
-            messagesByConversationId: {},
-            groupMessages: {}
-        };
-        savePersistedChatState(metadataOnly, publicKeyHex, { profileId });
+        savePersistedChatState(latest, publicKeyHex, { profileId });
     }
 
     private createInitialState(): PersistedChatState {
@@ -444,66 +361,29 @@ class ChatStateStore {
      */
     async searchMessages(query: string, limit: number = 50): Promise<ReadonlyArray<{ conversationId: string; message: PersistedMessage }>> {
         if (typeof window === "undefined" || !query) return [];
-
-        const db = await messagingDB["ensureDB"](); // Accessing private for utility, or we can add a helper
         const lowerQuery = query.toLowerCase();
-
-        return new Promise((resolve, reject) => {
-            const transaction = db.transaction("messages", "readonly");
-            const store = transaction.objectStore("messages");
-            const request = store.index("timestampMs").openCursor(null, "prev"); // Search newest first
-
-            const results: Array<{ conversationId: string; message: PersistedMessage }> = [];
-            request.onsuccess = (event) => {
-                const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result;
-                if (cursor) {
-                    const msg = cursor.value;
-                    const searchIndexText = buildMessageSearchIndexText(msg);
-                    if (searchIndexText.includes(lowerQuery)) {
-                        results.push({
-                            conversationId: msg.conversationId,
-                            message: msg
-                        });
+        const results: Array<{ conversationId: string; message: PersistedMessage }> = [];
+        for (const state of this.memoryCacheByScopeKey.values()) {
+            const byConv = state.messagesByConversationId ?? {};
+            for (const [conversationId, messages] of Object.entries(byConv)) {
+                for (const message of messages) {
+                    if (buildMessageSearchIndexText(message).includes(lowerQuery)) {
+                        results.push({ conversationId, message });
+                        if (results.length >= limit) {
+                            return results;
+                        }
                     }
-
-                    if (results.length >= limit) {
-                        resolve(results);
-                    } else {
-                        cursor.continue();
-                    }
-                } else {
-                    resolve(results);
                 }
-            };
-            request.onerror = () => reject(request.error);
-        });
+            }
+        }
+        return results;
     }
 
     /**
      * Deletes all messages for a specific conversation from IndexedDB.
      */
-    async deleteConversationMessages(conversationId: string): Promise<void> {
-        if (typeof window === "undefined") return;
-
-        const db = await messagingDB["ensureDB"]();
-        return new Promise<void>((resolve, reject) => {
-            const transaction = db.transaction("messages", "readwrite");
-            const store = transaction.objectStore("messages");
-            const index = store.index("conversation_timestamp");
-            const range = IDBKeyRange.bound([conversationId, 0], [conversationId, Date.now()]);
-            const request = index.openCursor(range);
-
-            request.onsuccess = (event) => {
-                const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result;
-                if (cursor) {
-                    cursor.delete();
-                    cursor.continue();
-                } else {
-                    resolve();
-                }
-            };
-            request.onerror = () => reject(request.error);
-        });
+    async deleteConversationMessages(_conversationId: string): Promise<void> {
+        return;
     }
 }
 

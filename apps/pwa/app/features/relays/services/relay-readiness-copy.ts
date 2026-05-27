@@ -1,33 +1,42 @@
 import type { RelayReadinessState, RelayRecoverySnapshot } from "./relay-recovery-policy";
 
 export const getRelayReadinessBannerCopy = (snapshot: RelayRecoverySnapshot): string | null => {
+  if (snapshot.recoveryReasonCode === "recovery_exhausted") {
+    return "Could not connect to relays. Automatic retries are paused — use the relay badge to retry or check relay settings.";
+  }
   switch (snapshot.readiness) {
     case "recovering":
       return "Obscur is recovering the relay connection. Delivery can resume once writable relays are back.";
     case "degraded":
       return "Relay connection is degraded. Delivery may be partial, but Obscur will only show success with relay evidence.";
     case "offline":
-      return "Relay connection is offline. Relay-dependent actions are temporarily unavailable.";
+      return "Relay transport is offline. You can still read messages; sends are queued until relays return.";
     default:
       return null;
   }
 };
 
-export const getRelaySendBlockCopy = (snapshot: Pick<RelayRecoverySnapshot, "readiness" | "writableRelayCount">): string | null => {
+/** Non-blocking hint when publish will queue until relays recover. */
+export const getRelayTransportQueueHint = (
+  snapshot: Pick<RelayRecoverySnapshot, "readiness" | "writableRelayCount">,
+): string | null => {
   if (snapshot.writableRelayCount > 0) {
     return null;
   }
   switch (snapshot.readiness) {
     case "recovering":
-      return "Obscur is still recovering the connection. You can queue this now and it will retry as soon as relays come back.";
+      return "Relay connection is recovering. Your message will queue and send when writable relays return.";
     case "offline":
-      return "No writable relays are available right now. Queue the invitation and Obscur will retry automatically after recovery.";
+      return "Relay transport is offline. Your message is queued and will send automatically when relays return.";
     case "degraded":
-      return "Writable relays are unavailable right now. Obscur can queue the invitation and wait for stronger relay evidence.";
+      return "Writable relays are unavailable. Your message is queued until relay evidence is available.";
     default:
-      return "No writable relays are available right now. Obscur can retry automatically once the connection returns.";
+      return "No writable relays right now. Your message is queued and will retry when the connection returns.";
   }
 };
+
+/** @deprecated Use {@link getRelayTransportQueueHint} — compose is never blocked on relay state. */
+export const getRelaySendBlockCopy = getRelayTransportQueueHint;
 
 export const getRelayReadinessDetailCopy = (
   snapshot: RelayRecoverySnapshot,
@@ -37,11 +46,15 @@ export const getRelayReadinessDetailCopy = (
   }
 
   const writableLabel = `${snapshot.writableRelayCount} writable · ${snapshot.subscribableRelayCount} subscribable`;
+  if (snapshot.recoveryReasonCode === "recovery_exhausted") {
+    const failureDetail = snapshot.lastFailureReason ? ` Last error: ${snapshot.lastFailureReason}.` : "";
+    return `Relay connection failed (${writableLabel}). Automatic recovery paused.${failureDetail}`;
+  }
   switch (snapshot.readiness) {
     case "recovering":
       return `Obscur is reconnecting relays (${writableLabel}). Delivery may resume shortly.`;
     case "offline":
-      return `Relay transport is offline (${writableLabel}). Relay-backed send and sync are paused until recovery.`;
+      return `Relay transport is offline (${writableLabel}). Sends queue locally; background sync resumes when online.`;
     case "degraded":
       return `Relay transport is degraded (${writableLabel}). Obscur will only treat delivery as successful with relay evidence.`;
     default:

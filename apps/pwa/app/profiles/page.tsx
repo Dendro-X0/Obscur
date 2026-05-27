@@ -72,7 +72,7 @@ export default function ProfilesPage(): React.JSX.Element {
   const handleOpenWindow = async (profileId: string): Promise<void> => {
     try {
       await desktopProfileRuntime.openProfileWindow(profileId);
-      toast.success("Opened profile in a new window.");
+      toast.success("Profile window opened.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to open profile window.");
     }

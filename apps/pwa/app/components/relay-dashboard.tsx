@@ -9,6 +9,11 @@ import { useRelay } from '@/app/features/relays/providers/relay-provider';
 import type { EnhancedRelayPoolResult } from '@/app/features/relays/hooks/enhanced-relay-pool';
 import { deriveRelayNodeStatus } from '@/app/features/relays/lib/relay-runtime-status';
 import type { RelayRuntimeSnapshot } from '@/app/features/relays/services/relay-runtime-contracts';
+import type { RelaySettingsCategory } from '@/app/features/relays/services/relay-settings-node-filter';
+import {
+  isRelayNodeCurrentlyAvailable,
+  relayMatchesSettingsCategory,
+} from '@/app/features/relays/services/relay-settings-node-filter';
 
 /** Primary first, then enabled list order, then remaining URLs (sorted) for predictable triage. */
 export const buildOrderedRelayDashboardUrls = (params: Readonly<{
@@ -47,8 +52,19 @@ export const buildOrderedRelayDashboardUrls = (params: Readonly<{
  * Relay Dashboard component
  * Provides an interactive visualization of relay health and performance.
  */
-export function RelayDashboard(): React.JSX.Element {
-    const { enabledRelayUrls, relayPool, relayRuntime, relaySelection } = useRelay();
+export type RelayDashboardFilterProps = Readonly<{
+  category?: RelaySettingsCategory;
+  availableOnly?: boolean;
+}>;
+
+export function RelayDashboard(params?: RelayDashboardFilterProps): React.JSX.Element {
+    const category = params?.category ?? "all";
+    const availableOnly = params?.availableOnly ?? false;
+    const { enabledRelayUrls, relayPool, relayRuntime, relaySelection, activePoolRelayUrls } = useRelay();
+    const activePoolSet = useMemo(
+        () => new Set(activePoolRelayUrls),
+        [activePoolRelayUrls],
+    );
     const metrics = useMemo(
         () => new Map<string, RelayHealthMetrics>(relayPool.healthMetrics.map((entry) => [entry.url, entry])),
         [relayPool.healthMetrics],
@@ -62,6 +78,43 @@ export function RelayDashboard(): React.JSX.Element {
         primaryUrl: relaySelection.primaryUrl,
     }), [metrics, enabledRelayUrls, relayPool.connections, relayRuntime.fallbackRelayUrls, relaySelection.primaryUrl]);
 
+    const filteredRelayUrls = useMemo(() => relayUrls.filter((relayUrl) => {
+        if (!relayMatchesSettingsCategory(relayUrl, category)) {
+            return false;
+        }
+        if (!availableOnly) {
+            return true;
+        }
+        const poolConnection = relayPool.connections.find((entry) => entry.url === relayUrl);
+        const inActivePool = activePoolSet.has(relayUrl);
+        const connection = inActivePool ? poolConnection : undefined;
+        const derivedStatus = deriveRelayNodeStatus({
+            url: relayUrl,
+            enabled: enabledRelayUrls.includes(relayUrl) || relayRuntime.fallbackRelayUrls.includes(relayUrl),
+            connection,
+            role: relaySelection.primaryUrl === relayUrl ? "primary" : enabledRelayUrls.includes(relayUrl) ? "standby" : undefined,
+            metrics: metrics.get(relayUrl),
+            isConfigured: enabledRelayUrls.includes(relayUrl),
+            isActivePoolMember: inActivePool && relaySelection.primaryUrl !== relayUrl,
+            isFallback: relayRuntime.fallbackRelayUrls.includes(relayUrl),
+            runtimePhase: relayRuntime.phase,
+            lastInboundEventAtUnixMs: relayRuntime.lastInboundEventAtUnixMs,
+        });
+        return isRelayNodeCurrentlyAvailable({ nodeStatus: derivedStatus, connection: poolConnection });
+    }), [
+        activePoolSet,
+        availableOnly,
+        category,
+        enabledRelayUrls,
+        metrics,
+        relayPool.connections,
+        relayRuntime.fallbackRelayUrls,
+        relayRuntime.lastInboundEventAtUnixMs,
+        relayRuntime.phase,
+        relaySelection.primaryUrl,
+        relayUrls,
+    ]);
+
     if (relayUrls.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center py-12 text-zinc-500 animate-in fade-in duration-500">
@@ -72,16 +125,27 @@ export function RelayDashboard(): React.JSX.Element {
         );
     }
 
+    if (filteredRelayUrls.length === 0) {
+        return (
+            <div className="flex flex-col items-center justify-center py-12 text-zinc-500 animate-in fade-in duration-500">
+                <WifiOff className="h-10 w-10 mb-4 opacity-20" />
+                <p className="text-sm">No relays match the current filters.</p>
+                <p className="text-xs opacity-60">Try another category or turn off “Available only”.</p>
+            </div>
+        );
+    }
+
     return (
         <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {relayUrls.map((relayUrl) => (
+                {filteredRelayUrls.map((relayUrl) => (
                     <RelayMetricCard
                         key={relayUrl}
                         url={relayUrl}
                         metrics={metrics.get(relayUrl)}
                         role={relaySelection.primaryUrl === relayUrl ? "primary" : enabledRelayUrls.includes(relayUrl) ? "standby" : undefined}
                         enabledRelayUrls={enabledRelayUrls}
+                        inActivePool={activePoolSet.has(relayUrl)}
                         relayPool={relayPool}
                         relayRuntime={relayRuntime}
                     />
@@ -91,15 +155,17 @@ export function RelayDashboard(): React.JSX.Element {
     );
 }
 
-function RelayMetricCard({ url, metrics, role, enabledRelayUrls, relayPool, relayRuntime }: {
+function RelayMetricCard({ url, metrics, role, enabledRelayUrls, inActivePool, relayPool, relayRuntime }: {
     url: string;
     metrics?: RelayHealthMetrics;
     role?: "primary" | "standby";
     enabledRelayUrls: ReadonlyArray<string>;
+    inActivePool: boolean;
     relayPool: EnhancedRelayPoolResult;
     relayRuntime: RelayRuntimeSnapshot;
 }) {
-    const connection = relayPool.connections.find((entry) => entry.url === url);
+    const poolConnection = relayPool.connections.find((entry) => entry.url === url);
+    const connection = inActivePool ? poolConnection : undefined;
     const derivedStatus = deriveRelayNodeStatus({
         url,
         enabled: enabledRelayUrls.includes(url) || relayRuntime.fallbackRelayUrls.includes(url),
@@ -107,6 +173,7 @@ function RelayMetricCard({ url, metrics, role, enabledRelayUrls, relayPool, rela
         role,
         metrics,
         isConfigured: enabledRelayUrls.includes(url),
+        isActivePoolMember: inActivePool && role !== "primary",
         isFallback: relayRuntime.fallbackRelayUrls.includes(url),
         runtimePhase: relayRuntime.phase,
         lastInboundEventAtUnixMs: relayRuntime.lastInboundEventAtUnixMs,

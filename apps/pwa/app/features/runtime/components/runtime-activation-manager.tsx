@@ -11,6 +11,7 @@ import { getAccountSyncMigrationPolicy, setAccountSyncMigrationPolicy } from "@/
 import { logAppEvent } from "@/app/shared/log-app-event";
 import type { RelayRuntimeSnapshot } from "@/app/features/relays/services/relay-runtime-contracts";
 import { useCommunityLeaveOutboxRetry } from "@/app/features/groups/hooks/use-community-leave-outbox-retry";
+import { isExperimentOfflineStubEnabled } from "../experiment-shell-policy";
 
 const ACTIVATION_FAIL_OPEN_TIMEOUT_MS = 12_000;
 
@@ -48,13 +49,8 @@ const resolveRelayRuntimeGate = (relayRuntime: RelayRuntimeSnapshot): Readonly<{
     };
   }
 
-  if (relayRuntime.phase === "offline") {
-    return {
-      status: "degraded",
-      reasonCode: relayRuntime.recoveryReasonCode ?? "offline",
-      message: relayRuntime.lastFailureReason
-        || "Relay runtime is offline with configured relays.",
-    };
+  if (relayRuntime.phase === "offline" || relayRuntime.phase === "connecting") {
+    return { status: "pass" };
   }
 
   if (relayRuntime.phase === "degraded") {
@@ -171,9 +167,12 @@ export function RuntimeActivationManager(): null {
     writableRelayCount: relayRecovery.writableRelayCount,
   });
   const leaveOutboxRetryEnabled = (
-    runtimePhase === "ready"
-    || runtimePhase === "degraded"
-    || runtimePhase === "activating_runtime"
+    !isExperimentOfflineStubEnabled()
+    && (
+      runtimePhase === "ready"
+      || runtimePhase === "degraded"
+      || runtimePhase === "activating_runtime"
+    )
   );
   useCommunityLeaveOutboxRetry(leaveOutboxRetryEnabled);
   const activationStartedAtUnixMsRef = useRef<number | null>(null);
@@ -192,6 +191,27 @@ export function RuntimeActivationManager(): null {
   const lastTransportInvariantSignatureRef = useRef<string | null>(null);
   const lastRelayRuntimeGateSignatureRef = useRef<string | null>(null);
   const lastProfileScopeMismatchSignatureRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!isExperimentOfflineStubEnabled() || !publicKeyHex || runtimePhase !== "activating_runtime") {
+      return;
+    }
+    markRuntimeReady({
+      completedAtUnixMs: Date.now(),
+      relayOpenCount: 0,
+      relayTotalCount: 0,
+      accountSyncPhase: "ready",
+      accountSyncStatus: "ready",
+      accountProjectionReady: true,
+      accountProjectionPhase: "ready",
+      accountProjectionStatus: "ready",
+      projectionPhase: "ready",
+      projectionStatus: "ready",
+      migrationPhase: "legacy",
+      driftStatus: "unknown",
+      message: "Experiment shell: interactive without relay/projection gate",
+    });
+  }, [markRuntimeReady, publicKeyHex, runtimePhase]);
 
   useEffect(() => {
     latestAccountSyncSnapshotRef.current = accountSync.snapshot;
@@ -532,6 +552,9 @@ export function RuntimeActivationManager(): null {
   }, [relayPool.connections, runtimePhase]);
 
   useEffect(() => {
+    if (isExperimentOfflineStubEnabled()) {
+      return;
+    }
     if (!publicKeyHex || runtimePhase !== "activating_runtime") {
       return;
     }
@@ -598,72 +621,13 @@ export function RuntimeActivationManager(): null {
       return;
     }
     const relayCounts = getRelayCounts(relayPool.connections);
-    const relayRuntimeSnapshot = runtime.snapshot.relayRuntime;
-    if (
-      accountSync.snapshot.phase === "ready"
-      && accountSync.snapshot.status !== "degraded"
+    const projectionReady = (
+      accountProjection.snapshot.accountProjectionReady
       && accountProjection.snapshot.phase === "ready"
       && accountProjection.snapshot.status === "ready"
-      && accountProjection.snapshot.accountProjectionReady
-    ) {
-      const relayRuntimeGate = relayRuntimeSnapshot
-        ? resolveRelayRuntimeGate(relayRuntimeSnapshot)
-        : { status: "pass" as const };
-      if (relayRuntimeGate.status === "degraded") {
-        const degradedMessage = relayRuntimeGate.message ?? "Relay runtime degraded";
-        const relayGateSignature = [
-          relayRuntimeSnapshot?.phase ?? "booting",
-          relayRuntimeSnapshot?.recovery.readiness ?? "offline",
-          relayRuntimeGate.reasonCode ?? "none",
-          relayRuntimeSnapshot?.recoveryReasonCode ?? "none",
-          runtimePhase,
-        ].join(":");
-        if (lastRelayRuntimeGateSignatureRef.current !== relayGateSignature) {
-          lastRelayRuntimeGateSignatureRef.current = relayGateSignature;
-          logAppEvent({
-            name: "runtime.activation.relay_runtime_gate",
-            level: "warn",
-            scope: { feature: "runtime", action: "activation" },
-            context: {
-              relayRuntimePhase: relayRuntimeSnapshot?.phase ?? "booting",
-              relayReadiness: relayRuntimeSnapshot?.recovery.readiness ?? "offline",
-              relayReasonCode: relayRuntimeGate.reasonCode ?? "none",
-              relayRecoveryReasonCode: relayRuntimeSnapshot?.recoveryReasonCode ?? "none",
-              relayWritableCount: relayRuntimeSnapshot?.writableRelayCount ?? 0,
-              relayFallbackWritableCount: relayRuntimeSnapshot?.recovery.fallbackWritableRelayCount ?? 0,
-              relaySubscribableCount: relayRuntimeSnapshot?.subscribableRelayCount ?? 0,
-              relayFallbackCount: relayRuntimeSnapshot?.fallbackRelayUrls?.length ?? 0,
-              enabledRelayCount: relayRuntimeSnapshot?.enabledRelayUrls.length ?? 0,
-              accountSyncPhase: accountSync.snapshot.phase,
-              accountSyncStatus: accountSync.snapshot.status,
-              accountProjectionPhase: accountProjection.snapshot.phase,
-              accountProjectionStatus: accountProjection.snapshot.status,
-              runtimePhase,
-            },
-          });
-        }
-        if (runtimePhase === "activating_runtime" || runtime.snapshot.degradedReason !== "relay_runtime_degraded") {
-          markRuntimeDegraded("relay_runtime_degraded", {
-            completedAtUnixMs: Date.now(),
-            relayOpenCount: relayCounts.openRelayCount,
-            relayTotalCount: relayCounts.relayTotalCount,
-            accountSyncPhase: accountSync.snapshot.phase,
-            accountSyncStatus: accountSync.snapshot.status,
-            accountProjectionReady: accountProjection.snapshot.accountProjectionReady,
-            accountProjectionPhase: accountProjection.snapshot.phase,
-            accountProjectionStatus: accountProjection.snapshot.status,
-            projectionPhase: accountProjection.snapshot.phase,
-            projectionStatus: accountProjection.snapshot.status,
-            migrationPhase: readAuthority.policy.phase,
-            driftStatus: accountProjection.snapshot.driftStatus,
-            message: degradedMessage,
-            degradedReason: "relay_runtime_degraded",
-          });
-        }
-        return;
-      }
+    );
+    if (projectionReady) {
       lastRelayRuntimeGateSignatureRef.current = null;
-
       const migrationPolicy = readAuthority.policy;
       const driftGateFailed = (
         (migrationPolicy.phase === "read_cutover" || migrationPolicy.phase === "legacy_writes_disabled")
@@ -690,6 +654,7 @@ export function RuntimeActivationManager(): null {
         }
         return;
       }
+      const accountSyncStillRunning = accountSync.snapshot.phase !== "ready";
       markRuntimeReady({
         completedAtUnixMs: Date.now(),
         relayOpenCount: relayCounts.openRelayCount,
@@ -703,7 +668,9 @@ export function RuntimeActivationManager(): null {
         projectionStatus: accountProjection.snapshot.status,
         migrationPhase: migrationPolicy.phase,
         driftStatus: accountProjection.snapshot.driftStatus,
-        message: "Runtime activated",
+        message: accountSyncStillRunning
+          ? "Runtime activated locally; account sync continues in background"
+          : "Runtime activated",
       });
       return;
     }

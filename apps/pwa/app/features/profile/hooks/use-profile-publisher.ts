@@ -6,6 +6,7 @@ import { cryptoService } from "@/app/features/crypto/crypto-service";
 import { powService } from "@/app/features/crypto/pow-service";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
+import { useRelayPoolRef } from "@/app/features/relays/hooks/use-relay-pool-ref";
 import { useTranslation } from "react-i18next";
 import { toast } from "@dweb/ui-kit";
 import { PrivacySettingsService } from "@/app/features/settings/services/privacy-settings-service";
@@ -199,9 +200,10 @@ export const useProfilePublisher = (): UseProfilePublisherResult => {
 
     // Use shared relay pool
     const { relayPool: pool, enabledRelayUrls } = useRelay();
-
+    const poolRef = useRelayPoolRef(pool);
 
     const publishProfile = useCallback(async (params: PublishProfileParams): Promise<boolean> => {
+        const relayPool = poolRef.current;
         const idState = identity.getIdentitySnapshot();
         const pubkey = identity.state.publicKeyHex || idState.publicKeyHex;
         const privkey = identity.state.privateKeyHex || idState.privateKeyHex;
@@ -237,7 +239,7 @@ export const useProfilePublisher = (): UseProfilePublisherResult => {
         });
 
         try {
-            const hasRelayConnection = await pool.waitForConnection(5000);
+            const hasRelayConnection = await relayPool.waitForConnection(5000);
             if (!hasRelayConnection) {
                 setError("Relay connection is temporarily unavailable. Please retry in a moment.");
                 setPhase("error");
@@ -324,7 +326,7 @@ export const useProfilePublisher = (): UseProfilePublisherResult => {
                         attempts: attempt,
                         updatedAtIso: new Date().toISOString()
                     });
-                    await pool.waitForConnection(3000);
+                    await relayPool.waitForConnection(3000);
 
                     if (rolloutPolicy.protocolCoreEnabled && enabledRelayUrls.length > 0) {
                         const protocolPublish = await withTimeout(
@@ -362,11 +364,11 @@ export const useProfilePublisher = (): UseProfilePublisherResult => {
                                     ));
                                 }
                                 mirrorProfileToGlobalDiscoveryRelays({
-                                    pool,
+                                    pool: relayPool,
                                     payload,
                                     primaryRelayUrls: enabledRelayUrls,
                                 });
-                                refreshEncryptedAccountBackup(pubkey, privkey, pool, enabledRelayUrls);
+                                refreshEncryptedAccountBackup(pubkey, privkey, relayPool, enabledRelayUrls);
                                 return true;
                             }
                             lastError = "Protocol publish returned zero relay successes";
@@ -377,7 +379,7 @@ export const useProfilePublisher = (): UseProfilePublisherResult => {
 
                     const relayCorePublish = await withTimeout(
                         publishViaRelayCore({
-                            pool,
+                            pool: relayPool,
                             payload,
                             scopedRelayUrls: enabledRelayUrls,
                             waitForConnectionMs: 3_000,
@@ -414,11 +416,11 @@ export const useProfilePublisher = (): UseProfilePublisherResult => {
                                 toast.warning(formatRelayPublishPartialCoverageMessage(successCount, totalRelays));
                             }
                             mirrorProfileToGlobalDiscoveryRelays({
-                                pool,
+                                pool: relayPool,
                                 payload,
                                 primaryRelayUrls: enabledRelayUrls,
                             });
-                            refreshEncryptedAccountBackup(pubkey, privkey, pool, enabledRelayUrls);
+                            refreshEncryptedAccountBackup(pubkey, privkey, relayPool, enabledRelayUrls);
                             return true;
                         }
                     }
@@ -435,9 +437,9 @@ export const useProfilePublisher = (): UseProfilePublisherResult => {
                             totalRelays: report?.totalRelays ?? enabledRelayUrls.length,
                             updatedAtIso: new Date().toISOString()
                         });
-                    } else if (pool.publishToAll) {
+                    } else if (relayPool.publishToAll) {
                         const result = await withTimeout(
-                            pool.publishToAll(payload),
+                            relayPool.publishToAll(payload),
                             PUBLISH_ATTEMPT_TIMEOUT_MS,
                             "Timed out while publishing profile to relays"
                         );
@@ -467,11 +469,11 @@ export const useProfilePublisher = (): UseProfilePublisherResult => {
                                 ));
                             }
                             mirrorProfileToGlobalDiscoveryRelays({
-                                pool,
+                                pool: relayPool,
                                 payload,
                                 primaryRelayUrls: enabledRelayUrls,
                             });
-                            refreshEncryptedAccountBackup(pubkey, privkey, pool, enabledRelayUrls);
+                            refreshEncryptedAccountBackup(pubkey, privkey, relayPool, enabledRelayUrls);
                             return true;
                         }
                         lastError = result.overallError || "Failed to publish to any relay";
@@ -549,7 +551,7 @@ export const useProfilePublisher = (): UseProfilePublisherResult => {
             setIsMining(false);
             setIsPublishing(false);
         }
-    }, [identity, enabledRelayUrls, pool, t, updateLastReport]);
+    }, [identity, enabledRelayUrls, poolRef, t, updateLastReport]);
 
     return useMemo(() => ({
         publishProfile,

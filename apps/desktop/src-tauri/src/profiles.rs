@@ -192,9 +192,9 @@ fn sanitize_profile_id(input: &str) -> String {
     }
 }
 
-fn ensure_window_binding(state: &mut PersistedProfileRegistry, window_label: &str) -> ProfileWindowBinding {
+fn ensure_window_binding(state: &mut PersistedProfileRegistry, window_label: &str) -> (ProfileWindowBinding, bool) {
     if let Some(existing) = state.window_bindings.iter().find(|binding| binding.window_label == window_label) {
-        return existing.clone();
+        return (existing.clone(), false);
     }
 
     let default_profile = state
@@ -219,7 +219,7 @@ fn ensure_window_binding(state: &mut PersistedProfileRegistry, window_label: &st
         launch_mode: ProfileLaunchMode::Existing,
     };
     state.window_bindings.push(binding.clone());
-    binding
+    (binding, true)
 }
 
 fn build_profile_window(app: &AppHandle, binding: &ProfileWindowBinding) -> Result<WebviewWindow, String> {
@@ -245,7 +245,7 @@ fn build_profile_window(app: &AppHandle, binding: &ProfileWindowBinding) -> Resu
 
     #[cfg(desktop)]
     {
-        return builder
+        let window = builder
             .title(format!("Obscur - {}", binding.profile_label))
             .inner_size(1200.0, 800.0)
             .min_inner_size(800.0, 600.0)
@@ -254,7 +254,11 @@ fn build_profile_window(app: &AppHandle, binding: &ProfileWindowBinding) -> Resu
             .shadow(true)
             .data_directory(profile_data_dir)
             .build()
-            .map_err(|e| e.to_string());
+            .map_err(|e| e.to_string())?;
+        let _ = window.unminimize();
+        let _ = window.show();
+        let _ = window.set_focus();
+        return Ok(window);
     }
 
     #[cfg(mobile)]
@@ -266,18 +270,31 @@ fn build_profile_window(app: &AppHandle, binding: &ProfileWindowBinding) -> Resu
 
 impl DesktopProfileState {
     pub fn new(app: &AppHandle) -> Self {
-        // Run migration before loading registry if needed
-        let _ = migrate_legacy_webview_data(app);
-
-        Self {
+        let state = Self {
             inner: Arc::new(Mutex::new(load_registry(app))),
-        }
+        };
+
+        // Legacy WebView migration can copy large directories — never block window creation.
+        let migration_app = app.clone();
+        tauri::async_runtime::spawn(async move {
+            let migration_result = tauri::async_runtime::spawn_blocking(move || {
+                migrate_legacy_webview_data(&migration_app)
+            })
+            .await;
+            if let Err(error) = migration_result {
+                eprintln!("[PROFILES] Legacy WebView migration task failed: {error}");
+            }
+        });
+
+        state
     }
 
     pub async fn snapshot_for_window(&self, app: &AppHandle, window_label: &str) -> Result<ProfileIsolationSnapshot, String> {
         let mut state = self.inner.lock().await;
-        let binding = ensure_window_binding(&mut state, window_label);
-        persist_registry(app, &state)?;
+        let (binding, registry_changed) = ensure_window_binding(&mut state, window_label);
+        if registry_changed {
+            persist_registry(app, &state)?;
+        }
         Ok(ProfileIsolationSnapshot {
             current_window: binding,
             profiles: state.profiles.clone(),
@@ -309,7 +326,7 @@ impl DesktopProfileState {
             created_at_unix_ms: now,
             last_used_at_unix_ms: now,
         });
-        let binding = ensure_window_binding(&mut state, window_label);
+        let (binding, _) = ensure_window_binding(&mut state, window_label);
         persist_registry(app, &state)?;
         Ok(ProfileIsolationSnapshot {
             current_window: binding,
@@ -335,7 +352,7 @@ impl DesktopProfileState {
                 binding.profile_label = trimmed.to_string();
             }
         });
-        let binding = ensure_window_binding(&mut state, window_label);
+        let (binding, _) = ensure_window_binding(&mut state, window_label);
         persist_registry(app, &state)?;
         Ok(ProfileIsolationSnapshot {
             current_window: binding,
@@ -368,7 +385,10 @@ impl DesktopProfileState {
         }
         persist_registry(app, &state)?;
         Ok(ProfileIsolationSnapshot {
-            current_window: ensure_window_binding(&mut state, window_label),
+            current_window: {
+                let (binding, _) = ensure_window_binding(&mut state, window_label);
+                binding
+            },
             profiles: state.profiles.clone(),
             window_bindings: state.window_bindings.clone(),
         })
@@ -446,8 +466,9 @@ impl DesktopProfileState {
         
         // Re-acquire lock to return updated snapshot
         let mut state = self.inner.lock().await;
+        let (current_window, _) = ensure_window_binding(&mut state, current_window_label);
         Ok(ProfileIsolationSnapshot {
-            current_window: ensure_window_binding(&mut state, current_window_label),
+            current_window,
             profiles: state.profiles.clone(),
             window_bindings: state.window_bindings.clone(),
         })
@@ -455,15 +476,17 @@ impl DesktopProfileState {
 
     pub async fn resolve_window_profile(&self, app: &AppHandle, window_label: &str) -> Result<String, String> {
         let mut state = self.inner.lock().await;
-        let binding = ensure_window_binding(&mut state, window_label);
-        persist_registry(app, &state)?;
+        let (binding, registry_changed) = ensure_window_binding(&mut state, window_label);
+        if registry_changed {
+            persist_registry(app, &state)?;
+        }
         Ok(binding.profile_id)
     }
 
     pub async fn reset_startup_window_bindings(&self, app: &AppHandle) -> Result<(), String> {
         let mut state = self.inner.lock().await;
         state.window_bindings.retain(|binding| binding.window_label == "main");
-        let main_binding = ensure_window_binding(&mut state, "main");
+        let (main_binding, _) = ensure_window_binding(&mut state, "main");
         state.window_bindings.retain(|binding| binding.window_label == "main");
         if let Some(existing) = state
             .window_bindings

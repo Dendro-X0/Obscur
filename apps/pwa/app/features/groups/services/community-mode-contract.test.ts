@@ -44,7 +44,7 @@ describe("community-mode-contract", () => {
         const definition = getCommunityModeDefinition("managed_workspace");
 
         expect(definition.label).toBe("Managed Workspace");
-        expect(definition.guarantees).toContain("Relay-backed directory candidate");
+        expect(definition.guarantees).toContain("Coordination membership directory when configured");
     });
 
     it("allows sovereign room communities regardless of relay tier", () => {

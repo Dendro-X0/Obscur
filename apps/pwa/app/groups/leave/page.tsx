@@ -2,7 +2,13 @@
 
 import React, { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { AlertTriangle, ArrowLeft, Loader2, LogOut } from "lucide-react";
+import { AlertTriangle, ArrowLeft, LogOut, Trash2 } from "lucide-react";
+import { CommunityActionWaitRing } from "@/app/features/groups/components/community-action-wait-ring";
+import {
+    buildCommunityActionWaitSteps,
+    type CommunityActionWaitStep,
+} from "@/app/features/groups/components/community-action-wait-types";
+import { isCoordinationConfigured, readMembershipSyncMode } from "@/app/features/groups/services/community-membership-sync-mode";
 import { Button, Card } from "@dweb/ui-kit";
 import { PageShell } from "@/app/components/page-shell";
 import { useGroups } from "@/app/features/groups/providers/group-provider";
@@ -15,6 +21,11 @@ import { resolveGroupConversationByToken } from "@/app/features/messaging/utils/
 import { resolveGroupRouteToken } from "@/app/features/groups/utils/group-route-token";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { toast } from "@dweb/ui-kit";
+import { hasWritableCommunityRelayTransport } from "@/app/features/groups/services/community-relay-transport";
+import {
+    CommunityNetworkTimeoutError,
+    withCommunityNetworkTimeout,
+} from "@/app/features/groups/services/community-network-timeout";
 
 export default function LeaveCommunityPage() {
     const router = useRouter();
@@ -22,12 +33,15 @@ export default function LeaveCommunityPage() {
     const {
         createdGroups,
         leaveGroup,
+        forcePurgeCommunity,
         communityKnownParticipantDirectoryByConversationId,
         communityRosterByConversationId,
     } = useGroups();
     const { state: identityState } = useIdentity();
     const { relayPool } = useRelay();
     const [isLeaving, setIsLeaving] = useState(false);
+    const [leaveWaitPhase, setLeaveWaitPhase] = useState<string | null>(null);
+    const [leaveWaitComplete, setLeaveWaitComplete] = useState(false);
 
     const routeToken = resolveGroupRouteToken({
         routeParam: undefined,
@@ -40,7 +54,47 @@ export default function LeaveCommunityPage() {
     const group = routeToken ? (resolveGroupConversationByToken(createdGroups, routeToken) ?? undefined) : undefined;
     const localMemberPubkey = (identityState.publicKeyHex || identityState.stored?.publicKeyHex || null) as PublicKeyHex | null;
 
-    const effectiveRelay = toScopedRelayUrl(group?.relayUrl || queryRelay || "") ?? "";
+    const effectiveRelay = toScopedRelayUrl(group?.relayUrl || queryRelay || "") ?? (group?.relayUrl || queryRelay || "");
+    const relayTransportReady = hasWritableCommunityRelayTransport(effectiveRelay);
+
+    const leaveStepDefs = useMemo(
+        () => [
+            {
+                id: "local",
+                label: "Local exit",
+                detail: "Remove room key and participation on this device.",
+            },
+            {
+                id: "relay",
+                label: "Relay proof",
+                detail: relayTransportReady
+                    ? "Publish leave to community relays when reachable."
+                    : "Skipped — no writable relay on this host.",
+            },
+            {
+                id: "directory",
+                label: "Directory",
+                detail: isCoordinationConfigured() && readMembershipSyncMode() === "coordination_preferred"
+                    ? "Notify coordination membership directory."
+                    : "Optional — coordination not configured.",
+            },
+        ],
+        [relayTransportReady],
+    );
+
+    const leaveWaitSteps: ReadonlyArray<CommunityActionWaitStep> = useMemo(
+        () => buildCommunityActionWaitSteps(leaveStepDefs, leaveWaitPhase, {
+            allComplete: leaveWaitComplete,
+            skippedStepIds: [
+                ...(relayTransportReady ? [] : ["relay"]),
+                ...(isCoordinationConfigured() && readMembershipSyncMode() === "coordination_preferred"
+                    ? []
+                    : ["directory"]),
+            ],
+        }),
+        [leaveStepDefs, leaveWaitComplete, leaveWaitPhase, relayTransportReady],
+    );
+
     const resolvedGroupId = useMemo(() => {
         const metadataGroupId = group?.groupId?.trim() ?? "";
         if (metadataGroupId.length > 0) {
@@ -102,6 +156,7 @@ export default function LeaveCommunityPage() {
         myPublicKeyHex: localMemberPubkey,
         myPrivateKeyHex: identityState.privateKeyHex ?? null,
         initialMembers: leaveSealedCommunityInitialMembers,
+        enabled: relayTransportReady,
     });
 
     const returnHref = useMemo(() => {
@@ -115,6 +170,21 @@ export default function LeaveCommunityPage() {
         return params.toString().length > 0 ? `/groups/view?${params.toString()}` : "/network";
     }, [effectiveRelay, routeToken]);
 
+    const applyLocalLeave = (): void => {
+        if (group) {
+            leaveGroup({
+                groupId: group.groupId,
+                relayUrl: group.relayUrl,
+                conversationId: group.id,
+            });
+        } else {
+            leaveGroup({
+                groupId: resolvedGroupId,
+                relayUrl: effectiveRelay,
+            });
+        }
+    };
+
     const handleLeave = async () => {
         if (!resolvedGroupId || !effectiveRelay) {
             toast.error("Community details are missing; unable to leave safely.");
@@ -122,24 +192,69 @@ export default function LeaveCommunityPage() {
         }
 
         setIsLeaving(true);
+        setLeaveWaitComplete(false);
+        setLeaveWaitPhase("local");
         try {
-            if (group) {
-                leaveGroup({
-                    groupId: group.groupId,
-                    relayUrl: group.relayUrl,
-                    conversationId: group.id,
-                });
+            applyLocalLeave();
+            setLeaveWaitPhase("relay");
+
+            if (relayTransportReady && identityState.privateKeyHex) {
+                try {
+                    await withCommunityNetworkTimeout(leaveNip29Group());
+                } catch (error) {
+                    if (error instanceof CommunityNetworkTimeoutError) {
+                        toast.warning(
+                            "Left on this device. Relay confirmation timed out and will retry in the background.",
+                        );
+                    } else {
+                        toast.warning(
+                            "Left on this device. Relay confirmation may finish in the background.",
+                        );
+                    }
+                }
             } else {
-                leaveGroup({
-                    groupId: resolvedGroupId,
-                    relayUrl: effectiveRelay,
-                });
+                toast.success(
+                    "Removed this community on this device. Network relay was unavailable or not a real wss:// host.",
+                );
             }
-            await leaveNip29Group();
-            toast.success("Left community on this device. Relay confirmation may finish in the background.");
+
+            setLeaveWaitPhase("directory");
+            setLeaveWaitComplete(true);
+            await new Promise((resolve) => setTimeout(resolve, 450));
             router.push("/network");
         } catch {
             toast.error("Failed to leave community");
+            router.push("/network");
+        } finally {
+            setIsLeaving(false);
+            setLeaveWaitPhase(null);
+            setLeaveWaitComplete(false);
+        }
+    };
+
+    const handlePurgeLocal = () => {
+        if (!resolvedGroupId || !effectiveRelay) {
+            toast.error("Community details are missing; unable to purge.");
+            return;
+        }
+        const confirmed = window.confirm(
+            `Permanently remove all local data for "${displayName}"? This keeps your Tester1 account.`,
+        );
+        if (!confirmed) {
+            return;
+        }
+        setIsLeaving(true);
+        try {
+            applyLocalLeave();
+            forcePurgeCommunity({
+                groupId: resolvedGroupId,
+                relayUrl: effectiveRelay,
+                conversationId: group?.id,
+            });
+            toast.success("Community removed from this device");
+            router.push("/network");
+        } catch {
+            toast.error("Failed to remove community data");
         } finally {
             setIsLeaving(false);
         }
@@ -153,6 +268,7 @@ export default function LeaveCommunityPage() {
                         <button
                             type="button"
                             onClick={() => router.push(returnHref)}
+                            disabled={isLeaving}
                             className="mb-6 inline-flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500 transition-colors hover:text-zinc-700 dark:hover:text-zinc-200"
                         >
                             <ArrowLeft className="h-4 w-4" />
@@ -176,6 +292,15 @@ export default function LeaveCommunityPage() {
                         </div>
                     </div>
 
+                    {isLeaving ? (
+                        <div className="px-8 py-10">
+                            <CommunityActionWaitRing
+                                title={`Leaving ${displayName}`}
+                                subtitle="Local removal runs first; relay and directory steps continue in the background when the network allows."
+                                steps={leaveWaitSteps}
+                            />
+                        </div>
+                    ) : (
                     <div className="grid gap-6 px-8 py-8 md:grid-cols-[1.2fr_0.8fr]">
                         <div className="rounded-[28px] border border-zinc-200 bg-[#fafafa] p-6 dark:border-white/8 dark:bg-[#141521]">
                             <div className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">
@@ -186,6 +311,11 @@ export default function LeaveCommunityPage() {
                                 <li>Your local room key and active participation state will be cleared for this community.</li>
                                 <li>You can still return later if you receive a fresh invite or the community is shared with you again.</li>
                             </ul>
+                            {!relayTransportReady ? (
+                                <p className="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-950 dark:text-amber-100">
+                                    This host is not a reachable Nostr relay. Exit will complete on this device only (no global relay fanout).
+                                </p>
+                            ) : null}
                         </div>
 
                         <div className="rounded-[28px] border border-rose-200 bg-[linear-gradient(180deg,#fff1f2_0%,#ffe4e6_100%)] p-6 dark:border-rose-500/25 dark:bg-[linear-gradient(180deg,rgba(190,24,93,0.18)_0%,rgba(88,28,28,0.35)_100%)]">
@@ -193,7 +323,7 @@ export default function LeaveCommunityPage() {
                                 Confirm Exit
                             </div>
                             <div className="mt-4 text-sm leading-relaxed text-zinc-700 dark:text-zinc-200">
-                                If you are sure, continue below. This is intentionally isolated from the community page so nothing competes with the confirmation step.
+                                If you are sure, continue below. Local removal happens first so the UI cannot hang on unreachable relays.
                             </div>
                             <div className="mt-8 flex flex-col gap-3">
                                 <Button
@@ -207,15 +337,25 @@ export default function LeaveCommunityPage() {
                                 <Button
                                     variant="danger"
                                     className="h-12 rounded-2xl gap-2 text-sm font-black"
-                                    onClick={handleLeave}
+                                    onClick={() => void handleLeave()}
                                     disabled={isLeaving}
                                 >
-                                    {isLeaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogOut className="h-4 w-4" />}
+                                    <LogOut className="h-4 w-4" />
                                     Leave Community
+                                </Button>
+                                <Button
+                                    variant="secondary"
+                                    className="h-12 rounded-2xl gap-2 border border-rose-300/40 text-sm font-bold text-rose-700 dark:text-rose-200"
+                                    onClick={handlePurgeLocal}
+                                    disabled={isLeaving}
+                                >
+                                    <Trash2 className="h-4 w-4" />
+                                    Delete all local data
                                 </Button>
                             </div>
                         </div>
                     </div>
+                    )}
                 </Card>
             </div>
         </PageShell>

@@ -3,6 +3,11 @@ import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { dmEventBuilderInternals } from "@/app/features/messaging/controllers/dm-event-builder";
 import { collectMessageIdentityAliases } from "@/app/features/messaging/services/message-identity-alias-contract";
 import type { GroupMetadata } from "../types";
+import {
+    buildCommunityInviteWirePlaintext,
+    createCommunityDmInviteId,
+    type CommunityDmInviteId,
+} from "../services/community-dm-invite-contract";
 
 export type BuildOutgoingCommunityInviteDmMessageParams = Readonly<{
     giftWrapEventId: string;
@@ -13,6 +18,7 @@ export type BuildOutgoingCommunityInviteDmMessageParams = Readonly<{
     groupId: string;
     roomKeyHex: string;
     metadata: GroupMetadata;
+    inviteId?: CommunityDmInviteId;
     relayUrl?: string;
     communityId?: string;
     genesisEventId?: string;
@@ -41,12 +47,14 @@ export const buildCommunityInvitePlaintext = (params: Readonly<{
     groupId: string;
     roomKeyHex: string;
     metadata: GroupMetadata;
+    inviteId?: CommunityDmInviteId;
     relayUrl?: string;
     communityId?: string;
     genesisEventId?: string;
     creatorPubkey?: string;
-}>): string => JSON.stringify({
+}>): string => buildCommunityInviteWirePlaintext({
     type: "community-invite",
+    inviteId: params.inviteId ?? createCommunityDmInviteId(),
     groupId: params.groupId,
     roomKey: params.roomKeyHex.trim(),
     metadata: params.metadata,
@@ -63,10 +71,12 @@ export const buildOutgoingCommunityInviteDmMessage = (
     params: BuildOutgoingCommunityInviteDmMessageParams,
 ): Message => {
     const timestamp = params.timestamp ?? new Date();
+    const inviteId = params.inviteId ?? createCommunityDmInviteId();
     const content = buildCommunityInvitePlaintext({
         groupId: params.groupId,
         roomKeyHex: params.roomKeyHex,
         metadata: params.metadata,
+        inviteId,
         relayUrl: params.relayUrl,
         communityId: params.communityId,
         genesisEventId: params.genesisEventId,

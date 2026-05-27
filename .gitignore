@@ -69,4 +69,5 @@ apps/desktop/src-tauri/target/
 apps/desktop/src-tauri/updater-key.txt
 
 
+.wrangler/
 .playwright-mcp

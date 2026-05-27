@@ -24,6 +24,7 @@ import { resolveCommunityMemberEvidenceTier } from "../../../utils/community-mem
 import { CommunityMembershipEvidenceToolbar } from "../../community-membership-evidence-toolbar";
 import type { CommunityDirectoryMaterializationHonesty } from "../../../services/community-directory-materialization-policy";
 import { CommunityDirectoryHonestyNotice } from "../../community-directory-honesty-notice";
+import type { MembershipEvidenceUiContext } from "../../../utils/community-membership-evidence-display";
 
 export function GroupManagementMembersPanel({
     visibleMemberPubkeys,
@@ -49,6 +50,7 @@ export function GroupManagementMembersPanel({
     onClearTerminalMembership,
     managedWorkspaceActionsBlocked,
     directoryHonesty,
+    membershipEvidenceUiContext,
 }: Readonly<{
     visibleMemberPubkeys: ReadonlyArray<PublicKeyHex>;
     relayBackedMemberPubkeys: ReadonlyArray<PublicKeyHex>;
@@ -73,7 +75,8 @@ export function GroupManagementMembersPanel({
     onClearTerminalMembership: () => void;
     managedWorkspaceActionsBlocked: boolean;
     directoryHonesty: CommunityDirectoryMaterializationHonesty;
-}>): React.JSX.Element {
+    membershipEvidenceUiContext?: MembershipEvidenceUiContext;
+}>) {
     const router = useRouter();
     const { t } = useTranslation();
     const filtered = visibleMemberPubkeys.filter((pubkey) => {
@@ -177,7 +180,10 @@ export function GroupManagementMembersPanel({
                                         <div className="min-w-0">
                                             <p className="truncate text-sm font-medium text-zinc-900 dark:text-white">{displayName}</p>
                                             <div className="mt-0.5 flex flex-wrap items-center gap-2">
-                                                <CommunityMembershipEvidenceChip tier={evidenceTier} />
+                                                <CommunityMembershipEvidenceChip
+                                                    tier={evidenceTier}
+                                                    uiContext={membershipEvidenceUiContext}
+                                                />
                                                 {isMe ? (
                                                     <span className="text-[10px] font-medium uppercase text-violet-400">You</span>
                                                 ) : null}

@@ -35,15 +35,47 @@ export const useCommunityLeaveOutboxIndex = (): Readonly<{
       return;
     }
     const storageKey = toOutboxStorageKey(publicKeyHex, profileId);
-    const intervalId = window.setInterval(refresh, 2_000);
+    const LEAVE_OUTBOX_POLL_MS = 15_000;
+    let intervalId: number | null = null;
+
+    const startPolling = (): void => {
+      if (intervalId !== null) {
+        return;
+      }
+      intervalId = window.setInterval(refresh, LEAVE_OUTBOX_POLL_MS);
+    };
+
+    const stopPolling = (): void => {
+      if (intervalId === null) {
+        return;
+      }
+      window.clearInterval(intervalId);
+      intervalId = null;
+    };
+
+    const syncPolling = (): void => {
+      if (document.visibilityState === "visible") {
+        refresh();
+        startPolling();
+      } else {
+        stopPolling();
+      }
+    };
+
+    syncPolling();
+    const onVisibilityChange = (): void => {
+      syncPolling();
+    };
     const onStorage = (event: StorageEvent): void => {
       if (event.key === storageKey) {
         refresh();
       }
     };
+    document.addEventListener("visibilitychange", onVisibilityChange);
     window.addEventListener("storage", onStorage);
     return (): void => {
-      window.clearInterval(intervalId);
+      stopPolling();
+      document.removeEventListener("visibilitychange", onVisibilityChange);
       window.removeEventListener("storage", onStorage);
     };
   }, [profileId, publicKeyHex, refresh]);

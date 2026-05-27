@@ -347,6 +347,52 @@
     }
   }
 
+  @keyframes obscur-indeterminate-spin {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  .obscur-indeterminate-spin {
+    animation: obscur-indeterminate-spin 0.8s linear infinite;
+    transform-origin: center;
+    will-change: transform;
+  }
+
+  @keyframes obscur-community-action-orbit {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  .obscur-community-action-orbit {
+    animation: obscur-community-action-orbit 14s linear infinite;
+    transform-origin: center center;
+    will-change: transform;
+  }
+
+  @keyframes obscur-community-action-ring-pulse {
+    0%,
+    100% {
+      transform: translate(-50%, -50%) scale(1);
+      opacity: 0.85;
+    }
+    50% {
+      transform: translate(-50%, -50%) scale(1.06);
+      opacity: 1;
+    }
+  }
+
+  .obscur-community-action-ring-pulse {
+    animation: obscur-community-action-ring-pulse 2.4s ease-in-out infinite;
+  }
+
   .modal-transition {
     animation: modalFadeIn 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   }
@@ -359,6 +405,20 @@
     to {
       opacity: 1;
       transform: scale(1);
+    }
+  }
+
+  @keyframes global-nav-loading-shimmer {
+    0% {
+      transform: translateX(-120%);
+      opacity: 0;
+    }
+    35% {
+      opacity: 0.85;
+    }
+    100% {
+      transform: translateX(320%);
+      opacity: 0;
     }
   }
 
@@ -659,4 +719,26 @@
       font-size: 0.95rem;
     }
   }
+}
+
+@keyframes obscur-search-target-flash-keyframes {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(168, 85, 247, 0);
+  }
+
+  25%,
+  65% {
+    box-shadow:
+      0 0 0 3px rgba(168, 85, 247, 0.45),
+      0 0 28px rgba(168, 85, 247, 0.22);
+  }
+}
+
+.obscur-search-target-flash {
+  animation: obscur-search-target-flash-keyframes 1.2s ease-in-out 2;
+  outline: 2px solid rgba(168, 85, 247, 0.55);
+  outline-offset: 3px;
+  border-radius: inherit;
+  transition: outline-color 0.2s ease;
 }

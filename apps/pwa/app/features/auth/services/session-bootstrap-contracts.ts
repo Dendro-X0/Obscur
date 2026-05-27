@@ -1,10 +1,10 @@
 import {
   getAuthTokenScopedStorageKeys,
   getRememberMeScopedStorageKeys,
-  getRememberMeStorageKeyCandidates,
   LEGACY_AUTH_TOKEN_KEY,
   LEGACY_REMEMBER_ME_KEY,
 } from "@/app/features/auth/utils/auth-storage-keys";
+import { isDeviceTrustEnabledForProfile } from "@/app/features/auth/services/device-trust-service";
 
 export type SessionBootstrapCredentialSource = "none" | "scoped" | "legacy" | "mixed";
 
@@ -68,15 +68,8 @@ const readStoredValues = (keys: ReadonlyArray<string>): ReadonlyArray<Readonly<{
   });
 };
 
-export const isRememberMeEnabledForProfile = (profileId: string): boolean => {
-  if (typeof window === "undefined") {
-    return false;
-  }
-  return getRememberMeStorageKeyCandidates({
-    profileId,
-    includeLegacy: true,
-  }).some((key) => window.localStorage.getItem(key) === "true");
-};
+/** Device-trust preference (legacy name: remember-me). */
+export const isRememberMeEnabledForProfile = isDeviceTrustEnabledForProfile;
 
 export const scanStoredSessionBootstrap = (profileId: string): SessionBootstrapCredentialScan => {
   const rememberValues = readStoredValues(
@@ -106,6 +99,9 @@ export const scanStoredSessionBootstrap = (profileId: string): SessionBootstrapC
     : rememberEnabled
       ? "native_session"
       : "none";
+  const autoUnlockEligible = rememberEnabled && (
+    uniqueTokenCandidates.length > 0 || autoUnlockPath === "native_session"
+  );
   return {
     profileId,
     rememberMeState: rememberEnabled ? "enabled" : "disabled",
@@ -115,7 +111,7 @@ export const scanStoredSessionBootstrap = (profileId: string): SessionBootstrapC
     tokenCandidateCount: uniqueTokenCandidates.length,
     tokenSource,
     autoUnlockPath,
-    autoUnlockEligible: autoUnlockPath === "token",
+    autoUnlockEligible,
   };
 };
 

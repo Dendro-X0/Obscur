@@ -5,18 +5,22 @@
   "type": "module",
   "scripts": {
     "tauri": "tauri",
-    "predev": "node ../../scripts/cleanup-tauri-sidecars.mjs && node ../../scripts/setup-tor.mjs",
+    "predev": "node ../../scripts/cleanup-tauri-sidecars.mjs && node ../../scripts/repair-tauri-permission-cache.mjs && node ../../scripts/setup-tor.mjs",
+    "repair": "node ../../scripts/repair-tauri-permission-cache.mjs --force",
     "dev": "tauri dev",
     "prebuild": "node ../../scripts/cleanup-tauri-sidecars.mjs && node ../../scripts/setup-tor.mjs",
     "build:pwa-shell": "node scripts/run-build-pwa-shell.mjs",
-    "build": "tauri build"
+    "build": "tauri build",
+    "build:android:debug": "node scripts/run-android-build.mjs --apk --debug",
+    "build:android:debug:emulator": "cross-env GRADLE_ABI_LIST=x86_64 node scripts/run-android-build.mjs --apk --debug",
+    "build:android:release": "node scripts/run-android-build.mjs --apk --aab"
   },
   "dependencies": {
     "@tauri-apps/plugin-dialog": "^2.6.0",
     "@tauri-apps/plugin-http": "^2.5.7"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "2.0.0-rc.18",
+    "@tauri-apps/cli": "^2.9.0",
     "cross-env": "^10.1.0"
   }
 }

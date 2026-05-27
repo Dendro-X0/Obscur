@@ -9,6 +9,10 @@ import { setProfileRuntimeScope } from "@/app/features/profiles/services/profile
 import type { StoragePorts } from "@/app/features/profiles/types/storage-ports";
 import { buildAppClientGateway } from "@/app/features/runtime/services/client-gateway-adapter";
 import { getResolvedClientGateway } from "@/app/features/profiles/services/resolve-client-gateway";
+import {
+  scheduleExperimentIdleWork,
+  shouldDeferExperimentHeavyWork,
+} from "@/app/features/runtime/experiment-shell-policy";
 
 type ProfileRuntimeValue = Readonly<{
     profileId: string;
@@ -68,7 +72,13 @@ export function ProfileRuntimeProvider(props: Readonly<{
         if (!profileId) {
             return;
         }
-        void storagePorts.messageDeleteTombstones.hydrateMessageDeleteTombstonesFromSqlite(profileId).catch(() => {});
+        const hydrateTombstones = (): void => {
+            void storagePorts.messageDeleteTombstones.hydrateMessageDeleteTombstonesFromSqlite(profileId).catch(() => {});
+        };
+        if (shouldDeferExperimentHeavyWork()) {
+            return scheduleExperimentIdleWork(hydrateTombstones);
+        }
+        hydrateTombstones();
     }, [profileId, storagePorts]);
 
     return <ProfileRuntimeContext.Provider value={value}>{children}</ProfileRuntimeContext.Provider>;

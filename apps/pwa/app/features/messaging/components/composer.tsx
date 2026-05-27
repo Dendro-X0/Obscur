@@ -14,7 +14,7 @@ import { BEST_EFFORT_STORAGE_NOTE } from "../lib/media-upload-policy";
 import { getVoiceNoteAttachmentMetadata } from "@/app/features/messaging/services/voice-note-metadata";
 import { extractHttpUrlHostsFromText } from "../utils/extract-http-url-hosts";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
-import { getRelaySendBlockCopy } from "@/app/features/relays/services/relay-readiness-copy";
+import { getRelayTransportQueueHint } from "@/app/features/relays/services/relay-readiness-copy";
 import { formatAppVersionLabel } from "@/app/lib/app-version";
 
 interface ComposerProps {
@@ -78,9 +78,9 @@ export function Composer({
     const EMOJI_PICKER_MOBILE_MAX_HEIGHT_PX = 360;
     const { t } = useTranslation();
     const { relayRecovery } = useRelay();
-    const relayPublishBlockMessage = getRelaySendBlockCopy(relayRecovery);
+    const relayTransportQueueHint = getRelayTransportQueueHint(relayRecovery);
     const isGated: boolean = isPeerAccepted === false && isInitiator === false;
-    const disableCompose = isGated || recipientRemoved || relayPublishBlockMessage !== null;
+    const disableCompose = isGated || recipientRemoved;
     const [showEmojiPicker, setShowEmojiPicker] = React.useState(false);
     const emojiPickerRef = React.useRef<HTMLDivElement>(null);
     const emojiButtonRef = React.useRef<HTMLDivElement>(null);
@@ -243,7 +243,7 @@ export function Composer({
     };
 
     return (
-        <div className="border-t border-black/[0.03] bg-white/80 p-4 safe-bottom dark:border-white/[0.03] dark:bg-black/80 backdrop-blur-xl">
+        <div className="relative z-20 shrink-0 border-t border-black/[0.03] bg-white/80 p-4 safe-bottom dark:border-white/[0.03] dark:bg-black/80 backdrop-blur-xl">
             {/* Connection Pending Gated State */}
             {isGated && (
                 <div className="mb-4 flex items-center gap-3 rounded-2xl border border-purple-500/20 bg-purple-50/50 p-4 text-[11px] font-medium text-purple-700 dark:border-purple-500/30 dark:bg-purple-900/20 dark:text-purple-300 animate-in slide-in-from-bottom-2 duration-300">
@@ -600,13 +600,13 @@ export function Composer({
                         <div className={cn("h-1.5 w-1.5 rounded-full", relayStatus.openCount > 0 ? "bg-emerald-500" : "bg-rose-500")} />
                         {t("messaging.connectedToRelays", { open: relayStatus.openCount, total: relayStatus.total })}
                     </span>
-                    {relayPublishBlockMessage && (
+                    {relayTransportQueueHint && (
                         <span className="flex items-center gap-1 text-amber-700 dark:text-amber-300 normal-case tracking-normal font-semibold max-w-[min(100%,28rem)]">
                             <AlertTriangle className="h-3 w-3 shrink-0" />
-                            {relayPublishBlockMessage}
+                            {relayTransportQueueHint}
                         </span>
                     )}
-                    {!relayPublishBlockMessage && relayStatus.openCount === 0 && relayStatus.coolingDownRelayCount > 0 && (
+                    {!relayTransportQueueHint && relayStatus.openCount === 0 && relayStatus.coolingDownRelayCount > 0 && (
                         <span className="flex items-center gap-1 text-rose-600 dark:text-rose-400 normal-case tracking-normal font-semibold">
                             <AlertTriangle className="h-3 w-3" />
                             {t("messaging.relayCoolingDown", "Relay cooling down — retrying shortly")}

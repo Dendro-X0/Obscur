@@ -4,9 +4,11 @@ services:
     ports:
       - "7000:8080"
     volumes:
-      - ./infra/nostr/nostr-rs-relay.toml:/config.toml:ro
+      # Paths are relative to this compose file (infra/).
+      - ./nostr/nostr-rs-relay.toml:/usr/src/app/config.toml:ro
       - nostr-relay-data:/usr/src/app/db
-    command: ["--config", "/config.toml"]
+    # Do not override command: the image ENTRYPOINT is nostr-rs-relay; a bare
+    # ["--config", "..."] replaces CMD and Docker tries to exec "--config".
 
 volumes:
   nostr-relay-data:

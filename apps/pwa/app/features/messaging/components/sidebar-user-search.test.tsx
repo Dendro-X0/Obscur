@@ -40,18 +40,16 @@ vi.mock("../../auth/hooks/use-identity", () => ({
   }),
 }));
 
-vi.mock("../../search/services/profile-search-service", () => ({
-  ProfileSearchService: class {
-    async searchByName(): Promise<ReadonlyArray<Readonly<{
-      pubkey: string;
-      displayName: string;
-      name: string;
-      picture: string;
-      trustScore: number;
-      mutuals: ReadonlyArray<string>;
-    }>>> {
-      return sidebarUserSearchMocks.queryResult;
+vi.mock("../../search/hooks/use-debounced-profile-search", () => ({
+  useDebouncedProfileSearch: ({ query }: { query: string }) => {
+    const normalized = query.trim();
+    if (normalized.length < 3) {
+      return { results: [], isSearching: false };
     }
+    return {
+      results: sidebarUserSearchMocks.queryResult,
+      isSearching: false,
+    };
   },
 }));
 

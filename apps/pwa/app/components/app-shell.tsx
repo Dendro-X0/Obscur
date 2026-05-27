@@ -13,6 +13,7 @@ import { useIsDesktop } from "@/app/features/desktop/hooks/use-tauri";
 import { useKeyboardShortcuts } from "@/app/features/desktop/hooks/use-keyboard-shortcuts";
 import { useDesktopLayout } from "@/app/features/desktop/hooks/use-desktop-layout";
 import { RelayStatusBadge } from "./relay-status-badge";
+import { RelayTransportShellBanner } from "@/app/features/relays/components/relay-transport-shell-banner";
 import { useTranslation } from "react-i18next";
 import { MobileTabBar } from "./mobile-tab-bar";
 import { AppLoadingScreen } from "./app-loading-screen";
@@ -36,12 +37,21 @@ import {
   type NavigationWarmupSpecialTask,
 } from "./intelligent-navigation-warmup-policy";
 import { runIntelligentNavigationWarmup } from "./intelligent-navigation-warmup-runner";
+import {
+  isExperimentOnlineEnabled,
+  isExperimentShellEnabled,
+  shouldDeferExperimentHeavyWork,
+} from "@/app/features/runtime/experiment-shell-policy";
 import { warmRouteNavigationTargets } from "./route-navigation-warmup";
+import { SidebarPortalHost } from "./app-shell-sidebar-portal";
+import {
+  GlobalNavigationChunkLoadingBoundary,
+  useGlobalNavigationLoadingActions,
+} from "./global-navigation-loading";
 
 type NavIcon = (props: Readonly<{ className?: string }>) => React.ReactNode;
 
 type AppShellProps = Readonly<{
-  sidebarContent?: React.ReactNode;
   children: React.ReactNode;
   navBadgeCounts?: Readonly<Record<string, number>>;
   hideSidebar?: boolean;
@@ -120,7 +130,9 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false);
   const [hasMounted, setHasMounted] = useState<boolean>(false);
   const [isPageTransitionActive, setIsPageTransitionActive] = useState<boolean>(false);
-  const [arePageTransitionsEnabled, setArePageTransitionsEnabled] = useState<boolean>(true);
+  const [arePageTransitionsEnabled, setArePageTransitionsEnabled] = useState<boolean>(
+    () => !isExperimentShellEnabled() || isExperimentOnlineEnabled(),
+  );
   const pageTransitionRecoveryRef = useRef(createPageTransitionRecoveryState());
   const pageTransitionWatchdogIdRef = useRef<number | null>(null);
   const pageTransitionAnimationFrameIdRef = useRef<number | null>(null);
@@ -142,6 +154,7 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
   const warmedSpecialWarmupTasksRef = useRef<Set<NavigationWarmupSpecialTask>>(new Set());
   const navigationWarmupGenerationRef = useRef(0);
   const isDesktop = useIsDesktop();
+  const { beginNavigation } = useGlobalNavigationLoadingActions();
   useDesktopLayout();
 
   // Register keyboard shortcuts for desktop
@@ -161,6 +174,23 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
     const generation = navigationWarmupGenerationRef.current + 1;
     navigationWarmupGenerationRef.current = generation;
     const isStale = (): boolean => navigationWarmupGenerationRef.current !== generation;
+
+    if (shouldDeferExperimentHeavyWork()) {
+      logAppEvent({
+        name: "navigation.intelligent_warmup_skipped",
+        level: "debug",
+        scope: { feature: "navigation", action: "route_prefetch" },
+        context: {
+          pathname,
+          routeSurface: activeRouteSurface,
+          reason: "experiment_offline_stub",
+          isDesktop,
+        },
+      });
+      return (): void => {
+        navigationWarmupGenerationRef.current += 1;
+      };
+    }
 
     const warmupPlan = resolveIntelligentNavigationWarmupPlan({
       pathname,
@@ -353,6 +383,9 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
   }, []);
 
   const armRouteHardFallback = useCallback((targetHref: string): void => {
+    if (shouldDeferExperimentHeavyWork()) {
+      return;
+    }
     if (!targetHref || targetHref === pathname) {
       clearRouteFallback();
       return;
@@ -513,6 +546,9 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
   }, [clearPageTransitionTimers]);
 
   useEffect((): (() => void) => {
+    if (shouldDeferExperimentHeavyWork()) {
+      return (): void => {};
+    }
     routeMountProbeSequenceRef.current += 1;
     const probeSequence = routeMountProbeSequenceRef.current;
     const startedAtUnixMs = Date.now();
@@ -754,21 +790,7 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
               </button>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto px-4 py-6">
-              {props.sidebarContent ? (
-                <div className="space-y-6">
-                  {props.sidebarContent}
-                </div>
-              ) : (
-                <div className="flex h-full flex-col items-center justify-center text-center opacity-40">
-                  <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-zinc-100 dark:bg-zinc-900 border border-black/5 dark:border-white/5">
-                    <Menu className="h-6 w-6 text-zinc-400" />
-                  </div>
-                  <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">{t("common.noContent", "No Options")}</h3>
-                  <p className="mt-1 text-[10px] px-8 leading-relaxed">
-                    {t("nav.menuEmptyDesc", "Specific options for this page appear here.")}
-                  </p>
-                </div>
-              )}
+              <SidebarPortalHost variant="mobileDrawer" className="space-y-6 min-h-[120px]" />
             </div>
             <div className="border-t border-black/5 p-4 dark:border-white/5 bg-zinc-50/50 dark:bg-zinc-900/50 safe-bottom">
               <div className="flex items-center justify-between opacity-50">
@@ -816,6 +838,7 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
                       }
                       armRouteHardFallback(item.href);
                       if (item.href !== pathname) {
+                        beginNavigation(item.href);
                         router.push(item.href);
                       }
                     }}
@@ -848,11 +871,11 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
             </div>
           </div>
 
-          {props.sidebarContent ? (
+          {pathname === "/" ? (
             <div className="relative z-10 h-full w-80 border-r border-black/10 bg-white/60 shadow-lg backdrop-blur-xl dark:bg-black/60">
               <div className="flex h-full flex-col">
                 <div className="min-h-0 flex-1 overflow-y-auto">
-                  {props.sidebarContent}
+                  <SidebarPortalHost variant="desktop" className="h-full min-h-[200px]" />
                 </div>
                 <div className="border-t border-black/5 p-4 dark:border-white/5 opacity-50">
                   <div className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">
@@ -906,10 +929,12 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
           >
             <React.Suspense fallback={
               <div className="animate-in fade-in duration-200">
+                <GlobalNavigationChunkLoadingBoundary />
                 <AppLoadingScreen fullScreen={false} title="Loading page" detail="Preparing view..." />
               </div>
             }>
               <div className="flex min-h-0 flex-1 flex-col animate-in fade-in slide-in-from-bottom-1 duration-200">
+                <RelayTransportShellBanner />
                 {props.children}
               </div>
             </React.Suspense>

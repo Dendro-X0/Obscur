@@ -395,18 +395,12 @@ const toMembershipPersistenceKey = (communityId: string, profileId?: string): st
 
 async function loadFromStorage(communityId: string): Promise<SerializedMembership | null> {
   if (typeof window === 'undefined') return null;
-  
   try {
-    const persistenceKey = toMembershipPersistenceKey(communityId);
-    // Try IndexedDB first
-    const db = await openMembershipDB();
-    const data = await db.get('memberships', persistenceKey);
-    return (data as SerializedMembership | undefined) ?? null;
-  } catch {
-    // Fallback to localStorage
     const key = toMembershipPersistenceKey(communityId);
     const stored = localStorage.getItem(key);
     return stored ? JSON.parse(stored) as SerializedMembership : null;
+  } catch {
+    return null;
   }
 }
 
@@ -417,77 +411,20 @@ async function saveToStorage(
   if (typeof window === 'undefined') return;
   
   try {
-    const persistenceKey = toMembershipPersistenceKey(communityId);
-    // Try IndexedDB first
-    const db = await openMembershipDB();
-    await db.put('memberships', data, persistenceKey);
-  } catch {
-    // Fallback to localStorage
     const key = toMembershipPersistenceKey(communityId);
     localStorage.setItem(key, JSON.stringify(data));
+  } catch {
+    // localStorage unavailable — skip persistence
   }
 }
 
-// Simple IndexedDB wrapper
-let dbPromise: Promise<IDBDatabase> | null = null;
-
-function openMembershipDB(): Promise<IDBDatabase> {
-  if (dbPromise) return dbPromise;
-  
-  dbPromise = new Promise((resolve, reject) => {
-    const request = indexedDB.open('ObscurMembershipCRDT', 1);
-    
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve(request.result);
-    
-    request.onupgradeneeded = (event) => {
-      const db = (event.target as IDBOpenDBRequest).result;
-      if (!db.objectStoreNames.contains('memberships')) {
-        db.createObjectStore('memberships');
-      }
-    };
-  });
-  
-  return dbPromise;
-}
-
-/** Clears IndexedDB handle + deletes DB so Vitest runs do not leak CRDT state across cases. Test-only. */
+/** Clears membership CRDT localStorage keys. Test-only. */
 export async function resetMembershipCrdtPersistenceForTests(): Promise<void> {
-  if (typeof localStorage !== "undefined") {
-    for (const key of Object.keys(localStorage)) {
-      if (key.startsWith(`${STORAGE_KEY_PREFIX}:`)) {
-        localStorage.removeItem(key);
-      }
+  if (typeof localStorage === "undefined") return;
+  for (const key of Object.keys(localStorage)) {
+    if (key.startsWith(`${STORAGE_KEY_PREFIX}:`)) {
+      localStorage.removeItem(key);
     }
-  }
-  if (typeof indexedDB === "undefined") return;
-  if (dbPromise) {
-    try {
-      const db = await dbPromise;
-      db.close();
-    } catch {
-      // ignore
-    }
-    dbPromise = null;
-  }
-  await Promise.race([
-    new Promise<void>((resolve, reject) => {
-      const req = indexedDB.deleteDatabase("ObscurMembershipCRDT");
-      req.onsuccess = () => resolve();
-      req.onerror = () => reject(req.error);
-      req.onblocked = () => resolve();
-    }),
-    new Promise<void>((resolve) => {
-      setTimeout(resolve, 50);
-    }),
-  ]);
-}
-
-// Extend IDBDatabase for our store
-declare global {
-  interface IDBDatabase {
-    get(storeName: string, key: string): Promise<unknown>;
-    put(storeName: string, value: unknown, key: string): Promise<void>;
   }
 }
 

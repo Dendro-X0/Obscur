@@ -1,6 +1,6 @@
 import type { Message } from "@/app/features/messaging/types";
 import type { InviteResponseStatus } from "@/app/features/messaging/components/message-list-render-meta";
-import { collectCommunityInviteMessageIdentityAliases } from "./community-invite-dm-message";
+import { parseInvitePayloadFromMessageContent } from "../services/community-dm-invite-pipeline";
 
 /** Unanswered community DM invites stop being actionable after this window. */
 export const COMMUNITY_INVITE_PENDING_TTL_MS = 72 * 60 * 60 * 1000;
@@ -115,10 +115,9 @@ export const resolveCommunityInviteCardStatus = (
         return linkedStatus;
     }
 
-    const inviteIdentityAliases = new Set(collectCommunityInviteMessageIdentityAliases(message));
+    const thisInviteId = parseInvitePayloadFromMessageContent(message.content)?.inviteId;
 
     let hasNewerSameGroupInvite = false;
-    let hasLaterTerminalActivityForGroup = false;
 
     messages.forEach((entry) => {
         if (entry.id === message.id) {
@@ -127,29 +126,25 @@ export const resolveCommunityInviteCardStatus = (
         const entryAtMs = toMessageUnixMs(entry);
         const entryParsed = parseJsonPayload(entry.content);
         const entryInviteGroupId = readInviteGroupId(entryParsed);
-        const entryPayloadGroupId = readPayloadGroupId(entryParsed);
-        const entryResponseStatus = readResponseStatus(entryParsed);
 
-        if (entryInviteGroupId === groupId && entry.isOutgoing === message.isOutgoing && entryAtMs > inviteSentAtMs) {
-            hasNewerSameGroupInvite = true;
-        }
-
-        if (entryPayloadGroupId !== groupId || entryAtMs <= inviteSentAtMs) {
+        if (entryInviteGroupId !== groupId || entry.isOutgoing !== message.isOutgoing || entryAtMs <= inviteSentAtMs) {
             return;
         }
 
-        if (entryResponseStatus) {
-            const replyTargetId = entry.replyTo?.messageId?.trim();
-            const repliesToThisInvite = replyTargetId
-                ? inviteIdentityAliases.has(replyTargetId)
-                : false;
-            if (!repliesToThisInvite) {
-                hasLaterTerminalActivityForGroup = true;
-            }
+        const otherInviteId = parseInvitePayloadFromMessageContent(entry.content)?.inviteId;
+        if (
+            thisInviteId
+            && otherInviteId
+            && !thisInviteId.startsWith("legacy:")
+            && thisInviteId === otherInviteId
+        ) {
+            return;
         }
+
+        hasNewerSameGroupInvite = true;
     });
 
-    if (hasNewerSameGroupInvite || hasLaterTerminalActivityForGroup) {
+    if (hasNewerSameGroupInvite) {
         return "superseded";
     }
 

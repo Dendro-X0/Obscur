@@ -1,26 +1,35 @@
-"use client";
+import {
+  preloadGroupHomePageClient,
+  ROUTE_CLIENT_CHUNK_LOADERS,
+  type SidebarRouteHref,
+} from "@/app/lib/navigation/sidebar-routes";
+
+export { ROUTE_CLIENT_CHUNK_LOADERS, preloadGroupHomePageClient };
+
+/** Swallows chunk load failures so dev warm-up does not surface a runtime overlay. */
+export const loadClientChunkSafely = async (
+  loader: () => Promise<unknown>,
+): Promise<"fulfilled" | "rejected"> => {
+  try {
+    await loader();
+    return "fulfilled";
+  } catch {
+    return "rejected";
+  }
+};
 
 type RoutePrefetchRouter = Readonly<{
   prefetch: (href: string) => void;
 }>;
 
-/** Matches `dynamic(() => import("./…-page-client"))` entry points for sidebar routes. */
-export const ROUTE_CLIENT_CHUNK_LOADERS: Readonly<Record<string, () => Promise<unknown>>> = {
-  "/network": () => import("@/app/network/network-page-client"),
-  "/vault": () => import("@/app/vault/vault-page-client"),
-  "/search": () => import("@/app/search/search-page-client"),
-  "/settings": () => import("@/app/settings/settings-page-client"),
-};
-
-/** Heavy community detail client; preloaded when Network shell is warm. */
-export const preloadGroupHomePageClient = (): Promise<unknown> => (
-  import("@/app/groups/[...id]/group-home-page-client")
-);
-
 export type RouteNavigationWarmupResult = Readonly<{
   href: string;
   status: "fulfilled" | "rejected";
 }>;
+
+const isSidebarRouteHref = (href: string): href is SidebarRouteHref => (
+  href in ROUTE_CLIENT_CHUNK_LOADERS
+);
 
 /**
  * Prefetch the Next route shell and eagerly load client page chunks so the first
@@ -32,11 +41,12 @@ export const warmRouteNavigationTargets = async (
 ): Promise<ReadonlyArray<RouteNavigationWarmupResult>> => {
   const results = await Promise.allSettled(
     targets.map(async (href) => {
-      const loadClientChunk = ROUTE_CLIENT_CHUNK_LOADERS[href];
+      const loadClientChunk = isSidebarRouteHref(href)
+        ? ROUTE_CLIENT_CHUNK_LOADERS[href]
+        : undefined;
       await Promise.all([
         Promise.resolve(router.prefetch(href)),
-        loadClientChunk ? loadClientChunk() : Promise.resolve(),
-        href === "/network" ? preloadGroupHomePageClient() : Promise.resolve(),
+        loadClientChunk ? loadClientChunkSafely(loadClientChunk) : Promise.resolve(),
       ]);
     }),
   );

@@ -1,4 +1,10 @@
-import { schnorr } from '@noble/curves/secp256k1';
+import { schnorr } from "@noble/curves/secp256k1";
+import {
+  handleMembershipDeltaAppend,
+  handleMembershipDeltasSince,
+  handleMembershipHead,
+  matchMembershipDirectoryPath,
+} from "./membership-directory";
 
 type Env = Readonly<{
   DB: D1Database;
@@ -347,6 +353,21 @@ export default {
     }
     if (request.method === "POST" && path === "/invites/redeem") {
       return await handleInviteRedeem(request, env);
+    }
+
+    const membershipPath = matchMembershipDirectoryPath(path);
+    if (membershipPath) {
+      if (membershipPath.resource === "head" && request.method === "GET") {
+        return await handleMembershipHead(membershipPath.communityId, env);
+      }
+      if (membershipPath.resource === "deltas" && request.method === "GET") {
+        const sinceRaw = url.searchParams.get("since");
+        const since = sinceRaw ? Number.parseInt(sinceRaw, 10) : 0;
+        return await handleMembershipDeltasSince(membershipPath.communityId, since, env);
+      }
+      if (membershipPath.resource === "delta" && request.method === "POST") {
+        return await handleMembershipDeltaAppend(membershipPath.communityId, request, env);
+      }
     }
 
     // Media

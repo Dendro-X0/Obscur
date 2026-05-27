@@ -80,6 +80,33 @@ describe("relay recovery policy", () => {
     })).toBe("degraded");
   });
 
+  it("classifies recovery_exhausted as offline", () => {
+    expect(classifyRelayRecoveryState({
+      writableRelayCount: 0,
+      fallbackWritableRelayCount: 0,
+      subscribableRelayCount: 0,
+      recoveryAttemptCount: 2,
+      recoveryReasonCode: "recovery_exhausted",
+    })).toBe("offline");
+  });
+
+  it("defers recovery when beforeRecovery handles primary failover", async () => {
+    const controller = createRelayRecoveryController();
+    const pool = createPool();
+    const beforeRecovery = vi.fn(() => true);
+    controller.configure({
+      pool,
+      enabledRelayUrls: ["ws://localhost:7000", "wss://relay.damus.io"],
+      beforeRecovery,
+    });
+
+    vi.setSystemTime(new Date("2026-01-01T00:00:09.000Z"));
+    await controller.triggerRecovery("no_writable_relays");
+
+    expect(beforeRecovery).toHaveBeenCalled();
+    expect(pool.reconnectAll).not.toHaveBeenCalled();
+  });
+
   it("triggers reconnect on the first recovery attempt", async () => {
     const controller = createRelayRecoveryController();
     const pool = createPool();
@@ -90,36 +117,35 @@ describe("relay recovery policy", () => {
     expect(pool.reconnectAll).toHaveBeenLastCalledWith({ force: true });
   });
 
-  it("cycles no_writable_relays recovery without escalating to reload_required", async () => {
+  it("exhausts cyclic no_writable_relays recovery after two full cycles", async () => {
     const controller = createRelayRecoveryController();
     const pool = createPool();
     controller.configure({ pool, enabledRelayUrls: ["wss://relay.one"] });
 
-    vi.setSystemTime(new Date("2026-01-01T00:00:09.000Z"));
-    const first = await controller.triggerRecovery("no_writable_relays");
-    expect(first.currentAction).toBe("reconnect");
-    expect(first.recoveryReasonCode).toBe("no_writable_relays");
+    const baseMs = new Date("2026-01-01T00:00:09.000Z").getTime();
+    let last: Awaited<ReturnType<typeof controller.triggerRecovery>> | undefined;
+    for (let i = 1; i <= relayRecoveryInternals.MAX_CYCLIC_RECOVERY_TRIGGERS; i += 1) {
+      vi.setSystemTime(new Date(baseMs + i * 9_000));
+      last = await controller.triggerRecovery("no_writable_relays");
+    }
 
-    vi.setSystemTime(new Date("2026-01-01T00:00:18.000Z"));
-    const second = await controller.triggerRecovery("no_writable_relays");
-    expect(second.currentAction).toBe("resubscribe");
-    expect(second.recoveryReasonCode).toBe("no_writable_relays");
+    expect(last).toBeDefined();
+    expect(last!.currentAction).toBe("subsystem_reset");
+    expect(last!.recoveryReasonCode).toBe("no_writable_relays");
 
-    vi.setSystemTime(new Date("2026-01-01T00:00:27.000Z"));
-    const third = await controller.triggerRecovery("no_writable_relays");
-    expect(third.currentAction).toBe("subsystem_reset");
-    expect(third.recoveryReasonCode).toBe("no_writable_relays");
-
-    vi.setSystemTime(new Date("2026-01-01T00:00:36.000Z"));
-    const fourth = await controller.triggerRecovery("no_writable_relays");
-    expect(fourth.currentAction).toBe("reconnect");
-    expect(fourth.recoveryReasonCode).toBe("no_writable_relays");
-
+    vi.setSystemTime(new Date(baseMs + 7 * 9_000));
+    const exhausted = await controller.triggerRecovery("no_writable_relays");
+    expect(exhausted.recoveryReasonCode).toBe("recovery_exhausted");
+    expect(exhausted.readiness).toBe("offline");
+    expect(exhausted.currentAction).toBeUndefined();
     expect(pool.reconnectAll).toHaveBeenCalledTimes(2);
-    expect(pool.reconnectAll).toHaveBeenNthCalledWith(1, { force: true });
-    expect(pool.reconnectAll).toHaveBeenNthCalledWith(2, { force: true });
-    expect(pool.resubscribeAll).toHaveBeenCalledTimes(1);
-    expect(pool.recycle).toHaveBeenCalledTimes(1);
+    expect(pool.resubscribeAll).toHaveBeenCalledTimes(2);
+    expect(pool.recycle).toHaveBeenCalledTimes(2);
+
+    vi.mocked(pool.reconnectAll).mockClear();
+    vi.setSystemTime(new Date(baseMs + 8 * 9_000));
+    await controller.triggerRecovery("no_writable_relays");
+    expect(pool.reconnectAll).not.toHaveBeenCalled();
   });
 
   it("escalates non-no_writable relays recoveries to reload_required when exhausted", async () => {
@@ -139,34 +165,29 @@ describe("relay recovery policy", () => {
     expect(last!.recoveryReasonCode).toBe("recovery_exhausted");
   });
 
-  it("maps manual recovery to cyclic no_writable_relays when runtime is disconnected", async () => {
+  it("maps manual recovery to cyclic no_writable_relays until exhaustion", async () => {
     const controller = createRelayRecoveryController();
     const pool = createPool();
     controller.configure({ pool, enabledRelayUrls: ["wss://relay.one"] });
 
-    vi.setSystemTime(new Date("2026-01-01T00:00:09.000Z"));
-    const first = await controller.triggerRecovery("manual");
-    expect(first.currentAction).toBe("reconnect");
-    expect(first.recoveryReasonCode).toBe("no_writable_relays");
+    const baseMs = new Date("2026-01-01T00:00:09.000Z").getTime();
+    let last: Awaited<ReturnType<typeof controller.triggerRecovery>> | undefined;
+    for (let i = 1; i <= relayRecoveryInternals.MAX_CYCLIC_RECOVERY_TRIGGERS; i += 1) {
+      vi.setSystemTime(new Date(baseMs + i * 9_000));
+      last = await controller.triggerRecovery("manual");
+      expect(last!.recoveryReasonCode).toBe("no_writable_relays");
+    }
 
-    vi.setSystemTime(new Date("2026-01-01T00:00:18.000Z"));
-    const second = await controller.triggerRecovery("manual");
-    expect(second.currentAction).toBe("resubscribe");
-    expect(second.recoveryReasonCode).toBe("no_writable_relays");
+    vi.setSystemTime(new Date(baseMs + 7 * 9_000));
+    const exhausted = await controller.triggerRecovery("manual");
+    expect(exhausted.recoveryReasonCode).toBe("recovery_exhausted");
+    expect(exhausted.readiness).toBe("offline");
 
-    vi.setSystemTime(new Date("2026-01-01T00:00:27.000Z"));
-    const third = await controller.triggerRecovery("manual");
-    expect(third.currentAction).toBe("subsystem_reset");
-    expect(third.recoveryReasonCode).toBe("no_writable_relays");
-
-    vi.setSystemTime(new Date("2026-01-01T00:00:36.000Z"));
-    const fourth = await controller.triggerRecovery("manual");
-    expect(fourth.currentAction).toBe("reconnect");
-    expect(fourth.recoveryReasonCode).toBe("no_writable_relays");
-
-    expect(pool.reconnectAll).toHaveBeenCalledTimes(2);
-    expect(pool.resubscribeAll).toHaveBeenCalledTimes(1);
-    expect(pool.recycle).toHaveBeenCalledTimes(1);
+    vi.setSystemTime(new Date(baseMs + 8 * 9_000));
+    const manualRetry = await controller.triggerRecovery("manual");
+    expect(manualRetry.recoveryReasonCode).toBe("no_writable_relays");
+    expect(manualRetry.currentAction).toBe("reconnect");
+    expect(pool.reconnectAll).toHaveBeenCalledTimes(3);
   });
 
   it("treats control chatter without event freshness as stale subscription risk", async () => {

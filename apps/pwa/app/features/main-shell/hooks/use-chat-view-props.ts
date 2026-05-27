@@ -3,8 +3,7 @@
 import { useMemo, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "@dweb/ui-kit";
-// Using fixed hook with diagnostics to track outgoing vs incoming messages
-import { useConversationMessagesFixed as useConversationMessages } from "../../messaging/hooks/use-conversation-messages-fixed";
+import { useConversationMessages } from "../../messaging/hooks/use-conversation-messages";
 import { isPreviewableMediaAttachment } from "../../messaging/utils/logic";
 import type {
     Conversation,
@@ -27,13 +26,17 @@ export function useChatViewProps({
 }: UseChatViewPropsParams) {
     const { t } = useTranslation();
 
+    const dmConversationId = selectedConversation?.kind === "dm"
+        ? selectedConversation.id
+        : undefined;
+
     const {
         messages,
         isLoading,
         hasEarlier,
         loadEarlier,
         pendingEventCount
-    } = useConversationMessages(selectedConversation?.id || undefined, myPublicKeyHex);
+    } = useConversationMessages(dmConversationId, myPublicKeyHex);
 
     const handleLoadEarlier = useCallback(() => {
         loadEarlier();

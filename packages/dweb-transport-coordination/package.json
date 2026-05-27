@@ -1,0 +1,15 @@
+{
+  "name": "@dweb/transport-coordination",
+  "version": "1.8.3",
+  "private": true,
+  "type": "module",
+  "description": "Coordination backend transport adapter — membership directory to semantic events.",
+  "dependencies": {
+    "@dweb/coordination-contracts": "workspace:*",
+    "@dweb/transport-contracts": "workspace:*"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./map-delta": "./src/map-coordination-delta.ts"
+  }
+}

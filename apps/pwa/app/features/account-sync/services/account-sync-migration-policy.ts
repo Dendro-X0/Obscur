@@ -2,6 +2,7 @@
 
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
+import { requiresSqlitePersistence } from "@/app/features/runtime/native-persistence-policy";
 
 export type AccountSyncMigrationPhase =
   | "shadow"
@@ -140,8 +141,24 @@ const getPolicyForScope = (scope?: AccountSyncMigrationScope): AccountSyncMigrat
   return store.entries[partitionKey] ?? defaultPolicy();
 };
 
+const applyNativeProjectionPolicyOverride = (
+  policy: AccountSyncMigrationPolicy,
+): AccountSyncMigrationPolicy => {
+  if (!requiresSqlitePersistence()) {
+    return policy;
+  }
+  if (policy.phase === "legacy_writes_disabled") {
+    return policy;
+  }
+  return {
+    phase: "legacy_writes_disabled",
+    rollbackEnabled: false,
+    updatedAtUnixMs: Date.now(),
+  };
+};
+
 export const getAccountSyncMigrationPolicy = (scope?: AccountSyncMigrationScope): AccountSyncMigrationPolicy => (
-  getPolicyForScope(scope)
+  applyNativeProjectionPolicyOverride(getPolicyForScope(scope))
 );
 
 export const setAccountSyncMigrationPolicy = (

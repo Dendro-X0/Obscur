@@ -4,7 +4,7 @@
   "identifier": "app.obscur.desktop",
   "version": "1.8.3",
   "build": {
-    "beforeDevCommand": "cross-env NEXT_PUBLIC_DESKTOP_SHELL=1 TAURI_BUILD=true pnpm -C ../pwa exec next dev --hostname 127.0.0.1 --port 3340",
+    "beforeDevCommand": "node ../../scripts/dev-pwa-tauri.mjs",
     "devUrl": "http://127.0.0.1:3340",
     "beforeBuildCommand": "pnpm run build:pwa-shell",
     "frontendDist": "../../pwa/out"

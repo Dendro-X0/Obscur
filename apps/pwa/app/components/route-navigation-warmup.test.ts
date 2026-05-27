@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { warmRouteNavigationTargets } from "./route-navigation-warmup";
+import { loadClientChunkSafely, warmRouteNavigationTargets } from "./route-navigation-warmup";
 
 vi.mock("@/app/groups/[...id]/group-home-page-client", () => ({
   default: function MockGroupHomePageClient() {
@@ -16,4 +16,19 @@ describe("warmRouteNavigationTargets", () => {
     expect(results).toEqual([{ href: "/network", status: "fulfilled" }]);
   });
 
+  it("does not reject warm-up when a client chunk fails to load", async () => {
+    const prefetch = vi.fn();
+    const results = await warmRouteNavigationTargets({ prefetch }, ["/vault"]);
+
+    expect(results).toEqual([{ href: "/vault", status: "fulfilled" }]);
+  });
+
+});
+
+describe("loadClientChunkSafely", () => {
+  it("returns rejected without throwing when the loader fails", async () => {
+    await expect(loadClientChunkSafely(async () => {
+      throw new Error("ChunkLoadError");
+    })).resolves.toBe("rejected");
+  });
 });

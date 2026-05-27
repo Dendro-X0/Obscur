@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { GroupConversation } from "@/app/features/messaging/types";
 import type { CommunityMembershipLedgerEntry } from "./community-membership-ledger";
 import {
@@ -43,6 +43,14 @@ const createLedgerEntry = (overrides: Partial<CommunityMembershipLedgerEntry> = 
 });
 
 describe("community-membership-coordinator", () => {
+  beforeEach(() => {
+    vi.stubEnv("NEXT_PUBLIC_OBSCUR_RADICAL_TRUTH", "0");
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it("keeps explicit left ledger state above persisted chat-state fallback", () => {
     const result = resolveCommunityMembershipCoordinator({
       publicKeyHex: PUBLIC_KEY,

@@ -14,5 +14,7 @@ describe("ClientGateway port owners", () => {
     expect(dmConversationMaterializationOwner.hydrateThreadReadModel).toBeTypeOf("function");
     expect(dmConversationMaterializationOwner.applyRealtimeBufferedEvents).toBeTypeOf("function");
     expect(dmConversationMaterializationOwner.loadEarlierMessages).toBeTypeOf("function");
+    expect(dmConversationMaterializationOwner.filterThreadMessagesBySuppression).toBeTypeOf("function");
+    expect(dmConversationMaterializationOwner.mergeHydratedBaseWithLiveOverlay).toBeTypeOf("function");
   });
 });

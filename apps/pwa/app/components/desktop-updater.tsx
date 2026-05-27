@@ -44,6 +44,53 @@ const ROLLOUT_SEED_STORAGE_KEY = "obscur.desktop.streaming-update.rollout-seed.v
 const AUTO_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const APP_VERSION = (process.env.NEXT_PUBLIC_APP_VERSION ?? "dev").replace(/^v/i, "");
 
+const shouldQueryGitHubReleases = (): boolean => {
+  if (process.env.NEXT_PUBLIC_SKIP_GITHUB_RELEASE_CHECK === "1") {
+    return false;
+  }
+  if (process.env.NODE_ENV === "development") {
+    return false;
+  }
+  return true;
+};
+
+type GitHubReleaseSnapshot = Readonly<{
+  latestTag: string;
+  htmlUrl: string | null;
+  releaseAssets: ReadonlyArray<ReleaseAsset>;
+  preferredAsset: ReleaseAsset | null;
+}>;
+
+const fetchLatestGitHubRelease = async (
+  desktopPlatform: ReturnType<typeof inferDesktopPlatformFromUserAgent>,
+  fallbackVersion: string,
+): Promise<GitHubReleaseSnapshot | null> => {
+  if (!shouldQueryGitHubReleases()) {
+    return null;
+  }
+  try {
+    const releaseResponse = await fetch(GITHUB_LATEST_RELEASE_URL, {
+      headers: { Accept: "application/vnd.github+json" },
+    });
+    if (!releaseResponse.ok) {
+      return null;
+    }
+    const release = (await releaseResponse.json()) as GitHubRelease;
+    const releaseAssets = release.assets ?? [];
+    const preferredAsset = pickPreferredDesktopAsset(releaseAssets, desktopPlatform);
+    return {
+      latestTag: normalizeVersion(release.tag_name || fallbackVersion),
+      htmlUrl: release.html_url || null,
+      releaseAssets,
+      preferredAsset,
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn("[DesktopUpdater] GitHub release check skipped (network):", message);
+    return null;
+  }
+};
+
 interface UpdateInfo {
   available: boolean;
   version?: string;
@@ -167,21 +214,20 @@ export const DesktopUpdater = ({ variant = "background" }: DesktopUpdaterProps) 
       const tauriCheckPromise = isDesktop
         ? invokeNativeCommand<string>("check_for_updates")
         : Promise.resolve({ ok: false as const, message: "desktop_runtime_unavailable" });
-      const [tauriResult, releaseResponse] = await Promise.all([
+      const [tauriResult, githubRelease] = await Promise.all([
         tauriCheckPromise,
-        fetch(GITHUB_LATEST_RELEASE_URL, { headers: { Accept: "application/vnd.github+json" } }),
+        fetchLatestGitHubRelease(desktopPlatform, currentVersion),
       ]);
 
       let latestTag = currentVersion;
       let htmlUrl: string | null = null;
       let preferredAsset: ReleaseAsset | null = null;
       let releaseAssets: ReadonlyArray<ReleaseAsset> = [];
-      if (releaseResponse.ok) {
-        const release = (await releaseResponse.json()) as GitHubRelease;
-        latestTag = normalizeVersion(release.tag_name || currentVersion);
-        htmlUrl = release.html_url || null;
-        releaseAssets = release.assets ?? [];
-        preferredAsset = pickPreferredDesktopAsset(releaseAssets, desktopPlatform);
+      if (githubRelease) {
+        latestTag = githubRelease.latestTag;
+        htmlUrl = githubRelease.htmlUrl;
+        releaseAssets = githubRelease.releaseAssets;
+        preferredAsset = githubRelease.preferredAsset;
       }
       setReleaseUrl(htmlUrl);
       const resolvedDownloadUrl = resolveDownloadFallbackUrl({
@@ -292,7 +338,7 @@ export const DesktopUpdater = ({ variant = "background" }: DesktopUpdaterProps) 
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       setError(message);
-      console.error("Failed to check for updates:", err);
+      console.warn("[DesktopUpdater] Update check failed:", message);
     } finally {
       setIsChecking(false);
     }

@@ -1,18 +1,15 @@
-import type React from "react";
-import dynamic from "next/dynamic";
-import { AppLoadingScreen } from "@/app/components/app-loading-screen";
+import { createSidebarRoutePage } from "@/app/lib/navigation/create-sidebar-route-page";
 
-const NetworkPageClient = dynamic(() => import("./network-page-client"), {
-  loading: () => (
-    <AppLoadingScreen
-      fullScreen={false}
-      title="Loading network"
-      detail="Preparing contacts, communities, and local relationship data..."
-      className="min-h-[320px]"
-    />
-  ),
-});
-
-export default function NetworkPage(): React.JSX.Element {
-  return <NetworkPageClient />;
-}
+export default createSidebarRoutePage(
+  {
+    eager: () => {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      return require("./network-page-client");
+    },
+    lazy: () => import("./network-page-client"),
+  },
+  {
+    title: "Loading network",
+    detail: "Preparing contacts, trust graph, and community tools...",
+  },
+);

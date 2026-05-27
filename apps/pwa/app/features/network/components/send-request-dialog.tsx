@@ -8,7 +8,7 @@ import { useRelay } from "@/app/features/relays/providers/relay-provider";
 import {
   getRelayReadinessBannerCopy,
   getRelayReadinessTone,
-  getRelaySendBlockCopy,
+  getRelayTransportQueueHint,
 } from "@/app/features/relays/services/relay-readiness-copy";
 
 interface SendRequestDialogProps {
@@ -29,7 +29,7 @@ export function SendRequestDialog({
   const [introMessage, setIntroMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
   const relayBanner = getRelayReadinessBannerCopy(relayRecovery);
-  const relayBlockMessage = getRelaySendBlockCopy(relayRecovery);
+  const relayQueueHint = getRelayTransportQueueHint(relayRecovery);
   const recipientLabel: string = recipientName.length > 48
     ? `${recipientName.slice(0, 20)}...${recipientName.slice(-12)}`
     : recipientName;
@@ -37,9 +37,6 @@ export function SendRequestDialog({
   if (!isOpen) return null;
 
   const handleSend = async () => {
-    if (relayBlockMessage) {
-      return;
-    }
     setIsSending(true);
     try {
       await onSend(introMessage);
@@ -70,7 +67,7 @@ export function SendRequestDialog({
               onChange={(e) => setIntroMessage(e.target.value)}
               className="h-32 resize-none rounded-xl bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 focus:bg-white dark:focus:bg-zinc-950 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 transition-all shadow-sm"
               maxLength={280}
-              disabled={isSending || Boolean(relayBlockMessage)}
+              disabled={isSending}
             />
             <div className="flex justify-end">
               <span className="text-[10px] text-zinc-400 font-medium">
@@ -87,7 +84,7 @@ export function SendRequestDialog({
                 ) : (
                   <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                 )}
-                <p>{relayBlockMessage ?? relayBanner}</p>
+                <p>{relayQueueHint ?? relayBanner}</p>
               </div>
             </div>
           ) : null}
@@ -104,15 +101,15 @@ export function SendRequestDialog({
             <Button
               className="flex-1 rounded-xl h-12 gap-2"
               onClick={handleSend}
-              disabled={isSending || Boolean(relayBlockMessage)}
+              disabled={isSending}
             >
               {isSending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <UserPlus className="h-4 w-4" />
               )}
-              {relayBlockMessage
-                ? t("network.sendBlocked", "Waiting for connection")
+              {relayQueueHint
+                ? t("network.queueRequest", "Queue Request")
                 : t("network.sendRequest", "Send Request")}
             </Button>
           </div>

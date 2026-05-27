@@ -10,6 +10,7 @@ import { NAV_ITEMS } from "../lib/navigation/nav-items";
 import { useTranslation } from "react-i18next";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import { hardNavigate, ROUTE_NAVIGATION_STALL_HARD_FALLBACK_MS } from "./page-transition-recovery";
+import { useGlobalNavigationLoadingActions } from "./global-navigation-loading";
 
 const ICON_BY_HREF: Record<string, any> = {
     "/": MessageSquare,
@@ -28,6 +29,7 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({ navBadgeCounts = {} 
     const { t } = useTranslation();
     const router = useRouter();
     const pathname = usePathname();
+    const { beginNavigation } = useGlobalNavigationLoadingActions();
     const routeFallbackTimeoutIdRef = React.useRef<number | null>(null);
     const routePendingTargetRef = React.useRef<string | null>(null);
     const routePendingStartedAtUnixMsRef = React.useRef<number>(0);
@@ -133,6 +135,7 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({ navBadgeCounts = {} 
                                 event.preventDefault();
                                 armRouteHardFallback(item.href);
                                 if (item.href !== pathname) {
+                                    beginNavigation(item.href);
                                     router.push(item.href);
                                 }
                             }}

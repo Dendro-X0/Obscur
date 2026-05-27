@@ -24,14 +24,14 @@ describe("use-relay-list internals", () => {
 
     expect(sanitized).toEqual([
       { url: "wss://relay.one", enabled: true },
-      { url: "ws://localhost:7001", enabled: true },
+      { url: "ws://localhost:7000", enabled: true },
     ]);
   });
 
-  it("filters untrusted stored relays on load", () => {
+  it("filters untrusted stored relays on load and migrates private relays disabled", () => {
     const pubkey = "a".repeat(64) as any;
-    const storageKey = relayListInternals.getRelayListStorageKey(pubkey);
-    localStorage.setItem(storageKey, JSON.stringify([
+    const legacyKey = relayListInternals.getLegacyRelayListStorageKeyV1(pubkey);
+    localStorage.setItem(legacyKey, JSON.stringify([
       { url: "wss://trusted.example/", enabled: true },
       { url: "ws://localhost:7001", enabled: true },
       { url: "ws://127.0.0.1:7001", enabled: true },
@@ -41,7 +41,9 @@ describe("use-relay-list internals", () => {
     const loaded = relayListInternals.loadRelayListFromStorage(pubkey);
     expect(loaded).toEqual([
       { url: "wss://trusted.example", enabled: true },
-      { url: "ws://localhost:7001", enabled: true },
+      { url: "ws://localhost:7000", enabled: false },
     ]);
+    const v2Key = relayListInternals.getRelayListStorageKey(pubkey);
+    expect(localStorage.getItem(v2Key)).toContain('"enabled":false');
   });
 });

@@ -11,6 +11,10 @@ import type {
   StabilizeCommunityMemberPubkeysParams,
   StabilizeCommunityMemberPubkeysResult,
 } from "./community-visible-members";
+import type {
+  CommunityParticipantRosterReadModelInput,
+  CommunityParticipantRosterReadModelResult,
+} from "./community-participant-roster-read-model";
 
 export type ResolveCommunitySeedMemberPubkeysFromDirectoryParams = Readonly<{
   directory: CommunityKnownParticipantDirectory | null | undefined;
@@ -59,4 +63,12 @@ export type CommunityRosterMaterializationPort = Readonly<{
     protectRemovalPubkeys?: ReadonlyArray<PublicKeyHex>;
     guardRelaxed?: boolean;
   }>) => ReadonlyArray<PublicKeyHex>;
+  /** R2 — monotonic participant discovery read model (session widen-only). */
+  resolveParticipantRosterReadModel: (
+    params: CommunityParticipantRosterReadModelInput & Readonly<{
+      sessionPubkeys: ReadonlyArray<PublicKeyHex>;
+      relayEvidenceConfidence?: import("./community-member-roster-projection").RelayEvidenceConfidence;
+      applyTerminalMembershipExclusions?: boolean;
+    }>,
+  ) => CommunityParticipantRosterReadModelResult;
 }>;

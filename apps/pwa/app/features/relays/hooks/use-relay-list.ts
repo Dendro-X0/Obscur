@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
+import { applyRelayListScopeMigration } from "../services/relay-transport-scope";
 import { validateRelayUrl } from "./validate-relay-url";
 
 type RelayListItem = Readonly<{
@@ -46,15 +47,26 @@ const getE2eRelayOverride = (): ReadonlyArray<RelayListItem> | null => {
   return urls.map((url: string): RelayListItem => ({ url, enabled: true }));
 };
 
+/** Matches `infra/docker-compose.nostr.yml` (host port 7000 → container 8080). */
+export const LOCAL_DEV_RELAY_URL = "ws://localhost:7000";
+
 const DEFAULT_RELAYS: ReadonlyArray<RelayListItem> = [
-  { url: "ws://localhost:7001", enabled: true },
   { url: "wss://relay.damus.io", enabled: true },
   { url: "wss://nos.lol", enabled: true },
-  { url: "wss://relay.snort.social", enabled: true },
-  { url: "wss://relay.primal.net", enabled: true },
+  { url: LOCAL_DEV_RELAY_URL, enabled: false },
+  { url: "wss://relay.snort.social", enabled: false },
+  { url: "wss://relay.primal.net", enabled: false },
 ];
 
+const migrateLegacyLocalRelayUrl = (url: string): string => (
+  url === "ws://localhost:7001" ? LOCAL_DEV_RELAY_URL : url
+);
+
 const getRelayListStorageKey = (publicKeyHex: PublicKeyHex, profileId?: string): string => (
+  getScopedStorageKey(`obscur.relay_list.v2.${publicKeyHex}`, profileId ?? getResolvedProfileId())
+);
+
+const getLegacyRelayListStorageKeyV1 = (publicKeyHex: PublicKeyHex, profileId?: string): string => (
   getScopedStorageKey(`obscur.relay_list.v1.${publicKeyHex}`, profileId ?? getResolvedProfileId())
 );
 
@@ -77,11 +89,35 @@ const sanitizeRelayList = (relays: ReadonlyArray<RelayListItem>): ReadonlyArray<
     }
     seen.add(trustedUrl);
     sanitized.push({
-      url: trustedUrl,
+      url: migrateLegacyLocalRelayUrl(trustedUrl),
       enabled: relay.enabled,
     });
   });
   return sanitized;
+};
+
+const parseRelayListPayload = (raw: string): ReadonlyArray<RelayListItem> | null => {
+  const parsed: unknown = JSON.parse(raw);
+  if (!Array.isArray(parsed)) {
+    return null;
+  }
+  const items: RelayListItem[] = parsed
+    .map((candidate: unknown): RelayListItem | null => {
+      if (!candidate || typeof candidate !== "object") {
+        return null;
+      }
+      const record = candidate as Record<string, unknown>;
+      const url = typeof record.url === "string" ? record.url : "";
+      const enabled = typeof record.enabled === "boolean" ? record.enabled : true;
+      const trustedUrl = toTrustedRelayUrl(url);
+      if (!trustedUrl) {
+        return null;
+      }
+      return { url: trustedUrl, enabled };
+    })
+    .filter((item: RelayListItem | null): item is RelayListItem => item !== null);
+  const sanitizedItems = sanitizeRelayList(items);
+  return sanitizedItems.length > 0 ? sanitizedItems : null;
 };
 
 const loadRelayListFromStorage = (publicKeyHex: PublicKeyHex, profileId?: string): ReadonlyArray<RelayListItem> => {
@@ -94,33 +130,26 @@ const loadRelayListFromStorage = (publicKeyHex: PublicKeyHex, profileId?: string
     return DEFAULT_RELAYS;
   }
   try {
-    const raw: string | null =
-      window.localStorage.getItem(getRelayListStorageKey(publicKeyHex, profileId))
+    const v2Key = getRelayListStorageKey(publicKeyHex, profileId);
+    const v2Raw = window.localStorage.getItem(v2Key);
+    if (v2Raw) {
+      const parsed = parseRelayListPayload(v2Raw);
+      return parsed ?? DEFAULT_RELAYS;
+    }
+
+    const legacyRaw =
+      window.localStorage.getItem(getLegacyRelayListStorageKeyV1(publicKeyHex, profileId))
       ?? window.localStorage.getItem(getLegacyRelayListStorageKey(publicKeyHex));
-    if (!raw) {
+    if (!legacyRaw) {
       return DEFAULT_RELAYS;
     }
-    const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) {
+    const parsed = parseRelayListPayload(legacyRaw);
+    if (!parsed) {
       return DEFAULT_RELAYS;
     }
-    const items: RelayListItem[] = parsed
-      .map((candidate: unknown): RelayListItem | null => {
-        if (!candidate || typeof candidate !== "object") {
-          return null;
-        }
-        const record = candidate as Record<string, unknown>;
-        const url = typeof record.url === "string" ? record.url : "";
-        const enabled = typeof record.enabled === "boolean" ? record.enabled : true;
-        const trustedUrl = toTrustedRelayUrl(url);
-        if (!trustedUrl) {
-          return null;
-        }
-        return { url: trustedUrl, enabled };
-      })
-      .filter((item: RelayListItem | null): item is RelayListItem => item !== null);
-    const sanitizedItems = sanitizeRelayList(items);
-    return sanitizedItems.length > 0 ? sanitizedItems : DEFAULT_RELAYS;
+    const migrated = applyRelayListScopeMigration(parsed);
+    saveRelayListToStorage(publicKeyHex, migrated, profileId);
+    return migrated;
   } catch {
     return DEFAULT_RELAYS;
   }
@@ -244,6 +273,7 @@ export const relayListInternals = {
   DEFAULT_RELAYS,
   getRelayListStorageKey,
   getLegacyRelayListStorageKey,
+  getLegacyRelayListStorageKeyV1,
   toTrustedRelayUrl,
   sanitizeRelayList,
   loadRelayListFromStorage,

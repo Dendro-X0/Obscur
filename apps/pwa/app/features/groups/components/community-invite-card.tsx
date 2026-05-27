@@ -8,7 +8,10 @@ import { useTranslation } from "react-i18next";
 import { toast } from "@dweb/ui-kit";
 import { roomKeyStore } from "@/app/features/crypto/room-key-store";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
+import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
+import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
+import { useRelayList } from "@/app/features/relays/hooks/use-relay-list";
 import { useGroups } from "@/app/features/groups/providers/group-provider";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@dweb/ui-kit";
 import { cn } from "@dweb/ui-kit";
@@ -27,10 +30,18 @@ import {
     resolveCommunityInvitePayloadFromMessage,
     resolveCommunityInviteReplyTargetId,
     resolveCommunityInviteRoomKeyHex,
+    resolveCommunityInviteIdFromMessage,
 } from "../utils/community-invite-resolution";
+import type { CommunityDmInviteId } from "../services/community-dm-invite-contract";
+import {
+    buildCommunityInviteResponseDmMessage,
+    commitCommunityDmInviteResponseDm,
+    parseInvitePayloadFromMessageContent,
+    recordCommunityDmInviteResponse,
+} from "../services/community-dm-invite-pipeline";
 import {
     applyCommunityInviteMessageSnapshot,
-    pinCommunityInviteMessageSnapshot,
+    COMMUNITY_INVITE_SNAPSHOT_PINNED_EVENT,
 } from "../utils/community-invite-message-snapshot";
 import {
     PLACEHOLDER_GROUP_DISPLAY_NAME,
@@ -42,6 +53,14 @@ import {
     resolveCommunityInviteCardStatus,
     type CommunityInviteCardStatus,
 } from "../utils/community-invite-lifecycle";
+import { assessWorkspaceCommunityTrustAsync } from "../services/community-trust-policy";
+import {
+    ensureWorkspaceMembershipSyncMode,
+    publishWorkspaceMemberJoin,
+} from "../services/community-workspace-membership";
+import { applyCommunityMembershipRuntimeEvidence } from "../services/community-membership-mutation-owner";
+import { loadCommunityMembershipLedger } from "../services/community-membership-ledger";
+import { loadGroupTombstones } from "../services/group-tombstone-store";
 
 export type { InvitePayload };
 
@@ -62,12 +81,26 @@ export const CommunityInviteCard = ({
     responseStatus,
     onSendDirectMessage
 }: CommunityInviteCardProps) => {
+    const [inviteSnapshotTick, setInviteSnapshotTick] = React.useState(0);
+    React.useEffect(() => {
+        if (typeof window === "undefined" || !message?.id) {
+            return;
+        }
+        const onPinned = (event: Event): void => {
+            const detail = (event as CustomEvent<{ messageId?: string }>).detail;
+            if (detail?.messageId === message.id) {
+                setInviteSnapshotTick((tick) => tick + 1);
+            }
+        };
+        window.addEventListener(COMMUNITY_INVITE_SNAPSHOT_PINNED_EVENT, onPinned);
+        return () => window.removeEventListener(COMMUNITY_INVITE_SNAPSHOT_PINNED_EVENT, onPinned);
+    }, [message?.id]);
     const invite = React.useMemo(() => {
         const resolved = resolveCommunityInvitePayloadFromMessage(message, inviteProp)
             ?? normalizeCommunityInvitePayload(inviteProp)
             ?? inviteProp;
         return applyCommunityInviteMessageSnapshot(message?.id, resolved) ?? resolved;
-    }, [inviteProp, message]);
+    }, [inviteProp, message, inviteSnapshotTick]);
     const [storedRoomKeyHex, setStoredRoomKeyHex] = useState("");
     React.useEffect(() => {
         let cancelled = false;
@@ -84,12 +117,10 @@ export const CommunityInviteCard = ({
         const fromInvite = resolveCommunityInviteRoomKeyHex(invite, message);
         return fromInvite || storedRoomKeyHex;
     }, [invite, message, storedRoomKeyHex]);
-    React.useEffect(() => {
-        pinCommunityInviteMessageSnapshot(message?.id, invite);
-    }, [invite, message?.id]);
     const { t } = useTranslation();
     const { state: identityState } = useIdentity();
     const { relayPool } = useRelay();
+    const relayList = useRelayList({ publicKeyHex: identityState.publicKeyHex || null });
     const { createdGroups, addGroup, recordMembershipLedgerAfterInviteDecline } = useGroups();
     const [isProcessing, setIsProcessing] = useState(false);
     const [isDetailsOpen, setIsDetailsOpen] = useState(false);
@@ -135,6 +166,21 @@ export const CommunityInviteCard = ({
 
     const handleAccept = async () => {
         if (!isActionable || !message || !onSendDirectMessage) return;
+        if (!identityState.publicKeyHex?.trim() || !identityState.privateKeyHex?.trim()) {
+            toast.error(t("groups.inviteUnlockIdentity", "Unlock your identity before joining a community."));
+            return;
+        }
+        const fallbackRelay = relayPool.connections.find((c: { url: string }) => c.url)?.url ?? "";
+        const scopedRelayUrl = (invite.relayUrl || fallbackRelay).trim();
+        const trust = await assessWorkspaceCommunityTrustAsync({
+            communityRelayUrl: scopedRelayUrl,
+            enabledRelayUrls: relayList.state.relays.map((relay) => relay.url),
+        });
+        if (!trust.allowed) {
+            toast.error(trust.userMessage);
+            return;
+        }
+        ensureWorkspaceMembershipSyncMode();
         let roomKeyToUse = roomKeyHex;
         if (!roomKeyToUse) {
             roomKeyToUse = (await roomKeyStore.getRoomKey(invite.groupId))?.trim() ?? "";
@@ -149,8 +195,14 @@ export const CommunityInviteCard = ({
 
             // Prefer the relay URL embedded in the invite. Fall back to the first
             // open relay in the pool rather than a hardcoded address.
-            const fallbackRelay = relayPool.connections.find((c: { url: string }) => c.url)?.url ?? "";
-            const relayUrl = invite.relayUrl || fallbackRelay;
+            const normalizeRelayUrl = (raw: string): string => {
+                const trimmed = raw.trim();
+                if (!trimmed) {
+                    return "";
+                }
+                return /^wss?:\/\//i.test(trimmed) ? trimmed : `wss://${trimmed}`;
+            };
+            const relayUrl = normalizeRelayUrl(scopedRelayUrl);
             const creatorPubkey = invite.creatorPubkey ?? message.senderPubkey;
             const genesisEventId = invite.genesisEventId ?? message.eventId ?? message.id;
             const communityId = deriveCommunityId({
@@ -190,8 +242,11 @@ export const CommunityInviteCard = ({
             };
 
             const targetRelay = relayUrl.trim();
-            if (targetRelay.length > 0 && typeof relayPool.addTransientRelay === "function") {
-                relayPool.addTransientRelay(targetRelay);
+            if (targetRelay.length > 0) {
+                relayList.addRelay({ url: targetRelay });
+                if (typeof relayPool.addTransientRelay === "function") {
+                    relayPool.addTransientRelay(targetRelay);
+                }
             }
             if (targetRelay.length > 0 && typeof relayPool.waitForScopedConnection === "function") {
                 await relayPool.waitForScopedConnection([targetRelay], 3000);
@@ -240,12 +295,38 @@ export const CommunityInviteCard = ({
                 publishScopedWithRetry(JSON.stringify(["EVENT", nip29Join])),
                 publishScopedWithRetry(JSON.stringify(["EVENT", sealedJoin]))
             ]);
-            if (!nip29JoinPublished && !sealedJoinPublished) {
-                throw new Error("Could not publish community join to relay scope.");
-            }
+            const relayPublishFailed = !nip29JoinPublished && !sealedJoinPublished;
 
+            const profileId = getResolvedProfileId();
+            const localPublicKeyHex = identityState.publicKeyHex?.trim();
+            if (localPublicKeyHex) {
+                applyCommunityMembershipRuntimeEvidence({
+                    publicKeyHex: localPublicKeyHex,
+                    profileId,
+                    evidence: {
+                        kind: "user_explicit_join",
+                        group: newGroup,
+                    },
+                    membershipLedger: loadCommunityMembershipLedger(localPublicKeyHex, { profileId }),
+                    tombstones: loadGroupTombstones(localPublicKeyHex, { profileId }),
+                });
+            }
             addGroup(newGroup, { allowRevive: true });
             dispatchGroupInviteReceived(newGroup);
+
+            const joinCoordination = await publishWorkspaceMemberJoin({
+                communityId,
+                memberPubkey: identityState.publicKeyHex as PublicKeyHex,
+                actorPubkey: identityState.publicKeyHex as PublicKeyHex,
+                actorPrivateKeyHex: identityState.privateKeyHex as PrivateKeyHex,
+            });
+            if (!joinCoordination.success) {
+                toast.error(t(
+                    "groups.coordinationJoinPublishFailed",
+                    "Joined locally, but coordination membership publish failed. Open the community and use Reconcile membership after coordination is online.",
+                ));
+            }
+
             if (relayUrl) {
                 reinstateCommunityMemberTerminalEvidence({
                     groupId: invite.groupId,
@@ -258,27 +339,77 @@ export const CommunityInviteCard = ({
                 });
             }
 
-            await onSendDirectMessage({
+            const inviteId = resolveCommunityInviteIdFromMessage(message);
+            const wireInvite = parseInvitePayloadFromMessageContent(message.content);
+            const resolvedInviteId = inviteId ?? (`legacy:${invite.groupId}` as CommunityDmInviteId);
+            const responseMessage = buildCommunityInviteResponseDmMessage({
+                inviteId: resolvedInviteId,
+                status: "accepted",
+                groupId: invite.groupId,
+                relayUrl,
+                communityId,
+                conversationId: message.conversationId?.trim() ?? "",
+                senderPubkey: identityState.publicKeyHex as PublicKeyHex,
+                recipientPubkey: (message.senderPubkey?.trim() ?? "") as PublicKeyHex,
+                replyToRumorEventId: resolveCommunityInviteReplyTargetId(message),
+            });
+            const sendResult = await onSendDirectMessage({
                 recipientPubkey: message.senderPubkey || "",
-                content: JSON.stringify({
-                    type: "community-invite-response",
-                    status: "accepted",
-                    groupId: invite.groupId,
-                    relayUrl,
-                    communityId
-                }),
+                content: responseMessage.content,
                 replyTo: resolveCommunityInviteReplyTargetId(message),
             });
+            if (sendResult.success && identityState.publicKeyHex?.trim()) {
+                await commitCommunityDmInviteResponseDm({
+                    responseMessage: sendResult.messageId
+                        ? { ...responseMessage, id: sendResult.messageId }
+                        : responseMessage,
+                    accountPublicKeyHex: identityState.publicKeyHex as PublicKeyHex,
+                    direction: "inbound",
+                    invitePayload: wireInvite ?? undefined,
+                });
+            } else if (inviteId && message.conversationId?.trim() && message.senderPubkey?.trim()) {
+                recordCommunityDmInviteResponse({
+                    inviteId,
+                    status: "accepted",
+                    conversationId: message.conversationId.trim(),
+                    peerPubkey: message.senderPubkey.trim() as PublicKeyHex,
+                    direction: "inbound",
+                    invitePayload: wireInvite ?? undefined,
+                });
+            }
 
             setLocalResolutionStatus("accepted");
-            toast.success(t(
-                "groups.inviteAcceptedRelayHonest",
-                "Acceptance recorded for {{name}}. Relay-visible membership may still lag—verify participants when needed.",
-                { name: inviteDisplayName },
-            ));
+            if (relayPublishFailed) {
+                toast.error(t(
+                    "groups.inviteRelayPublishFailed",
+                    "Could not reach the community relay ({{relay}}). Add it under Settings → Relays, then tap Complete join on relay.",
+                    { relay: invite.relayUrl || relayUrl || "unknown" },
+                ));
+            } else {
+                toast.success(t(
+                    "groups.inviteAcceptedRelayHonest",
+                    "Acceptance recorded for {{name}}. Relay-visible membership may still lag—verify participants when needed.",
+                    { name: inviteDisplayName },
+                ));
+            }
         } catch (error) {
             console.error("Failed to accept invite:", error);
-            toast.error(t("groups.inviteError", "Failed to join group. Secret key error."));
+            const messageText = error instanceof Error ? error.message : String(error);
+            if (messageText.includes("Could not publish community join")) {
+                toast.error(t(
+                    "groups.inviteRelayPublishFailed",
+                    "Could not reach the community relay ({{relay}}). Add it under Settings → Relays, then tap Complete join on relay.",
+                    { relay: invite.relayUrl || "unknown" },
+                ));
+            } else if (messageText.toLowerCase().includes("secret") || messageText.toLowerCase().includes("key")) {
+                toast.error(t("groups.inviteError", "Failed to join group. Secret key error."));
+            } else {
+                toast.error(t(
+                    "groups.inviteAcceptFailed",
+                    "Could not complete join: {{reason}}",
+                    { reason: messageText.slice(0, 120) },
+                ));
+            }
         } finally {
             setIsProcessing(false);
         }
@@ -288,17 +419,44 @@ export const CommunityInviteCard = ({
         if (!isActionable || !message || !onSendDirectMessage) return;
         try {
             setIsProcessing(true);
-            await onSendDirectMessage({
+            const inviteId = resolveCommunityInviteIdFromMessage(message);
+            const wireInvite = parseInvitePayloadFromMessageContent(message.content);
+            const resolvedInviteId = inviteId ?? (`legacy:${invite.groupId}` as CommunityDmInviteId);
+            const responseMessage = buildCommunityInviteResponseDmMessage({
+                inviteId: resolvedInviteId,
+                status: "declined",
+                groupId: invite.groupId,
+                relayUrl: invite.relayUrl,
+                communityId: invite.communityId,
+                conversationId: message.conversationId?.trim() ?? "",
+                senderPubkey: identityState.publicKeyHex as PublicKeyHex,
+                recipientPubkey: (message.senderPubkey?.trim() ?? "") as PublicKeyHex,
+                replyToRumorEventId: resolveCommunityInviteReplyTargetId(message),
+            });
+            const sendResult = await onSendDirectMessage({
                 recipientPubkey: message.senderPubkey || "",
-                content: JSON.stringify({
-                    type: "community-invite-response",
-                    status: "declined",
-                    groupId: invite.groupId,
-                    relayUrl: invite.relayUrl,
-                    communityId: invite.communityId
-                }),
+                content: responseMessage.content,
                 replyTo: resolveCommunityInviteReplyTargetId(message),
             });
+            if (sendResult.success && identityState.publicKeyHex?.trim()) {
+                await commitCommunityDmInviteResponseDm({
+                    responseMessage: sendResult.messageId
+                        ? { ...responseMessage, id: sendResult.messageId }
+                        : responseMessage,
+                    accountPublicKeyHex: identityState.publicKeyHex as PublicKeyHex,
+                    direction: "inbound",
+                    invitePayload: wireInvite ?? undefined,
+                });
+            } else if (inviteId && message.conversationId?.trim() && message.senderPubkey?.trim()) {
+                recordCommunityDmInviteResponse({
+                    inviteId,
+                    status: "declined",
+                    conversationId: message.conversationId.trim(),
+                    peerPubkey: message.senderPubkey.trim() as PublicKeyHex,
+                    direction: "inbound",
+                    invitePayload: wireInvite ?? undefined,
+                });
+            }
 
             const fallbackRelay = relayPool.connections.find((c: { url: string }) => c.url)?.url ?? "";
             const relayUrl = (invite.relayUrl || fallbackRelay).trim();
@@ -365,17 +523,44 @@ export const CommunityInviteCard = ({
 
             // Sender cancels the invite by sending a response back to the intended recipient
             // Since it's an outgoing message, the recipient is message.recipientPubkey
-            await onSendDirectMessage({
+            const inviteId = resolveCommunityInviteIdFromMessage(message);
+            const wireInvite = parseInvitePayloadFromMessageContent(message.content);
+            const resolvedInviteId = inviteId ?? (`legacy:${invite.groupId}` as CommunityDmInviteId);
+            const responseMessage = buildCommunityInviteResponseDmMessage({
+                inviteId: resolvedInviteId,
+                status: "canceled",
+                groupId: invite.groupId,
+                relayUrl: invite.relayUrl,
+                communityId: invite.communityId,
+                conversationId: message.conversationId?.trim() ?? "",
+                senderPubkey: identityState.publicKeyHex as PublicKeyHex,
+                recipientPubkey: (targetPubkey?.trim() ?? "") as PublicKeyHex,
+                replyToRumorEventId: resolveCommunityInviteReplyTargetId(message),
+            });
+            const sendResult = await onSendDirectMessage({
                 recipientPubkey: targetPubkey || "",
-                content: JSON.stringify({
-                    type: "community-invite-response",
-                    status: "canceled",
-                    groupId: invite.groupId,
-                    relayUrl: invite.relayUrl,
-                    communityId: invite.communityId
-                }),
+                content: responseMessage.content,
                 replyTo: resolveCommunityInviteReplyTargetId(message),
             });
+            if (sendResult.success && identityState.publicKeyHex?.trim()) {
+                await commitCommunityDmInviteResponseDm({
+                    responseMessage: sendResult.messageId
+                        ? { ...responseMessage, id: sendResult.messageId }
+                        : responseMessage,
+                    accountPublicKeyHex: identityState.publicKeyHex as PublicKeyHex,
+                    direction: "outbound",
+                    invitePayload: wireInvite ?? undefined,
+                });
+            } else if (inviteId && message.conversationId?.trim() && targetPubkey?.trim()) {
+                recordCommunityDmInviteResponse({
+                    inviteId,
+                    status: "canceled",
+                    conversationId: message.conversationId.trim(),
+                    peerPubkey: targetPubkey.trim() as PublicKeyHex,
+                    direction: "outbound",
+                    invitePayload: wireInvite ?? undefined,
+                });
+            }
             // Phase 3 M3: do not call recordMembershipLedgerAfterInviteDecline here — the inviter may still be
             // relay-joined as admin; cancel only withdraws the invite to the peer, not local membership exit.
             setLocalResolutionStatus("canceled");
@@ -443,6 +628,11 @@ export const CommunityInviteCard = ({
                 ) : null}
                 <div className="p-4 flex flex-col gap-4">
                     <div className="min-w-0 flex flex-col gap-1">
+                        {!isOutgoing && isActionable ? (
+                            <span className="text-[9px] font-black uppercase tracking-[0.2em] text-purple-700 dark:text-purple-300">
+                                {t("groups.newCommunityInvite", "New community invite")}
+                            </span>
+                        ) : null}
                         <h4 className={inviteTitleClass}>
                             {inviteDisplayName}
                         </h4>

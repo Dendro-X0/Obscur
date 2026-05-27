@@ -97,6 +97,69 @@ describe("assembleDmHydrateThreadReadModel", () => {
     expect(assembled.finalMessages).toHaveLength(1);
     expect(assembled.finalMessages[0]?.id).toBe("keep");
   });
+
+  it("merges missing outgoing community invites from projection evidence when sqlite is authoritative", () => {
+    const myHex = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" as PublicKeyHex;
+    const peerHex = "dddddddddddddddddddddddddddddddd" as PublicKeyHex;
+    const conversationId = `${myHex}:${peerHex}`;
+    const incomingOnly: Message[] = [
+      mkMsg({
+        id: "incoming-response",
+        timestamp: new Date(2),
+        isOutgoing: false,
+        senderPubkey: peerHex,
+        conversationId,
+        content: JSON.stringify({
+          type: "community-invite-response",
+          status: "accepted",
+          groupId: "group-1",
+        }),
+      }),
+    ];
+    const projectionEvidence: Message[] = [
+      mkMsg({
+        id: "outgoing-invite",
+        eventId: "outgoing-invite",
+        timestamp: new Date(1),
+        isOutgoing: true,
+        senderPubkey: myHex,
+        recipientPubkey: peerHex,
+        conversationId,
+        content: JSON.stringify({
+          type: "community-invite",
+          groupId: "group-1",
+          roomKey: "room-key",
+          metadata: { name: "GroupTest 1", access: "invite-only" },
+        }),
+      }),
+    ];
+    const assembled = assembleDmHydrateThreadReadModel({
+      conversationId,
+      conversationIds: [conversationId],
+      retentionFilteredMapped: incomingOnly,
+      cappedHydratedMessages: incomingOnly,
+      scannedWindowHasEarlier: false,
+      shouldCapHydratedHistoryWindow: false,
+      normalizedPublicKeyHex: myHex,
+      projectionMessagesSnapshot: [],
+      projectionEvidenceMessagesSnapshot: projectionEvidence,
+      projectionReadAuthoritySnapshot: shadowProjectionAuthority,
+      projectionRestorePhaseActive: false,
+      projectionBootstrapImportApplied: true,
+      projectionCanonicalEvidencePending: false,
+      persistedStateFallbackMessages: [],
+      liveMessages: [],
+      expandedHistory: false,
+      persistentSuppressedMessageIds: new Set(),
+      liveWindowSoftLimit: 200,
+    });
+
+    expect(assembled.finalMessages).toHaveLength(2);
+    expect(assembled.finalMessages.map((message) => message.id)).toEqual([
+      "outgoing-invite",
+      "incoming-response",
+    ]);
+  });
 });
 
 describe("getMessageDirectionCounts", () => {

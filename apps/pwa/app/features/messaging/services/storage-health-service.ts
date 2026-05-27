@@ -1,6 +1,6 @@
 "use client";
 
-import { messagingDB } from "@dweb/storage/indexed-db";
+import { indexedDbPermanentlyExcluded } from "@/app/features/runtime/persistence-policy";
 import {
   getLocalMediaIndexSnapshot,
   repairLocalMediaIndex,
@@ -91,20 +91,9 @@ export const checkStorageHealth = async (): Promise<StorageHealthState> => {
   let mediaIndexOk = true;
   let errorMessage: string | undefined;
 
-  try {
-    await messagingDB.getAllByIndex("messages", "conversation_timestamp", IDBKeyRange.bound(["", 0], ["~", Date.now()]), 1);
-  } catch (error) {
-    messageStoreOk = false;
-    incrementReliabilityMetric("storage_write_retry");
-    errorMessage = error instanceof Error ? error.message : String(error);
-  }
-
-  try {
-    await messagingDB.get("chatState", "__health__");
-  } catch (error) {
-    queueStoreOk = false;
-    incrementReliabilityMetric("storage_write_retry");
-    errorMessage = error instanceof Error ? error.message : String(error);
+  if (indexedDbPermanentlyExcluded()) {
+    messageStoreOk = true;
+    queueStoreOk = true;
   }
 
   try {

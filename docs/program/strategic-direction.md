@@ -10,11 +10,13 @@
 
 ## Summary
 
-Obscur is **not** a failed experiment. It requires **adjusted goals**:
+Obscur is **not** a failed experiment. It requires **adjusted goals** (2026-05 pivot):
 
-- **Near term:** A **decent, honest Nostr client** — better gateway convergence, durable local hide, experimental cooperative recall with clear limits.
-- **Long term:** A **communication kernel** developed gradually, with Nostr as a **permanent adapter option**, not the whole system.
-- **Parallel:** `docs/future/` holds kernel/protocol concepts refined by shipping the client.
+- **Product:** **Private trust platform** — E2E DM and team rooms on **operator-controlled** infrastructure (coordination + team relay/API). See [platform-pivot-private-trust-2026-05.md](./platform-pivot-private-trust-2026-05.md).
+- **Nostr:** **Optional adapter** for open-network scenarios—not the membership owner for workspace communities; **gradual** replacement of public-relay dependence for team features.
+- **Near term:** Finish Lane K **gates** (coordination required, no public-relay workspace create) or interim **DM-only** cut; stop public-relay community patches.
+- **Long term:** `TransportPort` + team transport + “no-logs” server policy (ciphertext-only at rest).
+- **Parallel:** `docs/future/` kernel concepts; v1.9.x implements ports inside the monorepo.
 
 ---
 
@@ -30,7 +32,8 @@ Obscur is **not** a failed experiment. It requires **adjusted goals**:
 | **4c** | Ship **v1.5.3** — stay smooth + mobile shell/CI | [v1.5.3-release](../releases/v1.5.3-release.md) (shipped) |
 | **4d** | Ship **v1.5.4** — unified installer icons + desktop polish | [v1.5.4-release](../releases/v1.5.4-release.md) (shipped) |
 | **4e** | Ship **v1.5.5** — mobile production (signed APK, device gates) | [v1.5.5-scope](./v1.5.5-scope.md) |
-| **5** | Kernel concepts in `docs/future/` only until chartered | No code gate from that folder |
+| **5** | **v1.9.x Lane K** — kernel ports + coordination backend ([v1.9.0-kernel-backend-roadmap.md](./v1.9.0-kernel-backend-roadmap.md)) | Required before v2.0.0 |
+| **6** | Kernel concepts in `docs/future/` graduate into `packages/` via Lane K | `docs/future/` alone does not gate releases |
 
 ---
 
@@ -46,8 +49,9 @@ Obscur is **not** a failed experiment. It requires **adjusted goals**:
 | **v1.5.5–6** | **Refine** desktop/web + shared kernel; optional mobile UI slice; **distro shelved** |
 | **v1.6+** | Cooperative recall UI; mobile/iOS distro if ever prioritized |
 | **v1.5.x** | Stabilize Nostr client + mobile ship; no false marketing |
+| **v1.9.x** | **Lane K** — TransportPort, membership kernel, coordination directory, R1/R2 |
+| **v2.0.0** | Platform gate (SQLite, Android) after Lane K exit |
 | **v1.6+** | Cooperative recall hardening, optional features per charter |
-| **Kernel** | Gradual — see `docs/future/` |
 
 ---
 

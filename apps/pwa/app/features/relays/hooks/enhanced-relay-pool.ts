@@ -33,6 +33,63 @@ type RelayPoolState = Readonly<{
   healthMetrics: ReadonlyArray<RelayHealthMetrics>;
 }>;
 
+const areRelayConnectionsEqual = (
+  previous: ReadonlyArray<RelayConnection>,
+  next: ReadonlyArray<RelayConnection>,
+): boolean => {
+  if (previous.length !== next.length) {
+    return false;
+  }
+  for (let index = 0; index < previous.length; index += 1) {
+    const left = previous[index];
+    const right = next[index];
+    if (!left || !right) {
+      return false;
+    }
+    if (
+      left.url !== right.url
+      || left.status !== right.status
+      || left.errorMessage !== right.errorMessage
+    ) {
+      return false;
+    }
+  }
+  return true;
+};
+
+const areRelayHealthMetricsEqual = (
+  previous: ReadonlyArray<RelayHealthMetrics>,
+  next: ReadonlyArray<RelayHealthMetrics>,
+): boolean => {
+  if (previous.length !== next.length) {
+    return false;
+  }
+  for (let index = 0; index < previous.length; index += 1) {
+    const left = previous[index];
+    const right = next[index];
+    if (!left || !right) {
+      return false;
+    }
+    if (
+      left.url !== right.url
+      || left.status !== right.status
+      || left.circuitBreakerState !== right.circuitBreakerState
+      || left.lastError !== right.lastError
+    ) {
+      return false;
+    }
+  }
+  return true;
+};
+
+export const areRelayPoolSnapshotsEqual = (
+  previous: RelayPoolState,
+  next: RelayPoolState,
+): boolean => (
+  areRelayConnectionsEqual(previous.connections, next.connections)
+  && areRelayHealthMetricsEqual(previous.healthMetrics, next.healthMetrics)
+);
+
 export type EnhancedRelayPoolResult = Readonly<{
   connections: ReadonlyArray<RelayConnection>;
   healthMetrics: ReadonlyArray<RelayHealthMetrics>;
@@ -294,6 +351,7 @@ export const relayReliabilityInternals = {
   resolveHardFailureCooldownMs: moduleResolveHardFailureCooldownMs,
   resolveTransientFailureCooldownMs: moduleResolveTransientFailureCooldownMs,
   shouldReuseRelaySocket,
+  areRelayPoolSnapshotsEqual,
 };
 
 const getUnixMs = (): number => Date.now();
@@ -326,7 +384,15 @@ const setConnectionStatus = (params: Readonly<{
   url: string;
   status: RelayConnectionStatus;
   errorMessage?: string;
-}>): void => {
+}>): boolean => {
+  const existing = statusByUrl[params.url];
+  if (
+    existing
+    && existing.status === params.status
+    && existing.errorMessage === params.errorMessage
+  ) {
+    return false;
+  }
   const next = createNextConnection(params);
   statusByUrl = upsertConnection(statusByUrl, next);
   relayResilienceObservability.recordRelayConnectionStatus({
@@ -334,6 +400,7 @@ const setConnectionStatus = (params: Readonly<{
     status: params.status,
     atUnixMs: next.updatedAtUnixMs,
   });
+  return true;
 };
 
 const hasAnyOpenSocket = (): boolean => {
@@ -532,8 +599,7 @@ const demoteFallbackRelays = (): void => {
     clearRelayCoordinationState(url);
   });
   fallbackActivated = fallbackRelayUrls.size > 0;
-  recomputeSnapshot();
-  notifyListeners();
+  publishRelayPoolSnapshot();
 };
 
 const scheduleFallbackDemotionIfStable = (): void => {
@@ -592,8 +658,7 @@ const handleRelayWriteFailure = (params: Readonly<{
       status: "error",
       errorMessage,
     });
-    recomputeSnapshot();
-    notifyListeners();
+    publishRelayPoolSnapshot();
     queueMicrotask(() => attemptReconnect(params.url));
     return;
   }
@@ -936,10 +1001,15 @@ const notifyListeners = (): void => {
     return;
   }
   notifyScheduled = true;
-  queueMicrotask(() => {
+  const flush = (): void => {
     notifyScheduled = false;
     listeners.forEach((listener: () => void) => listener());
-  });
+  };
+  if (typeof requestAnimationFrame === "function") {
+    requestAnimationFrame(flush);
+    return;
+  }
+  queueMicrotask(flush);
 };
 
 const notifyMessageListeners = (params: Readonly<{ url: string; message: string }>): void => {
@@ -947,7 +1017,7 @@ const notifyMessageListeners = (params: Readonly<{ url: string; message: string 
   messageListeners.forEach((listener: MessageListener) => listener(params));
 };
 
-const recomputeSnapshot = (): void => {
+const recomputeSnapshot = (): boolean => {
   const urls: ReadonlyArray<string> = relayUrlsKey ? relayUrlsKey.split("|") : [];
   const transientUrls = Array.from(transientRelayUrls);
   const allUrls = [...urls, ...transientUrls];
@@ -961,11 +1031,23 @@ const recomputeSnapshot = (): void => {
     }
   });
 
-  cachedSnapshot = {
+  const nextSnapshot: RelayPoolState = {
     connections: allUrls.map(url => statusByUrl[url] || { url, status: "connecting", updatedAtUnixMs: 0 } as RelayConnection),
-    healthMetrics
+    healthMetrics,
   };
+  if (areRelayPoolSnapshotsEqual(cachedSnapshot, nextSnapshot)) {
+    scheduleFallbackDemotionIfStable();
+    return false;
+  }
+  cachedSnapshot = nextSnapshot;
   scheduleFallbackDemotionIfStable();
+  return true;
+};
+
+const publishRelayPoolSnapshot = (): void => {
+  if (recomputeSnapshot()) {
+    notifyListeners();
+  }
 };
 
 const getStateSnapshot = (): RelayPoolState => {
@@ -1016,8 +1098,7 @@ const connectToRelay = (url: string, options?: RelayReconnectOptions): WebSocket
   // Record connection attempt
   healthMonitor.recordConnectionAttempt(url);
   setConnectionStatus({ url, status: "connecting" });
-  recomputeSnapshot();
-  notifyListeners();
+  publishRelayPoolSnapshot();
 
   const socket: WebSocket = createRelayWebSocket(url);
   const generation = beginConnectionGeneration(url);
@@ -1051,8 +1132,7 @@ const connectToRelay = (url: string, options?: RelayReconnectOptions): WebSocket
 
     // Update status
     setConnectionStatus({ url, status: "open" });
-    recomputeSnapshot();
-    notifyListeners();
+    publishRelayPoolSnapshot();
 
     logWithRateLimit("info", "relay.connected", [`Connected to relay ${url} (latency: ${latency}ms)`], {
       windowMs: 10_000,
@@ -1092,8 +1172,7 @@ const connectToRelay = (url: string, options?: RelayReconnectOptions): WebSocket
       status: "error",
       errorMessage
     });
-    recomputeSnapshot();
-    notifyListeners();
+    publishRelayPoolSnapshot();
 
     if (isHardRelayFailure(errorMessage)) {
       const cooldownMs = getHardFailureCooldownMs();
@@ -1180,8 +1259,7 @@ const connectToRelay = (url: string, options?: RelayReconnectOptions): WebSocket
 
     // Update status
     setConnectionStatus({ url, status: "closed" });
-    recomputeSnapshot();
-    notifyListeners();
+    publishRelayPoolSnapshot();
 
     logWithRateLimit("info", "relay.closed", [`Relay closed ${url}`], {
       windowMs: 10_000,
@@ -1410,8 +1488,7 @@ const attemptReconnect = (url: string, options?: RelayReconnectOptions): void =>
     }
 
     setConnectionStatus({ url, status: "connecting" });
-    recomputeSnapshot();
-    notifyListeners();
+    publishRelayPoolSnapshot();
 
     // Attempt new connection
     const newSocket = connectToRelay(url, options);
@@ -1481,8 +1558,7 @@ const setRelayUrls = (urls: ReadonlyArray<string>): void => {
     }
   });
 
-  recomputeSnapshot();
-  notifyListeners();
+  publishRelayPoolSnapshot();
 
   setTimeout(() => {
     activateFallbackIfOffline();
@@ -1516,8 +1592,7 @@ const addTransientRelay = (url: string, source: TransientRelaySource = "manual")
     }
   }
 
-  recomputeSnapshot();
-  notifyListeners();
+  publishRelayPoolSnapshot();
 };
 
 /**
@@ -1542,8 +1617,7 @@ const removeTransientRelay = (url: string): void => {
     clearRelayCoordinationState(url);
   }
 
-  recomputeSnapshot();
-  notifyListeners();
+  publishRelayPoolSnapshot();
 };
 
 const reconnectRelay = (url: string, options?: RelayReconnectOptions): void => {
@@ -1608,8 +1682,7 @@ const recycle = async (): Promise<void> => {
     });
   });
   statusByUrl = recycledStatusByUrl;
-  recomputeSnapshot();
-  notifyListeners();
+  publishRelayPoolSnapshot();
 
   urls.forEach((url) => {
     const socket = connectToRelay(url, { force: true });
@@ -1618,8 +1691,7 @@ const recycle = async (): Promise<void> => {
     }
   });
 
-  recomputeSnapshot();
-  notifyListeners();
+  publishRelayPoolSnapshot();
 
   setTimeout(() => {
     subscriptionManager.resubscribeAll("recycle");
@@ -1962,8 +2034,7 @@ const sendToOpen = (payload: string): void => {
             status: "error",
             errorMessage,
           });
-          recomputeSnapshot();
-          notifyListeners();
+          publishRelayPoolSnapshot();
           queueMicrotask(() => attemptReconnect(url));
           return;
         }
@@ -2172,10 +2243,7 @@ const shutdownRelayPool = (): void => {
   return {
     subscribe,
     getStateSnapshot,
-    recomputeSnapshot: () => {
-      recomputeSnapshot();
-      notifyListeners();
-    },
+    recomputeSnapshot: publishRelayPoolSnapshot,
     setRelayUrls,
     sendToOpen,
     publishToUrl,

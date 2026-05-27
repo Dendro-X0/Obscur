@@ -224,10 +224,9 @@ export const publishLeaveProofToRelay = async (params: Readonly<{
     let result: { success: boolean; overallError?: string };
     if (params.scopedRelayUrls && params.scopedRelayUrls.length > 0 && typeof params.pool.publishToUrls === "function") {
       result = await params.pool.publishToUrls(params.scopedRelayUrls, payload);
-    } else if (typeof params.pool.publishToAll === "function") {
-      result = await params.pool.publishToAll(payload);
     } else {
-      return { success: false, error: "No publish method available on pool" };
+      // Proof is already persisted locally; skip global relay fanout when no writable scoped relay.
+      return { success: true };
     }
 
     logAppEvent({

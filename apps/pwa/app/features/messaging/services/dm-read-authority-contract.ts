@@ -27,6 +27,11 @@ import {
   selectMessagesForConversationHistoryAuthority,
 } from "./conversation-message-materialization";
 import { persistedMessagesContainSuppressedIdentities } from "./dm-thread-suppression-set";
+import { requiresSqlitePersistence } from "@/app/features/runtime/native-persistence-policy";
+import { dedupeMessagesByIdentity } from "./dm-conversation-message-retention-dedupe";
+import { collectMessageIdentityAliases } from "./message-identity-alias-contract";
+import { normalizePublicKeyHex } from "@/app/features/profile/utils/normalize-public-key-hex";
+import { getMessageDirectionCounts } from "./dm-conversation-hydrate-read-model";
 
 /** Legacy authority branch labels (materialization + hydrate diagnostics). */
 export type ConversationHistoryAuthority = "projection" | "indexed" | "persisted";
@@ -37,13 +42,15 @@ export type ConversationHistoryAuthorityReason =
   | "persisted_recovery_indexed_missing_incoming"
   | "persisted_recovery_indexed_missing_outgoing"
   | "persisted_recovery_indexed_empty"
-  | "indexed_primary";
+  | "indexed_primary"
+  | "indexed_primary_projection_direction_incomplete";
 
 /** Input counts for {@link resolveLegacyHydrationAuthority}. */
 export type ResolveConversationHistoryAuthorityParams = Readonly<{
   useProjectionReads: boolean;
   projectionMessageCount: number;
   projectionIncomingCount: number;
+  projectionOutgoingCount: number;
   projectionBootstrapImportApplied: boolean;
   projectionCanonicalEvidencePending: boolean;
   projectionRestorePhaseActive: boolean;
@@ -106,6 +113,7 @@ export type DmReadAuthorityReason =
   | "projection_empty_recovery_from_indexed"
   | "projection_empty_recovery_from_legacy"
   | "projection_drift_fallback_blocked"
+  | "all_sources_empty"
   | "no_identity"
   | "no_conversation_id";
 
@@ -215,11 +223,29 @@ export const resolveDmReadAuthority = (params: DmReadAuthorityParams): DmReadAut
     };
   }
 
-  // Default: projection (empty is valid state)
+  // Last-resort recovery when projection is ready but this thread has no projection rows yet.
+  if (indexedMessageCount > 0) {
+    return {
+      source: "indexed_recovery",
+      reason: "projection_empty_recovery_from_indexed",
+      isCanonical: false,
+      diagnostics,
+    };
+  }
+
+  if (legacyPersistedCount > 0) {
+    return {
+      source: "legacy_persisted",
+      reason: "projection_empty_recovery_from_legacy",
+      isCanonical: false,
+      diagnostics,
+    };
+  }
+
   return {
-    source: "projection",
-    reason: "projection_ready",
-    isCanonical: true,
+    source: "none",
+    reason: "all_sources_empty",
+    isCanonical: false,
     diagnostics,
   };
 };
@@ -276,13 +302,72 @@ export const formatDmReadAuthorityForDiagnostics = (
  * Count-based legacy authority (projection read cutover + thin-index persisted repair).
  * Quarantined `conversation-history-authority.ts` was removed (2026-05-14); types + repair gates live in this module.
  */
+/** Projection is missing a direction that bidirectional sqlite already materialized (boot lag), not outgoing-only local sqlite. */
+export const isProjectionHydrationDirectionIncomplete = (
+  params: Readonly<{
+    projectionOutgoingCount: number;
+    projectionIncomingCount: number;
+    indexedOutgoingCount: number;
+    indexedIncomingCount: number;
+  }>,
+): boolean => {
+  const indexedHasBidirectionalCoverage = (
+    params.indexedOutgoingCount > 0 && params.indexedIncomingCount > 0
+  );
+  if (!indexedHasBidirectionalCoverage) {
+    return false;
+  }
+  return (
+    (params.projectionOutgoingCount === 0 && params.indexedOutgoingCount > 0)
+    || (params.projectionIncomingCount === 0 && params.indexedIncomingCount > 0)
+  );
+};
+
+/** Desktop sqlite may have a direction the projection timeline has not caught up on yet. */
+export const isNativeProjectionMissingIndexedDirection = (
+  params: Readonly<{
+    projectionOutgoingCount: number;
+    projectionIncomingCount: number;
+    indexedOutgoingCount: number;
+    indexedIncomingCount: number;
+  }>,
+): boolean => {
+  if (!requiresSqlitePersistence()) {
+    return false;
+  }
+  return (
+    (params.projectionOutgoingCount === 0 && params.indexedOutgoingCount > 0)
+    || (params.projectionIncomingCount === 0 && params.indexedIncomingCount > 0)
+  );
+};
+
+const shouldPreferIndexedOverProjectionReads = (
+  params: ResolveConversationHistoryAuthorityParams,
+): boolean => (
+  isProjectionHydrationDirectionIncomplete(params)
+  || isNativeProjectionMissingIndexedDirection(params)
+);
+
 export const resolveLegacyHydrationAuthority = (
   params: ResolveConversationHistoryAuthorityParams,
 ): ConversationHistoryAuthorityDecision => {
   if (params.useProjectionReads && params.projectionMessageCount > 0) {
+    if (shouldPreferIndexedOverProjectionReads(params)) {
+      return {
+        authority: "indexed",
+        reason: "indexed_primary_projection_direction_incomplete",
+      };
+    }
     return {
       authority: "projection",
       reason: "projection_read_cutover",
+    };
+  }
+
+  if (requiresSqlitePersistence()) {
+    return {
+      authority: "indexed",
+      reason: "indexed_primary",
     };
   }
 
@@ -350,6 +435,7 @@ export type DmHydrationMigrationParams = Readonly<{
    */
   legacyProjectionEvidenceMessageCount?: number;
   projectionIncomingCount: number;
+  projectionOutgoingCount: number;
   projectionBootstrapImportApplied: boolean;
   projectionCanonicalEvidencePending: boolean;
   projectionRestorePhaseActive: boolean;
@@ -374,14 +460,18 @@ const buildLegacyResolveParams = (
   );
   const suppressedIds = params.suppressedMessageIds ?? new Set<string>();
   const blockPersistedRestoreRepair = (
-    params.projectionRestorePhaseActive === true
-    && suppressedIds.size > 0
-    && persistedMessagesContainSuppressedIdentities(params.legacyPersistedMessages, suppressedIds)
+    requiresSqlitePersistence()
+    || (
+      params.projectionRestorePhaseActive === true
+      && suppressedIds.size > 0
+      && persistedMessagesContainSuppressedIdentities(params.legacyPersistedMessages, suppressedIds)
+    )
   );
   return {
     useProjectionReads: params.useProjectionReads,
     projectionMessageCount: projectionMessageCountForLegacy,
     projectionIncomingCount: params.projectionIncomingCount,
+    projectionOutgoingCount: params.projectionOutgoingCount,
     projectionBootstrapImportApplied: params.projectionBootstrapImportApplied,
     projectionCanonicalEvidencePending: params.projectionCanonicalEvidencePending,
     projectionRestorePhaseActive: params.projectionRestorePhaseActive,
@@ -403,6 +493,59 @@ const applyHydrationSuppressionFilter = (
     ? messages
     : filterMessagesBySuppressedIds(messages, suppressedIds)
 );
+
+/** When sqlite is authoritative but projection has newer rows (e.g. outgoing invites), union gaps. */
+export const mergeIndexedWithMissingProjectionMessages = (
+  indexedMessages: ReadonlyArray<Message>,
+  projectionMessages: ReadonlyArray<Message>,
+  myPublicKeyHex: PublicKeyHex | null = null,
+): ReadonlyArray<Message> => {
+  if (projectionMessages.length === 0) {
+    return indexedMessages;
+  }
+  const indexedIdentityIds = new Set<string>();
+  indexedMessages.forEach((message) => {
+    collectMessageIdentityAliases(message).forEach((identityId) => {
+      indexedIdentityIds.add(identityId);
+    });
+  });
+  const isStructuredCommunityControlPayload = (message: Message): boolean => {
+    try {
+      const parsed = JSON.parse(message.content) as { type?: unknown };
+      return parsed?.type === "community-invite" || parsed?.type === "community-invite-response";
+    } catch {
+      return false;
+    }
+  };
+  const indexedCounts = getMessageDirectionCounts(indexedMessages, myPublicKeyHex);
+  const projectionCounts = getMessageDirectionCounts(projectionMessages, myPublicKeyHex);
+  const missingOutgoingInIndexed = indexedCounts.outgoing === 0 && projectionCounts.outgoing > 0;
+  const missingIncomingInIndexed = indexedCounts.incoming === 0 && projectionCounts.incoming > 0;
+  const projectionOnly = projectionMessages.filter((message) => {
+    if (collectMessageIdentityAliases(message).some((identityId) => indexedIdentityIds.has(identityId))) {
+      return false;
+    }
+    if (isStructuredCommunityControlPayload(message)) {
+      return true;
+    }
+    const senderPubkey = normalizePublicKeyHex(message.senderPubkey);
+    const isOutgoing = message.isOutgoing === true
+      || (!!myPublicKeyHex && senderPubkey === myPublicKeyHex);
+    if (missingOutgoingInIndexed && isOutgoing) {
+      return true;
+    }
+    if (missingIncomingInIndexed && !isOutgoing) {
+      return true;
+    }
+    return false;
+  });
+  if (projectionOnly.length === 0) {
+    return indexedMessages;
+  }
+  return [...dedupeMessagesByIdentity([...indexedMessages, ...projectionOnly])].sort(
+    (left, right) => left.timestamp.getTime() - right.timestamp.getTime(),
+  );
+};
 
 const mapLegacyDecisionToDmReadStatus = (
   legacy: ConversationHistoryAuthorityDecision,
@@ -442,11 +585,15 @@ const buildDmReadAuthorityParamsFromLegacyDecision = (
   params: DmHydrationMigrationParams,
   legacyAuthority: ConversationHistoryAuthorityDecision,
 ): DmReadAuthorityParams => {
-  const allowIndexedRecovery =
-    legacyAuthority.authority === "indexed"
-    || legacyAuthority.reason === "persisted_recovery_indexed_missing_incoming"
-    || legacyAuthority.reason === "persisted_recovery_indexed_missing_outgoing";
-  const allowLegacyRecovery = legacyAuthority.authority === "persisted";
+  const nativeSqliteOnly = requiresSqlitePersistence();
+  const allowIndexedRecovery = nativeSqliteOnly
+    ? legacyAuthority.authority === "indexed"
+    : (
+      legacyAuthority.authority === "indexed"
+      || legacyAuthority.reason === "persisted_recovery_indexed_missing_incoming"
+      || legacyAuthority.reason === "persisted_recovery_indexed_missing_outgoing"
+    );
+  const allowLegacyRecovery = !nativeSqliteOnly && legacyAuthority.authority === "persisted";
   return {
     identityPubkey: params.identityPubkey,
     conversationId: params.conversationId,
@@ -493,11 +640,28 @@ export const resolveHydrationDmReadMessages = (
   if (
     legacyDecision.authority === "persisted"
     && params.legacyPersistedMessages.length > 0
+    && !requiresSqlitePersistence()
   ) {
     const status = mapLegacyDecisionToDmReadStatus(legacyDecision, params);
     return {
       status,
       messages: applyHydrationSuppressionFilter(params.legacyPersistedMessages, suppressedIds),
+      legacyAuthorityDecision: legacyDecision,
+    };
+  }
+
+  if (legacyDecision.reason === "indexed_primary_projection_direction_incomplete") {
+    const status = mapLegacyDecisionToDmReadStatus(legacyDecision, params);
+    return {
+      status,
+      messages: applyHydrationSuppressionFilter(
+        mergeIndexedWithMissingProjectionMessages(
+          params.indexedMessages,
+          params.projectionMessages,
+          params.identityPubkey,
+        ),
+        suppressedIds,
+      ),
       legacyAuthorityDecision: legacyDecision,
     };
   }

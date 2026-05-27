@@ -10,6 +10,7 @@ import { parseCommandMessage } from "@/app/features/messaging/utils/commands";
 import { parseVoiceCallSignalPayload } from "@/app/features/messaging/services/realtime-voice-signaling";
 import { readHistoryResetCutoffUnixMs } from "./history-reset-cutoff-store";
 import { getAccountSyncMigrationPolicy } from "./account-sync-migration-policy";
+import { requiresSqlitePersistence } from "@/app/features/runtime/native-persistence-policy";
 import type { EncryptedAccountBackupPayload } from "../account-sync-contracts";
 import type { AccountEvent, AccountEventSource } from "../account-event-contracts";
 
@@ -598,11 +599,14 @@ export const buildBootstrapAccountEvents = async (params: Readonly<{
   sourceCounts: Readonly<Record<AccountEventSource, number>>;
 }>> => {
   const historyResetCutoffUnixMs = readHistoryResetCutoffUnixMs(params.profileId);
+  const nativeSqliteBootstrap = requiresSqlitePersistence();
   await messagingClientOperations.hydrateDmTombstonesFromSqlite(params.profileId);
-  await chatStateStoreService.hydrateMessages(params.accountPublicKeyHex);
+  if (!nativeSqliteBootstrap) {
+    await chatStateStoreService.hydrateMessages(params.accountPublicKeyHex);
+  }
   const events: AccountEvent[] = [];
   const peerTrust = peerTrustInternals.loadFromStorage(params.accountPublicKeyHex);
-  const chatState = chatStateStoreService.load(params.accountPublicKeyHex);
+  const chatState = nativeSqliteBootstrap ? null : chatStateStoreService.load(params.accountPublicKeyHex);
   const checkpoints = Array.from(syncCheckpointInternals.loadPersistedCheckpointState(params.profileId).values());
   const durableDeleteIds = messagingClientOperations.loadDmSuppressedIdentityIds(params.profileId);
 
@@ -620,16 +624,21 @@ export const buildBootstrapAccountEvents = async (params: Readonly<{
     });
   });
 
-  collectFromChatState({
-    profileId: params.profileId,
-    accountPublicKeyHex: params.accountPublicKeyHex,
-    events,
-    chatState,
-    source: "local_bootstrap",
-    idempotencyPrefix: "legacy",
-    historyResetCutoffUnixMs,
-    durableDeleteIds,
-  });
+  if (nativeSqliteBootstrap) {
+    // P3c: DM timeline authority is SQLite on native — projection imports seals only
+    // (peer trust, checkpoints, tombstones) to avoid replaying thousands of DM_RECEIVED events.
+  } else {
+    collectFromChatState({
+      profileId: params.profileId,
+      accountPublicKeyHex: params.accountPublicKeyHex,
+      events,
+      chatState,
+      source: "local_bootstrap",
+      idempotencyPrefix: "legacy",
+      historyResetCutoffUnixMs,
+      durableDeleteIds,
+    });
+  }
   Array.from(durableDeleteIds).forEach((messageId) => {
     pushRemovedMessageEvent(events, {
       profileId: params.profileId,
@@ -663,7 +672,7 @@ export const buildBootstrapAccountEvents = async (params: Readonly<{
     });
   });
 
-  if (params.backupPayload) {
+  if (params.backupPayload && !nativeSqliteBootstrap) {
     collectFromBackupPayload({
       profileId: params.profileId,
       accountPublicKeyHex: params.accountPublicKeyHex,
@@ -672,6 +681,7 @@ export const buildBootstrapAccountEvents = async (params: Readonly<{
       source: "local_bootstrap",
       idempotencyPrefix: "backup",
       historyResetCutoffUnixMs,
+      skipDmChatStateTimelineImport: true,
     });
   }
 

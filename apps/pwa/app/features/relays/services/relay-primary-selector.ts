@@ -3,16 +3,10 @@
  *
  * Pure service that decides which relay URL is the current primary and which
  * are on standby.  No React, no side-effects.
- *
- * Design:
- *  - One primary relay handles all publish + subscribe traffic.
- *  - Standby relays are tracked for health but hold zero REQ subscriptions.
- *  - When the primary is declared failed the selector promotes the best
- *    standby and returns a new selection.
- *  - User-defined order (position in the list) is the tie-breaker when
- *    health scores are equal, so the first enabled relay in settings is
- *    preferred.
  */
+
+import type { RelayTransportMode } from "./relay-transport-mode";
+import { REDUNDANCY_POOL_MAX_RELAYS } from "./relay-transport-mode";
 
 export type RelayRole = "primary" | "standby" | "disabled";
 
@@ -30,9 +24,16 @@ export type RelayPrimarySelection = Readonly<{
 export type RelayHealthHint = Readonly<{
   url: string;
   isOpen: boolean;
+  isWritable?: boolean;
+  isCircuitOpen?: boolean;
+  listIndex?: number;
   latencyMs?: number;
   successRate?: number;
 }>;
+
+const POSITION_SCORE_WEIGHT = 0.08;
+const SCORE_SWITCH_THRESHOLD = 0.15;
+const RECONCILE_SCORE_DELTA = 0.2;
 
 const buildSelection = (
   orderedEnabledUrls: ReadonlyArray<string>,
@@ -52,26 +53,82 @@ const buildSelection = (
   return { primaryUrl: resolved ?? null, standbyUrls, entries };
 };
 
-const scoreUrl = (url: string, hints: ReadonlyArray<RelayHealthHint>): number => {
-  const hint = hints.find((h) => h.url === url);
-  if (!hint) return 0;
-  if (!hint.isOpen) return 0;
-  const latencyScore = typeof hint.latencyMs === "number" && hint.latencyMs > 0
-    ? Math.max(0, 1 - hint.latencyMs / 3000)
-    : 0.5;
-  const successScore = typeof hint.successRate === "number"
-    ? Math.max(0, Math.min(1, hint.successRate / 100))
-    : 0.5;
-  return (successScore * 0.6) + (latencyScore * 0.4);
+const findHint = (
+  url: string,
+  hints: ReadonlyArray<RelayHealthHint>,
+): RelayHealthHint | undefined => hints.find((hint) => hint.url === url);
+
+const listIndexFor = (
+  url: string,
+  orderedEnabledUrls: ReadonlyArray<string>,
+  hints: ReadonlyArray<RelayHealthHint>,
+): number => {
+  const hintIndex = findHint(url, hints)?.listIndex;
+  if (typeof hintIndex === "number") {
+    return hintIndex;
+  }
+  const position = orderedEnabledUrls.indexOf(url);
+  return position >= 0 ? position : Number.MAX_SAFE_INTEGER;
 };
 
-/**
- * Given the user's ordered enabled relay list and current health hints,
- * returns the initial selection (no previous primary assumed).
- *
- * The first enabled relay in the list wins by position unless health scores
- * favour another.  A relay must be "open" to be considered for primary.
- */
+/** Higher is better. Circuit-open relays score 0. */
+export const scoreRelayUrl = (
+  url: string,
+  hints: ReadonlyArray<RelayHealthHint>,
+  orderedEnabledUrls: ReadonlyArray<string> = [],
+): number => {
+  const hint = findHint(url, hints);
+  if (!hint || hint.isCircuitOpen) {
+    return 0;
+  }
+  if (!hint.isOpen && !hint.isWritable) {
+    return 0;
+  }
+  const latencyScore = typeof hint.latencyMs === "number" && hint.latencyMs > 0
+    ? Math.max(0, 1 - hint.latencyMs / 3000)
+    : 0.35;
+  const successScore = typeof hint.successRate === "number"
+    ? Math.max(0, Math.min(1, hint.successRate / 100))
+    : 0.45;
+  const writableBonus = hint.isWritable ? 0.35 : 0;
+  const openBonus = hint.isOpen ? 0.15 : 0;
+  const positionBonus = orderedEnabledUrls.length > 0
+    ? Math.max(0, (orderedEnabledUrls.length - listIndexFor(url, orderedEnabledUrls, hints)) / orderedEnabledUrls.length)
+      * POSITION_SCORE_WEIGHT
+    : 0;
+  return (successScore * 0.45) + (latencyScore * 0.25) + writableBonus + openBonus + positionBonus;
+};
+
+export const pickBestRelayUrl = (
+  orderedEnabledUrls: ReadonlyArray<string>,
+  hints: ReadonlyArray<RelayHealthHint> = [],
+  options?: Readonly<{ excludeUrls?: ReadonlyArray<string> }>,
+): string | null => {
+  if (orderedEnabledUrls.length === 0) {
+    return null;
+  }
+  const excluded = new Set(options?.excludeUrls ?? []);
+  const candidates = orderedEnabledUrls.filter((url) => !excluded.has(url));
+  if (candidates.length === 0) {
+    return orderedEnabledUrls[0] ?? null;
+  }
+  const scored = candidates
+    .map((url) => ({
+      url,
+      score: scoreRelayUrl(url, hints, orderedEnabledUrls),
+      listIndex: listIndexFor(url, orderedEnabledUrls, hints),
+    }))
+    .sort((a, b) => (
+      b.score - a.score
+      || a.listIndex - b.listIndex
+    ));
+  const bestScored = scored.find((entry) => entry.score > 0);
+  if (bestScored) {
+    return bestScored.url;
+  }
+  return candidates[0] ?? null;
+};
+
 export const resolveInitialRelaySelection = (
   orderedEnabledUrls: ReadonlyArray<string>,
   hints: ReadonlyArray<RelayHealthHint> = [],
@@ -79,47 +136,111 @@ export const resolveInitialRelaySelection = (
   if (orderedEnabledUrls.length === 0) {
     return { primaryUrl: null, standbyUrls: [], entries: [] };
   }
-  if (hints.length === 0) {
-    return buildSelection(orderedEnabledUrls, orderedEnabledUrls[0]);
-  }
-  const openUrls = orderedEnabledUrls.filter((url) => hints.find((h) => h.url === url)?.isOpen);
-  if (openUrls.length === 0) {
-    return buildSelection(orderedEnabledUrls, orderedEnabledUrls[0]);
-  }
-  const best = openUrls.reduce((acc, url) => {
-    const accScore = scoreUrl(acc, hints);
-    const urlScore = scoreUrl(url, hints);
-    if (urlScore > accScore + 0.15) return url;
-    return acc;
-  }, openUrls[0]);
-  return buildSelection(orderedEnabledUrls, best ?? orderedEnabledUrls[0]);
+  const best = pickBestRelayUrl(orderedEnabledUrls, hints) ?? orderedEnabledUrls[0];
+  return buildSelection(orderedEnabledUrls, best);
 };
 
-/**
- * Called when the primary relay has failed (no writable relays, watchdog fired).
- * Promotes the best standby to primary.  Returns null if no standby is available.
- */
 export const resolveFailoverRelaySelection = (
   current: RelayPrimarySelection,
   orderedEnabledUrls: ReadonlyArray<string>,
   hints: ReadonlyArray<RelayHealthHint> = [],
 ): RelayPrimarySelection => {
-  const candidates = orderedEnabledUrls.filter((url) => url !== current.primaryUrl);
-  if (candidates.length === 0) {
+  const next = pickBestRelayUrl(orderedEnabledUrls, hints, {
+    excludeUrls: current.primaryUrl ? [current.primaryUrl] : [],
+  });
+  if (!next || next === current.primaryUrl) {
     return current;
   }
-  const openCandidates = candidates.filter((url) => hints.find((h) => h.url === url)?.isOpen);
-  const pool = openCandidates.length > 0 ? openCandidates : candidates;
-  const next = pool.reduce((acc, url) => {
-    const accScore = scoreUrl(acc, hints);
-    const urlScore = scoreUrl(url, hints);
-    if (urlScore > accScore) return url;
-    return acc;
-  }, pool[0]);
-  return buildSelection(orderedEnabledUrls, next ?? candidates[0]);
+  return buildSelection(orderedEnabledUrls, next);
+};
+
+/**
+ * Re-evaluates primary when health hints change (circuit open, better writable peer).
+ * Returns null when the current primary should stay.
+ */
+export const reconcilePrimarySelection = (
+  current: RelayPrimarySelection,
+  orderedEnabledUrls: ReadonlyArray<string>,
+  hints: ReadonlyArray<RelayHealthHint>,
+): RelayPrimarySelection | null => {
+  if (!current.primaryUrl || orderedEnabledUrls.length === 0) {
+    const initial = resolveInitialRelaySelection(orderedEnabledUrls, hints);
+    return initial.primaryUrl === current.primaryUrl ? null : initial;
+  }
+  const currentHint = findHint(current.primaryUrl, hints);
+  const best = pickBestRelayUrl(orderedEnabledUrls, hints);
+  if (!best || best === current.primaryUrl) {
+    return null;
+  }
+  if (currentHint?.isCircuitOpen) {
+    return buildSelection(orderedEnabledUrls, best);
+  }
+  if (!currentHint?.isWritable && findHint(best, hints)?.isWritable) {
+    return buildSelection(orderedEnabledUrls, best);
+  }
+  if (!currentHint?.isOpen && findHint(best, hints)?.isOpen) {
+    return buildSelection(orderedEnabledUrls, best);
+  }
+  const currentScore = scoreRelayUrl(current.primaryUrl, hints, orderedEnabledUrls);
+  const bestScore = scoreRelayUrl(best, hints, orderedEnabledUrls);
+  if (bestScore > currentScore + RECONCILE_SCORE_DELTA) {
+    return buildSelection(orderedEnabledUrls, best);
+  }
+  return null;
+};
+
+export const resolveActivePoolRelayUrls = (params: Readonly<{
+  mode: RelayTransportMode;
+  orderedEnabledUrls: ReadonlyArray<string>;
+  selection: RelayPrimarySelection;
+  hints?: ReadonlyArray<RelayHealthHint>;
+  maxRedundancy?: number;
+}>): ReadonlyArray<string> => {
+  const hints = params.hints ?? [];
+  if (params.orderedEnabledUrls.length === 0) {
+    return [];
+  }
+  if (params.mode === "basic") {
+    const primary = params.selection.primaryUrl ?? params.orderedEnabledUrls[0];
+    return primary ? [primary] : [];
+  }
+
+  const maxRelays = params.maxRedundancy ?? REDUNDANCY_POOL_MAX_RELAYS;
+  const scored = params.orderedEnabledUrls
+    .map((url) => ({
+      url,
+      score: scoreRelayUrl(url, hints, params.orderedEnabledUrls),
+      listIndex: listIndexFor(url, params.orderedEnabledUrls, hints),
+      isCircuitOpen: findHint(url, hints)?.isCircuitOpen ?? false,
+    }))
+    .filter((entry) => !entry.isCircuitOpen)
+    .sort((a, b) => b.score - a.score || a.listIndex - b.listIndex);
+
+  const poolUrls = scored
+    .filter((entry) => entry.score > 0)
+    .slice(0, maxRelays)
+    .map((entry) => entry.url);
+
+  if (poolUrls.length > 0) {
+    const primary = params.selection.primaryUrl;
+    if (primary && poolUrls.includes(primary)) {
+      return [primary, ...poolUrls.filter((url) => url !== primary)];
+    }
+    return poolUrls;
+  }
+
+  return params.orderedEnabledUrls.slice(0, maxRelays);
+};
+
+export const resolveStandbyProbeUrls = (params: Readonly<{
+  orderedEnabledUrls: ReadonlyArray<string>;
+  activePoolUrls: ReadonlyArray<string>;
+}>): ReadonlyArray<string> => {
+  const active = new Set(params.activePoolUrls);
+  return params.orderedEnabledUrls.filter((url) => !active.has(url));
 };
 
 export const relaySelectorInternals = {
   buildSelection,
-  scoreUrl,
+  SCORE_SWITCH_THRESHOLD,
 };

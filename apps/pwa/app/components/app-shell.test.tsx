@@ -83,6 +83,15 @@ vi.mock("./mobile-tab-bar", () => ({
   MobileTabBar: () => <div data-testid="mobile-tab-bar" />,
 }));
 
+vi.mock("./global-navigation-loading", () => ({
+  useGlobalNavigationLoadingActions: () => ({
+    beginNavigation: vi.fn(),
+    beginChunkLoad: vi.fn(),
+    endChunkLoad: vi.fn(),
+  }),
+  GlobalNavigationChunkLoadingBoundary: () => null,
+}));
+
 vi.mock("./app-loading-screen", () => ({
   AppLoadingScreen: () => <div>Loading</div>,
 }));

@@ -5,6 +5,7 @@ import { RelayDashboard, buildOrderedRelayDashboardUrls } from "./relay-dashboar
 vi.mock("@/app/features/relays/providers/relay-provider", () => ({
   useRelay: vi.fn(() => ({
     enabledRelayUrls: ["wss://relay.damus.io"],
+    activePoolRelayUrls: ["wss://relay.damus.io"],
     relaySelection: {
       primaryUrl: "wss://relay.damus.io",
     },
@@ -69,13 +70,14 @@ describe("RelayDashboard", () => {
 
     expect(screen.getByText("relay.damus.io")).toBeInTheDocument();
     expect(screen.getByText("Last samples")).toBeInTheDocument();
-    expect(screen.getAllByText("Connected").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Active transport").length).toBeGreaterThan(0);
   });
 
   it("shows an explicit empty-state message when no latency samples exist yet", async () => {
     const { useRelay } = await import("@/app/features/relays/providers/relay-provider");
     vi.mocked(useRelay).mockReturnValue({
       enabledRelayUrls: ["wss://relay.empty.example"],
+      activePoolRelayUrls: ["wss://relay.empty.example"],
       relaySelection: {
         primaryUrl: "wss://relay.empty.example",
       },

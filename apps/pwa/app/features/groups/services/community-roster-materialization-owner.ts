@@ -10,6 +10,7 @@ import {
   persistKnownParticipantDirectoryIfWidened,
   persistObservedKnownParticipants,
 } from "./community-roster-persistence";
+import { resolveCommunityParticipantRosterReadModel } from "./community-participant-roster-read-model";
 import type { CommunityRosterMaterializationPort } from "./community-roster-materialization-port";
 
 /** Canonical R2 roster read + persist owner. */
@@ -22,4 +23,5 @@ export const communityRosterMaterializationOwner: CommunityRosterMaterialization
   persistKnownParticipantDirectoryIfWidened,
   persistObservedKnownParticipants,
   persistHydratedGroupKnownParticipants,
+  resolveParticipantRosterReadModel: resolveCommunityParticipantRosterReadModel,
 };

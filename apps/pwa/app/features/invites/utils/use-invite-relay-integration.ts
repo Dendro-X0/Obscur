@@ -4,6 +4,7 @@
  */
 
 import { useEffect, useCallback } from "react";
+import { useRelayPoolRef } from "@/app/features/relays/hooks/use-relay-pool-ref";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import { useRelay } from "../../relays/providers/relay-provider";
@@ -30,7 +31,7 @@ export const useInviteRelayIntegration = ({
   enabled = true
 }: UseInviteRelayIntegrationParams) => {
   const { relayPool: pool } = useRelay();
-
+  const poolRef = useRelayPoolRef(pool);
 
   // Sync connection requests when relays connect
   useEffect(() => {
@@ -57,7 +58,8 @@ export const useInviteRelayIntegration = ({
     // In a full implementation, this would subscribe to connection request events
     // For now, we rely on the existing DM subscription which handles kind 4 events
 
-    const unsubscribe = pool.subscribeToMessages(async ({ url, message }) => {
+    const currentPool = poolRef.current;
+    const unsubscribe = currentPool.subscribeToMessages(async ({ url, message }) => {
       // Parse and handle connection request events
       // This would check for specific event kinds related to connection requests
 
@@ -83,7 +85,7 @@ export const useInviteRelayIntegration = ({
     return () => {
       unsubscribe();
     };
-  }, [enabled, myPublicKey, myPrivateKey, pool]);
+  }, [enabled, myPublicKey, myPrivateKey, poolRef]);
 
   const syncNow = useCallback(async () => {
     if (!myPublicKey || !myPrivateKey) {

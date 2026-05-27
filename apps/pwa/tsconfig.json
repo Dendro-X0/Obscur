@@ -25,6 +25,18 @@
     "paths": {
       "@/*": [
         "./*"
+      ],
+      "@dweb/transport-contracts": [
+        "../../packages/dweb-transport-contracts/src/index.ts"
+      ],
+      "@dweb/transport-contracts/*": [
+        "../../packages/dweb-transport-contracts/src/*"
+      ],
+      "@dweb/transport-team-relay": [
+        "../../packages/dweb-transport-team-relay/src/index.ts"
+      ],
+      "@dweb/transport-team-relay/*": [
+        "../../packages/dweb-transport-team-relay/src/*"
       ]
     }
   },

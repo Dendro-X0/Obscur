@@ -11,8 +11,10 @@ import {
 } from "./community-member-roster-projection";
 import type { RelayEvidenceConfidence } from "./community-member-roster-projection";
 import type { StabilizeCommunityMemberPubkeysResult } from "./community-member-roster-projection";
+import { resolveAuthorEvidencePubkeysFromCommunityMessages } from "./community-message-author-evidence";
 
 export type { RelayEvidenceConfidence, StabilizeCommunityMemberPubkeysResult };
+export { resolveAuthorEvidencePubkeysFromCommunityMessages } from "./community-message-author-evidence";
 
 export type GroupMemberProfileLike = Readonly<{
     displayName?: string | null;
@@ -79,17 +81,6 @@ export const resolveVisibleCommunityMemberPubkeys = (params: Readonly<{
         leftMemberPubkeys: params.leftMemberPubkeys,
         expelledMemberPubkeys: params.expelledMemberPubkeys,
     }).activeMemberPubkeys
-);
-
-/** Dedupe message `pubkey` values for `resolveVisibleCommunityMemberPubkeys` author-evidence input. Used by group home / management UIs, **`group-provider`** hydrate (`groupMessageAuthorsByConversationId` + member backfill), and **`collectGroupMessageAuthorPubkeys`**. Prefer **`resolveActiveCommunityMemberPubkeysFromConversation`** when computing active roster + author evidence together. */
-export const resolveAuthorEvidencePubkeysFromCommunityMessages = (
-    messages: ReadonlyArray<Readonly<{ pubkey?: string | null }>>,
-): ReadonlyArray<PublicKeyHex> => (
-    Array.from(new Set(
-        messages
-            .map((message) => message.pubkey?.trim() ?? "")
-            .filter((pubkey) => pubkey.length > 0),
-    )) as ReadonlyArray<PublicKeyHex>
 );
 
 export type ResolveActiveCommunityMemberPubkeysFromConversationParams = Readonly<{

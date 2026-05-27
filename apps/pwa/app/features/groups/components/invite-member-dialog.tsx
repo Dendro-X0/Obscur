@@ -16,17 +16,18 @@ import { Input } from "../../../components/ui/input";
 import { Avatar, AvatarImage, AvatarFallback } from "@dweb/ui-kit";
 import { toast } from "../../../components/ui/toast";
 import { cn } from "../../../lib/cn";
+import { useRelayPoolRef } from "@/app/features/relays/hooks/use-relay-pool-ref";
 import { ProfileSearchService, type ProfileSearchResult } from "../../search/services/profile-search-service";
 import { useRelay } from "../../relays/providers/relay-provider";
 import { useIdentity } from "../../auth/hooks/use-identity";
 import { GroupService } from "../services/group-service";
 import type { GroupMetadata } from "../types";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
-import { messageBus } from "../../messaging/services/message-bus";
-import { MessageQueue } from "../../messaging/lib/message-queue";
 import type { Message } from "../../messaging/types";
 import { toDmConversationId } from "../../messaging/utils/dm-conversation-id";
 import { buildOutgoingCommunityInviteDmMessage } from "../utils/community-invite-dm-message";
+import { commitOutgoingCommunityInviteDm } from "../services/community-invite-dm-orchestrator";
+import { publishDmNostrEvent } from "@/app/features/messaging/services/publish-dm-nostr-event";
 
 interface InviteMemberDialogProps {
     isOpen: boolean;
@@ -54,7 +55,8 @@ export function InviteMemberDialog({
     creatorPubkey
 }: InviteMemberDialogProps) {
     const { t } = useTranslation();
-    const { relayPool: pool } = useRelay();
+    const { relayPool: pool, enabledRelayUrls } = useRelay();
+    const poolRef = useRelayPoolRef(pool);
     const { state: identityState } = useIdentity();
 
     const [query, setQuery] = useState("");
@@ -76,9 +78,10 @@ export function InviteMemberDialog({
     );
 
     useEffect(() => {
-        if (pool && identityState.publicKeyHex) {
+        const currentPool = poolRef.current;
+        if (currentPool && identityState.publicKeyHex) {
             searchService.current = new ProfileSearchService(
-                pool as any,
+                currentPool as any,
                 undefined,
                 identityState.publicKeyHex
             );
@@ -87,7 +90,7 @@ export function InviteMemberDialog({
                 identityState.privateKeyHex as any
             );
         }
-    }, [pool, identityState.publicKeyHex, identityState.privateKeyHex]);
+    }, [identityState.publicKeyHex, identityState.privateKeyHex, poolRef]);
 
     const handleSearch = (val: string) => {
         setQuery(val);
@@ -128,7 +131,12 @@ export function InviteMemberDialog({
                 genesisEventId,
                 creatorPubkey
             });
-            await pool.publishToAll(JSON.stringify(["EVENT", giftWrapEvent]));
+            const publishResult = await publishDmNostrEvent(pool, enabledRelayUrls, giftWrapEvent);
+            const dmPublishOk = publishResult.success;
+            if (!dmPublishOk) {
+                // Preserve optimistic local invite evidence even when relays are degraded.
+                toast.error("Invite could not reach any DM relay. Saved locally; it will still appear in chat as pending.");
+            }
 
             const myPublicKeyHex = identityState.publicKeyHex || '';
             const conversationId = toDmConversationId({ myPublicKeyHex, peerPublicKeyHex: user.pubkey });
@@ -152,14 +160,15 @@ export function InviteMemberDialog({
                 creatorPubkey,
             });
 
-            const mq = new MessageQueue(identityState.publicKeyHex!);
-            await mq.persistMessage(inviteMessage as any);
+            await commitOutgoingCommunityInviteDm({
+                inviteMessage,
+                accountPublicKeyHex: identityState.publicKeyHex as PublicKeyHex,
+            });
 
-            // Update UI optimistically via message bus
-            messageBus.emitNewMessage(conversationId, inviteMessage);
-
-            // Show success toast with user feedback
-            toast.success(`Invite sent to ${user.displayName || user.name || 'user'}`);
+            // Show success toast only when at least one DM relay accepted the publish.
+            if (dmPublishOk) {
+                toast.success(`Invite sent to ${user.displayName || user.name || 'user'}`);
+            }
 
             // Close dialog after successful invite
             onClose();

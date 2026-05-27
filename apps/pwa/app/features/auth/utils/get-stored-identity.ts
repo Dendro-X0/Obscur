@@ -2,44 +2,46 @@ import type { IdentityRecord } from "@dweb/core/identity-record";
 import { getIdentityDbKey } from "./identity-db-key";
 import { identityStoreName } from "./identity-store-name";
 import { openIdentityDb } from "./open-identity-db";
+import {
+  parseIdentityRecord,
+  readIdentityRecordFromLocalStorage,
+  writeIdentityRecordToLocalStorage,
+  profileIdFromIdentityStorageKey,
+} from "./identity-persistence";
 
 type GetStoredIdentityResult = Readonly<{
   record?: IdentityRecord;
 }>;
 
-const isRecord = (value: unknown): value is Record<string, unknown> => {
-  return typeof value === "object" && value !== null;
-};
-
-const parseIdentityRecord = (value: unknown): IdentityRecord | undefined => {
-  if (!isRecord(value)) {
-    return undefined;
-  }
-  const encryptedPrivateKey: unknown = value.encryptedPrivateKey;
-  const publicKeyHex: unknown = value.publicKeyHex;
-  const username: unknown = value.username;
-  if (typeof encryptedPrivateKey !== "string" || typeof publicKeyHex !== "string") {
-    return undefined;
-  }
-  return {
-    encryptedPrivateKey,
-    publicKeyHex,
-    username: typeof username === "string" ? username : undefined
-  };
-};
-
-export const getStoredIdentity = async (): Promise<GetStoredIdentityResult> => {
+const readIdentityRecordFromMemoryDb = async (identityDbKey: string): Promise<IdentityRecord | undefined> => {
   const db: IDBDatabase = await openIdentityDb();
-  const identityDbKey = getIdentityDbKey();
   return new Promise((resolve, reject) => {
     const tx: IDBTransaction = db.transaction(identityStoreName, "readonly");
     const store: IDBObjectStore = tx.objectStore(identityStoreName);
     const request: IDBRequest = store.get(identityDbKey);
     request.onsuccess = () => {
-      resolve({ record: parseIdentityRecord(request.result) });
+      resolve(parseIdentityRecord(request.result));
     };
     request.onerror = () => {
       reject(request.error ?? new Error("Failed to read identity"));
     };
   });
+};
+
+export const getStoredIdentity = async (): Promise<GetStoredIdentityResult> => {
+  const identityDbKey = getIdentityDbKey();
+  const profileId = profileIdFromIdentityStorageKey(identityDbKey);
+
+  const durableRecord = readIdentityRecordFromLocalStorage(profileId);
+  if (durableRecord) {
+    return { record: durableRecord };
+  }
+
+  const sessionRecord = await readIdentityRecordFromMemoryDb(identityDbKey);
+  if (sessionRecord) {
+    writeIdentityRecordToLocalStorage({ profileId, record: sessionRecord });
+    return { record: sessionRecord };
+  }
+
+  return { record: undefined };
 };

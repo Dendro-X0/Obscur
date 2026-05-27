@@ -54,7 +54,7 @@ describe("session-bootstrap-contracts", () => {
       tokenCandidateCount: 0,
       tokenSource: "none",
       autoUnlockPath: "native_session",
-      autoUnlockEligible: false,
+      autoUnlockEligible: true,
     });
   });
 

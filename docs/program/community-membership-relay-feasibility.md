@@ -1,7 +1,8 @@
 # Community membership vs relay protocol — feasibility
 
 **Status:** Product/architecture decision record (2026-05-22)  
-**Triggers:** Observer still sees leaver in participant modal; re-invite blocked; “must remove the list” vs “list is required for chat/discovery.”
+**Triggers:** Observer still sees leaver in participant modal; re-invite blocked; “must remove the list” vs “list is required for chat/discovery.”  
+**Implementation path:** [v1.9.0-kernel-backend-roadmap.md](./v1.9.0-kernel-backend-roadmap.md) (Lane K) — coordination directory + membership kernel port.
 
 ---
 
@@ -10,11 +11,12 @@
 | Question | Answer |
 |----------|--------|
 | Can we **bypass NIP-29 / public relay** membership rules? | **No** — relays do not offer authoritative global delete of roster rows. |
-| Can users **re-invite** someone who left? | **Yes, in product** — without deleting history or dropping the participant directory. Requires a **split** between *membership* and *discovery*. |
+| Is leave **only local to A** on public relays? | **Often, in practice** — unless **sealed 10105 leave** reaches B while B is subscribed with the room key. |
+| Can users **re-invite** someone who left? | **Yes, in product** — on B once B has applied leave evidence; not “because the relay forgot them globally.” |
 | Is “remove the member list entirely” feasible? | **No** without breaking chat, invites, governance, and evidence UX. |
 | Is **live roster parity** across all clients on public relays feasible? | **Not guaranteed** — document as best-effort; do not promise. |
 
-**Conclusion:** The flaw is **conflating two truths** in one UI list, not that Obscur must choose “list OR rejoin.” The viable path is **dual projection** (membership vs discovery), not bypassing the relay.
+**Conclusion:** Decentralization does **not** make “leave” a private preference — but **public relays are weak broadcasters** for membership. Obscur’s cross-client path is **encrypted gossip (10105)**, not “the relay’s member table updates.” When that gossip does not arrive, B is behaving correctly given missing evidence — which feels broken to users accustomed to servers.
 
 ---
 
@@ -45,6 +47,18 @@ Obscur chose widen-only discovery (MEM-001 park) **and** applied participation f
 
 ---
 
+## Product truth (say this to users)
+
+On **sovereign communities over public relays** (e.g. `nos.lol`):
+
+- **Leaving always applies on your device** — you disappear from your group list; chat may stop; ledger records “left.”
+- **Other people learn you left only if they receive evidence** — sealed leave event, NIP-29 leave (when the relay supports it), or manual reconcile while online.
+- **There is no global “room server”** that removes you from everyone’s UI instantly. That is the same class of limit as **no true delete-for-everyone** on DMs.
+
+Managed workspace on **operator-controlled relays** is the lane where stronger directory semantics are even possible — still not magic, but closer to a shared source of truth.
+
+---
+
 ## What the relay actually allows
 
 | Mechanism | What it does | Limit on public relays |
@@ -56,7 +70,11 @@ Obscur chose widen-only discovery (MEM-001 park) **and** applied participation f
 
 **Bypass is not feasible** at the protocol layer without **operator-controlled relays** (managed workspace tier) or a **central coordinator** (not Nostr-shaped).
 
-**Feasible product bypass:** treat relay roster as **hint input**, not **membership authority**. Membership authority = local ledger + sealed control events + invite gates.
+**Feasible product path:** treat relay roster as **hint input**, not **membership authority**. **Cross-client leave** = publish and apply **Kind 10105 `t: leave`** to everyone still holding the room key (implemented; must not be skipped when NIP-29 fails).
+
+### Implementation note (2026-05-22)
+
+Previously, sealed leave was published **only if** NIP-29 leave succeeded. On many public relays, 9022 does nothing useful — so **B never saw 10105**, and the UI looked like “leave is only for A.” That was an app bug, not proof that decentralization forbids shared leave. Sealed leave publish is now **independent** of 9022 success; ingestion of sealed leave no longer waits for relay `steady_state`.
 
 ---
 

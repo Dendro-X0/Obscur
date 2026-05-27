@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  loadClientChunkSafely,
   preloadGroupHomePageClient,
   warmRouteNavigationTargets,
   type RouteNavigationWarmupResult,
@@ -28,7 +29,7 @@ const warmNavigationSpecialTasks = async (
   await Promise.allSettled(
     tasks.map(async (task) => {
       if (task === "group_home_client") {
-        await preloadGroupHomePageClient();
+        await loadClientChunkSafely(() => preloadGroupHomePageClient());
       }
     }),
   );

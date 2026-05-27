@@ -1,13 +1,21 @@
 "use client";
 
-import type { RelayReadinessState } from "./relay-recovery-policy";
+import type { RelayReadinessState, RelayRecoveryReasonCode } from "./relay-recovery-policy";
 import type { RelayTransportRoutingMode } from "./relay-runtime-contracts";
+import { isBrowserOffline } from "@/app/features/runtime/offline-runtime-policy";
 
 export const shouldAutoRecoverRelays = (params: Readonly<{
   enabledRelayCount: number;
   writableRelayCount: number;
   fallbackWritableRelayCount?: number;
+  recoveryReasonCode?: RelayRecoveryReasonCode;
 }>): boolean => {
+  if (isBrowserOffline()) {
+    return false;
+  }
+  if (params.recoveryReasonCode === "recovery_exhausted") {
+    return false;
+  }
   return params.enabledRelayCount > 0 && params.writableRelayCount === 0;
 };
 

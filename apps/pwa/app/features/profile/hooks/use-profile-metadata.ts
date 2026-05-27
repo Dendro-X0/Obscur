@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { useRelay } from "../../relays/providers/relay-provider";
 import { connectionStore } from "../../invites/utils/connection-store";
@@ -44,22 +44,6 @@ const mergeMetadata = (
     };
 };
 
-const persistMetadata = (metadata: ProfileMetadata): ProfileMetadata => {
-    const normalized = {
-        ...metadata,
-        avatarUrl: normalizePublicUrl(metadata.avatarUrl),
-    };
-    metadataCache.set(metadata.pubkey, normalized);
-    discoveryCache.upsertProfile({
-        pubkey: metadata.pubkey,
-        displayName: normalized.displayName,
-        about: normalized.about,
-        picture: normalized.avatarUrl,
-        nip05: normalized.nip05,
-    });
-    return normalized;
-};
-
 const metadataFromEvent = (event: NostrEvent): ProfileMetadata | null => {
     try {
         const content = JSON.parse(event.content) as Record<string, unknown>;
@@ -95,8 +79,41 @@ const needsRelayHydration = (metadata: ProfileMetadata | null | undefined): bool
     return !metadata.avatarUrl && !metadata.about && !metadata.nip05;
 };
 
+const metadataFingerprint = (metadata: ProfileMetadata | null | undefined): string => {
+    if (!metadata) {
+        return "";
+    }
+    return [
+        metadata.pubkey,
+        metadata.displayName ?? "",
+        metadata.avatarUrl ?? "",
+        metadata.nip05 ?? "",
+        metadata.about ?? "",
+    ].join("\0");
+};
+
+const persistMetadataIfChanged = (metadata: ProfileMetadata): ProfileMetadata => {
+    const normalized = {
+        ...metadata,
+        avatarUrl: normalizePublicUrl(metadata.avatarUrl),
+    };
+    const previous = metadataCache.get(metadata.pubkey);
+    if (previous && metadataFingerprint(previous) === metadataFingerprint(normalized)) {
+        return previous;
+    }
+    metadataCache.set(metadata.pubkey, normalized);
+    discoveryCache.upsertProfile({
+        pubkey: metadata.pubkey,
+        displayName: normalized.displayName,
+        about: normalized.about,
+        picture: normalized.avatarUrl,
+        nip05: normalized.nip05,
+    });
+    return normalized;
+};
+
 export const seedProfileMetadataCache = (metadata: ProfileMetadata): void => {
-    persistMetadata(metadata);
+    persistMetadataIfChanged(metadata);
 };
 
 export const clearProfileMetadataCache = (): void => {
@@ -110,13 +127,17 @@ export const clearProfileMetadataCache = (): void => {
 export const useProfileMetadata = (pubkey: string | null, options: UseProfileMetadataOptions = {}): ProfileMetadata | null => {
     const { relayPool: pool, enabledRelayUrls } = useRelay();
     const live = options.live ?? true;
+    const enabledRelayUrlsKey = enabledRelayUrls.join("|");
+    const poolRef = useRef(pool);
+    poolRef.current = pool;
     const [metadata, setMetadata] = useState<ProfileMetadata | null>(() => {
         if (!pubkey) return null;
         return metadataCache.get(pubkey) || null;
     });
 
     useEffect(() => {
-        if (!pubkey || !pool) {
+        const activePool = poolRef.current;
+        if (!pubkey || !activePool) {
             setMetadata(null);
             return;
         }
@@ -127,19 +148,24 @@ export const useProfileMetadata = (pubkey: string | null, options: UseProfileMet
             if (disposed) {
                 return;
             }
-            const merged = persistMetadata(mergeMetadata(metadataCache.get(pubkey), incoming));
-            setMetadata((current) => mergeMetadata(current, merged));
+            const merged = mergeMetadata(metadataCache.get(pubkey), incoming);
+            const persisted = persistMetadataIfChanged(merged);
+            setMetadata((current) => {
+                const next = mergeMetadata(current, persisted);
+                if (metadataFingerprint(current) === metadataFingerprint(next)) {
+                    return current;
+                }
+                return next;
+            });
         };
 
         const cached = metadataCache.get(pubkey);
         if (cached) {
-            queueMicrotask(() => {
-                if (!disposed) {
-                    setMetadata(cached);
-                }
-            });
+            setMetadata((current) => (
+                metadataFingerprint(current) === metadataFingerprint(cached) ? current : cached
+            ));
         } else {
-            setMetadata(null);
+            setMetadata((current) => (current === null ? current : null));
         }
 
         const cachedDiscoveryProfile = discoveryCache.getProfile(pubkey);
@@ -154,7 +180,9 @@ export const useProfileMetadata = (pubkey: string | null, options: UseProfileMet
         }
 
         if (!live) {
-            return;
+            return () => {
+                disposed = true;
+            };
         }
 
         void (async () => {
@@ -178,22 +206,23 @@ export const useProfileMetadata = (pubkey: string | null, options: UseProfileMet
             }
         })();
 
-        const subId = pool.subscribe(
+        const subId = activePool.subscribe(
             [{ kinds: [0], authors: [pubkey], limit: 1 }],
             (event: NostrEvent) => {
                 const freshMetadata = metadataFromEvent(event);
                 if (freshMetadata) {
                     applyMetadata(freshMetadata);
                 }
-            }
+            },
         );
 
+        const relayUrls = enabledRelayUrlsKey.length > 0 ? enabledRelayUrlsKey.split("|") : [];
         const shouldFetchDirect = needsRelayHydration(metadataCache.get(pubkey))
-            && enabledRelayUrls.length > 0
+            && relayUrls.length > 0
             && !directFetchState.has(pubkey);
         if (shouldFetchDirect) {
             const directFetch = fetchLatestEventFromRelayUrls({
-                relayUrls: enabledRelayUrls,
+                relayUrls,
                 filters: [{ kinds: [0], authors: [pubkey], limit: 1 }],
                 matcher: (event) => event.kind === 0 && event.pubkey === pubkey,
             })
@@ -215,10 +244,10 @@ export const useProfileMetadata = (pubkey: string | null, options: UseProfileMet
         return () => {
             disposed = true;
             if (subId) {
-                pool.unsubscribe(subId);
+                activePool.unsubscribe(subId);
             }
         };
-    }, [enabledRelayUrls, live, pool, pubkey]);
+    }, [enabledRelayUrlsKey, live, pubkey]);
 
     return metadata;
 };

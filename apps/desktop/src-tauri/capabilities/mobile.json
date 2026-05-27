@@ -11,7 +11,13 @@
         "allow-misc-commands",
         "allow-relay-commands",
         "allow-wallet-commands",
-        "http:default",
+        {
+            "identifier": "http:default",
+            "allow": [
+                { "url": "http://127.0.0.1:*" },
+                { "url": "http://localhost:*" }
+            ]
+        },
         "upload:default",
         "notification:default",
         "core:event:default",

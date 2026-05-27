@@ -21,7 +21,7 @@ pnpm -C apps/coordination db:migrate
 
 If you prefer using numbered migrations instead of the single schema file:
 
-wrangler d1 execute obscur_coordination --local --file=./migrations/0001_init.sql
+wrangler d1 execute obscur --local --file=./migrations/0001_init.sql
 
 3. Run the worker locally
 
@@ -38,6 +38,9 @@ pnpm -C apps/coordination dev
 - GET /health
 - POST /invites/create
 - POST /invites/redeem
+- GET `/communities/{communityId}/membership/head`
+- GET `/communities/{communityId}/membership/deltas?since={seq}`
+- POST `/communities/{communityId}/membership/delta` — signed join/leave/expel (no chat plaintext)
 
 ## D1
 

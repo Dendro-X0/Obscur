@@ -6,12 +6,13 @@ import { fileURLToPath } from "node:url";
 const currentDir: string = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot: string = path.resolve(currentDir, "../..");
 
-// Only use static export for desktop builds (when TAURI_BUILD is set)
-// For Vercel deployments, use dynamic rendering
-const isTauriBuild = process.env.TAURI_BUILD === "true";
+// Static export only for production Tauri/mobile shell builds — not `next dev`.
+// `output: "export"` in dev breaks routes that use `useSearchParams` (e.g. /groups/view).
+const isStaticExportBuild =
+  process.env.TAURI_BUILD === "true" && process.env.NODE_ENV === "production";
 
 const nextConfig: NextConfig = {
-  ...(isTauriBuild && { output: "export" }),
+  ...(isStaticExportBuild && { output: "export" }),
   images: {
     unoptimized: true,
   },
@@ -28,7 +29,12 @@ const nextConfig: NextConfig = {
     "@dweb/crypto",
     "@dweb/nostr",
     "@dweb/storage",
-    "@dweb/ui-kit"
+    "@dweb/ui-kit",
+    "@dweb/transport-contracts",
+    "@dweb/transport-team-relay",
+    "@dweb/transport-coordination",
+    "@dweb/transport-nostr",
+    "@dweb/client-gateway",
   ]
 };
 

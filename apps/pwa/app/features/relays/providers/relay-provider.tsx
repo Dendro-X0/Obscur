@@ -4,7 +4,17 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { useRelayList } from "../hooks/use-relay-list";
 import { useRelayPool } from "../hooks/use-relay-pool";
 import { useRelayPrimarySelection } from "../hooks/use-relay-primary-selection";
-import type { RelayPrimarySelection } from "../services/relay-primary-selector";
+import {
+  resolveActivePoolRelayUrls,
+  resolveFailoverRelaySelection,
+  resolveStandbyProbeUrls,
+  type RelayPrimarySelection,
+} from "../services/relay-primary-selector";
+import { buildRelayHealthHints } from "../services/relay-health-hints";
+import { useRelayHealthHints } from "../hooks/use-relay-health-hints";
+import { useRelayTransportMode } from "../hooks/use-relay-transport-mode";
+import type { RelayTransportMode } from "../services/relay-transport-mode";
+import { logAppEvent } from "@/app/shared/log-app-event";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import type { RelayStatusSummary } from "@/app/features/messaging/types";
 import {
@@ -14,54 +24,188 @@ import {
 import type { RelayRecoveryReasonCode, RelayRecoverySnapshot } from "../services/relay-recovery-policy";
 import type { RelayRuntimeSnapshot } from "../services/relay-runtime-contracts";
 import { useDesktopProfileIsolationSnapshot } from "@/app/features/profiles/services/desktop-profile-runtime";
-import { windowRuntimeSupervisor } from "@/app/features/runtime/services/window-runtime-supervisor";
+import { useWindowRuntime, windowRuntimeSupervisor } from "@/app/features/runtime/services/window-runtime-supervisor";
+import {
+  RELAY_RUNTIME_REFRESH_MIN_INTERVAL_MS,
+  RELAY_TRANSPORT_BOOTSTRAP_DELAY_MS,
+} from "@/app/features/runtime/relay-transport-bootstrap-policy";
 import { relayNativeAdapter } from "../hooks/relay-native-adapter";
 import { listenToNativeEvent } from "@/app/features/runtime/native-event-adapter";
 import { getRuntimeCapabilities } from "@/app/features/runtime/runtime-capabilities";
 import { useStandbyLatencyProbe } from "../hooks/use-standby-latency-probe";
 import { useRelaySessionWatchdog } from "../hooks/use-relay-session-watchdog";
+import { isExperimentOfflineStubEnabled } from "@/app/features/runtime/experiment-shell-policy";
+import {
+  resolveCommunityCandidateRelayUrls,
+  resolveDmTransportRelayUrls,
+} from "../services/relay-transport-scope";
+import { ExperimentRelayShell } from "./experiment-relay-shell";
 
 interface RelayContextType {
   relayList: ReturnType<typeof useRelayList>;
   relayPool: ReturnType<typeof useRelayPool>;
   relayStatus: RelayStatusSummary;
+  /** DM + profile Nostr transport (excludes workspace-only intranet relays). */
   enabledRelayUrls: ReadonlyArray<string>;
+  /** Enabled private/custom relays for workspace community create. */
+  communityCandidateRelayUrls: ReadonlyArray<string>;
   relayRecovery: RelayRecoverySnapshot;
   relayRuntime: RelayRuntimeSnapshot;
   triggerRelayRecovery: (reason?: RelayRecoveryReasonCode) => Promise<RelayRuntimeSnapshot>;
   relaySelection: RelayPrimarySelection;
+  activePoolRelayUrls: ReadonlyArray<string>;
+  relayTransportMode: RelayTransportMode;
+  setRelayTransportMode: (mode: RelayTransportMode) => void;
   setPrimaryRelay: (url: string) => void;
 }
 
-const RelayContext = createContext<RelayContextType | null>(null);
+export const RelayContext = createContext<RelayContextType | null>(null);
 
 export const RelayProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  if (isExperimentOfflineStubEnabled()) {
+    return <ExperimentRelayShell>{children}</ExperimentRelayShell>;
+  }
+  return <FullRelayProvider>{children}</FullRelayProvider>;
+};
+
+const FullRelayProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const identity = useIdentity();
   const desktopSnapshot = useDesktopProfileIsolationSnapshot();
   const publicKeyHex = identity.state.publicKeyHex ?? null;
 
   const relayList = useRelayList({ publicKeyHex });
-  const enabledRelayUrls = useMemo(() => {
-    return relayList.state.relays
-      .filter((relay) => relay.enabled)
-      .map((relay) => relay.url);
-  }, [relayList.state.relays]);
+  const dmTransportRelayUrls = useMemo(
+    () => resolveDmTransportRelayUrls(relayList.state.relays),
+    [relayList.state.relays],
+  );
+  const communityCandidateRelayUrls = useMemo(
+    () => resolveCommunityCandidateRelayUrls(relayList.state.relays),
+    [relayList.state.relays],
+  );
+  const enabledRelayUrls = dmTransportRelayUrls;
   const enabledRelayUrlsKey = useMemo(() => enabledRelayUrls.join("|"), [enabledRelayUrls]);
 
-  const poolHealthHints = useMemo(() => enabledRelayUrls.map((url) => ({ url, isOpen: false })), [enabledRelayUrlsKey]); // eslint-disable-line react-hooks/exhaustive-deps
-  const { selection: relaySelection, triggerFailover, setPrimaryManual } = useRelayPrimarySelection(enabledRelayUrls, poolHealthHints);
+  const { mode: relayTransportMode, setMode: setRelayTransportMode } = useRelayTransportMode();
+  const failoverRecoveryPendingRef = useRef(false);
 
-  const activeRelayUrls = useMemo(() => (
-    relaySelection.primaryUrl ? [relaySelection.primaryUrl] : enabledRelayUrls.slice(0, 1)
-  ), [relaySelection.primaryUrl, enabledRelayUrlsKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  const windowRuntime = useWindowRuntime().snapshot;
+  const shellReady = windowRuntime.phase === "ready" || windowRuntime.phase === "degraded";
+  const [transportBootstrapReady, setTransportBootstrapReady] = useState(false);
 
-  useStandbyLatencyProbe(relaySelection.standbyUrls);
+  useEffect(() => {
+    if (!shellReady) {
+      setTransportBootstrapReady(false);
+      return;
+    }
+    if (typeof window === "undefined") {
+      setTransportBootstrapReady(true);
+      return;
+    }
+    const timerId = window.setTimeout(() => {
+      setTransportBootstrapReady(true);
+    }, RELAY_TRANSPORT_BOOTSTRAP_DELAY_MS);
+    return () => {
+      window.clearTimeout(timerId);
+    };
+  }, [shellReady]);
 
-  const relayPool = useRelayPool(activeRelayUrls);
+  const [poolRelayUrls, setPoolRelayUrls] = useState<ReadonlyArray<string>>(() => (
+    enabledRelayUrls.length > 0 ? [enabledRelayUrls[0]!] : []
+  ));
+
+  const relayPool = useRelayPool(transportBootstrapReady ? poolRelayUrls : []);
   const relayPoolRef = useRef(relayPool);
+
+  const { hints: relayHealthHints, hintsSignature } = useRelayHealthHints({
+    orderedEnabledUrls: enabledRelayUrls,
+    pool: relayPool,
+    enabled: transportBootstrapReady,
+  });
+
+  const { selection: relaySelection, setPrimaryManual } = useRelayPrimarySelection(
+    enabledRelayUrls,
+    relayHealthHints,
+    hintsSignature,
+  );
+
+  const relaySelectionRef = useRef(relaySelection);
+  useEffect(() => {
+    relaySelectionRef.current = relaySelection;
+  }, [relaySelection]);
+
+  const activePoolRelayUrls = useMemo(() => (
+    resolveActivePoolRelayUrls({
+      mode: relayTransportMode,
+      orderedEnabledUrls: enabledRelayUrls,
+      selection: relaySelection,
+      hints: relayHealthHints,
+    })
+  ), [
+    relayTransportMode,
+    enabledRelayUrlsKey,
+    relaySelection.primaryUrl,
+    relaySelection.standbyUrls.join("|"),
+    hintsSignature,
+  ]);
+
+  useEffect(() => {
+    if (enabledRelayUrls.length === 0) {
+      setPoolRelayUrls([]);
+      return;
+    }
+    if (!transportBootstrapReady) {
+      const bootstrapUrl = enabledRelayUrls[0]!;
+      setPoolRelayUrls((previous) => (
+        previous.length === 1 && previous[0] === bootstrapUrl ? previous : [bootstrapUrl]
+      ));
+      return;
+    }
+    const nextKey = activePoolRelayUrls.join("|");
+    setPoolRelayUrls((previous) => (previous.join("|") === nextKey ? previous : activePoolRelayUrls));
+  }, [enabledRelayUrlsKey, enabledRelayUrls, transportBootstrapReady, activePoolRelayUrls]);
+
+  const standbyProbeUrls = useMemo(() => (
+    resolveStandbyProbeUrls({
+      orderedEnabledUrls: enabledRelayUrls,
+      activePoolUrls: activePoolRelayUrls,
+    })
+  ), [enabledRelayUrlsKey, activePoolRelayUrls.join("|")]);
+
+  const relayConnectionSignature = useMemo(
+    () => relayPool.connections.map((connection) => `${connection.url}:${connection.status}`).join("|"),
+    [relayPool.connections],
+  );
+
   const relayRuntimeSupervisor = useMemo(() => createRelayRuntimeSupervisor(), []);
   const relayRuntime = useRelayRuntimeSnapshot(relayRuntimeSupervisor);
+
+  const attemptPrimaryFailover = useCallback((): boolean => {
+    if (enabledRelayUrls.length <= 1) {
+      return false;
+    }
+    const hints = buildRelayHealthHints(enabledRelayUrls, relayPoolRef.current);
+    const current = relaySelectionRef.current;
+    const next = resolveFailoverRelaySelection(current, enabledRelayUrls, hints);
+    if (next.primaryUrl === current.primaryUrl) {
+      return false;
+    }
+    failoverRecoveryPendingRef.current = true;
+    relaySelectionRef.current = next;
+    setPrimaryManual(next.primaryUrl!);
+    logAppEvent({
+      name: "relay.primary_failover_applied",
+      level: "info",
+      scope: { feature: "relays", action: "primary_failover_applied" },
+      context: {
+        fromUrl: current.primaryUrl ?? "none",
+        toUrl: next.primaryUrl ?? "none",
+      },
+    });
+    return true;
+  }, [enabledRelayUrls, setPrimaryManual]);
   const relayRuntimeRefreshRafRef = useRef<number | null>(null);
+  const relayRuntimeRefreshTimerRef = useRef<number | null>(null);
+  const lastRuntimeRefreshAtUnixMsRef = useRef(0);
   const [transportRoutingMode, setTransportRoutingMode] = useState<"direct" | "privacy_routed">("direct");
   const [transportProxySummary, setTransportProxySummary] = useState<string | undefined>(undefined);
 
@@ -115,23 +259,17 @@ export const RelayProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
   }, []);
 
-  const triggerFailoverRef = useRef(triggerFailover);
-  useEffect(() => { triggerFailoverRef.current = triggerFailover; }, [triggerFailover]);
+  useStandbyLatencyProbe(transportBootstrapReady ? standbyProbeUrls : []);
 
   useEffect(() => {
-    if (relayRuntime.recovery.readiness === "offline" || relayRuntime.recovery.writableRelayCount === 0) {
-      const hints = relayPool.connections.map((c) => ({
-        url: c.url,
-        isOpen: c.status === "open",
-      }));
-      triggerFailoverRef.current(hints);
+    if (!transportBootstrapReady) {
+      return;
     }
-  }, [relayRuntime.recovery.readiness, relayRuntime.recovery.writableRelayCount]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
     relayRuntimeSupervisor.configure({
       pool: relayPoolRef.current,
-      enabledRelayUrls: activeRelayUrls,
+      enabledRelayUrls: activePoolRelayUrls,
+      allEnabledRelayUrls: enabledRelayUrls,
+      attemptPrimaryFailover,
       scope: {
         windowLabel: desktopSnapshot.currentWindow.windowLabel,
         profileId: desktopSnapshot.currentWindow.profileId,
@@ -141,6 +279,7 @@ export const RelayProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       },
     });
   }, [
+    transportBootstrapReady,
     desktopSnapshot.currentWindow.profileId,
     desktopSnapshot.currentWindow.windowLabel,
     relaySelection.primaryUrl,
@@ -148,44 +287,100 @@ export const RelayProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     publicKeyHex,
     transportProxySummary,
     transportRoutingMode,
-    relayPool.getWritableRelaySnapshot,
-    relayPool.getTransportActivitySnapshot,
-    relayPool.reconnectAll,
-    relayPool.resubscribeAll,
-    relayPool.recycle,
     relayRuntimeSupervisor,
-    activeRelayUrls,
+    activePoolRelayUrls.join("|"),
+    attemptPrimaryFailover,
+    enabledRelayUrls,
   ]);
 
   useEffect(() => {
-    if (typeof window === "undefined") {
-      relayRuntimeSupervisor.refresh();
+    if (!transportBootstrapReady || !failoverRecoveryPendingRef.current) {
       return;
     }
-    if (relayRuntimeRefreshRafRef.current !== null) {
-      window.cancelAnimationFrame(relayRuntimeRefreshRafRef.current);
+    failoverRecoveryPendingRef.current = false;
+    void relayRuntimeSupervisor.triggerRecovery("manual");
+  }, [relaySelection.primaryUrl, transportBootstrapReady, relayRuntimeSupervisor]);
+
+  useEffect(() => {
+    if (!transportBootstrapReady) {
+      return;
     }
-    relayRuntimeRefreshRafRef.current = window.requestAnimationFrame(() => {
-      relayRuntimeRefreshRafRef.current = null;
-      relayRuntimeSupervisor.refresh();
-    });
+
+    const scheduleRefresh = (): void => {
+      if (typeof window === "undefined") {
+        relayRuntimeSupervisor.refresh();
+        return;
+      }
+      const nowUnixMs = Date.now();
+      const elapsedMs = nowUnixMs - lastRuntimeRefreshAtUnixMsRef.current;
+      const delayMs = Math.max(
+        RELAY_RUNTIME_REFRESH_MIN_INTERVAL_MS - elapsedMs,
+        0,
+      );
+      if (relayRuntimeRefreshTimerRef.current !== null) {
+        window.clearTimeout(relayRuntimeRefreshTimerRef.current);
+      }
+      relayRuntimeRefreshTimerRef.current = window.setTimeout(() => {
+        relayRuntimeRefreshTimerRef.current = null;
+        if (relayRuntimeRefreshRafRef.current !== null) {
+          window.cancelAnimationFrame(relayRuntimeRefreshRafRef.current);
+        }
+        relayRuntimeRefreshRafRef.current = window.requestAnimationFrame(() => {
+          relayRuntimeRefreshRafRef.current = null;
+          lastRuntimeRefreshAtUnixMsRef.current = Date.now();
+          relayRuntimeSupervisor.refresh();
+        });
+      }, delayMs);
+    };
+
+    scheduleRefresh();
+
     return () => {
-      if (relayRuntimeRefreshRafRef.current !== null) {
-        window.cancelAnimationFrame(relayRuntimeRefreshRafRef.current);
-        relayRuntimeRefreshRafRef.current = null;
+      if (typeof window !== "undefined") {
+        if (relayRuntimeRefreshTimerRef.current !== null) {
+          window.clearTimeout(relayRuntimeRefreshTimerRef.current);
+          relayRuntimeRefreshTimerRef.current = null;
+        }
+        if (relayRuntimeRefreshRafRef.current !== null) {
+          window.cancelAnimationFrame(relayRuntimeRefreshRafRef.current);
+          relayRuntimeRefreshRafRef.current = null;
+        }
       }
     };
-  }, [relayPool.connections, relayPool.healthMetrics, relayRuntimeSupervisor]);
+  }, [relayConnectionSignature, relayRuntimeSupervisor, transportBootstrapReady]);
+
+  const relayRuntimeSyncSignature = useMemo(
+    () => [
+      relayRuntime.phase,
+      relayRuntime.recovery.readiness,
+      relayRuntime.writableRelayCount,
+      relayRuntime.subscribableRelayCount,
+      relayRuntime.recoveryAttemptCount,
+      relayRuntime.recoveryReasonCode ?? "",
+    ].join("|"),
+    [
+      relayRuntime.phase,
+      relayRuntime.recovery.readiness,
+      relayRuntime.writableRelayCount,
+      relayRuntime.subscribableRelayCount,
+      relayRuntime.recoveryAttemptCount,
+      relayRuntime.recoveryReasonCode,
+    ],
+  );
 
   useEffect(() => {
     windowRuntimeSupervisor.syncRelayRuntime(relayRuntime);
-  }, [relayRuntime]);
+  }, [relayRuntimeSyncSignature, relayRuntime]);
 
   useEffect(() => {
     return () => {
       if (relayRuntimeRefreshRafRef.current !== null && typeof window !== "undefined") {
         window.cancelAnimationFrame(relayRuntimeRefreshRafRef.current);
         relayRuntimeRefreshRafRef.current = null;
+      }
+      if (relayRuntimeRefreshTimerRef.current !== null && typeof window !== "undefined") {
+        window.clearTimeout(relayRuntimeRefreshTimerRef.current);
+        relayRuntimeRefreshTimerRef.current = null;
       }
       relayRuntimeSupervisor.dispose();
     };
@@ -199,11 +394,18 @@ export const RelayProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (conn.status === "open") openCount++;
       if (conn.status === "error") errorCount++;
     });
-    const coolingDownRelayCount = relayPool.getTransportActivitySnapshot().coolingDownRelayCount;
-    return { total, openCount, errorCount, coolingDownRelayCount };
-  }, [relayPool]);
+    return {
+      total,
+      openCount,
+      errorCount,
+      coolingDownRelayCount: relayRuntime.recovery.coolingDownRelayCount ?? 0,
+    };
+  }, [relayConnectionSignature, relayRuntime.recovery.coolingDownRelayCount, relayPool.connections.length]);
 
-  useRelaySessionWatchdog(relayPool);
+  useRelaySessionWatchdog(transportBootstrapReady ? relayPool : {
+    reconnectAll: () => { },
+    isConnected: () => false,
+  });
 
   const triggerRelayRecovery = useCallback((reason: RelayRecoveryReasonCode = "manual") => {
     return relayRuntimeSupervisor.triggerRecovery(reason);
@@ -214,12 +416,29 @@ export const RelayProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     relayPool,
     relayStatus,
     enabledRelayUrls,
+    communityCandidateRelayUrls,
     relayRecovery: relayRuntime.recovery,
     relayRuntime,
     triggerRelayRecovery,
     relaySelection,
+    activePoolRelayUrls,
+    relayTransportMode,
+    setRelayTransportMode,
     setPrimaryRelay: setPrimaryManual,
-  }), [enabledRelayUrls, relayList, relayPool, relayRuntime, relayStatus, triggerRelayRecovery, relaySelection, setPrimaryManual]);
+  }), [
+    enabledRelayUrls,
+    communityCandidateRelayUrls,
+    relayList,
+    relayPool,
+    relayRuntime,
+    relayStatus,
+    triggerRelayRecovery,
+    relaySelection,
+    activePoolRelayUrls,
+    relayTransportMode,
+    setRelayTransportMode,
+    setPrimaryManual,
+  ]);
 
   return <RelayContext.Provider value={value}>{children}</RelayContext.Provider>;
 };

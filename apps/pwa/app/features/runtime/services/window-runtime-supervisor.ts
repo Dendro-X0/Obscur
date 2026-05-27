@@ -1,11 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useSyncExternalStore } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 import type { Passphrase } from "@dweb/crypto/passphrase";
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
-import { useIdentity } from "@/app/features/auth/hooks/use-identity";
-import { createPendingStartupAuthState, type StartupAuthState } from "@/app/features/auth/services/startup-auth-state-contracts";
-import { desktopProfileRuntime, useDesktopProfileIsolationSnapshot } from "@/app/features/profiles/services/desktop-profile-runtime";
+import { useIdentity, getIdentitySnapshot, getIdentityDiagnosticsSnapshot } from "@/app/features/auth/hooks/use-identity";
+import {
+  createPendingStartupAuthState,
+  createStoredLockedStartupAuthState,
+  type StartupAuthState,
+} from "@/app/features/auth/services/startup-auth-state-contracts";
+import { desktopProfileRuntime } from "@/app/features/profiles/services/desktop-profile-runtime";
 import type { ProfileIsolationSnapshot } from "@/app/features/profiles/services/profile-isolation-contracts";
 import {
   createDefaultRelayRuntimeSnapshot,
@@ -150,7 +154,16 @@ const transitionTo = (
   patch: Partial<WindowRuntimeSnapshot> = {},
   reason?: string,
 ): void => {
-  if (snapshot.phase === phase && !patch.lastError && !patch.lastActivationReport) {
+  const hasMaterialSessionPatch = Boolean(patch.session) && (
+    patch.session!.profileId !== snapshot.session.profileId
+    || patch.session!.profileLabel !== snapshot.session.profileLabel
+    || patch.session!.windowLabel !== snapshot.session.windowLabel
+    || patch.session!.identityStatus !== snapshot.session.identityStatus
+    || patch.session!.startupState.kind !== snapshot.session.startupState.kind
+    || patch.session!.storedPublicKeyHex !== snapshot.session.storedPublicKeyHex
+    || patch.session!.unlockedPublicKeyHex !== snapshot.session.unlockedPublicKeyHex
+  );
+  if (snapshot.phase === phase && !patch.lastError && !patch.lastActivationReport && !hasMaterialSessionPatch) {
     return;
   }
   const traces = [
@@ -172,23 +185,160 @@ const transitionTo = (
 };
 
 const bindProfile = (desktopSnapshot: ProfileIsolationSnapshot): void => {
+  const nextWindowLabel = desktopSnapshot.currentWindow.windowLabel;
+  const nextProfileId = desktopSnapshot.currentWindow.profileId;
+  const nextProfileLabel = desktopSnapshot.currentWindow.profileLabel;
+
+  const identity = getIdentitySnapshot();
+  if (identity.status === "unlocked" && identity.publicKeyHex) {
+    const diagnostics = getIdentityDiagnosticsSnapshot();
+    const nextSession: ProfileBoundSessionSnapshot = {
+      windowLabel: nextWindowLabel,
+      profileId: nextProfileId,
+      profileLabel: nextProfileLabel,
+      identityStatus: "unlocked",
+      startupState: diagnostics.startupState,
+      storedPublicKeyHex: identity.stored?.publicKeyHex ?? diagnostics.storedPublicKeyHex,
+      unlockedPublicKeyHex: identity.publicKeyHex,
+    };
+    const bindingUnchanged = (
+      snapshot.session.windowLabel === nextWindowLabel
+      && snapshot.session.profileId === nextProfileId
+      && snapshot.session.profileLabel === nextProfileLabel
+      && snapshot.session.unlockedPublicKeyHex === identity.publicKeyHex
+      && snapshot.session.identityStatus === "unlocked"
+    );
+    if (
+      bindingUnchanged
+      && (
+        snapshot.phase === "ready"
+        || snapshot.phase === "degraded"
+        || snapshot.phase === "activating_runtime"
+      )
+    ) {
+      return;
+    }
+    emitStartupAuthStateTransition({
+      previous: snapshot.session.startupState,
+      next: nextSession.startupState,
+      profileId: nextSession.profileId,
+      windowLabel: nextSession.windowLabel,
+    });
+    transitionTo("activating_runtime", {
+      degradedReason: "none",
+      lastError: undefined,
+      session: nextSession,
+      relayRuntime: createDefaultRelayRuntimeSnapshot({
+        windowLabel: nextSession.windowLabel,
+        profileId: nextSession.profileId,
+        publicKeyHex: nextSession.unlockedPublicKeyHex,
+      }),
+    });
+    return;
+  }
+
+  if (identity.status === "locked" && identity.stored?.publicKeyHex) {
+    const diagnostics = getIdentityDiagnosticsSnapshot();
+    const nextStartupState: StartupAuthState = (
+      diagnostics.startupState.kind === "stored_locked"
+      || diagnostics.startupState.kind === "mismatch"
+      || diagnostics.startupState.kind === "native_restorable"
+    )
+      ? diagnostics.startupState
+      : createStoredLockedStartupAuthState({
+        storedPublicKeyHex: identity.stored.publicKeyHex,
+      });
+    const nextSession: ProfileBoundSessionSnapshot = {
+      windowLabel: nextWindowLabel,
+      profileId: nextProfileId,
+      profileLabel: nextProfileLabel,
+      identityStatus: "locked",
+      startupState: nextStartupState,
+      storedPublicKeyHex: identity.stored.publicKeyHex,
+      unlockedPublicKeyHex: undefined,
+    };
+    emitStartupAuthStateTransition({
+      previous: snapshot.session.startupState,
+      next: nextStartupState,
+      profileId: nextProfileId,
+      windowLabel: nextWindowLabel,
+    });
+    if (
+      snapshot.phase !== "auth_required"
+      || snapshot.session.profileId !== nextProfileId
+      || snapshot.session.windowLabel !== nextWindowLabel
+      || snapshot.session.profileLabel !== nextProfileLabel
+      || snapshot.session.startupState.kind !== nextStartupState.kind
+      || snapshot.session.storedPublicKeyHex !== identity.stored.publicKeyHex
+    ) {
+      transitionTo("auth_required", {
+        degradedReason: "none",
+        lastError: nextStartupState.message,
+        session: nextSession,
+        relayRuntime: createDefaultRelayRuntimeSnapshot({
+          windowLabel: nextSession.windowLabel,
+          profileId: nextSession.profileId,
+        }),
+      });
+    }
+    return;
+  }
+
+  if (identity.status === "loading") {
+    const diagnostics = getIdentityDiagnosticsSnapshot();
+    const storedPublicKeyHex = identity.stored?.publicKeyHex ?? diagnostics.storedPublicKeyHex;
+    if (storedPublicKeyHex) {
+      const nextStartupState = createStoredLockedStartupAuthState({
+        storedPublicKeyHex,
+      });
+      const nextSession: ProfileBoundSessionSnapshot = {
+        windowLabel: nextWindowLabel,
+        profileId: nextProfileId,
+        profileLabel: nextProfileLabel,
+        identityStatus: "locked",
+        startupState: nextStartupState,
+        storedPublicKeyHex,
+        unlockedPublicKeyHex: undefined,
+      };
+      if (
+        snapshot.phase !== "auth_required"
+        || snapshot.session.profileId !== nextProfileId
+        || snapshot.session.windowLabel !== nextWindowLabel
+        || snapshot.session.profileLabel !== nextProfileLabel
+        || snapshot.session.storedPublicKeyHex !== storedPublicKeyHex
+      ) {
+        transitionTo("auth_required", {
+          degradedReason: "none",
+          lastError: nextStartupState.message,
+          session: nextSession,
+          relayRuntime: createDefaultRelayRuntimeSnapshot({
+            windowLabel: nextSession.windowLabel,
+            profileId: nextSession.profileId,
+          }),
+        });
+      }
+      return;
+    }
+  }
+
+  if (
+    snapshot.session.windowLabel === nextWindowLabel
+    && snapshot.session.profileId === nextProfileId
+    && snapshot.session.profileLabel === nextProfileLabel
+  ) {
+    return;
+  }
+
   const previousStartupState = snapshot.session.startupState;
   const nextSession: ProfileBoundSessionSnapshot = {
-    windowLabel: desktopSnapshot.currentWindow.windowLabel,
-    profileId: desktopSnapshot.currentWindow.profileId,
-    profileLabel: desktopSnapshot.currentWindow.profileLabel,
+    windowLabel: nextWindowLabel,
+    profileId: nextProfileId,
+    profileLabel: nextProfileLabel,
     identityStatus: "loading",
     startupState: createPendingStartupAuthState(),
     storedPublicKeyHex: undefined,
     unlockedPublicKeyHex: undefined,
   };
-  if (
-    snapshot.session.windowLabel === nextSession.windowLabel
-    && snapshot.session.profileId === nextSession.profileId
-    && snapshot.session.profileLabel === nextSession.profileLabel
-  ) {
-    return;
-  }
   emitStartupAuthStateTransition({
     previous: previousStartupState,
     next: nextSession.startupState,
@@ -419,28 +569,7 @@ export const useWindowRuntimeSnapshot = (): WindowRuntimeSnapshot => (
 
 export const useWindowRuntime = () => {
   const identity = useIdentity();
-  const desktopSnapshot = useDesktopProfileIsolationSnapshot();
   const runtimeSnapshot = useWindowRuntimeSnapshot();
-  const startupState = identity.getIdentityDiagnostics?.()?.startupState ?? createPendingStartupAuthState({
-    storedPublicKeyHex: identity.state.stored?.publicKeyHex,
-  });
-
-  useEffect(() => {
-    windowRuntimeSupervisor.bindProfile(desktopSnapshot);
-    windowRuntimeSupervisor.syncIdentity({
-      startupState,
-    });
-  }, [
-    desktopSnapshot,
-    startupState.degradedReasonHint,
-    startupState.identityStatus,
-    startupState.kind,
-    startupState.message,
-    startupState.mismatchReason,
-    startupState.nativeSessionPublicKeyHex,
-    startupState.storedPublicKeyHex,
-    startupState.unlockedPublicKeyHex,
-  ]);
 
   return useMemo(() => ({
     snapshot: runtimeSnapshot,
@@ -449,6 +578,10 @@ export const useWindowRuntime = () => {
       windowRuntimeSupervisor.beginUnlock("create");
       try {
         await identity.createIdentity(params);
+        const diagnostics = identity.getIdentityDiagnostics?.();
+        if (diagnostics?.startupState) {
+          windowRuntimeSupervisor.syncIdentity({ startupState: diagnostics.startupState });
+        }
       } catch (error) {
         windowRuntimeSupervisor.resetToAuthRequired();
         throw error;
@@ -458,6 +591,10 @@ export const useWindowRuntime = () => {
       windowRuntimeSupervisor.beginUnlock("import");
       try {
         await identity.importIdentity(params);
+        const diagnostics = identity.getIdentityDiagnostics?.();
+        if (diagnostics?.startupState) {
+          windowRuntimeSupervisor.syncIdentity({ startupState: diagnostics.startupState });
+        }
       } catch (error) {
         windowRuntimeSupervisor.resetToAuthRequired();
         throw error;
@@ -467,6 +604,10 @@ export const useWindowRuntime = () => {
       windowRuntimeSupervisor.beginUnlock("unlock");
       try {
         await identity.unlockIdentity(params);
+        const diagnostics = identity.getIdentityDiagnostics?.();
+        if (diagnostics?.startupState) {
+          windowRuntimeSupervisor.syncIdentity({ startupState: diagnostics.startupState });
+        }
       } catch (error) {
         windowRuntimeSupervisor.resetToAuthRequired();
         throw error;

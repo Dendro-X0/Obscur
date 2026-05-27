@@ -16,6 +16,7 @@ import { sendDm, type SendConfirmation } from "./dm-send-pipeline";
 import { queueMessage, initMessageQueue, triggerQueueProcessing, getQueueStats } from "../../services/dm-message-queue";
 import { recordDmMessage } from "../../dm-ledger";
 import type { Message } from "../../types";
+import { isBrowserOffline } from "@/app/features/runtime/offline-runtime-policy";
 
 export interface SendWithRetryParams {
   pool: RelayPoolContract;
@@ -37,6 +38,84 @@ export interface SendWithRetryResult extends SendResult {
 
 // Track if queue is initialized
 let queueInitialized = false;
+
+const resolveWritableRelayCount = (pool: RelayPoolContract): number | undefined => {
+  const snapshot = pool.getWritableRelaySnapshot?.();
+  if (!snapshot) {
+    return undefined;
+  }
+  if (typeof snapshot.writableRelayCount === "number") {
+    return snapshot.writableRelayCount;
+  }
+  if (Array.isArray(snapshot.writableRelayUrls)) {
+    return snapshot.writableRelayUrls.length;
+  }
+  return undefined;
+};
+
+const shouldQueueBeforeSend = (pool: RelayPoolContract): boolean => {
+  if (isBrowserOffline()) {
+    return true;
+  }
+  const writableRelayCount = resolveWritableRelayCount(pool);
+  return typeof writableRelayCount === "number" && writableRelayCount === 0;
+};
+
+const isRetryableTransportError = (error?: string): boolean => {
+  const normalized = (error || "").toLowerCase();
+  return normalized.includes("rate")
+    || normalized.includes("limit")
+    || normalized.includes("pow")
+    || normalized.includes("slow")
+    || normalized.includes("timeout")
+    || normalized.includes("disconnect")
+    || normalized.includes("network")
+    || normalized.includes("no writable relay")
+    || normalized.includes("writable relay");
+};
+
+const queueOutgoingForRetry = (
+  params: Readonly<{
+    optimisticId: string;
+    conversationId: string;
+    recipientPublicKeyHex: PublicKeyHex;
+    plaintext: string;
+    senderPublicKeyHex: PublicKeyHex;
+    senderPrivateKeyHex: PrivateKeyHex;
+    customTags?: ReadonlyArray<ReadonlyArray<string>>;
+  }>,
+  baseResult?: SendResult,
+): SendWithRetryResult => {
+  queueMessage({
+    id: params.optimisticId,
+    conversationId: params.conversationId,
+    recipientPubkey: params.recipientPublicKeyHex,
+    plaintext: params.plaintext,
+    senderPubkey: params.senderPublicKeyHex,
+    senderPrivateKeyHex: params.senderPrivateKeyHex,
+    customTags: params.customTags,
+    createdAtMs: Date.now(),
+  });
+
+  if (baseResult) {
+    return {
+      ...baseResult,
+      queued: true,
+      needsRetry: true,
+      messageId: params.optimisticId,
+    };
+  }
+
+  return {
+    success: true,
+    deliveryStatus: "queued_retrying",
+    messageId: params.optimisticId,
+    eventId: "",
+    relayResults: [],
+    queued: true,
+    needsRetry: true,
+  };
+};
 
 /**
  * Send a DM with automatic retry and queuing.
@@ -77,6 +156,18 @@ export const sendDmWithRetry = async (params: SendWithRetryParams): Promise<Send
 
   // Generate optimistic ID for ledger tracking
   const optimisticId = crypto.randomUUID();
+
+  if (shouldQueueBeforeSend(pool)) {
+    return queueOutgoingForRetry({
+      optimisticId,
+      conversationId,
+      recipientPublicKeyHex,
+      plaintext,
+      senderPublicKeyHex,
+      senderPrivateKeyHex,
+      customTags,
+    });
+  }
 
   // Try immediate send first
   const sendStartTime = performance.now();
@@ -129,44 +220,19 @@ export const sendDmWithRetry = async (params: SendWithRetryParams): Promise<Send
     })();
   }
 
-  // Analyze result
-  const isRateLimitError = result.error?.toLowerCase().includes("rate") ||
-                           result.error?.toLowerCase().includes("limit") ||
-                           result.error?.toLowerCase().includes("pow") ||
-                           result.error?.toLowerCase().includes("slow");
+  const isRetryable = isRetryableTransportError(result.error) || sendDuration > 10_000;
 
-  const isNetworkError = result.error?.toLowerCase().includes("timeout") ||
-                         result.error?.toLowerCase().includes("disconnect") ||
-                         result.error?.toLowerCase().includes("network") ||
-                         sendDuration > 10000; // > 10 seconds is effectively a timeout
-
-  const isRetryable = isRateLimitError || isNetworkError;
-
-  // If retryable failure, queue for later
   if (!result.success && isRetryable) {
-    console.log("[dm-send-retry] queuing for retry", {
-      error: result.error,
-      isRateLimit: isRateLimitError,
-      isNetwork: isNetworkError,
-    });
-
-    queueMessage({
-      id: optimisticId,
+    console.log("[dm-send-retry] queuing for retry", { error: result.error });
+    return queueOutgoingForRetry({
+      optimisticId,
       conversationId,
-      recipientPubkey: recipientPublicKeyHex,
+      recipientPublicKeyHex,
       plaintext,
-      senderPubkey: senderPublicKeyHex,
+      senderPublicKeyHex,
       senderPrivateKeyHex,
       customTags,
-      createdAtMs: Date.now(),
-    });
-
-    return {
-      ...result,
-      queued: true,
-      needsRetry: true,
-      messageId: optimisticId,
-    };
+    }, result);
   }
 
   // Immediate result (success or non-retryable failure)

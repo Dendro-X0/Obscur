@@ -19,6 +19,7 @@ import {
 import { cacheAttachmentLocally } from "../../vault/services/local-media-store";
 import { shouldCacheAttachmentInVault } from "../../messaging/utils/attachment-storage-policy";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
+import { useRelayPoolRef } from "@/app/features/relays/hooks/use-relay-pool-ref";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import {
     assertRelayPublishSuccess,
@@ -137,6 +138,7 @@ export function useChatActions(dmController: UseDmControllerResult | null) {
     const uploadService = useUploadService();
     const { peerTrust, requestsInbox } = useNetwork();
     const { relayPool } = useRelay();
+    const relayPoolRef = useRelayPoolRef(relayPool);
     const recipientMetadata = useResolvedProfileMetadata(
         selectedConversation?.kind === "dm" ? selectedConversation.pubkey : null,
         { live: false }
@@ -152,21 +154,23 @@ export function useChatActions(dmController: UseDmControllerResult | null) {
         if (!groupRelayUrl) return;
         const scopedUrl = toScopedRelayUrl(groupRelayUrl);
         if (!scopedUrl) return;
-        if (typeof relayPool.addTransientRelay === "function") {
-            relayPool.addTransientRelay(scopedUrl);
+        const pool = relayPoolRef.current;
+        if (typeof pool.addTransientRelay === "function") {
+            pool.addTransientRelay(scopedUrl);
         }
-    }, [groupRelayUrl, relayPool]);
+    }, [groupRelayUrl, relayPoolRef]);
 
     const publishGroupEvent = useCallback(async (params: Readonly<{ relayUrl: string; event: Readonly<{ id: string }> }>): Promise<void> => {
+        const pool = relayPoolRef.current;
         const payload = JSON.stringify(["EVENT", params.event]);
         const scopedRelayUrl = toScopedRelayUrl(params.relayUrl);
         let result: MultiRelayPublishResult;
 
         // ── Diagnostic: capture relay state before publish attempt ──
-        const snapshot = typeof relayPool.getWritableRelaySnapshot === "function"
-            ? relayPool.getWritableRelaySnapshot(scopedRelayUrl ? [scopedRelayUrl] : undefined)
+        const snapshot = typeof pool.getWritableRelaySnapshot === "function"
+            ? pool.getWritableRelaySnapshot(scopedRelayUrl ? [scopedRelayUrl] : undefined)
             : null;
-        const poolConnections = relayPool.connections ?? [];
+        const poolConnections = pool.connections ?? [];
         const openRelays = poolConnections.filter((c: { status: string }) => c.status === "open").map((c: { url: string }) => c.url);
         console.warn("[publishGroupEvent] diagnostic", {
             rawRelayUrl: params.relayUrl,
@@ -178,21 +182,21 @@ export function useChatActions(dmController: UseDmControllerResult | null) {
                 writableCount: snapshot.writableRelayUrls?.length ?? 0,
                 writableUrls: snapshot.writableRelayUrls?.slice(0, 5),
             } : "unavailable",
-            hasPublishToUrls: typeof relayPool.publishToUrls === "function",
-            hasAddTransientRelay: typeof relayPool.addTransientRelay === "function",
+            hasPublishToUrls: typeof pool.publishToUrls === "function",
+            hasAddTransientRelay: typeof pool.addTransientRelay === "function",
         });
 
         // Ensure the community relay is registered as transient before publishing.
         // publishToUrls will also attempt this, but pre-warming here gives the socket
         // more time to complete handshake before the publish timeout starts.
-        if (scopedRelayUrl && typeof relayPool.addTransientRelay === "function") {
-            relayPool.addTransientRelay(scopedRelayUrl);
+        if (scopedRelayUrl && typeof pool.addTransientRelay === "function") {
+            pool.addTransientRelay(scopedRelayUrl);
         }
 
-        if (scopedRelayUrl && typeof relayPool.publishToUrls === "function") {
-            result = await relayPool.publishToUrls([scopedRelayUrl], payload);
-        } else if (scopedRelayUrl && typeof relayPool.publishToUrl === "function") {
-            const single = await relayPool.publishToUrl(scopedRelayUrl, payload);
+        if (scopedRelayUrl && typeof pool.publishToUrls === "function") {
+            result = await pool.publishToUrls([scopedRelayUrl], payload);
+        } else if (scopedRelayUrl && typeof pool.publishToUrl === "function") {
+            const single = await pool.publishToUrl(scopedRelayUrl, payload);
             result = {
                 success: single.success,
                 successCount: single.success ? 1 : 0,
@@ -200,8 +204,8 @@ export function useChatActions(dmController: UseDmControllerResult | null) {
                 results: [single],
                 overallError: single.success ? undefined : (single.error ?? "Scoped publish failed"),
             };
-        } else if (scopedRelayUrl && typeof relayPool.publishToRelay === "function") {
-            const single = await relayPool.publishToRelay(scopedRelayUrl, payload);
+        } else if (scopedRelayUrl && typeof pool.publishToRelay === "function") {
+            const single = await pool.publishToRelay(scopedRelayUrl, payload);
             result = {
                 success: single.success,
                 successCount: single.success ? 1 : 0,
@@ -210,20 +214,20 @@ export function useChatActions(dmController: UseDmControllerResult | null) {
                 overallError: single.success ? undefined : (single.error ?? "Scoped publish failed"),
             };
         } else {
-            result = await relayPool.publishToAll(payload);
+            result = await pool.publishToAll(payload);
         }
 
         // Retry once on transient relay closure — the socket may have been torn down
         // by concurrent activity (e.g. multi-profile relay reconnect storms).
         if (!result.success && result.overallError?.includes("closed before OK")) {
-            if (scopedRelayUrl && typeof relayPool.reconnectRelay === "function") {
-                relayPool.reconnectRelay(scopedRelayUrl);
+            if (scopedRelayUrl && typeof pool.reconnectRelay === "function") {
+                pool.reconnectRelay(scopedRelayUrl);
             }
-            if (scopedRelayUrl && typeof relayPool.waitForScopedConnection === "function") {
-                await relayPool.waitForScopedConnection([scopedRelayUrl], 5000);
+            if (scopedRelayUrl && typeof pool.waitForScopedConnection === "function") {
+                await pool.waitForScopedConnection([scopedRelayUrl], 5000);
             }
-            if (scopedRelayUrl && typeof relayPool.publishToUrls === "function") {
-                result = await relayPool.publishToUrls([scopedRelayUrl], payload);
+            if (scopedRelayUrl && typeof pool.publishToUrls === "function") {
+                result = await pool.publishToUrls([scopedRelayUrl], payload);
             }
         }
 
@@ -231,7 +235,7 @@ export function useChatActions(dmController: UseDmControllerResult | null) {
             operation: "Could not publish to community relays",
             fallback: "Failed to publish group event to relay scope.",
         });
-    }, [relayPool]);
+    }, [relayPoolRef]);
 
     const handleSendMessage = useCallback(async () => {
         if (!selectedConversation || (!messageInput.trim() && pendingAttachments.length === 0)) return;

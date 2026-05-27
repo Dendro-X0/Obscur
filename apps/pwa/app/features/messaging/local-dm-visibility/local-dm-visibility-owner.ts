@@ -12,7 +12,6 @@ import {
   dbInsertTombstone,
   isTauri,
 } from "@dweb/db";
-import { messagingDB } from "@dweb/storage/indexed-db";
 import { accountEventStore } from "@/app/features/account-sync/services/account-event-store";
 import { accountProjectionRuntime } from "@/app/features/account-sync/services/account-projection-runtime";
 import type { AccountEvent } from "@/app/features/account-sync/account-event-contracts";
@@ -111,13 +110,8 @@ const isDmTimelineEvent = (
   event.type === "DM_RECEIVED" || event.type === "DM_SENT_CONFIRMED"
 );
 
-const purgeIndexedDbMessageIdentities = async (deleteIds: ReadonlyArray<string>): Promise<void> => {
-  if (deleteIds.length === 0) {
-    return;
-  }
-  await Promise.all(deleteIds.map((deleteId) => (
-    messagingDB.delete("messages", deleteId).catch(() => undefined)
-  )));
+const purgeIndexedDbMessageIdentities = async (_deleteIds: ReadonlyArray<string>): Promise<void> => {
+  return;
 };
 
 const reconcileEventLog = async (params: Readonly<{

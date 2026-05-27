@@ -16,6 +16,13 @@ import {
     resolveDiscoveryQueryFromDeepLinkUrl,
     resolveDiscoveryQueryFromSearchParams,
 } from "@/app/features/search/services/discovery-deep-link";
+import { getPublicGroupHref } from "@/app/features/navigation/public-routes";
+import { probeCoordinationHealth } from "@/app/features/groups/services/community-coordination-health";
+import {
+    formatInviteRelayRejectionSummary,
+    partitionInviteRelayHints,
+} from "@/app/features/groups/services/community-invite-redemption-policy";
+import { toast } from "@dweb/ui-kit";
 
 const decodeRouteValue = (value: string): string => {
     const trimmed = value.trim();
@@ -60,6 +67,31 @@ export function useDeepLinks(handleRedeemInvite: (token: string) => Promise<void
                         }
 
                         const url = new URL(urlStr);
+                        // Case 0: obscur://group/GROUP_ID?relay=wss://...
+                        if (url.protocol === "obscur:" && (url.host === "group" || url.pathname.startsWith("/group/"))) {
+                            const pathParts = url.pathname.split("/").filter(Boolean);
+                            const groupId = url.host === "group" ? pathParts[0] : pathParts[1];
+                            const relay = url.searchParams.get("relay")?.trim();
+                            if (groupId && relay) {
+                                void (async () => {
+                                    const health = await probeCoordinationHealth({ force: true });
+                                    const partition = partitionInviteRelayHints({
+                                        relayUrls: [relay],
+                                        coordinationHealthy: health.healthy,
+                                        enabledRelayUrls: relayList.state.relays.map((entry) => entry.url),
+                                    });
+                                    const accepted = [...partition.dmRelayUrls, ...partition.workspaceRelayUrls];
+                                    if (accepted.length === 0) {
+                                        const summary = formatInviteRelayRejectionSummary(partition.rejected);
+                                        toast.error(summary ?? "This community relay is not allowed for workspace setup.");
+                                        return;
+                                    }
+                                    accepted.forEach((relayUrl) => relayList.addRelay({ url: relayUrl }));
+                                    router.push(getPublicGroupHref(groupId, accepted[0]));
+                                })();
+                                return;
+                            }
+                        }
                         // Case 1: obscur://invite/TOKEN
                         if (url.protocol === "obscur:" && url.host === "invite") {
                             const token = url.pathname.replace(/^\//, "");
@@ -136,8 +168,22 @@ export function useDeepLinks(handleRedeemInvite: (token: string) => Promise<void
         if (inviteToken) void handleRedeemInvite(inviteToken);
 
         if (relays) {
-            const relayUrls = relays.split(",").map(r => r.trim()).filter(Boolean);
-            relayUrls.forEach(url => relayList.addRelay({ url }));
+            void (async () => {
+                const relayUrls = relays.split(",").map((entry) => entry.trim()).filter(Boolean);
+                const health = await probeCoordinationHealth({ force: true });
+                const partition = partitionInviteRelayHints({
+                    relayUrls,
+                    coordinationHealthy: health.healthy,
+                    enabledRelayUrls: relayList.state.relays.map((entry) => entry.url),
+                });
+                for (const url of [...partition.dmRelayUrls, ...partition.workspaceRelayUrls]) {
+                    relayList.addRelay({ url });
+                }
+                const summary = formatInviteRelayRejectionSummary(partition.rejected);
+                if (summary) {
+                    toast.warning(summary);
+                }
+            })();
         }
 
         // Skip deep link redirect to DM if already on profile page - allow profile viewing

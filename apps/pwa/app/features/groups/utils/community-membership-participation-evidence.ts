@@ -1,5 +1,5 @@
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
-import { resolveAuthorEvidencePubkeysFromCommunityMessages } from "../services/community-visible-members";
+import { resolveAuthorEvidencePubkeysFromCommunityMessages } from "../services/community-message-author-evidence";
 
 const normalizePubkey = (value: string): string => value.trim().toLowerCase();
 

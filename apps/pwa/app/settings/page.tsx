@@ -1,18 +1,15 @@
-import type React from "react";
-import dynamic from "next/dynamic";
-import { AppLoadingScreen } from "@/app/components/app-loading-screen";
+import { createSidebarRoutePage } from "@/app/lib/navigation/create-sidebar-route-page";
 
-const SettingsPageClient = dynamic(() => import("./settings-page-client"), {
-  loading: () => (
-    <AppLoadingScreen
-      fullScreen={false}
-      title="Loading settings"
-      detail="Preparing local preferences, relay controls, and account tools..."
-      className="min-h-[320px]"
-    />
-  ),
-});
-
-export default function SettingsPage(): React.JSX.Element {
-  return <SettingsPageClient />;
-}
+export default createSidebarRoutePage(
+  {
+    eager: () => {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      return require("./settings-page-client");
+    },
+    lazy: () => import("./settings-page-client"),
+  },
+  {
+    title: "Loading settings",
+    detail: "Preparing preferences and account controls...",
+  },
+);

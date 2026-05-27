@@ -1,7 +1,7 @@
 # Future protocol & kernel concepts
 
-**Status:** Living concept shelf — not shipping requirements  
-**Relationship to product:** Obscur remains a **Nostr client application** (v1.5.x). This folder captures the **gradual kernel / new social protocol** direction without blocking current releases.
+**Status:** Living concept shelf — concepts graduate via **v1.9.x Lane K**  
+**Relationship to product:** v1.8.x finishes trust patches; **v1.9.x** implements kernel/transport from this shelf per [v1.9.0-kernel-backend-roadmap.md](../program/v1.9.0-kernel-backend-roadmap.md). This folder alone does not gate releases.
 
 ---
 
@@ -14,6 +14,8 @@ The monorepo accumulates experience faster than a greenfield rewrite. Rather tha
 3. **Harvest** packages, contracts, and UI from `apps/*` and `packages/*` into a future kernel when the charter is ready.
 
 Nothing in this directory is a commitment to ship on a date. It is **inspiration + specification draft** for the next layer.
+
+**Greenfield successor plan (2026-05):** If Obscur is archived, use **[../greenfield/README.md](../greenfield/README.md)** for the from-scratch charter, phased roadmap, and warning model — not v1.9.x Lane K as the primary schedule.
 
 ---
 
@@ -33,6 +35,6 @@ Nothing in this directory is a commitment to ship on a date. It is **inspiration
 
 ## Rules for editors and agents
 
-1. Do **not** implement kernel behavior from this folder without an explicit program decision and a port contract in code.
-2. v1.5.x work may **reference** these docs for honesty (limitations, non-goals) but must not expand scope because of them.
+1. Implement kernel behavior via **v1.9.x Lane K** and port contracts in `packages/` — see [v1.9.0-kernel-backend-spec.md](../program/v1.9.0-kernel-backend-spec.md).
+2. v1.8.x work may **reference** these docs for honesty but must not expand kernel scope before v1.9.0 B0.
 3. When a concept graduates to product truth, move or merge it into `docs/encyclopedia/` or `docs/architecture/` and trim duplication here.

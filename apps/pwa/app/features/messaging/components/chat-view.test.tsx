@@ -317,6 +317,73 @@ describe("ChatView history search", () => {
         expect(messageListPropsRef.current?.jumpToMessageTimestampMs).toBe(9_000);
     });
 
+    it("resolves persisted search hit ids to live message ids before jump", async () => {
+        searchMessagesMock.mockResolvedValue([
+            {
+                conversationId: "conv-a",
+                message: { id: "evt-store-1", eventId: "evt-store-1", content: "test from store", timestampMs: 6_000 },
+            },
+        ]);
+
+        const props = createBaseProps();
+        props.messages = [
+            createMessage({
+                id: "rumor-live-1",
+                content: "test from store",
+                timestamp: new Date(6_000),
+                eventId: "evt-store-1",
+            }),
+        ];
+        props.rawMessagesCount = props.messages.length;
+
+        render(<ChatView {...props} />);
+
+        fireEvent.click(screen.getByRole("button", { name: "Search Messages" }));
+        fireEvent.change(screen.getByPlaceholderText("Search message history in this chat..."), {
+            target: { value: "test" },
+        });
+
+        await waitFor(() => {
+            expect(screen.getByRole("button", { name: /test from store/i })).toBeInTheDocument();
+        });
+
+        fireEvent.click(screen.getByRole("button", { name: /test from store/i }));
+
+        await waitFor(() => {
+            expect(messageListPropsRef.current?.jumpToMessageId).toBe("rumor-live-1");
+        });
+        expect(messageListPropsRef.current?.jumpToMessageTimestampMs).toBe(6_000);
+    });
+
+    it("indexes live conversation messages when chat state store has no hits", async () => {
+        searchMessagesMock.mockResolvedValue([]);
+
+        const props = createBaseProps();
+        props.messages = [
+            createMessage({ id: "m-live-1", content: "test bubble one", timestamp: new Date(4_000) }),
+            createMessage({ id: "m-live-2", content: "test bubble two", timestamp: new Date(6_000) }),
+        ];
+        props.rawMessagesCount = props.messages.length;
+
+        render(<ChatView {...props} />);
+
+        fireEvent.click(screen.getByRole("button", { name: "Search Messages" }));
+        fireEvent.change(screen.getByPlaceholderText("Search message history in this chat..."), {
+            target: { value: "test" },
+        });
+
+        await waitFor(() => {
+            expect(screen.getByRole("button", { name: /bubble two/i })).toBeInTheDocument();
+        });
+        expect(screen.getByRole("button", { name: /bubble one/i })).toBeInTheDocument();
+
+        fireEvent.click(screen.getByRole("button", { name: /bubble two/i }));
+        await waitFor(() => {
+            expect(messageListPropsRef.current?.jumpToMessageId).toBe("m-live-2");
+        });
+        expect(messageListPropsRef.current?.jumpToMessageTimestampMs).toBe(6_000);
+    });
+
     it("does not render relative time labels when nowMs is null", async () => {
         searchMessagesMock.mockResolvedValue([
             {

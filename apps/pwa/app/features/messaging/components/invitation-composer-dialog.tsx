@@ -9,7 +9,7 @@ import { useRelay } from "@/app/features/relays/providers/relay-provider";
 import {
   getRelayReadinessBannerCopy,
   getRelayReadinessTone,
-  getRelaySendBlockCopy,
+  getRelayTransportQueueHint,
 } from "@/app/features/relays/services/relay-readiness-copy";
 import {
   DEFAULT_INVITATION_INTRO,
@@ -43,7 +43,7 @@ export function InvitationComposerDialog({
   const [secretCode, setSecretCode] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const relayBanner = getRelayReadinessBannerCopy(relayRecovery);
-  const relayBlockMessage = getRelaySendBlockCopy(relayRecovery);
+  const relayQueueHint = getRelayTransportQueueHint(relayRecovery);
   const submitButtonLabel = relayRecovery.writableRelayCount > 0
     ? submitLabel
     : "Queue Invitation";
@@ -173,7 +173,7 @@ export function InvitationComposerDialog({
                 ) : (
                   <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                 )}
-                <p>{relayBlockMessage ?? relayBanner}</p>
+                <p>{relayQueueHint ?? relayBanner}</p>
               </div>
             </div>
           ) : null}

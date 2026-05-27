@@ -33,6 +33,7 @@ vi.mock("@/app/features/auth/hooks/use-identity", () => ({
 vi.mock("@/app/features/relays/hooks/use-relay-list", () => ({
   useRelayList: () => ({
     addRelay: mocks.addRelay,
+    state: { relays: [] },
   }),
 }));
 
@@ -57,6 +58,15 @@ vi.mock("@dweb/ui-kit", () => ({
   },
 }));
 
+vi.mock("@/app/features/groups/services/community-coordination-health", () => ({
+  probeCoordinationHealth: vi.fn(async () => ({
+    configured: true,
+    baseUrl: "https://coord.example",
+    healthy: true,
+    checkedAtMs: Date.now(),
+  })),
+}));
+
 describe("useInviteRedemption", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -77,7 +87,7 @@ describe("useInviteRedemption", () => {
         }
       )
     ) as any;
-    process.env.NEXT_PUBLIC_COORDINATION_URL = "https://coord.example";
+    vi.stubEnv("NEXT_PUBLIC_COORDINATION_URL", "https://coord.example");
   });
 
   it("uses shared request transport and persists sent markers for partial delivery", async () => {

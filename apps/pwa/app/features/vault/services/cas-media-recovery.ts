@@ -60,23 +60,8 @@ const fetchBlobFromCAS = async (contentHash: string): Promise<Blob | null> => {
   }
 };
 
-const getVaultStore = async (): Promise<IDBDatabase | null> => {
-  return new Promise((resolve) => {
-    const profileId = getResolvedProfileId();
-    const dbName = `obscur-vault-${profileId}`;
-    const request = indexedDB.open(dbName);
-
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => {
-      console.error("Failed to open vault IndexedDB");
-      resolve(null);
-    };
-    request.onblocked = () => {
-      console.error("Vault IndexedDB blocked");
-      resolve(null);
-    };
-  });
-};
+/** Vault blob store excluded with IndexedDB — recovery uses network/CAS only. */
+const getVaultStore = async (): Promise<IDBDatabase | null> => null;
 
 const checkBlobExistsInVault = async (contentHash: string): Promise<boolean> => {
   const db = await getVaultStore();

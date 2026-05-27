@@ -19,6 +19,7 @@ import { useWindowRuntimeSnapshot } from "@/app/features/runtime/services/window
 import { messageBus } from "@/app/features/messaging/services/message-bus";
 import { recordPeerLastActive } from "@/app/features/messaging/services/peer-interaction-store";
 import { logAppEvent } from "@/app/shared/log-app-event";
+import { isExperimentOfflineStubEnabled } from "@/app/features/runtime/experiment-shell-policy";
 
 const ACTIVE_OWNER_RUNTIME_PHASES = new Set(["activating_runtime", "ready", "degraded"]);
 const RUNTIME_TRANSPORT_OWNER_ID = "runtime_singleton_owner_v2";
@@ -32,7 +33,11 @@ export function RuntimeMessagingTransportOwnerProvider(props: Readonly<{ childre
   const { blocklist, peerTrust } = useNetwork();
   const activePublicKeyHex = identity.state.publicKeyHex ?? null;
   const runtimePhaseAllowsOwner = ACTIVE_OWNER_RUNTIME_PHASES.has(runtimeSnapshot.phase);
-  const ownerEnabled = identity.state.status === "unlocked" && runtimePhaseAllowsOwner;
+  const ownerEnabled = (
+    !isExperimentOfflineStubEnabled()
+    && identity.state.status === "unlocked"
+    && runtimePhaseAllowsOwner
+  );
   const ownerGateReason = ownerEnabled
     ? "enabled"
     : identity.state.status !== "unlocked"

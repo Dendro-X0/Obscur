@@ -1,6 +1,7 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthGateway } from "./auth-gateway";
+import { SESSION_AUTO_UNLOCK_ENABLED } from "@/app/features/auth/services/session-credential-policy";
 
 const authGatewayMocks = vi.hoisted(() => ({
   identityState: {
@@ -55,21 +56,6 @@ vi.mock("@/app/features/runtime/components/profile-bound-auth-shell", () => ({
   ProfileBoundAuthShell: () => <div>Profile Bound Auth Shell</div>,
 }));
 
-vi.mock("@/app/features/auth/utils/auth-storage-keys", () => ({
-  LEGACY_REMEMBER_ME_KEY: "remember::legacy",
-  LEGACY_AUTH_TOKEN_KEY: "token::legacy",
-  getRememberMeScopedStorageKeys: ({ profileId, includeLegacy }: { profileId: string; includeLegacy?: boolean }) => (
-    profileId === "default" && includeLegacy
-      ? [`remember::${profileId}`, "remember::legacy"]
-      : [`remember::${profileId}`]
-  ),
-  getAuthTokenScopedStorageKeys: ({ profileId, includeLegacy }: { profileId: string; includeLegacy?: boolean }) => (
-    profileId === "default" && includeLegacy
-      ? [`token::${profileId}`, "token::legacy"]
-      : [`token::${profileId}`]
-  ),
-}));
-
 vi.mock("@/app/shared/log-app-event", () => ({
   logAppEvent: vi.fn(),
 }));
@@ -79,154 +65,27 @@ describe("AuthGateway", () => {
     vi.clearAllMocks();
     localStorage.clear();
     authGatewayMocks.identityState.status = "locked";
-    authGatewayMocks.identityState.stored = {
-      publicKeyHex: "a".repeat(64),
-    };
-    authGatewayMocks.retryNativeSessionUnlock.mockResolvedValue(false);
+    authGatewayMocks.identityState.stored = { publicKeyHex: "a".repeat(64) };
     authGatewayMocks.runtime.snapshot.phase = "auth_required";
     authGatewayMocks.runtime.snapshot.session.profileId = "default";
     authGatewayMocks.runtime.snapshot.session.startupState.kind = "stored_locked";
     authGatewayMocks.runtime.snapshot.session.startupState.identityStatus = "locked";
-    authGatewayMocks.runtime.unlockBoundProfile.mockResolvedValue(undefined);
   });
 
-  it("waits for auth_required and retries auto-unlock when profile binding changes", async () => {
-    localStorage.setItem("remember::bound-profile", "true");
-    localStorage.setItem("token::bound-profile", "correct-passphrase");
-    authGatewayMocks.runtime.snapshot.phase = "binding_profile";
-    authGatewayMocks.runtime.snapshot.session.profileId = "default";
-    authGatewayMocks.runtime.snapshot.session.startupState.kind = "pending";
-    authGatewayMocks.runtime.snapshot.session.startupState.identityStatus = "loading";
+  it("does not auto-unlock when session credential policy disables it", () => {
+    expect(SESSION_AUTO_UNLOCK_ENABLED).toBe(false);
 
-    const view = render(
+    localStorage.setItem("obscur_remember_me::default", "true");
+    localStorage.setItem("obscur_auth_token::default", "secret-passphrase");
+
+    render(
       <AuthGateway>
         <div>Runtime Children</div>
       </AuthGateway>,
     );
 
-    await waitFor(() => {
-      expect(authGatewayMocks.runtime.unlockBoundProfile).not.toHaveBeenCalled();
-    });
     expect(screen.getByText("Profile Bound Auth Shell")).toBeInTheDocument();
-
-    authGatewayMocks.runtime.snapshot.phase = "auth_required";
-    authGatewayMocks.runtime.snapshot.session.profileId = "bound-profile";
-    authGatewayMocks.runtime.snapshot.session.startupState.kind = "stored_locked";
-    authGatewayMocks.runtime.snapshot.session.startupState.identityStatus = "locked";
-    view.rerender(
-      <AuthGateway>
-        <div>Runtime Children</div>
-      </AuthGateway>,
-    );
-
-    await waitFor(() => {
-      expect(authGatewayMocks.runtime.unlockBoundProfile).toHaveBeenCalledTimes(1);
-    });
-    expect(authGatewayMocks.runtime.unlockBoundProfile).toHaveBeenCalledWith({
-      passphrase: "correct-passphrase",
-    });
-  });
-
-  it("tries all token candidates before failing auto-unlock", async () => {
-    localStorage.setItem("remember::default", "true");
-    localStorage.setItem("token::default", "stale-passphrase");
-    localStorage.setItem("token::legacy", "fresh-passphrase");
-    authGatewayMocks.runtime.unlockBoundProfile.mockImplementation(async (params: { passphrase: string }) => {
-      if (params.passphrase === "fresh-passphrase") {
-        return;
-      }
-      throw new Error("unlock_failed");
-    });
-
-    render(
-      <AuthGateway>
-        <div>Runtime Children</div>
-      </AuthGateway>,
-    );
-
-    await waitFor(() => {
-      expect(authGatewayMocks.runtime.unlockBoundProfile).toHaveBeenCalledTimes(2);
-    });
-    expect(authGatewayMocks.runtime.unlockBoundProfile).toHaveBeenNthCalledWith(1, {
-      passphrase: "stale-passphrase",
-    });
-    expect(authGatewayMocks.runtime.unlockBoundProfile).toHaveBeenNthCalledWith(2, {
-      passphrase: "fresh-passphrase",
-    });
-    expect(localStorage.getItem("remember::default")).toBe("true");
-    expect(localStorage.getItem("token::legacy")).toBe("fresh-passphrase");
-  });
-
-  it("preserves remembered credentials when all token candidates fail", async () => {
-    localStorage.setItem("remember::default", "true");
-    localStorage.setItem("remember::legacy", "true");
-    localStorage.setItem("token::default", "bad-1");
-    localStorage.setItem("token::legacy", "bad-2");
-    authGatewayMocks.runtime.unlockBoundProfile.mockRejectedValue(new Error("unlock_failed"));
-
-    render(
-      <AuthGateway>
-        <div>Runtime Children</div>
-      </AuthGateway>,
-    );
-
-    await waitFor(() => {
-      expect(authGatewayMocks.runtime.unlockBoundProfile).toHaveBeenCalledTimes(2);
-    });
-    expect(localStorage.getItem("remember::default")).toBe("true");
-    expect(localStorage.getItem("remember::legacy")).toBe("true");
-    expect(localStorage.getItem("token::default")).toBe("bad-1");
-    expect(localStorage.getItem("token::legacy")).toBe("bad-2");
-  });
-
-  it("preserves remembered credentials on transient auto-unlock failures", async () => {
-    localStorage.setItem("remember::default", "true");
-    localStorage.setItem("token::default", "candidate-token");
-    authGatewayMocks.runtime.unlockBoundProfile.mockRejectedValue(new Error("runtime_temporarily_unavailable"));
-
-    render(
-      <AuthGateway>
-        <div>Runtime Children</div>
-      </AuthGateway>,
-    );
-
-    await waitFor(() => {
-      expect(authGatewayMocks.runtime.unlockBoundProfile).toHaveBeenCalledTimes(1);
-    });
-    expect(localStorage.getItem("remember::default")).toBe("true");
-    expect(localStorage.getItem("token::default")).toBe("candidate-token");
-  });
-
-  it("recovers auto-unlock from native session when remember flag exists but token is missing", async () => {
-    localStorage.setItem("remember::default", "true");
-    authGatewayMocks.retryNativeSessionUnlock.mockResolvedValue(true);
-
-    render(
-      <AuthGateway>
-        <div>Runtime Children</div>
-      </AuthGateway>,
-    );
-
-    await waitFor(() => {
-      expect(authGatewayMocks.retryNativeSessionUnlock).toHaveBeenCalledTimes(1);
-    });
     expect(authGatewayMocks.runtime.unlockBoundProfile).not.toHaveBeenCalled();
-  });
-
-  it("ignores token candidates from other profile scopes", async () => {
-    authGatewayMocks.runtime.snapshot.session.profileId = "bound-profile";
-    authGatewayMocks.runtime.snapshot.session.startupState.kind = "no_identity";
-    authGatewayMocks.runtime.snapshot.session.startupState.identityStatus = "locked";
-    localStorage.setItem("obscur_auth_token::other-profile", "token-from-other-profile");
-
-    render(
-      <AuthGateway>
-        <div>Runtime Children</div>
-      </AuthGateway>,
-    );
-
-    await waitFor(() => {
-      expect(authGatewayMocks.runtime.unlockBoundProfile).not.toHaveBeenCalled();
-    });
+    expect(authGatewayMocks.retryNativeSessionUnlock).not.toHaveBeenCalled();
   });
 });

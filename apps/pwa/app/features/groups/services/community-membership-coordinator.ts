@@ -13,6 +13,7 @@ import {
   type CommunityMembershipRecoveryDiagnostics,
 } from "./community-membership-recovery";
 import { hasDurableCommunityLeaveIntent } from "./community-membership-leave-intent";
+import { isRadicalMembershipTruthEnforced } from "./community-radical-truth-policy";
 
 export type CommunityMembershipEvidenceKind =
   | "user_explicit_leave"
@@ -303,7 +304,9 @@ export const resolveCommunityMembershipCoordinator = (params: Readonly<{
     groupMessageAuthorsByConversationId: params.groupMessageAuthorsByConversationId,
     inviteMemberPubkeysByGroupKey: params.inviteMemberPubkeysByGroupKey,
   });
-  const fallbackMutations = recovery.missingLedgerCoverageEntries
+  const fallbackMutations = isRadicalMembershipTruthEnforced()
+    ? []
+    : recovery.missingLedgerCoverageEntries
     .filter((entry) => {
       const ledgerKey = toCommunityMembershipLedgerKey(entry);
       const groupId = entry.groupId?.trim() ?? "";

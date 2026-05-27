@@ -56,8 +56,21 @@ export const messagingClientOperations = {
 
   prepareDmThreadSuppressionIds: (
     params: PrepareDmThreadSuppressionParams,
-  ): Promise<Set<string>> => (
-    gateway().dmConversationMaterialization.prepareThreadSuppressionIds(params)
+  ): Promise<Set<string>> => materialization().prepareThreadSuppressionIds(params),
+
+  filterDmThreadMessagesBySuppression: (
+    messages: ReadonlyArray<Message>,
+    suppressedIds: ReadonlySet<string>,
+  ): ReadonlyArray<Message> => materialization().filterThreadMessagesBySuppression(messages, suppressedIds),
+
+  mergeDmHydratedBaseWithLiveOverlay: (
+    baseHydrated: ReadonlyArray<Message>,
+    liveOverlay: ReadonlyArray<Message>,
+    overlayConversationScope: ReadonlySet<string>,
+  ): ReadonlyArray<Message> => materialization().mergeHydratedBaseWithLiveOverlay(
+    baseHydrated,
+    liveOverlay,
+    overlayConversationScope,
   ),
 
   hydrateDmThreadReadModel: (

@@ -48,8 +48,10 @@ import { messagingClientOperations } from "../../services/messaging-client-opera
 import { collectMessageIdentityAliases } from "../../services/message-identity-alias-contract";
 import { toDmConversationId } from "../../utils/dm-conversation-id";
 import { buildDeleteTargetIdsForDm } from "../../services/dm-delete-target-derivation";
+import { toAccountEventPlaintextPreview } from "@/app/features/account-sync/services/account-event-plaintext-preview";
 import { applyDmThreadRedaction } from "../../services/apply-dm-thread-redaction";
 import { applyDmRedactionDisplayGate } from "../../services/dm-redaction-display-gate";
+import { useRelayPoolRef } from "@/app/features/relays/hooks/use-relay-pool-ref";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -156,6 +158,7 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
   const dedupSetRef = useRef<Set<string>>(createDedupSet());
   const publishFeedbackShownRef = useRef<Set<string>>(new Set());
   messagesRef.current = messages;
+  const poolRef = useRelayPoolRef(pool);
 
   // --- Stable refs for subscription callback dependencies ---
   // These refs allow the subscription event handler to always read the latest
@@ -303,7 +306,9 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
             conversationId: msgConversationId,
             messageId: msg.id,
             eventCreatedAtUnixSeconds: Math.floor((msg.timestamp?.getTime() ?? Date.now()) / 1000),
-            plaintextPreview: typeof msg.content === "string" ? msg.content.slice(0, 140) : "",
+            plaintextPreview: toAccountEventPlaintextPreview(
+              typeof msg.content === "string" ? msg.content : "",
+            ),
           }).catch((err) => {
             console.error("[dm-controller:v2] appendCanonicalDmEvent DM_RECEIVED failed", err);
           });
@@ -393,20 +398,21 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
       return;
     }
 
+    const activePool = poolRef.current;
     console.log("[dm-controller:v2] subscribing to incoming DMs", {
       myPubkey: myPublicKeyHex.slice(0, 16),
-      openRelays: pool.connections.filter(c => c.status === "open").length,
+      openRelays: activePool.connections.filter(c => c.status === "open").length,
     });
 
     subscriptionRef.current = subscribeToIncomingDMs({
-      pool,
+      pool: activePool,
       myPublicKeyHex,
       onEvent: handleIncomingEvent,
     });
     subscribedRef.current = true;
     setActiveSubId(subscriptionRef.current.id);
     console.log("[dm-controller:v2] subscribed", { subId: subscriptionRef.current.id });
-  }, [pool, myPublicKeyHex, enableIncomingTransport, handleIncomingEvent]);
+  }, [poolRef, myPublicKeyHex, enableIncomingTransport, handleIncomingEvent]);
 
   const unsubscribe = useCallback(() => {
     if (subscriptionRef.current) {
@@ -523,7 +529,7 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
     // Execute send — returns immediately after sendToOpen (fire-and-forget).
     // Relay confirmations arrive asynchronously via handleConfirmed.
     const result = await sendDm({
-      pool,
+      pool: poolRef.current,
       senderPublicKeyHex: myPublicKeyHex,
       senderPrivateKeyHex: myPrivateKeyHex,
       recipientPublicKeyHex: sendParams.peerPublicKeyInput,
@@ -591,7 +597,7 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
         conversationId: optimisticMessage.conversationId!,
         messageId: canonicalDmId,
         eventCreatedAtUnixSeconds: Math.floor(Date.now() / 1000),
-        plaintextPreview: sendParams.plaintext.slice(0, 140),
+        plaintextPreview: toAccountEventPlaintextPreview(sendParams.plaintext),
       }).catch((err) => {
         console.error("[dm-controller:v2] appendCanonicalDmEvent DM_SENT_CONFIRMED failed", err);
       });
@@ -601,7 +607,7 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
       ...result,
       messageId: optimisticId,
     };
-  }, [pool, myPublicKeyHex, myPrivateKeyHex]);
+  }, [poolRef, myPublicKeyHex, myPrivateKeyHex]);
 
   // --- Send connection request ---
   const sendConnectionRequestAction = useCallback(async (reqParams: Readonly<{
@@ -620,13 +626,13 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
     }
 
     return sendConnectionRequest({
-      pool,
+      pool: poolRef.current,
       senderPublicKeyHex: myPublicKeyHex,
       senderPrivateKeyHex: myPrivateKeyHex,
       peerPublicKeyHex: reqParams.peerPublicKeyHex,
       introMessage: reqParams.introMessage,
     });
-  }, [pool, myPublicKeyHex, myPrivateKeyHex]);
+  }, [poolRef, myPublicKeyHex, myPrivateKeyHex]);
 
   // --- Delete ---
   const deleteMessageAction = useCallback(async (delParams: Readonly<{
@@ -904,7 +910,7 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
       })();
 
       const sendResult = await sendDm({
-        pool,
+        pool: poolRef.current,
         senderPublicKeyHex: myPublicKeyHex,
         senderPrivateKeyHex: myPrivateKeyHex,
         recipientPublicKeyHex: delParams.peerPublicKeyHex,
@@ -983,7 +989,7 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
       });
       return true;
     }
-  }, [pool, myPublicKeyHex, myPrivateKeyHex, onMessageDeleted, messages]);
+  }, [poolRef, myPublicKeyHex, myPrivateKeyHex, onMessageDeleted, messages]);
 
   // --- State ---
   const messageStatusMap = useMemo(() => {

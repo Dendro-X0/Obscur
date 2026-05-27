@@ -3,6 +3,8 @@ import {
   type ClientPlatform,
 } from "@dweb/client-gateway";
 import { communityRosterMaterializationOwner } from "@/app/features/groups/services/community-roster-materialization-owner";
+import { communityMembershipPortOwner } from "@/app/features/groups/services/community-membership-port-owner";
+import { communityTransportOwner } from "@/app/features/groups/services/community-transport-owner";
 import { dmConversationMaterializationOwner } from "@/app/features/messaging/services/dm-conversation-materialization-owner";
 import type { AppClientGateway } from "@/app/features/runtime/types/app-client-gateway";
 import {
@@ -47,4 +49,6 @@ export const buildAppClientGateway = (params: Readonly<{
   }),
   dmConversationMaterialization: dmConversationMaterializationOwner,
   communityRoster: communityRosterMaterializationOwner,
+  communityTransport: communityTransportOwner,
+  communityMembership: communityMembershipPortOwner,
 });

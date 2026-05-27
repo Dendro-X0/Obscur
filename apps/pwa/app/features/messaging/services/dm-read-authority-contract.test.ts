@@ -1,12 +1,18 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   resolveDmReadAuthority,
   selectMessagesByAuthority,
   resolveHydrationDmReadMessages,
+  resolveLegacyHydrationAuthority,
   isCanonicalDmReadPath,
   formatDmReadAuthorityForDiagnostics,
   type DmReadAuthorityParams,
 } from "./dm-read-authority-contract";
+import { requiresSqlitePersistence } from "@/app/features/runtime/native-persistence-policy";
+
+vi.mock("@/app/features/runtime/native-persistence-policy", () => ({
+  requiresSqlitePersistence: vi.fn(() => false),
+}));
 import type { Message } from "../types";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 
@@ -58,11 +64,11 @@ describe("dm-read-authority-contract", () => {
       expect(result.isCanonical).toBe(true);
     });
 
-    it("returns canonical projection when ready but empty", () => {
+    it("returns none when all sources are empty", () => {
       const result = resolveDmReadAuthority(baseParams);
-      expect(result.source).toBe("projection");
-      expect(result.reason).toBe("projection_ready");
-      expect(result.isCanonical).toBe(true);
+      expect(result.source).toBe("none");
+      expect(result.reason).toBe("all_sources_empty");
+      expect(result.isCanonical).toBe(false);
     });
 
     it("blocks when identity is missing", () => {
@@ -266,7 +272,7 @@ describe("dm-read-authority-contract", () => {
   });
 
   describe("resolveHydrationDmReadMessages", () => {
-    it("uses legacy evidence count for authority (not projection row count)", () => {
+    it("recovers indexed rows when projection evidence exists but this thread slice is empty", () => {
       const projectionMessages: Message[] = [];
       const indexedMessages = [createMinimalMessage("idx-1")];
       const r = resolveHydrationDmReadMessages({
@@ -280,6 +286,7 @@ describe("dm-read-authority-contract", () => {
         useProjectionReads: true,
         legacyProjectionEvidenceMessageCount: 1,
         projectionIncomingCount: 0,
+        projectionOutgoingCount: 0,
         projectionBootstrapImportApplied: false,
         projectionCanonicalEvidencePending: false,
         projectionRestorePhaseActive: false,
@@ -288,12 +295,71 @@ describe("dm-read-authority-contract", () => {
         persistedIncomingCount: 0,
         persistedOutgoingCount: 0,
       });
-      expect(r.messages.map((m) => m.id)).toEqual([]);
-      expect(r.status.source).toBe("projection");
+      expect(r.messages.map((m) => m.id)).toEqual(["idx-1"]);
+      expect(r.status.source).toBe("indexed_recovery");
       expect(r.legacyAuthorityDecision).toEqual({
         authority: "projection",
         reason: "projection_read_cutover",
       });
+    });
+
+    it("returns indexed messages when projection read cutover is direction-incomplete but sqlite has outgoing", () => {
+      const projectionMessages = [{ ...createMinimalMessage("proj-in"), isOutgoing: false }];
+      const indexedMessages = [
+        { ...createMinimalMessage("idx-in"), isOutgoing: false },
+        { ...createMinimalMessage("idx-out"), isOutgoing: true },
+      ];
+      const r = resolveHydrationDmReadMessages({
+        identityPubkey: pkHydration,
+        conversationId: "dm:x:y",
+        projectionMessages,
+        indexedMessages,
+        legacyPersistedMessages: [],
+        projectionReady: true,
+        scopeVerified: true,
+        useProjectionReads: true,
+        legacyProjectionEvidenceMessageCount: 1,
+        projectionIncomingCount: 1,
+        projectionOutgoingCount: 0,
+        projectionBootstrapImportApplied: true,
+        projectionCanonicalEvidencePending: false,
+        projectionRestorePhaseActive: false,
+        indexedOutgoingCount: 1,
+        indexedIncomingCount: 1,
+        persistedIncomingCount: 0,
+        persistedOutgoingCount: 0,
+      });
+      expect(r.messages.map((m) => m.id)).toEqual(["idx-in", "idx-out"]);
+      expect(r.legacyAuthorityDecision).toEqual({
+        authority: "indexed",
+        reason: "indexed_primary_projection_direction_incomplete",
+      });
+      expect(r.status.source).toBe("indexed_recovery");
+    });
+
+    it("prefers indexed on desktop when projection is incoming-only but sqlite has outgoing", () => {
+      vi.mocked(requiresSqlitePersistence).mockReturnValue(true);
+      const decision = resolveLegacyHydrationAuthority({
+        useProjectionReads: true,
+        projectionMessageCount: 2,
+        projectionIncomingCount: 2,
+        projectionOutgoingCount: 0,
+        projectionBootstrapImportApplied: true,
+        projectionCanonicalEvidencePending: false,
+        projectionRestorePhaseActive: false,
+        indexedMessageCount: 2,
+        indexedOutgoingCount: 2,
+        indexedIncomingCount: 0,
+        persistedMessageCount: 0,
+        persistedOutgoingCount: 0,
+        persistedIncomingCount: 0,
+        blockPersistedRestoreRepair: true,
+      });
+      expect(decision).toEqual({
+        authority: "indexed",
+        reason: "indexed_primary_projection_direction_incomplete",
+      });
+      vi.mocked(requiresSqlitePersistence).mockReturnValue(false);
     });
 
     it("selects indexed when legacy picks indexed", () => {
@@ -308,6 +374,7 @@ describe("dm-read-authority-contract", () => {
         scopeVerified: true,
         useProjectionReads: false,
         projectionIncomingCount: 0,
+        projectionOutgoingCount: 0,
         projectionBootstrapImportApplied: false,
         projectionCanonicalEvidencePending: false,
         projectionRestorePhaseActive: false,
@@ -336,6 +403,7 @@ describe("dm-read-authority-contract", () => {
         scopeVerified: true,
         useProjectionReads: false,
         projectionIncomingCount: 0,
+        projectionOutgoingCount: 0,
         projectionBootstrapImportApplied: false,
         projectionCanonicalEvidencePending: false,
         projectionRestorePhaseActive: false,
@@ -368,6 +436,7 @@ describe("dm-read-authority-contract", () => {
         scopeVerified: true,
         useProjectionReads: false,
         projectionIncomingCount: 0,
+        projectionOutgoingCount: 0,
         projectionBootstrapImportApplied: false,
         projectionCanonicalEvidencePending: true,
         projectionRestorePhaseActive: true,
@@ -400,6 +469,7 @@ describe("dm-read-authority-contract", () => {
         scopeVerified: true,
         useProjectionReads: false,
         projectionIncomingCount: 0,
+        projectionOutgoingCount: 0,
         projectionBootstrapImportApplied: false,
         projectionCanonicalEvidencePending: true,
         projectionRestorePhaseActive: true,
@@ -432,6 +502,7 @@ describe("dm-read-authority-contract", () => {
         scopeVerified: true,
         useProjectionReads: false,
         projectionIncomingCount: 0,
+        projectionOutgoingCount: 0,
         projectionBootstrapImportApplied: false,
         projectionCanonicalEvidencePending: false,
         projectionRestorePhaseActive: false,
@@ -442,6 +513,41 @@ describe("dm-read-authority-contract", () => {
         suppressedMessageIds: new Set(["hide"]),
       });
       expect(r.messages.map((m) => m.id)).toEqual(["keep"]);
+    });
+
+    it("unions projection-only outgoing rows when sqlite wins on direction-incomplete hydrate", () => {
+      const indexedMessages = [
+        { ...createMinimalMessage("idx-out"), isOutgoing: true },
+        { ...createMinimalMessage("idx-in"), isOutgoing: false },
+      ];
+      const projectionMessages = [
+        { ...createMinimalMessage("proj-invite"), isOutgoing: true, content: "{\"type\":\"community-invite\"}" },
+      ];
+      const r = resolveHydrationDmReadMessages({
+        identityPubkey: pkHydration,
+        conversationId: "dm:x:y",
+        projectionMessages,
+        indexedMessages,
+        legacyPersistedMessages: [],
+        projectionReady: true,
+        scopeVerified: true,
+        useProjectionReads: true,
+        legacyProjectionEvidenceMessageCount: projectionMessages.length,
+        projectionIncomingCount: 0,
+        projectionOutgoingCount: 1,
+        projectionBootstrapImportApplied: false,
+        projectionCanonicalEvidencePending: false,
+        projectionRestorePhaseActive: false,
+        indexedOutgoingCount: 1,
+        indexedIncomingCount: 1,
+        persistedIncomingCount: 0,
+        persistedOutgoingCount: 0,
+      });
+      expect(r.legacyAuthorityDecision).toEqual({
+        authority: "indexed",
+        reason: "indexed_primary_projection_direction_incomplete",
+      });
+      expect(r.messages.map((m) => m.id)).toEqual(["idx-out", "idx-in", "proj-invite"]);
     });
   });
 });

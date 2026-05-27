@@ -12,6 +12,10 @@ import { logRuntimeEvent } from "@/app/shared/runtime-log-classification";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
 import { useRealtimePresence } from "../hooks/use-realtime-presence";
 import { toast } from "@dweb/ui-kit";
+import {
+  isExperimentOfflineStubEnabled,
+  scheduleExperimentIdleWork,
+} from "@/app/features/runtime/experiment-shell-policy";
 
 interface NetworkContextType {
     identity: ReturnType<typeof useIdentity>;
@@ -23,7 +27,61 @@ interface NetworkContextType {
 
 const NetworkContext = createContext<NetworkContextType | null>(null);
 
+const EXPERIMENT_OFFLINE_PRESENCE: ReturnType<typeof useRealtimePresence> = {
+  presenceByPubkey: {},
+  isPeerOnline: () => false,
+  getLastSeenAtMs: () => null,
+  selfSessionId: "experiment-offline",
+  selfStartedAtMs: 0,
+};
+
 export const NetworkProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  if (isExperimentOfflineStubEnabled()) {
+    return <ExperimentNetworkShell>{children}</ExperimentNetworkShell>;
+  }
+  return <FullNetworkProvider>{children}</FullNetworkProvider>;
+};
+
+const ExperimentNetworkShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const identity = useIdentity();
+  const { state } = identity;
+  const publicKeyHex = (state.publicKeyHex ?? state.stored?.publicKeyHex ?? null) as PublicKeyHex | null;
+
+  const peerTrust = usePeerTrust({ publicKeyHex });
+  const requestsInbox = useRequestsInbox({ publicKeyHex });
+  const blocklist = useBlocklist({ publicKeyHex });
+
+  useEffect(() => {
+    if (!publicKeyHex) {
+      return;
+    }
+    return scheduleExperimentIdleWork(() => {
+      void runIdentityIntegrityMigrationV085(publicKeyHex)
+        .then((report) => {
+          logRuntimeEvent("identity_integrity.migration_v085.completed", "expected", [report]);
+        })
+        .catch((error) => {
+          logRuntimeEvent(
+            "identity_integrity.migration_v085.failed",
+            "degraded",
+            [error instanceof Error ? error.message : String(error)],
+          );
+        });
+    });
+  }, [publicKeyHex]);
+
+  const value = useMemo(() => ({
+    identity,
+    peerTrust,
+    requestsInbox,
+    blocklist,
+    presence: EXPERIMENT_OFFLINE_PRESENCE,
+  }), [identity, peerTrust, requestsInbox, blocklist]);
+
+  return <NetworkContext.Provider value={value}>{children}</NetworkContext.Provider>;
+};
+
+const FullNetworkProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const identity = useIdentity();
     const { state } = identity;
     const publicKeyHex = (state.publicKeyHex ?? state.stored?.publicKeyHex ?? null) as PublicKeyHex | null;

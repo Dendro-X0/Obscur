@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
+import type { Message } from "@/app/features/messaging/types";
 import {
+  resolveConversationMessageJumpTarget,
   resolveSearchJumpDomResolution,
   resolveSearchJumpStep,
 } from "./message-search-jump";
@@ -11,6 +13,26 @@ const buildMessage = (params: Readonly<{ id: string; timestampMs: number; eventI
 });
 
 describe("message-search-jump", () => {
+  it("resolves persisted search ids to the live message row id", () => {
+    const liveMessages: ReadonlyArray<Message> = [{
+      id: "rumor-1",
+      kind: "user",
+      content: "test",
+      timestamp: new Date(4_000),
+      isOutgoing: true,
+      status: "delivered",
+      eventId: "evt-1",
+    }];
+
+    expect(resolveConversationMessageJumpTarget(liveMessages, {
+      messageId: "evt-1",
+      timestampMs: 9_999,
+    })).toEqual({
+      messageId: "rumor-1",
+      timestampMs: 4_000,
+    });
+  });
+
   it("resolves exact targets by id or eventId before fallback logic", () => {
     const messages = [
       buildMessage({ id: "m1", timestampMs: 1_000 }),

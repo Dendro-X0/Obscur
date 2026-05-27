@@ -14,10 +14,14 @@ const partitionKey = (profileId: string, accountPublicKeyHex: PublicKeyHex): str
   `${profileId}::${accountPublicKeyHex}`
 );
 
+const suppressedMessageIds = vi.hoisted(() => new Set<string>());
+
 const tombstoneMocks = vi.hoisted(() => ({
-  suppressMessageDeleteTombstone: vi.fn(),
+  suppressMessageDeleteTombstone: vi.fn((deleteId: string) => {
+    suppressedMessageIds.add(deleteId);
+  }),
   hydrateMessageDeleteTombstonesFromSqlite: vi.fn(async () => undefined),
-  loadSuppressedMessageDeleteIds: vi.fn(() => new Set<string>()),
+  loadSuppressedMessageDeleteIds: vi.fn(() => new Set(suppressedMessageIds)),
 }));
 
 vi.mock("@/app/features/account-sync/services/account-event-store", () => ({
@@ -86,10 +90,16 @@ vi.mock("@dweb/db", () => ({
   dbInsertTombstone: vi.fn(),
 }));
 
-vi.mock("./message-delete-tombstone-store", () => ({
-  hydrateMessageDeleteTombstonesFromSqlite: tombstoneMocks.hydrateMessageDeleteTombstonesFromSqlite,
-  flushMessageDeleteTombstonesToNativeStore: vi.fn(async () => undefined),
-}));
+vi.mock("./message-delete-tombstone-store", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./message-delete-tombstone-store")>();
+  return {
+    ...actual,
+    hydrateMessageDeleteTombstonesFromSqlite: tombstoneMocks.hydrateMessageDeleteTombstonesFromSqlite,
+    flushMessageDeleteTombstonesToNativeStore: vi.fn(async () => undefined),
+    suppressMessageDeleteTombstone: tombstoneMocks.suppressMessageDeleteTombstone,
+    isMessageDeleteSuppressed: (messageId: string) => suppressedMessageIds.has(messageId),
+  };
+});
 
 vi.mock("@/app/features/profiles/services/default-storage-ports", () => ({
   getResolvedStoragePorts: () => ({
@@ -155,6 +165,12 @@ vi.mock("@/app/features/profiles/services/resolve-client-gateway", async () => {
   return {
     getResolvedClientGateway: () => ({
       localDmVisibility: localDmVisibilityOwner,
+      messageDeleteTombstones: {
+        suppressMessageDeleteTombstone: tombstoneMocks.suppressMessageDeleteTombstone,
+        hydrateMessageDeleteTombstonesFromSqlite: tombstoneMocks.hydrateMessageDeleteTombstonesFromSqlite,
+        loadSuppressedMessageDeleteIds: tombstoneMocks.loadSuppressedMessageDeleteIds,
+        isMessageDeleteSuppressed: (messageId: string) => suppressedMessageIds.has(messageId),
+      },
     }),
   };
 });
@@ -185,6 +201,7 @@ describe("dm delete reload projection contract", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     partitionEvents.clear();
+    suppressedMessageIds.clear();
   });
 
   it("after delete-for-me, simulated reload replay shows zero messages in conversation", async () => {
@@ -207,9 +224,7 @@ describe("dm delete reload projection contract", () => {
     });
     const projection = replayAccountEvents(events);
     expect(projection?.messagesByConversationId[CONVERSATION_ID] ?? []).toEqual([]);
-    expect(events.some((entry) => (
-      entry.event.type === "DM_RECEIVED"
-      && (entry.event as { messageId: string }).messageId.startsWith("spam")
-    ))).toBe(false);
+    // Timeline may retain DM_RECEIVED when show-again is enabled; materialization must still hide them.
+    expect(events.some((entry) => entry.event.type === "DM_REMOVED_LOCALLY")).toBe(true);
   });
 });

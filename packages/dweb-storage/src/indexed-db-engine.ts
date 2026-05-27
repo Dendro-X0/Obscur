@@ -1,107 +1,200 @@
-
 /**
- * IndexedDB engine (shared implementation). Product entry `@dweb/storage/indexed-db`
- * composes this with app-specific DB singletons; tombstone persistence imports this
- * module directly so Vitest mocks of `indexed-db` do not strip the engine.
+ * In-memory storage engine. Browser IndexedDB is permanently excluded (greenfield policy).
+ * @see apps/pwa/app/features/runtime/persistence-policy.ts
  */
 
 export interface DBConfig {
     name: string;
     version: number;
-    stores: Record<string, string>; // name: keyPath or index
+    stores: Record<string, string>;
+}
+
+type Row = Record<string, unknown>;
+
+const toKey = (value: Row, keyPath: string): string => String(value[keyPath] ?? "");
+
+const compareCompound = (
+    left: readonly [string, number],
+    right: readonly [string, number],
+): number => {
+    if (left[0] !== right[0]) {
+        return left[0] < right[0] ? -1 : 1;
+    }
+    return left[1] - right[1];
+};
+
+const rowMatchesConversationTimestampRange = (
+    row: Row,
+    query: IDBKeyRange | undefined,
+): boolean => {
+    if (!query) {
+        return true;
+    }
+    const conversationId = String(row.conversationId ?? "");
+    const timestampMs = typeof row.timestampMs === "number"
+        ? row.timestampMs
+        : typeof row.timestamp === "number"
+            ? row.timestamp
+            : 0;
+    const key: readonly [string, number] = [conversationId, timestampMs];
+    const lower = query.lower as readonly [string, number] | undefined;
+    const upper = query.upper as readonly [string, number] | undefined;
+    if (lower && compareCompound(key, lower) < 0) {
+        return false;
+    }
+    if (upper && compareCompound(key, upper) > 0) {
+        return false;
+    }
+    return true;
+};
+
+class MemoryObjectStore {
+    private readonly rows = new Map<string, Row>();
+
+    constructor(private readonly keyPath: string) {}
+
+    put(value: Row): void {
+        this.rows.set(toKey(value, this.keyPath), value);
+    }
+
+    get(key: string): Row | undefined {
+        return this.rows.get(key);
+    }
+
+    delete(key: string): void {
+        this.rows.delete(key);
+    }
+
+    clear(): void {
+        this.rows.clear();
+    }
+
+    getAll(): Row[] {
+        return [...this.rows.values()];
+    }
+
+    bulkPut(values: readonly Row[]): void {
+        values.forEach((value) => this.put(value));
+    }
+
+    bulkDelete(keys: readonly string[]): void {
+        keys.forEach((key) => this.delete(key));
+    }
+
+    getAllByIndex(
+        indexName: string,
+        query?: IDBKeyRange | string,
+        limit?: number,
+        direction: IDBCursorDirection = "next",
+    ): Row[] {
+        let rows = this.getAll();
+        if (indexName === "conversationId" && typeof query === "string") {
+            rows = rows.filter((row) => String(row.conversationId ?? "") === query);
+        } else if (indexName === "conversation_timestamp") {
+            rows = rows.filter((row) => rowMatchesConversationTimestampRange(row, query as IDBKeyRange | undefined));
+            rows.sort((a, b) => {
+                const aTs = typeof a.timestampMs === "number" ? a.timestampMs : 0;
+                const bTs = typeof b.timestampMs === "number" ? b.timestampMs : 0;
+                return aTs - bTs;
+            });
+            if (direction === "prev") {
+                rows.reverse();
+            }
+        } else if (indexName === "timestampMs") {
+            rows.sort((a, b) => {
+                const aTs = typeof a.timestampMs === "number" ? a.timestampMs : 0;
+                const bTs = typeof b.timestampMs === "number" ? b.timestampMs : 0;
+                return direction === "prev" ? bTs - aTs : aTs - bTs;
+            });
+        }
+        if (typeof limit === "number" && limit > 0) {
+            return rows.slice(0, limit);
+        }
+        return rows;
+    }
+
+    async forEach(
+        visitor: (value: Row, visitIndex: number) => boolean | void | Promise<boolean | void>,
+        options?: Readonly<{
+            indexName?: string;
+            query?: IDBKeyRange;
+            direction?: IDBCursorDirection;
+            yieldEvery?: number;
+        }>,
+    ): Promise<number> {
+        let rows = this.getAll();
+        if (options?.indexName === "conversation_timestamp" && options.query) {
+            rows = rows.filter((row) => rowMatchesConversationTimestampRange(row, options.query));
+        }
+        if (options?.indexName === "timestampMs") {
+            rows.sort((a, b) => {
+                const aTs = typeof a.timestampMs === "number" ? a.timestampMs : 0;
+                const bTs = typeof b.timestampMs === "number" ? b.timestampMs : 0;
+                return options?.direction === "prev" ? bTs - aTs : aTs - bTs;
+            });
+        }
+        let visitIndex = 0;
+        for (const row of rows) {
+            const shouldStop = await visitor(row, visitIndex);
+            visitIndex += 1;
+            if (shouldStop === false) {
+                break;
+            }
+            if (options?.yieldEvery && options.yieldEvery > 0 && visitIndex % options.yieldEvery === 0) {
+                await new Promise((resolve) => setTimeout(resolve, 0));
+            }
+        }
+        return visitIndex;
+    }
+
+    deleteByConversationTimestampRange(conversationId: string, upperTimestampMs: number): void {
+        const toDelete: string[] = [];
+        for (const row of this.getAll()) {
+            if (String(row.conversationId ?? "") !== conversationId) {
+                continue;
+            }
+            const timestampMs = typeof row.timestampMs === "number" ? row.timestampMs : 0;
+            if (timestampMs <= upperTimestampMs) {
+                toDelete.push(toKey(row, this.keyPath));
+            }
+        }
+        toDelete.forEach((key) => this.delete(key));
+    }
 }
 
 export class IndexedDBService {
-    private db: IDBDatabase | null = null;
-    private dbName: string;
-    private version: number;
-    private stores: Record<string, string>;
+    private readonly storeByName = new Map<string, MemoryObjectStore>();
 
     constructor(config: DBConfig) {
-        this.dbName = config.name;
-        this.version = config.version;
-        this.stores = config.stores;
-    }
-
-    public async ensureDB(): Promise<IDBDatabase> {
-        if (this.db) return this.db;
-
-        return new Promise((resolve, reject) => {
-            const request = indexedDB.open(this.dbName, this.version);
-
-            request.onupgradeneeded = (event) => {
-                const db = (event.target as IDBOpenDBRequest).result;
-                const tx = (event.target as IDBOpenDBRequest).transaction;
-                Object.entries(this.stores).forEach(([storeName, keyPath]) => {
-                    let store: IDBObjectStore | undefined;
-                    if (!db.objectStoreNames.contains(storeName)) {
-                        store = db.createObjectStore(storeName, { keyPath });
-                    } else if (tx) {
-                        store = tx.objectStore(storeName);
-                    }
-                    if (store && storeName === "messages") {
-                        const indexList = this.getIndexNames(store);
-                        if (!indexList.includes("conversationId")) {
-                            store.createIndex("conversationId", "conversationId", { unique: false });
-                        }
-                        if (!indexList.includes("timestampMs")) {
-                            store.createIndex("timestampMs", "timestampMs", { unique: false });
-                        }
-                        if (!indexList.includes("conversation_timestamp")) {
-                            store.createIndex("conversation_timestamp", ["conversationId", "timestampMs"], { unique: false });
-                        }
-                    }
-                });
-            };
-
-            request.onsuccess = () => {
-                this.db = request.result;
-                resolve(this.db);
-            };
-
-            request.onerror = () => reject(request.error);
+        Object.entries(config.stores).forEach(([storeName, keyPath]) => {
+            this.storeByName.set(storeName, new MemoryObjectStore(keyPath));
         });
+        void config.name;
+        void config.version;
     }
 
-    private getIndexNames(store: IDBObjectStore): string[] {
-        const indexNames = (store as IDBObjectStore & { indexNames?: DOMStringList | string[] | null }).indexNames;
-        if (!indexNames) {
-            return [];
-        }
+    /** Legacy no-op — real IDB is never opened. */
+    async ensureDB(): Promise<null> {
+        return null;
+    }
 
-        return Array.from(indexNames);
+    private store(storeName: string): MemoryObjectStore {
+        const store = this.storeByName.get(storeName);
+        if (!store) {
+            throw new Error(`Unknown in-memory store: ${storeName}`);
+        }
+        return store;
     }
 
     async get<T>(storeName: string, key: string): Promise<T | null> {
-        const db = await this.ensureDB();
-        return new Promise((resolve, reject) => {
-            const transaction = db.transaction(storeName, "readonly");
-            const store = transaction.objectStore(storeName);
-            const request = store.get(key);
-
-            request.onsuccess = () => resolve(request.result || null);
-            request.onerror = () => reject(request.error);
-        });
+        const row = this.store(storeName).get(key);
+        return (row as T | undefined) ?? null;
     }
 
-    async getAll<T>(storeName: string, indexName?: string, query?: IDBKeyRange): Promise<T[]> {
-        const db = await this.ensureDB();
-        return new Promise((resolve, reject) => {
-            const transaction = db.transaction(storeName, "readonly");
-            const store = transaction.objectStore(storeName);
-            const source = indexName ? store.index(indexName) : store;
-            const request = source.getAll(query);
-
-            request.onsuccess = () => resolve(request.result);
-            request.onerror = () => reject(request.error);
-        });
+    async getAll<T>(storeName: string, _indexName?: string, _query?: IDBKeyRange): Promise<T[]> {
+        return this.store(storeName).getAll() as T[];
     }
 
-    /**
-     * Visit each record via cursor without loading the full store into memory.
-     * Return false from the visitor to stop early. When yieldEvery is set, yields to the
-     * main thread periodically so long scans do not freeze the UI.
-     */
     async forEachInStore<T>(
         storeName: string,
         visitor: (value: T, visitIndex: number) => boolean | void | Promise<boolean | void>,
@@ -112,224 +205,64 @@ export class IndexedDBService {
             yieldEvery?: number;
         }>,
     ): Promise<number> {
-        const db = await this.ensureDB();
-        const yieldEvery = options?.yieldEvery;
-        let visitIndex = 0;
-
-        const yieldToMain = (): Promise<void> => new Promise((resolve) => {
-            if (typeof requestIdleCallback === "function") {
-                requestIdleCallback(() => resolve(), { timeout: 32 });
-                return;
-            }
-            setTimeout(resolve, 0);
-        });
-
-        return new Promise((resolve, reject) => {
-            const transaction = db.transaction(storeName, "readonly");
-            const store = transaction.objectStore(storeName);
-            const source = options?.indexName ? store.index(options.indexName) : store;
-            const request = source.openCursor(options?.query, options?.direction ?? "next");
-
-            const onCursor = (event: Event): void => {
-                void (async () => {
-                    const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result;
-                    if (!cursor) {
-                        resolve(visitIndex);
-                        return;
-                    }
-
-                    const shouldStop = await visitor(cursor.value as T, visitIndex);
-                    visitIndex += 1;
-
-                    if (shouldStop === false) {
-                        resolve(visitIndex);
-                        return;
-                    }
-
-                    if (yieldEvery && yieldEvery > 0 && visitIndex % yieldEvery === 0) {
-                        await yieldToMain();
-                    }
-
-                    cursor.continue();
-                })().catch(reject);
-            };
-
-            request.onsuccess = onCursor;
-            request.onerror = () => reject(request.error);
-        });
+        return this.store(storeName).forEach(
+            (value, visitIndex) => visitor(value as T, visitIndex),
+            options,
+        );
     }
 
     async getAllByIndex<T>(
         storeName: string,
         indexName: string,
-        query?: IDBKeyRange | any,
+        query?: IDBKeyRange | string,
         limit?: number,
-        direction: IDBCursorDirection = "next"
+        direction: IDBCursorDirection = "next",
     ): Promise<T[]> {
-        const db = await this.ensureDB();
-        return new Promise((resolve, reject) => {
-            const transaction = db.transaction(storeName, "readonly");
-            const store = transaction.objectStore(storeName);
-            const index = store.index(indexName);
-            const request = index.openCursor(query, direction);
-
-            const result: T[] = [];
-            request.onsuccess = (event) => {
-                const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result;
-                if (cursor) {
-                    result.push(cursor.value);
-                    if (limit && result.length >= limit) {
-                        resolve(result);
-                    } else {
-                        cursor.continue();
-                    }
-                } else {
-                    resolve(result);
-                }
-            };
-            request.onerror = () => reject(request.error);
-        });
+        return this.store(storeName).getAllByIndex(indexName, query, limit, direction) as T[];
     }
 
     async put<T>(storeName: string, value: T): Promise<void> {
-        const db = await this.ensureDB();
-        return new Promise((resolve, reject) => {
-            const transaction = db.transaction(storeName, "readwrite");
-            const store = transaction.objectStore(storeName);
-            const request = store.put(value);
-
-            request.onsuccess = () => resolve();
-            request.onerror = () => reject(request.error);
-        });
+        this.store(storeName).put(value as Row);
     }
 
     async bulkPut<T>(storeName: string, values: T[]): Promise<void> {
-        const db = await this.ensureDB();
-        return new Promise((resolve, reject) => {
-            const transaction = db.transaction(storeName, "readwrite");
-            const store = transaction.objectStore(storeName);
-
-            let completed = 0;
-            let errorOccurred = false;
-
-            if (values.length === 0) {
-                resolve();
-                return;
-            }
-
-            values.forEach(value => {
-                const request = store.put(value);
-                request.onsuccess = () => {
-                    completed++;
-                    if (completed === values.length) resolve();
-                };
-                request.onerror = () => {
-                    if (!errorOccurred) {
-                        errorOccurred = true;
-                        reject(request.error);
-                    }
-                };
-            });
-        });
+        this.store(storeName).bulkPut(values as Row[]);
     }
 
     async bulkDelete(storeName: string, keys: ReadonlyArray<string>): Promise<void> {
-        const db = await this.ensureDB();
-        return new Promise((resolve, reject) => {
-            if (keys.length === 0) {
-                resolve();
-                return;
-            }
-
-            const transaction = db.transaction(storeName, "readwrite");
-            const store = transaction.objectStore(storeName);
-
-            transaction.oncomplete = () => resolve();
-            transaction.onerror = () => reject(transaction.error);
-            transaction.onabort = () => reject(transaction.error ?? new Error("IndexedDB bulkDelete transaction aborted"));
-
-            keys.forEach((key) => {
-                store.delete(key);
-            });
-        });
+        this.store(storeName).bulkDelete(keys);
     }
 
     async getRange<T>(
         storeName: string,
         indexName: string,
-        lowerBound: any,
-        upperBound: any,
+        lowerBound: unknown,
+        upperBound: unknown,
         limit?: number,
-        direction: IDBCursorDirection = "next"
+        direction: IDBCursorDirection = "next",
     ): Promise<T[]> {
-        const db = await this.ensureDB();
-        return new Promise((resolve, reject) => {
-            const transaction = db.transaction(storeName, "readonly");
-            const store = transaction.objectStore(storeName);
-            const index = store.index(indexName);
-            const range = IDBKeyRange.bound(lowerBound, upperBound);
-            const request = index.openCursor(range, direction);
-
-            const result: T[] = [];
-            request.onsuccess = (event) => {
-                const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result;
-                if (cursor) {
-                    result.push(cursor.value);
-                    if (limit && result.length >= limit) {
-                        resolve(result);
-                    } else {
-                        cursor.continue();
-                    }
-                } else {
-                    resolve(result);
-                }
-            };
-            request.onerror = () => reject(request.error);
-        });
+        const lower = lowerBound as readonly [string, number];
+        const upper = upperBound as readonly [string, number];
+        const range = IDBKeyRange.bound(lower, upper);
+        return this.getAllByIndex<T>(storeName, indexName, range, limit, direction);
     }
 
     async delete(storeName: string, key: string): Promise<void> {
-        const db = await this.ensureDB();
-        return new Promise((resolve, reject) => {
-            const transaction = db.transaction(storeName, "readwrite");
-            const store = transaction.objectStore(storeName);
-            const request = store.delete(key);
-
-            request.onsuccess = () => resolve();
-            request.onerror = () => reject(request.error);
-        });
+        this.store(storeName).delete(key);
     }
 
     async clear(storeName: string): Promise<void> {
-        const db = await this.ensureDB();
-        return new Promise((resolve, reject) => {
-            const transaction = db.transaction(storeName, "readwrite");
-            const store = transaction.objectStore(storeName);
-            const request = store.clear();
-
-            request.onsuccess = () => resolve();
-            request.onerror = () => reject(request.error);
-        });
+        this.store(storeName).clear();
     }
 
     async deleteByRange(storeName: string, indexName: string, query: IDBKeyRange): Promise<void> {
-        const db = await this.ensureDB();
-        return new Promise((resolve, reject) => {
-            const transaction = db.transaction(storeName, "readwrite");
-            const store = transaction.objectStore(storeName);
-            const index = store.index(indexName);
-            const request = index.openCursor(query);
-
-            request.onsuccess = (event) => {
-                const cursor = (event.target as IDBRequest<IDBCursor>).result;
-                if (cursor) {
-                    cursor.delete();
-                    cursor.continue();
-                } else {
-                    resolve();
-                }
-            };
-            request.onerror = () => reject(request.error);
-        });
+        if (indexName !== "conversation_timestamp" || !query) {
+            return;
+        }
+        const upper = query.upper as readonly [string, number] | undefined;
+        if (!upper) {
+            return;
+        }
+        this.store(storeName).deleteByConversationTimestampRange(upper[0], upper[1]);
     }
 }

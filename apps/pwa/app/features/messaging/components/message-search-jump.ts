@@ -1,8 +1,43 @@
+import type { Message } from "@/app/features/messaging/types";
+import { collectMessageIdentityAliases } from "@/app/features/messaging/services/message-identity-alias-contract";
+
 type SearchJumpMessage = Readonly<{
   id: string;
   eventId?: string;
+  relayPublishedEventId?: string;
   timestamp: Date;
 }>;
+
+export const messageMatchesSearchJumpTarget = (
+  message: SearchJumpMessage,
+  jumpToMessageId: string,
+): boolean => {
+  const targetId = jumpToMessageId.trim();
+  if (targetId.length === 0) {
+    return false;
+  }
+  return collectMessageIdentityAliases(message).includes(targetId);
+};
+
+export const resolveConversationMessageJumpTarget = (
+  messages: ReadonlyArray<Message>,
+  target: Readonly<{ messageId: string; timestampMs: number }>,
+): Readonly<{ messageId: string; timestampMs: number }> => {
+  const targetId = target.messageId.trim();
+  if (targetId.length === 0) {
+    return target;
+  }
+
+  const matched = messages.find((message) => messageMatchesSearchJumpTarget(message, targetId));
+  if (!matched) {
+    return target;
+  }
+
+  return {
+    messageId: matched.id,
+    timestampMs: matched.timestamp.getTime(),
+  };
+};
 
 export type SearchJumpStep =
   | Readonly<{
@@ -34,8 +69,7 @@ export const resolveSearchJumpStep = (params: Readonly<{
   maxLoadAttempts: number;
 }>): SearchJumpStep => {
   const targetMessageIndex = params.messages.findIndex((message) => (
-    message.id === params.jumpToMessageId
-    || message.eventId === params.jumpToMessageId
+    messageMatchesSearchJumpTarget(message, params.jumpToMessageId)
   ));
   if (targetMessageIndex >= 0) {
     return {

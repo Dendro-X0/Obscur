@@ -14,6 +14,7 @@ _Last reviewed: 2026-05-15 (v1.5.0 doc restructure)_
 | 2 | [Product layers & Nostr](./architecture/product-layers-and-nostr.md) | App / kernel / adapter framing |
 | 3 | [Maintainer playbook](./encyclopedia/08-maintainer-playbook.md) | How to run, test, triage, and ship |
 | 4 | [Current session handoff](./handoffs/current-session.md) | Live continuity — read before coding |
+| 4b | [Auth UX redesign (deferred)](./program/auth-ux-redesign-future.md) | Future-version registration/login model — not current ship path |
 | 5 | [Architecture truth map](./encyclopedia/12-core-architecture-truth-map.md) | Who owns what (single source) |
 | 6 | [v1.5.3 scope](./program/v1.5.3-scope.md) | **Current** release workstreams |
 | 7 | [Mobile UI stack](./program/mobile-ui-stack-evaluation.md) | Tauri mobile + shell decision |
@@ -71,11 +72,17 @@ Canonical long-form guides — read in order when onboarding:
 |----------|---------|
 | [**Program overview**](./program/PROGRAM.md) | Active v1.5.1 + milestones |
 | [**Strategic direction**](./program/strategic-direction.md) | Implementation sequence |
-| [**2.0.0 milestone roadmap**](./program/obscur-2.0-milestone-roadmap.md) | v1.7.x → v1.8.x patch bands; four lanes through v2.0.0 |
+| [**2.0.0 milestone roadmap**](./program/obscur-2.0-milestone-roadmap.md) | v1.7.x → v1.8.x → **v1.9.x Lane K** → v2.0.0 |
+| [**v1.9.x kernel & backend**](./program/v1.9.0-kernel-backend-roadmap.md) | **Next major refactor** — TransportPort, coordination, R1/R2 |
+| [**v1.9.x implementation spec**](./program/v1.9.0-kernel-backend-spec.md) | B0–B4 contracts, APIs, owners |
 | [**Manual verification environment**](./program/manual-verification-environment.md) | Tester 1/2, dark/light, desktop A/B |
 | [**Community overhaul — phased roadmap (by version)**](./program/community-system-overhaul-phased-roadmap.md) | Phases 1–4 ↔ v1.5.x–v2.0 milestones |
 | [**Community system — implementation & UI**](./program/community-system-implementation-and-ui-plan.md) | Modes, governance, create/manage backlog (P0–P4) |
 | [Current roadmap (detail)](./program/current-roadmap.md) | Active lanes and policies |
+| [Auth UX redesign (deferred)](./program/auth-ux-redesign-future.md) | Future-version login/backup model — not Phase 1/2 |
+| [UI relay-pool effect audit](./program/ui-relay-pool-effect-audit-2026-05.md) | P0/P1 render-loop inventory (2026-05-22) |
+| [**Phase 3 — desktop online (G6)**](./program/phase3-desktop-online-gate.md) | **Active** — relay/sync under `dev:desktop:online` |
+| [**Android P1 — build & signing**](./program/android-p1-signing-runbook.md) | Lane P — debug/release APK, local keystore, emulator smoke |
 | [v1.5.0 release](./releases/v1.5.0-release.md) | Release scope and known limitations |
 | [Release closeout guide](./releases/release-closeout-guide.md) | How to close a version |
 | [Version history context](./history/version-context.md) | Historical version narrative |

@@ -7,6 +7,7 @@ import type { RelayPoolLike } from "@/app/features/relays/lib/nostr-core-relay";
 import type { RelayReadinessState } from "@/app/features/relays/services/relay-recovery-policy";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { accountProjectionRuntime } from "../services/account-projection-runtime";
+import { isExperimentOfflineStubEnabled } from "@/app/features/runtime/experiment-shell-policy";
 
 type UseAccountProjectionRuntimeParams = Readonly<{
   publicKeyHex: PublicKeyHex | null;
@@ -34,6 +35,22 @@ export const useAccountProjectionRuntime = (params: UseAccountProjectionRuntimeP
     if (!params.publicKeyHex || !params.privateKeyHex) {
       lastBootstrapScopeKeyRef.current = null;
       accountProjectionRuntime.reset();
+      return;
+    }
+    if (isExperimentOfflineStubEnabled()) {
+      const profileId = getResolvedProfileId();
+      if (!profileId) {
+        return;
+      }
+      const scopeKey = `${profileId}:${params.publicKeyHex}`;
+      if (lastBootstrapScopeKeyRef.current === scopeKey) {
+        return;
+      }
+      lastBootstrapScopeKeyRef.current = scopeKey;
+      accountProjectionRuntime.markExperimentShellReady({
+        profileId,
+        accountPublicKeyHex: params.publicKeyHex,
+      });
       return;
     }
     const profileId = getResolvedProfileId();

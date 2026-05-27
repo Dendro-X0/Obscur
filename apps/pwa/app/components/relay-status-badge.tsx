@@ -52,7 +52,7 @@ const describeRecoveryReason = (snapshot: RelayRecoverySnapshot): string | null 
     case "cooldown_active":
       return "recovery cooldown active";
     case "recovery_exhausted":
-      return "automatic recovery budget exhausted";
+      return "could not connect to relays — automatic retries paused";
     case "manual":
       return "manual recovery in progress";
     default:
@@ -132,9 +132,11 @@ export function RelayStatusBadge({ compact = false, compactNavigateHref }: Relay
   );
   const compactCanNavigate = compact && typeof compactNavigateHref === "string" && compactNavigateHref.length > 0;
 
+  const isRecoveryExhausted = relayRecovery.recoveryReasonCode === "recovery_exhausted";
   const canTriggerRecovery = !isRecovering && (
     relayRecovery.readiness === "degraded"
     || relayRecovery.readiness === "offline"
+    || isRecoveryExhausted
   );
   const canClick = compactCanNavigate || canTriggerRecovery;
 

@@ -103,6 +103,65 @@ describe("deriveRelayNodeStatus", () => {
     expect(status.badge).toBe("No recent events");
   });
 
+  it("labels probed standbys when there is no active-pool socket", () => {
+    const status = deriveRelayNodeStatus({
+      url: "wss://relay.damus.io",
+      enabled: true,
+      isConfigured: true,
+      role: "standby",
+      metrics: {
+        url: "wss://relay.damus.io",
+        status: "disconnected",
+        connectionAttempts: 1,
+        successfulConnections: 0,
+        failedConnections: 0,
+        latency: 220,
+        latencyHistory: [220],
+        successRate: 100,
+        circuitBreakerState: "closed",
+        circuitBreakerFailureCount: 0,
+        retryCount: 0,
+        backoffDelay: 1000,
+      },
+      runtimePhase: "offline",
+    });
+    expect(status.badge).toBe("Probed");
+    expect(status.roleLabel).toBe("Standby (probed)");
+  });
+
+  it("labels the primary open socket as active transport", () => {
+    const status = deriveRelayNodeStatus({
+      url: "wss://relay.damus.io",
+      enabled: true,
+      isConfigured: true,
+      role: "primary",
+      connection: {
+        url: "wss://relay.damus.io",
+        status: "open",
+        updatedAtUnixMs: 1,
+      },
+      metrics: {
+        url: "wss://relay.damus.io",
+        status: "connected",
+        connectionAttempts: 1,
+        successfulConnections: 1,
+        failedConnections: 0,
+        latency: 120,
+        latencyHistory: [120],
+        successRate: 100,
+        circuitBreakerState: "closed",
+        circuitBreakerFailureCount: 0,
+        retryCount: 0,
+        backoffDelay: 1000,
+      },
+      runtimePhase: "healthy",
+      lastInboundEventAtUnixMs: 10_000,
+      nowUnixMs: 10_500,
+    });
+    expect(status.badge).toBe("Active transport");
+    expect(status.roleLabel).toBe("Active transport");
+  });
+
   it("shows insufficient-data confidence for low-sample relays", () => {
     const status = deriveRelayNodeStatus({
       url: "wss://relay.example",

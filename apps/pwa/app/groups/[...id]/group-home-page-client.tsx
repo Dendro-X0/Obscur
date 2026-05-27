@@ -22,6 +22,7 @@ import {
     ChevronLeft,
     Search,
     Settings,
+    Trash2,
 } from "lucide-react";
 import { useGroups } from "@/app/features/groups/providers/group-provider";
 import { useMessaging } from "@/app/features/messaging/providers/messaging-provider";
@@ -41,13 +42,17 @@ import { useCommunityGovernanceProjection } from "@/app/features/groups/hooks/us
 import { useRelayList } from "@/app/features/relays/hooks/use-relay-list";
 import { assessRelayCapability } from "@/app/features/groups/services/community-mode-contract";
 import { resolveCommunityDirectoryMaterializationHonesty } from "@/app/features/groups/services/community-directory-materialization-policy";
+import { readMembershipSyncMode } from "@/app/features/groups/services/community-membership-sync-mode";
+import type { MembershipEvidenceUiContext } from "@/app/features/groups/utils/community-membership-evidence-display";
 import { CommunityDirectoryHonestyNotice } from "@/app/features/groups/components/community-directory-honesty-notice";
+import { CommunityLegacySovereignNotice } from "@/app/features/groups/components/community-legacy-sovereign-notice";
 import { toScopedRelayUrl, useSealedCommunity } from "@/app/features/groups/hooks/use-sealed-community";
 import { useCommunityParticipantRosterReadModel } from "@/app/features/groups/hooks/use-community-participant-roster-read-model";
 import { toast } from "@dweb/ui-kit";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import Image from "next/image";
-import { buildGroupBlockHref, buildGroupLeaveHref } from "@/app/features/groups/utils/group-action-route";
+import { buildGroupBlockHref, buildGroupLeaveHref, buildGroupPurgeHref } from "@/app/features/groups/utils/group-action-route";
+import { hasWritableCommunityRelayTransport } from "@/app/features/groups/services/community-relay-transport";
 import { UserAvatar } from "@/app/features/profile/components/user-avatar";
 import { useResolvedProfileMetadata } from "@/app/features/profile/hooks/use-resolved-profile-metadata";
 import type { GroupAccessMode } from "@/app/features/groups/types";
@@ -86,6 +91,8 @@ import {
     COMMUNITY_MEMBERSHIP_AUTO_RECONCILE_DEBOUNCE_MS,
     reconcileCommunityMembershipEvidence,
 } from "@/app/features/groups/services/community-membership-evidence-actions";
+import { reconcileWorkspaceMembershipEvidence } from "@/app/features/groups/services/community-workspace-membership-reconcile";
+import { usesCoordinationMembershipDirectory } from "@/app/features/groups/services/community-workspace-transport-policy";
 import { CommunityMembershipEvidenceChip } from "@/app/features/groups/components/community-membership-evidence-chip";
 import {
     resolveCommunityMemberEvidenceTier,
@@ -95,7 +102,19 @@ import {
 import { CommunityMembershipEvidenceToolbar } from "@/app/features/groups/components/community-membership-evidence-toolbar";
 import { collectGroupMessageAuthorPubkeys } from "@/app/features/groups/services/community-message-author-evidence";
 import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store";
-import { resolveInviteEligibleMemberPubkeys } from "@/app/features/groups/services/community-visible-members";
+import { resolveCommunityInviteMemberBlocklist } from "@/app/features/groups/services/community-invite-eligibility-read-model";
+import {
+    mergeCoordinationTerminalMemberPubkeys,
+    resolveCommunityParticipantDisplayPubkeys,
+    shouldApplyTerminalMembershipExclusionsToParticipantRoster,
+} from "@/app/features/groups/services/community-participant-display-read-model";
+import { useCoordinationMembershipDirectory } from "@/app/features/groups/hooks/use-coordination-membership-directory";
+import { refreshCommunityMembershipTruth } from "@/app/features/groups/services/community-membership-truth";
+import {
+    assertWorkspaceCommunityJoinAllowed,
+    useWorkspaceCommunityTrustGate,
+} from "@/app/features/groups/hooks/use-workspace-community-trust-gate";
+import { ensureWorkspaceMembershipSyncMode } from "@/app/features/groups/services/community-workspace-membership";
 
 export default function GroupHomePage() {
     const MEMBERS_PER_PAGE = 20;
@@ -107,7 +126,14 @@ export default function GroupHomePage() {
     });
     const router = useRouter();
     const { t } = useTranslation();
-    const { createdGroups, communityKnownParticipantDirectoryByConversationId, communityRosterByConversationId, addGroup } = useGroups();
+    const {
+        createdGroups,
+        communityKnownParticipantDirectoryByConversationId,
+        communityRosterByConversationId,
+        addGroup,
+        leaveGroup,
+        forcePurgeCommunity,
+    } = useGroups();
     const { setSelectedConversation } = useMessaging();
     const { state: identityState } = useIdentity();
     const { relayPool } = useRelay();
@@ -147,6 +173,10 @@ export default function GroupHomePage() {
     const localMemberPubkey = (identityState.publicKeyHex || identityState.stored?.publicKeyHex || null) as PublicKeyHex | null;
 
     const effectiveRelay = toScopedRelayUrl(group?.relayUrl || discoveredRelay || "") ?? "";
+    const communityRelayTransportReady = React.useMemo(
+        () => hasWritableCommunityRelayTransport(effectiveRelay),
+        [effectiveRelay],
+    );
     const isGuest = !group;
 
     React.useEffect(() => {
@@ -213,14 +243,16 @@ export default function GroupHomePage() {
         [communityKnownParticipantDirectory, group?.memberPubkeys, localMemberPubkey, projectionMemberPubkeys],
     );
 
+    const sealedCommunityShellEnabled = !!(group || discoveredRelay) && communityRelayTransportReady;
     const sealedCommunityController = useSealedCommunity({
         groupId: group?.groupId || id || "",
         relayUrl: effectiveRelay,
         communityId: group?.communityId,
+        communityMode: group?.communityMode,
         pool: relayPool,
         myPublicKeyHex: identityState.publicKeyHex || null,
         myPrivateKeyHex: identityState.privateKeyHex || null,
-        enabled: !!(group || discoveredRelay),
+        enabled: sealedCommunityShellEnabled,
         initialMembers: seededMemberEvidence,
     });
     const {
@@ -229,15 +261,41 @@ export default function GroupHomePage() {
         requestJoin: requestJoinNip29,
         refresh: refreshCommunityMembership,
         clearLocalTerminalMembershipEvidence,
+        applyCoordinationSemanticMemberEvent,
     } = sealedCommunityController;
 
     const { activeProposals: activeGovernanceProposals, activeProposalCount } = useCommunityGovernanceProjection({
         groupId: group?.groupId || id || "",
         communityId: group?.communityId,
-        enabled: !!(group || discoveredRelay),
+        enabled: sealedCommunityShellEnabled,
     });
 
     const relayList = useRelayList({ publicKeyHex: identityState.publicKeyHex || null });
+    const { blocked: guestJoinBlocked, trust: guestJoinTrust } = useWorkspaceCommunityTrustGate({
+        communityRelayUrl: effectiveRelay,
+        active: isGuest && effectiveRelay.length > 0,
+    });
+    const handleGuestJoin = React.useCallback(async (): Promise<void> => {
+        if (!effectiveRelay) {
+            toast.error("Choose a community relay before joining.");
+            return;
+        }
+        const trust = await assertWorkspaceCommunityJoinAllowed({
+            communityRelayUrl: effectiveRelay,
+            enabledRelayUrls: relayList.state.relays.map((relay) => relay.url),
+        });
+        if (!trust.allowed) {
+            toast.error(trust.userMessage);
+            return;
+        }
+        ensureWorkspaceMembershipSyncMode();
+        await requestJoinNip29();
+    }, [effectiveRelay, relayList.state.relays, requestJoinNip29]);
+    const membershipSyncMode = readMembershipSyncMode();
+    const membershipEvidenceUiContext = React.useMemo(
+        (): MembershipEvidenceUiContext => ({ membershipSyncMode }),
+        [membershipSyncMode],
+    );
     const directoryHonesty = React.useMemo(
         () => resolveCommunityDirectoryMaterializationHonesty({
             communityMode: groupState.metadata?.communityMode ?? group?.communityMode,
@@ -245,11 +303,13 @@ export default function GroupHomePage() {
                 enabledRelayUrls: relayList.state.relays.map((relay) => relay.url),
                 selectedRelayHost: effectiveRelay,
             }).tier,
+            membershipSyncMode,
         }),
         [
             effectiveRelay,
             group?.communityMode,
             groupState.metadata?.communityMode,
+            membershipSyncMode,
             relayList.state.relays,
         ],
     );
@@ -310,6 +370,22 @@ export default function GroupHomePage() {
             seededMemberEvidence,
         ],
     );
+    const activeMembersFingerprint = React.useMemo(
+        () => activeMembers.join(","),
+        [activeMembers],
+    );
+    const conversationAuthorPubkeysFingerprint = React.useMemo(
+        () => conversationAuthorPubkeys.join(","),
+        [conversationAuthorPubkeys],
+    );
+    const rawLeftMemberPubkeysFingerprint = React.useMemo(
+        () => rawLeftMemberPubkeys.join(","),
+        [rawLeftMemberPubkeys],
+    );
+    const rawExpelledMemberPubkeysFingerprint = React.useMemo(
+        () => rawExpelledMemberPubkeys.join(","),
+        [rawExpelledMemberPubkeys],
+    );
     const provisionalMemberPubkeys = React.useMemo(() => {
         const groupId = group?.groupId || id || "";
         if (!groupId || !effectiveRelay) {
@@ -325,13 +401,24 @@ export default function GroupHomePage() {
         () => Array.from(new Set([...activeMembers, ...provisionalMemberPubkeys])) as ReadonlyArray<PublicKeyHex>,
         [activeMembers, provisionalMemberPubkeys],
     );
+    const coordinationMembershipDirectory = useCoordinationMembershipDirectory(
+        group?.communityId ?? group?.groupId ?? id,
+    );
     const inviteEligibleMemberPubkeys = React.useMemo(
-        () => resolveInviteEligibleMemberPubkeys({
-            activeMemberPubkeys: effectiveActiveMembers,
+        () => resolveCommunityInviteMemberBlocklist({
+            communityMode: group?.communityMode,
+            coordinationDirectory: coordinationMembershipDirectory,
+            hybridActiveMemberPubkeys: effectiveActiveMembers,
             leftMemberPubkeys: rawLeftMemberPubkeys,
             expelledMemberPubkeys: rawExpelledMemberPubkeys,
         }),
-        [effectiveActiveMembers, rawExpelledMemberPubkeys, rawLeftMemberPubkeys],
+        [
+            coordinationMembershipDirectory,
+            effectiveActiveMembers,
+            group?.communityMode,
+            rawExpelledMemberPubkeys,
+            rawLeftMemberPubkeys,
+        ],
     );
 
     useEffect(() => {
@@ -360,11 +447,21 @@ export default function GroupHomePage() {
         if (terminalChanged || provisionalChanged) {
             setProvisionalOverlayEpoch((e) => e + 1);
         }
-    }, [activeMembers, conversationAuthorPubkeys, effectiveRelay, group?.groupId, id, rawExpelledMemberPubkeys, rawLeftMemberPubkeys]);
+    }, [
+        activeMembersFingerprint,
+        conversationAuthorPubkeysFingerprint,
+        effectiveRelay,
+        group?.groupId,
+        id,
+        rawExpelledMemberPubkeysFingerprint,
+        rawLeftMemberPubkeysFingerprint,
+    ]);
 
+    const refreshCommunityMembershipRef = useRef(refreshCommunityMembership);
+    refreshCommunityMembershipRef.current = refreshCommunityMembership;
     useEffect(() => {
         const groupId = group?.groupId || id || "";
-        if (!groupId || !effectiveRelay) {
+        if (!groupId || !effectiveRelay || !communityRelayTransportReady) {
             return;
         }
         const timerId = window.setTimeout(() => {
@@ -372,11 +469,13 @@ export default function GroupHomePage() {
                 groupId,
                 relayUrl: effectiveRelay,
                 profileId: getResolvedProfileId(),
-                refreshRelaySubscription: refreshCommunityMembership,
+                refreshRelaySubscription: () => {
+                    refreshCommunityMembershipRef.current();
+                },
             });
         }, COMMUNITY_MEMBERSHIP_AUTO_RECONCILE_DEBOUNCE_MS);
         return () => window.clearTimeout(timerId);
-    }, [effectiveRelay, group?.groupId, id, refreshCommunityMembership]);
+    }, [communityRelayTransportReady, effectiveRelay, group?.groupId, id]);
 
     const directoryParticipantPubkeys = React.useMemo(
         () => (knownParticipantPubkeys ?? []) as ReadonlyArray<PublicKeyHex>,
@@ -385,6 +484,23 @@ export default function GroupHomePage() {
     const relayEvidenceConfidence = (
         groupState as { relayEvidenceRef?: { confidenceLevel: "seed_only" | "warming_up" | "partial_eose" | "steady_state" } }
     ).relayEvidenceRef?.confidenceLevel ?? "seed_only";
+    const rosterLeftMemberPubkeys = React.useMemo(
+        () => mergeCoordinationTerminalMemberPubkeys(
+            rawLeftMemberPubkeys,
+            coordinationMembershipDirectory,
+            "left",
+        ),
+        [coordinationMembershipDirectory, rawLeftMemberPubkeys],
+    );
+    const rosterExpelledMemberPubkeys = React.useMemo(
+        () => mergeCoordinationTerminalMemberPubkeys(
+            rawExpelledMemberPubkeys,
+            coordinationMembershipDirectory,
+            "expelled",
+        ),
+        [coordinationMembershipDirectory, rawExpelledMemberPubkeys],
+    );
+
     const { displayPubkeys: rosterDisplayPubkeys, authorEvidencePubkeys } = useCommunityParticipantRosterReadModel({
         conversationId: group?.id ?? "",
         directoryParticipantPubkeys,
@@ -393,15 +509,31 @@ export default function GroupHomePage() {
         rosterSeedPubkeys: seededMemberEvidence,
         communityMessages: groupState.messages,
         localMemberPubkey,
-        leftMemberPubkeys: rawLeftMemberPubkeys,
-        expelledMemberPubkeys: rawExpelledMemberPubkeys,
+        leftMemberPubkeys: rosterLeftMemberPubkeys,
+        expelledMemberPubkeys: rosterExpelledMemberPubkeys,
         relayEvidenceConfidence,
         persistedEvidenceOwnerPubkey: localMemberPubkey,
         ledgerGroupId: group?.groupId,
         ledgerRelayUrl: group?.relayUrl,
-        /** MEM-001: relay-inferred terminal must not shrink the widen-only participant session. */
-        applyTerminalMembershipExclusions: false,
+        applyTerminalMembershipExclusions: shouldApplyTerminalMembershipExclusionsToParticipantRoster(
+            group?.communityMode,
+            coordinationMembershipDirectory,
+        ),
     });
+    const participantDisplayPubkeys = React.useMemo(
+        () => resolveCommunityParticipantDisplayPubkeys({
+            communityMode: group?.communityMode,
+            coordinationDirectory: coordinationMembershipDirectory,
+            monotonicDisplayPubkeys: rosterDisplayPubkeys,
+            localMemberPubkey,
+        }),
+        [
+            coordinationMembershipDirectory,
+            group?.communityMode,
+            localMemberPubkey,
+            rosterDisplayPubkeys,
+        ],
+    );
     const fallbackGroupIdFromRoute = React.useMemo(() => {
         const routeToken = (id ?? "").trim();
         if (!routeToken) {
@@ -432,10 +564,10 @@ export default function GroupHomePage() {
         }
         return fallbackCommunityIdFromRoute || undefined;
     }, [fallbackCommunityIdFromRoute, group?.communityId]);
-    /** Online/Offline columns = membership truth (invite-eligible), not widen-only discovery. */
+    /** Participant list follows coordination directory when R1; invite gates use inviteEligibleMemberPubkeys. */
     const visibleMembers = React.useMemo(
-        () => filterVisibleGroupMembers(inviteEligibleMemberPubkeys, (pubkey) => discoveryCache.getProfile(pubkey)),
-        [inviteEligibleMemberPubkeys]
+        () => filterVisibleGroupMembers(participantDisplayPubkeys, (pubkey) => discoveryCache.getProfile(pubkey)),
+        [participantDisplayPubkeys],
     );
     const provisionalVisibleCount = React.useMemo(
         () => visibleMembers.filter((pk) => (
@@ -708,9 +840,11 @@ export default function GroupHomePage() {
         const fetchRoomKey = async () => {
             const { roomKeyStore } = await import("@/app/features/crypto/room-key-store");
             const key = await roomKeyStore.getRoomKey(group.groupId);
-            if (key) setRoomKeyHex(key);
+            if (key?.trim()) {
+                setRoomKeyHex(key.trim());
+            }
         };
-        fetchRoomKey();
+        void fetchRoomKey();
     }, [group?.groupId, group?.id, notificationPreferenceProfileId]);
 
     const toggleNotifications = () => {
@@ -744,32 +878,96 @@ export default function GroupHomePage() {
         setOfflinePage(1);
         setIsMemberListOpen(true);
     };
+    useEffect(() => {
+        if (!isMemberListOpen) {
+            return;
+        }
+        const communityId = (resolvedCommunityId ?? group?.groupId ?? id ?? "").trim();
+        if (!communityId) {
+            return;
+        }
+        void refreshCommunityMembershipTruth({
+            communityId,
+            communityMode: group?.communityMode ?? groupState.metadata?.communityMode,
+            localMemberPubkey,
+            forceFull: true,
+        });
+    }, [
+        group?.communityMode,
+        group?.groupId,
+        groupState.metadata?.communityMode,
+        id,
+        isMemberListOpen,
+        localMemberPubkey,
+        resolvedCommunityId,
+    ]);
     const closeMemberList = (): void => {
         setIsMemberListOpen(false);
         setMemberSearchQuery("");
         setOnlinePage(1);
         setOfflinePage(1);
     };
-    const handleReconcileMembership = React.useCallback(() => {
+    const handleReconcileMembership = React.useCallback(async (options?: Readonly<{ silent?: boolean }>) => {
         const groupId = group?.groupId || id || "";
         if (!groupId || !effectiveRelay) {
-            toast.error("Community details are missing; cannot reconcile.");
+            if (!options?.silent) {
+                toast.error("Community details are missing; cannot reconcile.");
+            }
             return;
         }
-        reconcileCommunityMembershipEvidence({
+        const communityMode = groupState.metadata?.communityMode ?? group?.communityMode;
+        const outcome = await reconcileWorkspaceMembershipEvidence({
             groupId,
             relayUrl: effectiveRelay,
             profileId: getResolvedProfileId(),
+            communityId: group?.communityId,
+            communityMode,
             refreshRelaySubscription: refreshCommunityMembership,
+            onSemanticMemberEvent: usesCoordinationMembershipDirectory(communityMode)
+                ? applyCoordinationSemanticMemberEvent
+                : undefined,
         });
         setProvisionalOverlayEpoch((e) => e + 1);
+        if (options?.silent) {
+            return;
+        }
+        if (outcome.coordination && !outcome.coordination.ok) {
+            toast.error(
+                t(
+                    "groups.membershipEvidence.reconcileCoordinationFailed",
+                    "Relay refresh started, but coordination directory sync failed. Check coordination URL and retry.",
+                ),
+            );
+            return;
+        }
+        const coordinationApplied = outcome.coordination?.appliedDeltaCount ?? 0;
         toast.success(
-            t(
-                "groups.membershipEvidence.reconcileToast",
-                "Cleared provisional overlay and requested a fresh relay pull.",
-            ),
+            outcome.coordination
+                ? t(
+                    "groups.membershipEvidence.reconcileToastCoordination",
+                    "Cleared provisional overlay, refreshed relay, and applied {{count}} coordination update(s).",
+                    { count: coordinationApplied },
+                )
+                : t(
+                    "groups.membershipEvidence.reconcileToast",
+                    "Cleared provisional overlay and requested a fresh relay pull.",
+                ),
         );
-    }, [effectiveRelay, group?.groupId, id, refreshCommunityMembership, t]);
+    }, [
+        applyCoordinationSemanticMemberEvent,
+        effectiveRelay,
+        group?.communityId,
+        group?.communityMode,
+        group?.groupId,
+        groupState.metadata?.communityMode,
+        id,
+        refreshCommunityMembership,
+        t,
+    ]);
+    const refreshMembershipForInviteOpen = React.useCallback(
+        () => handleReconcileMembership({ silent: true }),
+        [handleReconcileMembership],
+    );
     const handleClearTerminalMembership = React.useCallback(() => {
         const groupId = group?.groupId || id || "";
         if (!groupId || !effectiveRelay) {
@@ -803,6 +1001,32 @@ export default function GroupHomePage() {
         communityId: resolvedCommunityId,
     }), [displayName, effectiveRelay, group?.groupId, id, resolvedCommunityId, resolvedGroupId]);
 
+    const handleDeleteCommunity = () => {
+        if (!group?.groupId || !group.relayUrl) {
+            toast.error("Community details are missing; unable to delete.");
+            return;
+        }
+        const label = displayName || group.displayName || "this community";
+        const confirmed = window.confirm(
+            `Permanently remove "${label}" from this device?\n\nThis clears local chat, membership, and ledger data for Tester1 on this profile. It cannot be undone here.`,
+        );
+        if (!confirmed) {
+            return;
+        }
+        leaveGroup({
+            groupId: group.groupId,
+            relayUrl: group.relayUrl,
+            conversationId: group.id,
+        });
+        forcePurgeCommunity({
+            groupId: group.groupId,
+            relayUrl: group.relayUrl,
+            conversationId: group.id,
+        });
+        toast.success("Community removed from this device");
+        router.push("/network");
+    };
+
     const handleBlockAction = () => {
         if (isBlocked) {
             handleToggleBlock();
@@ -828,6 +1052,11 @@ export default function GroupHomePage() {
 
     const rosterEvidenceHeaderExtras = (
         <>
+            <CommunityLegacySovereignNotice
+                communityMode={group?.communityMode ?? groupState.metadata?.communityMode}
+                relayUrl={effectiveRelay}
+                className="w-full max-w-2xl"
+            />
             {!directoryHonesty.claimsAuthoritativeDirectory ? (
                 <CommunityDirectoryHonestyNotice honesty={directoryHonesty} className="w-full max-w-2xl" />
             ) : null}
@@ -1039,8 +1268,10 @@ export default function GroupHomePage() {
                                         </Button>
                                     ) : (
                                         <Button
-                                            onClick={requestJoinNip29}
-                                            className="h-16 px-10 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white font-black text-lg shadow-2xl shadow-purple-500/20 transition-all hover:scale-[1.02] active:scale-95 gap-3"
+                                            onClick={() => void handleGuestJoin()}
+                                            disabled={guestJoinBlocked}
+                                            title={guestJoinBlocked ? guestJoinTrust.userMessage : undefined}
+                                            className="h-16 px-10 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white font-black text-lg shadow-2xl shadow-purple-500/20 transition-all hover:scale-[1.02] active:scale-95 gap-3 disabled:opacity-50"
                                         >
                                             <UserPlus className="h-6 w-6" />
                                             Join Community
@@ -1051,7 +1282,7 @@ export default function GroupHomePage() {
                                         <Button
                                             onClick={() => setIsInviteConnectionsOpen(true)}
                                             disabled={!roomKeyHex}
-                                            title={roomKeyHex ? undefined : "Loading community encryption keys…"}
+                                            title={roomKeyHex ? undefined : "Community room key is not on this device. Open Manage community → rotate room key if you created this community before the storage update, then invite again."}
                                             className={cn(
                                                 "h-16 gap-3 rounded-2xl border border-black/10 bg-zinc-900/90 px-8 text-white transition-all hover:scale-[1.02] hover:bg-zinc-800/90 active:scale-95 dark:border-white/5 dark:bg-zinc-800/80 dark:hover:bg-zinc-700/80",
                                                 safeVisualMode ? "backdrop-blur-none" : "backdrop-blur-md",
@@ -1281,9 +1512,23 @@ export default function GroupHomePage() {
                             </h3>
                         </div>
                         <p className="pl-5 text-xs text-zinc-500">
-                            Block or unblock this community on your device. Open{" "}
-                            <span className="font-semibold text-zinc-600 dark:text-zinc-400">Manage community</span>{" "}
-                            for members, governance, relay settings, and invites.
+                            Block, delete, or unblock this community on your device.
+                            {communityRelayTransportReady ? (
+                                <>
+                                    {" "}
+                                    Open{" "}
+                                    <span className="font-semibold text-zinc-600 dark:text-zinc-400">Manage community</span>{" "}
+                                    for members, governance, relay settings, and invites.
+                                </>
+                            ) : (
+                                <>
+                                    {" "}
+                                    This host is not a Nostr relay (
+                                    <span className="font-mono text-zinc-600 dark:text-zinc-400">{effectiveRelay}</span>
+                                    ) — use Delete below, then recreate with a{" "}
+                                    <span className="font-semibold text-zinc-600 dark:text-zinc-400">wss://</span> relay.
+                                </>
+                            )}
                         </p>
                     </div>
 
@@ -1295,7 +1540,7 @@ export default function GroupHomePage() {
                                 : "border-black/10 bg-white/80 backdrop-blur-xl dark:border-white/[0.03] dark:bg-[#0C0C0E]/40",
                         )}
                     >
-                        <div className="flex flex-col">
+                        <div className="flex flex-col divide-y divide-black/5 dark:divide-white/[0.04]">
                             <button
                                 onClick={handleBlockAction}
                                 className="flex items-center justify-between p-8 hover:bg-rose-500/[0.02] transition-colors group/item"
@@ -1314,6 +1559,39 @@ export default function GroupHomePage() {
                                     </div>
                                 </div>
                             </button>
+                            {!isGuest && group ? (
+                                <button
+                                    type="button"
+                                    onClick={handleDeleteCommunity}
+                                    className="flex items-center justify-between p-8 transition-colors hover:bg-rose-500/[0.04] group/item"
+                                >
+                                    <div className="flex items-center gap-6">
+                                        <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-rose-500/30 bg-rose-500/15 transition-transform group-hover/item:scale-110">
+                                            <Trash2 className="h-6 w-6 text-rose-500" />
+                                        </div>
+                                        <div className="space-y-1 text-left">
+                                            <p className="text-xl font-black text-rose-600 transition-colors group-hover/item:text-rose-500 dark:text-rose-400">
+                                                Delete community
+                                            </p>
+                                            <p className="text-sm font-medium text-zinc-700 dark:text-zinc-500">
+                                                Remove all local data for this community on Tester1 (keeps your account).
+                                            </p>
+                                        </div>
+                                    </div>
+                                </button>
+                            ) : null}
+                            {!isGuest && group ? (
+                                <button
+                                    type="button"
+                                    onClick={() => router.push(buildGroupPurgeHref(groupActionRouteParams))}
+                                    className="flex items-center justify-between px-8 py-5 text-left transition-colors hover:bg-zinc-500/[0.03]"
+                                >
+                                    <p className="text-xs font-bold uppercase tracking-widest text-zinc-500">
+                                        Open full purge confirmation page
+                                    </p>
+                                    <ChevronRight className="h-4 w-4 text-zinc-500" />
+                                </button>
+                            ) : null}
                         </div>
                     </Card>
                 </div>
@@ -1340,6 +1618,7 @@ export default function GroupHomePage() {
                         communityId={group.communityId}
                         genesisEventId={group.genesisEventId}
                         creatorPubkey={group.creatorPubkey}
+                        onRefreshMembership={refreshMembershipForInviteOpen}
                         currentMemberPubkeys={inviteEligibleMemberPubkeys}
                         metadata={{
                             id: group.groupId,
@@ -1366,11 +1645,24 @@ export default function GroupHomePage() {
                                     <p className="mt-1 text-xs font-bold uppercase tracking-widest text-zinc-600 dark:text-zinc-500">
                                         {directoryHonesty.claimsAuthoritativeDirectory
                                             ? t(
-                                                "groups.membershipEvidence.participantModalSubtitle",
-                                                "Relay-confirmed and provisional members; leave/expulsion and terminal cache applied to relay evidence.",
+                                                membershipSyncMode === "coordination_preferred"
+                                                    ? "groups.membershipEvidence.participantModalSubtitleCoordination"
+                                                    : "groups.membershipEvidence.participantModalSubtitle",
+                                                membershipSyncMode === "coordination_preferred"
+                                                    ? "Directory sync, relay hints, and provisional members; leave/expulsion applied via kernel and terminal cache."
+                                                    : "Relay hints and provisional members; leave/expulsion and terminal cache applied on this device.",
                                             )
                                             : directoryHonesty.detail}
                                     </p>
+                                    {!directoryHonesty.claimsAuthoritativeDirectory ? (
+                                        <button
+                                            type="button"
+                                            className="mt-2 text-[10px] font-bold uppercase tracking-widest text-sky-700 underline dark:text-sky-300"
+                                            onClick={() => router.push("/settings?tab=relays#membership-sync-settings")}
+                                        >
+                                            {t("groups.openMembershipSyncSettings", "Open membership sync settings")}
+                                        </button>
+                                    ) : null}
                                 </div>
                                 <div className="flex shrink-0 items-start gap-2">
                                     <CommunityMembershipEvidenceToolbar
@@ -1415,6 +1707,7 @@ export default function GroupHomePage() {
                                                     activeMemberPubkeys: activeMembers,
                                                     provisionalMemberPubkeys,
                                                 })}
+                                                membershipEvidenceUiContext={membershipEvidenceUiContext}
                                                 onOpenProfile={(memberPubkey) => {
                                                     closeMemberList();
                                                     router.push(getPublicProfileHref(memberPubkey));
@@ -1466,6 +1759,7 @@ export default function GroupHomePage() {
                                                     activeMemberPubkeys: activeMembers,
                                                     provisionalMemberPubkeys,
                                                 })}
+                                                membershipEvidenceUiContext={membershipEvidenceUiContext}
                                                 onOpenProfile={(memberPubkey) => {
                                                     closeMemberList();
                                                     router.push(getPublicProfileHref(memberPubkey));
@@ -1515,6 +1809,7 @@ export default function GroupHomePage() {
                                                 key={`terminal-${entry.kind}-${entry.pubkey}`}
                                                 pubkey={entry.pubkey}
                                                 terminalKind={entry.kind}
+                                                membershipEvidenceUiContext={membershipEvidenceUiContext}
                                                 onOpenProfile={(memberPubkey) => {
                                                     closeMemberList();
                                                     router.push(getPublicProfileHref(memberPubkey));
@@ -1536,10 +1831,12 @@ export default function GroupHomePage() {
 function TerminalMemberProfileRow({
     pubkey,
     terminalKind,
+    membershipEvidenceUiContext,
     onOpenProfile,
 }: Readonly<{
     pubkey: string;
     terminalKind: CommunityTerminalMemberKind;
+    membershipEvidenceUiContext: MembershipEvidenceUiContext;
     onOpenProfile: (pubkey: string) => void;
 }>): React.JSX.Element {
     const { t } = useTranslation();
@@ -1565,7 +1862,7 @@ function TerminalMemberProfileRow({
                 <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                         <p className="truncate text-sm font-black text-zinc-800 dark:text-zinc-200">{displayName}</p>
-                        <CommunityMembershipEvidenceChip tier="terminal" />
+                        <CommunityMembershipEvidenceChip tier="terminal" uiContext={membershipEvidenceUiContext} />
                         <span className="shrink-0 rounded-full bg-zinc-500/20 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-zinc-700 dark:text-zinc-300">
                             {kindLabel}
                         </span>
@@ -1581,11 +1878,13 @@ function MemberProfileRow({
     pubkey,
     status,
     evidenceTier,
-    onOpenProfile
+    membershipEvidenceUiContext,
+    onOpenProfile,
 }: Readonly<{
     pubkey: string;
     status: "online" | "offline";
     evidenceTier: CommunityMemberEvidenceTier;
+    membershipEvidenceUiContext: MembershipEvidenceUiContext;
     onOpenProfile: (pubkey: string) => void;
 }>): React.JSX.Element | null {
     const metadata = useResolvedProfileMetadata(pubkey);
@@ -1614,7 +1913,7 @@ function MemberProfileRow({
                 <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                         <p className="truncate text-sm font-black text-zinc-900 dark:text-zinc-100">{displayName}</p>
-                        <CommunityMembershipEvidenceChip tier={evidenceTier} />
+                        <CommunityMembershipEvidenceChip tier={evidenceTier} uiContext={membershipEvidenceUiContext} />
                         <span
                             className={cn(
                                 "shrink-0 rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-widest",

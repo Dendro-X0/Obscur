@@ -2,19 +2,24 @@
 
 import Image from "next/image";
 import type React from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AuthScreen } from "@/app/features/auth/components/auth-screen";
+import { useIdentity } from "@/app/features/auth/hooks/use-identity";
+import { startupAuthStateHasStoredIdentity } from "@/app/features/auth/services/startup-auth-state-contracts";
 import { Button } from "@dweb/ui-kit";
 import { useWindowRuntime } from "@/app/features/runtime/services/window-runtime-supervisor";
 import { logAppEvent } from "@/app/shared/log-app-event";
-
-const PROFILE_BOOT_STALL_TIMEOUT_MS = 12_000;
+import { resolveProfileBootStallTimeoutMs } from "@/app/features/runtime/services/profile-boot-stall-policy";
 
 export function ProfileBoundAuthShell(): React.JSX.Element {
   const runtimeActions = useWindowRuntime();
+  const identity = useIdentity();
   const runtime = runtimeActions.snapshot;
   const startupState = runtime.session.startupState;
   const [profileBootStalled, setProfileBootStalled] = useState(false);
+  const [profileBootWaitEpoch, setProfileBootWaitEpoch] = useState(0);
+  /** After first auth-ready frame, keep AuthScreen mounted through binding flicker. */
+  const hasReleasedAuthSurfaceRef = useRef(false);
 
   useEffect(() => {
     const isPendingProfileBoot = startupState.kind === "pending" && (runtime.phase === "booting" || runtime.phase === "binding_profile");
@@ -22,6 +27,7 @@ export function ProfileBoundAuthShell(): React.JSX.Element {
       setProfileBootStalled(false);
       return;
     }
+    const timeoutMs = resolveProfileBootStallTimeoutMs();
     const timeoutId = window.setTimeout(() => {
       setProfileBootStalled(true);
       logAppEvent({
@@ -30,16 +36,28 @@ export function ProfileBoundAuthShell(): React.JSX.Element {
         scope: { feature: "runtime", action: "profile_boot" },
         context: {
           phase: runtime.phase,
-          timeoutMs: PROFILE_BOOT_STALL_TIMEOUT_MS,
+          timeoutMs,
         },
       });
-    }, PROFILE_BOOT_STALL_TIMEOUT_MS);
+    }, timeoutMs);
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [runtime.phase, startupState.kind]);
+  }, [runtime.phase, startupState.kind, profileBootWaitEpoch]);
 
-  if (startupState.kind === "pending" && (runtime.phase === "booting" || runtime.phase === "binding_profile") && !profileBootStalled) {
+  if (startupState.kind !== "pending") {
+    hasReleasedAuthSurfaceRef.current = true;
+  }
+
+  const isBlockingInitialBoot = (
+    !hasReleasedAuthSurfaceRef.current
+    && startupState.kind === "pending"
+    && (runtime.phase === "booting" || runtime.phase === "binding_profile")
+    && identity.state.status === "loading"
+    && !startupAuthStateHasStoredIdentity(startupState)
+  );
+
+  if (isBlockingInitialBoot && !profileBootStalled) {
     return (
       <div className="flex-1 flex items-center justify-center bg-zinc-50 dark:bg-black">
         <div className="relative flex h-24 w-24 items-center justify-center">
@@ -50,7 +68,7 @@ export function ProfileBoundAuthShell(): React.JSX.Element {
     );
   }
 
-  if (startupState.kind === "pending" && (runtime.phase === "booting" || runtime.phase === "binding_profile")) {
+  if (isBlockingInitialBoot && profileBootStalled) {
     return (
       <div className="flex flex-1 items-center justify-center bg-zinc-50 text-zinc-700 dark:bg-black dark:text-zinc-200">
         <div className="w-full max-w-lg rounded-2xl border border-black/10 bg-white/80 px-5 py-4 text-sm font-medium shadow-sm dark:border-white/10 dark:bg-white/5">
@@ -63,6 +81,8 @@ export function ProfileBoundAuthShell(): React.JSX.Element {
               type="button"
               variant="outline"
               onClick={() => {
+                setProfileBootStalled(false);
+                setProfileBootWaitEpoch((epoch) => epoch + 1);
                 void runtimeActions.refreshWindowBinding();
               }}
             >

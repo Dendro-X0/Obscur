@@ -69,19 +69,12 @@ describe("buildCommunityInviteResponseStatusByMessageId", () => {
         expect(map.get("invite-outgoing-id")).toBeUndefined();
     });
 
-    it("links groupId fallback only when replyTo is missing", () => {
-        const inviteA = baseMessage({
+    it("links groupId fallback only when replyTo is missing and the group has one invite", () => {
+        const invite = baseMessage({
             id: "invite-a",
             eventId: "invite-a",
             isOutgoing: true,
             timestamp: new Date(1_700_000_000_000),
-            content: JSON.stringify({ type: "community-invite", groupId: "g1", roomKey: "rk" }),
-        });
-        const inviteB = baseMessage({
-            id: "invite-b",
-            eventId: "invite-b",
-            isOutgoing: true,
-            timestamp: new Date(1_700_000_050_000),
             content: JSON.stringify({ type: "community-invite", groupId: "g1", roomKey: "rk" }),
         });
         const response = baseMessage({
@@ -90,9 +83,32 @@ describe("buildCommunityInviteResponseStatusByMessageId", () => {
             timestamp: new Date(1_700_000_200_000),
             content: JSON.stringify({ type: "community-invite-response", status: "accepted", groupId: "g1" }),
         });
-        const map = buildCommunityInviteResponseStatusByMessageId([inviteA, inviteB, response]);
-        expect(map.get("invite-a")).toBeUndefined();
-        expect(map.get("invite-b")).toBe("accepted");
+        const map = buildCommunityInviteResponseStatusByMessageId([invite, response]);
+        expect(map.get("invite-a")).toBe("accepted");
+    });
+
+    it("does not bind unlinked legacy responses when multiple invites exist for the same group", () => {
+        const firstInvite = baseMessage({
+            id: "invite-1",
+            isOutgoing: false,
+            timestamp: new Date(1_700_000_000_000),
+            content: JSON.stringify({ type: "community-invite", groupId: "g1", roomKey: "rk" }),
+        });
+        const accepted = baseMessage({
+            id: "response-1",
+            isOutgoing: true,
+            timestamp: new Date(1_700_000_200_000),
+            content: JSON.stringify({ type: "community-invite-response", status: "accepted", groupId: "g1" }),
+        });
+        const secondInvite = baseMessage({
+            id: "invite-2",
+            isOutgoing: false,
+            timestamp: new Date(1_700_000_400_000),
+            content: JSON.stringify({ type: "community-invite", groupId: "g1", roomKey: "rk2" }),
+        });
+        const map = buildCommunityInviteResponseStatusByMessageId([firstInvite, accepted, secondInvite]);
+        expect(map.get("invite-1")).toBeUndefined();
+        expect(map.get("invite-2")).toBeUndefined();
     });
 
     it("does not apply an older response to a newer invite for the same group", () => {

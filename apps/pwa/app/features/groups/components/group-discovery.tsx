@@ -18,6 +18,7 @@ import { Card } from "@dweb/ui-kit";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "next/navigation";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
+import { useRelayPoolRef } from "@/app/features/relays/hooks/use-relay-pool-ref";
 import { toast } from "@dweb/ui-kit";
 import { useGroups } from "../providers/group-provider";
 import { cn } from "@dweb/ui-kit";
@@ -42,6 +43,7 @@ export function GroupDiscovery({ searchQuery = "" }: GroupDiscoveryProps) {
     const { t } = useTranslation();
     const router = useRouter();
     const { relayPool } = useRelay();
+    const relayPoolRef = useRelayPoolRef(relayPool);
     const { createdGroups } = useGroups();
     const [searchRelay, setSearchRelay] = useState("wss://relay.nostr.band");
     const [groups, setGroups] = useState<DiscoveredGroup[]>([]);
@@ -50,17 +52,18 @@ export function GroupDiscovery({ searchQuery = "" }: GroupDiscoveryProps) {
     const itemsPerPage = 6;
 
     const fetchGroups = useCallback(async (relayUrl: string) => {
+        const pool = relayPoolRef.current;
         setIsLoading(true);
         setGroups([]);
         try {
             const cleanUrl = relayUrl.startsWith("ws") ? relayUrl : `wss://${relayUrl}`;
-            relayPool.addTransientRelay(cleanUrl);
-            await relayPool.waitForConnection(3000);
+            pool.addTransientRelay(cleanUrl);
+            await pool.waitForConnection(3000);
 
             const subId = `discovery-${Math.random().toString(36).substring(7)}`;
             const filter = { kinds: [39000], limit: 50 };
 
-            const cleanup = relayPool.subscribeToMessages(({ message }) => {
+            const cleanup = pool.subscribeToMessages(({ message }) => {
                 try {
                     const parsed = JSON.parse(message);
                     if (parsed[0] === "EVENT" && parsed[1] === subId) {
@@ -88,12 +91,12 @@ export function GroupDiscovery({ searchQuery = "" }: GroupDiscoveryProps) {
                 }
             });
 
-            relayPool.sendToOpen(JSON.stringify(["REQ", subId, filter]));
+            pool.sendToOpen(JSON.stringify(["REQ", subId, filter]));
 
             // Set a timeout to stop loading and cleanup
             setTimeout(() => {
                 cleanup();
-                try { relayPool.sendToOpen(JSON.stringify(["CLOSE", subId])); } catch { }
+                try { pool.sendToOpen(JSON.stringify(["CLOSE", subId])); } catch { }
                 setIsLoading(false);
             }, 5000);
 
@@ -102,7 +105,7 @@ export function GroupDiscovery({ searchQuery = "" }: GroupDiscoveryProps) {
             toast.error("Failed to connect to relay for discovery");
             setIsLoading(false);
         }
-    }, [relayPool]);
+    }, [relayPoolRef]);
 
     useEffect(() => {
         queueMicrotask(() => {

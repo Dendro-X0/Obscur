@@ -60,7 +60,33 @@ Desktop-first patch: governance TTL and tie handling, duplicate-resolution idemp
 
 - **Version line** — Minor bump `1.7.x` → `1.8.x`; feature work proceeds in `v1.8.1+` patches per program roadmap.
 
-## [v1.8.2] - Unreleased
+## [v1.8.3] - 2026-05-27
+
+**Scope:** [v1.8.3-scope.md](docs/program/v1.8.3-scope.md). **Gate:** [v1.8.3-gate.md](docs/releases/v1.8.3-gate.md). Lane **T** — REL-004 leave durability.
+
+### Changed
+
+- **REL-004** — Leave intent and ledger/outbox apply before relay publish; left communities do not resurrect on relay failure or offline windows.
+- **MEM-002 (partial)** — Sealed `leftMembers` terminal evidence applied before widen-only discovery roster in participant surfaces; coordination directory truth for workspace participant display (no monotonic ghost roster when coordination is configured).
+- **Outbox UX** — Pending leave publish surfaced on Network and group cards with honest retry/terminal copy.
+- **Invite DM UX** — Outgoing invite cards show local avatar and readable timestamps; ledger synthetic rows carry sender pubkey.
+
+### Fixed
+
+- **Desktop dev** — `/groups/view` 404 under `dev:desktop:online` (static export + Suspense).
+- **Invite thread** — Dedupe prefers hydrated rows over ledger synthetics; no `??` avatar on inviter cards.
+
+### Added
+
+- Leave path audit and REL-001 intent guard tests; background outbox retry on runtime activation.
+- **Community invite DM (partial, on `main`)** — Stable `inviteId` on wire; unified invite pipeline/ledger; inviter DM thread shows outbound invites, superseded cards, and inbound **Acceptance recorded** responses (maintainer soak 2026-05-27).
+
+### Known limitations
+
+- Relay-backed **group join after accept** (`Complete join on relay`) and full two-profile community chat E2E deferred to **v1.8.4** (transport soak, not roster logic).
+- Group chat on a community relay requires that relay writable in Settings; not a REL-004 claim.
+
+## [v1.8.2] - 2026-05-22
 
 **Scope:** [v1.8.2-scope.md](docs/program/v1.8.2-scope.md). **Gate:** [v1.8.2-gate.md](docs/releases/v1.8.2-gate.md). Phase **4.2** — manage hub.
 

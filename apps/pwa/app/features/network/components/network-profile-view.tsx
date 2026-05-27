@@ -37,16 +37,17 @@ import type { DmConversation, GroupConversation } from "@/app/features/messaging
 import { GroupService } from "@/app/features/groups/services/group-service";
 import { roomKeyStore } from "@/app/features/crypto/room-key-store";
 import type { GroupMetadata } from "@/app/features/groups/types";
-import { MessageQueue } from "@/app/features/messaging/lib/message-queue";
 import type { Message } from "@/app/features/messaging/types";
-import { messageBus } from "@/app/features/messaging/services/message-bus";
 import { InvitationComposerDialog } from "@/app/features/messaging/components/invitation-composer-dialog";
 import { toDmConversationId } from "@/app/features/messaging/utils/dm-conversation-id";
 import { buildOutgoingCommunityInviteDmMessage } from "@/app/features/groups/utils/community-invite-dm-message";
+import { commitOutgoingCommunityInviteDm } from "@/app/features/groups/services/community-invite-dm-orchestrator";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { createDmConversation } from "@/app/features/messaging/utils/create-dm-conversation";
+import { upsertDmConversationInList } from "@/app/features/messaging/utils/dm-conversation-list-merge";
+import { publishDmNostrEvent } from "@/app/features/messaging/services/publish-dm-nostr-event";
 import { getPublicProfileHref, toAbsoluteAppUrl } from "@/app/features/navigation/public-routes";
 import { requestFlowEvidenceStore } from "@/app/features/messaging/services/request-flow-evidence-store";
-import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { deriveRequestProjection } from "@/app/features/messaging/services/request-status-projection";
 import { writePendingVoiceCallRequest } from "@/app/features/messaging/services/realtime-voice-pending-request";
 import {
@@ -65,8 +66,8 @@ export default function ConnectionProfileView() {
     const router = useRouter();
     const { t } = useTranslation();
     const { peerTrust, requestsInbox, blocklist, presence } = useNetwork();
-    const { createdConnections, setSelectedConversation } = useMessaging();
-    const { relayPool } = useRelay();
+    const { createdConnections, setSelectedConversation, setCreatedConnections } = useMessaging();
+    const { relayPool, enabledRelayUrls } = useRelay();
     const identity = useIdentity();
 
     const [isRemoveDialogOpen, setIsRemoveDialogOpen] = React.useState(false);
@@ -260,19 +261,19 @@ export default function ConnectionProfileView() {
         if (existing) {
             setSelectedConversation(existing);
             return existing;
-        } else {
-            const newConv = createDmConversation({
-                myPublicKeyHex: myPk,
-                peerPublicKeyHex: pk as PublicKeyHex,
-                displayName: resolvedName || PRIVATE_CONTACT_LABEL,
-            });
-            if (!newConv) {
-                toast.error("Invalid conversation identity for this profile.");
-                return null;
-            }
-            setSelectedConversation(newConv);
-            return newConv;
         }
+        const newConv = createDmConversation({
+            myPublicKeyHex: myPk,
+            peerPublicKeyHex: pk as PublicKeyHex,
+            displayName: resolvedName || PRIVATE_CONTACT_LABEL,
+        });
+        if (!newConv) {
+            toast.error("Invalid conversation identity for this profile.");
+            return null;
+        }
+        setCreatedConnections((previous) => upsertDmConversationInList(previous, newConv));
+        setSelectedConversation(newConv);
+        return newConv;
     };
 
     const handleMessage = () => {
@@ -365,7 +366,11 @@ export default function ConnectionProfileView() {
                 pk as PublicKeyHex,
             );
 
-            await relayPool.publishToAll(JSON.stringify(["EVENT", giftWrapEvent]));
+            const publishResult = await publishDmNostrEvent(relayPool, enabledRelayUrls, giftWrapEvent);
+            const dmPublishOk = publishResult.success;
+            if (!dmPublishOk) {
+                toast.error("Invitation could not reach any DM relay. Saved locally; it will still appear in chat as pending.");
+            }
 
             const conversationId = toDmConversationId({ myPublicKeyHex, peerPublicKeyHex: pk });
             if (!conversationId) {
@@ -388,14 +393,32 @@ export default function ConnectionProfileView() {
                 creatorPubkey: group.creatorPubkey,
             });
 
-            const mq = new MessageQueue(myPublicKeyHex);
-            await mq.persistMessage(inviteMessage as any);
+            const canonicalInvite = await commitOutgoingCommunityInviteDm({
+                inviteMessage,
+                accountPublicKeyHex: myPublicKeyHex,
+                profileId: getResolvedProfileId(),
+            });
 
-            // Notify bus for real-time updates (instead of manual state setter)
-            messageBus.emit({ type: 'new_message', conversationId, message: inviteMessage });
+            const openedConversation = createDmConversation({
+                myPublicKeyHex,
+                peerPublicKeyHex: pk as PublicKeyHex,
+                displayName: resolvedName || PRIVATE_CONTACT_LABEL,
+            });
+            if (openedConversation) {
+                setCreatedConnections((previous) => upsertDmConversationInList(
+                    previous,
+                    {
+                        ...openedConversation,
+                        lastMessage: "Community invitation",
+                        lastMessageTime: canonicalInvite.timestamp,
+                    },
+                ));
+            }
 
             setIsInviteDialogOpen(false);
-            toast.success(t("network.notifications.invited", "Invitation sent to {{name}}", { name: resolvedName }));
+            if (dmPublishOk) {
+                toast.success(t("network.notifications.invited", "Invitation sent to {{name}}", { name: resolvedName }));
+            }
         } catch (error) {
             console.error("Failed to send invite:", error);
             toast.error(t("network.notifications.inviteFailed", "Failed to send invitation"));

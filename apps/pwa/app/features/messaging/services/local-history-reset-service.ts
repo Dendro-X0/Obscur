@@ -1,7 +1,8 @@
 "use client";
 
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
-import { messagingDB } from "@dweb/storage/indexed-db";
+import { clearInMemoryIdb } from "@/app/features/storage/in-memory-idb-shim";
+import { messageDbName } from "@/app/features/messaging/lib/message-db-name";
 import { normalizePublicKeyHex } from "@/app/features/profile/utils/normalize-public-key-hex";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { accountProjectionRuntime } from "@/app/features/account-sync/services/account-projection-runtime";
@@ -86,20 +87,12 @@ const clearObjectStore = async (db: IDBDatabase, storeName: string): Promise<voi
 );
 
 const clearMessagingStores = async (): Promise<number> => {
-  const stores: ReadonlyArray<string> = ["messages", "conversations", "chatState"];
-  let cleared = 0;
-  for (const storeName of stores) {
-    try {
-      await messagingDB.clear(storeName);
-      cleared += 1;
-    } catch {
-      // Best-effort per store.
-    }
-  }
-  return cleared;
+  clearInMemoryIdb("dweb_messenger_db");
+  return 0;
 };
 
 const clearLegacyMessageQueueStores = async (): Promise<number> => {
+  clearInMemoryIdb(messageDbName);
   const db = await openMessageDb();
   let cleared = 0;
   try {
@@ -118,16 +111,9 @@ const clearLegacyMessageQueueStores = async (): Promise<number> => {
 };
 
 const clearAccountEventLogStore = async (): Promise<number> => {
-  const db = await accountEventStoreInternals.openDb();
-  try {
-    if (!db.objectStoreNames.contains(accountEventStoreInternals.EVENTS_STORE)) {
-      return 0;
-    }
-    await clearObjectStore(db, accountEventStoreInternals.EVENTS_STORE);
-    return 1;
-  } finally {
-    db.close();
-  }
+  // IndexedDB account event log excised; in-memory store has no IDB object stores to clear.
+  await accountEventStoreInternals.openDb();
+  return 0;
 };
 
 const defaultDependencies: LocalHistoryResetDependencies = {

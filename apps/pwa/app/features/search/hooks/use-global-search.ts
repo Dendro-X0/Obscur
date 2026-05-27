@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useMemo, useEffect } from "react";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
+import { useRelayPoolRef } from "@/app/features/relays/hooks/use-relay-pool-ref";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { NostrFilter } from "@/app/features/relays/types/nostr-filter";
 import { DiscoveryEngine } from "@/app/features/search/services/discovery-engine";
@@ -102,6 +103,7 @@ export function useGlobalSearch(options: UseGlobalSearchOptions) {
     const defaultIntent = options.intent ?? "add_friend";
     void options.myPublicKeyHex;
     const { relayPool: pool, relayRecovery } = useRelay();
+    const poolRef = useRelayPoolRef(pool);
     const tanstackQueryRuntime = useTanstackQueryRuntime();
     const { createdGroups } = useGroups();
 
@@ -170,7 +172,7 @@ export function useGlobalSearch(options: UseGlobalSearchOptions) {
                 return DiscoveryEngine.run({
                     query: trimmedQuery,
                     intent: effectiveIntent,
-                    pool,
+                    pool: poolRef.current,
                     relayTimeoutMs: SEARCH_TIMEOUT_MS,
                     signal,
                     localCommunities: createdGroups.map((group) => ({
@@ -254,7 +256,7 @@ export function useGlobalSearch(options: UseGlobalSearchOptions) {
                 searchAbortRef.current = null;
             }
         }
-    }, [pool, relayRecovery.writableRelayCount, invalidatePreviousSearches, clearResults, createdGroups, defaultIntent, options]);
+    }, [poolRef, relayRecovery.writableRelayCount, invalidatePreviousSearches, clearResults, createdGroups, defaultIntent, options, tanstackQueryRuntime]);
 
     const isSearching = queryState.phase === "running" || queryState.phase === "partial";
 

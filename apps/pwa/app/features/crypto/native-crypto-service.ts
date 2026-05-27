@@ -120,6 +120,13 @@ export class NativeCryptoService extends CryptoServiceImpl implements CryptoServ
         return this.getActualKey();
     }
 
+    /** Resolve desktop identity sentinel to hex for JS-only signing (e.g. coordination membership deltas). */
+    async resolveIdentityPrivateKeyForSigning(
+        privateKey: PrivateKeyHex = NATIVE_KEY_SENTINEL,
+    ): Promise<PrivateKeyHex> {
+        return this.resolveFallbackPrivateKey(privateKey);
+    }
+
     async hasNativeKey(): Promise<boolean> {
         if (this.hasNativeKeyCached !== null) return this.hasNativeKeyCached;
         try {

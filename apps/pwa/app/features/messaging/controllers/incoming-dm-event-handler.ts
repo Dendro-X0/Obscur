@@ -24,8 +24,18 @@ import { readInvitationSenderProfileFromTags } from "../services/invitation-send
 import { peerRelayEvidenceStore } from "../services/peer-relay-evidence-store";
 import { requestEventTombstoneStore } from "../services/request-event-tombstone-store";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
+import { toCanonicalOutgoingCommunityInviteMessage } from "@/app/features/groups/utils/community-invite-dm-local-evidence";
+import {
+  applyInboundCommunityDmInvite,
+  applyInboundCommunityDmInviteResponse,
+  parseInvitePayloadFromMessageContent,
+  parseInviteResponsePayloadFromMessageContent,
+} from "@/app/features/groups/services/community-dm-invite-pipeline";
 import { messagingClientOperations } from "../services/messaging-client-operations";
 import { dispatchGroupInviteResponseAccepted } from "@/app/features/profiles/services/profile-bus-dispatch";
+import { normalizeCommunityInvitePayload } from "@/app/features/groups/utils/community-invite-payload";
+import { pinCommunityInviteMessageSnapshotForMessage } from "@/app/features/groups/utils/community-invite-message-snapshot";
+import { roomKeyStore } from "@/app/features/crypto/room-key-store";
 import { discoveryCache } from "@/app/features/search/services/discovery-cache";
 import { resolveUiPerformancePolicy } from "../lib/ui-performance";
 import { parseDeleteCommand } from "../utils/commands";
@@ -657,6 +667,20 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
       if (params.messageQueue) {
         const existingMessage = await params.messageQueue.getMessage(usedEventId);
         if (existingMessage) {
+          if (currentParams.onNewMessage) {
+            try {
+              const parsed = JSON.parse(existingMessage.content) as { type?: unknown };
+              if (parsed?.type === "community-invite") {
+                const canonicalInvite = toCanonicalOutgoingCommunityInviteMessage({
+                  ...(existingMessage as unknown as Message),
+                  conversationId: existingMessage.conversationId?.trim() || conversationId,
+                });
+                currentParams.onNewMessage({ ...canonicalInvite, conversationId } as Message);
+              }
+            } catch {
+              // Plaintext self-echo dedupe remains the default path.
+            }
+          }
           return;
         }
       }
@@ -708,6 +732,8 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
       return;
     }
 
+    const inboundConversationId = [currentParams.myPublicKeyHex, actualSenderPubkey].sort().join(":");
+
     try {
       const parsedPayload = JSON.parse(plaintext) as Readonly<{
         type?: string;
@@ -716,6 +742,14 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
         relayUrl?: string;
         communityId?: string;
       }>;
+      const wireResponse = parseInviteResponsePayloadFromMessageContent(plaintext);
+      if (wireResponse && inboundConversationId) {
+        applyInboundCommunityDmInviteResponse({
+          responsePayload: wireResponse,
+          conversationId: inboundConversationId,
+          peerPubkey: actualSenderPubkey as PublicKeyHex,
+        });
+      }
       if (
         parsedPayload?.type === "community-invite-response"
         && parsedPayload.status === "accepted"
@@ -1258,6 +1292,31 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
       encryptedContent: event.content,
       attachments: extractAttachmentsFromContent(plaintext)
     };
+
+    try {
+      const invitePayload = normalizeCommunityInvitePayload(JSON.parse(plaintext));
+      if (invitePayload?.type === "community-invite") {
+        pinCommunityInviteMessageSnapshotForMessage(
+          { id: usedEventId, eventId: usedEventId },
+          invitePayload,
+        );
+        const roomKey = invitePayload.roomKey?.trim();
+        if (roomKey) {
+          await roomKeyStore.saveRoomKey(invitePayload.groupId, roomKey);
+        }
+        const wireInvite = parseInvitePayloadFromMessageContent(plaintext);
+        if (wireInvite && conversationId) {
+          applyInboundCommunityDmInvite({
+            invitePayload: wireInvite,
+            conversationId,
+            peerPubkey: actualSenderPubkey as PublicKeyHex,
+            rumorEventId: usedEventId,
+          });
+        }
+      }
+    } catch {
+      // Non-invite plaintext is expected for normal chat messages.
+    }
 
     if (messagingClientOperations.isDmMessageSuppressed(usedEventId, getResolvedProfileId() ?? undefined)) {
       logRuntimeEvent(

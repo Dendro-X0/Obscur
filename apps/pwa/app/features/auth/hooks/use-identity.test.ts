@@ -59,7 +59,7 @@ describe("useIdentity rehydrate", () => {
     vi.mocked(recoverSingleStoredIdentityProfile).mockResolvedValue(null);
   });
 
-  it("bootstraps stored identity from the canonical SessionApi native restore path", async () => {
+  it("keeps stored identity locked when session auto-unlock policy is disabled", async () => {
     const stored = {
       encryptedPrivateKey: "cipher",
       publicKeyHex: "f".repeat(64) as any,
@@ -77,9 +77,7 @@ describe("useIdentity rehydrate", () => {
     await useIdentityInternals.ensureInitialized();
 
     expect(useIdentityInternals.getIdentitySnapshot()).toEqual(expect.objectContaining({
-      status: "unlocked",
-      publicKeyHex: stored.publicKeyHex,
-      privateKeyHex: "native",
+      status: "locked",
       stored: expect.objectContaining({
         publicKeyHex: stored.publicKeyHex,
       }),
@@ -143,6 +141,28 @@ describe("useIdentity rehydrate", () => {
     const snapshot = useIdentityInternals.getIdentitySnapshot();
     expect(snapshot.status).toBe("unlocked");
     expect(snapshot.publicKeyHex).toBe(stored.publicKeyHex);
+    expect(snapshot.privateKeyHex).toBe("a".repeat(64));
+  });
+
+  it("does not lock an active unlock when profile rehydrate races during import", async () => {
+    const stored = {
+      encryptedPrivateKey: "cipher",
+      publicKeyHex: "f".repeat(64) as any,
+      username: "alice",
+    };
+
+    useIdentityInternals.setIdentityState(
+      useIdentityInternals.createUnlockedState({
+        stored,
+        privateKeyHex: "a".repeat(64) as any,
+      }),
+    );
+
+    vi.mocked(getStoredIdentity).mockResolvedValue({ record: undefined });
+    await useIdentityInternals.rehydrateIdentityForActiveProfile();
+
+    const snapshot = useIdentityInternals.getIdentitySnapshot();
+    expect(snapshot.status).toBe("unlocked");
     expect(snapshot.privateKeyHex).toBe("a".repeat(64));
   });
 

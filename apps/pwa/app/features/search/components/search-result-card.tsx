@@ -15,11 +15,12 @@ import { discoverySessionDiagnosticsStore } from "@/app/features/search/services
 
 interface SearchResultCardProps {
     result: DiscoveryResult;
+    targetElementId?: string;
     onClick?: (result: DiscoveryResult) => void;
     onAdd?: (result: DiscoveryResult) => void;
 }
 
-export function SearchResultCard({ result, onClick, onAdd }: SearchResultCardProps) {
+export function SearchResultCard({ result, targetElementId, onClick, onAdd }: SearchResultCardProps) {
     const { t } = useTranslation();
     const router = useRouter();
     const resolvedMetadata = useResolvedProfileMetadata(result.display.pubkey ?? null);
@@ -70,6 +71,7 @@ export function SearchResultCard({ result, onClick, onAdd }: SearchResultCardPro
 
     return (
         <div
+            id={targetElementId}
             role="button"
             tabIndex={0}
             onClick={handleClick}

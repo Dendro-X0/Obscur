@@ -20,10 +20,12 @@ import {
   getAutoRecoveryDelayMs,
   shouldAutoRecoverRelays,
 } from "./sticky-relay-recovery";
+import { shouldAttemptPrimaryFailover } from "./relay-primary-failover-policy";
 import { relayTransportJournal } from "./relay-transport-journal";
 import { relayResilienceObservability } from "./relay-resilience-observability";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import { incrementReliabilityMetric } from "@/app/shared/reliability-observability";
+import { isBrowserOffline } from "@/app/features/runtime/offline-runtime-policy";
 
 const isCalibrationReasonCode = (reasonCode: string): boolean => reasonCode.startsWith("insufficient_");
 
@@ -39,7 +41,11 @@ type RelayRuntimeScope = Readonly<{
 
 type RelayRuntimeConfig = Readonly<{
   pool: EnhancedRelayPoolResult;
+  /** URLs in the active relay pool (typically the current primary only). */
   enabledRelayUrls: ReadonlyArray<string>;
+  /** Full enabled relay list from settings — used for primary failover candidates. */
+  allEnabledRelayUrls: ReadonlyArray<string>;
+  attemptPrimaryFailover?: () => boolean;
   scope: RelayRuntimeScope;
 }>;
 
@@ -62,8 +68,11 @@ const toPhase = (params: Readonly<{
   recovery: RelayRecoverySnapshot;
   enabledRelayCount: number;
 }>): RelayRuntimePhase => {
-  if (params.recovery.recoveryReasonCode === "recovery_exhausted" && params.recovery.currentAction === "reload_required") {
-    return "fatal";
+  if (typeof navigator !== "undefined" && navigator.onLine === false) {
+    return "offline";
+  }
+  if (params.recovery.recoveryReasonCode === "recovery_exhausted") {
+    return params.recovery.currentAction === "reload_required" ? "fatal" : "offline";
   }
   if (params.recovery.readiness === "healthy") {
     return "healthy";
@@ -91,6 +100,7 @@ class RelayRuntimeSupervisor {
     instanceId: this.instanceId,
   });
   private config: RelayRuntimeConfig | null = null;
+  private configSignature: string | null = null;
   private unsubscribeRecovery: (() => void) | null = null;
   private unsubscribeTransportJournal: (() => void) | null = null;
   private autoRecoveryTimer: ReturnType<typeof setTimeout> | null = null;
@@ -109,7 +119,17 @@ class RelayRuntimeSupervisor {
   };
 
   configure(config: RelayRuntimeConfig): void {
+    const nextSignature = [
+      config.scope.profileId,
+      config.scope.windowLabel,
+      config.scope.publicKeyHex ?? "",
+      config.scope.transportRoutingMode ?? "direct",
+      config.scope.transportProxySummary ?? "",
+      config.enabledRelayUrls.join("|"),
+    ].join("|");
+    const configChanged = this.configSignature !== nextSignature;
     this.config = config;
+    this.configSignature = nextSignature;
     if (!this.unsubscribeRecovery) {
       this.unsubscribeRecovery = this.recoveryController.subscribeRecoveryState((recovery) => {
         this.updateSnapshot(recovery);
@@ -123,11 +143,13 @@ class RelayRuntimeSupervisor {
     this.recoveryController.configure({
       pool: config.pool,
       enabledRelayUrls: config.enabledRelayUrls,
+      beforeRecovery: (reason) => this.tryPrimaryFailover(reason),
     });
-    this.recoveryController.startWarmup();
-    this.attachBrowserSignals();
-    this.updateSnapshot(this.recoveryController.getRecoverySnapshot());
-    this.refresh();
+    if (configChanged) {
+      this.recoveryController.startWarmup();
+      this.attachBrowserSignals();
+      this.updateSnapshot(this.recoveryController.getRecoverySnapshot());
+    }
   }
 
   refresh(): RelayRuntimeSnapshot {
@@ -136,9 +158,21 @@ class RelayRuntimeSupervisor {
     return this.snapshot;
   }
 
+  resetRecoveryAfterPrimaryFailover(): RelayRuntimeSnapshot {
+    const recovery = this.recoveryController.resetAfterPrimaryFailover();
+    this.updateSnapshot(recovery);
+    return this.snapshot;
+  }
+
   async triggerRecovery(reason: RelayRecoveryReasonCode = "manual"): Promise<RelayRuntimeSnapshot> {
     const recovery = await this.recoveryController.triggerRecovery(reason);
     this.updateSnapshot(recovery);
+    if (
+      recovery.recoveryReasonCode === "recovery_exhausted"
+      && this.tryPrimaryFailover(reason)
+    ) {
+      return this.refresh();
+    }
     return this.snapshot;
   }
 
@@ -308,14 +342,15 @@ class RelayRuntimeSupervisor {
       return;
     }
     if (!shouldAutoRecoverRelays({
-      enabledRelayCount: this.config.enabledRelayUrls.length,
+      enabledRelayCount: this.config.allEnabledRelayUrls.length,
       writableRelayCount: this.snapshot.writableRelayCount,
       fallbackWritableRelayCount: this.snapshot.recovery.fallbackWritableRelayCount,
+      recoveryReasonCode: this.snapshot.recoveryReasonCode,
     })) {
       return;
     }
     this.autoRecoveryTimer = setTimeout(() => {
-      void this.triggerRecovery("no_writable_relays");
+      void this.runAutoRecoveryCycle();
     }, getAutoRecoveryDelayMs({
       readiness: this.snapshot.recovery.readiness,
       recoveryAttemptCount: this.snapshot.recoveryAttemptCount,
@@ -324,11 +359,47 @@ class RelayRuntimeSupervisor {
     }));
   }
 
+  private async runAutoRecoveryCycle(): Promise<void> {
+    await this.triggerRecovery("no_writable_relays");
+  }
+
+  private tryPrimaryFailover(recoveryReason?: RelayRecoveryReasonCode): boolean {
+    if (!this.config?.attemptPrimaryFailover) {
+      return false;
+    }
+    if (!shouldAttemptPrimaryFailover({
+      allEnabledRelayCount: this.config.allEnabledRelayUrls.length,
+      writableRelayCount: this.snapshot.writableRelayCount,
+      recovery: this.snapshot.recovery,
+      recoveryReason,
+    })) {
+      return false;
+    }
+    const failedOver = this.config.attemptPrimaryFailover();
+    if (failedOver) {
+      this.resetRecoveryAfterPrimaryFailover();
+      incrementReliabilityMetric("relay_primary_failover");
+      logAppEvent({
+        name: "relay.primary_failover",
+        level: "info",
+        scope: { feature: "relays", action: "primary_failover" },
+        context: {
+          previousPrimaryUrl: this.snapshot.recovery.lastFailureReason ?? "unknown",
+          recoveryReason: recoveryReason ?? this.snapshot.recoveryReasonCode ?? "none",
+        },
+      });
+    }
+    return failedOver;
+  }
+
   private attachBrowserSignals(): void {
     if (this.browserSignalsAttached || typeof window === "undefined") {
       return;
     }
     const nudgeRecovery = (): void => {
+      if (isBrowserOffline()) {
+        return;
+      }
       if (this.snapshot.phase === "healthy" && this.snapshot.writableRelayCount > 0) {
         return;
       }
@@ -339,12 +410,17 @@ class RelayRuntimeSupervisor {
         nudgeRecovery();
       }
     };
+    const handleOffline = (): void => {
+      this.refresh();
+    };
     window.addEventListener("online", nudgeRecovery);
+    window.addEventListener("offline", handleOffline);
     window.addEventListener("focus", nudgeRecovery);
     document.addEventListener("visibilitychange", handleVisibilityChange);
     this.browserSignalsAttached = true;
     this.detachBrowserSignals = () => {
       window.removeEventListener("online", nudgeRecovery);
+      window.removeEventListener("offline", handleOffline);
       window.removeEventListener("focus", nudgeRecovery);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       this.browserSignalsAttached = false;

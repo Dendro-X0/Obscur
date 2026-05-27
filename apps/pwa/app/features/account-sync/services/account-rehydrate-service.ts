@@ -8,6 +8,7 @@ import { discoveryCache } from "@/app/features/search/services/discovery-cache";
 import { seedProfileMetadataCache } from "@/app/features/profile/hooks/use-profile-metadata";
 import { useProfileInternals, type UserProfile } from "@/app/features/profile/hooks/use-profile";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
+import { shouldSkipRelayNetworkBootstrap } from "@/app/features/runtime/offline-runtime-policy";
 import { relayListInternals } from "@/app/features/relays/hooks/use-relay-list";
 import type { RelayPoolLike } from "@/app/features/relays/lib/nostr-core-relay";
 import { accountSyncStatusStore } from "./account-sync-status-store";
@@ -204,6 +205,7 @@ export const accountRehydrateService = {
     privateKeyHex: PrivateKeyHex;
     pool: RelayPoolForRehydrate;
     cacheOnlyEncryptedBackup?: boolean;
+    skipRelayNetworkBootstrap?: boolean;
   }>): Promise<AccountRehydrateReport> {
     accountSyncStatusStore.updateSnapshot({
       publicKeyHex: params.publicKeyHex,
@@ -217,30 +219,38 @@ export const accountRehydrateService = {
       message: "Restoring profile",
     });
 
-    const [profileEvent, relayListEvent] = await Promise.all([
-      fetchLatestOwnEvent(
-        params.pool,
-        params.publicKeyHex,
-        [{ kinds: [0], authors: [params.publicKeyHex], limit: 1 }],
-        (event) => event.kind === 0
-      ),
-      fetchLatestOwnEvent(
-        params.pool,
-        params.publicKeyHex,
-        [
-          { kinds: [10002], authors: [params.publicKeyHex], limit: 1 },
-          { kinds: [3], authors: [params.publicKeyHex], limit: 1 },
-        ],
-        (event) => event.kind === 10002 || event.kind === 3
-      ),
-    ]);
+    const profileId = getResolvedProfileId();
+    const skipRelayNetwork = params.skipRelayNetworkBootstrap ?? shouldSkipRelayNetworkBootstrap();
+    let relayProfile: RelayRehydrateProfile | null = null;
+    let relayListEvent: NostrEvent | null = null;
+    let profileEvent: NostrEvent | null = null;
 
-    const relayProfile = profileEvent ? parseProfileEvent(profileEvent) : null;
-    if (relayProfile) {
-      applyRelayProfile(relayProfile);
+    if (!skipRelayNetwork) {
+      const [fetchedProfileEvent, relayListFetched] = await Promise.all([
+        fetchLatestOwnEvent(
+          params.pool,
+          params.publicKeyHex,
+          [{ kinds: [0], authors: [params.publicKeyHex], limit: 1 }],
+          (event) => event.kind === 0
+        ),
+        fetchLatestOwnEvent(
+          params.pool,
+          params.publicKeyHex,
+          [
+            { kinds: [10002], authors: [params.publicKeyHex], limit: 1 },
+            { kinds: [3], authors: [params.publicKeyHex], limit: 1 },
+          ],
+          (event) => event.kind === 10002 || event.kind === 3
+        ),
+      ]);
+      profileEvent = fetchedProfileEvent;
+      relayListEvent = relayListFetched;
+      relayProfile = profileEvent ? parseProfileEvent(profileEvent) : null;
+      if (relayProfile) {
+        applyRelayProfile(relayProfile);
+      }
     }
 
-    const profileId = getResolvedProfileId();
     const relayList = relayListEvent ? parseRelayListFromEvent(relayListEvent) : relayListInternals.loadRelayListFromStorage(params.publicKeyHex, profileId);
     if (relayList.length > 0) {
       relayListInternals.saveRelayListToStorage(params.publicKeyHex, relayList, profileId);

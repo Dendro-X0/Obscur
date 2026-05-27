@@ -13,7 +13,14 @@ const featuresRoot = path.join(repoRoot, "apps/pwa/app/features");
 const RULES = [
   { module: "default-storage-ports", names: ["getResolvedStoragePorts"] },
   { module: "local-dm-visibility", names: ["localDmVisibilityOwner"] },
+  { module: "dm-thread-suppression-prepare", names: ["prepareDmThreadSuppressionIds"] },
   { module: "dm-conversation-hydrate-pipeline", names: ["runDmConversationHydrateReadModelPipeline", "logDmHydrateReadModelTelemetry"] },
+  { module: "conversation-message-materialization", names: [
+    "filterMessagesBySuppressedIds",
+    "mergeHydratedBaseWithLiveOverlayMessages",
+    "mergeProjectionFirstWithOverlayMessages",
+    "selectMessagesForConversationHistoryAuthority",
+  ] },
   { module: "dm-conversation-hydrate-read-model", names: ["assembleDmHydrateThreadReadModel"] },
   { module: "dm-conversation-materialization-load-earlier", names: ["loadEarlierDmConversationMessages"] },
   { module: "dm-conversation-materialization-realtime", names: ["applyRealtimeBufferedEvents", "applyBufferedEvents"] },
@@ -49,6 +56,10 @@ const OWNER_RELATIVE_PATHS = new Set([
   "messaging/services/dm-conversation-projection-evidence-messages.ts",
   "messaging/services/dm-conversation-projection-live-merge.ts",
   "messaging/services/dm-conversation-materialization-realtime.ts",
+  "messaging/services/dm-thread-suppression-prepare.ts",
+  "messaging/services/conversation-message-materialization.ts",
+  "messaging/services/dm-read-authority-contract.ts",
+  "messaging/services/messaging-client-operations.ts",
   "messaging/services/dm-conversation-delete-identity-ids.ts",
   "messaging/services/dm-conversation-message-list-equiv.ts",
   "groups/services/community-roster-materialization-owner.ts",
@@ -58,6 +69,9 @@ const OWNER_RELATIVE_PATHS = new Set([
   "groups/services/community-roster-persistence.ts",
   "groups/services/community-membership-mutation-owner.ts",
   "groups/services/community-membership-ledger.ts",
+  "groups/services/community-transport-owner.ts",
+  "groups/services/community-membership-semantic-ingress.ts",
+  "groups/services/community-membership-port-owner.ts",
   "profiles/providers/profile-runtime-provider.tsx",
 ]);
 

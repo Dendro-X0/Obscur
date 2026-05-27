@@ -4,6 +4,10 @@ import { runDmConversationHydrateReadModelPipeline } from "./dm-conversation-hyd
 import { loadEarlierDmConversationMessages } from "./dm-conversation-materialization-load-earlier";
 import { applyRealtimeBufferedEvents } from "./dm-conversation-materialization-realtime";
 import { prepareDmThreadSuppressionIds } from "./dm-thread-suppression-prepare";
+import {
+  filterMessagesBySuppressedIds,
+  mergeHydratedBaseWithLiveOverlayMessages,
+} from "./conversation-message-materialization";
 import type { DmConversationMaterializationPort } from "./dm-conversation-materialization-port";
 
 /** Canonical R1 DM materialization owner. */
@@ -14,4 +18,6 @@ export const dmConversationMaterializationOwner: DmConversationMaterializationPo
   mergeProjectionWithLiveOverlay: mergeProjectionFirstWithLiveOverlayForDisplay,
   loadEarlierMessages: loadEarlierDmConversationMessages,
   applyRealtimeBufferedEvents,
+  filterThreadMessagesBySuppression: filterMessagesBySuppressedIds,
+  mergeHydratedBaseWithLiveOverlay: mergeHydratedBaseWithLiveOverlayMessages,
 };

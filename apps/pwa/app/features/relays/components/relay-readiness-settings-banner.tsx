@@ -22,6 +22,11 @@ export function RelayReadinessSettingsBanner() {
     return null;
   }
 
+  const isRecoveryExhausted = relayRecovery.recoveryReasonCode === "recovery_exhausted";
+  const retryLabel = isRecoveryExhausted
+    ? "Switch relay and retry"
+    : "Retry relay recovery";
+
   return (
     <div
       className={cn(
@@ -50,7 +55,7 @@ export function RelayReadinessSettingsBanner() {
         onClick={() => void triggerRelayRecovery("manual")}
       >
         <RefreshCcw className="mr-2 h-3.5 w-3.5" />
-        Retry relay recovery
+        {retryLabel}
       </Button>
     </div>
   );

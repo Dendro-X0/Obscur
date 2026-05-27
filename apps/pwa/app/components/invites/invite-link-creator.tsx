@@ -12,6 +12,7 @@ import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { SelectField } from "../ui/select";
 import { useTranslation } from "react-i18next";
+import { isCoordinationConfigured } from "@/app/features/groups/services/community-membership-sync-mode";
 
 type CreatorState =
   | { status: "idle" }
@@ -36,7 +37,7 @@ export const InviteLinkCreator = () => {
   const [maxUses, setMaxUses] = useState("");
   const [includeProfile, setIncludeProfile] = useState(true);
 
-  const coordinationConfigured: boolean = (process.env.NEXT_PUBLIC_COORDINATION_URL ?? "").trim().length > 0;
+  const coordinationConfigured = isCoordinationConfigured();
 
   const canCreate = identity.state.status === "unlocked";
 

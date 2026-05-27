@@ -36,12 +36,8 @@ import { useProfile } from "@/app/features/profile/hooks/use-profile";
 import { Checkbox } from "@dweb/ui-kit";
 import { FlashMessage } from "@/app/components/ui/flash-message";
 import { PasswordStrengthIndicator } from "@/app/components/password-strength-indicator";
-import {
-    getRememberMeStorageKey,
-    getAuthTokenScopedStorageKeys,
-    getRememberMeScopedStorageKeys,
-} from "../utils/auth-storage-keys";
-import { deriveRememberMeBootstrapPreference } from "../services/session-bootstrap-contracts";
+import { revokeDeviceTrust } from "../services/device-trust-service";
+import { AuthSessionPolicyNotice } from "./auth-session-policy-notice";
 import { useWindowRuntime } from "@/app/features/runtime/services/window-runtime-supervisor";
 import {
     shouldEnterLoginModeOnStartup,
@@ -74,13 +70,13 @@ export function AuthScreen() {
     const startupState = runtime.snapshot.session.startupState;
     const profile = useProfile();
     const hasNativeMismatch = startupState.mismatchReason === "native_mismatch";
-    const hasStoredIdentity = startupAuthStateHasStoredIdentity(startupState);
+    const hasStoredIdentity = startupAuthStateHasStoredIdentity(startupState)
+        || Boolean(identity.state.stored?.publicKeyHex);
 
     const [mode, setMode] = useState<AuthMode>("welcome");
     const [step, setStep] = useState(1);
     const [isLoading, setIsLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
-    const [rememberMe, setRememberMe] = useState(true);
     const [loginTab, setLoginTab] = useState<"username" | "key">("username");
     const [authError, setAuthError] = useState<string | null>(null);
     const hasPrivateKeyMismatch = startupAuthStateHasPrivateKeyMismatch(startupState)
@@ -117,85 +113,28 @@ export function AuthScreen() {
         : false;
     const hasAppliedInitialEntryRouteRef = useRef(false);
 
-    const rememberProfileId = runtime.snapshot.session.profileId;
-    const persistRememberMe = useCallback((params: Readonly<{ remember: boolean; token?: string }>) => {
-        const rememberKeys = getRememberMeScopedStorageKeys({
-            profileId: rememberProfileId,
-            includeLegacy: true,
-        });
-        const tokenKeys = getAuthTokenScopedStorageKeys({
-            profileId: rememberProfileId,
-            includeLegacy: true,
-        });
-        const currentRememberKey = getRememberMeStorageKey(rememberProfileId);
-        rememberKeys.forEach((key) => {
-            if (params.remember) {
-                localStorage.setItem(key, "true");
-                return;
-            }
-            if (key === currentRememberKey) {
-                localStorage.setItem(key, "false");
-                return;
-            }
-            localStorage.removeItem(key);
-        });
-        tokenKeys.forEach((key) => {
-            if (params.remember && params.token !== undefined && params.token.length > 0) {
-                localStorage.setItem(key, params.token);
-                return;
-            }
-            localStorage.removeItem(key);
-        });
-        const tokenPersisted = params.remember && typeof params.token === "string" && params.token.length > 0;
-        logAppEvent({
-            name: "auth.remember_me_persisted",
-            level: "info",
-            scope: { feature: "auth", action: "remember_me" },
-            context: {
-                profileId: rememberProfileId,
-                remember: params.remember,
-                tokenPersisted,
-                rememberKeyCount: rememberKeys.length,
-                tokenKeyCount: tokenKeys.length,
-            },
-        });
-    }, [rememberProfileId]);
+    const boundProfileId = runtime.snapshot.session.profileId;
+    const storedUsernameHint = identity.state.stored?.username?.trim();
 
     React.useEffect(() => {
-        const preference = deriveRememberMeBootstrapPreference({
-            profileId: rememberProfileId,
-            hasStoredIdentity,
-        });
-        const currentProfileRememberValue = localStorage.getItem(getRememberMeStorageKey(rememberProfileId));
-        setRememberMe(preference.rememberMe);
-        if (preference.source === "stored_identity_default") {
-            logAppEvent({
-                name: "auth.remember_me_bootstrap_defaulted_true",
-                level: "info",
-                scope: { feature: "auth", action: "remember_me" },
-                context: {
-                    profileId: rememberProfileId,
-                    hasStoredIdentity: true,
-                    startupDecision: startupState.kind,
-                    tokenCandidateCount: preference.tokenCandidateCount,
-                    scopedRememberFalse: currentProfileRememberValue === "false",
-                },
-            });
-        }
-    }, [hasStoredIdentity, rememberProfileId, startupState.kind]);
+        revokeDeviceTrust(boundProfileId);
+    }, [boundProfileId]);
 
     React.useEffect(() => {
         if (hasAppliedInitialEntryRouteRef.current) {
             return;
         }
-        if (mode !== "welcome" || startupState.kind === "pending") {
+        if (startupState.kind === "pending" || identity.state.status === "loading") {
             return;
         }
-        if (shouldEnterLoginModeOnStartup(startupState)) {
-            setMode("login");
-        }
         hasAppliedInitialEntryRouteRef.current = true;
-    }, [mode, startupState.kind]);
+        if (shouldEnterLoginModeOnStartup(startupState) || hasStoredIdentity) {
+            setMode("login");
+            if (!identity.state.stored?.publicKeyHex && !startupAuthStateHasStoredIdentity(startupState)) {
+                setLoginTab("key");
+            }
+        }
+    }, [hasStoredIdentity, identity.state.status, identity.state.stored?.publicKeyHex, startupState]);
 
     const handleBack = () => {
         if (step > 1) {
@@ -234,7 +173,7 @@ export function AuthScreen() {
         setRetiredKeyReuseAcknowledged(false);
     };
 
-    const handleContinueImportKey = (): void => {
+    const handleContinueImportKey = async (): Promise<void> => {
         setAuthError(null);
         const keyToUse = decodedImportPrivateKey;
         if (!keyToUse) {
@@ -245,7 +184,7 @@ export function AuthScreen() {
             setAuthError(t("auth.error.retiredKeyRequiresAcknowledgement", "This private key was previously retired on this device. Confirm reactivation before continuing."));
             return;
         }
-        setStep(2);
+        await handleLoginFinal(undefined, true);
     };
 
     const handleCreateFinal = async (e?: React.FormEvent) => {
@@ -268,9 +207,6 @@ export function AuthScreen() {
             });
             // Generate local profile defaults immediately. Relay publish happens after auth.
             const inviteCode = generateRandomInviteCode();
-
-            // Handle Remember Me logic
-            persistRememberMe({ remember: rememberMe, token: password });
 
             // Persist profile locally
             profile.setUsername({ username: normalizedUsername });
@@ -318,7 +254,6 @@ export function AuthScreen() {
                 setIsLoading(false);
                 return;
             }
-            persistRememberMe({ remember: rememberMe, token: password });
             toast.success(t("auth.welcomeBackToast", "Welcome Back!"));
         } catch (error) {
             setAuthError(error instanceof Error ? error.message : t("auth.error.invalidPasswordOrAccount", "Invalid password or account error"));
@@ -331,8 +266,7 @@ export function AuthScreen() {
         e?.preventDefault();
 
         const providedPassword = skipPassword ? "" : password;
-        const shouldGenerateDevicePassphrase = skipPassword && rememberMe;
-        const importPassphrase = shouldGenerateDevicePassphrase ? generateSecurePassword() : providedPassword;
+        const importPassphrase = providedPassword;
 
         if (!privateKey) {
             setAuthError(t("auth.error.privateKeyRequired", "Private key is required"));
@@ -365,25 +299,7 @@ export function AuthScreen() {
                 passphrase: (importPassphrase || "") as Passphrase,
                 username: username || undefined
             });
-            const canPersistPasswordToken = rememberMe && (importPassphrase || "").trim().length > 0;
-            persistRememberMe({
-                remember: canPersistPasswordToken,
-                token: canPersistPasswordToken ? (importPassphrase || "") as string : undefined,
-            });
-            if (shouldGenerateDevicePassphrase) {
-                logAppEvent({
-                    name: "auth.import_generated_device_passphrase",
-                    level: "info",
-                    scope: { feature: "auth", action: "import_identity" },
-                    context: {
-                        profileId: rememberProfileId,
-                        rememberRequested: rememberMe,
-                    },
-                });
-                toast.info(t("auth.keyAcceptedDeviceUnlock", "Key accepted. Device-only unlock was created for this profile."));
-            } else {
-                toast.info(t("auth.keyAcceptedRestoringData", "Key accepted. Restoring account data..."));
-            }
+            toast.info(t("auth.keyAcceptedRestoringData", "Key accepted. Restoring account data..."));
         } catch (error) {
             setAuthError(error instanceof Error ? error.message : t("auth.error.importKeyFailed", "Failed to import key"));
         } finally {
@@ -508,7 +424,7 @@ export function AuthScreen() {
                     <AnimatePresence mode="wait" custom={step}>
                         {mode === "welcome" && (
                             <motion.div
-                                key="welcome"
+                                key={hasStoredIdentity ? "welcome-returning" : "welcome-new"}
                                 initial="enter"
                                 animate="center"
                                 exit="exit"
@@ -524,37 +440,88 @@ export function AuthScreen() {
                                     </div>
                                 </div>
 
-                                <div className="space-y-4">
-                                    <h1 className="text-5xl font-black bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-500 dark:from-white dark:via-zinc-200 dark:to-zinc-500 bg-clip-text text-transparent tracking-tighter leading-tight">
-                                        Obscur
-                                    </h1>
-                                    <p className="text-zinc-500 dark:text-zinc-400 text-lg font-medium tracking-tight max-w-[300px] mx-auto leading-relaxed">
-                                        {t("auth.welcome.subtitle", "The most private way to communicate. Decentralized & anonymous.")}
-                                    </p>
-                                </div>
+                                {hasStoredIdentity ? (
+                                    <>
+                                        <div className="space-y-3">
+                                            <h1 className="text-4xl font-black tracking-tighter text-zinc-900 dark:text-white">
+                                                {t("auth.welcome.returning.title", "Welcome back")}
+                                            </h1>
+                                            <p className="text-zinc-500 dark:text-zinc-400 text-base font-medium tracking-tight max-w-[320px] mx-auto leading-relaxed">
+                                                {storedUsernameHint
+                                                    ? t("auth.welcome.returning.subtitleNamed", "Unlock {{username}} on this device to open your messenger.", { username: storedUsernameHint })
+                                                    : t("auth.welcome.returning.subtitle", "Your identity is on this device. Unlock to open your messenger.")}
+                                            </p>
+                                        </div>
 
-                                <div className="w-full grid grid-cols-1 gap-4 pt-4">
-                                    <Button
-                                        onClick={() => setMode("create")}
-                                        className="h-16 rounded-[24px] bg-zinc-900 hover:bg-black dark:bg-white dark:hover:bg-zinc-200 text-white dark:text-black text-lg font-bold group shadow-xl shadow-zinc-500/10"
-                                    >
-                                        {t("auth.welcome.createIdentity", "Create New Identity")}
-                                        <ArrowRight className="h-5 w-5 ml-2 group-hover:translate-x-1 transition-transform" />
-                                    </Button>
-                                    <Button
-                                        variant="outline"
-                                        onClick={() => setMode("login")}
-                                        className="h-16 rounded-[24px] border-black/10 dark:border-white/10 bg-white/50 hover:bg-black/5 dark:bg-zinc-900/50 dark:hover:bg-white/5 text-lg font-bold transition-all"
-                                    >
-                                        {t("auth.welcome.loginWithKey", "Log In with Key")}
-                                    </Button>
-                                    <div className="flex items-center justify-center gap-2 pt-4">
-                                        <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                                        <p className="text-[10px] text-zinc-400 uppercase tracking-[0.2em] font-black">
-                                            {t("auth.welcome.encryptedIdentity", "End-to-End Encrypted Identity")}
-                                        </p>
-                                    </div>
-                                </div>
+                                        <div className="w-full max-w-md space-y-4 pt-2 text-left">
+                                            <AuthSessionPolicyNotice variant="card" />
+                                            <Button
+                                                onClick={() => {
+                                                    setLoginTab("username");
+                                                    setMode("login");
+                                                }}
+                                                className="h-16 w-full rounded-[24px] bg-blue-600 hover:bg-blue-700 text-white text-lg font-bold shadow-xl shadow-blue-500/20"
+                                            >
+                                                {t("auth.welcome.returning.unlock", "Unlock")}
+                                                <ArrowRight className="h-5 w-5 ml-2" />
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                onClick={() => {
+                                                    setLoginTab("key");
+                                                    setMode("login");
+                                                }}
+                                                className="h-14 w-full rounded-[24px] border-black/10 dark:border-white/10 bg-white/50 hover:bg-black/5 dark:bg-zinc-900/50 dark:hover:bg-white/5 text-base font-bold"
+                                            >
+                                                {t("auth.welcome.returning.useKey", "Log in with private key")}
+                                            </Button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setMode("create")}
+                                                className="w-full pt-2 text-xs font-semibold text-zinc-500 underline-offset-4 hover:text-zinc-700 hover:underline dark:text-zinc-400 dark:hover:text-zinc-200"
+                                            >
+                                                {t("auth.welcome.returning.createAnother", "Create a new identity instead")}
+                                            </button>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <div className="space-y-4">
+                                            <h1 className="text-5xl font-black bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-500 dark:from-white dark:via-zinc-200 dark:to-zinc-500 bg-clip-text text-transparent tracking-tighter leading-tight">
+                                                Obscur
+                                            </h1>
+                                            <p className="text-zinc-500 dark:text-zinc-400 text-lg font-medium tracking-tight max-w-[300px] mx-auto leading-relaxed">
+                                                {t("auth.welcome.subtitle", "The most private way to communicate. Decentralized & anonymous.")}
+                                            </p>
+                                        </div>
+
+                                        <div className="w-full grid grid-cols-1 gap-4 pt-4">
+                                            <Button
+                                                onClick={() => setMode("create")}
+                                                className="h-16 rounded-[24px] bg-zinc-900 hover:bg-black dark:bg-white dark:hover:bg-zinc-200 text-white dark:text-black text-lg font-bold group shadow-xl shadow-zinc-500/10"
+                                            >
+                                                {t("auth.welcome.createIdentity", "Create New Identity")}
+                                                <ArrowRight className="h-5 w-5 ml-2 group-hover:translate-x-1 transition-transform" />
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                onClick={() => {
+                                                    setLoginTab("key");
+                                                    setMode("login");
+                                                }}
+                                                className="h-16 rounded-[24px] border-black/10 dark:border-white/10 bg-white/50 hover:bg-black/5 dark:bg-zinc-900/50 dark:hover:bg-white/5 text-lg font-bold transition-all"
+                                            >
+                                                {t("auth.welcome.loginWithKey", "Log In with Key")}
+                                            </Button>
+                                            <div className="flex items-center justify-center gap-2 pt-4">
+                                                <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                                                <p className="text-[10px] text-zinc-400 uppercase tracking-[0.2em] font-black">
+                                                    {t("auth.welcome.encryptedIdentity", "End-to-End Encrypted Identity")}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
                             </motion.div>
                         )}
 
@@ -660,17 +627,7 @@ export function AuthScreen() {
                                             </div>
                                         </div>
 
-                                        <div className="flex items-center space-x-3 px-2">
-                                            <Checkbox
-                                                id="remember-create"
-                                                checked={rememberMe}
-                                                onCheckedChange={(checked) => setRememberMe(checked as boolean)}
-                                                className="h-5 w-5 rounded-lg border-zinc-300 dark:border-zinc-700 data-[state=checked]:bg-purple-600"
-                                            />
-                                            <label htmlFor="remember-create" className="text-sm font-medium text-zinc-600 dark:text-zinc-400 cursor-pointer">
-                                                {t("auth.rememberMe", "Keep me logged in on this device")}
-                                            </label>
-                                        </div>
+                                        <AuthSessionPolicyNotice />
 
                                         <div className="p-4 rounded-3xl bg-amber-500/10 border border-amber-500/20 flex gap-4">
                                             <AlertCircle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
@@ -749,19 +706,14 @@ export function AuthScreen() {
                             >
                                 <div className="text-center space-y-3">
                                     <h2 className="text-3xl font-black tracking-tighter text-zinc-900 dark:text-white">
-                                        {step === 1
-                                            ? t("auth.login.welcomeBackTitle", "Welcome Back")
-                                            : t("auth.login.secureSessionTitle", "Secure Your Session")}
+                                        {t("auth.login.welcomeBackTitle", "Welcome Back")}
                                     </h2>
                                     <p className="text-zinc-500 dark:text-zinc-400 font-medium text-balance">
-                                        {step === 1
-                                            ? t("auth.login.welcomeBackDesc", "Log in or import your identity.")
-                                            : t("auth.login.secureSessionDesc", "You can set a password now, or skip and use your key directly.")}
+                                        {t("auth.login.welcomeBackDesc", "Enter your credentials to unlock. Obscur does not keep you signed in on this device.")}
                                     </p>
                                 </div>
 
-                                {step === 1 ? (
-                                    <div className="space-y-6">
+                                <div className="space-y-6">
                                         <div className="flex bg-black/5 dark:bg-white/5 rounded-2xl p-1 relative z-10">
                                             <button
                                                 type="button"
@@ -813,17 +765,7 @@ export function AuthScreen() {
                                                         />
                                                     </div>
                                                 </div>
-                                                <div className="flex items-center space-x-3 px-2">
-                                                    <Checkbox
-                                                        id="remember-login-key"
-                                                        checked={rememberMe}
-                                                        onCheckedChange={(checked) => setRememberMe(checked as boolean)}
-                                                        className="h-5 w-5 rounded-lg border-zinc-300 dark:border-zinc-700 data-[state=checked]:bg-blue-600"
-                                                    />
-                                                    <label htmlFor="remember-login-key" className="text-sm font-medium text-zinc-600 dark:text-zinc-400 cursor-pointer">
-                                                        {t("auth.rememberMe", "Keep me logged in on this device")}
-                                                    </label>
-                                                </div>
+                                                <AuthSessionPolicyNotice />
                                                 {isRetiredImportKey ? (
                                                     <div className="rounded-3xl border border-amber-500/25 bg-amber-500/10 p-4">
                                                         <div className="flex gap-3">
@@ -848,12 +790,25 @@ export function AuthScreen() {
                                                     </div>
                                                 ) : null}
                                                 <Button
-                                                    disabled={privateKey.length < 10 || (isRetiredImportKey && !retiredKeyReuseAcknowledged)}
-                                                    onClick={handleContinueImportKey}
+                                                    disabled={isLoading || privateKey.length < 10 || (isRetiredImportKey && !retiredKeyReuseAcknowledged)}
+                                                    onClick={() => {
+                                                        void handleContinueImportKey();
+                                                    }}
                                                     className="w-full h-16 rounded-[24px] bg-blue-600 hover:bg-blue-700 text-white text-lg font-bold shadow-xl shadow-blue-500/20"
                                                 >
-                                                    {t("common.continue", "Continue")}
-                                                    <ArrowRight className="h-5 w-5 ml-2" />
+                                                    {isLoading ? (
+                                                        <motion.div
+                                                            animate={{ rotate: 360 }}
+                                                            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                                                        >
+                                                            <Sparkles className="h-5 w-5" />
+                                                        </motion.div>
+                                                    ) : (
+                                                        <>
+                                                            {t("common.continue", "Continue")}
+                                                            <ArrowRight className="h-5 w-5 ml-2" />
+                                                        </>
+                                                    )}
                                                 </Button>
                                                 <FlashMessage
                                                     message={authError}
@@ -900,17 +855,7 @@ export function AuthScreen() {
                                                         </div>
                                                     </div>
 
-                                                    <div className="flex items-center space-x-3 px-2">
-                                                        <Checkbox
-                                                            id="remember-login-user"
-                                                            checked={rememberMe}
-                                                            onCheckedChange={(checked) => setRememberMe(checked as boolean)}
-                                                            className="h-5 w-5 rounded-lg border-zinc-300 dark:border-zinc-700 data-[state=checked]:bg-blue-600"
-                                                        />
-                                                        <label htmlFor="remember-login-user" className="text-sm font-medium text-zinc-600 dark:text-zinc-400 cursor-pointer">
-                                                            {t("auth.rememberMe", "Keep me logged in on this device")}
-                                                        </label>
-                                                    </div>
+                                                    <AuthSessionPolicyNotice />
 
                                                     <FlashMessage
                                                         message={authError}
@@ -937,61 +882,7 @@ export function AuthScreen() {
                                                 </form>
                                             </>
                                         )}
-                                    </div>
-                                ) : (
-                                    <form onSubmit={handleLoginFinal} className="space-y-6">
-                                        <div className="space-y-2">
-                                            <div className="flex items-center justify-between mb-1">
-                                                <Label className="pl-1 text-[11px] font-black uppercase tracking-widest text-zinc-500">{t("auth.masterPasswordLabel", "Master Password")}</Label>
-                                            </div>
-                                            <div className="relative group">
-                                                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400 group-focus-within:text-blue-500 transition-colors" />
-                                                <Input
-                                                    type={showPassword ? "text" : "password"}
-                                                    placeholder={t("auth.optionalCreatePasswordPlaceholder", "Optional: create a new password")}
-                                                    value={password}
-                                                    onChange={e => setPassword(e.target.value)}
-                                                    className="px-12 h-16 rounded-[24px] bg-white/50 dark:bg-zinc-900/50 border-black/5 dark:border-white/5 focus:ring-4 focus:ring-blue-500/10 text-lg transition-all"
-                                                />
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setShowPassword(!showPassword)}
-                                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
-                                                >
-                                                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                                                </button>
-                                            </div>
-                                            <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest ml-1 mt-2">
-                                                {t("auth.optionalPasswordHelp", "Leave blank to use key-only login. If Remember Me is enabled, a device-only unlock will be created.")}
-                                            </p>
-                                        </div>
-
-                                        <FlashMessage
-                                            message={authError}
-                                            onClose={() => setAuthError(null)}
-                                            className="mt-4"
-                                        />
-
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <Button
-                                                type="button"
-                                                variant="outline"
-                                                onClick={(e) => handleLoginFinal(e, true)}
-                                                disabled={isLoading}
-                                                className="h-16 rounded-[24px] border-black/10 dark:border-white/10"
-                                            >
-                                                {t("auth.skipPassword", "Skip Password")}
-                                            </Button>
-                                            <Button
-                                                type="submit"
-                                                disabled={isLoading || !password}
-                                                className="h-16 rounded-[24px] bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-xl shadow-blue-500/20"
-                                            >
-                                                {t("auth.secureAccount", "Secure Account")}
-                                            </Button>
-                                        </div>
-                                    </form>
-                                )}
+                                </div>
                             </motion.div>
                         )}
                     </AnimatePresence>

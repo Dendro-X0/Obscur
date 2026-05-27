@@ -149,7 +149,7 @@ export function ChatHeader({
         : t("messaging.notifications.enableForChat", "Enable notifications for this chat");
 
     return (
-        <div className="flex items-center justify-between border-b border-black/10 bg-white/60 px-4 py-3 backdrop-blur-xl dark:border-white/10 dark:bg-black/60">
+        <div className="flex shrink-0 items-center justify-between border-b border-black/10 bg-white/60 px-4 py-3 backdrop-blur-xl dark:border-white/10 dark:bg-black/60">
             <div className="flex items-center gap-3">
                 {conversation.kind === "dm" && onOpenProfile ? (
                     <button

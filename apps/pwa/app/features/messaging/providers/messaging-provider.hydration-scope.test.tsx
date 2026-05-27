@@ -98,6 +98,7 @@ vi.mock("../services/message-persistence-service", () => ({
 vi.mock("../services/message-bus", () => ({
   messageBus: {
     emit: vi.fn(),
+    subscribe: vi.fn(() => () => undefined),
   },
 }));
 
@@ -312,8 +313,7 @@ describe("messaging-provider hydration scope resets", () => {
     });
   });
 
-  it("falls back to indexed chat-state when scoped cache is empty for the active account", async () => {
-    const accountA = "a".repeat(64);
+  it("hydrates empty connections when scoped localStorage chat-state is missing (no IndexedDB fallback)", async () => {
     chatStateStoreMocks.load.mockReturnValue(null);
     messagingDbMocks.get.mockResolvedValue(buildPersistedState({
       displayName: "Indexed Fallback Contact",
@@ -328,12 +328,12 @@ describe("messaging-provider hydration scope resets", () => {
 
     await waitFor(() => {
       expect(screen.getByTestId("hydrated").textContent).toBe("true");
-      expect(screen.getByTestId("connections").textContent).toContain("Indexed Fallback Contact");
+      expect(screen.getByTestId("connections").textContent).toBe("");
     });
-    expect(messagingDbMocks.get).toHaveBeenCalledWith("chatState", accountA);
+    expect(messagingDbMocks.get).not.toHaveBeenCalled();
   });
 
-  it("hydrates the switched-to account from indexed chat-state without retaining prior-account connections", async () => {
+  it("hydrates the switched-to account from localStorage chat-state without retaining prior-account connections", async () => {
     const accountA = "a".repeat(64);
     const accountB = "b".repeat(64);
     chatStateStoreMocks.load.mockImplementation((publicKeyHex: string, options?: { profileId?: string }) => {
@@ -345,14 +345,8 @@ describe("messaging-provider hydration scope resets", () => {
         });
       }
       if (scope === `default::${accountB}`) {
-        return null;
-      }
-      return null;
-    });
-    messagingDbMocks.get.mockImplementation(async (_store: string, publicKeyHex: string) => {
-      if (publicKeyHex === accountB) {
         return buildPersistedState({
-          displayName: "Indexed Account B Contact",
+          displayName: "Account B Contact",
           peerPublicKeyHex: "6".repeat(64),
         });
       }
@@ -378,9 +372,10 @@ describe("messaging-provider hydration scope resets", () => {
 
     await waitFor(() => {
       expect(screen.getByTestId("hydrated").textContent).toBe("true");
-      expect(screen.getByTestId("connections").textContent).toContain("Indexed Account B Contact");
+      expect(screen.getByTestId("connections").textContent).toContain("Account B Contact");
       expect(screen.getByTestId("connections").textContent).not.toContain("Account A Contact");
     });
+    expect(messagingDbMocks.get).not.toHaveBeenCalled();
   });
 
   it("ignores chat-state replaced events from another profile scope", async () => {
@@ -413,7 +408,7 @@ describe("messaging-provider hydration scope resets", () => {
     expect(chatStateStoreMocks.load).not.toHaveBeenCalled();
   });
 
-  it("prefers projection sidebar conversations over persisted chat-state when projection authority is active", async () => {
+  it("merges persisted-only DM threads into projection sidebar authority", async () => {
     projectionSidebarState.useProjectionReads = true;
     projectionSidebarState.projectionConnections = [{
       kind: "dm",
@@ -434,7 +429,7 @@ describe("messaging-provider hydration scope resets", () => {
     await waitFor(() => {
       expect(screen.getByTestId("hydrated").textContent).toBe("true");
       expect(screen.getByTestId("connections").textContent).toContain("Projection Contact");
-      expect(screen.getByTestId("connections").textContent).not.toContain("Account A Contact");
+      expect(screen.getByTestId("connections").textContent).toContain("Account A Contact");
     });
     expect(telemetryMocks.logAppEvent).toHaveBeenCalledWith(expect.objectContaining({
       name: "messaging.conversation_list_authority_selected",
@@ -442,7 +437,7 @@ describe("messaging-provider hydration scope resets", () => {
         selectedAuthority: "projection",
         selectedAuthorityReason: "projection_read_cutover",
         projectionConversationCount: 1,
-        persistedConversationCount: 1,
+        persistedDmThreadCount: 1,
       }),
     }));
   });

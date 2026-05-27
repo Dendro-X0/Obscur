@@ -2,11 +2,19 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { messageBus } from "../services/message-bus";
 import { useConversationMessages } from "./use-conversation-messages";
+import * as dmConversationHydrateIndexedScan from "../services/dm-conversation-hydrate-indexed-scan";
+import type { Message } from "../types";
 import { PrivacySettingsService, defaultPrivacySettings } from "../../settings/services/privacy-settings-service";
 import { performanceMonitor } from "../lib/performance-monitor";
+import { dbGetMessages } from "@dweb/db";
 import { messagingDB } from "@dweb/storage/indexed-db";
+import { requiresSqlitePersistence } from "@/app/features/runtime/native-persistence-policy";
 import { clearMessageDeleteTombstones } from "../services/message-delete-tombstone-store";
 import { resetDmRedactionDisplayGateForTests } from "../services/dm-redaction-display-gate";
+import {
+    resetDmThreadDisplayCacheForTests,
+    writeDmThreadDisplayCache,
+} from "../services/dm-thread-display-cache";
 import { setProfileRuntimeScope } from "@/app/features/profiles/services/profile-runtime-scope";
 import { buildAppClientGateway } from "@/app/features/runtime/services/client-gateway-adapter";
 import { getResolvedStoragePorts } from "@/app/features/profiles/services/default-storage-ports";
@@ -58,11 +66,87 @@ const expectConversationHistoryAuthorityLog = (
     expect(matchingLog?.context).toEqual(expect.objectContaining(expectedContext));
 };
 
+vi.mock("@dweb/db", async (importOriginal) => {
+    const actual = await importOriginal<typeof import("@dweb/db")>();
+    return {
+        ...actual,
+        dbGetMessages: vi.fn(async () => []),
+    };
+});
+
+vi.mock("@/app/features/runtime/native-persistence-policy", () => ({
+    requiresSqlitePersistence: vi.fn(() => true),
+}));
+
 vi.mock("@dweb/storage/indexed-db", () => ({
     messagingDB: {
         getAllByIndex: vi.fn(async () => []),
     }
 }));
+
+const DM_MESSAGES_STORE = "messages";
+const DM_CONVERSATION_TIMESTAMP_INDEX = "conversationId_timestamp";
+
+const indexedRowToSqliteRecord = (
+    row: Readonly<Record<string, unknown>>,
+    conversationId: string,
+): Record<string, unknown> => ({
+    event_id: typeof row.eventId === "string" ? row.eventId : (typeof row.id === "string" ? row.id : ""),
+    conversation_id: typeof row.conversationId === "string" ? row.conversationId : conversationId,
+    plaintext: typeof row.content === "string" ? row.content : "",
+    sender_pubkey: typeof row.senderPubkey === "string"
+        ? row.senderPubkey
+        : (typeof row.pubkey === "string" ? row.pubkey : ""),
+    recipient_pubkey: typeof row.recipientPubkey === "string" ? row.recipientPubkey : "",
+    is_outgoing: row.isOutgoing === true,
+    kind: typeof row.kind === "string" ? row.kind : "user",
+    received_at: Number(
+        row.timestampMs ?? (row.timestamp instanceof Date ? row.timestamp.getTime() : 0),
+    ),
+});
+
+const stubIndexedHydrationWindow = (
+    cappedHydratedMessages: ReadonlyArray<Message>,
+): void => {
+    vi.spyOn(dmConversationHydrateIndexedScan, "loadInitialDmHydrationIndexedWindow").mockResolvedValue({
+        retentionFilteredMapped: cappedHydratedMessages,
+        cappedHydratedMessages,
+        hasEarlier: false,
+        shouldCapHydratedHistoryWindow: false,
+    });
+};
+
+/** Routes legacy `messagingDB.getAllByIndex` mocks through the native SQLite hydrate path. */
+const wireDbGetMessagesFromIndexedDbMock = (): void => {
+    vi.mocked(dbGetMessages).mockImplementation(async (
+        _profileId,
+        conversationId,
+        limit,
+        beforeTimestampMs,
+    ) => {
+        const keyRange = (globalThis as { IDBKeyRange?: { bound: (lower: unknown[], upper: unknown[]) => unknown } })
+            .IDBKeyRange;
+        if (!keyRange?.bound) {
+            return [];
+        }
+        const upperTimestampMs = typeof beforeTimestampMs === "number"
+            ? Math.max(0, beforeTimestampMs - 1)
+            : Number.MAX_SAFE_INTEGER;
+        const range = keyRange.bound([conversationId, 0], [conversationId, upperTimestampMs]);
+        const rows = await vi.mocked(messagingDB.getAllByIndex)(
+            DM_MESSAGES_STORE,
+            DM_CONVERSATION_TIMESTAMP_INDEX,
+            range as never,
+        );
+        const typedRows = rows as Array<{ timestampMs?: number }>;
+        const sorted = [...typedRows].sort(
+            (left, right) => Number(right.timestampMs ?? 0) - Number(left.timestampMs ?? 0),
+        );
+        return sorted
+            .slice(0, Math.max(1, limit ?? 50))
+            .map((row) => indexedRowToSqliteRecord(row as Record<string, unknown>, conversationId)) as unknown as Awaited<ReturnType<typeof dbGetMessages>>;
+    });
+};
 
 vi.mock("@/app/features/account-sync/hooks/use-account-projection-snapshot", () => ({
     useAccountProjectionSnapshot: () => accountProjectionSnapshot,
@@ -146,6 +230,7 @@ describe("useConversationMessages integration (perf mode)", () => {
         vi.spyOn(performanceMonitor, "isEnabled").mockReturnValue(false);
         clearMessageDeleteTombstones();
         resetDmRedactionDisplayGateForTests();
+        resetDmThreadDisplayCacheForTests();
         integrationSuppressedMessageIds.clear();
         window.localStorage.clear();
         const clientGateway = buildAppClientGateway({
@@ -186,6 +271,8 @@ describe("useConversationMessages integration (perf mode)", () => {
         telemetryMocks.logAppEvent.mockReset();
         vi.mocked(messagingDB.getAllByIndex).mockReset();
         vi.mocked(messagingDB.getAllByIndex).mockResolvedValue([]);
+        vi.mocked(requiresSqlitePersistence).mockReturnValue(true);
+        wireDbGetMessagesFromIndexedDbMock();
         migrationPolicyPhaseRef.current = "shadow";
         accountProjectionSnapshot.phase = "ready";
         accountProjectionSnapshot.status = "ready";
@@ -977,7 +1064,7 @@ describe("useConversationMessages integration (perf mode)", () => {
         });
 
         await waitFor(() => expect(result.current.messages.some((message) => message.id === "late-restore-1")).toBe(true));
-        expect(vi.mocked(messagingDB.getAllByIndex).mock.calls.length).toBeGreaterThanOrEqual(2);
+        expect(vi.mocked(dbGetMessages).mock.calls.length).toBeGreaterThanOrEqual(2);
         unmount();
     });
 
@@ -986,6 +1073,7 @@ describe("useConversationMessages integration (perf mode)", () => {
         const peerPublicKeyHex = "b".repeat(64);
         const conversationId = [myPublicKeyHex, peerPublicKeyHex].sort().join(":");
 
+        vi.mocked(requiresSqlitePersistence).mockReturnValue(false);
         migrationPolicyPhaseRef.current = "shadow";
         accountProjectionSnapshot.projection = null;
         accountProjectionSnapshot.accountProjectionReady = false;
@@ -1121,10 +1209,221 @@ describe("useConversationMessages integration (perf mode)", () => {
         unmount();
     });
 
+    it("preserves outgoing sqlite history when a later projection hydrate would replace it (boot flash)", async () => {
+        enableProjectionReadCutoverAuthority();
+        const myPublicKeyHex = "a".repeat(64);
+        const peerPublicKeyHex = "b".repeat(64);
+        const conversationId = [myPublicKeyHex, peerPublicKeyHex].sort().join(":");
+
+        accountProjectionSnapshot.projection = null;
+        stubIndexedHydrationWindow([
+            {
+                id: "indexed-self-boot-1",
+                kind: "user",
+                conversationId,
+                senderPubkey: myPublicKeyHex,
+                recipientPubkey: peerPublicKeyHex,
+                content: "from sqlite self",
+                timestamp: new Date(61_000),
+                isOutgoing: true,
+                status: "delivered",
+            },
+        ]);
+
+        const { result, rerender, unmount } = renderHook(() => useConversationMessages(conversationId, myPublicKeyHex));
+        await waitFor(() => expect(result.current.isLoading).toBe(false));
+        await waitFor(() => expect(result.current.messages.some((m) => m.id === "indexed-self-boot-1")).toBe(true));
+
+        accountProjectionSnapshot.projection = {
+            profileId: "default",
+            accountPublicKeyHex: myPublicKeyHex,
+            contactsByPeer: {},
+            conversationsById: {},
+            messagesByConversationId: {
+                [conversationId]: [{
+                    messageId: "projection-invite-boot-1",
+                    conversationId,
+                    peerPublicKeyHex,
+                    direction: "incoming",
+                    eventCreatedAtUnixSeconds: 60,
+                    plaintextPreview: "from projection invite",
+                    observedAtUnixMs: 60_000,
+                }],
+            },
+            sync: {
+                checkpointsByTimelineKey: {},
+                bootstrapImportApplied: true,
+            },
+            lastSequence: 60,
+            updatedAtUnixMs: 60_000,
+        };
+        stubIndexedHydrationWindow([
+            {
+                id: "indexed-self-boot-1",
+                kind: "user",
+                conversationId,
+                senderPubkey: myPublicKeyHex,
+                recipientPubkey: peerPublicKeyHex,
+                content: "from sqlite self",
+                timestamp: new Date(61_000),
+                isOutgoing: true,
+                status: "delivered",
+            },
+        ]);
+
+        rerender();
+        await waitFor(() => expect(result.current.isLoading).toBe(false));
+        await waitFor(() => {
+            expect(result.current.messages.some((m) => m.id === "indexed-self-boot-1")).toBe(true);
+            expect(result.current.messages.some((m) => m.id === "projection-invite-boot-1")).toBe(true);
+        }, { timeout: 3_000 });
+        unmount();
+    });
+
+    it("prefers indexed sqlite over thin incoming-only projection on first hydrate (outgoing visible without refresh)", async () => {
+        enableProjectionReadCutoverAuthority();
+        const myPublicKeyHex = "a".repeat(64);
+        const peerPublicKeyHex = "b".repeat(64);
+        const conversationId = [myPublicKeyHex, peerPublicKeyHex].sort().join(":");
+
+        accountProjectionSnapshot.projection = {
+            profileId: "default",
+            accountPublicKeyHex: myPublicKeyHex,
+            contactsByPeer: {},
+            conversationsById: {},
+            messagesByConversationId: {
+                [conversationId]: [{
+                    messageId: "projection-incoming-only-1",
+                    conversationId,
+                    peerPublicKeyHex,
+                    direction: "incoming",
+                    eventCreatedAtUnixSeconds: 60,
+                    plaintextPreview: "from projection",
+                    observedAtUnixMs: 60_000,
+                }],
+            },
+            sync: {
+                checkpointsByTimelineKey: {},
+                bootstrapImportApplied: true,
+            },
+            lastSequence: 60,
+            updatedAtUnixMs: 60_000,
+        };
+
+        stubIndexedHydrationWindow([
+            {
+                id: "indexed-peer-1",
+                kind: "user",
+                conversationId,
+                senderPubkey: peerPublicKeyHex,
+                recipientPubkey: myPublicKeyHex,
+                content: "from sqlite peer",
+                timestamp: new Date(59_000),
+                isOutgoing: false,
+                status: "delivered",
+            },
+            {
+                id: "indexed-self-1",
+                kind: "user",
+                conversationId,
+                senderPubkey: myPublicKeyHex,
+                recipientPubkey: peerPublicKeyHex,
+                content: "from sqlite self",
+                timestamp: new Date(61_000),
+                isOutgoing: true,
+                status: "delivered",
+            },
+        ]);
+
+        const { result, unmount } = renderHook(() => useConversationMessages(conversationId, myPublicKeyHex));
+        await waitFor(() => expect(result.current.isLoading).toBe(false));
+        await waitFor(() => expect(result.current.messages.length).toBe(2), { timeout: 3_000 });
+
+        expect(result.current.messages).toEqual([
+            expect.objectContaining({ id: "indexed-peer-1", content: "from sqlite peer" }),
+            expect.objectContaining({ id: "indexed-self-1", content: "from sqlite self" }),
+        ]);
+        expectConversationHistoryAuthorityLog({
+            selectedAuthority: "indexed",
+            selectedAuthorityReason: "indexed_primary",
+        });
+        unmount();
+    });
+
+    it("refuses one-sided display cache on native cold open and hydrates both directions", async () => {
+        enableProjectionReadCutoverAuthority();
+        const myPublicKeyHex = "a".repeat(64);
+        const peerPublicKeyHex = "b".repeat(64);
+        const conversationId = [myPublicKeyHex, peerPublicKeyHex].sort().join(":");
+
+        writeDmThreadDisplayCache("default", conversationId, [{
+            id: "cache-in-only",
+            kind: "user",
+            conversationId,
+            senderPubkey: peerPublicKeyHex,
+            recipientPubkey: myPublicKeyHex,
+            content: "cached peer only",
+            timestamp: new Date(50_000),
+            isOutgoing: false,
+            status: "delivered",
+        }]);
+
+        accountProjectionSnapshot.projection = {
+            profileId: "default",
+            accountPublicKeyHex: myPublicKeyHex,
+            contactsByPeer: {},
+            conversationsById: {},
+            messagesByConversationId: {},
+            sync: {
+                checkpointsByTimelineKey: {},
+                bootstrapImportApplied: true,
+            },
+            lastSequence: 0,
+            updatedAtUnixMs: 0,
+        };
+
+        stubIndexedHydrationWindow([
+            {
+                id: "indexed-peer-1",
+                kind: "user",
+                conversationId,
+                senderPubkey: peerPublicKeyHex,
+                recipientPubkey: myPublicKeyHex,
+                content: "from sqlite peer",
+                timestamp: new Date(59_000),
+                isOutgoing: false,
+                status: "delivered",
+            },
+            {
+                id: "indexed-self-1",
+                kind: "user",
+                conversationId,
+                senderPubkey: myPublicKeyHex,
+                recipientPubkey: peerPublicKeyHex,
+                content: "from sqlite self",
+                timestamp: new Date(61_000),
+                isOutgoing: true,
+                status: "delivered",
+            },
+        ]);
+
+        const { result, unmount } = renderHook(() => useConversationMessages(conversationId, myPublicKeyHex));
+        await waitFor(() => expect(result.current.isLoading).toBe(false));
+        await waitFor(() => expect(result.current.messages.length).toBe(2), { timeout: 3_000 });
+
+        expect(result.current.messages.some((m) => m.id === "cache-in-only")).toBe(false);
+        expect(result.current.messages).toEqual([
+            expect.objectContaining({ id: "indexed-peer-1", content: "from sqlite peer" }),
+            expect.objectContaining({ id: "indexed-self-1", content: "from sqlite self" }),
+        ]);
+        unmount();
+    });
+
     it("chooses persisted history as the single authority when restore-phase indexed history is outgoing-only", async () => {
         const myPublicKeyHex = "a".repeat(64);
         const peerPublicKeyHex = "b".repeat(64);
         const conversationId = [myPublicKeyHex, peerPublicKeyHex].sort().join(":");
+        vi.mocked(requiresSqlitePersistence).mockReturnValue(false);
         migrationPolicyPhaseRef.current = "shadow";
         accountProjectionSnapshot.phase = "bootstrapping";
         accountProjectionSnapshot.status = "bootstrapping";
@@ -1164,18 +1463,19 @@ describe("useConversationMessages integration (perf mode)", () => {
             pinnedChatIds: [],
             hiddenChatIds: [],
         } as any);
-        vi.mocked(messagingDB.getAllByIndex).mockResolvedValue([
+        stubIndexedHydrationWindow([
             {
                 id: "indexed-outgoing-only-1",
+                kind: "user",
                 conversationId,
                 senderPubkey: myPublicKeyHex,
                 recipientPubkey: peerPublicKeyHex,
                 content: "indexed self only",
-                timestampMs: 61_000,
+                timestamp: new Date(61_000),
                 isOutgoing: true,
                 status: "delivered",
             },
-        ] as any);
+        ]);
 
         const { result, unmount } = renderHook(() => useConversationMessages(conversationId, myPublicKeyHex));
         await waitFor(() => expect(result.current.isLoading).toBe(false));
@@ -1474,6 +1774,7 @@ describe("useConversationMessages integration (perf mode)", () => {
         const myPublicKeyHex = "a".repeat(64);
         const peerPublicKeyHex = "b".repeat(64);
         const conversationId = [myPublicKeyHex, peerPublicKeyHex].sort().join(":");
+        vi.mocked(requiresSqlitePersistence).mockReturnValue(false);
         migrationPolicyPhaseRef.current = "shadow";
         accountProjectionSnapshot.phase = "bootstrapping";
         accountProjectionSnapshot.status = "bootstrapping";
@@ -1513,18 +1814,19 @@ describe("useConversationMessages integration (perf mode)", () => {
             pinnedChatIds: [],
             hiddenChatIds: [],
         } as any);
-        vi.mocked(messagingDB.getAllByIndex).mockResolvedValue([
+        stubIndexedHydrationWindow([
             {
                 id: "indexed-pending-outgoing-1",
+                kind: "user",
                 conversationId,
                 senderPubkey: myPublicKeyHex,
                 recipientPubkey: peerPublicKeyHex,
                 content: "indexed self only",
-                timestampMs: 121_000,
+                timestamp: new Date(121_000),
                 isOutgoing: true,
                 status: "delivered",
             },
-        ] as any);
+        ]);
 
         const { result, unmount } = renderHook(() => useConversationMessages(conversationId, myPublicKeyHex));
         await waitFor(() => expect(result.current.isLoading).toBe(false));
@@ -1552,6 +1854,7 @@ describe("useConversationMessages integration (perf mode)", () => {
         const myPublicKeyHex = "a".repeat(64);
         const peerPublicKeyHex = "b".repeat(64);
         const conversationId = [myPublicKeyHex, peerPublicKeyHex].sort().join(":");
+        vi.mocked(requiresSqlitePersistence).mockReturnValue(false);
         migrationPolicyPhaseRef.current = "shadow";
         accountProjectionSnapshot.phase = "bootstrapping";
         accountProjectionSnapshot.status = "bootstrapping";
@@ -1591,18 +1894,19 @@ describe("useConversationMessages integration (perf mode)", () => {
             pinnedChatIds: [],
             hiddenChatIds: [],
         } as any);
-        vi.mocked(messagingDB.getAllByIndex).mockResolvedValue([
+        stubIndexedHydrationWindow([
             {
                 id: "indexed-outgoing-gap-incoming-1",
+                kind: "user",
                 conversationId,
                 senderPubkey: peerPublicKeyHex,
                 recipientPubkey: myPublicKeyHex,
                 content: "indexed peer only",
-                timestampMs: 140_000,
+                timestamp: new Date(140_000),
                 isOutgoing: false,
                 status: "delivered",
             },
-        ] as any);
+        ]);
         accountProjectionSnapshot.projection = {
             profileId: "default",
             accountPublicKeyHex: myPublicKeyHex,

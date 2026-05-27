@@ -87,6 +87,7 @@ describe("relay-runtime-supervisor", () => {
     supervisor.configure({
       pool,
       enabledRelayUrls: ["wss://relay.one"],
+      allEnabledRelayUrls: ["wss://relay.one"],
       scope: {
         windowLabel: "profile-b",
         profileId: "profile-b",
@@ -117,6 +118,7 @@ describe("relay-runtime-supervisor", () => {
     supervisor.configure({
       pool,
       enabledRelayUrls: ["wss://relay.one"],
+      allEnabledRelayUrls: ["wss://relay.one"],
       scope: {
         windowLabel: "desktop-main",
         profileId: "default",
@@ -141,6 +143,7 @@ describe("relay-runtime-supervisor", () => {
     supervisor.configure({
       pool,
       enabledRelayUrls: ["wss://relay.one"],
+      allEnabledRelayUrls: ["wss://relay.one"],
       scope: {
         windowLabel: "main",
         profileId: "default",
@@ -172,6 +175,7 @@ describe("relay-runtime-supervisor", () => {
       supervisor.configure({
         pool,
         enabledRelayUrls: [],
+        allEnabledRelayUrls: [],
         scope: {
           windowLabel: "main",
           profileId: "default",
@@ -203,6 +207,7 @@ describe("relay-runtime-supervisor", () => {
     supervisor.configure({
       pool,
       enabledRelayUrls: ["wss://relay.one"],
+      allEnabledRelayUrls: ["wss://relay.one"],
       scope: {
         windowLabel: "main",
         profileId: "default",
@@ -214,6 +219,37 @@ describe("relay-runtime-supervisor", () => {
 
     const snapshot = supervisor.getSnapshot();
     expect(snapshot.pendingOutboundCount).toBe(3);
+  });
+
+  it("invokes primary failover before reconnecting when no writable relays remain", async () => {
+    vi.useFakeTimers();
+    try {
+      const attemptPrimaryFailover = vi.fn(() => true);
+      const supervisor = createRelayRuntimeSupervisor();
+      const pool = createPool({
+        writableRelayUrls: [],
+        subscribableRelayCount: 0,
+      });
+
+      supervisor.configure({
+        pool,
+        enabledRelayUrls: ["ws://localhost:7000"],
+        allEnabledRelayUrls: ["ws://localhost:7000", "wss://relay.damus.io"],
+        attemptPrimaryFailover,
+        scope: {
+          windowLabel: "main",
+          profileId: "default",
+        },
+      });
+
+      vi.setSystemTime(new Date("2026-01-01T00:00:09.000Z"));
+      await supervisor.triggerRecovery("no_writable_relays");
+
+      expect(attemptPrimaryFailover).toHaveBeenCalled();
+      expect(pool.reconnectAll).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("records replay outcomes into relay resilience observability", () => {
@@ -232,6 +268,7 @@ describe("relay-runtime-supervisor", () => {
     supervisor.configure({
       pool,
       enabledRelayUrls: ["wss://relay.one"],
+      allEnabledRelayUrls: ["wss://relay.one"],
       scope: {
         windowLabel: "main",
         profileId: "default",

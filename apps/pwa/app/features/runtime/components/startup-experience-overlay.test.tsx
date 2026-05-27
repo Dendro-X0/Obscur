@@ -56,6 +56,10 @@ vi.mock("@/app/features/account-sync/hooks/use-account-projection-snapshot", () 
   useAccountProjectionSnapshot: () => startupOverlayMocks.projectionSnapshot,
 }));
 
+vi.mock("@/app/features/runtime/experiment-shell-policy", () => ({
+  isExperimentShellEnabled: () => false,
+}));
+
 describe("StartupExperienceOverlay", () => {
   beforeEach(() => {
     window.sessionStorage.clear();
@@ -120,6 +124,19 @@ describe("StartupExperienceOverlay", () => {
     });
 
     expect(screen.getByRole("button", { name: "Continue" })).toBeInTheDocument();
+  });
+
+  it("dismisses when projection is ready even if relay is still connecting", () => {
+    startupOverlayMocks.runtimeSnapshot.phase = "activating_runtime";
+    startupOverlayMocks.runtimeSnapshot.relayRuntime.phase = "connecting";
+    startupOverlayMocks.runtimeSnapshot.relayRuntime.writableRelayCount = 0;
+    startupOverlayMocks.projectionSnapshot.phase = "ready";
+    startupOverlayMocks.projectionSnapshot.accountProjectionReady = true;
+    startupOverlayMocks.accountSyncSnapshot.phase = "restoring_account_data";
+
+    render(<StartupExperienceOverlay />);
+
+    expect(screen.queryByText("Preparing your workspace")).not.toBeInTheDocument();
   });
 
   it("dismisses when shell is ready during activating_runtime even if account sync is still restoring", () => {

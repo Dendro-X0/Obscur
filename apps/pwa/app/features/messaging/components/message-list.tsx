@@ -12,6 +12,7 @@ import { AudioPlayer } from "./audio-player";
 import { VideoPlayer } from "./video-player";
 import { VoiceNoteCard } from "./voice-note-card";
 import { cn } from "../../../lib/cn";
+import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { formatTime } from "../utils/formatting";
 import type {
     Message,
@@ -29,6 +30,7 @@ import { UserAvatar } from "../../profile/components/user-avatar";
 import { useProfileMetadata } from "../../profile/hooks/use-profile-metadata";
 import { CommunityInviteCard } from "../../groups/components/community-invite-card";
 import { CommunityInviteResponseCard } from "../../groups/components/community-invite-response-card";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { getLocalMediaIndexSnapshot } from "@/app/features/vault/services/local-media-store";
 import { PrivacySettingsService } from "../../settings/services/privacy-settings-service";
 import { detectSwipeDirection, nextMediaIndex, prevMediaIndex } from "./media-viewer-interactions";
@@ -48,7 +50,11 @@ import {
 } from "./message-list-touch";
 import { buildAttachmentBuckets, buildAttachmentPresentation } from "./message-attachment-layout";
 import { logAppEvent } from "@/app/shared/log-app-event";
-import { resolveSearchJumpDomResolution, resolveSearchJumpStep } from "./message-search-jump";
+import {
+    messageMatchesSearchJumpTarget,
+    resolveSearchJumpDomResolution,
+    resolveSearchJumpStep,
+} from "./message-search-jump";
 import { VoiceCallInviteCard } from "./voice-call-invite-card";
 import {
     buildMessageRenderCaches,
@@ -223,6 +229,8 @@ function MessageListImpl({
         estimateSize: () => 156,
         overscan: virtualizerOverscan,
     });
+    const messagesRef = React.useRef(messages);
+    messagesRef.current = messages;
 
     const [showScrollBottom, setShowScrollBottom] = React.useState(false);
     const prevLastId = React.useRef<string | null>(null);
@@ -587,7 +595,7 @@ function MessageListImpl({
             };
 
             const nextStep = resolveSearchJumpStep({
-                messages,
+                messages: messagesRef.current,
                 jumpToMessageId,
                 jumpToMessageTimestampMs: targetTimestampMs,
                 loadAttemptCount: jumpLoadAttemptCountRef.current,
@@ -619,7 +627,7 @@ function MessageListImpl({
                             resolvedMessageIdHint: toIdHint(nextStep.resolvedMessageId),
                             loadAttemptCount: jumpLoadAttemptCountRef.current,
                             renderResolveAttemptCount: jumpRenderResolveAttemptCountRef.current,
-                            messageWindowCount: messages.length,
+                            messageWindowCount: messagesRef.current.length,
                         },
                     });
                     finalizeJump();
@@ -642,7 +650,7 @@ function MessageListImpl({
                         targetMessageIdHint: toIdHint(jumpToMessageId),
                         loadAttemptCount: jumpLoadAttemptCountRef.current,
                         renderResolveAttemptCount: jumpRenderResolveAttemptCountRef.current,
-                        messageWindowCount: messages.length,
+                        messageWindowCount: messagesRef.current.length,
                     },
                 });
                 finalizeJump();
@@ -677,7 +685,7 @@ function MessageListImpl({
                             targetMessageIdHint: toIdHint(jumpToMessageId),
                             loadAttemptCount: jumpLoadAttemptCountRef.current,
                             renderResolveAttemptCount: jumpRenderResolveAttemptCountRef.current,
-                            messageWindowCount: messages.length,
+                            messageWindowCount: messagesRef.current.length,
                         },
                     });
                     finalizeJump();
@@ -696,7 +704,7 @@ function MessageListImpl({
                         resolvedMessageIdHint: toIdHint(nextStep.resolvedMessageId),
                         loadAttemptCount: jumpLoadAttemptCountRef.current,
                         renderResolveAttemptCount: jumpRenderResolveAttemptCountRef.current,
-                        messageWindowCount: messages.length,
+                        messageWindowCount: messagesRef.current.length,
                     },
                 });
                 finalizeJump();
@@ -722,7 +730,7 @@ function MessageListImpl({
                         targetMessageIdHint: toIdHint(jumpToMessageId),
                         loadAttemptCount: jumpLoadAttemptCountRef.current,
                         renderResolveAttemptCount: jumpRenderResolveAttemptCountRef.current,
-                        messageWindowCount: messages.length,
+                        messageWindowCount: messagesRef.current.length,
                     },
                 });
                 finalizeJump();
@@ -942,7 +950,9 @@ function MessageListImpl({
     } = React.useMemo(() => buildMessageRenderCaches({
         messages: renderMetaMessages ?? messages,
         expandedRelayUrlsByMessageId,
-    }), [expandedRelayUrlsByMessageId, messages, renderMetaMessages]);
+        conversationId,
+        profileId: getResolvedProfileId(),
+    }), [conversationId, expandedRelayUrlsByMessageId, messages, renderMetaMessages]);
 
     const handleRequestVoiceCallCallback = React.useCallback((roomId: string | null): void => {
         if (typeof onRequestVoiceCallCallback !== "function") {
@@ -1094,7 +1104,7 @@ function MessageListImpl({
                                         isMiddle={isMiddle}
                                         highLoadMode={highLoadMode}
                                         chatUxV083Enabled={chatUxV083Enabled}
-                                        isFlashing={flashMessageId === message.id}
+                                        isFlashing={!!flashMessageId && messageMatchesSearchJumpTarget(message, flashMessageId)}
                                         attachmentUrlsExpanded={attachmentUrlsExpanded}
                                         hasVisualAttachments={hasVisualAttachments}
                                         hasAttachmentRelayUrlsInContent={hasAttachmentRelayUrlsInContent}
@@ -1254,6 +1264,8 @@ type MessageRowProps = Readonly<{
 
 const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps): React.JSX.Element {
     const { t } = useTranslation();
+    const { state: identityState } = useIdentity();
+    const localMemberPubkey = identityState.publicKeyHex ?? identityState.stored?.publicKeyHex ?? null;
     const {
         virtualIndex,
         virtualStart,
@@ -1321,8 +1333,13 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
         ? voiceCallInvitePayload.roomId
         : null;
     const isEmbeddedCommunityCard = (
-        (!message.isOutgoing && parsedPayload?.type === "community-invite")
+        parsedPayload?.type === "community-invite"
         || parsedPayload?.type === "community-invite-response"
+    );
+    const avatarPubkey = (
+        message.senderPubkey?.trim()
+        || (message.isOutgoing ? localMemberPubkey : null)
+        || ""
     );
     const markMenuAnchorHover = React.useCallback((isHovered: boolean): void => {
         onMessageMenuAnchorHoverChange?.({ messageId: message.id, isHovered });
@@ -1530,14 +1547,14 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
             )}
         >
             <div className="w-8 flex-shrink-0 flex justify-center">
-                {isGroupEnd && (
+                {isGroupEnd && avatarPubkey ? (
                     <UserAvatar
-                        pubkey={message.senderPubkey!}
+                        pubkey={avatarPubkey}
                         metadataLive={false}
                         size="sm"
                         className="h-8 w-8 ring-1 ring-black/5 dark:ring-white/5 shadow-sm rounded-full"
                     />
-                )}
+                ) : null}
             </div>
 
             {batchDeleteMode ? (
@@ -1822,7 +1839,11 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
                             <div
                                 className={cn(
                                     "mt-1.5 flex items-center justify-end gap-1.5 text-[10px] font-medium select-none",
-                                    message.isOutgoing ? "text-white/60 dark:text-zinc-900/60" : "text-zinc-500 dark:text-zinc-500"
+                                    isEmbeddedCommunityCard
+                                        ? "text-zinc-500 dark:text-zinc-400"
+                                        : message.isOutgoing
+                                            ? "text-white/60 dark:text-zinc-900/60"
+                                            : "text-zinc-500 dark:text-zinc-500",
                                 )}
                             >
                                 {timeLabel ? <span>{timeLabel}</span> : null}

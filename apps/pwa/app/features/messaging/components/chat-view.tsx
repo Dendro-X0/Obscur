@@ -3,7 +3,6 @@ import { useResolvedProfileMetadata } from "../../profile/hooks/use-resolved-pro
 import { ChatHeader } from "./chat-header";
 import { StrangerWarningBanner } from "./stranger-warning-banner";
 import { RelayOverlapBanner } from "./relay-overlap-banner";
-import { RelayReadinessInlineBanner } from "@/app/features/relays/components/relay-readiness-inline-banner";
 import type { ContactRelayOverlapResult } from "../hooks/use-contact-relay-overlap";
 import { MessageList } from "./message-list";
 import { Composer } from "./composer";
@@ -18,11 +17,18 @@ import type {
     SendDirectMessageParams, SendDirectMessageResult, VoiceCallInvitePayload
 } from "../types";
 import { chatStateStoreService } from "../services/chat-state-store";
+import { resolveConversationMessageJumpTarget } from "./message-search-jump";
+import {
+    mapPersistedMessageToHistorySearchResult,
+    mergeConversationHistorySearchResults,
+    resolveHistorySearchResultsForLiveMessages,
+    searchLiveConversationMessages,
+} from "../services/conversation-history-search";
 import { formatTime, highlightText } from "../utils/formatting";
 import Image from "next/image";
 import { cn } from "@/app/lib/utils";
-import { getVoiceNoteAttachmentMetadata } from "@/app/features/messaging/services/voice-note-metadata";
 import { logAppEvent } from "@/app/shared/log-app-event";
+import { SEARCH_TARGET_FLASH_CLASS, SEARCH_TARGET_FLASH_MS } from "@/app/shared/search-target-highlight";
 import { applyBatchMessageSelectionToggle } from "../utils/batch-message-selection";
 import {
     DM_LOCAL_VISIBILITY_COPY,
@@ -178,7 +184,9 @@ export function ChatView(props: ChatViewProps) {
     const [jumpToMessageId, setJumpToMessageId] = useState<string | null>(null);
     const [jumpToMessageTimestampMs, setJumpToMessageTimestampMs] = useState<number | null>(null);
     const [searchFlashMessageId, setSearchFlashMessageId] = useState<string | null>(null);
+    const [historySearchResultFlashId, setHistorySearchResultFlashId] = useState<string | null>(null);
     const searchFlashTimeoutRef = React.useRef<number | null>(null);
+    const historySearchResultFlashTimeoutRef = React.useRef<number | null>(null);
     const [messageMenuAnchorHoverId, setMessageMenuAnchorHoverId] = useState<string | null>(null);
     const [isMessageMenuHovered, setIsMessageMenuHovered] = useState(false);
     const [canUseMessageMenuHoverDismiss, setCanUseMessageMenuHoverDismiss] = useState(false);
@@ -250,6 +258,7 @@ export function ChatView(props: ChatViewProps) {
     };
 
     const handleJumpToMessage = React.useCallback((params: Readonly<{ messageId: string; timestampMs: number }>): void => {
+        const resolvedTarget = resolveConversationMessageJumpTarget(props.messages, params);
         logAppEvent({
             name: "messaging.search_jump_requested",
             level: "info",
@@ -257,14 +266,24 @@ export function ChatView(props: ChatViewProps) {
             context: {
                 conversationIdHint: toIdHint(props.conversation.id),
                 conversationKind: props.conversation.kind,
-                targetMessageIdHint: toIdHint(params.messageId),
-                targetTimestampMs: params.timestampMs,
+                targetMessageIdHint: toIdHint(resolvedTarget.messageId),
+                targetTimestampMs: resolvedTarget.timestampMs,
             },
         });
-        setJumpToMessageId(params.messageId);
-        setJumpToMessageTimestampMs(params.timestampMs);
+        setHistorySearchResultFlashId(resolvedTarget.messageId);
+        if (historySearchResultFlashTimeoutRef.current) {
+            window.clearTimeout(historySearchResultFlashTimeoutRef.current);
+        }
+        historySearchResultFlashTimeoutRef.current = window.setTimeout(() => {
+            setHistorySearchResultFlashId((current) => (
+                current === resolvedTarget.messageId ? null : current
+            ));
+            historySearchResultFlashTimeoutRef.current = null;
+        }, 900);
+        setJumpToMessageId(resolvedTarget.messageId);
+        setJumpToMessageTimestampMs(resolvedTarget.timestampMs);
         setIsHistorySearchOpen(false);
-    }, [props.conversation.id, props.conversation.kind]);
+    }, [props.conversation.id, props.conversation.kind, props.messages]);
 
     React.useEffect(() => {
         setHistorySearchQuery("");
@@ -319,35 +338,27 @@ export function ChatView(props: ChatViewProps) {
                     return;
                 }
 
-                const conversationResults = searchResults
+                const persistedConversationResults = searchResults
                     .filter((result) => result.conversationId === props.conversation.id)
-                    .map((result) => {
-                        const messageAttachments = Array.isArray(result.message.attachments)
-                            ? result.message.attachments
-                            : [];
-                        const voiceNoteMetadata = messageAttachments
-                            .map((attachment) => getVoiceNoteAttachmentMetadata({
-                                kind: typeof attachment.kind === "string" ? attachment.kind : null,
-                                fileName: typeof attachment.fileName === "string" ? attachment.fileName : null,
-                                contentType: typeof attachment.contentType === "string" ? attachment.contentType : null,
-                            }))
-                            .find((metadata) => metadata.isVoiceNote);
-                        const contentPreview = typeof result.message.content === "string"
-                            ? result.message.content
-                            : "";
+                    .map((result) => mapPersistedMessageToHistorySearchResult(result.message));
 
-                        return {
-                            messageId: result.message.id,
-                            timestamp: new Date(result.message.timestampMs),
-                            timestampMs: result.message.timestampMs,
-                            preview: contentPreview.trim().length > 0
-                                ? contentPreview
-                                : (voiceNoteMetadata?.isVoiceNote ? "Voice note" : ""),
-                            resultKind: voiceNoteMetadata?.isVoiceNote ? "voice_note" : "text",
-                            voiceDurationLabel: voiceNoteMetadata?.durationLabel ?? null,
-                        } satisfies ChatHistorySearchResult;
-                    })
-                    .slice(0, 50);
+                const liveConversationResults = searchLiveConversationMessages(
+                    props.messages,
+                    normalizedHistorySearchQuery,
+                    120,
+                );
+
+                const conversationResults = resolveHistorySearchResultsForLiveMessages(
+                    mergeConversationHistorySearchResults(
+                        persistedConversationResults,
+                        liveConversationResults,
+                        50,
+                    ),
+                    props.messages,
+                ).map((result) => ({
+                    ...result,
+                    timestamp: new Date(result.timestampMs),
+                } satisfies ChatHistorySearchResult));
 
                 setHistorySearchResults(conversationResults);
             } finally {
@@ -361,7 +372,7 @@ export function ChatView(props: ChatViewProps) {
             cancelled = true;
             window.clearTimeout(debounceId);
         };
-    }, [canSearchHistory, normalizedHistorySearchQuery, props.conversation.id]);
+    }, [canSearchHistory, normalizedHistorySearchQuery, props.conversation.id, props.messages]);
 
     const handleMessageMenuAnchorHoverChange = React.useCallback((params: { messageId: string; isHovered: boolean }): void => {
         setMessageMenuAnchorHoverId((current) => {
@@ -382,7 +393,7 @@ export function ChatView(props: ChatViewProps) {
         searchFlashTimeoutRef.current = window.setTimeout(() => {
             setSearchFlashMessageId((current) => (current === messageId ? null : current));
             searchFlashTimeoutRef.current = null;
-        }, 2200);
+        }, SEARCH_TARGET_FLASH_MS);
     }, []);
 
     React.useEffect(() => {
@@ -390,6 +401,10 @@ export function ChatView(props: ChatViewProps) {
             if (searchFlashTimeoutRef.current) {
                 window.clearTimeout(searchFlashTimeoutRef.current);
                 searchFlashTimeoutRef.current = null;
+            }
+            if (historySearchResultFlashTimeoutRef.current) {
+                window.clearTimeout(historySearchResultFlashTimeoutRef.current);
+                historySearchResultFlashTimeoutRef.current = null;
             }
         };
     }, []);
@@ -664,7 +679,6 @@ export function ChatView(props: ChatViewProps) {
                     onNavigateToRelaySettings={props.onNavigateToRelaySettings}
                 />
             )}
-            <RelayReadinessInlineBanner />
             {isDeletedRecipient && (
                 <div className="mx-4 mt-3 rounded-2xl border border-amber-500/25 bg-amber-50/65 px-4 py-3 text-xs font-semibold text-amber-800 dark:border-amber-500/35 dark:bg-amber-900/20 dark:text-amber-200">
                     This contact account has been removed. You can still browse this chat, but new messages and calls cannot be delivered.
@@ -893,7 +907,10 @@ export function ChatView(props: ChatViewProps) {
                                                     messageId: result.messageId,
                                                     timestampMs: result.timestampMs,
                                                 })}
-                                                className="flex w-full flex-col items-start gap-1 rounded-lg px-3 py-2 text-left transition-colors hover:bg-black/[0.03] dark:hover:bg-white/[0.04]"
+                                                className={cn(
+                                                    "flex w-full flex-col items-start gap-1 rounded-lg px-3 py-2 text-left transition-colors hover:bg-black/[0.03] dark:hover:bg-white/[0.04]",
+                                                    historySearchResultFlashId === result.messageId && SEARCH_TARGET_FLASH_CLASS,
+                                                )}
                                             >
                                                 <div className="flex w-full items-center justify-between gap-2">
                                                     <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400">

@@ -55,15 +55,15 @@ export const COMMUNITY_MODE_DEFINITIONS: Readonly<Record<CommunityMode, Communit
         shortDescription: "Advanced team coordination mode for trusted or operator-controlled relay environments.",
         guarantees: [
             "Encrypted community chat",
-            "Relay-backed directory candidate",
+            "Coordination membership directory when configured",
             "Stronger team coordination affordances",
-            "Operationally managed relay assumptions",
+            "Private or operator-controlled relay for chat fanout",
         ],
         caution: "Only choose this when your relay environment is deliberately controlled and your team accepts the stronger setup requirements.",
     },
 };
 
-const normalizeRelayHost = (value: string | null | undefined): string | null => {
+export const normalizeRelayHost = (value: string | null | undefined): string | null => {
     const trimmed = value?.trim();
     if (!trimmed) {
         return null;
@@ -120,6 +120,11 @@ const isPrivateRelayHost = (hostname: string): boolean => {
     }
 
     return isPrivateIpv4Host(normalized);
+};
+
+export const isPublicDefaultRelayHost = (host: string): boolean => {
+    const normalized = normalizeRelayHost(host);
+    return normalized ? PUBLIC_DEFAULT_RELAY_HOSTS.has(normalized) : false;
 };
 
 export const assessRelayCapability = (params: Readonly<{
@@ -228,6 +233,16 @@ export const resolveManagedWorkspaceRelayGate = (params: Readonly<{
             allowed: true,
             reasonCode: "not_managed",
             userMessage: "",
+            settingsHint: assessment.settingsHint,
+            assessment,
+        };
+    }
+
+    if (assessment.tier === "public_default") {
+        return {
+            allowed: false,
+            reasonCode: "relay_tier_insufficient",
+            userMessage: "Managed Workspace cannot use public default relays (nos.lol, damus.io, etc.). Use a trusted private or intranet relay with coordination.",
             settingsHint: assessment.settingsHint,
             assessment,
         };

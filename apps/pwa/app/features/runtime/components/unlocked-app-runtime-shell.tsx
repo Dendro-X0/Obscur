@@ -1,7 +1,9 @@
 "use client";
 
 import type React from "react";
-import { GlobalDialogManager } from "@/app/features/messaging/components/global-dialog-manager";
+import { AppChromeProvider } from "@/app/components/app-chrome-registry";
+import { PersistentAppChrome } from "@/app/components/persistent-app-chrome";
+import { LazyGlobalDialogManager } from "@/app/features/messaging/components/lazy-global-dialog-manager";
 import { GroupProvider } from "@/app/features/groups/providers/group-provider";
 import { ProfileRuntimeProvider } from "@/app/features/profiles/providers/profile-runtime-provider";
 import { MessagingProvider } from "@/app/features/messaging/providers/messaging-provider";
@@ -10,10 +12,14 @@ import { NetworkProvider } from "@/app/features/network/providers/network-provid
 import { TanstackQueryRuntimeProvider } from "@/app/features/query/providers/tanstack-query-runtime-provider";
 import { RelayProvider } from "@/app/features/relays/providers/relay-provider";
 import { RuntimeActivationManager } from "./runtime-activation-manager";
-import { GlobalVoiceCallOverlay } from "@/app/features/messaging/components/global-voice-call-overlay";
-import MainShell from "@/app/features/main-shell/main-shell";
+import { ChatRouteMainShell, ChatRouteVoiceCallOverlay } from "./chat-route-main-shell";
 
-
+/**
+ * Unlocked session tree. Providers stay mounted across sidebar navigation so global
+ * handlers (desktop notifications, dialogs) and cross-route state do not crash on nav.
+ * Route-scoped provider unmount was reverted — it caused useMessaging errors on every
+ * page switch without measurable lag wins in dev.
+ */
 export function UnlockedAppRuntimeShell(props: Readonly<{ children: React.ReactNode }>): React.JSX.Element {
   return (
     <TanstackQueryRuntimeProvider>
@@ -24,10 +30,14 @@ export function UnlockedAppRuntimeShell(props: Readonly<{ children: React.ReactN
               <RuntimeActivationManager />
               <MessagingProvider>
                 <RuntimeMessagingTransportOwnerProvider>
-                  <GlobalDialogManager />
-                  <MainShell />
-                  <GlobalVoiceCallOverlay />
-                  {props.children}
+                  <AppChromeProvider>
+                    <LazyGlobalDialogManager />
+                    <PersistentAppChrome>
+                      <ChatRouteMainShell />
+                      <ChatRouteVoiceCallOverlay />
+                      {props.children}
+                    </PersistentAppChrome>
+                  </AppChromeProvider>
                 </RuntimeMessagingTransportOwnerProvider>
               </MessagingProvider>
             </NetworkProvider>

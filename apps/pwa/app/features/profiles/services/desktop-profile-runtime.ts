@@ -3,6 +3,7 @@
 import { useSyncExternalStore } from "react";
 import { invokeNativeCommand } from "@/app/features/runtime/native-adapters";
 import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
+import { logAppEvent } from "@/app/shared/log-app-event";
 import { ProfileRegistryService } from "./profile-registry-service";
 import { cryptoService } from "@/app/features/crypto/crypto-service";
 import type {
@@ -117,19 +118,25 @@ const emit = (): void => {
 };
 
 const setSnapshot = (snapshot: ProfileIsolationSnapshot): void => {
-  const changed = JSON.stringify(currentSnapshot) !== JSON.stringify(snapshot);
+  const previous = currentSnapshot;
+  const profileChanged = previous.currentWindow.profileId !== snapshot.currentWindow.profileId
+    || previous.currentWindow.profileLabel !== snapshot.currentWindow.profileLabel
+    || previous.profiles.length !== snapshot.profiles.length
+    || previous.windowBindings.length !== snapshot.windowBindings.length;
   currentSnapshot = snapshot;
   setProfileScopeOverride(snapshot.currentWindow.profileId);
   setLastKnownWindowProfileId(snapshot.currentWindow.profileId);
-  cryptoService.invalidateCache?.();
-  ProfileRegistryService.replaceState({
-    activeProfileId: snapshot.currentWindow.profileId,
-    profiles: snapshot.profiles.map((profile) => ({
-      ...profile,
-      status: profile.profileId === snapshot.currentWindow.profileId ? "active" : "inactive",
-    })),
-  });
-  if (changed) {
+  if (profileChanged) {
+    cryptoService.invalidateCache?.();
+    ProfileRegistryService.replaceState({
+      activeProfileId: snapshot.currentWindow.profileId,
+      profiles: snapshot.profiles.map((profile) => ({
+        ...profile,
+        status: profile.profileId === snapshot.currentWindow.profileId ? "active" : "inactive",
+      })),
+    });
+  }
+  if (profileChanged) {
     emit();
   }
 };
@@ -172,6 +179,7 @@ export const desktopProfileRuntime = {
     }
 
     refreshInFlightPromise = (async (): Promise<ProfileIsolationSnapshot> => {
+      const startedAtUnixMs = Date.now();
       try {
         const snapshot = await invokeProfileCommand<ProfileIsolationSnapshot>(
           "desktop_get_profile_isolation_snapshot",
@@ -180,6 +188,15 @@ export const desktopProfileRuntime = {
         );
         setSnapshot(snapshot);
         lastRefreshError = null;
+        logAppEvent({
+          name: "runtime.profile_binding_refresh_completed",
+          level: "debug",
+          scope: { feature: "runtime", action: "profile_boot" },
+          context: {
+            profileId: snapshot.currentWindow.profileId,
+            elapsedMs: Math.max(0, Date.now() - startedAtUnixMs),
+          },
+        });
         return snapshot;
       } catch (error) {
         lastRefreshError = error instanceof Error ? error.message : String(error);

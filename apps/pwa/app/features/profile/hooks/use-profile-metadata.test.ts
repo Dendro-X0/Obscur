@@ -138,4 +138,31 @@ describe("useProfileMetadata", () => {
     expect(mocks.fetchLatestEventFromRelayUrls).not.toHaveBeenCalled();
     expect(mocks.getConnectionByPublicKey).not.toHaveBeenCalled();
   });
+
+  it("does not rewrite discovery cache when metadata is unchanged on rerender", async () => {
+    const pubkey = "c".repeat(64);
+    mocks.getProfile.mockReturnValue({
+      pubkey,
+      displayName: "Stable User",
+      picture: "https://cdn.example.com/a.png",
+      updatedAtUnixMs: Date.now(),
+    });
+    seedProfileMetadataCache({
+      pubkey,
+      displayName: "Stable User",
+      avatarUrl: "https://cdn.example.com/a.png",
+    });
+    mocks.upsertProfile.mockClear();
+
+    const { rerender } = renderHook(() => useProfileMetadata(pubkey, { live: false }));
+
+    await waitFor(() => {
+      expect(mocks.getProfile).toHaveBeenCalled();
+    });
+
+    rerender();
+    rerender();
+
+    expect(mocks.upsertProfile).not.toHaveBeenCalled();
+  });
 });

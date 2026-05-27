@@ -8,7 +8,8 @@
 - **Two bands** before v2.0.0: **`v1.7.x`** (Phase 3 closeout) then **`v1.8.x`** (everything else). That is **not** “two tags total.”
 - **Band opener = minor tag:** `v1.7.0`, then `v1.8.0` after the last `v1.7.x` patch. **Never skip `v1.8.0`.**
 - **Work ships in patch tags:** `v1.7.1`, `v1.8.1`, `v1.8.2`, … — one milestone per tag when possible.
-- **No v1.9 line**; no jump `v1.7.1` → `v1.8.1` without **`v1.8.0`** in between.
+- **`v1.9.x`** = **Lane K** (kernel + coordination backend) — band opener `v1.9.0`; required before v2.0.0.
+- No jump `v1.7.1` → `v1.8.1` without **`v1.8.0`** in between.
 
 **Manual verification:** [manual-verification-environment.md](./manual-verification-environment.md) — desktop **Tester 1 (dark)** + **Tester 2 (light)**, two profile windows, no third account.
 
@@ -39,15 +40,24 @@ Shared **backend/kernel** in monorepo (`apps/pwa`, `packages/*`, native commands
 
 ---
 
-## Four parallel lanes
+## Lanes (v1.7 → v1.9 → v2.0)
 
 ```text
-Lane C — Community overhaul     [community-system-overhaul-phased-roadmap.md]
-Lane T — Trust / known issues   [v1.5.0-known-issues-and-investigation-queue.md]
-Lane X — Experience (UI/UX)     (§ v1.8.x — motion, media, voice)
-Lane P — Platform + storage     (§ Platform lane — mobile install, SQLite)
+v1.7.x / v1.8.x
+  Lane C — Community overhaul     [community-system-overhaul-phased-roadmap.md]
+  Lane T — Trust / known issues   [v1.5.0-known-issues-and-investigation-queue.md]
+  Lane X — Experience (UI/UX)     (§ v1.8.x — motion, media, voice)
+  Lane P — Platform (partial)     (§ Platform lane — prep only in v1.8.x)
          │
-         └── all four green + manual matrices ──► v2.0.0 tag
+         ▼
+v1.9.x
+  Lane K — Kernel + coordination backend  [v1.9.0-kernel-backend-roadmap.md]
+         │
+         ▼
+v2.0.0
+  Lane P — SQLite + Android install (full gate)
+         │
+         └── C/T/X/K/P green + matrices ──► v2.0.0 tag
 ```
 
 **Rule:** One milestone per patch where possible. Do not tag a band until that band’s demo **Pass** column is filled for desktop A/B.
@@ -116,6 +126,24 @@ Suggested patch split: **`v1.8.0`** (band opener) → **`v1.8.1`** (C-4.1) → *
 
 **Exit (leave v1.8.x):** All Lane C/T/X/P rows above + v1.8 demo matrix Pass on desktop A/B; mobile install row Pass on Android Studio environment.
 
+**Do not start Lane K** until v1.8.3 (REL-004) and listed v1.8.x trust rows are closed or carried forward into [v1.9.0-gate.md](../releases/v1.9.0-gate.md).
+
+---
+
+## v1.9.x — Lane K (kernel & coordination backend)
+
+**Band goal:** Application protocol truth in kernel ports + optional coordination directory; Nostr demoted to transport. Without this band, communities and cross-client leave remain **unreliably usable** on public relays.
+
+| Doc | Purpose |
+|-----|---------|
+| [v1.9.0-kernel-backend-roadmap.md](./v1.9.0-kernel-backend-roadmap.md) | Phases B0–B4, patch map, exit criteria |
+| [v1.9.0-kernel-backend-spec.md](./v1.9.0-kernel-backend-spec.md) | Contracts, APIs, owners, tests |
+| [v1.9.0-scope.md](./v1.9.0-scope.md) | First patch (B0) only |
+
+Suggested patches: `v1.9.0` (B0) → `v1.9.1` (B1) → `v1.9.2` (B2) → `v1.9.3` (B3) → `v1.9.4`–`v1.9.5` (B4 / R1+R2).
+
+**Exit (leave v1.9.x):** Roadmap §K1–K6 + [v1.9.0 demo matrix](../assets/demo/v1.9.0/README.md) Pass for coordinated and nostr_only rows.
+
 ---
 
 ## What “all plans in /docs” means for v2.0.0
@@ -127,14 +155,15 @@ Suggested patch split: **`v1.8.0`** (band opener) → **`v1.8.1`** (C-4.1) → *
 | [community-system-overhaul-phased-roadmap.md](./community-system-overhaul-phased-roadmap.md) | Phases 1–4 (1–3 shipped; 4 in v1.8.x) |
 | [community-system-implementation-and-ui-plan.md](./community-system-implementation-and-ui-plan.md) | P0–P3 + P4 decision |
 | [v1.5.0-known-issues-and-investigation-queue.md](./v1.5.0-known-issues-and-investigation-queue.md) | Open **P0/P1** rows (not MEM-001 / DM-001 accepted limitations) |
-| This doc | Lanes **C, T, X, P** |
+| [v1.9.0-kernel-backend-roadmap.md](./v1.9.0-kernel-backend-roadmap.md) | Lane **K** (required) |
+| This doc | Lanes **C, T, X, P** (v1.7–v1.8) |
 
 **Out of scope for v2.0.0** unless you re-charter:
 
 | Source | Why |
 |--------|-----|
 | `docs/archive/**`, `docs/future/**` | Historical or kernel-long-term; not shipping gates |
-| [v1.5.0-architecture-refactor-queue.md](./v1.5.0-architecture-refactor-queue.md) | Dedicated refactor milestone (ARCH-001) |
+| [v1.5.0-architecture-refactor-queue.md](./v1.5.0-architecture-refactor-queue.md) | R1/R2 **executed in v1.9 Lane K** (B4), not deferred past v2.0 |
 | Cooperative delete-for-everyone UI | Separate messaging charter |
 | Full kernel/SQLite rewrite in [radical-overhaul-v2-target.md](../architecture/radical-overhaul-v2-target.md) | Lane **P** is **convergence**, not big-bang rewrite |
 
@@ -147,11 +176,12 @@ Suggested patch split: **`v1.8.0`** (band opener) → **`v1.8.1`** (C-4.1) → *
 Ship when **all** are true:
 
 1. **v1.7.x** and **v1.8.x** exit criteria met (matrices + tags).
-2. **Phase 4** exit (4.1, 4.2; 4.3 recorded).
-3. **Known issues** — P0/P1 register closed or accepted-with-copy.
-4. **Lane X** — X1–X6 complete.
-5. **Lane P** — Installable Android + SQLite convergence + shared backend documented.
-6. **Release evidence** — `pnpm release:test-pack`, v2.0.0 gate doc (create at closeout under `docs/releases/`), CHANGELOG `## [2.0.0]`.
+2. **v1.9.x** Lane K exit (K1–K6) — [v1.9.0-kernel-backend-roadmap.md](./v1.9.0-kernel-backend-roadmap.md).
+3. **Phase 4** exit (4.1, 4.2; 4.3 recorded).
+4. **Known issues** — P0/P1 register closed or accepted-with-copy.
+5. **Lane X** — X1–X6 complete (may finish in v1.8.x or early v1.9 if blocked on K).
+6. **Lane P** — Installable Android + SQLite convergence + shared backend documented.
+7. **Release evidence** — `pnpm release:test-pack`, v2.0.0 gate doc (create at closeout under `docs/releases/`), CHANGELOG `## [2.0.0]`.
 
 **Still out of 2.0 unless chartered:**
 
@@ -186,3 +216,5 @@ Ship when **all** are true:
 |------|--------|
 | 2026-05-21 | Initial 2.0 map; Lane X; v1.9 band |
 | 2026-05-21 | Revise: v1.7.x/v1.8.x patch bands only; fold v1.9 into v1.8.x; Lane P + SQLite + Android Studio signing; manual A/B env |
+| 2026-05-22 | Re-charter **v1.9.x Lane K** (kernel + coordination); v2.0 blocked until K exit; [v1.9.0-kernel-backend-roadmap.md](./v1.9.0-kernel-backend-roadmap.md) |
+

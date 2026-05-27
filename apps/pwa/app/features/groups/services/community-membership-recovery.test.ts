@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { GroupConversation } from "@/app/features/messaging/types";
 import type { CommunityMembershipLedgerEntry } from "./community-membership-ledger";
 import {
@@ -35,6 +35,14 @@ const createLedgerEntry = (overrides: Partial<CommunityMembershipLedgerEntry> = 
 });
 
 describe("community-membership-recovery", () => {
+  beforeEach(() => {
+    vi.stubEnv("NEXT_PUBLIC_OBSCUR_RADICAL_TRUTH", "0");
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it("locks precedence order as tombstone -> membership ledger -> persisted chat state", () => {
     expect(COMMUNITY_MEMBERSHIP_RECOVERY_PRECEDENCE).toEqual([
       "tombstone",

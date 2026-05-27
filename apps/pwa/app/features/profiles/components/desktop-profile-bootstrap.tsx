@@ -6,10 +6,17 @@ import { desktopProfileRuntime } from "@/app/features/profiles/services/desktop-
 import { logAppEvent } from "@/app/shared/log-app-event";
 import { AppLoadingScreen } from "@/app/components/app-loading-screen";
 import { APP_BOOT_READY_EVENT } from "@/app/features/runtime/app-boot-ready-event";
+import { isExperimentShellEnabled } from "@/app/features/runtime/experiment-shell-policy";
+import { isDesktopShellBuild } from "@/app/features/runtime/shell-contract";
+
+/** Desktop product shell: paint app tree immediately; refresh profile binding in background. */
+const isDesktopProfileBootFailOpen = (): boolean => (
+  isExperimentShellEnabled() || isDesktopShellBuild()
+);
 
 const PROFILE_REFRESH_RETRY_MS = 30_000;
-const PROFILE_REFRESH_BOOTSTRAP_DEADLINE_MS = 8_000;
-const PROFILE_BOOTSTRAP_FAILSAFE_TIMEOUT_MS = PROFILE_REFRESH_BOOTSTRAP_DEADLINE_MS + 4_000;
+const PROFILE_REFRESH_BOOTSTRAP_DEADLINE_MS = 20_000;
+const PROFILE_BOOTSTRAP_FAILSAFE_TIMEOUT_MS = PROFILE_REFRESH_BOOTSTRAP_DEADLINE_MS + 8_000;
 
 const markBootReady = (): void => {
   if (typeof window === "undefined") {
@@ -30,6 +37,17 @@ export function DesktopProfileBootstrap(props: Readonly<{ children: React.ReactN
   const [bootstrapSettled, setBootstrapSettled] = useState<boolean>(false);
 
   useEffect(() => {
+    if (isDesktopProfileBootFailOpen()) {
+      setBootstrapSettled(true);
+      if (!hasNativeRuntime()) {
+        return;
+      }
+      void desktopProfileRuntime.refresh().catch(() => {
+        // Background refresh; shell is already interactive.
+      });
+      return;
+    }
+
     let failsafeTimer: ReturnType<typeof setTimeout> | null = null;
 
     const scheduleFailsafe = (): void => {

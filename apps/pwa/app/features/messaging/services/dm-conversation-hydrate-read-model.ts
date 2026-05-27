@@ -24,6 +24,7 @@ import {
   hasIndexedThinnessEvidenceForPersistedIncomingRepair,
   isPersistedCompatibilityRestorePhaseIncomingRepairCandidate,
   logDmReadHydrationDiagnostics,
+  mergeIndexedWithMissingProjectionMessages,
   resolveHydrationDmReadMessages,
   type ConversationHistoryAuthorityDecision,
 } from "./dm-read-authority-contract";
@@ -133,6 +134,7 @@ export const assembleDmHydrateThreadReadModel = (
     useProjectionReads: p.projectionReadAuthoritySnapshot.useProjectionReads,
     legacyProjectionEvidenceMessageCount: p.projectionEvidenceMessagesSnapshot.length,
     projectionIncomingCount: projectionEvidenceDirectionCounts.incoming,
+    projectionOutgoingCount: projectionEvidenceDirectionCounts.outgoing,
     projectionBootstrapImportApplied: p.projectionBootstrapImportApplied,
     projectionCanonicalEvidencePending: p.projectionCanonicalEvidencePending,
     projectionRestorePhaseActive: p.projectionRestorePhaseActive,
@@ -149,7 +151,16 @@ export const assembleDmHydrateThreadReadModel = (
   } = resolveHydrationDmReadMessages(hydrationParams);
   logDmReadHydrationDiagnostics(hydrationParams, dmReadAuthorityStatus);
   const authorityDecision = legacyAuthorityDecision;
-  const authorityLayerMessages = messages;
+  const authorityLayerMessages = (
+    !p.projectionReadAuthoritySnapshot.useProjectionReads
+    && p.projectionEvidenceMessagesSnapshot.length > 0
+  )
+    ? mergeIndexedWithMissingProjectionMessages(
+      messages,
+      p.projectionEvidenceMessagesSnapshot,
+      p.normalizedPublicKeyHex,
+    )
+    : messages;
   const initialHydrated = capMessageListToSoftLiveWindow(
     authorityLayerMessages,
     p.liveWindowSoftLimit,

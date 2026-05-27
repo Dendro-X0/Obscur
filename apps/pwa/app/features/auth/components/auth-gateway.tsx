@@ -4,7 +4,11 @@ import type React from "react";
 import { useEffect, useState } from "react";
 import type { Passphrase } from "@dweb/crypto/passphrase";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
-import { scanStoredSessionBootstrap } from "@/app/features/auth/services/session-bootstrap-contracts";
+import {
+  isRememberMeEnabledForProfile,
+  scanStoredSessionBootstrap,
+} from "@/app/features/auth/services/session-bootstrap-contracts";
+import { SESSION_AUTO_UNLOCK_ENABLED } from "@/app/features/auth/services/session-credential-policy";
 import { ProfileBoundAuthShell } from "@/app/features/runtime/components/profile-bound-auth-shell";
 import { useWindowRuntime } from "@/app/features/runtime/services/window-runtime-supervisor";
 import { logAppEvent } from "@/app/shared/log-app-event";
@@ -53,14 +57,22 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
     && transientRetryState.count < AUTO_UNLOCK_MAX_TRANSIENT_RETRIES
     && retryWakeNonce >= transientRetryState.wakeNonceRequired,
   );
-  const shouldResolveStoredSession = (
-    runtime.snapshot.phase === "auth_required"
-    && (startupState.kind === "stored_locked" || startupState.kind === "mismatch" || startupState.kind === "native_restorable")
+  const hasDeviceStoredIdentity = Boolean(identity.state.stored?.publicKeyHex);
+  const rememberMeEnabledForProfile = isRememberMeEnabledForProfile(activeProfileId);
+  const shouldAttemptRememberMeRestore = hasDeviceStoredIdentity && rememberMeEnabledForProfile;
+  const shouldResolveStoredSession = SESSION_AUTO_UNLOCK_ENABLED && (
+    (runtime.snapshot.phase === "auth_required" || runtime.snapshot.phase === "binding_profile")
+    && (
+      startupState.kind === "stored_locked"
+      || startupState.kind === "mismatch"
+      || startupState.kind === "native_restorable"
+      || shouldAttemptRememberMeRestore
+    )
     && (!hasAttemptedForActiveProfile || isTransientRetryDue)
   );
 
   useEffect(() => {
-    if (startupState.identityStatus === "loading") {
+    if (startupState.identityStatus === "loading" || identity.state.status === "loading") {
       return;
     }
     if (!shouldResolveStoredSession) {
@@ -69,6 +81,8 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
     let cancelled = false;
     let retryTimerId: number | null = null;
     const run = async (): Promise<void> => {
+      let unlocked = false;
+      const hadStoredIdentityAtStart = Boolean(identity.state.stored?.publicKeyHex);
       const profileId = runtime.snapshot.session.profileId;
       const bootstrapScan = scanStoredSessionBootstrap(profileId);
       const uniqueTokenCandidates = bootstrapScan.tokenCandidates;
@@ -94,8 +108,18 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
           startupDecision: startupState.kind,
         },
       });
-      if (autoUnlockEligible) {
-        let unlocked = false;
+      const tryNativeSessionRecover = async (): Promise<boolean> => {
+        if (!isRemembered || typeof identity.retryNativeSessionUnlock !== "function") {
+          return false;
+        }
+        try {
+          return await identity.retryNativeSessionUnlock();
+        } catch {
+          return false;
+        }
+      };
+
+      if (autoUnlockEligible || isRemembered) {
         let allFailuresLookCredentialRelated = true;
         for (const candidateToken of uniqueTokenCandidates) {
           try {
@@ -107,6 +131,19 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
               allFailuresLookCredentialRelated = false;
             }
             // Try next token candidate before clearing remembered auth state.
+          }
+        }
+        if (!unlocked && isRemembered) {
+          unlocked = await tryNativeSessionRecover();
+          if (unlocked) {
+            setTransientRetryStateByProfileId((previous) => {
+              if (!previous[profileId]) {
+                return previous;
+              }
+              const next = { ...previous };
+              delete next[profileId];
+              return next;
+            });
           }
         }
         if (!unlocked && allFailuresLookCredentialRelated) {
@@ -169,33 +206,21 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
             return next;
           });
         }
-      } else {
-        let nativeSessionRecovered = false;
-        if (
-          bootstrapScan.autoUnlockPath === "native_session"
-          && typeof identity.retryNativeSessionUnlock === "function"
-        ) {
-          try {
-            nativeSessionRecovered = await identity.retryNativeSessionUnlock();
-          } catch {
-            nativeSessionRecovered = false;
-          }
-          if (nativeSessionRecovered) {
-            logAppEvent({
-              name: "auth.auto_unlock_recovered_native_session",
-              level: "info",
-              scope: { feature: "auth", action: "auto_unlock" },
-              context: {
-                profileId,
-                rememberSource: bootstrapScan.rememberSource,
-                tokenSource: bootstrapScan.tokenSource,
-                scopedRememberCandidateCount: bootstrapScan.rememberCandidateCount,
-                runtimePhase: runtime.snapshot.phase,
-              },
-            });
-          }
-        }
+      } else if (isRemembered) {
+        const nativeSessionRecovered = await tryNativeSessionRecover();
         if (nativeSessionRecovered) {
+          logAppEvent({
+            name: "auth.auto_unlock_recovered_native_session",
+            level: "info",
+            scope: { feature: "auth", action: "auto_unlock" },
+            context: {
+              profileId,
+              rememberSource: bootstrapScan.rememberSource,
+              tokenSource: bootstrapScan.tokenSource,
+              scopedRememberCandidateCount: bootstrapScan.rememberCandidateCount,
+              runtimePhase: runtime.snapshot.phase,
+            },
+          });
           setTransientRetryStateByProfileId((previous) => {
             if (!previous[profileId]) {
               return previous;
@@ -224,7 +249,7 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
           });
         }
       }
-      if (!cancelled) {
+      if (!cancelled && (unlocked || hadStoredIdentityAtStart)) {
         setAttemptedAutoUnlockProfileIds((previous) => (
           previous.includes(profileId)
             ? previous
@@ -239,10 +264,28 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
         window.clearTimeout(retryTimerId);
       }
     };
-  }, [identity, retryWakeNonce, runtime, shouldResolveStoredSession, startupState.identityStatus, transientRetryStateByProfileId]);
+  }, [
+    identity,
+    identity.state.stored?.publicKeyHex,
+    rememberMeEnabledForProfile,
+    retryWakeNonce,
+    runtime,
+    shouldResolveStoredSession,
+    identity.state.status,
+    startupState.identityStatus,
+    transientRetryStateByProfileId,
+  ]);
 
   if (runtime.snapshot.phase === "activating_runtime" || runtime.snapshot.phase === "ready" || runtime.snapshot.phase === "degraded") {
     return <>{children}</>;
+  }
+
+  if (runtime.snapshot.phase === "unlocking") {
+    return (
+      <div className="flex flex-1 items-center justify-center bg-zinc-50 dark:bg-black">
+        <p className="text-sm text-zinc-500 dark:text-zinc-400">Unlocking profile…</p>
+      </div>
+    );
   }
 
   return <ProfileBoundAuthShell />;

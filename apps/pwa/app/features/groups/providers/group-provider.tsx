@@ -90,6 +90,10 @@ import {
 } from "@/app/features/groups/services/community-membership-mutation-owner";
 import { enqueueCommunityLeaveOutboxItem } from "@/app/features/groups/services/community-leave-outbox";
 import { logAppEvent } from "@/app/shared/log-app-event";
+import {
+    scheduleExperimentDeferredWork,
+    shouldDeferExperimentHeavyWork,
+} from "@/app/features/runtime/experiment-shell-policy";
 import { normalizePublicKeyHex } from "@/app/features/profile/utils/normalize-public-key-hex";
 import {
     buildCommunityRosterProjection,
@@ -620,7 +624,7 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const hydrateGroupsForPublicKey = useCallback((pk: string, options?: Readonly<{ profileId?: string }>) => {
         const profileId = options?.profileId ?? getResolvedProfileId();
 
-        const persisted = chatStateStoreService.load(pk);
+        const persisted = chatStateStoreService.load(pk, { profileId });
         const tombstones = loadGroupTombstones(pk, { profileId });
         const inviteMemberPubkeysByGroupKey = buildInviteMemberPubkeysByGroupKey({
             localPublicKeyHex: pk,
@@ -712,8 +716,15 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 tombstoneCount: tombstones.size,
             },
         });
-        // Self-heal legacy/non-canonical persisted group entries.
-        chatStateStoreService.updateGroups(pk, groups.map(g => toPersistedGroupConversation(g)));
+        // Self-heal legacy/non-canonical persisted group entries without re-triggering hydrate loops.
+        chatStateStoreService.update(
+            pk,
+            (prev) => ({
+                ...prev,
+                createdGroups: groups.map((g) => toPersistedGroupConversation(g)),
+            }),
+            { silent: true },
+        );
         groups.forEach((group) => {
             getResolvedClientGateway().communityRoster.persistHydratedGroupKnownParticipants({
                 publicKeyHex: pk as PublicKeyHex,
@@ -808,6 +819,28 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (lastHydratedScopeRef.current === scopeKey) {
             return;
         }
+        if (shouldDeferExperimentHeavyWork()) {
+            lastHydratedScopeRef.current = scopeKey;
+            return scheduleExperimentDeferredWork(() => {
+                const currentPk = getPublicKeyHex();
+                if (currentPk !== pk) {
+                    lastHydratedScopeRef.current = null;
+                    return;
+                }
+                logAppEvent({
+                    name: "groups.membership_recovery_primary_hydrate_triggered",
+                    level: "info",
+                    scope: { feature: "groups", action: "membership_recovery" },
+                    context: {
+                        publicKeySuffix: toPublicKeySuffix(pk),
+                        profileId: resolvedProfileId,
+                        trigger: "experiment_shell_deferred",
+                    },
+                });
+                resetLiveGroupProjectionState();
+                hydrateGroupsForPublicKey(pk, { profileId: resolvedProfileId });
+            });
+        }
         logAppEvent({
             name: "groups.membership_recovery_primary_hydrate_triggered",
             level: "info",
@@ -826,6 +859,9 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }, [getPublicKeyHex, hydrateGroupsForPublicKey, resetLiveGroupProjectionState, resolvedProfileId]);
 
     useEffect(() => {
+        if (shouldDeferExperimentHeavyWork()) {
+            return;
+        }
         if (typeof window === "undefined") return;
 
         const applyScopedHydrateRefresh = (

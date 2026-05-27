@@ -104,17 +104,16 @@ vi.mock("@/app/features/runtime/shell-contract", async (importOriginal) => {
   };
 });
 
-vi.mock("@/app/components/app-shell", () => ({
-  default: (props: Readonly<{ children: React.ReactNode; sidebarContent?: React.ReactNode }>) => {
-    appShellCapture.lastProps = props as Record<string, unknown>;
-    return (
-      <div data-testid="app-shell">
-        <div data-testid="sidebar-content">{props.sidebarContent}</div>
-        {props.children}
-      </div>
-    );
-  },
-}));
+vi.mock("@/app/components/app-chrome-registry", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/app/components/app-chrome-registry")>();
+  return {
+    ...actual,
+    useRegisterAppChrome: (overrides: Record<string, unknown>) => {
+      appShellCapture.lastProps = overrides;
+    },
+  };
+});
 
 vi.mock("@/app/components/app-loading-screen", () => ({
   AppLoadingScreen: ({ title }: Readonly<{ title: string }>) => <div data-testid="loading-screen">{title}</div>,
@@ -480,7 +479,7 @@ describe("main-shell hook stability", () => {
     try {
       const { rerender } = render(<NostrMessenger />);
       await act(async () => Promise.resolve());
-      expect(screen.getByTestId("app-shell")).toBeInTheDocument();
+      expect(screen.getByTestId("empty-conversation")).toBeInTheDocument();
 
       testState.identityMode = "loading";
       expect(() => {
@@ -492,7 +491,7 @@ describe("main-shell hook stability", () => {
       expect(() => {
         rerender(<NostrMessenger />);
       }).not.toThrow();
-      expect(screen.getByTestId("app-shell")).toBeInTheDocument();
+      expect(screen.getByTestId("empty-conversation")).toBeInTheDocument();
     } finally {
       consoleErrorSpy.mockRestore();
     }

@@ -2,6 +2,7 @@ import type { ConnectionRequest } from './types';
 import { inviteManager } from './invite-manager';
 import { NostrCompatibilityService } from './nostr-compatibility';
 import { getRuntimeShellInfo } from "@/app/features/runtime/runtime-capabilities";
+import { assessWorkspaceCommunityTrustAsync } from "@/app/features/groups/services/community-trust-policy";
 
 /**
  * Deep link route types for invite processing
@@ -295,13 +296,33 @@ export class DeepLinkHandler {
   }
 
   /**
-   * Process group join link
+   * Process group join link — workspace communities require coordination + trusted relay.
    */
   private static async processGroupLink(groupId: string, relay?: string): Promise<DeepLinkResult> {
+    if (!relay?.trim()) {
+      return {
+        success: false,
+        route: { type: 'group', groupId, relay },
+        error: 'Community invite links must include a relay parameter for workspace setup.',
+        fallbackAction: 'show_web_version',
+      };
+    }
+
+    const trust = await assessWorkspaceCommunityTrustAsync({
+      communityRelayUrl: relay,
+    });
+    if (!trust.allowed) {
+      return {
+        success: false,
+        route: { type: 'group', groupId, relay },
+        error: trust.userMessage,
+        fallbackAction: 'show_web_version',
+      };
+    }
+
     return {
       success: true,
       route: { type: 'group', groupId, relay },
-      // Note: Group joining logic will be handled by GroupJoinDialog
     };
   }
 

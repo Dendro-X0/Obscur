@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
-import type { GroupMessageEvent } from "./use-sealed-community";
-import { mergeGroupMessagesDescending } from "./use-sealed-community";
+import type { SealedCommunityGroupMessageEvent } from "../services/sealed-community-message-merge";
+import { mergeGroupMessagesDescending } from "../services/sealed-community-message-merge";
+
+type GroupMessageEvent = SealedCommunityGroupMessageEvent;
 
 const createGroupMessage = (params: Readonly<{ id: string; createdAt: number }>): GroupMessageEvent => ({
     id: params.id,

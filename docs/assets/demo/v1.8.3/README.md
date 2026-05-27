@@ -19,8 +19,19 @@
 
 ---
 
+## Optional soak (not blocking REL-004 tag)
+
+| ID | Step | Expected | Pass |
+|----|------|----------|------|
+| DM-INV-1 | Tester1 sends community invite to Tester2 in DM | Outgoing invite card on A; pending / superseded states visible | ☑ 2026-05-27 |
+| DM-INV-2 | Tester2 accepts in DM | A thread shows **Acceptance recorded** | ☑ 2026-05-27 |
+
+Relay join / group sidebar entry — defer to [v1.8.4 demo](../v1.8.4/README.md).
+
+---
+
 ## Sign-off
 
 | Block | Date | Notes |
 |-------|------|-------|
-| REL-004 leave durability | | |
+| REL-004 leave durability | | T4-1…T4-5 required before tag |

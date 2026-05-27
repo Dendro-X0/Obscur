@@ -61,3 +61,5 @@ console.log(`\n[clear-dev-cache] done — ${cleared} removed, ${skipped} skipped
 console.log("[clear-dev-cache] Run your dev command to start fresh:\n");
 console.log("  pnpm dev:desktop   # Tauri desktop");
 console.log("  pnpm dev:pwa       # PWA only");
+console.log("\nIf desktop fails with \"failed to read plugin permissions\" on Windows:");
+console.log("  pnpm desktop:repair   # cargo clean for Tauri permission cache");

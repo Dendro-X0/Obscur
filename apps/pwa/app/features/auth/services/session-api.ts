@@ -2,6 +2,7 @@ import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
 import { invokeNativeCommand } from "@/app/features/runtime/native-adapters";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { isRememberMeEnabledForProfile } from "@/app/features/auth/services/session-bootstrap-contracts";
+import { SESSION_AUTO_UNLOCK_ENABLED, NATIVE_SECURE_SESSION_RESTORE_ENABLED } from "@/app/features/auth/services/session-credential-policy";
 
 export interface SessionStatus {
     isActive: boolean;
@@ -77,7 +78,7 @@ export class SessionApi {
             }
         }
 
-        if (rememberEnabled) {
+        if (NATIVE_SECURE_SESSION_RESTORE_ENABLED || (SESSION_AUTO_UNLOCK_ENABLED && rememberEnabled)) {
             // Fallback rehydration path for native profile windows: get_native_npub can
             // restore in-memory session from keychain when status payload is stale.
             const npubResult = await invokeNativeCommand<string | null>("get_native_npub", undefined, { timeoutMs: 3_000 });
@@ -94,14 +95,6 @@ export class SessionApi {
                     isNative: true,
                 };
             }
-        } else {
-            setMobileSecurityDiagnostics({
-                owner: "locked_no_secure_key",
-                sessionActive: false,
-                detail: "remember_me_disabled_skip_keychain_restore",
-                atUnixMs: Date.now(),
-            });
-            return { isActive: false, npub: null, isNative: true };
         }
 
         setMobileSecurityDiagnostics({

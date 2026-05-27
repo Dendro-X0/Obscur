@@ -10,10 +10,7 @@ import { useNetwork } from "../../network/providers/network-provider";
 import { useMessaging } from "../../messaging/providers/messaging-provider";
 import { useRelay } from "../../relays/providers/relay-provider";
 import { useIdentity } from "../../auth/hooks/use-identity";
-import { MessageQueue } from "../../messaging/lib/message-queue";
-import { messageBus } from "../../messaging/services/message-bus";
-import { chatStateStoreService } from "../../messaging/services/chat-state-store";
-import type { Message, PersistedMessage } from "../../messaging/types";
+import type { Message } from "../../messaging/types";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { GroupService } from "../services/group-service";
 import type { GroupMetadata } from "../types";
@@ -28,6 +25,10 @@ import {
     toInviteConnectionSearchText
 } from "./invite-connection-display";
 import { buildOutgoingCommunityInviteDmMessage } from "../utils/community-invite-dm-message";
+import { commitOutgoingCommunityInviteDm } from "../services/community-invite-dm-orchestrator";
+import { upsertDmConversationInList } from "@/app/features/messaging/utils/dm-conversation-list-merge";
+import { createDmConversation } from "@/app/features/messaging/utils/create-dm-conversation";
+import { publishDmNostrEvent } from "@/app/features/messaging/services/publish-dm-nostr-event";
 
 interface InviteConnectionsDialogProps {
     isOpen: boolean;
@@ -40,6 +41,8 @@ interface InviteConnectionsDialogProps {
     communityId?: string;
     genesisEventId?: string;
     creatorPubkey?: string;
+    /** Refreshes membership evidence before listing connections (coordination / relay). */
+    onRefreshMembership?: () => void | Promise<void>;
 }
 
 export function InviteConnectionsDialog({
@@ -52,11 +55,12 @@ export function InviteConnectionsDialog({
     currentMemberPubkeys = [],
     communityId,
     genesisEventId,
-    creatorPubkey
+    creatorPubkey,
+    onRefreshMembership,
 }: InviteConnectionsDialogProps) {
     const { peerTrust } = useNetwork();
-    const { createdConnections } = useMessaging();
-    const { relayPool } = useRelay();
+    const { createdConnections, setCreatedConnections } = useMessaging();
+    const { relayPool, enabledRelayUrls } = useRelay();
     const { state: identityState } = useIdentity();
 
     const [searchQuery, setSearchQuery] = useState("");
@@ -82,6 +86,19 @@ export function InviteConnectionsDialog({
             );
         }
     }, [identityState.publicKeyHex, identityState.privateKeyHex]);
+
+    const refreshOnOpenRef = useRef(onRefreshMembership);
+    refreshOnOpenRef.current = onRefreshMembership;
+    const wasOpenRef = useRef(false);
+
+    useEffect(() => {
+        const openedNow = isOpen && !wasOpenRef.current;
+        wasOpenRef.current = isOpen;
+        if (!openedNow || !refreshOnOpenRef.current) {
+            return;
+        }
+        void refreshOnOpenRef.current();
+    }, [isOpen]);
 
     useEffect(() => {
         setSelectedPubkeys((prev) => {
@@ -148,10 +165,8 @@ export function InviteConnectionsDialog({
         setIsSending(true);
 
         try {
-            const mq = new MessageQueue(identityState.publicKeyHex);
-            const profileId = getResolvedProfileId();
             const newMessages: Record<string, Message> = {};
-            const persistedByConversation: Record<string, PersistedMessage[]> = {};
+            let anyDmPublishFailed = false;
 
             const promises = Array.from(selectedPubkeys).map(async (pubkey) => {
                 const scopedRelayUrl = relayUrl || relayPool.connections.find((c: { url: string }) => c.url)?.url;
@@ -165,7 +180,15 @@ export function InviteConnectionsDialog({
                     genesisEventId,
                     creatorPubkey
                 });
-                await relayPool.publishToAll(JSON.stringify(["EVENT", giftWrapEvent]));
+                const publishResult = await publishDmNostrEvent(
+                    relayPool,
+                    enabledRelayUrls,
+                    giftWrapEvent,
+                );
+                if (!publishResult.success) {
+                    anyDmPublishFailed = true;
+                    console.warn("DM relay publish failed; still saving invite locally:", publishResult.overallError);
+                }
 
                 const myPublicKeyHex = identityState.publicKeyHex || '';
                 const conversationId = toDmConversationId({ myPublicKeyHex, peerPublicKeyHex: pubkey });
@@ -188,47 +211,57 @@ export function InviteConnectionsDialog({
                     creatorPubkey,
                 });
 
-                await mq.persistMessage(inviteMessage as any);
-                newMessages[conversationId] = inviteMessage;
-                const persistedMessage: PersistedMessage = {
-                    id: inviteMessage.id,
-                    eventId: inviteMessage.eventId,
-                    kind: inviteMessage.kind,
-                    content: inviteMessage.content,
-                    timestampMs: inviteMessage.timestamp.getTime(),
-                    isOutgoing: true,
-                    status: inviteMessage.status,
-                };
-                const existingPersisted = persistedByConversation[conversationId] ?? [];
-                if (!existingPersisted.some((entry) => entry.id === persistedMessage.id)) {
-                    persistedByConversation[conversationId] = [...existingPersisted, persistedMessage];
-                }
+                const canonicalInvite = await commitOutgoingCommunityInviteDm({
+                    inviteMessage,
+                    accountPublicKeyHex: identityState.publicKeyHex as PublicKeyHex,
+                    profileId: getResolvedProfileId(),
+                });
+                newMessages[conversationId] = canonicalInvite;
             });
 
             await Promise.all(promises);
 
-            const chatState = chatStateStoreService.load(identityState.publicKeyHex, { profileId });
-            const mergedPersistedByConversation: Record<string, PersistedMessage[]> = {};
-            Object.entries(persistedByConversation).forEach(([convId, persistedMessages]) => {
-                const existing = chatState?.messagesByConversationId?.[convId] ?? [];
-                const merged = [...existing];
-                persistedMessages.forEach((persistedMessage) => {
-                    if (!merged.some((entry) => entry.id === persistedMessage.id)) {
-                        merged.push(persistedMessage);
+            const myPublicKeyHex = identityState.publicKeyHex || "";
+            setCreatedConnections((previous) => {
+                let next = previous;
+                selectedPubkeys.forEach((pubkey) => {
+                    const conversationId = toDmConversationId({
+                        myPublicKeyHex,
+                        peerPublicKeyHex: pubkey as PublicKeyHex,
+                    });
+                    if (!conversationId) {
+                        return;
                     }
+                    const inviteMessage = newMessages[conversationId];
+                    const existing = next.find((entry) => entry.pubkey === pubkey);
+                    const cachedProfile = discoveryCache.getProfile(pubkey);
+                    const connectionDisplayName = existing?.displayName;
+                    const base = existing ?? createDmConversation({
+                        myPublicKeyHex,
+                        peerPublicKeyHex: pubkey as PublicKeyHex,
+                        displayName: resolveInviteConnectionDisplayName({
+                            pubkey,
+                            connectionDisplayName,
+                            metadataDisplayName: cachedProfile?.displayName || cachedProfile?.name,
+                        }),
+                    });
+                    if (!base) {
+                        return;
+                    }
+                    next = upsertDmConversationInList(next, {
+                        ...base,
+                        lastMessage: "Community invitation",
+                        lastMessageTime: inviteMessage?.timestamp ?? new Date(),
+                    });
                 });
-                mergedPersistedByConversation[convId] = merged;
+                return next;
             });
-            if (Object.keys(mergedPersistedByConversation).length > 0) {
-                chatStateStoreService.updateMessages(identityState.publicKeyHex, mergedPersistedByConversation);
+
+            if (anyDmPublishFailed) {
+                toast.error(`Invites saved locally to ${selectedPubkeys.size} connections, but some may not be reachable on current DM relays.`);
+            } else {
+                toast.success(`Invites sent securely to ${selectedPubkeys.size} connections`);
             }
-
-            // Update UI optimistically via message bus
-            Object.entries(newMessages).forEach(([convId, msg]) => {
-                messageBus.emitNewMessage(convId, msg, { sourceProfileId: profileId });
-            });
-
-            toast.success(`Invites sent securely to ${selectedPubkeys.size} connections`);
             setSelectedPubkeys(new Set());
             onClose();
         } catch (error) {

@@ -12,6 +12,13 @@ import { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import type { RequestTransportOutcome } from "@/app/features/messaging/services/request-transport-service";
+import { getCoordinationBaseUrl } from "@/app/features/groups/services/community-membership-sync-mode";
+import { probeCoordinationHealth } from "@/app/features/groups/services/community-coordination-health";
+import {
+    formatInviteRelayRejectionSummary,
+    partitionInviteRelayHints,
+} from "@/app/features/groups/services/community-invite-redemption-policy";
+import { ensureWorkspaceMembershipSyncMode } from "@/app/features/groups/services/community-workspace-membership";
 
 // Constants (moved from MainShell)
 const INVITE_REQUEST_SENT_PREFIX = "obscur.invites.request_sent.v1";
@@ -67,19 +74,24 @@ const classifyInviteRedeemError = (message: string): InviteRedemptionStatus => {
     return "error";
 };
 
-// Internal API Call (stubbed or imported)
-async function redeemInviteToken(params: { token: string; redeemerPubkey: string }) {
-    const CoordinationBaseUrl = (process.env.NEXT_PUBLIC_COORDINATION_URL ?? "").trim().replace(/\/+$/, "");
-    if (!CoordinationBaseUrl) {
-        throw new Error("COORDINATION_NOT_CONFIGURED");
+async function redeemInviteToken(params: Readonly<{ token: string; redeemerPubkey: string }>) {
+    const coordinationBaseUrl = getCoordinationBaseUrl();
+    if (!coordinationBaseUrl) {
+        throw new Error("coordination_not_configured");
     }
-    const response = await fetch(`${CoordinationBaseUrl}/api/v1/invites/redeem`, {
+    const response = await fetch(`${coordinationBaseUrl}/invites/redeem`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(params),
+        body: JSON.stringify({
+            token: params.token,
+            redeemerPubkey: params.redeemerPubkey,
+        }),
     });
-    const data = await response.json();
-    if (!data.ok) throw new Error(data.error);
+    const data: { ok?: boolean; error?: string; data?: { inviteId: string; inviterPubkey: string; relays: string[] } } =
+        await response.json();
+    if (!data.ok || !data.data) {
+        throw new Error(data.error ?? "coordination_invalid_response");
+    }
     return data.data;
 }
 
@@ -108,13 +120,31 @@ export function useInviteRedemption(requestTransport: InviteRequestTransport) {
         setInviteRedemption({ status: "redeeming", token, message: null });
         try {
             const redeemed = await redeemInviteToken({ token, redeemerPubkey: myPk });
-            redeemed.relays.forEach((url: string) => relayList.addRelay({ url }));
+            const coordinationHealth = await probeCoordinationHealth({ force: true });
+            const relayPartition = partitionInviteRelayHints({
+                relayUrls: redeemed.relays,
+                coordinationHealthy: coordinationHealth.healthy,
+                enabledRelayUrls: relayList.state.relays.map((relay) => relay.url),
+            });
+            for (const url of [...relayPartition.dmRelayUrls, ...relayPartition.workspaceRelayUrls]) {
+                relayList.addRelay({ url });
+            }
+            const rejectionSummary = formatInviteRelayRejectionSummary(relayPartition.rejected);
+            if (rejectionSummary) {
+                toast.warning(rejectionSummary);
+            }
+            ensureWorkspaceMembershipSyncMode();
 
             logAppEvent({
                 name: "invites.inviteToken.redeemed",
                 level: "info",
                 scope: { feature: "invites", action: "redeem" },
-                context: { relaysCount: redeemed.relays.length }
+                context: {
+                    relaysCount: redeemed.relays.length,
+                    dmRelaysAdded: relayPartition.dmRelayUrls.length,
+                    workspaceRelaysAdded: relayPartition.workspaceRelayUrls.length,
+                    workspaceRelaysRejected: relayPartition.rejected.length,
+                },
             });
 
             setInviteRedemption({ status: "success", token, message: null });

@@ -19,6 +19,10 @@ const gatewayMocks = vi.hoisted(() => ({
   })),
   applyRealtimeBufferedEvents: vi.fn((_params: Readonly<{ previous: ReadonlyArray<unknown> }>) => _params.previous),
   loadEarlierMessages: vi.fn(async () => ({ messages: [], hasEarlier: false, didExpandHistory: false })),
+  filterThreadMessagesBySuppression: vi.fn((messages: ReadonlyArray<unknown>) => messages),
+  mergeHydratedBaseWithLiveOverlay: vi.fn((
+    base: ReadonlyArray<unknown>,
+  ) => base),
   filterVisibleMessages: vi.fn((messages: ReadonlyArray<unknown>) => messages),
   reconcileAccountEventLog: vi.fn(async () => ({ redactedCount: 0, removedEventsAppended: 0 })),
   loadSuppressedMessageDeleteIds: vi.fn(() => new Set<string>()),
@@ -39,6 +43,8 @@ vi.mock("@/app/features/profiles/services/resolve-client-gateway", () => ({
       mergeProjectionWithLiveOverlay: gatewayMocks.mergeProjectionWithLiveOverlay,
       applyRealtimeBufferedEvents: gatewayMocks.applyRealtimeBufferedEvents,
       loadEarlierMessages: gatewayMocks.loadEarlierMessages,
+      filterThreadMessagesBySuppression: gatewayMocks.filterThreadMessagesBySuppression,
+      mergeHydratedBaseWithLiveOverlay: gatewayMocks.mergeHydratedBaseWithLiveOverlay,
     },
     messageDeleteTombstones: {
       loadSuppressedMessageDeleteIds: gatewayMocks.loadSuppressedMessageDeleteIds,

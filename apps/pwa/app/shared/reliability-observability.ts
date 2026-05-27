@@ -17,7 +17,8 @@ export type ReliabilityMetricKey =
   | "warmup_rollout_gate_warn"
   | "warmup_rollout_gate_fail"
   | "relay_runtime_performance_warn"
-  | "relay_runtime_performance_fail";
+  | "relay_runtime_performance_fail"
+  | "relay_primary_failover";
 
 type ReliabilityMetricsState = Record<ReliabilityMetricKey, number>;
 type ReliabilityRuntimeState = Readonly<{
@@ -47,6 +48,7 @@ const createDefaultState = (): ReliabilityMetricsState => ({
   warmup_rollout_gate_fail: 0,
   relay_runtime_performance_warn: 0,
   relay_runtime_performance_fail: 0,
+  relay_primary_failover: 0,
 });
 
 const getState = (): ReliabilityMetricsState => {

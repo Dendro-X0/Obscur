@@ -1,5 +1,4 @@
 import { messageBus, type MessageBusEvent } from "./message-bus";
-import { messagingDB } from "@dweb/storage/indexed-db";
 import type { Message } from "../types";
 import { PrivacySettingsService } from "../../settings/services/privacy-settings-service";
 import { performanceMonitor } from "../lib/performance-monitor";
@@ -8,6 +7,10 @@ import { normalizePublicKeyHex } from "../../profile/utils/normalize-public-key-
 import { chatStateStoreService } from "./chat-state-store";
 import { fromPersistedMessagesByConversationId } from "../utils/persistence";
 import { toDmConversationId } from "../utils/dm-conversation-id";
+import { isGroupConversationId } from "@/app/features/groups/utils/group-conversation-id";
+import { normalizeCommunityInvitePayload } from "@/app/features/groups/utils/community-invite-payload";
+import { pinCommunityInviteMessageSnapshot } from "@/app/features/groups/utils/community-invite-message-snapshot";
+import type { PersistedMessage } from "../types";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import { getProfileRuntimeScope, getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import type { ProfileMessageBus } from "@dweb/core/profile-message-bus";
@@ -74,6 +77,77 @@ const canonicalizeDmConversationId = (params: Readonly<{
         myPublicKeyHex: params.myPublicKeyHex,
         peerPublicKeyHex: inferredPeer,
     }) ?? params.conversationId;
+};
+
+const resolveAccountPublicKeyHex = (message: Message): PublicKeyHex | null => {
+    if (message.isOutgoing) {
+        return normalizePublicKeyHex(message.senderPubkey ?? "");
+    }
+    return normalizePublicKeyHex(message.recipientPubkey ?? "");
+};
+
+const toPersistedChatStateMessage = (
+    message: Message,
+    canonicalId: string,
+): PersistedMessage => ({
+    id: canonicalId,
+    ...(typeof message.eventId === "string" && message.eventId.trim().length > 0
+        ? { eventId: message.eventId.trim() }
+        : {}),
+    ...(message.kind !== "user" ? { kind: message.kind } : {}),
+    pubkey: message.senderPubkey,
+    content: message.content,
+    timestampMs: message.timestamp.getTime(),
+    isOutgoing: message.isOutgoing,
+    status: message.status,
+    ...(message.attachments ? { attachments: message.attachments } : {}),
+    ...(message.replyTo ? { replyTo: message.replyTo } : {}),
+    ...(message.reactions ? { reactions: message.reactions } : {}),
+    ...(message.deletedAt ? { deletedAtMs: message.deletedAt.getTime() } : {}),
+});
+
+const mirrorMessageToChatState = (conversationId: string, message: Message, canonicalId: string): void => {
+    if (isGroupConversationId(conversationId)) {
+        return;
+    }
+    const accountPublicKeyHex = resolveAccountPublicKeyHex(message);
+    if (!accountPublicKeyHex) {
+        return;
+    }
+    const canonicalConversationId = canonicalizeDmConversationId({
+        conversationId,
+        myPublicKeyHex: accountPublicKeyHex,
+    });
+    const persistedMessage = toPersistedChatStateMessage(message, canonicalId);
+    chatStateStoreService.update(accountPublicKeyHex, (previous) => {
+        const existing = previous.messagesByConversationId[canonicalConversationId] ?? [];
+        const merged = [...existing];
+        const existingIndex = merged.findIndex((entry) => (
+            entry.id === persistedMessage.id
+            || (persistedMessage.eventId && entry.eventId === persistedMessage.eventId)
+        ));
+        if (existingIndex >= 0) {
+            merged[existingIndex] = { ...merged[existingIndex], ...persistedMessage };
+        } else {
+            merged.push(persistedMessage);
+        }
+        merged.sort((left, right) => left.timestampMs - right.timestampMs);
+        return {
+            ...previous,
+            messagesByConversationId: {
+                ...previous.messagesByConversationId,
+                [canonicalConversationId]: merged,
+            },
+        };
+    }, { silent: true });
+    try {
+        const invitePayload = normalizeCommunityInvitePayload(JSON.parse(message.content));
+        if (invitePayload?.type === "community-invite") {
+            pinCommunityInviteMessageSnapshot(canonicalId, invitePayload);
+        }
+    } catch {
+        // Normal chat plaintext is expected for most messages.
+    }
 };
 
 const summarizeSourceDmConversationIds = (
@@ -255,6 +329,11 @@ export class MessagePersistenceService {
         void this.flushQueue();
     };
     private chatPerformanceV2Enabled = false;
+
+    /** Native always batches to SQLite; web uses the privacy flag only. */
+    private usesBatchedPersistence(): boolean {
+        return this.chatPerformanceV2Enabled || isTauri();
+    }
     private readonly onPrivacySettingsChanged = (): void => {
         this.chatPerformanceV2Enabled = PrivacySettingsService.getSettings().chatPerformanceV2;
     };
@@ -289,7 +368,16 @@ export class MessagePersistenceService {
         this.isInitialized = true;
         this.chatPerformanceV2Enabled = PrivacySettingsService.getSettings().chatPerformanceV2;
 
+        const subscribedProfileId = getResolvedProfileId();
         this.unsubscribeMessageBus = messageBus.subscribe((event: MessageBusEvent) => {
+            const activeProfileId = getResolvedProfileId();
+            if (
+                subscribedProfileId
+                && activeProfileId
+                && subscribedProfileId !== activeProfileId
+            ) {
+                return;
+            }
             switch (event.type) {
                 case 'new_message':
                 case 'message_updated':
@@ -307,7 +395,7 @@ export class MessagePersistenceService {
                     }
                     break;
             }
-        }, { profileId: getResolvedProfileId() });
+        });
 
         if (typeof document !== "undefined") {
             document.addEventListener("visibilitychange", this.onVisibilityChange);
@@ -333,6 +421,11 @@ export class MessagePersistenceService {
                 profileId: ev.profileId,
             });
         });
+    }
+
+    /** Flush batched message bus writes immediately (native SQLite durability). */
+    async flushPendingNow(): Promise<void> {
+        await this.flushQueue();
     }
 
     dispose(): void {
@@ -459,6 +552,7 @@ export class MessagePersistenceService {
         }
         this.pendingDeletes.delete(canonicalId);
         this.pendingUpserts.set(canonicalId, persistedRecord);
+        mirrorMessageToChatState(conversationId, message, canonicalId);
 
         const queued = this.getQueuedOperationCount();
         if (queued >= this.immediateFlushThreshold) {
@@ -515,9 +609,6 @@ export class MessagePersistenceService {
 
         try {
             if (upserts.length > 0) {
-                if (!isTauri()) {
-                    await messagingDB.bulkPut("messages", upserts);
-                }
                 if (isTauri()) {
                     const profileId = getResolvedProfileId();
                     const latestByConversation = new Map<string, Record<string, unknown>>();
@@ -588,13 +679,7 @@ export class MessagePersistenceService {
                             deleted_by: "",
                         }).catch(() => undefined)));
                     }
-                } else {
-                    await messagingDB.bulkDelete("messages", deletes);
                 }
-            }
-            // Clean up any superseded UUID-keyed rows from before eventId was known
-            if (superseded.length > 0 && !isTauri()) {
-                await Promise.all(superseded.map(id => messagingDB.delete("messages", id).catch(() => {})));
             }
             if (performanceMonitor.isEnabled()) {
                 const flushLatencyMs = performance.now() - flushStartMs;
@@ -610,6 +695,7 @@ export class MessagePersistenceService {
             if (mergedCount > 0) {
                 console.debug("[MessagePersistenceService] Merged duplicate events:", mergedCount);
             }
+            this.notifyMessagesIndexRebuilt(upserts.length, deletes.length, upserts);
         } catch (e) {
             console.error("[MessagePersistenceService] Failed to flush queued message operations:", e);
         } finally {
@@ -632,28 +718,15 @@ export class MessagePersistenceService {
             return;
         }
 
-        if (this.chatPerformanceV2Enabled) {
+        if (this.usesBatchedPersistence()) {
             this.queueMessageUpsert(conversationId, message);
             return;
         }
 
         if (!isTauri()) {
-            try {
-                await messagingDB.put("messages", {
-                    ...message,
-                    id: canonicalId,
-                    conversationId,
-                    timestampMs: message.timestamp.getTime(),
-                });
-                // Remove any UUID-keyed duplicate row that may have been written before eventId was known
-                if (canonicalId !== message.id) {
-                    await messagingDB.delete("messages", message.id).catch(() => {});
-                }
-                if (performanceMonitor.isEnabled()) {
-                    performanceMonitor.recordMessageLatency(eventType === "new_message" ? 0 : 1);
-                }
-            } catch (e) {
-                console.error("[MessagePersistenceService] Failed to save message:", e);
+            mirrorMessageToChatState(conversationId, message, canonicalId);
+            if (performanceMonitor.isEnabled()) {
+                performanceMonitor.recordMessageLatency(eventType === "new_message" ? 0 : 1);
             }
         }
     }
@@ -673,187 +746,48 @@ export class MessagePersistenceService {
                 profileId: activeProfile,
             });
         }
-        if (this.chatPerformanceV2Enabled) {
+        if (this.usesBatchedPersistence()) {
             deleteIds.forEach((deleteId) => {
                 this.queueMessageDelete(deleteId);
             });
             return;
         }
 
-        if (!isTauri()) {
-            try {
-                await Promise.all(deleteIds.map((deleteId) => messagingDB.delete("messages", deleteId)));
-            } catch (e) {
-                console.error("[MessagePersistenceService] Failed to delete message:", e);
-            }
+        void deleteIds;
+    }
+
+    private notifyMessagesIndexRebuilt(
+        upsertCount: number,
+        deleteCount: number,
+        upserts: ReadonlyArray<Record<string, unknown>>,
+    ): void {
+        if (!isTauri() || (upsertCount === 0 && deleteCount === 0)) {
+            return;
         }
+        const profileId = getResolvedProfileId().trim();
+        if (!profileId) {
+            return;
+        }
+        const firstUpsert = upserts[0];
+        const senderPubkey = typeof firstUpsert?.senderPubkey === "string" ? firstUpsert.senderPubkey : "";
+        const recipientPubkey = typeof firstUpsert?.recipientPubkey === "string" ? firstUpsert.recipientPubkey : "";
+        const publicKeyHex = (
+            firstUpsert?.isOutgoing === true ? senderPubkey : recipientPubkey
+        ) || senderPubkey || recipientPubkey || "";
+        dispatchMessagesIndexRebuiltEvent({
+            publicKeyHex,
+            profileId,
+            messageCount: upsertCount + deleteCount,
+        });
     }
 
     /**
      * Initial migration: Call this if we want to move messages from the 
      * legacy 'chatState' blob to the 'messages' store.
      */
-    async migrateFromLegacy(publicKeyHex: string, options?: Readonly<{ profileId?: string }>) {
-        if (isTauri()) {
-            return;
-        }
-        try {
-            const normalizedPublicKeyHex = normalizePublicKeyHex(publicKeyHex);
-            if (!normalizedPublicKeyHex) {
-                return;
-            }
-            const profileId = options?.profileId ?? getResolvedProfileId();
-            const activeScopeKey = `${profileId}::${normalizedPublicKeyHex}`;
-
-            // Guard: run migration at most once per profile scope. The v2 DM pipeline
-            // owns the messages store going forward. Re-running clear()+reimport on
-            // every CHAT_STATE_REPLACED_EVENT (every ~60s) writes legacy id=nostrId rows
-            // that conflict with v2 id=UUID optimistic rows, producing persistent duplicates.
-            const migrationDoneKey = `${MessagePersistenceService.MIGRATION_DONE_KEY_PREFIX}${activeScopeKey}`;
-            if (typeof localStorage !== "undefined" && localStorage.getItem(migrationDoneKey) === "done") {
-                return;
-            }
-
-            if (this.activeMessageStoreScopeKey !== activeScopeKey) {
-                await messagingDB.clear("messages");
-                this.activeMessageStoreScopeKey = activeScopeKey;
-            }
-            const cachedChatState = chatStateStoreService.load(normalizedPublicKeyHex as PublicKeyHex, {
-                profileId,
-            });
-            const dbState = hasLegacyChatTimelineDomains(cachedChatState)
-                ? cachedChatState
-                : (await messagingDB.get<any>("chatState", normalizedPublicKeyHex) ?? cachedChatState);
-            if (!dbState) {
-                dispatchMessagesIndexRebuiltEvent({
-                    publicKeyHex: normalizedPublicKeyHex,
-                    profileId,
-                    messageCount: 0,
-                });
-                return;
-            }
-
-            const allMessages: Array<Record<string, unknown>> = [];
-            let incomingCount = 0;
-            let outgoingCount = 0;
-
-            const normalizedMessagesByConversationId = dbState.messagesByConversationId
-                ? fromPersistedMessagesByConversationId(
-                    dbState.messagesByConversationId,
-                    {
-                        myPublicKeyHex: normalizedPublicKeyHex as PublicKeyHex,
-                    }
-                )
-                : {};
-            Object.entries(normalizedMessagesByConversationId).forEach(([cid, msgs]) => {
-                msgs.forEach((message) => {
-                    if (message.isOutgoing) {
-                        outgoingCount++;
-                    } else {
-                        incomingCount++;
-                    }
-                    allMessages.push({
-                        ...message,
-                        conversationId: message.conversationId ?? cid,
-                        timestampMs: message.timestamp.getTime()
-                    });
-                });
-            });
-
-            if (allMessages.length > 0) {
-                console.log("[MessagePersistenceService] Migration directionality:", {
-                    total: allMessages.length,
-                    outgoing: outgoingCount,
-                    incoming: incomingCount,
-                    outgoingRatio: outgoingCount / allMessages.length,
-                });
-            }
-
-            if (dbState.groupMessages) {
-                Object.entries(dbState.groupMessages).forEach(([cid, msgs]: [string, any]) => {
-                    msgs.forEach((m: any) => {
-                            allMessages.push({
-                                id: m.id,
-                                kind: 'user',
-                                content: m.content,
-                                timestampMs: (m.created_at * 1000),
-                                isOutgoing: (m.pubkey === normalizedPublicKeyHex),
-                                status: 'delivered',
-                                senderPubkey: m.pubkey,
-                                conversationId: cid
-                            });
-                        });
-                });
-            }
-
-            if (allMessages.length > 0) {
-                await messagingDB.bulkPut("messages", allMessages);
-                console.info(`[MessagePersistenceService] Migrated ${allMessages.length} messages to 'messages' store.`);
-            }
-            // Mark migration as done so subsequent CHAT_STATE_REPLACED_EVENT calls are no-ops
-            if (typeof localStorage !== "undefined") {
-                try {
-                    const migrationDoneKey = `${MessagePersistenceService.MIGRATION_DONE_KEY_PREFIX}${activeScopeKey}`;
-                    localStorage.setItem(migrationDoneKey, "done");
-                } catch {
-                    // localStorage may be full; non-fatal — migration will re-run on next load
-                }
-            }
-
-            dispatchMessagesIndexRebuiltEvent({
-                publicKeyHex: normalizedPublicKeyHex,
-                profileId,
-                messageCount: allMessages.length,
-            });
-
-            const sourceDmDiagnostics = summarizeSourceDmConversationIds(
-                dbState.messagesByConversationId as Readonly<Record<string, unknown>> | undefined,
-                normalizedPublicKeyHex as PublicKeyHex,
-            );
-            const migratedDiagnostics = summarizeMigratedMessages(
-                allMessages,
-                normalizedPublicKeyHex as PublicKeyHex,
-            );
-            const persistedConversationIdSet = new Set(collectPersistedConversationIds(dbState as Record<string, unknown>));
-            const migratedConversationIdSet = new Set(
-                allMessages
-                    .map((message) => typeof message.conversationId === "string" ? message.conversationId.trim() : "")
-                    .filter((conversationId) => conversationId.length > 0)
-            );
-            const persistedConversationsWithoutMigratedHistory = Array.from(persistedConversationIdSet)
-                .filter((conversationId) => !migratedConversationIdSet.has(conversationId)).length;
-            const migratedConversationsNotInPersistedLists = Array.from(migratedConversationIdSet)
-                .filter((conversationId) => !persistedConversationIdSet.has(conversationId)).length;
-            const potentialConversationSplitDetected = (
-                sourceDmDiagnostics.canonicalCollisionCount > 0
-                && migratedDiagnostics.incomingOnlyConversationCount > 0
-            );
-            logAppEvent({
-                name: "messaging.legacy_migration_diagnostics",
-                level: potentialConversationSplitDetected ? "warn" : "info",
-                scope: { feature: "messaging", action: "legacy_migration" },
-                context: {
-                    publicKeySuffix: normalizedPublicKeyHex.slice(-8),
-                    profileId,
-                    sourceConversationCount: sourceDmDiagnostics.sourceConversationCount,
-                    canonicalConversationCount: sourceDmDiagnostics.canonicalConversationCount,
-                    canonicalMismatchConversationCount: sourceDmDiagnostics.canonicalMismatchConversationCount,
-                    canonicalCollisionCount: sourceDmDiagnostics.canonicalCollisionCount,
-                    canonicalCollisionSample: sourceDmDiagnostics.canonicalCollisionSample,
-                    migratedConversationCount: migratedDiagnostics.migratedConversationCount,
-                    migratedMessageCount: migratedDiagnostics.migratedMessageCount,
-                    migratedOutgoingCount: migratedDiagnostics.migratedOutgoingCount,
-                    migratedIncomingCount: migratedDiagnostics.migratedIncomingCount,
-                    incomingOnlyConversationCount: migratedDiagnostics.incomingOnlyConversationCount,
-                    persistedConversationCount: persistedConversationIdSet.size,
-                    persistedConversationsWithoutMigratedHistory,
-                    migratedConversationsNotInPersistedLists,
-                    potentialConversationSplitDetected,
-                },
-            });
-        } catch (e) {
-            console.error("[MessagePersistenceService] Migration failed:", e);
-        }
+    /** Legacy IndexedDB migration disabled — chat-state + SQLite are the only durable paths. */
+    async migrateFromLegacy(_publicKeyHex: string, _options?: Readonly<{ profileId?: string }>): Promise<void> {
+        return;
     }
 }
 

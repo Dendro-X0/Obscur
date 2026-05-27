@@ -174,8 +174,13 @@ pub fn run() {
             .data_directory(main_data_dir)
             .build()
             .expect("Failed to build main window");
-            let profile_state = app.state::<DesktopProfileState>();
-            let _ = tauri::async_runtime::block_on(profile_state.reset_startup_window_bindings(&app.handle()));
+            let reset_app = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                let reset_state = reset_app.state::<DesktopProfileState>();
+                if let Err(error) = reset_state.reset_startup_window_bindings(&reset_app).await {
+                    eprintln!("[PROFILES] Startup window binding reset failed: {error}");
+                }
+            });
             #[cfg(desktop)]
             {
                 let base_icon = app
@@ -311,6 +316,7 @@ pub fn run() {
                     commands::window::window_unmaximize,
                     commands::window::window_close,
                     commands::window::window_show_and_focus,
+                    commands::window::window_reveal_current,
                     commands::window::window_is_maximized,
                     commands::window::window_set_fullscreen,
                     commands::window::window_is_fullscreen,
