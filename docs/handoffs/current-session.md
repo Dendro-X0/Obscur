@@ -1,7 +1,7 @@
 # Current Session Handoff — Obscur (native-first)
 
 - Last Updated (UTC): 2026-05-27T18:00:00Z
-- Session Status: **Active** — **v1.8.4** public release (v1.8.3 tag skipped)
+- Session Status: **Active** — **v1.8.5** release tag (GitHub Release workflow)
 - Active Owner: Maintainer
 
 ## Active objective
@@ -173,24 +173,23 @@ Policy: `community-trust-policy.ts` · hook: `use-workspace-community-trust-gate
 
 ---
 
-## v1.8.4 release (2026-05-27)
+## v1.8.5 release (2026-05-27)
 
 | Item | Status |
 |------|--------|
-| Public release | **v1.8.4** — skips unpublished v1.8.3 tag |
-| Feature slice | REL-004 + invite DM + membership truth (from `7957492f`) |
-| CI | `release:test-pack` Pass (`04d26c40`) |
-| Tag | `v1.8.4` on `main` HEAD |
-| GitHub Release | Create from tag + desktop installer |
+| Tag `v1.8.5` | At `main` HEAD — includes CI fixes + Lane T slice |
+| `v1.8.4` tag | Points at older commit — **no** GitHub Release; superseded |
+| CI | `docs-check` + `release:test-pack` green |
+| GitHub Release | Triggered by `git push origin v1.8.5` → [release.yml](../../.github/workflows/release.yml) |
 
-## Next atomic step (active lane: **v1.8.5**)
+## Next atomic step (active lane: **v1.8.6**)
 
 **Canonical release train:** [v1.8.x-release-train.md](../program/v1.8.x-release-train.md)
 
-1. **GitHub Release** — [v1.8.4-release.md](../releases/v1.8.4-release.md) + desktop artifact.
-2. **Relay join after accept** — `Complete join on relay` retry loop (parked from soak).
-3. **Membership read-model port** — complete T4-9 owner boundary across surfaces.
-4. **`pnpm version:bump patch`** → **1.8.5** after tag.
+1. Confirm **Obscur Full Release** workflow completed for `v1.8.5`; mark GitHub Release **Latest**.
+2. **Relay join after accept** — `Complete join on relay` retry loop.
+3. **Membership read-model port** — T4-9 owner boundary.
+4. After tag soak: `pnpm version:bump patch` → **1.8.6** on `main`.
 
 ### Prior program order (reference)
 

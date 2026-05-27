@@ -60,7 +60,32 @@ Desktop-first patch: governance TTL and tie handling, duplicate-resolution idemp
 
 - **Version line** — Minor bump `1.7.x` → `1.8.x`; feature work proceeds in `v1.8.1+` patches per program roadmap.
 
-## [v1.8.4] - 2026-05-27
+## [v1.8.5] - 2026-05-27
+
+**Gate:** [v1.8.5-gate.md](docs/releases/v1.8.5-gate.md). **Release notes:** [v1.8.5-release.md](docs/releases/v1.8.5-release.md).
+
+Public GitHub release after **v1.8.2**; rolls up Lane **T** (REL-004 + community invite DM) and green CI gates. Tag **v1.8.4** on `main` did not include post-gate fixes — use **v1.8.5**.
+
+### Fixed
+
+- **CI** — `docs-check`, `release:test-pack` (AppShell relay banner mock, storage-health IDB policy, message-queue in-memory reset, standby latency timer jitter).
+- **Dev setup** — `apps/pwa/.env.example` for coordination URL (copy to `.env.local`).
+
+### Changed
+
+- Greenfield planning docs moved to `docs/archive/greenfield/` (reference only).
+
+### Shipped (from v1.8.4 scope, first full release artifact)
+
+- **REL-004** — Durable local leave + outbox retry.
+- **Community invite DM** — `inviteId`, supersede, acceptance cards, inviter thread UX.
+- **Membership truth** — Coordination-backed participant display (no ghost leavers).
+
+### Known limitations
+
+- Relay join after DM accept (`Complete join on relay`) — **v1.8.6+**.
+
+## [v1.8.4] - 2026-05-27 (tag only — no GitHub Release)
 
 **Scope:** [v1.8.4-scope.md](docs/program/v1.8.4-scope.md). **Gate:** [v1.8.4-gate.md](docs/releases/v1.8.4-gate.md). Lane **T** — REL-004 leave durability + community invite DM (public release rolls up the unpublished v1.8.3 line).
 
