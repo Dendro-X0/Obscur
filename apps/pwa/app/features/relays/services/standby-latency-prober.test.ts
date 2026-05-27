@@ -45,7 +45,8 @@ describe("probeStandbyRelayLatency", () => {
 
     const result = await probeStandbyRelayLatency("wss://relay.test", 50, factory);
     expect(result.ok).toBe(true);
-    expect(result.latencyMs).toBeGreaterThanOrEqual(50);
+    // Timer scheduling can undershoot by ~1ms in CI, so allow a small jitter.
+    expect(result.latencyMs).toBeGreaterThanOrEqual(49);
   });
 
   it("resolves ok=false when socket errors", async () => {
