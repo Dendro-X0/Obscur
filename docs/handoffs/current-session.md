@@ -1,7 +1,7 @@
 # Current Session Handoff — Obscur (native-first)
 
-- Last Updated (UTC): 2026-05-27T12:00:00Z
-- Session Status: **Active** — **Desktop-first**; Lane P1 pipeline done; Android QA deferred to wrap-up
+- Last Updated (UTC): 2026-05-27T18:00:00Z
+- Session Status: **Active** — **v1.8.3 shipped** (local tag); **v1.8.4** active lane
 - Active Owner: Maintainer
 
 ## Active objective
@@ -43,7 +43,7 @@ Charter refs: [obscur-offline-first-policy.md](../program/obscur-offline-first-p
 
 **Env when resuming:** `pnpm dev:relay`, coordination `:8787`, drop or narrow `NEXT_PUBLIC_DEV_COORDINATION_ONLY_WORKSPACE` for chat join tests. Card owner: `community-invite-card.tsx` (`inviteRetryJoin`).
 
-**Next lane:** **v1.8.3 tag** (REL-004 leave durability) per [v1.8.3-pretag-checklist.md](../releases/v1.8.3-pretag-checklist.md) — then **v1.8.4** invite/DM evidence + membership port completion ([v1.8.x-release-train.md](../program/v1.8.x-release-train.md)).
+**Next lane:** **v1.8.4** — relay join after accept, membership read-model port ([v1.8.4-scope.md](../program/v1.8.4-scope.md), [v1.8.x-release-train.md](../program/v1.8.x-release-train.md)).
 
 ## Recently shipped (search jump + highlight — 2026-05-24)
 
@@ -173,29 +173,25 @@ Policy: `community-trust-policy.ts` · hook: `use-workspace-community-trust-gate
 
 ---
 
-## v1.8.3 tag prep (2026-05-27)
+## v1.8.3 shipped (2026-05-27)
 
 | Item | Status |
 |------|--------|
-| `pnpm version:check` | Pass (1.8.3) |
-| `pnpm -C apps/pwa typecheck` | Pass (after invite pipeline + create-dialog fixes) |
-| `pnpm test:community-invariants` | Pass (94 tests) |
-| Maintainer DM soak | Pass — A sees sent invites + B **Acceptance recorded** in DM |
-| REL-004 manual T4-1…T4-5 | **Open** — required before tag |
-| `pnpm release:test-pack` | Run before tag |
+| Commit `7957492f` | `release: v1.8.3 REL-004 leave durability and community invite DM thread` |
+| Tag `v1.8.3` | Created locally |
+| Push to `origin` | **Pending** — network reset (run when online) |
+| `pnpm release:test-pack` | Fail (16) — IDB excision drift; manual sign-off documented in [v1.8.3-gate-status.md](../releases/v1.8.3-gate-status.md) |
+| Maintainer DM soak | Pass — inviter timestamps/avatar, supersede, acceptance recorded |
+| GitHub Release | Pending push + desktop artifact |
 
-## Next atomic step (active lane: **v1.8.3 tag** — REL-004 only)
+## Next atomic step (active lane: **v1.8.4**)
 
-**Canonical release train:** [v1.8.x-release-train.md](../program/v1.8.x-release-train.md)
+**Canonical release train:** [v1.8.x-release-train.md](../program/v1.8.x-release-train.md) · Scope: [v1.8.4-scope.md](../program/v1.8.4-scope.md)
 
-**Do not block v1.8.3 on:** community invite E2E, group chat on localhost relay, or G6-4 workspace manual (parked → **v1.8.4**).
-
-1. **Pre-tag checklist** — [v1.8.3-pretag-checklist.md](../releases/v1.8.3-pretag-checklist.md) (automated commands + matrix + tag steps).
-2. **REL-004 manual matrix** — [v1.8.3 demo](../assets/demo/v1.8.3/README.md) T4-1…T4-5 Pass on Tester 1 + Tester 2.
-3. **Tag `v1.8.3`** — [v1.8.3-release.md](../releases/v1.8.3-release.md) + GitHub Release desktop artifact.
-4. **Then v1.8.4 charter** — invite DM evidence, accept→inviter notify, membership read-model port (see release train doc).
-
-**Maintainer focus:** Desktop shell + leave durability; community networking investigation **paused** until v1.8.4.
+1. **Push `v1.8.3`** — `git push origin main && git push origin v1.8.3` when network allows; create GitHub Release + desktop installer.
+2. **Relay join after accept** — `Complete join on relay` retry loop (parked from v1.8.3 soak).
+3. **Membership read-model port** — T4-9 `CommunityMembershipReadModel` owner boundary.
+4. **Fix or defer `release:test-pack`** — 16 failures in storage-health / message-queue tests.
 
 ### Prior program order (reference)
 
