@@ -15,7 +15,7 @@ The monorepo accumulates experience faster than a greenfield rewrite. Rather tha
 
 Nothing in this directory is a commitment to ship on a date. It is **inspiration + specification draft** for the next layer.
 
-**Greenfield successor plan (2026-05):** If Obscur is archived, use **[../greenfield/README.md](../greenfield/README.md)** for the from-scratch charter, phased roadmap, and warning model — not v1.9.x Lane K as the primary schedule.
+**Greenfield successor plan (2026-05):** If Obscur is archived, use **[../archive/greenfield/README.md](../archive/greenfield/README.md)** for the from-scratch charter, phased roadmap, and warning model — not v1.9.x Lane K as the primary schedule.
 
 ---
 

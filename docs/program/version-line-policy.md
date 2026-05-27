@@ -39,7 +39,7 @@
 1. Land milestone on `main` with tests/gate evidence.
 2. `pnpm version:bump patch` (or `minor` when opening a band).
 3. `pnpm version:check`.
-4. Update `CHANGELOG.md` + `docs/releases/vX.Y.Z-gate.md`.
+4. Update `CHANGELOG.md` + `docs/releases/v1.8.4-gate.md` (replace version in filename per release).
 5. Commit, tag `vX.Y.Z`, push tag.
 
 Staying on `v1.8.3` while shipping large slices is **expected during development**; the version increments at **tag time**, not per commit.

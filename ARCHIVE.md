@@ -3,7 +3,7 @@
 **Status:** Active experiment (2026-05) — loadability reset, not a product commitment  
 **Charter:** [docs/program/obscur-experiment-reset-2026-05.md](docs/program/obscur-experiment-reset-2026-05.md)  
 **Handoff:** [docs/handoffs/current-session.md](docs/handoffs/current-session.md)  
-**Greenfield (reference only):** [docs/greenfield/README.md](docs/greenfield/README.md) — separate repo; specs copied here for extraction reference
+**Greenfield (reference only):** [docs/archive/greenfield/README.md](docs/archive/greenfield/README.md) — separate repo; specs copied here for extraction reference
 
 ---
 
@@ -16,7 +16,7 @@ This tree is the **Obscur** (`dweb-messenger`) monorepo: PWA, Tauri desktop, coo
 Historical structural limits (public-relay membership, competing truth sources) remain documented in:
 
 - [docs/handoffs/current-session.md](docs/handoffs/current-session.md)
-- [docs/greenfield/](docs/greenfield/) — greenfield charter (reference, not active client)
+- [docs/archive/greenfield/](docs/archive/greenfield/) — greenfield charter (reference, not active client)
 
 ---
 
@@ -36,8 +36,8 @@ An earlier snapshot marked this trunk **discontinued** in favor of Greenfield-on
 
 | Use | Location |
 |-----|----------|
-| **New product specs** | Copy [docs/greenfield/](docs/greenfield/) to the new repository |
-| **UI components** | [packages/ui-kit/](packages/ui-kit/) — extract per [docs/greenfield/08-extraction-manifest.md](docs/greenfield/08-extraction-manifest.md) |
+| **New product specs** | Copy [docs/archive/greenfield/](docs/archive/greenfield/) to the new repository |
+| **UI components** | [packages/ui-kit/](packages/ui-kit/) — extract per [docs/archive/greenfield/08-extraction-manifest.md](docs/archive/greenfield/08-extraction-manifest.md) |
 | **Crypto primitives** | [packages/dweb-crypto/](packages/dweb-crypto/) — audit then copy |
 | **Coordination patterns** | [apps/coordination/](apps/coordination/) — reference only for signed directory |
 | **Local dev (historical)** | [docs/assets/demo/private-trust-local-setup.md](docs/assets/demo/private-trust-local-setup.md) |

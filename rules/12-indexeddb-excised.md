@@ -16,4 +16,4 @@
 
 ## Rationale
 
-Avoid database path conflicts and dual-stack truth as Obscur moves to a single unified persistence stack per `docs/greenfield/`.
+Avoid database path conflicts and dual-stack truth as Obscur moves to a single unified persistence stack per `docs/archive/greenfield/`.

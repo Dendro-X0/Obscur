@@ -1,6 +1,6 @@
 # Obscur
 
-> **Archived (2026-05).** Active development: **[Greenfield](https://github.com/Dendro-X0/greenfield)** (`E:\Web Projects\greenfield`) — extraction complete; do not patch this trunk. [ARCHIVE.md](ARCHIVE.md) · Specs (historical): [docs/greenfield/README.md](docs/greenfield/README.md)
+> **Archived (2026-05).** Active development: **[Greenfield](https://github.com/Dendro-X0/greenfield)** (`E:\Web Projects\greenfield`) — extraction complete; do not patch this trunk. [ARCHIVE.md](ARCHIVE.md) · Specs (historical): [docs/archive/greenfield/README.md](docs/archive/greenfield/README.md)
 
 [![Release](https://img.shields.io/github/v/release/Dendro-X0/Obscur?display_name=tag&logo=github)](https://github.com/Dendro-X0/Obscur/releases)
 [![Platform](https://img.shields.io/badge/platform-PWA%20%7C%20Desktop%20%7C%20Mobile-0ea5e9)](#platform-coverage)

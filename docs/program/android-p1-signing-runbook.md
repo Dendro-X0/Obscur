@@ -42,7 +42,7 @@ Before any release-tracked Android build:
 pnpm version:sync
 ```
 
-Writes `apps/desktop/src-tauri/gen/android/app/tauri.properties` (`versionName` / `versionCode`) from root `package.json`. See [mobile-desktop-version-policy.md](./mobile-desktop-version-policy.md).
+Writes Android `tauri.properties` under `apps/desktop/src-tauri/gen/android/app/` (`versionName` / `versionCode`) from root `package.json`. See [mobile-desktop-version-policy.md](./mobile-desktop-version-policy.md).
 
 ---
 
@@ -74,7 +74,7 @@ cross-env TAURI_SHELL_TARGET=mobile pnpm -C apps/desktop tauri android build --a
 ```
 
 **Output (typical):**  
-`apps/desktop/src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk`
+apps/desktop/src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk
 
 ### Install on emulator or device
 
@@ -145,7 +145,7 @@ keytool -list -v -keystore /path/to/obscur-release.jks -alias obscur
 
 ## CI / GitHub Actions (optional)
 
-Reference workflow (archived v1.3.15): decode `ANDROID_KEYSTORE_BASE64` secret to `apps/desktop/src-tauri/release.jks`, then:
+Reference workflow (archived v1.3.15): decode `ANDROID_KEYSTORE_BASE64` secret to a local release keystore (gitignored), then:
 
 ```bash
 pnpm -C apps/desktop tauri android build --apk --aab --ci

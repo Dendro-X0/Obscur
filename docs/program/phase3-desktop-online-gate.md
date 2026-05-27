@@ -96,7 +96,7 @@ Prerequisite: G6-3 signed off. Setup: [private-trust-local-setup.md](../assets/d
 | Step | Action | Pass when |
 |------|--------|-----------|
 | P3-9 | `pnpm -C apps/coordination dev` + migrate if needed | `curl -s http://127.0.0.1:8787/health` → `{"ok":true,...}` |
-| P3-10 | `NEXT_PUBLIC_COORDINATION_URL=http://127.0.0.1:8787` in `apps/pwa/.env.local`, restart `dev:desktop:online` | Settings → membership sync shows coordination path (not stuck blocking unlock) |
+| P3-10 | `NEXT_PUBLIC_COORDINATION_URL=http://127.0.0.1:8787` in `apps/pwa/.env.example`, restart `dev:desktop:online` | Settings → membership sync shows coordination path (not stuck blocking unlock) |
 | P3-11 | Stop coordination worker | App stays navigable; community/membership UI shows **degraded** or probe failure — **no crash overlay** |
 | P3-12 | Restart coordination | Health recovers on next probe (≤15s cache) without full app restart |
 

@@ -124,7 +124,7 @@ Code already points here: `TransportKind` includes `team_relay`; `apps/coordinat
 | Role | Local stand-in |
 |------|----------------|
 | Coordination directory | `pnpm -C apps/coordination dev` → `http://127.0.0.1:8787` |
-| Client | `NEXT_PUBLIC_COORDINATION_URL=http://127.0.0.1:8787` in `apps/pwa/.env.local` |
+| Client | `NEXT_PUBLIC_COORDINATION_URL=http://127.0.0.1:8787` in `apps/pwa/.env.example` |
 | Team relay | Later: dockerized `strfry` or minimal Obscur relay; until then, one shared writable `wss://` both clients enable |
 
 Enough to prove roster shrink and leave propagation **before** production VPS.

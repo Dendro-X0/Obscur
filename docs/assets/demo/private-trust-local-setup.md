@@ -9,7 +9,7 @@ Use this matrix after the **platform pivot** (coordination-owned membership + tr
 
 ### No Docker? (coordination-only dev on your machine)
 
-If `pnpm dev:relay` fails (common on Windows when only legacy `docker-compose` exists, or Docker is not installed), add to `apps/pwa/.env.local`:
+If `pnpm dev:relay` fails (common on Windows when only legacy `docker-compose` exists, or Docker is not installed), copy `apps/pwa/.env.example` to `.env.local` and ensure it includes:
 
 ```bash
 NEXT_PUBLIC_DEV_COORDINATION_ONLY_WORKSPACE=true
@@ -28,7 +28,7 @@ Confirm: `curl -s http://127.0.0.1:8787/health` → `{"ok":true,...}`
 
 ## 2. Point the client at coordination
 
-Create or edit `apps/pwa/.env.local`:
+Copy `apps/pwa/.env.example` to `.env.local` (or edit an existing `.env.local`):
 
 ```bash
 NEXT_PUBLIC_COORDINATION_URL=http://127.0.0.1:8787
@@ -122,7 +122,7 @@ If the desktop window is unresponsive and you cannot open Settings:
    - Delete keys matching `obscur-last-chat-*` for your profile
    - Or run in the console: `Object.keys(localStorage).filter(k => k.includes('obscur-last-chat')).forEach(k => localStorage.removeItem(k))`
 3. **Restart** `pnpm dev:desktop` and open **Settings → Relays** before selecting a workspace group.
-4. Optional: comment out `NEXT_PUBLIC_COORDINATION_URL` in `apps/pwa/.env.local` until coordination is running, then restore it.
+4. Optional: comment out `NEXT_PUBLIC_COORDINATION_URL` in `apps/pwa/.env.example` until coordination is running, then restore it.
 
 Workspace groups created with host `127.0.0.1` are **coordination-only** until you add a real `wss://` relay URL.
 

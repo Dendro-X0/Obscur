@@ -2,7 +2,7 @@
 
 **Status:** Active (2026-05-22)  
 **Supersedes:** Dual IndexedDB + SQLite authority on Tauri/desktop  
-**Aligns with:** [obscur-2.0-milestone-roadmap.md](./obscur-2.0-milestone-roadmap.md) Lane P3, [greenfield/04-architecture-sketch.md](../greenfield/04-architecture-sketch.md), [platform-pivot-private-trust-2026-05.md](./platform-pivot-private-trust-2026-05.md)
+**Aligns with:** [obscur-2.0-milestone-roadmap.md](./obscur-2.0-milestone-roadmap.md) Lane P3, [greenfield/04-architecture-sketch.md](../archive/greenfield/04-architecture-sketch.md), [platform-pivot-private-trust-2026-05.md](./platform-pivot-private-trust-2026-05.md)
 
 ---
 

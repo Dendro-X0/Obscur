@@ -30,7 +30,7 @@ Reframing broken session persistence as “privacy by design” is only honest i
 
 **Code owners:** `auth-screen.tsx`, `use-identity.ts`, `auth-gateway.tsx`, `window-runtime-supervisor.ts`, `identity-persistence.ts`, `session-credential-policy.ts`.
 
-**Greenfield alignment:** [03-identity-and-sybil.md](../greenfield/03-identity-and-sybil.md) — local keys; optional attestations later as badges, not roots.
+**Greenfield alignment:** [03-identity-and-sybil.md](../archive/greenfield/03-identity-and-sybil.md) — local keys; optional attestations later as badges, not roots.
 
 ---
 
@@ -88,7 +88,7 @@ Assign to **v1.7.x+** or **post–Lane P** after Phase 2 / v1.9.x gates—**not*
 | [phase2-desktop-dm-persistence-gate.md](./phase2-desktop-dm-persistence-gate.md) | Active — DM restart |
 | [obscur-2.0-milestone-roadmap.md](./obscur-2.0-milestone-roadmap.md) | Lane P / v2.0 after Lane K |
 | [strategic-direction.md](./strategic-direction.md) | Program sequence |
-| [03-identity-and-sybil.md](../greenfield/03-identity-and-sybil.md) | Long-term identity / anti-abuse concepts |
+| [03-identity-and-sybil.md](../archive/greenfield/03-identity-and-sybil.md) | Long-term identity / anti-abuse concepts |
 
 ---
 

@@ -18,7 +18,7 @@ Canonical gate: [phase3-desktop-online-gate.md](./phase3-desktop-online-gate.md)
 
 ## Client config (already on this machine)
 
-`apps/pwa/.env.local` should include:
+`apps/pwa/.env.example` (copy to `.env.local` for local builds) should include:
 
 ```bash
 NEXT_PUBLIC_COORDINATION_URL=http://127.0.0.1:8787

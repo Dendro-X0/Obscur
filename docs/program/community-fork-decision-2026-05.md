@@ -79,7 +79,7 @@ You can still validate Path B **before** buying/standing up infrastructure:
 | Piece | Local substitute |
 |-------|------------------|
 | Coordination directory | `pnpm -C apps/coordination dev` → `http://127.0.0.1:8787` |
-| PWA / desktop build | `apps/pwa/.env.local`: `NEXT_PUBLIC_COORDINATION_URL=http://127.0.0.1:8787` |
+| PWA / desktop build | `apps/pwa/.env.example`: `NEXT_PUBLIC_COORDINATION_URL=http://127.0.0.1:8787` |
 | Two users | Two profiles (Tester1 / Tester2) in two desktop windows or browsers |
 | Relay | Minimum: enable one relay both clients share. For **membership** proof, coordination alone satisfies K-M1/K-M2; chat publish may still need a writable `wss://` (can be a small local relay later). |
 

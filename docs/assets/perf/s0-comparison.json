@@ -1,0 +1,5 @@
+{
+  "schema": "obscur-shell-perf-s0-comparison",
+  "verdict": "pending",
+  "note": "Placeholder until pnpm perf:shell:s0:compare records a verdict."
+}

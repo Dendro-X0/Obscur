@@ -1,0 +1,5 @@
+{
+  "schema": "obscur-shell-perf-s0",
+  "mode": "prod",
+  "note": "Placeholder until pnpm perf:shell:s0:prod records a baseline."
+}

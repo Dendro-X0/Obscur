@@ -13,7 +13,7 @@
 | **Desktop shell** | Stay **Tauri + static export** for production | Already matches `frontendDist`; no server at runtime |
 | **Desktop dev** | **`next dev --turbopack`** (not webpack) | Removes minute-long cold compile from the inner loop; prod still static |
 | **Web/PWA** | Keep **Next App Router** | SEO, shareable routes, one codebase |
-| **Long-term desktop** (optional Phase B) | **Vite SPA** in `apps/desktop-ui` sharing `packages/*` | If turbopack + staged shell insufficient; migrate when loadability proven |
+| **Long-term desktop** (optional Phase B) | **Vite SPA** in a dedicated desktop-ui app sharing `packages/*` | If turbopack + staged shell insufficient; migrate when loadability proven |
 | **UI architecture** | **Persistent product chrome + route domain providers** | Fixes “every nav remounts the world” structurally |
 | **Boot** | **Fail-open profile on desktop** | Paint shell in &lt;500ms; native refresh in background |
 
@@ -76,7 +76,7 @@ Navigating **Settings** tears down the messaging stack (thousands of hooks) inst
 |------|---------|----------|
 | **Fast dev (default)** | `pnpm dev:desktop` | Turbopack (`next dev --turbopack`) |
 | **Webpack dev (legacy)** | `pnpm dev:desktop:webpack` | Webpack — use only when debugging bundler issues |
-| **Prod-like** | `pnpm dev:desktop:static` | Serve `apps/pwa/out` — no dev compiler |
+| **Prod-like** | `pnpm dev:desktop:static` | Serve static PWA export — no dev compiler |
 
 `apps/desktop/src-tauri/tauri.conf.json` `beforeDevCommand` uses turbopack.
 
@@ -86,8 +86,8 @@ Navigating **Settings** tears down the messaging stack (thousands of hooks) inst
 
 Trigger: S0 shows prod acceptable but dev still unacceptable after turbopack + staged shell.
 
-1. New `apps/desktop-ui` — Vite + React Router + same `packages/dweb-*`.
-2. Tauri `frontendDist` → `desktop-ui/dist`.
+1. New desktop-ui app — Vite + React Router + same `packages/dweb-*`.
+2. Tauri frontendDist → desktop-ui/dist output.
 3. Next PWA remains for web; desktop stops using Next dev server entirely.
 
 Estimated: 2–4 weeks focused migration; not started until Phase A evidence.
