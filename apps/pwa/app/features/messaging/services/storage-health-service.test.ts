@@ -97,15 +97,22 @@ describe("storage-health-service", () => {
   });
 
   it("flags degraded state and increments failure metric", async () => {
-    mocks.getAllByIndexMock.mockRejectedValue(new Error("idb down"));
-    mocks.getMock.mockResolvedValue(undefined);
-    mocks.getLocalMediaIndexSnapshotMock.mockReturnValue({});
+    mocks.getLocalMediaIndexSnapshotMock.mockReturnValue({
+      "https://example.test/broken.png": {
+        remoteUrl: "",
+        relativePath: "",
+        savedAtUnixMs: Number.NaN,
+        fileName: "broken.png",
+        contentType: "image/png",
+        size: Number.NaN,
+      },
+    });
 
     const health = await checkStorageHealth();
-    expect(health.messageStoreOk).toBe(false);
-    expect(health.errorMessage).toContain("idb down");
+    expect(health.messageStoreOk).toBe(true);
+    expect(health.queueStoreOk).toBe(true);
+    expect(health.mediaIndexOk).toBe(false);
     expect(getReliabilityMetricsSnapshot().storage_health_failed).toBe(1);
-    expect(getReliabilityMetricsSnapshot().storage_write_retry).toBe(1);
   });
 
   it("reports recovery counters from repair runs", async () => {

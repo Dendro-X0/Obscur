@@ -75,6 +75,10 @@ vi.mock("./relay-status-badge", () => ({
   RelayStatusBadge: () => <div data-testid="relay-status-badge" />,
 }));
 
+vi.mock("@/app/features/relays/components/relay-transport-shell-banner", () => ({
+  RelayTransportShellBanner: () => null,
+}));
+
 vi.mock("./user-avatar-menu", () => ({
   UserAvatarMenu: () => <div data-testid="user-avatar-menu" />,
 }));

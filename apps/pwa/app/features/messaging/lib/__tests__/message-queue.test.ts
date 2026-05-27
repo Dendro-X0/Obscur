@@ -2,6 +2,8 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { MessageQueue, type Message, type MessageStatus, type OutgoingMessage } from '../message-queue';
 import type { PublicKeyHex } from '@dweb/crypto/public-key-hex';
 import { openMessageDb } from '../open-message-db';
+import { clearInMemoryIdb } from '@/app/features/storage/in-memory-idb-shim';
+import { messageDbName } from '../message-db-name';
 
 /**
  * Property-based tests for message queue service
@@ -14,24 +16,11 @@ describe('MessageQueue Property Tests', () => {
 
   let messageQueue: MessageQueue;
 
-  // Clean up IndexedDB between tests
+  // Reset session-scoped in-memory message DB between tests.
   beforeEach(async () => {
-    // Create a new MessageQueue instance for each test
+    clearInMemoryIdb(messageDbName);
     messageQueue = new MessageQueue(testPubkey1);
 
-    // Clear any existing data
-    try {
-      const databases = await indexedDB.databases();
-      for (const db of databases) {
-        if (db.name === 'ObscurMessaging') {
-          indexedDB.deleteDatabase(db.name);
-        }
-      }
-    } catch (error) {
-      // Ignore cleanup errors
-    }
-
-    // Clear localStorage for this identity
     const keysToRemove: string[] = [];
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
@@ -45,19 +34,8 @@ describe('MessageQueue Property Tests', () => {
   });
 
   afterEach(async () => {
-    // Clean up after each test
-    try {
-      const databases = await indexedDB.databases();
-      for (const db of databases) {
-        if (db.name === 'ObscurMessaging') {
-          indexedDB.deleteDatabase(db.name);
-        }
-      }
-    } catch (error) {
-      // Ignore cleanup errors
-    }
+    clearInMemoryIdb(messageDbName);
 
-    // Clear localStorage for this identity
     const keysToRemove: string[] = [];
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
