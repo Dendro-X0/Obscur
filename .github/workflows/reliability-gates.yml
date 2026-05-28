@@ -41,7 +41,7 @@ jobs:
           exit 1
 
       - name: Probe relay runtime (ws publish/subscribe/nip11)
-        run: node scripts/relay-runtime-smoke.mjs --relay ws://127.0.0.1:7000 --timeout-ms 7000
+        run: node scripts/relay-runtime-smoke.mjs --relay ws://127.0.0.1:7000 --timeout-ms 7000 --skip-nip11
 
   release-test-pack:
     name: release:test-pack

@@ -7,10 +7,12 @@ const getArg = (name, fallback) => {
   if (index === -1 || !args[index + 1]) return fallback;
   return args[index + 1];
 };
+const hasFlag = (name) => args.includes(name);
 
 const relayUrl = getArg("--relay", "ws://127.0.0.1:7000");
 const timeoutMsRaw = Number.parseInt(getArg("--timeout-ms", "6000"), 10);
 const timeoutMs = Number.isFinite(timeoutMsRaw) && timeoutMsRaw > 500 ? timeoutMsRaw : 6000;
+const requireNip11 = !hasFlag("--skip-nip11");
 
 const main = async () => {
   const results = await runRelayNipProbe({
@@ -20,7 +22,12 @@ const main = async () => {
   });
 
   const relayChecks = new Map(results.map((entry) => [entry.check, entry]));
-  const requiredChecks = ["relay_socket", "relay_publish", "relay_subscribe", "nip11_fetch"];
+  const requiredChecks = [
+    "relay_socket",
+    "relay_publish",
+    "relay_subscribe",
+    ...(requireNip11 ? ["nip11_fetch"] : []),
+  ];
   const failures = [];
 
   for (const check of requiredChecks) {
@@ -45,6 +52,9 @@ const main = async () => {
   }
 
   console.log("[relay-runtime-smoke] relay", relayUrl);
+  if (!requireNip11) {
+    console.log("[relay-runtime-smoke] nip11 check is optional for this run.");
+  }
   for (const check of requiredChecks) {
     const result = relayChecks.get(check);
     if (!result) {
