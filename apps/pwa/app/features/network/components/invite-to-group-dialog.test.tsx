@@ -82,6 +82,28 @@ describe("InviteToGroupDialog membership gating", () => {
     expect(groupButton).toBeDisabled();
   });
 
+  it("treats roster membership lookup as case-insensitive", () => {
+    const targetPubkey = "b".repeat(64).toUpperCase();
+    mocks.useMembershipIndex.mockReturnValue({
+      "community:g1:ws://localhost:7000": {
+        displayPubkeys: ["b".repeat(64)],
+        memberCount: 2,
+      },
+    });
+
+    render(
+      <InviteToGroupDialog
+        isOpen
+        onClose={mocks.onClose}
+        onInvite={mocks.onInvite}
+        targetPubkey={targetPubkey}
+      />,
+    );
+
+    const groupButton = screen.getByRole("button", { name: /Group 1/i });
+    expect(groupButton).toBeDisabled();
+  });
+
   it("invokes onInvite when target is not in read-model roster", () => {
     const targetPubkey = "b".repeat(64);
     mocks.useMembershipIndex.mockReturnValue({
@@ -102,6 +124,26 @@ describe("InviteToGroupDialog membership gating", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Group 1/i }));
     expect(mocks.onInvite).toHaveBeenCalledTimes(1);
+    expect(mocks.onInvite).toHaveBeenCalledWith({
+      group: expect.objectContaining({ id: "community:g1:ws://localhost:7000" }),
+      memberCount: 1,
+    });
+  });
+
+  it("falls back to memberCount=1 when read-model entry is missing", () => {
+    const targetPubkey = "c".repeat(64);
+    mocks.useMembershipIndex.mockReturnValue({});
+
+    render(
+      <InviteToGroupDialog
+        isOpen
+        onClose={mocks.onClose}
+        onInvite={mocks.onInvite}
+        targetPubkey={targetPubkey}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Group 1/i }));
     expect(mocks.onInvite).toHaveBeenCalledWith({
       group: expect.objectContaining({ id: "community:g1:ws://localhost:7000" }),
       memberCount: 1,

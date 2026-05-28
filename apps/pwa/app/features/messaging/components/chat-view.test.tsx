@@ -22,6 +22,9 @@ const messageMenuPropsRef = vi.hoisted(() => ({
 }));
 
 const searchMessagesMock = vi.hoisted(() => vi.fn());
+const chatHeaderPropsRef = vi.hoisted(() => ({
+    current: null as Record<string, unknown> | null,
+}));
 
 vi.mock("react-i18next", () => ({
     useTranslation: () => ({
@@ -56,7 +59,10 @@ vi.mock("../services/chat-state-store", () => ({
 }));
 
 vi.mock("./chat-header", () => ({
-    ChatHeader: () => <div data-testid="chat-header" />,
+    ChatHeader: (props: Record<string, unknown>) => {
+        chatHeaderPropsRef.current = props;
+        return <div data-testid="chat-header" />;
+    },
 }));
 
 vi.mock("./stranger-warning-banner", () => ({
@@ -521,5 +527,33 @@ describe("ChatView batch delete", () => {
 
         expect(screen.queryByRole("button", { name: /Recall for everyone/i })).toBeNull();
         expect(props.onDeleteMessageForEveryone).not.toHaveBeenCalled();
+    });
+});
+
+describe("ChatView membership surface forwarding", () => {
+    it("passes read-model group member count to chat header", async () => {
+        const props = createBaseProps();
+        props.conversation = {
+            kind: "group",
+            id: "community:g1:ws://localhost:7000",
+            groupId: "g1",
+            relayUrl: "ws://localhost:7000",
+            displayName: "Group 1",
+            memberPubkeys: ["a".repeat(64) as PublicKeyHex],
+            memberCount: 1,
+            lastMessage: "",
+            unreadCount: 0,
+            lastMessageTime: new Date(1_000),
+            access: "invite-only",
+            adminPubkeys: [],
+        };
+        props.groupMemberCount = 4;
+
+        render(<ChatView {...props} />);
+
+        await waitFor(() => {
+            expect(screen.getByTestId("chat-header")).toBeInTheDocument();
+        });
+        expect(chatHeaderPropsRef.current?.groupMemberCount).toBe(4);
     });
 });

@@ -7,6 +7,8 @@ const networkDashboardMocks = vi.hoisted(() => ({
   push: vi.fn(),
   setIsNewGroupOpen: vi.fn(),
   addToast: vi.fn(),
+  useGroups: vi.fn(),
+  useMembershipIndex: vi.fn(),
 }));
 
 vi.mock("react-i18next", () => ({
@@ -85,16 +87,11 @@ vi.mock("../providers/network-provider", () => ({
 }));
 
 vi.mock("@/app/features/groups/providers/group-provider", () => ({
-  useGroups: () => ({
-    createdGroups: [],
-    communityKnownParticipantDirectoryByConversationId: {},
-    communityRosterByConversationId: {},
-    setIsNewGroupOpen: networkDashboardMocks.setIsNewGroupOpen,
-  }),
+  useGroups: () => networkDashboardMocks.useGroups(),
 }));
 
 vi.mock("@/app/features/groups/hooks/use-community-membership-read-model-index", () => ({
-  useCommunityMembershipReadModelIndex: () => ({}),
+  useCommunityMembershipReadModelIndex: () => networkDashboardMocks.useMembershipIndex(),
 }));
 
 vi.mock("@/app/features/messaging/providers/messaging-provider", () => ({
@@ -132,7 +129,9 @@ vi.mock("./network-connection-card", () => ({
 }));
 
 vi.mock("./group-card", () => ({
-  GroupCard: () => <div>Mock Group Card</div>,
+  GroupCard: (props: { displayName: string; memberCount: number }) => (
+    <div>{`Mock Group Card ${props.displayName} (${props.memberCount})`}</div>
+  ),
 }));
 
 vi.mock("@/app/features/groups/components/group-discovery", () => ({
@@ -167,17 +166,59 @@ describe("NetworkDashboard recovery navigation", () => {
     networkDashboardMocks.push.mockReset();
     networkDashboardMocks.setIsNewGroupOpen.mockReset();
     networkDashboardMocks.addToast.mockReset();
+    networkDashboardMocks.useMembershipIndex.mockReset();
+    networkDashboardMocks.useGroups.mockReset();
+    networkDashboardMocks.useMembershipIndex.mockReturnValue({});
+    networkDashboardMocks.useGroups.mockReturnValue({
+      createdGroups: [],
+      communityKnownParticipantDirectoryByConversationId: {},
+      communityRosterByConversationId: {},
+      setIsNewGroupOpen: networkDashboardMocks.setIsNewGroupOpen,
+    });
   });
 
   it("routes an empty Groups tab into Discovery instead of opening a new local group flow", async () => {
     render(<NetworkDashboard />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Groups" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Groups(?:\s+\d+)?$/i }));
     fireEvent.click(screen.getByRole("button", { name: /Browse Communities/i }));
 
     await waitFor(() => {
       expect(screen.getByText("Mock Discovery Surface")).toBeInTheDocument();
     });
     expect(networkDashboardMocks.setIsNewGroupOpen).not.toHaveBeenCalled();
+  });
+
+  it("uses membership read-model count for group cards", async () => {
+    const groupId = "community:g1:ws://localhost:7000";
+    networkDashboardMocks.useGroups.mockReturnValue({
+      createdGroups: [
+        {
+          id: groupId,
+          groupId: "g1",
+          communityId: "g1",
+          relayUrl: "ws://localhost:7000",
+          displayName: "Group 1",
+          memberPubkeys: [],
+          avatar: null,
+        },
+      ],
+      communityKnownParticipantDirectoryByConversationId: {},
+      communityRosterByConversationId: {},
+      setIsNewGroupOpen: networkDashboardMocks.setIsNewGroupOpen,
+    });
+    networkDashboardMocks.useMembershipIndex.mockReturnValue({
+      [groupId]: {
+        displayPubkeys: [],
+        memberCount: 3,
+      },
+    });
+
+    render(<NetworkDashboard />);
+    fireEvent.click(screen.getByRole("button", { name: /^Groups(?:\s+\d+)?$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Mock Group Card Group 1 (3)")).toBeInTheDocument();
+    });
   });
 });
