@@ -135,6 +135,33 @@ describe("buildCommunityInviteResponseStatusByMessageId", () => {
         expect(map.get("invite-old")).toBe("accepted");
         expect(map.get("invite-new")).toBeUndefined();
     });
+
+    it("does not apply stale terminal status when inviteId is reused for a newer invite", () => {
+        const reusedInviteId = "inv-reused-1";
+        const olderInvite = baseMessage({
+            id: "invite-older",
+            isOutgoing: false,
+            timestamp: new Date(1_700_000_000_000),
+            content: JSON.stringify({ type: "community-invite", inviteId: reusedInviteId, groupId: "g1", roomKey: "rk" }),
+        });
+        const olderResponse = baseMessage({
+            id: "response-older",
+            isOutgoing: true,
+            timestamp: new Date(1_700_000_100_000),
+            content: JSON.stringify({ type: "community-invite-response", inviteId: reusedInviteId, status: "accepted", groupId: "g1" }),
+            replyTo: { messageId: "invite-older", previewText: "" },
+        });
+        const newerInviteSameId = baseMessage({
+            id: "invite-newer",
+            isOutgoing: false,
+            timestamp: new Date(1_700_000_300_000),
+            content: JSON.stringify({ type: "community-invite", inviteId: reusedInviteId, groupId: "g1", roomKey: "rk2" }),
+        });
+
+        const map = buildCommunityInviteResponseStatusByMessageId([olderInvite, olderResponse, newerInviteSameId], "a:b");
+        expect(map.get("invite-older")).toBe("accepted");
+        expect(map.get("invite-newer")).toBeUndefined();
+    });
 });
 
 describe("resolveCommunityInvitePayloadFromMessage", () => {

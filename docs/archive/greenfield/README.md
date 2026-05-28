@@ -1,8 +1,8 @@
-# Greenfield product plan (concept phase)
+# Greenfield product plan (archived reference)
 
-**Status:** Implemented in successor repo — specs copied to [Greenfield](https://github.com/Dendro-X0/greenfield) (`E:\Web Projects\greenfield`)  
-**Last updated:** 2026-05-22  
-**Relationship to Obscur:** This folder was the **planning source**; live specs and code are in greenfield `docs/`. Obscur trunk is archived — do not execute v1.9.x program bands here.
+**Status:** Discontinued as a standalone execution track.  
+**Last updated:** 2026-05-27  
+**Relationship to Obscur:** This folder is retained as **reference-only design input**. Active development is back on Obscur; apply these goals incrementally in Obscur planning/spec docs rather than as a separate repo migration.
 
 ---
 
@@ -51,9 +51,8 @@ Capture a from-scratch plan for a privacy-first, E2EE communication product that
 
 ---
 
-## Next step (when leaving concept phase)
+## How to use this archive now
 
-1. Create **new repository** per [07-repository-strategy.md](./07-repository-strategy.md).
-2. Follow [09-phase0-bootstrap-checklist.md](./09-phase0-bootstrap-checklist.md) and [08-extraction-manifest.md](./08-extraction-manifest.md).
-3. Copy `docs/greenfield/` and allowlisted packages (`ui-kit`, `crypto`, selected UI).
-4. **This** monorepo is archived — see root [ARCHIVE.md](../ARCHIVE.md).
+1. Treat documents `00`–`09` as goal/reference constraints for Obscur roadmap decisions.
+2. Port applicable ideas into Obscur program docs and release scopes with evidence-backed gates.
+3. Do not treat this folder as an active migration checklist to a new repo.

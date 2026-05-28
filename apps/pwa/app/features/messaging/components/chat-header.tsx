@@ -18,6 +18,7 @@ import { Bell, BellOff, Copy, PhoneCall } from "lucide-react";
 
 export interface ChatHeaderProps {
     conversation: Conversation;
+    groupMemberCount?: number;
     isOnline?: boolean;
     interactionStatus?: Readonly<{ lastActiveAtMs?: number; lastViewedAtMs?: number }>;
     nowMs?: number | null;
@@ -50,6 +51,7 @@ export interface ChatHeaderProps {
 
 export function ChatHeader({
     conversation,
+    groupMemberCount,
     isOnline = false,
     interactionStatus,
     nowMs,
@@ -251,7 +253,9 @@ export function ChatHeader({
                             </>
                         ) : (
                             <p className="text-xs text-zinc-600 dark:text-zinc-400">
-                                {t("messaging.membersCount", { count: conversation.memberPubkeys.length })}
+                                {t("messaging.membersCount", {
+                                    count: groupMemberCount ?? conversation.memberPubkeys.length,
+                                })}
                             </p>
                         )}
                         <Button type="button" variant="secondary" className="px-2 py-1" onClick={onOpenMedia}>

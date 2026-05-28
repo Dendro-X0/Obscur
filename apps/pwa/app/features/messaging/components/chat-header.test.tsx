@@ -13,7 +13,12 @@ const notificationPreferenceMocks = vi.hoisted(() => ({
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
-    t: (_key: string, fallback?: string) => fallback ?? _key,
+    t: (_key: string, fallbackOrOptions?: string | { count?: number }) => {
+      if (_key === "messaging.membersCount" && typeof fallbackOrOptions === "object") {
+        return `${fallbackOrOptions.count ?? 0} members`;
+      }
+      return typeof fallbackOrOptions === "string" ? fallbackOrOptions : _key;
+    },
   }),
 }));
 
@@ -112,5 +117,24 @@ describe("ChatHeader", () => {
     fireEvent.click(screen.getByTestId("chat-header-avatar-button"));
 
     expect(onOpenProfile).toHaveBeenCalledWith("a".repeat(64));
+  });
+
+  it("uses read-model group member count when provided", () => {
+    const groupConversation: ChatHeaderProps["conversation"] = {
+      kind: "group",
+      id: "community:g1:ws://localhost:7000",
+      groupId: "g1",
+      relayUrl: "ws://localhost:7000",
+      displayName: "Group 1",
+      memberPubkeys: ["a".repeat(64) as PublicKeyHex],
+      memberCount: 1,
+      lastMessage: "",
+      unreadCount: 0,
+      lastMessageTime: new Date(1_000),
+      access: "invite-only",
+      adminPubkeys: [],
+    };
+    render(<ChatHeader {...createProps()} conversation={groupConversation} groupMemberCount={2} />);
+    expect(screen.getByText("2 members")).toBeInTheDocument();
   });
 });

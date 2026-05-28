@@ -61,6 +61,16 @@ import {
 import { applyCommunityMembershipRuntimeEvidence } from "../services/community-membership-mutation-owner";
 import { loadCommunityMembershipLedger } from "../services/community-membership-ledger";
 import { loadGroupTombstones } from "../services/group-tombstone-store";
+import {
+    loadInviteRelayJoinState,
+    publishCommunityInviteRelayJoin,
+    resolveRelayJoinStatusAfterManualRetry,
+    saveInviteRelayJoinState,
+    shouldShowInviteRelayJoinRetry,
+    type CommunityInviteRelayJoinStatus,
+    type RelayScopedPublishFn,
+} from "../services/community-invite-relay-join";
+import { toScopedRelayUrl } from "../services/sealed-community-relay-scope";
 
 export type { InvitePayload };
 
@@ -127,6 +137,14 @@ export const CommunityInviteCard = ({
     const [localResolutionStatus, setLocalResolutionStatus] = useState<
         'accepted' | 'declined' | 'canceled' | null
     >(null);
+    const inviteCardIdentity = React.useMemo(
+        () => `${message?.id ?? "no-message"}:${message?.eventId ?? "no-event"}:${invite.groupId}`,
+        [invite.groupId, message?.eventId, message?.id],
+    );
+    React.useEffect(() => {
+        // Prevent status bleed when React reuses a card instance for a different invite row.
+        setLocalResolutionStatus(null);
+    }, [inviteCardIdentity]);
 
     const status = React.useMemo(() => {
         if (localResolutionStatus) {
@@ -161,8 +179,175 @@ export const CommunityInviteCard = ({
         }),
         [invite.communityId, invite.groupId, invite.metadata.name, persistedGroup?.displayName],
     );
-    const showRetryJoin = !isOutgoing && status === "accepted";
+    const resolvedInviteIdForRelay = React.useMemo(
+        () => resolveCommunityInviteIdFromMessage(message),
+        [message],
+    );
+    const [relayJoinState, setRelayJoinState] = React.useState(() => (
+        resolvedInviteIdForRelay
+            ? loadInviteRelayJoinState(resolvedInviteIdForRelay)
+            : { status: "not_attempted" as const, manualRetryCount: 0, updatedAtUnixMs: 0 }
+    ));
+    React.useEffect(() => {
+        if (resolvedInviteIdForRelay) {
+            setRelayJoinState(loadInviteRelayJoinState(resolvedInviteIdForRelay));
+        }
+    }, [resolvedInviteIdForRelay, inviteSnapshotTick]);
+
+    const showRetryJoin = shouldShowInviteRelayJoinRetry(status, relayJoinState, isOutgoing);
+    const showRelayJoinTerminalFailed = (
+        !isOutgoing
+        && status === "accepted"
+        && relayJoinState.status === "terminal_failed"
+    );
     const isInviteDefective = !isOutgoing && isActionable && roomKeyHex.length === 0;
+    const normalizeRelayUrlForJoin = (raw: string): string => {
+        const trimmed = raw.trim();
+        if (!trimmed) {
+            return "";
+        }
+        if (/^wss?:\/\//i.test(trimmed)) {
+            return toScopedRelayUrl(trimmed) ?? trimmed;
+        }
+        // Local dev relays must stay ws://; default to wss:// for non-local hosts.
+        const localHostPattern = /^(localhost|127(?:\.\d{1,3}){3}|\[::1\])(?::\d+)?$/i;
+        const withScheme = localHostPattern.test(trimmed)
+            ? `ws://${trimmed}`
+            : `wss://${trimmed}`;
+        return toScopedRelayUrl(withScheme) ?? withScheme;
+    };
+
+    const createScopedRelayPublisher = (targetRelay: string): RelayScopedPublishFn => (
+        async (payload: string) => {
+            try {
+                if (targetRelay.length > 0 && typeof relayPool.publishToUrls === "function") {
+                    const result = await relayPool.publishToUrls([targetRelay], payload);
+                    return result.success;
+                }
+                if (targetRelay.length > 0 && typeof relayPool.publishToUrl === "function") {
+                    const result = await relayPool.publishToUrl(targetRelay, payload);
+                    return result.success;
+                }
+                if (targetRelay.length > 0 && typeof relayPool.publishToRelay === "function") {
+                    const result = await relayPool.publishToRelay(targetRelay, payload);
+                    return result.success;
+                }
+                const result = await relayPool.publishToAll(payload);
+                return result.success;
+            } catch {
+                return false;
+            }
+        }
+    );
+
+    const publishInviteRelayJoin = async (
+        targetRelay: string,
+        roomKeyToUse: string,
+    ): Promise<CommunityInviteRelayJoinStatus> => {
+        if (!identityState.publicKeyHex?.trim() || !identityState.privateKeyHex?.trim()) {
+            return "retry_scheduled";
+        }
+        const GroupServiceModule = await import("../services/group-service");
+        const groupService = new GroupServiceModule.GroupService(
+            identityState.publicKeyHex,
+            identityState.privateKeyHex,
+        );
+        const nip29Join = await groupService.sendNip29Join({ groupId: invite.groupId });
+        const sealedJoin = await groupService.sendSealedJoin({
+            groupId: invite.groupId,
+            roomKeyHex: roomKeyToUse,
+        });
+        const publish = createScopedRelayPublisher(targetRelay);
+        const relayStatus = await publishCommunityInviteRelayJoin({
+            publish,
+            nip29JoinJson: JSON.stringify(["EVENT", nip29Join]),
+            sealedJoinJson: JSON.stringify(["EVENT", sealedJoin]),
+        });
+        if (resolvedInviteIdForRelay) {
+            const nextState = {
+                status: relayStatus,
+                manualRetryCount: 0,
+                updatedAtUnixMs: Date.now(),
+            };
+            saveInviteRelayJoinState(resolvedInviteIdForRelay, nextState);
+            setRelayJoinState(nextState);
+        }
+        return relayStatus;
+    };
+
+    const handleRelayJoinRetry = async (): Promise<void> => {
+        if (!message || !showRetryJoin) {
+            return;
+        }
+        let roomKeyToUse = roomKeyHex;
+        if (!roomKeyToUse) {
+            roomKeyToUse = (await roomKeyStore.getRoomKey(invite.groupId))?.trim() ?? "";
+        }
+        if (!roomKeyToUse) {
+            toast.error(t("groups.inviteMissingRoomKey", "This invitation is missing encryption keys. Ask the sender to resend the invite."));
+            return;
+        }
+        const fallbackRelay = relayPool.connections.find((c: { url: string }) => c.url)?.url ?? "";
+        const scopedRelayUrl = (invite.relayUrl || fallbackRelay).trim();
+        const targetRelay = normalizeRelayUrlForJoin(scopedRelayUrl);
+        try {
+            setIsProcessing(true);
+            if (targetRelay.length > 0) {
+                relayList.addRelay({ url: targetRelay });
+                if (typeof relayPool.addTransientRelay === "function") {
+                    relayPool.addTransientRelay(targetRelay);
+                }
+                if (typeof relayPool.waitForScopedConnection === "function") {
+                    await relayPool.waitForScopedConnection([targetRelay], 3000);
+                }
+            }
+            const GroupServiceModule = await import("../services/group-service");
+            const groupService = new GroupServiceModule.GroupService(
+                identityState.publicKeyHex!,
+                identityState.privateKeyHex!,
+            );
+            const nip29Join = await groupService.sendNip29Join({ groupId: invite.groupId });
+            const sealedJoin = await groupService.sendSealedJoin({
+                groupId: invite.groupId,
+                roomKeyHex: roomKeyToUse,
+            });
+            const publish = createScopedRelayPublisher(targetRelay);
+            const publishSucceeded = (await publishCommunityInviteRelayJoin({
+                publish,
+                nip29JoinJson: JSON.stringify(["EVENT", nip29Join]),
+                sealedJoinJson: JSON.stringify(["EVENT", sealedJoin]),
+            })) === "joined";
+            let nextState = relayJoinState;
+            if (resolvedInviteIdForRelay) {
+                nextState = resolveRelayJoinStatusAfterManualRetry(
+                    publishSucceeded,
+                    relayJoinState,
+                );
+                saveInviteRelayJoinState(resolvedInviteIdForRelay, nextState);
+                setRelayJoinState(nextState);
+            }
+            if (publishSucceeded) {
+                toast.success(t(
+                    "groups.inviteRelayJoinComplete",
+                    "Community relay join published. Open the group from Network when it appears.",
+                ));
+            } else if (nextState.status === "terminal_failed") {
+                toast.error(t(
+                    "groups.inviteRelayJoinTerminalFailed",
+                    "Relay join still failed after retries. Check Settings → Relays for {{relay}}.",
+                    { relay: invite.relayUrl || targetRelay || "unknown" },
+                ));
+            } else {
+                toast.error(t(
+                    "groups.inviteRelayPublishFailed",
+                    "Could not reach the community relay ({{relay}}). Add it under Settings → Relays, then tap Complete join on relay.",
+                    { relay: invite.relayUrl || targetRelay || "unknown" },
+                ));
+            }
+        } finally {
+            setIsProcessing(false);
+        }
+    };
 
     const handleAccept = async () => {
         if (!isActionable || !message || !onSendDirectMessage) return;
@@ -195,14 +380,7 @@ export const CommunityInviteCard = ({
 
             // Prefer the relay URL embedded in the invite. Fall back to the first
             // open relay in the pool rather than a hardcoded address.
-            const normalizeRelayUrl = (raw: string): string => {
-                const trimmed = raw.trim();
-                if (!trimmed) {
-                    return "";
-                }
-                return /^wss?:\/\//i.test(trimmed) ? trimmed : `wss://${trimmed}`;
-            };
-            const relayUrl = normalizeRelayUrl(scopedRelayUrl);
+            const relayUrl = normalizeRelayUrlForJoin(scopedRelayUrl);
             const creatorPubkey = invite.creatorPubkey ?? message.senderPubkey;
             const genesisEventId = invite.genesisEventId ?? message.eventId ?? message.id;
             const communityId = deriveCommunityId({
@@ -254,48 +432,8 @@ export const CommunityInviteCard = ({
                 await relayPool.waitForConnection(3000);
             }
 
-            const publishScopedWithRetry = async (payload: string): Promise<boolean> => {
-                for (let attempt = 1; attempt <= 3; attempt += 1) {
-                    try {
-                        if (targetRelay.length > 0 && typeof relayPool.publishToUrls === "function") {
-                            const result = await relayPool.publishToUrls([targetRelay], payload);
-                            if (result.success) return true;
-                        } else if (targetRelay.length > 0 && typeof relayPool.publishToUrl === "function") {
-                            const result = await relayPool.publishToUrl(targetRelay, payload);
-                            if (result.success) return true;
-                        } else if (targetRelay.length > 0 && typeof relayPool.publishToRelay === "function") {
-                            const result = await relayPool.publishToRelay(targetRelay, payload);
-                            if (result.success) return true;
-                        } else {
-                            const result = await relayPool.publishToAll(payload);
-                            if (result.success) return true;
-                        }
-                    } catch {
-                        // Retry on transient relay failures.
-                    }
-                    if (attempt < 3) {
-                        await new Promise((resolve) => window.setTimeout(resolve, attempt * 250));
-                    }
-                }
-                return false;
-            };
-
-            const GroupServiceModule = await import("../services/group-service");
-            const groupService = new GroupServiceModule.GroupService(
-                identityState.publicKeyHex!,
-                identityState.privateKeyHex!
-            );
-            const nip29Join = await groupService.sendNip29Join({ groupId: invite.groupId });
-            const sealedJoin = await groupService.sendSealedJoin({
-                groupId: invite.groupId,
-                roomKeyHex: roomKeyToUse,
-            });
-
-            const [nip29JoinPublished, sealedJoinPublished] = await Promise.all([
-                publishScopedWithRetry(JSON.stringify(["EVENT", nip29Join])),
-                publishScopedWithRetry(JSON.stringify(["EVENT", sealedJoin]))
-            ]);
-            const relayPublishFailed = !nip29JoinPublished && !sealedJoinPublished;
+            const relayStatus = await publishInviteRelayJoin(targetRelay, roomKeyToUse);
+            const relayPublishFailed = relayStatus === "retry_scheduled";
 
             const profileId = getResolvedProfileId();
             const localPublicKeyHex = identityState.publicKeyHex?.trim();
@@ -734,12 +872,20 @@ export const CommunityInviteCard = ({
                                     isOutgoing={isOutgoing}
                                     compact={status !== "accepted"}
                                 />
+                                {showRelayJoinTerminalFailed ? (
+                                    <p className="text-center text-[11px] font-medium leading-snug text-amber-700 dark:text-amber-200/90">
+                                        {t(
+                                            "groups.inviteRelayJoinTerminalFailed",
+                                            "Relay join still failed after retries. Check Settings → Relays for {{relay}}.",
+                                            { relay: invite.relayUrl || "unknown" },
+                                        )}
+                                    </p>
+                                ) : null}
                                 {showRetryJoin ? (
                                     <Button
                                         onClick={(e) => {
                                             e.stopPropagation();
-                                            setLocalResolutionStatus(null);
-                                            void handleAccept();
+                                            void handleRelayJoinRetry();
                                         }}
                                         disabled={isProcessing}
                                         className="h-10 w-full rounded-xl bg-gradient-primary font-bold text-primary-foreground shadow-lg shadow-purple-600/25"
@@ -824,8 +970,7 @@ export const CommunityInviteCard = ({
                         {status === "accepted" && showRetryJoin ? (
                             <Button
                                 onClick={() => {
-                                    setLocalResolutionStatus(null);
-                                    void handleAccept();
+                                    void handleRelayJoinRetry();
                                     setIsDetailsOpen(false);
                                 }}
                                 disabled={isProcessing}

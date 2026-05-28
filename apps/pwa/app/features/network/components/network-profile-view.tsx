@@ -331,7 +331,8 @@ export default function ConnectionProfileView() {
         router.push("/network");
     };
 
-    const handleInviteToGroup = async (group: GroupConversation) => {
+    const handleInviteToGroup = async (params: Readonly<{ group: GroupConversation; memberCount: number }>) => {
+        const { group, memberCount } = params;
         if (isDeletedContact) {
             toast.warning("This account has been removed. Group invitations are unavailable.");
             return;
@@ -355,7 +356,7 @@ export default function ConnectionProfileView() {
                 about: group.about,
                 picture: group.avatar,
                 access: group.access,
-                memberCount: group.memberCount
+                memberCount,
             };
 
             const { giftWrapEvent, canonicalRumorEventId } = await inviteEventBuilder(

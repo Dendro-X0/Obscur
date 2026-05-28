@@ -66,6 +66,7 @@ import { useMessaging } from "@/app/features/messaging/providers/messaging-provi
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
 import { useContactRelayOverlap } from "@/app/features/messaging/hooks/use-contact-relay-overlap";
 import { useGroups } from "@/app/features/groups/providers/group-provider";
+import { useCommunityMembershipReadModelIndex } from "@/app/features/groups/hooks/use-community-membership-read-model-index";
 import { PinLockService } from "@/app/features/auth/services/pin-lock-service";
 
 import { useInviteRedemption } from "./hooks/use-invite-redemption";
@@ -565,6 +566,36 @@ function NostrMessengerContent() {
   ]);
 
   const selectedConversationView = selectedConversation ? applyConnectionOverrides(selectedConversation, connectionOverridesByConnectionId) : null;
+  const selectedGroupMembershipReadModel = useCommunityMembershipReadModelIndex({
+    ownerPubkey: myPublicKeyHex as PublicKeyHex | null,
+    groups: useMemo(() => {
+      if (selectedConversationView?.kind !== "group") {
+        return [];
+      }
+      return [{
+        conversationId: selectedConversationView.id,
+        groupId: selectedConversationView.groupId,
+        relayUrl: selectedConversationView.relayUrl,
+        directoryParticipantPubkeys: (
+          communityKnownParticipantDirectoryByConversationId[selectedConversationView.id]?.participantPubkeys ?? []
+        ) as ReadonlyArray<PublicKeyHex>,
+        persistedGroupMemberPubkeys: (selectedConversationView.memberPubkeys ?? []) as ReadonlyArray<PublicKeyHex>,
+        projectionMemberPubkeys: (
+          communityRosterByConversationId[selectedConversationView.id]?.activeMemberPubkeys ?? undefined
+        ) as ReadonlyArray<PublicKeyHex> | undefined,
+        rosterSeedPubkeys: (selectedConversationView.memberPubkeys ?? []) as ReadonlyArray<PublicKeyHex>,
+        localMemberPubkey: myPublicKeyHex as PublicKeyHex | null,
+      }];
+    }, [
+      communityKnownParticipantDirectoryByConversationId,
+      communityRosterByConversationId,
+      myPublicKeyHex,
+      selectedConversationView,
+    ]),
+  });
+  const selectedGroupMemberCount = selectedConversationView?.kind === "group"
+    ? (selectedGroupMembershipReadModel[selectedConversationView.id]?.memberCount ?? 1)
+    : undefined;
 
   const isMobileDmShell = isMobileShellProduct();
   const handleLeaveMobileThread = useCallback(() => {
@@ -3689,6 +3720,7 @@ function NostrMessengerContent() {
   const activeChatView = selectedConversationView ? (
     <ChatView
             conversation={selectedConversationView}
+            groupMemberCount={selectedGroupMemberCount}
             isPeerOnline={
               selectedConversationView.kind === "dm"
                 ? isPeerOnlineByEvidence(selectedConversationView.pubkey)

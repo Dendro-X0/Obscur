@@ -6,6 +6,8 @@
 
 Monorepo: privacy-first communication — PWA, Tauri desktop, shared TS packages, Rust/native boundaries. Optimize for correctness, explicit contracts, and maintainability over speed-by-patch. See [`rules/00-scope.md`](./rules/00-scope.md).
 
+**Product continuity (2026-05):** Greenfield is discontinued as a separate delivery repo. Obscur is the active execution path. Archived Greenfield docs under [`docs/archive/greenfield/`](./docs/archive/greenfield/) are reference material for design goals only.
+
 ## Non-negotiables (always)
 
 From [`rules/01-operating-principles.md`](./rules/01-operating-principles.md):

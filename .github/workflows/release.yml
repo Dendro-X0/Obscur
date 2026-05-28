@@ -16,8 +16,45 @@ permissions:
   contents: write
 
 jobs:
+  relay-runtime-smoke:
+    name: Relay Runtime Smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      nostr-relay:
+        image: scsibug/nostr-rs-relay:latest
+        ports:
+          - 7000:8080
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20.11.0"
+
+      - name: Wait for relay HTTP endpoint
+        shell: bash
+        run: |
+          set -euo pipefail
+          for i in {1..30}; do
+            code="$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:7000/ || true)"
+            if [ "${code}" != "000" ]; then
+              echo "Relay HTTP endpoint is reachable (HTTP ${code})."
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Relay service did not become reachable on :7000 in time." >&2
+          exit 1
+
+      - name: Probe relay runtime (ws publish/subscribe/nip11)
+        run: node scripts/relay-runtime-smoke.mjs --relay ws://127.0.0.1:7000 --timeout-ms 7000
+
   preflight-checks:
     name: Preflight Checks
+    needs: [relay-runtime-smoke]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

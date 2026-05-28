@@ -1,7 +1,7 @@
 # Current Session Handoff — Obscur (native-first)
 
-- Last Updated (UTC): 2026-05-27T18:00:00Z
-- Session Status: **Active** — **v1.8.5** release tag (GitHub Release workflow)
+- Last Updated (UTC): 2026-05-28T09:22:00Z
+- Session Status: **Active** — **v1.8.6** development lane
 - Active Owner: Maintainer
 
 ## Active objective
@@ -182,14 +182,23 @@ Policy: `community-trust-policy.ts` · hook: `use-workspace-community-trust-gate
 | CI | `docs-check` + `release:test-pack` green |
 | GitHub Release | Triggered by `git push origin v1.8.5` → [release.yml](../../.github/workflows/release.yml) |
 
+## v1.8.6 in progress (2026-05-27)
+
+| Slice | Status |
+|-------|--------|
+| T6-1/T6-2 relay join owner | **Implemented** — `community-invite-relay-join.ts` + invite-card retry owner path (`handleRelayJoinRetry`) with deterministic terminal states/copy; remaining validation is environment-bound manual soak |
+| T6-3/T6-4 membership read-model | **Implemented** — canonical owner path wired across participants/network/invite/header surfaces (`use-community-membership-read-model-index`, header count wiring); targeted tests/grep complete |
+| T6-5 transport evidence lane (CI) | **Implemented** — `scripts/relay-runtime-smoke.mjs` + reliability workflow `relay runtime smoke` job runs against `nostr-rs-relay` service container and blocks `release:test-pack` on transport regressions |
+| Version on `main` | **1.8.6** (dev bump; tag after gate) |
+
 ## Next atomic step (active lane: **v1.8.6**)
 
 **Canonical release train:** [v1.8.x-release-train.md](../program/v1.8.x-release-train.md)
 
-1. Confirm **Obscur Full Release** workflow completed for `v1.8.5`; mark GitHub Release **Latest**.
-2. **Relay join after accept** — `Complete join on relay` retry loop.
-3. **Membership read-model port** — T4-9 owner boundary.
-4. After tag soak: `pnpm version:bump patch` → **1.8.6** on `main`.
+1. **Environment-blocked checkpoint** — document local relay/coordination blockers in [v1.8.6 demo](../assets/demo/v1.8.6/README.md) and keep status explicit (`Blocked: Environment`).
+2. **Staging unblock lane** — run M6-3/M6-4 on VPS/public relay path; collect screenshot + log evidence.
+3. Keep gates green before tag/release decision: `pnpm release:test-pack -- --skip-preflight`, `pnpm docs:check`.
+4. Validate new transport gate result on next GitHub run (`relay runtime smoke`) before release decision.
 
 ### Prior program order (reference)
 

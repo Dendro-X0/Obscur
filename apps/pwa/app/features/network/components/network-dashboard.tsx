@@ -46,6 +46,7 @@ import {
     useCommunityLeaveOutboxIndex,
 } from "@/app/features/groups/hooks/use-community-leave-outbox-index";
 import { resolveCommunityLeavePublishSurfaceCopy } from "@/app/features/groups/services/community-leave-publish-copy";
+import { useCommunityMembershipReadModelIndex } from "@/app/features/groups/hooks/use-community-membership-read-model-index";
 const GroupDiscoveryPanel = lazy(async () => {
     const discoveryModule = await import("@/app/features/groups/components/group-discovery");
     return { default: discoveryModule.GroupDiscovery };
@@ -93,6 +94,31 @@ export function NetworkDashboard() {
     const [joinRelayUrl, setJoinRelayUrl] = useState("");
 
     const publicKeyHex = (identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex ?? null) as PublicKeyHex | null;
+    const membershipReadModelGroups = useMemo(() => (
+        createdGroups.map((group) => ({
+            conversationId: group.id,
+            groupId: group.groupId,
+            relayUrl: group.relayUrl,
+            directoryParticipantPubkeys: (
+                communityKnownParticipantDirectoryByConversationId[group.id]?.participantPubkeys ?? []
+            ) as ReadonlyArray<PublicKeyHex>,
+            persistedGroupMemberPubkeys: (group.memberPubkeys ?? []) as ReadonlyArray<PublicKeyHex>,
+            projectionMemberPubkeys: (
+                communityRosterByConversationId[group.id]?.activeMemberPubkeys ?? undefined
+            ) as ReadonlyArray<PublicKeyHex> | undefined,
+            rosterSeedPubkeys: (group.memberPubkeys ?? []) as ReadonlyArray<PublicKeyHex>,
+            localMemberPubkey: publicKeyHex,
+        }))
+    ), [
+        communityKnownParticipantDirectoryByConversationId,
+        communityRosterByConversationId,
+        createdGroups,
+        publicKeyHex,
+    ]);
+    const membershipIndex = useCommunityMembershipReadModelIndex({
+        ownerPubkey: publicKeyHex,
+        groups: membershipReadModelGroups,
+    });
     const inviteResolver = useInviteResolver({ myPublicKeyHex: publicKeyHex });
     const { relayPool: pool } = useRelay();
     const dmController = useEnhancedDmController({
@@ -394,9 +420,8 @@ export function NetworkDashboard() {
                                             relayUrl={group.relayUrl}
                                             leavePublishShortLabel={leavePublishShortLabel}
                                             memberCount={
-                                                communityKnownParticipantDirectoryByConversationId[group.id]?.participantCount
-                                                ?? communityRosterByConversationId[group.id]?.memberCount
-                                                ?? group.memberCount
+                                                membershipIndex[group.id]?.memberCount
+                                                ?? 1
                                             }
                                             avatar={group.avatar}
                                             onClick={() => {

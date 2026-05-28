@@ -1,7 +1,7 @@
 {
   "name": "dweb-messenger",
   "private": true,
-  "version": "1.8.5",
+  "version": "1.8.6",
   "packageManager": "pnpm@9.15.4",
   "engines": {
     "node": ">=20.11.0"
@@ -73,6 +73,7 @@
     "release:test-pack": "node scripts/run-release-test-pack.mjs",
     "ci:local": "powershell -ExecutionPolicy Bypass -File scripts/local-ci.ps1",
     "probe:relay-nip": "node scripts/relay-nip-probe.mjs",
+    "ci:relay-runtime-smoke": "node scripts/relay-runtime-smoke.mjs",
     "ci:scan:pwa": "node scripts/pwa-ci-scan.mjs",
     "ci:scan:pwa:head": "node scripts/pwa-ci-scan-head.mjs",
     "demo:m10:init": "node scripts/init-m10-demo-assets.mjs",

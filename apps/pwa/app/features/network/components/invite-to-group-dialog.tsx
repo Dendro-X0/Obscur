@@ -8,18 +8,47 @@ import { Input } from "@dweb/ui-kit";
 import { useGroups } from "@/app/features/groups/providers/group-provider";
 import type { GroupConversation } from "@/app/features/messaging/types";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
+import { useCommunityMembershipReadModelIndex } from "@/app/features/groups/hooks/use-community-membership-read-model-index";
+import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 
 interface InviteToGroupDialogProps {
     isOpen: boolean;
     onClose: () => void;
-    onInvite: (group: GroupConversation) => void;
+    onInvite: (params: Readonly<{ group: GroupConversation; memberCount: number }>) => void;
     targetPubkey: PublicKeyHex | null;
 }
 
 export function InviteToGroupDialog({ isOpen, onClose, onInvite, targetPubkey }: InviteToGroupDialogProps) {
     const { t } = useTranslation();
-    const { createdGroups } = useGroups();
+    const identity = useIdentity();
+    const myPublicKeyHex = (identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex ?? null) as PublicKeyHex | null;
+    const { createdGroups, communityKnownParticipantDirectoryByConversationId, communityRosterByConversationId } = useGroups();
     const [searchQuery, setSearchQuery] = React.useState("");
+
+    const membershipIndex = useCommunityMembershipReadModelIndex({
+        ownerPubkey: myPublicKeyHex,
+        groups: React.useMemo(() => (
+            createdGroups.map((group) => ({
+                conversationId: group.id,
+                groupId: group.groupId,
+                relayUrl: group.relayUrl,
+                directoryParticipantPubkeys: (
+                    communityKnownParticipantDirectoryByConversationId[group.id]?.participantPubkeys ?? []
+                ) as ReadonlyArray<PublicKeyHex>,
+                persistedGroupMemberPubkeys: (group.memberPubkeys ?? []) as ReadonlyArray<PublicKeyHex>,
+                projectionMemberPubkeys: (
+                    communityRosterByConversationId[group.id]?.activeMemberPubkeys ?? undefined
+                ) as ReadonlyArray<PublicKeyHex> | undefined,
+                rosterSeedPubkeys: (group.memberPubkeys ?? []) as ReadonlyArray<PublicKeyHex>,
+                localMemberPubkey: myPublicKeyHex,
+            }))
+        ), [
+            communityKnownParticipantDirectoryByConversationId,
+            communityRosterByConversationId,
+            createdGroups,
+            myPublicKeyHex,
+        ]),
+    });
 
     const filteredGroups = React.useMemo(() => {
         return createdGroups.filter(g =>
@@ -30,8 +59,12 @@ export function InviteToGroupDialog({ isOpen, onClose, onInvite, targetPubkey }:
 
     const isMemberOfGroup = (group: GroupConversation): boolean => {
         if (!targetPubkey) return false;
-        return group.memberPubkeys.some(pk => pk.toLowerCase() === targetPubkey.toLowerCase());
+        const roster = membershipIndex[group.id]?.displayPubkeys ?? [];
+        return roster.some((pk) => pk.toLowerCase() === targetPubkey.toLowerCase());
     };
+    const resolveInviteMemberCount = (group: GroupConversation): number => (
+        membershipIndex[group.id]?.memberCount ?? 1
+    );
 
     if (!isOpen) return null;
 
@@ -65,7 +98,16 @@ export function InviteToGroupDialog({ isOpen, onClose, onInvite, targetPubkey }:
                                 return (
                                     <button
                                         key={group.id}
-                                        onClick={() => !alreadyMember && onInvite(group)}
+                                        onClick={() => {
+                                            if (alreadyMember) {
+                                                return;
+                                            }
+                                            const memberCount = resolveInviteMemberCount(group);
+                                            onInvite({
+                                                group,
+                                                memberCount,
+                                            });
+                                        }}
                                         disabled={alreadyMember}
                                         className={`
                                             w-full flex items-center gap-3 p-3 rounded-xl transition-colors border text-left

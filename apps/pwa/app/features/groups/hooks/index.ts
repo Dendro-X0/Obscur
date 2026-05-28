@@ -16,3 +16,4 @@ export {
 } from './use-community-membership-gossip';
 
 export { useCommunityParticipantRosterReadModel } from "./use-community-participant-roster-read-model";
+export { useCommunityMembershipReadModelIndex } from "./use-community-membership-read-model-index";

@@ -93,6 +93,10 @@ vi.mock("@/app/features/groups/providers/group-provider", () => ({
   }),
 }));
 
+vi.mock("@/app/features/groups/hooks/use-community-membership-read-model-index", () => ({
+  useCommunityMembershipReadModelIndex: () => ({}),
+}));
+
 vi.mock("@/app/features/messaging/providers/messaging-provider", () => ({
   useMessaging: () => ({
     setIsNewChatOpen: vi.fn(),

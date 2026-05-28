@@ -1,6 +1,6 @@
 {
   "name": "@dweb/client-gateway",
-  "version": "1.8.5",
+  "version": "1.8.6",
   "private": true,
   "type": "module",
   "description": "Unified client-side gateway contracts — single adapter surface for Web, desktop, and mobile.",

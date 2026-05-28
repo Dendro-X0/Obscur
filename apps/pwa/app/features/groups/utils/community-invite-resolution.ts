@@ -8,6 +8,7 @@ import {
   parseInviteResponsePayloadFromMessageContent,
 } from "../services/community-dm-invite-pipeline";
 import type { CommunityDmInviteId } from "../services/community-dm-invite-contract";
+import { listCommunityDmInviteLedgerForConversation } from "../services/community-dm-invite-ledger";
 
 const TERMINAL_INVITE_RESPONSE_STATUSES = new Set<InviteResponseStatus>([
   "accepted",
@@ -175,6 +176,32 @@ export const buildCommunityInviteResponseStatusByMessageId = (
     }
   });
 
+  const latestResponseAtByInviteId = new Map<CommunityDmInviteId, number>();
+  messages.forEach((message) => {
+    const response = parseInviteResponsePayloadFromMessageContent(message.content);
+    if (!response) {
+      return;
+    }
+    const atMs = toMessageUnixMs(message);
+    const existing = latestResponseAtByInviteId.get(response.inviteId);
+    if (existing === undefined || atMs > existing) {
+      latestResponseAtByInviteId.set(response.inviteId, atMs);
+    }
+  });
+
+  const latestLedgerTerminalAtByInviteId = new Map<CommunityDmInviteId, number>();
+  if (conversationId?.trim()) {
+    listCommunityDmInviteLedgerForConversation(conversationId.trim(), profileId).forEach((entry) => {
+      if (!isTerminalInviteResponseStatus(entry.status)) {
+        return;
+      }
+      const existing = latestLedgerTerminalAtByInviteId.get(entry.inviteId);
+      if (existing === undefined || entry.updatedAtUnixMs > existing) {
+        latestLedgerTerminalAtByInviteId.set(entry.inviteId, entry.updatedAtUnixMs);
+      }
+    });
+  }
+
   const statusByInviteMessageId = new Map<string, InviteResponseStatus>();
   messages.forEach((message) => {
     const invite = parseInvitePayloadFromMessageContent(message.content);
@@ -183,7 +210,14 @@ export const buildCommunityInviteResponseStatusByMessageId = (
     }
     const status = statusByInviteId.get(invite.inviteId);
     if (status && status !== "pending") {
-      statusByInviteMessageId.set(message.id, status);
+      const inviteAtMs = toMessageUnixMs(message);
+      const evidenceAtMs = Math.max(
+        latestResponseAtByInviteId.get(invite.inviteId) ?? Number.NEGATIVE_INFINITY,
+        latestLedgerTerminalAtByInviteId.get(invite.inviteId) ?? Number.NEGATIVE_INFINITY,
+      );
+      if (Number.isFinite(evidenceAtMs) && evidenceAtMs >= inviteAtMs) {
+        statusByInviteMessageId.set(message.id, status);
+      }
     }
   });
 
