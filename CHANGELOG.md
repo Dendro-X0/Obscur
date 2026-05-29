@@ -6,6 +6,28 @@ All notable changes to Obscur are documented here.
 
 ---
 
+## [Unreleased] — v1.8.10 (D2 compaction + Android install smoke)
+
+**Gate:** [v1.8.10-gate.md](docs/releases/v1.8.10-gate.md). **Scope:** [v1.8.10-scope.md](docs/program/v1.8.10-scope.md).
+
+### Added (D2)
+
+- **Relay-gateway** — Global hide registry with opt-in JSON persist (`OBSCUR_RELAY_HIDE_PERSIST`, `OBSCUR_RELAY_HIDE_REGISTRY_PATH`).
+- **Compaction** — `scripts/operator-relay-storage-compact.mjs` + [operator-relay-compaction.md](infra/nostr/operator-relay-compaction.md).
+- **CI** — D2 persist + SQL contract smokes in reliability-gates.
+
+### Added (UI polish)
+
+- Community home — clearer CTA hierarchy (chat primary, Manage outline); governance banner opens Governance tab.
+- Shared management-control primitives for community home + connection profile.
+- Settings search — group + tab labels (e.g. `Network · Relays`) instead of raw tab ids.
+
+### Lane P
+
+- Android install + cold-start smoke — [demo matrix](docs/assets/demo/v1.8.10/README.md) (verified).
+
+---
+
 ## [v1.8.9] - 2026-05-28 (Operator-relay deletion + managed workspace ship)
 
 **Gate:** [v1.8.9-gate.md](docs/releases/v1.8.9-gate.md). **Release notes:** [v1.8.9-release.md](docs/releases/v1.8.9-release.md). **Demo:** [v1.8.9 demo matrix](docs/assets/demo/v1.8.9/README.md).

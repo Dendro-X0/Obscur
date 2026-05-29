@@ -68,6 +68,9 @@ apps/desktop/src-tauri/target/
 **/updater-key.txt
 apps/desktop/src-tauri/updater-key.txt
 
+# Operator relay D2 runtime data
+apps/relay-gateway/data/hide-registry.json
+
 
 .wrangler/
 .playwright-mcp

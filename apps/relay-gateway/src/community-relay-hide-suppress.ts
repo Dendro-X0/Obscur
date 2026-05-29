@@ -31,6 +31,19 @@ export class CommunityRelayHideRegistry {
     return this.hiddenEventIds.has(eventId);
   }
 
+  listHiddenEventIds(): ReadonlyArray<string> {
+    return Array.from(this.hiddenEventIds);
+  }
+
+  mergeHiddenEventIds(ids: ReadonlyArray<string>): void {
+    for (const id of ids) {
+      const trimmed = id.trim();
+      if (trimmed) {
+        this.hiddenEventIds.add(trimmed);
+      }
+    }
+  }
+
   clear(): void {
     this.hiddenEventIds.clear();
   }

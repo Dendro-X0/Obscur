@@ -86,6 +86,8 @@ interface GroupManagementDialogProps {
     myPrivateKeyHex: any;
     /** When provided, reuses the parent subscription instead of opening a second `useSealedCommunity`. */
     communityController?: UseSealedCommunityResult;
+    /** Opens directly to a tab (e.g. governance from home banner). */
+    initialTab?: GroupManagementTabId;
 }
 
 export function GroupManagementDialog({
@@ -96,6 +98,7 @@ export function GroupManagementDialog({
     myPublicKeyHex,
     myPrivateKeyHex,
     communityController,
+    initialTab,
 }: GroupManagementDialogProps) {
     const poolRef = useRelayPoolRef(pool);
     const router = useRouter();
@@ -636,10 +639,15 @@ export function GroupManagementDialog({
     };
 
     useEffect(() => {
-        if (isOpen && !communityRelayTransportReady) {
-            setActiveTab("settings");
+        if (!isOpen) {
+            return;
         }
-    }, [communityRelayTransportReady, isOpen]);
+        if (!communityRelayTransportReady) {
+            setActiveTab("settings");
+            return;
+        }
+        setActiveTab(initialTab ?? "general");
+    }, [communityRelayTransportReady, initialTab, isOpen]);
 
     useEffect(() => {
         const activeMemberList = visibleMemberRegistry;

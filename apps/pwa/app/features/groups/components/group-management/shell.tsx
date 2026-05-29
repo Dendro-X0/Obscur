@@ -175,7 +175,7 @@ function NavButton({
             <Icon className="h-4 w-4 shrink-0" />
             <span className="whitespace-nowrap">{label}</span>
             {badge > 0 ? (
-                <span className="ml-auto hidden rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-950 sm:inline">
+                <span className="ml-auto rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-950">
                     {badge}
                 </span>
             ) : null}

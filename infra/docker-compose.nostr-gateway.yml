@@ -17,8 +17,11 @@ services:
       PORT: "7001"
       UPSTREAM_URL: ws://nostr-relay:8080
       OBSCUR_RELAY_HIDE_SUPPRESS: "1"
+      OBSCUR_RELAY_HIDE_PERSIST: "1"
+      OBSCUR_RELAY_HIDE_REGISTRY_PATH: "/app/data/hide-registry.json"
     volumes:
       - ../apps/relay-gateway:/app
+      - relay-gateway-data:/app/data
     ports:
       - "7000:7001"
     depends_on:
@@ -26,3 +29,4 @@ services:
 
 volumes:
   nostr-relay-data:
+  relay-gateway-data:

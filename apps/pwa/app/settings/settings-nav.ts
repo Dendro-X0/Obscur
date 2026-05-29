@@ -71,3 +71,16 @@ export const SETTINGS_NAV_GROUPS = [
     ],
   },
 ] as const;
+
+export function getSettingsTabNavMeta(tabId: SettingsTabType): Readonly<{
+    groupLabelKey: string;
+    tabLabelKey: string;
+}> {
+    for (const group of SETTINGS_NAV_GROUPS) {
+        const item = group.items.find((entry) => entry.id === tabId);
+        if (item) {
+            return { groupLabelKey: group.labelKey, tabLabelKey: item.labelKey };
+        }
+    }
+    return { groupLabelKey: "settings.title", tabLabelKey: `settings.tabs.${tabId}` };
+}

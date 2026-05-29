@@ -36,6 +36,7 @@ import { Card } from "@dweb/ui-kit";
 import { Avatar, AvatarFallback, AvatarImage } from "@dweb/ui-kit";
 import { InviteConnectionsDialog } from "@/app/features/groups/components/invite-connections-dialog";
 import { GroupManagementDialog } from "@/app/features/groups/components/group-management-dialog";
+import type { GroupManagementTabId } from "@/app/features/groups/components/group-management/constants";
 import { shouldMountGroupManagementDialog } from "@/app/features/groups/components/group-management-mount-policy";
 import { cn } from "@dweb/ui-kit";
 import { useCommunityGovernanceProjection } from "@/app/features/groups/hooks/use-community-governance-projection";
@@ -106,6 +107,11 @@ import {
 } from "@/app/features/groups/utils/community-member-evidence-tier";
 import { CommunityMembershipEvidenceToolbar } from "@/app/features/groups/components/community-membership-evidence-toolbar";
 import { collectGroupMessageAuthorPubkeys } from "@/app/features/groups/services/community-message-author-evidence";
+import {
+    ManagementControlCard,
+    ManagementControlRow,
+    ManagementSectionHeader,
+} from "@/app/components/ui/management-control-row";
 import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store";
 import { resolveCommunityInviteMemberBlocklist } from "@/app/features/groups/services/community-invite-eligibility-read-model";
 import {
@@ -152,6 +158,11 @@ export default function GroupHomePage() {
     const [offlinePage, setOfflinePage] = useState(1);
     const [isInviteConnectionsOpen, setIsInviteConnectionsOpen] = useState(false);
     const [isManagementOpen, setIsManagementOpen] = useState(false);
+    const [managementInitialTab, setManagementInitialTab] = useState<GroupManagementTabId | undefined>(undefined);
+    const openCommunityManagement = React.useCallback((tab?: GroupManagementTabId) => {
+        setManagementInitialTab(tab);
+        setIsManagementOpen(true);
+    }, []);
     const [roomKeyHex, setRoomKeyHex] = useState<string>();
     const [runtimeCapability, setRuntimeCapability] = useState<Readonly<{
         hardwareConcurrency: number | null;
@@ -1119,7 +1130,7 @@ export default function GroupHomePage() {
                 {activeProposalCount > 0 && (
                     <button
                         type="button"
-                        onClick={() => setIsManagementOpen(true)}
+                        onClick={() => openCommunityManagement("governance")}
                         className="w-full rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-left text-sm text-amber-950 transition-colors hover:bg-amber-500/15 dark:text-amber-100 dark:hover:bg-amber-500/20"
                     >
                         <p className="font-semibold">
@@ -1298,14 +1309,15 @@ export default function GroupHomePage() {
 
                                     {!isGuest && group && (
                                         <Button
-                                            onClick={() => setIsManagementOpen(true)}
+                                            onClick={() => openCommunityManagement()}
+                                            variant="outline"
                                             className={cn(
-                                                "h-16 gap-3 rounded-2xl border border-purple-500/30 bg-purple-600/90 px-8 text-white transition-all hover:scale-[1.02] hover:bg-purple-500/90 active:scale-95",
+                                                "h-14 gap-2 rounded-2xl border-zinc-300/80 bg-transparent px-6 font-bold text-zinc-900 transition-all hover:bg-zinc-100 active:scale-95 dark:border-white/15 dark:text-white dark:hover:bg-white/5",
                                                 safeVisualMode ? "backdrop-blur-none" : "backdrop-blur-md",
                                             )}
                                         >
                                             <Settings className="h-5 w-5" />
-                                            Manage community
+                                            Manage
                                         </Button>
                                     )}
 
@@ -1505,96 +1517,56 @@ export default function GroupHomePage() {
                     </Card>
                 </div>
 
-                {/* Local-only actions — full configuration lives in Manage community */}
                 <div className="space-y-6">
-                    <div className="space-y-1 px-2">
-                        <div className="flex items-center gap-3">
-                            <div className="h-1.5 w-1.5 rounded-full bg-rose-500" />
-                            <h3 className="text-xs font-black uppercase tracking-[0.2em] text-zinc-600">
-                                Personal controls
-                            </h3>
-                        </div>
-                        <p className="pl-5 text-xs text-zinc-500">
-                            Block, delete, or unblock this community on your device.
-                            {communityRelayTransportReady ? (
-                                <>
-                                    {" "}
-                                    Open{" "}
-                                    <span className="font-semibold text-zinc-600 dark:text-zinc-400">Manage community</span>{" "}
-                                    for members, governance, relay settings, and invites.
-                                </>
-                            ) : (
-                                <>
-                                    {" "}
-                                    This host is not a Nostr relay (
-                                    <span className="font-mono text-zinc-600 dark:text-zinc-400">{effectiveRelay}</span>
-                                    ) — use Delete below, then recreate with a{" "}
-                                    <span className="font-semibold text-zinc-600 dark:text-zinc-400">wss://</span> relay.
-                                </>
-                            )}
-                        </p>
-                    </div>
+                    <ManagementSectionHeader
+                        title="Personal controls"
+                        tone="danger"
+                        description={
+                            communityRelayTransportReady
+                                ? "Block, delete, or unblock this community on your device. Open Manage for members, governance, relay settings, and invites."
+                                : `This host is not a Nostr relay (${effectiveRelay}) — use Delete below, then recreate with a wss:// relay.`
+                        }
+                    />
 
-                    <Card
+                    <ManagementControlCard
                         className={cn(
-                            "overflow-hidden rounded-[40px]",
                             safeVisualMode
                                 ? "border-black/10 bg-white/95 dark:border-white/[0.05] dark:bg-[#0C0C0E]/90"
-                                : "border-black/10 bg-white/80 backdrop-blur-xl dark:border-white/[0.03] dark:bg-[#0C0C0E]/40",
+                                : "border-black/10 bg-white/80 dark:border-white/[0.03] dark:bg-[#0C0C0E]/40",
                         )}
                     >
-                        <div className="flex flex-col divide-y divide-black/5 dark:divide-white/[0.04]">
-                            <button
-                                onClick={handleBlockAction}
-                                className="flex items-center justify-between p-8 hover:bg-rose-500/[0.02] transition-colors group/item"
-                            >
-                                <div className="flex items-center gap-6">
-                                    <div className="h-14 w-14 rounded-2xl bg-rose-500/10 flex items-center justify-center border border-rose-500/20 group-hover/item:scale-110 transition-transform">
-                                        <Ban className="h-6 w-6 text-rose-500" />
-                                    </div>
-                                    <div className="text-left space-y-1">
-                                        <p className="text-xl font-black text-zinc-900 transition-colors group-hover/item:text-rose-500 dark:text-white">
-                                            {isBlocked ? "Unblock community" : "Block community"}
-                                        </p>
-                                        <p className="text-sm font-medium text-zinc-700 dark:text-zinc-500">
-                                            {isBlocked ? "Allow this community to appear in your network" : "Hide this community and ignore its events"}
-                                        </p>
-                                    </div>
-                                </div>
-                            </button>
-                            {!isGuest && group ? (
-                                <button
-                                    type="button"
-                                    onClick={handleDeleteCommunity}
-                                    className="flex items-center justify-between p-8 transition-colors hover:bg-rose-500/[0.04] group/item"
-                                >
-                                    <div className="flex items-center gap-6">
-                                        <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-rose-500/30 bg-rose-500/15 transition-transform group-hover/item:scale-110">
-                                            <Trash2 className="h-6 w-6 text-rose-500" />
-                                        </div>
-                                        <div className="space-y-1 text-left">
-                                            <p className="text-xl font-black text-rose-600 transition-colors group-hover/item:text-rose-500 dark:text-rose-400">
-                                                Delete community
-                                            </p>
-                                            <p className="text-sm font-medium text-zinc-700 dark:text-zinc-500">
-                                                {t(
-                                                    "groups.deleteCommunityHint",
-                                                    "Open the leave page to confirm removal of all local data for {{profileLabel}} (keeps your account).",
-                                                    { profileLabel: activeProfileLabel },
-                                                )}
-                                            </p>
-                                        </div>
-                                    </div>
-                                </button>
-                            ) : null}
-                        </div>
-                    </Card>
+                        <ManagementControlRow
+                            icon={Ban}
+                            title={isBlocked ? "Unblock community" : "Block community"}
+                            description={
+                                isBlocked
+                                    ? "Allow messages and notifications from this community again"
+                                    : "Hide this community from your inbox and stop notifications"
+                            }
+                            onClick={handleBlockAction}
+                        />
+                        <ManagementControlRow
+                            icon={Trash2}
+                            title="Delete community"
+                            description={t(
+                                "groups.deleteCommunityHint",
+                                "Open the leave page to confirm removal of all local data for {{profileLabel}} (keeps your account).",
+                                { profileLabel: activeProfileLabel },
+                            )}
+                            onClick={handleDeleteCommunity}
+                            showDivider
+                        />
+                    </ManagementControlCard>
                 </div>
 
                 {!isGuest && group && shouldMountGroupManagementDialog(isManagementOpen) ? (
                     <GroupManagementDialog
                         isOpen
-                        onClose={() => setIsManagementOpen(false)}
+                        onClose={() => {
+                            setIsManagementOpen(false);
+                            setManagementInitialTab(undefined);
+                        }}
+                        initialTab={managementInitialTab}
                         group={group}
                         pool={relayPool}
                         myPublicKeyHex={identityState.publicKeyHex || null}

@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { Scale, Settings, Shield, Users } from "lucide-react";
+import { Scale, Shield, SlidersHorizontal, Users } from "lucide-react";
 
 export type GroupManagementTabId = "general" | "members" | "governance" | "settings";
 
@@ -8,7 +8,7 @@ export const GROUP_MANAGEMENT_TABS: ReadonlyArray<{
     label: string;
     icon: LucideIcon;
 }> = [
-    { id: "general", label: "General", icon: Settings },
+    { id: "general", label: "General", icon: SlidersHorizontal },
     { id: "members", label: "Participants", icon: Users },
     { id: "governance", label: "Governance", icon: Scale },
     { id: "settings", label: "Safety", icon: Shield },

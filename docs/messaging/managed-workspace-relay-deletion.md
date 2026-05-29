@@ -42,4 +42,4 @@ DM threads never show remote remove in the current product (cooperative recall r
 
 > If we run our own relay (or Obscur’s gateway in front of it), messages in **this** group on **this** relay can be removed from the workspace for connected Obscur clients. Public relays cannot promise that.
 
-Future bands ([v1.8.9+ roadmap](../program/v1.8.9-plus-managed-workspace-roadmap.md)): D2 compaction, steward policies — not required for D1/D3 truth above.
+Future bands ([v1.8.10+ roadmap](../program/v1.8.9-plus-managed-workspace-roadmap.md)): **D2 compaction** — [operator-relay-compaction.md](../../infra/nostr/operator-relay-compaction.md); steward policies later.

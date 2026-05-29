@@ -1,7 +1,7 @@
 # Current Session Handoff — Obscur (native-first)
 
-- Last Updated (UTC): 2026-05-28T18:00:00Z
-- Session Status: **v1.8.9 ready to tag** — manual verification pass (2026-05-28); push tag → Obscur Full Release
+- Last Updated (UTC): 2026-05-29T12:00:00Z
+- Session Status: **v1.8.10 ready to tag** — D2 + Lane P complete; UI polish on community/contact/settings
 - Active Owner: Maintainer
 
 ## Public posture (maintainer policy)

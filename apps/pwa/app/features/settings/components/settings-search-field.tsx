@@ -10,6 +10,7 @@ import {
     filterSettingsSearchEntries,
     type SettingsSearchEntry,
 } from "../services/settings-search-index";
+import { getSettingsTabNavMeta } from "@/app/settings/settings-nav";
 
 export type SettingsSearchNavigateParams = Readonly<{
     tab: SettingsSearchEntry["tab"];
@@ -105,7 +106,9 @@ export function SettingsSearchField({
                             {t("settings.search.noResults", "No matching settings.")}
                         </p>
                     ) : (
-                        results.map((entry) => (
+                        results.map((entry) => {
+                            const navMeta = getSettingsTabNavMeta(entry.tab);
+                            return (
                             <button
                                 key={entry.id}
                                 type="button"
@@ -120,13 +123,14 @@ export function SettingsSearchField({
                                     {entry.title}
                                 </span>
                                 <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">
-                                    {entry.tab}
+                                    {t(navMeta.groupLabelKey)} · {t(navMeta.tabLabelKey)}
                                 </span>
                                 <span className="text-xs text-zinc-500 line-clamp-2">
                                     {entry.description}
                                 </span>
                             </button>
-                        ))
+                            );
+                        })
                     )}
                 </div>
             ) : null}

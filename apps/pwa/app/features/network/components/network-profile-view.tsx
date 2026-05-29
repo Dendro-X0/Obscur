@@ -47,6 +47,11 @@ import { createDmConversation } from "@/app/features/messaging/utils/create-dm-c
 import { upsertDmConversationInList } from "@/app/features/messaging/utils/dm-conversation-list-merge";
 import { publishDmNostrEvent } from "@/app/features/messaging/services/publish-dm-nostr-event";
 import { getPublicProfileHref, toAbsoluteAppUrl } from "@/app/features/navigation/public-routes";
+import {
+    ManagementControlCard,
+    ManagementControlRow,
+    ManagementSectionHeader,
+} from "@/app/components/ui/management-control-row";
 import { requestFlowEvidenceStore } from "@/app/features/messaging/services/request-flow-evidence-store";
 import { deriveRequestProjection } from "@/app/features/messaging/services/request-status-projection";
 import { writePendingVoiceCallRequest } from "@/app/features/messaging/services/realtime-voice-pending-request";
@@ -658,60 +663,29 @@ export default function ConnectionProfileView() {
                 </div>
 
                 <div className="space-y-6">
-                    <div className="flex items-center gap-3 px-2">
-                        <div className="h-1.5 w-1.5 rounded-full bg-rose-500" />
-                        <h3 className="text-xs font-black uppercase tracking-[0.2em] text-zinc-600 dark:text-zinc-500">
-                            Management Controls
-                        </h3>
-                    </div>
+                    <ManagementSectionHeader title={t("network.sections.management", "Management controls")} tone="danger" />
 
-                    <Card className="overflow-hidden rounded-[32px] border border-zinc-200/70 bg-white/88 backdrop-blur-xl dark:border-white/10 dark:bg-[#07101f]/88">
-                        <div className="flex flex-col">
-                            <button
-                                onClick={handleToggleBlock}
-                                className="flex items-center justify-between p-8 hover:bg-rose-500/[0.02] transition-colors group/item"
-                            >
-                                <div className="flex items-center gap-6">
-                                    <div className="h-14 w-14 rounded-2xl bg-rose-500/10 flex items-center justify-center border border-rose-500/20 group-hover/item:scale-110 transition-transform">
-                                        <Ban className="h-6 w-6 text-rose-500" />
-                                    </div>
-                                    <div className="text-left space-y-1">
-                                        <p className="text-xl font-black text-zinc-900 transition-colors group-hover/item:text-rose-500 dark:text-white">
-                                            {isBlocked ? t("network.actions.unblock", "Unblock user") : t("network.actions.block", "Block user")}
-                                        </p>
-                                        <p className="text-sm text-zinc-500 font-medium">
-                                            {isBlocked ? t("network.desc.unblock", "Allow this user to message you again") : t("network.desc.block", "Stop receiving messages from this user")}
-                                        </p>
-                                    </div>
-                                </div>
-                            </button>
-
-                            {isTrusted && (
-                                <div className="mx-8 h-[1px] bg-zinc-200/70 dark:bg-white/[0.06]" />
-                            )}
-
-                            {isTrusted && (
-                                <button
-                                    onClick={handleRemoveConnection}
-                                    className="flex items-center justify-between p-8 hover:bg-rose-500/[0.02] transition-colors group/item"
-                                >
-                                    <div className="flex items-center gap-6">
-                                        <div className="h-14 w-14 rounded-2xl bg-rose-500/10 flex items-center justify-center border border-rose-500/20 group-hover/item:scale-110 transition-transform">
-                                            <UserMinus className="h-6 w-6 text-rose-500" />
-                                        </div>
-                                        <div className="text-left space-y-1">
-                                            <p className="text-xl font-black text-zinc-900 transition-colors group-hover/item:text-rose-500 dark:text-white">
-                                                {t("network.actions.remove", "Remove connection")}
-                                            </p>
-                                            <p className="text-sm text-zinc-500 font-medium">
-                                                {t("network.desc.remove", "Remove this user from your trusted network list")}
-                                            </p>
-                                        </div>
-                                    </div>
-                                </button>
-                            )}
-                        </div>
-                    </Card>
+                    <ManagementControlCard>
+                        <ManagementControlRow
+                            icon={Ban}
+                            title={isBlocked ? t("network.actions.unblock", "Unblock user") : t("network.actions.block", "Block user")}
+                            description={
+                                isBlocked
+                                    ? t("network.desc.unblock", "Allow this user to message you again")
+                                    : t("network.desc.block", "Stop receiving messages from this user")
+                            }
+                            onClick={handleToggleBlock}
+                        />
+                        {isTrusted ? (
+                            <ManagementControlRow
+                                icon={UserMinus}
+                                title={t("network.actions.remove", "Remove connection")}
+                                description={t("network.desc.remove", "Remove this user from your trusted network list")}
+                                onClick={handleRemoveConnection}
+                                showDivider
+                            />
+                        ) : null}
+                    </ManagementControlCard>
                 </div>
             </main>
 

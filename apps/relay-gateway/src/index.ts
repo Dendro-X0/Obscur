@@ -4,18 +4,55 @@ import {
   filterCommunityRelayWireMessage,
   recordCommunityHidePublishPayload,
 } from "./community-relay-hide-suppress";
+import {
+  hydrateHideRegistry,
+  loadHideRegistrySnapshot,
+  saveHideRegistrySnapshot,
+} from "./community-relay-hide-registry-persist";
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 7001;
 const UPSTREAM_URL = process.env.UPSTREAM_URL || "ws://localhost:7000";
 const MIN_POW_DIFFICULTY = 12;
 const HIDE_SUPPRESS_ENABLED = process.env.OBSCUR_RELAY_HIDE_SUPPRESS !== "0";
+const HIDE_REGISTRY_PATH = process.env.OBSCUR_RELAY_HIDE_REGISTRY_PATH
+  ?? "apps/relay-gateway/data/hide-registry.json";
+const PERSIST_HIDE_REGISTRY = process.env.OBSCUR_RELAY_HIDE_PERSIST !== "0";
 
 console.log(`[Relay Gateway] Starting on port ${PORT}...`);
 console.log(`[Relay Gateway] Upstream: ${UPSTREAM_URL}`);
 console.log(`[Relay Gateway] Min PoW Difficulty for K0: ${MIN_POW_DIFFICULTY}`);
 console.log(`[Relay Gateway] Community hide suppress (D1): ${HIDE_SUPPRESS_ENABLED ? "on" : "off"}`);
+console.log(`[Relay Gateway] Hide registry persist (D2): ${PERSIST_HIDE_REGISTRY ? HIDE_REGISTRY_PATH : "off"}`);
 
 const wss = new WebSocketServer({ port: PORT });
+
+const globalHideRegistry = HIDE_SUPPRESS_ENABLED ? new CommunityRelayHideRegistry() : null;
+if (globalHideRegistry && PERSIST_HIDE_REGISTRY) {
+  const snapshot = loadHideRegistrySnapshot(HIDE_REGISTRY_PATH);
+  hydrateHideRegistry(globalHideRegistry, snapshot);
+  console.log(`[Relay Gateway] Loaded ${snapshot.size} hidden id(s) from registry`);
+}
+
+const persistHideRegistry = (): void => {
+  if (!globalHideRegistry || !PERSIST_HIDE_REGISTRY) {
+    return;
+  }
+  saveHideRegistrySnapshot(
+    HIDE_REGISTRY_PATH,
+    new Set(globalHideRegistry.listHiddenEventIds()),
+  );
+};
+
+const recordHideOnGlobalRegistry = (payload: string): void => {
+  if (!globalHideRegistry) {
+    return;
+  }
+  const before = globalHideRegistry.listHiddenEventIds().length;
+  recordCommunityHidePublishPayload(payload, globalHideRegistry);
+  if (globalHideRegistry.listHiddenEventIds().length > before) {
+    persistHideRegistry();
+  }
+};
 
 /**
  * Calculates PoW difficulty from an event ID (hex string)
@@ -39,7 +76,6 @@ function getDifficulty(id: string): number {
 wss.on("connection", (clientWs) => {
   console.log("[Relay Gateway] Client connected");
 
-  const hideRegistry = HIDE_SUPPRESS_ENABLED ? new CommunityRelayHideRegistry() : null;
   const upstreamWs = new WebSocket(UPSTREAM_URL);
 
   let isUpstreamOpen = false;
@@ -49,11 +85,11 @@ wss.on("connection", (clientWs) => {
     if (clientWs.readyState !== WebSocket.OPEN) {
       return;
     }
-    if (!hideRegistry) {
+    if (!globalHideRegistry) {
       clientWs.send(raw);
       return;
     }
-    const filtered = filterCommunityRelayWireMessage(raw, hideRegistry);
+    const filtered = filterCommunityRelayWireMessage(raw, globalHideRegistry);
     if (filtered !== null) {
       clientWs.send(filtered);
     }
@@ -90,9 +126,7 @@ wss.on("connection", (clientWs) => {
       if (Array.isArray(message) && message[0] === "EVENT") {
         const event = message[1];
 
-        if (hideRegistry) {
-          recordCommunityHidePublishPayload(raw, hideRegistry);
-        }
+        recordHideOnGlobalRegistry(raw);
 
         if (event.kind === 0) {
           const difficulty = getDifficulty(event.id);

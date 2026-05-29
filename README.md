@@ -10,14 +10,16 @@
 
 Obscur is a cross-platform, decentralized, end-to-end encrypted (E2EE) communication app focused on user privacy, ownership, and self-custody identity.
 
-Project phase: **v1.8.x Lane T — `v1.8.9` ready to tag**
+Project phase: **v1.8.x — Active patch `v1.8.10`**
 
-**Release `v1.8.9`** — managed-workspace production ship + operator-relay **D1** / **D3** (manual verification pass 2026-05-28):
+**Latest release ([v1.8.9](docs/releases/v1.8.9-release.md))** — managed-workspace ship + **D1** relay suppress + **D3** remove-from-workspace UX. Full installers on GitHub Releases.
 
-- **D1:** Remove from workspace — relay filter suppress on operator/local relay
-- **D3:** Honest managed-workspace delete copy (group chats only)
-- **Baseline:** Test 8 sealed communities (void v1.8.8 product)
-- **Next after tag:** D2 compaction, Lane P → **v1.8.10+**
+**In development ([v1.8.10](docs/program/v1.8.10-scope.md)):**
+
+- **D2:** Operator-relay compaction (opt-in)
+- **Lane P:** Android install smoke
+
+**Roadmap:** [v1.8.10+ managed workspace](docs/program/v1.8.9-plus-managed-workspace-roadmap.md) · B1 bots → **v1.8.11+**
 
 Full notes: [docs/releases/v1.8.9-release.md](docs/releases/v1.8.9-release.md) · Gate: [docs/releases/v1.8.9-gate.md](docs/releases/v1.8.9-gate.md) · Program: [docs/program/v1.8.x-release-train.md](docs/program/v1.8.x-release-train.md) · Changelog: [CHANGELOG.md](CHANGELOG.md)
 
@@ -189,6 +191,7 @@ The `/docs` tree is the project encyclopedia. **Only** [docs/README.md](docs/REA
 |-------|--------|
 | Navigation | [docs/README.md](docs/README.md) |
 | **Current release** | [docs/releases/v1.8.9-release.md](docs/releases/v1.8.9-release.md) · [v1.8.9 gate](docs/releases/v1.8.9-gate.md) |
+| **Active patch** | [docs/program/v1.8.10-scope.md](docs/program/v1.8.10-scope.md) · [v1.8.10 gate](docs/releases/v1.8.10-gate.md) |
 | Release train | [docs/program/v1.8.x-release-train.md](docs/program/v1.8.x-release-train.md) |
 | Post–v1.8.9 roadmap (v1.8.10+) | [docs/program/v1.8.9-plus-managed-workspace-roadmap.md](docs/program/v1.8.9-plus-managed-workspace-roadmap.md) |
 | Program | [docs/program/PROGRAM.md](docs/program/PROGRAM.md) |

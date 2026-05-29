@@ -46,6 +46,12 @@ jobs:
       - name: D1 community hide suppress contract smoke
         run: node scripts/community-relay-hide-suppress-smoke.mjs
 
+      - name: D2 hide registry persist contract smoke
+        run: node scripts/community-relay-hide-registry-persist-smoke.mjs
+
+      - name: D2 compaction SQL contract smoke
+        run: node --test scripts/operator-relay-storage-compact.test.mjs
+
   release-test-pack:
     name: release:test-pack
     needs: [relay-runtime-smoke]

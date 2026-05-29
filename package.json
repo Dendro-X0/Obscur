@@ -1,7 +1,7 @@
 {
   "name": "dweb-messenger",
   "private": true,
-  "version": "1.8.9",
+  "version": "1.8.10",
   "packageManager": "pnpm@9.15.4",
   "engines": {
     "node": ">=20.11.0"
@@ -77,6 +77,9 @@
     "probe:relay-nip": "node scripts/relay-nip-probe.mjs",
     "ci:relay-runtime-smoke": "node scripts/relay-runtime-smoke.mjs",
     "ci:community-relay-hide-smoke": "node scripts/community-relay-hide-suppress-smoke.mjs",
+    "operator-relay:compact": "node scripts/operator-relay-storage-compact.mjs",
+    "test:operator-relay-compact": "node --test scripts/operator-relay-storage-compact.test.mjs",
+    "ci:hide-registry-persist-smoke": "node scripts/community-relay-hide-registry-persist-smoke.mjs",
     "ci:scan:pwa": "node scripts/pwa-ci-scan.mjs",
     "ci:scan:pwa:head": "node scripts/pwa-ci-scan-head.mjs",
     "demo:m10:init": "node scripts/init-m10-demo-assets.mjs",
