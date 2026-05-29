@@ -127,7 +127,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             apps/desktop/src-tauri/target
-          key: ${{ matrix.os }}-cargo-tauri-${{ hashFiles('apps/desktop/src-tauri/Cargo.toml', 'pnpm-lock.yaml') }}
+          key: ${{ matrix.os }}-cargo-tauri-${{ hashFiles('package.json', 'version.json', 'apps/desktop/src-tauri/Cargo.toml', 'apps/desktop/src-tauri/tauri.conf.json', 'pnpm-lock.yaml') }}
           restore-keys: |
             ${{ matrix.os }}-cargo-tauri-
 
@@ -171,6 +171,25 @@ jobs:
               mv "$file" "$file.ignored"
             fi
           done
+
+      - name: Assert tag matches package version
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          PKG_VERSION="$(node -p "require('./package.json').version")"
+          TAURI_VERSION="$(node -p "require('./apps/desktop/src-tauri/tauri.conf.json').version")"
+          if [ "${TAG_VERSION}" != "${PKG_VERSION}" ] || [ "${TAG_VERSION}" != "${TAURI_VERSION}" ]; then
+            echo "Version mismatch: tag=${TAG_VERSION} package.json=${PKG_VERSION} tauri.conf=${TAURI_VERSION}" >&2
+            exit 1
+          fi
+
+      - name: Clear stale desktop bundle output
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf apps/desktop/src-tauri/target/release/bundle
 
       - name: Build Desktop Bundles
         shell: bash
@@ -847,6 +866,22 @@ jobs:
           mkdir -p ./release-files
           VERSION="${GITHUB_REF_NAME#v}"
 
+          copy_desktop_installer() {
+            local src="$1"
+            local base
+            base="$(basename "$src")"
+            local newbase
+            newbase="$(echo "$base" | sed -E "s/^Obscur_[0-9]+\\.[0-9]+\\.[0-9]+_/Obscur_${VERSION}_/")"
+            cp "$src" "./release-files/${newbase}"
+          }
+
+          # Desktop installers (normalize filename to tag version — Tauri embeds product version at bundle time)
+          while IFS= read -r installer; do
+            [ -n "$installer" ] || continue
+            copy_desktop_installer "$installer"
+          done < <(find ./release-assets/windows ./release-assets/macos ./release-assets/linux \
+            -type f \( -iname "*.exe" -o -iname "*.msi" -o -iname "*.dmg" -o -iname "*.AppImage" -o -iname "*.deb" \) 2>/dev/null | sort)
+
           copy_matches() {
             local pattern="$1"
             for file in $pattern; do
@@ -855,11 +890,6 @@ jobs:
               fi
             done
           }
-
-          # Desktop installers
-          copy_matches "./release-assets/windows/*.exe"
-          copy_matches "./release-assets/macos/*.dmg"
-          copy_matches "./release-assets/linux/*.AppImage"
 
           # Mobile deliverables (APK/AAB live in nested Gradle output dirs)
           while IFS= read -r apk; do
@@ -893,6 +923,14 @@ jobs:
           echo "Files to be released:"
           ls -la ./release-files/
           echo "Total release files: $(ls ./release-files/ | wc -l)"
+
+          while IFS= read -r desktop_file; do
+            [ -n "$desktop_file" ] || continue
+            if ! echo "$(basename "$desktop_file")" | grep -qE "(^|[._-])${VERSION}([._-]|$)"; then
+              echo "Desktop installer missing version ${VERSION}: ${desktop_file}" >&2
+              exit 1
+            fi
+          done < <(find ./release-files -maxdepth 1 -type f \( -iname "*.exe" -o -iname "*.msi" -o -iname "*.dmg" -o -iname "*.AppImage" \) | sort)
 
       - name: Create GitHub Release
         id: create_release
