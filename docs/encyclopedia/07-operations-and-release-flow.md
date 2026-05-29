@@ -60,10 +60,12 @@ Do not tag until strict clean-tree preflight passes.
 
 ## Tagging and Publish Policy
 
-1. Release workflow triggers on `v*` tags.
-2. Do not tag until `main` matches intended release tree exactly.
-3. If a workflow rerun is required, prefer fixing on `main` and shipping a new version tag.
-4. Do not rely on destructive retagging as a primary recovery path.
+1. Release workflow **[Obscur Full Release](../../.github/workflows/release.yml)** triggers on **`v*` tag push** only (not on ordinary `main` commits).
+2. Branch workflows (`docs-check`, `reliability-gates`, path-filtered `version-check`) run on **`main` pushes** — they are **preflight gates**, not installer builds.
+3. Do not tag until `main` matches intended release tree exactly and local `pnpm docs:check` + `pnpm release:test-pack` pass.
+4. Do not hand-publish a GitHub Release before **Obscur Full Release** completes — source-only zip/tar means the full pipeline did not publish artifacts.
+5. If tag preflight failed (e.g. docs-check), fix on `main`, then **`git tag -f vX.Y.Z && git push -f origin vX.Y.Z`** to re-trigger (exception to “avoid retagging” when recovery is documented).
+6. Prefer fixing on `main` and shipping a new patch tag when the failed tag was already publicized with installers.
 
 ## Release Workflow Outputs
 

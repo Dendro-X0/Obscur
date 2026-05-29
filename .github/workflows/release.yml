@@ -120,6 +120,36 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Cache Cargo registry and target
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            apps/desktop/src-tauri/target
+          key: ${{ matrix.os }}-cargo-tauri-${{ hashFiles('apps/desktop/src-tauri/Cargo.toml', 'pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ matrix.os }}-cargo-tauri-
+
+      - name: Prefetch Cargo dependencies (retry flaky crates.io)
+        shell: bash
+        working-directory: apps/desktop/src-tauri
+        env:
+          CARGO_NET_RETRY: 10
+          CARGO_HTTP_TIMEOUT: 300
+          CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3 4; do
+            if cargo fetch; then
+              echo "cargo fetch succeeded on attempt ${attempt}"
+              exit 0
+            fi
+            echo "cargo fetch failed on attempt ${attempt}; retrying in 25s..."
+            sleep 25
+          done
+          exit 1
+
       - name: Prepare PWA (Disable Dynamic Routes)
         shell: bash
         run: |
@@ -143,10 +173,24 @@ jobs:
           done
 
       - name: Build Desktop Bundles
-        run: pnpm -C apps/desktop tauri build
+        shell: bash
         env:
           TAURI_BUILD: true
           TAURI_SHELL_TARGET: desktop
+          CARGO_NET_RETRY: 10
+          CARGO_HTTP_TIMEOUT: 300
+          CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            if pnpm -C apps/desktop tauri build; then
+              echo "tauri build succeeded on attempt ${attempt}"
+              exit 0
+            fi
+            echo "tauri build failed on attempt ${attempt} (often transient crates.io curl); retrying in 30s..."
+            sleep 30
+          done
+          exit 1
 
       - name: Collect bundle artifacts (Windows)
         if: matrix.os == 'windows-latest'
