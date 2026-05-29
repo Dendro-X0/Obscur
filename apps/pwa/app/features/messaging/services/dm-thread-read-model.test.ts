@@ -201,6 +201,20 @@ describe("dm-thread-read-model", () => {
       });
       expect(resolved).toEqual(live);
     });
+
+    it("upgrades one-sided live thread from fuller bidirectional cache", () => {
+      const live = [baseMessage({ id: "live-out", isOutgoing: true })];
+      const cache = [
+        baseMessage({ id: "cache-out", isOutgoing: true }),
+        baseMessage({ id: "cache-in", isOutgoing: false }),
+      ];
+      const resolved = resolveDisplayMessagesWithCacheFallback({
+        messages: live,
+        displayCache: cache,
+        myPublicKeyHex: myPublicKeyHex as Message["senderPubkey"] & string,
+      });
+      expect(resolved.map((message) => message.id)).toEqual(["cache-out", "cache-in"]);
+    });
   });
 
   describe("evaluateStaleEmptyHydrateRetryPolicy", () => {

@@ -70,8 +70,9 @@ import { getResolvedClientGateway } from "@/app/features/profiles/services/resol
 import { buildGroupLeaveHref, buildGroupPurgeHref } from "../utils/group-action-route";
 import { summarizeCommunityOperatorHealth } from "../services/community-operator-health";
 import type { GroupAccessMode } from "../types";
-import { GroupManagementShell } from "./group-management/shell";
+import { readBotPubkeysFromMetadataField } from "../services/community-bot-policy";
 import type { GroupManagementTabId } from "./group-management/constants";
+import { GroupManagementShell } from "./group-management/shell";
 import { GroupManagementGeneralPanel } from "./group-management/panels/general-panel";
 import { GroupManagementMembersPanel } from "./group-management/panels/members-panel";
 import { GroupManagementGovernancePanel } from "./group-management/panels/governance-panel";
@@ -161,6 +162,7 @@ export function GroupManagementDialog({
     const [editAbout, setEditAbout] = useState("");
     const [editPicture, setEditPicture] = useState("");
     const [editAccess, setEditAccess] = useState<GroupAccessMode>("invite-only");
+    const [editBotPubkeys, setEditBotPubkeys] = useState<ReadonlyArray<PublicKeyHex>>([]);
 
     const [memberSearchQuery, setMemberSearchQuery] = useState("");
     const [provisionalOverlayEpoch, setProvisionalOverlayEpoch] = useState(0);
@@ -320,6 +322,7 @@ export function GroupManagementDialog({
             setEditAbout(state.metadata.about || "");
             setEditPicture(state.metadata.picture || "");
             setEditAccess(state.metadata.access || "public");
+            setEditBotPubkeys(readBotPubkeysFromMetadataField(state.metadata.botPubkeys));
         }
     }, [state.metadata, group.communityId, group.displayName, group.groupId]);
 
@@ -701,6 +704,7 @@ export function GroupManagementDialog({
                 about: editAbout,
                 picture: editPicture,
                 access: editAccess,
+                botPubkeys: editBotPubkeys,
             };
             if (requiresMemberVote) {
                 await proposeDescriptorUpdate(metadataPayload);
@@ -721,6 +725,14 @@ export function GroupManagementDialog({
             const name = "name" in proposal.payload && typeof proposal.payload.name === "string"
                 ? proposal.payload.name
                 : null;
+            const botCount = "botPubkeys" in proposal.payload && Array.isArray(proposal.payload.botPubkeys)
+                ? proposal.payload.botPubkeys.length
+                : 0;
+            if (botCount > 0) {
+                return name
+                    ? `Update descriptor (incl. ${botCount} outbound bot${botCount === 1 ? "" : "s"}) — “${name}”`
+                    : `Register ${botCount} outbound bot${botCount === 1 ? "" : "s"} on descriptor`;
+            }
             return name ? `Rename community to “${name}”` : "Update community descriptor";
         }
         if (proposal.actionType === "expel_member") {
@@ -841,6 +853,9 @@ export function GroupManagementDialog({
                         relayCapabilities={relayCapabilities}
                         isRelayCapabilitiesLoading={isRelayCapabilitiesLoading}
                         managedWorkspaceRelayGate={managedWorkspaceRelayGate}
+                        editBotPubkeys={editBotPubkeys}
+                        onEditBotPubkeysChange={setEditBotPubkeys}
+                        requiresGovernanceProposal={requiresMemberVote}
                     />
                 ) : null}
 

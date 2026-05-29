@@ -56,6 +56,9 @@ const parsePayload = (
   }
   if (actionType === "update_descriptor") {
     const access = readString(raw, "access");
+    const botPubkeys = Array.isArray(raw.botPubkeys)
+      ? raw.botPubkeys.filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0)
+      : undefined;
     return {
       ...(readString(raw, "name") ? { name: readString(raw, "name") } : {}),
       ...(readString(raw, "about") ? { about: readString(raw, "about") } : {}),
@@ -63,6 +66,7 @@ const parsePayload = (
       ...(access === "open" || access === "invite-only" || access === "discoverable"
         ? { access }
         : {}),
+      ...(botPubkeys !== undefined ? { botPubkeys } : {}),
     };
   }
   if (actionType === "expel_member") {

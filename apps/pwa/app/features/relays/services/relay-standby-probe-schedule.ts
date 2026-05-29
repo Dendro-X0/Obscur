@@ -2,10 +2,10 @@ import type { StandbyProbeResult } from "./standby-latency-prober";
 import { probeStandbyRelayLatency } from "./standby-latency-prober";
 
 /** Wait until after shell first paint before opening probe sockets. */
-export const STANDBY_PROBE_INITIAL_DELAY_MS = 12_000;
+export const STANDBY_PROBE_INITIAL_DELAY_MS = 6_000;
 
 /** Interval between full standby probe cycles. */
-export const STANDBY_PROBE_INTERVAL_MS = 45_000;
+export const STANDBY_PROBE_INTERVAL_MS = 30_000;
 
 /** Gap between consecutive probe sockets in one cycle. */
 export const STANDBY_PROBE_INTER_URL_GAP_MS = 500;

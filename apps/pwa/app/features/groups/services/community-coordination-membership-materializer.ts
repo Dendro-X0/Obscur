@@ -31,6 +31,20 @@ export const createEmptyCoordinationMembershipMaterialization = (): Coordination
   headSeq: 0,
 });
 
+const pubkeyListFingerprint = (pubkeys: ReadonlyArray<string>): string => (
+  [...pubkeys].map((entry) => entry.trim().toLowerCase()).sort().join(",")
+);
+
+export const coordinationMembershipMaterializationsEqual = (
+  left: CoordinationMembershipMaterialization,
+  right: CoordinationMembershipMaterialization,
+): boolean => (
+  left.headSeq === right.headSeq
+  && pubkeyListFingerprint(left.activeMemberPubkeys) === pubkeyListFingerprint(right.activeMemberPubkeys)
+  && pubkeyListFingerprint(left.leftMemberPubkeys) === pubkeyListFingerprint(right.leftMemberPubkeys)
+  && pubkeyListFingerprint(left.expelledMemberPubkeys) === pubkeyListFingerprint(right.expelledMemberPubkeys)
+);
+
 /** Fold signed coordination deltas into authoritative active/terminal sets. */
 export const materializeCoordinationMembershipFromDeltas = (
   deltas: ReadonlyArray<CoordinationMembershipDeltaRecord>,

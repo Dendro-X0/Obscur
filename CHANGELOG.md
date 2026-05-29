@@ -6,9 +6,39 @@ All notable changes to Obscur are documented here.
 
 ---
 
-## [Unreleased] — v1.8.10 (D2 compaction + Android install smoke)
+## [Unreleased] — v1.8.11 (B1 outbound community bot)
 
-**Gate:** [v1.8.10-gate.md](docs/releases/v1.8.10-gate.md). **Scope:** [v1.8.10-scope.md](docs/program/v1.8.10-scope.md).
+**Gate:** [v1.8.11-gate.md](docs/releases/v1.8.11-gate.md). **Scope:** [v1.8.11-scope.md](docs/program/v1.8.11-scope.md).
+
+### Added (descriptor contract — B11-2)
+
+- **`botPubkeys`** on `GroupMetadata` — sealed descriptor updates + kind 39000 relay hints.
+- **Policy** — `community-bot-policy`, `community-bot-message-policy` (managed-workspace ingest gate).
+- **Steward UI** — Register bots under Manage → General (managed workspace).
+- **CI** — `ci:community-bot-descriptor-smoke` in reliability-gates.
+
+### Added (B11-3 — outbound runner)
+
+- **`scripts/community-outbound-bot.mjs`** — sidecar publish (kind 10105 / inner kind 9).
+- **`pnpm community-outbound-bot`** — env-driven CLI with `--dry-run` and allowlist check.
+
+### Fixed
+
+- **Outbound bots UI** — visible on managed workspaces with member-vote governance; `botPubkeys` in governance proposals.
+- **Desktop online reliability** — coordination directory refresh throttle; DM display-cache LRU + coalesced hydrate; relay primary failover + faster standby probes ([desktop-online-reliability-2026-05.md](docs/program/desktop-online-reliability-2026-05.md)).
+
+### Verification
+
+- Automated: `test:community-bot-descriptor`, `test:community-outbound-bot`, maintainer `dev:desktop:online` soak.
+- **Deferred:** Manual Test B1 (operator live bot announcement).
+
+---
+
+## [v1.8.10] - 2026-05-29 (D2 compaction + Android install smoke)
+
+**Gate:** [v1.8.10-gate.md](docs/releases/v1.8.10-gate.md). **Release notes:** [v1.8.10-release.md](docs/releases/v1.8.10-release.md). **Demo:** [v1.8.10 demo matrix](docs/assets/demo/v1.8.10/README.md).
+
+Completes operator-relay deletion triad (**D2** compaction) plus Lane P Android install smoke.
 
 ### Added (D2)
 
@@ -18,13 +48,13 @@ All notable changes to Obscur are documented here.
 
 ### Added (UI polish)
 
-- Community home — clearer CTA hierarchy (chat primary, Manage outline); governance banner opens Governance tab.
+- Community home — clearer CTA hierarchy; governance banner opens Governance tab.
 - Shared management-control primitives for community home + connection profile.
-- Settings search — group + tab labels (e.g. `Network · Relays`) instead of raw tab ids.
+- Settings search — group + tab labels instead of raw tab ids.
 
 ### Lane P
 
-- Android install + cold-start smoke — [demo matrix](docs/assets/demo/v1.8.10/README.md) (verified).
+- Android install + cold-start smoke — [demo matrix](docs/assets/demo/v1.8.10/README.md).
 
 ---
 

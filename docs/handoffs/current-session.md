@@ -1,7 +1,7 @@
 # Current Session Handoff — Obscur (native-first)
 
-- Last Updated (UTC): 2026-05-29T12:00:00Z
-- Session Status: **v1.8.10 ready to tag** — D2 + Lane P complete; UI polish on community/contact/settings
+- Last Updated (UTC): 2026-05-29T18:00:00Z
+- Session Status: **v1.8.11 ready to tag** — desktop online QA signed off; M11-1 Test B1 deferred
 - Active Owner: Maintainer
 
 ## Public posture (maintainer policy)
@@ -12,14 +12,18 @@
 
 ## Active objective
 
+**Primary lane:** Tag **`v1.8.11`** — [v1.8.11-gate.md](../releases/v1.8.11-gate.md). Then **Android P1 wrap-up** — [android-p1-signing-runbook.md](../program/android-p1-signing-runbook.md).
+
 **Ship path:** Installer includes **desktop + mobile only** (no standalone PWA/web installer target).
 
 **Sequence:**
 
-1. **Native offline optimization** — Rust/Tauri shell, SQLite, keychain, startup IPC; experiment shell proves loadability.
-2. **Desktop production reliability** — **primary** — cold start, nav, unlock, DM online, settings; S0 prod baseline.
-3. **Online functional modules** — relay, coordination, account sync — on desktop first ([phase3-desktop-online-gate.md](../program/phase3-desktop-online-gate.md)).
-4. **Android (Lane P1)** — **wrap-up only** — debug APK pipeline done; emulator/UI/UX pass before release, not parallel to desktop feature work ([stability-first-delivery.md](../program/stability-first-delivery.md)).
+1. ~~**Desktop online reliability**~~ — **Signed off** 2026-05-29 ([desktop-online-reliability-2026-05.md](../program/desktop-online-reliability-2026-05.md)).
+2. **`v1.8.11` tag + Obscur Full Release** — B1 code complete; M11-1 operator Test B1 deferred.
+3. **Android (Lane P1)** — wrap-up: debug APK, emulator smoke, UI pass ([stability-first-delivery.md](../program/stability-first-delivery.md)).
+4. **Native offline / shell** — ongoing baseline; no new feature lanes until P1 wrap-up cadence.
+
+**Parked:** B1 live two-client announcement (operator-run Test B1).
 
 Charter refs: [obscur-offline-first-policy.md](../program/obscur-offline-first-policy.md), [obscur-2.0-milestone-roadmap.md](../program/obscur-2.0-milestone-roadmap.md) Lane **P**, [mobile-desktop-version-policy.md](../program/mobile-desktop-version-policy.md).
 

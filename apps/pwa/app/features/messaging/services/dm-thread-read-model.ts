@@ -331,10 +331,27 @@ export const resolveDisplayMessagesWithCacheFallback = (params: Readonly<{
   displayCache: ReadonlyArray<Message> | null;
   myPublicKeyHex: PublicKeyHex | null;
 }>): ReadonlyArray<Message> => {
-  if (params.messages.length > 0) {
+  const cache = params.displayCache ?? [];
+  if (params.messages.length > 0 && params.myPublicKeyHex) {
+    const partialCurrent = hasPartialDirectionCoverage(params.messages, params.myPublicKeyHex);
+    if (
+      partialCurrent
+      && cache.length > params.messages.length
+    ) {
+      const paint = resolveInitialConversationPaint({
+        displayCache: cache,
+        syncSeed: [],
+        myPublicKeyHex: params.myPublicKeyHex,
+      });
+      if (
+        paint.shouldPaint
+        && !hasPartialDirectionCoverage(paint.messages, params.myPublicKeyHex)
+      ) {
+        return paint.messages;
+      }
+    }
     return params.messages;
   }
-  const cache = params.displayCache ?? [];
   if (cache.length === 0) {
     return params.messages;
   }

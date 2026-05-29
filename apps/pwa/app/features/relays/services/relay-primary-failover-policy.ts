@@ -1,5 +1,13 @@
 import type { RelayRecoveryReasonCode, RelayRecoverySnapshot } from "./relay-recovery-policy";
 
+const FAILOVER_ON_ZERO_WRITABLE_REASONS: ReadonlySet<RelayRecoveryReasonCode> = new Set([
+  "no_writable_relays",
+  "publish_timeouts",
+  "stale_subscriptions",
+  "write_queue_blocked",
+  "stale_event_flow",
+]);
+
 export const shouldAttemptPrimaryFailover = (params: Readonly<{
   allEnabledRelayCount: number;
   writableRelayCount: number;
@@ -12,10 +20,11 @@ export const shouldAttemptPrimaryFailover = (params: Readonly<{
   if (params.recovery.recoveryReasonCode === "recovery_exhausted") {
     return true;
   }
-  if (params.recoveryReason === "no_writable_relays") {
+  const reason = params.recoveryReason ?? params.recovery.recoveryReasonCode;
+  if (reason && FAILOVER_ON_ZERO_WRITABLE_REASONS.has(reason)) {
     return true;
   }
-  if ((params.recovery.recoveryAttemptCount ?? 0) >= 2) {
+  if ((params.recovery.recoveryAttemptCount ?? 0) >= 1) {
     return true;
   }
   return false;

@@ -385,6 +385,7 @@ export class GroupService {
                 relayCapabilityTier: params.metadata.relayCapabilityTier,
                 descriptorVersion: params.metadata.descriptorVersion,
                 stewardPubkeys: params.metadata.stewardPubkeys,
+                botPubkeys: params.metadata.botPubkeys,
             }),
             pubkey: this.myPublicKeyHex,
         };

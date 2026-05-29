@@ -147,6 +147,12 @@ import {
     readStewardPubkeysFromMetadataField,
     resolveCommunityStewardPolicy,
 } from "../services/community-steward-policy";
+import {
+    mergeDescriptorBotPubkeys,
+    mergeDescriptorStewardPubkeys,
+} from "../services/community-descriptor-metadata-merge";
+import { evaluateCommunityChatMessageIngest } from "../services/community-bot-message-policy";
+import { readBotPubkeysFromMetadataField } from "../services/community-bot-policy";
 import type { GroupConversation } from "../../messaging/types";
 import { subscribeGroupInviteAcceptedDual } from "@/app/features/profiles/services/subscribe-group-invite-accepted-dual";
 import { useOptionalProfileMessageBus } from "@/app/features/profiles/providers/profile-runtime-provider";
@@ -349,6 +355,9 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
   );
   const localMembershipEvidenceRef = useRef<boolean>(initialHasLocalMembershipEvidence);
   const membersRef = useRef<ReadonlyArray<PublicKeyHex>>([]);
+  const descriptorBotPubkeysRef = useRef<ReadonlyArray<PublicKeyHex>>([]);
+  const descriptorStewardPubkeysRef = useRef<ReadonlyArray<PublicKeyHex>>([]);
+  const descriptorCommunityModeRef = useRef<CommunityMode | undefined>(undefined);
   const relayEvidenceRef = useRef<RelayEvidenceRuntimeState>({
     subscriptionEstablishedAt: null,
     lastEventReceivedAt: null,
@@ -911,7 +920,10 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
     expelledMembersRef.current = state.expelledMembers;
     disbandedAtRef.current = state.disbandedAt;
     communityMessagesRef.current = state.messages;
-  }, [state.leftMembers, state.expelledMembers, state.disbandedAt, state.messages]);
+    descriptorBotPubkeysRef.current = readBotPubkeysFromMetadataField(state.metadata?.botPubkeys);
+    descriptorStewardPubkeysRef.current = readStewardPubkeysFromMetadataField(state.metadata?.stewardPubkeys);
+    descriptorCommunityModeRef.current = state.metadata?.communityMode;
+  }, [state.leftMembers, state.expelledMembers, state.disbandedAt, state.messages, state.metadata]);
 
   useEffect(() => {
     if (!params.myPublicKeyHex) return;
@@ -1498,10 +1510,14 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
                       ? innerPayload.metadata.relayCapabilityTier
                       : prev.metadata?.relayCapabilityTier,
                   descriptorVersion: createdVersion,
-                  stewardPubkeys: (() => {
-                    const stewards = readStewardPubkeysFromMetadataField(innerPayload.metadata.stewardPubkeys);
-                    return stewards.length > 0 ? stewards : prev.metadata?.stewardPubkeys;
-                  })(),
+                  stewardPubkeys: mergeDescriptorStewardPubkeys(
+                    innerPayload.metadata.stewardPubkeys,
+                    prev.metadata?.stewardPubkeys,
+                  ),
+                  botPubkeys: mergeDescriptorBotPubkeys(
+                    innerPayload.metadata.botPubkeys,
+                    prev.metadata?.botPubkeys,
+                  ),
                 }
               }));
             }
@@ -1557,10 +1573,8 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
                     ? incomingMeta.relayCapabilityTier
                     : prev.metadata?.relayCapabilityTier,
                 descriptorVersion: incomingVersion,
-                stewardPubkeys: (() => {
-                  const stewards = readStewardPubkeysFromMetadataField(incomingMeta.stewardPubkeys);
-                  return stewards.length > 0 ? stewards : prev.metadata?.stewardPubkeys;
-                })(),
+                stewardPubkeys: mergeDescriptorStewardPubkeys(incomingMeta.stewardPubkeys, prev.metadata?.stewardPubkeys),
+                botPubkeys: mergeDescriptorBotPubkeys(incomingMeta.botPubkeys, prev.metadata?.botPubkeys),
               };
               return { ...prev, metadata: mergedMetadata };
             });
@@ -1691,6 +1705,23 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
             return;
           }
 
+          const ingestDecision = evaluateCommunityChatMessageIngest({
+            communityMode: descriptorCommunityModeRef.current,
+            authorPublicKeyHex: actor,
+            botPubkeys: descriptorBotPubkeysRef.current,
+            stewardPubkeys: descriptorStewardPubkeysRef.current,
+            activeMemberPubkeys: membersRef.current,
+          });
+          if (!ingestDecision.accept) {
+            logRejectedEvent({
+              reason: "unlisted_author_managed_workspace",
+              eventId: event.id,
+              level: "info",
+              context: { authorSuffix: actor.slice(-8) },
+            });
+            return;
+          }
+
           const nextMsg: GroupMessageEvent = {
             id: event.id,
             pubkey: actor,
@@ -1788,10 +1819,8 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
                   ? metadata.relayCapabilityTier
                   : prev.metadata?.relayCapabilityTier,
               descriptorVersion: descriptorVersionRef.current,
-              stewardPubkeys: (() => {
-                const stewards = readStewardPubkeysFromMetadataField(metadata.stewardPubkeys);
-                return stewards.length > 0 ? stewards : prev.metadata?.stewardPubkeys;
-              })(),
+              stewardPubkeys: mergeDescriptorStewardPubkeys(metadata.stewardPubkeys, prev.metadata?.stewardPubkeys),
+              botPubkeys: mergeDescriptorBotPubkeys(metadata.botPubkeys, prev.metadata?.botPubkeys),
             };
             descriptorDetail = {
               groupId: params.groupId,
@@ -2102,12 +2131,16 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
       const access = "access" in payload && (
         payload.access === "open" || payload.access === "invite-only" || payload.access === "discoverable"
       ) ? payload.access : undefined;
+      const botPubkeys = "botPubkeys" in payload && Array.isArray(payload.botPubkeys)
+        ? payload.botPubkeys
+        : undefined;
       await updateMetadataRef.current({
         id: params.groupId,
         name: name ?? state.metadata?.name ?? params.groupId,
         about: about ?? state.metadata?.about,
         picture: picture ?? state.metadata?.picture,
         access: access ?? state.metadata?.access ?? "invite-only",
+        ...(botPubkeys !== undefined ? { botPubkeys } : {}),
       }, { governanceProposalId: proposal.proposalId });
       toast.success("Community rename approved and applied.");
       return;
@@ -2983,6 +3016,9 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
       about: nextMetadata.about,
       picture: nextMetadata.picture,
       access: nextMetadata.access,
+      ...(nextMetadata.botPubkeys && nextMetadata.botPubkeys.length > 0
+        ? { botPubkeys: [...nextMetadata.botPubkeys] }
+        : { botPubkeys: [] }),
     };
     const proposalExpiresAtUnixMs = computeGovernanceProposalExpiresAtUnixMs();
     await publishGovernanceSealed("proposed", {

@@ -125,8 +125,9 @@ Prerequisite: G6-3 signed off. Setup: [private-trust-local-setup.md](../assets/d
 | G6-2 P3-6…P3-8 | 2026-05-24 | ✓ (with online DM soak; unlock not blocked) |
 | G6-3 (DM online soak) | 2026-05-24 | ✓ (maintainer: bidirectional history stable) |
 | G6-4 P3-9 | 2026-05-26 | ✓ (`pnpm coordination:health` OK) |
-| G6-4 P3-10…P3-12 | | |
+| G6-4 P3-10…P3-12 | | Deferred (loopback WebView) |
 | G6-5 experiment trim | 2026-05-25 | ✓ (`shouldDeferExperimentHeavyWork` — online defers off) |
+| Desktop online maintainer soak | 2026-05-29 | ✓ DM nav, relay failover, coordination poll throttle ([desktop-online-reliability-2026-05.md](./desktop-online-reliability-2026-05.md)) |
 
 ---
 

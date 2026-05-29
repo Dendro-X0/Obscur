@@ -52,6 +52,12 @@ jobs:
       - name: D2 compaction SQL contract smoke
         run: node --test scripts/operator-relay-storage-compact.test.mjs
 
+      - name: B1 bot descriptor contract smoke
+        run: node scripts/community-bot-descriptor-contract-smoke.mjs
+
+      - name: B1 outbound bot build smoke
+        run: node --test scripts/community-outbound-bot.test.mjs
+
   release-test-pack:
     name: release:test-pack
     needs: [relay-runtime-smoke]

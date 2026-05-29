@@ -37,8 +37,8 @@ type RelayRecoveryControllerConfig = Readonly<{
   beforeRecovery?: (reason: RelayRecoveryReasonCode) => boolean;
 }>;
 
-const WATCHDOG_INTERVAL_MS = 12_000;
-const STALE_INBOUND_WINDOW_MS = 20_000;
+const WATCHDOG_INTERVAL_MS = 8_000;
+const STALE_INBOUND_WINDOW_MS = 16_000;
 const RECOVERY_COOLDOWN_MS = 8_000;
 const MAX_RECOVERY_ATTEMPTS = 8;
 /** Full reconnect → resubscribe → recycle cycles before pausing automatic recovery. */

@@ -28,4 +28,21 @@ describe("relay primary failover policy", () => {
       recoveryReason: "no_writable_relays",
     })).toBe(true);
   });
+
+  it("attempts failover on publish_timeouts with zero writable relays", () => {
+    expect(shouldAttemptPrimaryFailover({
+      allEnabledRelayCount: 2,
+      writableRelayCount: 0,
+      recovery: { recoveryAttemptCount: 0 },
+      recoveryReason: "publish_timeouts",
+    })).toBe(true);
+  });
+
+  it("attempts failover after the first recovery attempt when still no writable relays", () => {
+    expect(shouldAttemptPrimaryFailover({
+      allEnabledRelayCount: 2,
+      writableRelayCount: 0,
+      recovery: { recoveryAttemptCount: 1 },
+    })).toBe(true);
+  });
 });

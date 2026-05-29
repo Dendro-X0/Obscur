@@ -22,4 +22,6 @@ export interface GroupMetadata {
     descriptorVersion?: number;
     /** Managed workspace: pubkeys allowed direct descriptor/expel without governance vote. */
     stewardPubkeys?: ReadonlyArray<string>;
+    /** Managed workspace (B1): outbound-only bot identities allowed on the relay plane. */
+    botPubkeys?: ReadonlyArray<string>;
 }

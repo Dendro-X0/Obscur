@@ -33,7 +33,7 @@ export type RelayHealthHint = Readonly<{
 
 const POSITION_SCORE_WEIGHT = 0.08;
 const SCORE_SWITCH_THRESHOLD = 0.15;
-const RECONCILE_SCORE_DELTA = 0.2;
+const RECONCILE_SCORE_DELTA = 0.12;
 
 const buildSelection = (
   orderedEnabledUrls: ReadonlyArray<string>,

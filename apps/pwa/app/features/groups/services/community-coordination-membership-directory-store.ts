@@ -5,6 +5,7 @@ import {
 } from "./community-coordination-membership-client";
 import {
   applyCoordinationMembershipDeltasToMaterialization,
+  coordinationMembershipMaterializationsEqual,
   createEmptyCoordinationMembershipMaterialization,
   materializeCoordinationMembershipFromDeltas,
   type CoordinationMembershipMaterialization,
@@ -12,6 +13,20 @@ import {
 import { isCoordinationConfigured } from "./community-membership-sync-mode";
 
 const STORAGE_PREFIX = "obscur.community.coordination_membership_directory.v1";
+
+/** Minimum spacing between incremental directory pulls (desktop online reliability). */
+export const COORDINATION_DIRECTORY_MIN_REFRESH_MS = 8_000;
+
+type DirectoryRefreshEntry = Readonly<{
+  inFlight: Promise<CoordinationMembershipMaterialization | null> | null;
+  lastCompletedAtMs: number;
+}>;
+
+const directoryRefreshByKey = new Map<string, DirectoryRefreshEntry>();
+
+const directoryRefreshKey = (communityId: string, profileId: string): string => (
+  `${profileId}:${communityId}`
+);
 
 export const COORDINATION_MEMBERSHIP_DIRECTORY_CHANGED_EVENT = "obscur:coordination-membership-directory-changed";
 
@@ -91,6 +106,16 @@ export const saveCoordinationMembershipDirectory = (params: Readonly<{
   if (!normalizedCommunityId) {
     return;
   }
+  const existingMaterialization = loadCoordinationMembershipDirectory(
+    normalizedCommunityId,
+    params.profileId,
+  );
+  if (
+    existingMaterialization
+    && coordinationMembershipMaterializationsEqual(existingMaterialization, params.materialization)
+  ) {
+    return;
+  }
   const existing = loadAllDirectoryRecords(params.profileId).filter((entry) => (
     entry.communityId !== normalizedCommunityId
   ));
@@ -106,6 +131,7 @@ export const saveCoordinationMembershipDirectory = (params: Readonly<{
 };
 
 export const resetCoordinationMembershipDirectoryForTests = (): void => {
+  directoryRefreshByKey.clear();
   if (typeof window === "undefined") {
     return;
   }
@@ -133,8 +159,7 @@ const fetchAllCoordinationMembershipDeltas = async (
   return allDeltas;
 };
 
-/** Rebuild coordination directory from seq 0 and persist (authoritative invite gate input). */
-export const refreshCoordinationMembershipDirectory = async (params: Readonly<{
+const refreshCoordinationMembershipDirectoryInner = async (params: Readonly<{
   communityId: string;
   profileId?: string;
   forceFull?: boolean;
@@ -171,6 +196,51 @@ export const refreshCoordinationMembershipDirectory = async (params: Readonly<{
     profileId: params.profileId,
   });
   return materialization;
+};
+
+/** Rebuild coordination directory from seq 0 and persist (authoritative invite gate input). */
+export const refreshCoordinationMembershipDirectory = async (params: Readonly<{
+  communityId: string;
+  profileId?: string;
+  forceFull?: boolean;
+}>): Promise<CoordinationMembershipMaterialization | null> => {
+  const communityId = params.communityId.trim();
+  if (!communityId || !isCoordinationConfigured()) {
+    return null;
+  }
+  const profileId = params.profileId ?? getResolvedProfileId();
+  const key = directoryRefreshKey(communityId, profileId);
+  const forceFull = params.forceFull === true;
+  const entry = directoryRefreshByKey.get(key) ?? { inFlight: null, lastCompletedAtMs: 0 };
+
+  if (entry.inFlight) {
+    return entry.inFlight;
+  }
+
+  if (!forceFull) {
+    const cached = loadCoordinationMembershipDirectory(communityId, profileId);
+    const elapsedMs = Date.now() - entry.lastCompletedAtMs;
+    if (cached && cached.headSeq > 0 && elapsedMs < COORDINATION_DIRECTORY_MIN_REFRESH_MS) {
+      return cached;
+    }
+  }
+
+  const inFlight = refreshCoordinationMembershipDirectoryInner({
+    ...params,
+    communityId,
+    profileId,
+  }).finally(() => {
+    directoryRefreshByKey.set(key, {
+      inFlight: null,
+      lastCompletedAtMs: Date.now(),
+    });
+  });
+
+  directoryRefreshByKey.set(key, {
+    inFlight,
+    lastCompletedAtMs: entry.lastCompletedAtMs,
+  });
+  return inFlight;
 };
 
 export const applyCoordinationMembershipDeltasToDirectoryStore = (params: Readonly<{

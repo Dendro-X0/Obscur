@@ -32,6 +32,28 @@ describe("toGovernanceReducerEventFromSealed", () => {
     });
   });
 
+  it("parses update_descriptor botPubkeys in payload", () => {
+    const bot = "b".repeat(64);
+    const ev = toGovernanceReducerEventFromSealed(
+      {
+        type: "governance.proposed",
+        pubkey: ACTOR,
+        created_at: 1700,
+        proposalId: "p-bots",
+        actionType: "update_descriptor",
+        quorumThreshold: 2,
+        payload: { botPubkeys: [bot], name: "Test 8" },
+      },
+      "evt-bots",
+      ACTOR,
+    );
+    expect(ev?.type).toBe("PROPOSED");
+    if (ev?.type !== "PROPOSED") {
+      return;
+    }
+    expect(ev.payload).toEqual({ botPubkeys: [bot], name: "Test 8" });
+  });
+
   it("parses governance.vote", () => {
     const ev = toGovernanceReducerEventFromSealed(
       {

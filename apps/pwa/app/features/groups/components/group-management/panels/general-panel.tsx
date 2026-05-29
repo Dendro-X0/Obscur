@@ -14,6 +14,8 @@ import {
     type ManagedWorkspaceRelayGate,
 } from "../../../services/community-mode-contract";
 import type { CommunityStewardPolicy } from "../../../services/community-steward-policy";
+import { CommunityBotsSection } from "../community-bots-section";
+import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { GroupAccessMode } from "../../../types";
 import { mgmtFieldClass, mgmtSectionClass, mgmtTextareaClass } from "../constants";
 
@@ -35,6 +37,9 @@ export function GroupManagementGeneralPanel({
     relayCapabilities,
     isRelayCapabilitiesLoading,
     managedWorkspaceRelayGate,
+    editBotPubkeys,
+    onEditBotPubkeysChange,
+    requiresGovernanceProposal,
 }: Readonly<{
     editName: string;
     setEditName: (value: string) => void;
@@ -53,6 +58,10 @@ export function GroupManagementGeneralPanel({
     relayCapabilities: Parameters<typeof RelayCapabilityBadge>[0]["capabilities"];
     isRelayCapabilitiesLoading: boolean;
     managedWorkspaceRelayGate: ManagedWorkspaceRelayGate;
+    editBotPubkeys: ReadonlyArray<PublicKeyHex>;
+    onEditBotPubkeysChange: (next: ReadonlyArray<PublicKeyHex>) => void;
+    /** When true, saving (including bots) goes through governance proposal. */
+    requiresGovernanceProposal: boolean;
 }>): React.JSX.Element {
     const managedSettingsBlocked = isManagedWorkspaceRelayGateBlocking(managedWorkspaceRelayGate);
 
@@ -149,6 +158,15 @@ export function GroupManagementGeneralPanel({
                     ))}
                 </div>
             </section>
+
+            {communityMode === "managed_workspace" && isAdmin ? (
+                <CommunityBotsSection
+                    botPubkeys={editBotPubkeys}
+                    onChange={onEditBotPubkeysChange}
+                    disabled={managedSettingsBlocked}
+                    requiresGovernanceProposal={requiresGovernanceProposal}
+                />
+            ) : null}
 
             {requiresMemberVote && isAdmin ? (
                 <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-100">

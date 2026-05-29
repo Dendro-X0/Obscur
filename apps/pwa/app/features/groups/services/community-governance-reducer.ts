@@ -11,6 +11,8 @@ export type GovernanceDescriptorPayload = Readonly<{
   about?: string;
   picture?: string;
   access?: "open" | "invite-only" | "discoverable";
+  /** B1 — outbound bot allowlist (managed workspace). */
+  botPubkeys?: ReadonlyArray<string>;
 }>;
 
 export type GovernanceExpelPayload = Readonly<{

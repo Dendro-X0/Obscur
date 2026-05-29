@@ -58,6 +58,10 @@ import {
     writeDmThreadDisplayCache,
 } from "../services/dm-thread-display-cache";
 import {
+    cancelCoalescedConversationHydrate,
+    scheduleCoalescedConversationHydrate,
+} from "../services/conversation-hydrate-coordinator";
+import {
     applyDmRedactionDisplayGateAsync,
     filterMessagesThroughDmRedactionDisplayGate,
     subscribeDmRedactionDisplayGateChanged,
@@ -505,11 +509,20 @@ export function useConversationMessages(
                 trigger,
             },
         });
-        void hydrateHistory(conversationId, conversationAliasIds, {
-            includeLiveOverlay: true,
-            generation: hydrateGenerationRef.current,
-        });
-    }, [conversationAliasIds, conversationId, hydrateHistory, isDmThread]);
+        const runHydrate = (): void => {
+            void hydrateHistory(conversationId, conversationAliasIds, {
+                includeLiveOverlay: true,
+                generation: hydrateGenerationRef.current,
+            });
+        };
+        const immediate = trigger === "chat_route_active";
+        scheduleCoalescedConversationHydrate(
+            activeProfileId ?? undefined,
+            conversationId,
+            runHydrate,
+            { immediate },
+        );
+    }, [activeProfileId, conversationAliasIds, conversationId, hydrateHistory, isDmThread]);
 
     useEffect(() => {
         staleEmptyHydrateAttemptRef.current = 0;
@@ -529,6 +542,7 @@ export function useConversationMessages(
         activeConversationIdRef.current = conversationId;
 
         if (conversationChanged) {
+            cancelCoalescedConversationHydrate(activeProfileId ?? undefined, conversationId);
             suppressProjectionMergeUntilHydrateRef.current = true;
             directionCoverageHydrateAttemptRef.current = 0;
             partialHydrateAttemptRef.current = false;

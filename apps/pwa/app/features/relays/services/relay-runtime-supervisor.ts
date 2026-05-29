@@ -106,6 +106,7 @@ class RelayRuntimeSupervisor {
   private autoRecoveryTimer: ReturnType<typeof setTimeout> | null = null;
   private browserSignalsAttached = false;
   private lastPerformanceGateSignature: string | null = null;
+  private lastProactiveFailoverAtUnixMs = 0;
 
   subscribe = (listener: Listener): (() => void) => {
     this.listeners.add(listener);
@@ -287,8 +288,25 @@ class RelayRuntimeSupervisor {
     this.emitPerformanceGate(next);
     this.installTools();
     this.scheduleAutoRecovery();
+    this.maybeProactivePrimaryFailover(recovery);
     if (changed) {
       this.emit();
+    }
+  }
+
+  private maybeProactivePrimaryFailover(recovery: RelayRecoverySnapshot): void {
+    if (!this.config || this.config.allEnabledRelayUrls.length <= 1) {
+      return;
+    }
+    if (recovery.writableRelayCount > 0) {
+      return;
+    }
+    const nowMs = Date.now();
+    if (nowMs - this.lastProactiveFailoverAtUnixMs < 5_000) {
+      return;
+    }
+    if (this.tryPrimaryFailover(recovery.recoveryReasonCode)) {
+      this.lastProactiveFailoverAtUnixMs = nowMs;
     }
   }
 
