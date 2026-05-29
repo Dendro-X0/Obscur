@@ -201,6 +201,12 @@ const main = () => {
   console.log("[release:test-pack] Running release artifact matrix workflow assertion...");
   run("pnpm", ["release:artifact-matrix-check"]);
 
+  console.log("[release:test-pack] Running B1 outbound bot crypto tests...");
+  run("pnpm", ["test:community-outbound-bot"]);
+
+  console.log("[release:test-pack] Running B1 bot descriptor contract smoke...");
+  run("pnpm", ["ci:community-bot-descriptor-smoke"]);
+
   console.log("[release:test-pack] Passed.");
 };
 
