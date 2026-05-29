@@ -46,7 +46,7 @@ Provide a reproducible, auditable manual lane for invite → accept → relay jo
    - Relay: `http://127.0.0.1:7000/` responds.
 3. **Relay whitelist:** `infra/nostr/nostr-rs-relay.toml` must not block all pubkeys (empty `pubkey_whitelist` blocks everything on `nostr-rs-relay`).
 4. In both clients, ensure workspace relay is exactly `ws://localhost:7000`.
-5. `apps/pwa/.env.local`: `NEXT_PUBLIC_COORDINATION_URL=http://127.0.0.1:8787` (and coordination-only workspace flag if used).
+5. Copy `apps/pwa/.env.example` to `.env.local` and set `NEXT_PUBLIC_COORDINATION_URL=http://127.0.0.1:8787` (and coordination-only workspace flag if used).
 6. Use fresh invite cards (do not reuse cards from prior failed attempts).
 
 ### Manual run procedure (A/B)
