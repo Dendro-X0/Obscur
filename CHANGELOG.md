@@ -24,7 +24,7 @@ All notable changes to Obscur are documented here.
 
 ### Fixed
 
-- **CI reliability-gates** — `pnpm install` before B1 outbound bot test in relay smoke job (fixes `MODULE_NOT_FOUND` for `nostr-tools`).
+- **CI reliability-gates** — `pnpm install` before B1 smokes; outbound bot crypto uses `@noble/curves/secp256k1` via apps/pwa (fixes `nostr-tools` missing + `ERR_REQUIRE_ESM` on `@noble/secp256k1`).
 - **Outbound bots UI** — visible on managed workspaces with member-vote governance; `botPubkeys` in governance proposals.
 - **Desktop online reliability** — coordination directory refresh throttle; DM display-cache LRU + coalesced hydrate; relay primary failover + faster standby probes ([desktop-online-reliability-2026-05.md](docs/program/desktop-online-reliability-2026-05.md)).
 

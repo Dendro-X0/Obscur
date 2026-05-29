@@ -8,9 +8,8 @@ import { fileURLToPath } from "node:url";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const requireFromPwa = createRequire(resolve(repoRoot, "apps/pwa/package.json"));
-const requireFromDwebCrypto = createRequire(resolve(repoRoot, "packages/dweb-crypto/package.json"));
 const { nip19 } = requireFromPwa("nostr-tools");
-const { getPublicKey } = requireFromDwebCrypto("@noble/secp256k1");
+/** CJS entry from apps/pwa — avoids ERR_REQUIRE_ESM on @noble/secp256k1 in CI (Node 20). */
 const { schnorr } = requireFromPwa("@noble/curves/secp256k1");
 
 const SEALED_COMMUNITY_KIND = 10105;
@@ -52,7 +51,7 @@ export const decodePrivateKeyInput = (input) => {
 
 export const derivePublicKeyHexFromPrivate = (privateKeyHex) => {
   const privateKeyBytes = hexToBytes(privateKeyHex);
-  return toHex(getPublicKey(privateKeyBytes, true));
+  return toHex(schnorr.getPublicKey(privateKeyBytes));
 };
 
 const sha256Hex = async (payload) => {
