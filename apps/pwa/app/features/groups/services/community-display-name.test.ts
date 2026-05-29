@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   hasMeaningfulCommunityDisplayName,
   pickPreferredCommunityDisplayName,
+  PLACEHOLDER_GROUP_DISPLAY_NAME,
   resolveCommunityDisplayName,
 } from "./community-display-name";
 
@@ -40,5 +41,31 @@ describe("community-display-name", () => {
     expect(
       pickPreferredCommunityDisplayName("NewTest 1", GROUP_ID, { groupId: GROUP_ID }),
     ).toBe("NewTest 1");
+  });
+
+  it("treats community:v2 conversation ids as opaque display names", () => {
+    const communityId = "community:v2_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    expect(hasMeaningfulCommunityDisplayName(communityId, { communityId })).toBe(false);
+    expect(
+      resolveCommunityDisplayName({
+        persistedDisplayName: communityId,
+        groupId: GROUP_ID,
+        communityId,
+        fallback: "GroupTset 4",
+      }),
+    ).toBe("GroupTset 4");
+  });
+
+  it("never surfaces community id as fallback when name is missing", () => {
+    const communityId = "community:v2_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+    expect(
+      resolveCommunityDisplayName({
+        persistedDisplayName: undefined,
+        metadataName: GROUP_ID,
+        groupId: GROUP_ID,
+        communityId,
+        fallback: communityId,
+      }),
+    ).toBe(PLACEHOLDER_GROUP_DISPLAY_NAME);
   });
 });

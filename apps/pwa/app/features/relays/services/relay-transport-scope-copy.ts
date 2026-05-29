@@ -25,7 +25,7 @@ export const getActiveTransportScopeCopy = (params: Readonly<{
     const poolHosts = params.activePoolRelayUrls
       .map((url) => formatRelayHostname(url))
       .join(", ");
-    return `Redundancy pool (${params.activePoolRelayUrls.length}): ${poolHosts} · primary ${host} · publish-ready ${params.writableRelayCount} · subscribable ${params.subscribableRelayCount}`;
+    return `Nostr redundancy pool (${params.activePoolRelayUrls.length}): ${poolHosts} · primary ${host} · publish-ready ${params.writableRelayCount} · subscribable ${params.subscribableRelayCount}`;
   }
-  return `Active transport: ${host} · publish-ready ${params.writableRelayCount} · subscribable ${params.subscribableRelayCount} · ${params.enabledRelayCount} enabled in list`;
+  return `Nostr active transport: ${host} · publish-ready ${params.writableRelayCount} · subscribable ${params.subscribableRelayCount} · ${params.enabledRelayCount} enabled in list`;
 };

@@ -307,7 +307,7 @@ export default function RelaysSettingsTabPanel(): React.JSX.Element {
     sectionRelays.map((relay: { url: string; enabled: boolean }, index: number) => {
       const health = relayHealthMetricsMap.get(relay.url);
       const inActivePool = options.dmTransport && activePoolRelayUrls.includes(relay.url);
-      const connection = inActivePool ? relayConnectionMap.get(relay.url) : undefined;
+      const connection = relayConnectionMap.get(relay.url);
       const relayRole = options.dmTransport && relay.enabled && !relayRuntime.fallbackRelayUrls.includes(relay.url)
         ? (relaySelection.primaryUrl === relay.url ? "primary" : "standby")
         : (relay.enabled ? "standby" : undefined);
@@ -495,7 +495,7 @@ export default function RelaysSettingsTabPanel(): React.JSX.Element {
                   <p className="text-xs text-zinc-500">
                     {t("settings.relays.connectivityDesc", {
                       defaultValue:
-                        "DM and profile events use enabled public relays in the active transport pool. Workspace communities use per-group relay URLs (candidates below) plus coordination for membership — not the global DM pool. Enabled {{enabled}} of {{total}} total.",
+                        "Nostr DM and profile events use the public relay pool below (basic = one relay, redundancy = up to three). Workspace communities and operator-configured nodes use their own relay URLs and are not limited by this toggle.",
                       enabled: relayList.state.relays.filter((relay: { enabled: boolean }) => relay.enabled).length,
                       total: relayList.state.relays.length,
                       writable: relayRuntime.writableRelayCount,
@@ -537,7 +537,7 @@ export default function RelaysSettingsTabPanel(): React.JSX.Element {
                 title={t("settings.relays.redundancyModeTitle", "Redundancy pool")}
                 description={t(
                   "settings.relays.redundancyModeDesc",
-                  "Connect up to three enabled relays in the active pool. Basic mode uses one primary relay only.",
+                  "Nostr DM transport only: connect up to three enabled public relays in the active pool. Basic mode uses one primary Nostr relay. Custom workspace and operator nodes stay independent.",
                 )}
                 checked={relayTransportMode === "redundancy"}
                 onChange={(enabled: boolean) => {

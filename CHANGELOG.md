@@ -1,3 +1,94 @@
+# Changelog
+
+All notable changes to Obscur are documented here.
+
+**Source of truth:** Detailed release notes, demo matrices, and gate criteria for recent patches live under [`docs/releases/`](docs/releases/) and [`docs/program/v1.8.x-release-train.md`](docs/program/v1.8.x-release-train.md). Where inline changelog updates were missed during fast patch lanes, entries below were **recovered from `/docs`** at tag time.
+
+---
+
+## [v1.8.8] - 2026-05-29 (Managed workspace — Test 8)
+
+**Gate:** [v1.8.8-gate.md](docs/releases/v1.8.8-gate.md). **Release notes:** [v1.8.8-release.md](docs/releases/v1.8.8-release.md). **Demo:** [v1.8.8 demo matrix](docs/assets/demo/v1.8.8/README.md).
+
+Closes the **managed-workspace manual lane** on local infra: coordination + operator relay + two-client **create → invite → accept → sealed group chat** (Test 8).
+
+### Added
+
+- **Group chat header** — Member count, online count (presence evidence), and last activity under the group title ([`chat-header.tsx`](apps/pwa/app/features/messaging/components/chat-header.tsx)).
+- **Group message hydration** — `loadPersistedSealedGroupMessages` on community chat open (Tauri SQLite when available, else scoped `chatStateStore` per profile) ([`sealed-group-message-persistence.ts`](apps/pwa/app/features/groups/services/sealed-group-message-persistence.ts), [`use-sealed-community.ts`](apps/pwa/app/features/groups/hooks/use-sealed-community.ts)).
+- **Post-release roadmap** — [v1.8.9+ managed workspace](docs/program/v1.8.9-plus-managed-workspace-roadmap.md): operator-relay end-to-end deletion, group bots.
+
+### Fixed
+
+- **Relay dev genesis** — Open relay in `infra/nostr/nostr-rs-relay.toml` (empty `pubkey_whitelist` blocks all publishes on `nostr-rs-relay`).
+- **Tauri loopback relay** — Browser WebSocket for localhost relays; alias-aware pool; ephemeral publish fallback; socket-open publish fallback.
+- **Coordination CORS** — OPTIONS preflight no longer returns body on 204 (wrangler 500).
+- **Create/join copy** — No false “relay optional / coordination-only” when `localhost:7000` is configured; genesis-required banner instead.
+- **Leave / member count** — Terminal membership cache events; header uses live CRDT minus left/expelled; `group-provider` stops stale `Math.max` member count after leave.
+- **Build** — `sealed-group-message-persistence.ts` generic close typo (`}>): void`).
+
+### Changed
+
+- **Community workspace activation** — Richer publish errors in toasts; ephemeral WebSocket fallback in publisher.
+- **Participants vs header** — Terminal LEFT/EXCLUDED in modal; chat header reacts to `COMMUNITY_TERMINAL_MEMBERSHIP_UPDATED_EVENT`.
+
+### Documentation
+
+- v1.8.8 scope, gate, demo matrix, release notes, handoff, and release-train synced.
+- Demo matrix records Test 8 pass (`run_id=test8-2026-05-29 outcome=joined`).
+
+### Known limitations
+
+- **Delete for everyone** on open Nostr — not native; hide-on-device + signed hide events ([deletion-roster-limitations.md](docs/messaging/deletion-roster-limitations.md)).
+- **Operator-relay hard delete** and **group bots** — [v1.8.9+ roadmap](docs/program/v1.8.9-plus-managed-workspace-roadmap.md).
+- **Member count lag** — Widen-only roster may briefly show stale count until terminal/relay sync.
+- **Cross-client history** — Local-first per device; each client persists its own copy.
+
+---
+
+## [v1.8.7] - 2026-05-29 (Transport-hard evidence + membership consistency)
+
+**Gate:** [v1.8.7-gate.md](docs/releases/v1.8.7-gate.md). **Scope:** [v1.8.7-scope.md](docs/program/v1.8.7-scope.md). **Demo:** [v1.8.7 demo matrix](docs/assets/demo/v1.8.7/README.md).
+
+*Recovered from `/docs` — changelog entry added at v1.8.8 tag.*
+
+### Added
+
+- **T7-1** — Expanded `community-invite-relay-join.test.ts`: transient retry success, manual retry terminal transitions, retry visibility guards.
+- **T7-2** — Membership surface consistency tests: `invite-to-group-dialog`, `network-dashboard`, `chat-view` → `chat-header` member-count forwarding.
+
+### Changed
+
+- Release confidence docs explicitly separate **proven automation** vs **environment-bound manual soak**.
+
+### Known limitations
+
+- Full staging/public-relay two-client soak remains environment-bound ([v1.8.8 demo](docs/assets/demo/v1.8.8/README.md) closes local managed-workspace lane).
+
+---
+
+## [v1.8.6] - 2026-05-28 (Relay-join owner + membership read-model)
+
+**Gate:** [v1.8.6-gate.md](docs/releases/v1.8.6-gate.md). **Scope:** [v1.8.6-scope.md](docs/program/v1.8.6-scope.md). **Demo:** [v1.8.6 demo matrix](docs/assets/demo/v1.8.6/README.md).
+
+*Recovered from `/docs` — changelog entry added at v1.8.8 tag.*
+
+### Added
+
+- **T6-1/T6-2** — `community-invite-relay-join.ts` + invite-card retry owner (`handleRelayJoinRetry`); deterministic terminal states (`joined`, `retry_scheduled`, `terminal_failed`) and honest user copy.
+- **T6-3/T6-4** — `use-community-membership-read-model-index` as canonical owner for participants, network summary, invite gating, chat header member count.
+- **T6-5** — `scripts/relay-runtime-smoke.mjs`; reliability/release workflows include relay runtime smoke against `nostr-rs-relay` container.
+
+### Fixed
+
+- Parallel fallback read paths removed from modal/network/invite summary consumers.
+
+### Known limitations
+
+- Manual invite→accept→relay-join matrix pending staging evidence at tag time ([v1.8.8](docs/assets/demo/v1.8.8/README.md) supersedes for local infra).
+
+---
+
 ## [v1.5.6] - 2026-05-19 (Mobile Preview + desktop shared kernel)
 
 ### Summary
@@ -140,9 +231,16 @@ Public GitHub release after **v1.8.2**; rolls up Lane **T** (REL-004 + community
 - Relay-backed **group join after accept** (`Complete join on relay`) and full two-profile community chat E2E deferred to **v1.8.4** (transport soak, not roster logic).
 - Group chat on a community relay requires that relay writable in Settings; not a REL-004 claim.
 
-## [v1.8.2] - 2026-05-22
+## [v1.8.2] - 2026-05-22 (Phase 4.2 — manage hub)
 
-**Scope:** [v1.8.2-scope.md](docs/program/v1.8.2-scope.md). **Gate:** [v1.8.2-gate.md](docs/releases/v1.8.2-gate.md). Phase **4.2** — manage hub.
+**Scope:** [v1.8.2-scope.md](docs/program/v1.8.2-scope.md). **Gate:** [v1.8.2-gate.md](docs/releases/v1.8.2-gate.md). **Release notes:** [v1.8.2-release.md](docs/releases/v1.8.2-release.md).
+
+### Added
+
+- **C-4.2** — Tabbed **manage hub** as canonical community settings surface; group home stays daily-use focused.
+- **C-4.2a** — Home copy: Personal controls vs full settings in manage hub.
+- **C-4.2c** — Community mode badge and relay host in manage shell header.
+- **Navigation warm-up** — Critical → context → idle background prefetch; cancels stale work on navigation.
 
 ## [v1.8.1] - 2026-05-22 (Phase 4.1 mode-aware create)
 

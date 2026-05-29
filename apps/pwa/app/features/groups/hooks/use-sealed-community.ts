@@ -47,6 +47,10 @@ import {
   toJoinRequestPendingKey,
 } from "../services/sealed-community-join-request-storage";
 import { isTauri, dbInsertGroupMessage, dbInsertGroupTombstone } from "@dweb/db";
+import {
+  loadPersistedSealedGroupMessages,
+  persistSealedGroupMessages,
+} from "../services/sealed-group-message-persistence";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 import {
@@ -440,6 +444,49 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
     });
   }, [params.groupId, params.myPublicKeyHex, params.relayUrl, profileId]);
 
+  const persistedMessagesHydratedKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    const groupId = params.groupId.trim();
+    const relayUrl = params.relayUrl.trim();
+    if (!groupId || !relayUrl || !params.myPublicKeyHex) {
+      return;
+    }
+    const hydrateKey = `${conversationId}:${params.myPublicKeyHex}:${profileId}`;
+    if (persistedMessagesHydratedKeyRef.current === hydrateKey) {
+      return;
+    }
+    persistedMessagesHydratedKeyRef.current = hydrateKey;
+    let cancelled = false;
+    void loadPersistedSealedGroupMessages({
+      conversationId,
+      groupId,
+      publicKeyHex: params.myPublicKeyHex,
+      profileId,
+    }).then((persisted) => {
+      if (cancelled || persisted.length === 0) {
+        return;
+      }
+      setState((prev: Nip29GroupState): Nip29GroupState => {
+        const merged = mergeGroupMessagesDescending({
+          previous: prev.messages,
+          incoming: persisted,
+        });
+        if (
+          merged.length === prev.messages.length
+          && merged.every((message, index) => message.id === prev.messages[index]?.id)
+        ) {
+          return prev;
+        }
+        return { ...prev, messages: merged, status: "ready" };
+      });
+    }).catch(() => {
+      persistedMessagesHydratedKeyRef.current = null;
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [conversationId, params.groupId, params.myPublicKeyHex, params.relayUrl, profileId]);
+
   useLayoutEffect(() => {
     if (params.enabled === false || typeof sessionStorage === "undefined") {
       return;
@@ -725,7 +772,16 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
         }).catch(() => {});
       });
     }
-  }, [conversationId, params.groupId, params.myPublicKeyHex]);
+
+    if (params.myPublicKeyHex && incomingMessages.length > 0) {
+      persistSealedGroupMessages({
+        conversationId,
+        publicKeyHex: params.myPublicKeyHex as PublicKeyHex,
+        messages: incomingMessages,
+        profileId,
+      });
+    }
+  }, [conversationId, params.groupId, params.myPublicKeyHex, profileId]);
 
   const queueRealtimeMessage = useCallback((entry: Readonly<{ groupMessage: GroupMessageEvent; unifiedMessage: Message }>): void => {
     pendingRealtimeMessagesRef.current.push(entry);
@@ -2350,6 +2406,15 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
 
         return { ...prev, messages: newMessages };
       });
+
+      if (params.myPublicKeyHex) {
+        persistSealedGroupMessages({
+          conversationId,
+          publicKeyHex: params.myPublicKeyHex as PublicKeyHex,
+          messages: [optimisticMsg],
+          profileId,
+        });
+      }
     } catch (e: unknown) {
       toast.error(resolveUserFacingErrorMessage(
         e,

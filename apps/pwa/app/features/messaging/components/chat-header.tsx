@@ -19,6 +19,8 @@ import { Bell, BellOff, Copy, PhoneCall } from "lucide-react";
 export interface ChatHeaderProps {
     conversation: Conversation;
     groupMemberCount?: number;
+    groupOnlineMemberCount?: number;
+    groupLastActivityAtMs?: number;
     isOnline?: boolean;
     interactionStatus?: Readonly<{ lastActiveAtMs?: number; lastViewedAtMs?: number }>;
     nowMs?: number | null;
@@ -52,6 +54,8 @@ export interface ChatHeaderProps {
 export function ChatHeader({
     conversation,
     groupMemberCount,
+    groupOnlineMemberCount,
+    groupLastActivityAtMs,
     isOnline = false,
     interactionStatus,
     nowMs,
@@ -134,6 +138,14 @@ export function ChatHeader({
     const lastViewedLabel = (
         interactionStatus?.lastViewedAtMs
             ? formatTime(new Date(interactionStatus.lastViewedAtMs), resolvedNowMs)
+            : ""
+    );
+    const resolvedGroupMemberCount = groupMemberCount ?? (
+        conversation.kind === "group" ? conversation.memberPubkeys.length : 0
+    );
+    const groupLastActivityLabel = (
+        groupLastActivityAtMs
+            ? formatTime(new Date(groupLastActivityAtMs), resolvedNowMs)
             : ""
     );
     const handleToggleConversationNotifications = React.useCallback(() => {
@@ -220,6 +232,35 @@ export function ChatHeader({
                                 : t("messaging.deletedAccountNoActivity", "Contact removed")}
                             {!isDeletedRecipient && lastViewedLabel ? ` | Last viewed ${lastViewedLabel}` : ""}
                         </p>
+                    ) : conversation.kind === "group" ? (
+                        <p className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+                            <span>
+                                {t("messaging.membersCount", { count: resolvedGroupMemberCount })}
+                            </span>
+                            {groupOnlineMemberCount !== undefined ? (
+                                <>
+                                    <span className="mx-1.5 text-zinc-400 dark:text-zinc-500">·</span>
+                                    <span className="inline-flex items-center gap-1.5">
+                                        <span className={`h-1.5 w-1.5 rounded-full ${groupOnlineMemberCount > 0 ? "bg-emerald-500" : "bg-zinc-400 dark:bg-zinc-600"}`} />
+                                        <span className={groupOnlineMemberCount > 0 ? "text-emerald-600 dark:text-emerald-400" : ""}>
+                                            {t("messaging.groupOnlineCount", {
+                                                count: groupOnlineMemberCount,
+                                                defaultValue: "{{count}} online",
+                                            })}
+                                        </span>
+                                    </span>
+                                </>
+                            ) : null}
+                            <span className="mx-1.5 text-zinc-400 dark:text-zinc-500">·</span>
+                            <span>
+                                {groupLastActivityLabel
+                                    ? t("messaging.groupLastActivity", {
+                                        time: groupLastActivityLabel,
+                                        defaultValue: "Last activity {{time}}",
+                                    })
+                                    : t("messaging.groupNoRecentActivity", "No recent activity")}
+                            </span>
+                        </p>
                     ) : null}
                     <div className="mt-3 flex items-center gap-2">
                         {conversation.kind === "dm" ? (
@@ -251,13 +292,7 @@ export function ChatHeader({
                                             : t("messaging.voiceCall", "Voice Call"))}
                                 </Button>
                             </>
-                        ) : (
-                            <p className="text-xs text-zinc-600 dark:text-zinc-400">
-                                {t("messaging.membersCount", {
-                                    count: groupMemberCount ?? conversation.memberPubkeys.length,
-                                })}
-                            </p>
-                        )}
+                        ) : null}
                         <Button type="button" variant="secondary" className="px-2 py-1" onClick={onOpenMedia}>
                             {t("messaging.media")}
                         </Button>

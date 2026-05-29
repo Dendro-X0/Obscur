@@ -6,6 +6,7 @@ import {
     type RelayProbeReport,
     type RelayStatusPayload,
 } from "./relay-native-adapter";
+import { workspaceRelayUrlsMatch } from "@/app/features/groups/services/workspace-relay-url";
 import { logRuntimeEvent } from "@/app/shared/runtime-log-classification";
 
 const formatRelayProbeReport = (report: RelayProbeReport): string => {
@@ -215,7 +216,7 @@ export class NativeRelay implements EventTarget {
     private async initListeners() {
         this.unlistenStatus = await relayNativeAdapter.listenRelayStatus((event: { payload?: RelayStatusPayload }) => {
             if (!event.payload) return;
-            if (event.payload.url !== this.url) return;
+            if (!workspaceRelayUrlsMatch(event.payload.url, this.url)) return;
 
             const status = event.payload.status;
             if (status === "connected") {
@@ -263,10 +264,7 @@ export class NativeRelay implements EventTarget {
         this.unlistenMessage = await relayNativeAdapter.listenRelayEvent((event: { payload?: RelayMessagePayload }) => {
             if (!event.payload) return;
             // FIX: Normalize URLs for comparison to avoid mismatch issues
-            const eventUrl = event.payload.relay_url.replace(/\/$/, "");
-            const thisUrl = this.url.replace(/\/$/, "");
-
-            if (eventUrl !== thisUrl) return;
+            if (!workspaceRelayUrlsMatch(event.payload.relay_url, this.url)) return;
 
             const data = JSON.stringify(event.payload.payload);
             const messageEvent = new MessageEvent("message", { data });
@@ -362,10 +360,9 @@ export class NativeRelay implements EventTarget {
 
     public async send(data: string | ArrayBufferLike | Blob | ArrayBufferView): Promise<void> {
         if (this.readyState !== NativeRelay.OPEN) {
-            logRuntimeEvent("native_relay.send_not_open", "expected", [
-                `WebSocket is not open: readyState=${this.readyState}`,
-            ]);
-            return;
+            const message = `WebSocket is not open: readyState=${this.readyState}`;
+            logRuntimeEvent("native_relay.send_not_open", "expected", [message]);
+            throw new Error(message);
         }
 
         if (this.transportMode === "browser" && this.socket) {

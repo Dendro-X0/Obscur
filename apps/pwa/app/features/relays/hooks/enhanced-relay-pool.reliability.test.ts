@@ -7,6 +7,33 @@ describe("enhanced-relay-pool reliability internals", () => {
     relayHealthMonitor.clearAllMetrics();
   });
 
+  it("matches pending OK resolvers across localhost and 127.0.0.1 aliases", () => {
+    const resolvers = new Map<string, {
+      resolve: (result: PublishResult) => void;
+      timer: NodeJS.Timeout;
+      startTime: number;
+    }>();
+    let resolved: PublishResult | null = null;
+    const timer = setTimeout(() => undefined, 60_000);
+    resolvers.set("ws://127.0.0.1:7000:abc123", {
+      resolve: (result) => {
+        resolved = result;
+      },
+      timer,
+      startTime: Date.now(),
+    });
+    const matched = relayReliabilityInternals.resolvePendingOkResolver(
+      resolvers,
+      "ws://localhost:7000",
+      "abc123",
+    );
+    clearTimeout(timer);
+    expect(matched).not.toBeNull();
+    expect(resolvers.size).toBe(0);
+    matched!.pending.resolve({ success: true, relayUrl: "ws://localhost:7000" });
+    expect(resolved).toEqual({ success: true, relayUrl: "ws://localhost:7000" });
+  });
+
   it("treats relay pool snapshots as equal when only timestamps drift", () => {
     const snapshot = {
       connections: [{ url: "wss://relay.example", status: "open" as const, updatedAtUnixMs: 1 }],
@@ -17,6 +44,19 @@ describe("enhanced-relay-pool reliability internals", () => {
       healthMetrics: [],
     };
     expect(relayReliabilityInternals.areRelayPoolSnapshotsEqual(snapshot, next)).toBe(true);
+  });
+
+  it("treats duplicate OK on local workspace relay as publish success", () => {
+    expect(relayReliabilityInternals.isLocalWorkspaceRelayDuplicateOk(
+      "ws://localhost:7000",
+      false,
+      "duplicate: already have event",
+    )).toBe(true);
+    expect(relayReliabilityInternals.isLocalWorkspaceRelayDuplicateOk(
+      "ws://localhost:7000",
+      false,
+      "invalid: bad signature",
+    )).toBe(false);
   });
 
   it("does not notify subscribers when the relay snapshot is unchanged", () => {

@@ -15,5 +15,5 @@ messages_per_sec = 200
 subscriptions_per_min = 200
 
 [authorization]
-# Open relay for local development
-pubkey_whitelist = []
+# Open relay for local development: leave pubkey_whitelist unset (commented).
+#pubkey_whitelist = []

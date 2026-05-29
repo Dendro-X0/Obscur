@@ -22,6 +22,7 @@
     "groups/services/group-service.ts",
     "groups/services/sealed-community-relay-publish-retry.ts",
     "groups/services/sealed-community-relay-scope.ts",
+    "groups/services/workspace-relay-url.ts",
     "groups/utils/community-identity.ts",
     "invites/utils/nostr-compatibility.ts",
     "main-shell/hooks/use-chat-actions.ts",

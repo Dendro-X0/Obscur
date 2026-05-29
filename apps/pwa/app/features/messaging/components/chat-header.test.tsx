@@ -17,6 +17,13 @@ vi.mock("react-i18next", () => ({
       if (_key === "messaging.membersCount" && typeof fallbackOrOptions === "object") {
         return `${fallbackOrOptions.count ?? 0} members`;
       }
+      if (_key === "messaging.groupOnlineCount" && typeof fallbackOrOptions === "object") {
+        return `${fallbackOrOptions.count ?? 0} online`;
+      }
+      if (_key === "messaging.groupLastActivity" && typeof fallbackOrOptions === "object") {
+        const time = (fallbackOrOptions as { time?: string }).time ?? "";
+        return `Last activity ${time}`;
+      }
       return typeof fallbackOrOptions === "string" ? fallbackOrOptions : _key;
     },
   }),
@@ -134,7 +141,18 @@ describe("ChatHeader", () => {
       access: "invite-only",
       adminPubkeys: [],
     };
-    render(<ChatHeader {...createProps()} conversation={groupConversation} groupMemberCount={2} />);
+    render(
+      <ChatHeader
+        {...createProps()}
+        conversation={groupConversation}
+        groupMemberCount={2}
+        groupOnlineMemberCount={1}
+        groupLastActivityAtMs={Date.now() - 30_000}
+        nowMs={Date.now()}
+      />,
+    );
     expect(screen.getByText("2 members")).toBeInTheDocument();
+    expect(screen.getByText("1 online")).toBeInTheDocument();
+    expect(screen.getByText(/Last activity/i)).toBeInTheDocument();
   });
 });

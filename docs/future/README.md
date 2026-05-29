@@ -38,3 +38,5 @@ Nothing in this directory is a commitment to ship on a date. It is **inspiration
 1. Implement kernel behavior via **v1.9.x Lane K** and port contracts in `packages/` — see [v1.9.0-kernel-backend-spec.md](../program/v1.9.0-kernel-backend-spec.md).
 2. v1.8.x work may **reference** these docs for honesty but must not expand kernel scope before v1.9.0 B0.
 3. When a concept graduates to product truth, move or merge it into `docs/encyclopedia/` or `docs/architecture/` and trim duplication here.
+
+**Post–v1.8.8 product roadmap (managed infra):** [v1.8.9+ managed workspace roadmap](../program/v1.8.9-plus-managed-workspace-roadmap.md) — operator-relay end-to-end deletion, group bots. Complements [deletion-roster-limitations.md](../messaging/deletion-roster-limitations.md) and [cooperative-redaction-future.md](../messaging/cooperative-redaction-future.md).

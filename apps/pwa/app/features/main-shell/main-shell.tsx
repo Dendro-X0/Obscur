@@ -67,6 +67,12 @@ import { useRelay } from "@/app/features/relays/providers/relay-provider";
 import { useContactRelayOverlap } from "@/app/features/messaging/hooks/use-contact-relay-overlap";
 import { useGroups } from "@/app/features/groups/providers/group-provider";
 import { useCommunityMembershipReadModelIndex } from "@/app/features/groups/hooks/use-community-membership-read-model-index";
+import {
+  COMMUNITY_TERMINAL_MEMBERSHIP_UPDATED_EVENT,
+  loadCommunityTerminalMembershipCache,
+} from "@/app/features/groups/services/community-terminal-membership-cache";
+import { dedupeCommunityMemberPubkeys } from "@/app/features/groups/services/community-member-roster-projection";
+import { workspaceRelayUrlsMatch } from "@/app/features/groups/services/workspace-relay-url";
 import { PinLockService } from "@/app/features/auth/services/pin-lock-service";
 
 import { useInviteRedemption } from "./hooks/use-invite-redemption";
@@ -299,7 +305,7 @@ function NostrMessengerContent() {
     && !isGroupCommunityHomeRoute
     && selectedGroupHasRelayTransport
   );
-  const { state: groupState } = useSealedCommunity({
+  const { state: groupState, members: sealedCommunityMembers } = useSealedCommunity({
     pool: relayPool,
     relayUrl: selectedConversation?.kind === 'group' ? (selectedConversation as GroupConversation).relayUrl : '',
     groupId: selectedConversation?.kind === 'group' ? (selectedConversation as GroupConversation).groupId : '',
@@ -566,6 +572,54 @@ function NostrMessengerContent() {
   ]);
 
   const selectedConversationView = selectedConversation ? applyConnectionOverrides(selectedConversation, connectionOverridesByConnectionId) : null;
+  const [selectedGroupTerminalRevision, setSelectedGroupTerminalRevision] = useState(0);
+  useEffect(() => {
+    if (selectedConversationView?.kind !== "group" || typeof window === "undefined") {
+      return;
+    }
+    const selectedGroupId = selectedConversationView.groupId;
+    const selectedRelayUrl = selectedConversationView.relayUrl;
+    const onTerminalMembershipUpdated = (event: Event) => {
+      const detail = (event as CustomEvent<Readonly<{ groupId?: string; relayUrl?: string }>>).detail;
+      if (
+        detail?.groupId !== selectedGroupId
+        || !detail?.relayUrl
+        || !workspaceRelayUrlsMatch(detail.relayUrl, selectedRelayUrl)
+      ) {
+        return;
+      }
+      setSelectedGroupTerminalRevision((value) => value + 1);
+    };
+    window.addEventListener(COMMUNITY_TERMINAL_MEMBERSHIP_UPDATED_EVENT, onTerminalMembershipUpdated);
+    return () => {
+      window.removeEventListener(COMMUNITY_TERMINAL_MEMBERSHIP_UPDATED_EVENT, onTerminalMembershipUpdated);
+    };
+  }, [selectedConversationView]);
+  const selectedGroupTerminalMembership = useMemo(() => {
+    if (selectedConversationView?.kind !== "group") {
+      return null;
+    }
+    const cached = loadCommunityTerminalMembershipCache({
+      groupId: selectedConversationView.groupId,
+      relayUrl: selectedConversationView.relayUrl,
+    });
+    return {
+      leftMemberPubkeys: dedupeCommunityMemberPubkeys([
+        ...(cached?.leftMemberPubkeys ?? []),
+        ...(groupState.leftMembers ?? []),
+      ] as ReadonlyArray<PublicKeyHex>),
+      expelledMemberPubkeys: dedupeCommunityMemberPubkeys([
+        ...(cached?.expelledMemberPubkeys ?? []),
+        ...(groupState.expelledMembers ?? []),
+      ] as ReadonlyArray<PublicKeyHex>),
+    };
+  }, [
+    groupState.expelledMembers,
+    groupState.leftMembers,
+    selectedConversationView,
+    selectedGroupTerminalRevision,
+  ]);
+
   const selectedGroupMembershipReadModel = useCommunityMembershipReadModelIndex({
     ownerPubkey: myPublicKeyHex as PublicKeyHex | null,
     groups: useMemo(() => {
@@ -579,23 +633,81 @@ function NostrMessengerContent() {
         directoryParticipantPubkeys: (
           communityKnownParticipantDirectoryByConversationId[selectedConversationView.id]?.participantPubkeys ?? []
         ) as ReadonlyArray<PublicKeyHex>,
-        persistedGroupMemberPubkeys: (selectedConversationView.memberPubkeys ?? []) as ReadonlyArray<PublicKeyHex>,
+        persistedGroupMemberPubkeys: (
+          communityRosterByConversationId[selectedConversationView.id]?.activeMemberPubkeys
+          ?? selectedConversationView.memberPubkeys
+          ?? []
+        ) as ReadonlyArray<PublicKeyHex>,
         projectionMemberPubkeys: (
           communityRosterByConversationId[selectedConversationView.id]?.activeMemberPubkeys ?? undefined
         ) as ReadonlyArray<PublicKeyHex> | undefined,
         rosterSeedPubkeys: (selectedConversationView.memberPubkeys ?? []) as ReadonlyArray<PublicKeyHex>,
         localMemberPubkey: myPublicKeyHex as PublicKeyHex | null,
+        leftMemberPubkeys: selectedGroupTerminalMembership?.leftMemberPubkeys ?? [],
+        expelledMemberPubkeys: selectedGroupTerminalMembership?.expelledMemberPubkeys ?? [],
+        applyTerminalMembershipExclusions: true,
       }];
     }, [
       communityKnownParticipantDirectoryByConversationId,
       communityRosterByConversationId,
       myPublicKeyHex,
       selectedConversationView,
+      selectedGroupTerminalMembership,
     ]),
   });
-  const selectedGroupMemberCount = selectedConversationView?.kind === "group"
-    ? (selectedGroupMembershipReadModel[selectedConversationView.id]?.memberCount ?? 1)
-    : undefined;
+
+  const selectedGroupActiveMemberPubkeys = useMemo((): ReadonlyArray<PublicKeyHex> => {
+    if (selectedConversationView?.kind !== "group") {
+      return [];
+    }
+    const projection = communityRosterByConversationId[selectedConversationView.id];
+    const leftSet = new Set(
+      (selectedGroupTerminalMembership?.leftMemberPubkeys ?? [])
+        .map((pubkey) => pubkey.trim().toLowerCase()),
+    );
+    const expelledSet = new Set(
+      (selectedGroupTerminalMembership?.expelledMemberPubkeys ?? [])
+        .map((pubkey) => pubkey.trim().toLowerCase()),
+    );
+    const isActive = (pubkey: PublicKeyHex): boolean => {
+      const normalized = pubkey.trim().toLowerCase();
+      return normalized.length > 0 && !leftSet.has(normalized) && !expelledSet.has(normalized);
+    };
+    const liveActive = sealedCommunityMembers.filter(isActive);
+    if (liveActive.length > 0) {
+      return liveActive;
+    }
+    const projectionActive = (projection?.activeMemberPubkeys ?? []).filter(isActive);
+    if (projectionActive.length > 0) {
+      return projectionActive;
+    }
+    const readModelCount = selectedGroupMembershipReadModel[selectedConversationView.id]?.memberCount ?? 1;
+    const fallbackPubkeys = (selectedConversationView.memberPubkeys ?? []).filter(isActive);
+    if (fallbackPubkeys.length > 0) {
+      return fallbackPubkeys.slice(0, Math.max(1, readModelCount));
+    }
+    return [];
+  }, [
+    communityRosterByConversationId,
+    sealedCommunityMembers,
+    selectedConversationView,
+    selectedGroupMembershipReadModel,
+    selectedGroupTerminalMembership,
+  ]);
+
+  const selectedGroupMemberCount = useMemo(() => {
+    if (selectedConversationView?.kind !== "group") {
+      return undefined;
+    }
+    if (selectedGroupActiveMemberPubkeys.length > 0) {
+      return Math.max(1, selectedGroupActiveMemberPubkeys.length);
+    }
+    return selectedGroupMembershipReadModel[selectedConversationView.id]?.memberCount ?? 1;
+  }, [
+    selectedConversationView,
+    selectedGroupActiveMemberPubkeys,
+    selectedGroupMembershipReadModel,
+  ]);
 
   const isMobileDmShell = isMobileShellProduct();
   const handleLeaveMobileThread = useCallback(() => {
@@ -3304,6 +3416,34 @@ function NostrMessengerContent() {
     });
   }, [nowMs, peerLastActiveByPeerPubkey, presence]);
 
+  const selectedGroupOnlineMemberCount = useMemo(() => {
+    if (selectedConversationView?.kind !== "group") {
+      return undefined;
+    }
+    if (selectedGroupActiveMemberPubkeys.length === 0) {
+      return 0;
+    }
+    return selectedGroupActiveMemberPubkeys.filter((pubkey) => isPeerOnlineByEvidence(pubkey)).length;
+  }, [isPeerOnlineByEvidence, selectedConversationView, selectedGroupActiveMemberPubkeys]);
+
+  const selectedGroupLastActivityAtMs = useMemo(() => {
+    if (selectedConversationView?.kind !== "group") {
+      return undefined;
+    }
+    let latestMs: number | undefined;
+    groupState.messages.forEach((message) => {
+      const messageMs = message.created_at * 1000;
+      if (!latestMs || messageMs > latestMs) {
+        latestMs = messageMs;
+      }
+    });
+    const conversationLastMs = selectedConversationView.lastMessageTime?.getTime();
+    if (conversationLastMs && (!latestMs || conversationLastMs > latestMs)) {
+      latestMs = conversationLastMs;
+    }
+    return latestMs;
+  }, [groupState.messages, selectedConversationView]);
+
   const handleUnlock = async (passphrase: string) => {
     setIsUnlocking(true);
     try {
@@ -3721,6 +3861,8 @@ function NostrMessengerContent() {
     <ChatView
             conversation={selectedConversationView}
             groupMemberCount={selectedGroupMemberCount}
+            groupOnlineMemberCount={selectedGroupOnlineMemberCount}
+            groupLastActivityAtMs={selectedGroupLastActivityAtMs}
             isPeerOnline={
               selectedConversationView.kind === "dm"
                 ? isPeerOnlineByEvidence(selectedConversationView.pubkey)

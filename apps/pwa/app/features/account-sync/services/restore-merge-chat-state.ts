@@ -9,32 +9,18 @@ import type { CommunityMembershipLedgerEntry } from "@/app/features/groups/servi
 import type { EncryptedAccountBackupPayload, MessageDeleteTombstoneSnapshotEntry } from "../account-sync-contracts";
 import { emitRestoreDeleteTargetUnresolved } from "./restore-merge-diagnostics";
 import { toCommunityMembershipLedgerKey } from "@/app/features/groups/services/community-membership-ledger";
+import { pickPreferredCommunityDisplayName } from "@/app/features/groups/services/community-display-name";
 import { sanitizeRestoredChatStateLiveCommunitySignals } from "./restore-live-community-boundary";
 
 export const uniqueStrings = (values: ReadonlyArray<string>): ReadonlyArray<string> =>
   Array.from(new Set(values.filter((value) => value.length > 0)));
 
-const PLACEHOLDER_GROUP_DISPLAY_NAME = "Private Group";
 const HASHED_COMMUNITY_ID_PATTERN = /^v2_[0-9a-f]{64}$/i;
-
-const hasMeaningfulGroupDisplayName = (value: string | undefined): boolean => {
-  const trimmed = value?.trim() ?? "";
-  return trimmed.length > 0 && trimmed !== PLACEHOLDER_GROUP_DISPLAY_NAME;
-};
 
 export const pickPreferredGroupDisplayName = (
   newerName: string | undefined,
   olderName: string | undefined,
-): string => {
-  if (hasMeaningfulGroupDisplayName(newerName)) {
-    return (newerName ?? "").trim();
-  }
-  if (hasMeaningfulGroupDisplayName(olderName)) {
-    return (olderName ?? "").trim();
-  }
-  const fallback = (newerName ?? "").trim() || (olderName ?? "").trim();
-  return fallback.length > 0 ? fallback : PLACEHOLDER_GROUP_DISPLAY_NAME;
-};
+): string => pickPreferredCommunityDisplayName(newerName, olderName);
 
 export const isHashedCommunityId = (value: string | undefined): boolean => {
   const trimmed = value?.trim() ?? "";
@@ -695,11 +681,23 @@ const toPersistedGroupMergeKey = (group: PersistedChatState["createdGroups"][num
  * Check if a display name is meaningful (not empty and not the default placeholder).
  * This prevents placeholder names from overwriting actual group names during restore.
  */
-const isMeaningfulDisplayName = (name: string | undefined): boolean => {
-  if (!name || name.trim().length === 0) return false;
-  const PLACEHOLDER_NAMES = ["Private Group", "Group", ""];
-  return !PLACEHOLDER_NAMES.includes(name.trim());
-};
+const mergePersistedGroupDisplayName = (
+  newer: PersistedChatState["createdGroups"][number],
+  older: PersistedChatState["createdGroups"][number],
+  context: Readonly<{
+    groupId: string;
+    communityId?: string;
+    conversationId: string;
+  }>,
+): string => pickPreferredCommunityDisplayName(
+  newer.displayName,
+  older.displayName,
+  {
+    groupId: context.groupId,
+    communityId: context.communityId,
+    conversationId: context.conversationId,
+  },
+);
 
 const mergePersistedGroupConversations = (
   current: PersistedChatState["createdGroups"],
@@ -773,11 +771,11 @@ const mergePersistedGroupConversations = (
       communityId: mergedCommunityIdCandidate,
       genesisEventId: mergedGenesisEventId,
       creatorPubkey: mergedCreatorPubkey,
-      displayName: isMeaningfulDisplayName(newer.displayName)
-        ? newer.displayName
-        : isMeaningfulDisplayName(older.displayName)
-          ? older.displayName
-          : (newer.displayName || older.displayName || "Private Group"),
+      displayName: mergePersistedGroupDisplayName(newer, older, {
+        groupId: mergedGroupId,
+        communityId: mergedCommunityIdCandidate,
+        conversationId: mergedConversationId,
+      }),
       memberPubkeys: mergedMemberPubkeys,
       adminPubkeys: mergedAdminPubkeys,
       memberCount: Math.max(

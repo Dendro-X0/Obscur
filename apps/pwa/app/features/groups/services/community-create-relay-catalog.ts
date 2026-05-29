@@ -4,6 +4,7 @@ import { deriveRelayNodeStatus, type RelayUiStatus } from "@/app/features/relays
 import { hasWritableCommunityRelayTransport } from "./community-relay-transport";
 import { isPublicDefaultRelayHost, normalizeRelayHost } from "./community-mode-contract";
 import { isCommunityRelayCandidateUrl } from "@/app/features/relays/services/relay-transport-scope";
+import { normalizeWorkspaceRelayUrl } from "./workspace-relay-url";
 
 export type CommunityCreateRelayOption = Readonly<{
     host: string;
@@ -20,10 +21,9 @@ const hostFromRelayUrl = (relayUrl: string): string => (
     relayUrl.replace(/^wss?:\/\//i, "").replace(/\/$/, "")
 );
 
-const normalizeRelayUrlForMatch = (relayUrl: string): string => {
-    const trimmed = relayUrl.trim();
-    return trimmed.startsWith("ws") ? trimmed : `wss://${trimmed}`;
-};
+const normalizeRelayUrlForMatch = (relayUrl: string): string => (
+    normalizeWorkspaceRelayUrl(relayUrl)
+);
 
 const findConnectionForRelay = (
     relayUrl: string,
@@ -38,7 +38,6 @@ const findConnectionForRelay = (
 export const resolveCommunityCreateRelayOptions = (params: Readonly<{
     relays: ReadonlyArray<{ url: string; enabled: boolean }>;
     connections: ReadonlyArray<RelayConnection>;
-    activePoolRelayUrls?: ReadonlyArray<string>;
     getHealth?: (relayUrl: string) => RelayHealthMetrics | undefined;
     forManagedWorkspace?: boolean;
     /** When true, private/intranet hosts stay selectable even if the socket is disconnected (coordination-only dev). */
@@ -46,9 +45,6 @@ export const resolveCommunityCreateRelayOptions = (params: Readonly<{
 }>): ReadonlyArray<CommunityCreateRelayOption> => {
     const forManagedWorkspace = params.forManagedWorkspace !== false;
     const allowDisconnectedPrivateRelays = params.allowDisconnectedPrivateRelays === true;
-    const activePool = new Set(
-        (params.activePoolRelayUrls ?? []).map((url) => normalizeRelayUrlForMatch(url).toLowerCase()),
-    );
     const options: CommunityCreateRelayOption[] = [];
 
     for (const relay of params.relays) {
@@ -58,10 +54,7 @@ export const resolveCommunityCreateRelayOptions = (params: Readonly<{
         const relayUrl = normalizeRelayUrlForMatch(relay.url);
         const host = hostFromRelayUrl(relayUrl);
         const isPublicDefault = isPublicDefaultRelayHost(host);
-        const inActivePool = activePool.has(relayUrl.toLowerCase());
-        const connection = inActivePool
-            ? findConnectionForRelay(relayUrl, params.connections)
-            : undefined;
+        const connection = findConnectionForRelay(relayUrl, params.connections);
         const metrics = params.getHealth?.(relayUrl);
         const nodeStatus = deriveRelayNodeStatus({
             url: relayUrl,

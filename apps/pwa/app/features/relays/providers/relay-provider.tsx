@@ -39,6 +39,11 @@ import {
   resolveCommunityCandidateRelayUrls,
   resolveDmTransportRelayUrls,
 } from "../services/relay-transport-scope";
+import {
+  mergeNostrPoolWithCustomNodeRelayUrls,
+  resolveEnabledCustomNodeRelayUrls,
+} from "../services/relay-custom-node-pool";
+import { readOperatorWorkspaceRelayUrl } from "@/app/features/groups/services/operator-trust-config";
 import { ExperimentRelayShell } from "./experiment-relay-shell";
 
 interface RelayContextType {
@@ -148,21 +153,75 @@ const FullRelayProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     hintsSignature,
   ]);
 
+  const [operatorWorkspaceRelayUrl, setOperatorWorkspaceRelayUrl] = useState<string | null>(
+    () => (typeof window === "undefined" ? null : readOperatorWorkspaceRelayUrl()),
+  );
+
   useEffect(() => {
-    if (enabledRelayUrls.length === 0) {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const refreshOperatorRelay = (): void => {
+      setOperatorWorkspaceRelayUrl(readOperatorWorkspaceRelayUrl());
+    };
+    refreshOperatorRelay();
+    const onStorage = (event: StorageEvent): void => {
+      if (!event.key || event.key.includes("obscur.operator.workspace_relay")) {
+        refreshOperatorRelay();
+      }
+    };
+    const onOperatorTrustChanged = (): void => {
+      refreshOperatorRelay();
+    };
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("obscur:operator-trust-config-changed", onOperatorTrustChanged);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("obscur:operator-trust-config-changed", onOperatorTrustChanged);
+    };
+  }, []);
+
+  const customNodeRelayUrls = useMemo(() => (
+    resolveEnabledCustomNodeRelayUrls({
+      communityCandidateRelayUrls,
+      operatorWorkspaceRelayUrl,
+    })
+  ), [communityCandidateRelayUrls.join("|"), operatorWorkspaceRelayUrl]);
+
+  const poolConnectionRelayUrls = useMemo(() => (
+    mergeNostrPoolWithCustomNodeRelayUrls({
+      nostrActivePoolRelayUrls: activePoolRelayUrls,
+      customNodeRelayUrls,
+    })
+  ), [activePoolRelayUrls.join("|"), customNodeRelayUrls.join("|")]);
+
+  useEffect(() => {
+    if (enabledRelayUrls.length === 0 && customNodeRelayUrls.length === 0) {
       setPoolRelayUrls([]);
       return;
     }
     if (!transportBootstrapReady) {
-      const bootstrapUrl = enabledRelayUrls[0]!;
+      const bootstrapUrl = poolConnectionRelayUrls[0]
+        ?? enabledRelayUrls[0]
+        ?? customNodeRelayUrls[0];
+      if (!bootstrapUrl) {
+        setPoolRelayUrls([]);
+        return;
+      }
       setPoolRelayUrls((previous) => (
         previous.length === 1 && previous[0] === bootstrapUrl ? previous : [bootstrapUrl]
       ));
       return;
     }
-    const nextKey = activePoolRelayUrls.join("|");
-    setPoolRelayUrls((previous) => (previous.join("|") === nextKey ? previous : activePoolRelayUrls));
-  }, [enabledRelayUrlsKey, enabledRelayUrls, transportBootstrapReady, activePoolRelayUrls]);
+    const nextKey = poolConnectionRelayUrls.join("|");
+    setPoolRelayUrls((previous) => (previous.join("|") === nextKey ? previous : poolConnectionRelayUrls));
+  }, [
+    enabledRelayUrlsKey,
+    enabledRelayUrls,
+    transportBootstrapReady,
+    poolConnectionRelayUrls,
+    customNodeRelayUrls.join("|"),
+  ]);
 
   const standbyProbeUrls = useMemo(() => (
     resolveStandbyProbeUrls({

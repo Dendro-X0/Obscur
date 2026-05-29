@@ -5,6 +5,7 @@ import { RelayDashboard, buildOrderedRelayDashboardUrls } from "./relay-dashboar
 vi.mock("@/app/features/relays/providers/relay-provider", () => ({
   useRelay: vi.fn(() => ({
     enabledRelayUrls: ["wss://relay.damus.io"],
+    communityCandidateRelayUrls: [],
     activePoolRelayUrls: ["wss://relay.damus.io"],
     relaySelection: {
       primaryUrl: "wss://relay.damus.io",
@@ -77,6 +78,7 @@ describe("RelayDashboard", () => {
     const { useRelay } = await import("@/app/features/relays/providers/relay-provider");
     vi.mocked(useRelay).mockReturnValue({
       enabledRelayUrls: ["wss://relay.empty.example"],
+      communityCandidateRelayUrls: [],
       activePoolRelayUrls: ["wss://relay.empty.example"],
       relaySelection: {
         primaryUrl: "wss://relay.empty.example",
@@ -112,5 +114,50 @@ describe("RelayDashboard", () => {
     render(<RelayDashboard />);
 
     expect(screen.getByText("No latency samples yet")).toBeInTheDocument();
+  });
+
+  it("labels an enabled workspace relay as connected when its socket is open", async () => {
+    const { useRelay } = await import("@/app/features/relays/providers/relay-provider");
+    vi.mocked(useRelay).mockReturnValue({
+      enabledRelayUrls: ["wss://relay.damus.io"],
+      communityCandidateRelayUrls: ["ws://localhost:7000"],
+      activePoolRelayUrls: ["wss://relay.damus.io"],
+      relaySelection: {
+        primaryUrl: "wss://relay.damus.io",
+      },
+      relayPool: {
+        connections: [
+          { url: "wss://relay.damus.io", status: "open", updatedAtUnixMs: 1 },
+          { url: "ws://localhost:7000", status: "open", updatedAtUnixMs: 1 },
+        ],
+        healthMetrics: [
+          {
+            url: "ws://localhost:7000",
+            status: "connected",
+            connectionAttempts: 1,
+            successfulConnections: 1,
+            failedConnections: 0,
+            latency: 82,
+            latencyHistory: [76, 82],
+            successRate: 100,
+            circuitBreakerState: "closed",
+            circuitBreakerFailureCount: 0,
+            retryCount: 0,
+            backoffDelay: 1000,
+          },
+        ],
+      },
+      relayRuntime: {
+        phase: "healthy",
+        lastInboundEventAtUnixMs: Date.now(),
+        fallbackRelayUrls: [],
+      },
+    } as any);
+
+    render(<RelayDashboard category="intranet" />);
+
+    expect(screen.getByText("ws://localhost:7000")).toBeInTheDocument();
+    expect(screen.getAllByText("Connected").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Disabled")).not.toBeInTheDocument();
   });
 });

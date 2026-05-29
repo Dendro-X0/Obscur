@@ -2,6 +2,7 @@ import type { NostrEvent } from "@dweb/nostr/nostr-event";
 import { normalizeRelayUrl as normalizeRelayUrlBase } from "@dweb/nostr/relay-utils";
 import type { NostrFilter } from "@/app/features/relays/types/nostr-filter";
 import { hasWritableCommunityRelayTransport } from "./community-relay-transport";
+import { normalizeWorkspaceRelayUrl } from "./workspace-relay-url";
 
 export type SealedCommunityNostrPool = Readonly<{
   sendToOpen: (payload: string) => void;
@@ -35,13 +36,11 @@ export type SealedCommunityPublishResult = Readonly<{
   latency?: number;
 }>;
 
-export const normalizeSealedCommunityRelayUrl = (relayUrl: string): string => {
-  const normalized = normalizeRelayUrlBase(relayUrl);
-  if (/^[a-z]+:\/\/$/i.test(normalized)) {
-    return normalized;
-  }
-  return normalized.replace(/\/+$/g, "");
-};
+export { normalizeWorkspaceRelayUrl } from "./workspace-relay-url";
+
+export const normalizeSealedCommunityRelayUrl = (relayUrl: string): string => (
+  normalizeWorkspaceRelayUrl(normalizeRelayUrlBase(relayUrl))
+);
 
 export const isValidScopedRelayUrl = (relayUrl: string): boolean => (
   hasWritableCommunityRelayTransport(relayUrl)

@@ -1,10 +1,13 @@
 "use client";
 
+export type GroupLeaveAction = "leave" | "delete";
+
 export type GroupActionRouteParams = Readonly<{
   routeToken: string;
   relayUrl?: string;
   displayName?: string;
   communityId?: string;
+  leaveAction?: GroupLeaveAction;
 }>;
 
 export const buildGroupActionSearchParams = (params: GroupActionRouteParams): URLSearchParams => {
@@ -33,9 +36,13 @@ export const buildGroupViewHref = (params: GroupActionRouteParams): string => {
   return search.toString().length > 0 ? `/groups/view?${search.toString()}` : "/network";
 };
 
-export const buildGroupLeaveHref = (params: GroupActionRouteParams): string => (
-  `/groups/leave?${buildGroupActionSearchParams(params).toString()}`
-);
+export const buildGroupLeaveHref = (params: GroupActionRouteParams): string => {
+  const search = buildGroupActionSearchParams(params);
+  if (params.leaveAction === "delete") {
+    search.set("action", "delete");
+  }
+  return `/groups/leave?${search.toString()}`;
+};
 
 export const buildGroupBlockHref = (params: GroupActionRouteParams): string => (
   `/groups/block?${buildGroupActionSearchParams(params).toString()}`

@@ -5,6 +5,7 @@ import { getProfileRuntimeScope, getResolvedProfileId } from "@/app/features/pro
 import { emitAccountSyncMutation } from "@/app/shared/account-sync-mutation-signal";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import { deriveCommunityId, pickPreferredCommunityId } from "../utils/community-identity";
+import { pickPreferredCommunityDisplayName } from "./community-display-name";
 import { toGroupConversationId } from "../utils/group-conversation-id";
 import {
   validateLedgerEntry,
@@ -580,13 +581,18 @@ export const toGroupConversationFromMembershipLedgerEntry = (
   // Prefer member pubkeys from ledger entry, fall back to options if empty
   const mergedMemberPubkeys = entryMemberPubkeys.length > 0 ? entryMemberPubkeys : fallbackMemberPubkeys;
   const memberCount = Math.max(mergedMemberPubkeys.length, 1);
+  const displayName = pickPreferredCommunityDisplayName(
+    entry.displayName,
+    options?.fallbackDisplayName,
+    { groupId: entry.groupId, communityId, conversationId: id },
+  );
   return {
     kind: "group",
     id,
     communityId,
     groupId: entry.groupId,
     relayUrl: entry.relayUrl ?? "",
-    displayName: entry.displayName ?? options?.fallbackDisplayName ?? "Private Group",
+    displayName,
     memberPubkeys: mergedMemberPubkeys,
     lastMessage: LEDGER_ONLY_GROUP_PLACEHOLDER_MESSAGE,
     unreadCount: 0,

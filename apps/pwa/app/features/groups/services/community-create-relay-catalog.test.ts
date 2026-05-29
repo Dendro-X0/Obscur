@@ -23,11 +23,22 @@ describe("resolveCommunityCreateRelayOptions", () => {
             connections: [
                 { url: "ws://localhost:7000", status: "open", updatedAtUnixMs: Date.now() },
             ],
-            activePoolRelayUrls: ["ws://localhost:7000"],
             forManagedWorkspace: true,
         });
         expect(options).toHaveLength(1);
         expect(pickDefaultCommunityCreateRelayHost(options)).toBe("localhost:7000");
+    });
+
+    it("uses pool connection health even when relay is outside Nostr active pool", () => {
+        const options = resolveCommunityCreateRelayOptions({
+            relays: [{ url: "ws://localhost:7000", enabled: true }],
+            connections: [
+                { url: "ws://localhost:7000", status: "open", updatedAtUnixMs: Date.now() },
+            ],
+            forManagedWorkspace: true,
+        });
+        expect(options[0]?.status).not.toBe("unavailable");
+        expect(options[0]?.selectable).toBe(true);
     });
 
     it("disables relays that fail transport validation", () => {

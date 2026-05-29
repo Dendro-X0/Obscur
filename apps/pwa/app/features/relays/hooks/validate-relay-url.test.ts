@@ -16,7 +16,11 @@ describe("validateRelayUrl", () => {
     const allowed = validateRelayUrl("ws://localhost:7001", { allowLocalhostWs: true });
     expect(allowed?.normalizedUrl).toBe("ws://localhost:7001");
 
-    expect(validateRelayUrl("ws://127.0.0.1:7001", { allowLocalhostWs: true })).toBeNull();
     expect(validateRelayUrl("ws://evil.example", { allowLocalhostWs: true })).toBeNull();
+  });
+
+  it("accepts ws://127.0.0.1 when explicitly enabled", () => {
+    const allowed = validateRelayUrl("ws://127.0.0.1:7001", { allowLocalhostWs: true });
+    expect(allowed?.normalizedUrl).toBe("ws://127.0.0.1:7001");
   });
 });

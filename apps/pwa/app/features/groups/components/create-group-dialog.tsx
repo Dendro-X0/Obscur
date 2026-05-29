@@ -49,6 +49,7 @@ import {
 import { useWorkspaceDevFlagsRevision } from "../hooks/use-workspace-dev-flags-revision";
 import { isCoordinationConfigured } from "../services/community-membership-sync-mode";
 import { LOCAL_DEV_RELAY_URL } from "@/app/features/relays/hooks/use-relay-list";
+import { normalizeWorkspaceRelayUrl } from "../services/workspace-relay-url";
 
 const hostFromRelayUrl = (relayUrl: string): string => (
     relayUrl.replace(/^wss?:\/\//i, "").replace(/\/$/, "")
@@ -88,7 +89,7 @@ export function CreateGroupDialog({
     const [isUploading, setIsUploading] = useState(false);
     const identity = useIdentity();
     const relayList = useRelayList({ publicKeyHex: identity.state.publicKeyHex || null });
-    const { relayPool, activePoolRelayUrls } = useRelay();
+    const { relayPool } = useRelay();
     const relayPoolRef = React.useRef(relayPool);
     React.useEffect(() => {
         relayPoolRef.current = relayPool;
@@ -120,7 +121,6 @@ export function CreateGroupDialog({
         const catalog = resolveCommunityCreateRelayOptions({
             relays: relayList.state.relays,
             connections: pool.connections,
-            activePoolRelayUrls,
             getHealth: (url) => pool.getRelayHealth(url),
             forManagedWorkspace: true,
             allowDisconnectedPrivateRelays: isCoordinationOnlyWorkspaceDevMode(),
@@ -159,7 +159,7 @@ export function CreateGroupDialog({
         return () => {
             cancelled = true;
         };
-    }, [isOpen, relayList.state.relays, relayConnectionSignature, activePoolRelayUrls, devFlagsRevision]);
+    }, [isOpen, relayList.state.relays, relayConnectionSignature, devFlagsRevision]);
 
     const coordinationGateSatisfied = React.useMemo(
         () => isCoordinationGateSatisfied(coordinationHealthy),
@@ -177,7 +177,7 @@ export function CreateGroupDialog({
         () => resolveManagedWorkspaceRelayGate({
             communityMode: info.communityMode,
             enabledRelayUrls: relayList.state.relays.map((r) => r.url),
-            communityRelayUrl: info.host.startsWith("ws") ? info.host : `wss://${info.host}`,
+            communityRelayUrl: normalizeWorkspaceRelayUrl(info.host),
         }),
         [info.communityMode, info.host, relayList.state.relays],
     );
@@ -185,7 +185,7 @@ export function CreateGroupDialog({
 
     const workspaceTrust = React.useMemo(
         () => assessWorkspaceCommunityTrust({
-            communityRelayUrl: info.host.startsWith("ws") ? info.host : `wss://${info.host}`,
+            communityRelayUrl: normalizeWorkspaceRelayUrl(info.host),
             enabledRelayUrls: relayList.state.relays.map((r) => r.url),
             coordinationHealthy: coordinationGateSatisfied,
         }),
@@ -199,12 +199,11 @@ export function CreateGroupDialog({
         () => resolveCommunityCreateRelayOptions({
             relays: relayList.state.relays,
             connections: relayPool.connections,
-            activePoolRelayUrls,
             getHealth: (url) => relayPool.getRelayHealth(url),
             forManagedWorkspace: true,
             allowDisconnectedPrivateRelays: coordinationOnlyDev,
         }),
-        [activePoolRelayUrls, coordinationOnlyDev, relayList.state.relays, relayPool.connections, relayPool.getRelayHealth],
+        [coordinationOnlyDev, relayList.state.relays, relayPool.connections, relayPool.getRelayHealth],
     );
 
     const selectedRelayOption = React.useMemo(
@@ -213,7 +212,7 @@ export function CreateGroupDialog({
     );
 
     const normalizedCreateRelayUrl = React.useMemo(
-        () => (info.host.startsWith("ws") ? info.host : `wss://${info.host}`),
+        () => normalizeWorkspaceRelayUrl(info.host),
         [info.host],
     );
     const createRelayTransportReady = hasWritableCommunityRelayTransport(normalizedCreateRelayUrl);
@@ -491,7 +490,7 @@ export function CreateGroupDialog({
                                         {selectedRelayOption.detail}
                                     </p>
                                 ) : null}
-                                {coordinationOnlyDev ? (
+                                {coordinationOnlyDev && !createRelayTransportReady ? (
                                     <p
                                         className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-[10px] text-emerald-900 dark:text-emerald-100"
                                         data-testid="create-group-coordination-only-dev"
@@ -499,6 +498,17 @@ export function CreateGroupDialog({
                                         {t(
                                             "groups.create.coordinationOnlyDevBanner",
                                             "Coordination-only dev mode: create and test membership without a live Nostr relay. Encrypted chat publish stays local until you run pnpm dev:relay (optional).",
+                                        )}
+                                    </p>
+                                ) : null}
+                                {coordinationOnlyDev && createRelayTransportReady ? (
+                                    <p
+                                        className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-[10px] text-sky-900 dark:text-sky-100"
+                                        data-testid="create-group-managed-relay-required"
+                                    >
+                                        {t(
+                                            "groups.create.managedRelayRequiredBanner",
+                                            "Managed workspace requires genesis publish to your relay (localhost:7000). Start the stack with pnpm dev:desktop:online or pnpm dev:relay:docker.",
                                         )}
                                     </p>
                                 ) : null}

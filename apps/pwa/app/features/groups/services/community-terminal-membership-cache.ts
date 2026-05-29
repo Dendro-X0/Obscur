@@ -6,6 +6,20 @@ import { dedupeCommunityMemberPubkeys } from "./community-member-roster-projecti
 
 const STORAGE_PREFIX = "obscur.community.terminal_membership.v1";
 
+/** Fired when terminal left/expelled cache changes (local leave, relay snapshot, reconcile). */
+export const COMMUNITY_TERMINAL_MEMBERSHIP_UPDATED_EVENT = "obscur:community-terminal-membership-updated";
+
+const notifyTerminalMembershipUpdated = (detail: Readonly<{
+  groupId: string;
+  relayUrl: string;
+  profileId?: string;
+}>): void => {
+  if (typeof window === "undefined") {
+    return;
+  }
+  window.dispatchEvent(new CustomEvent(COMMUNITY_TERMINAL_MEMBERSHIP_UPDATED_EVENT, { detail }));
+};
+
 export type CommunityTerminalMembershipCacheRecord = Readonly<{
   leftMemberPubkeys: ReadonlyArray<PublicKeyHex>;
   expelledMemberPubkeys: ReadonlyArray<PublicKeyHex>;
@@ -136,6 +150,11 @@ export const saveCommunityTerminalMembershipCache = (params: Readonly<{
   if (leftMemberPubkeys.length === 0 && expelledMemberPubkeys.length === 0 && disbandedAtUnixMs === null) {
     try {
       window.localStorage.removeItem(key);
+      notifyTerminalMembershipUpdated({
+        groupId: params.groupId,
+        relayUrl: params.relayUrl,
+        profileId: params.profileId,
+      });
     } catch {
       // ignore
     }
@@ -149,6 +168,11 @@ export const saveCommunityTerminalMembershipCache = (params: Readonly<{
   };
   try {
     window.localStorage.setItem(key, JSON.stringify(record));
+    notifyTerminalMembershipUpdated({
+      groupId: params.groupId,
+      relayUrl: params.relayUrl,
+      profileId: params.profileId,
+    });
   } catch {
     // ignore quota / private mode
   }

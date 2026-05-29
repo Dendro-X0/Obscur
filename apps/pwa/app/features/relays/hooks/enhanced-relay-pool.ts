@@ -27,6 +27,7 @@ import { relayNativeAdapter } from "./relay-native-adapter";
 import { reportDevRuntimeIssue } from "@/app/shared/dev-runtime-issue-reporter";
 import { relayTransportJournal } from "../services/relay-transport-journal";
 import { relayResilienceObservability } from "../services/relay-resilience-observability";
+import { expandWorkspaceRelayUrlCandidates, isLocalWorkspaceRelayHost, normalizeWorkspaceRelayUrl, resolveMatchingOpenRelayUrl, workspaceRelayUrlsMatch } from "@/app/features/groups/services/workspace-relay-url";
 
 type RelayPoolState = Readonly<{
   connections: ReadonlyArray<RelayConnection>;
@@ -339,6 +340,51 @@ export const shouldReuseRelaySocket = (
   return existing.readyState === WebSocket.OPEN || existing.readyState === WebSocket.CONNECTING;
 };
 
+export const resolvePendingOkResolver = (
+  resolvers: Map<string, {
+    resolve: (result: PublishResult) => void;
+    timer: NodeJS.Timeout;
+    startTime: number;
+  }>,
+  socketUrl: string,
+  eventId: string,
+): Readonly<{ key: string; pending: {
+  resolve: (result: PublishResult) => void;
+  timer: NodeJS.Timeout;
+  startTime: number;
+} }> | null => {
+  const directKey = `${socketUrl}:${eventId}`;
+  const direct = resolvers.get(directKey);
+  if (direct) {
+    resolvers.delete(directKey);
+    return { key: directKey, pending: direct };
+  }
+  for (const [key, pending] of resolvers.entries()) {
+    const separatorIndex = key.lastIndexOf(":");
+    if (separatorIndex <= 0) {
+      continue;
+    }
+    const keyUrl = key.slice(0, separatorIndex);
+    const keyEventId = key.slice(separatorIndex + 1);
+    if (keyEventId !== eventId) {
+      continue;
+    }
+    if (workspaceRelayUrlsMatch(keyUrl, socketUrl)) {
+      resolvers.delete(key);
+      return { key, pending };
+    }
+  }
+  return null;
+};
+
+const resolveSocketMapKey = (
+  sockets: Readonly<Record<string, WebSocket>>,
+  socket: WebSocket,
+  fallbackUrl: string,
+): string => (
+  Object.entries(sockets).find(([, candidate]) => candidate === socket)?.[0] ?? fallbackUrl
+);
+
 export const relayReliabilityInternals = {
   toRelayHealthScore: moduleToRelayHealthScore,
   buildRelaySelectionDecision: moduleBuildRelaySelectionDecision,
@@ -352,6 +398,16 @@ export const relayReliabilityInternals = {
   resolveTransientFailureCooldownMs: moduleResolveTransientFailureCooldownMs,
   shouldReuseRelaySocket,
   areRelayPoolSnapshotsEqual,
+  resolvePendingOkResolver,
+  isLocalWorkspaceRelayDuplicateOk: (
+    relayUrl: string,
+    ok: boolean,
+    message: string,
+  ): boolean => (
+    !ok
+    && isLocalWorkspaceRelayHost(relayUrl)
+    && /\bduplicate\b/i.test(message)
+  ),
 };
 
 const getUnixMs = (): number => Date.now();
@@ -528,7 +584,83 @@ const resolveManualCooldownUntilUnixMs = (url: string, nowUnixMs: number): numbe
 };
 
 const normalizeRelayUrls = (urls: ReadonlyArray<string>): ReadonlyArray<string> => (
-  Array.from(new Set(urls.map((url) => url.trim()).filter((url) => url.length > 0)))
+  Array.from(new Set(
+    urls
+      .map((url) => normalizeWorkspaceRelayUrl(url.trim()))
+      .filter((url) => url.length > 0),
+  ))
+);
+
+const isRelayStatusOpenForUrl = (requestedUrl: string): boolean => {
+  const candidates = expandWorkspaceRelayUrlCandidates(requestedUrl);
+  for (const [statusUrl, connection] of Object.entries(statusByUrl)) {
+    if (
+      connection.status === "open"
+      && canAttemptRelayWrite(statusUrl)
+      && candidates.some((candidate) => workspaceRelayUrlsMatch(candidate, statusUrl))
+    ) {
+      return true;
+    }
+  }
+  return false;
+};
+
+const collectOpenRelayUrls = (): ReadonlyArray<string> => (
+  Object.entries(socketsByUrl)
+    .filter(([url, socket]) => (
+      socket.readyState === WebSocket.OPEN
+      && isRelayStatusOpenForUrl(url)
+    ))
+    .map(([url]) => url)
+);
+
+const resolveRelayConnectionUrl = (requestedUrl: string): string | null => {
+  const normalized = normalizeWorkspaceRelayUrl(requestedUrl);
+  if (!normalized) {
+    return null;
+  }
+  const openRelayUrls = collectOpenRelayUrls();
+  return resolveMatchingOpenRelayUrl(normalized, openRelayUrls);
+};
+
+const findRelaySocketEntry = (
+  requestedUrl: string,
+): Readonly<{ url: string; socket: WebSocket }> | null => {
+  const normalized = normalizeWorkspaceRelayUrl(requestedUrl);
+  if (!normalized) {
+    return null;
+  }
+
+  const candidates = Array.from(new Set([
+    resolveRelayConnectionUrl(requestedUrl),
+    resolveMatchingOpenRelayUrl(normalized, collectOpenRelayUrls()),
+    normalized,
+    ...expandWorkspaceRelayUrlCandidates(normalized),
+  ].filter((value): value is string => typeof value === "string" && value.length > 0)));
+
+  for (const candidate of candidates) {
+    const socket = socketsByUrl[candidate];
+    if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
+      return { url: candidate, socket };
+    }
+  }
+
+  for (const [key, socket] of Object.entries(socketsByUrl)) {
+    if (
+      candidates.some((candidate) => workspaceRelayUrlsMatch(candidate, key))
+      && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)
+    ) {
+      return { url: key, socket };
+    }
+  }
+
+  return null;
+};
+
+const isLocalWorkspaceRelayDuplicateOk = (relayUrl: string, ok: boolean, message: string): boolean => (
+  !ok
+  && isLocalWorkspaceRelayHost(relayUrl)
+  && /\bduplicate\b/i.test(message)
 );
 
 const getConfiguredRelayUrls = (): ReadonlyArray<string> => (
@@ -795,6 +927,7 @@ const pendingOkResolvers: Map<string, {
 }> = new Map();
 
 const DEFAULT_PUBLISH_TIMEOUT_MS = 12000;
+const LOCAL_WORKSPACE_PUBLISH_ACK_MS = 4000;
 const RECONNECT_JITTER_FACTOR = 0.2;
 
 const isReliabilityCoreEnabled = (): boolean => {
@@ -986,14 +1119,13 @@ async function resolvePublishResultsProgressively(params: Readonly<{
 }
 
 const getPreferredOpenRelayUrls = (urls: ReadonlyArray<string>): ReadonlyArray<string> => {
-  const openUrls = urls.filter((url) => {
-    const socket = socketsByUrl[url];
-    return !!socket
-      && socket.readyState === WebSocket.OPEN
-      && statusByUrl[url]?.status === "open"
-      && canAttemptRelayWrite(url);
-  });
-  return buildRelaySelectionDecision(openUrls).orderedUrls;
+  const openRelayUrls = collectOpenRelayUrls();
+  const resolvedUrls = Array.from(new Set(
+    urls
+      .map((url) => resolveMatchingOpenRelayUrl(normalizeWorkspaceRelayUrl(url), openRelayUrls))
+      .filter((url): url is string => url !== null),
+  ));
+  return buildRelaySelectionDecision(resolvedUrls).orderedUrls;
 };
 
 const notifyListeners = (): void => {
@@ -1288,23 +1420,22 @@ const connectToRelay = (url: string, options?: RelayReconnectOptions): WebSocket
         const eventId = parsed[1];
         const ok = parsed[2];
         const message = parsed[3] || "";
-        const resolverKey = `${url}:${eventId}`;
-        const pending = pendingOkResolvers.get(resolverKey);
+        const matched = resolvePendingOkResolver(pendingOkResolvers, url, eventId);
 
-        if (pending) {
-          clearTimeout(pending.timer);
-          pendingOkResolvers.delete(resolverKey);
+        if (matched) {
+          clearTimeout(matched.pending.timer);
 
-          const latency = Date.now() - pending.startTime;
+          const latency = Date.now() - matched.pending.startTime;
           healthMonitor.recordLatency(url, latency);
 
-          pending.resolve({
-            success: ok,
+          const accepted = ok || isLocalWorkspaceRelayDuplicateOk(url, ok, message);
+          matched.pending.resolve({
+            success: accepted,
             relayUrl: url,
-            error: ok ? undefined : message,
+            error: accepted ? undefined : message,
             latency
           });
-          if (ok) {
+          if (accepted) {
             lastSuccessfulPublishAtUnixMs = Date.now();
           }
         }
@@ -1569,26 +1700,50 @@ const setRelayUrls = (urls: ReadonlyArray<string>): void => {
  * Add a transient relay (not persisted but connected while app is running)
  */
 const addTransientRelay = (url: string, source: TransientRelaySource = "manual"): void => {
-  if (relayUrlsKey.split("|").includes(url)) return;
-  if (transientRelayUrls.has(url)) {
-    if (source === "fallback") {
-      fallbackRelayUrls.add(url);
-      fallbackActivated = true;
+  const normalizedUrl = normalizeWorkspaceRelayUrl(url);
+  const configuredUrls = getConfiguredRelayUrls();
+  const matchingConfigured = configuredUrls.find((configured) => (
+    workspaceRelayUrlsMatch(configured, normalizedUrl)
+  ));
+
+  if (matchingConfigured) {
+    if (!socketsByUrl[matchingConfigured]) {
+      healthMonitor.initializeRelay(matchingConfigured);
+      const socket = connectToRelay(matchingConfigured);
+      if (socket) {
+        socketsByUrl = { ...socketsByUrl, [matchingConfigured]: socket };
+      }
     }
+    publishRelayPoolSnapshot();
     return;
   }
 
-  transientRelayUrls.add(url);
+  if (transientRelayUrls.has(normalizedUrl)) {
+    if (source === "fallback") {
+      fallbackRelayUrls.add(normalizedUrl);
+      fallbackActivated = true;
+    }
+    if (!socketsByUrl[normalizedUrl]) {
+      const socket = connectToRelay(normalizedUrl);
+      if (socket) {
+        socketsByUrl = { ...socketsByUrl, [normalizedUrl]: socket };
+      }
+    }
+    publishRelayPoolSnapshot();
+    return;
+  }
+
+  transientRelayUrls.add(normalizedUrl);
   if (source === "fallback") {
-    fallbackRelayUrls.add(url);
+    fallbackRelayUrls.add(normalizedUrl);
     fallbackActivated = true;
   }
-  healthMonitor.initializeRelay(url);
+  healthMonitor.initializeRelay(normalizedUrl);
 
-  if (!socketsByUrl[url]) {
-    const socket = connectToRelay(url);
+  if (!socketsByUrl[normalizedUrl]) {
+    const socket = connectToRelay(normalizedUrl);
     if (socket) {
-      socketsByUrl = { ...socketsByUrl, [url]: socket };
+      socketsByUrl = { ...socketsByUrl, [normalizedUrl]: socket };
     }
   }
 
@@ -1703,37 +1858,48 @@ const recycle = async (): Promise<void> => {
  * Implements Requirements 1.4, 1.5, and reliable delivery
  */
 const publishToRelay = async (url: string, payload: string): Promise<PublishResult> => {
-  if (!canAttemptRelayWrite(url)) {
-    return { success: false, relayUrl: url, error: "Relay temporarily unavailable" };
+  const normalizedUrl = normalizeWorkspaceRelayUrl(url);
+  let socketEntry = findRelaySocketEntry(url);
+  const resolvedUrl = socketEntry?.url
+    ?? resolveRelayConnectionUrl(url)
+    ?? normalizedUrl;
+
+  if (!canAttemptRelayWrite(resolvedUrl) && !isRelayStatusOpenForUrl(resolvedUrl)) {
+    return { success: false, relayUrl: resolvedUrl, error: "Relay temporarily unavailable" };
   }
 
-  if (!socketsByUrl[url]) {
-    addTransientRelay(url);
+  if (!socketEntry) {
+    addTransientRelay(normalizedUrl || url);
+    socketEntry = findRelaySocketEntry(url);
   }
 
-  let socket = socketsByUrl[url];
+  let socket = socketEntry?.socket;
+  const socketUrl = socketEntry?.url ?? resolvedUrl;
 
   if (!socket) {
-    return { success: false, relayUrl: url, error: 'Relay not found' };
+    return { success: false, relayUrl: resolvedUrl, error: 'Relay not found' };
   }
 
   if (socket.readyState !== WebSocket.OPEN && socket.readyState !== WebSocket.CONNECTING) {
-    attemptReconnect(url);
-    socket = socketsByUrl[url];
+    attemptReconnect(socketUrl);
+    socket = findRelaySocketEntry(url)?.socket;
   }
 
   if (socket && socket.readyState === WebSocket.CONNECTING) {
     await new Promise<void>(resolve => {
       const timeout = setTimeout(resolve, 2000);
-      socket.addEventListener('open', () => {
+      socket!.addEventListener('open', () => {
         clearTimeout(timeout);
         resolve();
       }, { once: true });
     });
   }
 
-  if (!socket || socket.readyState !== WebSocket.OPEN || statusByUrl[url]?.status !== "open") {
-    return { success: false, relayUrl: url, error: 'Relay not connected' };
+  if (!socket || socket.readyState !== WebSocket.OPEN) {
+    return { success: false, relayUrl: resolvedUrl, error: 'Relay not connected' };
+  }
+  if (!isRelayStatusOpenForUrl(socketUrl) && !isLocalWorkspaceRelayHost(socketUrl)) {
+    return { success: false, relayUrl: resolvedUrl, error: 'Relay not connected' };
   }
 
   // Extract event ID from payload if possible
@@ -1748,24 +1914,25 @@ const publishToRelay = async (url: string, payload: string): Promise<PublishResu
   if (!eventId) {
     // If not an EVENT payload (e.g. REQ), just send it.
     try {
-      await sendRelayPayload(url, socket, payload);
-      return { success: true, relayUrl: url };
+      await sendRelayPayload(resolvedUrl, socket, payload);
+      return { success: true, relayUrl: resolvedUrl };
     } catch (error) {
       const errorMessage = toRelayErrorMessage(error);
       if (isRelayNotConnectedErrorMessage(errorMessage)) {
-        blockRelayWritesTemporarily(url);
+        blockRelayWritesTemporarily(resolvedUrl);
       }
-      healthMonitor.recordConnectionFailure(url, errorMessage);
+      healthMonitor.recordConnectionFailure(resolvedUrl, errorMessage);
       return {
         success: false,
-        relayUrl: url,
+        relayUrl: resolvedUrl,
         error: errorMessage,
       };
     }
   }
 
   const startTime = Date.now();
-  const resolverKey = `${url}:${eventId}`;
+  const socketKey = resolveSocketMapKey(socketsByUrl, socket, socketUrl);
+  const resolverKey = `${socketKey}:${eventId}`;
 
   // If there's already a resolver for this, it might be a double-publish
   if (pendingOkResolvers.has(resolverKey)) {
@@ -1782,18 +1949,18 @@ const publishToRelay = async (url: string, payload: string): Promise<PublishResu
     const handleSocketError = (event: Event): void => {
       const errorMessage = readRelayErrorMessage(event);
       if (isRelayNotConnectedErrorMessage(errorMessage)) {
-        blockRelayWritesTemporarily(url);
+        blockRelayWritesTemporarily(resolvedUrl);
       }
-      healthMonitor.recordConnectionFailure(url, errorMessage);
+      healthMonitor.recordConnectionFailure(resolvedUrl, errorMessage);
       finalize({
         success: false,
-        relayUrl: url,
+        relayUrl: resolvedUrl,
         error: errorMessage || "Relay send failed before OK response",
       });
     };
 
     const handleSocketClose = (): void => {
-      blockRelayWritesTemporarily(url);
+      blockRelayWritesTemporarily(resolvedUrl);
       // Do NOT call recordConnectionFailure here. The connection-level "close"
       // handler in connectToRelay already fires recordDisconnection for this url.
       // Adding a second failure record here double-counts every clean server-side
@@ -1801,7 +1968,7 @@ const publishToRelay = async (url: string, payload: string): Promise<PublishResu
       // open the circuit breaker after a single relay restart cycle.
       finalize({
         success: false,
-        relayUrl: url,
+        relayUrl: resolvedUrl,
         error: "Relay closed before OK response",
       });
     };
@@ -1819,18 +1986,26 @@ const publishToRelay = async (url: string, payload: string): Promise<PublishResu
 
     const timer = setTimeout(() => {
       const latency = Date.now() - startTime;
-      // Record latency only — a slow/missing OK is a publish-layer timeout, not a
-      // connection failure. Calling recordConnectionFailure here would count toward
-      // the circuit breaker and could open it after a few slow relays, silently
-      // blocking all further sends without any user-visible error.
-      healthMonitor.recordLatency(url, latency);
+      healthMonitor.recordLatency(resolvedUrl, latency);
+      if (
+        isLocalWorkspaceRelayHost(resolvedUrl)
+        && socket.readyState === WebSocket.OPEN
+      ) {
+        lastSuccessfulPublishAtUnixMs = Date.now();
+        finalize({
+          success: true,
+          relayUrl: resolvedUrl,
+          latency,
+        });
+        return;
+      }
       finalize({
         success: false,
-        relayUrl: url,
+        relayUrl: resolvedUrl,
         error: "Timeout waiting for OK response",
         latency
       });
-    }, DEFAULT_PUBLISH_TIMEOUT_MS);
+    }, isLocalWorkspaceRelayHost(resolvedUrl) ? LOCAL_WORKSPACE_PUBLISH_ACK_MS : DEFAULT_PUBLISH_TIMEOUT_MS);
 
     pendingOkResolvers.set(resolverKey, {
       resolve: (result) => {
@@ -1843,16 +2018,16 @@ const publishToRelay = async (url: string, payload: string): Promise<PublishResu
     socket.addEventListener("error", handleSocketError, { once: true });
     socket.addEventListener("close", handleSocketClose, { once: true });
 
-    void sendRelayPayload(url, socket, payload).catch((error) => {
+    void sendRelayPayload(socketUrl, socket, payload).catch((error) => {
       const errorMessage = toRelayErrorMessage(error);
       if (isRelayNotConnectedErrorMessage(errorMessage)) {
-        blockRelayWritesTemporarily(url);
+        blockRelayWritesTemporarily(resolvedUrl);
       }
-      healthMonitor.recordConnectionFailure(url, errorMessage);
+      healthMonitor.recordConnectionFailure(resolvedUrl, errorMessage);
       clearTimeout(timer);
       finalize({
         success: false,
-        relayUrl: url,
+        relayUrl: resolvedUrl,
         error: errorMessage,
       });
     });
@@ -1944,9 +2119,11 @@ const publishToUrls = async (urls: ReadonlyArray<string>, payload: string): Prom
 
   if (connected.length === 0) {
     normalized.forEach((url) => {
-      // Clear any temporary write block so the relay is writable once reconnected.
       relayWriteBlockedUntilByUrl.delete(url);
-      if (!socketsByUrl[url]) {
+      expandWorkspaceRelayUrlCandidates(url).forEach((candidate) => {
+        relayWriteBlockedUntilByUrl.delete(candidate);
+      });
+      if (!findRelaySocketEntry(url)) {
         addTransientRelay(url);
       }
       // Force-reconnect to bypass circuit breaker — this is a user-initiated
@@ -1958,15 +2135,28 @@ const publishToUrls = async (urls: ReadonlyArray<string>, payload: string): Prom
   }
 
   if (connected.length === 0) {
+    connected = normalized
+      .map((url) => findRelaySocketEntry(url))
+      .filter((entry): entry is Readonly<{ url: string; socket: WebSocket }> => (
+        entry !== null && entry.socket.readyState === WebSocket.OPEN
+      ))
+      .map((entry) => entry.url);
+  }
+
+  if (connected.length === 0) {
     // ── Diagnostic: why are scoped relays not connected? ──
     const diagPerUrl = normalized.map((url) => {
-      const socket = socketsByUrl[url];
-      const status = statusByUrl[url];
+      const socketEntry = findRelaySocketEntry(url);
+      const socket = socketEntry?.socket;
+      const statusKey = socketEntry?.url ?? url;
+      const status = statusByUrl[statusKey];
       return {
         url,
+        resolvedSocketUrl: socketEntry?.url,
         hasSocket: !!socket,
         readyState: socket?.readyState ?? -1,
         status: status?.status ?? "unknown",
+        statusOpen: isRelayStatusOpenForUrl(url),
         isTransient: transientRelayUrls.has(url),
         isConfigured: relayUrlsKey.split("|").includes(url),
         canWrite: canAttemptRelayWrite(url),
@@ -2170,7 +2360,10 @@ const getWritableRelaySnapshot = (scopedRelayUrls?: ReadonlyArray<string>): Rela
     Object.values(statusByUrl)
       .filter((connection) => connection.status === "open" && canAttemptRelayWrite(connection.url))
       .map((connection) => connection.url)
-      .filter((url) => configuredRelayUrls.length === 0 || configuredRelayUrls.includes(url))
+      .filter((url) => (
+        configuredRelayUrls.length === 0
+        || configuredRelayUrls.some((configured) => workspaceRelayUrlsMatch(configured, url))
+      ))
   ));
   return {
     atUnixMs: Date.now(),

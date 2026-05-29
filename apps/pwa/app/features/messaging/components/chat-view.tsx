@@ -63,6 +63,8 @@ const MESSAGE_MENU_HOVER_DISMISS_DELAY_MS = 320;
 export interface ChatViewProps {
     conversation: Conversation;
     groupMemberCount?: number;
+    groupOnlineMemberCount?: number;
+    groupLastActivityAtMs?: number;
     isPeerOnline?: boolean;
     interactionStatus?: Readonly<{ lastActiveAtMs?: number; lastViewedAtMs?: number }>;
     messages: ReadonlyArray<Message>;
@@ -641,6 +643,8 @@ export function ChatView(props: ChatViewProps) {
             <ChatHeader
                 conversation={props.conversation}
                 groupMemberCount={props.groupMemberCount}
+                groupOnlineMemberCount={props.groupOnlineMemberCount}
+                groupLastActivityAtMs={props.groupLastActivityAtMs}
                 isOnline={props.isPeerOnline}
                 interactionStatus={props.interactionStatus}
                 nowMs={props.nowMs}

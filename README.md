@@ -10,17 +10,31 @@
 
 Obscur is a cross-platform, decentralized, end-to-end encrypted (E2EE) communication app focused on user privacy, ownership, and self-custody identity.
 
-Project phase: **v1.5.0 Gateway & Membership — Release candidate**
+Project phase: **v1.8.x Lane T — Managed workspace (release candidate `v1.8.8`)**
 
-**Release highlights (`v1.5.0`):**
+**Latest release (`v1.8.8`):**
 
-- **ClientGateway (R0–R2):** DM materialization and community roster paths converge on `getResolvedClientGateway()` — fewer parallel state owners
-- **Profile runtime:** `ProfileMessageBus`, explicit `profileId`, same-process A/B isolation gates
-- **Community membership:** Relay-first ingress, coordinator-owned ledger, provisional vs authoritative join
-- **Account projection:** DM timeline evidence for restore and projection-first read cutover
-- **Cooperative DM redaction:** **Not shipped in UI** for v1.5.0 — deferred to v1.6+ ([design doc](docs/messaging/cooperative-redaction-future.md))
+- **Managed workspace (Test 8):** Coordination + operator relay + two-client **create → invite → accept → sealed group chat** on local infra
+- **Group chat header:** Member count, online count, last activity under title
+- **Group history:** Hydrate sealed messages from local store on open (SQLite on Tauri, scoped chat-state on web)
+- **Relay / leave hardening:** Open dev relay whitelist, loopback publish path, terminal membership cache, CRDT-first header count
+- **Roadmap (post-tag):** [Operator-relay deletion + group bots](docs/program/v1.8.9-plus-managed-workspace-roadmap.md)
 
-Full notes: [docs/releases/v1.5.0-release.md](docs/releases/v1.5.0-release.md) · Program: [docs/program/PROGRAM.md](docs/program/PROGRAM.md)
+Full notes: [docs/releases/v1.8.8-release.md](docs/releases/v1.8.8-release.md) · Gate: [docs/releases/v1.8.8-gate.md](docs/releases/v1.8.8-gate.md) · Program: [docs/program/v1.8.x-release-train.md](docs/program/v1.8.x-release-train.md) · Changelog: [CHANGELOG.md](CHANGELOG.md)
+
+**Previous release (`v1.8.7`):**
+
+- Transport-hard relay-join tests; membership surface consistency across header, network, invite modal
+
+**Earlier v1.8.x (`v1.8.5`–`v1.8.6`):**
+
+- REL-004 leave durability, community invite DM, relay join after accept, `CommunityMembershipReadModel` owner path, relay runtime smoke CI
+
+**Earlier (`v1.5.0`):**
+
+- ClientGateway (R0–R2), profile runtime, relay-first community membership, account projection
+
+Full v1.5 notes: [docs/releases/v1.5.0-release.md](docs/releases/v1.5.0-release.md)
 
 **Previous release (`v1.4.11`):**
 
@@ -68,7 +82,7 @@ The project remains independently developed, community-maintained, privacy-first
 
 - Public repository with auditable source code and open release history.
 - Project policy guarantee: no intentional malicious code, hidden telemetry backdoors, or closed-source runtime logic in this repository.
-- Security/privacy model and implementation history are documented in `/docs` and `CHANGELOG.md`.
+- Security/privacy model and implementation history are documented in `/docs`, [`CHANGELOG.md`](CHANGELOG.md), and [`docs/releases/`](docs/releases/). For v1.8.x+, **`/docs` is the authoritative release record** where inline changelog updates were missed during fast patch lanes; entries are backfilled at tag time from program docs.
 - Release artifacts are published via GitHub Releases with reproducible version contracts.
 
 ## Key Capabilities
@@ -175,8 +189,11 @@ The `/docs` tree is the project encyclopedia. **Only** [docs/README.md](docs/REA
 | Shelf | Entry |
 |-------|--------|
 | Navigation | [docs/README.md](docs/README.md) |
-| Program (v1.5) | [docs/program/PROGRAM.md](docs/program/PROGRAM.md) |
-| Release notes | [docs/releases/v1.5.0-release.md](docs/releases/v1.5.0-release.md) |
+| **Current release** | [docs/releases/v1.8.8-release.md](docs/releases/v1.8.8-release.md) · [v1.8.8 gate](docs/releases/v1.8.8-gate.md) |
+| Release train | [docs/program/v1.8.x-release-train.md](docs/program/v1.8.x-release-train.md) |
+| Post–v1.8.8 roadmap | [docs/program/v1.8.9-plus-managed-workspace-roadmap.md](docs/program/v1.8.9-plus-managed-workspace-roadmap.md) |
+| Program | [docs/program/PROGRAM.md](docs/program/PROGRAM.md) |
+| Changelog | [CHANGELOG.md](CHANGELOG.md) |
 | Maintainer | [docs/encyclopedia/08-maintainer-playbook.md](docs/encyclopedia/08-maintainer-playbook.md) |
 | Architecture owners | [docs/encyclopedia/12-core-architecture-truth-map.md](docs/encyclopedia/12-core-architecture-truth-map.md) |
 | ClientGateway | [docs/gateway/client-unified-gateway.md](docs/gateway/client-unified-gateway.md) |

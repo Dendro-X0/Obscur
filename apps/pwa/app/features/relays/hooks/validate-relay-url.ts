@@ -26,7 +26,11 @@ const validateRelayUrl = (
   const hostname = url.hostname.toLowerCase();
   const allowsLocalhostWs = options?.allowLocalhostWs === true;
   const isTrustedWss = protocol === "wss:";
-  const isAllowedLocalWs = allowsLocalhostWs && protocol === "ws:" && hostname === "localhost";
+  const isAllowedLocalWs = allowsLocalhostWs && protocol === "ws:" && (
+    hostname === "localhost"
+    || hostname === "127.0.0.1"
+    || hostname === "[::1]"
+  );
 
   if (!isTrustedWss && !isAllowedLocalWs) {
     return null;
@@ -42,11 +46,15 @@ const validateRelayUrl = (
   if (isTrustedWss && !normalized.startsWith("wss://")) {
     return null;
   }
-  if (isAllowedLocalWs && !normalized.startsWith("ws://localhost")) {
+  if (isAllowedLocalWs && !(
+    normalized.startsWith("ws://localhost")
+    || normalized.startsWith("ws://127.0.0.1")
+    || normalized.startsWith("ws://[::1]")
+  )) {
     return null;
   }
 
-  const minimumLength = isAllowedLocalWs ? "ws://localhost".length : "wss://".length;
+  const minimumLength = isAllowedLocalWs ? "ws://127.0.0.1".length : "wss://".length;
   if (normalized.length <= minimumLength) {
     return null;
   }

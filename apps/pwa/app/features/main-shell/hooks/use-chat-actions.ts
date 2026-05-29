@@ -26,7 +26,11 @@ import {
     resolveUserFacingErrorMessage,
 } from "@/app/features/relays/services/relay-publish-user-copy";
 import { getUploadFailureUserMessageFromUnknown } from "../../messaging/lib/upload-user-copy";
-import { normalizeRelayUrl as normalizeRelayUrlBase } from "@dweb/nostr/relay-utils";
+import { normalizeWorkspaceRelayUrl } from "@/app/features/groups/services/workspace-relay-url";
+import {
+    ensureWorkspaceRelayTransportReady,
+    shouldRetryPublishAfterWorkspaceCalibration,
+} from "@/app/features/groups/services/workspace-relay-calibrator";
 import { useResolvedProfileMetadata } from "@/app/features/profile/hooks/use-resolved-profile-metadata";
 import { canDeleteMessageForEveryone, getDeleteForEveryoneRejectionReason } from "../../messaging/services/message-delete-permissions";
 import { groupClientOperations } from "@/app/features/groups/services/group-client-operations";
@@ -113,8 +117,8 @@ const resolveAttachmentUploadConcurrency = (attachmentsCount: number): number =>
 };
 
 const toScopedRelayUrl = (relayUrl: string): string | null => {
-    const normalized = normalizeRelayUrlBase(relayUrl);
-    const trimmed = /^[a-z]+:\/\/$/i.test(normalized) ? normalized : normalized.replace(/\/+$/g, "");
+    const normalized = normalizeWorkspaceRelayUrl(relayUrl);
+    const trimmed = normalized.replace(/\/+$/g, "");
     if (trimmed.length === 0 || UNKNOWN_RELAY_SENTINELS.has(trimmed)) return null;
     return /^wss?:\/\/.+/.test(trimmed) ? trimmed : null;
 };
@@ -163,8 +167,34 @@ export function useChatActions(dmController: UseDmControllerResult | null) {
     const publishGroupEvent = useCallback(async (params: Readonly<{ relayUrl: string; event: Readonly<{ id: string }> }>): Promise<void> => {
         const pool = relayPoolRef.current;
         const payload = JSON.stringify(["EVENT", params.event]);
-        const scopedRelayUrl = toScopedRelayUrl(params.relayUrl);
+        let activeRelayUrl = params.relayUrl;
+        let scopedRelayUrl = toScopedRelayUrl(activeRelayUrl);
         let result: MultiRelayPublishResult;
+
+        const resolveScopedRelay = async (forceCalibration: boolean): Promise<string | null> => {
+            const snapshot = typeof pool.getWritableRelaySnapshot === "function"
+                ? pool.getWritableRelaySnapshot(scopedRelayUrl ? [scopedRelayUrl] : undefined)
+                : null;
+            const writableCount = snapshot?.writableRelayUrls?.length ?? 0;
+            if (!forceCalibration && scopedRelayUrl && writableCount > 0) {
+                return scopedRelayUrl;
+            }
+            const calibration = await ensureWorkspaceRelayTransportReady({
+                rawUrl: activeRelayUrl,
+                pool,
+                timeoutMs: 5000,
+            });
+            activeRelayUrl = calibration.canonicalUrl;
+            scopedRelayUrl = toScopedRelayUrl(activeRelayUrl);
+            return scopedRelayUrl;
+        };
+
+        await resolveScopedRelay(!scopedRelayUrl);
+
+        const writableBeforePublish = typeof pool.getWritableRelaySnapshot === "function"
+            ? pool.getWritableRelaySnapshot(scopedRelayUrl ? [scopedRelayUrl] : undefined)
+            : null;
+        const publishRelayUrl = writableBeforePublish?.writableRelayUrls?.[0] ?? scopedRelayUrl;
 
         // ── Diagnostic: capture relay state before publish attempt ──
         const snapshot = typeof pool.getWritableRelaySnapshot === "function"
@@ -174,7 +204,9 @@ export function useChatActions(dmController: UseDmControllerResult | null) {
         const openRelays = poolConnections.filter((c: { status: string }) => c.status === "open").map((c: { url: string }) => c.url);
         console.warn("[publishGroupEvent] diagnostic", {
             rawRelayUrl: params.relayUrl,
+            activeRelayUrl,
             scopedRelayUrl,
+            publishRelayUrl,
             eventIdHint: toIdHint(params.event.id),
             openRelayCount: openRelays.length,
             openRelays: openRelays.slice(0, 5),
@@ -189,14 +221,14 @@ export function useChatActions(dmController: UseDmControllerResult | null) {
         // Ensure the community relay is registered as transient before publishing.
         // publishToUrls will also attempt this, but pre-warming here gives the socket
         // more time to complete handshake before the publish timeout starts.
-        if (scopedRelayUrl && typeof pool.addTransientRelay === "function") {
-            pool.addTransientRelay(scopedRelayUrl);
+        if (publishRelayUrl && typeof pool.addTransientRelay === "function") {
+            pool.addTransientRelay(publishRelayUrl);
         }
 
-        if (scopedRelayUrl && typeof pool.publishToUrls === "function") {
-            result = await pool.publishToUrls([scopedRelayUrl], payload);
-        } else if (scopedRelayUrl && typeof pool.publishToUrl === "function") {
-            const single = await pool.publishToUrl(scopedRelayUrl, payload);
+        if (publishRelayUrl && typeof pool.publishToUrls === "function") {
+            result = await pool.publishToUrls([publishRelayUrl], payload);
+        } else if (publishRelayUrl && typeof pool.publishToUrl === "function") {
+            const single = await pool.publishToUrl(publishRelayUrl, payload);
             result = {
                 success: single.success,
                 successCount: single.success ? 1 : 0,
@@ -204,8 +236,8 @@ export function useChatActions(dmController: UseDmControllerResult | null) {
                 results: [single],
                 overallError: single.success ? undefined : (single.error ?? "Scoped publish failed"),
             };
-        } else if (scopedRelayUrl && typeof pool.publishToRelay === "function") {
-            const single = await pool.publishToRelay(scopedRelayUrl, payload);
+        } else if (publishRelayUrl && typeof pool.publishToRelay === "function") {
+            const single = await pool.publishToRelay(publishRelayUrl, payload);
             result = {
                 success: single.success,
                 successCount: single.success ? 1 : 0,
@@ -228,6 +260,29 @@ export function useChatActions(dmController: UseDmControllerResult | null) {
             }
             if (scopedRelayUrl && typeof pool.publishToUrls === "function") {
                 result = await pool.publishToUrls([scopedRelayUrl], payload);
+            }
+        }
+
+        if (!result.success && shouldRetryPublishAfterWorkspaceCalibration(result.overallError)) {
+            scopedRelayUrl = await resolveScopedRelay(true);
+            const retriedWritable = typeof pool.getWritableRelaySnapshot === "function"
+                ? pool.getWritableRelaySnapshot(scopedRelayUrl ? [scopedRelayUrl] : undefined)
+                : null;
+            const retriedPublishUrl = retriedWritable?.writableRelayUrls?.[0] ?? scopedRelayUrl;
+            if (retriedPublishUrl && typeof pool.addTransientRelay === "function") {
+                pool.addTransientRelay(retriedPublishUrl);
+            }
+            if (retriedPublishUrl && typeof pool.publishToUrls === "function") {
+                result = await pool.publishToUrls([retriedPublishUrl], payload);
+            } else if (retriedPublishUrl && typeof pool.publishToUrl === "function") {
+                const single = await pool.publishToUrl(retriedPublishUrl, payload);
+                result = {
+                    success: single.success,
+                    successCount: single.success ? 1 : 0,
+                    totalRelays: 1,
+                    results: [single],
+                    overallError: single.success ? undefined : (single.error ?? "Scoped publish failed"),
+                };
             }
         }
 

@@ -51,7 +51,7 @@ import { useCommunityParticipantRosterReadModel } from "@/app/features/groups/ho
 import { toast } from "@dweb/ui-kit";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import Image from "next/image";
-import { buildGroupBlockHref, buildGroupLeaveHref, buildGroupPurgeHref } from "@/app/features/groups/utils/group-action-route";
+import { buildGroupBlockHref, buildGroupLeaveHref } from "@/app/features/groups/utils/group-action-route";
 import { hasWritableCommunityRelayTransport } from "@/app/features/groups/services/community-relay-transport";
 import { UserAvatar } from "@/app/features/profile/components/user-avatar";
 import { useResolvedProfileMetadata } from "@/app/features/profile/hooks/use-resolved-profile-metadata";
@@ -66,6 +66,7 @@ import {
     setConversationNotificationsEnabled,
 } from "@/app/features/notifications/utils/notification-target-preference";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
+import { ProfileRegistryService } from "@/app/features/profiles/services/profile-registry-service";
 import { getPublicGroupHref, getPublicProfileHref, toAbsoluteAppUrl } from "@/app/features/navigation/public-routes";
 import { resolveGroupConversationByToken } from "@/app/features/messaging/utils/conversation-target";
 import { resolveGroupRouteToken } from "@/app/features/groups/utils/group-route-token";
@@ -73,7 +74,11 @@ import { toGroupConversationId } from "@/app/features/groups/utils/group-convers
 import { useAccessibilityPreferences } from "@/app/features/settings/hooks/use-accessibility-preferences";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import { filterVisibleGroupMembers } from "@/app/features/groups/services/community-visible-members";
-import { resolveCommunityDisplayName } from "@/app/features/groups/services/community-display-name";
+import { resolveCommunityDisplayName, PLACEHOLDER_GROUP_DISPLAY_NAME } from "@/app/features/groups/services/community-display-name";
+import {
+    loadCommunityMembershipLedger,
+    toCommunityMembershipLedgerKey,
+} from "@/app/features/groups/services/community-membership-ledger";
 import { getResolvedClientGateway } from "@/app/features/profiles/services/resolve-client-gateway";
 import { useIsDesktop } from "@/app/features/desktop/hooks/use-tauri";
 import { shouldUseSafeCommunityRenderMode } from "@/app/features/groups/services/community-render-mode";
@@ -131,8 +136,6 @@ export default function GroupHomePage() {
         communityKnownParticipantDirectoryByConversationId,
         communityRosterByConversationId,
         addGroup,
-        leaveGroup,
-        forcePurgeCommunity,
     } = useGroups();
     const { setSelectedConversation } = useMessaging();
     const { state: identityState } = useIdentity();
@@ -748,12 +751,20 @@ export default function GroupHomePage() {
         const adminPubkeys = (groupState.admins ?? [])
             .map((admin) => admin.pubkey)
             .filter((pubkey): pubkey is PublicKeyHex => typeof pubkey === "string" && pubkey.trim().length > 0);
+        const ledgerDisplayName = (() => {
+            const ledger = loadCommunityMembershipLedger(myPublicKeyHex, { profileId: getResolvedProfileId() });
+            const key = toCommunityMembershipLedgerKey({ groupId: resolvedGroupId, relayUrl: effectiveRelay });
+            if (!key) {
+                return undefined;
+            }
+            return ledger.find((entry) => toCommunityMembershipLedgerKey(entry) === key)?.displayName;
+        })();
         const displayName = resolveCommunityDisplayName({
             metadataName: groupState.metadata?.name,
-            persistedDisplayName: undefined,
+            persistedDisplayName: ledgerDisplayName,
             groupId: resolvedGroupId,
             communityId: resolvedCommunityId,
-            fallback: resolvedGroupId,
+            fallback: PLACEHOLDER_GROUP_DISPLAY_NAME,
         });
         const avatar = groupState.metadata?.picture;
         const access: GroupAccessMode = groupState.metadata?.access === "discoverable"
@@ -1001,30 +1012,22 @@ export default function GroupHomePage() {
         communityId: resolvedCommunityId,
     }), [displayName, effectiveRelay, group?.groupId, id, resolvedCommunityId, resolvedGroupId]);
 
+    const activeProfileLabel = React.useMemo(() => {
+        try {
+            const registry = ProfileRegistryService.getState();
+            return registry.profiles.find((profile) => profile.profileId === registry.activeProfileId)?.label
+                ?? t("groups.personalControls.thisProfile", "this profile");
+        } catch {
+            return t("groups.personalControls.thisProfile", "this profile");
+        }
+    }, [t]);
+
     const handleDeleteCommunity = () => {
-        if (!group?.groupId || !group.relayUrl) {
-            toast.error("Community details are missing; unable to delete.");
+        if (!groupActionRouteParams.routeToken) {
+            toast.error(t("groups.deleteCommunityMissingDetails", "Community details are missing; unable to delete."));
             return;
         }
-        const label = displayName || group.displayName || "this community";
-        const confirmed = window.confirm(
-            `Permanently remove "${label}" from this device?\n\nThis clears local chat, membership, and ledger data for Tester1 on this profile. It cannot be undone here.`,
-        );
-        if (!confirmed) {
-            return;
-        }
-        leaveGroup({
-            groupId: group.groupId,
-            relayUrl: group.relayUrl,
-            conversationId: group.id,
-        });
-        forcePurgeCommunity({
-            groupId: group.groupId,
-            relayUrl: group.relayUrl,
-            conversationId: group.id,
-        });
-        toast.success("Community removed from this device");
-        router.push("/network");
+        router.push(buildGroupLeaveHref({ ...groupActionRouteParams, leaveAction: "delete" }));
     };
 
     const handleBlockAction = () => {
@@ -1574,22 +1577,14 @@ export default function GroupHomePage() {
                                                 Delete community
                                             </p>
                                             <p className="text-sm font-medium text-zinc-700 dark:text-zinc-500">
-                                                Remove all local data for this community on Tester1 (keeps your account).
+                                                {t(
+                                                    "groups.deleteCommunityHint",
+                                                    "Open the leave page to confirm removal of all local data for {{profileLabel}} (keeps your account).",
+                                                    { profileLabel: activeProfileLabel },
+                                                )}
                                             </p>
                                         </div>
                                     </div>
-                                </button>
-                            ) : null}
-                            {!isGuest && group ? (
-                                <button
-                                    type="button"
-                                    onClick={() => router.push(buildGroupPurgeHref(groupActionRouteParams))}
-                                    className="flex items-center justify-between px-8 py-5 text-left transition-colors hover:bg-zinc-500/[0.03]"
-                                >
-                                    <p className="text-xs font-bold uppercase tracking-widest text-zinc-500">
-                                        Open full purge confirmation page
-                                    </p>
-                                    <ChevronRight className="h-4 w-4 text-zinc-500" />
                                 </button>
                             ) : null}
                         </div>

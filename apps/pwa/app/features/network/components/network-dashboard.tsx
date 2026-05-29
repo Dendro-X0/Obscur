@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import { useNetwork } from "../providers/network-provider";
 import { useGroups } from "@/app/features/groups/providers/group-provider";
-import { resolveCommunityDisplayName } from "@/app/features/groups/services/community-display-name";
+import { resolveCommunityDisplayName, PLACEHOLDER_GROUP_DISPLAY_NAME } from "@/app/features/groups/services/community-display-name";
 import { useMessaging } from "@/app/features/messaging/providers/messaging-provider";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
 import { UserAvatar } from "@/app/features/profile/components/user-avatar";
@@ -174,7 +174,7 @@ export function NetworkDashboard() {
                 persistedDisplayName: group.displayName,
                 groupId: group.groupId,
                 communityId: group.communityId,
-                fallback: group.id,
+                fallback: PLACEHOLDER_GROUP_DISPLAY_NAME,
             });
             return name.toLowerCase().includes(searchQuery.toLowerCase());
         });
@@ -415,7 +415,7 @@ export function NetworkDashboard() {
                                                 persistedDisplayName: group.displayName,
                                                 groupId: group.groupId,
                                                 communityId: group.communityId,
-                                                fallback: group.id,
+                                                fallback: PLACEHOLDER_GROUP_DISPLAY_NAME,
                                             })}
                                             relayUrl={group.relayUrl}
                                             leavePublishShortLabel={leavePublishShortLabel}

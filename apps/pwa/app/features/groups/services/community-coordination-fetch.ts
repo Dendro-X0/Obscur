@@ -22,18 +22,18 @@ export class CoordinationFetchError extends Error {
   }
 }
 
-/** Alternate loopback host when the first fetch fails (common on Windows desktop WebView). */
+/** Swap loopback hostname on the full request URL (path + query preserved). */
 export const alternateLoopbackCoordinationUrl = (url: string): string | null => {
   try {
     const parsed = new URL(url);
     if (parsed.hostname === "localhost") {
       parsed.hostname = "127.0.0.1";
-      return parsed.toString().replace(/\/+$/, "");
-    }
-    if (parsed.hostname === "127.0.0.1") {
+    } else if (parsed.hostname === "127.0.0.1") {
       parsed.hostname = "localhost";
-      return parsed.toString().replace(/\/+$/, "");
+    } else {
+      return null;
     }
+    return parsed.toString().replace(/\/+$/, "");
   } catch {
     // ignore malformed URLs
   }
@@ -113,7 +113,21 @@ const createNativeFetchImpl = (): CoordinationFetchImpl => async (url, init, tim
   }
 };
 
-const resolveFetchImpl = async (): Promise<CoordinationFetchImpl> => {
+/** Loopback coordination is reached reliably via WebView fetch (CORS *); Tauri native POST often 502 on Windows. */
+export const isLoopbackCoordinationUrl = (url: string): boolean => {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.toLowerCase();
+    return host === "localhost" || host === "127.0.0.1" || host === "[::1]";
+  } catch {
+    return false;
+  }
+};
+
+const resolveFetchImpl = async (url: string): Promise<CoordinationFetchImpl> => {
+  if (isLoopbackCoordinationUrl(url)) {
+    return createBrowserFetchImpl();
+  }
   if (!hasNativeRuntime()) {
     return createBrowserFetchImpl();
   }
@@ -128,8 +142,16 @@ const fetchOnce = async (
   init: RequestInit | undefined,
   timeoutMs: number,
 ): Promise<Response> => {
-  const fetchImpl = await resolveFetchImpl();
-  return fetchImpl(url, init, timeoutMs);
+  const fetchImpl = await resolveFetchImpl(url);
+  const response = await fetchImpl(url, init, timeoutMs);
+  if (
+    hasNativeRuntime()
+    && !isLoopbackCoordinationUrl(url)
+    && (response.status === 502 || response.status === 503 || response.status === 504)
+  ) {
+    return createBrowserFetchImpl()(url, init, timeoutMs);
+  }
+  return response;
 };
 
 export const fetchCoordinationWithTimeout = async (
@@ -140,7 +162,21 @@ export const fetchCoordinationWithTimeout = async (
   const timeoutMs = options?.timeoutMs ?? COORDINATION_FETCH_TIMEOUT_MS;
   const retryAlternateLoopback = options?.retryAlternateLoopback ?? true;
   try {
-    return await fetchOnce(url, init, timeoutMs);
+    const response = await fetchOnce(url, init, timeoutMs);
+    if (
+      retryAlternateLoopback
+      && !response.ok
+      && (response.status === 502 || response.status === 503 || response.status === 504)
+    ) {
+      const alternateUrl = alternateLoopbackCoordinationUrl(url);
+      if (alternateUrl && alternateUrl !== url) {
+        const retryResponse = await fetchOnce(alternateUrl, init, timeoutMs);
+        if (retryResponse.ok) {
+          return retryResponse;
+        }
+      }
+    }
+    return response;
   } catch (firstError) {
     const classified = classifyFetchFailure(firstError);
     if (!retryAlternateLoopback || classified.code !== "network_unreachable") {

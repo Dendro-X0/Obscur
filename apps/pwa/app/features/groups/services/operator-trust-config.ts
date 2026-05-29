@@ -3,6 +3,8 @@
  * Build-time `NEXT_PUBLIC_COORDINATION_URL` remains the default; operators may override per device.
  */
 
+import { normalizeWorkspaceRelayUrl } from "./workspace-relay-url";
+
 const COORDINATION_OVERRIDE_KEY = "obscur.operator.coordination_url.v1";
 const WORKSPACE_RELAY_KEY = "obscur.operator.workspace_relay.v1";
 
@@ -76,10 +78,6 @@ export const resolveCoordinationBaseUrl = (): string | null => {
     return raw ? trimUrl(raw) : null;
 };
 
-export const normalizeOperatorRelayUrl = (raw: string): string => {
-    const trimmed = raw.trim();
-    if (!trimmed) {
-        return "";
-    }
-    return /^wss?:\/\//i.test(trimmed) ? trimmed : `wss://${trimmed}`;
-};
+export const normalizeOperatorRelayUrl = (raw: string): string => (
+  normalizeWorkspaceRelayUrl(raw)
+);

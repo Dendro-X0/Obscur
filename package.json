@@ -1,7 +1,7 @@
 {
   "name": "dweb-messenger",
   "private": true,
-  "version": "1.8.7",
+  "version": "1.8.8",
   "packageManager": "pnpm@9.15.4",
   "engines": {
     "node": ">=20.11.0"
@@ -16,7 +16,8 @@
     "dev:api": "pnpm -C apps/api dev",
     "dev:desktop": "pnpm -C apps/desktop dev",
     "dev:desktop:offline": "node scripts/dev-desktop.mjs --offline",
-    "dev:desktop:online": "node scripts/dev-desktop.mjs --online",
+    "dev:desktop:online": "node scripts/dev-workspace-stack.mjs --online",
+    "dev:desktop:stack": "node scripts/dev-workspace-stack.mjs --online --stack-only",
     "dev:coordination": "pnpm -C apps/coordination dev",
     "coordination:migrate": "pnpm -C apps/coordination db:migrate",
     "coordination:health": "node scripts/coordination-health.mjs",

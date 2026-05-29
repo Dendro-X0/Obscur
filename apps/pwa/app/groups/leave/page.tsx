@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AlertTriangle, ArrowLeft, LogOut, Trash2 } from "lucide-react";
 import { CommunityActionWaitRing } from "@/app/features/groups/components/community-action-wait-ring";
@@ -26,10 +26,12 @@ import {
     CommunityNetworkTimeoutError,
     withCommunityNetworkTimeout,
 } from "@/app/features/groups/services/community-network-timeout";
+import { ProfileRegistryService } from "@/app/features/profiles/services/profile-registry-service";
 
 export default function LeaveCommunityPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
+    const deleteActionsRef = useRef<HTMLDivElement | null>(null);
     const {
         createdGroups,
         leaveGroup,
@@ -42,6 +44,7 @@ export default function LeaveCommunityPage() {
     const [isLeaving, setIsLeaving] = useState(false);
     const [leaveWaitPhase, setLeaveWaitPhase] = useState<string | null>(null);
     const [leaveWaitComplete, setLeaveWaitComplete] = useState(false);
+    const [isPurgingLocal, setIsPurgingLocal] = useState(false);
 
     const routeToken = resolveGroupRouteToken({
         routeParam: undefined,
@@ -50,6 +53,7 @@ export default function LeaveCommunityPage() {
     const queryRelay = searchParams.get("relay");
     const queryName = searchParams.get("name")?.trim() ?? "";
     const queryCommunityId = searchParams.get("communityId")?.trim() ?? "";
+    const isDeleteFlow = searchParams.get("action") === "delete";
 
     const group = routeToken ? (resolveGroupConversationByToken(createdGroups, routeToken) ?? undefined) : undefined;
     const localMemberPubkey = (identityState.publicKeyHex || identityState.stored?.publicKeyHex || null) as PublicKeyHex | null;
@@ -170,6 +174,23 @@ export default function LeaveCommunityPage() {
         return params.toString().length > 0 ? `/groups/view?${params.toString()}` : "/network";
     }, [effectiveRelay, routeToken]);
 
+    const activeProfileLabel = useMemo(() => {
+        try {
+            const registry = ProfileRegistryService.getState();
+            return registry.profiles.find((profile) => profile.profileId === registry.activeProfileId)?.label
+                ?? "this profile";
+        } catch {
+            return "this profile";
+        }
+    }, []);
+
+    useEffect(() => {
+        if (!isDeleteFlow || isLeaving || isPurgingLocal) {
+            return;
+        }
+        deleteActionsRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }, [isDeleteFlow, isLeaving, isPurgingLocal]);
+
     const applyLocalLeave = (): void => {
         if (group) {
             leaveGroup({
@@ -232,18 +253,12 @@ export default function LeaveCommunityPage() {
         }
     };
 
-    const handlePurgeLocal = () => {
+    const handleDeleteLocal = async () => {
         if (!resolvedGroupId || !effectiveRelay) {
             toast.error("Community details are missing; unable to purge.");
             return;
         }
-        const confirmed = window.confirm(
-            `Permanently remove all local data for "${displayName}"? This keeps your Tester1 account.`,
-        );
-        if (!confirmed) {
-            return;
-        }
-        setIsLeaving(true);
+        setIsPurgingLocal(true);
         try {
             applyLocalLeave();
             forcePurgeCommunity({
@@ -256,19 +271,31 @@ export default function LeaveCommunityPage() {
         } catch {
             toast.error("Failed to remove community data");
         } finally {
-            setIsLeaving(false);
+            setIsPurgingLocal(false);
         }
     };
 
+    const pageTitle = isDeleteFlow ? "Delete Community" : "Leave Community";
+    const headerEyebrow = isDeleteFlow ? "Delete Community" : "Exit Community";
+    const headerTitle = isDeleteFlow ? `Delete ${displayName}` : `Leave ${displayName}`;
+    const headerDescription = isDeleteFlow
+        ? `This permanently removes local chat, membership, and ledger data for ${displayName} on ${activeProfileLabel}. Your account stays on this device. This cannot be undone here.`
+        : "This action will disconnect you from this community space. You will stop receiving future messages, roster updates, and shared room-key changes unless you are invited back later.";
+    const confirmPanelTitle = isDeleteFlow ? "Confirm delete" : "Confirm Exit";
+    const confirmPanelDescription = isDeleteFlow
+        ? "Review the details below, then delete all local data when you are ready. Local removal happens first so the UI cannot hang on unreachable relays."
+        : "If you are sure, continue below. Local removal happens first so the UI cannot hang on unreachable relays.";
+    const isBusy = isLeaving || isPurgingLocal;
+
     return (
-        <PageShell title="Leave Community">
+        <PageShell title={pageTitle}>
             <div className="mx-auto flex min-h-[calc(100vh-8rem)] w-full max-w-3xl items-center justify-center px-4 py-10">
                 <Card className="w-full rounded-[32px] border-zinc-200/50 bg-white p-0 shadow-2xl dark:border-white/10 dark:bg-[#0b0b10] dark:shadow-[0_30px_120px_rgba(0,0,0,0.45)]">
                     <div className="border-b border-zinc-200/50 px-8 py-7 dark:border-white/8">
                         <button
                             type="button"
                             onClick={() => router.push(returnHref)}
-                            disabled={isLeaving}
+                            disabled={isBusy}
                             className="mb-6 inline-flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500 transition-colors hover:text-zinc-700 dark:hover:text-zinc-200"
                         >
                             <ArrowLeft className="h-4 w-4" />
@@ -280,13 +307,13 @@ export default function LeaveCommunityPage() {
                             </div>
                             <div className="space-y-2">
                                 <div className="text-[11px] font-black uppercase tracking-[0.2em] text-rose-400/80">
-                                    Exit Community
+                                    {headerEyebrow}
                                 </div>
                                 <h1 className="text-3xl font-black tracking-tight text-zinc-900 dark:text-zinc-50">
-                                    Leave {displayName}
+                                    {headerTitle}
                                 </h1>
                                 <p className="max-w-2xl text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
-                                    This action will disconnect you from this community space. You will stop receiving future messages, roster updates, and shared room-key changes unless you are invited back later.
+                                    {headerDescription}
                                 </p>
                             </div>
                         </div>
@@ -307,51 +334,89 @@ export default function LeaveCommunityPage() {
                                 What happens next
                             </div>
                             <ul className="mt-4 space-y-3 text-sm leading-relaxed text-zinc-700 dark:text-zinc-300">
-                                <li>You will leave the current community instance on relay scope <span className="font-bold text-zinc-900 dark:text-zinc-100">{effectiveRelay || "unknown"}</span>.</li>
-                                <li>Your local room key and active participation state will be cleared for this community.</li>
-                                <li>You can still return later if you receive a fresh invite or the community is shared with you again.</li>
+                                {isDeleteFlow ? (
+                                    <>
+                                        <li>All local chat history, membership evidence, and ledger entries for <span className="font-bold text-zinc-900 dark:text-zinc-100">{displayName}</span> will be removed on {activeProfileLabel}.</li>
+                                        <li>The community disappears from your Network list on this device.</li>
+                                        <li>You can rejoin later only if someone sends you a fresh invite.</li>
+                                    </>
+                                ) : (
+                                    <>
+                                        <li>You will leave the current community instance on relay scope <span className="font-bold text-zinc-900 dark:text-zinc-100">{effectiveRelay || "unknown"}</span>.</li>
+                                        <li>Your local room key and active participation state will be cleared for this community.</li>
+                                        <li>You can still return later if you receive a fresh invite or the community is shared with you again.</li>
+                                    </>
+                                )}
                             </ul>
-                            {!relayTransportReady ? (
+                            {!relayTransportReady && !isDeleteFlow ? (
                                 <p className="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-950 dark:text-amber-100">
                                     This host is not a reachable Nostr relay. Exit will complete on this device only (no global relay fanout).
                                 </p>
                             ) : null}
                         </div>
 
-                        <div className="rounded-[28px] border border-rose-200 bg-[linear-gradient(180deg,#fff1f2_0%,#ffe4e6_100%)] p-6 dark:border-rose-500/25 dark:bg-[linear-gradient(180deg,rgba(190,24,93,0.18)_0%,rgba(88,28,28,0.35)_100%)]">
+                        <div
+                            ref={deleteActionsRef}
+                            className="rounded-[28px] border border-rose-200 bg-[linear-gradient(180deg,#fff1f2_0%,#ffe4e6_100%)] p-6 dark:border-rose-500/25 dark:bg-[linear-gradient(180deg,rgba(190,24,93,0.18)_0%,rgba(88,28,28,0.35)_100%)]"
+                        >
                             <div className="text-[10px] font-black uppercase tracking-[0.18em] text-rose-600 dark:text-rose-400">
-                                Confirm Exit
+                                {confirmPanelTitle}
                             </div>
                             <div className="mt-4 text-sm leading-relaxed text-zinc-700 dark:text-zinc-200">
-                                If you are sure, continue below. Local removal happens first so the UI cannot hang on unreachable relays.
+                                {confirmPanelDescription}
                             </div>
                             <div className="mt-8 flex flex-col gap-3">
                                 <Button
                                     variant="secondary"
                                     className="h-12 rounded-2xl border border-white/20 bg-violet-600 text-white hover:bg-violet-700 dark:border-white/10 dark:bg-[#1b1d2a] dark:hover:bg-[#26293b]"
                                     onClick={() => router.push(returnHref)}
-                                    disabled={isLeaving}
+                                    disabled={isBusy}
                                 >
                                     Stay in Community
                                 </Button>
-                                <Button
-                                    variant="danger"
-                                    className="h-12 rounded-2xl gap-2 text-sm font-black"
-                                    onClick={() => void handleLeave()}
-                                    disabled={isLeaving}
-                                >
-                                    <LogOut className="h-4 w-4" />
-                                    Leave Community
-                                </Button>
-                                <Button
-                                    variant="secondary"
-                                    className="h-12 rounded-2xl gap-2 border border-rose-300/40 text-sm font-bold text-rose-700 dark:text-rose-200"
-                                    onClick={handlePurgeLocal}
-                                    disabled={isLeaving}
-                                >
-                                    <Trash2 className="h-4 w-4" />
-                                    Delete all local data
-                                </Button>
+                                {isDeleteFlow ? (
+                                    <>
+                                        <Button
+                                            variant="danger"
+                                            className="h-12 rounded-2xl gap-2 text-sm font-black"
+                                            onClick={() => void handleDeleteLocal()}
+                                            disabled={isBusy}
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                            Delete all local data
+                                        </Button>
+                                        <Button
+                                            variant="secondary"
+                                            className="h-12 rounded-2xl gap-2 border border-rose-300/40 text-sm font-bold text-rose-700 dark:text-rose-200"
+                                            onClick={() => void handleLeave()}
+                                            disabled={isBusy}
+                                        >
+                                            <LogOut className="h-4 w-4" />
+                                            Leave without full purge
+                                        </Button>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Button
+                                            variant="danger"
+                                            className="h-12 rounded-2xl gap-2 text-sm font-black"
+                                            onClick={() => void handleLeave()}
+                                            disabled={isBusy}
+                                        >
+                                            <LogOut className="h-4 w-4" />
+                                            Leave Community
+                                        </Button>
+                                        <Button
+                                            variant="secondary"
+                                            className="h-12 rounded-2xl gap-2 border border-rose-300/40 text-sm font-bold text-rose-700 dark:text-rose-200"
+                                            onClick={() => void handleDeleteLocal()}
+                                            disabled={isBusy}
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                            Delete all local data
+                                        </Button>
+                                    </>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -360,4 +425,4 @@ export default function LeaveCommunityPage() {
             </div>
         </PageShell>
     );
-}
+};

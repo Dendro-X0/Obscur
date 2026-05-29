@@ -15,7 +15,7 @@ describe("relay transport scope copy", () => {
       writableRelayCount: 1,
       subscribableRelayCount: 1,
       enabledRelayCount: 3,
-    })).toContain("relay.damus.io");
+    })).toContain("Nostr active transport");
     expect(getActiveTransportScopeCopy({
       selection: {
         primaryUrl: "wss://relay.damus.io",
@@ -40,6 +40,6 @@ describe("relay transport scope copy", () => {
       writableRelayCount: 2,
       subscribableRelayCount: 2,
       enabledRelayCount: 3,
-    })).toContain("Redundancy pool");
+    })).toContain("Nostr redundancy pool");
   });
 });

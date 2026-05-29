@@ -1,7 +1,7 @@
 # Current Session Handoff — Obscur (native-first)
 
-- Last Updated (UTC): 2026-05-28T10:52:00Z
-- Session Status: **Active** — **v1.8.7** development lane
+- Last Updated (UTC): 2026-05-29T12:00:00Z
+- Session Status: **v1.8.8 ready to tag**
 - Active Owner: Maintainer
 
 ## Active objective
@@ -191,22 +191,43 @@ Policy: `community-trust-policy.ts` · hook: `use-workspace-community-trust-gate
 | T6-5 transport evidence lane (CI) | **Implemented** — `scripts/relay-runtime-smoke.mjs` + reliability/release workflows include `relay runtime smoke` gate against `nostr-rs-relay` service container |
 | Release | **Published** — tag `v1.8.6` and GitHub release completed |
 
-## v1.8.7 in progress (2026-05-28)
+## v1.8.7 completed (2026-05-29)
 
 | Slice | Status |
 |-------|--------|
 | T7-1 transport-hard relay/join evidence | **Implemented** — expanded invite relay-join tests (`community-invite-relay-join.test.ts`) for transient retry and deterministic terminal state coverage |
 | T7-2 membership surface consistency assertions | **Implemented** — expanded tests on invite gating, network dashboard member count sourcing, and chat view -> header member-count forwarding |
 | T7-3 docs/evidence packet alignment | **Implemented** — `v1.8.7` scope/gate/demo docs plus release-train sync landed |
-| Version on `main` | **1.8.7** |
+| Release | **Published** — tag `v1.8.7` and GitHub release completed |
 
-## Next atomic step (active lane: **v1.8.7**)
+## v1.8.8 ready to tag (2026-05-29)
 
-**Canonical release train:** [v1.8.x-release-train.md](../program/v1.8.x-release-train.md)
+| Slice | Status |
+|-------|--------|
+| T8-1 confidence carry-forward | **Done** — automated gates green |
+| T8-2 manual Test 8 (managed workspace) | **Done** — A/B invite → accept → sealed chat; restart history; header metadata |
+| T8-3 continuity docs | **Done** — scope, gate, demo, [v1.8.8 release notes](../releases/v1.8.8-release.md), [v1.8.9+ roadmap](../program/v1.8.9-plus-managed-workspace-roadmap.md) |
+| Version on `main` | **1.8.8** |
 
-1. Run broader v1.8.7 confidence pass (`pnpm release:test-pack -- --skip-preflight`, `pnpm docs:check`) on current head.
-2. Refresh [v1.8.7 demo](../assets/demo/v1.8.7/README.md) with latest CI result references.
-3. Decide whether to open v1.8.8 scope immediately or keep hardening within v1.8.7.
+### Product fixes landed this band (beyond T8 docs)
+
+| Area | Effect |
+|------|--------|
+| Relay dev | Open relay whitelist in `infra/nostr/nostr-rs-relay.toml`; loopback WS + publish fallback |
+| Group persistence | `loadPersistedSealedGroupMessages` on chat open; persist on send/receive |
+| Chat header | Members · online · last activity; CRDT-first count + terminal membership listener |
+| Leave / roster | Terminal cache events; participants LEFT/EXCLUDED; merge fixes in group-provider |
+
+## Next atomic step — tag **v1.8.8**
+
+**Gate:** [v1.8.8-gate.md](../releases/v1.8.8-gate.md) · **Release notes:** [v1.8.8-release.md](../releases/v1.8.8-release.md)
+
+1. Reconfirm on clean `main`: `pnpm -C apps/pwa typecheck`, `pnpm docs:check`, `pnpm release:test-pack -- --skip-preflight`, `pnpm version:check`.
+2. Confirm CI `reliability-gates` green on HEAD.
+3. Commit doc updates if needed (`CHANGELOG.md`, `README.md`, `docs/releases/v1.8.8-release.md`).
+4. `git tag v1.8.8` && `git push origin v1.8.8` → GitHub Release.
+
+**After tag:** [v1.8.9+ managed workspace](../program/v1.8.9-plus-managed-workspace-roadmap.md) — operator-relay deletion, group bots.
 
 ### Prior program order (reference)
 

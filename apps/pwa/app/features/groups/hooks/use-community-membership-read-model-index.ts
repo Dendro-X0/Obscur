@@ -20,6 +20,7 @@ import {
 } from "../services/community-participant-roster-session-storage";
 import { loadCommunityKnownParticipantsEntries } from "../services/community-known-participants-store";
 import { loadCommunityMembershipLedger } from "../services/community-membership-ledger";
+import { COMMUNITY_TERMINAL_MEMBERSHIP_UPDATED_EVENT } from "../services/community-terminal-membership-cache";
 
 export type CommunityMembershipReadModelIndexGroupInput = Readonly<{
   conversationId: string;
@@ -30,6 +31,9 @@ export type CommunityMembershipReadModelIndexGroupInput = Readonly<{
   projectionMemberPubkeys?: ReadonlyArray<PublicKeyHex>;
   rosterSeedPubkeys?: ReadonlyArray<PublicKeyHex>;
   localMemberPubkey?: PublicKeyHex | null;
+  leftMemberPubkeys?: ReadonlyArray<PublicKeyHex>;
+  expelledMemberPubkeys?: ReadonlyArray<PublicKeyHex>;
+  applyTerminalMembershipExclusions?: boolean;
 }>;
 
 export type CommunityMembershipReadModelIndexEntry = Readonly<{
@@ -69,11 +73,16 @@ export const useCommunityMembershipReadModelIndex = (params: Readonly<{
       }
       setRevision((value) => value + 1);
     };
+    const onTerminalUpdated = () => {
+      setRevision((value) => value + 1);
+    };
     window.addEventListener(CHAT_STATE_REPLACED_EVENT, onChatStateReplaced);
     window.addEventListener(COMMUNITY_MEMBERSHIP_LEDGER_UPDATED_EVENT, onLedgerUpdated);
+    window.addEventListener(COMMUNITY_TERMINAL_MEMBERSHIP_UPDATED_EVENT, onTerminalUpdated);
     return () => {
       window.removeEventListener(CHAT_STATE_REPLACED_EVENT, onChatStateReplaced);
       window.removeEventListener(COMMUNITY_MEMBERSHIP_LEDGER_UPDATED_EVENT, onLedgerUpdated);
+      window.removeEventListener(COMMUNITY_TERMINAL_MEMBERSHIP_UPDATED_EVENT, onTerminalUpdated);
     };
   }, [params.ownerPubkey]);
 
@@ -126,10 +135,10 @@ export const useCommunityMembershipReadModelIndex = (params: Readonly<{
         persistedMessageAuthorPubkeys: [],
         communityMessages: [],
         localMemberPubkey: group.localMemberPubkey ?? null,
-        leftMemberPubkeys: [],
-        expelledMemberPubkeys: [],
+        leftMemberPubkeys: group.leftMemberPubkeys ?? [],
+        expelledMemberPubkeys: group.expelledMemberPubkeys ?? [],
         sessionPubkeys: session,
-        applyTerminalMembershipExclusions: false,
+        applyTerminalMembershipExclusions: group.applyTerminalMembershipExclusions === true,
       });
 
       saveCommunityParticipantRosterSession(conversationId, profileId, result.sessionPubkeys);

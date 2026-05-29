@@ -5,6 +5,8 @@ import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { applyRelayListScopeMigration } from "../services/relay-transport-scope";
+import { normalizeWorkspaceRelayUrl } from "@/app/features/groups/services/workspace-relay-url";
+import { dedupeRelayListByWorkspaceIdentity } from "@/app/features/groups/services/workspace-relay-calibrator";
 import { validateRelayUrl } from "./validate-relay-url";
 
 type RelayListItem = Readonly<{
@@ -76,7 +78,10 @@ const getLegacyRelayListStorageKey = (publicKeyHex: PublicKeyHex): string => {
 
 const toTrustedRelayUrl = (url: string): string | null => {
   const validated = validateRelayUrl(url, { allowLocalhostWs: true });
-  return validated?.normalizedUrl ?? null;
+  if (!validated?.normalizedUrl) {
+    return null;
+  }
+  return normalizeWorkspaceRelayUrl(migrateLegacyLocalRelayUrl(validated.normalizedUrl));
 };
 
 const sanitizeRelayList = (relays: ReadonlyArray<RelayListItem>): ReadonlyArray<RelayListItem> => {
@@ -93,7 +98,7 @@ const sanitizeRelayList = (relays: ReadonlyArray<RelayListItem>): ReadonlyArray<
       enabled: relay.enabled,
     });
   });
-  return sanitized;
+  return dedupeRelayListByWorkspaceIdentity(sanitized);
 };
 
 const parseRelayListPayload = (raw: string): ReadonlyArray<RelayListItem> | null => {
@@ -204,8 +209,14 @@ export const useRelayList = (params: UseRelayListParams): UseRelayListResult => 
       return;
     }
     setRelays((prev: ReadonlyArray<RelayListItem>): ReadonlyArray<RelayListItem> => {
-      if (prev.some((r: RelayListItem): boolean => r.url === trustedUrl)) {
-        return prev;
+      const existing = prev.find((r: RelayListItem): boolean => r.url === trustedUrl);
+      if (existing) {
+        if (existing.enabled) {
+          return prev;
+        }
+        return prev.map((r: RelayListItem): RelayListItem => (
+          r.url === trustedUrl ? { ...r, enabled: true } : r
+        ));
       }
       return [...prev, { url: trustedUrl, enabled: true }];
     });

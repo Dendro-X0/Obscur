@@ -330,7 +330,11 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             ...group,
             id: canonicalId,
             communityId,
-            displayName: group.displayName?.trim() || "Private Group",
+            displayName: pickPreferredCommunityDisplayName(
+                group.displayName,
+                undefined,
+                { groupId: group.groupId, communityId, conversationId: canonicalId },
+            ),
             memberPubkeys: Array.isArray(group.memberPubkeys) ? group.memberPubkeys : [],
             adminPubkeys: Array.isArray(group.adminPubkeys) ? group.adminPubkeys : []
         };
@@ -376,12 +380,7 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             ),
             memberPubkeys: mergedMemberPubkeys,
             adminPubkeys: mergedAdminPubkeys,
-            memberCount: Math.max(
-                current.memberCount ?? 0,
-                incoming.memberCount ?? 0,
-                mergedMemberPubkeys.length,
-                1,
-            ),
+            memberCount: Math.max(mergedMemberPubkeys.length, 1),
             avatar: primaryAvatar && primaryAvatar.length > 0
                 ? primaryAvatar
                 : secondaryAvatar && secondaryAvatar.length > 0
@@ -666,14 +665,14 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 ...messageAuthorPubkeys,
                 pk,
             ]);
-            if (mergedMemberPubkeys.join(",") === (group.memberPubkeys ?? []).join(",")) {
-                return group;
-            }
-            return {
-                ...group,
-                memberPubkeys: mergedMemberPubkeys,
-                memberCount: Math.max(group.memberCount ?? 0, mergedMemberPubkeys.length, 1),
-            };
+            const withMembers = mergedMemberPubkeys.join(",") === (group.memberPubkeys ?? []).join(",")
+                ? group
+                : {
+                    ...group,
+                    memberPubkeys: mergedMemberPubkeys,
+                    memberCount: Math.max(group.memberCount ?? 0, mergedMemberPubkeys.length, 1),
+                };
+            return sanitizeGroup(withMembers);
         }))
             .filter((group) => !tombstones.has(toGroupTombstoneKey({ groupId: group.groupId, relayUrl: group.relayUrl })));
         queueMicrotask(() => {
@@ -1321,7 +1320,11 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 && Number(detail?.lastMessageTimeUnixMs) > 0
                 ? Number(detail?.lastMessageTimeUnixMs)
                 : nowUnixMs;
-            const displayName = detail?.displayName?.trim() || "Private Group";
+            const displayName = pickPreferredCommunityDisplayName(
+                detail?.displayName,
+                undefined,
+                { groupId, communityId },
+            );
             const memberPubkeys = dedupePubkeys(detail?.memberPubkeys ?? []);
             const adminPubkeys = dedupePubkeys(detail?.adminPubkeys ?? []);
             const access = detail?.access === "open" || detail?.access === "discoverable" || detail?.access === "invite-only"
@@ -1381,11 +1384,15 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                     const mergedGroup = sanitizeGroup({
                         ...existing,
                         communityId: pickPreferredCommunityId(existing.communityId, candidateGroup.communityId),
-                        displayName: (
-                            existing.displayName?.trim().length ?? 0
-                        ) > 0 && existing.displayName !== "Private Group"
-                            ? existing.displayName
-                            : candidateGroup.displayName,
+                        displayName: pickPreferredCommunityDisplayName(
+                            existing.displayName,
+                            candidateGroup.displayName,
+                            {
+                                groupId: existing.groupId ?? candidateGroup.groupId,
+                                communityId: pickPreferredCommunityId(existing.communityId, candidateGroup.communityId),
+                                conversationId: existing.id ?? candidateGroup.id,
+                            },
+                        ),
                         memberPubkeys: mergedMemberPubkeys,
                         adminPubkeys: mergedAdminPubkeys,
                         memberCount: Math.max(
@@ -1787,6 +1794,27 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                     return prev;
                 }
 
+                const nextMemberCount = Math.max(nextMembers.length, 1);
+                setCreatedGroups((groups) => {
+                    const pkForPersist = getPublicKeyHex();
+                    const nextGroups = groups.map((group) => (
+                        group.id === matchingGroup.id
+                            ? sanitizeGroup({
+                                ...group,
+                                memberPubkeys: nextMembers as ReadonlyArray<string>,
+                                memberCount: nextMemberCount,
+                            })
+                            : group
+                    ));
+                    if (pkForPersist) {
+                        chatStateStoreService.updateGroups(
+                            pkForPersist,
+                            nextGroups.map((group) => toPersistedGroupConversation(group)),
+                        );
+                    }
+                    return nextGroups;
+                });
+
                 return {
                     ...prev,
                     [matchingGroup.id]: {
@@ -1796,7 +1824,7 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                         relayUrl: matchingGroup.relayUrl,
                         communityId: matchingGroup.communityId,
                         activeMemberPubkeys: nextMembers,
-                        memberCount: Math.max(nextMembers.length, 1),
+                        memberCount: nextMemberCount,
                     },
                 };
             });

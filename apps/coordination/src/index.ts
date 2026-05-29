@@ -57,19 +57,28 @@ const MAX_TTL_SECONDS: number = 60 * 60 * 24 * 14;
 
 const DEFAULT_TTL_SECONDS: number = 60 * 60 * 24 * 3;
 
+const CORS_HEADERS: Readonly<Record<string, string>> = {
+  "access-control-allow-origin": "*",
+  "access-control-allow-methods": "GET,POST,OPTIONS",
+  "access-control-allow-headers": "content-type, authorization, x-requested-with",
+};
+
 /**
  * Basic Response Helpers
  */
 const json = (params: Readonly<{ status: number; body: JsonObject; extraHeaders?: Readonly<Record<string, string>> }>): Response => {
   const headers = new Headers({
     "content-type": "application/json; charset=utf-8",
-    "access-control-allow-origin": "*",
-    "access-control-allow-methods": "GET,POST,OPTIONS",
-    "access-control-allow-headers": "content-type, authorization, x-requested-with",
+    ...CORS_HEADERS,
     ...(params.extraHeaders ?? {})
   });
   return new Response(JSON.stringify(params.body), { status: params.status, headers });
 };
+
+const corsPreflight = (): Response => new Response(null, {
+  status: 204,
+  headers: CORS_HEADERS,
+});
 
 const badRequest = (message: string): Response => json({ status: 400, body: { ok: false, error: message } });
 
@@ -337,7 +346,7 @@ const handleGetFile = async (request: Request, env: Env): Promise<Response> => {
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     if (request.method === "OPTIONS") {
-      return json({ status: 204, body: {} });
+      return corsPreflight();
     }
     const url = new URL(request.url);
     const path = url.pathname;

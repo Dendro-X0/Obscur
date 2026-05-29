@@ -39,47 +39,17 @@ import { resolveUserFacingErrorMessage } from "@/app/features/relays/services/re
 import { dispatchGroupInviteReceived } from "@/app/features/profiles/services/profile-bus-dispatch";
 import { assessWorkspaceCommunityTrustAsync } from "@/app/features/groups/services/community-trust-policy";
 import {
-    ensureWorkspaceMembershipSyncMode,
-    publishWorkspaceMemberJoin,
-} from "@/app/features/groups/services/community-workspace-membership";
+    createWorkspaceActivationPublisher,
+    prepareWorkspaceActivationTransport,
+    publishWorkspaceCoordinationJoinEvidence,
+    summarizeWorkspaceActivation,
+    type WorkspaceActivationRelayEvidence,
+} from "@/app/features/groups/services/community-workspace-activation";
+import { ensureWorkspaceMembershipSyncMode } from "@/app/features/groups/services/community-workspace-membership";
 import { hasWritableCommunityRelayTransport } from "@/app/features/groups/services/community-relay-transport";
 import { isCoordinationOnlyWorkspaceDevMode } from "@/app/features/groups/services/community-dev-flags";
 import { LOCAL_DEV_RELAY_URL } from "@/app/features/relays/hooks/use-relay-list";
-
-const RELAY_PUBLISH_TIMEOUT_MS = 12_000;
-
-const publishCommunityEventWithTimeout = async (
-    relayPool: {
-        publishToUrls?: (urls: ReadonlyArray<string>, payload: string) => Promise<unknown>;
-        publishToUrl?: (url: string, payload: string) => Promise<unknown>;
-        publishToRelay?: (url: string, payload: string) => Promise<unknown>;
-        publishToAll?: (payload: string) => Promise<unknown>;
-    },
-    relayUrl: string,
-    payload: string,
-): Promise<void> => {
-    const publishPromise = (async (): Promise<void> => {
-        if (typeof relayPool.publishToUrls === "function") {
-            await relayPool.publishToUrls([relayUrl], payload);
-            return;
-        }
-        if (typeof relayPool.publishToUrl === "function") {
-            await relayPool.publishToUrl(relayUrl, payload);
-            return;
-        }
-        if (typeof relayPool.publishToRelay === "function") {
-            await relayPool.publishToRelay(relayUrl, payload);
-            return;
-        }
-        if (typeof relayPool.publishToAll === "function") {
-            await relayPool.publishToAll(payload);
-        }
-    })();
-    const timeoutPromise = new Promise<never>((_, reject) => {
-        window.setTimeout(() => reject(new Error("relay_publish_timeout")), RELAY_PUBLISH_TIMEOUT_MS);
-    });
-    await Promise.race([publishPromise, timeoutPromise]);
-};
+import { ensureWorkspaceRelayTransportReady } from "@/app/features/groups/services/workspace-relay-calibrator";
 
 const DEFAULT_DM_DISPLAY_NAME = "Unknown contact";
 
@@ -183,13 +153,19 @@ export function GlobalDialogManager() {
         setCreateWaitPhase("local");
         try {
             const { groupId, host, name, about, avatar, access, relayCapabilityTier } = info;
-            const relayUrl = (() => {
+            const rawRelayInput = (() => {
                 const trimmedHost = host.trim();
                 if (!trimmedHost && isCoordinationOnlyWorkspaceDevMode()) {
                     return LOCAL_DEV_RELAY_URL;
                 }
-                return trimmedHost.startsWith("ws") ? trimmedHost : `wss://${trimmedHost}`;
+                return trimmedHost;
             })();
+            const calibration = await ensureWorkspaceRelayTransportReady({
+                rawUrl: rawRelayInput,
+                pool: relayPoolRef.current,
+                timeoutMs: 5000,
+            });
+            const relayUrl = calibration.canonicalUrl;
             const communityMode = "managed_workspace" as const;
             const creatorPubkey = myPublicKeyHex;
 
@@ -253,29 +229,51 @@ export function GlobalDialogManager() {
                 metadata
             });
 
+            const openRelayUrls = relayList.state.relays
+                .filter((relay) => relay.enabled)
+                .map((relay) => relay.url);
+            let relayEvidence: WorkspaceActivationRelayEvidence = {
+                status: relayTransportReady ? "failed" : "skipped",
+                canonicalUrl: relayUrl,
+                publishTargets: [] as ReadonlyArray<string>,
+                lastError: relayTransportReady ? "genesis_not_published" : undefined,
+            };
             if (relayTransportReady) {
-                const createdPayload = JSON.stringify(["EVENT", createdEvent]);
-                try {
-                    await publishCommunityEventWithTimeout(relayPoolRef.current, relayUrl, createdPayload);
-                } catch (error) {
+                const transport = await prepareWorkspaceActivationTransport({
+                    rawRelayUrl: relayUrl,
+                    pool: relayPoolRef.current,
+                    addRelay: (relayParams) => relayList.addRelay(relayParams),
+                    openRelayUrls,
+                    timeoutMs: 8000,
+                });
+                const publish = createWorkspaceActivationPublisher(
+                    relayPoolRef.current,
+                    transport.publishTargets,
+                );
+                const genesisResult = await publish(JSON.stringify(["EVENT", createdEvent]));
+                relayEvidence = {
+                    status: genesisResult.success ? "synced" : "failed",
+                    canonicalUrl: transport.canonicalUrl || relayUrl,
+                    publishTargets: transport.publishTargets,
+                    lastError: genesisResult.success ? undefined : (genesisResult.error ?? "genesis_publish_failed"),
+                };
+                if (!genesisResult.success) {
                     logAppEvent({
                         name: "groups.community_creation_relay_publish_failed",
                         level: "warn",
                         scope: { feature: "groups", action: "community_create" },
                         context: {
-                            relayUrl,
-                            error: error instanceof Error ? error.message : "publish_failed",
+                            relayUrl: transport.canonicalUrl || relayUrl,
+                            publishTargets: transport.publishTargets.join(","),
+                            publishError: genesisResult.error ?? null,
                         },
                     });
-                    toast.error(t(
-                        "groups.relayPublishFailed",
-                        "Community saved locally, but relay publish timed out or failed. Check the relay host and try Reconcile membership later.",
-                    ));
                 }
             }
 
             const genesisEventId = createdEvent.id;
-            const communityId = deriveCommunityId({ groupId, relayUrl, genesisEventId, creatorPubkey });
+            const resolvedRelayUrl = relayEvidence.canonicalUrl || relayUrl;
+            const communityId = deriveCommunityId({ groupId, relayUrl: resolvedRelayUrl, genesisEventId, creatorPubkey });
 
             // 2. Discoverability (Kind 39000 Hint)
             // If not invite-only, we publish a hint so others know where to look.
@@ -294,12 +292,12 @@ export function GlobalDialogManager() {
 
             const newGroup: GroupConversation = {
                 kind: 'group',
-                id: toGroupConversationId({ groupId, relayUrl, communityId }),
+                id: toGroupConversationId({ groupId, relayUrl: resolvedRelayUrl, communityId }),
                 communityId,
                 genesisEventId,
                 creatorPubkey,
                 groupId,
-                relayUrl,
+                relayUrl: resolvedRelayUrl,
                 displayName: name,
                 memberPubkeys: [myPublicKeyHex],
                 lastMessage: 'Sealed community created locally',
@@ -313,31 +311,30 @@ export function GlobalDialogManager() {
                 relayCapabilityTier,
             };
 
-            addGroup(newGroup, { allowRevive: true });
-            dispatchGroupInviteReceived(newGroup);
             setCreateWaitPhase("directory");
 
-            const joinPublish = await publishWorkspaceMemberJoin({
+            const coordination = await publishWorkspaceCoordinationJoinEvidence({
                 communityId,
                 memberPubkey: myPublicKeyHex as PublicKeyHex,
                 actorPubkey: myPublicKeyHex as PublicKeyHex,
                 actorPrivateKeyHex: myPrivateKeyHex,
             });
-            if (!joinPublish.success) {
-                const detail = joinPublish.errorMessage?.trim();
-                const coordinationHint = describeCoordinationFetchError(detail);
-                toast.error(
-                    t(
-                        "groups.coordinationJoinPublishFailedDetail",
-                        "Community created locally, but coordination membership publish failed. {{hint}} Retry Reconcile membership after coordination is healthy.",
-                        { hint: coordinationHint },
-                    ),
-                );
+            const activationSummary = summarizeWorkspaceActivation({
+                relay: relayEvidence,
+                coordination,
+                context: "create",
+                displayName: name,
+            });
+            if (activationSummary.severity !== "success") {
+                toast.error(activationSummary.detail
+                    ? `${activationSummary.title} ${activationSummary.detail}`
+                    : activationSummary.title);
+                return;
             }
 
-            if (relayTransportReady) {
-                setSelectedConversation(newGroup);
-            }
+            addGroup(newGroup, { allowRevive: true });
+            dispatchGroupInviteReceived(newGroup);
+            setSelectedConversation(newGroup);
             setIsNewGroupOpen(false);
             toast.success(t("groups.created", "Workspace community created"));
         } catch (error: unknown) {

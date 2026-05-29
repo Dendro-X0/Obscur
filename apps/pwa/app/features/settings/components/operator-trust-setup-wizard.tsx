@@ -8,6 +8,8 @@ import { Button, Input, Label, toast } from "@dweb/ui-kit";
 import { cn } from "@/app/lib/cn";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { useRelayList } from "@/app/features/relays/hooks/use-relay-list";
+import { useRelay } from "@/app/features/relays/providers/relay-provider";
+import { ensureWorkspaceRelayTransportReady } from "@/app/features/groups/services/workspace-relay-calibrator";
 import {
     clearCoordinationHealthCache,
     probeCoordinationHealth,
@@ -37,6 +39,7 @@ export function OperatorTrustSetupWizard(): React.JSX.Element {
     const { t } = useTranslation();
     const identity = useIdentity();
     const relayList = useRelayList({ publicKeyHex: identity.state.publicKeyHex ?? null });
+    const { relayPool } = useRelay();
     const [coordinationUrl, setCoordinationUrl] = React.useState("");
     const [workspaceRelayUrl, setWorkspaceRelayUrl] = React.useState("ws://localhost:7000");
     const [phase, setPhase] = React.useState<WizardPhase>("idle");
@@ -58,7 +61,9 @@ export function OperatorTrustSetupWizard(): React.JSX.Element {
 
     const handleApply = async (): Promise<void> => {
         const coord = coordinationUrl.trim();
-        const relay = testWithoutRelay ? LOCAL_DEV_RELAY_URL : normalizeOperatorRelayUrl(workspaceRelayUrl);
+        const rawRelayInput = testWithoutRelay
+            ? LOCAL_DEV_RELAY_URL
+            : normalizeOperatorRelayUrl(workspaceRelayUrl);
         if (!coord) {
             setPhase("error");
             setStatusMessage(t(
@@ -67,7 +72,7 @@ export function OperatorTrustSetupWizard(): React.JSX.Element {
             ));
             return;
         }
-        if (!testWithoutRelay && !relay) {
+        if (!testWithoutRelay && !rawRelayInput) {
             setPhase("error");
             setStatusMessage(t(
                 "settings.operatorSetup.relayRequired",
@@ -94,6 +99,12 @@ export function OperatorTrustSetupWizard(): React.JSX.Element {
         }
 
         if (!testWithoutRelay) {
+            const calibration = await ensureWorkspaceRelayTransportReady({
+                rawUrl: rawRelayInput,
+                pool: relayPool,
+                timeoutMs: 5000,
+            });
+            const relay = calibration.canonicalUrl;
             const trust = assessWorkspaceCommunityTrust({
                 communityRelayUrl: relay,
                 enabledRelayUrls: relayList.state.relays.map((entry) => entry.url),
@@ -104,13 +115,16 @@ export function OperatorTrustSetupWizard(): React.JSX.Element {
                 setStatusMessage(trust.userMessage);
                 return;
             }
-        }
 
-        writeOperatorWorkspaceRelayUrl(relay);
-        if (!testWithoutRelay) {
+            writeOperatorWorkspaceRelayUrl(relay);
             relayList.addRelay({ url: relay });
+        } else {
+            writeOperatorWorkspaceRelayUrl(rawRelayInput);
         }
         writeMembershipSyncMode("coordination_preferred");
+        if (typeof window !== "undefined") {
+            window.dispatchEvent(new Event("obscur:operator-trust-config-changed"));
+        }
 
         setPhase("success");
         setStatusMessage(

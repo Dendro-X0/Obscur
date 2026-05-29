@@ -1,10 +1,12 @@
 export const PLACEHOLDER_GROUP_DISPLAY_NAME = "Private Group";
 
 const OPAQUE_HEX_IDENTIFIER_PATTERN = /^[0-9a-f]{16,}$/i;
+const OPAQUE_COMMUNITY_ID_PATTERN = /^community:v2_[0-9a-f]{16,}$/i;
 
 export type CommunityDisplayNameContext = Readonly<{
   groupId?: string | null;
   communityId?: string | null;
+  conversationId?: string | null;
 }>;
 
 export const normalizeCommunityDisplayName = (value: string | undefined | null): string => (
@@ -22,10 +24,20 @@ export const isLikelyOpaqueGroupIdentifier = (
   }
   const groupId = normalizeCommunityDisplayName(context?.groupId);
   const communityId = normalizeCommunityDisplayName(context?.communityId);
+  const conversationId = normalizeCommunityDisplayName(context?.conversationId);
   if (groupId.length > 0 && trimmed.toLowerCase() === groupId.toLowerCase()) {
     return true;
   }
   if (communityId.length > 0 && trimmed.toLowerCase() === communityId.toLowerCase()) {
+    return true;
+  }
+  if (conversationId.length > 0 && trimmed.toLowerCase() === conversationId.toLowerCase()) {
+    return true;
+  }
+  if (OPAQUE_COMMUNITY_ID_PATTERN.test(trimmed)) {
+    return true;
+  }
+  if (trimmed.startsWith("community:")) {
     return true;
   }
   return OPAQUE_HEX_IDENTIFIER_PATTERN.test(trimmed);
@@ -84,6 +96,7 @@ export const resolveCommunityDisplayName = (
   const context: CommunityDisplayNameContext = {
     groupId: params.groupId,
     communityId: params.communityId,
+    conversationId: params.communityId ?? undefined,
   };
   const resolved = pickPreferredCommunityDisplayName(
     params.persistedDisplayName ?? undefined,
@@ -94,8 +107,11 @@ export const resolveCommunityDisplayName = (
     return resolved;
   }
   const fallback = normalizeCommunityDisplayName(params.fallback);
-  if (fallback.length > 0) {
+  if (fallback.length > 0 && hasMeaningfulCommunityDisplayName(fallback, context)) {
     return fallback;
   }
-  return resolved;
+  if (fallback.length > 0 && !isLikelyOpaqueGroupIdentifier(fallback, context)) {
+    return fallback;
+  }
+  return PLACEHOLDER_GROUP_DISPLAY_NAME;
 };

@@ -30,6 +30,9 @@ describe("group-action-route", () => {
     expect(buildGroupLeaveHref(base)).toBe(
       "/groups/leave?id=group-abc&relay=wss%3A%2F%2Fnos.lol&name=NewTest+1&communityId=community-xyz",
     );
+    expect(buildGroupLeaveHref({ ...base, leaveAction: "delete" })).toBe(
+      "/groups/leave?id=group-abc&relay=wss%3A%2F%2Fnos.lol&name=NewTest+1&communityId=community-xyz&action=delete",
+    );
     expect(buildGroupBlockHref(base)).toBe(
       "/groups/block?id=group-abc&relay=wss%3A%2F%2Fnos.lol&name=NewTest+1&communityId=community-xyz",
     );
