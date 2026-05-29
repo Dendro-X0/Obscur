@@ -9,6 +9,7 @@ import {
     DM_LOCAL_VISIBILITY_COPY,
     DM_RECALL_FOR_EVERYONE_UI_ENABLED,
 } from "../config/dm-local-visibility-product";
+import { MANAGED_WORKSPACE_DELETE_COPY } from "@/app/features/groups/services/managed-workspace-delete-copy";
 
 interface MessageMenuProps {
     x: number;
@@ -20,6 +21,8 @@ interface MessageMenuProps {
     onStartMultiSelect: () => void;
     onDeleteForMe: () => void;
     onDeleteForEveryone: () => void;
+    /** Managed workspace (D3): show remove-from-workspace instead of DM recall. */
+    managedWorkspaceRemoteRemove?: boolean;
     menuRef: React.RefObject<HTMLDivElement | null>;
     onHoverChange?: (isHovered: boolean) => void;
     onRequestClose?: () => void;
@@ -40,13 +43,14 @@ export function MessageMenu({
     onStartMultiSelect,
     onDeleteForMe,
     onDeleteForEveryone,
+    managedWorkspaceRemoteRemove = false,
     menuRef,
     onHoverChange,
     onRequestClose,
 }: MessageMenuProps) {
     const { t } = useTranslation();
     const canDeleteForMe = canDeleteMessageForMe(activeMessage);
-    const canRecallForEveryone = DM_RECALL_FOR_EVERYONE_UI_ENABLED
+    const canRecallForEveryone = (managedWorkspaceRemoteRemove || DM_RECALL_FOR_EVERYONE_UI_ENABLED)
         && canDeleteMessageForEveryone(activeMessage);
     const hasText: boolean = Boolean(activeMessage.content.trim());
     const hasAttachment: boolean = Boolean(activeMessage.attachments && activeMessage.attachments.length > 0);
@@ -192,7 +196,7 @@ export function MessageMenu({
                 >
                     {t("messaging.hideOnThisDevice", DM_LOCAL_VISIBILITY_COPY.hideOnThisDevice)}
                 </button>
-                {DM_RECALL_FOR_EVERYONE_UI_ENABLED ? (
+                {managedWorkspaceRemoteRemove || DM_RECALL_FOR_EVERYONE_UI_ENABLED ? (
                     <button
                         type="button"
                         className={cn(
@@ -202,7 +206,9 @@ export function MessageMenu({
                         disabled={!canRecallForEveryone}
                         onClick={onDeleteForEveryone}
                     >
-                        {t("messaging.recallForEveryone", DM_LOCAL_VISIBILITY_COPY.recallForEveryone)}
+                        {managedWorkspaceRemoteRemove
+                            ? t("messaging.removeFromWorkspace", MANAGED_WORKSPACE_DELETE_COPY.removeFromWorkspace)
+                            : t("messaging.recallForEveryone", DM_LOCAL_VISIBILITY_COPY.recallForEveryone)}
                     </button>
                 ) : null}
             </div>

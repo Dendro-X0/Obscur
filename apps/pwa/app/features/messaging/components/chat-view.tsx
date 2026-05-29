@@ -28,8 +28,11 @@ import { formatTime, highlightText } from "../utils/formatting";
 import Image from "next/image";
 import { cn } from "@/app/lib/utils";
 import { logAppEvent } from "@/app/shared/log-app-event";
+import { toast } from "@dweb/ui-kit";
 import { SEARCH_TARGET_FLASH_CLASS, SEARCH_TARGET_FLASH_MS } from "@/app/shared/search-target-highlight";
 import { applyBatchMessageSelectionToggle } from "../utils/batch-message-selection";
+import { isStrictManagedWorkspaceRelay } from "@/app/features/groups/services/strict-managed-workspace";
+import { MANAGED_WORKSPACE_DELETE_COPY } from "@/app/features/groups/services/managed-workspace-delete-copy";
 import {
     DM_LOCAL_VISIBILITY_COPY,
     DM_RECALL_FOR_EVERYONE_UI_ENABLED,
@@ -115,7 +118,10 @@ export interface ChatViewProps {
     onCopyAttachmentUrl: (url: string) => void;
     onReferenceMessage: (message: Message) => void;
     onDeleteMessageForMe: (message: Message) => void | Promise<void>;
-    onDeleteMessageForEveryone: (message: Message) => void | Promise<void>;
+    onDeleteMessageForEveryone: (
+        message: Message,
+        options?: Readonly<{ suppressManagedWorkspaceToast?: boolean }>,
+    ) => void | Promise<void>;
     accountPublicKeyHex?: PublicKeyHex | null;
     onShowMessageOnDeviceAgain?: (message: Message) => void | Promise<void>;
     onShowAllHiddenMessagesOnDevice?: (messages: ReadonlyArray<Message>) => void | Promise<void>;
@@ -163,6 +169,8 @@ export interface ChatViewProps {
     onAcceptPeer?: () => void;
     onBlockPeer?: () => void;
     groupAdmins?: ReadonlyArray<Readonly<{ pubkey: string; roles: ReadonlyArray<string> }>>;
+    /** When set and strict managed workspace, message menu offers D3 remote remove. */
+    groupRelayUrl?: string | null;
     relayOverlap?: ContactRelayOverlapResult;
     onAddRelay?: (url: string) => void;
     onNavigateToRelaySettings?: () => void;
@@ -255,6 +263,12 @@ export function ChatView(props: ChatViewProps) {
         onDeleteMessageForMe,
         onDeleteMessageForEveryone,
     } = props;
+
+    const managedWorkspaceRemoteRemove = React.useMemo(
+        () => props.conversation.kind === "group"
+            && isStrictManagedWorkspaceRelay(props.groupRelayUrl ?? null),
+        [props.conversation.kind, props.groupRelayUrl],
+    );
 
     const getMessageById = (messageId: string): Message | undefined => {
         return props.messages.find(m => m.id === messageId);
@@ -469,14 +483,25 @@ export function ChatView(props: ChatViewProps) {
         setIsBatchDeleteInFlight(true);
         try {
             for (const message of selectedOutgoingMessages) {
-                await Promise.resolve(onDeleteMessageForEveryone(message));
+                await Promise.resolve(onDeleteMessageForEveryone(message, {
+                    suppressManagedWorkspaceToast: managedWorkspaceRemoteRemove,
+                }));
+            }
+            if (managedWorkspaceRemoteRemove && selectedOutgoingMessages.length > 0) {
+                toast.success(MANAGED_WORKSPACE_DELETE_COPY.removedFromWorkspaceBatchToast);
             }
         } finally {
             setSelectedMessageIds(new Set());
             setIsBatchDeleteMode(false);
             setIsBatchDeleteInFlight(false);
         }
-    }, [isBatchDeleteInFlight, onDeleteMessageForEveryone, selectedOutgoingMessageCount, selectedOutgoingMessages]);
+    }, [
+        isBatchDeleteInFlight,
+        managedWorkspaceRemoteRemove,
+        onDeleteMessageForEveryone,
+        selectedOutgoingMessageCount,
+        selectedOutgoingMessages,
+    ]);
     const handleOpenMessageMenu = React.useCallback((params: { messageId: string; x: number; y: number }): void => {
         if (isBatchDeleteMode) {
             return;
@@ -771,7 +796,7 @@ export function ChatView(props: ChatViewProps) {
                                     { count: selectedMessageCount },
                                 )}
                             </button>
-                            {DM_RECALL_FOR_EVERYONE_UI_ENABLED ? (
+                            {managedWorkspaceRemoteRemove || DM_RECALL_FOR_EVERYONE_UI_ENABLED ? (
                                 <button
                                     type="button"
                                     onClick={handleBatchDeleteForEveryone}
@@ -779,11 +804,17 @@ export function ChatView(props: ChatViewProps) {
                                     className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-rose-400/35 bg-rose-500/10 px-3 text-xs font-semibold text-rose-700 transition-colors hover:bg-rose-500/20 disabled:cursor-not-allowed disabled:opacity-40 dark:border-rose-300/35 dark:bg-rose-400/15 dark:text-rose-200 dark:hover:bg-rose-400/25"
                                 >
                                     <Trash2 className="h-3.5 w-3.5" />
-                                    {t(
-                                        "messaging.recallForEveryoneWithCount",
-                                        DM_LOCAL_VISIBILITY_COPY.recallForEveryoneWithCount,
-                                        { count: selectedOutgoingMessageCount },
-                                    )}
+                                    {managedWorkspaceRemoteRemove
+                                        ? t(
+                                            "messaging.removeFromWorkspaceWithCount",
+                                            MANAGED_WORKSPACE_DELETE_COPY.removeFromWorkspaceWithCount,
+                                            { count: selectedOutgoingMessageCount },
+                                        )
+                                        : t(
+                                            "messaging.recallForEveryoneWithCount",
+                                            DM_LOCAL_VISIBILITY_COPY.recallForEveryoneWithCount,
+                                            { count: selectedOutgoingMessageCount },
+                                        )}
                                 </button>
                             ) : null}
                         </div>
@@ -807,7 +838,14 @@ export function ChatView(props: ChatViewProps) {
                                     DM_LOCAL_VISIBILITY_COPY.batchScopeHelper,
                                 )}
                             </p>
-                            {DM_RECALL_FOR_EVERYONE_UI_ENABLED ? (
+                            {managedWorkspaceRemoteRemove ? (
+                                <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+                                    {t(
+                                        "messaging.removeFromWorkspaceScopeDescription",
+                                        MANAGED_WORKSPACE_DELETE_COPY.removeScopeHelper,
+                                    )}
+                                </p>
+                            ) : DM_RECALL_FOR_EVERYONE_UI_ENABLED ? (
                                 <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
                                     {t(
                                         "messaging.recallForEveryoneScopeDescription",
@@ -817,12 +855,19 @@ export function ChatView(props: ChatViewProps) {
                             ) : null}
                         </div>
 
-                        {DM_RECALL_FOR_EVERYONE_UI_ENABLED && selectedMessageCount > 0 && selectedOutgoingMessageCount !== selectedMessageCount ? (
+                        {(managedWorkspaceRemoteRemove || DM_RECALL_FOR_EVERYONE_UI_ENABLED)
+                            && selectedMessageCount > 0
+                            && selectedOutgoingMessageCount !== selectedMessageCount ? (
                             <p className="mt-2 text-[11px] text-zinc-500 dark:text-zinc-400">
-                                {t(
-                                    "messaging.deleteForEveryoneOutgoingOnlyHint",
-                                    "Only messages sent by you can be deleted for everyone.",
-                                )}
+                                {managedWorkspaceRemoteRemove
+                                    ? t(
+                                        "messaging.removeFromWorkspaceOutgoingOnlyHint",
+                                        "Only messages you sent can be removed from this workspace.",
+                                    )
+                                    : t(
+                                        "messaging.deleteForEveryoneOutgoingOnlyHint",
+                                        "Only messages sent by you can be deleted for everyone.",
+                                    )}
                             </p>
                         ) : null}
                     </div>
@@ -1073,6 +1118,7 @@ export function ChatView(props: ChatViewProps) {
                         props.onDeleteMessageForEveryone(activeMessage);
                         props.setMessageMenu(null);
                     }}
+                    managedWorkspaceRemoteRemove={managedWorkspaceRemoteRemove}
                     menuRef={props.messageMenuRef}
                     onHoverChange={setIsMessageMenuHovered}
                     onRequestClose={() => {

@@ -35,6 +35,12 @@
 
 ---
 
+## Managed workspace (v1.8.9) — operator relay remove
+
+For **sealed communities on a controllable relay**, see **[managed-workspace-relay-deletion.md](./managed-workspace-relay-deletion.md)**. Summary: **Remove from this workspace** is relay-scoped suppress + kind 5 — not open-Nostr “delete everywhere.” UI appears only in strict managed-workspace group chats for **your own** outgoing messages.
+
+---
+
 ## Protocol reality (cannot be “fixed” by local UX alone)
 
 - **Nostr events are immutable on the wire.** Any “delete for everyone” is a *new* signed command or replace-style workflow that **other clients must interpret**. Peers who ignore it, or who fetched the event before the command, may still show the plaintext. This is not equivalent to a centralized server hard-deleting a row.

@@ -27,6 +27,8 @@ import {
 } from "@/app/features/relays/services/relay-publish-user-copy";
 import { getUploadFailureUserMessageFromUnknown } from "../../messaging/lib/upload-user-copy";
 import { normalizeWorkspaceRelayUrl } from "@/app/features/groups/services/workspace-relay-url";
+import { isStrictManagedWorkspaceRelay } from "@/app/features/groups/services/strict-managed-workspace";
+import { MANAGED_WORKSPACE_DELETE_COPY } from "@/app/features/groups/services/managed-workspace-delete-copy";
 import {
     ensureWorkspaceRelayTransportReady,
     shouldRetryPublishAfterWorkspaceCalibration,
@@ -658,7 +660,11 @@ export function useChatActions(dmController: UseDmControllerResult | null) {
         emitRestoredMessagesToBus(params.conversationId, Array.from(restoredIdSet));
     }, [emitRestoredMessagesToBus, identity.state.publicKeyHex, selectedConversation]);
 
-    const deleteMessageForEveryone = useCallback(async (params: { conversationId: string; message: Message }) => {
+    const deleteMessageForEveryone = useCallback(async (params: Readonly<{
+        conversationId: string;
+        message: Message;
+        suppressManagedWorkspaceToast?: boolean;
+    }>) => {
         if (!selectedConversation) {
             logAppEvent({
                 name: "messaging.delete_for_everyone_rejected",
@@ -750,6 +756,12 @@ export function useChatActions(dmController: UseDmControllerResult | null) {
                             relayUrlHint: toIdHint(selectedConversation.relayUrl),
                         },
                     });
+                    if (
+                        !params.suppressManagedWorkspaceToast
+                        && isStrictManagedWorkspaceRelay(selectedConversation.relayUrl)
+                    ) {
+                        toast.success(MANAGED_WORKSPACE_DELETE_COPY.removedFromWorkspaceToast);
+                    }
                 }
             } catch (error) {
                 console.error("Failed to delete group message:", error);

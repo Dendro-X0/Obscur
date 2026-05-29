@@ -28,6 +28,12 @@ import { reportDevRuntimeIssue } from "@/app/shared/dev-runtime-issue-reporter";
 import { relayTransportJournal } from "../services/relay-transport-journal";
 import { relayResilienceObservability } from "../services/relay-resilience-observability";
 import { expandWorkspaceRelayUrlCandidates, isLocalWorkspaceRelayHost, normalizeWorkspaceRelayUrl, resolveMatchingOpenRelayUrl, workspaceRelayUrlsMatch } from "@/app/features/groups/services/workspace-relay-url";
+import {
+  communityRelayHideRegistry,
+  filterCommunityRelayWireMessage,
+  recordCommunityHidePublishPayload,
+} from "@/app/features/groups/services/community-relay-hide-suppress";
+import { shouldApplyCommunityRelayHideFilter } from "@/app/features/groups/services/strict-managed-workspace";
 
 type RelayPoolState = Readonly<{
   connections: ReadonlyArray<RelayConnection>;
@@ -1146,7 +1152,16 @@ const notifyListeners = (): void => {
 
 const notifyMessageListeners = (params: Readonly<{ url: string; message: string }>): void => {
   lastInboundMessageAtUnixMs = Date.now();
-  messageListeners.forEach((listener: MessageListener) => listener(params));
+  let message = params.message;
+  if (shouldApplyCommunityRelayHideFilter(params.url)) {
+    const filtered = filterCommunityRelayWireMessage(message, communityRelayHideRegistry);
+    if (filtered === null) {
+      return;
+    }
+    message = filtered;
+  }
+  const delivered = { url: params.url, message };
+  messageListeners.forEach((listener: MessageListener) => listener(delivered));
 };
 
 const recomputeSnapshot = (): boolean => {
@@ -1914,6 +1929,9 @@ const publishToRelay = async (url: string, payload: string): Promise<PublishResu
   if (!eventId) {
     // If not an EVENT payload (e.g. REQ), just send it.
     try {
+      if (shouldApplyCommunityRelayHideFilter(resolvedUrl)) {
+        recordCommunityHidePublishPayload(payload, communityRelayHideRegistry);
+      }
       await sendRelayPayload(resolvedUrl, socket, payload);
       return { success: true, relayUrl: resolvedUrl };
     } catch (error) {
@@ -2017,6 +2035,10 @@ const publishToRelay = async (url: string, payload: string): Promise<PublishResu
     });
     socket.addEventListener("error", handleSocketError, { once: true });
     socket.addEventListener("close", handleSocketClose, { once: true });
+
+    if (shouldApplyCommunityRelayHideFilter(resolvedUrl)) {
+      recordCommunityHidePublishPayload(payload, communityRelayHideRegistry);
+    }
 
     void sendRelayPayload(socketUrl, socket, payload).catch((error) => {
       const errorMessage = toRelayErrorMessage(error);

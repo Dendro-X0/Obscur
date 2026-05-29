@@ -1,6 +1,6 @@
 {
   "name": "@dweb/transport-contracts",
-  "version": "1.8.8",
+  "version": "1.8.9",
   "private": true,
   "type": "module",
   "description": "Transport-agnostic community control semantics — kernel input events and TransportPort.",

@@ -3925,6 +3925,7 @@ function NostrMessengerContent() {
             onAcceptIncomingVoiceCall={REALTIME_VOICE_CALLS_ENABLED ? handleAcceptIncomingVoiceInvite : undefined}
             onDeclineIncomingVoiceCall={REALTIME_VOICE_CALLS_ENABLED ? handleDeclineIncomingVoiceInvite : undefined}
             groupAdmins={groupState.admins}
+            groupRelayUrl={selectedConversationView.kind === "group" ? selectedConversationView.relayUrl : null}
             messageMenu={messageMenu}
             setMessageMenu={setMessageMenu}
             messageMenuRef={messageMenuRef}
@@ -3938,7 +3939,11 @@ function NostrMessengerContent() {
             }}
             onReferenceMessage={(m) => setReplyTo({ messageId: m.id, previewText: m.content })}
             onDeleteMessageForMe={(message) => deleteMessageForMe({ conversationId: selectedConversationView.id, message })}
-            onDeleteMessageForEveryone={(message) => deleteMessageForEveryone({ conversationId: selectedConversationView.id, message })}
+            onDeleteMessageForEveryone={(message, options) => deleteMessageForEveryone({
+              conversationId: selectedConversationView.id,
+              message,
+              suppressManagedWorkspaceToast: options?.suppressManagedWorkspaceToast,
+            })}
             accountPublicKeyHex={identity.state.publicKeyHex ?? null}
             onShowMessageOnDeviceAgain={(message) => showMessageOnDeviceAgain({
               conversationId: selectedConversationView.id,

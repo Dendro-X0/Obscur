@@ -10,19 +10,18 @@
 
 Obscur is a cross-platform, decentralized, end-to-end encrypted (E2EE) communication app focused on user privacy, ownership, and self-custody identity.
 
-Project phase: **v1.8.x Lane T — Managed workspace (release candidate `v1.8.8`)**
+Project phase: **v1.8.x Lane T — `v1.8.9` ready to tag**
 
-**Latest release (`v1.8.8`):**
+**Release `v1.8.9`** — managed-workspace production ship + operator-relay **D1** / **D3** (manual verification pass 2026-05-28):
 
-- **Managed workspace (Test 8):** Coordination + operator relay + two-client **create → invite → accept → sealed group chat** on local infra
-- **Group chat header:** Member count, online count, last activity under title
-- **Group history:** Hydrate sealed messages from local store on open (SQLite on Tauri, scoped chat-state on web)
-- **Relay / leave hardening:** Open dev relay whitelist, loopback publish path, terminal membership cache, CRDT-first header count
-- **Roadmap (post-tag):** [Operator-relay deletion + group bots](docs/program/v1.8.9-plus-managed-workspace-roadmap.md)
+- **D1:** Remove from workspace — relay filter suppress on operator/local relay
+- **D3:** Honest managed-workspace delete copy (group chats only)
+- **Baseline:** Test 8 sealed communities (void v1.8.8 product)
+- **Next after tag:** D2 compaction, Lane P → **v1.8.10+**
 
-Full notes: [docs/releases/v1.8.8-release.md](docs/releases/v1.8.8-release.md) · Gate: [docs/releases/v1.8.8-gate.md](docs/releases/v1.8.8-gate.md) · Program: [docs/program/v1.8.x-release-train.md](docs/program/v1.8.x-release-train.md) · Changelog: [CHANGELOG.md](CHANGELOG.md)
+Full notes: [docs/releases/v1.8.9-release.md](docs/releases/v1.8.9-release.md) · Gate: [docs/releases/v1.8.9-gate.md](docs/releases/v1.8.9-gate.md) · Program: [docs/program/v1.8.x-release-train.md](docs/program/v1.8.x-release-train.md) · Changelog: [CHANGELOG.md](CHANGELOG.md)
 
-**Previous release (`v1.8.7`):**
+**Latest published GitHub release (`v1.8.7`):**
 
 - Transport-hard relay-join tests; membership surface consistency across header, network, invite modal
 
@@ -189,9 +188,9 @@ The `/docs` tree is the project encyclopedia. **Only** [docs/README.md](docs/REA
 | Shelf | Entry |
 |-------|--------|
 | Navigation | [docs/README.md](docs/README.md) |
-| **Current release** | [docs/releases/v1.8.8-release.md](docs/releases/v1.8.8-release.md) · [v1.8.8 gate](docs/releases/v1.8.8-gate.md) |
+| **Current release** | [docs/releases/v1.8.9-release.md](docs/releases/v1.8.9-release.md) · [v1.8.9 gate](docs/releases/v1.8.9-gate.md) |
 | Release train | [docs/program/v1.8.x-release-train.md](docs/program/v1.8.x-release-train.md) |
-| Post–v1.8.8 roadmap | [docs/program/v1.8.9-plus-managed-workspace-roadmap.md](docs/program/v1.8.9-plus-managed-workspace-roadmap.md) |
+| Post–v1.8.9 roadmap (v1.8.10+) | [docs/program/v1.8.9-plus-managed-workspace-roadmap.md](docs/program/v1.8.9-plus-managed-workspace-roadmap.md) |
 | Program | [docs/program/PROGRAM.md](docs/program/PROGRAM.md) |
 | Changelog | [CHANGELOG.md](CHANGELOG.md) |
 | Maintainer | [docs/encyclopedia/08-maintainer-playbook.md](docs/encyclopedia/08-maintainer-playbook.md) |

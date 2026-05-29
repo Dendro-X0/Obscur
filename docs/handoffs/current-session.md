@@ -1,8 +1,14 @@
 # Current Session Handoff — Obscur (native-first)
 
-- Last Updated (UTC): 2026-05-29T12:00:00Z
-- Session Status: **v1.8.8 ready to tag**
+- Last Updated (UTC): 2026-05-28T18:00:00Z
+- Session Status: **v1.8.9 ready to tag** — manual verification pass (2026-05-28); push tag → Obscur Full Release
 - Active Owner: Maintainer
+
+## Public posture (maintainer policy)
+
+- **Repo:** Public for **technical trust** — inspectable code, reproducible install, honest `/docs` — not for marketing yet.
+- **Promotion:** Deferred until **after v2.0.0**; first publicly *demonstrated* release should be polished enough to impress.
+- **Until then:** Underground (maintainer-led); continue **v1.8.x → v1.9.x → v2.0.0** per [v1.8.x-release-train](../program/v1.8.x-release-train.md) and [obscur-2.0-milestone-roadmap](../program/obscur-2.0-milestone-roadmap.md) — no outreach push.
 
 ## Active objective
 

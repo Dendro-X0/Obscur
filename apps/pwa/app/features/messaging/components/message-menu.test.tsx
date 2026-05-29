@@ -43,6 +43,19 @@ describe("MessageMenu deletion permissions", () => {
         expect(screen.queryByRole("button", { name: /Recall for everyone/i })).toBeNull();
     });
 
+    it("shows remove from workspace when managedWorkspaceRemoteRemove is set", async () => {
+        const props = {
+            ...createProps(createMessage({ isOutgoing: true })),
+            managedWorkspaceRemoteRemove: true,
+        };
+        render(<MessageMenu {...props} />);
+        const removeButton = await screen.findByRole("button", { name: /Remove from this workspace/i });
+        expect(removeButton).toBeEnabled();
+        fireEvent.click(removeButton);
+        expect(props.onDeleteForEveryone).toHaveBeenCalledTimes(1);
+        expect(screen.queryByRole("button", { name: /Recall for everyone/i })).toBeNull();
+    });
+
     it("allows hide on this device for incoming and outgoing messages", async () => {
         const incomingProps = createProps(createMessage({ isOutgoing: false }));
         const { unmount } = render(<MessageMenu {...incomingProps} />);

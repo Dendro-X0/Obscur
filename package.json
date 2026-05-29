@@ -1,7 +1,7 @@
 {
   "name": "dweb-messenger",
   "private": true,
-  "version": "1.8.8",
+  "version": "1.8.9",
   "packageManager": "pnpm@9.15.4",
   "engines": {
     "node": ">=20.11.0"
@@ -39,6 +39,7 @@
     "desktop:repair": "pnpm -C apps/desktop repair",
     "dev:relay": "node scripts/dev-relay.mjs",
     "dev:relay:docker": "node scripts/dev-relay-docker.mjs",
+    "dev:relay:gateway:docker": "docker compose -f infra/docker-compose.nostr-gateway.yml up",
     "dev:relay:down": "node scripts/dev-relay-down.mjs",
     "mcp:playwright": "playwright-mcp --headless --isolated",
     "mcp:playwright:headed": "playwright-mcp --isolated",
@@ -75,6 +76,7 @@
     "ci:local": "powershell -ExecutionPolicy Bypass -File scripts/local-ci.ps1",
     "probe:relay-nip": "node scripts/relay-nip-probe.mjs",
     "ci:relay-runtime-smoke": "node scripts/relay-runtime-smoke.mjs",
+    "ci:community-relay-hide-smoke": "node scripts/community-relay-hide-suppress-smoke.mjs",
     "ci:scan:pwa": "node scripts/pwa-ci-scan.mjs",
     "ci:scan:pwa:head": "node scripts/pwa-ci-scan-head.mjs",
     "demo:m10:init": "node scripts/init-m10-demo-assets.mjs",

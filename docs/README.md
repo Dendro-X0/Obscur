@@ -16,7 +16,7 @@ _Last reviewed: 2026-05-15 (v1.5.0 doc restructure)_
 | 4 | [Current session handoff](./handoffs/current-session.md) | Live continuity — read before coding |
 | 4b | [Auth UX redesign (deferred)](./program/auth-ux-redesign-future.md) | Future-version registration/login model — not current ship path |
 | 5 | [Architecture truth map](./encyclopedia/12-core-architecture-truth-map.md) | Who owns what (single source) |
-| 6 | [v1.8.8 scope](./program/v1.8.8-scope.md) | **Current** release — ready to tag |
+| 6 | [v1.8.9 scope](./program/v1.8.9-scope.md) | **Current** patch — D1 + D3 in progress |
 | 6b | [v1.8.9+ managed workspace roadmap](./program/v1.8.9-plus-managed-workspace-roadmap.md) | Post-release: operator-relay deletion, group bots |
 | 7 | [Mobile UI stack](./program/mobile-ui-stack-evaluation.md) | Tauri mobile + shell decision |
 | 8 | [v1.5.2 release](./releases/v1.5.2-release.md) | Shipped — feel fast |
@@ -74,8 +74,8 @@ Canonical long-form guides — read in order when onboarding:
 | [**Program overview**](./program/PROGRAM.md) | Active v1.5.1 + milestones |
 | [**Strategic direction**](./program/strategic-direction.md) | Implementation sequence |
 | [**2.0.0 milestone roadmap**](./program/obscur-2.0-milestone-roadmap.md) | v1.7.x → v1.8.x → **v1.9.x Lane K** → v2.0.0 |
-| [**v1.8.x release train**](./program/v1.8.x-release-train.md) | Active patch line — **v1.8.8 ready to tag** |
-| [**v1.8.9+ managed workspace**](./program/v1.8.9-plus-managed-workspace-roadmap.md) | Operator-relay deletion + group bots (post–v1.8.8) |
+| [**v1.8.x release train**](./program/v1.8.x-release-train.md) | Active patch — **v1.8.9** D1 + D3 |
+| [**v1.8.9+ managed workspace**](./program/v1.8.9-plus-managed-workspace-roadmap.md) | D1/D3 (v1.8.9); D2, bots, Lane P (later patches) |
 | [**v1.9.x kernel & backend**](./program/v1.9.0-kernel-backend-roadmap.md) | **Next major refactor** — TransportPort, coordination, R1/R2 |
 | [**v1.9.x implementation spec**](./program/v1.9.0-kernel-backend-spec.md) | B0–B4 contracts, APIs, owners |
 | [**Manual verification environment**](./program/manual-verification-environment.md) | Tester 1/2, dark/light, desktop A/B |
@@ -108,7 +108,7 @@ Archived version plans: [`archive/consolidated/`](./archive/consolidated/).
 |----------|---------|
 | [Cooperative redaction — future design](./messaging/cooperative-redaction-future.md) | Feasible “hide for everyone” under this stack |
 | [Deletion roster limitations](./messaging/deletion-roster-limitations.md) | Why true delete is not possible on open Nostr |
-| [v1.8.9+ managed workspace roadmap](./program/v1.8.9-plus-managed-workspace-roadmap.md) | Operator-relay deletion + group bots (post–v1.8.8) |
+| [v1.8.9+ managed workspace roadmap](./program/v1.8.9-plus-managed-workspace-roadmap.md) | D1/D3 (v1.8.9); compaction, bots, Android (later) |
 | [Redaction v1.5 — deferred](./messaging/redaction-v1.5-deferred.md) | Why UI “delete for everyone” is off in v1.5.0 |
 | [DM redaction release gate](./releases/v1.5.0-dm-sender-redaction-scope-and-gate.md) | v1.5.0 scope checklist (UI off, verify bundle) |
 | [Delete-for-everyone investigation](./messaging/investigation-delete-for-everyone.md) | Historical root-cause analysis |

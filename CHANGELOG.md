@@ -6,9 +6,34 @@ All notable changes to Obscur are documented here.
 
 ---
 
-## [v1.8.8] - 2026-05-29 (Managed workspace — Test 8)
+## [v1.8.9] - 2026-05-28 (Operator-relay deletion + managed workspace ship)
 
-**Gate:** [v1.8.8-gate.md](docs/releases/v1.8.8-gate.md). **Release notes:** [v1.8.8-release.md](docs/releases/v1.8.8-release.md). **Demo:** [v1.8.8 demo matrix](docs/assets/demo/v1.8.8/README.md).
+**Gate:** [v1.8.9-gate.md](docs/releases/v1.8.9-gate.md). **Release notes:** [v1.8.9-release.md](docs/releases/v1.8.9-release.md). **Demo:** [v1.8.9 demo matrix](docs/assets/demo/v1.8.9/README.md).
+
+Canonical production release for managed-workspace (void **v1.8.8**) plus operator-relay **D1** suppress and **D3** strict-workspace UX. First installer publish since **v1.8.7** when Obscur Full Release completes.
+
+### Added
+
+- **D1** — `community-relay-hide-suppress`: kind 5 hide index; suppresses hidden message `EVENT` frames on operator workspace relays ([`enhanced-relay-pool.ts`](apps/pwa/app/features/relays/hooks/enhanced-relay-pool.ts), [`apps/relay-gateway`](apps/relay-gateway/src/index.ts)).
+- **D3** — “Remove from this workspace” in group message menu, batch mode, and toasts ([`strict-managed-workspace.ts`](apps/pwa/app/features/groups/services/strict-managed-workspace.ts)).
+- **Docs** — [managed-workspace-relay-deletion.md](docs/messaging/managed-workspace-relay-deletion.md); optional `pnpm dev:relay:gateway:docker`.
+- **CI** — `pnpm ci:community-relay-hide-smoke` in reliability-gates.
+
+### Carried from void v1.8.8
+
+Managed-workspace Test 8, group header, message hydration, relay/leave hardening — see [v1.8.8](docs/releases/v1.8.8-release.md) section below.
+
+### Verification
+
+Manual: Test 8, Test D1, Test D3 pass (`016971e3`). Automated: typecheck, docs-check, release:test-pack, D1 tests.
+
+---
+
+## [v1.8.8] - 2026-05-29 (Managed workspace — Test 8) — **VOID**
+
+**Not published.** Use **v1.8.9** instead. Product notes retained for history.
+
+**Gate:** [v1.8.8-gate.md](docs/releases/v1.8.8-gate.md) (superseded). **Release notes:** [v1.8.8-release.md](docs/releases/v1.8.8-release.md). **Demo:** [v1.8.8 demo matrix](docs/assets/demo/v1.8.8/README.md).
 
 Closes the **managed-workspace manual lane** on local infra: coordination + operator relay + two-client **create → invite → accept → sealed group chat** (Test 8).
 
