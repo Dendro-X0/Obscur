@@ -44,7 +44,7 @@ jobs:
         run: node scripts/relay-runtime-smoke.mjs --relay ws://127.0.0.1:7000 --timeout-ms 7000 --skip-nip11
 
       - name: D1 community hide suppress contract smoke
-        run: pnpm ci:community-relay-hide-smoke
+        run: node scripts/community-relay-hide-suppress-smoke.mjs
 
   release-test-pack:
     name: release:test-pack
