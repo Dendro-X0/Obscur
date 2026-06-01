@@ -514,6 +514,16 @@ jobs:
           set -euo pipefail
           echo "Android output tree (apk/bundle):"
           find apps/desktop/src-tauri/gen/android/app/build/outputs -maxdepth 6 -type f | sort || true
+          aab_count="$(find apps/desktop/src-tauri/gen/android/app/build/outputs/bundle -type f -iname '*.aab' 2>/dev/null | wc -l | tr -d ' ')"
+          bundle_meta_count="$(find apps/desktop/src-tauri/gen/android/app/build/outputs/bundle -type f -name 'output-metadata.json' 2>/dev/null | wc -l | tr -d ' ')"
+          echo "aab_files=${aab_count} bundle_metadata_files=${bundle_meta_count}"
+          if [ "${aab_count}" -lt 1 ]; then
+            echo "Android build did not produce an AAB under outputs/bundle." >&2
+            exit 1
+          fi
+          if [ "${bundle_meta_count}" -lt 1 ]; then
+            echo "::warning::Bundle output-metadata.json missing; verify-artifacts will fall back to APK metadata versionName for AAB parity."
+          fi
 
       - name: Upload Android Artifacts (APK + AAB)
         uses: actions/upload-artifact@v4
@@ -720,7 +730,12 @@ jobs:
           if-no-files-found: error
 
       - name: Run release artifact version parity check (desktop + Android)
-        run: pnpm release:artifact-version-parity -- --assets-dir release-assets
+        run: |
+          echo "Android metadata files before parity:"
+          find release-assets/android -name output-metadata.json 2>/dev/null | sort || true
+          echo "Android binaries before parity:"
+          find release-assets/android -type f \( -iname '*.apk' -o -iname '*.aab' \) 2>/dev/null | sort || true
+          pnpm release:artifact-version-parity -- --assets-dir release-assets
 
       - name: Release lane summary
         shell: bash
