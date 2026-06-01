@@ -19,6 +19,7 @@ import {
   type PresenceRecord,
   type PresenceState,
 } from "../services/realtime-presence";
+import { readOrCreatePresenceSelfSession } from "../services/presence-self-session-persistence";
 
 type PresenceByPubkey = Readonly<Record<string, PresenceRecord>>;
 
@@ -43,13 +44,6 @@ type UseRealtimePresenceResult = Readonly<{
 }>;
 
 const STALE_PRUNE_INTERVAL_MS = 10_000;
-
-const createSessionId = (): string => {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID();
-  }
-  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
-};
 
 const toSortedUniqueAuthors = (self: PublicKeyHex | null, peers: ReadonlyArray<PublicKeyHex>): ReadonlyArray<string> => {
   const values = new Set<string>(peers);
@@ -94,8 +88,12 @@ export const useRealtimePresence = (params: UseRealtimePresenceParams): UseRealt
   const subscribeFn = params.relayPool.subscribe;
   const unsubscribeFn = params.relayPool.unsubscribe;
   const publishToAll = params.relayPool.publishToAll;
-  const selfSessionId = useMemo(() => createSessionId(), []);
-  const [selfStartedAtMs] = useState<number>(() => Date.now());
+  const selfSession = useMemo(
+    () => (params.publicKeyHex ? readOrCreatePresenceSelfSession(params.publicKeyHex) : null),
+    [params.publicKeyHex],
+  );
+  const selfSessionId = selfSession?.sessionId ?? "";
+  const selfStartedAtMs = selfSession?.startedAtMs ?? 0;
 
   // Use race-safe subscription state computation
   // Ref: presence-subscription-race-fix.ts for pure implementation
@@ -159,7 +157,7 @@ export const useRealtimePresence = (params: UseRealtimePresenceParams): UseRealt
 
   // Subscribe to presence events with race-safe author list
   useEffect(() => {
-    if (!params.publicKeyHex || !subscriptionState.hasAuthors) {
+    if (!params.publicKeyHex || !subscriptionState.hasAuthors || !selfSessionId) {
       return;
     }
 
@@ -222,7 +220,7 @@ export const useRealtimePresence = (params: UseRealtimePresenceParams): UseRealt
   ]);
 
   useEffect(() => {
-    if (!params.publicKeyHex || !params.privateKeyHex) {
+    if (!params.publicKeyHex || !params.privateKeyHex || !selfSessionId) {
       return;
     }
 
@@ -241,7 +239,7 @@ export const useRealtimePresence = (params: UseRealtimePresenceParams): UseRealt
       window.removeEventListener("beforeunload", handleBeforeUnload);
       void publishPresence("offline");
     };
-  }, [params.privateKeyHex, params.publicKeyHex, publishPresence]);
+  }, [params.privateKeyHex, params.publicKeyHex, publishPresence, selfSessionId]);
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {

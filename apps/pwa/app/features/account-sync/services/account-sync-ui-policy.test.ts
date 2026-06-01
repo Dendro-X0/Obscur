@@ -84,6 +84,22 @@ describe("accountSyncUiPolicy", () => {
     });
   });
 
+  it("suppresses restore progress for returning local-device profile windows", () => {
+    const policy = resolveAccountSyncUiPolicy({
+      isIdentityUnlocked: true,
+      snapshot: {
+        ...baseSnapshot,
+        phase: "restoring_account_data",
+      },
+      projectionSnapshot: baseProjectionSnapshot,
+      hasVisibleConversations: true,
+      hasLocalReturningUserEvidence: true,
+    });
+
+    expect(policy.showRestoreProgress).toBe(false);
+    expect(policy.showInitialHistorySyncNotice).toBe(false);
+  });
+
   it("shows initial history sync notice when projection is still bootstrapping and sidebar is empty", () => {
     const policy = resolveAccountSyncUiPolicy({
       isIdentityUnlocked: true,

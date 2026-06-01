@@ -14,12 +14,16 @@ const shellArg = (process.argv[2] ?? process.env.TAURI_SHELL_TARGET ?? "desktop"
 
 const shellEnv = (() => {
   if (shellArg === "mobile") {
-    return { NEXT_PUBLIC_MOBILE_SHELL: "1", NEXT_PUBLIC_DESKTOP_SHELL: "0" };
+    return {
+      NEXT_PUBLIC_MOBILE_SHELL: "1",
+      NEXT_PUBLIC_DESKTOP_SHELL: "0",
+      NEXT_PUBLIC_OBSCUR_RADICAL_TRUTH: "0",
+    };
   }
   if (shellArg === "web") {
     return { NEXT_PUBLIC_MOBILE_SHELL: "0", NEXT_PUBLIC_DESKTOP_SHELL: "0" };
   }
-  return { NEXT_PUBLIC_DESKTOP_SHELL: "1", NEXT_PUBLIC_MOBILE_SHELL: "0" };
+  return { NEXT_PUBLIC_DESKTOP_SHELL: "1", NEXT_PUBLIC_MOBILE_SHELL: "0", NEXT_PUBLIC_OBSCUR_RADICAL_TRUTH: "0" };
 })();
 
 const env = {

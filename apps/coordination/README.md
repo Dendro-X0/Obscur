@@ -27,6 +27,10 @@ wrangler d1 execute obscur --local --file=./migrations/0001_init.sql
 
 pnpm -C apps/coordination dev
 
+**Windows cold start:** the first `wrangler dev` boot can take **2–4 minutes** before `http://127.0.0.1:8787/health` returns `{"ok":true}`. For faster iteration, keep coordination running in a dedicated terminal and use `pnpm dev:desktop:online` in another — the stack reuses a healthy worker instead of restarting it.
+
+On Windows, `wrangler d1 execute --local` can hang after success; `dev` and `db:migrate` use `scripts/coordination-dev.mjs` to apply schema safely. Existing local D1 databases skip re-migration on startup. Re-apply after schema changes with `pnpm coordination:migrate` or `node scripts/coordination-dev.mjs --force-migrate --migrate-only`.
+
 ## Configuration notes
 
 - The D1 binding name is `DB`.

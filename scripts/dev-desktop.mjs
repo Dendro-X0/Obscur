@@ -16,9 +16,10 @@ const flags = new Set(process.argv.slice(2));
 const env = mergePwaEnvLocal({ ...process.env });
 
 if (flags.has("--online")) {
-    env.NEXT_PUBLIC_OBSCUR_EXPERIMENT_ONLINE = "1";
+  env.NEXT_PUBLIC_OBSCUR_EXPERIMENT_ONLINE = "1";
+  env.NEXT_PUBLIC_OBSCUR_RADICAL_TRUTH = "0";
 } else if (flags.has("--offline")) {
-    env.NEXT_PUBLIC_OBSCUR_EXPERIMENT_ONLINE = "0";
+  env.NEXT_PUBLIC_OBSCUR_EXPERIMENT_ONLINE = "0";
 }
 
 if (flags.has("--webpack")) {

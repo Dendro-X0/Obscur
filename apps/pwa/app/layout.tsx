@@ -20,6 +20,7 @@ import { NativeRuntimeGate } from "./components/native-runtime-gate"
 import { ProfileMigrationBootstrap } from "./components/profile-migration-bootstrap"
 import { DesktopWindowRootSurface } from "./components/desktop/desktop-window-root-surface"
 import { MobileModeProvider } from "./components/mobile/mobile-mode-provider"
+import { CLIENT_BUILD_STAMP } from "@/app/shared/client-build-stamp"
 
 const MOBILE_SHELL_BUILD =
   process.env.NEXT_PUBLIC_MOBILE_SHELL === "1" ||
@@ -63,7 +64,58 @@ export default function RootLayout({
             __html: `
               (function() {
                 try {
+                  window.__OBSCUR_CLIENT_BUILD__ = ${JSON.stringify(CLIENT_BUILD_STAMP)};
+                  document.documentElement.setAttribute("data-obscur-client-build", ${JSON.stringify(CLIENT_BUILD_STAMP)});
+                } catch (e) {}
+              })();
+            `,
+          }}
+        />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var boot = window.__OBSCUR_WINDOW_BOOT__;
+                  if (!boot || !boot.profileId || !boot.windowLabel) {
+                    return;
+                  }
+                  var profileId = String(boot.profileId).trim();
+                  var windowLabel = String(boot.windowLabel).trim();
+                  if (!profileId || !windowLabel) {
+                    return;
+                  }
+                  window.__OBSCUR_SYNC_PROFILE_SCOPE__ = profileId;
+                  localStorage.setItem(
+                    'obscur.desktop.window_profile.last_known.v1::' + windowLabel,
+                    profileId
+                  );
+                } catch (e) {}
+              })();
+            `,
+          }}
+        />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
                   var activeProfileId = 'default';
+                  var syncScope = window.__OBSCUR_SYNC_PROFILE_SCOPE__;
+                  if (syncScope && String(syncScope).trim().length > 0) {
+                    activeProfileId = String(syncScope).trim();
+                  } else {
+                  var boot = window.__OBSCUR_WINDOW_BOOT__;
+                  if (boot && boot.profileId && boot.windowLabel) {
+                    var bootProfileId = String(boot.profileId).trim();
+                    var bootWindowLabel = String(boot.windowLabel).trim();
+                    if (bootProfileId && bootWindowLabel) {
+                      var cachedBootProfile = localStorage.getItem(
+                        'obscur.desktop.window_profile.last_known.v1::' + bootWindowLabel
+                      );
+                      activeProfileId = (cachedBootProfile && cachedBootProfile.trim()) || bootProfileId;
+                    }
+                  } else {
                   var lastWindowProfile = localStorage.getItem('obscur.desktop.window_profile.last_known.v1');
                   if (lastWindowProfile && lastWindowProfile.trim().length > 0) {
                     activeProfileId = lastWindowProfile.trim();
@@ -77,6 +129,8 @@ export default function RootLayout({
                         }
                       } catch (e) {}
                     }
+                  }
+                  }
                   }
                   var preference = 'system';
                   var lastKnownRaw = localStorage.getItem('obscur.ui.theme.last_known.v1');

@@ -15,11 +15,24 @@ import { ProfileCompletenessIndicator } from "@/app/features/profile/components/
 import { RelayReadinessSettingsBanner } from "@/app/features/relays/components/relay-readiness-settings-banner";
 import { CommunityMembershipSyncSettingsPanel } from "@/app/features/settings/components/community-membership-sync-settings-panel";
 import {
+  getLocalMediaIndexSnapshot,
+  getLocalMediaStorageAbsolutePath,
   ensureLocalMediaStoragePathReady,
   openLocalMediaStoragePath,
   pickLocalMediaStorageRootPath,
   purgeLocalMediaCache,
 } from "@/app/features/vault/services/local-media-store";
+import {
+  getObscurDataRootConfig,
+  openObscurDataRootPath,
+  pickObscurDataRootPath,
+  setObscurDataRootPath,
+  type ObscurDataRootConfig,
+} from "@/app/features/profiles/services/obscur-data-root-service";
+import { openExportsFolderInFileManager } from "@/app/features/profiles/services/data-root-export-service";
+import { EncryptedWorkspaceExportPanel } from "@/app/features/profiles/components/encrypted-workspace-export-panel";
+import { useDesktopProfileIsolationSnapshot } from "@/app/features/profiles/services/desktop-profile-runtime";
+import { useEffect, useState } from "react";
 import { TrustSettingsPanel } from "@/app/features/messaging/components/trust-settings-panel";
 import { PasswordResetPanel } from "@/app/features/settings/components/password-reset-panel";
 import { AutoLockSettingsPanel } from "@/app/features/settings/components/auto-lock-settings-panel";
@@ -268,6 +281,29 @@ export default function StorageSettingsTabPanel(): React.JSX.Element {
     verifyInviteCodeAvailability,
     wipeLocalRuntimeData
   } = useSettingsTabPanelModel() as Record<string, any>;
+
+  const desktopSnapshot = useDesktopProfileIsolationSnapshot();
+  const [dataRootConfig, setDataRootConfig] = useState<ObscurDataRootConfig | null>(null);
+  const [isLoadingDataRoot, setIsLoadingDataRoot] = useState(false);
+  const [isSavingDataRoot, setIsSavingDataRoot] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getObscurDataRootConfig()
+      .then((config) => {
+        if (!cancelled) {
+          setDataRootConfig(config);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setDataRootConfig(null);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <>
@@ -638,6 +674,109 @@ export default function StorageSettingsTabPanel(): React.JSX.Element {
                     <div className="mt-2 text-[11px] text-zinc-500 dark:text-zinc-400">{providerReachabilityNote}</div>
                   ) : null}
                 </div>
+              </div>
+
+              {/* Obscur Data Root + Encrypted Workspace Export */}
+              <div className="space-y-6 rounded-2xl border border-black/5 p-5 dark:border-white/5 bg-white dark:bg-black/20">
+                <div className="space-y-1">
+                  <Label className="font-semibold text-base">{t("settings.storage.obscurDataRootTitle", "Obscur Data Directory")}</Label>
+                  <p className="text-xs text-zinc-500 whitespace-pre-line">
+                    {t("settings.storage.obscurDataRootDesc", "Store profiles, exports, and archives on any drive or removable device. Restart Obscur after changing this path.")}
+                  </p>
+                </div>
+
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl bg-zinc-50 dark:bg-zinc-900 border border-black/5 dark:border-white/5">
+                  <div className="space-y-1 overflow-hidden">
+                    <div className="text-xs font-semibold text-zinc-500 uppercase tracking-widest">Effective Path</div>
+                    <div className="text-sm font-mono text-zinc-800 dark:text-zinc-200 truncate">
+                      {isLoadingDataRoot ? "Loading..." : (dataRootConfig?.effectivePath || "Default app data")}
+                    </div>
+                    {dataRootConfig?.customPath ? (
+                      <div className="text-[11px] text-zinc-500 truncate">Custom: {dataRootConfig.customPath}</div>
+                    ) : null}
+                  </div>
+                  <div className="flex shrink-0 gap-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      disabled={isSavingDataRoot}
+                      onClick={async () => {
+                        setIsSavingDataRoot(true);
+                        try {
+                          const selected = await pickObscurDataRootPath();
+                          if (!selected) return;
+                          const next = await setObscurDataRootPath(selected);
+                          setDataRootConfig(next);
+                          toast.success("Data directory updated. Restart Obscur to apply.");
+                        } catch (error) {
+                          toast.error(error instanceof Error ? error.message : "Failed to set data directory.");
+                        } finally {
+                          setIsSavingDataRoot(false);
+                        }
+                      }}
+                    >
+                      Change Folder
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      disabled={!dataRootConfig?.effectivePath}
+                      onClick={() => void openExportsFolderInFileManager()}
+                    >
+                      Exports Folder
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      disabled={!dataRootConfig?.effectivePath}
+                      onClick={async () => {
+                        if (!dataRootConfig?.effectivePath) return;
+                        const opened = await openObscurDataRootPath(dataRootConfig.effectivePath);
+                        if (!opened) {
+                          toast.error("Could not open folder in this runtime.");
+                        }
+                      }}
+                    >
+                      Open
+                    </Button>
+                  </div>
+                </div>
+
+                {dataRootConfig?.customPath ? (
+                  <div className="flex justify-end">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs text-zinc-500"
+                      disabled={isSavingDataRoot}
+                      onClick={async () => {
+                        setIsSavingDataRoot(true);
+                        try {
+                          const next = await setObscurDataRootPath(null);
+                          setDataRootConfig(next);
+                          toast.success("Reset to default app-data path. Restart Obscur to apply.");
+                        } catch (error) {
+                          toast.error(error instanceof Error ? error.message : "Failed to reset data directory.");
+                        } finally {
+                          setIsSavingDataRoot(false);
+                        }
+                      }}
+                    >
+                      Reset to Default Path
+                    </Button>
+                  </div>
+                ) : null}
+
+                <EncryptedWorkspaceExportPanel
+                  publicKeyHex={publicKeyHex}
+                  profileLabel={desktopSnapshot.currentWindow.profileLabel}
+                  resolveActivePrivateKeyHex={resolveActivePrivateKeyHex}
+                  t={t}
+                />
               </div>
 
               {/* Local Vault Data */}

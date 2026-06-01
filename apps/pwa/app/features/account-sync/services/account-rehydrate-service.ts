@@ -8,6 +8,7 @@ import { discoveryCache } from "@/app/features/search/services/discovery-cache";
 import { seedProfileMetadataCache } from "@/app/features/profile/hooks/use-profile-metadata";
 import { useProfileInternals, type UserProfile } from "@/app/features/profile/hooks/use-profile";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
+import { profileWindowHasLocalAccountEvidence } from "@/app/features/auth/services/auth-profile-local-evidence";
 import { shouldSkipRelayNetworkBootstrap } from "@/app/features/runtime/offline-runtime-policy";
 import { relayListInternals } from "@/app/features/relays/hooks/use-relay-list";
 import type { RelayPoolLike } from "@/app/features/relays/lib/nostr-core-relay";
@@ -221,6 +222,7 @@ export const accountRehydrateService = {
 
     const profileId = getResolvedProfileId();
     const skipRelayNetwork = params.skipRelayNetworkBootstrap ?? shouldSkipRelayNetworkBootstrap();
+    const hasLocalReturningEvidence = profileWindowHasLocalAccountEvidence(profileId);
     let relayProfile: RelayRehydrateProfile | null = null;
     let relayListEvent: NostrEvent | null = null;
     let profileEvent: NostrEvent | null = null;
@@ -311,18 +313,23 @@ export const accountRehydrateService = {
     accountSyncStatusStore.updateSnapshot({
       phase: "syncing_messages_and_requests",
       status: restoreStatus,
-      message: "Syncing messages and requests",
+      message: hasLocalReturningEvidence
+        ? "Restored from this device"
+        : "Syncing messages and requests",
       lastRelayFailureReason: degradedReason,
+      ...(hasLocalReturningEvidence ? { lastRestoreSource: "local_device" as const } : {}),
     });
 
     accountSyncStatusStore.updateSnapshot({
       phase: "ready",
       status: restoreStatus,
-      message: restoreStatus === "identity_only"
-        ? "Identity restored, but shared account data was not found on relays"
-        : restoreStatus === "degraded"
-          ? "Account restore degraded"
-          : "Account sync ready",
+      message: hasLocalReturningEvidence
+        ? "Restored from this device"
+        : restoreStatus === "identity_only"
+          ? "Identity restored, but shared account data was not found on relays"
+          : restoreStatus === "degraded"
+            ? "Account restore degraded"
+            : "Account sync ready",
     });
 
     return {

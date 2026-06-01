@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { PROFILE_CHANGED_EVENT } from "@/app/features/profiles/services/profile-registry-service";
+import { readActiveDesktopProfileId } from "@/app/features/profiles/services/read-active-desktop-profile-id";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import {
   loadThemePreference,
@@ -25,7 +26,7 @@ const SERVER_SNAPSHOT: ThemeSnapshot = { preference: "system" };
 const createStore = (): ThemeStore => {
   const listeners: Set<() => void> = new Set<() => void>();
   let preference: ThemePreference = typeof window !== "undefined"
-    ? loadThemePreference()
+    ? loadThemePreference(readActiveDesktopProfileId())
     : "system";
   let snapshot: ThemeSnapshot = { preference };
   const emit = (): void => {
@@ -86,8 +87,12 @@ const useTheme = (): UseThemeResult => {
       store.hydrateFromStorage(profileId);
     };
     window.addEventListener(PROFILE_CHANGED_EVENT, onProfileChanged);
+    const resyncTimer = window.setTimeout(() => {
+      store.hydrateFromStorage(getResolvedProfileId());
+    }, 0);
     return (): void => {
       window.removeEventListener(PROFILE_CHANGED_EVENT, onProfileChanged);
+      window.clearTimeout(resyncTimer);
     };
   }, []);
 

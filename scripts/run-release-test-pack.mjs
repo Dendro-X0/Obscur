@@ -48,6 +48,9 @@ const main = () => {
   console.log("[release:test-pack] Verifying artifact version parity workflow contract...");
   run("pnpm", ["release:artifact-version-contract-check"]);
 
+  console.log("[release:test-pack] Running release artifact version parity unit tests...");
+  run("pnpm", ["test:release-artifact-version-parity"]);
+
   console.log("[release:test-pack] Running apps/pwa typecheck...");
   runPwaTypecheck();
 

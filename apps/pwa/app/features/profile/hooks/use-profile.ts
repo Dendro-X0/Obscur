@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useSyncExternalStore, useState } from "react";
 import { PROFILE_CHANGED_EVENT } from "@/app/features/profiles/services/profile-registry-service";
+import { ACCOUNT_SCOPE_BOUNDARY_CHANGED_EVENT } from "@/app/features/runtime/services/account-scope-boundary";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 
@@ -156,9 +157,17 @@ export const useProfile = (): UseProfileResult => {
       currentState = loadFromStorage();
       notify();
     };
+    const onAccountScopeBoundaryChanged = (): void => {
+      currentState = defaultState;
+      currentState = loadFromStorage();
+      setActiveProfileKey(getStorageKey());
+      notify();
+    };
     window.addEventListener(PROFILE_CHANGED_EVENT, onProfileChanged);
+    window.addEventListener(ACCOUNT_SCOPE_BOUNDARY_CHANGED_EVENT, onAccountScopeBoundaryChanged);
     return (): void => {
       window.removeEventListener(PROFILE_CHANGED_EVENT, onProfileChanged);
+      window.removeEventListener(ACCOUNT_SCOPE_BOUNDARY_CHANGED_EVENT, onAccountScopeBoundaryChanged);
     };
   }, [activeProfileKey]);
 

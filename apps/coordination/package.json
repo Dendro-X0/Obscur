@@ -3,13 +3,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "predev": "wrangler d1 execute obscur --local --file=./schema.sql",
-    "dev": "wrangler dev",
+    "dev": "node ../../scripts/coordination-dev.mjs",
     "deploy": "wrangler deploy",
     "test": "vitest run",
     "test:watch": "vitest",
-    "db:migrate": "wrangler d1 execute obscur --local --file=./schema.sql",
-    "db:purge-membership": "wrangler d1 execute obscur --local --file=./scripts/purge-membership-directory.sql"
+    "db:migrate": "node ../../scripts/coordination-dev.mjs --migrate-only",
+    "db:purge-membership": "node ../../scripts/coordination-dev.mjs --migrate-only --file ./scripts/purge-membership-directory.sql"
   },
   "dependencies": {
     "@dweb/coordination-contracts": "workspace:*",

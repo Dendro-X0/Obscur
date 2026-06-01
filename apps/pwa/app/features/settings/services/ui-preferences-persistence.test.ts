@@ -27,6 +27,12 @@ describe("ui-preferences-persistence", () => {
     expect(loadThemePreference()).toBe("dark");
   });
 
+  it("prefers sync-injected profile scope for bootstrap theme", () => {
+    (window as Window & { __OBSCUR_SYNC_PROFILE_SCOPE__?: string }).__OBSCUR_SYNC_PROFILE_SCOPE__ = "profile-b";
+    localStorage.setItem(getThemeStorageKey("profile-b"), "dark");
+    expect(loadThemePreference()).toBe("dark");
+  });
+
   it("prefers desktop last-known window profile over registry active profile", () => {
     localStorage.setItem(
       PROFILE_REGISTRY_STORAGE_KEY,
@@ -38,15 +44,20 @@ describe("ui-preferences-persistence", () => {
     expect(loadThemePreference()).toBe("dark");
   });
 
-  it("persists theme to scoped, legacy, and last-known keys", () => {
+  it("persists theme to scoped and last-known keys without polluting legacy key for secondary profiles", () => {
     saveThemePreference("system", "profile-x");
     expect(localStorage.getItem(getThemeStorageKey("profile-x"))).toBe("system");
-    expect(localStorage.getItem(THEME_STORAGE_BASE_KEY)).toBe("system");
+    expect(localStorage.getItem(THEME_STORAGE_BASE_KEY)).toBeNull();
     const lastKnown = JSON.parse(localStorage.getItem(THEME_LAST_KNOWN_STORAGE_KEY) ?? "{}") as {
       profileId: string;
       preference: string;
     };
     expect(lastKnown).toEqual({ profileId: "profile-x", preference: "system" });
+  });
+
+  it("writes legacy theme key only for the default profile", () => {
+    saveThemePreference("dark", "default");
+    expect(localStorage.getItem(THEME_STORAGE_BASE_KEY)).toBe("dark");
   });
 
   it("keeps per-profile scoped theme when saving for another profile", () => {

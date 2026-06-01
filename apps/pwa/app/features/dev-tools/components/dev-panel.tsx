@@ -30,6 +30,7 @@ import type { SenderDeliveryIssueReport } from "@/app/features/messaging/service
 import type { DevRuntimeIssue } from "@/app/shared/dev-runtime-issue-reporter";
 import { uiResponsivenessMonitor, useUiResponsivenessSnapshot } from "@/app/shared/ui-responsiveness-monitor";
 import { CommunityDataHealthPanel } from "@/app/features/groups/components/community-data-health-panel";
+import { isMobileShellProduct } from "@/app/features/runtime/shell-contract";
 
 type RuntimeIssueDomainFilter = DevRuntimeIssue["domain"] | "all";
 type RuntimeIssueSeverityFilter = DevRuntimeIssue["severity"] | "all";
@@ -394,6 +395,10 @@ export const DevPanel = ({ dmController }: { dmController?: any }) => {
         if (typeof window === "undefined") return;
         window.location.href = `/?convId=${encodeURIComponent(conversationId)}`;
     };
+
+    if (isMobileShellProduct()) {
+        return null;
+    }
 
     return (
         <div className="fixed bottom-20 md:bottom-4 right-4 z-[9999] flex flex-col items-end gap-2 pb-[env(safe-area-inset-bottom)]">

@@ -7,6 +7,7 @@ commands.allow = [
     "window_unmaximize",
     "window_close",
     "window_show_and_focus",
+    "window_reveal_current",
     "window_is_maximized",
     "window_set_fullscreen",
     "window_is_fullscreen",
@@ -17,7 +18,20 @@ commands.allow = [
     "desktop_rename_profile",
     "desktop_open_profile_window",
     "desktop_bind_window_profile",
-    "desktop_remove_profile"
+    "desktop_remove_profile",
+    "desktop_write_profile_workspace_archive",
+    "desktop_list_profile_workspace_archives",
+    "desktop_open_profile_archives_folder",
+    "desktop_get_profile_archives_folder_path",
+    "desktop_get_obscur_data_root_config",
+    "desktop_set_obscur_data_root",
+    "desktop_write_workspace_bundle",
+    "desktop_write_data_root_export",
+    "desktop_reveal_path_in_file_manager",
+    "desktop_get_exports_folder_path",
+    "desktop_open_exports_folder",
+    "desktop_get_save_library_context",
+    "desktop_scan_local_saves"
 ]
 
 [[permission]]

@@ -43,6 +43,7 @@ import {
     shouldMessageListLockToUserHistoryOnUpwardScroll,
     shouldAutoScrollOnNewMessage,
 } from "./message-list-scroll";
+import { usePreferNativeTouchScroll } from "@/app/features/runtime/use-prefer-native-touch-scroll";
 import {
     MESSAGE_BUBBLE_ACTION_DOCK_HIDE_DELAY_MS,
     MESSAGE_BUBBLE_LONG_PRESS_DELAY_MS,
@@ -124,6 +125,73 @@ const toIdHint = (value: string): string => {
     return `${trimmed.slice(0, 8)}...${trimmed.slice(-8)}`;
 };
 
+type MessageListScrollViewportProps = Readonly<{
+    preferNativeTouchScroll: boolean;
+    parentRef: React.RefObject<HTMLDivElement | null>;
+    scrollRegionClassName: string;
+    enablePullToRefreshDrag: boolean;
+    isRefreshing: boolean;
+    y: ReturnType<typeof useMotionValue<number>>;
+    onDragEnd: () => void | Promise<void>;
+    onScroll: React.UIEventHandler<HTMLDivElement>;
+    onWheel: React.WheelEventHandler<HTMLDivElement>;
+    onTouchStart: React.TouchEventHandler<HTMLDivElement>;
+    onTouchMove: React.TouchEventHandler<HTMLDivElement>;
+    onTouchEndClear: () => void;
+    children: React.ReactNode;
+}>;
+
+function MessageListScrollViewport({
+    preferNativeTouchScroll,
+    parentRef,
+    scrollRegionClassName,
+    enablePullToRefreshDrag,
+    isRefreshing,
+    y,
+    onDragEnd,
+    onScroll,
+    onWheel,
+    onTouchStart,
+    onTouchMove,
+    onTouchEndClear,
+    children,
+}: MessageListScrollViewportProps): React.JSX.Element {
+    if (preferNativeTouchScroll) {
+        return (
+            <div
+                ref={parentRef}
+                className={scrollRegionClassName}
+                onScroll={onScroll}
+                onWheel={onWheel}
+                onTouchStart={onTouchStart}
+                onTouchMove={onTouchMove}
+                onTouchEnd={onTouchEndClear}
+            >
+                {children}
+            </div>
+        );
+    }
+
+    return (
+        <motion.div
+            ref={parentRef}
+            drag={enablePullToRefreshDrag ? "y" : false}
+            dragConstraints={{ top: 0, bottom: 0 }}
+            dragElastic={{ top: 0, bottom: 0.5 }}
+            onDragEnd={onDragEnd}
+            style={{ y: isRefreshing ? 20 : y }}
+            className={scrollRegionClassName}
+            onScroll={onScroll}
+            onWheel={onWheel}
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEndClear}
+        >
+            {children}
+        </motion.div>
+    );
+}
+
 function MessageListImpl({
     conversationId,
     hasHydrated,
@@ -160,6 +228,7 @@ function MessageListImpl({
     onRefresh,
 }: MessageListProps) {
     const { t } = useTranslation();
+    const preferNativeTouchScroll = usePreferNativeTouchScroll();
 
     const parentRef = React.useRef<HTMLDivElement>(null);
     const [chatPerformanceV2Enabled, setChatPerformanceV2Enabled] = React.useState<boolean>(() => PrivacySettingsService.getSettings().chatPerformanceV2);
@@ -931,6 +1000,15 @@ function MessageListImpl({
         }
     };
 
+    const enablePullToRefreshDrag = Boolean(
+        onRefresh && !isRefreshing && !highLoadMode && !preferNativeTouchScroll,
+    );
+
+    const scrollRegionClassName = cn(
+        "flex-1 min-h-0 overflow-y-auto p-4 scrollbar-custom relative z-10 [overflow-anchor:none]",
+        preferNativeTouchScroll && "mobile-scroll-region",
+    );
+
     const toggleAttachmentRelayUrls = React.useCallback((messageId: string): void => {
         setExpandedRelayUrlsByMessageId((prev) => {
             const next = new Set(prev);
@@ -993,19 +1071,19 @@ function MessageListImpl({
                 </motion.div>
             </motion.div>
 
-            <motion.div
-                ref={parentRef}
-                drag={onRefresh && !isRefreshing && !highLoadMode ? "y" : false}
-                dragConstraints={{ top: 0, bottom: 0 }}
-                dragElastic={{ top: 0, bottom: 0.5 }}
+            <MessageListScrollViewport
+                preferNativeTouchScroll={preferNativeTouchScroll}
+                parentRef={parentRef}
+                scrollRegionClassName={scrollRegionClassName}
+                enablePullToRefreshDrag={enablePullToRefreshDrag}
+                isRefreshing={isRefreshing}
+                y={y}
                 onDragEnd={handleDragEnd}
-                style={{ y: isRefreshing ? 20 : y }}
-                className="flex-1 min-h-0 overflow-y-auto p-4 scrollbar-custom relative z-10 [overflow-anchor:none]"
                 onScroll={handleScroll}
                 onWheel={handleWheel}
                 onTouchStart={handleTouchStart}
                 onTouchMove={handleTouchMove}
-                onTouchEnd={() => {
+                onTouchEndClear={() => {
                     touchStartYRef.current = null;
                 }}
             >
@@ -1140,7 +1218,7 @@ function MessageListImpl({
                         </div>
                     </>
                 )}
-            </motion.div>
+            </MessageListScrollViewport>
 
             <AnimatePresence>
                 {showScrollBottom && (
@@ -1148,7 +1226,10 @@ function MessageListImpl({
                         initial={{ opacity: 0, y: 20, scale: 0.8 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 20, scale: 0.8 }}
-                        className="absolute bottom-6 right-6 z-30"
+                        className={cn(
+                            "absolute z-30",
+                            preferNativeTouchScroll ? "bottom-24 right-4" : "bottom-6 right-6",
+                        )}
                     >
                         <Button
                             size="icon"

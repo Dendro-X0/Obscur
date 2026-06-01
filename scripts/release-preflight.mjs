@@ -44,7 +44,13 @@ const run = (cmd, args, options = {}) => {
 
 const getArg = (name) => {
   const index = process.argv.indexOf(name);
-  if (index === -1) return null;
+  if (index === -1) {
+    const prefixed = process.argv.find((arg) => arg.startsWith(`${name}=`));
+    if (prefixed) {
+      return prefixed.slice(name.length + 1);
+    }
+    return null;
+  }
   return process.argv[index + 1] ?? null;
 };
 

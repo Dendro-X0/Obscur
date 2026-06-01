@@ -13,6 +13,7 @@ import { emitAccountSyncMutation } from "@/app/shared/account-sync-mutation-sign
 import { logAppEvent } from "@/app/shared/log-app-event";
 import { getProfileRuntimeScope, getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { buildMessageSearchIndexText } from "@/app/features/messaging/services/message-search-index";
+import { formatConversationMessagePreview } from "@/app/features/messaging/services/format-conversation-message-preview";
 
 export const CHAT_STATE_REPLACED_EVENT = "obscur:chat-state-replaced";
 export type ChatStateReplacedEventDetail = Readonly<{
@@ -38,13 +39,7 @@ type PendingSave = {
 const DEFAULT_DEBOUNCE_MS = 250;
 const toPublicKeySuffix = (publicKeyHex: PublicKeyHex): string => publicKeyHex.slice(-8);
 const toScopedCacheKey = (publicKeyHex: PublicKeyHex, profileId: string): string => `${profileId}::${publicKeyHex}`;
-const toPreview = (value: string): string => {
-    const normalized = value.replace(/\s+/g, " ").trim();
-    if (normalized.length <= 140) {
-        return normalized;
-    }
-    return `${normalized.slice(0, 140)}...`;
-};
+const toPreview = formatConversationMessagePreview;
 
 /**
  * ChatStateStore Service
@@ -94,7 +89,7 @@ class ChatStateStore {
     update(
         publicKeyHex: PublicKeyHex,
         updater: (prev: PersistedChatState) => PersistedChatState,
-        options?: Readonly<{ silent?: boolean }>
+        options?: Readonly<{ silent?: boolean; debounceMs?: number }>
     ): void {
         const profileId = getResolvedProfileId();
         const scopeKey = toScopedCacheKey(publicKeyHex, profileId);
@@ -104,7 +99,7 @@ class ChatStateStore {
             return;
         }
         this.memoryCacheByScopeKey.set(scopeKey, next);
-        this.save(publicKeyHex, next, { profileId });
+        this.save(publicKeyHex, next, { profileId, debounceMs: options?.debounceMs });
         if (!options?.silent) {
             emitAccountSyncMutation("chat_state_changed");
         }
@@ -128,7 +123,7 @@ class ChatStateStore {
                 groupCount: groups.length,
             },
         });
-        this.update(publicKeyHex, prev => ({ ...prev, createdGroups: groups }));
+        this.update(publicKeyHex, prev => ({ ...prev, createdGroups: groups }), { debounceMs: 0 });
     }
 
     updateMessages(publicKeyHex: PublicKeyHex, messagesByConversationId: Record<string, ReadonlyArray<PersistedMessage>>): void {
@@ -229,6 +224,7 @@ class ChatStateStore {
     removeMessageIdentitiesFromAllActiveScopes(
         conversationId: string,
         messageIdentityIds: ReadonlyArray<string>,
+        options?: Readonly<{ profileId?: string; publicKeyHex?: PublicKeyHex }>,
     ): void {
         const deleteIds = new Set(
             messageIdentityIds
@@ -238,22 +234,31 @@ class ChatStateStore {
         if (deleteIds.size === 0) {
             return;
         }
-        // Collect all distinct publicKeyHex values from the in-memory scope cache.
-        const seenKeys = new Set<PublicKeyHex>();
-        for (const scopeKey of this.memoryCacheByScopeKey.keys()) {
+        const activeProfileId = options?.profileId ?? getResolvedProfileId();
+        const scopeKeys = new Set<string>();
+        if (options?.publicKeyHex) {
+            scopeKeys.add(toScopedCacheKey(options.publicKeyHex, activeProfileId));
+        } else {
+            for (const scopeKey of this.memoryCacheByScopeKey.keys()) {
+                if (scopeKey.startsWith(`${activeProfileId}::`)) {
+                    scopeKeys.add(scopeKey);
+                }
+            }
+            for (const scopeKey of this.pendingByScopeKey.keys()) {
+                if (scopeKey.startsWith(`${activeProfileId}::`)) {
+                    scopeKeys.add(scopeKey);
+                }
+            }
+        }
+        scopeKeys.forEach((scopeKey) => {
             const colonIdx = scopeKey.indexOf("::");
-            if (colonIdx >= 0) {
-                seenKeys.add(scopeKey.slice(colonIdx + 2) as PublicKeyHex);
+            if (colonIdx < 0) {
+                return;
             }
-        }
-        for (const pendingScopeKey of this.pendingByScopeKey.keys()) {
-            const colonIdx = pendingScopeKey.indexOf("::");
-            if (colonIdx >= 0) {
-                seenKeys.add(pendingScopeKey.slice(colonIdx + 2) as PublicKeyHex);
-            }
-        }
-        seenKeys.forEach((publicKeyHex) => {
+            const profileId = scopeKey.slice(0, colonIdx);
+            const publicKeyHex = scopeKey.slice(colonIdx + 2) as PublicKeyHex;
             this.removeMessageIdentities(publicKeyHex, conversationId, messageIdentityIds);
+            void this.flush(publicKeyHex, { profileId });
         });
     }
 
@@ -341,6 +346,22 @@ class ChatStateStore {
         savePersistedChatState(latest, publicKeyHex, { profileId });
     }
 
+    /** Flush every debounced scope — call on page hide / refresh so groups and chats survive reload. */
+    flushAllPending(): void {
+        if (typeof window === "undefined") {
+            return;
+        }
+        for (const scopeKey of [...this.pendingByScopeKey.keys()]) {
+            const colonIdx = scopeKey.indexOf("::");
+            if (colonIdx < 0) {
+                continue;
+            }
+            const profileId = scopeKey.slice(0, colonIdx);
+            const publicKeyHex = scopeKey.slice(colonIdx + 2) as PublicKeyHex;
+            void this.flush(publicKeyHex, { profileId });
+        }
+    }
+
     private createInitialState(): PersistedChatState {
         return {
             version: 2,
@@ -355,8 +376,38 @@ class ChatStateStore {
             hiddenChatIds: []
         };
     }
+    /** Drop in-memory caches for every scope except the active profile+pubkey pair. */
+    purgeMemoryExcept(profileId: string, publicKeyHex: PublicKeyHex): void {
+        const activeScopeKey = toScopedCacheKey(publicKeyHex, profileId);
+        for (const scopeKey of [...this.memoryCacheByScopeKey.keys()]) {
+            if (scopeKey !== activeScopeKey) {
+                this.memoryCacheByScopeKey.delete(scopeKey);
+            }
+        }
+        for (const scopeKey of [...this.pendingByScopeKey.keys()]) {
+            if (scopeKey === activeScopeKey) {
+                continue;
+            }
+            const pending = this.pendingByScopeKey.get(scopeKey);
+            if (pending?.timeoutId !== null && pending?.timeoutId !== undefined && typeof window !== "undefined") {
+                window.clearTimeout(pending.timeoutId);
+            }
+            this.pendingByScopeKey.delete(scopeKey);
+        }
+    }
+
+    purgeAllMemory(): void {
+        for (const scopeKey of [...this.pendingByScopeKey.keys()]) {
+            const pending = this.pendingByScopeKey.get(scopeKey);
+            if (pending?.timeoutId !== null && pending?.timeoutId !== undefined && typeof window !== "undefined") {
+                window.clearTimeout(pending.timeoutId);
+            }
+        }
+        this.pendingByScopeKey.clear();
+        this.memoryCacheByScopeKey.clear();
+    }
+
     /**
-     * Searches for messages containing the query string across all conversations.
      * Uses a cursor to avoid loading everything into memory at once.
      */
     async searchMessages(query: string, limit: number = 50): Promise<ReadonlyArray<{ conversationId: string; message: PersistedMessage }>> {

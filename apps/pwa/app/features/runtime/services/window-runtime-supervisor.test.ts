@@ -107,7 +107,7 @@ describe("windowRuntimeSupervisor", () => {
       profiles: [],
       windowBindings: [],
     });
-    expect(windowRuntimeSupervisor.getSnapshot().phase).toBe("binding_profile");
+    expect(windowRuntimeSupervisor.getSnapshot().phase).toBe("auth_required");
 
     windowRuntimeSupervisor.syncIdentity({
       startupState: createStoredLockedStartupAuthState({
@@ -290,7 +290,7 @@ describe("windowRuntimeSupervisor", () => {
     expect(windowRuntimeSupervisor.getSnapshot().phase).toBe("ready");
   });
 
-  it("resets the bound profile to pending startup state before identity re-sync when locked", () => {
+  it("does not regress activating runtime to binding_profile while identity snapshot is still loading", () => {
     windowRuntimeSupervisor.syncIdentity({
       startupState: createRestoredStartupAuthState({
         storedPublicKeyHex: "abc",
@@ -310,9 +310,8 @@ describe("windowRuntimeSupervisor", () => {
     });
 
     const snapshot = windowRuntimeSupervisor.getSnapshot();
-    expect(snapshot.phase).toBe("binding_profile");
-    expect(snapshot.session.identityStatus).toBe("loading");
-    expect(snapshot.session.startupState).toEqual(createPendingStartupAuthState());
+    expect(snapshot.phase).toBe("activating_runtime");
+    expect(snapshot.session.profileId).toBe("profile-z");
   });
 
   it("surfaces native session mismatch through the runtime startup state", () => {

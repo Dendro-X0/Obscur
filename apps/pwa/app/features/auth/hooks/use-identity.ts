@@ -22,8 +22,13 @@ import {
 import { cryptoService, NATIVE_KEY_SENTINEL } from "../../crypto/crypto-service";
 import { normalizePublicKeyHex } from "../../profile/utils/normalize-public-key-hex";
 import { recordIdentityActivationRisk } from "@/app/shared/sybil-risk-signals";
+import { clearPresenceSelfSession } from "@/app/features/network/services/presence-self-session-persistence";
 import { PROFILE_CHANGED_EVENT } from "@/app/features/profiles/services/profile-registry-service";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
+import {
+  AccountActiveInOtherProfileWindowError,
+  assertAccountNotActiveInOtherProfileWindow,
+} from "@/app/features/profiles/services/cross-profile-active-session-lease";
 import { resolveAccountImportEvidence } from "../services/account-import-evidence";
 import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
 import { accountSyncStatusStore } from "@/app/features/account-sync/services/account-sync-status-store";
@@ -361,10 +366,24 @@ const tryNativeSessionUnlock = async (params: Readonly<{
       storedPublicKeyHex: params.stored.publicKeyHex,
       nativeSessionPublicKeyHex: normalizedNativeNpub,
     });
+    try {
+      assertAccountNotActiveInOtherProfileWindow({
+        incomingPublicKeyHex: params.stored.publicKeyHex,
+        currentProfileId: getResolvedProfileId(),
+      });
+    } catch (error) {
+      if (error instanceof AccountActiveInOtherProfileWindowError) {
+        return "inactive";
+      }
+      throw error;
+    }
     recordIdentityActivationRisk(params.stored.publicKeyHex);
     setIdentityState(createUnlockedState({ stored: params.stored, privateKeyHex: NATIVE_KEY_SENTINEL }));
     return "unlocked";
   } catch (error) {
+    if (error instanceof AccountActiveInOtherProfileWindowError) {
+      throw error;
+    }
     console.warn(`[Identity] Native auto-unlock status check failed during ${params.context}:`, error);
     return "unavailable";
   }
@@ -482,7 +501,7 @@ const createIdentityAction = async (params: Readonly<{ passphrase: Passphrase; u
 
     setIdentityState(createUnlockedState({ stored: record, privateKeyHex }));
     recordIdentityActivationRisk(record.publicKeyHex);
-    void syncNativeSessionInBackground({
+    await syncNativeSessionInBackground({
       publicKeyHex: record.publicKeyHex,
       privateKeyHex,
       stored: record,
@@ -534,7 +553,7 @@ const createPoWIdentityAction = async (params: Readonly<{
 
     setIdentityState(createUnlockedState({ stored: record, privateKeyHex }));
     recordIdentityActivationRisk(record.publicKeyHex);
-    void syncNativeSessionInBackground({
+    await syncNativeSessionInBackground({
       publicKeyHex: record.publicKeyHex,
       privateKeyHex,
       stored: record,
@@ -580,7 +599,7 @@ const importIdentityAction = async (params: Readonly<{ privateKeyHex: PrivateKey
 
     setIdentityState(createUnlockedState({ stored: record, privateKeyHex }));
     recordIdentityActivationRisk(record.publicKeyHex);
-    void syncNativeSessionInBackground({
+    await syncNativeSessionInBackground({
       publicKeyHex: record.publicKeyHex,
       privateKeyHex,
       stored: record,
@@ -630,7 +649,7 @@ const unlockIdentityAction = async (params: Readonly<{ passphrase: Passphrase }>
 
     setIdentityState(createUnlockedState({ stored: storedIdentity, privateKeyHex }));
     recordIdentityActivationRisk(storedIdentity.publicKeyHex);
-    void syncNativeSessionInBackground({
+    await syncNativeSessionInBackground({
       publicKeyHex: storedIdentity.publicKeyHex,
       privateKeyHex,
       stored: storedIdentity,
@@ -671,7 +690,7 @@ const unlockWithPrivateKeyHexAction = async (params: Readonly<{ privateKeyHex: P
     });
     setIdentityState(createUnlockedState({ stored: storedIdentity, privateKeyHex }));
     recordIdentityActivationRisk(storedIdentity.publicKeyHex);
-    void syncNativeSessionInBackground({
+    await syncNativeSessionInBackground({
       publicKeyHex: storedIdentity.publicKeyHex,
       privateKeyHex,
       stored: storedIdentity,
@@ -771,7 +790,9 @@ const lockIdentityAction = (): void => {
 
 const forgetIdentityAction = async (): Promise<void> => {
   try {
+    const publicKeyHex = identityState.stored?.publicKeyHex ?? identityState.publicKeyHex;
     await clearStoredIdentity();
+    clearPresenceSelfSession(publicKeyHex);
 
     // Cleanup native keychain
     const cs: NativeCryptoSessionApi = cryptoService as unknown as NativeCryptoSessionApi;

@@ -7,7 +7,11 @@
  *
  * Joined communities require ledger evidence (create/accept/leave flows write ledger).
  * Opt out: NEXT_PUBLIC_OBSCUR_RADICAL_TRUTH=0
+ *
+ * Mobile and desktop product shells opt out — local chat-state is durable UX truth on device.
  */
+
+import { isDesktopShellBuild, isMobileShellBuild } from "@/app/features/runtime/shell-contract";
 
 const parseEnvFlag = (raw: string | undefined): boolean | null => {
   const normalized = (raw ?? "").trim().toLowerCase();
@@ -22,6 +26,9 @@ const parseEnvFlag = (raw: string | undefined): boolean | null => {
 
 /** Default ON in non-production builds unless explicitly disabled. */
 export const isRadicalMembershipTruthEnforced = (): boolean => {
+  if (isMobileShellBuild() || isDesktopShellBuild()) {
+    return false;
+  }
   const explicit = parseEnvFlag(process.env.NEXT_PUBLIC_OBSCUR_RADICAL_TRUTH);
   if (explicit !== null) {
     return explicit;

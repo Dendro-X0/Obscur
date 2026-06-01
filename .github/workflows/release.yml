@@ -120,6 +120,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Sync product version (desktop)
+        run: pnpm version:sync
+
       - name: Cache Cargo registry and target
         uses: actions/cache@v4
         with:
@@ -220,6 +223,10 @@ jobs:
           echo "Windows artifacts:"
           ls -la ./bundle-artifacts/
 
+      - name: Verify desktop bundle filenames (Windows)
+        if: matrix.os == 'windows-latest'
+        run: node scripts/verify-desktop-bundle-filenames.mjs --dir ./bundle-artifacts
+
       - name: Upload Artifacts (Windows)
         if: matrix.os == 'windows-latest'
         uses: actions/upload-artifact@v4
@@ -236,6 +243,10 @@ jobs:
           echo "macOS artifacts:"
           ls -la ./bundle-artifacts/
 
+      - name: Verify desktop bundle filenames (macOS)
+        if: matrix.os == 'macos-latest'
+        run: node scripts/verify-desktop-bundle-filenames.mjs --dir ./bundle-artifacts
+
       - name: Upload Artifacts (macOS)
         if: matrix.os == 'macos-latest'
         uses: actions/upload-artifact@v4
@@ -251,6 +262,10 @@ jobs:
           find apps/desktop/src-tauri/target/release/bundle -type f \( -name "*.AppImage" -o -name "*.deb" \) -exec cp {} ./bundle-artifacts/ \;
           echo "Linux artifacts:"
           ls -la ./bundle-artifacts/
+
+      - name: Verify desktop bundle filenames (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: node scripts/verify-desktop-bundle-filenames.mjs --dir ./bundle-artifacts
 
       - name: Upload Artifacts (Linux)
         if: matrix.os == 'ubuntu-latest'
@@ -389,6 +404,9 @@ jobs:
           targets: aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Sync product version (Android)
+        run: pnpm version:sync
 
       - name: Prepare Tauri Android bridge files
         shell: bash
@@ -640,6 +658,9 @@ jobs:
         with:
           node-version: "20.11.0"
           cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
       
       - name: Download Windows Artifacts
         uses: actions/download-artifact@v4
@@ -698,12 +719,7 @@ jobs:
           path: release-assets/streaming-update
           if-no-files-found: error
 
-      - name: Run desktop artifact version parity check
-        run: pnpm release:artifact-version-parity -- --assets-dir release-assets --skip-android
-
-      - name: Run Android artifact version parity check (non-blocking)
-        if: ${{ needs.build-android.result == 'success' }}
-        continue-on-error: true
+      - name: Run release artifact version parity check (desktop + Android)
         run: pnpm release:artifact-version-parity -- --assets-dir release-assets
 
       - name: Release lane summary
@@ -715,7 +731,7 @@ jobs:
             echo "- android_signing_state: ${{ needs.build-android.outputs.android_signing_state != '' && needs.build-android.outputs.android_signing_state || 'unavailable' }}";
             echo "- desktop_signing_state: unsigned (by design)";
             echo "- ios_lane_state: ${{ needs.ios-precheck.outputs.ios_lane_state }}";
-            echo "- android_version_parity: check non-blocking (see step status)";
+            echo "- android_version_parity: blocking (desktop + Android parity step)";
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Verify required artifact matrix
@@ -810,6 +826,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20.11.0"
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
       - name: Download Windows Artifacts
         uses: actions/download-artifact@v4
         with:
@@ -870,12 +900,14 @@ jobs:
             local src="$1"
             local base
             base="$(basename "$src")"
-            local newbase
-            newbase="$(echo "$base" | sed -E "s/^Obscur_[0-9]+\\.[0-9]+\\.[0-9]+_/Obscur_${VERSION}_/")"
-            cp "$src" "./release-files/${newbase}"
+            if ! echo "$base" | grep -qE "(^|[._-])${VERSION}([._-]|$)"; then
+              echo "Desktop installer built with wrong version in filename: ${base} (expected ${VERSION})" >&2
+              exit 1
+            fi
+            cp "$src" "./release-files/${base}"
           }
 
-          # Desktop installers (normalize filename to tag version — Tauri embeds product version at bundle time)
+          # Desktop installers (must already embed tag version — no filename rename)
           while IFS= read -r installer; do
             [ -n "$installer" ] || continue
             copy_desktop_installer "$installer"
@@ -931,6 +963,9 @@ jobs:
               exit 1
             fi
           done < <(find ./release-files -maxdepth 1 -type f \( -iname "*.exe" -o -iname "*.msi" -o -iname "*.dmg" -o -iname "*.AppImage" \) | sort)
+
+      - name: Verify release file version parity
+        run: pnpm release:artifact-version-parity -- --assets-dir release-assets --expected-version "${{ github.ref_name }}"
 
       - name: Create GitHub Release
         id: create_release

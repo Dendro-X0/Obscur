@@ -9,6 +9,10 @@ vi.mock("react-i18next", () => ({
   }),
 }));
 
+vi.mock("@/app/features/profile/hooks/use-resolved-profile-metadata", () => ({
+  useResolvedProfileMetadata: () => ({ displayName: "Alice" }),
+}));
+
 const dmConversation: DmConversation = {
   kind: "dm",
   id: "dm:a:b",

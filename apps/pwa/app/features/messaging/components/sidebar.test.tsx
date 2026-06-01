@@ -52,6 +52,10 @@ vi.mock("../../relays/components/relay-status-indicator", () => ({
     RelayStatusIndicator: () => <div data-testid="relay-status-indicator" />,
 }));
 
+vi.mock("@/app/features/runtime/shell-contract", () => ({
+    isMobileShellProduct: () => false,
+}));
+
 const createDm = (index: number): DmConversation => ({
     kind: "dm",
     id: `dm-${index}`,

@@ -17,8 +17,10 @@ import { installM8CommunityCapture } from "@/app/shared/m8-community-capture";
 import { installM8CommunityReplayBridge } from "@/app/shared/m8-community-replay-bridge";
 import { installM10TrustControlsBridge } from "@/app/shared/m10-trust-controls-bridge";
 import { WindowRuntimeBindingOwner } from "@/app/features/runtime/components/window-runtime-binding-owner";
+import { ChatStateDurabilityOwner } from "@/app/features/messaging/components/chat-state-durability-owner";
 import { markExperimentShellBootFlag } from "@/app/features/runtime/experiment-shell-policy";
 import { ExperimentShellIndicator } from "@/app/features/runtime/components/experiment-shell-indicator";
+import { ClientSurfaceRevisionBadge } from "@/app/components/client-surface-revision-badge";
 
 const BOOT_WATCHDOG_LAST_EVENT_STORAGE_KEY = "obscur.boot.watchdog.auto_recovery_last_event.v1";
 
@@ -74,8 +76,10 @@ export const AppProviders = ({ children }: { children: React.ReactNode }) => {
     return (
         <DesktopProfileBootstrap>
             <WindowRuntimeBindingOwner />
+            <ChatStateDurabilityOwner />
             <DevRuntimeIssueCapture />
             <ExperimentShellIndicator />
+            <ClientSurfaceRevisionBadge />
             <StartupExperienceOverlay />
             <AuthGateway>
                 <UnlockedAppRuntimeShell>

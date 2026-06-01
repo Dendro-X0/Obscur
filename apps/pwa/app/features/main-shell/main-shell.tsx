@@ -99,6 +99,7 @@ import { useAccountSyncSnapshot } from "@/app/features/account-sync/hooks/use-ac
 import { useAccountProjectionSnapshot } from "@/app/features/account-sync/hooks/use-account-projection-snapshot";
 import { resolveProjectionReadAuthority } from "@/app/features/account-sync/services/account-projection-read-authority";
 import { resolveAccountSyncUiPolicy } from "@/app/features/account-sync/services/account-sync-ui-policy";
+import { profileWindowHasLocalAccountEvidence } from "@/app/features/auth/services/auth-profile-local-evidence";
 import {
   FIRST_LOGIN_HISTORY_SYNC_NOTICE_MIN_VISIBLE_MS,
   resolveHistorySyncNoticeVisible,
@@ -3606,7 +3607,7 @@ function NostrMessengerContent() {
     isMobileDmShell
       ? {
           hideSidebar: true,
-          mobileDmMode: true,
+          mobileDmMode: Boolean(selectedConversationView),
           navBadgeCounts: chatNavBadgeCounts,
         }
       : {
@@ -3622,6 +3623,7 @@ function NostrMessengerContent() {
     snapshot: accountSyncSnapshot,
     projectionSnapshot: accountProjectionSnapshot,
     hasVisibleConversations,
+    hasLocalReturningUserEvidence: profileWindowHasLocalAccountEvidence(activeProfileId),
   });
   const firstLoginHistorySyncNoticeStorageKey = useMemo(() => {
     if (!myPublicKeyHex) {
@@ -4057,14 +4059,23 @@ function NostrMessengerContent() {
             deliveryRisk={selectedConversationView.kind === 'dm' ? contactRelayOverlap.status : null}
             onAddRelay={(url) => { relayList.addRelay({ url }); }}
             onNavigateToRelaySettings={() => { void router.push("/settings?tab=relays"); }}
+            hideDesktopChatHeader={isMobileDmShell && selectedConversationView.kind === "dm"}
           />
   ) : null;
+
+  const syncStatusBannerNode = isMobileDmShell ? (
+    <div className="mobile-scroll-region max-h-[28dvh] shrink-0 overflow-y-auto overscroll-contain">
+      {syncStatusBanners}
+    </div>
+  ) : (
+    syncStatusBanners
+  );
 
   if (isMobileDmShell) {
     return (
       <>
         {isIdentityUnlocked ? <ChatSidebarPortal>{sidebarNode}</ChatSidebarPortal> : null}
-        {syncStatusBanners}
+        {syncStatusBannerNode}
         <MobileDmShellLayout>
           {!selectedConversationView ? (
             <div className="flex min-h-0 flex-1 flex-col">
@@ -4101,7 +4112,7 @@ function NostrMessengerContent() {
   return (
     <>
       {isIdentityUnlocked ? <ChatSidebarPortal>{sidebarNode}</ChatSidebarPortal> : null}
-      {syncStatusBanners}
+      {syncStatusBannerNode}
       <main className="flex flex-1 flex-col min-h-0 overflow-hidden bg-transparent">
         {!selectedConversationView ? (
           <EmptyConversationView

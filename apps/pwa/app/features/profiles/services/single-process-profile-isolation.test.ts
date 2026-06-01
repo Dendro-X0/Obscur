@@ -1,5 +1,6 @@
 import { createProfileMessageBus } from "@dweb/core/profile-message-bus";
 import { afterEach, describe, expect, it } from "vitest";
+import { setProfileScopeOverride } from "./profile-scope";
 import { getResolvedProfileId, setProfileRuntimeScope } from "./profile-runtime-scope";
 
 /**
@@ -9,6 +10,7 @@ import { getResolvedProfileId, setProfileRuntimeScope } from "./profile-runtime-
 describe("single-process profile isolation (Phase 1)", () => {
     afterEach(() => {
         setProfileRuntimeScope(null);
+        setProfileScopeOverride(null);
     });
 
     it("getResolvedProfileId reflects injected ProfileRuntime scope when set", () => {

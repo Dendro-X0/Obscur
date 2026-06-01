@@ -152,7 +152,10 @@ export const assembleDmHydrateThreadReadModel = (
   logDmReadHydrationDiagnostics(hydrationParams, dmReadAuthorityStatus);
   const authorityDecision = legacyAuthorityDecision;
   const authorityLayerMessages = (
-    !p.projectionReadAuthoritySnapshot.useProjectionReads
+    (
+      !p.projectionReadAuthoritySnapshot.useProjectionReads
+      || legacyAuthorityDecision.reason === "indexed_primary_projection_direction_incomplete"
+    )
     && p.projectionEvidenceMessagesSnapshot.length > 0
   )
     ? mergeIndexedWithMissingProjectionMessages(

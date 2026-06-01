@@ -71,7 +71,7 @@ type TabId = "all" | "groups" | "discovery" | "invitations" | "blocked" | "manag
 export function NetworkDashboard() {
     const { t } = useTranslation();
     const { identity, peerTrust, requestsInbox, blocklist, presence } = useNetwork();
-    const { createdGroups, communityKnownParticipantDirectoryByConversationId, communityRosterByConversationId, setIsNewGroupOpen } = useGroups();
+    const { createdGroups, hasHydratedGroups, communityKnownParticipantDirectoryByConversationId, communityRosterByConversationId, setIsNewGroupOpen } = useGroups();
     const {
         setIsNewChatOpen,
         createdConnections,
@@ -391,7 +391,11 @@ export function NetworkDashboard() {
                     {activeTab === "groups" && (
                         <div className="animate-in fade-in duration-150 flex-1 flex flex-col">
                             <CommunityLeaveOutboxSummaryBanner className="mb-4" />
-                            {filteredGroups.length === 0 ? (
+                            {publicKeyHex && !hasHydratedGroups ? (
+                                <div className="flex flex-1 items-center justify-center p-12 min-h-[40vh]">
+                                    <LoaderIcon className="h-8 w-8 animate-pulse text-primary/50" />
+                                </div>
+                            ) : filteredGroups.length === 0 ? (
                                 renderEmptyState(
                                     t("network.noGroupsFound"),
                                     t("network.noGroupsDesc"),

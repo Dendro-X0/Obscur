@@ -34,9 +34,13 @@ const mocks = vi.hoisted(() => ({
   reset: vi.fn(),
 }));
 
-vi.mock("@/app/features/profiles/services/profile-scope", () => ({
-  readRegistryBackedActiveProfileId: () => PROFILE_ID,
-}));
+vi.mock("@/app/features/profiles/services/profile-scope", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/app/features/profiles/services/profile-scope")>();
+  return {
+    ...actual,
+    readRegistryBackedActiveProfileId: () => PROFILE_ID,
+  };
+});
 
 vi.mock("../services/account-projection-runtime", () => ({
   accountProjectionRuntime: {

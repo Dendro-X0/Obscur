@@ -14,15 +14,25 @@ const requiredSnippets = [
   "pnpm release:integrity-check",
   "Upload Android Build Metadata",
   "output-metadata.json",
-  "Run desktop artifact version parity check",
-  "--skip-android",
-  "Run Android artifact version parity check (non-blocking)",
+  "Verify desktop bundle filenames",
+  "verify-desktop-bundle-filenames.mjs",
+  "Sync product version (desktop)",
+  "Clear stale desktop bundle output",
+  "Run release artifact version parity check (desktop + Android)",
   "pnpm release:artifact-version-parity -- --assets-dir release-assets",
+  "Verify release file version parity",
   "android_signing_state",
   "ios_lane_state",
 ];
 
+const forbiddenSnippets = [
+  "Run Android artifact version parity check (non-blocking)",
+  "pnpm release:artifact-version-parity -- --assets-dir release-assets --skip-android",
+  "sed -E \"s/^Obscur_[0-9]+",
+];
+
 const missing = requiredSnippets.filter((snippet) => !source.includes(snippet));
+const legacy = forbiddenSnippets.filter((snippet) => source.includes(snippet));
 
 const legacyAutoPublishCondition = "(github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))";
 if (source.includes(legacyAutoPublishCondition)) {
@@ -42,10 +52,13 @@ for (const snippet of manualPublishContractSnippets) {
   }
 }
 
-if (missing.length > 0) {
-  console.error("[release:artifact-version-contract-check] Missing required release workflow contract snippets:");
+if (missing.length > 0 || legacy.length > 0) {
+  console.error("[release:artifact-version-contract-check] Release workflow contract violations:");
   for (const item of missing) {
-    console.error(`- ${item}`);
+    console.error(`- missing: ${item}`);
+  }
+  for (const item of legacy) {
+    console.error(`- forbidden legacy snippet still present: ${item}`);
   }
   process.exit(1);
 }

@@ -103,6 +103,12 @@ if (!sdkRoot || !existsSync(sdkRoot)) {
   );
 } else {
   console.log(`[verify:android-prerequisites] Android SDK OK (${sdkRoot})`);
+  const platformTools = path.join(sdkRoot, "platform-tools", process.platform === "win32" ? "adb.exe" : "adb");
+  if (existsSync(platformTools)) {
+    console.log(`[verify:android-prerequisites] adb OK (${platformTools})`);
+  } else {
+    warnings.push(`adb not found at ${platformTools} — install Android SDK Platform-Tools.`);
+  }
   const platformDir = path.join(sdkRoot, "platforms", "android-36");
   if (!existsSync(platformDir)) {
     warnings.push("Android SDK platform android-36 not found — install via SDK Manager (compileSdk 36).");

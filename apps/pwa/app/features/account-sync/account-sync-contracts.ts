@@ -148,6 +148,8 @@ export type PortableAccountBundle = Readonly<{
   payloadVersion: 1;
   exportedAtUnixMs: number;
   publicKeyHex: PublicKeyHex;
+  /** Plaintext display hint for save library scans — not authoritative identity. */
+  profileLabel?: string;
   ciphertext: string;
 }>;
 
@@ -186,7 +188,7 @@ export type AccountSyncSnapshot = Readonly<{
   lastRelayFailureReason?: string;
   latestProfileEventId?: string;
   latestBackupEventId?: string;
-  lastRestoreSource?: "relay_profile" | "encrypted_backup" | "local_draft_only" | "portable_bundle";
+  lastRestoreSource?: "relay_profile" | "encrypted_backup" | "local_draft_only" | "portable_bundle" | "local_device";
   lastImportEvidence?: Readonly<{
     localBinding: boolean;
     relayProfileEventSeen: boolean;

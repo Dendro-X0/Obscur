@@ -1,5 +1,10 @@
 import { normalizeRelayUrl } from "@dweb/nostr/relay-utils";
-import type { PersistedChatState, PersistedGroupMessage, PersistedMessage } from "@/app/features/messaging/types";
+import type {
+  PersistedChatState,
+  PersistedGroupConversation,
+  PersistedGroupMessage,
+  PersistedMessage,
+} from "@/app/features/messaging/types";
 import { fromPersistedGroupConversation } from "@/app/features/messaging/utils/persistence";
 import { deriveCommunityId } from "@/app/features/groups/utils/community-identity";
 import type { CommunityMembershipLedgerEntry } from "./community-membership-ledger";
@@ -356,6 +361,67 @@ export const reconstructRoomKeysFromChatState = (
     }
   }
   return Array.from(byGroupId.values()).sort((left, right) => left.groupId.localeCompare(right.groupId));
+};
+
+/**
+ * When `createdGroups` rows were lost (legacy self-heal wipe, partial restore), rebuild
+ * minimal persisted group rows from durable `groupMessages` timelines so coordinator
+ * hydrate can materialize sidebar/network membership again.
+ */
+export const inferPersistedGroupsFromChatStateEvidence = (
+  chatState: PersistedChatState | null | undefined,
+  publicKeyHex: string,
+): ReadonlyArray<PersistedGroupConversation> => {
+  if (!chatState) {
+    return [];
+  }
+  if ((chatState.createdGroups?.length ?? 0) > 0) {
+    return chatState.createdGroups;
+  }
+
+  const normalizedPublicKeyHex = publicKeyHex.trim().toLowerCase();
+  if (normalizedPublicKeyHex.length === 0) {
+    return [];
+  }
+
+  const inferredByKey = new Map<string, PersistedGroupConversation>();
+  for (const [conversationId, messages] of Object.entries(chatState.groupMessages ?? {})) {
+    const identity = parseGroupIdentityFromConversationId(conversationId);
+    if (!identity) {
+      continue;
+    }
+    const hasLocalAuthorship = messages.some((message) => (
+      String(message.pubkey ?? "").trim().toLowerCase() === normalizedPublicKeyHex
+    ));
+    if (!hasLocalAuthorship) {
+      continue;
+    }
+    const ledgerKey = toCommunityMembershipLedgerKey(identity);
+    if (!ledgerKey || inferredByKey.has(ledgerKey)) {
+      continue;
+    }
+    const lastMessageUnixMs = resolveLatestGroupMessageUnixMs(messages) || Date.now();
+    const latestMessage = messages
+      .slice()
+      .sort((left, right) => toUnixMsFromGroupMessageCreatedAt(left.created_at) - toUnixMsFromGroupMessageCreatedAt(right.created_at))
+      .at(-1);
+    inferredByKey.set(ledgerKey, {
+      id: conversationId,
+      communityId: identity.communityId,
+      groupId: identity.groupId,
+      relayUrl: identity.relayUrl,
+      displayName: "",
+      memberPubkeys: [publicKeyHex],
+      lastMessage: typeof latestMessage?.content === "string" ? latestMessage.content : "",
+      unreadCount: 0,
+      lastMessageTimeMs: lastMessageUnixMs,
+      access: "invite-only",
+      memberCount: 1,
+      adminPubkeys: [],
+    });
+  }
+
+  return Array.from(inferredByKey.values());
 };
 
 export const reconstructCommunityMembershipFromChatState = (

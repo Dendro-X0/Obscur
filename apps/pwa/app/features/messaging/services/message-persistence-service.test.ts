@@ -37,6 +37,7 @@ vi.mock("./chat-state-store", () => ({
 
 vi.mock("@/app/features/profiles/services/profile-scope", () => ({
     readRegistryBackedActiveProfileId: () => profileScopeState.activeProfileId,
+    getProfileScopeOverride: () => null,
     getScopedStorageKey: (baseKey: string, profileId?: string) =>
         `${baseKey}::${profileId ?? profileScopeState.activeProfileId}`,
 }));
@@ -112,7 +113,7 @@ describe("MessagePersistenceService batching", () => {
         });
 
         const service = new MessagePersistenceService();
-        service.init();
+        service.bindProfileScope("default");
 
         messageBus.emit({
             type: "new_message",
@@ -143,7 +144,7 @@ describe("MessagePersistenceService batching", () => {
         });
 
         const service = new MessagePersistenceService();
-        service.init();
+        service.bindProfileScope("default");
 
         messageBus.emit({
             type: "new_message",
@@ -166,7 +167,7 @@ describe("MessagePersistenceService batching", () => {
         });
 
         const service = new MessagePersistenceService();
-        service.init();
+        service.bindProfileScope("default");
 
         messageBus.emit({ type: "message_deleted", conversationId: "c1", messageId: "d-1" });
         messageBus.emit({ type: "message_deleted", conversationId: "c1", messageId: "d-2" });
@@ -188,7 +189,7 @@ describe("MessagePersistenceService batching", () => {
         });
 
         const service = new MessagePersistenceService();
-        service.init();
+        service.bindProfileScope("default");
 
         messageBus.emit({ type: "message_deleted", conversationId: "c1", messageId: "ghost-1" });
         messageBus.emit({
@@ -214,7 +215,7 @@ describe("MessagePersistenceService batching", () => {
         });
 
         const service = new MessagePersistenceService();
-        service.init();
+        service.bindProfileScope("default");
 
         messageBus.emit({
             type: "message_deleted",
@@ -240,7 +241,7 @@ describe("MessagePersistenceService batching", () => {
         });
 
         const service = new MessagePersistenceService();
-        service.init();
+        service.bindProfileScope("default");
 
         messageBus.emit({ type: "message_deleted", conversationId: "c1", messageId: "ghost-legacy" });
         messageBus.emit({
@@ -359,7 +360,7 @@ describe("MessagePersistenceService batching", () => {
         });
 
         const service = new MessagePersistenceService();
-        service.init();
+        service.bindProfileScope("default");
 
         window.dispatchEvent(new CustomEvent(CHAT_STATE_REPLACED_EVENT, {
             detail: { publicKeyHex: myPublicKeyHex, profileId: "default" },
@@ -396,7 +397,7 @@ describe("MessagePersistenceService batching", () => {
         // Migration is a one-time operation per scope — call it directly.
         // CHAT_STATE_REPLACED_EVENT no longer re-triggers migration after the first run.
         const service = new MessagePersistenceService();
-        service.init();
+        service.bindProfileScope("default");
 
         await service.migrateFromLegacy(myPublicKeyHex);
 
@@ -414,7 +415,7 @@ describe("MessagePersistenceService batching", () => {
     it("ignores chat-state replaced events from another profile scope", async () => {
         const myPublicKeyHex = "f".repeat(64);
         const service = new MessagePersistenceService();
-        service.init();
+        service.bindProfileScope("default");
 
         window.dispatchEvent(new CustomEvent(CHAT_STATE_REPLACED_EVENT, {
             detail: { publicKeyHex: myPublicKeyHex, profileId: "work" },
@@ -572,7 +573,7 @@ describe("MessagePersistenceService Tauri/SQLite path", () => {
 
     it("does not write an optimistic UUID-only message to SQLite before eventId is known", async () => {
         const service = new MessagePersistenceService();
-        service.init();
+        service.bindProfileScope("default");
 
         // Optimistic: id=UUID, no eventId
         messageBus.emit({
@@ -594,13 +595,37 @@ describe("MessagePersistenceService Tauri/SQLite path", () => {
         service.dispose();
     });
 
+    it("does not write to SQLite before profile scope is bound", async () => {
+        const service = new MessagePersistenceService();
+        service.init();
+
+        const nostrId = "c".repeat(64);
+        messageBus.emit({
+            type: "message_updated",
+            conversationId: "conv-1",
+            message: {
+                id: nostrId,
+                eventId: nostrId,
+                kind: "user",
+                content: "hello",
+                timestamp: new Date(1_700_000_000_000),
+                isOutgoing: true,
+                status: "delivered",
+            },
+        });
+
+        await vi.runAllTimersAsync();
+        expect(tauriDbMocks.dbInsertMessage).not.toHaveBeenCalled();
+        service.dispose();
+    });
+
     it("writes to SQLite when chatPerformanceV2 is off but runtime is Tauri (default desktop)", async () => {
         vi.spyOn(PrivacySettingsService, "getSettings").mockReturnValue({
             ...defaultPrivacySettings,
             chatPerformanceV2: false,
         });
         const service = new MessagePersistenceService();
-        service.init();
+        service.bindProfileScope("default");
 
         const nostrId = "c".repeat(64);
         messageBus.emit({
@@ -624,7 +649,7 @@ describe("MessagePersistenceService Tauri/SQLite path", () => {
 
     it("writes to SQLite exactly once when eventId is confirmed (no UUID duplicate row)", async () => {
         const service = new MessagePersistenceService();
-        service.init();
+        service.bindProfileScope("default");
 
         const uuid = "550e8400-e29b-41d4-a716-446655440001";
         const nostrId = "a".repeat(64);
@@ -661,7 +686,7 @@ describe("MessagePersistenceService Tauri/SQLite path", () => {
 
     it("hard-deletes both UUID and nostrId rows from SQLite on delete", async () => {
         const service = new MessagePersistenceService();
-        service.init();
+        service.bindProfileScope("default");
 
         const uuid = "550e8400-e29b-41d4-a716-446655440002";
         const nostrId = "b".repeat(64);

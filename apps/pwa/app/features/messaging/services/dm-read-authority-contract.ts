@@ -341,11 +341,26 @@ export const isNativeProjectionMissingIndexedDirection = (
   );
 };
 
+/** Secondary windows often bootstrap projection with relay-sourced incoming rows only. */
+export const isNativeProjectionIncomingOnly = (
+  params: Readonly<{
+    projectionOutgoingCount: number;
+    projectionIncomingCount: number;
+    projectionMessageCount: number;
+  }>,
+): boolean => (
+  requiresSqlitePersistence()
+  && params.projectionMessageCount > 0
+  && params.projectionOutgoingCount === 0
+  && params.projectionIncomingCount > 0
+);
+
 const shouldPreferIndexedOverProjectionReads = (
   params: ResolveConversationHistoryAuthorityParams,
 ): boolean => (
   isProjectionHydrationDirectionIncomplete(params)
   || isNativeProjectionMissingIndexedDirection(params)
+  || isNativeProjectionIncomingOnly(params)
 );
 
 export const resolveLegacyHydrationAuthority = (

@@ -5,3 +5,17 @@
   padding-left: env(safe-area-inset-left);
   padding-right: env(safe-area-inset-right);
 }
+
+/**
+ * Primary touch scroll regions for mobile shell (list, thread, settings panels).
+ * Keeps pan-y on the scroll container; avoids Framer drag capturing vertical gestures.
+ */
+.mobile-scroll-region {
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  overscroll-behavior: contain;
+}
+
+.mobile-mode .mobile-scroll-region {
+  scrollbar-width: thin;
+}

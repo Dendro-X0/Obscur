@@ -31,7 +31,9 @@ import {
 import { getApiBaseUrl } from "@/app/features/relays/utils/api-base-url";
 import { deriveRelayNodeStatus, deriveRelayRuntimeStatus } from "@/app/features/relays/lib/relay-runtime-status";
 import { checkStorageHealth, runStorageRecovery } from "@/app/features/messaging/services/storage-health-service";
-import { Loader2, Activity, ShieldAlert, Shield, Lock, Database, Copy, ChevronDown, Plus, ArrowUp, ArrowDown, Eye, EyeOff, Building2, Wifi, RefreshCcw, Check, X } from "lucide-react";
+import { ManualPortabilityPanel } from "@/app/features/profiles/components/manual-portability-panel";
+import { PortabilityQuickActionsPanel } from "@/app/features/profiles/components/portability-quick-actions-panel";
+import { Loader2 } from "lucide-react";
 
 import { useSettingsTabPanelModel } from "../settings-tab-panel-model";
 
@@ -80,9 +82,7 @@ export default function ProfileSettingsTabPanel(): React.JSX.Element {
     handleDeleteAccount,
     handleDisableNotifications,
     handleEnableNotifications,
-    handleExportPortableBundle,
     handleLockNow,
-    handlePortableBundleFileSelected,
     handleProfileSwitchLock,
     handleRandomInviteCode,
     handleRefreshRelayStatus,
@@ -121,8 +121,6 @@ export default function ProfileSettingsTabPanel(): React.JSX.Element {
     isDeleteAccountDialogOpen,
     isDisableAllRelaysDialogOpen,
     isInviteCodeDraftDirty,
-    isPortableBundleExporting,
-    isPortableBundleImporting,
     isPrivateKeyVisible,
     isPublishing,
     isResetLocalHistoryDialogOpen,
@@ -144,7 +142,6 @@ export default function ProfileSettingsTabPanel(): React.JSX.Element {
     nsecKey,
     persistedInviteCodeSuffix,
     pool,
-    portableBundleFileInputRef,
     privacySettings,
     profile,
     profilePreflightError,
@@ -585,52 +582,18 @@ export default function ProfileSettingsTabPanel(): React.JSX.Element {
                 <div className="mt-3 rounded-xl border border-black/10 bg-zinc-50 px-3 py-2 text-xs text-zinc-600 dark:border-white/10 dark:bg-zinc-950/60 dark:text-zinc-400">
                   Last restore source: {accountSyncSnapshot.lastRestoreSource?.replace("_", " ") || "none"}
                 </div>
-                <div className="mt-3 rounded-xl border border-black/10 bg-zinc-50 px-3 py-3 dark:border-white/10 dark:bg-zinc-950/60">
-                  <div className="text-xs font-bold uppercase tracking-wider text-zinc-500">Manual portability</div>
-                  <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
-                    Automatic relay restore is best-effort. Portable bundles are deterministic fallback imports between devices.
-                  </p>
-                  <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      disabled={!publicKeyHex || isPortableBundleExporting || isPortableBundleImporting}
-                      className="h-9 text-xs font-bold"
-                      onClick={() => void handleExportPortableBundle()}
-                    >
-                      {isPortableBundleExporting ? (
-                        <span className="inline-flex items-center gap-2">
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          Exporting...
-                        </span>
-                      ) : "Export Portable Bundle"}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      disabled={!publicKeyHex || isPortableBundleImporting || isPortableBundleExporting}
-                      className="h-9 text-xs font-bold"
-                      onClick={() => portableBundleFileInputRef.current?.click()}
-                    >
-                      {isPortableBundleImporting ? (
-                        <span className="inline-flex items-center gap-2">
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          Importing...
-                        </span>
-                      ) : "Import Portable Bundle"}
-                    </Button>
-                  </div>
-                  <input
-                    ref={portableBundleFileInputRef}
-                    type="file"
-                    accept=".json,application/json"
-                    className="hidden"
-                    onChange={(event) => { void handlePortableBundleFileSelected(event); }}
-                  />
-                  <p className="mt-2 text-[11px] text-zinc-500 dark:text-zinc-400">
-                    Keep the bundle file private. It is encrypted, but still contains your account backup envelope.
-                  </p>
-                </div>
+                <PortabilityQuickActionsPanel
+                  compact
+                  className="mt-8"
+                  publicKeyHex={publicKeyHex}
+                  profileLabel={profile.state.profile.username.trim() || undefined}
+                  resolveActivePrivateKeyHex={resolveActivePrivateKeyHex}
+                />
+                <ManualPortabilityPanel
+                  publicKeyHex={publicKeyHex}
+                  profileLabel={profile.state.profile.username.trim() || undefined}
+                  resolveActivePrivateKeyHex={resolveActivePrivateKeyHex}
+                />
               </div>
             </div>
           </Card>

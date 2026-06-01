@@ -1,17 +1,23 @@
 "use client";
 
 import type React from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Passphrase } from "@dweb/crypto/passphrase";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import {
   isRememberMeEnabledForProfile,
   scanStoredSessionBootstrap,
 } from "@/app/features/auth/services/session-bootstrap-contracts";
-import { SESSION_AUTO_UNLOCK_ENABLED } from "@/app/features/auth/services/session-credential-policy";
+import { SESSION_AUTO_UNLOCK_ENABLED, NATIVE_SECURE_SESSION_RESTORE_ENABLED } from "@/app/features/auth/services/session-credential-policy";
+import { decodePrivateKey } from "@/app/features/auth/utils/decode-private-key";
+import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
 import { ProfileBoundAuthShell } from "@/app/features/runtime/components/profile-bound-auth-shell";
 import { useWindowRuntime } from "@/app/features/runtime/services/window-runtime-supervisor";
 import { logAppEvent } from "@/app/shared/log-app-event";
+import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
+import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
+import { PendingProfileImportResume } from "@/app/features/profiles/components/pending-profile-import-resume";
+import { AccountActiveInOtherProfileWindowError } from "@/app/features/profiles/services/cross-profile-active-session-lease";
 
 interface AuthGatewayProps {
   children: React.ReactNode;
@@ -43,13 +49,26 @@ const isLikelyCredentialFailure = (error: unknown): boolean => {
 export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
   const identity = useIdentity();
   const runtime = useWindowRuntime();
+  const attemptedAutoUnlockProfileIdsRef = useRef<Set<string>>(new Set());
+  const transientRetryStateByProfileIdRef = useRef<Record<string, TransientRetryState>>({});
   const [attemptedAutoUnlockProfileIds, setAttemptedAutoUnlockProfileIds] = useState<ReadonlyArray<string>>([]);
   const [transientRetryStateByProfileId, setTransientRetryStateByProfileId] = useState<Readonly<Record<string, TransientRetryState>>>({});
   const [retryWakeNonce, setRetryWakeNonce] = useState(0);
 
+  const markAutoUnlockAttempted = (profileId: string): void => {
+    if (attemptedAutoUnlockProfileIdsRef.current.has(profileId)) {
+      return;
+    }
+    attemptedAutoUnlockProfileIdsRef.current.add(profileId);
+    setAttemptedAutoUnlockProfileIds((previous) => (
+      previous.includes(profileId) ? previous : [...previous, profileId]
+    ));
+  };
+
   const startupState = runtime.snapshot.session.startupState;
   const activeProfileId = runtime.snapshot.session.profileId;
-  const hasAttemptedForActiveProfile = attemptedAutoUnlockProfileIds.includes(activeProfileId);
+  const hasAttemptedForActiveProfile = attemptedAutoUnlockProfileIdsRef.current.has(activeProfileId)
+    || attemptedAutoUnlockProfileIds.includes(activeProfileId);
   const transientRetryState = transientRetryStateByProfileId[activeProfileId];
   const isTransientRetryDue = Boolean(
     transientRetryState
@@ -70,6 +89,59 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
     )
     && (!hasAttemptedForActiveProfile || isTransientRetryDue)
   );
+  const shouldAttemptNativeSecureRestore = (
+    !SESSION_AUTO_UNLOCK_ENABLED
+    && NATIVE_SECURE_SESSION_RESTORE_ENABLED
+    && hasNativeRuntime()
+    && Boolean(identity.state.stored?.publicKeyHex)
+    && identity.state.status === "locked"
+    && (runtime.snapshot.phase === "auth_required" || runtime.snapshot.phase === "binding_profile")
+    && !hasAttemptedForActiveProfile
+  );
+
+  useEffect(() => {
+    if (startupState.identityStatus === "loading" || identity.state.status === "loading") {
+      return;
+    }
+    if (!shouldAttemptNativeSecureRestore || typeof identity.retryNativeSessionUnlock !== "function") {
+      return;
+    }
+    const profileId = runtime.snapshot.session.profileId;
+    markAutoUnlockAttempted(profileId);
+    let cancelled = false;
+    void (async () => {
+      try {
+        const unlocked = await identity.retryNativeSessionUnlock!();
+        if (cancelled) {
+          return;
+        }
+        if (unlocked) {
+          logAppEvent({
+            name: "auth.native_secure_restore_succeeded",
+            level: "info",
+            scope: { feature: "auth", action: "native_secure_restore" },
+            context: { profileId },
+          });
+        }
+      } catch (error) {
+        if (error instanceof AccountActiveInOtherProfileWindowError) {
+          return;
+        }
+        throw error;
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    identity.retryNativeSessionUnlock,
+    identity.state.status,
+    identity.state.stored?.publicKeyHex,
+    runtime.snapshot.phase,
+    runtime.snapshot.session.profileId,
+    shouldAttemptNativeSecureRestore,
+    startupState.identityStatus,
+  ]);
 
   useEffect(() => {
     if (startupState.identityStatus === "loading" || identity.state.status === "loading") {
@@ -78,12 +150,12 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
     if (!shouldResolveStoredSession) {
       return;
     }
+    const profileId = runtime.snapshot.session.profileId;
+    markAutoUnlockAttempted(profileId);
     let cancelled = false;
     let retryTimerId: number | null = null;
     const run = async (): Promise<void> => {
       let unlocked = false;
-      const hadStoredIdentityAtStart = Boolean(identity.state.stored?.publicKeyHex);
-      const profileId = runtime.snapshot.session.profileId;
       const bootstrapScan = scanStoredSessionBootstrap(profileId);
       const uniqueTokenCandidates = bootstrapScan.tokenCandidates;
       const isRemembered = bootstrapScan.rememberMeState === "enabled";
@@ -119,14 +191,26 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
         }
       };
 
+      const tryUnlockWithCandidate = async (candidateToken: string): Promise<void> => {
+        const decodedPrivateKeyHex = decodePrivateKey(candidateToken);
+        if (decodedPrivateKeyHex) {
+          await runtime.unlockBoundProfileWithPrivateKeyHex({ privateKeyHex: decodedPrivateKeyHex });
+          return;
+        }
+        await runtime.unlockBoundProfile({ passphrase: candidateToken as Passphrase });
+      };
+
       if (autoUnlockEligible || isRemembered) {
         let allFailuresLookCredentialRelated = true;
         for (const candidateToken of uniqueTokenCandidates) {
           try {
-            await runtime.unlockBoundProfile({ passphrase: candidateToken as Passphrase });
+            await tryUnlockWithCandidate(candidateToken);
             unlocked = true;
             break;
           } catch (error) {
+            if (error instanceof AccountActiveInOtherProfileWindowError) {
+              return;
+            }
             if (!isLikelyCredentialFailure(error)) {
               allFailuresLookCredentialRelated = false;
             }
@@ -142,6 +226,7 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
               }
               const next = { ...previous };
               delete next[profileId];
+              transientRetryStateByProfileIdRef.current = next;
               return next;
             });
           }
@@ -165,21 +250,26 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
             }
             const next = { ...previous };
             delete next[profileId];
+            transientRetryStateByProfileIdRef.current = next;
             return next;
           });
         } else if (!unlocked && !allFailuresLookCredentialRelated) {
-          const previousRetryState = transientRetryStateByProfileId[profileId];
+          const previousRetryState = transientRetryStateByProfileIdRef.current[profileId];
           const nextRetryCount = (previousRetryState?.count ?? 0) + 1;
           if (nextRetryCount < AUTO_UNLOCK_MAX_TRANSIENT_RETRIES) {
             const nextRetryAtUnixMs = Date.now() + AUTO_UNLOCK_TRANSIENT_RETRY_DELAY_MS;
-            setTransientRetryStateByProfileId((previous) => ({
-              ...previous,
-              [profileId]: {
-                count: nextRetryCount,
-                nextRetryAtUnixMs,
-                wakeNonceRequired: retryWakeNonce + 1,
-              },
-            }));
+            setTransientRetryStateByProfileId((previous) => {
+              const next = {
+                ...previous,
+                [profileId]: {
+                  count: nextRetryCount,
+                  nextRetryAtUnixMs,
+                  wakeNonceRequired: retryWakeNonce + 1,
+                },
+              };
+              transientRetryStateByProfileIdRef.current = next;
+              return next;
+            });
             retryTimerId = window.setTimeout(() => {
               if (!cancelled) {
                 setRetryWakeNonce((current) => current + 1);
@@ -203,6 +293,7 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
             }
             const next = { ...previous };
             delete next[profileId];
+            transientRetryStateByProfileIdRef.current = next;
             return next;
           });
         }
@@ -249,13 +340,6 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
           });
         }
       }
-      if (!cancelled && (unlocked || hadStoredIdentityAtStart)) {
-        setAttemptedAutoUnlockProfileIds((previous) => (
-          previous.includes(profileId)
-            ? previous
-            : [...previous, profileId]
-        ));
-      }
     };
     void run();
     return () => {
@@ -265,19 +349,37 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
       }
     };
   }, [
-    identity,
+    identity.retryNativeSessionUnlock,
     identity.state.stored?.publicKeyHex,
     rememberMeEnabledForProfile,
     retryWakeNonce,
-    runtime,
+    runtime.snapshot.phase,
+    runtime.snapshot.session.profileId,
+    runtime.unlockBoundProfile,
+    runtime.unlockBoundProfileWithPrivateKeyHex,
     shouldResolveStoredSession,
     identity.state.status,
     startupState.identityStatus,
-    transientRetryStateByProfileId,
+    startupState.kind,
   ]);
 
   if (runtime.snapshot.phase === "activating_runtime" || runtime.snapshot.phase === "ready" || runtime.snapshot.phase === "degraded") {
-    return <>{children}</>;
+    const resolveActivePrivateKeyHex = async (): Promise<PrivateKeyHex | null> => {
+      if (identity.state.status !== "unlocked" || !identity.state.privateKeyHex) {
+        return null;
+      }
+      return identity.state.privateKeyHex as PrivateKeyHex;
+    };
+
+    return (
+      <>
+        <PendingProfileImportResume
+          publicKeyHex={(identity.state.publicKeyHex as PublicKeyHex | null) ?? null}
+          resolveActivePrivateKeyHex={resolveActivePrivateKeyHex}
+        />
+        {children}
+      </>
+    );
   }
 
   if (runtime.snapshot.phase === "unlocking") {

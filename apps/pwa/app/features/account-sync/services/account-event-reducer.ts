@@ -6,6 +6,7 @@ import type {
   MessageProjection,
 } from "../account-event-contracts";
 import { messagingClientOperations } from "@/app/features/messaging/services/messaging-client-operations";
+import { formatConversationMessagePreview } from "@/app/features/messaging/services/format-conversation-message-preview";
 
 const emptySnapshot = (profileId: string, accountPublicKeyHex: string): AccountProjectionSnapshot => ({
   profileId,
@@ -69,13 +70,7 @@ const shouldBlockContactTransition = (
     && incomingStatus !== "none";
 };
 
-const toConversationPreview = (value: string): string => {
-  const normalized = value.replace(/\s+/g, " ").trim();
-  if (normalized.length <= 140) {
-    return normalized;
-  }
-  return `${normalized.slice(0, 140)}...`;
-};
+const toConversationPreview = formatConversationMessagePreview;
 
 const upsertMessage = (
   current: AccountProjectionSnapshot,

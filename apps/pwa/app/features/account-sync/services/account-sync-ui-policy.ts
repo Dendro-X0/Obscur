@@ -19,6 +19,7 @@ export const resolveAccountSyncUiPolicy = (params: Readonly<{
   snapshot: AccountSyncSnapshot;
   projectionSnapshot: AccountProjectionRuntimeSnapshot;
   hasVisibleConversations: boolean;
+  hasLocalReturningUserEvidence?: boolean;
 }>): AccountSyncUiPolicy => {
   if (!params.isIdentityUnlocked) {
     return {
@@ -28,11 +29,12 @@ export const resolveAccountSyncUiPolicy = (params: Readonly<{
     };
   }
 
+  const isReturningLocalDevice = params.hasLocalReturningUserEvidence === true;
   const hasMissingLocalBindingEvidence = Boolean(
     params.snapshot.lastImportEvidence
     && !params.snapshot.lastImportEvidence.localBinding
   );
-  const showRestoreProgress = RESTORE_PROGRESS_PHASES.has(params.snapshot.phase);
+  const showRestoreProgress = !isReturningLocalDevice && RESTORE_PROGRESS_PHASES.has(params.snapshot.phase);
   const projectionStillLoading = (
     !params.projectionSnapshot.accountProjectionReady
     || params.projectionSnapshot.phase === "bootstrapping"
@@ -45,7 +47,8 @@ export const resolveAccountSyncUiPolicy = (params: Readonly<{
     || params.snapshot.phase !== "idle"
   );
   const showInitialHistorySyncNotice = (
-    !params.hasVisibleConversations
+    !isReturningLocalDevice
+    && !params.hasVisibleConversations
     && (showRestoreProgress || projectionStillLoading)
     && hasRestoreSignals
   );

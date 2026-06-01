@@ -225,6 +225,33 @@ describe("AuthScreen mismatch recovery UX", () => {
     expect(await screen.findByText("Welcome Back")).toBeInTheDocument();
   });
 
+  it("never shows restore-from-backup block on the login tab", async () => {
+    render(<AuthScreen />);
+
+    expect(await screen.findByText("Welcome Back")).toBeInTheDocument();
+    expect(screen.queryByText("Choose unified backup")).not.toBeInTheDocument();
+    expect(screen.queryByText("RESTORE FROM BACKUP")).not.toBeInTheDocument();
+  });
+
+  it("hides first-time restore hints when this profile window already has local identity", async () => {
+    authScreenMocks.hasStoredIdentity = true;
+    authScreenMocks.identityState = {
+      status: "locked",
+      stored: {
+        publicKeyHex: "a".repeat(64),
+        username: "Tester1",
+      },
+    } as unknown as typeof authScreenMocks.identityState;
+    authScreenMocks.runtime.snapshot.session.startupState.kind = "stored_locked";
+    authScreenMocks.runtime.snapshot.session.startupState.storedPublicKeyHex = "a".repeat(64);
+
+    render(<AuthScreen />);
+
+    expect(await screen.findByText("Welcome Back")).toBeInTheDocument();
+    expect(screen.queryByText("Choose unified backup")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Importing your private key unlocks this account/)).not.toBeInTheDocument();
+  });
+
   it("stays on the welcome screen when startup state reports no identity", async () => {
     authScreenMocks.hasStoredIdentity = false;
     authScreenMocks.identityState = {

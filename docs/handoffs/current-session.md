@@ -1,7 +1,7 @@
 # Current Session Handoff — Obscur (native-first)
 
-- Last Updated (UTC): 2026-05-29T18:00:00Z
-- Session Status: **v1.8.11 ready to tag** — desktop online QA signed off; M11-1 Test B1 deferred
+- Last Updated (UTC): 2026-05-29T20:00:00Z
+- Session Status: **v1.8.12** — release parity (R12) + Android P1 wrap-up (P12); v1.8.11 shipped imperfect
 - Active Owner: Maintainer
 
 ## Public posture (maintainer policy)
@@ -12,18 +12,23 @@
 
 ## Active objective
 
-**Primary lane:** Tag **`v1.8.11`** — [v1.8.11-gate.md](../releases/v1.8.11-gate.md). Then **Android P1 wrap-up** — [android-p1-signing-runbook.md](../program/android-p1-signing-runbook.md).
+**Primary lane:** **`v1.8.12`** — [v1.8.12-scope.md](../program/v1.8.12-scope.md) · [v1.8.12-gate.md](../releases/v1.8.12-gate.md)
+
+| Track | Deliverable |
+|-------|-------------|
+| **R12** | Desktop + Android release artifact version parity (fix v1.8.11 desktop `1.8.10` mismatch) |
+| **P12** | Android P1 wrap-up — install, cold start, mobile UX pass |
 
 **Ship path:** Installer includes **desktop + mobile only** (no standalone PWA/web installer target).
 
 **Sequence:**
 
-1. ~~**Desktop online reliability**~~ — **Signed off** 2026-05-29 ([desktop-online-reliability-2026-05.md](../program/desktop-online-reliability-2026-05.md)).
-2. **`v1.8.11` tag + Obscur Full Release** — B1 code complete; M11-1 operator Test B1 deferred.
-3. **Android (Lane P1)** — wrap-up: debug APK, emulator smoke, UI pass ([stability-first-delivery.md](../program/stability-first-delivery.md)).
-4. **Native offline / shell** — ongoing baseline; no new feature lanes until P1 wrap-up cadence.
+1. ~~**v1.8.11**~~ — **Shipped** 2026-05-29 (B1 + desktop online; desktop installers imperfect).
+2. **R12** — Workflow + parity scripts landed on `main`; **R12-3** pending: tag `v1.8.12` + Obscur Full Release (`publish_release`).
+3. **P12** — Run `pnpm p12:android-smoke -- --build --wait-device=180` on emulator; complete UX checklist in [v1.8.12 demo](../assets/demo/v1.8.12/README.md).
+4. Tag **`v1.8.12`** when automated + manual gates pass.
 
-**Parked:** B1 live two-client announcement (operator-run Test B1).
+**Parked:** B1 live Test B1 (operator); B2 inbound bots (**v1.8.13+**).
 
 Charter refs: [obscur-offline-first-policy.md](../program/obscur-offline-first-policy.md), [obscur-2.0-milestone-roadmap.md](../program/obscur-2.0-milestone-roadmap.md) Lane **P**, [mobile-desktop-version-policy.md](../program/mobile-desktop-version-policy.md).
 
@@ -347,7 +352,9 @@ Do **not** turn experiment shell relay/account-sync back on until all rows pass.
 | Sync `db_*` Tauri commands block IPC thread | Medium | Deferred — tombstone hydrate already idle-deferred in experiment shell |
 | `ProtocolRuntime::new` + `DbState::open` in setup | Low | **Protocol lazy-init done**; `DbState::open` still at setup |
 
-Fail-open boot (`DesktopProfileBootstrap`) unchanged: UI paints before `refresh()` completes.
+**Desktop window boot (2026-05-29):** Owner `desktop-window-boot.ts` — marks `__obscurBootReady` immediately on native; never blocks React on `resolveNativeWindowLabel` / `refresh()`. `DesktopProfileBootstrap` is a thin shell. Contract: [production-surfaces.md](../architecture/production-surfaces.md).
+
+**Profile backup on auth (2026-05-29):** Auth surfaces must not use blocking Radix modals. `useUnifiedImportFlow` defaults to **inline** preflight when `publicKeyHex` is null (Welcome Back / restore / login). `AuthScreenRestoreBanner` wired on login Import Key tab; account conflict + archive export use inline panels inside the auth card. Fixed `ProfileArchiveResultDialog` content `z-[100]` under overlay `z-[200]` (invisible trap). Closed import preflight on hook unmount; dialogs return `null` when `!isOpen`. Post-unlock resume still uses modal via `PendingProfileImportResume`.
 
 ## Do not
 

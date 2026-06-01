@@ -18,6 +18,10 @@ vi.mock("@/app/features/runtime/runtime-capabilities", () => ({
   hasNativeRuntime: () => nativeRuntime.isNative,
 }));
 
+vi.mock("@/app/features/auth/services/session-credential-policy", () => ({
+  SESSION_CREDENTIAL_PERSISTENCE_ENABLED: false,
+}));
+
 vi.mock("@/app/shared/log-app-event", () => ({
   logAppEvent: vi.fn(),
 }));

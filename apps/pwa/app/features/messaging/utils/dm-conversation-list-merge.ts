@@ -84,6 +84,8 @@ export const upsertDmConversationInList = (
     mergeDmConversationLists(connections, [conversation])
 );
 
+import { formatConversationMessagePreview } from "@/app/features/messaging/services/format-conversation-message-preview";
+
 const isDmConversationStorageId = (conversationId: string): boolean => (
     conversationId.length > 0
     && !conversationId.startsWith("community:")
@@ -91,16 +93,9 @@ const isDmConversationStorageId = (conversationId: string): boolean => (
     && !conversationId.includes("@")
 );
 
-const readMessagePreview = (message: PersistedMessage): string => {
-    const content = typeof message.content === "string" ? message.content.trim() : "";
-    if (!content) {
-        return "";
-    }
-    if (content.startsWith("{") && content.includes("\"community-invite\"")) {
-        return "Community invitation";
-    }
-    return content.slice(0, 120);
-};
+const readMessagePreview = (message: PersistedMessage): string => (
+    formatConversationMessagePreview(typeof message.content === "string" ? message.content : "")
+);
 
 /** Rebuild DM sidebar rows from persisted connections plus any thread with stored messages. */
 export const buildDmConnectionsFromPersistedChatState = (

@@ -171,6 +171,7 @@ describe("NetworkDashboard recovery navigation", () => {
     networkDashboardMocks.useMembershipIndex.mockReturnValue({});
     networkDashboardMocks.useGroups.mockReturnValue({
       createdGroups: [],
+      hasHydratedGroups: true,
       communityKnownParticipantDirectoryByConversationId: {},
       communityRosterByConversationId: {},
       setIsNewGroupOpen: networkDashboardMocks.setIsNewGroupOpen,
@@ -203,6 +204,7 @@ describe("NetworkDashboard recovery navigation", () => {
           avatar: null,
         },
       ],
+      hasHydratedGroups: true,
       communityKnownParticipantDirectoryByConversationId: {},
       communityRosterByConversationId: {},
       setIsNewGroupOpen: networkDashboardMocks.setIsNewGroupOpen,

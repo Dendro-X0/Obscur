@@ -16,6 +16,7 @@ import { RelayStatusBadge } from "./relay-status-badge";
 import { RelayTransportShellBanner } from "@/app/features/relays/components/relay-transport-shell-banner";
 import { useTranslation } from "react-i18next";
 import { MobileTabBar } from "./mobile-tab-bar";
+import { isMobileShellProduct } from "@/app/features/runtime/shell-contract";
 import { AppLoadingScreen } from "./app-loading-screen";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import {
@@ -764,6 +765,10 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
     return props.navBadgeCounts ?? {};
   }, [props.navBadgeCounts]);
 
+  const showMobileTabBar = !props.mobileDmMode && (
+    !props.hideSidebar || isMobileShellProduct()
+  );
+
   return (
     <div className={cn(
       "relative isolate flex flex-1 overflow-hidden bg-gradient-main text-zinc-900 dark:text-zinc-100",
@@ -890,21 +895,23 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
 
       <div className="relative z-0 flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         {!props.hideHeader && (
-          <header className="sticky top-0 z-20 flex items-center justify-between border-b border-black/10 bg-gradient-sidebar/80 px-3 py-2 pt-[calc(0.5rem+env(safe-area-inset-top))] backdrop-blur dark:border-white/10 md:hidden">
-            {!props.hideSidebar && (
-              <button
-                type="button"
-                className="btn-enhanced inline-flex h-11 w-11 items-center justify-center rounded-xl border border-black/10 bg-gradient-card text-zinc-700 hover:bg-zinc-100 dark:border-white/10 dark:text-zinc-200 dark:hover:bg-zinc-900/40"
-                onClick={(): void => setMobileSidebarOpen(true)}
-                aria-label="Open menu"
-              >
-                <Menu className="h-5 w-5" />
-              </button>
-            )}
-            <div className="min-w-0 flex-1 px-3">
-              <div className="truncate text-sm font-semibold text-center uppercase tracking-widest text-zinc-500">Obscur</div>
+          <header className="sticky top-0 z-20 grid grid-cols-[2.75rem_1fr_2.75rem] items-center border-b border-black/10 bg-gradient-sidebar/80 px-2 py-2 pt-[calc(0.5rem+env(safe-area-inset-top))] backdrop-blur dark:border-white/10 md:hidden">
+            <div className="flex items-center justify-start">
+              {!props.hideSidebar ? (
+                <button
+                  type="button"
+                  className="btn-enhanced inline-flex h-11 w-11 items-center justify-center rounded-xl border border-black/10 bg-gradient-card text-zinc-700 hover:bg-zinc-100 dark:border-white/10 dark:text-zinc-200 dark:hover:bg-zinc-900/40"
+                  onClick={(): void => setMobileSidebarOpen(true)}
+                  aria-label="Open menu"
+                >
+                  <Menu className="h-5 w-5" />
+                </button>
+              ) : null}
             </div>
-            <div className="w-11" /> {/* Spacer to balance hamburger menu */}
+            <div className="min-w-0 px-1 text-center">
+              <div className="truncate text-sm font-semibold uppercase tracking-widest text-zinc-500">Obscur</div>
+            </div>
+            <div className="w-11 shrink-0" aria-hidden="true" />
           </header>
         )}
         <div className={cn(
@@ -941,7 +948,7 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
           </div>
         </div>
       </div>
-      {!props.hideSidebar && !props.mobileDmMode ? (
+      {showMobileTabBar ? (
         <MobileTabBar navBadgeCounts={navBadgeCounts} />
       ) : null}
     </div>

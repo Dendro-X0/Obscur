@@ -11,6 +11,7 @@ import { emitRestoreDeleteTargetUnresolved } from "./restore-merge-diagnostics";
 import { toCommunityMembershipLedgerKey } from "@/app/features/groups/services/community-membership-ledger";
 import { pickPreferredCommunityDisplayName } from "@/app/features/groups/services/community-display-name";
 import { sanitizeRestoredChatStateLiveCommunitySignals } from "./restore-live-community-boundary";
+import { formatConversationMessagePreview } from "@/app/features/messaging/services/format-conversation-message-preview";
 
 export const uniqueStrings = (values: ReadonlyArray<string>): ReadonlyArray<string> =>
   Array.from(new Set(values.filter((value) => value.length > 0)));
@@ -27,13 +28,7 @@ export const isHashedCommunityId = (value: string | undefined): boolean => {
   return HASHED_COMMUNITY_ID_PATTERN.test(trimmed);
 };
 
-export const toPreview = (value: string): string => {
-  const normalized = value.replace(/\s+/g, " ").trim();
-  if (normalized.length <= 140) {
-    return normalized;
-  }
-  return `${normalized.slice(0, 140)}...`;
-};
+export const toPreview = formatConversationMessagePreview;
 
 export const resolveDeleteCommandTargetMessageId = (message: Readonly<{
   content?: unknown;

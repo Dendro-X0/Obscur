@@ -894,6 +894,9 @@ const parsePortableAccountBundle = (value: unknown): PortableAccountBundle | nul
     payloadVersion: 1,
     exportedAtUnixMs: parsed.exportedAtUnixMs,
     publicKeyHex: parsed.publicKeyHex as PublicKeyHex,
+    ...(typeof parsed.profileLabel === "string" && parsed.profileLabel.trim()
+      ? { profileLabel: parsed.profileLabel.trim() }
+      : {}),
     ciphertext: parsed.ciphertext,
   };
 };
@@ -1394,9 +1397,11 @@ const isRelayPoolWithSubscribe = (pool: RelayPoolLike): pool is RelayPoolWithSub
 
 export const encryptedAccountBackupService = {
   buildBackupPayload,
+  buildBackupPayloadWithHydratedChatState,
   async exportPortableAccountBundle(params: Readonly<{
     publicKeyHex: PublicKeyHex;
     privateKeyHex: PrivateKeyHex;
+    profileLabel?: string;
   }>): Promise<Readonly<{
     bundle: PortableAccountBundle;
     backupPayload: EncryptedAccountBackupPayload;
@@ -1405,6 +1410,12 @@ export const encryptedAccountBackupService = {
     if (!hasPortablePrivateStateEvidence(backupPayload, hasReplayableChatHistory)) {
       throw new Error("Portable bundle export skipped because private account state is empty.");
     }
+    const profileLabel = (
+      params.profileLabel?.trim()
+      || backupPayload.profile?.username?.trim()
+      || backupPayload.identityUnlock?.username?.trim()
+      || undefined
+    );
     const plaintext = JSON.stringify(backupPayload);
     const ciphertext = await cryptoService.encryptDM(plaintext, params.publicKeyHex, params.privateKeyHex);
     const bundle: PortableAccountBundle = {
@@ -1413,6 +1424,7 @@ export const encryptedAccountBackupService = {
       payloadVersion: 1,
       exportedAtUnixMs: Date.now(),
       publicKeyHex: params.publicKeyHex,
+      ...(profileLabel ? { profileLabel } : {}),
       ciphertext,
     };
     emitPortableBundleExport({

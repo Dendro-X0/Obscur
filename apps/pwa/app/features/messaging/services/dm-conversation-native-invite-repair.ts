@@ -1,26 +1,31 @@
 /**
- * Desktop sqlite hydrate ignores chat-state fallback. Outgoing community invites are still
- * written to profile-scoped chat-state when sent from group invite dialogs — repair them into
+ * Desktop sqlite hydrate ignores chat-state fallback. Outgoing community invite and
+ * invite-response rows are still written to profile-scoped chat-state — repair them into
  * the thread (and sqlite) on hydrate.
  */
 
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { isTauri, dbInsertMessage } from "@dweb/db";
 import type { MessageRecord } from "@dweb/db";
+import { listAccountSharedSqliteProfileIds } from "@/app/features/profiles/services/account-shared-sqlite-profile-ids";
+import { toCanonicalCommunityDmInviteThreadMessage } from "@/app/features/groups/services/community-dm-invite-pipeline";
+import {
+  parseCommunityInviteResponseWirePayload,
+  parseCommunityInviteWirePayload,
+  parseMessageContentJson,
+} from "@/app/features/groups/services/community-dm-invite-contract";
 import { chatStateStoreService } from "./chat-state-store";
 import { fromPersistedMessagesByConversationId } from "../utils/persistence";
-import type { Message } from "../types";
+import type { Message, PersistedMessage } from "../types";
 import { isDisplayableDmConversationMessage } from "./dm-conversation-displayable-message";
-import { normalizeCommunityInvitePayload } from "@/app/features/groups/utils/community-invite-payload";
-import { toCanonicalOutgoingCommunityInviteMessage } from "@/app/features/groups/utils/community-invite-dm-local-evidence";
+import { normalizePublicKeyHex } from "@/app/features/profile/utils/normalize-public-key-hex";
 
-const isCommunityInviteContent = (content: string): boolean => {
-  try {
-    const parsed = normalizeCommunityInvitePayload(JSON.parse(content));
-    return parsed?.type === "community-invite";
-  } catch {
-    return false;
-  }
+const isOutgoingCommunityInviteThreadContent = (content: string): boolean => {
+  const parsed = parseMessageContentJson(content);
+  return (
+    parseCommunityInviteWirePayload(parsed) !== null
+    || parseCommunityInviteResponseWirePayload(parsed) !== null
+  );
 };
 
 const toNativeInviteMessageRecord = (
@@ -48,6 +53,24 @@ const toNativeInviteMessageRecord = (
   };
 };
 
+const mergeChatStateMessagesByConversation = (
+  profileIds: ReadonlyArray<string>,
+  myPublicKeyHex: PublicKeyHex,
+): Record<string, ReadonlyArray<PersistedMessage>> => {
+  const merged: Record<string, PersistedMessage[]> = {};
+  profileIds.forEach((profileId) => {
+    const persistedState = chatStateStoreService.load(myPublicKeyHex, { profileId });
+    if (!persistedState?.messagesByConversationId) {
+      return;
+    }
+    Object.entries(persistedState.messagesByConversationId).forEach(([conversationId, rows]) => {
+      const existing = merged[conversationId] ?? [];
+      merged[conversationId] = [...existing, ...rows];
+    });
+  });
+  return merged;
+};
+
 export const loadNativeOutgoingCommunityInviteRepairMessages = (params: Readonly<{
   conversationIds: ReadonlyArray<string>;
   myPublicKeyHex: PublicKeyHex;
@@ -57,29 +80,39 @@ export const loadNativeOutgoingCommunityInviteRepairMessages = (params: Readonly
     return [];
   }
 
-  const persistedState = chatStateStoreService.load(params.myPublicKeyHex, {
-    profileId: params.profileId,
+  const profileIds = listAccountSharedSqliteProfileIds({
+    primaryProfileId: params.profileId,
+    accountPublicKeyHex: params.myPublicKeyHex,
   });
-  if (!persistedState?.messagesByConversationId) {
+  const mergedMessagesByConversation = mergeChatStateMessagesByConversation(
+    profileIds,
+    params.myPublicKeyHex,
+  );
+  if (Object.keys(mergedMessagesByConversation).length === 0) {
     return [];
   }
 
   const normalizedByConversation = fromPersistedMessagesByConversationId(
-    persistedState.messagesByConversationId,
+    mergedMessagesByConversation,
     { myPublicKeyHex: params.myPublicKeyHex },
   );
 
+  const myPublicKeyHex = normalizePublicKeyHex(params.myPublicKeyHex);
   const repaired: Message[] = [];
   params.conversationIds.forEach((conversationId) => {
     const rows = normalizedByConversation[conversationId] ?? [];
     rows.forEach((row) => {
-      if (!row.isOutgoing || typeof row.content !== "string" || !isCommunityInviteContent(row.content)) {
+      const senderPubkey = normalizePublicKeyHex(row.senderPubkey);
+      const isSelfOutgoing = row.isOutgoing === true || (
+        myPublicKeyHex !== null && senderPubkey === myPublicKeyHex
+      );
+      if (!isSelfOutgoing || typeof row.content !== "string" || !isOutgoingCommunityInviteThreadContent(row.content)) {
         return;
       }
       if (!isDisplayableDmConversationMessage(row)) {
         return;
       }
-      const canonical = toCanonicalOutgoingCommunityInviteMessage(row);
+      const canonical = toCanonicalCommunityDmInviteThreadMessage(row);
       const record = toNativeInviteMessageRecord(canonical, params.profileId);
       if (record) {
         void dbInsertMessage(record).catch(() => undefined);

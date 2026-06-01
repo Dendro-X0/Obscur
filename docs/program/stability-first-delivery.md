@@ -13,6 +13,16 @@ Charter: [rules/11-feasibility-and-modular-safety.md](../../rules/11-feasibility
 | Desktop `pnpm dev:desktop:online` | Chats, DM thread, settings navigation — **no** `RootErrorBoundary` during exploration |
 | Android emulator (debug APK) | Install + auth OK; post-login error boundary on **first restore / offline-relay** path (emulator-specific until reproduced on desktop) |
 
+**Root cause (2026-05-29 logcat):** React error **#185** (maximum update depth) from **relay-primary ping-pong** — health reconcile picked the best relay while runtime failover rotated *away* from it on every recovery tick. Desktop improved after UI effect-stability fixes; mobile emulator amplifies it via flaky SSL/WebSocket latency.
+
+**Fast iteration (avoid full APK loop for JS fixes):**
+
+```bash
+pnpm dev:mobile-shell:online   # same mobile shell, hot reload in Chrome device mode
+```
+
+Reserve `pnpm build:android:debug:emulator` for install/signing proof only after browser smoke passes.
+
 Do **not** block desktop feature work on Android-only crashes. Log Android issues; fix in wrap-up if still reproducible.
 
 ---
@@ -57,8 +67,9 @@ Pipeline artifacts: [android-p1-signing-runbook.md](./android-p1-signing-runbook
 | Item | Status |
 |------|--------|
 | Runbook + prereq + debug APK pipeline | **Done** |
-| Emulator install + auth | **Done** (maintainer) |
-| Full P1 smoke / stability sign-off | **Deferred** to final wrap-up (mobile UI/UX) |
+| P12 smoke helper (`pnpm p12:android-smoke`) | **Done** |
+| Emulator install + auth | **Done** (maintainer, v1.8.10) |
+| Full P1 smoke / stability sign-off | **In progress** — v1.8.12 P12 wrap-up |
 | Release signing exercise | **Deferred** to wrap-up |
 
 ---

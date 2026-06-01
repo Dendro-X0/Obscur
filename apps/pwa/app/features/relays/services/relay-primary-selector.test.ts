@@ -45,6 +45,16 @@ describe("relay primary selector", () => {
     expect(next?.primaryUrl).toBe(urls[1]);
   });
 
+  it("keeps the best primary instead of rotating away during recovery", () => {
+    const hints = [
+      { url: urls[1], isOpen: true, isWritable: true, latencyMs: 200, successRate: 100, listIndex: 1 },
+      { url: urls[2], isOpen: true, isWritable: true, latencyMs: 900, successRate: 100, listIndex: 2 },
+    ];
+    const current = relaySelectorInternals.buildSelection(urls, urls[1]);
+    expect(reconcilePrimarySelection(current, urls, hints)).toBeNull();
+    expect(resolveFailoverRelaySelection(current, urls, hints).primaryUrl).toBe(urls[2]);
+  });
+
   it("uses redundancy pool for top scored relays", () => {
     const selection = resolveInitialRelaySelection(urls, [
       { url: urls[0], isOpen: false, isCircuitOpen: true, listIndex: 0 },

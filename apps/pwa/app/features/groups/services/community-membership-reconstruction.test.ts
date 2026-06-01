@@ -4,6 +4,7 @@ import type { CommunityMembershipLedgerEntry } from "./community-membership-ledg
 import {
   reconstructCommunityMembershipFromChatState,
   reconstructRoomKeysFromChatState,
+  inferPersistedGroupsFromChatStateEvidence,
   supplementMembershipLedgerEntries,
 } from "./community-membership-reconstruction";
 
@@ -178,6 +179,31 @@ describe("community-membership-reconstruction", () => {
         communityId: "omega:wss://relay.omega",
         status: "historical",
         updatedAtUnixMs: 8_000,
+      }),
+    ]);
+  });
+
+  it("infers persisted group rows from local-authored group message timelines when createdGroups are absent", () => {
+    const publicKeyHex = "a".repeat(64);
+    const chatState: PersistedChatState = {
+      ...createEmptyChatState(),
+      groupMessages: {
+        "community:omega:wss://relay.omega": [{
+          id: "g-1",
+          pubkey: publicKeyHex,
+          created_at: 8,
+          content: "hello from omega",
+        }],
+      },
+    };
+
+    expect(inferPersistedGroupsFromChatStateEvidence(chatState, publicKeyHex)).toEqual([
+      expect.objectContaining({
+        id: "community:omega:wss://relay.omega",
+        groupId: "omega",
+        relayUrl: "wss://relay.omega",
+        communityId: "omega:wss://relay.omega",
+        memberPubkeys: [publicKeyHex],
       }),
     ]);
   });

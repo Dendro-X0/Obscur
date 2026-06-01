@@ -21,6 +21,8 @@ import {
   type DesktopProfileMenuEntry,
   type DesktopProfilePreview,
 } from "@/app/features/profiles/services/desktop-profile-switcher-view";
+import { finalizeProfileWindowLogout } from "@/app/features/profiles/services/profile-session-lifecycle";
+import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 
 type Props = Readonly<{
   title: string;
@@ -127,29 +129,36 @@ export function TitleBarProfileSwitcher({ title }: Props): React.JSX.Element | n
   };
 
   const handleLogout = async (): Promise<void> => {
-    clearAuthSessionPersistence({ profileId: snapshot.currentWindow.profileId });
+    const profileId = snapshot.currentWindow.profileId;
+    clearAuthSessionPersistence({ profileId });
     await clearNativeSessionBestEffort();
     identity.lockIdentity();
     setOpen(false);
-    toast.success("Logged out.");
-    router.replace("/");
+    toast.success("Signed out. Local data for this profile window is unchanged.");
+    await finalizeProfileWindowLogout({
+      profileId,
+      hardReload: true,
+    });
   };
 
   const handleLogoutAndClose = async (): Promise<void> => {
-    clearAuthSessionPersistence({ profileId: snapshot.currentWindow.profileId });
+    const profileId = snapshot.currentWindow.profileId;
+    clearAuthSessionPersistence({ profileId });
     await clearNativeSessionBestEffort();
     identity.lockIdentity();
     setOpen(false);
-    toast.success("Logged out.");
+    toast.success("Signed out.");
+    await finalizeProfileWindowLogout({
+      profileId,
+      hardReload: snapshot.currentWindow.windowLabel === "main",
+    });
     if (isDesktop && snapshot.currentWindow.windowLabel !== "main") {
       try {
         await api.window.close();
-        return;
       } catch {
-        // Fall back to routing if window close fails.
+        router.replace("/");
       }
     }
-    router.replace("/");
   };
 
   if (!shouldRenderProfileChip) {

@@ -7,6 +7,7 @@ import {
   LEGACY_REMEMBER_ME_KEY,
 } from "@/app/features/auth/utils/auth-storage-keys";
 import { SESSION_CREDENTIAL_PERSISTENCE_ENABLED } from "@/app/features/auth/services/session-credential-policy";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { logAppEvent } from "@/app/shared/log-app-event";
 
 export type DeviceTrustRestorePath = "native_session" | "device_unlock_token" | "none";
@@ -222,6 +223,33 @@ export const revokeDeviceTrust = (profileId: string): void => {
     level: "info",
     scope: { feature: "auth", action: "device_trust" },
     context: { profileId },
+  });
+};
+
+/**
+ * Persist unlock proof after a successful login/import on mobile shell browser.
+ * Native runtimes use keychain only — this is a no-op when `hasNativeRuntime()`.
+ */
+export const persistSessionUnlockAfterSuccess = (params: Readonly<{
+  profileId?: string;
+  passphrase?: string;
+  /** Passwordless hex-key import on mobile shell browser — dev-only unlock token. */
+  privateKeyHex?: string;
+}>): void => {
+  if (!SESSION_CREDENTIAL_PERSISTENCE_ENABLED || hasNativeRuntime()) {
+    return;
+  }
+  const resolvedProfileId = params.profileId?.trim() || getResolvedProfileId();
+  const token = params.passphrase?.trim()
+    || params.privateKeyHex?.trim()
+    || "";
+  if (token.length === 0) {
+    return;
+  }
+  persistDeviceUnlockCredential({
+    profileId: resolvedProfileId,
+    trusted: true,
+    passphrase: token,
   });
 };
 

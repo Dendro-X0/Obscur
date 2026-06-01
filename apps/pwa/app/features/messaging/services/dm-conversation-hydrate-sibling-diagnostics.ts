@@ -37,6 +37,7 @@ export async function runDmHydrateSiblingIdSplitDiagnosticsIfNeeded(params: Read
     const siblingRows = await loadConversationWindow({
       conversationId: siblingConversationId,
       limit: params.initialBatchSize,
+      accountPublicKeyHex: params.normalizedPublicKeyHex,
     });
     if (siblingRows.length === 0) {
       continue;

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button, Input, toast } from "@dweb/ui-kit";
 import { ArrowLeft, Plus, Settings2, SquareArrowOutUpRight, Trash2 } from "lucide-react";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
+import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import { PageShell } from "@/app/components/page-shell";
 import { UserAvatar } from "@/app/components/user-avatar";
 import { cn } from "@/app/lib/utils";
@@ -12,7 +13,11 @@ import useNavBadges from "@/app/features/main-shell/hooks/use-nav-badges";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { useProfile } from "@/app/features/profile/hooks/use-profile";
 import { desktopProfileRuntime, useDesktopProfileIsolationSnapshot } from "@/app/features/profiles/services/desktop-profile-runtime";
-import { clearProfileLocalData } from "@/app/features/profiles/services/profile-data-cleanup";
+import { finalizeProfileWindowRemoval } from "@/app/features/profiles/services/profile-session-lifecycle";
+import type { ProfileWorkspaceArchiveWriteResult } from "@/app/features/profiles/services/profile-workspace-archive-contracts";
+import { ProfileArchiveResultBanner } from "@/app/features/profiles/components/profile-archive-result-banner";
+import { PortabilityQuickActionsPanel } from "@/app/features/profiles/components/portability-quick-actions-panel";
+import { ProfileWindowImportPanel } from "@/app/features/profiles/components/profile-window-import-panel";
 import {
   buildDesktopProfileMenuEntries,
   deriveDesktopProfileSessionMismatch,
@@ -31,6 +36,8 @@ export default function ProfilesPage(): React.JSX.Element {
   const [newLabel, setNewLabel] = useState("");
   const [removeTarget, setRemoveTarget] = useState<Readonly<{ profileId: string; label: string }> | null>(null);
   const [isRemovingProfile, setIsRemovingProfile] = useState(false);
+  const [removeStep, setRemoveStep] = useState<"confirm" | "complete">("confirm");
+  const [removeArchiveResult, setRemoveArchiveResult] = useState<ProfileWorkspaceArchiveWriteResult | null>(null);
 
   const [previewByProfileId, setPreviewByProfileId] = useState<Readonly<Record<string, DesktopProfilePreview | undefined>>>({});
   const currentPublicKeyHex = identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex ?? undefined;
@@ -39,6 +46,13 @@ export default function ProfilesPage(): React.JSX.Element {
     unlockedPublicKeyHex: identity.state.publicKeyHex,
   });
   const navBadges = useNavBadges({ publicKeyHex: (currentPublicKeyHex as PublicKeyHex | null) ?? null });
+
+  const resolveActivePrivateKeyHex = async (): Promise<PrivateKeyHex | null> => {
+    if (identity.state.status !== "unlocked" || !identity.state.privateKeyHex) {
+      return null;
+    }
+    return identity.state.privateKeyHex as PrivateKeyHex;
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -68,6 +82,8 @@ export default function ProfilesPage(): React.JSX.Element {
       sessionMismatch,
     });
   }, [currentPublicKeyHex, previewByProfileId, profile.state.profile.avatarUrl, profile.state.profile.username, sessionMismatch, snapshot]);
+
+  const currentWindowEntry = entries.find((entry) => entry.isCurrentWindow);
 
   const handleOpenWindow = async (profileId: string): Promise<void> => {
     try {
@@ -129,7 +145,15 @@ export default function ProfilesPage(): React.JSX.Element {
 
     const entry = entries.find((item) => item.profileId === profileId);
     const label = entry?.label || profileId;
+    setRemoveStep("confirm");
+    setRemoveArchiveResult(null);
     setRemoveTarget({ profileId, label });
+  };
+
+  const closeRemoveFlow = (): void => {
+    setRemoveTarget(null);
+    setRemoveStep("confirm");
+    setRemoveArchiveResult(null);
   };
 
   const confirmRemoveProfile = async (): Promise<void> => {
@@ -139,10 +163,15 @@ export default function ProfilesPage(): React.JSX.Element {
 
     setIsRemovingProfile(true);
     try {
+      const removedPreview = previewByProfileId[removeTarget.profileId];
+      const archiveResult = await finalizeProfileWindowRemoval({
+        profileId: removeTarget.profileId,
+        profileLabel: removeTarget.label,
+        publicKeyHex: removedPreview?.publicKeyHex as PublicKeyHex | undefined,
+      });
       await desktopProfileRuntime.removeProfile(removeTarget.profileId);
-      await clearProfileLocalData(removeTarget.profileId);
-      setRemoveTarget(null);
-      toast.success("Profile and all associated data removed.");
+      setRemoveArchiveResult(archiveResult);
+      setRemoveStep("complete");
     } catch (error) {
       console.error("[ProfilesPage] Failed to remove profile:", error);
       toast.error(error instanceof Error ? error.message : "Failed to remove profile.");
@@ -234,6 +263,11 @@ export default function ProfilesPage(): React.JSX.Element {
           </section>
 
           <aside className="space-y-6">
+            <PortabilityQuickActionsPanel
+              publicKeyHex={(currentPublicKeyHex as PublicKeyHex | null) ?? null}
+              profileLabel={currentWindowEntry?.label}
+              resolveActivePrivateKeyHex={resolveActivePrivateKeyHex}
+            />
             <section className="rounded-[28px] border border-black/10 bg-white/70 p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900/40">
               <div className="text-xs font-black uppercase tracking-[0.18em] text-zinc-500 dark:text-zinc-400">Add Profile</div>
               <div className="mt-2 text-sm text-zinc-700 dark:text-zinc-300">
@@ -255,6 +289,12 @@ export default function ProfilesPage(): React.JSX.Element {
                   <Plus className="h-3.5 w-3.5" />
                   Add Profile in New Window
                 </Button>
+                {currentWindowEntry && !currentWindowEntry.hasStoredIdentity ? (
+                  <ProfileWindowImportPanel
+                    publicKeyHex={(currentPublicKeyHex as PublicKeyHex | null) ?? null}
+                    resolveActivePrivateKeyHex={resolveActivePrivateKeyHex}
+                  />
+                ) : null}
               </div>
             </section>
 
@@ -264,8 +304,21 @@ export default function ProfilesPage(): React.JSX.Element {
                 <p>Each profile is a separate local workspace on this device.</p>
                 <p>Opening a profile creates an isolated desktop window. In-memory state and account data are not shared across windows.</p>
                 <p>Profiles you log into stay listed here so you can reopen them later.</p>
+                <p>
+                  <span className="font-semibold">Sign out</span> locks the session but keeps this profile window&apos;s local data so you can sign back in later.
+                </p>
+                <p>
+                  <span className="font-semibold">Remove profile</span> (Profile 2 and above) exports a workspace archive (`.obscur-profile.json`) under
+                  <span className="font-semibold"> profile-archives </span>
+                  on desktop, then clears that slot. You will see where the file was saved.
+                </p>
+                <p>
+                  To wipe the main profile window or clear data without removing the profile entry, use Settings → Identity → Local data management.
+                </p>
                 <p className="rounded-xl border border-orange-500/25 bg-orange-500/5 px-3 py-2 text-orange-900 dark:text-orange-100">
-                  If chats or contacts look empty after signing in, reopen the profile window where that account was previously used, or use <span className="font-semibold">Switch This Window</span> before logging in.
+                  <span className="font-semibold">Desktop:</span> unified account export/import in Settings → Profile.
+                  <br />
+                  <span className="font-semibold">Mobile (PWA):</span> use browser download/import; keep one account per browser profile. Full backup + vault export is desktop-first today.
                 </p>
               </div>
             </section>
@@ -273,34 +326,61 @@ export default function ProfilesPage(): React.JSX.Element {
         </div>
       </div>
       {/* Inline confirmation - temporary replacement for ConfirmDialog */}
-      {removeTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
-          <div className="w-full max-w-md rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl">
-            <h3 className="text-xl font-bold text-white">Remove Profile</h3>
-            <p className="mt-2 text-zinc-300">
-              Remove profile &quot;{removeTarget.label}&quot;? This deletes local data and the key.
-            </p>
-            <div className="mt-6 flex gap-3">
-              <Button
-                variant="secondary"
-                className="flex-1"
-                onClick={() => setRemoveTarget(null)}
-                disabled={isRemovingProfile}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="danger"
-                className="flex-1"
-                onClick={() => void confirmRemoveProfile()}
-                disabled={isRemovingProfile}
-              >
-                {isRemovingProfile ? "Removing..." : "Remove"}
-              </Button>
-            </div>
+      {removeTarget ? (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4">
+          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl">
+            {removeStep === "confirm" ? (
+              <>
+                <h3 className="text-xl font-bold text-white">Remove profile</h3>
+                <p className="mt-2 text-sm leading-6 text-zinc-300">
+                  Remove &quot;{removeTarget.label}&quot;? A workspace archive is saved to profile-archives first, then local data for that profile is cleared.
+                </p>
+                <div className="mt-6 flex gap-3">
+                  <Button
+                    variant="secondary"
+                    className="flex-1"
+                    onClick={closeRemoveFlow}
+                    disabled={isRemovingProfile}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="danger"
+                    className="flex-1"
+                    onClick={() => void confirmRemoveProfile()}
+                    disabled={isRemovingProfile}
+                  >
+                    {isRemovingProfile ? "Removing…" : "Remove profile"}
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <h3 className="text-xl font-bold text-white">Profile removed</h3>
+                <p className="mt-2 text-sm text-zinc-300">
+                  &quot;{removeTarget.label}&quot; was removed from this device. Your archive is below.
+                </p>
+                <div className="mt-4">
+                  <ProfileArchiveResultBanner
+                    result={removeArchiveResult}
+                    profileLabel={removeTarget.label}
+                    label="Workspace archive location"
+                  />
+                </div>
+                <div className="mt-6">
+                  <Button className="w-full" onClick={() => {
+                    closeRemoveFlow();
+                    toast.success("Profile removed.");
+                  }}
+                  >
+                    Done
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
         </div>
-      )}
+      ) : null}
     </PageShell>
   );
 }

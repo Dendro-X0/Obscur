@@ -229,17 +229,37 @@ export const findStoredIdentityBindingByPublicKey = async (
   return bindings.find((binding) => binding.record.publicKeyHex === publicKeyHex) ?? null;
 };
 
-const migrateScopedStorage = (sourceProfileId: string, targetProfileId: string): void => {
+const migrateScopedStorageForAccount = (
+  publicKeyHex: PublicKeyHex,
+  sourceProfileId: string,
+  targetProfileId: string,
+): void => {
   if (typeof window === "undefined" || sourceProfileId === targetProfileId) {
     return;
   }
+  const normalizedPublicKeyHex = publicKeyHex.trim().toLowerCase();
   const sourceSuffix = `${SCOPED_STORAGE_DELIMITER}${sourceProfileId}`;
+  const targetSuffix = `${SCOPED_STORAGE_DELIMITER}${targetProfileId}`;
+  const isProfileOnlyScopedKey = (key: string): boolean => (
+    key === REMEMBER_ME_BASE_KEY
+    || key.startsWith(`${REMEMBER_ME_BASE_KEY}${SCOPED_STORAGE_DELIMITER}`)
+    || key === AUTH_TOKEN_BASE_KEY
+    || key.startsWith(`${AUTH_TOKEN_BASE_KEY}${SCOPED_STORAGE_DELIMITER}`)
+    || key.startsWith("dweb.nostr.pwa.profile")
+  );
+  const shouldMigrateKey = (key: string): boolean => (
+    key.endsWith(sourceSuffix)
+    && (
+      key.toLowerCase().includes(normalizedPublicKeyHex)
+      || isProfileOnlyScopedKey(key)
+    )
+  );
   for (let index = 0; index < window.localStorage.length; index += 1) {
     const key = window.localStorage.key(index);
-    if (!key || !key.endsWith(sourceSuffix)) {
+    if (!key || !shouldMigrateKey(key)) {
       continue;
     }
-    const targetKey = key.slice(0, key.length - sourceSuffix.length) + `${SCOPED_STORAGE_DELIMITER}${targetProfileId}`;
+    const targetKey = key.slice(0, key.length - sourceSuffix.length) + targetSuffix;
     if (window.localStorage.getItem(targetKey) === null) {
       const value = window.localStorage.getItem(key);
       if (value !== null) {
@@ -249,10 +269,10 @@ const migrateScopedStorage = (sourceProfileId: string, targetProfileId: string):
   }
   for (let index = 0; index < window.sessionStorage.length; index += 1) {
     const key = window.sessionStorage.key(index);
-    if (!key || !key.endsWith(sourceSuffix)) {
+    if (!key || !shouldMigrateKey(key)) {
       continue;
     }
-    const targetKey = key.slice(0, key.length - sourceSuffix.length) + `${SCOPED_STORAGE_DELIMITER}${targetProfileId}`;
+    const targetKey = key.slice(0, key.length - sourceSuffix.length) + targetSuffix;
     if (window.sessionStorage.getItem(targetKey) === null) {
       const value = window.sessionStorage.getItem(key);
       if (value !== null) {
@@ -280,10 +300,6 @@ const collectScopedStorageMigrationSources = (params: Readonly<{
 
   pushProfileId(params.existingProfileId);
 
-  if (!params.existingProfileId && !params.explicitProfileScope) {
-    pushProfileId(params.currentActiveProfileId);
-  }
-
   collectScopedAccountProfileCandidates(params.publicKeyHex).forEach((profileId) => {
     pushProfileId(profileId);
   });
@@ -306,16 +322,20 @@ export const ensureIdentityProfileBinding = async (params: Readonly<{
     throw new Error(ensured.message || "Failed to ensure identity profile");
   }
 
-  const migrationSources = collectScopedStorageMigrationSources({
-    publicKeyHex: params.publicKeyHex,
-    targetProfileId,
-    existingProfileId: existing?.profileId,
-    currentActiveProfileId,
-    explicitProfileScope,
-  });
-  migrationSources.forEach((sourceProfileId) => {
-    migrateScopedStorage(sourceProfileId, targetProfileId);
-  });
+  // Desktop/mobile profile windows own their slot locally (Chrome-profile model).
+  // Never pull another slot's scoped storage into this window on login.
+  if (!explicitProfileScope) {
+    const migrationSources = collectScopedStorageMigrationSources({
+      publicKeyHex: params.publicKeyHex,
+      targetProfileId,
+      existingProfileId: existing?.profileId,
+      currentActiveProfileId,
+      explicitProfileScope,
+    });
+    migrationSources.forEach((sourceProfileId) => {
+      migrateScopedStorageForAccount(params.publicKeyHex, sourceProfileId, targetProfileId);
+    });
+  }
 
   if (explicitProfileScope) {
     return targetProfileId;
@@ -373,7 +393,7 @@ export const identityProfileBindingInternals = {
   profileIdFromIdentityDbKey,
   extractProfileIdFromScopedStorageKey,
   collectScopedAccountProfileCandidates,
-  migrateScopedStorage,
+  migrateScopedStorageForAccount,
   collectScopedStorageMigrationSources,
   defaultProfileLabelForPublicKey,
   getProfileIdentityDbKey,

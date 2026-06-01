@@ -6,6 +6,11 @@ import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import { ProfileRegistryService } from "./profile-registry-service";
 import { cryptoService } from "@/app/features/crypto/crypto-service";
+import { parseProfileIdFromWindowLabel } from "./desktop-profile-window-label";
+import {
+  mirrorDesktopWindowBootPayloadToSyncScope,
+  readDesktopWindowBootPayload,
+} from "./desktop-window-boot-payload";
 import type {
   ProfileId,
   ProfileIsolationSnapshot,
@@ -44,40 +49,69 @@ const PROFILE_SNAPSHOT_TIMEOUT_MS = 25_000;
 const LAST_KNOWN_WINDOW_PROFILE_ID_STORAGE_KEY = "obscur.desktop.window_profile.last_known.v1";
 const MAIN_WINDOW_LABEL = "main";
 
+const lastKnownWindowProfileIdStorageKey = (windowLabel: string): string => (
+  `${LAST_KNOWN_WINDOW_PROFILE_ID_STORAGE_KEY}::${windowLabel.trim() || MAIN_WINDOW_LABEL}`
+);
+
 let refreshInFlightPromise: Promise<ProfileIsolationSnapshot> | null = null;
 let lastRefreshError: string | null = null;
 
-const getLastKnownWindowProfileId = (): string | null => {
+/** Clears in-flight native refresh state after a full window reload or logout. */
+export const resetDesktopProfileRefreshState = (): void => {
+  refreshInFlightPromise = null;
+  lastRefreshError = null;
+};
+
+const getLastKnownWindowProfileId = (windowLabel: string): string | null => {
   if (typeof window === "undefined") {
     return null;
   }
   try {
-    const raw = window.localStorage.getItem(LAST_KNOWN_WINDOW_PROFILE_ID_STORAGE_KEY);
+    const raw = window.localStorage.getItem(lastKnownWindowProfileIdStorageKey(windowLabel));
     return raw && raw.trim().length > 0 ? raw.trim() : null;
   } catch {
     return null;
   }
 };
 
-const setLastKnownWindowProfileId = (profileId: string): void => {
+const setLastKnownWindowProfileId = (windowLabel: string, profileId: string): void => {
   if (typeof window === "undefined") {
     return;
   }
   try {
-    window.localStorage.setItem(LAST_KNOWN_WINDOW_PROFILE_ID_STORAGE_KEY, profileId);
+    window.localStorage.setItem(lastKnownWindowProfileIdStorageKey(windowLabel), profileId);
   } catch {
     // Best-effort only.
   }
 };
 
+const syncNativeProfilesIntoRegistry = (snapshot: ProfileIsolationSnapshot): void => {
+  snapshot.profiles.forEach((profile) => {
+    ProfileRegistryService.ensureProfile(profile.profileId, profile.label);
+  });
+};
+
 const createFallbackSnapshot = (windowLabel = MAIN_WINDOW_LABEL): ProfileIsolationSnapshot => {
   try {
     const registryState = ProfileRegistryService.getState();
-    const lastKnownProfileId = getLastKnownWindowProfileId();
+    const lastKnownProfileId = getLastKnownWindowProfileId(windowLabel);
     const activeProfileId = lastKnownProfileId ?? registryState.activeProfileId;
-    const activeProfile = registryState.profiles.find((profile) => profile.profileId === activeProfileId)
-      ?? registryState.profiles.find((profile) => profile.profileId === registryState.activeProfileId)
-      ?? registryState.profiles[0];
+    let activeProfile = registryState.profiles.find((profile) => profile.profileId === activeProfileId);
+
+    if (!activeProfile && lastKnownProfileId) {
+      activeProfile = {
+        profileId: lastKnownProfileId,
+        label: lastKnownProfileId,
+        createdAtUnixMs: 0,
+        lastUsedAtUnixMs: 0,
+        status: "inactive",
+      };
+    }
+
+    if (!activeProfile) {
+      activeProfile = registryState.profiles.find((profile) => profile.profileId === registryState.activeProfileId)
+        ?? registryState.profiles[0];
+    }
 
     if (!activeProfile) {
       return DEFAULT_PROFILE_SNAPSHOT;
@@ -90,12 +124,19 @@ const createFallbackSnapshot = (windowLabel = MAIN_WINDOW_LABEL): ProfileIsolati
         profileLabel: activeProfile.label,
         launchMode: "existing",
       },
-      profiles: registryState.profiles.map((profile) => ({
-        profileId: profile.profileId,
-        label: profile.label,
-        createdAtUnixMs: profile.createdAtUnixMs,
-        lastUsedAtUnixMs: profile.lastUsedAtUnixMs,
-      })),
+      profiles: registryState.profiles.some((profile) => profile.profileId === activeProfile.profileId)
+        ? registryState.profiles.map((profile) => ({
+          profileId: profile.profileId,
+          label: profile.label,
+          createdAtUnixMs: profile.createdAtUnixMs,
+          lastUsedAtUnixMs: profile.lastUsedAtUnixMs,
+        }))
+        : [{
+          profileId: activeProfile.profileId,
+          label: activeProfile.label,
+          createdAtUnixMs: activeProfile.createdAtUnixMs,
+          lastUsedAtUnixMs: activeProfile.lastUsedAtUnixMs,
+        }],
       windowBindings: [{
         windowLabel,
         profileId: activeProfile.profileId,
@@ -108,9 +149,7 @@ const createFallbackSnapshot = (windowLabel = MAIN_WINDOW_LABEL): ProfileIsolati
   }
 };
 
-let currentSnapshot: ProfileIsolationSnapshot = createFallbackSnapshot();
-setProfileScopeOverride(currentSnapshot.currentWindow.profileId);
-setLastKnownWindowProfileId(currentSnapshot.currentWindow.profileId);
+let currentSnapshot: ProfileIsolationSnapshot = DEFAULT_PROFILE_SNAPSHOT;
 const listeners = new Set<Listener>();
 
 const emit = (): void => {
@@ -119,24 +158,21 @@ const emit = (): void => {
 
 const setSnapshot = (snapshot: ProfileIsolationSnapshot): void => {
   const previous = currentSnapshot;
+  const windowLabel = snapshot.currentWindow.windowLabel || MAIN_WINDOW_LABEL;
   const profileChanged = previous.currentWindow.profileId !== snapshot.currentWindow.profileId
-    || previous.currentWindow.profileLabel !== snapshot.currentWindow.profileLabel
-    || previous.profiles.length !== snapshot.profiles.length
+    || previous.currentWindow.profileLabel !== snapshot.currentWindow.profileLabel;
+  const profilesChanged = previous.profiles.length !== snapshot.profiles.length
     || previous.windowBindings.length !== snapshot.windowBindings.length;
   currentSnapshot = snapshot;
   setProfileScopeOverride(snapshot.currentWindow.profileId);
-  setLastKnownWindowProfileId(snapshot.currentWindow.profileId);
-  if (profileChanged) {
-    cryptoService.invalidateCache?.();
-    ProfileRegistryService.replaceState({
-      activeProfileId: snapshot.currentWindow.profileId,
-      profiles: snapshot.profiles.map((profile) => ({
-        ...profile,
-        status: profile.profileId === snapshot.currentWindow.profileId ? "active" : "inactive",
-      })),
-    });
+  setLastKnownWindowProfileId(windowLabel, snapshot.currentWindow.profileId);
+  if (profilesChanged) {
+    syncNativeProfilesIntoRegistry(snapshot);
   }
-  if (profileChanged) {
+  if (profileChanged || profilesChanged) {
+    cryptoService.invalidateCache?.();
+  }
+  if (profileChanged || profilesChanged) {
     emit();
   }
 };
@@ -160,6 +196,80 @@ const invokeProfileCommand = async <T>(
     throw new Error(result.message || `Native command ${command} failed.`);
   }
   return result.value;
+};
+
+export const applyCachedWindowProfileScope = (windowLabel: string): boolean => {
+  const normalizedLabel = windowLabel.trim() || MAIN_WINDOW_LABEL;
+  const lastKnownProfileId = getLastKnownWindowProfileId(normalizedLabel);
+  if (!lastKnownProfileId) {
+    return false;
+  }
+  const fallback = createFallbackSnapshot(normalizedLabel);
+  if (fallback.currentWindow.profileId !== lastKnownProfileId) {
+    return false;
+  }
+  setSnapshot(fallback);
+  lastRefreshError = null;
+  return true;
+};
+
+/** Applies profile scope encoded in a secondary window label before native IPC returns. */
+export const applyWindowLabelProfileScope = (windowLabel: string): boolean => {
+  const profileId = parseProfileIdFromWindowLabel(windowLabel);
+  if (!profileId) {
+    return false;
+  }
+  const normalizedLabel = windowLabel.trim() || MAIN_WINDOW_LABEL;
+  setLastKnownWindowProfileId(normalizedLabel, profileId);
+  const fallback = createFallbackSnapshot(normalizedLabel);
+  if (fallback.currentWindow.profileId !== profileId) {
+    return false;
+  }
+  setSnapshot(fallback);
+  lastRefreshError = null;
+  return true;
+};
+
+/** Applies Tauri init-script payload synchronously before React identity/chat boot. */
+export const applyDesktopWindowBootPayload = (): boolean => {
+  mirrorDesktopWindowBootPayloadToSyncScope();
+  const payload = readDesktopWindowBootPayload();
+  if (!payload) {
+    return false;
+  }
+  setLastKnownWindowProfileId(payload.windowLabel, payload.profileId);
+  if (applyWindowLabelProfileScope(payload.windowLabel)) {
+    lastRefreshError = null;
+    return true;
+  }
+  if (payload.windowLabel === MAIN_WINDOW_LABEL) {
+    const fallback = createFallbackSnapshot(MAIN_WINDOW_LABEL);
+    setSnapshot({
+      ...fallback,
+      currentWindow: {
+        ...fallback.currentWindow,
+        windowLabel: MAIN_WINDOW_LABEL,
+        profileId: payload.profileId,
+        profileLabel: fallback.currentWindow.profileLabel || payload.profileId,
+        launchMode: "existing",
+      },
+    });
+    lastRefreshError = null;
+    return true;
+  }
+  return applyCachedWindowProfileScope(payload.windowLabel);
+};
+
+export const resolveNativeWindowLabel = async (): Promise<string> => {
+  if (!hasNativeRuntime()) {
+    return MAIN_WINDOW_LABEL;
+  }
+  try {
+    const { getCurrentWebviewWindow } = await import("@tauri-apps/api/webviewWindow");
+    return getCurrentWebviewWindow().label.trim() || MAIN_WINDOW_LABEL;
+  } catch {
+    return MAIN_WINDOW_LABEL;
+  }
 };
 
 export const desktopProfileRuntime = {

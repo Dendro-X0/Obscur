@@ -812,20 +812,6 @@ export const loadPersistedChatState = (
             }
         }
 
-        if (publicKeyHex && publicKeyHex.trim().length > 0) {
-            const rawLegacy = localStorage.getItem(LEGACY_PERSISTED_CHAT_STATE_STORAGE_KEY);
-            if (!rawLegacy) return null;
-            const parsedLegacy = JSON.parse(rawLegacy);
-            const nextLegacy = parsePersistedChatState(parsedLegacy);
-            if (!nextLegacy) return null;
-            try {
-                localStorage.setItem(primaryKey, JSON.stringify(nextLegacy));
-            } catch {
-                return nextLegacy;
-            }
-            return nextLegacy;
-        }
-
         return null;
     } catch {
         return null;

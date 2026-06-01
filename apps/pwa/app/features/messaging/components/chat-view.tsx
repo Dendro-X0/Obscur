@@ -40,6 +40,7 @@ import {
 import { DmHiddenMessagesPanel } from "./dm-hidden-messages-panel";
 import { useDmThreadHiddenMessages } from "../hooks/use-dm-thread-hidden-messages";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
+import { usePreferNativeTouchScroll } from "@/app/features/runtime/use-prefer-native-touch-scroll";
 
 type ChatHistorySearchResult = Readonly<{
     messageId: string;
@@ -175,11 +176,15 @@ export interface ChatViewProps {
     onAddRelay?: (url: string) => void;
     onNavigateToRelaySettings?: () => void;
     deliveryRisk?: "no_overlap" | "unknown" | "overlap" | null;
+    /** Mobile shell thread uses MobileDmThreadHeader; omit desktop ChatHeader block. */
+    hideDesktopChatHeader?: boolean;
 }
 
 
 export function ChatView(props: ChatViewProps) {
     const { t } = useTranslation();
+    const preferNativeTouchScroll = usePreferNativeTouchScroll();
+    const hideDesktopChatHeader = props.hideDesktopChatHeader === true;
     const [isDragging, setIsDragging] = useState(false);
     const [isBatchDeleteMode, setIsBatchDeleteMode] = useState(false);
     const [selectedMessageIds, setSelectedMessageIds] = useState<ReadonlySet<string>>(new Set());
@@ -665,28 +670,30 @@ export function ChatView(props: ChatViewProps) {
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
         >
-            <ChatHeader
-                conversation={props.conversation}
-                groupMemberCount={props.groupMemberCount}
-                groupOnlineMemberCount={props.groupOnlineMemberCount}
-                groupLastActivityAtMs={props.groupLastActivityAtMs}
-                isOnline={props.isPeerOnline}
-                interactionStatus={props.interactionStatus}
-                nowMs={props.nowMs}
-                onCopyPubkey={props.onCopyPubkey}
-                onOpenMedia={props.onOpenMedia}
-                onToggleConversationNotifications={props.onToggleConversationNotifications}
-                onOpenInfo={props.onOpenInfo}
-                onOpenProfile={props.onOpenProfile}
-                onSendVoiceCallInvite={props.onSendVoiceCallInvite}
-                canSendVoiceCallInvite={isDeletedRecipient ? false : props.canSendVoiceCallInvite}
-                isSendingVoiceCallInvite={props.isSendingVoiceCallInvite}
-                activeVoiceCallState={props.activeVoiceCallState}
-                voiceCallStatus={props.voiceCallStatus}
-                onLeaveVoiceCall={props.onLeaveVoiceCall}
-                onAcceptIncomingVoiceCall={props.onAcceptIncomingVoiceCall}
-                onDeclineIncomingVoiceCall={props.onDeclineIncomingVoiceCall}
-            />
+            {!hideDesktopChatHeader ? (
+                <ChatHeader
+                    conversation={props.conversation}
+                    groupMemberCount={props.groupMemberCount}
+                    groupOnlineMemberCount={props.groupOnlineMemberCount}
+                    groupLastActivityAtMs={props.groupLastActivityAtMs}
+                    isOnline={props.isPeerOnline}
+                    interactionStatus={props.interactionStatus}
+                    nowMs={props.nowMs}
+                    onCopyPubkey={props.onCopyPubkey}
+                    onOpenMedia={props.onOpenMedia}
+                    onToggleConversationNotifications={props.onToggleConversationNotifications}
+                    onOpenInfo={props.onOpenInfo}
+                    onOpenProfile={props.onOpenProfile}
+                    onSendVoiceCallInvite={props.onSendVoiceCallInvite}
+                    canSendVoiceCallInvite={isDeletedRecipient ? false : props.canSendVoiceCallInvite}
+                    isSendingVoiceCallInvite={props.isSendingVoiceCallInvite}
+                    activeVoiceCallState={props.activeVoiceCallState}
+                    voiceCallStatus={props.voiceCallStatus}
+                    onLeaveVoiceCall={props.onLeaveVoiceCall}
+                    onAcceptIncomingVoiceCall={props.onAcceptIncomingVoiceCall}
+                    onDeclineIncomingVoiceCall={props.onDeclineIncomingVoiceCall}
+                />
+            ) : null}
 
             {props.conversation.kind === 'dm' && props.isPeerAccepted === false && (
                 <StrangerWarningBanner
@@ -746,7 +753,12 @@ export function ChatView(props: ChatViewProps) {
                 />
             ) : null}
 
-            <div className="pointer-events-none absolute bottom-[108px] right-4 z-40 flex w-[min(24rem,calc(100%-2rem))] flex-col items-end gap-2">
+            <div
+                className={cn(
+                    "pointer-events-none absolute z-40 flex w-[min(24rem,calc(100%-2rem))] flex-col items-end gap-2",
+                    preferNativeTouchScroll ? "bottom-36 right-3" : "bottom-[108px] right-4",
+                )}
+            >
                 <button
                     type="button"
                     onClick={() => setIsHistorySearchOpen((current) => !current)}

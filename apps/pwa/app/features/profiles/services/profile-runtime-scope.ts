@@ -1,7 +1,7 @@
 import type { AppClientGateway } from "@/app/features/runtime/types/app-client-gateway";
 import type { ProfileMessageBus } from "@dweb/core/profile-message-bus";
 import type { StoragePorts } from "@/app/features/profiles/types/storage-ports";
-import { readRegistryBackedActiveProfileId } from "./profile-scope";
+import { getProfileScopeOverride, readRegistryBackedActiveProfileId } from "./profile-scope";
 
 type ProfileRuntimeScope = Readonly<{
     profileId: string;
@@ -28,5 +28,9 @@ export function getProfileRuntimeScope(): ProfileRuntimeScope | null {
  * Prefer passing profileId through constructors once call sites are migrated.
  */
 export function getResolvedProfileId(): string {
+    const scopeOverride = getProfileScopeOverride();
+    if (scopeOverride) {
+        return scopeOverride;
+    }
     return injected?.profileId ?? readRegistryBackedActiveProfileId();
 }

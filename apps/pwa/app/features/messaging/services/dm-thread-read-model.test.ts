@@ -112,7 +112,7 @@ describe("dm-thread-read-model", () => {
   });
 
   describe("finalizeDmThreadHydrateRead", () => {
-    it("schedules reconcile retry only when missing direction exists in hints", () => {
+    it("schedules native sqlite retry when hydrate is incoming-only without hints", () => {
       const result = finalizeDmThreadHydrateRead({
         assembledMessages: [baseMessage({ id: "in-1", isOutgoing: false })],
         previousMessages: [],
@@ -123,7 +123,8 @@ describe("dm-thread-read-model", () => {
         maxDirectionCoverageAttempts: 3,
       });
       expect(result.directionCoverage.isPartial).toBe(true);
-      expect(result.reconcilePolicy.shouldRetryHydrate).toBe(false);
+      expect(result.reconcilePolicy.shouldRetryHydrate).toBe(true);
+      expect(result.reconcilePolicy.forceIndexedAuthority).toBe(true);
     });
 
     it("merges supplemental outgoing rows without scheduling hydrate retry", () => {

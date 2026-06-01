@@ -13,10 +13,11 @@ import { resolveProjectionReadAuthority } from "@/app/features/account-sync/serv
 import { normalizePublicKeyHex } from "../../profile/utils/normalize-public-key-hex";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import { subscribeAccountSyncMutation } from "@/app/shared/account-sync-mutation-signal";
-import { useOptionalProfileMessageBus } from "@/app/features/profiles/providers/profile-runtime-provider";
+import { useOptionalProfileMessageBus, useOptionalProfileRuntime } from "@/app/features/profiles/providers/profile-runtime-provider";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { subscribeChatStateReplacedDual } from "@/app/features/profiles/services/subscribe-chat-state-replaced-dual";
 import { subscribeMessagesIndexRebuiltDual } from "@/app/features/profiles/services/subscribe-messages-index-rebuilt-dual";
+import { subscribeSecondaryProfileDmSoftRefresh } from "@/app/features/runtime/services/secondary-profile-dm-soft-refresh";
 import { chatStateStoreService, type ChatStateReplacedEventDetail } from "../services/chat-state-store";
 import { requiresSqlitePersistence } from "@/app/features/runtime/native-persistence-policy";
 import { isCommunityInviteThreadPayloadContent } from "../services/dm-community-invite-thread-payload";
@@ -141,6 +142,7 @@ export function useConversationMessages(
 ): UseConversationMessagesResult {
     const accountProjectionSnapshot = useAccountProjectionSnapshot();
     const optionalProfileBus = useOptionalProfileMessageBus();
+    const optionalProfileRuntime = useOptionalProfileRuntime();
     const messageDeleteTombstones = useMemo(
         () => messagingClientOperations.messageDeleteTombstonesPort(),
         [],
@@ -148,7 +150,7 @@ export function useConversationMessages(
     const lastTombstoneMutationAtUnixMsRef = useRef(0);
     const [deleteTombstoneEpoch, setDeleteTombstoneEpoch] = useState(0);
     const [redactionGateEpoch, setRedactionGateEpoch] = useState(0);
-    const activeProfileId = getResolvedProfileId();
+    const activeProfileId = optionalProfileRuntime?.profileId ?? getResolvedProfileId();
     const legacyChatStateHasRicherDmContent = useMemo(() => {
         if (!conversationId || !publicKeyHex) {
             return false;
@@ -615,6 +617,7 @@ export function useConversationMessages(
 
         void applyPersistedDeletesAndHydrate();
     }, [
+        activeProfileId,
         conversationAliasIds,
         conversationId,
         hydrateHistory,
@@ -635,6 +638,21 @@ export function useConversationMessages(
             requestConversationHydrate("messages_index_rebuilt");
         }, optionalProfileBus);
     }, [activeProfileId, conversationId, isDmThread, optionalProfileBus, requestConversationHydrate]);
+
+    useEffect(() => {
+        if (!conversationId || !isDmThread) {
+            return;
+        }
+        return subscribeSecondaryProfileDmSoftRefresh((detail) => {
+            if (detail.profileId !== activeProfileId) {
+                return;
+            }
+            forceIndexedHydrationRef.current = detail.forceIndexedAuthority;
+            directionCoverageHydrateAttemptRef.current = 0;
+            partialHydrateAttemptRef.current = false;
+            requestConversationHydrate("secondary_profile_soft_refresh", { bypassLoadingGuard: true });
+        });
+    }, [activeProfileId, conversationId, isDmThread, requestConversationHydrate]);
 
     useEffect(() => {
         const becameChatRouteActive = isChatRouteActive && !wasChatRouteActiveRef.current;

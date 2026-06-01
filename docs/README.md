@@ -16,7 +16,8 @@ _Last reviewed: 2026-05-15 (v1.5.0 doc restructure)_
 | 4 | [Current session handoff](./handoffs/current-session.md) | Live continuity — read before coding |
 | 4b | [Auth UX redesign (deferred)](./program/auth-ux-redesign-future.md) | Future-version registration/login model — not current ship path |
 | 5 | [Architecture truth map](./encyclopedia/12-core-architecture-truth-map.md) | Who owns what (single source) |
-| 6 | [v1.8.11 scope](./program/v1.8.11-scope.md) | **Current** patch — B1 outbound bot |
+| 6 | [v1.8.12 scope](./program/v1.8.12-scope.md) | **Current** patch — release parity + Android P1 |
+| 7 | [v1.8.11 scope](./program/v1.8.11-scope.md) | Shipped — B1 outbound bot |
 | 6a | [v1.8.10 scope](./program/v1.8.10-scope.md) | **Shipped** — D2 + Lane P |
 | 6b | [v1.8.9 scope](./program/v1.8.9-scope.md) | **Shipped** — D1 + D3 |
 | 6b | [v1.8.9+ managed workspace roadmap](./program/v1.8.9-plus-managed-workspace-roadmap.md) | Post-release: operator-relay deletion, group bots |
@@ -76,8 +77,8 @@ Canonical long-form guides — read in order when onboarding:
 | [**Program overview**](./program/PROGRAM.md) | Active v1.5.1 + milestones |
 | [**Strategic direction**](./program/strategic-direction.md) | Implementation sequence |
 | [**2.0.0 milestone roadmap**](./program/obscur-2.0-milestone-roadmap.md) | v1.7.x → v1.8.x → **v1.9.x Lane K** → v2.0.0 |
-| [**v1.8.x release train**](./program/v1.8.x-release-train.md) | Active patch — **v1.8.11** |
-| [**v1.8.9+ managed workspace**](./program/v1.8.9-plus-managed-workspace-roadmap.md) | B1 (v1.8.11); B2+ (v1.8.12+) |
+| [**v1.8.x release train**](./program/v1.8.x-release-train.md) | Active patch — **v1.8.12** |
+| [**v1.8.9+ managed workspace**](./program/v1.8.9-plus-managed-workspace-roadmap.md) | B1 shipped (v1.8.11); B2+ (v1.8.13+) |
 | [**v1.9.x kernel & backend**](./program/v1.9.0-kernel-backend-roadmap.md) | **Next major refactor** — TransportPort, coordination, R1/R2 |
 | [**v1.9.x implementation spec**](./program/v1.9.0-kernel-backend-spec.md) | B0–B4 contracts, APIs, owners |
 | [**Manual verification environment**](./program/manual-verification-environment.md) | Tester 1/2, dark/light, desktop A/B |

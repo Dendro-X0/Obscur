@@ -8,6 +8,7 @@ import type { Conversation } from "../types";
 import { useResolvedProfileMetadata } from "../../profile/hooks/use-resolved-profile-metadata";
 import { EyeOff, MoreVertical, Pin, PinOff, User } from "lucide-react";
 import { stripVoiceCallControlPreview } from "@/app/features/messaging/services/realtime-voice-signaling";
+import { formatConversationMessagePreview } from "@/app/features/messaging/services/format-conversation-message-preview";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -49,7 +50,9 @@ export const ConversationRow = React.memo(function ConversationRow({
     const resolvedName = metadata?.displayName || conversation.displayName;
     const isDeletedConversationRecipient = conversation.kind === "dm" && metadata?.isDeleted === true;
     const effectiveIsOnline = Boolean(isOnline) && !isDeletedConversationRecipient;
-    const previewMessage = stripVoiceCallControlPreview(conversation.lastMessage).trim();
+    const previewMessage = formatConversationMessagePreview(
+        stripVoiceCallControlPreview(conversation.lastMessage),
+    ).trim();
 
     return (
         <div

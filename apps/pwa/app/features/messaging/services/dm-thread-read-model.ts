@@ -94,7 +94,10 @@ export const shouldReconcilePartialDirectionCoverage = (
   const previous = evaluateDirectionCoverage(hints.previousMessages, myPublicKeyHex);
   const supplemental = evaluateDirectionCoverage(hints.supplementalMessages, myPublicKeyHex);
   if (current.incoming > 0 && current.outgoing === 0) {
-    return previous.outgoing > 0 || supplemental.outgoing > 0;
+    if (previous.outgoing > 0 || supplemental.outgoing > 0) {
+      return true;
+    }
+    return requiresSqlitePersistence();
   }
   if (current.outgoing > 0 && current.incoming === 0) {
     return previous.incoming > 0 || supplemental.incoming > 0;

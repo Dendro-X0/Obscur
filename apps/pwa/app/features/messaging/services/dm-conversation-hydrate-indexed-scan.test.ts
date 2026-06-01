@@ -15,8 +15,13 @@ vi.mock("@/app/features/runtime/native-persistence-policy", () => ({
   requiresSqlitePersistence: vi.fn(() => false),
 }));
 
+vi.mock("@/app/features/profiles/services/account-shared-sqlite-profile-ids", () => ({
+  listAccountSharedSqliteProfileIds: vi.fn(({ primaryProfileId }: { primaryProfileId: string }) => [primaryProfileId]),
+}));
+
 import { requiresSqlitePersistence } from "@/app/features/runtime/native-persistence-policy";
 import { dbGetMessages } from "@dweb/db";
+import { listAccountSharedSqliteProfileIds } from "@/app/features/profiles/services/account-shared-sqlite-profile-ids";
 
 vi.mock("@dweb/storage/indexed-db", () => ({
   messagingDB: {
@@ -118,6 +123,88 @@ describe("dm-conversation-hydrate-indexed-scan", () => {
     expect(out.retentionFilteredMapped).toHaveLength(0);
     expect(out.hasEarlier).toBe(false);
     expect(vi.mocked(messagingDB.getAllByIndex)).not.toHaveBeenCalled();
+  });
+
+  it("loadConversationWindow merges sqlite rows across account-shared profile slots on native", async () => {
+    vi.mocked(requiresSqlitePersistence).mockReturnValue(true);
+    const account = "cc".repeat(32);
+    vi.mocked(listAccountSharedSqliteProfileIds).mockReturnValue(["default", "profile-secondary"]);
+    vi.mocked(dbGetMessages).mockImplementation(async (profileId) => {
+      if (profileId === "default") {
+        return [{
+          event_id: "outgoing-main",
+          conversation_id: "c-native",
+          plaintext: "from main",
+          sender_pubkey: account,
+          recipient_pubkey: "bb".repeat(32),
+          is_outgoing: true,
+          kind: "user",
+          received_at: 1000,
+        }] as any;
+      }
+      if (profileId === "profile-secondary") {
+        return [{
+          event_id: "incoming-secondary",
+          conversation_id: "c-native",
+          plaintext: "from peer",
+          sender_pubkey: "bb".repeat(32),
+          recipient_pubkey: account,
+          is_outgoing: false,
+          kind: "user",
+          received_at: 2000,
+        }] as any;
+      }
+      return [];
+    });
+
+    const rows = await loadConversationWindow({
+      conversationId: "c-native",
+      limit: 10,
+      accountPublicKeyHex: account,
+    });
+
+    expect(rows).toHaveLength(2);
+    expect(rows.map((row) => row.id).sort()).toEqual(["incoming-secondary", "outgoing-main"].sort());
+    expect(vi.mocked(dbGetMessages)).toHaveBeenCalledTimes(2);
+  });
+
+  it("loadConversationWindow drops cross-slot rows that do not involve the active account", async () => {
+    vi.mocked(requiresSqlitePersistence).mockReturnValue(true);
+    const account = "cc".repeat(32);
+    vi.mocked(listAccountSharedSqliteProfileIds).mockReturnValue(["default", "profile-secondary"]);
+    vi.mocked(dbGetMessages).mockImplementation(async (profileId) => {
+      if (profileId === "default") {
+        return [{
+          event_id: "other-account-outgoing",
+          conversation_id: "c-native",
+          plaintext: "wrong account",
+          sender_pubkey: "dd".repeat(32),
+          recipient_pubkey: "ee".repeat(32),
+          is_outgoing: true,
+          kind: "user",
+          received_at: 3000,
+        }] as any;
+      }
+      return [{
+        event_id: "self-incoming",
+        conversation_id: "c-native",
+        plaintext: "peer",
+        sender_pubkey: "bb".repeat(32),
+        recipient_pubkey: account,
+        is_outgoing: false,
+        kind: "user",
+        received_at: 2000,
+      }] as any;
+    });
+
+    const rows = await loadConversationWindow({
+      conversationId: "c-native",
+      limit: 10,
+      accountPublicKeyHex: account,
+    });
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.id).toBe("self-incoming");
   });
 
   it("loadConversationWindow uses SQLite only on native and does not fall back to IndexedDB", async () => {

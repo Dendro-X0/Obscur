@@ -5,6 +5,8 @@ import { Shield } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/app/lib/utils";
 import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
+import { isMobileShellProduct } from "@/app/features/runtime/shell-contract";
+import { SESSION_CREDENTIAL_PERSISTENCE_ENABLED } from "@/app/features/auth/services/session-credential-policy";
 
 type AuthSessionPolicyNoticeProps = Readonly<{
   variant?: "compact" | "card";
@@ -17,27 +19,40 @@ export function AuthSessionPolicyNotice({
 }: AuthSessionPolicyNoticeProps): React.JSX.Element {
   const { t } = useTranslation();
   const isNative = hasNativeRuntime();
+  const isMobileShellBrowser = isMobileShellProduct() && !isNative && SESSION_CREDENTIAL_PERSISTENCE_ENABLED;
   const title = isNative
     ? t("auth.sessionPolicy.nativeTitle", "Secure session on this device")
-    : t("auth.sessionPolicy.title", "Manual unlock every time");
+    : isMobileShellBrowser
+      ? t("auth.sessionPolicy.mobileShellTitle", "Session restored on refresh")
+      : t("auth.sessionPolicy.title", "Manual unlock every time");
   const body = isNative
     ? t(
       "auth.sessionPolicy.nativeBody",
       "After you unlock once, Obscur restores your session from OS secure storage on refresh. Your password is not stored in the browser.",
     )
-    : t(
-      "auth.sessionPolicy.body",
-      "Enter your password or private key to unlock. Obscur does not store your credentials in the browser.",
-    );
+    : isMobileShellBrowser
+      ? t(
+        "auth.sessionPolicy.mobileShellBody",
+        "After you unlock once, Obscur restores your session on this device when you refresh. Use Logout in Settings to clear it.",
+      )
+      : t(
+        "auth.sessionPolicy.body",
+        "Enter your password or private key to unlock. Obscur does not store your credentials in the browser.",
+      );
   const shortCopy = isNative
     ? t(
       "auth.sessionPolicy.nativeShort",
       "Unlock once per session; refresh restores from secure storage without re-entering your key.",
     )
-    : t(
-      "auth.sessionPolicy.short",
-      "Enter your credentials to unlock. Obscur does not store passwords in the browser.",
-    );
+    : isMobileShellBrowser
+      ? t(
+        "auth.sessionPolicy.mobileShellShort",
+        "Unlock once; refresh on this device re-opens your session automatically.",
+      )
+      : t(
+        "auth.sessionPolicy.short",
+        "Enter your credentials to unlock. Obscur does not store passwords in the browser.",
+      );
 
   if (variant === "card") {
     return (

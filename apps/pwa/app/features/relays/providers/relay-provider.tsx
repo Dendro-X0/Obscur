@@ -5,8 +5,8 @@ import { useRelayList } from "../hooks/use-relay-list";
 import { useRelayPool } from "../hooks/use-relay-pool";
 import { useRelayPrimarySelection } from "../hooks/use-relay-primary-selection";
 import {
+  reconcilePrimarySelection,
   resolveActivePoolRelayUrls,
-  resolveFailoverRelaySelection,
   resolveStandbyProbeUrls,
   type RelayPrimarySelection,
 } from "../services/relay-primary-selector";
@@ -244,20 +244,20 @@ const FullRelayProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     }
     const hints = buildRelayHealthHints(enabledRelayUrls, relayPoolRef.current);
     const current = relaySelectionRef.current;
-    const next = resolveFailoverRelaySelection(current, enabledRelayUrls, hints);
-    if (next.primaryUrl === current.primaryUrl) {
+    const reconciled = reconcilePrimarySelection(current, enabledRelayUrls, hints);
+    if (!reconciled || reconciled.primaryUrl === current.primaryUrl) {
       return false;
     }
     failoverRecoveryPendingRef.current = true;
-    relaySelectionRef.current = next;
-    setPrimaryManual(next.primaryUrl!);
+    relaySelectionRef.current = reconciled;
+    setPrimaryManual(reconciled.primaryUrl!);
     logAppEvent({
       name: "relay.primary_failover_applied",
       level: "info",
       scope: { feature: "relays", action: "primary_failover_applied" },
       context: {
         fromUrl: current.primaryUrl ?? "none",
-        toUrl: next.primaryUrl ?? "none",
+        toUrl: reconciled.primaryUrl ?? "none",
       },
     });
     return true;

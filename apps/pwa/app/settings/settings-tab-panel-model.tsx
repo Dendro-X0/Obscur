@@ -135,6 +135,14 @@ import {
   restoreRetiredIdentityRegistrySnapshot,
 } from "@/app/features/auth/utils/retired-identity-registry";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
+import {
+  archiveAndClearProfileLocalDataKeepingIdentity,
+} from "@/app/features/profiles/services/profile-session-lifecycle";
+import { archiveProfileWorkspaceBeforeWipe } from "@/app/features/profiles/services/profile-workspace-archive-service";
+import { wipeProfileWorkspaceCompletely } from "@/app/features/profiles/services/wipe-profile-workspace";
+import { clearLastBoundAccountPublicKeyHex } from "@/app/features/profiles/services/profile-window-account-binding";
+import type { ProfileWorkspaceArchiveWriteResult } from "@/app/features/profiles/services/profile-workspace-archive-contracts";
+import { writeExportToDataRoot, revealExportPathInFileManager } from "@/app/features/profiles/services/data-root-export-service";
 import { getRuntimeCapabilities } from "@/app/features/runtime/runtime-capabilities";
 import { invokeNativeCommand } from "@/app/features/runtime/native-adapters";
 import { ProfileSwitcherCard } from "@/app/features/profiles/components/profile-switcher-card";
@@ -617,6 +625,9 @@ export function SettingsTabPanelModelProvider(props: Readonly<{
     const [isClearDataDialogOpen, setIsClearDataDialogOpen] = useState(false);
     const [isResetLocalHistoryDialogOpen, setIsResetLocalHistoryDialogOpen] = useState(false);
     const [isDeleteAccountDialogOpen, setIsDeleteAccountDialogOpen] = useState(false);
+    const [profileArchiveResult, setProfileArchiveResult] = useState<ProfileWorkspaceArchiveWriteResult | null>(null);
+    const [isProfileArchiveDialogOpen, setIsProfileArchiveDialogOpen] = useState(false);
+    const [profileArchiveDialogMode, setProfileArchiveDialogMode] = useState<"clear_data" | "delete_account">("clear_data");
     const [isPortableBundleExporting, setIsPortableBundleExporting] = useState(false);
     const [isPortableBundleImporting, setIsPortableBundleImporting] = useState(false);
     const portableBundleFileInputRef = useRef<HTMLInputElement | null>(null);
@@ -1126,19 +1137,43 @@ export function SettingsTabPanelModelProvider(props: Readonly<{
       ]);
     };
   
+    const openProfileArchiveResultDialog = (
+      archiveResult: ProfileWorkspaceArchiveWriteResult | null,
+      mode: "clear_data" | "delete_account",
+    ): void => {
+      setProfileArchiveResult(archiveResult);
+      setProfileArchiveDialogMode(mode);
+      setIsProfileArchiveDialogOpen(true);
+      setIsClearDataDialogOpen(false);
+      setIsDeleteAccountDialogOpen(false);
+    };
+
+    const handleProfileArchiveDialogClose = (): void => {
+      setIsProfileArchiveDialogOpen(false);
+      setProfileArchiveResult(null);
+      if (typeof window !== "undefined") {
+        window.location.reload();
+      }
+    };
+
     const handleClearData = async () => {
       try {
         setSecurityActionPhase("working");
-        setSecurityActionMessage("Clearing local data...");
-        await wipeLocalRuntimeData();
+        setSecurityActionMessage("Exporting archive and clearing local caches...");
+        const profileId = getResolvedProfileId();
+        const archiveResult = await archiveAndClearProfileLocalDataKeepingIdentity({
+          profileId,
+          profileLabel: profile.state.profile.username,
+          publicKeyHex,
+        });
         setSecurityActionPhase("success");
-        setSecurityActionMessage("Local account data purged.");
-        if (typeof window !== "undefined") window.location.reload();
+        setSecurityActionMessage("Local caches cleared. Workspace archive saved.");
+        openProfileArchiveResultDialog(archiveResult, "clear_data");
       } catch (e) {
         console.error(e);
         setSecurityActionPhase("error");
         setSecurityActionMessage("Failed to clear local data.");
-        if (typeof window !== "undefined") window.location.reload();
+        toast.error("Failed to clear local data.");
       }
     };
   
@@ -1175,11 +1210,18 @@ export function SettingsTabPanelModelProvider(props: Readonly<{
     const handleDeleteAccount = async () => {
       try {
         setSecurityActionPhase("working");
-        setSecurityActionMessage("Wiping profile, leaving communities, and clearing local account data...");
+        setSecurityActionMessage("Exporting archive, leaving communities, and removing local data...");
+        const profileId = getResolvedProfileId();
+        const archiveResult = await archiveProfileWorkspaceBeforeWipe({
+          profileId,
+          profileLabel: profile.state.profile.username,
+          reason: "settings_delete_account",
+          lastBoundPublicKeyHex: publicKeyHex ?? null,
+        });
         if (publicKeyHex) {
           markRetiredIdentityPublicKey({
             publicKeyHex,
-            profileId: getResolvedProfileId(),
+            profileId,
           });
         }
         const publishResult = await publishProfile({
@@ -1190,31 +1232,35 @@ export function SettingsTabPanelModelProvider(props: Readonly<{
           lud16: "",
           inviteCode: ""
         });
-  
+
         const leaveResult = await leaveJoinedCommunitiesBeforeAccountDeletion();
-  
+
         try {
           await identity.forgetIdentity();
         } catch (identityError) {
           console.error("Identity forget failed during delete account:", identityError);
         }
-  
-        await wipeLocalRuntimeData();
-  
+
+        clearLastBoundAccountPublicKeyHex(profileId);
+        await wipeProfileWorkspaceCompletely({
+          profileId,
+          publicKeyHex: publicKeyHex ?? null,
+        });
+
         if (!publishResult) {
-          toast.warning("Local account data is purged, but profile overwrite could not be confirmed on relays.");
+          toast.warning("Local data was removed, but profile overwrite could not be confirmed on relays.");
         }
         if (leaveResult.leftPublishFailureCount > 0) {
-          toast.warning(`Local account data is purged, but ${leaveResult.leftPublishFailureCount} community leave event(s) could not be confirmed on relays.`);
+          toast.warning(`Local data was removed, but ${leaveResult.leftPublishFailureCount} community leave event(s) could not be confirmed on relays.`);
         }
         setSecurityActionPhase("success");
-        setSecurityActionMessage("Account wipe completed.");
-        if (typeof window !== "undefined") window.location.reload();
+        setSecurityActionMessage("Local profile data removed. Workspace archive saved.");
+        openProfileArchiveResultDialog(archiveResult, "delete_account");
       } catch (e) {
         console.error(e);
         setSecurityActionPhase("error");
-        setSecurityActionMessage("Account wipe did not complete cleanly.");
-        if (typeof window !== "undefined") window.location.reload();
+        setSecurityActionMessage("Local data removal did not complete cleanly.");
+        toast.error("Failed to remove local profile data.");
       } finally {
         setDeleteAccountConfirmInput("");
         setDeleteAccountCountdown(0);
@@ -1384,20 +1430,22 @@ export function SettingsTabPanelModelProvider(props: Readonly<{
         if (!privateKeyHex) {
           throw new Error("Unlock this account first so private state can be exported.");
         }
-        const { bundle, backupPayload } = await encryptedAccountBackupService.exportPortableAccountBundle({
+        const { bundle } = await encryptedAccountBackupService.exportPortableAccountBundle({
           publicKeyHex,
           privateKeyHex,
+          profileLabel: profile.state.profile.username,
         });
         const exportedAtIso = new Date(bundle.exportedAtUnixMs).toISOString().replace(/[:.]/g, "-");
         const filename = `obscur-portable-account-${publicKeyHex.slice(0, 8)}-${exportedAtIso}.json`;
-        const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: "application/json;charset=utf-8" });
-        const url = URL.createObjectURL(blob);
-        const anchor = document.createElement("a");
-        anchor.href = url;
-        anchor.download = filename;
-        anchor.click();
-        URL.revokeObjectURL(url);
-        toast.success(`Portable account bundle exported (${backupPayload.createdAtUnixMs}).`);
+        const { writePortableAccountExportToDataRoot } = await import("@/app/features/profiles/services/unified-account-export-service");
+        const writeResult = await writePortableAccountExportToDataRoot({
+          fileName: filename,
+          bundle,
+        });
+        toast.success("Portable account bundle exported.");
+        if (writeResult.absolutePath) {
+          await revealExportPathInFileManager(writeResult.absolutePath);
+        }
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Portable bundle export failed.");
       } finally {
@@ -2351,6 +2399,10 @@ export function SettingsTabPanelModelProvider(props: Readonly<{
     isCheckingStorageHealth,
     isClearDataDialogOpen,
     isDeleteAccountDialogOpen,
+    isProfileArchiveDialogOpen,
+    profileArchiveDialogMode,
+    profileArchiveResult,
+    handleProfileArchiveDialogClose,
     isDisableAllRelaysDialogOpen,
     isInviteCodeDraftDirty,
     isPortableBundleExporting,

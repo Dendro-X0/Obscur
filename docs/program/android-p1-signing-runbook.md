@@ -95,6 +95,14 @@ adb install -r apps/desktop/src-tauri/gen/android/app/build/outputs/apk/universa
 
 Record Pass/Fail in maintainer notes; full community matrix stays frozen until G6-4 desktop coordination sign-off.
 
+**v1.8.12 wrap-up helper:**
+
+```bash
+pnpm p12:android-smoke -- --build --wait-device=180
+```
+
+Prints a maintainer record block for [v1.8.12 demo matrix](../assets/demo/v1.8.12/README.md).
+
 ---
 
 ## Release APK / AAB (local / decentralized signing)

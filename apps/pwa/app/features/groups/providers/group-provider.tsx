@@ -7,7 +7,7 @@ import {
     ACCOUNT_RESTORE_MATERIALIZATION_COMPLETED_EVENT,
     ACCOUNT_RESTORE_MATERIALIZATION_STARTED_EVENT,
 } from "@/app/features/account-sync/services/restore-materialization-events";
-import { fromPersistedGroupConversation, toPersistedGroupConversation } from "@/app/features/messaging/utils/persistence";
+import { fromPersistedGroupConversation, loadPersistedChatState, toPersistedGroupConversation } from "@/app/features/messaging/utils/persistence";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { toGroupConversationId } from "@/app/features/groups/utils/group-conversation-id";
 import { deriveCommunityId, pickPreferredCommunityId } from "@/app/features/groups/utils/community-identity";
@@ -77,6 +77,9 @@ import {
     type ComputedCommunityState,
 } from "@/app/features/groups/services/community-crdt-engine";
 import {
+    ACCOUNT_SCOPE_BOUNDARY_CHANGED_EVENT,
+} from "@/app/features/runtime/services/account-scope-boundary";
+import {
     resolveCommunityMembershipCoordinator,
     resolveCommunityMembershipRuntimeEvidenceDecision,
     type CommunityMembershipRuntimeEvidence,
@@ -88,6 +91,9 @@ import {
     persistCommunityMembershipRosterTerminal,
     persistExplicitCommunityMembershipLeave,
 } from "@/app/features/groups/services/community-membership-mutation-owner";
+import {
+    inferPersistedGroupsFromChatStateEvidence,
+} from "@/app/features/groups/services/community-membership-reconstruction";
 import { enqueueCommunityLeaveOutboxItem } from "@/app/features/groups/services/community-leave-outbox";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import {
@@ -116,6 +122,8 @@ import {
 
 interface GroupContextType {
     createdGroups: ReadonlyArray<GroupConversation>;
+    /** False until the first membership-recovery hydrate commits for the active identity scope. */
+    hasHydratedGroups: boolean;
     communityRosterByConversationId: Readonly<Record<string, CommunityRosterProjection>>;
     communityKnownParticipantDirectoryByConversationId: Readonly<Record<string, CommunityKnownParticipantDirectory>>;
     setCreatedGroups: React.Dispatch<React.SetStateAction<ReadonlyArray<GroupConversation>>>;
@@ -272,6 +280,8 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const identity = useIdentity();
     const optionalProfileBus = useOptionalProfileMessageBus();
     const [createdGroups, setCreatedGroups] = useState<ReadonlyArray<GroupConversation>>([]);
+    const [hasHydratedGroups, setHasHydratedGroups] = useState(false);
+    const hasHydratedGroupsRef = useRef(false);
     const [communityRosterByConversationId, setCommunityRosterByConversationId] = useState<Readonly<Record<string, CommunityRosterProjection>>>({});
     const relayEvidenceByGroupIdRef = useRef<Readonly<Record<string, {
         subscriptionEstablishedAt: number | null;
@@ -296,6 +306,7 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const resetLiveGroupProjectionState = useCallback(() => {
         setCreatedGroups([]);
+        setHasHydratedGroups(false);
         setCommunityRosterByConversationId({});
         communityKnownParticipantDirectoryByConversationIdRef.current = {};
         setCommunityKnownParticipantDirectoryByConversationId({});
@@ -422,6 +433,10 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     useEffect(() => {
         createdGroupsRef.current = createdGroups;
     }, [createdGroups]);
+
+    useEffect(() => {
+        hasHydratedGroupsRef.current = hasHydratedGroups;
+    }, [hasHydratedGroups]);
 
     useEffect(() => {
         communityKnownParticipantDirectoryByConversationIdRef.current = communityKnownParticipantDirectoryByConversationId;
@@ -623,14 +638,34 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const hydrateGroupsForPublicKey = useCallback((pk: string, options?: Readonly<{ profileId?: string }>) => {
         const profileId = options?.profileId ?? getResolvedProfileId();
 
-        const persisted = chatStateStoreService.load(pk, { profileId });
+        let persisted = chatStateStoreService.load(pk, { profileId });
+        const directPersisted = loadPersistedChatState(pk, { profileId });
+        const persistedHasGroupEvidence = Boolean(
+            (persisted?.createdGroups?.length ?? 0) > 0
+            || Object.keys(persisted?.groupMessages ?? {}).length > 0,
+        );
+        const directHasGroupEvidence = Boolean(
+            (directPersisted?.createdGroups?.length ?? 0) > 0
+            || Object.keys(directPersisted?.groupMessages ?? {}).length > 0,
+        );
+        if (!persistedHasGroupEvidence && directHasGroupEvidence && directPersisted) {
+            persisted = directPersisted;
+            chatStateStoreService.replace(pk, directPersisted, {
+                profileId,
+                emitMutationSignal: false,
+            });
+        }
+        const persistedGroupRows = inferPersistedGroupsFromChatStateEvidence(persisted, pk);
         const tombstones = loadGroupTombstones(pk, { profileId });
         const inviteMemberPubkeysByGroupKey = buildInviteMemberPubkeysByGroupKey({
             localPublicKeyHex: pk,
             chatState: persisted,
         });
-        if (persisted?.createdGroups) {
-            const audit = auditCommunityMigrationState({ state: persisted, tombstones });
+        if (persistedGroupRows.length > 0 && persisted) {
+            const audit = auditCommunityMigrationState({
+                state: { ...persisted, createdGroups: persistedGroupRows },
+                tombstones,
+            });
             if (!audit.ok) {
                 logRuntimeEvent(
                     "community_migration.audit_findings",
@@ -639,14 +674,15 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 );
             }
         }
-        const persistedGroups = persisted?.createdGroups
-            ? dedupeGroups(persisted.createdGroups.map(fromPersistedGroupConversation))
+        const persistedGroups = persistedGroupRows.length > 0
+            ? dedupeGroups(persistedGroupRows.map(fromPersistedGroupConversation))
             : [];
+        const explicitLedger = loadCommunityMembershipLedger(pk, { profileId });
         const coordinator = resolveCommunityMembershipCoordinator({
             publicKeyHex: pk,
             profileId,
             persistedGroups,
-            membershipLedger: loadCommunityMembershipLedger(pk, { profileId }),
+            membershipLedger: explicitLedger,
             tombstones,
             inviteMemberPubkeysByGroupKey,
             groupMessageAuthorsByConversationId: Object.fromEntries(
@@ -675,13 +711,13 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             return sanitizeGroup(withMembers);
         }))
             .filter((group) => !tombstones.has(toGroupTombstoneKey({ groupId: group.groupId, relayUrl: group.relayUrl })));
-        queueMicrotask(() => {
-            const activePublicKey = getPublicKeyHex();
-            if (activePublicKey !== pk) {
-                return;
-            }
-            setCreatedGroups(groups);
-        });
+        const activePublicKey = getPublicKeyHex();
+        if (activePublicKey !== pk) {
+            return;
+        }
+        setCreatedGroups(groups);
+        setHasHydratedGroups(true);
+        lastHydratedScopeRef.current = toMembershipHydrationScopeKey(pk, profileId);
         logAppEvent({
             name: "groups.membership_recovery_hydrate",
             level: "info",
@@ -716,14 +752,17 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             },
         });
         // Self-heal legacy/non-canonical persisted group entries without re-triggering hydrate loops.
-        chatStateStoreService.update(
-            pk,
-            (prev) => ({
-                ...prev,
-                createdGroups: groups.map((g) => toPersistedGroupConversation(g)),
-            }),
-            { silent: true },
-        );
+        // Never wipe persisted createdGroups when coordinator filters all rows (ledger lag / policy).
+        if (groups.length > 0) {
+            chatStateStoreService.update(
+                pk,
+                (prev) => ({
+                    ...prev,
+                    createdGroups: groups.map((g) => toPersistedGroupConversation(g)),
+                }),
+                { silent: true },
+            );
+        }
         groups.forEach((group) => {
             getResolvedClientGateway().communityRoster.persistHydratedGroupKnownParticipants({
                 publicKeyHex: pk as PublicKeyHex,
@@ -815,15 +854,13 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             return;
         }
         const scopeKey = toMembershipHydrationScopeKey(pk, resolvedProfileId);
-        if (lastHydratedScopeRef.current === scopeKey) {
+        if (lastHydratedScopeRef.current === scopeKey && hasHydratedGroupsRef.current) {
             return;
         }
         if (shouldDeferExperimentHeavyWork()) {
-            lastHydratedScopeRef.current = scopeKey;
             return scheduleExperimentDeferredWork(() => {
                 const currentPk = getPublicKeyHex();
                 if (currentPk !== pk) {
-                    lastHydratedScopeRef.current = null;
                     return;
                 }
                 logAppEvent({
@@ -854,8 +891,56 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         });
         resetLiveGroupProjectionState();
         hydrateGroupsForPublicKey(pk, { profileId: resolvedProfileId });
-        lastHydratedScopeRef.current = scopeKey;
+    }, [getPublicKeyHex, hydrateGroupsForPublicKey, identity.state.status, resetLiveGroupProjectionState, resolvedProfileId]);
+
+    useEffect(() => {
+        if (typeof window === "undefined") {
+            return;
+        }
+        const onAccountScopeBoundaryChanged = (): void => {
+            lastHydratedScopeRef.current = null;
+            const pk = getPublicKeyHex();
+            if (!pk) {
+                resetLiveGroupProjectionState();
+                return;
+            }
+            logAppEvent({
+                name: "groups.membership_recovery_primary_hydrate_triggered",
+                level: "info",
+                scope: { feature: "groups", action: "membership_recovery" },
+                context: {
+                    publicKeySuffix: toPublicKeySuffix(pk),
+                    profileId: resolvedProfileId,
+                    trigger: "account_scope_boundary_changed",
+                },
+            });
+            resetLiveGroupProjectionState();
+            hydrateGroupsForPublicKey(pk, { profileId: resolvedProfileId });
+        };
+        window.addEventListener(ACCOUNT_SCOPE_BOUNDARY_CHANGED_EVENT, onAccountScopeBoundaryChanged);
+        return () => {
+            window.removeEventListener(ACCOUNT_SCOPE_BOUNDARY_CHANGED_EVENT, onAccountScopeBoundaryChanged);
+        };
     }, [getPublicKeyHex, hydrateGroupsForPublicKey, resetLiveGroupProjectionState, resolvedProfileId]);
+
+    useEffect(() => {
+        const pk = getPublicKeyHex();
+        if (identity.state.status !== "unlocked" || !pk || createdGroupsRef.current.length > 0) {
+            return;
+        }
+        const profileId = resolvedProfileId;
+        const persisted = loadPersistedChatState(pk, { profileId });
+        const hasRecoverableEvidence = Boolean(
+            (persisted?.createdGroups?.length ?? 0) > 0
+            || Object.keys(persisted?.groupMessages ?? {}).length > 0
+            || loadCommunityMembershipLedger(pk, { profileId }).some((entry) => entry.status === "joined"),
+        );
+        if (!hasRecoverableEvidence) {
+            return;
+        }
+        lastHydratedScopeRef.current = null;
+        hydrateGroupsForPublicKey(pk, { profileId });
+    }, [getPublicKeyHex, hydrateGroupsForPublicKey, identity.state.status, resolvedProfileId]);
 
     useEffect(() => {
         if (shouldDeferExperimentHeavyWork()) {
@@ -896,7 +981,6 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 },
             });
             hydrateGroupsForPublicKey(pk, { profileId });
-            lastHydratedScopeRef.current = toMembershipHydrationScopeKey(pk, profileId);
         };
 
         const unsubChatDual = subscribeChatStateReplacedDual((detail) => {
@@ -1801,7 +1885,6 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                         group.id === matchingGroup.id
                             ? sanitizeGroup({
                                 ...group,
-                                memberPubkeys: nextMembers as ReadonlyArray<string>,
                                 memberCount: nextMemberCount,
                             })
                             : group
@@ -1986,6 +2069,7 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const value = useMemo(() => ({
         createdGroups,
+        hasHydratedGroups,
         communityRosterByConversationId,
         communityKnownParticipantDirectoryByConversationId,
         setCreatedGroups,
@@ -2005,7 +2089,7 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         removeGroupConversation,
         forcePurgeCommunity,
         recordMembershipLedgerAfterInviteDecline,
-    }), [createdGroups, communityKnownParticipantDirectoryByConversationId, communityRosterByConversationId, isNewGroupOpen, isCreatingGroup, isGroupInfoOpen, newGroupName, newGroupMemberPubkeys, addGroup, updateGroup, leaveGroup, removeGroupConversation, forcePurgeCommunity, recordMembershipLedgerAfterInviteDecline]);
+    }), [createdGroups, hasHydratedGroups, communityKnownParticipantDirectoryByConversationId, communityRosterByConversationId, isNewGroupOpen, isCreatingGroup, isGroupInfoOpen, newGroupName, newGroupMemberPubkeys, addGroup, updateGroup, leaveGroup, removeGroupConversation, forcePurgeCommunity, recordMembershipLedgerAfterInviteDecline]);
 
     return <GroupContext.Provider value={value}>{children}</GroupContext.Provider>;
 };

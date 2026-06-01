@@ -2,6 +2,11 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, dirname, extname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  assertDesktopInstallerBasename,
+  readExpectedReleaseVersion,
+  versionMarkerRegex,
+} from "./lib/release-artifact-version.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const rootDir = resolve(__dirname, "..");
@@ -31,8 +36,6 @@ const listFilesRecursive = (dir) => {
   return files;
 };
 
-const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
 const parseOutputMetadata = (filePath) => {
   const raw = JSON.parse(readFileSync(filePath, "utf8"));
   const elements = Array.isArray(raw.elements) ? raw.elements : [];
@@ -49,7 +52,10 @@ const parseOutputMetadata = (filePath) => {
 const main = () => {
   const assetsDirArg = getArg("--assets-dir") ?? "release-assets";
   const assetsDir = resolve(rootDir, assetsDirArg);
-  const expectedVersion = JSON.parse(readFileSync(resolve(rootDir, "package.json"), "utf8")).version;
+  const rawExpectedVersion = getArg("--expected-version") ?? readExpectedReleaseVersion(rootDir);
+  const expectedVersion = rawExpectedVersion.startsWith("v")
+    ? rawExpectedVersion.slice(1)
+    : rawExpectedVersion;
   const skipAndroid = hasArg("--skip-android");
 
   if (!statSync(assetsDir, { throwIfNoEntry: false })?.isDirectory()) {
@@ -60,19 +66,26 @@ const main = () => {
 
   const desktopExts = new Set([".exe", ".msi", ".dmg", ".appimage", ".deb"]);
   const desktopFiles = allFiles.filter((file) => desktopExts.has(extname(file).toLowerCase()));
-  const versionRegex = new RegExp(`(^|[._-])v?${escapeRegex(expectedVersion)}([._-]|$)`, "i");
+  const markerRegex = versionMarkerRegex(expectedVersion);
 
-  const filesMissingVersionMarker = desktopFiles
-    .filter((file) => !versionRegex.test(basename(file)))
-    .map((file) => file.replaceAll("\\", "/"));
+  const desktopErrors = [];
+  for (const file of desktopFiles) {
+    const name = basename(file);
+    const semverCheck = assertDesktopInstallerBasename(name, expectedVersion);
+    if (!semverCheck.ok) {
+      desktopErrors.push(semverCheck.error);
+      continue;
+    }
+    if (!markerRegex.test(name)) {
+      desktopErrors.push(`desktop filename missing version marker ${expectedVersion}: ${name}`);
+    }
+  }
 
   if (desktopFiles.length === 0) {
     throw new Error("No desktop installer artifacts found while checking version parity.");
   }
-  if (filesMissingVersionMarker.length > 0) {
-    throw new Error(
-      `Desktop artifacts missing version marker (${expectedVersion}) in filename:\n- ${filesMissingVersionMarker.join("\n- ")}`
-    );
+  if (desktopErrors.length > 0) {
+    throw new Error(`Desktop version parity failed:\n- ${desktopErrors.join("\n- ")}`);
   }
 
   if (!skipAndroid) {
@@ -95,31 +108,45 @@ const main = () => {
         if (lowerOutput.endsWith(".aab")) aabMetadataCount += 1;
         if ((lowerOutput.endsWith(".apk") || lowerOutput.endsWith(".aab")) && entry.versionName !== expectedVersion) {
           androidVersionErrors.push(
-            `${metadataFile.replaceAll("\\", "/")} :: ${entry.outputFile} has versionName=${entry.versionName || "<missing>"}`
+            `${metadataFile.replaceAll("\\", "/")} :: ${entry.outputFile} has versionName=${entry.versionName || "<missing>"}`,
           );
+        }
+      }
+    }
+
+    const mobileBinaries = allFiles.filter((file) => {
+      const lower = basename(file).toLowerCase();
+      return lower.endsWith(".apk") || lower.endsWith(".aab");
+    });
+    for (const file of mobileBinaries) {
+      const name = basename(file);
+      if (name.startsWith("Obscur_")) {
+        const semverCheck = assertDesktopInstallerBasename(name, expectedVersion);
+        if (!semverCheck.ok) {
+          androidVersionErrors.push(semverCheck.error);
         }
       }
     }
 
     if (apkMetadataCount === 0 || aabMetadataCount === 0) {
       throw new Error(
-        `Android metadata parity requires APK and AAB entries. Found apk_entries=${apkMetadataCount}, aab_entries=${aabMetadataCount}.`
+        `Android metadata parity requires APK and AAB entries. Found apk_entries=${apkMetadataCount}, aab_entries=${aabMetadataCount}.`,
       );
     }
     if (androidVersionErrors.length > 0) {
       throw new Error(
-        `Android metadata versionName mismatch (expected ${expectedVersion}):\n- ${androidVersionErrors.join("\n- ")}`
+        `Android version parity mismatch (expected ${expectedVersion}):\n- ${androidVersionErrors.join("\n- ")}`,
       );
     }
 
     console.log(
-      `[release:artifact-version-parity] Version parity passed for desktop installers and Android metadata (version=${expectedVersion}).`
+      `[release:artifact-version-parity] Version parity passed for desktop installers and Android artifacts (version=${expectedVersion}).`,
     );
     return;
   }
 
   console.log(
-    `[release:artifact-version-parity] Desktop installer version parity passed (version=${expectedVersion}); Android parity skipped by --skip-android.`
+    `[release:artifact-version-parity] Desktop installer version parity passed (version=${expectedVersion}); Android parity skipped by --skip-android.`,
   );
 };
 

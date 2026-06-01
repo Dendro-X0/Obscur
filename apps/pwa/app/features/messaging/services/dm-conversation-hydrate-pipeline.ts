@@ -6,6 +6,12 @@
  */
 
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
+import { isSecondaryProfileWindow } from "@/app/features/runtime/services/secondary-profile-post-login-refresh-policy";
+import {
+  scheduleSecondaryProfileWindowRefresh,
+  SECONDARY_PROFILE_DM_INCOMING_ONLY_REFRESH_DELAY_MS,
+} from "@/app/features/runtime/services/secondary-profile-window-reload-scheduler";
+import { runSecondaryProfileDmSoftRefresh } from "@/app/features/runtime/services/secondary-profile-dm-soft-refresh";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import type { AccountProjectionRuntimeSnapshot } from "@/app/features/account-sync/account-event-contracts";
 import type { ProjectionReadAuthority } from "@/app/features/account-sync/services/account-projection-read-authority";
@@ -16,6 +22,7 @@ import { chatStateStoreService } from "./chat-state-store";
 import { toConversationIdDiagnosticLabel } from "@dweb/client-gateway/messaging-diagnostics";
 import {
   assembleDmHydrateThreadReadModel,
+  getMessageDirectionCounts,
   type AssembleDmHydrateThreadReadModelResult,
 } from "./dm-conversation-hydrate-read-model";
 import { loadInitialDmHydrationIndexedWindow } from "./dm-conversation-hydrate-indexed-scan";
@@ -31,6 +38,7 @@ import { runDmHydrateSiblingIdSplitDiagnosticsIfNeeded } from "./dm-conversation
 import { prepareDmThreadSuppressionIds } from "./dm-thread-suppression-prepare";
 import { requiresSqlitePersistence } from "@/app/features/runtime/native-persistence-policy";
 import { loadNativeOutgoingCommunityInviteRepairMessages } from "./dm-conversation-native-invite-repair";
+import { loadNativeOutgoingChatStateRepairMessages } from "./dm-conversation-native-outgoing-repair";
 
 const loadPersistedConversationFallbackMessages = (params: Readonly<{
   persistedState: ReturnType<typeof chatStateStoreService.load>;
@@ -158,6 +166,7 @@ export async function runDmConversationHydrateReadModelPipeline(
     targetVisibleCount: numeric.initialHydrationVisibleTarget,
     maxPassCount: numeric.maxHydrationScanPasses,
     liveWindowSoftLimit: numeric.liveWindowSoftLimit,
+    accountPublicKeyHex: normalizedPublicKeyHex,
   });
 
   const projectionRestorePhaseActive = (
@@ -215,11 +224,67 @@ export async function runDmConversationHydrateReadModelPipeline(
     })
     : [];
 
-  const mergedFinalMessages = nativeInviteRepairMessages.length > 0
-    ? dedupeMessagesByIdentity([...assembled.finalMessages, ...nativeInviteRepairMessages])
+  const nativeOutgoingRepairMessages = (
+    normalizedPublicKeyHex
+    && profileIdForTombstones
+    && requiresSqlitePersistence()
+  )
+    ? loadNativeOutgoingChatStateRepairMessages({
+      conversationIds,
+      myPublicKeyHex: normalizedPublicKeyHex,
+      profileId: profileIdForTombstones,
+    })
+    : [];
+
+  const nativeRepairMessages = dedupeMessagesByIdentity([
+    ...nativeInviteRepairMessages,
+    ...nativeOutgoingRepairMessages,
+  ]);
+
+  const mergedFinalMessages = nativeRepairMessages.length > 0
+    ? dedupeMessagesByIdentity([...assembled.finalMessages, ...nativeRepairMessages])
     : assembled.finalMessages;
 
-  const assembledWithInviteRepair: AssembleDmHydrateThreadReadModelResult = nativeInviteRepairMessages.length > 0
+  const mergedDirectionCounts = getMessageDirectionCounts(
+    mergedFinalMessages,
+    normalizedPublicKeyHex,
+  );
+
+  if (
+    requiresSqlitePersistence()
+    && normalizedPublicKeyHex
+    && profileIdForTombstones
+    && mergedDirectionCounts.incoming > 0
+    && mergedDirectionCounts.outgoing === 0
+    && isSecondaryProfileWindow(profileIdForTombstones)
+  ) {
+    const scheduledRefresh = scheduleSecondaryProfileWindowRefresh({
+      reason: "dm_incoming_only",
+      profileId: profileIdForTombstones,
+      delayMs: SECONDARY_PROFILE_DM_INCOMING_ONLY_REFRESH_DELAY_MS,
+      onRefresh: (): void => {
+        runSecondaryProfileDmSoftRefresh({
+          profileId: profileIdForTombstones,
+          myPublicKeyHex: normalizedPublicKeyHex,
+          reason: "dm_incoming_only",
+        });
+      },
+    });
+    if (scheduledRefresh) {
+      logAppEvent({
+        name: "runtime.secondary_profile_dm_incoming_only_refresh_scheduled",
+        level: "info",
+        scope: { feature: "messaging", action: "conversation_hydrate" },
+        context: {
+          profileId: profileIdForTombstones,
+          conversationIdHint: cid,
+          incomingCount: mergedDirectionCounts.incoming,
+        },
+      });
+    }
+  }
+
+  const assembledWithInviteRepair: AssembleDmHydrateThreadReadModelResult = nativeRepairMessages.length > 0
     ? {
       ...assembled,
       finalMessages: mergedFinalMessages,

@@ -24,6 +24,8 @@ mod upload;
 mod wallet;
 mod models;
 mod commands;
+mod data_root;
+mod local_save_scan;
 mod services;
 
 use profiles::DesktopProfileState;
@@ -154,6 +156,9 @@ pub fn run() {
                     app,
                     "main",
                     tauri::WebviewUrl::App("index.html".into()),
+                )
+                .initialization_script(
+                    "window.__OBSCUR_WINDOW_BOOT__={windowLabel:\"main\",profileId:\"default\"};",
                 )
                 .data_directory(main_data_dir)
                 .title("Obscur")
@@ -338,6 +343,19 @@ pub fn run() {
                     commands::profile::desktop_open_profile_window,
                     commands::profile::desktop_bind_window_profile,
                     commands::profile::desktop_remove_profile,
+                    commands::profile::desktop_write_profile_workspace_archive,
+                    commands::profile::desktop_list_profile_workspace_archives,
+                    commands::profile::desktop_open_profile_archives_folder,
+                    commands::profile::desktop_get_profile_archives_folder_path,
+                    commands::data_root::desktop_get_obscur_data_root_config,
+                    commands::data_root::desktop_set_obscur_data_root,
+                    commands::data_root::desktop_write_workspace_bundle,
+                    commands::data_root::desktop_write_data_root_export,
+                    commands::data_root::desktop_reveal_path_in_file_manager,
+                    commands::data_root::desktop_get_exports_folder_path,
+                    commands::data_root::desktop_open_exports_folder,
+                    commands::data_root::desktop_get_save_library_context,
+                    commands::local_save::desktop_scan_local_saves,
                     commands::notification::show_notification,
                     commands::notification::request_notification_permission,
                     commands::notification::is_notification_permission_granted,
@@ -428,6 +446,19 @@ pub fn run() {
                     commands::profile::desktop_open_profile_window,
                     commands::profile::desktop_bind_window_profile,
                     commands::profile::desktop_remove_profile,
+                    commands::profile::desktop_write_profile_workspace_archive,
+                    commands::profile::desktop_list_profile_workspace_archives,
+                    commands::profile::desktop_open_profile_archives_folder,
+                    commands::profile::desktop_get_profile_archives_folder_path,
+                    commands::data_root::desktop_get_obscur_data_root_config,
+                    commands::data_root::desktop_set_obscur_data_root,
+                    commands::data_root::desktop_write_workspace_bundle,
+                    commands::data_root::desktop_write_data_root_export,
+                    commands::data_root::desktop_reveal_path_in_file_manager,
+                    commands::data_root::desktop_get_exports_folder_path,
+                    commands::data_root::desktop_open_exports_folder,
+                    commands::data_root::desktop_get_save_library_context,
+                    commands::local_save::desktop_scan_local_saves,
                     commands::notification::show_notification,
                     commands::notification::request_notification_permission,
                     commands::notification::is_notification_permission_granted,

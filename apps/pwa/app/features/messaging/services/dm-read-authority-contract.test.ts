@@ -362,6 +362,31 @@ describe("dm-read-authority-contract", () => {
       vi.mocked(requiresSqlitePersistence).mockReturnValue(false);
     });
 
+    it("prefers indexed on desktop when projection is incoming-only even before sqlite proves outgoing", () => {
+      vi.mocked(requiresSqlitePersistence).mockReturnValue(true);
+      const decision = resolveLegacyHydrationAuthority({
+        useProjectionReads: true,
+        projectionMessageCount: 2,
+        projectionIncomingCount: 2,
+        projectionOutgoingCount: 0,
+        projectionBootstrapImportApplied: true,
+        projectionCanonicalEvidencePending: false,
+        projectionRestorePhaseActive: false,
+        indexedMessageCount: 2,
+        indexedOutgoingCount: 0,
+        indexedIncomingCount: 2,
+        persistedMessageCount: 0,
+        persistedOutgoingCount: 0,
+        persistedIncomingCount: 0,
+        blockPersistedRestoreRepair: true,
+      });
+      expect(decision).toEqual({
+        authority: "indexed",
+        reason: "indexed_primary_projection_direction_incomplete",
+      });
+      vi.mocked(requiresSqlitePersistence).mockReturnValue(false);
+    });
+
     it("selects indexed when legacy picks indexed", () => {
       const indexedMessages = [createMinimalMessage("i1")];
       const r = resolveHydrationDmReadMessages({

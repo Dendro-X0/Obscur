@@ -13,6 +13,7 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."
 const env = mergePwaEnvLocal({
     ...process.env,
     NEXT_PUBLIC_DESKTOP_SHELL: "1",
+    NEXT_PUBLIC_OBSCUR_RADICAL_TRUTH: "0",
     TAURI_BUILD: "true",
     NEXT_PUBLIC_OBSCUR_EXPERIMENT_ONLINE: process.env.NEXT_PUBLIC_OBSCUR_EXPERIMENT_ONLINE ?? "0",
 });

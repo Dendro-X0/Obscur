@@ -174,7 +174,7 @@ describe("persistence group migration", () => {
         expect(parsed?.unreadByConversationId["ghost@relay.unknown"]).toBe(1);
     });
 
-    it("migrates from legacy storage key and persists normalized canonical state", () => {
+    it("ignores unscoped legacy storage key without importing cross-account chat state", () => {
         localStorage.setItem(LEGACY_STORAGE_KEY, JSON.stringify({
             ...createBaseState(),
             createdGroups: [
@@ -195,16 +195,8 @@ describe("persistence group migration", () => {
         }));
 
         const parsed = loadPersistedChatState(PK);
-        expect(parsed?.createdGroups).toHaveLength(1);
-        expect(parsed?.createdGroups[0]?.id).toBe("community:gamma:wss://relay.legacy");
-        expect(parsed?.createdGroups[0]?.communityId).toBe("gamma:wss://relay.legacy");
-        expect(parsed?.unreadByConversationId["community:gamma:wss://relay.legacy"]).toBe(2);
-
-        const migratedRaw = localStorage.getItem(STORAGE_KEY);
-        expect(migratedRaw).toBeTruthy();
-        const migratedParsed = migratedRaw ? JSON.parse(migratedRaw) : null;
-        expect(migratedParsed?.createdGroups?.[0]?.id).toBe("community:gamma:wss://relay.legacy");
-        expect(migratedParsed?.createdGroups?.[0]?.communityId).toBe("gamma:wss://relay.legacy");
+        expect(parsed).toBeNull();
+        expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
     });
 
     it("promotes non-hash communityId to hashed id when genesis identity is present", () => {

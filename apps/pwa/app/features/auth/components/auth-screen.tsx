@@ -16,7 +16,8 @@ import {
     Sparkles,
     Key,
     UserCheck,
-    AlertCircle
+    ArchiveRestore,
+    AlertCircle,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@dweb/ui-kit";
@@ -37,6 +38,7 @@ import { Checkbox } from "@dweb/ui-kit";
 import { FlashMessage } from "@/app/components/ui/flash-message";
 import { PasswordStrengthIndicator } from "@/app/components/password-strength-indicator";
 import { revokeDeviceTrust } from "../services/device-trust-service";
+import { SESSION_CREDENTIAL_PERSISTENCE_ENABLED } from "../services/session-credential-policy";
 import { AuthSessionPolicyNotice } from "./auth-session-policy-notice";
 import { useWindowRuntime } from "@/app/features/runtime/services/window-runtime-supervisor";
 import {
@@ -47,6 +49,40 @@ import {
 import { generateRandomInviteCode } from "@/app/features/invites/utils/invite-code-format";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import { isRetiredIdentityPublicKey } from "../utils/retired-identity-registry";
+import { AuthScreenRestorePage } from "@/app/features/profiles/components/auth-screen-restore-page";
+import { AccountActiveInOtherProfileInline } from "@/app/features/profiles/components/account-active-in-other-profile-inline";
+import { ProfileSlotAccountConflictInline } from "@/app/features/profiles/components/profile-slot-account-conflict-inline";
+import {
+  AccountActiveInOtherProfileWindowError,
+} from "@/app/features/profiles/services/cross-profile-active-session-lease";
+import {
+  AUTH_CLIENT_REVISION,
+  profileWindowHasLocalAccountEvidence,
+} from "@/app/features/auth/services/auth-profile-local-evidence";
+import {
+  clearProfileSlotForDifferentAccount,
+  openFreshProfileWindowForSignIn,
+} from "@/app/features/profiles/services/profile-slot-account-switch";
+import {
+  ProfileSlotAccountConflictError,
+  type ProfileSlotLoginAttemptResult,
+} from "@/app/features/profiles/services/profile-slot-login-guard";
+import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
+import { ProfileArchiveResultInline } from "@/app/features/profiles/components/profile-archive-result-inline";
+
+type PendingAuthAction = Readonly<
+  | {
+    kind: "import_key";
+    privateKeyHex: PrivateKeyHex;
+    passphrase: Passphrase;
+    username?: string;
+  }
+  | {
+    kind: "create";
+    passphrase: Passphrase;
+    username: string;
+  }
+>;
 
 const generateSecurePassword = (): string => {
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+~`|}{[]:;?><,./-=";
@@ -61,7 +97,7 @@ const generateSecurePassword = (): string => {
 
 const normalizeLoginUsername = (value: string): string => value.trim().toLowerCase();
 
-type AuthMode = "welcome" | "create" | "login";
+type AuthMode = "welcome" | "create" | "login" | "restore";
 
 export function AuthScreen() {
     const { t } = useTranslation();
@@ -69,9 +105,13 @@ export function AuthScreen() {
     const runtime = useWindowRuntime();
     const startupState = runtime.snapshot.session.startupState;
     const profile = useProfile();
+    const boundProfileId = runtime.snapshot.session.profileId;
     const hasNativeMismatch = startupState.mismatchReason === "native_mismatch";
     const hasStoredIdentity = startupAuthStateHasStoredIdentity(startupState)
         || Boolean(identity.state.stored?.publicKeyHex);
+    const hasLocalAccountEvidence = hasStoredIdentity
+        || profileWindowHasLocalAccountEvidence(boundProfileId);
+    const authSurfaceReady = startupState.kind !== "pending" && identity.state.status !== "loading";
 
     const [mode, setMode] = useState<AuthMode>("welcome");
     const [step, setStep] = useState(1);
@@ -83,6 +123,19 @@ export function AuthScreen() {
         || authError?.toLowerCase().includes("does not match stored identity") === true;
     const [acknowledged, setAcknowledged] = useState(false);
     const [retiredKeyReuseAcknowledged, setRetiredKeyReuseAcknowledged] = useState(false);
+    const [accountConflict, setAccountConflict] = useState<
+      Extract<ProfileSlotLoginAttemptResult, { status: "blocked_different_account" }> | null
+    >(null);
+    const [activeSessionConflict, setActiveSessionConflict] = useState<
+      AccountActiveInOtherProfileWindowError["detail"] | null
+    >(null);
+    const [pendingAuthAction, setPendingAuthAction] = useState<PendingAuthAction | null>(null);
+    const [isConflictBusy, setIsConflictBusy] = useState(false);
+    const [lastArchiveResult, setLastArchiveResult] = useState<{
+      fileName: string;
+      absolutePath: string | null;
+      downloadTriggered: boolean;
+    } | null>(null);
     const keyOwnershipReminder = t(
         "auth.keyOwnershipReminder",
         "You own your private key. Obscur cannot recover accounts for lost keys or forgotten passwords."
@@ -113,11 +166,13 @@ export function AuthScreen() {
         : false;
     const hasAppliedInitialEntryRouteRef = useRef(false);
 
-    const boundProfileId = runtime.snapshot.session.profileId;
+    const boundProfileLabel = runtime.snapshot.session.profileLabel ?? boundProfileId;
     const storedUsernameHint = identity.state.stored?.username?.trim();
 
     React.useEffect(() => {
-        revokeDeviceTrust(boundProfileId);
+        if (!SESSION_CREDENTIAL_PERSISTENCE_ENABLED) {
+            revokeDeviceTrust(boundProfileId);
+        }
     }, [boundProfileId]);
 
     React.useEffect(() => {
@@ -128,13 +183,15 @@ export function AuthScreen() {
             return;
         }
         hasAppliedInitialEntryRouteRef.current = true;
-        if (shouldEnterLoginModeOnStartup(startupState) || hasStoredIdentity) {
+        if (shouldEnterLoginModeOnStartup(startupState) || hasStoredIdentity || hasLocalAccountEvidence) {
             setMode("login");
-            if (!identity.state.stored?.publicKeyHex && !startupAuthStateHasStoredIdentity(startupState)) {
+            if (hasStoredIdentity) {
+                setLoginTab("username");
+            } else if (!hasLocalAccountEvidence) {
                 setLoginTab("key");
             }
         }
-    }, [hasStoredIdentity, identity.state.status, identity.state.stored?.publicKeyHex, startupState]);
+    }, [hasLocalAccountEvidence, hasStoredIdentity, identity.state.status, identity.state.stored?.publicKeyHex, startupState]);
 
     const handleBack = () => {
         if (step > 1) {
@@ -187,6 +244,55 @@ export function AuthScreen() {
         await handleLoginFinal(undefined, true);
     };
 
+    const runCreateIdentity = async (action: Extract<PendingAuthAction, { kind: "create" }>): Promise<void> => {
+        await runtime.createIdentityForBoundProfile({
+            passphrase: action.passphrase,
+            username: action.username,
+        });
+        const inviteCode = generateRandomInviteCode();
+        profile.setUsername({ username: action.username });
+        profile.setInviteCode({ inviteCode });
+        profile.save();
+        toast.success(t("auth.identitySecured", "Identity Secured!"));
+    };
+
+    const runImportKeyLogin = async (action: Extract<PendingAuthAction, { kind: "import_key" }>): Promise<void> => {
+        await runtime.importIdentityForBoundProfile({
+            privateKeyHex: action.privateKeyHex,
+            passphrase: action.passphrase,
+            username: action.username,
+        });
+        toast.info(t("auth.keyAcceptedRestoringData", "Key accepted. Restoring account data..."));
+    };
+
+    const retryPendingAuthAction = async (): Promise<void> => {
+        if (!pendingAuthAction) {
+            return;
+        }
+        if (pendingAuthAction.kind === "import_key") {
+            await runImportKeyLogin(pendingAuthAction);
+            return;
+        }
+        await runCreateIdentity(pendingAuthAction);
+    };
+
+    const handleAccountConflictError = (error: unknown, pending: PendingAuthAction): boolean => {
+        if (error instanceof AccountActiveInOtherProfileWindowError) {
+            setActiveSessionConflict(error.detail);
+            setAccountConflict(null);
+            setPendingAuthAction(pending);
+            setAuthError(error.message);
+            return true;
+        }
+        if (!(error instanceof ProfileSlotAccountConflictError)) {
+            return false;
+        }
+        setActiveSessionConflict(null);
+        setAccountConflict(error.detail);
+        setPendingAuthAction(pending);
+        return true;
+    };
+
     const handleCreateFinal = async (e?: React.FormEvent) => {
         e?.preventDefault();
         if (!password || password !== confirmPassword) {
@@ -198,24 +304,19 @@ export function AuthScreen() {
             return;
         }
 
+        const pending: PendingAuthAction = {
+            kind: "create",
+            passphrase: password as Passphrase,
+            username: username.trim(),
+        };
+
         setIsLoading(true);
         try {
-            const normalizedUsername = username.trim();
-            await runtime.createIdentityForBoundProfile({
-                passphrase: password as Passphrase,
-                username: normalizedUsername
-            });
-            // Generate local profile defaults immediately. Relay publish happens after auth.
-            const inviteCode = generateRandomInviteCode();
-
-            // Persist profile locally
-            profile.setUsername({ username: normalizedUsername });
-            profile.setInviteCode({ inviteCode });
-            profile.save();
-
-            toast.success(t("auth.identitySecured", "Identity Secured!"));
+            await runCreateIdentity(pending);
         } catch (error) {
-            setAuthError(error instanceof Error ? error.message : t("auth.error.createAccountFailed", "Failed to create account"));
+            if (!handleAccountConflictError(error, pending)) {
+                setAuthError(error instanceof Error ? error.message : t("auth.error.createAccountFailed", "Failed to create account"));
+            }
         } finally {
             setIsLoading(false);
         }
@@ -250,6 +351,12 @@ export function AuthScreen() {
             try {
                 await runtime.unlockBoundProfile({ passphrase: password as Passphrase });
             } catch (e) {
+                if (
+                    e instanceof ProfileSlotAccountConflictError
+                    || e instanceof AccountActiveInOtherProfileWindowError
+                ) {
+                    throw e;
+                }
                 setAuthError(t("auth.error.incorrectPassword"));
                 setIsLoading(false);
                 return;
@@ -279,8 +386,9 @@ export function AuthScreen() {
         }
 
         setIsLoading(true);
+        let keyToUse: string | null = null;
         try {
-            const keyToUse = decodePrivateKey(privateKey);
+            keyToUse = decodePrivateKey(privateKey);
             if (!keyToUse) {
                 setAuthError(t("auth.error.invalidKeyFormat", "Invalid key format"));
                 setIsLoading(false);
@@ -294,16 +402,71 @@ export function AuthScreen() {
                 return;
             }
 
-            await runtime.importIdentityForBoundProfile({
-                privateKeyHex: keyToUse,
+            const pending: PendingAuthAction = {
+                kind: "import_key",
+                privateKeyHex: keyToUse as PrivateKeyHex,
                 passphrase: (importPassphrase || "") as Passphrase,
-                username: username || undefined
-            });
-            toast.info(t("auth.keyAcceptedRestoringData", "Key accepted. Restoring account data..."));
+                username: username || undefined,
+            };
+
+            await runImportKeyLogin(pending);
         } catch (error) {
+            if (keyToUse) {
+                const pending: PendingAuthAction = {
+                    kind: "import_key",
+                    privateKeyHex: keyToUse as PrivateKeyHex,
+                    passphrase: (importPassphrase || "") as Passphrase,
+                    username: username || undefined,
+                };
+                if (handleAccountConflictError(error, pending)) {
+                    return;
+                }
+            }
             setAuthError(error instanceof Error ? error.message : t("auth.error.importKeyFailed", "Failed to import key"));
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    const clearWindowAndRetryLogin = async (exportArchiveFirst: boolean): Promise<void> => {
+        if (!accountConflict || !pendingAuthAction) {
+            return;
+        }
+        setIsConflictBusy(true);
+        try {
+            const archiveResult = await clearProfileSlotForDifferentAccount({
+                profileId: accountConflict.profileId,
+                previousPublicKeyHex: accountConflict.occupantPublicKeyHex,
+                exportArchiveFirst,
+                profileLabel: boundProfileLabel,
+            });
+            if (archiveResult) {
+                setLastArchiveResult(archiveResult);
+            }
+            await identity.forgetIdentity();
+            setAccountConflict(null);
+            setIsLoading(true);
+            await retryPendingAuthAction();
+            setPendingAuthAction(null);
+        } catch (error) {
+            setAuthError(error instanceof Error ? error.message : "Could not reset this profile window.");
+        } finally {
+            setIsConflictBusy(false);
+            setIsLoading(false);
+        }
+    };
+
+    const handleOpenAnotherProfileWindow = async (): Promise<void> => {
+        setIsConflictBusy(true);
+        try {
+            await openFreshProfileWindowForSignIn();
+            toast.success("Opened a new profile window. Sign in with the other account there.");
+            setAccountConflict(null);
+            setPendingAuthAction(null);
+        } catch (error) {
+            setAuthError(error instanceof Error ? error.message : "Could not open another profile window.");
+        } finally {
+            setIsConflictBusy(false);
         }
     };
 
@@ -326,6 +489,16 @@ export function AuthScreen() {
             scale: 0.98
         })
     };
+
+    if (mode === "login" && !authSurfaceReady) {
+        return (
+            <div className="relative flex flex-1 items-center justify-center p-4">
+                <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
+                    Loading profile auth ({AUTH_CLIENT_REVISION})…
+                </p>
+            </div>
+        );
+    }
 
     return (
         <div className="relative flex-1 flex items-center justify-center p-4 overflow-y-auto z-[80]">
@@ -482,6 +655,14 @@ export function AuthScreen() {
                                             >
                                                 {t("auth.welcome.returning.createAnother", "Create a new identity instead")}
                                             </button>
+                                            <Button
+                                                variant="outline"
+                                                onClick={() => setMode("restore")}
+                                                className="h-12 w-full rounded-[24px] border-black/10 dark:border-white/10 bg-white/50 hover:bg-black/5 dark:bg-zinc-900/50 dark:hover:bg-white/5 text-sm font-bold"
+                                            >
+                                                <ArchiveRestore className="h-4 w-4" />
+                                                {t("auth.welcome.restoreBackup", "Restore from backup")}
+                                            </Button>
                                         </div>
                                     </>
                                 ) : (
@@ -512,6 +693,14 @@ export function AuthScreen() {
                                                 className="h-16 rounded-[24px] border-black/10 dark:border-white/10 bg-white/50 hover:bg-black/5 dark:bg-zinc-900/50 dark:hover:bg-white/5 text-lg font-bold transition-all"
                                             >
                                                 {t("auth.welcome.loginWithKey", "Log In with Key")}
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                onClick={() => setMode("restore")}
+                                                className="h-14 rounded-[24px] border-black/10 dark:border-white/10 bg-white/50 hover:bg-black/5 dark:bg-zinc-900/50 dark:hover:bg-white/5 text-base font-bold"
+                                            >
+                                                <ArchiveRestore className="h-4 w-4" />
+                                                {t("auth.welcome.restoreBackup", "Restore from backup")}
                                             </Button>
                                             <div className="flex items-center justify-center gap-2 pt-4">
                                                 <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
@@ -709,7 +898,13 @@ export function AuthScreen() {
                                         {t("auth.login.welcomeBackTitle", "Welcome Back")}
                                     </h2>
                                     <p className="text-zinc-500 dark:text-zinc-400 font-medium text-balance">
-                                        {t("auth.login.welcomeBackDesc", "Enter your credentials to unlock. Obscur does not keep you signed in on this device.")}
+                                        {hasStoredIdentity
+                                            ? (storedUsernameHint
+                                                ? t("auth.login.welcomeBackUnlockNamed", "Enter your password to unlock {{username}} on this device.", { username: storedUsernameHint })
+                                                : t("auth.login.welcomeBackUnlock", "Enter your password to unlock this profile on this device."))
+                                            : hasLocalAccountEvidence
+                                                ? t("auth.login.welcomeBackLocalEvidence", "This profile window already has local account data. Unlock with your password or import key.")
+                                                : t("auth.login.welcomeBackDesc", "Enter your credentials to unlock. Obscur does not keep you signed in on this device.")}
                                     </p>
                                 </div>
 
@@ -737,18 +932,31 @@ export function AuthScreen() {
                                                 {t("auth.login.tabImportKey", "Import Key")}
                                             </button>
                                         </div>
-                                        {!hasStoredIdentity && (
+
+                                        {!hasLocalAccountEvidence ? (
                                             <p className="px-2 text-xs text-zinc-500 dark:text-zinc-400">
                                                 {t("auth.login.deviceLocalHint", "Username/password unlock is device-local. Import your private key once on this device to enable it.")}
                                             </p>
-                                        )}
+                                        ) : null}
+
+                                        {!hasLocalAccountEvidence ? (
+                                            <button
+                                                type="button"
+                                                onClick={() => setMode("restore")}
+                                                className="text-xs font-semibold text-violet-600 underline underline-offset-2 dark:text-violet-300"
+                                            >
+                                                {t("auth.login.openRestorePage", "Restore from unified backup")}
+                                            </button>
+                                        ) : null}
 
                                         {loginTab === "key" ? (
                                             <>
                                                 <div className="space-y-3 mt-4">
                                                     <Label className="pl-1 text-[11px] font-black uppercase tracking-widest text-zinc-500">{t("identity.privateKey", "Private Key")}</Label>
                                                     <p className="px-1 text-xs text-zinc-500 dark:text-zinc-400">
-                                                        {t("auth.import.privateKeyHelp", "Import Key restores an existing account only. If this key has no local or relay-backed account evidence, use Create Account instead.")}
+                                                        {hasLocalAccountEvidence
+                                                            ? t("auth.import.privateKeyReturningHelp", "Use this only when switching to a different account in this profile window.")
+                                                            : t("auth.import.privateKeyHelp", "Import Key restores an existing account only. If this key has no local or relay-backed account evidence, use Create Account instead.")}
                                                     </p>
                                                     <div className="relative group">
                                                         <Key className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400 group-focus-within:text-blue-500 transition-colors" />
@@ -885,7 +1093,68 @@ export function AuthScreen() {
                                 </div>
                             </motion.div>
                         )}
+
+                        {mode === "restore" && (
+                            <motion.div
+                                key="restore"
+                                initial="enter"
+                                animate="center"
+                                exit="exit"
+                                variants={variants}
+                                transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                                className="w-full"
+                            >
+                                <AuthScreenRestorePage
+                                    onNavigateToLogin={() => {
+                                        setLoginTab("key");
+                                        setMode("login");
+                                    }}
+                                />
+                            </motion.div>
+                        )}
                     </AnimatePresence>
+
+                    {activeSessionConflict ? (
+                        <AccountActiveInOtherProfileInline
+                            incomingPublicKeyHex={activeSessionConflict.incomingPublicKeyHex}
+                            activeProfileLabel={activeSessionConflict.activeProfileLabel}
+                            onClose={() => {
+                                setActiveSessionConflict(null);
+                                setPendingAuthAction(null);
+                                setAuthError(null);
+                            }}
+                        />
+                    ) : null}
+
+                    {accountConflict && pendingAuthAction ? (
+                        <ProfileSlotAccountConflictInline
+                            profileLabel={boundProfileLabel}
+                            occupantPublicKeyHex={accountConflict.occupantPublicKeyHex}
+                            incomingPublicKeyHex={
+                                pendingAuthAction.kind === "import_key"
+                                    ? derivePublicKeyHex(pendingAuthAction.privateKeyHex)
+                                    : accountConflict.occupantPublicKeyHex
+                            }
+                            intent={pendingAuthAction.kind === "create" ? "create_account" : "import_account"}
+                            isBusy={isConflictBusy || isLoading}
+                            canOpenAnotherWindow={hasNativeRuntime()}
+                            onOpenAnotherWindow={() => { void handleOpenAnotherProfileWindow(); }}
+                            onClearWindow={() => { void clearWindowAndRetryLogin(false); }}
+                            onExportAndClear={() => { void clearWindowAndRetryLogin(true); }}
+                            onClose={() => {
+                                setAccountConflict(null);
+                                setPendingAuthAction(null);
+                            }}
+                        />
+                    ) : null}
+
+                    {lastArchiveResult !== null ? (
+                        <ProfileArchiveResultInline
+                            result={lastArchiveResult}
+                            profileLabel={boundProfileLabel}
+                            onClose={() => setLastArchiveResult(null)}
+                        />
+                    ) : null}
                 </div>
 
                 <div className="px-12 py-8 bg-black/5 dark:bg-white/5 border-t border-black/[0.03] dark:border-white/[0.03] flex items-center justify-center gap-6">
@@ -901,6 +1170,7 @@ export function AuthScreen() {
                     </div>
                 </div>
             </Card>
+
         </div>
     );
 }

@@ -6,9 +6,46 @@ All notable changes to Obscur are documented here.
 
 ---
 
-## [Unreleased] — v1.8.11 (B1 outbound community bot)
+## [Unreleased] — v1.8.12 (release parity + Android P1)
 
-**Gate:** [v1.8.11-gate.md](docs/releases/v1.8.11-gate.md). **Scope:** [v1.8.11-scope.md](docs/program/v1.8.11-scope.md).
+**Gate:** [v1.8.12-gate.md](docs/releases/v1.8.12-gate.md). **Scope:** [v1.8.12-scope.md](docs/program/v1.8.12-scope.md).
+
+### Planned
+
+- **P12** — Manual UX checklist + unlock smoke on emulator (see demo matrix).
+
+### Added (P12 — Android wrap-up tooling)
+
+- **`pnpm p12:android-smoke`** — prerequisites, optional `--build`, adb install + cold start; prints maintainer record block.
+- **`pnpm dev:mobile-shell:online`** — hot-reload mobile shell in browser (avoid full APK loop for JS/relay fixes).
+- **Demo matrix** — P12 UX checklist + record table in [v1.8.12 demo](docs/assets/demo/v1.8.12/README.md).
+
+### Fixed (P12 — relay primary ping-pong on mobile)
+
+- **Relay primary selection** — runtime failover now uses the same reconcile path as health hints; 4s cooldown blocks non-emergency flip-flops that caused React #185 on emulator.
+
+### Fixed (P12 — mobile shell navigation)
+
+- **Bottom tab bar** — visible on mobile-shell chat list and secondary routes (Settings, Network, Search, Vault); hidden only inside an active DM/group thread.
+
+### Fixed (P12 — chat list previews)
+
+- **Invite JSON previews** — sidebar shows human labels (`Community invite: …`, `Accepted community invite`) instead of raw `community-invite-response` JSON.
+
+### Fixed (R12 — release artifact parity)
+
+- **Post-build desktop verify** — each `build-desktop` matrix job runs `verify-desktop-bundle-filenames.mjs` before upload (rejects stale `Obscur_1.8.10_*` on a `1.8.12` tag).
+- **Blocking full parity** — `verify-artifacts` runs desktop + Android `release:artifact-version-parity` (no `--skip-android`, no `continue-on-error`).
+- **Publish fail-fast** — collect step rejects mis-versioned desktop installers instead of `sed` renaming; pre-upload parity check on downloaded assets.
+- **Shared semver helpers** — `scripts/lib/release-artifact-version.mjs` + unit tests in release test pack.
+
+---
+
+## [v1.8.11] - 2026-05-29 (B1 outbound bot + desktop online)
+
+**Gate:** [v1.8.11-gate.md](docs/releases/v1.8.11-gate.md). **Scope:** [v1.8.11-scope.md](docs/program/v1.8.11-scope.md). **Release notes:** [v1.8.11-release.md](docs/releases/v1.8.11-release.md).
+
+**Known issue:** GitHub Release desktop installers were labeled **1.8.10** (stale Tauri bundle cache). Android assets were **1.8.11**. Corrected in **v1.8.12** (R12).
 
 ### Added (descriptor contract — B11-2)
 

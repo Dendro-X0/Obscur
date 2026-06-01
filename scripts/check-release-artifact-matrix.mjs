@@ -27,11 +27,13 @@ const requiredSnippets = [
   "*.aab",
   "*.tar.gz",
   "output-metadata.json",
-  "Run desktop artifact version parity check",
+  "Run release artifact version parity check",
 ];
 
 const missing = requiredSnippets.filter((snippet) => !content.toLowerCase().includes(snippet.toLowerCase()));
-if (!content.toLowerCase().includes("run android artifact version parity check (non-blocking)")) {
+const hasAndroidParityCoverage = content.toLowerCase().includes("run android artifact version parity check (non-blocking)")
+  || content.toLowerCase().includes("run release artifact version parity check (desktop + android)");
+if (!hasAndroidParityCoverage) {
   missing.push("Run Android artifact version parity check (non-blocking)");
 }
 if (missing.length > 0) {

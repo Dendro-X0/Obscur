@@ -1,7 +1,7 @@
 {
   "name": "dweb-messenger",
   "private": true,
-  "version": "1.8.11",
+  "version": "1.8.12",
   "packageManager": "pnpm@9.15.4",
   "engines": {
     "node": ">=20.11.0"
@@ -18,6 +18,8 @@
     "dev:desktop:offline": "node scripts/dev-desktop.mjs --offline",
     "dev:desktop:online": "node scripts/dev-workspace-stack.mjs --online",
     "dev:desktop:stack": "node scripts/dev-workspace-stack.mjs --online --stack-only",
+    "dev:mobile-shell:online": "node scripts/dev-mobile-shell.mjs --online",
+    "dev:mobile-shell:offline": "node scripts/dev-mobile-shell.mjs --offline",
     "dev:coordination": "pnpm -C apps/coordination dev",
     "coordination:migrate": "pnpm -C apps/coordination db:migrate",
     "coordination:health": "node scripts/coordination-health.mjs",
@@ -26,6 +28,7 @@
     "test:coordination-worker": "pnpm -C apps/coordination test",
     "test:workspace-membership": "pnpm test:coordination-worker && pnpm -C apps/pwa test:community-invariants",
     "verify:android-prerequisites": "node scripts/verify-android-prerequisites.mjs",
+    "p12:android-smoke": "node scripts/p12-android-smoke.mjs",
     "build:android:debug": "pnpm version:sync && pnpm verify:android-prerequisites && pnpm -C apps/desktop build:android:debug",
     "build:android:debug:emulator": "pnpm version:sync && pnpm verify:android-prerequisites && pnpm -C apps/desktop build:android:debug:emulator",
     "build:android:release": "pnpm version:sync && pnpm verify:android-prerequisites && pnpm -C apps/desktop build:android:release",
@@ -80,6 +83,8 @@
     "operator-relay:compact": "node scripts/operator-relay-storage-compact.mjs",
     "community-outbound-bot": "node scripts/community-outbound-bot.mjs",
     "test:community-outbound-bot": "node --test scripts/community-outbound-bot.test.mjs",
+    "test:release-artifact-version-parity": "node --test scripts/check-release-artifact-version-parity.test.mjs",
+    "test:dev-stack-probes": "node --test scripts/lib/dev-stack-probes.test.mjs",
     "test:operator-relay-compact": "node --test scripts/operator-relay-storage-compact.test.mjs",
     "ci:community-bot-descriptor-smoke": "node scripts/community-bot-descriptor-contract-smoke.mjs",
     "test:community-bot-descriptor": "pnpm -C apps/pwa exec vitest run app/features/groups/services/community-bot-policy.test.ts app/features/groups/services/community-bot-message-policy.test.ts",

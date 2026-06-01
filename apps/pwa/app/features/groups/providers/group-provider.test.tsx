@@ -1,6 +1,6 @@
 import React from "react";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { GroupConversation, PersistedChatState } from "@/app/features/messaging/types";
 
@@ -100,6 +100,7 @@ const createEmptyState = (): PersistedChatState => ({
 
 describe("group-provider membership ledger integration", () => {
   beforeEach(() => {
+    vi.stubEnv("NEXT_PUBLIC_OBSCUR_RADICAL_TRUTH", "0");
     window.localStorage.clear();
     vi.clearAllMocks();
     setProfileScopeOverride(null);
@@ -108,6 +109,10 @@ describe("group-provider membership ledger integration", () => {
     activePublicKeyHex = PUBLIC_KEY_A;
     chatStateStoreService.replace(PUBLIC_KEY_A, createEmptyState(), { emitMutationSignal: false });
     chatStateStoreService.replace(PUBLIC_KEY_B, createEmptyState(), { emitMutationSignal: false });
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it("hydrates joined groups from membership ledger when chat-state groups are missing", async () => {
@@ -142,6 +147,35 @@ describe("group-provider membership ledger integration", () => {
         projectionJoinedCount: 1,
         projectionLedgerCount: 1,
       }),
+    }));
+    expect(chatStateStoreService.load(PUBLIC_KEY_A)?.createdGroups).toHaveLength(1);
+  });
+
+  it("hydrates groups inferred from groupMessages when createdGroups rows were wiped", async () => {
+    chatStateStoreService.replace(PUBLIC_KEY_A, {
+      ...createEmptyState(),
+      createdGroups: [],
+      groupMessages: {
+        "community:delta:wss://relay.delta": [{
+          id: "g-delta-1",
+          pubkey: PUBLIC_KEY_A,
+          created_at: 9_000,
+          content: "still here after wipe",
+        }],
+      },
+    }, { emitMutationSignal: false });
+
+    const wrapper: React.FC<React.PropsWithChildren> = ({ children }) => (
+      <GroupProvider>{children}</GroupProvider>
+    );
+    const { result } = renderHook(() => useGroups(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.createdGroups).toHaveLength(1);
+    });
+    expect(result.current.createdGroups[0]).toEqual(expect.objectContaining({
+      groupId: "delta",
+      relayUrl: "wss://relay.delta",
     }));
     expect(chatStateStoreService.load(PUBLIC_KEY_A)?.createdGroups).toHaveLength(1);
   });

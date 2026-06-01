@@ -15,8 +15,24 @@ export type ProfileMigrationReport = Readonly<{
 const DEFAULT_PROFILE_ID = "default";
 let profileScopeOverride: string | null = null;
 
+type WindowWithSyncProfileScope = Window & {
+  __OBSCUR_SYNC_PROFILE_SCOPE__?: string;
+};
+
+const readSyncInjectedProfileScope = (): string | null => {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  const syncScope = (window as WindowWithSyncProfileScope).__OBSCUR_SYNC_PROFILE_SCOPE__;
+  return syncScope && syncScope.trim().length > 0 ? syncScope.trim() : null;
+};
+
 /** Registry-backed active profile when {@link ProfileRuntimeScope} is not injected (v1.5 Phase 1). */
 export const readRegistryBackedActiveProfileId = (): string => {
+  const syncScope = readSyncInjectedProfileScope();
+  if (syncScope) {
+    return syncScope;
+  }
   if (profileScopeOverride && profileScopeOverride.trim().length > 0) {
     return profileScopeOverride;
   }
@@ -31,7 +47,9 @@ export const setProfileScopeOverride = (profileId: string | null | undefined): v
   profileScopeOverride = typeof profileId === "string" && profileId.trim().length > 0 ? profileId.trim() : null;
 };
 
-export const getProfileScopeOverride = (): string | null => profileScopeOverride;
+export const getProfileScopeOverride = (): string | null => (
+  readSyncInjectedProfileScope() ?? profileScopeOverride
+);
 
 export const getScopedStorageKey = (baseKey: string, profileId = readRegistryBackedActiveProfileId()): string => {
   return `${baseKey}::${profileId}`;

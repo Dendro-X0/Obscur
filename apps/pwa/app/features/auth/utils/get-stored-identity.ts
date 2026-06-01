@@ -1,4 +1,5 @@
 import type { IdentityRecord } from "@dweb/core/identity-record";
+import { readActiveDesktopProfileId } from "@/app/features/profiles/services/read-active-desktop-profile-id";
 import { getIdentityDbKey } from "./identity-db-key";
 import { identityStoreName } from "./identity-store-name";
 import { openIdentityDb } from "./open-identity-db";
@@ -6,7 +7,6 @@ import {
   parseIdentityRecord,
   readIdentityRecordFromLocalStorage,
   writeIdentityRecordToLocalStorage,
-  profileIdFromIdentityStorageKey,
 } from "./identity-persistence";
 
 type GetStoredIdentityResult = Readonly<{
@@ -29,8 +29,8 @@ const readIdentityRecordFromMemoryDb = async (identityDbKey: string): Promise<Id
 };
 
 export const getStoredIdentity = async (): Promise<GetStoredIdentityResult> => {
+  const profileId = readActiveDesktopProfileId();
   const identityDbKey = getIdentityDbKey();
-  const profileId = profileIdFromIdentityStorageKey(identityDbKey);
 
   const durableRecord = readIdentityRecordFromLocalStorage(profileId);
   if (durableRecord) {

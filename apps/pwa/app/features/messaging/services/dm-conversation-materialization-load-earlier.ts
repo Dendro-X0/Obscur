@@ -32,6 +32,7 @@ export const loadEarlierDmConversationMessages = async (
     conversationIds: params.conversationAliasIds,
     limit: params.loadEarlierBatchSize,
     beforeTimestampMs: params.earliestTimestampMs,
+    accountPublicKeyHex: params.publicKeyHex,
   });
 
   if (earlierWindow.rows.length === 0) {
@@ -64,6 +65,7 @@ export const loadEarlierDmConversationMessages = async (
     initialHasEarlier: earlierWindow.hasEarlier,
     limit: params.loadEarlierBatchSize,
     mapRows: mapRowsToDisplayableMessages,
+    accountPublicKeyHex: params.publicKeyHex,
   });
 
   if (scannedWindow.messages.length === 0) {

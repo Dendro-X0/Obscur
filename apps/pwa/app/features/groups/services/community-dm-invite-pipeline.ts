@@ -557,6 +557,10 @@ export const augmentCommunityDmInviteThreadMessages = (
     if (!response) {
       return true;
     }
+    // The accepter must still see their own terminal response card in-thread.
+    if (message.isOutgoing === true) {
+      return true;
+    }
     return !inviteIdsInThread.has(response.inviteId);
   });
 

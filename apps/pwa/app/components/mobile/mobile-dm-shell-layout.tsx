@@ -15,7 +15,7 @@ export function MobileDmShellLayout({ children, className }: MobileDmShellLayout
   return (
     <div
       className={cn(
-        "mobile-dm-shell flex min-h-0 flex-1 flex-col overflow-hidden",
+        "mobile-dm-shell flex min-h-0 flex-1 flex-col overflow-hidden touch-pan-y",
         className,
       )}
     >

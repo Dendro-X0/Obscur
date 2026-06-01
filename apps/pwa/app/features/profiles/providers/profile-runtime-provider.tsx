@@ -5,7 +5,10 @@ import React, { createContext, useContext, useEffect, useMemo, useSyncExternalSt
 import type { AppClientGateway } from "@/app/features/runtime/types/app-client-gateway";
 import { getResolvedStoragePorts, mergeStoragePorts } from "@/app/features/profiles/services/default-storage-ports";
 import { PROFILE_CHANGED_EVENT, ProfileRegistryService } from "@/app/features/profiles/services/profile-registry-service";
+import { useDesktopProfileIsolationSnapshot } from "@/app/features/profiles/services/desktop-profile-runtime";
+import { getProfileScopeOverride } from "@/app/features/profiles/services/profile-scope";
 import { setProfileRuntimeScope } from "@/app/features/profiles/services/profile-runtime-scope";
+import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
 import type { StoragePorts } from "@/app/features/profiles/types/storage-ports";
 import { buildAppClientGateway } from "@/app/features/runtime/services/client-gateway-adapter";
 import { getResolvedClientGateway } from "@/app/features/profiles/services/resolve-client-gateway";
@@ -13,6 +16,7 @@ import {
   scheduleExperimentIdleWork,
   shouldDeferExperimentHeavyWork,
 } from "@/app/features/runtime/experiment-shell-policy";
+import { messagePersistenceService } from "@/app/features/messaging/services/message-persistence-service";
 
 type ProfileRuntimeValue = Readonly<{
     profileId: string;
@@ -44,7 +48,21 @@ export function ProfileRuntimeProvider(props: Readonly<{
     storagePorts?: Partial<StoragePorts>;
 }>): React.JSX.Element {
     const { children, storagePorts: storagePortsPartial } = props;
-    const profileId = useSyncExternalStore(subscribeProfileRegistry, getProfileRegistrySnapshot, getProfileRegistrySnapshot);
+    const registryProfileId = useSyncExternalStore(subscribeProfileRegistry, getProfileRegistrySnapshot, getProfileRegistrySnapshot);
+    const desktopSnapshot = useDesktopProfileIsolationSnapshot();
+    const profileId = useMemo((): string => {
+        const scopeOverride = getProfileScopeOverride();
+        if (scopeOverride) {
+            return scopeOverride;
+        }
+        if (hasNativeRuntime()) {
+            const windowProfileId = desktopSnapshot.currentWindow.profileId?.trim();
+            if (windowProfileId) {
+                return windowProfileId;
+            }
+        }
+        return registryProfileId;
+    }, [desktopSnapshot.currentWindow.profileId, registryProfileId]);
     const bus = useMemo(() => createProfileMessageBus({ profileId }), [profileId]);
     const storagePorts = useMemo(
         (): StoragePorts => mergeStoragePorts(storagePortsPartial),
@@ -67,6 +85,13 @@ export function ProfileRuntimeProvider(props: Readonly<{
             setProfileRuntimeScope(null);
         };
     }, [profileId, bus, storagePorts, clientGateway]);
+
+    useEffect(() => {
+        if (!profileId.trim()) {
+            return;
+        }
+        messagePersistenceService.bindProfileScope(profileId);
+    }, [profileId]);
 
     useEffect(() => {
         if (!profileId) {

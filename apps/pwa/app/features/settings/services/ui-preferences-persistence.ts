@@ -1,4 +1,5 @@
 import { getScopedStorageKey, getDefaultProfileId } from "@/app/features/profiles/services/profile-scope";
+import { readActiveDesktopProfileId } from "@/app/features/profiles/services/read-active-desktop-profile-id";
 
 export type ThemePreference = "system" | "light" | "dark";
 
@@ -16,27 +17,7 @@ export const isThemePreference = (value: unknown): value is ThemePreference => (
  * Resolve which profile's scoped preferences should load at cold boot.
  * Order: desktop last-known window profile → registry active profile → default.
  */
-export const resolveBootstrapProfileId = (): string => {
-  if (typeof window === "undefined") {
-    return getDefaultProfileId();
-  }
-  try {
-    const lastWindowProfile = window.localStorage.getItem(DESKTOP_LAST_WINDOW_PROFILE_STORAGE_KEY)?.trim();
-    if (lastWindowProfile && lastWindowProfile.length > 0) {
-      return lastWindowProfile;
-    }
-    const registryRaw = window.localStorage.getItem(PROFILE_REGISTRY_STORAGE_KEY);
-    if (registryRaw) {
-      const registry = JSON.parse(registryRaw) as { activeProfileId?: unknown };
-      if (typeof registry.activeProfileId === "string" && registry.activeProfileId.trim().length > 0) {
-        return registry.activeProfileId.trim();
-      }
-    }
-  } catch {
-    // fall through
-  }
-  return getDefaultProfileId();
-};
+export const resolveBootstrapProfileId = (): string => readActiveDesktopProfileId();
 
 export const getThemeStorageKey = (profileId: string): string => (
   getScopedStorageKey(THEME_STORAGE_BASE_KEY, profileId)
@@ -83,11 +64,13 @@ export const saveThemePreference = (
   const resolvedProfileId = profileId?.trim() || resolveBootstrapProfileId();
   try {
     window.localStorage.setItem(getThemeStorageKey(resolvedProfileId), preference);
-    window.localStorage.setItem(THEME_STORAGE_BASE_KEY, preference);
     window.localStorage.setItem(
       THEME_LAST_KNOWN_STORAGE_KEY,
       JSON.stringify({ profileId: resolvedProfileId, preference }),
     );
+    if (resolvedProfileId === getDefaultProfileId()) {
+      window.localStorage.setItem(THEME_STORAGE_BASE_KEY, preference);
+    }
   } catch {
     // Quota / private mode — best effort.
   }

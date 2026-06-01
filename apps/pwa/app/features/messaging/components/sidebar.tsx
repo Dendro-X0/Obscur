@@ -9,21 +9,16 @@ import type { Conversation, RequestsInboxItem } from "../types";
 import { formatTime } from "../utils/formatting";
 import { RequestsInboxPanel } from "./requests-inbox-panel";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
-import { SidebarUserSearch } from "./sidebar-user-search";
 import { ConversationRow } from "./conversation-row";
 import {
-    MoreVertical, Pin, Trash2, Users, User,
-    ChevronDown, ChevronRight, Plus
+    Pin, Users, User,
+    ChevronDown, ChevronRight,
 } from "lucide-react";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from "../../../components/ui/dropdown-menu";
 import { RelayStatusIndicator } from "../../relays/components/relay-status-indicator";
 import { getIncomingPendingRequestCount, getIncomingUnreadRequestTotal } from "../services/request-inbox-view";
 import { getPublicProfileHref } from "@/app/features/navigation/public-routes";
+import { isMobileShellProduct } from "@/app/features/runtime/shell-contract";
+import { SidebarListChrome } from "./sidebar-list-chrome";
 
 const INITIAL_SIDEBAR_PAGE_SIZE = 25;
 const SIDEBAR_PAGE_STEP = 25;
@@ -211,175 +206,41 @@ export function Sidebar({
             );
         })
     ), [hideConversation, interactionByConversationId, pinnedChatIdSet, resolvedNowMs, resolveConversationUnread, router, selectConversation, selectedConversation?.id, togglePin, isPeerOnline]);
+
+    const listChromeVariant = isMobileShellProduct() ? "mobile" : "desktop";
+
     return (
-        <div className="flex h-full flex-col">
-            <div className="border-b border-black/[0.03] p-4 dark:border-white/[0.03] space-y-4">
-                <div className="flex items-center gap-2">
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-11 w-11 rounded-xl text-zinc-500"
-                                aria-label={t("messaging.sidebar_options", "Sidebar Options")}
-                                title={t("messaging.sidebar_options", "Sidebar Options")}
-                            >
-                                <MoreVertical className="h-5 w-5" />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="start" className="z-[10040] w-48">
-                            {activeTab === "chats" ? (
-                                <>
-                                    <DropdownMenuItem
-                                        className="gap-2"
-                                        onClick={() => {
-                                            const nextExpanded = !areChatSectionsExpanded;
-                                            setIsDmsExpanded(nextExpanded);
-                                            setIsCommunitiesExpanded(nextExpanded);
-                                        }}
-                                    >
-                                        {areChatSectionsExpanded
-                                            ? <ChevronDown className="h-4 w-4" />
-                                            : <ChevronRight className="h-4 w-4" />}
-                                        <span>{areChatSectionsExpanded
-                                            ? t("messaging.collapse_sections", "Collapse Sections")
-                                            : t("messaging.expand_sections", "Expand Sections")}</span>
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                        className="gap-2"
-                                        onClick={() => setChatViewMode(chatViewMode === "direct" ? "community" : "direct")}
-                                    >
-                                        {chatViewMode === "direct"
-                                            ? <Users className="h-4 w-4" />
-                                            : <User className="h-4 w-4" />}
-                                        <span>{chatViewMode === "direct"
-                                            ? t("messaging.show_communities", "Show Communities")
-                                            : t("messaging.show_direct_messages", "Show Direct Messages")}</span>
-                                    </DropdownMenuItem>
-                                </>
-                            ) : (
-                                <DropdownMenuItem
-                                    className="gap-2 text-red-600 focus:text-red-600"
-                                    onClick={onClearHistory}
-                                >
-                                    <Trash2 className="h-4 w-4" />
-                                    <span>{t("messaging.clear_history", "Clear History")}</span>
-                                </DropdownMenuItem>
-                            )}
-                        </DropdownMenuContent>
-                    </DropdownMenu>
+        <div className="flex h-full min-h-0 flex-col">
+            <SidebarListChrome
+                variant={listChromeVariant}
+                activeTab={activeTab}
+                setActiveTab={setActiveTab}
+                chatsUnreadTotal={chatsUnreadTotal}
+                requestsUnreadTotal={requestsUnreadTotal}
+                pendingRequestsCount={pendingRequestsCount}
+                searchQuery={searchQuery}
+                setSearchQuery={setSearchQuery}
+                searchInputRef={searchInputRef}
+                searchDismissSignal={searchDismissSignal}
+                onUserSelect={() => {
+                    setIsNewChatOpen(true);
+                }}
+                chatViewMode={chatViewMode}
+                setChatViewMode={setChatViewMode}
+                dmsUnread={dmsUnread}
+                groupsUnread={groupsUnread}
+                setIsNewChatOpen={setIsNewChatOpen}
+                setIsNewGroupOpen={setIsNewGroupOpen}
+                areChatSectionsExpanded={areChatSectionsExpanded}
+                onToggleChatSectionsExpanded={() => {
+                    const nextExpanded = !areChatSectionsExpanded;
+                    setIsDmsExpanded(nextExpanded);
+                    setIsCommunitiesExpanded(nextExpanded);
+                }}
+                onClearRequestHistory={onClearHistory}
+            />
 
-                    <div className="flex-1 flex p-1 bg-black/[0.03] dark:bg-white/[0.03] rounded-xl ring-1 ring-black/5 dark:ring-white/5 relative">
-                        <button
-                            onClick={() => setActiveTab("chats")}
-                            suppressHydrationWarning
-                            className={cn(
-                                "flex-1 flex items-center justify-center gap-2 py-2 text-[11px] font-bold rounded-lg transition-all z-10",
-                                activeTab === "chats"
-                                    ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm ring-1 ring-black/5 dark:ring-white/5"
-                                    : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
-                            )}
-                        >
-                            {t("nav.chats")}
-                            {chatsUnreadTotal > 0 && (
-                                <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-emerald-500 px-1 text-[9px] text-white shadow-sm">
-                                    {chatsUnreadTotal}
-                                </span>
-                            )}
-                        </button>
-                        <button
-                            onClick={() => setActiveTab("requests")}
-                            suppressHydrationWarning
-                            className={cn(
-                                "flex-1 flex items-center justify-center gap-2 py-2 text-[11px] font-bold rounded-lg transition-all z-10",
-                                activeTab === "requests"
-                                    ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm ring-1 ring-black/5 dark:ring-white/5"
-                                    : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
-                            )}
-                        >
-                            {t("nav.requests")}
-                            {requestsUnreadTotal > 0 ? (
-                                <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-emerald-500 px-1 text-[9px] text-white shadow-sm">
-                                    {requestsUnreadTotal}
-                                </span>
-                            ) : pendingRequestsCount > 0 && (
-                                <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-zinc-400 dark:bg-zinc-600 px-1 text-[9px] text-white shadow-sm">
-                                    {pendingRequestsCount}
-                                </span>
-                            )}
-                        </button>
-                    </div>
-                </div>
-
-                <div className="space-y-3">
-                    <SidebarUserSearch
-                        query={searchQuery}
-                        onQueryChange={setSearchQuery}
-                        inputRef={searchInputRef}
-                        dismissSignal={searchDismissSignal}
-                        onUserSelect={(user) => {
-                        // Trigger new chat with selected global user
-                        setIsNewChatOpen(true);
-                        // We might want to pre-fill the new chat dialog or directly call it
-                    }}
-                    />
-                </div>
-
-                {activeTab === "chats" && (
-                    <div className="flex items-center gap-2">
-                        <div className="flex-1 flex p-1 bg-black/[0.03] dark:bg-white/[0.03] rounded-xl ring-1 ring-black/5 dark:ring-white/5 relative">
-                            <button
-                                onClick={() => setChatViewMode("direct")}
-                                className={cn(
-                                    "flex-1 flex items-center justify-center py-2 text-[11px] font-bold rounded-lg transition-all z-10",
-                                    chatViewMode === "direct"
-                                        ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm ring-1 ring-black/5 dark:ring-white/5"
-                                        : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
-                                )}
-                            >
-                                {t("messaging.chat")}
-                                {dmsUnread > 0 && (
-                                    <span className="ml-1 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-emerald-500 px-1 text-[8px] text-white shadow-sm">
-                                        {dmsUnread}
-                                    </span>
-                                )}
-                            </button>
-                            <button
-                                onClick={() => setChatViewMode("community")}
-                                className={cn(
-                                    "flex-1 flex items-center justify-center py-2 text-[11px] font-bold rounded-lg transition-all z-10",
-                                    chatViewMode === "community"
-                                        ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm ring-1 ring-black/5 dark:ring-white/5"
-                                        : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
-                                )}
-                            >
-                                {t("messaging.group")}
-                                {groupsUnread > 0 && (
-                                    <span className="ml-1 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-emerald-500 px-1 text-[8px] text-white shadow-sm">
-                                        {groupsUnread}
-                                    </span>
-                                )}
-                            </button>
-                        </div>
-                        <Button
-                            variant="secondary"
-                            size="icon"
-                            className="h-11 w-11 shrink-0 rounded-xl border-black/[0.03] dark:border-white/[0.03]"
-                            onClick={() => chatViewMode === "direct" ? setIsNewChatOpen(true) : setIsNewGroupOpen(true)}
-                            aria-label={chatViewMode === "direct"
-                                ? t("messaging.new_chat", "New Chat")
-                                : t("messaging.new_group", "New Group")}
-                            title={chatViewMode === "direct"
-                                ? t("messaging.new_chat", "New Chat")
-                                : t("messaging.new_group", "New Group")}
-                        >
-                            <Plus className="h-5 w-5" />
-                        </Button>
-                    </div>
-                )}
-            </div>
-
-            <div className="flex-1 overflow-y-auto">
+            <div className="mobile-scroll-region flex-1 min-h-0 overflow-y-auto">
                 {activeTab === "requests" ? (
                     <RequestsInboxPanel
                         requests={requests}

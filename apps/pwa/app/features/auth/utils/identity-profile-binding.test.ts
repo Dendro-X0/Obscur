@@ -138,7 +138,26 @@ describe("identity-profile-binding", () => {
     expect(mocks.switchProfile).toHaveBeenCalledWith("work");
   });
 
-  it("moves scoped local data into the canonical pubkey-owned slot when no binding exists", async () => {
+  it("moves pubkey-scoped local data into the canonical pubkey-owned slot when no binding exists", async () => {
+    const publicKeyHex = "b".repeat(64) as any;
+    localStorage.setItem(`dweb.nostr.pwa.chatState.v2.${publicKeyHex}::default`, JSON.stringify({ createdConnections: [{ id: "peer-default" }] }));
+    sessionStorage.setItem("obscur_auth_token::default", "token");
+
+    const { ensureIdentityProfileBinding, canonicalProfileIdForPublicKey } = await import("./identity-profile-binding");
+    const targetProfileId = canonicalProfileIdForPublicKey(publicKeyHex);
+
+    const profileId = await ensureIdentityProfileBinding({
+      publicKeyHex,
+      username: "Alice",
+    });
+
+    expect(profileId).toBe(targetProfileId);
+    expect(localStorage.getItem(`dweb.nostr.pwa.chatState.v2.${publicKeyHex}::${targetProfileId}`)).toContain("peer-default");
+    expect(sessionStorage.getItem(`obscur_auth_token::${targetProfileId}`)).toBe("token");
+    expect(mocks.switchProfile).toHaveBeenCalledWith(targetProfileId);
+  });
+
+  it("does not migrate ambient default-scoped data that lacks pubkey evidence for a different account", async () => {
     localStorage.setItem("dweb.nostr.pwa.profile::default", JSON.stringify({ profile: { username: "Alice" } }));
     sessionStorage.setItem("obscur_auth_token::default", "token");
 
@@ -148,13 +167,12 @@ describe("identity-profile-binding", () => {
 
     const profileId = await ensureIdentityProfileBinding({
       publicKeyHex,
-      username: "Alice",
+      username: "Bob",
     });
 
     expect(profileId).toBe(targetProfileId);
-    expect(localStorage.getItem(`dweb.nostr.pwa.profile::${targetProfileId}`)).toContain("Alice");
-    expect(sessionStorage.getItem(`obscur_auth_token::${targetProfileId}`)).toBe("token");
-    expect(mocks.switchProfile).toHaveBeenCalledWith(targetProfileId);
+    expect(localStorage.getItem(`dweb.nostr.pwa.profile::${targetProfileId}`)).toBeNull();
+    expect(sessionStorage.getItem(`obscur_auth_token::${targetProfileId}`)).toBeNull();
   });
 
   it("keeps the bound desktop profile slot authoritative when a profile scope override exists", async () => {
@@ -174,7 +192,7 @@ describe("identity-profile-binding", () => {
     expect(mocks.switchProfile).not.toHaveBeenCalled();
   });
 
-  it("copies same-account scoped local state from an existing binding into the explicit desktop profile slot", async () => {
+  it("does not migrate another slot into an explicit desktop profile window", async () => {
     const record: IdentityRecord = {
       encryptedPrivateKey: "cipher-existing",
       publicKeyHex: "e".repeat(64),
@@ -194,12 +212,12 @@ describe("identity-profile-binding", () => {
 
     expect(profileId).toBe("profile-a");
     expect(mocks.ensureProfile).toHaveBeenCalledWith("profile-a", "Echo");
-    expect(localStorage.getItem(`dweb.nostr.pwa.chatState.v2.${record.publicKeyHex}::profile-a`)).toContain("peer-1");
-    expect(sessionStorage.getItem("obscur_auth_token::profile-a")).toBe("token-b");
+    expect(localStorage.getItem(`dweb.nostr.pwa.chatState.v2.${record.publicKeyHex}::profile-a`)).toBeNull();
+    expect(sessionStorage.getItem("obscur_auth_token::profile-a")).toBeNull();
     expect(mocks.switchProfile).not.toHaveBeenCalled();
   });
 
-  it("remaps account-scoped local state into explicit profile slot even when identity binding was cleared", async () => {
+  it("does not remap discovered account state into an explicit profile slot without user export", async () => {
     const publicKeyHex = "f".repeat(64) as any;
     mocks.getResolvedProfileId.mockReturnValue("profile-a");
     mocks.getProfileScopeOverride.mockReturnValue("profile-a");
@@ -212,7 +230,7 @@ describe("identity-profile-binding", () => {
     });
 
     expect(profileId).toBe("profile-a");
-    expect(localStorage.getItem(`dweb.nostr.pwa.chatState.v2.${publicKeyHex}::profile-a`)).toContain("peer-2");
+    expect(localStorage.getItem(`dweb.nostr.pwa.chatState.v2.${publicKeyHex}::profile-a`)).toBeNull();
     expect(mocks.switchProfile).not.toHaveBeenCalled();
   });
 

@@ -12,7 +12,10 @@ import { NetworkProvider } from "@/app/features/network/providers/network-provid
 import { TanstackQueryRuntimeProvider } from "@/app/features/query/providers/tanstack-query-runtime-provider";
 import { RelayProvider } from "@/app/features/relays/providers/relay-provider";
 import { RuntimeActivationManager } from "./runtime-activation-manager";
+import { ActiveSessionLeaseOwner } from "./active-session-lease-owner";
+import { SecondaryProfilePostLoginRefresh } from "./secondary-profile-post-login-refresh";
 import { ChatRouteMainShell, ChatRouteVoiceCallOverlay } from "./chat-route-main-shell";
+import { AccountScopeBoundaryOwner } from "@/app/features/runtime/components/account-scope-boundary-owner";
 
 /**
  * Unlocked session tree. Providers stay mounted across sidebar navigation so global
@@ -24,10 +27,13 @@ export function UnlockedAppRuntimeShell(props: Readonly<{ children: React.ReactN
   return (
     <TanstackQueryRuntimeProvider>
       <ProfileRuntimeProvider>
+        <AccountScopeBoundaryOwner />
         <RelayProvider>
           <GroupProvider>
             <NetworkProvider>
               <RuntimeActivationManager />
+              <ActiveSessionLeaseOwner />
+              <SecondaryProfilePostLoginRefresh />
               <MessagingProvider>
                 <RuntimeMessagingTransportOwnerProvider>
                   <AppChromeProvider>

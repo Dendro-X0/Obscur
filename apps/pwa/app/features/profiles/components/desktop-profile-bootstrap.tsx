@@ -1,200 +1,41 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import type React from "react";
+import { useEffect, useState } from "react";
 import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
-import { desktopProfileRuntime } from "@/app/features/profiles/services/desktop-profile-runtime";
-import { logAppEvent } from "@/app/shared/log-app-event";
+import { startDesktopWindowBoot } from "@/app/features/profiles/services/desktop-window-boot";
 import { AppLoadingScreen } from "@/app/components/app-loading-screen";
-import { APP_BOOT_READY_EVENT } from "@/app/features/runtime/app-boot-ready-event";
 import { isExperimentShellEnabled } from "@/app/features/runtime/experiment-shell-policy";
-import { isDesktopShellBuild } from "@/app/features/runtime/shell-contract";
+import { isDesktopShellBuild, isMobileShellBuild } from "@/app/features/runtime/shell-contract";
 
-/** Desktop product shell: paint app tree immediately; refresh profile binding in background. */
-const isDesktopProfileBootFailOpen = (): boolean => (
-  isExperimentShellEnabled() || isDesktopShellBuild()
-);
-
-const PROFILE_REFRESH_RETRY_MS = 30_000;
-const PROFILE_REFRESH_BOOTSTRAP_DEADLINE_MS = 20_000;
-const PROFILE_BOOTSTRAP_FAILSAFE_TIMEOUT_MS = PROFILE_REFRESH_BOOTSTRAP_DEADLINE_MS + 8_000;
-
-const markBootReady = (): void => {
-  if (typeof window === "undefined") {
-    return;
+/** Dev web shell only — production desktop/mobile never block on profile IPC. */
+const shouldBlockBootScreen = (): boolean => {
+  if (hasNativeRuntime()) {
+    return false;
   }
-  const globalRoot = window as Window & {
-    __obscurBootReady?: boolean;
-  };
-  if (globalRoot.__obscurBootReady === true) {
-    return;
-  }
-  globalRoot.__obscurBootReady = true;
-  window.dispatchEvent(new Event(APP_BOOT_READY_EVENT));
+  return !isExperimentShellEnabled() && !isDesktopShellBuild() && !isMobileShellBuild();
 };
 
-export function DesktopProfileBootstrap(props: Readonly<{ children: React.ReactNode }>): React.JSX.Element | null {
-  // Keep first render deterministic between server and client to avoid hydration drift.
-  const [bootstrapSettled, setBootstrapSettled] = useState<boolean>(false);
+export function DesktopProfileBootstrap(props: Readonly<{ children: React.ReactNode }>): React.JSX.Element {
+  const [bootReady, setBootReady] = useState(!shouldBlockBootScreen());
 
   useEffect(() => {
-    if (isDesktopProfileBootFailOpen()) {
-      setBootstrapSettled(true);
-      if (!hasNativeRuntime()) {
-        return;
-      }
-      void desktopProfileRuntime.refresh().catch(() => {
-        // Background refresh; shell is already interactive.
-      });
+    if (!shouldBlockBootScreen()) {
+      startDesktopWindowBoot();
+      setBootReady(true);
       return;
     }
 
-    let failsafeTimer: ReturnType<typeof setTimeout> | null = null;
-
-    const scheduleFailsafe = (): void => {
-      if (failsafeTimer) {
-        clearTimeout(failsafeTimer);
-      }
-      failsafeTimer = setTimeout(() => {
-        setBootstrapSettled((previous) => {
-          if (previous) {
-            return previous;
-          }
-          logAppEvent({
-            name: "runtime.profile_binding_bootstrap_failsafe_released",
-            level: "warn",
-            scope: { feature: "runtime", action: "profile_boot" },
-            context: {
-              reasonCode: "bootstrap_failsafe_timeout",
-              timeoutMs: PROFILE_BOOTSTRAP_FAILSAFE_TIMEOUT_MS,
-            },
-          });
-          return true;
-        });
-      }, PROFILE_BOOTSTRAP_FAILSAFE_TIMEOUT_MS);
-    };
-
-    scheduleFailsafe();
-
-    if (!hasNativeRuntime()) {
-      setBootstrapSettled(true);
-      return () => {
-        if (failsafeTimer) {
-          clearTimeout(failsafeTimer);
-          failsafeTimer = null;
-        }
-      };
-    }
-    let disposed = false;
-    let firstAttemptSettled = false;
-    let retryTimer: ReturnType<typeof setTimeout> | null = null;
-
-    const scheduleRetry = (): void => {
-      if (retryTimer) {
-        clearTimeout(retryTimer);
-      }
-      retryTimer = setTimeout(() => {
-        void refreshProfileBinding();
-      }, PROFILE_REFRESH_RETRY_MS);
-    };
-
-    const settleFirstAttempt = (): void => {
-      if (firstAttemptSettled) {
-        return;
-      }
-      firstAttemptSettled = true;
-      if (!disposed) {
-        setBootstrapSettled(true);
-      }
-    };
-
-    const refreshWithBootstrapDeadline = async (): Promise<"completed" | "timed_out"> => {
-      let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
-      const refreshPromise = desktopProfileRuntime.refresh().then(
-        () => "completed" as const,
-        () => "completed" as const,
-      );
-      const timeoutPromise = new Promise<"timed_out">((resolve) => {
-        timeoutHandle = setTimeout(() => {
-          resolve("timed_out");
-        }, PROFILE_REFRESH_BOOTSTRAP_DEADLINE_MS);
-      });
-      const outcome = await Promise.race([refreshPromise, timeoutPromise]);
-      if (timeoutHandle) {
-        clearTimeout(timeoutHandle);
-      }
-      return outcome;
-    };
-
-    const refreshProfileBinding = async (): Promise<void> => {
-      const outcome = await refreshWithBootstrapDeadline();
-      if (disposed) {
-        return;
-      }
-      if (outcome === "timed_out") {
-        settleFirstAttempt();
-        const currentProfileId = desktopProfileRuntime.getSnapshot?.().currentWindow.profileId ?? "unknown";
-        logAppEvent({
-          name: "runtime.profile_binding_refresh_timeout",
-          level: "warn",
-          scope: { feature: "runtime", action: "profile_boot" },
-          context: {
-            reasonCode: "profile_binding_refresh_timed_out",
-            profileId: currentProfileId,
-            bootstrapDeadlineMs: PROFILE_REFRESH_BOOTSTRAP_DEADLINE_MS,
-            retryInMs: PROFILE_REFRESH_RETRY_MS,
-          },
-        });
-        console.warn(
-          "[DesktopProfileBootstrap] Profile resolution exceeded startup deadline; continuing with fallback profile scope.",
-        );
-        scheduleRetry();
-        return;
-      }
-      const refreshError = desktopProfileRuntime.getLastRefreshError();
-      settleFirstAttempt();
-      if (refreshError) {
-        const currentProfileId = desktopProfileRuntime.getSnapshot?.().currentWindow.profileId ?? "unknown";
-        logAppEvent({
-          name: "runtime.profile_binding_refresh_failed",
-          level: "warn",
-          scope: { feature: "runtime", action: "profile_boot" },
-          context: {
-            reasonCode: "profile_binding_refresh_failed",
-            profileId: currentProfileId,
-            bootstrapDeadlineMs: PROFILE_REFRESH_BOOTSTRAP_DEADLINE_MS,
-            retryInMs: PROFILE_REFRESH_RETRY_MS,
-            error: refreshError.slice(0, 160),
-          },
-        });
-        console.error("[DesktopProfileBootstrap] Failed to resolve window profile binding:", new Error(refreshError));
-        scheduleRetry();
-      }
-    };
-
-    void refreshProfileBinding();
+    const readyTimer = window.setTimeout(() => {
+      setBootReady(true);
+    }, 0);
 
     return () => {
-      disposed = true;
-      if (failsafeTimer) {
-        clearTimeout(failsafeTimer);
-        failsafeTimer = null;
-      }
-      if (retryTimer) {
-        clearTimeout(retryTimer);
-        retryTimer = null;
-      }
-      firstAttemptSettled = true;
+      window.clearTimeout(readyTimer);
     };
   }, []);
 
-  useEffect(() => {
-    if (!bootstrapSettled) {
-      return;
-    }
-    markBootReady();
-  }, [bootstrapSettled]);
-
-  if (!bootstrapSettled) {
+  if (!bootReady) {
     return (
       <AppLoadingScreen
         title="Starting Obscur"
@@ -205,9 +46,3 @@ export function DesktopProfileBootstrap(props: Readonly<{ children: React.ReactN
 
   return <>{props.children}</>;
 }
-
-export const desktopProfileBootstrapInternals = {
-  PROFILE_REFRESH_BOOTSTRAP_DEADLINE_MS,
-  PROFILE_BOOTSTRAP_FAILSAFE_TIMEOUT_MS,
-  PROFILE_REFRESH_RETRY_MS,
-};

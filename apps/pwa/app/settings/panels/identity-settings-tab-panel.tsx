@@ -20,6 +20,8 @@ import { AutoLockSettingsPanel } from "@/app/features/settings/components/auto-l
 import { SecuritySettingsPanel } from "@/app/features/settings/components/security-settings-panel";
 import { SettingsActionStatus } from "@/app/features/settings/components/settings-action-status";
 import { ProfileSwitcherCard } from "@/app/features/profiles/components/profile-switcher-card";
+import { ProfileArchiveResultDialog } from "@/app/features/profiles/components/profile-archive-result-dialog";
+import { PortabilityQuickActionsPanel } from "@/app/features/profiles/components/portability-quick-actions-panel";
 import {
   SettingsToggle,
   SettingsToggleCard,
@@ -78,6 +80,10 @@ export default function IdentitySettingsTabPanel(): React.JSX.Element {
     handleCheckProviderReachability,
     handleClearData,
     handleDeleteAccount,
+    handleProfileArchiveDialogClose,
+    isProfileArchiveDialogOpen,
+    profileArchiveDialogMode,
+    profileArchiveResult,
     handleDisableNotifications,
     handleEnableNotifications,
     handleExportPortableBundle,
@@ -494,16 +500,24 @@ export default function IdentitySettingsTabPanel(): React.JSX.Element {
               </div>
             </div>
 
-            <div className="mt-8 rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-900/30 dark:bg-red-950/10 space-y-3">
-              <h3 className="text-sm font-semibold text-red-900 dark:text-red-200">{t("settings.dangerZone", "Danger Zone")}</h3>
+            <PortabilityQuickActionsPanel
+              compact
+              className="mt-6"
+              publicKeyHex={(publicKeyHex as PublicKeyHex | null) ?? null}
+              profileLabel={profile.state.profile.username}
+              resolveActivePrivateKeyHex={resolveActivePrivateKeyHex}
+            />
+
+            <div id="local-data-management" className="mt-8 rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-900/30 dark:bg-red-950/10 space-y-3">
+              <h3 className="text-sm font-semibold text-red-900 dark:text-red-200">Local data management</h3>
               <p className="mt-1 text-xs text-red-700 dark:text-red-300 font-medium">
-                {t("settings.deleteAccountDesc", "This will permanently remove your account key from this device and wipe your public profile.")}
+                Remove data stored in this profile window on this device. Signing out does not delete local files.
               </p>
               <p className="mt-2 text-[10px] text-red-600/80 dark:text-red-400/80 leading-relaxed italic">
-                Note on Decentralized Identity: This action performs a device-local wipe and publishes a deleted-account marker. The private key itself cannot be destroyed on a decentralized network. Anyone who still has the exact same private key can reactivate the identity on another device.
+                Your private key cannot be destroyed by deleting local files. These actions save a workspace archive to profile-archives first, then remove selected local data.
               </p>
               <div className="space-y-2">
-                <Label htmlFor="delete-confirm-input" className="text-xs text-red-900 dark:text-red-200">Type "{DELETE_ACCOUNT_CONFIRM_TEXT}" to continue</Label>
+                <Label htmlFor="delete-confirm-input" className="text-xs text-red-900 dark:text-red-200">Type &quot;{DELETE_ACCOUNT_CONFIRM_TEXT}&quot; to remove all local profile data</Label>
                 <Input
                   id="delete-confirm-input"
                   value={deleteAccountConfirmInput}
@@ -518,7 +532,7 @@ export default function IdentitySettingsTabPanel(): React.JSX.Element {
                     onClick={() => setIsClearDataDialogOpen(true)}
                     className="border-red-300 text-red-700 dark:border-red-900/40 dark:text-red-300"
                   >
-                    {t("settings.actions.clearData", "Clear All Local Data")}
+                    {t("settings.actions.clearData", "Clear local caches (keep sign-in)")}
                   </Button>
                   <Button
                     type="button"
@@ -526,7 +540,7 @@ export default function IdentitySettingsTabPanel(): React.JSX.Element {
                     onClick={handleArmDeleteAccount}
                     disabled={deleteAccountCountdown > 0}
                   >
-                    {deleteAccountCountdown > 0 ? `Armed in ${deleteAccountCountdown}s` : "Arm Wipe Account"}
+                    {deleteAccountCountdown > 0 ? `Armed in ${deleteAccountCountdown}s` : "Arm local data removal"}
                   </Button>
                 </div>
               </div>
@@ -538,7 +552,7 @@ export default function IdentitySettingsTabPanel(): React.JSX.Element {
                 onClick={() => setIsDeleteAccountDialogOpen(true)}
               >
                 {isPublishing ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                {isPublishing ? "Wiping Profile & Deleting Data..." : t("settings.deleteAccount", "Wipe Profile & Delete Data")}
+                {isPublishing ? "Removing local profile data..." : t("settings.deleteAccount", "Remove local profile data")}
               </Button>
             </div>
           </Card>
@@ -561,8 +575,8 @@ export default function IdentitySettingsTabPanel(): React.JSX.Element {
         isOpen={isClearDataDialogOpen}
         onClose={() => setIsClearDataDialogOpen(false)}
         onConfirm={handleClearData}
-        title={t("settings.dialogs.clearDataTitle", "Clear Local Data")}
-        description={t("settings.dialogs.clearDataDesc", "Are you sure you want to clear all local data? This will clear local caches and databases but will not delete your account.")}
+        title={t("settings.dialogs.clearDataTitle", "Clear local caches")}
+        description="Export a workspace archive to profile-archives, then clear chat history, sync checkpoints, and cached media for this profile window. Your sign-in and identity on this device are kept."
         confirmLabel={t("settings.actions.clear", "Clear Data")}
         variant="danger"
       />
@@ -581,10 +595,24 @@ export default function IdentitySettingsTabPanel(): React.JSX.Element {
         isOpen={isDeleteAccountDialogOpen}
         onClose={() => setIsDeleteAccountDialogOpen(false)}
         onConfirm={handleDeleteAccount}
-        title={t("settings.dialogs.deleteAccountTitle", "Wipe Profile & Delete Account")}
-        description={t("settings.dialogs.deleteAccountDesc", "Are you sure you want to wipe local account data on this device and publish a deleted-account marker? This does not destroy the private key itself.")}
-        confirmLabel={t("settings.actions.delete", "Wipe & Delete Account")}
+        title={t("settings.dialogs.deleteAccountTitle", "Remove local profile data")}
+        description="Export a workspace archive, publish a deleted-account marker on relays, leave communities, remove sign-in from this device, and wipe this profile window's local data. Your private key still exists mathematically and can be used on another device."
+        confirmLabel={t("settings.actions.delete", "Remove local data")}
         variant="danger"
+      />
+
+      <ProfileArchiveResultDialog
+        result={profileArchiveResult}
+        isOpen={isProfileArchiveDialogOpen}
+        profileLabel={profile.state.profile.username}
+        showExportsFolder
+        title={profileArchiveDialogMode === "delete_account" ? "Local profile data removed" : "Local caches cleared"}
+        description={
+          profileArchiveDialogMode === "delete_account"
+            ? "A workspace archive was saved before local data was removed from this profile window."
+            : "A workspace archive was saved before caches and history were cleared. Your account remains signed in on this device."
+        }
+        onClose={handleProfileArchiveDialogClose}
       />
     </>
   );

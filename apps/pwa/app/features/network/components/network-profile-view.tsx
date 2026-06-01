@@ -61,6 +61,7 @@ import {
     type InvitationComposerValues,
 } from "@/app/features/messaging/services/invitation-composer";
 import { getDirectInvitationToastCopy } from "@/app/features/messaging/services/invitation-presentation";
+import { formatPublicKeyPreview } from "@/app/features/invites/utils/utils";
 
 const PRIVATE_CONTACT_LABEL = "Unknown contact";
 const PRIVATE_CONTACT_HANDLE = "@unknown";
@@ -630,10 +631,28 @@ export default function ConnectionProfileView() {
                                 Copy Link
                             </Button>
                         </div>
-                        <div className="space-y-2">
+                        <div className="space-y-2 min-w-0">
                             <h3 className="text-2xl font-black uppercase tracking-tight text-zinc-950 dark:text-white">Public Identity</h3>
-                            <div className="rounded-2xl border border-zinc-200/70 bg-slate-50 p-4 font-mono text-sm leading-relaxed text-zinc-600 shadow-inner transition-colors group-hover:text-zinc-700 dark:border-white/10 dark:bg-black/30 dark:text-zinc-400">
-                                {pk}
+                            <div className="flex min-w-0 items-center gap-2">
+                                <div
+                                    className="min-w-0 flex-1 overflow-hidden rounded-2xl border border-zinc-200/70 bg-slate-50 p-4 font-mono text-sm text-zinc-600 shadow-inner transition-colors group-hover:text-zinc-700 dark:border-white/10 dark:bg-black/30 dark:text-zinc-400"
+                                    title={pk}
+                                >
+                                    <p className="truncate">
+                                        {formatPublicKeyPreview(pk as PublicKeyHex)}
+                                    </p>
+                                </div>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-10 shrink-0 gap-2 rounded-xl border border-zinc-200/70 bg-zinc-950/[0.03] px-3 text-zinc-500 transition-all hover:text-zinc-900 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-400 dark:hover:text-white"
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(pk);
+                                        toast.success(t("network.notifications.keyCopied", "Public key copied"));
+                                    }}
+                                >
+                                    Copy Key
+                                </Button>
                             </div>
                         </div>
                     </Card>
@@ -641,7 +660,7 @@ export default function ConnectionProfileView() {
                     {metadata?.nip05 ? (
                         <Card className="rounded-[32px] border border-zinc-200/70 bg-white/88 p-6 backdrop-blur-xl dark:border-white/10 dark:bg-[#07101f]/88">
                             <p className="text-[10px] font-black uppercase tracking-[0.22em] text-zinc-500 dark:text-zinc-400">NIP-05</p>
-                            <p className="mt-3 break-all text-base font-semibold text-zinc-900 dark:text-white">{metadata.nip05}</p>
+                            <p className="mt-3 truncate text-base font-semibold text-zinc-900 dark:text-white" title={metadata.nip05}>{metadata.nip05}</p>
                         </Card>
                     ) : null}
 

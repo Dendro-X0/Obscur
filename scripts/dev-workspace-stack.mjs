@@ -4,20 +4,34 @@
  *
  *   node scripts/dev-workspace-stack.mjs --online
  *   node scripts/dev-workspace-stack.mjs --stack-only   (no desktop — for second A/B instance)
+ *   node scripts/dev-workspace-stack.mjs --online --skip-coordination
+ *
+ * Windows note: wrangler dev can take 2–4 minutes on a cold start. Keep coordination
+ * running in a separate terminal (`pnpm dev:coordination`) to avoid repeated cold boots.
  */
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import net from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { mergePwaEnvLocal } from "./load-pwa-env-local.mjs";
+import {
+  DEFAULT_COORDINATION_READY_TIMEOUT_MS,
+  DEFAULT_RELAY_READY_TIMEOUT_MS,
+  probeHttpOk,
+  resolveReadyTimeoutMs,
+  waitForReady,
+} from "./lib/dev-stack-probes.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const flags = new Set(process.argv.slice(2));
 const stackOnly = flags.has("--stack-only");
+const skipCoordination = flags.has("--skip-coordination")
+  || process.env.OBSCUR_SKIP_COORDINATION === "1";
 
 const env = mergePwaEnvLocal({ ...process.env });
 if (flags.has("--online")) {
   env.NEXT_PUBLIC_OBSCUR_EXPERIMENT_ONLINE = "1";
+  env.NEXT_PUBLIC_OBSCUR_RADICAL_TRUTH = "0";
 } else if (flags.has("--offline")) {
   env.NEXT_PUBLIC_OBSCUR_EXPERIMENT_ONLINE = "0";
 }
@@ -26,24 +40,31 @@ if (flags.has("--webpack")) {
 }
 
 const children = [];
+const coordinationReadyTimeoutMs = resolveReadyTimeoutMs(
+  env.OBSCUR_COORDINATION_READY_TIMEOUT_MS,
+  DEFAULT_COORDINATION_READY_TIMEOUT_MS,
+);
+const relayReadyTimeoutMs = resolveReadyTimeoutMs(
+  env.OBSCUR_RELAY_READY_TIMEOUT_MS,
+  DEFAULT_RELAY_READY_TIMEOUT_MS,
+);
 
 const log = (message) => {
   console.log(`[workspace-stack] ${message}`);
 };
 
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const COORDINATION_HEALTH_URL = "http://127.0.0.1:8787/health";
+const COORDINATION_PORT = 8787;
 
-const probeHttpOk = async (url, timeoutMs = 3000) => {
-  try {
-    const response = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
-    if (!response.ok) {
-      return false;
-    }
-    const json = await response.json().catch(() => null);
-    return Boolean(json?.ok);
-  } catch {
-    return false;
-  }
+const freeCoordinationPort = () => {
+  spawnSync(process.execPath, [
+    path.join(repoRoot, "scripts", "kill-listeners-on-port.mjs"),
+    String(COORDINATION_PORT),
+  ], {
+    cwd: repoRoot,
+    stdio: "inherit",
+    env: process.env,
+  });
 };
 
 const probeTcpOpen = (host, port, timeoutMs = 2000) => new Promise((resolve) => {
@@ -62,26 +83,33 @@ const probeTcpOpen = (host, port, timeoutMs = 2000) => new Promise((resolve) => 
   socket.once("timeout", () => finish(false));
 });
 
-const waitFor = async (label, probe, maxMs = 60_000) => {
-  const started = Date.now();
-  while (Date.now() - started < maxMs) {
-    if (await probe()) {
-      log(`${label} ready`);
-      return true;
-    }
-    await sleep(750);
+const formatDuration = (ms) => `${Math.round(ms / 1000)}s`;
+
+const waitForService = async (label, probe, maxMs) => {
+  log(`waiting for ${label} (timeout ${formatDuration(maxMs)})…`);
+  const result = await waitForReady(label, probe, {
+    maxMs,
+    pollMs: 750,
+    progressEveryMs: 15_000,
+    onProgress: ({ elapsedMs, maxMs: limitMs }) => {
+      log(`${label} still starting (${formatDuration(elapsedMs)} / ${formatDuration(limitMs)})…`);
+    },
+  });
+  if (result.ok) {
+    log(`${label} ready in ${formatDuration(result.elapsedMs)}`);
+    return true;
   }
-  log(`${label} not ready after ${maxMs}ms`);
+  log(`${label} not ready after ${formatDuration(result.maxMs ?? maxMs)}`);
   return false;
 };
 
-const spawnBackground = (label, command, args, extraEnv = {}) => {
+const spawnBackground = (label, command, args, extraEnv = {}, spawnOptions = {}) => {
   log(`starting ${label}`);
   const child = spawn(command, args, {
     cwd: repoRoot,
     env: { ...env, ...extraEnv },
     stdio: "inherit",
-    shell: true,
+    shell: spawnOptions.shell ?? true,
     detached: false,
   });
   child.on("exit", (code) => {
@@ -94,12 +122,45 @@ const spawnBackground = (label, command, args, extraEnv = {}) => {
 };
 
 const ensureCoordination = async () => {
-  if (await probeHttpOk("http://127.0.0.1:8787/health", 1500)) {
-    log("coordination already running");
+  if (skipCoordination) {
+    log("skipping coordination (--skip-coordination / OBSCUR_SKIP_COORDINATION=1)");
     return true;
   }
-  spawnBackground("coordination", "pnpm", ["-C", "apps/coordination", "dev"]);
-  return waitFor("coordination", () => probeHttpOk("http://127.0.0.1:8787/health", 2000));
+
+  if (await probeHttpOk(COORDINATION_HEALTH_URL, 3000)) {
+    log("coordination already healthy");
+    return true;
+  }
+
+  if (await probeTcpOpen("127.0.0.1", COORDINATION_PORT)) {
+    log("coordination port is open but /health is not ready yet — waiting for mid-boot worker");
+    const midBootOk = await waitForService(
+      "coordination",
+      () => probeHttpOk(COORDINATION_HEALTH_URL, 5000),
+      coordinationReadyTimeoutMs,
+    );
+    if (midBootOk) {
+      return true;
+    }
+    log("coordination port stayed unhealthy — restarting coordination");
+  }
+
+  freeCoordinationPort();
+  spawnBackground(
+    "coordination",
+    process.execPath,
+    [path.join(repoRoot, "scripts", "coordination-dev.mjs")],
+    {
+      OBSCUR_SKIP_PORT_CLEANUP: "1",
+    },
+    { shell: false },
+  );
+
+  return waitForService(
+    "coordination",
+    () => probeHttpOk(COORDINATION_HEALTH_URL, 5000),
+    coordinationReadyTimeoutMs,
+  );
 };
 
 const ensureRelay = async () => {
@@ -109,8 +170,13 @@ const ensureRelay = async () => {
   }
   spawnBackground("relay", process.execPath, [
     path.join(repoRoot, "scripts", "dev-relay-docker.mjs"),
-  ], { OBSCUR_USE_DOCKER_RELAY: "1" });
-  return waitFor("relay", () => probeTcpOpen("127.0.0.1", 7000), 90_000);
+  ], { OBSCUR_USE_DOCKER_RELAY: "1" }, { shell: false });
+
+  return waitForService(
+    "relay",
+    () => probeTcpOpen("127.0.0.1", 7000),
+    relayReadyTimeoutMs,
+  );
 };
 
 const shutdown = () => {
@@ -133,21 +199,36 @@ process.on("SIGTERM", () => {
 });
 
 const run = async () => {
-  log("bringing up workspace infrastructure (coordination + relay)…");
-  const coordinationOk = await ensureCoordination();
-  const relayOk = await ensureRelay();
+  log("bringing up workspace infrastructure (coordination + relay in parallel)…");
+  if (process.platform === "win32") {
+    log("Windows: wrangler cold start can take 2–4 minutes; keep `pnpm dev:coordination` running between sessions");
+  }
+
+  const [coordinationOk, relayOk] = await Promise.all([
+    ensureCoordination(),
+    ensureRelay(),
+  ]);
 
   if (!coordinationOk) {
     console.error("[workspace-stack] FATAL: coordination did not become healthy.");
-    console.error("  Run manually: pnpm dev:coordination");
+    console.error(`  Waited ${formatDuration(coordinationReadyTimeoutMs)}. Options:`);
+    console.error("  • Start coordination in another terminal first: pnpm dev:coordination");
+    console.error("  • Increase timeout: OBSCUR_COORDINATION_READY_TIMEOUT_MS=360000 pnpm dev:desktop:online");
+    console.error("  • Skip coordination for DM-only dev: pnpm dev:desktop:online --skip-coordination");
     shutdown();
     process.exit(1);
   }
   if (!relayOk) {
-    console.error("[workspace-stack] FATAL: local relay did not start on ws://localhost:7000.");
-    console.error("  Ensure Docker Desktop is running, then: pnpm dev:relay:docker");
-    shutdown();
-    process.exit(1);
+    console.warn("[workspace-stack] WARN: local relay did not start on ws://localhost:7000.");
+    console.warn("  Continuing without Docker relay — use public relays in Settings → Relays,");
+    console.warn("  or set NEXT_PUBLIC_DEV_COORDINATION_ONLY_WORKSPACE=true for membership-only dev.");
+    console.warn("  To require Docker: OBSCUR_REQUIRE_DOCKER_RELAY=1 pnpm dev:desktop:online");
+    console.warn("  Manual relay: pnpm dev:relay:docker (Docker Desktop must be running)");
+    if (process.env.OBSCUR_REQUIRE_DOCKER_RELAY === "1") {
+      console.error("[workspace-stack] FATAL: OBSCUR_REQUIRE_DOCKER_RELAY=1 and relay is down.");
+      shutdown();
+      process.exit(1);
+    }
   }
 
   log("workspace infrastructure ready");

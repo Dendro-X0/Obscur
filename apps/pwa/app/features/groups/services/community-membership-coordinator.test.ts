@@ -10,6 +10,8 @@ import {
   resolveCommunityMembershipRosterSnapshotTerminalMutation,
   resolveCommunityMembershipRuntimeEvidenceDecision,
 } from "./community-membership-coordinator";
+import { inferPersistedGroupsFromChatStateEvidence } from "./community-membership-reconstruction";
+import { fromPersistedGroupConversation } from "@/app/features/messaging/utils/persistence";
 
 const PUBLIC_KEY = "f".repeat(64);
 const PROFILE_ID = "default";
@@ -49,6 +51,41 @@ describe("community-membership-coordinator", () => {
 
   afterEach(() => {
     vi.unstubAllEnvs();
+  });
+
+  it("materializes groups inferred from local-authored groupMessages when createdGroups are absent", () => {
+    const chatState = {
+      version: 2 as const,
+      createdConnections: [],
+      createdGroups: [],
+      unreadByConversationId: {},
+      connectionOverridesByConnectionId: {},
+      messagesByConversationId: {},
+      groupMessages: {
+        "community:delta:wss://relay.delta": [{
+          id: "g-delta-1",
+          pubkey: PUBLIC_KEY,
+          created_at: 9_000,
+          content: "still here after wipe",
+        }],
+      },
+      connectionRequests: [],
+      pinnedChatIds: [],
+      hiddenChatIds: [],
+    };
+    const inferredRows = inferPersistedGroupsFromChatStateEvidence(chatState, PUBLIC_KEY);
+    const result = resolveCommunityMembershipCoordinator({
+      publicKeyHex: PUBLIC_KEY,
+      profileId: PROFILE_ID,
+      persistedGroups: inferredRows.map(fromPersistedGroupConversation),
+      membershipLedger: [],
+      tombstones: new Set<string>(),
+    });
+    expect(result.groups).toHaveLength(1);
+    expect(result.groups[0]).toEqual(expect.objectContaining({
+      groupId: "delta",
+      relayUrl: "wss://relay.delta",
+    }));
   });
 
   it("keeps explicit left ledger state above persisted chat-state fallback", () => {

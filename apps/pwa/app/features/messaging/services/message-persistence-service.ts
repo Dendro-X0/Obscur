@@ -329,6 +329,28 @@ export class MessagePersistenceService {
         void this.flushQueue();
     };
     private chatPerformanceV2Enabled = false;
+    private boundProfileId: string | null = null;
+
+    /** Bind once the desktop/profile window scope is known — required before sqlite writes on native. */
+    bindProfileScope(profileId: string): void {
+        const normalized = profileId.trim();
+        if (!normalized) {
+            return;
+        }
+        this.boundProfileId = normalized;
+        if (!this.isInitialized) {
+            this.init();
+        }
+    }
+
+    private canPersistForBoundProfileScope(): boolean {
+        const boundProfileId = this.boundProfileId?.trim();
+        if (!boundProfileId) {
+            return false;
+        }
+        const activeProfileId = getResolvedProfileId()?.trim();
+        return Boolean(activeProfileId && activeProfileId === boundProfileId);
+    }
 
     /** Native always batches to SQLite; web uses the privacy flag only. */
     private usesBatchedPersistence(): boolean {
@@ -368,14 +390,8 @@ export class MessagePersistenceService {
         this.isInitialized = true;
         this.chatPerformanceV2Enabled = PrivacySettingsService.getSettings().chatPerformanceV2;
 
-        const subscribedProfileId = getResolvedProfileId();
         this.unsubscribeMessageBus = messageBus.subscribe((event: MessageBusEvent) => {
-            const activeProfileId = getResolvedProfileId();
-            if (
-                subscribedProfileId
-                && activeProfileId
-                && subscribedProfileId !== activeProfileId
-            ) {
+            if (!this.canPersistForBoundProfileScope()) {
                 return;
             }
             switch (event.type) {
@@ -459,6 +475,7 @@ export class MessagePersistenceService {
         this.pruneDeleteTombstones();
         this.recentlyDeletedMessageIds.clear();
         this.isFlushing = false;
+        this.boundProfileId = null;
     }
 
     private scheduleFlush(): void {

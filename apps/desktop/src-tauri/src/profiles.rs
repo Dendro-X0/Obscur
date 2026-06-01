@@ -7,6 +7,7 @@ use std::fs;
 #[cfg(not(target_os = "android"))]
 use crate::native_keychain;
 use crate::session::SessionState;
+use crate::data_root::{default_app_data_dir, resolve_effective_data_root};
 
 const REGISTRY_FILE: &str = "profiles_registry.json";
 const DEFAULT_PROFILE_ID: &str = "default";
@@ -15,7 +16,7 @@ const DEFAULT_PROFILE_LABEL: &str = "Default";
 /// Clear the profile data directory containing WebView storage (IndexedDB, localStorage, etc.)
 /// This is best-effort and logs warnings on failure.
 fn clear_profile_data_directory(app: &AppHandle, profile_id: &str) {
-    let app_dir = match app.path().app_data_dir() {
+    let app_dir = match resolve_effective_data_root(app) {
         Ok(dir) => dir,
         Err(e) => {
             eprintln!("[PROFILES] Warning: Failed to get app data dir: {}", e);
@@ -35,7 +36,7 @@ fn clear_profile_data_directory(app: &AppHandle, profile_id: &str) {
 /// This includes IndexedDB, Service Worker, Cache, etc. that may persist across profiles.
 /// This is best-effort and logs warnings on failure.
 fn clear_shared_webview_storage(app: &AppHandle) {
-    let app_dir = match app.path().app_data_dir() {
+    let app_dir = match default_app_data_dir(app) {
         Ok(dir) => dir,
         Err(e) => {
             eprintln!("[PROFILES] Warning: Failed to get app data dir for shared storage cleanup: {}", e);
@@ -155,7 +156,7 @@ fn default_registry() -> PersistedProfileRegistry {
 }
 
 fn registry_path(app: &AppHandle) -> Result<std::path::PathBuf, String> {
-    let app_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let app_dir = resolve_effective_data_root(app)?;
     std::fs::create_dir_all(&app_dir).map_err(|e| e.to_string())?;
     Ok(app_dir.join(REGISTRY_FILE))
 }
@@ -222,6 +223,111 @@ fn ensure_window_binding(state: &mut PersistedProfileRegistry, window_label: &st
     (binding, true)
 }
 
+fn copy_dir_recursive(source: &std::path::Path, destination: &std::path::Path) -> Result<(), String> {
+    fn copy_recursive_inner(source: &std::path::Path, destination: &std::path::Path) -> Result<(), String> {
+        fs::create_dir_all(destination).map_err(|e| e.to_string())?;
+        for entry in fs::read_dir(source).map_err(|e| e.to_string())? {
+            let entry = entry.map_err(|e| e.to_string())?;
+            let source_path = entry.path();
+            let destination_path = destination.join(entry.file_name());
+            if source_path.is_dir() {
+                copy_recursive_inner(&source_path, &destination_path)?;
+            } else {
+                fs::copy(&source_path, &destination_path).map_err(|e| e.to_string())?;
+            }
+        }
+        Ok(())
+    }
+
+    copy_recursive_inner(source, destination)
+}
+
+fn dir_has_webview_storage(path: &std::path::Path) -> bool {
+    [
+        "EBWebView",
+        "Local Storage",
+        "IndexedDB",
+        "Session Storage",
+        "WebStorage",
+    ]
+    .iter()
+    .any(|name| path.join(name).exists())
+}
+
+/// All windows for a profile must share one WebView data directory so localStorage,
+/// IndexedDB, and theme prefs survive "Open in New Window".
+fn shared_profile_data_dir(app: &AppHandle, profile_id: &str) -> Result<std::path::PathBuf, String> {
+    let app_dir = resolve_effective_data_root(app)?;
+    let profile_dir = app_dir.join("profiles").join(profile_id);
+    fs::create_dir_all(&profile_dir).map_err(|e| e.to_string())?;
+    migrate_legacy_per_window_webview_data(&profile_dir)?;
+    Ok(profile_dir)
+}
+
+fn migrate_legacy_per_window_webview_data(profile_dir: &std::path::Path) -> Result<(), String> {
+    if dir_has_webview_storage(profile_dir) {
+        return Ok(());
+    }
+
+    let windows_dir = profile_dir.join("windows");
+    if !windows_dir.exists() {
+        return Ok(());
+    }
+
+    let mut candidates: Vec<(std::path::PathBuf, u64)> = Vec::new();
+    for entry in fs::read_dir(&windows_dir).map_err(|e| e.to_string())? {
+        let entry = entry.map_err(|e| e.to_string())?;
+        let path = entry.path();
+        if !path.is_dir() || !dir_has_webview_storage(&path) {
+            continue;
+        }
+        let modified_ms = entry
+            .metadata()
+            .ok()
+            .and_then(|metadata| metadata.modified().ok())
+            .and_then(|modified| modified.duration_since(std::time::UNIX_EPOCH).ok())
+            .map(|duration| duration.as_millis() as u64)
+            .unwrap_or(0);
+        candidates.push((path, modified_ms));
+    }
+
+    if candidates.is_empty() {
+        return Ok(());
+    }
+
+    candidates.sort_by_key(|(_, modified_ms)| *modified_ms);
+    let (source, _) = candidates
+        .last()
+        .expect("non-empty candidates checked above");
+    eprintln!(
+        "[PROFILES] Migrating legacy per-window WebView data from {:?} into shared profile dir {:?}",
+        source, profile_dir
+    );
+    copy_dir_recursive(source, profile_dir)
+}
+
+fn escape_js_string(value: &str) -> String {
+    value.replace('\\', "\\\\").replace('"', "\\\"")
+}
+
+fn window_boot_init_script(window_label: &str, profile_id: &str) -> String {
+    format!(
+        r#"window.__OBSCUR_WINDOW_BOOT__={{windowLabel:"{}",profileId:"{}"}};"#,
+        escape_js_string(window_label),
+        escape_js_string(profile_id),
+    )
+}
+
+fn resolve_profile_window_url(app: &AppHandle) -> WebviewUrl {
+    #[cfg(debug_assertions)]
+    {
+        if let Some(dev_url) = app.config().build.dev_url.clone() {
+            return WebviewUrl::External(dev_url);
+        }
+    }
+    WebviewUrl::App("index.html".into())
+}
+
 fn build_profile_window(app: &AppHandle, binding: &ProfileWindowBinding) -> Result<WebviewWindow, String> {
     if let Some(existing) = app.get_webview_window(&binding.window_label) {
         #[cfg(desktop)]
@@ -233,15 +339,17 @@ fn build_profile_window(app: &AppHandle, binding: &ProfileWindowBinding) -> Resu
         return Ok(existing);
     }
 
-    let app_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
-    let profile_data_dir = app_dir.join("profiles").join(&binding.profile_id);
-    std::fs::create_dir_all(&profile_data_dir).map_err(|e| e.to_string())?;
+    let window_data_dir = shared_profile_data_dir(app, &binding.profile_id)?;
 
     let builder = WebviewWindowBuilder::new(
         app,
         binding.window_label.clone(),
-        WebviewUrl::App("index.html".into()),
-    );
+        resolve_profile_window_url(app),
+    )
+    .initialization_script(window_boot_init_script(
+        &binding.window_label,
+        &binding.profile_id,
+    ));
 
     #[cfg(desktop)]
     {
@@ -252,18 +360,32 @@ fn build_profile_window(app: &AppHandle, binding: &ProfileWindowBinding) -> Resu
             .resizable(true)
             .decorations(false)
             .shadow(true)
-            .data_directory(profile_data_dir)
+            .visible(false)
+            .data_directory(window_data_dir)
             .build()
             .map_err(|e| e.to_string())?;
-        let _ = window.unminimize();
-        let _ = window.show();
-        let _ = window.set_focus();
+
+        let reveal_window = window.clone();
+        tauri::async_runtime::spawn(async move {
+            tokio::time::sleep(std::time::Duration::from_secs(45)).await;
+            if reveal_window.is_visible().unwrap_or(true) {
+                return;
+            }
+            let _ = reveal_window.unminimize();
+            let _ = reveal_window.show();
+            let _ = reveal_window.set_focus();
+            eprintln!(
+                "[PROFILES] Failsafe reveal for window '{}' after frontend did not call window_reveal_current",
+                reveal_window.label()
+            );
+        });
+
         return Ok(window);
     }
 
     #[cfg(mobile)]
     {
-        let _ = profile_data_dir;
+        let _ = window_data_dir;
         builder.build().map_err(|e: tauri::Error| e.to_string())
     }
 }
@@ -548,25 +670,6 @@ fn migrate_legacy_webview_data(app: &AppHandle) -> Result<(), String> {
         app_data_dir.join("WebView2"),
         app_data_dir.join("webview"),
     ];
-
-    let copy_dir_recursive = |source: &std::path::Path, destination: &std::path::Path| -> Result<(), String> {
-        fn copy_recursive_inner(source: &std::path::Path, destination: &std::path::Path) -> Result<(), String> {
-            fs::create_dir_all(destination).map_err(|e| e.to_string())?;
-            for entry in fs::read_dir(source).map_err(|e| e.to_string())? {
-                let entry = entry.map_err(|e| e.to_string())?;
-                let source_path = entry.path();
-                let destination_path = destination.join(entry.file_name());
-                if source_path.is_dir() {
-                    copy_recursive_inner(&source_path, &destination_path)?;
-                } else {
-                    fs::copy(&source_path, &destination_path).map_err(|e| e.to_string())?;
-                }
-            }
-            Ok(())
-        }
-
-        copy_recursive_inner(source, destination)
-    };
 
     let _ = fs::create_dir_all(&default_profile_dir);
 

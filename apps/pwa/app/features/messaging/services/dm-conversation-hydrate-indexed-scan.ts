@@ -3,11 +3,31 @@
  * R1: I/O + row merge lives here; row→Message mapping stays caller-supplied (typically **`normalizeDmConversationMessageRow`** in **`dm-conversation-normalize-message.ts`**).
  */
 
+import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { dbGetMessages } from "@dweb/db";
 import type { MessageRecord } from "@dweb/db";
+import { listAccountSharedSqliteProfileIds } from "@/app/features/profiles/services/account-shared-sqlite-profile-ids";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { requiresSqlitePersistence } from "@/app/features/runtime/native-persistence-policy";
 import type { Message } from "../types";
+
+const normalizeAccountPublicKeyHex = (value: PublicKeyHex | string | null | undefined): PublicKeyHex | null => {
+  const normalized = typeof value === "string" ? value.trim().toLowerCase() : "";
+  if (normalized.length !== 64) {
+    return null;
+  }
+  return normalized as PublicKeyHex;
+};
+
+const sqliteRowInvolvesAccount = (
+  record: MessageRecord,
+  accountPublicKeyHex: PublicKeyHex,
+): boolean => {
+  const account = accountPublicKeyHex.trim().toLowerCase();
+  const sender = record.sender_pubkey.trim().toLowerCase();
+  const recipient = record.recipient_pubkey.trim().toLowerCase();
+  return sender === account || recipient === account;
+};
 
 const sqliteRowToRaw = (rec: MessageRecord): Record<string, unknown> => ({
   id: rec.event_id,
@@ -23,21 +43,52 @@ const sqliteRowToRaw = (rec: MessageRecord): Record<string, unknown> => ({
   status: "delivered",
 });
 
+const mergeSqliteMessageRecords = (
+  records: ReadonlyArray<MessageRecord>,
+  limit: number,
+  accountPublicKeyHex?: PublicKeyHex | string | null,
+): ReadonlyArray<any> => {
+  const normalizedAccount = normalizeAccountPublicKeyHex(accountPublicKeyHex);
+  const byEventId = new Map<string, MessageRecord>();
+  records.forEach((record) => {
+    if (normalizedAccount && !sqliteRowInvolvesAccount(record, normalizedAccount)) {
+      return;
+    }
+    const existing = byEventId.get(record.event_id);
+    if (!existing || record.received_at >= existing.received_at) {
+      byEventId.set(record.event_id, record);
+    }
+  });
+  return Array.from(byEventId.values())
+    .sort((left, right) => right.received_at - left.received_at)
+    .slice(0, limit)
+    .map(sqliteRowToRaw);
+};
+
 export const loadConversationWindow = async (params: Readonly<{
   conversationId: string;
   limit: number;
   beforeTimestampMs?: number;
+  accountPublicKeyHex?: PublicKeyHex | string | null;
 }>): Promise<ReadonlyArray<any>> => {
   if (requiresSqlitePersistence()) {
     try {
-      const profileId = getResolvedProfileId();
-      const recs = await dbGetMessages(
-        profileId,
-        params.conversationId,
+      const primaryProfileId = getResolvedProfileId();
+      const profileIds = listAccountSharedSqliteProfileIds({
+        primaryProfileId,
+        accountPublicKeyHex: params.accountPublicKeyHex,
+      });
+      const beforeTimestampMs = typeof params.beforeTimestampMs === "number"
+        ? params.beforeTimestampMs
+        : undefined;
+      const recordGroups = await Promise.all(profileIds.map(async (profileId) => (
+        dbGetMessages(profileId, params.conversationId, params.limit, beforeTimestampMs)
+      )));
+      return mergeSqliteMessageRecords(
+        recordGroups.flat(),
         params.limit,
-        typeof params.beforeTimestampMs === "number" ? params.beforeTimestampMs : undefined,
+        params.accountPublicKeyHex,
       );
-      return recs.map(sqliteRowToRaw);
     } catch {
       return [];
     }
@@ -104,6 +155,7 @@ export const loadConversationWindowAcrossAliases = async (params: Readonly<{
   conversationIds: ReadonlyArray<string>;
   limit: number;
   beforeTimestampMs?: number;
+  accountPublicKeyHex?: PublicKeyHex | string | null;
 }>): Promise<Readonly<{ rows: ReadonlyArray<any>; hasEarlier: boolean }>> => {
   const conversationIds = Array.from(new Set(
     params.conversationIds
@@ -120,6 +172,7 @@ export const loadConversationWindowAcrossAliases = async (params: Readonly<{
       conversationId,
       limit: params.limit,
       beforeTimestampMs: params.beforeTimestampMs,
+      accountPublicKeyHex: params.accountPublicKeyHex,
     }),
   })));
 
@@ -137,6 +190,7 @@ export const scanDisplayableHistoryWindow = async (params: Readonly<{
   mapRows: (rows: ReadonlyArray<any>) => ReadonlyArray<Message>;
   targetVisibleCount?: number;
   maxPassCount?: number;
+  accountPublicKeyHex?: PublicKeyHex | string | null;
 }>): Promise<Readonly<{ messages: ReadonlyArray<Message>; hasEarlier: boolean }>> => {
   let collectedRows = [...params.initialRows];
   let hasEarlier = params.initialHasEarlier;
@@ -159,6 +213,7 @@ export const scanDisplayableHistoryWindow = async (params: Readonly<{
       conversationIds: params.conversationIds,
       limit: params.limit,
       beforeTimestampMs,
+      accountPublicKeyHex: params.accountPublicKeyHex,
     });
     if (earlierWindow.rows.length === 0) {
       hasEarlier = false;
@@ -183,6 +238,7 @@ export const loadInitialDmHydrationIndexedWindow = async (params: Readonly<{
   targetVisibleCount: number;
   maxPassCount: number;
   liveWindowSoftLimit: number;
+  accountPublicKeyHex?: PublicKeyHex | string | null;
 }>): Promise<Readonly<{
   retentionFilteredMapped: ReadonlyArray<Message>;
   cappedHydratedMessages: ReadonlyArray<Message>;
@@ -192,6 +248,7 @@ export const loadInitialDmHydrationIndexedWindow = async (params: Readonly<{
   const latestWindow = await loadConversationWindowAcrossAliases({
     conversationIds: params.conversationIds,
     limit: params.initialBatchSize,
+    accountPublicKeyHex: params.accountPublicKeyHex,
   });
   const scannedWindow = await scanDisplayableHistoryWindow({
     conversationIds: params.conversationIds,
@@ -201,6 +258,7 @@ export const loadInitialDmHydrationIndexedWindow = async (params: Readonly<{
     mapRows: params.mapRows,
     targetVisibleCount: params.targetVisibleCount,
     maxPassCount: params.maxPassCount,
+    accountPublicKeyHex: params.accountPublicKeyHex,
   });
   const retentionFilteredMapped = scannedWindow.messages;
   const shouldCapHydratedHistoryWindow = retentionFilteredMapped.length > params.liveWindowSoftLimit;

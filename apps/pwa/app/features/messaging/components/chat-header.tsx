@@ -262,7 +262,7 @@ export function ChatHeader({
                             </span>
                         </p>
                     ) : null}
-                    <div className="mt-3 flex items-center gap-2">
+                    <div className="mt-5 flex items-center gap-2">
                         {conversation.kind === "dm" ? (
                             <>
                                 {showPublicKeyControlsInChat ? (

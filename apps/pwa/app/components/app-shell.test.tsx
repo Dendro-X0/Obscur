@@ -13,6 +13,7 @@ const appShellMocks = vi.hoisted(() => ({
   refresh: vi.fn(),
   prefetch: vi.fn().mockResolvedValue(undefined),
   isDesktop: false,
+  isMobileShellProduct: false,
   warmRouteNavigationTargets: vi.fn(async (router: { prefetch: (href: string) => void }, targets: ReadonlyArray<string>) => {
     for (const href of targets) {
       router.prefetch(href);
@@ -69,6 +70,10 @@ vi.mock("@/app/features/desktop/hooks/use-keyboard-shortcuts", () => ({
 
 vi.mock("@/app/features/desktop/hooks/use-desktop-layout", () => ({
   useDesktopLayout: () => undefined,
+}));
+
+vi.mock("@/app/features/runtime/shell-contract", () => ({
+  isMobileShellProduct: () => appShellMocks.isMobileShellProduct,
 }));
 
 vi.mock("./relay-status-badge", () => ({
@@ -449,5 +454,20 @@ describe("AppShell navigation", () => {
 
     expect(screen.queryByTestId("mobile-tab-bar")).not.toBeInTheDocument();
     expect(screen.getByText("Content")).toBeInTheDocument();
+  });
+
+  it("shows the mobile tab bar on mobile shell list routes when sidebar is hidden", async () => {
+    appShellMocks.isMobileShellProduct = true;
+    render(
+      <AppShell hideSidebar mobileDmMode={false}>
+        <div>Content</div>
+      </AppShell>,
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(screen.getByTestId("mobile-tab-bar")).toBeInTheDocument();
+    appShellMocks.isMobileShellProduct = false;
   });
 });

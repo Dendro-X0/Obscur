@@ -50,6 +50,7 @@ const OWNER_RELATIVE_PATHS = new Set([
   "messaging/services/dm-conversation-materialization-load-earlier.ts",
   "messaging/services/dm-conversation-hydrate-pipeline.ts",
   "messaging/services/dm-conversation-hydrate-read-model.ts",
+  "messaging/services/dm-thread-read-model.ts",
   "messaging/services/dm-conversation-hydrate-sibling-diagnostics.ts",
   "messaging/services/dm-conversation-hydrate-indexed-scan.ts",
   "messaging/services/dm-conversation-hydrate-indexed-map-rows.ts",

@@ -77,6 +77,7 @@ const testFns = vi.hoisted(() => ({
 
 vi.mock("next/navigation", () => ({
   usePathname: () => testState.pathname,
+  useSearchParams: () => new URLSearchParams(),
   useRouter: () => ({
     push: testFns.routerPush,
   }),
@@ -619,10 +620,28 @@ describe("main-shell hook stability", () => {
     render(<NostrMessenger />);
     await act(async () => Promise.resolve());
 
-    expect(appShellCapture.lastProps?.mobileDmMode).toBe(true);
+    expect(appShellCapture.lastProps?.mobileDmMode).toBe(false);
     expect(appShellCapture.lastProps?.hideSidebar).toBe(true);
     expect(screen.getByTestId("sidebar")).toBeInTheDocument();
     expect(screen.queryByTestId("chat-view")).not.toBeInTheDocument();
+  });
+
+  it("hides the mobile tab bar override while a thread is open on mobile shell", async () => {
+    testState.isMobileShell = true;
+    messagingState.selectedConversation = {
+      kind: "dm",
+      id: `${"a".repeat(64)}:${"b".repeat(64)}`,
+      pubkey: "b".repeat(64),
+      displayName: "Peer",
+      lastMessage: "",
+      unreadCount: 0,
+      lastMessageTime: new Date(0),
+    };
+
+    render(<NostrMessenger />);
+    await act(async () => Promise.resolve());
+
+    expect(appShellCapture.lastProps?.mobileDmMode).toBe(true);
   });
 
   it("shows the thread view when a conversation is selected on mobile shell", async () => {

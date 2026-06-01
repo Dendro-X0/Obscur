@@ -5,7 +5,9 @@ import { Button } from "@dweb/ui-kit";
 import { Input } from "@dweb/ui-kit";
 import { toast } from "@dweb/ui-kit";
 import { ProfileRegistryService, PROFILE_CHANGED_EVENT, type ActiveProfileState } from "@/app/features/profiles/services/profile-registry-service";
-import { clearProfileLocalData } from "@/app/features/profiles/services/profile-data-cleanup";
+import { finalizeProfileWindowRemoval } from "@/app/features/profiles/services/profile-session-lifecycle";
+import type { ProfileWorkspaceArchiveWriteResult } from "@/app/features/profiles/services/profile-workspace-archive-contracts";
+import { ProfileArchiveResultDialog } from "@/app/features/profiles/components/profile-archive-result-dialog";
 import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
 import { desktopProfileRuntime, useDesktopProfileIsolationSnapshot } from "@/app/features/profiles/services/desktop-profile-runtime";
 import { clearProfileMetadataCache } from "@/app/features/profile/hooks/use-profile-metadata";
@@ -20,6 +22,9 @@ export function ProfileSwitcherCard({ onBeforeSwitch }: Props): React.JSX.Elemen
   const [state, setState] = useState<ActiveProfileState>(() => readState());
   const [newLabel, setNewLabel] = useState("");
   const [renameLabel, setRenameLabel] = useState("");
+  const [removedProfileArchive, setRemovedProfileArchive] = useState<ProfileWorkspaceArchiveWriteResult | null>(null);
+  const [removedProfileLabel, setRemovedProfileLabel] = useState<string | null>(null);
+  const [isRemovedProfileArchiveDialogOpen, setIsRemovedProfileArchiveDialogOpen] = useState(false);
   const isDesktopRuntime = hasNativeRuntime();
   const desktopSnapshot = useDesktopProfileIsolationSnapshot();
 
@@ -128,9 +133,11 @@ export function ProfileSwitcherCard({ onBeforeSwitch }: Props): React.JSX.Elemen
 
     if (isDesktopRuntime) {
       try {
+        const archiveResult = await finalizeProfileWindowRemoval({ profileId, profileLabel: profile.label });
         await desktopProfileRuntime.removeProfile(profileId);
-        await clearProfileLocalData(profileId);
-        toast.success("Profile removed.");
+        setRemovedProfileArchive(archiveResult);
+        setRemovedProfileLabel(profile.label);
+        setIsRemovedProfileArchiveDialogOpen(true);
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Failed to remove profile.");
       }
@@ -142,12 +149,15 @@ export function ProfileSwitcherCard({ onBeforeSwitch }: Props): React.JSX.Elemen
       toast.error(result.message || "Failed to remove profile.");
       return;
     }
-    await clearProfileLocalData(profileId);
+    const archiveResult = await finalizeProfileWindowRemoval({ profileId, profileLabel: profile.label });
     setState(result.value);
-    toast.success("Profile removed.");
+    setRemovedProfileArchive(archiveResult);
+    setRemovedProfileLabel(profile.label);
+    setIsRemovedProfileArchiveDialogOpen(true);
   };
 
   return (
+    <>
     <div id="profiles" className="rounded-2xl border border-black/5 p-4 dark:border-white/10 bg-zinc-50/60 dark:bg-zinc-900/40 space-y-3">
       <div>
         <h3 className="text-sm font-bold">Profiles</h3>
@@ -206,5 +216,19 @@ export function ProfileSwitcherCard({ onBeforeSwitch }: Props): React.JSX.Elemen
         </div>
       </div>
     </div>
+    <ProfileArchiveResultDialog
+      result={removedProfileArchive}
+      isOpen={isRemovedProfileArchiveDialogOpen}
+      profileLabel={removedProfileLabel ?? undefined}
+      title="Profile removed"
+      description="Workspace data was archived before this profile was removed. Use the paths below to find your file."
+      onClose={() => {
+        setIsRemovedProfileArchiveDialogOpen(false);
+        setRemovedProfileArchive(null);
+        setRemovedProfileLabel(null);
+        toast.success("Profile removed.");
+      }}
+    />
+    </>
   );
 }

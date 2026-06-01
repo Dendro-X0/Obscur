@@ -69,6 +69,7 @@ const eslintConfig = defineConfig([
       "app/features/messaging/services/dm-conversation-materialization-load-earlier.ts",
       "app/features/messaging/services/dm-conversation-hydrate-pipeline.ts",
       "app/features/messaging/services/dm-conversation-hydrate-read-model.ts",
+      "app/features/messaging/services/dm-thread-read-model.ts",
       "app/features/messaging/services/dm-conversation-hydrate-sibling-diagnostics.ts",
       "app/features/messaging/services/dm-conversation-hydrate-indexed-scan.ts",
       "app/features/messaging/services/dm-conversation-hydrate-indexed-map-rows.ts",

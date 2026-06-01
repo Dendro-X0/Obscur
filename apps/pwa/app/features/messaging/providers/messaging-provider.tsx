@@ -355,10 +355,6 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const connectionOverridesByConnectionIdRef = React.useRef(connectionOverridesByConnectionId);
     const hydratedScopeKeyRef = React.useRef<string | null>(null);
     const conversationListAuthorityLogKeyRef = React.useRef<string | null>(null);
-    // Initialize persistence service
-    useEffect(() => {
-        messagePersistenceService.init();
-    }, []);
 
     useEffect(() => {
         messagePersistenceService.bindProfileBusChatStateReplaced(optionalProfileBus);

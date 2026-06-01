@@ -140,7 +140,7 @@ describe("community-dm-invite-pipeline", () => {
     expect(deduped[0]?.id).toBe("invite-new");
   });
 
-  it("hides linked response rows when invite is present in thread", () => {
+  it("hides linked incoming response rows when invite is present in thread", () => {
     const inviteId = "inv-456" as CommunityDmInviteId;
     const invite: Message = {
       id: "invite-msg",
@@ -175,5 +175,41 @@ describe("community-dm-invite-pipeline", () => {
     const augmented = augmentCommunityDmInviteThreadMessages([invite, response], "a:b", "default");
     expect(augmented.some((message) => message.id === "response-msg")).toBe(false);
     expect(buildCommunityInviteResponseStatusByMessageId([invite, response]).get("invite-msg")).toBe("accepted");
+  });
+
+  it("keeps outgoing acceptance response rows visible for the accepter", () => {
+    const inviteId = "inv-789" as CommunityDmInviteId;
+    const invite: Message = {
+      id: "invite-inbound",
+      conversationId: "a:b",
+      kind: "user",
+      content: JSON.stringify({
+        type: "community-invite",
+        inviteId,
+        groupId: "g1",
+        roomKey: "rk",
+        metadata: { id: "g1", name: "G" },
+      }),
+      timestamp: new Date(1),
+      isOutgoing: false,
+      status: "delivered",
+    };
+    const response: Message = {
+      id: "response-outbound",
+      conversationId: "a:b",
+      kind: "user",
+      content: JSON.stringify({
+        type: "community-invite-response",
+        inviteId,
+        status: "accepted",
+        groupId: "g1",
+      }),
+      timestamp: new Date(2),
+      isOutgoing: true,
+      status: "delivered",
+    };
+
+    const augmented = augmentCommunityDmInviteThreadMessages([invite, response], "a:b", "default");
+    expect(augmented.some((message) => message.id === "response-outbound")).toBe(true);
   });
 });

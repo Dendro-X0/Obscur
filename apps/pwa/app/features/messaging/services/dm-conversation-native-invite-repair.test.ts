@@ -16,6 +16,10 @@ vi.mock("./chat-state-store", () => ({
   chatStateStoreService: chatStateMocks,
 }));
 
+vi.mock("@/app/features/profiles/services/account-shared-sqlite-profile-ids", () => ({
+  listAccountSharedSqliteProfileIds: vi.fn(({ primaryProfileId }: { primaryProfileId: string }) => [primaryProfileId]),
+}));
+
 import { loadNativeOutgoingCommunityInviteRepairMessages } from "./dm-conversation-native-invite-repair";
 
 const myPk = "a".repeat(64) as PublicKeyHex;
@@ -59,6 +63,39 @@ describe("loadNativeOutgoingCommunityInviteRepairMessages", () => {
     expect(repaired[0]?.eventId).toBe("rumor-id");
     expect(dbMocks.dbInsertMessage).toHaveBeenCalledWith(
       expect.objectContaining({ event_id: "rumor-id" }),
+    );
+  });
+
+  it("repairs outgoing community invite responses from profile-scoped chat-state", () => {
+    const responseContent = JSON.stringify({
+      type: "community-invite-response",
+      inviteId: "inv-1",
+      status: "accepted",
+      groupId: "group-1",
+    });
+    chatStateMocks.load.mockReturnValue({
+      messagesByConversationId: {
+        [conversationId]: [{
+          id: "response-local",
+          eventId: "response-event",
+          content: responseContent,
+          timestampMs: 1_700_000_000_001,
+          isOutgoing: true,
+          pubkey: myPk,
+        }],
+      },
+    });
+
+    const repaired = loadNativeOutgoingCommunityInviteRepairMessages({
+      conversationIds: [conversationId],
+      myPublicKeyHex: myPk,
+      profileId: "profile-2",
+    });
+
+    expect(repaired).toHaveLength(1);
+    expect(repaired[0]?.id).toBe("response-event");
+    expect(dbMocks.dbInsertMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ event_id: "response-event", is_outgoing: true }),
     );
   });
 
