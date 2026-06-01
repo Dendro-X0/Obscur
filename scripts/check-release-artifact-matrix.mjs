@@ -27,7 +27,7 @@ const requiredSnippets = [
   "*.aab",
   "*.tar.gz",
   "output-metadata.json",
-  "Run release artifact version parity check",
+  "release:artifact-version-parity",
 ];
 
 const missing = requiredSnippets.filter((snippet) => !content.toLowerCase().includes(snippet.toLowerCase()));

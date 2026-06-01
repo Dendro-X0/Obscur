@@ -18,9 +18,9 @@ const requiredSnippets = [
   "verify-desktop-bundle-filenames.mjs",
   "Sync product version (desktop)",
   "Clear stale desktop bundle output",
-  "Run release artifact version parity check (desktop + Android)",
+  "Verify release artifacts (matrix + version parity)",
   "pnpm release:artifact-version-parity -- --assets-dir release-assets",
-  "Verify release file version parity",
+  "resolve-release-version",
   "android_signing_state",
   "ios_lane_state",
 ];

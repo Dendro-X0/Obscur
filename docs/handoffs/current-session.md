@@ -1,7 +1,7 @@
 # Current Session Handoff — Obscur (native-first)
 
 - Last Updated (UTC): 2026-05-29T20:00:00Z
-- Session Status: **v1.8.12** — release parity (R12) + Android P1 wrap-up (P12); v1.8.11 shipped imperfect
+- Session Status: **v1.8.13** — simplified release CI (R13) + ship R12 parity; v1.8.12 void; production release still v1.8.11
 - Active Owner: Maintainer
 
 ## Public posture (maintainer policy)
@@ -12,23 +12,23 @@
 
 ## Active objective
 
-**Primary lane:** **`v1.8.12`** — [v1.8.12-scope.md](../program/v1.8.12-scope.md) · [v1.8.12-gate.md](../releases/v1.8.12-gate.md)
+**Primary lane:** **`v1.8.13`** — [v1.8.13-scope.md](../program/v1.8.13-scope.md) · [v1.8.13-gate.md](../releases/v1.8.13-gate.md)
 
 | Track | Deliverable |
 |-------|-------------|
-| **R12** | Desktop + Android release artifact version parity (fix v1.8.11 desktop `1.8.10` mismatch) |
-| **P12** | Android P1 wrap-up — install, cold start, mobile UX pass |
+| **R13** | Simplified Obscur Full Release (dispatch re-run, merged verify, no duplicate test-pack) |
+| **R12 carry** | Desktop + Android artifact version parity on **v1.8.13** tag only |
+| **P12 carry** | Android smoke (manual — [v1.8.12 demo](../assets/demo/v1.8.12/README.md)) |
 
-**Ship path:** Installer includes **desktop + mobile only** (no standalone PWA/web installer target).
+**Do not publish `v1.8.12`** — tag is void; production GitHub Release remains **v1.8.11** until **v1.8.13** ships.
 
 **Sequence:**
 
-1. ~~**v1.8.11**~~ — **Shipped** 2026-05-29 (B1 + desktop online; desktop installers imperfect).
-2. **R12** — Workflow + parity scripts landed on `main`; **R12-3** pending: tag `v1.8.12` + Obscur Full Release (`publish_release`).
-3. **P12** — Run `pnpm p12:android-smoke -- --build --wait-device=180` on emulator; complete UX checklist in [v1.8.12 demo](../assets/demo/v1.8.12/README.md).
-4. Tag **`v1.8.12`** when automated + manual gates pass.
+1. Push **`v1.8.13`** bump + CI simplification to `main`.
+2. **workflow_dispatch** Obscur Full Release on `main` (re-run builds without burning a tag).
+3. When verify green: `git tag -a v1.8.13` + push tag **once**, or dispatch publish with `release_tag=v1.8.13`.
 
-**Parked:** B1 live Test B1 (operator); B2 inbound bots (**v1.8.13+**).
+**Parked:** B2 inbound bots (**v1.8.14+**).
 
 Charter refs: [obscur-offline-first-policy.md](../program/obscur-offline-first-policy.md), [obscur-2.0-milestone-roadmap.md](../program/obscur-2.0-milestone-roadmap.md) Lane **P**, [mobile-desktop-version-policy.md](../program/mobile-desktop-version-policy.md).
 

@@ -6,11 +6,19 @@ All notable changes to Obscur are documented here.
 
 ---
 
-## [Unreleased] — v1.8.12 (release parity + Android P1)
+## [Unreleased] — v1.8.13 (simplified release CI + R12 ship)
 
-**Gate:** [v1.8.12-gate.md](docs/releases/v1.8.12-gate.md). **Scope:** [v1.8.12-scope.md](docs/program/v1.8.12-scope.md).
+**Gate:** [v1.8.13-gate.md](docs/releases/v1.8.13-gate.md). **Scope:** [v1.8.13-scope.md](docs/program/v1.8.13-scope.md).
 
-### Planned
+**Note:** `v1.8.12` on `main` is **void** — do not publish that tag. Production release remains **v1.8.11** until **v1.8.13** artifacts ship.
+
+### Changed (R13 — release CI)
+
+- **Obscur Full Release** — `workflow_dispatch` can rebuild without a new tag; optional `release_tag` for publish from `main`.
+- **Preflight** — removed duplicate `release:test-pack` (already gated on `main` via `reliability-gates`).
+- **Verify** — single step: artifact matrix + version parity (AAB binary fallback when bundle metadata rows missing).
+
+### Carried from v1.8.12 (unreleased tag)
 
 - **P12** — Manual UX checklist + unlock smoke on emulator (see demo matrix).
 

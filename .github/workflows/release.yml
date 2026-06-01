@@ -1,13 +1,19 @@
 name: Obscur Full Release
 
+# Build: tag push OR manual workflow_dispatch (re-run without burning a new tag).
+# Publish: tag push OR dispatch with publish_release + optional release_tag on main.
 on:
   workflow_dispatch:
     inputs:
       publish_release:
-        description: "Publish GitHub Release after build/verification"
+        description: "Publish GitHub Release after verify (set release_tag when running from main)"
         required: false
         default: false
         type: boolean
+      release_tag:
+        description: "Release tag (e.g. v1.8.13). Empty on tag push; on main dispatch uses package.json version."
+        required: false
+        type: string
   push:
     tags:
       - "v*"
@@ -16,7 +22,39 @@ permissions:
   contents: write
 
 jobs:
+  resolve-release-version:
+    name: Resolve release version
+    runs-on: ubuntu-latest
+    outputs:
+      semver: ${{ steps.resolve.outputs.semver }}
+      tag: ${{ steps.resolve.outputs.tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve tag and semver
+        id: resolve
+        shell: bash
+        run: |
+          set -euo pipefail
+          INPUT_TAG="${{ github.event.inputs.release_tag }}"
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            TAG="${GITHUB_REF_NAME}"
+          elif [[ -n "${INPUT_TAG}" ]]; then
+            TAG="${INPUT_TAG}"
+          else
+            VERSION="$(node -p "require('./package.json').version")"
+            TAG="v${VERSION}"
+          fi
+          TAG="${TAG#v}"
+          TAG="v${TAG}"
+          SEMVER="${TAG#v}"
+          echo "semver=${SEMVER}" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "Resolved release: tag=${TAG} semver=${SEMVER}"
+
   relay-runtime-smoke:
+    needs: [resolve-release-version]
     name: Relay Runtime Smoke
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -54,7 +92,7 @@ jobs:
 
   preflight-checks:
     name: Preflight Checks
-    needs: [relay-runtime-smoke]
+    needs: [resolve-release-version, relay-runtime-smoke]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -83,10 +121,7 @@ jobs:
       - name: Check docs consistency
         run: pnpm docs:check
 
-      - name: Run release test pack (reliability gate)
-        env:
-          RELEASE_TEST_PACK_SKIP_PREFLIGHT: "1"
-        run: pnpm release:test-pack -- --skip-preflight
+      # release:test-pack runs on every main push via reliability-gates — avoid duplicate ~3m gate here.
 
   build-desktop:
     name: Build Desktop (${{ matrix.os }})
@@ -651,7 +686,7 @@ jobs:
 
   verify-artifacts:
     name: Verify Artifacts
-    needs: [preflight-checks, build-desktop, build-web-pwa, build-android, build-ios]
+    needs: [resolve-release-version, preflight-checks, build-desktop, build-web-pwa, build-android, build-ios]
     if: ${{ always() && needs.preflight-checks.result == 'success' && needs.build-desktop.result == 'success' && needs.build-web-pwa.result == 'success' && needs.build-android.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
@@ -729,113 +764,60 @@ jobs:
           path: release-assets/streaming-update
           if-no-files-found: error
 
-      - name: Run release artifact version parity check (desktop + Android)
+      - name: Verify release artifacts (matrix + version parity)
+        env:
+          ANDROID_JOB_RESULT: ${{ needs.build-android.result }}
+          EXPECTED_VERSION: ${{ needs.resolve-release-version.outputs.semver }}
+        shell: bash
         run: |
-          echo "Android metadata files before parity:"
-          find release-assets/android -name output-metadata.json 2>/dev/null | sort || true
-          echo "Android binaries before parity:"
-          find release-assets/android -type f \( -iname '*.apk' -o -iname '*.aab' \) 2>/dev/null | sort || true
-          pnpm release:artifact-version-parity -- --assets-dir release-assets
+          set -euo pipefail
+          echo "Release asset tree:"
+          find release-assets -maxdepth 4 -type f | sort || true
+
+          has_windows_installer=0
+          find release-assets/windows -type f \( -iname "*.exe" -o -iname "*.msi" \) | grep -q . && has_windows_installer=1
+          has_macos_installer=0
+          find release-assets/macos -type f -iname "*.dmg" | grep -q . && has_macos_installer=1
+          has_linux_installer=0
+          find release-assets/linux -type f \( -iname "*.appimage" -o -iname "*.deb" \) | grep -q . && has_linux_installer=1
+          has_android_apk=0
+          find release-assets/android -type f -iname "*.apk" | grep -q . && has_android_apk=1
+          has_android_aab=0
+          find release-assets/android -type f -iname "*.aab" | grep -q . && has_android_aab=1
+          has_web_bundle=0
+          find release-assets/web -type f -iname "*.tar.gz" | grep -q . && has_web_bundle=1
+
+          echo "Artifact matrix: win=${has_windows_installer} mac=${has_macos_installer} linux=${has_linux_installer} apk=${has_android_apk} aab=${has_android_aab} web=${has_web_bundle}"
+
+          missing=0
+          [ "$has_windows_installer" -eq 1 ] || { echo "Missing Windows installer." >&2; missing=1; }
+          [ "$has_macos_installer" -eq 1 ] || { echo "Missing macOS installer." >&2; missing=1; }
+          [ "$has_linux_installer" -eq 1 ] || { echo "Missing Linux installer." >&2; missing=1; }
+          [ "${ANDROID_JOB_RESULT}" = "success" ] || { echo "Android job failed: ${ANDROID_JOB_RESULT}" >&2; missing=1; }
+          [ "$has_android_apk" -eq 1 ] || { echo "Missing Android APK." >&2; missing=1; }
+          [ "$has_android_aab" -eq 1 ] || { echo "Missing Android AAB." >&2; missing=1; }
+          [ "$has_web_bundle" -eq 1 ] || { echo "Missing Web/PWA bundle." >&2; missing=1; }
+          [ "$missing" -eq 0 ] || exit 1
+
+          pnpm release:artifact-version-parity -- --assets-dir release-assets --expected-version "${EXPECTED_VERSION}"
 
       - name: Release lane summary
         shell: bash
         run: |
           {
             echo "### Release Lane Summary";
+            echo "- release_tag: ${{ needs.resolve-release-version.outputs.tag }}";
             echo "- android_job_result: ${{ needs.build-android.result }}";
             echo "- android_signing_state: ${{ needs.build-android.outputs.android_signing_state != '' && needs.build-android.outputs.android_signing_state || 'unavailable' }}";
             echo "- desktop_signing_state: unsigned (by design)";
             echo "- ios_lane_state: ${{ needs.ios-precheck.outputs.ios_lane_state }}";
-            echo "- android_version_parity: blocking (desktop + Android parity step)";
+            echo "- verify: single matrix + parity step";
           } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Verify required artifact matrix
-        shell: bash
-        env:
-          ANDROID_JOB_RESULT: ${{ needs.build-android.result }}
-        run: |
-          set -euo pipefail
-
-          echo "Release asset tree:"
-          find release-assets -maxdepth 3 -type f | sort || true
-
-          has_windows_installer=0
-          if find release-assets/windows -type f \( -iname "*.exe" -o -iname "*.msi" \) | grep -q .; then
-            has_windows_installer=1
-          fi
-
-          has_macos_installer=0
-          if find release-assets/macos -type f -iname "*.dmg" | grep -q .; then
-            has_macos_installer=1
-          fi
-
-          has_linux_installer=0
-          if find release-assets/linux -type f \( -iname "*.appimage" -o -iname "*.deb" \) | grep -q .; then
-            has_linux_installer=1
-          fi
-
-          has_android_apk=0
-          if find release-assets/android -type f -iname "*.apk" | grep -q .; then
-            has_android_apk=1
-          fi
-
-          has_android_aab=0
-          if find release-assets/android -type f -iname "*.aab" | grep -q .; then
-            has_android_aab=1
-          fi
-
-          has_web_bundle=0
-          if find release-assets/web -type f -iname "*.tar.gz" | grep -q .; then
-            has_web_bundle=1
-          fi
-
-          echo "Artifact matrix status:"
-          echo "- windows installer (.exe/.msi): ${has_windows_installer}"
-          echo "- macOS installer (.dmg): ${has_macos_installer}"
-          echo "- linux installer (.AppImage/.deb): ${has_linux_installer}"
-          echo "- android apk (.apk): ${has_android_apk}"
-          echo "- android aab (.aab): ${has_android_aab}"
-          echo "- web pwa bundle (.tar.gz): ${has_web_bundle}"
-          echo "- updater feed (latest.json): $(find release-assets/streaming-update -type f -iname \"latest.json\" | wc -l || true)"
-          echo "- ios ipa (.ipa, optional): $(find release-assets/ios -type f -iname \"*.ipa\" | wc -l || true)"
-          echo "- android build result: ${ANDROID_JOB_RESULT}"
-
-          if [ "$has_windows_installer" -ne 1 ]; then
-            echo "Missing required Windows installer (.exe or .msi)." >&2
-            exit 1
-          fi
-          if [ "$has_macos_installer" -ne 1 ]; then
-            echo "Missing required macOS installer (.dmg)." >&2
-            exit 1
-          fi
-          if [ "$has_linux_installer" -ne 1 ]; then
-            echo "Missing required Linux installer (.AppImage or .deb)." >&2
-            exit 1
-          fi
-          if [ "${ANDROID_JOB_RESULT}" != "success" ]; then
-            echo "Android build is required for versioned releases but finished with: ${ANDROID_JOB_RESULT}" >&2
-            exit 1
-          fi
-          if [ "$has_android_apk" -ne 1 ]; then
-            echo "Android build succeeded but APK artifact is missing (.apk)." >&2
-            exit 1
-          fi
-          if [ "$has_android_aab" -ne 1 ]; then
-            echo "Android build succeeded but AAB artifact is missing (.aab)." >&2
-            exit 1
-          fi
-          if [ "$has_web_bundle" -ne 1 ]; then
-            echo "Missing required Web/PWA static bundle (.tar.gz)." >&2
-            exit 1
-          fi
-          echo "Tauri updater feed (latest.json) is optional - unsigned builds by design."
-
-          echo "Required artifact matrix verified."
 
   publish-release:
     name: Publish Release
-    needs: [verify-artifacts]
-    if: ${{ startsWith(github.ref, 'refs/tags/v') && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.publish_release == true)) }}
+    needs: [resolve-release-version, verify-artifacts]
+    if: ${{ needs.verify-artifacts.result == 'success' && ((github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) || (github.event_name == 'workflow_dispatch' && inputs.publish_release == true)) }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -909,7 +891,8 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p ./release-files
-          VERSION="${GITHUB_REF_NAME#v}"
+          VERSION="${{ needs.resolve-release-version.outputs.semver }}"
+          TAG="${{ needs.resolve-release-version.outputs.tag }}"
 
           copy_desktop_installer() {
             local src="$1"
@@ -979,15 +962,12 @@ jobs:
             fi
           done < <(find ./release-files -maxdepth 1 -type f \( -iname "*.exe" -o -iname "*.msi" -o -iname "*.dmg" -o -iname "*.AppImage" \) | sort)
 
-      - name: Verify release file version parity
-        run: pnpm release:artifact-version-parity -- --assets-dir release-assets --expected-version "${{ github.ref_name }}"
-
       - name: Create GitHub Release
         id: create_release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
-          name: "Obscur ${{ github.ref_name }}"
+          tag_name: ${{ needs.resolve-release-version.outputs.tag }}
+          name: "Obscur ${{ needs.resolve-release-version.outputs.tag }}"
           draft: false
           prerelease: false
           generate_release_notes: true

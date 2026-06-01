@@ -1,6 +1,6 @@
 {
   "name": "pwa",
-  "version": "1.8.12",
+  "version": "1.8.13",
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack --hostname 127.0.0.1 --port 3340",
