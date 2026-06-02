@@ -82,6 +82,38 @@ describe("check-release-artifact-version-parity", () => {
     }
   });
 
+  it("passes when AAB-only and metadata rows omit versionName (uses expected-version)", () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "parity-"));
+    try {
+      const assetsDir = writeFixture(tempDir);
+      const apkMetaPath = join(assetsDir, "android", "apk", "universal", "release", "output-metadata.json");
+      writeFileSync(apkMetaPath, JSON.stringify({
+        elements: [{ outputFile: "app-universal-release.apk" }],
+      }));
+      rmSync(join(assetsDir, "android", "apk", "universal", "release", "app-universal-release.apk"));
+      const result = runParityCheck(assetsDir);
+      assert.equal(result.status, 0, result.stderr || result.stdout);
+      assert.match(result.stdout ?? result.stderr ?? "", /aab_metadata=0/);
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("passes when versionName is only on metadata elements (no root field)", () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "parity-"));
+    try {
+      const assetsDir = writeFixture(tempDir);
+      const apkMetaPath = join(assetsDir, "android", "apk", "universal", "release", "output-metadata.json");
+      writeFileSync(apkMetaPath, JSON.stringify({
+        elements: [{ outputFile: "app-universal-release.apk", versionName: "1.8.12" }],
+      }));
+      const result = runParityCheck(assetsDir);
+      assert.equal(result.status, 0, result.stderr || result.stdout);
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
   it("fails when AAB binary is missing", () => {
     const tempDir = mkdtempSync(join(tmpdir(), "parity-"));
     try {

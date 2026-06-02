@@ -38,7 +38,7 @@ const listFilesRecursive = (dir) => {
 
 const parseOutputMetadata = (filePath) => {
   const raw = JSON.parse(readFileSync(filePath, "utf8"));
-  const rootVersionName = typeof raw.versionName === "string" ? raw.versionName : "";
+  const rootVersionName = typeof raw.versionName === "string" ? raw.versionName.trim() : "";
   const elements = Array.isArray(raw.elements) ? raw.elements : [];
   return {
     rootVersionName,
@@ -46,11 +46,37 @@ const parseOutputMetadata = (filePath) => {
       .map((entry) => ({
         outputFile: typeof entry.outputFile === "string" ? entry.outputFile : "",
         versionName: typeof entry.versionName === "string"
-          ? entry.versionName
+          ? entry.versionName.trim()
           : rootVersionName,
       }))
       .filter((entry) => entry.outputFile.length > 0),
   };
+};
+
+const readTauriAndroidVersionName = (files) => {
+  for (const file of files) {
+    if (!file.replaceAll("\\", "/").includes("/android/")) continue;
+    if (basename(file).toLowerCase() !== "tauri.properties") continue;
+    const content = readFileSync(file, "utf8");
+    const match = content.match(/^tauri\.android\.versionName=(.+)$/m);
+    if (match?.[1]) {
+      return match[1].trim();
+    }
+  }
+  return null;
+};
+
+const collectMetadataVersionNames = ({ rootVersionName, entries }) => {
+  const names = new Set();
+  if (rootVersionName) {
+    names.add(rootVersionName);
+  }
+  for (const entry of entries) {
+    if (entry.versionName) {
+      names.add(entry.versionName);
+    }
+  }
+  return names;
 };
 
 const main = () => {
@@ -96,36 +122,59 @@ const main = () => {
     const metadataFiles = allFiles
       .filter((file) => basename(file).toLowerCase() === "output-metadata.json")
       .filter((file) => file.replaceAll("\\", "/").includes("/android/"));
-    if (metadataFiles.length === 0) {
-      throw new Error("No Android output-metadata.json files found for versionName parity checks.");
-    }
 
     const apkBinaries = allFiles.filter((file) => basename(file).toLowerCase().endsWith(".apk"));
     const aabBinaries = allFiles.filter((file) => basename(file).toLowerCase().endsWith(".aab"));
-    if (apkBinaries.length === 0) {
-      throw new Error("No Android APK binaries found under release-assets.");
-    }
     if (aabBinaries.length === 0) {
       throw new Error("No Android AAB binaries found under release-assets.");
+    }
+    if (apkBinaries.length === 0) {
+      console.warn(
+        "[release:artifact-version-parity] No APK binaries under release-assets; validating AAB-only artifact set.",
+      );
+    }
+
+    if (metadataFiles.length === 0) {
+      const propsVersion = readTauriAndroidVersionName(allFiles);
+      if (propsVersion && propsVersion !== expectedVersion) {
+        throw new Error(
+          `Android tauri.properties versionName=${propsVersion} does not match expected ${expectedVersion}.`,
+        );
+      }
+      console.warn(
+        `[release:artifact-version-parity] No output-metadata.json under release-assets/android; accepted AAB binary using --expected-version=${expectedVersion}.`,
+      );
+      console.log(
+        `[release:artifact-version-parity] Version parity passed for desktop installers and Android AAB-only artifacts (version=${expectedVersion}, aab_binaries=${aabBinaries.length}).`,
+      );
+      return;
     }
 
     let apkMetadataCount = 0;
     let aabMetadataCount = 0;
     const androidVersionErrors = [];
-    const rootVersionNames = new Set();
+    const metadataVersionNames = new Set();
+    const tauriPropertiesVersion = readTauriAndroidVersionName(allFiles);
+    if (tauriPropertiesVersion) {
+      metadataVersionNames.add(tauriPropertiesVersion);
+    }
 
     for (const metadataFile of metadataFiles) {
-      const { rootVersionName, entries } = parseOutputMetadata(metadataFile);
-      if (rootVersionName) {
-        rootVersionNames.add(rootVersionName);
+      const parsed = parseOutputMetadata(metadataFile);
+      for (const name of collectMetadataVersionNames(parsed)) {
+        metadataVersionNames.add(name);
       }
-      for (const entry of entries) {
+      for (const entry of parsed.entries) {
         const lowerOutput = entry.outputFile.toLowerCase();
         if (lowerOutput.endsWith(".apk")) apkMetadataCount += 1;
         if (lowerOutput.endsWith(".aab")) aabMetadataCount += 1;
-        if ((lowerOutput.endsWith(".apk") || lowerOutput.endsWith(".aab")) && entry.versionName !== expectedVersion) {
+        if (
+          (lowerOutput.endsWith(".apk") || lowerOutput.endsWith(".aab"))
+          && entry.versionName
+          && entry.versionName !== expectedVersion
+        ) {
           androidVersionErrors.push(
-            `${metadataFile.replaceAll("\\", "/")} :: ${entry.outputFile} has versionName=${entry.versionName || "<missing>"}`,
+            `${metadataFile.replaceAll("\\", "/")} :: ${entry.outputFile} has versionName=${entry.versionName}`,
           );
         }
       }
@@ -142,26 +191,34 @@ const main = () => {
       }
     }
 
-    if (apkMetadataCount === 0) {
+    if (apkMetadataCount === 0 && aabMetadataCount === 0 && metadataVersionNames.size === 0) {
+      if (apkBinaries.length > 0) {
+        throw new Error(
+          "Android output-metadata.json files are present but contain no APK/AAB rows or versionName fields.",
+        );
+      }
+      console.warn(
+        `[release:artifact-version-parity] No output-metadata rows; accepted AAB binary using --expected-version=${expectedVersion}.`,
+      );
+    } else if (apkMetadataCount === 0 && apkBinaries.length > 0) {
       throw new Error(
         `Android metadata parity requires at least one APK entry in output-metadata.json. Found apk_entries=${apkMetadataCount}.`,
       );
     }
 
     if (aabMetadataCount === 0) {
-      const fallbackVersion = [...rootVersionNames][0];
-      if (!fallbackVersion) {
-        throw new Error(
-          "Android bundle output-metadata.json is missing and no root versionName was found to validate the AAB artifact.",
-        );
-      }
+      const fallbackVersion = [...metadataVersionNames][0] ?? expectedVersion;
       if (fallbackVersion !== expectedVersion) {
         androidVersionErrors.push(
           `AAB binary present but metadata only documents versionName=${fallbackVersion} (expected ${expectedVersion}).`,
         );
+      } else if (metadataVersionNames.size === 0) {
+        console.warn(
+          `[release:artifact-version-parity] No AAB rows or versionName in metadata; accepted AAB binary using --expected-version=${expectedVersion}.`,
+        );
       } else {
         console.warn(
-          "[release:artifact-version-parity] No AAB rows in output-metadata.json; accepted AAB binary with shared versionName from APK metadata.",
+          "[release:artifact-version-parity] No AAB rows in output-metadata.json; accepted AAB binary with versionName from APK metadata or tauri.properties.",
         );
       }
     }

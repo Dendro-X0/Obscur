@@ -576,6 +576,7 @@ jobs:
           path: |
             apps/desktop/src-tauri/gen/android/app/build/outputs/apk/**/output-metadata.json
             apps/desktop/src-tauri/gen/android/app/build/outputs/bundle/**/output-metadata.json
+            apps/desktop/src-tauri/gen/android/app/tauri.properties
           if-no-files-found: error
 
       - name: Android signing summary
