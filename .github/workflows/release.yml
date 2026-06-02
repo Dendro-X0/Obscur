@@ -764,6 +764,7 @@ jobs:
           path: release-assets/streaming-update
           if-no-files-found: error
 
+      # Run release artifact version parity check (desktop + android)
       - name: Verify release artifacts (matrix + version parity)
         env:
           ANDROID_JOB_RESULT: ${{ needs.build-android.result }}
