@@ -1,6 +1,6 @@
 {
   "name": "@dweb/core",
-  "version": "1.8.13",
+  "version": "1.8.14",
   "private": true,
   "type": "module",
   "dependencies": {
@@ -19,6 +19,7 @@
     "./community-content-contracts": "./src/community-content-contracts.ts",
     "./community-media-descriptor-contracts": "./src/community-media-descriptor-contracts.ts",
     "./community-descriptor-contracts": "./src/community-descriptor-contracts.ts",
+    "./community-bot-triggers-contracts": "./src/community-bot-triggers-contracts.ts",
     "./community-runtime-contracts": "./src/community-runtime-contracts.ts",
     "./profile-message-bus": "./src/profile-message-bus.ts"
   }

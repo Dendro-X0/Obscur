@@ -6,11 +6,41 @@ All notable changes to Obscur are documented here.
 
 ---
 
-## [Unreleased] — v1.8.13 (simplified release CI + R12 ship)
+## [Unreleased] — v1.8.14 (batch exit: P13 + B2 + Wave 3 trust)
 
-**Gate:** [v1.8.13-gate.md](docs/releases/v1.8.13-gate.md). **Scope:** [v1.8.13-scope.md](docs/program/v1.8.13-scope.md).
+**Gate:** [v1.8.14-gate.md](docs/releases/v1.8.14-gate.md). **Scope:** [v1.8.14-scope.md](docs/program/v1.8.14-scope.md).
 
-**Note:** `v1.8.12` on `main` is **void** — do not publish that tag. Production release remains **v1.8.11** until **v1.8.13** artifacts ship.
+**Note:** `v1.8.12` on `main` is **void** — do not publish that tag. Production release remains **v1.8.11** until **v1.8.14** (or **v1.8.13** if R13 ships alone first).
+
+### Added (B2 — inbound community bots)
+
+- **`botTriggers`** descriptor contract — keyword / mention / schedule triggers on managed workspaces.
+- **`scripts/community-inbound-bot.mjs`** — subscribe, match, reply via sealed publish; crypto decrypt tests.
+- **Steward UX** — enable/disable triggers per bot in Manage hub.
+- **Runbook** — [community-inbound-bot.md](docs/messaging/community-inbound-bot.md) with rate-limit copy.
+
+### Changed (P13 — mobile shell + chat-thread polish)
+
+- **Status strip** — suppress restore/sync/relay notices during account load; scope mismatch still shown.
+- **Conversation row** — timestamp centered beside preview; direction-aware invitation previews.
+- **Composer** — removed amber relay queue / cooling-down footer banners.
+- **Message list** — mobile action dock below bubble; sustained touch (~420ms) shows dock like hover.
+
+### Fixed (Wave 3 — trust slices)
+
+- **REL-003** — Named profiles no longer seed shared legacy membership ledger key; bootstrap restore preserves fresh-device rebind.
+- **REL-004** — Leave outbox durability verified; settings bulk-leave audit path corrected.
+- **MEM-002** — Membership read-model index loads terminal left/expelled cache; window listeners filter by `profileId`.
+- **MEM-005** — Inviter terminal invite (declined/canceled) clears relay-joined roster via `group-invite-terminal` bus.
+
+### Carried from v1.8.13 (R13 — release CI)
+
+- **Obscur Full Release** — `workflow_dispatch` rebuild without new tag; optional `release_tag` for publish from `main`.
+- **Artifact parity** — desktop + Android version checks; AAB binary fallback when bundle metadata rows missing.
+
+---
+
+## [v1.8.13] — simplified release CI + R12 ship (unreleased on GitHub)
 
 ### Changed (R13 — release CI)
 

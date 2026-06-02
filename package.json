@@ -1,7 +1,7 @@
 {
   "name": "dweb-messenger",
   "private": true,
-  "version": "1.8.13",
+  "version": "1.8.14",
   "packageManager": "pnpm@9.15.4",
   "engines": {
     "node": ">=20.11.0"
@@ -82,12 +82,14 @@
     "ci:community-relay-hide-smoke": "node scripts/community-relay-hide-suppress-smoke.mjs",
     "operator-relay:compact": "node scripts/operator-relay-storage-compact.mjs",
     "community-outbound-bot": "node scripts/community-outbound-bot.mjs",
+    "community-inbound-bot": "node scripts/community-inbound-bot.mjs",
     "test:community-outbound-bot": "node --test scripts/community-outbound-bot.test.mjs",
+    "test:community-inbound-bot": "node --test scripts/community-inbound-bot.test.mjs",
     "test:release-artifact-version-parity": "node --test scripts/check-release-artifact-version-parity.test.mjs",
     "test:dev-stack-probes": "node --test scripts/lib/dev-stack-probes.test.mjs",
     "test:operator-relay-compact": "node --test scripts/operator-relay-storage-compact.test.mjs",
     "ci:community-bot-descriptor-smoke": "node scripts/community-bot-descriptor-contract-smoke.mjs",
-    "test:community-bot-descriptor": "pnpm -C apps/pwa exec vitest run app/features/groups/services/community-bot-policy.test.ts app/features/groups/services/community-bot-message-policy.test.ts",
+    "test:community-bot-descriptor": "pnpm -C apps/pwa exec vitest run app/features/groups/services/community-bot-policy.test.ts app/features/groups/services/community-bot-message-policy.test.ts app/features/groups/services/community-bot-triggers-policy.test.ts",
     "ci:hide-registry-persist-smoke": "node scripts/community-relay-hide-registry-persist-smoke.mjs",
     "ci:scan:pwa": "node scripts/pwa-ci-scan.mjs",
     "ci:scan:pwa:head": "node scripts/pwa-ci-scan-head.mjs",

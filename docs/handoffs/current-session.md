@@ -1,7 +1,7 @@
 # Current Session Handoff — Obscur (native-first)
 
-- Last Updated (UTC): 2026-05-29T20:00:00Z
-- Session Status: **v1.8.13** — simplified release CI (R13) + ship R12 parity; v1.8.12 void; production release still v1.8.11
+- Last Updated (UTC): 2026-05-29T21:35:00Z
+- Session Status: **Batch exit ready** — **v1.8.14** version bump + scope/gate docs; Wave 3 complete (partial REL-003/MEM-002); production release still **v1.8.11**
 - Active Owner: Maintainer
 
 ## Public posture (maintainer policy)
@@ -12,23 +12,101 @@
 
 ## Active objective
 
-**Primary lane:** **`v1.8.13`** — [v1.8.13-scope.md](../program/v1.8.13-scope.md) · [v1.8.13-gate.md](../releases/v1.8.13-gate.md)
+**Primary lane:** [v1.8.x-batch-implementation-lane.md](../program/v1.8.x-batch-implementation-lane.md)
 
-| Track | Deliverable |
-|-------|-------------|
-| **R13** | Simplified Obscur Full Release (dispatch re-run, merged verify, no duplicate test-pack) |
-| **R12 carry** | Desktop + Android artifact version parity on **v1.8.13** tag only |
-| **P12 carry** | Android smoke (manual — [v1.8.12 demo](../assets/demo/v1.8.12/README.md)) |
+| Phase | What | Gate |
+|-------|------|------|
+| **Implement** | Wave 1 **P13** mobile polish → Wave 2 **B2** bots → Wave 3 trust slices | Vitest + `release:test-pack` on push |
+| **Verify** | [deferred-manual-verification-checklist.md](../program/deferred-manual-verification-checklist.md) | When maintainer has time / environment — **not** blocking merges |
+| **Publish** | One tag after batch exit | Optional Full Release; no tag for CI-only |
 
-**Do not publish `v1.8.12`** — tag is void; production GitHub Release remains **v1.8.11** until **v1.8.13** ships.
+**Wave 0 (on `main`, code complete):** profile windows, presence session, soft DM refresh, relay primary policy, mobile P12-hotfix, parity scripts — see checklist §1 / §5 / §7.
 
-**Sequence:**
+**Next atomic step:** **Wave 5 publish** — push `main`, optional Full Release dispatch on `main`, tag **`v1.8.14`** when ready ([v1.8.14-gate.md](../releases/v1.8.14-gate.md)). Deferred: REL-003 memory caches, P14, manual checklist.
 
-1. Push **`v1.8.13`** bump + CI simplification to `main`.
-2. **workflow_dispatch** Obscur Full Release on `main` (re-run builds without burning a tag).
-3. When verify green: `git tag -a v1.8.13` + push tag **once**, or dispatch publish with `release_tag=v1.8.13`.
+## Batch exit prep (v1.8.14 — 2026-05-29)
 
-**Parked:** B2 inbound bots (**v1.8.14+**).
+| Piece | Effect |
+|-------|--------|
+| `pnpm version:bump patch` | Workspace **1.8.14** (Tauri + Android versionCode 10814) |
+| `v1.8.14-scope.md` / `v1.8.14-gate.md` | Batch exit scope: P13 + B2 + Wave 3 + carried R13 |
+| `CHANGELOG.md` | Unreleased v1.8.14 section |
+| Release train + batch lane | Batch exit **ready to tag** |
+
+**Evidence:** `pnpm version:check`, `pnpm release:test-pack -- --skip-preflight` (run before push/tag).
+
+## Recently shipped (Wave 3 MEM-005 — 2026-05-29)
+
+| Piece | Effect |
+|-------|--------|
+| `group-invite-terminal` bus event | Inviter hears declined/canceled invite responses via profile bus |
+| `community-invite-terminal-membership.ts` | Persists terminal left evidence and removes peer from relay-joined roster |
+| `group-provider.tsx` | `handleInviteTerminalDetail` clears member lists, roster projection, known-participants directory |
+| `incoming-dm-event-handler.ts` + `community-invite-card.tsx` | Dispatch terminal bus event on declined/canceled DM response and inviter cancel |
+| `community-membership-ledger.ts` | Bootstrap restore may seed legacy key (REL-003 regression fix for fresh-device rebind) |
+
+**Evidence:** `community-invite-terminal-membership.test.ts`, `group-provider.test.tsx` (MEM-005), `incoming-dm-event-handler.test.ts`, `community-membership-ledger.test.ts` (bootstrap legacy seed).
+
+## Recently shipped (Wave 3 MEM-002 — 2026-05-29)
+
+| Piece | Effect |
+|-------|--------|
+| `use-community-membership-read-model-index.ts` | Loads terminal left/expelled cache per group; auto-enables terminal exclusions so Network group cards match chat shell / management modal counts |
+| Window listeners | Filter ledger/chat-state/terminal refresh events by `profileId` |
+
+**Evidence:** `use-community-membership-read-model-index.test.tsx` (MEM-002).
+
+**Do not publish `v1.8.12` tag** (void). Production GitHub Release remains **v1.8.11** until a batch exit tag (e.g. **v1.8.14** after P13 + B2).
+
+## Recently shipped (Wave 3 REL-004 — 2026-05-29)
+
+| Piece | Effect |
+|-------|--------|
+| Leave outbox (existing) | Durable pending/rate_limited/rejected items; background retry via `community-leave-outbox-retry.ts` |
+| `community-leave-path-audit.test.ts` | Audit target corrected to `settings-tab-panel-model.tsx` (bulk-leave owner moved from deleted client path) |
+| `community-leave-durability.test.ts` | AB-05 TODO replaced with real outbox + rate-limit regression |
+
+**Canonical paths verified:** `GroupProvider.leaveGroup`, `removeGroupConversation`, `use-sealed-community` leave, settings bulk-leave — all enqueue outbox before relay publish.
+
+**Evidence:** `community-leave-outbox.test.ts`, `community-leave-path-audit.test.ts`, `community-leave-durability.test.ts`, `community-leave-outbox-retry.test.ts`.
+
+## Recently shipped (Wave 3 REL-003 — 2026-05-29)
+
+| Piece | Effect |
+|-------|--------|
+| `community-membership-ledger.ts` | Named profiles no longer **seed** the shared legacy localStorage key on first save — prevents default profile from inheriting another profile's joined communities |
+| Tests | `community-membership-ledger.test.ts`, `community-scope-isolation.test.ts`, existing `group-provider.test.tsx` REL-003 |
+
+**Remaining REL-003 vectors (deferred):** in-memory invite snapshot cache (`community-invite-message-snapshot.ts`), `community-sync-service` sync state keyed by community only, window listeners in membership read-model hooks without `profileId` filter.
+
+**Evidence:** Vitest REL-003 + AB-08 suites green.
+
+## Recently shipped (P13 chat-thread polish — 2026-05-29)
+
+| Piece | Effect |
+|-------|--------|
+| `conversation-row.tsx` | Timestamp vertically centered beside full name + preview block |
+| `format-conversation-message-preview.ts` | Direction-aware invitation previews (`"X sent you an invitation"`, `"You accepted the invitation"`) |
+| `composer.tsx` | Removed amber relay queue / cooling-down footer banners |
+| `account-sync-ui-policy.ts` | `isAccountDataLoading()` / `isAccountProjectionStillLoading()` |
+| `main-shell.tsx` + `mobile-shell-status-items.ts` | `suppressAccountLoadingNotices` hides restore/sync/relay strip items during account load (scope mismatch still shown) |
+| `message-list.tsx` + `message-list-touch.ts` | Mobile action dock below bubble; sustained touch (~420ms) shows dock like hover |
+| DM hydrate repair (PWA) | Outgoing repair + chat-state gap merge attempted — **maintainer accepted one-sided history as limitation** (DM-001); do not iterate unless reopened |
+
+**Evidence:** `format-conversation-message-preview.test.ts`, `conversation-row.test.tsx`, `mobile-shell-status-items.test.ts`, `mobile-shell-status-strip.test.tsx`, `message-list-touch.test.ts`, `account-sync-ui-policy.test.ts`, focused Vitest (74 tests) green.
+
+**Dev loop:** `pnpm dev:mobile-shell:online` → hard refresh at `http://127.0.0.1:3340`.
+
+## Recently shipped (Wave 2 B2 — inbound community bots)
+
+| ID | Status |
+|----|--------|
+| B2-1 | **Done** — `botTriggers` descriptor contract (`dweb-core` + PWA policy) |
+| B2-2 | **Done** — `scripts/community-inbound-bot.mjs` + crypto decrypt tests |
+| B2-3 | **Done** — Steward UX enable/disable triggers per bot |
+| B2-4 | **Done** — Runbook + rate-limit copy in `docs/messaging/community-inbound-bot.md` |
+
+**Manual deferred:** deferred checklist §3 B-02 (inbound keyword soak).
 
 Charter refs: [obscur-offline-first-policy.md](../program/obscur-offline-first-policy.md), [obscur-2.0-milestone-roadmap.md](../program/obscur-2.0-milestone-roadmap.md) Lane **P**, [mobile-desktop-version-policy.md](../program/mobile-desktop-version-policy.md).
 
