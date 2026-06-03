@@ -383,6 +383,7 @@ describe("incoming-dm-event-handler", () => {
                         : null
                 )),
                 persistMessage: vi.fn(async () => undefined),
+                deleteMessage: vi.fn(async () => undefined),
             } as any,
             processingEvents: new Set<string>(),
             failedDecryptEvents: new Set<string>(),
@@ -458,6 +459,7 @@ describe("incoming-dm-event-handler", () => {
                         : null
                 )),
                 persistMessage: vi.fn(async () => undefined),
+                deleteMessage: vi.fn(async () => undefined),
             } as any,
             processingEvents: new Set<string>(),
             failedDecryptEvents: new Set<string>(),
@@ -522,6 +524,7 @@ describe("incoming-dm-event-handler", () => {
                         : null
                 )),
                 persistMessage: vi.fn(async () => undefined),
+                deleteMessage: vi.fn(async () => undefined),
             } as any,
             processingEvents: new Set<string>(),
             failedDecryptEvents: new Set<string>(),
@@ -584,6 +587,7 @@ describe("incoming-dm-event-handler", () => {
                 getMessage,
                 getMessages,
                 persistMessage: vi.fn(async () => undefined),
+                deleteMessage: vi.fn(async () => undefined),
             } as any,
             processingEvents: new Set<string>(),
             failedDecryptEvents: new Set<string>(),

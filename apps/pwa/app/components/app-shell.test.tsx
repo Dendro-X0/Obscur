@@ -22,9 +22,13 @@ const appShellMocks = vi.hoisted(() => ({
   }),
 }));
 
-vi.mock("./route-navigation-warmup", () => ({
-  warmRouteNavigationTargets: appShellMocks.warmRouteNavigationTargets,
-}));
+vi.mock("./route-navigation-warmup", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./route-navigation-warmup")>();
+  return {
+    ...actual,
+    warmRouteNavigationTargets: appShellMocks.warmRouteNavigationTargets,
+  };
+});
 
 vi.mock("next/navigation", () => ({
   usePathname: () => appShellMocks.pathname,
@@ -74,6 +78,7 @@ vi.mock("@/app/features/desktop/hooks/use-desktop-layout", () => ({
 
 vi.mock("@/app/features/runtime/shell-contract", () => ({
   isMobileShellProduct: () => appShellMocks.isMobileShellProduct,
+  isDesktopShellBuild: () => appShellMocks.isDesktop,
 }));
 
 vi.mock("./relay-status-badge", () => ({
