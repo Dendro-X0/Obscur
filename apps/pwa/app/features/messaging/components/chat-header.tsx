@@ -141,7 +141,13 @@ export function ChatHeader({
             : ""
     );
     const resolvedGroupMemberCount = groupMemberCount ?? (
-        conversation.kind === "group" ? conversation.memberPubkeys.length : 0
+        conversation.kind === "group"
+            ? Math.max(
+                conversation.memberCount ?? 0,
+                conversation.memberPubkeys.length,
+                1,
+            )
+            : 0
     );
     const groupLastActivityLabel = (
         groupLastActivityAtMs

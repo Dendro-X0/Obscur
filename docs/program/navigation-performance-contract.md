@@ -112,9 +112,11 @@ Structural lanes from investigation — execute when patch loops return:
 | **N1** | Persistent chrome layout (single `AppShell`, outlet for bodies) | **Partial** — `PersistentAppChrome` landed; verify no regressions |
 | **N2** | Thin route pages (content only, no duplicate shell) | **Partial** — `PageShell` registers chrome only |
 | **N3** | Lazy global dialogs / single DM transport on network routes | **Partial** — `LazyGlobalDialogManager` + `useNetworkRequestTransport` (no duplicate controllers) |
-| **N4** | Desktop eager sidebar bundle via `sidebar-routes.ts` | **Partial** — `createSidebarRoutePage` |
-| **N5** | Split settings into tab sub-chunks | **Partial** — monolith split into shared/context + lazy `settings-tab-panel-model-provider`; per-tab panels already `dynamic()` |
-| **N6** | Prod-shell perf baseline (`out/` not webpack dev) | Open |
+| **N4** | Desktop eager sidebar bundle via `sidebar-routes.ts` | **Done** — `createSidebarRoutePage` eager on desktop; warm-up uses `shell-only` via `resolveRouteNavigationWarmupMode()` |
+| **N5** | Split settings into tab sub-chunks | **Done** — per-tab model hooks + dynamic providers in `settings-tab-panel-models/` |
+| **N6** | Prod-shell perf baseline (`out/` not webpack dev) | **Partial** — `pnpm perf:shell:s0:prod` + [obscur-shell-perf-baseline-s0.md](./obscur-shell-perf-baseline-s0.md) |
+
+**Broader mobile / cache:** [mobile-memory-and-cache-policy.md](./mobile-memory-and-cache-policy.md) (M1–M4 phases).
 
 When stalls return after coordinator work, **pick the next N lane** — do not add a fourth warm-up deferral.
 
@@ -148,7 +150,7 @@ When stalls return after coordinator work, **pick the next N lane** — do not a
 | `navigation-performance-coordinator.ts` | Quiescence + rapid-nav mode |
 | `navigation-chunk-load-authority.ts` | Dev/prod gate for full chunk loads |
 | `intelligent-navigation-warmup-runner.ts` | Sequential idle warm-up |
-| `route-navigation-warmup.ts` | Shell vs full modes |
+| `route-navigation-warmup.ts` | Shell vs full modes; `resolveRouteNavigationWarmupMode()` (N4) |
 | `app-shell.tsx` | Schedules warm-up; sidebar click path |
 | `experiment-shell-policy.ts` | Instrumentation toggle |
 | `persistent-app-chrome.tsx` | Single chrome instance |

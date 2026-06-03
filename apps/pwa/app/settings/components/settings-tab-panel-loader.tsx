@@ -1,23 +1,15 @@
 "use client";
 
+import { useMemo } from "react";
 import type React from "react";
 import dynamic from "next/dynamic";
 import type { SettingsTabId } from "@/app/features/settings/services/settings-search-index";
 import { GlobalNavigationChunkLoadingBoundary } from "@/app/components/global-navigation-loading";
+import { settingsTabPanelModelProviderLoaders } from "../settings-tab-panel-models/settings-tab-panel-model-provider-registry";
 
 /** Top-level nav bar only — no in-panel loading block while tab chunks load. */
 const settingsTabPanelLoading = (): React.JSX.Element => (
   <GlobalNavigationChunkLoadingBoundary />
-);
-
-const LazySettingsTabPanelModelProvider = dynamic(
-  () => import("../settings-tab-panel-model-provider").then((module) => ({
-    default: module.SettingsTabPanelModelProvider,
-  })),
-  {
-    loading: settingsTabPanelLoading,
-    ssr: false,
-  },
 );
 
 const panelLoaders = {
@@ -54,12 +46,19 @@ const panelLoaders = {
 } as const satisfies Record<SettingsTabId, ReturnType<typeof dynamic>>;
 
 export function SettingsTabPanel(props: Readonly<{ activeTab: SettingsTabId }>): React.JSX.Element {
+  const ModelProvider = useMemo(
+    () => dynamic(settingsTabPanelModelProviderLoaders[props.activeTab], {
+      loading: settingsTabPanelLoading,
+      ssr: false,
+    }),
+    [props.activeTab],
+  );
   const Panel = panelLoaders[props.activeTab] as ReturnType<typeof dynamic>;
   return (
     <div id={`settings-tab-panel-${props.activeTab}`} data-testid={`settings-tab-panel-${props.activeTab}`}>
-      <LazySettingsTabPanelModelProvider activeTab={props.activeTab}>
+      <ModelProvider>
         <Panel />
-      </LazySettingsTabPanelModelProvider>
+      </ModelProvider>
     </div>
   );
 }

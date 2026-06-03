@@ -1,7 +1,7 @@
 # Current Session Handoff — Obscur (native-first)
 
-- Last Updated (UTC): 2026-06-01T18:00:00Z
-- Session Status: **v1.8.14 landed on `main`** — implementation-first; manual verification batched
+- Last Updated (UTC): 2026-06-01T18:30:00Z
+- Session Status: **N5 + N4 + B4** — per-tab settings models, desktop warm-up shell-only, R1/R2 read models
 - Active Owner: Maintainer
 
 ## Delivery order (maintainer policy, 2026-06-01)
@@ -30,12 +30,12 @@ Canonical: [v1.8.x-batch-implementation-lane.md](../program/v1.8.x-batch-impleme
 | Priority | Tangible deliverable | Status |
 |----------|----------------------|--------|
 | **1** | **v1.8.14 batch land** — P13/P14, B2, Wave 3 trust, nav perf, N5 settings split | **Landed** — `341d1515` on `main` 2026-06-01 |
-| **2** | **v1.9.x B4 (R1/R2)** — DM materialization + community roster read model | Backlog after batch land — spec §B4 |
-| **3** | **N-series / broader perf** — mobile 4GB, cache tiers, per-tab settings model | Structural backlog — [navigation-performance-contract.md](../program/navigation-performance-contract.md) |
+| **2** | **v1.9 B4 (R1/R2)** — DM materialization port + monotonic roster read model | **Done** (engineering) — main-shell R2 count fix 2026-06-01 |
+| **3** | **N-series / broader perf** — N4 warm-up, N5 per-tab settings, mobile/cache policy | **N4/N5 done** — M3/M4 cache tiers open |
 | **—** | **Manual verification** (K-M, G6-4, deferred checklist) | **Batched** — not between implementation slices |
 | **—** | GitHub Releases | **Hidden** on repo home (About → gear); not version truth |
 
-**Next atomic step:** **v1.9 B4 (R1/R2)** read-model ports, or **N-series** broader perf — no incremental manual gates. Optional: batched manual pass + `v1.8.14` tag when ready.
+**Next atomic step:** **M3** progressive cache tier owner, or **N6** prod baseline (`pnpm perf:shell:s0:prod`). Batched manual K-M / MEM-001 / DM-001 when convenient.
 
 ## Performance gate (2026-06-03)
 
@@ -72,7 +72,7 @@ Canonical: [v1.8.x-batch-implementation-lane.md](../program/v1.8.x-batch-impleme
 | `settings-tab-panel-loader.tsx` | Per-tab `dynamic()` panels + lazy model provider wrapper |
 | `settings-tab-panel-model.ts` | Barrel re-exports shared + context (safe sync import) |
 
-Settings route entry no longer sync-parses the ~2.5k-line monolith. Future: per-tab model providers to avoid running all tab hooks on every open.
+Settings route entry no longer sync-parses the ~2.5k-line monolith. **N5 (2026-06-01):** per-tab model hooks in `settings-tab-panel-models/` — loader dynamic-imports only the active tab's provider chunk.
 
 **Evidence:** `pnpm -C apps/pwa exec vitest run app/settings/settings-page-shell.test.tsx app/settings/components/settings-tab-panel-loader.test.tsx app/features/groups/services/community-leave-path-audit.test.ts`
 

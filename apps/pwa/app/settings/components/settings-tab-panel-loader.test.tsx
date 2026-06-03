@@ -3,12 +3,6 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { SettingsTabPanel } from "./settings-tab-panel-loader";
 
-vi.mock("../settings-tab-panel-model-provider", () => ({
-  SettingsTabPanelModelProvider: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="model-provider">{children}</div>
-  ),
-}));
-
 vi.mock("next/dynamic", () => ({
   default: (loader: () => Promise<{ default: React.ComponentType<any> }>) => {
     const loaderString = loader.toString();

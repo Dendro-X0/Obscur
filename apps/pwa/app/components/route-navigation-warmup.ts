@@ -3,9 +3,20 @@ import {
   ROUTE_CLIENT_CHUNK_LOADERS,
   type SidebarRouteHref,
 } from "@/app/lib/navigation/sidebar-routes";
+import { isDesktopShellBuild } from "@/app/features/runtime/shell-contract";
 import { assertNavigationChunkLoadAuthorized } from "./navigation-chunk-load-authority";
 
 export { ROUTE_CLIENT_CHUNK_LOADERS, preloadGroupHomePageClient };
+
+export type RouteNavigationWarmupMode = "shell-only" | "full";
+
+/**
+ * N4 — Desktop sidebar routes use eager page clients (`createSidebarRoutePage`).
+ * Background warm-up must not re-import the same chunks; shell prefetch only.
+ */
+export const resolveRouteNavigationWarmupMode = (): RouteNavigationWarmupMode => (
+  isDesktopShellBuild() ? "shell-only" : "full"
+);
 
 /** Swallows chunk load failures so dev warm-up does not surface a runtime overlay. */
 export const loadClientChunkSafely = async (
@@ -27,8 +38,6 @@ export type RouteNavigationWarmupResult = Readonly<{
   href: string;
   status: "fulfilled" | "rejected";
 }>;
-
-export type RouteNavigationWarmupMode = "shell-only" | "full";
 
 const isSidebarRouteHref = (href: string): href is SidebarRouteHref => (
   href in ROUTE_CLIENT_CHUNK_LOADERS

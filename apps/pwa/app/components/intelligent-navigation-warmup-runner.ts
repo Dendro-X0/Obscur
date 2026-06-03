@@ -3,6 +3,7 @@
 import {
   loadClientChunkSafely,
   preloadGroupHomePageClient,
+  resolveRouteNavigationWarmupMode,
   warmRouteNavigationTargets,
   type RouteNavigationWarmupMode,
   type RouteNavigationWarmupResult,
@@ -115,12 +116,13 @@ const runIntelligentNavigationWarmupInner = async (
   }>,
 ): Promise<void> => {
   const { isStale, scheduleIdle, onPhaseComplete } = options;
+  const warmupMode = resolveRouteNavigationWarmupMode();
 
   if (plan.critical.length > 0 && !isStale()) {
     await warmTargetsSequentially(router, plan.critical, {
       isStale,
       scheduleIdle,
-      mode: "full",
+      mode: warmupMode,
       phase: "critical",
       onPhaseComplete,
     });
@@ -135,7 +137,7 @@ const runIntelligentNavigationWarmupInner = async (
     await warmTargetsSequentially(router, contextTargets, {
       isStale,
       scheduleIdle,
-      mode: "full",
+      mode: warmupMode,
       phase: "context",
       onPhaseComplete,
     });
@@ -158,7 +160,7 @@ const runIntelligentNavigationWarmupInner = async (
   await warmTargetsSequentially(router, plan.background, {
     isStale,
     scheduleIdle,
-    mode: "full",
+    mode: warmupMode,
     phase: "background",
     onPhaseComplete,
   });

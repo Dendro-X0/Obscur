@@ -664,7 +664,6 @@ function NostrMessengerContent() {
     if (selectedConversationView?.kind !== "group") {
       return [];
     }
-    const projection = communityRosterByConversationId[selectedConversationView.id];
     const leftSet = new Set(
       (selectedGroupTerminalMembership?.leftMemberPubkeys ?? [])
         .map((pubkey) => pubkey.trim().toLowerCase()),
@@ -677,6 +676,20 @@ function NostrMessengerContent() {
       const normalized = pubkey.trim().toLowerCase();
       return normalized.length > 0 && !leftSet.has(normalized) && !expelledSet.has(normalized);
     };
+
+    const r2DisplayPubkeys = (
+      selectedGroupMembershipReadModel[selectedConversationView.id]?.displayPubkeys ?? []
+    ) as ReadonlyArray<PublicKeyHex>;
+    const r2Active = r2DisplayPubkeys.filter(isActive);
+    if (r2Active.length > 0) {
+      const liveActive = sealedCommunityMembers.filter(isActive);
+      if (liveActive.length > r2Active.length) {
+        return dedupeCommunityMemberPubkeys([...r2Active, ...liveActive]);
+      }
+      return r2Active;
+    }
+
+    const projection = communityRosterByConversationId[selectedConversationView.id];
     const liveActive = sealedCommunityMembers.filter(isActive);
     if (liveActive.length > 0) {
       return liveActive;
@@ -703,10 +716,12 @@ function NostrMessengerContent() {
     if (selectedConversationView?.kind !== "group") {
       return undefined;
     }
-    if (selectedGroupActiveMemberPubkeys.length > 0) {
-      return Math.max(1, selectedGroupActiveMemberPubkeys.length);
+    const r2Count = selectedGroupMembershipReadModel[selectedConversationView.id]?.memberCount;
+    const activeCount = selectedGroupActiveMemberPubkeys.length;
+    if (activeCount > 0) {
+      return Math.max(1, activeCount, r2Count ?? 0);
     }
-    return selectedGroupMembershipReadModel[selectedConversationView.id]?.memberCount ?? 1;
+    return Math.max(1, r2Count ?? selectedConversationView.memberPubkeys?.length ?? 1);
   }, [
     selectedConversationView,
     selectedGroupActiveMemberPubkeys,

@@ -1,0 +1,401 @@
+"use client";
+
+import { useCallback, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { toast } from "@dweb/ui-kit";
+import { useRelay } from "@/app/features/relays/providers/relay-provider";
+import { useRelayPoolRef } from "@/app/features/relays/hooks/use-relay-pool-ref";
+import { deriveRelayNodeStatus, deriveRelayRuntimeStatus } from "@/app/features/relays/lib/relay-runtime-status";
+import { getApiBaseUrl } from "@/app/features/relays/utils/api-base-url";
+import { validateRelayUrl } from "@/app/features/relays/utils/validate-relay-url";
+import { assessRelayCapability, getCommunityModeDefinition } from "@/app/features/groups/services/community-mode-contract";
+import { relayResilienceObservability } from "@/app/features/relays/services/relay-resilience-observability";
+import type { SettingsActionPhase } from "@/app/features/settings/components/settings-action-status";
+import type { SettingsTabPanelModel } from "../settings-tab-panel-model-context";
+import {
+  DEFAULT_STABLE_PRESET,
+  ENABLE_API_HEALTH_PROBE,
+  RELAY_PRESETS,
+  type ApiHealthState,
+  type RelayPresetId,
+} from "../settings-tab-panel-shared";
+import { useSettingsDestructiveActionsModel } from "./use-settings-destructive-actions-model";
+
+export function useRelaysSettingsModel(): SettingsTabPanelModel {
+  const { t } = useTranslation();
+  const destructive = useSettingsDestructiveActionsModel();
+  const {
+    relayPool: pool,
+    relayList,
+    relayRuntime,
+    triggerRelayRecovery,
+    relaySelection,
+    setRelayTransportMode,
+  } = useRelay();
+  const poolRef = useRelayPoolRef(pool);
+
+  const [apiHealth, setApiHealth] = useState<ApiHealthState>({ status: "idle" });
+  const [newRelayUrl, setNewRelayUrl] = useState<string>("");
+  const [showAdvancedRelays, setShowAdvancedRelays] = useState<boolean>(false);
+  const [relayActionPhase, setRelayActionPhase] = useState<SettingsActionPhase>("idle");
+  const [relayActionMessage, setRelayActionMessage] = useState<string>("");
+
+  const translateRelayPresetLabel = useCallback((presetId: RelayPresetId): string => {
+    if (presetId === "default_stable") {
+      return t("settings.relays.preset.defaultStable", "Default Stable");
+    }
+    if (presetId === "high_redundancy") {
+      return t("settings.relays.preset.highRedundancy", "High Redundancy");
+    }
+    return t("settings.relays.preset.lowLatency", "Low Latency");
+  }, [t]);
+
+  const translateRelayRuntimeText = useCallback((value: string): string => {
+    switch (value) {
+      case "No relay configured":
+        return t("settings.relays.runtime.noRelayConfigured", "No relay configured");
+      case "Add at least one relay in Settings -> Relays.":
+        return t("settings.relays.runtime.noRelayConfiguredDesc", "Add at least one relay in Settings -> Relays.");
+      case "Relay recovery in progress":
+        return t("settings.relays.runtime.recoveryInProgress", "Relay recovery in progress");
+      case "Relay connections starting":
+        return t("settings.relays.runtime.connectionsStarting", "Relay connections starting");
+      case "Reconnecting relays and restoring subscriptions.":
+        return t("settings.relays.runtime.reconnecting", "Reconnecting relays and restoring subscriptions.");
+      case "No writable relays available":
+        return t("settings.relays.runtime.noWritableRelays", "No writable relays available");
+      case "Messages can queue locally, but relay-backed delivery is currently unavailable.":
+        return t("settings.relays.runtime.noWritableRelaysDesc", "Messages can queue locally, but relay-backed delivery is currently unavailable.");
+      case "Configured relays healthy":
+        return t("settings.relays.runtime.configuredHealthy", "Configured relays healthy");
+      case "Relay communication healthy":
+        return t("settings.relays.runtime.communicationHealthy", "Relay communication healthy");
+      case "Configured relays are healthy again. Fallback relays may remain connected temporarily as standby coverage.":
+        return t("settings.relays.runtime.configuredHealthyDesc", "Configured relays are healthy again. Fallback relays may remain connected temporarily as standby coverage.");
+      case "Configured relays are writable and this window is seeing recent relay events.":
+        return t("settings.relays.runtime.communicationHealthyDesc", "Configured relays are writable and this window is seeing recent relay events.");
+      case "Relay event flow degraded":
+        return t("settings.relays.runtime.eventFlowDegraded", "Relay event flow degraded");
+      case "Relay connectivity degraded":
+        return t("settings.relays.runtime.connectivityDegraded", "Relay connectivity degraded");
+      case "Sockets are open, but this window has not seen recent relay events.":
+        return t("settings.relays.runtime.eventFlowDegradedDesc", "Sockets are open, but this window has not seen recent relay events.");
+      case "Fallback relays are active; connectivity is working with reduced trust and redundancy.":
+        return t("settings.relays.runtime.connectivityDegradedDesc", "Fallback relays are active; connectivity is working with reduced trust and redundancy.");
+      case "Some configured relays are unavailable or partially useful. Review individual relay status below.":
+        return t("settings.relays.runtime.partialUtilityDesc", "Some configured relays are unavailable or partially useful. Review individual relay status below.");
+      default:
+        if (value.startsWith("Restoring runtime state: ")) {
+          return t("settings.relays.runtime.restoringState", {
+            defaultValue: "Restoring runtime state: {{stage}}.",
+            stage: value.replace("Restoring runtime state: ", "").replace(/\.$/, ""),
+          });
+        }
+        return value;
+    }
+  }, [t]);
+
+  const translateRelayNodeBadge = useCallback((value: string): string => {
+    switch (value) {
+      case "Disabled": return t("settings.relays.node.badge.disabled", "Disabled");
+      case "Cooling down": return t("settings.relays.node.badge.coolingDown", "Cooling down");
+      case "Connecting": return t("settings.relays.node.badge.connecting", "Connecting");
+      case "Error": return t("settings.relays.node.badge.error", "Error");
+      case "Fallback active": return t("settings.relays.node.badge.fallbackActive", "Fallback active");
+      case "Degraded": return t("settings.relays.node.badge.degraded", "Degraded");
+      case "High latency": return t("settings.relays.node.badge.highLatency", "High latency");
+      case "No recent events": return t("settings.relays.node.badge.noRecentEvents", "No recent events");
+      case "Healthy": return t("settings.relays.node.badge.healthy", "Healthy");
+      default: return value;
+    }
+  }, [t]);
+
+  const translateRelayNodeRole = useCallback((value: string): string => {
+    switch (value) {
+      case "Disabled": return t("settings.relays.node.role.disabled", "Disabled");
+      case "Fallback": return t("settings.relays.node.role.fallback", "Fallback");
+      case "Transient": return t("settings.relays.node.role.transient", "Transient");
+      case "Configured": return t("settings.relays.node.role.configured", "Configured");
+      default: return value;
+    }
+  }, [t]);
+
+  const translateRelayNodeDetail = useCallback((value: string): string => {
+    switch (value) {
+      case "This relay is configured for the profile but currently disabled.":
+        return t("settings.relays.node.detail.disabled", "This relay is configured for the profile but currently disabled.");
+      case "Repeated failures triggered relay backoff.":
+        return t("settings.relays.node.detail.backoff", "Repeated failures triggered relay backoff.");
+      case "The runtime is actively establishing this relay connection.":
+        return t("settings.relays.node.detail.connecting", "The runtime is actively establishing this relay connection.");
+      case "The last relay connection attempt failed.":
+        return t("settings.relays.node.detail.lastAttemptFailed", "The last relay connection attempt failed.");
+      case "This relay is connected as temporary fallback coverage, not primary configured transport.":
+        return t("settings.relays.node.detail.fallbackActive", "This relay is connected as temporary fallback coverage, not primary configured transport.");
+      case "This relay is connected, but it is still being evaluated after recent failures.":
+        return t("settings.relays.node.detail.degraded", "This relay is connected, but it is still being evaluated after recent failures.");
+      case "The socket is open, but observed latency is high enough to reduce delivery quality.":
+        return t("settings.relays.node.detail.highLatency", "The socket is open, but observed latency is high enough to reduce delivery quality.");
+      default:
+        if (value.startsWith("Repeated failures triggered backoff. Next retry is scheduled automatically.")) {
+          return t("settings.relays.node.detail.backoffRetry", "Repeated failures triggered backoff. Next retry is scheduled automatically.");
+        }
+        return value;
+    }
+  }, [t]);
+
+  const translateRelayConfidenceLabel = useCallback((value: string): string => {
+    if (value.startsWith("Insufficient data (")) {
+      const count = Number(value.replace("Insufficient data (", "").replace(")", "")) || 0;
+      return t("settings.relays.node.confidence.insufficient", "Insufficient data ({{count}})", { count });
+    }
+    if (value.startsWith("Low confidence (")) {
+      const count = Number(value.replace("Low confidence (", "").replace(")", "")) || 0;
+      return t("settings.relays.node.confidence.low", "Low confidence ({{count}})", { count });
+    }
+    if (value.startsWith("High confidence (")) {
+      const count = Number(value.replace("High confidence (", "").replace(")", "")) || 0;
+      return t("settings.relays.node.confidence.high", "High confidence ({{count}})", { count });
+    }
+    return value;
+  }, [t]);
+
+  const relayConnectionMap = useMemo(
+    () => new Map(pool.connections.map((connection) => [connection.url, connection])),
+    [pool.connections],
+  );
+  const relayHealthMetricsMap = useMemo(
+    () => new Map(pool.healthMetrics.map((metric) => [metric.url, metric])),
+    [pool.healthMetrics],
+  );
+
+  const relayRuntimeStatus = useMemo(() => {
+    const totalCount = relayList.state.relays.filter((relay) => relay.enabled).length;
+    const enabledRelaySet = new Set(relayList.state.relays.filter((relay) => relay.enabled).map((relay) => relay.url));
+    const openCount = pool.connections.filter((connection) => connection.status === "open" && enabledRelaySet.has(connection.url)).length;
+    return deriveRelayRuntimeStatus({
+      openCount,
+      totalCount,
+      writableCount: relayRuntime.writableRelayCount,
+      subscribableCount: relayRuntime.subscribableRelayCount,
+      phase: relayRuntime.phase,
+      recoveryStage: relayRuntime.recoveryStage,
+      lastInboundEventAtUnixMs: relayRuntime.lastInboundEventAtUnixMs,
+      fallbackRelayCount: relayRuntime.fallbackRelayUrls.length,
+    });
+  }, [pool.connections, relayList.state.relays, relayRuntime]);
+
+  const relayQuickHealth = useMemo(() => {
+    const enabledRelays = relayList.state.relays.filter((relay) => relay.enabled);
+    const enabledSet = new Set(enabledRelays.map((relay) => relay.url));
+    const openCount = pool.connections.filter((connection) => connection.status === "open" && enabledSet.has(connection.url)).length;
+    const latencyValues = enabledRelays
+      .map((relay) => relayHealthMetricsMap.get(relay.url)?.latency ?? 0)
+      .filter((value) => Number.isFinite(value) && value > 0);
+    const averageLatencyMs = latencyValues.length > 0
+      ? Math.round(latencyValues.reduce((sum, value) => sum + value, 0) / latencyValues.length)
+      : undefined;
+    return {
+      openCount,
+      enabledCount: enabledRelays.length,
+      averageLatencyMs,
+      recommendation: relayRuntimeStatus.actionText,
+    };
+  }, [pool.connections, relayHealthMetricsMap, relayList.state.relays, relayRuntimeStatus]);
+
+  const relayCapabilityAssessment = useMemo(
+    () => assessRelayCapability({
+      enabledRelayUrls: relayList.state.relays.filter((relay) => relay.enabled).map((relay) => relay.url),
+    }),
+    [relayList.state.relays],
+  );
+
+  const sovereignRoomDefinition = useMemo(() => getCommunityModeDefinition("sovereign_room"), []);
+  const managedWorkspaceDefinition = useMemo(() => getCommunityModeDefinition("managed_workspace"), []);
+
+  const handleCheckApi = (): void => {
+    const baseUrl: string = getApiBaseUrl().replace(/\/$/, "");
+    if (!ENABLE_API_HEALTH_PROBE) {
+      setApiHealth({
+        status: "disabled",
+        baseUrl,
+        message: "API probe is disabled in recovery mode. Relay connectivity is the source of truth.",
+      });
+      return;
+    }
+    setApiHealth({ status: "checking" });
+    const startMs: number = Date.now();
+    void fetch(`${baseUrl}/v1/health`, { method: "GET" })
+      .then(async (response: Response): Promise<void> => {
+        const latencyMs: number = Date.now() - startMs;
+        if (!response.ok) {
+          setApiHealth({ status: "error", message: `HTTP ${response.status}`, baseUrl });
+          return;
+        }
+        const data = await response.json() as { timeIso?: string };
+        setApiHealth({ status: "ok", latencyMs, timeIso: data.timeIso, baseUrl });
+      })
+      .catch((error: unknown): void => {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        setApiHealth({ status: "error", message, baseUrl });
+      });
+  };
+
+  const handleAddRelay = (): void => {
+    const validated = validateRelayUrl(newRelayUrl);
+    if (!validated) {
+      toast.error(t("settings.relays.invalidRelayUrl", "Please enter a valid relay URL (wss://...)"));
+      return;
+    }
+    relayList.addRelay({ url: validated.normalizedUrl });
+    setNewRelayUrl("");
+    toast.success(t("settings.relays.relayAdded", "Relay added"));
+  };
+
+  const handleRelayBulkEnableAll = (): void => {
+    if (relayList.state.relays.length === 0) {
+      return;
+    }
+    relayList.replaceRelays({
+      relays: relayList.state.relays.map((r) => ({ url: r.url, enabled: true })),
+    });
+    toast.success(t("settings.relays.bulkEnableAll", "All relays enabled."));
+  };
+
+  const handleRelayBulkRemoveDisabled = (): void => {
+    const kept = relayList.state.relays.filter((r) => r.enabled);
+    if (kept.length === 0) {
+      toast.error(t(
+        "settings.relays.bulkRemoveDisabledBlocked",
+        "Enable at least one relay first, or remove rows individually.",
+      ));
+      return;
+    }
+    if (kept.length === relayList.state.relays.length) {
+      toast.info(t("settings.relays.bulkRemoveDisabledNone", "No disabled relays to remove."));
+      return;
+    }
+    relayList.replaceRelays({ relays: kept });
+    toast.success(t("settings.relays.bulkRemoveDisabled", "Removed disabled relays from the list."));
+  };
+
+  const handleRelayBulkCopyList = async (): Promise<void> => {
+    if (typeof navigator === "undefined" || !navigator.clipboard) {
+      toast.error(t("settings.relays.bulkCopyUnavailable", "Clipboard unavailable in this environment."));
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(relayList.state.relays, null, 2));
+      toast.success(t("settings.relays.bulkCopySuccess", "Relay list copied as JSON."));
+    } catch {
+      toast.error(t("settings.relays.bulkCopyFailed", "Failed to copy relay list."));
+    }
+  };
+
+  const applyRelayPreset = (presetId: RelayPresetId): void => {
+    const preset = RELAY_PRESETS.find((candidate) => candidate.id === presetId);
+    if (!preset) {
+      setRelayActionPhase("error");
+      setRelayActionMessage("Unknown preset.");
+      return;
+    }
+    relayList.replaceRelays({
+      relays: preset.relays.map((url) => ({ url, enabled: true })),
+    });
+    if (presetId === "high_redundancy") {
+      setRelayTransportMode("redundancy");
+    }
+    setRelayActionPhase("success");
+    setRelayActionMessage(`Applied preset: ${preset.label}.`);
+    toast.success(`Relay preset applied: ${preset.label}`);
+  };
+
+  const handleResetRelaySection = (): void => {
+    relayList.resetRelays();
+    setRelayActionPhase("success");
+    setRelayActionMessage("Relay section reset to default list.");
+    toast.success("Relay section reset.");
+  };
+
+  const handleRefreshRelayStatus = async (): Promise<void> => {
+    relayResilienceObservability.recordOperatorIntervention();
+    const enabledCount = relayList.state.relays.filter((relay) => relay.enabled).length;
+    if (enabledCount === 0) {
+      setRelayActionPhase("error");
+      setRelayActionMessage("Enable at least one relay before refreshing status.");
+      toast.error("No enabled relays to refresh.");
+      return;
+    }
+    setRelayActionPhase("working");
+    setRelayActionMessage("Refreshing relay status...");
+    try {
+      pool.reconnectAll();
+      pool.resubscribeAll();
+      await triggerRelayRecovery("manual");
+      const connected = await pool.waitForConnection(2_500);
+      const writableSnapshot = pool.getWritableRelaySnapshot(
+        relayList.state.relays.filter((relay) => relay.enabled).map((relay) => relay.url),
+      );
+      if (connected && writableSnapshot.openRelayCount > 0) {
+        setRelayActionPhase("success");
+        setRelayActionMessage(`Relay status refreshed. ${writableSnapshot.openRelayCount}/${writableSnapshot.totalRelayCount} relays are writable.`);
+        toast.success("Relay status refreshed.");
+        return;
+      }
+      setRelayActionPhase("error");
+      setRelayActionMessage("Refresh completed, but no writable relays are currently available.");
+      toast.error("Relay refresh completed without a writable connection.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Relay refresh failed.";
+      setRelayActionPhase("error");
+      setRelayActionMessage(message);
+      toast.error(message);
+    }
+  };
+
+  return {
+    ...destructive,
+    DEFAULT_STABLE_PRESET,
+    ENABLE_API_HEALTH_PROBE,
+    RELAY_PRESETS,
+    apiHealth,
+    applyRelayPreset,
+    deriveRelayNodeStatus,
+    deriveRelayRuntimeStatus,
+    handleAddRelay,
+    handleCheckApi,
+    handleRefreshRelayStatus,
+    handleRelayBulkCopyList,
+    handleRelayBulkEnableAll,
+    handleRelayBulkRemoveDisabled,
+    handleResetRelaySection,
+    managedWorkspaceDefinition,
+    newRelayUrl,
+    pool,
+    relayActionMessage,
+    relayActionPhase,
+    relayCapabilityAssessment,
+    relayConnectionMap,
+    relayHealthMetricsMap,
+    relayList,
+    relayQuickHealth,
+    relayRuntime,
+    relayRuntimeStatus,
+    relaySelection,
+    setApiHealth,
+    setNewRelayUrl,
+    setRelayActionMessage,
+    setRelayActionPhase,
+    setShowAdvancedRelays,
+    showAdvancedRelays,
+    sovereignRoomDefinition,
+    t,
+    translateRelayConfidenceLabel,
+    translateRelayNodeBadge,
+    translateRelayNodeDetail,
+    translateRelayNodeRole,
+    translateRelayPresetLabel,
+    translateRelayRuntimeText,
+    triggerRelayRecovery,
+  };
+}
