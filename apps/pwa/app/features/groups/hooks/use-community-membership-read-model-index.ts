@@ -62,12 +62,18 @@ export const useCommunityMembershipReadModelIndex = (params: Readonly<{
       return;
     }
     const ownerPubkey = params.ownerPubkey;
+    const resolvedProfileId = getResolvedProfileId();
+    const matchesProfileScope = (eventProfileId: string | undefined): boolean => (
+      typeof eventProfileId === "string"
+      && eventProfileId.length > 0
+      && eventProfileId === resolvedProfileId
+    );
     const onChatStateReplaced = (event: Event) => {
       const detail = (event as CustomEvent<ChatStateReplacedEventDetail>).detail;
       if (detail?.publicKeyHex !== ownerPubkey) {
         return;
       }
-      if (detail.profileId && detail.profileId !== getResolvedProfileId()) {
+      if (!matchesProfileScope(detail.profileId)) {
         return;
       }
       setRevision((value) => value + 1);
@@ -77,14 +83,14 @@ export const useCommunityMembershipReadModelIndex = (params: Readonly<{
       if (detail?.publicKeyHex && detail.publicKeyHex !== ownerPubkey) {
         return;
       }
-      if (detail?.profileId && detail.profileId !== getResolvedProfileId()) {
+      if (!matchesProfileScope(detail?.profileId)) {
         return;
       }
       setRevision((value) => value + 1);
     };
     const onTerminalUpdated = (event: Event) => {
       const detail = (event as CustomEvent<{ profileId?: string }>).detail;
-      if (detail?.profileId && detail.profileId !== getResolvedProfileId()) {
+      if (!matchesProfileScope(detail?.profileId)) {
         return;
       }
       setRevision((value) => value + 1);

@@ -1,7 +1,6 @@
 import type React from "react";
 import dynamic from "next/dynamic";
-import { AppLoadingScreen } from "@/app/components/app-loading-screen";
-import { GlobalNavigationChunkLoadingBoundary } from "@/app/components/global-navigation-loading";
+import { RouteLoadingFallback } from "@/app/components/experience";
 import { isDesktopShellBuild } from "@/app/features/runtime/shell-contract";
 
 type SidebarRouteLoadingCopy = Readonly<{
@@ -25,15 +24,11 @@ const createLazySidebarRoutePage = (
 ): React.ComponentType => {
   const LazyClient = dynamic(loadClient, {
     loading: () => (
-      <>
-        <GlobalNavigationChunkLoadingBoundary />
-        <AppLoadingScreen
-          fullScreen={false}
-          title={loading.title}
-          detail={loading.detail}
-          className="min-h-[320px]"
-        />
-      </>
+      <RouteLoadingFallback
+        title={loading.title}
+        detail={loading.detail}
+        className="min-h-[320px]"
+      />
     ),
   });
 

@@ -34,7 +34,12 @@ interface SyncState {
   readonly pendingPublishes: Set<string>;
 }
 
-const syncStateByCommunity = new Map<string, SyncState>();
+const syncStateByProfileAndCommunity = new Map<string, SyncState>();
+
+const syncStateKey = (communityId: string, profileId?: string): string => {
+  const resolvedProfileId = profileId ?? getResolvedProfileId();
+  return `${resolvedProfileId}:${communityId}`;
+};
 
 /**
  * Convert operation to Nostr event format
@@ -135,12 +140,13 @@ export const publishOperation = async (
     await pool.publishToUrls(relayUrls, nostrEvent);
 
     // Track pending
-    const state = syncStateByCommunity.get(operation.communityId) ?? {
+    const stateKey = syncStateKey(operation.communityId);
+    const state = syncStateByProfileAndCommunity.get(stateKey) ?? {
       subscriptionId: null,
       lastPublishedClock: {},
       pendingPublishes: new Set(),
     };
-    syncStateByCommunity.set(operation.communityId, {
+    syncStateByProfileAndCommunity.set(stateKey, {
       ...state,
       pendingPublishes: new Set([...state.pendingPublishes, operation.id]),
       lastPublishedClock: {
@@ -186,8 +192,10 @@ export const subscribeToCommunity = (
   relayUrls: string[],
   publicKeyHex: string
 ): string => {
+  const profileId = getResolvedProfileId();
+  const stateKey = syncStateKey(communityId, profileId);
   // Unsubscribe existing
-  const existing = syncStateByCommunity.get(communityId);
+  const existing = syncStateByProfileAndCommunity.get(stateKey);
   if (existing?.subscriptionId) {
     pool.unsubscribe(existing.subscriptionId);
   }
@@ -245,7 +253,7 @@ export const subscribeToCommunity = (
   // Subscribe
   const subscriptionId = pool.subscribeToUrls(relayUrls, filters, onEvent);
 
-  syncStateByCommunity.set(communityId, {
+  syncStateByProfileAndCommunity.set(stateKey, {
     subscriptionId,
     lastPublishedClock: existing?.lastPublishedClock ?? {},
     pendingPublishes: existing?.pendingPublishes ?? new Set(),
@@ -265,12 +273,14 @@ export const subscribeToCommunity = (
  */
 export const unsubscribeFromCommunity = (
   pool: { unsubscribe: (id: string) => void },
-  communityId: string
+  communityId: string,
+  options?: Readonly<{ profileId?: string }>,
 ): void => {
-  const state = syncStateByCommunity.get(communityId);
+  const stateKey = syncStateKey(communityId, options?.profileId);
+  const state = syncStateByProfileAndCommunity.get(stateKey);
   if (state?.subscriptionId) {
     pool.unsubscribe(state.subscriptionId);
-    syncStateByCommunity.delete(communityId);
+    syncStateByProfileAndCommunity.delete(stateKey);
   }
 };
 
@@ -301,12 +311,15 @@ export const syncWithPeer = async (
 /**
  * Get sync status for debugging
  */
-export const getSyncStatus = (communityId: string): {
+export const getSyncStatus = (
+  communityId: string,
+  options?: Readonly<{ profileId?: string }>,
+): {
   subscribed: boolean;
   pendingPublishes: number;
   lastPublishedClock: Record<string, number>;
 } => {
-  const state = syncStateByCommunity.get(communityId);
+  const state = syncStateByProfileAndCommunity.get(syncStateKey(communityId, options?.profileId));
   return {
     subscribed: !!state?.subscriptionId,
     pendingPublishes: state?.pendingPublishes.size ?? 0,
@@ -317,6 +330,7 @@ export const getSyncStatus = (communityId: string): {
 // For testing
 export const syncServiceInternals = {
   resetSyncState: () => {
-    syncStateByCommunity.clear();
+    syncStateByProfileAndCommunity.clear();
   },
+  syncStateKey,
 };

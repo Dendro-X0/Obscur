@@ -69,8 +69,12 @@ export function VoiceCallDock({
   const { t } = useTranslation();
   const waveBarHeights = React.useMemo(() => [10, 14, 18, 24, 18, 14, 10], []);
   const [clockNowMs, setClockNowMs] = React.useState<number | null>(null);
+  const isActiveCallPhase = status?.phase === "connected"
+    || status?.phase === "ringing_outgoing"
+    || status?.phase === "ringing_incoming"
+    || status?.phase === "connecting";
   React.useEffect(() => {
-    if (status?.phase !== "connected") {
+    if (!isActiveCallPhase || !status) {
       setClockNowMs(null);
       return;
     }
@@ -81,7 +85,7 @@ export function VoiceCallDock({
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [status?.phase]);
+  }, [isActiveCallPhase, status?.phase, status?.sinceUnixMs]);
   const icon = status?.role === "host" ? PhoneOutgoing : PhoneIncoming;
   const Icon = icon;
   const isConnected = status?.phase === "connected";
@@ -92,7 +96,7 @@ export function VoiceCallDock({
     ? Math.max(clampedAudioLevel, 0.4)
     : clampedAudioLevel;
   const durationLabel = (() => {
-    if (!status || status.phase !== "connected") {
+    if (!status || !isActiveCallPhase) {
       return null;
     }
     const effectiveNowMs = clockNowMs ?? status.sinceUnixMs;
@@ -102,6 +106,9 @@ export function VoiceCallDock({
     const seconds = totalSeconds % 60;
     return `${minutes}:${seconds.toString().padStart(2, "0")}`;
   })();
+  const showRingPulse = status?.phase === "ringing_outgoing"
+    || status?.phase === "ringing_incoming"
+    || status?.phase === "connecting";
   const centerDockBottomOffset = anchorMode === "chat"
     ? CALL_DOCK_BOTTOM_OFFSET_CONNECTED_CHAT
     : CALL_DOCK_BOTTOM_OFFSET_PAGE;
@@ -137,6 +144,9 @@ export function VoiceCallDock({
                       sizePx={36}
                       className="rounded-xl border border-emerald-500/35 bg-emerald-500/15"
                     />
+                    {showRingPulse ? (
+                      <span className="pointer-events-none absolute inset-0 rounded-xl border border-emerald-400/40 motion-safe:animate-ping" />
+                    ) : null}
                     <span className="absolute -bottom-1 -right-1 inline-flex h-4 w-4 items-center justify-center rounded-full border border-emerald-500/40 bg-emerald-500/85 text-white shadow-sm dark:text-emerald-50">
                       <Icon className="h-2.5 w-2.5" />
                     </span>
@@ -147,7 +157,7 @@ export function VoiceCallDock({
                     </p>
                     <p className="truncate text-sm font-bold text-zinc-900 dark:text-zinc-100">
                       {peerDisplayName}
-                      {durationLabel ? ` | ${durationLabel}` : ""}
+                      {durationLabel ? ` · ${durationLabel}` : ""}
                     </p>
                   </div>
                 </div>
@@ -219,6 +229,9 @@ export function VoiceCallDock({
                       sizePx={36}
                       className="rounded-xl border border-emerald-500/35 bg-emerald-500/15"
                     />
+                    {showRingPulse ? (
+                      <span className="pointer-events-none absolute inset-0 rounded-xl border border-emerald-400/40 motion-safe:animate-ping" />
+                    ) : null}
                     <span className="absolute -bottom-1 -right-1 inline-flex h-4 w-4 items-center justify-center rounded-full border border-emerald-500/40 bg-emerald-500/85 text-white shadow-sm dark:text-emerald-50">
                       <Icon className="h-2.5 w-2.5" />
                     </span>
@@ -229,7 +242,7 @@ export function VoiceCallDock({
                     </p>
                     <p className="truncate text-sm font-bold text-zinc-900 dark:text-zinc-100">
                       {peerDisplayName}
-                      {durationLabel ? ` | ${durationLabel}` : ""}
+                      {durationLabel ? ` · ${durationLabel}` : ""}
                     </p>
                   </div>
                 </div>

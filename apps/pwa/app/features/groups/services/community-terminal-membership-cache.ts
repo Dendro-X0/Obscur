@@ -17,7 +17,12 @@ const notifyTerminalMembershipUpdated = (detail: Readonly<{
   if (typeof window === "undefined") {
     return;
   }
-  window.dispatchEvent(new CustomEvent(COMMUNITY_TERMINAL_MEMBERSHIP_UPDATED_EVENT, { detail }));
+  window.dispatchEvent(new CustomEvent(COMMUNITY_TERMINAL_MEMBERSHIP_UPDATED_EVENT, {
+    detail: {
+      ...detail,
+      profileId: detail.profileId ?? getResolvedProfileId(),
+    },
+  }));
 };
 
 export type CommunityTerminalMembershipCacheRecord = Readonly<{

@@ -1,6 +1,6 @@
 import type React from "react";
 import { Suspense } from "react";
-import { AppLoadingScreen } from "@/app/components/app-loading-screen";
+import { RouteLoadingFallback } from "@/app/components/experience";
 
 type GroupRouteSuspenseBoundaryProps = Readonly<{
   title: string;
@@ -16,10 +16,10 @@ export function GroupRouteSuspenseBoundary({
   return (
     <Suspense
       fallback={(
-        <AppLoadingScreen
-          fullScreen={false}
+        <RouteLoadingFallback
           title={title}
           detail={detail}
+          surface="groups"
           className="min-h-[320px]"
         />
       )}

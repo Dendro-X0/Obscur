@@ -17,7 +17,7 @@ import { RelayTransportShellBanner } from "@/app/features/relays/components/rela
 import { useTranslation } from "react-i18next";
 import { MobileTabBar } from "./mobile-tab-bar";
 import { isMobileShellProduct } from "@/app/features/runtime/shell-contract";
-import { AppLoadingScreen } from "./app-loading-screen";
+import { PageTransitionLoadingShell, RouteLoadingFallback } from "./experience";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import {
   createRouteMountDiagnosticsState,
@@ -54,7 +54,6 @@ import {
 import { prefetchRouteShell } from "./route-navigation-warmup";
 import { SidebarPortalHost } from "./app-shell-sidebar-portal";
 import {
-  GlobalNavigationChunkLoadingBoundary,
   useGlobalNavigationLoadingActions,
 } from "./global-navigation-loading";
 
@@ -984,6 +983,10 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
           "relative flex flex-1 flex-col min-h-0 md:pb-0",
           props.mobileDmMode ? "pb-mobile-thread" : "pb-mobile-tab-bar",
         )}>
+          <PageTransitionLoadingShell
+            visible={isPageTransitionActive && arePageTransitionsEnabled}
+            pathname={pathname}
+          />
           <div
             aria-hidden="true"
             className={cn(
@@ -1000,8 +1003,11 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
           >
             <React.Suspense fallback={
               <div className="animate-in fade-in duration-200">
-                <GlobalNavigationChunkLoadingBoundary />
-                <AppLoadingScreen fullScreen={false} title="Loading page" detail="Preparing view..." />
+                <RouteLoadingFallback
+                  title="Loading page"
+                  detail="Preparing view..."
+                  pathname={pathname}
+                />
               </div>
             }>
               <div className={cn(

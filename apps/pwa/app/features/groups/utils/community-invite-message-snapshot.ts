@@ -31,7 +31,9 @@ export type CommunityInviteMessageSnapshot = Readonly<{
     communityId?: string;
 }>;
 
-const memoryByMessageId = new Map<string, CommunityInviteMessageSnapshot>();
+const memoryByProfileAndMessageId = new Map<string, CommunityInviteMessageSnapshot>();
+
+const memoryCacheKey = (messageId: string, profileId: string): string => `${profileId}:${messageId}`;
 
 const storageKey = (messageId: string, profileId: string | null): string => (
     `${STORAGE_KEY_PREFIX}:${profileId ?? "default"}:${messageId}`
@@ -119,7 +121,8 @@ export const loadCommunityInviteMessageSnapshot = (
     if (!trimmedId) {
         return null;
     }
-    const cached = memoryByMessageId.get(trimmedId);
+    const profileId = getResolvedProfileId();
+    const cached = memoryByProfileAndMessageId.get(memoryCacheKey(trimmedId, profileId));
     if (cached) {
         return cached;
     }
@@ -127,13 +130,13 @@ export const loadCommunityInviteMessageSnapshot = (
         return null;
     }
     try {
-        const raw = window.localStorage.getItem(storageKey(trimmedId, getResolvedProfileId()));
+        const raw = window.localStorage.getItem(storageKey(trimmedId, profileId));
         if (!raw) {
             return null;
         }
         const parsed = readSnapshotRecord(JSON.parse(raw));
         if (parsed) {
-            memoryByMessageId.set(trimmedId, parsed);
+            memoryByProfileAndMessageId.set(memoryCacheKey(trimmedId, profileId), parsed);
         }
         return parsed;
     } catch {
@@ -175,13 +178,14 @@ export const pinCommunityInviteMessageSnapshot = (
     if (snapshotsEqual(current, merged)) {
         return;
     }
-    memoryByMessageId.set(trimmedId, merged);
+    const profileId = getResolvedProfileId();
+    memoryByProfileAndMessageId.set(memoryCacheKey(trimmedId, profileId), merged);
     if (typeof window === "undefined") {
         return;
     }
     try {
         window.localStorage.setItem(
-            storageKey(trimmedId, getResolvedProfileId()),
+            storageKey(trimmedId, profileId),
             JSON.stringify(merged),
         );
     } catch {

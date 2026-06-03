@@ -1,7 +1,7 @@
 # Current Session Handoff — Obscur (native-first)
 
 - Last Updated (UTC): 2026-06-01T18:30:00Z
-- Session Status: **M4 retention sweep + N6 prod baseline** — self-cleaning local indexes; S0 perf artifact
+- Session Status: **Lane X (X1–X3)** — route warm-up skeleton, page transition shell, voice dock polish
 - Active Owner: Maintainer
 
 ## Delivery order (maintainer policy, 2026-06-01)
@@ -35,7 +35,7 @@ Canonical: [v1.8.x-batch-implementation-lane.md](../program/v1.8.x-batch-impleme
 | **—** | **Manual verification** (K-M, G6-4, deferred checklist) | **Batched** — not between implementation slices |
 | **—** | GitHub Releases | **Hidden** on repo home (About → gear); not version truth |
 
-**Next atomic step:** Manual mobile soak batch (deferred checklist §5), or v1.9 **K** backlog slice.
+**Next atomic step:** Lane P prep slice or deferred manual soak batch.
 
 ## Performance gate (2026-06-03)
 
@@ -61,6 +61,32 @@ Canonical: [v1.8.x-batch-implementation-lane.md](../program/v1.8.x-batch-impleme
 **Evidence:** `pnpm -C apps/pwa exec vitest run app/components/navigation-performance-coordinator.test.ts app/components/route-navigation-warmup.test.ts app/components/app-shell.test.tsx app/features/runtime/relay-transport-bootstrap-policy.test.ts app/features/runtime/services/secondary-profile-dm-soft-refresh.test.ts app/features/runtime/services/secondary-profile-window-reload-scheduler.test.ts`
 
 **Remaining (broader v1.9.0 perf lane):** mobile 4GB manual soak (deferred checklist §5); full S0 nav matrix re-run after unlock seed.
+
+## Lane X experience (2026-06-03)
+
+| Piece | Effect |
+|-------|--------|
+| `route-warmup-skeleton.tsx` | X1 — surface-aware stagger skeleton (chats/network/settings/vault) |
+| `route-loading-fallback.tsx` | Combines skeleton + global nav chunk bar signal |
+| `page-transition-loading-shell.tsx` | X2 — branded transition overlay during pathname settle |
+| `app-shell.tsx` | Suspense + transition shell wired; experiment shell skips via policy |
+| `create-sidebar-route-page.tsx` | Lazy route pages use `RouteLoadingFallback` |
+| `voice-call-dock.tsx` | X3 — elapsed timer for ringing/connecting; ring pulse on avatar |
+
+**Evidence:** `pnpm -C apps/pwa exec vitest run app/components/experience/lane-x-experience-policy.test.ts app/components/experience/route-warmup-skeleton.test.tsx app/components/experience/page-transition-loading-shell.test.tsx`
+
+Scope: [v1.8.15-scope.md](../program/v1.8.15-scope.md). X4–X6 accepted via existing lightbox/players.
+
+## REL-003 remaining vectors (2026-06-03)
+
+| Piece | Effect |
+|-------|--------|
+| `community-invite-message-snapshot.ts` | Memory cache keyed by `profileId:messageId` (storage was already scoped) |
+| `community-sync-service.ts` | Sync subscription/publish state keyed by `profileId:communityId` |
+| `community-terminal-membership-cache.ts` | Terminal window events always include resolved `profileId` |
+| `use-community-membership-read-model-index.ts` | Window listeners ignore events whose `profileId` ≠ active scope |
+
+**Evidence:** `pnpm -C apps/pwa exec vitest run app/features/groups/utils/community-invite-message-snapshot.test.ts app/features/groups/services/community-sync-service.test.ts app/features/groups/hooks/use-community-membership-read-model-index.test.tsx app/features/groups/services/community-scope-isolation.test.ts`
 
 ## M4 self-cleaning retention (2026-06-03)
 
@@ -182,7 +208,7 @@ Settings route entry no longer sync-parses the ~2.5k-line monolith. **N5 (2026-0
 | `community-membership-ledger.ts` | Named profiles no longer **seed** the shared legacy localStorage key on first save — prevents default profile from inheriting another profile's joined communities |
 | Tests | `community-membership-ledger.test.ts`, `community-scope-isolation.test.ts`, existing `group-provider.test.tsx` REL-003 |
 
-**Remaining REL-003 vectors (deferred):** in-memory invite snapshot cache (`community-invite-message-snapshot.ts`), `community-sync-service` sync state keyed by community only, window listeners in membership read-model hooks without `profileId` filter.
+**Remaining REL-003 vectors (deferred):** ~~in-memory invite snapshot cache~~, ~~community-sync keyed by community only~~, ~~window listeners in membership read-model hooks without `profileId` filter~~ — **Done 2026-06-03**.
 
 **Evidence:** Vitest REL-003 + AB-08 suites green.
 
