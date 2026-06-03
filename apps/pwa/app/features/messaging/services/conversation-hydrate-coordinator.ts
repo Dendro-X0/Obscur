@@ -2,6 +2,8 @@
  * Coalesces redundant DM history hydrates (nav retries, index rebuild, route focus).
  */
 
+import { buildProfileScopedConversationCacheKey } from "./progressive-cache-tier-policy";
+
 const DEFAULT_DEBOUNCE_MS = 220;
 
 type PendingEntry = Readonly<{
@@ -10,9 +12,7 @@ type PendingEntry = Readonly<{
 
 const pendingByKey = new Map<string, PendingEntry>();
 
-const toKey = (profileId: string, conversationId: string): string => (
-  `${profileId.trim()}::${conversationId.trim()}`
-);
+const toKey = buildProfileScopedConversationCacheKey;
 
 export const scheduleCoalescedConversationHydrate = (
   profileId: string | undefined,
@@ -20,10 +20,10 @@ export const scheduleCoalescedConversationHydrate = (
   run: () => void,
   options?: Readonly<{ debounceMs?: number; immediate?: boolean }>,
 ): void => {
-  if (!profileId?.trim() || !conversationId?.trim()) {
+  const key = toKey(profileId, conversationId);
+  if (!key) {
     return;
   }
-  const key = toKey(profileId, conversationId);
   const existing = pendingByKey.get(key);
   if (existing) {
     clearTimeout(existing.timerId);
@@ -45,10 +45,10 @@ export const cancelCoalescedConversationHydrate = (
   profileId: string | undefined,
   conversationId: string | undefined,
 ): void => {
-  if (!profileId?.trim() || !conversationId?.trim()) {
+  const key = toKey(profileId, conversationId);
+  if (!key) {
     return;
   }
-  const key = toKey(profileId, conversationId);
   const existing = pendingByKey.get(key);
   if (!existing) {
     return;

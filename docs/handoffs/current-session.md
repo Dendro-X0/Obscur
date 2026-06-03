@@ -1,7 +1,7 @@
 # Current Session Handoff — Obscur (native-first)
 
 - Last Updated (UTC): 2026-06-01T18:30:00Z
-- Session Status: **N5 + N4 + B4** — per-tab settings models, desktop warm-up shell-only, R1/R2 read models
+- Session Status: **M3 progressive cache tiers** — warm display → sync seed → cold hydrate owner
 - Active Owner: Maintainer
 
 ## Delivery order (maintainer policy, 2026-06-01)
@@ -31,11 +31,11 @@ Canonical: [v1.8.x-batch-implementation-lane.md](../program/v1.8.x-batch-impleme
 |----------|----------------------|--------|
 | **1** | **v1.8.14 batch land** — P13/P14, B2, Wave 3 trust, nav perf, N5 settings split | **Landed** — `341d1515` on `main` 2026-06-01 |
 | **2** | **v1.9 B4 (R1/R2)** — DM materialization port + monotonic roster read model | **Done** (engineering) — main-shell R2 count fix 2026-06-01 |
-| **3** | **N-series / broader perf** — N4 warm-up, N5 per-tab settings, mobile/cache policy | **N4/N5 done** — M3/M4 cache tiers open |
+| **3** | **N-series / broader perf** — N4/N5 done; M3 cache tiers | **M3 done** — M4 retention sweep open |
 | **—** | **Manual verification** (K-M, G6-4, deferred checklist) | **Batched** — not between implementation slices |
 | **—** | GitHub Releases | **Hidden** on repo home (About → gear); not version truth |
 
-**Next atomic step:** **M3** progressive cache tier owner, or **N6** prod baseline (`pnpm perf:shell:s0:prod`). Batched manual K-M / MEM-001 / DM-001 when convenient.
+**Next atomic step:** **M4** self-cleaning retention sweep, or **N6** prod baseline (`pnpm perf:shell:s0:prod`).
 
 ## Performance gate (2026-06-03)
 

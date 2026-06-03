@@ -26,4 +26,18 @@ describe("dm-thread-display-cache", () => {
     writeDmThreadDisplayCache(profileId, conversationId, [message("m1")]);
     expect(readDmThreadDisplayCache(profileId, conversationId)?.map((row) => row.id)).toEqual(["m1"]);
   });
+
+  it("isolates display cache by profileId", () => {
+    resetDmThreadDisplayCacheForTests();
+    writeDmThreadDisplayCache("profile-a", conversationId, [message("a1")]);
+    writeDmThreadDisplayCache("profile-b", conversationId, [message("b1")]);
+    expect(readDmThreadDisplayCache("profile-a", conversationId)?.map((row) => row.id)).toEqual(["a1"]);
+    expect(readDmThreadDisplayCache("profile-b", conversationId)?.map((row) => row.id)).toEqual(["b1"]);
+  });
+
+  it("refuses writes without profile scope", () => {
+    resetDmThreadDisplayCacheForTests();
+    writeDmThreadDisplayCache(undefined, conversationId, [message("m1")]);
+    expect(readDmThreadDisplayCache(profileId, conversationId)).toBeNull();
+  });
 });

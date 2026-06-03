@@ -1,15 +1,18 @@
 import type { Message } from "../types";
-
-type ProfileConversationKey = `${string}::${string}`;
+import {
+  auditProfileScopedStorageAccess,
+  buildProfileScopedConversationCacheKey,
+  type ProfileScopedConversationCacheKey,
+} from "./progressive-cache-tier-policy";
 
 /** Global cap — keeps nav cache warm without unbounded memory. */
 export const DM_THREAD_DISPLAY_CACHE_MAX_ENTRIES = 48;
 
-const displayCache = new Map<ProfileConversationKey, ReadonlyArray<Message>>();
-const cacheTouchOrder: ProfileConversationKey[] = [];
+const displayCache = new Map<ProfileScopedConversationCacheKey, ReadonlyArray<Message>>();
+const cacheTouchOrder: ProfileScopedConversationCacheKey[] = [];
 const listeners = new Set<() => void>();
 
-const touchCacheEntry = (key: ProfileConversationKey): void => {
+const touchCacheEntry = (key: ProfileScopedConversationCacheKey): void => {
   const index = cacheTouchOrder.indexOf(key);
   if (index >= 0) {
     cacheTouchOrder.splice(index, 1);
@@ -24,18 +27,16 @@ const touchCacheEntry = (key: ProfileConversationKey): void => {
   }
 };
 
-const toKey = (profileId: string, conversationId: string): ProfileConversationKey => (
-  `${profileId.trim()}::${conversationId.trim()}`
-);
+const toKey = buildProfileScopedConversationCacheKey;
 
 export const readDmThreadDisplayCache = (
   profileId: string | undefined,
   conversationId: string | undefined,
 ): ReadonlyArray<Message> | null => {
-  if (!profileId?.trim() || !conversationId?.trim()) {
+  const key = toKey(profileId, conversationId);
+  if (!key) {
     return null;
   }
-  const key = toKey(profileId, conversationId);
   const cached = displayCache.get(key) ?? null;
   if (cached) {
     touchCacheEntry(key);
@@ -48,10 +49,18 @@ export const writeDmThreadDisplayCache = (
   conversationId: string | undefined,
   messages: ReadonlyArray<Message>,
 ): void => {
-  if (!profileId?.trim() || !conversationId?.trim() || messages.length === 0) {
+  const audit = auditProfileScopedStorageAccess({
+    profileId,
+    conversationId,
+    operation: "write",
+  });
+  if (!audit.ok || messages.length === 0) {
     return;
   }
   const key = toKey(profileId, conversationId);
+  if (!key) {
+    return;
+  }
   displayCache.set(key, messages);
   touchCacheEntry(key);
   listeners.forEach((listener) => listener());

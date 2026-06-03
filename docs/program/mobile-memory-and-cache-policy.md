@@ -20,6 +20,7 @@ Keep Obscur viable on **~4GB mobile** devices without unbounded IndexedDB / chat
 | Settings tab parse | `settings-tab-panel-loader.tsx` + lazy provider | Sync import of `settings-tab-panel-model-provider` |
 | Local media / vault index | `local-media-store.ts` | Parallel caches in components |
 | Chat-state retention | `dm-conversation-message-retention-dedupe.ts` | Per-hook retention filters |
+| Progressive cache tiers (M3) | `progressive-cache-tier-policy.ts`, `dm-thread-display-cache.ts`, `dm-thread-sync-seed-loader.ts` | Ad-hoc warm/cold paint in hooks |
 | Tombstone / delete suppression | `messagingClientOperations` (R1) | Direct tombstone store in UI |
 
 ---
@@ -30,14 +31,22 @@ Keep Obscur viable on **~4GB mobile** devices without unbounded IndexedDB / chat
 |-------|--------|------|
 | **M1** | Compact mobile shell + contained scroll (P13/P14) | Vitest on layout hooks + page shells |
 | **M2** | Navigation N4/N5 on mobile — lazy routes, settings sub-chunks | `release:test-pack` + manual mobile soak (batched) |
-| **M3** | Progressive cache tiers — warm display cache, cold full hydrate | Contract test + profile-scoped storage audit |
+| **M3** | Progressive cache tiers — warm display cache, cold full hydrate | **Done** — `progressive-cache-tier-policy.ts` + sync seed loader + tier wiring in `use-conversation-messages` |
 | **M4** | Self-cleaning retention — vault index + tombstone TTL sweep | Opt-in policy doc + incremental owners |
 
 Manual mobile matrix: [deferred-manual-verification-checklist.md](./deferred-manual-verification-checklist.md) §5.
 
 ---
 
-## Forbidden patterns
+## Tier flow (DM threads)
+
+1. **Warm** — `readDmThreadDisplayCache(profileId, conversationId)` paints immediately when bidirectional.
+2. **Sync seed** — `loadDmThreadSyncSeedCache()` reads profile-scoped chat-state (web only).
+3. **Cold** — `messagingClientOperations.hydrateDmThreadReadModel()` via `use-conversation-messages` hydrate effect.
+
+Tier selection: `resolveProgressiveCacheTierPlan()` in `progressive-cache-tier-policy.ts` (wraps `resolveInitialConversationPaint` from `dm-thread-read-model.ts`).
+
+Profile isolation: `buildProfileScopedConversationCacheKey()` + `auditProfileScopedStorageAccess()` — writes require `profileId`; reads allow ambient fallback.
 
 1. Eager import of all sidebar route clients on mobile shell builds.
 2. Unbounded in-memory message arrays without retention pass on compact layout.
@@ -48,7 +57,7 @@ Manual mobile matrix: [deferred-manual-verification-checklist.md](./deferred-man
 ## Evidence commands
 
 ```bash
-pnpm -C apps/pwa exec vitest run app/features/runtime/use-mobile-compact-layout.test.ts app/features/runtime/use-secondary-page-layout-tier.test.ts
+pnpm -C apps/pwa exec vitest run app/features/messaging/services/progressive-cache-tier-policy.test.ts app/features/messaging/services/dm-thread-display-cache.test.ts app/features/messaging/services/dm-thread-read-model.test.ts
 pnpm perf:shell:s0:prod    # N6 prod navigation baseline (static out/)
 pnpm gateway:boundaries:check
 ```

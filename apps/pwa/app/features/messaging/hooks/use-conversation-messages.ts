@@ -21,14 +21,13 @@ import { subscribeMessagesIndexRebuiltDual } from "@/app/features/profiles/servi
 import { subscribeSecondaryProfileDmSoftRefresh } from "@/app/features/runtime/services/secondary-profile-dm-soft-refresh";
 import { chatStateStoreService, type ChatStateReplacedEventDetail } from "../services/chat-state-store";
 import { requiresSqlitePersistence } from "@/app/features/runtime/native-persistence-policy";
+import { isMessageIdentityInSuppressedIdSet } from "../services/conversation-message-visibility";
+import { isDisplayableDmConversationMessage } from "../services/dm-conversation-displayable-message";
 import { isCommunityInviteThreadPayloadContent } from "../services/dm-community-invite-thread-payload";
 import {
     augmentCommunityDmInviteThreadMessages,
     COMMUNITY_DM_INVITE_LEDGER_CHANGED_EVENT,
 } from "@/app/features/groups/services/community-dm-invite-pipeline";
-import { fromPersistedMessagesByConversationId } from "../utils/persistence";
-import { isMessageIdentityInSuppressedIdSet } from "../services/conversation-message-visibility";
-import { isDisplayableDmConversationMessage } from "../services/dm-conversation-displayable-message";
 import { toDeletedMessageIdentityIds } from "../services/dm-conversation-delete-identity-ids";
 import { expandDmDeleteIdsForThread } from "../services/expand-dm-delete-ids-for-thread";
 import { messagingClientOperations } from "../services/messaging-client-operations";
@@ -59,6 +58,7 @@ import {
     readDmThreadDisplayCache,
     writeDmThreadDisplayCache,
 } from "../services/dm-thread-display-cache";
+import { loadDmThreadSyncSeedCache } from "../services/dm-thread-sync-seed-loader";
 import {
     cancelCoalescedConversationHydrate,
     scheduleCoalescedConversationHydrate,
@@ -96,40 +96,6 @@ const getLoadEarlierBatchSize = (chatPerformanceV2Enabled: boolean): number =>
     chatPerformanceV2Enabled ? LOAD_EARLIER_BATCH_SIZE_PERF_V2 : LOAD_EARLIER_BATCH_SIZE_DEFAULT;
 
 const getInitialHydrationVisibleTarget = (): number => INITIAL_HYDRATION_VISIBLE_TARGET_DEFAULT;
-
-const loadSyncPersistedThreadSeed = (params: Readonly<{
-    conversationAliasIds: ReadonlyArray<string>;
-    publicKeyHex: PublicKeyHex;
-    profileId: string | undefined;
-    persistentSuppressedMessageIds: ReadonlySet<string>;
-    localMessageRetentionDays: number | undefined;
-}>): ReadonlyArray<Message> => {
-    if (requiresSqlitePersistence()) {
-        return [];
-    }
-    const persistedState = chatStateStoreService.load(params.publicKeyHex, {
-        profileId: params.profileId,
-    });
-    if (!persistedState?.messagesByConversationId) {
-        return [];
-    }
-    const normalizedByConversationId = fromPersistedMessagesByConversationId(
-        persistedState.messagesByConversationId,
-        { myPublicKeyHex: params.publicKeyHex },
-    );
-    const merged: Message[] = [];
-    params.conversationAliasIds.forEach((aliasId) => {
-        merged.push(...(normalizedByConversationId[aliasId] ?? []));
-    });
-    const deduped = Array.from(new Map(merged.map((message) => [message.id, message])).values());
-    return [...filterMessagesByLocalRetention(
-        deduped.filter((message) => (
-            isDisplayableDmConversationMessage(message)
-            && !isMessageIdentityInSuppressedIdSet(message, params.persistentSuppressedMessageIds)
-        )),
-        params.localMessageRetentionDays,
-    )].sort((left, right) => left.timestamp.getTime() - right.timestamp.getTime());
-};
 
 /**
  * useConversationMessages Hook
@@ -598,7 +564,7 @@ export function useConversationMessages(
             });
             historyAuthorityLogKeyRef.current = null;
             if (conversationChanged && normalizedPublicKeyHex) {
-                const syncSeed = loadSyncPersistedThreadSeed({
+                const syncSeed = loadDmThreadSyncSeedCache({
                     conversationAliasIds,
                     publicKeyHex: normalizedPublicKeyHex,
                     profileId,
@@ -630,6 +596,7 @@ export function useConversationMessages(
         conversationId,
         hydrateHistory,
         isDmThread,
+        localMessageRetentionDays,
         messageDeleteTombstones,
         normalizedPublicKeyHex,
         projectionSequence,
