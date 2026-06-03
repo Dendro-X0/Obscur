@@ -79,8 +79,8 @@ Canonical: [v1.8.x-batch-implementation-lane.md](../program/v1.8.x-batch-impleme
 
 | Piece | Effect |
 |-------|--------|
-| `docs/assets/perf/s0-prod.json` | Cold-start DOM **126ms** on static `apps/pwa/out` (2026-06-03) |
-| `obscur-shell-perf-baseline.mjs` | Windows fix — serve relative path `apps/pwa/out` (spaces in repo path) |
+| `docs/assets/perf/s0-prod.json` | Cold-start DOM **126ms** on static desktop shell export (2026-06-03) |
+| `obscur-shell-perf-baseline.mjs` | Windows fix — serve relative PWA export path (spaces in repo path) |
 
 Nav matrix skipped (`shellPhase: timeout`) — harness needs unlocked session; re-run after profile seed per [obscur-shell-perf-baseline-s0.md](../program/obscur-shell-perf-baseline-s0.md).
 
