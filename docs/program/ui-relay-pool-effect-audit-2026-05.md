@@ -39,7 +39,7 @@
 | [`use-invite-resolver.ts`](../../apps/pwa/app/features/invites/utils/use-invite-resolver.ts) | `[pool]` on `resolveCode` | **Fixed** — `useRelayPoolRef` |
 | [`use-profile-publisher.ts`](../../apps/pwa/app/features/profile/hooks/use-profile-publisher.ts) | `[pool, …]` on `publishProfile` | **Fixed** |
 | [`use-chat-actions.ts`](../../apps/pwa/app/features/main-shell/hooks/use-chat-actions.ts) | `[relayPool]` | **Fixed** |
-| [`settings-tab-panel-model.tsx`](../../apps/pwa/app/settings/settings-tab-panel-model.tsx) | `[pool]` on publish/invite callbacks | **Fixed** |
+| [`use-relays-settings-model.ts`](../../apps/pwa/app/settings/settings-tab-panel-models/use-relays-settings-model.ts) | `[pool]` on publish/invite callbacks | **Fixed** (N5 per-tab model) |
 | [`global-dialog-manager.tsx`](../../apps/pwa/app/features/messaging/components/global-dialog-manager.tsx) | `[relayPool]` on create-group handler | **Fixed** |
 | [`invite-member-dialog.tsx`](../../apps/pwa/app/features/groups/components/invite-member-dialog.tsx) | `[pool]` service init effect | **Fixed** (earlier batch) |
 | [`use-community-membership-gossip.ts`](../../apps/pwa/app/features/groups/hooks/use-community-membership-gossip.ts) | `[relayPool]` | **Fixed** |
@@ -100,7 +100,7 @@
 
 1. **P0** `group-discovery.tsx` (this audit batch)
 2. **Dead code** `main-shell.tsx` `socialGraph` useMemo
-3. **P1 settings** — `settings-tab-panel-model`, profile publisher
+3. **P1 settings** — `use-relays-settings-model`, profile publisher
 4. **P1 groups shell** — `use-chat-actions`, `global-dialog-manager`, membership gossip
 
 ---

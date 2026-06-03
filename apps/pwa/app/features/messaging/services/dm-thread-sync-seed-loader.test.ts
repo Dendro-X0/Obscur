@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
+import type { PersistedChatState } from "../types";
 import { chatStateStoreService } from "./chat-state-store";
 import { loadDmThreadSyncSeedCache } from "./dm-thread-sync-seed-loader";
 
@@ -12,19 +13,24 @@ describe("dm-thread-sync-seed-loader", () => {
   const conversationId = "dm:aa:bb";
 
   beforeEach(() => {
-    vi.spyOn(chatStateStoreService, "load").mockReturnValue({
+    const persistedState: PersistedChatState = {
+      version: 1,
+      createdConnections: [],
+      createdGroups: [],
+      unreadByConversationId: {},
+      connectionOverridesByConnectionId: {},
       messagesByConversationId: {
         [conversationId]: [{
           id: "seed-1",
           kind: "user",
           content: "seed",
-          timestamp: new Date(1_000),
+          timestampMs: 1_000,
           isOutgoing: false,
           status: "delivered",
-          conversationId,
         }],
       },
-    } as ReturnType<typeof chatStateStoreService.load>);
+    };
+    vi.spyOn(chatStateStoreService, "load").mockReturnValue(persistedState);
   });
 
   it("loads profile-scoped chat-state seed on web builds", () => {

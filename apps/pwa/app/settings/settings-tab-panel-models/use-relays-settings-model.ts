@@ -233,7 +233,12 @@ export function useRelaysSettingsModel(): SettingsTabPanelModel {
           return;
         }
         const data = await response.json() as { timeIso?: string };
-        setApiHealth({ status: "ok", latencyMs, timeIso: data.timeIso, baseUrl });
+        setApiHealth({
+          status: "ok",
+          latencyMs,
+          timeIso: data.timeIso ?? new Date().toISOString(),
+          baseUrl,
+        });
       })
       .catch((error: unknown): void => {
         const message = error instanceof Error ? error.message : "Unknown error";

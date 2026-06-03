@@ -10,7 +10,7 @@
 
 | Check | Command / action |
 |-------|------------------|
-| `.env.local` exists | Copy `apps/pwa/.env.example` → `apps/pwa/.env.local` |
+| `.env.local` exists | Copy `apps/pwa/.env.example` beside it as `.env.local` (gitignored; not tracked in repo) |
 | Coordination URL set | `NEXT_PUBLIC_COORDINATION_URL=http://127.0.0.1:8787` |
 | Two profiles ready | Tester1 (dark) + Tester2 (light) — two desktop windows or PWA `:3340` + desktop |
 
@@ -70,7 +70,7 @@ If roster lags: group home → **Reconcile membership**.
 | 4 | Tester2 | Participants modal within **~60s** | Tester1 under **Excluded from active roster** |
 | 5 | Tester2 | Re-invite control | Enabled for excluded member |
 
-**Evidence:** screenshot → `docs/assets/demo/v1.9.0/evidence/K-M1-tester2-YYYY-MM-DD.png`
+**Evidence:** screenshot → `docs/assets/demo/v1.9.0/evidence/` (name file `K-M1-tester2-<date>.png` when captured)
 
 ---
 

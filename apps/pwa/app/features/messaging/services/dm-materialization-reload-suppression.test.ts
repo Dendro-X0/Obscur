@@ -3,6 +3,7 @@
  */
 import { describe, expect, it } from "vitest";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
+import type { MessageProjection } from "@/app/features/account-sync/account-event-contracts";
 import type { Message } from "../types";
 import { replayAccountEvents } from "@/app/features/account-sync/services/account-event-reducer";
 import type { AccountEvent } from "@/app/features/account-sync/account-event-contracts";
@@ -29,20 +30,15 @@ const createDmReceived = (messageId: string): AccountEvent => ({
   plaintextPreview: "hello",
 });
 
-const projectionMessageFromEvent = (event: AccountEvent): Message | null => {
-  if (event.type !== "DM_RECEIVED" && event.type !== "DM_SENT_CONFIRMED") {
-    return null;
-  }
-  return {
-    id: event.messageId,
-    eventId: event.eventId,
-    conversationId: event.conversationId,
-    senderId: event.type === "DM_RECEIVED" ? event.peerPublicKeyHex : ACCOUNT,
-    content: event.plaintextPreview ?? "",
-    timestamp: new Date(event.eventCreatedAtUnixSeconds * 1000),
-    status: "sent",
-  };
-};
+const projectionMessageFromTimeline = (entry: MessageProjection): Message => ({
+  id: entry.messageId,
+  kind: "user",
+  content: entry.plaintextPreview,
+  timestamp: new Date(entry.eventCreatedAtUnixSeconds * 1000),
+  isOutgoing: entry.direction === "outgoing",
+  status: "delivered",
+  conversationId: entry.conversationId,
+});
 
 describe("dm materialization reload suppression (R1)", () => {
   it("port filters deleted message ids after projection replay", () => {
@@ -67,22 +63,7 @@ describe("dm materialization reload suppression (R1)", () => {
 
     const projection = replayAccountEvents(events);
     const timeline = projection?.messagesByConversationId[CONVERSATION_ID] ?? [];
-    const displayRows = timeline
-      .map((entry) => projectionMessageFromEvent({
-        type: "DM_RECEIVED",
-        profileId: PROFILE_ID,
-        accountPublicKeyHex: ACCOUNT,
-        eventId: entry.eventId,
-        idempotencyKey: entry.idempotencyKey,
-        observedAtUnixMs: entry.observedAtUnixMs,
-        source: "legacy_bridge",
-        peerPublicKeyHex: PEER,
-        conversationId: CONVERSATION_ID,
-        messageId: entry.messageId,
-        eventCreatedAtUnixSeconds: entry.eventCreatedAtUnixSeconds,
-        plaintextPreview: entry.plaintextPreview,
-      }))
-      .filter((row): row is Message => row !== null);
+    const displayRows = timeline.map(projectionMessageFromTimeline);
 
     const suppressedIds = new Set(["msg-a"]);
     const viaOwner = dmConversationMaterializationOwner.filterThreadMessagesBySuppression(
