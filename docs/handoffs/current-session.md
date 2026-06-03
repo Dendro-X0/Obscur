@@ -1,7 +1,7 @@
 # Current Session Handoff — Obscur (native-first)
 
 - Last Updated (UTC): 2026-06-01T18:30:00Z
-- Session Status: **Lane T MEM-004 / MEM-006** — restore ledger + group hydrate guards
+- Session Status: **Lane T MEM-003** — invite-derived roster on restore merge
 - Active Owner: Maintainer
 
 ## Delivery order (maintainer policy, 2026-06-01)
@@ -35,7 +35,7 @@ Canonical: [v1.8.x-batch-implementation-lane.md](../program/v1.8.x-batch-impleme
 | **—** | **Manual verification** (K-M, G6-4, deferred checklist) | **Batched** — not between implementation slices |
 | **—** | GitHub Releases | **Hidden** on repo home (About → gear); not version truth |
 
-**Next atomic step:** Commit MEM-004/MEM-006 slice; push `main` (4 commits ahead); then MEM-003 self-only roster or P1 Android docs.
+**Next atomic step:** Commit MEM-003 slice; push `main` (5 commits ahead); then MED-001/002 or P1 Android docs.
 
 ## Performance gate (2026-06-03)
 
@@ -91,6 +91,8 @@ Scope: [v1.8.16-scope.md](../program/v1.8.16-scope.md)
 
 ## Lane T MEM-004 / MEM-006 (2026-06-03)
 
+**Commit:** `a6612d40`
+
 | Piece | Effect |
 |-------|--------|
 | `community-invite-response-only-ledger-policy.ts` | Downgrade `joined` rows with only DM invite-response evidence to `historical` |
@@ -99,6 +101,17 @@ Scope: [v1.8.16-scope.md](../program/v1.8.16-scope.md)
 | `group-provider.tsx` | Re-hydrate when scope matches but `createdGroups` is empty (MEM-006) |
 
 **Evidence:** `pnpm -C apps/pwa exec vitest run app/features/groups/services/community-invite-response-only-ledger-policy.test.ts app/features/account-sync/services/community-restore-resurrection.test.ts`
+
+## Lane T MEM-003 (2026-06-03)
+
+| Piece | Effect |
+|-------|--------|
+| `community-invite-member-pubkeys.ts` | Shared invite peer map + restore enrichment for ledger/`createdGroups` |
+| `community-membership-ledger.ts` | Union ledger + fallback member pubkeys (no thin self-only wins) |
+| `restore-merge-module.ts` | Persist invite-derived roster on restore merge |
+| `group-provider.tsx` | Uses shared invite peer builder |
+
+**Evidence:** `pnpm -C apps/pwa exec vitest run app/features/groups/services/community-invite-member-pubkeys.test.ts app/features/account-sync/services/community-restore-resurrection.test.ts`
 
 ## Lane X experience (2026-06-03)
 

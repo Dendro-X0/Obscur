@@ -271,4 +271,93 @@ describe("AB-06 — left membership cannot be resurrected by older backup restor
     expect(merged?.status).toBe("historical");
     expect(result.mergedPayload.chatState?.createdGroups ?? []).toHaveLength(0);
   });
+
+  it("MEM-003: restore merge preserves invite-derived peer roster on joined ledger and createdGroups", () => {
+    const peer = "d".repeat(64);
+    const groupId = "invite-peer";
+    const relayUrl = "wss://relay.peer";
+    const communityId = `${groupId}:${relayUrl}`;
+    const input = {
+      ...makeDefaultInput(),
+      publicKeyHex: PUBLIC_KEY,
+      existingLedgerEntries: [],
+      sanitizedIncomingPayload: makeMinimalPayload({
+        createdAtUnixMs: 1_000,
+        chatState: {
+          version: 2,
+          createdConnections: [{
+            id: `${peer}:${PUBLIC_KEY}`,
+            displayName: "Peer",
+            pubkey: peer,
+            lastMessage: "accepted",
+            unreadCount: 0,
+            lastMessageTimeMs: 8_500,
+          }],
+          createdGroups: [{
+            id: `community:${communityId}`,
+            communityId,
+            groupId,
+            relayUrl,
+            displayName: "Invite Peer",
+            memberPubkeys: [PUBLIC_KEY],
+            lastMessage: "restored self only",
+            unreadCount: 0,
+            lastMessageTimeMs: 9_000,
+            access: "invite-only",
+            memberCount: 1,
+            adminPubkeys: [],
+          }],
+          unreadByConversationId: {},
+          connectionOverridesByConnectionId: {},
+          groupMessages: {},
+          connectionRequests: [],
+          pinnedChatIds: [],
+          hiddenChatIds: [],
+          messagesByConversationId: {
+            [`${peer}:${PUBLIC_KEY}`]: [{
+              id: "invite-1",
+              content: JSON.stringify({
+                type: "community-invite",
+                groupId,
+                relayUrl,
+                communityId,
+                roomKey: "rk",
+              }),
+              timestampMs: 8_000,
+              isOutgoing: false,
+              status: "delivered",
+              pubkey: peer,
+            }, {
+              id: "invite-accept-1",
+              content: JSON.stringify({
+                type: "community-invite-response",
+                status: "accepted",
+                groupId,
+                relayUrl,
+                communityId,
+              }),
+              timestampMs: 8_200,
+              isOutgoing: true,
+              status: "delivered",
+              pubkey: PUBLIC_KEY,
+            }],
+          },
+        },
+        communityMembershipLedger: [{
+          communityId,
+          groupId,
+          relayUrl,
+          status: "joined",
+          updatedAtUnixMs: 9_000,
+          memberPubkeys: [PUBLIC_KEY],
+        }],
+        roomKeys: [{ groupId, roomKeyHex: "rk", createdAt: 8_000 }],
+      }),
+    };
+
+    const result = orchestrateRestoreMerge(input);
+    const mergedLedger = result.mergedCommunityMembershipLedger.find((entry) => entry.groupId === groupId);
+    expect(mergedLedger?.memberPubkeys).toEqual(expect.arrayContaining([PUBLIC_KEY, peer]));
+    expect(result.mergedChatState?.createdGroups[0]?.memberPubkeys).toEqual(expect.arrayContaining([PUBLIC_KEY, peer]));
+  });
 });

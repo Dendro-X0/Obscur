@@ -20,6 +20,10 @@ import {
 } from "@/app/features/groups/services/community-membership-reconstruction";
 import { downgradeInviteResponseOnlyJoinedLedgerEntries } from "@/app/features/groups/services/community-invite-response-only-ledger-policy";
 import {
+  enrichCommunityMembershipLedgerMemberPubkeysFromInviteEvidence,
+  enrichPersistedCreatedGroupsMemberPubkeysFromInviteEvidence,
+} from "@/app/features/groups/services/community-invite-member-pubkeys";
+import {
   emitRestoreMergeDiagnostics,
   emitBackupRestoreApplyDiagnostics,
   emitBackupPublishLowEvidenceSuppressed,
@@ -488,18 +492,26 @@ export const orchestrateRestoreMerge = (
     supplementalEntries: reconstructedMergedLedgerEntries,
   });
 
-  const mergedCommunityMembershipLedger = downgradeInviteResponseOnlyJoinedLedgerEntries({
-    entries: mergeCommunityMembershipLedgerEntries(
-      localExplicitLedgerEntries,
-      incomingSupplementedLedgerEntries,
-    ),
+  const mergedCommunityMembershipLedger = enrichCommunityMembershipLedgerMemberPubkeysFromInviteEvidence({
+    entries: downgradeInviteResponseOnlyJoinedLedgerEntries({
+      entries: mergeCommunityMembershipLedgerEntries(
+        localExplicitLedgerEntries,
+        incomingSupplementedLedgerEntries,
+      ),
+      chatState: mergedChatState,
+      roomKeys: mergedExplicitRoomKeys,
+    }),
     chatState: mergedChatState,
-    roomKeys: mergedExplicitRoomKeys,
+    localPublicKeyHex: input.publicKeyHex,
   });
+  const enrichedMergedChatState = enrichPersistedCreatedGroupsMemberPubkeysFromInviteEvidence(
+    mergedChatState,
+    input.publicKeyHex,
+  ) ?? mergedChatState;
 
   // Select joined groups and reconstruct room keys
   const mergedJoinedGroupIds = selectJoinedGroupIds(mergedCommunityMembershipLedger);
-  const reconstructedMergedRoomKeySnapshots = reconstructRoomKeySnapshotsFromChatState(mergedChatState, {
+  const reconstructedMergedRoomKeySnapshots = reconstructRoomKeySnapshotsFromChatState(enrichedMergedChatState, {
     restrictToJoinedGroupIds: mergedJoinedGroupIds,
   });
 
@@ -513,7 +525,7 @@ export const orchestrateRestoreMerge = (
         currentPayload,
         sanitizedIncomingPayload,
         mergedMessageDeleteTombstones,
-        mergedChatState,
+        mergedChatState: enrichedMergedChatState,
         mergedCommunityMembershipLedger,
         mergedRoomKeys,
       })
@@ -521,7 +533,7 @@ export const orchestrateRestoreMerge = (
         sanitizedIncomingPayloadWithoutCommunityState,
         sanitizedIncomingPayload,
         mergedMessageDeleteTombstones,
-        mergedChatState,
+        mergedChatState: enrichedMergedChatState,
         mergedCommunityMembershipLedger,
         mergedRoomKeys,
       });
@@ -529,7 +541,7 @@ export const orchestrateRestoreMerge = (
   return {
     mergedPayload,
     mergedMessageDeleteTombstones,
-    mergedChatState,
+    mergedChatState: enrichedMergedChatState,
     incomingLedgerEntries,
     reconciledIncomingLedgerEntries,
     reconstructedMergedLedgerEntries,

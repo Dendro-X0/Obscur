@@ -600,8 +600,11 @@ export const toGroupConversationFromMembershipLedgerEntry = (
   });
   const entryMemberPubkeys = Array.from(new Set((entry.memberPubkeys ?? []).map((pubkey) => pubkey.trim()).filter((pubkey) => pubkey.length > 0)));
   const fallbackMemberPubkeys = Array.from(new Set((options?.fallbackMemberPubkeys ?? []).map((pubkey) => pubkey.trim()).filter((pubkey) => pubkey.length > 0)));
-  // Prefer member pubkeys from ledger entry, fall back to options if empty
-  const mergedMemberPubkeys = entryMemberPubkeys.length > 0 ? entryMemberPubkeys : fallbackMemberPubkeys;
+  // MEM-003: union ledger + fallback seeds — thin self-only ledger rows must not hide invite peers.
+  const mergedMemberPubkeys = Array.from(new Set([
+    ...entryMemberPubkeys,
+    ...fallbackMemberPubkeys,
+  ]));
   const memberCount = Math.max(mergedMemberPubkeys.length, 1);
   const displayName = pickPreferredCommunityDisplayName(
     entry.displayName,
