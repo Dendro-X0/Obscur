@@ -1,5 +1,30 @@
 {
-  "schema": "obscur-shell-perf-s0",
+  "schema": "obscur-shell-perf-baseline/v1",
   "mode": "prod",
-  "note": "Placeholder until pnpm perf:shell:s0:prod records a baseline."
+  "baseUrl": "http://127.0.0.1:3350",
+  "recordedAt": "2026-06-03T09:05:19.595Z",
+  "coldStart": {
+    "domContentLoadedMs": 126
+  },
+  "checks": {
+    "shellPhase": "timeout",
+    "experimentShell": true
+  },
+  "navigations": [],
+  "warnings": [
+    "Shell phase \"timeout\" — navigation matrix skipped. Unlock the app (or seed profile storage) and re-run."
+  ],
+  "summary": {
+    "mode": "prod",
+    "navigationCount": 0,
+    "successCount": 0,
+    "medianNavMs": null,
+    "maxNavMs": null,
+    "settingsColdMs": null,
+    "settingsWarmMs": null,
+    "settingsWarmSpeedupRatio": null,
+    "coldStartDomMs": 126,
+    "shellPhase": "timeout",
+    "experimentShell": true
+  }
 }

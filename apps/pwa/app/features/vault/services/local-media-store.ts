@@ -1,6 +1,7 @@
 "use client";
 
 import type { Attachment } from "../../messaging/types";
+import { pruneLocalMediaIndexRetentionEntries } from "@/app/features/runtime/services/self-cleaning-retention-sweep-policy";
 import { logRuntimeEvent } from "@/app/shared/runtime-log-classification";
 import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
@@ -213,6 +214,50 @@ export const repairLocalMediaIndex = (): Readonly<{ repaired: number; removed: n
 
     saveIndex(next);
     return { repaired, removed };
+};
+
+export const pruneLocalMediaIndexRetention = (
+    nowMs: number = Date.now(),
+    profileId?: string,
+): Readonly<{ removedByAge: number; removedByCap: number; remaining: number }> => {
+    if (!isBrowser()) {
+        return { removedByAge: 0, removedByCap: 0, remaining: 0 };
+    }
+    let index: LocalMediaIndex = {};
+    try {
+        const raw = localStorage.getItem(scopedIndexKey(profileId));
+        if (raw) {
+            const parsed = JSON.parse(raw) as unknown;
+            if (parsed && typeof parsed === "object") {
+                index = parsed as LocalMediaIndex;
+            }
+        }
+    } catch {
+        index = {};
+    }
+    const entries = Object.entries(index).map(([remoteUrl, entry]) => ({
+        remoteUrl: (typeof entry?.remoteUrl === "string" && entry.remoteUrl.trim().length > 0)
+            ? entry.remoteUrl.trim()
+            : remoteUrl,
+        savedAtUnixMs: entry?.savedAtUnixMs ?? Number.NaN,
+    }));
+    const plan = pruneLocalMediaIndexRetentionEntries(entries, nowMs);
+    const keepSet = new Set(plan.keptRemoteUrls);
+    const next: LocalMediaIndex = {};
+    Object.entries(index).forEach(([remoteUrl, entry]) => {
+        const normalizedUrl = (typeof entry?.remoteUrl === "string" && entry.remoteUrl.trim().length > 0)
+            ? entry.remoteUrl.trim()
+            : remoteUrl;
+        if (keepSet.has(normalizedUrl) && entry) {
+            next[normalizedUrl] = entry;
+        }
+    });
+    localStorage.setItem(scopedIndexKey(profileId), JSON.stringify(next));
+    return {
+        removedByAge: plan.removedByAge,
+        removedByCap: plan.removedByCap,
+        remaining: plan.keptRemoteUrls.length,
+    };
 };
 
 export const getLocalMediaIndexEntryByRemoteUrl = (remoteUrl: string): LocalMediaIndexEntry | null => {

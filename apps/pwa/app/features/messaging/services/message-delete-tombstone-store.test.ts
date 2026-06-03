@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { MESSAGE_DELETE_TOMBSTONE_RETENTION_MS } from "@dweb/storage-contracts/message-delete-tombstones";
 import { emitAccountSyncMutation } from "@/app/shared/account-sync-mutation-signal";
 import {
   clearMessageDeleteTombstones,
@@ -7,7 +8,9 @@ import {
   liftMessageDeleteSuppression,
   loadSuppressedMessageDeleteIds,
   replaceMessageDeleteTombstones,
+  sweepMessageDeleteTombstones,
   suppressMessageDeleteTombstone,
+  messageDeleteTombstoneStoreInternals,
 } from "./message-delete-tombstone-store";
 
 vi.mock("@dweb/db", () => ({
@@ -91,5 +94,24 @@ describe("message-delete-tombstone-store", () => {
     const entries = loadMessageDeleteTombstoneEntries(5_001);
     const entry = entries.find((e) => e.id === "shared-id");
     expect(entry?.deletedAtUnixMs).toBe(5_000);
+  });
+
+  it("sweepMessageDeleteTombstones removes expired tombstones", () => {
+    const nowMs = 10_000_000_000;
+    messageDeleteTombstoneStoreInternals.writeState({
+      entries: [
+        { id: "fresh-id", deletedAtUnixMs: nowMs - 1_000 },
+        { id: "stale-id", deletedAtUnixMs: nowMs - MESSAGE_DELETE_TOMBSTONE_RETENTION_MS - 1 },
+      ],
+    });
+    vi.mocked(emitAccountSyncMutation).mockClear();
+
+    const result = sweepMessageDeleteTombstones(undefined, nowMs);
+
+    expect(result.removedCount).toBe(1);
+    expect(result.remainingCount).toBe(1);
+    expect(isMessageDeleteSuppressed("fresh-id", nowMs)).toBe(true);
+    expect(isMessageDeleteSuppressed("stale-id", nowMs)).toBe(false);
+    expect(emitAccountSyncMutation).toHaveBeenCalledWith("message_delete_tombstones_changed");
   });
 });

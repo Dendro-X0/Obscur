@@ -114,7 +114,7 @@ Structural lanes from investigation — execute when patch loops return:
 | **N3** | Lazy global dialogs / single DM transport on network routes | **Partial** — `LazyGlobalDialogManager` + `useNetworkRequestTransport` (no duplicate controllers) |
 | **N4** | Desktop eager sidebar bundle via `sidebar-routes.ts` | **Done** — `createSidebarRoutePage` eager on desktop; warm-up uses `shell-only` via `resolveRouteNavigationWarmupMode()` |
 | **N5** | Split settings into tab sub-chunks | **Done** — per-tab model hooks + dynamic providers in `settings-tab-panel-models/` |
-| **N6** | Prod-shell perf baseline (`out/` not webpack dev) | **Partial** — `pnpm perf:shell:s0:prod` + [obscur-shell-perf-baseline-s0.md](./obscur-shell-perf-baseline-s0.md) |
+| **N6** | Prod-shell perf baseline (`out/` not webpack dev) | **Done (2026-06-03)** — `docs/assets/perf/s0-prod.json` cold-start baseline; nav matrix needs unlocked session |
 
 **Broader mobile / cache:** [mobile-memory-and-cache-policy.md](./mobile-memory-and-cache-policy.md) (M1–M4 phases).
 

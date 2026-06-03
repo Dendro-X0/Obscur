@@ -175,6 +175,35 @@ const tombstoneEntriesEqual = (
   ));
 };
 
+const readRawState = (profileId?: string): MessageDeleteTombstoneState => {
+  const pid = resolveProfileId(profileId);
+  if (isNativeSqliteEnabled()) {
+    return nativeTombstoneCache.get(pid) ?? emptyMessageDeleteTombstoneState();
+  }
+  const storage = getStorage();
+  if (!storage) return emptyMessageDeleteTombstoneState();
+  try {
+    const raw = storage.getItem(getScopeKey(profileId));
+    if (!raw) return emptyMessageDeleteTombstoneState();
+    const parsed = JSON.parse(raw) as MessageDeleteTombstoneState | ReadonlyArray<string>;
+    if (Array.isArray(parsed)) {
+      return { entries: parsed.map((id) => ({ id, deletedAtUnixMs: Date.now() })) };
+    }
+    if (!parsed || !Array.isArray(parsed.entries)) {
+      return emptyMessageDeleteTombstoneState();
+    }
+    return {
+      entries: parsed.entries.filter((entry): entry is MessageDeleteTombstoneEntry => (
+        !!entry
+        && typeof entry.id === "string"
+        && typeof entry.deletedAtUnixMs === "number"
+      )),
+    };
+  } catch {
+    return emptyMessageDeleteTombstoneState();
+  }
+};
+
 const readState = (
   nowMs: number = Date.now(),
   profileId?: string,
@@ -486,6 +515,22 @@ export const mergeMessageDeleteTombstonesFromIndexedDb = async (
   if (!tombstoneEntriesEqual(merged, idbState)) {
     flushToIndexedDb(scopeKey, merged);
   }
+};
+
+export const sweepMessageDeleteTombstones = (
+  profileId?: string,
+  nowMs: number = Date.now(),
+): Readonly<{ removedCount: number; remainingCount: number }> => {
+  const raw = readRawState(profileId);
+  const after = normalizeMessageDeleteTombstoneState(raw, nowMs);
+  const removedCount = Math.max(0, raw.entries.length - after.entries.length);
+  if (removedCount > 0 || !tombstoneEntriesEqual(raw, after)) {
+    writeState(after, profileId);
+    if (removedCount > 0) {
+      emitAccountSyncMutation("message_delete_tombstones_changed");
+    }
+  }
+  return { removedCount, remainingCount: after.entries.length };
 };
 
 export const messageDeleteTombstoneStoreInternals = {

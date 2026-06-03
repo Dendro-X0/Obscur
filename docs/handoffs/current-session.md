@@ -1,7 +1,7 @@
 # Current Session Handoff — Obscur (native-first)
 
 - Last Updated (UTC): 2026-06-01T18:30:00Z
-- Session Status: **M3 progressive cache tiers** — warm display → sync seed → cold hydrate owner
+- Session Status: **M4 retention sweep + N6 prod baseline** — self-cleaning local indexes; S0 perf artifact
 - Active Owner: Maintainer
 
 ## Delivery order (maintainer policy, 2026-06-01)
@@ -31,11 +31,11 @@ Canonical: [v1.8.x-batch-implementation-lane.md](../program/v1.8.x-batch-impleme
 |----------|----------------------|--------|
 | **1** | **v1.8.14 batch land** — P13/P14, B2, Wave 3 trust, nav perf, N5 settings split | **Landed** — `341d1515` on `main` 2026-06-01 |
 | **2** | **v1.9 B4 (R1/R2)** — DM materialization port + monotonic roster read model | **Done** (engineering) — main-shell R2 count fix 2026-06-01 |
-| **3** | **N-series / broader perf** — N4/N5 done; M3 cache tiers | **M3 done** — M4 retention sweep open |
+| **3** | **N-series / broader perf** — N4/N5/N6 done; M3/M4 cache + retention | **M4 done** — idle vault/tombstone sweep |
 | **—** | **Manual verification** (K-M, G6-4, deferred checklist) | **Batched** — not between implementation slices |
 | **—** | GitHub Releases | **Hidden** on repo home (About → gear); not version truth |
 
-**Next atomic step:** **M4** self-cleaning retention sweep, or **N6** prod baseline (`pnpm perf:shell:s0:prod`).
+**Next atomic step:** Manual mobile soak batch (deferred checklist §5), or v1.9 **K** backlog slice.
 
 ## Performance gate (2026-06-03)
 
@@ -60,7 +60,31 @@ Canonical: [v1.8.x-batch-implementation-lane.md](../program/v1.8.x-batch-impleme
 
 **Evidence:** `pnpm -C apps/pwa exec vitest run app/components/navigation-performance-coordinator.test.ts app/components/route-navigation-warmup.test.ts app/components/app-shell.test.tsx app/features/runtime/relay-transport-bootstrap-policy.test.ts app/features/runtime/services/secondary-profile-dm-soft-refresh.test.ts app/features/runtime/services/secondary-profile-window-reload-scheduler.test.ts`
 
-**Remaining (broader v1.9.0 perf lane):** mobile 4GB viability, progressive cache tiers, self-cleaning retention — needs scoped design + incremental owners; not yet system-wide.
+**Remaining (broader v1.9.0 perf lane):** mobile 4GB manual soak (deferred checklist §5); full S0 nav matrix re-run after unlock seed.
+
+## M4 self-cleaning retention (2026-06-03)
+
+| Piece | Effect |
+|-------|--------|
+| `self-cleaning-retention-sweep-policy.ts` | Vault index cap (2k) + 90d age; tombstone TTL re-exports |
+| `self-cleaning-retention-sweep.ts` | Idle orchestrator — vault prune + tombstone sweep |
+| `local-media-store.ts` | `pruneLocalMediaIndexRetention()` profile-scoped |
+| `message-delete-tombstone-store.ts` | `sweepMessageDeleteTombstones()` compacts raw storage |
+| `profile-runtime-provider.tsx` | Schedules sweep 8s after profile bootstrap |
+| `storage-health-service.ts` | Manual recovery runs retention sweep |
+
+**Evidence:** `pnpm -C apps/pwa exec vitest run app/features/runtime/services/self-cleaning-retention-sweep-policy.test.ts app/features/messaging/services/message-delete-tombstone-store.test.ts app/features/messaging/services/storage-health-service.test.ts`
+
+## N6 prod S0 baseline (2026-06-03)
+
+| Piece | Effect |
+|-------|--------|
+| `docs/assets/perf/s0-prod.json` | Cold-start DOM **126ms** on static `apps/pwa/out` (2026-06-03) |
+| `obscur-shell-perf-baseline.mjs` | Windows fix — serve relative path `apps/pwa/out` (spaces in repo path) |
+
+Nav matrix skipped (`shellPhase: timeout`) — harness needs unlocked session; re-run after profile seed per [obscur-shell-perf-baseline-s0.md](../program/obscur-shell-perf-baseline-s0.md).
+
+**Evidence:** `pnpm perf:shell:s0:prod -- --skip-build`
 
 ## N5 settings chunk split (2026-06-03)
 

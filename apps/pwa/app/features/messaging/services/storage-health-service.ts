@@ -5,6 +5,7 @@ import {
   getLocalMediaIndexSnapshot,
   repairLocalMediaIndex,
 } from "@/app/features/vault/services/local-media-store";
+import { runSelfCleaningRetentionSweep } from "@/app/features/runtime/services/self-cleaning-retention-sweep";
 import { incrementReliabilityMetric } from "@/app/shared/reliability-observability";
 import { protocolCoreAdapter } from "@/app/features/runtime/protocol-core-adapter";
 import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
@@ -151,14 +152,15 @@ export const runStorageRecovery = async (): Promise<StorageRecoveryReport> => {
   const startedAt = Date.now();
   incrementReliabilityMetric("storage_recovery_runs");
   const result = repairLocalMediaIndex();
-  const repairedEntries = result.repaired + result.removed;
+  const sweep = await runSelfCleaningRetentionSweep();
+  const repairedEntries = result.repaired + result.removed + sweep.vaultIndex.removedByAge + sweep.vaultIndex.removedByCap + sweep.tombstones.removedCount;
   if (repairedEntries > 0) {
     incrementReliabilityMetric("storage_recovery_records", repairedEntries);
   }
   return {
     status: repairedEntries > 0 ? "repaired" : "ok",
-    repairedEntries: result.repaired,
-    removedEntries: result.removed,
+    repairedEntries: result.repaired + sweep.vaultIndex.removedByAge + sweep.vaultIndex.removedByCap + sweep.tombstones.removedCount,
+    removedEntries: result.removed + sweep.vaultIndex.removedByAge + sweep.vaultIndex.removedByCap + sweep.tombstones.removedCount,
     recoveredEntries: repairedEntries,
     durationMs: Date.now() - startedAt,
     ranAtUnixMs: Date.now(),

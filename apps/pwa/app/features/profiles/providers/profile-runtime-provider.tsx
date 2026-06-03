@@ -16,6 +16,7 @@ import {
   scheduleExperimentIdleWork,
   shouldDeferExperimentHeavyWork,
 } from "@/app/features/runtime/experiment-shell-policy";
+import { scheduleSelfCleaningRetentionSweep } from "@/app/features/runtime/services/self-cleaning-retention-sweep";
 import { messagePersistenceService } from "@/app/features/messaging/services/message-persistence-service";
 
 type ProfileRuntimeValue = Readonly<{
@@ -97,13 +98,22 @@ export function ProfileRuntimeProvider(props: Readonly<{
         if (!profileId) {
             return;
         }
-        const hydrateTombstones = (): void => {
+        let cancelRetentionSweep: (() => void) | undefined;
+        const bootstrapProfileRetention = (): void => {
             void storagePorts.messageDeleteTombstones.hydrateMessageDeleteTombstonesFromSqlite(profileId).catch(() => {});
+            cancelRetentionSweep = scheduleSelfCleaningRetentionSweep(profileId);
         };
         if (shouldDeferExperimentHeavyWork()) {
-            return scheduleExperimentIdleWork(hydrateTombstones);
+            const cancelIdle = scheduleExperimentIdleWork(bootstrapProfileRetention);
+            return () => {
+                cancelIdle();
+                cancelRetentionSweep?.();
+            };
         }
-        hydrateTombstones();
+        bootstrapProfileRetention();
+        return () => {
+            cancelRetentionSweep?.();
+        };
     }, [profileId, storagePorts]);
 
     return <ProfileRuntimeContext.Provider value={value}>{children}</ProfileRuntimeContext.Provider>;

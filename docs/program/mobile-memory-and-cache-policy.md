@@ -21,6 +21,7 @@ Keep Obscur viable on **~4GB mobile** devices without unbounded IndexedDB / chat
 | Local media / vault index | `local-media-store.ts` | Parallel caches in components |
 | Chat-state retention | `dm-conversation-message-retention-dedupe.ts` | Per-hook retention filters |
 | Progressive cache tiers (M3) | `progressive-cache-tier-policy.ts`, `dm-thread-display-cache.ts`, `dm-thread-sync-seed-loader.ts` | Ad-hoc warm/cold paint in hooks |
+| Self-cleaning retention (M4) | `self-cleaning-retention-sweep-policy.ts`, `self-cleaning-retention-sweep.ts` | Ad-hoc TTL pruning in components |
 | Tombstone / delete suppression | `messagingClientOperations` (R1) | Direct tombstone store in UI |
 
 ---
@@ -32,7 +33,7 @@ Keep Obscur viable on **~4GB mobile** devices without unbounded IndexedDB / chat
 | **M1** | Compact mobile shell + contained scroll (P13/P14) | Vitest on layout hooks + page shells |
 | **M2** | Navigation N4/N5 on mobile — lazy routes, settings sub-chunks | `release:test-pack` + manual mobile soak (batched) |
 | **M3** | Progressive cache tiers — warm display cache, cold full hydrate | **Done** — `progressive-cache-tier-policy.ts` + sync seed loader + tier wiring in `use-conversation-messages` |
-| **M4** | Self-cleaning retention — vault index + tombstone TTL sweep | Opt-in policy doc + incremental owners |
+| **M4** | Self-cleaning retention — vault index + tombstone TTL sweep | **Done** — idle sweep on profile bootstrap + storage recovery |
 
 Manual mobile matrix: [deferred-manual-verification-checklist.md](./deferred-manual-verification-checklist.md) §5.
 
@@ -57,7 +58,7 @@ Profile isolation: `buildProfileScopedConversationCacheKey()` + `auditProfileSco
 ## Evidence commands
 
 ```bash
-pnpm -C apps/pwa exec vitest run app/features/messaging/services/progressive-cache-tier-policy.test.ts app/features/messaging/services/dm-thread-display-cache.test.ts app/features/messaging/services/dm-thread-read-model.test.ts
+pnpm -C apps/pwa exec vitest run app/features/messaging/services/progressive-cache-tier-policy.test.ts app/features/messaging/services/dm-thread-display-cache.test.ts app/features/messaging/services/dm-thread-read-model.test.ts app/features/runtime/services/self-cleaning-retention-sweep-policy.test.ts
 pnpm perf:shell:s0:prod    # N6 prod navigation baseline (static out/)
 pnpm gateway:boundaries:check
 ```

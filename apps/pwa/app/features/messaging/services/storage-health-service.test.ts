@@ -8,6 +8,10 @@ const mocks = vi.hoisted(() => ({
   repairLocalMediaIndexMock: vi.fn(),
   checkStorageHealthMock: vi.fn(),
   runStorageRecoveryMock: vi.fn(),
+  runSelfCleaningRetentionSweepMock: vi.fn(async () => ({
+    vaultIndex: { removedByAge: 0, removedByCap: 0, remaining: 0 },
+    tombstones: { removedCount: 0, remainingCount: 0 },
+  })),
   hasNativeRuntimeMock: vi.fn(() => false),
   getV090RolloutPolicyMock: vi.fn(() => ({
     stabilityModeEnabled: false,
@@ -28,6 +32,10 @@ vi.mock("@dweb/storage/indexed-db", () => ({
 vi.mock("@/app/features/vault/services/local-media-store", () => ({
   getLocalMediaIndexSnapshot: mocks.getLocalMediaIndexSnapshotMock,
   repairLocalMediaIndex: mocks.repairLocalMediaIndexMock,
+}));
+
+vi.mock("@/app/features/runtime/services/self-cleaning-retention-sweep", () => ({
+  runSelfCleaningRetentionSweep: mocks.runSelfCleaningRetentionSweepMock,
 }));
 
 vi.mock("@/app/features/runtime/protocol-core-adapter", () => ({
@@ -65,6 +73,11 @@ describe("storage-health-service", () => {
     mocks.repairLocalMediaIndexMock.mockReset();
     mocks.checkStorageHealthMock.mockReset();
     mocks.runStorageRecoveryMock.mockReset();
+    mocks.runSelfCleaningRetentionSweepMock.mockReset();
+    mocks.runSelfCleaningRetentionSweepMock.mockResolvedValue({
+      vaultIndex: { removedByAge: 0, removedByCap: 0, remaining: 0 },
+      tombstones: { removedCount: 0, remainingCount: 0 },
+    });
     mocks.hasNativeRuntimeMock.mockReturnValue(false);
     mocks.getV090RolloutPolicyMock.mockReturnValue({
       stabilityModeEnabled: false,
@@ -122,6 +135,7 @@ describe("storage-health-service", () => {
     expect(report.repairedEntries).toBe(3);
     expect(report.removedEntries).toBe(1);
     expect(report.recoveredEntries).toBe(4);
+    expect(mocks.runSelfCleaningRetentionSweepMock).toHaveBeenCalledTimes(1);
     expect(report.durationMs).toBeGreaterThanOrEqual(0);
 
     const metrics = getReliabilityMetricsSnapshot();

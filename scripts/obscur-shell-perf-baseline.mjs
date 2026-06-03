@@ -102,14 +102,15 @@ function runBuildPwaShell() {
 
 /** @returns {import('node:child_process').ChildProcess} */
 function startStaticServer(port) {
-  console.log(`[s0] Serving ${outDir} at http://127.0.0.1:${port} ...`);
+  const serveRoot = path.relative(repoRoot, outDir).split(path.sep).join("/") || ".";
+  console.log(`[s0] Serving ${serveRoot} at http://127.0.0.1:${port} ...`);
   const proc = spawn(
     "npx",
-    ["--yes", "serve", "-s", outDir, "-l", String(port)],
+    ["--yes", "serve", "-s", serveRoot, "-l", String(port)],
     {
       cwd: repoRoot,
       stdio: ["ignore", "pipe", "pipe"],
-      shell: true,
+      shell: process.platform === "win32",
       env: { ...process.env, CI: "true" },
     },
   );
