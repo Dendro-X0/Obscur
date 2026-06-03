@@ -95,6 +95,16 @@ describe("MEM-004 — invite-response-only joined ledger policy", () => {
     })).toBe(true);
   });
 
+  it("preserves explicit joined ledger rows without invite-response chat evidence", () => {
+    const downgraded = downgradeInviteResponseOnlyJoinedLedgerEntries({
+      entries: [joinedEntry()],
+      chatState: emptyChatState(),
+      roomKeys: [],
+    });
+
+    expect(downgraded[0]?.status).toBe("joined");
+  });
+
   it("preserves joined when DM includes community-invite with room key", () => {
     const chatState: PersistedChatState = {
       ...emptyChatState(),

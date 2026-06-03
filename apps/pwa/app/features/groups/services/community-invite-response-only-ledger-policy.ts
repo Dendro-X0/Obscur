@@ -78,6 +78,45 @@ export const hasDurableJoinedCommunityMembershipEvidence = (params: Readonly<{
   return false;
 };
 
+/** True when chat state carries an accepted DM invite-response card for this group. */
+export const hasAcceptedInviteResponseMembershipEvidence = (params: Readonly<{
+  entry: CommunityMembershipLedgerEntry;
+  chatState: PersistedChatState | null | undefined;
+}>): boolean => {
+  const groupId = params.entry.groupId.trim();
+  const relayUrl = (params.entry.relayUrl ?? "").trim();
+  if (groupId.length === 0 || relayUrl.length === 0) {
+    return false;
+  }
+
+  for (const timeline of Object.values(params.chatState?.messagesByConversationId ?? {})) {
+    for (const message of timeline) {
+      if (typeof message.content !== "string") {
+        continue;
+      }
+      const parsed = parseInvitePayload(message.content) as Readonly<{
+        type?: string;
+        status?: string;
+        groupId?: string;
+        relayUrl?: string;
+      }> | null;
+      if (!parsed || parsed.type !== "community-invite-response") {
+        continue;
+      }
+      if (typeof parsed.status === "string" && parsed.status !== "accepted") {
+        continue;
+      }
+      const parsedGroupId = typeof parsed.groupId === "string" ? parsed.groupId.trim() : "";
+      const parsedRelayUrl = typeof parsed.relayUrl === "string" ? parsed.relayUrl.trim() : "";
+      if (parsedGroupId === groupId && parsedRelayUrl === relayUrl) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+};
+
 export const downgradeInviteResponseOnlyJoinedLedgerEntries = (params: Readonly<{
   entries: ReadonlyArray<CommunityMembershipLedgerEntry>;
   chatState: PersistedChatState | null | undefined;
@@ -91,6 +130,12 @@ export const downgradeInviteResponseOnlyJoinedLedgerEntries = (params: Readonly<
       entry,
       chatState: params.chatState,
       roomKeys: params.roomKeys,
+    })) {
+      return entry;
+    }
+    if (!hasAcceptedInviteResponseMembershipEvidence({
+      entry,
+      chatState: params.chatState,
     })) {
       return entry;
     }

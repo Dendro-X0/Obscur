@@ -15,7 +15,7 @@ export const resolveRouteWarmupSurface = (
   if (pathname && pathname.trim().length > 0) {
     return getRouteSurfaceFromPathname(pathname);
   }
-  return "generic";
+  return "unknown";
 };
 
 export const laneXStaggerDelayMs = (index: number): number => Math.min(index * 70, 420);

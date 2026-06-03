@@ -567,10 +567,11 @@ export const orchestrateRestoreMerge = (
 export const reconcileIncomingLedgerWithReconstructedJoinedEvidence = (params: Readonly<{
   incomingExplicitEntries: ReadonlyArray<CommunityMembershipLedgerEntry>;
   reconstructedEntries: ReadonlyArray<CommunityMembershipLedgerEntry>;
-  localExplicitEntries: ReadonlyArray<CommunityMembershipLedgerEntry>;
+  localExplicitEntries?: ReadonlyArray<CommunityMembershipLedgerEntry>;
 }>): ReadonlyArray<CommunityMembershipLedgerEntry> => {
+  const localExplicitEntries = params.localExplicitEntries ?? [];
   const incomingByGroupId = new Map(params.incomingExplicitEntries.map(e => [e.groupId.trim(), e]));
-  const localByGroupId = new Map(params.localExplicitEntries.map(e => [e.groupId.trim(), e]));
+  const localByGroupId = new Map(localExplicitEntries.map(e => [e.groupId.trim(), e]));
   const result = [...params.incomingExplicitEntries];
 
   for (const reconstructed of params.reconstructedEntries) {

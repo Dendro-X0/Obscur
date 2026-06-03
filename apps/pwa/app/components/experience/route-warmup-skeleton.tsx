@@ -115,7 +115,7 @@ export function RouteWarmupSkeleton({
   className,
 }: RouteWarmupSkeletonProps): React.JSX.Element {
   const resolvedSurface = surface
-    ?? (pathname ? getRouteSurfaceFromPathname(pathname) : "generic");
+    ?? (pathname ? getRouteSurfaceFromPathname(pathname) : "unknown");
 
   return (
     <div

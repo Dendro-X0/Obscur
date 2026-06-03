@@ -67,7 +67,7 @@ const makeMinimalPayload = (overrides: Partial<EncryptedAccountBackupPayload> = 
   ...overrides,
 });
 
-const makeGroupChatState = (): EncryptedAccountBackupPayload["chatState"] => ({
+const makeGroupChatState = (): NonNullable<EncryptedAccountBackupPayload["chatState"]> => ({
   version: 2,
   createdConnections: [],
   createdGroups: [

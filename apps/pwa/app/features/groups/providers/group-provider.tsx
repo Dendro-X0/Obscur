@@ -129,6 +129,7 @@ import {
     syncGroupConversationsToSqlite,
 } from "@/app/features/groups/services/community-group-sqlite-store";
 import { requiresSqlitePersistence } from "@/app/features/runtime/native-persistence-policy";
+import { buildInviteMemberPubkeysByGroupKey } from "@/app/features/groups/services/community-invite-member-pubkeys";
 
 interface GroupContextType {
     createdGroups: ReadonlyArray<GroupConversation>;
@@ -158,7 +159,7 @@ interface GroupContextType {
 
 const GroupContext = createContext<GroupContextType | null>(null);
 
-import { buildInviteMemberPubkeysByGroupKey } from "@/app/features/groups/services/community-invite-member-pubkeys";
+export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const identity = useIdentity();
     const optionalProfileBus = useOptionalProfileMessageBus();
     const [createdGroups, setCreatedGroups] = useState<ReadonlyArray<GroupConversation>>([]);
