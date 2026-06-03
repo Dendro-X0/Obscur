@@ -76,7 +76,7 @@ SQLite fixes **local truth** and delete resurrection. **Roster join/leave across
 | **P3a** | Conversation list + policy doc | Native always `sqlite` authority — **Done** |
 | **P3b** | DM hydrate native-only path | Delete-for-me survives restart (desktop) — **Done** (code); manual two-profile verify pending |
 | **P3c** | Account projection native bootstrap | **Done** — seal-only import (tombstones + peer trust); DM timeline stays in SQLite; manual verify pending |
-| **P3d** | Community tables native-only | Groups cache single owner |
+| **P3d** | Community tables native-only | Groups cache single owner — **Done** (code); manual restart verify pending |
 
 ---
 

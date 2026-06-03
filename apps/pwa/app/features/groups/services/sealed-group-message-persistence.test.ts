@@ -22,6 +22,10 @@ vi.mock("@/app/features/profiles/services/profile-runtime-scope", () => ({
   getResolvedProfileId: () => "profile-test",
 }));
 
+vi.mock("@/app/features/runtime/native-persistence-policy", () => ({
+  requiresSqlitePersistence: () => false,
+}));
+
 vi.mock("@dweb/db", () => ({
   isTauri: () => false,
   dbGetGroupMessages: vi.fn(),

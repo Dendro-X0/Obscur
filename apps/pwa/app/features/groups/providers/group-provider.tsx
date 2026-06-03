@@ -124,6 +124,12 @@ import {
 import {
     loadCommunityKnownParticipantsEntries,
 } from "@/app/features/groups/services/community-known-participants-store";
+import {
+    loadSqliteGroupPersistedRows,
+    mergePersistedGroupRowsForNativeHydrate,
+    syncGroupConversationsToSqlite,
+} from "@/app/features/groups/services/community-group-sqlite-store";
+import { requiresSqlitePersistence } from "@/app/features/runtime/native-persistence-policy";
 
 interface GroupContextType {
     createdGroups: ReadonlyArray<GroupConversation>;
@@ -640,7 +646,7 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return Array.from(map.values());
     };
 
-    const hydrateGroupsForPublicKey = useCallback((pk: string, options?: Readonly<{ profileId?: string }>) => {
+    const hydrateGroupsForPublicKey = useCallback(async (pk: string, options?: Readonly<{ profileId?: string }>) => {
         const profileId = options?.profileId ?? getResolvedProfileId();
 
         let persisted = chatStateStoreService.load(pk, { profileId });
@@ -660,7 +666,11 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 emitMutationSignal: false,
             });
         }
-        const persistedGroupRows = inferPersistedGroupsFromChatStateEvidence(persisted, pk);
+        let persistedGroupRows = inferPersistedGroupsFromChatStateEvidence(persisted, pk);
+        if (requiresSqlitePersistence()) {
+            const sqliteRows = await loadSqliteGroupPersistedRows(profileId, pk as PublicKeyHex);
+            persistedGroupRows = mergePersistedGroupRowsForNativeHydrate(sqliteRows, persistedGroupRows);
+        }
         const tombstones = loadGroupTombstones(pk, { profileId });
         const inviteMemberPubkeysByGroupKey = buildInviteMemberPubkeysByGroupKey({
             localPublicKeyHex: pk,
@@ -767,6 +777,9 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 }),
                 { silent: true },
             );
+            if (requiresSqlitePersistence()) {
+                await syncGroupConversationsToSqlite(groups, profileId);
+            }
         }
         groups.forEach((group) => {
             getResolvedClientGateway().communityRoster.persistHydratedGroupKnownParticipants({
@@ -879,7 +892,7 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                     },
                 });
                 resetLiveGroupProjectionState();
-                hydrateGroupsForPublicKey(pk, { profileId: resolvedProfileId });
+                hydrateGroupsForPublicKey(pk, { profileId: resolvedProfileId }).catch(() => {});
             });
         }
         logAppEvent({
@@ -895,7 +908,7 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             },
         });
         resetLiveGroupProjectionState();
-        hydrateGroupsForPublicKey(pk, { profileId: resolvedProfileId });
+        void hydrateGroupsForPublicKey(pk, { profileId: resolvedProfileId });
     }, [getPublicKeyHex, hydrateGroupsForPublicKey, identity.state.status, resetLiveGroupProjectionState, resolvedProfileId]);
 
     useEffect(() => {
@@ -920,7 +933,7 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 },
             });
             resetLiveGroupProjectionState();
-            hydrateGroupsForPublicKey(pk, { profileId: resolvedProfileId });
+            void hydrateGroupsForPublicKey(pk, { profileId: resolvedProfileId });
         };
         window.addEventListener(ACCOUNT_SCOPE_BOUNDARY_CHANGED_EVENT, onAccountScopeBoundaryChanged);
         return () => {
@@ -944,7 +957,7 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             return;
         }
         lastHydratedScopeRef.current = null;
-        hydrateGroupsForPublicKey(pk, { profileId });
+        void hydrateGroupsForPublicKey(pk, { profileId });
     }, [getPublicKeyHex, hydrateGroupsForPublicKey, identity.state.status, resolvedProfileId]);
 
     useEffect(() => {
@@ -985,7 +998,7 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                     scopedPublicKeyMatch: detail?.publicKeyHex ? 1 : 0,
                 },
             });
-            hydrateGroupsForPublicKey(pk, { profileId });
+            void hydrateGroupsForPublicKey(pk, { profileId });
         };
 
         const unsubChatDual = subscribeChatStateReplacedDual((detail) => {

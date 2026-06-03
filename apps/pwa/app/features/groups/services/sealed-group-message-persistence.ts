@@ -2,6 +2,7 @@ import { chatStateStoreService } from "@/app/features/messaging/services/chat-st
 import type { PersistedGroupMessage } from "@/app/features/messaging/types";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
+import { requiresSqlitePersistence } from "@/app/features/runtime/native-persistence-policy";
 import { dbGetGroupMessages, isTauri } from "@dweb/db";
 
 export type SealedGroupMessageRecord = Readonly<{
@@ -40,6 +41,20 @@ export const loadPersistedSealedGroupMessages = async (params: Readonly<{
       .filter((row) => row.id.length > 0 && row.content.length >= 0);
   };
 
+  if (requiresSqlitePersistence() && isTauri()) {
+    try {
+      const records = await dbGetGroupMessages(profileId, params.groupId, MAX_PERSISTED_GROUP_MESSAGES);
+      return records.map((record) => ({
+        id: record.event_id,
+        pubkey: record.sender_pubkey,
+        created_at: Math.floor(record.created_at / 1000),
+        content: record.plaintext,
+      }));
+    } catch {
+      return [];
+    }
+  }
+
   if (isTauri()) {
     try {
       const records = await dbGetGroupMessages(profileId, params.groupId, MAX_PERSISTED_GROUP_MESSAGES);
@@ -65,6 +80,9 @@ export const persistSealedGroupMessages = (params: Readonly<{
   messages: ReadonlyArray<SealedGroupMessageRecord>;
   profileId?: string;
 }>): void => {
+  if (requiresSqlitePersistence()) {
+    return;
+  }
   if (typeof window === "undefined" || params.messages.length === 0) {
     return;
   }

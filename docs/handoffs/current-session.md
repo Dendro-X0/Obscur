@@ -1,7 +1,7 @@
 # Current Session Handoff — Obscur (native-first)
 
 - Last Updated (UTC): 2026-06-01T18:30:00Z
-- Session Status: **Lane X (X1–X3)** — route warm-up skeleton, page transition shell, voice dock polish
+- Session Status: **Lane P3d** — community group SQLite authority on native
 - Active Owner: Maintainer
 
 ## Delivery order (maintainer policy, 2026-06-01)
@@ -35,7 +35,7 @@ Canonical: [v1.8.x-batch-implementation-lane.md](../program/v1.8.x-batch-impleme
 | **—** | **Manual verification** (K-M, G6-4, deferred checklist) | **Batched** — not between implementation slices |
 | **—** | GitHub Releases | **Hidden** on repo home (About → gear); not version truth |
 
-**Next atomic step:** Lane P prep slice or deferred manual soak batch.
+**Next atomic step:** P3 follow-up (account projection manual) or remaining Lane T trust row.
 
 ## Performance gate (2026-06-03)
 
@@ -61,6 +61,19 @@ Canonical: [v1.8.x-batch-implementation-lane.md](../program/v1.8.x-batch-impleme
 **Evidence:** `pnpm -C apps/pwa exec vitest run app/components/navigation-performance-coordinator.test.ts app/components/route-navigation-warmup.test.ts app/components/app-shell.test.tsx app/features/runtime/relay-transport-bootstrap-policy.test.ts app/features/runtime/services/secondary-profile-dm-soft-refresh.test.ts app/features/runtime/services/secondary-profile-window-reload-scheduler.test.ts`
 
 **Remaining (broader v1.9.0 perf lane):** mobile 4GB manual soak (deferred checklist §5); full S0 nav matrix re-run after unlock seed.
+
+## Lane P3d community SQLite (2026-06-03)
+
+| Piece | Effect |
+|-------|--------|
+| `group-list-authority.ts` | Native runtime resolves group list authority to SQLite |
+| `community-group-sqlite-store.ts` | `dbGetGroups` / `dbUpsertGroup` mapping + hydrate merge |
+| `group-provider.tsx` | Hydrate merges SQLite seeds; syncs visible groups after coordinator |
+| `sealed-group-message-persistence.ts` | Native reads SQLite only; skips chat-state mirror writes |
+
+**Evidence:** `pnpm -C apps/pwa exec vitest run app/features/groups/services/group-list-authority.test.ts app/features/groups/services/community-group-sqlite-store.test.ts`
+
+Scope: [v1.8.16-scope.md](../program/v1.8.16-scope.md)
 
 ## Lane X experience (2026-06-03)
 
