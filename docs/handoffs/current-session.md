@@ -1,7 +1,7 @@
 # Current Session Handoff — Obscur (native-first)
 
-- Last Updated (UTC): 2026-06-01T17:00:00Z
-- Session Status: **Implementation-first** — breadth before batched manual verification
+- Last Updated (UTC): 2026-06-01T18:00:00Z
+- Session Status: **v1.8.14 landed on `main`** — implementation-first; manual verification batched
 - Active Owner: Maintainer
 
 ## Delivery order (maintainer policy, 2026-06-01)
@@ -29,13 +29,13 @@ Canonical: [v1.8.x-batch-implementation-lane.md](../program/v1.8.x-batch-impleme
 
 | Priority | Tangible deliverable | Status |
 |----------|----------------------|--------|
-| **1** | **v1.8.14 batch land** — P13/P14, B2, Wave 3 trust, nav perf, N5 settings split | **Local / uncommitted** — commit + push when `release:test-pack` green |
+| **1** | **v1.8.14 batch land** — P13/P14, B2, Wave 3 trust, nav perf, N5 settings split | **Landed** — `341d1515` on `main` 2026-06-01 |
 | **2** | **v1.9.x B4 (R1/R2)** — DM materialization + community roster read model | Backlog after batch land — spec §B4 |
 | **3** | **N-series / broader perf** — mobile 4GB, cache tiers, per-tab settings model | Structural backlog — [navigation-performance-contract.md](../program/navigation-performance-contract.md) |
 | **—** | **Manual verification** (K-M, G6-4, deferred checklist) | **Batched** — not between implementation slices |
 | **—** | GitHub Releases | **Hidden** on repo home (About → gear); not version truth |
 
-**Next atomic step:** Land **v1.8.14** local payload (commit + push `main`). Continue **v1.9 B4** or **N-series** rows without pausing for K-M or per-lane manual gates. Manual: one pass over [deferred-manual-verification-checklist.md](../program/deferred-manual-verification-checklist.md) before tag if desired.
+**Next atomic step:** **v1.9 B4 (R1/R2)** read-model ports, or **N-series** broader perf — no incremental manual gates. Optional: batched manual pass + `v1.8.14` tag when ready.
 
 ## Performance gate (2026-06-03)
 
