@@ -34,6 +34,9 @@ const mergeConversationEntry = (
         lastMessage: incomingIsNewer
             ? newer.lastMessage
             : (newer.lastMessage || older.lastMessage),
+        lastMessageIsOutgoing: incomingIsNewer
+            ? newer.lastMessageIsOutgoing
+            : (newer.lastMessageIsOutgoing ?? older.lastMessageIsOutgoing),
         unreadCount: Math.max(newer.unreadCount, older.unreadCount),
         lastMessageTime: newer.lastMessageTime,
     };
@@ -77,14 +80,30 @@ export const derivePeerPubkeyFromDmConversationId = (
     return null;
 };
 
+/** Revision token for persisted DM message history — bumps when sidebar previews may change. */
+export const computePersistedMessageHistoryRevision = (
+    persisted: PersistedChatState | null | undefined,
+): string => {
+    if (!persisted) {
+        return "empty";
+    }
+    let messageCount = 0;
+    let maxTimestampMs = 0;
+    Object.values(persisted.messagesByConversationId ?? {}).forEach((messages) => {
+        messages?.forEach((message) => {
+            messageCount += 1;
+            maxTimestampMs = Math.max(maxTimestampMs, message.timestampMs ?? 0);
+        });
+    });
+    return `${messageCount}:${maxTimestampMs}`;
+};
+
 export const upsertDmConversationInList = (
     connections: ReadonlyArray<DmConversation>,
     conversation: DmConversation,
 ): ReadonlyArray<DmConversation> => (
     mergeDmConversationLists(connections, [conversation])
 );
-
-import { formatConversationMessagePreview } from "@/app/features/messaging/services/format-conversation-message-preview";
 
 const isDmConversationStorageId = (conversationId: string): boolean => (
     conversationId.length > 0
@@ -94,7 +113,7 @@ const isDmConversationStorageId = (conversationId: string): boolean => (
 );
 
 const readMessagePreview = (message: PersistedMessage): string => (
-    formatConversationMessagePreview(typeof message.content === "string" ? message.content : "")
+    typeof message.content === "string" ? message.content : ""
 );
 
 /** Rebuild DM sidebar rows from persisted connections plus any thread with stored messages. */
@@ -122,6 +141,7 @@ export const buildDmConnectionsFromPersistedChatState = (
             myPublicKeyHex,
             messagePreview: readMessagePreview(lastMessage),
             messageTime: new Date(lastMessage.timestampMs),
+            lastMessageIsOutgoing: lastMessage.isOutgoing,
         })];
     });
     return connections;
@@ -145,6 +165,7 @@ export const touchDmConversationFromMessage = (params: Readonly<{
     messagePreview: string;
     messageTime: Date;
     displayName?: string;
+    lastMessageIsOutgoing?: boolean;
 }>): ReadonlyArray<DmConversation> => {
     const peerPublicKeyHex = derivePeerPubkeyFromDmConversationId(
         params.conversationId,
@@ -166,6 +187,7 @@ export const touchDmConversationFromMessage = (params: Readonly<{
         ...base,
         lastMessage: params.messagePreview,
         lastMessageTime: params.messageTime,
+        lastMessageIsOutgoing: params.lastMessageIsOutgoing,
     };
     return upsertDmConversationInList(params.connections, touched);
 };

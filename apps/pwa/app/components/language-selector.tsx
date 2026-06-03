@@ -37,7 +37,7 @@ export function LanguageSelector({ variant = "default" }: { variant?: "default" 
                         <span className="sr-only">Change Language</span>
                     </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="z-[200] min-w-[150px] rounded-2xl border-black/5 dark:border-white/10 p-2">
+                <DropdownMenuContent align="end" className="z-[5100] min-w-[150px] rounded-2xl border-black/5 dark:border-white/10 p-2">
                     {LANGUAGES.map((lang) => (
                         <DropdownMenuItem
                             key={lang.code}

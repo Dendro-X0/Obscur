@@ -13,7 +13,6 @@ import { emitAccountSyncMutation } from "@/app/shared/account-sync-mutation-sign
 import { logAppEvent } from "@/app/shared/log-app-event";
 import { getProfileRuntimeScope, getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { buildMessageSearchIndexText } from "@/app/features/messaging/services/message-search-index";
-import { formatConversationMessagePreview } from "@/app/features/messaging/services/format-conversation-message-preview";
 
 export const CHAT_STATE_REPLACED_EVENT = "obscur:chat-state-replaced";
 export type ChatStateReplacedEventDetail = Readonly<{
@@ -39,8 +38,6 @@ type PendingSave = {
 const DEFAULT_DEBOUNCE_MS = 250;
 const toPublicKeySuffix = (publicKeyHex: PublicKeyHex): string => publicKeyHex.slice(-8);
 const toScopedCacheKey = (publicKeyHex: PublicKeyHex, profileId: string): string => `${profileId}::${publicKeyHex}`;
-const toPreview = formatConversationMessagePreview;
-
 /**
  * ChatStateStore Service
  * 
@@ -208,7 +205,7 @@ class ChatStateStore {
                 }
                 return {
                     ...connection,
-                    lastMessage: toPreview(latestMessage.content ?? ""),
+                    lastMessage: latestMessage.content ?? "",
                     lastMessageTimeMs: latestMessage.timestampMs,
                 };
             });

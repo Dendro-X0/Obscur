@@ -149,6 +149,7 @@ import {
 } from "../services/community-steward-policy";
 import {
     mergeDescriptorBotPubkeys,
+    mergeDescriptorBotTriggers,
     mergeDescriptorStewardPubkeys,
 } from "../services/community-descriptor-metadata-merge";
 import { evaluateCommunityChatMessageIngest } from "../services/community-bot-message-policy";
@@ -1518,6 +1519,10 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
                     innerPayload.metadata.botPubkeys,
                     prev.metadata?.botPubkeys,
                   ),
+                  botTriggers: mergeDescriptorBotTriggers(
+                    innerPayload.metadata.botTriggers,
+                    prev.metadata?.botTriggers,
+                  ),
                 }
               }));
             }
@@ -1575,6 +1580,7 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
                 descriptorVersion: incomingVersion,
                 stewardPubkeys: mergeDescriptorStewardPubkeys(incomingMeta.stewardPubkeys, prev.metadata?.stewardPubkeys),
                 botPubkeys: mergeDescriptorBotPubkeys(incomingMeta.botPubkeys, prev.metadata?.botPubkeys),
+                botTriggers: mergeDescriptorBotTriggers(incomingMeta.botTriggers, prev.metadata?.botTriggers),
               };
               return { ...prev, metadata: mergedMetadata };
             });
@@ -1821,6 +1827,7 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
               descriptorVersion: descriptorVersionRef.current,
               stewardPubkeys: mergeDescriptorStewardPubkeys(metadata.stewardPubkeys, prev.metadata?.stewardPubkeys),
               botPubkeys: mergeDescriptorBotPubkeys(metadata.botPubkeys, prev.metadata?.botPubkeys),
+              botTriggers: mergeDescriptorBotTriggers(metadata.botTriggers, prev.metadata?.botTriggers),
             };
             descriptorDetail = {
               groupId: params.groupId,
@@ -2134,6 +2141,9 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
       const botPubkeys = "botPubkeys" in payload && Array.isArray(payload.botPubkeys)
         ? payload.botPubkeys
         : undefined;
+      const botTriggers = "botTriggers" in payload && Array.isArray(payload.botTriggers)
+        ? payload.botTriggers
+        : undefined;
       await updateMetadataRef.current({
         id: params.groupId,
         name: name ?? state.metadata?.name ?? params.groupId,
@@ -2141,6 +2151,7 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
         picture: picture ?? state.metadata?.picture,
         access: access ?? state.metadata?.access ?? "invite-only",
         ...(botPubkeys !== undefined ? { botPubkeys } : {}),
+        ...(botTriggers !== undefined ? { botTriggers } : {}),
       }, { governanceProposalId: proposal.proposalId });
       toast.success("Community rename approved and applied.");
       return;
@@ -3019,6 +3030,9 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
       ...(nextMetadata.botPubkeys && nextMetadata.botPubkeys.length > 0
         ? { botPubkeys: [...nextMetadata.botPubkeys] }
         : { botPubkeys: [] }),
+      ...(nextMetadata.botTriggers && nextMetadata.botTriggers.length > 0
+        ? { botTriggers: [...nextMetadata.botTriggers] }
+        : { botTriggers: [] }),
     };
     const proposalExpiresAtUnixMs = computeGovernanceProposalExpiresAtUnixMs();
     await publishGovernanceSealed("proposed", {

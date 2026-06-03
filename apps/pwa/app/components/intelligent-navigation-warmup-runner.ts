@@ -4,8 +4,10 @@ import {
   loadClientChunkSafely,
   preloadGroupHomePageClient,
   warmRouteNavigationTargets,
+  type RouteNavigationWarmupMode,
   type RouteNavigationWarmupResult,
 } from "./route-navigation-warmup";
+import { runWithNavigationChunkLoadAuthority } from "./navigation-chunk-load-authority";
 import type {
   IntelligentNavigationWarmupPlan,
   NavigationWarmupSpecialTask,
@@ -43,11 +45,67 @@ const yieldToMainThread = (): Promise<void> => new Promise((resolve) => {
   setTimeout(resolve, 0);
 });
 
+const waitForIdle = (
+  scheduleIdle: (callback: () => void) => number,
+): Promise<void> => new Promise((resolve) => {
+  scheduleIdle(() => {
+    void yieldToMainThread().then(resolve);
+  });
+});
+
+const warmTargetsSequentially = async (
+  router: RoutePrefetchRouter,
+  targets: ReadonlyArray<string>,
+  options: Readonly<{
+    isStale: () => boolean;
+    scheduleIdle: (callback: () => void) => number;
+    mode: RouteNavigationWarmupMode;
+    phase: NavigationWarmupPhase;
+    onPhaseComplete?: (summary: NavigationWarmupPhaseSummary) => void;
+  }>,
+): Promise<ReadonlyArray<RouteNavigationWarmupResult>> => {
+  const hrefResults: RouteNavigationWarmupResult[] = [];
+
+  for (const href of targets) {
+    if (options.isStale()) {
+      break;
+    }
+    await waitForIdle(options.scheduleIdle);
+    if (options.isStale()) {
+      break;
+    }
+
+    const batch = await warmRouteNavigationTargets(router, [href], options.mode);
+    hrefResults.push(...batch);
+    options.onPhaseComplete?.({
+      phase: options.phase,
+      hrefResults: batch,
+      specialTasks: [],
+    });
+  }
+
+  return hrefResults;
+};
+
 /**
- * Runs phased navigation warm-up without blocking the shell: critical first, then context/special,
- * then background targets one-by-one during idle time.
+ * Runs phased navigation warm-up only during idle slices. Every target is warmed one-by-one so
+ * rapid route changes can cancel in-flight work without blocking the main thread.
  */
 export const runIntelligentNavigationWarmup = async (
+  router: RoutePrefetchRouter,
+  plan: IntelligentNavigationWarmupPlan,
+  options: Readonly<{
+    isStale: () => boolean;
+    scheduleIdle: (callback: () => void) => number;
+    onPhaseComplete?: (summary: NavigationWarmupPhaseSummary) => void;
+  }>,
+): Promise<void> => {
+  await runWithNavigationChunkLoadAuthority(async () => {
+    await runIntelligentNavigationWarmupInner(router, plan, options);
+  });
+};
+
+const runIntelligentNavigationWarmupInner = async (
   router: RoutePrefetchRouter,
   plan: IntelligentNavigationWarmupPlan,
   options: Readonly<{
@@ -59,8 +117,13 @@ export const runIntelligentNavigationWarmup = async (
   const { isStale, scheduleIdle, onPhaseComplete } = options;
 
   if (plan.critical.length > 0 && !isStale()) {
-    const hrefResults = await warmRouteNavigationTargets(router, plan.critical);
-    onPhaseComplete?.({ phase: "critical", hrefResults, specialTasks: [] });
+    await warmTargetsSequentially(router, plan.critical, {
+      isStale,
+      scheduleIdle,
+      mode: "full",
+      phase: "critical",
+      onPhaseComplete,
+    });
   }
   if (isStale()) {
     return;
@@ -68,15 +131,23 @@ export const runIntelligentNavigationWarmup = async (
 
   const contextTargets = plan.context;
   const specialTasks = plan.specialTasks;
-  if (contextTargets.length > 0 || specialTasks.length > 0) {
-    const [hrefResults] = await Promise.all([
-      contextTargets.length > 0
-        ? warmRouteNavigationTargets(router, contextTargets)
-        : Promise.resolve([] as ReadonlyArray<RouteNavigationWarmupResult>),
-      specialTasks.length > 0 ? warmNavigationSpecialTasks(specialTasks) : Promise.resolve(),
-    ]);
-    onPhaseComplete?.({ phase: "context", hrefResults, specialTasks });
-    if (specialTasks.length > 0) {
+  if (contextTargets.length > 0 && !isStale()) {
+    await warmTargetsSequentially(router, contextTargets, {
+      isStale,
+      scheduleIdle,
+      mode: "full",
+      phase: "context",
+      onPhaseComplete,
+    });
+  }
+  if (isStale()) {
+    return;
+  }
+
+  if (specialTasks.length > 0 && !isStale()) {
+    await waitForIdle(scheduleIdle);
+    if (!isStale()) {
+      await warmNavigationSpecialTasks(specialTasks);
       onPhaseComplete?.({ phase: "special", hrefResults: [], specialTasks });
     }
   }
@@ -84,34 +155,11 @@ export const runIntelligentNavigationWarmup = async (
     return;
   }
 
-  await new Promise<void>((resolveBackground) => {
-    let backgroundIndex = 0;
-
-    const runNextBackground = (): void => {
-      if (isStale()) {
-        resolveBackground();
-        return;
-      }
-      const href = plan.background[backgroundIndex];
-      if (!href) {
-        resolveBackground();
-        return;
-      }
-      backgroundIndex += 1;
-      void warmRouteNavigationTargets(router, [href]).then((hrefResults) => {
-        onPhaseComplete?.({ phase: "background", hrefResults, specialTasks: [] });
-        if (isStale() || backgroundIndex >= plan.background.length) {
-          resolveBackground();
-          return;
-        }
-        scheduleIdle(() => {
-          void yieldToMainThread().then(runNextBackground);
-        });
-      });
-    };
-
-    scheduleIdle(() => {
-      void yieldToMainThread().then(runNextBackground);
-    });
+  await warmTargetsSequentially(router, plan.background, {
+    isStale,
+    scheduleIdle,
+    mode: "full",
+    phase: "background",
+    onPhaseComplete,
   });
 };

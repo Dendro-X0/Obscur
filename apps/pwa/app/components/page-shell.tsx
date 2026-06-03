@@ -2,6 +2,7 @@
 
 import React from "react";
 import { useMemo } from "react";
+import { cn } from "@/app/lib/utils";
 import { useRegisterAppChrome } from "./app-chrome-registry";
 
 type PageShellProps = Readonly<{
@@ -10,6 +11,8 @@ type PageShellProps = Readonly<{
   navBadgeCounts?: Readonly<Record<string, number>>;
   rightContent?: React.ReactNode;
   hideHeader?: boolean;
+  /** When true, the shell does not scroll; children own vertical scroll (mobile settings, etc.). */
+  containScroll?: boolean;
 }>;
 
 const PageShell = (props: PageShellProps): React.JSX.Element => {
@@ -27,7 +30,10 @@ const PageShell = (props: PageShellProps): React.JSX.Element => {
   useRegisterAppChrome(chromeOverrides);
 
   return (
-    <div className="flex flex-1 min-h-0 flex-col overflow-y-auto overflow-x-hidden">
+    <div className={cn(
+      "flex flex-1 min-h-0 flex-col overflow-x-hidden",
+      props.containScroll ? "overflow-hidden" : "overflow-y-auto",
+    )}>
       <header className="sticky top-0 z-20 hidden border-b border-border bg-background/80 backdrop-blur-xl dark:border-white/5 md:block">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-3 relative min-h-[56px]">
           <div className="flex min-w-0 flex-1 items-center gap-6 z-10">

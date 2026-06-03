@@ -9,6 +9,15 @@ export type GroupInviteResponseAcceptedDetail = Readonly<{
     recipientPublicKeyHex?: ProfileBusPublicKeyHex;
 }>;
 
+export type GroupInviteResponseTerminalDetail = Readonly<{
+    groupId: string;
+    memberPubkey: string;
+    relayUrl?: string;
+    communityId?: string;
+    recipientPublicKeyHex?: ProfileBusPublicKeyHex;
+    responseStatus: "declined" | "canceled";
+}>;
+
 export const GROUP_INVITE_RESPONSE_ACCEPTED_EVENT = "obscur:group-invite-response-accepted" as const;
 
 /** Legacy window event when a new group row should be added from invite materialization */
@@ -154,6 +163,21 @@ export function dispatchGroupInviteResponseAccepted(detail: GroupInviteResponseA
             relayUrl: detail.relayUrl,
             communityId: detail.communityId,
             recipientPublicKeyHex: detail.recipientPublicKeyHex,
+        });
+    }
+}
+
+export function dispatchGroupInviteResponseTerminal(detail: GroupInviteResponseTerminalDetail): void {
+    const scope = getProfileRuntimeScope();
+    if (scope?.bus) {
+        scope.bus.publish({
+            type: "group-invite-terminal",
+            groupId: detail.groupId,
+            memberPubkey: detail.memberPubkey,
+            relayUrl: detail.relayUrl,
+            communityId: detail.communityId,
+            recipientPublicKeyHex: detail.recipientPublicKeyHex,
+            responseStatus: detail.responseStatus,
         });
     }
 }

@@ -27,7 +27,7 @@ import {
   type PortabilityImportPreflight,
 } from "@/app/features/profiles/services/portability-import-preflight";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
-import { SettingsToggle } from "@/app/settings/settings-tab-panel-model";
+import { SettingsToggle } from "@/app/settings/settings-tab-panel-shared";
 import {
   PortabilityExportResultBanner,
   type PortabilityExportResult,

@@ -18,6 +18,7 @@ import {
     Loader2,
     Clock,
     PhoneCall,
+    Radio,
 } from "lucide-react";
 import { useNetwork } from "@/app/features/network/providers/network-provider";
 import { Button } from "@dweb/ui-kit";
@@ -30,8 +31,7 @@ import { toast } from "@dweb/ui-kit";
 import { InviteToGroupDialog } from "./invite-to-group-dialog";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
-import { useEnhancedDmController } from "@/app/features/messaging/hooks/use-enhanced-dm-controller";
-import { useRequestTransport } from "@/app/features/messaging/hooks/use-request-transport";
+import { useNetworkRequestTransport } from "@/app/features/messaging/hooks/use-network-request-transport";
 import { cn } from "@dweb/ui-kit";
 import type { DmConversation, GroupConversation } from "@/app/features/messaging/types";
 import { GroupService } from "@/app/features/groups/services/group-service";
@@ -62,6 +62,7 @@ import {
 } from "@/app/features/messaging/services/invitation-composer";
 import { getDirectInvitationToastCopy } from "@/app/features/messaging/services/invitation-presentation";
 import { formatPublicKeyPreview } from "@/app/features/invites/utils/utils";
+import { useMobileCompactLayout } from "@/app/features/runtime/use-mobile-compact-layout";
 
 const PRIVATE_CONTACT_LABEL = "Unknown contact";
 const PRIVATE_CONTACT_HANDLE = "@unknown";
@@ -71,6 +72,7 @@ export default function ConnectionProfileView() {
     const searchParams = useSearchParams();
     const router = useRouter();
     const { t } = useTranslation();
+    const compact = useMobileCompactLayout();
     const { peerTrust, requestsInbox, blocklist, presence } = useNetwork();
     const { createdConnections, setSelectedConversation, setCreatedConnections } = useMessaging();
     const { relayPool, enabledRelayUrls } = useRelay();
@@ -87,21 +89,7 @@ export default function ConnectionProfileView() {
     const myPublicKeyHex = identity.state.publicKeyHex || null;
     const myPrivateKeyHex = identity.state.privateKeyHex || null;
 
-    const dmController = useEnhancedDmController({
-        myPublicKeyHex,
-        myPrivateKeyHex,
-        pool: relayPool,
-        blocklist,
-        peerTrust,
-        requestsInbox,
-        autoSubscribeIncoming: false,
-        enableIncomingTransport: false,
-    });
-    const requestTransport = useRequestTransport({
-        dmController,
-        peerTrust,
-        requestsInbox,
-    });
+    const requestTransport = useNetworkRequestTransport();
 
     const queryPubkey = searchParams.get("pubkey");
     const pk = (Array.isArray(pubkey) ? pubkey[0] : pubkey) || queryPubkey || "";
@@ -455,7 +443,7 @@ export default function ConnectionProfileView() {
     return (
         <div className="flex h-full min-h-0 flex-col overflow-y-auto bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.12),_transparent_34%),linear-gradient(180deg,rgba(248,250,252,0.96),rgba(241,245,249,1))] text-zinc-900 dark:bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.14),_transparent_36%),linear-gradient(180deg,rgba(3,7,18,0.96),rgba(3,7,18,1))] dark:text-zinc-100">
             {/* Header */}
-            <div className="sticky top-0 z-50 flex items-center justify-between border-b border-zinc-200/70 bg-background/80 p-4 backdrop-blur-xl dark:border-white/10 dark:bg-zinc-950/60">
+            <div className={cn("sticky top-0 z-50 flex items-center justify-between border-b border-zinc-200/70 bg-background/80 backdrop-blur-xl dark:border-white/10 dark:bg-zinc-950/60", compact ? "p-3" : "p-4")}>
                 <Button
                     variant="ghost"
                     size="icon"
@@ -472,28 +460,48 @@ export default function ConnectionProfileView() {
                 </Button>
             </div>
 
-            <main className="mx-auto flex w-full max-w-4xl flex-col gap-8 p-4 pb-32 pt-8 animate-in fade-in slide-in-from-bottom-4 duration-700 sm:p-6 md:pb-10">
+            <main className={cn(
+                "mx-auto flex w-full max-w-4xl flex-col animate-in fade-in slide-in-from-bottom-4 duration-700",
+                compact ? "gap-4 p-3 pb-28 pt-4" : "gap-8 p-4 pb-32 pt-8 sm:p-6 md:pb-10",
+            )}>
                 <div className="relative group/hero">
-                    <div className="pointer-events-none absolute -left-[10%] -top-[18%] h-[42%] w-[42%] rounded-full bg-indigo-600/10 blur-[120px]" />
-                    <div className="pointer-events-none absolute -bottom-[16%] -right-[8%] h-[36%] w-[36%] rounded-full bg-cyan-500/10 blur-[120px]" />
+                    {!compact ? (
+                        <>
+                            <div className="pointer-events-none absolute -left-[10%] -top-[18%] h-[42%] w-[42%] rounded-full bg-indigo-600/10 blur-[120px]" />
+                            <div className="pointer-events-none absolute -bottom-[16%] -right-[8%] h-[36%] w-[36%] rounded-full bg-cyan-500/10 blur-[120px]" />
+                        </>
+                    ) : null}
 
-                    <Card className="relative overflow-hidden rounded-[40px] border border-zinc-200/70 bg-white/88 p-8 shadow-[0_30px_100px_rgba(15,23,42,0.12)] backdrop-blur-2xl dark:border-white/10 dark:bg-[#07101f]/88 sm:p-10">
-                        <div className="absolute inset-0 z-0 scale-110 overflow-hidden opacity-[0.08] pointer-events-none">
-                            {metadata?.avatarUrl ? (
-                                <Image src={metadata.avatarUrl} alt="" fill className="object-cover blur-3xl" unoptimized />
-                            ) : (
-                                <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/20 to-cyan-500/10 blur-3xl" />
-                            )}
-                        </div>
+                    <Card className={cn(
+                        "relative overflow-hidden border border-zinc-200/70 bg-white/88 backdrop-blur-2xl dark:border-white/10 dark:bg-[#07101f]/88",
+                        compact
+                            ? "rounded-2xl p-5 shadow-sm"
+                            : "rounded-[40px] p-8 shadow-[0_30px_100px_rgba(15,23,42,0.12)] sm:p-10",
+                    )}>
+                        {!compact ? (
+                            <div className="absolute inset-0 z-0 scale-110 overflow-hidden opacity-[0.08] pointer-events-none">
+                                {metadata?.avatarUrl ? (
+                                    <Image src={metadata.avatarUrl} alt="" fill className="object-cover blur-3xl" unoptimized />
+                                ) : (
+                                    <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/20 to-cyan-500/10 blur-3xl" />
+                                )}
+                            </div>
+                        ) : null}
 
-                        <div className="relative z-10 flex flex-col items-center gap-8">
+                        <div className={cn("relative z-10 flex flex-col items-center", compact ? "gap-4" : "gap-8")}>
                             <motion.div
                                 initial={{ scale: 0.8, opacity: 0 }}
                                 animate={{ scale: 1, opacity: 1 }}
                                 transition={{ duration: 0.6, ease: "easeOut" }}
-                                className="relative rounded-[42px] bg-gradient-to-br from-indigo-500/25 to-cyan-500/20 p-1.5 shadow-2xl"
+                                className={cn(
+                                    "relative bg-gradient-to-br from-indigo-500/25 to-cyan-500/20 p-1.5 shadow-2xl",
+                                    compact ? "rounded-2xl" : "rounded-[42px]",
+                                )}
                             >
-                                <div className="relative h-36 w-36 overflow-hidden rounded-[36px] border-[5px] border-white bg-slate-100 dark:border-[#07101f] dark:bg-[#101827] sm:h-40 sm:w-40">
+                                <div className={cn(
+                                    "relative overflow-hidden border-[5px] border-white bg-slate-100 dark:border-[#07101f] dark:bg-[#101827]",
+                                    compact ? "h-24 w-24 rounded-xl" : "h-36 w-36 rounded-[36px] sm:h-40 sm:w-40",
+                                )}>
                                     {metadata?.avatarUrl ? (
                                         <Image
                                             src={metadata.avatarUrl}
@@ -523,25 +531,31 @@ export default function ConnectionProfileView() {
                                 )}
                             </motion.div>
 
-                            <div className="space-y-4 text-center">
+                            <div className={cn("space-y-4 text-center", compact && "space-y-2")}>
                                 <motion.h2
                                     initial={{ y: 20, opacity: 0 }}
                                     animate={{ y: 0, opacity: 1 }}
                                     transition={{ delay: 0.2 }}
-                                    className="text-3xl font-black tracking-tight text-zinc-950 dark:text-white sm:text-5xl"
+                                    className={cn(
+                                        "font-black tracking-tight text-zinc-950 dark:text-white",
+                                        compact ? "text-2xl" : "text-3xl sm:text-5xl",
+                                    )}
                                 >
                                     {resolvedName}
                                 </motion.h2>
                                 <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">{displayHandle}</p>
                                 {metadata?.about ? (
-                                    <p className="mx-auto max-w-2xl text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
+                                    <p className={cn(
+                                        "mx-auto max-w-2xl leading-relaxed text-zinc-600 dark:text-zinc-300",
+                                        compact ? "text-xs line-clamp-3" : "text-sm",
+                                    )}>
                                         {metadata.about}
                                     </p>
-                                ) : (
+                                ) : !compact ? (
                                     <p className="mx-auto max-w-xl text-sm leading-relaxed text-zinc-500 dark:text-zinc-400">
                                         This is a public contact profile. You can review their public information before deciding whether to connect.
                                     </p>
-                                )}
+                                ) : null}
 
                                 <motion.div
                                     initial={{ scale: 0.9, opacity: 0 }}
@@ -556,18 +570,34 @@ export default function ConnectionProfileView() {
                                         </div>
                                     ) : null}
                                     {isTrusted ? (
-                                        <div className="flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-4 py-1.5 text-xs font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-300">
-                                            <Shield className="h-3.5 w-3.5" />
-                                            Trusted Connection
-                                        </div>
+                                        <>
+                                            <div className="flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-4 py-1.5 text-xs font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-300">
+                                                <Shield className="h-3.5 w-3.5" />
+                                                Trusted Connection
+                                            </div>
+                                            <div className={cn(
+                                                "flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-black uppercase tracking-widest",
+                                                isPeerOnline
+                                                    ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                                                    : "border-zinc-300 bg-zinc-100 text-zinc-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-400",
+                                            )}>
+                                                <span className={cn(
+                                                    "h-2 w-2 rounded-full",
+                                                    isPeerOnline ? "bg-emerald-500" : "bg-zinc-400 dark:bg-zinc-600",
+                                                )} />
+                                                {isPeerOnline ? t("network.online", "Online") : t("network.offline", "Offline")}
+                                            </div>
+                                        </>
                                     ) : (
                                         <div className="flex flex-col items-center gap-2">
                                             <div className="flex items-center gap-2 rounded-full border border-zinc-200/70 bg-zinc-950/[0.03] px-4 py-1.5 text-xs font-black uppercase tracking-widest text-zinc-500 dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-400">
                                                 Stranger
                                             </div>
-                                            <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-500">
-                                                Public profile only until a connection is accepted
-                                            </p>
+                                            {!compact ? (
+                                                <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-500">
+                                                    Public profile only until a connection is accepted
+                                                </p>
+                                            ) : null}
                                         </div>
                                     )}
                                     {metadata?.nip05 && (
@@ -578,64 +608,105 @@ export default function ConnectionProfileView() {
                                 </motion.div>
                             </div>
 
-                            <div className="flex flex-wrap items-center justify-center gap-4 pt-4">
+                            <div className={cn(
+                                "flex w-full items-center justify-center pt-2",
+                                compact ? "flex-col gap-2" : "flex-wrap gap-4 pt-4",
+                            )}>
                                 <Button
                                     onClick={(isTrusted || isDeletedContact) ? handleMessage : handleConnect}
                                     disabled={!isDeletedContact && !isTrusted && (requestProjection.state === "accepted" || requestProjection.state === "incoming_pending")}
-                                    className="h-14 gap-3 rounded-2xl bg-indigo-600 px-8 text-base font-black text-white shadow-[0_18px_40px_rgba(79,70,229,0.26)] transition-all hover:scale-[1.02] hover:bg-indigo-500 active:scale-95"
+                                    className={cn(
+                                        "gap-2 rounded-xl bg-indigo-600 font-black text-white shadow-[0_18px_40px_rgba(79,70,229,0.26)] transition-all hover:bg-indigo-500 active:scale-95",
+                                        compact ? "h-11 w-full px-4 text-sm" : "h-14 gap-3 rounded-2xl px-8 text-base hover:scale-[1.02]",
+                                    )}
                                 >
-                                    {primaryActionIcon}
+                                    {compact ? null : primaryActionIcon}
                                     {primaryActionLabel}
                                 </Button>
 
-                                {isTrusted && !isDeletedContact && (
-                                    <Button
-                                        onClick={handleVoiceCall}
-                                        className="h-14 gap-3 rounded-2xl border border-emerald-500/30 bg-emerald-500/12 px-8 font-black text-emerald-700 backdrop-blur-md transition-all hover:scale-[1.02] hover:bg-emerald-500/18 active:scale-95 dark:text-emerald-200"
-                                    >
-                                        <PhoneCall className="h-6 w-6" />
-                                        {t("messaging.voiceCall", "Voice Call")}
-                                    </Button>
-                                )}
-
-                                {isTrusted && !isDeletedContact && (
-                                    <Button
-                                        onClick={() => setIsInviteDialogOpen(true)}
-                                        className="h-14 gap-3 rounded-2xl border border-zinc-200/70 bg-white/70 px-8 font-black text-zinc-900 backdrop-blur-md transition-all hover:scale-[1.02] hover:bg-white active:scale-95 dark:border-white/10 dark:bg-white/[0.05] dark:text-white dark:hover:bg-white/[0.08]"
-                                    >
-                                        <Plus className="h-6 w-6" />
-                                        {t("network.actions.invite", "Invite")}
-                                    </Button>
-                                )}
+                                {isTrusted && !isDeletedContact ? (
+                                    compact ? (
+                                        <div className="grid w-full grid-cols-2 gap-2">
+                                            <Button
+                                                onClick={handleVoiceCall}
+                                                variant="secondary"
+                                                className="h-10 gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/12 text-xs font-bold text-emerald-700 dark:text-emerald-200"
+                                            >
+                                                <PhoneCall className="h-4 w-4" />
+                                                Voice
+                                            </Button>
+                                            <Button
+                                                onClick={() => setIsInviteDialogOpen(true)}
+                                                variant="secondary"
+                                                className="h-10 gap-1.5 rounded-xl text-xs font-bold"
+                                            >
+                                                <Plus className="h-4 w-4" />
+                                                Invite
+                                            </Button>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <Button
+                                                onClick={handleVoiceCall}
+                                                className="h-14 gap-3 rounded-2xl border border-emerald-500/30 bg-emerald-500/12 px-8 font-black text-emerald-700 backdrop-blur-md transition-all hover:scale-[1.02] hover:bg-emerald-500/18 active:scale-95 dark:text-emerald-200"
+                                            >
+                                                <PhoneCall className="h-6 w-6" />
+                                                {t("messaging.voiceCall", "Voice Call")}
+                                            </Button>
+                                            <Button
+                                                onClick={() => setIsInviteDialogOpen(true)}
+                                                className="h-14 gap-3 rounded-2xl border border-zinc-200/70 bg-white/70 px-8 font-black text-zinc-900 backdrop-blur-md transition-all hover:scale-[1.02] hover:bg-white active:scale-95 dark:border-white/10 dark:bg-white/[0.05] dark:text-white dark:hover:bg-white/[0.08]"
+                                            >
+                                                <Plus className="h-6 w-6" />
+                                                {t("network.actions.invite", "Invite")}
+                                            </Button>
+                                        </>
+                                    )
+                                ) : null}
                             </div>
                         </div>
                     </Card>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <Card className="md:col-span-2 flex flex-col gap-6 rounded-[32px] border border-zinc-200/70 bg-white/88 p-8 backdrop-blur-xl transition-all duration-500 group/key dark:border-white/10 dark:bg-[#07101f]/88">
-                        <div className="flex items-center justify-between">
-                            <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-indigo-500/20 bg-indigo-500/10">
-                                <Shield className="h-7 w-7 text-indigo-500 dark:text-indigo-300" />
-                            </div>
+                <div className={cn("flex flex-col", compact ? "gap-4" : "gap-6")}>
+                    <Card className={cn(
+                        "flex flex-col border border-zinc-200/70 bg-white/88 backdrop-blur-xl transition-all duration-500 group/key dark:border-white/10 dark:bg-[#07101f]/88",
+                        compact ? "gap-3 rounded-2xl p-4" : "gap-6 rounded-[32px] p-8",
+                    )}>
+                        <div className="flex items-center justify-between gap-3">
+                            {!compact ? (
+                                <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-indigo-500/20 bg-indigo-500/10">
+                                    <Shield className="h-7 w-7 text-indigo-500 dark:text-indigo-300" />
+                                </div>
+                            ) : (
+                                <h3 className="text-sm font-bold text-zinc-950 dark:text-white">Public identity</h3>
+                            )}
                             <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-10 gap-2 rounded-xl border border-zinc-200/70 bg-zinc-950/[0.03] px-4 text-zinc-500 transition-all hover:text-zinc-900 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-400 dark:hover:text-white"
+                                className={cn(
+                                    "gap-2 rounded-xl border border-zinc-200/70 bg-zinc-950/[0.03] text-zinc-500 transition-all hover:text-zinc-900 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-400 dark:hover:text-white",
+                                    compact ? "h-8 px-2 text-xs" : "h-10 px-4",
+                                )}
                                 onClick={() => {
                                     navigator.clipboard.writeText(publicProfileUrl);
                                     toast.success(t("network.notifications.copied", "Profile link copied"));
                                 }}
                             >
                                 <Share2 className="h-4 w-4" />
-                                Copy Link
+                                {compact ? "Link" : "Copy Link"}
                             </Button>
                         </div>
-                        <div className="space-y-2 min-w-0">
-                            <h3 className="text-2xl font-black uppercase tracking-tight text-zinc-950 dark:text-white">Public Identity</h3>
+                        <div className="space-y-4 min-w-0">
+                            {!compact ? (
+                                <h3 className="text-2xl font-black uppercase tracking-tight text-zinc-950 dark:text-white">Public Identity</h3>
+                            ) : null}
                             <div className="flex min-w-0 items-center gap-2">
                                 <div
-                                    className="min-w-0 flex-1 overflow-hidden rounded-2xl border border-zinc-200/70 bg-slate-50 p-4 font-mono text-sm text-zinc-600 shadow-inner transition-colors group-hover:text-zinc-700 dark:border-white/10 dark:bg-black/30 dark:text-zinc-400"
+                                    className={cn(
+                                        "min-w-0 flex-1 overflow-hidden rounded-2xl border border-zinc-200/70 bg-slate-50 font-mono text-zinc-600 shadow-inner transition-colors group-hover:text-zinc-700 dark:border-white/10 dark:bg-black/30 dark:text-zinc-400",
+                                        compact ? "p-3 text-xs" : "p-4 text-sm",
+                                    )}
                                     title={pk}
                                 >
                                     <p className="truncate">
@@ -645,43 +716,73 @@ export default function ConnectionProfileView() {
                                 <Button
                                     variant="ghost"
                                     size="sm"
-                                    className="h-10 shrink-0 gap-2 rounded-xl border border-zinc-200/70 bg-zinc-950/[0.03] px-3 text-zinc-500 transition-all hover:text-zinc-900 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-400 dark:hover:text-white"
+                                    className={cn(
+                                        "shrink-0 gap-2 rounded-xl border border-zinc-200/70 bg-zinc-950/[0.03] text-zinc-500 transition-all hover:text-zinc-900 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-400 dark:hover:text-white",
+                                        compact ? "h-8 px-2 text-xs" : "h-10 px-3",
+                                    )}
                                     onClick={() => {
                                         navigator.clipboard.writeText(pk);
                                         toast.success(t("network.notifications.keyCopied", "Public key copied"));
                                     }}
                                 >
-                                    Copy Key
+                                    {compact ? "Key" : "Copy Key"}
                                 </Button>
+                            </div>
+                            {metadata?.nip05 ? (
+                                <div className="rounded-2xl border border-zinc-200/70 bg-zinc-50/80 px-4 py-3 dark:border-white/10 dark:bg-white/[0.03]">
+                                    <p className="text-[10px] font-black uppercase tracking-[0.22em] text-zinc-500 dark:text-zinc-400">NIP-05</p>
+                                    <p className="mt-1 truncate text-sm font-semibold text-zinc-900 dark:text-white" title={metadata.nip05}>{metadata.nip05}</p>
+                                </div>
+                            ) : null}
+                        </div>
+                    </Card>
+
+                    <Card className={cn(
+                        "border border-zinc-200/70 bg-white/88 backdrop-blur-xl dark:border-white/10 dark:bg-[#07101f]/88",
+                        compact ? "rounded-2xl p-4" : "rounded-[32px] p-6 sm:p-8",
+                    )}>
+                        <div className={cn(
+                            "flex gap-4",
+                            compact ? "flex-col" : "flex-row items-start sm:items-center sm:gap-6",
+                        )}>
+                            {!compact ? (
+                                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-zinc-200/70 bg-zinc-100 dark:border-white/10 dark:bg-white/[0.04]">
+                                    <Radio className={cn(
+                                        "h-7 w-7",
+                                        isPeerOnline ? "text-emerald-600 dark:text-emerald-400" : "text-zinc-500 dark:text-zinc-400",
+                                    )} />
+                                </div>
+                            ) : null}
+                            <div className="min-w-0 flex-1 space-y-2">
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <p className="text-[10px] font-black uppercase tracking-[0.22em] text-zinc-500 dark:text-zinc-400">
+                                        Connection status
+                                    </p>
+                                    <div className="inline-flex items-center gap-2 rounded-full border border-zinc-200/70 bg-zinc-100 px-3 py-1 dark:border-white/10 dark:bg-white/[0.04]">
+                                        <span className={cn("h-2 w-2 rounded-full", isPeerOnline ? "bg-emerald-500" : "bg-zinc-400 dark:bg-zinc-600")} />
+                                        <span className={cn(
+                                            "text-[10px] font-black uppercase tracking-widest",
+                                            isPeerOnline ? "text-emerald-700 dark:text-emerald-300" : "text-zinc-600 dark:text-zinc-400",
+                                        )}>
+                                            {isPeerOnline ? t("network.online", "Online now") : t("network.offline", "Offline")}
+                                        </span>
+                                    </div>
+                                </div>
+                                <p className={cn("font-semibold text-zinc-900 dark:text-white", compact ? "text-sm" : "text-lg")}>
+                                    {connectionStatusTitle}
+                                </p>
+                                <p className={cn(
+                                    "leading-relaxed text-zinc-600 dark:text-zinc-400",
+                                    compact ? "text-xs line-clamp-3" : "text-sm",
+                                )}>
+                                    {connectionStatusBody}
+                                </p>
                             </div>
                         </div>
                     </Card>
-
-                    {metadata?.nip05 ? (
-                        <Card className="rounded-[32px] border border-zinc-200/70 bg-white/88 p-6 backdrop-blur-xl dark:border-white/10 dark:bg-[#07101f]/88">
-                            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-zinc-500 dark:text-zinc-400">NIP-05</p>
-                            <p className="mt-3 truncate text-base font-semibold text-zinc-900 dark:text-white" title={metadata.nip05}>{metadata.nip05}</p>
-                        </Card>
-                    ) : null}
-
-                    <Card className="rounded-[32px] border border-zinc-200/70 bg-white/88 p-6 backdrop-blur-xl dark:border-white/10 dark:bg-[#07101f]/88">
-                        <p className="text-[10px] font-black uppercase tracking-[0.22em] text-zinc-500 dark:text-zinc-400">Connection Status</p>
-                        <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-zinc-200/70 bg-zinc-950/[0.03] px-3 py-1 dark:border-white/10 dark:bg-white/[0.04]">
-                            <span className={cn("h-2 w-2 rounded-full", isPeerOnline ? "bg-emerald-500" : "bg-zinc-400 dark:bg-zinc-600")} />
-                            <span className={cn("text-[10px] font-black uppercase tracking-widest", isPeerOnline ? "text-emerald-600 dark:text-emerald-300" : "text-zinc-500 dark:text-zinc-400")}>
-                                {isPeerOnline ? "Online now" : "Offline"}
-                            </span>
-                        </div>
-                        <p className="mt-3 text-base font-semibold text-zinc-900 dark:text-white">
-                            {connectionStatusTitle}
-                        </p>
-                        <p className="mt-2 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
-                            {connectionStatusBody}
-                        </p>
-                    </Card>
                 </div>
 
-                <div className="space-y-6">
+                <div className={compact ? "space-y-3" : "space-y-6"}>
                     <ManagementSectionHeader title={t("network.sections.management", "Management controls")} tone="danger" />
 
                     <ManagementControlCard>

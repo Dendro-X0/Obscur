@@ -39,11 +39,19 @@ import {
 } from "./intelligent-navigation-warmup-policy";
 import { runIntelligentNavigationWarmup } from "./intelligent-navigation-warmup-runner";
 import {
-  isExperimentOnlineEnabled,
-  isExperimentShellEnabled,
   shouldDeferExperimentHeavyWork,
+  shouldRunNavigationInstrumentation,
 } from "@/app/features/runtime/experiment-shell-policy";
-import { warmRouteNavigationTargets } from "./route-navigation-warmup";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
+import { isSecondaryProfileWindow } from "@/app/features/runtime/services/secondary-profile-post-login-refresh-policy";
+import {
+  NAVIGATION_QUIESCENCE_MS,
+  recordNavigationIntent,
+  recordPathnameCommitted,
+  shouldRunBackgroundNavigationWarmup,
+  isRapidNavigationMode,
+} from "./navigation-performance-coordinator";
+import { prefetchRouteShell } from "./route-navigation-warmup";
 import { SidebarPortalHost } from "./app-shell-sidebar-portal";
 import {
   GlobalNavigationChunkLoadingBoundary,
@@ -132,7 +140,7 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
   const [hasMounted, setHasMounted] = useState<boolean>(false);
   const [isPageTransitionActive, setIsPageTransitionActive] = useState<boolean>(false);
   const [arePageTransitionsEnabled, setArePageTransitionsEnabled] = useState<boolean>(
-    () => !isExperimentShellEnabled() || isExperimentOnlineEnabled(),
+    () => shouldRunNavigationInstrumentation(),
   );
   const pageTransitionRecoveryRef = useRef(createPageTransitionRecoveryState());
   const pageTransitionWatchdogIdRef = useRef<number | null>(null);
@@ -172,9 +180,11 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
   }, [arePageTransitionsEnabled]);
 
   useEffect((): (() => void) => {
-    const generation = navigationWarmupGenerationRef.current + 1;
-    navigationWarmupGenerationRef.current = generation;
-    const isStale = (): boolean => navigationWarmupGenerationRef.current !== generation;
+    recordPathnameCommitted(pathname);
+
+    const warmupRunId = navigationWarmupGenerationRef.current + 1;
+    navigationWarmupGenerationRef.current = warmupRunId;
+    const isStale = (): boolean => navigationWarmupGenerationRef.current !== warmupRunId;
 
     if (shouldDeferExperimentHeavyWork()) {
       logAppEvent({
@@ -193,15 +203,8 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
       };
     }
 
-    const warmupPlan = resolveIntelligentNavigationWarmupPlan({
-      pathname,
-      routeSurface: activeRouteSurface,
-      navItems: NAV_ITEMS,
-      warmedHrefs: warmedPrefetchTargetsRef.current,
-      warmedSpecialTasks: warmedSpecialWarmupTasksRef.current,
-    });
-
-    if (!hasIntelligentNavigationWarmupWork(warmupPlan)) {
+    const profileId = getResolvedProfileId();
+    if (isSecondaryProfileWindow(profileId)) {
       logAppEvent({
         name: "navigation.intelligent_warmup_skipped",
         level: "debug",
@@ -209,7 +212,8 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
         context: {
           pathname,
           routeSurface: activeRouteSurface,
-          reason: "no_targets",
+          reason: "secondary_profile_window",
+          profileId,
           isDesktop,
         },
       });
@@ -218,73 +222,118 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
       };
     }
 
-    logAppEvent({
-      name: "navigation.intelligent_warmup_started",
-      level: "info",
-      scope: { feature: "navigation", action: "route_prefetch" },
-      context: {
-        pathname,
-        routeSurface: activeRouteSurface,
-        criticalCount: warmupPlan.critical.length,
-        contextCount: warmupPlan.context.length,
-        backgroundCount: warmupPlan.background.length,
-        specialTaskCount: warmupPlan.specialTasks.length,
-        isDesktop,
-      },
-    });
-
-    const scheduler = createIdleScheduler();
-    void runIntelligentNavigationWarmup(router, warmupPlan, {
-      isStale,
-      scheduleIdle: (callback) => scheduler.schedule(callback),
-      onPhaseComplete: (summary) => {
-        if (isStale()) {
-          return;
-        }
-        for (const result of summary.hrefResults) {
-          if (result.status === "fulfilled") {
-            warmedPrefetchTargetsRef.current.add(result.href);
-          }
-        }
-        for (const task of summary.specialTasks) {
-          warmedSpecialWarmupTasksRef.current.add(task);
-        }
-        const failedTargets = summary.hrefResults.flatMap((result) => (
-          result.status === "rejected" ? [result.href] : []
-        ));
+    const quiescenceTimerId = window.setTimeout((): void => {
+      if (isStale()) {
+        return;
+      }
+      if (!shouldRunBackgroundNavigationWarmup()) {
         logAppEvent({
-          name: "navigation.intelligent_warmup_phase_completed",
-          level: failedTargets.length > 0 ? "warn" : "debug",
+          name: "navigation.intelligent_warmup_skipped",
+          level: "debug",
           scope: { feature: "navigation", action: "route_prefetch" },
           context: {
             pathname,
             routeSurface: activeRouteSurface,
-            phase: summary.phase,
-            warmedHrefCount: summary.hrefResults.length,
-            failedTargetCount: failedTargets.length,
-            failedTargetsSummary: failedTargets.join(","),
-            specialTasksSummary: summary.specialTasks.join(","),
+            reason: "navigation_not_quiesced",
             isDesktop,
           },
         });
-      },
-    }).then(() => {
-      if (isStale()) {
         return;
       }
+
+      const warmupPlan = resolveIntelligentNavigationWarmupPlan({
+        pathname,
+        routeSurface: activeRouteSurface,
+        navItems: NAV_ITEMS,
+        warmedHrefs: warmedPrefetchTargetsRef.current,
+        warmedSpecialTasks: warmedSpecialWarmupTasksRef.current,
+      });
+
+      if (!hasIntelligentNavigationWarmupWork(warmupPlan)) {
+        logAppEvent({
+          name: "navigation.intelligent_warmup_skipped",
+          level: "debug",
+          scope: { feature: "navigation", action: "route_prefetch" },
+          context: {
+            pathname,
+            routeSurface: activeRouteSurface,
+            reason: "no_targets",
+            isDesktop,
+          },
+        });
+        return;
+      }
+
       logAppEvent({
-        name: "navigation.intelligent_warmup_settled",
+        name: "navigation.intelligent_warmup_started",
         level: "info",
         scope: { feature: "navigation", action: "route_prefetch" },
         context: {
           pathname,
           routeSurface: activeRouteSurface,
+          criticalCount: warmupPlan.critical.length,
+          contextCount: warmupPlan.context.length,
+          backgroundCount: warmupPlan.background.length,
+          specialTaskCount: warmupPlan.specialTasks.length,
           isDesktop,
+          deferredMs: NAVIGATION_QUIESCENCE_MS,
         },
       });
-    });
+
+      const scheduler = createIdleScheduler();
+      void runIntelligentNavigationWarmup(router, warmupPlan, {
+        isStale,
+        scheduleIdle: (callback) => scheduler.schedule(callback),
+        onPhaseComplete: (summary) => {
+          if (isStale()) {
+            return;
+          }
+          for (const result of summary.hrefResults) {
+            if (result.status === "fulfilled") {
+              warmedPrefetchTargetsRef.current.add(result.href);
+            }
+          }
+          for (const task of summary.specialTasks) {
+            warmedSpecialWarmupTasksRef.current.add(task);
+          }
+          const failedTargets = summary.hrefResults.flatMap((result) => (
+            result.status === "rejected" ? [result.href] : []
+          ));
+          logAppEvent({
+            name: "navigation.intelligent_warmup_phase_completed",
+            level: failedTargets.length > 0 ? "warn" : "debug",
+            scope: { feature: "navigation", action: "route_prefetch" },
+            context: {
+              pathname,
+              routeSurface: activeRouteSurface,
+              phase: summary.phase,
+              warmedHrefCount: summary.hrefResults.length,
+              failedTargetCount: failedTargets.length,
+              failedTargetsSummary: failedTargets.join(","),
+              specialTasksSummary: summary.specialTasks.join(","),
+              isDesktop,
+            },
+          });
+        },
+      }).then(() => {
+        if (isStale()) {
+          return;
+        }
+        logAppEvent({
+          name: "navigation.intelligent_warmup_settled",
+          level: "info",
+          scope: { feature: "navigation", action: "route_prefetch" },
+          context: {
+            pathname,
+            routeSurface: activeRouteSurface,
+            isDesktop,
+          },
+        });
+      });
+    }, NAVIGATION_QUIESCENCE_MS);
 
     return (): void => {
+      window.clearTimeout(quiescenceTimerId);
       navigationWarmupGenerationRef.current += 1;
     };
   }, [activeRouteSurface, isDesktop, pathname, router]);
@@ -384,7 +433,7 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
   }, []);
 
   const armRouteHardFallback = useCallback((targetHref: string): void => {
-    if (shouldDeferExperimentHeavyWork()) {
+    if (shouldDeferExperimentHeavyWork() || !shouldRunNavigationInstrumentation()) {
       return;
     }
     if (!targetHref || targetHref === pathname) {
@@ -443,14 +492,18 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
   }, [activeRouteSurface, clearRouteFallback, enableNavigationFailOpen, pathname]);
 
   const prefetchRouteOnIntent = useCallback((targetHref: string): void => {
-    if (!targetHref || targetHref === pathname || warmedPrefetchTargetsRef.current.has(targetHref)) {
+    if (!targetHref || targetHref === pathname || isRapidNavigationMode()) {
       return;
     }
-    warmedPrefetchTargetsRef.current.add(targetHref);
-    void warmRouteNavigationTargets(router, [targetHref]);
+    prefetchRouteShell(router, targetHref);
   }, [pathname, router]);
 
   useEffect((): (() => void) => {
+    if (!shouldRunNavigationInstrumentation()) {
+      setIsPageTransitionActive(false);
+      return clearPageTransitionTimers;
+    }
+
     pageTransitionSequenceRef.current += 1;
     const transitionSequence = pageTransitionSequenceRef.current;
     pageTransitionStartedAtUnixMsRef.current = Date.now();
@@ -547,7 +600,7 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
   }, [clearPageTransitionTimers]);
 
   useEffect((): (() => void) => {
-    if (shouldDeferExperimentHeavyWork()) {
+    if (!shouldRunNavigationInstrumentation()) {
       return (): void => {};
     }
     routeMountProbeSequenceRef.current += 1;
@@ -768,6 +821,7 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
   const showMobileTabBar = !props.mobileDmMode && (
     !props.hideSidebar || isMobileShellProduct()
   );
+  const mobileShellHeader = isMobileShellProduct();
 
   return (
     <div className={cn(
@@ -841,6 +895,7 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
                         hardNavigate(item.href);
                         return;
                       }
+                      recordNavigationIntent(item.href);
                       armRouteHardFallback(item.href);
                       if (item.href !== pathname) {
                         beginNavigation(item.href);
@@ -895,30 +950,39 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
 
       <div className="relative z-0 flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         {!props.hideHeader && (
-          <header className="sticky top-0 z-20 grid grid-cols-[2.75rem_1fr_2.75rem] items-center border-b border-black/10 bg-gradient-sidebar/80 px-2 py-2 pt-[calc(0.5rem+env(safe-area-inset-top))] backdrop-blur dark:border-white/10 md:hidden">
+          <header className={cn(
+            "sticky top-0 z-20 grid items-center border-b border-black/10 bg-gradient-sidebar/80 backdrop-blur dark:border-white/10 md:hidden",
+            mobileShellHeader
+              ? "grid-cols-[2.5rem_1fr_2.5rem] px-2 py-1 pt-[calc(0.25rem+env(safe-area-inset-top))]"
+              : "grid-cols-[2.75rem_1fr_2.75rem] px-2 py-2 pt-[calc(0.5rem+env(safe-area-inset-top))]",
+          )}>
             <div className="flex items-center justify-start">
               {!props.hideSidebar ? (
                 <button
                   type="button"
-                  className="btn-enhanced inline-flex h-11 w-11 items-center justify-center rounded-xl border border-black/10 bg-gradient-card text-zinc-700 hover:bg-zinc-100 dark:border-white/10 dark:text-zinc-200 dark:hover:bg-zinc-900/40"
+                  className={cn(
+                    "btn-enhanced inline-flex items-center justify-center rounded-xl border border-black/10 bg-gradient-card text-zinc-700 hover:bg-zinc-100 dark:border-white/10 dark:text-zinc-200 dark:hover:bg-zinc-900/40",
+                    mobileShellHeader ? "h-10 w-10" : "h-11 w-11",
+                  )}
                   onClick={(): void => setMobileSidebarOpen(true)}
                   aria-label="Open menu"
                 >
-                  <Menu className="h-5 w-5" />
+                  <Menu className={mobileShellHeader ? "h-4 w-4" : "h-5 w-5"} />
                 </button>
               ) : null}
             </div>
             <div className="min-w-0 px-1 text-center">
-              <div className="truncate text-sm font-semibold uppercase tracking-widest text-zinc-500">Obscur</div>
+              <div className={cn(
+                "truncate font-semibold uppercase tracking-widest text-zinc-500",
+                mobileShellHeader ? "text-xs" : "text-sm",
+              )}>Obscur</div>
             </div>
-            <div className="w-11 shrink-0" aria-hidden="true" />
+            <div className={cn("shrink-0", mobileShellHeader ? "w-10" : "w-11")} aria-hidden="true" />
           </header>
         )}
         <div className={cn(
           "relative flex flex-1 flex-col min-h-0 md:pb-0",
-          props.mobileDmMode
-            ? "pb-[env(safe-area-inset-bottom)]"
-            : "pb-[calc(env(safe-area-inset-bottom)+4.25rem)]",
+          props.mobileDmMode ? "pb-mobile-thread" : "pb-mobile-tab-bar",
         )}>
           <div
             aria-hidden="true"
@@ -940,8 +1004,13 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
                 <AppLoadingScreen fullScreen={false} title="Loading page" detail="Preparing view..." />
               </div>
             }>
-              <div className="flex min-h-0 flex-1 flex-col animate-in fade-in slide-in-from-bottom-1 duration-200">
-                <RelayTransportShellBanner />
+              <div className={cn(
+                "flex min-h-0 flex-1 flex-col",
+                shouldRunNavigationInstrumentation()
+                  ? "animate-in fade-in slide-in-from-bottom-1 duration-200"
+                  : undefined,
+              )}>
+                {!isMobileShellProduct() ? <RelayTransportShellBanner /> : null}
                 {props.children}
               </div>
             </React.Suspense>

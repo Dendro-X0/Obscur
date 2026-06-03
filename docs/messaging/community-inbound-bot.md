@@ -63,6 +63,12 @@ Carried in sealed `community.descriptor_updated` metadata and kind **39000** rel
 
 ## Runner
 
+**Generate bot key** (use this instead of ad-hoc `node -e` — `@noble/curves` resolves via the PWA bundle):
+
+```bash
+pnpm community-bot:generate-key -- --nsec
+```
+
 **Script:** `pnpm community-inbound-bot`
 
 | Variable | Purpose |

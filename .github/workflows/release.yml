@@ -1,22 +1,26 @@
-name: Obscur Full Release
+name: Obscur Full Release (retired — do not use)
 
-# Build: tag push OR manual workflow_dispatch (re-run without burning a new tag).
-# Publish: tag push OR dispatch with publish_release + optional release_tag on main.
+# RETIRED 2026-06-02: Cross-platform publish moved to local packaging + repo update channel.
+# See docs/program/unified-version-source.md and docs/program/local-desktop-packaging.md
+#
+# Tag push trigger REMOVED — pushing v* no longer starts this workflow.
+# Manual dispatch only if you explicitly need a one-off remote build (not for shipping).
+
 on:
   workflow_dispatch:
     inputs:
       publish_release:
-        description: "Publish GitHub Release after verify (set release_tag when running from main)"
+        description: "DEPRECATED — do not publish GitHub Releases"
         required: false
         default: false
         type: boolean
       release_tag:
-        description: "Release tag (e.g. v1.8.13). Empty on tag push; on main dispatch uses package.json version."
+        description: "Ignored for shipping; local pnpm desktop:package instead"
         required: false
         type: string
-  push:
-    tags:
-      - "v*"
+  # push:
+  #   tags:
+  #     - "v*"
 
 permissions:
   contents: write

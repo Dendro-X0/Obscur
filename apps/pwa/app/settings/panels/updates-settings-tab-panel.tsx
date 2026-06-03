@@ -27,13 +27,13 @@ import {
   validateProfileInput,
   formatBytes,
   formatRatioPercent,
-} from "../settings-tab-panel-model";
+} from "../settings-tab-panel-shared";
 import { getApiBaseUrl } from "@/app/features/relays/utils/api-base-url";
 import { deriveRelayNodeStatus, deriveRelayRuntimeStatus } from "@/app/features/relays/lib/relay-runtime-status";
 import { checkStorageHealth, runStorageRecovery } from "@/app/features/messaging/services/storage-health-service";
 import { Loader2, Activity, ShieldAlert, Shield, Lock, Database, Copy, ChevronDown, Plus, ArrowUp, ArrowDown, Eye, EyeOff, Building2, Wifi, RefreshCcw, Check, X } from "lucide-react";
 
-import { useSettingsTabPanelModel } from "../settings-tab-panel-model";
+import { useSettingsTabPanelModel } from "../settings-tab-panel-model-context";
 
 export default function UpdatesSettingsTabPanel(): React.JSX.Element {
   const {

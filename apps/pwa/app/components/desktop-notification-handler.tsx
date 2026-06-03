@@ -22,6 +22,7 @@ import {
     buildIncomingCallNotificationPresentation,
     buildMessageNotificationPresentation,
 } from "@/app/features/notifications/utils/notification-presentation";
+import { formatConversationMessagePreview } from "@/app/features/messaging/services/format-conversation-message-preview";
 import { isTauri } from "@/app/lib/notification-service";
 import { useGroupsSafe } from "@/app/features/groups/providers/group-provider";
 import { isGroupConversationId } from "@/app/features/groups/utils/group-conversation-id";
@@ -640,7 +641,13 @@ export const DesktopNotificationHandler = () => {
             const groupName = matchedGroup?.displayName || null;
             const notificationIconUrl = matchedGroup?.avatar || senderProfile?.picture || undefined;
             const preview = event.message.content.trim();
-            const normalizedPreview = preview.length > 0 ? preview : "Sent a message";
+            const formattedPreview = formatConversationMessagePreview(preview, {
+                peerDisplayName: senderName,
+                isOutgoing: false,
+            });
+            const normalizedPreview = formattedPreview.length > 0
+                ? formattedPreview
+                : (preview.length > 0 ? preview : "Sent a message");
             const messageTimestampLabel = new Intl.DateTimeFormat(undefined, {
                 hour: "numeric",
                 minute: "2-digit",

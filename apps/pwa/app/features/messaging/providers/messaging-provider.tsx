@@ -17,7 +17,11 @@ import type {
     PersistedGroupMessage,
     PublicKeyHex
 } from "../types";
-import { chatStateStoreService, type ChatStateReplacedEventDetail } from "../services/chat-state-store";
+import {
+    chatStateStoreService,
+    CHAT_STATE_REPLACED_EVENT,
+    type ChatStateReplacedEventDetail,
+} from "../services/chat-state-store";
 import { isGroupConversationId } from "@/app/features/groups/utils/group-conversation-id";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 import { useOptionalProfileMessageBus, useResolvedClientGateway } from "@/app/features/profiles/providers/profile-runtime-provider";
@@ -47,6 +51,7 @@ import { replaceProjectionUnreadByConversationId, unreadByConversationIdEqual } 
 import { applySelectedConversationUnreadIsolation } from "./unread-isolation";
 import {
     buildDmConnectionsFromPersistedChatState,
+    computePersistedMessageHistoryRevision,
     mergeDmConversationLists,
     touchDmConversationFromMessage,
 } from "../utils/dm-conversation-list-merge";
@@ -191,6 +196,7 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     const selectedConversation = selectedConversationState;
     const [hasHydrated, setHasHydrated] = useState(false);
+    const [chatStateReplaceTick, setChatStateReplaceTick] = useState(0);
 
     const sqliteConvToRaw = (rec: ConversationRecord): DmConversation => ({
         kind: "dm",
@@ -501,13 +507,46 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             myPublicKeyHex: publicKeyHex as PublicKeyHex,
         });
     }, [accountProjectionSnapshot.projection, publicKeyHex]);
+    const persistedMessageHistoryRevision = useMemo(() => {
+        if (!publicKeyHex || !hasHydrated) {
+            return "idle";
+        }
+        const persistedState = chatStateStoreService.load(publicKeyHex as PublicKeyHex, { profileId: activeProfileId });
+        return computePersistedMessageHistoryRevision(persistedState);
+    }, [
+        activeProfileId,
+        publicKeyHex,
+        hasHydrated,
+        chatStateReplaceTick,
+        accountProjectionSnapshot.projection?.lastSequence,
+        accountProjectionSnapshot.updatedAtUnixMs,
+    ]);
     const persistedDmConnections = useMemo(() => {
-        if (!publicKeyHex) {
+        if (!publicKeyHex || !hasHydrated) {
             return [] as ReadonlyArray<DmConversation>;
         }
         const persistedState = chatStateStoreService.load(publicKeyHex as PublicKeyHex, { profileId: activeProfileId });
         return buildDmConnectionsFromPersistedChatState(persistedState, publicKeyHex);
-    }, [activeProfileId, publicKeyHex, hasHydrated, createdConnections.length]);
+    }, [activeProfileId, publicKeyHex, hasHydrated, persistedMessageHistoryRevision]);
+    useEffect(() => {
+        if (typeof window === "undefined") {
+            return;
+        }
+        const onChatStateReplaced = (event: Event): void => {
+            const detail = (event as CustomEvent<ChatStateReplacedEventDetail>).detail;
+            if (detail?.profileId !== activeProfileId) {
+                return;
+            }
+            if (detail.publicKeyHex !== publicKeyHex) {
+                return;
+            }
+            setChatStateReplaceTick((tick) => tick + 1);
+        };
+        window.addEventListener(CHAT_STATE_REPLACED_EVENT, onChatStateReplaced);
+        return () => {
+            window.removeEventListener(CHAT_STATE_REPLACED_EVENT, onChatStateReplaced);
+        };
+    }, [activeProfileId, publicKeyHex]);
     const conversationListAuthority = useMemo(() => (
         resolveConversationListAuthority({
             isNativeRuntime: hasNativeRuntime(),
@@ -569,9 +608,13 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         if (conversationListAuthority.authority !== "sqlite") {
             return;
         }
-        createdConnectionsRef.current = sqliteConversations;
-        setCreatedConnections(sqliteConversations);
-    }, [conversationListAuthority.authority, sqliteConversations]);
+        const mergedSqliteConnections = mergeDmConversationLists(
+            sqliteConversations,
+            persistedDmConnections,
+        );
+        createdConnectionsRef.current = mergedSqliteConnections;
+        setCreatedConnections(mergedSqliteConnections);
+    }, [conversationListAuthority.authority, persistedDmConnections, sqliteConversations]);
 
     useEffect(() => {
         if (conversationListAuthority.authority !== "projection") {
@@ -733,15 +776,16 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             if (!conversationId) {
                 return;
             }
-            const preview = typeof event.message.content === "string"
-                ? event.message.content.trim().slice(0, 120)
+            const messagePreview = typeof event.message.content === "string"
+                ? event.message.content
                 : "";
             updateCreatedConnections((previous) => touchDmConversationFromMessage({
                 connections: previous,
                 conversationId,
                 myPublicKeyHex: publicKeyHex,
-                messagePreview: preview,
+                messagePreview,
                 messageTime: event.message.timestamp,
+                lastMessageIsOutgoing: event.message.isOutgoing,
             }));
         }, { profileId: activeProfileId });
         return unsubscribe;

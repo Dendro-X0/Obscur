@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { resolveAccountSyncUiPolicy } from "./account-sync-ui-policy";
+import {
+  isAccountDataLoading,
+  resolveAccountSyncUiPolicy,
+} from "./account-sync-ui-policy";
 import type { AccountSyncSnapshot } from "../account-sync-contracts";
 import type { AccountProjectionRuntimeSnapshot } from "../account-event-contracts";
 
@@ -119,5 +122,47 @@ describe("accountSyncUiPolicy", () => {
     });
 
     expect(policy.showInitialHistorySyncNotice).toBe(true);
+  });
+
+  it("detects account data loading during restore and projection replay", () => {
+    const policy = resolveAccountSyncUiPolicy({
+      isIdentityUnlocked: true,
+      snapshot: {
+        ...baseSnapshot,
+        phase: "restoring_account_data",
+      },
+      projectionSnapshot: baseProjectionSnapshot,
+      hasVisibleConversations: true,
+    });
+
+    expect(isAccountDataLoading({
+      isIdentityUnlocked: true,
+      snapshot: {
+        ...baseSnapshot,
+        phase: "restoring_account_data",
+      },
+      projectionSnapshot: baseProjectionSnapshot,
+      accountSyncUiPolicy: policy,
+    })).toBe(true);
+
+    expect(isAccountDataLoading({
+      isIdentityUnlocked: true,
+      snapshot: baseSnapshot,
+      projectionSnapshot: {
+        ...baseProjectionSnapshot,
+        phase: "bootstrapping",
+        accountProjectionReady: false,
+      },
+      accountSyncUiPolicy: resolveAccountSyncUiPolicy({
+        isIdentityUnlocked: true,
+        snapshot: baseSnapshot,
+        projectionSnapshot: {
+          ...baseProjectionSnapshot,
+          phase: "bootstrapping",
+          accountProjectionReady: false,
+        },
+        hasVisibleConversations: true,
+      }),
+    })).toBe(true);
   });
 });

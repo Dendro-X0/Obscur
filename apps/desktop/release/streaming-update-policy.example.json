@@ -1,23 +1,23 @@
 {
-  "version": "1.4.1",
+  "version": "1.8.14",
   "channel": "stable",
   "rolloutPercentage": 100,
   "killSwitch": false,
-  "minSafeVersion": "1.4.0",
-  "releaseNotesUrl": "https://github.com/Dendro-X0/Obscur/releases/latest",
+  "minSafeVersion": "1.8.11",
+  "releaseNotesUrl": "https://github.com/Dendro-X0/Obscur/blob/main/CHANGELOG.md",
   "artifacts": {
     "windows-x86_64": {
-      "url": "https://github.com/Dendro-X0/Obscur/releases/latest/download/Obscur_1.4.1_x64-setup.exe",
+      "url": "https://raw.githubusercontent.com/Dendro-X0/Obscur/main/apps/desktop/release/channel/stable/Obscur_1.8.14_x64-setup.exe",
       "signature": "unsigned-build-placeholder",
       "checksumSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     },
     "darwin-aarch64": {
-      "url": "https://github.com/Dendro-X0/Obscur/releases/latest/download/Obscur_1.4.1_aarch64.dmg",
+      "url": "https://raw.githubusercontent.com/Dendro-X0/Obscur/main/apps/desktop/release/channel/stable/Obscur_1.8.14_aarch64.dmg",
       "signature": "unsigned-build-placeholder",
       "checksumSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
     },
     "linux-x86_64": {
-      "url": "https://github.com/Dendro-X0/Obscur/releases/latest/download/Obscur_1.4.1_amd64.AppImage",
+      "url": "https://raw.githubusercontent.com/Dendro-X0/Obscur/main/apps/desktop/release/channel/stable/Obscur_1.8.14_amd64.AppImage",
       "signature": "unsigned-build-placeholder",
       "checksumSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
     }

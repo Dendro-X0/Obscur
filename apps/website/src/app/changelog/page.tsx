@@ -83,13 +83,13 @@ export default async function ChangelogPage() {
             </p>
             <div className="mt-8 flex items-center justify-center gap-x-4">
               <a
-                href="https://github.com/Dendro-X0/Obscur/releases"
+                href="https://github.com/Dendro-X0/Obscur/blob/main/version.json"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-x-2 rounded-full bg-blue-600 px-6 py-3 text-sm font-semibold text-white hover:bg-blue-500 transition-colors"
               >
                 <ArrowDown className="h-4 w-4" />
-                View on GitHub
+                Current version
               </a>
               <a
                 href="/download"
@@ -111,10 +111,10 @@ export default async function ChangelogPage() {
               <div className="text-center py-24">
                 <p className="text-zinc-400">Changelog temporarily unavailable.</p>
                 <a
-                  href="https://github.com/Dendro-X0/Obscur/releases"
+                  href="https://github.com/Dendro-X0/Obscur/blob/main/CHANGELOG.md"
                   className="mt-4 inline-block text-blue-400 hover:text-blue-300"
                 >
-                  View releases on GitHub →
+                  View full changelog on GitHub →
                 </a>
               </div>
             ) : (
@@ -167,12 +167,12 @@ export default async function ChangelogPage() {
 
                   <div className="mt-6">
                     <a
-                      href={`https://github.com/Dendro-X0/Obscur/releases/tag/${entry.version}`}
+                      href={`https://github.com/Dendro-X0/Obscur/blob/main/docs/releases/${entry.version}-release.md`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-x-2 text-sm text-zinc-400 hover:text-white transition-colors"
                     >
-                      View full release notes
+                      Release notes (docs)
                       <ArrowRight className="h-4 w-4" />
                     </a>
                   </div>
@@ -191,7 +191,7 @@ export default async function ChangelogPage() {
               Stay Updated
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-blue-100">
-              Follow us on GitHub to get notified about new releases and updates.
+              Watch the repository on GitHub for commits on <code className="text-white">main</code>. Current version: <a href="https://github.com/Dendro-X0/Obscur/blob/main/version.json" className="underline">version.json</a>.
             </p>
             <div className="mt-8">
               <a

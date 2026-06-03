@@ -417,6 +417,27 @@ export const useAccountSync = (params: UseAccountSyncParams) => {
         }
         params.onRelayListRestored?.(report.relayList);
 
+        const projectionSnapshot = accountProjectionRuntime.getSnapshot();
+        const projectionAlreadyBootstrapped = (
+          projectionSnapshot.accountProjectionReady
+          && projectionSnapshot.phase === "ready"
+          && projectionSnapshot.profileId === getResolvedProfileId()
+          && projectionSnapshot.accountPublicKeyHex === params.publicKeyHex
+        );
+        if (projectionAlreadyBootstrapped) {
+          logAppEvent({
+            name: "account_sync.startup_restore_skipped",
+            level: "debug",
+            scope: { feature: "account_sync", action: "backup_restore" },
+            context: {
+              reason: "projection_already_bootstrapped",
+              profileId: getResolvedProfileId(),
+            },
+          });
+          void maybePublishBackup("startup");
+          return;
+        }
+
         // Ensure startup restore is applied before the first startup publish.
         // Publishing first on a fresh device can propagate stale/empty local state.
         const startupRestoreResult = await maybeRestoreBackup("startup_fast_follow");

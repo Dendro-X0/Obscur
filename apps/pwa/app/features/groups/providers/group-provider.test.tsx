@@ -76,9 +76,11 @@ import { encryptedAccountBackupServiceInternals } from "@/app/features/account-s
 import {
   dispatchCommunityKnownParticipantsObserved,
   dispatchGroupInviteResponseAccepted,
+  dispatchGroupInviteResponseTerminal,
   dispatchGroupMembershipConfirmed,
   dispatchGroupMembershipSnapshot,
 } from "@/app/features/profiles/services/profile-bus-dispatch";
+import { loadCommunityTerminalMembershipCache } from "../services/community-terminal-membership-cache";
 import { setProfileRuntimeScope } from "@/app/features/profiles/services/profile-runtime-scope";
 import { PrivacySettingsService } from "@/app/features/settings/services/privacy-settings-service";
 import { relayListInternals } from "@/app/features/relays/hooks/use-relay-list";
@@ -778,6 +780,71 @@ describe("group-provider membership ledger integration", () => {
     expect(bGroup?.id.startsWith("community:")).toBe(true);
     expect(bGroup?.id).not.toBe(PUBLIC_KEY_A);
     expect(bGroup?.id).not.toBe(PUBLIC_KEY_B);
+  });
+
+  it("MEM-005: clears relay-joined peer after terminal invite response", async () => {
+    const wrapper: React.FC<React.PropsWithChildren> = ({ children }) => (
+      <GroupProvider>{children}</GroupProvider>
+    );
+
+    activePublicKeyHex = PUBLIC_KEY_A;
+    const hook = renderHook(() => useGroups(), { wrapper });
+    await waitFor(() => {
+      expect(hook.result.current.createdGroups).toHaveLength(0);
+    });
+
+    act(() => {
+      hook.result.current.addGroup({
+        kind: "group",
+        id: "community:delta:wss://relay.delta",
+        communityId: "delta:wss://relay.delta",
+        groupId: "delta",
+        relayUrl: "wss://relay.delta",
+        displayName: "Delta",
+        memberPubkeys: [PUBLIC_KEY_A],
+        lastMessage: "",
+        unreadCount: 0,
+        lastMessageTime: new Date(1_000),
+        access: "invite-only",
+        memberCount: 1,
+        adminPubkeys: [],
+      }, { allowRevive: true });
+    });
+    await waitFor(() => {
+      expect(hook.result.current.createdGroups).toHaveLength(1);
+    });
+
+    act(() => {
+      dispatchGroupInviteResponseAccepted({
+        groupId: "delta",
+        relayUrl: "wss://relay.delta",
+        communityId: "delta:wss://relay.delta",
+        memberPubkey: PUBLIC_KEY_B,
+        recipientPublicKeyHex: PUBLIC_KEY_A,
+      });
+    });
+    await waitFor(() => {
+      expect(hook.result.current.createdGroups[0]?.memberPubkeys).toContain(PUBLIC_KEY_B);
+    });
+
+    act(() => {
+      dispatchGroupInviteResponseTerminal({
+        groupId: "delta",
+        relayUrl: "wss://relay.delta",
+        communityId: "delta:wss://relay.delta",
+        memberPubkey: PUBLIC_KEY_B,
+        recipientPublicKeyHex: PUBLIC_KEY_A,
+        responseStatus: "declined",
+      });
+    });
+
+    await waitFor(() => {
+      expect(hook.result.current.createdGroups[0]?.memberPubkeys).not.toContain(PUBLIC_KEY_B);
+    });
+    expect(loadCommunityTerminalMembershipCache({
+      groupId: "delta",
+      relayUrl: "wss://relay.delta",
+    })?.leftMemberPubkeys).toContain(PUBLIC_KEY_B);
   });
 
   it("does not create fallback groups from invite-accept events when no matching group is loaded", async () => {

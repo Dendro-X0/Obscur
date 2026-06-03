@@ -15,12 +15,14 @@ import { toast } from "../../../components/ui/toast";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { useResolvedProfileMetadata } from "../../profile/hooks/use-resolved-profile-metadata";
 import { UserAvatar } from "../../profile/components/user-avatar";
+import { useMobileCompactLayout } from "@/app/features/runtime/use-mobile-compact-layout";
 
 const PRIVATE_PEER_LABEL = "Unknown contact";
 const PRIVATE_PEER_IDENTITY_HINT = "Identity hidden";
 
 export function TrustSettingsPanel() {
     const { t } = useTranslation();
+    const compact = useMobileCompactLayout();
     const { identity, peerTrust, blocklist, requestsInbox } = useNetwork();
     const myPublicKeyHex = identity.state.publicKeyHex ?? null;
     const [searchQuery, setSearchQuery] = useState("");
@@ -37,7 +39,8 @@ export function TrustSettingsPanel() {
     const filteredBlocked = blockedPeers.filter(filterByQuery);
 
     return (
-        <div className="space-y-6">
+        <div className={compact ? "space-y-4" : "space-y-6"}>
+            {!compact ? (
             <Card className="p-4 bg-zinc-50/60 dark:bg-zinc-900/40 border-zinc-200/80 dark:border-zinc-800 shadow-none">
                 <div className="flex items-start gap-4">
                     <div className="h-10 w-10 shrink-0 rounded-xl bg-zinc-200/80 dark:bg-zinc-800 flex items-center justify-center">
@@ -59,12 +62,19 @@ export function TrustSettingsPanel() {
                     </div>
                 </div>
             </Card>
+            ) : null}
 
             <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400" />
+                <Search className={cn(
+                    "absolute top-1/2 -translate-y-1/2 text-zinc-400",
+                    compact ? "left-3 h-4 w-4" : "left-3 h-5 w-5",
+                )} />
                 <Input
                     placeholder={t("settings.security.searchPeers")}
-                    className="pl-9 h-11 bg-zinc-50/50 dark:bg-zinc-900/50 border-zinc-200 dark:border-zinc-800 focus:ring-purple-500/20"
+                    className={cn(
+                        "bg-zinc-50/50 dark:bg-zinc-900/50 border-zinc-200 dark:border-zinc-800 focus:ring-purple-500/20",
+                        compact ? "h-10 pl-9" : "h-11 pl-9",
+                    )}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                 />

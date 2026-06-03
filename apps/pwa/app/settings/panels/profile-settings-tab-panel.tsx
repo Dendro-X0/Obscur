@@ -27,7 +27,7 @@ import {
   validateProfileInput,
   formatBytes,
   formatRatioPercent,
-} from "../settings-tab-panel-model";
+} from "../settings-tab-panel-shared";
 import { getApiBaseUrl } from "@/app/features/relays/utils/api-base-url";
 import { deriveRelayNodeStatus, deriveRelayRuntimeStatus } from "@/app/features/relays/lib/relay-runtime-status";
 import { checkStorageHealth, runStorageRecovery } from "@/app/features/messaging/services/storage-health-service";
@@ -35,7 +35,9 @@ import { ManualPortabilityPanel } from "@/app/features/profiles/components/manua
 import { PortabilityQuickActionsPanel } from "@/app/features/profiles/components/portability-quick-actions-panel";
 import { Loader2 } from "lucide-react";
 
-import { useSettingsTabPanelModel } from "../settings-tab-panel-model";
+import { SettingsCompactCard } from "@/app/features/settings/components/settings-compact-card";
+import { useMobileCompactLayout } from "@/app/features/runtime/use-mobile-compact-layout";
+import { useSettingsTabPanelModel } from "../settings-tab-panel-model-context";
 
 export default function ProfileSettingsTabPanel(): React.JSX.Element {
   const {
@@ -260,12 +262,23 @@ export default function ProfileSettingsTabPanel(): React.JSX.Element {
     wipeLocalRuntimeData
   } = useSettingsTabPanelModel() as Record<string, any>;
 
+  const compact = useMobileCompactLayout();
+  const profileSavePhase = isPublishing ? toSettingsActionPhase(profilePublishPhase) : profileSaveActionPhase;
+  const profileSaveIdle = profileSavePhase === "idle" && !profilePreflightError && !profileSaveActionMessage && !profilePublishReport?.message && !profilePublishError;
+
   return (
     <>
-        <div className="space-y-4">
-          <Card title={t("profile.title")} description={t("profile.description")} className="w-full">
-            <div id="profile" className="space-y-6">
-              <div className="space-y-6 rounded-2xl border border-black/10 bg-gradient-to-br from-white/90 to-zinc-50/50 p-6 backdrop-blur-md shadow-sm dark:border-white/10 dark:from-zinc-900/40 dark:to-zinc-950/20">
+        <div className={compact ? "space-y-3" : "space-y-4"}>
+          <SettingsCompactCard
+            title={t("profile.title")}
+            description={t("profile.description")}
+            className="w-full"
+          >
+            <div id="profile" className={compact ? "space-y-4" : "space-y-6"}>
+              <div className={cn(
+                "space-y-6 rounded-2xl border border-black/10 bg-gradient-to-br from-white/90 to-zinc-50/50 backdrop-blur-md shadow-sm dark:border-white/10 dark:from-zinc-900/40 dark:to-zinc-950/20",
+                compact ? "space-y-4 p-4" : "p-6",
+              )}>
                 <ProfileCompletenessIndicator
                   hasAvatar={(profile.state.profile.avatarUrl || "").trim().length > 0}
                   hasUsername={profile.state.profile.username.trim().length >= 3}
@@ -280,7 +293,7 @@ export default function ProfileSettingsTabPanel(): React.JSX.Element {
                     onClear={() => profile.setAvatarUrl({ avatarUrl: "" })}
                     className="w-full"
                   />
-                  <div className="text-xs text-zinc-600 dark:text-zinc-400 text-center">{t("profile.avatarHelp")}</div>
+                  <div className={cn("text-xs text-zinc-600 dark:text-zinc-400 text-center", compact && "hidden")}>{t("profile.avatarHelp")}</div>
                   {profileValidation.avatarUrlError ? (
                     <div className="text-xs text-rose-600 dark:text-rose-400 text-center">{profileValidation.avatarUrlError}</div>
                   ) : null}
@@ -296,7 +309,9 @@ export default function ProfileSettingsTabPanel(): React.JSX.Element {
                     aria-invalid={!!profileValidation.usernameError}
                     className={cn(profileValidation.usernameError ? "border-rose-500/50 focus-visible:ring-rose-500" : "")}
                   />
-                  <div className="text-xs text-zinc-600 dark:text-zinc-400">{t("profile.usernameHelp")}</div>
+                  {!compact ? (
+                    <div className="text-xs text-zinc-600 dark:text-zinc-400">{t("profile.usernameHelp")}</div>
+                  ) : null}
                   {profileValidation.usernameError ? (
                     <div className="text-xs text-rose-600 dark:text-rose-400">{profileValidation.usernameError}</div>
                   ) : null}
@@ -317,8 +332,10 @@ export default function ProfileSettingsTabPanel(): React.JSX.Element {
                       profileValidation.aboutError ? "border-rose-500/50 focus-visible:ring-rose-500" : ""
                     )}
                   />
-                  <div className="flex items-center justify-between text-xs text-zinc-600 dark:text-zinc-400">
-                    <span>{t("profile.aboutHelp", "Public profile bio shown in discovery previews.")}</span>
+                  <div className={cn("flex items-center justify-between text-xs text-zinc-600 dark:text-zinc-400", compact && "justify-end")}>
+                    {!compact ? (
+                      <span>{t("profile.aboutHelp", "Public profile bio shown in discovery previews.")}</span>
+                    ) : null}
                     <span>{(profile.state.profile.about || "").trim().length}/280</span>
                   </div>
                   {profileValidation.aboutError ? (
@@ -328,7 +345,7 @@ export default function ProfileSettingsTabPanel(): React.JSX.Element {
 
                 <div className="space-y-2">
                   <Label htmlFor="profile-nip05">{t("profile.nip05Label")}</Label>
-                  <div className="flex gap-2">
+                  <div className={cn("flex gap-2", compact && "flex-col")}>
                     <Input
                       id="profile-nip05"
                       value={profile.state.profile.nip05 || ""}
@@ -340,13 +357,16 @@ export default function ProfileSettingsTabPanel(): React.JSX.Element {
                     <Button
                       type="button"
                       variant="secondary"
+                      className={compact ? "w-full" : undefined}
                       onClick={handleVerifyNip05}
                       disabled={isVerifyingNip05 || !!profileValidation.nip05Error}
                     >
                       {isVerifyingNip05 ? <Loader2 className="h-4 w-4 animate-spin" /> : t("profile.verifyNip05")}
                     </Button>
                   </div>
-                  <div className="text-xs text-zinc-600 dark:text-zinc-400">{t("profile.nip05Help")}</div>
+                  {!compact ? (
+                    <div className="text-xs text-zinc-600 dark:text-zinc-400">{t("profile.nip05Help")}</div>
+                  ) : null}
                   {profileValidation.nip05Error ? (
                     <div className="text-xs text-rose-600 dark:text-rose-400">{profileValidation.nip05Error}</div>
                   ) : null}
@@ -408,9 +428,15 @@ export default function ProfileSettingsTabPanel(): React.JSX.Element {
                       Copy
                     </Button>
                   </div>
-                  <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
-                    <span>Use this friend code for quick account discovery.</span>
-                    <span>Prefix is fixed by app identity; edit only the 6-character suffix.</span>
+                  <div className={cn("flex flex-wrap items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400", compact && "flex-col items-start")}>
+                    {!compact ? (
+                      <>
+                        <span>Use this friend code for quick account discovery.</span>
+                        <span>Prefix is fixed by app identity; edit only the 6-character suffix.</span>
+                      </>
+                    ) : (
+                      <span>6-character suffix after the fixed prefix.</span>
+                    )}
                     {userInviteCode.nprofile ? (
                       <Button
                         type="button"
@@ -445,11 +471,14 @@ export default function ProfileSettingsTabPanel(): React.JSX.Element {
                 </div>
 
               </div>
-              <div className="flex flex-col sm:flex-row gap-3 pt-4">
+              <div className={cn("flex flex-col gap-3", compact ? "pt-2" : "pt-4 sm:flex-row")}>
                 <Button
                   type="button"
                   disabled={isPublishing || !profileValidation.isValid || inviteCodeAvailabilityStatus === "checking"}
-                  className="h-11 px-8 font-bold text-white bg-gradient-primary border-none shadow-md hover:shadow-lg transition-all active:scale-[0.98]"
+                  className={cn(
+                    "h-11 font-bold text-white bg-gradient-primary border-none shadow-md hover:shadow-lg transition-all active:scale-[0.98]",
+                    compact ? "w-full px-4" : "px-8",
+                  )}
                   onClick={handleSaveProfile}
                 >
                   {isPublishing ? (
@@ -462,40 +491,49 @@ export default function ProfileSettingsTabPanel(): React.JSX.Element {
                   )}
                 </Button>
               </div>
-              <SettingsActionStatus
-                title="Profile Save Status"
-                phase={isPublishing ? toSettingsActionPhase(profilePublishPhase) : profileSaveActionPhase}
-                message={
-                  profilePreflightError
-                    ? profilePreflightError
-                    : profileSaveActionMessage
-                      ? profileSaveActionMessage
-                    : profilePublishReport?.message
-                    ? profilePublishReport.message
-                    : profilePublishError
-                      ? profilePublishError
-                      : undefined
-                }
-                summary={
-                  accountSyncSnapshot.portabilityStatus === "portable"
-                    ? "Account is portable across devices. Profile publish and encrypted backup both have relay evidence."
-                    : accountSyncSnapshot.portabilityStatus === "profile_only"
-                      ? "Profile publish has relay evidence, but encrypted backup is not proven yet. Cross-device restore is not guaranteed."
-                      : accountSyncSnapshot.portabilityStatus === "local_only"
-                        ? "Profile is saved locally, but network sync proof is incomplete. Another device may not restore this account yet."
-                        : "Profile save and account sync are separate proof steps. Portability is only claimed after both relay-backed proofs succeed."
-                }
-              />
+              {(!compact || !profileSaveIdle) ? (
+                <SettingsActionStatus
+                  title="Profile Save Status"
+                  phase={profileSavePhase}
+                  message={
+                    profilePreflightError
+                      ? profilePreflightError
+                      : profileSaveActionMessage
+                        ? profileSaveActionMessage
+                      : profilePublishReport?.message
+                      ? profilePublishReport.message
+                      : profilePublishError
+                        ? profilePublishError
+                        : undefined
+                  }
+                  summary={
+                    compact
+                      ? undefined
+                      : accountSyncSnapshot.portabilityStatus === "portable"
+                        ? "Account is portable across devices. Profile publish and encrypted backup both have relay evidence."
+                        : accountSyncSnapshot.portabilityStatus === "profile_only"
+                          ? "Profile publish has relay evidence, but encrypted backup is not proven yet. Cross-device restore is not guaranteed."
+                          : accountSyncSnapshot.portabilityStatus === "local_only"
+                            ? "Profile is saved locally, but network sync proof is incomplete. Another device may not restore this account yet."
+                            : "Profile save and account sync are separate proof steps. Portability is only claimed after both relay-backed proofs succeed."
+                  }
+                />
+              ) : null}
               <div
                 id="account-sync-backup"
-                className="rounded-2xl border border-black/10 bg-white/70 p-4 shadow-sm dark:border-white/10 dark:bg-zinc-900/50"
+                className={cn(
+                  "rounded-2xl border border-black/10 bg-white/70 shadow-sm dark:border-white/10 dark:bg-zinc-900/50",
+                  compact ? "p-3" : "p-4",
+                )}
               >
                 <div className="flex items-center justify-between gap-3">
-                  <div>
+                  <div className="min-w-0">
                     <div className="text-sm font-black uppercase tracking-wider text-zinc-900 dark:text-zinc-100">Account Sync</div>
-                    <div className="text-xs text-zinc-600 dark:text-zinc-400">
-                      Private key = account. This device restores and refreshes account state from relays.
-                    </div>
+                    {!compact ? (
+                      <div className="text-xs text-zinc-600 dark:text-zinc-400">
+                        Private key = account. This device restores and refreshes account state from relays.
+                      </div>
+                    ) : null}
                   </div>
                   <span
                     className={cn(
@@ -510,7 +548,7 @@ export default function ProfileSettingsTabPanel(): React.JSX.Element {
                     {accountSyncSnapshot.portabilityStatus.replace("_", " ")}
                   </span>
                 </div>
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <div className={cn("mt-4 grid gap-3", compact ? "grid-cols-2" : "sm:grid-cols-2")}>
                   <div className="rounded-xl bg-zinc-50 p-3 text-xs dark:bg-zinc-950/60">
                     <div className="font-bold uppercase tracking-wider text-zinc-500">Portability</div>
                     <div className="mt-1 text-zinc-900 dark:text-zinc-100">
@@ -535,6 +573,8 @@ export default function ProfileSettingsTabPanel(): React.JSX.Element {
                       {accountSyncSnapshot.hasEncryptedBackup ? "Available on relays" : "Not found yet"}
                     </div>
                   </div>
+                  {!compact ? (
+                    <>
                   <div className="rounded-xl bg-zinc-50 p-3 text-xs dark:bg-zinc-950/60">
                     <div className="font-bold uppercase tracking-wider text-zinc-500">Last public profile fetch</div>
                     <div className="mt-1 text-zinc-900 dark:text-zinc-100">
@@ -551,6 +591,8 @@ export default function ProfileSettingsTabPanel(): React.JSX.Element {
                         : "Not published yet"}
                     </div>
                   </div>
+                    </>
+                  ) : null}
                   <div className="rounded-xl bg-zinc-50 p-3 text-xs dark:bg-zinc-950/60">
                     <div className="font-bold uppercase tracking-wider text-zinc-500">Profile proof</div>
                     <div className="mt-1 text-zinc-900 dark:text-zinc-100">
@@ -558,7 +600,7 @@ export default function ProfileSettingsTabPanel(): React.JSX.Element {
                         ? `${accountSyncSnapshot.profileProof.deliveryStatus} ${accountSyncSnapshot.profileProof.successCount ?? 0}/${accountSyncSnapshot.profileProof.totalRelays ?? 0}`
                         : "No relay proof yet"}
                     </div>
-                    {accountSyncSnapshot.latestProfileEventId ? (
+                    {accountSyncSnapshot.latestProfileEventId && !compact ? (
                       <div className="mt-1 font-mono text-[10px] text-zinc-500">{accountSyncSnapshot.latestProfileEventId.slice(0, 16)}...</div>
                     ) : null}
                   </div>
@@ -569,7 +611,7 @@ export default function ProfileSettingsTabPanel(): React.JSX.Element {
                         ? `${accountSyncSnapshot.backupProof.deliveryStatus} ${accountSyncSnapshot.backupProof.successCount ?? 0}/${accountSyncSnapshot.backupProof.totalRelays ?? 0}`
                         : "No relay proof yet"}
                     </div>
-                    {accountSyncSnapshot.latestBackupEventId ? (
+                    {accountSyncSnapshot.latestBackupEventId && !compact ? (
                       <div className="mt-1 font-mono text-[10px] text-zinc-500">{accountSyncSnapshot.latestBackupEventId.slice(0, 16)}...</div>
                     ) : null}
                   </div>
@@ -579,12 +621,14 @@ export default function ProfileSettingsTabPanel(): React.JSX.Element {
                     Last relay failure: {accountSyncSnapshot.lastRelayFailureReason}
                   </div>
                 ) : null}
+                {!compact ? (
                 <div className="mt-3 rounded-xl border border-black/10 bg-zinc-50 px-3 py-2 text-xs text-zinc-600 dark:border-white/10 dark:bg-zinc-950/60 dark:text-zinc-400">
                   Last restore source: {accountSyncSnapshot.lastRestoreSource?.replace("_", " ") || "none"}
                 </div>
+                ) : null}
                 <PortabilityQuickActionsPanel
                   compact
-                  className="mt-8"
+                  className={compact ? "mt-4" : "mt-8"}
                   publicKeyHex={publicKeyHex}
                   profileLabel={profile.state.profile.username.trim() || undefined}
                   resolveActivePrivateKeyHex={resolveActivePrivateKeyHex}
@@ -596,7 +640,7 @@ export default function ProfileSettingsTabPanel(): React.JSX.Element {
                 />
               </div>
             </div>
-          </Card>
+          </SettingsCompactCard>
         </div>
 
     </>

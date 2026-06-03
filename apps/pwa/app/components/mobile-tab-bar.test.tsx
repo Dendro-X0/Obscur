@@ -7,6 +7,16 @@ import * as pageTransitionRecovery from "./page-transition-recovery";
 const mobileTabBarMocks = vi.hoisted(() => ({
     pathname: "/",
     push: vi.fn(),
+    layoutTier: "phone" as "phone" | "tablet" | "desktop",
+    mobileShellProduct: false,
+}));
+
+vi.mock("@/app/features/runtime/shell-contract", () => ({
+    isMobileShellProduct: () => mobileTabBarMocks.mobileShellProduct,
+}));
+
+vi.mock("@/app/features/runtime/use-mobile-compact-layout", () => ({
+    useSecondaryPageLayoutTier: () => mobileTabBarMocks.layoutTier,
 }));
 
 vi.mock("next/navigation", () => ({
@@ -69,6 +79,8 @@ describe("MobileTabBar navigation", () => {
     beforeEach(() => {
         vi.clearAllMocks();
         mobileTabBarMocks.pathname = "/";
+        mobileTabBarMocks.layoutTier = "phone";
+        mobileTabBarMocks.mobileShellProduct = false;
     });
 
     it("renders nav links with href targets", () => {
@@ -99,6 +111,25 @@ describe("MobileTabBar navigation", () => {
             hardNavigateSpy.mockRestore();
             vi.useRealTimers();
         }
+    });
+
+    it("stays visible on tablet-width viewports", () => {
+        mobileTabBarMocks.layoutTier = "tablet";
+        render(<MobileTabBar navBadgeCounts={{}} />);
+        expect(screen.getByTestId("mobile-tab-bar")).toBeInTheDocument();
+    });
+
+    it("hides on desktop-width web viewports", () => {
+        mobileTabBarMocks.layoutTier = "desktop";
+        render(<MobileTabBar navBadgeCounts={{}} />);
+        expect(screen.queryByTestId("mobile-tab-bar")).not.toBeInTheDocument();
+    });
+
+    it("stays visible on mobile shell builds regardless of layout tier", () => {
+        mobileTabBarMocks.layoutTier = "desktop";
+        mobileTabBarMocks.mobileShellProduct = true;
+        render(<MobileTabBar navBadgeCounts={{}} />);
+        expect(screen.getByTestId("mobile-tab-bar")).toBeInTheDocument();
     });
 
     it("clears hard fallback when pathname settles to target", () => {

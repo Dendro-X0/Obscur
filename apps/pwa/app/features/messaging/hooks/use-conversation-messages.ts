@@ -15,6 +15,7 @@ import { logAppEvent } from "@/app/shared/log-app-event";
 import { subscribeAccountSyncMutation } from "@/app/shared/account-sync-mutation-signal";
 import { useOptionalProfileMessageBus, useOptionalProfileRuntime } from "@/app/features/profiles/providers/profile-runtime-provider";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
+import { listAccountSharedSqliteProfileIds } from "@/app/features/profiles/services/account-shared-sqlite-profile-ids";
 import { subscribeChatStateReplacedDual } from "@/app/features/profiles/services/subscribe-chat-state-replaced-dual";
 import { subscribeMessagesIndexRebuiltDual } from "@/app/features/profiles/services/subscribe-messages-index-rebuilt-dual";
 import { subscribeSecondaryProfileDmSoftRefresh } from "@/app/features/runtime/services/secondary-profile-dm-soft-refresh";
@@ -163,20 +164,27 @@ export function useConversationMessages(
         if (conversationId.startsWith("community:") || conversationId.startsWith("group:") || conversationId.includes("@")) {
             return false;
         }
-        const persistedState = chatStateStoreService.load(publicKeyHex as PublicKeyHex, {
-            profileId: getResolvedProfileId() || undefined,
+        const profileIds = listAccountSharedSqliteProfileIds({
+            primaryProfileId: getResolvedProfileId(),
+            accountPublicKeyHex: publicKeyHex,
         });
         const aliasIds = buildDmSiblingConversationIds({
             conversationId,
             myPublicKeyHex: normalizePublicKeyHex(publicKeyHex) ?? (publicKeyHex as PublicKeyHex),
         });
-        return aliasIds.some((aliasId) => {
-            const persistedMessages = persistedState?.messagesByConversationId?.[aliasId] ?? [];
-            return persistedMessages.some((message) => (
-                (typeof message.content === "string" && message.content.trim().length > 0)
-                || (Array.isArray(message.attachments) && message.attachments.length > 0)
-            ));
-        });
+        return aliasIds.some((aliasId) => (
+            profileIds.some((profileId) => {
+                const persistedState = chatStateStoreService.load(publicKeyHex as PublicKeyHex, { profileId });
+                const persistedMessages = persistedState?.messagesByConversationId?.[aliasId] ?? [];
+                if (persistedMessages.some((message) => message.isOutgoing === true)) {
+                    return true;
+                }
+                return persistedMessages.some((message) => (
+                    (typeof message.content === "string" && message.content.trim().length > 0)
+                    || (Array.isArray(message.attachments) && message.attachments.length > 0)
+                ));
+            })
+        ));
     }, [conversationId, publicKeyHex]);
     const projectionReadAuthority = useMemo(() => (
         resolveProjectionReadAuthority({

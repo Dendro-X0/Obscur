@@ -46,13 +46,15 @@ import {
   validateProfileInput,
   formatBytes,
   formatRatioPercent,
-} from "../settings-tab-panel-model";
+} from "../settings-tab-panel-shared";
 import { getApiBaseUrl } from "@/app/features/relays/utils/api-base-url";
 import { deriveRelayNodeStatus, deriveRelayRuntimeStatus } from "@/app/features/relays/lib/relay-runtime-status";
 import { checkStorageHealth, runStorageRecovery } from "@/app/features/messaging/services/storage-health-service";
 import { Loader2, Activity, ShieldAlert, Shield, Lock, Database, Copy, ChevronDown, Plus, ArrowUp, ArrowDown, Eye, EyeOff, Building2, Wifi, RefreshCcw, Check, X } from "lucide-react";
 
-import { useSettingsTabPanelModel } from "../settings-tab-panel-model";
+import { useSettingsTabPanelModel } from "../settings-tab-panel-model-context";
+import { SettingsCompactCard } from "@/app/features/settings/components/settings-compact-card";
+import { useMobileCompactLayout } from "@/app/features/runtime/use-mobile-compact-layout";
 
 export default function StorageSettingsTabPanel(): React.JSX.Element {
   const {
@@ -305,14 +307,21 @@ export default function StorageSettingsTabPanel(): React.JSX.Element {
     };
   }, []);
 
+  const compact = useMobileCompactLayout();
+
   return (
     <>
-        <Card title={t("settings.tabs.storage")} description={t("settings.storage.desc")} className="w-full">
-          <div className="space-y-8">
-            <div className="flex items-center justify-between gap-4 rounded-2xl border border-black/5 p-5 dark:border-white/5 bg-zinc-50/50 dark:bg-zinc-900/50">
-              <div className="space-y-1">
-                  <Label className="font-semibold text-base">{t("settings.storage.effectiveModeTitle", "Effective Mode")}</Label>
-                  <p className="text-xs text-zinc-500">{t("settings.storage.effectiveModeDesc", "Derived from active provider and local vault toggles.")}</p>
+        <SettingsCompactCard title={t("settings.tabs.storage")} description={t("settings.storage.desc")} className="w-full">
+          <div className={compact ? "space-y-4" : "space-y-8"}>
+            <div className={cn(
+              "flex items-center justify-between gap-4",
+              compact ? "py-1" : "rounded-2xl border border-black/5 bg-zinc-50/50 p-5 dark:border-white/5 dark:bg-zinc-900/50",
+            )}>
+              <div className="min-w-0 space-y-1">
+                  <Label className={cn("font-semibold", compact ? "text-sm" : "text-base")}>{t("settings.storage.effectiveModeTitle", "Effective Mode")}</Label>
+                  {!compact ? (
+                    <p className="text-xs text-zinc-500">{t("settings.storage.effectiveModeDesc", "Derived from active provider and local vault toggles.")}</p>
+                  ) : null}
               </div>
               <span className={cn(
                 "rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-wide",
@@ -948,7 +957,7 @@ export default function StorageSettingsTabPanel(): React.JSX.Element {
                 summary={`Mode: ${storageMode.replace("_", " ")} · ${storageStats.itemCount} indexed file(s)`}
               />
             </div>
-          </Card>
+          </SettingsCompactCard>
       <ConfirmDialog
         isOpen={isDisableAllRelaysDialogOpen}
         onClose={() => setIsDisableAllRelaysDialogOpen(false)}

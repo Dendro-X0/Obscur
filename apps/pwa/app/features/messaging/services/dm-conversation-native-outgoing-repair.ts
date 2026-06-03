@@ -49,9 +49,11 @@ export const loadNativeOutgoingChatStateRepairMessages = (params: Readonly<{
   myPublicKeyHex: PublicKeyHex;
   profileId: string;
 }>): ReadonlyArray<Message> => {
-  if (!isTauri() || params.conversationIds.length === 0) {
+  if (params.conversationIds.length === 0) {
     return [];
   }
+
+  const shouldMirrorToSqlite = isTauri();
 
   const profileIds = listAccountSharedSqliteProfileIds({
     primaryProfileId: params.profileId,
@@ -95,9 +97,11 @@ export const loadNativeOutgoingChatStateRepairMessages = (params: Readonly<{
       if (!isSelfOutgoing || !isDisplayableDmConversationMessage(row)) {
         return;
       }
-      const record = toNativeOutgoingMessageRecord(row, params.profileId);
-      if (record) {
-        void dbInsertMessage(record).catch(() => undefined);
+      if (shouldMirrorToSqlite) {
+        const record = toNativeOutgoingMessageRecord(row, params.profileId);
+        if (record) {
+          void dbInsertMessage(record).catch(() => undefined);
+        }
       }
       repaired.push(row);
     });

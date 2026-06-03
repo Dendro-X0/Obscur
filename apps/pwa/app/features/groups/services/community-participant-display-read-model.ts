@@ -41,7 +41,14 @@ const resolveCoordinationActiveDisplayPubkeys = (params: Readonly<{
   coordinationDirectory: CoordinationMembershipMaterialization;
   localMemberPubkey?: PublicKeyHex | null;
 }>): ReadonlyArray<PublicKeyHex> => {
-  const active = [...params.coordinationDirectory.activeMemberPubkeys];
+  const terminal = new Set([
+    ...params.coordinationDirectory.leftMemberPubkeys,
+    ...params.coordinationDirectory.expelledMemberPubkeys,
+  ].map(normalizePubkey));
+
+  const active = params.coordinationDirectory.activeMemberPubkeys.filter(
+    (pubkey) => !terminal.has(normalizePubkey(pubkey)),
+  );
   const local = params.localMemberPubkey?.trim();
   if (local) {
     const localNorm = normalizePubkey(local);

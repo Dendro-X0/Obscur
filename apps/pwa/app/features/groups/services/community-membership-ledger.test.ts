@@ -73,6 +73,35 @@ describe("community-membership-ledger", () => {
     expect(loaded).toHaveLength(0);
   });
 
+  it("REL-003: named profile save does not seed legacy key readable by default profile", () => {
+    window.localStorage.removeItem(LEGACY_STORAGE_KEY);
+
+    saveCommunityMembershipLedger(PUBLIC_KEY, [BASE_ENTRY], { profileId: "profile-b" });
+
+    expect(window.localStorage.getItem(LEGACY_STORAGE_KEY)).toBeNull();
+
+    setProfileScopeOverride(null);
+    expect(loadCommunityMembershipLedger(PUBLIC_KEY)).toHaveLength(0);
+  });
+
+  it("bootstrap restore seeds legacy key so default profile rebind can hydrate groups", () => {
+    window.localStorage.removeItem(LEGACY_STORAGE_KEY);
+    setProfileScopeOverride("bootstrap");
+
+    saveCommunityMembershipLedger(PUBLIC_KEY, [BASE_ENTRY], { profileId: "bootstrap" });
+
+    expect(window.localStorage.getItem(LEGACY_STORAGE_KEY)).not.toBeNull();
+
+    setProfileScopeOverride(null);
+    expect(loadCommunityMembershipLedger(PUBLIC_KEY)).toEqual([
+      expect.objectContaining({
+        groupId: BASE_ENTRY.groupId,
+        relayUrl: BASE_ENTRY.relayUrl,
+        status: "joined",
+      }),
+    ]);
+  });
+
   it("can read and write an explicit profile scope without ambient profile override", () => {
     const explicitProfileKey = getScopedStorageKey(LEGACY_STORAGE_KEY, "profile-explicit");
     window.localStorage.setItem(LEGACY_STORAGE_KEY, JSON.stringify([]));

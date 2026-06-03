@@ -70,6 +70,13 @@ import {
 import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
 import { ProfileArchiveResultInline } from "@/app/features/profiles/components/profile-archive-result-inline";
 
+const authPrimaryButtonClass =
+    "w-full h-16 rounded-[24px] bg-purple-600 hover:bg-purple-700 text-white text-lg font-bold shadow-xl shadow-purple-500/20";
+const authSecondaryPrimaryButtonClass =
+    "h-16 w-full rounded-[24px] bg-purple-600 hover:bg-purple-700 text-white text-lg font-bold shadow-xl shadow-purple-500/20";
+const authInputFocusRingClass = "focus:ring-4 focus:ring-purple-500/10";
+const authIconFocusClass = "group-focus-within:text-purple-500 transition-colors";
+
 type PendingAuthAction = Readonly<
   | {
     kind: "import_key";
@@ -633,7 +640,7 @@ export function AuthScreen() {
                                                     setLoginTab("username");
                                                     setMode("login");
                                                 }}
-                                                className="h-16 w-full rounded-[24px] bg-blue-600 hover:bg-blue-700 text-white text-lg font-bold shadow-xl shadow-blue-500/20"
+                                                className={authSecondaryPrimaryButtonClass}
                                             >
                                                 {t("auth.welcome.returning.unlock", "Unlock")}
                                                 <ArrowRight className="h-5 w-5 ml-2" />
@@ -959,7 +966,7 @@ export function AuthScreen() {
                                                             : t("auth.import.privateKeyHelp", "Import Key restores an existing account only. If this key has no local or relay-backed account evidence, use Create Account instead.")}
                                                     </p>
                                                     <div className="relative group">
-                                                        <Key className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400 group-focus-within:text-blue-500 transition-colors" />
+                                                        <Key className={cn("absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400", authIconFocusClass)} />
                                                         <input
                                                             autoFocus
                                                             type="password"
@@ -969,7 +976,10 @@ export function AuthScreen() {
                                                                 setPrivateKey(e.target.value);
                                                                 setRetiredKeyReuseAcknowledged(false);
                                                             }}
-                                                            className="flex h-16 w-full rounded-[24px] border border-black/5 bg-white/50 px-12 py-2 text-lg ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-500/10 focus-visible:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/5 dark:bg-zinc-900/50 transition-all"
+                                                            className={cn(
+                                                                "flex h-16 w-full rounded-[24px] border border-black/5 bg-white/50 px-12 py-2 text-lg ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/5 dark:bg-zinc-900/50 transition-all",
+                                                                authInputFocusRingClass,
+                                                            )}
                                                         />
                                                     </div>
                                                 </div>
@@ -1002,7 +1012,7 @@ export function AuthScreen() {
                                                     onClick={() => {
                                                         void handleContinueImportKey();
                                                     }}
-                                                    className="w-full h-16 rounded-[24px] bg-blue-600 hover:bg-blue-700 text-white text-lg font-bold shadow-xl shadow-blue-500/20"
+                                                    className={authPrimaryButtonClass}
                                                 >
                                                     {isLoading ? (
                                                         <motion.div
@@ -1031,26 +1041,32 @@ export function AuthScreen() {
                                                         <div className="space-y-2">
                                                             <Label className="pl-1 text-[11px] font-black uppercase tracking-widest text-zinc-500">{t("auth.usernameLabel", "Username")}</Label>
                                                             <div className="relative group">
-                                                                <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400 group-focus-within:text-blue-500 transition-colors" />
+                                                                <User className={cn("absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400", authIconFocusClass)} />
                                                                 <Input
                                                                     autoFocus
                                                                     placeholder={t("auth.usernamePlaceholder", "e.g. Satoshi")}
                                                                     value={username}
                                                                     onChange={e => setUsername(e.target.value)}
-                                                                    className="px-12 h-16 rounded-[24px] bg-white/50 dark:bg-zinc-900/50 border-black/5 dark:border-white/5 focus:ring-4 focus:ring-blue-500/10 text-lg transition-all"
+                                                                    className={cn(
+                                                                        "px-12 h-16 rounded-[24px] bg-white/50 dark:bg-zinc-900/50 border-black/5 dark:border-white/5 text-lg transition-all",
+                                                                        authInputFocusRingClass,
+                                                                    )}
                                                                 />
                                                             </div>
                                                         </div>
                                                         <div className="space-y-2">
                                                             <Label className="pl-1 text-[11px] font-black uppercase tracking-widest text-zinc-500">{t("auth.masterPasswordLabel", "Master Password")}</Label>
                                                             <div className="relative group">
-                                                                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400 group-focus-within:text-blue-500 transition-colors" />
+                                                                <Lock className={cn("absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400", authIconFocusClass)} />
                                                                 <Input
                                                                     type={showPassword ? "text" : "password"}
                                                                     placeholder={t("auth.enterPasswordPlaceholder", "Enter your password")}
                                                                     value={password}
                                                                     onChange={e => setPassword(e.target.value)}
-                                                                    className="px-12 h-16 rounded-[24px] bg-white/50 dark:bg-zinc-900/50 border-black/5 dark:border-white/5 focus:ring-4 focus:ring-blue-500/10 text-lg transition-all"
+                                                                    className={cn(
+                                                                        "px-12 h-16 rounded-[24px] bg-white/50 dark:bg-zinc-900/50 border-black/5 dark:border-white/5 text-lg transition-all",
+                                                                        authInputFocusRingClass,
+                                                                    )}
                                                                 />
                                                                 <button
                                                                     type="button"
@@ -1074,7 +1090,7 @@ export function AuthScreen() {
                                                     <Button
                                                         type="submit"
                                                         disabled={isLoading}
-                                                        className="w-full h-16 rounded-[24px] bg-blue-600 hover:bg-blue-700 text-white text-lg font-bold shadow-xl shadow-blue-500/20"
+                                                        className={authPrimaryButtonClass}
                                                     >
                                                         {isLoading ? (
                                                             <motion.div

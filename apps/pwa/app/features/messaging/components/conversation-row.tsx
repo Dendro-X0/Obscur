@@ -9,6 +9,7 @@ import { useResolvedProfileMetadata } from "../../profile/hooks/use-resolved-pro
 import { EyeOff, MoreVertical, Pin, PinOff, User } from "lucide-react";
 import { stripVoiceCallControlPreview } from "@/app/features/messaging/services/realtime-voice-signaling";
 import { formatConversationMessagePreview } from "@/app/features/messaging/services/format-conversation-message-preview";
+import { useMobileCompactLayout } from "@/app/features/runtime/use-mobile-compact-layout";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -46,12 +47,19 @@ export const ConversationRow = React.memo(function ConversationRow({
     onViewProfile,
 }: ConversationRowProps) {
     const { t } = useTranslation();
+    const compact = useMobileCompactLayout();
     const metadata = useResolvedProfileMetadata(conversation.kind === "dm" ? conversation.pubkey : null);
     const resolvedName = metadata?.displayName || conversation.displayName;
     const isDeletedConversationRecipient = conversation.kind === "dm" && metadata?.isDeleted === true;
     const effectiveIsOnline = Boolean(isOnline) && !isDeletedConversationRecipient;
     const previewMessage = formatConversationMessagePreview(
         stripVoiceCallControlPreview(conversation.lastMessage),
+        conversation.kind === "dm"
+            ? {
+                peerDisplayName: resolvedName,
+                isOutgoing: conversation.lastMessageIsOutgoing,
+            }
+            : undefined,
     ).trim();
 
     return (
@@ -66,14 +74,18 @@ export const ConversationRow = React.memo(function ConversationRow({
                 }
             }}
             className={cn(
-                "flex w-full items-start gap-3 border-b border-black/5 p-3 text-left transition-all hover:bg-zinc-50/80 dark:border-white/5 dark:hover:bg-zinc-900/40 group cursor-pointer outline-none focus-visible:bg-zinc-50/80 dark:focus-visible:bg-zinc-900/40",
-                isSelected && "bg-zinc-100/50 dark:bg-zinc-900/60"
+                "group flex w-full cursor-pointer border-b border-black/5 text-left outline-none transition-all hover:bg-zinc-50/80 focus-visible:bg-zinc-50/80 dark:border-white/5 dark:hover:bg-zinc-900/40 dark:focus-visible:bg-zinc-900/40",
+                compact ? "items-center gap-3 px-3 py-2.5" : "items-center gap-3 p-3",
+                isSelected && "bg-zinc-100/50 dark:bg-zinc-900/60",
             )}
         >
             {conversation.kind === "dm" && onViewProfile ? (
                 <button
                     type="button"
-                    className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-zinc-800 to-black text-sm font-black text-white shadow-sm transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 dark:from-zinc-100 dark:to-zinc-300 dark:text-black"
+                    className={cn(
+                        "relative flex shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-zinc-800 to-black font-black text-white shadow-sm transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 dark:from-zinc-100 dark:to-zinc-300 dark:text-black",
+                        compact ? "h-10 w-10 text-xs" : "h-12 w-12 text-sm",
+                    )}
                     onClick={(event) => {
                         event.stopPropagation();
                         onViewProfile(conversation.pubkey);
@@ -95,7 +107,10 @@ export const ConversationRow = React.memo(function ConversationRow({
                     />
                 </button>
             ) : (
-                <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-zinc-800 to-black text-sm font-black text-white dark:from-zinc-100 dark:to-zinc-300 dark:text-black shadow-sm overflow-hidden">
+                <div className={cn(
+                    "relative flex shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-zinc-800 to-black font-black text-white shadow-sm dark:from-zinc-100 dark:to-zinc-300 dark:text-black",
+                    compact ? "h-10 w-10 text-xs" : "h-12 w-12 text-sm",
+                )}>
                     {metadata?.avatarUrl ? (
                         <Image src={metadata.avatarUrl} alt={resolvedName} width={48} height={48} className="h-full w-full object-cover" unoptimized />
                     ) : (
@@ -112,74 +127,83 @@ export const ConversationRow = React.memo(function ConversationRow({
                 </div>
             )}
 
-            <div className="min-w-0 flex-1 py-0.5">
-                <div className="mb-1 flex items-center justify-between">
-                    <span className="font-bold text-sm tracking-tight text-zinc-900 dark:text-zinc-100 truncate pr-2">
-                        {resolvedName}
-                    </span>
-                    {lastMessageLabel ? (
-                        <span className="text-[10px] font-medium text-zinc-500 dark:text-zinc-400 shrink-0">
-                            {lastMessageLabel}
+            <div className="flex min-w-0 flex-1 items-center gap-2">
+                <div className={cn("flex min-w-0 flex-1 flex-col justify-center", compact ? "gap-0.5 py-0" : "gap-1 py-0.5")}>
+                    <div className="flex min-w-0 items-center gap-1.5 pr-2">
+                        <span className="truncate text-sm font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
+                            {resolvedName}
                         </span>
-                    ) : null}
-                </div>
-                <div className="flex items-start justify-between gap-1 overflow-hidden">
-                    {isPinned && (
-                        <Pin className="h-3 w-3 shrink-0 text-purple-500 fill-purple-500/20 rotate-45 mr-1" />
-                    )}
-                    <p className="truncate text-xs text-zinc-600 dark:text-zinc-400 leading-normal flex-1 font-medium">
-                        {previewMessage || t("messaging.noMessagesYet")}
-                    </p>
-                    {unreadCount > 0 ? (
-                        <span className="shrink-0 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-black text-white shadow-sm ring-2 ring-white dark:ring-black">
-                            {unreadCount}
-                        </span>
-                    ) : null}
-
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                            <button className="opacity-0 group-hover:opacity-100 p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded-full transition-opacity md:p-1">
-                                <MoreVertical className="h-5 w-5 text-zinc-400 md:h-3 md:w-3" />
-                            </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="z-[10040]">
-                            {conversation.kind === "dm" ? (
-                                <DropdownMenuItem onClick={(e) => {
-                                    e.stopPropagation();
-                                    onViewProfile?.(conversation.pubkey);
-                                }}>
-                                    <User className="h-4 w-4 mr-2" />
-                                    {t("network.actions.viewProfile", "View Profile")}
-                                </DropdownMenuItem>
-                            ) : null}
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onTogglePin?.(conversation.id); }}>
-                                {isPinned ? <PinOff className="h-4 w-4 mr-2" /> : <Pin className="h-4 w-4 mr-2" />}
-                                {isPinned ? t("messaging.unpin_chat") : t("messaging.pin_chat")}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                                onClick={(e) => { e.stopPropagation(); onHide?.(conversation.id); }}
-                            >
-                                <EyeOff className="h-4 w-4 mr-2" />
-                                {t("messaging.hide_chat", "Hide")}
-                            </DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                </div>
-                {conversation.kind === "dm" ? (
-                    <div className="mt-1 flex items-center gap-2 text-[10px] font-medium text-zinc-500 dark:text-zinc-400">
-                        <span className="inline-flex items-center gap-1.5">
-                            <span className={cn("h-1.5 w-1.5 rounded-full", effectiveIsOnline ? "bg-emerald-500" : "bg-zinc-400 dark:bg-zinc-600")} />
-                            <span className={cn("font-bold uppercase tracking-wider", effectiveIsOnline ? "text-emerald-500" : "text-zinc-500")}>
-                                {isDeletedConversationRecipient ? t("common.unavailable", "Unavailable") : (effectiveIsOnline ? "Online" : "Offline")}
+                        {compact && conversation.kind === "dm" && (isDeletedConversationRecipient || !effectiveIsOnline) ? (
+                            <span className="shrink-0 rounded-full bg-zinc-500/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                                {isDeletedConversationRecipient
+                                    ? t("common.unavailable", "Unavailable")
+                                    : t("messaging.offline", "Offline")}
                             </span>
-                        </span>
-                        {!isDeletedConversationRecipient && lastActiveLabel ? (
-                            <span className="truncate">Active {lastActiveLabel}</span>
-                        ) : null}
-                        {!isDeletedConversationRecipient && lastViewedLabel ? (
-                            <span className="truncate">Viewed {lastViewedLabel}</span>
                         ) : null}
                     </div>
+                    <div className="flex items-center justify-between gap-1 overflow-hidden">
+                        {isPinned && (
+                            <Pin className="h-3 w-3 shrink-0 text-purple-500 fill-purple-500/20 rotate-45 mr-1" />
+                        )}
+                        <p className="truncate text-xs text-zinc-600 dark:text-zinc-400 leading-normal flex-1 font-medium">
+                            {previewMessage || t("messaging.noMessagesYet")}
+                        </p>
+                        {unreadCount > 0 ? (
+                            <span className="shrink-0 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-black text-white shadow-sm ring-2 ring-white dark:ring-black">
+                                {unreadCount}
+                            </span>
+                        ) : null}
+
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                                <button className="opacity-0 group-hover:opacity-100 p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded-full transition-opacity md:p-1">
+                                    <MoreVertical className="h-5 w-5 text-zinc-400 md:h-3 md:w-3" />
+                                </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="z-[10040]">
+                                {conversation.kind === "dm" ? (
+                                    <DropdownMenuItem onClick={(e) => {
+                                        e.stopPropagation();
+                                        onViewProfile?.(conversation.pubkey);
+                                    }}>
+                                        <User className="h-4 w-4 mr-2" />
+                                        {t("network.actions.viewProfile", "View Profile")}
+                                    </DropdownMenuItem>
+                                ) : null}
+                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onTogglePin?.(conversation.id); }}>
+                                    {isPinned ? <PinOff className="h-4 w-4 mr-2" /> : <Pin className="h-4 w-4 mr-2" />}
+                                    {isPinned ? t("messaging.unpin_chat") : t("messaging.pin_chat")}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                    onClick={(e) => { e.stopPropagation(); onHide?.(conversation.id); }}
+                                >
+                                    <EyeOff className="h-4 w-4 mr-2" />
+                                    {t("messaging.hide_chat", "Hide")}
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
+                    {conversation.kind === "dm" && !compact ? (
+                        <div className="flex items-center gap-2 text-[10px] font-medium text-zinc-500 dark:text-zinc-400">
+                            <span className="inline-flex items-center gap-1.5">
+                                <span className={cn("h-1.5 w-1.5 rounded-full", effectiveIsOnline ? "bg-emerald-500" : "bg-zinc-400 dark:bg-zinc-600")} />
+                                <span className={cn("font-bold uppercase tracking-wider", effectiveIsOnline ? "text-emerald-500" : "text-zinc-500")}>
+                                    {isDeletedConversationRecipient ? t("common.unavailable", "Unavailable") : (effectiveIsOnline ? "Online" : "Offline")}
+                                </span>
+                            </span>
+                            {!isDeletedConversationRecipient && lastActiveLabel ? (
+                                <span className="truncate">Active {lastActiveLabel}</span>
+                            ) : null}
+                            {!isDeletedConversationRecipient && lastViewedLabel ? (
+                                <span className="truncate">Viewed {lastViewedLabel}</span>
+                            ) : null}
+                        </div>
+                    ) : null}
+                </div>
+                {lastMessageLabel ? (
+                    <span className="shrink-0 self-center text-[10px] font-medium text-zinc-500 dark:text-zinc-400">
+                        {lastMessageLabel}
+                    </span>
                 ) : null}
             </div>
         </div>
@@ -191,7 +215,10 @@ export const ConversationRow = React.memo(function ConversationRow({
         && prev.conversation.lastMessage === next.conversation.lastMessage
         && prev.conversation.lastMessageTime.getTime() === next.conversation.lastMessageTime.getTime()
         && prev.conversation.kind === next.conversation.kind
-        && (prev.conversation.kind !== "dm" || next.conversation.kind !== "dm" || prev.conversation.pubkey === next.conversation.pubkey)
+        && (prev.conversation.kind !== "dm" || next.conversation.kind !== "dm" || (
+            prev.conversation.pubkey === next.conversation.pubkey
+            && prev.conversation.lastMessageIsOutgoing === next.conversation.lastMessageIsOutgoing
+        ))
         && prev.isSelected === next.isSelected
         && prev.unreadCount === next.unreadCount
         && prev.isOnline === next.isOnline

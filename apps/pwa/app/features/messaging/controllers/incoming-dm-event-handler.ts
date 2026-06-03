@@ -32,7 +32,7 @@ import {
   parseInviteResponsePayloadFromMessageContent,
 } from "@/app/features/groups/services/community-dm-invite-pipeline";
 import { messagingClientOperations } from "../services/messaging-client-operations";
-import { dispatchGroupInviteResponseAccepted } from "@/app/features/profiles/services/profile-bus-dispatch";
+import { dispatchGroupInviteResponseAccepted, dispatchGroupInviteResponseTerminal } from "@/app/features/profiles/services/profile-bus-dispatch";
 import { normalizeCommunityInvitePayload } from "@/app/features/groups/utils/community-invite-payload";
 import { pinCommunityInviteMessageSnapshotForMessage } from "@/app/features/groups/utils/community-invite-message-snapshot";
 import { roomKeyStore } from "@/app/features/crypto/room-key-store";
@@ -772,8 +772,14 @@ export const handleIncomingDmEvent = async <TState extends Readonly<{ messages: 
         && typeof parsedPayload.groupId === "string"
         && parsedPayload.groupId.trim().length > 0
       ) {
-        // Phase 3 M3: inviter (or DM observer) path — do not mutate membership from DM-only payloads.
-        // Decline ledger for invitees is handled in CommunityInviteCard; inviter relay membership stays unchanged.
+        dispatchGroupInviteResponseTerminal({
+          groupId: parsedPayload.groupId.trim(),
+          relayUrl: typeof parsedPayload.relayUrl === "string" ? parsedPayload.relayUrl : undefined,
+          communityId: typeof parsedPayload.communityId === "string" ? parsedPayload.communityId : undefined,
+          memberPubkey: actualSenderPubkey,
+          recipientPublicKeyHex: currentParams.myPublicKeyHex,
+          responseStatus: parsedPayload.status === "canceled" ? "canceled" : "declined",
+        });
         logAppEvent({
           name: "messaging.incoming.community_invite_response_terminal_observed",
           level: "info",

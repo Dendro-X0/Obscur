@@ -23,7 +23,6 @@ import { useNetwork } from "../providers/network-provider";
 import { useGroups } from "@/app/features/groups/providers/group-provider";
 import { resolveCommunityDisplayName, PLACEHOLDER_GROUP_DISPLAY_NAME } from "@/app/features/groups/services/community-display-name";
 import { useMessaging } from "@/app/features/messaging/providers/messaging-provider";
-import { useRelay } from "@/app/features/relays/providers/relay-provider";
 import { UserAvatar } from "@/app/features/profile/components/user-avatar";
 import { Button } from "@dweb/ui-kit";
 import { Input } from "@dweb/ui-kit";
@@ -37,6 +36,7 @@ import { useResolvedProfileMetadata } from "@/app/features/profile/hooks/use-res
 import { JoinGroupInputDialog } from "@/app/features/groups/components/join-group-input-dialog";
 import { GroupJoinDialog } from "@/app/features/groups/components/group-join-dialog";
 import { AddConnectionModal } from "./add-connection-modal";
+import { useMobileCompactLayout, useTabletSecondaryLayout } from "@/app/features/runtime/use-mobile-compact-layout";
 
 import { ConnectionCard } from "./network-connection-card";
 import { GroupCard } from "./group-card";
@@ -63,13 +63,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@dweb/ui-kit";
 import { QRScanner } from "@/app/components/qr-scanner";
 import { useToasts } from "@dweb/ui-kit";
 import { ConnectionImportExport } from "@/app/components/invites/connection-import-export";
-import { useEnhancedDmController } from "@/app/features/messaging/hooks/use-enhanced-dm-controller";
-import { useRequestTransport } from "@/app/features/messaging/hooks/use-request-transport";
+import { useNetworkRequestTransport } from "@/app/features/messaging/hooks/use-network-request-transport";
 
 type TabId = "all" | "groups" | "discovery" | "invitations" | "blocked" | "manage";
 
 export function NetworkDashboard() {
     const { t } = useTranslation();
+    const compact = useMobileCompactLayout();
+    const tablet = useTabletSecondaryLayout();
     const { identity, peerTrust, requestsInbox, blocklist, presence } = useNetwork();
     const { createdGroups, hasHydratedGroups, communityKnownParticipantDirectoryByConversationId, communityRosterByConversationId, setIsNewGroupOpen } = useGroups();
     const {
@@ -120,22 +121,7 @@ export function NetworkDashboard() {
         groups: membershipReadModelGroups,
     });
     const inviteResolver = useInviteResolver({ myPublicKeyHex: publicKeyHex });
-    const { relayPool: pool } = useRelay();
-    const dmController = useEnhancedDmController({
-        myPublicKeyHex: publicKeyHex,
-        myPrivateKeyHex: (identity.state.privateKeyHex ?? null) as any,
-        pool,
-        blocklist,
-        peerTrust,
-        requestsInbox,
-        autoSubscribeIncoming: false,
-        enableIncomingTransport: false,
-    });
-    const requestTransport = useRequestTransport({
-        dmController,
-        peerTrust,
-        requestsInbox,
-    });
+    const requestTransport = useNetworkRequestTransport();
 
     // Clear unread marks when switching to invitations tab
     React.useEffect(() => {
@@ -193,13 +179,13 @@ export function NetworkDashboard() {
         [requestsInbox.state.items]
     );
 
-    const tabs: { id: TabId, label: string, icon: any, badge?: number }[] = [
-        { id: "all", label: t("network.tabs.all"), icon: UserCheck, badge: filteredAcceptedPeers.length },
-        { id: "groups", label: t("network.tabs.groups"), icon: Users, badge: filteredGroups.length },
-        { id: "discovery", label: "Discovery", icon: Globe },
-        { id: "invitations", label: t("network.tabs.invitations"), icon: MailOpen, badge: unreadInvitationCount },
-        { id: "blocked", label: t("network.tabs.blocked"), icon: Ban },
-        { id: "manage", label: "Manage", icon: Settings },
+    const tabs: { id: TabId, label: string, compactLabel: string, icon: any, badge?: number }[] = [
+        { id: "all", label: t("network.tabs.all"), compactLabel: t("network.tabs.all", "All"), icon: UserCheck, badge: filteredAcceptedPeers.length },
+        { id: "groups", label: t("network.tabs.groups"), compactLabel: t("network.tabs.groups", "Groups"), icon: Users, badge: filteredGroups.length },
+        { id: "discovery", label: "Discovery", compactLabel: t("network.tabs.discoveryCompact", "Discover"), icon: Globe },
+        { id: "invitations", label: t("network.tabs.invitations"), compactLabel: t("network.tabs.invitationsCompact", "Invites"), icon: MailOpen, badge: unreadInvitationCount },
+        { id: "blocked", label: t("network.tabs.blocked"), compactLabel: t("network.tabs.blocked", "Blocked"), icon: Ban },
+        { id: "manage", label: "Manage", compactLabel: t("network.tabs.manageCompact", "Manage"), icon: Settings },
     ];
 
     const handleGlobalSearch = async () => {
@@ -248,11 +234,17 @@ export function NetworkDashboard() {
     return (
         <div className="relative w-full flex flex-col min-h-full">
             {/* Top Action Header */}
-            <div className="sticky top-0 z-20 border-b border-border/80 bg-background/80 px-4 py-3 backdrop-blur-2xl supports-[backdrop-filter]:bg-background/65">
+            <div className={cn(
+                "sticky top-0 z-20 border-b border-border/80 bg-background/80 backdrop-blur-2xl supports-[backdrop-filter]:bg-background/65",
+                compact ? "px-3 py-2" : "px-4 py-3",
+            )}>
                 {/* Search Bar & View Toggle Group */}
-                <div className="flex items-center gap-3 w-full sm:max-w-xl">
+                <div className="flex w-full items-center gap-2 sm:max-w-xl sm:gap-3">
                     <div className="relative group w-full">
-                        <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                        <Search className={cn(
+                            "absolute top-1/2 -translate-y-1/2 text-muted-foreground transition-colors group-focus-within:text-primary",
+                            compact ? "left-3 h-3.5 w-3.5" : "left-4 h-4 w-4",
+                        )} />
                         <Input
                             placeholder={t("network.searchPlaceholder")}
                             value={searchQuery}
@@ -260,12 +252,15 @@ export function NetworkDashboard() {
                             onKeyDown={(e) => {
                                 if (e.key === "Enter") handleGlobalSearch();
                             }}
-                            className="pl-10 h-10 rounded-xl border-border/70 bg-card/70 text-sm font-medium text-foreground transition-all focus:border-primary/50 focus:ring-primary/30 w-full"
+                            className={cn(
+                                "w-full rounded-xl border-border/70 bg-card/70 font-medium text-foreground transition-all focus:border-primary/50 focus:ring-primary/30",
+                                compact ? "h-9 pl-9 text-sm" : "h-10 pl-10 text-sm",
+                            )}
                         />
 
                     </div>
 
-                    {/* View Toggle - Integrated next to search */}
+                    {!compact ? (
                     <div className="ml-1 flex shrink-0 items-center rounded-xl border border-border/70 bg-card/70 p-0.5">
                         <Button
                             variant="ghost"
@@ -284,26 +279,36 @@ export function NetworkDashboard() {
                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
                         </Button>
                     </div>
+                    ) : null}
 
                     {/* Global Search Results Popup - Removed, handled by /search page */}
                 </div>
 
                 {/* Compact Action Buttons */}
-                <div className="scrollbar-none flex w-full shrink-0 items-center gap-2 overflow-x-auto py-2 sm:w-auto">
+                <div className={cn(
+                    "scrollbar-none flex w-full shrink-0 items-center gap-2 overflow-x-auto sm:w-auto",
+                    compact ? "py-1.5" : "py-2",
+                )}>
                     <Button
                         onClick={() => setIsAddConnectionOpen(true)}
                         size="sm"
-                        className="h-10 shrink-0 rounded-xl bg-emerald-600 px-5 text-sm font-bold text-white shadow-lg shadow-emerald-900/20 transition-all hover:bg-emerald-500"
+                        className={cn(
+                            "shrink-0 rounded-xl bg-emerald-600 font-bold text-white shadow-lg shadow-emerald-900/20 transition-all hover:bg-emerald-500",
+                            compact ? "h-9 px-4 text-xs" : "h-10 px-5 text-sm",
+                        )}
                     >
-                        <PlusCircle className="h-4 w-4 mr-2" />
-                        <span>{t("network.addConnection", "Add Connection")}</span>
+                        <PlusCircle className={cn("mr-2", compact ? "h-3.5 w-3.5" : "h-4 w-4")} />
+                        <span>{compact ? t("network.addConnection", "Add") : t("network.addConnection", "Add Connection")}</span>
                     </Button>
                     <Button
                         onClick={() => setIsNewGroupOpen(true)}
                         size="sm"
-                        className="h-10 shrink-0 rounded-xl border border-border/70 bg-card px-4 text-sm font-bold text-foreground transition-all hover:bg-accent"
+                        className={cn(
+                            "shrink-0 rounded-xl border border-border/70 bg-card font-bold text-foreground transition-all hover:bg-accent",
+                            compact ? "h-9 px-3 text-xs" : "h-10 px-4 text-sm",
+                        )}
                     >
-                        <Users className="h-4 w-4 mr-2" />
+                        <Users className={cn("mr-2", compact ? "h-3.5 w-3.5" : "h-4 w-4")} />
                         <span className="hidden sm:inline">{t("groups.createButton")}</span>
                         <span className="sm:hidden">Group</span>
                     </Button>
@@ -312,7 +317,13 @@ export function NetworkDashboard() {
 
             <div className="relative flex flex-1 min-h-0 flex-col lg:flex-row">
                 {/* Left Sidebar Menu */}
-                <div className="scrollbar-none z-10 flex w-full shrink-0 flex-row gap-1 overflow-x-auto border-b border-border/70 bg-card/35 p-3 lg:sticky lg:top-[110px] lg:h-[calc(100dvh-110px)] lg:min-h-[calc(100dvh-110px)] lg:w-72 lg:flex-col lg:overflow-y-auto lg:border-b-0 lg:border-r lg:bg-background/40">
+                <div className={cn(
+                    "scrollbar-none z-10 flex w-full shrink-0 border-b border-border/70 bg-card/35 lg:sticky lg:top-[110px] lg:h-[calc(100dvh-110px)] lg:min-h-[calc(100dvh-110px)] lg:w-72 lg:flex-col lg:overflow-y-auto lg:border-b-0 lg:border-r lg:bg-background/40",
+                    compact
+                        ? "grid grid-cols-3 gap-1 p-2"
+                        : "flex-row gap-1 overflow-x-auto p-3",
+                    tablet && "justify-center",
+                )}>
                     <div className="hidden lg:block mb-8 px-3">
                         <div className="flex items-center gap-2 mb-1.5 opacity-80">
                             <div className="h-1 w-1 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
@@ -323,17 +334,29 @@ export function NetworkDashboard() {
                         <button
                             key={tab.id}
                             onClick={() => startTransition(() => setActiveTab(tab.id as TabId))}
+                            aria-label={compact ? tab.compactLabel : tab.label}
                             className={cn(
-                                "relative flex h-10 flex-shrink-0 items-center gap-3 rounded-xl px-4 text-xs font-bold transition-all duration-300 lg:w-full",
+                                "relative flex items-center rounded-xl text-xs font-bold transition-all duration-300",
+                                compact
+                                    ? "h-12 min-w-0 flex-col justify-center gap-0.5 px-1"
+                                    : cn(
+                                        "flex-shrink-0 gap-3 px-4 lg:w-full",
+                                        tablet ? "h-11" : "h-10",
+                                    ),
                                 activeTab === tab.id
                                     ? "scale-[1.01] border border-emerald-400/30 bg-emerald-500/15 text-foreground shadow-md shadow-emerald-900/10 active:scale-[0.98]"
                                     : "text-muted-foreground hover:bg-accent/70 hover:text-foreground"
                             )}
                         >
                             <tab.icon className={cn("h-4 w-4 shrink-0", activeTab === tab.id ? "text-emerald-500" : "opacity-60")} />
-                            <span className="whitespace-nowrap">{tab.label}</span>
+                            <span className={cn("whitespace-nowrap", compact ? "text-[10px] leading-none" : "")}>
+                                {compact ? tab.compactLabel : tab.label}
+                            </span>
                             {tab.badge ? (
-                                <span className="ml-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-500/20 px-1 text-[9px] font-black text-emerald-500">
+                                <span className={cn(
+                                    "flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-500/20 px-1 text-[9px] font-black text-emerald-500",
+                                    compact ? "absolute right-1 top-1 ml-0" : "ml-1.5",
+                                )}>
                                     {tab.badge}
                                 </span>
                             ) : null}
@@ -342,9 +365,15 @@ export function NetworkDashboard() {
                 </div>
 
                 {/* Main Content Pane */}
-                <div className="flex min-w-0 flex-1 flex-col p-3 pb-24 sm:p-6 lg:p-8 lg:pb-8 xl:px-10">
+                <div className={cn(
+                    "flex min-w-0 flex-1 flex-col lg:p-8 lg:pb-8 xl:px-10",
+                    compact ? "p-3 pb-24" : tablet ? "mx-auto w-full max-w-3xl p-4 pb-24" : "p-3 pb-24 sm:p-6",
+                )}>
                     {activeTab === "all" && (
-                        <div className="space-y-12 animate-in fade-in duration-150 flex-1 flex flex-col">
+                        <div className={cn(
+                            "animate-in fade-in duration-150 flex flex-1 flex-col",
+                            compact ? "space-y-6" : tablet ? "space-y-8" : "space-y-12",
+                        )}>
                             {/* Accepted Contacts Grid */}
                             <div className="space-y-6">
                                 <div className="flex items-center justify-between px-2">
@@ -368,7 +397,13 @@ export function NetworkDashboard() {
                                         { label: t("network.findPeople"), onClick: () => router.push("/search") }
                                     )
                                 ) : (
-                                    <div className={viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" : "flex flex-col"}>
+                                    <div className={
+                                        viewMode === "grid"
+                                            ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+                                            : tablet
+                                                ? "grid grid-cols-1 gap-3 sm:grid-cols-2"
+                                                : "flex flex-col"
+                                    }>
                                         {filteredAcceptedPeers.map(pk => {
                                             const connection = createdConnections.find(c => c.kind === 'dm' && c.pubkey === pk);
                                             return (

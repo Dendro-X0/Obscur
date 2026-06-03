@@ -7,6 +7,23 @@
 }
 
 /**
+ * Single bottom inset budget for mobile shell chrome (P13-a).
+ * Tab bar height is fixed; thread mode uses safe-area only (no tab bar).
+ */
+.mobile-mode {
+  --mobile-tab-bar-height: 4.25rem;
+  --mobile-shell-bottom-inset: calc(env(safe-area-inset-bottom) + var(--mobile-tab-bar-height));
+}
+
+.pb-mobile-tab-bar {
+  padding-bottom: var(--mobile-shell-bottom-inset);
+}
+
+.pb-mobile-thread {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/**
  * Primary touch scroll regions for mobile shell (list, thread, settings panels).
  * Keeps pan-y on the scroll container; avoids Framer drag capturing vertical gestures.
  */

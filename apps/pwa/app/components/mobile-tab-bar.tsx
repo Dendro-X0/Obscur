@@ -11,6 +11,10 @@ import { useTranslation } from "react-i18next";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import { hardNavigate, ROUTE_NAVIGATION_STALL_HARD_FALLBACK_MS } from "./page-transition-recovery";
 import { useGlobalNavigationLoadingActions } from "./global-navigation-loading";
+import { isMobileShellProduct } from "@/app/features/runtime/shell-contract";
+import { shouldRunNavigationInstrumentation } from "@/app/features/runtime/experiment-shell-policy";
+import { recordNavigationIntent } from "./navigation-performance-coordinator";
+import { useSecondaryPageLayoutTier } from "@/app/features/runtime/use-mobile-compact-layout";
 
 const ICON_BY_HREF: Record<string, any> = {
     "/": MessageSquare,
@@ -29,6 +33,8 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({ navBadgeCounts = {} 
     const { t } = useTranslation();
     const router = useRouter();
     const pathname = usePathname();
+    const layoutTier = useSecondaryPageLayoutTier();
+    const showOnViewport = isMobileShellProduct() || layoutTier !== "desktop";
     const { beginNavigation } = useGlobalNavigationLoadingActions();
     const routeFallbackTimeoutIdRef = React.useRef<number | null>(null);
     const routePendingTargetRef = React.useRef<string | null>(null);
@@ -45,6 +51,9 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({ navBadgeCounts = {} 
     }, []);
 
     const armRouteHardFallback = React.useCallback((targetHref: string): void => {
+        if (!shouldRunNavigationInstrumentation()) {
+            return;
+        }
         if (!targetHref || targetHref === pathname) {
             clearRouteFallback();
             return;
@@ -115,8 +124,15 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({ navBadgeCounts = {} 
         };
     }, [clearRouteFallback]);
 
+    if (!showOnViewport) {
+        return null;
+    }
+
     return (
-        <nav className="fixed bottom-0 left-0 right-0 z-50 block border-t border-black/10 bg-white/80 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-2 backdrop-blur-xl dark:border-white/10 dark:bg-black/80 md:hidden">
+        <nav
+            data-testid="mobile-tab-bar"
+            className="fixed bottom-0 left-0 right-0 z-50 block border-t border-black/10 bg-white/80 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-2 backdrop-blur-xl dark:border-white/10 dark:bg-black/80"
+        >
             <div className="flex items-center justify-around px-2">
                 {NAV_ITEMS.map((item) => {
                     const Icon = ICON_BY_HREF[item.href];
@@ -133,6 +149,7 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({ navBadgeCounts = {} 
                                     return;
                                 }
                                 event.preventDefault();
+                                recordNavigationIntent(item.href);
                                 armRouteHardFallback(item.href);
                                 if (item.href !== pathname) {
                                     beginNavigation(item.href);

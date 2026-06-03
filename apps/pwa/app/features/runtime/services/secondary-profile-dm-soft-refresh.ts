@@ -1,5 +1,4 @@
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
-import { listAccountSharedSqliteProfileIds } from "@/app/features/profiles/services/account-shared-sqlite-profile-ids";
 import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store";
 import { loadNativeOutgoingChatStateRepairMessages } from "@/app/features/messaging/services/dm-conversation-native-outgoing-repair";
 import { loadNativeOutgoingCommunityInviteRepairMessages } from "@/app/features/messaging/services/dm-conversation-native-invite-repair";
@@ -23,20 +22,10 @@ const listChatStateConversationIds = (params: Readonly<{
   profileId: string;
   myPublicKeyHex: PublicKeyHex;
 }>): ReadonlyArray<string> => {
-  const profileIds = listAccountSharedSqliteProfileIds({
-    primaryProfileId: params.profileId,
-    accountPublicKeyHex: params.myPublicKeyHex,
-  });
-  const conversationIds = new Set<string>();
-  profileIds.forEach((profileId) => {
-    const persisted = chatStateStoreService.load(params.myPublicKeyHex, { profileId });
-    Object.keys(persisted?.messagesByConversationId ?? {}).forEach((conversationId) => {
-      if (conversationId.trim().length > 0) {
-        conversationIds.add(conversationId);
-      }
-    });
-  });
-  return Array.from(conversationIds);
+  const persisted = chatStateStoreService.load(params.myPublicKeyHex, { profileId: params.profileId });
+  return Object.keys(persisted?.messagesByConversationId ?? {}).filter((conversationId) => (
+    conversationId.trim().length > 0
+  ));
 };
 
 export const runSecondaryProfileDmSoftRefresh = (params: Readonly<{

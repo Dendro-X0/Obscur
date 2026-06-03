@@ -29,6 +29,11 @@ const relayHint = JSON.stringify({
   name: "Test",
   botPubkeys: normalized,
   stewardPubkeys: [BOT],
+  botTriggers: [{
+    botPubkey: BOT,
+    enabled: true,
+    triggers: [{ kind: "mention", enabled: true, reply: "hi there" }],
+  }],
 });
 
 const parsed = JSON.parse(relayHint);
@@ -36,5 +41,9 @@ if (!Array.isArray(parsed.botPubkeys) || parsed.botPubkeys[0] !== BOT) {
   console.error("[bot-descriptor-smoke] relay hint round-trip failed");
   process.exit(1);
 }
+if (!Array.isArray(parsed.botTriggers) || parsed.botTriggers[0]?.botPubkey !== BOT) {
+  console.error("[bot-descriptor-smoke] botTriggers round-trip failed");
+  process.exit(1);
+}
 
-console.log("[bot-descriptor-smoke] B1 descriptor contract OK");
+console.log("[bot-descriptor-smoke] B1+B2 descriptor contract OK");

@@ -20,7 +20,10 @@ import {
 } from "../services/community-participant-roster-session-storage";
 import { loadCommunityKnownParticipantsEntries } from "../services/community-known-participants-store";
 import { loadCommunityMembershipLedger } from "../services/community-membership-ledger";
-import { COMMUNITY_TERMINAL_MEMBERSHIP_UPDATED_EVENT } from "../services/community-terminal-membership-cache";
+import {
+  COMMUNITY_TERMINAL_MEMBERSHIP_UPDATED_EVENT,
+  loadCommunityTerminalMembershipCache,
+} from "../services/community-terminal-membership-cache";
 
 export type CommunityMembershipReadModelIndexGroupInput = Readonly<{
   conversationId: string;
@@ -64,16 +67,26 @@ export const useCommunityMembershipReadModelIndex = (params: Readonly<{
       if (detail?.publicKeyHex !== ownerPubkey) {
         return;
       }
-      setRevision((value) => value + 1);
-    };
-    const onLedgerUpdated = (event: Event) => {
-      const detail = (event as CustomEvent<{ publicKeyHex?: string }>).detail;
-      if (detail?.publicKeyHex && detail.publicKeyHex !== ownerPubkey) {
+      if (detail.profileId && detail.profileId !== getResolvedProfileId()) {
         return;
       }
       setRevision((value) => value + 1);
     };
-    const onTerminalUpdated = () => {
+    const onLedgerUpdated = (event: Event) => {
+      const detail = (event as CustomEvent<{ publicKeyHex?: string; profileId?: string }>).detail;
+      if (detail?.publicKeyHex && detail.publicKeyHex !== ownerPubkey) {
+        return;
+      }
+      if (detail?.profileId && detail.profileId !== getResolvedProfileId()) {
+        return;
+      }
+      setRevision((value) => value + 1);
+    };
+    const onTerminalUpdated = (event: Event) => {
+      const detail = (event as CustomEvent<{ profileId?: string }>).detail;
+      if (detail?.profileId && detail.profileId !== getResolvedProfileId()) {
+        return;
+      }
       setRevision((value) => value + 1);
     };
     window.addEventListener(CHAT_STATE_REPLACED_EVENT, onChatStateReplaced);
@@ -121,6 +134,25 @@ export const useCommunityMembershipReadModelIndex = (params: Readonly<{
         : "";
       const ledgerMembers = ledgerKey ? (ledgerByGroupIdAndRelay.get(ledgerKey) ?? []) : [];
 
+      const terminalCache = group.groupId && group.relayUrl
+        ? loadCommunityTerminalMembershipCache({
+            groupId: group.groupId,
+            relayUrl: group.relayUrl,
+            profileId,
+          })
+        : null;
+      const leftMemberPubkeys = dedupeCommunityMemberPubkeys([
+        ...(group.leftMemberPubkeys ?? []),
+        ...(terminalCache?.leftMemberPubkeys ?? []),
+      ] as ReadonlyArray<PublicKeyHex>);
+      const expelledMemberPubkeys = dedupeCommunityMemberPubkeys([
+        ...(group.expelledMemberPubkeys ?? []),
+        ...(terminalCache?.expelledMemberPubkeys ?? []),
+      ] as ReadonlyArray<PublicKeyHex>);
+      const applyTerminalMembershipExclusions = group.applyTerminalMembershipExclusions === true
+        || leftMemberPubkeys.length > 0
+        || expelledMemberPubkeys.length > 0;
+
       const directoryParticipantPubkeys = dedupeCommunityMemberPubkeys([
         ...(group.directoryParticipantPubkeys ?? []),
         ...known,
@@ -135,10 +167,10 @@ export const useCommunityMembershipReadModelIndex = (params: Readonly<{
         persistedMessageAuthorPubkeys: [],
         communityMessages: [],
         localMemberPubkey: group.localMemberPubkey ?? null,
-        leftMemberPubkeys: group.leftMemberPubkeys ?? [],
-        expelledMemberPubkeys: group.expelledMemberPubkeys ?? [],
+        leftMemberPubkeys,
+        expelledMemberPubkeys,
         sessionPubkeys: session,
-        applyTerminalMembershipExclusions: group.applyTerminalMembershipExclusions === true,
+        applyTerminalMembershipExclusions,
       });
 
       saveCommunityParticipantRosterSession(conversationId, profileId, result.sessionPubkeys);

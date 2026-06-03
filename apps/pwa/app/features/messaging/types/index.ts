@@ -18,6 +18,7 @@ export type DmConversation = Readonly<{
     lastMessage: string;
     unreadCount: number;
     lastMessageTime: Date;
+    lastMessageIsOutgoing?: boolean;
 }>;
 
 export type GroupConversation = Readonly<{

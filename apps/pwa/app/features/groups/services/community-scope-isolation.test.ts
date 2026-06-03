@@ -83,11 +83,19 @@ describe("AB-08 — profile scope isolation for community ledger hydration", () 
     setProfileScopeOverride("profile-b");
     const loadedB = loadCommunityMembershipLedger(PK_A);
 
-    // Profile B should see nothing — no cross-contamination.
-    // Currently this may FAIL due to legacy key fallback allowing profile-A
-    // writes to appear under profile-B reads.
     const entryB = loadedB.find(e => toCommunityMembershipLedgerKey(e) === LEDGER_KEY);
     expect(entryB).toBeUndefined();
+  });
+
+  it("REL-003: named profile save does not seed legacy key for default profile read", () => {
+    window.localStorage.removeItem(`obscur.group.membership_ledger.v1.${PK_A}`);
+
+    saveCommunityMembershipLedger(PK_A, [makeEntry("joined")], { profileId: "profile-b" });
+
+    expect(window.localStorage.getItem(`obscur.group.membership_ledger.v1.${PK_A}`)).toBeNull();
+
+    setProfileScopeOverride(null);
+    expect(loadCommunityMembershipLedger(PK_A)).toHaveLength(0);
   });
 
   it("profile-A left status does not suppress profile-B joined group", () => {

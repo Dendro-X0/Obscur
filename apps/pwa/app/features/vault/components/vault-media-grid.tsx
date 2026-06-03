@@ -38,6 +38,7 @@ import { getScopedStorageKey } from "@/app/features/profiles/services/profile-sc
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { logRuntimeEvent } from "@/app/shared/runtime-log-classification";
 import { isGroupConversationId } from "@/app/features/groups/utils/group-conversation-id";
+import { useMobileCompactLayout } from "@/app/features/runtime/use-mobile-compact-layout";
 
 type VaultMediaGridProps = Readonly<{
     mediaItems: ReadonlyArray<VaultMediaItem>;
@@ -150,6 +151,23 @@ const resolveVaultSourceKind = (item: VaultMediaItem): VaultSourceKind => {
 export function VaultMediaGrid(props: VaultMediaGridProps) {
     const { t } = useTranslation();
     const router = useRouter();
+    const compact = useMobileCompactLayout();
+    const vaultActionMenuItemClass = cn(
+        "w-full text-left rounded-xl px-3 text-xs font-bold text-zinc-800 hover:bg-zinc-100 transition-colors flex items-center gap-2",
+        compact ? "min-h-11 py-3" : "py-2",
+    );
+    const vaultDangerMenuItemClass = cn(
+        "w-full text-left rounded-xl px-3 text-xs font-bold text-rose-600 hover:bg-rose-50 disabled:opacity-30 transition-colors flex items-center gap-2",
+        compact ? "min-h-11 py-3" : "py-2",
+    );
+    const previewToolbarButtonClass = cn(
+        "rounded-2xl px-6 text-[11px] font-black uppercase tracking-widest text-zinc-800 dark:text-zinc-100 transition-all hover:bg-zinc-200/80 dark:hover:bg-white/10 hover:text-zinc-900 dark:hover:text-white",
+        compact ? "min-h-11 w-full sm:w-auto" : "h-12",
+    );
+    const previewToolbarDividerClass = cn(
+        "mx-1 h-6 w-px bg-zinc-300 dark:bg-white/20",
+        compact && "hidden sm:block",
+    );
     const [selectedItem, setSelectedItem] = React.useState<VaultMediaItem | null>(null);
     const [visibilityFilter, setVisibilityFilter] = React.useState<VisibilityFilter>(() => readFilterPreference());
     const [typeFilter, setTypeFilter] = React.useState<"all" | "image" | "video" | "audio" | "file">("all");
@@ -357,7 +375,8 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
         const rect = currentTarget.getBoundingClientRect();
         const rightInset = rect.right - event.clientX;
         const topInset = event.clientY - rect.top;
-        return rightInset >= 0 && rightInset <= 56 && topInset >= 0 && topInset <= 56;
+        const zoneSize = compact ? 64 : 56;
+        return rightInset >= 0 && rightInset <= zoneSize && topInset >= 0 && topInset <= zoneSize;
     };
 
     React.useEffect(() => {
@@ -446,15 +465,30 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
     }
 
     return (
-        <div className="space-y-8">
-            <div className="flex items-center justify-between gap-3 flex-wrap">
-                <div className="flex items-center gap-3 flex-wrap">
+        <div className={cn("space-y-8", compact && "space-y-5")}>
+            <div className={cn(
+                "flex items-center justify-between gap-3",
+                compact ? "flex-col items-stretch" : "flex-wrap",
+            )}>
+                <div
+                    data-testid={compact ? "vault-compact-filters" : undefined}
+                    className={cn(
+                        "flex items-center gap-2",
+                        compact
+                            ? "mobile-scroll-region -mx-1 flex-nowrap overflow-x-auto overscroll-x-contain px-1 pb-1"
+                            : "flex-wrap gap-3",
+                    )}
+                >
                     <Button
                         type="button"
                         variant={typeFilter === "image" ? "secondary" : "ghost"}
                         size="sm"
                         onClick={() => setTypeFilter(prev => prev === "image" ? "all" : "image")}
-                        className={cn("h-8 gap-2 rounded-full border px-4 transition-all duration-300", typeFilter === "image" ? "bg-primary/20 border-primary/40 text-primary" : "border-border/40 text-zinc-700 hover:bg-zinc-200/70 dark:text-zinc-200 dark:hover:bg-white/5")}
+                        className={cn(
+                            "gap-2 rounded-full border transition-all duration-300 shrink-0",
+                            compact ? "h-11 min-h-[44px] px-4" : "h-8 px-4",
+                            typeFilter === "image" ? "bg-primary/20 border-primary/40 text-primary" : "border-border/40 text-zinc-700 hover:bg-zinc-200/70 dark:text-zinc-200 dark:hover:bg-white/5",
+                        )}
                     >
                         <ImageIcon className={cn("h-3.5 w-3.5", typeFilter === "image" ? "text-primary" : "text-muted-foreground")} />
                         <span className="text-[10px] font-black uppercase tracking-widest">{props.stats.imageCount} {t("common.images", "Images")}</span>
@@ -465,7 +499,11 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
                         variant={typeFilter === "video" ? "secondary" : "ghost"}
                         size="sm"
                         onClick={() => setTypeFilter(prev => prev === "video" ? "all" : "video")}
-                        className={cn("h-8 gap-2 rounded-full border px-4 transition-all duration-300", typeFilter === "video" ? "bg-indigo-500/20 border-indigo-500/40 text-indigo-700 dark:text-indigo-300" : "border-border/40 text-zinc-700 hover:bg-zinc-200/70 dark:text-zinc-200 dark:hover:bg-white/5")}
+                        className={cn(
+                            "gap-2 rounded-full border transition-all duration-300 shrink-0",
+                            compact ? "h-11 min-h-[44px] px-4" : "h-8 px-4",
+                            typeFilter === "video" ? "bg-indigo-500/20 border-indigo-500/40 text-indigo-700 dark:text-indigo-300" : "border-border/40 text-zinc-700 hover:bg-zinc-200/70 dark:text-zinc-200 dark:hover:bg-white/5",
+                        )}
                     >
                         <VideoIcon className={cn("h-3.5 w-3.5", typeFilter === "video" ? "text-indigo-400" : "text-muted-foreground")} />
                         <span className="text-[10px] font-black uppercase tracking-widest">{props.stats.videoCount} {t("common.videos", "Videos")}</span>
@@ -476,7 +514,11 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
                         variant={typeFilter === "audio" ? "secondary" : "ghost"}
                         size="sm"
                         onClick={() => setTypeFilter(prev => prev === "audio" ? "all" : "audio")}
-                        className={cn("h-8 gap-2 rounded-full border px-4 transition-all duration-300", typeFilter === "audio" ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-700 dark:text-emerald-300" : "border-border/40 text-zinc-700 hover:bg-zinc-200/70 dark:text-zinc-200 dark:hover:bg-white/5")}
+                        className={cn(
+                            "gap-2 rounded-full border transition-all duration-300 shrink-0",
+                            compact ? "h-11 min-h-[44px] px-4" : "h-8 px-4",
+                            typeFilter === "audio" ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-700 dark:text-emerald-300" : "border-border/40 text-zinc-700 hover:bg-zinc-200/70 dark:text-zinc-200 dark:hover:bg-white/5",
+                        )}
                     >
                         <Music2 className={cn("h-3.5 w-3.5", typeFilter === "audio" ? "text-emerald-400" : "text-muted-foreground")} />
                         <span className="text-[10px] font-black uppercase tracking-widest">{props.stats.audioCount} {t("common.audio", "Audio")}</span>
@@ -487,22 +529,29 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
                         variant={typeFilter === "file" ? "secondary" : "ghost"}
                         size="sm"
                         onClick={() => setTypeFilter(prev => prev === "file" ? "all" : "file")}
-                        className={cn("h-8 gap-2 rounded-full border px-4 transition-all duration-300", typeFilter === "file" ? "bg-amber-500/20 border-amber-500/40 text-amber-700 dark:text-amber-300" : "border-border/40 text-zinc-700 hover:bg-zinc-200/70 dark:text-zinc-200 dark:hover:bg-white/5")}
+                        className={cn(
+                            "gap-2 rounded-full border transition-all duration-300 shrink-0",
+                            compact ? "h-11 min-h-[44px] px-4" : "h-8 px-4",
+                            typeFilter === "file" ? "bg-amber-500/20 border-amber-500/40 text-amber-700 dark:text-amber-300" : "border-border/40 text-zinc-700 hover:bg-zinc-200/70 dark:text-zinc-200 dark:hover:bg-white/5",
+                        )}
                     >
                         <FileText className={cn("h-3.5 w-3.5", typeFilter === "file" ? "text-amber-400" : "text-muted-foreground")} />
                         <span className="text-[10px] font-black uppercase tracking-widest">{props.stats.fileCount} Others</span>
                     </Button>
 
-                    <div className="flex items-center gap-1.5 bg-zinc-500/10 px-2 py-1 rounded-full border border-zinc-500/20 ml-2">
-                        <Button type="button" variant={visibilityFilter === "all" ? "secondary" : "ghost"} size="sm" onClick={() => setVisibilityFilter("all")} className="h-6 px-2 text-[10px]">All ({props.mediaItems.length})</Button>
-                        <Button type="button" variant={visibilityFilter === "local" ? "secondary" : "ghost"} size="sm" onClick={() => setVisibilityFilter("local")} className="h-6 px-2 text-[10px]">Local ({localCount})</Button>
-                        <Button type="button" variant={visibilityFilter === "remote" ? "secondary" : "ghost"} size="sm" onClick={() => setVisibilityFilter("remote")} className="h-6 px-2 text-[10px]">Remote ({remoteCount})</Button>
-                        <Button type="button" variant={visibilityFilter === "favorites" ? "secondary" : "ghost"} size="sm" onClick={() => setVisibilityFilter("favorites")} className="h-6 px-2 text-[10px]">Favorites ({favoritesCount})</Button>
-                        <Button type="button" variant={visibilityFilter === "removed" ? "secondary" : "ghost"} size="sm" onClick={() => setVisibilityFilter("removed")} className="h-6 px-2 text-[10px]">Removed ({removedCount})</Button>
+                    <div className={cn(
+                        "flex items-center gap-1.5 bg-zinc-500/10 rounded-full border border-zinc-500/20 shrink-0",
+                        compact ? "px-1 py-1" : "px-2 py-1 ml-2",
+                    )}>
+                        <Button type="button" variant={visibilityFilter === "all" ? "secondary" : "ghost"} size="sm" onClick={() => setVisibilityFilter("all")} className={cn(compact ? "h-10 min-h-[40px] px-3 text-[10px]" : "h-6 px-2 text-[10px]")}>All ({props.mediaItems.length})</Button>
+                        <Button type="button" variant={visibilityFilter === "local" ? "secondary" : "ghost"} size="sm" onClick={() => setVisibilityFilter("local")} className={cn(compact ? "h-10 min-h-[40px] px-3 text-[10px]" : "h-6 px-2 text-[10px]")}>Local ({localCount})</Button>
+                        <Button type="button" variant={visibilityFilter === "remote" ? "secondary" : "ghost"} size="sm" onClick={() => setVisibilityFilter("remote")} className={cn(compact ? "h-10 min-h-[40px] px-3 text-[10px]" : "h-6 px-2 text-[10px]")}>Remote ({remoteCount})</Button>
+                        <Button type="button" variant={visibilityFilter === "favorites" ? "secondary" : "ghost"} size="sm" onClick={() => setVisibilityFilter("favorites")} className={cn(compact ? "h-10 min-h-[40px] px-3 text-[10px]" : "h-6 px-2 text-[10px]")}>Favorites ({favoritesCount})</Button>
+                        <Button type="button" variant={visibilityFilter === "removed" ? "secondary" : "ghost"} size="sm" onClick={() => setVisibilityFilter("removed")} className={cn(compact ? "h-10 min-h-[40px] px-3 text-[10px]" : "h-6 px-2 text-[10px]")}>Removed ({removedCount})</Button>
                     </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className={cn("flex items-center gap-2", compact && "w-full")}>
                     <Button
                         type="button"
                         variant={selectionMode ? "secondary" : "outline"}
@@ -511,12 +560,12 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
                             if (selectionMode) clearSelection();
                             else setSelectionMode(true);
                         }}
-                        className="rounded-xl font-bold"
+                        className={cn("rounded-xl font-bold", compact && "min-h-11 flex-1")}
                     >
                         {selectionMode ? <CheckSquare className="h-4 w-4 mr-2" /> : <Square className="h-4 w-4 mr-2" />}
                         {selectionMode ? "Cancel Select" : "Select Multiple"}
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={props.refresh} className="h-8 w-8 p-0 rounded-full hover:bg-muted">
+                    <Button variant="ghost" size="sm" onClick={props.refresh} className={cn("rounded-full hover:bg-muted shrink-0", compact ? "h-11 w-11 p-0" : "h-8 w-8 p-0")}>
                         <RefreshCw className="h-4 w-4" />
                     </Button>
                 </div>
@@ -734,7 +783,8 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
                                             toggleSelect(item.id);
                                         }}
                                         className={cn(
-                                            "absolute top-3 right-3 h-8 w-8 rounded-xl flex items-center justify-center z-20 transition-all",
+                                            "absolute top-3 right-3 flex items-center justify-center z-20 transition-all",
+                                            compact ? "h-11 w-11 rounded-2xl" : "h-8 w-8 rounded-xl",
                                             isSelected ? "bg-primary text-primary-foreground scale-110 shadow-lg" : "bg-black/40 text-white backdrop-blur-md border border-white/10"
                                         )}
                                     >
@@ -749,7 +799,10 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
                                                 setOpenMenuItemId(prev => prev === item.id ? null : item.id);
                                             }}
                                             aria-label={`Vault item actions for ${item.attachment.fileName}`}
-                                            className="h-9 w-9 rounded-xl bg-black/40 text-white flex items-center justify-center backdrop-blur-md border border-white/5 hover:bg-black/60 transition-colors"
+                                            className={cn(
+                                                "rounded-xl bg-black/40 text-white flex items-center justify-center backdrop-blur-md border border-white/5 hover:bg-black/60 transition-colors",
+                                                compact ? "h-11 w-11" : "h-9 w-9",
+                                            )}
                                         >
                                             <MoreVertical className="h-4 w-4" />
                                         </button>
@@ -760,7 +813,7 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
                                             >
                                                 <button
                                                     onClick={() => { toggleFavorite(item.remoteUrl); setOpenMenuItemId(null); }}
-                                                    className="w-full text-left rounded-xl px-3 py-2 text-xs font-bold text-zinc-800 hover:bg-zinc-100 transition-colors flex items-center gap-2"
+                                                    className={vaultActionMenuItemClass}
                                                 >
                                                     <Star className={cn("h-3.5 w-3.5", isFavorite && "fill-current text-amber-400")} />
                                                     {isFavorite ? "Unfavorite" : "Favorite"}
@@ -768,7 +821,7 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
                                                 {removedIds.has(item.id) ? (
                                                     <button
                                                         onClick={() => { handleRestoreRemovedItem(item.id); setOpenMenuItemId(null); }}
-                                                        className="w-full text-left rounded-xl px-3 py-2 text-xs font-bold text-zinc-800 hover:bg-zinc-100 transition-colors flex items-center gap-2"
+                                                        className={vaultActionMenuItemClass}
                                                     >
                                                         <EyeOff className="h-3.5 w-3.5" />
                                                         Restore to Vault
@@ -776,7 +829,7 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
                                                 ) : (
                                                     <button
                                                         onClick={() => { handleRemoveFromVault(item.id); setOpenMenuItemId(null); }}
-                                                        className="w-full text-left rounded-xl px-3 py-2 text-xs font-bold text-zinc-800 hover:bg-zinc-100 transition-colors flex items-center gap-2"
+                                                        className={vaultActionMenuItemClass}
                                                     >
                                                         <EyeOff className="h-3.5 w-3.5" />
                                                         Remove from Vault
@@ -784,14 +837,14 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
                                                 )}
                                                 <button
                                                     onClick={async () => { await props.downloadToLocalPath(item); setOpenMenuItemId(null); }}
-                                                    className="w-full text-left rounded-xl px-3 py-2 text-xs font-bold text-zinc-800 hover:bg-zinc-100 transition-colors flex items-center gap-2"
+                                                    className={vaultActionMenuItemClass}
                                                 >
                                                     <Download className="h-3.5 w-3.5" />
                                                     Download
                                                 </button>
                                                 <button
                                                     onClick={() => { setSelectionMode(true); setSelected(item.id, true); setOpenMenuItemId(null); }}
-                                                    className="w-full text-left rounded-xl px-3 py-2 text-xs font-bold text-zinc-800 hover:bg-zinc-100 transition-colors flex items-center gap-2"
+                                                    className={vaultActionMenuItemClass}
                                                 >
                                                     <CheckSquare className="h-3.5 w-3.5" />
                                                     Select
@@ -799,7 +852,7 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
                                                 <button
                                                     onClick={() => { openSourceConversation(item); setOpenMenuItemId(null); }}
                                                     disabled={!item.sourceConversationId}
-                                                    className="w-full text-left rounded-xl px-3 py-2 text-xs font-bold text-zinc-800 hover:bg-zinc-100 disabled:opacity-30 transition-colors flex items-center gap-2"
+                                                    className={vaultActionMenuItemClass}
                                                 >
                                                     <ExternalLink className="h-3.5 w-3.5" />
                                                     {openSourceLabel}
@@ -808,7 +861,7 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
                                                 <button
                                                     onClick={async () => { await props.deleteLocalCopy(item.remoteUrl); setOpenMenuItemId(null); }}
                                                     disabled={!item.isLocalCached}
-                                                    className="w-full text-left rounded-xl px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 disabled:opacity-30 transition-colors flex items-center gap-2"
+                                                    className={vaultDangerMenuItemClass}
                                                 >
                                                     <Trash2 className="h-3.5 w-3.5" />
                                                     Delete Local
@@ -834,7 +887,10 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
                             setCurrentPage(p => Math.max(1, p - 1));
                             window.scrollTo({ top: 0, behavior: "smooth" });
                         }}
-                        className="rounded-xl bg-zinc-100/80 border border-zinc-300/70 text-zinc-800 dark:bg-white/5 dark:border-white/10 dark:text-zinc-100 text-[9px] font-black uppercase tracking-widest px-6 hover:bg-zinc-200/80 dark:hover:bg-white/10 active:scale-95 disabled:opacity-20 transition-all"
+                        className={cn(
+                            "rounded-xl bg-zinc-100/80 border border-zinc-300/70 text-zinc-800 dark:bg-white/5 dark:border-white/10 dark:text-zinc-100 text-[9px] font-black uppercase tracking-widest px-6 hover:bg-zinc-200/80 dark:hover:bg-white/10 active:scale-95 disabled:opacity-20 transition-all",
+                            compact && "min-h-11",
+                        )}
                     >
                         <ChevronLeft className="h-4 w-4 mr-1" />
                         Previous
@@ -850,7 +906,10 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
                             setCurrentPage(p => Math.min(totalPages, p + 1));
                             window.scrollTo({ top: 0, behavior: "smooth" });
                         }}
-                        className="rounded-xl bg-zinc-100/80 border border-zinc-300/70 text-zinc-800 dark:bg-white/5 dark:border-white/10 dark:text-zinc-100 text-[9px] font-black uppercase tracking-widest px-6 hover:bg-zinc-200/80 dark:hover:bg-white/10 active:scale-95 disabled:opacity-20 transition-all"
+                        className={cn(
+                            "rounded-xl bg-zinc-100/80 border border-zinc-300/70 text-zinc-800 dark:bg-white/5 dark:border-white/10 dark:text-zinc-100 text-[9px] font-black uppercase tracking-widest px-6 hover:bg-zinc-200/80 dark:hover:bg-white/10 active:scale-95 disabled:opacity-20 transition-all",
+                            compact && "min-h-11",
+                        )}
                     >
                         Next
                         <ChevronRight className="h-4 w-4 ml-1" />
@@ -893,7 +952,11 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
                                 </div>
                                 <button
                                     onClick={() => setSelectedItem(null)}
-                                    className="h-14 w-14 rounded-full bg-white/85 text-zinc-900 hover:bg-white border border-zinc-300/80 dark:bg-white/10 dark:text-white dark:hover:bg-white/20 dark:border-white/10 flex items-center justify-center transition-all group active:scale-90"
+                                    aria-label={t("common.close", "Close")}
+                                    className={cn(
+                                        "rounded-full bg-white/85 text-zinc-900 hover:bg-white border border-zinc-300/80 dark:bg-white/10 dark:text-white dark:hover:bg-white/20 dark:border-white/10 flex items-center justify-center transition-all group active:scale-90 shrink-0",
+                                        compact ? "h-12 w-12" : "h-14 w-14",
+                                    )}
                                 >
                                     <X className="h-6 w-6 group-hover:rotate-90 transition-transform duration-500" />
                                 </button>
@@ -924,43 +987,46 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
                                         {getSourceDescription(selectedItem)}
                                     </div>
                                 ) : null}
-                                <div className="flex items-center gap-2 rounded-[32px] border border-zinc-300/70 dark:border-white/20 bg-white/90 dark:bg-black/55 p-2 backdrop-blur-3xl shadow-2xl">
+                                <div className={cn(
+                                    "flex items-center gap-2 rounded-[32px] border border-zinc-300/70 dark:border-white/20 bg-white/90 dark:bg-black/55 p-2 backdrop-blur-3xl shadow-2xl",
+                                    compact && "w-full max-w-full flex-wrap justify-center",
+                                )}>
                                     <Button
                                         variant="ghost"
                                         onClick={() => openSourceConversation(selectedItem)}
                                         disabled={!selectedItem.sourceConversationId}
-                                        className="h-12 rounded-2xl px-6 text-[11px] font-black uppercase tracking-widest text-zinc-800 dark:text-zinc-100 transition-all hover:bg-zinc-200/80 dark:hover:bg-white/10 hover:text-zinc-900 dark:hover:text-white disabled:opacity-30"
+                                        className={cn(previewToolbarButtonClass, "disabled:opacity-30")}
                                     >
                                         <ExternalLink className="h-4 w-4 mr-3" />
                                         {getOpenSourceLabel(selectedItem)}
                                     </Button>
-                                    <div className="mx-1 h-6 w-px bg-zinc-300 dark:bg-white/20" />
+                                    <div className={previewToolbarDividerClass} />
                                     <Button
                                         variant="ghost"
                                         onClick={async () => { await props.downloadToLocalPath(selectedItem); }}
-                                        className="h-12 rounded-2xl px-6 text-[11px] font-black uppercase tracking-widest text-zinc-800 dark:text-zinc-100 transition-all hover:bg-zinc-200/80 dark:hover:bg-white/10 hover:text-zinc-900 dark:hover:text-white"
+                                        className={previewToolbarButtonClass}
                                     >
                                         <Download className="h-4 w-4 mr-3" />
                                         Download
                                     </Button>
-                                    <div className="mx-1 h-6 w-px bg-zinc-300 dark:bg-white/20" />
+                                    <div className={previewToolbarDividerClass} />
                                     <Button
                                         variant="ghost"
                                         onClick={() => window.open(selectedItem.remoteUrl, "_blank")}
-                                        className="h-12 rounded-2xl px-6 text-[11px] font-black uppercase tracking-widest text-zinc-800 dark:text-zinc-100 transition-all hover:bg-zinc-200/80 dark:hover:bg-white/10 hover:text-zinc-900 dark:hover:text-white"
+                                        className={previewToolbarButtonClass}
                                     >
                                         <ExternalLink className="h-4 w-4 mr-3" />
                                         Source URL
                                     </Button>
-                                    <div className="mx-1 h-6 w-px bg-zinc-300 dark:bg-white/20" />
+                                    <div className={previewToolbarDividerClass} />
                                     <Button
                                         variant="ghost"
                                         onClick={() => toggleFavorite(selectedItem.remoteUrl)}
                                         className={cn(
-                                            "h-12 rounded-2xl px-6 text-[11px] font-black uppercase tracking-widest transition-all",
+                                            previewToolbarButtonClass,
                                             favorites.has(selectedItem.remoteUrl)
                                                 ? "bg-amber-400/18 text-amber-700 hover:bg-amber-400/30 dark:bg-amber-400/12 dark:text-amber-300 dark:hover:bg-amber-400/20"
-                                                : "text-zinc-800 dark:text-zinc-100 hover:bg-zinc-200/80 dark:hover:bg-white/10 hover:text-zinc-900 dark:hover:text-white"
+                                                : undefined,
                                         )}
                                     >
                                         <Star className={cn("h-4 w-4 mr-3", favorites.has(selectedItem.remoteUrl) && "fill-current")} />
@@ -968,11 +1034,11 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
                                     </Button>
                                     {selectedItem.isLocalCached && (
                                         <>
-                                            <div className="mx-1 h-6 w-px bg-zinc-300 dark:bg-white/20" />
+                                            <div className={previewToolbarDividerClass} />
                                             <Button
                                                 variant="ghost"
                                                 onClick={async () => { await props.deleteLocalCopy(selectedItem.remoteUrl); setSelectedItem(null); }}
-                                                className="rounded-2xl h-12 px-6 font-black text-[11px] uppercase tracking-widest text-rose-600 dark:text-rose-500 hover:bg-rose-500/10 transition-all"
+                                                className={cn(previewToolbarButtonClass, "text-rose-600 dark:text-rose-500 hover:bg-rose-500/10")}
                                             >
                                                 <Trash2 className="h-4 w-4 mr-3" />
                                                 Flush Cache

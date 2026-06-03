@@ -62,8 +62,10 @@ export type ReleaseSnapshot = Readonly<{
 const RAW_GITHUB_BASE =
   "https://raw.githubusercontent.com/Dendro-X0/Obscur/main";
 const REPO_GITHUB_BASE = "https://github.com/Dendro-X0/Obscur";
-const GITHUB_RELEASE_API =
-  "https://api.github.com/repos/Dendro-X0/Obscur/releases/latest";
+const REPO_STABLE_POLICY_PATH =
+  "apps/desktop/release/channel/stable/streaming-update-policy.json";
+const REPO_STABLE_POLICY_URL = `${RAW_GITHUB_BASE}/${REPO_STABLE_POLICY_PATH}`;
+const REPO_VERSION_JSON_URL = `${RAW_GITHUB_BASE}/version.json`;
 const RELEASE_SECTION_REGEX = /^## \[(v[^\]]+)\] - (\d{4}-\d{2}-\d{2})$/gm;
 
 const repoRoot = path.resolve(process.cwd(), "..", "..");
@@ -73,9 +75,6 @@ const dateFormatter = new Intl.DateTimeFormat("en-US", {
   day: "numeric",
   year: "numeric",
 });
-
-const toReleaseHref = (version: string): string =>
-  `${REPO_GITHUB_BASE}/releases/tag/${version}`;
 
 const toHumanDate = (isoDate: string): string => {
   const parsed = new Date(`${isoDate}T00:00:00Z`);
@@ -134,62 +133,76 @@ const readReleaseHighlights = async (): Promise<readonly ReleaseHighlight[]> => 
   return parseReleaseHighlights(changelog);
 };
 
-const readLatestReleaseSnapshot = async (): Promise<ReleaseSnapshot | null> => {
+const readLocalStablePolicy = async (): Promise<Record<string, unknown> | null> => {
   try {
-    const response = await fetch(GITHUB_RELEASE_API, {
-      headers: { Accept: "application/vnd.github+json" },
-      next: { revalidate: 900 },
+    const policyPath = path.join(
+      repoRoot,
+      "apps/desktop/release/channel/stable/streaming-update-policy.json",
+    );
+    const raw = await readFile(policyPath, "utf8");
+    return JSON.parse(raw) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+};
+
+const policyArtifactsToReleaseAssets = (
+  artifacts: unknown,
+): readonly ReleaseAsset[] => {
+  if (!artifacts || typeof artifacts !== "object") {
+    return [];
+  }
+  const out: ReleaseAsset[] = [];
+  for (const artifact of Object.values(artifacts as Record<string, unknown>)) {
+    if (!artifact || typeof artifact !== "object") {
+      continue;
+    }
+    const url = (artifact as { url?: unknown }).url;
+    if (typeof url !== "string" || !url.startsWith("https://")) {
+      continue;
+    }
+    const name = url.split("/").pop()?.split("?")[0] ?? "download";
+    out.push({
+      name,
+      browser_download_url: url,
+      size: 0,
     });
-    if (!response.ok) {
-      return null;
-    }
-    const payload = await response.json() as {
-      tag_name?: unknown;
-      html_url?: unknown;
-      assets?: unknown;
-    };
-    const tag = typeof payload.tag_name === "string" && payload.tag_name.trim().length > 0
-      ? payload.tag_name.trim()
-      : null;
-    const htmlUrl = typeof payload.html_url === "string" && payload.html_url.trim().length > 0
-      ? payload.html_url.trim()
-      : null;
-    if (!tag || !htmlUrl) {
-      return null;
+  }
+  return out;
+};
+
+const readUnifiedReleaseSnapshot = async (): Promise<ReleaseSnapshot | null> => {
+  try {
+    let policy = await readLocalStablePolicy();
+    if (!policy) {
+      const response = await fetch(REPO_STABLE_POLICY_URL, {
+        next: { revalidate: 300 },
+      });
+      if (!response.ok) {
+        return null;
+      }
+      policy = (await response.json()) as Record<string, unknown>;
     }
 
-    const assets = Array.isArray(payload.assets)
-      ? payload.assets
-        .map((asset): ReleaseAsset | null => {
-          if (!asset || typeof asset !== "object") {
-            return null;
-          }
-          const candidate = asset as {
-            name?: unknown;
-            browser_download_url?: unknown;
-            size?: unknown;
-          };
-          if (
-            typeof candidate.name !== "string"
-            || typeof candidate.browser_download_url !== "string"
-            || typeof candidate.size !== "number"
-          ) {
-            return null;
-          }
-          return {
-            name: candidate.name,
-            browser_download_url: candidate.browser_download_url,
-            size: candidate.size,
-          };
-        })
-        .filter((asset): asset is ReleaseAsset => asset !== null)
-      : [];
+    const versionRaw = policy.version;
+    const version = typeof versionRaw === "string" && versionRaw.trim().length > 0
+      ? versionRaw.trim().replace(/^v/i, "")
+      : await readCanonicalVersion();
+    const tag = version.startsWith("v") ? version : `v${version}`;
+    const releaseNotesUrl = typeof policy.releaseNotesUrl === "string"
+      ? policy.releaseNotesUrl
+      : `${REPO_GITHUB_BASE}/blob/main/CHANGELOG.md`;
+    const downloadableAssets = filterDownloadableReleaseAssets(
+      policyArtifactsToReleaseAssets(policy.artifacts),
+    );
 
-    const downloadableAssets = filterDownloadableReleaseAssets(assets);
+    if (downloadableAssets.length === 0) {
+      return null;
+    }
 
     return {
       tag,
-      htmlUrl,
+      htmlUrl: releaseNotesUrl,
       downloadableAssets,
       preferredDesktopDownload: {
         windows: toReleaseDownloadTarget(
@@ -217,10 +230,10 @@ export const loadSiteContent = async (): Promise<SiteContent> => {
   const currentTag = currentVersion.startsWith("v") ? currentVersion : `v${currentVersion}`;
   const [releaseHighlights, latestRelease] = await Promise.all([
     readReleaseHighlights(),
-    readLatestReleaseSnapshot(),
+    readUnifiedReleaseSnapshot(),
   ]);
 
-  const resolvedReleaseHref = latestRelease?.htmlUrl ?? toReleaseHref(currentTag);
+  const resolvedReleaseHref = latestRelease?.htmlUrl ?? `${REPO_GITHUB_BASE}/blob/main/CHANGELOG.md`;
 
   const primaryLinks: readonly SiteLink[] = [
     {
@@ -228,8 +241,12 @@ export const loadSiteContent = async (): Promise<SiteContent> => {
       href: "/download",
     },
     {
-      label: "All Releases",
-      href: `${REPO_GITHUB_BASE}/releases`,
+      label: "Changelog",
+      href: `${REPO_GITHUB_BASE}/blob/main/CHANGELOG.md`,
+    },
+    {
+      label: "Version source",
+      href: `${REPO_GITHUB_BASE}/blob/main/docs/program/unified-version-source.md`,
     },
     {
       label: "Read The Docs",

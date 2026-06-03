@@ -386,6 +386,7 @@ export class GroupService {
                 descriptorVersion: params.metadata.descriptorVersion,
                 stewardPubkeys: params.metadata.stewardPubkeys,
                 botPubkeys: params.metadata.botPubkeys,
+                botTriggers: params.metadata.botTriggers,
             }),
             pubkey: this.myPublicKeyHex,
         };

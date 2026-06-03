@@ -2,7 +2,7 @@
 
 > **Active (2026-05).** Obscur development has resumed in this repository. Greenfield has been discontinued as a separate execution track; its archived design goals remain available for reference in [docs/archive/greenfield/README.md](docs/archive/greenfield/README.md).
 
-[![Release](https://img.shields.io/github/v/release/Dendro-X0/Obscur?display_name=tag&logo=github)](https://github.com/Dendro-X0/Obscur/releases)
+[![Version](https://img.shields.io/badge/version-1.8.14-blue)](https://github.com/Dendro-X0/Obscur/blob/main/version.json)
 [![Platform](https://img.shields.io/badge/platform-PWA%20%7C%20Desktop%20%7C%20Mobile-0ea5e9)](#platform-coverage)
 [![Architecture](https://img.shields.io/badge/architecture-decentralized-22c55e)](#core-positioning)
 [![Security](https://img.shields.io/badge/security-E2EE-ef4444)](#core-positioning)
@@ -10,64 +10,20 @@
 
 Obscur is a cross-platform, decentralized, end-to-end encrypted (E2EE) communication app focused on user privacy, ownership, and self-custody identity.
 
-Project phase: **v1.8.x — Active patch `v1.8.10`**
+Project phase: **v1.9.x — Lane K** (kernel + features on `main`)
 
-**Latest release ([v1.8.9](docs/releases/v1.8.9-release.md))** — managed-workspace ship + **D1** relay suppress + **D3** remove-from-workspace UX. Full installers on GitHub Releases.
+**Current version:** [`version.json`](version.json) on **`main`**. GitHub **Releases is disabled** for this repo (Settings → Features) — do not use `/releases` or **Latest**.
 
-**In development ([v1.8.10](docs/program/v1.8.10-scope.md)):**
+**Get Obscur:**
 
-- **D2:** Operator-relay compaction (opt-in)
-- **Lane P:** Android install smoke
+| Path | Command / link |
+|------|----------------|
+| **Dev** | `pnpm dev:desktop:online` |
+| **Local installer** | `pnpm desktop:package` → install from `release-assets/` |
+| **Download page** | Website `/download` reads repo [update channel](apps/desktop/release/channel/stable/) |
+| **Source** | Clone or [Download ZIP](https://github.com/Dendro-X0/Obscur/archive/refs/heads/main.zip) |
 
-**Roadmap:** [v1.8.10+ managed workspace](docs/program/v1.8.9-plus-managed-workspace-roadmap.md) · B1 bots → **v1.8.11+**
-
-Full notes: [docs/releases/v1.8.9-release.md](docs/releases/v1.8.9-release.md) · Gate: [docs/releases/v1.8.9-gate.md](docs/releases/v1.8.9-gate.md) · Program: [docs/program/v1.8.x-release-train.md](docs/program/v1.8.x-release-train.md) · Changelog: [CHANGELOG.md](CHANGELOG.md)
-
-**Latest published GitHub release (`v1.8.7`):**
-
-- Transport-hard relay-join tests; membership surface consistency across header, network, invite modal
-
-**Earlier v1.8.x (`v1.8.5`–`v1.8.6`):**
-
-- REL-004 leave durability, community invite DM, relay join after accept, `CommunityMembershipReadModel` owner path, relay runtime smoke CI
-
-**Earlier (`v1.5.0`):**
-
-- ClientGateway (R0–R2), profile runtime, relay-first community membership, account projection
-
-Full v1.5 notes: [docs/releases/v1.5.0-release.md](docs/releases/v1.5.0-release.md)
-
-**Previous release (`v1.4.11`):**
-
-- DM operation ledger (shadow), send retry queue, relay resilience incremental work
-
-**Earlier (`v1.4.7`):**
-
-- M0–M3 stabilization, security integration, CAS media recovery, relay capability badges
-
-**Previous release (`v1.4.6`):**
-
-- **Security Hardening Suite**: Comprehensive identity and transport security improvements:
-  - **Visual Identity Verification**: Deterministic identicon generation from public keys for cross-device identity confirmation,
-  - **Key Change Detection**: Automated monitoring and alerts for unexpected contact identity changes,
-  - **Relay Trust Scoring**: Dynamic health metrics and trust levels for relay selection (high/medium/low/untrusted),
-  - **Encrypted Security Audit Log**: Local AES-GCM encrypted append-only security event logging.
-- **Community UX Enhancements**: Relay capability badges, loading states, empty states, improved invite flows.
-- **Theme Compatibility**: Full light/dark theme support across all security components.
-
-**Earlier release (`v1.4.0`):**
-
-- **CRDT Protocol Suite**: Complete implementation of 5-phase CRDT integration:
-  - LWW-Registers for profile and presence state,
-  - G-Counters for unread message counts and presence heartbeats,
-  - OR-Sets for community membership with proper merge semantics,
-  - Content-Addressed Media (CAS) for deduplicated blob storage,
-  - Call State CRDT with TTL-based expiration to eliminate ghost calls.
-- **Sync Protocol**: Full account-sync CRDT merge pipeline with namespace isolation, handler registration, and conflict resolution.
-- **Infrastructure improvements**:
-  - IndexedDB upgrade compatibility fixes for test environments,
-  - All 1858 tests passing across 309 test files,
-  - Type-safe CRDT operations with runtime validation.
+Changelog: [CHANGELOG.md](CHANGELOG.md) · Program: [v1.9.0 kernel roadmap](docs/program/v1.9.0-kernel-backend-roadmap.md) · Packaging: [local-desktop-packaging.md](docs/program/local-desktop-packaging.md)
 
 The project remains independently developed, community-maintained, privacy-first, and local-first.
 

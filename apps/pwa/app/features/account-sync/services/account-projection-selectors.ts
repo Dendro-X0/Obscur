@@ -6,6 +6,7 @@ import type { AccountProjectionSnapshot } from "../account-event-contracts";
 import { isGroupConversationId } from "@/app/features/groups/utils/group-conversation-id";
 import { isAccountProjectionTimelineEntrySuppressed } from "@/app/features/messaging/services/conversation-message-visibility";
 import { messagingClientOperations } from "@/app/features/messaging/services/messaging-client-operations";
+import { toConversationListPreview } from "./account-event-plaintext-preview";
 import { applyCommunityInviteMessageSnapshot } from "@/app/features/groups/utils/community-invite-message-snapshot";
 import { normalizeCommunityInvitePayload } from "@/app/features/groups/utils/community-invite-payload";
 import { buildCommunityInvitePlaintext } from "@/app/features/groups/utils/community-invite-dm-message";
@@ -39,7 +40,79 @@ type PeerConversationSummary = Readonly<{
   lastMessageAtUnixMs: number;
   unreadCount: number;
   conversationId: string;
+  lastMessageIsOutgoing?: boolean;
 }>;
+
+type MessageProjectionEntry = AccountProjectionSnapshot["messagesByConversationId"][string][number];
+
+const compareTimelineEntries = (
+  left: MessageProjectionEntry,
+  right: MessageProjectionEntry,
+): number => {
+  if (left.eventCreatedAtUnixSeconds !== right.eventCreatedAtUnixSeconds) {
+    return left.eventCreatedAtUnixSeconds - right.eventCreatedAtUnixSeconds;
+  }
+  return left.messageId.localeCompare(right.messageId);
+};
+
+const findLatestPeerTimelineEntry = (
+  projection: AccountProjectionSnapshot,
+  peerPublicKeyHex: PublicKeyHex,
+): MessageProjectionEntry | null => {
+  let latest: MessageProjectionEntry | null = null;
+  Object.values(projection.messagesByConversationId).forEach((timeline) => {
+    timeline.forEach((entry) => {
+      if (entry.peerPublicKeyHex !== peerPublicKeyHex) {
+        return;
+      }
+      if (isGroupConversationId(entry.conversationId)) {
+        return;
+      }
+      if (messagingClientOperations.isDmMessageSuppressed(entry.messageId, projection.profileId)) {
+        return;
+      }
+      if (projection.removedMessageIds?.[entry.messageId]) {
+        return;
+      }
+      if (!latest || compareTimelineEntries(entry, latest) > 0) {
+        latest = entry;
+      }
+    });
+  });
+  return latest;
+};
+
+const summarizePeerTimelineActivity = (
+  projection: AccountProjectionSnapshot,
+  peerPublicKeyHex: PublicKeyHex,
+  myPublicKeyHex: PublicKeyHex,
+): PeerConversationSummary | null => {
+  const latestEntry = findLatestPeerTimelineEntry(projection, peerPublicKeyHex);
+  if (!latestEntry) {
+    return null;
+  }
+  const conversationId = [myPublicKeyHex, peerPublicKeyHex].sort().join(":");
+  return {
+    conversationId,
+    lastMessagePreview: toConversationListPreview(latestEntry.plaintextPreview),
+    lastMessageAtUnixMs: latestEntry.eventCreatedAtUnixSeconds * 1000,
+    unreadCount: 0,
+    lastMessageIsOutgoing: latestEntry.direction === "outgoing",
+  };
+};
+
+const pickNewerPeerSummary = (
+  left: PeerConversationSummary | undefined,
+  right: PeerConversationSummary | undefined,
+): PeerConversationSummary | undefined => {
+  if (!left) {
+    return right;
+  }
+  if (!right) {
+    return left;
+  }
+  return left.lastMessageAtUnixMs >= right.lastMessageAtUnixMs ? left : right;
+};
 
 const inferPeerFromConversationId = (params: Readonly<{
   conversationId: string;
@@ -140,20 +213,43 @@ const collectConversationTimelineEntries = (params: Readonly<{
 };
 
 const buildLatestConversationByPeer = (
-  projection: AccountProjectionSnapshot
+  projection: AccountProjectionSnapshot,
+  myPublicKeyHex: PublicKeyHex,
 ): Readonly<Record<string, PeerConversationSummary>> => {
   const byPeer: Record<string, PeerConversationSummary> = {};
   Object.values(projection.conversationsById).forEach((conversation) => {
     const existing = byPeer[conversation.peerPublicKeyHex];
-    if (!existing || conversation.lastMessageAtUnixMs > existing.lastMessageAtUnixMs) {
-      byPeer[conversation.peerPublicKeyHex] = {
-        lastMessagePreview: conversation.lastMessagePreview,
-        lastMessageAtUnixMs: conversation.lastMessageAtUnixMs,
-        unreadCount: conversation.unreadCount,
-        conversationId: conversation.conversationId,
-      };
-    }
+    const candidate: PeerConversationSummary = {
+      lastMessagePreview: conversation.lastMessagePreview,
+      lastMessageAtUnixMs: conversation.lastMessageAtUnixMs,
+      unreadCount: conversation.unreadCount,
+      conversationId: conversation.conversationId,
+    };
+    byPeer[conversation.peerPublicKeyHex] = pickNewerPeerSummary(existing, candidate) ?? candidate;
   });
+
+  Object.values(projection.contactsByPeer)
+    .filter((contact) => contact.status === "accepted")
+    .forEach((contact) => {
+      const fromTimeline = summarizePeerTimelineActivity(
+        projection,
+        contact.peerPublicKeyHex,
+        myPublicKeyHex,
+      );
+      if (!fromTimeline) {
+        return;
+      }
+      const existing = byPeer[contact.peerPublicKeyHex];
+      const merged = pickNewerPeerSummary(existing, {
+        ...fromTimeline,
+        unreadCount: existing?.unreadCount ?? fromTimeline.unreadCount,
+        conversationId: existing?.conversationId ?? fromTimeline.conversationId,
+      });
+      if (merged) {
+        byPeer[contact.peerPublicKeyHex] = merged;
+      }
+    });
+
   return byPeer;
 };
 
@@ -175,7 +271,10 @@ export const selectProjectionRequestsInboxItems = (
   if (!projection) {
     return EMPTY_ITEMS;
   }
-  const latestConversationByPeer = buildLatestConversationByPeer(projection);
+  const latestConversationByPeer = buildLatestConversationByPeer(
+    projection,
+    projection.accountPublicKeyHex,
+  );
   return Object.values(projection.contactsByPeer)
     .filter((contact) => contact.status !== "none")
     .map((contact): RequestsInboxItem => {
@@ -207,7 +306,10 @@ export const selectProjectionDmConversations = (params: Readonly<{
     return EMPTY_CONVERSATIONS;
   }
 
-  const latestConversationByPeer = buildLatestConversationByPeer(params.projection);
+  const latestConversationByPeer = buildLatestConversationByPeer(
+    params.projection,
+    params.myPublicKeyHex,
+  );
   const contacts = Object.values(params.projection.contactsByPeer)
     .filter((contact) => contact.status === "accepted");
 
@@ -223,6 +325,7 @@ export const selectProjectionDmConversations = (params: Readonly<{
         lastMessage: conversation?.lastMessagePreview ?? "",
         unreadCount: conversation?.unreadCount ?? 0,
         lastMessageTime: new Date(conversation?.lastMessageAtUnixMs ?? 0),
+        lastMessageIsOutgoing: conversation?.lastMessageIsOutgoing,
       };
     })
     .sort((left, right) => right.lastMessageTime.getTime() - left.lastMessageTime.getTime());

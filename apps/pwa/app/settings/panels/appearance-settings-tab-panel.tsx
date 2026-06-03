@@ -27,13 +27,16 @@ import {
   validateProfileInput,
   formatBytes,
   formatRatioPercent,
-} from "../settings-tab-panel-model";
+} from "../settings-tab-panel-shared";
 import { getApiBaseUrl } from "@/app/features/relays/utils/api-base-url";
 import { deriveRelayNodeStatus, deriveRelayRuntimeStatus } from "@/app/features/relays/lib/relay-runtime-status";
 import { checkStorageHealth, runStorageRecovery } from "@/app/features/messaging/services/storage-health-service";
 import { Loader2, Activity, ShieldAlert, Shield, Lock, Database, Copy, ChevronDown, Plus, ArrowUp, ArrowDown, Eye, EyeOff, Building2, Wifi, RefreshCcw, Check, X } from "lucide-react";
 
-import { useSettingsTabPanelModel } from "../settings-tab-panel-model";
+import { SettingsCompactCard, SettingsCompactSection } from "@/app/features/settings/components/settings-compact-card";
+import { useMobileCompactLayout } from "@/app/features/runtime/use-mobile-compact-layout";
+
+import { useSettingsTabPanelModel } from "../settings-tab-panel-model-context";
 
 export default function AppearanceSettingsTabPanel(): React.JSX.Element {
   const {
@@ -263,73 +266,56 @@ export default function AppearanceSettingsTabPanel(): React.JSX.Element {
     wipeLocalRuntimeData
   } = useSettingsTabPanelModel() as Record<string, any>;
 
+  const compact = useMobileCompactLayout();
+  const resetButtonClass = "h-8 px-3 text-[10px] font-black uppercase tracking-widest text-zinc-400 hover:text-primary transition-colors hover:bg-primary/5 dark:hover:text-primary dark:hover:bg-primary/10";
+
   return (
     <>
-        <Card title={t("settings.appearance.title")} description={t("settings.appearance.desc")} className="w-full">
-          <div className="space-y-6">
-            {/* Language Selection */}
-            <div className="group relative overflow-hidden rounded-2xl border border-black/10 bg-gradient-to-br from-white/80 to-zinc-50/40 p-5 backdrop-blur-md shadow-sm transition-all hover:shadow-md dark:border-white/10 dark:from-zinc-900/40 dark:to-zinc-950/20">
-              <div className="flex items-center justify-between gap-3 mb-4">
-                <div className="flex flex-col gap-0.5">
-                  <Label className="text-zinc-900 dark:text-zinc-100 font-bold tracking-tight">{t("settings.language")}</Label>
-                  <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">{t("settings.appearance.currentLanguage", "Current language")}: {i18n.language}</p>
-                </div>
-                <Button 
-                  type="button" 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={() => void handleResetLanguage()}
-                  className="h-8 px-3 text-[10px] font-black uppercase tracking-widest text-zinc-400 hover:text-primary transition-colors hover:bg-primary/5 dark:hover:text-primary dark:hover:bg-primary/10"
-                >
+        <SettingsCompactCard
+          title={t("settings.appearance.title")}
+          description={t("settings.appearance.desc")}
+          className="w-full"
+        >
+          <div className={compact ? "space-y-4" : "space-y-6"}>
+            <SettingsCompactSection
+              title={t("settings.language")}
+              hint={compact ? undefined : `${t("settings.appearance.currentLanguage", "Current language")}: ${i18n.language}`}
+              action={(
+                <Button type="button" variant="ghost" size="sm" onClick={() => void handleResetLanguage()} className={resetButtonClass}>
                   {t("settings.appearance.resetLanguage", "Reset")}
                 </Button>
-              </div>
-              <div className="rounded-xl bg-white/50 p-2 dark:bg-black/20">
+              )}
+            >
+              <div className={compact ? undefined : "rounded-xl bg-white/50 p-2 dark:bg-black/20"}>
                 <LanguageSelector />
               </div>
-            </div>
+            </SettingsCompactSection>
 
-            {/* Theme Preference */}
-            <div className="group relative overflow-hidden rounded-2xl border border-black/10 bg-gradient-to-br from-white/80 to-zinc-50/40 p-5 backdrop-blur-md shadow-sm transition-all hover:shadow-md dark:border-white/10 dark:from-zinc-900/40 dark:to-zinc-950/20">
-              <div className="flex items-center justify-between gap-3 mb-4">
-                <div className="flex flex-col gap-0.5">
-                  <Label className="text-zinc-900 dark:text-zinc-100 font-bold tracking-tight">{t("settings.appearance.theme")}</Label>
-                  <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">{t("settings.appearance.currentTheme", "Current theme preference")}: {theme.preference}</p>
-                </div>
-                <Button 
-                  type="button" 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={handleResetTheme}
-                  className="h-8 px-3 text-[10px] font-black uppercase tracking-widest text-zinc-400 hover:text-primary transition-colors hover:bg-primary/5 dark:hover:text-primary dark:hover:bg-primary/10"
-                >
+            <SettingsCompactSection
+              title={t("settings.appearance.theme")}
+              hint={compact ? undefined : `${t("settings.appearance.currentTheme", "Current theme preference")}: ${theme.preference}`}
+              action={(
+                <Button type="button" variant="ghost" size="sm" onClick={handleResetTheme} className={resetButtonClass}>
                   {t("settings.appearance.resetTheme", "Reset")}
                 </Button>
+              )}
+            >
+              <div className={compact ? undefined : "rounded-xl bg-white/50 p-3 dark:bg-black/20"}>
+                <ThemeToggle layout={compact ? "segmented" : "inline"} />
               </div>
-              <div className="rounded-xl bg-white/50 p-3 dark:bg-black/20">
-                <ThemeToggle />
-              </div>
-            </div>
+            </SettingsCompactSection>
 
-            {/* Accessibility Settings */}
-            <div className="group relative overflow-hidden rounded-2xl border border-black/10 bg-gradient-to-br from-white/80 to-zinc-50/40 p-5 backdrop-blur-md shadow-sm transition-all hover:shadow-md dark:border-white/10 dark:from-zinc-900/40 dark:to-zinc-950/20">
-              <div className="flex items-center justify-between gap-3 mb-4">
-                <div className="flex flex-col gap-0.5">
-                  <Label className="text-zinc-900 dark:text-zinc-100 font-bold tracking-tight">{t("settings.appearance.accessibility", "Accessibility")}</Label>
-                  <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">{t("settings.appearance.textScale", "Text Scale")}: {accessibility.preferences.textScale}%</p>
-                </div>
-                <Button 
-                  type="button" 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={handleResetAccessibility}
-                  className="h-8 px-3 text-[10px] font-black uppercase tracking-widest text-zinc-400 hover:text-primary transition-colors hover:bg-primary/5 dark:hover:text-primary dark:hover:bg-primary/10"
-                >
+            <SettingsCompactSection
+              title={t("settings.appearance.accessibility", "Accessibility")}
+              hint={compact ? undefined : `${t("settings.appearance.textScale", "Text Scale")}: ${accessibility.preferences.textScale}%`}
+              action={(
+                <Button type="button" variant="ghost" size="sm" onClick={handleResetAccessibility} className={resetButtonClass}>
                   {t("settings.appearance.resetAccessibility", "Reset")}
                 </Button>
-              </div>
+              )}
+            >
               <div className="space-y-4">
-                <div className="flex flex-wrap gap-2">
+                <div className={cn(compact ? "grid grid-cols-4 gap-1.5" : "flex flex-wrap gap-2")}>
                   {TEXT_SCALE_OPTIONS.map((scale: TextScale) => (
                     <Button
                       key={scale}
@@ -337,10 +323,11 @@ export default function AppearanceSettingsTabPanel(): React.JSX.Element {
                       size="sm"
                       variant={accessibility.preferences.textScale === scale ? "primary" : "outline"}
                       className={cn(
-                        "h-10 px-4 font-black transition-all",
-                        accessibility.preferences.textScale === scale 
-                          ? "shadow-md !border-none" 
-                          : "bg-white/50 text-zinc-500 border-black/5 hover:bg-white dark:bg-black/20 dark:text-zinc-400 dark:border-white/5 dark:hover:bg-black/40"
+                        "font-black transition-all",
+                        compact ? "h-9 px-0 text-xs" : "h-10 px-4",
+                        accessibility.preferences.textScale === scale
+                          ? "shadow-md !border-none"
+                          : "bg-white/50 text-zinc-500 border-black/5 hover:bg-white dark:bg-black/20 dark:text-zinc-400 dark:border-white/5 dark:hover:bg-black/40",
                       )}
                       onClick={() => {
                         accessibility.setTextScale(scale);
@@ -356,14 +343,21 @@ export default function AppearanceSettingsTabPanel(): React.JSX.Element {
                   ))}
                 </div>
 
-                <div className="flex items-center justify-between gap-4 rounded-xl border border-black/5 bg-black/5 p-4 dark:border-white/5 dark:bg-black/20">
-                  <div className="flex flex-col gap-1">
+                <div className={cn(
+                  "flex items-center justify-between gap-4",
+                  compact
+                    ? "py-1"
+                    : "rounded-xl border border-black/5 bg-black/5 p-4 dark:border-white/5 dark:bg-black/20",
+                )}>
+                  <div className="flex min-w-0 flex-col gap-1">
                     <div className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
                       {t("settings.appearance.reducedMotion", "Reduced Motion")}
                     </div>
-                    <div className="text-xs text-zinc-500 dark:text-zinc-400">
-                      {t("settings.appearance.reducedMotionDesc", "Reduce animations and transitions across the app.")}
-                    </div>
+                    {!compact ? (
+                      <div className="text-xs text-zinc-500 dark:text-zinc-400">
+                        {t("settings.appearance.reducedMotionDesc", "Reduce animations and transitions across the app.")}
+                      </div>
+                    ) : null}
                   </div>
                   <SettingsToggle
                     checked={accessibility.preferences.reducedMotion}
@@ -376,14 +370,21 @@ export default function AppearanceSettingsTabPanel(): React.JSX.Element {
                     }}
                   />
                 </div>
-                <div className="flex items-center justify-between gap-4 rounded-xl border border-black/5 bg-black/5 p-4 dark:border-white/5 dark:bg-black/20">
-                  <div className="flex flex-col gap-1">
+                <div className={cn(
+                  "flex items-center justify-between gap-4",
+                  compact
+                    ? "py-1"
+                    : "rounded-xl border border-black/5 bg-black/5 p-4 dark:border-white/5 dark:bg-black/20",
+                )}>
+                  <div className="flex min-w-0 flex-col gap-1">
                     <div className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
                       {t("settings.appearance.contrastAssist", "Contrast Assist")}
                     </div>
-                    <div className="text-xs text-zinc-500 dark:text-zinc-400">
-                      {t("settings.appearance.contrastAssistDesc", "Increase visual contrast for text and UI surfaces.")}
-                    </div>
+                    {!compact ? (
+                      <div className="text-xs text-zinc-500 dark:text-zinc-400">
+                        {t("settings.appearance.contrastAssistDesc", "Increase visual contrast for text and UI surfaces.")}
+                      </div>
+                    ) : null}
                   </div>
                   <SettingsToggle
                     checked={accessibility.preferences.contrastAssist}
@@ -397,15 +398,18 @@ export default function AppearanceSettingsTabPanel(): React.JSX.Element {
                   />
                 </div>
               </div>
-            </div>
-            <SettingsActionStatus
-              title={t("settings.appearance.statusTitle", "Appearance")}
-              phase={appearanceActionPhase}
-              message={appearanceActionMessage || undefined}
-              summary={t("settings.appearance.statusSummary", "Customize and reset appearance preferences.")}
-            />
+            </SettingsCompactSection>
+
+            {(!compact || appearanceActionPhase !== "idle" || appearanceActionMessage) ? (
+              <SettingsActionStatus
+                title={t("settings.appearance.statusTitle", "Appearance")}
+                phase={appearanceActionPhase}
+                message={appearanceActionMessage || undefined}
+                summary={t("settings.appearance.statusSummary", "Customize and reset appearance preferences.")}
+              />
+            ) : null}
           </div>
-        </Card>
+        </SettingsCompactCard>
 
     </>
   );

@@ -15,9 +15,12 @@ import {
 } from "../../../services/community-mode-contract";
 import type { CommunityStewardPolicy } from "../../../services/community-steward-policy";
 import { CommunityBotsSection } from "../community-bots-section";
+import { CommunityBotTriggersSection } from "../community-bot-triggers-section";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
+import type { CommunityBotTriggerEntry } from "../../../services/community-bot-triggers-policy";
 import type { GroupAccessMode } from "../../../types";
-import { mgmtFieldClass, mgmtSectionClass, mgmtTextareaClass } from "../constants";
+import { mgmtFieldClass, mgmtSectionClass, mgmtCompactSectionClass, mgmtTextareaClass } from "../constants";
+import { useMobileCompactLayout } from "@/app/features/runtime/use-mobile-compact-layout";
 
 export function GroupManagementGeneralPanel({
     editName,
@@ -39,6 +42,8 @@ export function GroupManagementGeneralPanel({
     managedWorkspaceRelayGate,
     editBotPubkeys,
     onEditBotPubkeysChange,
+    editBotTriggers,
+    onEditBotTriggersChange,
     requiresGovernanceProposal,
 }: Readonly<{
     editName: string;
@@ -60,14 +65,18 @@ export function GroupManagementGeneralPanel({
     managedWorkspaceRelayGate: ManagedWorkspaceRelayGate;
     editBotPubkeys: ReadonlyArray<PublicKeyHex>;
     onEditBotPubkeysChange: (next: ReadonlyArray<PublicKeyHex>) => void;
+    editBotTriggers: ReadonlyArray<CommunityBotTriggerEntry>;
+    onEditBotTriggersChange: (next: ReadonlyArray<CommunityBotTriggerEntry>) => void;
     /** When true, saving (including bots) goes through governance proposal. */
     requiresGovernanceProposal: boolean;
 }>): React.JSX.Element {
     const managedSettingsBlocked = isManagedWorkspaceRelayGateBlocking(managedWorkspaceRelayGate);
+    const compact = useMobileCompactLayout();
+    const sectionClass = compact ? mgmtCompactSectionClass : mgmtSectionClass;
 
     return (
-        <div className="mx-auto max-w-2xl space-y-5">
-            <section className={mgmtSectionClass}>
+        <div className={cn("mx-auto max-w-2xl", compact ? "space-y-3" : "space-y-5")}>
+            <section className={sectionClass}>
                 <Label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Avatar</Label>
                 <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:items-center">
                     <div className="relative shrink-0 self-start">
@@ -97,16 +106,18 @@ export function GroupManagementGeneralPanel({
                             </button>
                         ) : null}
                     </div>
-                    <p className="text-sm text-zinc-500">
-                        Shown in discovery and on your community home. Square image, at least 256×256, max 5&nbsp;MB.
-                    </p>
+                    {!compact ? (
+                        <p className="text-sm text-zinc-500">
+                            Shown in discovery and on your community home. Square image, at least 256×256, max 5&nbsp;MB.
+                        </p>
+                    ) : null}
                 </div>
             </section>
 
-            <section className={mgmtSectionClass}>
+            <section className={sectionClass}>
                 <div className="space-y-4">
                     <div className="space-y-2">
-                        <Label htmlFor="community-name" className="text-sm font-medium text-zinc-300">
+                        <Label htmlFor="community-name" className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
                             Community name
                         </Label>
                         <Input
@@ -119,7 +130,7 @@ export function GroupManagementGeneralPanel({
                         />
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="community-about" className="text-sm font-medium text-zinc-300">
+                        <Label htmlFor="community-about" className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
                             About
                         </Label>
                         <Textarea
@@ -134,9 +145,9 @@ export function GroupManagementGeneralPanel({
                 </div>
             </section>
 
-            <section className={mgmtSectionClass}>
-                <Label className="text-sm font-medium text-zinc-300">Who can find this community</Label>
-                <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+            <section className={sectionClass}>
+                <Label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Who can find this community</Label>
+                <div className={cn("mt-3 grid gap-2", compact ? "grid-cols-3" : "grid-cols-1 sm:grid-cols-3")}>
                     {(["open", "discoverable", "invite-only"] as const).map((mode) => (
                         <button
                             key={mode}
@@ -144,10 +155,11 @@ export function GroupManagementGeneralPanel({
                             disabled={!isAdmin || managedSettingsBlocked}
                             onClick={() => setEditAccess(mode)}
                             className={cn(
-                                "flex flex-col items-center gap-1.5 rounded-lg border px-3 py-3 text-center text-xs font-medium transition-colors disabled:opacity-50",
+                                "flex flex-col items-center gap-1.5 rounded-lg border px-2 py-2.5 text-center text-xs font-medium transition-colors disabled:opacity-50",
+                                compact ? "py-2" : "px-3 py-3",
                                 editAccess === mode
-                                    ? "border-violet-500/50 bg-violet-600/15 text-violet-100"
-                                    : "border-zinc-700 bg-zinc-900 text-zinc-400 hover:border-zinc-600",
+                                    ? "border-violet-500/60 bg-violet-100 text-violet-900 dark:border-violet-500/50 dark:bg-violet-600/15 dark:text-violet-100"
+                                    : "border-zinc-300 bg-white text-zinc-700 hover:border-zinc-400 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:border-zinc-600",
                             )}
                         >
                             {mode === "open" ? <Globe className="h-4 w-4" /> : null}
@@ -160,40 +172,59 @@ export function GroupManagementGeneralPanel({
             </section>
 
             {communityMode === "managed_workspace" && isAdmin ? (
-                <CommunityBotsSection
-                    botPubkeys={editBotPubkeys}
-                    onChange={onEditBotPubkeysChange}
-                    disabled={managedSettingsBlocked}
-                    requiresGovernanceProposal={requiresGovernanceProposal}
-                />
+                <>
+                    <CommunityBotsSection
+                        botPubkeys={editBotPubkeys}
+                        onChange={onEditBotPubkeysChange}
+                        disabled={managedSettingsBlocked}
+                        requiresGovernanceProposal={requiresGovernanceProposal}
+                    />
+                    <CommunityBotTriggersSection
+                        botPubkeys={editBotPubkeys}
+                        botTriggers={editBotTriggers}
+                        onChange={onEditBotTriggersChange}
+                        disabled={managedSettingsBlocked}
+                        requiresGovernanceProposal={requiresGovernanceProposal}
+                    />
+                </>
             ) : null}
 
             {requiresMemberVote && isAdmin ? (
-                <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-100">
+                <p className="rounded-lg border border-amber-500/35 bg-amber-50 px-3 py-2 text-xs text-amber-950 sm:text-sm dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
                     This community has multiple members. Saving will create a governance proposal instead of applying immediately.
                 </p>
             ) : null}
             {communityMode === "managed_workspace" && stewardPolicy.isDesignatedSteward && isAdmin ? (
-                <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-100">
+                <p className="rounded-lg border border-emerald-500/35 bg-emerald-50 px-3 py-2 text-xs text-emerald-950 sm:text-sm dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-100">
                     You are a designated steward — descriptor and member removal can apply without a community vote.
                 </p>
             ) : null}
 
-            <details className="rounded-xl border border-zinc-800 bg-zinc-900/30 px-4 py-3">
-                <summary className="cursor-pointer text-sm font-medium text-zinc-400">Relay & protocol details</summary>
+            <details className={cn(sectionClass, "px-4 py-3")}>
+                <summary className="cursor-pointer text-sm font-medium text-zinc-600 dark:text-zinc-400">
+                    {compact ? "Relay & protocol" : "Relay & protocol details"}
+                </summary>
                 <div className="mt-4 space-y-3">
-                    <CommunityModeBadge
-                        mode={communityMode}
-                        enabledRelayUrls={[relayUrl].filter(Boolean)}
-                        selectedRelayHost={relayUrl}
-                        className="w-full"
-                    />
-                    <RelayCapabilityBadge
-                        capabilities={relayCapabilities}
-                        relayUrl={relayUrl}
-                        isLoading={isRelayCapabilitiesLoading}
-                        className="w-full"
-                    />
+                    {!compact ? (
+                        <>
+                            <CommunityModeBadge
+                                mode={communityMode}
+                                enabledRelayUrls={[relayUrl].filter(Boolean)}
+                                selectedRelayHost={relayUrl}
+                                className="w-full"
+                            />
+                            <RelayCapabilityBadge
+                                capabilities={relayCapabilities}
+                                relayUrl={relayUrl}
+                                isLoading={isRelayCapabilitiesLoading}
+                                className="w-full"
+                            />
+                        </>
+                    ) : (
+                        <p className="text-xs text-zinc-500 truncate" title={relayUrl}>
+                            Relay: {relayUrl.replace(/^wss?:\/\//, "")}
+                        </p>
+                    )}
                     {communityMode === "managed_workspace" ? (
                         <p className="text-xs text-zinc-500">
                             Authority: {stewardPolicy.authorityMode.replace(/_/g, " ")}

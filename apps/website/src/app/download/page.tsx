@@ -49,7 +49,7 @@ const getPlatformIcon = (family: string) => {
 };
 
 const formatSize = (sizeBytes: number): string =>
-  `${(sizeBytes / 1024 / 1024).toFixed(1)} MB`;
+  sizeBytes > 0 ? `${(sizeBytes / 1024 / 1024).toFixed(1)} MB` : "channel artifact";
 
 function detectPlatform(userAgent: string): string {
   const ua = userAgent.toLowerCase();

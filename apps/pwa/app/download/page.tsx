@@ -6,18 +6,14 @@ import { Button } from "@dweb/ui-kit";
 import { Card } from "@dweb/ui-kit";
 import { Apple, Download, Monitor, Smartphone, Terminal } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import {
+  fetchRepoChannelDownloadRelease,
+  type RepoChannelDownloadAsset,
+  type RepoChannelDownloadRelease,
+} from "@/app/features/updates/services/repo-update-channel";
 
-type Asset = {
-  name: string;
-  browser_download_url: string;
-  size: number;
-};
-
-type Release = {
-  tag_name: string;
-  assets: Asset[];
-  body: string;
-};
+type Asset = RepoChannelDownloadAsset;
+type Release = RepoChannelDownloadRelease;
 
 const ESSENTIAL_EXTENSIONS = ['.exe', '.dmg', '.AppImage'];
 
@@ -35,16 +31,12 @@ export default function DownloadPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("https://api.github.com/repos/Dendro-X0/Obscur/releases/latest")
-      .then(res => {
-        if (!res.ok) throw new Error("Failed to fetch release");
-        return res.json();
-      })
-      .then(data => {
+    void fetchRepoChannelDownloadRelease()
+      .then((data) => {
         setRelease(data);
         setLoading(false);
       })
-      .catch(err => {
+      .catch((err) => {
         console.error(err);
         setLoading(false);
       });
@@ -114,7 +106,9 @@ export default function DownloadPage() {
             )}
             <p className="text-sm text-zinc-500">
               {bestAsset
-                ? t("download.recommendedForYourDevice", { size: (bestAsset.size / 1024 / 1024).toFixed(1) })
+                ? bestAsset.size > 0
+                  ? t("download.recommendedForYourDevice", { size: (bestAsset.size / 1024 / 1024).toFixed(1) })
+                  : t("download.chooseVersion")
                 : t("download.chooseVersion")
               }
             </p>
@@ -135,7 +129,9 @@ export default function DownloadPage() {
                       </div>
                       <div className="flex flex-col">
                         <span className="font-medium text-sm text-zinc-900 dark:text-zinc-100">{asset.name}</span>
-                        <span className="text-xs text-zinc-500">{(asset.size / 1024 / 1024).toFixed(1)} MB</span>
+                        <span className="text-xs text-zinc-500">
+                          {asset.size > 0 ? `${(asset.size / 1024 / 1024).toFixed(1)} MB` : "repo channel"}
+                        </span>
                       </div>
                     </div>
                     <Button variant="outline" size="sm" asChild>

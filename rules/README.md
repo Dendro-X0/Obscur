@@ -26,6 +26,7 @@
 | 09 | [Anti-patterns](./09-anti-patterns.md) | Before merging risky changes |
 | 10 | [Recovery heuristic](./10-recovery-heuristic.md) | Broken core flows |
 | 11 | [Feasibility and modular safety](./11-feasibility-and-modular-safety.md) | Stalled features, infeasible goals, regression-safe iteration |
+| 13 | [Navigation performance](./13-navigation-performance.md) | Sidebar/route changes, warm-up, shell layout, perf regressions |
 
 ---
 

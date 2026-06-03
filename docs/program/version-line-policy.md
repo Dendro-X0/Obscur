@@ -20,6 +20,7 @@
 - Do **not** skip a band opener (`v1.8.0`, `v1.9.0`, …).
 - Do **not** jump minor versions without a roadmap/handoff note (e.g. `v1.7.3` → `v1.8.1` without `v1.8.0`).
 - One user-visible milestone per **patch** tag when possible.
+- **Do not bump version for CI-only changes** — see [maintainer-distribution-policy.md](./maintainer-distribution-policy.md).
 - `apps/coordination` is **not** on the release version line yet (worker deploy is independent).
 
 ---
@@ -34,15 +35,15 @@
 | `pnpm version:sync` | Propagate root version to PWA, desktop, Tauri, packages, Android `tauri.properties` |
 | `pnpm version:check` | Fail CI if any release-tracked manifest drifts |
 
-**Tag workflow**
+**Tag workflow (optional — feature milestones only)**
 
-1. Land milestone on `main` with tests/gate evidence.
+1. Land **user-visible** milestone on `main` with tests/gate evidence.
 2. `pnpm version:bump patch` (or `minor` when opening a band).
 3. `pnpm version:check`.
-4. Update `CHANGELOG.md` + `docs/releases/v1.8.4-gate.md` (replace version in filename per release).
-5. Commit, tag `vX.Y.Z`, push tag.
+4. Update `CHANGELOG.md` + matching `docs/releases/v1.8.14-release.md` (versioned filename per release).
+5. Commit; tag `vX.Y.Z` only if you want a source archive pointer — **GitHub Release publish is optional** ([maintainer-distribution-policy.md](./maintainer-distribution-policy.md)).
 
-Staying on `v1.8.3` while shipping large slices is **expected during development**; the version increments at **tag time**, not per commit.
+Staying on one semver while shipping large slices is **expected**; increment only when the milestone is worth naming, not for CI fixes.
 
 ---
 

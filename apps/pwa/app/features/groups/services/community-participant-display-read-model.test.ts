@@ -19,6 +19,21 @@ const PK_A = "aa".repeat(32) as PublicKeyHex;
 const PK_B = "bb".repeat(32) as PublicKeyHex;
 
 describe("community-participant-display-read-model", () => {
+  it("excludes left/expelled pubkeys from coordination active display even if still listed active", () => {
+    const display = resolveCommunityParticipantDisplayPubkeys({
+      communityMode: "managed_workspace",
+      coordinationDirectory: {
+        activeMemberPubkeys: [PK_A, PK_B],
+        leftMemberPubkeys: [PK_B],
+        expelledMemberPubkeys: [],
+        headSeq: 4,
+      },
+      monotonicDisplayPubkeys: [PK_A, PK_B],
+      localMemberPubkey: PK_A,
+    });
+    expect(display).toEqual([PK_A]);
+  });
+
   it("shows coordination active members after a peer leaves", () => {
     const display = resolveCommunityParticipantDisplayPubkeys({
       communityMode: "managed_workspace",

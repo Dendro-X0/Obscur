@@ -22,6 +22,7 @@ import { subscribeAccountRestoreMaterializationStartedDual } from "@/app/feature
 import { subscribeCommunityMembershipLedgerUpdatedDual } from "@/app/features/profiles/services/subscribe-community-membership-ledger-updated-dual";
 import { subscribeGroupInviteAcceptedDual } from "@/app/features/profiles/services/subscribe-group-invite-accepted-dual";
 import { subscribeGroupInviteReceivedDual } from "@/app/features/profiles/services/subscribe-group-invite-received-dual";
+import { subscribeGroupInviteTerminalDual } from "@/app/features/profiles/services/subscribe-group-invite-terminal-dual";
 import { subscribeCommunityMembershipIngress } from "@/app/features/profiles/services/subscribe-community-membership-ingress";
 import { applyCommunityMembershipIngress } from "@/app/features/groups/services/apply-community-membership-ingress";
 import type { CommunityMembershipIngressDetail } from "@/app/features/groups/services/community-membership-ingress-contract";
@@ -94,6 +95,10 @@ import {
 import {
     inferPersistedGroupsFromChatStateEvidence,
 } from "@/app/features/groups/services/community-membership-reconstruction";
+import {
+    persistTerminalInvitePeerLeftEvidence,
+    removePubkeyFromMemberList,
+} from "../services/community-invite-terminal-membership";
 import { enqueueCommunityLeaveOutboxItem } from "@/app/features/groups/services/community-leave-outbox";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import {
@@ -1372,6 +1377,111 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 return next;
             });
         };
+        const handleInviteTerminalDetail = (detail: {
+            groupId?: string;
+            relayUrl?: string;
+            communityId?: string;
+            memberPubkey?: string;
+            recipientPublicKeyHex?: string;
+            responseStatus?: "declined" | "canceled";
+        }) => {
+            const groupId = detail?.groupId?.trim();
+            const memberPubkey = detail?.memberPubkey?.trim();
+            const relayHint = detail?.relayUrl?.trim();
+            if (!groupId || !memberPubkey || !relayHint) {
+                return;
+            }
+            const localPublicKey = getPublicKeyHex();
+            const eventRecipient = detail?.recipientPublicKeyHex?.trim();
+            if (eventRecipient && localPublicKey && eventRecipient !== localPublicKey) {
+                logAppEvent({
+                    name: "groups.event_quarantined_identity_mismatch",
+                    level: "warn",
+                    scope: { feature: "groups", action: "invite_terminal" },
+                    context: {
+                        reason: "recipient_pubkey_mismatch",
+                        eventRecipientSuffix: eventRecipient.slice(-8),
+                        localPublicKeySuffix: localPublicKey.slice(-8),
+                        groupId,
+                    },
+                });
+                return;
+            }
+            const communityHint = detail?.communityId?.trim();
+            const profileId = getResolvedProfileId();
+            persistTerminalInvitePeerLeftEvidence({
+                groupId,
+                relayUrl: relayHint,
+                peerPublicKeyHex: memberPubkey as PublicKeyHex,
+                responseStatus: detail.responseStatus === "canceled" ? "canceled" : "declined",
+                profileId,
+            });
+
+            setCreatedGroups((prev) => {
+                let changed = false;
+                const next = prev.map((group) => {
+                    const matchesGroup = group.groupId === groupId;
+                    const matchesRelay = group.relayUrl === relayHint;
+                    const matchesCommunity = communityHint ? group.communityId === communityHint : true;
+                    if (!matchesGroup || !matchesRelay || !matchesCommunity) {
+                        return group;
+                    }
+                    const nextMembers = dedupePubkeys(removePubkeyFromMemberList(group.memberPubkeys, memberPubkey));
+                    if (nextMembers.join(",") === group.memberPubkeys.join(",")) {
+                        return group;
+                    }
+                    changed = true;
+                    return sanitizeGroup({
+                        ...group,
+                        memberPubkeys: nextMembers,
+                        memberCount: Math.max(1, nextMembers.length),
+                    });
+                });
+                const matchedGroupForRoster = next.find((group) => {
+                    const matchesGroup = group.groupId === groupId;
+                    const matchesRelay = group.relayUrl === relayHint;
+                    const matchesCommunity = communityHint ? group.communityId === communityHint : true;
+                    return matchesGroup && matchesRelay && matchesCommunity;
+                });
+                if (matchedGroupForRoster) {
+                    upsertCommunityRosterProjection({
+                        group: matchedGroupForRoster,
+                        activeMemberPubkeys: matchedGroupForRoster.memberPubkeys,
+                    });
+                }
+                const pk = getPublicKeyHex();
+                if (pk && (changed || matchedGroupForRoster)) {
+                    chatStateStoreService.updateGroups(pk, next.map((group) => toPersistedGroupConversation(group)));
+                }
+                return next;
+            });
+
+            setCommunityKnownParticipantDirectoryByConversationId((previous) => {
+                let directoryChanged = false;
+                const next: Record<string, CommunityKnownParticipantDirectory> = { ...previous };
+                Object.entries(previous).forEach(([conversationId, directory]) => {
+                    if (directory.groupId !== groupId || directory.relayUrl !== relayHint) {
+                        return;
+                    }
+                    if (communityHint && directory.communityId !== communityHint) {
+                        return;
+                    }
+                    const filtered = dedupePubkeys(
+                        removePubkeyFromMemberList(directory.participantPubkeys, memberPubkey),
+                    ) as ReadonlyArray<PublicKeyHex>;
+                    if (filtered.join(",") === directory.participantPubkeys.join(",")) {
+                        return;
+                    }
+                    directoryChanged = true;
+                    next[conversationId] = {
+                        ...directory,
+                        participantPubkeys: filtered,
+                        participantCount: Math.max(1, filtered.length),
+                    };
+                });
+                return directoryChanged ? next : previous;
+            });
+        };
         const applyMembershipConfirmedDetail = (detail: {
             groupId?: string;
             relayUrl?: string;
@@ -2042,6 +2152,7 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             optionalProfileBus,
         );
         const unsubInviteDual = subscribeGroupInviteAcceptedDual(handleInviteAcceptedDetail, optionalProfileBus);
+        const unsubInviteTerminalDual = subscribeGroupInviteTerminalDual(handleInviteTerminalDetail, optionalProfileBus);
         const unsubMembershipConfirmedDual = subscribeGroupMembershipConfirmedDual(applyMembershipConfirmedDetail, optionalProfileBus);
         const unsubDescriptorUpdatedDual = subscribeGroupDescriptorUpdatedDual(applyDescriptorUpdatedDetail, optionalProfileBus);
         const unsubRemoveDual = subscribeGroupRemoveDual(handleGroupRemoveConversationId, optionalProfileBus);
@@ -2058,6 +2169,7 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return () => {
             unsubInviteReceivedDual();
             unsubInviteDual();
+            unsubInviteTerminalDual();
             unsubMembershipConfirmedDual();
             unsubDescriptorUpdatedDual();
             unsubRemoveDual();

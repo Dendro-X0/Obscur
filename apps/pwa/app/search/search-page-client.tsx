@@ -25,6 +25,7 @@ import { useProfile } from "@/app/features/profile/hooks/use-profile";
 import { useResolvedProfileMetadata } from "@/app/features/profile/hooks/use-resolved-profile-metadata";
 import { ProfileCompletenessIndicator } from "@/app/features/profile/components/profile-completeness-indicator";
 import { useGlobalSearch } from "@/app/features/search/hooks/use-global-search";
+import { useMobileCompactLayout } from "@/app/features/runtime/use-mobile-compact-layout";
 import { useIdentityResolver } from "@/app/features/search/hooks/use-identity-resolver";
 import { getPublicGroupHref, getPublicProfileHref } from "@/app/features/navigation/public-routes";
 import { useContactRequestOutbox } from "@/app/features/search/hooks/use-contact-request-outbox";
@@ -273,6 +274,7 @@ export default function SearchPage() {
   const publicKeyHex = (identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex ?? null) as PublicKeyHex | null;
   const privateKeyHex = (identity.state.privateKeyHex ?? null) as PrivateKeyHex | null;
   const navBadges = useNavBadges({ publicKeyHex });
+  const isMobileDiscoveryCompact = useMobileCompactLayout();
   const [privacySettings, setPrivacySettings] = useState(() => PrivacySettingsService.getSettings());
   const rolloutPolicy = useMemo(() => getV090RolloutPolicy(privacySettings), [privacySettings]);
   const discoveryFeatureFlags = useMemo(() => PrivacySettingsService.getDiscoveryFeatureFlags(privacySettings), [privacySettings]);
@@ -885,21 +887,51 @@ export default function SearchPage() {
   return (
     <PageShell title={t("search.title", "Discovery")} navBadgeCounts={navBadges.navBadgeCounts} hideHeader>
       <div className="flex h-full flex-col bg-background">
-        <div className="sticky top-0 z-30 border-b border-border/50 bg-background/90 px-3 py-3 backdrop-blur-xl sm:px-4 sm:py-4">
+        <div className="sticky top-0 z-30 border-b border-border/50 bg-background/90 px-3 py-2 backdrop-blur-xl sm:px-4 sm:py-4">
           <div className="mx-auto w-full max-w-6xl">
             <div>
-                <div className="relative overflow-hidden rounded-[26px] border border-black/10 bg-[radial-gradient(circle_at_top,_rgba(129,140,248,0.24),_transparent_55%),linear-gradient(180deg,rgba(255,255,255,0.94),rgba(244,247,255,0.9))] px-4 py-4 shadow-[0_28px_80px_rgba(15,23,42,0.16)] sm:rounded-[36px] sm:px-6 sm:py-6 dark:border-border/60 dark:bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.16),_transparent_48%),linear-gradient(180deg,rgba(10,16,34,0.76),rgba(6,10,22,0.92))] dark:shadow-[0_28px_80px_rgba(0,0,0,0.22)]">
-                  <div aria-hidden="true" className="pointer-events-none absolute -right-12 -top-14 h-36 w-36 rounded-full bg-indigo-500/20 blur-3xl dark:bg-indigo-400/20" />
-                  <div aria-hidden="true" className="pointer-events-none absolute -bottom-20 -left-10 h-40 w-40 rounded-full bg-blue-500/10 blur-3xl dark:bg-blue-400/15" />
-                  <div className="relative mx-auto max-w-4xl text-center">
-                    <p className="text-[10px] font-black uppercase tracking-[0.28em] text-zinc-600 dark:text-zinc-400">{t("search.discovery.hero.eyebrow", "Discovery")}</p>
-                    <h1 className="mx-auto mt-2.5 max-w-[16ch] text-[1.55rem] font-black leading-[1.06] tracking-tight text-zinc-950 dark:text-zinc-100 sm:mt-3 sm:max-w-none sm:text-4xl">{t("search.discovery.hero.title", "One search box for your network")}</h1>
-                    <p className="mx-auto mt-2.5 max-w-[30ch] text-[0.95rem] leading-relaxed text-zinc-700 dark:text-zinc-300 sm:mt-3 sm:max-w-3xl sm:text-base">
-                      {t("search.discovery.hero.desc", "Find people and communities, then open their public profile or switch to direct add when you already have a private contact token.")}
-                    </p>
+                <div className={cn(
+                  "relative overflow-hidden border border-black/10 bg-[radial-gradient(circle_at_top,_rgba(129,140,248,0.24),_transparent_55%),linear-gradient(180deg,rgba(255,255,255,0.94),rgba(244,247,255,0.9))] shadow-[0_28px_80px_rgba(15,23,42,0.16)] dark:border-border/60 dark:bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.16),_transparent_48%),linear-gradient(180deg,rgba(10,16,34,0.76),rgba(6,10,22,0.92))] dark:shadow-[0_28px_80px_rgba(0,0,0,0.22)]",
+                  isMobileDiscoveryCompact
+                    ? "rounded-2xl px-3 py-3 shadow-none"
+                    : "rounded-[26px] px-4 py-4 sm:rounded-[36px] sm:px-6 sm:py-6",
+                )}>
+                  {!isMobileDiscoveryCompact ? (
+                    <>
+                      <div aria-hidden="true" className="pointer-events-none absolute -right-12 -top-14 h-36 w-36 rounded-full bg-indigo-500/20 blur-3xl dark:bg-indigo-400/20" />
+                      <div aria-hidden="true" className="pointer-events-none absolute -bottom-20 -left-10 h-40 w-40 rounded-full bg-blue-500/10 blur-3xl dark:bg-blue-400/15" />
+                    </>
+                  ) : null}
+                  <div className={cn(
+                    "relative mx-auto max-w-4xl",
+                    isMobileDiscoveryCompact ? "text-left" : "text-center",
+                  )}>
+                    {!isMobileDiscoveryCompact ? (
+                      <p className="text-[10px] font-black uppercase tracking-[0.28em] text-zinc-600 dark:text-zinc-400">{t("search.discovery.hero.eyebrow", "Discovery")}</p>
+                    ) : null}
+                    <h1 className={cn(
+                      "font-black tracking-tight text-zinc-950 dark:text-zinc-100",
+                      isMobileDiscoveryCompact
+                        ? "mt-0 text-lg leading-snug"
+                        : "mx-auto mt-2.5 max-w-[16ch] text-[1.55rem] leading-[1.06] sm:mt-3 sm:max-w-none sm:text-4xl",
+                    )}>
+                      {isMobileDiscoveryCompact
+                        ? t("search.discovery.hero.titleCompact", "Search")
+                        : t("search.discovery.hero.title", "One search box for your network")}
+                    </h1>
+                    {!isMobileDiscoveryCompact ? (
+                      <p className="mx-auto mt-2.5 max-w-[30ch] text-[0.95rem] leading-relaxed text-zinc-700 dark:text-zinc-300 sm:mt-3 sm:max-w-3xl sm:text-base">
+                        {t("search.discovery.hero.desc", "Find people and communities, then open their public profile or switch to direct add when you already have a private contact token.")}
+                      </p>
+                    ) : null}
                   </div>
 
-                  <form onSubmit={handleSearch} className="mx-auto mt-4 grid w-full max-w-4xl grid-cols-[1fr_auto] items-center gap-2 rounded-[20px] border border-black/10 bg-white/85 p-2 shadow-[0_12px_40px_rgba(15,23,42,0.14)] ring-1 ring-white/35 sm:mt-6 sm:gap-3 sm:rounded-[28px] sm:p-3 dark:border-border/60 dark:bg-background/80 dark:ring-white/10 dark:shadow-[0_12px_40px_rgba(0,0,0,0.18)]">
+                  <form onSubmit={handleSearch} className={cn(
+                    "mx-auto grid w-full max-w-4xl grid-cols-[1fr_auto] items-center gap-2 rounded-[20px] border border-black/10 bg-white/85 p-2 ring-1 ring-white/35 dark:border-border/60 dark:bg-background/80 dark:ring-white/10",
+                    isMobileDiscoveryCompact
+                      ? "mt-3 rounded-xl shadow-none"
+                      : "mt-4 shadow-[0_12px_40px_rgba(15,23,42,0.14)] sm:mt-6 sm:gap-3 sm:rounded-[28px] sm:p-3 dark:shadow-[0_12px_40px_rgba(0,0,0,0.18)]",
+                  )}>
                     <div className="flex items-center gap-2 rounded-xl bg-background/55 px-3 py-2 sm:rounded-2xl sm:bg-transparent sm:px-1 sm:py-0">
                       <SearchIcon className="h-4 w-4 text-zinc-500 dark:text-muted-foreground" />
                       <Input
@@ -945,7 +977,10 @@ export default function SearchPage() {
                     </Button>
                   </form>
 
-                  <div className="mt-4 grid grid-cols-3 gap-2 sm:mt-5 sm:flex sm:flex-wrap sm:justify-center sm:gap-2">
+                  <div className={cn(
+                    "grid grid-cols-3 gap-1.5 sm:mt-5 sm:flex sm:flex-wrap sm:justify-center sm:gap-2",
+                    isMobileDiscoveryCompact ? "mt-3" : "mt-4",
+                  )}>
             {(["global", "add_friend", "communities"] as DiscoverySurface[]).map((target) => (
               <button
                 key={target}
@@ -978,7 +1013,10 @@ export default function SearchPage() {
                   }
                 }}
                 className={cn(
-                  "h-10 rounded-full border px-2 text-[10px] font-black uppercase tracking-[0.12em] transition-colors sm:h-10 sm:px-4 sm:text-[11px] sm:tracking-[0.16em]",
+                  "rounded-full border font-black uppercase transition-colors",
+                  isMobileDiscoveryCompact
+                    ? "h-9 px-1.5 text-[9px] tracking-[0.08em] sm:h-10 sm:px-4 sm:text-[11px] sm:tracking-[0.16em]"
+                    : "h-10 px-2 text-[10px] tracking-[0.12em] sm:px-4 sm:text-[11px] sm:tracking-[0.16em]",
                   surface === target
                     ? "border-primary bg-primary text-primary-foreground"
                     : "border-border bg-muted/40 text-muted-foreground hover:text-foreground"
@@ -993,6 +1031,7 @@ export default function SearchPage() {
             ))}
                   </div>
 
+                  {!isMobileDiscoveryCompact ? (
                   <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5 text-[9px] font-black uppercase tracking-[0.16em] text-zinc-600 sm:mt-5 sm:gap-2 sm:text-[10px] sm:tracking-[0.18em] dark:text-muted-foreground">
                     <span className="rounded-full border border-border/60 px-2.5 py-1 sm:px-3">
                       {surface === "add_friend"
@@ -1010,12 +1049,16 @@ export default function SearchPage() {
                       </>
                     )}
                   </div>
+                  ) : null}
                 </div>
             </div>
           </div>
         </div>
 
-        <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-5 overflow-y-auto px-3 py-5 pb-[calc(6.25rem+env(safe-area-inset-bottom))] sm:gap-6 sm:px-4 sm:py-6 sm:pb-24">
+        <div className={cn(
+          "mx-auto flex w-full max-w-6xl flex-1 flex-col overflow-y-auto px-3 pb-[calc(6.25rem+env(safe-area-inset-bottom))] sm:px-4 sm:pb-24",
+          isMobileDiscoveryCompact ? "gap-3 py-3" : "gap-5 py-5 sm:gap-6 sm:py-6",
+        )}>
           {surface === "add_friend" && (
             <div className="space-y-4">
               <div className="rounded-3xl border border-border/60 bg-card/70 p-5">
@@ -1429,7 +1472,7 @@ export default function SearchPage() {
             </div>
           )}
 
-          {surface !== "add_friend" && (
+          {surface !== "add_friend" && !isMobileDiscoveryCompact && (
             <div className="rounded-2xl border border-surface-contrast bg-gradient-surface-contrast p-3">
             <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-3">
             <span className="col-span-3 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground sm:col-auto">Source Status</span>
@@ -1534,7 +1577,7 @@ export default function SearchPage() {
             </div>
           )}
 
-          {surface !== "add_friend" && !query && recentSearches.length === 0 && (
+          {surface !== "add_friend" && !query && recentSearches.length === 0 && !isMobileDiscoveryCompact && (
             <div className="flex min-h-[28vh] flex-col items-center justify-center rounded-[28px] border border-border/60 bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.1),_transparent_55%),linear-gradient(180deg,rgba(255,255,255,0.65),rgba(255,255,255,0.25))] p-6 text-center sm:min-h-[35vh] sm:p-8 dark:bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.18),_transparent_52%),linear-gradient(180deg,rgba(10,16,34,0.55),rgba(6,10,22,0.45))]">
               <UserPlus className="mb-4 h-10 w-10 text-primary/70" />
               <h4 className="text-xl font-black sm:text-2xl">{t("search.discovery.start.title", "Start with a global search")}</h4>

@@ -151,7 +151,7 @@ export const SelectField: React.FC<SelectFieldProps> = ({
                           left: position.left,
                           width: position.width,
                           maxHeight: position.maxHeight,
-                          zIndex: 3000,
+                          zIndex: 5100,
                       }}
                       className={cn(
                           "overflow-y-auto rounded-xl border p-1 shadow-lg",

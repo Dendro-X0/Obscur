@@ -54,6 +54,40 @@ describe("toGovernanceReducerEventFromSealed", () => {
     expect(ev.payload).toEqual({ botPubkeys: [bot], name: "Test 8" });
   });
 
+  it("parses update_descriptor botTriggers in payload", () => {
+    const bot = "c".repeat(64);
+    const ev = toGovernanceReducerEventFromSealed(
+      {
+        type: "governance.proposed",
+        pubkey: ACTOR,
+        created_at: 1700,
+        proposalId: "p-triggers",
+        actionType: "update_descriptor",
+        quorumThreshold: 2,
+        payload: {
+          botTriggers: [{
+            botPubkey: bot,
+            enabled: true,
+            triggers: [{ kind: "mention", enabled: true, reply: "hi" }],
+          }],
+        },
+      },
+      "evt-triggers",
+      ACTOR,
+    );
+    expect(ev?.type).toBe("PROPOSED");
+    if (ev?.type !== "PROPOSED") {
+      return;
+    }
+    expect(ev.payload).toEqual({
+      botTriggers: [{
+        botPubkey: bot,
+        enabled: true,
+        triggers: [{ kind: "mention", enabled: true, reply: "hi" }],
+      }],
+    });
+  });
+
   it("parses governance.vote", () => {
     const ev = toGovernanceReducerEventFromSealed(
       {

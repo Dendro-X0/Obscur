@@ -44,10 +44,13 @@ import {
     shouldAutoScrollOnNewMessage,
 } from "./message-list-scroll";
 import { usePreferNativeTouchScroll } from "@/app/features/runtime/use-prefer-native-touch-scroll";
+import { useMobileThreadCompactCards } from "@/app/features/runtime/use-mobile-thread-compact-cards";
+import { useMobileCompactLayout } from "@/app/features/runtime/use-mobile-compact-layout";
+import { formatStructuredMessagePreview } from "@/app/features/messaging/services/format-structured-message-preview";
 import {
     MESSAGE_BUBBLE_ACTION_DOCK_HIDE_DELAY_MS,
-    MESSAGE_BUBBLE_LONG_PRESS_DELAY_MS,
-    shouldCancelMessageBubbleLongPress,
+    MESSAGE_BUBBLE_SUSTAIN_HOVER_DELAY_MS,
+    shouldCancelMessageBubbleSustainHover,
 } from "./message-list-touch";
 import { buildAttachmentBuckets, buildAttachmentPresentation } from "./message-attachment-layout";
 import { logAppEvent } from "@/app/shared/log-app-event";
@@ -229,6 +232,7 @@ function MessageListImpl({
 }: MessageListProps) {
     const { t } = useTranslation();
     const preferNativeTouchScroll = usePreferNativeTouchScroll();
+    const compactThreadCards = useMobileThreadCompactCards();
 
     const parentRef = React.useRef<HTMLDivElement>(null);
     const [chatPerformanceV2Enabled, setChatPerformanceV2Enabled] = React.useState<boolean>(() => PrivacySettingsService.getSettings().chatPerformanceV2);
@@ -1212,6 +1216,7 @@ function MessageListImpl({
                                         usedVoiceCallCallbackRoomIds={usedVoiceCallCallbackRoomIds}
                                         joiningVoiceCallInviteMessageId={joiningVoiceCallInviteMessageId}
                                         voiceCallStatus={voiceCallStatus}
+                                        compactThreadCards={compactThreadCards}
                                     />
                                 );
                             })}
@@ -1341,6 +1346,7 @@ type MessageRowProps = Readonly<{
         phase: "ringing_outgoing" | "ringing_incoming" | "connecting" | "connected" | "interrupted" | "ended";
         reasonCode?: "left_by_user" | "remote_left" | "network_interrupted" | "session_closed";
     }> | null;
+    compactThreadCards?: boolean;
 }>;
 
 const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps): React.JSX.Element {
@@ -1390,21 +1396,22 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
         usedVoiceCallCallbackRoomIds,
         joiningVoiceCallInviteMessageId,
         voiceCallStatus,
+        compactThreadCards = false,
     } = props;
+    const mobileCompact = useMobileCompactLayout();
+    const preferNativeTouchScroll = usePreferNativeTouchScroll();
     const menuAnchoredToThisMessage = isMessageMenuAnchored;
     const reactionAnchoredToThisMessage = isReactionPickerAnchored;
-    const [longPressDockVisible, setLongPressDockVisible] = React.useState(false);
     const [hoverDockVisible, setHoverDockVisible] = React.useState(false);
     const bubbleRef = React.useRef<HTMLDivElement | null>(null);
     const actionDockRef = React.useRef<HTMLDivElement | null>(null);
-    const longPressTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+    const sustainHoverTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
     const hoverDockHideTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-    const longPressStartRef = React.useRef<Readonly<{ x: number; y: number }> | null>(null);
-    const longPressTriggeredRef = React.useRef(false);
+    const sustainHoverStartRef = React.useRef<Readonly<{ x: number; y: number }> | null>(null);
+    const sustainHoverEngagedRef = React.useRef(false);
     const actionDockPinned = !batchDeleteMode && (
         menuAnchoredToThisMessage
         || reactionAnchoredToThisMessage
-        || longPressDockVisible
         || hoverDockVisible
     );
     const voiceCallInvitePayload = parsedPayload?.type === "voice-call-invite"
@@ -1417,6 +1424,13 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
         parsedPayload?.type === "community-invite"
         || parsedPayload?.type === "community-invite-response"
     );
+    const isEmbeddedThreadCard = (
+        isEmbeddedCommunityCard
+        || parsedPayload?.type === "voice-call-invite"
+    );
+    const renderedTextContent = compactThreadCards && textContent.trim().startsWith("{")
+        ? (formatStructuredMessagePreview(textContent) ?? textContent)
+        : textContent;
     const avatarPubkey = (
         message.senderPubkey?.trim()
         || (message.isOutgoing ? localMemberPubkey : null)
@@ -1439,10 +1453,10 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
         onOpenMessageMenu({ messageId: message.id, x: clientX, y: clientY });
     }, [batchDeleteMode, markMenuAnchorHover, message.id, onOpenMessageMenu]);
 
-    const clearLongPressTimer = React.useCallback((): void => {
-        if (longPressTimerRef.current !== null) {
-            clearTimeout(longPressTimerRef.current);
-            longPressTimerRef.current = null;
+    const clearSustainHoverTimer = React.useCallback((): void => {
+        if (sustainHoverTimerRef.current !== null) {
+            clearTimeout(sustainHoverTimerRef.current);
+            sustainHoverTimerRef.current = null;
         }
     }, []);
 
@@ -1466,53 +1480,72 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
         }, MESSAGE_BUBBLE_ACTION_DOCK_HIDE_DELAY_MS);
     }, [clearHoverDockHideTimer]);
 
-    const handleBubbleTouchStart = React.useCallback((event: React.TouchEvent<HTMLDivElement>): void => {
-        if (batchDeleteMode) {
+    const handleBubblePointerDown = React.useCallback((event: React.PointerEvent<HTMLDivElement>): void => {
+        if (batchDeleteMode || !preferNativeTouchScroll || event.pointerType !== "touch") {
             return;
         }
-        const touch = event.touches[0];
-        if (!touch) {
-            return;
-        }
-        longPressTriggeredRef.current = false;
-        longPressStartRef.current = {
-            x: touch.clientX,
-            y: touch.clientY,
+        clearSustainHoverTimer();
+        sustainHoverEngagedRef.current = false;
+        sustainHoverStartRef.current = {
+            x: event.clientX,
+            y: event.clientY,
         };
-        clearLongPressTimer();
-        longPressTimerRef.current = setTimeout(() => {
-            longPressTimerRef.current = null;
-            longPressTriggeredRef.current = true;
-            setLongPressDockVisible(true);
-        }, MESSAGE_BUBBLE_LONG_PRESS_DELAY_MS);
-    }, [batchDeleteMode, clearLongPressTimer]);
+        sustainHoverTimerRef.current = setTimeout(() => {
+            sustainHoverTimerRef.current = null;
+            sustainHoverEngagedRef.current = true;
+            showHoverDock();
+        }, MESSAGE_BUBBLE_SUSTAIN_HOVER_DELAY_MS);
+    }, [batchDeleteMode, clearSustainHoverTimer, preferNativeTouchScroll, showHoverDock]);
 
-    const handleBubbleTouchMove = React.useCallback((event: React.TouchEvent<HTMLDivElement>): void => {
-        const start = longPressStartRef.current;
-        const touch = event.touches[0];
-        if (!start || !touch) {
+    const handleBubblePointerMove = React.useCallback((event: React.PointerEvent<HTMLDivElement>): void => {
+        if (batchDeleteMode || !preferNativeTouchScroll || event.pointerType !== "touch") {
             return;
         }
-        if (shouldCancelMessageBubbleLongPress({
+        if (sustainHoverEngagedRef.current) {
+            return;
+        }
+        const start = sustainHoverStartRef.current;
+        if (!start) {
+            return;
+        }
+        if (shouldCancelMessageBubbleSustainHover({
             startX: start.x,
             startY: start.y,
-            currentX: touch.clientX,
-            currentY: touch.clientY,
+            currentX: event.clientX,
+            currentY: event.clientY,
         })) {
-            clearLongPressTimer();
-            longPressStartRef.current = null;
+            clearSustainHoverTimer();
+            sustainHoverStartRef.current = null;
         }
-    }, [clearLongPressTimer]);
+    }, [batchDeleteMode, clearSustainHoverTimer, preferNativeTouchScroll]);
 
-    const handleBubbleTouchEnd = React.useCallback((event: React.TouchEvent<HTMLDivElement>): void => {
-        clearLongPressTimer();
-        longPressStartRef.current = null;
-        if (longPressTriggeredRef.current) {
+    const handleBubblePointerUp = React.useCallback((event: React.PointerEvent<HTMLDivElement>): void => {
+        if (!preferNativeTouchScroll || event.pointerType !== "touch") {
+            return;
+        }
+        clearSustainHoverTimer();
+        sustainHoverStartRef.current = null;
+        if (sustainHoverEngagedRef.current) {
             event.preventDefault();
             event.stopPropagation();
-            longPressTriggeredRef.current = false;
         }
-    }, [clearLongPressTimer]);
+    }, [clearSustainHoverTimer, preferNativeTouchScroll]);
+
+    const handleBubblePointerLeave = React.useCallback((event: React.PointerEvent<HTMLDivElement>): void => {
+        if (!preferNativeTouchScroll || event.pointerType !== "touch") {
+            return;
+        }
+        if (sustainHoverEngagedRef.current) {
+            return;
+        }
+        clearSustainHoverTimer();
+        sustainHoverStartRef.current = null;
+        const nextTarget = event.relatedTarget;
+        if (nextTarget instanceof Node && actionDockRef.current?.contains(nextTarget)) {
+            return;
+        }
+        scheduleHoverDockHide();
+    }, [clearSustainHoverTimer, preferNativeTouchScroll, scheduleHoverDockHide]);
 
     const handleBubbleMouseEnter = React.useCallback((): void => {
         showHoverDock();
@@ -1548,49 +1581,44 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
     }, [scheduleHoverDockHide]);
 
     React.useEffect(() => {
-        if (!longPressDockVisible || typeof window === "undefined") {
+        if (!preferNativeTouchScroll || !hoverDockVisible || typeof window === "undefined") {
             return;
         }
         const handlePointerDown = (event: PointerEvent): void => {
             const target = event.target;
             if (!(target instanceof Node)) {
-                setLongPressDockVisible(false);
+                sustainHoverEngagedRef.current = false;
+                setHoverDockVisible(false);
                 return;
             }
             if (bubbleRef.current?.contains(target) || actionDockRef.current?.contains(target)) {
                 return;
             }
-            setLongPressDockVisible(false);
+            sustainHoverEngagedRef.current = false;
+            setHoverDockVisible(false);
         };
         window.addEventListener("pointerdown", handlePointerDown, { capture: true });
         return () => {
             window.removeEventListener("pointerdown", handlePointerDown, { capture: true });
         };
-    }, [longPressDockVisible]);
-
-    React.useEffect(() => {
-        if (!longPressDockVisible) {
-            return;
-        }
-        if (batchDeleteMode) {
-            setLongPressDockVisible(false);
-        }
-    }, [batchDeleteMode, longPressDockVisible]);
+    }, [hoverDockVisible, preferNativeTouchScroll]);
 
     React.useEffect(() => {
         if (!batchDeleteMode) {
             return;
         }
         clearHoverDockHideTimer();
+        clearSustainHoverTimer();
+        sustainHoverEngagedRef.current = false;
         setHoverDockVisible(false);
-    }, [batchDeleteMode, clearHoverDockHideTimer]);
+    }, [batchDeleteMode, clearHoverDockHideTimer, clearSustainHoverTimer]);
 
     React.useEffect(() => {
         return () => {
-            clearLongPressTimer();
+            clearSustainHoverTimer();
             clearHoverDockHideTimer();
         };
-    }, [clearHoverDockHideTimer, clearLongPressTimer]);
+    }, [clearHoverDockHideTimer, clearSustainHoverTimer]);
 
     if (parsedPayload?.type === "voice-call-signal") {
         return (
@@ -1700,24 +1728,30 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
                             });
                         }}
                         onMouseEnter={() => {
-                            if (!batchDeleteMode) {
+                            if (!batchDeleteMode && !preferNativeTouchScroll) {
                                 handleBubbleMouseEnter();
                             }
                         }}
                         onMouseLeave={(event) => {
-                            if (!batchDeleteMode) {
+                            if (!batchDeleteMode && !preferNativeTouchScroll) {
                                 handleBubbleMouseLeave(event);
                             }
                         }}
-                        onTouchStart={handleBubbleTouchStart}
-                        onTouchMove={handleBubbleTouchMove}
-                        onTouchEnd={handleBubbleTouchEnd}
-                        onTouchCancel={handleBubbleTouchEnd}
+                        onPointerDown={handleBubblePointerDown}
+                        onPointerMove={handleBubblePointerMove}
+                        onPointerUp={handleBubblePointerUp}
+                        onPointerCancel={handleBubblePointerUp}
+                        onPointerLeave={handleBubblePointerLeave}
+                        style={{ touchAction: preferNativeTouchScroll ? "manipulation" : undefined }}
                         className={cn(
-                            "relative min-w-0 max-w-[90%] sm:max-w-[80%] group",
+                            "relative min-w-0 group",
                             highLoadMode ? "transition-none" : "transition-all duration-200",
-                            hasVisualAttachments && "min-w-[300px] sm:min-w-[420px] max-w-[95%] sm:max-w-[88%]",
-                            isEmbeddedCommunityCard
+                            mobileCompact && actionDockPinned && "mb-11",
+                            compactThreadCards && isEmbeddedThreadCard
+                                ? "max-w-full w-full"
+                                : "max-w-[90%] sm:max-w-[80%]",
+                            hasVisualAttachments && !(compactThreadCards && isEmbeddedThreadCard) && "min-w-[300px] sm:min-w-[420px] max-w-[95%] sm:max-w-[88%]",
+                            isEmbeddedThreadCard
                                 ? "bg-transparent border-0 shadow-none text-inherit"
                                 : message.isOutgoing
                                 ? "bg-gradient-to-tr from-purple-600 to-indigo-500 text-white shadow-md shadow-purple-500/20 dark:from-zinc-100 dark:to-zinc-200 dark:text-zinc-900 dark:shadow-none"
@@ -1749,11 +1783,19 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
                                 onMouseEnter={handleActionDockMouseEnter}
                                 onMouseLeave={handleActionDockMouseLeave}
                                 className={cn(
-                                    "absolute z-20 top-1 flex flex-col gap-1.5 transition-all duration-150",
+                                    "absolute z-20 flex gap-1.5 transition-all duration-150",
+                                    mobileCompact
+                                        ? cn(
+                                            "top-full mt-1.5 left-0 right-0 flex-row",
+                                            message.isOutgoing ? "justify-end" : "justify-start",
+                                        )
+                                        : cn(
+                                            "top-1 flex-col",
+                                            message.isOutgoing ? "-left-12" : "-right-12",
+                                        ),
                                     actionDockPinned
                                         ? "opacity-100 translate-y-0 pointer-events-auto"
                                         : "opacity-0 translate-y-1 pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto",
-                                    message.isOutgoing ? "-left-12" : "-right-12",
                                 )}
                             >
                                 <Button
@@ -1786,7 +1828,7 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
                             </div>
                         ) : null}
 
-                        <div className={cn("px-4 py-2.5", isEmbeddedCommunityCard && "px-1.5 py-1")}>
+                        <div className={cn("px-4 py-2.5", isEmbeddedThreadCard && "px-1.5 py-1")}>
                             {message.deletedAt ? (
                                 <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest opacity-40 mb-1">
                                     <X className="h-3 w-3" /> {t("messaging.messageDeleted")}
@@ -1855,17 +1897,20 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
                                                 messages={conversationMessages}
                                                 responseStatus={inviteResponseStatus}
                                                 onSendDirectMessage={onSendDirectMessage}
+                                                compact={compactThreadCards}
                                             />
                                         ) : parsedPayload?.type === "community-invite-response" ? (
                                             <CommunityInviteResponseCard
                                                 response={parsedPayload as any}
                                                 isOutgoing={message.isOutgoing}
+                                                compact={compactThreadCards}
                                             />
                                         ) : parsedPayload?.type === "voice-call-invite" ? (
                                             voiceCallInvitePayload ? (
                                                 <VoiceCallInviteCard
                                                     invite={voiceCallInvitePayload}
                                                     isOutgoing={message.isOutgoing}
+                                                    compact={compactThreadCards}
                                                     isJoining={joiningVoiceCallInviteMessageId === message.id}
                                                     onJoinCall={onJoinVoiceCallInvite
                                                         ? (invite) => {
@@ -1893,8 +1938,8 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
                                             ) : null
                                         ) : (
                                             <>
-                                                <MessageContent content={textContent} isOutgoing={message.isOutgoing} />
-                                                {textContent ? <MessageLinkPreview content={textContent} isOutgoing={message.isOutgoing} /> : null}
+                                                <MessageContent content={renderedTextContent} isOutgoing={message.isOutgoing} />
+                                                {renderedTextContent ? <MessageLinkPreview content={renderedTextContent} isOutgoing={message.isOutgoing} /> : null}
                                                 {hasAttachmentRelayUrlsInContent ? (
                                                     <button
                                                         type="button"
@@ -1950,7 +1995,11 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
                         </div>
 
                         {(message.status === "rejected" || message.status === "failed") ? (
-                            <div className="absolute -right-16 top-1/2 -translate-y-1/2">
+                            <div className={cn(
+                                mobileCompact
+                                    ? "relative mt-2 flex justify-end"
+                                    : "absolute -right-16 top-1/2 -translate-y-1/2",
+                            )}>
                                 <Button
                                     type="button"
                                     variant="secondary"
@@ -1996,6 +2045,7 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
         prev.isBatchSelected === next.isBatchSelected &&
         prev.onToggleSelectMessage === next.onToggleSelectMessage &&
         prev.usedVoiceCallCallbackRoomIds === next.usedVoiceCallCallbackRoomIds &&
+        prev.compactThreadCards === next.compactThreadCards &&
         prev.admins === next.admins
     );
 });

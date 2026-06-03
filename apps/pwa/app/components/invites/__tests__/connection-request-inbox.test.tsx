@@ -47,13 +47,8 @@ vi.mock('@/app/features/network/providers/network-provider', () => ({
   }),
 }));
 
-vi.mock('@/app/features/messaging/hooks/use-enhanced-dm-controller', () => ({
-  useEnhancedDMController: () => ({}),
-  useEnhancedDmController: () => ({}),
-}));
-
-vi.mock('@/app/features/messaging/hooks/use-request-transport', () => ({
-  useRequestTransport: () => ({
+vi.mock('@/app/features/messaging/hooks/use-network-request-transport', () => ({
+  useNetworkRequestTransport: () => ({
     acceptIncomingRequest: mocks.acceptIncomingRequest,
     declineIncomingRequest: mocks.declineIncomingRequest,
   }),

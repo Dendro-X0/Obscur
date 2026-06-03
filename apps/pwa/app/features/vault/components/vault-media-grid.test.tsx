@@ -61,6 +61,11 @@ const createMediaItem = (overrides: Partial<VaultMediaItem> = {}): VaultMediaIte
 
 const vaultGridRoutingMocks = vi.hoisted(() => ({
   push: vi.fn(),
+  compactLayout: false,
+}));
+
+vi.mock("@/app/features/runtime/use-mobile-compact-layout", () => ({
+  useMobileCompactLayout: () => vaultGridRoutingMocks.compactLayout,
 }));
 
 vi.mock("next/navigation", () => ({
@@ -73,6 +78,7 @@ describe("VaultMediaGrid management actions", () => {
   beforeEach(() => {
     window.localStorage.clear();
     vaultGridRoutingMocks.push.mockReset();
+    vaultGridRoutingMocks.compactLayout = false;
   });
 
   it("removes an item into the dedicated Removed filter and allows restoring it", () => {
@@ -246,5 +252,36 @@ describe("VaultMediaGrid management actions", () => {
     await waitFor(() => {
       expect(downloadToLocalPath).toHaveBeenCalledWith(expect.objectContaining({ id: item.id }));
     });
+  });
+});
+
+describe("VaultMediaGrid compact touch targets", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    vaultGridRoutingMocks.compactLayout = true;
+  });
+
+  it("uses compact filter rail and 44px-class touch targets", () => {
+    const item = createMediaItem();
+
+    render(
+      <VaultMediaGrid
+        mediaItems={[item]}
+        isLoading={false}
+        stats={{ imageCount: 1, videoCount: 0, audioCount: 0, fileCount: 0, total: 1 }}
+        refresh={() => undefined}
+        downloadToLocalPath={async () => true}
+        deleteLocalCopy={async () => undefined}
+      />,
+    );
+
+    const filterRail = screen.getByTestId("vault-compact-filters");
+    expect(filterRail).toHaveClass("mobile-scroll-region");
+
+    const imageFilter = screen.getByRole("button", { name: /Images/i });
+    expect(imageFilter.className).toContain("min-h-[44px]");
+
+    const menuButton = screen.getByLabelText(`Vault item actions for ${item.attachment.fileName}`);
+    expect(menuButton.className).toContain("h-11");
   });
 });

@@ -33,10 +33,6 @@ vi.mock("@/app/features/messaging/services/chat-state-store", () => ({
   },
 }));
 
-vi.mock("@/app/features/profiles/services/account-shared-sqlite-profile-ids", () => ({
-  listAccountSharedSqliteProfileIds: ({ primaryProfileId }: { primaryProfileId: string }) => [primaryProfileId],
-}));
-
 import { runSecondaryProfileDmSoftRefresh } from "./secondary-profile-dm-soft-refresh";
 
 describe("runSecondaryProfileDmSoftRefresh", () => {

@@ -3,6 +3,7 @@ import {
   ROUTE_CLIENT_CHUNK_LOADERS,
   type SidebarRouteHref,
 } from "@/app/lib/navigation/sidebar-routes";
+import { assertNavigationChunkLoadAuthorized } from "./navigation-chunk-load-authority";
 
 export { ROUTE_CLIENT_CHUNK_LOADERS, preloadGroupHomePageClient };
 
@@ -27,21 +28,39 @@ export type RouteNavigationWarmupResult = Readonly<{
   status: "fulfilled" | "rejected";
 }>;
 
+export type RouteNavigationWarmupMode = "shell-only" | "full";
+
 const isSidebarRouteHref = (href: string): href is SidebarRouteHref => (
   href in ROUTE_CLIENT_CHUNK_LOADERS
 );
 
 /**
- * Prefetch the Next route shell and eagerly load client page chunks so the first
- * sidebar click does not pay dynamic-import latency.
+ * Prefetch only the Next route shell. Safe on hover / intent — does not import page clients.
+ */
+export const prefetchRouteShell = (
+  router: RoutePrefetchRouter,
+  href: string,
+): void => {
+  if (!href.trim()) {
+    return;
+  }
+  router.prefetch(href);
+};
+
+/**
+ * Prefetch the Next route shell and optionally load client page chunks.
+ * Full chunk loads require navigation-chunk-load-authority (see navigation-performance-contract.md).
  */
 export const warmRouteNavigationTargets = async (
   router: RoutePrefetchRouter,
   targets: ReadonlyArray<string>,
+  mode: RouteNavigationWarmupMode = "full",
 ): Promise<ReadonlyArray<RouteNavigationWarmupResult>> => {
+  assertNavigationChunkLoadAuthorized("warmRouteNavigationTargets", mode);
+
   const results = await Promise.allSettled(
     targets.map(async (href) => {
-      const loadClientChunk = isSidebarRouteHref(href)
+      const loadClientChunk = mode === "full" && isSidebarRouteHref(href)
         ? ROUTE_CLIENT_CHUNK_LOADERS[href]
         : undefined;
       await Promise.all([

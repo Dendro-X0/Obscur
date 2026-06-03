@@ -143,7 +143,7 @@ export const ToastContainer = (props: ToastContainerProps) => {
     return (
         <div
             className={cn(
-                "pointer-events-none fixed z-50 flex flex-col gap-2",
+                "pointer-events-none fixed z-[5200] flex flex-col gap-2",
                 getPositionStyles(position)
             )}
         >

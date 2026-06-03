@@ -46,3 +46,6 @@ export const mgmtTextareaClass =
 
 export const mgmtSectionClass =
     "rounded-xl border border-zinc-200 bg-zinc-50/80 p-4 sm:p-5 dark:border-zinc-800 dark:bg-zinc-900/50";
+
+export const mgmtCompactSectionClass =
+    "rounded-xl border border-zinc-200 bg-zinc-50/80 p-3 dark:border-zinc-800 dark:bg-zinc-900/50";

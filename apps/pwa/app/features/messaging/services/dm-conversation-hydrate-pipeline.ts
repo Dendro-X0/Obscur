@@ -36,29 +36,48 @@ import {
 } from "./dm-conversation-message-retention-dedupe";
 import { runDmHydrateSiblingIdSplitDiagnosticsIfNeeded } from "./dm-conversation-hydrate-sibling-diagnostics";
 import { prepareDmThreadSuppressionIds } from "./dm-thread-suppression-prepare";
+import { mergeDirectionGapFromSupplemental } from "./dm-thread-read-model";
 import { requiresSqlitePersistence } from "@/app/features/runtime/native-persistence-policy";
+import { listAccountSharedSqliteProfileIds } from "@/app/features/profiles/services/account-shared-sqlite-profile-ids";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { loadNativeOutgoingCommunityInviteRepairMessages } from "./dm-conversation-native-invite-repair";
 import { loadNativeOutgoingChatStateRepairMessages } from "./dm-conversation-native-outgoing-repair";
 
 const loadPersistedConversationFallbackMessages = (params: Readonly<{
-  persistedState: ReturnType<typeof chatStateStoreService.load>;
+  myPublicKeyHex: PublicKeyHex;
+  profileId?: string;
   conversationIds: ReadonlyArray<string>;
-  myPublicKeyHex: PublicKeyHex | null;
   persistentSuppressedMessageIds: ReadonlySet<string>;
   localMessageRetentionDays: number | undefined;
 }>): ReadonlyArray<Message> => {
-  if (!params.persistedState) {
+  const profileIds = listAccountSharedSqliteProfileIds({
+    primaryProfileId: params.profileId?.trim() || getResolvedProfileId(),
+    accountPublicKeyHex: params.myPublicKeyHex,
+  });
+
+  const mergedMessagesByConversationId: Record<string, ReadonlyArray<Message>> = {};
+  profileIds.forEach((profileId) => {
+    const persistedState = chatStateStoreService.load(params.myPublicKeyHex, { profileId });
+    if (!persistedState?.messagesByConversationId) {
+      return;
+    }
+    const normalized = fromPersistedMessagesByConversationId(
+      persistedState.messagesByConversationId,
+      { myPublicKeyHex: params.myPublicKeyHex },
+    );
+    Object.entries(normalized).forEach(([conversationId, messages]) => {
+      const existing = mergedMessagesByConversationId[conversationId] ?? [];
+      mergedMessagesByConversationId[conversationId] = [...existing, ...messages];
+    });
+  });
+
+  if (Object.keys(mergedMessagesByConversationId).length === 0) {
     return [];
   }
 
-  const normalizedMessagesByConversationId = fromPersistedMessagesByConversationId(
-    params.persistedState.messagesByConversationId ?? {},
-    { myPublicKeyHex: params.myPublicKeyHex },
-  );
-
   const merged: Message[] = [];
   params.conversationIds.forEach((conversationId) => {
-    const conversationMessages = normalizedMessagesByConversationId[conversationId] ?? [];
+    const conversationMessages = mergedMessagesByConversationId[conversationId] ?? [];
     merged.push(...conversationMessages);
   });
 
@@ -183,11 +202,9 @@ export async function runDmConversationHydrateReadModelPipeline(
     normalizedPublicKeyHex && !requiresSqlitePersistence()
   )
     ? loadPersistedConversationFallbackMessages({
-      persistedState: chatStateStoreService.load(normalizedPublicKeyHex, {
-        profileId: profileIdForTombstones,
-      }),
-      conversationIds,
       myPublicKeyHex: normalizedPublicKeyHex,
+      profileId: profileIdForTombstones,
+      conversationIds,
       persistentSuppressedMessageIds: persistedDeletedIds,
       localMessageRetentionDays,
     })
@@ -227,7 +244,6 @@ export async function runDmConversationHydrateReadModelPipeline(
   const nativeOutgoingRepairMessages = (
     normalizedPublicKeyHex
     && profileIdForTombstones
-    && requiresSqlitePersistence()
   )
     ? loadNativeOutgoingChatStateRepairMessages({
       conversationIds,
@@ -241,9 +257,16 @@ export async function runDmConversationHydrateReadModelPipeline(
     ...nativeOutgoingRepairMessages,
   ]);
 
-  const mergedFinalMessages = nativeRepairMessages.length > 0
+  const mergedWithNativeRepair = nativeRepairMessages.length > 0
     ? dedupeMessagesByIdentity([...assembled.finalMessages, ...nativeRepairMessages])
     : assembled.finalMessages;
+
+  const mergedFinalMessages = mergeDirectionGapFromSupplemental({
+    baseMessages: mergedWithNativeRepair,
+    supplementalMessages: persistedStateFallbackMessages,
+    conversationIds,
+    myPublicKeyHex: normalizedPublicKeyHex,
+  });
 
   const mergedDirectionCounts = getMessageDirectionCounts(
     mergedFinalMessages,
@@ -284,12 +307,10 @@ export async function runDmConversationHydrateReadModelPipeline(
     }
   }
 
-  const assembledWithInviteRepair: AssembleDmHydrateThreadReadModelResult = nativeRepairMessages.length > 0
-    ? {
-      ...assembled,
-      finalMessages: mergedFinalMessages,
-    }
-    : assembled;
+  const assembledWithInviteRepair: AssembleDmHydrateThreadReadModelResult = {
+    ...assembled,
+    finalMessages: mergedFinalMessages,
+  };
 
   if (normalizedPublicKeyHex) {
     await runDmHydrateSiblingIdSplitDiagnosticsIfNeeded({

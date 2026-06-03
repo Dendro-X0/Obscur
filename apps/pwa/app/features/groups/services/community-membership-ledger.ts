@@ -18,6 +18,8 @@ import {
 import { migrateLedgerEntries } from "./community-ledger-migration";
 
 const MEMBERSHIP_LEDGER_STORAGE_PREFIX = "obscur.group.membership_ledger.v1";
+/** Pre-resolution scope used during fresh-device restore before profile rebind. */
+const BOOTSTRAP_PROFILE_SCOPE = "bootstrap";
 export const LEDGER_ONLY_GROUP_PLACEHOLDER_MESSAGE = "Group key unavailable on this device";
 export const COMMUNITY_MEMBERSHIP_LEDGER_UPDATED_EVENT = "obscur:community-membership-ledger-updated";
 
@@ -99,6 +101,10 @@ const toLegacyStorageKey = (publicKeyHex: string): string => (
 
 const toStorageKey = (publicKeyHex: string, profileId?: string): string => (
   getScopedStorageKey(toLegacyStorageKey(publicKeyHex), profileId ?? getResolvedProfileId())
+);
+
+const mayWriteLegacyMembershipLedger = (profileId: string): boolean => (
+  profileId === getDefaultProfileId() || profileId === BOOTSTRAP_PROFILE_SCOPE
 );
 
 const toPublicKeySuffix = (publicKeyHex: string): string => publicKeyHex.slice(-8);
@@ -361,13 +367,9 @@ const persistCommunityMembershipLedger = (
     if (existingScoped !== serialized) {
       window.localStorage.setItem(storageKey, serialized);
     }
-    // AB-08: only write the legacy (unscoped) key for the default profile,
-    // or when no legacy key exists yet (bootstrap/first-write path). Named
-    // profiles must not overwrite an existing legacy key — that is the
-    // cross-profile leak vector. But a missing legacy key must be seeded so
-    // that the default-profile provider can find entries written during a
-    // bootstrap-scoped restore.
-    if ((activeProfileId === getDefaultProfileId() || existingLegacy === null) && existingLegacy !== serialized) {
+    // AB-08: only the default profile (or pre-rebind bootstrap restore) may write
+    // the legacy (unscoped) key. Named profiles must never seed or overwrite legacy.
+    if (mayWriteLegacyMembershipLedger(activeProfileId) && existingLegacy !== serialized) {
       window.localStorage.setItem(legacyStorageKey, serialized);
     }
 

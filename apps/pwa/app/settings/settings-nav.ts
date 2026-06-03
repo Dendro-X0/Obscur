@@ -76,11 +76,22 @@ export function getSettingsTabNavMeta(tabId: SettingsTabType): Readonly<{
     groupLabelKey: string;
     tabLabelKey: string;
 }> {
+    const match = findSettingsNavItem(tabId);
+    if (match) {
+        return { groupLabelKey: match.group.labelKey, tabLabelKey: match.item.labelKey };
+    }
+    return { groupLabelKey: "settings.title", tabLabelKey: `settings.tabs.${tabId}` };
+}
+
+export function findSettingsNavItem(tabId: SettingsTabType): Readonly<{
+    group: (typeof SETTINGS_NAV_GROUPS)[number];
+    item: (typeof SETTINGS_NAV_GROUPS)[number]["items"][number];
+}> | null {
     for (const group of SETTINGS_NAV_GROUPS) {
         const item = group.items.find((entry) => entry.id === tabId);
         if (item) {
-            return { groupLabelKey: group.labelKey, tabLabelKey: item.labelKey };
+            return { group, item };
         }
     }
-    return { groupLabelKey: "settings.title", tabLabelKey: `settings.tabs.${tabId}` };
+    return null;
 }

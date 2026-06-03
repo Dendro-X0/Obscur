@@ -71,6 +71,11 @@ import { buildGroupLeaveHref, buildGroupPurgeHref } from "../utils/group-action-
 import { summarizeCommunityOperatorHealth } from "../services/community-operator-health";
 import type { GroupAccessMode } from "../types";
 import { readBotPubkeysFromMetadataField } from "../services/community-bot-policy";
+import {
+  normalizeBotTriggersForDescriptor,
+  readBotTriggersFromMetadataField,
+} from "../services/community-bot-triggers-policy";
+import type { CommunityBotTriggerEntry } from "../services/community-bot-triggers-policy";
 import type { GroupManagementTabId } from "./group-management/constants";
 import { GroupManagementShell } from "./group-management/shell";
 import { GroupManagementGeneralPanel } from "./group-management/panels/general-panel";
@@ -163,6 +168,7 @@ export function GroupManagementDialog({
     const [editPicture, setEditPicture] = useState("");
     const [editAccess, setEditAccess] = useState<GroupAccessMode>("invite-only");
     const [editBotPubkeys, setEditBotPubkeys] = useState<ReadonlyArray<PublicKeyHex>>([]);
+    const [editBotTriggers, setEditBotTriggers] = useState<ReadonlyArray<CommunityBotTriggerEntry>>([]);
 
     const [memberSearchQuery, setMemberSearchQuery] = useState("");
     const [provisionalOverlayEpoch, setProvisionalOverlayEpoch] = useState(0);
@@ -323,8 +329,13 @@ export function GroupManagementDialog({
             setEditPicture(state.metadata.picture || "");
             setEditAccess(state.metadata.access || "public");
             setEditBotPubkeys(readBotPubkeysFromMetadataField(state.metadata.botPubkeys));
+            setEditBotTriggers(readBotTriggersFromMetadataField(state.metadata.botTriggers));
         }
     }, [state.metadata, group.communityId, group.displayName, group.groupId]);
+
+    useEffect(() => {
+        setEditBotTriggers((current) => normalizeBotTriggersForDescriptor(current, editBotPubkeys));
+    }, [editBotPubkeys]);
 
     const projectionMemberPubkeys = communityRosterByConversationId[group.id]?.activeMemberPubkeys as
         ReadonlyArray<PublicKeyHex> | undefined;
@@ -705,6 +716,7 @@ export function GroupManagementDialog({
                 picture: editPicture,
                 access: editAccess,
                 botPubkeys: editBotPubkeys,
+                botTriggers: normalizeBotTriggersForDescriptor(editBotTriggers, editBotPubkeys),
             };
             if (requiresMemberVote) {
                 await proposeDescriptorUpdate(metadataPayload);
@@ -808,7 +820,7 @@ export function GroupManagementDialog({
                                 setIsQrModalOpen(true);
                             }}
                             disabled={managedWorkspaceActionsBlocked}
-                            className="rounded-lg border-zinc-700 bg-zinc-900 disabled:opacity-50"
+                            className="rounded-lg border border-zinc-300 bg-white text-zinc-900 hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
                         >
                             <QrCode className="mr-2 h-4 w-4" />
                             Share invite
@@ -818,7 +830,7 @@ export function GroupManagementDialog({
                 footer={
                     activeTab === "general" && isAdmin ? (
                         <div className="flex justify-end gap-3">
-                            <Button type="button" variant="ghost" onClick={onClose} className="rounded-lg text-zinc-400 hover:text-white">
+                            <Button type="button" variant="ghost" onClick={onClose} className="rounded-lg text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white">
                                 Cancel
                             </Button>
                                         <Button
@@ -855,6 +867,8 @@ export function GroupManagementDialog({
                         managedWorkspaceRelayGate={managedWorkspaceRelayGate}
                         editBotPubkeys={editBotPubkeys}
                         onEditBotPubkeysChange={setEditBotPubkeys}
+                        editBotTriggers={editBotTriggers}
+                        onEditBotTriggersChange={setEditBotTriggers}
                         requiresGovernanceProposal={requiresMemberVote}
                     />
                 ) : null}

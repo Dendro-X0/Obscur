@@ -8,8 +8,8 @@ describe("CommunityInviteStatusBanner", () => {
         const banner = screen.getByTestId("community-invite-status-banner");
         expect(banner).toHaveAttribute("data-invite-status", "accepted");
         expect(banner).toHaveAttribute("data-invite-direction", "outgoing");
-        expect(banner.className).toContain("bg-black/40");
-        expect(banner.className).toContain("text-amber-100");
+        expect(banner.className).toContain("from-amber-50");
+        expect(banner.className).toContain("text-amber-950");
         expect(screen.getByText(/acceptance recorded/i)).toBeInTheDocument();
         expect(screen.getByText(/relay membership may still be syncing/i)).toBeInTheDocument();
     });
@@ -25,7 +25,7 @@ describe("CommunityInviteStatusBanner", () => {
     it("renders declined outgoing with rose contrast", () => {
         render(<CommunityInviteStatusBanner status="declined" isOutgoing />);
         const banner = screen.getByTestId("community-invite-status-banner");
-        expect(banner.className).toContain("text-rose-300");
+        expect(banner.className).toContain("text-rose-900");
         expect(screen.getByText(/they declined your invitation/i)).toBeInTheDocument();
     });
 });

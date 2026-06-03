@@ -109,9 +109,18 @@ vi.mock("@/app/shared/log-app-event", () => ({
   logAppEvent: vi.fn(),
 }));
 
+vi.mock("@/app/features/profiles/services/profile-runtime-scope", () => ({
+  getResolvedProfileId: () => "default",
+}));
+
+vi.mock("@/app/features/runtime/experiment-shell-policy", () => ({
+  shouldDeferExperimentHeavyWork: () => false,
+  shouldRunNavigationInstrumentation: () => true,
+}));
+
 const flushIntelligentWarmup = async (): Promise<void> => {
   await act(async () => {
-    await new Promise((resolve) => window.setTimeout(resolve, 120));
+    await new Promise((resolve) => window.setTimeout(resolve, 8_000));
   });
 };
 

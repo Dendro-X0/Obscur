@@ -46,7 +46,7 @@ export function CommunityBotsSection({
     return (
         <section className={mgmtSectionClass} id="community-bots-descriptor">
             <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-violet-500/15 text-violet-300">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300">
                     <Bot className="h-5 w-5" />
                 </div>
                 <div className="min-w-0 flex-1 space-y-1">
@@ -106,7 +106,7 @@ export function CommunityBotsSection({
                     variant="outline"
                     disabled={disabled || draft.trim().length === 0}
                     onClick={handleAdd}
-                    className="shrink-0 gap-2 rounded-lg border-violet-500/30"
+                    className="shrink-0 gap-2 rounded-lg border border-violet-500/40 bg-white text-violet-900 hover:bg-violet-50 dark:border-violet-500/30 dark:bg-transparent dark:text-zinc-100 dark:hover:bg-violet-500/10"
                 >
                     <Plus className="h-4 w-4" />
                     Add bot

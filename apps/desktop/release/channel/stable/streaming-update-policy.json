@@ -1,0 +1,25 @@
+{
+  "version": "1.8.14",
+  "channel": "stable",
+  "rolloutPercentage": 100,
+  "killSwitch": false,
+  "minSafeVersion": "1.8.11",
+  "releaseNotesUrl": "https://github.com/Dendro-X0/Obscur/blob/main/CHANGELOG.md",
+  "artifacts": {
+    "windows-x86_64": {
+      "url": "https://raw.githubusercontent.com/Dendro-X0/Obscur/main/apps/desktop/release/channel/stable/Obscur_1.8.14_x64-setup.exe",
+      "signature": "publish-local-build-to-populate",
+      "checksumSha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    "darwin-aarch64": {
+      "url": "https://raw.githubusercontent.com/Dendro-X0/Obscur/main/apps/desktop/release/channel/stable/Obscur_1.8.14_aarch64.dmg",
+      "signature": "publish-local-build-to-populate",
+      "checksumSha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    "linux-x86_64": {
+      "url": "https://raw.githubusercontent.com/Dendro-X0/Obscur/main/apps/desktop/release/channel/stable/Obscur_1.8.14_amd64.AppImage",
+      "signature": "publish-local-build-to-populate",
+      "checksumSha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  }
+}

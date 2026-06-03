@@ -190,6 +190,44 @@ describe("account-event-reducer", () => {
     expect(projection?.conversationsById[conversationId]?.lastMessagePreview).toBe("live-updated");
   });
 
+  it("does not replace sidebar preview when an older DM replays after a newer one", () => {
+    const conversationId = `${ACCOUNT}:${PEER}`;
+    const inviteJson = JSON.stringify({
+      type: "community-invite-response",
+      status: "accepted",
+      groupId: "g1",
+    });
+    const projection = replayAccountEvents([
+      createEvent({
+        ...baseMeta,
+        type: "DM_RECEIVED",
+        eventId: "dm-newer",
+        idempotencyKey: "dm-newer",
+        observedAtUnixMs: 2_000,
+        peerPublicKeyHex: PEER,
+        conversationId,
+        messageId: "m-newer",
+        eventCreatedAtUnixSeconds: 40,
+        plaintextPreview: inviteJson,
+      }, 1),
+      createEvent({
+        ...baseMeta,
+        type: "DM_RECEIVED",
+        eventId: "dm-older",
+        idempotencyKey: "dm-older",
+        observedAtUnixMs: 3_000,
+        peerPublicKeyHex: PEER,
+        conversationId,
+        messageId: "m-older",
+        eventCreatedAtUnixSeconds: 10,
+        plaintextPreview: "test",
+      }, 2),
+    ]);
+
+    expect(projection?.conversationsById[conversationId]?.lastMessagePreview).toBe(inviteJson);
+    expect(projection?.conversationsById[conversationId]?.lastMessageAtUnixMs).toBe(40_000);
+  });
+
   it("removes messages from projection when local delete events replay later", () => {
     const conversationId = `${ACCOUNT}:${PEER}`;
     const projection = replayAccountEvents([

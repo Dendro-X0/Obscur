@@ -27,7 +27,7 @@ import { useDesktopProfileIsolationSnapshot } from "@/app/features/profiles/serv
 import { useWindowRuntime, windowRuntimeSupervisor } from "@/app/features/runtime/services/window-runtime-supervisor";
 import {
   RELAY_RUNTIME_REFRESH_MIN_INTERVAL_MS,
-  RELAY_TRANSPORT_BOOTSTRAP_DELAY_MS,
+  resolveRelayTransportBootstrapDelayMs,
 } from "@/app/features/runtime/relay-transport-bootstrap-policy";
 import { relayNativeAdapter } from "../hooks/relay-native-adapter";
 import { listenToNativeEvent } from "@/app/features/runtime/native-event-adapter";
@@ -95,6 +95,7 @@ const FullRelayProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 
   const windowRuntime = useWindowRuntime().snapshot;
   const shellReady = windowRuntime.phase === "ready" || windowRuntime.phase === "degraded";
+  const profileId = desktopSnapshot.currentWindow.profileId?.trim() || "default";
   const [transportBootstrapReady, setTransportBootstrapReady] = useState(false);
 
   useEffect(() => {
@@ -106,13 +107,14 @@ const FullRelayProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       setTransportBootstrapReady(true);
       return;
     }
+    const bootstrapDelayMs = resolveRelayTransportBootstrapDelayMs(profileId);
     const timerId = window.setTimeout(() => {
       setTransportBootstrapReady(true);
-    }, RELAY_TRANSPORT_BOOTSTRAP_DELAY_MS);
+    }, bootstrapDelayMs);
     return () => {
       window.clearTimeout(timerId);
     };
-  }, [shellReady]);
+  }, [profileId, shellReady]);
 
   const [poolRelayUrls, setPoolRelayUrls] = useState<ReadonlyArray<string>>(() => (
     enabledRelayUrls.length > 0 ? [enabledRelayUrls[0]!] : []

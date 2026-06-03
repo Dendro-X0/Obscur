@@ -14,6 +14,12 @@ vi.mock("../../profile/hooks/use-resolved-profile-metadata", () => ({
   useResolvedProfileMetadata: () => null,
 }));
 
+let mockMobileCompactLayout = false;
+
+vi.mock("@/app/features/runtime/use-mobile-compact-layout", () => ({
+  useMobileCompactLayout: () => mockMobileCompactLayout,
+}));
+
 vi.mock("../../../components/ui/dropdown-menu", () => ({
   DropdownMenu: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   DropdownMenuTrigger: ({ children }: { children: React.ReactNode }) => <>{children}</>,
@@ -175,5 +181,52 @@ describe("ConversationRow", () => {
     fireEvent.click(screen.getByText("Hide"));
 
     expect(onHide).toHaveBeenCalledWith(baseConversation.id);
+  });
+
+  it("renders community invite response preview and message timestamp label", () => {
+    const inviteResponse = JSON.stringify({
+      type: "community-invite-response",
+      status: "accepted",
+      groupId: "g1",
+    });
+    render(
+      <ConversationRow
+        conversation={{
+          ...baseConversation,
+          displayName: "Tester2",
+          lastMessage: inviteResponse,
+          lastMessageIsOutgoing: false,
+          lastMessageTime: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000),
+        }}
+        isSelected={false}
+        onSelect={vi.fn()}
+        unreadCount={0}
+        lastMessageLabel="4d ago"
+        lastActiveLabel=""
+        lastViewedLabel=""
+      />,
+    );
+
+    expect(screen.getByText(/Tester2 accepted the invitation/i)).toBeInTheDocument();
+    expect(screen.getByText("4d ago")).toBeInTheDocument();
+  });
+
+  it("shows an inline offline badge on compact rows", () => {
+    mockMobileCompactLayout = true;
+    render(
+      <ConversationRow
+        conversation={baseConversation}
+        isSelected={false}
+        onSelect={vi.fn()}
+        unreadCount={0}
+        isOnline={false}
+        lastMessageLabel="7d ago"
+        lastActiveLabel=""
+        lastViewedLabel=""
+      />,
+    );
+    expect(screen.getByText("Offline")).toBeInTheDocument();
+    expect(screen.queryByText(/Active/i)).not.toBeInTheDocument();
+    mockMobileCompactLayout = false;
   });
 });

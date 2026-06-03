@@ -45,7 +45,7 @@ export function GroupManagementGovernancePanel({
                 const approveCount = Object.values(proposal.votes).filter((vote) => vote === "approve").length;
                 return (
                     <li key={proposal.proposalId} className={mgmtSectionClass}>
-                        <p className="text-sm font-medium text-white">{describeProposal(proposal)}</p>
+                        <p className="text-sm font-medium text-zinc-900 dark:text-white">{describeProposal(proposal)}</p>
                         <p className="mt-1 text-xs text-zinc-500">
                             {approveCount} / {proposal.quorumThreshold} approvals · by{" "}
                             {proposal.proposerPublicKeyHex.slice(0, 8)}…

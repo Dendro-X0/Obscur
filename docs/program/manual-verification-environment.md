@@ -1,7 +1,7 @@
 # Manual verification environment
 
-**Status:** Active — required for all demo matrices and pre-tag sign-off through **v2.0.0**  
-**Related:** [obscur-2.0-milestone-roadmap.md](./obscur-2.0-milestone-roadmap.md), demo matrices under `docs/assets/demo/`
+**Status:** Active — **deferred during batch implementation**; run [deferred-manual-verification-checklist.md](./deferred-manual-verification-checklist.md) when circumstances allow  
+**Related:** [v1.8.x-batch-implementation-lane.md](./v1.8.x-batch-implementation-lane.md), [obscur-2.0-milestone-roadmap.md](./obscur-2.0-milestone-roadmap.md), demo matrices under `docs/assets/demo/`
 
 ---
 
@@ -68,13 +68,15 @@ Treat **Tester 1** and **Tester 2** as **two independent users on two devices**,
 
 ## What counts as “manual verification done”
 
-A version band (e.g. **v1.7.x**) is not release-ready until:
+**Batch mode (active):** Implementation does **not** wait on manual passes. Use the consolidated [deferred-manual-verification-checklist.md](./deferred-manual-verification-checklist.md) after coding waves land.
 
-1. Every **Pass** column in that band’s demo matrix is checked on desktop A/B where applicable.
-2. Regressions found in manual pass are **fixed or filed** in [v1.5.0-known-issues-and-investigation-queue.md](./v1.5.0-known-issues-and-investigation-queue.md) before tag.
-3. `pnpm release:test-pack` is green on the commit being tagged.
+**Pre-tag (when you choose to publish):**
 
-Automated tests do **not** replace the matrix for governance, invite, relay gate, or cross-profile membership rows.
+1. Exercise applicable checklist sections (§1 minimum for desktop; §5 if mobile matters).
+2. File regressions in [v1.5.0-known-issues-and-investigation-queue.md](./v1.5.0-known-issues-and-investigation-queue.md).
+3. `pnpm release:test-pack` green on the commit being tagged.
+
+Per-version demo matrices under `docs/assets/demo/` remain reference detail; the deferred checklist is the maintainer entry point.
 
 ---
 

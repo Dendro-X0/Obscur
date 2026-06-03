@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/app/features/runtime/runtime-capabilities", () => ({
   hasNativeRuntime: () => true,
@@ -12,10 +12,24 @@ import {
 describe("scheduleSecondaryProfileWindowRefresh", () => {
   beforeEach(() => {
     sessionStorage.clear();
+    vi.stubGlobal("requestIdleCallback", (callback: IdleRequestCallback) => {
+      callback({ didTimeout: false, timeRemaining: () => 50 } as IdleDeadline);
+      return 1;
+    });
+    vi.stubGlobal("cancelIdleCallback", vi.fn());
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it("schedules in-process refresh for secondary profile windows only once per reason", () => {
     vi.useFakeTimers();
+    vi.stubGlobal("requestIdleCallback", (callback: IdleRequestCallback) => {
+      callback({ didTimeout: false, timeRemaining: () => 50 } as IdleDeadline);
+      return 1;
+    });
+    vi.stubGlobal("cancelIdleCallback", vi.fn());
     const onRefresh = vi.fn();
 
     expect(scheduleSecondaryProfileWindowRefresh({

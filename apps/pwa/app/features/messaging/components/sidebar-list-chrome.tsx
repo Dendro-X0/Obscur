@@ -72,7 +72,7 @@ function MobileUnderlineTab({
             type="button"
             onClick={onClick}
             className={cn(
-                "relative flex flex-1 items-center justify-center gap-1.5 py-2.5 text-xs font-bold transition-colors",
+                "relative flex flex-1 items-center justify-center gap-1.5 py-2 text-xs font-bold transition-colors",
                 active
                     ? "text-zinc-900 dark:text-zinc-100"
                     : "text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200",
@@ -143,10 +143,10 @@ export function SidebarListChrome(props: SidebarListChromeProps): React.JSX.Elem
     if (variant === "mobile") {
         return (
             <div
-                className="shrink-0 space-y-3 border-b border-black/[0.03] px-3 pb-3 pt-2 dark:border-white/[0.03]"
+                className="shrink-0 space-y-2 border-b border-black/[0.03] px-3 pb-2 pt-1 dark:border-white/[0.03]"
                 data-testid="sidebar-mobile-chrome"
             >
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
                     <div className="min-w-0 flex-1">
                         <SidebarUserSearch
                             query={searchQuery}
@@ -159,7 +159,7 @@ export function SidebarListChrome(props: SidebarListChromeProps): React.JSX.Elem
                     <Button
                         variant="secondary"
                         size="icon"
-                        className="h-11 w-11 shrink-0 rounded-xl"
+                        className="h-10 w-10 shrink-0 rounded-lg"
                         onClick={() => (
                             activeTab === "chats"
                                 ? (chatViewMode === "direct" ? setIsNewChatOpen(true) : setIsNewGroupOpen(true))

@@ -208,6 +208,33 @@ export function Sidebar({
     ), [hideConversation, interactionByConversationId, pinnedChatIdSet, resolvedNowMs, resolveConversationUnread, router, selectConversation, selectedConversation?.id, togglePin, isPeerOnline]);
 
     const listChromeVariant = isMobileShellProduct() ? "mobile" : "desktop";
+    const isMobileFlatList = listChromeVariant === "mobile";
+
+    const renderLoadMoreDms = canLoadMoreDms ? (
+        <div className={cn("px-4", isMobileFlatList ? "py-2" : "py-3")}>
+            <Button
+                variant="ghost"
+                className="h-9 w-full rounded-xl text-xs font-semibold text-zinc-600 dark:text-zinc-300 hover:bg-black/[0.03] dark:hover:bg-white/[0.06]"
+                onClick={() => setVisibleDmCount((count) => Math.min(count + SIDEBAR_PAGE_STEP, SIDEBAR_MAX_ITEMS))}
+                data-testid="sidebar-load-more-dms"
+            >
+                {t("common.loadMore", "Load More")}
+            </Button>
+        </div>
+    ) : null;
+
+    const renderLoadMoreCommunities = canLoadMoreCommunities ? (
+        <div className={cn("px-4", isMobileFlatList ? "py-2" : "py-3")}>
+            <Button
+                variant="ghost"
+                className="h-9 w-full rounded-xl text-xs font-semibold text-zinc-600 dark:text-zinc-300 hover:bg-black/[0.03] dark:hover:bg-white/[0.06]"
+                onClick={() => setVisibleCommunityCount((count) => Math.min(count + SIDEBAR_PAGE_STEP, SIDEBAR_MAX_ITEMS))}
+                data-testid="sidebar-load-more-communities"
+            >
+                {t("common.loadMore", "Load More")}
+            </Button>
+        </div>
+    ) : null;
 
     return (
         <div className="flex h-full min-h-0 flex-col">
@@ -284,8 +311,11 @@ export function Sidebar({
                         ) : (
                             <>
                                 {pinnedConversations.length > 0 && (
-                                    <div className="mb-4">
-                                        <div className="px-4 py-2 text-[10px] font-black uppercase tracking-widest text-zinc-400 flex items-center gap-2">
+                                    <div className={isMobileFlatList ? "mb-2" : "mb-4"}>
+                                        <div className={cn(
+                                            "flex items-center gap-2 px-4 text-[10px] font-black uppercase tracking-widest text-zinc-400",
+                                            isMobileFlatList ? "py-1.5" : "py-2",
+                                        )}>
                                             <Pin className="h-3 w-3" />
                                             {t("messaging.pinned")}
                                         </div>
@@ -295,30 +325,28 @@ export function Sidebar({
 
                                 {chatViewMode === "direct" && (
                                     <div className="animate-in fade-in slide-in-from-right-1 duration-200">
-                                        <button
-                                            onClick={() => setIsDmsExpanded(!isDmsExpanded)}
-                                            className="w-full px-4 py-2 flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-colors"
-                                        >
-                                            <div className="flex items-center gap-2">
-                                                <User className="h-3 w-3" />
-                                                {t("messaging.direct_messages")}
-                                            </div>
-                                            {isDmsExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-                                        </button>
-                                        {isDmsExpanded && (
+                                        {isMobileFlatList ? (
                                             <>
                                                 {renderConversationList(visibleDms)}
-                                                {canLoadMoreDms ? (
-                                                    <div className="px-4 py-3">
-                                                        <Button
-                                                            variant="ghost"
-                                                            className="h-9 w-full rounded-xl text-xs font-semibold text-zinc-600 dark:text-zinc-300 hover:bg-black/[0.03] dark:hover:bg-white/[0.06]"
-                                                            onClick={() => setVisibleDmCount((count) => Math.min(count + SIDEBAR_PAGE_STEP, SIDEBAR_MAX_ITEMS))}
-                                                            data-testid="sidebar-load-more-dms"
-                                                        >
-                                                            {t("common.loadMore", "Load More")}
-                                                        </Button>
+                                                {renderLoadMoreDms}
+                                            </>
+                                        ) : (
+                                            <>
+                                                <button
+                                                    onClick={() => setIsDmsExpanded(!isDmsExpanded)}
+                                                    className="flex w-full items-center justify-between px-4 py-2 text-[10px] font-black uppercase tracking-widest text-zinc-400 transition-colors hover:text-zinc-600 dark:hover:text-zinc-200"
+                                                >
+                                                    <div className="flex items-center gap-2">
+                                                        <User className="h-3 w-3" />
+                                                        {t("messaging.direct_messages")}
                                                     </div>
+                                                    {isDmsExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                                                </button>
+                                                {isDmsExpanded ? (
+                                                    <>
+                                                        {renderConversationList(visibleDms)}
+                                                        {renderLoadMoreDms}
+                                                    </>
                                                 ) : null}
                                             </>
                                         )}
@@ -326,31 +354,32 @@ export function Sidebar({
                                 )}
 
                                 {chatViewMode === "community" && (
-                                    <div className="mt-4 animate-in fade-in slide-in-from-right-1 duration-200">
-                                        <button
-                                            onClick={() => setIsCommunitiesExpanded(!isCommunitiesExpanded)}
-                                            className="w-full px-4 py-2 flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-colors"
-                                        >
-                                            <div className="flex items-center gap-2">
-                                                <Users className="h-3 w-3" />
-                                                {t("messaging.communities")}
-                                            </div>
-                                            {isCommunitiesExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-                                        </button>
-                                        {isCommunitiesExpanded && (
+                                    <div className={cn(
+                                        "animate-in fade-in slide-in-from-right-1 duration-200",
+                                        !isMobileFlatList && "mt-4",
+                                    )}>
+                                        {isMobileFlatList ? (
                                             <>
                                                 {renderConversationList(visibleCommunities)}
-                                                {canLoadMoreCommunities ? (
-                                                    <div className="px-4 py-3">
-                                                        <Button
-                                                            variant="ghost"
-                                                            className="h-9 w-full rounded-xl text-xs font-semibold text-zinc-600 dark:text-zinc-300 hover:bg-black/[0.03] dark:hover:bg-white/[0.06]"
-                                                            onClick={() => setVisibleCommunityCount((count) => Math.min(count + SIDEBAR_PAGE_STEP, SIDEBAR_MAX_ITEMS))}
-                                                            data-testid="sidebar-load-more-communities"
-                                                        >
-                                                            {t("common.loadMore", "Load More")}
-                                                        </Button>
+                                                {renderLoadMoreCommunities}
+                                            </>
+                                        ) : (
+                                            <>
+                                                <button
+                                                    onClick={() => setIsCommunitiesExpanded(!isCommunitiesExpanded)}
+                                                    className="flex w-full items-center justify-between px-4 py-2 text-[10px] font-black uppercase tracking-widest text-zinc-400 transition-colors hover:text-zinc-600 dark:hover:text-zinc-200"
+                                                >
+                                                    <div className="flex items-center gap-2">
+                                                        <Users className="h-3 w-3" />
+                                                        {t("messaging.communities")}
                                                     </div>
+                                                    {isCommunitiesExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                                                </button>
+                                                {isCommunitiesExpanded ? (
+                                                    <>
+                                                        {renderConversationList(visibleCommunities)}
+                                                        {renderLoadMoreCommunities}
+                                                    </>
                                                 ) : null}
                                             </>
                                         )}
@@ -362,9 +391,11 @@ export function Sidebar({
                     </>
                 )}
             </div>
-            <div className="border-t border-black/[0.03] dark:border-white/[0.03] mt-auto">
+            {!isMobileShellProduct() ? (
+              <div className="border-t border-black/[0.03] dark:border-white/[0.03] mt-auto">
                 <RelayStatusIndicator />
-            </div>
+              </div>
+            ) : null}
         </div>
     );
 }

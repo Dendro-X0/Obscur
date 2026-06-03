@@ -27,13 +27,15 @@ import {
   validateProfileInput,
   formatBytes,
   formatRatioPercent,
-} from "../settings-tab-panel-model";
+} from "../settings-tab-panel-shared";
 import { getApiBaseUrl } from "@/app/features/relays/utils/api-base-url";
 import { deriveRelayNodeStatus, deriveRelayRuntimeStatus } from "@/app/features/relays/lib/relay-runtime-status";
 import { checkStorageHealth, runStorageRecovery } from "@/app/features/messaging/services/storage-health-service";
 import { Loader2, Activity, ShieldAlert, Shield, Lock, Database, Copy, ChevronDown, Plus, ArrowUp, ArrowDown, Eye, EyeOff, Building2, Wifi, RefreshCcw, Check, X } from "lucide-react";
 
-import { useSettingsTabPanelModel } from "../settings-tab-panel-model";
+import { useSettingsTabPanelModel } from "../settings-tab-panel-model-context";
+import { SettingsCompactCard, SettingsCompactSection } from "@/app/features/settings/components/settings-compact-card";
+import { useMobileCompactLayout } from "@/app/features/runtime/use-mobile-compact-layout";
 
 export default function BlocklistSettingsTabPanel(): React.JSX.Element {
   const {
@@ -263,10 +265,17 @@ export default function BlocklistSettingsTabPanel(): React.JSX.Element {
     wipeLocalRuntimeData
   } = useSettingsTabPanelModel() as Record<string, any>;
 
+  const compact = useMobileCompactLayout();
+
   return (
     <>
-        <Card title={t("settings.tabs.blocklist")} description={t("settings.blocklist.desc")} className="w-full">
-          <div className="space-y-6">
+        <SettingsCompactCard
+          title={t("settings.tabs.blocklist")}
+          description={t("settings.blocklist.desc")}
+          className="w-full"
+        >
+          <div className={compact ? "space-y-4" : "space-y-6"}>
+            {!compact ? (
             <div className="group relative overflow-hidden rounded-[2rem] border border-black/10 bg-gradient-to-br from-indigo-50 via-white to-purple-50 p-6 shadow-sm transition-all hover:shadow-md dark:border-white/10 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-950">
               <div className="pointer-events-none absolute -right-4 -top-4 h-40 w-40 rounded-full bg-gradient-primary opacity-5 blur-3xl dark:opacity-10" />
               <div className="flex items-start justify-between gap-4">
@@ -299,9 +308,20 @@ export default function BlocklistSettingsTabPanel(): React.JSX.Element {
                 </div>
               </div>
             </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <div className="flex flex-1 items-center justify-between rounded-xl border border-black/5 bg-zinc-50/80 px-3 py-2 text-xs dark:border-white/10 dark:bg-zinc-900/50">
+                  <span className="font-semibold text-zinc-500">Blocked</span>
+                  <span className="font-black text-zinc-900 dark:text-zinc-100">{blocklist.state.blockedPublicKeys.length}</span>
+                </div>
+                <div className="flex flex-1 items-center justify-between rounded-xl border border-black/5 bg-zinc-50/80 px-3 py-2 text-xs dark:border-white/10 dark:bg-zinc-900/50">
+                  <span className="font-semibold text-zinc-500">Filtered</span>
+                  <span className="font-black text-zinc-900 dark:text-zinc-100">{filteredBlockedKeys.length}</span>
+                </div>
+              </div>
+            )}
 
-            <div className="space-y-3 rounded-2xl border border-black/5 bg-zinc-50/50 p-4 dark:border-white/10 dark:bg-zinc-900/40">
-              <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">Block by Public Key</Label>
+            <SettingsCompactSection title="Block by Public Key">
               <div className="flex flex-col gap-2 sm:flex-row">
                 <Input
                   value={blocklistInput}
@@ -318,39 +338,42 @@ export default function BlocklistSettingsTabPanel(): React.JSX.Element {
                 <Button
                   type="button"
                   onClick={handleAddBlockedKey}
-                  className="h-10 px-8 font-bold text-white bg-gradient-primary border-none shadow-sm hover:shadow-md transition-all"
+                  className={cn(
+                    "h-10 font-bold text-white bg-gradient-primary border-none shadow-sm hover:shadow-md transition-all",
+                    compact ? "w-full sm:w-auto sm:px-6" : "px-8",
+                  )}
                 >
                   Block
                 </Button>
               </div>
-            </div>
+            </SettingsCompactSection>
 
-            <div className="space-y-3 rounded-2xl border border-black/5 bg-white/70 p-4 dark:border-white/10 dark:bg-black/20">
-              <div className="flex items-center justify-between gap-2">
-                <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">
-                  {t("settings.blocklist.blockedUsers", "Blocked Users")} ({filteredBlockedKeys.length})
-                </Label>
-                <div className="flex gap-2">
-                  <Input
-                    value={blocklistQuery}
-                    onChange={(e) => setBlocklistQuery(e.target.value)}
-                    placeholder="Search blocked keys..."
-                    className="h-8 w-[180px] border-black/10 bg-white/90 text-xs dark:border-white/10 dark:bg-black/20"
-                  />
-                  <Button type="button" variant="ghost" size="sm" onClick={handleUnblockAll} className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20">
-                    Unblock All
-                  </Button>
-                </div>
-              </div>
+            <SettingsCompactSection
+              title={`${t("settings.blocklist.blockedUsers", "Blocked Users")} (${filteredBlockedKeys.length})`}
+              action={(
+                <Button type="button" variant="ghost" size="sm" onClick={handleUnblockAll} className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20">
+                  Unblock All
+                </Button>
+              )}
+            >
+              <Input
+                value={blocklistQuery}
+                onChange={(e) => setBlocklistQuery(e.target.value)}
+                placeholder="Search blocked keys..."
+                className={cn(
+                  "h-9 border-black/10 bg-white/90 text-xs dark:border-white/10 dark:bg-black/20",
+                  compact ? "w-full" : "mb-3 h-8 w-[180px]",
+                )}
+              />
               {filteredBlockedKeys.length === 0 ? (
-                <p className="rounded-xl border border-dashed border-black/10 p-6 text-center text-xs italic text-zinc-500 dark:border-white/10 dark:text-zinc-400">
+                <p className="rounded-xl border border-dashed border-black/10 p-4 text-center text-xs italic text-zinc-500 dark:border-white/10 dark:text-zinc-400">
                   {t("settings.blocklist.empty", "No users blocked yet.")}
                 </p>
               ) : (
-                <div className="space-y-2 max-h-[320px] overflow-y-auto pr-2 custom-scrollbar">
+                <div className="max-h-[320px] space-y-2 overflow-y-auto pr-2 custom-scrollbar">
                   {filteredBlockedKeys.map((pubkey: string) => (
-                    <div key={pubkey} className="group flex items-center justify-between gap-2 rounded-xl border border-black/5 bg-zinc-50/80 p-3 shadow-sm transition-all hover:border-zinc-300 hover:bg-white dark:border-white/10 dark:bg-zinc-900/50 dark:hover:border-zinc-700 dark:hover:bg-zinc-900">
-                      <span className="font-mono text-[10px] truncate flex-1">{pubkey}</span>
+                    <div key={pubkey} className="group flex items-center justify-between gap-2 rounded-xl border border-black/5 bg-zinc-50/80 p-2.5 shadow-sm transition-all hover:border-zinc-300 hover:bg-white dark:border-white/10 dark:bg-zinc-900/50 dark:hover:border-zinc-700 dark:hover:bg-zinc-900">
+                      <span className="flex-1 truncate font-mono text-[10px]">{pubkey}</span>
                       <div className="flex items-center gap-1">
                         <Button
                           variant="ghost"
@@ -386,15 +409,17 @@ export default function BlocklistSettingsTabPanel(): React.JSX.Element {
                   ))}
                 </div>
               )}
-            </div>
+            </SettingsCompactSection>
+            {!compact ? (
             <SettingsActionStatus
               title="Moderation Actions"
               phase={moderationActionPhase}
               message={moderationActionMessage || undefined}
               summary={`Blocked: ${blocklist.state.blockedPublicKeys.length} · Filtered: ${filteredBlockedKeys.length}`}
             />
+            ) : null}
           </div>
-        </Card>
+        </SettingsCompactCard>
     </>
   );
 }

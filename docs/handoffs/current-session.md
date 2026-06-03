@@ -1,8 +1,20 @@
 # Current Session Handoff — Obscur (native-first)
 
-- Last Updated (UTC): 2026-05-29T21:35:00Z
-- Session Status: **Batch exit ready** — **v1.8.14** version bump + scope/gate docs; Wave 3 complete (partial REL-003/MEM-002); production release still **v1.8.11**
+- Last Updated (UTC): 2026-06-01T17:00:00Z
+- Session Status: **Implementation-first** — breadth before batched manual verification
 - Active Owner: Maintainer
+
+## Delivery order (maintainer policy, 2026-06-01)
+
+**Implement broader functionality first; manual testing in batches later** — not incremental gates between slices.
+
+| Phase | Now | Gate |
+|-------|-----|------|
+| **1 — Implement** | Active | Vitest, typecheck, `release:test-pack` |
+| **2 — Manual batch** | Deferred | [deferred-manual-verification-checklist.md](../program/deferred-manual-verification-checklist.md), demo matrices |
+| **3 — Tag** | When chosen | Optional Pass columns before user-visible release |
+
+Canonical: [v1.8.x-batch-implementation-lane.md](../program/v1.8.x-batch-implementation-lane.md).
 
 ## Public posture (maintainer policy)
 
@@ -12,17 +24,86 @@
 
 ## Active objective
 
-**Primary lane:** [v1.8.x-batch-implementation-lane.md](../program/v1.8.x-batch-implementation-lane.md)
+**Primary lane:** [v1.8.x-batch-implementation-lane.md](../program/v1.8.x-batch-implementation-lane.md) (implement) + [v1.9.0-kernel-backend-roadmap.md](../program/v1.9.0-kernel-backend-roadmap.md) (Lane **K** backlog)  
+**Policy:** [maintainer-distribution-policy.md](../program/maintainer-distribution-policy.md) — ZIP/clone OK; **no** version bump for CI; **no** routine Full Release.
 
-| Phase | What | Gate |
-|-------|------|------|
-| **Implement** | Wave 1 **P13** mobile polish → Wave 2 **B2** bots → Wave 3 trust slices | Vitest + `release:test-pack` on push |
-| **Verify** | [deferred-manual-verification-checklist.md](../program/deferred-manual-verification-checklist.md) | When maintainer has time / environment — **not** blocking merges |
-| **Publish** | One tag after batch exit | Optional Full Release; no tag for CI-only |
+| Priority | Tangible deliverable | Status |
+|----------|----------------------|--------|
+| **1** | **v1.8.14 batch land** — P13/P14, B2, Wave 3 trust, nav perf, N5 settings split | **Local / uncommitted** — commit + push when `release:test-pack` green |
+| **2** | **v1.9.x B4 (R1/R2)** — DM materialization + community roster read model | Backlog after batch land — spec §B4 |
+| **3** | **N-series / broader perf** — mobile 4GB, cache tiers, per-tab settings model | Structural backlog — [navigation-performance-contract.md](../program/navigation-performance-contract.md) |
+| **—** | **Manual verification** (K-M, G6-4, deferred checklist) | **Batched** — not between implementation slices |
+| **—** | GitHub Releases | **Hidden** on repo home (About → gear); not version truth |
 
-**Wave 0 (on `main`, code complete):** profile windows, presence session, soft DM refresh, relay primary policy, mobile P12-hotfix, parity scripts — see checklist §1 / §5 / §7.
+**Next atomic step:** Land **v1.8.14** local payload (commit + push `main`). Continue **v1.9 B4** or **N-series** rows without pausing for K-M or per-lane manual gates. Manual: one pass over [deferred-manual-verification-checklist.md](../program/deferred-manual-verification-checklist.md) before tag if desired.
 
-**Next atomic step:** **Wave 5 publish** — push `main`, optional Full Release dispatch on `main`, tag **`v1.8.14`** when ready ([v1.8.14-gate.md](../releases/v1.8.14-gate.md)). Deferred: REL-003 memory caches, P14, manual checklist.
+## Performance gate (2026-06-03)
+
+**Manual sign-off:** Rapid-nav gate **Pass 2026-06-01** (10 fast sidebar switches + Settings pause; multi-window acceptable per maintainer).
+
+**Durable contract:** [`docs/program/navigation-performance-contract.md`](../program/navigation-performance-contract.md) — owner map, forbidden patterns, manual gate, N-series backlog. Agents must read this before navigation-adjacent changes; tests are CI checkpoints only.
+
+| Piece | Effect |
+|-------|--------|
+| `navigation-performance-contract.md` | Single source of truth for nav perf (not handoff/chat memory) |
+| `rules/13-navigation-performance.md` + `.cursor/rules/obscur-navigation-performance.mdc` | Agent policy + file-scoped Cursor rule |
+| `navigation-chunk-load-authority.ts` | Dev console warning if full chunk load bypasses warm-up authority |
+| `use-network-request-transport.ts` | N3 — network/invites use runtime DM owner (removed 3 duplicate controllers) |
+| `intelligent-navigation-warmup-runner.ts` | All warm-up phases run sequentially during idle — no parallel chunk imports |
+| `route-navigation-warmup.ts` | Hover/intent uses shell-only prefetch; full chunk load only after quiescence |
+| `app-shell.tsx` | Warm-up deferred until quiescent; rapid-nav suppresses chunk work; experiment shell disables transition overlay + mount probes |
+| `experiment-shell-policy.ts` | `shouldRunNavigationInstrumentation()` — off for all desktop experiment builds |
+| `relay-transport-bootstrap-policy.ts` + `relay-provider.tsx` | 5s relay connect delay on secondary windows vs 1.5s primary |
+| `secondary-profile-window-reload-scheduler.ts` | Post-login DM soft refresh deferred to 8s + `requestIdleCallback` |
+| `secondary-profile-dm-soft-refresh.ts` | SQLite chat-state scan limited to current `profileId` only |
+| `use-account-sync.ts` | Skip redundant `startup_fast_follow` restore when projection already bootstrapped |
+
+**Evidence:** `pnpm -C apps/pwa exec vitest run app/components/navigation-performance-coordinator.test.ts app/components/route-navigation-warmup.test.ts app/components/app-shell.test.tsx app/features/runtime/relay-transport-bootstrap-policy.test.ts app/features/runtime/services/secondary-profile-dm-soft-refresh.test.ts app/features/runtime/services/secondary-profile-window-reload-scheduler.test.ts`
+
+**Remaining (broader v1.9.0 perf lane):** mobile 4GB viability, progressive cache tiers, self-cleaning retention — needs scoped design + incremental owners; not yet system-wide.
+
+## N5 settings chunk split (2026-06-03)
+
+| Piece | Effect |
+|-------|--------|
+| `settings-tab-panel-shared.tsx` | Lightweight UI helpers + constants (no provider hooks) |
+| `settings-tab-panel-model-context.tsx` | Context + `useSettingsTabPanelModel` only |
+| `settings-tab-panel-model-provider.tsx` | Heavy provider — lazy via `dynamic()` in loader |
+| `settings-tab-panel-loader.tsx` | Per-tab `dynamic()` panels + lazy model provider wrapper |
+| `settings-tab-panel-model.ts` | Barrel re-exports shared + context (safe sync import) |
+
+Settings route entry no longer sync-parses the ~2.5k-line monolith. Future: per-tab model providers to avoid running all tab hooks on every open.
+
+**Evidence:** `pnpm -C apps/pwa exec vitest run app/settings/settings-page-shell.test.tsx app/settings/components/settings-tab-panel-loader.test.tsx app/features/groups/services/community-leave-path-audit.test.ts`
+
+**Distribution:** [unified-version-source.md](../program/unified-version-source.md) — `version.json` + repo channel on **`main`**. GitHub Releases are legacy noise only.
+
+## Wave 4 progress (P14 — 2026-06-02)
+
+| Piece | Effect |
+|-------|--------|
+| `settings-page-shell.tsx` | Mobile menu ↔ panel flow with single scroll owner (`mobile-scroll-region`), `PageShell.containScroll` on compact layout, `?tab=` URL sync on open/back |
+| `page-shell.tsx` | Optional `containScroll` prop — defers vertical scroll to child regions on mobile settings |
+| `settings-page-shell.test.tsx` | Menu scroll region, panel navigation, back control, and `?tab=` deep-link regressions |
+| `network-dashboard.tsx` | Compact mobile tab rail switched from horizontal strip to 3-column grid pills with short labels (`All`, `Groups`, `Discover`, `Invites`, `Blocked`, `Manage`) and badge positioning tuned for narrow widths |
+| `network-dashboard.test.tsx` | Added compact-layout regression coverage for mobile tab switching + discovery/invitations visibility |
+| `vault-media-grid.tsx` | Compact filter rail (`mobile-scroll-region`), 44px-class chips/buttons, larger tile menus, wrapped preview toolbar |
+| `vault-page-client.tsx` | `containScroll` + dedicated grid scroll region; header actions bumped to 44px on compact |
+| `vault-media-grid.test.tsx` / `vault-page-client.test.tsx` | Compact touch-target + scroll-region regressions |
+
+**Evidence:** `pnpm -C apps/pwa exec vitest run app/settings/settings-page-shell.test.tsx app/features/network/components/network-dashboard.test.tsx app/features/vault/components/vault-media-grid.test.tsx app/vault/vault-page-client.test.tsx`
+
+## iPad / tablet layout (2026-06-02)
+
+| Piece | Effect |
+|-------|--------|
+| `use-secondary-page-layout-tier.ts` | Phone (&lt;640px), tablet (640–1023px), desktop tiers — mobile shell iPad no longer forced into phone-compact |
+| `network-dashboard.tsx` | Tablet: horizontal tab rail, `max-w-3xl` content, 2-col connection list |
+| `settings-page-shell.tsx` | Tablet uses split nav (tier-based), not `md:` breakpoint alone |
+| `group-home-page-client.tsx` | Tablet: `max-w-3xl`, tighter spacing, 2-col bento grid |
+| `community-invite-*-card.tsx` | Thread/historical cards capped at 320px on tablet (not full-bleed) |
+
+**Evidence:** `pnpm -C apps/pwa exec vitest run app/features/runtime/use-secondary-page-layout-tier.test.ts`
 
 ## Batch exit prep (v1.8.14 — 2026-05-29)
 
@@ -63,7 +144,7 @@
 | Piece | Effect |
 |-------|--------|
 | Leave outbox (existing) | Durable pending/rate_limited/rejected items; background retry via `community-leave-outbox-retry.ts` |
-| `community-leave-path-audit.test.ts` | Audit target corrected to `settings-tab-panel-model.tsx` (bulk-leave owner moved from deleted client path) |
+| `community-leave-path-audit.test.ts` | Audit target: `settings-tab-panel-model-provider.tsx` (bulk-leave owner) |
 | `community-leave-durability.test.ts` | AB-05 TODO replaced with real outbox + rate-limit regression |
 
 **Canonical paths verified:** `GroupProvider.leaveGroup`, `removeGroupConversation`, `use-sealed-community` leave, settings bulk-leave — all enqueue outbox before relay publish.
@@ -332,7 +413,7 @@ Policy: `community-trust-policy.ts` · hook: `use-workspace-community-trust-gate
 6. ~~**Lane K**~~ — **Shipped** 2026-05-26: `dm-controller` v2 `useRelayPoolRef`; `use-sealed-community` split into `sealed-community-relay-scope`, `join-request-storage`, `message-merge`, `relay-kinds`, `governance-session`, `relay-publish-retry`, `membership-state-patch` (hook ~3.2k → ~3.0k lines). Relay ingest `onEvent` remains in hook (tight ref coupling); extract only if soak shows churn.
 7. ~~**Workspace membership (automated)**~~ — **Shipped** 2026-05-26: coordination worker `membership-directory` tests (mock D1); PWA publish/reconcile/trust/fetch/health in `test:community-invariants`; root `test:workspace-membership` + worker gate in `verify:phase3`. **Manual G6-4** still deferred for two-client roster sign-off.
 8. ~~**Lane P1 (Android) pipeline**~~ — **Done** 2026-05-26: runbook, `verify:android-prerequisites`, debug APK build/install. **Functional QA deferred** to final wrap-up (mobile UI/UX only). Maintainer: desktop online soak (chats, DM, nav) **no** error boundary — Android emulator crash treated as wrap-up item, not desktop blocker.
-9. **Workspace membership manual (K-M1…K-M2)** — After G6-4 P3-10…P3-12: two profiles, coordination running, [private-trust-local-setup.md](../assets/demo/private-trust-local-setup.md) + [v1.9.0 demo matrix](../assets/demo/v1.9.0/README.md). Optional: `pnpm dev:relay` + `ws://localhost:7000` for chat.
+9. **Workspace membership manual (K-M1…K-M2)** — **Deferred 2026-06-01** (maintainer skip). Runbook: [private-trust-local-setup.md](../assets/demo/private-trust-local-setup.md) + [v1.9.0 demo matrix](../assets/demo/v1.9.0/README.md).
 
 ## DM thread empty after nav (2026-05-22)
 
@@ -347,7 +428,7 @@ Policy: `community-trust-policy.ts` · hook: `use-workspace-community-trust-gate
 | Render loop (2026-05-22) | `bindProfile` idempotent when `ready`; stable sidebar portal snapshot; removed debug `useConversationMessagesFixed` wrapper |
 | **Window runtime binding owner** (2026-05-22) | `WindowRuntimeBindingOwner` mounts once in `AppProviders`; `useWindowRuntime` is read-only + actions (no per-consumer bind/sync effects). `scripts/verify-react-stability.mjs` in `pnpm verify:stability`. |
 
-6. **Frozen:** remember-me / auto-unlock; auth UX Auth-UX-1+; K-M3…K-M6 and full community matrix until K-M1…K-M2 pass.
+6. **Frozen (implementation):** remember-me / auto-unlock; auth UX Auth-UX-1+. **Manual only (batched):** K-M1…K-M6, G6-4 soak — not incremental gates between code rows.
 
 ## Phase 3 (active) — Online modules (G6)
 

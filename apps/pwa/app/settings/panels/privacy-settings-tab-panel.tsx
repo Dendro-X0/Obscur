@@ -27,13 +27,15 @@ import {
   validateProfileInput,
   formatBytes,
   formatRatioPercent,
-} from "../settings-tab-panel-model";
+} from "../settings-tab-panel-shared";
 import { getApiBaseUrl } from "@/app/features/relays/utils/api-base-url";
 import { deriveRelayNodeStatus, deriveRelayRuntimeStatus } from "@/app/features/relays/lib/relay-runtime-status";
 import { checkStorageHealth, runStorageRecovery } from "@/app/features/messaging/services/storage-health-service";
 import { Loader2, Activity, ShieldAlert, Shield, Lock, Database, Copy, ChevronDown, Plus, ArrowUp, ArrowDown, Eye, EyeOff, Building2, Wifi, RefreshCcw, Check, X } from "lucide-react";
 
-import { useSettingsTabPanelModel } from "../settings-tab-panel-model";
+import { useSettingsTabPanelModel } from "../settings-tab-panel-model-context";
+import { SettingsCompactCard, SettingsCompactSection } from "@/app/features/settings/components/settings-compact-card";
+import { useMobileCompactLayout } from "@/app/features/runtime/use-mobile-compact-layout";
 
 export default function PrivacySettingsTabPanel(): React.JSX.Element {
   const {
@@ -263,34 +265,34 @@ export default function PrivacySettingsTabPanel(): React.JSX.Element {
     wipeLocalRuntimeData
   } = useSettingsTabPanelModel() as Record<string, any>;
 
+  const compact = useMobileCompactLayout();
+  const toggleRowClass = cn(
+    "flex items-center justify-between gap-4",
+    compact ? "py-1" : "rounded-2xl border border-black/5 bg-zinc-50/50 p-4 dark:border-white/10 dark:bg-zinc-900/40",
+  );
+
   return (
     <>
-          <div className="space-y-6">
+          <div className={compact ? "space-y-4" : "space-y-6"}>
             <div id="privacy-trust-settings">
               <TrustSettingsPanel />
             </div>
-            <Card title={t("settings.privacy.global", "Global Privacy")} description={t("settings.privacy.globalDesc", "Control who can message you and how messages are wrapped.")} className="w-full">
-              <div className="space-y-5">
-                <div className="relative overflow-hidden rounded-2xl border border-black/5 bg-gradient-to-br from-cyan-50/50 via-white to-blue-50/30 p-5 shadow-sm dark:border-white/10 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-950">
-                  <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-cyan-500/10 blur-2xl dark:bg-cyan-400/10" />
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="text-[10px] font-black uppercase tracking-[0.22em] text-cyan-600/60 dark:text-cyan-400/60">Privacy Policy</div>
-                      <h4 className="mt-2 text-base font-bold text-zinc-900 dark:text-zinc-100 italic tracking-tight">Direct Message Policy</h4>
-                      <p className="mt-1 text-xs leading-relaxed text-zinc-600 dark:text-zinc-300 font-medium">
-                        Choose who can reach your inbox by default.
-                      </p>
-                    </div>
-                    <div className="rounded-xl border border-black/5 bg-white/70 p-2 dark:border-white/10 dark:bg-black/20">
-                      <Lock className="h-4 w-4 text-zinc-600 dark:text-zinc-300" />
-                    </div>
-                  </div>
-                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            <SettingsCompactCard
+              title={t("settings.privacy.global", "Global Privacy")}
+              description={t("settings.privacy.globalDesc", "Control who can message you and how messages are wrapped.")}
+              className="w-full"
+            >
+              <div className={compact ? "space-y-3" : "space-y-5"}>
+                <SettingsCompactSection
+                  title="Direct Message Policy"
+                  hint={compact ? undefined : "Choose who can reach your inbox by default."}
+                >
+                  <div className={cn("grid gap-2", compact ? "grid-cols-2" : "sm:grid-cols-2")}>
                     <Button
                       type="button"
                       variant={privacySettings.dmPrivacy === "everyone" ? "secondary" : "outline"}
                       onClick={() => handleSavePrivacy({ ...privacySettings, dmPrivacy: "everyone" })}
-                      className="justify-start"
+                      className={cn("justify-start", compact && "h-9 text-xs")}
                     >
                       Everyone
                     </Button>
@@ -298,37 +300,35 @@ export default function PrivacySettingsTabPanel(): React.JSX.Element {
                       type="button"
                       variant={privacySettings.dmPrivacy === "contacts-only" ? "secondary" : "outline"}
                       onClick={() => handleSavePrivacy({ ...privacySettings, dmPrivacy: "contacts-only" })}
-                      className="justify-start"
+                      className={cn("justify-start", compact && "h-9 text-xs")}
                     >
                       Contacts Only
                     </Button>
                   </div>
-                </div>
+                </SettingsCompactSection>
 
-                <div className="flex items-center justify-between gap-4 rounded-2xl border border-black/5 bg-zinc-50/50 p-4 dark:border-white/10 dark:bg-zinc-900/40">
-                  <div className="flex-1">
+                <div className={toggleRowClass}>
+                  <div className="min-w-0 flex-1">
                     <Label className="text-sm font-semibold tracking-wide">Enable Modern DMs (Gift Wraps)</Label>
-                    <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Adds stronger metadata privacy for compatible clients and relays.</p>
+                    {!compact ? (
+                      <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Adds stronger metadata privacy for compatible clients and relays.</p>
+                    ) : null}
                   </div>
                   <SettingsToggle
                     checked={privacySettings.useModernDMs}
                     onChange={(checked) => handleSavePrivacy({ ...privacySettings, useModernDMs: checked })}
                   />
                 </div>
-                <div className="rounded-2xl border border-black/5 bg-zinc-50/50 p-4 dark:border-white/10 dark:bg-zinc-900/40">
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="flex-1">
-                      <Label className="text-sm font-semibold tracking-wide">Local Message Retention</Label>
-                      <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                        Limits chat history rendered on this device. Relay history remains recoverable if re-synced.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="mt-3 grid gap-2 sm:grid-cols-3">
+
+                <SettingsCompactSection
+                  title="Local Message Retention"
+                  hint={compact ? undefined : "Limits chat history rendered on this device."}
+                >
+                  <div className={cn("grid gap-2", compact ? "grid-cols-3" : "sm:grid-cols-3")}>
                     {([
                       { label: "Off", days: 0 as const },
-                      { label: "30 Days", days: 30 as const },
-                      { label: "90 Days", days: 90 as const },
+                      { label: compact ? "30d" : "30 Days", days: 30 as const },
+                      { label: compact ? "90d" : "90 Days", days: 90 as const },
                     ]).map((option) => (
                       <Button
                         key={option.days}
@@ -338,32 +338,38 @@ export default function PrivacySettingsTabPanel(): React.JSX.Element {
                           ...privacySettings,
                           localMessageRetentionDays: option.days,
                         })}
-                        className="justify-start"
+                        className={cn("justify-center", compact && "h-9 px-2 text-xs")}
                       >
                         {option.label}
                       </Button>
                     ))}
                   </div>
-                </div>
-                <div className="flex items-center justify-between gap-4 rounded-2xl border border-black/5 bg-zinc-50/50 p-4 dark:border-white/10 dark:bg-zinc-900/40">
-                  <div className="flex-1">
+                </SettingsCompactSection>
+
+                <div className={toggleRowClass}>
+                  <div className="min-w-0 flex-1">
                     <Label className="text-sm font-semibold tracking-wide">Show Public Key Controls In Chat</Label>
-                    <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                      Keeps the chat header focused on usernames unless you explicitly enable Share ID controls.
-                    </p>
+                    {!compact ? (
+                      <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                        Keeps the chat header focused on usernames unless you explicitly enable Share ID controls.
+                      </p>
+                    ) : null}
                   </div>
                   <SettingsToggle
                     checked={privacySettings.showPublicKeyControlsInChat === true}
                     onChange={(checked) => handleSavePrivacy({ ...privacySettings, showPublicKeyControlsInChat: checked })}
                   />
                 </div>
-                <SettingsActionStatus
-                  title="Privacy Summary"
-                  phase="idle"
-                  summary={`DM policy: ${privacySettings.dmPrivacy} · Modern DMs: ${privacySettings.useModernDMs ? "enabled" : "disabled"} · Retention: ${privacySettings.localMessageRetentionDays || 0}d · Public key controls: ${privacySettings.showPublicKeyControlsInChat ? "shown" : "hidden"}`}
-                />
+
+                {!compact ? (
+                  <SettingsActionStatus
+                    title="Privacy Summary"
+                    phase="idle"
+                    summary={`DM policy: ${privacySettings.dmPrivacy} · Modern DMs: ${privacySettings.useModernDMs ? "enabled" : "disabled"} · Retention: ${privacySettings.localMessageRetentionDays || 0}d · Public key controls: ${privacySettings.showPublicKeyControlsInChat ? "shown" : "hidden"}`}
+                  />
+                ) : null}
               </div>
-            </Card>
+            </SettingsCompactCard>
           </div>
     </>
   );

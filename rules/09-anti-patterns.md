@@ -8,3 +8,4 @@ Do not:
 - patch over lifecycle races by adding more `useEffect` layers,
 - mix legacy and new paths in one user action without naming a canonical owner,
 - claim a release blocker is resolved because tests pass while runtime behavior is still divergent.
+- add route client `import()` on hover, focus, or pathname without going through `navigation-performance-coordinator` + `navigation-chunk-load-authority` (see `rules/13-navigation-performance.md`).

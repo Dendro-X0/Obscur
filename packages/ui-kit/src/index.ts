@@ -19,3 +19,4 @@ export * from "./components/error-details";
 export * from "./components/message-status";
 export * from "./components/queue-status";
 export * from "./utils/cn";
+export * from "./overlay-z-index";

@@ -85,6 +85,25 @@ export const encryptGroupMessage = async (plaintext, roomKeyHex) => {
   return `${toBase64(combined)}?v=1`;
 };
 
+const fromBase64 = (value) => {
+  const binary = Buffer.from(value, "base64");
+  return new Uint8Array(binary.buffer, binary.byteOffset, binary.byteLength);
+};
+
+export const decryptGroupMessage = async (ciphertext, roomKeyHex) => {
+  const cleanCiphertext = ciphertext.split("?v=")[0];
+  const combined = fromBase64(cleanCiphertext);
+  if (combined.length < 28) {
+    throw new Error("Invalid cipher payload length");
+  }
+  const iv = combined.slice(0, 12);
+  const encrypted = combined.slice(12);
+  const keyBytes = hexToBytes(roomKeyHex);
+  const cryptoKey = await crypto.subtle.importKey("raw", keyBytes, { name: "AES-GCM" }, false, ["decrypt"]);
+  const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, cryptoKey, encrypted);
+  return new TextDecoder().decode(decrypted);
+};
+
 /**
  * Build kind 10105 sealed chat event (inner kind 9).
  */

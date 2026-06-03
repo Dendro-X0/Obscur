@@ -26,6 +26,12 @@ import {
   toCommunityMembershipLedgerKey,
   type CommunityMembershipLedgerEntry,
 } from "./community-membership-ledger";
+import {
+  enqueueCommunityLeaveOutboxItem,
+  getPendingCommunityLeaveOutboxItems,
+  recordCommunityLeaveRelayPublishOutcome,
+  readCommunityLeaveOutbox,
+} from "./community-leave-outbox";
 import { resolveCommunityMembershipRecovery } from "./community-membership-recovery";
 import type { GroupConversation } from "@/app/features/messaging/types";
 
@@ -218,22 +224,44 @@ describe("AB-05 — relay publish failure must not roll back private leave", () 
     expect(result.diagnostics.hiddenByLedgerStatusCount).toBe(1);
   });
 
-  it("TODO(AB-05): relay publish outbox item preserves pending state after rate-limit", () => {
-    // This test documents the REQUIRED future behavior for the relay publish outbox.
-    // When the outbox is implemented, this should:
-    //   1. create a CommunityRelayPublishOutboxItem with status "rate_limited" or "pending"
-    //   2. confirm the local ledger status remains "left"
-    //   3. confirm the outbox item is retrievable and retryable
-    // For now it just asserts the precondition: leave is durable without the outbox.
+  it("rate-limited relay publish preserves pending outbox and left ledger", () => {
     setCommunityMembershipStatus(PUBLIC_KEY, {
       groupId: GROUP_ID,
       relayUrl: RELAY_URL,
       communityId: `${GROUP_ID}:${RELAY_URL}`,
       status: "left",
+      updatedAtUnixMs: 2_000,
     });
 
-    const loaded = loadCommunityMembershipLedger(PUBLIC_KEY);
-    const entry = loaded.find(e => toCommunityMembershipLedgerKey(e) === LEDGER_KEY);
-    expect(entry?.status).toBe("left");
+    enqueueCommunityLeaveOutboxItem({
+      publicKeyHex: PUBLIC_KEY,
+      groupId: GROUP_ID,
+      relayUrl: RELAY_URL,
+    });
+
+    recordCommunityLeaveRelayPublishOutcome({
+      publicKeyHex: PUBLIC_KEY,
+      groupId: GROUP_ID,
+      relayUrl: RELAY_URL,
+      success: false,
+      errorMessage: "HTTP 429 rate limit exceeded",
+    });
+
+    const ledger = loadCommunityMembershipLedger(PUBLIC_KEY);
+    expect(ledger.find(e => toCommunityMembershipLedgerKey(e) === LEDGER_KEY)?.status).toBe("left");
+
+    const outbox = readCommunityLeaveOutbox(PUBLIC_KEY);
+    expect(outbox).toHaveLength(1);
+    expect(outbox[0]?.status).toBe("rate_limited");
+    expect(outbox[0]?.retryAfterUnixMs).toBeGreaterThan(Date.now() - 1_000);
+
+    const pendingNow = getPendingCommunityLeaveOutboxItems(PUBLIC_KEY, Date.now());
+    expect(pendingNow).toHaveLength(0);
+
+    const pendingAfterBackoff = getPendingCommunityLeaveOutboxItems(
+      PUBLIC_KEY,
+      outbox[0]?.retryAfterUnixMs ?? Date.now(),
+    );
+    expect(pendingAfterBackoff).toHaveLength(1);
   });
 });

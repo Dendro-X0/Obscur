@@ -9,6 +9,7 @@ const networkDashboardMocks = vi.hoisted(() => ({
   addToast: vi.fn(),
   useGroups: vi.fn(),
   useMembershipIndex: vi.fn(),
+  compactLayout: false,
 }));
 
 vi.mock("react-i18next", () => ({
@@ -16,10 +17,18 @@ vi.mock("react-i18next", () => ({
     t: (key: string, fallback?: string) => fallback ?? ({
       "network.tabs.groups": "Groups",
       "network.tabs.all": "All",
+      "network.tabs.invitations": "Invitations",
       "network.noGroupsFound": "No groups",
       "network.noGroupsDesc": "No groups yet",
+      "network.noRequestsFound": "No requests",
+      "network.noRequestsDesc": "No requests yet",
     }[key] ?? key),
   }),
+}));
+
+vi.mock("@/app/features/runtime/use-mobile-compact-layout", () => ({
+  useMobileCompactLayout: () => networkDashboardMocks.compactLayout,
+  useTabletSecondaryLayout: () => false,
 }));
 
 vi.mock("next/navigation", () => ({
@@ -146,12 +155,8 @@ vi.mock("@/app/components/invites/connection-import-export", () => ({
   ConnectionImportExport: () => null,
 }));
 
-vi.mock("@/app/features/messaging/hooks/use-enhanced-dm-controller", () => ({
-  useEnhancedDmController: () => ({}),
-}));
-
-vi.mock("@/app/features/messaging/hooks/use-request-transport", () => ({
-  useRequestTransport: () => ({
+vi.mock("@/app/features/messaging/hooks/use-network-request-transport", () => ({
+  useNetworkRequestTransport: () => ({
     acceptIncomingRequest: vi.fn(),
     declineIncomingRequest: vi.fn(),
   }),
@@ -163,6 +168,7 @@ vi.mock("@/app/features/invites/utils/use-invite-resolver", () => ({
 
 describe("NetworkDashboard recovery navigation", () => {
   beforeEach(() => {
+    networkDashboardMocks.compactLayout = false;
     networkDashboardMocks.push.mockReset();
     networkDashboardMocks.setIsNewGroupOpen.mockReset();
     networkDashboardMocks.addToast.mockReset();
@@ -221,6 +227,21 @@ describe("NetworkDashboard recovery navigation", () => {
 
     await waitFor(() => {
       expect(screen.getByText("Mock Group Card Group 1 (3)")).toBeInTheDocument();
+    });
+  });
+
+  it("renders compact mobile tab labels and keeps tab switching functional", async () => {
+    networkDashboardMocks.compactLayout = true;
+    render(<NetworkDashboard />);
+
+    fireEvent.click(screen.getByRole("button", { name: /^Invites$/i }));
+    await waitFor(() => {
+      expect(screen.getByText("No requests")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /^Discover$/i }));
+    await waitFor(() => {
+      expect(screen.getByText("Mock Discovery Surface")).toBeInTheDocument();
     });
   });
 });

@@ -34,7 +34,7 @@ describe("REL-004 leave path audit", () => {
   });
 
   it("settings bulk-leave enqueues outbox before ledger leave", () => {
-    const source = readSource("app/settings/settings-page-client.tsx");
+    const source = readSource("app/settings/settings-tab-panel-model-provider.tsx");
     const block = source.slice(source.indexOf("for (const entry of joinedEntries)"));
     const enqueueAt = block.indexOf("enqueueCommunityLeaveOutboxItem");
     const ledgerAt = block.indexOf("persistExplicitCommunityMembershipLeave");

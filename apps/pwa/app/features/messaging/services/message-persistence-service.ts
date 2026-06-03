@@ -20,6 +20,7 @@ import type { ChatStateReplacedEventDetail } from "./chat-state-store";
 import { createMicrotaskCoalescedHandler } from "@/app/features/profiles/services/profile-bus-coalesce";
 import { messagingClientOperations } from "./messaging-client-operations";
 import { toConversationIdDiagnosticLabel } from "@dweb/client-gateway/messaging-diagnostics";
+import { toAccountEventPlaintextPreview } from "@/app/features/account-sync/services/account-event-plaintext-preview";
 
 export const MESSAGES_INDEX_REBUILT_EVENT = "obscur:messages-index-rebuilt";
 export type MessagesIndexRebuiltEventDetail = Readonly<{
@@ -676,7 +677,9 @@ export class MessagePersistenceService {
                             last_event_id: typeof raw.id === "string" ? raw.id
                                 : typeof raw.eventId === "string" ? raw.eventId : null,
                             last_message_at: typeof raw.timestampMs === "number" ? raw.timestampMs : null,
-                            last_plaintext_preview: typeof raw.content === "string" ? raw.content.slice(0, 120) : null,
+                            last_plaintext_preview: typeof raw.content === "string"
+                                ? toAccountEventPlaintextPreview(raw.content)
+                                : null,
                             unread_count: 0,
                         };
                         dbUpsertConversation(convRec).catch(() => {});

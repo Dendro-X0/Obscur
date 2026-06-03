@@ -30,6 +30,9 @@ export const applyConnectionOverrides = (
     if (!overrides) {
         return conversation;
     }
+    if (overrides.lastMessageTime.getTime() < conversation.lastMessageTime.getTime()) {
+        return conversation;
+    }
     return {
         ...conversation,
         lastMessage: overrides.lastMessage,

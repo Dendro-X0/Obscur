@@ -27,13 +27,15 @@ import {
   validateProfileInput,
   formatBytes,
   formatRatioPercent,
-} from "../settings-tab-panel-model";
+} from "../settings-tab-panel-shared";
 import { getApiBaseUrl } from "@/app/features/relays/utils/api-base-url";
 import { deriveRelayNodeStatus, deriveRelayRuntimeStatus } from "@/app/features/relays/lib/relay-runtime-status";
 import { checkStorageHealth, runStorageRecovery } from "@/app/features/messaging/services/storage-health-service";
 import { Loader2, Activity, ShieldAlert, Shield, Lock, Database, Copy, ChevronDown, Plus, ArrowUp, ArrowDown, Eye, EyeOff, Building2, Wifi, RefreshCcw, Check, X } from "lucide-react";
 
-import { useSettingsTabPanelModel } from "../settings-tab-panel-model";
+import { useSettingsTabPanelModel } from "../settings-tab-panel-model-context";
+import { SettingsCompactCard, SettingsCompactSection } from "@/app/features/settings/components/settings-compact-card";
+import { useMobileCompactLayout } from "@/app/features/runtime/use-mobile-compact-layout";
 
 export default function SecuritySettingsTabPanel(): React.JSX.Element {
   const {
@@ -263,13 +265,22 @@ export default function SecuritySettingsTabPanel(): React.JSX.Element {
     wipeLocalRuntimeData
   } = useSettingsTabPanelModel() as Record<string, any>;
 
+  const compact = useMobileCompactLayout();
+
   return (
     <>
-          <div className="space-y-6">
+          <div className={compact ? "space-y-4" : "space-y-6"}>
             <SecuritySettingsPanel />
-            <Card title="Security Posture" description="Current protection status and capability checks." className="w-full">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between rounded-xl border border-black/5 bg-zinc-50 p-4 dark:border-white/10 dark:bg-zinc-900/50">
+            <SettingsCompactCard
+              title="Security Posture"
+              description="Current protection status and capability checks."
+              className="w-full"
+            >
+              <div className={compact ? "space-y-3" : "space-y-4"}>
+                <div className={cn(
+                  "flex items-center justify-between",
+                  compact ? "py-1" : "rounded-xl border border-black/5 bg-zinc-50 p-4 dark:border-white/10 dark:bg-zinc-900/50",
+                )}>
                   <div className="text-sm font-semibold text-zinc-700 dark:text-zinc-200">Overall posture</div>
                   <span className={cn(
                     "rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide",
@@ -280,48 +291,67 @@ export default function SecuritySettingsTabPanel(): React.JSX.Element {
                     {securityPosture}
                   </span>
                 </div>
-                <div className="grid gap-2 md:grid-cols-3">
-                  <div className="rounded-lg border border-black/5 p-3 text-xs dark:border-white/10">
+                <div className={cn("grid gap-2", compact ? "grid-cols-3" : "md:grid-cols-3")}>
+                  <div className={cn(
+                    "rounded-lg border border-black/5 text-xs dark:border-white/10",
+                    compact ? "p-2 text-center" : "p-3",
+                  )}>
                     Clipboard: <span className="font-semibold">{securityCapabilityStates.clipboard}</span>
                   </div>
-                  <div className="rounded-lg border border-black/5 p-3 text-xs dark:border-white/10">
+                  <div className={cn(
+                    "rounded-lg border border-black/5 text-xs dark:border-white/10",
+                    compact ? "p-2 text-center" : "p-3",
+                  )}>
                     Biometric: <span className="font-semibold">{securityCapabilityStates.biometric}</span>
                   </div>
-                  <div className="rounded-lg border border-black/5 p-3 text-xs dark:border-white/10">
+                  <div className={cn(
+                    "rounded-lg border border-black/5 text-xs dark:border-white/10",
+                    compact ? "p-2 text-center" : "p-3",
+                  )}>
                     Tor: <span className="font-semibold">{securityCapabilityStates.tor}</span>
                   </div>
                 </div>
               </div>
-            </Card>
+            </SettingsCompactCard>
             <div id="security-password-reset">
               <PasswordResetPanel />
             </div>
             <div id="security-auto-lock">
               <AutoLockSettingsPanel />
             </div>
-            <Card title="Session Management" description="Security settings for your current session." className="w-full">
-              <div className="space-y-4">
+            <SettingsCompactCard
+              title="Session Management"
+              description="Security settings for your current session."
+              className="w-full"
+            >
+              <div className={cn("space-y-3", compact ? undefined : "space-y-4")}>
                 <Button
                   variant="secondary"
                   onClick={handleLockNow}
+                  className={compact ? "h-10 w-full" : undefined}
                 >
                   Lock Now
                 </Button>
                 <Button
                   variant="outline"
-                  className="text-red-600 border-red-200 hover:bg-red-50 dark:border-red-900/30 dark:hover:bg-red-900/20"
+                  className={cn(
+                    "text-red-600 border-red-200 hover:bg-red-50 dark:border-red-900/30 dark:hover:bg-red-900/20",
+                    compact ? "h-10 w-full" : undefined,
+                  )}
                   onClick={() => setIsClearDataDialogOpen(true)}
                 >
                   {t("settings.actions.clearData", "Clear All Local Data")}
                 </Button>
-                <SettingsActionStatus
-                  title="Security Actions"
-                  phase={securityActionPhase}
-                  message={securityActionMessage || undefined}
-                  summary="Use Lock Now for immediate protection; clear local data only when needed."
-                />
+                {!compact ? (
+                  <SettingsActionStatus
+                    title="Security Actions"
+                    phase={securityActionPhase}
+                    message={securityActionMessage || undefined}
+                    summary="Use Lock Now for immediate protection; clear local data only when needed."
+                  />
+                ) : null}
               </div>
-            </Card>
+            </SettingsCompactCard>
           </div>
       <ConfirmDialog
         isOpen={isDisableAllRelaysDialogOpen}

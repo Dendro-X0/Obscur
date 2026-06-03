@@ -6,11 +6,19 @@ All notable changes to Obscur are documented here.
 
 ---
 
-## [Unreleased] — v1.8.14 (batch exit: P13 + B2 + Wave 3 trust)
+## [Unreleased]
 
-**Gate:** [v1.8.14-gate.md](docs/releases/v1.8.14-gate.md). **Scope:** [v1.8.14-scope.md](docs/program/v1.8.14-scope.md).
+**Lane:** v1.9.x (Lane K) + v1.8.x batch features on `main`.  
+**Policy:** [maintainer-distribution-policy.md](docs/program/maintainer-distribution-policy.md) — no CI-only version bumps; ZIP/clone distribution; Full Release optional.  
+**Notes:** [v1.9.0-release.md](docs/releases/v1.9.0-release.md) (program band, not a publish mandate).
 
-**Note:** `v1.8.12` on `main` is **void** — do not publish that tag. Production release remains **v1.8.11** until **v1.8.14** (or **v1.8.13** if R13 ships alone first).
+---
+
+## [v1.8.14] — 2026-06-02 (batch exit: P13 + B2 + Wave 3 trust)
+
+**Release notes:** [v1.8.14-release.md](docs/releases/v1.8.14-release.md). **Gate:** [v1.8.14-gate.md](docs/releases/v1.8.14-gate.md). **Scope:** [v1.8.14-scope.md](docs/program/v1.8.14-scope.md).
+
+**Note:** Supersedes void **`v1.8.12`** tag. GitHub **Latest** moves from **v1.8.11** when Full Release publish completes.
 
 ### Added (B2 — inbound community bots)
 
@@ -22,9 +30,24 @@ All notable changes to Obscur are documented here.
 ### Changed (P13 — mobile shell + chat-thread polish)
 
 - **Status strip** — suppress restore/sync/relay notices during account load; scope mismatch still shown.
-- **Conversation row** — timestamp centered beside preview; direction-aware invitation previews.
+- **Conversation row** — timestamp centered beside preview; direction-aware invitation previews; sidebar formats structured invite/response JSON at render time with peer name and correct recency.
 - **Composer** — removed amber relay queue / cooling-down footer banners.
 - **Message list** — mobile action dock below bubble; sustained touch (~420ms) shows dock like hover.
+
+### Changed (P14 — light theme + layout polish, carried into batch exit)
+
+- **Dialog / ui-kit** — Tailwind v4 scan fix so modal content stays in viewport; overlay z-index aligned.
+- **Group management + community home** — light/dark contrast pairs on panels and bento cards.
+- **Network profile** — full-width connection status stack; hero online badge; NIP-05 inline in public identity.
+- **Community invite cards** — light-theme historical cards; community avatar in card + details dialog.
+- **Auth screen** — primary actions use purple scheme (login / continue / welcome).
+- **iPad / tablet** — secondary-page layout tier; settings split nav; capped invite card width on tablet.
+
+### Fixed (P13 — sidebar preview authority)
+
+- **Projection merge** — `buildLatestConversationByPeer` scans full message timeline; reducer only updates preview when message is latest; stale connection overrides ignored.
+- **Persisted history** — SQLite + chat-state merge refreshes sidebar when message history changes (`computePersistedMessageHistoryRevision`).
+- **MessagingProvider** — missing import + projection sequence dependency for revision memo.
 
 ### Fixed (Wave 3 — trust slices)
 

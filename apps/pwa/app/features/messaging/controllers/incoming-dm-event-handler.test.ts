@@ -667,7 +667,7 @@ describe("incoming-dm-event-handler", () => {
     it.each([
         ["declined"],
         ["canceled"],
-    ] as const)("does not emit group-invite-accepted for community invite response %s (logs terminal observe only)", async (responseStatus) => {
+    ] as const)("does not emit group-invite-accepted for community invite response %s (dispatches terminal bus event)", async (responseStatus) => {
         const event = {
             id: "event-invite-terminal",
             pubkey: SENDER_PUBLIC_KEY,
@@ -718,6 +718,13 @@ describe("incoming-dm-event-handler", () => {
             (call) => (call[0] as { type?: string })?.type === "group-invite-accepted",
         );
         expect(acceptedPublishes).toHaveLength(0);
+        expect(publishSpy).toHaveBeenCalledWith(expect.objectContaining({
+            type: "group-invite-terminal",
+            groupId: "group-beta",
+            memberPubkey: SENDER_PUBLIC_KEY,
+            recipientPublicKeyHex: MY_PUBLIC_KEY,
+            responseStatus,
+        }));
         expect(logSpy).toHaveBeenCalledWith(expect.objectContaining({
             name: "messaging.incoming.community_invite_response_terminal_observed",
             context: expect.objectContaining({

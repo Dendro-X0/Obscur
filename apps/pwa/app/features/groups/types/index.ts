@@ -1,4 +1,5 @@
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
+import type { CommunityBotTriggerEntry } from "@dweb/core/community-bot-triggers-contracts";
 import type { CommunityMode, RelayCapabilityTier } from "./community-mode";
 
 export type GroupRole = "member" | "guest";
@@ -24,4 +25,6 @@ export interface GroupMetadata {
     stewardPubkeys?: ReadonlyArray<string>;
     /** Managed workspace (B1): outbound-only bot identities allowed on the relay plane. */
     botPubkeys?: ReadonlyArray<string>;
+    /** Managed workspace (B2): inbound trigger rules per registered bot. */
+    botTriggers?: ReadonlyArray<CommunityBotTriggerEntry>;
 }

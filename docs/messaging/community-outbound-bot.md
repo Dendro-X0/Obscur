@@ -67,7 +67,7 @@ pnpm community-outbound-bot --message "Deploy succeeded"
 
 Use `--dry-run` to build and validate the event without publishing.
 
-**Rate limit (default):** 6 messages/min per community — steward-configurable in B2.
+**Rate limit (default):** 6 messages/min per community — override via `OBSCUR_BOT_RATE_LIMIT_PER_MIN` on the inbound runner (B2). See [community-inbound-bot.md](./community-inbound-bot.md).
 
 ---
 

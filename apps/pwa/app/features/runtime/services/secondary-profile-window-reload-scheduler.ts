@@ -5,8 +5,15 @@ import { isSecondaryProfileWindow } from "./secondary-profile-post-login-refresh
 
 export type SecondaryProfileWindowRefreshReason = "post_login" | "dm_incoming_only";
 
-export const SECONDARY_PROFILE_POST_LOGIN_REFRESH_DELAY_MS = 2_500;
+export const SECONDARY_PROFILE_POST_LOGIN_REFRESH_DELAY_MS = 8_000;
 export const SECONDARY_PROFILE_DM_INCOMING_ONLY_REFRESH_DELAY_MS = 800;
+/** Max wait for idle time before running secondary profile DM refresh (ms). */
+export const SECONDARY_PROFILE_REFRESH_IDLE_TIMEOUT_MS = 12_000;
+
+type PendingRefreshHandle = Readonly<{
+  timerId?: number;
+  cancelIdle?: () => void;
+}>;
 
 const refreshStorageKey = (
   reason: SecondaryProfileWindowRefreshReason,
@@ -15,7 +22,32 @@ const refreshStorageKey = (
   `obscur.secondary_profile.refresh.${reason}.v1::${profileId.trim() || getDefaultProfileId()}`
 );
 
-const pendingTimers = new Map<string, number>();
+const pendingTimers = new Map<string, PendingRefreshHandle>();
+
+const scheduleWhenIdle = (callback: () => void, timeoutMs: number): (() => void) => {
+  if (typeof window.requestIdleCallback === "function") {
+    const idleId = window.requestIdleCallback(callback, { timeout: timeoutMs });
+    return (): void => {
+      window.cancelIdleCallback(idleId);
+    };
+  }
+  const fallbackTimerId = window.setTimeout(callback, Math.min(timeoutMs, 250));
+  return (): void => {
+    window.clearTimeout(fallbackTimerId);
+  };
+};
+
+const clearPendingRefresh = (timerKey: string): void => {
+  const pending = pendingTimers.get(timerKey);
+  if (!pending) {
+    return;
+  }
+  if (pending.timerId !== undefined) {
+    window.clearTimeout(pending.timerId);
+  }
+  pending.cancelIdle?.();
+  pendingTimers.delete(timerKey);
+};
 
 export const hasSecondaryProfileWindowRefreshDone = (
   reason: SecondaryProfileWindowRefreshReason,
@@ -73,28 +105,30 @@ export const scheduleSecondaryProfileWindowRefresh = (params: Readonly<{
   }
 
   const timerKey = `${params.reason}:${profileId}`;
-  const existing = pendingTimers.get(timerKey);
-  if (existing) {
-    window.clearTimeout(existing);
-  }
+  clearPendingRefresh(timerKey);
 
   const timeoutId = window.setTimeout(() => {
-    pendingTimers.delete(timerKey);
-    markSecondaryProfileWindowRefreshDone(params.reason, profileId);
-    logAppEvent({
-      name: "runtime.secondary_profile_window_refresh",
-      level: "info",
-      scope: { feature: "runtime", action: "secondary_profile_refresh" },
-      context: {
-        profileId,
-        reason: params.reason,
-        delayMs: params.delayMs,
-      },
-    });
-    params.onRefresh();
+    const runRefresh = (): void => {
+      pendingTimers.delete(timerKey);
+      markSecondaryProfileWindowRefreshDone(params.reason, profileId);
+      logAppEvent({
+        name: "runtime.secondary_profile_window_refresh",
+        level: "info",
+        scope: { feature: "runtime", action: "secondary_profile_refresh" },
+        context: {
+          profileId,
+          reason: params.reason,
+          delayMs: params.delayMs,
+        },
+      });
+      params.onRefresh();
+    };
+
+    const cancelIdle = scheduleWhenIdle(runRefresh, SECONDARY_PROFILE_REFRESH_IDLE_TIMEOUT_MS);
+    pendingTimers.set(timerKey, { cancelIdle });
   }, params.delayMs);
 
-  pendingTimers.set(timerKey, timeoutId);
+  pendingTimers.set(timerKey, { timerId: timeoutId });
   return true;
 };
 
@@ -114,12 +148,7 @@ export const cancelSecondaryProfileWindowRefresh = (
   reason: SecondaryProfileWindowRefreshReason,
   profileId: string,
 ): void => {
-  const timerKey = `${reason}:${profileId.trim()}`;
-  const existing = pendingTimers.get(timerKey);
-  if (existing) {
-    window.clearTimeout(existing);
-    pendingTimers.delete(timerKey);
-  }
+  clearPendingRefresh(`${reason}:${profileId.trim()}`);
 };
 
 /** @deprecated Use cancelSecondaryProfileWindowRefresh */

@@ -39,6 +39,7 @@ import { GroupManagementDialog } from "@/app/features/groups/components/group-ma
 import type { GroupManagementTabId } from "@/app/features/groups/components/group-management/constants";
 import { shouldMountGroupManagementDialog } from "@/app/features/groups/components/group-management-mount-policy";
 import { cn } from "@dweb/ui-kit";
+import { useMobileCompactLayout, useTabletSecondaryLayout } from "@/app/features/runtime/use-mobile-compact-layout";
 import { useCommunityGovernanceProjection } from "@/app/features/groups/hooks/use-community-governance-projection";
 import { useRelayList } from "@/app/features/relays/hooks/use-relay-list";
 import { assessRelayCapability } from "@/app/features/groups/services/community-mode-contract";
@@ -126,6 +127,7 @@ import {
     useWorkspaceCommunityTrustGate,
 } from "@/app/features/groups/hooks/use-workspace-community-trust-gate";
 import { ensureWorkspaceMembershipSyncMode } from "@/app/features/groups/services/community-workspace-membership";
+import { useDocumentPageVisible } from "@/app/features/runtime/use-document-page-visible";
 
 export default function GroupHomePage() {
     const MEMBERS_PER_PAGE = 20;
@@ -182,11 +184,15 @@ export default function GroupHomePage() {
         runtimeConstrained: runtimeCapability.constrained,
         isDesktop,
     });
+    const compact = useMobileCompactLayout();
+    const tablet = useTabletSecondaryLayout();
+    const pageVisible = useDocumentPageVisible();
 
     const group = id ? (resolveGroupConversationByToken(createdGroups, id) ?? undefined) : undefined;
     const localMemberPubkey = (identityState.publicKeyHex || identityState.stored?.publicKeyHex || null) as PublicKeyHex | null;
 
     const effectiveRelay = toScopedRelayUrl(group?.relayUrl || discoveredRelay || "") ?? "";
+    const relayHostLabel = effectiveRelay.replace(/^wss?:\/\//, "").split("/")[0] || effectiveRelay;
     const communityRelayTransportReady = React.useMemo(
         () => hasWritableCommunityRelayTransport(effectiveRelay),
         [effectiveRelay],
@@ -437,7 +443,7 @@ export default function GroupHomePage() {
 
     useEffect(() => {
         const groupId = group?.groupId || id || "";
-        if (!groupId || !effectiveRelay) {
+        if (!groupId || !effectiveRelay || !pageVisible) {
             return;
         }
         const profileId = getResolvedProfileId();
@@ -467,6 +473,7 @@ export default function GroupHomePage() {
         effectiveRelay,
         group?.groupId,
         id,
+        pageVisible,
         rawExpelledMemberPubkeysFingerprint,
         rawLeftMemberPubkeysFingerprint,
     ]);
@@ -475,7 +482,7 @@ export default function GroupHomePage() {
     refreshCommunityMembershipRef.current = refreshCommunityMembership;
     useEffect(() => {
         const groupId = group?.groupId || id || "";
-        if (!groupId || !effectiveRelay || !communityRelayTransportReady) {
+        if (!groupId || !effectiveRelay || !communityRelayTransportReady || !pageVisible) {
             return;
         }
         const timerId = window.setTimeout(() => {
@@ -489,7 +496,7 @@ export default function GroupHomePage() {
             });
         }, COMMUNITY_MEMBERSHIP_AUTO_RECONCILE_DEBOUNCE_MS);
         return () => window.clearTimeout(timerId);
-    }, [communityRelayTransportReady, effectiveRelay, group?.groupId, id]);
+    }, [communityRelayTransportReady, effectiveRelay, group?.groupId, id, pageVisible]);
 
     const directoryParticipantPubkeys = React.useMemo(
         () => (knownParticipantPubkeys ?? []) as ReadonlyArray<PublicKeyHex>,
@@ -583,28 +590,43 @@ export default function GroupHomePage() {
         () => filterVisibleGroupMembers(participantDisplayPubkeys, (pubkey) => discoveryCache.getProfile(pubkey)),
         [participantDisplayPubkeys],
     );
+    const terminalParticipantSet = React.useMemo(
+        () => new Set([
+            ...rosterLeftMemberPubkeys,
+            ...rosterExpelledMemberPubkeys,
+        ].map((pubkey) => pubkey.trim().toLowerCase())),
+        [rosterExpelledMemberPubkeys, rosterLeftMemberPubkeys],
+    );
+    const activeVisibleMembers = React.useMemo(
+        () => visibleMembers.filter((pubkey) => !terminalParticipantSet.has(pubkey.trim().toLowerCase())),
+        [terminalParticipantSet, visibleMembers],
+    );
     const provisionalVisibleCount = React.useMemo(
-        () => visibleMembers.filter((pk) => (
+        () => activeVisibleMembers.filter((pk) => (
             resolveCommunityMemberEvidenceTier(pk, {
                 activeMemberPubkeys: activeMembers,
                 provisionalMemberPubkeys,
             }) === "provisional"
         )).length,
-        [activeMembers, provisionalMemberPubkeys, visibleMembers],
+        [activeMembers, activeVisibleMembers, provisionalMemberPubkeys],
     );
     const terminalRecordCount = React.useMemo(
         () => new Set([...rawLeftMemberPubkeys, ...rawExpelledMemberPubkeys]).size,
         [rawExpelledMemberPubkeys, rawLeftMemberPubkeys],
     );
-    const displayMemberCount = visibleMembers.length;
-    const onlineMembers = React.useMemo(
-        () => visibleMembers.filter((pk) => presence.isPeerOnline(pk as PublicKeyHex)),
-        [presence, visibleMembers]
-    );
-    const offlineMembers = React.useMemo(
-        () => visibleMembers.filter((pk) => !presence.isPeerOnline(pk as PublicKeyHex)),
-        [presence, visibleMembers]
-    );
+    const displayMemberCount = activeVisibleMembers.length;
+    const onlineMembers = React.useMemo(() => {
+        if (!isMemberListOpen) {
+            return [] as ReadonlyArray<string>;
+        }
+        return activeVisibleMembers.filter((pk) => presence.isPeerOnline(pk as PublicKeyHex));
+    }, [activeVisibleMembers, isMemberListOpen, presence]);
+    const offlineMembers = React.useMemo(() => {
+        if (!isMemberListOpen) {
+            return activeVisibleMembers;
+        }
+        return activeVisibleMembers.filter((pk) => !presence.isPeerOnline(pk as PublicKeyHex));
+    }, [activeVisibleMembers, isMemberListOpen, presence]);
 
     const normalizedMemberSearch = memberSearchQuery.trim().toLowerCase();
     const memberMatchesSearch = React.useCallback((pubkey: string): boolean => {
@@ -649,7 +671,7 @@ export default function GroupHomePage() {
     );
 
     useEffect(() => {
-        if (!group) {
+        if (!group || !isMemberListOpen) {
             return;
         }
         const signature = [
@@ -660,9 +682,7 @@ export default function GroupHomePage() {
             activeMembers.length,
             provisionalMemberPubkeys.length,
             rosterDisplayPubkeys.length,
-            visibleMembers.length,
-            onlineMembers.length,
-            offlineMembers.length,
+            activeVisibleMembers.length,
             groupState.membership.status,
         ].join("|");
         if (lastParticipantProjectionSignatureRef.current === signature) {
@@ -670,7 +690,7 @@ export default function GroupHomePage() {
         }
         lastParticipantProjectionSignatureRef.current = signature;
 
-        const visibleShrankBelowStable = visibleMembers.length < rosterDisplayPubkeys.length;
+        const visibleShrankBelowStable = activeVisibleMembers.length < rosterDisplayPubkeys.length;
         const projectionThinnerThanKnown =
             (projectionMemberPubkeys?.length ?? 0) < (knownParticipantPubkeys?.length ?? 0);
         const projectionThinnerThanAuthors =
@@ -691,7 +711,7 @@ export default function GroupHomePage() {
                 activeParticipantCount: activeMembers.length,
                 provisionalParticipantCount: provisionalMemberPubkeys.length,
                 stableParticipantCount: rosterDisplayPubkeys.length,
-                visibleParticipantCount: visibleMembers.length,
+                visibleParticipantCount: activeVisibleMembers.length,
                 onlineParticipantCount: onlineMembers.length,
                 offlineParticipantCount: offlineMembers.length,
                 projectionThinnerThanKnown: projectionThinnerThanKnown ? 1 : 0,
@@ -701,16 +721,17 @@ export default function GroupHomePage() {
         });
     }, [
         activeMembers.length,
-        provisionalMemberPubkeys.length,
+        activeVisibleMembers.length,
         authorEvidencePubkeys.length,
         group,
         groupState.membership.status,
+        isMemberListOpen,
         knownParticipantPubkeys?.length,
-        offlineMembers.length,
         onlineMembers.length,
+        offlineMembers.length,
         projectionMemberPubkeys?.length,
+        provisionalMemberPubkeys.length,
         rosterDisplayPubkeys.length,
-        visibleMembers.length,
     ]);
 
     const onlineTotalPages = Math.max(1, Math.ceil(filteredOnlineMembers.length / MEMBERS_PER_PAGE));
@@ -1112,12 +1133,13 @@ export default function GroupHomePage() {
         <PageShell title={displayName}>
             <div
                 className={cn(
-                    "max-w-5xl mx-auto w-full pt-20 pb-20 md:pb-0 px-4 sm:px-6 space-y-12",
+                    "mx-auto w-full px-4 sm:px-6",
+                    compact ? "max-w-3xl pt-0 pb-28 space-y-3" : tablet ? "max-w-3xl pt-4 pb-28 space-y-6" : "max-w-5xl pt-20 pb-20 md:pb-0 space-y-12",
                     safeVisualMode ? "opacity-100" : "animate-in fade-in slide-in-from-bottom-4 duration-700",
                 )}
             >
                 {/* Back Button */}
-                <div className="pt-6">
+                <div className={compact ? undefined : "pt-6"}>
                     <button
                         onClick={() => router.push("/network")}
                         className="group flex items-center gap-2 text-zinc-600 transition-colors hover:text-zinc-900 dark:text-zinc-500 dark:hover:text-white"
@@ -1156,13 +1178,14 @@ export default function GroupHomePage() {
 
                     <Card
                         className={cn(
-                            "relative overflow-hidden rounded-[48px] p-8 sm:p-12 shadow-2xl",
+                            "relative overflow-hidden shadow-2xl",
+                            compact ? "rounded-2xl p-5 shadow-lg" : "rounded-[48px] p-8 sm:p-12",
                             safeVisualMode
                                 ? "border-black/10 bg-white/95 dark:border-white/[0.05] dark:bg-[#0C0C0E]/95"
                                 : "border-black/10 bg-white/75 backdrop-blur-xl dark:border-white/[0.03] dark:bg-[#0C0C0E]/80",
                         )}
                     >
-                        {/* Immersive Blurred Banner Background */}
+                        {!compact ? (
                         <div className="absolute inset-0 z-0 opacity-10 pointer-events-none overflow-hidden">
                             {avatarUrl ? (
                                 <Image
@@ -1183,17 +1206,27 @@ export default function GroupHomePage() {
                                 />
                             )}
                         </div>
+                        ) : null}
 
-                        <div className="relative z-10 flex flex-col md:flex-row items-center md:items-start gap-10 md:gap-14">
+                        <div className={cn(
+                            "relative z-10 flex flex-col items-center md:items-start",
+                            compact ? "gap-5 text-center" : "md:flex-row gap-10 md:gap-14",
+                        )}>
                             {/* Avatar with Status Ring */}
                             <div className="relative shrink-0">
                                 {safeVisualMode ? (
-                                    <div className="relative p-1.5 rounded-[48px] bg-gradient-to-br from-purple-500 to-indigo-600 shadow-2xl">
+                                    <div className={cn("relative bg-gradient-to-br from-purple-500 to-indigo-600 shadow-2xl", compact ? "rounded-2xl p-1" : "rounded-[48px] p-1.5")}>
                                         <Avatar
-                                            className="h-44 w-44 rounded-[42px] border-[6px] border-black/20 shadow-xl dark:border-[#0C0C0E]"
+                                            className={cn(
+                                                "border-[6px] border-black/20 shadow-xl dark:border-[#0C0C0E]",
+                                                compact ? "h-28 w-28 rounded-xl" : "h-44 w-44 rounded-[42px]",
+                                            )}
                                         >
                                             <AvatarImage src={avatarUrl} className="object-cover" />
-                                            <AvatarFallback className="bg-zinc-100 text-6xl font-black text-zinc-900 dark:bg-[#1A1A1E] dark:text-white">
+                                            <AvatarFallback className={cn(
+                                                "bg-zinc-100 font-black text-zinc-900 dark:bg-[#1A1A1E] dark:text-white",
+                                                compact ? "text-4xl" : "text-6xl",
+                                            )}>
                                                 {displayName.slice(0, 1).toUpperCase()}
                                             </AvatarFallback>
                                         </Avatar>
@@ -1206,13 +1239,22 @@ export default function GroupHomePage() {
                                         initial={{ scale: 0.9, opacity: 0 }}
                                         animate={{ scale: 1, opacity: 1 }}
                                         transition={{ duration: 0.5, ease: "easeOut" }}
-                                        className="relative p-1.5 rounded-[48px] bg-gradient-to-br from-purple-500 to-indigo-600 shadow-2xl"
+                                        className={cn(
+                                            "relative bg-gradient-to-br from-purple-500 to-indigo-600 shadow-2xl",
+                                            compact ? "rounded-2xl p-1" : "rounded-[48px] p-1.5",
+                                        )}
                                     >
                                         <Avatar
-                                            className="h-44 w-44 rounded-[42px] border-[6px] border-black/20 shadow-xl dark:border-[#0C0C0E]"
+                                            className={cn(
+                                                "border-[6px] border-black/20 shadow-xl dark:border-[#0C0C0E]",
+                                                compact ? "h-28 w-28 rounded-xl" : "h-44 w-44 rounded-[42px]",
+                                            )}
                                         >
                                             <AvatarImage src={avatarUrl} className="object-cover" />
-                                            <AvatarFallback className="bg-zinc-100 text-6xl font-black text-zinc-900 dark:bg-[#1A1A1E] dark:text-white">
+                                            <AvatarFallback className={cn(
+                                                "bg-zinc-100 font-black text-zinc-900 dark:bg-[#1A1A1E] dark:text-white",
+                                                compact ? "text-4xl" : "text-6xl",
+                                            )}>
                                                 {displayName.slice(0, 1).toUpperCase()}
                                             </AvatarFallback>
                                         </Avatar>
@@ -1224,21 +1266,24 @@ export default function GroupHomePage() {
                             </div>
 
                             {/* Main Title & Description */}
-                            <div className="flex-1 text-center md:text-left space-y-8">
-                                <div className="space-y-4">
-                                    <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
+                            <div className={cn("flex-1 w-full text-center md:text-left", compact ? "space-y-4" : "space-y-8")}>
+                                <div className={compact ? "space-y-2" : "space-y-4"}>
+                                    <div className="flex flex-wrap items-center justify-center md:justify-start gap-2">
                                         {safeVisualMode ? (
                                             <>
-                                                <h1 className="text-5xl font-black tracking-tight text-zinc-950 dark:text-white sm:text-6xl">
+                                                <h1 className={cn(
+                                                    "font-black tracking-tight text-zinc-950 dark:text-white",
+                                                    compact ? "text-3xl" : "text-5xl sm:text-6xl",
+                                                )}>
                                                     {displayName}
                                                 </h1>
-                                                <div className="flex items-center gap-2 rounded-full border border-black/10 bg-black/[0.04] px-4 py-1.5 dark:border-white/10 dark:bg-white/[0.05]">
+                                                <div className="flex items-center gap-2 rounded-full border border-black/10 bg-black/[0.04] px-3 py-1 dark:border-white/10 dark:bg-white/[0.05]">
                                                     <Globe className="h-3.5 w-3.5 text-purple-400" />
-                                                    <span className="text-[11px] font-black uppercase tracking-widest text-zinc-600 dark:text-zinc-400">
-                                                        {effectiveRelay.replace("wss://", "")}
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-zinc-800 dark:text-zinc-400">
+                                                        {compact ? relayHostLabel : effectiveRelay.replace("wss://", "")}
                                                     </span>
                                                 </div>
-                                                {rosterEvidenceHeaderExtras}
+                                                {!compact ? rosterEvidenceHeaderExtras : null}
                                             </>
                                         ) : (
                                             <>
@@ -1246,7 +1291,10 @@ export default function GroupHomePage() {
                                                     initial={{ y: 20, opacity: 0 }}
                                                     animate={{ y: 0, opacity: 1 }}
                                                     transition={{ delay: 0.2 }}
-                                                    className="text-5xl font-black tracking-tight text-zinc-950 dark:text-white sm:text-6xl"
+                                                    className={cn(
+                                                        "font-black tracking-tight text-zinc-950 dark:text-white",
+                                                        compact ? "text-3xl" : "text-5xl sm:text-6xl",
+                                                    )}
                                                 >
                                                     {displayName}
                                                 </motion.h1>
@@ -1254,30 +1302,39 @@ export default function GroupHomePage() {
                                                     initial={{ scale: 0.8, opacity: 0 }}
                                                     animate={{ scale: 1, opacity: 1 }}
                                                     transition={{ delay: 0.4 }}
-                                                    className="flex items-center gap-2 rounded-full border border-black/10 bg-black/[0.04] px-4 py-1.5 dark:border-white/10 dark:bg-white/[0.05]"
+                                                    className="flex items-center gap-2 rounded-full border border-black/10 bg-black/[0.04] px-3 py-1 dark:border-white/10 dark:bg-white/[0.05]"
                                                 >
                                                     <Globe className="h-3.5 w-3.5 text-purple-400" />
-                                                    <span className="text-[11px] font-black uppercase tracking-widest text-zinc-600 dark:text-zinc-400">
-                                                        {effectiveRelay.replace("wss://", "")}
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-zinc-800 dark:text-zinc-400">
+                                                        {compact ? relayHostLabel : effectiveRelay.replace("wss://", "")}
                                                     </span>
                                                 </motion.div>
-                                                {rosterEvidenceHeaderExtras}
+                                                {!compact ? rosterEvidenceHeaderExtras : null}
                                             </>
                                         )}
                                     </div>
-                                    <p className="max-w-2xl text-xl font-medium leading-relaxed text-zinc-700 dark:text-zinc-400">
+                                    <p className={cn(
+                                        "mx-auto max-w-2xl font-medium leading-relaxed text-zinc-700 dark:text-zinc-400 md:mx-0",
+                                        compact ? "text-sm line-clamp-3" : "text-xl",
+                                    )}>
                                         {aboutText}
                                     </p>
                                 </div>
 
                                 {/* Premium Action Bar */}
-                                <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
+                                <div className={cn(
+                                    "flex w-full items-center justify-center md:justify-start",
+                                    compact ? "flex-col gap-2" : "flex-wrap gap-3",
+                                )}>
                                     {!isGuest ? (
                                         <Button
                                             onClick={handleEnterCommunityChat}
-                                            className="h-16 px-10 rounded-2xl bg-white text-black hover:bg-zinc-200 font-black text-lg shadow-2xl shadow-white/5 transition-all hover:scale-[1.02] active:scale-95 gap-3"
+                                            className={cn(
+                                                "rounded-xl border border-zinc-300 bg-white text-zinc-950 hover:bg-zinc-100 font-black shadow-lg shadow-zinc-900/5 transition-all hover:scale-[1.02] active:scale-95 gap-2 dark:border-white/10 dark:bg-white dark:text-black dark:hover:bg-zinc-200 dark:shadow-white/5",
+                                                compact ? "h-11 w-full px-4 text-sm" : "h-16 px-10 rounded-2xl text-lg gap-3",
+                                            )}
                                         >
-                                            <MessageSquare className="h-6 w-6" />
+                                            <MessageSquare className={compact ? "h-4 w-4" : "h-6 w-6"} />
                                             Enter Community Chat
                                         </Button>
                                     ) : (
@@ -1285,14 +1342,41 @@ export default function GroupHomePage() {
                                             onClick={() => void handleGuestJoin()}
                                             disabled={guestJoinBlocked}
                                             title={guestJoinBlocked ? guestJoinTrust.userMessage : undefined}
-                                            className="h-16 px-10 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white font-black text-lg shadow-2xl shadow-purple-500/20 transition-all hover:scale-[1.02] active:scale-95 gap-3 disabled:opacity-50"
+                                            className={cn(
+                                                "rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-black shadow-2xl shadow-purple-500/20 transition-all hover:scale-[1.02] active:scale-95 gap-2 disabled:opacity-50",
+                                                compact ? "h-11 w-full px-4 text-sm" : "h-16 px-10 rounded-2xl text-lg gap-3",
+                                            )}
                                         >
-                                            <UserPlus className="h-6 w-6" />
+                                            <UserPlus className={compact ? "h-4 w-4" : "h-6 w-6"} />
                                             Join Community
                                         </Button>
                                     )}
 
-                                    {!isGuest && (
+                                    {!isGuest ? (
+                                        compact ? (
+                                            <div className="grid w-full grid-cols-2 gap-2">
+                                                <Button
+                                                    onClick={() => setIsInviteConnectionsOpen(true)}
+                                                    disabled={!roomKeyHex}
+                                                    title={roomKeyHex ? undefined : "Community room key is not on this device."}
+                                                    className="h-10 gap-1.5 rounded-xl border border-zinc-300 bg-zinc-900 text-xs font-bold text-white dark:border-white/5 dark:bg-zinc-800/80"
+                                                >
+                                                    <UserPlus className="h-4 w-4" />
+                                                    Invite
+                                                </Button>
+                                                {group ? (
+                                                    <Button
+                                                        onClick={() => openCommunityManagement()}
+                                                        variant="outline"
+                                                        className="h-10 gap-1.5 rounded-xl border border-zinc-300 bg-white text-xs font-bold text-zinc-900 hover:bg-zinc-50 dark:border-white/15 dark:bg-transparent dark:text-white dark:hover:bg-white/5"
+                                                    >
+                                                        <Settings className="h-4 w-4" />
+                                                        Manage
+                                                    </Button>
+                                                ) : null}
+                                            </div>
+                                        ) : (
+                                        <>
                                         <Button
                                             onClick={() => setIsInviteConnectionsOpen(true)}
                                             disabled={!roomKeyHex}
@@ -1305,77 +1389,90 @@ export default function GroupHomePage() {
                                             <UserPlus className="h-5 w-5" />
                                             Invite
                                         </Button>
-                                    )}
 
-                                    {!isGuest && group && (
+                                    {group ? (
                                         <Button
                                             onClick={() => openCommunityManagement()}
                                             variant="outline"
                                             className={cn(
-                                                "h-14 gap-2 rounded-2xl border-zinc-300/80 bg-transparent px-6 font-bold text-zinc-900 transition-all hover:bg-zinc-100 active:scale-95 dark:border-white/15 dark:text-white dark:hover:bg-white/5",
+                                                "h-14 gap-2 rounded-2xl border border-zinc-300 bg-white px-6 font-bold text-zinc-900 transition-all hover:bg-zinc-50 active:scale-95 dark:border-white/15 dark:bg-transparent dark:text-white dark:hover:bg-white/5",
                                                 safeVisualMode ? "backdrop-blur-none" : "backdrop-blur-md",
                                             )}
                                         >
                                             <Settings className="h-5 w-5" />
                                             Manage
                                         </Button>
-                                    )}
+                                    ) : null}
+                                        </>
+                                        )
+                                    ) : null}
 
+                                    {!isGuest ? (
                                     <div
                                         className={cn(
-                                            "flex items-center gap-2 rounded-2xl border border-black/10 bg-black/[0.04] p-1 dark:border-white/5 dark:bg-white/[0.03]",
+                                            "flex items-center rounded-xl border border-black/10 bg-black/[0.04] dark:border-white/5 dark:bg-white/[0.03]",
+                                            compact
+                                                ? "w-full justify-center gap-0.5 p-0.5"
+                                                : "gap-2 rounded-2xl p-1",
                                             safeVisualMode ? "backdrop-blur-none" : "backdrop-blur-md",
                                         )}
                                     >
-                                        {!isGuest && (
-                                            <Button
-                                                variant="ghost"
-                                                onClick={toggleNotifications}
-                                                className={cn(
-                                                    "h-14 w-14 rounded-xl transition-all hover:bg-black/[0.06] dark:hover:bg-white/5",
-                                                    notificationsEnabled ? "text-purple-600 dark:text-purple-400" : "text-zinc-600 dark:text-zinc-500"
-                                                )}
-                                            >
-                                                {notificationsEnabled ? <Bell className="h-6 w-6" /> : <BellOff className="h-6 w-6" />}
-                                            </Button>
-                                        )}
+                                        <Button
+                                            variant="ghost"
+                                            onClick={toggleNotifications}
+                                            className={cn(
+                                                "rounded-lg transition-all hover:bg-black/[0.06] dark:hover:bg-white/5",
+                                                compact ? "h-10 w-10" : "h-14 w-14 rounded-xl",
+                                                notificationsEnabled ? "text-purple-600 dark:text-purple-400" : "text-zinc-600 dark:text-zinc-500",
+                                            )}
+                                            aria-label={notificationsEnabled ? "Disable notifications" : "Enable notifications"}
+                                        >
+                                            {notificationsEnabled ? (
+                                                <Bell className={compact ? "h-4 w-4" : "h-6 w-6"} />
+                                            ) : (
+                                                <BellOff className={compact ? "h-4 w-4" : "h-6 w-6"} />
+                                            )}
+                                        </Button>
 
-                                        {!isGuest && (
-                                            <Button
-                                                variant="ghost"
-                                                className="h-14 w-14 rounded-xl text-zinc-600 transition-all hover:bg-black/[0.06] hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-white"
-                                                onClick={() => {
-                                                    const url = toAbsoluteAppUrl(
-                                                        getPublicGroupHref(group?.id || id || "", effectiveRelay || undefined)
-                                                    );
-                                                    navigator.clipboard.writeText(url);
-                                                    toast.success("Discovery link copied");
-                                                }}
-                                            >
-                                                <Share2 className="h-6 w-6" />
-                                            </Button>
-                                        )}
+                                        <Button
+                                            variant="ghost"
+                                            className={cn(
+                                                "rounded-lg text-zinc-600 transition-all hover:bg-black/[0.06] hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-white",
+                                                compact ? "h-10 w-10" : "h-14 w-14 rounded-xl",
+                                            )}
+                                            aria-label="Copy discovery link"
+                                            onClick={() => {
+                                                const url = toAbsoluteAppUrl(
+                                                    getPublicGroupHref(group?.id || id || "", effectiveRelay || undefined),
+                                                );
+                                                navigator.clipboard.writeText(url);
+                                                toast.success("Discovery link copied");
+                                            }}
+                                        >
+                                            <Share2 className={compact ? "h-4 w-4" : "h-6 w-6"} />
+                                        </Button>
 
-                                        {!isGuest && (
-                                            <>
-                                                <div className="mx-1 h-8 w-[1px] bg-black/10 dark:bg-white/10" />
+                                        <div className={cn("bg-black/10 dark:bg-white/10", compact ? "mx-0.5 h-6 w-px" : "mx-1 h-8 w-[1px]")} />
 
-                                                <Button
-                                                    variant="ghost"
-                                                    onClick={() => {
-                                                        if (!groupActionRouteParams.routeToken) {
-                                                            toast.error("Community details are missing; unable to open leave confirmation.");
-                                                            return;
-                                                        }
-                                                        router.push(buildGroupLeaveHref(groupActionRouteParams));
-                                                    }}
-                                                    className="h-14 w-14 rounded-xl text-rose-500 hover:bg-rose-500/10 transition-all hover:scale-110 active:scale-90"
-                                                >
-                                                    <LogOut className="h-6 w-6" />
-                                                </Button>
-                                            </>
-                                        )}
+                                        <Button
+                                            variant="ghost"
+                                            onClick={() => {
+                                                if (!groupActionRouteParams.routeToken) {
+                                                    toast.error("Community details are missing; unable to open leave confirmation.");
+                                                    return;
+                                                }
+                                                router.push(buildGroupLeaveHref(groupActionRouteParams));
+                                            }}
+                                            className={cn(
+                                                "rounded-lg text-rose-500 hover:bg-rose-500/10 transition-all active:scale-90",
+                                                compact ? "h-10 w-10 hover:scale-105" : "h-14 w-14 rounded-xl hover:scale-110",
+                                            )}
+                                            aria-label="Leave community"
+                                        >
+                                            <LogOut className={compact ? "h-4 w-4" : "h-6 w-6"} />
+                                        </Button>
                                     </div>
+                                    ) : null}
                                 </div>
                             </div>
                         </div>
@@ -1383,48 +1480,66 @@ export default function GroupHomePage() {
                 </div>
 
                 {/* Bento Grid Stats */}
-                <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-6">
+                <div className={cn(
+                    "grid grid-cols-1",
+                    compact ? "gap-3" : tablet ? "gap-4 sm:grid-cols-2" : "gap-6 md:grid-cols-4 lg:grid-cols-6",
+                )}>
                     {/* Membership Card - Wide */}
                     <button
                         type="button"
                         onClick={openMemberList}
-                        className="md:col-span-2 lg:col-span-3 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/60 rounded-[40px]"
+                        className={cn(
+                            "text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/60",
+                            compact ? "rounded-2xl" : "rounded-[40px]",
+                            tablet ? "sm:col-span-1" : "md:col-span-2 lg:col-span-3",
+                        )}
                     >
                         <Card
                             className={cn(
-                                "rounded-[40px] p-8 flex flex-col justify-between hover:border-purple-500/20 transition-all duration-500 group/bento overflow-hidden relative cursor-pointer",
+                                "flex flex-col justify-between hover:border-purple-500/20 transition-all duration-500 group/bento overflow-hidden relative cursor-pointer",
+                                compact ? "rounded-2xl p-4" : "rounded-[40px] p-8",
                                 safeVisualMode
                                     ? "border-black/10 bg-white/95 dark:border-white/[0.05] dark:bg-[#0C0C0E]/90"
                                     : "border-black/10 bg-white/80 backdrop-blur-xl dark:border-white/[0.03] dark:bg-[#0C0C0E]/40",
                             )}
                         >
+                            {!compact ? (
                             <div className="absolute -right-8 -bottom-8 opacity-[0.03] group-hover/bento:opacity-[0.08] transition-opacity duration-1000">
                                 <Users size={240} className="text-zinc-900 dark:text-white" />
                             </div>
-                            <div className="space-y-6 relative z-10">
+                            ) : null}
+                            <div className={cn("relative z-10", compact ? "space-y-3" : "space-y-6")}>
                                 <div className="flex items-center justify-between">
-                                    <div className="h-14 w-14 rounded-2xl bg-purple-500/10 flex items-center justify-center border border-purple-500/20">
-                                        <Users className="h-7 w-7 text-purple-400" />
+                                    <div className={cn("rounded-2xl bg-purple-500/10 flex items-center justify-center border border-purple-500/20", compact ? "h-10 w-10" : "h-14 w-14")}>
+                                        <Users className={cn("text-purple-400", compact ? "h-5 w-5" : "h-7 w-7")} />
                                     </div>
-                                    <span className="px-5 py-1.5 rounded-full bg-purple-500/10 text-purple-400 text-xs font-black uppercase tracking-widest border border-purple-500/20">
+                                    <span className="px-3 py-1 rounded-full bg-purple-500/10 text-purple-800 text-[10px] font-black uppercase tracking-widest border border-purple-500/25 dark:text-purple-400 dark:border-purple-500/20">
                                         Participants
                                     </span>
                                 </div>
                                 <div className="space-y-1">
-                                    <h3 className="text-3xl font-black text-zinc-900 dark:text-white">Community Access</h3>
+                                    <h3 className={cn("font-black text-zinc-900 dark:text-white", compact ? "text-lg" : "text-3xl")}>Community Access</h3>
+                                    {!compact ? (
                                     <p className="font-medium text-zinc-700 dark:text-zinc-500">
                                         {directoryHonesty.claimsAuthoritativeDirectory
                                             ? "Open the encrypted chat, invite peers, and browse active members with leave and expulsion applied."
                                             : directoryHonesty.summary}
                                     </p>
-                                    <p className="text-[11px] font-bold uppercase tracking-widest text-zinc-600 dark:text-zinc-500">
+                                    ) : (
+                                    <p className="text-xs text-zinc-600 dark:text-zinc-500 line-clamp-2">
+                                        {directoryHonesty.claimsAuthoritativeDirectory
+                                            ? "Browse active members and invite peers."
+                                            : directoryHonesty.summary}
+                                    </p>
+                                    )}
+                                    <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-600 dark:text-zinc-500">
                                         {directoryHonesty.claimsAuthoritativeDirectory
                                             ? "Active membership evidence"
                                             : "Best-effort participant list"}
                                     </p>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-3 pt-8 relative z-10">
+                            <div className={cn("flex items-center gap-3 relative z-10", compact ? "pt-4" : "pt-8")}>
                                 <div className="flex -space-x-3">
                                     {visibleMembers.slice(0, 5).map((pk, i) => (
                                         <div
@@ -1448,8 +1563,8 @@ export default function GroupHomePage() {
                                         </div>
                                     )}
                                 </div>
-                                <div className="h-1.5 w-1.5 rounded-full bg-zinc-700 mx-2" />
-                                <span className="text-xs font-black uppercase tracking-widest text-zinc-600 dark:text-zinc-400">Open Participants</span>
+                                <div className="h-1.5 w-1.5 rounded-full bg-zinc-400 mx-2 dark:bg-zinc-700" />
+                                <span className="text-xs font-black uppercase tracking-widest text-zinc-800 dark:text-zinc-400">Open Participants</span>
                             </div>
                         </Card>
                     </button>
@@ -1457,31 +1572,39 @@ export default function GroupHomePage() {
                     {/* Registry Visibility - Tall */}
                     <Card
                         className={cn(
-                            "md:col-span-2 lg:col-span-3 rounded-[40px] p-8 flex flex-col justify-between hover:border-indigo-500/20 transition-all duration-500 group/bento overflow-hidden relative",
+                            "flex flex-col justify-between hover:border-indigo-500/20 transition-all duration-500 group/bento overflow-hidden relative",
+                            compact ? "rounded-2xl p-4" : "rounded-[40px] p-8",
+                            tablet ? "sm:col-span-1" : "md:col-span-2 lg:col-span-3",
                             safeVisualMode
                                 ? "border-black/10 bg-white/95 dark:border-white/[0.05] dark:bg-[#0C0C0E]/90"
                                 : "border-black/10 bg-white/80 backdrop-blur-xl dark:border-white/[0.03] dark:bg-[#0C0C0E]/40",
                         )}
                     >
+                        {!compact ? (
                         <div className="absolute right-0 top-0 p-8">
                             <Shield className="h-10 w-10 text-indigo-500/20" />
                         </div>
-                        <div className="space-y-4">
+                        ) : null}
+                        <div className={compact ? "space-y-2" : "space-y-4"}>
+                            {!compact ? (
                             <div className="h-14 w-14 rounded-2xl bg-indigo-500/10 flex items-center justify-center border border-indigo-500/20">
                                 <Shield className="h-7 w-7 text-indigo-400" />
                             </div>
-                            <h3 className="text-2xl font-black text-zinc-900 dark:text-white">Registry & Privacy</h3>
-                            <p className="text-sm font-medium leading-relaxed text-zinc-700 dark:text-zinc-500">
+                            ) : null}
+                            <h3 className={cn("font-black text-zinc-900 dark:text-white", compact ? "text-base" : "text-2xl")}>Registry & Privacy</h3>
+                            <p className={cn("font-medium leading-relaxed text-zinc-700 dark:text-zinc-500", compact ? "text-xs" : "text-sm")}>
                                 Visibility is <span className="font-black text-indigo-600 dark:text-indigo-400">{groupState.metadata?.access || "open"}</span>.
-                                {groupState.metadata?.access === 'invite-only'
-                                    ? " Access to this registry is strictly governed by invite-only protocols."
-                                    : " This community is public and listed in the decentralized registry."}
+                                {compact
+                                    ? (groupState.metadata?.access === "invite-only" ? " Invite-only registry." : " Listed in discovery.")
+                                    : (groupState.metadata?.access === 'invite-only'
+                                        ? " Access to this registry is strictly governed by invite-only protocols."
+                                        : " This community is public and listed in the decentralized registry.")}
                             </p>
                         </div>
-                        <div className="pt-6">
+                        <div className={compact ? "pt-3" : "pt-6"}>
                             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-500/5 border border-indigo-500/10">
                                 <div className="h-1.5 w-1.5 rounded-full bg-indigo-400 shadow-[0_0_8px_rgba(129,140,248,0.5)]" />
-                                <span className="text-[10px] font-black uppercase tracking-[0.1em] text-indigo-700 dark:text-indigo-300">Encrypted Storage</span>
+                                <span className="text-[10px] font-black uppercase tracking-[0.1em] text-indigo-900 dark:text-indigo-300">Encrypted Storage</span>
                             </div>
                         </div>
                     </Card>
@@ -1489,28 +1612,33 @@ export default function GroupHomePage() {
                     {/* Infrastructure Card - Wide Bottom */}
                     <Card
                         className={cn(
-                            "md:col-span-4 lg:col-span-6 rounded-[40px] p-8 flex flex-col md:flex-row items-center justify-between gap-8 hover:border-zinc-500/20 transition-all duration-500 group/bento",
+                            "flex flex-col items-center justify-between hover:border-zinc-500/20 transition-all duration-500 group/bento",
+                            compact ? "gap-3 rounded-2xl p-4" : tablet ? "gap-4 rounded-3xl p-6 sm:col-span-2 sm:flex-row" : "gap-8 rounded-[40px] p-8 md:flex-row md:col-span-4 lg:col-span-6",
                             safeVisualMode
                                 ? "border-black/10 bg-white/95 dark:border-white/[0.05] dark:bg-[#0C0C0E]/90"
                                 : "border-black/10 bg-white/80 backdrop-blur-xl dark:border-white/[0.03] dark:bg-[#0C0C0E]/40",
                         )}
                     >
-                        <div className="flex items-center gap-6">
-                            <div className="h-16 w-16 rounded-3xl bg-zinc-500/10 flex items-center justify-center border border-zinc-500/20 shrink-0">
-                                <ExternalLink className="h-8 w-8 text-zinc-500 dark:text-zinc-400" />
+                        <div className={cn("flex items-center w-full min-w-0", compact ? "gap-3" : "gap-6")}>
+                            <div className={cn("rounded-3xl bg-zinc-500/10 flex items-center justify-center border border-zinc-500/20 shrink-0", compact ? "h-10 w-10 rounded-xl" : "h-16 w-16")}>
+                                <ExternalLink className={cn("text-zinc-500 dark:text-zinc-400", compact ? "h-4 w-4" : "h-8 w-8")} />
                             </div>
-                            <div className="space-y-1">
-                                <h3 className="text-2xl font-black text-zinc-900 dark:text-white">Relay Infrastructure</h3>
-                                <p className="text-sm font-medium font-mono text-zinc-700 opacity-80 dark:text-zinc-500">{effectiveRelay}</p>
+                            <div className="min-w-0 space-y-1">
+                                <h3 className={cn("font-black text-zinc-900 dark:text-white", compact ? "text-base" : "text-2xl")}>Relay Infrastructure</h3>
+                                <p className={cn("font-medium text-zinc-700 opacity-80 dark:text-zinc-500 truncate", compact ? "text-xs" : "text-sm font-mono")} title={effectiveRelay}>
+                                    {compact ? relayHostLabel : effectiveRelay}
+                                </p>
                             </div>
                         </div>
-                        <div className="flex items-center gap-8">
-                            <div className="text-right hidden sm:block">
+                        <div className={cn("flex items-center", compact ? "w-full justify-between gap-3" : "gap-8")}>
+                            <div className={cn("text-right", compact ? "min-w-0 text-left flex-1" : "hidden sm:block")}>
                                 <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest mb-1">Status</p>
                                 <p className={cn("text-xs font-black", isRelayDegraded ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-green-500")}>{relayStatusLabel}</p>
+                                {!compact ? (
                                 <p className="mt-1 max-w-[220px] text-[10px] leading-snug text-zinc-600 dark:text-zinc-500">{relayStatusDetail}</p>
+                                ) : null}
                             </div>
-                            <div className={cn("h-12 w-12 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform", isRelayDegraded ? "bg-amber-500/10 border border-amber-500/20" : "bg-green-500/10 border border-green-500/20")}>
+                            <div className={cn("rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform shrink-0", compact ? "h-9 w-9" : "h-12 w-12", isRelayDegraded ? "bg-amber-500/10 border border-amber-500/20" : "bg-green-500/10 border border-green-500/20")}>
                                 <div className={cn("h-3 w-3 rounded-full", isRelayDegraded ? "bg-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.6)]" : "bg-green-500 shadow-[0_0_15px_rgba(34,197,94,0.6)]")} />
                             </div>
                         </div>

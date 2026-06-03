@@ -3,7 +3,7 @@
 import type React from "react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/app/lib/utils";
-import { SettingsToggleCard } from "@/app/settings/settings-tab-panel-model";
+import { SettingsToggleCard } from "@/app/settings/settings-tab-panel-shared";
 import {
   RELAY_SETTINGS_CATEGORY_ORDER,
   type RelaySettingsCategory,

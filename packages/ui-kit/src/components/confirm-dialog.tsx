@@ -48,7 +48,7 @@ export function ConfirmDialog({
         }}>
             <DialogContent
                 showCloseButton={false}
-                className="z-[220] w-[min(30rem,calc(100vw-2rem))] gap-0 overflow-hidden rounded-[28px] border border-zinc-200/50 bg-white p-0 text-zinc-900 shadow-2xl ring-1 ring-zinc-200 dark:border-white/12 dark:bg-[#0b0b10] dark:text-zinc-50 dark:shadow-[0_30px_120px_rgba(0,0,0,0.6)] dark:ring-white/8"
+                className="w-[min(30rem,calc(100vw-2rem))] gap-0 overflow-hidden rounded-[28px] border border-zinc-200/50 bg-white p-0 text-zinc-900 shadow-2xl ring-1 ring-zinc-200 dark:border-white/12 dark:bg-[#0b0b10] dark:text-zinc-50 dark:shadow-[0_30px_120px_rgba(0,0,0,0.6)] dark:ring-white/8"
             >
                 <div className="absolute inset-0 bg-white dark:bg-[#0b0b10]" aria-hidden="true" />
                 <div className="absolute inset-[1px] rounded-[27px] bg-[linear-gradient(180deg,#f8fafc_0%,#f1f5f9_100%)] dark:bg-[linear-gradient(180deg,#151626_0%,#10111b_100%)]" aria-hidden="true" />

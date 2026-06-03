@@ -4,8 +4,10 @@ import type { CommunityDmInviteId } from "./community-dm-invite-contract";
 import {
   augmentCommunityDmInviteThreadMessages,
   buildSyntheticOutboundInviteMessages,
+  dedupeCommunityInviteResponseMessagesByInviteId,
   dedupeCommunityInviteThreadMessagesByInviteId,
   parseInvitePayloadFromMessageContent,
+  parseInviteResponsePayloadFromMessageContent,
 } from "./community-dm-invite-pipeline";
 import { buildCommunityInviteResponseStatusByMessageId } from "../utils/community-invite-resolution";
 import {
@@ -177,7 +179,7 @@ describe("community-dm-invite-pipeline", () => {
     expect(buildCommunityInviteResponseStatusByMessageId([invite, response]).get("invite-msg")).toBe("accepted");
   });
 
-  it("keeps outgoing acceptance response rows visible for the accepter", () => {
+  it("hides outbound acceptance response when invite card already shows terminal status", () => {
     const inviteId = "inv-789" as CommunityDmInviteId;
     const invite: Message = {
       id: "invite-inbound",
@@ -210,6 +212,49 @@ describe("community-dm-invite-pipeline", () => {
     };
 
     const augmented = augmentCommunityDmInviteThreadMessages([invite, response], "a:b", "default");
-    expect(augmented.some((message) => message.id === "response-outbound")).toBe(true);
+    expect(augmented.some((message) => message.id === "response-outbound")).toBe(false);
+    expect(buildCommunityInviteResponseStatusByMessageId([invite, response]).get("invite-inbound")).toBe("accepted");
+  });
+
+  it("dedupes duplicate outbound acceptance responses for the same inviteId", () => {
+    const inviteId = "inv-dup-resp" as CommunityDmInviteId;
+    const invite: Message = {
+      id: "invite-inbound",
+      conversationId: "a:b",
+      kind: "user",
+      content: JSON.stringify({
+        type: "community-invite",
+        inviteId,
+        groupId: "g1",
+        roomKey: "rk",
+        metadata: { id: "g1", name: "G" },
+      }),
+      timestamp: new Date(1),
+      isOutgoing: false,
+      status: "delivered",
+    };
+    const responseA: Message = {
+      id: "response-a",
+      conversationId: "a:b",
+      kind: "user",
+      content: JSON.stringify({
+        type: "community-invite-response",
+        inviteId,
+        status: "accepted",
+        groupId: "g1",
+      }),
+      timestamp: new Date(2),
+      isOutgoing: true,
+      status: "delivered",
+    };
+    const responseB: Message = {
+      ...responseA,
+      id: "response-b",
+      timestamp: new Date(3),
+    };
+
+    const deduped = dedupeCommunityInviteResponseMessagesByInviteId([invite, responseA, responseB]);
+    expect(deduped.filter((message) => parseInviteResponsePayloadFromMessageContent(message.content))).toHaveLength(1);
+    expect(deduped.some((message) => message.id === "response-b")).toBe(true);
   });
 });

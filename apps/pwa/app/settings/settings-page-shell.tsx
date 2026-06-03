@@ -6,7 +6,7 @@ import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTranslation } from "react-i18next";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { PageShell } from "@/app/components/page-shell";
 import { cn } from "@/app/lib/utils";
 import { Button } from "@dweb/ui-kit";
@@ -19,29 +19,57 @@ import {
 } from "@/app/features/settings/components/settings-search-field";
 import { SettingsTabPanel } from "@/app/settings/components/settings-tab-panel-loader";
 import type { SettingsTabId } from "@/app/features/settings/services/settings-search-index";
-import { SETTINGS_NAV_GROUPS, SETTINGS_VALID_TABS } from "@/app/settings/settings-nav";
+import { SETTINGS_NAV_GROUPS, SETTINGS_VALID_TABS, findSettingsNavItem } from "@/app/settings/settings-nav";
 import { dispatchSettingsSearchPrepare } from "@/app/features/settings/services/settings-search-navigate";
 import {
   focusSearchTargetById,
   settingsTabPanelElementId,
 } from "@/app/shared/search-target-highlight";
+import { useMobileCompactLayout } from "@/app/features/runtime/use-mobile-compact-layout";
 
 export default function SettingsPage(): React.JSX.Element {
   const { t } = useTranslation();
   const identity = useIdentity();
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
   const displayPublicKeyHex: string = identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex ?? "";
   const publicKeyHex: PublicKeyHex | null = (displayPublicKeyHex as PublicKeyHex | null) ?? null;
   const navBadges = useNavBadges({ publicKeyHex });
   const { relayRecovery } = useRelay();
   const relayTransportNeedsAttention = relayRecovery.readiness !== "healthy";
+  const compact = useMobileCompactLayout();
 
   const [activeTab, setActiveTab] = useState<SettingsTabId>("profile");
   const [showMobileMenu, setShowMobileMenu] = useState(true);
 
-  const handleSettingsSearchNavigate = useCallback((params: SettingsSearchNavigateParams): void => {
-    setActiveTab(params.tab as SettingsTabId);
+  const syncSettingsTabQuery = useCallback((tab: SettingsTabId | null): void => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (tab) {
+      params.set("tab", tab);
+    } else {
+      params.delete("tab");
+    }
+    const query = params.toString();
+    router.replace(query.length > 0 ? `${pathname}?${query}` : pathname, { scroll: false });
+  }, [pathname, router, searchParams]);
+
+  const openMobileSettingsTab = useCallback((tab: SettingsTabId): void => {
+    setActiveTab(tab);
     setShowMobileMenu(false);
+    syncSettingsTabQuery(tab);
+  }, [syncSettingsTabQuery]);
+
+  const returnToMobileSettingsMenu = useCallback((): void => {
+    setShowMobileMenu(true);
+    syncSettingsTabQuery(null);
+  }, [syncSettingsTabQuery]);
+
+  const handleSettingsSearchNavigate = useCallback((params: SettingsSearchNavigateParams): void => {
+    const tab = params.tab as SettingsTabId;
+    setActiveTab(tab);
+    setShowMobileMenu(false);
+    syncSettingsTabQuery(tab);
     dispatchSettingsSearchPrepare({
       entryId: params.entryId,
       tab: params.tab,
@@ -54,15 +82,20 @@ export default function SettingsPage(): React.JSX.Element {
       maxResolveAttempts: 30,
       resolveRetryMs: 100,
     });
-  }, []);
+  }, [syncSettingsTabQuery]);
 
   useEffect(() => {
     const requestedTab = searchParams.get("tab");
-    if (!requestedTab) return;
+    if (!requestedTab) {
+      if (compact) {
+        setShowMobileMenu(true);
+      }
+      return;
+    }
     if (!SETTINGS_VALID_TABS.includes(requestedTab as SettingsTabId)) return;
     setActiveTab(requestedTab as SettingsTabId);
     setShowMobileMenu(false);
-  }, [searchParams]);
+  }, [compact, searchParams]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -84,10 +117,21 @@ export default function SettingsPage(): React.JSX.Element {
       title={t("settings.title")}
       navBadgeCounts={navBadges.navBadgeCounts}
       hideHeader={!showMobileMenu}
+      containScroll={compact}
     >
-      <div className="mx-auto w-full max-w-6xl p-0 md:p-4">
-        <div className="flex flex-col gap-8 md:flex-row">
-          <aside className="hidden w-64 shrink-0 md:block sticky top-20 self-start h-fit">
+      <div className={cn(
+        "mx-auto w-full max-w-6xl p-0",
+        compact ? "flex min-h-0 flex-1 flex-col overflow-hidden" : "p-4",
+        !compact && "md:p-4",
+      )}>
+        <div className={cn(
+          "flex flex-col gap-8",
+          compact ? "min-h-0 flex-1 overflow-hidden" : "md:flex-row",
+        )}>
+          <aside className={cn(
+            "w-64 shrink-0 sticky top-20 self-start h-fit",
+            compact ? "hidden" : "block",
+          )}>
             <SettingsSearchField
               className="mb-5"
               onNavigate={handleSettingsSearchNavigate}
@@ -142,7 +186,7 @@ export default function SettingsPage(): React.JSX.Element {
             </nav>
           </aside>
 
-          <div className="flex flex-col w-full md:hidden min-h-[calc(100vh-120px)]">
+          <div className={cn("flex min-h-0 flex-1 flex-col overflow-hidden", compact ? "flex" : "hidden")}>
             <AnimatePresence mode="wait">
               {showMobileMenu ? (
                 <motion.div
@@ -150,15 +194,25 @@ export default function SettingsPage(): React.JSX.Element {
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -20 }}
-                  className="flex flex-col p-4 space-y-8"
+                  className={cn(
+                    "mobile-scroll-region flex min-h-0 flex-1 flex-col overflow-y-auto",
+                    compact ? "space-y-5 p-3" : "space-y-8 p-4",
+                  )}
+                  data-testid="settings-mobile-menu-scroll"
                 >
                   <SettingsSearchField onNavigate={handleSettingsSearchNavigate} />
                   {SETTINGS_NAV_GROUPS.map((group) => (
-                    <div key={group.id} className="space-y-3">
-                      <h3 className="px-1 text-[11px] font-black uppercase tracking-[0.25em] text-zinc-500 dark:text-zinc-400">
+                    <div key={group.id} className={compact ? "space-y-2" : "space-y-3"}>
+                      <h3 className={cn(
+                        "px-1 font-black uppercase tracking-[0.25em] text-zinc-500 dark:text-zinc-400",
+                        compact ? "text-[10px]" : "text-[11px]",
+                      )}>
                         {t(group.labelKey)}
                       </h3>
-                      <div className="overflow-hidden rounded-3xl border border-black/5 bg-white/60 backdrop-blur-xl shadow-lg shadow-black/5 dark:border-white/10 dark:bg-zinc-900/60">
+                      <div className={cn(
+                        "overflow-hidden border border-black/5 bg-white/60 backdrop-blur-xl shadow-lg shadow-black/5 dark:border-white/10 dark:bg-zinc-900/60",
+                        compact ? "rounded-2xl" : "rounded-3xl",
+                      )}>
                         {group.items.map((item, idx) => {
                           const Icon = item.icon;
                           return (
@@ -166,21 +220,26 @@ export default function SettingsPage(): React.JSX.Element {
                               key={item.id}
                               type="button"
                               onClick={() => {
-                                setActiveTab(item.id as SettingsTabId);
-                                setShowMobileMenu(false);
+                                openMobileSettingsTab(item.id as SettingsTabId);
                               }}
                               className={cn(
-                                "flex w-full items-center justify-between px-4 py-4.5 transition-all hover:bg-black/5 dark:hover:bg-white/5 active:scale-[0.98]",
+                                "flex w-full items-center justify-between transition-all hover:bg-black/5 dark:hover:bg-white/5 active:scale-[0.98]",
+                                compact ? "px-3 py-3" : "px-4 py-4.5",
                                 idx < group.items.length - 1 && "border-b border-black/5 dark:border-white/5",
                               )}
                             >
-                              <div className="flex items-center gap-4">
-                                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 shadow-sm">
-                                  <Icon className="h-5 w-5" />
+                              <div className={cn("flex items-center", compact ? "gap-3" : "gap-4")}>
+                                <div className={cn(
+                                  "flex items-center justify-center rounded-2xl bg-zinc-100 text-zinc-600 shadow-sm dark:bg-zinc-800 dark:text-zinc-400",
+                                  compact ? "h-9 w-9 rounded-xl" : "h-10 w-10",
+                                )}>
+                                  <Icon className={compact ? "h-4 w-4" : "h-5 w-5"} />
                                 </div>
                                 <div className="flex flex-col items-start gap-0.5">
                                   <span className="text-sm font-black tracking-tight text-zinc-900 dark:text-zinc-100">{t(item.labelKey)}</span>
-                                  <span className="text-[10px] font-bold text-zinc-500 dark:text-zinc-500 uppercase tracking-wider">{group.id}</span>
+                                  {!compact ? (
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-500">{group.id}</span>
+                                  ) : null}
                                 </div>
                               </div>
                               <ChevronRight className="h-4 w-4 text-zinc-300" />
@@ -197,25 +256,32 @@ export default function SettingsPage(): React.JSX.Element {
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: 20 }}
-                  className="flex flex-col"
+                  className="flex min-h-0 flex-1 flex-col overflow-hidden"
                 >
-                  <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-black/5 bg-white/80 p-4 backdrop-blur-md dark:border-white/80 dark:bg-black/80">
+                  <div className={cn(
+                    "sticky top-0 z-10 flex shrink-0 items-center gap-2 border-b border-black/5 bg-white/80 backdrop-blur-md dark:border-white/80 dark:bg-black/80",
+                    compact ? "p-3" : "p-4",
+                  )}>
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => setShowMobileMenu(true)}
+                      onClick={returnToMobileSettingsMenu}
                       className="h-8 w-8 p-0 hover:bg-black/5 dark:hover:bg-white/5"
+                      aria-label={t("common.back", "Back")}
                     >
                       <ChevronLeft className="h-5 w-5" />
                     </Button>
                     <h2 className="text-sm font-black uppercase tracking-widest text-zinc-800 dark:text-zinc-200">
-                      {t(
-                        SETTINGS_NAV_GROUPS.flatMap((group) => [...group.items])
-                          .find((item) => item.id === activeTab)?.labelKey || "",
-                      )}
+                      {t(findSettingsNavItem(activeTab)?.item.labelKey ?? "")}
                     </h2>
                   </div>
-                  <div className="p-4 pb-32">
+                  <div
+                    data-testid="settings-mobile-panel-scroll"
+                    className={cn(
+                      "mobile-scroll-region min-h-0 flex-1 overflow-y-auto",
+                      compact ? "p-2" : "p-3 sm:p-4",
+                    )}
+                  >
                     <SettingsTabPanel activeTab={activeTab} />
                   </div>
                 </motion.div>
@@ -223,7 +289,7 @@ export default function SettingsPage(): React.JSX.Element {
             </AnimatePresence>
           </div>
 
-          <main className="hidden min-w-0 flex-1 md:block">
+          <main className={cn("min-w-0 flex-1", compact ? "hidden" : "block")}>
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
               <SettingsTabPanel activeTab={activeTab} />
             </div>

@@ -111,12 +111,29 @@ describe("loadNativeOutgoingChatStateRepairMessages", () => {
     expect(repaired.map((row) => row.id).sort()).toEqual(["evt-out-1", "evt-out-default"]);
   });
 
-  it("returns empty on web", () => {
+  it("repairs outgoing chat-state rows on web without sqlite backfill", () => {
     dbMocks.isTauri.mockReturnValue(false);
-    expect(loadNativeOutgoingChatStateRepairMessages({
+    chatStateMocks.load.mockReturnValue({
+      messagesByConversationId: {
+        [conversationId]: [{
+          id: "evt-out-web",
+          eventId: "evt-out-web",
+          content: "hello from web",
+          timestampMs: 1_700_000_000_000,
+          isOutgoing: true,
+          pubkey: myPk,
+        }],
+      },
+    });
+
+    const repaired = loadNativeOutgoingChatStateRepairMessages({
       conversationIds: [conversationId],
       myPublicKeyHex: myPk,
-      profileId: "profile-secondary",
-    })).toEqual([]);
+      profileId: "default",
+    });
+
+    expect(repaired).toHaveLength(1);
+    expect(repaired[0]?.id).toBe("evt-out-web");
+    expect(dbMocks.dbInsertMessage).not.toHaveBeenCalled();
   });
 });

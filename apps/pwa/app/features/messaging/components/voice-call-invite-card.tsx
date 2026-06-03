@@ -19,6 +19,7 @@ type VoiceCallInviteCardProps = Readonly<{
   nowUnixMs?: number | null;
   liveStatusPhase?: "ringing_outgoing" | "ringing_incoming" | "connecting" | "connected" | "interrupted" | "ended" | null;
   liveReasonCode?: "left_by_user" | "remote_left" | "network_interrupted" | "session_closed" | null;
+  compact?: boolean;
 }>;
 
 const toTimestampLabel = (value: unknown): string | null => {
@@ -53,6 +54,7 @@ export function VoiceCallInviteCard({
   nowUnixMs = null,
   liveStatusPhase = null,
   liveReasonCode = null,
+  compact = false,
 }: VoiceCallInviteCardProps): React.JSX.Element {
   const { t } = useTranslation();
   const invitedAtLabel = toTimestampLabel(invite.invitedAtUnixMs);
@@ -261,7 +263,8 @@ export function VoiceCallInviteCard({
     <div
       data-testid="voice-call-invite-card"
       className={cn(
-        "relative max-w-[420px] overflow-hidden rounded-2xl border border-surface-contrast px-3.5 py-2.5 text-surface-contrast-primary",
+        "relative overflow-hidden rounded-2xl border border-surface-contrast px-3.5 py-2.5 text-surface-contrast-primary w-full",
+        compact ? "max-w-full" : "max-w-[420px]",
         "bg-gradient-surface-contrast shadow-[0_12px_30px_rgba(15,23,42,0.14)] dark:shadow-[0_14px_36px_rgba(0,0,0,0.46)]",
         containerToneClass
       )}
@@ -292,6 +295,7 @@ export function VoiceCallInviteCard({
         </div>
       </div>
 
+      {!compact || cardState === "completed" || cardState === "failed" ? (
       <div className="relative mt-2.5 grid grid-cols-[62px,1fr] items-center gap-x-2 gap-y-1 text-[12px] leading-4.5">
         {invitedAtLabel ? (
           <>
@@ -339,6 +343,7 @@ export function VoiceCallInviteCard({
           </>
         ) : null}
       </div>
+      ) : null}
       <div className="relative mt-2.5 flex justify-end">
         {statusBadgeLabel ? (
           <span

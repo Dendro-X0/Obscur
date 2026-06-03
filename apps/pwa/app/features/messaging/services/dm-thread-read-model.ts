@@ -13,6 +13,7 @@ import { requiresSqlitePersistence } from "@/app/features/runtime/native-persist
 import type { Message } from "../types";
 import { getMessageDirectionCounts } from "./dm-conversation-hydrate-read-model";
 import { mergeHydratedBaseWithLiveOverlayMessages } from "./conversation-message-materialization";
+import { dedupeMessagesByIdentity } from "./dm-conversation-message-retention-dedupe";
 
 export const DM_THREAD_STALE_EMPTY_HYDRATE_MAX_ATTEMPTS = 4;
 export const DM_THREAD_STALE_EMPTY_HYDRATE_BASE_DELAY_MS = 150;
@@ -181,6 +182,22 @@ export const reconcileDirectionCoverage = (params: Readonly<{
 
   return { messages, preserved };
 };
+
+/** Union chat-state / repair rows when hydrate authority dropped a message direction. */
+export const mergeDirectionGapFromSupplemental = (params: Readonly<{
+  baseMessages: ReadonlyArray<Message>;
+  supplementalMessages: ReadonlyArray<Message>;
+  conversationIds: ReadonlyArray<string>;
+  myPublicKeyHex: PublicKeyHex | null;
+}>): ReadonlyArray<Message> => (
+  reconcileDirectionCoverage({
+    hydratedMessages: params.baseMessages,
+    previousMessages: [],
+    supplementalMessages: params.supplementalMessages,
+    conversationIds: params.conversationIds,
+    myPublicKeyHex: params.myPublicKeyHex,
+  }).messages
+);
 
 export type ResolveInitialConversationPaintParams = Readonly<{
   displayCache: ReadonlyArray<Message>;
@@ -370,11 +387,16 @@ export const buildHydrateSupplementalMessages = (
   assembledMessages: ReadonlyArray<Message>,
   myPublicKeyHex: PublicKeyHex | null,
   projectionEvidenceMessages: ReadonlyArray<Message>,
-): ReadonlyArray<Message> => (
-  hasPartialDirectionCoverage(assembledMessages, myPublicKeyHex)
-    ? projectionEvidenceMessages
-    : []
-);
+  persistedFallbackMessages: ReadonlyArray<Message> = [],
+): ReadonlyArray<Message> => {
+  if (!hasPartialDirectionCoverage(assembledMessages, myPublicKeyHex)) {
+    return [];
+  }
+  return dedupeMessagesByIdentity([
+    ...projectionEvidenceMessages,
+    ...persistedFallbackMessages,
+  ]);
+};
 
 export const evaluateStaleEmptyHydrateRetryPolicy = (params: Readonly<{
   messageCount: number;

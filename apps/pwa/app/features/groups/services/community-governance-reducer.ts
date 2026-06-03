@@ -13,6 +13,18 @@ export type GovernanceDescriptorPayload = Readonly<{
   access?: "open" | "invite-only" | "discoverable";
   /** B1 — outbound bot allowlist (managed workspace). */
   botPubkeys?: ReadonlyArray<string>;
+  /** B2 — inbound trigger rules per registered bot. */
+  botTriggers?: ReadonlyArray<Readonly<{
+    botPubkey: string;
+    enabled: boolean;
+    triggers: ReadonlyArray<Readonly<{
+      kind: "keyword" | "mention" | "schedule";
+      enabled: boolean;
+      reply: string;
+      keywords?: ReadonlyArray<string>;
+      intervalMinutes?: number;
+    }>>;
+  }>>;
 }>;
 
 export type GovernanceExpelPayload = Readonly<{

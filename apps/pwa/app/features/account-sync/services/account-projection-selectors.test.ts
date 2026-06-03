@@ -427,4 +427,59 @@ describe("account-projection-selectors", () => {
 
     expect(messages.map((m) => m.id)).toEqual(["keep"]);
   });
+
+  it("prefers newer peer timeline activity over stale conversation summary for DM sidebar", () => {
+    const my = "a".repeat(64);
+    const peer = "b".repeat(64);
+    const conversationId = [my, peer].sort().join(":");
+    const inviteJson = JSON.stringify({
+      type: "community-invite-response",
+      status: "accepted",
+      groupId: "g1",
+    });
+    const projection: AccountProjectionSnapshot = {
+      ...PROJECTION,
+      conversationsById: {
+        [conversationId]: {
+          conversationId,
+          peerPublicKeyHex: peer as any,
+          lastMessagePreview: "test",
+          lastMessageAtUnixMs: 1_000,
+          unreadCount: 0,
+        },
+      },
+      messagesByConversationId: {
+        [conversationId]: [
+          {
+            messageId: "older-plain",
+            conversationId,
+            peerPublicKeyHex: peer as any,
+            direction: "incoming",
+            eventCreatedAtUnixSeconds: 10,
+            plaintextPreview: "test",
+            observedAtUnixMs: 10_000,
+          },
+          {
+            messageId: "newer-invite",
+            conversationId,
+            peerPublicKeyHex: peer as any,
+            direction: "incoming",
+            eventCreatedAtUnixSeconds: 40,
+            plaintextPreview: inviteJson,
+            observedAtUnixMs: 40_000,
+          },
+        ],
+      },
+    };
+
+    const conversations = selectProjectionDmConversations({
+      projection,
+      myPublicKeyHex: my as any,
+    });
+
+    expect(conversations).toHaveLength(1);
+    expect(conversations[0]?.lastMessage).toBe(inviteJson);
+    expect(conversations[0]?.lastMessageTime.getTime()).toBe(40_000);
+    expect(conversations[0]?.lastMessageIsOutgoing).toBe(false);
+  });
 });

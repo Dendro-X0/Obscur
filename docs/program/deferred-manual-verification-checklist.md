@@ -1,10 +1,11 @@
 # Deferred manual verification checklist
 
-**Status:** Active backlog — run **when circumstances allow**, not before implementation  
+**Status:** Active backlog — run **after implementation batches**, not between slices  
+**Policy:** [v1.8.x-batch-implementation-lane.md](./v1.8.x-batch-implementation-lane.md) § Maintainer delivery order (2026-06-01)  
 **Environment:** [manual-verification-environment.md](./manual-verification-environment.md)  
 **Implementation lane:** [v1.8.x-batch-implementation-lane.md](./v1.8.x-batch-implementation-lane.md)
 
-Use this single list instead of opening every `docs/assets/demo/v*/README.md` during development. Check rows when you have the setup; skip rows you cannot run (note **blocked** + reason).
+Use this single list instead of opening every `docs/assets/demo/v*/README.md` during development. Check rows when a **named milestone** is code-complete or before tag; skip rows you cannot run (note **blocked** / **skipped** + reason). Do **not** run §6 K-M rows incrementally after each B2/N/perf slice.
 
 **Legend:** `[ ]` not run · `[x]` pass · `[!]` fail · `[-]` skipped / N/A
 
@@ -109,8 +110,8 @@ Ref: [mobile-ux-audit.md](../assets/demo/v1.8.12/mobile-ux-audit.md)
 
 | ID | Feature | Steps | Result |
 |----|---------|-------|--------|
-| K-01 | **Coordination health** | `curl http://127.0.0.1:8787/health` → ok | `[ ]` |
-| K-02 | **Membership directory** | Two profiles; roster matches coordination (K-M1/K-M2) | `[ ]` |
+| K-01 | **Coordination health** | `curl http://127.0.0.1:8787/health` → ok | `[-]` skipped 2026-06-01 |
+| K-02 | **Membership directory** | Two profiles; roster matches coordination (K-M1/K-M2) | `[-]` skipped 2026-06-01 |
 
 Ref: [v1.9.0 demo](../assets/demo/v1.9.0/README.md)
 

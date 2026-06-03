@@ -7,6 +7,8 @@ import { useRegisterAppChrome } from "@/app/components/app-chrome-registry";
 import { ChatSidebarPortal } from "@/app/components/app-shell-sidebar-portal";
 import { MobileDmShellLayout } from "@/app/components/mobile/mobile-dm-shell-layout";
 import { MobileDmThreadHeader } from "@/app/components/mobile/mobile-dm-thread-header";
+import { buildMobileShellStatusItems } from "@/app/components/mobile/mobile-shell-status-items";
+import { MobileShellStatusStrip } from "@/app/components/mobile/mobile-shell-status-strip";
 import { useMobileDmBackNavigation } from "@/app/components/mobile/use-mobile-dm-back-navigation";
 import { isMobileShellProduct } from "@/app/features/runtime/shell-contract";
 
@@ -64,6 +66,7 @@ import { EmptyConversationView } from "./components/empty-conversation-view";
 import { DevPanel } from "../dev-tools/components/dev-panel";
 import { useMessaging } from "@/app/features/messaging/providers/messaging-provider";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
+import { getRelayReadinessBannerCopy } from "@/app/features/relays/services/relay-readiness-copy";
 import { useContactRelayOverlap } from "@/app/features/messaging/hooks/use-contact-relay-overlap";
 import { useGroups } from "@/app/features/groups/providers/group-provider";
 import { useCommunityMembershipReadModelIndex } from "@/app/features/groups/hooks/use-community-membership-read-model-index";
@@ -98,7 +101,7 @@ import type { Connection as LegacyInviteConnection, ConnectionRequest as LegacyI
 import { useAccountSyncSnapshot } from "@/app/features/account-sync/hooks/use-account-sync-snapshot";
 import { useAccountProjectionSnapshot } from "@/app/features/account-sync/hooks/use-account-projection-snapshot";
 import { resolveProjectionReadAuthority } from "@/app/features/account-sync/services/account-projection-read-authority";
-import { resolveAccountSyncUiPolicy } from "@/app/features/account-sync/services/account-sync-ui-policy";
+import { resolveAccountSyncUiPolicy, isAccountDataLoading } from "@/app/features/account-sync/services/account-sync-ui-policy";
 import { profileWindowHasLocalAccountEvidence } from "@/app/features/auth/services/auth-profile-local-evidence";
 import {
   FIRST_LOGIN_HISTORY_SYNC_NOTICE_MIN_VISIBLE_MS,
@@ -243,7 +246,7 @@ function NostrMessengerContent() {
 
   const optionalProfileBus = useOptionalProfileMessageBus();
 
-  const { relayPool, relayList, relayStatus, enabledRelayUrls } = useRelay();
+  const { relayPool, relayList, relayStatus, enabledRelayUrls, relayRecovery } = useRelay();
 
   const accountSyncSnapshot = useAccountSyncSnapshot();
   const accountProjectionSnapshot = useAccountProjectionSnapshot();
@@ -3681,6 +3684,12 @@ function NostrMessengerContent() {
     holdVisibleUntilUnixMs: historySyncNoticeHoldVisibleUntilUnixMs,
     nowUnixMs: typeof nowMs === "number" ? nowMs : Date.now(),
   });
+  const suppressAccountLoadingNotices = isAccountDataLoading({
+    isIdentityUnlocked,
+    snapshot: accountSyncSnapshot,
+    projectionSnapshot: accountProjectionSnapshot,
+    accountSyncUiPolicy,
+  });
   useEffect(() => {
     if (!showHistorySyncNotice) {
       historySyncNoticeLogKeyRef.current = null;
@@ -3720,6 +3729,41 @@ function NostrMessengerContent() {
       activeProfileId,
       myPublicKeyHex,
     ]);
+
+  const mobileShellStatusItems = useMemo(() => {
+    if (!isMobileDmShell) {
+      return [];
+    }
+    return buildMobileShellStatusItems({
+      showRestoreProgress: accountSyncUiPolicy.showRestoreProgress,
+      restoreMessage: accountSyncSnapshot.message,
+      showMissingSharedDataWarning: accountSyncUiPolicy.showMissingSharedDataWarning,
+      showHistorySyncNotice,
+      showProjectionScopeMismatchNotice,
+      suppressAccountLoadingNotices,
+      scopeMismatchTitle: t("messaging.profileScopeMismatchNoticeTitle", "Profile Scope Notice"),
+      scopeMismatchBody: t(
+        "messaging.profileScopeMismatchNoticeBody",
+        "This window is bound to a different local profile slot than this account's data. Open the saved profile that owns this account, or switch this window's profile before signing in.",
+      ),
+      relayBannerCopy: getRelayReadinessBannerCopy(relayRecovery),
+    });
+  }, [
+    accountSyncSnapshot.message,
+    accountSyncSnapshot.phase,
+    accountProjectionSnapshot.phase,
+    accountProjectionSnapshot.accountProjectionReady,
+    accountSyncUiPolicy.showMissingSharedDataWarning,
+    accountSyncUiPolicy.showRestoreProgress,
+    accountSyncUiPolicy.showInitialHistorySyncNotice,
+    suppressAccountLoadingNotices,
+    isIdentityUnlocked,
+    isMobileDmShell,
+    relayRecovery,
+    showHistorySyncNotice,
+    showProjectionScopeMismatchNotice,
+    t,
+  ]);
 
   if (!isChatRoute) {
     return null;
@@ -4059,14 +4103,17 @@ function NostrMessengerContent() {
             deliveryRisk={selectedConversationView.kind === 'dm' ? contactRelayOverlap.status : null}
             onAddRelay={(url) => { relayList.addRelay({ url }); }}
             onNavigateToRelaySettings={() => { void router.push("/settings?tab=relays"); }}
-            hideDesktopChatHeader={isMobileDmShell && selectedConversationView.kind === "dm"}
+            hideDesktopChatHeader={isMobileDmShell}
           />
   ) : null;
 
   const syncStatusBannerNode = isMobileDmShell ? (
-    <div className="mobile-scroll-region max-h-[28dvh] shrink-0 overflow-y-auto overscroll-contain">
-      {syncStatusBanners}
-    </div>
+    <MobileShellStatusStrip
+      items={mobileShellStatusItems}
+      onOpenProfiles={() => {
+        void router.push("/profiles");
+      }}
+    />
   ) : (
     syncStatusBanners
   );
@@ -4096,6 +4143,49 @@ function NostrMessengerContent() {
               <MobileDmThreadHeader
                 conversation={selectedConversationView}
                 onBack={handleLeaveMobileThread}
+                displayNameHint={
+                  selectedConversationView.kind === "dm"
+                    ? dmDisplayNameByPubkey.get(selectedConversationView.pubkey) ?? null
+                    : null
+                }
+                isPeerOnline={
+                  selectedConversationView.kind === "dm"
+                    ? isPeerOnlineByEvidence(selectedConversationView.pubkey)
+                    : undefined
+                }
+                groupMemberCount={selectedGroupMemberCount}
+                onOpenMedia={() => setIsMediaGalleryOpen(true)}
+                onOpenProfile={
+                  selectedConversationView.kind === "dm"
+                    ? (pubkey) => {
+                      void router.push(getPublicProfileHref(pubkey));
+                    }
+                    : undefined
+                }
+                onOpenInfo={
+                  selectedConversationView.kind === "group"
+                    ? () => {
+                      void router.push(
+                        getPublicGroupHref(
+                          selectedConversationView.groupId,
+                          selectedConversationView.relayUrl,
+                        ),
+                      );
+                    }
+                    : undefined
+                }
+                onSendVoiceCallInvite={
+                  REALTIME_VOICE_CALLS_ENABLED && selectedConversationView.kind === "dm"
+                    ? () => {
+                      void handleSendVoiceCallInvite();
+                    }
+                    : undefined
+                }
+                canSendVoiceCallInvite={
+                  REALTIME_VOICE_CALLS_ENABLED
+                  && selectedConversationView.kind === "dm"
+                  && Boolean(dmController)
+                }
               />
               <main className="flex min-h-0 flex-1 flex-col overflow-hidden bg-transparent">
                 {activeChatView}

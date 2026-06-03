@@ -43,4 +43,15 @@ export type CommunityDescriptorRelayHintPayload = Readonly<{
   descriptorVersion?: number;
   stewardPubkeys?: ReadonlyArray<CommunityDescriptorPubkeyHex>;
   botPubkeys?: ReadonlyArray<CommunityDescriptorPubkeyHex>;
+  botTriggers?: ReadonlyArray<Readonly<{
+    botPubkey: CommunityDescriptorPubkeyHex;
+    enabled: boolean;
+    triggers: ReadonlyArray<Readonly<{
+      kind: string;
+      enabled: boolean;
+      reply: string;
+      keywords?: ReadonlyArray<string>;
+      intervalMinutes?: number;
+    }>>;
+  }>>;
 }>;

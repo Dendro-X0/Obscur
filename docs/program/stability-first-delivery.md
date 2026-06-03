@@ -1,6 +1,6 @@
 # Stability-first delivery (2026-05-26)
 
-**Decision:** **Desktop is the primary development and QA surface.** Android builds are **wrap-up only** — final pass for mobile UI/UX, not a parallel debug loop.
+**Decision:** **Desktop is the primary development surface.** Android builds are **wrap-up only**. **Manual verification is deferred** during batch implementation — see [deferred-manual-verification-checklist.md](./deferred-manual-verification-checklist.md) and [v1.8.x-batch-implementation-lane.md](./v1.8.x-batch-implementation-lane.md).
 
 Charter: [rules/11-feasibility-and-modular-safety.md](../../rules/11-feasibility-and-modular-safety.md) · Handoff: [current-session.md](../handoffs/current-session.md)
 

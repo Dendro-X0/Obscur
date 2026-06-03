@@ -93,6 +93,8 @@ Stop when done: `pnpm dev:relay:down`
 
 ## 6. Verify membership (K-M1 / K-M2)
 
+**Full session steps:** [k-m1-k2-session-runbook.md](./v1.9.0/k-m1-k2-session-runbook.md)
+
 | Step | Tester1 | Tester2 | Pass |
 |------|---------|---------|------|
 | Leave | Leave community | Participants → A under **Excluded** ≤ ~60s | |

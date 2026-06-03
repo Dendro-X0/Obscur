@@ -12,6 +12,7 @@ import {
 } from "react";
 import { usePathname } from "next/navigation";
 import { GlobalNavigationLoadingBar } from "./global-navigation-loading-bar";
+import { recordNavigationIntent } from "../navigation-performance-coordinator";
 import {
   beginGlobalNavLoading,
   canSettleGlobalNavLoading,
@@ -144,6 +145,9 @@ export function GlobalNavigationLoadingProvider(
       : null;
     if (normalized && normalized === pathnameRef.current) {
       return;
+    }
+    if (normalized) {
+      recordNavigationIntent(normalized);
     }
     clearCompleteTimeout();
     commitController(beginGlobalNavLoading(controllerRef.current, nowMs, normalized));

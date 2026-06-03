@@ -226,6 +226,9 @@ export const useRealtimePresence = (params: UseRealtimePresenceParams): UseRealt
 
     void publishPresence("online");
     const intervalId = window.setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) {
+        return;
+      }
       void publishPresence("online");
     }, PRESENCE_HEARTBEAT_INTERVAL_MS);
 
@@ -242,11 +245,22 @@ export const useRealtimePresence = (params: UseRealtimePresenceParams): UseRealt
   }, [params.privateKeyHex, params.publicKeyHex, publishPresence, selfSessionId]);
 
   useEffect(() => {
-    const intervalId = window.setInterval(() => {
+    const syncClock = (): void => {
+      if (typeof document !== "undefined" && document.hidden) {
+        return;
+      }
       setClockNowMs(Date.now());
-    }, STALE_PRUNE_INTERVAL_MS);
+    };
+    const intervalId = window.setInterval(syncClock, STALE_PRUNE_INTERVAL_MS);
+    const onVisibilityChange = (): void => {
+      if (!document.hidden) {
+        setClockNowMs(Date.now());
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
     return () => {
       window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
     };
   }, []);
 

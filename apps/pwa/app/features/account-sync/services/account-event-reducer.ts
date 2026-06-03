@@ -6,7 +6,7 @@ import type {
   MessageProjection,
 } from "../account-event-contracts";
 import { messagingClientOperations } from "@/app/features/messaging/services/messaging-client-operations";
-import { formatConversationMessagePreview } from "@/app/features/messaging/services/format-conversation-message-preview";
+import { toConversationListPreview } from "./account-event-plaintext-preview";
 
 const emptySnapshot = (profileId: string, accountPublicKeyHex: string): AccountProjectionSnapshot => ({
   profileId,
@@ -70,7 +70,7 @@ const shouldBlockContactTransition = (
     && incomingStatus !== "none";
 };
 
-const toConversationPreview = formatConversationMessagePreview;
+const toConversationPreview = toConversationListPreview;
 
 const upsertMessage = (
   current: AccountProjectionSnapshot,
@@ -102,14 +102,16 @@ const upsertMessage = (
     && params.source === "relay_live"
     && !wasMessageKnown
   );
+  const messageAtUnixMs = params.message.eventCreatedAtUnixSeconds * 1000;
+  const priorAtUnixMs = currentConversation?.lastMessageAtUnixMs ?? 0;
+  const isLatestByTime = messageAtUnixMs >= priorAtUnixMs;
   const nextConversation = {
     conversationId: params.message.conversationId,
     peerPublicKeyHex: params.message.peerPublicKeyHex,
-    lastMessagePreview: toConversationPreview(params.message.plaintextPreview),
-    lastMessageAtUnixMs: Math.max(
-      currentConversation?.lastMessageAtUnixMs ?? 0,
-      params.message.eventCreatedAtUnixSeconds * 1000
-    ),
+    lastMessagePreview: isLatestByTime
+      ? toConversationPreview(params.message.plaintextPreview)
+      : (currentConversation?.lastMessagePreview ?? toConversationPreview(params.message.plaintextPreview)),
+    lastMessageAtUnixMs: Math.max(priorAtUnixMs, messageAtUnixMs),
     unreadCount: shouldIncrementUnread
       ? (currentConversation?.unreadCount ?? 0) + 1
       : (currentConversation?.unreadCount ?? 0),

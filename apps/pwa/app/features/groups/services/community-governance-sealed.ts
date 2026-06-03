@@ -59,6 +59,7 @@ const parsePayload = (
     const botPubkeys = Array.isArray(raw.botPubkeys)
       ? raw.botPubkeys.filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0)
       : undefined;
+    const botTriggers = Array.isArray(raw.botTriggers) ? raw.botTriggers : undefined;
     return {
       ...(readString(raw, "name") ? { name: readString(raw, "name") } : {}),
       ...(readString(raw, "about") ? { about: readString(raw, "about") } : {}),
@@ -67,6 +68,7 @@ const parsePayload = (
         ? { access }
         : {}),
       ...(botPubkeys !== undefined ? { botPubkeys } : {}),
+      ...(botTriggers !== undefined ? { botTriggers } : {}),
     };
   }
   if (actionType === "expel_member") {

@@ -1,6 +1,8 @@
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { readBotPubkeysFromMetadataField } from "./community-bot-policy";
+import { readBotTriggersFromMetadataField } from "./community-bot-triggers-policy";
 import { readStewardPubkeysFromMetadataField } from "./community-steward-policy";
+import type { CommunityBotTriggerEntry } from "@dweb/core/community-bot-triggers-contracts";
 
 /** Merge steward list from sealed/relay descriptor payloads (preserve prior when omitted). */
 export const mergeDescriptorStewardPubkeys = (
@@ -20,4 +22,15 @@ export const mergeDescriptorBotPubkeys = (
     return previous;
   }
   return readBotPubkeysFromMetadataField(incoming);
+};
+
+/** Merge botTriggers — explicit empty array clears; omitted field keeps previous. */
+export const mergeDescriptorBotTriggers = (
+  incoming: unknown,
+  previous: ReadonlyArray<CommunityBotTriggerEntry> | undefined,
+): ReadonlyArray<CommunityBotTriggerEntry> | undefined => {
+  if (incoming === undefined) {
+    return previous;
+  }
+  return readBotTriggersFromMetadataField(incoming);
 };

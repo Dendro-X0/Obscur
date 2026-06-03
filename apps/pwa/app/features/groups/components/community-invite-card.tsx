@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { Button } from "@dweb/ui-kit";
 import { ShieldCheck, Users, Clock, AlertTriangle } from "lucide-react";
+import { CommunityInviteAvatar } from "./community-invite-avatar";
 import { CommunityInviteStatusBanner } from "./community-invite-status-banner";
 import { useTranslation } from "react-i18next";
 import { toast } from "@dweb/ui-kit";
@@ -19,7 +20,7 @@ import type { GroupConversation, Message, SendDirectMessageParams, SendDirectMes
 import type { GroupAccessMode } from "../types";
 import { toGroupConversationId } from "../utils/group-conversation-id";
 import { deriveCommunityId } from "../utils/community-identity";
-import { dispatchGroupInviteReceived } from "@/app/features/profiles/services/profile-bus-dispatch";
+import { dispatchGroupInviteReceived, dispatchGroupInviteResponseTerminal } from "@/app/features/profiles/services/profile-bus-dispatch";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { reinstateCommunityMemberTerminalEvidence } from "../services/community-terminal-membership-cache";
 import {
@@ -82,6 +83,8 @@ interface CommunityInviteCardProps {
     messages?: ReadonlyArray<Message>;
     responseStatus?: 'pending' | 'accepted' | 'declined' | 'canceled';
     onSendDirectMessage?: (params: SendDirectMessageParams) => Promise<SendDirectMessageResult>;
+    /** Narrow/mobile thread layout — less vertical chrome (P13-c). */
+    compact?: boolean;
 }
 
 export const CommunityInviteCard = ({
@@ -90,7 +93,8 @@ export const CommunityInviteCard = ({
     message,
     messages = [],
     responseStatus,
-    onSendDirectMessage
+    onSendDirectMessage,
+    compact = false,
 }: CommunityInviteCardProps) => {
     const [inviteSnapshotTick, setInviteSnapshotTick] = React.useState(0);
     React.useEffect(() => {
@@ -179,6 +183,10 @@ export const CommunityInviteCard = ({
             fallback: PLACEHOLDER_GROUP_DISPLAY_NAME,
         }),
         [invite.communityId, invite.groupId, invite.metadata.name, persistedGroup?.displayName],
+    );
+    const invitePictureUrl = React.useMemo(
+        () => invite.metadata.picture?.trim() || persistedGroup?.avatar?.trim() || "",
+        [invite.metadata.picture, persistedGroup?.avatar],
     );
     const resolvedInviteIdForRelay = React.useMemo(
         () => resolveCommunityInviteIdFromMessage(message),
@@ -661,8 +669,17 @@ export const CommunityInviteCard = ({
                     invitePayload: wireInvite ?? undefined,
                 });
             }
-            // Phase 3 M3: do not call recordMembershipLedgerAfterInviteDecline here — the inviter may still be
-            // relay-joined as admin; cancel only withdraws the invite to the peer, not local membership exit.
+            // Phase 3 M3: inviter cancel withdraws invite to peer; clear relay-joined roster evidence for them.
+            if (invite.relayUrl?.trim() && targetPubkey?.trim()) {
+                dispatchGroupInviteResponseTerminal({
+                    groupId: invite.groupId,
+                    relayUrl: invite.relayUrl,
+                    communityId: invite.communityId,
+                    memberPubkey: targetPubkey.trim(),
+                    recipientPublicKeyHex: identityState.publicKeyHex ?? undefined,
+                    responseStatus: "canceled",
+                });
+            }
             setLocalResolutionStatus("canceled");
             toast.success(t("groups.inviteCanceled", "Invitation canceled successfully"));
         } catch (error) {
@@ -673,33 +690,31 @@ export const CommunityInviteCard = ({
         }
     };
 
-    const inviteCardShellClass = isOutgoing
-        ? cn(
-            "overflow-hidden border max-w-[320px] shadow-sm transition-all group/invite rounded-[32px]",
-            isHistorical
-                ? "cursor-default border-zinc-500/25 bg-zinc-900/85 text-zinc-300 opacity-90 ring-0"
-                : "cursor-pointer border-surface-contrast bg-gradient-surface-contrast text-surface-contrast-primary hover:border-purple-500/50 ring-1 ring-purple-400/20 dark:ring-purple-400/15",
-            isDetailsOpen && !isHistorical && "ring-2 ring-purple-500/30 border-purple-500/50",
-        )
-        : cn(
-            "relative overflow-hidden max-w-[320px] transition-all group/invite rounded-[28px]",
-            isHistorical
-                ? "cursor-default border-zinc-300/50 bg-zinc-100/90 text-zinc-600 opacity-95 shadow-sm dark:border-zinc-600/40 dark:bg-zinc-900/80 dark:text-zinc-400"
-                : "cursor-pointer border border-purple-300/55 bg-gradient-to-br from-purple-50 via-white to-indigo-50/90 text-foreground shadow-[0_10px_32px_rgba(88,28,135,0.14)] hover:border-purple-400/70 hover:shadow-[0_12px_36px_rgba(88,28,135,0.18)] dark:border-white/[0.07] dark:bg-gradient-to-br dark:from-zinc-950 dark:via-zinc-900 dark:to-zinc-900/95 dark:text-surface-contrast-primary dark:shadow-sm dark:shadow-black/25 dark:hover:border-purple-500/40",
-            isDetailsOpen && !isHistorical && "ring-2 ring-purple-500/35 border-purple-400/70 dark:ring-purple-500/30 dark:border-purple-500/50",
-        );
+    const inviteCardShellClass = cn(
+        "relative overflow-hidden transition-all group/invite w-full",
+        compact ? "max-w-[min(100%,320px)] rounded-2xl" : "max-w-[min(100%,320px)]",
+        compact ? "" : isOutgoing ? "rounded-[32px]" : "rounded-[28px]",
+        isHistorical
+            ? "cursor-default border-zinc-300/55 bg-white/95 text-zinc-700 opacity-95 shadow-sm ring-1 ring-zinc-200/70 dark:border-zinc-600/40 dark:bg-zinc-900/80 dark:text-zinc-400 dark:ring-0"
+            : cn(
+                "cursor-pointer border border-purple-300/55 bg-gradient-to-br from-purple-50 via-white to-indigo-50/90 text-foreground shadow-[0_10px_32px_rgba(88,28,135,0.14)] hover:border-purple-400/70 hover:shadow-[0_12px_36px_rgba(88,28,135,0.18)] dark:border-white/[0.07] dark:bg-gradient-to-br dark:from-zinc-950 dark:via-zinc-900 dark:to-zinc-900/95 dark:text-surface-contrast-primary dark:shadow-sm dark:shadow-black/25 dark:hover:border-purple-500/40",
+                isOutgoing && "dark:border-surface-contrast dark:bg-gradient-surface-contrast",
+            ),
+        isDetailsOpen && !isHistorical && "ring-2 ring-purple-500/35 border-purple-400/70 dark:ring-purple-500/30 dark:border-purple-500/50",
+    );
 
-    const inviteTitleClass = isOutgoing
-        ? "text-sm font-black truncate group-hover/invite:text-purple-600 dark:group-hover/invite:text-purple-400 text-surface-contrast-primary"
-        : "text-sm font-black truncate text-zinc-900 group-hover/invite:text-purple-700 dark:text-surface-contrast-primary dark:group-hover/invite:text-purple-400";
+    const inviteTitleClass = cn(
+        "text-sm font-black truncate text-zinc-900 group-hover/invite:text-purple-700 dark:text-white dark:group-hover/invite:text-purple-300",
+    );
 
-    const inviteDescriptionClass = isOutgoing
-        ? "text-[10px] line-clamp-2 mt-0.5 leading-relaxed text-surface-contrast-secondary"
-        : "text-[10px] line-clamp-2 mt-0.5 leading-relaxed text-zinc-600 dark:text-surface-contrast-secondary";
+    const inviteDescriptionClass = cn(
+        "text-[10px] mt-0.5 leading-relaxed text-zinc-600 dark:text-surface-contrast-secondary",
+        compact ? "line-clamp-1" : "line-clamp-2",
+    );
 
-    const inviteBadgeClass = isOutgoing
-        ? "flex items-center gap-1.5 px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest bg-black/5 dark:bg-white/5 text-surface-contrast-secondary"
-        : "flex items-center gap-1.5 px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-purple-200/70 bg-purple-500/10 text-purple-900 dark:border-transparent dark:bg-white/5 dark:text-surface-contrast-secondary";
+    const inviteBadgeClass = cn(
+        "flex items-center gap-1.5 px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-purple-200/70 bg-purple-500/10 text-purple-900 dark:border-transparent dark:bg-white/5 dark:text-surface-contrast-secondary",
+    );
 
     return (
         <>
@@ -711,36 +726,52 @@ export const CommunityInviteCard = ({
                 onClick={() => setIsDetailsOpen(true)}
                 className={inviteCardShellClass}
             >
-                {!isOutgoing && !isHistorical ? (
+                {!isHistorical ? (
                     <div
                         aria-hidden
                         className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-primary dark:hidden"
                     />
-                ) : null}
-                {isHistorical ? (
+                ) : (
                     <div
                         aria-hidden
-                        className={cn(
-                            "pointer-events-none absolute inset-x-0 top-0 h-0.5",
-                            isOutgoing ? "bg-zinc-500/40" : "bg-zinc-400/50 dark:bg-zinc-600/50",
-                        )}
+                        className="pointer-events-none absolute inset-x-0 top-0 h-0.5 bg-zinc-300/70 dark:bg-zinc-600/50"
                     />
-                ) : null}
-                <div className="p-4 flex flex-col gap-4">
-                    <div className="min-w-0 flex flex-col gap-1">
-                        {!isOutgoing && isActionable ? (
-                            <span className="text-[9px] font-black uppercase tracking-[0.2em] text-purple-700 dark:text-purple-300">
-                                {t("groups.newCommunityInvite", "New community invite")}
-                            </span>
-                        ) : null}
-                        <h4 className={inviteTitleClass}>
-                            {inviteDisplayName}
-                        </h4>
-                        <p className={inviteDescriptionClass}>
-                            {invite.metadata.about || t("groups.privateInviteDesc", "You've been invited to join this private encrypted community.")}
-                        </p>
+                )}
+                <div className={cn("flex flex-col", compact ? "gap-2 p-3" : "gap-4 p-4")}>
+                    <div className="flex min-w-0 items-start gap-3">
+                        <CommunityInviteAvatar
+                            displayName={inviteDisplayName}
+                            pictureUrl={invitePictureUrl}
+                            compact={compact}
+                        />
+                        <div className="min-w-0 flex flex-1 flex-col gap-1">
+                            {!isOutgoing && isActionable && !compact ? (
+                                <span className="text-[9px] font-black uppercase tracking-[0.2em] text-purple-700 dark:text-purple-300">
+                                    {t("groups.newCommunityInvite", "New community invite")}
+                                </span>
+                            ) : null}
+                            {isOutgoing && isActionable && !compact ? (
+                                <span className="text-[9px] font-black uppercase tracking-[0.2em] text-indigo-700 dark:text-indigo-300">
+                                    {t("groups.sentCommunityInvite", "Invitation sent")}
+                                </span>
+                            ) : null}
+                            <h4 className={inviteTitleClass}>
+                                {inviteDisplayName}
+                            </h4>
+                            <p className={inviteDescriptionClass}>
+                                {invite.metadata.about || t("groups.privateInviteDesc", "You've been invited to join this private encrypted community.")}
+                            </p>
+                        </div>
                     </div>
 
+                    {compact ? (
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                            {t("groups.privateEncryptedCompact", "Private · Encrypted")}
+                            {invite.metadata.memberCount !== undefined
+                                ? ` · ${invite.metadata.memberCount} ${t("groups.members", "members")}`
+                                : ""}
+                        </p>
+                    ) : (
                     <div className="flex items-center gap-3">
                         <div className={inviteBadgeClass}>
                             <ShieldCheck className="h-3 w-3" />
@@ -751,21 +782,22 @@ export const CommunityInviteCard = ({
                             {t("groups.private", "Private")}
                         </div>
                         {invite.metadata.memberCount !== undefined && (
-                            <div className={cn(
-                                "ml-auto text-[9px] font-bold",
-                                isOutgoing ? "text-surface-contrast-secondary opacity-80" : "text-zinc-600 dark:text-surface-contrast-secondary dark:opacity-80"
-                            )}>
+                            <div className="ml-auto text-[9px] font-bold text-zinc-600 dark:text-surface-contrast-secondary dark:opacity-80">
                                 {invite.metadata.memberCount} {t("groups.members", "members")}
                             </div>
                         )}
                     </div>
+                    )}
 
                     <div className="flex flex-col gap-2 pt-1">
                         {isInviteDefective ? (
                             <div
                                 role="status"
                                 data-testid="community-invite-defective-banner"
-                                className="flex w-full flex-col items-center justify-center gap-1 rounded-[22px] border border-amber-400/70 bg-gradient-to-r from-amber-50 via-white to-amber-50/80 px-4 py-3 text-center shadow-sm dark:border-amber-500/40 dark:from-amber-950/80 dark:via-zinc-950 dark:to-zinc-950"
+                                className={cn(
+                                    "flex w-full flex-col items-center justify-center gap-1 border border-amber-400/70 bg-gradient-to-r from-amber-50 via-white to-amber-50/80 text-center shadow-sm dark:border-amber-500/40 dark:from-amber-950/80 dark:via-zinc-950 dark:to-zinc-950",
+                                    compact ? "rounded-xl px-3 py-2" : "rounded-[22px] px-4 py-3",
+                                )}
                             >
                                 <div className="flex items-center justify-center gap-2 text-amber-900 dark:text-amber-200">
                                     <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
@@ -785,7 +817,7 @@ export const CommunityInviteCard = ({
                         {isActionable && !isInviteDefective ? (
                             isOutgoing ? (
                                 <div className="flex flex-col gap-2">
-                                    <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-surface-contrast-secondary opacity-90">
+                                    <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-zinc-600 dark:text-surface-contrast-secondary dark:opacity-90">
                                         <Clock className="h-3 w-3" />
                                         {t("groups.pending", "Pending Response")}
                                     </div>
@@ -797,7 +829,7 @@ export const CommunityInviteCard = ({
                                             e.stopPropagation();
                                             handleCancel();
                                         }}
-                                        className="h-9 rounded-xl text-[10px] uppercase font-black tracking-widest border border-surface-contrast bg-white/50 text-surface-contrast-primary hover:bg-white/70 dark:bg-white/5 dark:hover:bg-white/10 transition-colors"
+                                        className="h-9 rounded-xl text-[10px] uppercase font-black tracking-widest border border-zinc-300/80 bg-white text-zinc-800 hover:bg-zinc-50 dark:border-surface-contrast dark:bg-white/5 dark:text-surface-contrast-primary dark:hover:bg-white/10 transition-colors"
                                     >
                                         {isProcessing ? t("common.processing", "Processing...") : t("common.cancelInvite", "Cancel Invitation")}
                                     </Button>
@@ -810,13 +842,19 @@ export const CommunityInviteCard = ({
                                             handleAccept();
                                         }}
                                         disabled={isProcessing}
-                                        className="flex-1 h-10 bg-gradient-primary text-primary-foreground font-bold rounded-xl shadow-lg shadow-purple-600/25 transition-all hover:opacity-95 hover:scale-[1.02] active:scale-95"
+                                        className={cn(
+                                            "flex-1 bg-gradient-primary text-primary-foreground font-bold rounded-xl shadow-lg shadow-purple-600/25 transition-all hover:opacity-95 hover:scale-[1.02] active:scale-95",
+                                            compact ? "h-9 text-xs" : "h-10",
+                                        )}
                                     >
                                         {isProcessing ? t("common.processing", "Processing...") : t("common.accept", "Accept")}
                                     </Button>
                                     <Button
                                         variant="outline"
-                                        className="flex-1 h-10 font-bold rounded-xl border-zinc-300/80 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-white/10 dark:bg-white/5 dark:text-zinc-300 dark:hover:bg-white/10 transition-all active:scale-95"
+                                        className={cn(
+                                            "flex-1 font-bold rounded-xl border-zinc-300/80 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-white/10 dark:bg-white/5 dark:text-zinc-300 dark:hover:bg-white/10 transition-all active:scale-95",
+                                            compact ? "h-9 text-xs" : "h-10",
+                                        )}
                                         disabled={isProcessing}
                                         onClick={(e) => {
                                             e.stopPropagation();
@@ -832,7 +870,7 @@ export const CommunityInviteCard = ({
                                 <CommunityInviteStatusBanner
                                     status={status}
                                     isOutgoing={isOutgoing}
-                                    compact={status !== "accepted"}
+                                    compact={compact || status !== "accepted"}
                                 />
                                 {showRelayJoinTerminalFailed ? (
                                     <p className="text-center text-[11px] font-medium leading-snug text-amber-700 dark:text-amber-200/90">
@@ -868,12 +906,21 @@ export const CommunityInviteCard = ({
                     <div className="h-1.5 w-full bg-gradient-to-r from-purple-600 via-indigo-500 to-violet-500" aria-hidden />
                     <div className="pb-8 px-8 pt-8 space-y-6">
                         <DialogHeader className="space-y-2 text-left p-0">
-                            <DialogTitle className="text-2xl font-black text-zinc-900 dark:text-white">
-                                {inviteDisplayName}
-                            </DialogTitle>
-                            <DialogDescription className="text-zinc-500 font-bold text-xs uppercase tracking-widest">
-                                {invite.metadata.access || "Private"} Community • {invite.metadata.memberCount || 0} Members
-                            </DialogDescription>
+                            <div className="flex items-start gap-4">
+                                <CommunityInviteAvatar
+                                    displayName={inviteDisplayName}
+                                    pictureUrl={invitePictureUrl}
+                                    className="h-14 w-14 rounded-2xl"
+                                />
+                                <div className="min-w-0 space-y-2">
+                                    <DialogTitle className="text-2xl font-black text-zinc-900 dark:text-white">
+                                        {inviteDisplayName}
+                                    </DialogTitle>
+                                    <DialogDescription className="text-zinc-500 font-bold text-xs uppercase tracking-widest">
+                                        {invite.metadata.access || "Private"} Community • {invite.metadata.memberCount || 0} Members
+                                    </DialogDescription>
+                                </div>
+                            </div>
                         </DialogHeader>
 
                         <div className="space-y-2">

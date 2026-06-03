@@ -41,6 +41,7 @@ From [`rules/01-operating-principles.md`](./rules/01-operating-principles.md):
 | Documentation | [`rules/07-documentation.md`](./rules/07-documentation.md) |
 | Broken core flow | [`rules/10-recovery-heuristic.md`](./rules/10-recovery-heuristic.md) |
 | Feasibility / modular safety | [`rules/11-feasibility-and-modular-safety.md`](./rules/11-feasibility-and-modular-safety.md) |
+| Navigation performance | [`rules/13-navigation-performance.md`](./rules/13-navigation-performance.md) · [`docs/program/navigation-performance-contract.md`](./docs/program/navigation-performance-contract.md) |
 
 ## Broken core flow (quick)
 

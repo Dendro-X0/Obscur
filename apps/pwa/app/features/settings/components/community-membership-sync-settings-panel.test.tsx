@@ -23,6 +23,10 @@ vi.mock("@/app/features/groups/services/community-membership-sync-mode", () => (
     getCoordinationBaseUrl: () => syncModeState.coordinationUrl,
 }));
 
+vi.mock("@/app/features/runtime/use-mobile-compact-layout", () => ({
+    useMobileCompactLayout: () => false,
+}));
+
 describe("CommunityMembershipSyncSettingsPanel", () => {
     beforeEach(() => {
         syncModeState.mode = "nostr_only";

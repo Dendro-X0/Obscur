@@ -1,3 +1,5 @@
+import { formatConversationMessagePreview } from "@/app/features/messaging/services/format-conversation-message-preview";
+
 const STRUCTURED_DM_PAYLOAD_TYPES = new Set<string>([
   "community-invite",
   "community-invite-response",
@@ -27,4 +29,28 @@ export const toAccountEventPlaintextPreview = (value: string): string => {
     return normalized;
   }
   return `${normalized.slice(0, 140)}...`;
+};
+
+/**
+ * Sidebar / projection conversation summaries: keep structured DM JSON intact so
+ * {@link formatConversationMessagePreview} can apply peer name + direction at render time.
+ */
+export const toConversationListPreview = (value: string): string => {
+  const normalized = value.replace(/\s+/g, " ").trim();
+  if (!normalized) {
+    return "";
+  }
+
+  if (normalized.startsWith("{")) {
+    try {
+      const parsed = JSON.parse(normalized) as { type?: unknown };
+      if (typeof parsed?.type === "string" && STRUCTURED_DM_PAYLOAD_TYPES.has(parsed.type)) {
+        return normalized;
+      }
+    } catch {
+      // Fall through to plain-text preview.
+    }
+  }
+
+  return formatConversationMessagePreview(normalized);
 };

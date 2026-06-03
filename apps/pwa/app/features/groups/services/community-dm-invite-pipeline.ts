@@ -15,6 +15,7 @@ import type { ConversationRecord, MessageRecord } from "@dweb/db";
 import { appendCanonicalDmEvent } from "@/app/features/account-sync/services/account-event-ingest-bridge";
 import { toAccountEventPlaintextPreview } from "@/app/features/account-sync/services/account-event-plaintext-preview";
 import { pinCommunityInviteMessageSnapshotForMessage } from "../utils/community-invite-message-snapshot";
+import { buildCommunityInviteResponseStatusByMessageId } from "../utils/community-invite-resolution";
 import { normalizeCommunityInvitePayload } from "../utils/community-invite-payload";
 import {
   buildCommunityInviteResponseWirePlaintext,
@@ -428,6 +429,34 @@ const pickPreferredInviteDuplicate = (candidate: Message, incumbent: Message): M
     : incumbent;
 };
 
+/** Keep one terminal response row per inviteId (latest wins). */
+export const dedupeCommunityInviteResponseMessagesByInviteId = (
+  messages: ReadonlyArray<Message>,
+): ReadonlyArray<Message> => {
+  const latestByInviteId = new Map<CommunityDmInviteId, Message>();
+  messages.forEach((message) => {
+    const response = parseInviteResponsePayloadFromMessageContent(message.content);
+    if (!response) {
+      return;
+    }
+    const existing = latestByInviteId.get(response.inviteId);
+    if (!existing || toInviteMessageUnixMs(message) >= toInviteMessageUnixMs(existing)) {
+      latestByInviteId.set(response.inviteId, message);
+    }
+  });
+  if (latestByInviteId.size === 0) {
+    return messages;
+  }
+  const keepIds = new Set(Array.from(latestByInviteId.values(), (entry) => entry.id));
+  return messages.filter((message) => {
+    const response = parseInviteResponsePayloadFromMessageContent(message.content);
+    if (!response) {
+      return true;
+    }
+    return keepIds.has(message.id);
+  });
+};
+
 /** Collapse duplicate hydrate copies that share the same stable inviteId. */
 export const dedupeCommunityInviteThreadMessagesByInviteId = (
   messages: ReadonlyArray<Message>,
@@ -544,22 +573,39 @@ export const augmentCommunityDmInviteThreadMessages = (
 ): ReadonlyArray<Message> => {
   const normalizedMessages = normalizeCommunityInviteThreadSenderPubkeys(messages, accountPublicKeyHex);
   const dedupedMessages = dedupeCommunityInviteThreadMessagesByInviteId(normalizedMessages);
+  const dedupedResponses = dedupeCommunityInviteResponseMessagesByInviteId(dedupedMessages);
   const inviteIdsInThread = new Set<CommunityDmInviteId>();
-  dedupedMessages.forEach((message) => {
+  dedupedResponses.forEach((message) => {
     const invite = parseInvitePayloadFromMessageContent(message.content);
     if (invite) {
       inviteIdsInThread.add(invite.inviteId);
     }
   });
 
-  const withoutLinkedResponses = dedupedMessages.filter((message) => {
+  const inviteStatusByMessageId = buildCommunityInviteResponseStatusByMessageId(
+    dedupedResponses,
+    conversationId,
+    profileId,
+  );
+  const terminalInviteIds = new Set<CommunityDmInviteId>();
+  dedupedResponses.forEach((message) => {
+    const invite = parseInvitePayloadFromMessageContent(message.content);
+    if (!invite) {
+      return;
+    }
+    const status = inviteStatusByMessageId.get(message.id);
+    if (status && status !== "pending") {
+      terminalInviteIds.add(invite.inviteId);
+    }
+  });
+
+  const withoutLinkedResponses = dedupedResponses.filter((message) => {
     const response = parseInviteResponsePayloadFromMessageContent(message.content);
     if (!response) {
       return true;
     }
-    // The accepter must still see their own terminal response card in-thread.
-    if (message.isOutgoing === true) {
-      return true;
+    if (terminalInviteIds.has(response.inviteId)) {
+      return false;
     }
     return !inviteIdsInThread.has(response.inviteId);
   });

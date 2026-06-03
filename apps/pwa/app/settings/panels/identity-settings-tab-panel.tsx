@@ -29,13 +29,15 @@ import {
   validateProfileInput,
   formatBytes,
   formatRatioPercent,
-} from "../settings-tab-panel-model";
+} from "../settings-tab-panel-shared";
 import { getApiBaseUrl } from "@/app/features/relays/utils/api-base-url";
 import { deriveRelayNodeStatus, deriveRelayRuntimeStatus } from "@/app/features/relays/lib/relay-runtime-status";
 import { checkStorageHealth, runStorageRecovery } from "@/app/features/messaging/services/storage-health-service";
 import { Loader2, Activity, ShieldAlert, Shield, Lock, Database, Copy, ChevronDown, Plus, ArrowUp, ArrowDown, Eye, EyeOff, Building2, Wifi, RefreshCcw, Check, X } from "lucide-react";
 
-import { useSettingsTabPanelModel } from "../settings-tab-panel-model";
+import { SettingsCompactCard } from "@/app/features/settings/components/settings-compact-card";
+import { useMobileCompactLayout } from "@/app/features/runtime/use-mobile-compact-layout";
+import { useSettingsTabPanelModel } from "../settings-tab-panel-model-context";
 
 export default function IdentitySettingsTabPanel(): React.JSX.Element {
   const {
@@ -269,17 +271,22 @@ export default function IdentitySettingsTabPanel(): React.JSX.Element {
     wipeLocalRuntimeData
   } = useSettingsTabPanelModel() as Record<string, any>;
 
+  const compact = useMobileCompactLayout();
+
   return (
     <>
-        <div className="space-y-6">
+        <div className={compact ? "space-y-4" : "space-y-6"}>
           <ProfileSwitcherCard onBeforeSwitch={handleProfileSwitchLock} />
-          <Card title={t("identity.title")} description={t("identity.description")} className="w-full">
-            <div className="space-y-6">
-              <div className="relative overflow-hidden rounded-2xl border border-black/10 bg-gradient-to-br from-zinc-50 to-white p-5 shadow-sm dark:border-white/10 dark:from-zinc-900/40 dark:to-zinc-950/20">
+          <SettingsCompactCard title={t("identity.title")} description={t("identity.description")} className="w-full">
+            <div className={compact ? "space-y-4" : "space-y-6"}>
+              <div className={cn(
+                "relative overflow-hidden rounded-2xl border border-black/10 bg-gradient-to-br from-zinc-50 to-white shadow-sm dark:border-white/10 dark:from-zinc-900/40 dark:to-zinc-950/20",
+                compact ? "p-4" : "p-5",
+              )}>
                 <div className="flex flex-wrap items-center justify-between gap-4">
                   <div className="flex flex-col gap-1">
                     <span className="text-sm font-black tracking-tight text-zinc-900 dark:text-zinc-100 uppercase tracking-wider">Account Identity</span>
-                    <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest leading-none">Global Identification State</p>
+                    <p className={cn("text-[10px] font-bold text-zinc-500 uppercase tracking-widest leading-none", compact && "sr-only")}>Global Identification State</p>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className={cn(
@@ -302,7 +309,7 @@ export default function IdentitySettingsTabPanel(): React.JSX.Element {
                   </div>
                 </div>
                 
-                <div className="mt-6 grid gap-4 md:grid-cols-2">
+                <div className={cn("mt-6 grid gap-4", compact ? "grid-cols-1" : "md:grid-cols-2")}>
                   <div className="space-y-2.5 rounded-xl bg-white/50 p-4 border border-black/5 dark:bg-black/20 dark:border-white/5">
                     <div className="flex items-center justify-between">
                       <Label htmlFor="profile-pubkey" className="text-[11px] font-black uppercase tracking-widest text-zinc-500">{t("identity.publicKeyHex")}</Label>
@@ -391,7 +398,10 @@ export default function IdentitySettingsTabPanel(): React.JSX.Element {
                     >
                       <Button
                         variant="outline"
-                        className="w-full h-16 rounded-2xl border-2 border-dashed border-black/10 bg-transparent hover:bg-purple-500/5 hover:border-purple-500/40 group transition-all dark:border-white/10 dark:hover:bg-purple-500/10"
+                        className={cn(
+                          "w-full rounded-2xl border-2 border-dashed border-black/10 bg-transparent hover:bg-purple-500/5 hover:border-purple-500/40 group transition-all dark:border-white/10 dark:hover:bg-purple-500/10",
+                          compact ? "h-12" : "h-16",
+                        )}
                         onClick={handleRevealToggle}
                         disabled={identityIntegrityState === "mismatch"}
                       >
@@ -508,7 +518,10 @@ export default function IdentitySettingsTabPanel(): React.JSX.Element {
               resolveActivePrivateKeyHex={resolveActivePrivateKeyHex}
             />
 
-            <div id="local-data-management" className="mt-8 rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-900/30 dark:bg-red-950/10 space-y-3">
+            <div id="local-data-management" className={cn(
+              "mt-8 rounded-xl border border-red-200 bg-red-50 dark:border-red-900/30 dark:bg-red-950/10 space-y-3",
+              compact ? "p-3" : "p-4",
+            )}>
               <h3 className="text-sm font-semibold text-red-900 dark:text-red-200">Local data management</h3>
               <p className="mt-1 text-xs text-red-700 dark:text-red-300 font-medium">
                 Remove data stored in this profile window on this device. Signing out does not delete local files.
@@ -555,7 +568,7 @@ export default function IdentitySettingsTabPanel(): React.JSX.Element {
                 {isPublishing ? "Removing local profile data..." : t("settings.deleteAccount", "Remove local profile data")}
               </Button>
             </div>
-          </Card>
+          </SettingsCompactCard>
         </div>
       <ConfirmDialog
         isOpen={isDisableAllRelaysDialogOpen}

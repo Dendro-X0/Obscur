@@ -65,6 +65,14 @@ export const isExperimentOfflineStubEnabled = (): boolean => (
 /** Defer hydrate / SQLite / idle work (12s timer or idle callback) — offline experiment stub only. */
 export const shouldDeferExperimentHeavyWork = (): boolean => isExperimentOfflineStubEnabled();
 
+/**
+ * Transition overlay, mount probes, and route stall guards add main-thread work on every nav.
+ * Keep them off for all experiment-shell builds (including G6 online).
+ */
+export const shouldRunNavigationInstrumentation = (): boolean => (
+  !isExperimentShellEnabled()
+);
+
 /** Delay before deferred hydrate/sync/subscription work in experiment mode. */
 export const EXPERIMENT_DEFER_HEAVY_WORK_MS = 12_000;
 

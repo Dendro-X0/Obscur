@@ -1,26 +1,26 @@
 import { describe, expect, it } from "vitest";
 import {
     MESSAGE_BUBBLE_ACTION_DOCK_HIDE_DELAY_MS,
-    MESSAGE_BUBBLE_LONG_PRESS_DELAY_MS,
     MESSAGE_BUBBLE_LONG_PRESS_MOVE_TOLERANCE_PX,
-    shouldCancelMessageBubbleLongPress,
+    MESSAGE_BUBBLE_SUSTAIN_HOVER_DELAY_MS,
+    shouldCancelMessageBubbleSustainHover,
 } from "./message-list-touch";
 
-describe("message-list touch long press helpers", () => {
-    it("uses the expected mobile long-press delay", () => {
-        expect(MESSAGE_BUBBLE_LONG_PRESS_DELAY_MS).toBe(420);
+describe("message-list touch sustain-hover helpers", () => {
+    it("uses the expected sustain-hover delay", () => {
+        expect(MESSAGE_BUBBLE_SUSTAIN_HOVER_DELAY_MS).toBe(420);
         expect(MESSAGE_BUBBLE_ACTION_DOCK_HIDE_DELAY_MS).toBe(220);
     });
 
-    it("keeps long press active for tiny movement and cancels for larger drags", () => {
-        expect(shouldCancelMessageBubbleLongPress({
+    it("keeps sustain hover active for tiny movement and cancels for larger drags", () => {
+        expect(shouldCancelMessageBubbleSustainHover({
             startX: 100,
             startY: 100,
             currentX: 106,
             currentY: 107,
         })).toBe(false);
 
-        expect(shouldCancelMessageBubbleLongPress({
+        expect(shouldCancelMessageBubbleSustainHover({
             startX: 100,
             startY: 100,
             currentX: 112,

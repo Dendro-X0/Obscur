@@ -1,0 +1,6 @@
+{
+  "version": "1.8.14",
+  "notes": "Repo stable channel. Replace this file with pnpm desktop:update-channel:publish after a signed local desktop build.",
+  "pub_date": "2026-06-02T00:00:00.000Z",
+  "platforms": {}
+}

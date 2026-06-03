@@ -20,14 +20,48 @@ import {
   type StreamingUpdateBlockReason,
   type StreamingUpdateChannel,
 } from "@/app/features/updates/services/streaming-update-policy";
+import {
+  fetchTextViaBrowser,
+  parseRepoVersionJson,
+  resolveRepoVersionJsonUrl,
+  resolveStreamingUpdatePolicyUrl,
+  shouldPreferRepoUpdateChannel,
+  shouldQueryGitHubReleasesLatest,
+} from "@/app/features/updates/services/repo-update-channel";
 
 type StreamingPolicyParseResult = ReturnType<typeof parseStreamingUpdateManifest>;
 
-/** Policy JSON is not fetched in the browser shell (GitHub download URLs lack CORS). */
-const loadStreamingPolicyManifestResult = (): StreamingPolicyParseResult | null => null;
+const fetchRemoteText = async (url: string, useNative: boolean): Promise<string | null> => {
+  if (useNative) {
+    const result = await invokeNativeCommand<string>("fetch_remote_text", { url });
+    if (result.ok && typeof result.value === "string" && result.value.trim().length > 0) {
+      return result.value;
+    }
+    return null;
+  }
+  return fetchTextViaBrowser(url);
+};
+
+const loadStreamingPolicyManifestResult = async (useNative: boolean): Promise<StreamingPolicyParseResult | null> => {
+  const raw = await fetchRemoteText(resolveStreamingUpdatePolicyUrl(), useNative);
+  if (!raw) {
+    return null;
+  }
+  return parseStreamingUpdateManifest(raw);
+};
+
+const fetchRepoChannelVersion = async (useNative: boolean): Promise<string | null> => {
+  const raw = await fetchRemoteText(resolveRepoVersionJsonUrl(), useNative);
+  if (!raw) {
+    return null;
+  }
+  const parsed = parseRepoVersionJson(raw);
+  return parsed?.version ?? null;
+};
 
 const GITHUB_LATEST_RELEASE_URL = "https://api.github.com/repos/Dendro-X0/Obscur/releases/latest";
 const GITHUB_RELEASES_PAGE_URL = "https://github.com/Dendro-X0/Obscur/releases";
+const REPO_CHANGELOG_URL = "https://github.com/Dendro-X0/Obscur/blob/main/CHANGELOG.md";
 const OFFICIAL_DOWNLOAD_PAGE_URL = (() => {
   const explicit = process.env.NEXT_PUBLIC_OFFICIAL_DOWNLOAD_PAGE_URL?.trim();
   if (explicit) {
@@ -65,7 +99,7 @@ const fetchLatestGitHubRelease = async (
   desktopPlatform: ReturnType<typeof inferDesktopPlatformFromUserAgent>,
   fallbackVersion: string,
 ): Promise<GitHubReleaseSnapshot | null> => {
-  if (!shouldQueryGitHubReleases()) {
+  if (!shouldQueryGitHubReleasesLatest()) {
     return null;
   }
   try {
@@ -96,7 +130,7 @@ interface UpdateInfo {
   version?: string;
   latestTag?: string;
   currentVersion?: string;
-  source?: "tauri" | "github" | "both";
+  source?: "tauri" | "github" | "repo" | "both";
   message?: string;
   isDevBuild?: boolean;
   eligible?: boolean;
@@ -214,16 +248,21 @@ export const DesktopUpdater = ({ variant = "background" }: DesktopUpdaterProps) 
       const tauriCheckPromise = isDesktop
         ? invokeNativeCommand<string>("check_for_updates")
         : Promise.resolve({ ok: false as const, message: "desktop_runtime_unavailable" });
-      const [tauriResult, githubRelease] = await Promise.all([
+      const preferRepo = shouldPreferRepoUpdateChannel();
+      const [tauriResult, githubRelease, repoChannelVersion, policyManifestResult] = await Promise.all([
         tauriCheckPromise,
         fetchLatestGitHubRelease(desktopPlatform, currentVersion),
+        preferRepo ? fetchRepoChannelVersion(isDesktop) : Promise.resolve(null),
+        loadStreamingPolicyManifestResult(isDesktop),
       ]);
 
       let latestTag = currentVersion;
-      let htmlUrl: string | null = null;
+      let htmlUrl: string | null = preferRepo ? REPO_CHANGELOG_URL : null;
       let preferredAsset: ReleaseAsset | null = null;
       let releaseAssets: ReadonlyArray<ReleaseAsset> = [];
-      if (githubRelease) {
+      if (preferRepo && repoChannelVersion) {
+        latestTag = normalizeVersion(repoChannelVersion);
+      } else if (githubRelease) {
         latestTag = githubRelease.latestTag;
         htmlUrl = githubRelease.htmlUrl;
         releaseAssets = githubRelease.releaseAssets;
@@ -239,19 +278,19 @@ export const DesktopUpdater = ({ variant = "background" }: DesktopUpdaterProps) 
       // GitHub release *download* URLs are not CORS-enabled in the dev webview; use the
       // releases API asset list for publication truth and keep policy evaluation on fallback
       // until a native or same-origin fetch path is available.
-      const streamingFeedAvailable = releaseAssets.some(
-        (asset) => asset.name === "latest.json",
-      );
-      const policyManifestResult = loadStreamingPolicyManifestResult();
+      const streamingFeedAvailable = preferRepo
+        ? policyManifestResult?.ok === true
+        : releaseAssets.some((asset) => asset.name === "latest.json");
 
       const tauriHasUpdate = tauriResult.ok && typeof tauriResult.value === "string" && tauriResult.value.includes("Update available");
       const tauriVersion = tauriHasUpdate && tauriResult.ok && typeof tauriResult.value === "string"
         ? normalizeVersion(tauriResult.value.replace("Update available: ", ""))
         : undefined;
       const versionComparison = compareVersions(currentVersion, latestTag);
-      const githubHasUpdate = versionComparison !== null ? versionComparison < 0 : false;
+      const repoHasUpdate = preferRepo && versionComparison !== null ? versionComparison < 0 : false;
+      const githubHasUpdate = !preferRepo && versionComparison !== null ? versionComparison < 0 : false;
 
-      if (tauriHasUpdate || githubHasUpdate) {
+      if (tauriHasUpdate || repoHasUpdate || githubHasUpdate) {
         const targetVersion = tauriVersion || latestTag;
         let eligible = true;
         let blockReasonCode: UpdateInfo["blockReasonCode"];
@@ -283,10 +322,9 @@ export const DesktopUpdater = ({ variant = "background" }: DesktopUpdaterProps) 
           blockReasonCode = "policy_unavailable";
         }
 
-        const nativeUpdaterUnavailable = !tauriHasUpdate && githubHasUpdate;
+        const nativeUpdaterUnavailable = !tauriHasUpdate && (repoHasUpdate || githubHasUpdate);
         if (eligible && (!streamingFeedAvailable || nativeUpdaterUnavailable)) {
           deliveryMode = "download_only";
-          eligible = false;
         } else if (!eligible) {
           deliveryMode = "blocked";
         }
@@ -295,14 +333,18 @@ export const DesktopUpdater = ({ variant = "background" }: DesktopUpdaterProps) 
           ? describePolicyBlockReason(blockReasonCode)
           : null;
         const downloadOnlyMessage = deliveryMode === "download_only"
-          ? `Update v${targetVersion} is available, but in-app streaming install is unavailable right now. Use the download page instead.`
+          ? `Update v${targetVersion} is on the repo channel, but signed in-app install is not ready yet. Publish channel artifacts with pnpm desktop:update-channel:publish, or clone/ZIP from GitHub.`
           : null;
         setUpdateInfo({
           available: true,
           version: targetVersion,
           latestTag,
           currentVersion,
-          source: tauriHasUpdate && githubHasUpdate ? "both" : tauriHasUpdate ? "tauri" : "github",
+          source: tauriHasUpdate
+            ? (repoHasUpdate || githubHasUpdate ? "both" : "tauri")
+            : preferRepo
+              ? "repo"
+              : "github",
           message: downloadOnlyMessage ?? blockedMessage ?? t("settings.updates.versionAvailable", { version: targetVersion }),
           isDevBuild,
           eligible,
@@ -323,7 +365,7 @@ export const DesktopUpdater = ({ variant = "background" }: DesktopUpdaterProps) 
         available: false,
         latestTag,
         currentVersion,
-        source: isDesktop ? "both" : "github",
+        source: isDesktop ? (preferRepo ? "repo" : "both") : preferRepo ? "repo" : "github",
         message: isDevBuild
           ? `Development build detected. Latest stable tag: v${latestTag}.`
           : t("settings.updates.latest"),
@@ -348,7 +390,9 @@ export const DesktopUpdater = ({ variant = "background" }: DesktopUpdaterProps) 
     if (!isDesktop || !updateInfo?.available || updateInfo.deliveryMode !== "streaming" || updateInfo.eligible === false) return;
 
     try {
-      const ok = window.confirm(`Install update ${updateInfo.version ?? ""} now? The app may restart after install.`);
+      const ok = window.confirm(
+        `Install update ${updateInfo.version ?? ""} now? The app will download, apply, and restart — no separate installer window.`,
+      );
       if (!ok) return;
       setIsInstalling(true);
       setError(null);
@@ -511,7 +555,7 @@ export const DesktopUpdater = ({ variant = "background" }: DesktopUpdaterProps) 
         updateInfo.available ? (
           updateInfo.deliveryMode === "download_only" ? (
             <div className="rounded-xl border border-blue-500/20 bg-blue-500/10 px-3 py-2 text-xs font-medium text-blue-700 dark:text-blue-300">
-              Update v{updateInfo.version || updateInfo.latestTag} is available, but streaming install is unavailable on the current release channel. Use the download page or direct installer link instead.
+              Update v{updateInfo.version || updateInfo.latestTag} is on the repo channel ({resolveRepoVersionJsonUrl()}). In-app install needs signed artifacts in apps/desktop/release/channel/stable — run desktop:update-channel:publish after a local build.
             </div>
           ) : updateInfo.eligible === false ? (
             <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 px-3 py-2 text-xs font-medium text-rose-700 dark:text-rose-300">

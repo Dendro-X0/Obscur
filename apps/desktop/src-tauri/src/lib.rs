@@ -24,6 +24,7 @@ mod upload;
 mod wallet;
 mod models;
 mod commands;
+mod update_channel;
 mod data_root;
 mod local_save_scan;
 mod services;
@@ -330,6 +331,7 @@ pub fn run() {
                     commands::tray::set_tray_incoming_call_state,
                     commands::tray::desktop_get_incoming_call_state,
                     commands::tray::desktop_incoming_call_action,
+                    commands::system::fetch_remote_text,
                     commands::system::check_for_updates,
                     commands::system::install_update,
                     commands::system::reset_app_storage,
@@ -433,6 +435,7 @@ pub fn run() {
                     commands::tray::set_tray_incoming_call_state,
                     commands::tray::desktop_get_incoming_call_state,
                     commands::tray::desktop_incoming_call_action,
+                    commands::system::fetch_remote_text,
                     commands::system::check_for_updates,
                     commands::system::install_update,
                     commands::system::reset_app_storage,

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Attachment } from "../types";
-import { extractAttachmentsFromContent, inferAttachmentKind } from "./logic";
+import { applyConnectionOverrides, extractAttachmentsFromContent, inferAttachmentKind } from "./logic";
+import type { DmConversation } from "../types";
 
 describe("messaging logic attachment inference", () => {
   it("prefers fileName extension when url is extensionless", () => {
@@ -79,5 +80,29 @@ describe("messaging logic attachment inference", () => {
         url: "https://video.nostr.build/i/abcdef123456",
       }),
     ]);
+  });
+});
+
+describe("applyConnectionOverrides", () => {
+  const baseConversation: DmConversation = {
+    kind: "dm",
+    id: "conv-1",
+    pubkey: "b".repeat(64) as DmConversation["pubkey"],
+    displayName: "Tester2",
+    lastMessage: JSON.stringify({ type: "community-invite-response", status: "accepted", groupId: "g1" }),
+    unreadCount: 0,
+    lastMessageTime: new Date(5_000),
+    lastMessageIsOutgoing: false,
+  };
+
+  it("ignores stale optimistic overrides when thread history is newer", () => {
+    const result = applyConnectionOverrides(baseConversation, {
+      "conv-1": {
+        lastMessage: "test",
+        lastMessageTime: new Date(1_000),
+      },
+    });
+    expect(result.lastMessage).toBe(baseConversation.lastMessage);
+    expect(result.lastMessageTime.getTime()).toBe(5_000);
   });
 });

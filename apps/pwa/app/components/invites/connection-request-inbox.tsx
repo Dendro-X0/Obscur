@@ -1,37 +1,18 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
-import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { useNetwork } from "@/app/features/network/providers/network-provider";
-import { useRelay } from "@/app/features/relays/providers/relay-provider";
-import { useEnhancedDmController } from "@/app/features/messaging/hooks/use-enhanced-dm-controller";
-import { useRequestTransport } from "@/app/features/messaging/hooks/use-request-transport";
+import { useNetworkRequestTransport } from "@/app/features/messaging/hooks/use-network-request-transport";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
 
 export const ConnectionRequestInbox = () => {
   const DEFAULT_REQUEST_SENDER_LABEL = "Unknown contact";
-  const identity = useIdentity();
   const { peerTrust, requestsInbox, blocklist } = useNetwork();
-  const { relayPool } = useRelay();
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const dmController = useEnhancedDmController({
-    myPublicKeyHex: identity.state.publicKeyHex || null,
-    myPrivateKeyHex: identity.state.privateKeyHex || null,
-    pool: relayPool,
-    blocklist,
-    peerTrust,
-    requestsInbox,
-    autoSubscribeIncoming: false,
-    enableIncomingTransport: false,
-  });
-  const requestTransport = useRequestTransport({
-    dmController,
-    peerTrust,
-    requestsInbox,
-  });
+  const requestTransport = useNetworkRequestTransport();
 
   const requests = useMemo(() => {
     return requestsInbox.state.items.filter((item) => !item.isOutgoing && item.status === "pending");

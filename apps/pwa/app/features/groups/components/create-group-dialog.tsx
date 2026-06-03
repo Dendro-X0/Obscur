@@ -422,7 +422,7 @@ export function CreateGroupDialog({
                                             <DropdownMenuContent
                                                 align="end"
                                                 sideOffset={8}
-                                                className="z-[200] w-56 rounded-2xl p-2 bg-white dark:bg-[#0f0f11] border border-zinc-200 dark:border-[#1a1a1c] shadow-2xl"
+                                                className="z-[5100] w-56 rounded-2xl p-2 bg-white dark:bg-[#0f0f11] border border-zinc-200 dark:border-[#1a1a1c] shadow-2xl"
                                             >
                                                 <div className="px-3 py-2 text-[9px] font-black uppercase tracking-[0.15em] text-zinc-400">
                                                     {t("groups.availableRelays", "Available Relays")}

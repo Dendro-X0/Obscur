@@ -1,4 +1,6 @@
 @import "tailwindcss";
+@source "../../../packages/ui-kit/src";
+@source inline("z-[5000] z-[5001] z-[5100] z-[5200]");
 
 @custom-variant dark (&:is(.dark *));
 @custom-variant desktop-mode (&:is(.desktop-mode *));

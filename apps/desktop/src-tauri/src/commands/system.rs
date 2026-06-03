@@ -5,11 +5,44 @@ use serde_json::Value;
 use tauri::{AppHandle, Manager, WebviewWindow};
 use tauri_plugin_updater::UpdaterExt;
 use crate::models::app::ResetAppStorageReport;
+use crate::update_channel;
 
-/// Check for available updates
+/// Fetch remote text (manifests on raw.githubusercontent.com, etc.) without webview CORS limits.
+#[tauri::command]
+pub async fn fetch_remote_text(url: String) -> Result<String, String> {
+    let trimmed = url.trim();
+    if trimmed.is_empty() {
+        return Err("URL is empty".to_string());
+    }
+    if !trimmed.starts_with("https://") {
+        return Err("Only https:// URLs are allowed".to_string());
+    }
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(45))
+        .build()
+        .map_err(|error| format!("Failed to create HTTP client: {error}"))?;
+    let response = client
+        .get(trimmed)
+        .header(reqwest::header::ACCEPT, "application/json, text/plain, */*")
+        .send()
+        .await
+        .map_err(|error| format!("Failed to fetch remote text: {error}"))?;
+    if !response.status().is_success() {
+        return Err(format!(
+            "Remote fetch failed with status {}",
+            response.status().as_u16()
+        ));
+    }
+    response
+        .text()
+        .await
+        .map_err(|error| format!("Failed to read remote response: {error}"))
+}
+
+/// Check for available updates (repo stable channel feed, in-app — no installer dialog).
 #[tauri::command]
 pub async fn check_for_updates(app: AppHandle) -> Result<String, String> {
-    match app.updater_builder().build() {
+    match update_channel::build_updater(&app) {
         Ok(updater) => match updater.check().await {
             Ok(Some(update)) => {
                 let version = update.version.clone();
@@ -18,30 +51,23 @@ pub async fn check_for_updates(app: AppHandle) -> Result<String, String> {
             Ok(None) => Ok("No updates available".to_string()),
             Err(e) => Err(format!("Failed to check for updates: {}", e)),
         },
-        Err(e) => Err(format!("Failed to build updater: {}", e)),
+        Err(e) => Err(e),
     }
 }
 
-/// Install available update
+/// Download and install update in-process (Tauri updater; `dialog: false` in config).
 #[tauri::command]
 pub async fn install_update(app: AppHandle) -> Result<(), String> {
-    match app.updater_builder().build() {
-        Ok(updater) => {
-            match updater.check().await {
-                Ok(Some(update)) => {
-                    match update.download_and_install(|_, _| {}, || {}).await {
-                        Ok(_) => {
-                            // Update installed successfully, app will restart
-                            Ok(())
-                        }
-                        Err(e) => Err(format!("Failed to install update: {}", e)),
-                    }
-                }
-                Ok(None) => Err("No updates available".to_string()),
-                Err(e) => Err(format!("Failed to check for updates: {}", e)),
-            }
-        }
-        Err(e) => Err(format!("Failed to build updater: {}", e)),
+    match update_channel::build_updater(&app) {
+        Ok(updater) => match updater.check().await {
+            Ok(Some(update)) => match update.download_and_install(|_, _| {}, || {}).await {
+                Ok(_) => Ok(()),
+                Err(e) => Err(format!("Failed to install update: {}", e)),
+            },
+            Ok(None) => Err("No updates available".to_string()),
+            Err(e) => Err(format!("Failed to check for updates: {}", e)),
+        },
+        Err(e) => Err(e),
     }
 }
 

@@ -48,6 +48,7 @@ commands.allow = [
 identifier = "allow-misc-commands"
 description = "Miscellaneous app commands"
 commands.allow = [
+    "fetch_remote_text",
     "check_for_updates",
     "install_update",
     "show_notification",

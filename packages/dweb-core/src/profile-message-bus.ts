@@ -18,6 +18,15 @@ export type ProfileBusDomainEvent =
           communityId?: string;
           recipientPublicKeyHex?: string;
       }>
+    | Readonly<{
+          type: "group-invite-terminal";
+          groupId: string;
+          memberPubkey: string;
+          relayUrl?: string;
+          communityId?: string;
+          recipientPublicKeyHex?: string;
+          responseStatus: "declined" | "canceled";
+      }>
     | Readonly<{ type: "group-invite-received"; invite: unknown }>
     | Readonly<{ type: "group-membership-confirmed"; detail: unknown }>
     | Readonly<{ type: "group-descriptor-updated"; detail: unknown }>
