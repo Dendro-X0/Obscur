@@ -5,6 +5,7 @@ import type {
 } from "@dweb/core/community-projection-contracts";
 import type { CommunityMembershipLedgerEntry } from "./community-membership-ledger";
 import {
+  mergeCommunityMembershipLedgerEntries,
   toCommunityMembershipLedgerEntryFromGroup,
   toCommunityMembershipLedgerKey,
 } from "./community-membership-ledger";
@@ -96,13 +97,9 @@ const toLedgerByKey = (
   entries: ReadonlyArray<CommunityMembershipLedgerEntry>,
 ): ReadonlyMap<string, CommunityMembershipLedgerEntry> => {
   const byKey = new Map<string, CommunityMembershipLedgerEntry>();
-  for (const entry of entries) {
+  for (const entry of mergeCommunityMembershipLedgerEntries([], entries)) {
     const key = toCommunityMembershipLedgerKey(entry);
-    if (!key) {
-      continue;
-    }
-    const current = byKey.get(key);
-    if (!current || (entry.updatedAtUnixMs ?? 0) >= (current.updatedAtUnixMs ?? 0)) {
+    if (key) {
       byKey.set(key, entry);
     }
   }

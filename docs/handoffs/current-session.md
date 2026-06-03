@@ -1,7 +1,7 @@
 # Current Session Handoff — Obscur (native-first)
 
 - Last Updated (UTC): 2026-06-01T18:30:00Z
-- Session Status: **Lane P3d** — community group SQLite authority on native
+- Session Status: **Lane T REL-001** — terminal ledger precedence over stale joined restore rows
 - Active Owner: Maintainer
 
 ## Delivery order (maintainer policy, 2026-06-01)
@@ -35,7 +35,7 @@ Canonical: [v1.8.x-batch-implementation-lane.md](../program/v1.8.x-batch-impleme
 | **—** | **Manual verification** (K-M, G6-4, deferred checklist) | **Batched** — not between implementation slices |
 | **—** | GitHub Releases | **Hidden** on repo home (About → gear); not version truth |
 
-**Next atomic step:** P3 follow-up (account projection manual) or remaining Lane T trust row.
+**Next atomic step:** Push `main` (2 commits: v1.8.15 batch + P3d) or commit REL-001 ledger precedence slice; then MEM-003/004 or P1 Android docs.
 
 ## Performance gate (2026-06-03)
 
@@ -64,6 +64,8 @@ Canonical: [v1.8.x-batch-implementation-lane.md](../program/v1.8.x-batch-impleme
 
 ## Lane P3d community SQLite (2026-06-03)
 
+**Commit:** `9873e68c` — P3d native community group SQLite authority
+
 | Piece | Effect |
 |-------|--------|
 | `group-list-authority.ts` | Native runtime resolves group list authority to SQLite |
@@ -74,6 +76,16 @@ Canonical: [v1.8.x-batch-implementation-lane.md](../program/v1.8.x-batch-impleme
 **Evidence:** `pnpm -C apps/pwa exec vitest run app/features/groups/services/group-list-authority.test.ts app/features/groups/services/community-group-sqlite-store.test.ts`
 
 Scope: [v1.8.16-scope.md](../program/v1.8.16-scope.md)
+
+## Lane T REL-001 ledger precedence (2026-06-03)
+
+| Piece | Effect |
+|-------|--------|
+| `community-membership-ledger.ts` | Terminal `left`/`expelled` beats stale `joined` on restore merge |
+| `community-membership-recovery.ts` + coordinator | Shared ledger dedupe via `mergeCommunityMembershipLedgerEntries` |
+| `community-membership-mutation-owner.ts` | `explicit_rejoin` replaces terminal row before persisting `joined` |
+
+**Evidence:** `pnpm -C apps/pwa exec vitest run app/features/groups/services/community-membership-ledger.test.ts app/features/groups/services/community-rel-001-leave-intent-guard.test.ts app/features/groups/services/community-rel-005-mutation-owner.test.ts`
 
 ## Lane X experience (2026-06-03)
 

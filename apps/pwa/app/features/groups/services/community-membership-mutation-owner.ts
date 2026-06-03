@@ -1,6 +1,9 @@
 import { logAppEvent } from "@/app/shared/log-app-event";
 import type { GroupConversation } from "@/app/features/messaging/types";
 import {
+  loadCommunityMembershipLedger,
+  replaceCommunityMembershipLedger,
+  toCommunityMembershipLedgerKey,
   upsertCommunityMembershipLedgerEntry,
 } from "./community-membership-ledger";
 import {
@@ -30,7 +33,16 @@ export const persistCommunityMembershipLedgerMutation = (
   mutation: CommunityMembershipLedgerMutation,
   options?: Readonly<{ profileId?: string }>,
 ): void => {
-  upsertCommunityMembershipLedgerEntry(publicKeyHex, mutation.entry, options);
+  if (mutation.reason === "explicit_rejoin") {
+    const ledgerKey = toCommunityMembershipLedgerKey(mutation.entry);
+    const current = loadCommunityMembershipLedger(publicKeyHex, options);
+    const withoutKey = ledgerKey
+      ? current.filter((entry) => toCommunityMembershipLedgerKey(entry) !== ledgerKey)
+      : current;
+    replaceCommunityMembershipLedger(publicKeyHex, [...withoutKey, mutation.entry], options);
+  } else {
+    upsertCommunityMembershipLedgerEntry(publicKeyHex, mutation.entry, options);
+  }
   logAppEvent({
     name: "groups.membership_mutation_owner_committed",
     level: "info",

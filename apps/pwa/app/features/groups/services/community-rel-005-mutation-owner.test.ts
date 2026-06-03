@@ -103,4 +103,30 @@ describe("REL-005 — community membership mutation owner", () => {
       context: expect.objectContaining({ reason: "runtime_join_confirmed" }),
     }));
   });
+
+  it("explicit rejoin replaces terminal left ledger row in storage", () => {
+    persistExplicitCommunityMembershipLeave({
+      publicKeyHex: PUBLIC_KEY,
+      group: makeGroup(),
+      profileId: "profile-rel005",
+      updatedAtUnixMs: 5_000,
+    });
+
+    applyCommunityMembershipRuntimeEvidence({
+      publicKeyHex: PUBLIC_KEY,
+      profileId: "profile-rel005",
+      evidence: {
+        kind: "user_explicit_rejoin",
+        group: makeGroup(),
+        updatedAtUnixMs: 8_000,
+      },
+      membershipLedger: loadCommunityMembershipLedger(PUBLIC_KEY, { profileId: "profile-rel005" }),
+      tombstones: new Set(),
+    });
+
+    const ledger = loadCommunityMembershipLedger(PUBLIC_KEY, { profileId: "profile-rel005" });
+    expect(ledger).toEqual([
+      expect.objectContaining({ groupId: GROUP_ID, status: "joined", updatedAtUnixMs: 8_000 }),
+    ]);
+  });
 });

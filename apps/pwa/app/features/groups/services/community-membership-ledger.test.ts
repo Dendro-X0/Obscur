@@ -134,6 +134,22 @@ describe("community-membership-ledger", () => {
     }));
   });
 
+  it("REL-001: terminal left beats stale joined row with newer timestamp on restore merge", () => {
+    const staleJoined: CommunityMembershipLedgerEntry = {
+      ...BASE_ENTRY,
+      status: "joined",
+      updatedAtUnixMs: 6_000,
+    };
+    const durableLeft: CommunityMembershipLedgerEntry = {
+      ...BASE_ENTRY,
+      status: "left",
+      updatedAtUnixMs: 5_000,
+    };
+    const merged = mergeCommunityMembershipLedgerEntries([staleJoined], [durableLeft]);
+    expect(merged).toHaveLength(1);
+    expect(merged[0]?.status).toBe("left");
+  });
+
   it("preserves hashed community identity and richer metadata when newer fallback evidence arrives", () => {
     const hashedCommunityId = "v2_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     const hashedEntry: CommunityMembershipLedgerEntry = {

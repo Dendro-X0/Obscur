@@ -90,4 +90,26 @@ describe("REL-001 — leave intent blocks persisted_fallback resurrection", () =
     expect(result.groups).toHaveLength(0);
     expect(result.ledgerMutations.filter((m) => m.reason === "persisted_fallback_backfill")).toHaveLength(0);
   });
+
+  it("recovery hides group when stale joined ledger row is newer than terminal left", () => {
+    const recovery = resolveCommunityMembershipRecovery({
+      publicKeyHex: PUBLIC_KEY,
+      profileId: PROFILE_ID,
+      persistedGroups: [makeGroup()],
+      membershipLedger: [{
+        groupId: GROUP_ID,
+        relayUrl: RELAY_URL,
+        status: "left",
+        updatedAtUnixMs: 5_000,
+      }, {
+        groupId: GROUP_ID,
+        relayUrl: RELAY_URL,
+        status: "joined",
+        updatedAtUnixMs: 6_000,
+      }],
+      tombstones: new Set(),
+    });
+    expect(recovery.groups).toHaveLength(0);
+    expect(recovery.diagnostics.hiddenByLedgerStatusCount).toBe(1);
+  });
 });

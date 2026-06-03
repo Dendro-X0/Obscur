@@ -149,6 +149,28 @@ const normalizeCommunityMembershipLedgerEntry = (value: unknown): CommunityMembe
   };
 };
 
+const TERMINAL_LEDGER_STATUSES = new Set<CommunityMembershipStatus>(["left", "expelled"]);
+
+const isTerminalLedgerStatus = (status: CommunityMembershipStatus): boolean => (
+  TERMINAL_LEDGER_STATUSES.has(status)
+);
+
+/** REL-001: terminal leave beats stale joined rows even when joined has a newer timestamp. */
+const pickExplicitLedgerEntryByPrecedence = (
+  a: CommunityMembershipLedgerEntry,
+  b: CommunityMembershipLedgerEntry,
+): CommunityMembershipLedgerEntry => {
+  const aTerminal = isTerminalLedgerStatus(a.status);
+  const bTerminal = isTerminalLedgerStatus(b.status);
+  if (aTerminal && b.status === "joined") {
+    return a;
+  }
+  if (bTerminal && a.status === "joined") {
+    return b;
+  }
+  return (a.updatedAtUnixMs ?? 0) >= (b.updatedAtUnixMs ?? 0) ? a : b;
+};
+
 const dedupeCommunityMembershipLedger = (
   entries: ReadonlyArray<CommunityMembershipLedgerEntry>
 ): ReadonlyArray<CommunityMembershipLedgerEntry> => {
@@ -176,9 +198,7 @@ const dedupeCommunityMembershipLedger = (
       ? normalized
       : (!normalizedIsExplicit && existingIsExplicit)
         ? existing
-        : (normalized.updatedAtUnixMs ?? 0) >= (existing.updatedAtUnixMs ?? 0)
-          ? normalized
-          : existing;
+        : pickExplicitLedgerEntryByPrecedence(normalized, existing);
     const newer = newerByPrecedence;
     const older = newer === normalized ? existing : normalized;
     // Merge memberPubkeys from both entries to avoid losing members
