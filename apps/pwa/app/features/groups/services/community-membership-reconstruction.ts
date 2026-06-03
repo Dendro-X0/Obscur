@@ -81,7 +81,7 @@ const sanitizeMembershipIdentity = (params: Readonly<{
   return { groupId, relayUrl, communityId };
 };
 
-const parseGroupIdentityFromConversationId = (
+export const parseGroupIdentityFromConversationId = (
   conversationId: string,
 ): Readonly<{ groupId: string; relayUrl: string; communityId: string }> | null => {
   const trimmed = conversationId.trim();

@@ -225,4 +225,50 @@ describe("AB-06 — left membership cannot be resurrected by older backup restor
     // Local "left" at ts=5000 must beat incoming "joined" at ts=3000.
     expect(merged?.status).toBe("left");
   });
+
+  it("MEM-004: downgrades invite-response-only joined ledger rows from incoming backup", () => {
+    const input = {
+      ...makeDefaultInput(),
+      existingLedgerEntries: [],
+      sanitizedIncomingPayload: makeMinimalPayload({
+        createdAtUnixMs: 1_000,
+        chatState: {
+          ...makeGroupChatState(),
+          createdGroups: [],
+          messagesByConversationId: {
+            "dm:peer": [{
+              id: "m-response-only",
+              content: JSON.stringify({
+                type: "community-invite-response",
+                status: "accepted",
+                groupId: LEFT_GROUP_ID,
+                relayUrl: RELAY_URL,
+                communityId: LEFT_COMMUNITY_ID,
+              }),
+              timestampMs: 2_000,
+              isOutgoing: false,
+              status: "delivered",
+            }],
+          },
+        },
+        communityMembershipLedger: [
+          {
+            communityId: LEFT_COMMUNITY_ID,
+            groupId: LEFT_GROUP_ID,
+            relayUrl: RELAY_URL,
+            status: "joined",
+            updatedAtUnixMs: 2_000,
+          },
+        ],
+      }),
+    };
+
+    const result = orchestrateRestoreMerge(input);
+    const merged = result.mergedCommunityMembershipLedger.find(
+      (entry) => entry.groupId === LEFT_GROUP_ID,
+    );
+
+    expect(merged?.status).toBe("historical");
+    expect(result.mergedPayload.chatState?.createdGroups ?? []).toHaveLength(0);
+  });
 });

@@ -13,6 +13,7 @@ import {
 import type { ChatStateMessageDiagnostics } from "./restore-diagnostics";
 import { parseRoomKeySnapshots } from "./restore-merge-diagnostics";
 import { selectJoinedCommunityMembershipLedgerEntries } from "@/app/features/groups/services/community-membership-ledger";
+import { downgradeInviteResponseOnlyJoinedLedgerEntries } from "@/app/features/groups/services/community-invite-response-only-ledger-policy";
 
 const hasAcceptedRequestFlowEvidence = (snapshot: { byPeer: Record<string, { acceptSeen: boolean }> }): boolean => (
   Object.values(snapshot.byPeer).some((evidence) => evidence.acceptSeen)
@@ -64,6 +65,7 @@ export const mergeBackupPayloadForPublishConvergence = (params: Readonly<{
   reconcileIncomingLedgerWithReconstructedJoinedEvidence: (params: Readonly<{
     incomingExplicitEntries: ReadonlyArray<CommunityMembershipLedgerEntry>;
     reconstructedEntries: ReadonlyArray<CommunityMembershipLedgerEntry>;
+    localExplicitEntries?: ReadonlyArray<CommunityMembershipLedgerEntry>;
   }>) => ReadonlyArray<CommunityMembershipLedgerEntry>;
   mergeCommunityMembershipLedgerEntries: (
     left: ReadonlyArray<CommunityMembershipLedgerEntry>,
@@ -135,6 +137,7 @@ export const mergeBackupPayloadForPublishConvergence = (params: Readonly<{
   const reconciledRemoteLedgerEntries = params.reconcileIncomingLedgerWithReconstructedJoinedEvidence({
     incomingExplicitEntries: remoteLedgerEntries,
     reconstructedEntries: reconstructedRemoteLedgerEntries,
+    localExplicitEntries: localLedgerEntries,
   });
   const mergedExplicitLedgerEntries = params.mergeCommunityMembershipLedgerEntries(
     localLedgerEntries,
@@ -144,14 +147,18 @@ export const mergeBackupPayloadForPublishConvergence = (params: Readonly<{
     explicitEntries: mergedExplicitLedgerEntries,
     supplementalEntries: params.reconstructCommunityMembershipFromChatState(mergedChatState),
   });
-  const mergedCommunityMembershipLedger = params.mergeCommunityMembershipLedgerEntries(
-    mergedExplicitLedgerEntries,
-    mergedSupplementedLedgerEntries,
-  );
   const mergedExplicitRoomKeys = params.mergeRoomKeySnapshots(
     params.parseRoomKeySnapshots(params.localPayload.roomKeys),
     params.parseRoomKeySnapshots(params.remotePayload.roomKeys),
   );
+  const mergedCommunityMembershipLedger = downgradeInviteResponseOnlyJoinedLedgerEntries({
+    entries: params.mergeCommunityMembershipLedgerEntries(
+      mergedExplicitLedgerEntries,
+      mergedSupplementedLedgerEntries,
+    ),
+    chatState: mergedChatState,
+    roomKeys: mergedExplicitRoomKeys,
+  });
   const mergedJoinedGroupIds = params.selectJoinedGroupIds(mergedCommunityMembershipLedger);
   const reconstructedMergedRoomKeys = params.reconstructRoomKeySnapshotsFromChatState(
     mergedChatState,

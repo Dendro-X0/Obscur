@@ -39,6 +39,7 @@ import {
   reconstructRoomKeysFromChatState,
   supplementMembershipLedgerEntries,
 } from "@/app/features/groups/services/community-membership-reconstruction";
+import { reconcileIncomingLedgerWithReconstructedJoinedEvidence } from "./restore-merge-module";
 import {
   DEFAULT_LOCAL_MEDIA_STORAGE_CONFIG,
   getLocalMediaStorageConfig,
@@ -1056,48 +1057,6 @@ const toEnvelope = (params: Readonly<{
   backupEventKind: ACCOUNT_BACKUP_EVENT_KIND,
   dTag: ACCOUNT_BACKUP_D_TAG,
 });
-
-const reconcileIncomingLedgerWithReconstructedJoinedEvidence = (params: Readonly<{
-  incomingExplicitEntries: ReadonlyArray<CommunityMembershipLedgerEntry>;
-  reconstructedEntries: ReadonlyArray<CommunityMembershipLedgerEntry>;
-}>): ReadonlyArray<CommunityMembershipLedgerEntry> => {
-  const reconstructedJoinedByKey = new Map<string, CommunityMembershipLedgerEntry>();
-  for (const entry of params.reconstructedEntries) {
-    if (entry.status !== "joined") {
-      continue;
-    }
-    const joinedKey = toCommunityMembershipLedgerKey(entry);
-    if (joinedKey) {
-      reconstructedJoinedByKey.set(joinedKey, entry);
-    }
-  }
-
-  return params.incomingExplicitEntries.map((entry) => {
-    if (entry.status !== "left") {
-      return entry;
-    }
-    const entryKey = toCommunityMembershipLedgerKey(entry);
-    if (!entryKey) {
-      return entry;
-    }
-    const reconstructedJoinedEntry = reconstructedJoinedByKey.get(entryKey);
-    if (!reconstructedJoinedEntry) {
-      return entry;
-    }
-    if ((reconstructedJoinedEntry.updatedAtUnixMs ?? 0) < (entry.updatedAtUnixMs ?? 0)) {
-      return entry;
-    }
-    return {
-      ...entry,
-      status: "joined",
-      updatedAtUnixMs: reconstructedJoinedEntry.updatedAtUnixMs,
-      communityId: reconstructedJoinedEntry.communityId || entry.communityId,
-      displayName: reconstructedJoinedEntry.displayName ?? entry.displayName,
-      avatar: reconstructedJoinedEntry.avatar ?? entry.avatar,
-      lastEvidenceEventId: reconstructedJoinedEntry.lastEvidenceEventId ?? entry.lastEvidenceEventId,
-    };
-  });
-};
 
 const mergeIncomingRestorePayload = async (
   publicKeyHex: PublicKeyHex,

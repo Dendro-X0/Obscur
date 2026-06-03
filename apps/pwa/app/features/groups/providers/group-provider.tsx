@@ -872,7 +872,11 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             return;
         }
         const scopeKey = toMembershipHydrationScopeKey(pk, resolvedProfileId);
-        if (lastHydratedScopeRef.current === scopeKey && hasHydratedGroupsRef.current) {
+        if (
+            lastHydratedScopeRef.current === scopeKey
+            && hasHydratedGroupsRef.current
+            && createdGroupsRef.current.length > 0
+        ) {
             return;
         }
         if (shouldDeferExperimentHeavyWork()) {

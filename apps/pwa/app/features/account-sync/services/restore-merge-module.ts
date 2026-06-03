@@ -18,6 +18,7 @@ import {
   reconstructCommunityMembershipFromChatState,
   supplementMembershipLedgerEntries,
 } from "@/app/features/groups/services/community-membership-reconstruction";
+import { downgradeInviteResponseOnlyJoinedLedgerEntries } from "@/app/features/groups/services/community-invite-response-only-ledger-policy";
 import {
   emitRestoreMergeDiagnostics,
   emitBackupRestoreApplyDiagnostics,
@@ -487,10 +488,14 @@ export const orchestrateRestoreMerge = (
     supplementalEntries: reconstructedMergedLedgerEntries,
   });
 
-  const mergedCommunityMembershipLedger = mergeCommunityMembershipLedgerEntries(
-    localExplicitLedgerEntries,
-    incomingSupplementedLedgerEntries,
-  );
+  const mergedCommunityMembershipLedger = downgradeInviteResponseOnlyJoinedLedgerEntries({
+    entries: mergeCommunityMembershipLedgerEntries(
+      localExplicitLedgerEntries,
+      incomingSupplementedLedgerEntries,
+    ),
+    chatState: mergedChatState,
+    roomKeys: mergedExplicitRoomKeys,
+  });
 
   // Select joined groups and reconstruct room keys
   const mergedJoinedGroupIds = selectJoinedGroupIds(mergedCommunityMembershipLedger);
@@ -547,7 +552,7 @@ export const orchestrateRestoreMerge = (
  * incoming backup ledger or the local device ledger. Both sources represent
  * durable user intent that outranks historical chat-state reconstruction.
  */
-const reconcileIncomingLedgerWithReconstructedJoinedEvidence = (params: Readonly<{
+export const reconcileIncomingLedgerWithReconstructedJoinedEvidence = (params: Readonly<{
   incomingExplicitEntries: ReadonlyArray<CommunityMembershipLedgerEntry>;
   reconstructedEntries: ReadonlyArray<CommunityMembershipLedgerEntry>;
   localExplicitEntries: ReadonlyArray<CommunityMembershipLedgerEntry>;
