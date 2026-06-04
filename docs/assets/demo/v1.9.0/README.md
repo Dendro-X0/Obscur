@@ -23,16 +23,16 @@
 
 ## Pass column (fill on sign-off)
 
-| ID | v1.9.2 | v1.9.3 | v1.9.5 | Notes |
-|----|--------|--------|--------|-------|
-| K-M1 | | | | |
-| K-M2 | | | | |
-| K-M3 | | | | |
-| K-M4 | | | | |
-| K-M5 | | | | |
-| K-M6 | | | | |
+| ID | v1.9.2 | v1.9.3 | v1.9.5 | v1.9.0 band | Notes |
+|----|--------|--------|--------|-------------|-------|
+| K-M1 | | | | **Pass** | 2026-06-01 maintainer desktop |
+| K-M2 | | | | **Pass** | 2026-06-01 maintainer desktop |
+| K-M3 | | | | **Pass** | 2026-06-01 maintainer desktop |
+| K-M4 | | | | **Pass** | 2026-06-01 maintainer desktop |
+| K-M5 | | | | **Pass** | ACC-01 unchanged in register |
+| K-M6 | | | | **Pass** | ACC-02 unchanged in register |
 
-**Band exit (K3):** K-M1, K-M2, K-M3 Pass on tagged v1.9.3+; K-M5/K-M6 Pass on v1.9.5.
+**Band exit (K3):** K-M1, K-M2, K-M3 Pass on tagged v1.9.3+; K-M5/K-M6 Pass on v1.9.5. **v1.9.0 band tag** records maintainer Pass 2026-06-01 — see [v1.9.0-gate.md](../../../releases/v1.9.0-gate.md).
 
 ---
 

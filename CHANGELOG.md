@@ -8,9 +8,51 @@ All notable changes to Obscur are documented here.
 
 ## [Unreleased]
 
-**Lane:** v1.9.x (Lane K) + v1.8.x batch features on `main`.  
+**Lane:** v1.9.1+ post-K trust, Lane X, P3d SQLite — tag per [v1.9.x-release-train.md](docs/program/v1.9.x-release-train.md).  
 **Policy:** [maintainer-distribution-policy.md](docs/program/maintainer-distribution-policy.md) — no CI-only version bumps; ZIP/clone distribution; Full Release optional.  
-**Notes:** [v1.9.0-release.md](docs/releases/v1.9.0-release.md) (program band, not a publish mandate).
+**North star:** [v2.0-production-demo-path.md](docs/program/v2.0-production-demo-path.md).
+
+---
+
+## [1.9.0] — 2026-06-01 (Lane K: kernel + coordination backend)
+
+**Release notes:** [v1.9.0-release.md](docs/releases/v1.9.0-release.md). **Gate:** [v1.9.0-gate.md](docs/releases/v1.9.0-gate.md). **Train:** [v1.9.x-release-train.md](docs/program/v1.9.x-release-train.md).
+
+**Note:** First semver in the v1.9.x train toward v2.0.0 production demo.
+
+### Added (B0 — transport boundary)
+
+- **`@dweb/transport-contracts`** — `TransportPort` + semantic community control events.
+- **Nostr transport adapter** — sealed control mapper; `pnpm transport:boundaries:check` + feature allowlist.
+- **ClientGateway** — `communityTransport` per `profileId`.
+
+### Added (B1 — membership kernel port)
+
+- **`CommunityMembershipPort`** — single write path for join/leave/expel/disband.
+- **`community-membership-port-owner`** — reducer + terminal cache persistence API.
+- **`use-sealed-community`** — membership mutations via port only.
+
+### Added (B2 — coordination directory)
+
+- **Coordination worker** — membership head + signed delta API.
+- **Client sync** — poll/publish + cursor; leave publishes coordination delta.
+- **Settings** — Community membership sync mode panel (Relays tab).
+
+### Changed (B3 — UI honesty)
+
+- **Evidence chips** — relay hint vs directory vs provisional copy by sync mode.
+- **Create flow** — sovereign + public-relay honesty notices.
+- **Copy audit** — [v1.9.3-copy-audit.md](docs/program/v1.9.3-copy-audit.md).
+
+### Changed (B4 — R1/R2 read models)
+
+- **R2 roster** — `useCommunityParticipantRosterReadModel`; stable member count after reload.
+- **R1 DM materialization** — `use-conversation-messages` via gateway port facade.
+- **Main shell** — chat header count prefers R2 over thinned relay snapshot.
+
+### Accepted limitations
+
+- **ACC-01** / **ACC-02** — unchanged; see [unified-verification-issues-register.md](docs/program/unified-verification-issues-register.md).
 
 ---
 

@@ -1,20 +1,21 @@
 # Current Session Handoff — Obscur (native-first)
 
-- Last Updated (UTC): 2026-06-01T20:00:00Z
-- Session Status: **Accelerated delivery** — v1.9.x **Phase A–C complete** (maintainer desktop client pass)
+- Last Updated (UTC): 2026-06-01T22:00:00Z
+- Session Status: **v1.9.0 release prep** — Lane K band ready to tag; v1.9.1+ train mapped toward v2.0 production demo
 - Active Owner: Maintainer
 
 ## Delivery order (maintainer policy, 2026-06-01)
 
-**Accelerated path to v2.0.0** — one concentration unit at a time; **no** per-feature flawless guarantee during implementation.
+**Path to v2.0.0 production demo** — tag **v1.9.0** first, then incremental **v1.9.1 … v1.9.x**, then v2.0 gate.
 
 | Phase | Now | Gate |
 |-------|-----|------|
-| **A — Concentrated implement** | **Complete** (v1.9.x, 2026-06-01) | `release:test-pack` green on `main` |
-| **B — Unified verification** | **Complete** (2026-06-01) | Maintainer **desktop client-side pass** |
-| **C — Issues register** | **Complete** (2026-06-01) | No new failures — see [register](../program/unified-verification-issues-register.md) |
+| **v1.9.0 tag prep** | **Active** | [v1.9.x-release-train.md](../program/v1.9.x-release-train.md) checklist |
+| **v1.9.1+ implementation/tags** | Post-K slices on `main` — trust, Lane X, P3d | Per-patch release notes + scoped matrix |
+| **v1.9.4+ demo/platform** | Android wrap-up, GIFs, website | [v2.0-production-demo-path.md](../program/v2.0-production-demo-path.md) |
+| **v2.0.0** | Production demo | [obscur-2.0-milestone-roadmap.md](../program/obscur-2.0-milestone-roadmap.md) § gate |
 
-Canonical: [concentrated-version-delivery.md](../program/concentrated-version-delivery.md). Legacy batch lane: [v1.8.x-batch-implementation-lane.md](../program/v1.8.x-batch-implementation-lane.md).
+Canonical: [concentrated-version-delivery.md](../program/concentrated-version-delivery.md) (v1.9.x unit **complete**). Release train: [v1.9.x-release-train.md](../program/v1.9.x-release-train.md).
 
 ## Public posture (maintainer policy)
 
@@ -24,20 +25,19 @@ Canonical: [concentrated-version-delivery.md](../program/concentrated-version-de
 
 ## Active objective
 
-**Primary lane:** [v1.8.x-batch-implementation-lane.md](../program/v1.8.x-batch-implementation-lane.md) (implement) + [v1.9.0-kernel-backend-roadmap.md](../program/v1.9.0-kernel-backend-roadmap.md) (Lane **K** backlog)  
+**Primary lane:** [v1.9.x-release-train.md](../program/v1.9.x-release-train.md) — tag v1.9.0, then v1.9.1+ toward [v2.0 production demo](../program/v2.0-production-demo-path.md)  
 **Policy:** [maintainer-distribution-policy.md](../program/maintainer-distribution-policy.md) — ZIP/clone OK; **no** version bump for CI; **no** routine Full Release.
 
 | Priority | Tangible deliverable | Status |
 |----------|----------------------|--------|
-| **1** | **v1.8.14 batch land** — P13/P14, B2, Wave 3 trust, nav perf, N5 settings split | **Landed** — `341d1515` on `main` 2026-06-01 |
-| **2** | **v1.9 B4 (R1/R2)** — DM materialization port + monotonic roster read model | **Done** (engineering) — main-shell R2 count fix 2026-06-01 |
-| **3** | **N-series / broader perf** — N4/N5/N6 done; M3/M4 cache + retention | **M4 done** — idle vault/tombstone sweep |
-| **—** | **Manual verification** (K-M, G6-4, deferred checklist) | **Batched** — not between implementation slices |
+| **1** | **v1.9.0 tag** — Lane K band (B0–B5) release notes + gate + CHANGELOG | **Ready** — maintainer bump/tag |
+| **2** | **v1.9.1** — post-K trust (REL-001, MEM-004/006, MED-001/002) | **On `main`** — tag after v1.9.0 |
+| **3** | **v1.9.2 / v1.9.3** — Lane X + P3d SQLite | **On `main`** — map from v1.8.15/16 scopes |
+| **4** | **v1.9.4+** — Android smoke, demo assets, website | **Planned** |
+| **—** | **Manual verification** (Android Tier 1) | **Deferred** — v1.9.4+ wrap-up |
 | **—** | GitHub Releases | **Hidden** on repo home (About → gear); not version truth |
 
-**Next atomic step:** Begin **v2.0.0 concentration unit (Lane P)** — Phase A platform/SQLite/Android engineering per [obscur-2.0-milestone-roadmap.md](../program/obscur-2.0-milestone-roadmap.md). Optional: tag v1.9.x band when maintainer chooses; Android §8 matrix deferred to wrap-up.
-
-**Phase B–C sign-off (2026-06-01):** Maintainer reports **desktop client-side unified verification pass** on `37320382`. No new rows filed in issues register; ACC-01/ACC-02 accepted limitations unchanged.
+**Next atomic step:** Execute **v1.9.0 tag checklist** in [v1.9.x-release-train.md](../program/v1.9.x-release-train.md) — reconfirm `release:test-pack`, `pnpm version:bump minor`, tag when maintainer requests commit.
 
 ## Performance gate (2026-06-03)
 

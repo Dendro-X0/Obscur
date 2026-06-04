@@ -67,9 +67,9 @@ The desktop app **does not** use `releases/latest` by default anymore. See [chan
 
 ## v1.9.x (Lane K) posture
 
-- **Program band** = kernel + coordination + honest membership UX — not a semver tag schedule.
-- **B0–B3 + partial B4** structural work may already be on `main`; **tag when** a bundled user-visible milestone is ready (or skip public tag and ship via ZIP).
-- **Next tangible focus:** land v1.8.x batch payload (bots, mobile polish, invites, sidebar previews) + Lane K exit evidence (K-M matrix), not CI publish loops.
+- **v1.9.0 tag** — Lane K band (B0–B5) ready; see [v1.9.x-release-train.md](./v1.9.x-release-train.md).
+- **v1.9.1+** — post-K trust, experience, SQLite slices; then v1.9.4+ demo/platform toward [v2.0 production demo](./v2.0-production-demo-path.md).
+- Distribution: clone/ZIP/local package; Full Release optional.
 
 ---
 
