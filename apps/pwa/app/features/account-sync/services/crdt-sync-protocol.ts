@@ -15,7 +15,7 @@
 
 import { mergeMembership } from "../../groups/services/community-membership-crdt";
 import { mergeCallStates } from "../../messaging/services/call-state-crdt.js";
-import { mergeMediaCASStores } from "../../vault/services/media-cas-store.js";
+import { mergeMediaCASStores } from "@/app/features/vault/services/media-cas-store";
 
 /** Sync namespace for scoping different CRDT types */
 export type SyncNamespace =

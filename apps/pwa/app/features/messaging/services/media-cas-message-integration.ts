@@ -20,7 +20,7 @@ import {
   mergeMediaCASStores,
   type MediaCASStore,
   type MediaItem,
-} from "../../vault/services/media-cas-store.js";
+} from "@/app/features/vault/services/media-cas-store";
 
 /** Media attachment found in message */
 export interface MessageMediaAttachment {
