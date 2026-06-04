@@ -14,6 +14,19 @@ All notable changes to Obscur are documented here.
 
 ---
 
+## [1.9.2] — 2026-06-01 (Lane X: experience polish)
+
+**Release notes:** [v1.9.2-release.md](docs/releases/v1.9.2-release.md). **Scope:** [v1.8.15-scope.md](docs/program/v1.8.15-scope.md).
+
+### Changed (Lane X)
+
+- **X1** — Route warm-up skeleton with surface-aware stagger.
+- **X2** — Page transition loading shell during sidebar navigation.
+- **X3** — Voice call dock elapsed timer + ring pulse.
+- **X4–X6** — Accepted via existing lightbox and media players.
+
+---
+
 ## [1.9.1] — 2026-06-01 (post-K trust convergence)
 
 **Release notes:** [v1.9.1-release.md](docs/releases/v1.9.1-release.md).
