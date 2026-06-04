@@ -1,7 +1,7 @@
 # Deferred manual verification checklist
 
-**Status:** Active backlog — run **after implementation batches**, not between slices  
-**Policy:** [v1.8.x-batch-implementation-lane.md](./v1.8.x-batch-implementation-lane.md) § Maintainer delivery order (2026-06-01)  
+**Status:** Legacy row catalog — **superseded for execution order** by [unified-verification-matrix.md](./unified-verification-matrix.md) (Phase B)  
+**Policy:** [concentrated-version-delivery.md](./concentrated-version-delivery.md) — run **once** per concentration unit, not between slices  
 **Environment:** [manual-verification-environment.md](./manual-verification-environment.md)  
 **Implementation lane:** [v1.8.x-batch-implementation-lane.md](./v1.8.x-batch-implementation-lane.md)
 

@@ -1,20 +1,20 @@
 # Current Session Handoff — Obscur (native-first)
 
-- Last Updated (UTC): 2026-06-01T18:00:00Z
-- Session Status: **Desktop primary** — Lane P1 Android manual smoke **postponed**
+- Last Updated (UTC): 2026-06-01T19:00:00Z
+- Session Status: **Accelerated delivery** — v1.9.x Phase A (concentrated implementation)
 - Active Owner: Maintainer
 
 ## Delivery order (maintainer policy, 2026-06-01)
 
-**Implement broader functionality first; manual testing in batches later** — not incremental gates between slices.
+**Accelerated path to v2.0.0** — one concentration unit at a time; **no** per-feature flawless guarantee during implementation.
 
 | Phase | Now | Gate |
 |-------|-----|------|
-| **1 — Implement** | Active | Vitest, typecheck, `release:test-pack` |
-| **2 — Manual batch** | Deferred | [deferred-manual-verification-checklist.md](../program/deferred-manual-verification-checklist.md), demo matrices |
-| **3 — Tag** | When chosen | Optional Pass columns before user-visible release |
+| **A — Concentrated implement** | **Active** (v1.9.x) | Vitest, typecheck, `release:test-pack` |
+| **B — Unified verification** | After v1.9.x Phase A exit | [unified-verification-matrix.md](../program/unified-verification-matrix.md) — single pass |
+| **C — Issues register** | After Phase B | [unified-verification-issues-register.md](../program/unified-verification-issues-register.md) |
 
-Canonical: [v1.8.x-batch-implementation-lane.md](../program/v1.8.x-batch-implementation-lane.md).
+Canonical: [concentrated-version-delivery.md](../program/concentrated-version-delivery.md). Legacy batch lane: [v1.8.x-batch-implementation-lane.md](../program/v1.8.x-batch-implementation-lane.md).
 
 ## Public posture (maintainer policy)
 
@@ -35,7 +35,7 @@ Canonical: [v1.8.x-batch-implementation-lane.md](../program/v1.8.x-batch-impleme
 | **—** | **Manual verification** (K-M, G6-4, deferred checklist) | **Batched** — not between implementation slices |
 | **—** | GitHub Releases | **Hidden** on repo home (About → gear); not version truth |
 
-**Next atomic step:** Run Tier 0 + Tier 1 from [android-p1-smoke-checklist.md](../program/android-p1-smoke-checklist.md) on emulator/device when wrap-up window opens; or next open Lane T backlog item (manual MEM-002 soak deferred).
+**Next atomic step (Phase A):** Close remaining **v1.9.x** scope ([v1.9.3](../program/v1.9.3-scope.md) copy audit, [v1.9.4](../program/v1.9.4-scope.md)/[v1.9.5](../program/v1.9.5-scope.md) follow-ups) — desktop only, automated gates. **Then Phase B–C:** [unified-verification-matrix.md](../program/unified-verification-matrix.md) + [unified-verification-issues-register.md](../program/unified-verification-issues-register.md). Android Tier 1 manual postponed.
 
 ## Performance gate (2026-06-03)
 

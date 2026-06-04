@@ -203,10 +203,12 @@ Ship when **all** are true:
 
 ## Agent / maintainer default
 
-1. Tag **v1.7.x** only after manual matrix Pass for that patch’s rows.
-2. Use [manual-verification-environment.md](./manual-verification-environment.md) for every screenshot and quorum row.
-3. Update [current-session handoff](../handoffs/current-session.md) with **band + lane + ID** (e.g. `v1.8.x / C-4.1`).
-4. [MEM-001 park](./community-membership-invariants.md) — no new roster *features* until R2; honesty/convergence fixes stay in Lane T.
+**Accelerated delivery (2026-06-01):** [concentrated-version-delivery.md](./concentrated-version-delivery.md) — complete **one concentration unit** (active: **v1.9.x**), then [unified-verification-matrix.md](./unified-verification-matrix.md) + [unified-verification-issues-register.md](./unified-verification-issues-register.md). Do not require flawless per-feature manual proof during Phase A.
+
+1. Phase A: automated gates only on `main`.
+2. Phase B: single unified matrix pass (desktop A/B minimum).
+3. Phase C: document every failure; triage for next unit.
+4. [MEM-001 park](./community-membership-invariants.md) — no new roster *features* until R2; honesty fixes in Phase A, proof in Phase B.
 
 ---
 
