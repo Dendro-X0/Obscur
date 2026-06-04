@@ -133,6 +133,10 @@ import {
 import { subscribeVoiceCallOverlayActionDual } from "@/app/features/messaging/services/subscribe-voice-call-overlay-action-dual";
 import { resolveRealtimeVoiceConnectTimeoutDecision } from "@/app/features/messaging/services/realtime-voice-timeout-policy";
 import {
+  resolveVoiceInviteBootstrapReplayDecision,
+  resolveVoiceSignalBootstrapReplayDecision,
+} from "@/app/features/messaging/services/realtime-voice-history-replay-policy";
+import {
   advanceVoiceWaveAudioLevelChannel,
   getVoiceWaveOverlayLevel,
   type VoiceWaveAudioLevelState,
@@ -2487,18 +2491,17 @@ function NostrMessengerContent() {
           voiceCallUiStatusRef.current?.roomId === signal.roomId
           && voiceCallUiStatusRef.current.peerPubkey === (message.senderPubkey ?? signal.fromPubkey).trim()
         );
-        // Age-based replay gate: reject historical signals older than 5 minutes
-        // to prevent ghost calls from messages restored during account sync.
-        // The original realtime-voice-history-replay-policy was deleted during
-        // CRDT migration but the CRDT call-state was never wired in as a replacement.
         const signalAge = typeof signal.sentAtUnixMs === "number"
           ? nowMs - signal.sentAtUnixMs
           : Infinity;
-        const signalTooOld = signalAge > VOICE_SIGNAL_MAX_AGE_MS;
-        const replayDecision = {
-          shouldReplay: !signalTooOld && !statusMatches,
-          reasonCode: signalTooOld ? "signal_too_old" : statusMatches ? "status_matches" : "accept",
-        };
+        const replayDecision = resolveVoiceSignalBootstrapReplayDecision({
+          isBootstrapPass: true,
+          signalAgeMs: signalAge,
+          maxSignalAgeMs: VOICE_SIGNAL_MAX_AGE_MS,
+          activeSessionMatches,
+          pendingInviteMatches,
+          statusMatches,
+        });
         if (!replayDecision.shouldReplay) {
           processed.add(message.id);
           logAppEvent({
@@ -2569,18 +2572,17 @@ function NostrMessengerContent() {
           voiceCallUiStatusRef.current?.roomId === invite.roomId
           && voiceCallUiStatusRef.current.peerPubkey === peerPubkey
         );
-        // Age-based replay gate: reject historical invites older than 5 minutes
-        // to prevent ghost calls from messages restored during account sync.
         const VOICE_INVITE_MAX_AGE_MS = 5 * 60 * 1000;
         const nowMs = Date.now();
         const inviteAge = typeof invite.invitedAtUnixMs === "number"
           ? nowMs - invite.invitedAtUnixMs
           : Infinity;
-        const inviteTooOld = inviteAge > VOICE_INVITE_MAX_AGE_MS;
-        const replayDecision = {
-          shouldReplay: !inviteTooOld && !statusMatches,
-          reasonCode: inviteTooOld ? "invite_too_old" : statusMatches ? "status_matches" : "accept",
-        };
+        const replayDecision = resolveVoiceInviteBootstrapReplayDecision({
+          isBootstrapPass: true,
+          inviteAgeMs: inviteAge,
+          maxInviteAgeMs: VOICE_INVITE_MAX_AGE_MS,
+          statusMatches,
+        });
         if (!replayDecision.shouldReplay) {
           processed.add(message.id);
           const logContext: Record<string, string | number | boolean | null> = {

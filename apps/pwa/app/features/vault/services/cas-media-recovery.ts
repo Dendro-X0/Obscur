@@ -110,7 +110,7 @@ interface MessageWithAttachment {
  * Extract content hash from CAS URL
  * URLs are in format: https://cas.obscur.app/blob/{hash}
  */
-const extractContentHash = (url: string): string | null => {
+export const extractCasContentHashFromUrl = (url: string): string | null => {
   try {
     const parsed = new URL(url);
     const match = parsed.pathname.match(/\/blob\/([a-f0-9]{64})/i);
@@ -130,7 +130,7 @@ const findMessagesWithAttachments = (publicKeyHex: PublicKeyHex): MessageWithAtt
     for (const message of conversationMessages) {
       if (message.attachments && message.attachments.length > 0) {
         for (const attachment of message.attachments) {
-          const contentHash = extractContentHash(attachment.url);
+          const contentHash = extractCasContentHashFromUrl(attachment.url);
           if (contentHash) {
             messages.push({
               messageId: message.id,

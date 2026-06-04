@@ -1,7 +1,7 @@
 # Current Session Handoff — Obscur (native-first)
 
-- Last Updated (UTC): 2026-06-01T18:30:00Z
-- Session Status: **Lane T MEM-003** — invite-derived roster on restore merge
+- Last Updated (UTC): 2026-06-03T14:00:00Z
+- Session Status: **Lane MED** — MED-002 + MED-001 restore relink (ready to land)
 - Active Owner: Maintainer
 
 ## Delivery order (maintainer policy, 2026-06-01)
@@ -35,7 +35,7 @@ Canonical: [v1.8.x-batch-implementation-lane.md](../program/v1.8.x-batch-impleme
 | **—** | **Manual verification** (K-M, G6-4, deferred checklist) | **Batched** — not between implementation slices |
 | **—** | GitHub Releases | **Hidden** on repo home (About → gear); not version truth |
 
-**Next atomic step:** Commit MEM-003 slice; push `main` (5 commits ahead); then MED-001/002 or P1 Android docs.
+**Next atomic step:** Commit/push MED-002 + MED-001; then MEM-002 cross-surface convergence or P1 Android docs (manual soak deferred).
 
 ## Performance gate (2026-06-03)
 
@@ -101,6 +101,25 @@ Scope: [v1.8.16-scope.md](../program/v1.8.16-scope.md)
 | `group-provider.tsx` | Re-hydrate when scope matches but `createdGroups` is empty (MEM-006) |
 
 **Evidence:** `pnpm -C apps/pwa exec vitest run app/features/groups/services/community-invite-response-only-ledger-policy.test.ts app/features/account-sync/services/community-restore-resurrection.test.ts`
+
+## Lane MED-002 ghost voice (2026-06-03)
+
+| Piece | Effect |
+|-------|--------|
+| `realtime-voice-history-replay-policy.ts` | Bootstrap pass quarantines restored signal/invite rows unless in-flight session matches |
+| `main-shell.tsx` | Uses policy instead of 5-minute-only replay gate (fresh restored rows no longer start WebRTC) |
+
+**Evidence:** `pnpm -C apps/pwa exec vitest run app/features/messaging/services/realtime-voice-history-replay-policy.test.ts`
+
+## Lane MED-001 restore media relink (2026-06-03)
+
+| Piece | Effect |
+|-------|--------|
+| `media-cas-message-integration.ts` | `relinkChatStateMediaAfterRestore` indexes persisted attachment CAS URLs; fixes `addReference` arg order |
+| `restore-materialization.ts` | Runs relink immediately after chat-state replace on restore |
+| `cas-media-recovery.ts` | Exported `extractCasContentHashFromUrl` for shared CAS hash parsing |
+
+**Evidence:** `pnpm -C apps/pwa exec vitest run app/features/messaging/services/media-cas-message-integration.test.ts`
 
 ## Lane T MEM-003 (2026-06-03)
 

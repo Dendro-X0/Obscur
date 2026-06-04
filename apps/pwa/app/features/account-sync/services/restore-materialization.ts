@@ -20,6 +20,7 @@ import {
   recoverMissingMediaFromCAS,
   checkMediaRecoveryNeeded,
 } from "@/app/features/vault/services/cas-media-recovery";
+import { relinkChatStateMediaAfterRestore } from "@/app/features/messaging/services/media-cas-message-integration";
 import {
   withAccountRestoreMaterializationEvents,
 } from "./restore-materialization-events";
@@ -139,6 +140,11 @@ export const applyNonV1RestoreMaterialization = async (params: Readonly<{
         emitMutationSignal: false,
         profileId: params.profileId,
       });
+      relinkChatStateMediaAfterRestore(
+        params.profileId,
+        params.publicKeyHex,
+        restoredChatState,
+      );
       await messagePersistenceService.migrateFromLegacy(params.publicKeyHex, { profileId: params.profileId });
       await purgeSuppressedMessageIdentitiesFromDurableStores(
         params.profileId,

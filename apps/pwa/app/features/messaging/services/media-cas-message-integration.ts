@@ -8,7 +8,10 @@
  * @module MediaCASMessageIntegration
  */
 
-import type { CommunityMediaDescriptor } from "@dweb/core/community-media-descriptor-contracts";
+import type { CommunityMediaDescriptor, CommunityMediaKind } from "@dweb/core/community-media-descriptor-contracts";
+import type { Attachment, AttachmentKind, PersistedChatState } from "@/app/features/messaging/types";
+import { extractCasContentHashFromUrl } from "@/app/features/vault/services/cas-media-recovery";
+import { logAppEvent } from "@/app/shared/log-app-event";
 import {
   createMediaCASStore,
   addMediaBlob,
@@ -154,7 +157,13 @@ export const processIncomingMessageMedia = (
     const hash = attachment.descriptor.encryptedBlobDigestHex;
 
     // Add reference - creates pending entry if blob not yet available
-    const updatedStore = addReference(store, hash, messageId, attachment.descriptor);
+    const updatedStore = addReference(
+      store,
+      hash,
+      sourcePubkey,
+      attachment.descriptor,
+      messageId,
+    );
 
     // Add source for P2P fetching (no blob yet, just source tracking)
     if (!updatedStore.items.has(hash)) {
@@ -263,17 +272,51 @@ export const getMediaSources = (
   return item ? Array.from(item.sources) : [];
 };
 
+const toCommunityMediaKind = (kind: AttachmentKind): CommunityMediaKind => {
+  if (kind === "voice_note") {
+    return "audio";
+  }
+  if (kind === "image" || kind === "video" || kind === "audio" || kind === "file") {
+    return kind;
+  }
+  return "file";
+};
+
+export const descriptorFromPersistedAttachment = (
+  messageId: string,
+  attachment: Attachment,
+  contentHash: string,
+): CommunityMediaDescriptor => ({
+  mediaDescriptorId: `${messageId}:${contentHash.slice(0, 16)}`,
+  communityId: "dm-restore",
+  sourceLogicalMessageId: messageId,
+  kind: toCommunityMediaKind(attachment.kind),
+  encryptionSuite: "obscur-file-aead-v1",
+  storageUrl: attachment.url,
+  encryptedBlobDigestHex: contentHash,
+  encryptedMetadataState: "unknown",
+  localCacheState: "uncached",
+  contentAvailabilityState: "available",
+});
+
+export type RestoreMediaRelinkMessage = Readonly<{
+  id: string;
+  content: string;
+  tags: ReadonlyArray<ReadonlyArray<string>>;
+  attachments?: ReadonlyArray<Attachment>;
+}>;
+
 /**
- * Re-link messages to media after restore (BLK-001 fix).
+ * Re-link messages to media after restore (BLK-001 / MED-001).
  * Call after account restore to reconnect messages to media by hash.
  */
 export const relinkMediaAfterRestore = (
   profileId: string,
-  messages: Array<{ id: string; content: string; tags: ReadonlyArray<ReadonlyArray<string>> }>
+  sourcePubkey: string,
+  messages: ReadonlyArray<RestoreMediaRelinkMessage>,
 ): void => {
   const store = getMediaStoreForProfile(profileId);
 
-  // Extract all media references from messages
   const messageRefs: Array<{
     messageId: string;
     hash: string;
@@ -284,7 +327,7 @@ export const relinkMediaAfterRestore = (
     const extracted = extractMediaFromMessage(
       message.id,
       message.content,
-      message.tags
+      message.tags,
     );
 
     for (const attachment of extracted.attachments) {
@@ -294,18 +337,65 @@ export const relinkMediaAfterRestore = (
         descriptor: attachment.descriptor,
       });
     }
+
+    for (const attachment of message.attachments ?? []) {
+      const hash = extractCasContentHashFromUrl(attachment.url);
+      if (!hash) {
+        continue;
+      }
+      messageRefs.push({
+        messageId: message.id,
+        hash,
+        descriptor: descriptorFromPersistedAttachment(message.id, attachment, hash),
+      });
+    }
   }
 
-  // Re-link messages to media (each ref independently)
   let updatedStore = store;
   for (const ref of messageRefs) {
-    updatedStore = addReference(updatedStore, ref.hash, ref.messageId, ref.descriptor);
+    updatedStore = addReference(
+      updatedStore,
+      ref.hash,
+      sourcePubkey,
+      ref.descriptor,
+      ref.messageId,
+    );
   }
   mediaStores.set(profileId, updatedStore);
 
-  // Log BLK-001 fix metrics
   const pendingCount = getPendingMediaHashes(profileId).length;
-  console.log(`[BLK-001] Re-linked ${messageRefs.length} media refs, ${pendingCount} pending`);
+  logAppEvent({
+    name: "vault.media_cas_restore_relink",
+    level: "info",
+    scope: { feature: "vault", action: "media_cas_restore_relink" },
+    context: {
+      profileId,
+      relinkedRefCount: messageRefs.length,
+      pendingHashCount: pendingCount,
+    },
+  });
+};
+
+/**
+ * MED-001: rebuild CAS message index from restored persisted chat state.
+ */
+export const relinkChatStateMediaAfterRestore = (
+  profileId: string,
+  sourcePubkey: string,
+  chatState: PersistedChatState,
+): void => {
+  const messages: RestoreMediaRelinkMessage[] = [];
+  for (const timeline of Object.values(chatState.messagesByConversationId)) {
+    for (const message of timeline) {
+      messages.push({
+        id: message.id,
+        content: message.content,
+        tags: [],
+        attachments: message.attachments,
+      });
+    }
+  }
+  relinkMediaAfterRestore(profileId, sourcePubkey, messages);
 };
 
 /**
