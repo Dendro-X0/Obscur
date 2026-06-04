@@ -8,6 +8,8 @@
 
 **Last updated (UTC):** 2026-06-01
 
+**Status (maintainer 2026-06-01):** Tier 1 manual rows **postponed** during active desktop development. Pipeline + checklist remain canonical for wrap-up; do not block desktop merges on emulator/device availability.
+
 ---
 
 ## When to run

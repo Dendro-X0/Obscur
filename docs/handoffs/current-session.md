@@ -1,7 +1,7 @@
 # Current Session Handoff — Obscur (native-first)
 
-- Last Updated (UTC): 2026-06-01T16:20:00Z
-- Session Status: **Lane P1 Android** — smoke checklist docs
+- Last Updated (UTC): 2026-06-01T18:00:00Z
+- Session Status: **Desktop primary** — Lane P1 Android manual smoke **postponed**
 - Active Owner: Maintainer
 
 ## Delivery order (maintainer policy, 2026-06-01)
@@ -110,8 +110,10 @@ Scope: [v1.8.16-scope.md](../program/v1.8.16-scope.md)
 | `android-p1-signing-runbook.md` | Links to checklist; P1-1…P1-6 quick reference |
 | `deferred-manual-verification-checklist.md` §5 | Cross-link to P1 checklist |
 | `manual-verification-environment.md` | Mobile section points at P1 checklist |
+| `a889398c` | `media-cas-store` `@/` import — `build:static` / mobile shell export green |
+| **Manual Tier 1** | **Postponed** — 2026-06-01: `p12:android-smoke` build OK, `adb` device timeout after 180s; no emulator block on desktop lane |
 
-**Evidence:** `pnpm docs:check`
+**Evidence:** `pnpm docs:check` · `pnpm -C apps/pwa build:static` (post-`a889398c`)
 
 ## Lane REL-002 restore live boundary (2026-06-01)
 

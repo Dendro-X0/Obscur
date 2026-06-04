@@ -86,9 +86,10 @@ Run only if you hit the symptom in daily use; full register in [known-issues que
 
 ## §5 — Mobile shell
 
+**Status:** **Postponed** (2026-06-01) — desktop is primary until wrap-up; APK build path verified, Tier 1 manual deferred.  
 **Canonical P1 install smoke:** [android-p1-smoke-checklist.md](./android-p1-smoke-checklist.md) (Tier 0–1 + session record).  
-**Fast path:** `pnpm dev:mobile-shell:online` + device toolbar.  
-**Install path:** `pnpm p12:android-smoke -- --build --wait-device=180`
+**Fast path:** `pnpm dev:mobile-shell:online` + device toolbar (layout only — not native Tier 1).  
+**Install path (wrap-up):** `pnpm p12:android-smoke -- --build --wait-device=180` — start AVD or connect USB **before** running
 
 | ID | Feature | Steps | Result |
 |----|---------|-------|--------|

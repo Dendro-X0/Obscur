@@ -68,9 +68,12 @@ Pipeline artifacts: [android-p1-signing-runbook.md](./android-p1-signing-runbook
 |------|--------|
 | Runbook + prereq + debug APK pipeline | **Done** |
 | P12 smoke helper (`pnpm p12:android-smoke`) | **Done** |
+| Mobile `build:static` / emulator debug APK | **Done** (2026-06-01 — `a889398c`, universal debug APK 1.8.14) |
 | Emulator install + auth | **Done** (maintainer, v1.8.10) |
-| Full P1 smoke / stability sign-off | **In progress** — v1.8.12 P12 wrap-up |
+| Full P1 smoke / Tier 1 manual (P1-1…P1-4) | **Postponed** (2026-06-01 maintainer) — device/emulator not reliable during active desktop lane; do not loop full APK builds |
 | Release signing exercise | **Deferred** to wrap-up |
+
+**2026-06-01:** Continue development and testing on **desktop** (`pnpm dev:desktop:online`). For layout-only mobile checks use `pnpm dev:mobile-shell:online` in browser — not a substitute for native Tier 1 when wrap-up resumes.
 
 ---
 
