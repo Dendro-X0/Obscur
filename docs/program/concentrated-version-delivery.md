@@ -35,7 +35,7 @@ Obscur has **many** open objectives before **v2.0.0**. Incremental “fix + manu
 | **Engineering SHA** | `37320382` |
 | **Client verification** | Maintainer desktop pass (Phase B) |
 | **Issues register** | No new `UV-*` failures; ACC-01/ACC-02 unchanged |
-| **Next unit** | **v1.9.0 tag** → v1.9.1+ per [v1.9.x-release-train.md](./v1.9.x-release-train.md) → v2.0 Lane P demo prep |
+| **Next unit** | **v1.9.4+** Phase A — [v1.9.4-scope.md](./v1.9.4-scope.md) → v2.0 production demo |
 
 ### v1.9.x — Phase A backlog (engineering only)
 

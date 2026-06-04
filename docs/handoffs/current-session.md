@@ -1,19 +1,18 @@
 # Current Session Handoff — Obscur (native-first)
 
-- Last Updated (UTC): 2026-06-01T22:00:00Z
-- Session Status: **v1.9.0 release prep** — Lane K band ready to tag; v1.9.1+ train mapped toward v2.0 production demo
+- Last Updated (UTC): 2026-06-01T23:00:00Z
+- Session Status: **v1.9.0–v1.9.3 tagged** — **v1.9.4+ Phase A** (platform + demo prep) active
 - Active Owner: Maintainer
 
 ## Delivery order (maintainer policy, 2026-06-01)
 
-**Path to v2.0.0 production demo** — tag **v1.9.0** first, then incremental **v1.9.1 … v1.9.x**, then v2.0 gate.
+**Path to v2.0.0 production demo** — v1.9.0–v1.9.3 **shipped**; **v1.9.4+** active.
 
 | Phase | Now | Gate |
 |-------|-----|------|
-| **v1.9.0 tag prep** | **Active** | [v1.9.x-release-train.md](../program/v1.9.x-release-train.md) checklist |
-| **v1.9.1+ implementation/tags** | Post-K slices on `main` — trust, Lane X, P3d | Per-patch release notes + scoped matrix |
-| **v1.9.4+ demo/platform** | Android wrap-up, GIFs, website | [v2.0-production-demo-path.md](../program/v2.0-production-demo-path.md) |
-| **v2.0.0** | Production demo | [obscur-2.0-milestone-roadmap.md](../program/obscur-2.0-milestone-roadmap.md) § gate |
+| **v1.9.0–v1.9.3 tags** | **Complete** (2026-06-01) | `v1.9.0`–`v1.9.3` on `main` |
+| **v1.9.4+ Phase A** | **Active** | [v1.9.4-scope.md](../program/v1.9.4-scope.md) |
+| **v2.0.0** | Planned | [v2.0-production-demo-path.md](../program/v2.0-production-demo-path.md) |
 
 Canonical: [concentrated-version-delivery.md](../program/concentrated-version-delivery.md) (v1.9.x unit **complete**). Release train: [v1.9.x-release-train.md](../program/v1.9.x-release-train.md).
 
@@ -30,14 +29,13 @@ Canonical: [concentrated-version-delivery.md](../program/concentrated-version-de
 
 | Priority | Tangible deliverable | Status |
 |----------|----------------------|--------|
-| **1** | **v1.9.0 tag** — Lane K band (B0–B5) release notes + gate + CHANGELOG | **Ready** — maintainer bump/tag |
-| **2** | **v1.9.1** — post-K trust (REL-001, MEM-004/006, MED-001/002) | **On `main`** — tag after v1.9.0 |
-| **3** | **v1.9.2 / v1.9.3** — Lane X + P3d SQLite | **On `main`** — map from v1.8.15/16 scopes |
-| **4** | **v1.9.4+** — Android smoke, demo assets, website | **Planned** |
-| **—** | **Manual verification** (Android Tier 1) | **Deferred** — v1.9.4+ wrap-up |
-| **—** | GitHub Releases | **Hidden** on repo home (About → gear); not version truth |
+| **1** | **v1.9.0–v1.9.3 tags** | **Done** — `a46b7fdf` … `a0fed0fb` |
+| **2** | **v1.9.4 Android Tier 1 smoke** | Pending — [android-p1-smoke-checklist.md](../program/android-p1-smoke-checklist.md) |
+| **3** | **v1.9.4 demo evidence** | Pending — K-M screenshots in `docs/assets/demo/v1.9.0/evidence/` |
+| **4** | **v1.9.4 website install draft** | Pending — `apps/website` |
+| **—** | Push tags to remote | Optional — maintainer |
 
-**Next atomic step:** Execute **v1.9.0 tag checklist** in [v1.9.x-release-train.md](../program/v1.9.x-release-train.md) — reconfirm `release:test-pack`, `pnpm version:bump minor`, tag when maintainer requests commit.
+**Next atomic step:** **v1.9.4 Phase A** — Android smoke when device/emulator available; parallel: capture K-M1/K-M6 demo screenshots on desktop.
 
 ## Performance gate (2026-06-03)
 
