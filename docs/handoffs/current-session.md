@@ -1,7 +1,7 @@
 # Current Session Handoff — Obscur (native-first)
 
 - Last Updated (UTC): 2026-06-01T19:00:00Z
-- Session Status: **Accelerated delivery** — v1.9.x Phase A (concentrated implementation)
+- Session Status: **Accelerated delivery** — v1.9.x **Phase A complete** → **Phase B** unified verification
 - Active Owner: Maintainer
 
 ## Delivery order (maintainer policy, 2026-06-01)
@@ -10,8 +10,8 @@
 
 | Phase | Now | Gate |
 |-------|-----|------|
-| **A — Concentrated implement** | **Active** (v1.9.x) | Vitest, typecheck, `release:test-pack` |
-| **B — Unified verification** | After v1.9.x Phase A exit | [unified-verification-matrix.md](../program/unified-verification-matrix.md) — single pass |
+| **A — Concentrated implement** | **Complete** (v1.9.x, 2026-06-01) | `release:test-pack` green on `main` |
+| **B — Unified verification** | **Active** | [unified-verification-matrix.md](../program/unified-verification-matrix.md) — single desktop pass |
 | **C — Issues register** | After Phase B | [unified-verification-issues-register.md](../program/unified-verification-issues-register.md) |
 
 Canonical: [concentrated-version-delivery.md](../program/concentrated-version-delivery.md). Legacy batch lane: [v1.8.x-batch-implementation-lane.md](../program/v1.8.x-batch-implementation-lane.md).
@@ -35,7 +35,9 @@ Canonical: [concentrated-version-delivery.md](../program/concentrated-version-de
 | **—** | **Manual verification** (K-M, G6-4, deferred checklist) | **Batched** — not between implementation slices |
 | **—** | GitHub Releases | **Hidden** on repo home (About → gear); not version truth |
 
-**Next atomic step (Phase A):** Close remaining **v1.9.x** scope ([v1.9.3](../program/v1.9.3-scope.md) copy audit, [v1.9.4](../program/v1.9.4-scope.md)/[v1.9.5](../program/v1.9.5-scope.md) follow-ups) — desktop only, automated gates. **Then Phase B–C:** [unified-verification-matrix.md](../program/unified-verification-matrix.md) + [unified-verification-issues-register.md](../program/unified-verification-issues-register.md). Android Tier 1 manual postponed.
+**Next atomic step (Phase B):** Run [unified-verification-matrix.md](../program/unified-verification-matrix.md) §0–§7 on desktop (`pnpm dev:desktop:online`, Tester1 + Tester2). File outcomes in [unified-verification-issues-register.md](../program/unified-verification-issues-register.md). Android §8 skipped until wrap-up.
+
+**Phase A evidence (2026-06-01):** `pnpm -C apps/pwa typecheck`, Lane K Vitest bundle (32 tests), `pnpm test:community-invariants`, `pnpm transport:boundaries:check`, `pnpm gateway:boundaries:check`, `pnpm release:test-pack -- --skip-preflight`.
 
 ## Performance gate (2026-06-03)
 

@@ -45,11 +45,11 @@ Complete remaining scope rows; **do not** block on manual matrix during Phase A.
 | v1.9.0 B0 | [v1.9.0-scope.md](./v1.9.0-scope.md) | **Done** |
 | v1.9.1 B1 | [v1.9.1-scope.md](./v1.9.1-scope.md) | **Done** |
 | v1.9.2 B2 | [v1.9.2-scope.md](./v1.9.2-scope.md) | Code **done** — manual deferred to Phase B |
-| v1.9.3 B3 | [v1.9.3-scope.md](./v1.9.3-scope.md) | Copy audit + automated tests — close in Phase A |
-| v1.9.4 B4b | [v1.9.4-scope.md](./v1.9.4-scope.md) | R2 UI convergence — close optional follow-ups in Phase A |
-| v1.9.5 B4a | [v1.9.5-scope.md](./v1.9.5-scope.md) | R1 port facade — close optional follow-ups in Phase A |
+| v1.9.3 B3 | [v1.9.3-scope.md](./v1.9.3-scope.md) | **Done** (engineering) — Vitest copy/policy suites |
+| v1.9.4 B4b | [v1.9.4-scope.md](./v1.9.4-scope.md) | **Done** (engineering) |
+| v1.9.5 B4a | [v1.9.5-scope.md](./v1.9.5-scope.md) | **Done** (engineering) |
 
-**Phase A exit:** All K-B* scope tables marked Done + `pnpm release:test-pack` green on `main`.
+**Phase A exit (v1.9.x):** **Met 2026-06-01** — `pnpm release:test-pack -- --skip-preflight` green on `main`; Lane K Vitest + boundary checks green. **Next: Phase B** — [unified-verification-matrix.md](./unified-verification-matrix.md).
 
 ---
 

@@ -3,6 +3,10 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import AppShell from "./app-shell";
 import * as pageTransitionRecovery from "./page-transition-recovery";
+import {
+  NAVIGATION_QUIESCENCE_MS,
+  resetNavigationPerformanceCoordinatorForTests,
+} from "./navigation-performance-coordinator";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import { NAV_ITEMS } from "../lib/navigation/nav-items";
 
@@ -27,6 +31,7 @@ vi.mock("./route-navigation-warmup", async (importOriginal) => {
   return {
     ...actual,
     warmRouteNavigationTargets: appShellMocks.warmRouteNavigationTargets,
+    loadClientChunkSafely: vi.fn(async () => "fulfilled" as const),
   };
 });
 
@@ -125,13 +130,20 @@ vi.mock("@/app/features/runtime/experiment-shell-policy", () => ({
 
 const flushIntelligentWarmup = async (): Promise<void> => {
   await act(async () => {
-    await new Promise((resolve) => window.setTimeout(resolve, 8_000));
+    vi.advanceTimersByTime(NAVIGATION_QUIESCENCE_MS + 32);
+  });
+  await act(async () => {
+    for (let step = 0; step < 48; step += 1) {
+      await Promise.resolve();
+      vi.runOnlyPendingTimers();
+    }
   });
 };
 
 describe("AppShell navigation", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resetNavigationPerformanceCoordinatorForTests();
     appShellMocks.pathname = "/";
     appShellMocks.isDesktop = false;
     vi.stubGlobal("requestIdleCallback", (callback: IdleRequestCallback) => {
@@ -139,6 +151,13 @@ describe("AppShell navigation", () => {
       return handle;
     });
     vi.stubGlobal("cancelIdleCallback", (handle: number) => {
+      window.clearTimeout(handle);
+    });
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+      const handle = window.setTimeout(() => callback(performance.now()), 0);
+      return handle;
+    });
+    vi.stubGlobal("cancelAnimationFrame", (handle: number) => {
       window.clearTimeout(handle);
     });
   });
@@ -167,8 +186,10 @@ describe("AppShell navigation", () => {
   });
 
   it("warms navigation targets in phased order after mount", async () => {
-    await renderShell();
-    await flushIntelligentWarmup();
+    vi.useFakeTimers();
+    try {
+      await renderShell();
+      await flushIntelligentWarmup();
 
     const warmedTargets = ["/network", "/vault", "/search", "/settings"];
     for (const href of warmedTargets) {
@@ -189,15 +210,26 @@ describe("AppShell navigation", () => {
     ));
     expect(warmupStartedLogged).toBe(true);
     expect(contextPhaseLogged).toBe(true);
+    } finally {
+      vi.useRealTimers();
+      resetNavigationPerformanceCoordinatorForTests();
+    }
   });
 
   it("auto-prefetches routes in desktop runtime after mount", async () => {
-    appShellMocks.isDesktop = true;
-    await renderShell();
-    await flushIntelligentWarmup();
+    vi.useFakeTimers();
+    try {
+      appShellMocks.isDesktop = true;
+      await renderShell();
+      await flushIntelligentWarmup();
 
-    expect(appShellMocks.prefetch).toHaveBeenCalledWith("/network");
-    expect(appShellMocks.prefetch).toHaveBeenCalledWith("/settings");
+      expect(appShellMocks.prefetch).toHaveBeenCalledWith("/network");
+      expect(appShellMocks.prefetch).toHaveBeenCalledWith("/settings");
+    } finally {
+      vi.useRealTimers();
+      appShellMocks.isDesktop = false;
+      resetNavigationPerformanceCoordinatorForTests();
+    }
   });
 
   it("marks the active route in sidebar", async () => {
