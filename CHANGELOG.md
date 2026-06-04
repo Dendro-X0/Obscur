@@ -14,6 +14,19 @@ All notable changes to Obscur are documented here.
 
 ---
 
+## [1.9.3] — 2026-06-01 (P3d: community SQLite authority)
+
+**Release notes:** [v1.9.3-release.md](docs/releases/v1.9.3-release.md). **Scope:** [v1.8.16-scope.md](docs/program/v1.8.16-scope.md).
+
+### Changed (Lane P)
+
+- **P3d** — Native group list + sealed messages authority in SQLite.
+- **`group-list-authority.ts`** — SQLite resolves group list on native runtime.
+- **`community-group-sqlite-store.ts`** — Hydrate merge from SQLite seeds.
+- **`sealed-group-message-persistence.ts`** — Native read/write without chat-state mirror.
+
+---
+
 ## [1.9.2] — 2026-06-01 (Lane X: experience polish)
 
 **Release notes:** [v1.9.2-release.md](docs/releases/v1.9.2-release.md). **Scope:** [v1.8.15-scope.md](docs/program/v1.8.15-scope.md).
