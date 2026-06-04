@@ -27,14 +27,15 @@ Obscur has **many** open objectives before **v2.0.0**. Incremental “fix + manu
 
 ---
 
-## Concentration unit (active)
+## Concentration unit (v1.9.x — **complete**)
 
 | Field | Value |
 |-------|--------|
-| **Active band** | **v1.9.x** (Lane K — kernel + coordination backend) |
-| **Predecessor** | v1.8.14 batch on `main` (implementation largely complete) |
-| **Blocks v2.0 until** | Lane K exit K1–K6 ([v1.9.0-kernel-backend-roadmap.md](./v1.9.0-kernel-backend-roadmap.md)) |
-| **After v1.9.x exit** | Next concentration unit = **v2.0.0 platform lane (P)** — same three phases |
+| **Band** | **v1.9.x** (Lane K) — **Phase A–C exit 2026-06-01** |
+| **Engineering SHA** | `37320382` |
+| **Client verification** | Maintainer desktop pass (Phase B) |
+| **Issues register** | No new `UV-*` failures; ACC-01/ACC-02 unchanged |
+| **Next unit** | **v2.0.0 Lane P** (SQLite + Android platform gate) — Phase A not started |
 
 ### v1.9.x — Phase A backlog (engineering only)
 
@@ -49,7 +50,9 @@ Complete remaining scope rows; **do not** block on manual matrix during Phase A.
 | v1.9.4 B4b | [v1.9.4-scope.md](./v1.9.4-scope.md) | **Done** (engineering) |
 | v1.9.5 B4a | [v1.9.5-scope.md](./v1.9.5-scope.md) | **Done** (engineering) |
 
-**Phase A exit (v1.9.x):** **Met 2026-06-01** — `pnpm release:test-pack -- --skip-preflight` green on `main`; Lane K Vitest + boundary checks green. **Next: Phase B** — [unified-verification-matrix.md](./unified-verification-matrix.md).
+**Phase A exit (v1.9.x):** **Met 2026-06-01** — `release:test-pack` green; Lane K Vitest + boundaries green.
+
+**Phase B–C exit (v1.9.x):** **Met 2026-06-01** — maintainer desktop client-side unified verification **Pass**; [unified-verification-issues-register.md](./unified-verification-issues-register.md) — no new failures.
 
 ---
 

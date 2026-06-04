@@ -1,7 +1,7 @@
 # Current Session Handoff — Obscur (native-first)
 
-- Last Updated (UTC): 2026-06-01T19:00:00Z
-- Session Status: **Accelerated delivery** — v1.9.x **Phase A complete** → **Phase B** unified verification
+- Last Updated (UTC): 2026-06-01T20:00:00Z
+- Session Status: **Accelerated delivery** — v1.9.x **Phase A–C complete** (maintainer desktop client pass)
 - Active Owner: Maintainer
 
 ## Delivery order (maintainer policy, 2026-06-01)
@@ -11,8 +11,8 @@
 | Phase | Now | Gate |
 |-------|-----|------|
 | **A — Concentrated implement** | **Complete** (v1.9.x, 2026-06-01) | `release:test-pack` green on `main` |
-| **B — Unified verification** | **Active** | [unified-verification-matrix.md](../program/unified-verification-matrix.md) — single desktop pass |
-| **C — Issues register** | After Phase B | [unified-verification-issues-register.md](../program/unified-verification-issues-register.md) |
+| **B — Unified verification** | **Complete** (2026-06-01) | Maintainer **desktop client-side pass** |
+| **C — Issues register** | **Complete** (2026-06-01) | No new failures — see [register](../program/unified-verification-issues-register.md) |
 
 Canonical: [concentrated-version-delivery.md](../program/concentrated-version-delivery.md). Legacy batch lane: [v1.8.x-batch-implementation-lane.md](../program/v1.8.x-batch-implementation-lane.md).
 
@@ -35,9 +35,9 @@ Canonical: [concentrated-version-delivery.md](../program/concentrated-version-de
 | **—** | **Manual verification** (K-M, G6-4, deferred checklist) | **Batched** — not between implementation slices |
 | **—** | GitHub Releases | **Hidden** on repo home (About → gear); not version truth |
 
-**Next atomic step (Phase B):** Run [unified-verification-matrix.md](../program/unified-verification-matrix.md) §0–§7 on desktop (`pnpm dev:desktop:online`, Tester1 + Tester2). File outcomes in [unified-verification-issues-register.md](../program/unified-verification-issues-register.md). Android §8 skipped until wrap-up.
+**Next atomic step:** Begin **v2.0.0 concentration unit (Lane P)** — Phase A platform/SQLite/Android engineering per [obscur-2.0-milestone-roadmap.md](../program/obscur-2.0-milestone-roadmap.md). Optional: tag v1.9.x band when maintainer chooses; Android §8 matrix deferred to wrap-up.
 
-**Phase A evidence (2026-06-01):** `pnpm -C apps/pwa typecheck`, Lane K Vitest bundle (32 tests), `pnpm test:community-invariants`, `pnpm transport:boundaries:check`, `pnpm gateway:boundaries:check`, `pnpm release:test-pack -- --skip-preflight`.
+**Phase B–C sign-off (2026-06-01):** Maintainer reports **desktop client-side unified verification pass** on `37320382`. No new rows filed in issues register; ACC-01/ACC-02 accepted limitations unchanged.
 
 ## Performance gate (2026-06-03)
 

@@ -1,31 +1,21 @@
 # Unified verification — issues register
 
-**Status:** Active — populate in **Phase C** after [unified-verification-matrix.md](./unified-verification-matrix.md)  
+**Status:** v1.9.x pass closed — **2026-06-01**  
 **Policy:** [concentrated-version-delivery.md](./concentrated-version-delivery.md)
 
-This register is the **honest inventory of what does not work** (or what is accepted as a limitation) after a unified test round. It replaces ad-hoc “we fixed it” claims for rows that were never exercised.
+This register is the **honest inventory of what does not work** (or what is accepted as a limitation) after a unified test round.
 
 ---
 
-## How to use
-
-1. Run Phase B matrix; mark each row `[P]` `[F]` `[B]` `[S]` `[A]`.
-2. For every `[F]`: add one row below (next `UV-###` ID).
-3. For every `[A]`: add row with **Resolution = accepted_limitation** and link to limitation doc.
-4. Triage **Severity** → next concentration unit backlog (do not block Phase A of the *next* unit on fixing every P2).
-
-**Do not** delete rows — set **Status** to `fixed` or `wontfix` with commit/notes.
-
----
-
-## Active pass (fill on first unified run)
+## Active pass (v1.9.x — closed)
 
 | Field | Value |
 |-------|--------|
-| Concentration unit | `v1.9.x` |
-| Matrix session date | |
-| Git SHA | |
-| Tester setup | Tester1 dark + Tester2 light / other |
+| Concentration unit | `v1.9.x` (Lane K) |
+| Matrix session date | 2026-06-01 (UTC) |
+| Git SHA | `37320382` |
+| Tester setup | Maintainer desktop client-side unified pass |
+| Outcome | **Pass** — no new `UV-*` failures filed |
 
 ---
 
@@ -33,7 +23,7 @@ This register is the **honest inventory of what does not work** (or what is acce
 
 | ID | Matrix ref | Area | Severity | Steps (short) | Expected | Observed | Resolution | Status | Notes / commit |
 |----|------------|------|----------|---------------|----------|----------|------------|--------|----------------|
-| *(add rows below)* | | | | | | | | `open` | |
+| — | — | — | — | — | — | — | — | — | *No new failures this pass* |
 
 **Severity:** `P0` blocks trustworthy use · `P1` severe UX/truth · `P2` polish/ops · `doc` copy/docs only  
 
@@ -41,26 +31,26 @@ This register is the **honest inventory of what does not work** (or what is acce
 
 ---
 
-## Pre-registered accepted limitations (do not re-open without evidence)
+## Pre-registered accepted limitations (unchanged)
 
 | ID | Topic | Doc | Re-test matrix row |
 |----|-------|-----|-------------------|
 | ACC-01 | Delete for me not durable across refresh/restore | [deletion-roster-limitations.md](../messaging/deletion-roster-limitations.md) §1 | DM-4 |
 | ACC-02 | Roster multi-owner / MEM-001 architecture | Same doc §2 | COM-8 |
 
-If unified pass shows **Pass** on these rows, change to `fixed` and update limitation doc — rare.
+Maintainer pass did not promote these to **fixed** — limitations remain documented product truth until a future pass proves otherwise.
 
 ---
 
-## Summary (after pass)
+## Summary (v1.9.x pass)
 
 | Severity | Open | Fixed | Accepted | Blocked env |
 |----------|------|-------|----------|-------------|
-| P0 | | | | |
-| P1 | | | | |
-| P2 | | | | |
+| P0 | 0 | 0 | 0 | 0 |
+| P1 | 0 | 0 | 2 (ACC-01, ACC-02) | 0 |
+| P2 | 0 | 0 | 0 | 0 |
 
-**Next concentration backlog:** *(top 3 IDs to address in Phase A of next unit)*
+**Next concentration backlog (v2.0 Lane P — Phase A):** SQLite convergence owners, Android install path (wrap-up), platform parity documentation per [obscur-2.0-milestone-roadmap.md](./obscur-2.0-milestone-roadmap.md).
 
 ---
 
@@ -68,4 +58,5 @@ If unified pass shows **Pass** on these rows, change to `fixed` and update limit
 
 | Date | Change |
 |------|--------|
+| 2026-06-01 | v1.9.x maintainer desktop pass — register closed with zero new failures |
 | 2026-06-01 | Initial register template — Phase C for v1.9.x |

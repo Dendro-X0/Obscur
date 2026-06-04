@@ -6,7 +6,20 @@
 
 **Legend:** `[ ]` not run · `[P]` pass · `[F]` fail · `[B]` blocked (env) · `[S]` skipped · `[A]` accepted limitation (document in register)
 
-**Do not run incrementally during Phase A implementation** — one maintainer session (or split by §) after v1.9.x engineering exit.
+## Maintainer band sign-off (v1.9.x)
+
+| Field | Value |
+|-------|--------|
+| Date (UTC) | 2026-06-01 |
+| Git SHA | `37320382` |
+| Surface | Desktop client (`pnpm dev:desktop:online`) |
+| Outcome | **Pass** (maintainer unified client-side verification) |
+| Register | [unified-verification-issues-register.md](./unified-verification-issues-register.md) — no new failures |
+| Skipped | §8 mobile native (postponed) · §4 coordination rows if env not exercised |
+
+Row-level `[P]`/`[F]` marks in sections below remain optional detail; band exit is recorded at register + handoff.
+
+---
 
 ---
 
