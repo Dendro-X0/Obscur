@@ -8,9 +8,25 @@ All notable changes to Obscur are documented here.
 
 ## [Unreleased]
 
-**Lane:** v1.9.1+ post-K trust, Lane X, P3d SQLite — tag per [v1.9.x-release-train.md](docs/program/v1.9.x-release-train.md).  
-**Policy:** [maintainer-distribution-policy.md](docs/program/maintainer-distribution-policy.md) — no CI-only version bumps; ZIP/clone distribution; Full Release optional.  
+**Lane:** v1.9.4+ platform + demo prep — [v1.9.4-scope.md](docs/program/v1.9.4-scope.md).  
+**Policy:** [maintainer-distribution-policy.md](docs/program/maintainer-distribution-policy.md).  
 **North star:** [v2.0-production-demo-path.md](docs/program/v2.0-production-demo-path.md).
+
+---
+
+## [1.9.1] — 2026-06-01 (post-K trust convergence)
+
+**Release notes:** [v1.9.1-release.md](docs/releases/v1.9.1-release.md).
+
+### Fixed (Lane T)
+
+- **REL-001** — Terminal membership rows beat stale `joined` on restore merge.
+- **MEM-004** — Invite-response-only rows downgraded to `historical`.
+- **MEM-006** — Re-hydrate when `createdGroups` empty but scope matches.
+- **MEM-002 / MEM-003** — Cross-surface roster input builder + invite member pubkeys.
+- **MED-001** — Restore media CAS relink after chat-state replace.
+- **MED-002** — Ghost voice replay quarantine on restored signal rows.
+- **REL-003** — Profile-scoped invite cache, sync state, and read-model listeners.
 
 ---
 
