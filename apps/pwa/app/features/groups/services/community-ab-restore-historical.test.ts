@@ -18,7 +18,7 @@
  *   from creating current membership after a user has explicitly left.
  */
 
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import {
   setProfileScopeOverride,
@@ -91,15 +91,10 @@ describe("AB-15 — same-process A/B restore historical evidence boundary", () =
     expect(coordinatorA.groups).toHaveLength(0);
   });
 
-  it("historical restore evidence promotes to joined only when no terminal state blocks", () => {
-    // Account A has no terminal ledger state (no entry at all)
+  it("does not promote persisted chat-state alone to joined under REL-002 default", () => {
     setProfileScopeOverride("profile-a");
-    // No ledger entry written - simulating fresh restore without explicit leave
 
-    // Simulate restore with historical evidence (old persisted groups)
     const historicalPersistedGroups = [makeGroup(PK_A)];
-
-    // Coordinator should promote historical evidence when no terminal state blocks
     const ledgerA = loadCommunityMembershipLedger(PK_A);
     const coordinatorA = resolveCommunityMembershipCoordinator({
       publicKeyHex: PK_A,
@@ -110,9 +105,30 @@ describe("AB-15 — same-process A/B restore historical evidence boundary", () =
       runtimeEvidence: [],
     });
 
-    // Historical persisted groups should promote to joined when no terminal state blocks
+    expect(coordinatorA.groups).toHaveLength(0);
+    expect(coordinatorA.diagnostics.hiddenByRadicalTruthCount).toBeGreaterThan(0);
+  });
+
+  it("allows persisted fallback only when radical truth is explicitly disabled (mobile/desktop shells)", () => {
+    vi.stubEnv("NEXT_PUBLIC_OBSCUR_RADICAL_TRUTH", "0");
+    setProfileScopeOverride("profile-a");
+
+    const historicalPersistedGroups = [makeGroup(PK_A)];
+    const ledgerA = loadCommunityMembershipLedger(PK_A);
+    const coordinatorA = resolveCommunityMembershipCoordinator({
+      publicKeyHex: PK_A,
+      profileId: "profile-a",
+      persistedGroups: historicalPersistedGroups,
+      membershipLedger: ledgerA,
+      tombstones: loadGroupTombstones(PK_A),
+      runtimeEvidence: [],
+    });
+
     expect(coordinatorA.groups).toHaveLength(1);
     expect(coordinatorA.groups[0]?.groupId).toBe(GROUP_ID);
+    expect(coordinatorA.membershipProjections).toEqual(expect.arrayContaining([
+      expect.objectContaining({ status: "joined", sourceOfTruth: "persisted_fallback" }),
+    ]));
   });
 
   it("historical restore evidence does not override expelled status", () => {
@@ -182,8 +198,12 @@ describe("AB-15 — same-process A/B restore historical evidence boundary", () =
       runtimeEvidence: [],
     });
 
-    // Profile B may show persisted_fallback groups; profile A must not (terminal left)
-    expect(coordinatorB.groups.length).toBeGreaterThanOrEqual(0);
+    // REL-002: persisted chat-state alone must not drive live groups for either profile
+    expect(coordinatorB.groups).toHaveLength(0);
     expect(coordinatorA.groups).toHaveLength(0);
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 });

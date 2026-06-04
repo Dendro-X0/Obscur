@@ -1,7 +1,7 @@
 # Current Session Handoff — Obscur (native-first)
 
-- Last Updated (UTC): 2026-06-03T14:00:00Z
-- Session Status: **Lane MEM-002** — cross-surface read-model input convergence
+- Last Updated (UTC): 2026-06-01T16:10:00Z
+- Session Status: **Lane REL-002** — restore historical vs live UI boundary (tests aligned)
 - Active Owner: Maintainer
 
 ## Delivery order (maintainer policy, 2026-06-01)
@@ -35,7 +35,7 @@ Canonical: [v1.8.x-batch-implementation-lane.md](../program/v1.8.x-batch-impleme
 | **—** | **Manual verification** (K-M, G6-4, deferred checklist) | **Batched** — not between implementation slices |
 | **—** | GitHub Releases | **Hidden** on repo home (About → gear); not version truth |
 
-**Next atomic step:** Push MEM-002 convergence slice; then P1 Android docs or REL-002 historical-vs-live UI (manual MEM-002 soak deferred).
+**Next atomic step:** Commit REL-002 AB-15 test alignment; then P1 Android smoke checklist doc refresh or next open P0 from Lane T backlog (manual MEM-002 soak deferred).
 
 ## Performance gate (2026-06-03)
 
@@ -102,7 +102,23 @@ Scope: [v1.8.16-scope.md](../program/v1.8.16-scope.md)
 
 **Evidence:** `pnpm -C apps/pwa exec vitest run app/features/groups/services/community-invite-response-only-ledger-policy.test.ts app/features/account-sync/services/community-restore-resurrection.test.ts`
 
+## Lane REL-002 restore live boundary (2026-06-01)
+
+**Commit:** pending — AB-15 test alignment with shipped boundary
+
+| Piece | Effect |
+|-------|--------|
+| `restore-live-community-boundary.ts` | Strips unread/groupMessages/pins for non-joined ledger rows on restore merge |
+| `restore-merge-chat-state.ts` | Applies boundary via `ledgerEntries` on first-restore and merge paths |
+| `community-membership-coordinator.ts` | Historical ledger rows never auto-promote to joined on hydrate |
+| `desktop-notification-handler.tsx` | Skips restore-time unread initialization notifications |
+| `group-provider.test.tsx` | Delayed backup chat-state alone does not surface live groups |
+
+**Evidence:** `pnpm -C apps/pwa exec vitest run app/features/account-sync/services/community-rel-002-restore-live-boundary.test.ts app/features/groups/services/community-ab-restore-historical.test.ts app/features/groups/providers/group-provider.test.tsx -t "REL-002"`
+
 ## Lane MEM-002 cross-surface convergence (2026-06-03)
+
+**Commit:** `47849500`
 
 | Piece | Effect |
 |-------|--------|
