@@ -155,9 +155,8 @@ export const useCommunityMembershipReadModelIndex = (params: Readonly<{
         ...(group.expelledMemberPubkeys ?? []),
         ...(terminalCache?.expelledMemberPubkeys ?? []),
       ] as ReadonlyArray<PublicKeyHex>);
-      const applyTerminalMembershipExclusions = group.applyTerminalMembershipExclusions === true
-        || leftMemberPubkeys.length > 0
-        || expelledMemberPubkeys.length > 0;
+      const applyTerminalMembershipExclusions = group.applyTerminalMembershipExclusions !== false
+        && Boolean(group.groupId?.trim() && group.relayUrl?.trim());
 
       const directoryParticipantPubkeys = dedupeCommunityMemberPubkeys([
         ...(group.directoryParticipantPubkeys ?? []),

@@ -47,6 +47,7 @@ import {
 } from "@/app/features/groups/hooks/use-community-leave-outbox-index";
 import { resolveCommunityLeavePublishSurfaceCopy } from "@/app/features/groups/services/community-leave-publish-copy";
 import { useCommunityMembershipReadModelIndex } from "@/app/features/groups/hooks/use-community-membership-read-model-index";
+import { buildCommunityMembershipReadModelIndexGroupInputs } from "@/app/features/groups/services/community-membership-read-model-index-input";
 const GroupDiscoveryPanel = lazy(async () => {
     const discoveryModule = await import("@/app/features/groups/components/group-discovery");
     return { default: discoveryModule.GroupDiscovery };
@@ -96,20 +97,12 @@ export function NetworkDashboard() {
 
     const publicKeyHex = (identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex ?? null) as PublicKeyHex | null;
     const membershipReadModelGroups = useMemo(() => (
-        createdGroups.map((group) => ({
-            conversationId: group.id,
-            groupId: group.groupId,
-            relayUrl: group.relayUrl,
-            directoryParticipantPubkeys: (
-                communityKnownParticipantDirectoryByConversationId[group.id]?.participantPubkeys ?? []
-            ) as ReadonlyArray<PublicKeyHex>,
-            persistedGroupMemberPubkeys: (group.memberPubkeys ?? []) as ReadonlyArray<PublicKeyHex>,
-            projectionMemberPubkeys: (
-                communityRosterByConversationId[group.id]?.activeMemberPubkeys ?? undefined
-            ) as ReadonlyArray<PublicKeyHex> | undefined,
-            rosterSeedPubkeys: (group.memberPubkeys ?? []) as ReadonlyArray<PublicKeyHex>,
-            localMemberPubkey: publicKeyHex,
-        }))
+        buildCommunityMembershipReadModelIndexGroupInputs({
+            ownerPubkey: publicKeyHex,
+            groups: createdGroups,
+            communityKnownParticipantDirectoryByConversationId,
+            communityRosterByConversationId,
+        })
     ), [
         communityKnownParticipantDirectoryByConversationId,
         communityRosterByConversationId,

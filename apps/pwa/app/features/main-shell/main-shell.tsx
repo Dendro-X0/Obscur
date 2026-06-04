@@ -70,6 +70,7 @@ import { getRelayReadinessBannerCopy } from "@/app/features/relays/services/rela
 import { useContactRelayOverlap } from "@/app/features/messaging/hooks/use-contact-relay-overlap";
 import { useGroups } from "@/app/features/groups/providers/group-provider";
 import { useCommunityMembershipReadModelIndex } from "@/app/features/groups/hooks/use-community-membership-read-model-index";
+import { buildCommunityMembershipReadModelIndexGroupInputs } from "@/app/features/groups/services/community-membership-read-model-index-input";
 import {
   COMMUNITY_TERMINAL_MEMBERSHIP_UPDATED_EVENT,
   loadCommunityTerminalMembershipCache,
@@ -634,27 +635,20 @@ function NostrMessengerContent() {
       if (selectedConversationView?.kind !== "group") {
         return [];
       }
-      return [{
-        conversationId: selectedConversationView.id,
-        groupId: selectedConversationView.groupId,
-        relayUrl: selectedConversationView.relayUrl,
-        directoryParticipantPubkeys: (
-          communityKnownParticipantDirectoryByConversationId[selectedConversationView.id]?.participantPubkeys ?? []
-        ) as ReadonlyArray<PublicKeyHex>,
-        persistedGroupMemberPubkeys: (
-          communityRosterByConversationId[selectedConversationView.id]?.activeMemberPubkeys
-          ?? selectedConversationView.memberPubkeys
-          ?? []
-        ) as ReadonlyArray<PublicKeyHex>,
-        projectionMemberPubkeys: (
-          communityRosterByConversationId[selectedConversationView.id]?.activeMemberPubkeys ?? undefined
-        ) as ReadonlyArray<PublicKeyHex> | undefined,
-        rosterSeedPubkeys: (selectedConversationView.memberPubkeys ?? []) as ReadonlyArray<PublicKeyHex>,
-        localMemberPubkey: myPublicKeyHex as PublicKeyHex | null,
-        leftMemberPubkeys: selectedGroupTerminalMembership?.leftMemberPubkeys ?? [],
-        expelledMemberPubkeys: selectedGroupTerminalMembership?.expelledMemberPubkeys ?? [],
-        applyTerminalMembershipExclusions: true,
-      }];
+      return buildCommunityMembershipReadModelIndexGroupInputs({
+        ownerPubkey: myPublicKeyHex as PublicKeyHex | null,
+        groups: [selectedConversationView],
+        communityKnownParticipantDirectoryByConversationId,
+        communityRosterByConversationId,
+        terminalOverridesByConversationId: selectedGroupTerminalMembership
+          ? {
+              [selectedConversationView.id]: {
+                leftMemberPubkeys: selectedGroupTerminalMembership.leftMemberPubkeys,
+                expelledMemberPubkeys: selectedGroupTerminalMembership.expelledMemberPubkeys,
+              },
+            }
+          : undefined,
+      });
     }, [
       communityKnownParticipantDirectoryByConversationId,
       communityRosterByConversationId,

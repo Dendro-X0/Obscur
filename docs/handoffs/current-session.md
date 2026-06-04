@@ -1,7 +1,7 @@
 # Current Session Handoff — Obscur (native-first)
 
 - Last Updated (UTC): 2026-06-03T14:00:00Z
-- Session Status: **Lane MED** — MED-002 + MED-001 restore relink (ready to land)
+- Session Status: **Lane MEM-002** — cross-surface read-model input convergence
 - Active Owner: Maintainer
 
 ## Delivery order (maintainer policy, 2026-06-01)
@@ -35,7 +35,7 @@ Canonical: [v1.8.x-batch-implementation-lane.md](../program/v1.8.x-batch-impleme
 | **—** | **Manual verification** (K-M, G6-4, deferred checklist) | **Batched** — not between implementation slices |
 | **—** | GitHub Releases | **Hidden** on repo home (About → gear); not version truth |
 
-**Next atomic step:** Commit/push MED-002 + MED-001; then MEM-002 cross-surface convergence or P1 Android docs (manual soak deferred).
+**Next atomic step:** Push MEM-002 convergence slice; then P1 Android docs or REL-002 historical-vs-live UI (manual MEM-002 soak deferred).
 
 ## Performance gate (2026-06-03)
 
@@ -101,6 +101,16 @@ Scope: [v1.8.16-scope.md](../program/v1.8.16-scope.md)
 | `group-provider.tsx` | Re-hydrate when scope matches but `createdGroups` is empty (MEM-006) |
 
 **Evidence:** `pnpm -C apps/pwa exec vitest run app/features/groups/services/community-invite-response-only-ledger-policy.test.ts app/features/account-sync/services/community-restore-resurrection.test.ts`
+
+## Lane MEM-002 cross-surface convergence (2026-06-03)
+
+| Piece | Effect |
+|-------|--------|
+| `community-membership-read-model-index-input.ts` | Shared builder for Network + chat shell read-model inputs |
+| `network-dashboard.tsx` / `main-shell.tsx` | Use shared builder; roster projection beats stale `group.memberPubkeys` |
+| `use-community-membership-read-model-index.ts` | Always apply terminal exclusions for identified groups |
+
+**Evidence:** `pnpm -C apps/pwa exec vitest run app/features/groups/services/community-membership-read-model-index-input.test.ts app/features/groups/hooks/use-community-membership-read-model-index.test.tsx`
 
 ## Lane MED-002 ghost voice (2026-06-03)
 
