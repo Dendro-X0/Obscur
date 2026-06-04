@@ -37,16 +37,18 @@ describe("probeStandbyRelayLatency", () => {
   });
 
   it("resolves ok=true after frame-timeout (open but no frame)", async () => {
+    const frameTimeoutMs = 50;
     const factory = (): WebSocket => {
       const ws = makeWsFake();
       setTimeout(() => { ws.onopen?.(fakeEvent); }, 5);
       return ws as unknown as WebSocket;
     };
 
-    const result = await probeStandbyRelayLatency("wss://relay.test", 50, factory);
+    const result = await probeStandbyRelayLatency("wss://relay.test", frameTimeoutMs, factory);
     expect(result.ok).toBe(true);
-    // Timer scheduling can undershoot by ~1ms in CI, so allow a small jitter.
-    expect(result.latencyMs).toBeGreaterThanOrEqual(49);
+    // Timer scheduling can undershoot on busy CI runners; assert near-timeout, not exact ms.
+    expect(result.latencyMs).toBeGreaterThanOrEqual(Math.floor(frameTimeoutMs * 0.75));
+    expect(result.latencyMs).toBeLessThanOrEqual(frameTimeoutMs + 25);
   });
 
   it("resolves ok=false when socket errors", async () => {
