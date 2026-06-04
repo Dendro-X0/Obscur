@@ -1,7 +1,7 @@
 # Current Session Handoff — Obscur (native-first)
 
-- Last Updated (UTC): 2026-06-01T16:10:00Z
-- Session Status: **Lane REL-002** — restore historical vs live UI boundary (tests aligned)
+- Last Updated (UTC): 2026-06-01T16:20:00Z
+- Session Status: **Lane P1 Android** — smoke checklist docs
 - Active Owner: Maintainer
 
 ## Delivery order (maintainer policy, 2026-06-01)
@@ -35,7 +35,7 @@ Canonical: [v1.8.x-batch-implementation-lane.md](../program/v1.8.x-batch-impleme
 | **—** | **Manual verification** (K-M, G6-4, deferred checklist) | **Batched** — not between implementation slices |
 | **—** | GitHub Releases | **Hidden** on repo home (About → gear); not version truth |
 
-**Next atomic step:** Commit REL-002 AB-15 test alignment; then P1 Android smoke checklist doc refresh or next open P0 from Lane T backlog (manual MEM-002 soak deferred).
+**Next atomic step:** Run Tier 0 + Tier 1 from [android-p1-smoke-checklist.md](../program/android-p1-smoke-checklist.md) on emulator/device when wrap-up window opens; or next open Lane T backlog item (manual MEM-002 soak deferred).
 
 ## Performance gate (2026-06-03)
 
@@ -102,9 +102,20 @@ Scope: [v1.8.16-scope.md](../program/v1.8.16-scope.md)
 
 **Evidence:** `pnpm -C apps/pwa exec vitest run app/features/groups/services/community-invite-response-only-ledger-policy.test.ts app/features/account-sync/services/community-restore-resurrection.test.ts`
 
+## Lane P1 Android smoke checklist (2026-06-01)
+
+| Piece | Effect |
+|-------|--------|
+| `android-p1-smoke-checklist.md` | Canonical Tier 0–3 rows, session record, exit criteria |
+| `android-p1-signing-runbook.md` | Links to checklist; P1-1…P1-6 quick reference |
+| `deferred-manual-verification-checklist.md` §5 | Cross-link to P1 checklist |
+| `manual-verification-environment.md` | Mobile section points at P1 checklist |
+
+**Evidence:** `pnpm docs:check`
+
 ## Lane REL-002 restore live boundary (2026-06-01)
 
-**Commit:** pending — AB-15 test alignment with shipped boundary
+**Commit:** `2421c746` — AB-15 test alignment with shipped boundary
 
 | Piece | Effect |
 |-------|--------|

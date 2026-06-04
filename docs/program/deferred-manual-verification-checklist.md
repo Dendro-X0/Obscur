@@ -86,6 +86,7 @@ Run only if you hit the symptom in daily use; full register in [known-issues que
 
 ## §5 — Mobile shell
 
+**Canonical P1 install smoke:** [android-p1-smoke-checklist.md](./android-p1-smoke-checklist.md) (Tier 0–1 + session record).  
 **Fast path:** `pnpm dev:mobile-shell:online` + device toolbar.  
 **Install path:** `pnpm p12:android-smoke -- --build --wait-device=180`
 

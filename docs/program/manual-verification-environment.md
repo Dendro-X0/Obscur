@@ -80,12 +80,12 @@ Per-version demo matrices under `docs/assets/demo/` remain reference detail; the
 
 ---
 
-## Mobile verification (later)
+## Mobile verification (Lane P)
 
-When Lane **M** opens:
-
+- **Checklist:** [android-p1-smoke-checklist.md](./android-p1-smoke-checklist.md) — Tier 0 automated install + Tier 1 P1 gate rows.
 - **Environment:** Android Studio emulator or USB device with **local/decentralized signing** (no purchased store certificates).
-- **Parity:** Same monorepo version as desktop tag; shared kernel behavior, native shell only where documented.
+- **Parity:** Same monorepo version as desktop tag (`pnpm version:check`); shared kernel behavior, native shell only where documented.
+- **Extended UX:** [deferred-manual-verification-checklist.md](./deferred-manual-verification-checklist.md) §5 after Tier 1 passes.
 - Extend matrix rows with `M-dark` / `M-light` only after install path is proven — until then, desktop A/B remains authoritative.
 
 ---

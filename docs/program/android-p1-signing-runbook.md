@@ -4,6 +4,7 @@
 
 **Status:** Active (v1.8.x Lane P)  
 **Policy:** [mobile-desktop-version-policy.md](./mobile-desktop-version-policy.md) — no Play/App Store purchased certificates required for program testing.  
+**Smoke checklist:** [android-p1-smoke-checklist.md](./android-p1-smoke-checklist.md) — Tier 0–3 pass/fail rows + session record  
 **Related:** [mobile-ui-stack-evaluation.md](./mobile-ui-stack-evaluation.md), [obscur-2.0-milestone-roadmap.md](./obscur-2.0-milestone-roadmap.md) (P1 row)
 
 ---
@@ -85,23 +86,28 @@ adb install -r apps/desktop/src-tauri/gen/android/app/build/outputs/apk/universa
 
 ### P1 smoke checklist (manual)
 
+**Canonical rows:** [android-p1-smoke-checklist.md](./android-p1-smoke-checklist.md) — Tier 0 (automated) + Tier 1 (P1-1 … P1-6) + session record template.
+
+Quick reference (Tier 1):
+
 | # | Check |
 |---|--------|
-| 1 | Cold start — app opens without immediate crash |
-| 2 | Auth screen loads (offline / online per build flags) |
-| 3 | Unlock or create identity — no infinite spinner |
-| 4 | Navigate Chats / Settings — tab bar + back behave |
-| 5 | Optional online: relay list loads when `NEXT_PUBLIC_OBSCUR_EXPERIMENT_ONLINE=1` in mobile shell build |
+| P1-1 | Cold start — app opens without immediate crash |
+| P1-2 | Auth screen loads (offline / online per build flags) |
+| P1-3 | Unlock or create identity — no infinite spinner |
+| P1-4 | Navigate Chats / Settings — tab bar + back behave |
+| P1-5 | One DM or community thread opens without crash *(recommended)* |
+| P1-6 | Optional online: relay list loads when online mobile build |
 
-Record Pass/Fail in maintainer notes; full community matrix stays frozen until G6-4 desktop coordination sign-off.
+Record Pass/Fail in the checklist session record; full community matrix stays frozen until G6-4 desktop coordination sign-off.
 
-**v1.8.12 wrap-up helper:**
+**Automated install + launch helper:**
 
 ```bash
 pnpm p12:android-smoke -- --build --wait-device=180
 ```
 
-Prints a maintainer record block for [v1.8.12 demo matrix](../assets/demo/v1.8.12/README.md).
+Prints a maintainer record block — paste into [android-p1-smoke-checklist.md](./android-p1-smoke-checklist.md) session record (or legacy [v1.8.12 demo matrix](../assets/demo/v1.8.12/README.md) P12 section).
 
 ---
 
@@ -188,8 +194,4 @@ Android builds must use **mobile** so tab bar / safe-area policies match the pro
 
 ## Exit criteria (P1 row)
 
-- [ ] `pnpm verify:android-prerequisites` passes on maintainer machine  
-- [ ] Debug APK builds via `pnpm build:android:debug`  
-- [ ] APK installs on emulator (and one physical device when available)  
-- [ ] P1 smoke checklist rows 1–4 Pass  
-- [ ] Release signing steps documented and exercised once (keystore **not** in repo)
+See [android-p1-smoke-checklist.md](./android-p1-smoke-checklist.md) § Exit criteria — same rows, with Tier 0 automation and session record template.
