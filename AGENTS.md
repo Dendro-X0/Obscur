@@ -24,8 +24,10 @@ From [`rules/01-operating-principles.md`](./rules/01-operating-principles.md):
 ## Boot sequence (substantial work)
 
 1. This file + relevant [`rules/`](./rules/README.md) modules for the task.
-2. [`docs/encyclopedia/08-maintainer-playbook.md`](./docs/encyclopedia/08-maintainer-playbook.md)
-3. [`docs/handoffs/current-session.md`](./docs/handoffs/current-session.md) → **Next Atomic Step**
+2. [`docs/program/design-goals-and-constraints.md`](./docs/program/design-goals-and-constraints.md) — product and architecture intent
+3. [`docs/program/v1.9.x-execution-contract.md`](./docs/program/v1.9.x-execution-contract.md) — single daily order (v1.9.x until features restored; v2.0 delayed)
+4. [`docs/encyclopedia/08-maintainer-playbook.md`](./docs/encyclopedia/08-maintainer-playbook.md)
+5. [`docs/handoffs/current-session.md`](./docs/handoffs/current-session.md) → **Next Atomic Step**
 
 **Continuity:** [`rules/08-context-continuity.md`](./rules/08-context-continuity.md) · workflow [`.agent/workflows/context-continuity.md`](./.agent/workflows/context-continuity.md) · skill [`.agent/skills/obscur-context-continuity/SKILL.md`](./.agent/skills/obscur-context-continuity/SKILL.md)
 

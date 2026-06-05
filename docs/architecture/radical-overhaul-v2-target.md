@@ -1,5 +1,7 @@
 # Radical Architecture Overhaul: Obscur v2.0
 
+> **Reference only (2026-06-01).** v1.9.x implements **incrementally** via [design-goals-and-constraints.md](../program/design-goals-and-constraints.md) §5 and [obscur-product-shell-architecture-2026-05.md](../program/obscur-product-shell-architecture-2026-05.md). Not a parallel daily queue. Archived alternate: [v2.0-resumption-charter.md](../program/v2.0-resumption-charter.md).
+
 ## Current State: The Problems
 
 ### 1. Implicit Profile Scope (60+ violations)

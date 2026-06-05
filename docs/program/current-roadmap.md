@@ -1,6 +1,15 @@
 # Current Roadmap
 
-This is the canonical active roadmap.  
+> **SUPERSEDED (2026-06-04)** — Do not use for daily work.  
+> **Canonical:** [v1.9.x-execution-contract.md](./v1.9.x-execution-contract.md) · [v1.9.x-release-train.md](./v1.9.x-release-train.md) · [version-roadmap-scope.md](./version-roadmap-scope.md)
+
+This file is a **historical** consolidated roadmap (v1.4–v1.5 era). Kept for archive reference only.
+
+---
+
+# Current Roadmap (historical)
+
+This was the canonical active roadmap.  
 Version-specific phase plans are consolidated into general workstreams and milestone slices.
 
 ## Active Detailed Plan (Do Not Lose)

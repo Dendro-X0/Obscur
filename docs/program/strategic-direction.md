@@ -1,8 +1,8 @@
 # Strategic direction & implementation sequence
 
-**Status:** Active program framing  
-**Last updated:** 2026-05-18  
-**Current release target:** v1.5.5 — client refinement (features); v1.5.4 shipped; **distribution optional**
+**Status:** Background framing — **daily order:** [v1.9.x-execution-contract.md](./v1.9.x-execution-contract.md)  
+**Last updated:** 2026-06-04  
+**Current release train:** **v1.9.x** — [v1.9.x-release-train.md](./v1.9.x-release-train.md) · active unit **v1.9.4+**
 **Feature roadmap:** [v1.5.x-feature-roadmap.md](./v1.5.x-feature-roadmap.md)  
 **Mobile/desktop policy:** [mobile-desktop-version-policy.md](./mobile-desktop-version-policy.md)
 
@@ -50,7 +50,7 @@ Obscur is **not** a failed experiment. It requires **adjusted goals** (2026-05 p
 | **v1.6+** | Cooperative recall UI; mobile/iOS distro if ever prioritized |
 | **v1.5.x** | Stabilize Nostr client + mobile ship; no false marketing |
 | **v1.9.x** | **Lane K** — TransportPort, membership kernel, coordination directory, R1/R2 |
-| **v2.0.0** | Platform gate (SQLite, Android) after Lane K exit |
+| **v2.0.0** | Production demo gate after v1.9.x exit | [v2.0-release-pipeline.md](./v2.0-release-pipeline.md) |
 | **v1.6+** | Cooperative recall hardening, optional features per charter |
 
 ---

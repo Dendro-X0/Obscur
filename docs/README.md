@@ -2,7 +2,7 @@
 
 **Navigation hub only.** All content lives in module folders below. Start here; do not expect canonical guides at the `/docs` root.
 
-_Last reviewed: 2026-05-15 (v1.5.0 doc restructure)_
+_Last reviewed: 2026-06-01 (design goals + v1.9.x execution contract)_
 
 ---
 
@@ -10,21 +10,20 @@ _Last reviewed: 2026-05-15 (v1.5.0 doc restructure)_
 
 | Priority | Document | Purpose |
 |----------|----------|---------|
-| 1 | [Strategic direction](./program/strategic-direction.md) | Goals, sequence, decent Nostr client bar |
-| 2 | [Product layers & Nostr](./architecture/product-layers-and-nostr.md) | App / kernel / adapter framing |
-| 3 | [Maintainer playbook](./encyclopedia/08-maintainer-playbook.md) | How to run, test, triage, and ship |
-| 4 | [Current session handoff](./handoffs/current-session.md) | Live continuity — read before coding |
-| 4b | [Auth UX redesign (deferred)](./program/auth-ux-redesign-future.md) | Future-version registration/login model — not current ship path |
-| 5 | [Architecture truth map](./encyclopedia/12-core-architecture-truth-map.md) | Who owns what (single source) |
-| 6 | [v1.8.12 scope](./program/v1.8.12-scope.md) | **Current** patch — release parity + Android P1 |
-| 7 | [v1.8.11 scope](./program/v1.8.11-scope.md) | Shipped — B1 outbound bot |
-| 6a | [v1.8.10 scope](./program/v1.8.10-scope.md) | **Shipped** — D2 + Lane P |
-| 6b | [v1.8.9 scope](./program/v1.8.9-scope.md) | **Shipped** — D1 + D3 |
-| 6b | [v1.8.9+ managed workspace roadmap](./program/v1.8.9-plus-managed-workspace-roadmap.md) | Post-release: operator-relay deletion, group bots |
-| 7 | [Mobile UI stack](./program/mobile-ui-stack-evaluation.md) | Tauri mobile + shell decision |
-| 8 | [v1.5.2 release](./releases/v1.5.2-release.md) | Shipped — feel fast |
+| **0** | [**Design goals and constraints**](./program/design-goals-and-constraints.md) | **What we build** — product, invariants, limitations |
+| **1** | [**v1.9.x execution contract**](./program/v1.9.x-execution-contract.md) | **How we work** — single daily order |
+| 2 | [Current session handoff](./handoffs/current-session.md) | Active unit, phase, next atomic step |
+| 3 | [v1.9.x release train](./program/v1.9.x-release-train.md) | Semver tags; patch map (**1.9.4+** active) |
+| 4 | [Version roadmap scope](./program/version-roadmap-scope.md) | Master I/V/A checklist (v2.0 destination) |
+| 5 | [Maintainer playbook](./encyclopedia/08-maintainer-playbook.md) | How to run, test, triage |
+| 6 | [Architecture truth map](./encyclopedia/12-core-architecture-truth-map.md) | Who owns what |
+| 7 | [Native SQLite policy](./program/obscur-native-sqlite-policy.md) | Persistence target on native |
 
-**Agent rules:** [`AGENTS.md`](../AGENTS.md) (bootstrap) → modular [`rules/`](../rules/README.md) (canonical; copy into local `.cursor/rules/` for Cursor IDE).
+**After v1.9.x exit:** [v2.0-release-pipeline.md](./program/v2.0-release-pipeline.md) · [v2.0-production-demo-path.md](./program/v2.0-production-demo-path.md)
+
+**Archived — do not use for daily work:** [v2.0-resumption-charter.md](./program/v2.0-resumption-charter.md) · [current-roadmap.md](./program/current-roadmap.md)
+
+**Agent rules:** [`AGENTS.md`](../AGENTS.md) → [`rules/`](../rules/README.md) → design goals → handoff → execution contract
 
 ---
 
@@ -74,10 +73,13 @@ Canonical long-form guides — read in order when onboarding:
 
 | Document | Purpose |
 |----------|---------|
-| [**Program overview**](./program/PROGRAM.md) | Active v1.5.1 + milestones |
-| [**Strategic direction**](./program/strategic-direction.md) | Implementation sequence |
-| [**2.0.0 milestone roadmap**](./program/obscur-2.0-milestone-roadmap.md) | v1.7.x → v1.8.x → **v1.9.x Lane K** → v2.0.0 |
-| [**v1.8.x release train**](./program/v1.8.x-release-train.md) | Active patch — **v1.8.12** |
+| [**Program overview**](./program/PROGRAM.md) | Active **v1.9.x** train + milestones |
+| [**Design goals**](./program/design-goals-and-constraints.md) | **Canonical product + architecture intent** |
+| [**v1.9.x execution contract**](./program/v1.9.x-execution-contract.md) | **Canonical daily order** |
+| [**Strategic direction**](./program/strategic-direction.md) | Product goals (background) |
+| [**2.0.0 milestone roadmap**](./program/obscur-2.0-milestone-roadmap.md) | v2.0 gate (after v1.9.x) |
+| [**v1.9.x release train**](./program/v1.9.x-release-train.md) | **Active** — **v1.9.4+** |
+| [**v1.8.x release train**](./program/v1.8.x-release-train.md) | Historical patch train |
 | [**v1.8.9+ managed workspace**](./program/v1.8.9-plus-managed-workspace-roadmap.md) | B1 shipped (v1.8.11); B2+ (v1.8.13+) |
 | [**v1.9.x kernel & backend**](./program/v1.9.0-kernel-backend-roadmap.md) | **Next major refactor** — TransportPort, coordination, R1/R2 |
 | [**v1.9.x implementation spec**](./program/v1.9.0-kernel-backend-spec.md) | B0–B4 contracts, APIs, owners |

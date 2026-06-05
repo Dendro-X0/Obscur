@@ -2,7 +2,7 @@
 
 > **Active (2026-05).** Obscur development has resumed in this repository. Greenfield has been discontinued as a separate execution track; its archived design goals remain available for reference in [docs/archive/greenfield/README.md](docs/archive/greenfield/README.md).
 
-[![Version](https://img.shields.io/badge/version-1.8.14-blue)](https://github.com/Dendro-X0/Obscur/blob/main/version.json)
+[![Version](https://img.shields.io/badge/version-1.9.3-blue)](https://github.com/Dendro-X0/Obscur/blob/main/version.json)
 [![Platform](https://img.shields.io/badge/platform-PWA%20%7C%20Desktop%20%7C%20Mobile-0ea5e9)](#platform-coverage)
 [![Architecture](https://img.shields.io/badge/architecture-decentralized-22c55e)](#core-positioning)
 [![Security](https://img.shields.io/badge/security-E2EE-ef4444)](#core-positioning)
@@ -10,7 +10,7 @@
 
 Obscur is a cross-platform, decentralized, end-to-end encrypted (E2EE) communication app focused on user privacy, ownership, and self-custody identity.
 
-Project phase: **v1.9.x — Lane K** (kernel + features on `main`)
+Project phase: **v1.9.x** — restore features on `main`; **v2.0.0 delayed** ([execution contract](docs/program/v1.9.x-execution-contract.md))
 
 **Current version:** [`version.json`](version.json) on **`main`**. GitHub **Releases is disabled** for this repo (Settings → Features) — do not use `/releases` or **Latest**.
 
@@ -23,7 +23,7 @@ Project phase: **v1.9.x — Lane K** (kernel + features on `main`)
 | **Download page** | Website `/download` reads repo [update channel](apps/desktop/release/channel/stable/) |
 | **Source** | Clone or [Download ZIP](https://github.com/Dendro-X0/Obscur/archive/refs/heads/main.zip) |
 
-Changelog: [CHANGELOG.md](CHANGELOG.md) · Program: [v1.9.0 kernel roadmap](docs/program/v1.9.0-kernel-backend-roadmap.md) · Packaging: [local-desktop-packaging.md](docs/program/local-desktop-packaging.md)
+Changelog: [CHANGELOG.md](CHANGELOG.md) · Design goals: [docs/program/design-goals-and-constraints.md](docs/program/design-goals-and-constraints.md) · Train: [v1.9.x release train](docs/program/v1.9.x-release-train.md)
 
 The project remains independently developed, community-maintained, privacy-first, and local-first.
 
@@ -146,10 +146,10 @@ The `/docs` tree is the project encyclopedia. **Only** [docs/README.md](docs/REA
 | Shelf | Entry |
 |-------|--------|
 | Navigation | [docs/README.md](docs/README.md) |
-| **Current release** | [docs/releases/v1.8.9-release.md](docs/releases/v1.8.9-release.md) · [v1.8.9 gate](docs/releases/v1.8.9-gate.md) |
-| **Active patch** | [docs/program/v1.8.10-scope.md](docs/program/v1.8.10-scope.md) · [v1.8.10 gate](docs/releases/v1.8.10-gate.md) |
-| Release train | [docs/program/v1.8.x-release-train.md](docs/program/v1.8.x-release-train.md) |
-| Post–v1.8.9 roadmap (v1.8.10+) | [docs/program/v1.8.9-plus-managed-workspace-roadmap.md](docs/program/v1.8.9-plus-managed-workspace-roadmap.md) |
+| **Current release train** | [docs/program/v1.9.x-release-train.md](docs/program/v1.9.x-release-train.md) · **v1.9.4+** active |
+| **Execution contract** | [docs/program/v1.9.x-execution-contract.md](docs/program/v1.9.x-execution-contract.md) |
+| **Design goals** | [docs/program/design-goals-and-constraints.md](docs/program/design-goals-and-constraints.md) |
+| **Latest tags** | v1.9.0–v1.9.3 · [v1.9.3 release](docs/releases/v1.9.3-release.md) |
 | Program | [docs/program/PROGRAM.md](docs/program/PROGRAM.md) |
 | Changelog | [CHANGELOG.md](CHANGELOG.md) |
 | Maintainer | [docs/encyclopedia/08-maintainer-playbook.md](docs/encyclopedia/08-maintainer-playbook.md) |

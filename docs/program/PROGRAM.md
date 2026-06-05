@@ -1,9 +1,10 @@
 # Program Overview
 
-**Active program:** v1.8.3 (Lane T) → **v1.9.x Lane K** (kernel + coordination backend).  
-**Strategic frame:** [strategic-direction.md](./strategic-direction.md) · [obscur-2.0-milestone-roadmap.md](./obscur-2.0-milestone-roadmap.md) · [v1.9.0-kernel-backend-roadmap.md](./v1.9.0-kernel-backend-roadmap.md)  
-**Next major refactor:** [v1.9.0-kernel-backend-spec.md](./v1.9.0-kernel-backend-spec.md) — TransportPort, membership kernel, coordination directory.  
-_Last updated: 2026-05-22_
+**Status (2026-06-01):** **v1.9.x active program** — [design-goals-and-constraints.md](./design-goals-and-constraints.md) · [v1.9.x-execution-contract.md](./v1.9.x-execution-contract.md)  
+**Between sessions:** Handoff may be **Idle**; contract still defines resume path  
+**v2.0.0:** **Delayed** — [v2.0-release-pipeline.md](./v2.0-release-pipeline.md) after v1.9.x exit  
+**Strategic frame:** [strategic-direction.md](./strategic-direction.md) · [obscur-2.0-milestone-roadmap.md](./obscur-2.0-milestone-roadmap.md)  
+_Last updated: 2026-06-04_
 
 ---
 
@@ -15,7 +16,7 @@ Obscur is a **communication product** on a **kernel + transport** stack. Nostr i
 |-----|---------|
 | **v1.8.x** | Trust + Phase 4 patches on current stack (Lane T/C/X) |
 | **v1.9.x** | Kernel ports + coordination backend — **usable** leave/roster/DM materialization |
-| **v2.0.0** | Platform gate (SQLite, Android) **after** Lane K exit |
+| **v2.0.0** | Production demo after v1.9.x exit | [v2.0-release-pipeline.md](./v2.0-release-pipeline.md) · [version-roadmap-scope.md](./version-roadmap-scope.md) |
 
 ---
 
@@ -43,14 +44,27 @@ Canonical release truth: [releases/v1.5.0-release.md](../releases/v1.5.0-release
 | v1.4.0 | CRDT protocol suite, CAS, call TTL | Shipped |
 | v1.4.6–7 | Security hardening, restore convergence | Shipped |
 | v1.4.11 | DM ledger shadow, send retry queue | Shipped |
-| **v1.5.0** | Gateway + membership + projection | **Current** |
-| v2.0 (draft) | SQLite single store, full rewrite | [architecture/roadmap-v2-draft.md](../architecture/roadmap-v2-draft.md) |
+| **v1.9.3** | Lane K + post-K trust/X/SQLite slices | **Shipped** — active train **v1.9.4+** |
+| **v1.9.4+** | Feature restore + platform wrap-up | **Active** — [v1.9.4-scope.md](./v1.9.4-scope.md) |
+| **v2.0.0** | Production demo | **Delayed** — after v1.9.x exit |
 
 Full narrative: [encyclopedia/11-program-milestones-and-stability-history.md](../encyclopedia/11-program-milestones-and-stability-history.md).
 
 ---
 
-## v1.5.0 active execution docs
+## v1.9.x active execution docs
+
+| Doc | Use when |
+|-----|----------|
+| [design-goals-and-constraints.md](./design-goals-and-constraints.md) | Product intent, invariants, limitations — **before coding** |
+| [v1.9.x-execution-contract.md](./v1.9.x-execution-contract.md) | Daily order, Phase A/B/C |
+| [v1.9.x-release-train.md](./v1.9.x-release-train.md) | Semver train and tags |
+| [v1.9.4-scope.md](./v1.9.4-scope.md) | Current concentration unit backlog |
+| [version-roadmap-scope.md](./version-roadmap-scope.md) | Master I/V/A checklist |
+| [unified-verification-matrix.md](./unified-verification-matrix.md) | Phase B verification |
+| [unified-verification-issues-register.md](./unified-verification-issues-register.md) | Phase C outcomes |
+
+## v1.5.0 historical execution docs (archive reference)
 
 | Doc | Use when |
 |-----|----------|
@@ -59,10 +73,8 @@ Full narrative: [encyclopedia/11-program-milestones-and-stability-history.md](..
 | [architecture-refactor-queue.md](./v1.5.0-architecture-refactor-queue.md) | R0/R1/R2 ordering |
 | [refactor-checkpoints.md](./v1.5.0-refactor-checkpoints.md) | Checkpoint log |
 | [refactor-verification-and-docs-policy.md](./v1.5.0-refactor-verification-and-docs-policy.md) | When testing counts as “done” |
-| [known-issues-and-investigation-queue.md](./v1.5.0-known-issues-and-investigation-queue.md) | Open P0/P1 |
-| [current-roadmap.md](./current-roadmap.md) | Policy and lane priority |
-| [auth-ux-redesign-future.md](./auth-ux-redesign-future.md) | **Deferred** — registration/login UX target model (future versions) |
-| [phase3-desktop-online-gate.md](./phase3-desktop-online-gate.md) | **Active** — G6 online modules (relay → sync → DM) |
+| [known-issues-and-investigation-queue.md](./v1.5.0-known-issues-and-investigation-queue.md) | Historical P0/P1 — prefer issues register |
+| [current-roadmap.md](./current-roadmap.md) | **Superseded** — do not use |
 
 ---
 

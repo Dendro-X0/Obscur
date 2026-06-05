@@ -1,6 +1,8 @@
 # Obscur 2.0.0 milestone roadmap
 
-**Status:** Active program framing (2026-05-21, revised)  
+**Status:** **v2.0 destination** framing — daily work via [v1.9.x-execution-contract.md](./v1.9.x-execution-contract.md) until v1.9.x exit  
+**Design goals:** [design-goals-and-constraints.md](./design-goals-and-constraints.md)  
+**Scope checklist (I/V/A):** [version-roadmap-scope.md](./version-roadmap-scope.md) — canonical “implemented vs verified” before production demo  
 **North star:** Ship **v2.0.0** only after **all** plans outlined here and in linked program docs are complete — community overhaul, trust register, experience lane, **platform parity** (desktop + PWA/web + mobile installable), and **SQLite** as the unified persistence story across surfaces.
 
 **Version policy:**

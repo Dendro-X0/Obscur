@@ -2,7 +2,7 @@
 
 **Decision:** **Desktop is the primary development surface.** Android builds are **wrap-up only**. **Manual verification is deferred** during batch implementation — see [deferred-manual-verification-checklist.md](./deferred-manual-verification-checklist.md) and [v1.8.x-batch-implementation-lane.md](./v1.8.x-batch-implementation-lane.md).
 
-Charter: [rules/11-feasibility-and-modular-safety.md](../../rules/11-feasibility-and-modular-safety.md) · Handoff: [current-session.md](../handoffs/current-session.md)
+Charter: [rules/11-feasibility-and-modular-safety.md](../../rules/11-feasibility-and-modular-safety.md) · Handoff: [current-session.md](../handoffs/current-session.md) · Order: [v1.9.x-execution-contract.md](./v1.9.x-execution-contract.md)
 
 ---
 
@@ -77,7 +77,9 @@ Pipeline artifacts: [android-p1-signing-runbook.md](./android-p1-signing-runbook
 
 ---
 
-## Paused
+## Deferred (not paused program)
 
 - Android rebuild loops as a debugging strategy for desktop bugs.
 - Treating emulator post-login crash as proof of desktop regression (not reproduced on desktop soak).
+
+**Program status is not “paused”** — see [v1.9.x-execution-contract.md](./v1.9.x-execution-contract.md) (handoff may be **Idle** between sessions).

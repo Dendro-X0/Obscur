@@ -1,6 +1,7 @@
 # Concentrated version delivery (accelerated path to v2.0.0)
 
-**Status:** Active maintainer policy (2026-06-01)  
+**Status:** Active maintainer policy (2026-06-04)  
+**Daily order:** [v1.9.x-execution-contract.md](./v1.9.x-execution-contract.md) — this doc defines Phase A/B/C mechanics  
 **Supersedes for day-to-day gates:** per-slice manual Pass columns and “prove flawless before next feature” iteration.  
 **Still required:** automated CI (`pnpm release:test-pack`, Vitest, typecheck) on every push.  
 **North star:** [obscur-2.0-milestone-roadmap.md](./obscur-2.0-milestone-roadmap.md)
@@ -92,7 +93,7 @@ Mobile: **postponed** for Phase B Tier M until wrap-up ([android-p1-smoke-checkl
 
 ## Agent / maintainer default
 
-1. Read **active concentration unit** in [current-session.md](../handoffs/current-session.md).
+1. Read **active concentration unit** in [current-session.md](../handoffs/current-session.md) and [v1.9.x-execution-contract.md](./v1.9.x-execution-contract.md).
 2. Phase A: implement scope doc rows only; automated gates green.
 3. When Phase A exits: run [unified-verification-matrix.md](./unified-verification-matrix.md) top to bottom (desktop A/B minimum).
 4. Phase C: every Fail → row in [unified-verification-issues-register.md](./unified-verification-issues-register.md); triage P0/P1 for next concentration unit.

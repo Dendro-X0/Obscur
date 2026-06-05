@@ -1,7 +1,8 @@
 # Future protocol & kernel concepts
 
-**Status:** Living concept shelf — concepts graduate via **v1.9.x Lane K**  
-**Relationship to product:** v1.8.x finishes trust patches; **v1.9.x** implements kernel/transport from this shelf per [v1.9.0-kernel-backend-roadmap.md](../program/v1.9.0-kernel-backend-roadmap.md). This folder alone does not gate releases.
+**Status:** Living concept shelf — does **not** gate v1.9.x daily work  
+**Product goals (canonical):** [design-goals-and-constraints.md](../program/design-goals-and-constraints.md)  
+**Implementation:** v1.9.x Lane K per [v1.9.0-kernel-backend-roadmap.md](../program/v1.9.0-kernel-backend-roadmap.md)
 
 ---
 

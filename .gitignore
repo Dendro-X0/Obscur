@@ -40,6 +40,7 @@ pnpm-debug.log*
 .env
 .env.*
 !.env.example
+!.env.signing.local.example
 
 # Testing
 **/test-results/
@@ -67,6 +68,8 @@ apps/desktop/src-tauri/target/
 # Tauri updater signing keys (CRITICAL - keep private keys secret!)
 **/updater-key.txt
 apps/desktop/src-tauri/updater-key.txt
+*.jks
+*.keystore
 
 # Operator relay D2 runtime data
 apps/relay-gateway/data/hide-registry.json
