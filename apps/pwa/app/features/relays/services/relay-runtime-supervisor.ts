@@ -107,6 +107,9 @@ class RelayRuntimeSupervisor {
   private browserSignalsAttached = false;
   private lastPerformanceGateSignature: string | null = null;
   private lastProactiveFailoverAtUnixMs = 0;
+  private lastObservedWritableRelayCount: number | null = null;
+  private proactiveFailoverScheduled = false;
+  private transportJournalDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
   subscribe = (listener: Listener): (() => void) => {
     this.listeners.add(listener);
@@ -138,7 +141,7 @@ class RelayRuntimeSupervisor {
     }
     if (!this.unsubscribeTransportJournal) {
       this.unsubscribeTransportJournal = relayTransportJournal.subscribe(() => {
-        this.updateSnapshot(this.recoveryController.getRecoverySnapshot());
+        this.scheduleTransportJournalSnapshotRefresh();
       });
     }
     this.recoveryController.configure({
@@ -178,6 +181,10 @@ class RelayRuntimeSupervisor {
   }
 
   dispose(): void {
+    if (this.transportJournalDebounceTimer) {
+      clearTimeout(this.transportJournalDebounceTimer);
+      this.transportJournalDebounceTimer = null;
+    }
     if (this.autoRecoveryTimer) {
       clearTimeout(this.autoRecoveryTimer);
       this.autoRecoveryTimer = null;
@@ -288,17 +295,46 @@ class RelayRuntimeSupervisor {
     this.emitPerformanceGate(next);
     this.installTools();
     this.scheduleAutoRecovery();
-    this.maybeProactivePrimaryFailover(recovery);
+    this.scheduleProactivePrimaryFailover();
     if (changed) {
       this.emit();
     }
+  }
+
+  private scheduleTransportJournalSnapshotRefresh(): void {
+    if (this.transportJournalDebounceTimer) {
+      return;
+    }
+    this.transportJournalDebounceTimer = setTimeout(() => {
+      this.transportJournalDebounceTimer = null;
+      this.updateSnapshot(this.recoveryController.getRecoverySnapshot());
+    }, 100);
+  }
+
+  private scheduleProactivePrimaryFailover(): void {
+    if (this.proactiveFailoverScheduled) {
+      return;
+    }
+    this.proactiveFailoverScheduled = true;
+    queueMicrotask(() => {
+      this.proactiveFailoverScheduled = false;
+      if (!this.config) {
+        return;
+      }
+      this.maybeProactivePrimaryFailover(this.recoveryController.getRecoverySnapshot());
+    });
   }
 
   private maybeProactivePrimaryFailover(recovery: RelayRecoverySnapshot): void {
     if (!this.config || this.config.allEnabledRelayUrls.length <= 1) {
       return;
     }
+    const previousWritable = this.lastObservedWritableRelayCount;
+    this.lastObservedWritableRelayCount = recovery.writableRelayCount;
     if (recovery.writableRelayCount > 0) {
+      return;
+    }
+    if (previousWritable === 0) {
       return;
     }
     const nowMs = Date.now();

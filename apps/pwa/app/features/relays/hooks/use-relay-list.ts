@@ -61,7 +61,9 @@ const DEFAULT_RELAYS: ReadonlyArray<RelayListItem> = [
 ];
 
 const migrateLegacyLocalRelayUrl = (url: string): string => (
-  url === "ws://localhost:7001" ? LOCAL_DEV_RELAY_URL : url
+  url === "ws://localhost:7001" || url === "ws://127.0.0.1:7001"
+    ? LOCAL_DEV_RELAY_URL
+    : url
 );
 
 const getRelayListStorageKey = (publicKeyHex: PublicKeyHex, profileId?: string): string => (

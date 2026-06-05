@@ -1,6 +1,10 @@
 "use client";
 /**
  * React hook that owns primary/standby selection state.
+ *
+ * Automatic health reconcile is intentionally **not** done here — that path duplicated
+ * relay-runtime-supervisor failover and caused render-depth loops. Supervisor calls
+ * `setPrimaryManual` / `attemptPrimaryFailover` as the single automatic owner.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -26,11 +30,12 @@ export type UseRelayPrimarySelectionResult = Readonly<{
 export const useRelayPrimarySelection = (
   orderedEnabledUrls: ReadonlyArray<string>,
   hints: ReadonlyArray<RelayHealthHint> = [],
-  hintsSignature = "",
 ): UseRelayPrimarySelectionResult => {
   const prevUrlsKeyRef = useRef<string>("");
   const manualPrimaryLockRef = useRef<string | null>(null);
   const lastPrimarySwitchAtMsRef = useRef(0);
+  const hintsRef = useRef(hints);
+  hintsRef.current = hints;
   const [selection, setSelection] = useState<RelayPrimarySelection>(() =>
     resolveInitialRelaySelection(orderedEnabledUrls, hints),
   );
@@ -68,39 +73,18 @@ export const useRelayPrimarySelection = (
     prevUrlsKeyRef.current = urlsKey;
     manualPrimaryLockRef.current = null;
     setSelection((prev) => {
-      const next = resolveInitialRelaySelection(orderedEnabledUrls, hints);
+      const next = resolveInitialRelaySelection(orderedEnabledUrls, hintsRef.current);
       if (next.primaryUrl === prev.primaryUrl) {
         return prev;
       }
       lastPrimarySwitchAtMsRef.current = Date.now();
       return next;
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [urlsKey]);
-
-  useEffect(() => {
-    if (!hintsSignature || orderedEnabledUrls.length === 0) {
-      return;
-    }
-    setSelection((prev) => {
-      if (manualPrimaryLockRef.current && manualPrimaryLockRef.current === prev.primaryUrl) {
-        const lockedHint = hints.find((hint) => hint.url === prev.primaryUrl);
-        if (lockedHint?.isWritable || lockedHint?.isOpen) {
-          return prev;
-        }
-        manualPrimaryLockRef.current = null;
-      }
-      const reconciled = reconcilePrimarySelection(prev, orderedEnabledUrls, hints);
-      if (!reconciled) {
-        return prev;
-      }
-      return applyPrimarySwitch(prev, reconciled, hints, "Health reconcile");
-    });
-  }, [hintsSignature, orderedEnabledUrls, hints, applyPrimarySwitch]);
+  }, [urlsKey, orderedEnabledUrls]);
 
   const triggerFailover = useCallback(
     (currentHints?: ReadonlyArray<RelayHealthHint>) => {
-      const activeHints = currentHints ?? hints;
+      const activeHints = currentHints ?? hintsRef.current;
       setSelection((prev) => {
         const reconciled = reconcilePrimarySelection(prev, orderedEnabledUrls, activeHints);
         if (!reconciled) {
@@ -110,8 +94,7 @@ export const useRelayPrimarySelection = (
         return applyPrimarySwitch(prev, reconciled, activeHints, "Failover");
       });
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [urlsKey, hintsSignature, applyPrimarySwitch],
+    [orderedEnabledUrls, applyPrimarySwitch],
   );
 
   const setPrimaryManual = useCallback((url: string) => {
@@ -130,14 +113,13 @@ export const useRelayPrimarySelection = (
           role: (u === url ? "primary" : "standby") as "primary" | "standby",
         })),
       };
-      const switched = applyPrimarySwitch(prev, next, hints, "Manual switch");
+      const switched = applyPrimarySwitch(prev, next, hintsRef.current, "Manual switch");
       if (switched.primaryUrl === url) {
         manualPrimaryLockRef.current = url;
       }
       return switched;
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [urlsKey, hintsSignature, applyPrimarySwitch]);
+  }, [orderedEnabledUrls, applyPrimarySwitch]);
 
   return { selection, triggerFailover, setPrimaryManual };
 };

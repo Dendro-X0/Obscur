@@ -24,7 +24,7 @@ import {
 import type { RelayRecoveryReasonCode, RelayRecoverySnapshot } from "../services/relay-recovery-policy";
 import type { RelayRuntimeSnapshot } from "../services/relay-runtime-contracts";
 import { useDesktopProfileIsolationSnapshot } from "@/app/features/profiles/services/desktop-profile-runtime";
-import { useWindowRuntime, windowRuntimeSupervisor } from "@/app/features/runtime/services/window-runtime-supervisor";
+import { useShellTransportReady } from "@/app/features/runtime/use-shell-transport-ready";
 import {
   RELAY_RUNTIME_REFRESH_MIN_INTERVAL_MS,
   resolveRelayTransportBootstrapDelayMs,
@@ -89,12 +89,12 @@ const FullRelayProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   );
   const enabledRelayUrls = dmTransportRelayUrls;
   const enabledRelayUrlsKey = useMemo(() => enabledRelayUrls.join("|"), [enabledRelayUrls]);
+  const enabledRelayUrlsRef = useRef(enabledRelayUrls);
+  enabledRelayUrlsRef.current = enabledRelayUrls;
 
   const { mode: relayTransportMode, setMode: setRelayTransportMode } = useRelayTransportMode();
-  const failoverRecoveryPendingRef = useRef(false);
 
-  const windowRuntime = useWindowRuntime().snapshot;
-  const shellReady = windowRuntime.phase === "ready" || windowRuntime.phase === "degraded";
+  const shellReady = useShellTransportReady();
   const profileId = desktopSnapshot.currentWindow.profileId?.trim() || "default";
   const [transportBootstrapReady, setTransportBootstrapReady] = useState(false);
 
@@ -123,7 +123,7 @@ const FullRelayProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const relayPool = useRelayPool(transportBootstrapReady ? poolRelayUrls : []);
   const relayPoolRef = useRef(relayPool);
 
-  const { hints: relayHealthHints, hintsSignature } = useRelayHealthHints({
+  const { hints: relayHealthHints, hintsSignature, reconcileHintsSignature } = useRelayHealthHints({
     orderedEnabledUrls: enabledRelayUrls,
     pool: relayPool,
     enabled: transportBootstrapReady,
@@ -132,7 +132,6 @@ const FullRelayProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const { selection: relaySelection, setPrimaryManual } = useRelayPrimarySelection(
     enabledRelayUrls,
     relayHealthHints,
-    hintsSignature,
   );
 
   const relaySelectionRef = useRef(relaySelection);
@@ -152,7 +151,7 @@ const FullRelayProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     enabledRelayUrlsKey,
     relaySelection.primaryUrl,
     relaySelection.standbyUrls.join("|"),
-    hintsSignature,
+    reconcileHintsSignature,
   ]);
 
   const [operatorWorkspaceRelayUrl, setOperatorWorkspaceRelayUrl] = useState<string | null>(
@@ -241,16 +240,16 @@ const FullRelayProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const relayRuntime = useRelayRuntimeSnapshot(relayRuntimeSupervisor);
 
   const attemptPrimaryFailover = useCallback((): boolean => {
-    if (enabledRelayUrls.length <= 1) {
+    const orderedEnabledUrls = enabledRelayUrlsRef.current;
+    if (orderedEnabledUrls.length <= 1) {
       return false;
     }
-    const hints = buildRelayHealthHints(enabledRelayUrls, relayPoolRef.current);
+    const hints = buildRelayHealthHints(orderedEnabledUrls, relayPoolRef.current);
     const current = relaySelectionRef.current;
-    const reconciled = reconcilePrimarySelection(current, enabledRelayUrls, hints);
+    const reconciled = reconcilePrimarySelection(current, orderedEnabledUrls, hints);
     if (!reconciled || reconciled.primaryUrl === current.primaryUrl) {
       return false;
     }
-    failoverRecoveryPendingRef.current = true;
     relaySelectionRef.current = reconciled;
     setPrimaryManual(reconciled.primaryUrl!);
     logAppEvent({
@@ -263,7 +262,9 @@ const FullRelayProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       },
     });
     return true;
-  }, [enabledRelayUrls, setPrimaryManual]);
+  }, [enabledRelayUrlsKey, setPrimaryManual]);
+  const attemptPrimaryFailoverRef = useRef(attemptPrimaryFailover);
+  attemptPrimaryFailoverRef.current = attemptPrimaryFailover;
   const relayRuntimeRefreshRafRef = useRef<number | null>(null);
   const relayRuntimeRefreshTimerRef = useRef<number | null>(null);
   const lastRuntimeRefreshAtUnixMsRef = useRef(0);
@@ -329,8 +330,8 @@ const FullRelayProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     relayRuntimeSupervisor.configure({
       pool: relayPoolRef.current,
       enabledRelayUrls: activePoolRelayUrls,
-      allEnabledRelayUrls: enabledRelayUrls,
-      attemptPrimaryFailover,
+      allEnabledRelayUrls: enabledRelayUrlsRef.current,
+      attemptPrimaryFailover: () => attemptPrimaryFailoverRef.current(),
       scope: {
         windowLabel: desktopSnapshot.currentWindow.windowLabel,
         profileId: desktopSnapshot.currentWindow.profileId,
@@ -350,17 +351,7 @@ const FullRelayProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     transportRoutingMode,
     relayRuntimeSupervisor,
     activePoolRelayUrls.join("|"),
-    attemptPrimaryFailover,
-    enabledRelayUrls,
   ]);
-
-  useEffect(() => {
-    if (!transportBootstrapReady || !failoverRecoveryPendingRef.current) {
-      return;
-    }
-    failoverRecoveryPendingRef.current = false;
-    void relayRuntimeSupervisor.triggerRecovery("manual");
-  }, [relaySelection.primaryUrl, transportBootstrapReady, relayRuntimeSupervisor]);
 
   useEffect(() => {
     if (!transportBootstrapReady) {
@@ -410,29 +401,6 @@ const FullRelayProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     };
   }, [relayConnectionSignature, relayRuntimeSupervisor, transportBootstrapReady]);
 
-  const relayRuntimeSyncSignature = useMemo(
-    () => [
-      relayRuntime.phase,
-      relayRuntime.recovery.readiness,
-      relayRuntime.writableRelayCount,
-      relayRuntime.subscribableRelayCount,
-      relayRuntime.recoveryAttemptCount,
-      relayRuntime.recoveryReasonCode ?? "",
-    ].join("|"),
-    [
-      relayRuntime.phase,
-      relayRuntime.recovery.readiness,
-      relayRuntime.writableRelayCount,
-      relayRuntime.subscribableRelayCount,
-      relayRuntime.recoveryAttemptCount,
-      relayRuntime.recoveryReasonCode,
-    ],
-  );
-
-  useEffect(() => {
-    windowRuntimeSupervisor.syncRelayRuntime(relayRuntime);
-  }, [relayRuntimeSyncSignature, relayRuntime]);
-
   useEffect(() => {
     return () => {
       if (relayRuntimeRefreshRafRef.current !== null && typeof window !== "undefined") {
@@ -472,14 +440,66 @@ const FullRelayProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     return relayRuntimeSupervisor.triggerRecovery(reason);
   }, [relayRuntimeSupervisor]);
 
+  const relayRecoverySignature = useMemo(
+    () => [
+      relayRuntime.recovery.readiness,
+      relayRuntime.recovery.writableRelayCount,
+      relayRuntime.recovery.subscribableRelayCount,
+      relayRuntime.recovery.coolingDownRelayCount,
+      relayRuntime.recovery.recoveryAttemptCount,
+      relayRuntime.recovery.recoveryReasonCode ?? "",
+      relayRuntime.recovery.currentAction ?? "",
+    ].join("|"),
+    [
+      relayRuntime.recovery.readiness,
+      relayRuntime.recovery.writableRelayCount,
+      relayRuntime.recovery.subscribableRelayCount,
+      relayRuntime.recovery.coolingDownRelayCount,
+      relayRuntime.recovery.recoveryAttemptCount,
+      relayRuntime.recovery.recoveryReasonCode,
+      relayRuntime.recovery.currentAction,
+    ],
+  );
+
+  const relayRecovery = useMemo(
+    () => relayRuntime.recovery,
+    [relayRecoverySignature],
+  );
+
+  const relayRuntimeContextSignature = useMemo(
+    () => [
+      relayRuntime.phase,
+      relayRuntime.writableRelayCount,
+      relayRuntime.subscribableRelayCount,
+      relayRuntime.recoveryAttemptCount,
+      relayRuntime.recoveryReasonCode ?? "",
+      relayRuntime.activeSubscriptionCount,
+      relayRuntime.pendingOutboundCount,
+    ].join("|"),
+    [
+      relayRuntime.phase,
+      relayRuntime.writableRelayCount,
+      relayRuntime.subscribableRelayCount,
+      relayRuntime.recoveryAttemptCount,
+      relayRuntime.recoveryReasonCode,
+      relayRuntime.activeSubscriptionCount,
+      relayRuntime.pendingOutboundCount,
+    ],
+  );
+
+  const relayRuntimeForContext = useMemo(
+    () => relayRuntime,
+    [relayRuntimeContextSignature],
+  );
+
   const value = useMemo(() => ({
     relayList,
     relayPool,
     relayStatus,
     enabledRelayUrls,
     communityCandidateRelayUrls,
-    relayRecovery: relayRuntime.recovery,
-    relayRuntime,
+    relayRecovery,
+    relayRuntime: relayRuntimeForContext,
     triggerRelayRecovery,
     relaySelection,
     activePoolRelayUrls,
@@ -487,11 +507,12 @@ const FullRelayProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     setRelayTransportMode,
     setPrimaryRelay: setPrimaryManual,
   }), [
-    enabledRelayUrls,
+    enabledRelayUrlsKey,
     communityCandidateRelayUrls,
     relayList,
     relayPool,
-    relayRuntime,
+    relayRecovery,
+    relayRuntimeForContext,
     relayStatus,
     triggerRelayRecovery,
     relaySelection,

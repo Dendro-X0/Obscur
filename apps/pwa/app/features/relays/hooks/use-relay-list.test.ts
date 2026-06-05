@@ -8,8 +8,8 @@ describe("use-relay-list internals", () => {
 
   it("allows trusted wss URLs and explicit ws://localhost exception", () => {
     expect(relayListInternals.toTrustedRelayUrl("wss://relay.example/")).toBe("wss://relay.example");
-    expect(relayListInternals.toTrustedRelayUrl("ws://localhost:7001")).toBe("ws://localhost:7001");
-    expect(relayListInternals.toTrustedRelayUrl("ws://127.0.0.1:7001")).toBeNull();
+    expect(relayListInternals.toTrustedRelayUrl("ws://localhost:7001")).toBe("ws://localhost:7000");
+    expect(relayListInternals.toTrustedRelayUrl("ws://127.0.0.1:7001")).toBe("ws://localhost:7000");
     expect(relayListInternals.toTrustedRelayUrl("http://relay.example")).toBeNull();
   });
 

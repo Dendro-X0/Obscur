@@ -1,6 +1,7 @@
 # Unified verification matrix
 
 **Status:** Active — run in **Phase B** after [concentrated-version-delivery.md](./concentrated-version-delivery.md) Phase A exits  
+**Design / process:** [design-goals-and-constraints.md](./design-goals-and-constraints.md) · [v1.9.x-execution-contract.md](./v1.9.x-execution-contract.md)  
 **Environment:** [manual-verification-environment.md](./manual-verification-environment.md) — Tester 1 (dark) + Tester 2 (light), two desktop windows  
 **Issues output:** [unified-verification-issues-register.md](./unified-verification-issues-register.md)
 
@@ -23,16 +24,19 @@ Row-level `[P]`/`[F]` marks in sections below remain optional detail; band exit 
 
 ---
 
-## Session header (fill once)
+## Session header (v1.9.4 Phase B — open)
 
 | Field | Value |
 |-------|--------|
-| Date (UTC) | |
-| Git SHA / tag | |
-| Concentration unit | e.g. `v1.9.x` |
-| Build | `pnpm dev:desktop:online` / installed release |
-| Coordination URL | `http://127.0.0.1:8787` or `[-]` |
+| Date (UTC) | 2026-06-01 |
+| Git SHA / tag | `0105f406` + **uncommitted** STAB-1–3 + P4-5 docs (land before tag) |
+| Concentration unit | **v1.9.4** Phase B |
+| Build | `pnpm dev:desktop:online` |
+| Coordination URL | `[-]` (optional for §4) |
 | Relay | `pnpm dev:relay` or `[-]` |
+| Phase A exit | P4-5 owner matrix **done**; STAB-1–3 **fixed** (uncommitted) |
+| §0 automated | **All Pass** — 2026-06-01 (see below) |
+| Manual pending | §1–§7 maintainer A/B; P4-1 Android · P4-3 P3d restart soak |
 
 ---
 
@@ -40,11 +44,75 @@ Row-level `[P]`/`[F]` marks in sections below remain optional detail; band exit 
 
 | ID | Check | Command / evidence | Result |
 |----|--------|-------------------|--------|
-| AUTO-0 | Typecheck | `pnpm -C apps/pwa typecheck` | `[ ]` |
-| AUTO-1 | Release pack | `pnpm release:test-pack -- --skip-preflight` | `[ ]` |
-| AUTO-2 | Community invariants | `pnpm -C apps/pwa test:community-invariants` | `[ ]` |
-| AUTO-3 | Transport boundaries | `pnpm transport:boundaries:check` | `[ ]` |
-| AUTO-4 | Gateway boundaries | `pnpm gateway:boundaries:check` | `[ ]` |
+| AUTO-0 | Typecheck | `pnpm -C apps/pwa typecheck` | `[P]` |
+| AUTO-1 | Release pack | `pnpm release:test-pack -- --skip-preflight` | `[P]` |
+| AUTO-2 | Community invariants | `pnpm -C apps/pwa test:community-invariants` | `[P]` (97/97) |
+| AUTO-3 | Transport boundaries | `pnpm transport:boundaries:check` | `[P]` |
+| AUTO-4 | Gateway boundaries | `pnpm gateway:boundaries:check` | `[P]` |
+| AUTO-5 | **UV-RUNTIME-1** relay/runtime loop gate | `pnpm verify:stability` + vitest relay/runtime stability tests (below) | `[P]` |
+
+**UV-RUNTIME-1 automated evidence (required before manual Phase 1 soak):**
+
+```bash
+pnpm verify:stability
+pnpm -C apps/pwa exec vitest run \
+  app/features/runtime/use-shell-transport-ready.test.ts \
+  app/features/runtime/services/window-runtime-supervisor.test.ts \
+  app/features/relays/hooks/use-relay-primary-selection.test.ts \
+  app/features/relays/services/relay-runtime-supervisor.test.ts \
+  app/features/relays/services/relay-health-hints.test.ts
+```
+
+**UV-RUNTIME-1 manual (10 min, two profiles):** Settings → Relays tab switch 20×; toggle `localhost:7000`; rapid sidebar nav — **zero** “Maximum update depth exceeded” / fatal error boundary.
+
+---
+
+## Phase B run order (maintainer)
+
+**Prerequisites:** §0 all `[P]` · two profile windows · [manual-verification-environment.md](./manual-verification-environment.md) credentials.
+
+```bash
+# Terminal 1 (optional for §4 / live DM)
+pnpm dev:relay
+
+# Terminal 2
+pnpm dev:desktop:online
+```
+
+| Order | Block | Time | Rows |
+|-------|-------|------|------|
+| 1 | UV-RUNTIME-1 manual soak | ~10 min | §0 note |
+| 2 | Auth + shell smoke | ~15 min | AUTH-1 … AUTH-4 |
+| 3 | **P4-3 / P3b–P3d restart soak** | ~20 min | See below → COM-3, COM-8, DM-4, K-6 |
+| 4 | DM + communities full | ~45 min | §2, §3 remaining |
+| 5 | Sync + UI + relay | ~30 min | §5–§7 |
+| 6 | Coordination (if env up) | ~20 min | §4 |
+| 7 | Android (if AVD) | ~30 min | §8 / [android-p1-smoke-checklist.md](./android-p1-smoke-checklist.md) |
+
+Copy every `[F]` to [unified-verification-issues-register.md](./unified-verification-issues-register.md) before Phase C close.
+
+### P4-3 — native SQLite restart soak (P3b + P3d)
+
+**Profile:** Tester1 (dark) · **native desktop only** (not `:3340` browser).
+
+**DM (P3b):**
+
+1. Open an existing DM or start one with Tester2; send **3+ messages** each direction.
+2. Note last message preview in sidebar.
+3. **Quit all Obscur windows** (Task Manager / `pkill` — not just minimize).
+4. Relaunch Tester1; unlock.
+5. **Pass** if: DM in sidebar with same preview; thread shows full history; no blank thread after nav (DM-1, DM-4).
+6. **Fail** if: messages missing, sidebar empty, or deleted messages reappear → file **DM-001** / ACC-01 review.
+
+**Community (P3d):**
+
+1. Open a community with **2+ members** (or create + invite Tester2); send **2+ group messages**.
+2. Note sidebar title + last preview + member count on group home.
+3. **Quit all windows**; relaunch Tester1.
+4. **Pass** if: group still in sidebar; messages intact; member count ≠ 1 when multiple members (COM-8); leave state unchanged if previously left (COM-3).
+5. **Fail** if: group vanished, messages empty, roster collapsed to 1 → file register row + `community-group-sqlite-store` in notes.
+
+**Optional second profile:** Repeat unlock-only on Tester2 window — list hydrates (DM-6, AUTH-2).
 
 ---
 
@@ -195,4 +263,5 @@ Full queue: [v1.5.0-known-issues-and-investigation-queue.md](./v1.5.0-known-issu
 
 | Date | Change |
 |------|--------|
+| 2026-06-01 | v1.9.4 Phase B — unified matrix is execution entry; P4-3 soak in matrix |
 | 2026-06-01 | Initial matrix for v1.9.x unified pass |

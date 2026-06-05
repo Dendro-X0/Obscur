@@ -26,6 +26,15 @@ const resolveRelayHealthMetrics = (
 /**
  * Builds failover hints from the active pool plus standby probe metrics.
  */
+/** Structural health only — excludes latency/successRate so reconcile does not ping-pong on probes. */
+export const buildRelayHealthReconcileSignature = (
+  hints: ReadonlyArray<RelayHealthHint>,
+): string => (
+  hints.map((hint) => (
+    `${hint.url}:${hint.isOpen ? 1 : 0}:${hint.isWritable ? 1 : 0}:${hint.isCircuitOpen ? 1 : 0}`
+  )).join("|")
+);
+
 export const buildRelayHealthHints = (
   orderedEnabledUrls: ReadonlyArray<string>,
   pool: Pick<EnhancedRelayPoolResult, "connections" | "getRelayHealth">,

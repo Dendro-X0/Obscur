@@ -211,20 +211,26 @@ export class RelayHealthMonitor {
    */
   recordLatency(url: string, latencyMs: number): void {
     const metrics = this.getOrCreateMetrics(url);
-    
+    const previousAverage = metrics.latency;
+
     // Add to history
     metrics.latencyHistory.push(latencyMs);
-    
+
     // Keep only last N measurements
     if (metrics.latencyHistory.length > MAX_LATENCY_HISTORY) {
       metrics.latencyHistory.shift();
     }
-    
+
     // Calculate average latency
     metrics.latency = metrics.latencyHistory.reduce((sum, l) => sum + l, 0) / metrics.latencyHistory.length;
-    
+
     this.metrics.set(url, metrics);
-    this.notifyListeners();
+
+    const firstSample = metrics.latencyHistory.length === 1;
+    const averageMoved = Math.abs(metrics.latency - previousAverage) >= 75;
+    if (firstSample || averageMoved) {
+      this.notifyListeners();
+    }
   }
 
   /**

@@ -3,7 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import type { EnhancedRelayPoolResult } from "./enhanced-relay-pool";
 import { relayHealthMonitor } from "./relay-health-monitor";
-import { buildRelayHealthHints } from "../services/relay-health-hints";
+import {
+  buildRelayHealthHints,
+  buildRelayHealthReconcileSignature,
+} from "../services/relay-health-hints";
 import type { RelayHealthHint } from "../services/relay-primary-selector";
 
 const buildHintsSignature = (hints: ReadonlyArray<RelayHealthHint>): string => (
@@ -19,6 +22,7 @@ export const useRelayHealthHints = (params: Readonly<{
 }>): Readonly<{
   hints: ReadonlyArray<RelayHealthHint>;
   hintsSignature: string;
+  reconcileHintsSignature: string;
 }> => {
   const [monitorRevision, setMonitorRevision] = useState(0);
 
@@ -46,12 +50,16 @@ export const useRelayHealthHints = (params: Readonly<{
   }, [
     params.enabled,
     params.orderedEnabledUrls,
-    params.pool,
+    params.pool.getRelayHealth,
     monitorRevision,
     connectionSignature,
   ]);
 
   const hintsSignature = useMemo(() => buildHintsSignature(hints), [hints]);
+  const reconcileHintsSignature = useMemo(
+    () => buildRelayHealthReconcileSignature(hints),
+    [hints],
+  );
 
-  return { hints, hintsSignature };
+  return { hints, hintsSignature, reconcileHintsSignature };
 };

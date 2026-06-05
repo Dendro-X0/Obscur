@@ -1,7 +1,7 @@
 # Manual verification environment
 
-**Status:** Active — **deferred during batch implementation**; run [deferred-manual-verification-checklist.md](./deferred-manual-verification-checklist.md) when circumstances allow  
-**Related:** [v1.8.x-batch-implementation-lane.md](./v1.8.x-batch-implementation-lane.md), [obscur-2.0-milestone-roadmap.md](./obscur-2.0-milestone-roadmap.md), demo matrices under `docs/assets/demo/`
+**Status:** Active — **v1.9.4 Phase B** manual pass; execute [unified-verification-matrix.md](./unified-verification-matrix.md)  
+**Related:** [v1.9.x-execution-contract.md](./v1.9.x-execution-contract.md), [obscur-2.0-milestone-roadmap.md](./obscur-2.0-milestone-roadmap.md), demo matrices under `docs/assets/demo/`
 
 ---
 
@@ -68,7 +68,9 @@ Treat **Tester 1** and **Tester 2** as **two independent users on two devices**,
 
 ## What counts as “manual verification done”
 
-**Batch mode (active):** Implementation does **not** wait on manual passes. Use the consolidated [deferred-manual-verification-checklist.md](./deferred-manual-verification-checklist.md) after coding waves land.
+**v1.9.4 Phase B (active):** Execute [unified-verification-matrix.md](./unified-verification-matrix.md) once — §0 already Pass; §1–§7 rows marked `[P]`/`[F]`/`[S]`/`[A]`. P4-3 restart soak steps are in matrix § Phase B run order.
+
+**Batch mode (legacy):** Implementation does **not** wait on manual passes. Use [deferred-manual-verification-checklist.md](./deferred-manual-verification-checklist.md) only for historical row catalog.
 
 **Pre-tag (when you choose to publish):**
 

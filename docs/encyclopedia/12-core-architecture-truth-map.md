@@ -36,6 +36,7 @@ Companion docs:
 : `apps/pwa/app/features/account-sync/hooks/use-account-sync.ts`
 9. Chat state persistence owner
 : `apps/pwa/app/features/messaging/services/chat-state-store.ts`
+: **Native:** durable **UI mirror** only (pinned/hidden/unread, group list merge) — **not** DM/group message read authority. Detail: [obscur-native-sqlite-policy.md](../program/obscur-native-sqlite-policy.md) § Owner matrix.
 10. Group/community membership durability owner
 : `apps/pwa/app/features/groups/providers/group-provider.tsx`
 : `apps/pwa/app/features/groups/services/community-membership-recovery.ts`

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildRelayHealthHints } from "./relay-health-hints";
+import { buildRelayHealthHints, buildRelayHealthReconcileSignature } from "./relay-health-hints";
 
 describe("buildRelayHealthHints", () => {
   it("marks pool-open relays as open", () => {
@@ -36,5 +36,24 @@ describe("buildRelayHealthHints", () => {
       },
     );
     expect(hints[0]?.isOpen).toBe(true);
+  });
+
+  it("builds reconcile signature without latency noise", () => {
+    const hints = buildRelayHealthHints(
+      ["wss://relay.damus.io", "wss://nos.lol"],
+      {
+        connections: [{ url: "wss://relay.damus.io", status: "open", updatedAtUnixMs: 0 }],
+        getRelayHealth: () => undefined,
+      },
+    );
+    const withLatency = hints.map((hint, index) => (
+      index === 1 ? { ...hint, latencyMs: 42, successRate: 88 } : hint
+    ));
+    const withoutLatency = hints.map((hint, index) => (
+      index === 1 ? { ...hint, latencyMs: 900, successRate: 12 } : hint
+    ));
+    expect(buildRelayHealthReconcileSignature(withLatency)).toBe(
+      buildRelayHealthReconcileSignature(withoutLatency),
+    );
   });
 });

@@ -54,6 +54,8 @@ vi.mock("../../auth/hooks/use-identity", () => ({
 
 vi.mock("@/app/features/profiles/services/profile-scope", () => ({
   readRegistryBackedActiveProfileId: () => profileScopeState.activeProfileId,
+  getProfileScopeOverride: () => null,
+  setProfileScopeOverride: vi.fn(),
   getScopedStorageKey: (baseKey: string, profileId?: string) =>
     `${baseKey}::${profileId ?? profileScopeState.activeProfileId}`,
 }));

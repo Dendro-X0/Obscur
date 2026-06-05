@@ -172,8 +172,24 @@ const transitionTo = (
     || patch.session!.storedPublicKeyHex !== snapshot.session.storedPublicKeyHex
     || patch.session!.unlockedPublicKeyHex !== snapshot.session.unlockedPublicKeyHex
   );
-  if (snapshot.phase === phase && !patch.lastError && !patch.lastActivationReport && !hasMaterialSessionPatch) {
-    return;
+  if (snapshot.phase === phase && !patch.lastError && !hasMaterialSessionPatch) {
+    if (!patch.lastActivationReport) {
+      return;
+    }
+    const prevReport = snapshot.lastActivationReport;
+    const nextReport = patch.lastActivationReport;
+    if (
+      prevReport
+      && nextReport
+      && prevReport.accountSyncPhase === nextReport.accountSyncPhase
+      && prevReport.accountProjectionPhase === nextReport.accountProjectionPhase
+      && prevReport.projectionPhase === nextReport.projectionPhase
+      && prevReport.relayOpenCount === nextReport.relayOpenCount
+      && prevReport.migrationPhase === nextReport.migrationPhase
+      && (prevReport.message ?? "") === (nextReport.message ?? "")
+    ) {
+      return;
+    }
   }
   const traces = [
     ...completeCurrentTrace(reason),
@@ -419,8 +435,8 @@ export const windowRuntimeSupervisor = {
     const current = snapshot.relayRuntime;
     if (
       current.instanceId === relayRuntime.instanceId
-      && current.updatedAtUnixMs === relayRuntime.updatedAtUnixMs
       && current.phase === relayRuntime.phase
+      && current.recovery.readiness === relayRuntime.recovery.readiness
       && current.writableRelayCount === relayRuntime.writableRelayCount
       && current.subscribableRelayCount === relayRuntime.subscribableRelayCount
       && current.activeSubscriptionCount === relayRuntime.activeSubscriptionCount

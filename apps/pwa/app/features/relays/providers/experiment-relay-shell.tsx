@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo } from "react";
+import React, { useCallback, useMemo } from "react";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import type { RelayStatusSummary } from "@/app/features/messaging/types";
 import { useRelayList } from "../hooks/use-relay-list";
@@ -8,7 +8,6 @@ import { useRelayPrimarySelection } from "../hooks/use-relay-primary-selection";
 import type { EnhancedRelayPoolResult } from "../hooks/enhanced-relay-pool";
 import type { RelayRecoveryReasonCode } from "../services/relay-recovery-policy";
 import { createDefaultRelayRuntimeSnapshot } from "../services/relay-runtime-contracts";
-import { windowRuntimeSupervisor } from "@/app/features/runtime/services/window-runtime-supervisor";
 import {
   resolveCommunityCandidateRelayUrls,
   resolveDmTransportRelayUrls,
@@ -100,10 +99,6 @@ export const ExperimentRelayShell: React.FC<{ children: React.ReactNode }> = ({ 
     }),
     [publicKeyHex],
   );
-
-  useEffect(() => {
-    windowRuntimeSupervisor.syncRelayRuntime(relayRuntime);
-  }, [relayRuntime]);
 
   const relayStatus = useMemo<RelayStatusSummary>(() => ({
     total: 0,

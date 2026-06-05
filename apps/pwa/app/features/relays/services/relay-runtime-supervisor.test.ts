@@ -197,28 +197,72 @@ describe("relay-runtime-supervisor", () => {
     }
   });
 
-  it("refreshes pending outbound from transport journal updates", () => {
-    const supervisor = createRelayRuntimeSupervisor();
-    const pool = createPool({
-      writableRelayUrls: ["wss://relay.one"],
-      subscribableRelayCount: 1,
-      activeSubscriptionCount: 1,
-    });
-    supervisor.configure({
-      pool,
-      enabledRelayUrls: ["wss://relay.one"],
-      allEnabledRelayUrls: ["wss://relay.one"],
-      scope: {
-        windowLabel: "main",
-        profileId: "default",
-      },
-    });
+  it("coalesces transport journal bursts into a single debounced snapshot refresh", async () => {
+    vi.useFakeTimers();
+    try {
+      const supervisor = createRelayRuntimeSupervisor();
+      const pool = createPool({
+        writableRelayUrls: ["wss://relay.one"],
+        subscribableRelayCount: 1,
+        activeSubscriptionCount: 1,
+      });
+      supervisor.configure({
+        pool,
+        enabledRelayUrls: ["wss://relay.one"],
+        allEnabledRelayUrls: ["wss://relay.one"],
+        scope: {
+          windowLabel: "main",
+          profileId: "default",
+        },
+      });
 
-    relayTransportJournal.setPendingOutbound("profile_transport_queue:default", 2);
-    relayTransportJournal.setPendingOutbound("contact_request_outbox", 1);
+      let emitCount = 0;
+      const unsubscribe = supervisor.subscribe(() => {
+        emitCount += 1;
+      });
+      emitCount = 0;
 
-    const snapshot = supervisor.getSnapshot();
-    expect(snapshot.pendingOutboundCount).toBe(3);
+      for (let index = 0; index < 25; index += 1) {
+        relayTransportJournal.setPendingOutbound(`profile_transport_queue:default:${index}`, index + 1);
+      }
+
+      await vi.advanceTimersByTimeAsync(100);
+      expect(emitCount).toBeLessThanOrEqual(2);
+      unsubscribe();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("refreshes pending outbound from transport journal updates", async () => {
+    vi.useFakeTimers();
+    try {
+      const supervisor = createRelayRuntimeSupervisor();
+      const pool = createPool({
+        writableRelayUrls: ["wss://relay.one"],
+        subscribableRelayCount: 1,
+        activeSubscriptionCount: 1,
+      });
+      supervisor.configure({
+        pool,
+        enabledRelayUrls: ["wss://relay.one"],
+        allEnabledRelayUrls: ["wss://relay.one"],
+        scope: {
+          windowLabel: "main",
+          profileId: "default",
+        },
+      });
+
+      relayTransportJournal.setPendingOutbound("profile_transport_queue:default", 2);
+      relayTransportJournal.setPendingOutbound("contact_request_outbox", 1);
+
+      await vi.advanceTimersByTimeAsync(100);
+
+      const snapshot = supervisor.getSnapshot();
+      expect(snapshot.pendingOutboundCount).toBe(3);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("invokes primary failover before reconnecting when no writable relays remain", async () => {

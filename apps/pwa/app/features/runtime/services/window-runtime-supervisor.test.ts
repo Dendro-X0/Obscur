@@ -31,6 +31,7 @@ vi.mock("@/app/shared/log-app-event", () => ({
   logAppEvent: runtimeSupervisorLogMocks.logAppEvent,
 }));
 
+import { createDefaultRelayRuntimeSnapshot } from "@/app/features/relays/services/relay-runtime-contracts";
 import { windowRuntimeSupervisor, windowRuntimeSupervisorInternals } from "./window-runtime-supervisor";
 
 describe("windowRuntimeSupervisor", () => {
@@ -87,6 +88,45 @@ describe("windowRuntimeSupervisor", () => {
     const snapshot = windowRuntimeSupervisor.getSnapshot();
     expect(snapshot.phase).toBe("ready");
     expect(snapshot.lastActivationReport?.message).toBe("ready");
+  });
+
+  it("does not re-emit when markRuntimeReady repeats the same activation report", () => {
+    windowRuntimeSupervisor.syncIdentity({
+      startupState: createRestoredStartupAuthState({
+        storedPublicKeyHex: "abc",
+        unlockedPublicKeyHex: "abc",
+      }),
+    });
+
+    const report = {
+      completedAtUnixMs: 1_700_000_000_000,
+      relayOpenCount: 1,
+      relayTotalCount: 1,
+      accountSyncPhase: "ready",
+      accountSyncStatus: "ready",
+      accountProjectionReady: true,
+      accountProjectionPhase: "ready",
+      accountProjectionStatus: "ready",
+      projectionPhase: "ready",
+      projectionStatus: "ready",
+      migrationPhase: "legacy",
+      driftStatus: "unknown",
+      message: "Runtime activated",
+    } as const;
+
+    let listenerCalls = 0;
+    const unsubscribe = windowRuntimeSupervisor.subscribe(() => {
+      listenerCalls += 1;
+    });
+
+    windowRuntimeSupervisor.markRuntimeReady(report);
+    const callsAfterFirstReady = listenerCalls;
+
+    windowRuntimeSupervisor.markRuntimeReady({ ...report, completedAtUnixMs: report.completedAtUnixMs + 1 });
+
+    expect(windowRuntimeSupervisor.getSnapshot().phase).toBe("ready");
+    expect(listenerCalls).toBe(callsAfterFirstReady);
+    unsubscribe();
   });
 
   it("re-converges to auth_required after late profile bind when identity is already locked", () => {
@@ -398,6 +438,50 @@ describe("windowRuntimeSupervisor", () => {
     const snapshot = windowRuntimeSupervisor.getSnapshot();
     expect(snapshot.phase).toBe("auth_required");
     expect(snapshot.session.startupState.kind).toBe("stored_locked");
+  });
+
+  it("syncRelayRuntime ignores timestamp-only relay snapshot churn", () => {
+    windowRuntimeSupervisor.bindProfile({
+      currentWindow: {
+        windowLabel: "main",
+        profileId: "default",
+        profileLabel: "Default",
+        launchMode: "existing",
+      },
+      profiles: [],
+      windowBindings: [],
+    });
+
+    const base = createDefaultRelayRuntimeSnapshot({ instanceId: "relay-1" });
+    const healthyRelayRuntime = {
+      ...base,
+      phase: "healthy" as const,
+      recovery: {
+        ...base.recovery,
+        readiness: "healthy" as const,
+      },
+      writableRelayCount: 1,
+      subscribableRelayCount: 1,
+      updatedAtUnixMs: 1_000,
+    };
+
+    let listenerCalls = 0;
+    const unsubscribe = windowRuntimeSupervisor.subscribe(() => {
+      listenerCalls += 1;
+    });
+
+    windowRuntimeSupervisor.syncRelayRuntime(healthyRelayRuntime);
+    const callsAfterFirstSync = listenerCalls;
+
+    windowRuntimeSupervisor.syncRelayRuntime({
+      ...healthyRelayRuntime,
+      updatedAtUnixMs: 9_999,
+      pendingOutboundCount: 42,
+      pendingSubscriptionBatchCount: 7,
+    });
+
+    expect(listenerCalls).toBe(callsAfterFirstSync);
+    unsubscribe();
   });
 
   it("emits startup auth state transition diagnostics when the startup owner changes", () => {

@@ -191,6 +191,13 @@ export function RuntimeActivationManager(): null {
   const lastTransportInvariantSignatureRef = useRef<string | null>(null);
   const lastRelayRuntimeGateSignatureRef = useRef<string | null>(null);
   const lastProfileScopeMismatchSignatureRef = useRef<string | null>(null);
+  const activationConvergedRef = useRef(false);
+
+  useEffect(() => {
+    if (runtimePhase === "activating_runtime") {
+      activationConvergedRef.current = false;
+    }
+  }, [runtimePhase]);
 
   useEffect(() => {
     if (!isExperimentOfflineStubEnabled() || !publicKeyHex || runtimePhase !== "activating_runtime") {
@@ -628,6 +635,9 @@ export function RuntimeActivationManager(): null {
     );
     if (projectionReady) {
       lastRelayRuntimeGateSignatureRef.current = null;
+      if (activationConvergedRef.current) {
+        return;
+      }
       const migrationPolicy = readAuthority.policy;
       const driftGateFailed = (
         (migrationPolicy.phase === "read_cutover" || migrationPolicy.phase === "legacy_writes_disabled")
@@ -655,6 +665,7 @@ export function RuntimeActivationManager(): null {
         return;
       }
       const accountSyncStillRunning = accountSync.snapshot.phase !== "ready";
+      activationConvergedRef.current = true;
       markRuntimeReady({
         completedAtUnixMs: Date.now(),
         relayOpenCount: relayCounts.openRelayCount,
@@ -730,16 +741,7 @@ export function RuntimeActivationManager(): null {
     publicKeyHex,
     relayPool.connections,
     runtimePhase,
-    runtime.snapshot.degradedReason,
-    runtime.snapshot.lastError,
     runtime.snapshot.session.profileId,
-    runtime.snapshot.relayRuntime?.enabledRelayUrls,
-    runtime.snapshot.relayRuntime?.lastFailureReason,
-    runtime.snapshot.relayRuntime?.phase,
-    runtime.snapshot.relayRuntime?.recovery?.readiness,
-    runtime.snapshot.relayRuntime?.recoveryReasonCode,
-    runtime.snapshot.relayRuntime?.subscribableRelayCount,
-    runtime.snapshot.relayRuntime?.writableRelayCount,
   ]);
 
   return null;

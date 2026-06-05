@@ -212,6 +212,22 @@ describe("RuntimeActivationManager", () => {
     }));
   });
 
+  it("does not re-call markRuntimeReady when window relayRuntime fields churn (STAB-R3)", () => {
+    const { rerender } = render(<RuntimeActivationManager />);
+    expect(runtimeActivationMocks.runtime.markRuntimeReady).toHaveBeenCalledTimes(1);
+
+    runtimeActivationMocks.runtime.snapshot.relayRuntime.phase = "degraded";
+    runtimeActivationMocks.runtime.snapshot.relayRuntime.recovery.readiness = "degraded";
+    runtimeActivationMocks.runtime.snapshot.relayRuntime.writableRelayCount = 0;
+    runtimeActivationMocks.runtime.snapshot.relayRuntime.subscribableRelayCount = 0;
+    runtimeActivationMocks.runtime.snapshot.relayRuntime.recoveryReasonCode = "no_writable_relays";
+
+    rerender(<RuntimeActivationManager />);
+    rerender(<RuntimeActivationManager />);
+
+    expect(runtimeActivationMocks.runtime.markRuntimeReady).toHaveBeenCalledTimes(1);
+  });
+
   it("degrades runtime when cutover rollback is triggered by critical drift", () => {
     runtimeActivationMocks.migrationPolicy.phase = "read_cutover";
     runtimeActivationMocks.migrationPolicy.rollbackEnabled = true;

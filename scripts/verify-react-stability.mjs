@@ -121,6 +121,83 @@ const RELAY_POOL_EFFECT_ALLOWLIST = new Set([
   "features/runtime/components/runtime-activation-manager.tsx",
 ]);
 
+/** Relay transport bootstrap must not subscribe to full window runtime (feedback loop risk). */
+const assertRelayProviderUsesShellTransportReady = async () => {
+  const relayProviderPath = path.join(appRoot, "features/relays/providers/relay-provider.tsx");
+  const source = await readFile(relayProviderPath, "utf8");
+  if (source.includes("useWindowRuntime")) {
+    recordViolation(
+      "features/relays/providers/relay-provider.tsx",
+      "relay-provider-window-runtime-subscription",
+      "RelayProvider must use useShellTransportReady — not useWindowRuntime (relay↔window feedback loop)",
+    );
+  }
+  if (!source.includes("useShellTransportReady")) {
+    recordViolation(
+      "features/relays/providers/relay-provider.tsx",
+      "relay-provider-missing-shell-transport-ready",
+      "RelayProvider must import useShellTransportReady for transport bootstrap gating",
+    );
+  }
+  if (/syncRelayRuntime\s*\(/.test(source)) {
+    recordViolation(
+      "features/relays/providers/relay-provider.tsx",
+      "relay-provider-sync-relay-runtime",
+      "RelayProvider must not call syncRelayRuntime — relay metrics stay on RelayContext / obscurRelayRuntime (STAB-R1)",
+    );
+  }
+};
+
+/** Experiment shell must not bridge relay into window runtime either. */
+const assertExperimentShellNoSyncRelayRuntime = async () => {
+  const shellPath = path.join(appRoot, "features/relays/providers/experiment-relay-shell.tsx");
+  const source = await readFile(shellPath, "utf8");
+  if (/syncRelayRuntime\s*\(/.test(source)) {
+    recordViolation(
+      "features/relays/providers/experiment-relay-shell.tsx",
+      "experiment-shell-sync-relay-runtime",
+      "ExperimentRelayShell must not call syncRelayRuntime — same STAB-R1 rule as RelayProvider",
+    );
+  }
+};
+
+/** useEffect must not depend on high-churn window relay snapshot fields. */
+const detectWindowRelayRuntimeEffectDeps = (source, relativePath) => {
+  if (relativePath.includes(".test.")) {
+    return;
+  }
+  if (!source.includes("useEffect")) {
+    return;
+  }
+  if (/runtime\.snapshot\.relayRuntime/.test(source) && /useEffect\s*\([\s\S]*?\[[\s\S]*?runtime\.snapshot\.relayRuntime/.test(source)) {
+    recordViolation(
+      relativePath,
+      "window-relay-runtime-effect-dep",
+      "useEffect depends on runtime.snapshot.relayRuntime — use RelayContext or phase-only hooks (STAB-R2)",
+    );
+  }
+};
+
+/** Primary selection must not auto-reconcile on hintsSignature (supervisor-owned failover). */
+const assertRelayPrimarySelectionNoHintsReconcile = async () => {
+  const selectionPath = path.join(appRoot, "features/relays/hooks/use-relay-primary-selection.ts");
+  const source = await readFile(selectionPath, "utf8");
+  if (/useEffect\s*\([\s\S]*hintsSignature[\s\S]*reconcilePrimarySelection/.test(source)) {
+    recordViolation(
+      "features/relays/hooks/use-relay-primary-selection.ts",
+      "relay-primary-hints-reconcile-effect",
+      "useRelayPrimarySelection must not auto-reconcile on hintsSignature — causes relay render loop",
+    );
+  }
+  if (/hintsSignature\s*=\s*""/.test(source) || /,\s*hintsSignature/.test(source)) {
+    recordViolation(
+      "features/relays/hooks/use-relay-primary-selection.ts",
+      "relay-primary-hints-signature-param",
+      "Remove hintsSignature param from useRelayPrimarySelection — use reconcileHintsSignature at pool layer only",
+    );
+  }
+};
+
 /** relayPool object identity in effect deps — prefer useRelayPoolRef(). */
 const detectRelayPoolObjectInEffectDeps = (source, relativePath) => {
   if (RELAY_POOL_EFFECT_ALLOWLIST.has(relativePath)) {
@@ -160,8 +237,12 @@ const main = async () => {
     detectDuplicateRuntimeBindingEffects(source, file.relative);
     detectBindingInsideUseWindowRuntime(source, file.relative);
     detectRelayPoolObjectInEffectDeps(source, file.relative);
+    detectWindowRelayRuntimeEffectDeps(source, file.relative);
   }
   await assertBindingOwnerMounted();
+  await assertRelayProviderUsesShellTransportReady();
+  await assertExperimentShellNoSyncRelayRuntime();
+  await assertRelayPrimarySelectionNoHintsReconcile();
 
   if (violations.length === 0) {
     console.log("verify-react-stability: OK");

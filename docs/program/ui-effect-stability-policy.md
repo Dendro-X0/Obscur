@@ -1,7 +1,8 @@
 # UI effect stability policy (relay-bound search and similar)
 
 **Status:** Active  
-**Last updated:** 2026-05-22  
+**Systemic program:** [ui-render-loop-systemic-program.md](./ui-render-loop-systemic-program.md) — **read before adding relay/window effects**  
+**Last updated:** 2026-06-02  
 **Trigger:** Recurring `Maximum update depth exceeded` from `SidebarUserSearch` after Greenfield / online relay work
 
 ---

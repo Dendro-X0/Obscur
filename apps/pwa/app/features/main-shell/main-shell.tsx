@@ -3446,7 +3446,7 @@ function NostrMessengerContent() {
       return undefined;
     }
     let latestMs: number | undefined;
-    groupState.messages.forEach((message) => {
+    (groupState.messages ?? []).forEach((message) => {
       const messageMs = message.created_at * 1000;
       if (!latestMs || messageMs > latestMs) {
         latestMs = messageMs;
@@ -3516,13 +3516,13 @@ function NostrMessengerContent() {
     }
     return mapSealedGroupMessagesToChatMessages({
       conversationId: selectedConversationView.id,
-      messages: groupState.messages,
+      messages: groupState.messages ?? [],
       myPublicKeyHex,
     });
   }, [groupState.messages, myPublicKeyHex, selectedConversationView]);
   const visibleMessages = groupChatMessages ?? dmVisibleMessages;
   const conversationHasHydratedForView = selectedConversationView?.kind === "group"
-    ? groupState.status === "ready" || groupState.messages.length > 0
+    ? groupState.status === "ready" || (groupState.messages?.length ?? 0) > 0
     : conversationHasHydrated;
   const updateSidebarTab = (tab: "chats" | "requests") => {
     startTransition(() => setSidebarTab(tab));
