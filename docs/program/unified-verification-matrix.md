@@ -29,7 +29,7 @@ Row-level `[P]`/`[F]` marks in sections below remain optional detail; band exit 
 | Field | Value |
 |-------|--------|
 | Date (UTC) | 2026-06-01 |
-| Git SHA / tag | `2a1badf7` |
+| Git SHA / tag | `02f1cb1b` |
 | Concentration unit | **v1.9.4** Phase B |
 | Build | `pnpm dev:desktop:online` |
 | Coordination URL | `[-]` (optional for §4) |

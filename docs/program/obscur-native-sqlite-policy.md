@@ -107,8 +107,8 @@ SQLite fixes **local truth** and delete resurrection. **Roster join/leave across
 |--------|-----------------|---------------------|----------------------|-------------------|----------------------|--------|
 | **DM thread hydrate** | `dbGetMessages` | [`dm-conversation-hydrate-indexed-scan.ts`](../../apps/pwa/app/features/messaging/services/dm-conversation-hydrate-indexed-scan.ts) | **SQLite** | — | Fallback **off** ([`dm-conversation-hydrate-pipeline.ts`](../../apps/pwa/app/features/messaging/services/dm-conversation-hydrate-pipeline.ts) L201–211) | **P3b done** |
 | **DM outgoing persist** | `dbInsertMessage`, `dbUpsertConversation` | [`message-persistence-service.ts`](../../apps/pwa/app/features/messaging/services/message-persistence-service.ts) | **SQLite** | Same + message bus | Mirror for repair only | **P3b done** |
-| **DM outgoing repair** | `dbInsertMessage` | [`dm-conversation-native-outgoing-repair.ts`](../../apps/pwa/app/features/messaging/services/dm-conversation-native-outgoing-repair.ts) | SQLite after repair | Reads **chat-state** shim | Repair shim | **Subtract** when sqlite always wins |
-| **DM invite repair** | `dbInsertMessage` | [`dm-conversation-native-invite-repair.ts`](../../apps/pwa/app/features/messaging/services/dm-conversation-native-invite-repair.ts) | SQLite after repair | Reads **chat-state** shim | Repair shim | **Subtract** |
+| **DM outgoing repair** | — | — (removed `02f1cb1b`) | **SQLite** | Bus → persistence service | — | **Removed** |
+| **DM invite repair** | — | — (removed `02f1cb1b`) | **SQLite** | `commitOutboundCommunityDmInvite` | — | **Removed** |
 | **DM conversation list** | `dbGetConversations` | [`messaging-provider.tsx`](../../apps/pwa/app/features/messaging/providers/messaging-provider.tsx) + [`conversation-list-authority.ts`](../../apps/pwa/app/features/messaging/services/conversation-list-authority.ts) | **SQLite** (`sqlite_native`) | `dbUpsertConversation` via persistence service | Merges metadata via `mergeDmConversationLists`; still **writes** connections/unread/pinned/hidden | **P3a done**; metadata mirror remains |
 | **DM sync seed (first paint)** | — | [`dm-thread-sync-seed-loader.ts`](../../apps/pwa/app/features/messaging/services/dm-thread-sync-seed-loader.ts) | — | — | **Skipped** on native (returns `[]`) | **Done** |
 | **DM delete tombstones** | `dbInsertTombstone`, `dbGetTombstones`, … | Client gateway `messageDeleteTombstones` port | **SQLite** (hydrate on unlock) | Gateway + persistence service | — | **P3b done** |
@@ -118,8 +118,8 @@ SQLite fixes **local truth** and delete resurrection. **Roster join/leave across
 | **Account backup/restore** | Partial (`dbDeleteMessages` handling) | [`encrypted-account-backup-service.ts`](../../apps/pwa/app/features/account-sync/services/encrypted-account-backup-service.ts) | Mixed | Writes **chat-state** | High-risk dual path | **Audit** before claiming restore **V** |
 | **Requests / peer trust** | — | [`use-requests-inbox.ts`](../../apps/pwa/app/features/messaging/hooks/use-requests-inbox.ts), [`use-peer-trust.ts`](../../apps/pwa/app/features/network/hooks/use-peer-trust.ts) | **chat-state** | chat-state | `connectionRequests` in chat-state | **Web parity**; native OK as mirror if not list authority |
 | **Vault / media relink** | — | [`cas-media-recovery.ts`](../../apps/pwa/app/features/vault/services/cas-media-recovery.ts) | Reads chat-state for scan | — | Evidence only | **P2** — not DM authority |
-| **Relay checkpoints** | `dbUpsertRelayCheckpoint` (package) | — | **Not wired** | — | — | **Future** |
-| **Voice call records** | `dbInsertCallRecord` (package) | — | **Not wired** | — | — | **Future** |
+| **Relay checkpoints** | `dbUpsertRelayCheckpoint` (package) | [`sync-checkpoints.ts`](../../apps/pwa/app/features/messaging/lib/sync-checkpoints.ts) (localStorage) | **localStorage** timeline keys | Same | — | **ACC-03** — sqlite table unused until per-relay owner ships |
+| **Voice call records** | `dbInsertCallRecord` (package) | [`voice-call-crdt.ts`](../../apps/pwa/app/features/messaging/services/voice-call-crdt.ts) (in-memory) | **CRDT** session state | — | — | **ACC-04** — sqlite table unused until call history owner ships |
 
 ### chat-state production call sites (native-relevant)
 
@@ -130,7 +130,7 @@ SQLite fixes **local truth** and delete resurrection. **Roster join/leave across
 | **List authority** | — | None on native — use `resolveConversationListAuthority` → `sqlite` |
 | **Hydrate authority** | — | Pipeline skips persisted message fallback when `requiresSqlitePersistence()` |
 | **UI mirror / writes** | `messaging-provider.tsx`, `group-provider.tsx`, `chat-state-durability-owner.tsx` | Allowed for pinned/hidden/unread/groups merge; do **not** add new message bodies here |
-| **Repair / drift** | `dm-conversation-native-*-repair.ts`, `account-sync-drift-detector.ts`, `secondary-profile-dm-soft-refresh.ts` | Subtraction candidates |
+| **Repair / drift** | `account-sync-drift-detector.ts` | Drift detector only; repair shims removed `02f1cb1b` |
 | **Backup / migration** | `encrypted-account-backup-service.ts`, `restore-materialization.ts`, `identity-integrity-migration.ts` | Must not resurrect deletes on native; test in Phase B |
 | **Dev-only** | `dev-panel.tsx` | Not product truth |
 
@@ -169,6 +169,7 @@ Policy bands mark **code path** ownership; they do **not** mean every native rea
 
 | Date | Change |
 |------|--------|
+| 2026-06-02 | P4-5 subtraction queue closed; repair shims removed; ACC-03/04 for ancillary sqlite tables |
 | 2026-06-01 | P4-5 — native owner matrix; chat-state roles; R1/R2 truth-map anchors |
 
 Full product intent: [design-goals-and-constraints.md](./design-goals-and-constraints.md) §3.
