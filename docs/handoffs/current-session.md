@@ -1,8 +1,8 @@
 # Current Session Handoff — Obscur (native-first)
 
-- Last Updated (UTC): 2026-06-02T01:00:00Z
-- Session Status: **Active — STAB-R (render-loop systemic program)**
-- Git SHA: `0105f406` + uncommitted
+- Last Updated (UTC): 2026-06-02T01:05:00Z
+- Session Status: **STAB-R exit — landed `2a1badf7`**
+- Git SHA: `2a1badf7`
 
 ## North star (read first)
 
@@ -12,32 +12,21 @@ Manual Phase B matrix **paused** until STAB-R bands R1–R3 exit. No more loop-h
 
 ---
 
-## STAB-R progress (uncommitted)
+## STAB-R exit (`2a1badf7`)
 
-| Band | Change | Status |
-|------|--------|--------|
-| **R1** | Remove `syncRelayRuntime` from `relay-provider` + `experiment-relay-shell` | **Done** |
-| **R1** | CI forbid `syncRelayRuntime` in relay providers | **Done** |
-| **R2** | CI forbid `runtime.snapshot.relayRuntime` in effect deps | **Done** |
-| **R2** | CI forbid hintsSignature auto-reconcile | **Done** (prior) |
-| **R3** | Activation once-per-cycle + transitionTo dedup | **Done** (STAB-4) |
-| **R-smoke** | Headless STAB-R1/R3 tests wired into `verify:stability` | **Done** |
+All bands **Done**.
 
-Also uncommitted: STAB-1–3, P4-5 docs, `useShellTransportReady` in relay provider.
+| Gate | Result |
+|------|--------|
+| `pnpm verify:stability` | **Pass** |
+| `pnpm release:test-pack -- --skip-preflight` | **Pass** (after stability test type fix) |
 
----
-
-## Automated gate (substitute for manual loop testing)
-
-```bash
-pnpm verify:stability
-```
-
-Must pass before any handoff claims “launch stable”. **STAB-R exit met** when this gate is green on landed SHA.
+Program: [ui-render-loop-systemic-program.md](../program/ui-render-loop-systemic-program.md)
 
 ---
 
 ## Next atomic step
 
-1. Land uncommitted STAB-R + STAB-1–3 + docs on one commit.
-2. Resume **product** verification rows (DM/community) via matrix §2–§3 when needed — not loop hunting.
+**Doc stack commit** — canonical north-star docs still uncommitted (`design-goals-and-constraints.md`, `v1.9.x-execution-contract.md`, `version-roadmap-scope.md`, …).
+
+**Product rows** — REL/MEM/COM engineering is largely shipped; remaining **V** marks need matrix §2–§3 when you choose (not loop hunting).

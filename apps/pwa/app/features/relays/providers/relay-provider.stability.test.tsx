@@ -18,7 +18,7 @@ const readProviderSource = (filename: string): string => (
 );
 
 const createPool = (): EnhancedRelayPoolResult => ({
-  connections: [{ url: "wss://relay.one", status: "open" }],
+  connections: [{ url: "wss://relay.one", status: "open", updatedAtUnixMs: 1_000 }],
   healthMetrics: [],
   sendToOpen: vi.fn(),
   publishToUrl: vi.fn(),

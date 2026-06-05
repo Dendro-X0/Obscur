@@ -29,14 +29,14 @@ Row-level `[P]`/`[F]` marks in sections below remain optional detail; band exit 
 | Field | Value |
 |-------|--------|
 | Date (UTC) | 2026-06-01 |
-| Git SHA / tag | `0105f406` + **uncommitted** STAB-1–3 + P4-5 docs (land before tag) |
+| Git SHA / tag | `2a1badf7` |
 | Concentration unit | **v1.9.4** Phase B |
 | Build | `pnpm dev:desktop:online` |
 | Coordination URL | `[-]` (optional for §4) |
 | Relay | `pnpm dev:relay` or `[-]` |
-| Phase A exit | P4-5 owner matrix **done**; STAB-1–3 **fixed** (uncommitted) |
-| §0 automated | **All Pass** — 2026-06-01 (see below) |
-| Manual pending | §1–§7 maintainer A/B; P4-1 Android · P4-3 P3d restart soak |
+| Phase A exit | P4-5 + STAB-R **done** @ `2a1badf7` |
+| §0 automated | **All Pass** — 2026-06-02 (includes STAB-R smoke) |
+| Manual pending | §1–§7 product rows only (not loop hunting) |
 
 ---
 
