@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { DmConversation } from "@/app/features/messaging/types";
 import {
+    buildDmConnectionsFromPersistedCreatedConnections,
     derivePeerPubkeyFromDmConversationId,
     mergeDmConversationLists,
     touchDmConversationFromMessage,
@@ -24,6 +25,41 @@ const buildConnection = (params: Readonly<{
     lastMessage: params.lastMessage,
     unreadCount: 0,
     lastMessageTime: new Date(params.lastMessageTimeMs),
+});
+
+describe("buildDmConnectionsFromPersistedCreatedConnections", () => {
+    it("uses createdConnections only and ignores message-history threads", () => {
+        const connections = buildDmConnectionsFromPersistedCreatedConnections({
+            version: 2,
+            createdConnections: [{
+                id: conversationId,
+                displayName: "Metadata Contact",
+                pubkey: peerB,
+                lastMessage: "",
+                unreadCount: 0,
+                lastMessageTimeMs: 1,
+            }],
+            createdGroups: [],
+            unreadByConversationId: {},
+            connectionOverridesByConnectionId: {},
+            messagesByConversationId: {
+                [conversationId]: [{
+                    id: "msg-1",
+                    content: "ghost thread",
+                    timestampMs: 9_000,
+                    isOutgoing: false,
+                    senderPubkey: peerB,
+                }],
+            },
+            groupMessages: {},
+            connectionRequests: [],
+            pinnedChatIds: [],
+            hiddenChatIds: [],
+        });
+        expect(connections).toHaveLength(1);
+        expect(connections[0]?.displayName).toBe("Metadata Contact");
+        expect(connections[0]?.lastMessage).toBe("");
+    });
 });
 
 describe("mergeDmConversationLists", () => {

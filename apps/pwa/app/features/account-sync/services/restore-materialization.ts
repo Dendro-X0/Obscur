@@ -25,6 +25,7 @@ import {
   withAccountRestoreMaterializationEvents,
 } from "./restore-materialization-events";
 import { resolveRestoreMaterializationSuppressionContract } from "./restore-materialization-suppression-contract";
+import { stripChatStateMessageBodiesForNativeMirror } from "./restore-merge-chat-state";
 
 const purgeSuppressedMessageIdentitiesFromDurableStores = async (
   profileId: string,
@@ -129,9 +130,12 @@ export const applyNonV1RestoreMaterialization = async (params: Readonly<{
     );
 
     if (params.options?.restoreChatStateDomains && materializedPayload.chatState) {
-      const restoredChatState = params.options?.restoreDmChatStateDomains === false
+      let restoredChatState = params.options?.restoreDmChatStateDomains === false
         ? stripDmDomainsFromChatState(materializedPayload.chatState)
         : materializedPayload.chatState;
+      if (isTauri()) {
+        restoredChatState = stripChatStateMessageBodiesForNativeMirror(restoredChatState)!;
+      }
       const restoredChatStateDiagnostics = params.summarizeChatStateDiagnostics(
         restoredChatState,
         params.publicKeyHex,

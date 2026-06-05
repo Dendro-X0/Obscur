@@ -373,7 +373,7 @@ export default function GroupHomePage() {
 
     const { activeMemberPubkeys: activeMembers, authorEvidencePubkeys: conversationAuthorPubkeys } = React.useMemo(
         () => getResolvedClientGateway().communityRoster.resolveActiveMemberPubkeysFromConversation({
-            communityMessages: groupState.messages,
+            communityMessages: groupState.messages ?? [],
             persistedMessageAuthorPubkeys: persistedConversationAuthorPubkeys,
             seededMemberPubkeys: seededMemberEvidence,
             projectionMemberPubkeys,
@@ -528,7 +528,7 @@ export default function GroupHomePage() {
         persistedGroupMemberPubkeys: (group?.memberPubkeys ?? []) as ReadonlyArray<PublicKeyHex>,
         projectionMemberPubkeys,
         rosterSeedPubkeys: seededMemberEvidence,
-        communityMessages: groupState.messages,
+        communityMessages: groupState.messages ?? [],
         localMemberPubkey,
         leftMemberPubkeys: rosterLeftMemberPubkeys,
         expelledMemberPubkeys: rosterExpelledMemberPubkeys,

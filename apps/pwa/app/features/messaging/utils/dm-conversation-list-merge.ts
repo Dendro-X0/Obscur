@@ -116,6 +116,18 @@ const readMessagePreview = (message: PersistedMessage): string => (
     typeof message.content === "string" ? message.content : ""
 );
 
+/** DM sidebar rows from persisted `createdConnections` only — no message-history resurrection. */
+export const buildDmConnectionsFromPersistedCreatedConnections = (
+    persisted: PersistedChatState | null | undefined,
+): ReadonlyArray<DmConversation> => {
+    if (!persisted) {
+        return [];
+    }
+    return persisted.createdConnections
+        .map((entry) => fromPersistedDmConversation(entry))
+        .filter((entry): entry is DmConversation => entry !== null);
+};
+
 /** Rebuild DM sidebar rows from persisted connections plus any thread with stored messages. */
 export const buildDmConnectionsFromPersistedChatState = (
     persisted: PersistedChatState | null | undefined,

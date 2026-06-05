@@ -251,6 +251,20 @@ export const sanitizePersistedMessagesByDeleteContract = (
   return filtered.slice().sort((left, right) => Number(left.timestampMs ?? 0) - Number(right.timestampMs ?? 0));
 };
 
+/** Native SQLite owns message bodies; chat-state restore may keep UI metadata only. */
+export const stripChatStateMessageBodiesForNativeMirror = (
+  chatState: EncryptedAccountBackupPayload["chatState"],
+): EncryptedAccountBackupPayload["chatState"] => {
+  if (!chatState) {
+    return chatState;
+  }
+  return {
+    ...chatState,
+    messagesByConversationId: {},
+    groupMessages: {},
+  };
+};
+
 export const sanitizePersistedChatStateMessagesByDeleteContract = (
   chatState: EncryptedAccountBackupPayload["chatState"],
   options?: Readonly<{

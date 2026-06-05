@@ -51,6 +51,7 @@ import { replaceProjectionUnreadByConversationId, unreadByConversationIdEqual } 
 import { applySelectedConversationUnreadIsolation } from "./unread-isolation";
 import {
     buildDmConnectionsFromPersistedChatState,
+    buildDmConnectionsFromPersistedCreatedConnections,
     computePersistedMessageHistoryRevision,
     mergeDmConversationLists,
     touchDmConversationFromMessage,
@@ -528,6 +529,13 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         const persistedState = chatStateStoreService.load(publicKeyHex as PublicKeyHex, { profileId: activeProfileId });
         return buildDmConnectionsFromPersistedChatState(persistedState, publicKeyHex);
     }, [activeProfileId, publicKeyHex, hasHydrated, persistedMessageHistoryRevision]);
+    const persistedDmConnectionMetadata = useMemo(() => {
+        if (!publicKeyHex || !hasHydrated) {
+            return [] as ReadonlyArray<DmConversation>;
+        }
+        const persistedState = chatStateStoreService.load(publicKeyHex as PublicKeyHex, { profileId: activeProfileId });
+        return buildDmConnectionsFromPersistedCreatedConnections(persistedState);
+    }, [activeProfileId, publicKeyHex, hasHydrated, persistedMessageHistoryRevision]);
     useEffect(() => {
         if (typeof window === "undefined") {
             return;
@@ -610,11 +618,11 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         }
         const mergedSqliteConnections = mergeDmConversationLists(
             sqliteConversations,
-            persistedDmConnections,
+            persistedDmConnectionMetadata,
         );
         createdConnectionsRef.current = mergedSqliteConnections;
         setCreatedConnections(mergedSqliteConnections);
-    }, [conversationListAuthority.authority, persistedDmConnections, sqliteConversations]);
+    }, [conversationListAuthority.authority, persistedDmConnectionMetadata, sqliteConversations]);
 
     useEffect(() => {
         if (conversationListAuthority.authority !== "projection") {

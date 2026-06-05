@@ -43,6 +43,32 @@ const telemetryMocks = vi.hoisted(() => ({
   logAppEvent: vi.fn(),
 }));
 
+const nativeRuntimeMocks = vi.hoisted(() => ({
+  isNative: false,
+  sqliteConversations: [] as Array<{
+    id: string;
+    profile_id: string;
+    peer_pubkey: string;
+    last_event_id: string | null;
+    last_message_at: number | null;
+    last_plaintext_preview: string | null;
+    unread_count: number;
+  }>,
+}));
+
+vi.mock("@/app/features/runtime/runtime-capabilities", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/app/features/runtime/runtime-capabilities")>();
+  return {
+    ...actual,
+    hasNativeRuntime: () => nativeRuntimeMocks.isNative,
+  };
+});
+
+vi.mock("@dweb/db", () => ({
+  isTauri: () => nativeRuntimeMocks.isNative,
+  dbGetConversations: vi.fn(async () => nativeRuntimeMocks.sqliteConversations),
+}));
+
 vi.mock("../../auth/hooks/use-identity", () => ({
   useIdentity: () => ({
     state: {
@@ -179,6 +205,8 @@ describe("messaging-provider hydration scope resets", () => {
     telemetryMocks.logAppEvent.mockReset();
     projectionSidebarState.useProjectionReads = false;
     projectionSidebarState.projectionConnections = [];
+    nativeRuntimeMocks.isNative = false;
+    nativeRuntimeMocks.sqliteConversations = [];
 
     const accountA = "a".repeat(64);
     const accountB = "b".repeat(64);
@@ -474,5 +502,62 @@ describe("messaging-provider hydration scope resets", () => {
       expect(screen.getByTestId("pinned").textContent).toBe("dm-projection-alpha");
       expect(screen.getByTestId("hidden").textContent).toBe("dm-projection-alpha");
     });
+  });
+
+  it("does not resurrect chat-state message threads when native sqlite is list authority", async () => {
+    nativeRuntimeMocks.isNative = true;
+    const accountA = "a".repeat(64);
+    const sqlitePeer = "7".repeat(64);
+    const ghostPeer = "8".repeat(64);
+    const sqliteConversationId = [accountA, sqlitePeer].sort().join(":");
+    const ghostConversationId = [accountA, ghostPeer].sort().join(":");
+    nativeRuntimeMocks.sqliteConversations = [{
+      id: sqliteConversationId,
+      profile_id: "default",
+      peer_pubkey: sqlitePeer,
+      last_event_id: "evt-sqlite",
+      last_message_at: 5_000,
+      last_plaintext_preview: "sqlite preview",
+      unread_count: 0,
+    }];
+    chatStateStoreMocks.load.mockImplementation((publicKeyHex: string) => {
+      if (publicKeyHex !== accountA) {
+        return null;
+      }
+      return {
+        ...buildPersistedState({
+          displayName: "Metadata Contact",
+          peerPublicKeyHex: "3".repeat(64),
+        }),
+        messagesByConversationId: {
+          [ghostConversationId]: [{
+            id: "ghost-msg",
+            content: "deleted ghost",
+            timestampMs: 9_000,
+            isOutgoing: false,
+            senderPubkey: ghostPeer,
+          }],
+        },
+      };
+    });
+
+    render(
+      <MessagingProvider>
+        <Harness />
+      </MessagingProvider>
+    );
+
+    await waitFor(() => {
+      const connections = screen.getByTestId("connections").textContent ?? "";
+      expect(connections).toContain(sqlitePeer);
+      expect(connections).toContain("Metadata Contact");
+      expect(connections).not.toContain("8".repeat(64));
+    });
+    expect(telemetryMocks.logAppEvent).toHaveBeenCalledWith(expect.objectContaining({
+      context: expect.objectContaining({
+        selectedAuthority: "sqlite",
+        selectedAuthorityReason: "sqlite_native",
+      }),
+    }));
   });
 });

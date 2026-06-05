@@ -87,6 +87,7 @@ import {
   mergePersistedGroupMessages,
   mergePersistedMessages,
   sanitizePersistedChatStateMessagesByDeleteContract,
+  stripChatStateMessageBodiesForNativeMirror,
   toMessageDeleteTombstoneIdSet,
   uniqueStrings,
 } from "./restore-merge-chat-state";
@@ -1281,9 +1282,14 @@ const applyBackupPayload = async (
     saveCommunityMembershipLedger(publicKeyHex, mergedPayload.communityMembershipLedger ?? [], { profileId });
     await applyRoomKeySnapshots(mergedPayload.roomKeys ?? []);
     const mergedPayloadChatDiagnostics = summarizePersistedChatStateMessages(mergedPayload.chatState, publicKeyHex);
-    if (mergedPayload.chatState) {
+    const chatStateForNativeMirror = mergedPayload.chatState
+      ? (isTauri()
+        ? stripChatStateMessageBodiesForNativeMirror(mergedPayload.chatState)
+        : mergedPayload.chatState)
+      : undefined;
+    if (chatStateForNativeMirror) {
       // Backup restore should not immediately trigger mutation-driven backup publish.
-      chatStateStoreService.replace(publicKeyHex, mergedPayload.chatState, {
+      chatStateStoreService.replace(publicKeyHex, chatStateForNativeMirror, {
         emitMutationSignal: false,
         profileId,
       });
