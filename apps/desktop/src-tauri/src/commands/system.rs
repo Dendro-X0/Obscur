@@ -3,7 +3,6 @@
 use serde_json::json;
 use serde_json::Value;
 use tauri::{AppHandle, Manager, WebviewWindow};
-use tauri_plugin_updater::UpdaterExt;
 use crate::models::app::ResetAppStorageReport;
 use crate::update_channel;
 

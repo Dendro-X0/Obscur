@@ -708,12 +708,12 @@ export const CommunityInviteCard = ({
     );
 
     const inviteDescriptionClass = cn(
-        "text-[10px] mt-0.5 leading-relaxed text-zinc-600 dark:text-surface-contrast-secondary",
+        "text-[10px] mt-0.5 leading-relaxed text-zinc-600 dark:text-white/90",
         compact ? "line-clamp-1" : "line-clamp-2",
     );
 
     const inviteBadgeClass = cn(
-        "flex items-center gap-1.5 px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-purple-200/70 bg-purple-500/10 text-purple-900 dark:border-transparent dark:bg-white/5 dark:text-surface-contrast-secondary",
+        "flex items-center gap-1.5 px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-purple-200/70 bg-purple-500/10 text-purple-900 dark:border-white/10 dark:bg-white/10 dark:text-white/85",
     );
 
     return (
@@ -765,7 +765,7 @@ export const CommunityInviteCard = ({
                     </div>
 
                     {compact ? (
-                        <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-white/75">
                             {t("groups.privateEncryptedCompact", "Private · Encrypted")}
                             {invite.metadata.memberCount !== undefined
                                 ? ` · ${invite.metadata.memberCount} ${t("groups.members", "members")}`
@@ -782,7 +782,7 @@ export const CommunityInviteCard = ({
                             {t("groups.private", "Private")}
                         </div>
                         {invite.metadata.memberCount !== undefined && (
-                            <div className="ml-auto text-[9px] font-bold text-zinc-600 dark:text-surface-contrast-secondary dark:opacity-80">
+                            <div className="ml-auto text-[9px] font-bold text-zinc-600 dark:text-white/75">
                                 {invite.metadata.memberCount} {t("groups.members", "members")}
                             </div>
                         )}
@@ -817,7 +817,7 @@ export const CommunityInviteCard = ({
                         {isActionable && !isInviteDefective ? (
                             isOutgoing ? (
                                 <div className="flex flex-col gap-2">
-                                    <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-zinc-600 dark:text-surface-contrast-secondary dark:opacity-90">
+                                    <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-zinc-600 dark:text-white/80">
                                         <Clock className="h-3 w-3" />
                                         {t("groups.pending", "Pending Response")}
                                     </div>

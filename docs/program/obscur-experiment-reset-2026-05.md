@@ -1,6 +1,8 @@
 # Obscur experiment reset (2026-05)
 
-**Status:** Active experiment trunk — not a shipping product commitment  
+> **Historical context only (2026-06-04).** Product milestones follow [v1.9.x-execution-contract.md](./v1.9.x-execution-contract.md). Experiment shell policy may still apply in code when env flags set.
+
+**Status:** Historical — experiment trunk notes  
 **Completion probability:** Maintainer estimate &lt;50%  
 **Success metric:** Cold start → unlock → sidebar interactive without main-thread freeze
 

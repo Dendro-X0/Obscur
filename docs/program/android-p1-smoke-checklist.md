@@ -3,6 +3,7 @@
 **Purpose:** Repeatable maintainer pass for **installable Android APK** smoke — build, install, cold start, and minimum product shell behavior. Use during **wrap-up** or before tagging a user-visible release; not a gate between desktop implementation slices.
 
 **Canonical build/signing:** [android-p1-signing-runbook.md](./android-p1-signing-runbook.md)  
+**Policy (2026-06-01):** **Release signing deferred** — use **debug APK** for Tier 0–1 functional smoke; Tier 3 release keystore before v2.0 demo only.  
 **Broader mobile UX (batched):** [deferred-manual-verification-checklist.md](./deferred-manual-verification-checklist.md) §5  
 **Policy:** [stability-first-delivery.md](./stability-first-delivery.md) — Android is wrap-up, not a desktop blocker.
 

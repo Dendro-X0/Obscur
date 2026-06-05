@@ -1,6 +1,6 @@
 # Obscur product shell — global architecture (2026-05)
 
-**Status:** Adopted for experiment trunk  
+**Status:** **Active constraint** during v1.9.x — see [design-goals-and-constraints.md](./design-goals-and-constraints.md) §5  
 **Problem:** Startup gates + full provider tree + per-route remounts make the app feel broken in dev and prod.  
 **Goal:** One persistent shell, progressive runtime, fast desktop dev loop — without another greenfield rewrite.
 

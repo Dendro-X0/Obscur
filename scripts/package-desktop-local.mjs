@@ -12,6 +12,7 @@ import {
   assertDesktopInstallerBasename,
   readExpectedReleaseVersion,
 } from "./lib/release-artifact-version.mjs";
+import { loadMaintainerSigningEnv } from "./load-maintainer-signing-env.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
@@ -29,16 +30,55 @@ const getArg = (name) => {
 const DESKTOP_EXTS = new Set([".exe", ".msi", ".dmg", ".appimage", ".deb", ".app", ".tar.gz"]);
 const SIG_SUFFIXES = [".sig", ".minisig"];
 
+const resolveSpawn = (command, commandArgs) => {
+  // Never use shell: true with argv — breaks "C:\Program Files\..." paths on Windows.
+  if (process.platform === "win32" && typeof command === "string" && command.toLowerCase().endsWith(".cmd")) {
+    return {
+      command: "cmd.exe",
+      args: ["/d", "/s", "/c", command, ...commandArgs],
+    };
+  }
+  return { command, args: commandArgs };
+};
+
 const run = (label, command, commandArgs, options = {}) => {
   console.log(`[desktop:package] ${label}…`);
-  const result = spawnSync(command, commandArgs, {
+  const { command: spawnCommand, args: spawnArgs } = resolveSpawn(command, commandArgs);
+  const result = spawnSync(spawnCommand, spawnArgs, {
     cwd: repoRoot,
     stdio: "inherit",
-    shell: process.platform === "win32",
+    shell: false,
     ...options,
   });
   if (result.status !== 0) {
     throw new Error(`${label} failed (exit ${result.status ?? "unknown"})`);
+  }
+};
+
+const windowsNsisInstallerExists = async () => {
+  if (process.platform !== "win32") {
+    return false;
+  }
+  try {
+    const nsisDir = join(TAURI_BUNDLE_ROOT, "nsis");
+    const entries = await readdir(nsisDir);
+    return entries.some((name) => name.endsWith("-setup.exe"));
+  } catch {
+    return false;
+  }
+};
+
+const runDesktopBuild = async (pnpm) => {
+  try {
+    run("build PWA shell + Tauri bundle", pnpm, ["build:desktop"]);
+  } catch (error) {
+    if (process.platform === "win32" && (await windowsNsisInstallerExists())) {
+      console.warn(
+        "[desktop:package] Tauri build exited non-zero but NSIS installer exists (often missing TAURI_SIGNING_PRIVATE_KEY for .sig files). Continuing copy.",
+      );
+      return;
+    }
+    throw error;
   }
 };
 
@@ -127,6 +167,12 @@ const copyBundleArtifacts = async () => {
 };
 
 const main = async () => {
+  if (loadMaintainerSigningEnv()) {
+    console.log(
+      "[desktop:package] Loaded .env.signing.local — remove file for fully unsigned builds if signing errors occur",
+    );
+  }
+
   const skipBuild = hasFlag("--skip-build");
   const publishChannel = hasFlag("--publish-channel");
   const pnpm = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
@@ -136,7 +182,12 @@ const main = async () => {
   }
 
   if (!skipBuild) {
-    run("build PWA shell + Tauri bundle", pnpm, ["build:desktop"]);
+    if (process.platform === "win32") {
+      run("ensure NSIS toolchain", process.execPath, [
+        resolve(repoRoot, "scripts/ensure-tauri-nsis-windows.mjs"),
+      ]);
+    }
+    await runDesktopBuild(pnpm);
   }
 
   await copyBundleArtifacts();

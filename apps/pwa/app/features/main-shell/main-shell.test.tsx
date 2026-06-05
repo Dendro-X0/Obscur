@@ -321,7 +321,10 @@ vi.mock("@/app/features/messaging/providers/messaging-provider", () => ({
 vi.mock("@/app/features/relays/providers/relay-provider", () => ({
   useRelay: () => ({
     relayPool: {},
-    relayStatus: "connected",
+    relayList: { state: { relays: [] } },
+    relayStatus: { total: 0, openCount: 0, errorCount: 0, coolingDownRelayCount: 0 },
+    enabledRelayUrls: [],
+    relayRecovery: { readiness: "healthy" },
   }),
 }));
 
@@ -441,13 +444,17 @@ vi.mock("@/app/features/account-sync/hooks/use-account-projection-snapshot", () 
   }),
 }));
 
-vi.mock("@/app/features/account-sync/services/account-sync-ui-policy", () => ({
-  resolveAccountSyncUiPolicy: () => ({
-    showRestoreProgress: false,
-    showMissingSharedDataWarning: false,
-    showInitialHistorySyncNotice: false,
-  }),
-}));
+vi.mock("@/app/features/account-sync/services/account-sync-ui-policy", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/app/features/account-sync/services/account-sync-ui-policy")>();
+  return {
+    ...actual,
+    resolveAccountSyncUiPolicy: () => ({
+      showRestoreProgress: false,
+      showMissingSharedDataWarning: false,
+      showInitialHistorySyncNotice: false,
+    }),
+  };
+});
 
 vi.mock("@/app/features/messaging/hooks/use-peer-last-active-by-peer", () => ({
   usePeerLastActiveByPeer: () => ({}),
@@ -525,6 +532,32 @@ describe("main-shell hook stability", () => {
     expect(screen.queryByTestId("app-shell")).not.toBeInTheDocument();
     expect(screen.queryByTestId("loading-screen")).not.toBeInTheDocument();
     expect(container.firstChild).toBeNull();
+  });
+
+  it("survives rapid chat ↔ settings route churn without hook-order errors (UV-RUNTIME-1)", async () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    try {
+      const { rerender } = render(<NostrMessenger />);
+      await act(async () => Promise.resolve());
+      expect(screen.getByTestId("empty-conversation")).toBeInTheDocument();
+
+      const routes = ["/settings", "/", "/settings", "/network", "/", "/settings"] as const;
+      for (const route of routes) {
+        testState.pathname = route;
+        expect(() => {
+          rerender(<NostrMessenger />);
+        }).not.toThrow();
+        await act(async () => Promise.resolve());
+      }
+
+      const hookErrors = consoleErrorSpy.mock.calls.filter((call) => {
+        const text = call.map((part) => String(part)).join(" ");
+        return /fewer hooks than expected|Maximum update depth exceeded/i.test(text);
+      });
+      expect(hookErrors).toHaveLength(0);
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
   });
 
   it("shows profile-scope mismatch guidance when projection scope diverges from this window profile", async () => {

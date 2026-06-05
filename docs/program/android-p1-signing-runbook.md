@@ -5,7 +5,7 @@
 **Status:** Active (v1.8.x Lane P)  
 **Policy:** [mobile-desktop-version-policy.md](./mobile-desktop-version-policy.md) — no Play/App Store purchased certificates required for program testing.  
 **Smoke checklist:** [android-p1-smoke-checklist.md](./android-p1-smoke-checklist.md) — Tier 0–3 pass/fail rows + session record  
-**Related:** [mobile-ui-stack-evaluation.md](./mobile-ui-stack-evaluation.md), [obscur-2.0-milestone-roadmap.md](./obscur-2.0-milestone-roadmap.md) (P1 row)
+**Related:** [local-signing-strategy.md](./local-signing-strategy.md) · [mobile-ui-stack-evaluation.md](./mobile-ui-stack-evaluation.md), [obscur-2.0-milestone-roadmap.md](./obscur-2.0-milestone-roadmap.md) (P1 row)
 
 ---
 

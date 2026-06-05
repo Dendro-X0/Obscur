@@ -1,6 +1,6 @@
 # Platform pivot — private trust infrastructure (2026-05)
 
-**Status:** Strategic direction (maintainer draft)  
+**Status:** Strategic direction — canonical summary in [design-goals-and-constraints.md](./design-goals-and-constraints.md) §1  
 **Supersedes:** “Obscur is a Nostr client with communities” as the **primary** product story  
 **Aligns with:** [00-charter-vision.md](../future/00-charter-vision.md), [product-layers-and-nostr.md](../architecture/product-layers-and-nostr.md), [community-fork-decision-2026-05.md](./community-fork-decision-2026-05.md)
 

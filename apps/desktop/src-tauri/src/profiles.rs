@@ -318,6 +318,7 @@ fn window_boot_init_script(window_label: &str, profile_id: &str) -> String {
     )
 }
 
+#[cfg_attr(not(debug_assertions), allow(unused_variables))]
 fn resolve_profile_window_url(app: &AppHandle) -> WebviewUrl {
     #[cfg(debug_assertions)]
     {

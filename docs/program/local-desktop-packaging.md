@@ -22,6 +22,26 @@ This runs:
 
 **Typical runtime:** depends on your machine and cache (often 10–25 minutes locally — still **your** machine, **your** progress bar, **your** installer at the end).
 
+### Windows: NSIS download failed
+
+If `tauri build` fails with `io: unexpected end of file` while downloading `nsis-3.11.zip`, the GitHub fetch was truncated. **Before retrying:**
+
+```bash
+node scripts/ensure-tauri-nsis-windows.mjs
+```
+
+`pnpm desktop:package` runs this automatically on Windows. It verifies SHA1, retries downloads, and installs to `%LOCALAPPDATA%\tauri\NSIS`. If antivirus quarantines `nsis_tauri_utils.dll`, restore it from the path above or see [tauri binary-releases NSIS guide](https://github.com/tauri-apps/binary-releases/issues/4).
+
+### Updater signing (deferred)
+
+**Default:** ship **unsigned** installers. Windows SmartScreen / “unknown publisher” is expected for indie builds; trust comes from the **public repo**, not a purchased cert.
+
+Do **not** create `.env.signing.local` until you are ready to wire minisign — a partial key causes errors like `Missing comment in secret key` after NSIS succeeds.
+
+If signing errors appear but the log says **“Continuing copy”**, use `release-assets/windows/Obscur_*_x64-setup.exe` — the build succeeded.
+
+When ready (pre–v2.0 demo): [local-signing-strategy.md](./local-signing-strategy.md) · [`.env.signing.local.example`](../../.env.signing.local.example).
+
 ### Flags
 
 | Flag | Effect |

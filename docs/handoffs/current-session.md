@@ -1,8 +1,8 @@
 # Current Session Handoff — Obscur (native-first)
 
 - Last Updated (UTC): 2026-06-02T01:05:00Z
-- Session Status: **STAB-R exit — landed `2a1badf7`**
-- Git SHA: `2a1badf7`
+- Git SHA: `d4b90c72`
+- Session Status: **v1.9.4 — doc north star landed; STAB-R closed**
 
 ## North star (read first)
 
@@ -27,6 +27,6 @@ Program: [ui-render-loop-systemic-program.md](../program/ui-render-loop-systemic
 
 ## Next atomic step
 
-**Doc stack commit** — canonical north-star docs still uncommitted (`design-goals-and-constraints.md`, `v1.9.x-execution-contract.md`, `version-roadmap-scope.md`, …).
+**Doc stack:** `d4b90c72` — design goals, execution contract, version-roadmap-scope.
 
-**Product rows** — REL/MEM/COM engineering is largely shipped; remaining **V** marks need matrix §2–§3 when you choose (not loop hunting).
+**Remaining uncommitted:** API route move, packaging scripts, main-shell tests, UI polish — separate commits when ready.
