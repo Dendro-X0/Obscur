@@ -1,36 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const repairMocks = vi.hoisted(() => ({
-  inviteRepair: vi.fn(() => [{ id: "invite-1" }]),
-  outgoingRepair: vi.fn(() => [{ id: "msg-1" }]),
+const refreshMocks = vi.hoisted(() => ({
   dispatch: vi.fn(),
-  chatLoad: vi.fn(() => ({
-    messagesByConversationId: {
-      "a:b": [{ id: "x" }],
-    },
-  })),
 }));
 
 vi.mock("@/app/features/runtime/runtime-capabilities", () => ({
   hasNativeRuntime: () => true,
 }));
 
-vi.mock("@/app/features/messaging/services/dm-conversation-native-invite-repair", () => ({
-  loadNativeOutgoingCommunityInviteRepairMessages: repairMocks.inviteRepair,
-}));
-
-vi.mock("@/app/features/messaging/services/dm-conversation-native-outgoing-repair", () => ({
-  loadNativeOutgoingChatStateRepairMessages: repairMocks.outgoingRepair,
-}));
-
 vi.mock("@/app/features/messaging/services/message-persistence-service", () => ({
-  dispatchMessagesIndexRebuiltEvent: repairMocks.dispatch,
-}));
-
-vi.mock("@/app/features/messaging/services/chat-state-store", () => ({
-  chatStateStoreService: {
-    load: repairMocks.chatLoad,
-  },
+  dispatchMessagesIndexRebuiltEvent: refreshMocks.dispatch,
 }));
 
 import { runSecondaryProfileDmSoftRefresh } from "./secondary-profile-dm-soft-refresh";
@@ -40,7 +19,7 @@ describe("runSecondaryProfileDmSoftRefresh", () => {
     vi.clearAllMocks();
   });
 
-  it("repairs outgoing messages and dispatches refresh events for secondary profiles", () => {
+  it("re-triggers sqlite-backed hydrate for secondary profiles without chat-state repair", () => {
     const listener = vi.fn();
     window.addEventListener("obscur:secondary-profile-dm-soft-refresh", listener);
 
@@ -50,9 +29,18 @@ describe("runSecondaryProfileDmSoftRefresh", () => {
       reason: "post_login",
     });
 
-    expect(result.repairedMessageCount).toBe(2);
-    expect(repairMocks.dispatch).toHaveBeenCalled();
+    expect(result.repairedMessageCount).toBe(0);
+    expect(refreshMocks.dispatch).toHaveBeenCalledWith(expect.objectContaining({
+      profileId: "profile-2",
+      messageCount: 0,
+    }));
     expect(listener).toHaveBeenCalled();
+    const event = listener.mock.calls[0]?.[0] as CustomEvent;
+    expect(event.detail).toMatchObject({
+      profileId: "profile-2",
+      forceIndexedAuthority: true,
+      repairedMessageCount: 0,
+    });
 
     window.removeEventListener("obscur:secondary-profile-dm-soft-refresh", listener);
   });
@@ -64,6 +52,6 @@ describe("runSecondaryProfileDmSoftRefresh", () => {
       reason: "post_login",
     });
     expect(result.repairedMessageCount).toBe(0);
-    expect(repairMocks.inviteRepair).not.toHaveBeenCalled();
+    expect(refreshMocks.dispatch).not.toHaveBeenCalled();
   });
 });

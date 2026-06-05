@@ -20,8 +20,8 @@ import {
 } from "@/app/features/runtime/services/secondary-profile-window-reload-scheduler";
 
 /**
- * Secondary profile windows repair outgoing DM history in-process after login.
- * Avoids full window reload — native chat-state repair + thread re-hydrate only.
+ * Secondary profile windows re-hydrate DM threads from SQLite after login.
+ * Avoids full window reload — sqlite index rebuild + thread re-hydrate only.
  */
 export function SecondaryProfilePostLoginRefresh(): null {
   const runtimePhase = useWindowRuntime().snapshot.phase;

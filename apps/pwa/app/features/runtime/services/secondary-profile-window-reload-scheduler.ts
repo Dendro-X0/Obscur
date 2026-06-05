@@ -82,7 +82,7 @@ export const hasSecondaryProfileWindowReloadDone = hasSecondaryProfileWindowRefr
 
 /**
  * Schedules a one-time in-process DM refresh for secondary profile slots (non-default).
- * Avoids full window reload — callers supply the refresh action (native repair + re-hydrate).
+ * Avoids full window reload — callers supply the refresh action (sqlite re-hydrate).
  */
 export const scheduleSecondaryProfileWindowRefresh = (params: Readonly<{
   reason: SecondaryProfileWindowRefreshReason;

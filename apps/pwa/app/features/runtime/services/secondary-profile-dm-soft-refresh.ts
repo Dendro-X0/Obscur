@@ -1,7 +1,4 @@
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
-import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store";
-import { loadNativeOutgoingChatStateRepairMessages } from "@/app/features/messaging/services/dm-conversation-native-outgoing-repair";
-import { loadNativeOutgoingCommunityInviteRepairMessages } from "@/app/features/messaging/services/dm-conversation-native-invite-repair";
 import {
   dispatchMessagesIndexRebuiltEvent,
 } from "@/app/features/messaging/services/message-persistence-service";
@@ -18,16 +15,6 @@ export type SecondaryProfileDmSoftRefreshDetail = Readonly<{
   repairedMessageCount: number;
 }>;
 
-const listChatStateConversationIds = (params: Readonly<{
-  profileId: string;
-  myPublicKeyHex: PublicKeyHex;
-}>): ReadonlyArray<string> => {
-  const persisted = chatStateStoreService.load(params.myPublicKeyHex, { profileId: params.profileId });
-  return Object.keys(persisted?.messagesByConversationId ?? {}).filter((conversationId) => (
-    conversationId.trim().length > 0
-  ));
-};
-
 export const runSecondaryProfileDmSoftRefresh = (params: Readonly<{
   profileId: string;
   myPublicKeyHex: PublicKeyHex;
@@ -37,39 +24,17 @@ export const runSecondaryProfileDmSoftRefresh = (params: Readonly<{
     return { repairedMessageCount: 0, conversationCount: 0 };
   }
 
-  const conversationIds = listChatStateConversationIds({
+  dispatchMessagesIndexRebuiltEvent({
+    publicKeyHex: params.myPublicKeyHex,
     profileId: params.profileId,
-    myPublicKeyHex: params.myPublicKeyHex,
+    messageCount: 0,
   });
-  if (conversationIds.length === 0) {
-    return { repairedMessageCount: 0, conversationCount: 0 };
-  }
-
-  const inviteRepaired = loadNativeOutgoingCommunityInviteRepairMessages({
-    conversationIds,
-    myPublicKeyHex: params.myPublicKeyHex,
-    profileId: params.profileId,
-  });
-  const outgoingRepaired = loadNativeOutgoingChatStateRepairMessages({
-    conversationIds,
-    myPublicKeyHex: params.myPublicKeyHex,
-    profileId: params.profileId,
-  });
-  const repairedMessageCount = inviteRepaired.length + outgoingRepaired.length;
-
-  if (repairedMessageCount > 0) {
-    dispatchMessagesIndexRebuiltEvent({
-      publicKeyHex: params.myPublicKeyHex,
-      profileId: params.profileId,
-      messageCount: repairedMessageCount,
-    });
-  }
 
   const detail: SecondaryProfileDmSoftRefreshDetail = {
     profileId: params.profileId,
     reason: params.reason,
     forceIndexedAuthority: true,
-    repairedMessageCount,
+    repairedMessageCount: 0,
   };
   window.dispatchEvent(new CustomEvent(SECONDARY_PROFILE_DM_SOFT_REFRESH_EVENT, { detail }));
 
@@ -80,14 +45,14 @@ export const runSecondaryProfileDmSoftRefresh = (params: Readonly<{
     context: {
       profileId: params.profileId,
       reason: params.reason,
-      conversationCount: conversationIds.length,
-      repairedMessageCount,
+      conversationCount: 0,
+      repairedMessageCount: 0,
     },
   });
 
   return {
-    repairedMessageCount,
-    conversationCount: conversationIds.length,
+    repairedMessageCount: 0,
+    conversationCount: 0,
   };
 };
 

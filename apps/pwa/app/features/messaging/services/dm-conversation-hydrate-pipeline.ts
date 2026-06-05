@@ -40,8 +40,6 @@ import { mergeDirectionGapFromSupplemental } from "./dm-thread-read-model";
 import { requiresSqlitePersistence } from "@/app/features/runtime/native-persistence-policy";
 import { listAccountSharedSqliteProfileIds } from "@/app/features/profiles/services/account-shared-sqlite-profile-ids";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
-import { loadNativeOutgoingCommunityInviteRepairMessages } from "./dm-conversation-native-invite-repair";
-import { loadNativeOutgoingChatStateRepairMessages } from "./dm-conversation-native-outgoing-repair";
 
 const loadPersistedConversationFallbackMessages = (params: Readonly<{
   myPublicKeyHex: PublicKeyHex;
@@ -231,38 +229,8 @@ export async function runDmConversationHydrateReadModelPipeline(
     liveWindowSoftLimit: numeric.liveWindowSoftLimit,
   });
 
-  const nativeInviteRepairMessages = (
-    normalizedPublicKeyHex && profileIdForTombstones
-  )
-    ? loadNativeOutgoingCommunityInviteRepairMessages({
-      conversationIds,
-      myPublicKeyHex: normalizedPublicKeyHex,
-      profileId: profileIdForTombstones,
-    })
-    : [];
-
-  const nativeOutgoingRepairMessages = (
-    normalizedPublicKeyHex
-    && profileIdForTombstones
-  )
-    ? loadNativeOutgoingChatStateRepairMessages({
-      conversationIds,
-      myPublicKeyHex: normalizedPublicKeyHex,
-      profileId: profileIdForTombstones,
-    })
-    : [];
-
-  const nativeRepairMessages = dedupeMessagesByIdentity([
-    ...nativeInviteRepairMessages,
-    ...nativeOutgoingRepairMessages,
-  ]);
-
-  const mergedWithNativeRepair = nativeRepairMessages.length > 0
-    ? dedupeMessagesByIdentity([...assembled.finalMessages, ...nativeRepairMessages])
-    : assembled.finalMessages;
-
   const mergedFinalMessages = mergeDirectionGapFromSupplemental({
-    baseMessages: mergedWithNativeRepair,
+    baseMessages: assembled.finalMessages,
     supplementalMessages: persistedStateFallbackMessages,
     conversationIds,
     myPublicKeyHex: normalizedPublicKeyHex,
@@ -307,7 +275,7 @@ export async function runDmConversationHydrateReadModelPipeline(
     }
   }
 
-  const assembledWithInviteRepair: AssembleDmHydrateThreadReadModelResult = {
+  const assembledResult: AssembleDmHydrateThreadReadModelResult = {
     ...assembled,
     finalMessages: mergedFinalMessages,
   };
@@ -328,10 +296,10 @@ export async function runDmConversationHydrateReadModelPipeline(
 
   logDmHydrateReadModelTelemetry({
     previousAuthorityDiagnosticKey: params.previousAuthorityDiagnosticKey ?? null,
-    assembled: assembledWithInviteRepair,
+    assembled: assembledResult,
   });
 
-  return assembledWithInviteRepair;
+  return assembledResult;
 }
 
 export function logDmHydrateReadModelTelemetry(params: Readonly<{

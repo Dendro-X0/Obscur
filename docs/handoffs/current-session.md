@@ -1,8 +1,8 @@
 # Current Session Handoff — Obscur (native-first)
 
-- Last Updated (UTC): 2026-06-02T01:20:00Z
-- Git SHA: `f2f0ee83`
-- Session Status: **v1.9.4 — STAB-R closed; P4-5 subtraction band landed**
+- Last Updated (UTC): 2026-06-02T01:38:00Z
+- Git SHA: `f22cfa0b`
+- Session Status: **v1.9.4 — P4-5 subtraction queue item 1 landed (local)**
 
 ## North star (read first)
 
@@ -26,6 +26,18 @@ Manual Phase B matrix **de-prioritized** for loop hunting; product §2–§3 whe
 
 ---
 
+## P4-5 subtraction — repair shims removed (uncommitted)
+
+- Deleted `dm-conversation-native-outgoing-repair.ts` + `dm-conversation-native-invite-repair.ts` (+ tests).
+- Hydrate pipeline reads SQLite only — no chat-state repair merge on native.
+- `runSecondaryProfileDmSoftRefresh` dispatches sqlite index rebuild + re-hydrate event (no chat-state reads).
+
+Outgoing/invite writes already land in SQLite via `message-persistence-service` flush and `commitOutboundCommunityDmInvite`.
+
+**Gates (local):** `pnpm verify:stability` **Pass**
+
+---
+
 ## P4-5 subtraction band (`f2f0ee83`)
 
 1. **SQLite list authority** — `messaging-provider` merges `createdConnections` metadata only (not chat-state message threads) when authority is `sqlite`.
@@ -38,6 +50,6 @@ Tests: `messaging-provider.hydration-scope` (native ghost thread), `restore-merg
 
 ## Next atomic step
 
-1. Run `pnpm release:test-pack -- --skip-preflight` on `f2f0ee83`.
-2. Remaining subtraction queue: remove native repair shims (`dm-conversation-native-*-repair.ts`) once outgoing path always lands in SQLite.
+1. Commit repair-shim subtraction; run `pnpm release:test-pack -- --skip-preflight`.
+2. Subtraction queue remainder: wire relay checkpoint / call record owners (policy item 4).
 3. Optional: shell boot render-count test if maintainer still sees launch crashes outside CI.
