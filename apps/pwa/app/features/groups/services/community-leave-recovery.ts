@@ -88,3 +88,43 @@ export const resolveGroupConversationForLeaveRecovery = async (params: Readonly<
   }
   return fromPersistedGroupConversation(match);
 };
+
+export type RestoreRejectedCommunityLeaveResult = Readonly<{
+  restored: ReadonlyArray<GroupConversation>;
+  skippedNoPersistedEvidence: number;
+}>;
+
+/** Bulk revoke rejected leave intents when SQLite still holds the group row. */
+export const restoreRejectedCommunityLeaveIntents = async (params: Readonly<{
+  publicKeyHex: PublicKeyHex;
+  profileId: string;
+}>): Promise<RestoreRejectedCommunityLeaveResult> => {
+  const rejected = listRejectedCommunityLeaveOutboxItems(params.publicKeyHex, params.profileId);
+  const restored: GroupConversation[] = [];
+  let skippedNoPersistedEvidence = 0;
+
+  for (const item of rejected) {
+    const group = await resolveGroupConversationForLeaveRecovery({
+      publicKeyHex: params.publicKeyHex,
+      groupId: item.groupId,
+      relayUrl: item.relayUrl,
+      profileId: params.profileId,
+    });
+    if (!group) {
+      skippedNoPersistedEvidence += 1;
+      continue;
+    }
+    const revoked = revokeCommunityLeaveTerminalState({
+      publicKeyHex: params.publicKeyHex,
+      groupId: item.groupId,
+      relayUrl: item.relayUrl,
+      group,
+      profileId: params.profileId,
+    });
+    if (revoked) {
+      restored.push(group);
+    }
+  }
+
+  return { restored, skippedNoPersistedEvidence };
+};

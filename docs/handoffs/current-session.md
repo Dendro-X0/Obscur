@@ -1,8 +1,8 @@
 # Current Session Handoff — Obscur (native-first)
 
-- Last Updated (UTC): 2026-06-02T15:15:00Z
-- Git SHA: `ac682c11` + P5 persistence band (uncommitted)
-- Session Status: **P5 persistence survival — CI replaces manual persistence smoke**
+- Last Updated (UTC): 2026-06-02T16:20:00Z
+- Git SHA: `46bd6a67` + P5 recovery UX (uncommitted)
+- Session Status: **P5 persistence survival — recovery UX wired; CI gates green**
 
 ## North star
 
@@ -23,23 +23,24 @@ STAB settings, DM quorum, native drift skip, auto-disband seeded roster, native 
 
 ---
 
-## P5 (uncommitted)
+## P5
 
 | Band | Module | Gate |
 |------|--------|------|
 | P5-DM-2 | `dm-conversation-hydrate-indexed-scan` | 8-day-old SQLite row survives hydrate test |
 | P5-COM-2 | `community-leave-recovery.ts` | Revoke rejected leave → ledger `joined`, clear outbox/tombstone |
+| P5-COM-2 UX | `use-restore-rejected-community-leaves` + summary banner | Bulk restore + `addGroup(allowRevive)` |
 | P5-COM-3/4 | auto-disband + sqlite sync | existing tests |
-| Script | `pnpm verify:p5-persistence` | survival contracts |
+| Script | `pnpm verify:p5-persistence` | 21 tests pass |
 
-**Not yet:** UI "Restore communities" on summary banner; backup restore audit (P5-BKP-1).
+**Not yet:** P5-BKP-1 backup restore audit; P5-DM-1 write-before-success; P5-DM-3 hydrate/relay lookback grep gate.
 
 ---
 
 ## Next atomic step
 
-1. Commit P5 band; run `pnpm verify:p5-persistence`.
-2. Wire `CommunityLeaveOutboxSummaryBanner` → bulk revoke rejected + `hydrateGroupsForPublicKey` (recovery UX).
-3. P5-BKP-1: native backup restore subtraction (no chat-state DM body authority).
+1. P5-BKP-1: native backup restore subtraction (no chat-state DM body authority).
+2. P5-DM-1: strengthen tests that accepted DM writes hit SQLite before UI success.
+3. P5-DM-3: grep gate — hydrate paths must not use relay 7-day lookback constant.
 
 **Explicitly out of scope until P5 exits:** manual Phase B matrix for persistence rows.
