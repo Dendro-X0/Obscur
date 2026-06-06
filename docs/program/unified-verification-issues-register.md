@@ -1,6 +1,6 @@
 # Unified verification — issues register
 
-**Status:** v1.9.4 Phase B — **§0 + STAB-R + P4-5 subtraction closed** @ `02f1cb1b`  
+**Status:** v1.9.4 Phase B — **§0 + STAB-R + P4-5 + P5 + ACC-03/04 closed** @ `ab465e40`  
 **Policy:** [concentrated-version-delivery.md](./concentrated-version-delivery.md) · [ui-render-loop-systemic-program.md](./ui-render-loop-systemic-program.md)
 
 ---
@@ -50,7 +50,7 @@
 | P0 | 0 | 4 (STAB*) | 0 |
 | P1 | 0 | 0 | 4 (ACC-01–04) |
 
-**Next:** Product matrix rows (DM/COM) when maintainer chooses — P4-5 subtraction queue closed except deferred sqlite ancillary wiring (ACC-03/04).
+**Next:** Product matrix rows (DM/COM) when maintainer chooses — persistence and ancillary sqlite owners gated in CI; no open P1 ACC rows.
 
 ---
 
@@ -58,6 +58,7 @@
 
 | Date | Change |
 |------|--------|
+| 2026-06-02 | P5 + ACC-03/04 shipped @ `ab465e40`; `verify:p5-persistence` 64 tests |
 | 2026-06-02 | P4-5 subtraction + `release:test-pack` @ `02f1cb1b`; ACC-03/04 registered |
 | 2026-06-02 | STAB-R closed @ `2a1badf7`; register synced |
 | 2026-06-01 | v1.9.4 Phase B opened |

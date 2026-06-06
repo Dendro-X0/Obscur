@@ -67,4 +67,4 @@ UI: summary banner gains **Restore communities** when `rejectedCount > 0` (P5-CO
 
 ## Exit (2026-06-02)
 
-All P5 bands gated via `pnpm verify:p5-persistence` (54 tests). Post-P5 ancillary: **ACC-03** relay checkpoint sqlite owner; **ACC-04** call records deferred.
+All P5 bands gated via `pnpm verify:p5-persistence` (**64 tests**, 5 skipped @ `ab465e40`). Post-P5 ancillary complete: **ACC-03** relay checkpoint sqlite owner; **ACC-04** call records write + DM invite card read merge.

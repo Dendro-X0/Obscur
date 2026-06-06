@@ -1,8 +1,8 @@
 # Current Session Handoff — Obscur (native-first)
 
-- Last Updated (UTC): 2026-06-02T16:35:00Z
-- Git SHA: `a782e61d` + ACC-04 call history read (uncommitted)
-- Session Status: **Native ancillary SQLite complete · call cards read sqlite on native**
+- Last Updated (UTC): 2026-06-02T17:00:00Z
+- Git SHA: `ab465e40` @ `origin/main`
+- Session Status: **P5 + ACC-03/04 shipped · CI gates green**
 
 ## North star
 
@@ -34,7 +34,7 @@ STAB settings, DM quorum, native drift skip, auto-disband seeded roster, native 
 | P5-DM-1 | `message-persistence-service.test.ts` | SQLite write on confirmed eventId |
 | P5-DM-3 | `p5-persistence-authority-gates.test.ts` | 7d lookback only in `dm-relay-transport.ts` |
 | P5-COM-3/4 | auto-disband + sqlite sync | existing tests |
-| Script | `pnpm verify:p5-persistence` | **54 tests pass** |
+| Script | `pnpm verify:p5-persistence` | **64 tests pass** |
 
 ---
 
@@ -47,7 +47,16 @@ STAB settings, DM quorum, native drift skip, auto-disband seeded roster, native 
 
 ---
 
+## CI evidence (2026-06-02)
+
+| Gate | Result |
+|------|--------|
+| `pnpm verify:p5-persistence` | **64 passed**, 5 skipped |
+| `pnpm verify:stability` | **green** (phase1–3, react stability, gateway/transport boundaries) |
+
+---
+
 ## Next atomic step
 
-1. Push 16-commit stack when ready (`origin/main` behind).
-2. Product matrix / manual smoke only when maintainer chooses — CI gates are the bar.
+1. Pick next **v1.9.4 Phase B** product row from [unified-verification-matrix.md](../program/unified-verification-matrix.md) when maintainer chooses — persistence claims stay on CI (`verify:p5-persistence` + `verify:stability`).
+2. Optional: desktop smoke (`pnpm dev:desktop:online`) for Test 8 **Restore communities** UX — not required for ship evidence.
