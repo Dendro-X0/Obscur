@@ -68,6 +68,18 @@ const parsePersisted = (value: unknown): PersistedProfileV1 | null => {
 
 const toPersisted = (state: ProfileState): PersistedProfileV1 => ({ version: 1, profile: state.profile });
 
+const profileStatesEqual = (left: ProfileState, right: ProfileState): boolean => {
+  const a = left.profile;
+  const b = right.profile;
+  return (
+    a.username === b.username
+    && (a.about ?? "") === (b.about ?? "")
+    && a.avatarUrl === b.avatarUrl
+    && (a.nip05 ?? "") === (b.nip05 ?? "")
+    && (a.inviteCode ?? "") === (b.inviteCode ?? "")
+  );
+};
+
 let currentState: ProfileState = defaultState;
 const listeners: Set<() => void> = new Set();
 
@@ -76,6 +88,9 @@ const notify = (): void => {
 };
 
 const setState = (next: ProfileState): void => {
+  if (profileStatesEqual(currentState, next)) {
+    return;
+  }
   currentState = next;
   notify();
 };

@@ -1,7 +1,13 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { AccountProjectionSnapshot } from "../account-event-contracts";
 import { createDriftReport } from "./account-sync-drift-detector";
+
+vi.mock("@/app/features/runtime/native-persistence-policy", () => ({
+  requiresSqlitePersistence: vi.fn(() => false),
+}));
+
+import { requiresSqlitePersistence } from "@/app/features/runtime/native-persistence-policy";
 
 const SELF = "a".repeat(64) as PublicKeyHex;
 const PEER_B = "b".repeat(64) as PublicKeyHex;
@@ -86,6 +92,11 @@ const createProjection = (): AccountProjectionSnapshot => ({
 describe("account-sync-drift-detector", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(requiresSqlitePersistence).mockReturnValue(false);
+  });
+
+  afterEach(() => {
+    vi.mocked(requiresSqlitePersistence).mockReturnValue(false);
   });
 
   it("reports clean drift when contact and message counts match", () => {
@@ -130,5 +141,23 @@ describe("account-sync-drift-detector", () => {
 
     expect(report.criticalDriftCount).toBe(1);
     expect(report.domains).toContain("contacts");
+  });
+
+  it("skips message drift on native where SQLite owns DM timelines", () => {
+    vi.mocked(requiresSqlitePersistence).mockReturnValue(true);
+    driftMocks.chatStateLoad.mockReturnValue({
+      connectionRequests: [
+        { id: PEER_C, status: "pending", isOutgoing: false, introMessage: "", timestampMs: 1_000 },
+      ],
+      messagesByConversationId: {} as Record<string, ReadonlyArray<unknown>>,
+    });
+
+    const report = createDriftReport({
+      publicKeyHex: SELF,
+      projection: createProjection(),
+    });
+
+    expect(report.nonCriticalDriftCount).toBe(0);
+    expect(report.domains).not.toContain("messages");
   });
 });

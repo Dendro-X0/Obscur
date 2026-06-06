@@ -517,12 +517,6 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
         toast.warning(getRelayPublishFailureUserMessage({
           partialWireDelivery: true,
         }));
-      } else if (confirmation.deliveryStatus === "sent_partial") {
-        toast.warning(getRelayPublishFailureUserMessage({
-          reasonCode: "quorum_not_met",
-          successCount: confirmation.relayResults.filter(result => result.success).length,
-          totalRelays: confirmation.relayResults.length,
-        }));
       }
     };
 

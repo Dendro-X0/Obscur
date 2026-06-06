@@ -198,6 +198,22 @@ const assertRelayPrimarySelectionNoHintsReconcile = async () => {
   }
 };
 
+/** profile.revert in useEffect cleanup with [profile] dep retriggers revert every store notify. */
+const detectProfileRevertCleanupDepLoop = (source, relativePath) => {
+  if (!source.includes("profile.revert")) {
+    return;
+  }
+  if (
+    /useEffect\s*\(\s*\(\)\s*=>\s*\(\)\s*=>\s*\{[\s\S]*profile\.revert[\s\S]*\}\s*,\s*\[\s*profile\s*\]\s*\)/.test(source)
+  ) {
+    recordViolation(
+      relativePath,
+      "profile-revert-cleanup-dep-loop",
+      "useEffect cleanup calls profile.revert with [profile] deps — use a ref and unmount-only [] deps",
+    );
+  }
+};
+
 /** relayPool object identity in effect deps — prefer useRelayPoolRef(). */
 const detectRelayPoolObjectInEffectDeps = (source, relativePath) => {
   if (RELAY_POOL_EFFECT_ALLOWLIST.has(relativePath)) {
@@ -238,6 +254,7 @@ const main = async () => {
     detectBindingInsideUseWindowRuntime(source, file.relative);
     detectRelayPoolObjectInEffectDeps(source, file.relative);
     detectWindowRelayRuntimeEffectDeps(source, file.relative);
+    detectProfileRevertCleanupDepLoop(source, file.relative);
   }
   await assertBindingOwnerMounted();
   await assertRelayProviderUsesShellTransportReady();

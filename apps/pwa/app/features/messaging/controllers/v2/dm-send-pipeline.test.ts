@@ -283,6 +283,38 @@ describe("dm-send-pipeline", () => {
     expect(fallbackRelays.some(r => calledUrls.includes(r))).toBe(true);
   });
 
+  it("treats single-relay confirmation as quorum when multiple relays were targeted", async () => {
+    const onConfirmed = vi.fn();
+    const pool = createMockPool({
+      publishToUrls: vi.fn(async () => ({
+        success: true,
+        successCount: 1,
+        totalRelays: 2,
+        results: [
+          { relayUrl: "wss://relay1.example.com", success: true },
+          { relayUrl: "wss://relay2.example.com", success: false, error: "timeout" },
+        ],
+      })),
+    });
+
+    await sendDm({
+      pool,
+      senderPublicKeyHex: "a".repeat(64),
+      senderPrivateKeyHex: "b".repeat(64) as any,
+      recipientPublicKeyHex: "c".repeat(64),
+      plaintext: "partial redundancy ok",
+      onConfirmed,
+    });
+
+    await vi.waitFor(() => {
+      expect(onConfirmed).toHaveBeenCalled();
+    });
+    const confirmation = onConfirmed.mock.calls[0]![0];
+    expect(confirmation.success).toBe(true);
+    expect(confirmation.deliveryStatus).toBe("sent_quorum");
+    expect(confirmation.partialWireDelivery).toBe(false);
+  });
+
   it("reports failed confirmation with reason when no relays confirm", async () => {
     const onConfirmed = vi.fn();
     const pool = createMockPool({

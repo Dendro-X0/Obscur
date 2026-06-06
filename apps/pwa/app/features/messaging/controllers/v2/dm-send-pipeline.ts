@@ -173,8 +173,10 @@ const buildSendConfirmation = (params: Readonly<{
   const writableRelayCount = resolveWritableRelayCount(params.pool);
   const partialWireDelivery = params.firedToOpenCount > 0 && !params.publishSuccess;
   const effectiveSuccess = params.publishSuccess || params.firedToOpenCount > 0;
+  // DM transport quorum is 1 writable relay (see dm-relay-transport MIN_QUORUM).
+  // Partial redundancy (e.g. 1/2 relays) is not a user-facing failure when publish succeeded.
   const deliveryStatus = params.publishSuccess
-    ? (params.successCount >= 2 ? "sent_quorum" as const : "sent_partial" as const)
+    ? "sent_quorum" as const
     : (params.firedToOpenCount > 0 ? "sent_partial" as const : "failed" as const);
   const reasonCode = effectiveSuccess
     ? undefined

@@ -5,7 +5,6 @@ import { useTranslation } from "react-i18next";
 import { toast } from "@dweb/ui-kit";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
 import { useRelayPoolRef } from "@/app/features/relays/hooks/use-relay-pool-ref";
-import { deriveRelayNodeStatus, deriveRelayRuntimeStatus } from "@/app/features/relays/lib/relay-runtime-status";
 import { getApiBaseUrl } from "@/app/features/relays/utils/api-base-url";
 import { validateRelayUrl } from "@/app/features/relays/utils/validate-relay-url";
 import { assessRelayCapability, getCommunityModeDefinition } from "@/app/features/groups/services/community-mode-contract";
@@ -20,6 +19,7 @@ import {
   type RelayPresetId,
 } from "../settings-tab-panel-shared";
 import { useSettingsDestructiveActionsModel } from "./use-settings-destructive-actions-model";
+import { useSettingsRelayRuntimeStatus } from "./use-settings-relay-runtime-status";
 
 export function useRelaysSettingsModel(): SettingsTabPanelModel {
   const { t } = useTranslation();
@@ -169,21 +169,7 @@ export function useRelaysSettingsModel(): SettingsTabPanelModel {
     [pool.healthMetrics],
   );
 
-  const relayRuntimeStatus = useMemo(() => {
-    const totalCount = relayList.state.relays.filter((relay) => relay.enabled).length;
-    const enabledRelaySet = new Set(relayList.state.relays.filter((relay) => relay.enabled).map((relay) => relay.url));
-    const openCount = pool.connections.filter((connection) => connection.status === "open" && enabledRelaySet.has(connection.url)).length;
-    return deriveRelayRuntimeStatus({
-      openCount,
-      totalCount,
-      writableCount: relayRuntime.writableRelayCount,
-      subscribableCount: relayRuntime.subscribableRelayCount,
-      phase: relayRuntime.phase,
-      recoveryStage: relayRuntime.recoveryStage,
-      lastInboundEventAtUnixMs: relayRuntime.lastInboundEventAtUnixMs,
-      fallbackRelayCount: relayRuntime.fallbackRelayUrls.length,
-    });
-  }, [pool.connections, relayList.state.relays, relayRuntime]);
+  const relayRuntimeStatus = useSettingsRelayRuntimeStatus();
 
   const relayQuickHealth = useMemo(() => {
     const enabledRelays = relayList.state.relays.filter((relay) => relay.enabled);
@@ -365,8 +351,6 @@ export function useRelaysSettingsModel(): SettingsTabPanelModel {
     RELAY_PRESETS,
     apiHealth,
     applyRelayPreset,
-    deriveRelayNodeStatus,
-    deriveRelayRuntimeStatus,
     handleAddRelay,
     handleCheckApi,
     handleRefreshRelayStatus,
@@ -385,7 +369,6 @@ export function useRelaysSettingsModel(): SettingsTabPanelModel {
     relayList,
     relayQuickHealth,
     relayRuntime,
-    relayRuntimeStatus,
     relaySelection,
     setApiHealth,
     setNewRelayUrl,

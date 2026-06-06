@@ -55,10 +55,22 @@ Forbidden in production `useEffect` dependency arrays:
 - `relayPool` object identity (use `useRelayPoolRef` + connection signature)
 - `runtime.snapshot.relayRuntime.*` (use `useRelay()` or phase gates)
 - `hintsSignature` auto-reconcile in primary selection (supervisor-owned failover only)
+- `profile.revert` in effect cleanup with `[profile]` deps (use unmount-only ref)
 
 **Gate:** `scripts/verify-react-stability.mjs` (extend when a new loop class appears — **document the rule**, do not rely on maintainer memory).
 
 **Canonical patterns:** [ui-effect-stability-policy.md](./ui-effect-stability-policy.md)
+
+### Band R2b — Settings tab model composition (**STAB-SETTINGS-1**)
+
+| Rule | Enforcement |
+|------|-------------|
+| Cross-tab fields (`relayRuntimeStatus`, `deriveRelayRuntimeStatus`, `deriveRelayNodeStatus`) owned by **`useSettingsSharedModel`** | Merged in `createSettingsTabPanelModelProvider` |
+| Tab models return **tab-specific** fields only | Review |
+| Settings tab crash → **tab error boundary**, not root fatal boundary | `SettingsTabPanelErrorBoundary` in loader |
+| All 10 tab providers mount without throw | `settings-tab-panel-mount.stability.test.tsx` in `pnpm verify:stability` |
+
+---
 
 ### Band R3 — Activation single-shot (**owner**)
 

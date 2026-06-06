@@ -3,6 +3,7 @@
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store";
 import { peerTrustInternals } from "@/app/features/network/hooks/use-peer-trust";
+import { requiresSqlitePersistence } from "@/app/features/runtime/native-persistence-policy";
 import type { DriftReport, AccountProjectionSnapshot } from "../account-event-contracts";
 
 const STORAGE_KEY = "obscur.account_sync.drift_report.v1";
@@ -49,7 +50,10 @@ export const createDriftReport = (params: Readonly<{
 
   const acceptedDelta = Math.abs(legacyTrust.acceptedPeers.length - countProjectionAcceptedPeers(params.projection));
   const pendingDelta = Math.abs(legacyPendingCount - countProjectionPendingPeers(params.projection));
-  const messageDelta = Math.abs(legacyMessageCount - countProjectionMessages(params.projection));
+  // Native DM bodies live in SQLite; chat-state mirror intentionally omits message timelines.
+  const messageDelta = requiresSqlitePersistence()
+    ? 0
+    : Math.abs(legacyMessageCount - countProjectionMessages(params.projection));
   const domains: Array<"contacts" | "messages" | "sync"> = [];
   if (acceptedDelta > 0 || pendingDelta > 0) {
     domains.push("contacts");

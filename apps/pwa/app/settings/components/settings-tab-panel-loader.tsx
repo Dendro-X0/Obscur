@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import type { SettingsTabId } from "@/app/features/settings/services/settings-search-index";
 import { GlobalNavigationChunkLoadingBoundary } from "@/app/components/global-navigation-loading";
 import { settingsTabPanelModelProviderLoaders } from "../settings-tab-panel-models/settings-tab-panel-model-provider-registry";
+import { SettingsTabPanelErrorBoundary } from "./settings-tab-panel-error-boundary";
 
 /** Top-level nav bar only — no in-panel loading block while tab chunks load. */
 const settingsTabPanelLoading = (): React.JSX.Element => (
@@ -57,7 +58,9 @@ export function SettingsTabPanel(props: Readonly<{ activeTab: SettingsTabId }>):
   return (
     <div id={`settings-tab-panel-${props.activeTab}`} data-testid={`settings-tab-panel-${props.activeTab}`}>
       <ModelProvider>
-        <Panel />
+        <SettingsTabPanelErrorBoundary tabId={props.activeTab}>
+          <Panel />
+        </SettingsTabPanelErrorBoundary>
       </ModelProvider>
     </div>
   );

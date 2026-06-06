@@ -71,6 +71,7 @@ import {
 } from "../services/community-membership-sync-mode";
 import { shouldUseCoordinationMembershipAuthority } from "../services/community-workspace-r1-policy";
 import { hasWritableCommunityRelayTransport } from "../services/community-relay-transport";
+import { resolveCommunityAutoDisbandOnLeaveDecision } from "../services/community-auto-disband-policy";
 import { subscribeToMembershipEvents } from "../services/community-membership-sync";
 import {
   assertRelayPublishSuccess,
@@ -2536,14 +2537,15 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
   const leaveGroup = useCallback(async (): Promise<void> => {
     let disbandPublished = false;
     const relayTransportReady = hasWritableCommunityRelayTransport(params.relayUrl);
-    const activeMembersBeforeLeave = membersRef.current.filter((memberPubkey) => (
-      !leftMembersRef.current.includes(memberPubkey)
-      && !expelledMembersRef.current.includes(memberPubkey)
-    ));
-    const remainingKnownMembers = params.myPublicKeyHex
-      ? activeMembersBeforeLeave.filter((memberPubkey) => memberPubkey !== params.myPublicKeyHex)
-      : activeMembersBeforeLeave;
-    const shouldAttemptAutoDisband = remainingKnownMembers.length === 0;
+    const autoDisbandDecision = resolveCommunityAutoDisbandOnLeaveDecision({
+      liveMemberPubkeys: membersRef.current,
+      seededMemberPubkeys: params.initialMembers,
+      leftMemberPubkeys: leftMembersRef.current,
+      expelledMemberPubkeys: expelledMembersRef.current,
+      myPublicKeyHex: params.myPublicKeyHex,
+    });
+    const { shouldAttemptAutoDisband, remainingKnownMembers } = autoDisbandDecision;
+    const activeMembersBeforeLeave = autoDisbandDecision.activeMemberPubkeys;
 
     if (params.myPublicKeyHex && params.myPrivateKeyHex) {
       const profileId = getResolvedProfileId();

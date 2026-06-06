@@ -124,4 +124,26 @@ describe("useProfile restart recovery", () => {
     expect(result.current.state.profile.about).toBe("Work profile");
     expect(result.current.state.profile.inviteCode).toBe("OBSCUR-WORK77");
   });
+
+  it("revert restores persisted profile and repeated reverts are idempotent", () => {
+    const { result } = renderHook(() => useProfile());
+
+    act(() => {
+      result.current.setInviteCode({ inviteCode: "OBSCUR-SAVED1" });
+      result.current.save();
+    });
+
+    act(() => {
+      result.current.setInviteCode({ inviteCode: "OBSCUR-DRAFT" });
+    });
+    expect(result.current.state.profile.inviteCode).toBe("OBSCUR-DRAFT");
+
+    act(() => {
+      result.current.revert();
+      result.current.revert();
+      result.current.revert();
+    });
+
+    expect(result.current.state.profile.inviteCode).toBe("OBSCUR-SAVED1");
+  });
 });

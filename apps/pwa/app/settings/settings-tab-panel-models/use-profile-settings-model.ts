@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { useTranslation } from "react-i18next";
 import { toast } from "@dweb/ui-kit";
@@ -165,7 +165,13 @@ export function useProfileSettingsModel(): SettingsTabPanelModel {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profileValidation.isValid, profile.state.profile.username, profile.state.profile.about, profile.state.profile.nip05, profile.state.profile.avatarUrl, inviteCodeDraft]);
 
-  useEffect(() => () => { profile.revert(); }, [profile]);
+  const profileRevertRef = useRef(profile.revert);
+  profileRevertRef.current = profile.revert;
+  useEffect(() => {
+    return () => {
+      profileRevertRef.current();
+    };
+  }, []);
 
   const resolveActivePrivateKeyHex = async (): Promise<PrivateKeyHex | null> => {
     if (identity.state.privateKeyHex && identity.state.privateKeyHex !== NATIVE_KEY_SENTINEL) {

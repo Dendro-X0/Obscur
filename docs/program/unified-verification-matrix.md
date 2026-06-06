@@ -34,7 +34,7 @@ Row-level `[P]`/`[F]` marks in sections below remain optional detail; band exit 
 | Build | `pnpm dev:desktop:online` |
 | Coordination URL | `[-]` (optional for §4) |
 | Relay | `pnpm dev:relay` or `[-]` |
-| Phase A exit | P4-5 + STAB-R **done** @ `2a1badf7` |
+| Phase A exit | P4-5 + STAB-R **done** @ `02f1cb1b` |
 | §0 automated | **All Pass** — 2026-06-02 (includes STAB-R smoke) |
 | Manual pending | §1–§7 product rows only (not loop hunting) |
 

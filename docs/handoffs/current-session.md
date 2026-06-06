@@ -1,49 +1,66 @@
 # Current Session Handoff — Obscur (native-first)
 
-- Last Updated (UTC): 2026-06-02T02:00:00Z
-- Git SHA: `3b7c5c92`
-- Session Status: **v1.9.4 — P4-5 subtraction queue closed**
+- Last Updated (UTC): 2026-06-02T03:57:00Z
+- Git SHA: uncommitted (STAB-SETTINGS-1 + DM relay quorum + drift native)
+- Session Status: **P4-5 DB alignment + DM send UX**
 
-## North star (read first)
+## North star
 
-**[ui-render-loop-systemic-program.md](../program/ui-render-loop-systemic-program.md)** — render-loop CI bands R1–R3.
-
-**[obscur-native-sqlite-policy.md](../program/obscur-native-sqlite-policy.md)** — native owner matrix; subtraction queue **closed**.
-
-Manual Phase B matrix **de-prioritized** for loop hunting; product §2–§3 when maintainer chooses.
+**[ui-render-loop-systemic-program.md](../program/ui-render-loop-systemic-program.md)** — Band R3 **STAB-SETTINGS-1** (settings shared model + tab error boundaries).
 
 ---
 
-## Committed this session
+## Latest (uncommitted)
 
-| SHA | Summary |
-|-----|---------|
-| `3b7c5c92` | P4-5 — typecheck fixes; ACC-03/04; subtraction queue closed in docs |
-| `02f1cb1b` | P4-5 — remove native chat-state DM repair shims |
-| `f2f0ee83` | P4-5 — native SQLite list authority; backup restore body strip |
-| `a436a168` | API `_api` → `api`, packaging helpers, main-shell UV-RUNTIME-1 test |
-| `2a1badf7` | STAB-R — relay/window render loop fix + CI gates |
+### Test 8 / group disappearance (COM persistence)
 
-**Gates @ `02f1cb1b`:** `pnpm verify:stability` + `pnpm release:test-pack -- --skip-preflight` **Pass**
+**Symptom:** Group "Test 8" gone from Network → Groups for both A and B. Banner: *"Leave confirmations pending on relay … N relay declined. Local leave is already recorded."*
+
+**Not a SQLite list-authority bug.** Groups tab reads `createdGroups` from `group-provider`; visibility is gated by **membership ledger + leave outbox + tombstones** (REL-001), not missing SQLite rows.
+
+**Root cause (most likely):**
+1. Explicit **local leave** ran on at least one profile (`leaveGroup` / `removeGroupConversation` → ledger `left` + leave outbox + tombstone).
+2. Leave page applies local exit **before** relay confirm (`groups/leave/page.tsx` → `applyLocalLeave()` first).
+3. Relay leave/disband publish **failed** → outbox stays `rejected` → banner ("relay declined"). Relay failure does **not** restore membership.
+4. **Auto-disband cascade:** when leaver's live CRDT roster showed no other members, `use-sealed-community` attempted disband → `dispatchGroupRemove` on recipient → both profiles can lose the group locally even when relay never confirmed.
+
+**Fix (uncommitted):** `community-auto-disband-policy.ts` — auto-disband uses seeded roster (`initialMembers` / directory / persisted `memberPubkeys`) in addition to live CRDT members, so a stale relay roster cannot disband when local join evidence still lists another member.
+
+**Recovery for Test 8:** Local terminal state must be cleared or overridden — fresh invite + `addGroup(..., { allowRevive: true })`, or manual purge of leave outbox (`obscur.group.leave_outbox.v1.*`), membership ledger `left` entry, and group tombstone for that `groupId@@relayUrl`.
+
+### DM relay false warning (1/2 relays)
+
+**Problem:** Toast *"Relay confirmation was partial (1/2)…"* on every send despite A↔B delivery.
+
+**Root cause:** `buildSendConfirmation` required `successCount >= 2` for `sent_quorum`; transport `MIN_QUORUM` is 1. Confirmed publish → `sent_partial` → warning toast in `dm-controller`.
+
+**Fix:** Align confirmation with transport quorum (`sent_quorum` when publish succeeded); remove redundant quorum toast branch. Test: partial redundancy 1/2 → `sent_quorum`.
+
+### Native drift detector (P4-5)
+
+**Problem:** Drift report compared chat-state message counts vs projection on native; chat-state mirror intentionally strips DM bodies (SQLite authority) → perpetual message drift.
+
+**Fix:** Skip message-domain delta when `requiresSqlitePersistence()`. Test added.
 
 ---
 
-## P4-5 subtraction — complete
+## STAB-SETTINGS-1 (uncommitted) — stop settings whack-a-mole
 
-| Item | SHA / register |
-|------|----------------|
-| Repair shims removed | `02f1cb1b` |
-| Metadata-only sqlite list merge | `f2f0ee83` |
-| Native backup restore body strip | `f2f0ee83` |
-| Relay checkpoints / call records | **ACC-03/04** in [issues register](../program/unified-verification-issues-register.md) |
+**Problem:** Each settings tab had an isolated model (`Record<string, unknown>`). Panels copied the monolithic `_settings-original.tsx` destructuring list; tabs crashed when a field existed on Relays but not Storage (and vice versa).
 
-Native DM/group message authority is **SQLite-only** on hydrate, list, and restore apply paths.
+**Fix (composition, not per-tab patches):**
+
+1. **`useSettingsSharedModel`** — single owner for `relayRuntimeStatus`, `deriveRelayRuntimeStatus`, `deriveRelayNodeStatus`.
+2. **`createSettingsTabPanelModelProvider`** — merges `{ ...shared, ...tab }` for every tab automatically.
+3. **`SettingsTabPanelErrorBoundary`** — tab crash stays in-tab; root app keeps running.
+4. **CI:** `settings-tab-panel-mount.stability.test.tsx` mounts all 10 tab providers; `pnpm verify:stability` **Pass**.
+
+Also: STAB-P1 profile `revert()` loop fix; STAB-P2 storage relay field (superseded by shared model).
 
 ---
 
 ## Next atomic step
 
-1. Commit typecheck fixes + register/policy/handoff sync (this turn).
-2. **Phase B product matrix** §1–§7 when maintainer chooses (DM/COM flows — not loop hunting).
-3. Optional: shell boot render-count test if launch crashes persist outside CI.
-4. v2.0 pipeline: wire per-relay checkpoint owner (ACC-03) and call history persistence (ACC-04).
+1. Rebuild desktop; recreate "Test 8" or recover via fresh invite after clearing terminal leave state.
+2. Verify leave on creator profile when member B is in directory/roster — group must **not** auto-disband for B.
+3. Commit auto-disband band + DM relay/drift fixes when ready.
