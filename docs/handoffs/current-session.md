@@ -1,66 +1,46 @@
 # Current Session Handoff — Obscur (native-first)
 
-- Last Updated (UTC): 2026-06-02T03:57:00Z
-- Git SHA: uncommitted (STAB-SETTINGS-1 + DM relay quorum + drift native)
-- Session Status: **P4-5 DB alignment + DM send UX**
+- Last Updated (UTC): 2026-06-02T15:06:00Z
+- Git SHA: `1ec2e385` + `P3d addGroup sqlite` (pending push)
+- Session Status: **Stability band landed; P3d group list sync**
 
 ## North star
 
-**[ui-render-loop-systemic-program.md](../program/ui-render-loop-systemic-program.md)** — Band R3 **STAB-SETTINGS-1** (settings shared model + tab error boundaries).
+**[ui-render-loop-systemic-program.md](../program/ui-render-loop-systemic-program.md)** — Band R3 **STAB-SETTINGS-1** closed @ `1ec2e385`.
 
 ---
 
-## Latest (uncommitted)
+## Landed @ `1ec2e385`
 
-### Test 8 / group disappearance (COM persistence)
+| Band | Deliverable |
+|------|-------------|
+| STAB-SETTINGS-1 | Shared settings model + tab error boundaries + mount CI |
+| STAB-P1 | Profile `revert()` unmount-only; `use-profile` setState dedup |
+| DM send | `sent_quorum` when publish succeeds (no false 1/2 relay toast) |
+| P4-5 drift | Skip message-domain drift on native SQLite authority |
+| COM leave | Auto-disband uses seeded roster (`community-auto-disband-policy`) |
 
-**Symptom:** Group "Test 8" gone from Network → Groups for both A and B. Banner: *"Leave confirmations pending on relay … N relay declined. Local leave is already recorded."*
-
-**Not a SQLite list-authority bug.** Groups tab reads `createdGroups` from `group-provider`; visibility is gated by **membership ledger + leave outbox + tombstones** (REL-001), not missing SQLite rows.
-
-**Root cause (most likely):**
-1. Explicit **local leave** ran on at least one profile (`leaveGroup` / `removeGroupConversation` → ledger `left` + leave outbox + tombstone).
-2. Leave page applies local exit **before** relay confirm (`groups/leave/page.tsx` → `applyLocalLeave()` first).
-3. Relay leave/disband publish **failed** → outbox stays `rejected` → banner ("relay declined"). Relay failure does **not** restore membership.
-4. **Auto-disband cascade:** when leaver's live CRDT roster showed no other members, `use-sealed-community` attempted disband → `dispatchGroupRemove` on recipient → both profiles can lose the group locally even when relay never confirmed.
-
-**Fix (uncommitted):** `community-auto-disband-policy.ts` — auto-disband uses seeded roster (`initialMembers` / directory / persisted `memberPubkeys`) in addition to live CRDT members, so a stale relay roster cannot disband when local join evidence still lists another member.
-
-**Recovery for Test 8:** Local terminal state must be cleared or overridden — fresh invite + `addGroup(..., { allowRevive: true })`, or manual purge of leave outbox (`obscur.group.leave_outbox.v1.*`), membership ledger `left` entry, and group tombstone for that `groupId@@relayUrl`.
-
-### DM relay false warning (1/2 relays)
-
-**Problem:** Toast *"Relay confirmation was partial (1/2)…"* on every send despite A↔B delivery.
-
-**Root cause:** `buildSendConfirmation` required `successCount >= 2` for `sent_quorum`; transport `MIN_QUORUM` is 1. Confirmed publish → `sent_partial` → warning toast in `dm-controller`.
-
-**Fix:** Align confirmation with transport quorum (`sent_quorum` when publish succeeded); remove redundant quorum toast branch. Test: partial redundancy 1/2 → `sent_quorum`.
-
-### Native drift detector (P4-5)
-
-**Problem:** Drift report compared chat-state message counts vs projection on native; chat-state mirror intentionally strips DM bodies (SQLite authority) → perpetual message drift.
-
-**Fix:** Skip message-domain delta when `requiresSqlitePersistence()`. Test added.
+`pnpm verify:stability` **Pass** (47 tests + grep gates).
 
 ---
 
-## STAB-SETTINGS-1 (uncommitted) — stop settings whack-a-mole
+## Landed (follow-up commit)
 
-**Problem:** Each settings tab had an isolated model (`Record<string, unknown>`). Panels copied the monolithic `_settings-original.tsx` destructuring list; tabs crashed when a field existed on Relays but not Storage (and vice versa).
+**P3d:** `scheduleNativeGroupListSync` on `addGroup` / `updateGroup` — SQLite upsert at create time, not only hydrate.
 
-**Fix (composition, not per-tab patches):**
+---
 
-1. **`useSettingsSharedModel`** — single owner for `relayRuntimeStatus`, `deriveRelayRuntimeStatus`, `deriveRelayNodeStatus`.
-2. **`createSettingsTabPanelModelProvider`** — merges `{ ...shared, ...tab }` for every tab automatically.
-3. **`SettingsTabPanelErrorBoundary`** — tab crash stays in-tab; root app keeps running.
-4. **CI:** `settings-tab-panel-mount.stability.test.tsx` mounts all 10 tab providers; `pnpm verify:stability` **Pass**.
+## Test 8 / group disappearance (diagnosis)
 
-Also: STAB-P1 profile `revert()` loop fix; STAB-P2 storage relay field (superseded by shared model).
+Local **leave intent** (ledger + outbox + tombstone) hid the group — not missing SQLite rows. Banner *"relay declined"* = relay publish failed after local exit; does not restore membership. Auto-disband on stale CRDT roster could cascade to both profiles; seeded-roster guard @ `1ec2e385` mitigates.
+
+**Recovery:** Fresh invite + `allowRevive`, or clear leave outbox / ledger `left` / tombstone for that `groupId@@relayUrl`.
 
 ---
 
 ## Next atomic step
 
-1. Rebuild desktop; recreate "Test 8" or recover via fresh invite after clearing terminal leave state.
-2. Verify leave on creator profile when member B is in directory/roster — group must **not** auto-disband for B.
-3. Commit auto-disband band + DM relay/drift fixes when ready.
+1. Manual smoke: create community on desktop → restart → group still in Network list (SQLite + chat-state).
+2. Manual smoke: creator leaves while member B visible in roster → B must keep group (no auto-disband).
+3. Product matrix rows (DM/COM) when maintainer chooses.
+4. Deferred: backup restore audit (`encrypted-account-backup-service.ts`); ACC-03/04 sqlite wiring (v2.0).
