@@ -1,12 +1,12 @@
 # Current Session Handoff — Obscur (native-first)
 
 - Last Updated (UTC): 2026-06-02T16:35:00Z
-- Git SHA: `a6b85918` + ACC-04 call record owner (uncommitted)
-- Session Status: **Native ancillary SQLite owners complete (ACC-03/04)**
+- Git SHA: `a782e61d` + ACC-04 call history read (uncommitted)
+- Session Status: **Native ancillary SQLite complete · call cards read sqlite on native**
 
 ## North star
 
-**[obscur-native-sqlite-policy.md](../program/obscur-native-sqlite-policy.md)** — native SQLite owner matrix. Persistence claims: `pnpm verify:p5-persistence` (**62 tests**).
+**[obscur-native-sqlite-policy.md](../program/obscur-native-sqlite-policy.md)** — native SQLite owner matrix. Persistence claims: `pnpm verify:p5-persistence` (**64 tests**).
 
 ---
 
@@ -43,11 +43,11 @@ STAB settings, DM quorum, native drift skip, auto-disband seeded roster, native 
 | Band | Module | Behavior |
 |------|--------|----------|
 | ACC-03 | `relay-checkpoint-sqlite-store.ts` | Mirror `dm:all` → per-relay SQLite on sync + restore |
-| ACC-04 | `call-record-sqlite-store.ts` | Terminal calls → `call_records` from `call-state-runtime` |
+| ACC-04 | `call-record-sqlite-store.ts` | Terminal calls → `call_records`; DM invite cards merge sqlite summaries |
 
 ---
 
 ## Next atomic step
 
-1. Product matrix / manual smoke only when maintainer chooses — CI gates are the bar.
-2. Optional: call history UI reads `loadSqliteCallRecords` on native.
+1. Push 16-commit stack when ready (`origin/main` behind).
+2. Product matrix / manual smoke only when maintainer chooses — CI gates are the bar.

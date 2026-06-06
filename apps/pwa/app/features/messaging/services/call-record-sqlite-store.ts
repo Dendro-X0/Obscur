@@ -13,6 +13,7 @@ import {
   type CallRecord,
 } from "@dweb/db";
 import { requiresSqlitePersistence } from "@/app/features/runtime/native-persistence-policy";
+import type { VoiceCallRoomRenderSummary } from "../components/message-list-render-meta";
 import type { CallStatus } from "./call-state-crdt";
 
 export type TerminalCallHint = "declined" | "ended" | "timeout";
@@ -115,4 +116,65 @@ export const loadSqliteCallRecords = async (
   } catch {
     return [];
   }
+};
+
+export const mapCallRecordToVoiceCallRoomSummary = (
+  record: CallRecord,
+): VoiceCallRoomRenderSummary => {
+  const connectedAtUnixMs = record.status === "answered" || record.status === "ended"
+    ? record.started_at
+    : null;
+  const endedAtUnixMs = record.ended_at;
+  const endedNormally = record.status === "answered" || record.status === "ended";
+  const durationSeconds = typeof record.duration_ms === "number"
+    ? Math.max(0, Math.floor(record.duration_ms / 1000))
+    : (connectedAtUnixMs !== null && endedAtUnixMs !== null
+      ? Math.max(0, Math.floor((endedAtUnixMs - connectedAtUnixMs) / 1000))
+      : null);
+
+  return {
+    roomId: record.call_id,
+    invitedAtUnixMs: record.started_at ?? endedAtUnixMs,
+    expiresAtUnixMs: null,
+    connectedAtUnixMs,
+    endedAtUnixMs,
+    endedNormally,
+    durationSeconds,
+  };
+};
+
+/** Prefer sqlite terminal evidence when DM timeline rows are incomplete after restart. */
+export const mergeVoiceCallRoomSummaries = (
+  fromMessages: VoiceCallRoomRenderSummary | null,
+  fromSqlite: VoiceCallRoomRenderSummary | null,
+): VoiceCallRoomRenderSummary | null => {
+  if (!fromMessages && !fromSqlite) {
+    return null;
+  }
+  if (!fromMessages) {
+    return fromSqlite;
+  }
+  if (!fromSqlite) {
+    return fromMessages;
+  }
+  return {
+    roomId: fromMessages.roomId,
+    invitedAtUnixMs: fromMessages.invitedAtUnixMs ?? fromSqlite.invitedAtUnixMs,
+    expiresAtUnixMs: fromMessages.expiresAtUnixMs ?? fromSqlite.expiresAtUnixMs,
+    connectedAtUnixMs: fromMessages.connectedAtUnixMs ?? fromSqlite.connectedAtUnixMs,
+    endedAtUnixMs: fromSqlite.endedAtUnixMs ?? fromMessages.endedAtUnixMs,
+    endedNormally: fromMessages.endedNormally || fromSqlite.endedNormally,
+    durationSeconds: fromMessages.durationSeconds ?? fromSqlite.durationSeconds,
+  };
+};
+
+export const loadNativeCallRecordSummaryIndex = async (
+  profileId: string,
+): Promise<ReadonlyMap<string, VoiceCallRoomRenderSummary>> => {
+  const records = await loadSqliteCallRecords(profileId);
+  const index = new Map<string, VoiceCallRoomRenderSummary>();
+  records.forEach((record) => {
+    index.set(record.call_id, mapCallRecordToVoiceCallRoomSummary(record));
+  });
+  return index;
 };

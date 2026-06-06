@@ -2,7 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 import {
   buildTerminalCallRecord,
   loadSqliteCallRecords,
+  mapCallRecordToVoiceCallRoomSummary,
   mapTerminalCallStatusToSqliteStatus,
+  mergeVoiceCallRoomSummaries,
   persistTerminalCallRecordFromStatus,
   upsertTerminalCallRecord,
 } from "./call-record-sqlite-store";
@@ -89,6 +91,54 @@ describe("call-record-sqlite-store (ACC-04)", () => {
     });
     expect(persisted).toBe(true);
     expect(dbMocks.dbInsertCallRecord).toHaveBeenCalled();
+  });
+
+  it("maps sqlite call records into voice-call invite card summaries", () => {
+    const summary = mapCallRecordToVoiceCallRoomSummary({
+      call_id: "room-1",
+      profile_id: "default",
+      peer_pubkey: PEER,
+      initiated_by: ACCOUNT,
+      status: "answered",
+      started_at: 1_000,
+      ended_at: 9_000,
+      duration_ms: 8_000,
+    });
+    expect(summary).toEqual({
+      roomId: "room-1",
+      invitedAtUnixMs: 1_000,
+      expiresAtUnixMs: null,
+      connectedAtUnixMs: 1_000,
+      endedAtUnixMs: 9_000,
+      endedNormally: true,
+      durationSeconds: 8,
+    });
+  });
+
+  it("prefers sqlite terminal end time when DM timeline is incomplete", () => {
+    const merged = mergeVoiceCallRoomSummaries(
+      {
+        roomId: "room-1",
+        invitedAtUnixMs: 1_000,
+        expiresAtUnixMs: 5_000,
+        connectedAtUnixMs: null,
+        endedAtUnixMs: null,
+        endedNormally: false,
+        durationSeconds: null,
+      },
+      {
+        roomId: "room-1",
+        invitedAtUnixMs: 1_000,
+        expiresAtUnixMs: null,
+        connectedAtUnixMs: 2_000,
+        endedAtUnixMs: 10_000,
+        endedNormally: true,
+        durationSeconds: 8,
+      },
+    );
+    expect(merged?.endedAtUnixMs).toBe(10_000);
+    expect(merged?.endedNormally).toBe(true);
+    expect(merged?.durationSeconds).toBe(8);
   });
 
   it("loads sqlite call records on native", async () => {

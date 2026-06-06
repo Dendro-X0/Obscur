@@ -67,6 +67,8 @@ import {
     type InviteResponseStatus,
     type VoiceCallRoomRenderSummary,
 } from "./message-list-render-meta";
+import { useNativeCallRecordIndex } from "../hooks/use-native-call-record-index";
+import { mergeVoiceCallRoomSummaries } from "../services/call-record-sqlite-store";
 
 interface MessageListProps {
     conversationId?: string;
@@ -1025,6 +1027,8 @@ function MessageListImpl({
         });
     }, []);
 
+    const nativeCallRecordSummaryByRoomId = useNativeCallRecordIndex();
+
     const {
         inviteResponseStatusByMessageId,
         renderMetaByMessageId,
@@ -1167,7 +1171,10 @@ function MessageListImpl({
                                 const voiceCallRoomSummary = (
                                     parsedPayload?.type === "voice-call-invite" && typeof parsedPayload.roomId === "string"
                                 )
-                                    ? (voiceCallRoomSummaryByRoomId.get(parsedPayload.roomId) ?? null)
+                                    ? mergeVoiceCallRoomSummaries(
+                                        voiceCallRoomSummaryByRoomId.get(parsedPayload.roomId) ?? null,
+                                        nativeCallRecordSummaryByRoomId.get(parsedPayload.roomId) ?? null,
+                                    )
                                     : null;
                                 const timeLabel = formatTime(message.timestamp, nowMs);
 
