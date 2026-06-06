@@ -1,12 +1,26 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { GroupRecord } from "@dweb/db";
 import {
   groupConversationToSqliteRecord,
   mergePersistedGroupRowsForNativeHydrate,
+  scheduleNativeGroupListSync,
   sqliteGroupRecordToPersistedGroup,
 } from "./community-group-sqlite-store";
 import type { GroupConversation } from "@/app/features/messaging/types";
+
+vi.mock("@/app/features/runtime/native-persistence-policy", () => ({
+  requiresSqlitePersistence: vi.fn(() => true),
+}));
+
+vi.mock("@dweb/db", () => ({
+  isTauri: vi.fn(() => true),
+  dbUpsertGroup: vi.fn(async () => undefined),
+  dbGetGroups: vi.fn(async () => []),
+}));
+
+import { requiresSqlitePersistence } from "@/app/features/runtime/native-persistence-policy";
+import { dbUpsertGroup } from "@dweb/db";
 
 const LOCAL = "a".repeat(64) as PublicKeyHex;
 
@@ -71,5 +85,20 @@ describe("community-group-sqlite-store (P3d)", () => {
     expect(merged).toHaveLength(1);
     expect(merged[0]?.displayName).toBe("Chat State");
     expect(merged[0]?.memberPubkeys).toHaveLength(2);
+  });
+
+  it("schedules sqlite upsert when native persistence is required", async () => {
+    vi.mocked(requiresSqlitePersistence).mockReturnValue(true);
+    scheduleNativeGroupListSync([sampleGroup()], "profile-a");
+    await vi.waitFor(() => {
+      expect(dbUpsertGroup).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("skips sqlite sync when native persistence is not required", async () => {
+    vi.mocked(requiresSqlitePersistence).mockReturnValue(false);
+    vi.mocked(dbUpsertGroup).mockClear();
+    scheduleNativeGroupListSync([sampleGroup()], "profile-a");
+    expect(dbUpsertGroup).not.toHaveBeenCalled();
   });
 });

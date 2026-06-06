@@ -96,3 +96,14 @@ export const syncGroupConversationsToSqlite = async (
     groups.map((group) => dbUpsertGroup(groupConversationToSqliteRecord(group, profileId)).catch(() => undefined)),
   );
 };
+
+/** Fire-and-forget native list sync after chat-state group mutations (create/update). */
+export const scheduleNativeGroupListSync = (
+  groups: ReadonlyArray<GroupConversation>,
+  profileId: string,
+): void => {
+  if (!requiresSqlitePersistence() || groups.length === 0) {
+    return;
+  }
+  void syncGroupConversationsToSqlite(groups, profileId);
+};

@@ -126,6 +126,7 @@ import {
 import {
     loadSqliteGroupPersistedRows,
     mergePersistedGroupRowsForNativeHydrate,
+    scheduleNativeGroupListSync,
     syncGroupConversationsToSqlite,
 } from "@/app/features/groups/services/community-group-sqlite-store";
 import { requiresSqlitePersistence } from "@/app/features/runtime/native-persistence-policy";
@@ -918,8 +919,8 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setCreatedGroups(prev => {
             const normalized = sanitizeGroup(group);
             const pk = getPublicKeyHex();
+            const profileId = getResolvedProfileId();
             if (pk) {
-                const profileId = getResolvedProfileId();
                 const tombstoned = isGroupTombstoned(pk, { groupId: normalized.groupId, relayUrl: normalized.relayUrl }, { profileId });
                 if (tombstoned && !options?.allowRevive) {
                     return prev;
@@ -949,8 +950,10 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                         kind: options?.allowRevive ? "user_explicit_rejoin" : "user_explicit_join",
                         group: merged,
                     });
+                    scheduleNativeGroupListSync(next, profileId);
                 } else if (pk) {
                     chatStateStoreService.updateGroups(pk, next.map(g => toPersistedGroupConversation(g)));
+                    scheduleNativeGroupListSync(next, profileId);
                 }
                 setCommunityRosterByConversationId((previous) => (
                     previous[merged.id]
@@ -973,8 +976,10 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                     kind: options?.allowRevive ? "user_explicit_rejoin" : "user_explicit_join",
                     group: normalized,
                 });
+                scheduleNativeGroupListSync(next, profileId);
             } else if (pk) {
                 chatStateStoreService.updateGroups(pk, next.map(g => toPersistedGroupConversation(g)));
+                scheduleNativeGroupListSync(next, profileId);
             }
             setCommunityRosterByConversationId((previous) => ({
                 ...previous,
@@ -1001,6 +1006,7 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                     kind: "runtime_membership_confirmed",
                     group: next[index],
                 });
+                scheduleNativeGroupListSync(next, getResolvedProfileId());
             }
             return next;
         });
