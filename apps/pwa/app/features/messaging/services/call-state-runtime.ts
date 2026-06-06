@@ -40,6 +40,10 @@ import {
   type CallStateCRDT as CallStateCRDTType,
   type CallStatus as CallStatusType,
 } from "./call-state-crdt.js";
+import {
+  persistTerminalCallRecordFromStatus,
+  type TerminalCallHint,
+} from "./call-record-sqlite-store.js";
 
 /** Call signal types from Nostr events */
 export type CallSignalType =
@@ -89,6 +93,42 @@ const callStates = new Map<string, CallStateCRDTType>();
 
 /** Event handlers by profile */
 const callEventHandlers = new Map<string, CallEventHandler[]>();
+
+const mirrorTerminalCallToSqlite = (
+  profileId: string,
+  callId: string,
+  now: number,
+  options?: Readonly<{
+    accountPublicKeyHex?: string;
+    terminalHint?: TerminalCallHint;
+  }>,
+): void => {
+  const state = getCallStateForProfile(profileId);
+  const status = getCallStatus(state, callId, now);
+  void persistTerminalCallRecordFromStatus({
+    profileId,
+    status,
+    accountPublicKeyHex: options?.accountPublicKeyHex,
+    terminalHint: options?.terminalHint,
+  }).catch(() => undefined);
+};
+
+const mirrorExpiredCallsBeforeCleanup = (
+  profileId: string,
+  state: CallStateCRDTType,
+  now: number,
+  accountPublicKeyHex?: string,
+): void => {
+  for (const callId of state.calls.keys()) {
+    const status = getCallStatus(state, callId, now);
+    if (status.state === "ended" || status.state === "expired") {
+      mirrorTerminalCallToSqlite(profileId, callId, now, {
+        accountPublicKeyHex,
+        terminalHint: status.isExpired ? "timeout" : "ended",
+      });
+    }
+  }
+};
 
 /**
  * Get or create call state CRDT for profile.
@@ -155,7 +195,8 @@ export const parseCallSignal = (event: NostrEvent): CallSignal | null => {
 export const processCallSignal = (
   profileId: string,
   event: NostrEvent,
-  now: number = Date.now()
+  now: number = Date.now(),
+  options?: Readonly<{ accountPublicKeyHex?: string }>,
 ): void => {
   const signal = parseCallSignal(event);
   if (!signal) return;
@@ -203,6 +244,19 @@ export const processCallSignal = (
   // Store updated state
   callStates.set(profileId, newState);
 
+  if (signal.type === "call-end") {
+    mirrorTerminalCallToSqlite(profileId, signal.callId, now, {
+      accountPublicKeyHex: options?.accountPublicKeyHex,
+      terminalHint: "ended",
+    });
+  }
+  if (signal.type === "call-reject") {
+    mirrorTerminalCallToSqlite(profileId, signal.callId, now, {
+      accountPublicKeyHex: options?.accountPublicKeyHex,
+      terminalHint: "declined",
+    });
+  }
+
   // Get current status
   const status = getCallStatus(newState, signal.callId, now);
 
@@ -219,6 +273,7 @@ export const processCallSignal = (
 
   // Cleanup expired calls periodically (every ~50 calls)
   if (Math.random() < 0.02) {
+    mirrorExpiredCallsBeforeCleanup(profileId, newState, now, options?.accountPublicKeyHex);
     const cleaned = cleanupExpiredCalls(newState, now);
     callStates.set(profileId, cleaned);
   }
@@ -325,12 +380,25 @@ export const initiateCall = (
 export const endCall = (
   profileId: string,
   callId: string,
-  now: number = Date.now()
+  now: number = Date.now(),
+  options?: Readonly<{ accountPublicKeyHex?: string }>,
 ): CallStatusType => {
   const state = getCallStateForProfile(profileId);
-  const newState = assertCallEnded(state, callId, profileId, now);
+  const entry = state.calls.get(callId);
+  let newState = state;
+  if (entry) {
+    for (const participantId of entry.participantRegisters.keys()) {
+      newState = assertCallEnded(newState, callId, participantId, now);
+    }
+  } else {
+    newState = assertCallEnded(newState, callId, profileId, now);
+  }
 
   callStates.set(profileId, newState);
+  mirrorTerminalCallToSqlite(profileId, callId, now, {
+    accountPublicKeyHex: options?.accountPublicKeyHex,
+    terminalHint: "ended",
+  });
   return getCallStatus(newState, callId, now);
 };
 

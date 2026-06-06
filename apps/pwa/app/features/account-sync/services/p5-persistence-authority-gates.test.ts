@@ -41,6 +41,16 @@ describe("P5 persistence authority gates", () => {
     );
   });
 
+  it("ACC-04: call record sqlite owner is wired from call-state runtime", () => {
+    const runtime = readSource("features/messaging/services/call-state-runtime.ts");
+    const store = readSource("features/messaging/services/call-record-sqlite-store.ts");
+
+    expect(store).toContain("dbInsertCallRecord");
+    expect(store).toContain("dbGetCallRecords");
+    expect(runtime).toContain("persistTerminalCallRecordFromStatus");
+    expect(runtime).toMatch(/call-end[\s\S]*mirrorTerminalCallToSqlite/);
+  });
+
   it("P5-DM-3: relay 7-day lookback constant is live-subscription only", () => {
     const hits = listSourceFiles("features/messaging", "dm-relay-transport.ts")
       .flatMap((filePath) => {
