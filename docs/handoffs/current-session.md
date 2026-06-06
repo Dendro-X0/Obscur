@@ -1,12 +1,12 @@
 # Current Session Handoff — Obscur (native-first)
 
-- Last Updated (UTC): 2026-06-02T16:25:00Z
-- Git SHA: `3569cd4d` + P5 BKP/DM authority gates (uncommitted)
-- Session Status: **P5 persistence survival — BKP-1 + DM-1/3 gated; 40 tests pass**
+- Last Updated (UTC): 2026-06-02T16:30:00Z
+- Git SHA: `990524ae` + ACC-03 relay checkpoint owner (uncommitted)
+- Session Status: **P5 exited · ACC-03 native relay checkpoints wired**
 
 ## North star
 
-**[p5-persistence-survival-contract.md](../program/p5-persistence-survival-contract.md)** — module rewrite for durable groups + DM history. Manual re-test of Test 8 **deferred**; only `pnpm verify:p5-persistence` gates count.
+**[obscur-native-sqlite-policy.md](../program/obscur-native-sqlite-policy.md)** — native SQLite owner matrix. Persistence claims: `pnpm verify:p5-persistence` (**54 tests**).
 
 ---
 
@@ -34,13 +34,22 @@ STAB settings, DM quorum, native drift skip, auto-disband seeded roster, native 
 | P5-DM-1 | `message-persistence-service.test.ts` | SQLite write on confirmed eventId |
 | P5-DM-3 | `p5-persistence-authority-gates.test.ts` | 7d lookback only in `dm-relay-transport.ts` |
 | P5-COM-3/4 | auto-disband + sqlite sync | existing tests |
-| Script | `pnpm verify:p5-persistence` | **40 tests pass** |
+| Script | `pnpm verify:p5-persistence` | **54 tests pass** |
+
+---
+
+## ACC-03 (uncommitted)
+
+| Owner | Module | Behavior |
+|-------|--------|----------|
+| Relay checkpoints | `relay-checkpoint-sqlite-store.ts` | Mirror `dm:all` → per-relay `dbUpsertRelayCheckpoint` on sync + restore |
+| Bootstrap | `bootstrapTimelineCheckpointsFromSqlite` | Cold start seeds localStorage from SQLite max frontier |
+
+**Not yet:** ACC-04 voice call records → SQLite.
 
 ---
 
 ## Next atomic step
 
-1. ACC-03/04 deferred bands (relay checkpoints / call records in SQLite) — only when product priority shifts.
-2. Manual Phase B matrix remains **out of scope**; `verify:p5-persistence` is the bar.
-
-**Explicitly out of scope until P5 exits:** manual Phase B matrix for persistence rows.
+1. ACC-04: `call_records` sqlite owner (voice-call-crdt in-memory today).
+2. Manual Phase B matrix remains **out of scope**; CI gates are the bar.

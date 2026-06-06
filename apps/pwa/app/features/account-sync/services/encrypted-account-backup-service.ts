@@ -1269,7 +1269,9 @@ const applyBackupPayload = async (
   contactRequestOutboxInternals.writeState(mergedPayload.requestOutbox, profileId);
   syncCheckpointInternals.persistCheckpointState(new Map(
     mergedPayload.syncCheckpoints.map((checkpoint) => [checkpoint.timelineKey, checkpoint])
-  ), profileId);
+  ), profileId, {
+    relayUrls: mergedPayload.relayList.map((relay) => relay.url),
+  });
   await withAccountRestoreMaterializationEvents({
     publicKeyHex,
     profileId,

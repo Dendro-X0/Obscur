@@ -38,7 +38,7 @@
 |----|-------|-----|-------------------|
 | ACC-01 | Delete for me not durable across refresh/restore | [deletion-roster-limitations.md](../messaging/deletion-roster-limitations.md) §1 | DM-4 |
 | ACC-02 | Roster multi-owner / MEM-001 architecture | Same doc §2 | COM-8 |
-| ACC-03 | Relay sync checkpoints localStorage-only; SQLite `relay_checkpoints` unused by PWA | [obscur-native-sqlite-policy.md](./obscur-native-sqlite-policy.md) §Relay checkpoints | — |
+| ACC-03 | ~~Relay sync checkpoints localStorage-only~~ **Resolved** — `relay-checkpoint-sqlite-store.ts` mirrors `dm:all` to SQLite on native | [obscur-native-sqlite-policy.md](./obscur-native-sqlite-policy.md) §Relay checkpoints | `relay-checkpoint-sqlite-store.test.ts` |
 | ACC-04 | Voice call records in-memory CRDT; SQLite `call_records` unused by PWA | Same doc §Voice call records | — |
 
 ---

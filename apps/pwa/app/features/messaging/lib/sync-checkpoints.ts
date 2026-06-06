@@ -1,5 +1,11 @@
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
+import { requiresSqlitePersistence } from "@/app/features/runtime/native-persistence-policy";
+import {
+  DM_ALL_TIMELINE_KEY,
+  loadSqliteRelayCheckpointFrontier,
+  mirrorTimelineCheckpointToSqlite,
+} from "../services/relay-checkpoint-sqlite-store";
 
 export type TimelineCheckpoint = Readonly<{
   timelineKey: string;
@@ -107,7 +113,36 @@ const loadPersistedCheckpointState = (profileId?: string): Map<string, TimelineC
   }
 };
 
-const persistCheckpointState = (state: Map<string, TimelineCheckpoint>, profileId?: string): void => {
+export const bootstrapTimelineCheckpointsFromSqlite = async (profileId?: string): Promise<boolean> => {
+  if (!requiresSqlitePersistence()) {
+    return false;
+  }
+  const scope = resolveProfileScope(profileId);
+  if (loadPersistedCheckpointState(profileId).size > 0) {
+    return false;
+  }
+  const frontierUnixSeconds = await loadSqliteRelayCheckpointFrontier(scope);
+  if (frontierUnixSeconds === null) {
+    return false;
+  }
+  const state = getCheckpointState(profileId);
+  if (state.has(DM_ALL_TIMELINE_KEY)) {
+    return false;
+  }
+  state.set(DM_ALL_TIMELINE_KEY, {
+    timelineKey: DM_ALL_TIMELINE_KEY,
+    lastProcessedAtUnixSeconds: frontierUnixSeconds,
+    updatedAtUnixMs: Date.now(),
+  });
+  persistCheckpointState(state, profileId);
+  return true;
+};
+
+const persistCheckpointState = (
+  state: Map<string, TimelineCheckpoint>,
+  profileId?: string,
+  options?: Readonly<{ relayUrls?: ReadonlyArray<string> }>,
+): void => {
   if (typeof window === "undefined") {
     return;
   }
@@ -116,6 +151,17 @@ const persistCheckpointState = (state: Map<string, TimelineCheckpoint>, profileI
   } catch {
     // Keep sync bookkeeping non-throwing during degraded storage conditions.
   }
+
+  const dmAllCheckpoint = state.get(DM_ALL_TIMELINE_KEY);
+  if (!dmAllCheckpoint || !options?.relayUrls?.length) {
+    return;
+  }
+  void mirrorTimelineCheckpointToSqlite({
+    profileId: resolveProfileScope(profileId),
+    timelineKey: DM_ALL_TIMELINE_KEY,
+    lastProcessedAtUnixSeconds: dmAllCheckpoint.lastProcessedAtUnixSeconds,
+    relayUrls: options.relayUrls,
+  }).catch(() => undefined);
 };
 
 const getCheckpointState = (profileId?: string): Map<string, TimelineCheckpoint> => {
@@ -139,6 +185,7 @@ export const updateTimelineCheckpoint = (
   timelineKey: string,
   lastProcessedAtUnixSeconds: number,
   profileId?: string,
+  options?: Readonly<{ relayUrls?: ReadonlyArray<string> }>,
 ): TimelineCheckpoint => {
   const next: TimelineCheckpoint = {
     timelineKey,
@@ -147,7 +194,7 @@ export const updateTimelineCheckpoint = (
   };
   const state = getCheckpointState(profileId);
   state.set(timelineKey, next);
-  persistCheckpointState(state, profileId);
+  persistCheckpointState(state, profileId, options);
   return next;
 };
 

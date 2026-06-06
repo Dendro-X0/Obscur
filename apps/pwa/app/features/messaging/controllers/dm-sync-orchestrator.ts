@@ -5,7 +5,13 @@ import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { NostrEvent } from "@dweb/nostr/nostr-event";
 import type { MessageQueue } from "../lib/message-queue";
 import { PrivacySettingsService } from "@/app/features/settings/services/privacy-settings-service";
-import { createBackfillRequest, detectSyncGap, repairTimelineCheckpoint, updateTimelineCheckpoint } from "../lib/sync-checkpoints";
+import {
+  bootstrapTimelineCheckpointsFromSqlite,
+  createBackfillRequest,
+  detectSyncGap,
+  repairTimelineCheckpoint,
+  updateTimelineCheckpoint,
+} from "../lib/sync-checkpoints";
 import { incrementReliabilityMetric, markReliabilitySyncCompleted } from "@/app/shared/reliability-observability";
 import { deliveryDiagnosticsStore } from "../services/delivery-diagnostics-store";
 import { logAppEvent } from "@/app/shared/log-app-event";
@@ -146,6 +152,8 @@ export const syncMissedMessages = async (
       : syncTimestamp;
     let syncLimit = isColdStartSync ? COLD_START_SYNC_LIMIT : DEFAULT_SYNC_LIMIT;
 
+    await bootstrapTimelineCheckpointsFromSqlite(profileId);
+
     if (isReliabilityCoreEnabled()) {
       const repair = repairTimelineCheckpoint(DM_TIMELINE_KEY, syncTimestamp, profileId);
       targetSince = repair.repairedSinceUnixSeconds;
@@ -262,7 +270,9 @@ export const syncMissedMessages = async (
         checkpointUpdatedToUnixSeconds = typeof aggregateMaxSeenCreatedAtUnixSeconds === "number"
           ? Math.max(syncTimestamp, aggregateMaxSeenCreatedAtUnixSeconds)
           : syncTimestamp;
-        updateTimelineCheckpoint(DM_TIMELINE_KEY, checkpointUpdatedToUnixSeconds, profileId);
+        updateTimelineCheckpoint(DM_TIMELINE_KEY, checkpointUpdatedToUnixSeconds, profileId, {
+          relayUrls: openRelayUrls,
+        });
         void appendCanonicalSyncCheckpointEvent({
           accountPublicKeyHex: myPublicKeyHex,
           timelineKey: DM_TIMELINE_KEY,

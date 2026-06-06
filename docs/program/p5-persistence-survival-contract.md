@@ -1,6 +1,6 @@
 # P5 — Persistence survival contract (architecture rewrite)
 
-**Status:** Active (2026-06-02) · **Replaces manual smoke for persistence claims**  
+**Status:** Complete (2026-06-02) · **Replaces manual smoke for persistence claims**  
 **Parent:** [obscur-native-sqlite-policy.md](./obscur-native-sqlite-policy.md) · [v1.9.x-execution-contract.md](./v1.9.x-execution-contract.md)  
 **Trigger:** Groups and DM history disappear without user delete — local debugging cannot prove survival; only **module contracts + CI** count.
 
@@ -65,6 +65,6 @@ UI: summary banner gains **Restore communities** when `rejectedCount > 0` (P5-CO
 
 ---
 
-## Next atomic step
+## Exit (2026-06-02)
 
-Land **P5-COM-2** recovery owner + **`dm-sqlite-history-survival`** contract test; wire `verify:p5-persistence` in `package.json`; update handoff. **No manual Test 8 pass required** — test proves module behavior.
+All P5 bands gated via `pnpm verify:p5-persistence` (54 tests). Post-P5 ancillary: **ACC-03** relay checkpoint sqlite owner; **ACC-04** call records deferred.
