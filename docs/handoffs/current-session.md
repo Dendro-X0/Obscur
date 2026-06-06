@@ -1,46 +1,45 @@
 # Current Session Handoff — Obscur (native-first)
 
-- Last Updated (UTC): 2026-06-02T15:06:00Z
-- Git SHA: `1ec2e385` + `P3d addGroup sqlite` (pending push)
-- Session Status: **Stability band landed; P3d group list sync**
+- Last Updated (UTC): 2026-06-02T15:15:00Z
+- Git SHA: `ac682c11` + P5 persistence band (uncommitted)
+- Session Status: **P5 persistence survival — CI replaces manual persistence smoke**
 
 ## North star
 
-**[ui-render-loop-systemic-program.md](../program/ui-render-loop-systemic-program.md)** — Band R3 **STAB-SETTINGS-1** closed @ `1ec2e385`.
+**[p5-persistence-survival-contract.md](../program/p5-persistence-survival-contract.md)** — module rewrite for durable groups + DM history. Manual re-test of Test 8 **deferred**; only `pnpm verify:p5-persistence` gates count.
 
 ---
 
-## Landed @ `1ec2e385`
+## Diagnosis (user-confirmed)
 
-| Band | Deliverable |
-|------|-------------|
-| STAB-SETTINGS-1 | Shared settings model + tab error boundaries + mount CI |
-| STAB-P1 | Profile `revert()` unmount-only; `use-profile` setState dedup |
-| DM send | `sent_quorum` when publish succeeds (no false 1/2 relay toast) |
-| P4-5 drift | Skip message-domain drift on native SQLite authority |
-| COM leave | Auto-disband uses seeded roster (`community-auto-disband-policy`) |
-
-`pnpm verify:stability` **Pass** (47 tests + grep gates).
+- **Groups (Test 8):** Terminal **local leave intent** hides communities — not missing SQLite create. Banner *relay declined* = publish failed after local exit; does not restore.
+- **DM ~7 days:** Default retention is **unlimited** (`localMessageRetentionDays: 0`). Loss when SQLite never owned the thread and relay live window (7d `since`) was the only path — **not** a built-in 7-day delete policy.
 
 ---
 
-## Landed (follow-up commit)
+## Landed @ `1ec2e385` / `4f776559` / `ac682c11`
 
-**P3d:** `scheduleNativeGroupListSync` on `addGroup` / `updateGroup` — SQLite upsert at create time, not only hydrate.
+STAB settings, DM quorum, native drift skip, auto-disband seeded roster, native group list sync on add/update.
 
 ---
 
-## Test 8 / group disappearance (diagnosis)
+## P5 (uncommitted)
 
-Local **leave intent** (ledger + outbox + tombstone) hid the group — not missing SQLite rows. Banner *"relay declined"* = relay publish failed after local exit; does not restore membership. Auto-disband on stale CRDT roster could cascade to both profiles; seeded-roster guard @ `1ec2e385` mitigates.
+| Band | Module | Gate |
+|------|--------|------|
+| P5-DM-2 | `dm-conversation-hydrate-indexed-scan` | 8-day-old SQLite row survives hydrate test |
+| P5-COM-2 | `community-leave-recovery.ts` | Revoke rejected leave → ledger `joined`, clear outbox/tombstone |
+| P5-COM-3/4 | auto-disband + sqlite sync | existing tests |
+| Script | `pnpm verify:p5-persistence` | survival contracts |
 
-**Recovery:** Fresh invite + `allowRevive`, or clear leave outbox / ledger `left` / tombstone for that `groupId@@relayUrl`.
+**Not yet:** UI "Restore communities" on summary banner; backup restore audit (P5-BKP-1).
 
 ---
 
 ## Next atomic step
 
-1. Manual smoke: create community on desktop → restart → group still in Network list (SQLite + chat-state).
-2. Manual smoke: creator leaves while member B visible in roster → B must keep group (no auto-disband).
-3. Product matrix rows (DM/COM) when maintainer chooses.
-4. Deferred: backup restore audit (`encrypted-account-backup-service.ts`); ACC-03/04 sqlite wiring (v2.0).
+1. Commit P5 band; run `pnpm verify:p5-persistence`.
+2. Wire `CommunityLeaveOutboxSummaryBanner` → bulk revoke rejected + `hydrateGroupsForPublicKey` (recovery UX).
+3. P5-BKP-1: native backup restore subtraction (no chat-state DM body authority).
+
+**Explicitly out of scope until P5 exits:** manual Phase B matrix for persistence rows.

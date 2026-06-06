@@ -240,4 +240,31 @@ describe("dm-conversation-hydrate-indexed-scan", () => {
     expect(empty).toEqual([]);
     expect(vi.mocked(messagingDB.getAllByIndex)).not.toHaveBeenCalled();
   });
+
+  it("P5-DM-2: returns SQLite messages older than 7 days (no implicit age purge)", async () => {
+    vi.mocked(requiresSqlitePersistence).mockReturnValue(true);
+    const eightDaysMs = 8 * 24 * 60 * 60 * 1000;
+    const oldTimestampMs = Date.now() - eightDaysMs;
+    vi.mocked(dbGetMessages).mockResolvedValue([
+      {
+        event_id: "evt-old",
+        conversation_id: "c-survival",
+        plaintext: "still here",
+        sender_pubkey: "aa",
+        recipient_pubkey: "bb",
+        is_outgoing: false,
+        kind: "user",
+        received_at: oldTimestampMs,
+      },
+    ] as any);
+
+    const rows = await loadConversationWindow({
+      conversationId: "c-survival",
+      limit: 50,
+    });
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.id).toBe("evt-old");
+    expect(rows[0]?.timestampMs).toBe(oldTimestampMs);
+  });
 });
