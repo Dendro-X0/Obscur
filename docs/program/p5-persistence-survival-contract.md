@@ -40,7 +40,7 @@ pnpm verify:stability        # existing render-loop / settings gates
 | **P5-COM-2** | **`community-leave-recovery.ts`** (new) | **Recovery owner** — revoke terminal leave when relay rejected + sqlite/chat-state row exists | `community-leave-recovery.test.ts` |
 | **P5-COM-3** | `community-auto-disband-policy.ts` | Auto-disband requires seeded roster evidence | `community-auto-disband-policy.test.ts` (exists @ `1ec2e385`) |
 | **P5-COM-4** | `community-group-sqlite-store.ts` | List upsert on create/update | `community-group-sqlite-store.test.ts` (@ `4f776559`) |
-| **P5-BKP-1** | `encrypted-account-backup-service.ts` | Native restore must not dual-write DM bodies into chat-state authority | Audit + tests (deferred ACC) |
+| **P5-BKP-1** | `encrypted-account-backup-service.ts` | Native restore must not dual-write DM bodies into chat-state authority | `encrypted-account-backup-service.native-restore.test.ts` + authority gate |
 
 ---
 

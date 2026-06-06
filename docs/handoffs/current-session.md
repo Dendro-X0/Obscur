@@ -1,8 +1,8 @@
 # Current Session Handoff — Obscur (native-first)
 
-- Last Updated (UTC): 2026-06-02T16:20:00Z
-- Git SHA: `46bd6a67` + P5 recovery UX (uncommitted)
-- Session Status: **P5 persistence survival — recovery UX wired; CI gates green**
+- Last Updated (UTC): 2026-06-02T16:25:00Z
+- Git SHA: `3569cd4d` + P5 BKP/DM authority gates (uncommitted)
+- Session Status: **P5 persistence survival — BKP-1 + DM-1/3 gated; 40 tests pass**
 
 ## North star
 
@@ -30,17 +30,17 @@ STAB settings, DM quorum, native drift skip, auto-disband seeded roster, native 
 | P5-DM-2 | `dm-conversation-hydrate-indexed-scan` | 8-day-old SQLite row survives hydrate test |
 | P5-COM-2 | `community-leave-recovery.ts` | Revoke rejected leave → ledger `joined`, clear outbox/tombstone |
 | P5-COM-2 UX | `use-restore-rejected-community-leaves` + summary banner | Bulk restore + `addGroup(allowRevive)` |
+| P5-BKP-1 | `encrypted-account-backup-service` native restore | Strip bodies before chat-state replace; skip hydrateMessages |
+| P5-DM-1 | `message-persistence-service.test.ts` | SQLite write on confirmed eventId |
+| P5-DM-3 | `p5-persistence-authority-gates.test.ts` | 7d lookback only in `dm-relay-transport.ts` |
 | P5-COM-3/4 | auto-disband + sqlite sync | existing tests |
-| Script | `pnpm verify:p5-persistence` | 21 tests pass |
-
-**Not yet:** P5-BKP-1 backup restore audit; P5-DM-1 write-before-success; P5-DM-3 hydrate/relay lookback grep gate.
+| Script | `pnpm verify:p5-persistence` | **40 tests pass** |
 
 ---
 
 ## Next atomic step
 
-1. P5-BKP-1: native backup restore subtraction (no chat-state DM body authority).
-2. P5-DM-1: strengthen tests that accepted DM writes hit SQLite before UI success.
-3. P5-DM-3: grep gate — hydrate paths must not use relay 7-day lookback constant.
+1. ACC-03/04 deferred bands (relay checkpoints / call records in SQLite) — only when product priority shifts.
+2. Manual Phase B matrix remains **out of scope**; `verify:p5-persistence` is the bar.
 
 **Explicitly out of scope until P5 exits:** manual Phase B matrix for persistence rows.
