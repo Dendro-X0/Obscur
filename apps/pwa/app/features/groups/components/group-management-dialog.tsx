@@ -48,6 +48,7 @@ import {
     shouldApplyTerminalMembershipExclusionsToParticipantRoster,
 } from "../services/community-participant-display-read-model";
 import { useCoordinationMembershipDirectory } from "../hooks/use-coordination-membership-directory";
+import { useCommunityMemberDisplayNames } from "../hooks/use-community-member-display-names";
 import { useCommunityParticipantRosterReadModel } from "../hooks/use-community-participant-roster-read-model";
 import { resolveCommunityDisplayName } from "../services/community-display-name";
 import {
@@ -172,7 +173,6 @@ export function GroupManagementDialog({
 
     const [memberSearchQuery, setMemberSearchQuery] = useState("");
     const [provisionalOverlayEpoch, setProvisionalOverlayEpoch] = useState(0);
-    const [resolvedNames, setResolvedNames] = useState<Record<string, string>>({});
     const [mutedMembers, setMutedMembers] = useState<string[]>([]);
     const [notificationsEnabled, setNotificationsEnabled] = useState(true);
     const getScopedMutedMembersKey = (groupId: string): string => (
@@ -663,43 +663,11 @@ export function GroupManagementDialog({
         setActiveTab(initialTab ?? "general");
     }, [communityRelayTransportReady, initialTab, isOpen]);
 
-    useEffect(() => {
-        const activeMemberList = visibleMemberRegistry;
-        const relayPool = poolRef.current;
-        if (!isOpen || !communityRelayTransportReady || !activeMemberList.length || !relayPool) return;
-        const subId = `mgmt-names-${Math.random().toString(36).substring(7)}`;
-        const filter = { kinds: [0], authors: activeMemberList as string[] };
-
-        const cleanup = relayPool.subscribeToMessages(({ message }: { message: string }) => {
-            try {
-                const parsed = JSON.parse(message);
-                if (parsed[0] === "EVENT" && parsed[1] === subId) {
-                    const event = parsed[2];
-                    if (event.kind === 0) {
-                        try {
-                            const metadata = JSON.parse(event.content);
-                            const name = metadata.display_name || metadata.name;
-                            if (name) setResolvedNames((prev) => ({ ...prev, [event.pubkey]: name }));
-                        } catch {
-                            // ignore bad metadata
-                    }
-                }
-                }
-            } catch {
-                // ignore parse errors
-            }
-        });
-
-        relayPool.sendToOpen(JSON.stringify(["REQ", subId, filter]));
-        return () => {
-            try {
-                relayPool.sendToOpen(JSON.stringify(["CLOSE", subId]));
-                cleanup();
-            } catch {
-                // ignore close errors
-            }
-        };
-    }, [communityRelayTransportReady, visibleMemberRegistry, isOpen, poolRef]);
+    const resolvedNames = useCommunityMemberDisplayNames({
+        enabled: isOpen && communityRelayTransportReady,
+        memberPubkeys: visibleMemberRegistry,
+        pool: poolRef.current,
+    });
 
     if (!isOpen) return null;
 

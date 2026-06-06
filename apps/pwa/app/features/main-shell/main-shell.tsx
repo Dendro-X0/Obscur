@@ -309,6 +309,7 @@ function NostrMessengerContent() {
     }
     return hasWritableCommunityRelayTransport((selectedConversation as GroupConversation).relayUrl);
   }, [selectedConversation]);
+  // Path B B1: one live subscription per surface — shell sidebar chat only; group-home owns its own hook.
   const sealedCommunityShellEnabled = (
     selectedConversation?.kind === "group"
     && !isGroupCommunityHomeRoute

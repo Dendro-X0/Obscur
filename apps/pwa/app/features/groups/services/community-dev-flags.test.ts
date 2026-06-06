@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
     isCoordinationGateSatisfied,
     isCoordinationOnlyWorkspaceDevMode,
+    isPathBWorkspaceDevEscapeAllowed,
     readCoordinationOnlyWorkspaceDevModeOverride,
     writeAssumeLocalCoordinationReachable,
     writeCoordinationOnlyWorkspaceDevModeOverride,
@@ -42,5 +43,16 @@ describe("community-dev-flags", () => {
     it("isCoordinationGateSatisfied false when probe failed and not dev", () => {
         vi.stubEnv("NEXT_PUBLIC_COORDINATION_URL", "http://127.0.0.1:8787");
         expect(isCoordinationGateSatisfied(false)).toBe(false);
+    });
+
+    it("isCoordinationGateSatisfied false when probe pending in production", () => {
+        vi.stubEnv("NODE_ENV", "production");
+        vi.stubEnv("NEXT_PUBLIC_COORDINATION_URL", "http://127.0.0.1:8787");
+        expect(isCoordinationGateSatisfied(null)).toBe(false);
+    });
+
+    it("isPathBWorkspaceDevEscapeAllowed true in non-production", () => {
+        vi.stubEnv("NODE_ENV", "test");
+        expect(isPathBWorkspaceDevEscapeAllowed()).toBe(true);
     });
 });

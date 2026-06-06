@@ -22,6 +22,7 @@ import {
   enqueueCommunityLeaveOutboxItem,
   recordCommunityLeaveRelayPublishOutcome,
 } from "../services/community-leave-outbox";
+import { isRelayAuthoritativeMembershipEnforced } from "../services/community-relay-authoritative-membership-policy";
 import { messageBus } from "../../messaging/services/message-bus";
 import type { Message, JoinRequestBlockReason } from "../../messaging/types";
 import { toGroupConversationId } from "../utils/group-conversation-id";
@@ -46,11 +47,12 @@ import {
   setJoinRequestStorageState,
   toJoinRequestPendingKey,
 } from "../services/sealed-community-join-request-storage";
-import { isTauri, dbInsertGroupMessage, dbInsertGroupTombstone } from "@dweb/db";
+import { isTauri, dbInsertGroupTombstone } from "@dweb/db";
 import {
+  commitSealedGroupMessages,
   loadPersistedSealedGroupMessages,
-  persistSealedGroupMessages,
 } from "../services/sealed-group-message-persistence";
+import { useOptionalProfileRuntime } from "@/app/features/profiles/providers/profile-runtime-provider";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 import {
@@ -248,7 +250,7 @@ export type UseSealedCommunityResult = Readonly<{
   removeUser: (params: Readonly<{ publicKeyHex: PublicKeyHex }>) => Promise<void>;
   promoteUser: (params: Readonly<{ publicKeyHex: PublicKeyHex; role: "owner" | "moderator" }>) => Promise<void>;
   demoteUser: (params: Readonly<{ publicKeyHex: PublicKeyHex }>) => Promise<void>;
-  leaveGroup: () => Promise<void>;
+  leaveGroup: () => Promise<boolean>;
   deleteMessage: (params: Readonly<{ eventId: string; reason?: string }>) => Promise<void>;
   members: ReadonlyArray<PublicKeyHex>;
   admins: ReadonlyArray<Readonly<{ pubkey: PublicKeyHex; roles: ReadonlyArray<string> }>>;
@@ -279,6 +281,7 @@ const createRandomId = (): string => Math.random().toString(36).slice(2);
 type RelayEvidenceRuntimeState = Omit<RelayEvidencePolicyParams, "nowMs">;
 
 export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedCommunityResult => {
+  const optionalProfileRuntime = useOptionalProfileRuntime();
   const shellActive = params.enabled !== false;
   const relayTransportReady = useMemo(
     () => hasWritableCommunityRelayTransport(params.relayUrl),
@@ -440,7 +443,7 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
     () => toGroupConversationId({ groupId: params.groupId, relayUrl: params.relayUrl, communityId: params.communityId }),
     [params.groupId, params.relayUrl, params.communityId]
   );
-  const profileId = getResolvedProfileId();
+  const profileId = optionalProfileRuntime?.profileId?.trim() || getResolvedProfileId();
   const governanceSessionStorageKey = useMemo(
     () => getScopedStorageKey(`obscur_community_governance_v1_${conversationId}`, profileId),
     [conversationId, profileId],
@@ -457,6 +460,55 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
 
   const persistedMessagesHydratedKeyRef = useRef<string | null>(null);
   useEffect(() => {
+    persistedMessagesHydratedKeyRef.current = null;
+  }, [conversationId, params.myPublicKeyHex, profileId]);
+  const mergePersistedGroupMessages = useCallback((persisted: ReadonlyArray<GroupMessageEvent>): void => {
+    if (persisted.length === 0) {
+      return;
+    }
+    setState((prev: Nip29GroupState): Nip29GroupState => {
+      const merged = mergeGroupMessagesDescending({
+        previous: prev.messages,
+        incoming: persisted,
+      });
+      if (
+        merged.length === prev.messages.length
+        && merged.every((message, index) => message.id === prev.messages[index]?.id)
+      ) {
+        return prev;
+      }
+      return { ...prev, messages: merged, status: "ready" };
+    });
+  }, []);
+  const roomKeyTimelineResyncDoneRef = useRef(false);
+  useEffect(() => {
+    roomKeyTimelineResyncDoneRef.current = false;
+  }, [params.groupId, params.relayUrl]);
+  useEffect(() => {
+    if (!relayRuntimeEnabled || !params.groupId.trim()) {
+      return;
+    }
+    let cancelled = false;
+    const maybeResyncTimeline = (): void => {
+      if (cancelled || roomKeyTimelineResyncDoneRef.current) {
+        return;
+      }
+      void roomKeyStore.getRoomKeyRecord(params.groupId).then((record) => {
+        if (cancelled || !record || roomKeyTimelineResyncDoneRef.current) {
+          return;
+        }
+        roomKeyTimelineResyncDoneRef.current = true;
+        setMembershipResyncEpoch((epoch) => epoch + 1);
+      });
+    };
+    maybeResyncTimeline();
+    const intervalId = window.setInterval(maybeResyncTimeline, 500);
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [params.groupId, relayRuntimeEnabled]);
+  useEffect(() => {
     const groupId = params.groupId.trim();
     const relayUrl = params.relayUrl.trim();
     if (!groupId || !relayUrl || !params.myPublicKeyHex) {
@@ -466,37 +518,70 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
     if (persistedMessagesHydratedKeyRef.current === hydrateKey) {
       return;
     }
-    persistedMessagesHydratedKeyRef.current = hydrateKey;
     let cancelled = false;
-    void loadPersistedSealedGroupMessages({
-      conversationId,
-      groupId,
-      publicKeyHex: params.myPublicKeyHex,
-      profileId,
-    }).then((persisted) => {
-      if (cancelled || persisted.length === 0) {
-        return;
-      }
-      setState((prev: Nip29GroupState): Nip29GroupState => {
-        const merged = mergeGroupMessagesDescending({
-          previous: prev.messages,
-          incoming: persisted,
-        });
-        if (
-          merged.length === prev.messages.length
-          && merged.every((message, index) => message.id === prev.messages[index]?.id)
-        ) {
-          return prev;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    const attemptHydrate = (attemptIndex: number): void => {
+      void loadPersistedSealedGroupMessages({
+        conversationId,
+        groupId,
+        relayUrl,
+        communityId: params.communityId,
+        publicKeyHex: params.myPublicKeyHex as PublicKeyHex,
+        profileId,
+      }).then((persisted) => {
+        if (cancelled) {
+          return;
         }
-        return { ...prev, messages: merged, status: "ready" };
+        if (persisted.length > 0) {
+          persistedMessagesHydratedKeyRef.current = hydrateKey;
+          mergePersistedGroupMessages(persisted);
+          return;
+        }
+        if (attemptIndex < 24) {
+          retryTimer = setTimeout(() => {
+            attemptHydrate(attemptIndex + 1);
+          }, 300 * (attemptIndex + 1));
+          return;
+        }
+        logAppEvent({
+          name: "groups.message_hydrate_empty",
+          level: "warn",
+          scope: { feature: "groups", action: "message_hydrate" },
+          context: {
+            groupIdHint: groupId.slice(0, 16),
+            profileId: profileId.slice(0, 32),
+            attemptCount: attemptIndex + 1,
+          },
+        });
+      }).catch(() => {
+        if (cancelled) {
+          return;
+        }
+        if (attemptIndex < 24) {
+          retryTimer = setTimeout(() => {
+            attemptHydrate(attemptIndex + 1);
+          }, 300 * (attemptIndex + 1));
+          return;
+        }
+        persistedMessagesHydratedKeyRef.current = null;
       });
-    }).catch(() => {
-      persistedMessagesHydratedKeyRef.current = null;
-    });
+    };
+    attemptHydrate(0);
     return () => {
       cancelled = true;
+      if (retryTimer !== null) {
+        clearTimeout(retryTimer);
+      }
     };
-  }, [conversationId, params.groupId, params.myPublicKeyHex, params.relayUrl, profileId]);
+  }, [
+    conversationId,
+    mergePersistedGroupMessages,
+    params.communityId,
+    params.groupId,
+    params.myPublicKeyHex,
+    params.relayUrl,
+    profileId,
+  ]);
 
   useLayoutEffect(() => {
     if (params.enabled === false || typeof sessionStorage === "undefined") {
@@ -768,25 +853,10 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
       return { ...prev, messages: merged, status: "ready" };
     });
 
-    if (isTauri() && incomingMessages.length > 0) {
-      const profileId = getResolvedProfileId();
-      const receivedAt = Date.now();
-      incomingMessages.forEach((msg) => {
-        dbInsertGroupMessage({
-          event_id: msg.id,
-          group_id: params.groupId,
-          profile_id: profileId,
-          sender_pubkey: msg.pubkey ?? (params.myPublicKeyHex ?? ""),
-          plaintext: msg.content,
-          created_at: msg.created_at * 1000,
-          received_at: receivedAt,
-        }).catch(() => {});
-      });
-    }
-
     if (params.myPublicKeyHex && incomingMessages.length > 0) {
-      persistSealedGroupMessages({
+      void commitSealedGroupMessages({
         conversationId,
+        groupId: params.groupId,
         publicKeyHex: params.myPublicKeyHex as PublicKeyHex,
         messages: incomingMessages,
         profileId,
@@ -1861,6 +1931,10 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
         if (relayMembership.kind === "obscur_gossip_delta") {
           return;
         }
+        // Path B B1: coordination directory owns roster; relay signals are chat hints only.
+        if (coordinationRuntimeEnabled) {
+          return;
+        }
         if (relayMembership.kind === "relay_join" && relayMembership.subjectPubkey) {
           const joinTimestamp = relayMembership.createdAtUnixMs;
           queueDeferredMembershipApply(joinTimestamp, `relay-join:${event.id}`, () => {
@@ -2423,7 +2497,7 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
       const optimisticMsg: GroupMessageEvent = {
         id: signedEvent.id,
         pubkey: params.myPublicKeyHex,
-        created_at: Math.floor(Date.now() / 1000),
+        created_at: signedEvent.created_at ?? Math.floor(Date.now() / 1000),
         content: msgParams.content
       };
 
@@ -2453,8 +2527,9 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
       });
 
       if (params.myPublicKeyHex) {
-        persistSealedGroupMessages({
+        await commitSealedGroupMessages({
           conversationId,
+          groupId: params.groupId,
           publicKeyHex: params.myPublicKeyHex as PublicKeyHex,
           messages: [optimisticMsg],
           profileId,
@@ -2534,8 +2609,10 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
     }
   }, [params.groupId, params.myPrivateKeyHex, params.myPublicKeyHex, poolRef, members, state.expelledMembers, state.metadata]);
 
-  const leaveGroup = useCallback(async (): Promise<void> => {
+  const leaveGroup = useCallback(async (): Promise<boolean> => {
     let disbandPublished = false;
+    let relayLeaveConfirmed = false;
+    const relayAuthoritative = isRelayAuthoritativeMembershipEnforced();
     const relayTransportReady = hasWritableCommunityRelayTransport(params.relayUrl);
     const autoDisbandDecision = resolveCommunityAutoDisbandOnLeaveDecision({
       liveMemberPubkeys: membersRef.current,
@@ -2549,13 +2626,15 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
 
     if (params.myPublicKeyHex && params.myPrivateKeyHex) {
       const profileId = getResolvedProfileId();
-      enqueueCommunityLeaveOutboxItem({
-        publicKeyHex: params.myPublicKeyHex,
-        groupId: params.groupId,
-        relayUrl: params.relayUrl,
-        communityId: params.communityId,
-        profileId,
-      });
+      if (!relayAuthoritative) {
+        enqueueCommunityLeaveOutboxItem({
+          publicKeyHex: params.myPublicKeyHex,
+          groupId: params.groupId,
+          relayUrl: params.relayUrl,
+          communityId: params.communityId,
+          profileId,
+        });
+      }
       try {
         const roomKeyHex = await roomKeyStore.getRoomKey(params.groupId);
         const groupService = new GroupService(params.myPublicKeyHex, params.myPrivateKeyHex);
@@ -2588,19 +2667,40 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
             results: [],
             overallError: "relay_transport_unavailable",
           };
-        recordCommunityLeaveRelayPublishOutcome({
-          publicKeyHex: params.myPublicKeyHex,
-          groupId: params.groupId,
-          relayUrl: params.relayUrl,
-          success: nip29LeaveResult.success,
-          errorMessage: nip29LeaveResult.overallError,
-          profileId,
-        });
-        if (!nip29LeaveResult.success) {
-          toast.warning(formatRelayPublishFailureMessage(nip29LeaveResult, {
-            operation: "Could not confirm leave on relays",
-            fallback: "Leave saved locally; relay publish will retry when the network allows.",
-          }));
+        relayLeaveConfirmed = nip29LeaveResult.success;
+        if (relayAuthoritative) {
+          if (!nip29LeaveResult.success) {
+            return false;
+          }
+          enqueueCommunityLeaveOutboxItem({
+            publicKeyHex: params.myPublicKeyHex,
+            groupId: params.groupId,
+            relayUrl: params.relayUrl,
+            communityId: params.communityId,
+            profileId,
+          });
+          recordCommunityLeaveRelayPublishOutcome({
+            publicKeyHex: params.myPublicKeyHex,
+            groupId: params.groupId,
+            relayUrl: params.relayUrl,
+            success: true,
+            profileId,
+          });
+        } else {
+          recordCommunityLeaveRelayPublishOutcome({
+            publicKeyHex: params.myPublicKeyHex,
+            groupId: params.groupId,
+            relayUrl: params.relayUrl,
+            success: nip29LeaveResult.success,
+            errorMessage: nip29LeaveResult.overallError,
+            profileId,
+          });
+          if (!nip29LeaveResult.success) {
+            toast.warning(formatRelayPublishFailureMessage(nip29LeaveResult, {
+              operation: "Could not confirm leave on relays",
+              fallback: "Leave saved locally; relay publish will retry when the network allows.",
+            }));
+          }
         }
 
         // 2. Tell other CLIENTS via sealed channel (Kind 10105) — primary cross-client signal.
@@ -2758,6 +2858,7 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
           e,
           "Failed to leave via scoped relay. Try again or check relay status.",
         ));
+        return false;
       }
 
       // 3. Publish self-encrypted leave proof to the user's relay set.
@@ -2778,11 +2879,12 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
     }
     await roomKeyStore.deleteRoomKey(params.groupId);
     toast.success(disbandPublished ? "Community disbanded" : "Disconnected from community");
-    if (!coordinationRuntimeEnabled && !disbandPublished) {
+    if (!coordinationRuntimeEnabled && !disbandPublished && !relayAuthoritative) {
       toast.info(
         "You are excluded on this device. Other members may still see relay hints until they sync — there is no global roster guarantee on this path.",
       );
     }
+    return relayAuthoritative ? relayLeaveConfirmed : true;
   }, [
     coordinationRuntimeEnabled,
     params.communityId,

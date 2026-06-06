@@ -28,8 +28,8 @@ export const shouldUseCoordinationMembershipAuthority = (
 };
 
 /**
- * Invite / steward actions: prefer coordination roster projection when R1 applies.
- * Falls back to hybrid active set when projection not populated yet (e.g. right after create).
+ * Invite / steward actions: coordination directory only for managed_workspace (Path B B1).
+ * No relay/chat hybrid widen when projection is empty or stale.
  */
 export const resolveWorkspaceActionMemberPubkeys = (params: Readonly<{
   communityMode?: CommunityMode | null;
@@ -38,12 +38,15 @@ export const resolveWorkspaceActionMemberPubkeys = (params: Readonly<{
   leftMemberPubkeys?: ReadonlyArray<PublicKeyHex>;
   expelledMemberPubkeys?: ReadonlyArray<PublicKeyHex>;
 }>): ReadonlyArray<PublicKeyHex> => {
-  const coordinationProjection = params.coordinationProjectionPubkeys ?? [];
-  const useCoordination = shouldUseCoordinationMembershipAuthority(params.communityMode)
-    && coordinationProjection.length > 0;
-  const base = useCoordination ? coordinationProjection : params.hybridActiveMemberPubkeys;
+  if (shouldUseCoordinationMembershipAuthority(params.communityMode)) {
+    return filterActiveCommunityMemberPubkeys({
+      memberPubkeys: params.coordinationProjectionPubkeys ?? [],
+      leftMembers: params.leftMemberPubkeys,
+      expelledMembers: params.expelledMemberPubkeys,
+    });
+  }
   return filterActiveCommunityMemberPubkeys({
-    memberPubkeys: base,
+    memberPubkeys: params.hybridActiveMemberPubkeys,
     leftMembers: params.leftMemberPubkeys,
     expelledMembers: params.expelledMemberPubkeys,
   });

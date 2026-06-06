@@ -23,7 +23,6 @@ import { connectionStore } from './connection-store';
 import { profileManager } from './profile-manager';
 import { openInviteDb } from './db/open-invite-db';
 import { getIdentitySnapshot } from '../../auth/hooks/use-identity';
-import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import {
   CONNECTION_REQUESTS_STORE,
   INVITE_LINKS_STORE,
@@ -51,7 +50,7 @@ import {
 } from './security-enhancements';
 import { logAppEvent } from '@/app/shared/log-app-event';
 import { publishToUrlsStandalone } from '../../relays/hooks/enhanced-relay-pool';
-import { getScopedStorageKey } from '../../profiles/services/profile-scope';
+import { loadEnabledRelayUrlsForIdentity } from '../../relays/services/relay-list-enabled-urls';
 
 type CoordinationInviteCreateResponse = Readonly<{
   inviteId: string;
@@ -141,52 +140,6 @@ const getCoordinationBaseUrl = (): string | null => {
     return raw.replace(/\/+$/, "");
   }
   return null;
-};
-
-const getRelayListStorageKey = (publicKeyHex: string): string => (
-  getScopedStorageKey(`obscur.relay_list.v1.${publicKeyHex}`, getResolvedProfileId())
-);
-
-const getLegacyRelayListStorageKey = (publicKeyHex: string): string => {
-  return `obscur.relay_list.v1.${publicKeyHex}`;
-};
-
-const getEnabledRelayUrlsForIdentity = (publicKeyHex: string): ReadonlyArray<string> => {
-  if (typeof window === "undefined") {
-    return [];
-  }
-  try {
-    const raw: string | null =
-      window.localStorage.getItem(getRelayListStorageKey(publicKeyHex))
-      ?? window.localStorage.getItem(getLegacyRelayListStorageKey(publicKeyHex));
-    if (!raw) {
-      return [];
-    }
-    const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) {
-      return [];
-    }
-    const urls: string[] = parsed
-      .map((item: unknown): string | null => {
-        if (!isRecord(item)) {
-          return null;
-        }
-        const url: unknown = item.url;
-        const enabled: unknown = item.enabled;
-        if (typeof url !== "string") {
-          return null;
-        }
-        if (enabled === false) {
-          return null;
-        }
-        const normalized: string = url.trim();
-        return normalized.length > 0 ? normalized : null;
-      })
-      .filter((u: string | null): u is string => u !== null);
-    return Array.from(new Set(urls));
-  } catch {
-    return [];
-  }
 };
 
 export const configureInviteRequestTransportBridge = (
@@ -503,7 +456,7 @@ class InviteManagerImpl implements InviteManager {
       const now = new Date();
       const expiresAt = options.expirationTime || new Date(now.getTime() + (DEFAULT_INVITE_EXPIRATION_HOURS * 60 * 60 * 1000));
 
-      const enabledRelayUrls: ReadonlyArray<string> = getEnabledRelayUrlsForIdentity(identity.publicKey);
+      const enabledRelayUrls: ReadonlyArray<string> = loadEnabledRelayUrlsForIdentity(identity.publicKey);
       const ttlSeconds: number | undefined = options.expirationTime ? Math.max(60, Math.floor((expiresAt.getTime() - now.getTime()) / 1000)) : undefined;
       let shortCode: string;
       try {
@@ -809,7 +762,7 @@ class InviteManagerImpl implements InviteManager {
         request.message
       );
 
-      const targetRelays = getEnabledRelayUrlsForIdentity(identity.publicKey);
+      const targetRelays = loadEnabledRelayUrlsForIdentity(identity.publicKey);
       if (targetRelays.length === 0) {
         throw new Error("No active relays available for connection request");
       }

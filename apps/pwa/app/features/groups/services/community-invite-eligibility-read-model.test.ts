@@ -42,7 +42,7 @@ describe("community-invite-eligibility-read-model", () => {
     expect(isPubkeyBlockedFromCommunityInvite(PK_C, blocklist)).toBe(false);
   });
 
-  it("falls back to hybrid active roster when coordination directory is unavailable", () => {
+  it("returns empty blocklist when coordination directory is unavailable (Path B B1)", () => {
     const blocklist = resolveCommunityInviteMemberBlocklist({
       communityMode: "managed_workspace",
       coordinationDirectory: null,
@@ -50,6 +50,6 @@ describe("community-invite-eligibility-read-model", () => {
       leftMemberPubkeys: [PK_B],
       expelledMemberPubkeys: [],
     });
-    expect(blocklist).toEqual([PK_A]);
+    expect(blocklist).toEqual([]);
   });
 });

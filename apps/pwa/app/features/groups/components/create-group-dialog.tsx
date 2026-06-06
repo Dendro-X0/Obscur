@@ -187,9 +187,13 @@ export function CreateGroupDialog({
         () => assessWorkspaceCommunityTrust({
             communityRelayUrl: normalizeWorkspaceRelayUrl(info.host),
             enabledRelayUrls: relayList.state.relays.map((r) => r.url),
-            coordinationHealthy: coordinationGateSatisfied,
+            coordinationHealthy: coordinationHealthy === true
+                ? true
+                : coordinationHealthy === false
+                    ? false
+                    : undefined,
         }),
-        [coordinationGateSatisfied, info.host, relayList.state.relays],
+        [coordinationHealthy, info.host, relayList.state.relays],
     );
     const workspaceCreateBlocked = !workspaceTrust.allowed;
 
@@ -228,9 +232,7 @@ export function CreateGroupDialog({
             ? selectedRelayOption.selectable
             : createRelayTransportReady && !isPublicDefaultRelayHost(info.host);
 
-    const workspaceCreateBlockedEffective = coordinationOnlyDev
-        ? !coordinationGateSatisfied
-        : workspaceCreateBlocked;
+    const workspaceCreateBlockedEffective = workspaceCreateBlocked;
 
     const isValid =
         info.groupId.trim().length > 0 &&

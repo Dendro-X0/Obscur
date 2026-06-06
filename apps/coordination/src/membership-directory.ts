@@ -1,4 +1,5 @@
 import { verifyMembershipDeltaSignature } from "@dweb/coordination-contracts";
+import { evaluateMembershipDeltaAcl } from "./membership-delta-acl";
 
 type Env = Readonly<{ DB: D1Database }>;
 
@@ -202,6 +203,48 @@ export const handleMembershipDeltaAppend = async (
   });
   if (!validSig) {
     return json(401, { ok: false, error: "invalid_signature" });
+  }
+
+  const existingDeltaRows = await env.DB.prepare(
+    `SELECT seq, action, subject_pubkey, actor_pubkey
+     FROM community_membership_deltas
+     WHERE community_id = ?1
+     ORDER BY seq ASC`,
+  )
+    .bind(normalizedId)
+    .all();
+  const existingDeltas = (existingDeltaRows.results ?? [])
+    .map((row) => {
+      if (!isRecord(row)) {
+        return null;
+      }
+      const seq = row.seq;
+      const action = row.action;
+      const subjectPubkey = row.subject_pubkey;
+      const actorPubkey = row.actor_pubkey;
+      if (
+        typeof seq !== "number"
+        || (action !== "join" && action !== "leave" && action !== "expel")
+        || !isString(subjectPubkey)
+        || !isString(actorPubkey)
+      ) {
+        return null;
+      }
+      return {
+        seq,
+        action,
+        subjectPubkey,
+        actorPubkey,
+      };
+    })
+    .filter((row): row is NonNullable<typeof row> => row !== null);
+
+  const aclDecision = evaluateMembershipDeltaAcl({
+    existingDeltas,
+    delta: deltaBody,
+  });
+  if (!aclDecision.allowed) {
+    return json(403, { ok: false, error: aclDecision.error });
   }
 
   const headRow = await env.DB.prepare(

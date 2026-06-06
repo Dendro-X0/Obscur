@@ -263,6 +263,7 @@ export default function GroupHomePage() {
         [communityKnownParticipantDirectory, group?.memberPubkeys, localMemberPubkey, projectionMemberPubkeys],
     );
 
+    // Path B B1: canonical sealed-community instance for this community surface (main-shell skips when route is group-home).
     const sealedCommunityShellEnabled = !!(group || discoveredRelay) && communityRelayTransportReady;
     const sealedCommunityController = useSealedCommunity({
         groupId: group?.groupId || id || "",
@@ -547,11 +548,15 @@ export default function GroupHomePage() {
             coordinationDirectory: coordinationMembershipDirectory,
             monotonicDisplayPubkeys: rosterDisplayPubkeys,
             localMemberPubkey,
+            localLeftMemberPubkeys: rawLeftMemberPubkeys,
+            localExpelledMemberPubkeys: rawExpelledMemberPubkeys,
         }),
         [
             coordinationMembershipDirectory,
             group?.communityMode,
             localMemberPubkey,
+            rawExpelledMemberPubkeys,
+            rawLeftMemberPubkeys,
             rosterDisplayPubkeys,
         ],
     );

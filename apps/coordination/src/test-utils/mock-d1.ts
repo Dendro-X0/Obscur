@@ -68,9 +68,9 @@ export const createMockD1 = (state: MockD1State): D1Database => ({
 
       const all = async (): Promise<D1Result<MembershipDeltaRow[]>> => {
         const communityId = args[0] as string;
-        const sinceSeq = args[1] as number;
+        const sinceSeq = args.length > 1 ? (args[1] as number) : -1;
         const rows = state.deltas
-          .filter((row) => row.community_id === communityId && row.seq > sinceSeq)
+          .filter((row) => row.community_id === communityId && (sinceSeq < 0 || row.seq > sinceSeq))
           .sort((a, b) => a.seq - b.seq)
           .slice(0, 200);
         return { results: rows, success: true, meta: {} } as D1Result<MembershipDeltaRow[]>;

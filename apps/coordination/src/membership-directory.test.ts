@@ -112,34 +112,137 @@ describe("membership directory handlers", () => {
     expect(body.error).toBe("invalid_signature");
   });
 
+  it("rejects leave delta when actor is not subject (steward ACL)", async () => {
+    const state = { heads: new Map(), deltas: [] };
+    const env = { DB: createMockD1(state) };
+    const createdAtUnixMs = 1_700_000_000;
+    const bootstrapSig = await signMembershipDelta({
+      communityId: "workspace-1",
+      action: "join",
+      subjectPubkey: actor,
+      actorPubkey: actor,
+      createdAtUnixMs,
+      actorPrivateKeyHex: priv,
+    });
+    await handleMembershipDeltaAppend(
+      "workspace-1",
+      new Request("http://local", {
+        method: "POST",
+        body: JSON.stringify({
+          action: "join",
+          subjectPubkey: actor,
+          actorPubkey: actor,
+          createdAtUnixMs,
+          signature: bootstrapSig,
+        }),
+      }),
+      env,
+    );
+
+    const memberPriv = "4f3edf4ad81639d2b1c5a488f54ce6d870e7a3bf770f1a7ea0a866e5d7a0d6e1" as PrivateKeyHex;
+    const memberPubkey = derivePublicKeyHex(memberPriv);
+    const memberJoinSig = await signMembershipDelta({
+      communityId: "workspace-1",
+      action: "join",
+      subjectPubkey: memberPubkey,
+      actorPubkey: memberPubkey,
+      createdAtUnixMs: createdAtUnixMs + 1,
+      actorPrivateKeyHex: memberPriv,
+    });
+    await handleMembershipDeltaAppend(
+      "workspace-1",
+      new Request("http://local", {
+        method: "POST",
+        body: JSON.stringify({
+          action: "join",
+          subjectPubkey: memberPubkey,
+          actorPubkey: memberPubkey,
+          createdAtUnixMs: createdAtUnixMs + 1,
+          signature: memberJoinSig,
+        }),
+      }),
+      env,
+    );
+
+    const forgedLeaveSig = await signMembershipDelta({
+      communityId: "workspace-1",
+      action: "leave",
+      subjectPubkey: memberPubkey,
+      actorPubkey: actor,
+      createdAtUnixMs: createdAtUnixMs + 2,
+      actorPrivateKeyHex: priv,
+    });
+    const response = await handleMembershipDeltaAppend(
+      "workspace-1",
+      new Request("http://local", {
+        method: "POST",
+        body: JSON.stringify({
+          action: "leave",
+          subjectPubkey: memberPubkey,
+          actorPubkey: actor,
+          createdAtUnixMs: createdAtUnixMs + 2,
+          signature: forgedLeaveSig,
+        }),
+      }),
+      env,
+    );
+    expect(response.status).toBe(403);
+    const body = await readJson(response);
+    expect(body.error).toBe("leave_requires_self_attestation");
+  });
+
   it("filters deltas since cursor", async () => {
     const state = { heads: new Map(), deltas: [] };
     const env = { DB: createMockD1(state) };
-    for (let seq = 1; seq <= 2; seq += 1) {
-      const createdAtUnixMs = 1_700_000_000 + seq;
-      const signature = await signMembershipDelta({
-        communityId: "c1",
-        action: "join",
-        subjectPubkey: actor,
-        actorPubkey: actor,
-        createdAtUnixMs,
-        actorPrivateKeyHex: priv,
-      });
-      await handleMembershipDeltaAppend(
-        "c1",
-        new Request("http://local", {
-          method: "POST",
-          body: JSON.stringify({
-            action: "join",
-            subjectPubkey: actor,
-            actorPubkey: actor,
-            createdAtUnixMs,
-            signature,
-          }),
+    const joinAt = 1_700_000_001;
+    const joinSig = await signMembershipDelta({
+      communityId: "c1",
+      action: "join",
+      subjectPubkey: actor,
+      actorPubkey: actor,
+      createdAtUnixMs: joinAt,
+      actorPrivateKeyHex: priv,
+    });
+    await handleMembershipDeltaAppend(
+      "c1",
+      new Request("http://local", {
+        method: "POST",
+        body: JSON.stringify({
+          action: "join",
+          subjectPubkey: actor,
+          actorPubkey: actor,
+          createdAtUnixMs: joinAt,
+          signature: joinSig,
         }),
-        env,
-      );
-    }
+      }),
+      env,
+    );
+
+    const memberPriv = "4f3edf4ad81639d2b1c5a488f54ce6d870e7a3bf770f1a7ea0a866e5d7a0d6e1" as PrivateKeyHex;
+    const memberPubkey = derivePublicKeyHex(memberPriv);
+    const memberJoinAt = 1_700_000_002;
+    const memberJoinSig = await signMembershipDelta({
+      communityId: "c1",
+      action: "join",
+      subjectPubkey: memberPubkey,
+      actorPubkey: memberPubkey,
+      createdAtUnixMs: memberJoinAt,
+      actorPrivateKeyHex: memberPriv,
+    });
+    await handleMembershipDeltaAppend(
+      "c1",
+      new Request("http://local", {
+        method: "POST",
+        body: JSON.stringify({
+          action: "join",
+          subjectPubkey: memberPubkey,
+          actorPubkey: memberPubkey,
+          createdAtUnixMs: memberJoinAt,
+          signature: memberJoinSig,
+        }),
+      }),
+      env,
+    );
     const response = await handleMembershipDeltasSince("c1", 1, env);
     const body = await readJson(response);
     const deltas = (body.data as Record<string, unknown>).deltas as ReadonlyArray<Record<string, unknown>>;

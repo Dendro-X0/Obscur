@@ -27,10 +27,10 @@ export type ResolveCommunityInviteMemberBlocklistParams = Readonly<{
 export const resolveCommunityInviteMemberBlocklist = (
   params: ResolveCommunityInviteMemberBlocklistParams,
 ): ReadonlyArray<PublicKeyHex> => {
-  if (
-    shouldUseCoordinationMembershipAuthority(params.communityMode)
-    && params.coordinationDirectory
-  ) {
+  if (shouldUseCoordinationMembershipAuthority(params.communityMode)) {
+    if (!params.coordinationDirectory) {
+      return [];
+    }
     return filterActiveCommunityMemberPubkeys({
       memberPubkeys: params.coordinationDirectory.activeMemberPubkeys,
       leftMembers: [

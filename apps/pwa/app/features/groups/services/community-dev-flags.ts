@@ -23,6 +23,18 @@ const envCoordinationOnlyWorkspaceDevMode = (): boolean => {
     return raw === "1" || raw === "true" || raw === "yes";
 };
 
+/**
+ * Path B Band B0: dev escapes (assume-local, coordination-only mode, probe-pending bypass)
+ * apply only in non-production builds or when explicitly opted in for local maintainer testing.
+ */
+export const isPathBWorkspaceDevEscapeAllowed = (): boolean => {
+    if (process.env.NODE_ENV !== "production") {
+        return true;
+    }
+    const raw = (process.env.NEXT_PUBLIC_OBSCUR_ALLOW_WORKSPACE_DEV_ESCAPES ?? "").trim().toLowerCase();
+    return raw === "1" || raw === "true" || raw === "yes";
+};
+
 export const readCoordinationOnlyWorkspaceDevModeOverride = (): boolean => {
     if (typeof window === "undefined") {
         return false;
@@ -50,9 +62,12 @@ export const writeCoordinationOnlyWorkspaceDevModeOverride = (enabled: boolean):
     }
 };
 
-export const isCoordinationOnlyWorkspaceDevMode = (): boolean => (
-    envCoordinationOnlyWorkspaceDevMode() || readCoordinationOnlyWorkspaceDevModeOverride()
-);
+export const isCoordinationOnlyWorkspaceDevMode = (): boolean => {
+    if (!isPathBWorkspaceDevEscapeAllowed()) {
+        return false;
+    }
+    return envCoordinationOnlyWorkspaceDevMode() || readCoordinationOnlyWorkspaceDevModeOverride();
+};
 
 export const readAssumeLocalCoordinationReachable = (): boolean => {
     if (typeof window === "undefined") {
@@ -94,6 +109,9 @@ export const isCoordinationGateSatisfied = (probedHealthy: boolean | null): bool
     }
     if (probedHealthy === true) {
         return true;
+    }
+    if (!isPathBWorkspaceDevEscapeAllowed()) {
+        return false;
     }
     if (readAssumeLocalCoordinationReachable()) {
         return true;

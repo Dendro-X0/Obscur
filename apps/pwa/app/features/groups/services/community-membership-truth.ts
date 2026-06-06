@@ -14,7 +14,6 @@ import {
 } from "./community-coordination-membership-directory-store";
 import type { CoordinationMembershipMaterialization } from "./community-coordination-membership-materializer";
 import { createEmptyCoordinationMembershipMaterialization } from "./community-coordination-membership-materializer";
-import { filterActiveCommunityMemberPubkeys } from "./community-visible-members";
 import { isCoordinationConfigured } from "./community-membership-sync-mode";
 import { shouldUseCoordinationMembershipAuthority } from "./community-workspace-r1-policy";
 
@@ -140,31 +139,13 @@ export const refreshCommunityMembershipTruth = async (params: Readonly<{
   });
 };
 
+/** Path B B1: relay/chat hybrids must not widen workspace roster when directory is stale. */
 export const mergeHybridMembershipTruthFallback = (params: Readonly<{
   truth: CommunityMembershipTruthSnapshot;
   hybridActiveMemberPubkeys: ReadonlyArray<PublicKeyHex>;
   leftMemberPubkeys?: ReadonlyArray<PublicKeyHex>;
   expelledMemberPubkeys?: ReadonlyArray<PublicKeyHex>;
-}>): CommunityMembershipTruthSnapshot => {
-  if (params.truth.syncStatus === "fresh") {
-    return params.truth;
-  }
-
-  const activeMemberPubkeys = filterActiveCommunityMemberPubkeys({
-    memberPubkeys: params.hybridActiveMemberPubkeys,
-    leftMembers: params.leftMemberPubkeys,
-    expelledMembers: params.expelledMemberPubkeys,
-  });
-
-  return {
-    syncStatus: params.truth.syncStatus,
-    coordinationDirectory: params.truth.coordinationDirectory,
-    activeMemberPubkeys,
-    leftMemberPubkeys: params.leftMemberPubkeys ?? [],
-    expelledMemberPubkeys: params.expelledMemberPubkeys ?? [],
-    inviteBlocklistPubkeys: activeMemberPubkeys,
-  };
-};
+}>): CommunityMembershipTruthSnapshot => params.truth;
 
 export const createEmptyCommunityMembershipTruth = (): CommunityMembershipTruthSnapshot => ({
   ...emptySnapshot("stale"),

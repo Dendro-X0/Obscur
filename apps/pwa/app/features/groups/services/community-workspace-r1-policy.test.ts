@@ -48,7 +48,7 @@ describe("community-workspace-r1-policy", () => {
     expect(result).toEqual([PK_A, PK_B]);
   });
 
-  it("resolveWorkspaceActionMemberPubkeys falls back to hybrid when projection empty", () => {
+  it("resolveWorkspaceActionMemberPubkeys does not fall back to hybrid when projection empty (Path B B1)", () => {
     const result = resolveWorkspaceActionMemberPubkeys({
       communityMode: "managed_workspace",
       coordinationProjectionPubkeys: [],
@@ -56,6 +56,6 @@ describe("community-workspace-r1-policy", () => {
       leftMemberPubkeys: [],
       expelledMemberPubkeys: [],
     });
-    expect(result).toEqual([PK_A]);
+    expect(result).toEqual([]);
   });
 });
