@@ -18,6 +18,7 @@ import { installM8CommunityReplayBridge } from "@/app/shared/m8-community-replay
 import { installM10TrustControlsBridge } from "@/app/shared/m10-trust-controls-bridge";
 import { WindowRuntimeBindingOwner } from "@/app/features/runtime/components/window-runtime-binding-owner";
 import { ChatStateDurabilityOwner } from "@/app/features/messaging/components/chat-state-durability-owner";
+import { SealedGroupMessageDurabilityOwner } from "@/app/features/groups/components/sealed-group-message-durability-owner";
 import { markExperimentShellBootFlag } from "@/app/features/runtime/experiment-shell-policy";
 import { ExperimentShellIndicator } from "@/app/features/runtime/components/experiment-shell-indicator";
 import { ClientSurfaceRevisionBadge } from "@/app/components/client-surface-revision-badge";
@@ -77,6 +78,7 @@ export const AppProviders = ({ children }: { children: React.ReactNode }) => {
         <DesktopProfileBootstrap>
             <WindowRuntimeBindingOwner />
             <ChatStateDurabilityOwner />
+            <SealedGroupMessageDurabilityOwner />
             <DevRuntimeIssueCapture />
             <ExperimentShellIndicator />
             <ClientSurfaceRevisionBadge />

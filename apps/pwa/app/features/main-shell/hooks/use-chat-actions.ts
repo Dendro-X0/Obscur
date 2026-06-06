@@ -9,6 +9,9 @@ import { createEmptyReactions, toReactionsByEmoji } from "@/app/features/messagi
 import { type Message, type ReactionEmoji, UploadError, UploadErrorCode } from "@/app/features/messaging/types";
 import type { UseDmControllerResult } from "../../messaging/controllers/v2/dm-controller";
 import { GroupService } from "@/app/features/groups/services/group-service";
+import { commitSealedGroupMessages } from "@/app/features/groups/services/sealed-group-message-persistence";
+import { toGroupConversationId } from "@/app/features/groups/utils/group-conversation-id";
+import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { useUploadService } from "../../messaging/lib/upload-service";
 import { messageBus } from "../../messaging/services/message-bus";
 import {
@@ -39,6 +42,8 @@ import { groupClientOperations } from "@/app/features/groups/services/group-clie
 import { collectMessageIdentityAliases } from "../../messaging/services/message-identity-alias-contract";
 import type { Attachment } from "../../messaging/lib/message-queue";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
+import { readActiveDesktopProfileId } from "@/app/features/profiles/services/read-active-desktop-profile-id";
+import { isTauri } from "@dweb/db";
 import {
     messagingClientOperations,
 } from "@/app/features/messaging/services/messaging-client-operations";
@@ -417,7 +422,13 @@ export function useChatActions(dmController: UseDmControllerResult | null) {
         // 2. Prepare for Send
         const currentInput = finalContent;
         const currentReplyTo = replyTo;
-        const conversationId = selectedConversation.id;
+        const conversationId = selectedConversation.kind === "group"
+            ? toGroupConversationId({
+                groupId: selectedConversation.groupId,
+                relayUrl: selectedConversation.relayUrl,
+                communityId: selectedConversation.communityId,
+            })
+            : selectedConversation.id;
 
         // Optimistically clear input
         setMessageInput("");
@@ -479,12 +490,30 @@ export function useChatActions(dmController: UseDmControllerResult | null) {
                     event
                 });
 
+                const createdAtUnixSeconds = typeof event.created_at === "number"
+                    ? event.created_at
+                    : Math.floor(Date.now() / 1000);
+                await commitSealedGroupMessages({
+                    conversationId,
+                    groupId: selectedConversation.groupId,
+                    publicKeyHex: identity.state.publicKeyHex as PublicKeyHex,
+                    profileId: isTauri()
+                        ? readActiveDesktopProfileId()
+                        : getResolvedProfileId(),
+                    messages: [{
+                        id: event.id,
+                        pubkey: identity.state.publicKeyHex,
+                        created_at: createdAtUnixSeconds,
+                        content: currentInput,
+                    }],
+                });
+
                 // Emit local message after relay publish confirmation.
                 const optimisticMessage: Message = {
                     id: event.id,
                     kind: 'user',
                     content: currentInput,
-                    timestamp: new Date(),
+                    timestamp: new Date(createdAtUnixSeconds * 1000),
                     isOutgoing: true,
                     status: 'delivered',
                     eventId: event.id,

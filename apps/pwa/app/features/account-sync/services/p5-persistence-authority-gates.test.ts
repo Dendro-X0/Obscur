@@ -51,6 +51,16 @@ describe("P5 persistence authority gates", () => {
     expect(runtime).toMatch(/call-end[\s\S]*mirrorTerminalCallToSqlite/);
   });
 
+  it("P5-COM-MSG: group outbound send and commit owned by use-chat-actions", () => {
+    const chatActions = readSource("features/main-shell/hooks/use-chat-actions.ts");
+    const sealedCommunity = readSource("features/groups/hooks/use-sealed-community.ts");
+
+    expect(chatActions).toMatch(/await commitSealedGroupMessages/);
+    expect(sealedCommunity).toContain("GROUP_MESSAGE_SEND_OWNED_BY_USE_CHAT_ACTIONS");
+    const durabilityOwner = readSource("features/groups/components/sealed-group-message-durability-owner.tsx");
+    expect(durabilityOwner).toContain("flushPendingSealedGroupSqliteWrites");
+  });
+
   it("P5-DM-3: relay 7-day lookback constant is live-subscription only", () => {
     const hits = listSourceFiles("features/messaging", "dm-relay-transport.ts")
       .flatMap((filePath) => {

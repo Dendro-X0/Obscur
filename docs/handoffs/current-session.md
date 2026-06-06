@@ -2,7 +2,7 @@
 
 - Last Updated (UTC): 2026-06-02T22:40:00Z
 - Git SHA: (uncommitted — Band B0 gate work)
-- Session Status: **Path B signed · Band B2 wire honesty landed (tests) · ready for B3**
+- Session Status: **Path B signed · Band B3 group message durability in progress**
 
 ## North star
 
@@ -86,13 +86,19 @@ STAB settings, DM quorum, native drift skip, auto-disband seeded roster, native 
 | Group management kind-0 REQ scoped to dialog lifecycle | `use-community-member-display-names.ts` |
 | CI gate | `pnpm verify:path-b-b2` — **8 passed** |
 
+## Band B3 (in progress)
+
+| Deliverable | Evidence |
+|-------------|----------|
+| Canonical outbound send via `use-chat-actions` + awaited `commitSealedGroupMessages` | `use-chat-actions.ts` |
+| `use-sealed-community.sendMessage` subtracted (throws `GROUP_MESSAGE_SEND_OWNED_BY_USE_CHAT_ACTIONS`) | `use-sealed-community.ts` |
+| Native sqlite flush owner on shell exit | `sealed-group-message-durability-owner.tsx` → `providers.tsx` |
+| P5-COM-MSG cold-restart test | `sealed-group-message-persistence.test.ts` |
+| CI gates | `pnpm verify:path-b-b3`, `verify:p5-persistence` (extended) |
+
 ## Next atomic step
 
-**Band B3** ([back-online-modular-roadmap-2026-06.md](../program/back-online-modular-roadmap-2026-06.md)):
-
-1. Manual K-M1/K-M2 run (two profiles + coordination dev) — record pass/fail in handoff.
-2. P5-COM-MSG gate design: one group message send path + cold-restart hydrate.
-
-**Do not** piecemeal patch Test 10 without P5-COM-MSG gate design.
+1. Manual K-M1/K-M2 + Test 10 cold-restart runtime evidence.
+2. **Band B4** backup publish when B3 runtime green.
 
 Exploration shelf (research-only, complete): [exploration/README.md](../exploration/README.md).

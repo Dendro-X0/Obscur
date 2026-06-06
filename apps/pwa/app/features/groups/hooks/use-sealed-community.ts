@@ -860,6 +860,8 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
         publicKeyHex: params.myPublicKeyHex as PublicKeyHex,
         messages: incomingMessages,
         profileId,
+      }).catch(() => {
+        // Inbound persist is best-effort; outbound path awaits commit in use-chat-actions.
       });
     }
   }, [conversationId, params.groupId, params.myPublicKeyHex, profileId]);
@@ -2474,74 +2476,10 @@ export const useSealedCommunity = (params: UseSealedCommunityParams): UseSealedC
     }))
   ), [params.communityId, params.groupId, state.messages]);
 
-  const sendMessage = useCallback(async (msgParams: Readonly<{ content: string }>): Promise<void> => {
-    if (!params.myPublicKeyHex || !params.myPrivateKeyHex) return;
-    try {
-      const roomKeyHex = await roomKeyStore.getRoomKey(params.groupId);
-      if (!roomKeyHex) throw new Error("Missing Room Key");
-
-      const groupService = new GroupService(params.myPublicKeyHex, params.myPrivateKeyHex);
-      const signedEvent = await groupService.sendSealedMessage({
-        groupId: params.groupId,
-        roomKeyHex,
-        content: msgParams.content
-      });
-
-      const publishResult = await publishToCommunityScope(signedEvent);
-      assertRelayPublishSuccess(publishResult, {
-        operation: "Could not send community message",
-        fallback: "Failed to send message. Check relay connection and try again.",
-      });
-
-      // Optimistic update
-      const optimisticMsg: GroupMessageEvent = {
-        id: signedEvent.id,
-        pubkey: params.myPublicKeyHex,
-        created_at: signedEvent.created_at ?? Math.floor(Date.now() / 1000),
-        content: msgParams.content
-      };
-
-      setState((prev: Nip29GroupState): Nip29GroupState => {
-        if (prev.messages.some((m): boolean => m.id === optimisticMsg.id)) {
-          return prev;
-        }
-        const newMessages = mergeGroupMessagesDescending({
-          previous: prev.messages,
-          incoming: [optimisticMsg]
-        });
-
-        // Emit optimistic message to MessageBus
-        const unifiedOptimistic: Message = {
-          id: optimisticMsg.id,
-          kind: 'user',
-          content: optimisticMsg.content,
-          timestamp: new Date(optimisticMsg.created_at * 1000),
-          isOutgoing: true,
-          status: 'sending',
-          senderPubkey: params.myPublicKeyHex as PublicKeyHex,
-          conversationId
-        };
-        messageBus.emitNewMessage(conversationId, unifiedOptimistic);
-
-        return { ...prev, messages: newMessages };
-      });
-
-      if (params.myPublicKeyHex) {
-        await commitSealedGroupMessages({
-          conversationId,
-          groupId: params.groupId,
-          publicKeyHex: params.myPublicKeyHex as PublicKeyHex,
-          messages: [optimisticMsg],
-          profileId,
-        });
-      }
-    } catch (e: unknown) {
-      toast.error(resolveUserFacingErrorMessage(
-        e,
-        "Failed to send message. Check relay connection and try again.",
-      ));
-    }
-  }, [conversationId, params.groupId, params.myPrivateKeyHex, params.myPublicKeyHex, publishToCommunityScope]);
+  /** Path B B3: outbound chat is owned by `use-chat-actions` → relay publish → `commitSealedGroupMessages`. */
+  const sendMessage = useCallback(async (): Promise<void> => {
+    throw new Error("GROUP_MESSAGE_SEND_OWNED_BY_USE_CHAT_ACTIONS");
+  }, []);
 
   const sendVoteKick = useCallback(async (targetPubkey: string, reason?: string): Promise<void> => {
     if (!params.myPublicKeyHex || !params.myPrivateKeyHex) return;
