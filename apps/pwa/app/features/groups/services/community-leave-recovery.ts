@@ -1,31 +1,34 @@
 /**
  * P5-COM-2 — Recovery owner for spurious local leave when relay publish failed.
  *
- * Leave **publish** state (outbox) is not membership truth. When outbox is `rejected`
- * and persisted group evidence still exists (SQLite / chat-state), the user can revoke
- * terminal hide gates and rejoin without DevTools surgery.
+ * Leave **publish** state (outbox) is not membership truth. When local hide gates
+ * (tombstone + ledger left) exist but persisted group evidence still exists
+ * (SQLite / chat-state), membership can be revoked programmatically.
  */
 
 import type { GroupConversation } from "@/app/features/messaging/types";
 import { fromPersistedGroupConversation } from "@/app/features/messaging/utils/persistence";
 import {
   findCommunityLeaveOutboxItem,
-  readCommunityLeaveOutbox,
   removeCommunityLeaveOutboxItem,
-  type CommunityLeaveOutboxItem,
 } from "./community-leave-outbox";
-import { loadGroupTombstones, removeGroupTombstone } from "./group-tombstone-store";
+import { loadGroupTombstones, removeGroupTombstone, toGroupTombstoneKey } from "./group-tombstone-store";
 import { loadCommunityMembershipLedger } from "./community-membership-ledger";
 import { applyCommunityMembershipRuntimeEvidence } from "./community-membership-mutation-owner";
 import { loadSqliteGroupPersistedRows } from "./community-group-sqlite-store";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 
-export const listRejectedCommunityLeaveOutboxItems = (
-  publicKeyHex: string,
-  profileId?: string,
-): ReadonlyArray<CommunityLeaveOutboxItem> => (
-  readCommunityLeaveOutbox(publicKeyHex, profileId).filter((item) => item.status === "rejected")
-);
+const hasActiveLeaveOutboxAttempt = (params: Readonly<{
+  publicKeyHex: string;
+  groupId: string;
+  relayUrl: string;
+  profileId?: string;
+}>): boolean => {
+  const item = findCommunityLeaveOutboxItem(params);
+  return item?.status === "pending"
+    || item?.status === "retrying"
+    || item?.status === "rate_limited";
+};
 
 export const canRevokeCommunityLeaveTerminalState = (params: Readonly<{
   publicKeyHex: string;
@@ -33,8 +36,11 @@ export const canRevokeCommunityLeaveTerminalState = (params: Readonly<{
   relayUrl: string;
   profileId?: string;
 }>): boolean => {
-  const item = findCommunityLeaveOutboxItem(params);
-  return item?.status === "rejected";
+  if (hasActiveLeaveOutboxAttempt(params)) {
+    return false;
+  }
+  const tombstones = loadGroupTombstones(params.publicKeyHex, { profileId: params.profileId });
+  return tombstones.has(toGroupTombstoneKey({ groupId: params.groupId, relayUrl: params.relayUrl }));
 };
 
 export const revokeCommunityLeaveTerminalState = (params: Readonly<{
@@ -94,20 +100,34 @@ export type RestoreRejectedCommunityLeaveResult = Readonly<{
   skippedNoPersistedEvidence: number;
 }>;
 
-/** Bulk revoke rejected leave intents when SQLite still holds the group row. */
+/** Revoke terminal local hide gates when SQLite still holds the group row. */
 export const restoreRejectedCommunityLeaveIntents = async (params: Readonly<{
   publicKeyHex: PublicKeyHex;
   profileId: string;
 }>): Promise<RestoreRejectedCommunityLeaveResult> => {
-  const rejected = listRejectedCommunityLeaveOutboxItems(params.publicKeyHex, params.profileId);
+  const tombstones = loadGroupTombstones(params.publicKeyHex, { profileId: params.profileId });
   const restored: GroupConversation[] = [];
   let skippedNoPersistedEvidence = 0;
 
-  for (const item of rejected) {
+  for (const tombstoneKey of tombstones.keys()) {
+    const separatorIndex = tombstoneKey.indexOf("@@");
+    if (separatorIndex <= 0) {
+      continue;
+    }
+    const groupId = tombstoneKey.slice(0, separatorIndex);
+    const relayUrl = tombstoneKey.slice(separatorIndex + 2);
+    if (!canRevokeCommunityLeaveTerminalState({
+      publicKeyHex: params.publicKeyHex,
+      groupId,
+      relayUrl,
+      profileId: params.profileId,
+    })) {
+      continue;
+    }
     const group = await resolveGroupConversationForLeaveRecovery({
       publicKeyHex: params.publicKeyHex,
-      groupId: item.groupId,
-      relayUrl: item.relayUrl,
+      groupId,
+      relayUrl,
       profileId: params.profileId,
     });
     if (!group) {
@@ -116,8 +136,8 @@ export const restoreRejectedCommunityLeaveIntents = async (params: Readonly<{
     }
     const revoked = revokeCommunityLeaveTerminalState({
       publicKeyHex: params.publicKeyHex,
-      groupId: item.groupId,
-      relayUrl: item.relayUrl,
+      groupId,
+      relayUrl,
       group,
       profileId: params.profileId,
     });

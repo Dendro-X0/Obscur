@@ -40,7 +40,6 @@ import { useMobileCompactLayout, useTabletSecondaryLayout } from "@/app/features
 
 import { ConnectionCard } from "./network-connection-card";
 import { GroupCard } from "./group-card";
-import { CommunityLeaveOutboxSummaryBanner } from "@/app/features/groups/components/community-leave-publish-pending-notice";
 import {
     resolveLeaveOutboxScopeId,
     useCommunityLeaveOutboxIndex,
@@ -418,7 +417,6 @@ export function NetworkDashboard() {
 
                     {activeTab === "groups" && (
                         <div className="animate-in fade-in duration-150 flex-1 flex flex-col">
-                            <CommunityLeaveOutboxSummaryBanner className="mb-4" />
                             {publicKeyHex && !hasHydratedGroups ? (
                                 <div className="flex flex-1 items-center justify-center p-12 min-h-[40vh]">
                                     <LoaderIcon className="h-8 w-8 animate-pulse text-primary/50" />

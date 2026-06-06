@@ -829,7 +829,7 @@ export const CommunityInviteCard = ({
                                             e.stopPropagation();
                                             handleCancel();
                                         }}
-                                        className="h-9 rounded-xl text-[10px] uppercase font-black tracking-widest border border-zinc-300/80 bg-white text-zinc-800 hover:bg-zinc-50 dark:border-surface-contrast dark:bg-white/5 dark:text-surface-contrast-primary dark:hover:bg-white/10 transition-colors"
+                                        className="h-9 rounded-xl text-[10px] uppercase font-black tracking-widest border border-zinc-300/80 bg-white text-zinc-800 hover:bg-zinc-50 dark:border-white/10 dark:bg-white/5 dark:text-zinc-100 dark:hover:bg-white/10 transition-colors"
                                     >
                                         {isProcessing ? t("common.processing", "Processing...") : t("common.cancelInvite", "Cancel Invitation")}
                                     </Button>

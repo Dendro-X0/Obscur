@@ -85,6 +85,10 @@ const parseOutboxSnapshot = (raw: unknown): CommunityLeaveOutboxItem[] => {
 // Public API
 // ---------------------------------------------------------------------------
 
+const isTerminalLeaveOutboxStatus = (status: CommunityLeavePublishStatus): boolean => (
+  status === "published" || status === "rejected"
+);
+
 export const readCommunityLeaveOutbox = (
   publicKeyHex: string,
   profileId?: string,
@@ -92,7 +96,12 @@ export const readCommunityLeaveOutbox = (
   try {
     const raw = window.localStorage.getItem(toOutboxStorageKey(publicKeyHex, profileId));
     if (!raw) return [];
-    return parseOutboxSnapshot(JSON.parse(raw));
+    const parsed = parseOutboxSnapshot(JSON.parse(raw));
+    const retained = parsed.filter((item) => !isTerminalLeaveOutboxStatus(item.status));
+    if (retained.length !== parsed.length) {
+      saveCommunityLeaveOutbox(publicKeyHex, retained, profileId);
+    }
+    return retained;
   } catch {
     return [];
   }
@@ -187,8 +196,10 @@ export const updateCommunityLeaveOutboxItem = (params: Readonly<{
     return next;
   });
 
-  // Remove items that are definitively published — no need to retain them
-  const retained = updated.filter((item) => item.id !== id || item.status !== "published");
+  // Terminal relay outcomes are not surfaced in UI — drop published and rejected rows.
+  const retained = updated.filter((item) => (
+    item.id !== id || !isTerminalLeaveOutboxStatus(item.status)
+  ));
 
   saveCommunityLeaveOutbox(params.publicKeyHex, retained, params.profileId);
 
@@ -236,12 +247,12 @@ export const findCommunityLeaveOutboxItem = (params: Readonly<{
   return readCommunityLeaveOutbox(params.publicKeyHex, params.profileId).find((item) => item.id === id) ?? null;
 };
 
-/** Items that still need relay attention or honest terminal surfacing (excludes published). */
+/** Items still awaiting relay confirmation (pending, retrying, or rate_limited). */
 export const listCommunityLeaveOutboxItemsAwaitingRelay = (
   publicKeyHex: string,
   profileId?: string,
 ): ReadonlyArray<CommunityLeaveOutboxItem> => (
-  readCommunityLeaveOutbox(publicKeyHex, profileId).filter((item) => item.status !== "published")
+  readCommunityLeaveOutbox(publicKeyHex, profileId).filter((item) => !isTerminalLeaveOutboxStatus(item.status))
 );
 
 export const getPendingCommunityLeaveOutboxItems = (

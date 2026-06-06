@@ -29,7 +29,7 @@ STAB settings, DM quorum, native drift skip, auto-disband seeded roster, native 
 |------|--------|------|
 | P5-DM-2 | `dm-conversation-hydrate-indexed-scan` | 8-day-old SQLite row survives hydrate test |
 | P5-COM-2 | `community-leave-recovery.ts` | Revoke rejected leave → ledger `joined`, clear outbox/tombstone |
-| P5-COM-2 UX | `use-restore-rejected-community-leaves` + summary banner | Bulk restore + `addGroup(allowRevive)` |
+| P5-COM-2 UX | *(removed)* leave outbox summary banner | Terminal rejected rows pruned; Groups tab stays clean |
 | P5-BKP-1 | `encrypted-account-backup-service` native restore | Strip bodies before chat-state replace; skip hydrateMessages |
 | P5-DM-1 | `message-persistence-service.test.ts` | SQLite write on confirmed eventId |
 | P5-DM-3 | `p5-persistence-authority-gates.test.ts` | 7d lookback only in `dm-relay-transport.ts` |
@@ -59,4 +59,4 @@ STAB settings, DM quorum, native drift skip, auto-disband seeded roster, native 
 ## Next atomic step
 
 1. Pick next **v1.9.4 Phase B** product row from [unified-verification-matrix.md](../program/unified-verification-matrix.md) when maintainer chooses — persistence claims stay on CI (`verify:p5-persistence` + `verify:stability`).
-2. Optional: desktop smoke (`pnpm dev:desktop:online`) for Test 8 **Restore communities** UX — not required for ship evidence.
+2. Optional: group activity history component (join/leave/create timestamps) — not started; ledger data exists if we scope it later.

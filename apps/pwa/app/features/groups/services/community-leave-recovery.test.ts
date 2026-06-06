@@ -4,7 +4,6 @@ import type { GroupConversation } from "@/app/features/messaging/types";
 import { toPersistedGroupConversation } from "@/app/features/messaging/utils/persistence";
 import {
   canRevokeCommunityLeaveTerminalState,
-  listRejectedCommunityLeaveOutboxItems,
   restoreRejectedCommunityLeaveIntents,
   revokeCommunityLeaveTerminalState,
 } from "./community-leave-recovery";
@@ -49,7 +48,7 @@ describe("community-leave-recovery (P5-COM-2)", () => {
     vi.mocked(loadSqliteGroupPersistedRows).mockResolvedValue([]);
   });
 
-  it("lists rejected leave outbox items only", () => {
+  it("prunes rejected leave outbox rows instead of retaining them for UI surfacing", () => {
     enqueueCommunityLeaveOutboxItem({
       publicKeyHex: PUBLIC_KEY,
       groupId: GROUP_ID,
@@ -64,18 +63,11 @@ describe("community-leave-recovery (P5-COM-2)", () => {
       errorMessage: "relay declined",
       profileId: PROFILE_ID,
     });
-    enqueueCommunityLeaveOutboxItem({
-      publicKeyHex: PUBLIC_KEY,
-      groupId: "other",
-      relayUrl: RELAY_URL,
-      profileId: PROFILE_ID,
-    });
 
-    expect(listRejectedCommunityLeaveOutboxItems(PUBLIC_KEY, PROFILE_ID)).toHaveLength(1);
-    expect(listRejectedCommunityLeaveOutboxItems(PUBLIC_KEY, PROFILE_ID)[0]?.groupId).toBe(GROUP_ID);
+    expect(readCommunityLeaveOutbox(PUBLIC_KEY, PROFILE_ID)).toHaveLength(0);
   });
 
-  it("revokes terminal leave gates when relay publish was rejected", () => {
+  it("revokes terminal leave gates when tombstone exists and relay publish is terminal", () => {
     enqueueCommunityLeaveOutboxItem({
       publicKeyHex: PUBLIC_KEY,
       groupId: GROUP_ID,
@@ -112,24 +104,11 @@ describe("community-leave-recovery (P5-COM-2)", () => {
     expect(ledger.some((entry) => entry.groupId === GROUP_ID && entry.status === "joined")).toBe(true);
   });
 
-  it("bulk restore revokes rejected intents when SQLite still has the group row", async () => {
+  it("bulk restore revokes tombstoned intents when SQLite still has the group row", async () => {
     const group = sampleGroup();
     vi.mocked(loadSqliteGroupPersistedRows).mockResolvedValueOnce([
       toPersistedGroupConversation(group),
     ]);
-    enqueueCommunityLeaveOutboxItem({
-      publicKeyHex: PUBLIC_KEY,
-      groupId: GROUP_ID,
-      relayUrl: RELAY_URL,
-      profileId: PROFILE_ID,
-    });
-    recordCommunityLeaveRelayPublishOutcome({
-      publicKeyHex: PUBLIC_KEY,
-      groupId: GROUP_ID,
-      relayUrl: RELAY_URL,
-      success: false,
-      profileId: PROFILE_ID,
-    });
     addGroupTombstone(PUBLIC_KEY, { groupId: GROUP_ID, relayUrl: RELAY_URL }, { profileId: PROFILE_ID });
 
     const result = await restoreRejectedCommunityLeaveIntents({
@@ -140,26 +119,14 @@ describe("community-leave-recovery (P5-COM-2)", () => {
     expect(result.restored).toHaveLength(1);
     expect(result.restored[0]?.groupId).toBe(GROUP_ID);
     expect(result.skippedNoPersistedEvidence).toBe(0);
-    expect(readCommunityLeaveOutbox(PUBLIC_KEY, PROFILE_ID)).toHaveLength(0);
+    expect(loadGroupTombstones(PUBLIC_KEY, { profileId: PROFILE_ID }).size).toBe(0);
     const ledger = loadCommunityMembershipLedger(PUBLIC_KEY, { profileId: PROFILE_ID });
     expect(ledger.some((entry) => entry.groupId === GROUP_ID && entry.status === "joined")).toBe(true);
   });
 
-  it("bulk restore skips rejected intents without persisted SQLite evidence", async () => {
+  it("bulk restore skips tombstoned intents without persisted SQLite evidence", async () => {
     vi.mocked(loadSqliteGroupPersistedRows).mockResolvedValueOnce([]);
-    enqueueCommunityLeaveOutboxItem({
-      publicKeyHex: PUBLIC_KEY,
-      groupId: GROUP_ID,
-      relayUrl: RELAY_URL,
-      profileId: PROFILE_ID,
-    });
-    recordCommunityLeaveRelayPublishOutcome({
-      publicKeyHex: PUBLIC_KEY,
-      groupId: GROUP_ID,
-      relayUrl: RELAY_URL,
-      success: false,
-      profileId: PROFILE_ID,
-    });
+    addGroupTombstone(PUBLIC_KEY, { groupId: GROUP_ID, relayUrl: RELAY_URL }, { profileId: PROFILE_ID });
 
     const result = await restoreRejectedCommunityLeaveIntents({
       publicKeyHex: PUBLIC_KEY,
@@ -168,7 +135,7 @@ describe("community-leave-recovery (P5-COM-2)", () => {
 
     expect(result.restored).toHaveLength(0);
     expect(result.skippedNoPersistedEvidence).toBe(1);
-    expect(readCommunityLeaveOutbox(PUBLIC_KEY, PROFILE_ID)).toHaveLength(1);
+    expect(loadGroupTombstones(PUBLIC_KEY, { profileId: PROFILE_ID }).size).toBe(1);
   });
 
   it("does not revoke when outbox is still pending", () => {
@@ -178,6 +145,7 @@ describe("community-leave-recovery (P5-COM-2)", () => {
       relayUrl: RELAY_URL,
       profileId: PROFILE_ID,
     });
+    addGroupTombstone(PUBLIC_KEY, { groupId: GROUP_ID, relayUrl: RELAY_URL }, { profileId: PROFILE_ID });
     expect(revokeCommunityLeaveTerminalState({
       publicKeyHex: PUBLIC_KEY,
       groupId: GROUP_ID,

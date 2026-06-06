@@ -61,7 +61,7 @@ Programmatic path (no DevTools):
 2. Re-hydrate groups from SQLite + chat-state (`group-provider` hydrate)
 3. If sqlite row missing, require **fresh invite** — no magic resurrection
 
-UI: summary banner gains **Restore communities** when `rejectedCount > 0` (P5-COM-2).
+UI: leave outbox summary banner **removed** (2026-06-02) — terminal rejected rows are pruned from storage; Groups tab no longer surfaces leave counts.
 
 ---
 

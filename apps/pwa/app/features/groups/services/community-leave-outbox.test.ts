@@ -105,7 +105,7 @@ describe("M3 — community leave outbox lifecycle", () => {
     expect(stored[0].attemptCount).toBe(1);
   });
 
-  it("updating to rejected preserves item with rejectedReasonCode", () => {
+  it("updating to rejected prunes the item — terminal relay outcomes are not retained", () => {
     enqueueCommunityLeaveOutboxItem({
       publicKeyHex: PUBLIC_KEY,
       groupId: GROUP_ID,
@@ -120,10 +120,7 @@ describe("M3 — community leave outbox lifecycle", () => {
       nowUnixMs: 1_000,
     });
 
-    const stored = readCommunityLeaveOutbox(PUBLIC_KEY);
-    expect(stored).toHaveLength(1);
-    expect(stored[0].status).toBe("rejected");
-    expect(stored[0].rejectedReasonCode).toBe("relay_refused_nip29");
+    expect(readCommunityLeaveOutbox(PUBLIC_KEY)).toHaveLength(0);
   });
 
   it("explicit remove clears the item", () => {
