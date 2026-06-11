@@ -2,7 +2,7 @@
 
 - Last Updated (UTC): 2026-06-11T20:45:00Z
 - Session Status: **v1.9.5 active** — trust, anti-fraud/bot, internal security validation (blocks v2.0 prep)
-- Last commit: `bdbce06f` — SEC-F1 trust assessment port + banner wiring + `verify:trust-v1.9.5`
+- Last commit: `02a7b847` — SEC-F4 settings copy + SEC-B verify gate; prior `bdbce06f` SEC-F1 trust port
 
 ## Next Atomic Step
 
