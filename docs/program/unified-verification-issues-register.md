@@ -1,22 +1,20 @@
 # Unified verification — issues register
 
-**Status:** v1.9.4 Phase C — **§0 + STAB-R + P4-5 + P5 + ACC-03/04 + release pack closed** · **platform-kernels + community-invariants programmatic pass** @ `f7413dca`  
+**Status:** v1.9.5 Phase A open — v1.9.4 Phase C closed · **SEC band blocks v2.0 prep**  
 **Policy:** [testing-and-issue-tracking-spec.md](./testing-and-issue-tracking-spec.md) · [concentrated-version-delivery.md](./concentrated-version-delivery.md) · [ui-render-loop-systemic-program.md](./ui-render-loop-systemic-program.md)
 
 ---
 
-## Active pass (v1.9.4 — Phase C)
+## Active pass (v1.9.5 — Phase A)
 
 | Field | Value |
 |-------|--------|
-| Concentration unit | **v1.9.4** Phase C |
-| Git SHA | `7a49e339` |
+| Concentration unit | **v1.9.5** — trust, anti-fraud/bot, security validation |
+| Git SHA | `015fc3b3` |
 | Handoff | [current-session.md](../handoffs/current-session.md) |
-| §0 + STAB-R + P4-5 | **Pass** — `pnpm verify:stability` + `release:test-pack` |
-| Programmatic (2026-06-11) | **Pass** — `pnpm verify:phase-b-full` + community invariants **123/123** |
-| Runtime community (§3) | **Pass** — `membership-join-leave` (synthetic COM-8 + coordination + M8) |
-| Release pack | **Pass** @ 2026-06-11 — `pnpm typecheck` + `pnpm release:test-pack -- --skip-preflight` |
-| Product manual | §1–§7 when needed — **not** render-loop hunting |
+| v1.9.4 exit | **Pass** — programmatic + maintainer client community verification |
+| SEC implementation | **Open** — [v1.9.5-scope.md](./v1.9.5-scope.md) Phase A |
+| v2.0 pipeline | **Blocked** until v1.9.5 Phase B–C exit |
 
 ### Resolved (Phase A + STAB-R)
 
@@ -65,4 +63,5 @@
 | 2026-06-02 | P4-5 subtraction + `release:test-pack` @ `02f1cb1b`; ACC-03/04 registered |
 | 2026-06-02 | STAB-R closed @ `2a1badf7`; register synced |
 | 2026-06-11 | Phase B programmatic: platform-kernels + community-invariants 97/97; runtime membership-join-leave blocked on coordination startup |
+| 2026-06-11 | v1.9.4 Phase C closed; v1.9.5 SEC band active — blocks v2.0 prep |
 | 2026-06-11 | `verify:phase-b-full` Pass; Path B contract tests updated for join-evidence + W2 delegate |

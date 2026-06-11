@@ -125,11 +125,28 @@ Ref: [community-system-overhaul-phased-roadmap.md](./community-system-overhaul-p
 | P1 | Android install path + local signing | ◐ | — | [android-p1-signing-runbook.md](./android-p1-signing-runbook.md); Tier 1 smoke **pending** |
 | P2 | Mobile native components (push, background) | — | — | **v2.0 minimum:** document defer or MVP in gate |
 | P3a–c | DM + projection SQLite convergence | ◐ | ◐ | Desktop DM native path largely done |
-| P3d | Community group list + sealed messages SQLite | ✓ | — | v1.9.3; manual restart soak **pending** |
+| P3d | Community group list + sealed messages SQLite | ✓ | ◐ | v1.9.3 code; restart soak **Pass** @ maintainer client verification 2026-06-11 |
 | P3 gaps | Remaining domains per [obscur-native-sqlite-policy.md](./obscur-native-sqlite-policy.md) | ✓ | — | P4-5 owner matrix **done** (2026-06-01); subtraction queue in policy doc |
 | P4 | PWA/web production parity vs desktop | ◐ | — | Production web disabled; parity = policy + spot check |
-| P-sign | Local self-signing (desktop minisign + Android JKS) | — | — | **Deferred** — [local-signing-strategy.md](./local-signing-strategy.md); unsigned desktop + debug APK OK for now |
-| P-demo | Installers + website download + demo assets | ◐ | — | Desktop package **done**; website/GIFs **pending** |
+| P-sign | Local self-signing (desktop minisign + Android JKS) | — | — | **Deferred** to v2.0 Phase 3 — [local-signing-strategy.md](./local-signing-strategy.md) |
+| P-demo | Installers + website download + demo assets | ◐ | — | Desktop package **done**; website/GIFs → v2.0 Phases 4–5 |
+
+---
+
+### Lane SEC — Trust, abuse resistance & security validation (v1.9.5)
+
+| ID | Requirement | I | V | Notes |
+|----|-------------|---|---|-------|
+| SEC-F1 | dm-kernel trust assessment port (recipient-local tiers) | ◐ | — | [v1.9.5-scope.md](./v1.9.5-scope.md) SEC-F |
+| SEC-F2 | Cold-contact financial signal bundle (`BUNDLE_FIN_COLD`) | ◐ | — | Greenfield [02-warning-and-trust-model.md](../archive/greenfield/02-warning-and-trust-model.md) |
+| SEC-F3 | DM thread warning UI (delivery invariant) | ◐ | — | Dismiss/snooze per thread |
+| SEC-B1 | Inbound bot rate limits + allowlist hardening | ◐ | — | B2 steward path |
+| SEC-B2 | Spam-shape signals (`msg.rate`, `invite.fanout`) | ◐ | — | Feeds assessment port |
+| SEC-R1 | Operator relay + coordination trust audit | ◐ | — | Managed workspace tier |
+| SEC-V1 | Internal E2EE / no-upload validation | ◐ | — | [v1.9.5-security-validation-checklist.md](./v1.9.5-security-validation-checklist.md) |
+| SEC-V2 | Transport + gateway boundary re-verify | ✓ | ◐ | Automated scripts exist; sign-off @ v1.9.5 exit |
+
+Ref: [v1.9.5-scope.md](./v1.9.5-scope.md) · Blocks v2.0 pipeline Phase 1 until Phase B–C exit
 
 ---
 
@@ -151,8 +168,8 @@ Ref: [community-system-overhaul-phased-roadmap.md](./community-system-overhaul-p
 
 | Tag | Scope | Exit (Implement + Verify) |
 |-----|-------|---------------------------|
-| **v1.9.4** | Platform + demo prep | [v1.9.4-scope.md](./v1.9.4-scope.md) — Android Tier 1, signing charter, demo screenshots, website download draft, P3d restart soak |
-| **v1.9.5** (optional) | Distribution trust | **Deferred** until pre–v2.0 demo — signing + channel + release APK |
+| **v1.9.4** | Platform + community verification | [v1.9.4-scope.md](./v1.9.4-scope.md) — Phase C exit @ `7a49e339`; client community Pass |
+| **v1.9.5** | Trust, anti-fraud/bot, security validation | [v1.9.5-scope.md](./v1.9.5-scope.md) — **blocks v2.0 prep** |
 | **v2.0.0** | Production demo | All § v2.0.0 exit rows below; v2.0 gate doc at closeout under `docs/releases/`; CHANGELOG; major bump |
 
 ---
@@ -165,7 +182,8 @@ Ship **v2.0.0** only when **all** are true:
 
 1. **v1.8.x** batch + Lane C/T/X rows in this doc are **I** and **V** or **A** in register.
 2. **v1.9.x** Lane K K1–K6 **V** (or **A** with copy) on desktop A/B for applicable demo rows.
-3. **Phase 4.3** recorded (accept or implement).
+3. **v1.9.5** Lane SEC **V** (or **A** with copy) — trust/abuse/security validation complete per [v1.9.5-scope.md](./v1.9.5-scope.md).
+4. **Phase 4.3** recorded (accept or implement).
 
 ### B — Platform + distribution
 

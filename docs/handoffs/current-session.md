@@ -1,21 +1,20 @@
 # Current Session Handoff — Obscur (v2 slim kernel + workspace kernel)
 
-- Last Updated (UTC): 2026-06-11T16:58:00Z
-- Session Status: **v1.9.4 Phase C exit** — `release:test-pack` green after tsc + vitest resolver fixes
-- Last commit: `7a49e339` — Phase C release pack green (tsc + vitest resolver alias)
+- Last Updated (UTC): 2026-06-11T18:00:00Z
+- Session Status: **v1.9.5 active** — trust, anti-fraud/bot, internal security validation (blocks v2.0 prep)
+- Last commit: `015fc3b3` — v1.9.4 Phase C register; uncommitted: desktop `createRequire` fix + roadmap v1.9.5
 
 ## Next Atomic Step
 
-**v2.0 pipeline Phase 1 prep** (maintainer choice: tag **v1.9.4** engineering checkpoint first)
+**v1.9.5 Phase A — SEC-F1 trust assessment port on dm-kernel path**
 
-1. ~~`pnpm verify:platform-kernels`~~ **Pass** @ `edf7c24f`.
-2. ~~`pnpm verify:phase-b-programmatic`~~ **Pass** — community invariants **123/123**.
-3. ~~`pnpm dev:lab:run -- --scenario membership-join-leave`~~ **Pass** — synthetic COM-8 + coordination + M8.
-4. ~~`pnpm verify:phase-b-full`~~ **Pass** @ contract refresh (B1 invite join-evidence, B3 W2 delegate).
-5. ~~`pnpm release:test-pack -- --skip-preflight`~~ **Pass** @ 2026-06-11 (tsc + vitest resolver alias + transport boundary).
-6. Maintainer choice: tag **v1.9.4** engineering checkpoint **or** begin [v2.0-release-pipeline.md](../program/v2.0-release-pipeline.md) Phase 1 (◐→V matrix sweep).
+1. ~~v1.9.4 Phase C~~ **Done** — `release:test-pack` @ `7a49e339`; client community verified (NewTest 2).
+2. **Implement** [v1.9.5-scope.md](../program/v1.9.5-scope.md) SEC-F1 → SEC-F5 (recipient-local anti-fraud baseline).
+3. **Implement** SEC-B1 → SEC-B4 (inbound bot hardening + rate limits).
+4. **Run** [v1.9.5-security-validation-checklist.md](../program/v1.9.5-security-validation-checklist.md) §1–§6 at Phase C.
+5. **Then** [v2.0-release-pipeline.md](../program/v2.0-release-pipeline.md) Phase 1 (◐→V matrix sweep + demo prep).
 
-Optional native only: Tauri COM-8 with NewTest 2 localStorage (not a programmatic gate).
+**First code task:** `SEC-F1` — dm-kernel trust assessment port + `BUNDLE_FIN_COLD` contract tests; add `pnpm verify:trust-v1.9.5`.
 
 ## Workspace kernel W4 (landed)
 

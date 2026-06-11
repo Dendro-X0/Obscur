@@ -104,21 +104,28 @@ Register: [unified-verification-issues-register.md](./unified-verification-issue
 
 ---
 
-## 7. In scope for v1.9.4+ (feature restore)
+## 7. In scope for v1.9.5 (trust & security band)
 
-Work must trace to a row in [version-roadmap-scope.md](./version-roadmap-scope.md) or [v1.9.4-scope.md](./v1.9.4-scope.md):
+Work must trace to [v1.9.5-scope.md](./v1.9.5-scope.md) and Lane SEC in [version-roadmap-scope.md](./version-roadmap-scope.md):
 
-- Client **stability** (P0 shell/runtime)
-- Remaining **SQLite owner** documentation and native path enforcement
-- **Trust / experience** rows still ◐ (REL, MED, X lanes as scoped)
-- **Platform wrap-up:** Android Tier 1 smoke, P3d restart soak (Phase B)
-- Demo/website assets **may defer** to v2.0 pipeline Phases 4–5 if handoff records split
+- **Anti-fraud (basic)** — recipient-local assessment on dm-kernel; cold-contact + financial signals; DM banner UI
+- **Anti-bot (basic)** — B2 inbound hardening, rate limits, steward disable
+- **Relay security** — operator trust bundle audit, relay trust scorer, private-trust setup docs
+- **Internal security validation** — [v1.9.5-security-validation-checklist.md](./v1.9.5-security-validation-checklist.md) signed before v2.0 prep
 
-**Out of scope for v1.9.4:** iOS, paid signing, public outreach, v2.0 tag, greenfield rewrite.
+**Product position:** B2Pro / private-trust deployment; assessments are **local and optional**, not platform moderation.
+
+**Out of scope for v1.9.5:** v2.0 website/installers/demo kit, public promotion, full rule-pack CDN, iOS.
 
 ---
 
-## 8. Document authority (single hierarchy)
+## 8. In scope for v1.9.4 (closed)
+
+Historical — platform + community verification wrap-up. See [v1.9.4-scope.md](./v1.9.4-scope.md). Phase C exit @ `7a49e339`.
+
+---
+
+## 9. Document authority (single hierarchy)
 
 When documents conflict, **higher number wins**:
 
