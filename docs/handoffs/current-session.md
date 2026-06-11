@@ -1,7 +1,7 @@
 # Current Session Handoff — Obscur (v2 slim kernel + workspace kernel)
 
-- Last Updated (UTC): 2026-06-08T07:35:00Z
-- Last commit: `e49d2c43` — SEC-R1 operator trust bundle audit + `verify:relay-v1.9.5`
+- Last Updated (UTC): 2026-06-08T07:36:00Z
+- Last commit: `e2d6656b` — SEC-R2–R4 relay trust scorer, stack hardening doc, publish honesty gate
 
 ## Next Atomic Step
 
@@ -9,9 +9,9 @@
 
 1. ~~SEC-B1–B4~~ **Done** @ `121b29e5` — full anti-bot band.
 2. ~~SEC-R1~~ **Done** @ `e49d2c43` — operator trust bundle audit, create/join wiring.
-3. ~~SEC-R2~~ **Done (uncommitted)** — `assessRelayAddTrust` + pure scoring exports + Settings wiring.
-4. ~~SEC-R3~~ **Done (uncommitted)** — SEC-R3 hardening section in [private-trust-local-setup.md](../assets/demo/private-trust-local-setup.md) (bind addresses, TLS, docker compose); contract test `private-trust-local-setup-sec-r3.contract.test.ts`.
-5. ~~SEC-R4~~ **Done (uncommitted)** — publish honesty gate: `relay-publish-user-copy.test.ts` + `relay-publish-chaos.test.ts` + `relay-publish-sec-r4.contract.test.ts` in **`pnpm verify:relay-v1.9.5`**.
+3. ~~SEC-R2~~ **Done** @ `e2d6656b` — `assessRelayAddTrust` + pure scoring exports + Settings wiring.
+4. ~~SEC-R3~~ **Done** @ `e2d6656b` — SEC-R3 hardening section in [private-trust-local-setup.md](../assets/demo/private-trust-local-setup.md); contract test `private-trust-local-setup-sec-r3.contract.test.ts`.
+5. ~~SEC-R4~~ **Done** @ `e2d6656b` — publish honesty gate in **`pnpm verify:relay-v1.9.5`** (57 tests).
 6. **Run** [v1.9.5-security-validation-checklist.md](../program/v1.9.5-security-validation-checklist.md) §1–§6 at Phase C (SEC-V1–V5).
 
 **First code task:** `SEC-V1` — E2EE boundary audit (grep + boundary scripts per checklist §1–§2).
