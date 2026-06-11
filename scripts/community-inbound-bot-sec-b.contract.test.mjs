@@ -25,5 +25,14 @@ describe("community-inbound-bot SEC-B contract", () => {
   it("verify:trust-v1.9.5 includes inbound bot tests", () => {
     const pkg = read("package.json");
     assert.match(pkg, /verify:trust-v1\.9\.5.*test:community-inbound-bot/s);
+    assert.match(pkg, /community-inbound-bot-sec-b4\.test\.mjs/);
+  });
+
+  it("SEC-B4 flood simulator exists and runner skips when rate limited", () => {
+    const lib = read("scripts/lib/community-bot-inbound.mjs");
+    const runner = read("scripts/community-inbound-bot.mjs");
+    assert.match(lib, /simulateInboundTriggerFlood/);
+    assert.match(runner, /rate limit reached — skipping reply/);
+    assert.doesNotMatch(runner, /queue.*reply|burst.*reply/i);
   });
 });

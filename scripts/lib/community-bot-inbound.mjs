@@ -164,6 +164,64 @@ export const decryptSealedCommunityEvent = async (event, roomKeyHex) => {
   return parseSealedChatInner(decrypted);
 };
 
+/**
+ * SEC-B4 / BOT-1 — deterministic inbound trigger flood without relay I/O.
+ * Mirrors runner event handling: dedupe, self-skip, match, rate-limit, no queue/burst.
+ */
+export const simulateInboundTriggerFlood = (params) => {
+  const limitPerMinute = params.limitPerMinute ?? DEFAULT_RATE_LIMIT_PER_MIN;
+  const rateLimiter = createRateLimiter(limitPerMinute);
+  const processed = createProcessedEventTracker();
+  let matchedCount = 0;
+  let publishedCount = 0;
+  let rateLimitedCount = 0;
+  let skippedSelfCount = 0;
+  let duplicateCount = 0;
+
+  params.inboundEvents.forEach((event, index) => {
+    const nowMs = params.nowStartMs + (params.intervalMs ?? 50) * index;
+    if (processed.has(event.eventId)) {
+      duplicateCount += 1;
+      return;
+    }
+    processed.add(event.eventId);
+
+    const inner = event.inner;
+    if (!inner) {
+      return;
+    }
+    if (inner.authorPublicKeyHex === params.botPublicKeyHex) {
+      skippedSelfCount += 1;
+      return;
+    }
+
+    const rule = findMatchingInboundTrigger({
+      entry: params.triggerEntry,
+      botPublicKeyHex: params.botPublicKeyHex,
+      content: inner.content,
+    });
+    if (!rule) {
+      return;
+    }
+
+    matchedCount += 1;
+    if (rateLimiter.tryConsume(nowMs)) {
+      publishedCount += 1;
+    } else {
+      rateLimitedCount += 1;
+    }
+  });
+
+  return {
+    matchedCount,
+    publishedCount,
+    rateLimitedCount,
+    skippedSelfCount,
+    duplicateCount,
+    relayPublishAttempts: publishedCount,
+  };
+};
+
 export const createScheduleRunner = (params) => {
   const timers = new Map();
   const stopAll = () => {
