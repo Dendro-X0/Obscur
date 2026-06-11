@@ -7,6 +7,7 @@ import {
   resolveManagedWorkspaceCommunityId,
 } from "@/app/features/workspace-kernel/workspace-kernel-membership-scope";
 import { loadCommunityMembershipLedger } from "./community-membership-ledger";
+import { resolveEffectiveCommunityMode } from "./community-workspace-r1-policy";
 
 export type ManagedWorkspaceRosterRepairContext = Readonly<{
   resolvedCommunityId: string | undefined;
@@ -34,7 +35,10 @@ export const buildManagedWorkspaceRosterRepairContext = (params: Readonly<{
     };
   }
 
-  const resolvedCommunityId = publicKeyHex && group.communityMode === "managed_workspace"
+  const effectiveCommunityMode = resolveEffectiveCommunityMode(group.communityMode, group.relayUrl);
+  const usesManagedWorkspaceRepair = effectiveCommunityMode === "managed_workspace";
+
+  const resolvedCommunityId = publicKeyHex && usesManagedWorkspaceRepair
     ? resolveManagedWorkspaceCommunityId({
       group,
       publicKeyHex,
@@ -44,7 +48,7 @@ export const buildManagedWorkspaceRosterRepairContext = (params: Readonly<{
       || params.routeCommunityIdFallback?.trim()
       || undefined);
 
-  const communityIdCandidates = publicKeyHex
+  const communityIdCandidates = publicKeyHex && usesManagedWorkspaceRepair
     ? listManagedWorkspaceCommunityIdCandidates({
       group,
       publicKeyHex,

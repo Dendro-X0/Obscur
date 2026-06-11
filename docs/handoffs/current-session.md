@@ -1,20 +1,20 @@
 # Current Session Handoff — Obscur (v2 slim kernel + workspace kernel)
 
-- Last Updated (UTC): 2026-06-10T17:30:00Z
-- Session Status: **Workspace kernel W0–W4 complete** · v1.9.4 Phase B next
-- Last commit: `2e9a9a2d` — workspace-kernel W0–W4 + dm-kernel + Path B + dev-lab
+- Last Updated (UTC): 2026-06-11T01:48:00Z
+- Session Status: **v1.9.4 Phase B** — programmatic pass · runtime membership-join-leave next
+- Last commit: `f7413dca` — joiner membership repair gate + dev-lab COM-8 probe
 
 ## Next Atomic Step
 
-**v1.9.4 Phase B — community verification (P4-3 + matrix §3)**
+**v1.9.4 Phase B — runtime community verification (P4-3 + matrix §3)**
 
 1. ~~Run programmatic platform gate: `pnpm verify:platform-kernels`~~ **Pass** @ `edf7c24f`.
-2. Run Phase B programmatic gate: `pnpm verify:phase-b-programmatic` (platform + community invariants 97/97).
-3. With `pnpm dev:desktop:online` + coordination: dev-lab `membership-join-leave` + P4-3 restart soak (COM-8 roster, COM-3 leave).
+2. ~~Run Phase B programmatic gate: `pnpm verify:phase-b-programmatic`~~ **Pass** @ `f7413dca` (community invariants **121/121**).
+3. With `pnpm dev:coordination` + `pnpm dev:desktop:online -- --rebuild`: dev-lab `membership-join-leave` (COM-8 joiner repair probe + M8 digest).
 4. Optional full Path B chain: `pnpm verify:phase-b-full`.
 5. Record Pass/Fail in [unified-verification-issues-register.md](../program/unified-verification-issues-register.md).
 
-Gate: `pnpm verify:phase-b-programmatic` green · runtime rows need coordination (`pnpm dev:coordination`).
+Gate: programmatic green · runtime rows need coordination (`pnpm dev:coordination`) + rebuilt static shell.
 
 ## Workspace kernel W4 (landed)
 

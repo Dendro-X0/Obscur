@@ -14,6 +14,20 @@ vi.mock("./community-membership-ledger", () => ({
   loadCommunityMembershipLedger: vi.fn(() => []),
 }));
 
+vi.mock("@/app/features/workspace-kernel/workspace-kernel-policy", () => ({
+  isWorkspaceKernelAuthority: vi.fn(() => true),
+}));
+
+vi.mock("./community-membership-sync-mode", () => ({
+  isCoordinationConfigured: vi.fn(() => true),
+}));
+
+vi.mock("./strict-managed-workspace", () => ({
+  isStrictManagedWorkspaceRelay: vi.fn((relayUrl?: string | null) => (
+    (relayUrl ?? "").includes("localhost")
+  )),
+}));
+
 import { buildManagedWorkspaceRosterRepairContext } from "./managed-workspace-roster-repair-context";
 
 const PK_A = "aa".repeat(32) as PublicKeyHex;
@@ -49,5 +63,16 @@ describe("buildManagedWorkspaceRosterRepairContext", () => {
     expect(context.resolvedCommunityId).toBe("v2_joined");
     expect(context.communityIdCandidates).toEqual(["v2_joined", "group-1:ws://localhost:7000"]);
     expect(context.joinEvidenceMemberPubkeys).toEqual(["aa".repeat(32), "bb".repeat(32)]);
+  });
+
+  it("infers managed workspace repair for legacy join rows missing communityMode", () => {
+    const { communityMode: _mode, ...legacyGroup } = GROUP;
+    const context = buildManagedWorkspaceRosterRepairContext({
+      group: legacyGroup,
+      publicKeyHex: PK_A,
+    });
+
+    expect(context.resolvedCommunityId).toBe("v2_joined");
+    expect(context.communityIdCandidates).toEqual(["v2_joined", "group-1:ws://localhost:7000"]);
   });
 });
