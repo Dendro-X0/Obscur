@@ -1,13 +1,18 @@
 # Current Session Handoff — Obscur (v2 slim kernel + workspace kernel)
 
-- Last Updated (UTC): 2026-06-10T16:00:00Z
-- Session Status: **Workspace kernel W4 landed — W0–W4 complete**
+- Last Updated (UTC): 2026-06-10T17:30:00Z
+- Session Status: **Workspace kernel W0–W4 complete** · v1.9.4 Phase B next
+- Last commit: `2e9a9a2d` — workspace-kernel W0–W4 + dm-kernel + Path B + dev-lab
 
 ## Next Atomic Step
 
-**Workspace kernel complete.** Choose next expansion from [v1.9.x-execution-contract.md](../program/v1.9.x-execution-contract.md) or performance work.
+**v1.9.4 Phase B — community verification (P4-3 + matrix §3)**
 
-Gate: `pnpm verify:workspace-kernel` (= W4 chain) · COM-BKP passed.
+1. Run programmatic platform gate: `pnpm verify:platform-kernels` (dm-kernel + workspace-kernel).
+2. With `pnpm dev:desktop:online` + coordination: dev-lab `membership-join-leave` + P4-3 restart soak (COM-8 roster, COM-3 leave).
+3. Record Pass/Fail in [unified-verification-issues-register.md](../program/unified-verification-issues-register.md).
+
+Gate: `pnpm verify:platform-kernels` green before claiming Phase B community rows.
 
 ## Workspace kernel W4 (landed)
 
