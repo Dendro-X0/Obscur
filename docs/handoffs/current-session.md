@@ -2,7 +2,7 @@
 
 - Last Updated (UTC): 2026-06-11T16:58:00Z
 - Session Status: **v1.9.4 Phase C exit** — `release:test-pack` green after tsc + vitest resolver fixes
-- Last commit: `0d30f271` — Phase B handoff (uncommitted: tsc/test-pack gate fixes on branch)
+- Last commit: `7a49e339` — Phase C release pack green (tsc + vitest resolver alias)
 
 ## Next Atomic Step
 
