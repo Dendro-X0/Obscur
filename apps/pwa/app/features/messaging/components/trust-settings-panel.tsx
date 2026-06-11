@@ -64,6 +64,27 @@ export function TrustSettingsPanel() {
             </Card>
             ) : null}
 
+            {!compact ? (
+            <Card className="p-4 bg-amber-500/5 border-amber-500/15 shadow-none">
+                <div className="flex items-start gap-4">
+                    <div className="h-10 w-10 shrink-0 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                        <ShieldAlert className="h-5 w-5 text-amber-700 dark:text-amber-300" aria-hidden />
+                    </div>
+                    <div className="space-y-2 min-w-0">
+                        <h4 className="text-sm font-bold text-amber-950 dark:text-amber-100">
+                            {t("settings.security.trustV195.title")}
+                        </h4>
+                        <p className="text-[11px] text-amber-900/80 dark:text-amber-200/80 leading-relaxed">
+                            {t("settings.security.trustV195.capabilities")}
+                        </p>
+                        <p className="text-[11px] text-amber-900/70 dark:text-amber-200/70 leading-relaxed border-t border-amber-500/15 pt-2 mt-1">
+                            {t("settings.security.trustV195.limits")}
+                        </p>
+                    </div>
+                </div>
+            </Card>
+            ) : null}
+
             <div className="relative">
                 <Search className={cn(
                     "absolute top-1/2 -translate-y-1/2 text-zinc-400",
