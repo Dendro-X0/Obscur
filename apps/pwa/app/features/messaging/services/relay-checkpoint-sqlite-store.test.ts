@@ -9,7 +9,9 @@ import {
 const dbMocks = vi.hoisted(() => ({
   isTauri: vi.fn(() => true),
   dbUpsertRelayCheckpoint: vi.fn(async () => undefined),
-  dbGetRelayCheckpoints: vi.fn(async () => []),
+  dbGetRelayCheckpoints: vi.fn<
+    () => Promise<ReadonlyArray<{ profile_id: string; relay_url: string; last_event_at: number }>>
+  >(async () => []),
 }));
 
 vi.mock("@dweb/db", () => ({

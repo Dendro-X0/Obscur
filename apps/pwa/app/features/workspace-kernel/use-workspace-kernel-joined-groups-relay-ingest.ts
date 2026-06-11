@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
-import type { NostrEvent } from "@dweb/nostr/nostr-event";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { GroupConversation } from "@/app/features/messaging/types";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
@@ -16,6 +15,8 @@ import { COORDINATION_MEMBERSHIP_DIRECTORY_CHANGED_EVENT } from "@/app/features/
 import { COMMUNITY_MEMBERSHIP_LEDGER_UPDATED_EVENT } from "@/app/features/groups/services/community-membership-ledger";
 import { loadWorkspaceGroupMetadataRecords } from "./workspace-kernel-group-metadata-store";
 import { isWorkspaceKernelAuthority } from "./workspace-kernel-policy";
+
+type SealedCommunityRelayEvent = Parameters<typeof ingestSealedCommunityRelayEvent>[0];
 
 const MAX_RECENT_INGESTED_EVENT_IDS = 400;
 
@@ -67,7 +68,7 @@ export const useWorkspaceKernelJoinedGroupsRelayIngest = (params: Readonly<{
     const recentEventIds = new Map<string, number>();
     const subscriptionIds: string[] = [];
 
-    const onEvent = (group: GroupConversation) => (event: NostrEvent, url: string): void => {
+    const onEvent = (group: GroupConversation) => (event: SealedCommunityRelayEvent, url: string): void => {
       const knownAt = recentEventIds.get(event.id);
       if (typeof knownAt === "number" && (Date.now() - knownAt) < 5 * 60_000) {
         return;

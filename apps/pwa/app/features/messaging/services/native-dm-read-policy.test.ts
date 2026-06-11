@@ -14,6 +14,7 @@ import {
   resolveInitialConversationPaint,
   shouldPersistDmThreadDisplayCache,
 } from "./dm-thread-read-model";
+import type { ProjectionReadAuthority } from "@/app/features/account-sync/services/account-projection-read-authority";
 import type { Message } from "../types";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 
@@ -106,7 +107,8 @@ describe("native DM R1 read policy", () => {
         projectionEvidenceMessagesSnapshot: [mk("proj-evidence-in", false)],
         projectionReadAuthoritySnapshot: {
           useProjectionReads: true,
-          reason: "ready",
+          reason: "read_cutover_enabled",
+          policy: {} as ProjectionReadAuthority["policy"],
           criticalDriftCount: 0,
         },
         projectionRestorePhaseActive: false,

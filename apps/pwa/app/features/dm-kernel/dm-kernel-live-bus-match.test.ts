@@ -15,7 +15,7 @@ const canonicalConversationId = [myPublicKeyHex, peerPublicKeyHex].sort().join("
 const createIncomingEvent = (
   overrides: Partial<Message> = {},
   conversationId = canonicalConversationId,
-): MessageBusEvent => ({
+): Extract<MessageBusEvent, { type: "new_message" }> => ({
   type: "new_message",
   conversationId,
   message: {

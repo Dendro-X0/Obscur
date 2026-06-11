@@ -1,21 +1,21 @@
 # Unified verification — issues register
 
-**Status:** v1.9.4 Phase B — **§0 + STAB-R + P4-5 + P5 + ACC-03/04 closed** · **platform-kernels + community-invariants programmatic pass** @ `f7413dca`  
+**Status:** v1.9.4 Phase C — **§0 + STAB-R + P4-5 + P5 + ACC-03/04 + release pack closed** · **platform-kernels + community-invariants programmatic pass** @ `f7413dca`  
 **Policy:** [testing-and-issue-tracking-spec.md](./testing-and-issue-tracking-spec.md) · [concentrated-version-delivery.md](./concentrated-version-delivery.md) · [ui-render-loop-systemic-program.md](./ui-render-loop-systemic-program.md)
 
 ---
 
-## Active pass (v1.9.4 — Phase B)
+## Active pass (v1.9.4 — Phase C)
 
 | Field | Value |
 |-------|--------|
-| Concentration unit | **v1.9.4** Phase B |
-| Git SHA | `c30caf34` |
+| Concentration unit | **v1.9.4** Phase C |
+| Git SHA | uncommitted (branch ahead of `0d30f271`) |
 | Handoff | [current-session.md](../handoffs/current-session.md) |
 | §0 + STAB-R + P4-5 | **Pass** — `pnpm verify:stability` + `release:test-pack` |
 | Programmatic (2026-06-11) | **Pass** — `pnpm verify:phase-b-full` + community invariants **123/123** |
 | Runtime community (§3) | **Pass** — `membership-join-leave` (synthetic COM-8 + coordination + M8) |
-| Release pack | **Blocked** — pre-existing `tsc` debt in unrelated test files (not Phase B membership scope) |
+| Release pack | **Pass** @ 2026-06-11 — `pnpm typecheck` + `pnpm release:test-pack -- --skip-preflight` |
 | Product manual | §1–§7 when needed — **not** render-loop hunting |
 
 ### Resolved (Phase A + STAB-R)

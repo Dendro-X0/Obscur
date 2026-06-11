@@ -176,7 +176,7 @@ describe("useConversationMessages monotonic hydrate (Phase A)", () => {
       const sorted = [...filtered].sort((left, right) => right.timestampMs - left.timestampMs);
       return sorted
         .slice(0, Math.max(1, limit ?? 200))
-        .map((row) => indexedRowToSqliteRecord(row)) as Awaited<ReturnType<typeof dbGetMessages>>;
+        .map((row) => indexedRowToSqliteRecord(row)) as unknown as Awaited<ReturnType<typeof dbGetMessages>>;
     });
   });
 

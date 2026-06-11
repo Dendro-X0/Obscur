@@ -107,6 +107,7 @@ test.describe("runtime capture — desktop golden path", () => {
 
     const runtimeCapabilities = await readRuntimeCapabilities(page);
     const shellHealth = await probeShellHealth(page);
+    const dmKernelGate = await captureDmKernelRuntimeGate(page);
 
     const reportInput = {
       schema: "obscur.runtime-capture-report.v1",

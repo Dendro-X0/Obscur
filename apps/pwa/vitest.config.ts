@@ -51,8 +51,18 @@ export default defineConfig({
   },
 
   resolve: {
-    alias: {
-      '@': resolve(__dirname, './'),
-    },
+    alias: [
+      {
+        find: "@/app/features/messaging/services/thread-history/resolve-dm-thread-history-adapter",
+        replacement: resolve(
+          __dirname,
+          "./app/features/messaging/services/thread-history/resolve-dm-thread-history-adapter.vitest.ts",
+        ),
+      },
+      {
+        find: "@",
+        replacement: resolve(__dirname, "./"),
+      },
+    ],
   },
 });

@@ -31,7 +31,7 @@ const shadowProjectionAuthority: ProjectionReadAuthority = {
 
 const projectionReadCutoverAuthority: ProjectionReadAuthority = {
   useProjectionReads: true,
-  reason: "cutover",
+  reason: "read_cutover_enabled",
   policy: {} as ProjectionReadAuthority["policy"],
   criticalDriftCount: 0,
 };

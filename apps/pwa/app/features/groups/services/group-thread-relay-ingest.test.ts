@@ -22,7 +22,7 @@ const appendMock = vi.fn(async (params: { eventId?: string }) => ({
 }));
 
 vi.mock("@/app/features/messaging/services/thread-history/group-thread-append", () => ({
-  appendGroupThreadMessage: (...args: unknown[]) => appendMock(...args),
+  appendGroupThreadMessage: appendMock,
 }));
 
 vi.mock("@/app/features/crypto/crypto-service", () => ({

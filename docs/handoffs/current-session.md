@@ -1,19 +1,19 @@
 # Current Session Handoff — Obscur (v2 slim kernel + workspace kernel)
 
-- Last Updated (UTC): 2026-06-11T03:56:00Z
-- Session Status: **v1.9.4 Phase B exit** — programmatic + dev-lab + path-b full green
-- Last commit: `c30caf34` — Phase B programmatic gate closeout
+- Last Updated (UTC): 2026-06-11T16:58:00Z
+- Session Status: **v1.9.4 Phase C exit** — `release:test-pack` green after tsc + vitest resolver fixes
+- Last commit: `0d30f271` — Phase B handoff (uncommitted: tsc/test-pack gate fixes on branch)
 
 ## Next Atomic Step
 
-**v1.9.4 Phase C — register closeout → v2.0 pipeline Phase 1 prep**
+**v2.0 pipeline Phase 1 prep** (maintainer choice: tag **v1.9.4** engineering checkpoint first)
 
 1. ~~`pnpm verify:platform-kernels`~~ **Pass** @ `edf7c24f`.
 2. ~~`pnpm verify:phase-b-programmatic`~~ **Pass** — community invariants **123/123**.
-2. ~~`pnpm dev:lab:run -- --scenario membership-join-leave`~~ **Pass** — synthetic COM-8 + coordination + M8.
-3. ~~`pnpm verify:phase-b-full`~~ **Pass** @ contract refresh (B1 invite join-evidence, B3 W2 delegate).
-4. ~~`pnpm release:test-pack -- --skip-preflight`~~ run on exit commit.
-5. Maintainer choice: tag **v1.9.4** engineering checkpoint **or** begin [v2.0-release-pipeline.md](../program/v2.0-release-pipeline.md) Phase 1 (◐→V matrix sweep).
+3. ~~`pnpm dev:lab:run -- --scenario membership-join-leave`~~ **Pass** — synthetic COM-8 + coordination + M8.
+4. ~~`pnpm verify:phase-b-full`~~ **Pass** @ contract refresh (B1 invite join-evidence, B3 W2 delegate).
+5. ~~`pnpm release:test-pack -- --skip-preflight`~~ **Pass** @ 2026-06-11 (tsc + vitest resolver alias + transport boundary).
+6. Maintainer choice: tag **v1.9.4** engineering checkpoint **or** begin [v2.0-release-pipeline.md](../program/v2.0-release-pipeline.md) Phase 1 (◐→V matrix sweep).
 
 Optional native only: Tauri COM-8 with NewTest 2 localStorage (not a programmatic gate).
 

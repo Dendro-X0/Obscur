@@ -22,7 +22,7 @@ const {
 }));
 
 vi.mock("./community-leave-outbox-retry", () => ({
-  publishLeaveEventToRelay: (...args: unknown[]) => publishLeaveEventToRelayMock(...args),
+  publishLeaveEventToRelay: publishLeaveEventToRelayMock,
 }));
 
 vi.mock("./group-service", () => ({
@@ -35,18 +35,18 @@ vi.mock("./group-service", () => ({
 
 vi.mock("@/app/features/crypto/room-key-store", () => ({
   roomKeyStore: {
-    getRoomKey: (...args: unknown[]) => getRoomKeyMock(...args),
+    getRoomKey: getRoomKeyMock,
   },
 }));
 
 vi.mock("./community-coordination-membership-client", () => ({
-  publishCoordinationMembershipDelta: (...args: unknown[]) => publishCoordinationMembershipDeltaMock(...args),
+  publishCoordinationMembershipDelta: publishCoordinationMembershipDeltaMock,
 }));
 
 const refreshCoordinationMembershipDirectoryMock = vi.hoisted(() => vi.fn(async () => null));
 
 vi.mock("./community-coordination-membership-directory-store", () => ({
-  refreshCoordinationMembershipDirectory: (...args: unknown[]) => refreshCoordinationMembershipDirectoryMock(...args),
+  refreshCoordinationMembershipDirectory: refreshCoordinationMembershipDirectoryMock,
 }));
 
 vi.mock("@/app/features/workspace-kernel/workspace-kernel-policy", () => ({

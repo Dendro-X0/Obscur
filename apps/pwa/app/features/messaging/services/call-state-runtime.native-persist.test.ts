@@ -1,8 +1,9 @@
+import type { CallRecord } from "@dweb/db";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const dbMocks = vi.hoisted(() => ({
   isTauri: vi.fn(() => true),
-  dbInsertCallRecord: vi.fn(async () => undefined),
+  dbInsertCallRecord: vi.fn(async (_record: CallRecord) => undefined),
   dbUpdateCallRecord: vi.fn(async () => undefined),
   dbGetCallRecords: vi.fn(async () => []),
 }));

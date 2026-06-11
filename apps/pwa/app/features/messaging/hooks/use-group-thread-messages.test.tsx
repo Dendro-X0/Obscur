@@ -11,7 +11,7 @@ const loadGroupThreadPageFromSqliteMock = vi.fn(async () => ({
 }));
 
 vi.mock("../services/thread-history/group-thread-sqlite-store", () => ({
-  loadGroupThreadPageFromSqlite: (...args: unknown[]) => loadGroupThreadPageFromSqliteMock(...args),
+  loadGroupThreadPageFromSqlite: loadGroupThreadPageFromSqliteMock,
   loadGroupThreadEarlierFromSqlite: vi.fn(async () => ({
     messages: [],
     hasEarlier: false,

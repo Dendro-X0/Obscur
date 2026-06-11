@@ -31,7 +31,7 @@ describe("m6-voice-replay-bridge", () => {
     const finalState = replayApi.runWeakNetworkReplay();
     expect(finalState.phase).toBe("active");
 
-    const diagnosticsApi = root.obscurAppEvents as {
+    const diagnosticsApi = root.obscurAppEvents as unknown as {
       findByName: (name: string, count?: number) => ReadonlyArray<{
         context?: Record<string, unknown>;
       }>;

@@ -146,7 +146,7 @@ function SharedModelProbe(): React.JSX.Element {
   expect(typeof model.deriveRelayRuntimeStatus).toBe("function");
   expect(typeof model.deriveRelayNodeStatus).toBe("function");
   expect(model.relayRuntimeStatus).toBeTruthy();
-  expect(typeof model.relayRuntimeStatus.status).toBe("string");
+  expect(typeof (model.relayRuntimeStatus as { status: string }).status).toBe("string");
   return <div data-testid="settings-model-probe" />;
 }
 

@@ -18,6 +18,8 @@ const baseReport = (): DevLabNativeGateReport => ({
     hostname: "127.0.0.1",
   },
   shellHealth: {
+    version: "obscur.dev-lab.shell-health.v1",
+    checkedAtUnixMs: Date.now(),
     healthy: true,
     shellUnlocked: true,
     rootFatalBoundary: false,

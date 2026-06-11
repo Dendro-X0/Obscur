@@ -49,7 +49,7 @@ describe("path B B1-2 exit contract", () => {
     const mainShell = read("app/features/main-shell/main-shell.tsx");
     const groupHome = read("app/groups/[...id]/group-home-page-client.tsx");
     expect(mainShell).toContain("useGroupThreadRelayIngest");
-    expect(mainShell).toMatch(/communityMode:.*GroupConversation.*communityMode/s);
+    expect(mainShell).toMatch(/communityMode:[\s\S]*GroupConversation[\s\S]*communityMode/);
     expect(groupHome).toContain("communityMode: group?.communityMode");
   });
 });

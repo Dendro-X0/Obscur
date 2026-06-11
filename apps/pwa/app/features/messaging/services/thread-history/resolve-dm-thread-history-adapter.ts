@@ -1,6 +1,9 @@
+import { createRequire } from "node:module";
 import { isDmKernelAuthority } from "@/app/features/dm-kernel/dm-kernel-policy";
 import { dmKernelThreadHistoryStub } from "@/app/features/dm-kernel/dm-kernel-thread-history-stub";
 import type { ThreadHistoryPort } from "./port";
+
+const requireModule = createRequire(import.meta.url);
 
 /**
  * Desktop static/Tauri builds always use the dm-kernel stub so webpack can drop
@@ -12,15 +15,7 @@ const isDesktopDmKernelShipBuild = (): boolean => (
 );
 
 const resolveLegacyDmThreadHistoryAdapter = (): ThreadHistoryPort => {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { isNativeDmSqliteReadOwner } = require("../native-dm-read-policy") as typeof import("../native-dm-read-policy");
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { dmThreadHistoryAdapter } = require("./dm-adapter") as typeof import("./dm-adapter");
-  if (isNativeDmSqliteReadOwner()) {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { nativeDmThreadHistoryAdapter } = require("./native-dm-adapter") as typeof import("./native-dm-adapter");
-    return nativeDmThreadHistoryAdapter;
-  }
+  const { dmThreadHistoryAdapter } = requireModule("./dm-adapter") as typeof import("./dm-adapter");
   return dmThreadHistoryAdapter;
 };
 

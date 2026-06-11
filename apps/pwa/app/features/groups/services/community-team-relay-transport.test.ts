@@ -118,6 +118,7 @@ describe("createCommunityTeamRelayTransport", () => {
       {
         addTransientRelay: vi.fn(),
         reconnectRelay: vi.fn(),
+        publishToUrl: vi.fn(),
       },
       {
         signMembershipWireEvent: vi.fn(async () => ({

@@ -27,11 +27,11 @@ const loadPageMock = vi.fn(async () => ({
 }));
 
 vi.mock("@/app/features/messaging/services/thread-history/group-thread-append", () => ({
-  appendGroupThreadMessage: (...args: unknown[]) => appendMock(...args),
+  appendGroupThreadMessage: appendMock,
 }));
 
 vi.mock("@/app/features/messaging/services/thread-history/group-thread-sqlite-store", () => ({
-  loadGroupThreadPageFromSqlite: (...args: unknown[]) => loadPageMock(...args),
+  loadGroupThreadPageFromSqlite: loadPageMock,
 }));
 
 vi.mock("@dweb/db", () => ({
@@ -132,9 +132,9 @@ describe("sealed-group-message-persistence", () => {
   });
 
   it("awaits in-flight sqlite writes on flush (B3-2)", async () => {
-    let resolveAppend: (() => void) | undefined;
+    let resolveAppend: ((value?: unknown) => void) | undefined;
     appendMock.mockImplementationOnce(async () => new Promise((resolve) => {
-      resolveAppend = resolve;
+      resolveAppend = resolve as (value?: unknown) => void;
     }));
 
     const commitTask = commitSealedGroupMessages({

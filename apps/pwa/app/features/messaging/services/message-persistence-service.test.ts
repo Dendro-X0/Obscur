@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { MessageRecord } from "@dweb/db";
 import type { Message } from "../types";
 import { messageBus } from "./message-bus";
 import { MessagePersistenceService } from "./message-persistence-service";
@@ -546,7 +547,7 @@ describe("MessagePersistenceService batching", () => {
 // ---------------------------------------------------------------------------
 
 const tauriDbMocks = vi.hoisted(() => ({
-    dbInsertMessage: vi.fn(async () => undefined),
+    dbInsertMessage: vi.fn(async (_message: MessageRecord) => undefined),
     dbInsertTombstone: vi.fn(async () => undefined),
     dbDeleteMessages: vi.fn(async () => undefined),
     dbUpsertConversation: vi.fn(async () => undefined),

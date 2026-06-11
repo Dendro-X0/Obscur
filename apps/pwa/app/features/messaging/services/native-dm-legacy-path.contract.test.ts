@@ -95,10 +95,11 @@ describe("native DM legacy path subtraction contracts", () => {
     });
   });
 
-  it("resolve-dm-thread-history-adapter switches to native adapter on sqlite owner", () => {
+  it("resolve-dm-thread-history-adapter routes native sqlite owner through dm-kernel stub", () => {
     const source = readSource("features/messaging/services/thread-history/resolve-dm-thread-history-adapter.ts");
-    expect(source).toContain("nativeDmThreadHistoryAdapter");
-    expect(source).toContain("isNativeDmSqliteReadOwner");
+    expect(source).toContain("dmKernelThreadHistoryStub");
+    expect(source).toContain("isDmKernelAuthority");
+    expect(source).not.toMatch(/from\s+["']\.\/native-dm-adapter["']/);
   });
 
   it("use-conversation-messages delegates native hydrate to native-dm-conversation-hydrate-owner", () => {
@@ -113,7 +114,7 @@ describe("native DM legacy path subtraction contracts", () => {
     expect(source).toContain("shouldNativeDmSkipChatStateSidebarConnectionHydrate");
     expect(source).toContain("isNativeDmConversationListSqliteOwner");
     expect(source).toMatch(
-      /shouldNativeDmSkipChatStateSidebarConnectionHydrate\(\)\s*\)\s*\{\s*\n\s*const nextCreatedConnections = buildDmConnectionsFromPersistedChatState/s,
+      /shouldNativeDmSkipChatStateSidebarConnectionHydrate\(\)\s*\)\s*\{[\s\S]*const nextCreatedConnections = buildDmConnectionsFromPersistedChatState/,
     );
   });
 

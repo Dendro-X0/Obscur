@@ -37,7 +37,7 @@ describe("m0-triage-capture", () => {
     };
     root.obscurAppEvents = {
       getDigest: () => ({ total: 12 }),
-      getCrossDeviceSyncDigest: () => ({ totalBufferedEvents: 16 }),
+      getCrossDeviceSyncDigest: () => ({ summary: {}, recentWarnOrError: [] }),
       findByName: () => [],
     };
 
@@ -121,7 +121,7 @@ describe("m0-triage-capture", () => {
     });
     root.obscurAppEvents = {
       getDigest: () => ({ total: 4 }),
-      getCrossDeviceSyncDigest: () => ({ totalBufferedEvents: 4 }),
+      getCrossDeviceSyncDigest: () => ({ summary: {}, recentWarnOrError: [] }),
       findByName,
     };
 
