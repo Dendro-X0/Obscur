@@ -1,20 +1,20 @@
 # Current Session Handoff — Obscur (v2 slim kernel + workspace kernel)
 
-- Last Updated (UTC): 2026-06-11T18:00:00Z
+- Last Updated (UTC): 2026-06-11T20:45:00Z
 - Session Status: **v1.9.5 active** — trust, anti-fraud/bot, internal security validation (blocks v2.0 prep)
-- Last commit: `015fc3b3` — v1.9.4 Phase C register; uncommitted: desktop `createRequire` fix + roadmap v1.9.5
+- Last commit: `ea8f2f30` — v1.9.5 roadmap docs; uncommitted: SEC-F1 trust assessment slice
 
 ## Next Atomic Step
 
-**v1.9.5 Phase A — SEC-F1 trust assessment port on dm-kernel path**
+**v1.9.5 Phase A — SEC-F2 banner wiring + SEC-B1 inbound bot hardening**
 
 1. ~~v1.9.4 Phase C~~ **Done** — `release:test-pack` @ `7a49e339`; client community verified (NewTest 2).
-2. **Implement** [v1.9.5-scope.md](../program/v1.9.5-scope.md) SEC-F1 → SEC-F5 (recipient-local anti-fraud baseline).
+2. ~~SEC-F1~~ **Done (pending commit)** — dm-kernel trust assessment port, thread state, banner hook/UI, `pnpm verify:trust-v1.9.5`.
 3. **Implement** SEC-B1 → SEC-B4 (inbound bot hardening + rate limits).
 4. **Run** [v1.9.5-security-validation-checklist.md](../program/v1.9.5-security-validation-checklist.md) §1–§6 at Phase C.
 5. **Then** [v2.0-release-pipeline.md](../program/v2.0-release-pipeline.md) Phase 1 (◐→V matrix sweep + demo prep).
 
-**First code task:** `SEC-F1` — dm-kernel trust assessment port + `BUNDLE_FIN_COLD` contract tests; add `pnpm verify:trust-v1.9.5`.
+**First code task:** `SEC-B1` — inbound connection-request / DM rate limits per [v1.9.5-scope.md](../program/v1.9.5-scope.md).
 
 ## Workspace kernel W4 (landed)
 

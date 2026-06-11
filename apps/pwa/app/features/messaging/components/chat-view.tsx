@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import { useResolvedProfileMetadata } from "../../profile/hooks/use-resolved-profile-metadata";
+import { DmKernelTrustBanner } from "@/app/features/dm-kernel/components/dm-kernel-trust-banner";
+import { useDmKernelTrustBanner } from "@/app/features/dm-kernel/use-dm-kernel-trust-banner";
 import { ChatHeader } from "./chat-header";
 import { StrangerWarningBanner } from "./stranger-warning-banner";
 import { shouldShowPathBThreadWarningBanner } from "../services/path-b-b5-extension-hooks";
@@ -214,6 +216,12 @@ export function ChatView(props: ChatViewProps) {
     });
     const metadata = useResolvedProfileMetadata(props.conversation.kind === "dm" ? props.conversation.pubkey : null);
     const resolvedName = metadata?.displayName || props.conversation.displayName;
+    const dmKernelTrust = useDmKernelTrustBanner({
+        conversation: props.conversation,
+        peerPublicKeyHex: props.conversation.kind === "dm" ? props.conversation.pubkey : undefined,
+        isPeerAccepted: props.isPeerAccepted,
+        messages: props.messages,
+    });
     const isDeletedRecipient = props.conversation.kind === "dm" && metadata?.isDeleted === true;
     const resolvedNowMs = props.nowMs;
     const normalizedHistorySearchQuery = historySearchQuery.trim().toLowerCase();
@@ -713,6 +721,14 @@ export function ChatView(props: ChatViewProps) {
                     onBlock={() => props.onBlockPeer?.()}
                 />
             )}
+            {dmKernelTrust.showBanner && dmKernelTrust.assessment ? (
+                <DmKernelTrustBanner
+                    assessment={dmKernelTrust.assessment}
+                    expanded={dmKernelTrust.expanded}
+                    onToggleExpanded={() => dmKernelTrust.setExpanded(!dmKernelTrust.expanded)}
+                    onDismiss={dmKernelTrust.dismiss}
+                />
+            ) : null}
             {props.conversation.kind === 'dm' && props.relayOverlap && props.relayOverlap.status !== 'overlap' && (
                 <RelayOverlapBanner
                     overlap={props.relayOverlap}
