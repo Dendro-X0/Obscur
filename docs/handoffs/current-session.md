@@ -1,14 +1,14 @@
 # Current Session Handoff — Obscur (v2 slim kernel + workspace kernel)
 
 - Last Updated (UTC): 2026-06-11T23:15:00Z
-- Last commit: `21504572` — SEC-B complete; uncommitted: SEC-R1 operator trust bundle audit
+- Last commit: `e49d2c43` — SEC-R1 operator trust bundle audit + `verify:relay-v1.9.5`
 
 ## Next Atomic Step
 
 **v1.9.5 Phase A — SEC-R2 relay trust scorer + SEC-R3 hardening doc**
 
 1. ~~SEC-B1–B4~~ **Done** @ `121b29e5` — full anti-bot band.
-2. ~~SEC-R1~~ **Done (uncommitted)** — `operator-trust-bundle-audit.ts`, create/join wiring, `pnpm verify:relay-v1.9.5`.
+2. ~~SEC-R1~~ **Done** @ `e49d2c43` — operator trust bundle audit, create/join wiring, `verify:relay-v1.9.5`.
 3. **Implement** SEC-R2 → SEC-R4 per [v1.9.5-scope.md](../program/v1.9.5-scope.md).
 4. **Run** [v1.9.5-security-validation-checklist.md](../program/v1.9.5-security-validation-checklist.md) §1–§6 at Phase C.
 
