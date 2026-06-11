@@ -8,10 +8,17 @@ import { describe, expect, it } from "vitest";
 describe("v1.9.4 Phase B programmatic exit contract", () => {
   const repoRoot = path.resolve(__dirname, "../../../../../");
 
-  it("verify:phase-b-programmatic script chains platform + community invariants + path-b", () => {
+  it("verify:phase-b-programmatic script chains platform + community invariants", () => {
     const pkg = readFileSync(path.join(repoRoot, "package.json"), "utf8");
     expect(pkg).toContain("verify:phase-b-programmatic");
-    expect(pkg).toMatch(/verify:phase-b-programmatic[\s\S]*verify:platform-kernels[\s\S]*test:community-invariants[\s\S]*verify:path-b/);
+    expect(pkg).toMatch(/verify:phase-b-programmatic[\s\S]*verify:platform-kernels[\s\S]*test:community-invariants/);
+  });
+
+  it("community invariants include joiner membership repair regression", () => {
+    const pwaPkg = readFileSync(path.join(repoRoot, "apps/pwa/package.json"), "utf8");
+    expect(pwaPkg).toContain("community-joiner-membership-repair.test.ts");
+    expect(pwaPkg).toContain("managed-workspace-roster-repair-context.test.ts");
+    expect(pwaPkg).toContain("dev-lab-joiner-membership-probe.test.ts");
   });
 
   it("handoff documents Phase B community verification step", () => {

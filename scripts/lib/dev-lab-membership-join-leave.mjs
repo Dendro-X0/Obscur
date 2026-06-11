@@ -165,7 +165,27 @@ export async function runMembershipJoinLeaveScenario(deps) {
     const actorBOk = await probeActor(pageB, "tester2", steps);
     const settingsOk = await probeMembershipSettingsPanel(pageA, steps, log);
 
-    const passed = steps.every((entry) => entry.passed === true) && actorAOk && actorBOk && settingsOk;
+    const joinerRepair = await pageA.evaluate(() => (
+      window.obscurDevLab?.probeJoinerMembershipRepair?.() ?? null
+    ));
+    const joinerRepairOk = joinerRepair?.ok === true || joinerRepair?.skipped === true;
+    pushStep(
+      steps,
+      "tester1_joiner_membership_repair",
+      joinerRepairOk,
+      joinerRepair?.skipped
+        ? `Joiner membership repair probe skipped (${joinerRepair.reason}).`
+        : joinerRepair?.ok
+          ? `Joiner membership repair probe passed (${joinerRepair.groupsChecked} group(s)).`
+          : `Joiner membership repair probe failed: ${joinerRepair?.reason ?? "probe_unavailable"}`,
+      { joinerRepair },
+    );
+
+    const passed = steps.every((entry) => entry.passed === true)
+      && actorAOk
+      && actorBOk
+      && settingsOk
+      && joinerRepairOk;
     return buildScenarioResult(steps, startedAt, passed);
   } finally {
     await contextA.close();

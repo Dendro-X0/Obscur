@@ -10,6 +10,7 @@ import {
 } from "./dev-lab-native-gate";
 import { runDevLabBenchmark, runDevLabScenario } from "./dev-lab-scenario-runner";
 import type { DevLabBenchmarkReport, DevLabScenarioResult, DevLabSuiteId } from "./dev-lab-types";
+import { runJoinerMembershipRepairProbe, type DevLabJoinerMembershipProbeResult } from "./dev-lab-joiner-membership-probe";
 import { delay, runNavigationMatrixSteps } from "./dev-lab-scenario-steps";
 
 export type DevLabAuthStatus = Readonly<{
@@ -36,6 +37,8 @@ export type DevLabGroupStubProbeResult = Readonly<{
   success: boolean;
   message: string;
 }>;
+
+export type DevLabJoinerMembershipRepairProbeResult = DevLabJoinerMembershipProbeResult;
 
 type DevLabAuthHandlers = Readonly<{
   unlockAccount: (accountId?: DevLabAccountId) => Promise<void>;
@@ -93,6 +96,7 @@ export type DevLabApi = Readonly<{
   }>>;
   triggerMissedMessageSync?: () => Promise<void>;
   probeGroupSendStub: () => Promise<DevLabGroupStubProbeResult>;
+  probeJoinerMembershipRepair: () => DevLabJoinerMembershipRepairProbeResult;
   runScenario: (scenarioId: string) => Promise<DevLabScenarioResult>;
   runBenchmark: (options?: Readonly<{
     suite?: DevLabSuiteId | string;
@@ -239,6 +243,12 @@ export const installDevLab = (): void => {
         success: true,
         message: GROUP_MESSAGING_STUB_MESSAGE,
       };
+    },
+    probeJoinerMembershipRepair: () => {
+      const publicKeyHex = messagingHandlers?.getMyPublicKeyHex() ?? "";
+      return runJoinerMembershipRepairProbe({
+        publicKeyHex: publicKeyHex as import("@dweb/crypto/public-key-hex").PublicKeyHex,
+      });
     },
     runScenario: async (scenarioId) => runDevLabScenario(scenarioId, { unlock, delay }),
     runBenchmark: async (options) => runDevLabBenchmark(unlock, {
