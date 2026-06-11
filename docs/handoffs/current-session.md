@@ -8,11 +8,13 @@
 
 **v1.9.4 Phase B — community verification (P4-3 + matrix §3)**
 
-1. Run programmatic platform gate: `pnpm verify:platform-kernels` (dm-kernel + workspace-kernel).
-2. With `pnpm dev:desktop:online` + coordination: dev-lab `membership-join-leave` + P4-3 restart soak (COM-8 roster, COM-3 leave).
-3. Record Pass/Fail in [unified-verification-issues-register.md](../program/unified-verification-issues-register.md).
+1. ~~Run programmatic platform gate: `pnpm verify:platform-kernels`~~ **Pass** @ `edf7c24f`.
+2. Run Phase B programmatic gate: `pnpm verify:phase-b-programmatic` (platform + community invariants 97/97).
+3. With `pnpm dev:desktop:online` + coordination: dev-lab `membership-join-leave` + P4-3 restart soak (COM-8 roster, COM-3 leave).
+4. Optional full Path B chain: `pnpm verify:phase-b-full`.
+5. Record Pass/Fail in [unified-verification-issues-register.md](../program/unified-verification-issues-register.md).
 
-Gate: `pnpm verify:platform-kernels` green before claiming Phase B community rows.
+Gate: `pnpm verify:phase-b-programmatic` green · runtime rows need coordination (`pnpm dev:coordination`).
 
 ## Workspace kernel W4 (landed)
 

@@ -4,6 +4,11 @@ import { getResolvedClientGateway } from "./resolve-client-gateway";
 import { setProfileRuntimeScope } from "./profile-runtime-scope";
 import { buildAppClientGateway } from "@/app/features/runtime/services/client-gateway-adapter";
 
+vi.mock("@/app/features/dm-kernel/dm-kernel-policy", () => ({
+  isDmKernelAuthority: () => true,
+  isDmKernelRelaySyncSuppressed: () => true,
+}));
+
 describe("resolve-client-gateway", () => {
   it("returns scope clientGateway when profile runtime is installed", () => {
     const gateway = buildAppClientGateway({

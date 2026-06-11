@@ -1,6 +1,6 @@
 # Unified verification — issues register
 
-**Status:** v1.9.4 Phase B — **§0 + STAB-R + P4-5 + P5 + ACC-03/04 closed** @ `ab465e40`  
+**Status:** v1.9.4 Phase B — **§0 + STAB-R + P4-5 + P5 + ACC-03/04 closed** · **platform-kernels + community-invariants programmatic pass** @ `edf7c24f`+  
 **Policy:** [testing-and-issue-tracking-spec.md](./testing-and-issue-tracking-spec.md) · [concentrated-version-delivery.md](./concentrated-version-delivery.md) · [ui-render-loop-systemic-program.md](./ui-render-loop-systemic-program.md)
 
 ---
@@ -10,9 +10,11 @@
 | Field | Value |
 |-------|--------|
 | Concentration unit | **v1.9.4** Phase B |
-| Git SHA | `02f1cb1b` |
+| Git SHA | `edf7c24f` |
 | Handoff | [current-session.md](../handoffs/current-session.md) |
 | §0 + STAB-R + P4-5 | **Pass** — `pnpm verify:stability` + `release:test-pack` |
+| Programmatic (2026-06-11) | **Pass** — `pnpm verify:platform-kernels`; `pnpm test:community-invariants` 97/97 |
+| Runtime community (§3) | **Blocked** — coordination `/health` not ready within 240s (wrangler cold start); retry with `pnpm dev:coordination` then `pnpm dev:lab:run --scenario membership-join-leave` |
 | Product manual | §1–§7 when needed — **not** render-loop hunting |
 
 ### Resolved (Phase A + STAB-R)
@@ -61,4 +63,4 @@
 | 2026-06-02 | P5 + ACC-03/04 shipped @ `ab465e40`; `verify:p5-persistence` 64 tests |
 | 2026-06-02 | P4-5 subtraction + `release:test-pack` @ `02f1cb1b`; ACC-03/04 registered |
 | 2026-06-02 | STAB-R closed @ `2a1badf7`; register synced |
-| 2026-06-01 | v1.9.4 Phase B opened |
+| 2026-06-11 | Phase B programmatic: platform-kernels + community-invariants 97/97; runtime membership-join-leave blocked on coordination startup |
