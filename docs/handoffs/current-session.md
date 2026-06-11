@@ -2,7 +2,7 @@
 
 - Last Updated (UTC): 2026-06-11T22:10:00Z
 - Session Status: **v1.9.5 active** — trust, anti-fraud/bot, internal security validation (blocks v2.0 prep)
-- Last commit: `151ad1ae` — SEC-B3; uncommitted: SEC-B4 BOT-1 flood gate
+- Last commit: `121b29e5` — SEC-B4 BOT-1 flood gate; **SEC-B band complete**
 
 ## Next Atomic Step
 
@@ -10,7 +10,7 @@
 
 1. ~~v1.9.4 Phase C~~ **Done** — `release:test-pack` @ `7a49e339`; client community verified (NewTest 2).
 2. ~~SEC-F1–F4~~ **Done** @ `02a7b847` — trust port, banner, settings copy, `verify:trust-v1.9.5`.
-3. ~~SEC-B1–B4~~ **Done (B4 uncommitted)** — inbound bot hardening, spam signals, pause UX, BOT-1 keyword flood gate.
+3. ~~SEC-B1–B4~~ **Done** @ `121b29e5` — inbound bot hardening, spam signals, pause UX, BOT-1 keyword flood gate.
 4. **Implement** SEC-R1 → SEC-R4 (operator trust bundle, relay scorer tests, hardening doc, publish honesty).
 5. **Run** [v1.9.5-security-validation-checklist.md](../program/v1.9.5-security-validation-checklist.md) §1–§6 at Phase C.
 6. **Then** [v2.0-release-pipeline.md](../program/v2.0-release-pipeline.md) Phase 1.
