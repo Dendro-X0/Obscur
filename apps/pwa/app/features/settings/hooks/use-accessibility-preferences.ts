@@ -2,16 +2,16 @@
 
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { PROFILE_CHANGED_EVENT } from "@/app/features/profiles/services/profile-registry-service";
-import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
-import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
+import {
+  getAccessibilityStorageKey,
+  loadAccessibilityPreferences,
+  resolveUiPreferencesProfileId,
+  saveAccessibilityPreferences,
+  type AccessibilityPreferencesSnapshot,
+} from "@/app/features/settings/services/ui-preferences-persistence";
 
-type TextScale = 90 | 100 | 110 | 120;
-
-type AccessibilityPreferences = Readonly<{
-  textScale: TextScale;
-  reducedMotion: boolean;
-  contrastAssist: boolean;
-}>;
+type TextScale = AccessibilityPreferencesSnapshot["textScale"];
+type AccessibilityPreferences = AccessibilityPreferencesSnapshot;
 
 type AccessibilitySnapshot = Readonly<{
   preferences: AccessibilityPreferences;
@@ -27,51 +27,8 @@ type AccessibilityStore = Readonly<{
   reloadFromStorage: () => void;
 }>;
 
-const STORAGE_KEY: string = "dweb.nostr.pwa.ui.accessibility.v1";
-const getStorageKey = (): string => getScopedStorageKey(STORAGE_KEY, getResolvedProfileId());
 const SERVER_SNAPSHOT: AccessibilitySnapshot = {
-  preferences: { textScale: 100, reducedMotion: false, contrastAssist: false }
-};
-
-const isTextScale = (value: unknown): value is TextScale =>
-  value === 90 || value === 100 || value === 110 || value === 120;
-
-const parsePreferences = (value: unknown): AccessibilityPreferences | null => {
-  if (!value || typeof value !== "object") {
-    return null;
-  }
-  const candidate = value as Partial<AccessibilityPreferences>;
-  const textScale = isTextScale(candidate.textScale) ? candidate.textScale : 100;
-  const reducedMotion = typeof candidate.reducedMotion === "boolean" ? candidate.reducedMotion : false;
-  const contrastAssist = typeof candidate.contrastAssist === "boolean" ? candidate.contrastAssist : false;
-  return { textScale, reducedMotion, contrastAssist };
-};
-
-const loadPreferencesFromStorage = (): AccessibilityPreferences => {
-  if (typeof window === "undefined") {
-    return SERVER_SNAPSHOT.preferences;
-  }
-  try {
-    const raw = window.localStorage.getItem(getStorageKey()) ?? window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      return SERVER_SNAPSHOT.preferences;
-    }
-    const parsed = parsePreferences(JSON.parse(raw));
-    return parsed ?? SERVER_SNAPSHOT.preferences;
-  } catch {
-    return SERVER_SNAPSHOT.preferences;
-  }
-};
-
-const savePreferencesToStorage = (preferences: AccessibilityPreferences): void => {
-  if (typeof window === "undefined") {
-    return;
-  }
-  try {
-    window.localStorage.setItem(getStorageKey(), JSON.stringify(preferences));
-  } catch {
-    return;
-  }
+  preferences: { textScale: 100, reducedMotion: false, contrastAssist: false },
 };
 
 const createStore = (): AccessibilityStore => {
@@ -86,7 +43,7 @@ const createStore = (): AccessibilityStore => {
 
   const publish = (): void => {
     snapshot = { preferences };
-    savePreferencesToStorage(preferences);
+    saveAccessibilityPreferences(preferences, resolveUiPreferencesProfileId());
     emit();
   };
 
@@ -95,13 +52,13 @@ const createStore = (): AccessibilityStore => {
       return;
     }
     didInit = true;
-    preferences = loadPreferencesFromStorage();
+    preferences = loadAccessibilityPreferences(resolveUiPreferencesProfileId());
     snapshot = { preferences };
     emit();
   };
 
   const reloadFromStorage = (): void => {
-    preferences = loadPreferencesFromStorage();
+    preferences = loadAccessibilityPreferences(resolveUiPreferencesProfileId());
     snapshot = { preferences };
     emit();
   };
@@ -128,7 +85,7 @@ const createStore = (): AccessibilityStore => {
       publish();
     },
     initializeFromStorage,
-    reloadFromStorage
+    reloadFromStorage,
   };
 };
 
@@ -149,7 +106,11 @@ const useAccessibilityPreferences = (): UseAccessibilityPreferencesResult => {
     store.initializeFromStorage();
     if (typeof window === "undefined") return;
     const onStorage = (event: StorageEvent): void => {
-      if (event.key !== getStorageKey()) return;
+      const profileId = resolveUiPreferencesProfileId();
+      const scopedKey = getAccessibilityStorageKey(profileId);
+      if (event.key !== scopedKey && event.key !== "dweb.nostr.pwa.ui.accessibility.v1") {
+        return;
+      }
       store.reloadFromStorage();
     };
     window.addEventListener("storage", onStorage);
@@ -174,7 +135,7 @@ const useAccessibilityPreferences = (): UseAccessibilityPreferencesResult => {
     setTextScale: store.setTextScale,
     setReducedMotion: store.setReducedMotion,
     setContrastAssist: store.setContrastAssist,
-    reset
+    reset,
   };
 };
 

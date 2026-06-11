@@ -23,4 +23,5 @@ export const resolveCommunityControlTransportKind = (params: Readonly<{
 
 export const usesCoordinationMembershipDirectory = (
   communityMode?: CommunityMode | null,
-): boolean => shouldUseCoordinationMembershipAuthority(communityMode);
+  relayUrl?: string | null,
+): boolean => shouldUseCoordinationMembershipAuthority(communityMode, relayUrl);

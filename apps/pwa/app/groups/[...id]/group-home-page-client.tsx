@@ -56,8 +56,14 @@ import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import Image from "next/image";
 import { buildGroupBlockHref, buildGroupLeaveHref } from "@/app/features/groups/utils/group-action-route";
 import { hasWritableCommunityRelayTransport } from "@/app/features/groups/services/community-relay-transport";
-import { resolveGroupHomeSealedCommunityEnabled } from "@/app/features/groups/services/sealed-community-instance-policy";
+import {
+    resolveGroupHomeGroupThreadRelayIngestEnabled,
+    resolveGroupHomeSealedCommunityEnabled,
+} from "@/app/features/groups/services/sealed-community-instance-policy";
+import { isGroupTombstoned } from "@/app/features/groups/services/group-tombstone-store";
+import { loadCoordinationMembershipDirectory } from "@/app/features/groups/services/community-coordination-membership-directory-store";
 import { isWorkspaceKernelAuthority } from "@/app/features/workspace-kernel/workspace-kernel-policy";
+import { isPubkeyActiveInManagedWorkspace } from "@/app/features/workspace-kernel/workspace-kernel-list-port";
 import { resolveWorkspaceKernelActiveMemberPubkeys } from "@/app/features/workspace-kernel/workspace-kernel-roster-port";
 import { UserAvatar } from "@/app/features/profile/components/user-avatar";
 import { useResolvedProfileMetadata } from "@/app/features/profile/hooks/use-resolved-profile-metadata";
@@ -103,6 +109,8 @@ import {
     reconcileCommunityMembershipEvidence,
 } from "@/app/features/groups/services/community-membership-evidence-actions";
 import { reconcileWorkspaceMembershipEvidence } from "@/app/features/groups/services/community-workspace-membership-reconcile";
+import { buildManagedWorkspaceRosterRepairContext } from "@/app/features/groups/services/managed-workspace-roster-repair-context";
+import { resolveEffectiveCommunityMode } from "@/app/features/groups/services/community-workspace-r1-policy";
 import { usesCoordinationMembershipDirectory } from "@/app/features/groups/services/community-workspace-transport-policy";
 import { CommunityMembershipEvidenceChip } from "@/app/features/groups/components/community-membership-evidence-chip";
 import {
@@ -201,6 +209,26 @@ export default function GroupHomePage() {
         () => hasWritableCommunityRelayTransport(effectiveRelay),
         [effectiveRelay],
     );
+    const routeCommunityIdFallback = React.useMemo(() => {
+        const routeToken = (id ?? "").trim();
+        if (!routeToken.startsWith("community:")) {
+            return undefined;
+        }
+        const communityId = routeToken.slice("community:".length).trim();
+        return communityId.length > 0 ? communityId : undefined;
+    }, [id]);
+    const {
+        resolvedCommunityId,
+        communityIdCandidates,
+        joinEvidenceMemberPubkeys,
+    } = React.useMemo(
+        () => buildManagedWorkspaceRosterRepairContext({
+            group,
+            publicKeyHex: localMemberPubkey,
+            routeCommunityIdFallback,
+        }),
+        [group, localMemberPubkey, routeCommunityIdFallback],
+    );
     const isGuest = !group;
 
     React.useEffect(() => {
@@ -272,6 +300,10 @@ export default function GroupHomePage() {
         hasCommunityContext: !!(group || discoveredRelay),
         hasRelayTransport: communityRelayTransportReady,
     });
+    const groupThreadRelayIngestEnabled = resolveGroupHomeGroupThreadRelayIngestEnabled({
+        hasCommunityContext: !!(group || discoveredRelay),
+        hasRelayTransport: communityRelayTransportReady,
+    });
     const sealedCommunityController = useSealedCommunity({
         groupId: group?.groupId || id || "",
         relayUrl: effectiveRelay,
@@ -298,7 +330,7 @@ export default function GroupHomePage() {
         communityId: group?.communityId,
         communityMode: group?.communityMode,
         myPublicKeyHex: identityState.publicKeyHex || null,
-        enabled: sealedCommunityShellEnabled,
+        enabled: groupThreadRelayIngestEnabled,
     });
 
     const { activeProposals: activeGovernanceProposals, activeProposalCount } = useCommunityGovernanceProjection({
@@ -460,20 +492,28 @@ export default function GroupHomePage() {
         [activeMembers, provisionalMemberPubkeys],
     );
     const coordinationMembershipDirectory = useCoordinationMembershipDirectory(
-        group?.communityId ?? group?.groupId ?? id,
+        resolvedCommunityId,
+    );
+    const effectiveCommunityMode = React.useMemo(
+        () => resolveEffectiveCommunityMode(group?.communityMode, effectiveRelay),
+        [effectiveRelay, group?.communityMode],
     );
     const inviteEligibleMemberPubkeys = React.useMemo(
         () => resolveCommunityInviteMemberBlocklist({
-            communityMode: group?.communityMode,
+            communityMode: effectiveCommunityMode,
+            relayUrl: effectiveRelay,
             coordinationDirectory: coordinationMembershipDirectory,
             hybridActiveMemberPubkeys: effectiveActiveMembers,
+            joinEvidenceMemberPubkeys,
             leftMemberPubkeys: rawLeftMemberPubkeys,
             expelledMemberPubkeys: rawExpelledMemberPubkeys,
         }),
         [
             coordinationMembershipDirectory,
             effectiveActiveMembers,
-            group?.communityMode,
+            effectiveCommunityMode,
+            effectiveRelay,
+            joinEvidenceMemberPubkeys,
             rawExpelledMemberPubkeys,
             rawLeftMemberPubkeys,
         ],
@@ -575,22 +615,27 @@ export default function GroupHomePage() {
         ledgerGroupId: group?.groupId,
         ledgerRelayUrl: group?.relayUrl,
         applyTerminalMembershipExclusions: shouldApplyTerminalMembershipExclusionsToParticipantRoster(
-            group?.communityMode,
+            effectiveCommunityMode,
             coordinationMembershipDirectory,
+            effectiveRelay,
         ),
     });
     const participantDisplayPubkeys = React.useMemo(
         () => resolveCommunityParticipantDisplayPubkeys({
-            communityMode: group?.communityMode,
+            communityMode: effectiveCommunityMode,
+            relayUrl: effectiveRelay,
             coordinationDirectory: coordinationMembershipDirectory,
             monotonicDisplayPubkeys: rosterDisplayPubkeys,
+            joinEvidenceMemberPubkeys,
             localMemberPubkey,
             localLeftMemberPubkeys: rawLeftMemberPubkeys,
             localExpelledMemberPubkeys: rawExpelledMemberPubkeys,
         }),
         [
             coordinationMembershipDirectory,
-            group?.communityMode,
+            effectiveCommunityMode,
+            effectiveRelay,
+            joinEvidenceMemberPubkeys,
             localMemberPubkey,
             rawExpelledMemberPubkeys,
             rawLeftMemberPubkeys,
@@ -607,13 +652,6 @@ export default function GroupHomePage() {
         }
         return routeToken;
     }, [id]);
-    const fallbackCommunityIdFromRoute = React.useMemo(() => {
-        const routeToken = (id ?? "").trim();
-        if (!routeToken.startsWith("community:")) {
-            return "";
-        }
-        return routeToken.slice("community:".length).trim();
-    }, [id]);
     const resolvedGroupId = React.useMemo(() => {
         const metadataGroupId = groupState.metadata?.id?.trim() ?? "";
         if (metadataGroupId.length > 0) {
@@ -621,12 +659,6 @@ export default function GroupHomePage() {
         }
         return group?.groupId ?? fallbackGroupIdFromRoute;
     }, [fallbackGroupIdFromRoute, group?.groupId, groupState.metadata?.id]);
-    const resolvedCommunityId = React.useMemo(() => {
-        if (group?.communityId) {
-            return group.communityId;
-        }
-        return fallbackCommunityIdFromRoute || undefined;
-    }, [fallbackCommunityIdFromRoute, group?.communityId]);
     /** Participant list follows coordination directory when R1; invite gates use inviteEligibleMemberPubkeys. */
     const visibleMembers = React.useMemo(
         () => filterVisibleGroupMembers(participantDisplayPubkeys, (pubkey) => discoveryCache.getProfile(pubkey)),
@@ -847,6 +879,24 @@ export default function GroupHomePage() {
                 ? "invite-only"
                 : "open";
 
+        const profileId = getResolvedProfileId();
+        if (isGroupTombstoned(myPublicKeyHex, { groupId: resolvedGroupId, relayUrl: effectiveRelay }, { profileId })) {
+            return;
+        }
+        if (isWorkspaceKernelAuthority() && resolvedCommunityId) {
+            const coordinationMaterialization = loadCoordinationMembershipDirectory(resolvedCommunityId, profileId);
+            if (
+                coordinationMaterialization
+                && !isPubkeyActiveInManagedWorkspace({
+                    communityId: resolvedCommunityId,
+                    materialization: coordinationMaterialization,
+                    updatedAtUnixMs: Date.now(),
+                }, myPublicKeyHex)
+            ) {
+                return;
+            }
+        }
+
         const materializeRouteKey = `${resolvedGroupId}|${effectiveRelay}|${resolvedCommunityId ?? ""}`;
         if (materializedGuestRouteKeyRef.current === materializeRouteKey) {
             return;
@@ -887,7 +937,7 @@ export default function GroupHomePage() {
             publicKeyHex: identityState.publicKeyHex ?? identityState.stored?.publicKeyHex,
         };
         queueMicrotask(() => {
-            addGroup(materializedGroup, { allowRevive: true });
+            addGroup(materializedGroup, { allowRevive: true, relayConfirmed: true });
             dispatchGroupInviteReceived(materializedGroup);
             // M4: include publicKeyHex so the provider can reject events dispatched
             // for a different account in the same process (same-process A/B guard).
@@ -967,17 +1017,22 @@ export default function GroupHomePage() {
         if (!isMemberListOpen) {
             return;
         }
-        const communityId = (resolvedCommunityId ?? group?.groupId ?? id ?? "").trim();
-        if (!communityId) {
+        const candidates = communityIdCandidates.length > 0
+            ? communityIdCandidates
+            : [(resolvedCommunityId ?? group?.groupId ?? id ?? "").trim()].filter(Boolean);
+        if (candidates.length === 0) {
             return;
         }
-        void refreshCommunityMembershipTruth({
-            communityId,
-            communityMode: group?.communityMode ?? groupState.metadata?.communityMode,
-            localMemberPubkey,
-            forceFull: true,
-        });
+        void Promise.all(candidates.map((communityId) => (
+            refreshCommunityMembershipTruth({
+                communityId,
+                communityMode: group?.communityMode ?? groupState.metadata?.communityMode,
+                localMemberPubkey,
+                forceFull: true,
+            })
+        )));
     }, [
+        communityIdCandidates,
         group?.communityMode,
         group?.groupId,
         groupState.metadata?.communityMode,
@@ -1000,15 +1055,19 @@ export default function GroupHomePage() {
             }
             return;
         }
-        const communityMode = groupState.metadata?.communityMode ?? group?.communityMode;
+        const communityMode = resolveEffectiveCommunityMode(
+            groupState.metadata?.communityMode ?? group?.communityMode,
+            effectiveRelay,
+        );
         const outcome = await reconcileWorkspaceMembershipEvidence({
             groupId,
             relayUrl: effectiveRelay,
             profileId: getResolvedProfileId(),
-            communityId: group?.communityId,
+            communityId: resolvedCommunityId,
+            communityIdCandidates,
             communityMode,
             refreshRelaySubscription: refreshCommunityMembership,
-            onSemanticMemberEvent: usesCoordinationMembershipDirectory(communityMode)
+            onSemanticMemberEvent: usesCoordinationMembershipDirectory(communityMode, effectiveRelay)
                 ? applyCoordinationSemanticMemberEvent
                 : undefined,
         });
@@ -1040,13 +1099,14 @@ export default function GroupHomePage() {
         );
     }, [
         applyCoordinationSemanticMemberEvent,
+        communityIdCandidates,
         effectiveRelay,
-        group?.communityId,
         group?.communityMode,
         group?.groupId,
         groupState.metadata?.communityMode,
         id,
         refreshCommunityMembership,
+        resolvedCommunityId,
         t,
     ]);
     const refreshMembershipForInviteOpen = React.useCallback(

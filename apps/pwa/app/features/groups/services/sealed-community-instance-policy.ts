@@ -8,6 +8,8 @@ import { isWorkspaceKernelAuthority } from "@/app/features/workspace-kernel/work
  *
  * - Main shell (`/` sidebar group chat): {@link resolveMainShellSealedCommunityEnabled}
  * - Group home (`/groups/[id]`): {@link resolveGroupHomeSealedCommunityEnabled}
+ * - Group thread relay ingest: {@link resolveMainShellGroupThreadRelayIngestEnabled} /
+ *   {@link resolveGroupHomeGroupThreadRelayIngestEnabled} (stays on under workspace kernel)
  * - Management dialog: fallback only when parent does not pass `communityController`
  *
  * Layout subtracts duplicate mounts: {@link isChatRoutePathname} gates MainShell;
@@ -43,6 +45,18 @@ export const resolveMainShellSealedCommunityEnabled = (
   && params.hasRelayTransport
 );
 
+/**
+ * Relay ingest for group chat on `/` — stays enabled under workspace kernel (W2 thread path).
+ * Legacy membership hook remains gated by {@link resolveMainShellSealedCommunityEnabled}.
+ */
+export const resolveMainShellGroupThreadRelayIngestEnabled = (
+  params: ResolveMainShellSealedCommunityEnabledParams,
+): boolean => (
+  params.selectedConversationKind === "group"
+  && !isGroupCommunityHomePathname(params.pathname)
+  && params.hasRelayTransport
+);
+
 export type ResolveGroupHomeSealedCommunityEnabledParams = Readonly<{
   hasCommunityContext: boolean;
   hasRelayTransport: boolean;
@@ -54,6 +68,16 @@ export const resolveGroupHomeSealedCommunityEnabled = (
 ): boolean => (
   !isWorkspaceKernelAuthority()
   && params.hasCommunityContext
+  && params.hasRelayTransport
+);
+
+/**
+ * Relay ingest on group-home — stays enabled under workspace kernel (W2 thread path).
+ */
+export const resolveGroupHomeGroupThreadRelayIngestEnabled = (
+  params: ResolveGroupHomeSealedCommunityEnabledParams,
+): boolean => (
+  params.hasCommunityContext
   && params.hasRelayTransport
 );
 

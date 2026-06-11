@@ -220,15 +220,37 @@ export default function RootLayout({
             __html: `
               (function() {
                 try {
-                  var registryRaw = localStorage.getItem('obscur.profiles.registry.v1');
                   var activeProfileId = 'default';
-                  if (registryRaw) {
-                    try {
-                      var registry = JSON.parse(registryRaw);
-                      if (registry && typeof registry.activeProfileId === 'string' && registry.activeProfileId.trim().length > 0) {
-                        activeProfileId = registry.activeProfileId.trim();
+                  var syncScope = window.__OBSCUR_SYNC_PROFILE_SCOPE__;
+                  if (syncScope && String(syncScope).trim().length > 0) {
+                    activeProfileId = String(syncScope).trim();
+                  } else {
+                    var boot = window.__OBSCUR_WINDOW_BOOT__;
+                    if (boot && boot.profileId && boot.windowLabel) {
+                      var bootProfileId = String(boot.profileId).trim();
+                      var bootWindowLabel = String(boot.windowLabel).trim();
+                      if (bootProfileId && bootWindowLabel) {
+                        var cachedBootProfile = localStorage.getItem(
+                          'obscur.desktop.window_profile.last_known.v1::' + bootWindowLabel
+                        );
+                        activeProfileId = (cachedBootProfile && cachedBootProfile.trim()) || bootProfileId;
                       }
-                    } catch (e) {}
+                    } else {
+                      var lastWindowProfile = localStorage.getItem('obscur.desktop.window_profile.last_known.v1');
+                      if (lastWindowProfile && lastWindowProfile.trim().length > 0) {
+                        activeProfileId = lastWindowProfile.trim();
+                      } else {
+                        var registryRaw = localStorage.getItem('obscur.profiles.registry.v1');
+                        if (registryRaw) {
+                          try {
+                            var registry = JSON.parse(registryRaw);
+                            if (registry && typeof registry.activeProfileId === 'string' && registry.activeProfileId.trim().length > 0) {
+                              activeProfileId = registry.activeProfileId.trim();
+                            }
+                          } catch (e) {}
+                        }
+                      }
+                    }
                   }
                   var scopedAccessibilityKey = 'dweb.nostr.pwa.ui.accessibility.v1::' + activeProfileId;
                   var raw = localStorage.getItem(scopedAccessibilityKey) || localStorage.getItem('dweb.nostr.pwa.ui.accessibility.v1');

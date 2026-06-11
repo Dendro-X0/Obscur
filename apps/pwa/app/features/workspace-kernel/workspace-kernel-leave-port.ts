@@ -3,7 +3,12 @@ import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { GroupConversation } from "@/app/features/messaging/types";
 import { publishRelayConfirmedCommunityLeave } from "@/app/features/groups/services/community-relay-confirmed-leave";
 import type { SealedCommunityNostrPool } from "@/app/features/groups/services/sealed-community-relay-scope";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { logWorkspaceKernelDiagnostic } from "./workspace-kernel-diagnostics";
+import {
+  listManagedWorkspaceCommunityIdCandidates,
+  resolveManagedWorkspaceCommunityId,
+} from "./workspace-kernel-membership-scope";
 
 export type WorkspaceKernelLeavePortStatus = "w1_landed";
 
@@ -31,14 +36,26 @@ export const publishWorkspaceKernelLeave = async (
 ): Promise<boolean> => {
   const groupId = params.group.groupId.trim();
   const relayUrl = params.group.relayUrl?.trim() ?? "";
-  const communityId = params.group.communityId?.trim() ?? "";
+  const profileId = getResolvedProfileId();
+  const communityIdCandidates = listManagedWorkspaceCommunityIdCandidates({
+    group: params.group,
+    publicKeyHex: params.myPublicKeyHex,
+    profileId,
+  });
+  const communityId = communityIdCandidates[0]
+    ?? resolveManagedWorkspaceCommunityId({
+      group: params.group,
+      publicKeyHex: params.myPublicKeyHex,
+      profileId,
+    });
 
   const relayConfirmed = await publishRelayConfirmedCommunityLeave({
     pool: params.pool,
     groupId,
     relayUrl,
-    communityId: communityId || undefined,
-    communityMode: params.group.communityMode,
+    communityId,
+    communityIdCandidates,
+    communityMode: params.group.communityMode ?? "managed_workspace",
     myPublicKeyHex: params.myPublicKeyHex,
     myPrivateKeyHex: params.myPrivateKeyHex,
     initialMembers: params.initialMembers,

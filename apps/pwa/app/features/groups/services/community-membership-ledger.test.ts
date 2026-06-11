@@ -197,6 +197,22 @@ describe("community-membership-ledger", () => {
     expect(toCommunityMembershipLedgerKey(loaded[0]!)).toBe("group-1@@wss://relay.example");
   });
 
+  it("preserves memberPubkeys when loading ledger snapshots", () => {
+    const peerPubkey = "b".repeat(64);
+    saveCommunityMembershipLedger(PUBLIC_KEY, [{
+      ...BASE_ENTRY,
+      memberPubkeys: [PUBLIC_KEY, peerPubkey],
+      adminPubkeys: [peerPubkey],
+      ledgerVersion: 2,
+    }]);
+
+    const loaded = loadCommunityMembershipLedger(PUBLIC_KEY);
+    expect(loaded).toHaveLength(1);
+    expect(loaded[0]?.memberPubkeys).toEqual([PUBLIC_KEY, peerPubkey]);
+    expect(loaded[0]?.adminPubkeys).toEqual([peerPubkey]);
+    expect(loaded[0]?.ledgerVersion).toBe(2);
+  });
+
   it("selects joined entries and builds fallback group conversation for ledger-only hydration", () => {
     const leftEntry: CommunityMembershipLedgerEntry = {
       ...BASE_ENTRY,

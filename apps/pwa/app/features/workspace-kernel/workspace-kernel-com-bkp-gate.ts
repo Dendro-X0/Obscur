@@ -2,6 +2,7 @@ import {
   listWorkspaceKernelBackupRestoreDeferredScope,
   listWorkspaceKernelBackupRestoreIncludedScope,
   WORKSPACE_KERNEL_BACKUP_RESTORE_SCOPE_REGISTER,
+  type WorkspaceKernelBackupRestoreScopeItemId,
 } from "./workspace-kernel-backup-restore-scope";
 
 export type ComBkpGateEvaluation = Readonly<{
@@ -18,7 +19,11 @@ export const evaluateComBkpWorkspaceScopeGate = (): ComBkpGateEvaluation => {
   const includedIds = included.map((item) => item.id);
   const deferredIds = deferred.map((item) => item.id);
 
-  const requiresIncluded: ReadonlyArray<string> = ["room_list", "thread_messages", "group_sqlite_metadata"];
+  const requiresIncluded: ReadonlyArray<WorkspaceKernelBackupRestoreScopeItemId> = [
+    "room_list",
+    "thread_messages",
+    "group_sqlite_metadata",
+  ];
   const missingIncluded = requiresIncluded.filter((id) => !includedIds.includes(id));
   if (missingIncluded.length > 0) {
     return {

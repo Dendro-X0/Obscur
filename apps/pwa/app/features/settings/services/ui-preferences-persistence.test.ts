@@ -1,8 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   DESKTOP_LAST_WINDOW_PROFILE_STORAGE_KEY,
+  getAccessibilityStorageKey,
+  loadAccessibilityPreferences,
   loadThemePreference,
   PROFILE_REGISTRY_STORAGE_KEY,
+  saveAccessibilityPreferences,
   saveThemePreference,
   THEME_LAST_KNOWN_STORAGE_KEY,
   THEME_STORAGE_BASE_KEY,
@@ -65,5 +68,37 @@ describe("ui-preferences-persistence", () => {
     saveThemePreference("dark", "profile-b");
     expect(loadThemePreference("profile-b")).toBe("dark");
     expect(loadThemePreference("profile-a")).toBe("light");
+  });
+
+  it("loads accessibility for sync-injected desktop window profile", () => {
+    (window as Window & { __OBSCUR_SYNC_PROFILE_SCOPE__?: string }).__OBSCUR_SYNC_PROFILE_SCOPE__ = "profile-b";
+    saveAccessibilityPreferences({
+      textScale: 110,
+      reducedMotion: true,
+      contrastAssist: false,
+    }, "profile-b");
+    expect(loadAccessibilityPreferences()).toEqual({
+      textScale: 110,
+      reducedMotion: true,
+      contrastAssist: false,
+    });
+    expect(loadAccessibilityPreferences("profile-a")).toEqual({
+      textScale: 100,
+      reducedMotion: false,
+      contrastAssist: false,
+    });
+  });
+
+  it("persists accessibility to scoped storage key", () => {
+    saveAccessibilityPreferences({
+      textScale: 90,
+      reducedMotion: false,
+      contrastAssist: true,
+    }, "profile-x");
+    expect(localStorage.getItem(getAccessibilityStorageKey("profile-x"))).toBe(JSON.stringify({
+      textScale: 90,
+      reducedMotion: false,
+      contrastAssist: true,
+    }));
   });
 });

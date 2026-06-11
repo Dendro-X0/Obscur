@@ -356,7 +356,8 @@ export const resumeNativeGateAfterReload = async (
   ));
 
   const digest = window.obscurAppEvents?.getCrossDeviceSyncDigest?.(400) ?? null;
-  const riskLevel = digest?.summary?.selfAuthoredDmContinuity?.riskLevel ?? "none";
+  const continuity = digest?.summary?.selfAuthoredDmContinuity as { riskLevel?: string } | undefined;
+  const riskLevel = continuity?.riskLevel ?? "none";
   const riskOrder: Record<string, number> = { none: 0, watch: 1, high: 2 };
   const continuityPassed = (riskOrder[riskLevel] ?? 0) <= riskOrder.watch;
   steps.push(step(

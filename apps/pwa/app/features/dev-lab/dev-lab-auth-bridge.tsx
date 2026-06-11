@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import React, { useEffect } from "react";
 import type { Passphrase } from "@dweb/crypto/passphrase";
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
@@ -15,7 +15,7 @@ import { registerDevLabAuthHandlers } from "./dev-lab-install";
  * Registers programmatic unlock handlers on window.obscurDevLab (dev builds only).
  * Must mount inside AuthGateway so window runtime unlock APIs are available.
  */
-export const DevLabAuthBridge = (): null => {
+export const DevLabAuthBridge = (): React.JSX.Element | null => {
   const runtime = useWindowRuntime();
   const identity = useIdentity();
 

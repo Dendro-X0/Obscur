@@ -16,14 +16,18 @@ import {
 import { persistExplicitCommunityMembershipLeave } from "./community-membership-coordinator";
 import { addGroupTombstone } from "./group-tombstone-store";
 import { shouldUseCoordinationMembershipAuthority } from "./community-workspace-r1-policy";
+import { refreshCoordinationMembershipDirectory } from "./community-coordination-membership-directory-store";
 import { publishLeaveEventToRelay, type RelayPoolLike } from "./community-leave-outbox-retry";
 import type { SealedCommunityNostrPool } from "./sealed-community-relay-scope";
+import { isWorkspaceKernelAuthority } from "@/app/features/workspace-kernel/workspace-kernel-policy";
 
 export type PublishRelayConfirmedCommunityLeaveParams = Readonly<{
   pool: SealedCommunityNostrPool;
   groupId: string;
   relayUrl: string;
   communityId?: string;
+  /** When legacy metadata disagrees with ledger/directory, try each id until coordination accepts leave. */
+  communityIdCandidates?: ReadonlyArray<string>;
   communityMode?: CommunityMode;
   myPublicKeyHex: PublicKeyHex;
   myPrivateKeyHex: PrivateKeyHex;
@@ -48,19 +52,42 @@ export const publishRelayConfirmedCommunityLeave = async (
   const profileId = getResolvedProfileId();
   const relayTransportReady = hasWritableCommunityRelayTransport(relayUrl);
   const relayAuthoritative = isRelayAuthoritativeMembershipEnforced();
-  const requiresCoordinationLeave = shouldUseCoordinationMembershipAuthority(params.communityMode)
-    && typeof params.communityId === "string"
-    && params.communityId.trim().length > 0;
+  const resolvedCommunityMode = params.communityMode
+    ?? (isWorkspaceKernelAuthority() ? "managed_workspace" as const : undefined);
+  const coordinationCommunityIdCandidates = (() => {
+    const fromParams = params.communityIdCandidates ?? [];
+    if (fromParams.length > 0) {
+      return fromParams.map((communityId) => communityId.trim()).filter((communityId) => communityId.length > 0);
+    }
+    const single = params.communityId?.trim() ?? "";
+    return single.length > 0 ? [single] : [];
+  })();
 
+  const requiresCoordinationLeave = shouldUseCoordinationMembershipAuthority(resolvedCommunityMode)
+    && coordinationCommunityIdCandidates.length > 0;
+
+  let coordinationLeaveConfirmed = false;
   if (relayAuthoritative && requiresCoordinationLeave) {
-    const coordinationLeave = await publishCoordinationMembershipDelta({
-      communityId: params.communityId!.trim(),
-      action: "leave",
-      subjectPubkey: params.myPublicKeyHex,
-      actorPubkey: params.myPublicKeyHex,
-      actorPrivateKeyHex: params.myPrivateKeyHex,
-    });
-    if (!coordinationLeave.success) {
+    for (const communityId of coordinationCommunityIdCandidates) {
+      const coordinationLeave = await publishCoordinationMembershipDelta({
+        communityId,
+        action: "leave",
+        subjectPubkey: params.myPublicKeyHex,
+        actorPubkey: params.myPublicKeyHex,
+        actorPrivateKeyHex: params.myPrivateKeyHex,
+      });
+      if (!coordinationLeave.success) {
+        continue;
+      }
+      coordinationLeaveConfirmed = true;
+      await refreshCoordinationMembershipDirectory({
+        communityId,
+        forceFull: true,
+        profileId,
+      });
+      break;
+    }
+    if (!coordinationLeaveConfirmed) {
       return false;
     }
   }
@@ -76,7 +103,7 @@ export const publishRelayConfirmedCommunityLeave = async (
     const nip29Leave = await groupService.sendNip29Leave({ groupId });
     if (relayTransportReady) {
       const nip29Result = await publishLeaveEventToRelay({
-        pool: params.pool as RelayPoolLike,
+        pool: params.pool as unknown as RelayPoolLike,
         relayUrl,
         event: nip29Leave,
       });
@@ -89,14 +116,14 @@ export const publishRelayConfirmedCommunityLeave = async (
         errorMessage: nip29Result.errorMessage,
         profileId,
       });
-      if (relayAuthoritative && !nip29Result.success) {
+      if (relayAuthoritative && !nip29Result.success && !coordinationLeaveConfirmed) {
         return false;
       }
     } else if (!relayAuthoritative) {
       nip29LeavePublished = false;
     }
   } catch {
-    if (relayAuthoritative) {
+    if (relayAuthoritative && !coordinationLeaveConfirmed) {
       return false;
     }
   }
@@ -106,7 +133,7 @@ export const publishRelayConfirmedCommunityLeave = async (
     if (roomKeyHex && relayTransportReady) {
       const sealedLeave = await groupService.sendSealedLeave({ groupId, roomKeyHex });
       await publishLeaveEventToRelay({
-        pool: params.pool as RelayPoolLike,
+        pool: params.pool as unknown as RelayPoolLike,
         relayUrl,
         event: sealedLeave,
       });
@@ -121,7 +148,7 @@ export const publishRelayConfirmedCommunityLeave = async (
       if (autoDisbandDecision.shouldAttemptAutoDisband) {
         const disbandEvent = await groupService.sendSealedDisband({ groupId, roomKeyHex });
         await publishLeaveEventToRelay({
-          pool: params.pool as RelayPoolLike,
+          pool: params.pool as unknown as RelayPoolLike,
           relayUrl,
           event: disbandEvent,
         });
@@ -132,6 +159,9 @@ export const publishRelayConfirmedCommunityLeave = async (
   }
 
   if (relayAuthoritative) {
+    if (requiresCoordinationLeave && coordinationLeaveConfirmed) {
+      return true;
+    }
     return nip29LeavePublished || (requiresCoordinationLeave && !relayTransportReady);
   }
   return nip29LeavePublished || !relayTransportReady;

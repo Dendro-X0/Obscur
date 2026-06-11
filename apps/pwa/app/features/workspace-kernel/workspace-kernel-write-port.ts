@@ -4,7 +4,9 @@ import { isTauri } from "@dweb/db";
 import type { Message } from "@/app/features/messaging/types";
 import { GroupService } from "@/app/features/groups/services/group-service";
 import { commitSealedGroupMessages } from "@/app/features/groups/services/sealed-group-message-persistence";
+import { suppressGroupThreadMessage } from "@/app/features/messaging/services/thread-history/group-thread-suppress";
 import { createEmptyReactions } from "@/app/features/messaging/utils/logic";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { isWorkspaceKernelAuthority } from "./workspace-kernel-policy";
 import { logWorkspaceKernelDiagnostic } from "./workspace-kernel-diagnostics";
 
@@ -101,4 +103,71 @@ export const sendWorkspaceKernelGroupMessage = async (
   };
 
   return { ok: true, message };
+};
+
+export type RemoveWorkspaceKernelGroupMessageParams = Readonly<{
+  conversationId: string;
+  groupId: string;
+  relayUrl: string;
+  communityId?: string;
+  message: Message;
+  messageIdentityIds: ReadonlyArray<string>;
+  publicKeyHex: PublicKeyHex;
+  privateKeyHex: PrivateKeyHex;
+  profileId?: string;
+  publishSealedEvent?: WorkspaceKernelSealedEventPublisher;
+}>;
+
+export type RemoveWorkspaceKernelGroupMessageResult = Readonly<
+  | { ok: true; relayPublished: boolean }
+  | { ok: false; errorMessage: string }
+>;
+
+/** Managed-workspace remove-from-workspace — relay kind-5 hint + SQLite tombstone. */
+export const removeWorkspaceKernelGroupMessage = async (
+  params: RemoveWorkspaceKernelGroupMessageParams,
+): Promise<RemoveWorkspaceKernelGroupMessageResult> => {
+  if (!isWorkspaceKernelWritePortReady()) {
+    return { ok: false, errorMessage: "workspace_kernel_write_port_not_ready" };
+  }
+
+  const targetEventId = params.message.eventId?.trim() || params.message.id.trim();
+  if (!targetEventId) {
+    return { ok: false, errorMessage: "missing_message_event_id" };
+  }
+
+  let relayPublished = false;
+  if (params.publishSealedEvent) {
+    try {
+      const groupService = new GroupService(params.publicKeyHex, params.privateKeyHex);
+      const deleteEvent = await groupService.hideMessage({
+        groupId: params.groupId,
+        eventId: targetEventId,
+      });
+      await params.publishSealedEvent({ relayUrl: params.relayUrl, event: deleteEvent });
+      relayPublished = true;
+    } catch (error) {
+      logWorkspaceKernelDiagnostic("workspace.path_conflict", {
+        path: "write-port.remove.publish",
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  const suppressed = await suppressGroupThreadMessage({
+    conversationId: params.conversationId,
+    groupId: params.groupId,
+    communityId: params.communityId,
+    primaryMessageId: params.message.id,
+    messageIdentityIds: params.messageIdentityIds,
+    deletedByPublicKeyHex: params.publicKeyHex,
+    profileId: params.profileId ?? getResolvedProfileId(),
+    observedAtUnixMs: params.message.timestamp.getTime(),
+  });
+
+  if (suppressed.status === "suspended") {
+    return { ok: false, errorMessage: "group_message_suppress_suspended" };
+  }
+
+  return { ok: true, relayPublished };
 };

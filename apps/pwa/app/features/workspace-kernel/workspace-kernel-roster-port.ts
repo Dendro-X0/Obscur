@@ -5,6 +5,7 @@ import {
   readCommunityMembershipTruthSnapshot,
   type CommunityMembershipTruthSnapshot,
 } from "@/app/features/groups/services/community-membership-truth";
+import { resolveEffectiveCommunityMode } from "@/app/features/groups/services/community-workspace-r1-policy";
 import { readManagedWorkspaceMembership } from "./workspace-kernel-membership-port";
 import { isWorkspaceKernelAuthority } from "./workspace-kernel-policy";
 
@@ -17,12 +18,14 @@ export const isWorkspaceKernelRosterPortReady = (): boolean => isWorkspaceKernel
 export const readWorkspaceKernelMembershipTruth = (params: Readonly<{
   communityId: string;
   communityMode?: GroupConversation["communityMode"];
+  relayUrl?: string | null;
   profileId?: string;
   localMemberPubkey?: PublicKeyHex | null;
 }>): CommunityMembershipTruthSnapshot => (
   readCommunityMembershipTruthSnapshot({
     communityId: params.communityId,
     communityMode: params.communityMode,
+    relayUrl: params.relayUrl,
     profileId: params.profileId,
     localMemberPubkey: params.localMemberPubkey,
   })
@@ -51,12 +54,14 @@ export const buildWorkspaceKernelRosterProjectionForGroup = (
   }> = {},
 ): CommunityRosterProjection | null => {
   const communityId = group.communityId?.trim() ?? "";
-  if (!communityId || group.communityMode !== "managed_workspace") {
+  const communityMode = resolveEffectiveCommunityMode(group.communityMode, group.relayUrl);
+  if (!communityId || communityMode !== "managed_workspace") {
     return null;
   }
   const snapshot = readWorkspaceKernelMembershipTruth({
     communityId,
-    communityMode: group.communityMode,
+    communityMode,
+    relayUrl: group.relayUrl,
     profileId: params.profileId,
     localMemberPubkey: params.localMemberPubkey,
   });

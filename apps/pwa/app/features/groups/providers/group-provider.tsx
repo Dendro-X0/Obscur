@@ -23,8 +23,30 @@ import type { CommunityKnownParticipantDirectory } from "@/app/features/groups/s
 import type { CommunityRosterProjection } from "@/app/features/groups/services/community-member-roster-projection";
 import { commitCommunityLeaveAfterRelayConfirmation } from "@/app/features/groups/services/community-relay-confirmed-leave";
 import { isRelayAuthoritativeMembershipEnforced } from "@/app/features/groups/services/community-relay-authoritative-membership-policy";
-import { isGroupTombstoned } from "@/app/features/groups/services/group-tombstone-store";
+import {
+  isGroupTombstoned,
+  removeGroupTombstonesForScope,
+} from "@/app/features/groups/services/group-tombstone-store";
+import { clearDurableCommunityLeaveIntentOnExplicitRejoin } from "@/app/features/groups/services/community-membership-leave-intent";
+import { COORDINATION_MEMBERSHIP_DIRECTORY_CHANGED_EVENT } from "@/app/features/groups/services/community-coordination-membership-directory-store";
+import {
+  loadCommunityMembershipLedger,
+  toCommunityMembershipLedgerEntryFromGroup,
+  toGroupConversationFromMembershipLedgerEntry,
+  upsertCommunityMembershipLedgerEntry,
+} from "@/app/features/groups/services/community-membership-ledger";
+import { deriveCommunityId } from "@/app/features/groups/utils/community-identity";
+import { resolveGroupConversationIdAliases, toGroupConversationId } from "@/app/features/groups/utils/group-conversation-id";
+import { refreshCoordinationMembershipDirectory } from "@/app/features/groups/services/community-coordination-membership-directory-store";
+import {
+  loadWorkspaceGroupMetadataCache,
+  persistWorkspaceGroupMetadataCache,
+  removeWorkspaceGroupMetadata,
+  upsertWorkspaceGroupMetadata,
+} from "@/app/features/workspace-kernel/workspace-kernel-group-metadata-cache";
 import { isWorkspaceKernelAuthority } from "@/app/features/workspace-kernel/workspace-kernel-policy";
+import { resolveManagedWorkspaceGroupList } from "@/app/features/workspace-kernel/workspace-kernel-list-port";
+import { hasTerminalLedgerScopeEvidence, listManagedWorkspaceCommunityIdCandidates } from "@/app/features/workspace-kernel/workspace-kernel-membership-scope";
 import { useWorkspaceKernelRosterIndex } from "@/app/features/workspace-kernel/use-workspace-kernel-roster-index";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 
@@ -81,47 +103,188 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const [newGroupName, setNewGroupName] = useState("");
     const [newGroupMemberPubkeys, setNewGroupMemberPubkeys] = useState("");
 
+  const loadGroupMetadataCache = useCallback((): ReadonlyArray<GroupConversation> => {
+    if (!publicKeyHex) {
+      return [];
+    }
+    if (isWorkspaceKernelAuthority()) {
+      return loadWorkspaceGroupMetadataCache(publicKeyHex, resolvedProfileId);
+    }
+    const persisted = chatStateStoreService.load(publicKeyHex, { profileId: resolvedProfileId });
+    return (persisted?.createdGroups ?? [])
+      .map((row) => fromPersistedGroupConversation(row))
+      .filter((group) => !isGroupTombstoned(publicKeyHex, {
+        groupId: group.groupId,
+        relayUrl: group.relayUrl,
+      }, { profileId: resolvedProfileId }));
+  }, [publicKeyHex, resolvedProfileId]);
+
+  const persistGroupMetadataCache = useCallback((groups: ReadonlyArray<GroupConversation>): void => {
+    if (!publicKeyHex) {
+      return;
+    }
+    if (isWorkspaceKernelAuthority()) {
+      persistWorkspaceGroupMetadataCache(publicKeyHex, resolvedProfileId, groups);
+      return;
+    }
+    chatStateStoreService.update(
+      publicKeyHex,
+      (prev) => ({
+        ...prev,
+        createdGroups: groups.map((group) => toPersistedGroupConversation(group)),
+      }),
+      { profileId: resolvedProfileId, debounceMs: 0 },
+    );
+  }, [publicKeyHex, resolvedProfileId]);
+
+  const upsertGroupMetadata = useCallback((group: GroupConversation): ReadonlyArray<GroupConversation> => {
+    if (!publicKeyHex) {
+      return [];
+    }
+    if (isWorkspaceKernelAuthority()) {
+      return upsertWorkspaceGroupMetadata(publicKeyHex, resolvedProfileId, group);
+    }
+    const current = loadGroupMetadataCache();
+    const existingIndex = current.findIndex((row) => row.id === group.id);
+    const next = existingIndex >= 0
+      ? current.map((row, index) => (index === existingIndex ? { ...row, ...group } : row))
+      : [...current, group];
+    persistGroupMetadataCache(next);
+    return next;
+  }, [loadGroupMetadataCache, persistGroupMetadataCache, publicKeyHex, resolvedProfileId]);
+
     useEffect(() => {
     if (!publicKeyHex) {
       setCreatedGroups([]);
       setHasHydratedGroups(false);
             return;
         }
-    const persisted = chatStateStoreService.load(publicKeyHex, { profileId: resolvedProfileId });
-    const groups = (persisted?.createdGroups ?? [])
-      .map((row) => fromPersistedGroupConversation(row))
-      .filter((group) => !isGroupTombstoned(publicKeyHex, {
-        groupId: group.groupId,
-        relayUrl: group.relayUrl,
-      }, { profileId: resolvedProfileId }));
+    const metadataCache = loadGroupMetadataCache();
+    const groups = resolveManagedWorkspaceGroupList({
+      publicKeyHex,
+      profileId: resolvedProfileId,
+      persistedGroups: metadataCache,
+    });
     setCreatedGroups(groups);
     setHasHydratedGroups(true);
+  }, [loadGroupMetadataCache, publicKeyHex, resolvedProfileId]);
+
+  const deriveDisplayGroupList = useCallback((metadataCache: ReadonlyArray<GroupConversation>): ReadonlyArray<GroupConversation> => {
+    if (!publicKeyHex) {
+      return metadataCache;
+    }
+    return resolveManagedWorkspaceGroupList({
+      publicKeyHex,
+      profileId: resolvedProfileId,
+      persistedGroups: metadataCache,
+    });
   }, [publicKeyHex, resolvedProfileId]);
 
-  const persistGroupList = useCallback((groups: ReadonlyArray<GroupConversation>): void => {
+  const refreshDisplayFromMetadataCache = useCallback((): void => {
     if (!publicKeyHex) {
-            return;
+      return;
+    }
+    setCreatedGroups(deriveDisplayGroupList(loadGroupMetadataCache()));
+  }, [deriveDisplayGroupList, loadGroupMetadataCache, publicKeyHex]);
+
+  useEffect(() => {
+    if (!publicKeyHex || !hasHydratedGroups || !isWorkspaceKernelAuthority()) {
+      return;
+    }
+    let cancelled = false;
+    const refreshFromCoordinationDirectory = (): void => {
+      refreshDisplayFromMetadataCache();
+    };
+    const bootstrapCoordinationDirectories = async (): Promise<void> => {
+      const ledger = loadCommunityMembershipLedger(publicKeyHex, { profileId: resolvedProfileId });
+      const communityIds = Array.from(new Set(
+        ledger
+          .filter((entry) => {
+            if (entry.status !== "joined") {
+              return false;
+            }
+            const groupId = entry.groupId.trim();
+            const relayUrl = (entry.relayUrl ?? "").trim();
+            if (!groupId || !relayUrl) {
+              return false;
+            }
+            if (isGroupTombstoned(publicKeyHex, { groupId, relayUrl }, { profileId: resolvedProfileId })) {
+              return false;
+            }
+            return !hasTerminalLedgerScopeEvidence(ledger, { groupId, relayUrl });
+          })
+          .flatMap((entry) => {
+            const group = toGroupConversationFromMembershipLedgerEntry(entry);
+            return listManagedWorkspaceCommunityIdCandidates({
+              group,
+              publicKeyHex,
+              profileId: resolvedProfileId,
+            });
+          }),
+      ));
+      await Promise.all(communityIds.map(async (communityId) => {
+        try {
+          await refreshCoordinationMembershipDirectory({
+            communityId,
+            profileId: resolvedProfileId,
+            forceFull: true,
+          });
+        } catch {
+          // Best-effort refresh; joined ledger + metadata cache retain rows until proof arrives.
         }
-        chatStateStoreService.update(
-      publicKeyHex,
-            (prev) => ({
-                ...prev,
-        createdGroups: groups.map((group) => toPersistedGroupConversation(group)),
-        groupMessages: {},
-      }),
-      { profileId: resolvedProfileId, debounceMs: 0 },
-    );
-  }, [publicKeyHex, resolvedProfileId]);
+      }));
+      if (!cancelled) {
+        refreshFromCoordinationDirectory();
+      }
+    };
+    const onDirectoryChanged = (): void => {
+      refreshFromCoordinationDirectory();
+    };
+    window.addEventListener(COORDINATION_MEMBERSHIP_DIRECTORY_CHANGED_EVENT, onDirectoryChanged);
+    void bootstrapCoordinationDirectories();
+    return () => {
+      cancelled = true;
+      window.removeEventListener(COORDINATION_MEMBERSHIP_DIRECTORY_CHANGED_EVENT, onDirectoryChanged);
+    };
+  }, [hasHydratedGroups, publicKeyHex, refreshDisplayFromMetadataCache, resolvedProfileId]);
 
   const addGroup = useCallback((
         group: GroupConversation,
+        options?: Readonly<{ allowRevive?: boolean; provisionalJoin?: boolean; relayConfirmed?: boolean }>,
         ): void => {
-    setCreatedGroups((prev) => {
-      const next = prev.some((row) => row.id === group.id) ? prev : [...prev, group];
-      persistGroupList(next);
-            return next;
-        });
-  }, [persistGroupList]);
+    if (!publicKeyHex) {
+      return;
+    }
+    const groupId = group.groupId.trim();
+    const relayUrl = group.relayUrl.trim();
+    if (!groupId || !relayUrl) {
+      return;
+    }
+    const tombstoned = isGroupTombstoned(publicKeyHex, { groupId, relayUrl }, { profileId: resolvedProfileId });
+    if (tombstoned && !(options?.allowRevive === true && options?.relayConfirmed === true)) {
+      return;
+    }
+    if (tombstoned) {
+      removeGroupTombstonesForScope(publicKeyHex, { groupId, relayUrl }, { profileId: resolvedProfileId });
+      clearDurableCommunityLeaveIntentOnExplicitRejoin({
+        publicKeyHex,
+        profileId: resolvedProfileId,
+        groupId,
+        relayUrl,
+      });
+    }
+    if (isWorkspaceKernelAuthority() && options?.relayConfirmed === true) {
+      upsertCommunityMembershipLedgerEntry(
+        publicKeyHex,
+        toCommunityMembershipLedgerEntryFromGroup(group, {
+          status: options?.provisionalJoin ? "pending" : "joined",
+        }),
+        { profileId: resolvedProfileId },
+      );
+    }
+    const metadataCache = upsertGroupMetadata(group);
+    setCreatedGroups(deriveDisplayGroupList(metadataCache));
+  }, [deriveDisplayGroupList, publicKeyHex, resolvedProfileId, upsertGroupMetadata]);
 
   const updateGroup = useCallback((params: Readonly<{
         groupId: string;
@@ -129,17 +292,18 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         conversationId?: string;
     updates: Partial<GroupConversation>;
   }>): void => {
-            setCreatedGroups((prev) => {
-                const next = prev.map((group) => {
-        const matches = params.conversationId
-          ? group.id === params.conversationId
-          : group.groupId === params.groupId && (!params.relayUrl || group.relayUrl === params.relayUrl);
-        return matches ? { ...group, ...params.updates } : group;
-      });
-      persistGroupList(next);
-                return next;
-            });
-  }, [persistGroupList]);
+    if (!publicKeyHex) {
+      return;
+    }
+    const metadataCache = loadGroupMetadataCache().map((group) => {
+      const matches = params.conversationId
+        ? group.id === params.conversationId
+        : group.groupId === params.groupId && (!params.relayUrl || group.relayUrl === params.relayUrl);
+      return matches ? { ...group, ...params.updates } : group;
+    });
+    persistGroupMetadataCache(metadataCache);
+    setCreatedGroups(deriveDisplayGroupList(metadataCache));
+  }, [deriveDisplayGroupList, loadGroupMetadataCache, persistGroupMetadataCache, publicKeyHex]);
 
   const resolveGroupForScope = useCallback((params: Readonly<{
     groupId: string;
@@ -147,7 +311,10 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     conversationId?: string;
   }>): GroupConversation | undefined => {
     if (params.conversationId) {
-      return createdGroups.find((group) => group.id === params.conversationId);
+      const fromList = createdGroups.find((group) => group.id === params.conversationId);
+      if (fromList) {
+        return fromList;
+      }
     }
     return createdGroups.find((group) => (
       group.groupId === params.groupId
@@ -155,13 +322,68 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     ));
   }, [createdGroups]);
 
+  const resolveGroupForPurge = useCallback((params: Readonly<{
+    groupId: string;
+    relayUrl?: string;
+    conversationId?: string;
+  }>): GroupConversation | undefined => {
+    const fromList = resolveGroupForScope(params);
+    if (fromList) {
+      return fromList;
+    }
+    if (!publicKeyHex) {
+      return undefined;
+    }
+    const groupId = params.groupId.trim();
+    const relayUrl = params.relayUrl?.trim() ?? "";
+    if (!groupId || !relayUrl) {
+      return undefined;
+    }
+
+    const fromMetadata = loadGroupMetadataCache().find((group) => (
+      group.groupId.trim() === groupId && group.relayUrl.trim() === relayUrl
+    ));
+    if (fromMetadata) {
+      return fromMetadata;
+    }
+
+    const ledgerEntry = loadCommunityMembershipLedger(publicKeyHex, { profileId: resolvedProfileId })
+      .find((entry) => entry.groupId.trim() === groupId && (entry.relayUrl ?? "").trim() === relayUrl);
+    if (ledgerEntry) {
+      return toGroupConversationFromMembershipLedgerEntry(ledgerEntry);
+    }
+
+    const communityId = deriveCommunityId({ groupId, relayUrl });
+    return {
+      kind: "group",
+      id: params.conversationId?.trim()
+        || toGroupConversationId({ groupId, relayUrl, communityId }),
+      communityId,
+      groupId,
+      relayUrl,
+      displayName: groupId,
+      memberPubkeys: [publicKeyHex as PublicKeyHex],
+      lastMessage: "",
+      unreadCount: 0,
+      lastMessageTime: new Date(0),
+      access: "invite-only",
+      memberCount: 1,
+      adminPubkeys: [],
+      communityMode: "managed_workspace",
+    };
+  }, [loadGroupMetadataCache, publicKeyHex, resolveGroupForScope, resolvedProfileId]);
+
   const removeGroupConversation = useCallback((conversationId: string): void => {
-            setCreatedGroups((prev) => {
-      const next = prev.filter((group) => group.id !== conversationId);
-      persistGroupList(next);
-                return next;
-            });
-  }, [persistGroupList]);
+    if (!publicKeyHex) {
+      return;
+    }
+    if (isWorkspaceKernelAuthority()) {
+      removeWorkspaceGroupMetadata(publicKeyHex, resolvedProfileId, conversationId);
+    } else {
+      persistGroupMetadataCache(loadGroupMetadataCache().filter((group) => group.id !== conversationId));
+    }
+    refreshDisplayFromMetadataCache();
+  }, [loadGroupMetadataCache, persistGroupMetadataCache, publicKeyHex, refreshDisplayFromMetadataCache, resolvedProfileId]);
 
   const leaveGroup = useCallback((params: Readonly<{
     groupId: string;
@@ -183,6 +405,7 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       publicKeyHex,
       group,
       profileId: resolvedProfileId,
+      tombstone: isWorkspaceKernelAuthority(),
     });
     removeGroupConversation(group.id);
   }, [publicKeyHex, removeGroupConversation, resolveGroupForScope, resolvedProfileId]);
@@ -196,10 +419,7 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (!publicKeyHex) {
       return;
     }
-    if (isRelayAuthoritativeMembershipEnforced() && params.relayConfirmed !== true) {
-      return;
-    }
-    const group = resolveGroupForScope(params);
+    const group = resolveGroupForPurge(params);
     if (!group) {
       return;
     }
@@ -209,25 +429,45 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       profileId: resolvedProfileId,
       tombstone: true,
     });
+    const conversationAliases = resolveGroupConversationIdAliases({
+      conversationId: group.id,
+      groupId: group.groupId,
+      relayUrl: group.relayUrl,
+      communityId: group.communityId,
+      genesisEventId: group.genesisEventId,
+      creatorPubkey: group.creatorPubkey,
+    });
     chatStateStoreService.update(
       publicKeyHex,
       (prev) => {
         const nextGroupMessages = { ...(prev.groupMessages ?? {}) };
-        delete nextGroupMessages[group.id];
-        const nextCreatedGroups = (prev.createdGroups ?? []).filter((row) => {
-          const conversation = fromPersistedGroupConversation(row);
-          return conversation.id !== group.id;
-        });
+        for (const conversationId of conversationAliases) {
+          delete nextGroupMessages[conversationId];
+        }
         return {
           ...prev,
-          createdGroups: nextCreatedGroups,
           groupMessages: nextGroupMessages,
+          createdGroups: (prev.createdGroups ?? []).filter((row) => (
+            !conversationAliases.includes(row.id)
+          )),
         };
       },
       { profileId: resolvedProfileId, debounceMs: 0 },
     );
+    for (const conversationId of conversationAliases) {
+      if (isWorkspaceKernelAuthority()) {
+        removeWorkspaceGroupMetadata(publicKeyHex, resolvedProfileId, conversationId);
+      }
+    }
     removeGroupConversation(group.id);
-  }, [publicKeyHex, removeGroupConversation, resolveGroupForScope, resolvedProfileId]);
+    refreshDisplayFromMetadataCache();
+  }, [
+    publicKeyHex,
+    refreshDisplayFromMetadataCache,
+    removeGroupConversation,
+    resolveGroupForPurge,
+    resolvedProfileId,
+  ]);
   const recordMembershipLedgerAfterInviteDecline = useCallback((_group: GroupConversation): void => undefined, []);
 
   const workspaceKernelRosterByConversationId = useWorkspaceKernelRosterIndex({

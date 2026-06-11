@@ -11,7 +11,7 @@ export type WorkspaceKernelDiagnosticEvent =
 
 export const logWorkspaceKernelDiagnostic = (
   name: WorkspaceKernelDiagnosticEvent,
-  context?: Record<string, unknown>,
+  context?: Readonly<Record<string, string | number | boolean | null>>,
 ): void => {
   logAppEvent({
     name,

@@ -21,7 +21,13 @@ vi.mock("@/app/features/profiles/providers/profile-runtime-provider", () => ({
 }));
 
 import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store";
+import { addGroupTombstone, isGroupTombstoned } from "@/app/features/groups/services/group-tombstone-store";
+import { loadCommunityMembershipLedger } from "@/app/features/groups/services/community-membership-ledger";
 import { GroupProvider, useGroups } from "./group-provider";
+
+vi.mock("@/app/features/workspace-kernel/workspace-kernel-policy", () => ({
+  isWorkspaceKernelAuthority: () => false,
+}));
 
 const createEmptyState = (): PersistedChatState => ({
   version: 2,
@@ -116,6 +122,26 @@ describe("group-provider (visual-only stub)", () => {
     expect(persisted?.groupMessages).toEqual({});
   });
 
+  it("does not revive tombstoned groups through addGroup without relay-confirmed revive", async () => {
+    const group = createGroup("revive-me");
+    addGroupTombstone(PUBLIC_KEY, { groupId: group.groupId, relayUrl: group.relayUrl }, { profileId: "default" });
+
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+      <GroupProvider>{children}</GroupProvider>
+    );
+    const hook = renderHook(() => useGroups(), { wrapper });
+
+    await waitFor(() => {
+      expect(hook.result.current.hasHydratedGroups).toBe(true);
+    });
+
+    await act(async () => {
+      hook.result.current.addGroup(group);
+    });
+
+    expect(hook.result.current.createdGroups).toHaveLength(0);
+  });
+
   it("removes a group conversation from the visual list", async () => {
     const group = createGroup("gamma");
     chatStateStoreService.replace(PUBLIC_KEY, {
@@ -151,6 +177,51 @@ describe("group-provider (visual-only stub)", () => {
     await waitFor(() => {
       expect(hook.result.current.createdGroups).toHaveLength(0);
     });
+    expect(chatStateStoreService.load(PUBLIC_KEY, { profileId: "default" })?.createdGroups).toEqual([]);
+  });
+
+  it("forcePurgeCommunity removes zombie groups without relay confirmation", async () => {
+    vi.stubEnv("NEXT_PUBLIC_OBSCUR_RELAY_AUTHORITATIVE_MEMBERSHIP", "1");
+    const group = createGroup("test-10");
+    chatStateStoreService.replace(PUBLIC_KEY, {
+      ...createEmptyState(),
+      createdGroups: [{
+        id: group.id,
+        groupId: group.groupId,
+        relayUrl: group.relayUrl,
+        displayName: "Test 10",
+        memberPubkeys: [...group.memberPubkeys],
+        lastMessage: "",
+        unreadCount: 0,
+        lastMessageTimeMs: 0,
+        access: "open",
+        memberCount: 1,
+        adminPubkeys: [],
+      }],
+    }, { emitMutationSignal: false });
+
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+      <GroupProvider>{children}</GroupProvider>
+    );
+    const hook = renderHook(() => useGroups(), { wrapper });
+
+    await waitFor(() => {
+      expect(hook.result.current.createdGroups).toHaveLength(1);
+    });
+
+    await act(async () => {
+      hook.result.current.forcePurgeCommunity({
+        groupId: group.groupId,
+        relayUrl: group.relayUrl,
+        conversationId: group.id,
+      });
+    });
+
+    await waitFor(() => {
+      expect(hook.result.current.createdGroups).toHaveLength(0);
+    });
+    expect(isGroupTombstoned(PUBLIC_KEY, { groupId: group.groupId, relayUrl: group.relayUrl }, { profileId: "default" })).toBe(true);
+    expect(loadCommunityMembershipLedger(PUBLIC_KEY, { profileId: "default" }).some((entry) => entry.status === "left")).toBe(true);
     expect(chatStateStoreService.load(PUBLIC_KEY, { profileId: "default" })?.createdGroups).toEqual([]);
   });
 });

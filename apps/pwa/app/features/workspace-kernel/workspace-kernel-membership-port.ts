@@ -34,8 +34,14 @@ import type { CoordinationMembershipMaterialization } from "@/app/features/group
 import { publishCoordinationMembershipDelta } from "@/app/features/groups/services/community-coordination-membership-client";
 import { isCoordinationConfigured } from "@/app/features/groups/services/community-membership-sync-mode";
 import { logAppEvent } from "@/app/shared/log-app-event";
+import {
+  toCommunityMembershipLedgerEntryFromGroup,
+  upsertCommunityMembershipLedgerEntry,
+} from "@/app/features/groups/services/community-membership-ledger";
 import { logWorkspaceKernelDiagnostic } from "./workspace-kernel-diagnostics";
+import { upsertWorkspaceGroupMetadata } from "./workspace-kernel-group-metadata-cache";
 import { isWorkspaceKernelAuthority } from "./workspace-kernel-policy";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 
 export type WorkspaceKernelMembershipPortStatus = "w1_landed";
 
@@ -261,14 +267,19 @@ export const createManagedWorkspaceMembership = async (
     displayName: info.name,
   });
 
-  if (isRelayAuthoritativeMembershipEnforced() && relayEvidence.status !== "synced") {
+  const coordinationCreateConfirmed = coordination.status === "synced";
+  if (
+    isRelayAuthoritativeMembershipEnforced()
+    && relayEvidence.status !== "synced"
+    && !coordinationCreateConfirmed
+  ) {
     return {
       ok: false,
       errorMessage: "relay_genesis_not_confirmed",
       userFacingMessage: "Relay did not confirm community creation. Nothing was saved locally.",
     };
   }
-  if (activationSummary.severity !== "success") {
+  if (activationSummary.severity !== "success" && !coordinationCreateConfirmed) {
     return {
       ok: false,
       errorMessage: "activation_incomplete",
@@ -299,7 +310,14 @@ export const createManagedWorkspaceMembership = async (
     relayCapabilityTier: info.relayCapabilityTier,
   };
 
-  await refreshCoordinationMembershipDirectory({ communityId, forceFull: true });
+  const profileId = getResolvedProfileId();
+  await refreshCoordinationMembershipDirectory({ communityId, forceFull: true, profileId });
+  upsertCommunityMembershipLedgerEntry(
+    myPublicKeyHex,
+    toCommunityMembershipLedgerEntryFromGroup(newGroup, { status: "joined" }),
+    { profileId },
+  );
+  upsertWorkspaceGroupMetadata(myPublicKeyHex, profileId, newGroup);
   onPhase?.("done");
 
   return { ok: true, group: newGroup, activationSummary };
@@ -344,11 +362,40 @@ export const joinManagedWorkspaceMembership = async (
     requireHealthyCoordination: true,
   });
 
-  if (result.summary.severity === "success") {
+  const profileId = getResolvedProfileId();
+  const coordinationJoinConfirmed = result.coordination.status === "synced";
+  if (coordinationJoinConfirmed || result.summary.severity === "success") {
     await refreshCoordinationMembershipDirectory({
       communityId: params.communityId,
       forceFull: true,
+      profileId,
     });
+    const joinedGroup: GroupConversation = {
+      kind: "group",
+      id: toGroupConversationId({
+        groupId: params.groupId,
+        relayUrl: result.relay.canonicalUrl || params.relayUrl,
+        communityId: params.communityId,
+      }),
+      communityId: params.communityId,
+      groupId: params.groupId,
+      relayUrl: result.relay.canonicalUrl || params.relayUrl,
+      displayName: params.displayName ?? params.groupId,
+      memberPubkeys: [params.memberPubkey],
+      lastMessage: "Joined workspace community",
+      unreadCount: 0,
+      lastMessageTime: new Date(),
+      access: "open",
+      memberCount: 1,
+      adminPubkeys: [],
+      communityMode: "managed_workspace",
+    };
+    upsertCommunityMembershipLedgerEntry(
+      params.memberPubkey,
+      toCommunityMembershipLedgerEntryFromGroup(joinedGroup, { status: "joined" }),
+      { profileId },
+    );
+    upsertWorkspaceGroupMetadata(params.memberPubkey, profileId, joinedGroup);
   }
 
   return result;

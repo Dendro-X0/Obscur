@@ -4,6 +4,7 @@ import { getDefaultProfileId, getScopedStorageKey } from "@/app/features/profile
 import { getProfileRuntimeScope, getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { emitAccountSyncMutation } from "@/app/shared/account-sync-mutation-signal";
 import { logAppEvent } from "@/app/shared/log-app-event";
+import { enrichWorkspaceGroupConversation } from "./community-workspace-r1-policy";
 import { deriveCommunityId, pickPreferredCommunityId } from "../utils/community-identity";
 import { pickPreferredCommunityDisplayName } from "./community-display-name";
 import { toGroupConversationId } from "../utils/group-conversation-id";
@@ -136,6 +137,19 @@ const normalizeCommunityMembershipLedgerEntry = (value: unknown): CommunityMembe
   const avatar = typeof candidate.avatar === "string" && candidate.avatar.trim().length > 0
     ? candidate.avatar.trim()
     : undefined;
+  const memberPubkeys = Array.isArray(candidate.memberPubkeys)
+    ? candidate.memberPubkeys
+      .filter((pubkey): pubkey is string => typeof pubkey === "string" && pubkey.trim().length > 0)
+      .map((pubkey) => pubkey.trim())
+    : undefined;
+  const adminPubkeys = Array.isArray(candidate.adminPubkeys)
+    ? candidate.adminPubkeys
+      .filter((pubkey): pubkey is string => typeof pubkey === "string" && pubkey.trim().length > 0)
+      .map((pubkey) => pubkey.trim())
+    : undefined;
+  const ledgerVersion = Number.isFinite(candidate.ledgerVersion)
+    ? Number(candidate.ledgerVersion)
+    : undefined;
 
   return {
     communityId,
@@ -146,6 +160,14 @@ const normalizeCommunityMembershipLedgerEntry = (value: unknown): CommunityMembe
     lastEvidenceEventId,
     displayName,
     avatar,
+    ...(memberPubkeys && memberPubkeys.length > 0 ? { memberPubkeys } : {}),
+    ...(adminPubkeys && adminPubkeys.length > 0 ? { adminPubkeys } : {}),
+    ...(ledgerVersion !== undefined ? { ledgerVersion } : {}),
+    ...(typeof candidate.publicKeyHex === "string" && candidate.publicKeyHex.trim().length > 0
+      ? { publicKeyHex: candidate.publicKeyHex.trim() }
+      : {}),
+    ...(Number.isFinite(candidate.createdAt) ? { createdAt: Number(candidate.createdAt) } : {}),
+    ...(Number.isFinite(candidate.updatedAt) ? { updatedAt: Number(candidate.updatedAt) } : {}),
   };
 };
 
@@ -611,7 +633,7 @@ export const toGroupConversationFromMembershipLedgerEntry = (
     options?.fallbackDisplayName,
     { groupId: entry.groupId, communityId, conversationId: id },
   );
-  return {
+  return enrichWorkspaceGroupConversation({
     kind: "group",
     id,
     communityId,
@@ -627,5 +649,5 @@ export const toGroupConversationFromMembershipLedgerEntry = (
     adminPubkeys: Array.from(new Set((entry.adminPubkeys ?? []).map((pubkey) => pubkey.trim()).filter((pubkey) => pubkey.length > 0))),
     avatar: entry.avatar,
     about: undefined,
-  };
+  });
 };

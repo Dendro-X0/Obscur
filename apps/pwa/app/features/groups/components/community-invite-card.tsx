@@ -62,6 +62,7 @@ import { applyCommunityMembershipRuntimeEvidence } from "../services/community-m
 import { isRelayAuthoritativeMembershipEnforced } from "../services/community-relay-authoritative-membership-policy";
 import { loadCommunityMembershipLedger } from "../services/community-membership-ledger";
 import { loadGroupTombstones } from "../services/group-tombstone-store";
+import { refreshCoordinationMembershipDirectory } from "../services/community-coordination-membership-directory-store";
 import {
     loadInviteRelayJoinState,
     resolveRelayJoinStatusAfterManualRetry,
@@ -449,6 +450,11 @@ export const CommunityInviteCard = ({
                 });
             }
             addGroup(resolvedGroup, { allowRevive: true, relayConfirmed: true });
+            await refreshCoordinationMembershipDirectory({
+                communityId,
+                profileId,
+                forceFull: true,
+            });
             dispatchGroupInviteReceived(resolvedGroup);
 
             if (resolvedRelayUrl) {

@@ -3,9 +3,9 @@
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { PROFILE_CHANGED_EVENT } from "@/app/features/profiles/services/profile-registry-service";
 import { readActiveDesktopProfileId } from "@/app/features/profiles/services/read-active-desktop-profile-id";
-import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import {
   loadThemePreference,
+  resolveUiPreferencesProfileId,
   saveThemePreference,
   type ThemePreference,
 } from "@/app/features/settings/services/ui-preferences-persistence";
@@ -26,7 +26,7 @@ const SERVER_SNAPSHOT: ThemeSnapshot = { preference: "system" };
 const createStore = (): ThemeStore => {
   const listeners: Set<() => void> = new Set<() => void>();
   let preference: ThemePreference = typeof window !== "undefined"
-    ? loadThemePreference(readActiveDesktopProfileId())
+    ? loadThemePreference(resolveUiPreferencesProfileId())
     : "system";
   let snapshot: ThemeSnapshot = { preference };
   const emit = (): void => {
@@ -35,7 +35,8 @@ const createStore = (): ThemeStore => {
     });
   };
   const hydrateFromStorage = (profileId?: string): void => {
-    const next = loadThemePreference(profileId);
+    const resolvedProfileId = profileId?.trim() || resolveUiPreferencesProfileId();
+    const next = loadThemePreference(resolvedProfileId);
     if (preference === next && snapshot.preference === next) {
       return;
     }
@@ -51,13 +52,14 @@ const createStore = (): ThemeStore => {
   };
   const getSnapshot = (): ThemeSnapshot => snapshot;
   const setPreference = (next: ThemePreference): void => {
+    const profileId = resolveUiPreferencesProfileId();
     if (preference === next) {
-      saveThemePreference(next, getResolvedProfileId());
+      saveThemePreference(next, profileId);
       return;
     }
     preference = next;
     snapshot = { preference };
-    saveThemePreference(next, getResolvedProfileId());
+    saveThemePreference(next, profileId);
     emit();
   };
   return { subscribe, getSnapshot, setPreference, hydrateFromStorage };
@@ -75,20 +77,17 @@ const useTheme = (): UseThemeResult => {
   const snapshot: ThemeSnapshot = useSyncExternalStore(store.subscribe, store.getSnapshot, getServerSnapshot);
 
   useEffect(() => {
-    store.hydrateFromStorage(getResolvedProfileId());
+    store.hydrateFromStorage(resolveUiPreferencesProfileId());
     if (typeof window === "undefined") {
       return;
     }
-    const onProfileChanged = (event: Event): void => {
-      const detail = (event as CustomEvent<{ activeProfileId?: string }>).detail;
-      const profileId = typeof detail?.activeProfileId === "string"
-        ? detail.activeProfileId
-        : getResolvedProfileId();
-      store.hydrateFromStorage(profileId);
+    const onProfileChanged = (): void => {
+      // Never hydrate from registry activeProfileId — secondary desktop windows keep their own scope.
+      store.hydrateFromStorage(resolveUiPreferencesProfileId());
     };
     window.addEventListener(PROFILE_CHANGED_EVENT, onProfileChanged);
     const resyncTimer = window.setTimeout(() => {
-      store.hydrateFromStorage(getResolvedProfileId());
+      store.hydrateFromStorage(resolveUiPreferencesProfileId());
     }, 0);
     return (): void => {
       window.removeEventListener(PROFILE_CHANGED_EVENT, onProfileChanged);

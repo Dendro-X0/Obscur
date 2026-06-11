@@ -92,6 +92,22 @@ describe("community-participant-display-read-model", () => {
     expect(display).toEqual([PK_A]);
   });
 
+  it("repairs stale directory shrink from explicit join-evidence member pubkeys", () => {
+    const display = resolveCommunityParticipantDisplayPubkeys({
+      communityMode: "managed_workspace",
+      coordinationDirectory: {
+        activeMemberPubkeys: [PK_A],
+        leftMemberPubkeys: [],
+        expelledMemberPubkeys: [],
+        headSeq: 2,
+      },
+      monotonicDisplayPubkeys: [PK_A],
+      joinEvidenceMemberPubkeys: [PK_A, PK_B],
+      localMemberPubkey: PK_A,
+    });
+    expect(display).toEqual([PK_A, PK_B]);
+  });
+
   it("does not fall back to monotonic roster when coordination is configured but directory is missing", () => {
     const display = resolveCommunityParticipantDisplayPubkeys({
       communityMode: "managed_workspace",

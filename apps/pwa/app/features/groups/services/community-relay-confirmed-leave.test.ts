@@ -43,6 +43,22 @@ vi.mock("./community-coordination-membership-client", () => ({
   publishCoordinationMembershipDelta: (...args: unknown[]) => publishCoordinationMembershipDeltaMock(...args),
 }));
 
+const refreshCoordinationMembershipDirectoryMock = vi.hoisted(() => vi.fn(async () => null));
+
+vi.mock("./community-coordination-membership-directory-store", () => ({
+  refreshCoordinationMembershipDirectory: (...args: unknown[]) => refreshCoordinationMembershipDirectoryMock(...args),
+}));
+
+vi.mock("@/app/features/workspace-kernel/workspace-kernel-policy", () => ({
+  isWorkspaceKernelAuthority: () => true,
+}));
+
+vi.mock("./community-workspace-r1-policy", () => ({
+  shouldUseCoordinationMembershipAuthority: (communityMode: string | null | undefined) => (
+    communityMode === "managed_workspace"
+  ),
+}));
+
 vi.mock("@/app/features/relays/lib/nostr-core-relay", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/app/features/relays/lib/nostr-core-relay")>();
   return {
@@ -111,6 +127,53 @@ describe("community-relay-confirmed-leave", () => {
     expect(confirmed).toBe(false);
     expect(getPendingCommunityLeaveOutboxItems(PUBLIC_KEY)).toHaveLength(0);
     expect(loadCommunityMembershipLedger(PUBLIC_KEY)).toHaveLength(0);
+  });
+
+  it("managed workspace leave tries alternate community ids until coordination confirms", async () => {
+    publishLeaveEventToRelayMock.mockResolvedValue({ success: false, errorMessage: "rejected" });
+    publishCoordinationMembershipDeltaMock
+      .mockResolvedValueOnce({ success: false, errorMessage: "unknown_community" })
+      .mockResolvedValueOnce({ success: true });
+    vi.stubEnv("NEXT_PUBLIC_WORKSPACE_R1_MEMBERSHIP", "1");
+    vi.stubEnv("NEXT_PUBLIC_COORDINATION_URL", "http://127.0.0.1:8787");
+
+    const confirmed = await publishRelayConfirmedCommunityLeave({
+      pool: createPool() as never,
+      groupId: GROUP_ID,
+      relayUrl: RELAY_URL,
+      communityId: "legacy-group:relay",
+      communityIdCandidates: ["legacy-group:relay", "v2_managed_workspace"],
+      communityMode: "managed_workspace",
+      myPublicKeyHex: PUBLIC_KEY,
+      myPrivateKeyHex: PRIVATE_KEY,
+    });
+
+    expect(confirmed).toBe(true);
+    expect(publishCoordinationMembershipDeltaMock).toHaveBeenCalledTimes(2);
+    expect(publishCoordinationMembershipDeltaMock.mock.calls[1]?.[0]).toMatchObject({
+      communityId: "v2_managed_workspace",
+      action: "leave",
+    });
+  });
+
+  it("managed workspace leave succeeds when coordination confirms even if relay publish fails", async () => {
+    publishLeaveEventToRelayMock.mockResolvedValue({ success: false, errorMessage: "rejected" });
+    vi.stubEnv("NEXT_PUBLIC_WORKSPACE_R1_MEMBERSHIP", "1");
+    vi.stubEnv("NEXT_PUBLIC_COORDINATION_URL", "http://127.0.0.1:8787");
+
+    const confirmed = await publishRelayConfirmedCommunityLeave({
+      pool: createPool() as never,
+      groupId: GROUP_ID,
+      relayUrl: RELAY_URL,
+      communityId: "v2_managed_workspace",
+      communityMode: "managed_workspace",
+      myPublicKeyHex: PUBLIC_KEY,
+      myPrivateKeyHex: PRIVATE_KEY,
+    });
+
+    expect(confirmed).toBe(true);
+    expect(publishCoordinationMembershipDeltaMock).toHaveBeenCalled();
+    expect(refreshCoordinationMembershipDirectoryMock).toHaveBeenCalled();
   });
 
   it("publishRelayConfirmedCommunityLeave returns true when relay publish succeeds", async () => {

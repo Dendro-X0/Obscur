@@ -455,7 +455,7 @@ const FullRelayProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     return () => {
       window.clearTimeout(timerId);
     };
-  }, [transportBootstrapReady, enabledRelayUrlsKey, poolConnectionRelayUrls.join("|")]);
+  }, [transportBootstrapReady, enabledRelayUrlsKey]);
 
   const triggerRelayRecovery = useCallback((reason: RelayRecoveryReasonCode = "manual") => {
     return relayRuntimeSupervisor.triggerRecovery(reason);

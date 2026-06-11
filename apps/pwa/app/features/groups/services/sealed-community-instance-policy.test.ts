@@ -3,8 +3,10 @@ import {
   areSealedCommunityRouteSurfacesExclusive,
   isChatRoutePathname,
   isGroupCommunityHomePathname,
+  resolveGroupHomeGroupThreadRelayIngestEnabled,
   resolveGroupHomeSealedCommunityEnabled,
   resolveGroupManagementSealedCommunityEnabled,
+  resolveMainShellGroupThreadRelayIngestEnabled,
   resolveMainShellSealedCommunityEnabled,
 } from "./sealed-community-instance-policy";
 
@@ -41,6 +43,28 @@ describe("sealed-community-instance-policy", () => {
       hasRelayTransport: true,
     })).toBe(true);
     expect(resolveGroupHomeSealedCommunityEnabled({
+      hasCommunityContext: false,
+      hasRelayTransport: true,
+    })).toBe(false);
+  });
+
+  it("group thread relay ingest stays enabled when sealed-community hook would be gated", () => {
+    const mainShellParams = {
+      selectedConversationKind: "group" as const,
+      pathname: "/",
+      hasRelayTransport: true,
+    };
+    expect(resolveMainShellGroupThreadRelayIngestEnabled(mainShellParams)).toBe(true);
+    expect(resolveMainShellGroupThreadRelayIngestEnabled({
+      ...mainShellParams,
+      pathname: "/groups/workspace",
+    })).toBe(false);
+
+    expect(resolveGroupHomeGroupThreadRelayIngestEnabled({
+      hasCommunityContext: true,
+      hasRelayTransport: true,
+    })).toBe(true);
+    expect(resolveGroupHomeGroupThreadRelayIngestEnabled({
       hasCommunityContext: false,
       hasRelayTransport: true,
     })).toBe(false);

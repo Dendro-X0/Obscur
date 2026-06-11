@@ -12,6 +12,7 @@ import { shouldUseCoordinationMembershipAuthority } from "./community-workspace-
 
 export type WorkspaceMembershipReconcileParams = CommunityMembershipReconcileParams & Readonly<{
   communityId?: string;
+  communityIdCandidates?: ReadonlyArray<string>;
   communityMode?: CommunityMode | null;
   onSemanticMemberEvent?: (event: SemanticCommunityMemberEvent) => void;
 }>;
@@ -34,19 +35,37 @@ export const reconcileWorkspaceMembershipEvidence = async (
   });
 
   if (
-    !shouldUseCoordinationMembershipAuthority(params.communityMode)
+    !shouldUseCoordinationMembershipAuthority(params.communityMode, params.relayUrl)
     || !params.onSemanticMemberEvent
   ) {
     return { coordination: null };
   }
 
-  const communityId = (params.communityId ?? params.groupId).trim();
-  const coordination = await runCoordinationMembershipReconcile({
-    communityId,
-    profileId: params.profileId,
-    forceFull: true,
-    onSemanticMemberEvent: params.onSemanticMemberEvent,
-  });
+  const communityIdCandidates = (params.communityIdCandidates?.length
+    ? params.communityIdCandidates
+    : [(params.communityId ?? params.groupId).trim()]
+  ).filter((communityId) => communityId.length > 0);
+
+  let coordination: CoordinationMembershipReconcileResult | null = null;
+  for (const communityId of communityIdCandidates) {
+    const attempt = await runCoordinationMembershipReconcile({
+      communityId,
+      profileId: params.profileId,
+      forceFull: true,
+      onSemanticMemberEvent: params.onSemanticMemberEvent,
+    });
+    if (!attempt.ok) {
+      continue;
+    }
+    if (
+      !coordination
+      || attempt.toSeq > coordination.toSeq
+      || attempt.appliedDeltaCount > coordination.appliedDeltaCount
+    ) {
+      coordination = attempt;
+    }
+  }
+
   params.refreshRelaySubscription();
   return { coordination };
 };

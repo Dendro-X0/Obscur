@@ -8,29 +8,29 @@ import { PageShell } from "@/app/components/page-shell";
 import { useGroups } from "@/app/features/groups/providers/group-provider";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
-import { useSealedCommunity, toScopedRelayUrl } from "@/app/features/groups/hooks/use-sealed-community";
-import { hasWritableCommunityRelayTransport } from "@/app/features/groups/services/community-relay-transport";
-import {
-    CommunityNetworkTimeoutError,
-    withCommunityNetworkTimeout,
-} from "@/app/features/groups/services/community-network-timeout";
-import { getResolvedClientGateway } from "@/app/features/profiles/services/resolve-client-gateway";
-import { toGroupConversationId } from "@/app/features/groups/utils/group-conversation-id";
+import { toScopedRelayUrl } from "@/app/features/groups/hooks/use-sealed-community";
+import { isCoordinationConfigured, readMembershipSyncMode } from "@/app/features/groups/services/community-membership-sync-mode";
 import { resolveGroupConversationByToken } from "@/app/features/messaging/utils/conversation-target";
 import { resolveGroupRouteToken } from "@/app/features/groups/utils/group-route-token";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { buildGroupViewHref } from "@/app/features/groups/utils/group-action-route";
 import { toast } from "@dweb/ui-kit";
+import { isWorkspaceKernelAuthority } from "@/app/features/workspace-kernel/workspace-kernel-policy";
+import { publishWorkspaceKernelLeave } from "@/app/features/workspace-kernel/workspace-kernel-leave-port";
+import {
+    listManagedWorkspaceCommunityIdCandidates,
+    resolveManagedWorkspaceCommunityId,
+} from "@/app/features/workspace-kernel/workspace-kernel-membership-scope";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
+import type { GroupConversation } from "@/app/features/messaging/types";
+import { toGroupConversationId } from "@/app/features/groups/utils/group-conversation-id";
 
 export default function PurgeCommunityPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const {
         createdGroups,
-        leaveGroup,
         forcePurgeCommunity,
-        communityKnownParticipantDirectoryByConversationId,
-        communityRosterByConversationId,
     } = useGroups();
     const { state: identityState } = useIdentity();
     const { relayPool } = useRelay();
@@ -62,60 +62,61 @@ export default function PurgeCommunityPage() {
         return raw && raw.length > 0 ? raw : undefined;
     }, [group?.communityId, queryCommunityId]);
 
-    const rosterLookupConversationId = useMemo((): string | null => {
-        if (group?.id) {
-            return group.id;
-        }
-        const gid = resolvedGroupId.trim();
-        const relay = effectiveRelay.trim();
-        if (!gid || !relay) {
-            return null;
-        }
-        return toGroupConversationId({
-            groupId: gid,
-            relayUrl: relay,
-            ...(resolvedCommunityIdForScope ? { communityId: resolvedCommunityIdForScope } : {}),
-        });
-    }, [effectiveRelay, group?.id, resolvedCommunityIdForScope, resolvedGroupId]);
+    const allowManagedWorkspaceLocalPurge = isWorkspaceKernelAuthority()
+        || (
+            isCoordinationConfigured()
+            && readMembershipSyncMode() === "coordination_preferred"
+            && (group?.communityMode ?? "managed_workspace") === "managed_workspace"
+        );
 
-    const purgeSealedCommunityInitialMembers = useMemo((): ReadonlyArray<PublicKeyHex> | undefined => {
-        if (!rosterLookupConversationId) {
-            return getResolvedClientGateway().communityRoster.resolveSeedMemberPubkeysFromDirectory({
-                directory: null,
-                persistedGroupMemberPubkeys: group?.memberPubkeys,
-                projectionMemberPubkeys: undefined,
-                localMemberPubkey: localMemberPubkey,
+    const purgeGroupContext = useMemo((): (GroupConversation & Readonly<{ communityIdCandidates: ReadonlyArray<string> }>) | undefined => {
+        if (!localMemberPubkey || !resolvedGroupId || !effectiveRelay) {
+            return undefined;
+        }
+        const profileId = getResolvedProfileId();
+        const scopedGroup = {
+            groupId: resolvedGroupId,
+            relayUrl: effectiveRelay,
+            communityId: resolvedCommunityIdForScope,
+            genesisEventId: group?.genesisEventId,
+            creatorPubkey: group?.creatorPubkey,
+            communityMode: group?.communityMode ?? "managed_workspace",
+        };
+        const communityIdCandidates = listManagedWorkspaceCommunityIdCandidates({
+            group: scopedGroup,
+            publicKeyHex: localMemberPubkey,
+            profileId,
+        });
+        const communityId = communityIdCandidates[0]
+            ?? resolveManagedWorkspaceCommunityId({
+                group: scopedGroup,
+                publicKeyHex: localMemberPubkey,
+                profileId,
             });
-        }
-        return getResolvedClientGateway().communityRoster.resolveSeedMemberPubkeysFromDirectory({
-            directory: communityKnownParticipantDirectoryByConversationId[rosterLookupConversationId] ?? null,
-            persistedGroupMemberPubkeys: group?.memberPubkeys,
-            projectionMemberPubkeys: communityRosterByConversationId[rosterLookupConversationId]?.activeMemberPubkeys,
-            localMemberPubkey: localMemberPubkey,
-        });
-    }, [
-        communityKnownParticipantDirectoryByConversationId,
-        communityRosterByConversationId,
-        group?.memberPubkeys,
-        localMemberPubkey,
-        rosterLookupConversationId,
-    ]);
-
-    const purgeRelayTransportReady = useMemo(
-        () => hasWritableCommunityRelayTransport(effectiveRelay),
-        [effectiveRelay],
-    );
-
-    const { leaveGroup: leaveNip29Group } = useSealedCommunity({
-        groupId: resolvedGroupId,
-        relayUrl: effectiveRelay,
-        ...(group?.communityId || queryCommunityId ? { communityId: group?.communityId || queryCommunityId } : {}),
-        pool: relayPool,
-        myPublicKeyHex: localMemberPubkey,
-        myPrivateKeyHex: identityState.privateKeyHex ?? null,
-        initialMembers: purgeSealedCommunityInitialMembers,
-        enabled: purgeRelayTransportReady,
-    });
+        return {
+            kind: "group",
+            id: group?.id ?? toGroupConversationId({
+                groupId: resolvedGroupId,
+                relayUrl: effectiveRelay,
+                communityId,
+            }),
+            communityId,
+            groupId: resolvedGroupId,
+            relayUrl: effectiveRelay,
+            displayName: group?.displayName ?? displayName,
+            memberPubkeys: group?.memberPubkeys ?? [localMemberPubkey],
+            lastMessage: group?.lastMessage ?? "",
+            unreadCount: group?.unreadCount ?? 0,
+            lastMessageTime: group?.lastMessageTime ?? new Date(0),
+            access: group?.access ?? "invite-only",
+            memberCount: group?.memberCount ?? 1,
+            adminPubkeys: group?.adminPubkeys ?? [],
+            communityMode: scopedGroup.communityMode,
+            genesisEventId: group?.genesisEventId,
+            creatorPubkey: group?.creatorPubkey,
+            communityIdCandidates,
+        };
+    }, [displayName, effectiveRelay, group, localMemberPubkey, resolvedCommunityIdForScope, resolvedGroupId]);
 
     const returnHref = useMemo(() => buildGroupViewHref({
         routeToken: routeToken || group?.id || resolvedGroupId,
@@ -132,33 +133,26 @@ export default function PurgeCommunityPage() {
 
         setIsPurging(true);
         try {
-            if (group) {
-                leaveGroup({
-                    groupId: group.groupId,
-                    relayUrl: group.relayUrl,
-                    conversationId: group.id,
-                });
-            } else {
-                leaveGroup({
-                    groupId: resolvedGroupId,
-                    relayUrl: effectiveRelay,
-                });
+            if (
+                allowManagedWorkspaceLocalPurge
+                && purgeGroupContext
+                && identityState.privateKeyHex
+                && localMemberPubkey
+            ) {
+                await publishWorkspaceKernelLeave({
+                    pool: relayPool,
+                    group: purgeGroupContext,
+                    myPublicKeyHex: localMemberPubkey,
+                    myPrivateKeyHex: identityState.privateKeyHex,
+                    initialMembers: purgeGroupContext.memberPubkeys,
+                }).catch(() => false);
             }
             forcePurgeCommunity({
                 groupId: resolvedGroupId,
                 relayUrl: effectiveRelay,
                 conversationId: group?.id,
             });
-            if (purgeRelayTransportReady && identityState.privateKeyHex) {
-                try {
-                    await withCommunityNetworkTimeout(leaveNip29Group());
-                } catch (error) {
-                    if (error instanceof CommunityNetworkTimeoutError) {
-                        toast.warning("Purged locally. Relay leave timed out.");
-                    }
-                }
-            }
-            toast.success("Community purged");
+            toast.success("Community purged from this device");
             router.push("/network");
         } catch {
             toast.error("Failed to purge community");
@@ -193,7 +187,7 @@ export default function PurgeCommunityPage() {
                                     Purge {displayName}
                                 </h1>
                                 <p className="max-w-2xl text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
-                                    Remove all local traces of this community on this device, including membership ledger entries and chat state. This does not delete relay data for other participants.
+                                    Remove all local traces of this community on this device, including membership ledger entries and chat state. Coordination leave is attempted when configured; local purge always proceeds.
                                 </p>
                             </div>
                         </div>
@@ -205,8 +199,8 @@ export default function PurgeCommunityPage() {
                                 What happens next
                             </div>
                             <ul className="mt-4 space-y-3 text-sm leading-relaxed text-zinc-700 dark:text-zinc-300">
-                                <li>You will leave relay scope <span className="font-bold text-zinc-900 dark:text-zinc-100">{effectiveRelay || "unknown"}</span> and clear local room keys.</li>
-                                <li>Local membership ledger entries for this community will be removed.</li>
+                                <li>You will clear local room keys and membership evidence for relay scope <span className="font-bold text-zinc-900 dark:text-zinc-100">{effectiveRelay || "unknown"}</span>.</li>
+                                <li>Local membership ledger entries for this community will be marked left and tombstoned.</li>
                                 <li>A tombstone prevents this community from reappearing until you join again intentionally.</li>
                             </ul>
                         </div>
@@ -216,7 +210,7 @@ export default function PurgeCommunityPage() {
                                 Confirm purge
                             </div>
                             <div className="mt-4 text-sm leading-relaxed text-zinc-700 dark:text-zinc-200">
-                                If you are sure, continue below. This is intentionally isolated from the community page so nothing competes with the confirmation step.
+                                This is the canonical escape hatch for legacy communities that relay leave cannot confirm.
                             </div>
                             <div className="mt-8 flex flex-col gap-3">
                                 <Button
@@ -230,7 +224,7 @@ export default function PurgeCommunityPage() {
                                 <Button
                                     variant="danger"
                                     className="h-12 rounded-2xl gap-2 text-sm font-black"
-                                    onClick={handlePurge}
+                                    onClick={() => void handlePurge()}
                                     disabled={isPurging}
                                 >
                                     {isPurging ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
@@ -243,4 +237,4 @@ export default function PurgeCommunityPage() {
             </div>
         </PageShell>
     );
-}
+};

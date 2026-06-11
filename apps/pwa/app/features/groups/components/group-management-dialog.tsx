@@ -48,6 +48,8 @@ import {
     shouldApplyTerminalMembershipExclusionsToParticipantRoster,
 } from "../services/community-participant-display-read-model";
 import { useCoordinationMembershipDirectory } from "../hooks/use-coordination-membership-directory";
+import { buildManagedWorkspaceRosterRepairContext } from "../services/managed-workspace-roster-repair-context";
+import { resolveEffectiveCommunityMode } from "../services/community-workspace-r1-policy";
 import { useCommunityMemberDisplayNames } from "../hooks/use-community-member-display-names";
 import { useCommunityParticipantRosterReadModel } from "../hooks/use-community-participant-roster-read-model";
 import { resolveCommunityDisplayName } from "../services/community-display-name";
@@ -409,23 +411,42 @@ export function GroupManagementDialog({
         [state.expelledMembers, terminalMembershipCache],
     );
 
+    const {
+        resolvedCommunityId,
+        communityIdCandidates,
+        joinEvidenceMemberPubkeys,
+    } = React.useMemo(
+        () => buildManagedWorkspaceRosterRepairContext({
+            group,
+            publicKeyHex: myPublicKeyHex,
+        }),
+        [group, myPublicKeyHex],
+    );
     const coordinationMembershipDirectory = useCoordinationMembershipDirectory(
-        group.communityId ?? group.groupId,
+        resolvedCommunityId,
     );
 
+    const effectiveCommunityMode = React.useMemo(
+        () => resolveEffectiveCommunityMode(communityModeForR1, group.relayUrl),
+        [communityModeForR1, group.relayUrl],
+    );
     const inviteEligibleMemberPubkeys = React.useMemo(
         () => resolveCommunityInviteMemberBlocklist({
-            communityMode: communityModeForR1,
+            communityMode: effectiveCommunityMode,
+            relayUrl: group.relayUrl,
             coordinationDirectory: coordinationMembershipDirectory,
             hybridActiveMemberPubkeys: mergedManagementMemberPubkeys,
+            joinEvidenceMemberPubkeys,
             leftMemberPubkeys: effectiveLeftMemberPubkeys,
             expelledMemberPubkeys: effectiveExpelledMemberPubkeys,
         }),
         [
-            communityModeForR1,
             coordinationMembershipDirectory,
+            effectiveCommunityMode,
             effectiveExpelledMemberPubkeys,
             effectiveLeftMemberPubkeys,
+            group.relayUrl,
+            joinEvidenceMemberPubkeys,
             mergedManagementMemberPubkeys,
         ],
     );
@@ -469,14 +490,22 @@ export function GroupManagementDialog({
 
     const participantDisplayPubkeys = React.useMemo(
         () => resolveCommunityParticipantDisplayPubkeys({
-            communityMode: communityModeForR1,
+            communityMode: effectiveCommunityMode,
+            relayUrl: group.relayUrl,
             coordinationDirectory: coordinationMembershipDirectory,
             monotonicDisplayPubkeys: rosterDisplayPubkeys,
+            joinEvidenceMemberPubkeys,
             localMemberPubkey,
+            localLeftMemberPubkeys: effectiveLeftMemberPubkeys,
+            localExpelledMemberPubkeys: effectiveExpelledMemberPubkeys,
         }),
         [
-            communityModeForR1,
             coordinationMembershipDirectory,
+            effectiveCommunityMode,
+            effectiveExpelledMemberPubkeys,
+            effectiveLeftMemberPubkeys,
+            group.relayUrl,
+            joinEvidenceMemberPubkeys,
             localMemberPubkey,
             rosterDisplayPubkeys,
         ],
@@ -539,14 +568,16 @@ export function GroupManagementDialog({
     }, [activeMembers, authorEvidencePubkeys, group.groupId, group.relayUrl]);
 
     const handleReconcileMembership = React.useCallback(async () => {
+        const communityMode = resolveEffectiveCommunityMode(group.communityMode, group.relayUrl);
         const outcome = await reconcileWorkspaceMembershipEvidence({
             groupId: group.groupId,
             relayUrl: group.relayUrl,
             profileId: getResolvedProfileId(),
-            communityId: group.communityId,
-            communityMode: group.communityMode,
+            communityId: resolvedCommunityId,
+            communityIdCandidates,
+            communityMode,
             refreshRelaySubscription: refreshCommunityMembership,
-            onSemanticMemberEvent: usesCoordinationMembershipDirectory(group.communityMode)
+            onSemanticMemberEvent: usesCoordinationMembershipDirectory(communityMode, group.relayUrl)
                 ? applyCoordinationSemanticMemberEvent
                 : undefined,
         });
@@ -575,11 +606,12 @@ export function GroupManagementDialog({
         );
     }, [
         applyCoordinationSemanticMemberEvent,
-        group.communityId,
+        communityIdCandidates,
         group.communityMode,
         group.groupId,
         group.relayUrl,
         refreshCommunityMembership,
+        resolvedCommunityId,
         t,
     ]);
 

@@ -42,7 +42,7 @@ describe("community-invite-eligibility-read-model", () => {
     expect(isPubkeyBlockedFromCommunityInvite(PK_C, blocklist)).toBe(false);
   });
 
-  it("returns empty blocklist when coordination directory is unavailable (Path B B1)", () => {
+  it("returns empty blocklist when coordination directory is unavailable and no join evidence", () => {
     const blocklist = resolveCommunityInviteMemberBlocklist({
       communityMode: "managed_workspace",
       coordinationDirectory: null,
@@ -51,5 +51,18 @@ describe("community-invite-eligibility-read-model", () => {
       expelledMemberPubkeys: [],
     });
     expect(blocklist).toEqual([]);
+  });
+
+  it("blocks invite for join-evidence members when coordination directory is missing", () => {
+    const blocklist = resolveCommunityInviteMemberBlocklist({
+      communityMode: "managed_workspace",
+      relayUrl: "ws://localhost:7000",
+      coordinationDirectory: null,
+      hybridActiveMemberPubkeys: [PK_A],
+      joinEvidenceMemberPubkeys: [PK_A, PK_B],
+      leftMemberPubkeys: [],
+      expelledMemberPubkeys: [],
+    });
+    expect(blocklist).toEqual([PK_A, PK_B]);
   });
 });

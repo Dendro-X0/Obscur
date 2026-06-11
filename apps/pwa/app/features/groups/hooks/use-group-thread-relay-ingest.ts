@@ -83,6 +83,7 @@ export const useGroupThreadRelayIngest = (params: UseGroupThreadRelayIngestParam
     };
   }, [
     params.communityId,
+    params.communityMode,
     params.enabled,
     params.groupId,
     params.myPublicKeyHex,

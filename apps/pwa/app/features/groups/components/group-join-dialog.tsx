@@ -12,6 +12,8 @@ import { useIdentity } from "../../auth/hooks/use-identity";
 import { useGroups } from "../providers/group-provider";
 import { toGroupConversationId } from "../utils/group-conversation-id";
 import { deriveCommunityId } from "../utils/community-identity";
+import { resolveManagedWorkspaceCommunityId } from "@/app/features/workspace-kernel/workspace-kernel-membership-scope";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { dispatchGroupInviteReceived } from "@/app/features/profiles/services/profile-bus-dispatch";
 import {
     assertWorkspaceCommunityJoinAllowed,
@@ -78,13 +80,14 @@ export const GroupJoinDialog = ({ open, onOpenChange, groupId, relayUrl, onSucce
                 return;
             }
             ensureWorkspaceMembershipSyncMode();
+            let activation: Awaited<ReturnType<typeof joinManagedWorkspaceMembership>> | undefined;
             if (workspaceKernelJoin) {
                 if (!identityState.publicKeyHex || !identityState.privateKeyHex) {
                     setError("Identity must be unlocked to join a workspace community.");
                     return;
                 }
                 const communityId = deriveCommunityId({ groupId, relayUrl });
-                const activation = await joinManagedWorkspaceMembership({
+                activation = await joinManagedWorkspaceMembership({
                     communityId,
                     groupId,
                     relayUrl,
@@ -98,7 +101,8 @@ export const GroupJoinDialog = ({ open, onOpenChange, groupId, relayUrl, onSucce
                         .filter((relay) => relay.enabled)
                         .map((relay) => relay.url),
                 });
-                if (activation.summary.severity !== "success") {
+                const coordinationJoinConfirmed = activation.coordination.status === "synced";
+                if (activation.summary.severity !== "success" && !coordinationJoinConfirmed) {
                     setError(activation.summary.detail ?? activation.summary.title);
                     return;
                 }
@@ -107,12 +111,26 @@ export const GroupJoinDialog = ({ open, onOpenChange, groupId, relayUrl, onSucce
             }
 
             // Add to local state for immediate UI update
+            const resolvedRelayUrl = workspaceKernelJoin
+                ? (activation?.relay.canonicalUrl || relayUrl)
+                : relayUrl;
+            const resolvedCommunityId = workspaceKernelJoin && identityState.publicKeyHex
+                ? resolveManagedWorkspaceCommunityId({
+                    group: {
+                        groupId,
+                        relayUrl: resolvedRelayUrl,
+                        communityId: deriveCommunityId({ groupId, relayUrl: resolvedRelayUrl }),
+                    },
+                    publicKeyHex: identityState.publicKeyHex,
+                    profileId: getResolvedProfileId(),
+                })
+                : deriveCommunityId({ groupId, relayUrl: resolvedRelayUrl });
             const joinedGroup = {
                 kind: "group" as const,
-                id: toGroupConversationId({ groupId, relayUrl, communityId: deriveCommunityId({ groupId, relayUrl }) }),
+                id: toGroupConversationId({ groupId, relayUrl: resolvedRelayUrl, communityId: resolvedCommunityId }),
                 groupId,
-                relayUrl,
-                communityId: deriveCommunityId({ groupId, relayUrl }),
+                relayUrl: resolvedRelayUrl,
+                communityId: resolvedCommunityId,
                 communityMode: "managed_workspace" as const,
                 displayName: groupState.metadata?.name || groupId,
                 memberPubkeys: [], // Will be populated by live subscription
@@ -124,7 +142,10 @@ export const GroupJoinDialog = ({ open, onOpenChange, groupId, relayUrl, onSucce
                 adminPubkeys: [], // Will be hydrated
                 avatar: groupState.metadata?.picture
             };
-            addGroup(joinedGroup, { allowRevive: true });
+            addGroup(joinedGroup, {
+                allowRevive: true,
+                relayConfirmed: workspaceKernelJoin,
+            });
             dispatchGroupInviteReceived(joinedGroup);
 
             onSuccess?.();

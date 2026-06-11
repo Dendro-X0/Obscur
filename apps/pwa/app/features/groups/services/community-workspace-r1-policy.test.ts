@@ -10,9 +10,20 @@ vi.mock("./community-membership-sync-mode", () => ({
   readMembershipSyncMode: vi.fn(() => "coordination_preferred" as const),
 }));
 
+vi.mock("@/app/features/workspace-kernel/workspace-kernel-policy", () => ({
+  isWorkspaceKernelAuthority: vi.fn(() => true),
+}));
+
+vi.mock("./strict-managed-workspace", () => ({
+  isStrictManagedWorkspaceRelay: vi.fn((relayUrl?: string | null) => (
+    (relayUrl ?? "").includes("localhost")
+  )),
+}));
+
 import { isWorkspaceR1MembershipEnforced } from "./community-dev-flags";
 import { readMembershipSyncMode } from "./community-membership-sync-mode";
 import {
+  enrichWorkspaceGroupConversation,
   resolveWorkspaceActionMemberPubkeys,
   shouldUseCoordinationMembershipAuthority,
 } from "./community-workspace-r1-policy";
@@ -46,6 +57,25 @@ describe("community-workspace-r1-policy", () => {
       expelledMemberPubkeys: [],
     });
     expect(result).toEqual([PK_A, PK_B]);
+  });
+
+  it("infers managed_workspace from local operator relay when communityMode is missing", () => {
+    expect(shouldUseCoordinationMembershipAuthority(undefined, "ws://localhost:7000")).toBe(true);
+    const enriched = enrichWorkspaceGroupConversation({
+      kind: "group",
+      id: "community:g1",
+      groupId: "g1",
+      relayUrl: "ws://localhost:7000",
+      displayName: "g1",
+      memberPubkeys: [PK_A],
+      lastMessage: "",
+      unreadCount: 0,
+      lastMessageTime: new Date(),
+      access: "open",
+      memberCount: 1,
+      adminPubkeys: [],
+    });
+    expect(enriched.communityMode).toBe("managed_workspace");
   });
 
   it("resolveWorkspaceActionMemberPubkeys does not fall back to hybrid when projection empty (Path B B1)", () => {

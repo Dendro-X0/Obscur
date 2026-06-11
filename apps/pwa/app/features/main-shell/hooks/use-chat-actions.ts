@@ -56,6 +56,7 @@ import {
 import { isWorkspaceKernelAuthority } from "@/app/features/workspace-kernel/workspace-kernel-policy";
 import {
     sendWorkspaceKernelGroupMessage,
+    removeWorkspaceKernelGroupMessage,
     WORKSPACE_KERNEL_GROUP_SEND_DEFERRED_MESSAGE,
 } from "@/app/features/workspace-kernel/workspace-kernel-write-port";
 
@@ -760,7 +761,58 @@ export function useChatActions(dmController: UseDmControllerResult | null) {
         }
 
         if (selectedConversation?.kind === 'group') {
+            const groupConversation = selectedConversation;
             const localDeleteIds = toLocalDeleteIdentityIds(params.message);
+            const managedWorkspaceRemove = isStrictManagedWorkspaceRelay(groupConversation.relayUrl ?? null)
+                && isWorkspaceKernelAuthority();
+
+            if (managedWorkspaceRemove && identity.state.publicKeyHex && identity.state.privateKeyHex) {
+                const removed = await removeWorkspaceKernelGroupMessage({
+                    conversationId: params.conversationId,
+                    groupId: groupConversation.groupId,
+                    relayUrl: groupConversation.relayUrl,
+                    communityId: groupConversation.communityId,
+                    message: params.message,
+                    messageIdentityIds: localDeleteIds,
+                    publicKeyHex: identity.state.publicKeyHex,
+                    privateKeyHex: identity.state.privateKeyHex,
+                    publishSealedEvent: publishGroupEvent,
+                });
+                if (removed.ok) {
+                    logAppEvent({
+                        name: "messaging.delete_for_everyone_remote_result",
+                        level: "info",
+                        scope: { feature: "messaging", action: "delete_message" },
+                        context: {
+                            ...baseContext,
+                            channel: "group",
+                            resultCode: removed.relayPublished ? "published" : "local_only",
+                            reasonCode: removed.relayPublished ? null : "relay_publish_skipped",
+                            relayUrlHint: toIdHint(groupConversation.relayUrl),
+                            deleteTargetCount: localDeleteIds.length,
+                        },
+                    });
+                    if (!params.suppressManagedWorkspaceToast) {
+                        toast.success(MANAGED_WORKSPACE_DELETE_COPY.removedFromWorkspaceToast);
+                    }
+                } else {
+                    logAppEvent({
+                        name: "messaging.delete_for_everyone_remote_result",
+                        level: "warn",
+                        scope: { feature: "messaging", action: "delete_message" },
+                        context: {
+                            ...baseContext,
+                            channel: "group",
+                            resultCode: "failed",
+                            reasonCode: removed.errorMessage,
+                            relayUrlHint: toIdHint(groupConversation.relayUrl),
+                        },
+                    });
+                    toast.warning("Could not remove this message from the workspace on this device.");
+                }
+                return;
+            }
+
             if (identity.state.publicKeyHex) {
                 groupClientOperations.hideMessageForViewer({
                     accountPublicKeyHex: identity.state.publicKeyHex,

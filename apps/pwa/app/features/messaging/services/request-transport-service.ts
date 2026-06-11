@@ -241,6 +241,7 @@ export const createRequestTransportService = (deps: RequestTransportDependencies
         success: false,
         deliveryStatus: "failed",
         messageId: "",
+        eventId: "",
         relayResults: [],
         blockReason: "cooldown_active",
         error: "Connection request rate limit exceeded. Please try again later.",

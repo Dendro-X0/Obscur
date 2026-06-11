@@ -39,4 +39,18 @@ describe("workspace-kernel W2 exit contract", () => {
     expect(writePort).toContain("commitSealedGroupMessages");
     expect(writePort).not.toContain("use-sealed-community");
   });
+
+  it("group thread relay ingest stays enabled when legacy sealed-community is quarantined", () => {
+    const policy = read("app/features/groups/services/sealed-community-instance-policy.ts");
+    expect(policy).toContain("resolveMainShellGroupThreadRelayIngestEnabled");
+    expect(policy).toContain("resolveGroupHomeGroupThreadRelayIngestEnabled");
+    const mainShellRelayIngestBody = policy.match(
+      /export const resolveMainShellGroupThreadRelayIngestEnabled[\s\S]*?\): boolean => \([\s\S]*?\);/,
+    )?.[0] ?? "";
+    const groupHomeRelayIngestBody = policy.match(
+      /export const resolveGroupHomeGroupThreadRelayIngestEnabled[\s\S]*?\): boolean => \([\s\S]*?\);/,
+    )?.[0] ?? "";
+    expect(mainShellRelayIngestBody).not.toContain("isWorkspaceKernelAuthority");
+    expect(groupHomeRelayIngestBody).not.toContain("isWorkspaceKernelAuthority");
+  });
 });

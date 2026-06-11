@@ -44,10 +44,12 @@ describe("path B B1-3 exit contract", () => {
     expect(policy).toContain("areSealedCommunityRouteSurfacesExclusive");
   });
 
-  it("relay ingest shares sealedCommunityShellEnabled on both surfaces", () => {
+  it("relay ingest uses dedicated enablement on both surfaces", () => {
     const mainShell = read("app/features/main-shell/main-shell.tsx");
     const groupHome = read("app/groups/[...id]/group-home-page-client.tsx");
-    expect(mainShell).toMatch(/sealedCommunityShellEnabled[\s\S]*useGroupThreadRelayIngest/);
-    expect(groupHome).toMatch(/sealedCommunityShellEnabled[\s\S]*useGroupThreadRelayIngest/);
+    expect(mainShell).toContain("resolveMainShellGroupThreadRelayIngestEnabled");
+    expect(mainShell).toMatch(/groupThreadRelayIngestEnabled[\s\S]*useGroupThreadRelayIngest/);
+    expect(groupHome).toContain("resolveGroupHomeGroupThreadRelayIngestEnabled");
+    expect(groupHome).toMatch(/groupThreadRelayIngestEnabled[\s\S]*useGroupThreadRelayIngest/);
   });
 });

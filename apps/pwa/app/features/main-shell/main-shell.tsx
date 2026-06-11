@@ -59,7 +59,10 @@ import { useAutoLock } from "@/app/features/settings/hooks/use-auto-lock";
 import { useSealedCommunity, type GroupMessageEvent } from "@/app/features/groups/hooks/use-sealed-community";
 import { useGroupThreadRelayIngest } from "@/app/features/groups/hooks/use-group-thread-relay-ingest";
 import { hasWritableCommunityRelayTransport } from "@/app/features/groups/services/community-relay-transport";
-import { resolveMainShellSealedCommunityEnabled } from "@/app/features/groups/services/sealed-community-instance-policy";
+import {
+  resolveMainShellGroupThreadRelayIngestEnabled,
+  resolveMainShellSealedCommunityEnabled,
+} from "@/app/features/groups/services/sealed-community-instance-policy";
 import { getResolvedClientGateway } from "@/app/features/profiles/services/resolve-client-gateway";
 import { LockScreen } from "@/app/components/lock-screen";
 import type { Passphrase } from "@dweb/crypto/passphrase";
@@ -315,6 +318,11 @@ function NostrMessengerContent() {
     pathname,
     hasRelayTransport: selectedGroupHasRelayTransport,
   });
+  const groupThreadRelayIngestEnabled = resolveMainShellGroupThreadRelayIngestEnabled({
+    selectedConversationKind: selectedConversation?.kind,
+    pathname,
+    hasRelayTransport: selectedGroupHasRelayTransport,
+  });
   const { state: groupState, members: sealedCommunityMembers } = useSealedCommunity({
     pool: relayPool,
     relayUrl: selectedConversation?.kind === 'group' ? (selectedConversation as GroupConversation).relayUrl : '',
@@ -332,7 +340,7 @@ function NostrMessengerContent() {
     communityId: selectedConversation?.kind === "group" ? (selectedConversation as GroupConversation).communityId : undefined,
     communityMode: selectedConversation?.kind === "group" ? (selectedConversation as GroupConversation).communityMode : undefined,
     myPublicKeyHex,
-    enabled: sealedCommunityShellEnabled,
+    enabled: groupThreadRelayIngestEnabled,
   });
 
   // Feature hooks

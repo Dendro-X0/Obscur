@@ -55,6 +55,37 @@ describe("reconcileWorkspaceMembershipEvidence", () => {
     expect(outcome.coordination?.appliedDeltaCount).toBe(1);
   });
 
+  it("tries all community id candidates and keeps the strongest sync", async () => {
+    runCoordination
+      .mockResolvedValueOnce({
+        ok: true,
+        appliedDeltaCount: 1,
+        headSeq: 1,
+        fromSeq: 0,
+        toSeq: 1,
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        appliedDeltaCount: 2,
+        headSeq: 4,
+        fromSeq: 0,
+        toSeq: 4,
+      });
+
+    const outcome = await reconcileWorkspaceMembershipEvidence({
+      groupId: "g1",
+      relayUrl: "wss://relay.example.com",
+      communityId: "legacy:g1",
+      communityIdCandidates: ["legacy:g1", "v2_abc"],
+      communityMode: "managed_workspace",
+      refreshRelaySubscription: vi.fn(),
+      onSemanticMemberEvent: vi.fn(),
+    });
+
+    expect(runCoordination).toHaveBeenCalledTimes(2);
+    expect(outcome.coordination?.toSeq).toBe(4);
+  });
+
   it("skips coordination when not managed_workspace", async () => {
     const outcome = await reconcileWorkspaceMembershipEvidence({
       groupId: "g1",

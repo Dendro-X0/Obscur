@@ -16,6 +16,11 @@ import type { CoordinationMembershipMaterialization } from "./community-coordina
 import { createEmptyCoordinationMembershipMaterialization } from "./community-coordination-membership-materializer";
 import { isCoordinationConfigured } from "./community-membership-sync-mode";
 import { shouldUseCoordinationMembershipAuthority } from "./community-workspace-r1-policy";
+import {
+  findJoinedLedgerEntryForCommunity,
+} from "@/app/features/workspace-kernel/workspace-kernel-membership-scope";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
+import { loadCommunityMembershipLedger } from "./community-membership-ledger";
 
 export type CommunityMembershipTruthSyncStatus =
   | "unconfigured"
@@ -44,13 +49,15 @@ const emptySnapshot = (syncStatus: CommunityMembershipTruthSyncStatus): Communit
 
 export const usesCoordinationMembershipTruth = (
   communityMode?: CommunityMode | null,
+  relayUrl?: string | null,
 ): boolean => (
-  shouldUseCoordinationMembershipAuthority(communityMode) && isCoordinationConfigured()
+  shouldUseCoordinationMembershipAuthority(communityMode, relayUrl) && isCoordinationConfigured()
 );
 
 export const readCommunityMembershipTruthSnapshot = (params: Readonly<{
   communityId: string;
   communityMode?: CommunityMode | null;
+  relayUrl?: string | null;
   profileId?: string;
   localMemberPubkey?: PublicKeyHex | null;
 }>): CommunityMembershipTruthSnapshot => {
@@ -59,7 +66,7 @@ export const readCommunityMembershipTruthSnapshot = (params: Readonly<{
     return emptySnapshot("stale");
   }
 
-  if (!usesCoordinationMembershipTruth(params.communityMode)) {
+  if (!usesCoordinationMembershipTruth(params.communityMode, params.relayUrl)) {
     return emptySnapshot("not_workspace");
   }
 
@@ -69,15 +76,61 @@ export const readCommunityMembershipTruthSnapshot = (params: Readonly<{
 
   const coordinationDirectory = loadCoordinationMembershipDirectory(communityId, params.profileId);
   if (!coordinationDirectory) {
+    const localMemberPubkey = params.localMemberPubkey?.trim();
+    if (localMemberPubkey) {
+      const ledger = loadCommunityMembershipLedger(localMemberPubkey as PublicKeyHex, {
+        profileId: params.profileId ?? getResolvedProfileId(),
+      });
+      const ledgerEntry = findJoinedLedgerEntryForCommunity(ledger, communityId);
+      if (ledgerEntry) {
+        const ledgerMembers = (ledgerEntry.memberPubkeys ?? []).map((pubkey) => pubkey as PublicKeyHex);
+        const activeMemberPubkeys = ledgerMembers.some((pubkey) => (
+          pubkey.trim().toLowerCase() === localMemberPubkey.toLowerCase()
+        ))
+          ? ledgerMembers
+          : [localMemberPubkey as PublicKeyHex, ...ledgerMembers];
+        return {
+          syncStatus: "stale",
+          coordinationDirectory: null,
+          activeMemberPubkeys,
+          leftMemberPubkeys: [],
+          expelledMemberPubkeys: [],
+          inviteBlocklistPubkeys: activeMemberPubkeys,
+        };
+      }
+    }
     return emptySnapshot("stale");
   }
 
-  const activeMemberPubkeys = ensureLocalMemberInActive({
+  let activeMemberPubkeys = ensureLocalMemberInActive({
     activeMemberPubkeys: coordinationDirectory.activeMemberPubkeys,
     leftMemberPubkeys: coordinationDirectory.leftMemberPubkeys,
     expelledMemberPubkeys: coordinationDirectory.expelledMemberPubkeys,
     localMemberPubkey: params.localMemberPubkey,
   });
+
+  const localMemberPubkey = params.localMemberPubkey?.trim();
+  if (localMemberPubkey) {
+    const ledger = loadCommunityMembershipLedger(localMemberPubkey as PublicKeyHex, {
+      profileId: params.profileId ?? getResolvedProfileId(),
+    });
+    const ledgerEntry = findJoinedLedgerEntryForCommunity(ledger, communityId);
+    const ledgerMembers = (ledgerEntry?.memberPubkeys ?? []).map((pubkey) => pubkey as PublicKeyHex);
+    if (ledgerMembers.length > activeMemberPubkeys.length) {
+      const terminal = new Set([
+        ...coordinationDirectory.leftMemberPubkeys,
+        ...coordinationDirectory.expelledMemberPubkeys,
+      ].map((pubkey) => pubkey.trim().toLowerCase()));
+      const activeNorm = new Set(activeMemberPubkeys.map((pubkey) => pubkey.trim().toLowerCase()));
+      const repairMembers = ledgerMembers.filter((pubkey) => {
+        const normalized = pubkey.trim().toLowerCase();
+        return normalized.length > 0 && !terminal.has(normalized) && !activeNorm.has(normalized);
+      });
+      if (repairMembers.length > 0) {
+        activeMemberPubkeys = [...activeMemberPubkeys, ...repairMembers];
+      }
+    }
+  }
 
   return {
     syncStatus: "fresh",
