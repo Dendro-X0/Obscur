@@ -39,11 +39,12 @@ describe("path B B1-1 exit contract", () => {
     expect(display).toContain("monotonicDisplayPubkeys");
   });
 
-  it("invite blocklist uses coordination directory only for managed_workspace", () => {
+  it("invite blocklist uses coordination directory and join-evidence repair for managed_workspace", () => {
     const invite = read("app/features/groups/services/community-invite-eligibility-read-model.ts");
     expect(invite).toContain("shouldUseCoordinationMembershipAuthority");
-    expect(invite).toContain("if (!params.coordinationDirectory)");
-    expect(invite).toContain("return []");
+    expect(invite).toContain("joinEvidenceMemberPubkeys");
+    expect(invite).toContain("joinEvidenceRepairs");
+    expect(invite).toContain("dedupePubkeys([...fromDirectory, ...joinEvidenceRepairs])");
   });
 
   it("path-b-b1 membership truth tests cover leave shrink and hybrid no-op", () => {

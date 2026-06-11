@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { GroupConversation } from "@/app/features/messaging/types";
+import type { CommunityMembershipLedgerEntry } from "@/app/features/groups/services/community-membership-ledger";
 
 const PUBLIC_KEY = "a".repeat(64) as PublicKeyHex;
 const PROFILE_ID = "default";
@@ -15,20 +16,27 @@ vi.mock("@/app/features/groups/services/group-tombstone-store", () => ({
 }));
 
 const chatStateReplace = vi.hoisted(() => vi.fn());
-const chatStateLoad = vi.hoisted(() => vi.fn(() => null));
+const chatStateLoad = vi.hoisted(() => vi.fn<(profileId?: string) => unknown>(() => null));
+const loadCommunityMembershipLedgerMock = vi.hoisted(() => (
+  vi.fn<(publicKeyHex: string, options?: { profileId?: string }) => ReadonlyArray<CommunityMembershipLedgerEntry>>(() => [])
+));
 
 vi.mock("@/app/features/messaging/services/chat-state-store", () => ({
   chatStateStoreService: {
-    load: (...args: unknown[]) => chatStateLoad(...args),
-    replace: (...args: unknown[]) => chatStateReplace(...args),
+    load: (profileId?: string) => chatStateLoad(profileId),
+    replace: (
+      publicKeyHex: string,
+      state: unknown,
+      options?: { profileId?: string },
+    ) => chatStateReplace(publicKeyHex, state, options),
     update: vi.fn(),
   },
 }));
 
-const loadCommunityMembershipLedgerMock = vi.hoisted(() => vi.fn(() => []));
-
 vi.mock("@/app/features/groups/services/community-membership-ledger", () => ({
-  loadCommunityMembershipLedger: (...args: unknown[]) => loadCommunityMembershipLedgerMock(...args),
+  loadCommunityMembershipLedger: (publicKeyHex: string, options?: { profileId?: string }) => (
+    loadCommunityMembershipLedgerMock(publicKeyHex, options)
+  ),
   toGroupConversationFromMembershipLedgerEntry: vi.fn(),
 }));
 
@@ -104,7 +112,7 @@ describe("workspace-kernel-group-metadata-store", () => {
       groupId: "test-10",
       relayUrl: RELAY_URL,
       status: "left",
-    }]);
+    } satisfies CommunityMembershipLedgerEntry]);
     chatStateLoad.mockReturnValue({
       createdGroups: [{
         id: `community:test-10:${RELAY_URL}`,
@@ -139,7 +147,7 @@ describe("workspace-kernel-group-metadata-store", () => {
       groupId: "test-10",
       relayUrl: RELAY_URL,
       status: "joined",
-    }]);
+    } satisfies CommunityMembershipLedgerEntry]);
     saveWorkspaceGroupMetadataRecords(PUBLIC_KEY, PROFILE_ID, [createGroup("newtest-1")]);
     const loaded = loadWorkspaceGroupMetadataRecords(PUBLIC_KEY, PROFILE_ID);
     expect(loaded.map((group) => group.groupId)).toEqual(["newtest-1"]);

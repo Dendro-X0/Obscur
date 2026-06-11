@@ -1,20 +1,21 @@
 # Current Session Handoff — Obscur (v2 slim kernel + workspace kernel)
 
-- Last Updated (UTC): 2026-06-11T03:43:00Z
-- Session Status: **v1.9.4 Phase B** — programmatic + dev-lab membership-join-leave pass
-- Last commit: COM-8 synthetic dev-lab probe + static shell rebuild
+- Last Updated (UTC): 2026-06-11T03:56:00Z
+- Session Status: **v1.9.4 Phase B exit** — programmatic + dev-lab + path-b full green
+- Last commit: `7162fb32` — COM-8 synthetic dev-lab probe + static shell rebuild
 
 ## Next Atomic Step
 
-**v1.9.4 Phase B — optional native COM-8 on Tauri + matrix §3**
+**v1.9.4 Phase C — register closeout → v2.0 pipeline Phase 1 prep**
 
-1. ~~Run programmatic platform gate: `pnpm verify:platform-kernels`~~ **Pass** @ `edf7c24f`.
-2. ~~Run Phase B programmatic gate: `pnpm verify:phase-b-programmatic`~~ **Pass** — community invariants **123/123**.
-3. ~~`pnpm dev:lab:run -- --scenario membership-join-leave`~~ **Pass** — synthetic COM-8 + coordination + M8 + digest.
-4. Optional: `pnpm dev:desktop:online -- --rebuild` + NewTest 2 on Tester1 for native kernel COM-8 probe (real localStorage).
-5. Optional: `pnpm verify:phase-b-full` · record in [unified-verification-issues-register.md](../program/unified-verification-issues-register.md).
+1. ~~`pnpm verify:platform-kernels`~~ **Pass** @ `edf7c24f`.
+2. ~~`pnpm verify:phase-b-programmatic`~~ **Pass** — community invariants **123/123**.
+2. ~~`pnpm dev:lab:run -- --scenario membership-join-leave`~~ **Pass** — synthetic COM-8 + coordination + M8.
+3. ~~`pnpm verify:phase-b-full`~~ **Pass** @ contract refresh (B1 invite join-evidence, B3 W2 delegate).
+4. ~~`pnpm release:test-pack -- --skip-preflight`~~ run on exit commit.
+5. Maintainer choice: tag **v1.9.4** engineering checkpoint **or** begin [v2.0-release-pipeline.md](../program/v2.0-release-pipeline.md) Phase 1 (◐→V matrix sweep).
 
-Gate: programmatic + dev-lab membership green · native roster soak optional.
+Optional native only: Tauri COM-8 with NewTest 2 localStorage (not a programmatic gate).
 
 ## Workspace kernel W4 (landed)
 

@@ -24,8 +24,14 @@ describe("path B B3-3 exit contract", () => {
     expect(persistence).toMatch(/loadGroupThreadPageFromSqlite\([\s\S]*profileId: resolveSealedGroupPersistenceProfileId/);
   });
 
-  it("dm-kernel group port reads through multi-slot sqlite store", () => {
+  it("dm-kernel group port delegates to workspace-kernel thread port (W2)", () => {
     const port = read("app/features/dm-kernel/dm-kernel-group-thread-port.ts");
+    expect(port).toContain("workspace-kernel-thread-port");
+    expect(port).toContain("loadWorkspaceKernelGroupThreadPage");
+  });
+
+  it("workspace-kernel thread port reads group sqlite with profile scope", () => {
+    const port = read("app/features/workspace-kernel/workspace-kernel-thread-port.ts");
     expect(port).toContain("loadGroupThreadPageFromSqlite");
   });
 

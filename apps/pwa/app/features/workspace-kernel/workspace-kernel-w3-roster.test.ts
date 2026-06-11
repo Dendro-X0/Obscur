@@ -60,6 +60,7 @@ describe("workspace-kernel roster port", () => {
           activeMemberPubkeys: [creator],
           leftMemberPubkeys: [],
           expelledMemberPubkeys: [],
+          headSeq: 1,
         },
         activeMemberPubkeys: [creator],
         leftMemberPubkeys: [],

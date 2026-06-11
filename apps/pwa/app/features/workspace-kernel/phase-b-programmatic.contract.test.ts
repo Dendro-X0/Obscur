@@ -30,4 +30,13 @@ describe("v1.9.4 Phase B programmatic exit contract", () => {
     expect(handoff).toContain("verify:platform-kernels");
     expect(handoff).toMatch(/membership-join-leave|COM-8|COM-3/i);
   });
+
+  it("membership-join-leave CLI scenario includes COM-8 joiner repair probe", () => {
+    const scenario = readFileSync(
+      path.join(repoRoot, "scripts/lib/dev-lab-membership-join-leave.mjs"),
+      "utf8",
+    );
+    expect(scenario).toContain("probeJoinerMembershipRepair");
+    expect(scenario).toContain("tester1_joiner_membership_repair");
+  });
 });

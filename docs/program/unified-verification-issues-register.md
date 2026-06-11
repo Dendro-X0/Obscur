@@ -13,8 +13,9 @@
 | Git SHA | `f7413dca` |
 | Handoff | [current-session.md](../handoffs/current-session.md) |
 | §0 + STAB-R + P4-5 | **Pass** — `pnpm verify:stability` + `release:test-pack` |
-| Programmatic (2026-06-11) | **Pass** — `pnpm verify:phase-b-programmatic`; community invariants **121/121** (includes joiner membership repair + dev-lab probe tests) |
-| Runtime community (§3) | **Pass** @ rebuild — `membership-join-leave` green (synthetic COM-8 read-model probe + coordination + M8); native localStorage COM-8 optional on Tauri |
+| Programmatic (2026-06-11) | **Pass** — `pnpm verify:phase-b-full` + community invariants **123/123** |
+| Runtime community (§3) | **Pass** — `membership-join-leave` (synthetic COM-8 + coordination + M8) |
+| Release pack | **Blocked** — pre-existing `tsc` debt in unrelated test files (not Phase B membership scope) |
 | Product manual | §1–§7 when needed — **not** render-loop hunting |
 
 ### Resolved (Phase A + STAB-R)
