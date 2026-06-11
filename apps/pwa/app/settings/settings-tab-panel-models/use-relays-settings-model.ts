@@ -6,7 +6,7 @@ import { toast } from "@dweb/ui-kit";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
 import { useRelayPoolRef } from "@/app/features/relays/hooks/use-relay-pool-ref";
 import { getApiBaseUrl } from "@/app/features/relays/utils/api-base-url";
-import { validateRelayUrl } from "@/app/features/relays/utils/validate-relay-url";
+import { assessRelayAddTrust } from "@/app/features/relays/services/relay-add-trust-assessment";
 import { assessRelayCapability, getCommunityModeDefinition } from "@/app/features/groups/services/community-mode-contract";
 import { relayResilienceObservability } from "@/app/features/relays/services/relay-resilience-observability";
 import type { SettingsActionPhase } from "@/app/features/settings/components/settings-action-status";
@@ -233,13 +233,25 @@ export function useRelaysSettingsModel(): SettingsTabPanelModel {
   };
 
   const handleAddRelay = (): void => {
-    const validated = validateRelayUrl(newRelayUrl);
-    if (!validated) {
-      toast.error(t("settings.relays.invalidRelayUrl", "Please enter a valid relay URL (wss://...)"));
+    const enabledRelayUrls = relayList.state.relays
+      .filter((relay) => relay.enabled)
+      .map((relay) => relay.url);
+    const assessment = assessRelayAddTrust({
+      rawUrl: newRelayUrl,
+      enabledRelayUrls,
+      allowLocalhostWs: true,
+    });
+    if (!assessment.allowed || !assessment.normalizedUrl) {
+      toast.error(t("settings.relays.invalidRelayUrl", assessment.userMessage));
       return;
     }
-    relayList.addRelay({ url: validated.normalizedUrl });
+    relayList.addRelay({ url: assessment.normalizedUrl });
     setNewRelayUrl("");
+    if (assessment.showWorkspaceNotice) {
+      toast.success(t("settings.relays.addTrust.addedWithNotice", assessment.userMessage));
+      toast.info(t("settings.relays.addTrust.workspaceHint", assessment.settingsHint));
+      return;
+    }
     toast.success(t("settings.relays.relayAdded", "Relay added"));
   };
 

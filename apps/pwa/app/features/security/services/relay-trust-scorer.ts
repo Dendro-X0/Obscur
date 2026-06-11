@@ -39,7 +39,7 @@ const STORE_NAME = "relay_trust_scores";
 /**
  * Calculate composite health score (0-100)
  */
-function calculateHealthScore(metrics: RelayMetrics): number {
+export const calculateRelayHealthScore = (metrics: RelayMetrics): number => {
   if (metrics.totalAttempts === 0) return 50; // Neutral for new relays
 
   // Delivery rate weight: 50%
@@ -62,27 +62,49 @@ function calculateHealthScore(metrics: RelayMetrics): number {
 
   const rawScore = deliveryRate * 0.5 + latencyScore * 0.25 + stabilityScore * 0.25;
   return Math.max(0, rawScore - userReportPenalty);
-}
+};
 
 /**
  * Determine trust level from metrics
  */
-function determineTrustLevel(metrics: RelayMetrics, healthScore: number): RelayTrustLevel {
+export const determineRelayTrustLevel = (
+  metrics: RelayMetrics,
+  healthScore: number,
+): RelayTrustLevel => {
   if (metrics.userReports === "blocked") return "untrusted";
   if (healthScore >= 85) return "high";
   if (healthScore >= 60) return "medium";
   if (healthScore >= 30) return "low";
   return "untrusted";
-}
+};
 
 /**
  * Get recommendation based on metrics
  */
-function getRecommendation(metrics: RelayMetrics, trustLevel: RelayTrustLevel): RelayScore["recommendation"] {
+export const getRelayTrustRecommendation = (
+  metrics: RelayMetrics,
+  trustLevel: RelayTrustLevel,
+): RelayScore["recommendation"] => {
   if (trustLevel === "high") return "keep";
   if (trustLevel === "medium") return "watch";
   return "replace";
-}
+};
+
+export const buildRelayScoreFromMetrics = (metrics: RelayMetrics): RelayScore => {
+  const healthScore = calculateRelayHealthScore(metrics);
+  const deliveryRate = metrics.totalAttempts > 0
+    ? (metrics.successfulDeliveries / metrics.totalAttempts) * 100
+    : 0;
+  const trustLevel = determineRelayTrustLevel(metrics, healthScore);
+  return {
+    url: metrics.url,
+    trustLevel,
+    deliveryRate,
+    healthScore,
+    metrics,
+    recommendation: getRelayTrustRecommendation(metrics, trustLevel),
+  };
+};
 
 /**
  * Relay Trust Scorer
@@ -232,19 +254,7 @@ export class RelayTrustScorer {
     const metrics = this.metrics.get(relayUrl);
     if (!metrics) return null;
 
-    const healthScore = calculateHealthScore(metrics);
-    const deliveryRate = metrics.totalAttempts > 0
-      ? (metrics.successfulDeliveries / metrics.totalAttempts) * 100
-      : 0;
-
-    return {
-      url: relayUrl,
-      trustLevel: determineTrustLevel(metrics, healthScore),
-      deliveryRate,
-      healthScore,
-      metrics,
-      recommendation: getRecommendation(metrics, determineTrustLevel(metrics, healthScore)),
-    };
+    return buildRelayScoreFromMetrics(metrics);
   }
 
   /**

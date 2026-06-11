@@ -17,12 +17,71 @@ NEXT_PUBLIC_DEV_COORDINATION_ONLY_WORKSPACE=true
 
 Restart `pnpm dev:desktop`. You can **create workspace communities and test membership** (coordination directory) without a live Nostr relay. Encrypted chat publish stays local-only until a relay is available.
 
+## Local stack hardening (SEC-R3)
+
+Use this section when wiring **coordination + relay** for private-trust workspace tests. It documents bind addresses, TLS expectations, and Docker compose entry points referenced by v1.9.5 checklist **V4-4**.
+
+### Service matrix (local dev)
+
+| Service | Start command | Listen address | Client URL | TLS (local) |
+|---------|---------------|----------------|------------|-------------|
+| **Coordination** | `pnpm dev:coordination` | `127.0.0.1:8787` only (`scripts/coordination-dev.mjs` → `wrangler dev --ip 127.0.0.1 --local-protocol http`) | `http://127.0.0.1:8787` in `NEXT_PUBLIC_COORDINATION_URL` | **No** — plain HTTP on loopback |
+| **Nostr relay (direct)** | `pnpm dev:relay:docker` | Container: `0.0.0.0:8080` (`infra/nostr/nostr-rs-relay.toml`); host publish: `7000→8080` (`infra/docker-compose.nostr.yml`) | `ws://localhost:7000` in Settings → Relays | **No** — `ws://` localhost only |
+| **Nostr relay (+ gateway)** | `pnpm dev:relay:gateway:docker` | Gateway on host `:7000`; upstream relay internal to compose | Same `ws://localhost:7000` | **No** — dev stack only |
+| **PWA / desktop shell** | `pnpm dev:desktop` / `pnpm dev:pwa` | `127.0.0.1:3340` | `http://127.0.0.1:3340` | **No** — local dev |
+
+**Production / staging contrast:** coordination must be **`https://`** on a trusted host; workspace and DM relays must be **`wss://`**. Obscur rejects non-`wss://` relay URLs except explicit dev localhost (`ws://localhost`, `ws://127.0.0.1`, `ws://[::1]`).
+
+### Bind-address policy
+
+| Layer | Default in repo | Hardening note |
+|-------|-----------------|----------------|
+| Coordination worker | Loopback only (`127.0.0.1:8787`) | Do **not** expose wrangler dev to `0.0.0.0` on untrusted networks — membership deltas are signed but the directory is operator-sensitive. |
+| Docker relay (host port) | `7000:8080` binds all host interfaces | For single-machine dev, prefer pinning: change compose to `"127.0.0.1:7000:8080"` so the relay is not reachable from LAN/Wi‑Fi. |
+| Relay process (inside container) | `address = "0.0.0.0"` in `nostr-rs-relay.toml` | Normal inside Docker; security boundary is the **published host port**, not the in-container bind. |
+| Open relay authorization | Whitelist **commented out** in `nostr-rs-relay.toml` | Local dev only. For team intranet relays, uncomment `pubkey_whitelist` and list steward/member pubkeys before exposing any non-loopback bind. |
+
+### Docker compose commands
+
+| Command | Behavior |
+|---------|----------|
+| `pnpm dev:relay` | **Skips Docker** by default (prints help, exit 0). Public relays in the default profile are enough for DM-only dev. |
+| `pnpm dev:relay:docker` | Sets `OBSCUR_USE_DOCKER_RELAY=1` and runs `infra/docker-compose.nostr.yml` (`nostr-rs-relay` → **`ws://localhost:7000`**). |
+| `pnpm dev:relay:gateway:docker` | Runs `infra/docker-compose.nostr-gateway.yml` (relay + Obscur relay-gateway with hide-suppress registry; still **`ws://localhost:7000`** on the host). |
+| `pnpm dev:relay:down` | `docker compose -f infra/docker-compose.nostr.yml down` (stops direct relay stack). |
+
+**Windows:** `dev-relay.mjs` tries `docker-compose` then `docker compose`. Docker Desktop must be running before `dev:relay:docker`.
+
+**Verify relay is up:**
+
+```bash
+curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:7000/
+```
+
+Any HTTP response (often `426` or `400`) means the relay process is accepting connections.
+
+### TLS and operator-trust alignment
+
+1. **Coordination URL** — local: `http://127.0.0.1:8787`. Deployed: `https://` worker URL only; SEC-R1 operator bundle audit rejects non-HTTPS coordination URLs in production paths.
+2. **Workspace relay URL** — local managed workspace: `ws://localhost:7000`. Production managed workspace: team **`wss://`** hostname registered in operator trust bundle.
+3. **Never mix** — do not point production builds at `http://` coordination or `ws://` non-localhost relays; dev escapes (`NEXT_PUBLIC_DEV_COORDINATION_ONLY_WORKSPACE`, operator wizard “trust local coordination”) are maintainer-only flags documented in Settings → Operator setup.
+
+### Recommended local hardening checklist
+
+- [ ] Coordination on `127.0.0.1` only; health check: `curl -s http://127.0.0.1:8787/health`
+- [ ] Relay compose published as `127.0.0.1:7000:8080` if you do not need LAN peers
+- [ ] `pubkey_whitelist` enabled before any non-loopback relay exposure
+- [ ] Public default relays (`nos.lol`, `damus.io`, …) **disabled** during managed-workspace SEC-R / COM tests
+- [ ] Stop stacks when done: Ctrl+C coordination terminal; `pnpm dev:relay:down` for Docker relay
+
 ## 1. Start coordination (membership directory)
 
 ```bash
 pnpm -C apps/coordination db:migrate
-pnpm -C apps/coordination dev
+pnpm dev:coordination
 ```
+
+(`pnpm dev:coordination` at repo root runs `scripts/coordination-dev.mjs`, which binds **127.0.0.1:8787** — see SEC-R3 matrix above.)
 
 Confirm: `curl -s http://127.0.0.1:8787/health` → `{"ok":true,...}`
 
@@ -47,10 +106,12 @@ Membership directory uses **coordination** (`:8787`). Encrypted community **chat
 In a **separate terminal** from coordination/desktop:
 
 ```bash
-pnpm dev:relay
+pnpm dev:relay:docker
 ```
 
-This runs `nostr-rs-relay` at **`ws://localhost:7000`** (see `infra/docker-compose.nostr.yml`).
+(`pnpm dev:relay` alone **does not** start Docker — it prints optional-relay help. Use `:docker` or `OBSCUR_USE_DOCKER_RELAY=1 pnpm dev:relay`.)
+
+This runs `nostr-rs-relay` at **`ws://localhost:7000`** (see `infra/docker-compose.nostr.yml` and SEC-R3 bind notes).
 
 Confirm the port is listening:
 
