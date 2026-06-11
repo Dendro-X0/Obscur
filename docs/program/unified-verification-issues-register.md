@@ -10,7 +10,7 @@
 | Field | Value |
 |-------|--------|
 | Concentration unit | **v1.9.4** Phase C |
-| Git SHA | uncommitted (branch ahead of `0d30f271`) |
+| Git SHA | `7a49e339` |
 | Handoff | [current-session.md](../handoffs/current-session.md) |
 | §0 + STAB-R + P4-5 | **Pass** — `pnpm verify:stability` + `release:test-pack` |
 | Programmatic (2026-06-11) | **Pass** — `pnpm verify:phase-b-full` + community invariants **123/123** |
