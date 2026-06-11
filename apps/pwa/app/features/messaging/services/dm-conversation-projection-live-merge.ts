@@ -1,3 +1,8 @@
+/**
+ * @deprecated Native DM must use `features/dm-kernel/`. Web legacy only.
+ * @see docs/program/obscur-v2-slim-kernel-manifest.md
+ */
+
 import type { Message } from "../types";
 
 import { filterMessagesByLocalRetention } from "./dm-conversation-message-retention-dedupe";

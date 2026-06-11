@@ -2,7 +2,7 @@
 
 use std::fs;
 use tauri::{AppHandle, WebviewWindow};
-use crate::profiles::{DesktopProfileState, ProfileIsolationSnapshot, ProfileSummary};
+use crate::profiles::{clear_profile_webview_data_directory, DesktopProfileState, ProfileIsolationSnapshot, ProfileSummary};
 use crate::session::SessionState;
 
 use crate::data_root::profile_archives_dir;
@@ -72,6 +72,20 @@ pub async fn desktop_remove_profile(
     profile_id: String,
 ) -> Result<ProfileIsolationSnapshot, String> {
     profiles.remove_profile(&app, &session, window.label(), &profile_id).await
+}
+
+/// Best-effort removal of on-disk WebView storage for a profile slot (settings local reset).
+#[tauri::command]
+pub async fn desktop_clear_profile_webview_data(
+    app: AppHandle,
+    profile_id: String,
+) -> Result<(), String> {
+    let trimmed = profile_id.trim();
+    if trimmed.is_empty() {
+        return Err("Profile id is required.".to_string());
+    }
+    clear_profile_webview_data_directory(&app, trimmed);
+    Ok(())
 }
 
 #[tauri::command]

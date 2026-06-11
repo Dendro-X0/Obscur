@@ -1,4 +1,4 @@
-import type { UnsignedNostrEvent } from "@dweb/nostr/nostr-event";
+import type { UnsignedNostrEvent } from "@/app/features/crypto/crypto-service";
 import {
   isSemanticCommunityMemberEvent,
   type SemanticCommunityEvent,

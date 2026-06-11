@@ -20,7 +20,8 @@ import type { PrepareDmThreadSuppressionParams } from "./dm-thread-suppression-p
 import type {
   BuildProjectionEvidenceMessagesParams,
   DmConversationMaterializationPort,
-} from "./dm-conversation-materialization-port";
+  ThreadHistoryPort,
+} from "./thread-history/port";
 import type { LocalDmVisibilityScope, MessageLikeWithIdentity } from "../local-dm-visibility";
 import type { MessageDeleteTombstoneEntry } from "@dweb/storage-contracts/message-delete-tombstones";
 
@@ -82,15 +83,15 @@ export const messagingClientOperations = {
   ): ReadonlyArray<Message> => materialization().buildProjectionEvidenceMessages(params),
 
   mergeProjectionWithLiveOverlay: (
-    params: Parameters<DmConversationMaterializationPort["mergeProjectionWithLiveOverlay"]>[0],
+    params: Parameters<ThreadHistoryPort["mergeProjectionWithLiveOverlay"]>[0],
   ) => materialization().mergeProjectionWithLiveOverlay(params),
 
   applyRealtimeBufferedEvents: (
-    params: Parameters<DmConversationMaterializationPort["applyRealtimeBufferedEvents"]>[0],
+    params: Parameters<ThreadHistoryPort["applyRealtimeBufferedEvents"]>[0],
   ): ReadonlyArray<Message> => materialization().applyRealtimeBufferedEvents(params),
 
   loadEarlierDmMessages: (
-    params: Parameters<DmConversationMaterializationPort["loadEarlierMessages"]>[0],
+    params: Parameters<ThreadHistoryPort["loadEarlierMessages"]>[0],
   ) => materialization().loadEarlierMessages(params),
 
   filterVisibleDmMessages: <T extends MessageLikeWithIdentity>(

@@ -47,4 +47,4 @@ export const assessLegacySovereignRoomCommunity = (params: Readonly<{
   };
 };
 
-export const isNewSovereignRoomCreationAllowed = (): boolean => false;
+export { isNewSovereignRoomCreationAllowed } from "@/app/features/workspace-kernel/workspace-kernel-sovereign-create-policy";

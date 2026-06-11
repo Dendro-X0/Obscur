@@ -7,6 +7,8 @@ import {
   markExperimentShellBootFlag,
   scheduleExperimentDeferredWork,
   shouldDeferExperimentHeavyWork,
+  shouldEnableNavigationProgressUx,
+  shouldRunNavigationInstrumentation,
 } from "./experiment-shell-policy";
 
 describe("experiment-shell-policy", () => {
@@ -44,10 +46,14 @@ describe("experiment-shell-policy", () => {
     expect(isExperimentOnlineEnabled()).toBe(false);
     expect(isExperimentOfflineStubEnabled()).toBe(true);
     expect(shouldDeferExperimentHeavyWork()).toBe(true);
+    expect(shouldEnableNavigationProgressUx()).toBe(false);
+    expect(shouldRunNavigationInstrumentation()).toBe(false);
     process.env.NEXT_PUBLIC_OBSCUR_EXPERIMENT_ONLINE = "1";
     expect(isExperimentOnlineEnabled()).toBe(true);
     expect(isExperimentOfflineStubEnabled()).toBe(false);
     expect(shouldDeferExperimentHeavyWork()).toBe(false);
+    expect(shouldEnableNavigationProgressUx()).toBe(false);
+    expect(shouldRunNavigationInstrumentation()).toBe(false);
   });
 
   it("exports a defer interval for heavy work", () => {

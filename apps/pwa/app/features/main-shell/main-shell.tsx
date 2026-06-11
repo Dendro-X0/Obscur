@@ -57,8 +57,9 @@ import { Sidebar } from "@/app/features/messaging/components/sidebar";
 import { ChatView } from "@/app/features/messaging/components/chat-view";
 import { useAutoLock } from "@/app/features/settings/hooks/use-auto-lock";
 import { useSealedCommunity, type GroupMessageEvent } from "@/app/features/groups/hooks/use-sealed-community";
-import { mapSealedGroupMessagesToChatMessages } from "@/app/features/groups/utils/map-sealed-group-messages-to-chat";
+import { useGroupThreadRelayIngest } from "@/app/features/groups/hooks/use-group-thread-relay-ingest";
 import { hasWritableCommunityRelayTransport } from "@/app/features/groups/services/community-relay-transport";
+import { resolveMainShellSealedCommunityEnabled } from "@/app/features/groups/services/sealed-community-instance-policy";
 import { getResolvedClientGateway } from "@/app/features/profiles/services/resolve-client-gateway";
 import { LockScreen } from "@/app/components/lock-screen";
 import type { Passphrase } from "@dweb/crypto/passphrase";
@@ -76,6 +77,8 @@ import {
   loadCommunityTerminalMembershipCache,
 } from "@/app/features/groups/services/community-terminal-membership-cache";
 import { dedupeCommunityMemberPubkeys } from "@/app/features/groups/services/community-member-roster-projection";
+import { isWorkspaceKernelAuthority } from "@/app/features/workspace-kernel/workspace-kernel-policy";
+import { resolveWorkspaceKernelActiveMemberPubkeys } from "@/app/features/workspace-kernel/workspace-kernel-roster-port";
 import { workspaceRelayUrlsMatch } from "@/app/features/groups/services/workspace-relay-url";
 import { PinLockService } from "@/app/features/auth/services/pin-lock-service";
 
@@ -87,12 +90,15 @@ import { useFilteredConversations } from "./hooks/use-filtered-conversations";
 import { useAttachmentHandler } from "./hooks/use-attachment-handler";
 import { useDmSync } from "./hooks/use-dm-sync";
 import { useChatViewProps } from "./hooks/use-chat-view-props";
-import { usePinnedDmForMessageHook } from "./hooks/use-pinned-dm-for-message-hook";
 import { installChatPerformanceDevTools } from "../messaging/dev/chat-performance-dev-tools";
 import { toDmConversationId } from "@/app/features/messaging/utils/dm-conversation-id";
 import { createDmConversation } from "@/app/features/messaging/utils/create-dm-conversation";
 import { resolveConversationByToken } from "@/app/features/messaging/utils/conversation-target";
 import { getIncomingInboxRequests } from "@/app/features/messaging/services/request-inbox-view";
+import {
+  resolveDmPeerEstablishedForUi,
+  resolveDmPeerOutgoingWaitInitiatorForUi,
+} from "@/app/features/messaging/services/dm-peer-established-ui";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { useOptionalProfileMessageBus } from "@/app/features/profiles/providers/profile-runtime-provider";
@@ -297,24 +303,18 @@ function NostrMessengerContent() {
     myPublicKeyHex,
   ]);
 
-  const isGroupCommunityHomeRoute = Boolean(
-    pathname
-    && /^\/groups\/[^/]+/.test(pathname)
-    && !pathname.startsWith("/groups/leave")
-    && !pathname.startsWith("/groups/purge"),
-  );
   const selectedGroupHasRelayTransport = useMemo((): boolean => {
     if (selectedConversation?.kind !== "group") {
       return false;
     }
     return hasWritableCommunityRelayTransport((selectedConversation as GroupConversation).relayUrl);
   }, [selectedConversation]);
-  // Path B B1: one live subscription per surface — shell sidebar chat only; group-home owns its own hook.
-  const sealedCommunityShellEnabled = (
-    selectedConversation?.kind === "group"
-    && !isGroupCommunityHomeRoute
-    && selectedGroupHasRelayTransport
-  );
+  // Path B B1-3: one live sealed-community instance — sidebar on `/`; group-home owns `/groups/[id]`.
+  const sealedCommunityShellEnabled = resolveMainShellSealedCommunityEnabled({
+    selectedConversationKind: selectedConversation?.kind,
+    pathname,
+    hasRelayTransport: selectedGroupHasRelayTransport,
+  });
   const { state: groupState, members: sealedCommunityMembers } = useSealedCommunity({
     pool: relayPool,
     relayUrl: selectedConversation?.kind === 'group' ? (selectedConversation as GroupConversation).relayUrl : '',
@@ -324,6 +324,15 @@ function NostrMessengerContent() {
     myPrivateKeyHex,
     enabled: sealedCommunityShellEnabled,
     initialMembers: sealedCommunityInitialMembers,
+  });
+  useGroupThreadRelayIngest({
+    pool: relayPool,
+    relayUrl: selectedConversation?.kind === "group" ? (selectedConversation as GroupConversation).relayUrl : "",
+    groupId: selectedConversation?.kind === "group" ? (selectedConversation as GroupConversation).groupId : "",
+    communityId: selectedConversation?.kind === "group" ? (selectedConversation as GroupConversation).communityId : undefined,
+    communityMode: selectedConversation?.kind === "group" ? (selectedConversation as GroupConversation).communityMode : undefined,
+    myPublicKeyHex,
+    enabled: sealedCommunityShellEnabled,
   });
 
   // Feature hooks
@@ -464,13 +473,33 @@ function NostrMessengerContent() {
     lastViewedByConversationId,
   );
   useCommandMessages(dmController.state.messages);
+  const establishedDmPeerPubkeys = useMemo((): ReadonlySet<string> => {
+    const peers = new Set<string>();
+    createdConnections.forEach((connection) => {
+      const normalized = connection.pubkey.trim().toLowerCase();
+      if (normalized.length === 64) {
+        peers.add(normalized);
+      }
+    });
+    if (selectedConversation?.kind === "dm") {
+      const activePeer = selectedConversation.pubkey.trim().toLowerCase();
+      if (activePeer.length === 64) {
+        peers.add(activePeer);
+      }
+    }
+    return peers;
+  }, [createdConnections, selectedConversation]);
+  const resolvePeerEstablishedForUi = useCallback((peerPublicKeyHex: PublicKeyHex): boolean => (
+    resolveDmPeerEstablishedForUi({
+      peerPublicKeyHex,
+      isPeerAcceptedByTrust: peerTrust.isAccepted({ publicKeyHex: peerPublicKeyHex }),
+      requestStatus: requestsInbox.getRequestStatus({ peerPublicKeyHex }),
+      establishedDmPeerPubkeys,
+    })
+  ), [establishedDmPeerPubkeys, peerTrust, requestsInbox]);
   const { allConversations, filteredConversations } = useFilteredConversations(
     createdConnections, createdGroups, connectionOverridesByConnectionId, searchQuery,
-    (params) => {
-      if (peerTrust.isAccepted(params)) return true;
-      const rs = requestsInbox.getRequestStatus({ peerPublicKeyHex: params.publicKeyHex as PublicKeyHex });
-      return !!(rs?.isOutgoing && (rs.status === 'pending' || !rs.status));
-    },
+    (params) => resolvePeerEstablishedForUi(params.publicKeyHex as PublicKeyHex),
     myPublicKeyHex
   );
   const { pickAttachments, handleFilesSelected, removePendingAttachment, clearPendingAttachments } = useAttachmentHandler();
@@ -675,6 +704,22 @@ function NostrMessengerContent() {
       const normalized = pubkey.trim().toLowerCase();
       return normalized.length > 0 && !leftSet.has(normalized) && !expelledSet.has(normalized);
     };
+
+    if (isWorkspaceKernelAuthority()) {
+      const projection = communityRosterByConversationId[selectedConversationView.id];
+      const kernelActive = resolveWorkspaceKernelActiveMemberPubkeys({
+        rosterProjection: projection,
+      }).filter(isActive);
+      if (kernelActive.length > 0) {
+        return kernelActive;
+      }
+      const readModelCount = selectedGroupMembershipReadModel[selectedConversationView.id]?.memberCount ?? 1;
+      const fallbackPubkeys = (selectedConversationView.memberPubkeys ?? []).filter(isActive);
+      if (fallbackPubkeys.length > 0) {
+        return fallbackPubkeys.slice(0, Math.max(1, readModelCount));
+      }
+      return [];
+    }
 
     const r2DisplayPubkeys = (
       selectedGroupMembershipReadModel[selectedConversationView.id]?.displayPubkeys ?? []
@@ -3496,35 +3541,19 @@ function NostrMessengerContent() {
     }
   };
 
-  const pinnedDmForMessageHook = usePinnedDmForMessageHook(selectedConversationView);
-
   const {
     handleLoadEarlier,
     handleCopyMyPubkey,
     handleCopyChatLink,
     conversationHasHydrated,
-    visibleMessages: dmVisibleMessages,
+    visibleMessages,
     hasEarlierMessages,
     selectedConversationMediaItems,
     pendingEventCount
   } = useChatViewProps({
-    selectedConversation: pinnedDmForMessageHook,
+    selectedConversation: selectedConversationView,
     myPublicKeyHex
   });
-  const groupChatMessages = useMemo(() => {
-    if (selectedConversationView?.kind !== "group") {
-      return null;
-    }
-    return mapSealedGroupMessagesToChatMessages({
-      conversationId: selectedConversationView.id,
-      messages: groupState.messages ?? [],
-      myPublicKeyHex,
-    });
-  }, [groupState.messages, myPublicKeyHex, selectedConversationView]);
-  const visibleMessages = groupChatMessages ?? dmVisibleMessages;
-  const conversationHasHydratedForView = selectedConversationView?.kind === "group"
-    ? groupState.status === "ready" || (groupState.messages?.length ?? 0) > 0
-    : conversationHasHydrated;
   const updateSidebarTab = (tab: "chats" | "requests") => {
     startTransition(() => setSidebarTab(tab));
     localStorage.setItem(getLastPageStorageKey(), JSON.stringify({ type: 'tab', id: tab }));
@@ -3930,7 +3959,7 @@ function NostrMessengerContent() {
             messages={visibleMessages}
             renderMetaMessages={visibleMessages}
             rawMessagesCount={visibleMessages.length}
-            hasHydrated={hasHydrated || conversationHasHydratedForView}
+            hasHydrated={hasHydrated || conversationHasHydrated}
             hasEarlierMessages={hasEarlierMessages}
             onLoadEarlier={handleLoadEarlier}
             nowMs={nowMs}
@@ -4055,18 +4084,18 @@ function NostrMessengerContent() {
             pendingEventCount={pendingEventCount}
             isPeerAccepted={(() => {
               if (selectedConversationView.kind !== 'dm') return true;
-              const pk = selectedConversationView.pubkey;
-              if (peerTrust.isAccepted({ publicKeyHex: pk })) return true;
-              const rs = requestsInbox.getRequestStatus({ peerPublicKeyHex: pk });
-              if (rs?.status === "accepted") return true;
-              return !!(rs?.isOutgoing && (rs.status === 'pending' || !rs.status));
+              return resolvePeerEstablishedForUi(selectedConversationView.pubkey);
             })()}
             isInitiator={(() => {
               if (selectedConversationView.kind !== 'dm') return false;
               const pk = selectedConversationView.pubkey;
               const rs = requestsInbox.getRequestStatus({ peerPublicKeyHex: pk });
-              if (rs?.isOutgoing && (rs.status === 'pending' || !rs.status)) return true;
-              return !requestsInbox.state.items.some(i => i.peerPublicKeyHex === pk);
+              return resolveDmPeerOutgoingWaitInitiatorForUi({
+                peerPublicKeyHex: pk,
+                requestStatus: rs,
+                hasInboxItemForPeer: requestsInbox.state.items.some((item) => item.peerPublicKeyHex === pk),
+                establishedDmPeerPubkeys,
+              });
             })()}
             onAcceptPeer={() => {
               if (selectedConversationView.kind === 'dm') {

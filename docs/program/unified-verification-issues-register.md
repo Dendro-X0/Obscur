@@ -1,7 +1,7 @@
 # Unified verification — issues register
 
 **Status:** v1.9.4 Phase B — **§0 + STAB-R + P4-5 + P5 + ACC-03/04 closed** @ `ab465e40`  
-**Policy:** [concentrated-version-delivery.md](./concentrated-version-delivery.md) · [ui-render-loop-systemic-program.md](./ui-render-loop-systemic-program.md)
+**Policy:** [testing-and-issue-tracking-spec.md](./testing-and-issue-tracking-spec.md) · [concentrated-version-delivery.md](./concentrated-version-delivery.md) · [ui-render-loop-systemic-program.md](./ui-render-loop-systemic-program.md)
 
 ---
 

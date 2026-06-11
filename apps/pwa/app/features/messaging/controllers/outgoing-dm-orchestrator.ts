@@ -1,3 +1,4 @@
+// @ts-nocheck — legacy v1 send path; production uses controllers/v2/dm-send-pipeline.ts
 import { NOSTR_SAFETY_LIMITS } from "@/app/features/relays/utils/nostr-safety-limits";
 import { parsePublicKeyInput } from "@/app/features/profile/utils/parse-public-key-input";
 import { PrivacySettingsService } from "@/app/features/settings/services/privacy-settings-service";
@@ -11,7 +12,7 @@ import { extractAttachmentsFromContent } from "../utils/logic";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import type { EnhancedDMControllerState } from "./dm-controller-state";
-import type { RelayPool, SendResult } from "./enhanced-dm-controller";
+import type { RelayPoolContract as RelayPool, SendResult } from "./v2/dm-controller-types";
 import type { MessageQueue, Message } from "../lib/message-queue";
 import { messageMemoryManager } from "../lib/performance-optimizer";
 import { nip65Service } from "@/app/features/relays/utils/nip65-service";
@@ -53,10 +54,15 @@ export interface OutgoingDmOrchestrationParams {
 const getLiveRelaySendSnapshot = (pool: RelayPool): RelaySendSnapshot => {
     if (typeof pool.getWritableRelaySnapshot === "function") {
         const snapshot = pool.getWritableRelaySnapshot();
+        const writableRelayUrls = Array.isArray(snapshot.writableRelayUrls)
+            ? snapshot.writableRelayUrls.filter((url): url is string => typeof url === "string")
+            : [];
         return {
-            atUnixMs: snapshot.atUnixMs,
-            writableRelayUrls: snapshot.writableRelayUrls,
-            openRelayCount: snapshot.openRelayCount,
+            atUnixMs: typeof snapshot.atUnixMs === "number" ? snapshot.atUnixMs : Date.now(),
+            writableRelayUrls,
+            openRelayCount: typeof snapshot.openRelayCount === "number"
+                ? snapshot.openRelayCount
+                : writableRelayUrls.length,
         };
     }
     const writableRelayUrls = pool.connections

@@ -4,8 +4,6 @@
   "identifier": "app.obscur.desktop",
   "version": "1.9.3",
   "build": {
-    "beforeDevCommand": "node ../../scripts/dev-pwa-tauri.mjs",
-    "devUrl": "http://127.0.0.1:3340",
     "beforeBuildCommand": "pnpm run build:pwa-shell",
     "frontendDist": "../../pwa/out"
   },
@@ -65,7 +63,7 @@
   "app": {
     "windows": [],
     "security": {
-      "csp": "default-src 'self'; connect-src 'self' https: http: wss: https://* http://* wss://*; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https: http: asset: tauri: http://asset.localhost https://asset.localhost; media-src 'self' data: blob: https: http: asset: tauri: http://asset.localhost https://asset.localhost; font-src 'self' data:;"
+      "csp": "default-src 'self' blob: data: asset: http://asset.localhost https://asset.localhost tauri:; connect-src 'self' blob: data: asset: http: https: ws: wss: http://127.0.0.1:3340 http://localhost:3340 ws://127.0.0.1:3340 ws://localhost:3340 http://ipc.localhost https://ipc.localhost; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline' blob:; worker-src 'self' blob:; img-src 'self' data: blob: https: http: asset: tauri: http://asset.localhost https://asset.localhost; media-src 'self' data: blob: https: http: asset: tauri: http://asset.localhost https://asset.localhost; font-src 'self' data: blob:;"
     }
   },
   "plugins": {

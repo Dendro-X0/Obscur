@@ -5,6 +5,7 @@ import {
   requestTransportInternals,
 } from "./request-transport-service";
 import * as accountEventIngestBridge from "@/app/features/account-sync/services/account-event-ingest-bridge";
+import * as pathBB5ExtensionHooks from "./path-b-b5-extension-hooks";
 
 describe("request-transport-service internals", () => {
   it("maps send result statuses deterministically", () => {
@@ -256,5 +257,30 @@ describe("request-transport-service internals", () => {
       deliveryStatus: "queued_retrying",
       relayResults: [{ relayUrl: "wss://relay.test", success: false }],
     } as any)).toBe(false);
+  });
+
+  it("blocks outbound connection requests when invite economics gate denies send", async () => {
+    const economicsGate = vi.spyOn(pathBB5ExtensionHooks, "evaluatePathBConnectionRequestEconomicsGate")
+      .mockReturnValue(false);
+    const sendConnectionRequest = vi.fn();
+    const service = createRequestTransportService({
+      accountPublicKeyHex: "a".repeat(64),
+      sendConnectionRequest,
+      sendDm: vi.fn(),
+      evidenceStore: {
+        get: () => ({ receiptAckSeen: false, acceptSeen: false }),
+        markRequestPublished: vi.fn(),
+        markReceiptAck: vi.fn(),
+        markAccept: vi.fn(),
+        markTerminalFailure: vi.fn(),
+      } as any,
+    });
+
+    const outcome = await service.sendRequest({ peerPublicKeyHex: "b".repeat(64) as any });
+
+    expect(sendConnectionRequest).not.toHaveBeenCalled();
+    expect(outcome.status).toBe("failed");
+    expect(outcome.reasonCode).toBe("cooldown_active");
+    economicsGate.mockRestore();
   });
 });

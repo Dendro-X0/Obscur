@@ -1,4 +1,7 @@
 /**
+ * @deprecated Native DM must use `features/dm-kernel/`. Web legacy only.
+ * @see docs/program/obscur-v2-slim-kernel-manifest.md
+ *
  * R1 — DM thread hydrate pipeline (orchestration owner).
  * Prepares delete tombstones, loads the IndexedDB / SQLite hydration window, merges persisted chat-state
  * fallback, runs `assembleDmHydrateThreadReadModel`, then optional sibling id-split diagnostics.

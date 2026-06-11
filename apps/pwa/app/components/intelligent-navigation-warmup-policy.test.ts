@@ -15,7 +15,7 @@ describe("resolveIntelligentNavigationWarmupPlan", () => {
     });
     expect(plan.critical).toEqual([]);
     expect(plan.context).toEqual(["/network"]);
-    expect(plan.specialTasks).toEqual(["group_home_client"]);
+    expect(plan.specialTasks).toEqual(["group_home_client", "settings_page_client"]);
     expect(plan.background).toEqual(["/vault", "/search", "/settings"]);
     expect(hasIntelligentNavigationWarmupWork(plan)).toBe(true);
   });
@@ -29,7 +29,7 @@ describe("resolveIntelligentNavigationWarmupPlan", () => {
     });
     expect(plan.critical).toEqual(["/network"]);
     expect(plan.context).toEqual(["/vault"]);
-    expect(plan.specialTasks).toEqual(["group_home_client"]);
+    expect(plan.specialTasks).toEqual(["group_home_client", "settings_page_client"]);
     expect(plan.background).toEqual(["/search", "/settings"]);
   });
 
@@ -39,7 +39,7 @@ describe("resolveIntelligentNavigationWarmupPlan", () => {
       routeSurface: "groups",
       navItems: NAV_ITEMS,
       warmedHrefs: new Set<string>(["/network"]),
-      warmedSpecialTasks: new Set(["group_home_client"]),
+      warmedSpecialTasks: new Set(["group_home_client", "settings_page_client"]),
     });
     expect(plan.critical).toEqual([]);
     expect(plan.context).toEqual([]);
@@ -53,7 +53,7 @@ describe("resolveIntelligentNavigationWarmupPlan", () => {
       routeSurface: "chats",
       navItems: NAV_ITEMS,
       warmedHrefs: new Set<string>(["/network", "/vault", "/search", "/settings"]),
-      warmedSpecialTasks: new Set(["group_home_client"]),
+      warmedSpecialTasks: new Set(["group_home_client", "settings_page_client"]),
     });
     expect(hasIntelligentNavigationWarmupWork(plan)).toBe(false);
   });

@@ -16,6 +16,24 @@ export const DEFAULT_NAV_SEQUENCE = [
   { href: "/", label: "Chats", visits: [1] },
 ];
 
+/** Ten rapid sidebar hops for P2 gate (Chats → Network → Vault → Search → Settings ×2). */
+export const RAPID_NAV_SEQUENCE = [
+  { href: "/", label: "Chats" },
+  { href: "/network", label: "Network" },
+  { href: "/vault", label: "Vault" },
+  { href: "/search", label: "Search" },
+  { href: "/settings", label: "Settings" },
+  { href: "/", label: "Chats" },
+  { href: "/network", label: "Network" },
+  { href: "/vault", label: "Vault" },
+  { href: "/search", label: "Search" },
+  { href: "/settings", label: "Settings" },
+];
+
+/** Initial P2 budgets — see docs/handoffs/v2-perf-baseline.md */
+export const V2_PERF_NAV_MEDIAN_BUDGET_MS = 1500;
+export const V2_PERF_ROUTE_MOUNT_BUDGET_MS = 200;
+
 /**
  * @param {BaselineReport} report
  */
@@ -29,6 +47,9 @@ export function summarizeBaselineReport(report) {
   const settingsWarm = navigations.find(
     (n) => n.href === "/settings" && n.visit === 2 && !n.error,
   );
+  const routeMountSamples = successful
+    .map((n) => n.routeMountWorstMs)
+    .filter((value) => typeof value === "number" && Number.isFinite(value));
 
   const median = (values) => {
     if (values.length === 0) {
@@ -56,6 +77,72 @@ export function summarizeBaselineReport(report) {
     coldStartDomMs: report.coldStart?.domContentLoadedMs ?? null,
     shellPhase: report.checks?.shellPhase ?? null,
     experimentShell: report.checks?.experimentShell ?? null,
+    maxRouteMountWorstMs:
+      routeMountSamples.length > 0 ? Math.max(...routeMountSamples) : null,
+  };
+}
+
+/**
+ * @param {BaselineReport} report
+ */
+export function evaluateV2PerfGate(report) {
+  const summary = summarizeBaselineReport(report);
+  const issues = [];
+
+  if (summary.shellPhase !== "unlocked") {
+    issues.push(`shell_phase_${summary.shellPhase ?? "unknown"}`);
+  }
+  if (typeof summary.medianNavMs === "number" && summary.medianNavMs > V2_PERF_NAV_MEDIAN_BUDGET_MS) {
+    issues.push(`median_nav_${summary.medianNavMs}ms`);
+  }
+  if (
+    typeof summary.maxRouteMountWorstMs === "number"
+    && summary.maxRouteMountWorstMs > V2_PERF_ROUTE_MOUNT_BUDGET_MS
+  ) {
+    issues.push(`route_mount_${summary.maxRouteMountWorstMs}ms`);
+  }
+
+  const rapidNav = report.checks?.rapidNav;
+  if (rapidNav && typeof rapidNav === "object" && rapidNav.gatePass === false) {
+    issues.push("rapid_nav_gate");
+  }
+
+  return {
+    pass: issues.length === 0,
+    issues,
+    summary,
+  };
+}
+
+/**
+ * @param {ReadonlyArray<NavigationSample>} samples
+ */
+export function evaluateRapidNavGate(samples) {
+  const successful = samples.filter((sample) => !sample.error && sample.urlMatched);
+  const maxNavMs = successful.length > 0
+    ? Math.max(...successful.map((sample) => sample.elapsedMs))
+    : null;
+  const routeMountSamples = successful
+    .map((sample) => sample.routeMountWorstMs)
+    .filter((value) => typeof value === "number" && Number.isFinite(value));
+  const maxRouteMountWorstMs = routeMountSamples.length > 0
+    ? Math.max(...routeMountSamples)
+    : null;
+
+  const issues = [];
+  if (successful.length < RAPID_NAV_SEQUENCE.length) {
+    issues.push(`samples_${successful.length}_of_${RAPID_NAV_SEQUENCE.length}`);
+  }
+  if (typeof maxRouteMountWorstMs === "number" && maxRouteMountWorstMs > V2_PERF_ROUTE_MOUNT_BUDGET_MS) {
+    issues.push(`route_mount_${maxRouteMountWorstMs}ms`);
+  }
+
+  return {
+    gatePass: issues.length === 0,
+    issues,
+    maxNavMs,
+    maxRouteMountWorstMs,
+    sampleCount: successful.length,
   };
 }
 
@@ -118,6 +205,57 @@ export function compareBaselineReports(devReport, prodReport) {
     settingsCompileSignal,
     verdict,
     rationale,
+  };
+}
+
+/**
+ * @param {unknown} value
+ * @returns {BaselineReport}
+ */
+/** P4: release capture must stay within this ratio of static reference medians. */
+export const RELEASE_PERF_MAX_DELTA_RATIO = 1.2;
+
+/**
+ * @param {BaselineReport} referenceReport
+ * @param {BaselineReport} candidateReport
+ * @param {{ maxDeltaRatio?: number }} [options]
+ */
+export function evaluateReleasePerfParity(referenceReport, candidateReport, options = {}) {
+  const maxDeltaRatio = options.maxDeltaRatio ?? RELEASE_PERF_MAX_DELTA_RATIO;
+  const reference = summarizeBaselineReport(referenceReport);
+  const candidate = summarizeBaselineReport(candidateReport);
+  const issues = [];
+
+  if (reference.shellPhase !== "unlocked" || candidate.shellPhase !== "unlocked") {
+    issues.push("shell_not_unlocked");
+  }
+
+  const compareMetric = (name, refValue, candValue) => {
+    if (typeof refValue !== "number" || typeof candValue !== "number" || refValue <= 0) {
+      issues.push(`${name}_missing`);
+      return;
+    }
+    const ratio = candValue / refValue;
+    if (ratio > maxDeltaRatio) {
+      issues.push(`${name}_${Math.round(ratio * 100) / 100}x`);
+    }
+  };
+
+  compareMetric("median_nav", reference.medianNavMs, candidate.medianNavMs);
+  compareMetric("cold_dom", reference.coldStartDomMs, candidate.coldStartDomMs);
+
+  return {
+    pass: issues.length === 0,
+    issues,
+    maxDeltaRatio,
+    reference,
+    candidate,
+    medianNavRatio:
+      typeof reference.medianNavMs === "number"
+      && typeof candidate.medianNavMs === "number"
+      && reference.medianNavMs > 0
+        ? Number((candidate.medianNavMs / reference.medianNavMs).toFixed(2))
+        : null,
   };
 }
 

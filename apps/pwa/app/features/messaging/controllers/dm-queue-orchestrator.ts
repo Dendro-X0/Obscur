@@ -2,7 +2,7 @@ import { MessageQueue, type OutgoingMessage, type MessageStatus } from "../lib/m
 import { offlineQueueManager, type QueueSendAttemptResult, type QueueStatus } from "../lib/offline-queue-manager";
 import { publishQueuedOutgoingMessage } from "./outgoing-dm-publisher";
 import { createReadyState, type EnhancedDMControllerState } from "./dm-controller-state";
-import type { RelayPool } from "./enhanced-dm-controller";
+import type { RelayPoolContract as RelayPool } from "./v2/dm-controller-types";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { MessageActionFailureReason } from "../types";

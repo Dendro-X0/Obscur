@@ -41,6 +41,19 @@ describe("P5 persistence authority gates", () => {
     );
   });
 
+  it("P5-BKP-2 / B4: native backup publish carries sqlite evidence; restore materializes groups + bodies", () => {
+    const backupService = readSource("features/account-sync/services/encrypted-account-backup-service.ts");
+    const evidence = readSource("features/account-sync/services/native-sqlite-backup-evidence.ts");
+    const groupStore = readSource("features/groups/services/community-group-sqlite-store.ts");
+    const materialization = readSource("features/account-sync/services/restore-materialization.ts");
+
+    expect(evidence).toContain("collectNativeSqliteBackupEvidence");
+    expect(backupService).toContain("nativeSqliteEvidence");
+    expect(groupStore).toContain("syncPersistedGroupsToSqliteFromChatState");
+    expect(evidence).toContain("applyNativeRestoreSqliteMaterialization");
+    expect(materialization).toContain("applyNativeRestoreSqliteMaterialization");
+  });
+
   it("ACC-04: call record sqlite owner is wired from call-state runtime", () => {
     const runtime = readSource("features/messaging/services/call-state-runtime.ts");
     const store = readSource("features/messaging/services/call-record-sqlite-store.ts");
@@ -51,14 +64,38 @@ describe("P5 persistence authority gates", () => {
     expect(runtime).toMatch(/call-end[\s\S]*mirrorTerminalCallToSqlite/);
   });
 
-  it("P5-COM-MSG: group outbound send and commit owned by use-chat-actions", () => {
+  it("P5-COM-MSG / B3-3: hydrate scans sqlite across profile slots; send path canonical", () => {
+    const persistence = readSource("features/groups/services/sealed-group-message-persistence.ts");
+    const sqliteStore = readSource("features/messaging/services/thread-history/group-thread-sqlite-store.ts");
+    const appendOwner = readSource("features/messaging/services/thread-history/group-thread-append.ts");
     const chatActions = readSource("features/main-shell/hooks/use-chat-actions.ts");
     const sealedCommunity = readSource("features/groups/hooks/use-sealed-community.ts");
 
-    expect(chatActions).toMatch(/await commitSealedGroupMessages/);
-    expect(sealedCommunity).toContain("GROUP_MESSAGE_SEND_OWNED_BY_USE_CHAT_ACTIONS");
-    const durabilityOwner = readSource("features/groups/components/sealed-group-message-durability-owner.tsx");
-    expect(durabilityOwner).toContain("flushPendingSealedGroupSqliteWrites");
+    expect(persistence).toContain("resolveSealedGroupPersistenceProfileId");
+    expect(persistence).toContain("loadGroupThreadPageFromSqlite");
+    expect(sqliteStore).toContain("listAccountSharedSqliteProfileIds");
+    expect(sqliteStore).toContain("mergeGroupMessageRecordsForPage");
+    expect(appendOwner).toContain("dbInsertGroupMessage");
+    const ingest = readSource("features/groups/services/group-thread-relay-ingest.ts");
+    expect(ingest).toContain("appendGroupThreadMessage");
+    expect(chatActions).toContain("await commitSealedGroupMessages");
+    expect(chatActions).toContain("sendSealedMessage");
+    expect(chatActions).not.toContain("GROUP_MESSAGING_STUB_MESSAGE");
+    expect(sealedCommunity).toContain("sendMessage: noopAsync");
+  });
+
+  it("P5-SAF / B5: safety hooks registry wires receive gate, thread chrome, and invite economics", () => {
+    const hooks = readSource("features/messaging/services/path-b-b5-extension-hooks.ts");
+    const handler = readSource("features/messaging/controllers/legacy/incoming-dm-event-handler.ts");
+    const transport = readSource("features/messaging/services/request-transport-service.ts");
+    const chatView = readSource("features/messaging/components/chat-view.tsx");
+
+    expect(hooks).toContain("evaluatePathBIncomingDmSafetyGate");
+    expect(hooks).toContain("evaluatePathBConnectionRequestEconomicsGate");
+    expect(hooks).toContain("shouldShowPathBThreadWarningBanner");
+    expect(handler).toContain("evaluatePathBIncomingDmSafetyGate");
+    expect(transport).toContain("evaluatePathBConnectionRequestEconomicsGate");
+    expect(chatView).toContain("shouldShowPathBThreadWarningBanner");
   });
 
   it("P5-DM-3: relay 7-day lookback constant is live-subscription only", () => {

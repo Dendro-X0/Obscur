@@ -63,7 +63,7 @@ type M8CommunityReplayApi = Readonly<{
   }>) => string;
 }>;
 
-type M8CommunityReplayWindow = Window & {
+type M8CommunityReplayWindow = Omit<Window, "obscurAppEvents"> & {
   obscurM8CommunityReplay?: M8CommunityReplayApi;
   obscurM8CommunityCapture?: Readonly<{
     capture?: (eventWindowSize?: number) => M8CommunityCaptureBundle;

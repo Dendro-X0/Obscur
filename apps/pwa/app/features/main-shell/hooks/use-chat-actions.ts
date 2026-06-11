@@ -42,8 +42,6 @@ import { groupClientOperations } from "@/app/features/groups/services/group-clie
 import { collectMessageIdentityAliases } from "../../messaging/services/message-identity-alias-contract";
 import type { Attachment } from "../../messaging/lib/message-queue";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
-import { readActiveDesktopProfileId } from "@/app/features/profiles/services/read-active-desktop-profile-id";
-import { isTauri } from "@dweb/db";
 import {
     messagingClientOperations,
 } from "@/app/features/messaging/services/messaging-client-operations";
@@ -55,6 +53,11 @@ import {
     buildLocalDeleteIdentityIdsForDm,
     deriveNip17RumorId,
 } from "@/app/features/messaging/services/dm-delete-target-derivation";
+import { isWorkspaceKernelAuthority } from "@/app/features/workspace-kernel/workspace-kernel-policy";
+import {
+    sendWorkspaceKernelGroupMessage,
+    WORKSPACE_KERNEL_GROUP_SEND_DEFERRED_MESSAGE,
+} from "@/app/features/workspace-kernel/workspace-kernel-write-port";
 
 type MultiRelayPublishResult = Readonly<{
     success: boolean;
@@ -474,20 +477,37 @@ export function useChatActions(dmController: UseDmControllerResult | null) {
                     throw new Error("Identity not unlocked");
                 }
 
+                if (isWorkspaceKernelAuthority()) {
+                    const kernelSend = await sendWorkspaceKernelGroupMessage({
+                        conversationId,
+                        groupId: selectedConversation.groupId,
+                        relayUrl: selectedConversation.relayUrl,
+                        communityId: selectedConversation.communityId,
+                        publicKeyHex: identity.state.publicKeyHex as PublicKeyHex,
+                        privateKeyHex: identity.state.privateKeyHex,
+                        plaintext: currentInput,
+                        replyToMessageId: currentReplyTo?.messageId,
+                        publishSealedEvent: publishGroupEvent,
+                    });
+                    if (!kernelSend.ok) {
+                        throw new Error(kernelSend.errorMessage || WORKSPACE_KERNEL_GROUP_SEND_DEFERRED_MESSAGE);
+                    }
+                    messageBus.emitNewMessage(conversationId, kernelSend.message);
+                } else {
                 const groupService = new GroupService(
                     identity.state.publicKeyHex,
-                    identity.state.privateKeyHex
+                    identity.state.privateKeyHex,
                 );
 
                 const event = await groupService.sendSealedMessage({
                     groupId: selectedConversation.groupId,
                     content: currentInput,
-                    replyTo: currentReplyTo?.messageId
+                    replyTo: currentReplyTo?.messageId,
                 });
 
                 await publishGroupEvent({
                     relayUrl: selectedConversation.relayUrl,
-                    event
+                    event,
                 });
 
                 const createdAtUnixSeconds = typeof event.created_at === "number"
@@ -497,9 +517,6 @@ export function useChatActions(dmController: UseDmControllerResult | null) {
                     conversationId,
                     groupId: selectedConversation.groupId,
                     publicKeyHex: identity.state.publicKeyHex as PublicKeyHex,
-                    profileId: isTauri()
-                        ? readActiveDesktopProfileId()
-                        : getResolvedProfileId(),
                     messages: [{
                         id: event.id,
                         pubkey: identity.state.publicKeyHex,
@@ -508,7 +525,6 @@ export function useChatActions(dmController: UseDmControllerResult | null) {
                     }],
                 });
 
-                // Emit local message after relay publish confirmation.
                 const optimisticMessage: Message = {
                     id: event.id,
                     kind: 'user',
@@ -521,13 +537,13 @@ export function useChatActions(dmController: UseDmControllerResult | null) {
                     reactions: createEmptyReactions(),
                     replyTo: currentReplyTo ? {
                         messageId: currentReplyTo.messageId,
-                        previewText: currentReplyTo.previewText
+                        previewText: currentReplyTo.previewText,
                     } : undefined,
-                    attachments: attachments // Now we have actual attachments!
+                    attachments,
                 };
 
-                // Emit optimistic message to MessageBus
                 messageBus.emitNewMessage(conversationId, optimisticMessage);
+                }
             }
             setUploadStage("idle");
             setIsUploadingAttachment(false);
@@ -765,15 +781,6 @@ export function useChatActions(dmController: UseDmControllerResult | null) {
             });
             try {
                 if (identity.state.publicKeyHex && identity.state.privateKeyHex) {
-                    const groupService = new GroupService(identity.state.publicKeyHex, identity.state.privateKeyHex);
-                    const deletionEvent = await groupService.hideMessage({
-                        groupId: selectedConversation.groupId,
-                        eventId: params.message.id
-                    });
-                    await publishGroupEvent({
-                        relayUrl: selectedConversation.relayUrl,
-                        event: deletionEvent
-                    });
                     logAppEvent({
                         name: "messaging.delete_for_everyone_remote_result",
                         level: "info",
@@ -781,16 +788,11 @@ export function useChatActions(dmController: UseDmControllerResult | null) {
                         context: {
                             ...baseContext,
                             channel: "group",
-                            resultCode: "published",
+                            resultCode: "skipped",
+                            reasonCode: "group_backend_disabled",
                             relayUrlHint: toIdHint(selectedConversation.relayUrl),
                         },
                     });
-                    if (
-                        !params.suppressManagedWorkspaceToast
-                        && isStrictManagedWorkspaceRelay(selectedConversation.relayUrl)
-                    ) {
-                        toast.success(MANAGED_WORKSPACE_DELETE_COPY.removedFromWorkspaceToast);
-                    }
                 }
             } catch (error) {
                 console.error("Failed to delete group message:", error);
@@ -887,24 +889,9 @@ export function useChatActions(dmController: UseDmControllerResult | null) {
         messageBus.emitMessageUpdated(params.conversationId, updatedMsg);
 
         if (selectedConversation?.kind === 'group') {
-            try {
-                if (identity.state.publicKeyHex && identity.state.privateKeyHex) {
-                    const groupService = new GroupService(identity.state.publicKeyHex, identity.state.privateKeyHex);
-                    const reactionEvent = await groupService.sendSealedReaction({
-                        groupId: selectedConversation.groupId,
-                        eventId: msg.id,
-                        emoji: params.emoji
-                    });
-                    await publishGroupEvent({
-                        relayUrl: selectedConversation.relayUrl,
-                        event: reactionEvent
-                    });
-                }
-            } catch (error) {
-                console.error("Failed to send group reaction:", error);
-            }
+            return;
         }
-    }, [selectedConversation, identity.state, publishGroupEvent]);
+    }, [selectedConversation, identity.state, dmController]);
 
     return {
         handleSendMessage,

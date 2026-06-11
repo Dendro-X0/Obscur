@@ -102,6 +102,9 @@ export const classifyRelayRecoveryState = (params: Readonly<{
   recoveryAttemptCount: number;
   recoveryReasonCode?: RelayRecoveryReasonCode;
 }>): RelayReadinessState => {
+  if (params.recoveryReasonCode === "startup_warmup") {
+    return "recovering";
+  }
   if (params.recoveryReasonCode === "recovery_exhausted") {
     return "offline";
   }

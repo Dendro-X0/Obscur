@@ -88,7 +88,7 @@ vi.mock('../../nostr-safety-limits', () => ({
 }));
 
 // Import after mocking
-import { useEnhancedDMController } from '../../controllers/enhanced-dm-controller';
+import { useEnhancedDMController } from '../../controllers/legacy/enhanced-dm-controller';
 import { cryptoService } from '@/app/features/crypto/crypto-service';
 
 describe('Checkpoint: Basic Sending Functionality', () => {

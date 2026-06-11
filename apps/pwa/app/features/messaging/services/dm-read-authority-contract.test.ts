@@ -337,7 +337,7 @@ describe("dm-read-authority-contract", () => {
       expect(r.status.source).toBe("indexed_recovery");
     });
 
-    it("prefers indexed on desktop when projection is incoming-only but sqlite has outgoing", () => {
+    it("selects indexed_primary on native regardless of projection shape", () => {
       vi.mocked(requiresSqlitePersistence).mockReturnValue(true);
       const decision = resolveLegacyHydrationAuthority({
         useProjectionReads: true,
@@ -357,12 +357,12 @@ describe("dm-read-authority-contract", () => {
       });
       expect(decision).toEqual({
         authority: "indexed",
-        reason: "indexed_primary_projection_direction_incomplete",
+        reason: "indexed_primary",
       });
       vi.mocked(requiresSqlitePersistence).mockReturnValue(false);
     });
 
-    it("prefers indexed on desktop when projection is incoming-only even before sqlite proves outgoing", () => {
+    it("selects indexed_primary on native even when projection is incoming-only", () => {
       vi.mocked(requiresSqlitePersistence).mockReturnValue(true);
       const decision = resolveLegacyHydrationAuthority({
         useProjectionReads: true,
@@ -382,7 +382,7 @@ describe("dm-read-authority-contract", () => {
       });
       expect(decision).toEqual({
         authority: "indexed",
-        reason: "indexed_primary_projection_direction_incomplete",
+        reason: "indexed_primary",
       });
       vi.mocked(requiresSqlitePersistence).mockReturnValue(false);
     });

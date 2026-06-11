@@ -1,44 +1,68 @@
 #!/usr/bin/env node
 /**
- * Next dev server for Tauri beforeDevCommand.
- * Inherits NEXT_PUBLIC_OBSCUR_EXPERIMENT_ONLINE from the parent process
- * (set by scripts/dev-desktop.mjs --online). Defaults to offline (0).
+ * Start (or attach to) the Next dev server on :3340 for desktop shell dev.
+ * Used by dev-desktop-fast.mjs — NOT Tauri beforeDevCommand (see dev-pwa-tauri-noop.mjs).
  */
 import { spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { mergePwaEnvLocal } from "./load-pwa-env-local.mjs";
+import {
+  probePwaDevReady,
+  PWA_DEV_URL,
+  waitForPwaDevReady,
+} from "./lib/dev-stack-probes.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const env = mergePwaEnvLocal({
-    ...process.env,
-    NEXT_PUBLIC_DESKTOP_SHELL: "1",
-    NEXT_PUBLIC_OBSCUR_RADICAL_TRUTH: "0",
-    TAURI_BUILD: "true",
-    NEXT_PUBLIC_OBSCUR_EXPERIMENT_ONLINE: process.env.NEXT_PUBLIC_OBSCUR_EXPERIMENT_ONLINE ?? "0",
+  ...process.env,
+  NEXT_PUBLIC_DESKTOP_SHELL: "1",
+  NEXT_PUBLIC_OBSCUR_RADICAL_TRUTH: "0",
+  TAURI_BUILD: "true",
+  NEXT_PUBLIC_OBSCUR_EXPERIMENT_ONLINE: process.env.NEXT_PUBLIC_OBSCUR_EXPERIMENT_ONLINE ?? "0",
+  OBSCUR_DESKTOP_DEV_BUNDLER: process.env.OBSCUR_DESKTOP_DEV_BUNDLER ?? "webpack",
 });
 
-const useWebpack = env.OBSCUR_DESKTOP_DEV_BUNDLER === "webpack";
-const nextArgs = [
-    "-C",
-    "apps/pwa",
-    "exec",
-    "next",
-    "dev",
-    ...(useWebpack ? [] : ["--turbopack"]),
-    "--hostname",
-    "127.0.0.1",
-    "--port",
-    "3340",
-];
+const useWebpack = env.OBSCUR_DESKTOP_DEV_BUNDLER !== "turbopack";
 
-const child = spawn("pnpm", nextArgs, {
-    cwd: repoRoot,
-    stdio: "inherit",
-    env,
-    shell: true,
-});
+const main = async () => {
+  if (await probePwaDevReady(PWA_DEV_URL, 3000)) {
+    console.log("[dev-pwa-tauri] :3340 already serving — attached");
+    return;
+  }
 
-child.on("exit", (code) => {
-    process.exit(code ?? 1);
+  console.log("[dev-pwa-tauri] waiting for :3340 (another process may be compiling)…");
+  if (await waitForPwaDevReady({ maxMs: 15_000 })) {
+    console.log("[dev-pwa-tauri] :3340 ready — attached");
+    return;
+  }
+
+  const nextScript = useWebpack ? "dev:webpack" : "dev:turbo";
+  console.log(`[dev-pwa-tauri] starting Next dev (${useWebpack ? "webpack" : "turbopack"}) on :3340…`);
+
+  await new Promise((resolve, reject) => {
+    const child = spawn("pnpm", ["-C", "apps/pwa", "run", nextScript], {
+      cwd: repoRoot,
+      stdio: "inherit",
+      env,
+      shell: process.platform === "win32",
+    });
+
+    child.on("error", (error) => {
+      reject(error);
+    });
+
+    child.on("exit", (code) => {
+      if (code && code !== 0) {
+        reject(new Error(`Next dev exited with code ${code}`));
+        return;
+      }
+      resolve(undefined);
+    });
+  });
+};
+
+main().catch((error) => {
+  console.error("[dev-pwa-tauri] failed:", error instanceof Error ? error.message : error);
+  process.exit(1);
 });

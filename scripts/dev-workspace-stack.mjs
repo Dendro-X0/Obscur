@@ -2,7 +2,13 @@
 /**
  * Dev workspace stack: coordination worker + local Nostr relay + desktop shell.
  *
+ * Default online desktop (smooth nav + live relays):
  *   node scripts/dev-workspace-stack.mjs --online
+ *   → static out/ shell + coordination + relay
+ *
+ * Webpack live reload (slow route compiles — UI HMR only):
+ *   node scripts/dev-workspace-stack.mjs --online --live
+ *
  *   node scripts/dev-workspace-stack.mjs --stack-only   (no desktop — for second A/B instance)
  *   node scripts/dev-workspace-stack.mjs --online --skip-coordination
  *
@@ -25,6 +31,7 @@ import {
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const flags = new Set(process.argv.slice(2));
 const stackOnly = flags.has("--stack-only");
+const useLiveWebpack = flags.has("--live");
 const skipCoordination = flags.has("--skip-coordination")
   || process.env.OBSCUR_SKIP_COORDINATION === "1";
 
@@ -35,7 +42,9 @@ if (flags.has("--online")) {
 } else if (flags.has("--offline")) {
   env.NEXT_PUBLIC_OBSCUR_EXPERIMENT_ONLINE = "0";
 }
-if (flags.has("--webpack")) {
+if (flags.has("--webpack") || flags.has("--turbopack")) {
+  env.OBSCUR_DESKTOP_DEV_BUNDLER = flags.has("--turbopack") ? "turbopack" : "webpack";
+} else if (!env.OBSCUR_DESKTOP_DEV_BUNDLER) {
   env.OBSCUR_DESKTOP_DEV_BUNDLER = "webpack";
 }
 
@@ -199,6 +208,11 @@ process.on("SIGTERM", () => {
 });
 
 const run = async () => {
+  if (useLiveWebpack) {
+    log("online desktop — webpack live shell (expect route compile stalls; use for UI HMR only)");
+  } else {
+    log("online desktop — static shell + live relays (smooth nav; rebuild after UI edits: pnpm dev:desktop -- --rebuild)");
+  }
   log("bringing up workspace infrastructure (coordination + relay in parallel)…");
   if (process.platform === "win32") {
     log("Windows: wrangler cold start can take 2–4 minutes; keep `pnpm dev:coordination` running between sessions");
@@ -237,12 +251,23 @@ const run = async () => {
     return;
   }
 
-  log("starting desktop shell…");
-  const desktop = spawn("pnpm", ["-C", "apps/desktop", "dev"], {
+  const desktopScript = useLiveWebpack
+    ? path.join(repoRoot, "scripts", "dev-desktop-fast.mjs")
+    : path.join(repoRoot, "scripts", "dev-desktop-static.mjs");
+  const desktopArgs = [desktopScript];
+  if (flags.has("--online")) {
+    desktopArgs.push("--online");
+  }
+  if (useLiveWebpack) {
+    log("starting desktop shell (Next dev + webpack, then Tauri)…");
+  } else {
+    log("starting desktop shell (static out/ + experiment online, then Tauri)…");
+  }
+  const desktop = spawn("node", desktopArgs, {
     cwd: repoRoot,
     stdio: "inherit",
     env,
-    shell: true,
+    shell: false,
   });
   desktop.on("exit", (code) => {
     shutdown();

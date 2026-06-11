@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   getRelayReadinessBannerCopy,
   getRelayReadinessDetailCopy,
@@ -22,6 +22,18 @@ const createSnapshot = (overrides: Partial<RelayRecoverySnapshot>): RelayRecover
 });
 
 describe("relay-readiness-copy", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("explains offline desktop shell when experiment stub is active", () => {
+    vi.stubEnv("NEXT_PUBLIC_DESKTOP_SHELL", "1");
+    vi.stubEnv("NEXT_PUBLIC_OBSCUR_EXPERIMENT_ONLINE", "0");
+    const banner = getRelayReadinessBannerCopy(createSnapshot({ readiness: "offline" }));
+    expect(banner).toMatch(/offline mode/i);
+    expect(banner).toMatch(/dev:desktop:online/i);
+  });
+
   it("returns a queue hint when no writable relays exist", () => {
     const message = getRelayTransportQueueHint(createSnapshot({ readiness: "recovering" }));
     expect(message).toMatch(/queue/i);
@@ -35,6 +47,14 @@ describe("relay-readiness-copy", () => {
   it("mentions queued sends in offline banner copy", () => {
     const banner = getRelayReadinessBannerCopy(createSnapshot({ readiness: "offline" }));
     expect(banner).toMatch(/queue/i);
+  });
+
+  it("suppresses banner copy during startup warmup", () => {
+    const banner = getRelayReadinessBannerCopy(createSnapshot({
+      readiness: "offline",
+      recoveryReasonCode: "startup_warmup",
+    }));
+    expect(banner).toBeNull();
   });
 
   it("returns banner copy for degraded states", () => {

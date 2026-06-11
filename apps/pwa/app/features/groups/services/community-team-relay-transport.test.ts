@@ -111,4 +111,71 @@ describe("createCommunityTeamRelayTransport", () => {
     expect(result).toEqual({ success: false, errorMessage: "team_relay_signing_not_configured" });
     expect(publishToUrl).not.toHaveBeenCalled();
   });
+
+  it("returns failure when publishToUrl is unavailable on pool", async () => {
+    const transport = createCommunityTeamRelayTransport(
+      RELAY,
+      {
+        addTransientRelay: vi.fn(),
+        reconnectRelay: vi.fn(),
+      },
+      {
+        signMembershipWireEvent: vi.fn(async () => ({
+          id: "e".repeat(64),
+          kind: 9022,
+          pubkey: SUBJECT,
+          created_at: 1,
+          tags: [["h", "group-1"]],
+          content: "",
+          sig: "s".repeat(128),
+        })),
+      },
+    );
+
+    const result = await transport.publishCommunityControl({
+      type: "COMMUNITY_MEMBER_LEFT",
+      communityId: "group-1",
+      subjectPublicKeyHex: SUBJECT,
+      actorPublicKeyHex: SUBJECT,
+      createdAtUnixMs: 1000,
+      logicalEventId: "evt-3",
+      source: "team_relay",
+    });
+
+    expect(result).toEqual({ success: false, errorMessage: "team_relay_publish_to_url_unavailable" });
+  });
+
+  it("returns failure for unsupported semantic event types", async () => {
+    const publishToUrl = vi.fn();
+    const transport = createCommunityTeamRelayTransport(
+      RELAY,
+      {
+        addTransientRelay: vi.fn(),
+        reconnectRelay: vi.fn(),
+        publishToUrl,
+      },
+      {
+        signMembershipWireEvent: vi.fn(async () => ({
+          id: "e".repeat(64),
+          kind: 9021,
+          pubkey: SUBJECT,
+          created_at: 1,
+          tags: [["h", "group-1"]],
+          content: "",
+          sig: "s".repeat(128),
+        })),
+      },
+    );
+
+    const result = await transport.publishCommunityControl({
+      type: "COMMUNITY_DIRECTORY_HINT",
+      communityId: "group-1",
+      pubkeys: [SUBJECT],
+      confidence: "hint",
+      source: "team_relay",
+    });
+
+    expect(result).toEqual({ success: false, errorMessage: "team_relay_unsupported_event_type" });
+    expect(publishToUrl).not.toHaveBeenCalled();
+  });
 });

@@ -1,0 +1,13 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "build": {
+    "devUrl": null,
+    "beforeDevCommand": "node ../../scripts/dev-pwa-tauri-noop.mjs",
+    "frontendDist": "../../pwa/out"
+  },
+  "app": {
+    "security": {
+      "csp": null
+    }
+  }
+}

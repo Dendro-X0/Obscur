@@ -1350,6 +1350,92 @@ describe("useConversationMessages integration (perf mode)", () => {
         unmount();
     });
 
+    it("re-hydrates outgoing history after sqlite lag without manual refresh", async () => {
+        enableProjectionReadCutoverAuthority();
+        const myPublicKeyHex = "a".repeat(64);
+        const peerPublicKeyHex = "b".repeat(64);
+        const conversationId = [myPublicKeyHex, peerPublicKeyHex].sort().join(":");
+
+        accountProjectionSnapshot.projection = {
+            profileId: "default",
+            accountPublicKeyHex: myPublicKeyHex,
+            contactsByPeer: {},
+            conversationsById: {},
+            messagesByConversationId: {
+                [conversationId]: [{
+                    messageId: "projection-incoming-only-lag-1",
+                    conversationId,
+                    peerPublicKeyHex,
+                    direction: "incoming",
+                    eventCreatedAtUnixSeconds: 60,
+                    plaintextPreview: "from projection",
+                    observedAtUnixMs: 60_000,
+                }],
+            },
+            sync: {
+                checkpointsByTimelineKey: {},
+                bootstrapImportApplied: true,
+            },
+            lastSequence: 60,
+            updatedAtUnixMs: 60_000,
+        };
+
+        const incomingOnly = [{
+            id: "indexed-peer-lag-1",
+            kind: "user" as const,
+            conversationId,
+            senderPubkey: peerPublicKeyHex,
+            recipientPubkey: myPublicKeyHex,
+            content: "from sqlite peer first pass",
+            timestamp: new Date(59_000),
+            isOutgoing: false,
+            status: "delivered" as const,
+        }];
+        const bothDirections = [
+            ...incomingOnly,
+            {
+                id: "indexed-self-lag-1",
+                kind: "user" as const,
+                conversationId,
+                senderPubkey: myPublicKeyHex,
+                recipientPubkey: peerPublicKeyHex,
+                content: "from sqlite self second pass",
+                timestamp: new Date(61_000),
+                isOutgoing: true,
+                status: "delivered" as const,
+            },
+        ];
+
+        const indexedSpy = vi.spyOn(
+            dmConversationHydrateIndexedScan,
+            "loadInitialDmHydrationIndexedWindow",
+        );
+        indexedSpy
+            .mockResolvedValueOnce({
+                retentionFilteredMapped: incomingOnly,
+                cappedHydratedMessages: incomingOnly,
+                hasEarlier: false,
+                shouldCapHydratedHistoryWindow: false,
+            })
+            .mockResolvedValue({
+                retentionFilteredMapped: bothDirections,
+                cappedHydratedMessages: bothDirections,
+                hasEarlier: false,
+                shouldCapHydratedHistoryWindow: false,
+            });
+
+        const { result, unmount } = renderHook(() => useConversationMessages(conversationId, myPublicKeyHex));
+        await waitFor(() => expect(result.current.isLoading).toBe(false));
+        await waitFor(() => {
+            expect(result.current.messages.some((m) => m.id === "indexed-self-lag-1")).toBe(true);
+        }, { timeout: 5_000 });
+
+        expect(result.current.messages.some((m) => m.id === "indexed-peer-lag-1")).toBe(true);
+        expect(result.current.messages.some((m) => m.id === "indexed-self-lag-1")).toBe(true);
+        expect(indexedSpy.mock.calls.length).toBeGreaterThan(1);
+        unmount();
+    });
+
     it("refuses one-sided display cache on native cold open and hydrates both directions", async () => {
         enableProjectionReadCutoverAuthority();
         const myPublicKeyHex = "a".repeat(64);

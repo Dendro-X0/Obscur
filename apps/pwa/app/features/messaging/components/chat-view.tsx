@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useResolvedProfileMetadata } from "../../profile/hooks/use-resolved-profile-metadata";
 import { ChatHeader } from "./chat-header";
 import { StrangerWarningBanner } from "./stranger-warning-banner";
+import { shouldShowPathBThreadWarningBanner } from "../services/path-b-b5-extension-hooks";
 import { RelayOverlapBanner } from "./relay-overlap-banner";
 import type { ContactRelayOverlapResult } from "../hooks/use-contact-relay-overlap";
 import { MessageList } from "./message-list";
@@ -695,7 +696,10 @@ export function ChatView(props: ChatViewProps) {
                 />
             ) : null}
 
-            {props.conversation.kind === 'dm' && props.isPeerAccepted === false && (
+            {shouldShowPathBThreadWarningBanner({
+                conversationKind: props.conversation.kind,
+                isPeerAccepted: props.isPeerAccepted,
+            }) && (
                 <StrangerWarningBanner
                     displayName={resolvedName}
                     isInitiator={props.isInitiator}

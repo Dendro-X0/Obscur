@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { getRelaySnapshot, nostrCoreRelayInternals, publishViaRelayCore, type RelayPoolLike } from "./nostr-core-relay";
 
 const createPool = (params: Readonly<{
@@ -34,6 +34,43 @@ describe("nostr-core-relay", () => {
     }));
     expect(snapshot.writableRelayUrls).toEqual(["wss://a"]);
     expect(snapshot.openRelayCount).toBe(1);
+  });
+
+  it("matches scoped workspace relays to open localhost aliases", () => {
+    const snapshot = getRelaySnapshot(
+      createPool({
+        connections: [
+          { url: "ws://127.0.0.1:7000", status: "open" },
+          { url: "wss://relay.damus.io", status: "open" },
+        ],
+      }),
+      ["ws://localhost:7000"],
+    );
+    expect(snapshot.writableRelayUrls).toEqual(["ws://127.0.0.1:7000"]);
+    expect(snapshot.openRelayCount).toBe(1);
+  });
+
+  it("publishes leave events to scoped localhost when pool socket uses 127.0.0.1", async () => {
+    const publishToUrls = vi.fn(async (urls: ReadonlyArray<string>) => ({
+      success: true,
+      successCount: urls.length,
+      totalRelays: urls.length,
+      metQuorum: true,
+      results: urls.map((relayUrl) => ({ relayUrl, success: true })),
+    }));
+
+    const result = await publishViaRelayCore({
+      pool: {
+        connections: [{ url: "ws://127.0.0.1:7000", status: "open" }],
+        waitForConnection: async () => true,
+        publishToUrls,
+      },
+      payload: "event",
+      scopedRelayUrls: ["ws://localhost:7000"],
+    });
+
+    expect(result.status).toBe("ok");
+    expect(publishToUrls).toHaveBeenCalledWith(["ws://127.0.0.1:7000"], "event");
   });
 
   it("maps full quorum success to ok", async () => {

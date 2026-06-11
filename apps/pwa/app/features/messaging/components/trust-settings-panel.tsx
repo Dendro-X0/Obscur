@@ -84,7 +84,7 @@ export function TrustSettingsPanel() {
             <section className="space-y-3">
                 <div className="flex items-center justify-between px-1">
                     <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-500">
-                        {t("settings.security.acceptedContacts")} ({acceptedPeers.length})
+                        {t("settings.security.acceptedConnections")} ({acceptedPeers.length})
                     </h3>
                     <div className="flex items-center gap-1.5 text-[10px] text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-500/10 px-2 py-1 rounded-full uppercase tracking-tight">
                         <ShieldCheck className="h-3 w-3" />

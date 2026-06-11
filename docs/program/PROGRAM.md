@@ -4,6 +4,7 @@
 **Between sessions:** Handoff may be **Idle**; contract still defines resume path  
 **v2.0.0:** **Delayed** — [v2.0-release-pipeline.md](./v2.0-release-pipeline.md) after v1.9.x exit  
 **Strategic frame:** [strategic-direction.md](./strategic-direction.md) · [obscur-2.0-milestone-roadmap.md](./obscur-2.0-milestone-roadmap.md)  
+**Testing & issues (canonical):** [testing-and-issue-tracking-spec.md](./testing-and-issue-tracking-spec.md) · L3a `pnpm capture:runtime` [runtime-capture-e2e.md](./runtime-capture-e2e.md) · L3b [runtime-investigation-and-capture.md](./runtime-investigation-and-capture.md) · [../incidents/](../incidents/)  
 _Last updated: 2026-06-04_
 
 ---

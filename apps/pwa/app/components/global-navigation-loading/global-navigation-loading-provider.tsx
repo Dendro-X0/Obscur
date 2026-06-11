@@ -6,6 +6,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -16,6 +17,7 @@ import { recordNavigationIntent } from "../navigation-performance-coordinator";
 import {
   beginGlobalNavLoading,
   canSettleGlobalNavLoading,
+  clearGlobalNavChunkLoads,
   createGlobalNavLoadingControllerState,
   decrementGlobalNavChunkLoad,
   GLOBAL_NAV_LOADING_COMPLETE_HOLD_MS,
@@ -30,6 +32,11 @@ import {
   type GlobalNavLoadingControllerState,
   type GlobalNavLoadingRenderState,
 } from "./global-navigation-loading-state";
+import { syncGlobalNavLoadingPaint } from "./global-navigation-loading-paint";
+import {
+  clearGlobalNavLoadingSignalHandlers,
+  registerGlobalNavLoadingSignalHandlers,
+} from "./global-navigation-loading-signals";
 
 type GlobalNavigationLoadingActions = Readonly<{
   beginNavigation: (targetHref?: string) => void;
@@ -38,11 +45,20 @@ type GlobalNavigationLoadingActions = Readonly<{
 }>;
 
 const GlobalNavigationLoadingActionsContext = createContext<GlobalNavigationLoadingActions | null>(null);
+const GlobalNavigationLoadingStateContext = createContext<GlobalNavLoadingRenderState | null>(null);
 
 export function useGlobalNavigationLoadingActions(): GlobalNavigationLoadingActions {
   const context = useContext(GlobalNavigationLoadingActionsContext);
   if (!context) {
     throw new Error("useGlobalNavigationLoadingActions must be used within GlobalNavigationLoadingProvider");
+  }
+  return context;
+}
+
+export function useGlobalNavigationLoadingState(): GlobalNavLoadingRenderState {
+  const context = useContext(GlobalNavigationLoadingStateContext);
+  if (!context) {
+    throw new Error("useGlobalNavigationLoadingState must be used within GlobalNavigationLoadingProvider");
   }
   return context;
 }
@@ -65,8 +81,14 @@ export function GlobalNavigationLoadingProvider(
 
   const commitController = useCallback((next: GlobalNavLoadingControllerState): void => {
     controllerRef.current = next;
-    setRenderState(toGlobalNavLoadingRenderState(next));
+    const render = toGlobalNavLoadingRenderState(next);
+    syncGlobalNavLoadingPaint(render);
+    setRenderState(render);
   }, []);
+
+  const commitControllerSync = useCallback((next: GlobalNavLoadingControllerState): void => {
+    commitController(next);
+  }, [commitController]);
 
   const clearCompleteTimeout = useCallback((): void => {
     const timeoutId = completeTimeoutIdRef.current;
@@ -116,7 +138,7 @@ export function GlobalNavigationLoadingProvider(
         completeNavigationLoading();
         return;
       }
-      if (canSettleGlobalNavLoading(current, nowMs)) {
+      if (canSettleGlobalNavLoading(current, nowMs, pathnameRef.current)) {
         completeNavigationLoading();
       } else {
         window.requestAnimationFrame(attemptSettle);
@@ -150,22 +172,30 @@ export function GlobalNavigationLoadingProvider(
       recordNavigationIntent(normalized);
     }
     clearCompleteTimeout();
-    commitController(beginGlobalNavLoading(controllerRef.current, nowMs, normalized));
+    commitControllerSync(beginGlobalNavLoading(controllerRef.current, nowMs, normalized));
     armMaxActiveTimeout();
     scheduleSettle();
-  }, [armMaxActiveTimeout, clearCompleteTimeout, commitController, scheduleSettle]);
+  }, [armMaxActiveTimeout, clearCompleteTimeout, commitControllerSync, scheduleSettle]);
 
   const beginChunkLoad = useCallback((): void => {
     const nowMs = Date.now();
     clearCompleteTimeout();
-    commitController(incrementGlobalNavChunkLoad(controllerRef.current, nowMs));
+    commitControllerSync(incrementGlobalNavChunkLoad(controllerRef.current, nowMs));
     armMaxActiveTimeout();
-  }, [armMaxActiveTimeout, clearCompleteTimeout, commitController]);
+  }, [armMaxActiveTimeout, clearCompleteTimeout, commitControllerSync]);
 
   const endChunkLoad = useCallback((): void => {
     commitController(decrementGlobalNavChunkLoad(controllerRef.current));
     scheduleSettle();
   }, [commitController, scheduleSettle]);
+
+  useLayoutEffect((): (() => void) => {
+    registerGlobalNavLoadingSignalHandlers({
+      beginChunkLoad,
+      endChunkLoad,
+    });
+    return clearGlobalNavLoadingSignalHandlers;
+  }, [beginChunkLoad, endChunkLoad]);
 
   const actions = useMemo<GlobalNavigationLoadingActions>(() => ({
     beginNavigation,
@@ -178,6 +208,7 @@ export function GlobalNavigationLoadingProvider(
     const previousPathname = previousPathnameRef.current;
     if (previousPathname !== pathname) {
       previousPathnameRef.current = pathname;
+      commitController(clearGlobalNavChunkLoads(controllerRef.current));
       if (!controllerRef.current.active) {
         const nowMs = Date.now();
         commitController(beginGlobalNavLoading(controllerRef.current, nowMs, pathname));
@@ -186,35 +217,6 @@ export function GlobalNavigationLoadingProvider(
     }
     scheduleSettle();
   }, [armMaxActiveTimeout, commitController, pathname, scheduleSettle]);
-
-  useEffect((): (() => void) => {
-    const onDocumentClick = (event: MouseEvent): void => {
-      if (event.defaultPrevented) {
-        return;
-      }
-      if (event.button !== 0 || event.metaKey || event.altKey || event.ctrlKey || event.shiftKey) {
-        return;
-      }
-      const target = event.target;
-      if (!(target instanceof Element)) {
-        return;
-      }
-      const anchor = target.closest("a[href]");
-      if (!(anchor instanceof HTMLAnchorElement)) {
-        return;
-      }
-      const normalized = normalizeInternalNavigationHref(anchor.href, window.location.origin);
-      if (!normalized) {
-        return;
-      }
-      beginNavigation(normalized);
-    };
-
-    document.addEventListener("click", onDocumentClick, true);
-    return (): void => {
-      document.removeEventListener("click", onDocumentClick, true);
-    };
-  }, [beginNavigation]);
 
   useEffect((): (() => void) => {
     const intervalId = window.setInterval((): void => {
@@ -234,13 +236,15 @@ export function GlobalNavigationLoadingProvider(
   }, [clearCompleteTimeout, clearMaxActiveTimeout, commitController]);
 
   return (
-    <GlobalNavigationLoadingActionsContext.Provider value={actions}>
-      {props.children}
-      <GlobalNavigationLoadingBar
-        visible={renderState.visible}
-        progress={renderState.progress}
-        completing={renderState.completing}
-      />
-    </GlobalNavigationLoadingActionsContext.Provider>
+    <GlobalNavigationLoadingStateContext.Provider value={renderState}>
+      <GlobalNavigationLoadingActionsContext.Provider value={actions}>
+        {props.children}
+        <GlobalNavigationLoadingBar
+          visible={renderState.visible}
+          progress={renderState.progress}
+          completing={renderState.completing}
+        />
+      </GlobalNavigationLoadingActionsContext.Provider>
+    </GlobalNavigationLoadingStateContext.Provider>
   );
 }

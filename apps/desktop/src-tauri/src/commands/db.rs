@@ -4,7 +4,7 @@ use libobscur::db::Database;
 use libobscur::db::repositories::{
     MessageRecord, TombstoneRecord, ConversationRecord,
     GroupRecord, GroupMessageRecord, GroupTombstoneRecord, CallRecord,
-    RelayCheckpointRecord, MessageSearchResult,
+    RelayCheckpointRecord, MessageSearchResult, WipeProfileLocalDataReport,
 };
 
 /// Tauri managed state wrapping the SQLite database.
@@ -263,5 +263,17 @@ pub fn db_search_messages(
 ) -> Result<Vec<MessageSearchResult>, String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
     db.search_messages(&profile_id, &query, limit.unwrap_or(50))
+        .map_err(|e| e.to_string())
+}
+
+/// Wipe all SQLite rows for a profile slot (local reset / account removal).
+#[tauri::command]
+pub fn db_wipe_profile_local_data(
+    state: State<'_, DbState>,
+    profile_id: String,
+    remove_profile_row: bool,
+) -> Result<WipeProfileLocalDataReport, String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.wipe_profile_local_data(&profile_id, remove_profile_row)
         .map_err(|e| e.to_string())
 }

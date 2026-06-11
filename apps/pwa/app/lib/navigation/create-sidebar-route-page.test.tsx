@@ -14,15 +14,28 @@ describe("createSidebarRoutePage", () => {
     vi.resetModules();
   });
 
-  it("returns an eager page factory on desktop shell builds", async () => {
+  it("returns an eager page factory on production desktop shell builds", async () => {
     vi.stubEnv("NEXT_PUBLIC_DESKTOP_SHELL", "1");
     vi.stubEnv("NEXT_PUBLIC_MOBILE_SHELL", "0");
+    vi.stubEnv("NODE_ENV", "production");
     const { createSidebarRoutePage } = await import("./create-sidebar-route-page");
     const Page = createSidebarRoutePage(fixtureLoaders, {
       title: "Loading",
       detail: "Please wait",
     });
     expect(Page.name).toBe("EagerSidebarRoutePage");
+  });
+
+  it("returns a lazy page factory on dev desktop shell builds", async () => {
+    vi.stubEnv("NEXT_PUBLIC_DESKTOP_SHELL", "1");
+    vi.stubEnv("NEXT_PUBLIC_MOBILE_SHELL", "0");
+    vi.stubEnv("NODE_ENV", "development");
+    const { createSidebarRoutePage } = await import("./create-sidebar-route-page");
+    const Page = createSidebarRoutePage(fixtureLoaders, {
+      title: "Loading",
+      detail: "Please wait",
+    });
+    expect(Page.name).toBe("LazySidebarRoutePage");
   });
 
   it("returns a lazy page factory on non-desktop builds", async () => {

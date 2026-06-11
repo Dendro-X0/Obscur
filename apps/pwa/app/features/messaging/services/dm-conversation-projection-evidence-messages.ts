@@ -1,4 +1,7 @@
 /**
+ * @deprecated Native DM must use `features/dm-kernel/`. Web legacy only.
+ * @see docs/program/obscur-v2-slim-kernel-manifest.md
+ *
  * Account projection timeline → evidence `Message[]` for DM hydrate / read authority (R1).
  * Selector + tombstone retention live here; row shaping stays caller-supplied (`normalizeRow`).
  */

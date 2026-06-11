@@ -45,6 +45,8 @@ import {
 } from "../services/relay-custom-node-pool";
 import { readOperatorWorkspaceRelayUrl } from "@/app/features/groups/services/operator-trust-config";
 import { ExperimentRelayShell } from "./experiment-relay-shell";
+import { WorkspaceDevRelayBootstrapOwner } from "../components/workspace-dev-relay-bootstrap-owner";
+import { isExperimentOnlineEnabled } from "@/app/features/runtime/experiment-shell-policy";
 
 interface RelayContextType {
   relayList: ReturnType<typeof useRelayList>;
@@ -436,6 +438,25 @@ const FullRelayProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     isConnected: () => false,
   });
 
+  const handleDevRelayBootstrapApplied = useCallback(() => {
+    relayPoolRef.current.reconnectAll();
+    void relayRuntimeSupervisor.triggerRecovery("startup_warmup");
+  }, [relayRuntimeSupervisor]);
+
+  useEffect(() => {
+    if (!transportBootstrapReady || typeof window === "undefined") {
+      return;
+    }
+    const timerId = window.setTimeout(() => {
+      if (!relayPoolRef.current.isConnected()) {
+        relayPoolRef.current.reconnectAll();
+      }
+    }, 750);
+    return () => {
+      window.clearTimeout(timerId);
+    };
+  }, [transportBootstrapReady, enabledRelayUrlsKey, poolConnectionRelayUrls.join("|")]);
+
   const triggerRelayRecovery = useCallback((reason: RelayRecoveryReasonCode = "manual") => {
     return relayRuntimeSupervisor.triggerRecovery(reason);
   }, [relayRuntimeSupervisor]);
@@ -522,7 +543,16 @@ const FullRelayProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     setPrimaryManual,
   ]);
 
-  return <RelayContext.Provider value={value}>{children}</RelayContext.Provider>;
+  return (
+    <RelayContext.Provider value={value}>
+      <WorkspaceDevRelayBootstrapOwner
+        enabled={isExperimentOnlineEnabled() && transportBootstrapReady}
+        relayList={relayList}
+        onBootstrapApplied={handleDevRelayBootstrapApplied}
+      />
+      {children}
+    </RelayContext.Provider>
+  );
 };
 
 export const useRelay = () => {

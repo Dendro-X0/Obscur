@@ -47,6 +47,9 @@ const OWNER_RELATIVE_PATHS = new Set([
   "messaging/local-dm-visibility/local-dm-visibility-owner.ts",
   "messaging/services/dm-conversation-materialization-owner.ts",
   "messaging/services/dm-conversation-materialization-port.ts",
+  "messaging/services/thread-history/dm-adapter.ts",
+  "messaging/services/thread-history/port.ts",
+  "messaging/services/thread-history/group-adapter.ts",
   "messaging/services/dm-conversation-materialization-load-earlier.ts",
   "messaging/services/dm-conversation-hydrate-pipeline.ts",
   "messaging/services/dm-conversation-hydrate-read-model.ts",
@@ -59,6 +62,8 @@ const OWNER_RELATIVE_PATHS = new Set([
   "messaging/services/dm-conversation-materialization-realtime.ts",
   "messaging/services/dm-thread-suppression-prepare.ts",
   "messaging/services/conversation-message-materialization.ts",
+  "messaging/services/thread-message-list-utils.ts",
+  "messaging/services/native-dm-thread-hydrate.ts",
   "messaging/services/dm-read-authority-contract.ts",
   "messaging/services/messaging-client-operations.ts",
   "messaging/services/dm-conversation-delete-identity-ids.ts",
@@ -79,6 +84,7 @@ const OWNER_RELATIVE_PATHS = new Set([
 const shouldIgnoreFile = (relativePath) => (
   IGNORE_SUFFIXES.some((s) => relativePath.includes(s))
   || OWNER_RELATIVE_PATHS.has(relativePath)
+  || relativePath.startsWith("messaging/services/thread-history/")
   || relativePath.startsWith("messaging/local-dm-visibility/")
 );
 

@@ -1,5 +1,6 @@
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { EncryptedAccountBackupPayload } from "../account-sync-contracts";
+import { mergeNativeSqliteBackupEvidence } from "./native-sqlite-backup-evidence";
 import type { CommunityMembershipLedgerEntry } from "@/app/features/groups/services/community-membership-ledger";
 import type { RoomKeySnapshot } from "../account-sync-contracts";
 import type {
@@ -641,6 +642,13 @@ const buildMergeWithCurrentPayload = (params: Readonly<{
     ...(params.mergedRoomKeys.length > 0
       ? { roomKeys: params.mergedRoomKeys }
       : {}),
+    ...(() => {
+      const nativeSqliteEvidence = mergeNativeSqliteBackupEvidence(
+        currentPayload.nativeSqliteEvidence,
+        sanitizedIncomingPayload.nativeSqliteEvidence,
+      );
+      return nativeSqliteEvidence ? { nativeSqliteEvidence } : {};
+    })(),
   };
 };
 
@@ -661,6 +669,10 @@ const buildMergeWithoutCurrentPayload = (params: Readonly<{
   const hasCommunityState = params.mergedCommunityMembershipLedger.length > 0 || params.mergedRoomKeys.length > 0;
 
   if (hasCommunityState) {
+    const nativeSqliteEvidence = mergeNativeSqliteBackupEvidence(
+      undefined,
+      sanitizedIncomingPayload.nativeSqliteEvidence,
+    );
     return {
       ...sanitizedIncomingPayloadWithoutCommunityState,
       ...(params.mergedMessageDeleteTombstones.length > 0 ? { messageDeleteTombstones: params.mergedMessageDeleteTombstones } : {}),
@@ -671,14 +683,21 @@ const buildMergeWithoutCurrentPayload = (params: Readonly<{
       ...(params.mergedRoomKeys.length > 0
         ? { roomKeys: params.mergedRoomKeys }
         : {}),
+      ...(nativeSqliteEvidence ? { nativeSqliteEvidence } : {}),
     };
   }
+
+  const nativeSqliteEvidence = mergeNativeSqliteBackupEvidence(
+    undefined,
+    sanitizedIncomingPayload.nativeSqliteEvidence,
+  );
 
   // No community state - return minimal merged payload
   return {
     ...sanitizedIncomingPayloadWithoutCommunityState,
     ...(params.mergedMessageDeleteTombstones.length > 0 ? { messageDeleteTombstones: params.mergedMessageDeleteTombstones } : {}),
     chatState: params.mergedChatState,
+    ...(nativeSqliteEvidence ? { nativeSqliteEvidence } : {}),
   };
 };
 

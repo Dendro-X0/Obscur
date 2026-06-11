@@ -11,6 +11,8 @@ export type MessageListScrollMode =
     | "search_jump";
 
 export const MESSAGE_LIST_SCROLL_BOTTOM_BUTTON_THRESHOLD_PX = 300;
+/** Near-top scroll distance that triggers automatic load-earlier (infinite history). */
+export const MESSAGE_LIST_LOAD_EARLIER_TOP_THRESHOLD_PX = 240;
 export const MESSAGE_LIST_FAST_SCROLL_VELOCITY_THRESHOLD_PX_PER_MS = 1.5;
 export const MESSAGE_LIST_FRESH_OUTGOING_AUTOSCROLL_THRESHOLD_MS = 15_000;
 export const MESSAGE_LIST_SIZE_ADJUST_NEAR_BOTTOM_THRESHOLD_PX = 80;
@@ -86,4 +88,34 @@ export const shouldMessageListLockToUserHistoryOnUpwardScroll = (params: Readonl
         return false;
     }
     return params.deltaY < 0;
+};
+
+/** Keep the viewport on latest messages while history hydrates until the user scrolls up. */
+export const shouldPinMessageListToLatestDuringInitialLanding = (params: Readonly<{
+    initialPinActive: boolean;
+    userRequestedHistory: boolean;
+    scrollMode: MessageListScrollMode;
+}>): boolean => {
+    if (!params.initialPinActive || params.userRequestedHistory) {
+        return false;
+    }
+    return canMessageListAutoScrollToBottom(params.scrollMode);
+};
+
+export const shouldMessageListAutoLoadEarlier = (params: Readonly<{
+    scrollTop: number;
+    hasEarlierMessages: boolean;
+    isLoadingEarlier: boolean;
+    /** When false, suppresses near-top auto-fetch (e.g. initial mount at scrollTop 0 before user scrolls up). */
+    userRequestedHistory?: boolean;
+    thresholdPx?: number;
+}>): boolean => {
+    if (!params.hasEarlierMessages || params.isLoadingEarlier) {
+        return false;
+    }
+    if (params.userRequestedHistory === false) {
+        return false;
+    }
+    const thresholdPx = params.thresholdPx ?? MESSAGE_LIST_LOAD_EARLIER_TOP_THRESHOLD_PX;
+    return params.scrollTop <= thresholdPx;
 };

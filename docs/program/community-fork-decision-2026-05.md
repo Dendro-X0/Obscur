@@ -1,7 +1,8 @@
 # Community fork decision (2026-05)
 
-**Status:** Superseded by platform pivot — see [platform-pivot-private-trust-2026-05.md](./platform-pivot-private-trust-2026-05.md)  
-**Context:** Public-relay community membership is **infeasible** ([current-session handoff](../handoffs/current-session.md)). **Path B** is the first slice of the private-trust platform; Path A remains a valid interim if team transport is delayed.
+**Status:** **Signed — Path B** (2026-06-02) · Platform pivot: [platform-pivot-private-trust-2026-05.md](./platform-pivot-private-trust-2026-05.md)  
+**Execution roadmap:** [back-online-modular-roadmap-2026-06.md](./back-online-modular-roadmap-2026-06.md)  
+**Context:** Public-relay community membership is **infeasible**. **Path B** is the chosen product fork; Path A remains documented as the interim alternative if ops cannot be sustained.
 
 ---
 
@@ -93,10 +94,11 @@ Production Path B eventually needs: deployed coordination Worker (you already ha
 
 | Field | Value |
 |-------|--------|
-| **Chosen path** | ☐ A — DM-only  ☐ B — Internal network |
-| **Signed by** | |
-| **Date (UTC)** | |
-| **Immediate next step** | A: feature-flag communities / B: coordination health gate + disable public-relay community create |
+| **Chosen path** | ☑ **B — Internal network** · ☐ A — DM-only |
+| **Signed by** | Maintainer (product decision via session 2026-06-02) |
+| **Date (UTC)** | 2026-06-02 |
+| **Immediate next step** | **Band B0:** confirm coordination + relay-tier gates on create; then **Band B1** membership truth subtraction ([back-online-modular-roadmap-2026-06.md](./back-online-modular-roadmap-2026-06.md)) |
+| **Evidence base** | [exploration synthesis](../exploration/synthesis/as-built-architecture-and-fork-options.md) — modules 1–8 complete |
 
 ---
 

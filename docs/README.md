@@ -11,6 +11,7 @@ _Last reviewed: 2026-06-01 (design goals + v1.9.x execution contract)_
 | Priority | Document | Purpose |
 |----------|----------|---------|
 | **0** | [**Design goals and constraints**](./program/design-goals-and-constraints.md) | **What we build** — product, invariants, limitations |
+| **0b** | [**Back online — Path B roadmap**](./program/back-online-modular-roadmap-2026-06.md) | **Signed fork** — bands B0–B5, subtraction order |
 | **1** | [**v1.9.x execution contract**](./program/v1.9.x-execution-contract.md) | **How we work** — single daily order |
 | 2 | [Current session handoff](./handoffs/current-session.md) | Active unit, phase, next atomic step |
 | 3 | [v1.9.x release train](./program/v1.9.x-release-train.md) | Semver tags; patch map (**1.9.4+** active) |
@@ -156,7 +157,8 @@ Archived version plans: [`archive/consolidated/`](./archive/consolidated/).
 
 | Shelf | Path |
 |-------|------|
-| Research | [`research/`](./research/) |
+| **Codebase exploration (as-built audit)** | [**exploration/**](./exploration/) — module-by-module black-box findings; **research-only**, no implementation queue |
+| Research (forward-looking proposals) | [`research/`](./research/) |
 | Design | [`design/`](./design/) |
 | Security | [`security/`](./security/) |
 | Demo / GIF assets | [`assets/`](./assets/) |

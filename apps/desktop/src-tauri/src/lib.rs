@@ -27,11 +27,13 @@ mod commands;
 mod update_channel;
 mod data_root;
 mod local_save_scan;
+mod warmup;
 mod services;
 
 use profiles::DesktopProfileState;
 use session::SessionState;
 use commands::db::DbState;
+use commands::warmup::DesktopWarmupState;
 use commands::tor::{load_tor_settings, start_tor};
 #[cfg(desktop)]
 use commands::tor::stop_tor_child;
@@ -40,7 +42,13 @@ use commands::window::{capture_window_state, write_window_state};
 
 // Import window models
 #[cfg(desktop)]
-use models::window::{WindowState, PERSIST_WINDOW_STATE_IN_DEBUG, sanitize_window_state, is_reasonable_window_position};
+use models::window::{
+    WindowState,
+    PERSIST_WINDOW_STATE_IN_DEBUG,
+    sanitize_window_state,
+    is_reasonable_window_position,
+    reveal_desktop_window,
+};
 
 // Import tray models and services
 #[cfg(desktop)]
@@ -121,6 +129,7 @@ pub fn run() {
                 Ok(db_state) => { app.manage(db_state); }
                 Err(e) => { eprintln!("[obscur] Failed to open database: {e}"); }
             }
+            app.manage(DesktopWarmupState::new());
 
             let protocol_db_path = app
                 .path()
@@ -153,22 +162,30 @@ pub fn run() {
 
             #[cfg(desktop)]
             let _window = {
-                let window_builder = tauri::WebviewWindowBuilder::new(
+                let base_builder = tauri::WebviewWindowBuilder::new(
                     app,
                     "main",
-                    tauri::WebviewUrl::App("index.html".into()),
+                    profiles::resolve_profile_window_url(&app.handle()),
                 )
-                .initialization_script(
-                    "window.__OBSCUR_WINDOW_BOOT__={windowLabel:\"main\",profileId:\"default\"};",
-                )
+                .initialization_script(&format!(
+                    "{}window.__OBSCUR_WINDOW_BOOT__={{windowLabel:\"main\",profileId:\"default\"}};",
+                    profiles::experiment_shell_boot_prefix(),
+                ))
                 .data_directory(main_data_dir)
                 .title("Obscur")
                 .inner_size(1200.0, 800.0)
                 .min_inner_size(800.0, 600.0)
                 .resizable(true)
                 .decorations(false)
-                .shadow(true) // We keep window shadow but remove OS border decorations
-                .visible(false); // Hide initially to apply state
+                .shadow(true); // We keep window shadow but remove OS border decorations
+                #[cfg(debug_assertions)]
+                let window_builder = base_builder
+                    .visible(true)
+                    .focused(true)
+                    .center()
+                    .devtools(true);
+                #[cfg(not(debug_assertions))]
+                let window_builder = base_builder.visible(false);
                 window_builder.build().expect("Failed to build main window")
             };
             #[cfg(mobile)]
@@ -260,10 +277,17 @@ pub fn run() {
                     apply_window_state(&_window, state);
                 }
 
-                // Show the window now
-                let _ = _window.unminimize();
-                let _ = _window.show();
-                let _ = _window.set_focus();
+                reveal_desktop_window(&_window, "setup");
+
+                let failsafe_window = _window.clone();
+                tauri::async_runtime::spawn(async move {
+                    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+                    if failsafe_window.is_visible().unwrap_or(true) {
+                        return;
+                    }
+                    eprintln!("[WINDOW] Failsafe reveal for main window after startup");
+                    reveal_desktop_window(&failsafe_window, "failsafe");
+                });
             }
 
             // Save window state and intercept close
@@ -345,6 +369,7 @@ pub fn run() {
                     commands::profile::desktop_open_profile_window,
                     commands::profile::desktop_bind_window_profile,
                     commands::profile::desktop_remove_profile,
+                    commands::profile::desktop_clear_profile_webview_data,
                     commands::profile::desktop_write_profile_workspace_archive,
                     commands::profile::desktop_list_profile_workspace_archives,
                     commands::profile::desktop_open_profile_archives_folder,
@@ -425,7 +450,10 @@ pub fn run() {
                     commands::db::db_upsert_relay_checkpoint,
                     commands::db::db_get_relay_checkpoint,
                     commands::db::db_get_relay_checkpoints,
-                    commands::db::db_search_messages
+                    commands::db::db_search_messages,
+                    commands::db::db_wipe_profile_local_data,
+                    commands::warmup::desktop_start_warmup,
+                    commands::warmup::desktop_get_warmup_status
                 ]
             }
             #[cfg(not(desktop))]
@@ -449,6 +477,7 @@ pub fn run() {
                     commands::profile::desktop_open_profile_window,
                     commands::profile::desktop_bind_window_profile,
                     commands::profile::desktop_remove_profile,
+                    commands::profile::desktop_clear_profile_webview_data,
                     commands::profile::desktop_write_profile_workspace_archive,
                     commands::profile::desktop_list_profile_workspace_archives,
                     commands::profile::desktop_open_profile_archives_folder,
@@ -529,10 +558,21 @@ pub fn run() {
                     commands::db::db_upsert_relay_checkpoint,
                     commands::db::db_get_relay_checkpoint,
                     commands::db::db_get_relay_checkpoints,
-                    commands::db::db_search_messages
+                    commands::db::db_search_messages,
+                    commands::db::db_wipe_profile_local_data,
+                    commands::warmup::desktop_start_warmup,
+                    commands::warmup::desktop_get_warmup_status
                 ]
             }
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app_handle, event| {
+            if let tauri::RunEvent::Ready = event {
+                #[cfg(desktop)]
+                if let Some(window) = app_handle.get_webview_window("main") {
+                    reveal_desktop_window(&window, "run_ready");
+                }
+            }
+        });
 }

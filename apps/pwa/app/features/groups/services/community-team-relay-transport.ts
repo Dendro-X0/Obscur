@@ -1,4 +1,5 @@
-import type { NostrEvent, UnsignedNostrEvent } from "@dweb/nostr/nostr-event";
+import type { NostrEvent } from "@dweb/nostr/nostr-event";
+import type { UnsignedNostrEvent } from "@/app/features/crypto/crypto-service";
 import { createTeamRelayTransportAdapter } from "@dweb/transport-team-relay";
 import type { TransportPort } from "@dweb/transport-contracts";
 import type { EnhancedRelayPoolResult } from "@/app/features/relays/hooks/enhanced-relay-pool";

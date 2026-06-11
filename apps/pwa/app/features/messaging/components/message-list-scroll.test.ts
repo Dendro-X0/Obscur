@@ -5,12 +5,15 @@ import {
     isMessageListAwayFromBottom,
     isMessageListFastScroll,
     isMessageListUserAwayFromBottom,
+    MESSAGE_LIST_LOAD_EARLIER_TOP_THRESHOLD_PX,
     MESSAGE_LIST_SIZE_ADJUST_NEAR_BOTTOM_THRESHOLD_PX,
     MESSAGE_LIST_SCROLL_BOTTOM_BUTTON_THRESHOLD_PX,
     MESSAGE_LIST_USER_AWAY_FROM_BOTTOM_THRESHOLD_PX,
     shouldMessageListLockToUserHistoryOnUpwardScroll,
     shouldAdjustScrollForSizeChange,
     shouldAutoScrollOnNewMessage,
+    shouldMessageListAutoLoadEarlier,
+    shouldPinMessageListToLatestDuringInitialLanding,
 } from "./message-list-scroll";
 
 describe("message-list scroll utils", () => {
@@ -161,6 +164,67 @@ describe("message-list scroll utils", () => {
             mode: "user_reading_history",
             deltaY: -12,
             isTrustedUserScroll: true,
+        })).toBe(false);
+    });
+});
+
+describe("message-list initial latest pin", () => {
+    it("pins to latest while initial landing is active and user has not scrolled up", () => {
+        expect(shouldPinMessageListToLatestDuringInitialLanding({
+            initialPinActive: true,
+            userRequestedHistory: false,
+            scrollMode: "follow_bottom",
+        })).toBe(true);
+    });
+
+    it("releases pin after the user requests history", () => {
+        expect(shouldPinMessageListToLatestDuringInitialLanding({
+            initialPinActive: true,
+            userRequestedHistory: true,
+            scrollMode: "follow_bottom",
+        })).toBe(false);
+    });
+
+    it("does not pin when the user is reading history", () => {
+        expect(shouldPinMessageListToLatestDuringInitialLanding({
+            initialPinActive: true,
+            userRequestedHistory: false,
+            scrollMode: "user_reading_history",
+        })).toBe(false);
+    });
+});
+
+describe("message-list scroll auto load earlier", () => {
+    it("requests earlier history when scrolled near the top", () => {
+        expect(shouldMessageListAutoLoadEarlier({
+            scrollTop: MESSAGE_LIST_LOAD_EARLIER_TOP_THRESHOLD_PX,
+            hasEarlierMessages: true,
+            isLoadingEarlier: false,
+        })).toBe(true);
+    });
+
+    it("does not request earlier history while a load is in flight", () => {
+        expect(shouldMessageListAutoLoadEarlier({
+            scrollTop: 0,
+            hasEarlierMessages: true,
+            isLoadingEarlier: true,
+        })).toBe(false);
+    });
+
+    it("does not request earlier history when no earlier pages exist", () => {
+        expect(shouldMessageListAutoLoadEarlier({
+            scrollTop: 0,
+            hasEarlierMessages: false,
+            isLoadingEarlier: false,
+        })).toBe(false);
+    });
+
+    it("does not request earlier history at scroll top before the user scrolls up", () => {
+        expect(shouldMessageListAutoLoadEarlier({
+            scrollTop: 0,
+            hasEarlierMessages: true,
+            isLoadingEarlier: false,
+            userRequestedHistory: false,
         })).toBe(false);
     });
 });

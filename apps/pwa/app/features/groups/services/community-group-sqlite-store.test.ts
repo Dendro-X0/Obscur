@@ -4,6 +4,7 @@ import type { GroupRecord } from "@dweb/db";
 import {
   groupConversationToSqliteRecord,
   mergePersistedGroupRowsForNativeHydrate,
+  syncPersistedGroupsToSqliteFromChatState,
   scheduleNativeGroupListSync,
   sqliteGroupRecordToPersistedGroup,
 } from "./community-group-sqlite-store";
@@ -93,6 +94,25 @@ describe("community-group-sqlite-store (P3d)", () => {
     await vi.waitFor(() => {
       expect(dbUpsertGroup).toHaveBeenCalledTimes(1);
     });
+  });
+
+  it("syncPersistedGroupsToSqliteFromChatState upserts restored group list (B4-2)", async () => {
+    vi.mocked(requiresSqlitePersistence).mockReturnValue(true);
+    const count = await syncPersistedGroupsToSqliteFromChatState([{
+      id: "community:g1:wss://relay.test",
+      groupId: "g1",
+      relayUrl: "wss://relay.test",
+      displayName: "Test Group",
+      memberPubkeys: [LOCAL],
+      lastMessage: "hi",
+      unreadCount: 0,
+      lastMessageTimeMs: 1_000,
+    }], "profile-a");
+    expect(count).toBe(1);
+    expect(dbUpsertGroup).toHaveBeenCalledWith(expect.objectContaining({
+      id: "g1",
+      profile_id: "profile-a",
+    }));
   });
 
   it("skips sqlite sync when native persistence is not required", async () => {

@@ -83,6 +83,7 @@ import { GroupManagementGeneralPanel } from "./group-management/panels/general-p
 import { GroupManagementMembersPanel } from "./group-management/panels/members-panel";
 import { GroupManagementGovernancePanel } from "./group-management/panels/governance-panel";
 import { GroupManagementSettingsPanel } from "./group-management/panels/settings-panel";
+import { resolveGroupManagementSealedCommunityEnabled } from "../services/sealed-community-instance-policy";
 
 interface GroupManagementDialogProps {
     isOpen: boolean;
@@ -131,7 +132,10 @@ export function GroupManagementDialog({
         myPublicKeyHex,
         myPrivateKeyHex,
         initialMembers: initialMemberSeed,
-        enabled: isOpen && !communityController,
+        enabled: resolveGroupManagementSealedCommunityEnabled({
+            isOpen,
+            hasParentController: Boolean(communityController),
+        }),
     });
     const {
         state,

@@ -2,5 +2,6 @@ export { GlobalNavigationChunkLoadingBoundary } from "./global-navigation-chunk-
 export {
   GlobalNavigationLoadingProvider,
   useGlobalNavigationLoadingActions,
+  useGlobalNavigationLoadingState,
 } from "./global-navigation-loading-provider";
 export { GlobalNavigationLoadingBar } from "./global-navigation-loading-bar";

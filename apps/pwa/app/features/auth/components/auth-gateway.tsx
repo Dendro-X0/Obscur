@@ -18,6 +18,7 @@ import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { PendingProfileImportResume } from "@/app/features/profiles/components/pending-profile-import-resume";
 import { AccountActiveInOtherProfileWindowError } from "@/app/features/profiles/services/cross-profile-active-session-lease";
+import { DevLabAuthBridge } from "@/app/features/dev-lab/dev-lab-auth-bridge";
 
 interface AuthGatewayProps {
   children: React.ReactNode;
@@ -373,6 +374,7 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
 
     return (
       <>
+        <DevLabAuthBridge />
         <PendingProfileImportResume
           publicKeyHex={(identity.state.publicKeyHex as PublicKeyHex | null) ?? null}
           resolveActivePrivateKeyHex={resolveActivePrivateKeyHex}
@@ -384,11 +386,19 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
 
   if (runtime.snapshot.phase === "unlocking") {
     return (
-      <div className="flex flex-1 items-center justify-center bg-zinc-50 dark:bg-black">
-        <p className="text-sm text-zinc-500 dark:text-zinc-400">Unlocking profile…</p>
-      </div>
+      <>
+        <DevLabAuthBridge />
+        <div className="flex flex-1 items-center justify-center bg-zinc-50 dark:bg-black">
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">Unlocking profile…</p>
+        </div>
+      </>
     );
   }
 
-  return <ProfileBoundAuthShell />;
+  return (
+    <>
+      <DevLabAuthBridge />
+      <ProfileBoundAuthShell />
+    </>
+  );
 };

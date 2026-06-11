@@ -17,45 +17,29 @@ import { RelayTransportShellBanner } from "@/app/features/relays/components/rela
 import { useTranslation } from "react-i18next";
 import { MobileTabBar } from "./mobile-tab-bar";
 import { isMobileShellProduct } from "@/app/features/runtime/shell-contract";
-import { PageTransitionLoadingShell, RouteLoadingFallback } from "./experience";
+import { RouteLoadingFallback } from "./experience";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import {
   createRouteMountDiagnosticsState,
-  createPageTransitionRecoveryState,
   getRouteSurfaceFromPathname,
   hardNavigate,
-  PAGE_TRANSITION_WATCHDOG_MS,
   ROUTE_MOUNT_SLOW_DISABLE_THRESHOLD,
   ROUTE_MOUNT_PROBE_WARN_THRESHOLD_MS,
   ROUTE_NAVIGATION_STALL_HARD_FALLBACK_MS,
   recordRouteMountProbeSample,
-  recordPageTransitionWatchdogTimeout,
   type RouteMountDiagnosticsState,
 } from "./page-transition-recovery";
-import {
-  hasIntelligentNavigationWarmupWork,
-  resolveIntelligentNavigationWarmupPlan,
-  type NavigationWarmupSpecialTask,
-} from "./intelligent-navigation-warmup-policy";
-import { runIntelligentNavigationWarmup } from "./intelligent-navigation-warmup-runner";
 import {
   shouldDeferExperimentHeavyWork,
   shouldRunNavigationInstrumentation,
 } from "@/app/features/runtime/experiment-shell-policy";
-import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
-import { isSecondaryProfileWindow } from "@/app/features/runtime/services/secondary-profile-post-login-refresh-policy";
 import {
-  NAVIGATION_QUIESCENCE_MS,
   recordNavigationIntent,
-  recordPathnameCommitted,
-  shouldRunBackgroundNavigationWarmup,
   isRapidNavigationMode,
 } from "./navigation-performance-coordinator";
-import { prefetchRouteShell } from "./route-navigation-warmup";
+import { useNavigationWarmupOwner } from "./navigation-warmup-owner";
+import { prefetchRouteShell, prefetchSidebarRouteClientOnIntent } from "./route-navigation-warmup";
 import { SidebarPortalHost } from "./app-shell-sidebar-portal";
-import {
-  useGlobalNavigationLoadingActions,
-} from "./global-navigation-loading";
 
 type NavIcon = (props: Readonly<{ className?: string }>) => React.ReactNode;
 
@@ -137,15 +121,7 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
   const activeRouteSurface = useMemo(() => getRouteSurfaceFromPathname(pathname), [pathname]);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false);
   const [hasMounted, setHasMounted] = useState<boolean>(false);
-  const [isPageTransitionActive, setIsPageTransitionActive] = useState<boolean>(false);
-  const [arePageTransitionsEnabled, setArePageTransitionsEnabled] = useState<boolean>(
-    () => shouldRunNavigationInstrumentation(),
-  );
-  const pageTransitionRecoveryRef = useRef(createPageTransitionRecoveryState());
-  const pageTransitionWatchdogIdRef = useRef<number | null>(null);
-  const pageTransitionAnimationFrameIdRef = useRef<number | null>(null);
-  const pageTransitionSequenceRef = useRef<number>(0);
-  const pageTransitionStartedAtUnixMsRef = useRef<number>(0);
+  const [arePageTransitionsEnabled, setArePageTransitionsEnabled] = useState<boolean>(false);
   const routeFallbackTimeoutIdRef = useRef<number | null>(null);
   const routePendingTargetRef = useRef<string | null>(null);
   const routePendingStartedAtUnixMsRef = useRef<number>(0);
@@ -158,11 +134,8 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
   const arePageTransitionsEnabledRef = useRef<boolean>(true);
   const routeStallHardFallbackCountRef = useRef<number>(0);
   const navigationFailOpenEnabledRef = useRef<boolean>(false);
-  const warmedPrefetchTargetsRef = useRef<Set<string>>(new Set());
-  const warmedSpecialWarmupTasksRef = useRef<Set<NavigationWarmupSpecialTask>>(new Set());
-  const navigationWarmupGenerationRef = useRef(0);
+  const idleSchedulerRef = useRef(createIdleScheduler());
   const isDesktop = useIsDesktop();
-  const { beginNavigation } = useGlobalNavigationLoadingActions();
   useDesktopLayout();
 
   // Register keyboard shortcuts for desktop
@@ -178,177 +151,13 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
     arePageTransitionsEnabledRef.current = arePageTransitionsEnabled;
   }, [arePageTransitionsEnabled]);
 
-  useEffect((): (() => void) => {
-    recordPathnameCommitted(pathname);
-
-    const warmupRunId = navigationWarmupGenerationRef.current + 1;
-    navigationWarmupGenerationRef.current = warmupRunId;
-    const isStale = (): boolean => navigationWarmupGenerationRef.current !== warmupRunId;
-
-    if (shouldDeferExperimentHeavyWork()) {
-      logAppEvent({
-        name: "navigation.intelligent_warmup_skipped",
-        level: "debug",
-        scope: { feature: "navigation", action: "route_prefetch" },
-        context: {
-          pathname,
-          routeSurface: activeRouteSurface,
-          reason: "experiment_offline_stub",
-          isDesktop,
-        },
-      });
-      return (): void => {
-        navigationWarmupGenerationRef.current += 1;
-      };
-    }
-
-    const profileId = getResolvedProfileId();
-    if (isSecondaryProfileWindow(profileId)) {
-      logAppEvent({
-        name: "navigation.intelligent_warmup_skipped",
-        level: "debug",
-        scope: { feature: "navigation", action: "route_prefetch" },
-        context: {
-          pathname,
-          routeSurface: activeRouteSurface,
-          reason: "secondary_profile_window",
-          profileId,
-          isDesktop,
-        },
-      });
-      return (): void => {
-        navigationWarmupGenerationRef.current += 1;
-      };
-    }
-
-    const quiescenceTimerId = window.setTimeout((): void => {
-      if (isStale()) {
-        return;
-      }
-      if (!shouldRunBackgroundNavigationWarmup()) {
-        logAppEvent({
-          name: "navigation.intelligent_warmup_skipped",
-          level: "debug",
-          scope: { feature: "navigation", action: "route_prefetch" },
-          context: {
-            pathname,
-            routeSurface: activeRouteSurface,
-            reason: "navigation_not_quiesced",
-            isDesktop,
-          },
-        });
-        return;
-      }
-
-      const warmupPlan = resolveIntelligentNavigationWarmupPlan({
-        pathname,
-        routeSurface: activeRouteSurface,
-        navItems: NAV_ITEMS,
-        warmedHrefs: warmedPrefetchTargetsRef.current,
-        warmedSpecialTasks: warmedSpecialWarmupTasksRef.current,
-      });
-
-      if (!hasIntelligentNavigationWarmupWork(warmupPlan)) {
-        logAppEvent({
-          name: "navigation.intelligent_warmup_skipped",
-          level: "debug",
-          scope: { feature: "navigation", action: "route_prefetch" },
-          context: {
-            pathname,
-            routeSurface: activeRouteSurface,
-            reason: "no_targets",
-            isDesktop,
-          },
-        });
-        return;
-      }
-
-      logAppEvent({
-        name: "navigation.intelligent_warmup_started",
-        level: "info",
-        scope: { feature: "navigation", action: "route_prefetch" },
-        context: {
-          pathname,
-          routeSurface: activeRouteSurface,
-          criticalCount: warmupPlan.critical.length,
-          contextCount: warmupPlan.context.length,
-          backgroundCount: warmupPlan.background.length,
-          specialTaskCount: warmupPlan.specialTasks.length,
-          isDesktop,
-          deferredMs: NAVIGATION_QUIESCENCE_MS,
-        },
-      });
-
-      const scheduler = createIdleScheduler();
-      void runIntelligentNavigationWarmup(router, warmupPlan, {
-        isStale,
-        scheduleIdle: (callback) => scheduler.schedule(callback),
-        onPhaseComplete: (summary) => {
-          if (isStale()) {
-            return;
-          }
-          for (const result of summary.hrefResults) {
-            if (result.status === "fulfilled") {
-              warmedPrefetchTargetsRef.current.add(result.href);
-            }
-          }
-          for (const task of summary.specialTasks) {
-            warmedSpecialWarmupTasksRef.current.add(task);
-          }
-          const failedTargets = summary.hrefResults.flatMap((result) => (
-            result.status === "rejected" ? [result.href] : []
-          ));
-          logAppEvent({
-            name: "navigation.intelligent_warmup_phase_completed",
-            level: failedTargets.length > 0 ? "warn" : "debug",
-            scope: { feature: "navigation", action: "route_prefetch" },
-            context: {
-              pathname,
-              routeSurface: activeRouteSurface,
-              phase: summary.phase,
-              warmedHrefCount: summary.hrefResults.length,
-              failedTargetCount: failedTargets.length,
-              failedTargetsSummary: failedTargets.join(","),
-              specialTasksSummary: summary.specialTasks.join(","),
-              isDesktop,
-            },
-          });
-        },
-      }).then(() => {
-        if (isStale()) {
-          return;
-        }
-        logAppEvent({
-          name: "navigation.intelligent_warmup_settled",
-          level: "info",
-          scope: { feature: "navigation", action: "route_prefetch" },
-          context: {
-            pathname,
-            routeSurface: activeRouteSurface,
-            isDesktop,
-          },
-        });
-      });
-    }, NAVIGATION_QUIESCENCE_MS);
-
-    return (): void => {
-      window.clearTimeout(quiescenceTimerId);
-      navigationWarmupGenerationRef.current += 1;
-    };
-  }, [activeRouteSurface, isDesktop, pathname, router]);
-
-  const clearPageTransitionTimers = useCallback((): void => {
-    const watchdogId = pageTransitionWatchdogIdRef.current;
-    if (typeof watchdogId === "number") {
-      window.clearTimeout(watchdogId);
-      pageTransitionWatchdogIdRef.current = null;
-    }
-    const animationFrameId = pageTransitionAnimationFrameIdRef.current;
-    if (typeof animationFrameId === "number") {
-      window.cancelAnimationFrame(animationFrameId);
-      pageTransitionAnimationFrameIdRef.current = null;
-    }
-  }, []);
+  useNavigationWarmupOwner({
+    pathname,
+    activeRouteSurface,
+    isDesktop,
+    router,
+    navItems: NAV_ITEMS,
+  });
 
   const clearRouteMountProbeTimers = useCallback((): void => {
     const slowTimeoutId = routeMountProbeSlowTimeoutIdRef.current;
@@ -381,11 +190,8 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
   const enableNavigationFailOpen = useCallback((disableReason: string): void => {
     const wasFailOpenEnabled = navigationFailOpenEnabledRef.current;
     navigationFailOpenEnabledRef.current = true;
-    setIsPageTransitionActive(false);
     setMobileSidebarOpen(false);
-    pageTransitionSequenceRef.current += 1;
     routeMountProbeSequenceRef.current += 1;
-    clearPageTransitionTimers();
     clearRouteMountProbeTimers();
     clearRouteFallback();
     if (arePageTransitionsEnabledRef.current) {
@@ -400,7 +206,6 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
         context: {
           pathname,
           routeSurface: activeRouteSurface,
-          timeoutCount: pageTransitionRecoveryRef.current.timeoutCount,
           disableReason,
           consecutiveSlowSampleCount: routeMountDiagnosticsRef.current.consecutiveSlowSampleCount,
           disableThreshold: ROUTE_MOUNT_SLOW_DISABLE_THRESHOLD,
@@ -409,7 +214,6 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
     }
   }, [
     activeRouteSurface,
-    clearPageTransitionTimers,
     clearRouteFallback,
     clearRouteMountProbeTimers,
     pathname,
@@ -432,7 +236,7 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
   }, []);
 
   const armRouteHardFallback = useCallback((targetHref: string): void => {
-    if (shouldDeferExperimentHeavyWork() || !shouldRunNavigationInstrumentation()) {
+    if (shouldDeferExperimentHeavyWork()) {
       return;
     }
     if (!targetHref || targetHref === pathname) {
@@ -495,108 +299,8 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
       return;
     }
     prefetchRouteShell(router, targetHref);
+    prefetchSidebarRouteClientOnIntent(targetHref, idleSchedulerRef.current);
   }, [pathname, router]);
-
-  useEffect((): (() => void) => {
-    if (!shouldRunNavigationInstrumentation()) {
-      setIsPageTransitionActive(false);
-      return clearPageTransitionTimers;
-    }
-
-    pageTransitionSequenceRef.current += 1;
-    const transitionSequence = pageTransitionSequenceRef.current;
-    pageTransitionStartedAtUnixMsRef.current = Date.now();
-    clearPageTransitionTimers();
-
-    if (!arePageTransitionsEnabled) {
-      setIsPageTransitionActive(false);
-      return clearPageTransitionTimers;
-    }
-
-    setIsPageTransitionActive(true);
-    logAppEvent({
-      name: "navigation.page_transition_start",
-      level: "debug",
-      scope: { feature: "navigation", action: "page_transition" },
-      context: {
-        pathname,
-        routeSurface: activeRouteSurface,
-      },
-    });
-
-    pageTransitionAnimationFrameIdRef.current = window.requestAnimationFrame((): void => {
-      if (pageTransitionSequenceRef.current !== transitionSequence) {
-        return;
-      }
-      pageTransitionAnimationFrameIdRef.current = null;
-      const watchdogId = pageTransitionWatchdogIdRef.current;
-      if (typeof watchdogId === "number") {
-        window.clearTimeout(watchdogId);
-        pageTransitionWatchdogIdRef.current = null;
-      }
-      setIsPageTransitionActive(false);
-      logAppEvent({
-        name: "navigation.page_transition_settled",
-        level: "debug",
-        scope: { feature: "navigation", action: "page_transition" },
-        context: {
-          pathname,
-          routeSurface: activeRouteSurface,
-          elapsedMs: Math.max(0, Date.now() - pageTransitionStartedAtUnixMsRef.current),
-          transitionsEnabled: true,
-        },
-      });
-    });
-
-    pageTransitionWatchdogIdRef.current = window.setTimeout((): void => {
-      if (pageTransitionSequenceRef.current !== transitionSequence) {
-        return;
-      }
-      pageTransitionWatchdogIdRef.current = null;
-      const animationFrameId = pageTransitionAnimationFrameIdRef.current;
-      if (typeof animationFrameId === "number") {
-        window.cancelAnimationFrame(animationFrameId);
-        pageTransitionAnimationFrameIdRef.current = null;
-      }
-      setIsPageTransitionActive(false);
-
-      const nextRecoveryState = recordPageTransitionWatchdogTimeout(pageTransitionRecoveryRef.current);
-      pageTransitionRecoveryRef.current = nextRecoveryState;
-      const elapsedMs = Math.max(0, Date.now() - pageTransitionStartedAtUnixMsRef.current);
-
-      logAppEvent({
-        name: "navigation.page_transition_watchdog_timeout",
-        level: "warn",
-        scope: { feature: "navigation", action: "page_transition" },
-        context: {
-          pathname,
-          routeSurface: activeRouteSurface,
-          elapsedMs,
-          timeoutCount: nextRecoveryState.timeoutCount,
-          transitionsDisabled: nextRecoveryState.transitionsDisabled,
-          watchdogTimeoutMs: PAGE_TRANSITION_WATCHDOG_MS,
-        },
-      });
-
-      if (nextRecoveryState.transitionsDisabled) {
-        enableNavigationFailOpen("page_transition_watchdog_threshold");
-      }
-    }, PAGE_TRANSITION_WATCHDOG_MS);
-
-    return clearPageTransitionTimers;
-  }, [
-    activeRouteSurface,
-    arePageTransitionsEnabled,
-    clearPageTransitionTimers,
-    enableNavigationFailOpen,
-    pathname,
-  ]);
-
-  useEffect((): (() => void) => {
-    return (): void => {
-      clearPageTransitionTimers();
-    };
-  }, [clearPageTransitionTimers]);
 
   useEffect((): (() => void) => {
     if (!shouldRunNavigationInstrumentation()) {
@@ -668,7 +372,7 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
             secondFrameDelayMs,
             routeRequestElapsedMs,
             pageTransitionsEnabled: arePageTransitionsEnabledRef.current,
-            transitionWatchdogTimeoutCount: pageTransitionRecoveryRef.current.timeoutCount,
+            transitionWatchdogTimeoutCount: 0,
           },
         );
         const latestRouteMountDiagnostics = routeMountDiagnosticsRef.current;
@@ -692,7 +396,7 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
             routeRequestElapsedMs,
             warnThresholdMs: ROUTE_MOUNT_PROBE_WARN_THRESHOLD_MS,
             pageTransitionsEnabled: arePageTransitionsEnabledRef.current,
-            transitionWatchdogTimeoutCount: pageTransitionRecoveryRef.current.timeoutCount,
+            transitionWatchdogTimeoutCount: 0,
           },
         });
 
@@ -889,17 +593,17 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
                       if (event.button !== 0 || event.metaKey || event.altKey || event.ctrlKey || event.shiftKey) {
                         return;
                       }
-                      event.preventDefault();
+                      if (item.href === pathname) {
+                        event.preventDefault();
+                        return;
+                      }
                       if (navigationFailOpenEnabledRef.current) {
+                        event.preventDefault();
                         hardNavigate(item.href);
                         return;
                       }
                       recordNavigationIntent(item.href);
                       armRouteHardFallback(item.href);
-                      if (item.href !== pathname) {
-                        beginNavigation(item.href);
-                        router.push(item.href);
-                      }
                     }}
                     className={cn(
                       "nav-link group relative inline-flex h-10 w-10 select-none items-center justify-center rounded-xl border border-transparent transition-all shrink-0",
@@ -983,24 +687,7 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
           "relative flex flex-1 flex-col min-h-0 md:pb-0",
           props.mobileDmMode ? "pb-mobile-thread" : "pb-mobile-tab-bar",
         )}>
-          <PageTransitionLoadingShell
-            visible={isPageTransitionActive && arePageTransitionsEnabled}
-            pathname={pathname}
-          />
-          <div
-            aria-hidden="true"
-            className={cn(
-              "pointer-events-none absolute inset-0 z-10 bg-gradient-to-br from-zinc-300/20 via-transparent to-zinc-300/10 dark:from-zinc-200/10 dark:to-transparent transition-opacity duration-150 motion-reduce:transition-none",
-              isPageTransitionActive && arePageTransitionsEnabled ? "opacity-100" : "opacity-0",
-            )}
-          />
-          <div
-            className={cn(
-              "relative z-0 flex min-h-0 flex-1 flex-col",
-              arePageTransitionsEnabled ? "transition-all duration-150 motion-reduce:transition-none" : "transition-none",
-              isPageTransitionActive && arePageTransitionsEnabled ? "translate-y-1 opacity-95" : "translate-y-0 opacity-100",
-            )}
-          >
+          <div className="relative z-0 flex min-h-0 flex-1 flex-col">
             <React.Suspense fallback={
               <div className="animate-in fade-in duration-200">
                 <RouteLoadingFallback

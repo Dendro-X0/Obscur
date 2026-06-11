@@ -2,12 +2,23 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 import { wipeProfileWorkspaceCompletely } from "./wipe-profile-workspace";
 
-vi.mock("@/app/features/messaging/services/local-history-reset-service", () => ({
-  resetLocalHistoryKeepingIdentity: vi.fn(async () => ({
+vi.mock("./profile-local-reset-service", () => ({
+  completeProfileLocalDataRemoval: vi.fn(async () => ({
     profileId: "profile-2",
     publicKeyHex: null,
-    removedLocalStorageKeyCount: 2,
-    clearedIndexedDbStoreCount: 0,
+    tier: "complete",
+    historyReset: {
+      profileId: "profile-2",
+      publicKeyHex: null,
+      removedLocalStorageKeyCount: 2,
+      clearedIndexedDbStoreCount: 0,
+      warnings: [],
+    },
+    sqliteWiped: true,
+    sqliteRowsDeleted: 3,
+    operatorConfigCleared: true,
+    webviewDataCleared: true,
+    blocklistCleared: false,
     warnings: [],
   })),
 }));
@@ -33,7 +44,7 @@ describe("wipeProfileWorkspaceCompletely", () => {
     localStorage.clear();
   });
 
-  it("clears scoped profile keys after history reset", async () => {
+  it("clears scoped profile keys after complete local reset", async () => {
     const profileId = "profile-2";
     localStorage.setItem(getScopedStorageKey("obscur.test.marker", profileId), "1");
     localStorage.setItem(getScopedStorageKey("obscur.test.marker", "other"), "keep");
@@ -41,6 +52,7 @@ describe("wipeProfileWorkspaceCompletely", () => {
     const report = await wipeProfileWorkspaceCompletely({ profileId });
 
     expect(report.profileId).toBe(profileId);
+    expect(report.localReset.tier).toBe("complete");
     expect(localStorage.getItem(getScopedStorageKey("obscur.test.marker", profileId))).toBeNull();
     expect(localStorage.getItem(getScopedStorageKey("obscur.test.marker", "other"))).toBe("keep");
   });

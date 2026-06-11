@@ -4,13 +4,16 @@ import { useMemo } from "react";
 import type React from "react";
 import dynamic from "next/dynamic";
 import type { SettingsTabId } from "@/app/features/settings/services/settings-search-index";
-import { GlobalNavigationChunkLoadingBoundary } from "@/app/components/global-navigation-loading";
 import { settingsTabPanelModelProviderLoaders } from "../settings-tab-panel-models/settings-tab-panel-model-provider-registry";
+import { RouteLoadingFallback } from "@/app/components/experience";
 import { SettingsTabPanelErrorBoundary } from "./settings-tab-panel-error-boundary";
 
-/** Top-level nav bar only — no in-panel loading block while tab chunks load. */
 const settingsTabPanelLoading = (): React.JSX.Element => (
-  <GlobalNavigationChunkLoadingBoundary />
+  <RouteLoadingFallback
+    title="Loading settings"
+    detail="Preparing panel..."
+    className="min-h-[12rem]"
+  />
 );
 
 const panelLoaders = {

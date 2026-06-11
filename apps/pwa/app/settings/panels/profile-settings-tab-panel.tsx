@@ -14,6 +14,7 @@ import { LanguageSelector } from "@/app/components/language-selector";
 import { ProfileCompletenessIndicator } from "@/app/features/profile/components/profile-completeness-indicator";
 import { RelayReadinessSettingsBanner } from "@/app/features/relays/components/relay-readiness-settings-banner";
 import { CommunityMembershipSyncSettingsPanel } from "@/app/features/settings/components/community-membership-sync-settings-panel";
+import { WorkspaceKernelBackupRestoreScopeNotice } from "@/app/features/workspace-kernel/components/workspace-kernel-backup-restore-scope-notice";
 import { TrustSettingsPanel } from "@/app/features/messaging/components/trust-settings-panel";
 import { PasswordResetPanel } from "@/app/features/settings/components/password-reset-panel";
 import { AutoLockSettingsPanel } from "@/app/features/settings/components/auto-lock-settings-panel";
@@ -616,6 +617,11 @@ export default function ProfileSettingsTabPanel(): React.JSX.Element {
                     ) : null}
                   </div>
                 </div>
+                {!compact ? (
+                  <WorkspaceKernelBackupRestoreScopeNotice className="mt-3" />
+                ) : (
+                  <WorkspaceKernelBackupRestoreScopeNotice compact className="mt-3" />
+                )}
                 {accountSyncSnapshot.lastRelayFailureReason ? (
                   <div className="mt-3 rounded-xl border border-rose-500/20 bg-rose-500/10 px-3 py-2 text-xs text-rose-700 dark:text-rose-300">
                     Last relay failure: {accountSyncSnapshot.lastRelayFailureReason}

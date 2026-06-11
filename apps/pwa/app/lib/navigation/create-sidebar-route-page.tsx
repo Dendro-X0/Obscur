@@ -18,6 +18,32 @@ export type SidebarRouteClientLoaders = Readonly<{
   lazy: () => Promise<SidebarRouteClientModule>;
 }>;
 
+const createEagerSidebarRoutePage = (
+  loadClient: () => SidebarRouteClientModule,
+  loading: SidebarRouteLoadingCopy,
+): React.ComponentType => {
+  const EagerClient = dynamic(
+    async () => {
+      const clientModule = loadClient();
+      return { default: clientModule.default };
+    },
+    {
+      loading: () => (
+        <RouteLoadingFallback
+          title={loading.title}
+          detail={loading.detail}
+          className="min-h-[320px]"
+        />
+      ),
+      ssr: true,
+    },
+  );
+
+  return function EagerSidebarRoutePage(): React.JSX.Element {
+    return <EagerClient />;
+  };
+};
+
 const createLazySidebarRoutePage = (
   loadClient: () => Promise<SidebarRouteClientModule>,
   loading: SidebarRouteLoadingCopy,
@@ -37,30 +63,20 @@ const createLazySidebarRoutePage = (
   };
 };
 
-const createEagerSidebarRoutePage = (
-  loadClient: () => SidebarRouteClientModule,
-): React.ComponentType => {
-  return function EagerSidebarRoutePage(): React.JSX.Element {
-    // `loadClient` is defined in each route's page.tsx — not here — so `require` resolves per route.
-    const clientModule = loadClient();
-    const EagerClient = clientModule.default;
-    return <EagerClient />;
-  };
-};
+const shouldUseEagerDesktopSidebarRoute = (): boolean => (
+  isDesktopShellBuild() && process.env.NODE_ENV === "production"
+);
 
 /**
- * Desktop shell builds link the page client synchronously (no `next/dynamic` spinner on repeat nav).
- * Web/mobile builds keep lazy chunks behind a loading boundary.
- *
- * First visit to a route on `next dev --webpack` still pays compile time (S6); this only removes
- * repeat dynamic-import boundaries on desktop static/Tauri and warm dev navigations.
+ * Production desktop static/Tauri: eager page clients.
+ * Dev desktop webpack: lazy chunks + boot-time warm-up (see navigation-warmup-owner).
  */
 export function createSidebarRoutePage(
   loaders: SidebarRouteClientLoaders,
   loading: SidebarRouteLoadingCopy,
 ): React.ComponentType {
-  if (isDesktopShellBuild()) {
-    return createEagerSidebarRoutePage(loaders.eager);
+  if (shouldUseEagerDesktopSidebarRoute()) {
+    return createEagerSidebarRoutePage(loaders.eager, loading);
   }
   return createLazySidebarRoutePage(loaders.lazy, loading);
 }

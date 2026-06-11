@@ -107,3 +107,42 @@ export const scheduleNativeGroupListSync = (
   }
   void syncGroupConversationsToSqlite(groups, profileId);
 };
+
+export const persistedGroupConversationToGroupConversation = (
+  group: PersistedGroupConversation,
+): GroupConversation => ({
+  kind: "group",
+  id: group.id,
+  communityId: group.communityId,
+  genesisEventId: group.genesisEventId,
+  creatorPubkey: group.creatorPubkey,
+  groupId: group.groupId,
+  relayUrl: group.relayUrl,
+  displayName: group.displayName,
+  memberPubkeys: group.memberPubkeys,
+  lastMessage: group.lastMessage,
+  unreadCount: group.unreadCount,
+  lastMessageTime: new Date(group.lastMessageTimeMs),
+  access: group.access ?? "invite-only",
+  memberCount: group.memberCount ?? group.memberPubkeys.length,
+  adminPubkeys: group.adminPubkeys ?? [],
+  about: group.about,
+  avatar: group.avatar,
+  communityMode: group.communityMode,
+  relayCapabilityTier: group.relayCapabilityTier,
+});
+
+/** Path B B4-2 — upsert restored chat-state group list into native sqlite store. */
+export const syncPersistedGroupsToSqliteFromChatState = async (
+  groups: ReadonlyArray<PersistedGroupConversation>,
+  profileId: string,
+): Promise<number> => {
+  if (!requiresSqlitePersistence() || !isTauri() || groups.length === 0) {
+    return 0;
+  }
+  await syncGroupConversationsToSqlite(
+    groups.map(persistedGroupConversationToGroupConversation),
+    profileId,
+  );
+  return groups.length;
+};

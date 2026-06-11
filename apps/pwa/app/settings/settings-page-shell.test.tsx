@@ -110,6 +110,10 @@ describe("SettingsPage mobile section nav", () => {
     settingsPageMocks.compactLayout = true;
     settingsPageMocks.replace.mockReset();
     settingsPageMocks.searchParams = new URLSearchParams();
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback): number => {
+      callback(0);
+      return 1;
+    });
   });
 
   it("renders grouped mobile menu with a dedicated scroll region", () => {

@@ -14,6 +14,11 @@ import {
   type CommunityMembershipLedgerMutation,
   type CommunityMembershipRuntimeEvidence,
 } from "./community-membership-coordinator";
+import { clearDurableCommunityLeaveIntentOnExplicitRejoin } from "./community-membership-leave-intent";
+import {
+  isRelayAuthoritativeMembershipEnforced,
+  relayMembershipRequiresRelayConfirmation,
+} from "./community-relay-authoritative-membership-policy";
 
 export const COMMUNITY_MEMBERSHIP_MUTATION_OWNER_ID = "community-membership-mutation-owner" as const;
 
@@ -64,7 +69,22 @@ export const persistExplicitCommunityMembershipLeave = (params: Readonly<{
   profileId?: string;
   updatedAtUnixMs?: number;
   lastEvidenceEventId?: string;
-}>): CommunityMembershipLedgerMutation => {
+  relayConfirmed?: boolean;
+}>): CommunityMembershipLedgerMutation | null => {
+  if (!relayMembershipRequiresRelayConfirmation(params.relayConfirmed)) {
+    logAppEvent({
+      name: "groups.membership_local_leave_suppressed",
+      level: "info",
+      scope: { feature: "groups", action: "membership_mutation_owner" },
+      context: {
+        owner: COMMUNITY_MEMBERSHIP_MUTATION_OWNER_ID,
+        groupId: params.group.groupId,
+        relayUrl: params.group.relayUrl ?? null,
+        reason: "relay_authoritative",
+      },
+    });
+    return null;
+  }
   const mutation = resolveCommunityMembershipExplicitLeaveMutation({
     publicKeyHex: params.publicKeyHex,
     group: params.group,
@@ -118,7 +138,31 @@ export const applyCommunityMembershipRuntimeEvidence = (params: Readonly<{
   evidence: CommunityMembershipRuntimeEvidence;
   membershipLedger: ReadonlyArray<import("./community-membership-ledger").CommunityMembershipLedgerEntry>;
   tombstones: ReadonlySet<string>;
+  relayConfirmed?: boolean;
 }>): ReturnType<typeof resolveCommunityMembershipCoordinator> => {
+  const isExplicitJoinEvidence = params.evidence.kind === "user_explicit_join"
+    || params.evidence.kind === "user_explicit_rejoin";
+  if (isExplicitJoinEvidence && !relayMembershipRequiresRelayConfirmation(params.relayConfirmed)) {
+    logAppEvent({
+      name: "groups.membership_local_join_suppressed",
+      level: "info",
+      scope: { feature: "groups", action: "membership_mutation_owner" },
+      context: {
+        owner: COMMUNITY_MEMBERSHIP_MUTATION_OWNER_ID,
+        groupId: params.evidence.group.groupId,
+        relayUrl: params.evidence.group.relayUrl ?? null,
+        kind: params.evidence.kind,
+        reason: "relay_authoritative",
+      },
+    });
+    return resolveCommunityMembershipCoordinator({
+      publicKeyHex: params.publicKeyHex,
+      profileId: params.profileId,
+      persistedGroups: [],
+      membershipLedger: params.membershipLedger,
+      tombstones: params.tombstones,
+    });
+  }
   const coordinator = resolveCommunityMembershipCoordinator({
     publicKeyHex: params.publicKeyHex,
     profileId: params.profileId,
@@ -132,5 +176,21 @@ export const applyCommunityMembershipRuntimeEvidence = (params: Readonly<{
     coordinator.ledgerMutations,
     { profileId: params.profileId },
   );
+  for (const mutation of coordinator.ledgerMutations) {
+    if (mutation.reason !== "explicit_rejoin") {
+      continue;
+    }
+    const groupId = mutation.entry.groupId?.trim() ?? "";
+    const relayUrl = mutation.entry.relayUrl?.trim() ?? "";
+    if (groupId.length === 0 || relayUrl.length === 0) {
+      continue;
+    }
+    clearDurableCommunityLeaveIntentOnExplicitRejoin({
+      publicKeyHex: params.publicKeyHex,
+      groupId,
+      relayUrl,
+      profileId: params.profileId,
+    });
+  }
   return coordinator;
 };

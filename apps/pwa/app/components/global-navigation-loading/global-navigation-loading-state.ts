@@ -1,11 +1,14 @@
 export const GLOBAL_NAV_LOADING_MIN_VISIBLE_MS = 280;
 export const GLOBAL_NAV_LOADING_MAX_ACTIVE_MS = 45_000;
 export const GLOBAL_NAV_LOADING_COMPLETE_HOLD_MS = 220;
+/** Chunk signals older than this are treated as stale so navigation can settle. */
+export const GLOBAL_NAV_CHUNK_LOAD_STALE_MS = 4_000;
 
 export type GlobalNavLoadingRenderState = Readonly<{
   visible: boolean;
   progress: number;
   completing: boolean;
+  targetPathname: string | null;
 }>;
 
 export type GlobalNavLoadingControllerState = Readonly<{
@@ -14,6 +17,7 @@ export type GlobalNavLoadingControllerState = Readonly<{
   progress: number;
   completing: boolean;
   chunkLoadCount: number;
+  lastChunkLoadAtMs: number;
   beganAtMs: number;
   targetPathname: string | null;
 }>;
@@ -24,6 +28,7 @@ export const createGlobalNavLoadingControllerState = (): GlobalNavLoadingControl
   progress: 0,
   completing: false,
   chunkLoadCount: 0,
+  lastChunkLoadAtMs: 0,
   beganAtMs: 0,
   targetPathname: null,
 });
@@ -83,6 +88,7 @@ export const incrementGlobalNavChunkLoad = (
   {
     ...state,
     chunkLoadCount: state.chunkLoadCount + 1,
+    lastChunkLoadAtMs: nowMs,
   },
   nowMs,
 );
@@ -93,6 +99,35 @@ export const decrementGlobalNavChunkLoad = (
   ...state,
   chunkLoadCount: Math.max(0, state.chunkLoadCount - 1),
 });
+
+export const clearGlobalNavChunkLoads = (
+  state: GlobalNavLoadingControllerState,
+): GlobalNavLoadingControllerState => ({
+  ...state,
+  chunkLoadCount: 0,
+  lastChunkLoadAtMs: 0,
+});
+
+const hasStaleGlobalNavChunkLoads = (
+  state: GlobalNavLoadingControllerState,
+  nowMs: number,
+  staleAfterMs = GLOBAL_NAV_CHUNK_LOAD_STALE_MS,
+): boolean => (
+  state.chunkLoadCount > 0
+  && state.lastChunkLoadAtMs > 0
+  && Math.max(0, nowMs - state.lastChunkLoadAtMs) >= staleAfterMs
+);
+
+export const pathnameMatchesNavTarget = (
+  currentPathname: string,
+  targetPathname: string | null,
+): boolean => {
+  if (!targetPathname) {
+    return true;
+  }
+  const [targetPath] = targetPathname.split("?");
+  return currentPathname === targetPathname || currentPathname === targetPath;
+};
 
 export const tickGlobalNavLoadingProgress = (
   state: GlobalNavLoadingControllerState,
@@ -114,8 +149,15 @@ export const tickGlobalNavLoadingProgress = (
 export const canSettleGlobalNavLoading = (
   state: GlobalNavLoadingControllerState,
   nowMs: number,
+  currentPathname: string,
 ): boolean => {
-  if (!state.active || state.chunkLoadCount > 0) {
+  if (!state.active) {
+    return false;
+  }
+  if (!pathnameMatchesNavTarget(currentPathname, state.targetPathname)) {
+    return false;
+  }
+  if (state.chunkLoadCount > 0 && !hasStaleGlobalNavChunkLoads(state, nowMs)) {
     return false;
   }
   const elapsedMs = Math.max(0, nowMs - state.beganAtMs);
@@ -125,11 +167,10 @@ export const canSettleGlobalNavLoading = (
 export const startGlobalNavLoadingComplete = (
   state: GlobalNavLoadingControllerState,
 ): GlobalNavLoadingControllerState => ({
-  ...state,
+  ...clearGlobalNavChunkLoads(state),
   active: false,
   completing: true,
   progress: 100,
-  targetPathname: null,
 });
 
 export const hideGlobalNavLoading = (
@@ -154,4 +195,5 @@ export const toGlobalNavLoadingRenderState = (
   visible: state.visible,
   progress: state.progress,
   completing: state.completing,
+  targetPathname: state.targetPathname,
 });

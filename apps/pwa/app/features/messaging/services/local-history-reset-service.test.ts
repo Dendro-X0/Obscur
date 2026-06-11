@@ -61,6 +61,40 @@ describe("local-history-reset-service", () => {
     expect(report.warnings).toHaveLength(0);
   });
 
+  it("removes relay list and coordination directory keys for the active profile", async () => {
+    window.localStorage.setItem(
+      `obscur.relay_list.v2.${PUBLIC_KEY}::default`,
+      "[]",
+    );
+    window.localStorage.setItem(
+      "obscur.community.coordination_membership_directory.v1::default",
+      "{}",
+    );
+    window.localStorage.setItem(
+      "obscur.vault.local_media_storage_config::default",
+      "{}",
+    );
+
+    const deps = {
+      purgeLocalMediaCache: vi.fn(async () => {}),
+      clearMessagingStores: vi.fn(async () => 0),
+      clearLegacyMessageQueueStores: vi.fn(async () => 0),
+      clearAccountEventLogStore: vi.fn(async () => 0),
+      resetProjectionRuntime: vi.fn(() => {}),
+      resetSyncStatusSnapshot: vi.fn((_publicKeyHex: string | null) => {}),
+      resetBackupEventOrdering: vi.fn(() => {}),
+    };
+
+    await resetLocalHistoryKeepingIdentity({
+      profileId: "default",
+      publicKeyHex: PUBLIC_KEY,
+    }, deps);
+
+    expect(window.localStorage.getItem(`obscur.relay_list.v2.${PUBLIC_KEY}::default`)).toBeNull();
+    expect(window.localStorage.getItem("obscur.community.coordination_membership_directory.v1::default")).toBeNull();
+    expect(window.localStorage.getItem("obscur.vault.local_media_storage_config::default")).toBeNull();
+  });
+
   it("respects profile scope and does not remove unrelated profile keys", async () => {
     window.localStorage.setItem("obscur.messaging.sync_checkpoints.v1::default", "{}");
     window.localStorage.setItem("obscur.messaging.sync_checkpoints.v1::work", "{}");

@@ -97,6 +97,10 @@ export const loadCoordinationMembershipDirectory = (
   return record?.materialization ?? null;
 };
 
+export const listCoordinationMembershipDirectoryRecords = (
+  profileId?: string,
+): ReadonlyArray<StoredDirectoryRecord> => loadAllDirectoryRecords(profileId);
+
 export const saveCoordinationMembershipDirectory = (params: Readonly<{
   communityId: string;
   materialization: CoordinationMembershipMaterialization;

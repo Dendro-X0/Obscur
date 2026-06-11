@@ -13,9 +13,14 @@ type MinimalAppEvent = Readonly<{
   context?: Readonly<Record<string, string | number | boolean | null>>;
 }>;
 
+type MinimalCrossDeviceSyncDigest = Readonly<{
+  summary?: Readonly<Record<string, unknown>>;
+  recentWarnOrError?: ReadonlyArray<MinimalAppEvent>;
+}>;
+
 type MinimalAppEventsApi = Readonly<{
   getDigest?: (count?: number) => unknown;
-  getCrossDeviceSyncDigest?: (count?: number) => unknown;
+  getCrossDeviceSyncDigest?: (count?: number) => MinimalCrossDeviceSyncDigest;
   getRecent?: (count?: number) => ReadonlyArray<MinimalAppEvent>;
   findByName?: (name: string, count?: number) => ReadonlyArray<MinimalAppEvent>;
 }>;
@@ -141,6 +146,7 @@ type M0TriageWindow = Window & {
 declare global {
   interface Window {
     obscurM0Triage?: M0TriageApi;
+    obscurAppEvents?: MinimalAppEventsApi;
   }
 }
 

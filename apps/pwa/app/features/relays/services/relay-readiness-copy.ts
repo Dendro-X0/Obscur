@@ -1,6 +1,13 @@
+import { isExperimentOfflineStubEnabled } from "@/app/features/runtime/experiment-shell-policy";
 import type { RelayReadinessState, RelayRecoverySnapshot } from "./relay-recovery-policy";
 
 export const getRelayReadinessBannerCopy = (snapshot: RelayRecoverySnapshot): string | null => {
+  if (isExperimentOfflineStubEnabled()) {
+    return "Relay transport is disabled in offline mode. Run pnpm dev:desktop:online for live relays and messaging, or enable relays in Settings.";
+  }
+  if (snapshot.recoveryReasonCode === "startup_warmup") {
+    return null;
+  }
   if (snapshot.recoveryReasonCode === "recovery_exhausted") {
     return "Could not connect to relays. Automatic retries are paused — use the relay badge to retry or check relay settings.";
   }

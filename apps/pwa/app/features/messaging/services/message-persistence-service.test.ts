@@ -42,6 +42,22 @@ vi.mock("@/app/features/profiles/services/profile-scope", () => ({
         `${baseKey}::${profileId ?? profileScopeState.activeProfileId}`,
 }));
 
+const nativePersistenceMocks = vi.hoisted(() => ({
+    requiresSqlitePersistence: vi.fn(() => false),
+}));
+
+vi.mock("@/app/features/runtime/native-persistence-policy", () => ({
+    requiresSqlitePersistence: () => nativePersistenceMocks.requiresSqlitePersistence(),
+}));
+
+const mediaIndexMocks = vi.hoisted(() => ({
+    linkLocalMediaIndexToMessageEvent: vi.fn(),
+}));
+
+vi.mock("@/app/features/vault/services/local-media-store", () => ({
+    linkLocalMediaIndexToMessageEvent: mediaIndexMocks.linkLocalMediaIndexToMessageEvent,
+}));
+
 vi.mock("./messaging-client-operations", async () => {
     const { suppressMessageDeleteTombstone } = await import("./message-delete-tombstone-store");
     return {
@@ -81,6 +97,8 @@ describe("MessagePersistenceService batching", () => {
         vi.spyOn(performanceMonitor, "isEnabled").mockReturnValue(false);
         clearMessageDeleteTombstones();
         profileScopeState.activeProfileId = "default";
+        nativePersistenceMocks.requiresSqlitePersistence.mockReturnValue(false);
+        mediaIndexMocks.linkLocalMediaIndexToMessageEvent.mockClear();
         tauriDbMocks.isTauri.mockReturnValue(false);
         chatStateStoreMocks.update.mockImplementation((_pk, updater) => {
             const base = {
@@ -555,11 +573,15 @@ describe("MessagePersistenceService Tauri/SQLite path", () => {
             chatPerformanceV2: true,
         });
         profileScopeState.activeProfileId = "default";
+        nativePersistenceMocks.requiresSqlitePersistence.mockReturnValue(true);
+        mediaIndexMocks.linkLocalMediaIndexToMessageEvent.mockClear();
         tauriDbMocks.isTauri.mockReturnValue(true);
-        tauriDbMocks.dbInsertMessage.mockClear();
+        tauriDbMocks.dbInsertMessage.mockReset();
+        tauriDbMocks.dbInsertMessage.mockResolvedValue(undefined);
         tauriDbMocks.dbInsertTombstone.mockClear();
         tauriDbMocks.dbDeleteMessages.mockClear();
-        tauriDbMocks.dbUpsertConversation.mockClear();
+        tauriDbMocks.dbUpsertConversation.mockReset();
+        tauriDbMocks.dbUpsertConversation.mockResolvedValue(undefined);
         Object.keys(localStorage).filter(k => k.startsWith("obscur:msg_migration_done::")).forEach(k => localStorage.removeItem(k));
     });
 
@@ -569,6 +591,58 @@ describe("MessagePersistenceService Tauri/SQLite path", () => {
         vi.useRealTimers();
         vi.restoreAllMocks();
         vi.clearAllMocks();
+    });
+
+    it("flushes each native upsert immediately without waiting for the batch timer", async () => {
+        const service = new MessagePersistenceService();
+        service.bindProfileScope("default");
+
+        const nostrId = "e".repeat(64);
+        messageBus.emit({
+            type: "new_message",
+            conversationId: "conv-1",
+            message: createMessage(nostrId, "immediate", {
+                eventId: nostrId,
+                isOutgoing: false,
+                status: "delivered",
+            }),
+        });
+
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(tauriDbMocks.dbInsertMessage).toHaveBeenCalled();
+        service.dispose();
+    });
+
+    it("writes relay-confirmed incoming message to SQLite when id equals eventId", async () => {
+        const service = new MessagePersistenceService();
+        service.bindProfileScope("default");
+
+        const nostrId = "d".repeat(64);
+        messageBus.emit({
+            type: "new_message",
+            conversationId: "conv-1",
+            message: {
+                id: nostrId,
+                eventId: nostrId,
+                kind: "user",
+                content: "incoming hello",
+                timestamp: new Date(1_700_000_000_000),
+                isOutgoing: false,
+                status: "delivered",
+            },
+        });
+
+        await vi.advanceTimersByTimeAsync(40);
+
+        expect(tauriDbMocks.dbInsertMessage).toHaveBeenCalled();
+        expect(tauriDbMocks.dbInsertMessage.mock.calls.some((call) => {
+            const record = call.at(0) as { event_id?: string } | undefined;
+            return record?.event_id === nostrId;
+        })).toBe(true);
+
+        service.dispose();
     });
 
     it("does not write an optimistic UUID-only message to SQLite before eventId is known", async () => {
@@ -711,6 +785,60 @@ describe("MessagePersistenceService Tauri/SQLite path", () => {
         expect(tombstonedIds).toContain(uuid);
         expect(tombstonedIds).toContain(nostrId);
 
+        service.dispose();
+    });
+
+    it("does not mirror DM message bodies to chat-state on native", async () => {
+        chatStateStoreMocks.update.mockClear();
+        const service = new MessagePersistenceService();
+        service.bindProfileScope("default");
+
+        const nostrId = "e".repeat(64);
+        messageBus.emit({
+            type: "message_updated",
+            conversationId: "conv-1",
+            message: createMessage(nostrId, "native-only", {
+                eventId: nostrId,
+                isOutgoing: true,
+                status: "delivered",
+            }),
+        });
+        await vi.advanceTimersByTimeAsync(40);
+
+        expect(chatStateStoreMocks.update).not.toHaveBeenCalled();
+        service.dispose();
+    });
+
+    it("links cached media to message event_id after SQLite insert", async () => {
+        const service = new MessagePersistenceService();
+        service.bindProfileScope("default");
+
+        const nostrId = "f".repeat(64);
+        messageBus.emit({
+            type: "message_updated",
+            conversationId: "conv-1",
+            message: createMessage("550e8400-e29b-41d4-a716-446655440005", "photo", {
+                eventId: nostrId,
+                isOutgoing: true,
+                status: "delivered",
+                attachments: [{
+                    kind: "image",
+                    url: "https://example.com/media/photo.jpg",
+                    fileName: "photo.jpg",
+                    contentType: "image/jpeg",
+                }],
+            }),
+        });
+        await vi.advanceTimersByTimeAsync(40);
+
+        expect(tauriDbMocks.dbInsertMessage).toHaveBeenCalled();
+        expect(mediaIndexMocks.linkLocalMediaIndexToMessageEvent).toHaveBeenCalledWith({
+            messageEventId: nostrId,
+            attachmentUrls: ["https://example.com/media/photo.jpg"],
+        });
+        expect(tauriDbMocks.dbInsertMessage.mock.calls[0]?.[0]).toEqual(
+            expect.objectContaining({ has_attachment: true }),
+        );
         service.dispose();
     });
 });

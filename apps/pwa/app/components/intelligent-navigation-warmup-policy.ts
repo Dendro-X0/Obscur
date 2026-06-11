@@ -9,7 +9,7 @@ export const NAVIGATION_WARMUP_ALLOWED_HREFS = new Set<string>([
   "/settings",
 ]);
 
-export type NavigationWarmupSpecialTask = "group_home_client";
+export type NavigationWarmupSpecialTask = "group_home_client" | "settings_page_client";
 
 export type IntelligentNavigationWarmupPlan = Readonly<{
   critical: ReadonlyArray<string>;
@@ -31,10 +31,11 @@ const SURFACE_CONTEXT_HREFS: Partial<Record<RouteSurface, ReadonlyArray<string>>
 };
 
 const SURFACE_SPECIAL_TASKS: Partial<Record<RouteSurface, ReadonlyArray<NavigationWarmupSpecialTask>>> = {
-  chats: ["group_home_client"],
-  network: ["group_home_client"],
+  chats: ["group_home_client", "settings_page_client"],
+  network: ["group_home_client", "settings_page_client"],
   groups: ["group_home_client"],
   search: ["group_home_client"],
+  vault: ["settings_page_client"],
 };
 
 export const resolveWarmableNavHref = (pathnameInput: string): string | null => {
@@ -111,3 +112,31 @@ export const hasIntelligentNavigationWarmupWork = (
   || plan.background.length > 0
   || plan.specialTasks.length > 0
 );
+
+const DEV_WEBPACK_BOOT_WARMUP_ORDER = [
+  "/settings",
+  "/network",
+  "/vault",
+  "/search",
+  "/",
+] as const;
+
+/** Dev webpack: compile every sidebar route chunk immediately after unlock. */
+export const resolveDevWebpackBootWarmupPlan = (
+  navItems: ReadonlyArray<NavItem>,
+): IntelligentNavigationWarmupPlan => {
+  const allowed = new Set(
+    navItems
+      .map((item) => item.href)
+      .filter((href) => href === "/" || NAVIGATION_WARMUP_ALLOWED_HREFS.has(href)),
+  );
+  const critical = uniqueHrefs(
+    DEV_WEBPACK_BOOT_WARMUP_ORDER.filter((href) => allowed.has(href)),
+  );
+  return {
+    critical,
+    context: [],
+    background: [],
+    specialTasks: ["group_home_client", "settings_page_client"],
+  };
+};

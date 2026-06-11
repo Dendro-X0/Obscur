@@ -11,12 +11,16 @@ import { useRelayPoolRef } from "../../relays/hooks/use-relay-pool-ref";
 import { useIdentity } from "../../auth/hooks/use-identity";
 import { useGroups } from "../providers/group-provider";
 import { toGroupConversationId } from "../utils/group-conversation-id";
+import { deriveCommunityId } from "../utils/community-identity";
 import { dispatchGroupInviteReceived } from "@/app/features/profiles/services/profile-bus-dispatch";
 import {
     assertWorkspaceCommunityJoinAllowed,
     useWorkspaceCommunityTrustGate,
 } from "../hooks/use-workspace-community-trust-gate";
 import { ensureWorkspaceMembershipSyncMode } from "../services/community-workspace-membership";
+import { isWorkspaceKernelAuthority } from "@/app/features/workspace-kernel/workspace-kernel-policy";
+import { joinManagedWorkspaceMembership } from "@/app/features/workspace-kernel/workspace-kernel-membership-port";
+import { useRelayList } from "../../relays/hooks/use-relay-list";
 
 /**
  * Props for GroupJoinDialog
@@ -38,6 +42,8 @@ export const GroupJoinDialog = ({ open, onOpenChange, groupId, relayUrl, onSucce
     const poolRef = useRelayPoolRef(pool);
     const { state: identityState } = useIdentity();
     const { addGroup } = useGroups();
+    const relayList = useRelayList({ publicKeyHex: identityState.publicKeyHex || null });
+    const workspaceKernelJoin = isWorkspaceKernelAuthority();
     const { trust: workspaceTrust, blocked: workspaceJoinBlocked } = useWorkspaceCommunityTrustGate({
         communityRelayUrl: relayUrl,
         active: open,
@@ -56,6 +62,7 @@ export const GroupJoinDialog = ({ open, onOpenChange, groupId, relayUrl, onSucce
         groupId,
         myPublicKeyHex: identityState.publicKeyHex || null,
         myPrivateKeyHex: identityState.privateKeyHex || null,
+        enabled: open && !workspaceKernelJoin,
     });
 
     const [error, setError] = useState<string | null>(null);
@@ -71,14 +78,42 @@ export const GroupJoinDialog = ({ open, onOpenChange, groupId, relayUrl, onSucce
                 return;
             }
             ensureWorkspaceMembershipSyncMode();
-            await requestJoin();
+            if (workspaceKernelJoin) {
+                if (!identityState.publicKeyHex || !identityState.privateKeyHex) {
+                    setError("Identity must be unlocked to join a workspace community.");
+                    return;
+                }
+                const communityId = deriveCommunityId({ groupId, relayUrl });
+                const activation = await joinManagedWorkspaceMembership({
+                    communityId,
+                    groupId,
+                    relayUrl,
+                    displayName: groupState.metadata?.name || groupId,
+                    memberPubkey: identityState.publicKeyHex,
+                    actorPubkey: identityState.publicKeyHex,
+                    actorPrivateKeyHex: identityState.privateKeyHex,
+                    pool: poolRef.current,
+                    addRelay: (relayParams) => relayList.addRelay(relayParams),
+                    openRelayUrls: relayList.state.relays
+                        .filter((relay) => relay.enabled)
+                        .map((relay) => relay.url),
+                });
+                if (activation.summary.severity !== "success") {
+                    setError(activation.summary.detail ?? activation.summary.title);
+                    return;
+                }
+            } else {
+                await requestJoin();
+            }
 
             // Add to local state for immediate UI update
             const joinedGroup = {
                 kind: "group" as const,
-                id: toGroupConversationId({ groupId, relayUrl }),
+                id: toGroupConversationId({ groupId, relayUrl, communityId: deriveCommunityId({ groupId, relayUrl }) }),
                 groupId,
                 relayUrl,
+                communityId: deriveCommunityId({ groupId, relayUrl }),
+                communityMode: "managed_workspace" as const,
                 displayName: groupState.metadata?.name || groupId,
                 memberPubkeys: [], // Will be populated by live subscription
                 lastMessage: "Joining community...",

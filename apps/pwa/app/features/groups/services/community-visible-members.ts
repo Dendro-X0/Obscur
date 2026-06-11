@@ -159,16 +159,25 @@ export const resolveInviteEligibleMemberPubkeys = (params: Readonly<{
     })
 );
 
+const normalizeCommunityMemberPubkey = (pubkey: PublicKeyHex): string => pubkey.trim().toLowerCase();
+
 export const filterActiveCommunityMemberPubkeys = (params: Readonly<{
     memberPubkeys: ReadonlyArray<PublicKeyHex>;
     leftMembers?: ReadonlyArray<PublicKeyHex>;
     expelledMembers?: ReadonlyArray<PublicKeyHex>;
 }>): ReadonlyArray<PublicKeyHex> => {
-    const leftMemberSet = new Set(params.leftMembers ?? []);
-    const expelledMemberSet = new Set(params.expelledMembers ?? []);
-    return params.memberPubkeys.filter((pubkey) => (
-        !leftMemberSet.has(pubkey) && !expelledMemberSet.has(pubkey)
-    ));
+    const leftMemberSet = new Set(
+        (params.leftMembers ?? []).map(normalizeCommunityMemberPubkey).filter(Boolean),
+    );
+    const expelledMemberSet = new Set(
+        (params.expelledMembers ?? []).map(normalizeCommunityMemberPubkey).filter(Boolean),
+    );
+    return params.memberPubkeys.filter((pubkey) => {
+        const normalized = normalizeCommunityMemberPubkey(pubkey);
+        return normalized.length > 0
+            && !leftMemberSet.has(normalized)
+            && !expelledMemberSet.has(normalized);
+    });
 };
 
 /** Session/UI params (`previous` / `next`); implementation lives in `community-member-roster-projection`. React: `useStableCommunityParticipantPubkeys`. */

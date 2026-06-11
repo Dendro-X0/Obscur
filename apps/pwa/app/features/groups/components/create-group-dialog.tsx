@@ -50,6 +50,11 @@ import { useWorkspaceDevFlagsRevision } from "../hooks/use-workspace-dev-flags-r
 import { isCoordinationConfigured } from "../services/community-membership-sync-mode";
 import { LOCAL_DEV_RELAY_URL } from "@/app/features/relays/hooks/use-relay-list";
 import { normalizeWorkspaceRelayUrl } from "../services/workspace-relay-url";
+import {
+    isNewSovereignRoomCreationAllowed,
+    isWorkspaceCommunityCreateAllowed,
+    WORKSPACE_KERNEL_CREATE_DEFERRED_MESSAGE,
+} from "@/app/features/workspace-kernel/workspace-kernel-sovereign-create-policy";
 
 const hostFromRelayUrl = (relayUrl: string): string => (
     relayUrl.replace(/^wss?:\/\//i, "").replace(/\/$/, "")
@@ -233,6 +238,8 @@ export function CreateGroupDialog({
             : createRelayTransportReady && !isPublicDefaultRelayHost(info.host);
 
     const workspaceCreateBlockedEffective = workspaceCreateBlocked;
+    const workspaceKernelCreateDeferred = !isWorkspaceCommunityCreateAllowed();
+    const sovereignCreateBlocked = !isNewSovereignRoomCreationAllowed();
 
     const isValid =
         info.groupId.trim().length > 0 &&
@@ -241,6 +248,8 @@ export function CreateGroupDialog({
         coordinationGateSatisfied &&
         !workspaceCreateBlockedEffective &&
         !managedCreateBlocked &&
+        !workspaceKernelCreateDeferred &&
+        sovereignCreateBlocked &&
         (coordinationOnlyDev || (info.host.trim().length > 0 && createRelayTransportReady));
 
     const managedWorkspaceDefinition = COMMUNITY_MODE_DEFINITIONS.managed_workspace;
@@ -706,6 +715,19 @@ export function CreateGroupDialog({
                         </div>
                     </div>
                 </div>
+
+                {workspaceKernelCreateDeferred ? (
+                    <div
+                        className="mx-6 mb-0 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-950 dark:text-amber-100"
+                        data-testid="create-group-workspace-kernel-deferred"
+                        role="status"
+                    >
+                        <p className="font-semibold">
+                            {t("groups.create.workspaceKernelDeferredTitle", "Workspace kernel (W1 pending)")}
+                        </p>
+                        <p className="mt-1 text-xs opacity-90">{WORKSPACE_KERNEL_CREATE_DEFERRED_MESSAGE}</p>
+                    </div>
+                ) : null}
 
                 {workspaceCreateBlockedEffective || managedCreateBlocked ? (
                     <div

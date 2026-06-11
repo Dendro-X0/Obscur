@@ -1,5 +1,196 @@
 {
-  "schema": "obscur-shell-perf-s0",
+  "schema": "obscur-shell-perf-baseline/v1",
   "mode": "dev",
-  "note": "Placeholder until pnpm perf:shell:s0:dev records a baseline."
+  "baseUrl": "http://127.0.0.1:3340",
+  "recordedAt": "2026-06-10T05:55:32.477Z",
+  "coldStart": {
+    "domContentLoadedMs": 125
+  },
+  "checks": {
+    "shellPhase": "unlocked",
+    "experimentShell": true,
+    "unlock": "dev_lab_or_auth_ui",
+    "rapidNav": {
+      "gatePass": false,
+      "issues": [
+        "samples_0_of_10"
+      ],
+      "maxNavMs": null,
+      "maxRouteMountWorstMs": null,
+      "sampleCount": 0
+    }
+  },
+  "navigations": [
+    {
+      "href": "/network",
+      "label": "Network",
+      "visit": 1,
+      "elapsedMs": 603,
+      "urlMatched": true,
+      "routeMountWorstMs": 0,
+      "routeMountSlowCount": 0
+    },
+    {
+      "href": "/settings",
+      "label": "Settings",
+      "visit": 1,
+      "elapsedMs": 12410,
+      "urlMatched": true
+    },
+    {
+      "href": "/settings",
+      "label": "Settings",
+      "visit": 2,
+      "elapsedMs": 0,
+      "urlMatched": false,
+      "error": "locator.waitFor: Timeout 30000ms exceeded.\nCall log:\n  - waiting for getByRole('link', { name: 'Settings', exact: true }) to be visible\n"
+    },
+    {
+      "href": "/vault",
+      "label": "Vault",
+      "visit": 1,
+      "elapsedMs": 0,
+      "urlMatched": false,
+      "error": "locator.waitFor: Timeout 30000ms exceeded.\nCall log:\n  - waiting for getByRole('link', { name: 'Vault', exact: true }) to be visible\n"
+    },
+    {
+      "href": "/search",
+      "label": "Search",
+      "visit": 1,
+      "elapsedMs": 0,
+      "urlMatched": false,
+      "error": "locator.waitFor: Timeout 30000ms exceeded.\nCall log:\n  - waiting for getByRole('link', { name: 'Search', exact: true }) to be visible\n"
+    },
+    {
+      "href": "/",
+      "label": "Chats",
+      "visit": 1,
+      "elapsedMs": 0,
+      "urlMatched": false,
+      "error": "locator.waitFor: Timeout 30000ms exceeded.\nCall log:\n  - waiting for getByRole('link', { name: 'Chats', exact: true }) to be visible\n"
+    }
+  ],
+  "warnings": [
+    "Navigation Settings visit 2 failed: locator.waitFor: Timeout 30000ms exceeded.\nCall log:\n  - waiting for getByRole('link', { name: 'Settings', exact: true }) to be visible\n",
+    "Navigation Vault visit 1 failed: locator.waitFor: Timeout 30000ms exceeded.\nCall log:\n  - waiting for getByRole('link', { name: 'Vault', exact: true }) to be visible\n",
+    "Navigation Search visit 1 failed: locator.waitFor: Timeout 30000ms exceeded.\nCall log:\n  - waiting for getByRole('link', { name: 'Search', exact: true }) to be visible\n",
+    "Navigation Chats visit 1 failed: locator.waitFor: Timeout 30000ms exceeded.\nCall log:\n  - waiting for getByRole('link', { name: 'Chats', exact: true }) to be visible\n"
+  ],
+  "rapidNavigations": [
+    {
+      "href": "/",
+      "label": "Chats",
+      "visit": 1,
+      "elapsedMs": 0,
+      "urlMatched": false,
+      "error": "locator.waitFor: Timeout 30000ms exceeded.\nCall log:\n  - waiting for getByRole('link', { name: 'Chats', exact: true }) to be visible\n"
+    },
+    {
+      "href": "/network",
+      "label": "Network",
+      "visit": 1,
+      "elapsedMs": 0,
+      "urlMatched": false,
+      "error": "locator.waitFor: Timeout 30000ms exceeded.\nCall log:\n  - waiting for getByRole('link', { name: 'Network', exact: true }) to be visible\n"
+    },
+    {
+      "href": "/vault",
+      "label": "Vault",
+      "visit": 1,
+      "elapsedMs": 0,
+      "urlMatched": false,
+      "error": "locator.waitFor: Timeout 30000ms exceeded.\nCall log:\n  - waiting for getByRole('link', { name: 'Vault', exact: true }) to be visible\n"
+    },
+    {
+      "href": "/search",
+      "label": "Search",
+      "visit": 1,
+      "elapsedMs": 0,
+      "urlMatched": false,
+      "error": "locator.waitFor: Timeout 30000ms exceeded.\nCall log:\n  - waiting for getByRole('link', { name: 'Search', exact: true }) to be visible\n"
+    },
+    {
+      "href": "/settings",
+      "label": "Settings",
+      "visit": 1,
+      "elapsedMs": 0,
+      "urlMatched": false,
+      "error": "locator.waitFor: Timeout 30000ms exceeded.\nCall log:\n  - waiting for getByRole('link', { name: 'Settings', exact: true }) to be visible\n"
+    },
+    {
+      "href": "/",
+      "label": "Chats",
+      "visit": 1,
+      "elapsedMs": 0,
+      "urlMatched": false,
+      "error": "locator.waitFor: Timeout 30000ms exceeded.\nCall log:\n  - waiting for getByRole('link', { name: 'Chats', exact: true }) to be visible\n"
+    },
+    {
+      "href": "/network",
+      "label": "Network",
+      "visit": 1,
+      "elapsedMs": 0,
+      "urlMatched": false,
+      "error": "locator.waitFor: Timeout 30000ms exceeded.\nCall log:\n  - waiting for getByRole('link', { name: 'Network', exact: true }) to be visible\n"
+    },
+    {
+      "href": "/vault",
+      "label": "Vault",
+      "visit": 1,
+      "elapsedMs": 0,
+      "urlMatched": false,
+      "error": "locator.waitFor: Timeout 30000ms exceeded.\nCall log:\n  - waiting for getByRole('link', { name: 'Vault', exact: true }) to be visible\n"
+    },
+    {
+      "href": "/search",
+      "label": "Search",
+      "visit": 1,
+      "elapsedMs": 0,
+      "urlMatched": false,
+      "error": "locator.waitFor: Timeout 30000ms exceeded.\nCall log:\n  - waiting for getByRole('link', { name: 'Search', exact: true }) to be visible\n"
+    },
+    {
+      "href": "/settings",
+      "label": "Settings",
+      "visit": 1,
+      "elapsedMs": 0,
+      "urlMatched": false,
+      "error": "locator.waitFor: Timeout 30000ms exceeded.\nCall log:\n  - waiting for getByRole('link', { name: 'Settings', exact: true }) to be visible\n"
+    }
+  ],
+  "summary": {
+    "mode": "dev",
+    "navigationCount": 6,
+    "successCount": 2,
+    "medianNavMs": 6507,
+    "maxNavMs": 12410,
+    "settingsColdMs": 12410,
+    "settingsWarmMs": null,
+    "settingsWarmSpeedupRatio": null,
+    "coldStartDomMs": 125,
+    "shellPhase": "unlocked",
+    "experimentShell": true,
+    "maxRouteMountWorstMs": 0
+  },
+  "v2PerfGate": {
+    "pass": false,
+    "issues": [
+      "median_nav_6507ms",
+      "rapid_nav_gate"
+    ],
+    "summary": {
+      "mode": "dev",
+      "navigationCount": 6,
+      "successCount": 2,
+      "medianNavMs": 6507,
+      "maxNavMs": 12410,
+      "settingsColdMs": 12410,
+      "settingsWarmMs": null,
+      "settingsWarmSpeedupRatio": null,
+      "coldStartDomMs": 125,
+      "shellPhase": "unlocked",
+      "experimentShell": true,
+      "maxRouteMountWorstMs": 0
+    }
+  }
 }

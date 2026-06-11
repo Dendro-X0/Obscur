@@ -605,7 +605,7 @@ type M6VoiceReplayApi = Readonly<{
   }>) => string;
 }>;
 
-type M6VoiceReplayWindow = Window & {
+type M6VoiceReplayWindow = Omit<Window, "obscurAppEvents"> & {
   obscurM6VoiceReplay?: M6VoiceReplayApi;
   obscurM6VoiceCapture?: Readonly<{
     capture?: (eventWindowSize?: number) => M6VoiceCaptureBundle;

@@ -5,7 +5,7 @@ import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { EnhancedRelayPoolResult } from "@/app/features/relays/hooks/enhanced-relay-pool";
 
 /**
- * Path B B2: ephemeral kind-0 profile REQ scoped to dialog/surface lifecycle.
+ * Path B B2-3: ephemeral kind-0 profile REQ scoped to dialog/surface lifecycle.
  * Does not compete with `use-sealed-community` timeline subscription — names only.
  */
 export const useCommunityMemberDisplayNames = (params: Readonly<{

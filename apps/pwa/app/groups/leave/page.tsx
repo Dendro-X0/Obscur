@@ -17,8 +17,6 @@ import { useGroups } from "@/app/features/groups/providers/group-provider";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
 import { useSealedCommunity, toScopedRelayUrl } from "@/app/features/groups/hooks/use-sealed-community";
-import { getResolvedClientGateway } from "@/app/features/profiles/services/resolve-client-gateway";
-import { toGroupConversationId } from "@/app/features/groups/utils/group-conversation-id";
 import { resolveGroupConversationByToken } from "@/app/features/messaging/utils/conversation-target";
 import { resolveGroupRouteToken } from "@/app/features/groups/utils/group-route-token";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
@@ -29,6 +27,9 @@ import {
     withCommunityNetworkTimeout,
 } from "@/app/features/groups/services/community-network-timeout";
 import { ProfileRegistryService } from "@/app/features/profiles/services/profile-registry-service";
+import { isRelayAuthoritativeMembershipEnforced } from "@/app/features/groups/services/community-relay-authoritative-membership-policy";
+import { isWorkspaceKernelAuthority } from "@/app/features/workspace-kernel/workspace-kernel-policy";
+import { publishWorkspaceKernelLeave } from "@/app/features/workspace-kernel/workspace-kernel-leave-port";
 
 export default function LeaveCommunityPage() {
     const router = useRouter();
@@ -38,8 +39,6 @@ export default function LeaveCommunityPage() {
         createdGroups,
         leaveGroup,
         forcePurgeCommunity,
-        communityKnownParticipantDirectoryByConversationId,
-        communityRosterByConversationId,
     } = useGroups();
     const { state: identityState } = useIdentity();
     const { relayPool } = useRelay();
@@ -54,7 +53,6 @@ export default function LeaveCommunityPage() {
     });
     const queryRelay = searchParams.get("relay");
     const queryName = searchParams.get("name")?.trim() ?? "";
-    const queryCommunityId = searchParams.get("communityId")?.trim() ?? "";
     const isDeleteFlow = searchParams.get("action") === "delete";
 
     const group = routeToken ? (resolveGroupConversationByToken(createdGroups, routeToken) ?? undefined) : undefined;
@@ -65,11 +63,6 @@ export default function LeaveCommunityPage() {
 
     const leaveStepDefs = useMemo(
         () => [
-            {
-                id: "local",
-                label: "Local exit",
-                detail: "Remove room key and participation on this device.",
-            },
             {
                 id: "relay",
                 label: "Relay proof",
@@ -83,6 +76,11 @@ export default function LeaveCommunityPage() {
                 detail: isCoordinationConfigured() && readMembershipSyncMode() === "coordination_preferred"
                     ? "Notify coordination membership directory."
                     : "Optional — coordination not configured.",
+            },
+            {
+                id: "local",
+                label: "Local exit",
+                detail: "Remove room key and participation on this device after network confirmation.",
             },
         ],
         [relayTransportReady],
@@ -109,60 +107,18 @@ export default function LeaveCommunityPage() {
         return routeToken ?? "";
     }, [group?.groupId, routeToken]);
     const displayName = group?.displayName || queryName || "Community";
-
-    const resolvedCommunityIdForScope = useMemo(() => {
-        const raw = (group?.communityId || queryCommunityId)?.trim();
-        return raw && raw.length > 0 ? raw : undefined;
-    }, [group?.communityId, queryCommunityId]);
-
-    const rosterLookupConversationId = useMemo((): string | null => {
-        if (group?.id) {
-            return group.id;
-        }
-        const gid = resolvedGroupId.trim();
-        const relay = effectiveRelay.trim();
-        if (!gid || !relay) {
-            return null;
-        }
-        return toGroupConversationId({
-            groupId: gid,
-            relayUrl: relay,
-            ...(resolvedCommunityIdForScope ? { communityId: resolvedCommunityIdForScope } : {}),
-        });
-    }, [effectiveRelay, group?.id, resolvedCommunityIdForScope, resolvedGroupId]);
-
-    const leaveSealedCommunityInitialMembers = useMemo((): ReadonlyArray<PublicKeyHex> | undefined => {
-        if (!rosterLookupConversationId) {
-            return getResolvedClientGateway().communityRoster.resolveSeedMemberPubkeysFromDirectory({
-                directory: null,
-                persistedGroupMemberPubkeys: group?.memberPubkeys,
-                projectionMemberPubkeys: undefined,
-                localMemberPubkey: localMemberPubkey,
-            });
-        }
-        return getResolvedClientGateway().communityRoster.resolveSeedMemberPubkeysFromDirectory({
-            directory: communityKnownParticipantDirectoryByConversationId[rosterLookupConversationId] ?? null,
-            persistedGroupMemberPubkeys: group?.memberPubkeys,
-            projectionMemberPubkeys: communityRosterByConversationId[rosterLookupConversationId]?.activeMemberPubkeys,
-            localMemberPubkey: localMemberPubkey,
-        });
-    }, [
-        communityKnownParticipantDirectoryByConversationId,
-        communityRosterByConversationId,
-        group?.memberPubkeys,
-        localMemberPubkey,
-        rosterLookupConversationId,
-    ]);
+    const workspaceKernelLeave = isWorkspaceKernelAuthority();
 
     const { leaveGroup: leaveNip29Group } = useSealedCommunity({
         groupId: resolvedGroupId,
         relayUrl: effectiveRelay,
-        ...(group?.communityId || queryCommunityId ? { communityId: group?.communityId || queryCommunityId } : {}),
+        ...(group?.communityId ? { communityId: group.communityId } : {}),
+        ...(group?.communityMode ? { communityMode: group.communityMode } : {}),
         pool: relayPool,
         myPublicKeyHex: localMemberPubkey,
         myPrivateKeyHex: identityState.privateKeyHex ?? null,
-        initialMembers: leaveSealedCommunityInitialMembers,
-        enabled: relayTransportReady,
+        initialMembers: group?.memberPubkeys,
+        enabled: relayTransportReady && !workspaceKernelLeave,
     });
 
     const returnHref = useMemo(() => {
@@ -193,17 +149,19 @@ export default function LeaveCommunityPage() {
         deleteActionsRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }, [isDeleteFlow, isLeaving, isPurgingLocal]);
 
-    const applyLocalLeave = (): void => {
+    const applyLocalLeave = (relayConfirmed = false): void => {
         if (group) {
             leaveGroup({
                 groupId: group.groupId,
                 relayUrl: group.relayUrl,
                 conversationId: group.id,
+                relayConfirmed,
             });
         } else {
             leaveGroup({
                 groupId: resolvedGroupId,
                 relayUrl: effectiveRelay,
+                relayConfirmed,
             });
         }
     };
@@ -216,33 +174,61 @@ export default function LeaveCommunityPage() {
 
         setIsLeaving(true);
         setLeaveWaitComplete(false);
-        setLeaveWaitPhase("local");
         try {
-            applyLocalLeave();
-            setLeaveWaitPhase("relay");
-
-            if (relayTransportReady && identityState.privateKeyHex) {
+            if (isRelayAuthoritativeMembershipEnforced()) {
+                if (!relayTransportReady || !identityState.privateKeyHex) {
+                    toast.error("Relay must confirm leave before membership changes on this device.");
+                    return;
+                }
+                setLeaveWaitPhase("relay");
+                let relayConfirmed = false;
                 try {
-                    await withCommunityNetworkTimeout(leaveNip29Group());
+                    if (workspaceKernelLeave && group && identityState.privateKeyHex && localMemberPubkey) {
+                        relayConfirmed = await withCommunityNetworkTimeout(publishWorkspaceKernelLeave({
+                            pool: relayPool,
+                            group,
+                            myPublicKeyHex: localMemberPubkey,
+                            myPrivateKeyHex: identityState.privateKeyHex,
+                            initialMembers: group.memberPubkeys,
+                        }));
+                    } else {
+                        relayConfirmed = await withCommunityNetworkTimeout(leaveNip29Group());
+                    }
                 } catch (error) {
                     if (error instanceof CommunityNetworkTimeoutError) {
-                        toast.warning(
-                            "Left on this device. Relay confirmation timed out and will retry in the background.",
-                        );
+                        toast.error("Leave timed out — relay did not confirm. You remain a member.");
                     } else {
-                        toast.warning(
-                            "Left on this device. Relay confirmation may finish in the background.",
-                        );
+                        toast.error("Relay did not confirm leave. You remain a member of this community.");
+                    }
+                    return;
+                }
+                if (!relayConfirmed) {
+                    toast.error("Relay rejected leave. You remain a member of this community.");
+                    return;
+                }
+                setLeaveWaitPhase("local");
+                applyLocalLeave(true);
+            } else {
+                setLeaveWaitPhase("relay");
+                let relayConfirmed = false;
+                if (relayTransportReady && identityState.privateKeyHex) {
+                    try {
+                        relayConfirmed = await withCommunityNetworkTimeout(leaveNip29Group());
+                    } catch {
+                        relayConfirmed = false;
                     }
                 }
-            } else {
-                toast.success(
-                    "Removed this community on this device. Network relay was unavailable or not a real wss:// host.",
-                );
+                if (!relayConfirmed) {
+                    toast.error("Relay did not confirm leave. You remain a member of this community.");
+                    return;
+                }
+                setLeaveWaitPhase("local");
+                applyLocalLeave(true);
             }
 
             setLeaveWaitPhase("directory");
             setLeaveWaitComplete(true);
+            toast.success("Left community.");
             await new Promise((resolve) => setTimeout(resolve, 450));
             router.push("/network");
         } catch {
@@ -258,6 +244,10 @@ export default function LeaveCommunityPage() {
     const handleDeleteLocal = async () => {
         if (!resolvedGroupId || !effectiveRelay) {
             toast.error("Community details are missing; unable to purge.");
+            return;
+        }
+        if (isRelayAuthoritativeMembershipEnforced()) {
+            toast.error("Local-only delete is disabled. Leave via relay confirmation first.");
             return;
         }
         setIsPurgingLocal(true);
@@ -284,9 +274,13 @@ export default function LeaveCommunityPage() {
         ? `This permanently removes local chat, membership, and ledger data for ${displayName} on ${activeProfileLabel}. Your account stays on this device. This cannot be undone here.`
         : "This action will disconnect you from this community space. You will stop receiving future messages, roster updates, and shared room-key changes unless you are invited back later.";
     const confirmPanelTitle = isDeleteFlow ? "Confirm delete" : "Confirm Exit";
-    const confirmPanelDescription = isDeleteFlow
-        ? "Review the details below, then delete all local data when you are ready. Local removal happens first so the UI cannot hang on unreachable relays."
-        : "If you are sure, continue below. Local removal happens first so the UI cannot hang on unreachable relays.";
+    const confirmPanelDescription = isRelayAuthoritativeMembershipEnforced()
+        ? isDeleteFlow
+            ? "Relay must confirm your leave before any local data is removed. Local-only delete is disabled to prevent ghost membership on other devices."
+            : "If you are sure, continue below. The relay must confirm your leave before this device updates membership or removes the community from your sidebar."
+        : isDeleteFlow
+            ? "Review the details below, then delete all local data when you are ready."
+            : "If you are sure, continue below. Leave is confirmed on the relay before local membership is updated.";
     const isBusy = isLeaving || isPurgingLocal;
     const compact = useMobileCompactLayout();
     const relayHostLabel = effectiveRelay.replace(/^wss?:\/\//, "").split("/")[0] || effectiveRelay || "unknown";

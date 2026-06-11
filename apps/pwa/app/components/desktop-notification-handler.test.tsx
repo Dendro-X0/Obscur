@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { BACKGROUND_MESSAGE_NOTIFICATION_COALESCE_MS } from "@/app/features/notifications/utils/coalesce-background-message-notifications";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { Message } from "@/app/features/messaging/types";
@@ -205,6 +206,7 @@ describe("DesktopNotificationHandler", () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     cleanup();
   });
 
@@ -280,7 +282,7 @@ describe("DesktopNotificationHandler", () => {
     expect(notificationMocks.showNotification).not.toHaveBeenCalled();
   });
 
-  it("shows notifications when app is backgrounded even for the same chat", () => {
+  it("shows notifications when app is backgrounded even for the same chat", async () => {
     messagingMocks.selectedConversation = { id: "conv-1" };
     Object.defineProperty(document, "visibilityState", {
       configurable: true,
@@ -290,7 +292,35 @@ describe("DesktopNotificationHandler", () => {
     act(() => {
       messageBus.emitNewMessage("conv-1", createIncomingMessage("evt-bg"));
     });
-    expect(notificationMocks.showNotification).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(notificationMocks.showNotification).toHaveBeenCalledTimes(1);
+    }, { timeout: BACKGROUND_MESSAGE_NOTIFICATION_COALESCE_MS + 500 });
+  });
+
+  it("coalesces rapid background messages into one desktop notification", async () => {
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      value: "hidden",
+    });
+    render(<DesktopNotificationHandler />);
+    act(() => {
+      for (let index = 0; index < 10; index += 1) {
+        messageBus.emitNewMessage("conv-1", createIncomingMessage(`evt-burst-${index}`, {
+          content: "test",
+        }));
+      }
+    });
+    await waitFor(() => {
+      expect(notificationMocks.showNotification).toHaveBeenCalledTimes(1);
+    }, { timeout: BACKGROUND_MESSAGE_NOTIFICATION_COALESCE_MS + 500 });
+    expect(notificationMocks.showNotification).toHaveBeenCalledWith(
+      "10 new messages from Alice",
+      expect.stringContaining("test"),
+      "dmMessages",
+      expect.objectContaining({
+        tag: "obscur-dm-conv-1",
+      }),
+    );
   });
 
   it("increments badge from background notifications even when unread projection is zero", async () => {
@@ -471,7 +501,7 @@ describe("DesktopNotificationHandler", () => {
     expect(voiceOverlayActionBridgeMocks.dispatchVoiceCallOverlayAction).toHaveBeenCalledWith("open_chat");
   });
 
-  it("routes background message notification clicks to the exact conversation href", () => {
+  it("routes background message notification clicks to the exact conversation href", async () => {
     Object.defineProperty(document, "visibilityState", {
       configurable: true,
       value: "hidden",
@@ -481,6 +511,10 @@ describe("DesktopNotificationHandler", () => {
     act(() => {
       messageBus.emitNewMessage("dm:self:peer-c", createIncomingMessage("evt-bg-route"));
     });
+
+    await waitFor(() => {
+      expect(notificationMocks.showNotification).toHaveBeenCalledTimes(1);
+    }, { timeout: BACKGROUND_MESSAGE_NOTIFICATION_COALESCE_MS + 500 });
 
     expect(notificationMocks.showNotification).toHaveBeenCalledWith(
       "New message from Alice",
@@ -586,7 +620,7 @@ describe("DesktopNotificationHandler", () => {
     expect(screen.queryByText("hello from peer")).toBeNull();
   });
 
-  it("allows message notifications once sync phase reaches ready", () => {
+  it("allows message notifications once sync phase reaches ready", async () => {
     accountSyncMocks.phase = "ready";
     Object.defineProperty(document, "visibilityState", {
       configurable: true,
@@ -596,7 +630,9 @@ describe("DesktopNotificationHandler", () => {
     act(() => {
       messageBus.emitNewMessage("conv-1", createIncomingMessage("evt-sync-ready"));
     });
-    expect(notificationMocks.showNotification).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(notificationMocks.showNotification).toHaveBeenCalledTimes(1);
+    }, { timeout: BACKGROUND_MESSAGE_NOTIFICATION_COALESCE_MS + 500 });
   });
 
   it("suppresses message notifications during found_account phase", () => {

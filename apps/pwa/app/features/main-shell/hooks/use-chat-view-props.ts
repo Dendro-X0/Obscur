@@ -3,7 +3,8 @@
 import { useMemo, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "@dweb/ui-kit";
-import { useConversationMessages } from "../../messaging/hooks/use-conversation-messages";
+import { useThreadMessages } from "../../messaging/hooks/use-thread-messages";
+import { usePinnedDmForMessageHook } from "./use-pinned-dm-for-message-hook";
 import { isPreviewableMediaAttachment } from "../../messaging/utils/logic";
 import type {
     Conversation,
@@ -18,7 +19,7 @@ interface UseChatViewPropsParams {
 
 /**
  * Hook to compute and manage properties for the ChatView component.
- * Now internally uses useConversationMessages for high-performance localized state.
+ * Unified DM + group thread display via useThreadMessages (group stub until v2 backend).
  */
 export function useChatViewProps({
     selectedConversation,
@@ -26,8 +27,9 @@ export function useChatViewProps({
 }: UseChatViewPropsParams) {
     const { t } = useTranslation();
 
-    const dmConversationId = selectedConversation?.kind === "dm"
-        ? selectedConversation.id
+    const pinnedDm = usePinnedDmForMessageHook(selectedConversation);
+    const pinnedDmConversationId = selectedConversation?.kind === "group"
+        ? pinnedDm?.id
         : undefined;
 
     const {
@@ -35,8 +37,11 @@ export function useChatViewProps({
         isLoading,
         hasEarlier,
         loadEarlier,
-        pendingEventCount
-    } = useConversationMessages(dmConversationId, myPublicKeyHex);
+        pendingEventCount,
+        hasHydrated,
+    } = useThreadMessages(selectedConversation, myPublicKeyHex, {
+        pinnedDmConversationId,
+    });
 
     const handleLoadEarlier = useCallback(() => {
         loadEarlier();
@@ -79,7 +84,7 @@ export function useChatViewProps({
         handleLoadEarlier,
         handleCopyMyPubkey,
         handleCopyChatLink,
-        conversationHasHydrated: !isLoading,
+        conversationHasHydrated: hasHydrated,
         visibleMessages: messages,
         rawMessagesCount: messages.length,
         hasEarlierMessages: hasEarlier,

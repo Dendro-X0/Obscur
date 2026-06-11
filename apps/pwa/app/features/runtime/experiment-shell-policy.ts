@@ -66,12 +66,19 @@ export const isExperimentOfflineStubEnabled = (): boolean => (
 export const shouldDeferExperimentHeavyWork = (): boolean => isExperimentOfflineStubEnabled();
 
 /**
- * Transition overlay, mount probes, and route stall guards add main-thread work on every nav.
- * Keep them off for all experiment-shell builds (including G6 online).
+ * Mount probes and transition watchdog timers — heavier per-nav instrumentation.
+ * Keep off experiment shell; use {@link shouldEnableNavigationProgressUx} for loading UX.
  */
 export const shouldRunNavigationInstrumentation = (): boolean => (
   !isExperimentShellEnabled()
 );
+
+/**
+ * Progressive nav UX (loading bar / full-screen overlay) — **disabled**.
+ * Dev SPA navigation deadlocks made overlay UX misleading; use hard sidebar nav instead.
+ * @see shouldUseHardSidebarNavigation
+ */
+export const shouldEnableNavigationProgressUx = (): boolean => false;
 
 /** Delay before deferred hydrate/sync/subscription work in experiment mode. */
 export const EXPERIMENT_DEFER_HEAVY_WORK_MS = 12_000;

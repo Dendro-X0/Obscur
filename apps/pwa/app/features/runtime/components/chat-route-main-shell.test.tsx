@@ -14,18 +14,15 @@ vi.mock("@/app/features/main-shell/main-shell", () => ({
 }));
 
 describe("ChatRouteMainShell", () => {
-  it("keeps MainShell mounted but hidden off the chat route", () => {
+  it("mounts MainShell only on the chat route", () => {
     pathnameRef.current = "/";
-    const { getByTestId, unmount } = render(<ChatRouteMainShell />);
-    const shell = getByTestId("main-shell");
-    expect(shell).toBeTruthy();
-    expect(shell.parentElement?.hasAttribute("hidden")).toBe(false);
-    unmount();
+    const chat = render(<ChatRouteMainShell />);
+    expect(chat.getByTestId("main-shell")).toBeTruthy();
+    expect(chat.getByTestId("main-shell").parentElement?.dataset.chatRouteActive).toBe("true");
+    chat.unmount();
 
     pathnameRef.current = "/network";
     const network = render(<ChatRouteMainShell />);
-    const offRouteShell = network.getByTestId("main-shell");
-    expect(offRouteShell).toBeTruthy();
-    expect(offRouteShell.parentElement?.hasAttribute("hidden")).toBe(true);
+    expect(network.queryByTestId("main-shell")).toBeNull();
   });
 });

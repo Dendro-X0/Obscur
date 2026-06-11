@@ -18,6 +18,11 @@ import { getResolvedProfileId } from "@/app/features/profiles/services/profile-r
 import type { Conversation } from "@/app/features/messaging/types";
 import { useAccountSyncSnapshot } from "@/app/features/account-sync/hooks/use-account-sync-snapshot";
 import {
+    buildCoalescedMessageNotificationTitle,
+    createBackgroundMessageNotificationCoalescer,
+    type CoalescedBackgroundMessageNotification,
+} from "@/app/features/notifications/utils/coalesce-background-message-notifications";
+import {
     buildConversationNotificationHref,
     buildIncomingCallNotificationPresentation,
     buildMessageNotificationPresentation,
@@ -107,6 +112,10 @@ export const DesktopNotificationHandler = () => {
     const syncReadyAtUnixMsRef = useRef<number>(0);
     const hasSeenNonReadyPhaseRef = useRef<boolean>(false);
     const inAppMessageToastTimersRef = useRef<Map<string, number>>(new Map());
+    const backgroundMessageNotificationCoalescerRef = useRef<ReturnType<typeof createBackgroundMessageNotificationCoalescer> | null>(null);
+    const flushCoalescedBackgroundMessageNotificationRef = useRef<
+        (payload: CoalescedBackgroundMessageNotification) => void
+    >(() => {});
     const [backgroundAlertCount, setBackgroundAlertCount] = useState<number>(0);
     const [inAppMessageToasts, setInAppMessageToasts] = useState<ReadonlyArray<(IncomingMessageToastItem & Readonly<{
         conversationId: string;
@@ -494,6 +503,52 @@ export const DesktopNotificationHandler = () => {
         }
     ), []);
 
+    flushCoalescedBackgroundMessageNotificationRef.current = (payload) => {
+        const title = buildCoalescedMessageNotificationTitle(
+            payload.senderName,
+            payload.messageCount,
+        );
+        const notificationOptions = {
+            onClick: () => {
+                void router.push(payload.presentation.href);
+            },
+            icon: payload.presentation.icon,
+            force: payload.forceBackgroundNotification,
+            tag: `obscur-dm-${payload.conversationId}`,
+            data: {
+                href: payload.presentation.href,
+            },
+        };
+        if (enabled && channels.dmMessages) {
+            void showNotification(
+                title,
+                payload.presentation.body,
+                "dmMessages",
+                notificationOptions,
+            );
+        } else if (payload.forceBackgroundNotification) {
+            void showNotification(
+                title,
+                payload.presentation.body,
+                "dmMessages",
+                notificationOptions,
+            );
+        }
+        lastMessageNotificationAtUnixMsRef.current = Date.now();
+        playSubtleMessageTone();
+    };
+
+    useEffect((): (() => void) => {
+        const coalescer = createBackgroundMessageNotificationCoalescer((payload) => {
+            flushCoalescedBackgroundMessageNotificationRef.current(payload);
+        });
+        backgroundMessageNotificationCoalescerRef.current = coalescer;
+        return (): void => {
+            coalescer.dispose();
+            backgroundMessageNotificationCoalescerRef.current = null;
+        };
+    }, []);
+
     useEffect((): void => {
         if (!isTauri()) {
             return;
@@ -712,43 +767,12 @@ export const DesktopNotificationHandler = () => {
                 iconUrl: notificationIconUrl,
                 timestampLabel: messageTimestampLabel,
             });
-            if (enabled && channels.dmMessages) {
-                void showNotification(
-                    presentation.title,
-                    presentation.body,
-                    "dmMessages",
-                    {
-                        onClick: () => {
-                            void router.push(presentation.href);
-                        },
-                        icon: presentation.icon,
-                        force: forceBackgroundNotification,
-                        data: {
-                            href: presentation.href,
-                        },
-                    }
-                );
-                lastMessageNotificationAtUnixMsRef.current = Date.now();
-                playSubtleMessageTone();
-            } else if (isBackgroundAlert) {
-                void showNotification(
-                    presentation.title,
-                    presentation.body,
-                    "dmMessages",
-                    {
-                        onClick: () => {
-                            void router.push(presentation.href);
-                        },
-                        icon: presentation.icon,
-                        force: forceBackgroundNotification,
-                        data: {
-                            href: presentation.href,
-                        },
-                    }
-                );
-                lastMessageNotificationAtUnixMsRef.current = Date.now();
-                playSubtleMessageTone();
-            }
+            backgroundMessageNotificationCoalescerRef.current?.schedule({
+                conversationId: event.conversationId,
+                senderName,
+                presentation,
+                forceBackgroundNotification,
+            });
         }, { profileId: activeProfileId });
         return (): void => {
             unsubscribeRef.current?.();

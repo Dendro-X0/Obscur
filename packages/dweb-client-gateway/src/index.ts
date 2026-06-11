@@ -34,6 +34,7 @@ export type {
   DmConversationMaterializationPortContract,
   DmHydrateThreadReadModelResultContract,
 } from "./dm-materialization-port-contract";
+export type { ThreadHistoryPortContract } from "./thread-history-port-contract";
 export { toConversationIdDiagnosticLabel } from "./messaging-diagnostics";
 export type {
   CommunityMembershipPort,

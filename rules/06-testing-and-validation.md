@@ -12,6 +12,8 @@
 
 Canonical: [v1.8.x-batch-implementation-lane.md](../docs/program/v1.8.x-batch-implementation-lane.md) § Maintainer delivery order.
 
+**Full process (testing + issue tracking):** [testing-and-issue-tracking-spec.md](../docs/program/testing-and-issue-tracking-spec.md).
+
 ---
 
 1. **Validate at the narrowest useful level first.**

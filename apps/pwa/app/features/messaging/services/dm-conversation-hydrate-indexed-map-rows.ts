@@ -1,4 +1,7 @@
 /**
+ * @deprecated Native DM must use `features/dm-kernel/`. Web legacy only.
+ * @see docs/program/obscur-v2-slim-kernel-manifest.md
+ *
  * Row → displayable Message mapping for IndexedDB / SQLite hydrate windows (R1).
  * I/O stays in `dm-conversation-hydrate-indexed-scan.ts`; raw→`Message` normalize stays caller-supplied (typically **`normalizeDmConversationMessageRow`**); display predicate typically **`isDisplayableDmConversationMessage`** (`dm-conversation-displayable-message.ts`).
  * Retention + identity dedupe use `dm-conversation-message-retention-dedupe.ts`.

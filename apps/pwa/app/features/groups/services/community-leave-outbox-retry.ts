@@ -4,7 +4,6 @@ import { getResolvedProfileId } from "@/app/features/profiles/services/profile-r
 import {
   getRelaySnapshot,
   publishViaRelayCore,
-  type RelayPoolLike,
 } from "@/app/features/relays/lib/nostr-core-relay";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import { toScopedRelayUrl } from "../hooks/use-sealed-community";
@@ -21,9 +20,15 @@ export type FlushCommunityLeaveOutboxResult = Readonly<{
   skippedNoWritableRelay: boolean;
 }>;
 
+export type RelayPoolLike = Readonly<{
+  publishToUrls?: (urls: ReadonlyArray<string>, payload: string) => Promise<{ success: boolean }>;
+  publishToAll: (payload: string) => Promise<{ success: boolean }>;
+  waitForConnection?: (timeoutMs: number) => Promise<void>;
+}>;
+
 const flushInFlightByScope = new Map<string, Promise<FlushCommunityLeaveOutboxResult>>();
 
-const publishLeaveEventToRelay = async (params: Readonly<{
+export const publishLeaveEventToRelay = async (params: Readonly<{
   pool: RelayPoolLike;
   relayUrl: string;
   event: unknown;

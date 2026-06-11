@@ -57,6 +57,8 @@ const SCOPED_STORAGE_BASE_KEYS = new Set<string>([
   "obscur.messaging.request_flow_evidence.v1",
   "obscur.messaging.sync_checkpoints.v1",
   "obscur.vault.local_media_index",
+  "obscur.vault.local_media_storage_config",
+  "obscur.community.coordination_membership_directory.v1",
 ]);
 
 const SCOPED_STORAGE_PREFIXES: ReadonlyArray<string> = [
@@ -66,6 +68,9 @@ const SCOPED_STORAGE_PREFIXES: ReadonlyArray<string> = [
   "obscur.group.membership_ledger.v1.",
   "obscur.group.tombstones.v1.",
   "obscur.transport_queue.v1.",
+  "obscur.relay_list.v1.",
+  "obscur.relay_list.v2.",
+  "obscur.community.coordination_membership_seq.v1.",
 ];
 
 const LEGACY_PUBLIC_KEY_PREFIXES: ReadonlyArray<string> = [

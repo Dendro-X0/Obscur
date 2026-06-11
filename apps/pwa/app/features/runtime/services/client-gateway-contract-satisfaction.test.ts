@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { communityRosterMaterializationOwner } from "@/app/features/groups/services/community-roster-materialization-owner";
-import { dmConversationMaterializationOwner } from "@/app/features/messaging/services/dm-conversation-materialization-owner";
+import { dmThreadHistoryAdapter } from "@/app/features/messaging/services/thread-history/dm-adapter";
 
 describe("ClientGateway port owners", () => {
   it("exposes community roster materialization methods", () => {
@@ -9,12 +9,12 @@ describe("ClientGateway port owners", () => {
     expect(communityRosterMaterializationOwner.persistHydratedGroupKnownParticipants).toBeTypeOf("function");
   });
 
-  it("exposes dm conversation materialization methods", () => {
-    expect(dmConversationMaterializationOwner.prepareThreadSuppressionIds).toBeTypeOf("function");
-    expect(dmConversationMaterializationOwner.hydrateThreadReadModel).toBeTypeOf("function");
-    expect(dmConversationMaterializationOwner.applyRealtimeBufferedEvents).toBeTypeOf("function");
-    expect(dmConversationMaterializationOwner.loadEarlierMessages).toBeTypeOf("function");
-    expect(dmConversationMaterializationOwner.filterThreadMessagesBySuppression).toBeTypeOf("function");
-    expect(dmConversationMaterializationOwner.mergeHydratedBaseWithLiveOverlay).toBeTypeOf("function");
+  it("exposes thread history kernel methods on the DM adapter", () => {
+    expect(dmThreadHistoryAdapter.prepareThreadSuppressionIds).toBeTypeOf("function");
+    expect(dmThreadHistoryAdapter.hydrateThreadReadModel).toBeTypeOf("function");
+    expect(dmThreadHistoryAdapter.applyRealtimeBufferedEvents).toBeTypeOf("function");
+    expect(dmThreadHistoryAdapter.loadEarlierMessages).toBeTypeOf("function");
+    expect(dmThreadHistoryAdapter.filterThreadMessagesBySuppression).toBeTypeOf("function");
+    expect(dmThreadHistoryAdapter.mergeHydratedBaseWithLiveOverlay).toBeTypeOf("function");
   });
 });

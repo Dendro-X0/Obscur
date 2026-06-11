@@ -1,4 +1,7 @@
 /**
+ * @deprecated Native DM must use `features/dm-kernel/`. Web legacy only.
+ * @see docs/program/obscur-v2-slim-kernel-manifest.md
+ *
  * IndexedDB / SQLite window load + multi-pass scan for DM hydrate / load-earlier.
  * R1: I/O + row merge lives here; row→Message mapping stays caller-supplied (typically **`normalizeDmConversationMessageRow`** in **`dm-conversation-normalize-message.ts`**).
  */

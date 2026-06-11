@@ -17,9 +17,15 @@ import { useNetwork } from "@/app/features/network/providers/network-provider";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
 import { useWindowRuntimeSnapshot } from "@/app/features/runtime/services/window-runtime-supervisor";
 import { messageBus } from "@/app/features/messaging/services/message-bus";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
+import { toDmConversationId } from "@/app/features/messaging/utils/dm-conversation-id";
 import { recordPeerLastActive } from "@/app/features/messaging/services/peer-interaction-store";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import { isExperimentOfflineStubEnabled } from "@/app/features/runtime/experiment-shell-policy";
+import {
+  subscribeNativeDmRelayBackfillRepair,
+  type NativeDmSqliteRelayBackfillRepairDetail,
+} from "@/app/features/messaging/services/native-dm-sqlite-repair";
 
 const ACTIVE_OWNER_RUNTIME_PHASES = new Set(["activating_runtime", "ready", "degraded"]);
 const RUNTIME_TRANSPORT_OWNER_ID = "runtime_singleton_owner_v2";
@@ -73,18 +79,47 @@ export function RuntimeMessagingTransportOwnerProvider(props: Readonly<{ childre
   const myPublicKeyHex = ownerEnabled ? (identity.state.publicKeyHex ?? null) : null;
   const myPrivateKeyHex = ownerEnabled ? (identity.state.privateKeyHex ?? null) : null;
 
+  const resolveBusConversationId = useCallback((message: Message): string => {
+    const direct = message.conversationId?.trim();
+    if (direct) {
+      return direct;
+    }
+    if (!activePublicKeyHex) {
+      return "";
+    }
+    const peerPublicKeyHex = message.isOutgoing
+      ? message.recipientPubkey
+      : message.senderPubkey;
+    if (!peerPublicKeyHex) {
+      return "";
+    }
+    return toDmConversationId({
+      myPublicKeyHex: activePublicKeyHex,
+      peerPublicKeyHex,
+    }) ?? "";
+  }, [activePublicKeyHex]);
+
+  const handleMessageUpdated = useCallback((params: Readonly<{
+    conversationId: string;
+    message: Message;
+  }>) => {
+    const sourceProfileId = getResolvedProfileId()?.trim() || undefined;
+    const conversationId = params.conversationId.trim() || resolveBusConversationId(params.message);
+    messageBus.emitMessageUpdated(conversationId, params.message, { sourceProfileId });
+  }, [resolveBusConversationId]);
+
   const handleNewMessage = useCallback((message: Message) => {
+    const sourceProfileId = getResolvedProfileId()?.trim() || undefined;
     if (!message.isOutgoing && activePublicKeyHex && message.senderPubkey) {
       recordPeerLastActive({
         publicKeyHex: activePublicKeyHex,
         peerPublicKeyHex: message.senderPubkey,
         activeAtMs: message.eventCreatedAt?.getTime() ?? message.timestamp.getTime(),
-        profileId: runtimeSnapshot.session.profileId?.trim() || undefined,
+        profileId: sourceProfileId,
       });
     }
-    const sourceProfileId = runtimeSnapshot.session.profileId?.trim() || undefined;
-    messageBus.emitNewMessage(message.conversationId ?? "", message, { sourceProfileId });
-  }, [activePublicKeyHex, runtimeSnapshot.session.profileId]);
+    messageBus.emitNewMessage(resolveBusConversationId(message), message, { sourceProfileId });
+  }, [activePublicKeyHex, resolveBusConversationId]);
 
   const handleMessageDeleted = useCallback((params: Readonly<{
     conversationId: string;
@@ -101,13 +136,13 @@ export function RuntimeMessagingTransportOwnerProvider(props: Readonly<{ childre
       console.warn("[runtime-messaging] message delete bus emit skipped — no message id");
       return;
     }
-    const sourceProfileId = runtimeSnapshot.session.profileId?.trim() || undefined;
+    const sourceProfileId = getResolvedProfileId()?.trim() || undefined;
     messageBus.emitMessageDeleted(params.conversationId, primaryMessageId, {
       messageIdentityIds: params.messageIdentityIds,
       conversationIdOriginal: params.conversationIdOriginal,
       sourceProfileId,
     });
-  }, [runtimeSnapshot.session.profileId]);
+  }, []);
 
   const controller = useDmController({
     myPublicKeyHex,
@@ -116,11 +151,43 @@ export function RuntimeMessagingTransportOwnerProvider(props: Readonly<{ childre
     blocklist,
     peerTrust,
     onNewMessage: handleNewMessage,
+    onMessageUpdated: handleMessageUpdated,
     onMessageDeleted: handleMessageDeleted,
     autoSubscribeIncoming: ownerEnabled,
     enableIncomingTransport: ownerEnabled,
     transportOwnerId: RUNTIME_TRANSPORT_OWNER_ID,
   });
+
+  const syncMissedMessagesRef = useRef(controller.syncMissedMessages);
+  syncMissedMessagesRef.current = controller.syncMissedMessages;
+
+  useEffect(() => {
+    if (!ownerEnabled) {
+      return;
+    }
+    const activeProfileId = runtimeSnapshot.session.profileId?.trim() || "";
+    if (!activeProfileId) {
+      return;
+    }
+    return subscribeNativeDmRelayBackfillRepair((detail: NativeDmSqliteRelayBackfillRepairDetail) => {
+      if (detail.profileId.trim() !== activeProfileId) {
+        return;
+      }
+      logAppEvent({
+        name: "messaging.native_dm_sqlite_repair_relay_backfill_executing",
+        level: "info",
+        scope: { feature: "messaging", action: "native_dm_sqlite_repair" },
+        context: {
+          profileId: detail.profileId,
+          reason: detail.reason,
+          trigger: detail.trigger,
+          sinceUnixMs: detail.sinceUnixMs,
+          conversationCount: detail.conversationIds.length,
+        },
+      });
+      void syncMissedMessagesRef.current(new Date(detail.sinceUnixMs));
+    });
+  }, [ownerEnabled, runtimeSnapshot.session.profileId]);
 
   return (
     <RuntimeMessagingTransportOwnerContext.Provider value={controller}>

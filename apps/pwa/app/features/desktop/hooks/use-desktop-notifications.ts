@@ -11,6 +11,7 @@ type NotificationChannelKey = keyof NotificationChannels;
 type ShowDesktopNotificationOptions = Readonly<{
   onClick?: () => void;
   icon?: string;
+  tag?: string;
   data?: Record<string, unknown>;
   requireInteraction?: boolean;
   actions?: ReadonlyArray<Readonly<{ action: string; title: string }>>;
@@ -53,7 +54,7 @@ export function useDesktopNotifications() {
       await showDesktopNotification({
         title,
         body,
-        tag: DESKTOP_NOTIFICATION_TAG,
+        tag: options?.tag ?? DESKTOP_NOTIFICATION_TAG,
         icon: options?.icon,
         onClick: options?.onClick,
         data: options?.data,

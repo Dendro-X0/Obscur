@@ -59,6 +59,7 @@ import {
     ensureWorkspaceMembershipSyncMode,
 } from "../services/community-workspace-membership";
 import { applyCommunityMembershipRuntimeEvidence } from "../services/community-membership-mutation-owner";
+import { isRelayAuthoritativeMembershipEnforced } from "../services/community-relay-authoritative-membership-policy";
 import { loadCommunityMembershipLedger } from "../services/community-membership-ledger";
 import { loadGroupTombstones } from "../services/group-tombstone-store";
 import {
@@ -73,6 +74,7 @@ import {
     publishWorkspaceRelayJoinEvidence,
     runWorkspaceMembershipActivation,
 } from "../services/community-workspace-activation";
+import { resolveCommunityInvitePreJoinRosterCopy } from "../services/community-invite-prejoin-roster-copy";
 
 export type { InvitePayload };
 
@@ -187,6 +189,13 @@ export const CommunityInviteCard = ({
     const invitePictureUrl = React.useMemo(
         () => invite.metadata.picture?.trim() || persistedGroup?.avatar?.trim() || "",
         [invite.metadata.picture, persistedGroup?.avatar],
+    );
+    const preJoinRosterCopy = React.useMemo(
+        () => resolveCommunityInvitePreJoinRosterCopy({
+            access: invite.metadata.access,
+            memberCount: invite.metadata.memberCount,
+        }),
+        [invite.metadata.access, invite.metadata.memberCount],
     );
     const resolvedInviteIdForRelay = React.useMemo(
         () => resolveCommunityInviteIdFromMessage(message),
@@ -416,6 +425,14 @@ export const CommunityInviteCard = ({
             };
             persistRelayJoinState(activation.relay.status === "synced" ? "joined" : "retry_scheduled");
 
+            if (isRelayAuthoritativeMembershipEnforced() && activation.relay.status !== "synced") {
+                toast.error(t(
+                    "groups.inviteRelayRequiredForJoin",
+                    "Relay did not confirm membership. Join was not recorded on this device.",
+                ));
+                return;
+            }
+
             const profileId = getResolvedProfileId();
             const localPublicKeyHex = identityState.publicKeyHex?.trim();
             if (localPublicKeyHex) {
@@ -428,9 +445,10 @@ export const CommunityInviteCard = ({
                     },
                     membershipLedger: loadCommunityMembershipLedger(localPublicKeyHex, { profileId }),
                     tombstones: loadGroupTombstones(localPublicKeyHex, { profileId }),
+                    relayConfirmed: true,
                 });
             }
-            addGroup(resolvedGroup, { allowRevive: true });
+            addGroup(resolvedGroup, { allowRevive: true, relayConfirmed: true });
             dispatchGroupInviteReceived(resolvedGroup);
 
             if (resolvedRelayUrl) {
@@ -713,7 +731,7 @@ export const CommunityInviteCard = ({
     );
 
     const inviteBadgeClass = cn(
-        "flex items-center gap-1.5 px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-purple-200/70 bg-purple-500/10 text-purple-900 dark:border-white/10 dark:bg-white/10 dark:text-white/85",
+        "inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-purple-200/70 bg-purple-500/10 px-2.5 py-1 text-[9px] font-bold uppercase tracking-wide text-purple-900 dark:border-white/10 dark:bg-white/10 dark:text-white/85",
     );
 
     return (
@@ -765,27 +783,35 @@ export const CommunityInviteCard = ({
                     </div>
 
                     {compact ? (
-                        <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-white/75">
+                        <p className="text-[10px] font-semibold leading-snug text-zinc-500 dark:text-white/75">
                             {t("groups.privateEncryptedCompact", "Private · Encrypted")}
-                            {invite.metadata.memberCount !== undefined
-                                ? ` · ${invite.metadata.memberCount} ${t("groups.members", "members")}`
-                                : ""}
+                            {preJoinRosterCopy.showMemberCountBadge && preJoinRosterCopy.memberCount !== undefined
+                                ? ` · ${preJoinRosterCopy.memberCount} ${t("groups.members", "members")}`
+                                : ` · ${t("groups.inviteRosterPrivateShort", "Roster hidden until join")}`}
                         </p>
                     ) : (
-                    <div className="flex items-center gap-3">
-                        <div className={inviteBadgeClass}>
-                            <ShieldCheck className="h-3 w-3" />
-                            {t("groups.encrypted", "Encrypted")}
-                        </div>
-                        <div className={inviteBadgeClass}>
-                            <Users className="h-3 w-3" />
-                            {t("groups.private", "Private")}
-                        </div>
-                        {invite.metadata.memberCount !== undefined && (
-                            <div className="ml-auto text-[9px] font-bold text-zinc-600 dark:text-white/75">
-                                {invite.metadata.memberCount} {t("groups.members", "members")}
+                    <div className="flex flex-col gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <div className={inviteBadgeClass}>
+                                <ShieldCheck className="h-3 w-3 shrink-0" aria-hidden />
+                                {t("groups.encrypted", "Encrypted")}
                             </div>
-                        )}
+                            <div className={inviteBadgeClass}>
+                                <Users className="h-3 w-3 shrink-0" aria-hidden />
+                                {t("groups.private", "Private")}
+                            </div>
+                            {preJoinRosterCopy.showMemberCountBadge && preJoinRosterCopy.memberCount !== undefined ? (
+                                <div className={inviteBadgeClass}>
+                                    <Users className="h-3 w-3 shrink-0" aria-hidden />
+                                    {t("groups.inviteMemberCount", "{{count}} members", { count: preJoinRosterCopy.memberCount })}
+                                </div>
+                            ) : null}
+                        </div>
+                        {!preJoinRosterCopy.showMemberCountBadge ? (
+                            <p className="text-[10px] font-medium leading-snug text-zinc-500 dark:text-white/70">
+                                {t("groups.inviteRosterPrivateShort", "Roster hidden until join")}
+                            </p>
+                        ) : null}
                     </div>
                     )}
 
@@ -917,7 +943,10 @@ export const CommunityInviteCard = ({
                                         {inviteDisplayName}
                                     </DialogTitle>
                                     <DialogDescription className="text-zinc-500 font-bold text-xs uppercase tracking-widest">
-                                        {invite.metadata.access || "Private"} Community • {invite.metadata.memberCount || 0} Members
+                                        {preJoinRosterCopy.accessLabel} {t("groups.communityLabel", "Community")} •{" "}
+                                        {preJoinRosterCopy.showMemberCountBadge && preJoinRosterCopy.memberCount !== undefined
+                                            ? t("groups.inviteMemberCount", "{{count}} members", { count: preJoinRosterCopy.memberCount })
+                                            : t("groups.inviteRosterPrivate", "Roster private until you join")}
                                     </DialogDescription>
                                 </div>
                             </div>
@@ -927,6 +956,17 @@ export const CommunityInviteCard = ({
                             <h5 className="text-[10px] font-black uppercase tracking-widest text-zinc-400">About this community</h5>
                             <p className="text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed font-medium bg-zinc-50 dark:bg-white/5 p-4 rounded-2xl border border-zinc-100 dark:border-white/5">
                                 {invite.metadata.about || "No description provided for this group."}
+                            </p>
+                            <p className="text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+                                {preJoinRosterCopy.showMemberCountBadge
+                                    ? t(
+                                        "groups.inviteRosterOpenHint",
+                                        "Accept to view the full member roster in this community.",
+                                    )
+                                    : t(
+                                        "groups.inviteRosterPrivacyHint",
+                                        "Member names and roster details stay private until you accept and join.",
+                                    )}
                             </p>
                         </div>
 

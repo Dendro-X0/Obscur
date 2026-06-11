@@ -9,7 +9,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
-import { useEnhancedDMController } from '../../controllers/enhanced-dm-controller';
+import { useEnhancedDMController } from '../../controllers/legacy/enhanced-dm-controller';
 import { cryptoService } from '@/app/features/crypto/crypto-service';
 import type { PublicKeyHex } from '@dweb/crypto/public-key-hex';
 import type { PrivateKeyHex } from '@dweb/crypto/private-key-hex';

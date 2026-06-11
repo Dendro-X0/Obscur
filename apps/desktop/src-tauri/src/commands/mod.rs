@@ -2,6 +2,7 @@
 
 pub mod data_root;
 pub mod local_save;
+pub mod warmup;
 pub mod db;
 pub mod notification;
 pub mod profile;

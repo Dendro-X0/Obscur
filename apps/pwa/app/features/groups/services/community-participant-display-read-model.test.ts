@@ -76,6 +76,22 @@ describe("community-participant-display-read-model", () => {
     expect(display).toEqual([PK_A]);
   });
 
+  it("applies local terminal expelled evidence when coordination directory is stale", () => {
+    const display = resolveCommunityParticipantDisplayPubkeys({
+      communityMode: "managed_workspace",
+      coordinationDirectory: {
+        activeMemberPubkeys: [PK_A, PK_B],
+        leftMemberPubkeys: [],
+        expelledMemberPubkeys: [],
+        headSeq: 2,
+      },
+      monotonicDisplayPubkeys: [PK_A, PK_B],
+      localMemberPubkey: PK_A,
+      localExpelledMemberPubkeys: [PK_B],
+    });
+    expect(display).toEqual([PK_A]);
+  });
+
   it("does not fall back to monotonic roster when coordination is configured but directory is missing", () => {
     const display = resolveCommunityParticipantDisplayPubkeys({
       communityMode: "managed_workspace",

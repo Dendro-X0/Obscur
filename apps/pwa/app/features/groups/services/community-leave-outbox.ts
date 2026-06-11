@@ -1,6 +1,7 @@
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { logAppEvent } from "@/app/shared/log-app-event";
+import { communityMembershipScopeMatches } from "./community-membership-scope-key";
 
 // ---------------------------------------------------------------------------
 // M3: Community Leave Outbox
@@ -223,11 +224,14 @@ export const removeCommunityLeaveOutboxItem = (params: Readonly<{
   relayUrl: string;
   profileId?: string;
 }>): void => {
-  const id = toCommunityLeaveOutboxItemId(params.groupId, params.relayUrl);
+  const scope = { groupId: params.groupId, relayUrl: params.relayUrl };
   const existing = readCommunityLeaveOutbox(params.publicKeyHex, params.profileId);
   saveCommunityLeaveOutbox(
     params.publicKeyHex,
-    existing.filter((e) => e.id !== id),
+    existing.filter((item) => !communityMembershipScopeMatches(scope, {
+      groupId: item.groupId,
+      relayUrl: item.relayUrl,
+    })),
     params.profileId,
   );
 };

@@ -26,6 +26,21 @@ const MOBILE_SHELL_BUILD =
   process.env.NEXT_PUBLIC_MOBILE_SHELL === "1" ||
   process.env.NEXT_PUBLIC_MOBILE_SHELL === "true";
 
+const DESKTOP_SHELL_BUILD =
+  process.env.NEXT_PUBLIC_DESKTOP_SHELL === "1" ||
+  process.env.NEXT_PUBLIC_DESKTOP_SHELL === "true";
+
+const EXPERIMENT_ONLINE_BUILD = process.env.NEXT_PUBLIC_OBSCUR_EXPERIMENT_ONLINE === "1";
+
+const DEV_LAB_BUILD = process.env.NEXT_PUBLIC_OBSCUR_DEV_LAB === "1";
+
+const DEV_STACK_FINGERPRINT = process.env.NODE_ENV === "development"
+  ? [
+    DESKTOP_SHELL_BUILD ? "desktop" : "web",
+    EXPERIMENT_ONLINE_BUILD ? "online" : "offline-stub",
+  ].join(":")
+  : null;
+
 export const metadata: Metadata = {
   title: "Obscur",
   description: "Secure, encrypted messaging on the Nostr protocol with NIP-04 encryption",
@@ -59,6 +74,9 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        {DEV_STACK_FINGERPRINT ? (
+          <meta name="obscur-dev-stack" content={DEV_STACK_FINGERPRINT} />
+        ) : null}
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -66,6 +84,15 @@ export default function RootLayout({
                 try {
                   window.__OBSCUR_CLIENT_BUILD__ = ${JSON.stringify(CLIENT_BUILD_STAMP)};
                   document.documentElement.setAttribute("data-obscur-client-build", ${JSON.stringify(CLIENT_BUILD_STAMP)});
+                  if (${JSON.stringify(DESKTOP_SHELL_BUILD)}) {
+                    window.__OBSCUR_EXPERIMENT_SHELL = true;
+                  }
+                  if (${JSON.stringify(EXPERIMENT_ONLINE_BUILD)}) {
+                    window.__OBSCUR_EXPERIMENT_ONLINE = true;
+                  }
+                  if (${JSON.stringify(DEV_LAB_BUILD)}) {
+                    window.__OBSCUR_DEV_LAB__ = true;
+                  }
                 } catch (e) {}
               })();
             `,

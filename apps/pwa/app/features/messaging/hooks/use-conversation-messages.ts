@@ -21,6 +21,11 @@ import { subscribeMessagesIndexRebuiltDual } from "@/app/features/profiles/servi
 import { subscribeSecondaryProfileDmSoftRefresh } from "@/app/features/runtime/services/secondary-profile-dm-soft-refresh";
 import { chatStateStoreService, type ChatStateReplacedEventDetail } from "../services/chat-state-store";
 import { requiresSqlitePersistence } from "@/app/features/runtime/native-persistence-policy";
+import { isNativeDmSqliteReadOwner } from "../services/native-dm-read-policy";
+import {
+    runNativeDmConversationHistoryHydrate,
+    shouldNativeDmSkipHydrateRetryTrigger,
+} from "../services/native-dm-conversation-hydrate-owner";
 import { isMessageIdentityInSuppressedIdSet } from "../services/conversation-message-visibility";
 import { isDisplayableDmConversationMessage } from "../services/dm-conversation-displayable-message";
 import { isCommunityInviteThreadPayloadContent } from "../services/dm-community-invite-thread-payload";
@@ -35,6 +40,7 @@ import { toConversationIdDiagnosticLabel } from "@dweb/client-gateway/messaging-
 import { normalizeDmConversationMessageRow } from "../services/dm-conversation-normalize-message";
 import { areMessageListsEquivalentById } from "../services/dm-conversation-message-list-equiv";
 import {
+    dedupeMessagesByIdentity,
     filterMessagesByLocalRetention,
     normalizeLocalRetentionDays,
 } from "../services/dm-conversation-message-retention-dedupe";
@@ -43,17 +49,20 @@ import { isGroupConversationId } from "@/app/features/groups/utils/group-convers
 import {
     buildHydrateSupplementalMessages,
     DM_THREAD_DIRECTION_COVERAGE_HYDRATE_MAX_ATTEMPTS,
+    DM_THREAD_PARTIAL_DIRECTION_HYDRATE_BASE_DELAY_MS,
+    DM_THREAD_PARTIAL_DIRECTION_HYDRATE_MAX_ATTEMPTS,
     DM_THREAD_STALE_EMPTY_HYDRATE_BASE_DELAY_MS,
     DM_THREAD_STALE_EMPTY_HYDRATE_MAX_ATTEMPTS,
-    evaluatePartialThreadRetryPolicy,
+    evaluatePartialDirectionHydrateRetryPolicy,
     evaluateProjectionMergePolicy,
     evaluateStaleEmptyHydrateRetryPolicy,
     finalizeDmThreadHydrateRead,
     hasPartialDirectionCoverage,
     resolveDisplayMessagesWithCacheFallback,
+    resolveExpandedHistoryAfterHydrate,
     resolveInitialConversationPaint,
     shouldPersistDmThreadDisplayCache,
-} from "../services/dm-thread-read-model";
+} from "../services/thread-history/read-model";
 import {
     readDmThreadDisplayCache,
     writeDmThreadDisplayCache,
@@ -210,7 +219,7 @@ export function useConversationMessages(
     const messagesRef = useRef<ReadonlyArray<Message>>([]);
     const historyAuthorityLogKeyRef = useRef<string | null>(null);
     const staleEmptyHydrateAttemptRef = useRef(0);
-    const partialHydrateAttemptRef = useRef(false);
+    const partialDirectionHydrateAttemptRef = useRef(0);
     const directionCoverageHydrateAttemptRef = useRef(0);
     const forceIndexedHydrationRef = useRef(false);
     const isLoadingRef = useRef(false);
@@ -350,9 +359,42 @@ export function useConversationMessages(
         options?: Readonly<{ includeLiveOverlay?: boolean; generation?: number }>,
     ) => {
         const generation = options?.generation;
-        setIsLoading(true);
+        const hydrateStartMessages = messagesRef.current;
+        const showLoadingState = hydrateStartMessages.length === 0;
+        if (showLoadingState) {
+            setIsLoading(true);
+        }
         try {
             const includeLiveOverlay = options?.includeLiveOverlay !== false;
+            if (isNativeDmSqliteReadOwner()) {
+                const nativeResult = await runNativeDmConversationHistoryHydrate({
+                    conversationId: cid,
+                    conversationIds,
+                    profileId: getResolvedProfileId() || undefined,
+                    messageDeleteTombstones,
+                    persistedDeletedIds: persistedDeletedIdsRef.current,
+                    publicKeyHex,
+                    normalizedPublicKeyHex,
+                    localMessageRetentionDays,
+                    initialBatchSize: getInitialBatchSize(chatPerformanceV2Enabled),
+                    liveWindowSoftLimit: LIVE_WINDOW_SOFT_LIMIT,
+                    liveMessages: includeLiveOverlay ? messagesRef.current : [],
+                    expandedHistory: expandedHistoryRef.current,
+                    hydrateStartMessages,
+                    previousAuthorityDiagnosticKey: historyAuthorityLogKeyRef.current,
+                });
+                if (generation !== undefined && generation !== hydrateGenerationRef.current) {
+                    return;
+                }
+                historyAuthorityLogKeyRef.current = nativeResult.authorityDiagnosticKey;
+                const augmentedMessages = withInviteThreadAugment(nativeResult.messages);
+                setMessages(augmentedMessages);
+                messagesRef.current = augmentedMessages;
+                setHasEarlier(nativeResult.hasEarlier);
+                expandedHistoryRef.current = nativeResult.expandedHistory;
+                return;
+            }
+
             const preferIndexedAuthority = (
                 forceIndexedHydrationRef.current
                 || (
@@ -389,11 +431,15 @@ export function useConversationMessages(
                 previousAuthorityDiagnosticKey: historyAuthorityLogKeyRef.current,
             });
             historyAuthorityLogKeyRef.current = assembled.authorityDiagnosticKey;
-            const previousMessages = messagesRef.current;
+            const previousMessages = dedupeMessagesByIdentity([
+                ...hydrateStartMessages,
+                ...messagesRef.current,
+            ]);
             const supplementalMessages = buildHydrateSupplementalMessages(
                 assembled.finalMessages,
                 normalizedPublicKeyHex,
                 projectionEvidenceMessagesRef.current,
+                projectionMessagesRef.current,
             );
             const finalizeResult = finalizeDmThreadHydrateRead({
                 assembledMessages: assembled.finalMessages,
@@ -405,7 +451,7 @@ export function useConversationMessages(
                 maxDirectionCoverageAttempts: DM_THREAD_DIRECTION_COVERAGE_HYDRATE_MAX_ATTEMPTS,
             });
             const hydratedMessages = finalizeResult.messages;
-            if (finalizeResult.directionCoveragePreserved) {
+            if (finalizeResult.directionCoveragePreserved || finalizeResult.loadedDepthPreserved) {
                 logAppEvent({
                     name: "messaging.conversation_hydrate_direction_coverage_preserved",
                     level: "warn",
@@ -415,6 +461,7 @@ export function useConversationMessages(
                         previousMessageCount: previousMessages.length,
                         assembledMessageCount: assembled.finalMessages.length,
                         preservedMessageCount: hydratedMessages.length,
+                        loadedDepthPreserved: finalizeResult.loadedDepthPreserved,
                     },
                 });
             }
@@ -426,13 +473,18 @@ export function useConversationMessages(
             messagesRef.current = augmentedMessages;
             setHasEarlier(assembled.hasEarlier);
             projectionFallbackHydrationRef.current = assembled.projectionFallbackHydration;
-            expandedHistoryRef.current = false;
+            expandedHistoryRef.current = resolveExpandedHistoryAfterHydrate({
+                previousExpandedHistory: expandedHistoryRef.current,
+                previousMessageCount: previousMessages.length,
+                hydratedMessageCount: augmentedMessages.length,
+                liveWindowSoftLimit: LIVE_WINDOW_SOFT_LIMIT,
+            });
             suppressProjectionMergeUntilHydrateRef.current = false;
             if (
                 normalizedPublicKeyHex
                 && !hasPartialDirectionCoverage(hydratedMessages, normalizedPublicKeyHex)
             ) {
-                partialHydrateAttemptRef.current = false;
+                partialDirectionHydrateAttemptRef.current = 0;
                 forceIndexedHydrationRef.current = false;
             }
             if (
@@ -448,9 +500,14 @@ export function useConversationMessages(
             }
         } catch (e) {
             console.error("[useConversationMessages] Failed to hydrate history:", e);
-            suppressProjectionMergeUntilHydrateRef.current = false;
+            if (!isNativeDmSqliteReadOwner()) {
+                suppressProjectionMergeUntilHydrateRef.current = false;
+            }
         } finally {
-            if (generation === undefined || generation === hydrateGenerationRef.current) {
+            if (
+                showLoadingState
+                && (generation === undefined || generation === hydrateGenerationRef.current)
+            ) {
                 setIsLoading(false);
             }
         }
@@ -476,15 +533,20 @@ export function useConversationMessages(
         if (options?.onlyIfEmpty && messagesRef.current.length > 0) {
             return;
         }
-        logAppEvent({
-            name: "messaging.conversation_hydrate_retry",
-            level: "info",
-            scope: { feature: "messaging", action: "conversation_hydrate_retry" },
-            context: {
-                conversationIdHint: toConversationIdDiagnosticLabel(conversationId),
-                trigger,
-            },
-        });
+        if (isNativeDmSqliteReadOwner() && shouldNativeDmSkipHydrateRetryTrigger(trigger)) {
+            return;
+        }
+        if (!isNativeDmSqliteReadOwner()) {
+            logAppEvent({
+                name: "messaging.conversation_hydrate_retry",
+                level: "info",
+                scope: { feature: "messaging", action: "conversation_hydrate_retry" },
+                context: {
+                    conversationIdHint: toConversationIdDiagnosticLabel(conversationId),
+                    trigger,
+                },
+            });
+        }
         const runHydrate = (): void => {
             void hydrateHistory(conversationId, conversationAliasIds, {
                 includeLiveOverlay: true,
@@ -502,7 +564,7 @@ export function useConversationMessages(
 
     useEffect(() => {
         staleEmptyHydrateAttemptRef.current = 0;
-        partialHydrateAttemptRef.current = false;
+        partialDirectionHydrateAttemptRef.current = 0;
         directionCoverageHydrateAttemptRef.current = 0;
     }, [conversationId]);
 
@@ -519,22 +581,29 @@ export function useConversationMessages(
 
         if (conversationChanged) {
             cancelCoalescedConversationHydrate(activeProfileId ?? undefined, conversationId);
-            suppressProjectionMergeUntilHydrateRef.current = true;
+            if (!isNativeDmSqliteReadOwner()) {
+                suppressProjectionMergeUntilHydrateRef.current = true;
+                forceIndexedHydrationRef.current = false;
+            }
             directionCoverageHydrateAttemptRef.current = 0;
-            partialHydrateAttemptRef.current = false;
-            forceIndexedHydrationRef.current = requiresSqlitePersistence();
-            const cached = readDmThreadDisplayCache(activeProfileId ?? undefined, conversationId) ?? [];
-            const initialPaint = resolveInitialConversationPaint({
-                displayCache: cached,
-                syncSeed: [],
-                myPublicKeyHex: normalizedPublicKeyHex,
-            });
-            if (initialPaint.shouldPaint) {
-                messagesRef.current = initialPaint.messages;
-                setMessages(initialPaint.messages);
-            } else {
+            partialDirectionHydrateAttemptRef.current = 0;
+            if (isNativeDmSqliteReadOwner()) {
                 messagesRef.current = [];
                 setMessages([]);
+            } else {
+                const cached = readDmThreadDisplayCache(activeProfileId ?? undefined, conversationId) ?? [];
+                const initialPaint = resolveInitialConversationPaint({
+                    displayCache: cached,
+                    syncSeed: [],
+                    myPublicKeyHex: normalizedPublicKeyHex,
+                });
+                if (initialPaint.shouldPaint) {
+                    messagesRef.current = initialPaint.messages;
+                    setMessages(initialPaint.messages);
+                } else {
+                    messagesRef.current = [];
+                    setMessages([]);
+                }
             }
         }
 
@@ -548,7 +617,7 @@ export function useConversationMessages(
         projectionFallbackHydrationRef.current = false;
         deletedTombstonesRef.current.clear();
         if (conversationChanged) {
-            partialHydrateAttemptRef.current = false;
+            partialDirectionHydrateAttemptRef.current = 0;
         }
         // Union semantics: keep any in-memory deleted IDs already in the ref,
         // then add the durable persisted set. This prevents losing Tauri delete
@@ -563,7 +632,7 @@ export function useConversationMessages(
                 seedIds: persistedDeletedIdsRef.current,
             });
             historyAuthorityLogKeyRef.current = null;
-            if (conversationChanged && normalizedPublicKeyHex) {
+            if (conversationChanged && normalizedPublicKeyHex && !isNativeDmSqliteReadOwner()) {
                 const syncSeed = loadDmThreadSyncSeedCache({
                     conversationAliasIds,
                     publicKeyHex: normalizedPublicKeyHex,
@@ -585,7 +654,7 @@ export function useConversationMessages(
             await hydrateHistory(
                 conversationId,
                 conversationAliasIds,
-                { includeLiveOverlay: !conversationChanged, generation },
+                { includeLiveOverlay: true, generation },
             );
         };
 
@@ -599,7 +668,6 @@ export function useConversationMessages(
         localMessageRetentionDays,
         messageDeleteTombstones,
         normalizedPublicKeyHex,
-        projectionSequence,
     ]);
 
     useEffect(() => {
@@ -624,12 +692,15 @@ export function useConversationMessages(
             }
             forceIndexedHydrationRef.current = detail.forceIndexedAuthority;
             directionCoverageHydrateAttemptRef.current = 0;
-            partialHydrateAttemptRef.current = false;
+            partialDirectionHydrateAttemptRef.current = 0;
             requestConversationHydrate("secondary_profile_soft_refresh", { bypassLoadingGuard: true });
         });
     }, [activeProfileId, conversationId, isDmThread, requestConversationHydrate]);
 
     useEffect(() => {
+        if (isNativeDmSqliteReadOwner()) {
+            return;
+        }
         const becameChatRouteActive = isChatRouteActive && !wasChatRouteActiveRef.current;
         wasChatRouteActiveRef.current = isChatRouteActive;
         if (!becameChatRouteActive || !conversationId || !isDmThread) {
@@ -639,6 +710,9 @@ export function useConversationMessages(
     }, [conversationId, isChatRouteActive, isDmThread, requestConversationHydrate]);
 
     useEffect(() => {
+        if (isNativeDmSqliteReadOwner()) {
+            return;
+        }
         if (!conversationId || !isDmThread || isLoadingRef.current) {
             return;
         }
@@ -672,24 +746,32 @@ export function useConversationMessages(
     ]);
 
     useEffect(() => {
+        if (isNativeDmSqliteReadOwner()) {
+            return;
+        }
         if (!conversationId || !isDmThread || !normalizedPublicKeyHex || isLoadingRef.current) {
             return;
         }
-        if (partialHydrateAttemptRef.current) {
+        if (messagesRef.current.length === 0) {
             return;
         }
-        const partialRetryPolicy = evaluatePartialThreadRetryPolicy({
+        const retryPolicy = evaluatePartialDirectionHydrateRetryPolicy({
             messages: messagesRef.current,
             myPublicKeyHex: normalizedPublicKeyHex,
             isLoading: isLoadingRef.current,
-            alreadyAttempted: partialHydrateAttemptRef.current,
+            attempt: partialDirectionHydrateAttemptRef.current,
+            maxAttempts: DM_THREAD_PARTIAL_DIRECTION_HYDRATE_MAX_ATTEMPTS,
+            baseDelayMs: DM_THREAD_PARTIAL_DIRECTION_HYDRATE_BASE_DELAY_MS,
         });
-        if (!partialRetryPolicy.shouldRetry) {
+        if (!retryPolicy.shouldSchedule) {
             return;
         }
-        partialHydrateAttemptRef.current = true;
-        forceIndexedHydrationRef.current = partialRetryPolicy.forceIndexedAuthority;
-        requestConversationHydrate("partial_thread_retry", { bypassLoadingGuard: true });
+        const timer = window.setTimeout(() => {
+            partialDirectionHydrateAttemptRef.current += 1;
+            forceIndexedHydrationRef.current = retryPolicy.forceIndexedAuthority;
+            requestConversationHydrate("partial_direction_retry", { bypassLoadingGuard: true });
+        }, retryPolicy.delayMs);
+        return () => window.clearTimeout(timer);
     }, [
         conversationId,
         isDmThread,
@@ -715,16 +797,6 @@ export function useConversationMessages(
                 return;
             }
 
-            // DO NOT clear eventQueueRef or reset expandedHistoryRef before calling
-            // hydrateHistory — the hydrateHistory merge logic will union with messagesRef.current
-            // so in-flight messages survive the restore cycle. Only reset tombstone state
-            // because those are correctness-critical (deleted messages must stay gone).
-            //
-            // Union semantics: start with whatever is already in the ref (in-memory deletes
-            // written since the last hydrateHistory), then add the durable persisted set.
-            // On Tauri, loadSuppressedMessageDeleteIds is always empty (the localStorage store
-            // is a no-op on Tauri), so we must NOT discard the existing ref contents — they
-            // are the only in-process record of deletes that may not yet be committed to SQLite.
             deletedTombstonesRef.current.clear();
             historyAuthorityLogKeyRef.current = null;
 
@@ -736,6 +808,10 @@ export function useConversationMessages(
                     messageDeleteTombstones,
                     seedIds: persistedDeletedIdsRef.current,
                 });
+                if (isNativeDmSqliteReadOwner()) {
+                    setDeleteTombstoneEpoch((epoch) => epoch + 1);
+                    return;
+                }
                 await hydrateHistory(conversationId, conversationAliasIds);
             })();
         }, optionalProfileBus);
@@ -746,11 +822,13 @@ export function useConversationMessages(
         messageDeleteTombstones,
         normalizedPublicKeyHex,
         optionalProfileBus,
-        projectionSequence,
     ]);
 
     useEffect(() => {
-        if (!isDmThread || !conversationId || !projectionReadAuthority.useProjectionReads) {
+        if (!isDmThread || !conversationId || isNativeDmSqliteReadOwner()) {
+            return;
+        }
+        if (!projectionReadAuthority.useProjectionReads) {
             return;
         }
         const projectionMergePolicy = evaluateProjectionMergePolicy({
@@ -1010,7 +1088,7 @@ export function useConversationMessages(
                         });
                         setMessages(mergeResult.retentionFilteredNextMessages);
                         if (process.env.NODE_ENV === "development") {
-                            const visibleAfter = mergeResult.retentionFilteredNextMessages.filter((message) => (
+                            const visibleAfter = mergeResult.retentionFilteredNextMessages.filter((message: Message) => (
                                 isMessageIdentityInSuppressedIdSet(message, expandedSuppressionSet)
                             )).length;
                             if (visibleAfter > 0) {
@@ -1150,7 +1228,7 @@ export function useConversationMessages(
     }, [chatPerformanceV2Enabled, conversationAliasIds, conversationId, isDmThread, localMessageRetentionDays, messages, publicKeyHex]);
 
     useEffect(() => {
-        if (!conversationId || !isDmThread || messages.length === 0) {
+        if (!conversationId || !isDmThread || messages.length === 0 || isNativeDmSqliteReadOwner()) {
             return;
         }
         if (!shouldPersistDmThreadDisplayCache(messages, normalizedPublicKeyHex)) {
@@ -1163,12 +1241,14 @@ export function useConversationMessages(
         if (!isDmThread) {
             return EMPTY_PROJECTION_MESSAGES;
         }
-        const withCacheFallback = resolveDisplayMessagesWithCacheFallback({
-            messages,
-            displayCache: readDmThreadDisplayCache(activeProfileId ?? undefined, conversationId),
-            myPublicKeyHex: normalizedPublicKeyHex,
-        });
-        return filterMessagesThroughDmRedactionDisplayGate(withCacheFallback, activeProfileId ?? undefined);
+        const baseMessages = isNativeDmSqliteReadOwner()
+            ? messages
+            : resolveDisplayMessagesWithCacheFallback({
+                messages,
+                displayCache: readDmThreadDisplayCache(activeProfileId ?? undefined, conversationId),
+                myPublicKeyHex: normalizedPublicKeyHex,
+            });
+        return filterMessagesThroughDmRedactionDisplayGate(baseMessages, activeProfileId ?? undefined);
     }, [activeProfileId, conversationId, isDmThread, messages, normalizedPublicKeyHex, redactionGateEpoch]);
 
     return {

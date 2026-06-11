@@ -10,6 +10,7 @@
 
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { requiresSqlitePersistence } from "@/app/features/runtime/native-persistence-policy";
+import { isNativeDmSqliteReadOwner } from "./native-dm-read-policy";
 import type { Message } from "../types";
 import { getMessageDirectionCounts } from "./dm-conversation-hydrate-read-model";
 import { mergeHydratedBaseWithLiveOverlayMessages } from "./conversation-message-materialization";
@@ -18,6 +19,10 @@ import { dedupeMessagesByIdentity } from "./dm-conversation-message-retention-de
 export const DM_THREAD_STALE_EMPTY_HYDRATE_MAX_ATTEMPTS = 4;
 export const DM_THREAD_STALE_EMPTY_HYDRATE_BASE_DELAY_MS = 150;
 export const DM_THREAD_DIRECTION_COVERAGE_HYDRATE_MAX_ATTEMPTS = 3;
+export const DM_THREAD_PARTIAL_DIRECTION_HYDRATE_MAX_ATTEMPTS = 5;
+export const DM_THREAD_PARTIAL_DIRECTION_HYDRATE_BASE_DELAY_MS = 200;
+/** Default visible window for initial DM thread paint (matches MESSAGE_PAGE_SIZE). */
+export const DM_THREAD_LIVE_WINDOW_SOFT_LIMIT = 200;
 
 export { getMessageDirectionCounts };
 
@@ -183,6 +188,44 @@ export const reconcileDirectionCoverage = (params: Readonly<{
   return { messages, preserved };
 };
 
+/**
+ * Re-hydrate must not shrink the loaded scroll depth — union older in-memory rows
+ * when SQLite hydrate returns a smaller capped window.
+ */
+export const reconcileMonotonicLoadedDepth = (params: Readonly<{
+  hydratedMessages: ReadonlyArray<Message>;
+  previousMessages: ReadonlyArray<Message>;
+  conversationIds: ReadonlyArray<string>;
+}>): Readonly<{ messages: ReadonlyArray<Message>; preserved: boolean }> => {
+  if (params.previousMessages.length <= params.hydratedMessages.length) {
+    return { messages: params.hydratedMessages, preserved: false };
+  }
+  const scope = new Set(
+    params.conversationIds.map((id) => id.trim()).filter((id) => id.length > 0),
+  );
+  const merged = mergeHydratedWithOverlay(
+    params.hydratedMessages,
+    params.previousMessages,
+    Array.from(scope),
+  );
+  const preserved = merged.length > params.hydratedMessages.length;
+  return { messages: merged, preserved };
+};
+
+export const resolveExpandedHistoryAfterHydrate = (params: Readonly<{
+  previousExpandedHistory: boolean;
+  previousMessageCount: number;
+  hydratedMessageCount: number;
+  liveWindowSoftLimit?: number;
+}>): boolean => {
+  const limit = params.liveWindowSoftLimit ?? DM_THREAD_LIVE_WINDOW_SOFT_LIMIT;
+  return (
+    params.previousExpandedHistory
+    || params.previousMessageCount > limit
+    || params.hydratedMessageCount > limit
+  );
+};
+
 /** Union chat-state / repair rows when hydrate authority dropped a message direction. */
 export const mergeDirectionGapFromSupplemental = (params: Readonly<{
   baseMessages: ReadonlyArray<Message>;
@@ -219,6 +262,9 @@ export const resolveInitialConversationPaint = (
   params: ResolveInitialConversationPaintParams,
 ): ResolveInitialConversationPaintResult => {
   const { displayCache, syncSeed, myPublicKeyHex } = params;
+  if (isNativeDmSqliteReadOwner()) {
+    return { messages: [], shouldPaint: false, source: "none" };
+  }
   const nativePersistence = requiresSqlitePersistence();
 
   const cacheUsable = displayCache.length > 0
@@ -264,12 +310,37 @@ export type FinalizeDmThreadHydrateReadResult = Readonly<{
   messages: ReadonlyArray<Message>;
   directionCoverage: DmThreadDirectionCoverage;
   directionCoveragePreserved: boolean;
+  loadedDepthPreserved: boolean;
   reconcilePolicy: DmThreadHydrateReconcilePolicy;
 }>;
 
 export const finalizeDmThreadHydrateRead = (
   params: FinalizeDmThreadHydrateReadParams,
 ): FinalizeDmThreadHydrateReadResult => {
+  if (isNativeDmSqliteReadOwner()) {
+    const depthReconciled = reconcileMonotonicLoadedDepth({
+      hydratedMessages: params.assembledMessages,
+      previousMessages: params.previousMessages,
+      conversationIds: params.conversationIds,
+    });
+    const directionCoverage = evaluateDirectionCoverage(
+      depthReconciled.messages,
+      params.myPublicKeyHex,
+    );
+    return {
+      messages: depthReconciled.messages,
+      directionCoverage,
+      directionCoveragePreserved: false,
+      loadedDepthPreserved: depthReconciled.preserved,
+      reconcilePolicy: {
+        shouldRetryHydrate: false,
+        forceIndexedAuthority: false,
+        attempt: params.directionCoverageAttempt,
+        maxAttempts: params.maxDirectionCoverageAttempts,
+      },
+    };
+  }
+
   const reconciled = reconcileDirectionCoverage({
     hydratedMessages: params.assembledMessages,
     previousMessages: params.previousMessages,
@@ -277,10 +348,29 @@ export const finalizeDmThreadHydrateRead = (
     conversationIds: params.conversationIds,
     myPublicKeyHex: params.myPublicKeyHex,
   });
-  const directionCoverage = evaluateDirectionCoverage(reconciled.messages, params.myPublicKeyHex);
   const supplementalMessages = params.supplementalMessages ?? [];
+  const depthReconciled = reconcileMonotonicLoadedDepth({
+    hydratedMessages: reconciled.messages,
+    previousMessages: params.previousMessages,
+    conversationIds: params.conversationIds,
+  });
+  let finalMessages = depthReconciled.messages;
+  let directionShrinkGuardPreserved = false;
+  if (requiresSqlitePersistence() && params.myPublicKeyHex) {
+    const previousCoverage = evaluateDirectionCoverage(params.previousMessages, params.myPublicKeyHex);
+    const nextCoverage = evaluateDirectionCoverage(finalMessages, params.myPublicKeyHex);
+    if (
+      params.previousMessages.length > 0
+      && previousCoverage.incoming > 0
+      && previousCoverage.outgoing > 0
+      && nextCoverage.isPartial
+    ) {
+      finalMessages = params.previousMessages;
+      directionShrinkGuardPreserved = true;
+    }
+  }
   const shouldRetryHydrate = shouldReconcilePartialDirectionCoverage(
-    reconciled.messages,
+    finalMessages,
     params.myPublicKeyHex,
     {
       previousMessages: params.previousMessages,
@@ -288,9 +378,10 @@ export const finalizeDmThreadHydrateRead = (
     },
   ) && params.directionCoverageAttempt < params.maxDirectionCoverageAttempts;
   return {
-    messages: reconciled.messages,
-    directionCoverage,
-    directionCoveragePreserved: reconciled.preserved,
+    messages: finalMessages,
+    directionCoverage: evaluateDirectionCoverage(finalMessages, params.myPublicKeyHex),
+    directionCoveragePreserved: reconciled.preserved || directionShrinkGuardPreserved,
+    loadedDepthPreserved: depthReconciled.preserved,
     reconcilePolicy: {
       shouldRetryHydrate,
       forceIndexedAuthority: shouldRetryHydrate && requiresSqlitePersistence(),
@@ -306,6 +397,9 @@ export const evaluateProjectionMergePolicy = (params: Readonly<{
   myPublicKeyHex: PublicKeyHex | null;
   suppressUntilHydrate: boolean;
 }>): DmThreadProjectionMergePolicy => {
+  if (isNativeDmSqliteReadOwner()) {
+    return { shouldMerge: false, wouldDropDirectionCoverage: false };
+  }
   if (params.suppressUntilHydrate) {
     return { shouldMerge: false, wouldDropDirectionCoverage: false };
   }
@@ -337,6 +431,9 @@ export const shouldPersistDmThreadDisplayCache = (
   messages: ReadonlyArray<Message>,
   myPublicKeyHex: PublicKeyHex | null,
 ): boolean => {
+  if (isNativeDmSqliteReadOwner()) {
+    return false;
+  }
   if (messages.length === 0) {
     return false;
   }
@@ -351,6 +448,9 @@ export const resolveDisplayMessagesWithCacheFallback = (params: Readonly<{
   displayCache: ReadonlyArray<Message> | null;
   myPublicKeyHex: PublicKeyHex | null;
 }>): ReadonlyArray<Message> => {
+  if (isNativeDmSqliteReadOwner()) {
+    return params.messages;
+  }
   const cache = params.displayCache ?? [];
   if (params.messages.length > 0 && params.myPublicKeyHex) {
     const partialCurrent = hasPartialDirectionCoverage(params.messages, params.myPublicKeyHex);
@@ -387,13 +487,18 @@ export const buildHydrateSupplementalMessages = (
   assembledMessages: ReadonlyArray<Message>,
   myPublicKeyHex: PublicKeyHex | null,
   projectionEvidenceMessages: ReadonlyArray<Message>,
+  projectionMessages: ReadonlyArray<Message> = [],
   persistedFallbackMessages: ReadonlyArray<Message> = [],
 ): ReadonlyArray<Message> => {
+  if (isNativeDmSqliteReadOwner()) {
+    return [];
+  }
   if (!hasPartialDirectionCoverage(assembledMessages, myPublicKeyHex)) {
     return [];
   }
   return dedupeMessagesByIdentity([
     ...projectionEvidenceMessages,
+    ...projectionMessages,
     ...persistedFallbackMessages,
   ]);
 };
@@ -428,9 +533,11 @@ export const evaluatePartialThreadRetryPolicy = (params: Readonly<{
   messages: ReadonlyArray<Message>;
   myPublicKeyHex: PublicKeyHex | null;
   isLoading: boolean;
-  alreadyAttempted: boolean;
+  attempt: number;
+  maxAttempts?: number;
 }>): Readonly<{ shouldRetry: boolean; forceIndexedAuthority: boolean }> => {
-  if (params.isLoading || params.alreadyAttempted) {
+  const maxAttempts = params.maxAttempts ?? DM_THREAD_PARTIAL_DIRECTION_HYDRATE_MAX_ATTEMPTS;
+  if (params.isLoading || params.attempt >= maxAttempts) {
     return { shouldRetry: false, forceIndexedAuthority: false };
   }
   if (params.messages.length === 0) {
@@ -441,6 +548,36 @@ export const evaluatePartialThreadRetryPolicy = (params: Readonly<{
   }
   return {
     shouldRetry: true,
+    forceIndexedAuthority: requiresSqlitePersistence(),
+  };
+};
+
+/** Schedules backoff re-hydrate when a thread paints one direction before sqlite catches up. */
+export const evaluatePartialDirectionHydrateRetryPolicy = (params: Readonly<{
+  messages: ReadonlyArray<Message>;
+  myPublicKeyHex: PublicKeyHex | null;
+  isLoading: boolean;
+  attempt: number;
+  maxAttempts?: number;
+  baseDelayMs?: number;
+}>): Readonly<{ shouldSchedule: boolean; delayMs: number; forceIndexedAuthority: boolean }> => {
+  const maxAttempts = params.maxAttempts ?? DM_THREAD_PARTIAL_DIRECTION_HYDRATE_MAX_ATTEMPTS;
+  const baseDelayMs = params.baseDelayMs ?? DM_THREAD_PARTIAL_DIRECTION_HYDRATE_BASE_DELAY_MS;
+  if (isNativeDmSqliteReadOwner()) {
+    return { shouldSchedule: false, delayMs: 0, forceIndexedAuthority: false };
+  }
+  if (params.isLoading || !params.myPublicKeyHex) {
+    return { shouldSchedule: false, delayMs: 0, forceIndexedAuthority: false };
+  }
+  if (!hasPartialDirectionCoverage(params.messages, params.myPublicKeyHex)) {
+    return { shouldSchedule: false, delayMs: 0, forceIndexedAuthority: false };
+  }
+  if (params.attempt >= maxAttempts) {
+    return { shouldSchedule: false, delayMs: 0, forceIndexedAuthority: false };
+  }
+  return {
+    shouldSchedule: true,
+    delayMs: baseDelayMs * (params.attempt + 1),
     forceIndexedAuthority: requiresSqlitePersistence(),
   };
 };

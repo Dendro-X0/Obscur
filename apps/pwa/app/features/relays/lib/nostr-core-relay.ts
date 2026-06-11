@@ -4,6 +4,7 @@ import type {
   RelaySnapshot,
   RelayCircuitState,
 } from "@dweb/core/security-foundation-contracts";
+import { workspaceRelayUrlsMatch } from "@/app/features/groups/services/workspace-relay-url";
 
 type RelayConnectionLike = Readonly<{
   url: string;
@@ -61,7 +62,10 @@ export const getRelaySnapshot = (
   const openConnections = pool.connections.filter((connection) => connection.status === "open");
   const writableRelayUrls = dedupe(openConnections
     .map((connection) => connection.url)
-    .filter((url) => configuredRelayUrls.length === 0 || configuredRelayUrls.includes(url)));
+    .filter((url) => (
+      configuredRelayUrls.length === 0
+      || configuredRelayUrls.some((configured) => workspaceRelayUrlsMatch(configured, url))
+    )));
   const relayCircuitStates = pool.getRelayCircuitState
     ? Object.fromEntries(configuredRelayUrls.map((url) => [url, pool.getRelayCircuitState?.(url) ?? "degraded"]))
     : undefined;

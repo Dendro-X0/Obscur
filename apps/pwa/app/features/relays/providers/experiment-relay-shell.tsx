@@ -96,8 +96,9 @@ export const ExperimentRelayShell: React.FC<{ children: React.ReactNode }> = ({ 
     () => ({
       ...createDefaultRelayRuntimeSnapshot({ publicKeyHex }),
       phase: "offline" as const,
+      enabledRelayUrls,
     }),
-    [publicKeyHex],
+    [enabledRelayUrls, publicKeyHex],
   );
 
   const relayStatus = useMemo<RelayStatusSummary>(() => ({

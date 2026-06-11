@@ -10,9 +10,8 @@ import { NAV_ITEMS } from "../lib/navigation/nav-items";
 import { useTranslation } from "react-i18next";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import { hardNavigate, ROUTE_NAVIGATION_STALL_HARD_FALLBACK_MS } from "./page-transition-recovery";
-import { useGlobalNavigationLoadingActions } from "./global-navigation-loading";
+import { prefetchRouteShell, prefetchSidebarRouteClientOnIntent } from "./route-navigation-warmup";
 import { isMobileShellProduct } from "@/app/features/runtime/shell-contract";
-import { shouldRunNavigationInstrumentation } from "@/app/features/runtime/experiment-shell-policy";
 import { recordNavigationIntent } from "./navigation-performance-coordinator";
 import { useSecondaryPageLayoutTier } from "@/app/features/runtime/use-mobile-compact-layout";
 
@@ -35,10 +34,24 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({ navBadgeCounts = {} 
     const pathname = usePathname();
     const layoutTier = useSecondaryPageLayoutTier();
     const showOnViewport = isMobileShellProduct() || layoutTier !== "desktop";
-    const { beginNavigation } = useGlobalNavigationLoadingActions();
     const routeFallbackTimeoutIdRef = React.useRef<number | null>(null);
     const routePendingTargetRef = React.useRef<string | null>(null);
     const routePendingStartedAtUnixMsRef = React.useRef<number>(0);
+    const idleScheduler = React.useMemo((): Readonly<{
+        schedule: (callback: () => void) => number;
+    }> | null => {
+        if (typeof window === "undefined") {
+            return null;
+        }
+        if (typeof window.requestIdleCallback === "function") {
+            return {
+                schedule: (callback: () => void): number => window.requestIdleCallback(() => callback()),
+            };
+        }
+        return {
+            schedule: (callback: () => void): number => window.setTimeout(callback, 32),
+        };
+    }, []);
 
     const clearRouteFallback = React.useCallback((): void => {
         const timeoutId = routeFallbackTimeoutIdRef.current;
@@ -51,9 +64,6 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({ navBadgeCounts = {} 
     }, []);
 
     const armRouteHardFallback = React.useCallback((targetHref: string): void => {
-        if (!shouldRunNavigationInstrumentation()) {
-            return;
-        }
         if (!targetHref || targetHref === pathname) {
             clearRouteFallback();
             return;
@@ -144,17 +154,34 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({ navBadgeCounts = {} 
                         <Link
                             key={item.href}
                             href={item.href}
+                            onPointerEnter={(): void => {
+                                if (item.href === pathname) {
+                                    return;
+                                }
+                                prefetchRouteShell(router, item.href);
+                                if (idleScheduler) {
+                                    prefetchSidebarRouteClientOnIntent(item.href, idleScheduler);
+                                }
+                            }}
+                            onFocus={(): void => {
+                                if (item.href === pathname) {
+                                    return;
+                                }
+                                prefetchRouteShell(router, item.href);
+                                if (idleScheduler) {
+                                    prefetchSidebarRouteClientOnIntent(item.href, idleScheduler);
+                                }
+                            }}
                             onClick={(event): void => {
                                 if (event.button !== 0 || event.metaKey || event.altKey || event.ctrlKey || event.shiftKey) {
                                     return;
                                 }
-                                event.preventDefault();
+                                if (item.href === pathname) {
+                                    event.preventDefault();
+                                    return;
+                                }
                                 recordNavigationIntent(item.href);
                                 armRouteHardFallback(item.href);
-                                if (item.href !== pathname) {
-                                    beginNavigation(item.href);
-                                    router.push(item.href);
-                                }
                             }}
                             className={cn(
                                 "relative flex flex-col items-center justify-center gap-1 px-3 py-1 transition-colors",

@@ -1,0 +1,202 @@
+{
+  "schema": "obscur-shell-perf-baseline/v1",
+  "mode": "prod",
+  "baseUrl": "http://127.0.0.1:3350",
+  "recordedAt": "2026-06-09T14:43:54.813Z",
+  "coldStart": {
+    "domContentLoadedMs": 58
+  },
+  "checks": {
+    "shellPhase": "unlocked",
+    "experimentShell": true,
+    "unlock": "dev_lab_or_auth_ui",
+    "rapidNav": {
+      "gatePass": true,
+      "issues": [],
+      "maxNavMs": 202,
+      "maxRouteMountWorstMs": 0,
+      "sampleCount": 10
+    }
+  },
+  "navigations": [
+    {
+      "href": "/network",
+      "label": "Network",
+      "visit": 1,
+      "elapsedMs": 165,
+      "urlMatched": true,
+      "routeMountWorstMs": 0,
+      "routeMountSlowCount": 0
+    },
+    {
+      "href": "/settings",
+      "label": "Settings",
+      "visit": 1,
+      "elapsedMs": 124,
+      "urlMatched": true,
+      "routeMountWorstMs": 0,
+      "routeMountSlowCount": 0
+    },
+    {
+      "href": "/settings",
+      "label": "Settings",
+      "visit": 2,
+      "elapsedMs": 57,
+      "urlMatched": true,
+      "routeMountWorstMs": 0,
+      "routeMountSlowCount": 0
+    },
+    {
+      "href": "/vault",
+      "label": "Vault",
+      "visit": 1,
+      "elapsedMs": 88,
+      "urlMatched": true,
+      "routeMountWorstMs": 0,
+      "routeMountSlowCount": 0
+    },
+    {
+      "href": "/search",
+      "label": "Search",
+      "visit": 1,
+      "elapsedMs": 931,
+      "urlMatched": true,
+      "routeMountWorstMs": 0,
+      "routeMountSlowCount": 0
+    },
+    {
+      "href": "/",
+      "label": "Chats",
+      "visit": 1,
+      "elapsedMs": 81,
+      "urlMatched": true,
+      "routeMountWorstMs": 0,
+      "routeMountSlowCount": 0
+    }
+  ],
+  "warnings": [],
+  "rapidNavigations": [
+    {
+      "href": "/",
+      "label": "Chats",
+      "visit": 1,
+      "elapsedMs": 49,
+      "urlMatched": true,
+      "routeMountWorstMs": 0,
+      "routeMountSlowCount": 0
+    },
+    {
+      "href": "/network",
+      "label": "Network",
+      "visit": 1,
+      "elapsedMs": 84,
+      "urlMatched": true,
+      "routeMountWorstMs": 0,
+      "routeMountSlowCount": 0
+    },
+    {
+      "href": "/vault",
+      "label": "Vault",
+      "visit": 1,
+      "elapsedMs": 107,
+      "urlMatched": true,
+      "routeMountWorstMs": 0,
+      "routeMountSlowCount": 0
+    },
+    {
+      "href": "/search",
+      "label": "Search",
+      "visit": 1,
+      "elapsedMs": 131,
+      "urlMatched": true,
+      "routeMountWorstMs": 0,
+      "routeMountSlowCount": 0
+    },
+    {
+      "href": "/settings",
+      "label": "Settings",
+      "visit": 1,
+      "elapsedMs": 84,
+      "urlMatched": true,
+      "routeMountWorstMs": 0,
+      "routeMountSlowCount": 0
+    },
+    {
+      "href": "/",
+      "label": "Chats",
+      "visit": 1,
+      "elapsedMs": 202,
+      "urlMatched": true,
+      "routeMountWorstMs": 0,
+      "routeMountSlowCount": 0
+    },
+    {
+      "href": "/network",
+      "label": "Network",
+      "visit": 1,
+      "elapsedMs": 99,
+      "urlMatched": true,
+      "routeMountWorstMs": 0,
+      "routeMountSlowCount": 0
+    },
+    {
+      "href": "/vault",
+      "label": "Vault",
+      "visit": 1,
+      "elapsedMs": 96,
+      "urlMatched": true,
+      "routeMountWorstMs": 0,
+      "routeMountSlowCount": 0
+    },
+    {
+      "href": "/search",
+      "label": "Search",
+      "visit": 1,
+      "elapsedMs": 133,
+      "urlMatched": true,
+      "routeMountWorstMs": 0,
+      "routeMountSlowCount": 0
+    },
+    {
+      "href": "/settings",
+      "label": "Settings",
+      "visit": 1,
+      "elapsedMs": 94,
+      "urlMatched": true,
+      "routeMountWorstMs": 0,
+      "routeMountSlowCount": 0
+    }
+  ],
+  "summary": {
+    "mode": "prod",
+    "navigationCount": 6,
+    "successCount": 6,
+    "medianNavMs": 106,
+    "maxNavMs": 931,
+    "settingsColdMs": 124,
+    "settingsWarmMs": 57,
+    "settingsWarmSpeedupRatio": 2.18,
+    "coldStartDomMs": 58,
+    "shellPhase": "unlocked",
+    "experimentShell": true,
+    "maxRouteMountWorstMs": 0
+  },
+  "v2PerfGate": {
+    "pass": true,
+    "issues": [],
+    "summary": {
+      "mode": "prod",
+      "navigationCount": 6,
+      "successCount": 6,
+      "medianNavMs": 106,
+      "maxNavMs": 931,
+      "settingsColdMs": 124,
+      "settingsWarmMs": 57,
+      "settingsWarmSpeedupRatio": 2.18,
+      "coldStartDomMs": 58,
+      "shellPhase": "unlocked",
+      "experimentShell": true,
+      "maxRouteMountWorstMs": 0
+    }
+  }
+}

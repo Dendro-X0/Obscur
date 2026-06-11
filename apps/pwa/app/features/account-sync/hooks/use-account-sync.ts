@@ -282,6 +282,10 @@ export const useAccountSync = (params: UseAccountSyncParams) => {
       return "skipped_identity";
     }
     if (backupInFlightRef.current) {
+      const currentDiagnostics = accountSyncStatusStore.getSnapshot().convergenceDiagnostics;
+      if (currentDiagnostics?.lastBackupPublishResult === "in_flight") {
+        return "in_flight";
+      }
       updateConvergenceDiagnostics({
         lastBackupPublishReason: reason,
         lastBackupPublishAttemptAtUnixMs: now,
@@ -294,6 +298,13 @@ export const useAccountSync = (params: UseAccountSyncParams) => {
     }
     const cooldownMs = resolvePublishCooldownMs(reason);
     if (now - lastBackupAtUnixMsRef.current < cooldownMs) {
+      const currentDiagnostics = accountSyncStatusStore.getSnapshot().convergenceDiagnostics;
+      if (
+        currentDiagnostics?.lastBackupPublishResult === "skipped_cooldown"
+        && currentDiagnostics?.lastBackupPublishReason === reason
+      ) {
+        return "skipped_cooldown";
+      }
       updateConvergenceDiagnostics({
         lastBackupPublishReason: reason,
         lastBackupPublishAttemptAtUnixMs: now,

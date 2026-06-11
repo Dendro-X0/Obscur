@@ -23,12 +23,22 @@ export class RootErrorBoundary extends Component<ErrorBoundaryProps, ErrorBounda
 
   componentDidCatch(error: Error, errorInfo: unknown) {
     console.error("Application error:", error, errorInfo);
+    if (typeof window !== "undefined") {
+      window.__OBSCUR_FATAL_BOUNDARY__ = {
+        active: true,
+        message: error.message,
+        stack: error.stack,
+        atUnixMs: Date.now(),
+      };
+    }
   }
 
   render() {
     if (this.state.hasError) {
       return (
-        <div style={{
+        <div
+          data-testid="root-error-boundary"
+          style={{
           display: "flex",
           flexDirection: "column",
           alignItems: "center",

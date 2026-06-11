@@ -9,6 +9,8 @@ import { setProfileScopeOverride } from "@/app/features/profiles/services/profil
 import { resolveCommunityMembershipCoordinator } from "./community-membership-coordinator";
 import { enqueueCommunityLeaveOutboxItem } from "./community-leave-outbox";
 import { hasDurableCommunityLeaveIntent } from "./community-membership-leave-intent";
+import { applyCommunityMembershipRuntimeEvidence } from "./community-membership-mutation-owner";
+import { loadCommunityMembershipLedger } from "./community-membership-ledger";
 import { resolveCommunityMembershipRecovery } from "./community-membership-recovery";
 
 const PUBLIC_KEY = "a".repeat(64);
@@ -89,6 +91,45 @@ describe("REL-001 — leave intent blocks persisted_fallback resurrection", () =
     });
     expect(result.groups).toHaveLength(0);
     expect(result.ledgerMutations.filter((m) => m.reason === "persisted_fallback_backfill")).toHaveLength(0);
+  });
+
+  it("explicit rejoin clears leave outbox so recovery can hydrate the group after restart", () => {
+    enqueueCommunityLeaveOutboxItem({
+      publicKeyHex: PUBLIC_KEY,
+      groupId: GROUP_ID,
+      relayUrl: RELAY_URL,
+      profileId: PROFILE_ID,
+    });
+    const group = makeGroup();
+    applyCommunityMembershipRuntimeEvidence({
+      publicKeyHex: PUBLIC_KEY,
+      profileId: PROFILE_ID,
+      evidence: { kind: "user_explicit_rejoin", group },
+      membershipLedger: [{
+        groupId: GROUP_ID,
+        relayUrl: RELAY_URL,
+        status: "left",
+        updatedAtUnixMs: 4_000,
+      }],
+      tombstones: new Set([`${GROUP_ID}@@${RELAY_URL}`]),
+    });
+    expect(hasDurableCommunityLeaveIntent({
+      publicKeyHex: PUBLIC_KEY,
+      profileId: PROFILE_ID,
+      groupId: GROUP_ID,
+      relayUrl: RELAY_URL,
+      ledgerEntry: { groupId: GROUP_ID, relayUrl: RELAY_URL, status: "joined", updatedAtUnixMs: 5_000 },
+      tombstones: new Set(),
+    })).toBe(false);
+    const recovery = resolveCommunityMembershipRecovery({
+      publicKeyHex: PUBLIC_KEY,
+      profileId: PROFILE_ID,
+      persistedGroups: [group],
+      membershipLedger: loadCommunityMembershipLedger(PUBLIC_KEY, { profileId: PROFILE_ID }),
+      tombstones: new Set(),
+    });
+    expect(recovery.groups).toHaveLength(1);
+    expect(recovery.diagnostics.hiddenByLeaveIntentCount).toBe(0);
   });
 
   it("recovery hides group when stale joined ledger row is newer than terminal left", () => {

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { NostrEvent } from "@dweb/nostr/nostr-event";
-import { handleIncomingDmEvent } from "../controllers/incoming-dm-event-handler";
+import { handleIncomingDmEvent } from "../controllers/legacy/incoming-dm-event-handler";
 import {
   publishOutgoingDm,
   publishQueuedOutgoingMessage,

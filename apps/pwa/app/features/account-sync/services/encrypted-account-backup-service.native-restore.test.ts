@@ -22,6 +22,29 @@ vi.mock("@dweb/db", () => ({
   dbDeleteMessages: vi.fn(async () => undefined),
 }));
 
+vi.mock("@/app/features/messaging/services/thread-history/resolve-dm-thread-history-adapter", () => {
+  const stubPort = {
+    prepareThreadSuppressionIds: async () => new Set<string>(),
+    hydrateThreadReadModel: async () => ({
+      finalMessages: [],
+      displayMessages: [],
+      hasCompleteDirectionCoverage: true,
+      projectionMergeBlocked: false,
+    }),
+    buildProjectionEvidenceMessages: () => [],
+    mergeProjectionWithLiveOverlay: (params: { displayMessages?: ReadonlyArray<unknown> }) => ({
+      displayMessages: params.displayMessages ?? [],
+    }),
+    loadEarlierMessages: async () => ({ messages: [], hasMore: false }),
+    applyRealtimeBufferedEvents: () => [],
+    filterThreadMessagesBySuppression: <T,>(messages: ReadonlyArray<T>) => messages,
+    mergeHydratedBaseWithLiveOverlay: <T,>(base: ReadonlyArray<T>) => base,
+  };
+  return {
+    resolveDmThreadHistoryAdapter: () => stubPort,
+  };
+});
+
 const publicKeyHex = "f".repeat(64) as PublicKeyHex;
 const peerPublicKeyHex = "e".repeat(64) as PublicKeyHex;
 const conversationId = [publicKeyHex, peerPublicKeyHex].sort().join(":");
@@ -165,5 +188,54 @@ describe("encryptedAccountBackupService native restore (P5-BKP-1)", () => {
 
     expect(hydrateSpy).not.toHaveBeenCalled();
     hydrateSpy.mockRestore();
+  });
+
+  it("applyBackupPayload invokes native sqlite materialization on tauri (B4-2)", async () => {
+    const materializeSpy = vi.spyOn(
+      await import("./native-sqlite-backup-evidence"),
+      "applyNativeRestoreSqliteMaterialization",
+    ).mockResolvedValue(undefined);
+
+    const payload = buildPayloadWithMessageBodies();
+    await encryptedAccountBackupServiceInternals.applyBackupPayload(publicKeyHex, {
+      ...payload,
+      chatState: {
+        ...payload.chatState!,
+        createdGroups: [{
+          id: "community:room:wss://relay.example",
+          groupId: "room",
+          relayUrl: "wss://relay.example",
+          displayName: "Room",
+          memberPubkeys: [publicKeyHex],
+          lastMessage: "",
+          unreadCount: 0,
+          lastMessageTimeMs: 1000,
+        }],
+      },
+      nativeSqliteEvidence: {
+        collectedAtUnixMs: Date.now(),
+        primaryProfileId: "default",
+        dmMessages: [],
+        groupMessages: [{
+          event_id: "group-ghost",
+          group_id: "room",
+          profile_id: "default",
+          sender_pubkey: "c".repeat(64),
+          plaintext: "group body from sqlite evidence",
+          created_at: 300,
+          received_at: 300_000,
+        }],
+        groupRecords: [],
+      },
+    });
+
+    expect(materializeSpy).toHaveBeenCalledWith(expect.objectContaining({
+      chatState: expect.objectContaining({
+        createdGroups: expect.arrayContaining([
+          expect.objectContaining({ groupId: "room" }),
+        ]),
+      }),
+    }));
+    materializeSpy.mockRestore();
   });
 });

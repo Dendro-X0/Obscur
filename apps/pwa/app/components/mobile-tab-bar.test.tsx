@@ -13,6 +13,7 @@ const mobileTabBarMocks = vi.hoisted(() => ({
 
 vi.mock("@/app/features/runtime/shell-contract", () => ({
     isMobileShellProduct: () => mobileTabBarMocks.mobileShellProduct,
+    isDesktopShellBuild: () => false,
 }));
 
 vi.mock("@/app/features/runtime/use-mobile-compact-layout", () => ({
@@ -91,7 +92,7 @@ describe("MobileTabBar navigation", () => {
         expect(screen.getByRole("link", { name: "nav.settings" })).toHaveAttribute("href", "/settings");
     });
 
-    it("hard-navigates when mobile route transition stalls", () => {
+    it("hard-navigates when mobile route transition stalls", async () => {
         vi.useFakeTimers();
         const hardNavigateSpy = vi.spyOn(pageTransitionRecovery, "hardNavigate").mockImplementation(() => undefined);
         try {
@@ -100,7 +101,6 @@ describe("MobileTabBar navigation", () => {
             act(() => {
                 fireEvent.click(networkLink);
             });
-            expect(mobileTabBarMocks.push).toHaveBeenCalledWith("/network");
             expect(hardNavigateSpy).not.toHaveBeenCalled();
 
             act(() => {

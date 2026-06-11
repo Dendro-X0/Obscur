@@ -21,10 +21,8 @@ export function GlobalNavigationLoadingBar(props: GlobalNavigationLoadingBarProp
       aria-valuenow={Math.round(widthPercent)}
       aria-busy={props.visible && !props.completing}
       className={cn(
-        "pointer-events-none fixed left-0 right-0 z-[10000] h-[3px] overflow-hidden",
+        "sr-only pointer-events-none fixed left-0 right-0 h-[3px] overflow-hidden",
         "top-[max(env(safe-area-inset-top),0px)] desktop-mode:top-12",
-        "transition-opacity duration-200 motion-reduce:transition-none",
-        props.visible ? "opacity-100" : "opacity-0",
       )}
     >
       <div

@@ -49,12 +49,16 @@ import type { MembershipEvidenceUiContext } from "@/app/features/groups/utils/co
 import { CommunityDirectoryHonestyNotice } from "@/app/features/groups/components/community-directory-honesty-notice";
 import { CommunityLegacySovereignNotice } from "@/app/features/groups/components/community-legacy-sovereign-notice";
 import { toScopedRelayUrl, useSealedCommunity } from "@/app/features/groups/hooks/use-sealed-community";
+import { useGroupThreadRelayIngest } from "@/app/features/groups/hooks/use-group-thread-relay-ingest";
 import { useCommunityParticipantRosterReadModel } from "@/app/features/groups/hooks/use-community-participant-roster-read-model";
 import { toast } from "@dweb/ui-kit";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import Image from "next/image";
 import { buildGroupBlockHref, buildGroupLeaveHref } from "@/app/features/groups/utils/group-action-route";
 import { hasWritableCommunityRelayTransport } from "@/app/features/groups/services/community-relay-transport";
+import { resolveGroupHomeSealedCommunityEnabled } from "@/app/features/groups/services/sealed-community-instance-policy";
+import { isWorkspaceKernelAuthority } from "@/app/features/workspace-kernel/workspace-kernel-policy";
+import { resolveWorkspaceKernelActiveMemberPubkeys } from "@/app/features/workspace-kernel/workspace-kernel-roster-port";
 import { UserAvatar } from "@/app/features/profile/components/user-avatar";
 import { useResolvedProfileMetadata } from "@/app/features/profile/hooks/use-resolved-profile-metadata";
 import type { GroupAccessMode } from "@/app/features/groups/types";
@@ -263,8 +267,11 @@ export default function GroupHomePage() {
         [communityKnownParticipantDirectory, group?.memberPubkeys, localMemberPubkey, projectionMemberPubkeys],
     );
 
-    // Path B B1: canonical sealed-community instance for this community surface (main-shell skips when route is group-home).
-    const sealedCommunityShellEnabled = !!(group || discoveredRelay) && communityRelayTransportReady;
+    // Path B B1-3: canonical sealed-community instance for `/groups/[id]` (main-shell disabled on this route).
+    const sealedCommunityShellEnabled = resolveGroupHomeSealedCommunityEnabled({
+        hasCommunityContext: !!(group || discoveredRelay),
+        hasRelayTransport: communityRelayTransportReady,
+    });
     const sealedCommunityController = useSealedCommunity({
         groupId: group?.groupId || id || "",
         relayUrl: effectiveRelay,
@@ -284,6 +291,15 @@ export default function GroupHomePage() {
         clearLocalTerminalMembershipEvidence,
         applyCoordinationSemanticMemberEvent,
     } = sealedCommunityController;
+    useGroupThreadRelayIngest({
+        pool: relayPool,
+        relayUrl: effectiveRelay,
+        groupId: group?.groupId || id || "",
+        communityId: group?.communityId,
+        communityMode: group?.communityMode,
+        myPublicKeyHex: identityState.publicKeyHex || null,
+        enabled: sealedCommunityShellEnabled,
+    });
 
     const { activeProposals: activeGovernanceProposals, activeProposalCount } = useCommunityGovernanceProjection({
         groupId: group?.groupId || id || "",
@@ -373,20 +389,41 @@ export default function GroupHomePage() {
     );
 
     const { activeMemberPubkeys: activeMembers, authorEvidencePubkeys: conversationAuthorPubkeys } = React.useMemo(
-        () => getResolvedClientGateway().communityRoster.resolveActiveMemberPubkeysFromConversation({
-            communityMessages: groupState.messages ?? [],
-            persistedMessageAuthorPubkeys: persistedConversationAuthorPubkeys,
-            seededMemberPubkeys: seededMemberEvidence,
-            projectionMemberPubkeys,
-            localMemberPubkey,
-            leftMemberPubkeys: rawLeftMemberPubkeys,
-            expelledMemberPubkeys: rawExpelledMemberPubkeys,
-        }),
+        () => {
+            if (isWorkspaceKernelAuthority()) {
+                const kernelActive = resolveWorkspaceKernelActiveMemberPubkeys({
+                    rosterProjection: communityRosterProjection,
+                }).filter((pubkey) => {
+                    const normalized = pubkey.trim().toLowerCase();
+                    return normalized.length > 0
+                        && !rawLeftMemberPubkeys.some((left) => left.trim().toLowerCase() === normalized)
+                        && !rawExpelledMemberPubkeys.some((expelled) => expelled.trim().toLowerCase() === normalized);
+                });
+                return {
+                    activeMemberPubkeys: kernelActive,
+                    authorEvidencePubkeys: Array.from(new Set([
+                        ...kernelActive,
+                        ...persistedConversationAuthorPubkeys,
+                    ])) as ReadonlyArray<PublicKeyHex>,
+                };
+            }
+            return getResolvedClientGateway().communityRoster.resolveActiveMemberPubkeysFromConversation({
+                communityMessages: groupState.messages ?? [],
+                persistedMessageAuthorPubkeys: persistedConversationAuthorPubkeys,
+                seededMemberPubkeys: seededMemberEvidence,
+                projectionMemberPubkeys,
+                localMemberPubkey,
+                leftMemberPubkeys: rawLeftMemberPubkeys,
+                expelledMemberPubkeys: rawExpelledMemberPubkeys,
+            });
+        },
         [
+            communityRosterProjection,
             rawExpelledMemberPubkeys,
             rawLeftMemberPubkeys,
             groupState.messages,
             localMemberPubkey,
+            persistedConversationAuthorPubkeys,
             projectionMemberPubkeys,
             seededMemberEvidence,
         ],

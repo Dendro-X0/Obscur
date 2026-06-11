@@ -15,6 +15,13 @@ import { logAppEvent } from "@/app/shared/log-app-event";
 import { getProfileRuntimeScope, getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import type { ProfileMessageBus } from "@dweb/core/profile-message-bus";
 import { isTauri, dbInsertMessage, dbInsertTombstone, dbDeleteMessages, dbUpsertConversation } from "@dweb/db";
+import { requiresSqlitePersistence } from "@/app/features/runtime/native-persistence-policy";
+import {
+  isDmKernelWriteOwner,
+  writeDmKernelConversation,
+  writeDmKernelMessage,
+} from "@/app/features/dm-kernel/dm-kernel-write-port";
+import { linkLocalMediaIndexToMessageEvent } from "@/app/features/vault/services/local-media-store";
 import type { MessageRecord, TombstoneRecord, ConversationRecord } from "@dweb/db";
 import type { ChatStateReplacedEventDetail } from "./chat-state-store";
 import { createMicrotaskCoalescedHandler } from "@/app/features/profiles/services/profile-bus-coalesce";
@@ -108,6 +115,9 @@ const toPersistedChatStateMessage = (
 });
 
 const mirrorMessageToChatState = (conversationId: string, message: Message, canonicalId: string): void => {
+    if (requiresSqlitePersistence()) {
+        return;
+    }
     if (isGroupConversationId(conversationId)) {
         return;
     }
@@ -300,9 +310,9 @@ const hasLegacyChatTimelineDomains = (value: unknown): boolean => {
 
 /**
  * MessagePersistenceService
- * 
- * listens to the MessageBus and ensures every message event is reflected 
- * in the high-performance IndexedDB 'messages' store.
+ *
+ * Canonical durable owner for DM bus events: SQLite on native (Tauri),
+ * batched IndexedDB on web. Listens to {@link messageBus} only.
  */
 export class MessagePersistenceService {
     private isInitialized = false;
@@ -323,11 +333,11 @@ export class MessagePersistenceService {
     private readonly onVisibilityChange = (): void => {
         if (typeof document === "undefined") return;
         if (document.visibilityState === "hidden") {
-            void this.flushQueue();
+            void this.flushPendingNow();
         }
     };
     private readonly onBeforeUnload = (): void => {
-        void this.flushQueue();
+        void this.flushPendingNow();
     };
     private chatPerformanceV2Enabled = false;
     private boundProfileId: string | null = null;
@@ -559,11 +569,12 @@ export class MessagePersistenceService {
         };
         // Remove any prior UUID-keyed entry for the same message and queue
         // deletion of any already-flushed UUID row in IndexedDB.
+        const hasConfirmedEventId = typeof message.eventId === "string" && message.eventId.trim().length > 0;
         if (canonicalId !== message.id) {
             this.pendingDeletes.delete(message.id);
             this.pendingUpserts.delete(message.id);
             this.pendingSupersededIds.add(message.id);
-        } else if (isTauri()) {
+        } else if (isTauri() && !hasConfirmedEventId) {
             // On Tauri, SQLite uses INSERT OR IGNORE — the first write is permanent.
             // Never write the optimistic UUID row; wait until eventId is confirmed.
             return;
@@ -571,6 +582,11 @@ export class MessagePersistenceService {
         this.pendingDeletes.delete(canonicalId);
         this.pendingUpserts.set(canonicalId, persistedRecord);
         mirrorMessageToChatState(conversationId, message, canonicalId);
+
+        if (isTauri()) {
+            void this.flushPendingNow();
+            return;
+        }
 
         const queued = this.getQueuedOperationCount();
         if (queued >= this.immediateFlushThreshold) {
@@ -628,8 +644,17 @@ export class MessagePersistenceService {
         try {
             if (upserts.length > 0) {
                 if (isTauri()) {
-                    const profileId = getResolvedProfileId();
+                    const profileId = getResolvedProfileId()?.trim();
+                    if (!profileId) {
+                        logAppEvent({
+                            name: "messaging.native_sqlite_write_skipped_no_profile",
+                            level: "error",
+                            scope: { feature: "messaging", action: "sqlite_persist" },
+                            context: { queuedUpsertCount: upserts.length },
+                        });
+                    } else {
                     const latestByConversation = new Map<string, Record<string, unknown>>();
+                    const sqliteWritePromises: Array<Promise<unknown>> = [];
                     for (const raw of upserts) {
                         // raw.id is now canonicalId (eventId when known, else UUID).
                         // The queueMessageUpsert guard already blocks UUID-only entries on Tauri,
@@ -642,6 +667,7 @@ export class MessagePersistenceService {
                         const idLooksLikeUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(eventId);
                         if (idLooksLikeUuid && !hasRealEventId) continue;
                         const conversationId = typeof raw.conversationId === "string" ? raw.conversationId : "";
+                        const attachments = Array.isArray(raw.attachments) ? raw.attachments : [];
                         const rec: MessageRecord = {
                             event_id: eventId,
                             profile_id: profileId,
@@ -654,9 +680,33 @@ export class MessagePersistenceService {
                             received_at: typeof raw.timestampMs === "number" ? raw.timestampMs : Date.now(),
                             is_outgoing: raw.isOutgoing === true,
                             reply_to_event_id: null,
-                            has_attachment: false,
+                            has_attachment: attachments.length > 0,
                         };
-                        dbInsertMessage(rec).catch(() => {});
+                        sqliteWritePromises.push((async () => {
+                            if (isDmKernelWriteOwner()) {
+                                const writeResult = await writeDmKernelMessage(rec);
+                                if (!writeResult.ok) {
+                                    throw new Error(writeResult.errorMessage ?? writeResult.reason);
+                                }
+                            } else {
+                                await dbInsertMessage(rec);
+                            }
+                            if (attachments.length > 0) {
+                                const attachmentUrls = attachments
+                                    .map((attachment) => (
+                                        attachment && typeof attachment === "object" && typeof (attachment as { url?: string }).url === "string"
+                                            ? (attachment as { url: string }).url.trim()
+                                            : ""
+                                    ))
+                                    .filter((url) => url.length > 0);
+                                if (attachmentUrls.length > 0) {
+                                    linkLocalMediaIndexToMessageEvent({
+                                        messageEventId: eventId,
+                                        attachmentUrls,
+                                    });
+                                }
+                            }
+                        })());
                         if (conversationId) {
                             const existing = latestByConversation.get(conversationId);
                             const existingTs = typeof existing?.timestampMs === "number" ? existing.timestampMs : 0;
@@ -682,7 +732,18 @@ export class MessagePersistenceService {
                                 : null,
                             unread_count: 0,
                         };
-                        dbUpsertConversation(convRec).catch(() => {});
+                        sqliteWritePromises.push((async () => {
+                            if (isDmKernelWriteOwner()) {
+                                const writeResult = await writeDmKernelConversation(convRec);
+                                if (!writeResult.ok) {
+                                    throw new Error(writeResult.errorMessage ?? writeResult.reason);
+                                }
+                            } else {
+                                await dbUpsertConversation(convRec);
+                            }
+                        })());
+                    }
+                    await Promise.all(sqliteWritePromises);
                     }
                 }
             }

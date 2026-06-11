@@ -12,6 +12,7 @@
  */
 
 import { isDesktopShellBuild, isMobileShellBuild } from "@/app/features/runtime/shell-contract";
+import { isRelayAuthoritativeMembershipEnforced } from "./community-relay-authoritative-membership-policy";
 
 const parseEnvFlag = (raw: string | undefined): boolean | null => {
   const normalized = (raw ?? "").trim().toLowerCase();
@@ -24,8 +25,11 @@ const parseEnvFlag = (raw: string | undefined): boolean | null => {
   return null;
 };
 
-/** Default ON in non-production builds unless explicitly disabled. */
+/** Default ON in non-production builds unless explicitly disabled. Relay-authoritative mode always ON. */
 export const isRadicalMembershipTruthEnforced = (): boolean => {
+  if (isRelayAuthoritativeMembershipEnforced()) {
+    return true;
+  }
   if (isMobileShellBuild() || isDesktopShellBuild()) {
     return false;
   }

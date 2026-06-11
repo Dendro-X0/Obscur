@@ -40,10 +40,14 @@ export const mergeCoordinationTerminalMemberPubkeys = (
 const resolveCoordinationActiveDisplayPubkeys = (params: Readonly<{
   coordinationDirectory: CoordinationMembershipMaterialization;
   localMemberPubkey?: PublicKeyHex | null;
+  localLeftMemberPubkeys?: ReadonlyArray<PublicKeyHex>;
+  localExpelledMemberPubkeys?: ReadonlyArray<PublicKeyHex>;
 }>): ReadonlyArray<PublicKeyHex> => {
   const terminal = new Set([
     ...params.coordinationDirectory.leftMemberPubkeys,
     ...params.coordinationDirectory.expelledMemberPubkeys,
+    ...(params.localLeftMemberPubkeys ?? []),
+    ...(params.localExpelledMemberPubkeys ?? []),
   ].map(normalizePubkey));
 
   const active = params.coordinationDirectory.activeMemberPubkeys.filter(
@@ -69,6 +73,8 @@ export const resolveCommunityParticipantDisplayPubkeys = (params: Readonly<{
   coordinationDirectory: CoordinationMembershipMaterialization | null;
   monotonicDisplayPubkeys: ReadonlyArray<PublicKeyHex>;
   localMemberPubkey?: PublicKeyHex | null;
+  localLeftMemberPubkeys?: ReadonlyArray<PublicKeyHex>;
+  localExpelledMemberPubkeys?: ReadonlyArray<PublicKeyHex>;
 }>): ReadonlyArray<PublicKeyHex> => {
   if (!usesCoordinationMembershipTruth(params.communityMode)) {
     return params.monotonicDisplayPubkeys;
@@ -78,6 +84,8 @@ export const resolveCommunityParticipantDisplayPubkeys = (params: Readonly<{
     return resolveCoordinationActiveDisplayPubkeys({
       coordinationDirectory: params.coordinationDirectory,
       localMemberPubkey: params.localMemberPubkey,
+      localLeftMemberPubkeys: params.localLeftMemberPubkeys,
+      localExpelledMemberPubkeys: params.localExpelledMemberPubkeys,
     });
   }
 

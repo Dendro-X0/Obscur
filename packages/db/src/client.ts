@@ -5,8 +5,21 @@ import type { MessageRecord, TombstoneRecord, ConversationRecord, GroupRecord, G
  * Returns true when running inside Tauri (desktop).
  * Use this to guard all db calls so the PWA can fall back gracefully.
  */
-export const isTauri = (): boolean =>
-  typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+export const isTauri = (): boolean => {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  const w = window as Window & {
+    __TAURI__?: { core?: { invoke?: unknown } };
+    __TAURI_INTERNALS__?: { invoke?: unknown };
+    __TAURI_IPC__?: unknown;
+  };
+  return (
+    typeof w.__TAURI_INTERNALS__?.invoke === "function"
+    || typeof w.__TAURI__?.core?.invoke === "function"
+    || typeof w.__TAURI_IPC__ === "function"
+  );
+};
 
 // ---------------------------------------------------------------------------
 // Messages
@@ -153,4 +166,31 @@ export async function dbSearchMessages(
   limit?: number,
 ): Promise<MessageSearchResult[]> {
   return invoke<MessageSearchResult[]>("db_search_messages", { profileId, query, limit });
+}
+
+// ---------------------------------------------------------------------------
+// Profile local reset
+// ---------------------------------------------------------------------------
+
+export type WipeProfileLocalDataReport = Readonly<{
+  profile_id: string;
+  rows_deleted: number;
+  profile_row_deleted: boolean;
+}>;
+
+export async function dbWipeProfileLocalData(
+  profileId: string,
+  removeProfileRow: boolean,
+): Promise<WipeProfileLocalDataReport> {
+  if (!isTauri()) {
+    return {
+      profile_id: profileId,
+      rows_deleted: 0,
+      profile_row_deleted: false,
+    };
+  }
+  return invoke<WipeProfileLocalDataReport>("db_wipe_profile_local_data", {
+    profileId,
+    removeProfileRow,
+  });
 }

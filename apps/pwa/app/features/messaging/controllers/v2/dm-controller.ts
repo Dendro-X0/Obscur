@@ -11,7 +11,7 @@
 
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type SetStateAction } from "react";
 import type { NostrEvent } from "@dweb/nostr/nostr-event";
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
@@ -43,15 +43,22 @@ import { logAppEvent } from "@/app/shared/log-app-event";
 // DM Ledger shadow mode - divergence detection only, no behavior change
 import { checkDmDivergence, recordDmMessage, recordDmDelete } from "../../dm-ledger";
 import { appendCanonicalDmEvent } from "@/app/features/account-sync/services/account-event-ingest-bridge";
+import { isDevLabSyntheticDmPlaintext } from "@/app/features/dm-kernel/dm-kernel-dev-lab-sidebar-policy";
 import { peerRelayEvidenceStore } from "../../services/peer-relay-evidence-store";
 import { messagingClientOperations } from "../../services/messaging-client-operations";
 import { collectMessageIdentityAliases } from "../../services/message-identity-alias-contract";
 import { toDmConversationId } from "../../utils/dm-conversation-id";
+import { normalizePublicKeyHex } from "@/app/features/profile/utils/normalize-public-key-hex";
 import { buildDeleteTargetIdsForDm } from "../../services/dm-delete-target-derivation";
 import { toAccountEventPlaintextPreview } from "@/app/features/account-sync/services/account-event-plaintext-preview";
 import { applyDmThreadRedaction } from "../../services/apply-dm-thread-redaction";
 import { applyDmRedactionDisplayGate } from "../../services/dm-redaction-display-gate";
 import { useRelayPoolRef } from "@/app/features/relays/hooks/use-relay-pool-ref";
+import { isDmKernelRelaySyncSuppressed } from "@/app/features/dm-kernel/dm-kernel-policy";
+import { MessageQueue } from "../../lib/message-queue";
+import { syncMissedMessages as syncMissedMessagesImpl } from "../dm-sync-orchestrator";
+import type { EnhancedDMControllerState } from "../dm-controller-state";
+import { errorHandler } from "../../lib/error-handler";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -75,6 +82,10 @@ export type UseDmControllerParams = Readonly<{
   peerTrust?: PeerTrustContract;
   requestsInbox?: RequestsInboxContract;
   onNewMessage?: (message: Message) => void;
+  onMessageUpdated?: (params: Readonly<{
+    conversationId: string;
+    message: Message;
+  }>) => void;
   onMessageDeleted?: (params: Readonly<{
     conversationId: string;
     messageId: string;
@@ -124,6 +135,7 @@ export type UseDmControllerResult = Readonly<{
   retryFailedMessage: (messageId: string) => Promise<void>;
   getMessageStatus: (messageId: string) => MessageStatus | null;
   getMessagesByConversation: (conversationId: string) => ReadonlyArray<Message>;
+  getMessagesForPeer: (peerPublicKeyHex: string) => ReadonlyArray<Message>;
   syncMissedMessages: (since?: Date) => Promise<void>;
   processOfflineQueue: () => Promise<void>;
   getOfflineQueueStatus: () => Promise<null>;
@@ -143,9 +155,11 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
     blocklist,
     peerTrust,
     onNewMessage,
+    onMessageUpdated,
     onMessageDeleted,
     autoSubscribeIncoming = true,
     enableIncomingTransport = true,
+    transportOwnerId,
   } = params;
 
   // --- State ---
@@ -159,6 +173,37 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
   const publishFeedbackShownRef = useRef<Set<string>>(new Set());
   messagesRef.current = messages;
   const poolRef = useRelayPoolRef(pool);
+  const controllerInstanceIdRef = useRef(`v2_dm_${crypto.randomUUID().slice(0, 8)}`);
+  const handleIncomingEventRef = useRef<(event: NostrEvent, relayUrl: string) => Promise<void>>(
+    async () => {},
+  );
+  const hasTriggeredInitialSyncRef = useRef(false);
+  const initialSyncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const syncStateRef = useRef({
+    isSyncing: false,
+    lastSyncAt: undefined as Date | undefined,
+    conversationTimestamps: new Map<string, Date>(),
+    coldStartPartialCoverageDetected: false,
+    coldStartHistoricalBackfillRelayCount: null as number | null,
+  });
+  const [syncProgress, setSyncProgress] = useState<EnhancedDMControllerState["syncProgress"]>(undefined);
+
+  const messageQueue = useMemo(() => {
+    if (!myPublicKeyHex) {
+      return null;
+    }
+    return new MessageQueue(myPublicKeyHex);
+  }, [myPublicKeyHex]);
+
+  const syncSetStateAdapter = useCallback((
+    updater: SetStateAction<EnhancedDMControllerState>,
+  ) => {
+    setSyncProgress((prev) => {
+      const fakeState = { syncProgress: prev } as EnhancedDMControllerState;
+      const next = typeof updater === "function" ? updater(fakeState) : updater;
+      return next.syncProgress;
+    });
+  }, []);
 
   // --- Stable refs for subscription callback dependencies ---
   // These refs allow the subscription event handler to always read the latest
@@ -174,6 +219,8 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
   peerTrustRef.current = peerTrust;
   const onNewMessageRef = useRef(onNewMessage);
   onNewMessageRef.current = onNewMessage;
+  const onMessageUpdatedRef = useRef(onMessageUpdated);
+  onMessageUpdatedRef.current = onMessageUpdated;
   const onMessageDeletedRef = useRef(onMessageDeleted);
   onMessageDeletedRef.current = onMessageDeleted;
 
@@ -266,6 +313,9 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
     switch (result.action) {
       case "message": {
         const msg = result.message;
+        if (isDevLabSyntheticDmPlaintext(msg.content)) {
+          break;
+        }
         const profileId = getResolvedProfileId();
         const nowMs = Date.now();
         if (messagingClientOperations.isDmMessageIdentitySuppressed(msg, profileId ?? undefined, nowMs)) {
@@ -292,7 +342,10 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
             .slice(0, MAX_MESSAGES_IN_MEMORY);
           return next;
         });
-        onNewMessageRef.current?.(msg);
+        onNewMessageRef.current?.({
+          ...msg,
+          conversationId: msg.conversationId || msgConversationId,
+        });
 
         // Write to account projection so hydrateHistory has projection evidence
         // and restore cycles do not wipe this message from the UI.
@@ -338,26 +391,45 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
 
       case "self_echo": {
         const echo = result.message;
+        if (isDevLabSyntheticDmPlaintext(echo.content)) {
+          break;
+        }
         const profileId = getResolvedProfileId();
         const nowMs = Date.now();
         if (messagingClientOperations.isDmMessageIdentitySuppressed(echo, profileId ?? undefined, nowMs)) {
           break;
         }
+        let didUpdateEcho = false;
         setMessages(prev => {
           // Update existing outgoing message to "delivered" or add if not found
           const existingIdx = prev.findIndex(m =>
             m.eventId === echo.eventId || m.id === echo.id
           );
           if (existingIdx >= 0) {
+            const existing = prev[existingIdx];
+            if (existing.status === "delivered") {
+              return prev;
+            }
+            didUpdateEcho = true;
             const updated = [...prev];
-            updated[existingIdx] = { ...prev[existingIdx], status: "delivered" };
+            updated[existingIdx] = { ...existing, status: "delivered" };
             return updated;
           }
+          if (prev.some(m => m.eventId === echo.eventId || m.id === echo.id)) {
+            return prev;
+          }
+          didUpdateEcho = true;
           // Self-echo from another device
           return [echo, ...prev]
             .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
             .slice(0, MAX_MESSAGES_IN_MEMORY);
         });
+        if (didUpdateEcho && echo.conversationId && echo.eventId) {
+          onMessageUpdatedRef.current?.({
+            conversationId: echo.conversationId,
+            message: echo,
+          });
+        }
         break;
       }
 
@@ -386,6 +458,7 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
     }
   // Stable: refs provide fresh values without recreating callback
   }, [myPublicKeyHex]);
+  handleIncomingEventRef.current = handleIncomingEvent;
 
   // --- Subscribe ---
   const subscribe = useCallback(() => {
@@ -460,9 +533,13 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
     // Optimistic message
     const optimisticId = crypto.randomUUID();
     const isCommand = sendParams.plaintext.startsWith("__dweb_cmd__");
+    const optimisticConversationId = toDmConversationId({
+      myPublicKeyHex,
+      peerPublicKeyHex: sendParams.peerPublicKeyInput,
+    }) ?? [myPublicKeyHex, sendParams.peerPublicKeyInput].sort().join(":");
     const optimisticMessage: Message = {
       id: optimisticId,
-      conversationId: [myPublicKeyHex, sendParams.peerPublicKeyInput].sort().join(":"),
+      conversationId: optimisticConversationId,
       content: sendParams.plaintext,
       kind: isCommand ? "command" : "user",
       timestamp: new Date(),
@@ -475,6 +552,8 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
     // Add to state immediately (skip command messages - they should not appear in UI)
     if (!isCommand) {
       setMessages(prev => [optimisticMessage, ...prev].slice(0, MAX_MESSAGES_IN_MEMORY));
+      // dm-kernel thread reads messageBus new_message, not controller state.
+      onNewMessageRef.current?.(optimisticMessage);
     }
 
     // Background confirmation handler — upgrades status after relay OK responses
@@ -547,18 +626,26 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
     )
       ? result.eventId
       : undefined;
+    const persistedOutgoingMessage: Message = {
+      ...optimisticMessage,
+      eventId: canonicalDmId,
+      ...(nip17GiftWrapId ? { relayPublishedEventId: nip17GiftWrapId } : {}),
+      status: immediateStatus,
+    };
     setMessages(prev =>
       prev.map(m =>
         m.id === optimisticId
-          ? {
-              ...m,
-              eventId: canonicalDmId,
-              ...(nip17GiftWrapId ? { relayPublishedEventId: nip17GiftWrapId } : {}),
-              status: immediateStatus,
-            }
+          ? persistedOutgoingMessage
           : m
       )
     );
+
+    if (!isCommand && canonicalDmId) {
+      onMessageUpdatedRef.current?.({
+        conversationId: optimisticMessage.conversationId!,
+        message: persistedOutgoingMessage,
+      });
+    }
 
     // DM Ledger shadow mode: record outgoing message operation
     void (async () => {
@@ -1005,7 +1092,8 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
       : [],
     messageStatusMap,
     networkState: { online: typeof navigator !== "undefined" ? navigator.onLine : true },
-  }), [myPublicKeyHex, messages, error, activeSubId, messageStatusMap]);
+    syncProgress,
+  }), [myPublicKeyHex, messages, error, activeSubId, messageStatusMap, syncProgress]);
 
   // --- Compatibility stubs ---
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -1022,10 +1110,109 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
     return messages.filter(m => m.conversationId === conversationId);
   }, [messages]);
 
+  const getMessagesForPeer = useCallback((peerPublicKeyHex: string): ReadonlyArray<Message> => {
+    if (!myPublicKeyHex) {
+      return [];
+    }
+    const peer = normalizePublicKeyHex(peerPublicKeyHex);
+    if (!peer) {
+      return [];
+    }
+    const canonicalConversationId = toDmConversationId({
+      myPublicKeyHex,
+      peerPublicKeyHex: peer,
+    });
+    if (canonicalConversationId) {
+      const canonicalMatches = messages.filter((message) => message.conversationId === canonicalConversationId);
+      if (canonicalMatches.length > 0) {
+        return canonicalMatches;
+      }
+    }
+    return messages.filter((message) => {
+      const sender = normalizePublicKeyHex(message.senderPubkey ?? "");
+      const recipient = normalizePublicKeyHex(message.recipientPubkey ?? "");
+      return sender === peer || recipient === peer;
+    });
+  }, [messages, myPublicKeyHex]);
+
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const syncMissedMessages = useCallback(async (_s?: Date) => {
-    // TODO: implement sync
-  }, []);
+  const syncMissedMessages = useCallback(async (since?: Date) => {
+    if (isDmKernelRelaySyncSuppressed() && since === undefined) {
+      return;
+    }
+    if (!enableIncomingTransport || !myPublicKeyHex || !messageQueue) {
+      return;
+    }
+    await syncMissedMessagesImpl({
+      myPublicKeyHex,
+      messageQueue,
+      pool: poolRef.current,
+      syncStateRef,
+      setState: syncSetStateAdapter,
+      onIncomingEvent: (event, url) => {
+        void handleIncomingEventRef.current(event, url);
+      },
+      diagnostics: {
+        transportOwnerId: transportOwnerId ?? null,
+        controllerInstanceId: controllerInstanceIdRef.current,
+      },
+      profileId: getResolvedProfileId() || undefined,
+    }, since);
+  }, [
+    enableIncomingTransport,
+    messageQueue,
+    myPublicKeyHex,
+    poolRef,
+    syncSetStateAdapter,
+    transportOwnerId,
+  ]);
+
+  useEffect(() => {
+    if (!enableIncomingTransport || !myPublicKeyHex) {
+      return;
+    }
+    const unsubscribe = errorHandler.subscribeToNetworkChanges((networkState) => {
+      if (networkState.isOnline && networkState.hasRelayConnection && networkState.lastOnlineAt) {
+        if (Date.now() - networkState.lastOnlineAt.getTime() < 2000) {
+          void syncMissedMessages();
+        }
+      }
+    });
+    return unsubscribe;
+  }, [enableIncomingTransport, myPublicKeyHex, syncMissedMessages]);
+
+  useEffect(() => {
+    if (!enableIncomingTransport || !myPublicKeyHex) {
+      if (initialSyncTimeoutRef.current) {
+        clearTimeout(initialSyncTimeoutRef.current);
+        initialSyncTimeoutRef.current = null;
+      }
+      return;
+    }
+    const hasOpenRelay = poolRef.current.connections.some((connection) => connection.status === "open");
+    if (
+      hasOpenRelay
+      && !syncStateRef.current.lastSyncAt
+      && !hasTriggeredInitialSyncRef.current
+      && !syncStateRef.current.isSyncing
+    ) {
+      if (initialSyncTimeoutRef.current) {
+        clearTimeout(initialSyncTimeoutRef.current);
+      }
+      initialSyncTimeoutRef.current = setTimeout(() => {
+        if (!hasTriggeredInitialSyncRef.current) {
+          hasTriggeredInitialSyncRef.current = true;
+          void syncMissedMessages();
+        }
+      }, 2000);
+    }
+    return () => {
+      if (initialSyncTimeoutRef.current) {
+        clearTimeout(initialSyncTimeoutRef.current);
+        initialSyncTimeoutRef.current = null;
+      }
+    };
+  }, [enableIncomingTransport, myPublicKeyHex, syncMissedMessages]);
 
   const processOfflineQueue = useCallback(async () => {
     // TODO: implement offline queue
@@ -1095,6 +1282,7 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
     retryFailedMessage,
     getMessageStatus,
     getMessagesByConversation,
+    getMessagesForPeer,
     syncMissedMessages,
     processOfflineQueue,
     getOfflineQueueStatus,

@@ -1,4 +1,7 @@
 /**
+ * @deprecated Native DM must use `features/dm-kernel/`. Web legacy only.
+ * @see docs/program/obscur-v2-slim-kernel-manifest.md
+ *
  * Pure DM thread hydrate assembly after IndexedDB (and tombstone prep) complete.
  * R1: single read-model step for authority selection, soft cap, group scope filter,
  * durable **delete-for-me / tombstone suppression** on both cold hydrate and live-overlay merge,
@@ -30,7 +33,11 @@ import {
 } from "./dm-read-authority-contract";
 import { isDisplayableDmConversationMessage } from "./dm-conversation-displayable-message";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
+import { requiresSqlitePersistence } from "@/app/features/runtime/native-persistence-policy";
+import { isNativeDmSqliteReadOwner } from "./native-dm-read-policy";
 import { messagingClientOperations } from "./messaging-client-operations";
+import { dedupeMessagesByIdentity } from "./dm-conversation-message-retention-dedupe";
+import { hasPartialDirectionCoverage } from "./dm-thread-read-model";
 
 type AppEventLogContext = Readonly<Record<string, string | number | boolean | null>>;
 
@@ -151,16 +158,27 @@ export const assembleDmHydrateThreadReadModel = (
   } = resolveHydrationDmReadMessages(hydrationParams);
   logDmReadHydrationDiagnostics(hydrationParams, dmReadAuthorityStatus);
   const authorityDecision = legacyAuthorityDecision;
-  const authorityLayerMessages = (
-    (
+  const indexedPartialDirection = Boolean(
+    p.normalizedPublicKeyHex
+    && hasPartialDirectionCoverage(p.cappedHydratedMessages, p.normalizedPublicKeyHex),
+  );
+  const projectionGapFillSource = dedupeMessagesByIdentity([
+    ...p.projectionEvidenceMessagesSnapshot,
+    ...p.projectionMessagesSnapshot,
+  ]);
+  const shouldMergeProjectionGapFill = (
+    !isNativeDmSqliteReadOwner()
+    && projectionGapFillSource.length > 0
+    && (
       !p.projectionReadAuthoritySnapshot.useProjectionReads
       || legacyAuthorityDecision.reason === "indexed_primary_projection_direction_incomplete"
+      || (requiresSqlitePersistence() && indexedPartialDirection)
     )
-    && p.projectionEvidenceMessagesSnapshot.length > 0
-  )
+  );
+  const authorityLayerMessages = shouldMergeProjectionGapFill
     ? mergeIndexedWithMissingProjectionMessages(
       messages,
-      p.projectionEvidenceMessagesSnapshot,
+      projectionGapFillSource,
       p.normalizedPublicKeyHex,
     )
     : messages;

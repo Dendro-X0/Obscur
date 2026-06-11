@@ -5,17 +5,21 @@ import { AppChromeProvider } from "@/app/components/app-chrome-registry";
 import { PersistentAppChrome } from "@/app/components/persistent-app-chrome";
 import { LazyGlobalDialogManager } from "@/app/features/messaging/components/lazy-global-dialog-manager";
 import { GroupProvider } from "@/app/features/groups/providers/group-provider";
+import { WorkspaceKernelProvider } from "@/app/features/workspace-kernel/workspace-kernel-provider";
 import { ProfileRuntimeProvider } from "@/app/features/profiles/providers/profile-runtime-provider";
 import { MessagingProvider } from "@/app/features/messaging/providers/messaging-provider";
 import { RuntimeMessagingTransportOwnerProvider } from "@/app/features/messaging/providers/runtime-messaging-transport-owner-provider";
 import { NetworkProvider } from "@/app/features/network/providers/network-provider";
 import { TanstackQueryRuntimeProvider } from "@/app/features/query/providers/tanstack-query-runtime-provider";
 import { RelayProvider } from "@/app/features/relays/providers/relay-provider";
+import { DmKernelColdStartRepairOwner } from "@/app/features/dm-kernel/components/dm-kernel-cold-start-repair-owner";
+import { DesktopWarmupOwner } from "./desktop-warmup-owner";
 import { RuntimeActivationManager } from "./runtime-activation-manager";
 import { ActiveSessionLeaseOwner } from "./active-session-lease-owner";
 import { SecondaryProfilePostLoginRefresh } from "./secondary-profile-post-login-refresh";
 import { ChatRouteMainShell, ChatRouteVoiceCallOverlay } from "./chat-route-main-shell";
 import { AccountScopeBoundaryOwner } from "@/app/features/runtime/components/account-scope-boundary-owner";
+import { DevLabMessagingBridge } from "@/app/features/dev-lab/dev-lab-messaging-bridge";
 
 /**
  * Unlocked session tree. Providers stay mounted across sidebar navigation so global
@@ -30,12 +34,16 @@ export function UnlockedAppRuntimeShell(props: Readonly<{ children: React.ReactN
         <AccountScopeBoundaryOwner />
         <RelayProvider>
           <GroupProvider>
+            <WorkspaceKernelProvider>
             <NetworkProvider>
+              <DesktopWarmupOwner />
+              <DmKernelColdStartRepairOwner />
               <RuntimeActivationManager />
               <ActiveSessionLeaseOwner />
               <SecondaryProfilePostLoginRefresh />
               <MessagingProvider>
                 <RuntimeMessagingTransportOwnerProvider>
+                  <DevLabMessagingBridge />
                   <AppChromeProvider>
                     <LazyGlobalDialogManager />
                     <PersistentAppChrome>
@@ -47,6 +55,7 @@ export function UnlockedAppRuntimeShell(props: Readonly<{ children: React.ReactN
                 </RuntimeMessagingTransportOwnerProvider>
               </MessagingProvider>
             </NetworkProvider>
+            </WorkspaceKernelProvider>
           </GroupProvider>
         </RelayProvider>
       </ProfileRuntimeProvider>

@@ -91,6 +91,11 @@ import {
   toMessageDeleteTombstoneIdSet,
   uniqueStrings,
 } from "./restore-merge-chat-state";
+import {
+  collectNativeSqliteBackupEvidence,
+  applyNativeRestoreSqliteMaterialization,
+  parseNativeSqliteBackupEvidence,
+} from "./native-sqlite-backup-evidence";
 import { applyNonV1RestoreMaterialization } from "./restore-materialization";
 import {
   withAccountRestoreMaterializationEvents,
@@ -804,12 +809,19 @@ const buildBackupPayloadWithHydratedChatState = async (publicKeyHex: PublicKeyHe
   const roomKeys = mergeRoomKeySnapshots(localRoomKeys, reconstructedRoomKeys);
   const basePayload = buildBackupPayload(publicKeyHex, hydratedChatState, roomKeys);
   const identityUnlock = await readLocalIdentityUnlockSnapshot(publicKeyHex);
-  if (!identityUnlock) {
+  const nativeSqliteEvidence = isTauri()
+    ? await collectNativeSqliteBackupEvidence({
+      publicKeyHex,
+      profileId: profileIdForHydrate,
+    })
+    : undefined;
+  if (!identityUnlock && !nativeSqliteEvidence) {
     return basePayload;
   }
   return {
     ...basePayload,
-    identityUnlock,
+    ...(identityUnlock ? { identityUnlock } : {}),
+    ...(nativeSqliteEvidence ? { nativeSqliteEvidence } : {}),
   };
 };
 
@@ -838,6 +850,7 @@ const parseBackupPayload = (value: unknown): EncryptedAccountBackupPayload | nul
   const communityMembershipLedger = parseCommunityMembershipLedgerSnapshot(parsed.communityMembershipLedger);
   const roomKeys = parseRoomKeySnapshots(parsed.roomKeys);
   const messageDeleteTombstones = parseMessageDeleteTombstones(parsed.messageDeleteTombstones);
+  const nativeSqliteEvidence = parseNativeSqliteBackupEvidence(parsed.nativeSqliteEvidence);
   const chatState = sanitizePersistedChatStateMessagesByDeleteContract(parsed.chatState ?? null, {
     durableDeleteIds: toMessageDeleteTombstoneIdSet(messageDeleteTombstones),
   });
@@ -863,13 +876,14 @@ const parseBackupPayload = (value: unknown): EncryptedAccountBackupPayload | nul
       localMediaStorageConfig,
     },
   };
-  if (communityMembershipLedger.length === 0 && roomKeys.length === 0) {
+  if (communityMembershipLedger.length === 0 && roomKeys.length === 0 && !nativeSqliteEvidence) {
     return payload;
   }
   return {
     ...payload,
     ...(communityMembershipLedger.length > 0 ? { communityMembershipLedger } : {}),
     ...(roomKeys.length > 0 ? { roomKeys } : {}),
+    ...(nativeSqliteEvidence ? { nativeSqliteEvidence } : {}),
   };
 };
 
@@ -1295,6 +1309,13 @@ const applyBackupPayload = async (
         emitMutationSignal: false,
         profileId,
       });
+      if (isTauri()) {
+        await applyNativeRestoreSqliteMaterialization({
+          profileId,
+          chatState: chatStateForNativeMirror,
+          nativeSqliteEvidence: mergedPayload.nativeSqliteEvidence,
+        });
+      }
       const restoredChatStateDiagnostics = summarizePersistedChatStateMessages(
         chatStateStoreService.load(publicKeyHex),
         publicKeyHex,

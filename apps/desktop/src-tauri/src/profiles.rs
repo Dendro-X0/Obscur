@@ -15,7 +15,7 @@ const DEFAULT_PROFILE_LABEL: &str = "Default";
 
 /// Clear the profile data directory containing WebView storage (IndexedDB, localStorage, etc.)
 /// This is best-effort and logs warnings on failure.
-fn clear_profile_data_directory(app: &AppHandle, profile_id: &str) {
+pub fn clear_profile_webview_data_directory(app: &AppHandle, profile_id: &str) {
     let app_dir = match resolve_effective_data_root(app) {
         Ok(dir) => dir,
         Err(e) => {
@@ -72,7 +72,7 @@ fn clear_shared_webview_storage(app: &AppHandle) {
 /// This is best-effort and does not fail if the keychain entry doesn't exist.
 async fn clear_native_credentials_for_profile(app: &AppHandle, profile_id: &str, session: &SessionState) {
     // Clear profile data directory first (contains WebView IndexedDB, localStorage, etc.)
-    clear_profile_data_directory(app, profile_id);
+    clear_profile_webview_data_directory(app, profile_id);
 
     // Clear in-memory session
     session.clear(Some(profile_id)).await;
@@ -310,18 +310,49 @@ fn escape_js_string(value: &str) -> String {
     value.replace('\\', "\\\\").replace('"', "\\\"")
 }
 
+fn experiment_online_enabled_from_env() -> bool {
+    std::env::var("NEXT_PUBLIC_OBSCUR_EXPERIMENT_ONLINE")
+        .ok()
+        .filter(|value| value == "1")
+        .is_some()
+        || std::env::var("OBSCUR_EXPERIMENT_ONLINE")
+            .ok()
+            .filter(|value| value == "1")
+            .is_some()
+}
+
+pub(crate) fn experiment_shell_boot_prefix() -> &'static str {
+    if experiment_online_enabled_from_env() {
+        "window.__OBSCUR_EXPERIMENT_SHELL=true;window.__OBSCUR_EXPERIMENT_ONLINE=true;"
+    } else {
+        ""
+    }
+}
+
 fn window_boot_init_script(window_label: &str, profile_id: &str) -> String {
     format!(
-        r#"window.__OBSCUR_WINDOW_BOOT__={{windowLabel:"{}",profileId:"{}"}};"#,
-        escape_js_string(window_label),
-        escape_js_string(profile_id),
+        r#"{}{}"#,
+        experiment_shell_boot_prefix(),
+        format!(
+            r#"window.__OBSCUR_WINDOW_BOOT__={{windowLabel:"{}",profileId:"{}"}};"#,
+            escape_js_string(window_label),
+            escape_js_string(profile_id),
+        ),
     )
 }
 
 #[cfg_attr(not(debug_assertions), allow(unused_variables))]
-fn resolve_profile_window_url(app: &AppHandle) -> WebviewUrl {
+pub(crate) fn resolve_profile_window_url(app: &AppHandle) -> WebviewUrl {
     #[cfg(debug_assertions)]
     {
+        // v2 slim default dev: static out/ (prod-like). Live Next dev: pnpm dev:desktop:live
+        if std::env::var("OBSCUR_DESKTOP_STATIC_DEV")
+            .ok()
+            .filter(|value| value == "1")
+            .is_some()
+        {
+            return WebviewUrl::App("index.html".into());
+        }
         if let Some(dev_url) = app.config().build.dev_url.clone() {
             return WebviewUrl::External(dev_url);
         }

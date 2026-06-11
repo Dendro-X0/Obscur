@@ -2,6 +2,8 @@
 
 #[cfg(desktop)]
 use serde::{Deserialize, Serialize};
+#[cfg(desktop)]
+use tauri::WebviewWindow;
 
 /// Window state for persistence
 #[cfg(desktop)]
@@ -55,5 +57,19 @@ pub fn sanitize_window_state(state: WindowState) -> WindowState {
             .height
             .clamp(MIN_WINDOW_HEIGHT, MAX_REASONABLE_WINDOW_HEIGHT),
         maximized: state.maximized,
+    }
+}
+
+/// Unhide + focus a desktop window; logs failures instead of swallowing them.
+#[cfg(desktop)]
+pub fn reveal_desktop_window(window: &WebviewWindow, context: &str) {
+    if let Err(error) = window.unminimize() {
+        eprintln!("[WINDOW] unminimize failed ({context}): {error}");
+    }
+    if let Err(error) = window.show() {
+        eprintln!("[WINDOW] show failed ({context}): {error}");
+    }
+    if let Err(error) = window.set_focus() {
+        eprintln!("[WINDOW] set_focus failed ({context}): {error}");
     }
 }

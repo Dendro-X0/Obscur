@@ -1,5 +1,6 @@
 "use client";
 
+import { ROUTE_CLIENT_CHUNK_LOADERS } from "@/app/lib/navigation/sidebar-routes";
 import {
   loadClientChunkSafely,
   preloadGroupHomePageClient,
@@ -33,6 +34,10 @@ const warmNavigationSpecialTasks = async (
     tasks.map(async (task) => {
       if (task === "group_home_client") {
         await loadClientChunkSafely(() => preloadGroupHomePageClient());
+        return;
+      }
+      if (task === "settings_page_client") {
+        await loadClientChunkSafely(ROUTE_CLIENT_CHUNK_LOADERS["/settings"]);
       }
     }),
   );

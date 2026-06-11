@@ -8,16 +8,18 @@ import { GlobalVoiceCallOverlay } from "@/app/features/messaging/components/glob
 const isChatRoutePath = (pathname: string | null): boolean => pathname === "/";
 
 /**
- * Chat shell stays mounted across sidebar routes so DM thread state (useConversationMessages)
- * is not torn down when visiting /settings, /network, etc. Hidden off-route to avoid layout bleed.
+ * Chat shell mounts only on `/`. DM list/thread state lives in MessagingProvider + dm-kernel
+ * SQLite; unmounting MainShell off-route subtracts thousands of hook subscriptions during
+ * sidebar navigation (P2). useConversationMessages re-hydrates when returning to `/`.
  */
-export function ChatRouteMainShell(): React.JSX.Element {
+export function ChatRouteMainShell(): React.JSX.Element | null {
   const pathname = usePathname();
-  const onChatRoute = isChatRoutePath(pathname);
+  if (!isChatRoutePath(pathname)) {
+    return null;
+  }
   return (
     <div
-      hidden={!onChatRoute}
-      data-chat-route-active={onChatRoute ? "true" : "false"}
+      data-chat-route-active="true"
       className="flex min-h-0 flex-1 flex-col overflow-hidden"
     >
       <MainShell />

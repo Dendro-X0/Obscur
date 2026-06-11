@@ -5,15 +5,20 @@ vi.mock("@/app/features/runtime/native-persistence-policy", () => ({
   requiresSqlitePersistence: vi.fn(() => true),
 }));
 
+import { requiresSqlitePersistence } from "@/app/features/runtime/native-persistence-policy";
+
 import {
   evaluateDirectionCoverage,
+  evaluatePartialDirectionHydrateRetryPolicy,
   evaluatePartialThreadRetryPolicy,
   evaluateProjectionMergePolicy,
   evaluateStaleEmptyHydrateRetryPolicy,
   finalizeDmThreadHydrateRead,
   hasPartialDirectionCoverage,
   reconcileDirectionCoverage,
+  reconcileMonotonicLoadedDepth,
   resolveDisplayMessagesWithCacheFallback,
+  resolveExpandedHistoryAfterHydrate,
   resolveInitialConversationPaint,
   shouldPersistDmThreadDisplayCache,
 } from "./dm-thread-read-model";
@@ -95,7 +100,7 @@ describe("dm-thread-read-model", () => {
       expect(result.source).toBe("none");
     });
 
-    it("paints bidirectional display cache on native", () => {
+    it("does not paint display cache on native (sqlite-only R1)", () => {
       const bidirectional = [
         baseMessage({ id: "cache-in", isOutgoing: false }),
         baseMessage({ id: "cache-out", isOutgoing: true }),
@@ -105,46 +110,176 @@ describe("dm-thread-read-model", () => {
         syncSeed: [],
         myPublicKeyHex: myPublicKeyHex as Message["senderPubkey"] & string,
       });
-      expect(result.shouldPaint).toBe(true);
-      expect(result.source).toBe("display_cache");
-      expect(result.messages).toHaveLength(2);
+      expect(result.shouldPaint).toBe(false);
+      expect(result.source).toBe("none");
+    });
+  });
+
+  describe("reconcileMonotonicLoadedDepth", () => {
+    it("unions older in-memory rows when hydrate returns a smaller capped window", () => {
+      const conversationId = `${myPublicKeyHex}:${peerPublicKeyHex}`;
+      const previous = Array.from({ length: 400 }, (_, index) => baseMessage({
+        id: `msg-${index + 1}`,
+        isOutgoing: index % 2 === 0,
+        timestamp: new Date(1_700_000_000_000 + index),
+      }));
+      const hydrated = previous.slice(-200);
+      const { messages, preserved } = reconcileMonotonicLoadedDepth({
+        hydratedMessages: hydrated,
+        previousMessages: previous,
+        conversationIds: [conversationId],
+      });
+      expect(preserved).toBe(true);
+      expect(messages).toHaveLength(400);
+      expect(messages[0]?.id).toBe("msg-1");
+      expect(messages[399]?.id).toBe("msg-400");
+    });
+
+    it("does not grow the window when hydrate already includes all previous rows", () => {
+      const conversationId = `${myPublicKeyHex}:${peerPublicKeyHex}`;
+      const previous = [
+        baseMessage({ id: "a", isOutgoing: false }),
+        baseMessage({ id: "b", isOutgoing: true }),
+      ];
+      const hydrated = [
+        baseMessage({ id: "a", isOutgoing: false }),
+        baseMessage({ id: "b", isOutgoing: true }),
+        baseMessage({ id: "c", isOutgoing: false }),
+      ];
+      const { messages, preserved } = reconcileMonotonicLoadedDepth({
+        hydratedMessages: hydrated,
+        previousMessages: previous,
+        conversationIds: [conversationId],
+      });
+      expect(preserved).toBe(false);
+      expect(messages).toHaveLength(3);
+    });
+  });
+
+  describe("resolveExpandedHistoryAfterHydrate", () => {
+    it("keeps expanded history when previous depth exceeded the soft limit", () => {
+      expect(resolveExpandedHistoryAfterHydrate({
+        previousExpandedHistory: false,
+        previousMessageCount: 400,
+        hydratedMessageCount: 200,
+      })).toBe(true);
+    });
+
+    it("clears expanded history after hydrate when depth stayed within the soft limit", () => {
+      expect(resolveExpandedHistoryAfterHydrate({
+        previousExpandedHistory: false,
+        previousMessageCount: 120,
+        hydratedMessageCount: 120,
+      })).toBe(false);
     });
   });
 
   describe("finalizeDmThreadHydrateRead", () => {
-    it("schedules native sqlite retry when hydrate is incoming-only without hints", () => {
-      const result = finalizeDmThreadHydrateRead({
-        assembledMessages: [baseMessage({ id: "in-1", isOutgoing: false })],
-        previousMessages: [],
-        supplementalMessages: [],
-        conversationIds: [`${myPublicKeyHex}:${peerPublicKeyHex}`],
-        myPublicKeyHex: myPublicKeyHex as Message["senderPubkey"] & string,
-        directionCoverageAttempt: 0,
-        maxDirectionCoverageAttempts: 3,
+    describe("native sqlite owner", () => {
+      beforeEach(() => {
+        vi.mocked(requiresSqlitePersistence).mockReturnValue(true);
       });
-      expect(result.directionCoverage.isPartial).toBe(true);
-      expect(result.reconcilePolicy.shouldRetryHydrate).toBe(true);
-      expect(result.reconcilePolicy.forceIndexedAuthority).toBe(true);
+
+      it("surfaces hydrate truth without retry or merge", () => {
+        const result = finalizeDmThreadHydrateRead({
+          assembledMessages: [baseMessage({ id: "in-1", isOutgoing: false })],
+          previousMessages: [baseMessage({ id: "cache-out", isOutgoing: true })],
+          supplementalMessages: [baseMessage({ id: "out-supplemental", isOutgoing: true })],
+          conversationIds: [`${myPublicKeyHex}:${peerPublicKeyHex}`],
+          myPublicKeyHex: myPublicKeyHex as Message["senderPubkey"] & string,
+          directionCoverageAttempt: 0,
+          maxDirectionCoverageAttempts: 3,
+        });
+        expect(result.directionCoverage.isPartial).toBe(true);
+        expect(result.reconcilePolicy.shouldRetryHydrate).toBe(false);
+        expect(result.directionCoveragePreserved).toBe(false);
+        expect(result.loadedDepthPreserved).toBe(false);
+        expect(result.messages).toHaveLength(1);
+        expect(result.messages[0]?.id).toBe("in-1");
+      });
+
+      it("preserves loaded depth when sqlite hydrate shrinks a previously expanded thread", () => {
+        const conversationId = `${myPublicKeyHex}:${peerPublicKeyHex}`;
+        const previous = [
+          baseMessage({ id: "cache-in", isOutgoing: false }),
+          baseMessage({ id: "cache-out", isOutgoing: true }),
+        ];
+        const result = finalizeDmThreadHydrateRead({
+          assembledMessages: [baseMessage({ id: "sqlite-out", isOutgoing: true })],
+          previousMessages: previous,
+          supplementalMessages: [],
+          conversationIds: [conversationId],
+          myPublicKeyHex: myPublicKeyHex as Message["senderPubkey"] & string,
+          directionCoverageAttempt: 0,
+          maxDirectionCoverageAttempts: 3,
+        });
+        expect(result.directionCoveragePreserved).toBe(false);
+        expect(result.loadedDepthPreserved).toBe(true);
+        expect(result.messages).toHaveLength(3);
+        expect(result.messages.some((message) => message.id === "cache-in")).toBe(true);
+        expect(result.messages.some((message) => message.id === "cache-out")).toBe(true);
+        expect(result.messages.some((message) => message.id === "sqlite-out")).toBe(true);
+      });
     });
 
-    it("merges supplemental outgoing rows without scheduling hydrate retry", () => {
-      const result = finalizeDmThreadHydrateRead({
-        assembledMessages: [baseMessage({ id: "in-1", isOutgoing: false })],
-        previousMessages: [],
-        supplementalMessages: [baseMessage({ id: "out-supplemental", isOutgoing: true })],
-        conversationIds: [`${myPublicKeyHex}:${peerPublicKeyHex}`],
-        myPublicKeyHex: myPublicKeyHex as Message["senderPubkey"] & string,
-        directionCoverageAttempt: 0,
-        maxDirectionCoverageAttempts: 3,
+    describe("web persistence", () => {
+      beforeEach(() => {
+        vi.mocked(requiresSqlitePersistence).mockReturnValue(false);
       });
-      expect(result.reconcilePolicy.shouldRetryHydrate).toBe(false);
-      expect(result.directionCoverage.isComplete).toBe(true);
-      expect(result.messages.some((message) => message.id === "out-supplemental")).toBe(true);
+
+      it("schedules hydrate retry when incoming-only without hints", () => {
+        const result = finalizeDmThreadHydrateRead({
+          assembledMessages: [baseMessage({ id: "in-1", isOutgoing: false })],
+          previousMessages: [],
+          supplementalMessages: [],
+          conversationIds: [`${myPublicKeyHex}:${peerPublicKeyHex}`],
+          myPublicKeyHex: myPublicKeyHex as Message["senderPubkey"] & string,
+          directionCoverageAttempt: 0,
+          maxDirectionCoverageAttempts: 3,
+        });
+        expect(result.directionCoverage.isPartial).toBe(true);
+        expect(result.reconcilePolicy.shouldRetryHydrate).toBe(false);
+      });
+
+      it("merges supplemental outgoing rows without scheduling hydrate retry", () => {
+        const result = finalizeDmThreadHydrateRead({
+          assembledMessages: [baseMessage({ id: "in-1", isOutgoing: false })],
+          previousMessages: [],
+          supplementalMessages: [baseMessage({ id: "out-supplemental", isOutgoing: true })],
+          conversationIds: [`${myPublicKeyHex}:${peerPublicKeyHex}`],
+          myPublicKeyHex: myPublicKeyHex as Message["senderPubkey"] & string,
+          directionCoverageAttempt: 0,
+          maxDirectionCoverageAttempts: 3,
+        });
+        expect(result.reconcilePolicy.shouldRetryHydrate).toBe(false);
+        expect(result.directionCoverage.isComplete).toBe(true);
+        expect(result.messages.some((message) => message.id === "out-supplemental")).toBe(true);
+      });
+
+      it("preserves loaded depth when hydrate shrinks a previously expanded thread", () => {
+        const conversationId = `${myPublicKeyHex}:${peerPublicKeyHex}`;
+        const previous = Array.from({ length: 400 }, (_, index) => baseMessage({
+          id: `depth-${index + 1}`,
+          isOutgoing: index % 2 === 0,
+          timestamp: new Date(1_700_000_000_000 + index),
+        }));
+        const result = finalizeDmThreadHydrateRead({
+          assembledMessages: previous.slice(-200),
+          previousMessages: previous,
+          supplementalMessages: [],
+          conversationIds: [conversationId],
+          myPublicKeyHex: myPublicKeyHex as Message["senderPubkey"] & string,
+          directionCoverageAttempt: 0,
+          maxDirectionCoverageAttempts: 3,
+        });
+        expect(result.loadedDepthPreserved).toBe(true);
+        expect(result.messages).toHaveLength(400);
+      });
     });
   });
 
   describe("evaluateProjectionMergePolicy", () => {
-    it("blocks projection merge when it would drop outgoing coverage", () => {
+    it("disables projection merge on native (R1 sqlite-only read owner)", () => {
       const previous = [
         baseMessage({ id: "out-1", isOutgoing: true }),
         baseMessage({ id: "in-1", isOutgoing: false }),
@@ -159,7 +294,7 @@ describe("dm-thread-read-model", () => {
         suppressUntilHydrate: false,
       });
       expect(policy.shouldMerge).toBe(false);
-      expect(policy.wouldDropDirectionCoverage).toBe(true);
+      expect(policy.wouldDropDirectionCoverage).toBe(false);
     });
   });
 
@@ -171,14 +306,14 @@ describe("dm-thread-read-model", () => {
       )).toBe(false);
     });
 
-    it("allows persisting bidirectional native display cache", () => {
+    it("never persists native display cache", () => {
       expect(shouldPersistDmThreadDisplayCache(
         [
           baseMessage({ id: "in-1", isOutgoing: false }),
           baseMessage({ id: "out-1", isOutgoing: true }),
         ],
         myPublicKeyHex as Message["senderPubkey"] & string,
-      )).toBe(true);
+      )).toBe(false);
     });
   });
 
@@ -203,7 +338,7 @@ describe("dm-thread-read-model", () => {
       expect(resolved).toEqual(live);
     });
 
-    it("upgrades one-sided live thread from fuller bidirectional cache", () => {
+    it("does not upgrade live thread from display cache on native", () => {
       const live = [baseMessage({ id: "live-out", isOutgoing: true })];
       const cache = [
         baseMessage({ id: "cache-out", isOutgoing: true }),
@@ -214,7 +349,7 @@ describe("dm-thread-read-model", () => {
         displayCache: cache,
         myPublicKeyHex: myPublicKeyHex as Message["senderPubkey"] & string,
       });
-      expect(resolved.map((message) => message.id)).toEqual(["cache-out", "cache-in"]);
+      expect(resolved.map((message) => message.id)).toEqual(["live-out"]);
     });
   });
 
@@ -244,15 +379,77 @@ describe("dm-thread-read-model", () => {
   });
 
   describe("evaluatePartialThreadRetryPolicy", () => {
-    it("retries partial native thread once", () => {
+    it("retries partial native thread while attempts remain", () => {
       const policy = evaluatePartialThreadRetryPolicy({
         messages: [baseMessage({ id: "in-only", isOutgoing: false })],
         myPublicKeyHex: myPublicKeyHex as Message["senderPubkey"] & string,
         isLoading: false,
-        alreadyAttempted: false,
+        attempt: 0,
       });
       expect(policy.shouldRetry).toBe(true);
       expect(policy.forceIndexedAuthority).toBe(true);
+    });
+
+    it("stops retrying after max attempts", () => {
+      const policy = evaluatePartialThreadRetryPolicy({
+        messages: [baseMessage({ id: "in-only", isOutgoing: false })],
+        myPublicKeyHex: myPublicKeyHex as Message["senderPubkey"] & string,
+        isLoading: false,
+        attempt: 5,
+      });
+      expect(policy.shouldRetry).toBe(false);
+    });
+  });
+
+  describe("evaluatePartialDirectionHydrateRetryPolicy", () => {
+    it("does not schedule retry on native sqlite owner (relay backfill is the repair path)", () => {
+      const policy = evaluatePartialDirectionHydrateRetryPolicy({
+        messages: [baseMessage({ id: "in-only", isOutgoing: false })],
+        myPublicKeyHex: myPublicKeyHex as Message["senderPubkey"] & string,
+        isLoading: false,
+        attempt: 0,
+      });
+      expect(policy.shouldSchedule).toBe(false);
+      expect(policy.delayMs).toBe(0);
+      expect(policy.forceIndexedAuthority).toBe(false);
+    });
+
+    it("schedules backoff retry for partial web thread", () => {
+      vi.mocked(requiresSqlitePersistence).mockReturnValue(false);
+      const policy = evaluatePartialDirectionHydrateRetryPolicy({
+        messages: [baseMessage({ id: "in-only", isOutgoing: false })],
+        myPublicKeyHex: myPublicKeyHex as Message["senderPubkey"] & string,
+        isLoading: false,
+        attempt: 0,
+      });
+      expect(policy.shouldSchedule).toBe(true);
+      expect(policy.delayMs).toBe(200);
+      expect(policy.forceIndexedAuthority).toBe(false);
+    });
+
+    it("increases delay on subsequent web attempts", () => {
+      vi.mocked(requiresSqlitePersistence).mockReturnValue(false);
+      const policy = evaluatePartialDirectionHydrateRetryPolicy({
+        messages: [baseMessage({ id: "in-only", isOutgoing: false })],
+        myPublicKeyHex: myPublicKeyHex as Message["senderPubkey"] & string,
+        isLoading: false,
+        attempt: 2,
+      });
+      expect(policy.shouldSchedule).toBe(true);
+      expect(policy.delayMs).toBe(600);
+    });
+
+    it("skips scheduling when both directions are present", () => {
+      const policy = evaluatePartialDirectionHydrateRetryPolicy({
+        messages: [
+          baseMessage({ id: "in-1", isOutgoing: false }),
+          baseMessage({ id: "out-1", isOutgoing: true }),
+        ],
+        myPublicKeyHex: myPublicKeyHex as Message["senderPubkey"] & string,
+        isLoading: false,
+        attempt: 0,
+      });
+      expect(policy.shouldSchedule).toBe(false);
     });
   });
 });

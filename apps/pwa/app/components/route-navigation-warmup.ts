@@ -4,18 +4,21 @@ import {
   type SidebarRouteHref,
 } from "@/app/lib/navigation/sidebar-routes";
 import { isDesktopShellBuild } from "@/app/features/runtime/shell-contract";
-import { assertNavigationChunkLoadAuthorized } from "./navigation-chunk-load-authority";
+import {
+  assertNavigationChunkLoadAuthorized,
+  runWithNavigationChunkLoadAuthority,
+} from "./navigation-chunk-load-authority";
 
 export { ROUTE_CLIENT_CHUNK_LOADERS, preloadGroupHomePageClient };
 
 export type RouteNavigationWarmupMode = "shell-only" | "full";
 
 /**
- * N4 — Desktop sidebar routes use eager page clients (`createSidebarRoutePage`).
- * Background warm-up must not re-import the same chunks; shell prefetch only.
+ * Production desktop: eager page clients — warm-up is shell prefetch only.
+ * Dev desktop: full chunk preload during idle warm-up (webpack compile happens off the click path).
  */
 export const resolveRouteNavigationWarmupMode = (): RouteNavigationWarmupMode => (
-  isDesktopShellBuild() ? "shell-only" : "full"
+  isDesktopShellBuild() && process.env.NODE_ENV === "production" ? "shell-only" : "full"
 );
 
 /** Swallows chunk load failures so dev warm-up does not surface a runtime overlay. */
@@ -54,6 +57,28 @@ export const prefetchRouteShell = (
     return;
   }
   router.prefetch(href);
+};
+
+type IdleScheduler = Readonly<{
+  schedule: (callback: () => void) => number;
+}>;
+
+/**
+ * Preloads a sidebar route client chunk during pointer/focus intent so the first
+ * navigation does not pay the full parse cost on the transition frame.
+ */
+export const prefetchSidebarRouteClientOnIntent = (
+  href: string,
+  idleScheduler: IdleScheduler,
+): void => {
+  if (!isSidebarRouteHref(href)) {
+    return;
+  }
+  idleScheduler.schedule((): void => {
+    void runWithNavigationChunkLoadAuthority(async () => {
+      await loadClientChunkSafely(ROUTE_CLIENT_CHUNK_LOADERS[href]);
+    });
+  });
 };
 
 /**

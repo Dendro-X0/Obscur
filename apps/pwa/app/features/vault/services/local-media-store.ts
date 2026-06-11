@@ -14,6 +14,7 @@ type LocalMediaIndexEntry = Readonly<{
     fileName: string;
     contentType: string;
     size: number;
+    messageEventId?: string;
 }>;
 
 type LocalMediaIndex = Record<string, LocalMediaIndexEntry>;
@@ -263,6 +264,47 @@ export const pruneLocalMediaIndexRetention = (
 export const getLocalMediaIndexEntryByRemoteUrl = (remoteUrl: string): LocalMediaIndexEntry | null => {
     const index = getLocalMediaIndexSnapshot();
     return index[remoteUrl] ?? null;
+};
+
+/** Links cached attachment URLs to the durable message event_id after SQLite persist. */
+export const linkLocalMediaIndexToMessageEvent = (params: Readonly<{
+    messageEventId: string;
+    attachmentUrls: ReadonlyArray<string>;
+}>): void => {
+    if (!isTauriRuntime()) {
+        return;
+    }
+    const messageEventId = params.messageEventId.trim();
+    if (!messageEventId) {
+        return;
+    }
+    const index = loadIndex();
+    let changed = false;
+    params.attachmentUrls.forEach((rawUrl) => {
+        const remoteUrl = rawUrl.trim();
+        if (!remoteUrl) {
+            return;
+        }
+        const existing = index[remoteUrl];
+        if (existing?.messageEventId === messageEventId) {
+            return;
+        }
+        index[remoteUrl] = existing
+            ? { ...existing, messageEventId }
+            : {
+                remoteUrl,
+                relativePath: "",
+                savedAtUnixMs: Date.now(),
+                fileName: "",
+                contentType: "",
+                size: 0,
+                messageEventId,
+            };
+        changed = true;
+    });
+    if (changed) {
+        saveIndex(index);
+    }
 };
 
 export const getLocalMediaStorageConfig = (profileId?: string): LocalMediaStorageConfig => {

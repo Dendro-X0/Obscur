@@ -28,6 +28,7 @@ import {
 } from "./conversation-message-materialization";
 import { persistedMessagesContainSuppressedIdentities } from "./dm-thread-suppression-set";
 import { requiresSqlitePersistence } from "@/app/features/runtime/native-persistence-policy";
+import { isNativeDmSqliteReadOwner } from "./native-dm-read-policy";
 import { dedupeMessagesByIdentity } from "./dm-conversation-message-retention-dedupe";
 import { collectMessageIdentityAliases } from "./message-identity-alias-contract";
 import { normalizePublicKeyHex } from "@/app/features/profile/utils/normalize-public-key-hex";
@@ -366,6 +367,13 @@ const shouldPreferIndexedOverProjectionReads = (
 export const resolveLegacyHydrationAuthority = (
   params: ResolveConversationHistoryAuthorityParams,
 ): ConversationHistoryAuthorityDecision => {
+  if (isNativeDmSqliteReadOwner()) {
+    return {
+      authority: "indexed",
+      reason: "indexed_primary",
+    };
+  }
+
   if (params.useProjectionReads && params.projectionMessageCount > 0) {
     if (shouldPreferIndexedOverProjectionReads(params)) {
       return {
@@ -376,13 +384,6 @@ export const resolveLegacyHydrationAuthority = (
     return {
       authority: "projection",
       reason: "projection_read_cutover",
-    };
-  }
-
-  if (requiresSqlitePersistence()) {
-    return {
-      authority: "indexed",
-      reason: "indexed_primary",
     };
   }
 
@@ -637,6 +638,15 @@ export const resolveHydrationDmReadMessages = (
 }> => {
   const suppressedIds = params.suppressedMessageIds ?? new Set<string>();
   const legacyDecision = resolveLegacyHydrationAuthority(buildLegacyResolveParams(params));
+
+  if (isNativeDmSqliteReadOwner()) {
+    const status = mapLegacyDecisionToDmReadStatus(legacyDecision, params);
+    return {
+      status,
+      messages: applyHydrationSuppressionFilter(params.indexedMessages, suppressedIds),
+      legacyAuthorityDecision: legacyDecision,
+    };
+  }
 
   if (!params.identityPubkey) {
     const rawMessages = selectMessagesForConversationHistoryAuthority(legacyDecision, {

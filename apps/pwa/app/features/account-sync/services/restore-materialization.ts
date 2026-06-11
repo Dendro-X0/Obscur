@@ -26,6 +26,7 @@ import {
 } from "./restore-materialization-events";
 import { resolveRestoreMaterializationSuppressionContract } from "./restore-materialization-suppression-contract";
 import { stripChatStateMessageBodiesForNativeMirror } from "./restore-merge-chat-state";
+import { applyNativeRestoreSqliteMaterialization } from "./native-sqlite-backup-evidence";
 
 const purgeSuppressedMessageIdentitiesFromDurableStores = async (
   profileId: string,
@@ -144,6 +145,13 @@ export const applyNonV1RestoreMaterialization = async (params: Readonly<{
         emitMutationSignal: false,
         profileId: params.profileId,
       });
+      if (isTauri()) {
+        await applyNativeRestoreSqliteMaterialization({
+          profileId: params.profileId,
+          chatState: restoredChatState,
+          nativeSqliteEvidence: materializedPayload.nativeSqliteEvidence,
+        });
+      }
       relinkChatStateMediaAfterRestore(
         params.profileId,
         params.publicKeyHex,

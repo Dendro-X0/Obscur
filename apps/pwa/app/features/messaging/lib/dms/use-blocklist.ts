@@ -135,6 +135,20 @@ const removeBlocked = (params: Readonly<{ publicKeyHex: PublicKeyHex }>): void =
   }));
 };
 
+/** Remove persisted blocklist rows for an account (complete local profile removal). */
+export const clearBlocklistStorage = (publicKeyHex: PublicKeyHex): void => {
+  if (typeof window === "undefined") {
+    return;
+  }
+  const storageKey = getStorageKey(publicKeyHex);
+  window.localStorage.removeItem(storageKey);
+  if (currentKey === storageKey) {
+    currentKey = null;
+    currentState = defaultStateSnapshot;
+    notify();
+  }
+};
+
 export const useBlocklist = (
   params: Readonly<{ publicKeyHex: PublicKeyHex | null }> = { publicKeyHex: null },
 ): UseBlocklistResult => {

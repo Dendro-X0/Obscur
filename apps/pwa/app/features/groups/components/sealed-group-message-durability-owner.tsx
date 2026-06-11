@@ -1,7 +1,14 @@
 "use client";
 
 import { useEffect } from "react";
-import { flushPendingSealedGroupSqliteWrites } from "@/app/features/groups/services/sealed-group-message-persistence";
+import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store";
+import {
+  backfillSealedGroupMessagesToSqliteFromAllAccountChatStates,
+  flushPendingSealedGroupSqliteWrites,
+} from "@/app/features/groups/services/sealed-group-message-persistence";
+import { getLastBoundAccountPublicKeyHex } from "@/app/features/profiles/services/profile-window-account-binding";
+import { readActiveDesktopProfileId } from "@/app/features/profiles/services/read-active-desktop-profile-id";
+import { isTauri } from "@dweb/db";
 
 /**
  * Ensures in-flight native SQLite group-message writes complete before the desktop
@@ -13,7 +20,22 @@ export function SealedGroupMessageDurabilityOwner(): null {
       return;
     }
     const flushPending = (): void => {
-      void flushPendingSealedGroupSqliteWrites();
+      chatStateStoreService.flushAllPending();
+      void (async () => {
+        if (isTauri()) {
+          const profileId = readActiveDesktopProfileId().trim();
+          const publicKeyHex = profileId.length > 0
+            ? getLastBoundAccountPublicKeyHex(profileId)
+            : null;
+          if (publicKeyHex && profileId.length > 0) {
+            await backfillSealedGroupMessagesToSqliteFromAllAccountChatStates({
+              publicKeyHex,
+              profileId,
+            });
+          }
+        }
+        await flushPendingSealedGroupSqliteWrites();
+      })();
     };
     window.addEventListener("pagehide", flushPending);
     window.addEventListener("beforeunload", flushPending);

@@ -62,6 +62,13 @@ import {
     sanitizeDmConversationIdList,
 } from "../utils/conversation-visibility";
 import { resolveConversationListAuthority } from "../services/conversation-list-authority";
+import {
+    isNativeDmConversationListSqliteOwner,
+    resolveNativeDmSidebarConnections,
+    shouldNativeDmSkipChatStateSidebarConnectionHydrate,
+} from "../services/native-dm-conversation-list-owner";
+import { isDmKernelAuthority } from "@/app/features/dm-kernel/dm-kernel-policy";
+import { loadDmKernelSidebar } from "@/app/features/dm-kernel/dm-kernel-sidebar-port";
 import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
 import { isTauri, dbGetConversations } from "@dweb/db";
 import type { ConversationRecord } from "@dweb/db";
@@ -209,14 +216,20 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         lastMessageTime: rec.last_message_at != null ? new Date(rec.last_message_at) : new Date(0),
     });
 
+    const loadSidebarConversations = useCallback(async (profileId: string): Promise<ReadonlyArray<DmConversation>> => {
+        if (isDmKernelAuthority()) {
+            return loadDmKernelSidebar(profileId);
+        }
+        const recs = await dbGetConversations(profileId);
+        return recs.map(sqliteConvToRaw);
+    }, []);
+
     const reloadSqliteConversations = useCallback((): void => {
         if (!isTauri() || !activeProfileId) {
             return;
         }
-        void dbGetConversations(activeProfileId).then((recs) => {
-            setSqliteConversations(recs.map(sqliteConvToRaw));
-        }).catch(() => {});
-    }, [activeProfileId]);
+        void loadSidebarConversations(activeProfileId).then(setSqliteConversations).catch(() => {});
+    }, [activeProfileId, loadSidebarConversations]);
 
     useEffect(() => {
         if (!isTauri() || !activeProfileId) {
@@ -224,25 +237,18 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         }
         let cancelled = false;
         const loadConversations = (): void => {
-            void dbGetConversations(activeProfileId).then((recs) => {
+            void loadSidebarConversations(activeProfileId).then((connections) => {
                 if (cancelled) {
                     return;
                 }
-                setSqliteConversations(recs.map(sqliteConvToRaw));
+                setSqliteConversations(connections);
             }).catch(() => {});
         };
-        if (shouldDeferExperimentHeavyWork()) {
-            const cancelIdle = scheduleExperimentIdleWork(loadConversations);
-            return (): void => {
-                cancelled = true;
-                cancelIdle();
-            };
-        }
         loadConversations();
         return (): void => {
             cancelled = true;
         };
-    }, [activeProfileId]);
+    }, [activeProfileId, loadSidebarConversations]);
 
     useEffect(() => {
         if (!isTauri() || !activeProfileId) {
@@ -282,12 +288,13 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }>): void => {
         const persisted = chatStateStoreService.load(params.publicKeyHex, { profileId: params.profileId });
         if (persisted) {
-            const nextCreatedConnections = buildDmConnectionsFromPersistedChatState(
-                persisted,
-                params.publicKeyHex,
-            );
-
-            setCreatedConnections(nextCreatedConnections);
+            if (!shouldNativeDmSkipChatStateSidebarConnectionHydrate()) {
+                const nextCreatedConnections = buildDmConnectionsFromPersistedChatState(
+                    persisted,
+                    params.publicKeyHex,
+                );
+                setCreatedConnections(nextCreatedConnections);
+            }
             setUnreadByConversationId(persisted.unreadByConversationId);
             setConnectionOverridesByConnectionId(fromPersistedOverridesByConnectionId(persisted.connectionOverridesByConnectionId));
 
@@ -308,12 +315,13 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }>): Promise<void> => {
         const persisted = chatStateStoreService.load(params.publicKeyHex, { profileId: params.profileId });
         if (persisted) {
-            const nextCreatedConnections = buildDmConnectionsFromPersistedChatState(
-                persisted,
-                params.publicKeyHex,
-            );
-
-            setCreatedConnections(nextCreatedConnections);
+            if (!shouldNativeDmSkipChatStateSidebarConnectionHydrate()) {
+                const nextCreatedConnections = buildDmConnectionsFromPersistedChatState(
+                    persisted,
+                    params.publicKeyHex,
+                );
+                setCreatedConnections(nextCreatedConnections);
+            }
             setUnreadByConversationId(persisted.unreadByConversationId);
             setConnectionOverridesByConnectionId(fromPersistedOverridesByConnectionId(persisted.connectionOverridesByConnectionId));
 
@@ -557,7 +565,7 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }, [activeProfileId, publicKeyHex]);
     const conversationListAuthority = useMemo(() => (
         resolveConversationListAuthority({
-            isNativeRuntime: hasNativeRuntime(),
+            isNativeRuntime: isNativeDmConversationListSqliteOwner() || hasNativeRuntime(),
             sqliteConversationCount: sqliteConversations.length,
             useProjectionReads: projectionReadAuthority.useProjectionReads,
             projectionConversationCount: projectionConnections.length,
@@ -596,6 +604,7 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                 projectionConversationCount: projectionConnections.length,
                 persistedConversationCount: createdConnections.length,
                 persistedDmThreadCount: persistedDmConnections.length,
+                sqliteConversationCount: sqliteConversations.length,
                 projectionReadAuthorityReason: projectionReadAuthority.reason,
                 criticalDriftCount: projectionReadAuthority.criticalDriftCount ?? 0,
             },
@@ -610,18 +619,35 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         projectionReadAuthority.criticalDriftCount,
         projectionReadAuthority.reason,
         publicKeyHex,
+        sqliteConversations.length,
     ]);
 
     useEffect(() => {
         if (conversationListAuthority.authority !== "sqlite") {
             return;
         }
-        const mergedSqliteConnections = mergeDmConversationLists(
-            sqliteConversations,
-            persistedDmConnectionMetadata,
-        );
+        const mergedSqliteConnections = isNativeDmConversationListSqliteOwner()
+            ? resolveNativeDmSidebarConnections(sqliteConversations)
+            : mergeDmConversationLists(
+                sqliteConversations,
+                persistedDmConnectionMetadata,
+            );
         createdConnectionsRef.current = mergedSqliteConnections;
         setCreatedConnections(mergedSqliteConnections);
+        if (isNativeDmConversationListSqliteOwner() && mergedSqliteConnections.length > 0) {
+            setUnreadByConversationId((current) => {
+                const next = { ...current };
+                let changed = false;
+                mergedSqliteConnections.forEach((connection) => {
+                    const sqliteUnread = connection.unreadCount ?? 0;
+                    if ((next[connection.id] ?? 0) !== sqliteUnread) {
+                        next[connection.id] = sqliteUnread;
+                        changed = true;
+                    }
+                });
+                return changed ? next : current;
+            });
+        }
     }, [conversationListAuthority.authority, persistedDmConnectionMetadata, sqliteConversations]);
 
     useEffect(() => {

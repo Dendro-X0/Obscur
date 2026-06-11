@@ -1,6 +1,6 @@
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { NostrEvent } from "@dweb/nostr/nostr-event";
-import type { RelayPool } from "./enhanced-dm-controller";
+import type { RelayPoolContract as RelayPool } from "./v2/dm-controller-types";
 import { validateRelayUrl } from "@/app/features/relays/utils/validate-relay-url";
 
 const toTrustedRelayUrl = (candidate: string): string | null => {

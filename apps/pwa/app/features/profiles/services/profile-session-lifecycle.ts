@@ -1,6 +1,6 @@
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { performAccountSessionHardReset } from "@/app/features/runtime/services/account-session-hard-reset";
-import { resetLocalHistoryKeepingIdentity } from "@/app/features/messaging/services/local-history-reset-service";
+import { clearProfileLocalCachesKeepingIdentity } from "./profile-local-reset-service";
 import { wipeProfileWorkspaceCompletely } from "./wipe-profile-workspace";
 import { archiveProfileWorkspaceBeforeWipe } from "./profile-workspace-archive-service";
 import type { ProfileWorkspaceArchiveWriteResult } from "./profile-workspace-archive-contracts";
@@ -89,7 +89,7 @@ export const archiveAndClearProfileLocalDataKeepingIdentity = async (params: Rea
     reason: "settings_clear_data",
     lastBoundPublicKeyHex: params.publicKeyHex ?? null,
   });
-  await resetLocalHistoryKeepingIdentity({
+  await clearProfileLocalCachesKeepingIdentity({
     profileId: params.profileId,
     publicKeyHex: params.publicKeyHex ?? null,
   });

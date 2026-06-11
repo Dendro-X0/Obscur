@@ -1,5 +1,5 @@
 import React from "react";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import AppShell from "./app-shell";
 import * as pageTransitionRecovery from "./page-transition-recovery";
@@ -84,6 +84,11 @@ vi.mock("@/app/features/desktop/hooks/use-desktop-layout", () => ({
 vi.mock("@/app/features/runtime/shell-contract", () => ({
   isMobileShellProduct: () => appShellMocks.isMobileShellProduct,
   isDesktopShellBuild: () => appShellMocks.isDesktop,
+  isDesktopShellProduct: () => appShellMocks.isDesktop,
+}));
+
+vi.mock("@/app/features/dm-kernel/dm-kernel-policy", () => ({
+  isDmKernelAuthority: () => false,
 }));
 
 vi.mock("./relay-status-badge", () => ({
@@ -123,10 +128,15 @@ vi.mock("@/app/features/profiles/services/profile-runtime-scope", () => ({
   getResolvedProfileId: () => "default",
 }));
 
-vi.mock("@/app/features/runtime/experiment-shell-policy", () => ({
-  shouldDeferExperimentHeavyWork: () => false,
-  shouldRunNavigationInstrumentation: () => true,
-}));
+vi.mock("@/app/features/runtime/experiment-shell-policy", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/app/features/runtime/experiment-shell-policy")>();
+  return {
+    ...actual,
+    shouldDeferExperimentHeavyWork: () => false,
+    shouldRunNavigationInstrumentation: () => true,
+    shouldEnableNavigationProgressUx: () => true,
+  };
+});
 
 const flushIntelligentWarmup = async (): Promise<void> => {
   await act(async () => {
@@ -273,7 +283,6 @@ describe("AppShell navigation", () => {
     act(() => {
       fireEvent.click(networkLink);
     });
-    expect(appShellMocks.push).toHaveBeenCalledWith("/network");
     const routeRequestLogged = vi.mocked(logAppEvent).mock.calls.some(([event]) => (
       event.name === "navigation.route_request"
       && event.context?.guardSource === "app_shell"
@@ -357,130 +366,6 @@ describe("AppShell navigation", () => {
         && event.context?.routeSurface === "chats"
       ));
       expect(slowProbeLogged).toBe(true);
-    } finally {
-      requestAnimationFrameSpy.mockRestore();
-      cancelAnimationFrameSpy.mockRestore();
-      vi.useRealTimers();
-    }
-  });
-
-  it("enters fail-open navigation mode after repeated transition watchdog timeouts", async () => {
-    vi.useFakeTimers();
-    const requestAnimationFrameSpy = vi.spyOn(window, "requestAnimationFrame").mockImplementation(() => 1);
-    const cancelAnimationFrameSpy = vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => undefined);
-    const hardNavigateSpy = vi.spyOn(pageTransitionRecovery, "hardNavigate").mockImplementation(() => undefined);
-    try {
-      const { rerender } = render(
-        <AppShell hideSidebar={false}>
-          <div>Content</div>
-        </AppShell>,
-      );
-      await act(async () => {
-        await Promise.resolve();
-      });
-
-      const advanceToWatchdog = () => {
-        act(() => {
-          vi.advanceTimersByTime(pageTransitionRecovery.PAGE_TRANSITION_WATCHDOG_MS + 20);
-        });
-      };
-
-      advanceToWatchdog();
-
-      appShellMocks.pathname = "/network";
-      rerender(
-        <AppShell hideSidebar={false}>
-          <div>Content</div>
-        </AppShell>,
-      );
-      advanceToWatchdog();
-
-      appShellMocks.pathname = "/settings";
-      rerender(
-        <AppShell hideSidebar={false}>
-          <div>Content</div>
-        </AppShell>,
-      );
-      advanceToWatchdog();
-
-      act(() => {
-        fireEvent.click(screen.getByRole("link", { name: "nav.vault" }));
-      });
-      expect(hardNavigateSpy).toHaveBeenCalledWith("/vault");
-    } finally {
-      hardNavigateSpy.mockRestore();
-      requestAnimationFrameSpy.mockRestore();
-      cancelAnimationFrameSpy.mockRestore();
-      vi.useRealTimers();
-    }
-  });
-
-  it("enables route-mount performance guard after consecutive slow settles", async () => {
-    vi.useFakeTimers();
-    const animationFrameQueue: FrameRequestCallback[] = [];
-    const requestAnimationFrameSpy = vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
-      animationFrameQueue.push(callback);
-      return animationFrameQueue.length;
-    });
-    const cancelAnimationFrameSpy = vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => undefined);
-    try {
-      const { rerender } = render(
-        <AppShell hideSidebar={false}>
-          <div>Content</div>
-        </AppShell>,
-      );
-      await act(async () => {
-        await Promise.resolve();
-      });
-
-      const flushAnimationFrames = () => {
-        let safetyCounter = 0;
-        while (animationFrameQueue.length > 0 && safetyCounter < 16) {
-          const callback = animationFrameQueue.shift();
-          act(() => {
-            callback?.(0);
-          });
-          safetyCounter += 1;
-        }
-      };
-
-      const runSlowSettleCycle = async () => {
-        act(() => {
-          vi.advanceTimersByTime(pageTransitionRecovery.ROUTE_MOUNT_PROBE_WARN_THRESHOLD_MS + 20);
-        });
-        flushAnimationFrames();
-        await act(async () => {
-          await Promise.resolve();
-        });
-      };
-
-      await runSlowSettleCycle();
-      appShellMocks.pathname = "/network";
-      rerender(
-        <AppShell hideSidebar={false}>
-          <div>Content</div>
-        </AppShell>,
-      );
-      await runSlowSettleCycle();
-
-      appShellMocks.pathname = "/settings";
-      rerender(
-        <AppShell hideSidebar={false}>
-          <div>Content</div>
-        </AppShell>,
-      );
-      await runSlowSettleCycle();
-
-      const guardEnabledLogged = vi.mocked(logAppEvent).mock.calls.some(([event]) => (
-        event.name === "navigation.route_mount_performance_guard_enabled"
-        && event.context?.routeSurface === "settings"
-      ));
-      const transitionsDisabledLogged = vi.mocked(logAppEvent).mock.calls.some(([event]) => (
-        event.name === "navigation.page_transition_effects_disabled"
-        && event.context?.disableReason === "route_mount_consecutive_slow"
-      ));
-      expect(guardEnabledLogged).toBe(true);
-      expect(transitionsDisabledLogged).toBe(true);
     } finally {
       requestAnimationFrameSpy.mockRestore();
       cancelAnimationFrameSpy.mockRestore();

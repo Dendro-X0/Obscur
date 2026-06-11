@@ -5,8 +5,8 @@
 
 import { normalizeWorkspaceRelayUrl } from "./workspace-relay-url";
 
-const COORDINATION_OVERRIDE_KEY = "obscur.operator.coordination_url.v1";
-const WORKSPACE_RELAY_KEY = "obscur.operator.workspace_relay.v1";
+export const COORDINATION_OVERRIDE_KEY = "obscur.operator.coordination_url.v1";
+export const WORKSPACE_RELAY_KEY = "obscur.operator.workspace_relay.v1";
 
 const trimUrl = (raw: string): string => raw.trim().replace(/\/+$/, "");
 

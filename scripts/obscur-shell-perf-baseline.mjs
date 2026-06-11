@@ -3,8 +3,8 @@
  * S0 — Obscur shell perf baseline: prod static export vs dev webpack server.
  *
  * Usage:
- *   node scripts/obscur-shell-perf-baseline.mjs prod [--skip-build] [--port 3350] [--out path]
- *   node scripts/obscur-shell-perf-baseline.mjs dev [--base-url URL] [--out path]
+ *   node scripts/obscur-shell-perf-baseline.mjs prod [--skip-build] [--port 3350] [--out path] [--unlock] [--rapid]
+ *   node scripts/obscur-shell-perf-baseline.mjs dev [--base-url URL] [--out path] [--unlock] [--rapid]
  *   node scripts/obscur-shell-perf-baseline.mjs compare <dev.json> <prod.json> [--out path]
  *
  * Dev: start `pnpm dev:desktop` (or `pnpm -C apps/pwa dev`) first.
@@ -20,9 +20,13 @@ import {
   BASELINE_SCHEMA,
   compareBaselineReports,
   DEFAULT_NAV_SEQUENCE,
+  evaluateRapidNavGate,
+  evaluateV2PerfGate,
   parseBaselineReport,
+  RAPID_NAV_SEQUENCE,
   summarizeBaselineReport,
 } from "./obscur-shell-perf-baseline-lib.mjs";
+import { ensurePerfBaselineUnlocked } from "./obscur-shell-perf-unlock.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const pwaDir = path.join(repoRoot, "apps", "pwa");
@@ -86,11 +90,18 @@ async function waitForHttp(url, timeoutMs = 120_000) {
 }
 
 function runBuildPwaShell() {
+  const buildEnv = hasFlag("--unlock")
+    ? { NEXT_PUBLIC_OBSCUR_DEV_LAB: "1" }
+    : {};
+  if (hasFlag("--unlock")) {
+    console.log("[s0] Building with NEXT_PUBLIC_OBSCUR_DEV_LAB=1 for programmatic unlock...");
+  }
   console.log("[s0] Building desktop static shell (build:pwa-shell)...");
   const result = spawnSync("node", ["scripts/build-pwa-shell.mjs", "desktop"], {
     cwd: repoRoot,
     stdio: "inherit",
     shell: process.platform === "win32",
+    env: { ...process.env, ...buildEnv },
   });
   if (result.status !== 0) {
     throw new Error("build:pwa-shell failed");
@@ -182,7 +193,8 @@ async function readRouteMountDiagnostics(page) {
  */
 async function waitForRouteReady(page, href) {
   if (href === "/search") {
-    await page.getByLabel("Public key").waitFor({ state: "visible", timeout: 60_000 });
+    const searchInput = page.getByPlaceholder(/npub|contact card|Search people/i).first();
+    await searchInput.waitFor({ state: "visible", timeout: 60_000 });
     return;
   }
   if (href === "/settings") {
@@ -197,6 +209,62 @@ async function waitForRouteReady(page, href) {
  * @param {string} baseUrl
  * @param {'prod' | 'dev'} mode
  */
+/**
+ * @param {import('playwright').Page} page
+ * @param {string} label
+ * @param {string} href
+ */
+async function clickSidebarRoute(page, label, href) {
+  const link = page.getByRole("link", { name: label, exact: true });
+  await link.waitFor({ state: "visible", timeout: 30_000 });
+  const started = Date.now();
+  await link.click();
+  const hrefPattern = href === "/"
+    ? /\/$/
+    : new RegExp(`${href.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(\\/|$)`);
+  await page.waitForURL(hrefPattern, { timeout: 90_000 });
+  await waitForRouteReady(page, href);
+  const elapsedMs = Date.now() - started;
+  const diagnostics = await readRouteMountDiagnostics(page);
+  return {
+    href,
+    label,
+    elapsedMs,
+    urlMatched: true,
+    routeMountWorstMs: diagnostics?.worstElapsedMs,
+    routeMountSlowCount: diagnostics?.slowSampleCount,
+  };
+}
+
+async function measureRapidNavigation(page) {
+  /** @type {import('./obscur-shell-perf-baseline-lib.mjs').NavigationSample[]} */
+  const samples = [];
+  for (const route of RAPID_NAV_SEQUENCE) {
+    /** @type {import('./obscur-shell-perf-baseline-lib.mjs').NavigationSample} */
+    const sample = {
+      href: route.href,
+      label: route.label,
+      visit: 1,
+      elapsedMs: 0,
+      urlMatched: false,
+    };
+    try {
+      const result = await clickSidebarRoute(page, route.label, route.href);
+      Object.assign(sample, result);
+    } catch (error) {
+      sample.error = error instanceof Error ? error.message : String(error);
+    }
+    samples.push(sample);
+    console.log(
+      `[s0] rapid ${route.label} ${sample.error ? `ERR ${sample.error}` : `${sample.elapsedMs}ms`}`,
+    );
+  }
+  return {
+    samples,
+    gate: evaluateRapidNavGate(samples),
+  };
+}
+
 async function measureShellBaseline(page, baseUrl, mode) {
   const report = {
     schema: BASELINE_SCHEMA,
@@ -223,11 +291,29 @@ async function measureShellBaseline(page, baseUrl, mode) {
     .isVisible()
     .catch(() => false);
 
-  if (shellPhase !== "unlocked") {
+  if (hasFlag("--unlock")) {
+    try {
+      await ensurePerfBaselineUnlocked(page);
+      report.checks.unlock = "dev_lab_or_auth_ui";
+    } catch (error) {
+      report.checks.unlock = "failed";
+      report.warnings.push(
+        `Unlock failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  const shellPhaseAfterUnlock = await detectShellPhase(page, 5_000);
+  if (shellPhaseAfterUnlock === "unlocked") {
+    report.checks.shellPhase = "unlocked";
+  }
+
+  if (report.checks.shellPhase !== "unlocked") {
     report.warnings.push(
-      `Shell phase "${shellPhase}" — navigation matrix skipped. Unlock the app (or seed profile storage) and re-run.`,
+      `Shell phase "${report.checks.shellPhase}" — navigation matrix skipped. Re-run with --unlock or seed profile storage.`,
     );
     report.summary = summarizeBaselineReport(report);
+    report.v2PerfGate = evaluateV2PerfGate(report);
     return report;
   }
 
@@ -243,22 +329,11 @@ async function measureShellBaseline(page, baseUrl, mode) {
       };
 
       try {
-        const link = page.getByRole("link", { name: route.label, exact: true });
-        await link.waitFor({ state: "visible", timeout: 30_000 });
-        const started = Date.now();
-        await link.click();
-        const hrefPattern = route.href === "/"
-          ? /\/$/
-          : new RegExp(`${route.href.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(\\/|$)`);
-        await page.waitForURL(hrefPattern, { timeout: 90_000 });
-        await waitForRouteReady(page, route.href);
-        sample.elapsedMs = Date.now() - started;
-        sample.urlMatched = true;
-        const diagnostics = await readRouteMountDiagnostics(page);
-        if (diagnostics) {
-          sample.routeMountWorstMs = diagnostics.worstElapsedMs;
-          sample.routeMountSlowCount = diagnostics.slowSampleCount;
-        }
+        const result = await clickSidebarRoute(page, route.label, route.href);
+        sample.elapsedMs = result.elapsedMs;
+        sample.urlMatched = result.urlMatched;
+        sample.routeMountWorstMs = result.routeMountWorstMs;
+        sample.routeMountSlowCount = result.routeMountSlowCount;
       } catch (error) {
         sample.error = error instanceof Error ? error.message : String(error);
         report.warnings.push(`Navigation ${route.label} visit ${visit} failed: ${sample.error}`);
@@ -271,7 +346,14 @@ async function measureShellBaseline(page, baseUrl, mode) {
     }
   }
 
+  if (hasFlag("--rapid")) {
+    const rapidNav = await measureRapidNavigation(page);
+    report.checks.rapidNav = rapidNav.gate;
+    report.rapidNavigations = rapidNav.samples;
+  }
+
   report.summary = summarizeBaselineReport(report);
+  report.v2PerfGate = evaluateV2PerfGate(report);
   return report;
 }
 
@@ -313,6 +395,9 @@ async function runProd() {
     const report = await runMode("prod", baseUrl);
     writeJson(outPath, report);
     console.log("[s0] Prod summary:", report.summary);
+    if (report.v2PerfGate) {
+      console.log("[s0] v2 perf gate:", report.v2PerfGate.pass ? "PASS" : "FAIL", report.v2PerfGate.issues);
+    }
     return report;
   } finally {
     stopProcess(server);
@@ -328,13 +413,16 @@ async function runDev() {
 
   await waitForHttp(baseUrl, 15_000).catch(() => {
     throw new Error(
-      `Dev server not reachable at ${baseUrl}. Start: pnpm dev:desktop (or pnpm -C apps/pwa dev)`,
+      `Dev server not reachable at ${baseUrl}. Start: pnpm dev:desktop:live (or pnpm dev:desktop:online), then pnpm perf:v2:baseline:dev-webpack`,
     );
   });
 
   const report = await runMode("dev", baseUrl);
   writeJson(outPath, report);
   console.log("[s0] Dev summary:", report.summary);
+  if (report.v2PerfGate) {
+    console.log("[s0] v2 perf gate:", report.v2PerfGate.pass ? "PASS" : "FAIL", report.v2PerfGate.issues);
+  }
   return report;
 }
 

@@ -1,0 +1,40 @@
+{
+  "schema": "obscur.dev-lab.suite-manifest.v1",
+  "cliOnly": ["two-actor-dm", "membership-join-leave", "dm-native-persist", "dm-native-relay-backfill"],
+  "terminal": ["cold-reload"],
+  "suites": {
+    "smoke": ["auth-unlock", "shell-health"],
+    "core": [
+      "auth-unlock",
+      "nav-matrix",
+      "settings-tab-sweep",
+      "relay-toggle-stress",
+      "chats-chrome",
+      "network-chrome",
+      "dm-send-synthetic",
+      "dm-history-monotonic",
+      "dm-reload-history",
+      "runtime-m0-apis",
+      "runtime-digest-gates",
+      "digest-membership-gates"
+    ],
+    "full": [
+      "auth-unlock",
+      "nav-matrix",
+      "settings-tab-sweep",
+      "relay-toggle-stress",
+      "chats-chrome",
+      "network-chrome",
+      "dm-send-synthetic",
+      "dm-history-monotonic",
+      "dm-reload-history",
+      "runtime-m0-apis",
+      "runtime-digest-gates",
+      "digest-membership-gates",
+      "runtime-issues-clean",
+      "search-profile-jump",
+      "group-stub-send",
+      "vault-unlock"
+    ]
+  }
+}

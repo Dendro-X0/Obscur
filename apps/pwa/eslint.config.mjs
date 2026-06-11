@@ -66,6 +66,9 @@ const eslintConfig = defineConfig([
       "app/features/runtime/services/client-gateway-adapter.ts",
       "app/features/messaging/local-dm-visibility/**",
       "app/features/messaging/services/dm-conversation-materialization-owner.ts",
+      "app/features/messaging/services/thread-history/dm-adapter.ts",
+      "app/features/messaging/services/thread-history/port.ts",
+      "app/features/messaging/services/thread-history/group-adapter.ts",
       "app/features/messaging/services/dm-conversation-materialization-load-earlier.ts",
       "app/features/messaging/services/dm-conversation-hydrate-pipeline.ts",
       "app/features/messaging/services/dm-conversation-hydrate-read-model.ts",
@@ -215,8 +218,80 @@ const eslintConfig = defineConfig([
     },
   },
   {
+    files: ["app/features/dm-kernel/**/*.{ts,tsx}"],
+    ignores: ["**/*.test.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "@/app/features/messaging/services/dm-conversation-hydrate-pipeline",
+              message: "dm-kernel must not import hydrate pipeline — use dm-kernel-thread-port / write-port only.",
+            },
+            {
+              name: "@/app/features/messaging/services/dm-conversation-hydrate-read-model",
+              message: "dm-kernel must not import hydrate read model.",
+            },
+            {
+              name: "@/app/features/messaging/services/conversation-message-materialization",
+              message: "dm-kernel must not import projection/merge materialization.",
+            },
+            {
+              name: "@/app/features/messaging/hooks/use-conversation-messages",
+              message: "dm-kernel must not import legacy hydrate hook.",
+            },
+          ],
+          patterns: [
+            {
+              group: ["**/dm-conversation-hydrate-*", "**/dm-conversation-projection-*"],
+              message: "dm-kernel quarantine — no hydrate/projection imports.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  // P4: desktop runtime shell must not import legacy hydrate/projection modules.
+  {
     files: [
-      "app/features/messaging/deletion/**/*.{ts,tsx}",
+      "app/features/runtime/**/*.{ts,tsx}",
+      "app/features/main-shell/**/*.{ts,tsx}",
+      "app/components/app-shell.tsx",
+      "app/components/persistent-app-chrome.tsx",
+      "app/components/providers.tsx",
+    ],
+    ignores: [
+      "**/*.test.{ts,tsx}",
+      "**/__tests__/**/*.{ts,tsx}",
+      "app/features/runtime/services/client-gateway-adapter.ts",
+    ],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "@/app/features/messaging/hooks/use-conversation-messages",
+              message: "P4 desktop shell — use use-thread-messages / dm-kernel only.",
+            },
+            {
+              name: "@/app/features/messaging/services/native-dm-thread-hydrate",
+              message: "P4 desktop shell — hydrate quarantined; use dm-kernel-thread-port.",
+            },
+          ],
+          patterns: [
+            {
+              group: ["**/dm-conversation-hydrate-*", "**/dm-conversation-projection-*", "**/native-dm-thread-hydrate*"],
+              message: "P4 desktop shell — no legacy hydrate/projection imports.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: [
       "app/features/messaging/local-dm-visibility/**/*.{ts,tsx}",
       "app/features/messaging/services/messaging-client-operations.ts",
       "app/features/messaging/services/dm-local-delete-persistence.ts",

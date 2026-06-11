@@ -10,8 +10,12 @@
 
 import type { Message } from "../types";
 import type { ConversationHistoryAuthorityDecision } from "./dm-read-authority-contract";
-import { isMessageIdentityInSuppressedIdSet } from "./conversation-message-visibility";
-import { collectMessageIdentityAliases } from "./message-identity-alias-contract";
+import {
+  filterMessagesBySuppressedIds,
+  mergeHydratedBaseWithLiveOverlayMessages,
+} from "./thread-message-list-utils";
+
+export { filterMessagesBySuppressedIds, mergeHydratedBaseWithLiveOverlayMessages } from "./thread-message-list-utils";
 
 export type MessageConversationScopePredicate = (message: Message) => boolean;
 
@@ -47,45 +51,6 @@ export const mergeProjectionFirstWithOverlayMessages = (
   });
   return Array.from(byId.values());
 };
-
-/**
- * Merge a hydrated/authority base with a live in-memory overlay without overwriting base ids.
- * Overlay must belong to `overlayConversationScope` (trimmed conversation ids).
- */
-export const mergeHydratedBaseWithLiveOverlayMessages = (
-  baseHydrated: ReadonlyArray<Message>,
-  liveOverlay: ReadonlyArray<Message>,
-  overlayConversationScope: ReadonlySet<string>,
-): Message[] => {
-  const byId = new Map<string, Message>();
-  const baseEventIds = new Set<string>();
-  baseHydrated.forEach((m) => {
-    byId.set(m.id, m);
-    if (m.eventId) {
-      baseEventIds.add(m.eventId);
-    }
-  });
-  liveOverlay.forEach((m) => {
-    const msgCid = typeof m.conversationId === "string" ? m.conversationId.trim() : "";
-    if (msgCid && !overlayConversationScope.has(msgCid)) {
-      return;
-    }
-    if (!byId.has(m.id) && !(m.eventId && baseEventIds.has(m.eventId))) {
-      byId.set(m.id, m);
-    }
-  });
-  return Array.from(byId.values());
-};
-
-export const filterMessagesBySuppressedIds = (
-  messages: ReadonlyArray<Message>,
-  suppressedIds: ReadonlySet<string>,
-): Message[] => messages.filter((message) => {
-  if (isMessageIdentityInSuppressedIdSet(message, suppressedIds)) {
-    return false;
-  }
-  return !collectMessageIdentityAliases(message).some((alias) => suppressedIds.has(alias));
-});
 
 /**
  * Maps **`resolveConversationHistoryAuthority`** output to exactly one message layer

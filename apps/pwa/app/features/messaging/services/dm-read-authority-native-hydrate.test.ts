@@ -29,6 +29,28 @@ describe("DM hydrate authority on native (P3b)", () => {
     vi.mocked(requiresSqlitePersistence).mockReturnValue(false);
   });
 
+  it("always selects indexed_primary on native regardless of projection coverage", () => {
+    vi.mocked(requiresSqlitePersistence).mockReturnValue(true);
+    expect(resolveLegacyHydrationAuthority({
+      useProjectionReads: false,
+      projectionMessageCount: 2,
+      projectionIncomingCount: 1,
+      projectionOutgoingCount: 1,
+      projectionBootstrapImportApplied: true,
+      projectionCanonicalEvidencePending: false,
+      projectionRestorePhaseActive: false,
+      indexedMessageCount: 3,
+      indexedOutgoingCount: 3,
+      indexedIncomingCount: 0,
+      persistedMessageCount: 0,
+      persistedOutgoingCount: 0,
+      persistedIncomingCount: 0,
+    })).toEqual({
+      authority: "indexed",
+      reason: "indexed_primary",
+    });
+  });
+
   it("resolveLegacyHydrationAuthority skips chat-state persisted repair on native", () => {
     vi.mocked(requiresSqlitePersistence).mockReturnValue(true);
     expect(resolveLegacyHydrationAuthority({

@@ -7,6 +7,7 @@ import type { Message } from "@/app/features/messaging/types";
 
 const busMocks = vi.hoisted(() => ({
   emitNewMessage: vi.fn(),
+  emitMessageUpdated: vi.fn(),
   emitMessageDeleted: vi.fn(),
 }));
 
@@ -32,6 +33,7 @@ vi.mock("@/app/features/messaging/controllers/v2/dm-controller", () => ({
 vi.mock("@/app/features/messaging/services/message-bus", () => ({
   messageBus: {
     emitNewMessage: busMocks.emitNewMessage,
+    emitMessageUpdated: busMocks.emitMessageUpdated,
     emitMessageDeleted: busMocks.emitMessageDeleted,
   },
 }));
@@ -82,6 +84,10 @@ vi.mock("@/app/features/runtime/services/window-runtime-supervisor", () => ({
     phase: runtimeState.phase,
     session: { profileId: "default", windowLabel: "main" },
   }),
+}));
+
+vi.mock("@/app/features/profiles/services/profile-runtime-scope", () => ({
+  getResolvedProfileId: () => "default",
 }));
 
 describe("RuntimeMessagingTransportOwnerProvider", () => {
@@ -208,6 +214,39 @@ describe("RuntimeMessagingTransportOwnerProvider", () => {
       profileId: "default",
     });
     expect(busMocks.emitNewMessage).toHaveBeenCalledWith(incoming.conversationId, incoming, {
+      sourceProfileId: "default",
+    });
+  });
+
+  it("emits message_updated events for outgoing persistence bridge callbacks", () => {
+    render(
+      <RuntimeMessagingTransportOwnerProvider>
+        <div>child</div>
+      </RuntimeMessagingTransportOwnerProvider>
+    );
+
+    const controllerParams = vi.mocked(useDmController).mock.calls[0]?.[0] as Readonly<{
+      onMessageUpdated?: (params: Readonly<{ conversationId: string; message: Message }>) => void;
+    }>;
+    const nostrId = "c".repeat(64);
+    const outgoing: Message = {
+      id: "550e8400-e29b-41d4-a716-446655440000",
+      eventId: nostrId,
+      kind: "user",
+      content: "sent",
+      timestamp: new Date(1_717_000_000_000),
+      isOutgoing: true,
+      status: "accepted",
+      senderPubkey: "b".repeat(64) as PublicKeyHex,
+      conversationId: "conversation-2",
+    };
+
+    controllerParams.onMessageUpdated?.({
+      conversationId: outgoing.conversationId!,
+      message: outgoing,
+    });
+
+    expect(busMocks.emitMessageUpdated).toHaveBeenCalledWith(outgoing.conversationId, outgoing, {
       sourceProfileId: "default",
     });
   });

@@ -16,6 +16,12 @@ import {
 } from "@/app/features/groups/components/create-group-dialog";
 import { resolveInitialStewardPubkeysForCreate } from "@/app/features/groups/services/community-steward-policy";
 import {
+    isWorkspaceCommunityCreateAllowed,
+    WORKSPACE_KERNEL_CREATE_DEFERRED_MESSAGE,
+} from "@/app/features/workspace-kernel/workspace-kernel-sovereign-create-policy";
+import { isWorkspaceKernelAuthority } from "@/app/features/workspace-kernel/workspace-kernel-policy";
+import { createManagedWorkspaceMembership } from "@/app/features/workspace-kernel/workspace-kernel-membership-port";
+import {
     isManagedWorkspaceRelayGateBlocking,
     resolveManagedWorkspaceRelayGate,
 } from "@/app/features/groups/services/community-mode-contract";
@@ -50,6 +56,7 @@ import { hasWritableCommunityRelayTransport } from "@/app/features/groups/servic
 import { isCoordinationOnlyWorkspaceDevMode } from "@/app/features/groups/services/community-dev-flags";
 import { LOCAL_DEV_RELAY_URL } from "@/app/features/relays/hooks/use-relay-list";
 import { ensureWorkspaceRelayTransportReady } from "@/app/features/groups/services/workspace-relay-calibrator";
+import { isRelayAuthoritativeMembershipEnforced } from "@/app/features/groups/services/community-relay-authoritative-membership-policy";
 
 const DEFAULT_DM_DISPLAY_NAME = "Unknown contact";
 
@@ -145,6 +152,10 @@ export function GlobalDialogManager() {
     }, [newChatPubkey, newChatDisplayName, createdConnections, myPublicKeyHex, setCreatedConnections, setSelectedConversation, setIsNewChatOpen, setNewChatPubkey, setNewChatDisplayName, t, unhideConversation, requestsInbox, peerTrust]);
 
     const handleCreateGroup = useCallback(async (info: GroupCreateInfo) => {
+        if (!isWorkspaceCommunityCreateAllowed()) {
+            toast.error(WORKSPACE_KERNEL_CREATE_DEFERRED_MESSAGE);
+            return;
+        }
         if (!myPrivateKeyHex || !myPublicKeyHex) {
             toast.error("Identity is locked. Unlock it, then create the community again.");
             return;
@@ -152,6 +163,30 @@ export function GlobalDialogManager() {
         setIsCreatingGroup(true);
         setCreateWaitPhase("local");
         try {
+            if (isWorkspaceKernelAuthority()) {
+                const result = await createManagedWorkspaceMembership({
+                    info,
+                    myPublicKeyHex,
+                    myPrivateKeyHex,
+                    relayPool: relayPoolRef.current,
+                    openRelayUrls: relayList.state.relays
+                        .filter((relay) => relay.enabled)
+                        .map((relay) => relay.url),
+                    addRelay: (relayParams) => relayList.addRelay(relayParams),
+                    onPhase: setCreateWaitPhase,
+                });
+                if (!result.ok) {
+                    toast.error(result.userFacingMessage ?? result.errorMessage);
+                    return;
+                }
+                addGroup(result.group, { allowRevive: true, relayConfirmed: true });
+                dispatchGroupInviteReceived(result.group);
+                setSelectedConversation(result.group);
+                setIsNewGroupOpen(false);
+                toast.success(t("groups.created", "Workspace community created"));
+                return;
+            }
+
             const { groupId, host, name, about, avatar, access, relayCapabilityTier } = info;
             const rawRelayInput = (() => {
                 const trimmedHost = host.trim();
@@ -325,6 +360,10 @@ export function GlobalDialogManager() {
                 context: "create",
                 displayName: name,
             });
+            if (isRelayAuthoritativeMembershipEnforced() && relayEvidence.status !== "synced") {
+                toast.error("Relay did not confirm community creation. Nothing was saved locally.");
+                return;
+            }
             if (activationSummary.severity !== "success") {
                 toast.error(activationSummary.detail
                     ? `${activationSummary.title} ${activationSummary.detail}`
@@ -332,7 +371,7 @@ export function GlobalDialogManager() {
                 return;
             }
 
-            addGroup(newGroup, { allowRevive: true });
+            addGroup(newGroup, { allowRevive: true, relayConfirmed: true });
             dispatchGroupInviteReceived(newGroup);
             setSelectedConversation(newGroup);
             setIsNewGroupOpen(false);

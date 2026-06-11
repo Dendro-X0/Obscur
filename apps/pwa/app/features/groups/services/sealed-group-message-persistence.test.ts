@@ -2,345 +2,175 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import {
   commitSealedGroupMessages,
+  flushPendingSealedGroupSqliteWrites,
   loadPersistedSealedGroupMessages,
-  persistSealedGroupMessages,
-  persistSealedGroupMessagesToSqlite,
+  resolveSealedGroupPersistenceProfileId,
+  sealedGroupMessagePersistenceInternals,
 } from "./sealed-group-message-persistence";
 
-const PUBLIC_KEY = "a".repeat(64) as PublicKeyHex;
-const CONVERSATION_ID = "community:test8:ws://localhost:7000";
-const GROUP_ID = "test8";
-
-const chatStateStoreMocks = vi.hoisted(() => ({
-  load: vi.fn(() => null as null | { groupMessages?: Record<string, ReadonlyArray<{ id: string; pubkey: string; created_at: number; content: string }>> }),
-  updateGroupMessages: vi.fn(),
-  update: vi.fn(),
+const appendMock = vi.fn(async () => ({ status: "persisted" as const, eventId: "evt-1" }));
+const loadPageMock = vi.fn(async () => ({
+  messages: [{
+    id: "evt-1",
+    eventId: "evt-1",
+    kind: "user" as const,
+    content: "hello",
+    timestamp: new Date(1_000),
+    isOutgoing: true,
+    status: "delivered" as const,
+    senderPubkey: "a".repeat(64),
+    conversationId: "community:test",
+  }],
+  hasEarlier: false,
+  didExpandHistory: false,
+  nextCursor: null,
 }));
 
-const nativePolicyMocks = vi.hoisted(() => ({
-  requiresSqlitePersistence: vi.fn(() => false),
+vi.mock("@/app/features/messaging/services/thread-history/group-thread-append", () => ({
+  appendGroupThreadMessage: (...args: unknown[]) => appendMock(...args),
 }));
 
-const dbMocks = vi.hoisted(() => ({
-  isTauri: vi.fn(() => false),
-  dbGetGroupMessages: vi.fn(async () => []),
-  dbInsertGroupMessage: vi.fn(async () => undefined),
-}));
-
-vi.mock("@/app/features/messaging/services/chat-state-store", () => ({
-  chatStateStoreService: chatStateStoreMocks,
-}));
-
-vi.mock("@/app/features/profiles/services/profile-runtime-scope", () => ({
-  getResolvedProfileId: () => "profile-test",
-}));
-
-vi.mock("@/app/features/runtime/native-persistence-policy", () => ({
-  requiresSqlitePersistence: nativePolicyMocks.requiresSqlitePersistence,
-}));
-
-vi.mock("@/app/features/profiles/services/account-shared-sqlite-profile-ids", () => ({
-  listAccountSharedSqliteProfileIds: vi.fn(({ primaryProfileId }: { primaryProfileId: string }) => [primaryProfileId]),
-}));
-
-vi.mock("@/app/features/profiles/services/read-active-desktop-profile-id", () => ({
-  readActiveDesktopProfileId: () => "profile-test",
+vi.mock("@/app/features/messaging/services/thread-history/group-thread-sqlite-store", () => ({
+  loadGroupThreadPageFromSqlite: (...args: unknown[]) => loadPageMock(...args),
 }));
 
 vi.mock("@dweb/db", () => ({
-  isTauri: dbMocks.isTauri,
-  dbGetGroupMessages: dbMocks.dbGetGroupMessages,
-  dbInsertGroupMessage: dbMocks.dbInsertGroupMessage,
+  isTauri: vi.fn(() => true),
 }));
 
-vi.mock("@/app/shared/log-app-event", () => ({
-  logAppEvent: vi.fn(),
+vi.mock("@/app/features/profiles/services/read-active-desktop-profile-id", () => ({
+  readActiveDesktopProfileId: vi.fn(() => "desktop-profile-slot"),
 }));
+
+vi.mock("@/app/features/profiles/services/profile-runtime-scope", () => ({
+  getResolvedProfileId: vi.fn(() => "web-profile-slot"),
+}));
+
+vi.mock("@/app/features/profiles/services/profile-scope", () => ({
+  getDefaultProfileId: vi.fn(() => "default"),
+}));
+
+import { isTauri } from "@dweb/db";
+import { readActiveDesktopProfileId } from "@/app/features/profiles/services/read-active-desktop-profile-id";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
+
+const PUBLIC_KEY = "a".repeat(64) as PublicKeyHex;
+const EVENT_ID = "b".repeat(64);
 
 describe("sealed-group-message-persistence", () => {
   beforeEach(() => {
-    chatStateStoreMocks.load.mockReset();
-    chatStateStoreMocks.updateGroupMessages.mockReset();
-    chatStateStoreMocks.update.mockReset();
-    chatStateStoreMocks.load.mockReturnValue(null);
-    nativePolicyMocks.requiresSqlitePersistence.mockReturnValue(false);
-    dbMocks.isTauri.mockReturnValue(false);
-    dbMocks.dbGetGroupMessages.mockReset();
-    dbMocks.dbGetGroupMessages.mockResolvedValue([]);
-    dbMocks.dbInsertGroupMessage.mockReset();
-    dbMocks.dbInsertGroupMessage.mockResolvedValue(undefined);
+    appendMock.mockClear();
+    loadPageMock.mockClear();
+    vi.mocked(isTauri).mockReturnValue(true);
+    vi.mocked(readActiveDesktopProfileId).mockReturnValue("desktop-profile-slot");
+    vi.mocked(getResolvedProfileId).mockReturnValue("web-profile-slot");
+    sealedGroupMessagePersistenceInternals.resetCommitQueueForTests();
   });
 
-  it("round-trips group messages through chat state per conversation", async () => {
-    persistSealedGroupMessages({
-      conversationId: CONVERSATION_ID,
+  it("commits sealed rows through appendGroupThreadMessage", async () => {
+    await commitSealedGroupMessages({
+      conversationId: "community:test:ws://localhost:7000",
+      groupId: "test",
       publicKeyHex: PUBLIC_KEY,
       messages: [{
-        id: "evt-1",
+        id: EVENT_ID,
         pubkey: PUBLIC_KEY,
-        created_at: 1_700_000_000,
-        content: "hello from B",
+        created_at: 1,
+        content: "hello",
       }],
-      profileId: "profile-test",
     });
 
-    expect(chatStateStoreMocks.update).toHaveBeenCalledWith(
-      PUBLIC_KEY,
-      expect.any(Function),
-      expect.objectContaining({ debounceMs: 0 }),
-    );
+    expect(appendMock).toHaveBeenCalledWith(expect.objectContaining({
+      conversationId: "community:test:ws://localhost:7000",
+      groupId: "test",
+      senderPublicKeyHex: PUBLIC_KEY,
+      eventId: EVENT_ID,
+      plaintext: "hello",
+    }));
+  });
 
-    chatStateStoreMocks.load.mockReturnValue({
-      groupMessages: {
-        [CONVERSATION_ID]: [{
-          id: "evt-1",
-          pubkey: PUBLIC_KEY,
-          created_at: 1_700_000_000,
-          content: "hello from B",
-        }],
-      },
-    });
-
-    const loaded = await loadPersistedSealedGroupMessages({
-      conversationId: CONVERSATION_ID,
-      groupId: GROUP_ID,
+  it("resolves desktop window profile slot when profileId omitted (B3-2)", async () => {
+    await commitSealedGroupMessages({
+      conversationId: "community:test:ws://localhost:7000",
+      groupId: "test",
       publicKeyHex: PUBLIC_KEY,
-      profileId: "profile-test",
+      messages: [{
+        id: EVENT_ID,
+        pubkey: PUBLIC_KEY,
+        created_at: 1,
+        content: "hello",
+      }],
     });
 
+    expect(appendMock).toHaveBeenCalledWith(expect.objectContaining({
+      profileId: "desktop-profile-slot",
+    }));
+  });
+
+  it("prefers explicit profileId over desktop resolver", async () => {
+    await commitSealedGroupMessages({
+      conversationId: "community:test:ws://localhost:7000",
+      groupId: "test",
+      publicKeyHex: PUBLIC_KEY,
+      profileId: "explicit-slot",
+      messages: [{
+        id: EVENT_ID,
+        pubkey: PUBLIC_KEY,
+        created_at: 1,
+        content: "hello",
+      }],
+    });
+
+    expect(appendMock).toHaveBeenCalledWith(expect.objectContaining({
+      profileId: "explicit-slot",
+    }));
+  });
+
+  it("resolveSealedGroupPersistenceProfileId uses web runtime scope off native", () => {
+    vi.mocked(isTauri).mockReturnValue(false);
+    expect(resolveSealedGroupPersistenceProfileId()).toBe("web-profile-slot");
+  });
+
+  it("awaits in-flight sqlite writes on flush (B3-2)", async () => {
+    let resolveAppend: (() => void) | undefined;
+    appendMock.mockImplementationOnce(async () => new Promise((resolve) => {
+      resolveAppend = resolve;
+    }));
+
+    const commitTask = commitSealedGroupMessages({
+      conversationId: "community:test:ws://localhost:7000",
+      groupId: "test",
+      publicKeyHex: PUBLIC_KEY,
+      messages: [{
+        id: EVENT_ID,
+        pubkey: PUBLIC_KEY,
+        created_at: 1,
+        content: "hello",
+      }],
+    });
+
+    const flushTask = flushPendingSealedGroupSqliteWrites();
+    resolveAppend?.();
+    await Promise.all([commitTask, flushTask]);
+    expect(appendMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("loads persisted history from sqlite read path with resolved profile slot (B3-3)", async () => {
+    const loaded = await loadPersistedSealedGroupMessages({
+      conversationId: "community:test:ws://localhost:7000",
+      groupId: "test",
+      publicKeyHex: PUBLIC_KEY,
+    });
+
+    expect(loadPageMock).toHaveBeenCalledWith(expect.objectContaining({
+      profileId: "desktop-profile-slot",
+      myPublicKeyHex: PUBLIC_KEY,
+    }));
     expect(loaded).toEqual([{
       id: "evt-1",
-      pubkey: PUBLIC_KEY,
-      created_at: 1_700_000_000,
-      content: "hello from B",
-    }]);
-  });
-
-  it("merges sqlite rows across account-shared profile slots on native", async () => {
-    nativePolicyMocks.requiresSqlitePersistence.mockReturnValue(true);
-    dbMocks.isTauri.mockReturnValue(true);
-    const { listAccountSharedSqliteProfileIds } = await import("@/app/features/profiles/services/account-shared-sqlite-profile-ids");
-    vi.mocked(listAccountSharedSqliteProfileIds).mockReturnValue(["default", "profile-secondary"]);
-    dbMocks.dbGetGroupMessages.mockImplementation(async (profileId: string) => {
-      if (profileId === "default") {
-        return [{
-          event_id: "evt-default",
-          group_id: GROUP_ID,
-          profile_id: profileId,
-          sender_pubkey: PUBLIC_KEY,
-          plaintext: "from default slot",
-          created_at: 1_700_000_000_000,
-          received_at: 1_700_000_000_000,
-        }];
-      }
-      return [{
-        event_id: "evt-secondary",
-        group_id: GROUP_ID,
-        profile_id: profileId,
-        sender_pubkey: "b".repeat(64),
-        plaintext: "from secondary slot",
-        created_at: 1_700_000_001_000,
-        received_at: 1_700_000_001_000,
-      }];
-    });
-
-    const loaded = await loadPersistedSealedGroupMessages({
-      conversationId: CONVERSATION_ID,
-      groupId: GROUP_ID,
-      publicKeyHex: PUBLIC_KEY,
-      profileId: "default",
-    });
-
-    expect(loaded).toHaveLength(2);
-    expect(loaded.map((row) => row.id).sort()).toEqual(["evt-default", "evt-secondary"]);
-  });
-
-  it("falls back to chat state when native sqlite is empty", async () => {
-    nativePolicyMocks.requiresSqlitePersistence.mockReturnValue(true);
-    dbMocks.isTauri.mockReturnValue(true);
-    dbMocks.dbGetGroupMessages.mockResolvedValue([]);
-
-    chatStateStoreMocks.load.mockReturnValue({
-      groupMessages: {
-        [CONVERSATION_ID]: [{
-          id: "evt-chat",
-          pubkey: PUBLIC_KEY,
-          created_at: 1_700_000_001,
-          content: "seed from chat state",
-        }],
-      },
-    });
-
-    const loaded = await loadPersistedSealedGroupMessages({
-      conversationId: CONVERSATION_ID,
-      groupId: GROUP_ID,
-      publicKeyHex: PUBLIC_KEY,
-      profileId: "profile-test",
-    });
-
-    expect(loaded).toEqual([{
-      id: "evt-chat",
-      pubkey: PUBLIC_KEY,
-      created_at: 1_700_000_001,
-      content: "seed from chat state",
-    }]);
-  });
-
-  it("persists outgoing messages to sqlite on native desktop", async () => {
-    dbMocks.isTauri.mockReturnValue(true);
-
-    await persistSealedGroupMessagesToSqlite({
-      groupId: GROUP_ID,
-      profileId: "profile-test",
-      messages: [{
-        id: "evt-out",
-        pubkey: PUBLIC_KEY,
-        created_at: 1_700_000_002,
-        content: "hello from A",
-      }],
-    });
-
-    expect(dbMocks.dbInsertGroupMessage).toHaveBeenCalledWith({
-      event_id: "evt-out",
-      group_id: GROUP_ID,
-      profile_id: "profile-test",
-      sender_pubkey: PUBLIC_KEY,
-      plaintext: "hello from A",
-      created_at: 1_700_000_002_000,
-      received_at: expect.any(Number),
-    });
-  });
-
-  it("commitSealedGroupMessages writes sqlite and chat-state mirror on native", async () => {
-    dbMocks.isTauri.mockReturnValue(true);
-    nativePolicyMocks.requiresSqlitePersistence.mockReturnValue(true);
-
-    await commitSealedGroupMessages({
-      conversationId: CONVERSATION_ID,
-      groupId: GROUP_ID,
-      publicKeyHex: PUBLIC_KEY,
-      profileId: "profile-test",
-      messages: [{
-        id: "evt-canonical",
-        pubkey: PUBLIC_KEY,
-        created_at: 1_700_000_003,
-        content: "canonical outbound",
-      }],
-    });
-
-    expect(dbMocks.dbInsertGroupMessage).toHaveBeenCalledTimes(1);
-    expect(chatStateStoreMocks.update).toHaveBeenCalledWith(
-      PUBLIC_KEY,
-      expect.any(Function),
-      expect.objectContaining({ debounceMs: 0 }),
-    );
-  });
-
-  it("merges sqlite and chat-state rows on native cold-load", async () => {
-    dbMocks.isTauri.mockReturnValue(true);
-    dbMocks.dbGetGroupMessages.mockResolvedValue([{
-      event_id: "evt-sqlite",
-      group_id: GROUP_ID,
-      profile_id: "profile-test",
-      sender_pubkey: PUBLIC_KEY,
-      plaintext: "from sqlite",
-      created_at: 1_700_000_005_000,
-      received_at: 1_700_000_005_000,
-    }]);
-    chatStateStoreMocks.load.mockReturnValue({
-      groupMessages: {
-        [CONVERSATION_ID]: [{
-          id: "evt-chat",
-          pubkey: PUBLIC_KEY,
-          created_at: 1_700_000_006,
-          content: "from chat state",
-        }],
-      },
-    });
-
-    const loaded = await loadPersistedSealedGroupMessages({
-      conversationId: CONVERSATION_ID,
-      groupId: GROUP_ID,
-      relayUrl: "ws://localhost:7000",
-      publicKeyHex: PUBLIC_KEY,
-      profileId: "profile-test",
-    });
-
-    expect(loaded.map((row) => row.id).sort()).toEqual(["evt-chat", "evt-sqlite"]);
-  });
-
-  it("P5-COM-MSG: sqlite commit survives simulated cold start without chat-state mirror", async () => {
-    dbMocks.isTauri.mockReturnValue(true);
-    nativePolicyMocks.requiresSqlitePersistence.mockReturnValue(true);
-    chatStateStoreMocks.load.mockReturnValue(null);
-
-    await commitSealedGroupMessages({
-      conversationId: CONVERSATION_ID,
-      groupId: GROUP_ID,
-      publicKeyHex: PUBLIC_KEY,
-      profileId: "profile-test",
-      messages: [{
-        id: "evt-cold",
-        pubkey: PUBLIC_KEY,
-        created_at: 1_700_000_010,
-        content: "survives cold restart",
-      }],
-    });
-
-    expect(dbMocks.dbInsertGroupMessage).toHaveBeenCalledTimes(1);
-
-    dbMocks.dbGetGroupMessages.mockResolvedValue([{
-      event_id: "evt-cold",
-      group_id: GROUP_ID,
-      profile_id: "profile-test",
-      sender_pubkey: PUBLIC_KEY,
-      plaintext: "survives cold restart",
-      created_at: 1_700_000_010_000,
-      received_at: 1_700_000_010_000,
-    }]);
-
-    const loaded = await loadPersistedSealedGroupMessages({
-      conversationId: CONVERSATION_ID,
-      groupId: GROUP_ID,
-      publicKeyHex: PUBLIC_KEY,
-      profileId: "profile-test",
-    });
-
-    expect(loaded).toEqual([{
-      id: "evt-cold",
-      pubkey: PUBLIC_KEY,
-      created_at: 1_700_000_010,
-      content: "survives cold restart",
-    }]);
-  });
-
-  it("loads chat-state rows stored under legacy conversation id aliases", async () => {
-    const legacyConversationId = "group:test8@ws://localhost:7000";
-    chatStateStoreMocks.load.mockReturnValue({
-      groupMessages: {
-        [legacyConversationId]: [{
-          id: "evt-legacy",
-          pubkey: PUBLIC_KEY,
-          created_at: 1_700_000_004,
-          content: "stored under legacy alias",
-        }],
-      },
-    });
-
-    const loaded = await loadPersistedSealedGroupMessages({
-      conversationId: "community:v2_deadbeef",
-      groupId: GROUP_ID,
-      relayUrl: "ws://localhost:7000",
-      communityId: "v2_deadbeef",
-      publicKeyHex: PUBLIC_KEY,
-      profileId: "profile-test",
-    });
-
-    expect(loaded).toEqual([{
-      id: "evt-legacy",
-      pubkey: PUBLIC_KEY,
-      created_at: 1_700_000_004,
-      content: "stored under legacy alias",
+      pubkey: "a".repeat(64),
+      created_at: 1,
+      content: "hello",
     }]);
   });
 });

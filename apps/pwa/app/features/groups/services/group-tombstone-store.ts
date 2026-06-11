@@ -3,6 +3,7 @@ import {
     getScopedStorageKey,
 } from "@/app/features/profiles/services/profile-scope";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
+import { communityMembershipScopeMatchesStorageKey } from "./community-membership-scope-key";
 
 const TOMBSTONE_STORAGE_PREFIX = "obscur.group.tombstones.v1";
 
@@ -96,7 +97,13 @@ export const isGroupTombstoned = (
     params: Readonly<{ groupId: string; relayUrl?: string }>,
     options?: Readonly<{ profileId?: string }>
 ): boolean => {
-    return readTombstones(publicKeyHex, options).has(toGroupTombstoneKey(params));
+    const scope = { groupId: params.groupId, relayUrl: params.relayUrl ?? "" };
+    for (const tombstoneKey of readTombstones(publicKeyHex, options)) {
+        if (communityMembershipScopeMatchesStorageKey(scope, tombstoneKey)) {
+            return true;
+        }
+    }
+    return false;
 };
 
 export const addGroupTombstone = (
@@ -114,8 +121,23 @@ export const removeGroupTombstone = (
     params: Readonly<{ groupId: string; relayUrl?: string }>,
     options?: Readonly<{ profileId?: string }>
 ): void => {
+    removeGroupTombstonesForScope(publicKeyHex, {
+        groupId: params.groupId,
+        relayUrl: params.relayUrl ?? "",
+    }, options);
+};
+
+export const removeGroupTombstonesForScope = (
+    publicKeyHex: string,
+    scope: Readonly<{ groupId: string; relayUrl: string }>,
+    options?: Readonly<{ profileId?: string }>,
+): void => {
     const next = readTombstones(publicKeyHex, options);
-    next.delete(toGroupTombstoneKey(params));
+    for (const tombstoneKey of Array.from(next)) {
+        if (communityMembershipScopeMatchesStorageKey(scope, tombstoneKey)) {
+            next.delete(tombstoneKey);
+        }
+    }
     writeTombstones(publicKeyHex, next, options);
 };
 

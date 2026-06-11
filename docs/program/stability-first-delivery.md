@@ -38,9 +38,13 @@ pnpm dev:desktop:online
 **Automated gates:**
 
 ```bash
-pnpm verify:phase3
-pnpm verify:stability
+pnpm dev:lab:smoke           # every slice (~30s, needs :3340)
+pnpm verify:handoff          # before handoff: stability + dev-lab unit + benchmark
+pnpm verify:dev-lab          # Dev Lab unit tests only
+pnpm verify:stability        # L2 stability (no :3340)
 ```
+
+Run **`pnpm verify:handoff`** (not the matrix) before merge claims on desktop UX, settings, relay, or messaging. See [dev-lab-issue-backlog.md](./dev-lab-issue-backlog.md).
 
 **Focus:** production reliability (cold start, nav, DM persistence, relay/account sync, coordination when environment allows) per [phase1-desktop-shell-gate.md](./phase1-desktop-shell-gate.md) · [phase2-desktop-dm-persistence-gate.md](./phase2-desktop-dm-persistence-gate.md) · [phase3-desktop-online-gate.md](./phase3-desktop-online-gate.md).
 

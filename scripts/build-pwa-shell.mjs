@@ -3,10 +3,11 @@
  * Build PWA static export for a specific product shell (desktop | mobile | web).
  * Used by Tauri beforeBuildCommand and CI Android lane.
  */
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { buildStaticShellManifest, STATIC_SHELL_MANIFEST_FILE } from "./lib/static-shell-stale.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const rootVersion = JSON.parse(readFileSync(path.join(repoRoot, "package.json"), "utf8")).version ?? "dev";
@@ -40,5 +41,17 @@ const result = spawnSync(
   ["-C", "apps/pwa", "run", "build:static"],
   { cwd: repoRoot, env, stdio: "inherit", shell: true },
 );
+
+if ((result.status ?? 1) === 0 && shellArg === "desktop") {
+  const outDir = path.join(repoRoot, "apps", "pwa", "out");
+  writeFileSync(
+    path.join(outDir, STATIC_SHELL_MANIFEST_FILE),
+    `${JSON.stringify(buildStaticShellManifest(env), null, 2)}\n`,
+    "utf8",
+  );
+  console.log(
+    `[build-pwa-shell] wrote ${STATIC_SHELL_MANIFEST_FILE} (experimentOnline=${env.NEXT_PUBLIC_OBSCUR_EXPERIMENT_ONLINE === "1"})`,
+  );
+}
 
 process.exit(result.status ?? 1);

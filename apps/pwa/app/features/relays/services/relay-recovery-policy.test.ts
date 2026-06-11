@@ -62,6 +62,16 @@ describe("relay recovery policy", () => {
     vi.useRealTimers();
   });
 
+  it("classifies startup warmup as recovering instead of offline", () => {
+    expect(classifyRelayRecoveryState({
+      writableRelayCount: 0,
+      fallbackWritableRelayCount: 0,
+      subscribableRelayCount: 0,
+      recoveryAttemptCount: 0,
+      recoveryReasonCode: "startup_warmup",
+    })).toBe("recovering");
+  });
+
   it("classifies healthy when writable and subscribable relays exist", () => {
     expect(classifyRelayRecoveryState({
       writableRelayCount: 2,

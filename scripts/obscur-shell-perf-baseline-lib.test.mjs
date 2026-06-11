@@ -3,6 +3,9 @@ import { describe, it } from "node:test";
 import {
   BASELINE_SCHEMA,
   compareBaselineReports,
+  evaluateRapidNavGate,
+  evaluateReleasePerfParity,
+  evaluateV2PerfGate,
   parseBaselineReport,
   summarizeBaselineReport,
 } from "./obscur-shell-perf-baseline-lib.mjs";
@@ -45,5 +48,44 @@ describe("obscur-shell-perf-baseline-lib", () => {
   it("parses schema", () => {
     const report = parseBaselineReport(stubReport("prod", 100));
     assert.equal(report.mode, "prod");
+  });
+
+  it("tracks max route mount worst ms", () => {
+    const report = stubReport("prod", 400);
+    report.navigations[0].routeMountWorstMs = 120;
+    report.navigations[1].routeMountWorstMs = 240;
+    const summary = summarizeBaselineReport(report);
+    assert.equal(summary.maxRouteMountWorstMs, 240);
+  });
+
+  it("evaluates v2 perf gate pass and fail", () => {
+    const passing = stubReport("prod", 400);
+    passing.navigations.forEach((nav) => {
+      nav.routeMountWorstMs = 80;
+    });
+    assert.equal(evaluateV2PerfGate(passing).pass, true);
+
+    const failing = stubReport("prod", 4000);
+    assert.equal(evaluateV2PerfGate(failing).pass, false);
+  });
+
+  it("evaluates release perf parity within 20 percent budget", () => {
+    const withColdStart = (report, domMs) => ({
+      ...report,
+      coldStart: { domContentLoadedMs: domMs },
+    });
+    const reference = withColdStart(stubReport("prod", 100), 80);
+    const candidate = withColdStart(stubReport("prod", 115), 90);
+    assert.equal(evaluateReleasePerfParity(reference, candidate).pass, true);
+    const slow = withColdStart(stubReport("prod", 130), 80);
+    assert.equal(evaluateReleasePerfParity(reference, slow).pass, false);
+  });
+
+  it("evaluates rapid nav gate from samples", () => {
+    const gate = evaluateRapidNavGate([
+      { href: "/", label: "Chats", visit: 1, elapsedMs: 120, urlMatched: true, routeMountWorstMs: 50 },
+    ]);
+    assert.equal(gate.gatePass, false);
+    assert.ok(gate.issues.some((issue) => issue.startsWith("samples_")));
   });
 });

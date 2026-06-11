@@ -42,10 +42,19 @@ describe("warmRouteNavigationTargets", () => {
     expect(prefetch).toHaveBeenCalledWith("/vault");
   });
 
-  it("resolveRouteNavigationWarmupMode is shell-only on desktop shell builds (N4)", async () => {
+  it("resolveRouteNavigationWarmupMode is shell-only on production desktop shell builds (N4)", async () => {
     vi.stubEnv("NEXT_PUBLIC_DESKTOP_SHELL", "1");
+    vi.stubEnv("NODE_ENV", "production");
     const { resolveRouteNavigationWarmupMode } = await import("./route-navigation-warmup");
     expect(resolveRouteNavigationWarmupMode()).toBe("shell-only");
+    vi.unstubAllEnvs();
+  });
+
+  it("resolveRouteNavigationWarmupMode is full on dev desktop shell builds", async () => {
+    vi.stubEnv("NEXT_PUBLIC_DESKTOP_SHELL", "1");
+    vi.stubEnv("NODE_ENV", "development");
+    const { resolveRouteNavigationWarmupMode } = await import("./route-navigation-warmup");
+    expect(resolveRouteNavigationWarmupMode()).toBe("full");
     vi.unstubAllEnvs();
   });
 

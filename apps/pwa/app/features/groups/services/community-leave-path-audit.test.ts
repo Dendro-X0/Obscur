@@ -7,34 +7,39 @@ const readSource = (relativePath: string): string => (
 );
 
 describe("REL-004 leave path audit", () => {
-  it("GroupProvider.leaveGroup enqueues outbox before persisting chat-state only", () => {
+  it("GroupProvider.leaveGroup commits only after relayConfirmed in authoritative mode", () => {
     const source = readSource("app/features/groups/providers/group-provider.tsx");
     const leaveGroupBlock = source.slice(source.indexOf("const leaveGroup = useCallback"));
-    expect(leaveGroupBlock).toContain("applyCoordinatorExplicitLeave");
-    expect(leaveGroupBlock.indexOf("enqueueCommunityLeaveOutboxItem")).toBeGreaterThan(-1);
-    expect(leaveGroupBlock.indexOf("applyCoordinatorExplicitLeave"))
-      .toBeLessThan(leaveGroupBlock.indexOf("enqueueCommunityLeaveOutboxItem"));
+    expect(leaveGroupBlock).toContain("commitCommunityLeaveAfterRelayConfirmation");
+    expect(leaveGroupBlock).toContain("relayConfirmed !== true");
+    expect(leaveGroupBlock).toContain("removeGroupConversation");
   });
 
-  it("removeGroupConversation enqueues outbox when a matched group is removed", () => {
-    const source = readSource("app/features/groups/providers/group-provider.tsx");
-    const block = source.slice(source.indexOf("const removeGroupConversation = useCallback"));
-    expect(block).toContain("enqueueCommunityLeaveOutboxItem");
-    expect(block).toContain("applyCoordinatorExplicitLeave");
+  it("relay-confirmed leave service publishes before any local commit helper exists", () => {
+    const source = readSource("app/features/groups/services/community-relay-confirmed-leave.ts");
+    expect(source).toContain("publishRelayConfirmedCommunityLeave");
+    expect(source).toContain("sendNip29Leave");
+    expect(source).toContain("commitCommunityLeaveAfterRelayConfirmation");
+    expect(source.indexOf("publishRelayConfirmedCommunityLeave"))
+      .toBeLessThan(source.indexOf("commitCommunityLeaveAfterRelayConfirmation"));
+    expect(source).not.toContain("removeGroupConversation");
   });
 
-  it("sealed leave enqueues outbox before relay publish", () => {
+  it("use-sealed-community leaveGroup delegates to relay-confirmed publish", () => {
     const source = readSource("app/features/groups/hooks/use-sealed-community.ts");
-    const block = source.slice(source.indexOf("const leaveGroup = useCallback"));
-    const enqueueAt = block.indexOf("enqueueCommunityLeaveOutboxItem");
-    const publishAt = block.indexOf("sendNip29Leave");
-    expect(enqueueAt).toBeGreaterThan(-1);
-    expect(publishAt).toBeGreaterThan(-1);
-    expect(enqueueAt).toBeLessThan(publishAt);
+    expect(source).toContain("publishRelayConfirmedCommunityLeave");
+    expect(source).not.toContain("noopAsyncFalse");
+  });
+
+  it("leave page blocks local exit until relay confirms in authoritative mode", () => {
+    const source = readSource("app/groups/leave/page.tsx");
+    expect(source).toContain("isRelayAuthoritativeMembershipEnforced");
+    expect(source).toMatch(/leaveNip29Group\(\)[\s\S]*applyLocalLeave\(true\)/);
+    expect(source).toContain("Relay rejected leave. You remain a member of this community.");
   });
 
   it("settings bulk-leave enqueues outbox before ledger leave", () => {
-    const source = readSource("app/settings/settings-tab-panel-model-provider.tsx");
+    const source = readSource("app/settings/settings-tab-panel-models/use-settings-destructive-actions-model.ts");
     const block = source.slice(source.indexOf("for (const entry of joinedEntries)"));
     const enqueueAt = block.indexOf("enqueueCommunityLeaveOutboxItem");
     const ledgerAt = block.indexOf("persistExplicitCommunityMembershipLeave");

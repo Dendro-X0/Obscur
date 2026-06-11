@@ -7,6 +7,15 @@ import type { ContactRequestRecord } from "@/app/features/search/types/discovery
 import type { UserProfile } from "@/app/features/profile/hooks/use-profile";
 import type { LocalMediaStorageConfig } from "@/app/features/vault/services/local-media-store";
 import type { CommunityMembershipLedgerEntry } from "@/app/features/groups/services/community-membership-ledger";
+import type { GroupMessageRecord, GroupRecord, MessageRecord } from "@dweb/db";
+
+export type NativeSqliteBackupEvidenceSnapshot = Readonly<{
+  collectedAtUnixMs: number;
+  primaryProfileId: string;
+  dmMessages: ReadonlyArray<MessageRecord>;
+  groupMessages: ReadonlyArray<GroupMessageRecord>;
+  groupRecords: ReadonlyArray<GroupRecord>;
+}>;
 
 export type CanonicalAccountId = PublicKeyHex;
 
@@ -127,6 +136,7 @@ export type EncryptedAccountBackupPayload = Readonly<{
   communityMembershipLedger?: ReadonlyArray<CommunityMembershipLedgerEntry>;
   roomKeys?: ReadonlyArray<RoomKeySnapshot>;
   messageDeleteTombstones?: ReadonlyArray<MessageDeleteTombstoneSnapshotEntry>;
+  nativeSqliteEvidence?: NativeSqliteBackupEvidenceSnapshot;
   chatState: PersistedChatState | null;
   privacySettings: PrivacySettings;
   relayList: RelayListSnapshot;

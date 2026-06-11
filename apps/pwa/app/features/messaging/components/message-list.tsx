@@ -42,6 +42,8 @@ import {
     isMessageListUserAwayFromBottom,
     shouldMessageListLockToUserHistoryOnUpwardScroll,
     shouldAutoScrollOnNewMessage,
+    shouldMessageListAutoLoadEarlier,
+    shouldPinMessageListToLatestDuringInitialLanding,
 } from "./message-list-scroll";
 import { usePreferNativeTouchScroll } from "@/app/features/runtime/use-prefer-native-touch-scroll";
 import { useMobileThreadCompactCards } from "@/app/features/runtime/use-mobile-thread-compact-cards";
@@ -251,8 +253,15 @@ function MessageListImpl({
     const scrollModeRef = React.useRef<MessageListScrollMode>("follow_bottom");
     const [scrollMode, setScrollMode] = React.useState<MessageListScrollMode>("follow_bottom");
     const hasUserUpwardScrollIntentRef = React.useRef(false);
+    const initialLatestPinActiveRef = React.useRef(true);
     const pendingPrependAnchorRef = React.useRef<MessageListPrependAnchor | null>(null);
     const virtualizerRecoveryAttemptRef = React.useRef(0);
+    const loadEarlierInFlightRef = React.useRef(false);
+    const hasEarlierMessagesRef = React.useRef(hasEarlierMessages);
+
+    React.useEffect(() => {
+        hasEarlierMessagesRef.current = hasEarlierMessages;
+    }, [hasEarlierMessages]);
 
     React.useEffect(() => {
         const onPrivacySettingsChanged = () => {
@@ -282,6 +291,7 @@ function MessageListImpl({
     React.useEffect(() => {
         updateScrollMode("follow_bottom");
         hasUserUpwardScrollIntentRef.current = false;
+        initialLatestPinActiveRef.current = true;
         didInitialAutoScrollRef.current = false;
         initialLatestLandingCancelledRef.current = false;
         virtualizerRecoveryAttemptRef.current = 0;
@@ -362,10 +372,30 @@ function MessageListImpl({
 
     const markUserHistoryIntent = React.useCallback((nextMode: MessageListScrollMode = "user_reading_history"): void => {
         hasUserUpwardScrollIntentRef.current = true;
+        initialLatestPinActiveRef.current = false;
         initialLatestLandingCancelledRef.current = true;
         clearInitialLatestLandingTimer();
         updateScrollMode(nextMode);
     }, [clearInitialLatestLandingTimer, updateScrollMode]);
+
+    const releaseInitialLatestPin = React.useCallback((): void => {
+        initialLatestPinActiveRef.current = false;
+    }, []);
+
+    const shouldPinToLatestDuringInitialLanding = React.useCallback((): boolean => (
+        shouldPinMessageListToLatestDuringInitialLanding({
+            initialPinActive: initialLatestPinActiveRef.current,
+            userRequestedHistory: hasUserUpwardScrollIntentRef.current,
+            scrollMode: scrollModeRef.current,
+        })
+    ), []);
+
+    React.useEffect(() => {
+        if (!shouldPinToLatestDuringInitialLanding() || messages.length === 0) {
+            return;
+        }
+        scrollToBottom("auto");
+    }, [messages, scrollToBottom, shouldPinToLatestDuringInitialLanding]);
 
     const isNearBottom = React.useCallback((thresholdPx = 24): boolean => {
         const container = parentRef.current;
@@ -432,9 +462,15 @@ function MessageListImpl({
     }, [messages, virtualizer]);
 
     const requestLoadEarlier = React.useCallback((): void => {
+        if (loadEarlierInFlightRef.current || !hasEarlierMessagesRef.current) {
+            return;
+        }
+        loadEarlierInFlightRef.current = true;
         capturePrependAnchor();
         markUserHistoryIntent("loading_earlier");
-        void Promise.resolve(onLoadEarlier());
+        void Promise.resolve(onLoadEarlier()).finally(() => {
+            loadEarlierInFlightRef.current = false;
+        });
     }, [capturePrependAnchor, markUserHistoryIntent, onLoadEarlier]);
 
     React.useEffect(() => {
@@ -504,13 +540,17 @@ function MessageListImpl({
             ) {
                 return;
             }
-            if (resolveInitialLandingSignal() !== scheduledSignal) {
+            const signalChanged = resolveInitialLandingSignal() !== scheduledSignal;
+            if (signalChanged && !shouldPinToLatestDuringInitialLanding()) {
                 return;
             }
-            if (!isNearBottom()) {
+            if (!isNearBottom() || shouldPinToLatestDuringInitialLanding()) {
                 scrollToBottom("auto");
             }
-            didInitialAutoScrollRef.current = true;
+            if (!signalChanged || !shouldPinToLatestDuringInitialLanding()) {
+                didInitialAutoScrollRef.current = true;
+                releaseInitialLatestPin();
+            }
         }, INITIAL_LATEST_LANDING_STABLE_DELAY_MS);
 
         return () => {
@@ -524,8 +564,10 @@ function MessageListImpl({
         hasHydrated,
         isNearBottom,
         messages.length,
+        releaseInitialLatestPin,
         resolveInitialLandingSignal,
         scrollToBottom,
+        shouldPinToLatestDuringInitialLanding,
     ]);
 
     // Scroll to bottom and anchoring logic
@@ -567,7 +609,10 @@ function MessageListImpl({
                         pendingPrependAnchorRef.current = null;
                     }
                     updateScrollMode("user_reading_history");
-                } else if (canMessageListAutoScrollToBottom(scrollModeRef.current) && !hasUserUpwardScrollIntentRef.current) {
+                } else if (
+                    shouldPinToLatestDuringInitialLanding()
+                    || (canMessageListAutoScrollToBottom(scrollModeRef.current) && !hasUserUpwardScrollIntentRef.current)
+                ) {
                     // Non-user prepend while still in follow mode: keep the viewport anchored to newest.
                     scrollToBottom("auto");
                 } else {
@@ -611,7 +656,7 @@ function MessageListImpl({
             prevFirstId.current = messages[0]?.id || null;
             prevLength.current = messages.length;
         }
-    }, [hasHydrated, isNearBottom, messages, resolveUserAwayFromBottom, scrollToBottom, updateScrollMode, virtualizer]);
+    }, [hasHydrated, isNearBottom, messages, resolveUserAwayFromBottom, scrollToBottom, shouldPinToLatestDuringInitialLanding, updateScrollMode, virtualizer]);
 
     const prevFirstId = React.useRef<string | null>(null);
     const jumpResolveTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -883,8 +928,22 @@ function MessageListImpl({
                 }
 
             }
+
+            const userRequestedHistory = (
+                hasUserUpwardScrollIntentRef.current
+                || scrollModeRef.current === "user_reading_history"
+                || scrollModeRef.current === "loading_earlier"
+            );
+            if (shouldMessageListAutoLoadEarlier({
+                scrollTop: nextMetrics.scrollTop,
+                hasEarlierMessages: hasEarlierMessagesRef.current,
+                isLoadingEarlier: loadEarlierInFlightRef.current,
+                userRequestedHistory,
+            })) {
+                requestLoadEarlier();
+            }
         });
-    }, [chatPerformanceV2Enabled, markUserHistoryIntent]);
+    }, [chatPerformanceV2Enabled, markUserHistoryIntent, requestLoadEarlier]);
 
     const handleWheel = React.useCallback((event: React.WheelEvent<HTMLDivElement>) => {
         if (!event.isTrusted) {
@@ -1095,7 +1154,7 @@ function MessageListImpl({
                     touchStartYRef.current = null;
                 }}
             >
-                {!hasHydrated ? (
+                {!hasHydrated && messages.length === 0 ? (
                     <div className="space-y-3">
                         {Array.from({ length: 8 }).map((_, i) => (
                             <div key={i} className={cn("flex", i % 2 === 0 ? "justify-start" : "justify-end")}>

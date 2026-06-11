@@ -11,6 +11,7 @@
         "allow-misc-commands",
         "allow-relay-commands",
         "allow-wallet-commands",
+        "allow-db-commands",
         {
             "identifier": "http:default",
             "allow": [

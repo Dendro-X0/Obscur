@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
-import { useEnhancedDMController } from "../../controllers/enhanced-dm-controller";
+import { useEnhancedDMController } from "../../controllers/legacy/enhanced-dm-controller";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import { parsePublicKeyInput } from "@/app/features/profile/utils/parse-public-key-input";

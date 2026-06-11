@@ -27,4 +27,6 @@ export {
   dbGetRelayCheckpoint,
   dbGetRelayCheckpoints,
   dbSearchMessages,
+  dbWipeProfileLocalData,
 } from "./client";
+export type { WipeProfileLocalDataReport } from "./client";

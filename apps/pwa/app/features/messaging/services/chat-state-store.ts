@@ -86,9 +86,9 @@ class ChatStateStore {
     update(
         publicKeyHex: PublicKeyHex,
         updater: (prev: PersistedChatState) => PersistedChatState,
-        options?: Readonly<{ silent?: boolean; debounceMs?: number }>
+        options?: Readonly<{ silent?: boolean; debounceMs?: number; profileId?: string }>
     ): void {
-        const profileId = getResolvedProfileId();
+        const profileId = options?.profileId ?? getResolvedProfileId();
         const scopeKey = toScopedCacheKey(publicKeyHex, profileId);
         const current = this.load(publicKeyHex, { profileId }) || this.createInitialState();
         const next = updater(current);

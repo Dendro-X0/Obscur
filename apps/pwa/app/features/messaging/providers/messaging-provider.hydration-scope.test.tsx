@@ -43,6 +43,10 @@ const telemetryMocks = vi.hoisted(() => ({
   logAppEvent: vi.fn(),
 }));
 
+const dmKernelMocks = vi.hoisted(() => ({
+  isAuthority: false,
+}));
+
 const nativeRuntimeMocks = vi.hoisted(() => ({
   isNative: false,
   sqliteConversations: [] as Array<{
@@ -54,6 +58,34 @@ const nativeRuntimeMocks = vi.hoisted(() => ({
     last_plaintext_preview: string | null;
     unread_count: number;
   }>,
+}));
+
+vi.mock("@/app/features/messaging/services/thread-history/resolve-dm-thread-history-adapter", () => {
+  const stubPort = {
+    prepareThreadSuppressionIds: async () => new Set<string>(),
+    hydrateThreadReadModel: async () => ({
+      finalMessages: [],
+      displayMessages: [],
+      hasCompleteDirectionCoverage: true,
+      projectionMergeBlocked: false,
+    }),
+    buildProjectionEvidenceMessages: () => [],
+    mergeProjectionWithLiveOverlay: (params: { displayMessages?: ReadonlyArray<unknown> }) => ({
+      displayMessages: params.displayMessages ?? [],
+    }),
+    loadEarlierMessages: async () => ({ messages: [], hasMore: false }),
+    applyRealtimeBufferedEvents: () => [],
+    filterThreadMessagesBySuppression: <T,>(messages: ReadonlyArray<T>) => messages,
+    mergeHydratedBaseWithLiveOverlay: <T,>(base: ReadonlyArray<T>) => base,
+  };
+  return {
+    resolveDmThreadHistoryAdapter: () => stubPort,
+  };
+});
+
+vi.mock("@/app/features/dm-kernel/dm-kernel-policy", () => ({
+  isDmKernelAuthority: () => dmKernelMocks.isAuthority,
+  isDmKernelRelaySyncSuppressed: () => dmKernelMocks.isAuthority,
 }));
 
 vi.mock("@/app/features/runtime/runtime-capabilities", async (importOriginal) => {
@@ -205,6 +237,7 @@ describe("messaging-provider hydration scope resets", () => {
     telemetryMocks.logAppEvent.mockReset();
     projectionSidebarState.useProjectionReads = false;
     projectionSidebarState.projectionConnections = [];
+    dmKernelMocks.isAuthority = false;
     nativeRuntimeMocks.isNative = false;
     nativeRuntimeMocks.sqliteConversations = [];
 
@@ -506,6 +539,7 @@ describe("messaging-provider hydration scope resets", () => {
 
   it("does not resurrect chat-state message threads when native sqlite is list authority", async () => {
     nativeRuntimeMocks.isNative = true;
+    dmKernelMocks.isAuthority = true;
     const accountA = "a".repeat(64);
     const sqlitePeer = "7".repeat(64);
     const ghostPeer = "8".repeat(64);
@@ -550,8 +584,8 @@ describe("messaging-provider hydration scope resets", () => {
     await waitFor(() => {
       const connections = screen.getByTestId("connections").textContent ?? "";
       expect(connections).toContain(sqlitePeer);
-      expect(connections).toContain("Metadata Contact");
-      expect(connections).not.toContain("8".repeat(64));
+      expect(connections).not.toContain("Metadata Contact");
+      expect(connections).not.toContain(ghostPeer);
     });
     expect(telemetryMocks.logAppEvent).toHaveBeenCalledWith(expect.objectContaining({
       context: expect.objectContaining({

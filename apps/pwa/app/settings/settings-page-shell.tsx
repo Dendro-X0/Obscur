@@ -27,6 +27,36 @@ import {
 } from "@/app/shared/search-target-highlight";
 import { useMobileCompactLayout } from "@/app/features/runtime/use-mobile-compact-layout";
 
+function DeferredSettingsTabPanel(props: Readonly<{ activeTab: SettingsTabId }>): React.JSX.Element {
+  const [panelReady, setPanelReady] = useState(false);
+
+  useEffect((): (() => void) => {
+    let cancelled = false;
+    setPanelReady(false);
+    const frameId = window.requestAnimationFrame((): void => {
+      if (!cancelled) {
+        setPanelReady(true);
+      }
+    });
+    return (): void => {
+      cancelled = true;
+      window.cancelAnimationFrame(frameId);
+    };
+  }, [props.activeTab]);
+
+  if (!panelReady) {
+    return (
+      <div
+        data-testid="settings-tab-panel-deferred"
+        className="min-h-[12rem] animate-pulse rounded-2xl bg-zinc-100/60 dark:bg-zinc-900/40"
+        aria-hidden="true"
+      />
+    );
+  }
+
+  return <SettingsTabPanel activeTab={props.activeTab} />;
+}
+
 export default function SettingsPage(): React.JSX.Element {
   const { t } = useTranslation();
   const identity = useIdentity();
@@ -150,6 +180,7 @@ export default function SettingsPage(): React.JSX.Element {
                         <button
                           key={item.id}
                           type="button"
+                          data-settings-tab={item.id}
                           onClick={() => setActiveTab(item.id as SettingsTabId)}
                           className={cn(
                             "group flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm transition-all text-left outline-none",
@@ -282,7 +313,7 @@ export default function SettingsPage(): React.JSX.Element {
                       compact ? "p-2" : "p-3 sm:p-4",
                     )}
                   >
-                    <SettingsTabPanel activeTab={activeTab} />
+                    <DeferredSettingsTabPanel activeTab={activeTab} />
                   </div>
                 </motion.div>
               )}
@@ -291,7 +322,7 @@ export default function SettingsPage(): React.JSX.Element {
 
           <main className={cn("min-w-0 flex-1", compact ? "hidden" : "block")}>
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <SettingsTabPanel activeTab={activeTab} />
+              <DeferredSettingsTabPanel activeTab={activeTab} />
             </div>
           </main>
         </div>

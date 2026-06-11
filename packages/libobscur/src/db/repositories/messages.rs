@@ -87,6 +87,13 @@ pub struct CallRecord {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WipeProfileLocalDataReport {
+    pub profile_id: String,
+    pub rows_deleted: u64,
+    pub profile_row_deleted: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MessageSearchResult {
     /// Which source table the hit came from: "dm" or "group".
     pub source: String,
@@ -102,6 +109,19 @@ pub struct MessageSearchResult {
 }
 
 impl Database {
+    /// Ensures a local profile slot exists so FK-backed inserts do not silently no-op.
+    pub fn ensure_profile_slot(&self, profile_id: &str, public_key: &str) -> Result<()> {
+        let created_at = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|duration| duration.as_secs() as i64)
+            .unwrap_or(0);
+        self.conn.execute(
+            "INSERT OR IGNORE INTO profiles (id, public_key, created_at) VALUES (?1, ?2, ?3)",
+            params![profile_id, public_key, created_at],
+        )?;
+        Ok(())
+    }
+
     // -----------------------------------------------------------------------
     // Messages
     // -----------------------------------------------------------------------
@@ -130,6 +150,14 @@ impl Database {
 
     /// Insert a message. Silently ignored if (event_id, profile_id) already exists.
     pub fn insert_message(&self, msg: &MessageRecord) -> Result<()> {
+        let account_pubkey = if msg.is_outgoing {
+            msg.sender_pubkey.as_str()
+        } else {
+            msg.recipient_pubkey.as_str()
+        };
+        if !account_pubkey.is_empty() {
+            self.ensure_profile_slot(&msg.profile_id, account_pubkey)?;
+        }
         self.conn.execute(
             "INSERT OR IGNORE INTO messages
              (event_id, profile_id, conversation_id, sender_pubkey, recipient_pubkey,
@@ -409,6 +437,7 @@ impl Database {
 
     /// Insert a group message. Silently ignored on duplicate (event_id, profile_id).
     pub fn insert_group_message(&self, m: &GroupMessageRecord) -> Result<()> {
+        self.ensure_profile_slot(&m.profile_id, &m.sender_pubkey)?;
         self.conn.execute(
             "INSERT OR IGNORE INTO group_messages
              (event_id, group_id, profile_id, sender_pubkey, plaintext, created_at, received_at)
@@ -721,6 +750,52 @@ impl Database {
         results.truncate(limit as usize);
         Ok(results)
     }
+
+    /// Remove all durable SQLite rows for a profile slot (messages, groups, checkpoints, etc.).
+    /// When `remove_profile_row` is false the `profiles` row is kept (cache reset while signed in).
+    pub fn wipe_profile_local_data(
+        &self,
+        profile_id: &str,
+        remove_profile_row: bool,
+    ) -> Result<WipeProfileLocalDataReport> {
+        const TABLES: &[&str] = &[
+            "messages",
+            "tombstones",
+            "conversations",
+            "peer_relay_hints",
+            "connection_requests",
+            "groups",
+            "group_messages",
+            "group_tombstones",
+            "call_records",
+            "relay_checkpoints",
+        ];
+
+        let mut rows_deleted: u64 = 0;
+        for table in TABLES {
+            let count = self.conn.execute(
+                &format!("DELETE FROM {table} WHERE profile_id = ?1"),
+                params![profile_id],
+            )?;
+            rows_deleted += count as u64;
+        }
+
+        let profile_row_deleted = if remove_profile_row {
+            let count = self
+                .conn
+                .execute("DELETE FROM profiles WHERE id = ?1", params![profile_id])?;
+            rows_deleted += count as u64;
+            count > 0
+        } else {
+            false
+        };
+
+        Ok(WipeProfileLocalDataReport {
+            profile_id: profile_id.to_string(),
+            rows_deleted,
+            profile_row_deleted,
+        })
+    }
 }
 
 #[cfg(test)]
@@ -750,6 +825,22 @@ mod tests {
             reply_to_event_id: None,
             has_attachment: false,
         }
+    }
+
+    #[test]
+    fn incoming_insert_ensures_profile_slot_with_recipient_pubkey() {
+        let db = Database::new(None).unwrap();
+        let mut msg = make_message("evt_in", "profile_a", "aaa:bbb");
+        msg.sender_pubkey = "peer_sender".to_string();
+        msg.recipient_pubkey = "my_account".to_string();
+        msg.is_outgoing = false;
+        db.insert_message(&msg).unwrap();
+        let public_key: String = db.conn.query_row(
+            "SELECT public_key FROM profiles WHERE id = ?1",
+            rusqlite::params!["profile_a"],
+            |row| row.get(0),
+        ).unwrap();
+        assert_eq!(public_key, "my_account");
     }
 
     #[test]
@@ -1055,6 +1146,16 @@ mod tests {
         db.upsert_group(&GroupRecord { name: "Renamed".to_string(), ..make_group("grp1", "p") }).unwrap();
         let groups = db.get_groups("p").unwrap();
         assert_eq!(groups[0].name, "Renamed");
+    }
+
+    #[test]
+    fn test_group_message_insert_without_preseeded_profile() {
+        let db = Database::new(None).unwrap();
+        let msg = make_group_message("e0", "g1", "slot-a", 1000);
+        db.insert_group_message(&msg).unwrap();
+        let rows = db.get_group_messages("slot-a", "g1", 10, None).unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].plaintext, "hello group");
     }
 
     #[test]
@@ -1390,5 +1491,42 @@ mod tests {
         }
         let results = db.search_messages("p", "needle", 5).unwrap();
         assert!(results.len() <= 5, "limit must be respected");
+    }
+
+    #[test]
+    fn test_wipe_profile_local_data_keeps_profile_row_by_default() {
+        let db = Database::new(None).unwrap();
+        seed_profile(&db, "pa");
+        seed_profile(&db, "pb");
+        db.insert_message(&make_message("e1", "pa", "conv")).unwrap();
+        db.insert_message(&make_message("e2", "pb", "conv")).unwrap();
+
+        let report = db.wipe_profile_local_data("pa", false).unwrap();
+        assert!(report.rows_deleted >= 1);
+        assert!(!report.profile_row_deleted);
+
+        assert_eq!(db.get_messages_by_conversation("pa", "conv", 10, None).unwrap().len(), 0);
+        assert_eq!(db.get_messages_by_conversation("pb", "conv", 10, None).unwrap().len(), 1);
+        let profile_count: i64 = db
+            .conn
+            .query_row("SELECT COUNT(*) FROM profiles WHERE id = ?1", params!["pa"], |row| row.get(0))
+            .unwrap();
+        assert_eq!(profile_count, 1);
+    }
+
+    #[test]
+    fn test_wipe_profile_local_data_can_remove_profile_row() {
+        let db = Database::new(None).unwrap();
+        seed_profile(&db, "pa");
+        db.insert_message(&make_message("e1", "pa", "conv")).unwrap();
+
+        let report = db.wipe_profile_local_data("pa", true).unwrap();
+        assert!(report.profile_row_deleted);
+
+        let profile_count: i64 = db
+            .conn
+            .query_row("SELECT COUNT(*) FROM profiles WHERE id = ?1", params!["pa"], |row| row.get(0))
+            .unwrap();
+        assert_eq!(profile_count, 0);
     }
 }

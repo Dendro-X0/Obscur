@@ -1,4 +1,5 @@
 import { openMessageDb } from "./open-message-db";
+import { nativeDmSkipsIndexedDbMessageQueue } from "../services/native-dm-read-policy";
 import type { NostrEvent } from "@dweb/nostr/nostr-event";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { PrivacySettingsService } from "../../settings/services/privacy-settings-service";
@@ -257,6 +258,9 @@ export class MessageQueue implements IMessageQueue {
   }
 
   async persistMessage(message: Message): Promise<void> {
+    if (nativeDmSkipsIndexedDbMessageQueue()) {
+      return;
+    }
     const db = await this.getDb();
     const settings = PrivacySettingsService.getSettings();
     const shouldEncrypt = settings.encryptStorageAtRest;
@@ -316,6 +320,9 @@ export class MessageQueue implements IMessageQueue {
   }
 
   async getMessage(messageId: string): Promise<Message | null> {
+    if (nativeDmSkipsIndexedDbMessageQueue()) {
+      return null;
+    }
     const db = await this.getDb();
 
     return new Promise((resolve, reject) => {

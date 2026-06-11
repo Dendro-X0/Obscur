@@ -12,6 +12,7 @@ import {
   toGroupConversationFromMembershipLedgerEntry,
 } from "./community-membership-ledger";
 import { toGroupTombstoneKey } from "./group-tombstone-store";
+import { communityMembershipScopeMatchesStorageKey } from "./community-membership-scope-key";
 import { pickPreferredCommunityId } from "../utils/community-identity";
 import { hasDurableCommunityLeaveIntent } from "./community-membership-leave-intent";
 import { isRadicalMembershipTruthEnforced } from "./community-radical-truth-policy";
@@ -54,6 +55,16 @@ export type CommunityMembershipRecoveryResult = Readonly<{
   membershipProjections: ReadonlyArray<CommunityMembershipProjection>;
   diagnostics: CommunityMembershipRecoveryDiagnostics;
 }>;
+
+const isScopeTombstoned = (
+  tombstones: ReadonlySet<string>,
+  groupId: string,
+  relayUrl: string,
+): boolean => (
+  Array.from(tombstones).some((tombstoneKey) => (
+    communityMembershipScopeMatchesStorageKey({ groupId, relayUrl }, tombstoneKey)
+  ))
+);
 
 const toLastMessageUnixMs = (group: GroupConversation): number => {
   const value = group.lastMessageTime?.getTime?.() ?? 0;
@@ -234,7 +245,7 @@ export const resolveCommunityMembershipRecovery = (params: Readonly<{
     const membershipEntry = ledgerByKey.get(key);
     consumedKeys.add(key);
 
-    if (params.tombstones.has(key)) {
+    if (isScopeTombstoned(params.tombstones, persistedGroup.groupId, persistedGroup.relayUrl)) {
       hiddenByTombstoneCount += 1;
       continue;
     }
@@ -321,7 +332,7 @@ export const resolveCommunityMembershipRecovery = (params: Readonly<{
     if (consumedKeys.has(key)) {
       continue;
     }
-    if (params.tombstones.has(key)) {
+    if (isScopeTombstoned(params.tombstones, membershipEntry.groupId, membershipEntry.relayUrl ?? "")) {
       hiddenByTombstoneCount += 1;
       continue;
     }

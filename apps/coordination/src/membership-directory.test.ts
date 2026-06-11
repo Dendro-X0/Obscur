@@ -191,6 +191,169 @@ describe("membership directory handlers", () => {
     expect(body.error).toBe("leave_requires_self_attestation");
   });
 
+  it("rejects expel from non-bootstrap steward (steward ACL)", async () => {
+    const state = { heads: new Map(), deltas: [] };
+    const env = { DB: createMockD1(state) };
+    const createdAtUnixMs = 1_700_000_000;
+    const bootstrapSig = await signMembershipDelta({
+      communityId: "workspace-expel",
+      action: "join",
+      subjectPubkey: actor,
+      actorPubkey: actor,
+      createdAtUnixMs,
+      actorPrivateKeyHex: priv,
+    });
+    await handleMembershipDeltaAppend(
+      "workspace-expel",
+      new Request("http://local", {
+        method: "POST",
+        body: JSON.stringify({
+          action: "join",
+          subjectPubkey: actor,
+          actorPubkey: actor,
+          createdAtUnixMs,
+          signature: bootstrapSig,
+        }),
+      }),
+      env,
+    );
+
+    const memberPriv = "4f3edf4ad81639d2b1c5a488f54ce6d870e7a3bf770f1a7ea0a866e5d7a0d6e1" as PrivateKeyHex;
+    const memberPubkey = derivePublicKeyHex(memberPriv);
+    const memberJoinSig = await signMembershipDelta({
+      communityId: "workspace-expel",
+      action: "join",
+      subjectPubkey: memberPubkey,
+      actorPubkey: memberPubkey,
+      createdAtUnixMs: createdAtUnixMs + 1,
+      actorPrivateKeyHex: memberPriv,
+    });
+    await handleMembershipDeltaAppend(
+      "workspace-expel",
+      new Request("http://local", {
+        method: "POST",
+        body: JSON.stringify({
+          action: "join",
+          subjectPubkey: memberPubkey,
+          actorPubkey: memberPubkey,
+          createdAtUnixMs: createdAtUnixMs + 1,
+          signature: memberJoinSig,
+        }),
+      }),
+      env,
+    );
+
+    const forgedExpelSig = await signMembershipDelta({
+      communityId: "workspace-expel",
+      action: "expel",
+      subjectPubkey: actor,
+      actorPubkey: memberPubkey,
+      createdAtUnixMs: createdAtUnixMs + 2,
+      actorPrivateKeyHex: memberPriv,
+    });
+    const response = await handleMembershipDeltaAppend(
+      "workspace-expel",
+      new Request("http://local", {
+        method: "POST",
+        body: JSON.stringify({
+          action: "expel",
+          subjectPubkey: actor,
+          actorPubkey: memberPubkey,
+          createdAtUnixMs: createdAtUnixMs + 2,
+          signature: forgedExpelSig,
+        }),
+      }),
+      env,
+    );
+    expect(response.status).toBe(403);
+    const body = await readJson(response);
+    expect(body.error).toBe("expel_requires_bootstrap_steward");
+  });
+
+  it("appends self leave delta after two-member join (K-M1 directory path)", async () => {
+    const state = { heads: new Map(), deltas: [] };
+    const env = { DB: createMockD1(state) };
+    const createdAtUnixMs = 1_700_000_000;
+    const bootstrapSig = await signMembershipDelta({
+      communityId: "k-m1-leave",
+      action: "join",
+      subjectPubkey: actor,
+      actorPubkey: actor,
+      createdAtUnixMs,
+      actorPrivateKeyHex: priv,
+    });
+    await handleMembershipDeltaAppend(
+      "k-m1-leave",
+      new Request("http://local", {
+        method: "POST",
+        body: JSON.stringify({
+          action: "join",
+          subjectPubkey: actor,
+          actorPubkey: actor,
+          createdAtUnixMs,
+          signature: bootstrapSig,
+        }),
+      }),
+      env,
+    );
+
+    const memberPriv = "4f3edf4ad81639d2b1c5a488f54ce6d870e7a3bf770f1a7ea0a866e5d7a0d6e1" as PrivateKeyHex;
+    const memberPubkey = derivePublicKeyHex(memberPriv);
+    const memberJoinSig = await signMembershipDelta({
+      communityId: "k-m1-leave",
+      action: "join",
+      subjectPubkey: memberPubkey,
+      actorPubkey: memberPubkey,
+      createdAtUnixMs: createdAtUnixMs + 1,
+      actorPrivateKeyHex: memberPriv,
+    });
+    await handleMembershipDeltaAppend(
+      "k-m1-leave",
+      new Request("http://local", {
+        method: "POST",
+        body: JSON.stringify({
+          action: "join",
+          subjectPubkey: memberPubkey,
+          actorPubkey: memberPubkey,
+          createdAtUnixMs: createdAtUnixMs + 1,
+          signature: memberJoinSig,
+        }),
+      }),
+      env,
+    );
+
+    const leaveSig = await signMembershipDelta({
+      communityId: "k-m1-leave",
+      action: "leave",
+      subjectPubkey: memberPubkey,
+      actorPubkey: memberPubkey,
+      createdAtUnixMs: createdAtUnixMs + 2,
+      actorPrivateKeyHex: memberPriv,
+    });
+    const leaveResponse = await handleMembershipDeltaAppend(
+      "k-m1-leave",
+      new Request("http://local", {
+        method: "POST",
+        body: JSON.stringify({
+          action: "leave",
+          subjectPubkey: memberPubkey,
+          actorPubkey: memberPubkey,
+          createdAtUnixMs: createdAtUnixMs + 2,
+          signature: leaveSig,
+        }),
+      }),
+      env,
+    );
+    expect(leaveResponse.status).toBe(200);
+
+    const deltasResponse = await handleMembershipDeltasSince("k-m1-leave", 0, env);
+    const deltasBody = await readJson(deltasResponse);
+    const deltas = (deltasBody.data as Record<string, unknown>).deltas as ReadonlyArray<Record<string, unknown>>;
+    expect(deltas).toHaveLength(3);
+    expect(deltas[2]?.action).toBe("leave");
+    expect(deltas[2]?.subjectPubkey).toBe(memberPubkey.toLowerCase());
+  });
+
   it("filters deltas since cursor", async () => {
     const state = { heads: new Map(), deltas: [] };
     const env = { DB: createMockD1(state) };

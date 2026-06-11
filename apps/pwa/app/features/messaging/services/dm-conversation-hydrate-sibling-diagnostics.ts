@@ -1,4 +1,7 @@
 /**
+ * @deprecated Native DM must use `features/dm-kernel/`. Web legacy only.
+ * @see docs/program/obscur-v2-slim-kernel-manifest.md
+ *
  * Hydration-time diagnostics when indexed rows look incoming-only but sibling conversation ids may hold outgoing under legacy id splits (R1).
  */
 

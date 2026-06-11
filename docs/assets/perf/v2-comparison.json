@@ -1,0 +1,36 @@
+{
+  "schema": "obscur-shell-perf-baseline/v1",
+  "comparedAt": "2026-06-09T15:11:18.209Z",
+  "dev": {
+    "mode": "dev",
+    "navigationCount": 6,
+    "successCount": 6,
+    "medianNavMs": 152,
+    "maxNavMs": 991,
+    "settingsColdMs": 133,
+    "settingsWarmMs": 70,
+    "settingsWarmSpeedupRatio": 1.9,
+    "coldStartDomMs": 84,
+    "shellPhase": "unlocked",
+    "experimentShell": true,
+    "maxRouteMountWorstMs": 0
+  },
+  "prod": {
+    "mode": "prod",
+    "navigationCount": 6,
+    "successCount": 6,
+    "medianNavMs": 106,
+    "maxNavMs": 931,
+    "settingsColdMs": 124,
+    "settingsWarmMs": 57,
+    "settingsWarmSpeedupRatio": 2.18,
+    "coldStartDomMs": 58,
+    "shellPhase": "unlocked",
+    "experimentShell": true,
+    "maxRouteMountWorstMs": 0
+  },
+  "devToProdMedianRatio": 1.43,
+  "settingsCompileSignal": false,
+  "verdict": "acceptable",
+  "rationale": "Both modes show sub-threshold sidebar navigation medians in this harness — re-check subjective UX on real Tauri WebView."
+}

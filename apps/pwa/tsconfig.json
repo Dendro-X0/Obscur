@@ -51,6 +51,7 @@
   "exclude": [
     "node_modules",
     ".next",
-    "out"
+    "out",
+    "app/features/messaging/controllers/legacy/**"
   ]
 }

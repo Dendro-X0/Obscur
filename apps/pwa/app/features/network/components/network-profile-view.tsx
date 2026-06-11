@@ -350,7 +350,7 @@ export default function ConnectionProfileView() {
                 about: group.about,
                 picture: group.avatar,
                 access: group.access,
-                memberCount,
+                ...(group.access === "open" ? { memberCount } : {}),
             };
 
             const { giftWrapEvent, canonicalRumorEventId } = await inviteEventBuilder(

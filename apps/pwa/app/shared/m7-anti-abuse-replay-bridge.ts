@@ -65,7 +65,7 @@ type M7AntiAbuseReplayApi = Readonly<{
   }>) => string;
 }>;
 
-type M7AntiAbuseReplayWindow = Window & {
+type M7AntiAbuseReplayWindow = Omit<Window, "obscurAppEvents"> & {
   obscurM7AntiAbuseReplay?: M7AntiAbuseReplayApi;
   obscurM7AntiAbuseCapture?: Readonly<{
     capture?: (eventWindowSize?: number) => M7AntiAbuseCaptureBundle;

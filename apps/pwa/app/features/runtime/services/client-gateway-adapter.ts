@@ -5,7 +5,7 @@ import {
 import { communityRosterMaterializationOwner } from "@/app/features/groups/services/community-roster-materialization-owner";
 import { communityMembershipPortOwner } from "@/app/features/groups/services/community-membership-port-owner";
 import { communityTransportOwner } from "@/app/features/groups/services/community-transport-owner";
-import { dmConversationMaterializationOwner } from "@/app/features/messaging/services/dm-conversation-materialization-owner";
+import { resolveDmThreadHistoryAdapter } from "@/app/features/messaging/services/thread-history/resolve-dm-thread-history-adapter";
 import type { AppClientGateway } from "@/app/features/runtime/types/app-client-gateway";
 import {
   DESKTOP_TAURI_CAPABILITIES,
@@ -47,7 +47,7 @@ export const buildAppClientGateway = (params: Readonly<{
     messageDeleteTombstones: params.storagePorts.messageDeleteTombstones,
     localDmVisibility: localDmVisibilityOwner,
   }),
-  dmConversationMaterialization: dmConversationMaterializationOwner,
+  dmConversationMaterialization: resolveDmThreadHistoryAdapter(),
   communityRoster: communityRosterMaterializationOwner,
   communityTransport: communityTransportOwner,
   communityMembership: communityMembershipPortOwner,

@@ -64,4 +64,4 @@ Maintainer smoke for **Band B0** — two desktop profiles, one coordination work
 
 **Production builds** require live `/health` (`probedHealthy === true`); dev escapes (`assume-local`, coordination-only mode) apply only in non-production or when `NEXT_PUBLIC_OBSCUR_ALLOW_WORKSPACE_DEV_ESCAPES=true` is set explicitly for local maintainer testing.
 
-Verify gates: `pnpm verify:path-b-b0`
+Verify gates: `pnpm verify:path-b-b0` · worker steward ACL: `pnpm verify:path-b-b1-4`

@@ -10,6 +10,7 @@ import {
   type RequestTransportStatus,
 } from "./request-flow-contracts";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
+import { evaluatePathBConnectionRequestEconomicsGate } from "./path-b-b5-extension-hooks";
 import { requestFlowEvidenceStore } from "./request-flow-evidence-store";
 
 type RequestInboxStatus = Readonly<{
@@ -235,6 +236,22 @@ export const createRequestTransportService = (deps: RequestTransportDependencies
     peerPublicKeyHex: PublicKeyHex;
     introMessage?: string;
   }>): Promise<RequestTransportOutcome> => {
+    if (deps.accountPublicKeyHex && !evaluatePathBConnectionRequestEconomicsGate(deps.accountPublicKeyHex)) {
+      const rateLimitedResult: SendResult = {
+        success: false,
+        deliveryStatus: "failed",
+        messageId: "",
+        relayResults: [],
+        blockReason: "cooldown_active",
+        error: "Connection request rate limit exceeded. Please try again later.",
+      };
+      return toRequestTransportOutcome({
+        status: "failed",
+        result: rateLimitedResult,
+        evidence: evidenceStore.get(params.peerPublicKeyHex, evidenceProfileId),
+        inboxStatus: resolveInboxStatus(deps.requestsInbox, params.peerPublicKeyHex),
+      });
+    }
     const result = await sendConnectionRequestRaw(params);
     if (deps.accountPublicKeyHex && hasRelayDeliveryEvidence(result)) {
       await appendCanonicalContactEvent({

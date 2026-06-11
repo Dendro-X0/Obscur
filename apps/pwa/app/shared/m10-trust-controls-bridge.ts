@@ -527,7 +527,7 @@ type M10TrustControlsBridgeApi = Readonly<{
   runV130ReleaseCandidateGateProbeJson: (params?: M10V130ReleaseCandidateCaptureParams) => string;
 }>;
 
-type M10TrustControlsBridgeWindow = Window & {
+type M10TrustControlsBridgeWindow = Omit<Window, "obscurAppEvents"> & {
   obscurM10TrustControls?: M10TrustControlsBridgeApi;
   obscurAppEvents?: Readonly<{
     findByName?: (name: string, count?: number) => ReadonlyArray<MinimalAppEvent>;

@@ -12,6 +12,7 @@
         "allow-misc-commands",
         "allow-relay-commands",
         "allow-wallet-commands",
+        "allow-db-commands",
         "shell:allow-kill",
         "shell:allow-open",
         {
