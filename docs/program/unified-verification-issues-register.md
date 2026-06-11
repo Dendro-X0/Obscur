@@ -10,7 +10,7 @@
 | Field | Value |
 |-------|--------|
 | Concentration unit | **v1.9.4** Phase B |
-| Git SHA | `f7413dca` |
+| Git SHA | `c30caf34` |
 | Handoff | [current-session.md](../handoffs/current-session.md) |
 | §0 + STAB-R + P4-5 | **Pass** — `pnpm verify:stability` + `release:test-pack` |
 | Programmatic (2026-06-11) | **Pass** — `pnpm verify:phase-b-full` + community invariants **123/123** |
@@ -65,4 +65,4 @@
 | 2026-06-02 | P4-5 subtraction + `release:test-pack` @ `02f1cb1b`; ACC-03/04 registered |
 | 2026-06-02 | STAB-R closed @ `2a1badf7`; register synced |
 | 2026-06-11 | Phase B programmatic: platform-kernels + community-invariants 97/97; runtime membership-join-leave blocked on coordination startup |
-| 2026-06-11 | COM-8 synthetic dev-lab probe + static shell rebuild; membership-join-leave Pass; community invariants 123/123 |
+| 2026-06-11 | `verify:phase-b-full` Pass; Path B contract tests updated for join-evidence + W2 delegate |
