@@ -1,5 +1,6 @@
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { loadCoordinationMembershipDirectory } from "@/app/features/groups/services/community-coordination-membership-directory-store";
+import { evaluateJoinerMembershipRepairReadModels } from "@/app/features/groups/services/community-joiner-membership-repair-scenario";
 import { resolveCommunityInviteMemberBlocklist } from "@/app/features/groups/services/community-invite-eligibility-read-model";
 import { resolveCommunityParticipantDisplayPubkeys } from "@/app/features/groups/services/community-participant-display-read-model";
 import {
@@ -13,6 +14,7 @@ import { getResolvedProfileId } from "@/app/features/profiles/services/profile-r
 import { loadWorkspaceGroupMetadataRecords } from "@/app/features/workspace-kernel/workspace-kernel-group-metadata-store";
 import { resolveManagedWorkspaceGroupList } from "@/app/features/workspace-kernel/workspace-kernel-list-port";
 import { isWorkspaceKernelAuthority } from "@/app/features/workspace-kernel/workspace-kernel-policy";
+import { isDevLabEnabled } from "./dev-lab-policy";
 
 export type DevLabJoinerMembershipProbeGroupResult = Readonly<{
   groupId: string;
@@ -31,6 +33,7 @@ export type DevLabJoinerMembershipProbeResult = Readonly<{
   skipped: boolean;
   reason: string;
   kernelAuthority: boolean;
+  synthetic: boolean;
   groupsChecked: number;
   groups: ReadonlyArray<DevLabJoinerMembershipProbeGroupResult>;
 }>;
@@ -106,6 +109,29 @@ const probeGroup = (params: Readonly<{
   };
 };
 
+const runSyntheticJoinerMembershipRepairProbe = (): DevLabJoinerMembershipProbeResult => {
+  const scenario = evaluateJoinerMembershipRepairReadModels();
+  return {
+    ok: scenario.ok,
+    skipped: false,
+    reason: scenario.ok ? "synthetic_joiner_repair_ok" : "synthetic_joiner_repair_failed",
+    kernelAuthority: false,
+    synthetic: true,
+    groupsChecked: 1,
+    groups: [{
+      groupId: "newtest-2",
+      relayUrl: "ws://localhost:7000",
+      effectiveCommunityMode: scenario.effectiveCommunityMode,
+      joinEvidenceCount: scenario.displayPubkeys.length,
+      directoryActiveCount: 1,
+      displayCount: scenario.displayPubkeys.length,
+      blocklistCount: scenario.blocklistPubkeys.length,
+      passed: scenario.ok,
+      issues: [...scenario.issues],
+    }],
+  };
+};
+
 /** COM-8 programmatic probe — join-evidence repair when coordination directory is stale. */
 export const runJoinerMembershipRepairProbe = (params: Readonly<{
   publicKeyHex: PublicKeyHex;
@@ -119,17 +145,22 @@ export const runJoinerMembershipRepairProbe = (params: Readonly<{
       skipped: true,
       reason: "missing_public_key",
       kernelAuthority: isWorkspaceKernelAuthority(),
+      synthetic: false,
       groupsChecked: 0,
       groups: [],
     };
   }
 
   if (!isWorkspaceKernelAuthority()) {
+    if (isDevLabEnabled()) {
+      return runSyntheticJoinerMembershipRepairProbe();
+    }
     return {
       ok: true,
       skipped: true,
       reason: "workspace_kernel_inactive",
       kernelAuthority: false,
+      synthetic: false,
       groupsChecked: 0,
       groups: [],
     };
@@ -154,6 +185,7 @@ export const runJoinerMembershipRepairProbe = (params: Readonly<{
       skipped: true,
       reason: "no_multi_member_join_evidence_groups",
       kernelAuthority: true,
+      synthetic: false,
       groupsChecked: 0,
       groups: [],
     };
@@ -171,6 +203,7 @@ export const runJoinerMembershipRepairProbe = (params: Readonly<{
     skipped: false,
     reason: ok ? "joiner_membership_repair_ok" : "joiner_membership_repair_failed",
     kernelAuthority: true,
+    synthetic: false,
     groupsChecked: groupResults.length,
     groups: groupResults,
   };

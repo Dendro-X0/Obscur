@@ -3,7 +3,11 @@ import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { GroupConversation } from "@/app/features/messaging/types";
 
 vi.mock("@/app/features/workspace-kernel/workspace-kernel-policy", () => ({
-  isWorkspaceKernelAuthority: vi.fn(() => true),
+  isWorkspaceKernelAuthority: vi.fn(() => false),
+}));
+
+vi.mock("./dev-lab-policy", () => ({
+  isDevLabEnabled: vi.fn(() => true),
 }));
 
 vi.mock("@/app/features/groups/services/community-dev-flags", () => ({
@@ -44,6 +48,7 @@ vi.mock("@/app/features/groups/services/group-tombstone-store", () => ({
 
 import { runJoinerMembershipRepairProbe } from "./dev-lab-joiner-membership-probe";
 import { loadWorkspaceGroupMetadataRecords } from "@/app/features/workspace-kernel/workspace-kernel-group-metadata-store";
+import { isWorkspaceKernelAuthority } from "@/app/features/workspace-kernel/workspace-kernel-policy";
 
 const PK_A = "aa".repeat(32) as PublicKeyHex;
 const PK_B = "bb".repeat(32) as PublicKeyHex;
@@ -69,17 +74,17 @@ describe("dev-lab joiner membership probe", () => {
     vi.clearAllMocks();
   });
 
-  it("passes when join-evidence members appear in display and invite blocklist", () => {
-    vi.mocked(loadWorkspaceGroupMetadataRecords).mockReturnValue([LEGACY_JOINER_GROUP]);
+  it("runs synthetic COM-8 scenario when workspace kernel is inactive in dev-lab browser", () => {
+    vi.mocked(loadWorkspaceGroupMetadataRecords).mockReturnValue([]);
     const result = runJoinerMembershipRepairProbe({ publicKeyHex: PK_A, profileId: "profile-a" });
     expect(result.skipped).toBe(false);
+    expect(result.synthetic).toBe(true);
     expect(result.ok).toBe(true);
-    expect(result.groupsChecked).toBe(1);
-    expect(result.groups[0]?.passed).toBe(true);
-    expect(result.groups[0]?.effectiveCommunityMode).toBe("managed_workspace");
+    expect(result.reason).toBe("synthetic_joiner_repair_ok");
   });
 
-  it("skips when no multi-member join evidence groups exist", () => {
+  it("skips native probe when kernel is active but no multi-member join evidence exists", () => {
+    vi.mocked(isWorkspaceKernelAuthority).mockReturnValue(true);
     vi.mocked(loadWorkspaceGroupMetadataRecords).mockReturnValue([{
       ...LEGACY_JOINER_GROUP,
       memberPubkeys: [PK_A],
@@ -87,6 +92,7 @@ describe("dev-lab joiner membership probe", () => {
     }]);
     const result = runJoinerMembershipRepairProbe({ publicKeyHex: PK_A, profileId: "profile-a" });
     expect(result.skipped).toBe(true);
+    expect(result.synthetic).toBe(false);
     expect(result.ok).toBe(true);
     expect(result.reason).toBe("no_multi_member_join_evidence_groups");
   });

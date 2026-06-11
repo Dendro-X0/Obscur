@@ -180,11 +180,15 @@ export async function runMembershipJoinLeaveScenario(deps) {
       joinerRepairOk,
       !joinerProbeAvailable
         ? "Joiner membership repair probe skipped (rebuild static shell: pnpm dev:desktop:online -- --rebuild)."
-        : joinerRepair?.skipped
-          ? `Joiner membership repair probe skipped (${joinerRepair.reason}).`
-          : joinerRepair?.ok
-            ? `Joiner membership repair probe passed (${joinerRepair.groupsChecked} group(s)).`
-            : `Joiner membership repair probe failed: ${joinerRepair?.reason ?? "unknown"}`,
+        : joinerRepair?.synthetic
+          ? (joinerRepair.ok
+            ? "Joiner membership repair synthetic COM-8 scenario passed (browser dev-lab path)."
+            : `Joiner membership repair synthetic scenario failed: ${joinerRepair.reason}`)
+          : joinerRepair?.skipped
+            ? `Joiner membership repair probe skipped (${joinerRepair.reason}).`
+            : joinerRepair?.ok
+              ? `Joiner membership repair probe passed (${joinerRepair.groupsChecked} group(s)).`
+              : `Joiner membership repair probe failed: ${joinerRepair?.reason ?? "unknown"}`,
       { joinerProbeAvailable, joinerRepair },
     );
 

@@ -781,14 +781,9 @@ export function GroupManagementDialog({
     });
     const communityInitial = communityTitle.trim().slice(0, 1).toUpperCase() || "C";
     const relayHost = group.relayUrl.replace(/^wss:\/\//, "").replace(/^https?:\/\//, "");
-    const effectiveCommunityMode: CommunityMode = (
-        state.metadata?.communityMode === "managed_workspace" || state.metadata?.communityMode === "sovereign_room"
-    )
-        ? state.metadata.communityMode
-        : group.communityMode === "managed_workspace"
-            ? "managed_workspace"
-            : "sovereign_room";
-    const communityModeLabel = COMMUNITY_MODE_DEFINITIONS[effectiveCommunityMode].label;
+    const communityModeLabel = COMMUNITY_MODE_DEFINITIONS[
+        effectiveCommunityMode ?? "sovereign_room"
+    ].label;
     const syncConfidenceLevel =
         (state as { relayEvidenceRef?: { confidenceLevel: "seed_only" | "warming_up" | "partial_eose" | "steady_state" } })
             .relayEvidenceRef?.confidenceLevel ?? "seed_only";

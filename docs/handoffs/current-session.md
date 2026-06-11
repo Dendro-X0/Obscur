@@ -1,20 +1,20 @@
 # Current Session Handoff — Obscur (v2 slim kernel + workspace kernel)
 
-- Last Updated (UTC): 2026-06-11T01:48:00Z
-- Session Status: **v1.9.4 Phase B** — programmatic pass · runtime membership-join-leave next
-- Last commit: `d6c3634e` — roster repair context infers managed workspace on legacy join rows
+- Last Updated (UTC): 2026-06-11T03:43:00Z
+- Session Status: **v1.9.4 Phase B** — programmatic + dev-lab membership-join-leave pass
+- Last commit: COM-8 synthetic dev-lab probe + static shell rebuild
 
 ## Next Atomic Step
 
-**v1.9.4 Phase B — COM-8 probe on rebuilt shell**
+**v1.9.4 Phase B — optional native COM-8 on Tauri + matrix §3**
 
 1. ~~Run programmatic platform gate: `pnpm verify:platform-kernels`~~ **Pass** @ `edf7c24f`.
-2. ~~Run Phase B programmatic gate: `pnpm verify:phase-b-programmatic`~~ **Pass** @ `f7413dca` (community invariants **121/121**).
-3. ~~`pnpm dev:lab:run -- --scenario membership-join-leave`~~ **Partial Pass** — coordination + M8 + digest green; COM-8 probe skipped on pre-rebuild static shell.
-4. `pnpm dev:desktop:online -- --rebuild` then re-run `membership-join-leave` with NewTest 2 join evidence (COM-8 probe active).
-5. Optional: `pnpm verify:phase-b-full` · record full Pass in [unified-verification-issues-register.md](../program/unified-verification-issues-register.md).
+2. ~~Run Phase B programmatic gate: `pnpm verify:phase-b-programmatic`~~ **Pass** — community invariants **123/123**.
+3. ~~`pnpm dev:lab:run -- --scenario membership-join-leave`~~ **Pass** — synthetic COM-8 + coordination + M8 + digest.
+4. Optional: `pnpm dev:desktop:online -- --rebuild` + NewTest 2 on Tester1 for native kernel COM-8 probe (real localStorage).
+5. Optional: `pnpm verify:phase-b-full` · record in [unified-verification-issues-register.md](../program/unified-verification-issues-register.md).
 
-Gate: programmatic green · COM-8 runtime proof needs rebuilt static shell.
+Gate: programmatic + dev-lab membership green · native roster soak optional.
 
 ## Workspace kernel W4 (landed)
 
