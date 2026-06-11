@@ -76,6 +76,64 @@ function writeJson(name, value) {
 }
 
 /**
+ * CLI dual-browser scenarios need the same connection resolution as suite runs
+ * (Next :3340, Tauri CDP, or auto-serve apps/pwa/out).
+ *
+ * @param {Readonly<{
+ *   chromium: typeof import('playwright').chromium;
+ *   scenarioId: string;
+ *   category: string;
+ *   runScenario: (deps: Readonly<{ chromium: typeof import('playwright').chromium; appBase: string; log: (msg: string) => void }>) => Promise<{ passed: boolean }>;
+ * }>} options
+ */
+async function runDualBrowserCliScenario({ chromium, scenarioId, category, runScenario }) {
+  /** @type {import('node:child_process').ChildProcess | null} */
+  let staticServerProc = null;
+  try {
+    const connection = await resolveDevLabConnection({
+      repoRoot,
+      appBase,
+      explicitCdpUrl,
+      requireOnlineShell: true,
+      log,
+    });
+    staticServerProc = connection.staticServerProc ?? null;
+    const resolvedBase = connection.baseUrl;
+    log(`running ${scenarioId} (dual browser) @ ${resolvedBase}`);
+    const scenarioResult = await runScenario({ chromium, appBase: resolvedBase, log });
+    const report = {
+      schema: "obscur.dev-lab.benchmark.v1",
+      version: "obscur.dev-lab.v1",
+      generatedAtUnixMs: Date.now(),
+      suite: `scenario:${scenarioId}`,
+      surface: "playwright",
+      baseUrl: resolvedBase,
+      passed: scenarioResult.passed,
+      scenarios: [scenarioResult],
+      summary: {
+        total: 1,
+        passed: scenarioResult.passed ? 1 : 0,
+        failed: scenarioResult.passed ? 0 : 1,
+        failedScenarioIds: scenarioResult.passed ? [] : [scenarioId],
+        categories: { [category]: { total: 1, passed: scenarioResult.passed ? 1 : 0 } },
+      },
+      shellHealth: null,
+      capture: null,
+    };
+    const evaluation = evaluateDevLabBenchmark(report);
+    const summary = summarizeDevLabBenchmark({ ...report, passed: report.passed && evaluation.passed });
+    writeJson("dev-lab-benchmark-latest.json", report);
+    writeJson("dev-lab-benchmark-summary.json", summary);
+    log(`${scenarioId} passed=${summary.passed}`);
+    if (!summary.passed) {
+      process.exit(1);
+    }
+  } finally {
+    stopStaticShellServer(staticServerProc);
+  }
+}
+
+/**
  * @param {import('playwright').Page} page
  * @param {Record<string, unknown>} result
  * @param {{ scenarioId: string; surface: string }} options
@@ -216,68 +274,22 @@ async function main() {
   const { chromium } = loadPlaywright();
 
   if (scenario === "two-actor-dm") {
-    log("running two-actor-dm (dual browser)");
-    const twoActorResult = await runTwoActorDmScenario({ chromium, appBase, log });
-    const report = {
-      schema: "obscur.dev-lab.benchmark.v1",
-      version: "obscur.dev-lab.v1",
-      generatedAtUnixMs: Date.now(),
-      suite: "scenario:two-actor-dm",
-      surface: "playwright",
-      baseUrl: appBase,
-      passed: twoActorResult.passed,
-      scenarios: [twoActorResult],
-      summary: {
-        total: 1,
-        passed: twoActorResult.passed ? 1 : 0,
-        failed: twoActorResult.passed ? 0 : 1,
-        failedScenarioIds: twoActorResult.passed ? [] : ["two-actor-dm"],
-        categories: { messaging: { total: 1, passed: twoActorResult.passed ? 1 : 0 } },
-      },
-      shellHealth: null,
-      capture: null,
-    };
-    const evaluation = evaluateDevLabBenchmark(report);
-    const summary = summarizeDevLabBenchmark({ ...report, passed: report.passed && evaluation.passed });
-    writeJson("dev-lab-benchmark-latest.json", report);
-    writeJson("dev-lab-benchmark-summary.json", summary);
-    log(`two-actor-dm passed=${summary.passed}`);
-    if (!summary.passed) {
-      process.exit(1);
-    }
+    await runDualBrowserCliScenario({
+      chromium,
+      scenarioId: "two-actor-dm",
+      category: "messaging",
+      runScenario: runTwoActorDmScenario,
+    });
     return;
   }
 
   if (scenario === "membership-join-leave") {
-    log("running membership-join-leave (dual browser)");
-    const membershipResult = await runMembershipJoinLeaveScenario({ chromium, appBase, log });
-    const report = {
-      schema: "obscur.dev-lab.benchmark.v1",
-      version: "obscur.dev-lab.v1",
-      generatedAtUnixMs: Date.now(),
-      suite: "scenario:membership-join-leave",
-      surface: "playwright",
-      baseUrl: appBase,
-      passed: membershipResult.passed,
-      scenarios: [membershipResult],
-      summary: {
-        total: 1,
-        passed: membershipResult.passed ? 1 : 0,
-        failed: membershipResult.passed ? 0 : 1,
-        failedScenarioIds: membershipResult.passed ? [] : ["membership-join-leave"],
-        categories: { network: { total: 1, passed: membershipResult.passed ? 1 : 0 } },
-      },
-      shellHealth: null,
-      capture: null,
-    };
-    const evaluation = evaluateDevLabBenchmark(report);
-    const summary = summarizeDevLabBenchmark({ ...report, passed: report.passed && evaluation.passed });
-    writeJson("dev-lab-benchmark-latest.json", report);
-    writeJson("dev-lab-benchmark-summary.json", summary);
-    log(`membership-join-leave passed=${summary.passed}`);
-    if (!summary.passed) {
-      process.exit(1);
-    }
+    await runDualBrowserCliScenario({
+      chromium,
+      scenarioId: "membership-join-leave",
+      category: "network",
+      runScenario: runMembershipJoinLeaveScenario,
+    });
     return;
   }
 

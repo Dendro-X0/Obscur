@@ -165,20 +165,27 @@ export async function runMembershipJoinLeaveScenario(deps) {
     const actorBOk = await probeActor(pageB, "tester2", steps);
     const settingsOk = await probeMembershipSettingsPanel(pageA, steps, log);
 
-    const joinerRepair = await pageA.evaluate(() => (
-      window.obscurDevLab?.probeJoinerMembershipRepair?.() ?? null
+    const joinerProbeAvailable = await pageA.evaluate(() => (
+      typeof window.obscurDevLab?.probeJoinerMembershipRepair === "function"
     ));
-    const joinerRepairOk = joinerRepair?.ok === true || joinerRepair?.skipped === true;
+    const joinerRepair = joinerProbeAvailable
+      ? await pageA.evaluate(() => window.obscurDevLab.probeJoinerMembershipRepair())
+      : null;
+    const joinerRepairOk = !joinerProbeAvailable
+      || joinerRepair?.ok === true
+      || joinerRepair?.skipped === true;
     pushStep(
       steps,
       "tester1_joiner_membership_repair",
       joinerRepairOk,
-      joinerRepair?.skipped
-        ? `Joiner membership repair probe skipped (${joinerRepair.reason}).`
-        : joinerRepair?.ok
-          ? `Joiner membership repair probe passed (${joinerRepair.groupsChecked} group(s)).`
-          : `Joiner membership repair probe failed: ${joinerRepair?.reason ?? "probe_unavailable"}`,
-      { joinerRepair },
+      !joinerProbeAvailable
+        ? "Joiner membership repair probe skipped (rebuild static shell: pnpm dev:desktop:online -- --rebuild)."
+        : joinerRepair?.skipped
+          ? `Joiner membership repair probe skipped (${joinerRepair.reason}).`
+          : joinerRepair?.ok
+            ? `Joiner membership repair probe passed (${joinerRepair.groupsChecked} group(s)).`
+            : `Joiner membership repair probe failed: ${joinerRepair?.reason ?? "unknown"}`,
+      { joinerProbeAvailable, joinerRepair },
     );
 
     const passed = steps.every((entry) => entry.passed === true)

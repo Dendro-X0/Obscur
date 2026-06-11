@@ -14,7 +14,7 @@
 | Handoff | [current-session.md](../handoffs/current-session.md) |
 | §0 + STAB-R + P4-5 | **Pass** — `pnpm verify:stability` + `release:test-pack` |
 | Programmatic (2026-06-11) | **Pass** — `pnpm verify:phase-b-programmatic`; community invariants **121/121** (includes joiner membership repair + dev-lab probe tests) |
-| Runtime community (§3) | **Pending** — `pnpm dev:coordination` then `pnpm dev:desktop:online -- --rebuild` then `pnpm dev:lab:run -- --scenario membership-join-leave` |
+| Runtime community (§3) | **Partial Pass** @ `d6c3634e` — `membership-join-leave` green (coordination + M8 + digest); COM-8 `probeJoinerMembershipRepair` skipped until static shell rebuild |
 | Product manual | §1–§7 when needed — **not** render-loop hunting |
 
 ### Resolved (Phase A + STAB-R)

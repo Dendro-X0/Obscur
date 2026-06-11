@@ -2,19 +2,19 @@
 
 - Last Updated (UTC): 2026-06-11T01:48:00Z
 - Session Status: **v1.9.4 Phase B** — programmatic pass · runtime membership-join-leave next
-- Last commit: `f7413dca` — joiner membership repair gate + dev-lab COM-8 probe
+- Last commit: `d6c3634e` — roster repair context infers managed workspace on legacy join rows
 
 ## Next Atomic Step
 
-**v1.9.4 Phase B — runtime community verification (P4-3 + matrix §3)**
+**v1.9.4 Phase B — COM-8 probe on rebuilt shell**
 
 1. ~~Run programmatic platform gate: `pnpm verify:platform-kernels`~~ **Pass** @ `edf7c24f`.
 2. ~~Run Phase B programmatic gate: `pnpm verify:phase-b-programmatic`~~ **Pass** @ `f7413dca` (community invariants **121/121**).
-3. With `pnpm dev:coordination` + `pnpm dev:desktop:online -- --rebuild`: dev-lab `membership-join-leave` (COM-8 joiner repair probe + M8 digest).
-4. Optional full Path B chain: `pnpm verify:phase-b-full`.
-5. Record Pass/Fail in [unified-verification-issues-register.md](../program/unified-verification-issues-register.md).
+3. ~~`pnpm dev:lab:run -- --scenario membership-join-leave`~~ **Partial Pass** — coordination + M8 + digest green; COM-8 probe skipped on pre-rebuild static shell.
+4. `pnpm dev:desktop:online -- --rebuild` then re-run `membership-join-leave` with NewTest 2 join evidence (COM-8 probe active).
+5. Optional: `pnpm verify:phase-b-full` · record full Pass in [unified-verification-issues-register.md](../program/unified-verification-issues-register.md).
 
-Gate: programmatic green · runtime rows need coordination (`pnpm dev:coordination`) + rebuilt static shell.
+Gate: programmatic green · COM-8 runtime proof needs rebuilt static shell.
 
 ## Workspace kernel W4 (landed)
 
