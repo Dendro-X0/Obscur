@@ -15,6 +15,11 @@ import {
   getDmTrustThreadState,
   recordPeerIncomingMessage,
 } from "./dm-kernel-trust-thread-state";
+import {
+  getPeerConnectionRequestCountLastDay,
+  recordPeerConnectionRequest,
+} from "./dm-kernel-trust-peer-state";
+import { MSG_RATE_WINDOW_MS } from "./dm-kernel-trust-spam-signals";
 import { isDmKernelAuthority } from "./dm-kernel-policy";
 
 const tierShowsBanner = (tier: TrustWarningTier): boolean => (
@@ -54,6 +59,7 @@ export const useDmKernelTrustBanner = (params: Readonly<{
       !latestIncoming
       || params.conversation.kind !== "dm"
       || !isDmKernelAuthority()
+      || !params.peerPublicKeyHex
     ) {
       return;
     }
@@ -62,7 +68,31 @@ export const useDmKernelTrustBanner = (params: Readonly<{
       params.conversation.id,
       latestIncoming.timestamp.getTime(),
     );
-  }, [latestIncoming, params.conversation.id, params.conversation.kind, profileId]);
+    if (params.isPeerAccepted === false) {
+      recordPeerConnectionRequest(
+        profileId,
+        params.peerPublicKeyHex,
+        latestIncoming.timestamp.getTime(),
+      );
+    }
+  }, [
+    latestIncoming,
+    params.conversation.id,
+    params.conversation.kind,
+    params.isPeerAccepted,
+    params.peerPublicKeyHex,
+    profileId,
+  ]);
+
+  const peerIncomingCountLastMinute = useMemo(() => {
+    if (!latestIncoming) {
+      return 0;
+    }
+    const windowStart = latestIncoming.timestamp.getTime() - MSG_RATE_WINDOW_MS;
+    return params.messages.filter(
+      (message) => !message.isOutgoing && message.timestamp.getTime() >= windowStart,
+    ).length;
+  }, [latestIncoming, params.messages]);
 
   const assessment = useMemo((): DmTrustAssessment | null => {
     if (
@@ -75,13 +105,21 @@ export const useDmKernelTrustBanner = (params: Readonly<{
     }
 
     const threadState = getDmTrustThreadState(profileId, params.conversation.id);
+    const nowUnixMs = latestIncoming.timestamp.getTime();
     return assessDmTrustWarning({
       peerPublicKeyHex: params.peerPublicKeyHex,
       isPeerAccepted: params.isPeerAccepted ?? false,
       messageContent: latestIncoming.content,
-      messageTimestampUnixMs: latestIncoming.timestamp.getTime(),
+      messageTimestampUnixMs: nowUnixMs,
       threadFirstPeerMessageAtUnixMs: threadState.firstPeerMessageAtUnixMs,
       dismissedUntilUnixMs: threadState.dismissedUntilUnixMs,
+      peerIncomingCountLastMinute,
+      peerConnectionRequestCountLastDay: getPeerConnectionRequestCountLastDay(
+        profileId,
+        params.peerPublicKeyHex,
+        nowUnixMs,
+      ),
+      nowUnixMs,
     });
   // dismissEpoch forces re-read after dismiss
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -92,6 +130,7 @@ export const useDmKernelTrustBanner = (params: Readonly<{
     params.conversation.kind,
     params.isPeerAccepted,
     params.peerPublicKeyHex,
+    peerIncomingCountLastMinute,
     profileId,
   ]);
 

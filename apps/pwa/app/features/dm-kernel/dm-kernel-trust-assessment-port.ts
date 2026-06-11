@@ -6,13 +6,21 @@ export type TrustWarningTier = "none" | "info" | "elevated" | "critical";
 export type TrustSignalId =
   | "contact.cold"
   | "thread.pivot_financial"
-  | "commerce.urgency_pressure";
+  | "commerce.urgency_pressure"
+  | "msg.rate"
+  | "invite.fanout";
 
 export const BUNDLE_FIN_COLD = "BUNDLE_FIN_COLD";
+export const BUNDLE_SPAM_COLD = "BUNDLE_SPAM_COLD";
 
 export const FINANCIAL_PIVOT_WINDOW_MS = 48 * 60 * 60 * 1000;
 
 export const TRUST_BANNER_DISMISS_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+
+import {
+  detectInviteFanoutSignal,
+  detectMsgRateSignal,
+} from "./dm-kernel-trust-spam-signals";
 
 export type AssessDmTrustInput = Readonly<{
   peerPublicKeyHex: PublicKeyHex | string;
@@ -21,6 +29,8 @@ export type AssessDmTrustInput = Readonly<{
   messageTimestampUnixMs: number;
   threadFirstPeerMessageAtUnixMs: number | null;
   dismissedUntilUnixMs: number | null;
+  peerIncomingCountLastMinute?: number;
+  peerConnectionRequestCountLastDay?: number;
   nowUnixMs?: number;
 }>;
 
@@ -73,12 +83,31 @@ const buildAssessment = (
   tier,
   bundleId,
   activeSignals,
-  copyKey: bundleId === BUNDLE_FIN_COLD
-    ? "messaging.trust.finCold"
-    : tier === "info"
-      ? "messaging.trust.info"
-      : "messaging.trust.none",
+  copyKey: resolveTrustCopyKey(activeSignals, bundleId, tier),
 });
+
+const resolveTrustCopyKey = (
+  activeSignals: ReadonlyArray<TrustSignalId>,
+  bundleId: string | null,
+  tier: TrustWarningTier,
+): string => {
+  if (bundleId === BUNDLE_FIN_COLD) {
+    return "messaging.trust.finCold";
+  }
+  if (bundleId === BUNDLE_SPAM_COLD) {
+    return "messaging.trust.spamCold";
+  }
+  if (activeSignals.includes("msg.rate")) {
+    return "messaging.trust.msgRate";
+  }
+  if (activeSignals.includes("invite.fanout")) {
+    return "messaging.trust.inviteFanout";
+  }
+  if (tier === "info") {
+    return "messaging.trust.info";
+  }
+  return "messaging.trust.none";
+};
 
 /**
  * Recipient-local DM trust assessment — deterministic from rule pack v1 (SEC-F2).
@@ -100,6 +129,12 @@ export const assessDmTrustWarning = (input: AssessDmTrustInput): DmTrustAssessme
   if (detectUrgencyPressure(input.messageContent)) {
     signals.push("commerce.urgency_pressure");
   }
+  if (detectMsgRateSignal(input.peerIncomingCountLastMinute ?? 0)) {
+    signals.push("msg.rate");
+  }
+  if (detectInviteFanoutSignal(input.peerConnectionRequestCountLastDay ?? 0)) {
+    signals.push("invite.fanout");
+  }
 
   const hasFinColdBundle = signals.includes("contact.cold")
     && signals.includes("thread.pivot_financial");
@@ -109,6 +144,17 @@ export const assessDmTrustWarning = (input: AssessDmTrustInput): DmTrustAssessme
       ? "critical"
       : "elevated";
     return buildAssessment(signals, BUNDLE_FIN_COLD, tier);
+  }
+
+  const hasSpamColdBundle = signals.includes("contact.cold")
+    && signals.includes("msg.rate");
+
+  if (hasSpamColdBundle) {
+    return buildAssessment(signals, BUNDLE_SPAM_COLD, "elevated");
+  }
+
+  if (signals.includes("msg.rate") || signals.includes("invite.fanout")) {
+    return buildAssessment(signals, null, "elevated");
   }
 
   if (signals.includes("thread.pivot_financial")) {

@@ -2,9 +2,14 @@ import { describe, expect, it } from "vitest";
 import {
   assessDmTrustWarning,
   BUNDLE_FIN_COLD,
+  BUNDLE_SPAM_COLD,
   detectFinancialMention,
   FINANCIAL_PIVOT_WINDOW_MS,
 } from "./dm-kernel-trust-assessment-port";
+import {
+  INVITE_FANOUT_THRESHOLD,
+  MSG_RATE_THRESHOLD,
+} from "./dm-kernel-trust-spam-signals";
 
 const PEER = "b".repeat(64);
 const baseMs = 1_700_000_000_000;
@@ -83,5 +88,54 @@ describe("dm-kernel-trust-assessment-port", () => {
       nowUnixMs: baseMs,
     } as const;
     expect(assessDmTrustWarning(input)).toEqual(assessDmTrustWarning(input));
+  });
+
+  it("fires BUNDLE_SPAM_COLD for cold contact + high msg.rate", () => {
+    const result = assessDmTrustWarning({
+      peerPublicKeyHex: PEER,
+      isPeerAccepted: false,
+      messageContent: "hello again",
+      messageTimestampUnixMs: baseMs + 30_000,
+      threadFirstPeerMessageAtUnixMs: baseMs,
+      dismissedUntilUnixMs: null,
+      peerIncomingCountLastMinute: MSG_RATE_THRESHOLD + 1,
+      nowUnixMs: baseMs + 30_000,
+    });
+    expect(result.bundleId).toBe(BUNDLE_SPAM_COLD);
+    expect(result.tier).toBe("elevated");
+    expect(result.activeSignals).toContain("msg.rate");
+    expect(result.activeSignals).toContain("contact.cold");
+  });
+
+  it("elevates on msg.rate alone for accepted peer burst", () => {
+    const result = assessDmTrustWarning({
+      peerPublicKeyHex: PEER,
+      isPeerAccepted: true,
+      messageContent: "message flood",
+      messageTimestampUnixMs: baseMs,
+      threadFirstPeerMessageAtUnixMs: baseMs,
+      dismissedUntilUnixMs: null,
+      peerIncomingCountLastMinute: MSG_RATE_THRESHOLD + 3,
+      nowUnixMs: baseMs,
+    });
+    expect(result.tier).toBe("elevated");
+    expect(result.activeSignals).toEqual(["msg.rate"]);
+    expect(result.copyKey).toBe("messaging.trust.msgRate");
+  });
+
+  it("elevates on invite.fanout from repeated connection requests", () => {
+    const result = assessDmTrustWarning({
+      peerPublicKeyHex: PEER,
+      isPeerAccepted: false,
+      messageContent: "please accept",
+      messageTimestampUnixMs: baseMs,
+      threadFirstPeerMessageAtUnixMs: baseMs,
+      dismissedUntilUnixMs: null,
+      peerConnectionRequestCountLastDay: INVITE_FANOUT_THRESHOLD + 1,
+      nowUnixMs: baseMs,
+    });
+    expect(result.tier).toBe("elevated");
+    expect(result.activeSignals).toContain("invite.fanout");
+    expect(result.copyKey).toBe("messaging.trust.inviteFanout");
   });
 });

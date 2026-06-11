@@ -33,4 +33,20 @@ describe("dm-kernel trust assessment contract (SEC-F)", () => {
     const pkg = readFileSync(path.join(pwaRoot, "..", "..", "package.json"), "utf8");
     expect(pkg).toContain("verify:trust-v1.9.5");
   });
+
+  it("port catalog includes SEC-B2 spam-shape signals", () => {
+    const port = read("app/features/dm-kernel/dm-kernel-trust-assessment-port.ts");
+    expect(port).toContain('"msg.rate"');
+    expect(port).toContain('"invite.fanout"');
+    expect(port).toContain("BUNDLE_SPAM_COLD");
+    expect(port).toContain("detectMsgRateSignal");
+    expect(port).toContain("detectInviteFanoutSignal");
+  });
+
+  it("peer spam metadata uses profile-scoped local storage only", () => {
+    const peerState = read("app/features/dm-kernel/dm-kernel-trust-peer-state.ts");
+    expect(peerState).toContain("getScopedStorageKey");
+    expect(peerState).toContain("localStorage");
+    expect(peerState).not.toMatch(/fetch\s*\(/);
+  });
 });
