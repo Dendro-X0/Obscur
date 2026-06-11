@@ -9,6 +9,10 @@ import {
     assessWorkspaceCommunityTrustAsync,
     type WorkspaceCommunityTrustAssessment,
 } from "../services/community-trust-policy";
+import {
+    auditOperatorTrustBundle,
+    resolveWorkspaceActionRelayUrl,
+} from "../services/operator-trust-bundle-audit";
 
 const normalizeRelayUrl = (raw: string): string => {
     const trimmed = raw.trim();
@@ -27,6 +31,7 @@ export function useWorkspaceCommunityTrustGate(params: Readonly<{
     active?: boolean;
 }>): Readonly<{
     trust: Omit<WorkspaceCommunityTrustAssessment, "coordination"> & Readonly<{ coordinationConfigured: boolean }>;
+    bundleAudit: ReturnType<typeof auditOperatorTrustBundle>;
     coordinationHealthy: boolean | null;
     blocked: boolean;
     refreshCoordinationHealth: () => void;
@@ -35,7 +40,9 @@ export function useWorkspaceCommunityTrustGate(params: Readonly<{
     const relayList = useRelayList({ publicKeyHex: identityState.publicKeyHex || null });
     const [coordinationHealthy, setCoordinationHealthy] = useState<boolean | null>(null);
     const active = params.active ?? true;
-    const relayUrl = params.communityRelayUrl?.trim() ?? "";
+    const relayUrl = resolveWorkspaceActionRelayUrl({
+        explicitRelayUrl: params.communityRelayUrl,
+    }) ?? "";
 
     const refreshCoordinationHealth = (): void => {
         void probeCoordinationHealth({ force: true }).then((snapshot) => {
@@ -44,7 +51,7 @@ export function useWorkspaceCommunityTrustGate(params: Readonly<{
     };
 
     useEffect(() => {
-        if (!active || !relayUrl) {
+        if (!active) {
             return;
         }
         let cancelled = false;
@@ -72,22 +79,48 @@ export function useWorkspaceCommunityTrustGate(params: Readonly<{
         [coordinationHealthy, enabledRelayUrls, relayUrl],
     );
 
+    const bundleAudit = useMemo(
+        () => auditOperatorTrustBundle({
+            enabledRelayUrls,
+            coordinationHealthy: coordinationHealthy ?? undefined,
+            communityRelayUrlOverride: relayUrl || null,
+        }),
+        [coordinationHealthy, enabledRelayUrls, relayUrl],
+    );
+
     return {
         trust,
+        bundleAudit,
         coordinationHealthy,
-        blocked: !trust.allowed,
+        blocked: !trust.allowed || !bundleAudit.allowed,
         refreshCoordinationHealth,
     };
 }
 
-/** Async guard before join/create side effects (re-probes coordination). */
+/** Async guard before join/create side effects (re-probes coordination + operator bundle). */
 export const assertWorkspaceCommunityJoinAllowed = async (params: Readonly<{
     communityRelayUrl: string;
     enabledRelayUrls?: ReadonlyArray<string>;
 }>): Promise<WorkspaceCommunityTrustAssessment> => {
+    const relayUrl = resolveWorkspaceActionRelayUrl({
+        explicitRelayUrl: params.communityRelayUrl,
+    }) ?? normalizeRelayUrl(params.communityRelayUrl);
     const trust = await assessWorkspaceCommunityTrustAsync({
-        communityRelayUrl: normalizeRelayUrl(params.communityRelayUrl),
+        communityRelayUrl: relayUrl,
         enabledRelayUrls: params.enabledRelayUrls,
     });
+    const audit = auditOperatorTrustBundle({
+        enabledRelayUrls: params.enabledRelayUrls,
+        coordinationHealthy: trust.coordination.healthy,
+        communityRelayUrlOverride: relayUrl,
+    });
+    if (!audit.allowed) {
+        return {
+            ...trust,
+            allowed: false,
+            userMessage: audit.userMessage,
+            settingsHint: audit.settingsHint,
+        };
+    }
     return trust;
 };

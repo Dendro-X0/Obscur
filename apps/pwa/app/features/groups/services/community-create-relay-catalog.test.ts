@@ -29,6 +29,21 @@ describe("resolveCommunityCreateRelayOptions", () => {
         expect(pickDefaultCommunityCreateRelayHost(options)).toBe("localhost:7000");
     });
 
+    it("prefers operator-configured relay host when selectable", () => {
+        const options = resolveCommunityCreateRelayOptions({
+            relays: [
+                { url: "ws://localhost:7000", enabled: true },
+                { url: "ws://relay.team.internal:7000", enabled: true },
+            ],
+            connections: [
+                { url: "ws://localhost:7000", status: "open", updatedAtUnixMs: Date.now() },
+                { url: "ws://relay.team.internal:7000", status: "open", updatedAtUnixMs: Date.now() },
+            ],
+            forManagedWorkspace: true,
+        });
+        expect(pickDefaultCommunityCreateRelayHost(options, "relay.team.internal:7000")).toBe("relay.team.internal:7000");
+    });
+
     it("uses pool connection health even when relay is outside Nostr active pool", () => {
         const options = resolveCommunityCreateRelayOptions({
             relays: [{ url: "ws://localhost:7000", enabled: true }],

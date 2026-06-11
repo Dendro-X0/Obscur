@@ -1,21 +1,18 @@
 # Current Session Handoff — Obscur (v2 slim kernel + workspace kernel)
 
-- Last Updated (UTC): 2026-06-11T22:10:00Z
-- Session Status: **v1.9.5 active** — trust, anti-fraud/bot, internal security validation (blocks v2.0 prep)
-- Last commit: `121b29e5` — SEC-B4 BOT-1 flood gate; **SEC-B band complete**
+- Last Updated (UTC): 2026-06-11T23:15:00Z
+- Last commit: `21504572` — SEC-B complete; uncommitted: SEC-R1 operator trust bundle audit
 
 ## Next Atomic Step
 
-**v1.9.5 Phase A — SEC-R relay security band**
+**v1.9.5 Phase A — SEC-R2 relay trust scorer + SEC-R3 hardening doc**
 
-1. ~~v1.9.4 Phase C~~ **Done** — `release:test-pack` @ `7a49e339`; client community verified (NewTest 2).
-2. ~~SEC-F1–F4~~ **Done** @ `02a7b847` — trust port, banner, settings copy, `verify:trust-v1.9.5`.
-3. ~~SEC-B1–B4~~ **Done** @ `121b29e5` — inbound bot hardening, spam signals, pause UX, BOT-1 keyword flood gate.
-4. **Implement** SEC-R1 → SEC-R4 (operator trust bundle, relay scorer tests, hardening doc, publish honesty).
-5. **Run** [v1.9.5-security-validation-checklist.md](../program/v1.9.5-security-validation-checklist.md) §1–§6 at Phase C.
-6. **Then** [v2.0-release-pipeline.md](../program/v2.0-release-pipeline.md) Phase 1.
+1. ~~SEC-B1–B4~~ **Done** @ `121b29e5` — full anti-bot band.
+2. ~~SEC-R1~~ **Done (uncommitted)** — `operator-trust-bundle-audit.ts`, create/join wiring, `pnpm verify:relay-v1.9.5`.
+3. **Implement** SEC-R2 → SEC-R4 per [v1.9.5-scope.md](../program/v1.9.5-scope.md).
+4. **Run** [v1.9.5-security-validation-checklist.md](../program/v1.9.5-security-validation-checklist.md) §1–§6 at Phase C.
 
-**First code task:** `SEC-R1` — operator trust bundle audit per [v1.9.5-scope.md](../program/v1.9.5-scope.md).
+**First code task:** `SEC-R2` — relay trust scorer documentation + test paths.
 
 ## Workspace kernel W4 (landed)
 

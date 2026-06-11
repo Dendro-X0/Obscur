@@ -51,6 +51,10 @@ import { isCoordinationConfigured } from "../services/community-membership-sync-
 import { LOCAL_DEV_RELAY_URL } from "@/app/features/relays/hooks/use-relay-list";
 import { normalizeWorkspaceRelayUrl } from "../services/workspace-relay-url";
 import {
+    operatorTrustBundleHostFromRelayUrl,
+    readOperatorTrustBundleSnapshot,
+} from "../services/operator-trust-bundle-audit";
+import {
     isNewSovereignRoomCreationAllowed,
     isWorkspaceCommunityCreateAllowed,
     WORKSPACE_KERNEL_CREATE_DEFERRED_MESSAGE,
@@ -130,7 +134,11 @@ export function CreateGroupDialog({
             forManagedWorkspace: true,
             allowDisconnectedPrivateRelays: isCoordinationOnlyWorkspaceDevMode(),
         });
-        const defaultHost = pickDefaultCommunityCreateRelayHost(catalog);
+        const bundleSnapshot = readOperatorTrustBundleSnapshot();
+        const operatorPreferredHost = bundleSnapshot.workspaceRelayUrl
+            ? operatorTrustBundleHostFromRelayUrl(bundleSnapshot.workspaceRelayUrl)
+            : null;
+        const defaultHost = pickDefaultCommunityCreateRelayHost(catalog, operatorPreferredHost);
         if (defaultHost) {
             setInfo((prev) => (prev.host.trim().length > 0 ? prev : { ...prev, host: defaultHost }));
         } else if (isCoordinationOnlyWorkspaceDevMode()) {

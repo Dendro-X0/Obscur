@@ -102,7 +102,18 @@ export const resolveCommunityCreateRelayOptions = (params: Readonly<{
 
 export const pickDefaultCommunityCreateRelayHost = (
     options: ReadonlyArray<CommunityCreateRelayOption>,
+    preferredHost?: string | null,
 ): string => {
+    const normalizedPreferred = preferredHost?.trim().toLowerCase();
+    if (normalizedPreferred) {
+        const preferred = options.find((option) => (
+            option.selectable && option.host.trim().toLowerCase() === normalizedPreferred
+        ));
+        if (preferred) {
+            return preferred.host;
+        }
+    }
+
     const selectable = options.filter((option) => option.selectable);
     const healthy = selectable.find((option) => option.status === "healthy");
     if (healthy) {
