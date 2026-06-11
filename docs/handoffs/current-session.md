@@ -1,20 +1,22 @@
 # Current Session Handoff — Obscur (v2 slim kernel + workspace kernel)
 
-- Last Updated (UTC): 2026-06-11T20:45:00Z
+- Last Updated (UTC): 2026-06-11T21:00:00Z
 - Session Status: **v1.9.5 active** — trust, anti-fraud/bot, internal security validation (blocks v2.0 prep)
-- Last commit: `02a7b847` — SEC-F4 settings copy + SEC-B verify gate; prior `bdbce06f` SEC-F1 trust port
+- Last commit: `c0b782cc` — handoff; uncommitted: SEC-B2 + SEC-B3
 
 ## Next Atomic Step
 
-**v1.9.5 Phase A — SEC-F2 banner wiring + SEC-B1 inbound bot hardening**
+**v1.9.5 Phase A — SEC-B4 dev-lab abuse scenario + SEC-R band**
 
 1. ~~v1.9.4 Phase C~~ **Done** — `release:test-pack` @ `7a49e339`; client community verified (NewTest 2).
-2. ~~SEC-F1~~ **Done** @ `bdbce06f` — dm-kernel trust assessment port, thread state, banner hook/UI, `pnpm verify:trust-v1.9.5`.
-3. **Implement** SEC-B2 → SEC-B4 (spam signals → assessment port; operator disable UX; dev-lab abuse scenario).
+2. ~~SEC-F1–F4~~ **Done** @ `02a7b847` — trust port, banner, settings copy, `verify:trust-v1.9.5`.
+3. ~~SEC-B2~~ **Done (uncommitted)** — `msg.rate` / `invite.fanout` → assessment port; `BUNDLE_SPAM_COLD`.
+4. ~~SEC-B3~~ **Done (uncommitted)** — steward pause-all + bot paused banner in manage hub + group thread.
+5. **Implement** SEC-B4 (flooded keyword dev-lab scenario).
 4. **Run** [v1.9.5-security-validation-checklist.md](../program/v1.9.5-security-validation-checklist.md) §1–§6 at Phase C.
 5. **Then** [v2.0-release-pipeline.md](../program/v2.0-release-pipeline.md) Phase 1 (◐→V matrix sweep + demo prep).
 
-**First code task:** `SEC-B2` — `msg.rate` / `invite.fanout` signals into dm-kernel assessment port per [v1.9.5-scope.md](../program/v1.9.5-scope.md).
+**First code task:** `SEC-B4` — dev-lab / vitest flooded keyword → rate limit scenario per [v1.9.5-scope.md](../program/v1.9.5-scope.md).
 
 ## Workspace kernel W4 (landed)
 

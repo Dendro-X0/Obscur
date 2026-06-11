@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import { useResolvedProfileMetadata } from "../../profile/hooks/use-resolved-profile-metadata";
 import { DmKernelTrustBanner } from "@/app/features/dm-kernel/components/dm-kernel-trust-banner";
 import { useDmKernelTrustBanner } from "@/app/features/dm-kernel/use-dm-kernel-trust-banner";
+import { CommunityBotPausedBanner } from "@/app/features/groups/components/community-bot-paused-banner";
+import type { CommunityBotTriggerSummary } from "@/app/features/groups/services/community-bot-triggers-policy";
 import { ChatHeader } from "./chat-header";
 import { StrangerWarningBanner } from "./stranger-warning-banner";
 import { shouldShowPathBThreadWarningBanner } from "../services/path-b-b5-extension-hooks";
@@ -181,6 +183,8 @@ export interface ChatViewProps {
     deliveryRisk?: "no_overlap" | "unknown" | "overlap" | null;
     /** Mobile shell thread uses MobileDmThreadHeader; omit desktop ChatHeader block. */
     hideDesktopChatHeader?: boolean;
+    /** Managed workspace B2 — show honest paused state when registered bots have no active triggers. */
+    communityBotTriggerSummary?: CommunityBotTriggerSummary | null;
 }
 
 
@@ -728,6 +732,9 @@ export function ChatView(props: ChatViewProps) {
                     onToggleExpanded={() => dmKernelTrust.setExpanded(!dmKernelTrust.expanded)}
                     onDismiss={dmKernelTrust.dismiss}
                 />
+            ) : null}
+            {props.communityBotTriggerSummary ? (
+                <CommunityBotPausedBanner summary={props.communityBotTriggerSummary} />
             ) : null}
             {props.conversation.kind === 'dm' && props.relayOverlap && props.relayOverlap.status !== 'overlap' && (
                 <RelayOverlapBanner

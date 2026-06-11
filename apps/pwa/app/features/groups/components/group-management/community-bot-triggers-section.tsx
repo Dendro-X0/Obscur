@@ -1,7 +1,8 @@
 "use client";
 
 import React from "react";
-import { MessageSquareReply, Plus, X, Zap } from "lucide-react";
+import { MessageSquareReply, PauseCircle, Plus, X, Zap } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
@@ -12,7 +13,12 @@ import type {
   CommunityBotTriggerKind,
   CommunityBotTriggerRule,
 } from "../../services/community-bot-triggers-policy";
-import { findBotTriggerEntry } from "../../services/community-bot-triggers-policy";
+import {
+  findBotTriggerEntry,
+  pauseAllBotTriggers,
+  resolveBotInboundTriggerStatus,
+  summarizeCommunityBotTriggerStatuses,
+} from "../../services/community-bot-triggers-policy";
 import { mgmtFieldClass, mgmtSectionClass } from "./constants";
 
 const TRIGGER_KIND_LABEL: Record<CommunityBotTriggerKind, string> = {
@@ -55,9 +61,13 @@ export function CommunityBotTriggersSection({
   disabled?: boolean;
   requiresGovernanceProposal?: boolean;
 }>): React.JSX.Element | null {
+  const { t } = useTranslation();
+
   if (botPubkeys.length === 0) {
     return null;
   }
+
+  const triggerSummary = summarizeCommunityBotTriggerStatuses({ botPubkeys, botTriggers });
 
   const updateEntry = (
     botPubkey: PublicKeyHex,
@@ -74,17 +84,34 @@ export function CommunityBotTriggersSection({
         </div>
         <div className="min-w-0 flex-1 space-y-1">
           <Label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-            Inbound triggers (B2)
+            {t("groups.bot.inboundTriggersTitle")}
           </Label>
           <p className="text-xs leading-relaxed text-zinc-500">
-            Configure keyword, mention, and schedule replies for registered bots.
-            Disabled bots or rules are ignored by the inbound runner.
-            Default rate limit: 6 replies/min per community.
+            {t("groups.bot.inboundTriggersDesc")}
             {requiresGovernanceProposal
-              ? " Changes apply after members approve the governance proposal."
+              ? ` ${t("groups.bot.governanceProposalNote")}`
               : ""}
           </p>
+          {triggerSummary.shouldShowPausedNotice ? (
+            <p className="rounded-md border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-900 dark:text-amber-100">
+              {t("groups.bot.pausedManageNotice")}
+            </p>
+          ) : null}
         </div>
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={disabled || triggerSummary.activeBotCount === 0}
+          className="gap-1 rounded-lg text-xs"
+          onClick={() => onChange(pauseAllBotTriggers({ botPubkeys, botTriggers }))}
+        >
+          <PauseCircle className="h-3.5 w-3.5" />
+          {t("groups.bot.pauseAllTriggers")}
+        </Button>
       </div>
 
       <div className="mt-4 space-y-4">
@@ -92,6 +119,7 @@ export function CommunityBotTriggersSection({
           const entry = findBotTriggerEntry(botTriggers, botPubkey);
           const enabled = entry?.enabled ?? false;
           const triggers = entry?.triggers ?? [];
+          const status = resolveBotInboundTriggerStatus({ botTriggers, botPubkey });
 
           return (
             <div
@@ -102,6 +130,16 @@ export function CommunityBotTriggersSection({
                 <code className="min-w-0 flex-1 truncate text-xs text-zinc-600 dark:text-zinc-300">
                   {botPubkey}
                 </code>
+                {status !== "active" ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800 dark:text-amber-200">
+                    <PauseCircle className="h-3 w-3" />
+                    {t("groups.bot.statusPaused")}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
+                    {t("groups.bot.statusActive")}
+                  </span>
+                )}
                 <label className="flex items-center gap-2 text-xs text-zinc-500">
                   <input
                     type="checkbox"
@@ -123,9 +161,15 @@ export function CommunityBotTriggersSection({
                       });
                     }}
                   />
-                  Triggers enabled
+                  {t("groups.bot.triggersEnabledLabel")}
                 </label>
               </div>
+
+              {!enabled && triggers.length > 0 ? (
+                <p className="mt-2 text-[11px] text-amber-800/80 dark:text-amber-200/80">
+                  {t("groups.bot.pausedBotHint")}
+                </p>
+              ) : null}
 
               {enabled ? (
                 <div className="mt-3 space-y-3">

@@ -59,6 +59,11 @@ import { useAutoLock } from "@/app/features/settings/hooks/use-auto-lock";
 import { useSealedCommunity, type GroupMessageEvent } from "@/app/features/groups/hooks/use-sealed-community";
 import { useGroupThreadRelayIngest } from "@/app/features/groups/hooks/use-group-thread-relay-ingest";
 import { hasWritableCommunityRelayTransport } from "@/app/features/groups/services/community-relay-transport";
+import { readBotPubkeysFromMetadataField } from "@/app/features/groups/services/community-bot-policy";
+import {
+  readBotTriggersFromMetadataField,
+  summarizeCommunityBotTriggerStatuses,
+} from "@/app/features/groups/services/community-bot-triggers-policy";
 import {
   resolveMainShellGroupThreadRelayIngestEnabled,
   resolveMainShellSealedCommunityEnabled,
@@ -779,6 +784,18 @@ function NostrMessengerContent() {
     selectedGroupActiveMemberPubkeys,
     selectedGroupMembershipReadModel,
   ]);
+
+  const selectedCommunityBotTriggerSummary = useMemo(() => {
+    if (selectedConversationView?.kind !== "group" || !groupState.metadata) {
+      return null;
+    }
+    const botPubkeys = readBotPubkeysFromMetadataField(groupState.metadata.botPubkeys);
+    if (botPubkeys.length === 0) {
+      return null;
+    }
+    const botTriggers = readBotTriggersFromMetadataField(groupState.metadata.botTriggers);
+    return summarizeCommunityBotTriggerStatuses({ botPubkeys, botTriggers });
+  }, [groupState.metadata, selectedConversationView]);
 
   const isMobileDmShell = isMobileShellProduct();
   const handleLeaveMobileThread = useCallback(() => {
@@ -4020,6 +4037,7 @@ function NostrMessengerContent() {
             onAcceptIncomingVoiceCall={REALTIME_VOICE_CALLS_ENABLED ? handleAcceptIncomingVoiceInvite : undefined}
             onDeclineIncomingVoiceCall={REALTIME_VOICE_CALLS_ENABLED ? handleDeclineIncomingVoiceInvite : undefined}
             groupAdmins={groupState.admins}
+            communityBotTriggerSummary={selectedCommunityBotTriggerSummary}
             groupRelayUrl={selectedConversationView.kind === "group" ? selectedConversationView.relayUrl : null}
             messageMenu={messageMenu}
             setMessageMenu={setMessageMenu}
