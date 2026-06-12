@@ -36,8 +36,8 @@ import { isCoordinationConfigured } from "@/app/features/groups/services/communi
 import { logAppEvent } from "@/app/shared/log-app-event";
 import {
   toCommunityMembershipLedgerEntryFromGroup,
-  upsertCommunityMembershipLedgerEntry,
 } from "@/app/features/groups/services/community-membership-ledger";
+import { persistCommunityMembershipLedgerMutation } from "@/app/features/groups/services/community-membership-mutation-owner";
 import { logWorkspaceKernelDiagnostic } from "./workspace-kernel-diagnostics";
 import { upsertWorkspaceGroupMetadata } from "./workspace-kernel-group-metadata-cache";
 import { isWorkspaceKernelAuthority } from "./workspace-kernel-policy";
@@ -312,9 +312,12 @@ export const createManagedWorkspaceMembership = async (
 
   const profileId = getResolvedProfileId();
   await refreshCoordinationMembershipDirectory({ communityId, forceFull: true, profileId });
-  upsertCommunityMembershipLedgerEntry(
+  persistCommunityMembershipLedgerMutation(
     myPublicKeyHex,
-    toCommunityMembershipLedgerEntryFromGroup(newGroup, { status: "joined" }),
+    {
+      reason: "runtime_join_confirmed",
+      entry: toCommunityMembershipLedgerEntryFromGroup(newGroup, { status: "joined" }),
+    },
     { profileId },
   );
   upsertWorkspaceGroupMetadata(myPublicKeyHex, profileId, newGroup);
@@ -390,9 +393,12 @@ export const joinManagedWorkspaceMembership = async (
       adminPubkeys: [],
       communityMode: "managed_workspace",
     };
-    upsertCommunityMembershipLedgerEntry(
+    persistCommunityMembershipLedgerMutation(
       params.memberPubkey,
-      toCommunityMembershipLedgerEntryFromGroup(joinedGroup, { status: "joined" }),
+      {
+        reason: "runtime_join_confirmed",
+        entry: toCommunityMembershipLedgerEntryFromGroup(joinedGroup, { status: "joined" }),
+      },
       { profileId },
     );
     upsertWorkspaceGroupMetadata(params.memberPubkey, profileId, joinedGroup);

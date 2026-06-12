@@ -1,20 +1,19 @@
 # Current Session Handoff — Obscur (v2 slim kernel + workspace kernel)
 
-- Last Updated (UTC): 2026-06-08T07:36:00Z
-- Last commit: `e2d6656b` — SEC-R2–R4 relay trust scorer, stack hardening doc, publish honesty gate
+- Last Updated (UTC): 2026-06-08T15:50:00Z
+- Last commit: `e2d6656b` — SEC-R2–R4
 
 ## Next Atomic Step
 
-**v1.9.5 Phase A — SEC-V internal validation checklist**
+**v1.9.5 Phase B — manual matrix + Phase C maintainer sign-off**
 
-1. ~~SEC-B1–B4~~ **Done** @ `121b29e5` — full anti-bot band.
-2. ~~SEC-R1~~ **Done** @ `e49d2c43` — operator trust bundle audit, create/join wiring.
-3. ~~SEC-R2~~ **Done** @ `e2d6656b` — `assessRelayAddTrust` + pure scoring exports + Settings wiring.
-4. ~~SEC-R3~~ **Done** @ `e2d6656b` — SEC-R3 hardening section in [private-trust-local-setup.md](../assets/demo/private-trust-local-setup.md); contract test `private-trust-local-setup-sec-r3.contract.test.ts`.
-5. ~~SEC-R4~~ **Done** @ `e2d6656b` — publish honesty gate in **`pnpm verify:relay-v1.9.5`** (57 tests).
-6. **Run** [v1.9.5-security-validation-checklist.md](../program/v1.9.5-security-validation-checklist.md) §1–§6 at Phase C (SEC-V1–V5).
+1. ~~SEC-B1–B4~~ **Done** @ `121b29e5`.
+2. ~~SEC-R1–R4~~ **Done** @ `e2d6656b`.
+3. ~~SEC-V1–V5~~ **Done** — umbrella **`pnpm verify:sec-v1.9.5`**; register + checklist updated.
+4. **Run** manual rows: TRUST-*, BOT-*, AUTH-4 desktop A/B per [unified-verification-matrix.md](../program/unified-verification-matrix.md).
+5. **Phase C:** `pnpm release:test-pack`, `pnpm verify:phase-b-programmatic`, maintainer sign-off in [v1.9.5-security-validation-checklist.md](../program/v1.9.5-security-validation-checklist.md) with Git SHA → v2.0 pipeline Phase 1.
 
-**First code task:** `SEC-V1` — E2EE boundary audit (grep + boundary scripts per checklist §1–§2).
+**First task:** Run `pnpm verify:sec-v1.9.5` at exit SHA; begin Phase B manual matrix.
 
 ## Workspace kernel W4 (landed)
 

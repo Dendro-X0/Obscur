@@ -47,15 +47,21 @@ describe("account-sync-mutation-signal profile isolation", () => {
     expect(profileBListener).not.toHaveBeenCalled();
   });
 
-  it("replays latest mutation only for the matching profile", () => {
+  it("replays latest mutation only for the matching profile when replayOnSubscribe is enabled", () => {
     emitAccountSyncMutation("dm_history_changed", { profileId: "profile-a" });
     const profileBListener = vi.fn();
-    subscribeAccountSyncMutation(profileBListener, { profileId: "profile-b" });
+    subscribeAccountSyncMutation(profileBListener, {
+      profileId: "profile-b",
+      replayOnSubscribe: true,
+    });
 
     expect(profileBListener).not.toHaveBeenCalled();
 
     const profileAListener = vi.fn();
-    subscribeAccountSyncMutation(profileAListener, { profileId: "profile-a" });
+    subscribeAccountSyncMutation(profileAListener, {
+      profileId: "profile-a",
+      replayOnSubscribe: true,
+    });
 
     expect(profileAListener).toHaveBeenCalledTimes(1);
     expect(profileAListener).toHaveBeenCalledWith(expect.objectContaining({

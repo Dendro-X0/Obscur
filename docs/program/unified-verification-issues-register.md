@@ -13,8 +13,20 @@
 | Git SHA | `015fc3b3` |
 | Handoff | [current-session.md](../handoffs/current-session.md) |
 | v1.9.4 exit | **Pass** — programmatic + maintainer client community verification |
-| SEC implementation | **Open** — [v1.9.5-scope.md](./v1.9.5-scope.md) Phase A |
-| v2.0 pipeline | **Blocked** until v1.9.5 Phase B–C exit |
+| SEC implementation | **Phase A programmatic complete** — `pnpm verify:sec-v1.9.5` (SEC-V1–V5 + SEC-F/B/R gates); maintainer manual rows Phase B–C |
+| v2.0 pipeline | **Blocked** until v1.9.5 Phase B–C maintainer sign-off |
+
+### SEC band programmatic exit (v1.9.5 Phase A)
+
+| Band | Gate | Status | Notes |
+|------|------|--------|-------|
+| SEC-F / SEC-B | `pnpm verify:trust-v1.9.5` | **Pass (programmatic)** | Recipient-local trust + bot triggers |
+| SEC-R | `pnpm verify:relay-v1.9.5` | **Pass (programmatic)** | Operator bundle, relay scorer, stack doc, publish honesty |
+| SEC-V1 | `pnpm verify:sec-v1-v1.9.5` | **Pass (programmatic)** | E2EE boundary grep + contracts |
+| SEC-V2 | `pnpm verify:sec-v2-v1.9.5` | **Pass (programmatic)** | Transport + gateway boundaries |
+| SEC-V3 | `pnpm verify:sec-v3-v1.9.5` | **Pass (programmatic)** | AUTH-4 / REL-003 isolation |
+| SEC-V4 | `pnpm verify:sec-v4-v1.9.5` | **Pass (programmatic)** | AB-15 / COM-10 restore leak |
+| SEC-V5 | `pnpm verify:sec-v1.9.5` | **Pass (programmatic)** | Umbrella + exit contract; maintainer checklist §1–§5 manual |
 
 ### Resolved (Phase A + STAB-R)
 
@@ -65,3 +77,4 @@
 | 2026-06-11 | Phase B programmatic: platform-kernels + community-invariants 97/97; runtime membership-join-leave blocked on coordination startup |
 | 2026-06-11 | v1.9.4 Phase C closed; v1.9.5 SEC band active — blocks v2.0 prep |
 | 2026-06-11 | `verify:phase-b-full` Pass; Path B contract tests updated for join-evidence + W2 delegate |
+| 2026-06-08 | SEC-V1–V5 programmatic gates wired — `pnpm verify:sec-v1.9.5`; maintainer manual checklist §1–§5 + Phase B matrix remain |

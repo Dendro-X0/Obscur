@@ -33,8 +33,8 @@ import {
   loadCommunityMembershipLedger,
   toCommunityMembershipLedgerEntryFromGroup,
   toGroupConversationFromMembershipLedgerEntry,
-  upsertCommunityMembershipLedgerEntry,
 } from "@/app/features/groups/services/community-membership-ledger";
+import { persistCommunityMembershipLedgerMutation } from "@/app/features/groups/services/community-membership-mutation-owner";
 import { deriveCommunityId } from "@/app/features/groups/utils/community-identity";
 import { resolveGroupConversationIdAliases, toGroupConversationId } from "@/app/features/groups/utils/group-conversation-id";
 import { refreshCoordinationMembershipDirectory } from "@/app/features/groups/services/community-coordination-membership-directory-store";
@@ -274,11 +274,14 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       });
     }
     if (isWorkspaceKernelAuthority() && options?.relayConfirmed === true) {
-      upsertCommunityMembershipLedgerEntry(
+      persistCommunityMembershipLedgerMutation(
         publicKeyHex,
-        toCommunityMembershipLedgerEntryFromGroup(group, {
-          status: options?.provisionalJoin ? "pending" : "joined",
-        }),
+        {
+          reason: "runtime_join_confirmed",
+          entry: toCommunityMembershipLedgerEntryFromGroup(group, {
+            status: options?.provisionalJoin ? "pending" : "joined",
+          }),
+        },
         { profileId: resolvedProfileId },
       );
     }
