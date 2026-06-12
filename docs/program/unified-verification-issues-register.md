@@ -10,7 +10,7 @@
 | Field | Value |
 |-------|--------|
 | Concentration unit | **v1.9.5** — trust, anti-fraud/bot, security validation |
-| Git SHA | `015fc3b3` |
+| Git SHA | `6fa015fd` |
 | Handoff | [current-session.md](../handoffs/current-session.md) |
 | v1.9.4 exit | **Pass** — programmatic + maintainer client community verification |
 | SEC implementation | **Phase A programmatic complete** — `pnpm verify:sec-v1.9.5` (SEC-V1–V5 + SEC-F/B/R gates); maintainer manual rows Phase B–C |

@@ -1,7 +1,8 @@
 # Current Session Handoff — Obscur (v2 slim kernel + workspace kernel)
 
 - Last Updated (UTC): 2026-06-08T15:50:00Z
-- Last commit: `e2d6656b` — SEC-R2–R4
+- Last Updated (UTC): 2026-06-08T15:55:00Z
+- Last commit: `6fa015fd` — SEC-V1–V5 security validation gates and programmatic exit
 
 ## Next Atomic Step
 
@@ -9,7 +10,7 @@
 
 1. ~~SEC-B1–B4~~ **Done** @ `121b29e5`.
 2. ~~SEC-R1–R4~~ **Done** @ `e2d6656b`.
-3. ~~SEC-V1–V5~~ **Done** — umbrella **`pnpm verify:sec-v1.9.5`**; register + checklist updated.
+3. ~~SEC-V1–V5~~ **Done** @ `6fa015fd` — umbrella **`pnpm verify:sec-v1.9.5`**; register + checklist updated.
 4. **Run** manual rows: TRUST-*, BOT-*, AUTH-4 desktop A/B per [unified-verification-matrix.md](../program/unified-verification-matrix.md).
 5. **Phase C:** `pnpm release:test-pack`, `pnpm verify:phase-b-programmatic`, maintainer sign-off in [v1.9.5-security-validation-checklist.md](../program/v1.9.5-security-validation-checklist.md) with Git SHA → v2.0 pipeline Phase 1.
 
