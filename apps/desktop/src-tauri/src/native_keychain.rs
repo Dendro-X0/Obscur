@@ -9,9 +9,45 @@ use zeroize::Zeroizing;
 
 pub const APP_SERVICE: &str = "app.obscur.desktop";
 const KEY_NAME: &str = "nsec";
+const LOGIN_ASSIST_KEY_NAME: &str = "login_assist";
 
 pub fn key_name_for_profile(profile_id: &str) -> String {
     format!("{KEY_NAME}::{profile_id}")
+}
+
+pub fn login_assist_key_name_for_profile(profile_id: &str) -> String {
+    format!("{LOGIN_ASSIST_KEY_NAME}_{}", profile_id.replace(':', "_"))
+}
+
+#[cfg(not(target_os = "android"))]
+use std::collections::HashMap;
+#[cfg(not(target_os = "android"))]
+use std::sync::{LazyLock, Mutex};
+
+#[cfg(not(target_os = "android"))]
+static LOGIN_ASSIST_CACHE: LazyLock<Mutex<HashMap<String, String>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+
+#[cfg(not(target_os = "android"))]
+fn remember_login_assist_payload(profile_id: &str, payload: &str) {
+    if let Ok(mut cache) = LOGIN_ASSIST_CACHE.lock() {
+        cache.insert(profile_id.to_string(), payload.to_string());
+    }
+}
+
+#[cfg(not(target_os = "android"))]
+fn cached_login_assist_payload(profile_id: &str) -> Option<String> {
+    LOGIN_ASSIST_CACHE
+        .lock()
+        .ok()
+        .and_then(|cache| cache.get(profile_id).cloned())
+}
+
+#[cfg(not(target_os = "android"))]
+fn forget_login_assist_payload(profile_id: &str) {
+    if let Ok(mut cache) = LOGIN_ASSIST_CACHE.lock() {
+        cache.remove(profile_id);
+    }
 }
 
 /// Legacy typo from early `init_native_session` — kept for one-time migration reads.
@@ -99,5 +135,73 @@ pub fn delete_nsec_for_profile(profile_id: &str) -> Result<(), String> {
 
 #[cfg(target_os = "android")]
 pub fn delete_nsec_for_profile(_profile_id: &str) -> Result<(), String> {
+    Ok(())
+}
+
+/// Read saved username/password JSON for local login assist (no private key material).
+#[cfg(not(target_os = "android"))]
+pub fn read_login_assist_for_profile(profile_id: &str) -> Result<Option<String>, String> {
+    if let Some(cached) = cached_login_assist_payload(profile_id) {
+        return Ok(Some(cached));
+    }
+    let entry = Entry::new(APP_SERVICE, &login_assist_key_name_for_profile(profile_id))
+        .map_err(|e| e.to_string())?;
+    match read_password(&entry) {
+        Ok(payload) => {
+            remember_login_assist_payload(profile_id, &payload);
+            Ok(Some(payload))
+        }
+        Err(keyring::Error::NoEntry) => Ok(None),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+#[cfg(target_os = "android")]
+pub fn read_login_assist_for_profile(_profile_id: &str) -> Result<Option<String>, String> {
+    Ok(None)
+}
+
+#[cfg(not(target_os = "android"))]
+pub fn write_login_assist_for_profile(profile_id: &str, payload: &str) -> Result<(), String> {
+    let entry = Entry::new(APP_SERVICE, &login_assist_key_name_for_profile(profile_id))
+        .map_err(|e| e.to_string())?;
+    write_password(&entry, payload).map_err(|e| e.to_string())?;
+    match read_password(&entry) {
+        Ok(stored) if stored == payload => {
+            remember_login_assist_payload(profile_id, payload);
+            Ok(())
+        }
+        Ok(_) => Err("Login assist keychain entry did not round-trip".to_string()),
+        Err(keyring::Error::NoEntry) => {
+            // Windows Credential Manager can lag between Entry instances; keep in-process cache.
+            remember_login_assist_payload(profile_id, payload);
+            eprintln!(
+                "[LOGIN_ASSIST] Keychain read-back missed for profile {}; using in-process cache",
+                profile_id
+            );
+            Ok(())
+        }
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+#[cfg(target_os = "android")]
+pub fn write_login_assist_for_profile(_profile_id: &str, _payload: &str) -> Result<(), String> {
+    Ok(())
+}
+
+#[cfg(not(target_os = "android"))]
+pub fn delete_login_assist_for_profile(profile_id: &str) -> Result<(), String> {
+    forget_login_assist_payload(profile_id);
+    let entry = Entry::new(APP_SERVICE, &login_assist_key_name_for_profile(profile_id))
+        .map_err(|e| e.to_string())?;
+    match delete_entry(&entry) {
+        Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+#[cfg(target_os = "android")]
+pub fn delete_login_assist_for_profile(_profile_id: &str) -> Result<(), String> {
     Ok(())
 }

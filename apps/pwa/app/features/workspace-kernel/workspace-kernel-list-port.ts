@@ -9,6 +9,11 @@ import {
 import { communityMembershipScopeMatchesStorageKey } from "@/app/features/groups/services/community-membership-scope-key";
 import { isGroupTombstoned, loadGroupTombstones } from "@/app/features/groups/services/group-tombstone-store";
 import { enrichWorkspaceGroupConversation } from "@/app/features/groups/services/community-workspace-r1-policy";
+import { repairCommunityMembershipDurableStateOnHydrate } from "@/app/features/groups/services/community-membership-hydrate-repair";
+import {
+  appendDirectoryBackedSidebarGroups,
+  shouldHideSidebarForExperimentDirectory,
+} from "@/app/features/relationship-sync/relationship-sync-directory-sidebar";
 import { hasTerminalLedgerScopeEvidence } from "./workspace-kernel-membership-scope";
 import { isWorkspaceKernelAuthority } from "./workspace-kernel-policy";
 
@@ -53,6 +58,8 @@ const shouldHideFromSidebar = (params: Readonly<{
   groupId: string;
   relayUrl: string;
   tombstones: ReadonlySet<string>;
+  ledger: ReadonlyArray<import("@/app/features/groups/services/community-membership-ledger").CommunityMembershipLedgerEntry>;
+  persistedGroups: ReadonlyArray<GroupConversation>;
 }>): boolean => {
   const groupId = params.groupId.trim();
   const relayUrl = params.relayUrl.trim();
@@ -65,8 +72,17 @@ const shouldHideFromSidebar = (params: Readonly<{
   if (isScopeTombstoned(params.tombstones, groupId, relayUrl)) {
     return true;
   }
-  const ledger = loadCommunityMembershipLedger(params.publicKeyHex, { profileId: params.profileId });
-  return hasTerminalLedgerScopeEvidence(ledger, { groupId, relayUrl });
+  if (shouldHideSidebarForExperimentDirectory({
+    publicKeyHex: params.publicKeyHex,
+    profileId: params.profileId,
+    groupId,
+    relayUrl,
+    ledger: params.ledger,
+    persistedGroups: params.persistedGroups,
+  })) {
+    return false;
+  }
+  return hasTerminalLedgerScopeEvidence(params.ledger, { groupId, relayUrl });
 };
 
 /**
@@ -82,8 +98,14 @@ export const resolveManagedWorkspaceGroupList = (params: Readonly<{
     return params.persistedGroups;
   }
 
+  repairCommunityMembershipDurableStateOnHydrate({
+    publicKeyHex: params.publicKeyHex,
+    profileId: params.profileId,
+    persistedGroups: params.persistedGroups,
+  });
+
   const tombstones = loadGroupTombstones(params.publicKeyHex, { profileId: params.profileId });
-  const ledger = loadCommunityMembershipLedger(params.publicKeyHex, { profileId: params.profileId });
+  let ledger = loadCommunityMembershipLedger(params.publicKeyHex, { profileId: params.profileId });
   const byConversationId = new Map<string, GroupConversation>();
 
   const rememberGroup = (group: GroupConversation): void => {
@@ -95,11 +117,19 @@ export const resolveManagedWorkspaceGroupList = (params: Readonly<{
       groupId,
       relayUrl,
       tombstones,
+      ledger,
+      persistedGroups: params.persistedGroups,
     })) {
       return;
     }
     byConversationId.set(group.id, enrichWorkspaceGroupConversation(group));
   };
+
+  const hasConversationForScope = (groupId: string, relayUrl: string): boolean => (
+    Array.from(byConversationId.values()).some((group) => (
+      group.groupId.trim() === groupId.trim() && (group.relayUrl ?? "").trim() === relayUrl.trim()
+    ))
+  );
 
   for (const group of params.persistedGroups) {
     rememberGroup(group);
@@ -111,13 +141,19 @@ export const resolveManagedWorkspaceGroupList = (params: Readonly<{
     }
     const groupId = ledgerEntry.groupId.trim();
     const relayUrl = (ledgerEntry.relayUrl ?? "").trim();
-    if (Array.from(byConversationId.values()).some((group) => (
-      group.groupId.trim() === groupId && (group.relayUrl ?? "").trim() === relayUrl
-    ))) {
+    if (hasConversationForScope(groupId, relayUrl)) {
       continue;
     }
     rememberGroup(toGroupConversationFromMembershipLedgerEntry(ledgerEntry));
   }
+
+  appendDirectoryBackedSidebarGroups({
+    publicKeyHex: params.publicKeyHex,
+    profileId: params.profileId,
+    persistedGroups: params.persistedGroups,
+    rememberGroup,
+    hasConversationForScope,
+  });
 
   return Array.from(byConversationId.values());
 };

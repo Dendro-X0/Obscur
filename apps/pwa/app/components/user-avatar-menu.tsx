@@ -10,9 +10,9 @@ import { useProfile } from "@/app/features/profile/hooks/use-profile";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { LogOut } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { endNativeDeviceSignInBestEffort } from "@/app/features/auth/services/native-device-session-lifecycle";
 import { clearAuthSessionPersistence } from "@/app/features/auth/utils/clear-auth-session-persistence";
 import { useDesktopProfileIsolationSnapshot } from "@/app/features/profiles/services/desktop-profile-runtime";
-import { cryptoService } from "@/app/features/crypto/crypto-service";
 
 const MENU_APPROX_HEIGHT_PX: number = 176;
 
@@ -31,18 +31,6 @@ const UserAvatarMenu = (props: UserAvatarMenuProps): React.JSX.Element => {
   const [open, setOpen] = useState<boolean>(false);
   const [openUp, setOpenUp] = useState<boolean>(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
-
-  const clearNativeSessionBestEffort = async (): Promise<void> => {
-    const cs = cryptoService as unknown as { clearNativeSession?: () => Promise<void> };
-    if (typeof cs.clearNativeSession !== "function") {
-      return;
-    }
-    try {
-      await cs.clearNativeSession();
-    } catch {
-      // Best-effort only.
-    }
-  };
 
   const computeOpenUp = (): boolean => {
     const root: HTMLDivElement | null = rootRef.current;
@@ -142,7 +130,7 @@ const UserAvatarMenu = (props: UserAvatarMenuProps): React.JSX.Element => {
             onClick={async (): Promise<void> => {
               setOpen(false);
               clearAuthSessionPersistence({ profileId: desktopSnapshot.currentWindow.profileId });
-              await clearNativeSessionBestEffort();
+              await endNativeDeviceSignInBestEffort();
               identity.lockIdentity();
               router.replace("/");
             }}

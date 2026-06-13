@@ -9,8 +9,8 @@ import { UserAvatar } from "@/app/components/user-avatar";
 import { cn } from "@/app/lib/utils";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { getAuthTokenStorageKey } from "@/app/features/auth/utils/auth-storage-keys";
+import { endNativeDeviceSignInBestEffort } from "@/app/features/auth/services/native-device-session-lifecycle";
 import { clearAuthSessionPersistence } from "@/app/features/auth/utils/clear-auth-session-persistence";
-import { cryptoService } from "@/app/features/crypto/crypto-service";
 import { useTauri } from "@/app/features/desktop/hooks/use-tauri";
 import { useProfile } from "@/app/features/profile/hooks/use-profile";
 import { useDesktopProfileIsolationSnapshot } from "@/app/features/profiles/services/desktop-profile-runtime";
@@ -112,29 +112,17 @@ export function TitleBarProfileSwitcher({ title }: Props): React.JSX.Element | n
     localStorage.removeItem(getAuthTokenStorageKey(snapshot.currentWindow.profileId));
     identity.lockIdentity();
     setOpen(false);
-    toast.success("Session locked.");
+    toast.success("Session locked. Stay signed in will restore after restart.");
     router.replace("/");
-  };
-
-  const clearNativeSessionBestEffort = async (): Promise<void> => {
-    const cs = cryptoService as unknown as { clearNativeSession?: () => Promise<void> };
-    if (typeof cs.clearNativeSession !== "function") {
-      return;
-    }
-    try {
-      await cs.clearNativeSession();
-    } catch {
-      // Best-effort; keep logout resilient even if native bridge is unavailable.
-    }
   };
 
   const handleLogout = async (): Promise<void> => {
     const profileId = snapshot.currentWindow.profileId;
     clearAuthSessionPersistence({ profileId });
-    await clearNativeSessionBestEffort();
+    await endNativeDeviceSignInBestEffort();
     identity.lockIdentity();
     setOpen(false);
-    toast.success("Signed out. Local data for this profile window is unchanged.");
+    toast.success("Signed out. Device session cleared — sign in manually after restart.");
     await finalizeProfileWindowLogout({
       profileId,
       hardReload: true,
@@ -144,10 +132,10 @@ export function TitleBarProfileSwitcher({ title }: Props): React.JSX.Element | n
   const handleLogoutAndClose = async (): Promise<void> => {
     const profileId = snapshot.currentWindow.profileId;
     clearAuthSessionPersistence({ profileId });
-    await clearNativeSessionBestEffort();
+    await endNativeDeviceSignInBestEffort();
     identity.lockIdentity();
     setOpen(false);
-    toast.success("Signed out.");
+    toast.success("Signed out. Device session cleared.");
     await finalizeProfileWindowLogout({
       profileId,
       hardReload: snapshot.currentWindow.windowLabel === "main",

@@ -18,7 +18,7 @@ describe("clearAuthSessionPersistence", () => {
 
     expect(window.localStorage.getItem("obscur_auth_token::profile-a")).toBeNull();
     expect(window.sessionStorage.getItem("obscur_auth_token::profile-a")).toBeNull();
-    expect(window.localStorage.getItem("obscur_remember_me::profile-a")).toBeNull();
+    expect(window.localStorage.getItem("obscur_remember_me::profile-a")).toBe("false");
 
     expect(window.localStorage.getItem("obscur_auth_token::profile-b")).toBe("token-b");
     expect(window.localStorage.getItem("obscur_remember_me::profile-b")).toBe("true");

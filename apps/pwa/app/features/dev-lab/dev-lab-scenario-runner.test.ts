@@ -17,6 +17,11 @@ describe("dev-lab-scenario-catalog", () => {
     expect(DEV_LAB_SUITE_SCENARIOS.full).toContain("search-profile-jump");
     expect(DEV_LAB_SUITE_SCENARIOS.full).toContain("group-stub-send");
     expect(DEV_LAB_SUITE_SCENARIOS.full).toContain("vault-unlock");
+    expect(DEV_LAB_SUITE_SCENARIOS.full).toContain("membership-leave-rejoin-zombie");
+    expect(DEV_LAB_SUITE_SCENARIOS.full).toContain("sec-bot-keyword-flood");
+    expect(DEV_LAB_SUITE_SCENARIOS.full).toContain("trust-fixtures");
+    expect(DEV_LAB_SUITE_SCENARIOS.full).toContain("trust-cold-dm-banner");
+    expect(DEV_LAB_SUITE_SCENARIOS.full).toContain("auth4-scope-probe");
   });
 
   it("resolves known scenarios", () => {

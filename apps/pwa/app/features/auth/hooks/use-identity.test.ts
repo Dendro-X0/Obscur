@@ -59,7 +59,7 @@ describe("useIdentity rehydrate", () => {
     vi.mocked(recoverSingleStoredIdentityProfile).mockResolvedValue(null);
   });
 
-  it("keeps stored identity locked when session auto-unlock policy is disabled", async () => {
+  it("keeps stored identity locked when device session restore is opted out", async () => {
     const stored = {
       encryptedPrivateKey: "cipher",
       publicKeyHex: "f".repeat(64) as any,
@@ -72,7 +72,7 @@ describe("useIdentity rehydrate", () => {
       npub: stored.publicKeyHex,
       isNative: true,
     });
-    window.localStorage.setItem(getRememberMeStorageKey("default"), "true");
+    window.localStorage.setItem(getRememberMeStorageKey("default"), "false");
 
     await useIdentityInternals.ensureInitialized();
 

@@ -35,4 +35,13 @@ describe("community-inbound-bot SEC-B contract", () => {
     assert.match(runner, /rate limit reached — skipping reply/);
     assert.doesNotMatch(runner, /queue.*reply|burst.*reply/i);
   });
+
+  it("dev-lab sec-bot-inbound-live scenario wires runner --once + flood eval", () => {
+    const live = read("scripts/lib/dev-lab-bot-inbound-live.mjs");
+    const runMjs = read("scripts/dev-lab-run.mjs");
+    assert.match(live, /runCommunityInboundBotOnce/);
+    assert.match(live, /evaluateSecBotInboundLiveFlood/);
+    assert.match(runMjs, /sec-bot-inbound-live/);
+    assert.match(runMjs, /runSecBotInboundLiveScenario/);
+  });
 });

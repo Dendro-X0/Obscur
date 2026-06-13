@@ -9,6 +9,10 @@ import { isNativeDmSqliteReadOwner } from "./native-dm-read-policy";
 import { evaluateDirectionCoverage } from "./dm-thread-read-model";
 import { toDmConversationId } from "../utils/dm-conversation-id";
 
+const toRowTimestampUnixMs = (value: number): number => (
+  value < 1_000_000_000_000 ? value * 1000 : value
+);
+
 export type NativeDmSqliteDirectionCounts = Readonly<{
   outgoing: number;
   incoming: number;
@@ -182,6 +186,7 @@ export const loadNativeDmSqlitePeerThreadSnapshots = async (params: Readonly<{
   content: string;
   isOutgoing: boolean;
   status: string;
+  timestampUnixMs: number;
 }>>> => {
   const conversationId = toDmConversationId({
     myPublicKeyHex: params.myPublicKeyHex,
@@ -201,5 +206,6 @@ export const loadNativeDmSqlitePeerThreadSnapshots = async (params: Readonly<{
     content: row.plaintext,
     isOutgoing: row.is_outgoing || row.sender_pubkey.trim().toLowerCase() === account,
     status: "delivered",
+    timestampUnixMs: toRowTimestampUnixMs(row.received_at ?? row.created_at),
   }));
 };

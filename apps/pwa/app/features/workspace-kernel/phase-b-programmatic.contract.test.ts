@@ -3,9 +3,9 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 /**
- * v1.9.4 Phase B — programmatic entry gate (no live dev server required).
+ * v1.9.5 Phase B — programmatic entry gate (no live dev server required).
  */
-describe("v1.9.4 Phase B programmatic exit contract", () => {
+describe("v1.9.5 Phase B programmatic exit contract", () => {
   const repoRoot = path.resolve(__dirname, "../../../../../");
 
   it("verify:phase-b-programmatic script chains platform + community invariants", () => {
@@ -21,14 +21,14 @@ describe("v1.9.4 Phase B programmatic exit contract", () => {
     expect(pwaPkg).toContain("dev-lab-joiner-membership-probe.test.ts");
   });
 
-  it("handoff documents Phase B community verification step", () => {
+  it("handoff documents Phase B manual matrix step", () => {
     const handoff = readFileSync(
       path.join(repoRoot, "docs/handoffs/current-session.md"),
       "utf8",
     );
-    expect(handoff).toMatch(/Phase B|v1\.9\.4 Phase B/i);
-    expect(handoff).toContain("verify:platform-kernels");
-    expect(handoff).toMatch(/membership-join-leave|COM-8|COM-3/i);
+    expect(handoff).toMatch(/Phase B|v1\.9\.5 Phase B/i);
+    expect(handoff).toContain("verify:sec-v1.9.5");
+    expect(handoff).toMatch(/TRUST-|BOT-|AUTH-4/i);
   });
 
   it("membership-join-leave CLI scenario includes COM-8 joiner repair probe", () => {

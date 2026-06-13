@@ -82,6 +82,22 @@ const collectNewestMtime = (root, maxDepth = 6, depth = 0) => {
   return newest;
 };
 
+const SOURCE_FILE_PATTERN = /\.(ts|tsx|mjs|json)$/;
+
+const resolveWatchPathNewestMtime = (watchPath, maxDepth = 5) => {
+  if (!existsSync(watchPath)) {
+    return 0;
+  }
+  const stat = statSync(watchPath);
+  if (stat.isFile()) {
+    return SOURCE_FILE_PATTERN.test(watchPath) ? stat.mtimeMs : 0;
+  }
+  if (stat.isDirectory()) {
+    return collectNewestMtime(watchPath, maxDepth, 0);
+  }
+  return 0;
+};
+
 export const isStaticShellStale = (repoRoot) => {
   const outIndex = path.join(repoRoot, "apps", "pwa", "out", "index.html");
   if (!existsSync(outIndex)) {
@@ -90,6 +106,14 @@ export const isStaticShellStale = (repoRoot) => {
 
   const outMtime = statSync(outIndex).mtimeMs;
   const watchRoots = [
+    path.join(repoRoot, "apps", "pwa", "app", "features", "auth"),
+    path.join(repoRoot, "apps", "pwa", "app", "features", "profiles"),
+    path.join(repoRoot, "apps", "pwa", "app", "profiles"),
+    path.join(repoRoot, "apps", "pwa", "app", "sign-in"),
+    path.join(repoRoot, "apps", "pwa", "app", "features", "settings"),
+    path.join(repoRoot, "apps", "pwa", "app", "shared"),
+    path.join(repoRoot, "apps", "pwa", "app", "lib", "i18n"),
+    path.join(repoRoot, "apps", "pwa", "app", "features", "dev-lab"),
     path.join(repoRoot, "apps", "pwa", "app", "features", "dm-kernel"),
     path.join(repoRoot, "apps", "pwa", "app", "features", "workspace-kernel"),
     path.join(repoRoot, "apps", "pwa", "app", "features", "groups", "services", "community-joiner-membership-repair-scenario.ts"),
@@ -99,7 +123,7 @@ export const isStaticShellStale = (repoRoot) => {
   ];
 
   for (const watchRoot of watchRoots) {
-    const sourceMtime = collectNewestMtime(watchRoot, watchRoot.endsWith(".ts") ? 0 : 5);
+    const sourceMtime = resolveWatchPathNewestMtime(watchRoot);
     if (sourceMtime > outMtime) {
       return {
         stale: true,

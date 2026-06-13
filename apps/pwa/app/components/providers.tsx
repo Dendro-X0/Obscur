@@ -3,7 +3,10 @@
 import React, { useEffect } from "react";
 import { AuthGateway } from "@/app/features/auth/components/auth-gateway";
 import { DesktopProfileBootstrap } from "@/app/features/profiles/components/desktop-profile-bootstrap";
-import { UnlockedAppRuntimeShell } from "@/app/features/runtime/components/unlocked-app-runtime-shell";
+import { AppSessionShell } from "@/app/features/profiles/components/app-session-shell";
+import { ProfilePickerChromeHost } from "@/app/features/profiles/components/profile-picker-chrome-context";
+import { TitleBar } from "@/app/components/desktop/title-bar";
+import { isMobileShellBuild } from "@/app/features/runtime/shell-contract";
 import { StartupExperienceOverlay } from "@/app/features/runtime/components/startup-experience-overlay";
 import { DevRuntimeIssueCapture } from "@/app/shared/dev-runtime-issue-capture";
 import { logAppEvent } from "@/app/shared/log-app-event";
@@ -87,11 +90,22 @@ export const AppProviders = ({ children }: { children: React.ReactNode }) => {
             <ExperimentShellIndicator />
             <ClientSurfaceRevisionBadge />
             <StartupExperienceOverlay />
-            <AuthGateway>
-                <UnlockedAppRuntimeShell>
-                    {children}
-                </UnlockedAppRuntimeShell>
-            </AuthGateway>
+            <ProfilePickerChromeHost>
+                <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                    {!isMobileShellBuild() ? (
+                        <div className="relative z-[9999] shrink-0">
+                            <TitleBar />
+                        </div>
+                    ) : null}
+                    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                        <AuthGateway>
+                            <AppSessionShell>
+                                {children}
+                            </AppSessionShell>
+                        </AuthGateway>
+                    </div>
+                </div>
+            </ProfilePickerChromeHost>
         </DesktopProfileBootstrap>
     );
 };

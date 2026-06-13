@@ -274,12 +274,18 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       });
     }
     if (isWorkspaceKernelAuthority() && options?.relayConfirmed === true) {
+      const ledger = loadCommunityMembershipLedger(publicKeyHex, { profileId: resolvedProfileId });
+      const hadTerminalLedger = hasTerminalLedgerScopeEvidence(ledger, { groupId, relayUrl });
+      const isExplicitRejoin = options?.allowRevive === true
+        || tombstoned
+        || hadTerminalLedger;
       persistCommunityMembershipLedgerMutation(
         publicKeyHex,
         {
-          reason: "runtime_join_confirmed",
+          reason: isExplicitRejoin ? "explicit_rejoin" : "runtime_join_confirmed",
           entry: toCommunityMembershipLedgerEntryFromGroup(group, {
             status: options?.provisionalJoin ? "pending" : "joined",
+            updatedAtUnixMs: Date.now(),
           }),
         },
         { profileId: resolvedProfileId },

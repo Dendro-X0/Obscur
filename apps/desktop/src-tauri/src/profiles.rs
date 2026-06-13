@@ -83,6 +83,12 @@ async fn clear_native_credentials_for_profile(app: &AppHandle, profile_id: &str,
         Ok(()) => eprintln!("[PROFILES] Cleared keychain for profile {}", profile_id),
         Err(e) => eprintln!("[PROFILES] Warning: Failed to clear keychain for profile {}: {}", profile_id, e),
     }
+    if let Err(e) = native_keychain::delete_login_assist_for_profile(profile_id) {
+        eprintln!(
+            "[PROFILES] Warning: Failed to clear login assist for profile {}: {}",
+            profile_id, e
+        );
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -194,8 +200,19 @@ fn sanitize_profile_id(input: &str) -> String {
 }
 
 fn ensure_window_binding(state: &mut PersistedProfileRegistry, window_label: &str) -> (ProfileWindowBinding, bool) {
-    if let Some(existing) = state.window_bindings.iter().find(|binding| binding.window_label == window_label) {
-        return (existing.clone(), false);
+    if let Some(index) = state
+        .window_bindings
+        .iter()
+        .position(|binding| binding.window_label == window_label)
+    {
+        let profile_id = state.window_bindings[index].profile_id.clone();
+        if let Some(profile) = state.profiles.iter().find(|entry| entry.profile_id == profile_id) {
+            if state.window_bindings[index].profile_label != profile.label {
+                state.window_bindings[index].profile_label = profile.label.clone();
+                return (state.window_bindings[index].clone(), true);
+            }
+        }
+        return (state.window_bindings[index].clone(), false);
     }
 
     let default_profile = state
@@ -329,14 +346,19 @@ pub(crate) fn experiment_shell_boot_prefix() -> &'static str {
     }
 }
 
-fn window_boot_init_script(window_label: &str, profile_id: &str) -> String {
+fn window_boot_init_script(window_label: &str, profile_id: &str, launch_mode: ProfileLaunchMode) -> String {
+    let launch_mode_json = match launch_mode {
+        ProfileLaunchMode::Existing => "existing",
+        ProfileLaunchMode::NewWindow => "new_window",
+    };
     format!(
         r#"{}{}"#,
         experiment_shell_boot_prefix(),
         format!(
-            r#"window.__OBSCUR_WINDOW_BOOT__={{windowLabel:"{}",profileId:"{}"}};"#,
+            r#"window.__OBSCUR_WINDOW_BOOT__={{windowLabel:"{}",profileId:"{}",launchMode:"{}"}};"#,
             escape_js_string(window_label),
             escape_js_string(profile_id),
+            launch_mode_json,
         ),
     )
 }
@@ -381,6 +403,7 @@ fn build_profile_window(app: &AppHandle, binding: &ProfileWindowBinding) -> Resu
     .initialization_script(window_boot_init_script(
         &binding.window_label,
         &binding.profile_id,
+        binding.launch_mode.clone(),
     ));
 
     #[cfg(desktop)]

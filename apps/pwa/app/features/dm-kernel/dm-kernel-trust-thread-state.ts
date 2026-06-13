@@ -78,3 +78,15 @@ export const dismissDmTrustBanner = (
   writeStore(profileId, store);
   return next;
 };
+
+/** Clears recipient-local thread trust state (Dev Lab / manual matrix reset). */
+export const clearDmTrustThreadState = (
+  profileId: string,
+  conversationId: string,
+): void => {
+  const store = { ...readStore(profileId) };
+  if (conversationId in store) {
+    delete store[conversationId];
+    writeStore(profileId, store);
+  }
+};

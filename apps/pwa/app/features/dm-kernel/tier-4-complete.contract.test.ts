@@ -14,7 +14,8 @@ describe("tier 4 complete contract", () => {
     expect(resolver).toContain("isDmKernelAuthority");
     expect(resolver).toContain("dmKernelThreadHistoryStub");
     expect(resolver).toContain("return dmKernelThreadHistoryStub");
-    expect(resolver).toContain("nativeDmThreadHistoryAdapter");
+    expect(resolver).toContain("isDesktopDmKernelShipBuild");
+    expect(resolver).not.toContain("nativeDmThreadHistoryAdapter");
   });
 
   it("runtime transport owner subscribes relay backfill repair to syncMissedMessages", () => {

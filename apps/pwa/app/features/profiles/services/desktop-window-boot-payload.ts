@@ -1,6 +1,9 @@
+import type { ProfileLaunchMode } from "./profile-isolation-contracts";
+
 export type DesktopWindowBootPayload = Readonly<{
   windowLabel: string;
   profileId: string;
+  launchMode?: ProfileLaunchMode;
 }>;
 
 type WindowWithBootPayload = Window & {
@@ -16,10 +19,13 @@ export const readDesktopWindowBootPayload = (): DesktopWindowBootPayload | null 
   const raw = (window as WindowWithBootPayload).__OBSCUR_WINDOW_BOOT__;
   const windowLabel = typeof raw?.windowLabel === "string" ? raw.windowLabel.trim() : "";
   const profileId = typeof raw?.profileId === "string" ? raw.profileId.trim() : "";
+  const launchMode = raw?.launchMode === "new_window" || raw?.launchMode === "existing"
+    ? raw.launchMode
+    : undefined;
   if (!windowLabel || !profileId) {
     return null;
   }
-  return { windowLabel, profileId };
+  return { windowLabel, profileId, launchMode };
 };
 
 /** Mirrors init payload into sync scope read by {@link getProfileScopeOverride}. */

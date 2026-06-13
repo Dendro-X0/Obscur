@@ -147,6 +147,14 @@ export async function ensureDevLabAccountUnlocked(page, accountId, options = {})
       return;
     }
 
+    await page.evaluate(async (id) => {
+      await window.obscurDevLab?.unlock(id);
+    }, accountId).catch(() => undefined);
+    await page.waitForTimeout(1500);
+    if (await isShellUnlocked(page)) {
+      return;
+    }
+
     if (await isAuthGateVisible(page)) {
       log(`unlocking ${account.username} via auth UI`);
       await unlockViaAuthUi(page, account);
@@ -154,14 +162,6 @@ export async function ensureDevLabAccountUnlocked(page, accountId, options = {})
       if (await isShellUnlocked(page)) {
         return;
       }
-    }
-
-    await page.evaluate(async (id) => {
-      await window.obscurDevLab?.unlock(id);
-    }, accountId).catch(() => undefined);
-    await page.waitForTimeout(2000);
-    if (await isShellUnlocked(page)) {
-      return;
     }
 
     await page.waitForTimeout(1000);

@@ -12,6 +12,7 @@ import {
   resolveNativeWindowLabel,
 } from "./desktop-profile-runtime";
 import { readDesktopWindowBootPayload } from "./desktop-window-boot-payload";
+import { retryNativeSessionBootstrapAfterProfileReady } from "@/app/features/auth/services/native-session-bootstrap-retry";
 
 const WINDOW_LABEL_RESOLVE_TIMEOUT_MS = 250;
 const MAIN_WINDOW_LABEL = "main";
@@ -90,9 +91,11 @@ export const startDesktopWindowBoot = (): void => {
       },
     });
 
-    void desktopProfileRuntime.refresh().catch(() => {
-      // Background reconcile only.
-    });
+    void desktopProfileRuntime.refresh()
+      .then(() => retryNativeSessionBootstrapAfterProfileReady())
+      .catch(() => {
+        // Background reconcile only.
+      });
 
     if (isSecondaryProfileWindowLabel(windowLabel)) {
       try {

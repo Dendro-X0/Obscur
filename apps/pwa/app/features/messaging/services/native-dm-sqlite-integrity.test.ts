@@ -92,5 +92,6 @@ describe("native-dm-sqlite-integrity", () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]?.content).toBe("theirs");
     expect(rows[0]?.isOutgoing).toBe(false);
+    expect(rows[0]?.timestampUnixMs).toBe(2000);
   });
 });

@@ -3,7 +3,7 @@
 import React from "react";
 import { Bot, PauseCircle } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import type { CommunityBotTriggerSummary } from "../../services/community-bot-triggers-policy";
+import type { CommunityBotTriggerSummary } from "@/app/features/groups/services/community-bot-triggers-policy";
 
 export function CommunityBotPausedBanner(props: Readonly<{
   summary: CommunityBotTriggerSummary;

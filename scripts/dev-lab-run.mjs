@@ -27,6 +27,10 @@ import { runDmNativePersistScenario } from "./lib/dev-lab-dm-native-persist.mjs"
 import { runDmNativeRelayBackfillScenario } from "./lib/dev-lab-dm-native-relay-backfill.mjs";
 import { runDmReloadHistoryScenario } from "./lib/dev-lab-dm-reload-history.mjs";
 import { runMembershipJoinLeaveScenario } from "./lib/dev-lab-membership-join-leave.mjs";
+import { runMembershipLeaveRejoinLiveScenario } from "./lib/dev-lab-membership-leave-rejoin-live.mjs";
+import { runAuth4ScopeProbeLiveScenario } from "./lib/dev-lab-auth4-scope-probe-live.mjs";
+import { runTrustLiveScenario } from "./lib/dev-lab-trust-live.mjs";
+import { runSecBotInboundLiveScenario } from "./lib/dev-lab-bot-inbound-live.mjs";
 import { runTwoActorDmScenario } from "./lib/dev-lab-two-actor.mjs";
 import {
   formatNoObscurPageError,
@@ -36,6 +40,17 @@ import {
   resolveDevLabConnection,
   stopStaticShellServer,
 } from "./lib/dev-lab-connection.mjs";
+import {
+  formatDevLabShellRebuildMessage,
+  readDevLabShellCapabilities,
+} from "./lib/dev-lab-playwright-capabilities.mjs";
+
+const PHASE2_SCENARIO_IDS = new Set([
+  "membership-leave-rejoin-zombie",
+  "sec-bot-keyword-flood",
+  "trust-fixtures",
+  "auth4-scope-probe",
+]);
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const pwaDir = path.join(repoRoot, "apps", "pwa");
@@ -73,6 +88,48 @@ function writeJson(name, value) {
   const filePath = path.join(outDir, name);
   fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`, "utf8");
   return filePath;
+}
+
+/**
+ * CLI node-only scenarios (no Playwright shell).
+ *
+ * @param {Readonly<{
+ *   scenarioId: string;
+ *   category: string;
+ *   runScenario: (deps: Readonly<{ log: (msg: string) => void; repoRoot: string }>) => Promise<{ passed: boolean }>;
+ * }>} options
+ */
+async function runNodeOnlyCliScenario({ scenarioId, category, runScenario }) {
+  log(`running ${scenarioId} (node-only CLI)`);
+  const scenarioResult = await runScenario({ log, repoRoot });
+  const report = {
+    schema: "obscur.dev-lab.benchmark.v1",
+    version: "obscur.dev-lab.v1",
+    generatedAtUnixMs: Date.now(),
+    suite: `scenario:${scenarioId}`,
+    surface: "node-cli",
+    baseUrl: null,
+    passed: scenarioResult.passed,
+    scenarios: [scenarioResult],
+    summary: {
+      total: 1,
+      passed: scenarioResult.passed ? 1 : 0,
+      failed: scenarioResult.passed ? 0 : 1,
+      failedScenarioIds: scenarioResult.passed ? [] : [scenarioId],
+      categories: { [category]: { total: 1, passed: scenarioResult.passed ? 1 : 0 } },
+    },
+    shellHealth: null,
+    capture: null,
+  };
+  const evaluation = evaluateDevLabBenchmark(report);
+  const summary = summarizeDevLabBenchmark({ ...report, passed: report.passed && evaluation.passed });
+  writeJson("dev-lab-benchmark-latest.json", report);
+  writeJson("dev-lab-benchmark-summary.json", summary);
+  log(`${scenarioId} passed=${summary.passed}`);
+  if (!summary.passed) {
+    logFailedScenarioSteps(scenarioResult);
+    process.exit(1);
+  }
 }
 
 /**
@@ -126,6 +183,7 @@ async function runDualBrowserCliScenario({ chromium, scenarioId, category, runSc
     writeJson("dev-lab-benchmark-summary.json", summary);
     log(`${scenarioId} passed=${summary.passed}`);
     if (!summary.passed) {
+      logFailedScenarioSteps(scenarioResult);
       process.exit(1);
     }
   } finally {
@@ -174,6 +232,30 @@ async function enrichFailedScenario(page, result, { scenarioId, surface }) {
   };
 }
 
+async function assertPhase2ScenarioAvailable(page, scenarioId) {
+  if (!PHASE2_SCENARIO_IDS.has(scenarioId)) {
+    return;
+  }
+  const caps = await readDevLabShellCapabilities(page, { requiredScenarioIds: [scenarioId] });
+  if (caps.missingScenarioIds.length > 0 || !caps.hasCreateZombiePersona) {
+    throw new Error(formatDevLabShellRebuildMessage(caps));
+  }
+}
+
+function logFailedScenarioSteps(scenarioResult) {
+  if (scenarioResult?.passed !== false) {
+    return;
+  }
+  if (scenarioResult.error) {
+    log(`  error: ${scenarioResult.error}`);
+  }
+  for (const step of scenarioResult.steps ?? []) {
+    if (step.passed === false) {
+      log(`  step ${step.id}: ${step.message}`);
+    }
+  }
+}
+
 async function waitForDevLab(page, timeoutMs = 60_000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -217,6 +299,7 @@ async function runScenarioOnPage(page, scenarioId, playwrightDeps) {
     });
   }
   await waitForDevLab(page);
+  await assertPhase2ScenarioAvailable(page, scenarioId);
   const timeoutMs = scenarioId === "auth-unlock" ? 120_000 : 90_000;
   try {
     return await page.evaluate(
@@ -289,6 +372,45 @@ async function main() {
       scenarioId: "membership-join-leave",
       category: "network",
       runScenario: runMembershipJoinLeaveScenario,
+    });
+    return;
+  }
+
+  if (scenario === "membership-leave-rejoin-live") {
+    await runDualBrowserCliScenario({
+      chromium,
+      scenarioId: "membership-leave-rejoin-live",
+      category: "network",
+      runScenario: runMembershipLeaveRejoinLiveScenario,
+    });
+    return;
+  }
+
+  if (scenario === "auth4-scope-probe-live") {
+    await runDualBrowserCliScenario({
+      chromium,
+      scenarioId: "auth4-scope-probe-live",
+      category: "auth",
+      runScenario: runAuth4ScopeProbeLiveScenario,
+    });
+    return;
+  }
+
+  if (scenario === "trust-live") {
+    await runDualBrowserCliScenario({
+      chromium,
+      scenarioId: "trust-live",
+      category: "security",
+      runScenario: runTrustLiveScenario,
+    });
+    return;
+  }
+
+  if (scenario === "sec-bot-inbound-live") {
+    await runNodeOnlyCliScenario({
+      scenarioId: "sec-bot-inbound-live",
+      category: "security",
+      runScenario: runSecBotInboundLiveScenario,
     });
     return;
   }
@@ -441,6 +563,30 @@ async function main() {
       report.summary = buildBenchmarkSummary(report.scenarios);
       report.passed = report.summary.failed === 0;
 
+      log("membership-leave-rejoin-live step (full suite)");
+      const leaveLiveResult = await runMembershipLeaveRejoinLiveScenario({ chromium, appBase, log });
+      report.scenarios = [...report.scenarios, leaveLiveResult];
+      report.summary = buildBenchmarkSummary(report.scenarios);
+      report.passed = report.summary.failed === 0;
+
+      log("auth4-scope-probe-live step (full suite)");
+      const auth4LiveResult = await runAuth4ScopeProbeLiveScenario({ chromium, appBase, log });
+      report.scenarios = [...report.scenarios, auth4LiveResult];
+      report.summary = buildBenchmarkSummary(report.scenarios);
+      report.passed = report.summary.failed === 0;
+
+      log("trust-live step (full suite)");
+      const trustLiveResult = await runTrustLiveScenario({ chromium, appBase, log });
+      report.scenarios = [...report.scenarios, trustLiveResult];
+      report.summary = buildBenchmarkSummary(report.scenarios);
+      report.passed = report.summary.failed === 0;
+
+      log("sec-bot-inbound-live step (full suite)");
+      const botInboundLiveResult = await runSecBotInboundLiveScenario({ log, repoRoot });
+      report.scenarios = [...report.scenarios, botInboundLiveResult];
+      report.summary = buildBenchmarkSummary(report.scenarios);
+      report.passed = report.summary.failed === 0;
+
       if (activeCdpUrl) {
         log("dm-native-persist step (full suite, CDP)");
         const nativePersistResult = await runDmNativePersistScenario(page, {
@@ -499,6 +645,9 @@ async function main() {
 
     log(`scenarios ${summary.scenarioTotal - summary.scenarioFailed}/${summary.scenarioTotal} passed=${summary.passed}`);
     if (!summary.passed) {
+      for (const failed of report.scenarios.filter((entry) => !entry.passed)) {
+        logFailedScenarioSteps(failed);
+      }
       log(`failed: ${summary.failedScenarioIds.join(", ") || summary.failedGateIds.join(", ")}`);
       process.exit(1);
     }

@@ -37,9 +37,10 @@ import { useProfile } from "@/app/features/profile/hooks/use-profile";
 import { Checkbox } from "@dweb/ui-kit";
 import { FlashMessage } from "@/app/components/ui/flash-message";
 import { PasswordStrengthIndicator } from "@/app/components/password-strength-indicator";
-import { revokeDeviceTrust } from "../services/device-trust-service";
-import { SESSION_CREDENTIAL_PERSISTENCE_ENABLED } from "../services/session-credential-policy";
+import { readDeviceSessionConsent } from "../services/device-session-consent";
+import { setDeviceTrustEnabled } from "../services/device-trust-service";
 import { AuthSessionPolicyNotice } from "./auth-session-policy-notice";
+import { StaySignedInCheckbox } from "./stay-signed-in-checkbox";
 import { useWindowRuntime } from "@/app/features/runtime/services/window-runtime-supervisor";
 import {
     shouldEnterLoginModeOnStartup,
@@ -69,9 +70,12 @@ import {
 } from "@/app/features/profiles/services/profile-slot-login-guard";
 import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
 import { ProfileArchiveResultInline } from "@/app/features/profiles/components/profile-archive-result-inline";
+import { isPasswordlessNativeOnlyIdentity } from "@/app/features/auth/services/passwordless-native-only-identity";
 
 const authPrimaryButtonClass =
-    "w-full h-16 rounded-[24px] bg-purple-600 hover:bg-purple-700 text-white text-lg font-bold shadow-xl shadow-purple-500/20";
+    "w-full h-12 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white text-base font-bold shadow-lg shadow-purple-500/20";
+const authCompactInputClass =
+    "px-11 h-12 rounded-2xl bg-white/50 dark:bg-zinc-900/50 border-black/5 dark:border-white/5 text-base transition-all";
 const authSecondaryPrimaryButtonClass =
     "h-16 w-full rounded-[24px] bg-purple-600 hover:bg-purple-700 text-white text-lg font-bold shadow-xl shadow-purple-500/20";
 const authInputFocusRingClass = "focus:ring-4 focus:ring-purple-500/10";
@@ -113,12 +117,15 @@ export function AuthScreen() {
     const startupState = runtime.snapshot.session.startupState;
     const profile = useProfile();
     const boundProfileId = runtime.snapshot.session.profileId;
+    const boundProfileLabel = runtime.snapshot.session.profileLabel ?? boundProfileId;
     const hasNativeMismatch = startupState.mismatchReason === "native_mismatch";
     const hasStoredIdentity = startupAuthStateHasStoredIdentity(startupState)
         || Boolean(identity.state.stored?.publicKeyHex);
     const hasLocalAccountEvidence = hasStoredIdentity
         || profileWindowHasLocalAccountEvidence(boundProfileId);
     const authSurfaceReady = startupState.kind !== "pending" && identity.state.status !== "loading";
+    const isPasswordlessNativeOnly = isPasswordlessNativeOnlyIdentity(identity.state.stored);
+    const passwordLoginAvailable = hasStoredIdentity && !isPasswordlessNativeOnly;
 
     const [mode, setMode] = useState<AuthMode>("welcome");
     const [step, setStep] = useState(1);
@@ -157,6 +164,7 @@ export function AuthScreen() {
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
     const [privateKey, setPrivateKey] = useState("");
+    const [staySignedIn, setStaySignedIn] = useState(() => readDeviceSessionConsent(boundProfileId));
     const decodedImportPrivateKey = React.useMemo(() => decodePrivateKey(privateKey), [privateKey]);
     const importCandidatePublicKeyHex = React.useMemo(() => {
         if (!decodedImportPrivateKey) {
@@ -173,13 +181,31 @@ export function AuthScreen() {
         : false;
     const hasAppliedInitialEntryRouteRef = useRef(false);
 
-    const boundProfileLabel = runtime.snapshot.session.profileLabel ?? boundProfileId;
     const storedUsernameHint = identity.state.stored?.username?.trim();
 
+    const previousIdentityStatusRef = useRef(identity.state.status);
+
+    const handleStaySignedInChange = (checked: boolean): void => {
+        setStaySignedIn(checked);
+        setDeviceTrustEnabled(boundProfileId, checked);
+    };
+
+    const sessionUnlockOptions = { staySignedIn } as const;
+
     React.useEffect(() => {
-        if (!SESSION_CREDENTIAL_PERSISTENCE_ENABLED) {
-            revokeDeviceTrust(boundProfileId);
+        const previousStatus = previousIdentityStatusRef.current;
+        previousIdentityStatusRef.current = identity.state.status;
+        if (previousStatus === "unlocked" && identity.state.status === "locked") {
+            setPassword("");
+            setPrivateKey("");
+            if (passwordLoginAvailable) {
+                setLoginTab("username");
+            }
         }
+    }, [identity.state.status, passwordLoginAvailable]);
+
+    React.useEffect(() => {
+        setStaySignedIn(readDeviceSessionConsent(boundProfileId));
     }, [boundProfileId]);
 
     React.useEffect(() => {
@@ -193,12 +219,12 @@ export function AuthScreen() {
         if (shouldEnterLoginModeOnStartup(startupState) || hasStoredIdentity || hasLocalAccountEvidence) {
             setMode("login");
             if (hasStoredIdentity) {
-                setLoginTab("username");
+                setLoginTab(isPasswordlessNativeOnlyIdentity(identity.state.stored) ? "key" : "username");
             } else if (!hasLocalAccountEvidence) {
                 setLoginTab("key");
             }
         }
-    }, [hasLocalAccountEvidence, hasStoredIdentity, identity.state.status, identity.state.stored?.publicKeyHex, startupState]);
+    }, [hasLocalAccountEvidence, hasStoredIdentity, identity.state.status, identity.state.stored, startupState]);
 
     const handleBack = () => {
         if (step > 1) {
@@ -248,13 +274,18 @@ export function AuthScreen() {
             setAuthError(t("auth.error.retiredKeyRequiresAcknowledgement", "This private key was previously retired on this device. Confirm reactivation before continuing."));
             return;
         }
-        await handleLoginFinal(undefined, true);
+        if (password.trim().length > 0 && password.trim().length < 8) {
+            setAuthError(t("auth.error.passwordTooShort", "Master password must be at least 8 characters."));
+            return;
+        }
+        await handleLoginFinal(undefined, password.trim().length === 0);
     };
 
     const runCreateIdentity = async (action: Extract<PendingAuthAction, { kind: "create" }>): Promise<void> => {
         await runtime.createIdentityForBoundProfile({
             passphrase: action.passphrase,
             username: action.username,
+            ...sessionUnlockOptions,
         });
         const inviteCode = generateRandomInviteCode();
         profile.setUsername({ username: action.username });
@@ -268,6 +299,7 @@ export function AuthScreen() {
             privateKeyHex: action.privateKeyHex,
             passphrase: action.passphrase,
             username: action.username,
+            ...sessionUnlockOptions,
         });
         toast.info(t("auth.keyAcceptedRestoringData", "Key accepted. Restoring account data..."));
     };
@@ -329,48 +361,93 @@ export function AuthScreen() {
         }
     };
 
-    const handleLoginUsername = async (e?: React.FormEvent) => {
+    const resolveLoginPassword = (
+        e?: React.FormEvent,
+        passwordOverride?: string,
+    ): string | null => {
+        if (passwordOverride) {
+            return passwordOverride;
+        }
+        let resolvedPassword = password;
+        const form = e?.currentTarget;
+        if (form instanceof HTMLFormElement) {
+            const formData = new FormData(form);
+            const formPassword = formData.get("password");
+            if (typeof formPassword === "string" && formPassword && !resolvedPassword) {
+                resolvedPassword = formPassword;
+            }
+        }
+        if (!resolvedPassword.trim()) {
+            return null;
+        }
+        return resolvedPassword;
+    };
+
+    const handleLoginUsername = async (
+        e?: React.FormEvent,
+        passwordOverride?: string,
+    ) => {
         e?.preventDefault();
-        const enteredUsername = username.trim();
-        if (!enteredUsername || !password) {
-            setAuthError(t("auth.error.fillAllFields", "Please fill in all fields"));
+        const loginPassword = resolveLoginPassword(e, passwordOverride);
+        if (!loginPassword) {
+            const message = t("auth.error.enterPassword", "Please enter your password");
+            setAuthError(message);
+            toast.error(message);
             return;
         }
 
         setIsLoading(true);
+        setAuthError(null);
         try {
             const stored = identity.state.stored;
             if (!stored) {
-                setAuthError(t("auth.error.noLocalAccountYet", "No local account exists on this device yet. Import your private key first, then you can use username/password unlock locally."));
+                const message = t("auth.error.noLocalAccountYet", "No local account exists on this device yet. Import your private key first, then you can use password unlock locally.");
+                setAuthError(message);
+                toast.error(message);
                 setLoginTab("key");
                 setIsLoading(false);
                 return;
             }
-            // Username is a convenience hint. Password/private-key proof remains canonical.
-            // Some legacy/imported identities do not persist a username and should still unlock.
-            const storedUsername = stored.username?.trim();
-            const normalizedEnteredUsername = normalizeLoginUsername(enteredUsername);
-            const normalizedStoredUsername = storedUsername ? normalizeLoginUsername(storedUsername) : null;
-            if (normalizedStoredUsername && normalizedStoredUsername !== normalizedEnteredUsername) {
-                toast.info(t("auth.error.usernameMismatch"));
-            }
-
-            try {
-                await runtime.unlockBoundProfile({ passphrase: password as Passphrase });
-            } catch (e) {
-                if (
-                    e instanceof ProfileSlotAccountConflictError
-                    || e instanceof AccountActiveInOtherProfileWindowError
-                ) {
-                    throw e;
-                }
-                setAuthError(t("auth.error.incorrectPassword"));
+            if (isPasswordlessNativeOnlyIdentity(stored)) {
+                const message = t(
+                    "auth.error.passwordlessNativeOnly",
+                    "This profile unlocks with your private key only. Import your key once, then set a device login password when prompted.",
+                );
+                setAuthError(message);
+                toast.error(message);
+                setLoginTab("key");
                 setIsLoading(false);
                 return;
             }
+
+            try {
+                await runtime.unlockBoundProfile({
+                    passphrase: loginPassword as Passphrase,
+                    ...sessionUnlockOptions,
+                });
+            } catch (err) {
+                if (
+                    err instanceof ProfileSlotAccountConflictError
+                    || err instanceof AccountActiveInOtherProfileWindowError
+                ) {
+                    throw err;
+                }
+                const message = err instanceof Error && err.message.trim()
+                    ? err.message
+                    : t("auth.error.incorrectPassword", "Incorrect password");
+                setAuthError(message);
+                toast.error(message);
+                setIsLoading(false);
+                return;
+            }
+
             toast.success(t("auth.welcomeBackToast", "Welcome Back!"));
         } catch (error) {
-            setAuthError(error instanceof Error ? error.message : t("auth.error.invalidPasswordOrAccount", "Invalid password or account error"));
+            const message = error instanceof Error
+                ? error.message
+                : t("auth.error.invalidPasswordOrAccount", "Invalid password or account error");
+            setAuthError(message);
+            toast.error(message);
         } finally {
             setIsLoading(false);
         }
@@ -394,6 +471,10 @@ export function AuthScreen() {
 
         setIsLoading(true);
         let keyToUse: string | null = null;
+        const resolvedImportUsername = username.trim()
+            || identity.state.stored?.username?.trim()
+            || profile.state.profile.username.trim()
+            || undefined;
         try {
             keyToUse = decodePrivateKey(privateKey);
             if (!keyToUse) {
@@ -413,7 +494,7 @@ export function AuthScreen() {
                 kind: "import_key",
                 privateKeyHex: keyToUse as PrivateKeyHex,
                 passphrase: (importPassphrase || "") as Passphrase,
-                username: username || undefined,
+                username: resolvedImportUsername,
             };
 
             await runImportKeyLogin(pending);
@@ -423,7 +504,7 @@ export function AuthScreen() {
                     kind: "import_key",
                     privateKeyHex: keyToUse as PrivateKeyHex,
                     passphrase: (importPassphrase || "") as Passphrase,
-                    username: username || undefined,
+                    username: resolvedImportUsername,
                 };
                 if (handleAccountConflictError(error, pending)) {
                     return;
@@ -533,8 +614,8 @@ export function AuthScreen() {
                 />
             </div>
 
-            <Card className="w-full max-w-lg relative bg-white/40 dark:bg-zinc-900/40 backdrop-blur-3xl border-0 ring-1 ring-black/[0.05] dark:ring-white/[0.05] rounded-[48px] shadow-2xl overflow-hidden p-0">
-                <div className="p-8 sm:p-12 min-h-[500px] flex flex-col justify-center">
+            <Card className="w-full max-w-lg relative bg-white/40 dark:bg-zinc-900/40 backdrop-blur-3xl border-0 ring-1 ring-black/[0.05] dark:ring-white/[0.05] rounded-[32px] shadow-2xl overflow-hidden p-0">
+                <div className="p-6 sm:p-8 min-h-0 flex flex-col justify-center">
                     {hasNativeMismatch && (
                         <div className="mb-6 rounded-[28px] border border-amber-500/20 bg-amber-500/10 p-5">
                             <div className="flex items-start gap-4">
@@ -823,6 +904,11 @@ export function AuthScreen() {
                                             </div>
                                         </div>
 
+                                        <StaySignedInCheckbox
+                                            checked={staySignedIn}
+                                            onCheckedChange={handleStaySignedInChange}
+                                            id="stay-signed-in-create"
+                                        />
                                         <AuthSessionPolicyNotice />
 
                                         <div className="p-4 rounded-3xl bg-amber-500/10 border border-amber-500/20 flex gap-4">
@@ -898,35 +984,47 @@ export function AuthScreen() {
                                 variants={variants}
                                 custom={step}
                                 transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                                className="w-full space-y-8"
+                                className="w-full space-y-4"
                             >
-                                <div className="text-center space-y-3">
-                                    <h2 className="text-3xl font-black tracking-tighter text-zinc-900 dark:text-white">
+                                <div className="text-center space-y-1">
+                                    <h2 className="text-2xl font-black tracking-tighter text-zinc-900 dark:text-white">
                                         {t("auth.login.welcomeBackTitle", "Welcome Back")}
                                     </h2>
-                                    <p className="text-zinc-500 dark:text-zinc-400 font-medium text-balance">
-                                        {hasStoredIdentity
-                                            ? (storedUsernameHint
-                                                ? t("auth.login.welcomeBackUnlockNamed", "Enter your password to unlock {{username}} on this device.", { username: storedUsernameHint })
-                                                : t("auth.login.welcomeBackUnlock", "Enter your password to unlock this profile on this device."))
-                                            : hasLocalAccountEvidence
-                                                ? t("auth.login.welcomeBackLocalEvidence", "This profile window already has local account data. Unlock with your password or import key.")
-                                                : t("auth.login.welcomeBackDesc", "Enter your credentials to unlock. Obscur does not keep you signed in on this device.")}
+                                    <p className="text-sm text-zinc-500 dark:text-zinc-400 font-medium text-balance">
+                                        {isPasswordlessNativeOnly
+                                            ? t(
+                                                "auth.login.welcomeBackPasswordless",
+                                                "Unlock with your private key on the Import Key tab. You will be prompted to set a device login password.",
+                                            )
+                                            : hasStoredIdentity
+                                                ? t("auth.login.welcomeBackUnlockNamed", "Enter your device login password to unlock {{profile}}.", { profile: storedUsernameHint || boundProfileLabel })
+                                                : hasLocalAccountEvidence
+                                                    ? t("auth.login.welcomeBackLocalEvidence", "Unlock with your password or import key.")
+                                                    : t("auth.login.welcomeBackDesc", "Import your key once, then unlock with password on this device.")}
                                     </p>
                                 </div>
 
-                                <div className="space-y-6">
+                                <div className="space-y-4">
                                         <div className="flex bg-black/5 dark:bg-white/5 rounded-2xl p-1 relative z-10">
                                             <button
                                                 type="button"
-                                                onClick={() => setLoginTab("username")}
-                                                disabled={!hasStoredIdentity}
+                                                onClick={() => {
+                                                    if (!passwordLoginAvailable) {
+                                                        toast.info(t(
+                                                            "auth.login.passwordTabUnavailable",
+                                                            "Username login requires a master password. Use Import Key and set one to enable this tab.",
+                                                        ));
+                                                        return;
+                                                    }
+                                                    setLoginTab("username");
+                                                }}
+                                                disabled={!passwordLoginAvailable}
                                                 className={cn(
-                                                    "flex-1 py-3 text-sm font-bold rounded-xl transition-all",
+                                                    "flex-1 py-2.5 text-sm font-bold rounded-xl transition-all",
                                                     loginTab === "username"
                                                         ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow shadow-black/5"
                                                         : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300",
-                                                    !hasStoredIdentity ? "cursor-not-allowed opacity-50 hover:text-zinc-500 dark:hover:text-zinc-500" : "",
+                                                    !passwordLoginAvailable ? "cursor-not-allowed opacity-50 hover:text-zinc-500 dark:hover:text-zinc-500" : "",
                                                 )}
                                             >
                                                 {t("auth.login.tabPassword", "Log In")}
@@ -934,39 +1032,48 @@ export function AuthScreen() {
                                             <button
                                                 type="button"
                                                 onClick={() => setLoginTab("key")}
-                                                className={cn("flex-1 py-3 text-sm font-bold rounded-xl transition-all", loginTab === "key" ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow shadow-black/5" : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300")}
+                                                className={cn("flex-1 py-2.5 text-sm font-bold rounded-xl transition-all", loginTab === "key" ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow shadow-black/5" : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300")}
                                             >
                                                 {t("auth.login.tabImportKey", "Import Key")}
                                             </button>
                                         </div>
 
                                         {!hasLocalAccountEvidence ? (
-                                            <p className="px-2 text-xs text-zinc-500 dark:text-zinc-400">
+                                            <p className="px-1 text-xs text-zinc-500 dark:text-zinc-400">
                                                 {t("auth.login.deviceLocalHint", "Username/password unlock is device-local. Import your private key once on this device to enable it.")}
+                                                {" "}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setMode("restore")}
+                                                    className="font-semibold text-violet-600 underline underline-offset-2 dark:text-violet-300"
+                                                >
+                                                    {t("auth.login.openRestorePage", "Restore from backup")}
+                                                </button>
                                             </p>
                                         ) : null}
 
-                                        {!hasLocalAccountEvidence ? (
-                                            <button
-                                                type="button"
-                                                onClick={() => setMode("restore")}
-                                                className="text-xs font-semibold text-violet-600 underline underline-offset-2 dark:text-violet-300"
-                                            >
-                                                {t("auth.login.openRestorePage", "Restore from unified backup")}
-                                            </button>
+                                        {isPasswordlessNativeOnly && loginTab === "key" ? (
+                                            <p className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+                                                {t(
+                                                    "auth.login.passwordlessKeyHint",
+                                                    "This profile was imported without a master password. Paste your private key below to unlock.",
+                                                )}
+                                            </p>
                                         ) : null}
 
                                         {loginTab === "key" ? (
                                             <>
-                                                <div className="space-y-3 mt-4">
+                                                <div className="space-y-2">
                                                     <Label className="pl-1 text-[11px] font-black uppercase tracking-widest text-zinc-500">{t("identity.privateKey", "Private Key")}</Label>
-                                                    <p className="px-1 text-xs text-zinc-500 dark:text-zinc-400">
-                                                        {hasLocalAccountEvidence
-                                                            ? t("auth.import.privateKeyReturningHelp", "Use this only when switching to a different account in this profile window.")
-                                                            : t("auth.import.privateKeyHelp", "Import Key restores an existing account only. If this key has no local or relay-backed account evidence, use Create Account instead.")}
-                                                    </p>
+                                                    {!isPasswordlessNativeOnly ? (
+                                                        <p className="px-1 text-xs text-zinc-500 dark:text-zinc-400">
+                                                            {hasLocalAccountEvidence
+                                                                ? t("auth.import.privateKeyReturningHelp", "Use when switching accounts in this profile window.")
+                                                                : t("auth.import.privateKeyHelp", "Restores an existing account. No local evidence? Use Create Account instead.")}
+                                                        </p>
+                                                    ) : null}
                                                     <div className="relative group">
-                                                        <Key className={cn("absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400", authIconFocusClass)} />
+                                                        <Key className={cn("absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400", authIconFocusClass)} />
                                                         <input
                                                             autoFocus
                                                             type="password"
@@ -977,13 +1084,50 @@ export function AuthScreen() {
                                                                 setRetiredKeyReuseAcknowledged(false);
                                                             }}
                                                             className={cn(
-                                                                "flex h-16 w-full rounded-[24px] border border-black/5 bg-white/50 px-12 py-2 text-lg ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/5 dark:bg-zinc-900/50 transition-all",
+                                                                "flex w-full border ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-50",
+                                                                authCompactInputClass,
                                                                 authInputFocusRingClass,
                                                             )}
                                                         />
                                                     </div>
                                                 </div>
-                                                <AuthSessionPolicyNotice />
+                                                {hasStoredIdentity ? (
+                                                    <div className="space-y-2">
+                                                        <Label className="pl-1 text-[11px] font-black uppercase tracking-widest text-zinc-500">
+                                                            {t("auth.login.optionalMasterPassword", "Master password (optional)")}
+                                                        </Label>
+                                                        <div className="relative group">
+                                                            <Lock className={cn("absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400", authIconFocusClass)} />
+                                                            <Input
+                                                                type={showPassword ? "text" : "password"}
+                                                                autoComplete="new-password"
+                                                                placeholder={t("auth.login.setPasswordPlaceholder", "Set to enable username login")}
+                                                                value={password}
+                                                                onChange={e => setPassword(e.target.value)}
+                                                                className={cn(authCompactInputClass, authInputFocusRingClass)}
+                                                            />
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setShowPassword(!showPassword)}
+                                                                className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
+                                                            >
+                                                                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                                            </button>
+                                                        </div>
+                                                        <p className="px-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+                                                            {t(
+                                                                "auth.login.optionalMasterPasswordHint",
+                                                                "Leave blank to unlock with key only. Setting a password enables the Log In tab next time.",
+                                                            )}
+                                                        </p>
+                                                    </div>
+                                                ) : (
+                                                    <StaySignedInCheckbox
+                                                        checked={staySignedIn}
+                                                        onCheckedChange={handleStaySignedInChange}
+                                                        id="stay-signed-in-import-key"
+                                                    />
+                                                )}
                                                 {isRetiredImportKey ? (
                                                     <div className="rounded-3xl border border-amber-500/25 bg-amber-500/10 p-4">
                                                         <div className="flex gap-3">
@@ -1023,7 +1167,7 @@ export function AuthScreen() {
                                                         </motion.div>
                                                     ) : (
                                                         <>
-                                                            {t("common.continue", "Continue")}
+                                                            {hasStoredIdentity ? t("auth.login.unlockWithKey", "Unlock") : t("common.continue", "Continue")}
                                                             <ArrowRight className="h-5 w-5 ml-2" />
                                                         </>
                                                     )}
@@ -1036,55 +1180,37 @@ export function AuthScreen() {
                                             </>
                                         ) : (
                                             <>
-                                                <form onSubmit={handleLoginUsername} className="space-y-6">
-                                                    <div className="space-y-5">
-                                                        <div className="space-y-2">
-                                                            <Label className="pl-1 text-[11px] font-black uppercase tracking-widest text-zinc-500">{t("auth.usernameLabel", "Username")}</Label>
-                                                            <div className="relative group">
-                                                                <User className={cn("absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400", authIconFocusClass)} />
-                                                                <Input
-                                                                    autoFocus
-                                                                    placeholder={t("auth.usernamePlaceholder", "e.g. Satoshi")}
-                                                                    value={username}
-                                                                    onChange={e => setUsername(e.target.value)}
-                                                                    className={cn(
-                                                                        "px-12 h-16 rounded-[24px] bg-white/50 dark:bg-zinc-900/50 border-black/5 dark:border-white/5 text-lg transition-all",
-                                                                        authInputFocusRingClass,
-                                                                    )}
-                                                                />
-                                                            </div>
-                                                        </div>
-                                                        <div className="space-y-2">
-                                                            <Label className="pl-1 text-[11px] font-black uppercase tracking-widest text-zinc-500">{t("auth.masterPasswordLabel", "Master Password")}</Label>
-                                                            <div className="relative group">
-                                                                <Lock className={cn("absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400", authIconFocusClass)} />
-                                                                <Input
-                                                                    type={showPassword ? "text" : "password"}
-                                                                    placeholder={t("auth.enterPasswordPlaceholder", "Enter your password")}
-                                                                    value={password}
-                                                                    onChange={e => setPassword(e.target.value)}
-                                                                    className={cn(
-                                                                        "px-12 h-16 rounded-[24px] bg-white/50 dark:bg-zinc-900/50 border-black/5 dark:border-white/5 text-lg transition-all",
-                                                                        authInputFocusRingClass,
-                                                                    )}
-                                                                />
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => setShowPassword(!showPassword)}
-                                                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
-                                                                >
-                                                                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                                                                </button>
-                                                            </div>
+                                                <form onSubmit={handleLoginUsername} className="space-y-4">
+                                                    <div className="space-y-1.5">
+                                                        <Label className="pl-1 text-[11px] font-black uppercase tracking-widest text-zinc-500">
+                                                            {t("auth.localLoginAssist.setupPasswordLabel", "Device login password")}
+                                                        </Label>
+                                                        <div className="relative group">
+                                                            <Lock className={cn("absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400", authIconFocusClass)} />
+                                                            <Input
+                                                                autoFocus
+                                                                name="password"
+                                                                autoComplete="current-password"
+                                                                type={showPassword ? "text" : "password"}
+                                                                placeholder={t("auth.enterPasswordPlaceholder", "Enter your password")}
+                                                                value={password}
+                                                                onChange={e => setPassword(e.target.value)}
+                                                                className={cn(authCompactInputClass, authInputFocusRingClass)}
+                                                            />
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setShowPassword(!showPassword)}
+                                                                className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
+                                                            >
+                                                                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                                            </button>
                                                         </div>
                                                     </div>
 
-                                                    <AuthSessionPolicyNotice />
-
-                                                    <FlashMessage
-                                                        message={authError}
-                                                        onClose={() => setAuthError(null)}
-                                                        className="mt-4"
+                                                    <StaySignedInCheckbox
+                                                        checked={staySignedIn}
+                                                        onCheckedChange={handleStaySignedInChange}
+                                                        id="stay-signed-in-login"
                                                     />
 
                                                     <Button
@@ -1103,6 +1229,12 @@ export function AuthScreen() {
                                                             t("auth.login.submit", "Log In")
                                                         )}
                                                     </Button>
+
+                                                    <FlashMessage
+                                                        message={authError}
+                                                        onClose={() => setAuthError(null)}
+                                                        className="mt-4"
+                                                    />
                                                 </form>
                                             </>
                                         )}
@@ -1173,7 +1305,7 @@ export function AuthScreen() {
                     ) : null}
                 </div>
 
-                <div className="px-12 py-8 bg-black/5 dark:bg-white/5 border-t border-black/[0.03] dark:border-white/[0.03] flex items-center justify-center gap-6">
+                <div className="px-6 py-4 bg-black/5 dark:bg-white/5 border-t border-black/[0.03] dark:border-white/[0.03] flex items-center justify-center gap-6">
                     <div className="flex items-center gap-2 opacity-40 hover:opacity-100 transition-opacity cursor-help group/tip">
                         <Shield className="h-4 w-4 text-emerald-500" />
                         <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">{t("auth.footer.selfCustody", "Self-Custody")}</span>

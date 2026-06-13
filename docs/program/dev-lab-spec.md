@@ -86,6 +86,12 @@ await window.obscurDevLab.runScenario('settings-tab-sweep')
 | `search-profile-jump` | navigation | Search → profile view (full suite) |
 | `group-stub-send` | messaging | Group send stub toast, no crash (full suite) |
 | `vault-unlock` | auth | Vault route health (full suite) |
+| `membership-leave-rejoin-zombie` | network | E-REL leave zombie repair gates (full suite) |
+| `sec-bot-keyword-flood` | security | BOT-1 rate limit + BOT-2 allowlist (full suite) |
+| `trust-fixtures` | security | TRUST-1..3 assessment fixtures (full suite) |
+| `auth4-scope-probe` | auth | AUTH-4 scope fingerprint (full suite) |
+| `auth4-scope-probe-live` | auth | AUTH-4 dual browser (CLI full suite) |
+| `membership-leave-rejoin-live` | network | E-REL reload stability (CLI full suite) |
 
 ---
 
@@ -155,6 +161,8 @@ When a production bug escapes, **add a scenario before closing the issue** — t
 | `runScenario(id)` | Single scenario |
 | `probeShellHealth()` | Fatal boundary + chrome |
 | `unlock('tester1')` | Programmatic auth |
+| `createZombiePersona({ label })` | Ephemeral reversible persona |
+| `teardownAllZombiePersonas()` | Clear persona registry |
 | `captureBundle()` | Health + M0 + digest |
 
 ---
@@ -168,5 +176,6 @@ Dev Lab is **disabled in production** unless `NEXT_PUBLIC_OBSCUR_DEV_LAB=1`. Dis
 ## Related
 
 - [runtime-capture-e2e.md](./runtime-capture-e2e.md)  
+- [dev-lab-phase-2-charter.md](./dev-lab-phase-2-charter.md)  
 - [ui-render-loop-systemic-program.md](./ui-render-loop-systemic-program.md)  
 - Implementation: `apps/pwa/app/features/dev-lab/`

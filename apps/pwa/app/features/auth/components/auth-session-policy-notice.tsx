@@ -28,7 +28,7 @@ export function AuthSessionPolicyNotice({
   const body = isNative
     ? t(
       "auth.sessionPolicy.nativeBody",
-      "After you unlock once, Obscur restores your session from OS secure storage on refresh. Your password is not stored in the browser.",
+      "With stay signed in enabled, Obscur restores your session from OS secure storage after app restart. Your password is never stored in the browser.",
     )
     : isMobileShellBrowser
       ? t(
@@ -42,7 +42,7 @@ export function AuthSessionPolicyNotice({
   const shortCopy = isNative
     ? t(
       "auth.sessionPolicy.nativeShort",
-      "Unlock once per session; refresh restores from secure storage without re-entering your key.",
+      "When stay signed in is enabled, app restart restores from OS secure storage without re-entering your password.",
     )
     : isMobileShellBrowser
       ? t(

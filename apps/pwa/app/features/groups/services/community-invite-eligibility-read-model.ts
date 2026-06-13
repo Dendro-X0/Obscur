@@ -13,6 +13,7 @@ import {
   filterActiveCommunityMemberPubkeys,
   resolveInviteEligibleMemberPubkeys,
 } from "./community-visible-members";
+import { isRelationshipSyncExperimentEnabled } from "@/app/features/relationship-sync/relationship-sync-policy";
 import { shouldUseCoordinationMembershipAuthority } from "./community-workspace-r1-policy";
 
 const normalizePubkey = (pubkey: string): string => pubkey.trim().toLowerCase();
@@ -41,9 +42,15 @@ export type ResolveCommunityInviteMemberBlocklistParams = Readonly<{
   expelledMemberPubkeys?: ReadonlyArray<PublicKeyHex>;
 }>;
 
+export type ResolveCommunityInviteMemberBlocklistOptions = Readonly<{
+  /** E-REL: directory-only blocklist ignores join-evidence widen. */
+  joinEvidencePolicy?: "legacy" | "directory_only";
+}>;
+
 /** Pubkeys that should block a new community invite (already active members). */
 export const resolveCommunityInviteMemberBlocklist = (
   params: ResolveCommunityInviteMemberBlocklistParams,
+  options?: ResolveCommunityInviteMemberBlocklistOptions,
 ): ReadonlyArray<PublicKeyHex> => {
   if (shouldUseCoordinationMembershipAuthority(params.communityMode, params.relayUrl)) {
     const leftMembers = [
@@ -66,7 +73,13 @@ export const resolveCommunityInviteMemberBlocklist = (
       })
       : [];
     const directoryNorm = new Set(fromDirectory.map(normalizePubkey));
-    const joinEvidenceRepairs = (params.joinEvidenceMemberPubkeys ?? []).filter((pubkey) => {
+    const joinEvidenceSource = (
+      options?.joinEvidencePolicy === "directory_only"
+      || (options?.joinEvidencePolicy !== "legacy" && isRelationshipSyncExperimentEnabled())
+    )
+      ? []
+      : (params.joinEvidenceMemberPubkeys ?? []);
+    const joinEvidenceRepairs = joinEvidenceSource.filter((pubkey) => {
       const normalized = normalizePubkey(pubkey);
       return normalized.length > 0
         && !terminal.has(normalized)

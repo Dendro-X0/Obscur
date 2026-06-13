@@ -168,7 +168,7 @@ pub fn run() {
                     profiles::resolve_profile_window_url(&app.handle()),
                 )
                 .initialization_script(&format!(
-                    "{}window.__OBSCUR_WINDOW_BOOT__={{windowLabel:\"main\",profileId:\"default\"}};",
+                    "{}window.__OBSCUR_WINDOW_BOOT__={{windowLabel:\"main\",profileId:\"default\",launchMode:\"existing\"}};",
                     profiles::experiment_shell_boot_prefix(),
                 ))
                 .data_directory(main_data_dir)

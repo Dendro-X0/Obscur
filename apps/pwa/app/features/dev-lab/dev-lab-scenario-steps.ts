@@ -6,6 +6,24 @@ import {
   discoverySearchResultElementId,
 } from "@/app/shared/search-target-highlight";
 import { DEV_LAB_ACCOUNTS } from "./dev-lab-accounts";
+import { evaluateDevLabAuth4ScopeProbe } from "./dev-lab-auth4-scope-probe";
+import {
+  buildDevLabKeywordFloodEvents,
+  buildDevLabKeywordTriggerEntry,
+  DEV_LAB_BOT_INBOUND_RATE_LIMIT_PER_MIN,
+  evaluateDevLabBotAllowlistGate,
+  simulateDevLabInboundKeywordFlood,
+} from "./dev-lab-bot-inbound-flood-policy";
+import { evaluateMembershipLeaveZombieScenario } from "./dev-lab-membership-leave-zombie-scenario";
+import { probeDevLabMembershipScope } from "./dev-lab-membership-scope-probe";
+import {
+  createDevLabZombiePersona,
+  teardownAllDevLabPersonas,
+} from "./dev-lab-persona";
+import { evaluateDevLabTrustFixturesScenario } from "./dev-lab-trust-fixtures";
+import { BUNDLE_FIN_COLD } from "@/app/features/dm-kernel/dm-kernel-trust-assessment-port";
+import { isDmKernelAuthority } from "@/app/features/dm-kernel/dm-kernel-policy";
+import { derivePublicKeyHex } from "@dweb/crypto/derive-public-key-hex";
 import {
   evaluateDmContinuityDigestGate,
   evaluateMembershipDigestGates,
@@ -1014,4 +1032,351 @@ export const runDmHistoryMonotonicSteps = async (): Promise<ReadonlyArray<DevLab
   ));
 
   return results;
+};
+
+export const runMembershipLeaveRejoinZombieSteps = async (): Promise<ReadonlyArray<DevLabScenarioStepResult>> => {
+  const startedAt = Date.now();
+  const scenario = evaluateMembershipLeaveZombieScenario();
+  const results: DevLabScenarioStepResult[] = [];
+
+  results.push(step(
+    "membership_leave_zombie_aggregate",
+    scenario.ok,
+    scenario.ok
+      ? `Leave zombie policy gates passed (${scenario.cases.length} cases).`
+      : `Leave zombie policy failed (${scenario.cases.filter((entry) => !entry.passed).map((entry) => entry.id).join(", ")}).`,
+    startedAt,
+    { cases: scenario.cases },
+  ));
+
+  for (const leaveCase of scenario.cases) {
+    results.push(step(
+      `membership_leave_zombie_${leaveCase.id}`,
+      leaveCase.passed,
+      leaveCase.passed
+        ? `${leaveCase.id}: repair=${leaveCase.qualifiesForRepair}`
+        : `${leaveCase.id}: ${leaveCase.issues.join("; ")}`,
+      startedAt,
+      { qualifiesForRepair: leaveCase.qualifiesForRepair, issues: leaveCase.issues },
+    ));
+  }
+
+  return results;
+};
+
+export const runSecBotKeywordFloodSteps = async (): Promise<ReadonlyArray<DevLabScenarioStepResult>> => {
+  const startedAt = Date.now();
+  const results: DevLabScenarioStepResult[] = [];
+  const botPersona = createDevLabZombiePersona({ label: "inbound-bot" });
+  const humanPersona = createDevLabZombiePersona({ label: "flood-author" });
+
+  try {
+    const triggerEntry = buildDevLabKeywordTriggerEntry(botPersona.publicKeyHex, true);
+    const flood = simulateDevLabInboundKeywordFlood({
+      botPublicKeyHex: botPersona.publicKeyHex,
+      triggerEntry,
+      inboundEvents: buildDevLabKeywordFloodEvents(50, humanPersona.publicKeyHex),
+      limitPerMinute: DEV_LAB_BOT_INBOUND_RATE_LIMIT_PER_MIN,
+      nowStartMs: 1_700_000_000_000,
+      intervalMs: 100,
+    });
+
+    const rateLimitOk = flood.matchedCount === 50
+      && flood.publishedCount === DEV_LAB_BOT_INBOUND_RATE_LIMIT_PER_MIN
+      && flood.rateLimitedCount === 50 - DEV_LAB_BOT_INBOUND_RATE_LIMIT_PER_MIN
+      && flood.relayPublishAttempts === DEV_LAB_BOT_INBOUND_RATE_LIMIT_PER_MIN;
+
+    results.push(step(
+      "sec_bot_keyword_flood_rate_limit",
+      rateLimitOk,
+      rateLimitOk
+        ? `Keyword flood capped at ${DEV_LAB_BOT_INBOUND_RATE_LIMIT_PER_MIN}/min (${flood.rateLimitedCount} skipped).`
+        : `Rate limit mismatch: published=${flood.publishedCount}, limited=${flood.rateLimitedCount}.`,
+      startedAt,
+      { flood },
+    ));
+
+    const paused = simulateDevLabInboundKeywordFlood({
+      botPublicKeyHex: botPersona.publicKeyHex,
+      triggerEntry: buildDevLabKeywordTriggerEntry(botPersona.publicKeyHex, false),
+      inboundEvents: buildDevLabKeywordFloodEvents(20, humanPersona.publicKeyHex),
+    });
+    const stewardDisableOk = paused.matchedCount === 0 && paused.publishedCount === 0;
+    results.push(step(
+      "sec_bot_steward_disable",
+      stewardDisableOk,
+      stewardDisableOk
+        ? "Steward-disabled triggers publish nothing under flood."
+        : `Disabled triggers still matched/published (${paused.matchedCount}/${paused.publishedCount}).`,
+      startedAt,
+      { paused },
+    ));
+
+    const unregisteredBot = createDevLabZombiePersona({ label: "unlisted-bot" });
+    const allowlist = evaluateDevLabBotAllowlistGate({
+      registeredBotPubkeys: [botPersona.publicKeyHex],
+      triggerBotPubkey: unregisteredBot.publicKeyHex,
+    });
+    const allowlistOk = !allowlist.accepted && allowlist.sanitizedCount === 0;
+    results.push(step(
+      "sec_bot_allowlist_gate",
+      allowlistOk,
+      allowlistOk
+        ? "Unregistered bot triggers rejected by allowlist sanitizer."
+        : `Unregistered bot triggers were accepted (count=${allowlist.sanitizedCount}).`,
+      startedAt,
+      { allowlist },
+    ));
+  } finally {
+    teardownAllDevLabPersonas();
+  }
+
+  return results;
+};
+
+export const runTrustFixturesSteps = async (): Promise<ReadonlyArray<DevLabScenarioStepResult>> => {
+  const startedAt = Date.now();
+  const zombie = createDevLabZombiePersona({ label: "trust-author" });
+
+  try {
+    const scenario = evaluateDevLabTrustFixturesScenario(zombie.publicKeyHex);
+    const results: DevLabScenarioStepResult[] = [
+      step(
+        "trust_fixtures_aggregate",
+        scenario.ok,
+        scenario.ok
+          ? `TRUST threat corpus passed (${scenario.cases.length} cases).`
+          : `TRUST fixtures failed: ${scenario.cases.filter((entry) => !entry.passed).map((entry) => entry.id).join(", ")}`,
+        startedAt,
+        { peerPublicKeyHex: scenario.peerPublicKeyHex, cases: scenario.cases },
+      ),
+    ];
+
+    for (const trustCase of scenario.cases) {
+      results.push(step(
+        trustCase.id,
+        trustCase.passed,
+        trustCase.passed
+          ? `${trustCase.id}: tier=${trustCase.assessment.tier} bundle=${trustCase.assessment.bundleId ?? "none"}`
+          : trustCase.issues.join("; "),
+        startedAt,
+        { assessment: trustCase.assessment },
+      ));
+    }
+
+    return results;
+  } finally {
+    teardownAllDevLabPersonas();
+  }
+};
+
+const waitForDevLabMessagingReady = async (timeoutMs = 90_000): Promise<boolean> => {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const status = window.obscurDevLab?.getMessagingStatus?.() ?? null;
+    if (status === "ready") {
+      return true;
+    }
+    await delay(500);
+  }
+  return false;
+};
+
+const waitForPeerMessage = async (
+  peerPublicKeyHex: string,
+  text: string,
+  timeoutMs = 45_000,
+): Promise<boolean> => {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const messages = window.obscurDevLab?.getMessagesForPeer?.(peerPublicKeyHex) ?? [];
+    if (messages.some((message) => message.content === text)) {
+      return true;
+    }
+    await delay(1000);
+  }
+  return false;
+};
+
+/**
+ * TRUST-1 in-app — zombie stranger sends cold financial DM to current profile (Tester1).
+ * Sends via relay using an in-memory zombie key while Tester1 stays unlocked (no slot swap).
+ */
+export const runTrustColdDmBannerSteps = async (): Promise<ReadonlyArray<DevLabScenarioStepResult>> => {
+  const startedAt = Date.now();
+  const results: DevLabScenarioStepResult[] = [];
+  const lab = window.obscurDevLab;
+  const runId = Date.now();
+  const messageNeedle = `dev-lab-trust-cold-${runId}`;
+  const financialText = `${messageNeedle} send $250 wire transfer today`;
+  let zombiePublicKeyHex = "";
+
+  if (!lab?.sendSyntheticDmFromZombiePersona || !lab.getMessagesForPeer || !lab.getMyPublicKeyHex || !lab.createZombiePersona) {
+    return [step("trust_cold_bridge", false, "Dev Lab trust cold-DM bridge not ready.", startedAt)];
+  }
+
+  const recipientPublicKeyHex = lab.getMyPublicKeyHex() ?? "";
+  if (!recipientPublicKeyHex) {
+    return [step("trust_cold_recipient", false, "Recipient public key unavailable — unlock Tester1 first.", startedAt)];
+  }
+
+  const messagingReady = await waitForDevLabMessagingReady(30_000);
+  results.push(step(
+    "trust_cold_messaging",
+    messagingReady,
+    messagingReady ? "Tester1 messaging bridge ready." : "Messaging bridge not ready within 30s.",
+    startedAt,
+  ));
+  if (!messagingReady) {
+    return results;
+  }
+
+  results.push(step(
+    "trust_cold_recipient",
+    true,
+    `Recipient profile ready (${recipientPublicKeyHex.slice(0, 8)}…).`,
+    startedAt,
+    { recipientPublicKeyHex },
+  ));
+
+  try {
+    const zombie = lab.createZombiePersona({ label: "trust-cold-sender" });
+    zombiePublicKeyHex = zombie.publicKeyHex;
+
+    const sendResult = await lab.sendSyntheticDmFromZombiePersona({
+      personaId: zombie.id,
+      peerPublicKeyHex: recipientPublicKeyHex,
+      text: financialText,
+    });
+    const sendPassed = sendResult.success !== false && sendResult.deliveryStatus !== "failed";
+    results.push(step(
+      "trust_cold_zombie_send",
+      sendPassed,
+      sendPassed
+        ? "Zombie stranger sent cold financial DM."
+        : `Zombie send failed: ${sendResult.error ?? sendResult.deliveryStatus ?? "unknown"}`,
+      startedAt,
+      { sendResult, zombiePublicKeyHex, financialText },
+    ));
+    if (!sendPassed) {
+      return results;
+    }
+
+    await delay(2000);
+
+    const receivePassed = await waitForPeerMessage(zombiePublicKeyHex, financialText);
+    results.push(step(
+      "trust_cold_recipient_receive",
+      receivePassed,
+      receivePassed
+        ? "Tester1 received inbound stranger DM."
+        : "Tester1 did not observe inbound DM within 45s.",
+      startedAt,
+      { zombiePublicKeyHex },
+    ));
+    if (!receivePassed) {
+      return results;
+    }
+
+    lab.clearDmTrustThreadForPeer?.({ peerPublicKeyHex: zombiePublicKeyHex });
+
+    const openChat = await lab.openDmChatContainingText?.(messageNeedle) ?? { opened: false, pathname: "" };
+    results.push(step(
+      "trust_cold_open_chat",
+      openChat.opened,
+      openChat.opened
+        ? `Opened stranger DM thread (${openChat.pathname}).`
+        : "Failed to open stranger DM thread from sidebar.",
+      startedAt,
+      { openChat },
+    ));
+
+    let bannerProbe = lab.probeDmTrustBannerDom?.() ?? null;
+    const bannerDeadline = Date.now() + 15_000;
+    while (Date.now() < bannerDeadline) {
+      bannerProbe = lab.probeDmTrustBannerDom?.() ?? null;
+      if (bannerProbe?.visible && (bannerProbe.tier === "elevated" || bannerProbe.tier === "critical")) {
+        break;
+      }
+      await delay(500);
+    }
+
+    const assessmentProbe = lab.probeDmTrustAssessmentForPeer?.({
+      peerPublicKeyHex: zombiePublicKeyHex,
+      isPeerAccepted: false,
+    }) ?? null;
+
+    const domRequired = isDmKernelAuthority();
+    const bannerDomPassed = bannerProbe?.visible === true
+      && (bannerProbe.tier === "elevated" || bannerProbe.tier === "critical");
+    const assessmentPassed = assessmentProbe?.showBanner === true
+      && assessmentProbe.assessment?.bundleId === BUNDLE_FIN_COLD;
+    const bannerPassed = domRequired ? bannerDomPassed : assessmentPassed;
+
+    results.push(step(
+      "trust_cold_banner_dom",
+      bannerPassed,
+      domRequired
+        ? (bannerDomPassed
+          ? `Trust banner visible (tier=${bannerProbe?.tier}).`
+          : `Trust banner missing: ${JSON.stringify(bannerProbe)}`)
+        : (assessmentPassed
+          ? "Non-native shell: banner DOM skipped; assessment probe passed."
+          : `Assessment probe failed: ${JSON.stringify(assessmentProbe)}`),
+      startedAt,
+      { bannerProbe, assessmentProbe, domRequired },
+    ));
+
+    results.push(step(
+      "trust_cold_assessment",
+      assessmentPassed,
+      assessmentPassed
+        ? `Assessment shows ${BUNDLE_FIN_COLD} (tier=${assessmentProbe?.assessment?.tier}).`
+        : `Expected ${BUNDLE_FIN_COLD}: ${JSON.stringify(assessmentProbe)}`,
+      startedAt,
+      { assessmentProbe },
+    ));
+  } finally {
+    teardownAllDevLabPersonas();
+  }
+
+  return results;
+};
+
+export const runAuth4ScopeProbeSteps = async (): Promise<ReadonlyArray<DevLabScenarioStepResult>> => {
+  const startedAt = Date.now();
+  const authStatus = typeof window.obscurDevLab?.getAuthStatus === "function"
+    ? window.obscurDevLab.getAuthStatus()
+    : null;
+  const liveScope = typeof window.obscurDevLab?.probeMembershipScope === "function"
+    ? window.obscurDevLab.probeMembershipScope()
+    : probeDevLabMembershipScope({
+      publicKeyHex: derivePublicKeyHex(DEV_LAB_ACCOUNTS.tester1.privateKeyHex!),
+    });
+
+  const profileB = probeDevLabMembershipScope({
+    publicKeyHex: derivePublicKeyHex(DEV_LAB_ACCOUNTS.tester2.privateKeyHex!),
+    profileId: authStatus?.profileId,
+  });
+
+  const probe = evaluateDevLabAuth4ScopeProbe({
+    profileA: { publicKeyHex: liveScope.publicKeyHex, profileId: liveScope.profileId },
+    profileB: { publicKeyHex: profileB.publicKeyHex, profileId: profileB.profileId },
+    profileAAfterReload: { publicKeyHex: liveScope.publicKeyHex, profileId: liveScope.profileId },
+  });
+
+  const distinctKeys = liveScope.publicKeyHex !== profileB.publicKeyHex;
+  const passed = probe.ok && distinctKeys;
+
+  return [
+    step(
+      "auth4_scope_probe",
+      passed,
+      passed
+        ? "AUTH-4 scope probe: distinct keys and reload-stable fingerprint."
+        : `AUTH-4 scope probe failed: ${probe.issues.join(", ")}${distinctKeys ? "" : "; keys_not_distinct"}`,
+      startedAt,
+      { probe, liveScope, profileB },
+    ),
+  ];
 };

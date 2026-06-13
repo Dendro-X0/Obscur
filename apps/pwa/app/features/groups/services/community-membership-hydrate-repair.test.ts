@@ -68,6 +68,27 @@ describe("community membership hydrate repair", () => {
     })).toBe(false);
   });
 
+  it("revives when metadata persisted, ledger left, and rejoin cleared leave outbox", () => {
+    saveCommunityMembershipLedger(PUBLIC_KEY, [{
+      groupId: GROUP_ID,
+      relayUrl: RELAY_JOIN,
+      status: "left",
+      updatedAtUnixMs: 5_000,
+    }], { profileId: PROFILE_ID });
+
+    const group = makeGroup();
+    repairCommunityMembershipDurableStateOnHydrate({
+      publicKeyHex: PUBLIC_KEY,
+      profileId: PROFILE_ID,
+      persistedGroups: [group],
+    });
+
+    const ledger = loadCommunityMembershipLedger(PUBLIC_KEY, { profileId: PROFILE_ID });
+    expect(ledger).toEqual(expect.arrayContaining([
+      expect.objectContaining({ groupId: GROUP_ID, status: "joined" }),
+    ]));
+  });
+
   it("revives persisted group evidence when ledger stayed left after live rejoin", () => {
     enqueueCommunityLeaveOutboxItem({
       publicKeyHex: PUBLIC_KEY,

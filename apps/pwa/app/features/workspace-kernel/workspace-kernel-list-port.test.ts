@@ -26,6 +26,22 @@ vi.mock("@/app/features/groups/services/community-membership-ledger", () => ({
   toGroupConversationFromMembershipLedgerEntry: vi.fn(),
 }));
 
+vi.mock("@/app/features/groups/services/community-membership-hydrate-repair", () => ({
+  repairCommunityMembershipDurableStateOnHydrate: vi.fn(() => ({
+    clearedHideGateCount: 0,
+    revivedFromPersistedEvidenceCount: 0,
+  })),
+}));
+
+vi.mock("@/app/features/relationship-sync/relationship-sync-policy", () => ({
+  isRelationshipSyncExperimentEnabled: vi.fn(() => false),
+}));
+
+vi.mock("@/app/features/relationship-sync/relationship-sync-directory-sidebar", () => ({
+  appendDirectoryBackedSidebarGroups: vi.fn(() => 0),
+  shouldHideSidebarForExperimentDirectory: vi.fn(() => false),
+}));
+
 import { isGroupTombstoned } from "@/app/features/groups/services/group-tombstone-store";
 import { listCoordinationMembershipDirectoryRecords } from "@/app/features/groups/services/community-coordination-membership-directory-store";
 import {

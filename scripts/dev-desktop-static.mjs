@@ -5,6 +5,8 @@
  *   pnpm dev:desktop
  *   pnpm dev:desktop -- --rebuild    force static export rebuild
  *   pnpm dev:desktop -- --online       experiment-online env (still no coordination/relay)
+ *   pnpm dev:desktop -- --build-only   build static shell only (used by workspace stack)
+ *   pnpm dev:desktop -- --skip-build   start Tauri without rebuilding (shell already built)
  *
  * Hot-reload UI iteration: pnpm dev:desktop:live
  * Online relays + smooth nav: pnpm dev:desktop:online (static shell + stack)
@@ -25,6 +27,8 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."
 const flags = new Set(process.argv.slice(2));
 const forceRebuild = flags.has("--rebuild");
 const online = flags.has("--online");
+const buildOnly = flags.has("--build-only");
+const skipBuild = flags.has("--skip-build");
 const outIndex = path.join(repoRoot, "apps", "pwa", "out", "index.html");
 
 const env = mergePwaEnvLocal({
@@ -57,22 +61,30 @@ const runBuild = () => new Promise((resolve, reject) => {
 });
 
 const run = async () => {
-  const stale = isStaticShellStale(repoRoot);
-  const experimentMode = isStaticShellExperimentModeMismatch(repoRoot, online);
-  const devLabMode = isStaticShellDevLabMismatch(repoRoot);
-  if (forceRebuild || !existsSync(outIndex)) {
-    await runBuild();
-  } else if (experimentMode.mismatch) {
-    log(`static shell experiment mode mismatch (${experimentMode.reason}) — rebuilding…`);
-    await runBuild();
-  } else if (devLabMode.mismatch) {
-    log(`static shell dev-lab mismatch (${devLabMode.reason}) — rebuilding…`);
-    await runBuild();
-  } else if (stale.stale) {
-    log(`static shell stale (${stale.reason}) — rebuilding…`);
-    await runBuild();
+  if (!skipBuild) {
+    const stale = isStaticShellStale(repoRoot);
+    const experimentMode = isStaticShellExperimentModeMismatch(repoRoot, online);
+    const devLabMode = isStaticShellDevLabMismatch(repoRoot);
+    if (forceRebuild || !existsSync(outIndex)) {
+      await runBuild();
+    } else if (experimentMode.mismatch) {
+      log(`static shell experiment mode mismatch (${experimentMode.reason}) — rebuilding…`);
+      await runBuild();
+    } else if (devLabMode.mismatch) {
+      log(`static shell dev-lab mismatch (${devLabMode.reason}) — rebuilding…`);
+      await runBuild();
+    } else if (stale.stale) {
+      log(`static shell stale (${stale.reason}) — rebuilding…`);
+      await runBuild();
+    } else {
+      log(`using current static shell (${outIndex}, experimentOnline=${online})`);
+    }
   } else {
-    log(`using current static shell (${outIndex}, experimentOnline=${online})`);
+    log("skipping static shell build (--skip-build)");
+  }
+
+  if (buildOnly) {
+    return;
   }
 
   if (online) {

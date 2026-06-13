@@ -15,6 +15,8 @@ import { useAccountProjectionSnapshot } from "@/app/features/account-sync/hooks/
 import { resolveProjectionReadAuthority } from "@/app/features/account-sync/services/account-projection-read-authority";
 import { selectProjectionAcceptedPeers } from "@/app/features/account-sync/services/account-projection-selectors";
 import { shouldWriteLegacyContactsDm } from "@/app/features/account-sync/services/account-sync-migration-policy";
+import { resolvePeerTrustReadAuthority } from "@/app/features/network/services/peer-trust-read-authority";
+import { logAppEvent } from "@/app/shared/log-app-event";
 
 type PeerTrustState = Readonly<{
   acceptedPeers: ReadonlyArray<PublicKeyHex>;
@@ -171,6 +173,20 @@ export const usePeerTrust = (params: UsePeerTrustParams): UsePeerTrustResult => 
   });
   const didLoadRef = useRef(false);
   const [hasHydrated, setHasHydrated] = useState(false);
+  const peerTrustReadAuthorityLogKeyRef = useRef<string | null>(null);
+  const peerTrustReadAuthority = useMemo(() => (
+    resolvePeerTrustReadAuthority({
+      shouldUseProjectionReads,
+      projectionReadAuthorityReason: projectionReadAuthority.reason,
+      projectionAcceptedPeers,
+      storedAcceptedPeers: stored.acceptedPeers,
+    })
+  ), [
+    projectionAcceptedPeers,
+    projectionReadAuthority.reason,
+    shouldUseProjectionReads,
+    stored.acceptedPeers,
+  ]);
   const contactMutationNonceRef = useRef(0);
   const hydrateAcceptedPeersFromChatState = useCallback((): void => {
     const currentPublicKeyHex = publicKeyHexRef.current;
@@ -261,7 +277,51 @@ export const usePeerTrust = (params: UsePeerTrustParams): UsePeerTrustResult => 
 
     saveToStorage(params.publicKeyHex, stored);
   }, [params.publicKeyHex, stored]);
-  const acceptedPeersForRead = shouldUseProjectionReads ? projectionAcceptedPeers : stored.acceptedPeers;
+
+  useEffect(() => {
+    if (!params.publicKeyHex || !hasHydrated) {
+      peerTrustReadAuthorityLogKeyRef.current = null;
+      return;
+    }
+    const diagnosticKey = [
+      params.publicKeyHex,
+      peerTrustReadAuthority.source,
+      peerTrustReadAuthority.holdReason ?? "",
+      peerTrustReadAuthority.projectionReadAuthorityReason,
+      peerTrustReadAuthority.acceptedPeers.length,
+      stored.acceptedPeers.length,
+      projectionAcceptedPeers.length,
+    ].join("::");
+    if (peerTrustReadAuthorityLogKeyRef.current === diagnosticKey) {
+      return;
+    }
+    peerTrustReadAuthorityLogKeyRef.current = diagnosticKey;
+    logAppEvent({
+      name: "network.peer_trust_read_authority_selected",
+      level: peerTrustReadAuthority.source === "legacy_hold" ? "warn" : "info",
+      scope: { feature: "network", action: "peer_trust_read_authority" },
+      context: {
+        publicKeySuffix: params.publicKeyHex.slice(-8),
+        selectedSource: peerTrustReadAuthority.source,
+        holdReason: peerTrustReadAuthority.holdReason,
+        projectionReadAuthorityReason: peerTrustReadAuthority.projectionReadAuthorityReason,
+        acceptedPeerCount: peerTrustReadAuthority.acceptedPeers.length,
+        storedPeerCount: stored.acceptedPeers.length,
+        projectionPeerCount: projectionAcceptedPeers.length,
+      },
+    });
+  }, [
+    hasHydrated,
+    params.publicKeyHex,
+    peerTrustReadAuthority.acceptedPeers.length,
+    peerTrustReadAuthority.holdReason,
+    peerTrustReadAuthority.projectionReadAuthorityReason,
+    peerTrustReadAuthority.source,
+    projectionAcceptedPeers.length,
+    stored.acceptedPeers.length,
+  ]);
+
+  const acceptedPeersForRead = peerTrustReadAuthority.acceptedPeers;
 
   const isAccepted = useCallback((p: Readonly<{ publicKeyHex: PublicKeyHex }>): boolean => {
     const normalized = normalizePublicKeyHex(p.publicKeyHex);

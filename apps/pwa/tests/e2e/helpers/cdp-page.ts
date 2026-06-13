@@ -14,6 +14,12 @@ const isObscurAppUrl = (url: string): boolean => {
   if (url.includes("127.0.0.1:3340") || url.includes("localhost:3340")) {
     return true;
   }
+  if (/^https?:\/\/127\.0\.0\.1:\d+/i.test(url)) {
+    return true;
+  }
+  if (/^https?:\/\/localhost:\d+/i.test(url)) {
+    return true;
+  }
   if (url.startsWith("tauri://")) {
     return true;
   }

@@ -11,6 +11,7 @@ import {
   mirrorDesktopWindowBootPayloadToSyncScope,
   readDesktopWindowBootPayload,
 } from "./desktop-window-boot-payload";
+import { resolveProfileLaunchMode } from "./resolve-profile-launch-mode";
 import type {
   ProfileId,
   ProfileIsolationSnapshot,
@@ -91,7 +92,7 @@ const syncNativeProfilesIntoRegistry = (snapshot: ProfileIsolationSnapshot): voi
   });
 };
 
-const createFallbackSnapshot = (windowLabel = MAIN_WINDOW_LABEL): ProfileIsolationSnapshot => {
+const createFallbackSnapshot = (windowLabel = MAIN_WINDOW_LABEL, launchModeHint?: ProfileIsolationSnapshot["currentWindow"]["launchMode"]): ProfileIsolationSnapshot => {
   try {
     const registryState = ProfileRegistryService.getState();
     const lastKnownProfileId = getLastKnownWindowProfileId(windowLabel);
@@ -122,7 +123,7 @@ const createFallbackSnapshot = (windowLabel = MAIN_WINDOW_LABEL): ProfileIsolati
         windowLabel,
         profileId: activeProfile.profileId,
         profileLabel: activeProfile.label,
-        launchMode: "existing",
+        launchMode: resolveProfileLaunchMode(windowLabel, launchModeHint),
       },
       profiles: registryState.profiles.some((profile) => profile.profileId === activeProfile.profileId)
         ? registryState.profiles.map((profile) => ({
@@ -141,7 +142,7 @@ const createFallbackSnapshot = (windowLabel = MAIN_WINDOW_LABEL): ProfileIsolati
         windowLabel,
         profileId: activeProfile.profileId,
         profileLabel: activeProfile.label,
-        launchMode: "existing",
+        launchMode: resolveProfileLaunchMode(windowLabel, launchModeHint),
       }],
     };
   } catch {
@@ -198,13 +199,13 @@ const invokeProfileCommand = async <T>(
   return result.value;
 };
 
-export const applyCachedWindowProfileScope = (windowLabel: string): boolean => {
+export const applyCachedWindowProfileScope = (windowLabel: string, launchModeHint?: ProfileIsolationSnapshot["currentWindow"]["launchMode"]): boolean => {
   const normalizedLabel = windowLabel.trim() || MAIN_WINDOW_LABEL;
   const lastKnownProfileId = getLastKnownWindowProfileId(normalizedLabel);
   if (!lastKnownProfileId) {
     return false;
   }
-  const fallback = createFallbackSnapshot(normalizedLabel);
+  const fallback = createFallbackSnapshot(normalizedLabel, launchModeHint);
   if (fallback.currentWindow.profileId !== lastKnownProfileId) {
     return false;
   }
@@ -214,14 +215,14 @@ export const applyCachedWindowProfileScope = (windowLabel: string): boolean => {
 };
 
 /** Applies profile scope encoded in a secondary window label before native IPC returns. */
-export const applyWindowLabelProfileScope = (windowLabel: string): boolean => {
+export const applyWindowLabelProfileScope = (windowLabel: string, launchModeHint?: ProfileIsolationSnapshot["currentWindow"]["launchMode"]): boolean => {
   const profileId = parseProfileIdFromWindowLabel(windowLabel);
   if (!profileId) {
     return false;
   }
   const normalizedLabel = windowLabel.trim() || MAIN_WINDOW_LABEL;
   setLastKnownWindowProfileId(normalizedLabel, profileId);
-  const fallback = createFallbackSnapshot(normalizedLabel);
+  const fallback = createFallbackSnapshot(normalizedLabel, launchModeHint);
   if (fallback.currentWindow.profileId !== profileId) {
     return false;
   }
@@ -238,12 +239,13 @@ export const applyDesktopWindowBootPayload = (): boolean => {
     return false;
   }
   setLastKnownWindowProfileId(payload.windowLabel, payload.profileId);
-  if (applyWindowLabelProfileScope(payload.windowLabel)) {
+  const launchMode = resolveProfileLaunchMode(payload.windowLabel, payload.launchMode);
+  if (applyWindowLabelProfileScope(payload.windowLabel, launchMode)) {
     lastRefreshError = null;
     return true;
   }
   if (payload.windowLabel === MAIN_WINDOW_LABEL) {
-    const fallback = createFallbackSnapshot(MAIN_WINDOW_LABEL);
+    const fallback = createFallbackSnapshot(MAIN_WINDOW_LABEL, launchMode);
     setSnapshot({
       ...fallback,
       currentWindow: {
@@ -251,13 +253,13 @@ export const applyDesktopWindowBootPayload = (): boolean => {
         windowLabel: MAIN_WINDOW_LABEL,
         profileId: payload.profileId,
         profileLabel: fallback.currentWindow.profileLabel || payload.profileId,
-        launchMode: "existing",
+        launchMode,
       },
     });
     lastRefreshError = null;
     return true;
   }
-  return applyCachedWindowProfileScope(payload.windowLabel);
+  return applyCachedWindowProfileScope(payload.windowLabel, launchMode);
 };
 
 export const resolveNativeWindowLabel = async (): Promise<string> => {

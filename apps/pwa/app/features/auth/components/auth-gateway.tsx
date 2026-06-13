@@ -2,6 +2,7 @@
 
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import type { Passphrase } from "@dweb/crypto/passphrase";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import {
@@ -19,6 +20,21 @@ import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { PendingProfileImportResume } from "@/app/features/profiles/components/pending-profile-import-resume";
 import { AccountActiveInOtherProfileWindowError } from "@/app/features/profiles/services/cross-profile-active-session-lease";
 import { DevLabAuthBridge } from "@/app/features/dev-lab/dev-lab-auth-bridge";
+import {
+  isAuthPublicProfileRoute,
+  PROFILE_SIGN_IN_ROUTE,
+  resolveLockedDesktopEntryRedirect,
+  resolveUnlockedDesktopRouteRedirect,
+} from "@/app/features/profiles/services/auth-public-routes";
+import { readShowProfilePickerOnStartup } from "@/app/features/profiles/services/profile-picker-startup-policy";
+import { useDesktopProfileIsolationSnapshot } from "@/app/features/profiles/services/desktop-profile-runtime";
+import { resolveProfileLaunchMode } from "@/app/features/profiles/services/resolve-profile-launch-mode";
+import { reconcileWindowRuntimeBinding } from "@/app/features/runtime/services/window-runtime-binding";
+import { isDeviceSessionRestoreAllowed } from "@/app/features/auth/services/device-session-consent";
+
+const isUnlockedRuntimePhase = (phase: string): boolean => (
+  phase === "activating_runtime" || phase === "ready" || phase === "degraded"
+);
 
 interface AuthGatewayProps {
   children: React.ReactNode;
@@ -48,8 +64,13 @@ const isLikelyCredentialFailure = (error: unknown): boolean => {
 };
 
 export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
+  const pathname = usePathname();
+  const router = useRouter();
   const identity = useIdentity();
   const runtime = useWindowRuntime();
+  const desktopProfileSnapshot = useDesktopProfileIsolationSnapshot();
+  const isUnlocked = isUnlockedRuntimePhase(runtime.snapshot.phase);
+  const isPublicProfileRoute = isAuthPublicProfileRoute(pathname) && hasNativeRuntime();
   const attemptedAutoUnlockProfileIdsRef = useRef<Set<string>>(new Set());
   const transientRetryStateByProfileIdRef = useRef<Record<string, TransientRetryState>>({});
   const [attemptedAutoUnlockProfileIds, setAttemptedAutoUnlockProfileIds] = useState<ReadonlyArray<string>>([]);
@@ -94,11 +115,47 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
     !SESSION_AUTO_UNLOCK_ENABLED
     && NATIVE_SECURE_SESSION_RESTORE_ENABLED
     && hasNativeRuntime()
+    && isDeviceSessionRestoreAllowed(activeProfileId)
     && Boolean(identity.state.stored?.publicKeyHex)
     && identity.state.status === "locked"
     && (runtime.snapshot.phase === "auth_required" || runtime.snapshot.phase === "binding_profile")
     && !hasAttemptedForActiveProfile
   );
+
+  useEffect(() => {
+    const redirectTarget = resolveLockedDesktopEntryRedirect({
+      pathname,
+      isDesktopNative: hasNativeRuntime(),
+      isUnlocked,
+      showProfilePickerOnStartup: readShowProfilePickerOnStartup(),
+      profileLaunchMode: resolveProfileLaunchMode(
+        desktopProfileSnapshot.currentWindow.windowLabel,
+        desktopProfileSnapshot.currentWindow.launchMode,
+      ),
+    });
+    if (!redirectTarget) {
+      return;
+    }
+    router.replace(redirectTarget);
+  }, [
+    desktopProfileSnapshot.currentWindow.launchMode,
+    desktopProfileSnapshot.currentWindow.windowLabel,
+    isUnlocked,
+    pathname,
+    router,
+  ]);
+
+  useEffect(() => {
+    const redirectTarget = resolveUnlockedDesktopRouteRedirect({
+      pathname,
+      isDesktopNative: hasNativeRuntime(),
+      isUnlocked,
+    });
+    if (!redirectTarget) {
+      return;
+    }
+    router.replace(redirectTarget);
+  }, [isUnlocked, pathname, router]);
 
   useEffect(() => {
     if (startupState.identityStatus === "loading" || identity.state.status === "loading") {
@@ -117,6 +174,7 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
           return;
         }
         if (unlocked) {
+          reconcileWindowRuntimeBinding();
           logAppEvent({
             name: "auth.native_secure_restore_succeeded",
             level: "info",
@@ -364,7 +422,16 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
     startupState.kind,
   ]);
 
-  if (runtime.snapshot.phase === "activating_runtime" || runtime.snapshot.phase === "ready" || runtime.snapshot.phase === "degraded") {
+  if (isPublicProfileRoute) {
+    return (
+      <>
+        <DevLabAuthBridge />
+        {children}
+      </>
+    );
+  }
+
+  if (isUnlocked) {
     const resolveActivePrivateKeyHex = async (): Promise<PrivateKeyHex | null> => {
       if (identity.state.status !== "unlocked" || !identity.state.privateKeyHex) {
         return null;

@@ -98,6 +98,7 @@ These are **not bugs to “fix” in v1.9.x** unless a scope row explicitly reop
 | ACC-01 | Delete-for-me durability across refresh/restore on open Nostr | [deletion-roster-limitations.md](../messaging/deletion-roster-limitations.md) |
 | ACC-02 | Roster multi-owner / MEM-001 on public relay | Same |
 | — | Cooperative “delete for everyone” UI | [cooperative-redaction-future.md](../messaging/cooperative-redaction-future.md) — v1.6+ |
+| ACC-03 | Cross-restart “stay signed in” / OAuth-style convenience | [auth-ux-redesign-future.md](./auth-ux-redesign-future.md) — self-custody; no centralized IdP; v1.9.6 keychain path **deferred** |
 | — | Public marketing / GitHub Releases promotion | After v2.0.0 — [maintainer-distribution-policy.md](./maintainer-distribution-policy.md) |
 
 Register: [unified-verification-issues-register.md](./unified-verification-issues-register.md)

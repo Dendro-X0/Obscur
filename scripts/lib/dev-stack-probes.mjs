@@ -6,7 +6,7 @@ import { spawnSync } from "node:child_process";
 import path from "node:path";
 
 export const DEFAULT_COORDINATION_READY_TIMEOUT_MS = process.platform === "win32"
-  ? 240_000
+  ? 360_000
   : 120_000;
 
 export const DEFAULT_RELAY_READY_TIMEOUT_MS = 90_000;

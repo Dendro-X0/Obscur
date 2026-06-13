@@ -8,6 +8,10 @@ import { decodePrivateKey } from "@/app/features/auth/utils/decode-private-key";
 import { useWindowRuntime } from "@/app/features/runtime/services/window-runtime-supervisor";
 import { isDevLabEnabled } from "./dev-lab-policy";
 import { resolveDevLabAccount, type DevLabAccountId } from "./dev-lab-accounts";
+import {
+  DEV_LAB_ZOMBIE_PASSPHRASE,
+  type DevLabPersonaRecord,
+} from "./dev-lab-persona";
 import { DevLabNativeGateListenerBridge } from "./dev-lab-native-gate-listener-bridge";
 import { registerDevLabAuthHandlers } from "./dev-lab-install";
 
@@ -51,8 +55,24 @@ export const DevLabAuthBridge = (): React.JSX.Element | null => {
       });
     };
 
+    const unlockEphemeralPersona = async (persona: DevLabPersonaRecord): Promise<void> => {
+      const hasStoredIdentity = identity.state.stored != null;
+      if (hasStoredIdentity) {
+        await runtime.unlockBoundProfileWithPrivateKeyHex({
+          privateKeyHex: persona.privateKeyHex,
+        });
+        return;
+      }
+      await runtime.importIdentityForBoundProfile({
+        privateKeyHex: persona.privateKeyHex,
+        passphrase: DEV_LAB_ZOMBIE_PASSPHRASE as Passphrase,
+        username: persona.username,
+      });
+    };
+
     registerDevLabAuthHandlers({
       unlockAccount,
+      unlockEphemeralPersona,
       getAuthStatus: () => ({
         identityStatus: identity.state.status,
         runtimePhase: runtime.snapshot.phase,

@@ -2,7 +2,6 @@
 
 import type React from "react";
 import { AppProviders } from "@/app/components/providers";
-import { DesktopNotificationHandler } from "@/app/components/desktop-notification-handler";
 import { IncomingCallPopupSurface } from "@/app/components/desktop/incoming-call-popup-surface";
 import { isIncomingCallPopupWindow } from "@/app/features/desktop/utils/window-labels";
 
@@ -12,9 +11,10 @@ export function DesktopWindowRootSurface(props: Readonly<{ children: React.React
   }
 
   return (
-    <AppProviders>
-      <DesktopNotificationHandler />
-      {props.children}
-    </AppProviders>
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <AppProviders>
+        {props.children}
+      </AppProviders>
+    </div>
   );
 }

@@ -39,6 +39,7 @@ export function buildBenchmarkSummary(scenarios) {
     runtime: { total: 0, passed: 0 },
     messaging: { total: 0, passed: 0 },
     network: { total: 0, passed: 0 },
+    security: { total: 0, passed: 0 },
   };
   for (const scenario of scenarios) {
     const bucket = categories[scenario.category];

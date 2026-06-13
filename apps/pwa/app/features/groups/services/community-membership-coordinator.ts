@@ -14,6 +14,8 @@ import {
   type CommunityMembershipRecoveryDiagnostics,
 } from "./community-membership-recovery";
 import { hasDurableCommunityLeaveIntent } from "./community-membership-leave-intent";
+import { repairCommunityMembershipDurableStateOnHydrate } from "./community-membership-hydrate-repair";
+import { loadCommunityMembershipLedger } from "./community-membership-ledger";
 import { isRadicalMembershipTruthEnforced } from "./community-radical-truth-policy";
 
 export type CommunityMembershipEvidenceKind =
@@ -255,8 +257,18 @@ export const resolveCommunityMembershipCoordinator = (params: Readonly<{
   groupMessageAuthorsByConversationId?: Readonly<Record<string, ReadonlyArray<string>>>;
   inviteMemberPubkeysByGroupKey?: Readonly<Record<string, ReadonlyArray<string>>>;
 }>): CommunityMembershipCoordinatorResult => {
-  let effectiveLedger = params.membershipLedger;
-  const explicitTerminalLedgerByKey = toLedgerByKey(params.membershipLedger);
+  repairCommunityMembershipDurableStateOnHydrate({
+    publicKeyHex: params.publicKeyHex,
+    profileId: params.profileId,
+    persistedGroups: params.persistedGroups,
+  });
+  const hydratedMembershipLedger = loadCommunityMembershipLedger(params.publicKeyHex, {
+    profileId: params.profileId,
+  });
+  let effectiveLedger = hydratedMembershipLedger.length > 0
+    ? hydratedMembershipLedger
+    : params.membershipLedger;
+  const explicitTerminalLedgerByKey = toLedgerByKey(effectiveLedger);
   const additionalLedgerMutations: CommunityMembershipLedgerMutation[] = [];
   let runtimeJoinSuppressedByTerminalCount = 0;
   let explicitRejoinCount = 0;

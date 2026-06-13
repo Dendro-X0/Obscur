@@ -6,7 +6,12 @@ import {
   LEGACY_AUTH_TOKEN_KEY,
   LEGACY_REMEMBER_ME_KEY,
 } from "@/app/features/auth/utils/auth-storage-keys";
-import { SESSION_CREDENTIAL_PERSISTENCE_ENABLED } from "@/app/features/auth/services/session-credential-policy";
+import {
+  isDeviceSessionTrustPersistenceEnabled,
+  isNativeDeviceSessionConsentPersistenceEnabled,
+  SESSION_CREDENTIAL_PERSISTENCE_ENABLED,
+} from "@/app/features/auth/services/session-credential-policy";
+import { readDeviceSessionConsent } from "@/app/features/auth/services/device-session-consent";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { logAppEvent } from "@/app/shared/log-app-event";
 
@@ -20,15 +25,7 @@ export type DeviceTrustSnapshot = Readonly<{
   usesNativeSecureStore: boolean;
 }>;
 
-const readRememberEnabled = (profileId: string): boolean => {
-  if (typeof window === "undefined") {
-    return false;
-  }
-  return getRememberMeScopedStorageKeys({
-    profileId,
-    includeLegacy: true,
-  }).some((key) => window.localStorage.getItem(key) === "true");
-};
+const readRememberEnabled = (profileId: string): boolean => readDeviceSessionConsent(profileId);
 
 const readUnlockTokenCount = (profileId: string): number => {
   if (typeof window === "undefined") {
@@ -128,7 +125,7 @@ export const isDeviceTrustEnabledForProfile = (profileId: string): boolean => (
 );
 
 export const setDeviceTrustEnabled = (profileId: string, trusted: boolean): void => {
-  if (!SESSION_CREDENTIAL_PERSISTENCE_ENABLED) {
+  if (!isDeviceSessionTrustPersistenceEnabled()) {
     revokeDeviceTrust(profileId);
     return;
   }
@@ -158,7 +155,7 @@ export const persistDeviceUnlockCredential = (params: Readonly<{
   trusted: boolean;
   passphrase?: string;
 }>): void => {
-  if (!SESSION_CREDENTIAL_PERSISTENCE_ENABLED) {
+  if (!isDeviceSessionTrustPersistenceEnabled()) {
     revokeDeviceTrust(params.profileId);
     return;
   }
@@ -217,6 +214,9 @@ export const revokeDeviceTrust = (profileId: string): void => {
   }).forEach((key) => {
     removeFromStorages(key);
   });
+  if (isDeviceSessionTrustPersistenceEnabled()) {
+    writeTrustFlag(profileId, false);
+  }
   clearUnlockTokens(profileId);
   logAppEvent({
     name: "auth.device_trust_revoked",
@@ -235,11 +235,23 @@ export const persistSessionUnlockAfterSuccess = (params: Readonly<{
   passphrase?: string;
   /** Passwordless hex-key import on mobile shell browser — dev-only unlock token. */
   privateKeyHex?: string;
+  trusted?: boolean;
 }>): void => {
-  if (!SESSION_CREDENTIAL_PERSISTENCE_ENABLED || hasNativeRuntime()) {
+  const resolvedProfileId = params.profileId?.trim() || getResolvedProfileId();
+  const trusted = params.trusted ?? true;
+
+  if (hasNativeRuntime() && isNativeDeviceSessionConsentPersistenceEnabled()) {
+    persistDeviceUnlockCredential({
+      profileId: resolvedProfileId,
+      trusted,
+    });
     return;
   }
-  const resolvedProfileId = params.profileId?.trim() || getResolvedProfileId();
+
+  if (!SESSION_CREDENTIAL_PERSISTENCE_ENABLED) {
+    return;
+  }
+
   const token = params.passphrase?.trim()
     || params.privateKeyHex?.trim()
     || "";
@@ -248,7 +260,7 @@ export const persistSessionUnlockAfterSuccess = (params: Readonly<{
   }
   persistDeviceUnlockCredential({
     profileId: resolvedProfileId,
-    trusted: true,
+    trusted,
     passphrase: token,
   });
 };

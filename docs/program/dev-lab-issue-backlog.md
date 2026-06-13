@@ -51,6 +51,12 @@ window.obscurDevRuntimeIssues?.getRecentIssues()
 | Native DM lost after cold quit | Tauri only | *(none)* | `capture:runtime:native` | **Backlog** |
 | Membership digest drift | MEM / coordination | `digest-membership-gates` | `membershipSendability`, `communityLifecycleConvergence` | **Guarded** (core) |
 | Join/leave roster truth (two users) | §4 communities | `membership-join-leave` (CLI) | M8 probes | **Partial** (probes only) |
+| Leave zombie / stay-left repair gate | E-REL manual | `membership-leave-rejoin-zombie` (full) | — | **Guarded** (full, synthetic) |
+| BOT keyword flood rate limit | BOT-1 / SEC-B4 | `sec-bot-keyword-flood` (full) | inbound flood sim | **Partial** (synthetic, no relay) |
+| BOT unregistered trigger save | BOT-2 | `sec-bot-keyword-flood` (full) | allowlist sanitizer | **Partial** (synthetic) |
+| TRUST fin-cold / dismiss / accepted peer | TRUST-1..3 | `trust-fixtures` (full) | dm-kernel trust port | **Partial** (synthetic) |
+| Profile switch scope isolation | AUTH-4 | `auth4-scope-probe`, `auth4-scope-probe-live` (CLI) | `accountSwitchScopeConvergence` | **Partial** |
+| Membership reload stability | E-REL manual | `membership-leave-rejoin-live` (CLI) | scope probe | **Partial** (no leave UI yet) |
 | Search → profile navigation | Search / network | `search-profile-jump` | `searchJumpNavigation` | **Guarded** (full) |
 | Vault route crash | Vault | `vault-unlock` | — | **Guarded** (full) |
 | Group send crash (stub era) | ACC group backend | `group-stub-send` | — | **Guarded** (full, toast only) |

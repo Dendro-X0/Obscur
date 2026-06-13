@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
+import { useRelay } from "@/app/features/relays/providers/relay-provider";
 import { useRuntimeMessagingTransportOwnerController } from "@/app/features/messaging/providers/runtime-messaging-transport-owner-provider";
 import { isDevLabEnabled } from "./dev-lab-policy";
 import { registerDevLabMessagingHandlers } from "./dev-lab-install";
@@ -14,11 +15,13 @@ import {
 import { probeNativeDmSqliteWrite } from "@/app/features/messaging/services/native-dm-sqlite-write-probe";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
+import { sendDevLabZombiePersonaDm } from "./dev-lab-zombie-dm-send";
 
 /** Registers programmatic DM send for Dev Lab scenarios (dev builds only). */
 export const DevLabMessagingBridge = (): null => {
   const dmController = useRuntimeMessagingTransportOwnerController();
   const identity = useIdentity();
+  const { relayPool } = useRelay();
 
   useEffect(() => {
     if (!isDevLabEnabled()) {
@@ -38,12 +41,22 @@ export const DevLabMessagingBridge = (): null => {
           error: result.error ?? null,
         };
       },
+      sendSyntheticDmFromZombiePersona: async (params) => (
+        sendDevLabZombiePersonaDm({
+          pool: relayPool,
+          personaId: params.personaId,
+          peerPublicKeyHex: params.peerPublicKeyHex,
+          text: params.text,
+          profileId: getResolvedProfileId() || undefined,
+        })
+      ),
       getMessagesForPeer: (peerPublicKeyHex) => (
         dmController.getMessagesForPeer(peerPublicKeyHex).map((message) => ({
           id: message.id,
           content: message.content,
           isOutgoing: message.isOutgoing,
           status: message.status,
+          timestampUnixMs: message.timestamp.getTime(),
         }))
       ),
       getSqliteMessagesForPeer: isNativeDmSqliteReadOwner()
@@ -126,6 +139,7 @@ export const DevLabMessagingBridge = (): null => {
     dmController.sendDm,
     dmController.state.status,
     identity.state.publicKeyHex,
+    relayPool,
   ]);
 
   return null;

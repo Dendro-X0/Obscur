@@ -8,6 +8,7 @@ import { applyCommunityMembershipRuntimeEvidence } from "./community-membership-
 import {
   clearDurableCommunityLeaveIntentOnExplicitRejoin,
   hasDurableCommunityLeaveIntent,
+  isTerminalCommunityMembershipLedgerStatus,
 } from "./community-membership-leave-intent";
 import { communityMembershipScopeMatches, communityMembershipScopeMatchesStorageKey } from "./community-membership-scope-key";
 import { loadGroupTombstones } from "./group-tombstone-store";
@@ -97,19 +98,23 @@ export const repairCommunityMembershipDurableStateOnHydrate = (params: Readonly<
         relayUrl: item.relayUrl,
       })
     ));
-    if (!hasLeaveOutbox) {
-      continue;
-    }
-    const leaveIntent = hasDurableCommunityLeaveIntent({
-      publicKeyHex: params.publicKeyHex,
-      profileId: params.profileId,
-      groupId,
-      relayUrl,
-      ledgerEntry,
-      tombstones: loadGroupTombstones(params.publicKeyHex, { profileId: params.profileId }),
-    });
-    if (!leaveIntent) {
-      continue;
+    const incompleteRejoin = (
+      !hasLeaveOutbox
+      && ledgerEntry !== undefined
+      && isTerminalCommunityMembershipLedgerStatus(ledgerEntry.status)
+    );
+    if (!incompleteRejoin) {
+      const leaveIntent = hasDurableCommunityLeaveIntent({
+        publicKeyHex: params.publicKeyHex,
+        profileId: params.profileId,
+        groupId,
+        relayUrl,
+        ledgerEntry,
+        tombstones: loadGroupTombstones(params.publicKeyHex, { profileId: params.profileId }),
+      });
+      if (!leaveIntent || !hasLeaveOutbox) {
+        continue;
+      }
     }
     applyCommunityMembershipRuntimeEvidence({
       publicKeyHex: params.publicKeyHex,

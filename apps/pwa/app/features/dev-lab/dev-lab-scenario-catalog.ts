@@ -18,6 +18,11 @@ import {
   runShellHealthStep,
   runUnlockAndShellStep,
   runVaultChromeStep,
+  runMembershipLeaveRejoinZombieSteps,
+  runSecBotKeywordFloodSteps,
+  runTrustFixturesSteps,
+  runTrustColdDmBannerSteps,
+  runAuth4ScopeProbeSteps,
 } from "./dev-lab-scenario-steps";
 import { DEV_LAB_SUITE_MANIFEST } from "./dev-lab-suite-manifest";
 
@@ -195,6 +200,89 @@ export const DEV_LAB_SCENARIOS: ReadonlyArray<DevLabScenarioDefinition> = [
     category: "auth",
     tags: ["full"],
     run: async () => [await runVaultChromeStep()],
+  },
+  {
+    id: "membership-leave-rejoin-zombie",
+    name: "Membership leave zombie repair gates",
+    category: "network",
+    tags: ["full", "security"],
+    run: async () => runMembershipLeaveRejoinZombieSteps(),
+  },
+  {
+    id: "sec-bot-keyword-flood",
+    name: "SEC-B BOT-1 keyword flood + allowlist",
+    category: "security",
+    tags: ["full", "security"],
+    run: async () => runSecBotKeywordFloodSteps(),
+  },
+  {
+    id: "trust-fixtures",
+    name: "TRUST-1..3 synthetic assessment fixtures",
+    category: "security",
+    tags: ["full", "security"],
+    run: async () => runTrustFixturesSteps(),
+  },
+  {
+    id: "trust-cold-dm-banner",
+    name: "TRUST-1 cold stranger DM + recipient banner (in-app)",
+    category: "security",
+    tags: ["full", "security"],
+    run: async () => runTrustColdDmBannerSteps(),
+  },
+  {
+    id: "sec-bot-inbound-live",
+    name: "SEC-B BOT-1 live inbound runner + flood (CLI)",
+    category: "security",
+    tags: ["full", "cli-only", "security"],
+    run: async () => [{
+      id: "cli_only",
+      passed: false,
+      message: "sec-bot-inbound-live runs via pnpm dev:lab:run -- --scenario sec-bot-inbound-live",
+      durationMs: 0,
+    }],
+  },
+  {
+    id: "trust-live",
+    name: "TRUST-1 live cold financial banner (CLI dual browser)",
+    category: "security",
+    tags: ["full", "cli-only", "security"],
+    run: async () => [{
+      id: "cli_only",
+      passed: false,
+      message: "trust-live runs via pnpm dev:lab:run -- --scenario trust-live",
+      durationMs: 0,
+    }],
+  },
+  {
+    id: "auth4-scope-probe",
+    name: "AUTH-4 profile scope isolation probe",
+    category: "auth",
+    tags: ["full", "security"],
+    run: async () => runAuth4ScopeProbeSteps(),
+  },
+  {
+    id: "auth4-scope-probe-live",
+    name: "AUTH-4 profile scope isolation (CLI dual browser)",
+    category: "auth",
+    tags: ["full", "cli-only", "security"],
+    run: async () => [{
+      id: "cli_only",
+      passed: false,
+      message: "auth4-scope-probe-live runs via pnpm dev:lab:run -- --scenario auth4-scope-probe-live",
+      durationMs: 0,
+    }],
+  },
+  {
+    id: "membership-leave-rejoin-live",
+    name: "Membership leave/rejoin live stability (CLI dual browser)",
+    category: "network",
+    tags: ["full", "cli-only", "security"],
+    run: async () => [{
+      id: "cli_only",
+      passed: false,
+      message: "membership-leave-rejoin-live runs via pnpm dev:lab:run -- --scenario membership-leave-rejoin-live",
+      durationMs: 0,
+    }],
   },
 ];
 

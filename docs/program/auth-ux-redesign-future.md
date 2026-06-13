@@ -1,21 +1,23 @@
 # Auth UX redesign — future versions (deferred)
 
 **Status:** Design backlog — **not** in current ship path  
-**Last updated:** 2026-05-24  
-**Current policy (shipped):** [session-credential-policy](../../apps/pwa/app/features/auth/services/session-credential-policy.ts) — no remember-me / no auto-unlock across restarts  
-**Handoff:** [current-session.md](../handoffs/current-session.md) — Phase 1/2 gates first
+**Last updated:** 2026-06-12  
+**Current policy (shipped):** [session-credential-policy](../../apps/pwa/app/features/auth/services/session-credential-policy.ts) — desktop: no browser unlock tokens; OS keychain path attempted in v1.9.6 and **deferred** ([v1.9.6-session-persistence-redesign.md](./v1.9.6-session-persistence-redesign.md) § Feasibility decision)  
+**Handoff:** [current-session.md](../handoffs/current-session.md)
 
 ---
 
-## Why this doc exists
+## Why mainstream “remember me” does not apply
 
-Auth investigation (remember-me, device trust, persistence races) showed the monorepo auth stack is **high-cost to extend** and easy to misread in the UI. Rather than a major auth overhaul during Phase 2 DM work, we:
+Obscur is **self-custody / decentralized-by-design**:
 
-1. **Shipped** explicit policy: manual unlock every time (`AuthSessionPolicyNotice`).
-2. **Document** a target model for a **future version lane** (this file).
-3. **Continue** the default program order: native shell → Phase 2 DM → gates → Lane K / v2.0.
+- **No email, phone, or OAuth roots** — there is no centralized IdP, session table, or “forgot password” server. Adding Google/GitHub/Better Auth-style flows would not fix unlock on restart; it would introduce a **second identity root** that contradicts the product model.
+- **Long-lived secret on first bind** — a new device still needs the **private key once** (import). No third-party login removes that step; it only moves trust to someone else’s server.
+- **Web-app session cookies ≠ desktop E2EE vault** — “persistent login” in a typical SaaS app means a server remembers a session id. Here, unlock means **decrypt local identity + load native SQLite** under an explicit `profileId` and window scope. That is a different problem with stricter owners and cold-boot races (see v1.9.6 feasibility note).
 
-Reframing broken session persistence as “privacy by design” is only honest if daily login uses a **short device passphrase**, not repeated **private-key paste**—and if backup is first-class.
+**Consequence:** Making daily auth “as convenient as Instagram” is **not a small feature** — it is a **redesign** (device passphrase tier, backup story, single boot owner, optional biometrics). That redesign is **unnecessary for current program goals**; v1.9.6 explored OS keychain “stay signed in” and stopped after the feasibility gate without manual restart agreement.
+
+**Honest UX today:** Users may store keys locally (text file, password manager, encrypted backup) — that is compatible with self-custody. The product should **not** pretend web-style remember-me works when it does not.
 
 ---
 
@@ -25,8 +27,8 @@ Reframing broken session persistence as “privacy by design” is only honest i
 |------|-------------|------------------|
 | **Create** | Username + master password | Generated keypair; encrypted identity (`obscur.identity.record::{profileId}`) |
 | **Restore once** | Import Key (`nsec` / hex) + optional password | Same encrypted record |
-| **Every open** | Welcome back → username + password | Account record persists; **no** cross-restart auto-login |
-| **Not offered** | OAuth / Google / Apple / third-party IdP | Self-custody only |
+| **Every open (today)** | Welcome back → password **or** import key | Account record persists; **cold restart → login screen** (keychain restore deferred) |
+| **Not offered** | OAuth / Google / Apple / email / phone IdP | Self-custody only — **will not add** as auth roots |
 
 **Code owners:** `auth-screen.tsx`, `use-identity.ts`, `auth-gateway.tsx`, `window-runtime-supervisor.ts`, `identity-persistence.ts`, `session-credential-policy.ts`.
 
@@ -57,6 +59,25 @@ Passphrase    →  unlock (decrypt local vault)  →  EVERY app open (policy: ma
 
 ---
 
+## Non-traditional directions (only viable exploration space)
+
+These fit decentralized/self-custody constraints. They are **not** v1.9.x scope unless program reopens an auth lane.
+
+| Direction | Idea | Fits Obscur because |
+|-----------|------|---------------------|
+| **Device passphrase tier** | Private key **once** per device; daily unlock = short local passphrase only | Same encrypted identity record; no central server |
+| **First-class backup** | Onboarding + Settings push encrypted export / file backup before “you’re done” | Reduces `.txt` key files without cloud IdP |
+| **OS secure storage + single boot owner** | Rust hydrates keychain **before** React identity (v1.9.6 lesson) | Same keychain model, new architecture — not more TS patches |
+| **Biometric gate** | Unlock **local vault** per launch (explicit user gesture) | No password on wire; still no OAuth |
+| **Profile windows (Chrome-like)** | One account per window; picker without re-auth across windows | Already partial; improves UX without global session |
+| **New-device pairing** | QR / file transfer of encrypted bundle between **your** devices | Still user-operated; not “sign in with Google” |
+| **Local login assist** (Chrome-style) | ~~Save username + password locally~~ | **Withdrawn** v1.9.7 — [local-login-assist-charter.md](./local-login-assist-charter.md) |
+| **Auth Assistant** (Authenticator-style) | **Deferred** — parallel unlock IPC failed AA-1 | [obscur-auth-assistant-charter.md](./obscur-auth-assistant-charter.md) |
+
+**Explicitly out of scope:** Better Auth / OAuth / SMS / email magic links as **login roots**; browser `localStorage` unlock tokens on desktop (policy forbids); silent remember-me cold boot (v1.9.6 deferred).
+
+---
+
 ## Proposed future lanes (version TBD)
 
 Assign to **v1.7.x+** or **post–Lane P** after Phase 2 / v1.9.x gates—**not** parallel with DM persistence.
@@ -67,6 +88,7 @@ Assign to **v1.7.x+** or **post–Lane P** after Phase 2 / v1.9.x gates—**not*
 | **Auth-UX-2** | Onboarding backup wizard: export file, QR optional, import from file | Remember-me / silent session |
 | **Auth-UX-3** | Native biometric **unlock** of local vault (explicit user action per launch) | OAuth IdP |
 | **Auth-UX-4** | Optional attestations / invite-only anti-abuse UI | Replacing key-based roots |
+| **Auth-UX-5** | **Auth Assistant** — desktop panel + mobile sheet; tap-to-unlock ([charter](./obscur-auth-assistant-charter.md)) | Silent remember-me; browser extension key storage |
 
 **One owner per path** — no parallel remember-me experiments in the same release as kernel or DM gates.
 
@@ -74,9 +96,10 @@ Assign to **v1.7.x+** or **post–Lane P** after Phase 2 / v1.9.x gates—**not*
 
 ## Explicit non-goals (unless program reopens)
 
-- Cross-restart “stay logged in” / remember-me (current policy off).
-- Third-party verification as **required** login.
-- Re-enabling community/coordination manual QA as a substitute for auth work.
+- Mainstream **remember-me** / server session persistence (web SaaS model).
+- Third-party IdP as **required** or **primary** login.
+- v1.9.6-style **incremental** keychain restore patches without AUTH-SESSION-1 or Rust-first boot owner.
+- Reframing “login every cold start” as fixed without evidence — copy must match behavior.
 
 ---
 
@@ -88,7 +111,7 @@ Assign to **v1.7.x+** or **post–Lane P** after Phase 2 / v1.9.x gates—**not*
 | [phase2-desktop-dm-persistence-gate.md](./phase2-desktop-dm-persistence-gate.md) | Active — DM restart |
 | [obscur-2.0-milestone-roadmap.md](./obscur-2.0-milestone-roadmap.md) | Lane P / v2.0 after Lane K |
 | [strategic-direction.md](./strategic-direction.md) | Program sequence |
-| [03-identity-and-sybil.md](../archive/greenfield/03-identity-and-sybil.md) | Long-term identity / anti-abuse concepts |
+| [obscur-auth-assistant-charter.md](./obscur-auth-assistant-charter.md) | Authenticator-inspired tap-to-unlock (replaces remember-me path) |
 
 ---
 

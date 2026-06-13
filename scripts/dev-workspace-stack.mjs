@@ -12,8 +12,13 @@
  *   node scripts/dev-workspace-stack.mjs --stack-only   (no desktop — for second A/B instance)
  *   node scripts/dev-workspace-stack.mjs --online --skip-coordination
  *
- * Windows note: wrangler dev can take 2–4 minutes on a cold start. Keep coordination
- * running in a separate terminal (`pnpm dev:coordination`) to avoid repeated cold boots.
+ * Recommended Windows workflow (avoids wrangler cold-start races):
+ *   Terminal 1: pnpm dev:coordination   (leave running between sessions)
+ *   Terminal 2: pnpm dev:desktop:no-coord -- --rebuild
+ *
+ * Windows note: wrangler dev can take 2–4 minutes on a cold start. The stack waits for an
+ * external coordination worker before spawning a duplicate when OBSCUR_COORDINATION_GRACE_MS
+ * allows it (default 90s on Windows).
  */
 import { spawn, spawnSync } from "node:child_process";
 import net from "node:net";
@@ -56,6 +61,10 @@ const coordinationReadyTimeoutMs = resolveReadyTimeoutMs(
 const relayReadyTimeoutMs = resolveReadyTimeoutMs(
   env.OBSCUR_RELAY_READY_TIMEOUT_MS,
   DEFAULT_RELAY_READY_TIMEOUT_MS,
+);
+const coordinationGraceMs = resolveReadyTimeoutMs(
+  env.OBSCUR_COORDINATION_GRACE_MS,
+  process.platform === "win32" ? 90_000 : 30_000,
 );
 
 const log = (message) => {
@@ -132,13 +141,35 @@ const spawnBackground = (label, command, args, extraEnv = {}, spawnOptions = {})
 
 const ensureCoordination = async () => {
   if (skipCoordination) {
-    log("skipping coordination (--skip-coordination / OBSCUR_SKIP_COORDINATION=1)");
-    return true;
+    log("skipping coordination spawn (--skip-coordination / OBSCUR_SKIP_COORDINATION=1)");
+    const externalOk = await waitForService(
+      "coordination (external)",
+      () => probeHttpOk(COORDINATION_HEALTH_URL, 5000),
+      coordinationReadyTimeoutMs,
+    );
+    if (!externalOk) {
+      log("coordination was not started by this stack — run `pnpm dev:coordination` in another terminal first");
+    }
+    return externalOk;
   }
 
   if (await probeHttpOk(COORDINATION_HEALTH_URL, 3000)) {
     log("coordination already healthy");
     return true;
+  }
+
+  if (coordinationGraceMs > 0) {
+    log(
+      `coordination not healthy — waiting ${formatDuration(coordinationGraceMs)} for an external worker (e.g. pnpm dev:coordination) before spawning a new one`,
+    );
+    const graceOk = await waitForService(
+      "coordination (external grace)",
+      () => probeHttpOk(COORDINATION_HEALTH_URL, 5000),
+      coordinationGraceMs,
+    );
+    if (graceOk) {
+      return true;
+    }
   }
 
   if (await probeTcpOpen("127.0.0.1", COORDINATION_PORT)) {
@@ -188,6 +219,29 @@ const ensureRelay = async () => {
   );
 };
 
+const runStaticShellBuild = () => new Promise((resolve) => {
+  const args = [path.join(repoRoot, "scripts", "dev-desktop-static.mjs")];
+  if (flags.has("--online")) {
+    args.push("--online");
+  }
+  if (flags.has("--rebuild")) {
+    args.push("--rebuild");
+  }
+  args.push("--build-only");
+
+  log("building static shell in parallel with infrastructure…");
+  const child = spawn(process.execPath, args, {
+    cwd: repoRoot,
+    env,
+    stdio: "inherit",
+    shell: false,
+  });
+  children.push(child);
+  child.on("exit", (code) => {
+    resolve(code === 0);
+  });
+});
+
 const shutdown = () => {
   children.forEach((child) => {
     try {
@@ -210,25 +264,34 @@ process.on("SIGTERM", () => {
 const run = async () => {
   if (useLiveWebpack) {
     log("online desktop — webpack live shell (expect route compile stalls; use for UI HMR only)");
+  } else if (process.platform === "win32" && !skipCoordination) {
+    log("Windows AIO — for faster boots use two terminals:");
+    log("  1) pnpm dev:coordination");
+    log("  2) pnpm dev:desktop:no-coord -- --rebuild");
   } else {
-    log("online desktop — static shell + live relays (smooth nav; rebuild after UI edits: pnpm dev:desktop -- --rebuild)");
-  }
-  log("bringing up workspace infrastructure (coordination + relay in parallel)…");
-  if (process.platform === "win32") {
-    log("Windows: wrangler cold start can take 2–4 minutes; keep `pnpm dev:coordination` running between sessions");
+    log("AIO dev — coordination + relay + desktop in one terminal");
   }
 
-  const [coordinationOk, relayOk] = await Promise.all([
+  log("phase 1: coordination + relay (+ static shell build when not using live webpack)…");
+
+  const shellBuildPromise = (!stackOnly && !useLiveWebpack)
+    ? runStaticShellBuild()
+    : Promise.resolve(true);
+
+  const [coordinationOk, relayOk, shellBuildOk] = await Promise.all([
     ensureCoordination(),
     ensureRelay(),
+    shellBuildPromise,
   ]);
 
   if (!coordinationOk) {
     console.error("[workspace-stack] FATAL: coordination did not become healthy.");
-    console.error(`  Waited ${formatDuration(coordinationReadyTimeoutMs)}. Options:`);
-    console.error("  • Start coordination in another terminal first: pnpm dev:coordination");
-    console.error("  • Increase timeout: OBSCUR_COORDINATION_READY_TIMEOUT_MS=360000 pnpm dev:desktop:online");
-    console.error("  • Skip coordination for DM-only dev: pnpm dev:desktop:online --skip-coordination");
+    console.error(`  Waited up to ${formatDuration(coordinationReadyTimeoutMs)}. Options:`);
+    console.error("  • Two-terminal (recommended on Windows):");
+    console.error("      Terminal 1: pnpm dev:coordination");
+    console.error("      Terminal 2: pnpm dev:desktop:no-coord -- --rebuild");
+    console.error("  • Increase timeout: OBSCUR_COORDINATION_READY_TIMEOUT_MS=600000 pnpm dev");
+    console.error("  • Skip coordination: pnpm dev:desktop:no-coord");
     shutdown();
     process.exit(1);
   }
@@ -244,6 +307,11 @@ const run = async () => {
       process.exit(1);
     }
   }
+  if (!shellBuildOk) {
+    console.error("[workspace-stack] FATAL: static shell build failed.");
+    shutdown();
+    process.exit(1);
+  }
 
   log("workspace infrastructure ready");
   if (stackOnly) {
@@ -258,12 +326,18 @@ const run = async () => {
   if (flags.has("--online")) {
     desktopArgs.push("--online");
   }
-  if (useLiveWebpack) {
-    log("starting desktop shell (Next dev + webpack, then Tauri)…");
-  } else {
-    log("starting desktop shell (static out/ + experiment online, then Tauri)…");
+  if (flags.has("--rebuild")) {
+    desktopArgs.push("--rebuild");
   }
-  const desktop = spawn("node", desktopArgs, {
+  if (!useLiveWebpack) {
+    desktopArgs.push("--skip-build");
+  }
+  if (useLiveWebpack) {
+    log("phase 2: starting desktop shell (Next dev + webpack, then Tauri)…");
+  } else {
+    log("phase 2: starting Tauri (static shell already built)…");
+  }
+  const desktop = spawn(process.execPath, desktopArgs, {
     cwd: repoRoot,
     stdio: "inherit",
     env,

@@ -35,5 +35,19 @@ describe("dev-lab-suite-manifest", () => {
   it("includes full-only scenarios in full suite", () => {
     expect(DEV_LAB_SUITE_MANIFEST.suites.full).toContain("search-profile-jump");
     expect(DEV_LAB_SUITE_MANIFEST.suites.full).toContain("vault-unlock");
+    expect(DEV_LAB_SUITE_MANIFEST.suites.full).toContain("membership-leave-rejoin-zombie");
+    expect(DEV_LAB_SUITE_MANIFEST.suites.full).toContain("sec-bot-keyword-flood");
+    expect(DEV_LAB_SUITE_MANIFEST.suites.full).toContain("trust-fixtures");
+    expect(DEV_LAB_SUITE_MANIFEST.suites.full).toContain("trust-cold-dm-banner");
+    expect(DEV_LAB_SUITE_MANIFEST.suites.full).toContain("trust-live");
+    expect(DEV_LAB_SUITE_MANIFEST.suites.full).toContain("sec-bot-inbound-live");
+    expect(DEV_LAB_SUITE_MANIFEST.suites.full).toContain("auth4-scope-probe");
+  });
+
+  it("marks live CLI security scenarios as cli-only", () => {
+    expect(DEV_LAB_CLI_ONLY_SCENARIO_IDS.has("membership-leave-rejoin-live")).toBe(true);
+    expect(DEV_LAB_CLI_ONLY_SCENARIO_IDS.has("auth4-scope-probe-live")).toBe(true);
+    expect(DEV_LAB_CLI_ONLY_SCENARIO_IDS.has("trust-live")).toBe(true);
+    expect(DEV_LAB_CLI_ONLY_SCENARIO_IDS.has("sec-bot-inbound-live")).toBe(true);
   });
 });

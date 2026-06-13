@@ -21,6 +21,9 @@ export function DmKernelTrustBanner(props: Readonly<{
 
   return (
     <div
+      data-testid="dm-kernel-trust-banner"
+      data-trust-tier={props.assessment.tier}
+      data-trust-bundle={props.assessment.bundleId ?? "none"}
       className={cn(
         "z-10 px-4 py-3 border-b backdrop-blur-md transition-all duration-300",
         isCritical

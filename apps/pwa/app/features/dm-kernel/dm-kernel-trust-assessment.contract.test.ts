@@ -26,12 +26,21 @@ describe("dm-kernel trust assessment contract (SEC-F)", () => {
   it("banner documents recipient-only assessment (sender silence invariant)", () => {
     const banner = read("app/features/dm-kernel/components/dm-kernel-trust-banner.tsx");
     expect(banner).toContain("recipientOnlyNote");
+    expect(banner).toContain("data-testid=\"dm-kernel-trust-banner\"");
     expect(banner).not.toContain("notifySender");
   });
 
   it("verify script entry exists in root package.json", () => {
     const pkg = readFileSync(path.join(pwaRoot, "..", "..", "package.json"), "utf8");
     expect(pkg).toContain("verify:trust-v1.9.5");
+  });
+
+  it("threat corpus fixture pack exists for adversary simulation", () => {
+    const corpus = read("app/features/dm-kernel/dm-kernel-trust-threat-corpus.ts");
+    expect(corpus).toContain("evaluateTrustThreatCorpus");
+    expect(corpus).toContain("buildTrustThreatFixtureDefinitions");
+    expect(corpus).toContain("phishing");
+    expect(corpus).not.toMatch(/fetch\s*\(/);
   });
 
   it("port catalog includes SEC-B2 spam-shape signals", () => {

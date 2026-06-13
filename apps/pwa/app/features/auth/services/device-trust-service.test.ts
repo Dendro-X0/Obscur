@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   getDeviceTrustSnapshot,
   persistDeviceUnlockCredential,
+  persistSessionUnlockAfterSuccess,
   revokeDeviceTrust,
   setDeviceTrustEnabled,
 } from "./device-trust-service";
@@ -18,10 +19,6 @@ vi.mock("@/app/features/runtime/runtime-capabilities", () => ({
   hasNativeRuntime: () => nativeRuntime.isNative,
 }));
 
-vi.mock("@/app/features/auth/services/session-credential-policy", () => ({
-  SESSION_CREDENTIAL_PERSISTENCE_ENABLED: false,
-}));
-
 vi.mock("@/app/shared/log-app-event", () => ({
   logAppEvent: vi.fn(),
 }));
@@ -32,39 +29,54 @@ describe("device-trust-service", () => {
     nativeRuntime.isNative = false;
   });
 
-  it("does not enable trust while credential persistence is disabled", () => {
+  it("persists native trust flag without browser tokens on desktop", () => {
     nativeRuntime.isNative = true;
     setDeviceTrustEnabled("default", true);
 
     expect(getDeviceTrustSnapshot("default")).toMatchObject({
-      trusted: false,
-      restorePath: "none",
+      trusted: true,
+      restorePath: "native_session",
       usesNativeSecureStore: true,
       hasUnlockToken: false,
     });
+    expect(localStorage.getItem(getAuthTokenStorageKey("default"))).toBeNull();
   });
 
-  it("does not persist unlock tokens while credential persistence is disabled", () => {
+  it("records opt-out without writing browser unlock tokens on native", () => {
+    nativeRuntime.isNative = true;
     persistDeviceUnlockCredential({
       profileId: "default",
-      trusted: true,
+      trusted: false,
       passphrase: "secret-passphrase",
     });
 
     expect(getDeviceTrustSnapshot("default").trusted).toBe(false);
     expect(localStorage.getItem(getAuthTokenStorageKey("default"))).toBeNull();
+    expect(localStorage.getItem(getRememberMeStorageKey("default"))).toBe("false");
+  });
+
+  it("persistSessionUnlockAfterSuccess writes native consent only", () => {
+    nativeRuntime.isNative = true;
+    persistSessionUnlockAfterSuccess({
+      profileId: "default",
+      passphrase: "secret-passphrase",
+      trusted: true,
+    });
+
+    expect(getDeviceTrustSnapshot("default").trusted).toBe(true);
+    expect(localStorage.getItem(getAuthTokenStorageKey("default"))).toBeNull();
   });
 
   it("revoke clears trust flag and unlock tokens", () => {
+    nativeRuntime.isNative = true;
     persistDeviceUnlockCredential({
       profileId: "default",
       trusted: true,
-      passphrase: "secret-passphrase",
     });
     revokeDeviceTrust("default");
 
     expect(getDeviceTrustSnapshot("default").trusted).toBe(false);
     expect(localStorage.getItem(getAuthTokenStorageKey("default"))).toBeNull();
-    expect(localStorage.getItem(getRememberMeStorageKey("default"))).toBeNull();
+    expect(localStorage.getItem(getRememberMeStorageKey("default"))).toBe("false");
   });
 });

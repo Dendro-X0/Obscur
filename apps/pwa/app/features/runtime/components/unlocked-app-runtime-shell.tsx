@@ -21,6 +21,7 @@ import { SecondaryProfilePostLoginRefresh } from "./secondary-profile-post-login
 import { ChatRouteMainShell, ChatRouteVoiceCallOverlay } from "./chat-route-main-shell";
 import { AccountScopeBoundaryOwner } from "@/app/features/runtime/components/account-scope-boundary-owner";
 import { DevLabMessagingBridge } from "@/app/features/dev-lab/dev-lab-messaging-bridge";
+import { DesktopNotificationHandler } from "@/app/components/desktop-notification-handler";
 
 /**
  * Unlocked session tree. Providers stay mounted across sidebar navigation so global
@@ -45,6 +46,7 @@ export function UnlockedAppRuntimeShell(props: Readonly<{ children: React.ReactN
               <SecondaryProfilePostLoginRefresh />
               <MessagingProvider>
                 <RuntimeMessagingTransportOwnerProvider>
+                  <DesktopNotificationHandler />
                   <DevLabMessagingBridge />
                   <AppChromeProvider>
                     <LazyGlobalDialogManager />

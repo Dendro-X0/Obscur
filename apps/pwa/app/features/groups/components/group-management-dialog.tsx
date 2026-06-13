@@ -49,6 +49,7 @@ import {
 } from "../services/community-participant-display-read-model";
 import { useCoordinationMembershipDirectory } from "../hooks/use-coordination-membership-directory";
 import { buildManagedWorkspaceRosterRepairContext } from "../services/managed-workspace-roster-repair-context";
+import { reportRelationshipSyncDrift } from "@/app/features/relationship-sync/relationship-sync-drift-logger";
 import { resolveEffectiveCommunityMode } from "../services/community-workspace-r1-policy";
 import { useCommunityMemberDisplayNames } from "../hooks/use-community-member-display-names";
 import { useCommunityParticipantRosterReadModel } from "../hooks/use-community-participant-roster-read-model";
@@ -450,6 +451,32 @@ export function GroupManagementDialog({
             mergedManagementMemberPubkeys,
         ],
     );
+
+    useEffect(() => {
+        if (!myPublicKeyHex || !resolvedCommunityId) {
+            return;
+        }
+        reportRelationshipSyncDrift({
+            ownerPublicKeyHex: myPublicKeyHex,
+            profileId: getResolvedProfileId(),
+            communityId: resolvedCommunityId,
+            communityMode: effectiveCommunityMode === "managed_workspace"
+                ? "managed_workspace"
+                : undefined,
+            relayUrl: group.relayUrl,
+            coordinationDirectory: coordinationMembershipDirectory,
+            joinEvidenceMemberPubkeys,
+            hybridActiveMemberPubkeys: mergedManagementMemberPubkeys,
+        });
+    }, [
+        coordinationMembershipDirectory,
+        effectiveCommunityMode,
+        group.relayUrl,
+        joinEvidenceMemberPubkeys,
+        mergedManagementMemberPubkeys,
+        myPublicKeyHex,
+        resolvedCommunityId,
+    ]);
 
     const rosterLeftMemberPubkeys = React.useMemo(
         () => mergeCoordinationTerminalMemberPubkeys(

@@ -179,8 +179,18 @@ const runWranglerDev = () => new Promise((resolve) => {
     },
   });
 
+  let sawWranglerOutput = false;
+  const startupHeartbeat = setInterval(() => {
+    if (sawWranglerOutput) {
+      return;
+    }
+    log("still waiting for wrangler first output (Windows cold start can take several minutes)…");
+  }, 30_000);
+
   const forward = (stream) => {
     stream.on("data", (chunk) => {
+      sawWranglerOutput = true;
+      clearInterval(startupHeartbeat);
       const text = chunk.toString();
       process.stdout.write(text.split(/\r?\n/u).filter(Boolean).map((line) => `[wrangler] ${line}\n`).join(""));
       if (/Ready on|listening on|http:\/\/127\.0\.0\.1:8787/i.test(text)) {
@@ -209,6 +219,7 @@ const runWranglerDev = () => new Promise((resolve) => {
   });
 
   child.on("exit", (code) => {
+    clearInterval(startupHeartbeat);
     resolve(code ?? 1);
   });
 });

@@ -3,6 +3,8 @@
 import type React from "react";
 import { WindowControls } from "./window-controls";
 import { TitleBarProfileSwitcher } from "./title-bar-profile-switcher";
+import { TitleBarLockedProfileSwitcher } from "./title-bar-locked-profile-switcher";
+import { useProfilePickerChrome } from "@/app/features/profiles/components/profile-picker-chrome-context";
 import { useIsDesktop } from "@/app/features/desktop/hooks/use-tauri";
 import { isDesktopEnvironment } from "@/app/features/desktop/utils/tauri-api";
 import { useEffect, useState } from "react";
@@ -19,6 +21,7 @@ interface TitleBarProps {
 export function TitleBar({ title = "Obscur", showControls = true }: TitleBarProps): React.JSX.Element | null {
   const [hasMounted, setHasMounted] = useState(false);
   const isDesktop = useIsDesktop();
+  const { isMinimalChrome } = useProfilePickerChrome();
 
   useEffect(() => {
     setHasMounted(true);
@@ -46,7 +49,7 @@ export function TitleBar({ title = "Obscur", showControls = true }: TitleBarProp
           <img src="/obscur-logo-dark.svg" className="h-full w-full hidden dark:block" alt="Obscur" data-tauri-drag-region />
         </div>
         <span className="text-[11px] font-black uppercase tracking-[0.2em] text-zinc-900 dark:text-zinc-100 opacity-80" data-tauri-drag-region>
-          {title}
+          {isMinimalChrome ? "Profiles" : title}
         </span>
       </div>
 
@@ -57,7 +60,8 @@ export function TitleBar({ title = "Obscur", showControls = true }: TitleBarProp
       </div>
 
       <div className="relative z-10 flex shrink-0 items-center gap-3">
-        <TitleBarProfileSwitcher title={title} />
+        {!isMinimalChrome ? <TitleBarLockedProfileSwitcher /> : null}
+        {!isMinimalChrome ? <TitleBarProfileSwitcher title={title} /> : null}
         {showControls && <WindowControls />}
       </div>
     </div>

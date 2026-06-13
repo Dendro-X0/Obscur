@@ -10,7 +10,8 @@ export type DevLabScenarioCategory =
   | "settings"
   | "runtime"
   | "messaging"
-  | "network";
+  | "network"
+  | "security";
 
 export type DevLabScenarioStepResult = Readonly<{
   id: string;

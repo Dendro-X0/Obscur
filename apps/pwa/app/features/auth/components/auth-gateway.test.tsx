@@ -2,6 +2,18 @@ import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthGateway } from "./auth-gateway";
 import { SESSION_AUTO_UNLOCK_ENABLED } from "@/app/features/auth/services/session-credential-policy";
+import type { ProfileIsolationSnapshot, ProfileLaunchMode } from "@/app/features/profiles/services/profile-isolation-contracts";
+
+type MutableDesktopProfileSnapshot = {
+  currentWindow: {
+    windowLabel: string;
+    profileId: string;
+    profileLabel: string;
+    launchMode: ProfileLaunchMode;
+  };
+  profiles: ProfileIsolationSnapshot["profiles"];
+  windowBindings: ProfileIsolationSnapshot["windowBindings"];
+};
 
 const authGatewayMocks = vi.hoisted(() => ({
   identityState: {
@@ -45,6 +57,19 @@ const authGatewayMocks = vi.hoisted(() => ({
     unlockBoundProfile: ReturnType<typeof vi.fn>;
     unlockBoundProfileWithPrivateKeyHex: ReturnType<typeof vi.fn>;
   },
+  hasNativeRuntime: false,
+  pathname: "/",
+  routerReplace: vi.fn(),
+  desktopProfileSnapshot: {
+    currentWindow: {
+      windowLabel: "main",
+      profileId: "default",
+      profileLabel: "Default",
+      launchMode: "existing",
+    },
+    profiles: [],
+    windowBindings: [],
+  } as MutableDesktopProfileSnapshot,
 }));
 
 vi.mock("@/app/features/auth/hooks/use-identity", () => ({
@@ -59,7 +84,18 @@ vi.mock("@/app/features/runtime/services/window-runtime-supervisor", () => ({
 }));
 
 vi.mock("@/app/features/runtime/runtime-capabilities", () => ({
-  hasNativeRuntime: () => false,
+  hasNativeRuntime: () => authGatewayMocks.hasNativeRuntime,
+}));
+
+vi.mock("next/navigation", () => ({
+  usePathname: () => authGatewayMocks.pathname,
+  useRouter: () => ({
+    replace: authGatewayMocks.routerReplace,
+  }),
+}));
+
+vi.mock("@/app/features/profiles/services/desktop-profile-runtime", () => ({
+  useDesktopProfileIsolationSnapshot: () => authGatewayMocks.desktopProfileSnapshot,
 }));
 
 const sessionPolicyMocks = vi.hoisted(() => ({
@@ -89,12 +125,16 @@ describe("AuthGateway", () => {
     vi.clearAllMocks();
     sessionPolicyMocks.SESSION_AUTO_UNLOCK_ENABLED = false;
     localStorage.clear();
+    authGatewayMocks.hasNativeRuntime = false;
+    authGatewayMocks.pathname = "/";
     authGatewayMocks.identityState.status = "locked";
     authGatewayMocks.identityState.stored = { publicKeyHex: "a".repeat(64) };
     authGatewayMocks.runtime.snapshot.phase = "auth_required";
     authGatewayMocks.runtime.snapshot.session.profileId = "default";
     authGatewayMocks.runtime.snapshot.session.startupState.kind = "stored_locked";
     authGatewayMocks.runtime.snapshot.session.startupState.identityStatus = "locked";
+    authGatewayMocks.desktopProfileSnapshot.currentWindow.launchMode = "existing";
+    authGatewayMocks.desktopProfileSnapshot.currentWindow.windowLabel = "main";
   });
 
   it("does not auto-unlock when session credential policy disables it", () => {
@@ -159,5 +199,64 @@ describe("AuthGateway", () => {
       });
     });
     expect(authGatewayMocks.runtime.unlockBoundProfile).not.toHaveBeenCalled();
+  });
+
+  it("renders children on /profiles before unlock on desktop", () => {
+    authGatewayMocks.hasNativeRuntime = true;
+    authGatewayMocks.pathname = "/profiles";
+
+    render(
+      <AuthGateway>
+        <div>Profile Picker</div>
+      </AuthGateway>,
+    );
+
+    expect(screen.getByText("Profile Picker")).toBeInTheDocument();
+    expect(screen.queryByText("Profile Bound Auth Shell")).not.toBeInTheDocument();
+  });
+
+  it("redirects locked desktop home to /profiles", () => {
+    authGatewayMocks.hasNativeRuntime = true;
+    authGatewayMocks.pathname = "/";
+    authGatewayMocks.desktopProfileSnapshot.currentWindow.launchMode = "existing";
+    authGatewayMocks.desktopProfileSnapshot.currentWindow.windowLabel = "main";
+
+    render(
+      <AuthGateway>
+        <div>Runtime Children</div>
+      </AuthGateway>,
+    );
+
+    expect(authGatewayMocks.routerReplace).toHaveBeenCalledWith("/profiles");
+  });
+
+  it("redirects locked new profile windows to /sign-in", () => {
+    authGatewayMocks.hasNativeRuntime = true;
+    authGatewayMocks.pathname = "/";
+    authGatewayMocks.desktopProfileSnapshot.currentWindow.launchMode = "new_window";
+    authGatewayMocks.desktopProfileSnapshot.currentWindow.windowLabel = "profile-tester2-1710000000000";
+
+    render(
+      <AuthGateway>
+        <div>Runtime Children</div>
+      </AuthGateway>,
+    );
+
+    expect(authGatewayMocks.routerReplace).toHaveBeenCalledWith("/sign-in");
+  });
+
+  it("redirects unlocked /sign-in to chat home", () => {
+    authGatewayMocks.hasNativeRuntime = true;
+    authGatewayMocks.pathname = "/sign-in";
+    authGatewayMocks.identityState.status = "unlocked";
+    authGatewayMocks.runtime.snapshot.phase = "ready";
+
+    render(
+      <AuthGateway>
+        <div>Runtime Children</div>
+      </AuthGateway>,
+    );
+
+    expect(authGatewayMocks.routerReplace).toHaveBeenCalledWith("/");
   });
 });

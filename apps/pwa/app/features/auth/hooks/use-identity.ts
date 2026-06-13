@@ -31,11 +31,24 @@ import {
 } from "@/app/features/profiles/services/cross-profile-active-session-lease";
 import { resolveAccountImportEvidence } from "../services/account-import-evidence";
 import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
+import { NATIVE_SECURE_SESSION_RESTORE_ENABLED } from "@/app/features/auth/services/session-credential-policy";
+import {
+  isDeviceSessionRestoreAllowed,
+  resolveStaySignedIn,
+} from "@/app/features/auth/services/device-session-consent";
 import { accountSyncStatusStore } from "@/app/features/account-sync/services/account-sync-status-store";
 import { emitAccountSyncMutation } from "@/app/shared/account-sync-mutation-signal";
+import { resolveActivePrivateKeyHex } from "@/app/features/auth/services/resolve-active-private-key-hex";
 import { SessionApi } from "@/app/features/auth/services/session-api";
 import { isRememberMeEnabledForProfile } from "@/app/features/auth/services/session-bootstrap-contracts";
-import { NATIVE_SECURE_SESSION_RESTORE_ENABLED } from "@/app/features/auth/services/session-credential-policy";
+import {
+  reportNativeSessionPersistFailure,
+  reportNativeSessionPersistSuccess,
+} from "@/app/features/auth/services/native-session-persist-feedback";
+import {
+  clearInMemoryNativeSessionBestEffort,
+  endNativeDeviceSignInBestEffort,
+} from "@/app/features/auth/services/native-device-session-lifecycle";
 import {
   createMismatchStartupAuthState,
   createPendingStartupAuthState,
@@ -60,7 +73,7 @@ export type CreateIdentityProgress = Readonly<{
 
 type UseIdentityResult = Readonly<{
   state: IdentityState;
-  createIdentity: (params: Readonly<{ passphrase: Passphrase; username?: string }>) => Promise<void>;
+  createIdentity: (params: Readonly<{ passphrase: Passphrase; username?: string; staySignedIn?: boolean }>) => Promise<void>;
   createPoWIdentity: (params: Readonly<{
     passphrase: Passphrase;
     username?: string;
@@ -68,9 +81,9 @@ type UseIdentityResult = Readonly<{
     onProgress?: (progress: CreateIdentityProgress) => void;
     signal?: AbortSignal;
   }>) => Promise<void>;
-  importIdentity: (params: Readonly<{ privateKeyHex: PrivateKeyHex; passphrase: Passphrase; username?: string }>) => Promise<void>;
-  unlockIdentity: (params: Readonly<{ passphrase: Passphrase }>) => Promise<void>;
-  unlockWithPrivateKeyHex: (params: Readonly<{ privateKeyHex: PrivateKeyHex }>) => Promise<void>;
+  importIdentity: (params: Readonly<{ privateKeyHex: PrivateKeyHex; passphrase: Passphrase; username?: string; staySignedIn?: boolean }>) => Promise<void>;
+  unlockIdentity: (params: Readonly<{ passphrase: Passphrase; staySignedIn?: boolean }>) => Promise<void>;
+  unlockWithPrivateKeyHex: (params: Readonly<{ privateKeyHex: PrivateKeyHex; staySignedIn?: boolean }>) => Promise<void>;
   changePassphrase: (params: Readonly<{ oldPassphrase: Passphrase; newPassphrase: Passphrase }>) => Promise<void>;
   resetPassphraseWithPrivateKey: (params: Readonly<{ privateKeyHex: PrivateKeyHex; newPassphrase: Passphrase }>) => Promise<void>;
   lockIdentity: () => void;
@@ -276,6 +289,29 @@ const setIdentityState = (next: IdentityState): void => {
   notifyListeners();
 };
 
+const clearNativeSecureSessionBestEffort = async (): Promise<void> => {
+  await endNativeDeviceSignInBestEffort();
+};
+
+const applyNativeSessionPersistence = async (params: Readonly<{
+  staySignedIn: boolean;
+  publicKeyHex: PublicKeyHex;
+  privateKeyHex: PrivateKeyHex;
+  stored: IdentityRecord;
+  context: "create" | "import" | "unlock" | "raw_unlock";
+}>): Promise<void> => {
+  if (!params.staySignedIn) {
+    await clearNativeSecureSessionBestEffort();
+    return;
+  }
+  await syncNativeSessionInBackground({
+    publicKeyHex: params.publicKeyHex,
+    privateKeyHex: params.privateKeyHex,
+    stored: params.stored,
+    context: params.context,
+  });
+};
+
 const syncNativeSessionInBackground = async (params: Readonly<{
   publicKeyHex: PublicKeyHex;
   privateKeyHex: PrivateKeyHex;
@@ -295,8 +331,14 @@ const syncNativeSessionInBackground = async (params: Readonly<{
         privateKeyHex: NATIVE_KEY_SENTINEL,
       }));
     }
+    reportNativeSessionPersistSuccess({
+      context: params.context,
+    });
   } catch (error) {
-    console.error(`Failed to initialize native session during ${params.context}:`, error);
+    reportNativeSessionPersistFailure({
+      context: params.context,
+      error,
+    });
     accountSyncStatusStore.updateSnapshot({
       publicKeyHex: params.publicKeyHex,
       lastRelayFailureReason: error instanceof Error ? error.message : String(error),
@@ -452,7 +494,12 @@ const ensureInitialized = async (): Promise<void> => {
     }
 
     // Native: restore unlocked session from OS secure storage (no web passphrase tokens).
-    if (stored && canUseNativeSession() && NATIVE_SECURE_SESSION_RESTORE_ENABLED) {
+    if (
+      stored
+      && canUseNativeSession()
+      && NATIVE_SECURE_SESSION_RESTORE_ENABLED
+      && isDeviceSessionRestoreAllowed(getResolvedProfileId())
+    ) {
       const nativeSessionStatusResult = await tryNativeSessionUnlock({
         stored,
         context: "bootstrap",
@@ -484,7 +531,7 @@ const ensureInitialized = async (): Promise<void> => {
   }
 };
 
-const createIdentityAction = async (params: Readonly<{ passphrase: Passphrase; username?: string }>): Promise<void> => {
+const createIdentityAction = async (params: Readonly<{ passphrase: Passphrase; username?: string; staySignedIn?: boolean }>): Promise<void> => {
   let record: IdentityRecord | undefined;
   try {
     record = await createNewIdentityRecord({ passphrase: params.passphrase, username: params.username });
@@ -501,7 +548,8 @@ const createIdentityAction = async (params: Readonly<{ passphrase: Passphrase; u
 
     setIdentityState(createUnlockedState({ stored: record, privateKeyHex }));
     recordIdentityActivationRisk(record.publicKeyHex);
-    await syncNativeSessionInBackground({
+    await applyNativeSessionPersistence({
+      staySignedIn: resolveStaySignedIn(params),
       publicKeyHex: record.publicKeyHex,
       privateKeyHex,
       stored: record,
@@ -553,7 +601,8 @@ const createPoWIdentityAction = async (params: Readonly<{
 
     setIdentityState(createUnlockedState({ stored: record, privateKeyHex }));
     recordIdentityActivationRisk(record.publicKeyHex);
-    await syncNativeSessionInBackground({
+    await applyNativeSessionPersistence({
+      staySignedIn: true,
       publicKeyHex: record.publicKeyHex,
       privateKeyHex,
       stored: record,
@@ -566,7 +615,7 @@ const createPoWIdentityAction = async (params: Readonly<{
   }
 };
 
-const importIdentityAction = async (params: Readonly<{ privateKeyHex: PrivateKeyHex; passphrase: Passphrase; username?: string }>): Promise<void> => {
+const importIdentityAction = async (params: Readonly<{ privateKeyHex: PrivateKeyHex; passphrase: Passphrase; username?: string; staySignedIn?: boolean }>): Promise<void> => {
   beginIdentityMutation();
   let record: IdentityRecord | undefined;
   try {
@@ -599,7 +648,8 @@ const importIdentityAction = async (params: Readonly<{ privateKeyHex: PrivateKey
 
     setIdentityState(createUnlockedState({ stored: record, privateKeyHex }));
     recordIdentityActivationRisk(record.publicKeyHex);
-    await syncNativeSessionInBackground({
+    await applyNativeSessionPersistence({
+      staySignedIn: resolveStaySignedIn(params),
       publicKeyHex: record.publicKeyHex,
       privateKeyHex,
       stored: record,
@@ -632,9 +682,9 @@ const importIdentityAction = async (params: Readonly<{ privateKeyHex: PrivateKey
   }
 };
 
-const unlockIdentityAction = async (params: Readonly<{ passphrase: Passphrase }>): Promise<void> => {
+const unlockIdentityAction = async (params: Readonly<{ passphrase: Passphrase; staySignedIn?: boolean }>): Promise<void> => {
   if (!identityState.stored) {
-    return;
+    throw new Error("No local identity is loaded for this profile window.");
   }
   const storedIdentity = identityState.stored;
   try {
@@ -649,7 +699,8 @@ const unlockIdentityAction = async (params: Readonly<{ passphrase: Passphrase }>
 
     setIdentityState(createUnlockedState({ stored: storedIdentity, privateKeyHex }));
     recordIdentityActivationRisk(storedIdentity.publicKeyHex);
-    await syncNativeSessionInBackground({
+    await applyNativeSessionPersistence({
+      staySignedIn: resolveStaySignedIn(params),
       publicKeyHex: storedIdentity.publicKeyHex,
       privateKeyHex,
       stored: storedIdentity,
@@ -678,7 +729,7 @@ const unlockIdentityAction = async (params: Readonly<{ passphrase: Passphrase }>
   }
 };
 
-const unlockWithPrivateKeyHexAction = async (params: Readonly<{ privateKeyHex: PrivateKeyHex }>): Promise<void> => {
+const unlockWithPrivateKeyHexAction = async (params: Readonly<{ privateKeyHex: PrivateKeyHex; staySignedIn?: boolean }>): Promise<void> => {
   if (!identityState.stored) {
     return;
   }
@@ -690,7 +741,8 @@ const unlockWithPrivateKeyHexAction = async (params: Readonly<{ privateKeyHex: P
     });
     setIdentityState(createUnlockedState({ stored: storedIdentity, privateKeyHex }));
     recordIdentityActivationRisk(storedIdentity.publicKeyHex);
-    await syncNativeSessionInBackground({
+    await applyNativeSessionPersistence({
+      staySignedIn: resolveStaySignedIn(params),
       publicKeyHex: storedIdentity.publicKeyHex,
       privateKeyHex,
       stored: storedIdentity,
@@ -753,9 +805,9 @@ const resetPassphraseWithPrivateKeyAction = async (params: Readonly<{ privateKey
     throw new Error("No identity stored");
   }
   try {
-    const { privateKeyHex } = assertIdentityKeyPair({
+    const privateKeyHex = await resolveActivePrivateKeyHex({
       privateKeyHex: params.privateKeyHex,
-      expectedPublicKeyHex: identityState.stored.publicKeyHex
+      expectedPublicKeyHex: identityState.stored.publicKeyHex,
     });
 
     const encryptedPrivateKey: string = await encryptPrivateKeyHex({
@@ -811,14 +863,8 @@ const forgetIdentityAction = async (): Promise<void> => {
 };
 
 const resetNativeSecureStorageAction = async (): Promise<void> => {
-  const cs: NativeCryptoSessionApi = cryptoService as unknown as NativeCryptoSessionApi;
   try {
-    if (canUseNativeSession() && hasFn(cs.clearNativeSession)) {
-      await cs.clearNativeSession();
-    }
-    if (canUseNativeSession() && hasFn(cs.deleteNativeKey)) {
-      await cs.deleteNativeKey();
-    }
+    await endNativeDeviceSignInBestEffort();
     setIdentityDiagnostics({
       status: identityState.stored ? "locked" : "loading",
       startupState: deriveStartupAuthStateFromIdentityState({

@@ -9,6 +9,7 @@ import { probePwaDevReady, PWA_DEV_URL } from "./dev-stack-probes.mjs";
 import {
   isStaticShellDevLabMismatch,
   isStaticShellExperimentModeMismatch,
+  isStaticShellStale,
 } from "./static-shell-stale.mjs";
 
 const DEFAULT_CDP_URL = "http://127.0.0.1:9222";
@@ -94,6 +95,12 @@ export async function resolveDevLabConnection({
 
   const outIndex = path.join(repoRoot, "apps", "pwa", "out", "index.html");
   if (fs.existsSync(outIndex)) {
+    const stale = isStaticShellStale(repoRoot);
+    if (stale.stale) {
+      throw new Error(
+        `${stale.reason}. Rebuild static shell: pnpm dev:desktop:online -- --rebuild (or use Next live: pnpm dev:desktop:online:live).`,
+      );
+    }
     const devLabMode = isStaticShellDevLabMismatch(repoRoot);
     if (devLabMode.mismatch) {
       throw new Error(

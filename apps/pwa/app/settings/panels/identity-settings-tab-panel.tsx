@@ -22,6 +22,7 @@ import { SettingsActionStatus } from "@/app/features/settings/components/setting
 import { ProfileSwitcherCard } from "@/app/features/profiles/components/profile-switcher-card";
 import { ProfileArchiveResultDialog } from "@/app/features/profiles/components/profile-archive-result-dialog";
 import { PortabilityQuickActionsPanel } from "@/app/features/profiles/components/portability-quick-actions-panel";
+import { DeviceSessionSettingsPanel } from "@/app/features/settings/components/device-session-settings-panel";
 import {
   SettingsToggle,
   SettingsToggleCard,
@@ -277,6 +278,7 @@ export default function IdentitySettingsTabPanel(): React.JSX.Element {
     <>
         <div className={compact ? "space-y-4" : "space-y-6"}>
           <ProfileSwitcherCard onBeforeSwitch={handleProfileSwitchLock} />
+          <DeviceSessionSettingsPanel />
           <SettingsCompactCard title={t("identity.title")} description={t("identity.description")} className="w-full">
             <div className={compact ? "space-y-4" : "space-y-6"}>
               <div className={cn(

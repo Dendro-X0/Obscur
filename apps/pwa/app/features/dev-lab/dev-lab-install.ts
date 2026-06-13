@@ -11,6 +11,27 @@ import {
 import { runDevLabBenchmark, runDevLabScenario } from "./dev-lab-scenario-runner";
 import type { DevLabBenchmarkReport, DevLabScenarioResult, DevLabSuiteId } from "./dev-lab-types";
 import { runJoinerMembershipRepairProbe, type DevLabJoinerMembershipProbeResult } from "./dev-lab-joiner-membership-probe";
+import {
+  probeDevLabMembershipScope,
+  type DevLabMembershipScopeSnapshot,
+} from "./dev-lab-membership-scope-probe";
+import {
+  createDevLabZombiePersona,
+  listDevLabPersonas,
+  resolveDevLabPersona,
+  teardownAllDevLabPersonas,
+  teardownDevLabPersona,
+  type DevLabPersonaRecord,
+  type DevLabPersonaSnapshot,
+} from "./dev-lab-persona";
+import {
+  openDevLabDmChatContainingText,
+  probeDevLabDmTrustAssessmentForPeer,
+  probeDevLabDmTrustBannerDom,
+  clearDevLabDmTrustThreadForPeer,
+  type DevLabTrustAssessmentProbe,
+  type DevLabTrustBannerDomProbe,
+} from "./dev-lab-trust-probe";
 import { delay, runNavigationMatrixSteps } from "./dev-lab-scenario-steps";
 
 export type DevLabAuthStatus = Readonly<{
@@ -31,6 +52,7 @@ export type DevLabMessageSnapshot = Readonly<{
   content: string;
   isOutgoing: boolean;
   status: string;
+  timestampUnixMs: number;
 }>;
 
 export type DevLabGroupStubProbeResult = Readonly<{
@@ -42,11 +64,17 @@ export type DevLabJoinerMembershipRepairProbeResult = DevLabJoinerMembershipProb
 
 type DevLabAuthHandlers = Readonly<{
   unlockAccount: (accountId?: DevLabAccountId) => Promise<void>;
+  unlockEphemeralPersona: (persona: DevLabPersonaRecord) => Promise<void>;
   getAuthStatus: () => DevLabAuthStatus;
 }>;
 
 type DevLabMessagingHandlers = Readonly<{
   sendSyntheticDm: (params: Readonly<{ peerPublicKeyHex: string; text: string }>) => Promise<DevLabSyntheticDmResult>;
+  sendSyntheticDmFromZombiePersona: (params: Readonly<{
+    personaId: string;
+    peerPublicKeyHex: string;
+    text: string;
+  }>) => Promise<DevLabSyntheticDmResult>;
   getMessagesForPeer: (peerPublicKeyHex: string) => ReadonlyArray<DevLabMessageSnapshot>;
   getSqliteMessagesForPeer?: (peerPublicKeyHex: string) => Promise<ReadonlyArray<DevLabMessageSnapshot>>;
   scanOneSidedNativeDmConversations?: () => Promise<ReadonlyArray<Readonly<{
@@ -76,7 +104,13 @@ export type DevLabApi = Readonly<{
   unlock: (accountId?: DevLabAccountId) => Promise<void>;
   getAuthStatus: () => DevLabAuthStatus | null;
   getMessagingStatus: () => string | null;
+  getMyPublicKeyHex: () => string | null;
   sendSyntheticDm: (params: Readonly<{ peerPublicKeyHex: string; text: string }>) => Promise<DevLabSyntheticDmResult>;
+  sendSyntheticDmFromZombiePersona: (params: Readonly<{
+    personaId: string;
+    peerPublicKeyHex: string;
+    text: string;
+  }>) => Promise<DevLabSyntheticDmResult>;
   getMessagesForPeer: (peerPublicKeyHex: string) => ReadonlyArray<DevLabMessageSnapshot>;
   getSqliteMessagesForPeer?: (peerPublicKeyHex: string) => Promise<ReadonlyArray<DevLabMessageSnapshot>>;
   scanOneSidedNativeDmConversations?: () => Promise<ReadonlyArray<Readonly<{
@@ -97,6 +131,16 @@ export type DevLabApi = Readonly<{
   triggerMissedMessageSync?: () => Promise<void>;
   probeGroupSendStub: () => Promise<DevLabGroupStubProbeResult>;
   probeJoinerMembershipRepair: () => DevLabJoinerMembershipRepairProbeResult;
+  probeMembershipScope: () => DevLabMembershipScopeSnapshot;
+  clearDmTrustThreadForPeer: (params: Readonly<{
+    peerPublicKeyHex: string;
+  }>) => Readonly<{ cleared: boolean; conversationId: string | null }>;
+  probeDmTrustAssessmentForPeer: (params: Readonly<{
+    peerPublicKeyHex: string;
+    isPeerAccepted?: boolean;
+  }>) => DevLabTrustAssessmentProbe;
+  probeDmTrustBannerDom: () => DevLabTrustBannerDomProbe;
+  openDmChatContainingText: (needle: string) => Promise<Readonly<{ opened: boolean; pathname: string }>>;
   runScenario: (scenarioId: string) => Promise<DevLabScenarioResult>;
   runBenchmark: (options?: Readonly<{
     suite?: DevLabSuiteId | string;
@@ -111,6 +155,12 @@ export type DevLabApi = Readonly<{
   }>;
   runNativeGate: (options?: Readonly<{ listenerUrl?: string }>) => Promise<unknown>;
   postNativeGateReport: typeof postNativeGateReport;
+  createZombiePersona: (options?: Readonly<{ label?: string }>) => DevLabPersonaSnapshot;
+  listZombiePersonas: typeof listDevLabPersonas;
+  resolveZombiePersona: (personaId: string) => DevLabPersonaSnapshot | null;
+  unlockZombiePersona: (personaId: string) => Promise<void>;
+  teardownZombiePersona: typeof teardownDevLabPersona;
+  teardownAllZombiePersonas: typeof teardownAllDevLabPersonas;
 }>;
 
 declare global {
@@ -188,11 +238,18 @@ export const installDevLab = (): void => {
     unlock,
     getAuthStatus: () => authHandlers?.getAuthStatus() ?? null,
     getMessagingStatus: () => messagingHandlers?.getControllerStatus() ?? null,
+    getMyPublicKeyHex: () => messagingHandlers?.getMyPublicKeyHex() ?? null,
     sendSyntheticDm: async (params) => {
       if (!messagingHandlers) {
         throw new Error("Dev Lab messaging bridge not ready — unlock shell first.");
       }
       return messagingHandlers.sendSyntheticDm(params);
+    },
+    sendSyntheticDmFromZombiePersona: async (params) => {
+      if (!messagingHandlers) {
+        throw new Error("Dev Lab messaging bridge not ready — unlock shell first.");
+      }
+      return messagingHandlers.sendSyntheticDmFromZombiePersona(params);
     },
     getMessagesForPeer: (peerPublicKeyHex) => (
       messagingHandlers?.getMessagesForPeer(peerPublicKeyHex) ?? []
@@ -250,6 +307,35 @@ export const installDevLab = (): void => {
         publicKeyHex: publicKeyHex as import("@dweb/crypto/public-key-hex").PublicKeyHex,
       });
     },
+    probeMembershipScope: () => {
+      const publicKeyHex = messagingHandlers?.getMyPublicKeyHex() ?? "";
+      return probeDevLabMembershipScope({
+        publicKeyHex: publicKeyHex as import("@dweb/crypto/public-key-hex").PublicKeyHex,
+      });
+    },
+    clearDmTrustThreadForPeer: (params) => {
+      const myPublicKeyHex = messagingHandlers?.getMyPublicKeyHex() ?? "";
+      return clearDevLabDmTrustThreadForPeer({
+        myPublicKeyHex,
+        peerPublicKeyHex: params.peerPublicKeyHex,
+      });
+    },
+    probeDmTrustAssessmentForPeer: (params) => {
+      const myPublicKeyHex = messagingHandlers?.getMyPublicKeyHex() ?? "";
+      const snapshots = messagingHandlers?.getMessagesForPeer(params.peerPublicKeyHex) ?? [];
+      return probeDevLabDmTrustAssessmentForPeer({
+        myPublicKeyHex,
+        peerPublicKeyHex: params.peerPublicKeyHex,
+        isPeerAccepted: params.isPeerAccepted,
+        messages: snapshots.map((message) => ({
+          content: message.content,
+          isOutgoing: message.isOutgoing,
+          timestampUnixMs: message.timestampUnixMs,
+        })),
+      });
+    },
+    probeDmTrustBannerDom: () => probeDevLabDmTrustBannerDom(),
+    openDmChatContainingText: async (needle) => openDevLabDmChatContainingText(needle),
     runScenario: async (scenarioId) => runDevLabScenario(scenarioId, { unlock, delay }),
     runBenchmark: async (options) => runDevLabBenchmark(unlock, {
       ...options,
@@ -260,6 +346,44 @@ export const installDevLab = (): void => {
     captureBundle,
     runNativeGate: async (options) => runDevLabNativeGate(unlock, options),
     postNativeGateReport,
+    createZombiePersona: (options) => {
+      const record = createDevLabZombiePersona(options);
+      return {
+        id: record.id,
+        kind: record.kind,
+        label: record.label,
+        username: record.username,
+        publicKeyHex: record.publicKeyHex,
+        createdAtUnixMs: record.createdAtUnixMs,
+      };
+    },
+    listZombiePersonas: listDevLabPersonas,
+    resolveZombiePersona: (personaId) => {
+      const record = resolveDevLabPersona(personaId);
+      if (!record) {
+        return null;
+      }
+      return {
+        id: record.id,
+        kind: record.kind,
+        label: record.label,
+        username: record.username,
+        publicKeyHex: record.publicKeyHex,
+        createdAtUnixMs: record.createdAtUnixMs,
+      };
+    },
+    unlockZombiePersona: async (personaId) => {
+      const record = resolveDevLabPersona(personaId);
+      if (!record) {
+        throw new Error(`Dev Lab zombie persona not found: ${personaId}`);
+      }
+      if (!authHandlers) {
+        throw new Error("Dev Lab auth bridge not ready — wait for AuthGateway mount.");
+      }
+      await authHandlers.unlockEphemeralPersona(record);
+    },
+    teardownZombiePersona: teardownDevLabPersona,
+    teardownAllZombiePersonas: teardownAllDevLabPersonas,
   };
 
   console.info(

@@ -30,8 +30,23 @@ export const SESSION_AUTO_UNLOCK_ENABLED = MOBILE_SHELL_BUILD;
  */
 export const SESSION_CREDENTIAL_PERSISTENCE_ENABLED = MOBILE_SHELL_BUILD;
 
+/**
+ * Native desktop/mobile: persist stay-signed-in consent (trust flag only — never browser tokens).
+ */
+export const NATIVE_DEVICE_SESSION_CONSENT_ENABLED = true as const;
+
+export const isNativeDeviceSessionConsentPersistenceEnabled = (): boolean => (
+  NATIVE_DEVICE_SESSION_CONSENT_ENABLED
+);
+
+/** Trust flag or browser token persistence (mobile shell). */
+export const isDeviceSessionTrustPersistenceEnabled = (): boolean => (
+  SESSION_CREDENTIAL_PERSISTENCE_ENABLED || isNativeDeviceSessionConsentPersistenceEnabled()
+);
+
 export const sessionCredentialPolicy = {
   nativeSecureSessionRestoreEnabled: NATIVE_SECURE_SESSION_RESTORE_ENABLED,
   autoUnlockEnabled: SESSION_AUTO_UNLOCK_ENABLED,
   credentialPersistenceEnabled: SESSION_CREDENTIAL_PERSISTENCE_ENABLED,
+  nativeDeviceSessionConsentEnabled: NATIVE_DEVICE_SESSION_CONSENT_ENABLED,
 } as const;

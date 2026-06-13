@@ -24,7 +24,23 @@ Row-level `[P]`/`[F]` marks in sections below remain optional detail; band exit 
 
 ---
 
-## Session header (v1.9.4 Phase B — open)
+## Session header (v1.9.5 Phase B — open)
+
+| Field | Value |
+|-------|--------|
+| Date (UTC) | |
+| Git SHA / tag | |
+| Concentration unit | **v1.9.5** Phase B |
+| Build | `pnpm dev:desktop:online` |
+| Coordination URL | `http://127.0.0.1:8787` (managed workspace + BOT rows) |
+| Relay | `pnpm dev:relay:docker` or `[-]` coordination-only |
+| Phase A exit | SEC-F/B/R/V **done** — `pnpm verify:sec-v1.9.5` |
+| Manual focus | TRUST-*, BOT-*, AUTH-4, SEC-R1 — see [v1.9.5-phase-b-manual-matrix.md](./v1.9.5-phase-b-manual-matrix.md) |
+| §0 automated | **Run** PB-AUTO-1/2 in v1.9.5 matrix before manual rows |
+
+---
+
+## Session header (v1.9.4 Phase B — closed)
 
 | Field | Value |
 |-------|--------|
@@ -229,6 +245,23 @@ Ref: [v1.9.0 demo matrix](../assets/demo/v1.9.0/README.md)
 
 ---
 
+## §10 — v1.9.5 security band (Phase B focus)
+
+Full step-by-step: [v1.9.5-phase-b-manual-matrix.md](./v1.9.5-phase-b-manual-matrix.md)
+
+| ID | Feature | Steps (summary) | Result | Notes |
+|----|---------|-----------------|--------|-------|
+| TRUST-1 | Cold DM + financial mention | Tester2 → Tester1: financial message; recipient banner only | `[ ]` | V5-1 |
+| TRUST-2 | Dismiss / snooze | Dismiss banner; repeat message suppressed in thread | `[ ]` | 24h cooldown |
+| TRUST-3 | Trusted peer | Accepted peer + benign `$` mention — no fin-cold banner | `[ ]` | Low false positive |
+| BOT-1 | B2 keyword flood | 20+ `help` msgs; ≤6 bot replies/min; steward disable stops replies | `[ ]` | V5-3, V5-4 |
+| BOT-2 | Non-allowlisted bot | Unregistered pubkey triggers ignored | `[ ]` | SEC-B1 |
+| SEC-R1 | Managed workspace gate | Create blocked on public-default without coordination | `[ ]` | COM-1 / V4-1 |
+
+Cross-ref §1 **AUTH-4** for profile isolation (SEC-V3).
+
+---
+
 ## Phase B summary
 
 | Metric | Count |
@@ -264,4 +297,5 @@ Full queue: [v1.5.0-known-issues-and-investigation-queue.md](./v1.5.0-known-issu
 | Date | Change |
 |------|--------|
 | 2026-06-01 | v1.9.4 Phase B — unified matrix is execution entry; P4-3 soak in matrix |
+| 2026-06-08 | v1.9.5 Phase B — focused trust/bot matrix doc; §10 security band rows |
 | 2026-06-01 | Initial matrix for v1.9.x unified pass |

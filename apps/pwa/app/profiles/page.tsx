@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Input, toast } from "@dweb/ui-kit";
-import { ArrowLeft, Plus, Settings2, SquareArrowOutUpRight, Trash2 } from "lucide-react";
+import { ArrowLeft, LogIn, Plus, Settings2, SquareArrowOutUpRight, Trash2 } from "lucide-react";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import { PageShell } from "@/app/components/page-shell";
@@ -13,11 +13,15 @@ import useNavBadges from "@/app/features/main-shell/hooks/use-nav-badges";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { useProfile } from "@/app/features/profile/hooks/use-profile";
 import { desktopProfileRuntime, useDesktopProfileIsolationSnapshot } from "@/app/features/profiles/services/desktop-profile-runtime";
+import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
+import { useWindowRuntime } from "@/app/features/runtime/services/window-runtime-supervisor";
 import { finalizeProfileWindowRemoval } from "@/app/features/profiles/services/profile-session-lifecycle";
 import type { ProfileWorkspaceArchiveWriteResult } from "@/app/features/profiles/services/profile-workspace-archive-contracts";
 import { ProfileArchiveResultBanner } from "@/app/features/profiles/components/profile-archive-result-banner";
 import { PortabilityQuickActionsPanel } from "@/app/features/profiles/components/portability-quick-actions-panel";
 import { ProfileWindowImportPanel } from "@/app/features/profiles/components/profile-window-import-panel";
+import { ProfilePickerCardGrid } from "@/app/features/profiles/components/profile-picker-card-grid";
+import { PROFILE_SIGN_IN_ROUTE } from "@/app/features/profiles/services/auth-public-routes";
 import {
   buildDesktopProfileMenuEntries,
   deriveDesktopProfileSessionMismatch,
@@ -28,11 +32,19 @@ import {
 
 const getDefaultNewProfileLabel = (count: number): string => `Profile ${count + 1}`;
 
+const isUnlockedRuntimePhase = (phase: string): boolean => (
+  phase === "activating_runtime" || phase === "ready" || phase === "degraded"
+);
+
 export default function ProfilesPage(): React.JSX.Element {
   const router = useRouter();
   const identity = useIdentity();
   const profile = useProfile();
+  const runtime = useWindowRuntime();
   const snapshot = useDesktopProfileIsolationSnapshot();
+  const isUnlocked = isUnlockedRuntimePhase(runtime.snapshot.phase);
+  const isPublicPickerMode = hasNativeRuntime() && !isUnlocked;
+  const [showAdvancedManagement, setShowAdvancedManagement] = useState(false);
   const [newLabel, setNewLabel] = useState("");
   const [removeTarget, setRemoveTarget] = useState<Readonly<{ profileId: string; label: string }> | null>(null);
   const [isRemovingProfile, setIsRemovingProfile] = useState(false);
@@ -133,6 +145,10 @@ export default function ProfilesPage(): React.JSX.Element {
     }
   };
 
+  const handleSignInHere = (): void => {
+    router.replace(PROFILE_SIGN_IN_ROUTE);
+  };
+
   const handleRemoveProfile = (profileId: string): void => {
     if (profileId === snapshot.currentWindow.profileId) {
       toast.error("Cannot remove the profile bound to this window.");
@@ -180,30 +196,24 @@ export default function ProfilesPage(): React.JSX.Element {
     }
   };
 
-  return (
-    <PageShell
-      title="Profiles"
-      navBadgeCounts={navBadges.navBadgeCounts}
-      rightContent={(
-        <Button type="button" variant="outline" size="sm" onClick={() => router.back()}>
-          <ArrowLeft className="h-3.5 w-3.5" />
-          Back
-        </Button>
-      )}
-    >
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-4 md:p-6">
+  const pageInner = (
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-4 md:p-6">
         <section className="rounded-[28px] border border-black/10 bg-white/70 p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900/40">
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div>
               <div className="text-xl font-black tracking-tight text-zinc-950 dark:text-zinc-50">Manage Profiles</div>
               <div className="mt-2 max-w-2xl text-sm text-zinc-500 dark:text-zinc-400">
-                Saved profiles stay isolated. Adding a profile opens a new desktop window with its own local environment, data, and login flow.
+                {isPublicPickerMode
+                  ? "Each window is independent. Open any profile in its own window or sign in here — no window depends on another having launched first."
+                  : "Saved profiles stay isolated. Adding a profile opens a new desktop window with its own local environment, data, and login flow."}
               </div>
             </div>
-            <Button type="button" variant="outline" onClick={() => void router.push("/settings?tab=identity#profiles")}>
-              <Settings2 className="h-3.5 w-3.5" />
-              Advanced Profile Settings
-            </Button>
+            {isUnlocked ? (
+              <Button type="button" variant="outline" onClick={() => void router.push("/settings?tab=identity#profiles")}>
+                <Settings2 className="h-3.5 w-3.5" />
+                Advanced Profile Settings
+              </Button>
+            ) : null}
           </div>
         </section>
 
@@ -251,6 +261,11 @@ export default function ProfilesPage(): React.JSX.Element {
                           </Button>
                         ) : null}
                       </>
+                    ) : isPublicPickerMode ? (
+                      <Button size="sm" onClick={handleSignInHere}>
+                        <LogIn className="h-3.5 w-3.5" />
+                        Sign in to This Profile
+                      </Button>
                     ) : (
                       <Button size="sm" variant="outline" disabled>
                         Active in This Window
@@ -263,11 +278,13 @@ export default function ProfilesPage(): React.JSX.Element {
           </section>
 
           <aside className="space-y-6">
-            <PortabilityQuickActionsPanel
-              publicKeyHex={(currentPublicKeyHex as PublicKeyHex | null) ?? null}
-              profileLabel={currentWindowEntry?.label}
-              resolveActivePrivateKeyHex={resolveActivePrivateKeyHex}
-            />
+            {isUnlocked ? (
+              <PortabilityQuickActionsPanel
+                publicKeyHex={(currentPublicKeyHex as PublicKeyHex | null) ?? null}
+                profileLabel={currentWindowEntry?.label}
+                resolveActivePrivateKeyHex={resolveActivePrivateKeyHex}
+              />
+            ) : null}
             <section className="rounded-[28px] border border-black/10 bg-white/70 p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900/40">
               <div className="text-xs font-black uppercase tracking-[0.18em] text-zinc-500 dark:text-zinc-400">Add Profile</div>
               <div className="mt-2 text-sm text-zinc-700 dark:text-zinc-300">
@@ -289,7 +306,7 @@ export default function ProfilesPage(): React.JSX.Element {
                   <Plus className="h-3.5 w-3.5" />
                   Add Profile in New Window
                 </Button>
-                {currentWindowEntry && !currentWindowEntry.hasStoredIdentity ? (
+                {isUnlocked && currentWindowEntry && !currentWindowEntry.hasStoredIdentity ? (
                   <ProfileWindowImportPanel
                     publicKeyHex={(currentPublicKeyHex as PublicKeyHex | null) ?? null}
                     resolveActivePrivateKeyHex={resolveActivePrivateKeyHex}
@@ -305,16 +322,21 @@ export default function ProfilesPage(): React.JSX.Element {
                 <p>Opening a profile creates an isolated desktop window. In-memory state and account data are not shared across windows.</p>
                 <p>Profiles you log into stay listed here so you can reopen them later.</p>
                 <p>
-                  <span className="font-semibold">Sign out</span> locks the session but keeps this profile window&apos;s local data so you can sign back in later.
+                  <span className="font-semibold">Lock</span> pauses your session but keeps stay signed in — restart restores from OS secure storage.
+                </p>
+                <p>
+                  <span className="font-semibold">Log out</span> clears the device session (keychain) but keeps this profile window&apos;s local data.
                 </p>
                 <p>
                   <span className="font-semibold">Remove profile</span> (Profile 2 and above) exports a workspace archive (`.obscur-profile.json`) under
                   <span className="font-semibold"> profile-archives </span>
                   on desktop, then clears that slot. You will see where the file was saved.
                 </p>
-                <p>
-                  To wipe the main profile window or clear data without removing the profile entry, use Settings → Identity → Local data management.
-                </p>
+                {!isPublicPickerMode ? (
+                  <p>
+                    To wipe the main profile window or clear data without removing the profile entry, use Settings → Identity → Local data management.
+                  </p>
+                ) : null}
                 <p className="rounded-xl border border-orange-500/25 bg-orange-500/5 px-3 py-2 text-orange-900 dark:text-orange-100">
                   <span className="font-semibold">Desktop:</span> unified account export/import in Settings → Profile.
                   <br />
@@ -324,9 +346,10 @@ export default function ProfilesPage(): React.JSX.Element {
             </section>
           </aside>
         </div>
-      </div>
-      {/* Inline confirmation - temporary replacement for ConfirmDialog */}
-      {removeTarget ? (
+    </div>
+  );
+
+  const removeDialog = removeTarget ? (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4">
           <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl">
             {removeStep === "confirm" ? (
@@ -380,7 +403,52 @@ export default function ProfilesPage(): React.JSX.Element {
             )}
           </div>
         </div>
-      ) : null}
+  ) : null;
+
+  if (isPublicPickerMode && !showAdvancedManagement) {
+    return (
+      <>
+        <ProfilePickerCardGrid
+          entries={entries}
+          onSelectProfile={handleSignInHere}
+          onOpenInNewWindow={(profileId) => void handleOpenWindow(profileId)}
+          onSwitchHere={(profileId) => void handleSwitchHere(profileId)}
+          onAddProfile={() => void handleCreateAndOpen()}
+          onAdvancedManagement={() => setShowAdvancedManagement(true)}
+        />
+        {removeDialog}
+      </>
+    );
+  }
+
+  if (isPublicPickerMode) {
+    return (
+      <>
+        <div className="border-b border-black/10 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-zinc-900/40">
+          <Button type="button" variant="outline" size="sm" onClick={() => setShowAdvancedManagement(false)}>
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Back to profile picker
+          </Button>
+        </div>
+        {pageInner}
+        {removeDialog}
+      </>
+    );
+  }
+
+  return (
+    <PageShell
+      title="Profiles"
+      navBadgeCounts={navBadges.navBadgeCounts}
+      rightContent={(
+        <Button type="button" variant="outline" size="sm" onClick={() => router.back()}>
+          <ArrowLeft className="h-3.5 w-3.5" />
+          Back
+        </Button>
+      )}
+    >
+      {pageInner}
+      {removeDialog}
     </PageShell>
   );
 }

@@ -35,6 +35,10 @@ vi.mock("@/app/features/runtime/native-adapters", () => ({
   invokeNativeCommand: vi.fn().mockResolvedValue({ ok: true, value: null }),
 }));
 
+vi.mock("@/app/features/auth/services/native-session-bootstrap-retry", () => ({
+  retryNativeSessionBootstrapAfterProfileReady: vi.fn().mockResolvedValue(false),
+}));
+
 vi.mock("@/app/shared/log-app-event", () => ({
   logAppEvent: vi.fn(),
 }));

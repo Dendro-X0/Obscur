@@ -15,7 +15,6 @@ import { RootErrorBoundary } from "./components/root-error-boundary"
 import { Preloader } from "./components/preloader"
 import { StorageHealthBootstrap } from "./components/storage-health-bootstrap"
 import { ErrorPanel } from "./features/native/components/error-panel"
-import { TitleBar } from "./components/desktop/title-bar"
 import { NativeRuntimeGate } from "./components/native-runtime-gate"
 import { ProfileMigrationBootstrap } from "./components/profile-migration-bootstrap"
 import { DesktopWindowRootSurface } from "./components/desktop/desktop-window-root-surface"
@@ -547,11 +546,6 @@ export default function RootLayout({
                 <OfflineIndicator />
                 <DeepLinkHandler />
                   <div className="flex flex-col h-screen overflow-hidden desktop-mode:desktop-window-glow">
-                    {!MOBILE_SHELL_BUILD ? (
-                      <div className="relative z-[9999]">
-                        <TitleBar />
-                      </div>
-                    ) : null}
                     <main className="flex-1 min-h-0 relative flex flex-col">
                       <DesktopWindowRootSurface>
                         {children}

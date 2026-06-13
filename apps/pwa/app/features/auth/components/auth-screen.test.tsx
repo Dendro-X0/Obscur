@@ -7,6 +7,7 @@ import { AuthScreen } from "./auth-screen";
 import { markRetiredIdentityPublicKey } from "../utils/retired-identity-registry";
 
 const authScreenMocks = vi.hoisted(() => ({
+  isNativeRuntime: false,
   hasStoredIdentity: true,
   identityState: {
     status: "locked" as const,
@@ -121,6 +122,11 @@ vi.mock("@/app/features/profile/hooks/use-profile", () => ({
     setUsername: vi.fn(),
     setInviteCode: vi.fn(),
     save: vi.fn(),
+    state: {
+      profile: {
+        username: "",
+      },
+    },
   }),
 }));
 
@@ -140,9 +146,14 @@ vi.mock("@/app/shared/log-app-event", () => ({
   logAppEvent: vi.fn(),
 }));
 
+vi.mock("@/app/features/runtime/runtime-capabilities", () => ({
+  hasNativeRuntime: () => authScreenMocks.isNativeRuntime,
+}));
+
 describe("AuthScreen mismatch recovery UX", () => {
   beforeEach(() => {
     localStorage.clear();
+    authScreenMocks.isNativeRuntime = false;
     authScreenMocks.identityState = {
       status: "locked",
       stored: {
@@ -198,21 +209,31 @@ describe("AuthScreen mismatch recovery UX", () => {
     expect(screen.queryByText("Secure Storage Needs Recovery")).not.toBeInTheDocument();
   });
 
-  it("shows session policy notice instead of remember-me controls", async () => {
+  it("shows web-only unlock copy without stay signed in", async () => {
     render(<AuthScreen />);
 
-    expect(await screen.findByText(/Manual unlock every time|Secure session on this device/)).toBeInTheDocument();
-    expect(screen.queryByLabelText("Trust this device")).not.toBeInTheDocument();
+    expect(await screen.findByText(/Enter your device login password to unlock/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText("Stay signed in on this device")).not.toBeInTheDocument();
   });
 
-  it("clears legacy remember-me markers on auth screen mount", async () => {
+  it("shows stay signed in control on native desktop", async () => {
+    authScreenMocks.isNativeRuntime = true;
+    authScreenMocks.identityDiagnostics.mismatchReason = undefined;
+    authScreenMocks.identityDiagnostics.message = undefined;
+    authScreenMocks.runtime.snapshot.session.startupState.mismatchReason = undefined;
+    authScreenMocks.runtime.snapshot.session.startupState.message = undefined;
+    render(<AuthScreen />);
+
+    expect(await screen.findByText("Stay signed in on this device")).toBeInTheDocument();
+  });
+
+  it("preserves device session consent on native auth screen mount", async () => {
+    authScreenMocks.isNativeRuntime = true;
     localStorage.setItem("obscur_remember_me::default", "true");
-    localStorage.setItem("obscur_auth_token::default", "legacy-token");
     render(<AuthScreen />);
 
     await waitFor(() => {
-      expect(localStorage.getItem("obscur_remember_me::default")).toBeNull();
-      expect(localStorage.getItem("obscur_auth_token::default")).toBeNull();
+      expect(localStorage.getItem("obscur_remember_me::default")).toBe("true");
     });
   });
 
@@ -307,7 +328,7 @@ describe("AuthScreen mismatch recovery UX", () => {
     fireEvent.change(screen.getByPlaceholderText("nsec1..."), {
       target: { value: privateKeyHex },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    fireEvent.click(screen.getByRole("button", { name: "Unlock" }));
 
     await waitFor(() => {
       expect(authScreenMocks.runtime.importIdentityForBoundProfile).toHaveBeenCalledTimes(1);
@@ -328,7 +349,7 @@ describe("AuthScreen mismatch recovery UX", () => {
     });
 
     expect(screen.getByText(/previously marked as retired/i)).toBeInTheDocument();
-    const continueButton = screen.getByRole("button", { name: "Continue" });
+    const continueButton = screen.getByRole("button", { name: "Unlock" });
     expect(continueButton).toBeDisabled();
 
     expect(screen.getByText(/reactivating it can restore prior identity links/i)).toBeInTheDocument();
