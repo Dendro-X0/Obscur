@@ -1,19 +1,28 @@
 # Current Session Handoff — Obscur Engine Lab
 
-- Last Updated (UTC): 2026-07-04T16:58:00Z
+- Last Updated (UTC): 2026-07-04T17:05:00Z
 
 ## Next atomic step
 
-**R3 — implement complete · t4 surface probe** (sidebar preview stale · Option B)
+**R5 — O-4 ingest chrome** (runtime repair · **implemented** · t4 next)
 
 | Field | Value |
 |-------|--------|
+| Investigation | [o4-ingest-chrome-r5-investigation-2026-07.md](../../specs/backend/o4-ingest-chrome-r5-investigation-2026-07.md) |
+| Design | [o4-ingest-chrome-r5-design-2026-07.md](../../specs/backend/o4-ingest-chrome-r5-design-2026-07.md) |
+| Fix | `resolveRoomKeyHexForGroupRelayIngest` · ingest hooks pass `localPrivateKeyHex` |
+| L1 | **PASS** — ingest + room-key-owner (26/26) |
+| Next | t4 dual-profile background ingest · chain `chain-r5-o4-ingest-chrome-2026-07-04` |
+
+**R3 — committed (2026-07-04 · Option B)**
+
+| Field | Value |
+|-------|--------|
+| Commit | `3cf79dbe` — list-time SQLite preview hydrate |
 | Investigation | [sidebar-preview-stale-r3-investigation-2026-07.md](../../specs/backend/sidebar-preview-stale-r3-investigation-2026-07.md) |
-| Design | [sidebar-preview-stale-r3-design-2026-07.md](../../specs/backend/sidebar-preview-stale-r3-design-2026-07.md) · **Option B** list-time SQLite hydrate |
-| Fix | `group-sidebar-preview-sqlite-hydrate.ts` · wired in `group-provider-legacy.tsx` |
+| Design | [sidebar-preview-stale-r3-design-2026-07.md](../../specs/backend/sidebar-preview-stale-r3-design-2026-07.md) |
 | L1 | **PASS** — `group-sidebar-preview-sqlite-hydrate.test.ts` (5/5) |
-| Next | t4 CodaCtrl on NewTest 2 · chain `chain-r3-sidebar-preview-2026-07-04` |
-| Uncommitted | R1 room-key health + R3 slice |
+| t4 | **PASS** — `csess-264849283e3c` · Group tab · preview `R1-room-key-health-t4-070T1410` (required static `--rebuild`) |
 
 **R2 — VERIFIED t4 (2026-07-04 post-fix regression)**
 
@@ -34,11 +43,11 @@ Repair queue:
 
 | Priority | ID | Status |
 |----------|-----|--------|
-| R1 | `group-room-key-missing` | **VERIFIED t4** (uncommitted) |
+| R1 | `group-room-key-missing` | **VERIFIED t4** |
 | R2 | `auth-keychain-restore-failed` | **VERIFIED t4** |
-| **R3** | Sidebar preview stale | **IMPLEMENTED** · t4 next |
+| **R3** | Sidebar preview stale | **VERIFIED t4** (`csess-264849283e3c` · `3cf79dbe`) |
+| **R5** | O-4 ingest chrome | **IMPLEMENTED** · t4 next |
 | R4 | COM-RUN-01 roster | **A** @ ACC-02 |
-| R5 | O-4 ingest chrome | Partial |
 
 Protocol: [obscur-runtime-issue-tracker-2026-07.md](../program/obscur-runtime-issue-tracker-2026-07.md) · register `.codectx/verify/issues-register.summary.json`
 

@@ -234,6 +234,7 @@ function NostrMessengerContent() {
         communityId: selectedConversation?.kind === "group" ? (selectedConversation as GroupConversation).communityId : undefined,
         communityMode: selectedConversation?.kind === "group" ? (selectedConversation as GroupConversation).communityMode : undefined,
         myPublicKeyHex,
+        myPrivateKeyHex,
         enabled: groupThreadRelayIngestEnabled,
     });
     // Feature hooks

@@ -16,7 +16,7 @@ vi.mock("./community-membership-sync-mode", () => ({
   readMembershipSyncMode: vi.fn(() => "coordination_preferred" as const),
 }));
 
-const { appendMock, suppressMock } = vi.hoisted(() => ({
+const { appendMock, suppressMock, resolveRoomKeyForIngestMock } = vi.hoisted(() => ({
   appendMock: vi.fn(async (params: { eventId?: string }) => ({
     status: "persisted" as const,
     eventId: params.eventId ?? "evt-1",
@@ -25,6 +25,7 @@ const { appendMock, suppressMock } = vi.hoisted(() => ({
     status: "suppressed" as const,
     eventIds: ["target-event"],
   })),
+  resolveRoomKeyForIngestMock: vi.fn(async () => "room-key"),
 }));
 
 vi.mock("@/app/features/messaging/services/thread-history/group-thread-append", () => ({
@@ -35,6 +36,10 @@ vi.mock("@/app/features/messaging/services/thread-history/group-thread-suppress"
   suppressGroupThreadMessage: suppressMock,
 }));
 
+vi.mock("./community-coordination-room-key-owner", () => ({
+  resolveRoomKeyHexForGroupRelayIngest: resolveRoomKeyForIngestMock,
+}));
+
 vi.mock("@/app/features/crypto/crypto-service", () => ({
   cryptoService: {
     decryptGroupMessage: vi.fn(),
@@ -43,7 +48,7 @@ vi.mock("@/app/features/crypto/crypto-service", () => ({
 
 vi.mock("@/app/features/crypto/room-key-store", () => ({
   roomKeyStore: {
-    getRoomKeyRecord: vi.fn(),
+    getRoomKeyRecord: vi.fn(async () => null),
   },
 }));
 
@@ -52,7 +57,7 @@ vi.mock("@/app/features/profiles/services/profile-runtime-scope", () => ({
 }));
 
 import { cryptoService } from "@/app/features/crypto/crypto-service";
-import { roomKeyStore } from "@/app/features/crypto/room-key-store";
+import { resolveRoomKeyHexForGroupRelayIngest } from "./community-coordination-room-key-owner";
 
 const scopedRelay = "wss://relay.team.internal";
 const groupId = "group-alpha";
@@ -77,12 +82,8 @@ describe("group-thread-relay-ingest", () => {
   beforeEach(() => {
     appendMock.mockClear();
     suppressMock.mockClear();
-    vi.mocked(roomKeyStore.getRoomKeyRecord).mockResolvedValue({
-      groupId,
-      roomKeyHex: "room-key",
-      previousKeys: [],
-      createdAt: 0,
-    });
+    resolveRoomKeyForIngestMock.mockClear();
+    resolveRoomKeyForIngestMock.mockResolvedValue("room-key");
     vi.mocked(cryptoService.decryptGroupMessage).mockResolvedValue(JSON.stringify({
       kind: 9,
       content: "hello group",
@@ -174,10 +175,18 @@ describe("group-thread-relay-ingest", () => {
         relayUrl: scopedRelay,
         conversationId,
         myPublicKeyHex: actor,
+        localPrivateKeyHex: "bb".repeat(32),
+        communityId: "community-1",
       },
     );
 
     expect(result).toEqual({ status: "persisted", eventId });
+    expect(resolveRoomKeyForIngestMock).toHaveBeenCalledWith(expect.objectContaining({
+      groupId,
+      communityId: "community-1",
+      localPubkey: actor,
+      localPrivateKeyHex: "bb".repeat(32),
+    }));
     expect(appendMock).toHaveBeenCalledWith(expect.objectContaining({
       conversationId,
       groupId,
@@ -208,6 +217,23 @@ describe("group-thread-relay-ingest", () => {
     );
 
     expect(result).toEqual({ status: "ignored", reason: "control_payload" });
+    expect(appendMock).not.toHaveBeenCalled();
+  });
+
+  it("returns decrypt_failed when ingest room-key owner misses", async () => {
+    resolveRoomKeyForIngestMock.mockResolvedValue(null);
+    const result = await ingestSealedCommunityRelayEvent(
+      createSealedChatEvent({ id: "f".repeat(64), content: "ignored-outer" }),
+      scopedRelay,
+      {
+        groupId,
+        relayUrl: scopedRelay,
+        conversationId,
+        myPublicKeyHex: actor,
+      },
+    );
+
+    expect(result).toEqual({ status: "failed", reason: "decrypt_failed" });
     expect(appendMock).not.toHaveBeenCalled();
   });
 

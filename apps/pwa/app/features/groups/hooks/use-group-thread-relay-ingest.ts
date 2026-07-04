@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import type { NostrEvent } from "@dweb/nostr/nostr-event";
+import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { toGroupConversationId } from "../utils/group-conversation-id";
@@ -21,6 +22,9 @@ export type UseGroupThreadRelayIngestParams = Readonly<{
   communityId?: string;
   communityMode?: CommunityMode;
   myPublicKeyHex: PublicKeyHex | null;
+  myPrivateKeyHex?: PrivateKeyHex | null;
+  groupIdCandidates?: ReadonlyArray<string>;
+  activeMemberPubkeys?: ReadonlyArray<PublicKeyHex>;
   enabled?: boolean;
 }>;
 
@@ -50,7 +54,10 @@ export const useGroupThreadRelayIngest = (params: UseGroupThreadRelayIngestParam
       conversationId,
       communityId: params.communityId,
       myPublicKeyHex: params.myPublicKeyHex,
+      localPrivateKeyHex: params.myPrivateKeyHex,
       profileId,
+      groupIdCandidates: params.groupIdCandidates,
+      activeMemberPubkeys: params.activeMemberPubkeys,
     } as const;
 
     const onEvent = (event: NostrEvent, url: string): void => {
@@ -82,10 +89,13 @@ export const useGroupThreadRelayIngest = (params: UseGroupThreadRelayIngestParam
       params.pool.unsubscribe(subscriptionId);
     };
   }, [
+    params.activeMemberPubkeys,
     params.communityId,
     params.communityMode,
     params.enabled,
     params.groupId,
+    params.groupIdCandidates,
+    params.myPrivateKeyHex,
     params.myPublicKeyHex,
     params.pool,
     params.relayUrl,

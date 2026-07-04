@@ -356,6 +356,13 @@ export default function GroupHomePage() {
         communityId: group?.communityId,
         communityMode: group?.communityMode,
         myPublicKeyHex: identityState.publicKeyHex || null,
+        myPrivateKeyHex: identityState.privateKeyHex || null,
+        groupIdCandidates: [
+            group?.groupId ?? "",
+            fallbackGroupIdFromRoute,
+            group?.groupId ?? id ?? "",
+        ],
+        activeMemberPubkeys: coordinationDirectoryForHealth?.activeMemberPubkeys,
         enabled: groupThreadRelayIngestEnabled && groupHomeHeavySideEffectsEnabled,
     });
     const { activeProposals: activeGovernanceProposals, activeProposalCount } = useCommunityGovernanceProjection({

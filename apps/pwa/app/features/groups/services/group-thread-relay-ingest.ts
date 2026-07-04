@@ -1,3 +1,4 @@
+import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import type { NostrEvent } from "@dweb/nostr/nostr-event";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { NostrFilter } from "@/app/features/relays/types/nostr-filter";
@@ -6,6 +7,7 @@ import { cryptoService } from "@/app/features/crypto/crypto-service";
 import { roomKeyStore } from "@/app/features/crypto/room-key-store";
 import { appendGroupThreadMessage } from "@/app/features/messaging/services/thread-history/group-thread-append";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
+import { resolveRoomKeyHexForGroupRelayIngest } from "./community-coordination-room-key-owner";
 import {
   hasCommunityBindingTag,
   isScopedRelayEvent,
@@ -24,7 +26,10 @@ export type GroupThreadRelayIngestContext = Readonly<{
   conversationId: string;
   communityId?: string;
   myPublicKeyHex: PublicKeyHex;
+  localPrivateKeyHex?: PrivateKeyHex | null;
   profileId?: string;
+  groupIdCandidates?: ReadonlyArray<string>;
+  activeMemberPubkeys?: ReadonlyArray<PublicKeyHex>;
 }>;
 
 export type GroupThreadRelayIngestResult = Readonly<
@@ -100,12 +105,11 @@ const isSealedControlPayload = (innerPayload: Record<string, unknown>): boolean 
   return typeof payloadType === "string" && payloadType.trim().length > 0;
 };
 
-const decryptSealedInnerPayload = async (
-  groupId: string,
+const decryptWithRoomKeyCandidates = async (
   encryptedContent: string,
+  roomKeyCandidates: ReadonlyArray<string>,
 ): Promise<Record<string, unknown> | null> => {
-  const record = await roomKeyStore.getRoomKeyRecord(groupId);
-  if (!record) {
+  if (roomKeyCandidates.length === 0) {
     return null;
   }
 
@@ -124,25 +128,46 @@ const decryptSealedInnerPayload = async (
     }
   };
 
-  let decryptedPayload = await tryDecrypt(record.roomKeyHex);
-  if (!decryptedPayload && record.previousKeys) {
-    for (const oldKey of record.previousKeys) {
-      decryptedPayload = await tryDecrypt(oldKey);
-      if (decryptedPayload) {
-        break;
+  for (const roomKeyHex of roomKeyCandidates) {
+    const decryptedPayload = await tryDecrypt(roomKeyHex);
+    if (!decryptedPayload) {
+      continue;
+    }
+    try {
+      const parsed = JSON.parse(decryptedPayload) as unknown;
+      if (isRecord(parsed)) {
+        return parsed;
       }
+    } catch {
+      // try next key
     }
   }
-  if (!decryptedPayload) {
-    return null;
-  }
+  return null;
+};
 
-  try {
-    const parsed = JSON.parse(decryptedPayload) as unknown;
-    return isRecord(parsed) ? parsed : null;
-  } catch {
-    return null;
-  }
+const decryptSealedInnerPayload = async (
+  context: GroupThreadRelayIngestContext,
+  encryptedContent: string,
+): Promise<Record<string, unknown> | null> => {
+  const roomKeyHex = await resolveRoomKeyHexForGroupRelayIngest({
+    groupId: context.groupId,
+    communityId: context.communityId,
+    localPubkey: context.myPublicKeyHex,
+    localPrivateKeyHex: context.localPrivateKeyHex,
+    groupIdCandidates: context.groupIdCandidates,
+    activeMemberPubkeys: context.activeMemberPubkeys,
+  });
+  const record = await roomKeyStore.getRoomKeyRecord(context.groupId);
+  const roomKeyCandidates = Array.from(new Set(
+    [
+      roomKeyHex,
+      record?.roomKeyHex,
+      ...(record?.previousKeys ?? []),
+    ]
+      .map((value) => value?.trim() ?? "")
+      .filter((value) => value.length > 0),
+  ));
+  return decryptWithRoomKeyCandidates(encryptedContent, roomKeyCandidates);
 };
 
 export const buildGroupTimelineSubscriptionFilters = (
@@ -177,7 +202,7 @@ export const ingestSealedCommunityRelayEvent = async (
     return { status: "ignored", reason: "unsupported_kind" };
   }
 
-  const innerPayload = await decryptSealedInnerPayload(context.groupId, event.content);
+  const innerPayload = await decryptSealedInnerPayload(context, event.content);
   if (!innerPayload) {
     return { status: "failed", reason: "decrypt_failed" };
   }

@@ -31,6 +31,7 @@ export const WorkspaceKernelGroupRelayIngestOwner = (): null => {
   useWorkspaceKernelJoinedGroupsRelayIngest({
     pool: relayPool,
     myPublicKeyHex: (identityState.publicKeyHex || null) as PublicKeyHex | null,
+    myPrivateKeyHex: identityState.privateKeyHex || null,
     profileId,
     displayGroups: createdGroups,
     metadataCacheEpoch,

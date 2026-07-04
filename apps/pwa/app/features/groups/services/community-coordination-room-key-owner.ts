@@ -438,6 +438,29 @@ export const resolveRoomKeyHexForMembershipHealthPanel = async (params: Readonly
   return resolved.roomKeyHex?.trim() || null;
 };
 
+/** Relay ingest decrypt — same local → coordination cascade as send/health (R5). */
+export const resolveRoomKeyHexForGroupRelayIngest = async (params: Readonly<{
+  groupId: string;
+  communityId?: string;
+  localPubkey: PublicKeyHex;
+  localPrivateKeyHex?: PrivateKeyHex | null;
+  groupIdCandidates?: ReadonlyArray<string>;
+  activeMemberPubkeys?: ReadonlyArray<PublicKeyHex>;
+  store?: RoomKeyStore;
+}>): Promise<string | null> => {
+  const groupIdCandidates = params.groupIdCandidates?.length
+    ? params.groupIdCandidates
+    : [params.groupId];
+  return resolveRoomKeyHexForMembershipHealthPanel({
+    groupIdCandidates,
+    communityId: params.communityId,
+    localPubkey: params.localPubkey,
+    localPrivateKeyHex: params.localPrivateKeyHex ?? null,
+    activeMemberPubkeys: params.activeMemberPubkeys,
+    store: params.store,
+  });
+};
+
 export const resolveRoomKeyForCommunityAction = async (params: Readonly<{
   groupId: string;
   communityId: string;

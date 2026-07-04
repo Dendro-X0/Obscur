@@ -8,10 +8,26 @@ All notable changes to Obscur are documented here.
 
 ## [Unreleased]
 
+### Fixed (Runtime repair — R5 O-4 ingest room-key owner)
+
+- **Ingest decrypt alignment** — `resolveRoomKeyHexForGroupRelayIngest` uses same local → coordination materialize path as send/health; ingest hooks pass `localPrivateKeyHex` from identity.
+- **Dev ergonomics** — `apps/pwa/app/features/groups` added to static-shell stale watch roots.
+- **Evidence:** L1 `group-thread-relay-ingest.test.ts` + `community-coordination-room-key-owner.test.ts` (26/26) · t4 pending.
+
+### Verification (R5)
+
+```bash
+pnpm -C apps/pwa exec vitest run \
+  app/features/groups/services/group-thread-relay-ingest.test.ts \
+  app/features/groups/services/community-coordination-room-key-owner.test.ts
+```
+
+CodaCtrl: full stack → Tester1 send → Tester2 background ingest without community-home visit.
+
 ### Fixed (Runtime repair — R3 sidebar preview stale)
 
 - **List-time SQLite preview hydrate (Option B)** — `hydrateGroupSidebarPreviewsFromSqlite` backfills stale group `lastMessage` from latest SQLite thread row when workspace-kernel authority is active; re-runs on `group-thread-messages-changed`.
-- **Evidence:** L1 `group-sidebar-preview-sqlite-hydrate.test.ts` (5/5) · t4 pending (`chain-r3-sidebar-preview-2026-07-04`).
+- **Evidence:** L1 `group-sidebar-preview-sqlite-hydrate.test.ts` (5/5) · t4 **PASS** `csess-264849283e3c` (static shell `--rebuild` required).
 
 ### Verification (R3)
 

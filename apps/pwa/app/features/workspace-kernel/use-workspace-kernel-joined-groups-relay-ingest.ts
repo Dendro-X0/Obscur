@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo } from "react";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
+import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import type { GroupConversation } from "@/app/features/messaging/types";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { hasWritableCommunityRelayTransport } from "@/app/features/groups/services/community-relay-transport";
@@ -42,6 +43,7 @@ const mergeIngestTargets = (
 export const useWorkspaceKernelJoinedGroupsRelayIngest = (params: Readonly<{
   pool: SealedCommunityNostrPool;
   myPublicKeyHex: PublicKeyHex | null;
+  myPrivateKeyHex?: PrivateKeyHex | null;
   profileId?: string;
   displayGroups: ReadonlyArray<GroupConversation>;
   metadataCacheEpoch?: number;
@@ -97,6 +99,7 @@ export const useWorkspaceKernelJoinedGroupsRelayIngest = (params: Readonly<{
         conversationId,
         communityId: group.communityId,
         myPublicKeyHex: params.myPublicKeyHex as PublicKeyHex,
+        localPrivateKeyHex: params.myPrivateKeyHex,
         profileId,
       }).catch(() => {
         // Best-effort background ingest for all joined workspace groups.
@@ -116,7 +119,7 @@ export const useWorkspaceKernelJoinedGroupsRelayIngest = (params: Readonly<{
         params.pool.unsubscribe(subscriptionId);
       }
     };
-  }, [enabled, ingestTargets, params.myPublicKeyHex, params.pool, profileId]);
+  }, [enabled, ingestTargets, params.myPrivateKeyHex, params.myPublicKeyHex, params.pool, profileId]);
 };
 
 export const useWorkspaceKernelJoinedGroupsRelayIngestRefresh = (

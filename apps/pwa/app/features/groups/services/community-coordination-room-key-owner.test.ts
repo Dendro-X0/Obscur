@@ -17,6 +17,7 @@ import {
   resolveNextWrapSeqForSubject,
   resolveRoomKeyForCommunityAction,
   resolveRoomKeyHexForMembershipHealthPanel,
+  resolveRoomKeyHexForGroupRelayIngest,
   publishSelfCoordinationRoomKeyWrapAfterJoin,
   publishStewardCoordinationRoomKeyWrapForMember,
   publishStewardCoordinationRoomKeyWrapsForInvitees,
@@ -474,5 +475,19 @@ describe("community-coordination-room-key-owner", () => {
     });
     expect(resolved).toBe(roomKeyHex);
     expect(await store.getRoomKey(groupId)).toBe(roomKeyHex);
+  });
+
+  it("resolveRoomKeyHexForGroupRelayIngest delegates to membership health panel owner", async () => {
+    const store = new RoomKeyStore();
+    await store.saveRoomKey(groupId, roomKeyHex);
+
+    const resolved = await resolveRoomKeyHexForGroupRelayIngest({
+      groupId,
+      communityId,
+      localPubkey: actorPub as PublicKeyHex,
+      localPrivateKeyHex: actorPriv,
+      store,
+    });
+    expect(resolved).toBe(roomKeyHex);
   });
 });

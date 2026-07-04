@@ -14,12 +14,12 @@ _Last updated: 2026-07-04 · Version train: **1.9.10** · **Runtime repair band 
 | **v2 documentation (Phase 2)** | **EXIT** 2026-07-04 |
 | **v2 installers (Phase 3)** | **EXIT** 2026-07-04 — [release-assets/manifest.json](../release-assets/manifest.json) |
 | **v2 website (Phase 4)** | **Code done** · **deploy PAUSED** until runtime band exits |
-| **Runtime repair band** | **ACTIVE** — R1 **VERIFIED t4** · **R2 next** |
+| **Runtime repair band** | **ACTIVE** — R1–R3 **landed** · **R5 next** |
 | **Release prep (Phase 5–6)** | **PAUSED** — no `v2.0.0` tag, no public website until runtime rows exit |
 | **Engine lab (B0–B5, Conduit Mesh C0–C6)** | **Landed** — `pnpm verify:engine-lab` (parallel, does not unblock release alone) |
 | **Community feature patches** | **PAUSED** — COM-RUN-01 accepted @ ACC-02 |
 
-**Next step:** [handoffs/current-session.md](./handoffs/current-session.md) → **R2** (`auth-keychain-restore-failed` / cold unlock)
+**Next step:** [handoffs/current-session.md](./handoffs/current-session.md) → **R5** (`O-4 ingest chrome` / `group-thread-relay-ingest` residual)
 
 ---
 
@@ -27,11 +27,11 @@ _Last updated: 2026-07-04 · Version train: **1.9.10** · **Runtime repair band 
 
 | Priority | ID | Status |
 |----------|-----|--------|
-| R1 | `group-room-key-missing` | **VERIFIED t4** — `chain-r1-room-key-health-2026-07-04` · round `2026-07-04-r1-room-key-health-t4` |
-| **R2** | `auth-keychain-restore-failed` / cold unlock | **NEXT** — password unlock fails; Import Key workaround |
-| R3 | Sidebar preview stale | Open — “No messages yet” while thread hydrated |
-| R4 | COM-RUN-01 roster divergence | **Accepted @ ACC-02** — reopen only with integration-study charter |
-| R5 | O-4 ingest chrome | Open — partial overlap with R1 |
+| R1 | `group-room-key-missing` | **VERIFIED t4** — `chain-r1-room-key-health-2026-07-04` |
+| R2 | `auth-keychain-restore-failed` / cold unlock | **VERIFIED t4** — `1ab19204` |
+| R3 | Sidebar preview stale | **VERIFIED t4** (`csess-264849283e3c` · `3cf79dbe`) |
+| R4 | COM-RUN-01 roster divergence | **A** @ ACC-02 |
+| **R5** | O-4 ingest chrome | **IMPLEMENTED** · t4 next |
 
 Protocol: [program/obscur-runtime-issue-tracker-2026-07.md](./program/obscur-runtime-issue-tracker-2026-07.md) · CodaCtrl export `.codactrl/verify/issue-report/`
 
