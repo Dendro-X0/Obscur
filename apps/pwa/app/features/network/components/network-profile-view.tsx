@@ -1,25 +1,10 @@
 "use client";
-
 import React from "react";
 import { motion } from "framer-motion";
 import Image from "next/image";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useTranslation } from "react-i18next";
-import {
-    ChevronLeft,
-    MessageSquare,
-    Ban,
-    UserMinus,
-    Shield,
-    Share2,
-    CheckCircle2,
-    Plus,
-    UserPlus,
-    Loader2,
-    Clock,
-    PhoneCall,
-    Radio,
-} from "lucide-react";
+import { ChevronLeft, MessageSquare, Ban, UserMinus, Shield, Share2, CheckCircle2, Plus, UserPlus, Loader2, Clock, PhoneCall, Radio, } from "lucide-react";
 import { useNetwork } from "@/app/features/network/providers/network-provider";
 import { Button } from "@dweb/ui-kit";
 import { Card } from "@dweb/ui-kit";
@@ -47,26 +32,17 @@ import { createDmConversation } from "@/app/features/messaging/utils/create-dm-c
 import { upsertDmConversationInList } from "@/app/features/messaging/utils/dm-conversation-list-merge";
 import { publishDmNostrEvent } from "@/app/features/messaging/services/publish-dm-nostr-event";
 import { getPublicProfileHref, toAbsoluteAppUrl } from "@/app/features/navigation/public-routes";
-import {
-    ManagementControlCard,
-    ManagementControlRow,
-    ManagementSectionHeader,
-} from "@/app/components/ui/management-control-row";
+import { ManagementControlCard, ManagementControlRow, ManagementSectionHeader, } from "@/app/components/ui/management-control-row";
 import { requestFlowEvidenceStore } from "@/app/features/messaging/services/request-flow-evidence-store";
 import { deriveRequestProjection } from "@/app/features/messaging/services/request-status-projection";
 import { writePendingVoiceCallRequest } from "@/app/features/messaging/services/realtime-voice-pending-request";
-import {
-    buildInvitationRequestMessage,
-    DEFAULT_INVITATION_INTRO,
-    type InvitationComposerValues,
-} from "@/app/features/messaging/services/invitation-composer";
+import { buildInvitationRequestMessage, DEFAULT_INVITATION_INTRO, type InvitationComposerValues, } from "@/app/features/messaging/services/invitation-composer";
 import { getDirectInvitationToastCopy } from "@/app/features/messaging/services/invitation-presentation";
 import { formatPublicKeyPreview } from "@/app/features/invites/utils/utils";
 import { useMobileCompactLayout } from "@/app/features/runtime/use-mobile-compact-layout";
-
+import { ContactProfileTrustNotice } from "./contact-profile-trust-notice";
 const PRIVATE_CONTACT_LABEL = "Unknown contact";
 const PRIVATE_CONTACT_HANDLE = "@unknown";
-
 export default function ConnectionProfileView() {
     const { pubkey } = useParams();
     const searchParams = useSearchParams();
@@ -77,7 +53,6 @@ export default function ConnectionProfileView() {
     const { createdConnections, setSelectedConversation, setCreatedConnections } = useMessaging();
     const { relayPool, enabledRelayUrls } = useRelay();
     const identity = useIdentity();
-
     const [isRemoveDialogOpen, setIsRemoveDialogOpen] = React.useState(false);
     const [isBlockDialogOpen, setIsBlockDialogOpen] = React.useState(false);
     const [isInviteDialogOpen, setIsInviteDialogOpen] = React.useState(false);
@@ -85,28 +60,24 @@ export default function ConnectionProfileView() {
     const [requestIntroText, setRequestIntroText] = React.useState(DEFAULT_INVITATION_INTRO);
     const [requestNoteText, setRequestNoteText] = React.useState("");
     const [requestSecretCode, setRequestSecretCode] = React.useState("");
-
     const myPublicKeyHex = identity.state.publicKeyHex || null;
     const myPrivateKeyHex = identity.state.privateKeyHex || null;
-
     const requestTransport = useNetworkRequestTransport();
-
     const queryPubkey = searchParams.get("pubkey");
     const pk = (Array.isArray(pubkey) ? pubkey[0] : pubkey) || queryPubkey || "";
     const metadata = useResolvedProfileMetadata(pk);
     const isDeletedContact = metadata?.isDeleted === true;
     const isCurrentAccountProfile = Boolean(myPublicKeyHex && pk && myPublicKeyHex === pk);
-
     React.useEffect(() => {
         if (!isCurrentAccountProfile) {
             return;
         }
         router.replace("/settings#profile");
     }, [isCurrentAccountProfile, router]);
-
-    if (!pk) return null;
-    if (isCurrentAccountProfile) return null;
-
+    if (!pk)
+        return null;
+    if (isCurrentAccountProfile)
+        return null;
     const isTrusted = peerTrust?.state?.acceptedPeers?.includes(pk as PublicKeyHex) ?? false;
     const isBlocked = blocklist?.state?.blockedPublicKeys?.includes(pk as PublicKeyHex) ?? false;
     const isPeerOnline = presence.isPeerOnline(pk as PublicKeyHex);
@@ -116,11 +87,9 @@ export default function ConnectionProfileView() {
         evidence: requestFlowEvidenceStore.get(pk, getResolvedProfileId()),
     });
     const connection = createdConnections.find(c => c.kind === 'dm' && c.pubkey === pk);
-
     const resolvedName = metadata?.displayName || connection?.displayName || PRIVATE_CONTACT_LABEL;
     const displayHandle = resolvedName ? `@${resolvedName}` : PRIVATE_CONTACT_HANDLE;
     const publicProfileUrl = toAbsoluteAppUrl(getPublicProfileHref(pk));
-
     const handleShareProfile = async () => {
         try {
             if (navigator.share) {
@@ -129,91 +98,83 @@ export default function ConnectionProfileView() {
                     text: `${resolvedName} on Obscur`,
                     url: publicProfileUrl,
                 });
-            } else {
-                await navigator.clipboard.writeText(publicProfileUrl);
-                toast.success(t("network.notifications.copied", "Profile link copied"));
             }
-        } catch (error) {
+            else {
+                await navigator.clipboard.writeText(publicProfileUrl);
+                toast.success(t("network.notifications.copied"));
+            }
+        }
+        catch (error) {
             if (error instanceof DOMException && error.name === "AbortError") {
                 return;
             }
-            toast.error(t("network.notifications.shareFailed", "Could not share profile"));
+            toast.error(t("network.notifications.shareFailed"));
         }
     };
-
     const handleConnect = () => {
         if (requestProjection.state === "accepted") {
-            toast.warning(t("network.notifications.alreadyConnected", "You are already connected to this user."));
+            toast.warning(t("network.notifications.alreadyConnected"));
             return;
         }
         if (requestProjection.state === "incoming_pending") {
-            toast.warning(t("network.notifications.alreadyPending", "This user has already sent you a pending request."));
+            toast.warning(t("network.notifications.alreadyPending"));
             return;
         }
         setIsConnectDialogOpen(true);
     };
-
     const primaryActionLabel = isDeletedContact
-        ? t("network.actions.openChat", "Open Chat")
+        ? t("network.actions.openChat")
         : isTrusted
-        ? t("network.actions.message", "Message")
-        : requestProjection.state === "recipient_seen"
-            ? t("network.actions.resend", "Resend Invitation")
-            : requestProjection.state === "sent_waiting" || requestProjection.state === "retry_available" || requestProjection.state === "rejected"
-                    ? t("network.actions.resend", "Resend Invitation")
-                    : t("network.actions.connect", "Connect");
-
+            ? t("network.actions.message")
+            : requestProjection.state === "recipient_seen"
+                ? t("network.actions.resend")
+                : requestProjection.state === "sent_waiting" || requestProjection.state === "retry_available" || requestProjection.state === "rejected"
+                    ? t("network.actions.resend")
+                    : t("network.actions.connect");
     const primaryActionIcon = (isTrusted || isDeletedContact)
-        ? <MessageSquare className="h-6 w-6" />
-        : <UserPlus className="h-6 w-6" />;
-
+        ? <MessageSquare className="h-6 w-6"/>
+        : <UserPlus className="h-6 w-6"/>;
     const connectionStatusTitle = isDeletedContact
         ? "Account removed"
         : isTrusted
-        ? (isPeerOnline ? "Trusted connection - online" : "Trusted connection - offline")
-        : requestProjection.state === "recipient_seen"
-            ? "Recipient saw prior invitation"
-            : requestProjection.state === "sent_waiting"
-                ? "Sent, awaiting confirmation"
-                : requestProjection.state === "retry_available"
-                    ? "Retry available"
-                    : isBlocked
-                        ? "Blocked"
-                        : "Not connected yet";
-
+            ? (isPeerOnline ? "Trusted connection - online" : "Trusted connection - offline")
+            : requestProjection.state === "recipient_seen"
+                ? "Recipient saw prior invitation"
+                : requestProjection.state === "sent_waiting"
+                    ? "Sent, awaiting confirmation"
+                    : requestProjection.state === "retry_available"
+                        ? "Retry available"
+                        : isBlocked
+                            ? "Blocked"
+                            : "Not connected yet";
     const connectionStatusBody = isDeletedContact
         ? "This contact deleted their account. You can still browse local chat history, but new messages and calls cannot be delivered."
         : isTrusted
-        ? (isPeerOnline
-            ? "This trusted contact is currently online."
-            : "This trusted contact is currently offline. You can still message and invite them.")
-        : requestProjection.state === "recipient_seen"
-            ? "A prior invitation reached the recipient side. You can send a fresh invitation if the connection did not continue."
-            : requestProjection.state === "sent_waiting"
-                ? "Obscur published your invitation, but there is no proof the recipient has seen it yet."
-                : requestProjection.state === "retry_available"
-                    ? "No recipient evidence arrived in time. You can resend the invitation."
-                    : isBlocked
-                        ? "This profile is blocked on this device."
-                        : "You can review their public profile and send an invitation when you are ready.";
-
-
+            ? (isPeerOnline
+                ? "This trusted contact is currently online."
+                : "This trusted contact is currently offline. You can still message and invite them.")
+            : requestProjection.state === "recipient_seen"
+                ? "A prior invitation reached the recipient side. You can send a fresh invitation if the connection did not continue."
+                : requestProjection.state === "sent_waiting"
+                    ? "Obscur published your invitation, but there is no proof the recipient has seen it yet."
+                    : requestProjection.state === "retry_available"
+                        ? "No recipient evidence arrived in time. You can resend the invitation."
+                        : isBlocked
+                            ? "This profile is blocked on this device."
+                            : "You can review their public profile and send an invitation when you are ready.";
     const handleInvitationDialogSubmit = async (values: InvitationComposerValues): Promise<boolean> => {
         setRequestIntroText(values.intro);
         setRequestNoteText(values.note);
         setRequestSecretCode(values.secretCode);
-
         try {
             const result = await requestTransport.sendRequest({
                 peerPublicKeyHex: pk as PublicKeyHex,
                 introMessage: buildInvitationRequestMessage(values)
             });
-
             if (result.status === "ok") {
                 toast.success(getDirectInvitationToastCopy("ok").message);
                 return true;
             }
-
             if (result.status === "partial") {
                 toast.warning(getDirectInvitationToastCopy("partial", {
                     relaySuccessCount: result.relaySuccessCount,
@@ -221,28 +182,26 @@ export default function ConnectionProfileView() {
                 }).message);
                 return true;
             }
-
             if (result.status === "queued") {
                 toast.warning(getDirectInvitationToastCopy("queued", {
                     message: result.message,
                 }).message);
                 return true;
             }
-
             toast.error(getDirectInvitationToastCopy(result.status, {
-                message: result.message || t("network.notifications.requestFailed", "Failed to send connection request"),
+                message: result.message || t("network.notifications.requestFailed"),
             }).message);
             return false;
-        } catch (error) {
+        }
+        catch (error) {
             console.error("Failed to send connection request:", error);
             const message = error instanceof Error
                 ? error.message
-                : t("network.notifications.requestFailed", "Failed to send connection request");
+                : t("network.notifications.requestFailed");
             toast.error(getDirectInvitationToastCopy("failed", { message }).message);
             return false;
         }
     };
-
     const openChatWithProfile = (): DmConversation | null => {
         const myPk = identity.state.publicKeyHex || "";
         const cid = toDmConversationId({ myPublicKeyHex: myPk, peerPublicKeyHex: pk });
@@ -251,7 +210,6 @@ export default function ConnectionProfileView() {
             return null;
         }
         const existing = createdConnections.find(c => c.id === cid);
-
         if (existing) {
             setSelectedConversation(existing);
             return existing;
@@ -269,7 +227,6 @@ export default function ConnectionProfileView() {
         setSelectedConversation(newConv);
         return newConv;
     };
-
     const handleMessage = () => {
         const opened = openChatWithProfile();
         if (!opened) {
@@ -277,14 +234,13 @@ export default function ConnectionProfileView() {
         }
         router.push("/");
     };
-
     const handleVoiceCall = () => {
         if (isDeletedContact) {
             toast.warning("This account has been removed. Voice calls are unavailable.");
             return;
         }
         if (!isTrusted) {
-            toast.warning(t("network.notifications.alreadyPending", "You can place a voice call after a trusted connection is established."));
+            toast.warning(t("network.notifications.alreadyPending"));
             return;
         }
         const opened = openChatWithProfile();
@@ -297,52 +253,49 @@ export default function ConnectionProfileView() {
         });
         router.push("/");
     };
-
     const handleToggleBlock = () => {
         if (isBlocked) {
             blocklist.removeBlocked({ publicKeyHex: pk as PublicKeyHex });
-            toast.success(t("network.notifications.unblocked", "User unblocked"));
-        } else {
+            toast.success(t("network.notifications.unblocked"));
+        }
+        else {
             setIsBlockDialogOpen(true);
         }
     };
-
     const confirmBlock = () => {
         blocklist.addBlocked({ publicKeyInput: pk });
         setIsBlockDialogOpen(false);
-        toast.success(t("network.notifications.blocked", "User blocked"));
+        toast.success(t("network.notifications.blocked"));
     };
-
     const handleRemoveConnection = () => {
         setIsRemoveDialogOpen(true);
     };
-
     const confirmRemove = () => {
         peerTrust.unacceptPeer({ publicKeyHex: pk as PublicKeyHex });
         requestsInbox.remove({ peerPublicKeyHex: pk as PublicKeyHex });
         setIsRemoveDialogOpen(false);
-        toast.success(t("network.notifications.removed", "Connection removed"));
+        toast.success(t("network.notifications.removed"));
         router.push("/network");
     };
-
-    const handleInviteToGroup = async (params: Readonly<{ group: GroupConversation; memberCount: number }>) => {
+    const handleInviteToGroup = async (params: Readonly<{
+        group: GroupConversation;
+        memberCount: number;
+    }>) => {
         const { group, memberCount } = params;
         if (isDeletedContact) {
             toast.warning("This account has been removed. Group invitations are unavailable.");
             return;
         }
         if (!myPublicKeyHex || !myPrivateKeyHex) {
-            toast.error(t("network.notifications.identityError", "Identity not found"));
+            toast.error(t("network.notifications.identityError"));
             return;
         }
-
         try {
             const roomKeyHex = await roomKeyStore.getRoomKey(group.groupId);
             if (!roomKeyHex) {
-                toast.error(t("network.notifications.noRoomKey", "Missing group secret key"));
+                toast.error(t("network.notifications.noRoomKey"));
                 return;
             }
-
             const groupService = new GroupService(myPublicKeyHex, myPrivateKeyHex as any);
             const metadata: GroupMetadata = {
                 id: group.id,
@@ -352,27 +305,17 @@ export default function ConnectionProfileView() {
                 access: group.access,
                 ...(group.access === "open" ? { memberCount } : {}),
             };
-
-            const { giftWrapEvent, canonicalRumorEventId } = await inviteEventBuilder(
-                groupService,
-                group,
-                roomKeyHex,
-                metadata,
-                pk as PublicKeyHex,
-            );
-
+            const { giftWrapEvent, canonicalRumorEventId } = await inviteEventBuilder(groupService, group, roomKeyHex, metadata, pk as PublicKeyHex);
             const publishResult = await publishDmNostrEvent(relayPool, enabledRelayUrls, giftWrapEvent);
             const dmPublishOk = publishResult.success;
             if (!dmPublishOk) {
                 toast.error("Invitation could not reach any DM relay. Saved locally; it will still appear in chat as pending.");
             }
-
             const conversationId = toDmConversationId({ myPublicKeyHex, peerPublicKeyHex: pk });
             if (!conversationId) {
                 toast.error("Cannot send invite due to invalid identity state.");
                 return;
             }
-
             const inviteMessage: Message = buildOutgoingCommunityInviteDmMessage({
                 giftWrapEventId: giftWrapEvent.id,
                 canonicalRumorEventId,
@@ -387,49 +330,37 @@ export default function ConnectionProfileView() {
                 genesisEventId: group.genesisEventId,
                 creatorPubkey: group.creatorPubkey,
             });
-
             const canonicalInvite = await commitOutgoingCommunityInviteDm({
                 inviteMessage,
                 accountPublicKeyHex: myPublicKeyHex,
                 profileId: getResolvedProfileId(),
             });
-
             const openedConversation = createDmConversation({
                 myPublicKeyHex,
                 peerPublicKeyHex: pk as PublicKeyHex,
                 displayName: resolvedName || PRIVATE_CONTACT_LABEL,
             });
             if (openedConversation) {
-                setCreatedConnections((previous) => upsertDmConversationInList(
-                    previous,
-                    {
-                        ...openedConversation,
-                        lastMessage: "Community invitation",
-                        lastMessageTime: canonicalInvite.timestamp,
-                    },
-                ));
+                setCreatedConnections((previous) => upsertDmConversationInList(previous, {
+                    ...openedConversation,
+                    lastMessage: "Community invitation",
+                    lastMessageTime: canonicalInvite.timestamp,
+                }));
             }
-
             setIsInviteDialogOpen(false);
             if (dmPublishOk) {
-                toast.success(t("network.notifications.invited", "Invitation sent to {{name}}", { name: resolvedName }));
+                toast.success(t("network.notifications.invited", { name: resolvedName }));
             }
-        } catch (error) {
+        }
+        catch (error) {
             console.error("Failed to send invite:", error);
-            toast.error(t("network.notifications.inviteFailed", "Failed to send invitation"));
+            toast.error(t("network.notifications.inviteFailed"));
         }
     };
-
     /**
      * Helper to build the invite event safely.
      */
-    const inviteEventBuilder = async (
-        service: GroupService,
-        group: GroupConversation,
-        roomKeyHex: string,
-        metadata: GroupMetadata,
-        recipient: PublicKeyHex,
-    ) => service.distributeRoomKey({
+    const inviteEventBuilder = async (service: GroupService, group: GroupConversation, roomKeyHex: string, metadata: GroupMetadata, recipient: PublicKeyHex) => service.distributeRoomKey({
         recipientPubkey: recipient,
         groupId: group.groupId,
         roomKeyHex,
@@ -439,417 +370,211 @@ export default function ConnectionProfileView() {
         genesisEventId: group.genesisEventId,
         creatorPubkey: group.creatorPubkey,
     });
-
-    return (
-        <div className="flex h-full min-h-0 flex-col overflow-y-auto bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.12),_transparent_34%),linear-gradient(180deg,rgba(248,250,252,0.96),rgba(241,245,249,1))] text-zinc-900 dark:bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.14),_transparent_36%),linear-gradient(180deg,rgba(3,7,18,0.96),rgba(3,7,18,1))] dark:text-zinc-100">
+    return (<div className="flex h-full min-h-0 flex-col overflow-y-auto bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.12),_transparent_34%),linear-gradient(180deg,rgba(248,250,252,0.96),rgba(241,245,249,1))] text-zinc-900 dark:bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.14),_transparent_36%),linear-gradient(180deg,rgba(3,7,18,0.96),rgba(3,7,18,1))] dark:text-zinc-100">
             {/* Header */}
             <div className={cn("sticky top-0 z-50 flex items-center justify-between border-b border-zinc-200/70 bg-background/80 backdrop-blur-xl dark:border-white/10 dark:bg-zinc-950/60", compact ? "p-3" : "p-4")}>
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => router.back()}
-                    className="rounded-full"
-                >
-                    <ChevronLeft className="h-6 w-6" />
+                <Button variant="ghost" size="icon" onClick={() => router.back()} className="rounded-full">
+                    <ChevronLeft className="h-6 w-6"/>
                 </Button>
                 <h1 className="text-sm font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
-                    {t("network.profileTitle", "Public Profile")}
+                    {t("network.profileTitle")}
                 </h1>
                 <Button variant="ghost" size="icon" className="rounded-full" onClick={handleShareProfile}>
-                    <Share2 className="h-5 w-5" />
+                    <Share2 className="h-5 w-5"/>
                 </Button>
             </div>
 
-            <main className={cn(
-                "mx-auto flex w-full max-w-4xl flex-col animate-in fade-in slide-in-from-bottom-4 duration-700",
-                compact ? "gap-4 p-3 pb-28 pt-4" : "gap-8 p-4 pb-32 pt-8 sm:p-6 md:pb-10",
-            )}>
+            <main className={cn("mx-auto flex w-full max-w-4xl flex-col animate-in fade-in slide-in-from-bottom-4 duration-700", compact ? "gap-4 p-3 pb-28 pt-4" : "gap-8 p-4 pb-32 pt-8 sm:p-6 md:pb-10")}>
                 <div className="relative group/hero">
-                    {!compact ? (
-                        <>
-                            <div className="pointer-events-none absolute -left-[10%] -top-[18%] h-[42%] w-[42%] rounded-full bg-indigo-600/10 blur-[120px]" />
-                            <div className="pointer-events-none absolute -bottom-[16%] -right-[8%] h-[36%] w-[36%] rounded-full bg-cyan-500/10 blur-[120px]" />
-                        </>
-                    ) : null}
+                    {!compact ? (<>
+                            <div className="pointer-events-none absolute -left-[10%] -top-[18%] h-[42%] w-[42%] rounded-full bg-indigo-600/10 blur-[120px]"/>
+                            <div className="pointer-events-none absolute -bottom-[16%] -right-[8%] h-[36%] w-[36%] rounded-full bg-cyan-500/10 blur-[120px]"/>
+                        </>) : null}
 
-                    <Card className={cn(
-                        "relative overflow-hidden border border-zinc-200/70 bg-white/88 backdrop-blur-2xl dark:border-white/10 dark:bg-[#07101f]/88",
-                        compact
-                            ? "rounded-2xl p-5 shadow-sm"
-                            : "rounded-[40px] p-8 shadow-[0_30px_100px_rgba(15,23,42,0.12)] sm:p-10",
-                    )}>
-                        {!compact ? (
-                            <div className="absolute inset-0 z-0 scale-110 overflow-hidden opacity-[0.08] pointer-events-none">
-                                {metadata?.avatarUrl ? (
-                                    <Image src={metadata.avatarUrl} alt="" fill className="object-cover blur-3xl" unoptimized />
-                                ) : (
-                                    <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/20 to-cyan-500/10 blur-3xl" />
-                                )}
-                            </div>
-                        ) : null}
+                    <Card className={cn("relative overflow-hidden border border-zinc-200/70 bg-white/88 backdrop-blur-2xl dark:border-white/10 dark:bg-[#07101f]/88", compact
+            ? "rounded-2xl p-5 shadow-sm"
+            : "rounded-[40px] p-8 shadow-[0_30px_100px_rgba(15,23,42,0.12)] sm:p-10")}>
+                        {!compact ? (<div className="absolute inset-0 z-0 scale-110 overflow-hidden opacity-[0.08] pointer-events-none">
+                                {metadata?.avatarUrl ? (<Image src={metadata.avatarUrl} alt="" fill className="object-cover blur-3xl" unoptimized/>) : (<div className="absolute inset-0 bg-gradient-to-br from-indigo-500/20 to-cyan-500/10 blur-3xl"/>)}
+                            </div>) : null}
 
                         <div className={cn("relative z-10 flex flex-col items-center", compact ? "gap-4" : "gap-8")}>
-                            <motion.div
-                                initial={{ scale: 0.8, opacity: 0 }}
-                                animate={{ scale: 1, opacity: 1 }}
-                                transition={{ duration: 0.6, ease: "easeOut" }}
-                                className={cn(
-                                    "relative bg-gradient-to-br from-indigo-500/25 to-cyan-500/20 p-1.5 shadow-2xl",
-                                    compact ? "rounded-2xl" : "rounded-[42px]",
-                                )}
-                            >
-                                <div className={cn(
-                                    "relative overflow-hidden border-[5px] border-white bg-slate-100 dark:border-[#07101f] dark:bg-[#101827]",
-                                    compact ? "h-24 w-24 rounded-xl" : "h-36 w-36 rounded-[36px] sm:h-40 sm:w-40",
-                                )}>
-                                    {metadata?.avatarUrl ? (
-                                        <Image
-                                            src={metadata.avatarUrl}
-                                            alt={resolvedName}
-                                            fill
-                                            className="object-cover"
-                                            unoptimized
-                                        />
-                                    ) : (
-                                        <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-indigo-500/20 to-cyan-500/10 dark:from-indigo-900/40 dark:to-black">
+                            <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 0.6, ease: "easeOut" }} className={cn("relative bg-gradient-to-br from-indigo-500/25 to-cyan-500/20 p-1.5 shadow-2xl", compact ? "rounded-2xl" : "rounded-[42px]")}>
+                                <div className={cn("relative overflow-hidden border-[5px] border-white bg-slate-100 dark:border-[#07101f] dark:bg-[#101827]", compact ? "h-24 w-24 rounded-xl" : "h-36 w-36 rounded-[36px] sm:h-40 sm:w-40")}>
+                                    {metadata?.avatarUrl ? (<Image src={metadata.avatarUrl} alt={resolvedName} fill className="object-cover" unoptimized/>) : (<div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-indigo-500/20 to-cyan-500/10 dark:from-indigo-900/40 dark:to-black">
                                             <span className="text-6xl font-black text-zinc-900/80 dark:text-white/90">
                                                 {resolvedName.slice(0, 1).toUpperCase()}
                                             </span>
-                                        </div>
-                                    )}
+                                        </div>)}
                                 </div>
 
-                                {isTrusted && (
-                                    <div className="absolute -bottom-2 -right-2 flex h-11 w-11 items-center justify-center rounded-2xl border-[5px] border-white bg-emerald-500 shadow-xl dark:border-[#07101f]">
-                                        <CheckCircle2 className="h-6 w-6 text-white" />
-                                    </div>
-                                )}
-                                {isBlocked && (
-                                    <div className="absolute -bottom-2 -right-2 flex h-11 w-11 items-center justify-center rounded-2xl border-[5px] border-white bg-red-500 shadow-xl dark:border-[#07101f]">
-                                        <Ban className="h-6 w-6 text-white" />
-                                    </div>
-                                )}
+                                {isTrusted && (<div className="absolute -bottom-2 -right-2 flex h-11 w-11 items-center justify-center rounded-2xl border-[5px] border-white bg-emerald-500 shadow-xl dark:border-[#07101f]">
+                                        <CheckCircle2 className="h-6 w-6 text-white"/>
+                                    </div>)}
+                                {isBlocked && (<div className="absolute -bottom-2 -right-2 flex h-11 w-11 items-center justify-center rounded-2xl border-[5px] border-white bg-red-500 shadow-xl dark:border-[#07101f]">
+                                        <Ban className="h-6 w-6 text-white"/>
+                                    </div>)}
                             </motion.div>
 
                             <div className={cn("space-y-4 text-center", compact && "space-y-2")}>
-                                <motion.h2
-                                    initial={{ y: 20, opacity: 0 }}
-                                    animate={{ y: 0, opacity: 1 }}
-                                    transition={{ delay: 0.2 }}
-                                    className={cn(
-                                        "font-black tracking-tight text-zinc-950 dark:text-white",
-                                        compact ? "text-2xl" : "text-3xl sm:text-5xl",
-                                    )}
-                                >
+                                <motion.h2 initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.2 }} className={cn("font-black tracking-tight text-zinc-950 dark:text-white", compact ? "text-2xl" : "text-3xl sm:text-5xl")}>
                                     {resolvedName}
                                 </motion.h2>
                                 <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">{displayHandle}</p>
-                                {metadata?.about ? (
-                                    <p className={cn(
-                                        "mx-auto max-w-2xl leading-relaxed text-zinc-600 dark:text-zinc-300",
-                                        compact ? "text-xs line-clamp-3" : "text-sm",
-                                    )}>
+                                {metadata?.about ? (<p className={cn("mx-auto max-w-2xl leading-relaxed text-zinc-600 dark:text-zinc-300", compact ? "text-xs line-clamp-3" : "text-sm")}>
                                         {metadata.about}
-                                    </p>
-                                ) : !compact ? (
-                                    <p className="mx-auto max-w-xl text-sm leading-relaxed text-zinc-500 dark:text-zinc-400">
+                                    </p>) : !compact ? (<p className="mx-auto max-w-xl text-sm leading-relaxed text-zinc-500 dark:text-zinc-400">
                                         This is a public contact profile. You can review their public information before deciding whether to connect.
-                                    </p>
-                                ) : null}
+                                    </p>) : null}
 
-                                <motion.div
-                                    initial={{ scale: 0.9, opacity: 0 }}
-                                    animate={{ scale: 1, opacity: 1 }}
-                                    transition={{ delay: 0.4 }}
-                                    className="flex flex-wrap items-center justify-center gap-3"
-                                >
-                                    {isDeletedContact ? (
-                                        <div className="flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-4 py-1.5 text-xs font-black uppercase tracking-widest text-amber-700 dark:text-amber-300">
-                                            <UserMinus className="h-3.5 w-3.5" />
+                                <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.4 }} className="flex flex-wrap items-center justify-center gap-3">
+                                    {isDeletedContact ? (<div className="flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-4 py-1.5 text-xs font-black uppercase tracking-widest text-amber-700 dark:text-amber-300">
+                                            <UserMinus className="h-3.5 w-3.5"/>
                                             Account Removed
-                                        </div>
-                                    ) : null}
-                                    {isTrusted ? (
-                                        <>
+                                        </div>) : null}
+                                    {isTrusted ? (<>
                                             <div className="flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-4 py-1.5 text-xs font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-300">
-                                                <Shield className="h-3.5 w-3.5" />
+                                                <Shield className="h-3.5 w-3.5"/>
                                                 Trusted Connection
                                             </div>
-                                            <div className={cn(
-                                                "flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-black uppercase tracking-widest",
-                                                isPeerOnline
-                                                    ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-                                                    : "border-zinc-300 bg-zinc-100 text-zinc-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-400",
-                                            )}>
-                                                <span className={cn(
-                                                    "h-2 w-2 rounded-full",
-                                                    isPeerOnline ? "bg-emerald-500" : "bg-zinc-400 dark:bg-zinc-600",
-                                                )} />
-                                                {isPeerOnline ? t("network.online", "Online") : t("network.offline", "Offline")}
+                                            <div className={cn("flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-black uppercase tracking-widest", isPeerOnline
+                ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                : "border-zinc-300 bg-zinc-100 text-zinc-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-400")}>
+                                                <span className={cn("h-2 w-2 rounded-full", isPeerOnline ? "bg-emerald-500" : "bg-zinc-400 dark:bg-zinc-600")}/>
+                                                {isPeerOnline ? t("network.online") : t("network.offline")}
                                             </div>
-                                        </>
-                                    ) : (
-                                        <div className="flex flex-col items-center gap-2">
+                                        </>) : (<div className="flex flex-col items-center gap-2">
                                             <div className="flex items-center gap-2 rounded-full border border-zinc-200/70 bg-zinc-950/[0.03] px-4 py-1.5 text-xs font-black uppercase tracking-widest text-zinc-500 dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-400">
                                                 Stranger
                                             </div>
-                                            {!compact ? (
-                                                <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-500">
+                                            {!compact ? (<p className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-500">
                                                     Public profile only until a connection is accepted
-                                                </p>
-                                            ) : null}
-                                        </div>
-                                    )}
-                                    {metadata?.nip05 && (
-                                        <div className="rounded-full border border-zinc-200/70 bg-white/70 px-4 py-1.5 text-xs font-black uppercase tracking-widest text-zinc-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-300">
+                                                </p>) : null}
+                                        </div>)}
+                                    {metadata?.nip05 && (<div className="rounded-full border border-zinc-200/70 bg-white/70 px-4 py-1.5 text-xs font-black uppercase tracking-widest text-zinc-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-300">
                                             {metadata.nip05}
-                                        </div>
-                                    )}
+                                        </div>)}
                                 </motion.div>
                             </div>
 
-                            <div className={cn(
-                                "flex w-full items-center justify-center pt-2",
-                                compact ? "flex-col gap-2" : "flex-wrap gap-4 pt-4",
-                            )}>
-                                <Button
-                                    onClick={(isTrusted || isDeletedContact) ? handleMessage : handleConnect}
-                                    disabled={!isDeletedContact && !isTrusted && (requestProjection.state === "accepted" || requestProjection.state === "incoming_pending")}
-                                    className={cn(
-                                        "gap-2 rounded-xl bg-indigo-600 font-black text-white shadow-[0_18px_40px_rgba(79,70,229,0.26)] transition-all hover:bg-indigo-500 active:scale-95",
-                                        compact ? "h-11 w-full px-4 text-sm" : "h-14 gap-3 rounded-2xl px-8 text-base hover:scale-[1.02]",
-                                    )}
-                                >
+                            <div className={cn("flex w-full items-center justify-center pt-2", compact ? "flex-col gap-2" : "flex-wrap gap-4 pt-4")}>
+                                <Button onClick={(isTrusted || isDeletedContact) ? handleMessage : handleConnect} disabled={!isDeletedContact && !isTrusted && (requestProjection.state === "accepted" || requestProjection.state === "incoming_pending")} className={cn("gap-2 rounded-xl bg-indigo-600 font-black text-white shadow-[0_18px_40px_rgba(79,70,229,0.26)] transition-all hover:bg-indigo-500 active:scale-95", compact ? "h-11 w-full px-4 text-sm" : "h-14 gap-3 rounded-2xl px-8 text-base hover:scale-[1.02]")}>
                                     {compact ? null : primaryActionIcon}
                                     {primaryActionLabel}
                                 </Button>
 
-                                {isTrusted && !isDeletedContact ? (
-                                    compact ? (
-                                        <div className="grid w-full grid-cols-2 gap-2">
-                                            <Button
-                                                onClick={handleVoiceCall}
-                                                variant="secondary"
-                                                className="h-10 gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/12 text-xs font-bold text-emerald-700 dark:text-emerald-200"
-                                            >
-                                                <PhoneCall className="h-4 w-4" />
+                                {isTrusted && !isDeletedContact ? (compact ? (<div className="grid w-full grid-cols-2 gap-2">
+                                            <Button onClick={handleVoiceCall} variant="secondary" className="h-10 gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/12 text-xs font-bold text-emerald-700 dark:text-emerald-200">
+                                                <PhoneCall className="h-4 w-4"/>
                                                 Voice
                                             </Button>
-                                            <Button
-                                                onClick={() => setIsInviteDialogOpen(true)}
-                                                variant="secondary"
-                                                className="h-10 gap-1.5 rounded-xl text-xs font-bold"
-                                            >
-                                                <Plus className="h-4 w-4" />
+                                            <Button onClick={() => setIsInviteDialogOpen(true)} variant="secondary" className="h-10 gap-1.5 rounded-xl text-xs font-bold">
+                                                <Plus className="h-4 w-4"/>
                                                 Invite
                                             </Button>
-                                        </div>
-                                    ) : (
-                                        <>
-                                            <Button
-                                                onClick={handleVoiceCall}
-                                                className="h-14 gap-3 rounded-2xl border border-emerald-500/30 bg-emerald-500/12 px-8 font-black text-emerald-700 backdrop-blur-md transition-all hover:scale-[1.02] hover:bg-emerald-500/18 active:scale-95 dark:text-emerald-200"
-                                            >
-                                                <PhoneCall className="h-6 w-6" />
-                                                {t("messaging.voiceCall", "Voice Call")}
+                                        </div>) : (<>
+                                            <Button onClick={handleVoiceCall} className="h-14 gap-3 rounded-2xl border border-emerald-500/30 bg-emerald-500/12 px-8 font-black text-emerald-700 backdrop-blur-md transition-all hover:scale-[1.02] hover:bg-emerald-500/18 active:scale-95 dark:text-emerald-200">
+                                                <PhoneCall className="h-6 w-6"/>
+                                                {t("messaging.voiceCall")}
                                             </Button>
-                                            <Button
-                                                onClick={() => setIsInviteDialogOpen(true)}
-                                                className="h-14 gap-3 rounded-2xl border border-zinc-200/70 bg-white/70 px-8 font-black text-zinc-900 backdrop-blur-md transition-all hover:scale-[1.02] hover:bg-white active:scale-95 dark:border-white/10 dark:bg-white/[0.05] dark:text-white dark:hover:bg-white/[0.08]"
-                                            >
-                                                <Plus className="h-6 w-6" />
-                                                {t("network.actions.invite", "Invite")}
+                                            <Button onClick={() => setIsInviteDialogOpen(true)} className="h-14 gap-3 rounded-2xl border border-zinc-200/70 bg-white/70 px-8 font-black text-zinc-900 backdrop-blur-md transition-all hover:scale-[1.02] hover:bg-white active:scale-95 dark:border-white/10 dark:bg-white/[0.05] dark:text-white dark:hover:bg-white/[0.08]">
+                                                <Plus className="h-6 w-6"/>
+                                                {t("network.actions.invite")}
                                             </Button>
-                                        </>
-                                    )
-                                ) : null}
+                                        </>)) : null}
                             </div>
                         </div>
                     </Card>
                 </div>
 
                 <div className={cn("flex flex-col", compact ? "gap-4" : "gap-6")}>
-                    <Card className={cn(
-                        "flex flex-col border border-zinc-200/70 bg-white/88 backdrop-blur-xl transition-all duration-500 group/key dark:border-white/10 dark:bg-[#07101f]/88",
-                        compact ? "gap-3 rounded-2xl p-4" : "gap-6 rounded-[32px] p-8",
-                    )}>
+                    <Card className={cn("flex flex-col border border-zinc-200/70 bg-white/88 backdrop-blur-xl transition-all duration-500 group/key dark:border-white/10 dark:bg-[#07101f]/88", compact ? "gap-3 rounded-2xl p-4" : "gap-6 rounded-[32px] p-8")}>
                         <div className="flex items-center justify-between gap-3">
-                            {!compact ? (
-                                <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-indigo-500/20 bg-indigo-500/10">
-                                    <Shield className="h-7 w-7 text-indigo-500 dark:text-indigo-300" />
-                                </div>
-                            ) : (
-                                <h3 className="text-sm font-bold text-zinc-950 dark:text-white">Public identity</h3>
-                            )}
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                className={cn(
-                                    "gap-2 rounded-xl border border-zinc-200/70 bg-zinc-950/[0.03] text-zinc-500 transition-all hover:text-zinc-900 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-400 dark:hover:text-white",
-                                    compact ? "h-8 px-2 text-xs" : "h-10 px-4",
-                                )}
-                                onClick={() => {
-                                    navigator.clipboard.writeText(publicProfileUrl);
-                                    toast.success(t("network.notifications.copied", "Profile link copied"));
-                                }}
-                            >
-                                <Share2 className="h-4 w-4" />
+                            {!compact ? (<div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-indigo-500/20 bg-indigo-500/10">
+                                    <Shield className="h-7 w-7 text-indigo-500 dark:text-indigo-300"/>
+                                </div>) : (<h3 className="text-sm font-bold text-zinc-950 dark:text-white">Public identity</h3>)}
+                            <Button variant="ghost" size="sm" className={cn("gap-2 rounded-xl border border-zinc-200/70 bg-zinc-950/[0.03] text-zinc-500 transition-all hover:text-zinc-900 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-400 dark:hover:text-white", compact ? "h-8 px-2 text-xs" : "h-10 px-4")} onClick={() => {
+            navigator.clipboard.writeText(publicProfileUrl);
+            toast.success(t("network.notifications.copied"));
+        }}>
+                                <Share2 className="h-4 w-4"/>
                                 {compact ? "Link" : "Copy Link"}
                             </Button>
                         </div>
                         <div className="space-y-4 min-w-0">
-                            {!compact ? (
-                                <h3 className="text-2xl font-black uppercase tracking-tight text-zinc-950 dark:text-white">Public Identity</h3>
-                            ) : null}
+                            {!compact ? (<h3 className="text-2xl font-black uppercase tracking-tight text-zinc-950 dark:text-white">Public Identity</h3>) : null}
                             <div className="flex min-w-0 items-center gap-2">
-                                <div
-                                    className={cn(
-                                        "min-w-0 flex-1 overflow-hidden rounded-2xl border border-zinc-200/70 bg-slate-50 font-mono text-zinc-600 shadow-inner transition-colors group-hover:text-zinc-700 dark:border-white/10 dark:bg-black/30 dark:text-zinc-400",
-                                        compact ? "p-3 text-xs" : "p-4 text-sm",
-                                    )}
-                                    title={pk}
-                                >
+                                <div className={cn("min-w-0 flex-1 overflow-hidden rounded-2xl border border-zinc-200/70 bg-slate-50 font-mono text-zinc-600 shadow-inner transition-colors group-hover:text-zinc-700 dark:border-white/10 dark:bg-black/30 dark:text-zinc-400", compact ? "p-3 text-xs" : "p-4 text-sm")} title={pk}>
                                     <p className="truncate">
                                         {formatPublicKeyPreview(pk as PublicKeyHex)}
                                     </p>
                                 </div>
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className={cn(
-                                        "shrink-0 gap-2 rounded-xl border border-zinc-200/70 bg-zinc-950/[0.03] text-zinc-500 transition-all hover:text-zinc-900 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-400 dark:hover:text-white",
-                                        compact ? "h-8 px-2 text-xs" : "h-10 px-3",
-                                    )}
-                                    onClick={() => {
-                                        navigator.clipboard.writeText(pk);
-                                        toast.success(t("network.notifications.keyCopied", "Public key copied"));
-                                    }}
-                                >
+                                <Button variant="ghost" size="sm" className={cn("shrink-0 gap-2 rounded-xl border border-zinc-200/70 bg-zinc-950/[0.03] text-zinc-500 transition-all hover:text-zinc-900 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-400 dark:hover:text-white", compact ? "h-8 px-2 text-xs" : "h-10 px-3")} onClick={() => {
+            navigator.clipboard.writeText(pk);
+            toast.success(t("network.notifications.keyCopied"));
+        }}>
                                     {compact ? "Key" : "Copy Key"}
                                 </Button>
                             </div>
-                            {metadata?.nip05 ? (
-                                <div className="rounded-2xl border border-zinc-200/70 bg-zinc-50/80 px-4 py-3 dark:border-white/10 dark:bg-white/[0.03]">
+                            {metadata?.nip05 ? (<div className="rounded-2xl border border-zinc-200/70 bg-zinc-50/80 px-4 py-3 dark:border-white/10 dark:bg-white/[0.03]">
                                     <p className="text-[10px] font-black uppercase tracking-[0.22em] text-zinc-500 dark:text-zinc-400">NIP-05</p>
                                     <p className="mt-1 truncate text-sm font-semibold text-zinc-900 dark:text-white" title={metadata.nip05}>{metadata.nip05}</p>
-                                </div>
-                            ) : null}
+                                </div>) : null}
                         </div>
                     </Card>
 
-                    <Card className={cn(
-                        "border border-zinc-200/70 bg-white/88 backdrop-blur-xl dark:border-white/10 dark:bg-[#07101f]/88",
-                        compact ? "rounded-2xl p-4" : "rounded-[32px] p-6 sm:p-8",
-                    )}>
-                        <div className={cn(
-                            "flex gap-4",
-                            compact ? "flex-col" : "flex-row items-start sm:items-center sm:gap-6",
-                        )}>
-                            {!compact ? (
-                                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-zinc-200/70 bg-zinc-100 dark:border-white/10 dark:bg-white/[0.04]">
-                                    <Radio className={cn(
-                                        "h-7 w-7",
-                                        isPeerOnline ? "text-emerald-600 dark:text-emerald-400" : "text-zinc-500 dark:text-zinc-400",
-                                    )} />
-                                </div>
-                            ) : null}
+                    <Card className={cn("border border-zinc-200/70 bg-white/88 backdrop-blur-xl dark:border-white/10 dark:bg-[#07101f]/88", compact ? "rounded-2xl p-4" : "rounded-[32px] p-6 sm:p-8")}>
+                        <div className={cn("flex gap-4", compact ? "flex-col" : "flex-row items-start sm:items-center sm:gap-6")}>
+                            {!compact ? (<div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-zinc-200/70 bg-zinc-100 dark:border-white/10 dark:bg-white/[0.04]">
+                                    <Radio className={cn("h-7 w-7", isPeerOnline ? "text-emerald-600 dark:text-emerald-400" : "text-zinc-500 dark:text-zinc-400")}/>
+                                </div>) : null}
                             <div className="min-w-0 flex-1 space-y-2">
                                 <div className="flex flex-wrap items-center gap-2">
                                     <p className="text-[10px] font-black uppercase tracking-[0.22em] text-zinc-500 dark:text-zinc-400">
                                         Connection status
                                     </p>
                                     <div className="inline-flex items-center gap-2 rounded-full border border-zinc-200/70 bg-zinc-100 px-3 py-1 dark:border-white/10 dark:bg-white/[0.04]">
-                                        <span className={cn("h-2 w-2 rounded-full", isPeerOnline ? "bg-emerald-500" : "bg-zinc-400 dark:bg-zinc-600")} />
-                                        <span className={cn(
-                                            "text-[10px] font-black uppercase tracking-widest",
-                                            isPeerOnline ? "text-emerald-700 dark:text-emerald-300" : "text-zinc-600 dark:text-zinc-400",
-                                        )}>
-                                            {isPeerOnline ? t("network.online", "Online now") : t("network.offline", "Offline")}
+                                        <span className={cn("h-2 w-2 rounded-full", isPeerOnline ? "bg-emerald-500" : "bg-zinc-400 dark:bg-zinc-600")}/>
+                                        <span className={cn("text-[10px] font-black uppercase tracking-widest", isPeerOnline ? "text-emerald-700 dark:text-emerald-300" : "text-zinc-600 dark:text-zinc-400")}>
+                                            {isPeerOnline ? t("network.online") : t("network.offline")}
                                         </span>
                                     </div>
                                 </div>
                                 <p className={cn("font-semibold text-zinc-900 dark:text-white", compact ? "text-sm" : "text-lg")}>
                                     {connectionStatusTitle}
                                 </p>
-                                <p className={cn(
-                                    "leading-relaxed text-zinc-600 dark:text-zinc-400",
-                                    compact ? "text-xs line-clamp-3" : "text-sm",
-                                )}>
+                                <p className={cn("leading-relaxed text-zinc-600 dark:text-zinc-400", compact ? "text-xs line-clamp-3" : "text-sm")}>
                                     {connectionStatusBody}
                                 </p>
                             </div>
                         </div>
                     </Card>
+
+                    {myPublicKeyHex ? (<ContactProfileTrustNotice peerPublicKeyHex={pk as PublicKeyHex} isPeerAccepted={isTrusted} connection={connection?.kind === "dm" ? connection : undefined} myPublicKeyHex={myPublicKeyHex} resolvedName={resolvedName} compact={compact}/>) : null}
                 </div>
 
                 <div className={compact ? "space-y-3" : "space-y-6"}>
-                    <ManagementSectionHeader title={t("network.sections.management", "Management controls")} tone="danger" />
+                    <ManagementSectionHeader title={t("network.sections.management")} tone="danger"/>
 
                     <ManagementControlCard>
-                        <ManagementControlRow
-                            icon={Ban}
-                            title={isBlocked ? t("network.actions.unblock", "Unblock user") : t("network.actions.block", "Block user")}
-                            description={
-                                isBlocked
-                                    ? t("network.desc.unblock", "Allow this user to message you again")
-                                    : t("network.desc.block", "Stop receiving messages from this user")
-                            }
-                            onClick={handleToggleBlock}
-                        />
-                        {isTrusted ? (
-                            <ManagementControlRow
-                                icon={UserMinus}
-                                title={t("network.actions.remove", "Remove connection")}
-                                description={t("network.desc.remove", "Remove this user from your trusted network list")}
-                                onClick={handleRemoveConnection}
-                                showDivider
-                            />
-                        ) : null}
+                        <ManagementControlRow icon={Ban} title={isBlocked ? t("network.actions.unblock") : t("network.actions.block")} description={isBlocked
+            ? t("network.desc.unblock")
+            : t("network.desc.block")} onClick={handleToggleBlock}/>
+                        {isTrusted ? (<ManagementControlRow icon={UserMinus} title={t("network.actions.remove")} description={t("network.desc.remove")} onClick={handleRemoveConnection} showDivider/>) : null}
                     </ManagementControlCard>
                 </div>
             </main>
 
-            <ConfirmDialog
-                isOpen={isRemoveDialogOpen}
-                onClose={() => setIsRemoveDialogOpen(false)}
-                onConfirm={confirmRemove}
-                title={t("network.dialogs.removeTitle", "Remove Connection")}
-                description={t("network.dialogs.removeDesc", "Are you sure you want to remove this connection from your trusted list?")}
-                confirmLabel={t("network.actions.remove", "Remove")}
-                variant="danger"
-            />
+            <ConfirmDialog isOpen={isRemoveDialogOpen} onClose={() => setIsRemoveDialogOpen(false)} onConfirm={confirmRemove} title={t("network.dialogs.removeTitle")} description={t("network.dialogs.removeDesc")} confirmLabel={t("network.actions.remove")} variant="danger"/>
 
-            <ConfirmDialog
-                isOpen={isBlockDialogOpen}
-                onClose={() => setIsBlockDialogOpen(false)}
-                onConfirm={confirmBlock}
-                title={t("network.dialogs.blockTitle", "Block User")}
-                description={t("network.dialogs.blockDesc", "Are you sure you want to block this user? You will no longer receive their messages?")}
-                confirmLabel={t("network.actions.block", "Block")}
-                variant="danger"
-            />
+            <ConfirmDialog isOpen={isBlockDialogOpen} onClose={() => setIsBlockDialogOpen(false)} onConfirm={confirmBlock} title={t("network.dialogs.blockTitle")} description={t("network.dialogs.blockDesc")} confirmLabel={t("network.actions.block")} variant="danger"/>
 
-            <InviteToGroupDialog
-                isOpen={isInviteDialogOpen}
-                onClose={() => setIsInviteDialogOpen(false)}
-                onInvite={handleInviteToGroup}
-                targetPubkey={pk}
-            />
+            <InviteToGroupDialog isOpen={isInviteDialogOpen} onClose={() => setIsInviteDialogOpen(false)} onInvite={handleInviteToGroup} targetPubkey={pk}/>
 
-            <InvitationComposerDialog
-                isOpen={isConnectDialogOpen}
-                recipientName={resolvedName}
-                recipientPubkey={pk}
-                submitLabel="Send Invitation"
-                deliveryHint="Obscur will only mark this invitation as delivered after relay evidence comes back."
-                defaults={{
-                    intro: requestIntroText,
-                    note: requestNoteText,
-                    secretCode: requestSecretCode,
-                }}
-                onClose={() => setIsConnectDialogOpen(false)}
-                onSubmit={handleInvitationDialogSubmit}
-            />
-        </div>
-    );
+            <InvitationComposerDialog isOpen={isConnectDialogOpen} recipientName={resolvedName} recipientPubkey={pk} submitLabel="Send Invitation" deliveryHint="Obscur will only mark this invitation as delivered after relay evidence comes back." defaults={{
+            intro: requestIntroText,
+            note: requestNoteText,
+            secretCode: requestSecretCode,
+        }} onClose={() => setIsConnectDialogOpen(false)} onSubmit={handleInvitationDialogSubmit}/>
+        </div>);
 }

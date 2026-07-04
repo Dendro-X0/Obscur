@@ -27,6 +27,7 @@ describe("dm-kernel trust assessment contract (SEC-F)", () => {
     const banner = read("app/features/dm-kernel/components/dm-kernel-trust-banner.tsx");
     expect(banner).toContain("recipientOnlyNote");
     expect(banner).toContain("data-testid=\"dm-kernel-trust-banner\"");
+    expect(banner).toContain("dm-kernel-trust-info-strip");
     expect(banner).not.toContain("notifySender");
   });
 
@@ -43,13 +44,35 @@ describe("dm-kernel trust assessment contract (SEC-F)", () => {
     expect(corpus).not.toMatch(/fetch\s*\(/);
   });
 
-  it("port catalog includes SEC-B2 spam-shape signals", () => {
+  it("port catalog includes SEC-F2 phish + SEC-B2 spam-shape + convergence signals", () => {
     const port = read("app/features/dm-kernel/dm-kernel-trust-assessment-port.ts");
+    expect(port).toContain('"link.suspicious_url"');
+    expect(port).toContain('"link.lookalike_brand"');
+    expect(port).toContain('"attachment.risky_filename"');
+    expect(port).toContain("detectLookalikeBrandLink");
+    expect(port).toContain("detectRiskyAttachmentFilenames");
+    expect(port).toContain("BUNDLE_PHISH_COLD");
+    expect(port).toContain("BUNDLE_SE_COLD");
+    expect(port).toContain("detectSuspiciousLink");
+    expect(port).toContain("detectCredentialHarvestRequest");
+    expect(port).toContain('"thread.financial_pressure"');
+    expect(port).toContain('"thread.off_platform_redirect"');
+    expect(port).toContain('"thread.advance_fee_scam"');
+    expect(port).toContain('"thread.remote_access_tool"');
+    expect(port).toContain('"thread.overpayment_refund"');
+    expect(port).toContain('"thread.fake_escrow"');
+    expect(port).toContain('"thread.hiring_trap"');
+    expect(port).toContain("detectRemoteAccessTool");
     expect(port).toContain('"msg.rate"');
     expect(port).toContain('"invite.fanout"');
+    expect(port).toContain('"connection.request_burst"');
+    expect(port).toContain("BUNDLE_CONN_BURST");
     expect(port).toContain("BUNDLE_SPAM_COLD");
-    expect(port).toContain("detectMsgRateSignal");
-    expect(port).toContain("detectInviteFanoutSignal");
+    expect(port).toContain("detectConnectionRequestBurstSignal");
+    expect(port).toContain("contactTrustSensitivity");
+    expect(port).toContain("resolveContactTrustSensitivityPolicy");
+    expect(port).toContain("msgRateThreshold");
+    expect(port).toContain("inviteFanoutThreshold");
   });
 
   it("peer spam metadata uses profile-scoped local storage only", () => {

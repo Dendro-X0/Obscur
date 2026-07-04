@@ -22,7 +22,7 @@ import {
   hydrateMessageDeleteTombstonesFromSqlite,
   isMessageDeleteSuppressed,
 } from "../services/message-delete-tombstone-store";
-import { chatStateStoreService } from "../services/chat-state-store";
+import { messagingChatStateMessagePort } from "@/app/features/messaging/services/messaging-chat-state-message-port";
 import { collectMessageIdentityAliases } from "../services/message-identity-alias-contract";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import { DM_HIDE_PRESERVE_TIMELINE_FOR_SHOW_AGAIN } from "../config/dm-local-visibility-product";
@@ -288,7 +288,7 @@ const persistDurableStores = async (params: Readonly<{
   });
   refreshSuppressedCache(params.profileId, params.deletedAtUnixMs);
 
-  chatStateStoreService.removeMessageIdentitiesFromAllActiveScopes(
+  messagingChatStateMessagePort.removeMessageIdentitiesFromAllActiveScopes(
     params.conversationId,
     deleteIds as string[],
   );

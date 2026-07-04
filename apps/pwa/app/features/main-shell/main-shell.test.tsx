@@ -328,7 +328,7 @@ vi.mock("@/app/features/relays/providers/relay-provider", () => ({
   }),
 }));
 
-vi.mock("@/app/features/groups/providers/group-provider", () => ({
+vi.mock("@/app/features/groups/providers/group-provider-port", () => ({
   useGroups: () => ({
     createdGroups: messagingState.createdGroups,
     communityRosterByConversationId: {},
@@ -341,8 +341,8 @@ vi.mock("@/app/features/groups/providers/group-provider", () => ({
   }),
 }));
 
-vi.mock("@/app/features/groups/hooks/use-sealed-community", () => ({
-  useSealedCommunity: () => ({
+vi.mock("@/app/features/groups/hooks/sealed-community-port", () => ({
+  useLegacySealedCommunity: () => ({
     state: sealedCommunityState.state,
     members: sealedCommunityState.members,
   }),

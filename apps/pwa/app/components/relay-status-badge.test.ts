@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { getRelayStatusBadgePresentation } from "./relay-status-badge";
-import type { RelayRecoverySnapshot } from "@/app/features/relays/services/relay-recovery-policy";
+import type { RelayRecoverySnapshot } from "@/app/features/relays/services/relay-recovery-types";
 
 const createSnapshot = (overrides: Partial<RelayRecoverySnapshot>): RelayRecoverySnapshot => ({
   readiness: "offline",

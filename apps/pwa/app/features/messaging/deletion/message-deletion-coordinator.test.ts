@@ -25,8 +25,10 @@ const executeDmDeleteForMeMock = vi.hoisted(() => vi.fn(
   ),
 ));
 
-vi.mock("@/app/features/messaging/services/dm-local-delete-persistence", () => ({
-  executeDmDeleteForMe: executeDmDeleteForMeMock,
+vi.mock("@/app/features/messaging/services/messaging-client-operations", () => ({
+  messagingClientOperations: {
+    deleteDmForMe: executeDmDeleteForMeMock,
+  },
 }));
 
 // Mock resolved profile id for deletion coordinator

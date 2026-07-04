@@ -20,10 +20,10 @@ vi.mock("@/app/features/profiles/providers/profile-runtime-provider", () => ({
   useOptionalProfileRuntime: () => ({ profileId: "default" }),
 }));
 
-import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store";
+import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store-legacy";
 import { addGroupTombstone, isGroupTombstoned } from "@/app/features/groups/services/group-tombstone-store";
 import { loadCommunityMembershipLedger } from "@/app/features/groups/services/community-membership-ledger";
-import { GroupProvider, useGroups } from "./group-provider";
+import { LegacyGroupProvider, useGroups } from "@/app/features/groups/providers/group-provider-port";
 
 vi.mock("@/app/features/workspace-kernel/workspace-kernel-policy", () => ({
   isWorkspaceKernelAuthority: () => false,
@@ -89,7 +89,7 @@ describe("group-provider (visual-only stub)", () => {
     }, { emitMutationSignal: false });
 
     const wrapper = ({ children }: { children: React.ReactNode }) => (
-      <GroupProvider>{children}</GroupProvider>
+      <LegacyGroupProvider>{children}</LegacyGroupProvider>
     );
     const hook = renderHook(() => useGroups(), { wrapper });
 
@@ -103,7 +103,7 @@ describe("group-provider (visual-only stub)", () => {
 
   it("persists list metadata and strips group message bodies on add", async () => {
     const wrapper = ({ children }: { children: React.ReactNode }) => (
-      <GroupProvider>{children}</GroupProvider>
+      <LegacyGroupProvider>{children}</LegacyGroupProvider>
     );
     const hook = renderHook(() => useGroups(), { wrapper });
 
@@ -127,7 +127,7 @@ describe("group-provider (visual-only stub)", () => {
     addGroupTombstone(PUBLIC_KEY, { groupId: group.groupId, relayUrl: group.relayUrl }, { profileId: "default" });
 
     const wrapper = ({ children }: { children: React.ReactNode }) => (
-      <GroupProvider>{children}</GroupProvider>
+      <LegacyGroupProvider>{children}</LegacyGroupProvider>
     );
     const hook = renderHook(() => useGroups(), { wrapper });
 
@@ -162,7 +162,7 @@ describe("group-provider (visual-only stub)", () => {
     }, { emitMutationSignal: false });
 
     const wrapper = ({ children }: { children: React.ReactNode }) => (
-      <GroupProvider>{children}</GroupProvider>
+      <LegacyGroupProvider>{children}</LegacyGroupProvider>
     );
     const hook = renderHook(() => useGroups(), { wrapper });
 
@@ -201,7 +201,7 @@ describe("group-provider (visual-only stub)", () => {
     }, { emitMutationSignal: false });
 
     const wrapper = ({ children }: { children: React.ReactNode }) => (
-      <GroupProvider>{children}</GroupProvider>
+      <LegacyGroupProvider>{children}</LegacyGroupProvider>
     );
     const hook = renderHook(() => useGroups(), { wrapper });
 

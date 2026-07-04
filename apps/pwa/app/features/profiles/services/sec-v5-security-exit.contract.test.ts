@@ -20,7 +20,9 @@ describe("SEC-V5 security exit contract", () => {
   });
 
   it("security validation checklist defines sign-off and §6 regression gates", () => {
-    const checklist = readRepo("docs/program/v1.9.5-security-validation-checklist.md");
+    const checklist = readRepo(
+      "docs/archive/program/inactive-2026-06/v1.9.5-security-validation-checklist.md",
+    );
     expect(checklist).toContain("## Sign-off");
     expect(checklist).toContain("verify:trust-v1.9.5");
     expect(checklist).toContain("verify:platform-kernels");
@@ -35,7 +37,7 @@ describe("SEC-V5 security exit contract", () => {
   });
 
   it("scope documents SEC-V5 maintainer sign-off evidence", () => {
-    const scope = readRepo("docs/program/v1.9.5-scope.md");
+    const scope = readRepo("docs/archive/program/inactive-2026-06/v1.9.5-scope.md");
     expect(scope).toContain("SEC-V5");
     expect(scope).toContain("Completed checklist + SHA recorded in register");
   });

@@ -2,12 +2,18 @@
 
 import type React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@dweb/ui-kit";
 import { FolderOpen, FolderPlus, FolderSearch, Loader2, RefreshCw } from "lucide-react";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
 import { scanLocalSaveLibrary } from "@/app/features/profiles/services/local-save-library-service";
 import type { LocalSaveLibraryEntry } from "@/app/features/profiles/services/local-save-contracts";
+import {
+  getLocalSaveLibraryScanBootstrapState,
+  startLocalSaveLibraryWindowBootstrap,
+  subscribeLocalSaveLibraryScanBootstrap,
+} from "@/app/features/profiles/services/local-save-library-scan-bootstrap";
 import {
   addExtraSaveLibraryScanRoot,
   getSaveLibraryContext,
@@ -22,7 +28,12 @@ import {
 } from "@/app/features/profiles/services/local-save-account-occupancy";
 import type { ProfileSummary } from "@/app/features/profiles/services/profile-isolation-contracts";
 import { openObscurDataRootPath, pickObscurDataRootPath } from "@/app/features/profiles/services/obscur-data-root-service";
+import {
+  ACTIVE_SESSION_LEASE_HEARTBEAT_MS,
+} from "@/app/features/profiles/services/cross-profile-active-session-lease";
 import { LocalSaveLibraryRow } from "./local-save-library-row";
+
+const ACTIVE_SESSION_LEASE_STORAGE_KEY = "obscur.cross_profile.active_session_leases.v1";
 
 type Props = Readonly<{
   activePublicKeyHex?: PublicKeyHex | null;
@@ -38,6 +49,7 @@ const shortenPath = (path: string): string => {
 };
 
 export function AuthScreenLocalSaveLibrary(props: Props): React.JSX.Element | null {
+  const { t } = useTranslation();
   const [isScanning, setIsScanning] = useState(false);
   const [entries, setEntries] = useState<ReadonlyArray<LocalSaveLibraryEntry>>([]);
   const [scanMs, setScanMs] = useState<number | null>(null);
@@ -47,6 +59,7 @@ export function AuthScreenLocalSaveLibrary(props: Props): React.JSX.Element | nu
   const [libraryContext, setLibraryContext] = useState<SaveLibraryContext | null>(null);
   const [profiles, setProfiles] = useState<ReadonlyArray<ProfileSummary>>([]);
   const [selectedSaveId, setSelectedSaveId] = useState<string | null>(null);
+  const [occupancyRefreshTick, setOccupancyRefreshTick] = useState(0);
   const mountedRef = useRef(true);
 
   useEffect(() => {
@@ -76,40 +89,95 @@ export function AuthScreenLocalSaveLibrary(props: Props): React.JSX.Element | nu
       currentProfileId: getResolvedProfileId(),
       profiles,
     })
-  ), [profiles]);
+  ), [profiles, occupancyRefreshTick]);
+
+  useEffect(() => {
+    if (!hasNativeRuntime()) {
+      return;
+    }
+    const refreshOccupancy = (): void => {
+      setOccupancyRefreshTick((value) => value + 1);
+    };
+    const onStorage = (event: StorageEvent): void => {
+      if (event.key === ACTIVE_SESSION_LEASE_STORAGE_KEY) {
+        refreshOccupancy();
+      }
+    };
+    window.addEventListener("storage", onStorage);
+    const intervalId = window.setInterval(refreshOccupancy, ACTIVE_SESSION_LEASE_HEARTBEAT_MS);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.clearInterval(intervalId);
+    };
+  }, []);
+
+  const applyBootstrapResult = useCallback((
+    result: NonNullable<ReturnType<typeof getLocalSaveLibraryScanBootstrapState>["result"]>,
+  ): void => {
+    setEntries(result.entries);
+    setScanMs(result.durationMs);
+    setTruncated(result.truncated);
+    setScanRoots(result.roots);
+  }, []);
 
   const refreshLibrary = useCallback(async (force = true): Promise<void> => {
     setIsScanning(true);
     setScanError(null);
     try {
       await loadContext();
-      const result = await scanLocalSaveLibrary({ force, maxDepth: 2 });
+      const result = await scanLocalSaveLibrary({ force, maxDepth: 5, maxResults: 240 });
       if (!mountedRef.current) {
         return;
       }
-      setEntries(result.entries);
-      setScanMs(result.durationMs);
-      setTruncated(result.truncated);
-      setScanRoots(result.roots);
+      applyBootstrapResult(result);
     } catch (error) {
       if (!mountedRef.current) {
         return;
       }
-      setScanError(error instanceof Error ? error.message : "Could not scan for local saves.");
+      setScanError(error instanceof Error ? error.message : t("profiles.portability.localSave.scanError"));
       setEntries([]);
     } finally {
       if (mountedRef.current) {
         setIsScanning(false);
       }
     }
-  }, [loadContext]);
+  }, [applyBootstrapResult, loadContext, t]);
 
   useEffect(() => {
     if (!hasNativeRuntime()) {
       return;
     }
-    void refreshLibrary(true);
-  }, [refreshLibrary]);
+    void loadContext();
+    const initialState = getLocalSaveLibraryScanBootstrapState();
+    if (initialState.result) {
+      applyBootstrapResult(initialState.result);
+    }
+    if (initialState.error) {
+      setScanError(initialState.error);
+    }
+    setIsScanning(initialState.phase === "fast" || initialState.phase === "deep");
+
+    const unsubscribe = subscribeLocalSaveLibraryScanBootstrap((state) => {
+      if (!mountedRef.current) {
+        return;
+      }
+      if (state.result) {
+        applyBootstrapResult(state.result);
+      }
+      if (state.error) {
+        setScanError(state.error);
+      } else if (state.phase !== "error") {
+        setScanError(null);
+      }
+      setIsScanning(state.phase === "fast" || state.phase === "deep");
+    });
+
+    if (initialState.phase === "idle") {
+      void startLocalSaveLibraryWindowBootstrap();
+    }
+
+    return unsubscribe;
+  }, [applyBootstrapResult, loadContext]);
 
   if (!hasNativeRuntime()) {
     return null;
@@ -141,10 +209,10 @@ export function AuthScreenLocalSaveLibrary(props: Props): React.JSX.Element | nu
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-xs font-bold uppercase tracking-wider text-sky-700 dark:text-sky-300">
-            Saved accounts on this device
+            {t("profiles.portability.localSave.title")}
           </div>
           <p className="mt-2 text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">
-            Pick a save slot to restore. Obscur scans export folders first, then other common locations.
+            {t("profiles.portability.localSave.subtitle")}
           </p>
         </div>
         <Button
@@ -154,7 +222,7 @@ export function AuthScreenLocalSaveLibrary(props: Props): React.JSX.Element | nu
           className="shrink-0"
           disabled={isScanning}
           onClick={() => { void refreshLibrary(true); }}
-          aria-label="Rescan local saves"
+          aria-label={t("profiles.portability.localSave.rescanAria")}
         >
           {isScanning ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
         </Button>
@@ -164,15 +232,16 @@ export function AuthScreenLocalSaveLibrary(props: Props): React.JSX.Element | nu
         <div className="mt-4 space-y-3">
           <div className="flex items-center justify-between gap-2">
             <div className="text-[11px] font-bold uppercase tracking-wider text-zinc-500">
-              {entries.length} save slot{entries.length === 1 ? "" : "s"}
+              {t("profiles.portability.localSave.saveSlotCount", { count: entries.length })}
             </div>
             {scanMs !== null ? (
               <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
-                scanned in {scanMs}ms{truncated ? " · truncated" : ""}
+                {t("profiles.portability.localSave.scannedIn", { ms: scanMs })}
+                {truncated ? ` · ${t("profiles.portability.localSave.truncated")}` : ""}
               </span>
             ) : null}
           </div>
-          <ul className="max-h-[min(420px,55vh)] space-y-3 overflow-y-auto pr-1">
+          <ul className="max-h-[min(420px,55vh)] space-y-3 overflow-y-auto px-0.5 py-1">
             {entries.map((entry, index) => {
               const occupancy = resolveOccupancy(entry);
               return (
@@ -195,14 +264,13 @@ export function AuthScreenLocalSaveLibrary(props: Props): React.JSX.Element | nu
       {isScanning && entries.length === 0 ? (
         <div className="mt-4 flex items-center gap-2 rounded-2xl border border-black/5 bg-white/40 px-4 py-3 text-xs text-zinc-500 dark:border-white/10 dark:bg-zinc-900/40">
           <Loader2 className="h-4 w-4 animate-spin" />
-          Scanning for saved accounts…
+          {t("profiles.portability.localSave.scanning")}
         </div>
       ) : null}
 
       {!isScanning && !scanError && entries.length === 0 ? (
         <div className="mt-4 rounded-2xl border border-dashed border-zinc-300/60 bg-white/30 px-4 py-4 text-xs leading-relaxed text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900/30">
-          No saved accounts found yet. Exports from Settings land in the export folder below.
-          You can also add another folder to search or pick a file manually.
+          {t("profiles.portability.localSave.empty")}
         </div>
       ) : null}
 
@@ -212,12 +280,14 @@ export function AuthScreenLocalSaveLibrary(props: Props): React.JSX.Element | nu
 
       <details className="mt-4 rounded-2xl border border-black/5 bg-white/30 px-3 py-2 dark:border-white/10 dark:bg-zinc-900/30">
         <summary className="cursor-pointer text-xs font-semibold text-zinc-600 dark:text-zinc-300">
-          Browse folders &amp; search locations
+          {t("profiles.portability.localSave.browseFolders")}
         </summary>
         <div className="mt-3 space-y-3">
           {libraryContext ? (
             <div className="rounded-xl border border-black/5 bg-white/40 px-3 py-2 dark:border-white/10 dark:bg-zinc-900/40">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Default export folder</div>
+              <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+                {t("profiles.portability.localSave.defaultExportFolder")}
+              </div>
               <p className="mt-1 break-all font-mono text-[11px] text-zinc-700 dark:text-zinc-300" title={libraryContext.exportsFolderPath}>
                 {shortenPath(libraryContext.exportsFolderPath)}
               </p>
@@ -233,7 +303,7 @@ export function AuthScreenLocalSaveLibrary(props: Props): React.JSX.Element | nu
               onClick={() => { void openExportsFolderInFileManager(); }}
             >
               <FolderSearch className="h-3.5 w-3.5" />
-              Open export folder
+              {t("profiles.portability.localSave.openExportFolder")}
             </Button>
             {libraryContext?.dataRootPath ? (
               <Button
@@ -244,7 +314,7 @@ export function AuthScreenLocalSaveLibrary(props: Props): React.JSX.Element | nu
                 onClick={() => { void openObscurDataRootPath(libraryContext.dataRootPath); }}
               >
                 <FolderOpen className="h-3.5 w-3.5" />
-                Open data folder
+                {t("profiles.portability.localSave.openDataFolder")}
               </Button>
             ) : null}
             <Button
@@ -256,7 +326,7 @@ export function AuthScreenLocalSaveLibrary(props: Props): React.JSX.Element | nu
               onClick={() => { void handleAddFolder(); }}
             >
               <FolderPlus className="h-3.5 w-3.5" />
-              Add folder to search
+              {t("profiles.portability.localSave.addFolderToSearch")}
             </Button>
           </div>
 

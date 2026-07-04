@@ -67,6 +67,34 @@ describe("native-dm-sqlite-integrity", () => {
     expect(result?.reason).toBe("hydrate_one_sided");
   });
 
+  it("flags hydrate_empty_sqlite_nonempty when UI paints zero rows but sqlite has history", async () => {
+    vi.mocked(dbGetMessages).mockResolvedValue([
+      {
+        event_id: "in-1",
+        profile_id: "profile-tester1",
+        conversation_id: `${myPk}:${peerPk}`,
+        sender_pubkey: peerPk,
+        recipient_pubkey: myPk,
+        plaintext: "theirs",
+        kind: 4,
+        created_at: 2,
+        received_at: 2,
+        is_outgoing: false,
+        reply_to_event_id: null,
+        has_attachment: false,
+      },
+    ]);
+    const result = await evaluateNativeDmSqliteHydrateIntegrity({
+      conversationId: `${myPk}:${peerPk}`,
+      myPublicKeyHex: myPk,
+      hydratedMessages: [],
+      profileId: "profile-tester1",
+    });
+    expect(result?.violation).toBe(true);
+    expect(result?.reason).toBe("hydrate_empty_sqlite_nonempty");
+    expect(result?.sqlite?.total).toBe(1);
+  });
+
   it("loads peer thread snapshots from sqlite rows", async () => {
     vi.mocked(dbGetMessages).mockResolvedValue([
       {

@@ -61,7 +61,13 @@ export const countNativeDmSqliteDirections = async (params: Readonly<{
 
 export type NativeDmSqliteHydrateIntegrityResult = Readonly<{
   violation: boolean;
-  reason: "none" | "hydrate_one_sided" | "sqlite_ui_mismatch" | "sqlite_read_failed";
+  reason:
+    | "none"
+    | "hydrate_one_sided"
+    | "sqlite_ui_mismatch"
+    | "sqlite_read_failed"
+    | "hydrate_empty_sqlite_nonempty"
+    | "hydrate_empty_sqlite_empty";
   hydrated: NativeDmSqliteDirectionCounts;
   sqlite: NativeDmSqliteDirectionCounts | null;
 }>;
@@ -72,7 +78,7 @@ export const evaluateNativeDmSqliteHydrateIntegrity = async (params: Readonly<{
   hydratedMessages: ReadonlyArray<Message>;
   profileId?: string;
 }>): Promise<NativeDmSqliteHydrateIntegrityResult | null> => {
-  if (!isNativeDmSqliteReadOwner() || !params.myPublicKeyHex || params.hydratedMessages.length === 0) {
+  if (!isNativeDmSqliteReadOwner() || !params.myPublicKeyHex) {
     return null;
   }
   const hydratedCoverage = evaluateDirectionCoverage(params.hydratedMessages, params.myPublicKeyHex);
@@ -92,6 +98,14 @@ export const evaluateNativeDmSqliteHydrateIntegrity = async (params: Readonly<{
       reason: "sqlite_read_failed",
       hydrated,
       sqlite: null,
+    };
+  }
+  if (hydrated.total === 0) {
+    return {
+      violation: sqlite.total > 0,
+      reason: sqlite.total > 0 ? "hydrate_empty_sqlite_nonempty" : "hydrate_empty_sqlite_empty",
+      hydrated,
+      sqlite,
     };
   }
   if (hydratedCoverage.isPartial) {
@@ -137,6 +151,18 @@ export const logNativeDmSqliteHydrateIntegrity = async (params: Readonly<{
     profileId: params.profileId,
   });
   if (!result?.violation) {
+    const profileId = params.profileId?.trim() || getResolvedProfileId().trim();
+    if (
+      profileId
+      && result?.reason === "hydrate_empty_sqlite_empty"
+    ) {
+      maybeScheduleNativeDmRelayBackfillRepair({
+        profileId,
+        reason: result.reason,
+        conversationId: params.conversationId,
+        trigger: params.trigger,
+      });
+    }
     return;
   }
   logAppEvent({
@@ -156,16 +182,16 @@ export const logNativeDmSqliteHydrateIntegrity = async (params: Readonly<{
     },
   });
   const profileId = params.profileId?.trim() || getResolvedProfileId().trim();
+  if (!profileId || result.reason === "sqlite_read_failed") {
+    return;
+  }
   if (
-    profileId
-    && result.reason !== "sqlite_read_failed"
-    && (
-      result.reason === "hydrate_one_sided"
-      || (result.sqlite && (
-        (result.sqlite.outgoing > 0 && result.sqlite.incoming === 0)
-        || (result.sqlite.incoming > 0 && result.sqlite.outgoing === 0)
-      ))
-    )
+    result.reason === "hydrate_one_sided"
+    || result.reason === "hydrate_empty_sqlite_empty"
+    || (result.sqlite && (
+      (result.sqlite.outgoing > 0 && result.sqlite.incoming === 0)
+      || (result.sqlite.incoming > 0 && result.sqlite.outgoing === 0)
+    ))
   ) {
     maybeScheduleNativeDmRelayBackfillRepair({
       profileId,

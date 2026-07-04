@@ -10,7 +10,7 @@ import { useNetwork } from "@/app/features/network/providers/network-provider";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { createPendingStartupAuthState } from "@/app/features/auth/services/startup-auth-state-contracts";
-import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store";
+import { messagingChatStateReadPort } from "@/app/features/messaging/services/messaging-chat-state-read-port";
 import { loadGroupTombstones } from "@/app/features/groups/services/group-tombstone-store";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { getAbuseMetricsSnapshot } from "@/app/shared/abuse-observability";
@@ -247,7 +247,7 @@ export const DevPanel = ({ dmController }: { dmController?: any }) => {
             setAffectedCommunities([]);
             return null;
         }
-        const state = chatStateStoreService.load(publicKeyHex as PublicKeyHex);
+        const state = messagingChatStateReadPort.load(publicKeyHex as PublicKeyHex);
         if (!state) {
             setMigrationAuditReport(null);
             setAffectedCommunities([]);

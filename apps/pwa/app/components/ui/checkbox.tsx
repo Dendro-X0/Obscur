@@ -1,1 +1,1 @@
-export * from "@dweb/ui-kit";
+export { Checkbox } from "@dweb/ui-kit";

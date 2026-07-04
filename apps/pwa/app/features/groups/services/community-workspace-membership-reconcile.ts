@@ -1,4 +1,6 @@
 import type { SemanticCommunityMemberEvent } from "@dweb/transport-contracts";
+import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
+import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { CommunityMode } from "../types";
 import {
   runCoordinationMembershipReconcile,
@@ -9,12 +11,15 @@ import {
   type CommunityMembershipReconcileParams,
 } from "./community-membership-evidence-actions";
 import { shouldUseCoordinationMembershipAuthority } from "./community-workspace-r1-policy";
+import { attemptManagedWorkspaceCoordinationSelfHeal } from "./managed-workspace-coordination-self-heal";
 
 export type WorkspaceMembershipReconcileParams = CommunityMembershipReconcileParams & Readonly<{
   communityId?: string;
   communityIdCandidates?: ReadonlyArray<string>;
   communityMode?: CommunityMode | null;
   onSemanticMemberEvent?: (event: SemanticCommunityMemberEvent) => void;
+  localMemberPubkey?: PublicKeyHex;
+  actorPrivateKeyHex?: PrivateKeyHex;
 }>;
 
 export type WorkspaceMembershipReconcileOutcome = Readonly<{
@@ -45,6 +50,23 @@ export const reconcileWorkspaceMembershipEvidence = async (
     ? params.communityIdCandidates
     : [(params.communityId ?? params.groupId).trim()]
   ).filter((communityId) => communityId.length > 0);
+
+  if (
+    params.localMemberPubkey?.trim()
+    && params.actorPrivateKeyHex?.trim()
+    && communityIdCandidates.length > 0
+  ) {
+    await attemptManagedWorkspaceCoordinationSelfHeal({
+      groupId: params.groupId,
+      relayUrl: params.relayUrl,
+      communityId: communityIdCandidates[0]!,
+      communityIdCandidates,
+      communityMode: params.communityMode,
+      profileId: params.profileId,
+      localMemberPubkey: params.localMemberPubkey,
+      actorPrivateKeyHex: params.actorPrivateKeyHex,
+    });
+  }
 
   let coordination: CoordinationMembershipReconcileResult | null = null;
   for (const communityId of communityIdCandidates) {

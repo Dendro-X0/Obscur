@@ -99,9 +99,37 @@ export const getSaveLibraryContext = async (): Promise<SaveLibraryContext | null
   return normalizeSaveLibraryContext(result.value as unknown as Record<string, unknown>);
 };
 
+const dedupeScanRoots = (roots: ReadonlyArray<string>): ReadonlyArray<string> => {
+  const uniqueRoots: string[] = [];
+  roots
+    .map((root) => root.trim())
+    .filter((root) => root.length > 0)
+    .forEach((root) => {
+      if (uniqueRoots.includes(root)) {
+        return;
+      }
+      uniqueRoots.push(root);
+    });
+  return uniqueRoots;
+};
+
+/** Obscur-owned folders only — fast first pass on window boot. */
+export const buildPrioritySaveLibraryScanRoots = (
+  context: SaveLibraryContext | null,
+): ReadonlyArray<string> => {
+  if (!context) {
+    return [];
+  }
+  return dedupeScanRoots([
+    context.dataRootPath,
+    context.exportsFolderPath,
+    context.profileArchivesFolderPath,
+  ].filter((root) => root.length > 0));
+};
+
 export const buildDefaultSaveLibraryScanRoots = async (): Promise<ReadonlyArray<string>> => {
   const context = await getSaveLibraryContext();
   const roots = context?.scanRoots ? [...context.scanRoots] : [];
   loadExtraSaveLibraryScanRoots().forEach((root) => roots.push(root));
-  return Array.from(new Set(roots.map((root) => root.trim()).filter((root) => root.length > 0)));
+  return dedupeScanRoots(roots);
 };

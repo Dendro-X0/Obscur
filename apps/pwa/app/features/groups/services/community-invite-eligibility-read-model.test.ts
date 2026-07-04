@@ -65,4 +65,24 @@ describe("community-invite-eligibility-read-model", () => {
     });
     expect(blocklist).toEqual([PK_A, PK_B]);
   });
+
+  it("blocks invite for participation authors when coordination directory lags relay chat", () => {
+    const blocklist = resolveCommunityInviteMemberBlocklist({
+      communityMode: "managed_workspace",
+      relayUrl: "ws://localhost:7000",
+      coordinationDirectory: {
+        activeMemberPubkeys: [PK_A],
+        leftMemberPubkeys: [],
+        expelledMemberPubkeys: [],
+        headSeq: 2,
+      },
+      hybridActiveMemberPubkeys: [PK_A],
+      participationAuthorPubkeys: [PK_B],
+      leftMemberPubkeys: [],
+      expelledMemberPubkeys: [],
+    });
+    expect(isPubkeyBlockedFromCommunityInvite(PK_B, blocklist)).toBe(true);
+    expect(blocklist).toContain(PK_A);
+    expect(blocklist).toContain(PK_B);
+  });
 });

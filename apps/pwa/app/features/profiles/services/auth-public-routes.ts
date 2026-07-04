@@ -7,6 +7,18 @@ import type { ProfileLaunchMode } from "./profile-isolation-contracts";
 
 export const PROFILE_SIGN_IN_ROUTE = "/sign-in";
 
+/** True when the current document load was triggered by a manual refresh (F5). */
+export const isPageReloadNavigation = (): boolean => {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  if (typeof performance.getEntriesByType !== "function") {
+    return false;
+  }
+  const entry = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined;
+  return entry?.type === "reload";
+};
+
 const AUTH_PUBLIC_PROFILE_ROUTE_PREFIXES = [
   "/profiles",
 ] as const;
@@ -25,8 +37,12 @@ export const resolveLockedDesktopEntryRedirect = (params: Readonly<{
   isUnlocked: boolean;
   showProfilePickerOnStartup?: boolean;
   profileLaunchMode?: ProfileLaunchMode;
+  isPageReload?: boolean;
 }>): string | null => {
   if (!params.isDesktopNative || params.isUnlocked) {
+    return null;
+  }
+  if (params.isPageReload) {
     return null;
   }
   if (params.showProfilePickerOnStartup === false) {

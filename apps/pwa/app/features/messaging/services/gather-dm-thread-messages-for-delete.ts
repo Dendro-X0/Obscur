@@ -8,7 +8,7 @@ import type { Message, PersistedMessage } from "../types";
 import { accountProjectionRuntime } from "@/app/features/account-sync/services/account-projection-runtime";
 import { selectProjectionConversationMessages } from "@/app/features/account-sync/services/account-projection-selectors";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
-import { chatStateStoreService } from "./chat-state-store";
+import { messagingChatStateReadPort } from "../services/messaging-chat-state-read-port";
 import { buildDmSiblingConversationIds, inferPeerFromConversationId } from "../utils/dm-conversation-sibling-ids";
 import { toDmConversationId } from "../utils/dm-conversation-id";
 
@@ -52,7 +52,7 @@ export const gatherDmThreadMessagesForDelete = (params: Readonly<{
 
   const profileId = getResolvedProfileId();
   if (profileId) {
-    const chatState = chatStateStoreService.load(params.myPublicKeyHex, { profileId });
+    const chatState = messagingChatStateReadPort.load(params.myPublicKeyHex, { profileId });
     const siblingIds = buildDmSiblingConversationIds({
       conversationId: params.conversationId,
       myPublicKeyHex: params.myPublicKeyHex,

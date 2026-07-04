@@ -5,6 +5,7 @@ import { publishRelayConfirmedCommunityLeave } from "@/app/features/groups/servi
 import type { SealedCommunityNostrPool } from "@/app/features/groups/services/sealed-community-relay-scope";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { logWorkspaceKernelDiagnostic } from "./workspace-kernel-diagnostics";
+import { assertWorkspaceLeaveRequiresRelayConfirmation as assertLeaveRelayConfirmation } from "@obscur/workspace-engine";
 import {
   listManagedWorkspaceCommunityIdCandidates,
   resolveManagedWorkspaceCommunityId,
@@ -14,11 +15,7 @@ export type WorkspaceKernelLeavePortStatus = "w1_landed";
 
 export const workspaceKernelLeavePortStatus = (): WorkspaceKernelLeavePortStatus => "w1_landed";
 
-export const assertWorkspaceLeaveRequiresRelayConfirmation = (relayConfirmed: boolean): void => {
-  if (!relayConfirmed) {
-    throw new Error("workspace-kernel leave-port: relayConfirmed required before local commit");
-  }
-};
+export const assertWorkspaceLeaveRequiresRelayConfirmation = assertLeaveRelayConfirmation;
 
 export type PublishWorkspaceKernelLeaveParams = Readonly<{
   pool: SealedCommunityNostrPool;

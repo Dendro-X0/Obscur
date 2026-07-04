@@ -13,6 +13,10 @@ name = "libobscur"
 name = "uniffi-bindgen"
 path = "src/bin/uniffi-bindgen.rs"
 
+[[bin]]
+name = "engine-lab-headless"
+path = "src/bin/engine-lab-headless.rs"
+
 [dependencies]
 uniffi = { version = "0.28.0", features = ["tokio", "cli"] }
 chacha20poly1305 = "0.10.1"
@@ -30,6 +34,9 @@ nostr = { version = "0.38", features = ["nip04", "nip44", "nip59"] }
 rayon = "1.10"
 num_cpus = "1.16"
 rusqlite = { version = "0.31.0", features = ["bundled"] }
+aes-gcm = "0.10.3"
+pbkdf2 = "0.12.2"
+getrandom = "0.2.15"
 tokio = { version = "1.37", features = ["full"] }
 tokio-tungstenite = { version = "0.21", default-features = false, features = ["connect", "rustls-tls-native-roots"] }
 url = "2.5"

@@ -1,7 +1,7 @@
 # UI effect stability policy (relay-bound search and similar)
 
 **Status:** Active  
-**Systemic program:** [ui-render-loop-systemic-program.md](./ui-render-loop-systemic-program.md) — **read before adding relay/window effects**  
+**Systemic program:** [ui-render-loop-systemic-program.md](../archive/program/inactive-2026-06/ui-render-loop-systemic-program.md) — **read before adding relay/window effects**  
 **Last updated:** 2026-06-02  
 **Trigger:** Recurring `Maximum update depth exceeded` from `SidebarUserSearch` after Greenfield / online relay work
 
@@ -31,7 +31,7 @@ This is not unique to search — the same anti-pattern affects any `useMemo`/`us
 | Use **`useDebouncedProfileSearch`** / **`useProfileSearchServiceRef`** | Duplicate debounce+search effects per screen |
 | Use **`useRelayPoolRef`** for publish/subscribe callbacks | Stack extra effects to “fix” races |
 
-**Audit:** [`ui-relay-pool-effect-audit-2026-05.md`](./ui-relay-pool-effect-audit-2026-05.md) — repo-wide P0/P1/P2 inventory (2026-05-22)
+**Audit:** [`ui-relay-pool-effect-audit-2026-05.md`](../archive/program/inactive-2026-06/ui-relay-pool-effect-audit-2026-05.md) — repo-wide P0/P1/P2 inventory (2026-05-22)
 
 **Owners:**
 

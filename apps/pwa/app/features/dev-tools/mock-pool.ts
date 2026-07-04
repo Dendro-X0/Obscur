@@ -1,6 +1,6 @@
 import type { NostrEvent } from "@dweb/nostr/nostr-event";
 import type { NostrFilter } from "../relays/types/nostr-filter";
-import type { PublishResult, MultiRelayPublishResult } from "../relays/hooks/enhanced-relay-pool";
+import type { MultiRelayPublishResult, PublishResult } from "../relays/hooks/enhanced-relay-pool-types";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 
 import type { RelayConnection } from "../relays/utils/relay-connection";

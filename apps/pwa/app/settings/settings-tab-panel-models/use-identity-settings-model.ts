@@ -7,6 +7,7 @@ import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { nip19 } from "nostr-tools";
 import { useTranslation } from "react-i18next";
 import { toast } from "@dweb/ui-kit";
+import { useAppLockAction } from "@/app/features/auth/hooks/use-app-lock-action";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { createPendingStartupAuthState } from "@/app/features/auth/services/startup-auth-state-contracts";
 import { useProfile } from "@/app/features/profile/hooks/use-profile";
@@ -28,6 +29,7 @@ import { useSettingsDestructiveActionsModel } from "./use-settings-destructive-a
 export function useIdentitySettingsModel(): SettingsTabPanelModel {
   const { t } = useTranslation();
   const identity = useIdentity();
+  const { lockApp } = useAppLockAction();
   const profile = useProfile();
   const { isPublishing } = useProfilePublisher();
   const privacy = usePrivacySettingsCore();
@@ -302,11 +304,11 @@ export function useIdentitySettingsModel(): SettingsTabPanelModel {
   };
 
   const handleProfileSwitchLock = (): void => {
-    identity.lockIdentity();
     setIsPrivateKeyVisible(false);
     setNsecKey(null);
     setRevealExpiresAtMs(null);
     setIsChallenging(false);
+    void lockApp();
   };
 
   useEffect(() => {

@@ -5,7 +5,7 @@ import {
   buildGroupTimelineSubscriptionFilters,
   ingestSealedCommunityRelayEvent,
 } from "./group-thread-relay-ingest";
-import { SEALED_COMMUNITY_KIND_MEMBERS } from "./sealed-community-relay-kinds";
+import { SEALED_COMMUNITY_KIND_DELETE, SEALED_COMMUNITY_KIND_MEMBERS } from "./sealed-community-relay-kinds";
 
 vi.mock("./community-dev-flags", () => ({
   isWorkspaceR1MembershipEnforced: vi.fn(() => true),
@@ -16,13 +16,23 @@ vi.mock("./community-membership-sync-mode", () => ({
   readMembershipSyncMode: vi.fn(() => "coordination_preferred" as const),
 }));
 
-const appendMock = vi.fn(async (params: { eventId?: string }) => ({
-  status: "persisted" as const,
-  eventId: params.eventId ?? "evt-1",
+const { appendMock, suppressMock } = vi.hoisted(() => ({
+  appendMock: vi.fn(async (params: { eventId?: string }) => ({
+    status: "persisted" as const,
+    eventId: params.eventId ?? "evt-1",
+  })),
+  suppressMock: vi.fn(async () => ({
+    status: "suppressed" as const,
+    eventIds: ["target-event"],
+  })),
 }));
 
 vi.mock("@/app/features/messaging/services/thread-history/group-thread-append", () => ({
   appendGroupThreadMessage: appendMock,
+}));
+
+vi.mock("@/app/features/messaging/services/thread-history/group-thread-suppress", () => ({
+  suppressGroupThreadMessage: suppressMock,
 }));
 
 vi.mock("@/app/features/crypto/crypto-service", () => ({
@@ -66,6 +76,7 @@ const createSealedChatEvent = (params: Readonly<{
 describe("group-thread-relay-ingest", () => {
   beforeEach(() => {
     appendMock.mockClear();
+    suppressMock.mockClear();
     vi.mocked(roomKeyStore.getRoomKeyRecord).mockResolvedValue({
       groupId,
       roomKeyHex: "room-key",
@@ -89,7 +100,44 @@ describe("group-thread-relay-ingest", () => {
   it("builds chat-only filters for managed_workspace (Path B B1-2)", () => {
     const filters = buildGroupTimelineSubscriptionFilters(groupId, "managed_workspace");
     expect(filters[0]?.kinds).toContain(10105);
+    expect(filters[0]?.kinds).toContain(SEALED_COMMUNITY_KIND_DELETE);
     expect(filters[0]?.kinds).not.toContain(SEALED_COMMUNITY_KIND_MEMBERS);
+  });
+
+  it("applies kind-5 delete events through suppressGroupThreadMessage", async () => {
+    const targetEventId = "f".repeat(64);
+    const deleteEventId = "e".repeat(64);
+    const result = await ingestSealedCommunityRelayEvent(
+      {
+        id: deleteEventId,
+        pubkey: actor,
+        kind: SEALED_COMMUNITY_KIND_DELETE,
+        created_at: 1_700_000_100,
+        sig: "sig",
+        content: "",
+        tags: [["e", targetEventId], ["h", groupId]],
+      },
+      scopedRelay,
+      {
+        groupId,
+        relayUrl: scopedRelay,
+        conversationId,
+        myPublicKeyHex: actor,
+      },
+    );
+
+    expect(result).toEqual({
+      status: "suppressed",
+      eventId: deleteEventId,
+      targetEventIds: [targetEventId],
+    });
+    expect(suppressMock).toHaveBeenCalledWith(expect.objectContaining({
+      conversationId,
+      groupId,
+      primaryMessageId: targetEventId,
+      deletedByPublicKeyHex: actor,
+    }));
+    expect(appendMock).not.toHaveBeenCalled();
   });
 
   it("ignores relay roster snapshots without persisting chat rows", async () => {

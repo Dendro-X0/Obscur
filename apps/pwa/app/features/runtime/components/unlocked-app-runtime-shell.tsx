@@ -4,7 +4,7 @@ import type React from "react";
 import { AppChromeProvider } from "@/app/components/app-chrome-registry";
 import { PersistentAppChrome } from "@/app/components/persistent-app-chrome";
 import { LazyGlobalDialogManager } from "@/app/features/messaging/components/lazy-global-dialog-manager";
-import { GroupProvider } from "@/app/features/groups/providers/group-provider";
+import { LegacyGroupProvider } from "@/app/features/groups/providers/group-provider-port";
 import { WorkspaceKernelGroupRelayIngestOwner } from "@/app/features/workspace-kernel/workspace-kernel-group-relay-ingest-owner";
 import { WorkspaceKernelProvider } from "@/app/features/workspace-kernel/workspace-kernel-provider";
 import { ProfileRuntimeProvider } from "@/app/features/profiles/providers/profile-runtime-provider";
@@ -35,7 +35,7 @@ export function UnlockedAppRuntimeShell(props: Readonly<{ children: React.ReactN
       <ProfileRuntimeProvider>
         <AccountScopeBoundaryOwner />
         <RelayProvider>
-          <GroupProvider>
+          <LegacyGroupProvider>
             <WorkspaceKernelGroupRelayIngestOwner />
             <WorkspaceKernelProvider>
             <NetworkProvider>
@@ -60,7 +60,7 @@ export function UnlockedAppRuntimeShell(props: Readonly<{ children: React.ReactN
               </MessagingProvider>
             </NetworkProvider>
             </WorkspaceKernelProvider>
-          </GroupProvider>
+          </LegacyGroupProvider>
         </RelayProvider>
       </ProfileRuntimeProvider>
     </TanstackQueryRuntimeProvider>

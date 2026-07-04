@@ -70,4 +70,18 @@ describe("community-workspace-activation", () => {
     expect(summary.severity).toBe("success");
     expect(summary.recovery).toHaveLength(0);
   });
+
+  it("does not return success when relay synced without publish targets (R4 T-2)", () => {
+    const summary = summarizeWorkspaceActivation({
+      relay: {
+        status: "synced",
+        canonicalUrl: "ws://localhost:7000",
+        publishTargets: [],
+      },
+      coordination: { status: "synced" },
+      context: "join",
+    });
+    expect(summary.severity).not.toBe("success");
+    expect(summary.recovery).toContain("configure_relays");
+  });
 });

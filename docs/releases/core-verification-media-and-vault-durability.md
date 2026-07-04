@@ -1,6 +1,6 @@
 # Core Verification: Media and Vault Durability
 
-_Last reviewed: 2026-04-18 (baseline commit a3f16b10)._
+_Last reviewed: 2026-06-27 (local vault save + chat attachment menu). Baseline commit a3f16b10 for restore lane._
 
 This packet covers Lane 7 from:
 
@@ -20,6 +20,8 @@ This lane verifies:
 4. Vault active-identity refresh and same-account rebuild triggers,
 5. deterministic download/save behavior in browser and desktop runtimes,
 6. separation between local cache organization and remote durable media truth.
+7. explicit **local encrypted vault** saves (desktop) remain profile-scoped and do not
+   replace remote attachment URLs in message history unless separately uploaded.
 
 ## Canonical Owners
 
@@ -30,6 +32,9 @@ This lane verifies:
 5. `apps/pwa/app/features/vault/components/vault-media-grid.tsx`
 6. `apps/pwa/app/features/vault/services/local-media-store.ts`
 7. `apps/pwa/app/features/vault/services/native-local-media-adapter.ts`
+8. `apps/pwa/app/features/vault/services/save-chat-attachment-to-vault.ts`
+9. `apps/pwa/app/features/messaging/components/attachment-context-menu.tsx`
+10. `apps/pwa/app/features/messaging/components/attachment-context-menu-handlers.ts`
 
 Reference incidents and guardrails:
 
@@ -59,7 +64,17 @@ Reference incidents and guardrails:
 Run:
 
 ```bash
-pnpm -C apps/pwa exec vitest run app/features/messaging/utils/persistence.attachments.test.ts app/features/account-sync/services/encrypted-account-backup-service.attachments.test.ts app/features/vault/hooks/use-vault-media.test.tsx app/features/vault/components/vault-media-grid.test.tsx app/features/vault/services/native-local-media-adapter.test.ts
+pnpm -C apps/pwa exec vitest run \
+  app/features/messaging/utils/persistence.attachments.test.ts \
+  app/features/account-sync/services/encrypted-account-backup-service.attachments.test.ts \
+  app/features/vault/hooks/use-vault-media.test.tsx \
+  app/features/vault/components/vault-media-grid.test.tsx \
+  app/features/vault/services/native-local-media-adapter.test.ts \
+  app/features/vault/services/local-media-store.test.ts \
+  app/features/vault/services/vault-media-aggregator.test.ts \
+  app/features/messaging/components/attachment-context-menu.test.tsx \
+  app/features/messaging/components/attachment-context-menu-handlers.test.ts \
+  app/features/auth/components/app-lock-confirm-dialog.test.tsx
 pnpm -C apps/pwa exec tsc --noEmit --pretty false
 pnpm docs:check
 ```
@@ -85,6 +100,14 @@ Expected focus:
    - native save dialog path,
    - filesystem write/open support,
    - web-runtime unsupported fallback behavior.
+6. `local-media-store.test.ts` / `vault-media-aggregator.test.ts`
+   - local-only vault URLs (`obscur://vault/local/…`),
+   - display filename resolution (not `.obscurvault` blob names).
+7. `attachment-context-menu*.test.ts`
+   - save-to-vault as first menu action,
+   - touch long-press opens attachment menu.
+8. `app-lock-confirm-dialog.test.tsx`
+   - lock confirmation copy from `en.json`.
 
 ## Manual Replay Set
 
@@ -104,7 +127,10 @@ possible:
 5. restore those items to Vault and verify they return normally,
 6. on desktop, download image/video/audio/file items through the native save
    dialog and confirm the saved files open correctly from the chosen path,
-7. on web, confirm browser download fallback still produces valid files.
+7. on web, confirm browser download fallback still produces valid files,
+8. on desktop, upload via **Obscur Local Vault** and via chat **Save to vault**
+   (right-click or long-press); confirm **Local** filter, original filenames, and
+   encrypted-at-rest access only when profile is unlocked.
 
 ## Evidence To Capture
 

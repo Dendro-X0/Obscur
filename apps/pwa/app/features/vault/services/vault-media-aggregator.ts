@@ -1,6 +1,13 @@
 import type { Message } from "@/app/features/messaging/types";
 import type { VaultMediaItem } from "../types/vault-media-item";
-import { getLocalMediaIndexEntryByRemoteUrl, resolveLocalMediaUrl } from "./local-media-store";
+import {
+  getLocalMediaIndexEntryByRemoteUrl,
+  getLocalMediaIndexSnapshot,
+  isLocalVaultOnlyUrl,
+  resolveLocalMediaUrl,
+  resolveVaultDisplayFileName,
+} from "./local-media-store";
+import { getMediaKindForPolicy } from "@/app/features/messaging/lib/media-upload-policy";
 
 export type VaultMediaCandidate = Readonly<{
   msg: Message;
@@ -33,6 +40,53 @@ export const collectVaultMediaCandidates = (
   return candidates;
 };
 
+const inferKindFromIndexEntry = (fileName: string, contentType: string): VaultMediaItem["attachment"]["kind"] => {
+  const fakeFile = new File([], fileName, { type: contentType });
+  const kind = getMediaKindForPolicy(fakeFile);
+  if (kind === "voice_note") {
+    return "audio";
+  }
+  return kind;
+};
+
+/** Local-only vault uploads (no chat message) keyed under obscur://vault/local/{hash}. */
+export const buildStandaloneLocalVaultMediaItems = (
+  existingRemoteUrls: ReadonlySet<string>,
+): VaultMediaItem[] => {
+  const index = getLocalMediaIndexSnapshot();
+  const items: VaultMediaItem[] = [];
+  Object.entries(index).forEach(([remoteUrl, entry]) => {
+    if (!isLocalVaultOnlyUrl(remoteUrl)) {
+      return;
+    }
+    if (existingRemoteUrls.has(remoteUrl)) {
+      return;
+    }
+    if (!entry?.relativePath?.trim()) {
+      return;
+    }
+    items.push({
+      id: `local-vault-${remoteUrl}`,
+      messageId: `local-vault:${remoteUrl}`,
+      attachment: {
+        kind: inferKindFromIndexEntry(entry.fileName, entry.contentType),
+        url: remoteUrl,
+        contentType: entry.contentType || "application/octet-stream",
+        fileName: resolveVaultDisplayFileName({
+          indexFileName: entry.fileName,
+          relativePath: entry.relativePath,
+        }),
+      },
+      timestamp: new Date(entry.savedAtUnixMs),
+      remoteUrl,
+      isLocalCached: true,
+      localRelativePath: entry.relativePath,
+      sourceConversationId: null,
+    });
+  });
+  return items;
+};
+
 /**
  * Build vault rows using the synchronous local index only — no per-file native exists checks.
  * This keeps first paint fast; use enrichVaultMediaItemsWithLocalUrls for verified local URLs.
@@ -41,10 +95,17 @@ export const buildVaultMediaItemsFast = (
   candidates: ReadonlyArray<VaultMediaCandidate>,
 ): VaultMediaItem[] => candidates.map(({ msg, attachment, attachmentIndex }) => {
   const indexEntry = getLocalMediaIndexEntryByRemoteUrl(attachment.url);
+  const displayFileName = resolveVaultDisplayFileName({
+    attachmentFileName: attachment.fileName,
+    indexFileName: indexEntry?.fileName,
+    relativePath: indexEntry?.relativePath,
+  });
   return {
     id: `${msg.id}-${attachmentIndex}-${attachment.url}`,
     messageId: msg.id,
-    attachment,
+    attachment: displayFileName === attachment.fileName
+      ? attachment
+      : { ...attachment, fileName: displayFileName },
     timestamp: msg.timestamp instanceof Date ? msg.timestamp : new Date(msg.timestamp),
     remoteUrl: attachment.url,
     isLocalCached: Boolean(indexEntry),

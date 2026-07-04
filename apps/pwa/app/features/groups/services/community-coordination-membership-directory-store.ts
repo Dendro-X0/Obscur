@@ -1,8 +1,16 @@
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
+import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
+import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
+import { findJoinedLedgerEntryForCommunity } from "@/app/features/workspace-kernel/workspace-kernel-membership-scope";
 import {
   fetchCoordinationMembershipDeltasSince,
+  fetchCoordinationMembershipHead,
 } from "./community-coordination-membership-client";
+import {
+  fetchCoordinationRoomKeyWrapsSince,
+  materializeRoomKeysFromCoordinationWraps,
+} from "./community-coordination-room-key-owner";
 import {
   applyCoordinationMembershipDeltasToMaterialization,
   coordinationMembershipMaterializationsEqual,
@@ -10,6 +18,7 @@ import {
   materializeCoordinationMembershipFromDeltas,
   type CoordinationMembershipMaterialization,
 } from "./community-coordination-membership-materializer";
+import { loadCommunityMembershipLedger } from "./community-membership-ledger";
 import { isCoordinationConfigured } from "./community-membership-sync-mode";
 
 const STORAGE_PREFIX = "obscur.community.coordination_membership_directory.v1";
@@ -29,6 +38,12 @@ const directoryRefreshKey = (communityId: string, profileId: string): string => 
 );
 
 export const COORDINATION_MEMBERSHIP_DIRECTORY_CHANGED_EVENT = "obscur:coordination-membership-directory-changed";
+
+export type CoordinationDirectoryRoomKeyMaterializationContext = Readonly<{
+  localPubkey: PublicKeyHex;
+  localPrivateKeyHex: PrivateKeyHex;
+  groupId?: string;
+}>;
 
 type StoredDirectoryRecord = Readonly<{
   communityId: string;
@@ -134,6 +149,89 @@ export const saveCoordinationMembershipDirectory = (params: Readonly<{
   notifyDirectoryChanged(normalizedCommunityId, params.profileId);
 };
 
+const resolveGroupIdForRoomKeyMaterialization = (params: Readonly<{
+  communityId: string;
+  profileId?: string;
+  roomKeyMaterialization: CoordinationDirectoryRoomKeyMaterializationContext;
+}>): string | null => {
+  const explicitGroupId = params.roomKeyMaterialization.groupId?.trim();
+  if (explicitGroupId) {
+    return explicitGroupId;
+  }
+  const ledger = loadCommunityMembershipLedger(params.roomKeyMaterialization.localPubkey, {
+    profileId: params.profileId,
+  });
+  const entry = findJoinedLedgerEntryForCommunity(ledger, params.communityId);
+  return entry?.groupId?.trim() || null;
+};
+
+/** C3 — fetch coordination wraps and materialize local room key after directory save. */
+export const materializeCoordinationRoomKeysAfterDirectoryRefresh = async (params: Readonly<{
+  communityId: string;
+  materialization: CoordinationMembershipMaterialization;
+  profileId?: string;
+  roomKeyMaterialization?: CoordinationDirectoryRoomKeyMaterializationContext;
+}>): Promise<Readonly<{ materialized: boolean; roomKeyHex: string | null; error?: string }>> => {
+  const communityId = params.communityId.trim();
+  if (!communityId || !params.roomKeyMaterialization) {
+    return { materialized: false, roomKeyHex: null, error: "materialization_context_missing" };
+  }
+
+  const groupId = resolveGroupIdForRoomKeyMaterialization({
+    communityId,
+    profileId: params.profileId,
+    roomKeyMaterialization: params.roomKeyMaterialization,
+  });
+  if (!groupId) {
+    return { materialized: false, roomKeyHex: null, error: "group_id_unresolved" };
+  }
+
+  const fetched = await fetchCoordinationRoomKeyWrapsSince(communityId, 0);
+  if (!fetched.ok) {
+    return { materialized: false, roomKeyHex: null, error: fetched.error };
+  }
+
+  return materializeRoomKeysFromCoordinationWraps({
+    groupId,
+    communityId,
+    localPubkey: params.roomKeyMaterialization.localPubkey,
+    localPrivateKeyHex: params.roomKeyMaterialization.localPrivateKeyHex,
+    wraps: fetched.wraps,
+    activeMemberPubkeys: params.materialization.activeMemberPubkeys,
+  });
+};
+
+const persistDirectoryMaterialization = async (params: Readonly<{
+  communityId: string;
+  materialization: CoordinationMembershipMaterialization;
+  profileId?: string;
+  roomKeyMaterialization?: CoordinationDirectoryRoomKeyMaterializationContext;
+}>): Promise<CoordinationMembershipMaterialization> => {
+  const existingMaterialization = loadCoordinationMembershipDirectory(
+    params.communityId,
+    params.profileId,
+  );
+  const materializationChanged = !existingMaterialization
+    || !coordinationMembershipMaterializationsEqual(existingMaterialization, params.materialization);
+
+  saveCoordinationMembershipDirectory({
+    communityId: params.communityId,
+    materialization: params.materialization,
+    profileId: params.profileId,
+  });
+
+  if (materializationChanged && params.roomKeyMaterialization) {
+    await materializeCoordinationRoomKeysAfterDirectoryRefresh({
+      communityId: params.communityId,
+      materialization: params.materialization,
+      profileId: params.profileId,
+      roomKeyMaterialization: params.roomKeyMaterialization,
+    });
+  }
+
+  return params.materialization;
+};
+
 export const resetCoordinationMembershipDirectoryForTests = (): void => {
   directoryRefreshByKey.clear();
   if (typeof window === "undefined") {
@@ -167,6 +265,7 @@ const refreshCoordinationMembershipDirectoryInner = async (params: Readonly<{
   communityId: string;
   profileId?: string;
   forceFull?: boolean;
+  roomKeyMaterialization?: CoordinationDirectoryRoomKeyMaterializationContext;
 }>): Promise<CoordinationMembershipMaterialization | null> => {
   const communityId = params.communityId.trim();
   if (!communityId || !isCoordinationConfigured()) {
@@ -176,12 +275,12 @@ const refreshCoordinationMembershipDirectoryInner = async (params: Readonly<{
   if (params.forceFull) {
     const allDeltas = await fetchAllCoordinationMembershipDeltas(communityId);
     const materialization = materializeCoordinationMembershipFromDeltas(allDeltas);
-    saveCoordinationMembershipDirectory({
+    return persistDirectoryMaterialization({
       communityId,
       materialization,
       profileId: params.profileId,
+      roomKeyMaterialization: params.roomKeyMaterialization,
     });
-    return materialization;
   }
 
   const current = loadCoordinationMembershipDirectory(communityId, params.profileId)
@@ -191,15 +290,26 @@ const refreshCoordinationMembershipDirectoryInner = async (params: Readonly<{
     return current.headSeq > 0 ? current : null;
   }
   if (result.deltas.length === 0) {
+    const head = await fetchCoordinationMembershipHead(communityId);
+    if (head && current.headSeq > head.seq) {
+      const allDeltas = await fetchAllCoordinationMembershipDeltas(communityId);
+      const materialization = materializeCoordinationMembershipFromDeltas(allDeltas);
+      return persistDirectoryMaterialization({
+        communityId,
+        materialization,
+        profileId: params.profileId,
+        roomKeyMaterialization: params.roomKeyMaterialization,
+      });
+    }
     return current;
   }
   const materialization = applyCoordinationMembershipDeltasToMaterialization(current, result.deltas);
-  saveCoordinationMembershipDirectory({
+  return persistDirectoryMaterialization({
     communityId,
     materialization,
     profileId: params.profileId,
+    roomKeyMaterialization: params.roomKeyMaterialization,
   });
-  return materialization;
 };
 
 /** Rebuild coordination directory from seq 0 and persist (authoritative invite gate input). */
@@ -207,6 +317,7 @@ export const refreshCoordinationMembershipDirectory = async (params: Readonly<{
   communityId: string;
   profileId?: string;
   forceFull?: boolean;
+  roomKeyMaterialization?: CoordinationDirectoryRoomKeyMaterializationContext;
 }>): Promise<CoordinationMembershipMaterialization | null> => {
   const communityId = params.communityId.trim();
   if (!communityId || !isCoordinationConfigured()) {
@@ -251,6 +362,7 @@ export const applyCoordinationMembershipDeltasToDirectoryStore = (params: Readon
   communityId: string;
   deltas: ReadonlyArray<import("./community-coordination-membership-client").CoordinationMembershipDeltaRecord>;
   profileId?: string;
+  roomKeyMaterialization?: CoordinationDirectoryRoomKeyMaterializationContext;
 }>): CoordinationMembershipMaterialization | null => {
   const communityId = params.communityId.trim();
   if (!communityId || params.deltas.length === 0) {
@@ -264,5 +376,13 @@ export const applyCoordinationMembershipDeltasToDirectoryStore = (params: Readon
     materialization,
     profileId: params.profileId,
   });
+  if (params.roomKeyMaterialization) {
+    void materializeCoordinationRoomKeysAfterDirectoryRefresh({
+      communityId,
+      materialization,
+      profileId: params.profileId,
+      roomKeyMaterialization: params.roomKeyMaterialization,
+    });
+  }
   return materialization;
 };

@@ -14,6 +14,9 @@ const isObscurAppUrl = (url: string): boolean => {
   if (url.includes("127.0.0.1:3340") || url.includes("localhost:3340")) {
     return true;
   }
+  if (url.includes("127.0.0.1:1430") || url.includes("localhost:1430")) {
+    return true;
+  }
   if (/^https?:\/\/127\.0\.0\.1:\d+/i.test(url)) {
     return true;
   }
@@ -59,6 +62,21 @@ export const pickAppPageFromCdpBrowser = (
   return null;
 };
 
+const isAttachableCdpPageUrl = (url: string): boolean => (
+  isObscurAppUrl(url) || url.includes("chrome-error")
+);
+
+export const pickAnyCdpShellPage = (browser: Browser): Page | null => {
+  for (const context of browser.contexts()) {
+    for (const candidate of context.pages()) {
+      if (isAttachableCdpPageUrl(candidate.url())) {
+        return candidate;
+      }
+    }
+  }
+  return null;
+};
+
 export const pickAppPageFromCdpBrowserAsync = async (
   browser: Browser,
   baseURL?: string | null,
@@ -91,4 +109,25 @@ export const pickAppPageFromCdpBrowserAsync = async (
   }
 
   return candidates[0] ?? null;
+};
+
+export const waitForAppPageFromCdpBrowserAsync = async (
+  browser: Browser,
+  baseURL?: string | null,
+  options?: Readonly<{ timeoutMs?: number }>,
+): Promise<Page | null> => {
+  const timeoutMs = options?.timeoutMs ?? 120_000;
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const matched = await pickAppPageFromCdpBrowserAsync(browser, baseURL);
+    if (matched && !matched.url().includes("chrome-error")) {
+      return matched;
+    }
+    const fallback = pickAnyCdpShellPage(browser);
+    if (fallback) {
+      return fallback;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  return pickAnyCdpShellPage(browser) ?? pickAppPageFromCdpBrowserAsync(browser, baseURL);
 };

@@ -1,14 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { EnhancedRelayPoolResult } from "@/app/features/relays/hooks/enhanced-relay-pool";
+import type { RelayPoolRuntime } from "@/app/features/relays/services/relay-pool-runtime-port";
 import { createRelayRuntimeSupervisor } from "./relay-runtime-supervisor";
 import { relayTransportJournal } from "./relay-transport-journal";
 import { relayResilienceObservability } from "./relay-resilience-observability";
+
+vi.mock("@/app/features/transport-kernel/transport-kernel-policy", () => ({
+  isTransportKernelAuthority: vi.fn(() => false),
+}));
+
+import { isTransportKernelAuthority } from "@/app/features/transport-kernel/transport-kernel-policy";
 
 const createPool = (params?: Readonly<{
   writableRelayUrls?: ReadonlyArray<string>;
   subscribableRelayCount?: number;
   activeSubscriptionCount?: number;
-}>): EnhancedRelayPoolResult => ({
+}>): RelayPoolRuntime => ({
   connections: [],
   healthMetrics: [],
   sendToOpen: vi.fn(),
@@ -57,6 +63,7 @@ const createPool = (params?: Readonly<{
 
 describe("relay-runtime-supervisor", () => {
   beforeEach(() => {
+    vi.mocked(isTransportKernelAuthority).mockReturnValue(false);
     relayTransportJournal.resetForTests();
     relayResilienceObservability.resetForTests(0);
   });
@@ -88,6 +95,10 @@ describe("relay-runtime-supervisor", () => {
       pool,
       enabledRelayUrls: ["wss://relay.one"],
       allEnabledRelayUrls: ["wss://relay.one"],
+      userEnabledRelayUrls: ["wss://relay.one"],
+      engineConfiguredRelayUrls: [],
+      engineCheckpointRelayUrls: [],
+      engineRelayCheckpointCount: 0,
       scope: {
         windowLabel: "profile-b",
         profileId: "profile-b",
@@ -119,6 +130,10 @@ describe("relay-runtime-supervisor", () => {
       pool,
       enabledRelayUrls: ["wss://relay.one"],
       allEnabledRelayUrls: ["wss://relay.one"],
+      userEnabledRelayUrls: ["wss://relay.one"],
+      engineConfiguredRelayUrls: [],
+      engineCheckpointRelayUrls: [],
+      engineRelayCheckpointCount: 0,
       scope: {
         windowLabel: "desktop-main",
         profileId: "default",
@@ -144,6 +159,10 @@ describe("relay-runtime-supervisor", () => {
       pool,
       enabledRelayUrls: ["wss://relay.one"],
       allEnabledRelayUrls: ["wss://relay.one"],
+      userEnabledRelayUrls: ["wss://relay.one"],
+      engineConfiguredRelayUrls: [],
+      engineCheckpointRelayUrls: [],
+      engineRelayCheckpointCount: 0,
       scope: {
         windowLabel: "main",
         profileId: "default",
@@ -161,6 +180,35 @@ describe("relay-runtime-supervisor", () => {
     expect(disposedSnapshot.activeSubscriptionCount).toBe(0);
   });
 
+  it("uses transport-kernel pool recovery without legacy orchestration when authority is active", async () => {
+    vi.mocked(isTransportKernelAuthority).mockReturnValue(true);
+    const supervisor = createRelayRuntimeSupervisor();
+    const pool = createPool({
+      writableRelayUrls: [],
+      subscribableRelayCount: 0,
+      activeSubscriptionCount: 1,
+    });
+
+    supervisor.configure({
+      pool,
+      enabledRelayUrls: ["wss://relay.one"],
+      allEnabledRelayUrls: ["wss://relay.one"],
+      userEnabledRelayUrls: ["wss://relay.one"],
+      engineConfiguredRelayUrls: [],
+      engineCheckpointRelayUrls: [],
+      engineRelayCheckpointCount: 0,
+      scope: {
+        windowLabel: "main",
+        profileId: "default",
+      },
+    });
+
+    const recoverySnapshot = await supervisor.triggerRecovery("manual");
+    expect(pool.reconnectAll).toHaveBeenCalledWith({ force: true });
+    expect(recoverySnapshot.recovery.currentAction).toBeUndefined();
+    expect(recoverySnapshot.recovery.recoveryAttemptCount).toBe(0);
+  });
+
   it("transitions to fatal when non-cyclic recovery attempts are exhausted", async () => {
     vi.useFakeTimers();
     try {
@@ -176,6 +224,10 @@ describe("relay-runtime-supervisor", () => {
         pool,
         enabledRelayUrls: [],
         allEnabledRelayUrls: [],
+        userEnabledRelayUrls: [],
+        engineConfiguredRelayUrls: [],
+      engineCheckpointRelayUrls: [],
+      engineRelayCheckpointCount: 0,
         scope: {
           windowLabel: "main",
           profileId: "default",
@@ -210,6 +262,10 @@ describe("relay-runtime-supervisor", () => {
         pool,
         enabledRelayUrls: ["wss://relay.one"],
         allEnabledRelayUrls: ["wss://relay.one"],
+      userEnabledRelayUrls: ["wss://relay.one"],
+      engineConfiguredRelayUrls: [],
+      engineCheckpointRelayUrls: [],
+      engineRelayCheckpointCount: 0,
         scope: {
           windowLabel: "main",
           profileId: "default",
@@ -247,6 +303,10 @@ describe("relay-runtime-supervisor", () => {
         pool,
         enabledRelayUrls: ["wss://relay.one"],
         allEnabledRelayUrls: ["wss://relay.one"],
+      userEnabledRelayUrls: ["wss://relay.one"],
+      engineConfiguredRelayUrls: [],
+      engineCheckpointRelayUrls: [],
+      engineRelayCheckpointCount: 0,
         scope: {
           windowLabel: "main",
           profileId: "default",
@@ -279,6 +339,10 @@ describe("relay-runtime-supervisor", () => {
         pool,
         enabledRelayUrls: ["ws://localhost:7000"],
         allEnabledRelayUrls: ["ws://localhost:7000", "wss://relay.damus.io"],
+        userEnabledRelayUrls: ["ws://localhost:7000", "wss://relay.damus.io"],
+        engineConfiguredRelayUrls: [],
+      engineCheckpointRelayUrls: [],
+      engineRelayCheckpointCount: 0,
         attemptPrimaryFailover,
         scope: {
           windowLabel: "main",
@@ -313,6 +377,10 @@ describe("relay-runtime-supervisor", () => {
       pool,
       enabledRelayUrls: ["wss://relay.one"],
       allEnabledRelayUrls: ["wss://relay.one"],
+      userEnabledRelayUrls: ["wss://relay.one"],
+      engineConfiguredRelayUrls: [],
+      engineCheckpointRelayUrls: [],
+      engineRelayCheckpointCount: 0,
       scope: {
         windowLabel: "main",
         profileId: "default",
@@ -321,5 +389,63 @@ describe("relay-runtime-supervisor", () => {
 
     const metrics = relayResilienceObservability.getSnapshot();
     expect(metrics.replay.partialCount).toBeGreaterThanOrEqual(1);
+  });
+
+  it("surfaces transport-engine relay evidence when only engine candidates exist", () => {
+    const supervisor = createRelayRuntimeSupervisor();
+    const pool = createPool({
+      writableRelayUrls: [],
+      subscribableRelayCount: 0,
+      activeSubscriptionCount: 0,
+    });
+
+    supervisor.configure({
+      pool,
+      enabledRelayUrls: [],
+      allEnabledRelayUrls: ["wss://team.relay"],
+      userEnabledRelayUrls: [],
+      engineConfiguredRelayUrls: ["wss://team.relay"],
+      engineCheckpointRelayUrls: ["wss://team.relay"],
+      engineRelayCheckpointCount: 1,
+      scope: {
+        windowLabel: "main",
+        profileId: "default",
+      },
+    });
+
+    const snapshot = supervisor.refresh();
+    expect(snapshot.phase).toBe("connecting");
+    expect(snapshot.engineConfiguredRelayUrls).toEqual(["wss://team.relay"]);
+    expect(snapshot.engineOnlyRelayUrls).toEqual(["wss://team.relay"]);
+    expect(snapshot.supervisorRelayUrlCandidates).toEqual(["wss://team.relay"]);
+    expect(snapshot.engineCheckpointRelayUrls).toEqual(["wss://team.relay"]);
+    expect(snapshot.engineRelayCheckpointCount).toBe(1);
+  });
+
+  it("surfaces checkpoint evidence when engine checkpoints exist without user relays", () => {
+    const supervisor = createRelayRuntimeSupervisor();
+    const pool = createPool({
+      writableRelayUrls: [],
+      subscribableRelayCount: 0,
+      activeSubscriptionCount: 0,
+    });
+
+    supervisor.configure({
+      pool,
+      enabledRelayUrls: ["wss://checkpoint.relay"],
+      allEnabledRelayUrls: ["wss://checkpoint.relay"],
+      userEnabledRelayUrls: [],
+      engineConfiguredRelayUrls: ["wss://checkpoint.relay"],
+      engineCheckpointRelayUrls: ["wss://checkpoint.relay"],
+      engineRelayCheckpointCount: 2,
+      scope: {
+        windowLabel: "main",
+        profileId: "default",
+      },
+    });
+
+    const snapshot = supervisor.refresh();
+    expect(snapshot.engineRelayCheckpointCount).toBe(2);
+    expect(snapshot.engineCheckpointRelayUrls).toEqual(["wss://checkpoint.relay"]);
   });
 });

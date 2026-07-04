@@ -1,5 +1,6 @@
 import type { IdentityRecord } from "@dweb/core/identity-record";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
+import { isPasswordlessNativeOnlyIdentity } from "@/app/features/auth/services/passwordless-native-only-identity";
 import { getProfileIdentityDbKey, getDefaultProfileIdentityDbKey } from "@/app/features/profiles/services/profile-scope";
 
 export const IDENTITY_RECORD_STORAGE_BASE_KEY = "obscur.identity.record";
@@ -47,8 +48,19 @@ export const parseIdentityRecord = (value: unknown): IdentityRecord | undefined 
 };
 
 export const readIdentityRecordFromLocalStorage = (profileId: string): IdentityRecord | undefined => {
-  if (typeof window === "undefined") {
+  const records = listIdentityRecordCandidatesFromLocalStorage(profileId);
+  if (records.length === 0) {
     return undefined;
+  }
+  return records.find((record) => !isPasswordlessNativeOnlyIdentity(record)) ?? records[0];
+};
+
+/** Collect every alias key for a profile so password-protected rows can win over passwordless snapshots. */
+export const listIdentityRecordCandidatesFromLocalStorage = (
+  profileId: string,
+): ReadonlyArray<IdentityRecord> => {
+  if (typeof window === "undefined") {
+    return [];
   }
   const keys = [
     getIdentityRecordStorageKey(profileId),
@@ -57,6 +69,8 @@ export const readIdentityRecordFromLocalStorage = (profileId: string): IdentityR
     profileId === "default" ? getIdentityRecordStorageKey(LEGACY_IDENTITY_DB_KEY) : null,
   ].filter((key): key is string => Boolean(key));
 
+  const records: IdentityRecord[] = [];
+  const seen = new Set<string>();
   for (const key of keys) {
     const raw = window.localStorage.getItem(key);
     if (!raw) {
@@ -64,14 +78,20 @@ export const readIdentityRecordFromLocalStorage = (profileId: string): IdentityR
     }
     try {
       const parsed = parseIdentityRecord(JSON.parse(raw));
-      if (parsed) {
-        return parsed;
+      if (!parsed) {
+        continue;
       }
+      const signature = `${parsed.publicKeyHex}::${parsed.encryptedPrivateKey}`;
+      if (seen.has(signature)) {
+        continue;
+      }
+      seen.add(signature);
+      records.push(parsed);
     } catch {
       // Ignore corrupt payloads and continue scanning aliases.
     }
   }
-  return undefined;
+  return records;
 };
 
 export const writeIdentityRecordToLocalStorage = (params: Readonly<{

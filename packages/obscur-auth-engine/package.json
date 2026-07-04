@@ -1,0 +1,14 @@
+{
+  "name": "@obscur/auth-engine",
+  "version": "1.9.10",
+  "private": true,
+  "type": "module",
+  "description": "Auth engine — @dweb/auth ports + Tauri boot snapshot boundary.",
+  "dependencies": {
+    "@dweb/auth": "workspace:*",
+    "@obscur/engine-contracts": "workspace:*"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

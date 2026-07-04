@@ -1,5 +1,5 @@
 import { isExperimentOfflineStubEnabled } from "@/app/features/runtime/experiment-shell-policy";
-import type { RelayReadinessState, RelayRecoverySnapshot } from "./relay-recovery-policy";
+import type { RelayReadinessState, RelayRecoverySnapshot } from "./relay-recovery-types";
 
 export const getRelayReadinessBannerCopy = (snapshot: RelayRecoverySnapshot): string | null => {
   if (isExperimentOfflineStubEnabled()) {

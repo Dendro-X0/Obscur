@@ -27,7 +27,7 @@ import {
 } from "./message-tombstone-store";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { getResolvedClientGateway } from "@/app/features/profiles/services/resolve-client-gateway";
-import { executeDmDeleteForMe } from "@/app/features/messaging/services/dm-local-delete-persistence";
+import { messagingClientOperations } from "@/app/features/messaging/services/messaging-client-operations";
 import { dmConversationIdsMatch } from "@/app/features/messaging/utils/dm-conversation-id";
 
 // ---------------------------------------------------------------------------
@@ -124,7 +124,7 @@ export async function deleteMessageForMe(
 
   try {
     const deletedAt = Date.now();
-    const persistedIds = await executeDmDeleteForMe({
+    const persistedIds = await messagingClientOperations.deleteDmForMe({
       conversationId: intent.conversationId,
       messageIdentityIds: intent.targetMessage.identityIds,
       accountPublicKeyHex: intent.accountPublicKeyHex,

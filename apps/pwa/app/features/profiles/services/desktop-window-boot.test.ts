@@ -24,6 +24,7 @@ vi.mock("./desktop-profile-runtime", () => ({
   desktopProfileRuntime: {
     refresh: vi.fn(),
     getSnapshot: vi.fn(),
+    bindCurrentWindowProfile: vi.fn(),
   },
 }));
 
@@ -35,8 +36,8 @@ vi.mock("@/app/features/runtime/native-adapters", () => ({
   invokeNativeCommand: vi.fn().mockResolvedValue({ ok: true, value: null }),
 }));
 
-vi.mock("@/app/features/auth/services/native-session-bootstrap-retry", () => ({
-  retryNativeSessionBootstrapAfterProfileReady: vi.fn().mockResolvedValue(false),
+vi.mock("@/app/features/auth-kernel/auth-kernel-boot-owner", () => ({
+  runAuthKernelBootRestore: vi.fn().mockResolvedValue(false),
 }));
 
 vi.mock("@/app/shared/log-app-event", () => ({
@@ -76,5 +77,19 @@ describe("desktop-window-boot", () => {
     expect(logAppEvent).toHaveBeenCalledWith(expect.objectContaining({
       name: "runtime.desktop_window_boot_ready",
     }));
+  });
+
+  it("binds native profile scope before refresh and deferred session restore", async () => {
+    vi.mocked(resolveNativeWindowLabel).mockResolvedValue("main");
+    vi.mocked(desktopProfileRuntime.getSnapshot).mockReturnValue({
+      currentWindow: { profileId: "profile-tester1" },
+    } as never);
+
+    startDesktopWindowBoot();
+
+    await vi.waitFor(() => {
+      expect(desktopProfileRuntime.bindCurrentWindowProfile).toHaveBeenCalledWith("profile-tester1");
+      expect(desktopProfileRuntime.refresh).toHaveBeenCalled();
+    });
   });
 });

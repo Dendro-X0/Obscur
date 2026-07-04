@@ -1,8 +1,9 @@
 {
   "name": "@dweb/ui-kit",
-  "version": "1.9.3",
+  "version": "1.9.10",
   "private": true,
   "type": "module",
+  "sideEffects": false,
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "dependencies": {
@@ -24,10 +25,13 @@
   "devDependencies": {
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.6.3"
   },
   "exports": {
     ".": "./src/index.ts",
-    "./cn": "./src/utils/cn.ts"
+    "./cn": "./src/utils/cn.ts",
+    "./button": "./src/components/button.tsx",
+    "./toast": "./src/components/toast.tsx",
+    "./skeleton": "./src/components/skeleton.tsx"
   }
 }

@@ -2,8 +2,17 @@ import {
   isPublicDefaultRelayHost,
   normalizeRelayHost,
 } from "@/app/features/groups/services/community-mode-contract";
+import { workspaceRelayUrlsMatch } from "@/app/features/groups/services/workspace-relay-url";
+import { isExperimentOnlineEnabled } from "@/app/features/runtime/experiment-shell-policy";
 
 export type RelayTransportScope = "dm" | "community_candidate";
+
+/** Matches `infra/docker-compose.nostr.yml` (host port 7000 → container 8080). */
+export const LOCAL_DEV_WORKSPACE_RELAY_URL = "ws://localhost:7000";
+
+export const isLocalDevWorkspaceRelayUrl = (relayUrl: string): boolean => (
+  workspaceRelayUrlsMatch(relayUrl, LOCAL_DEV_WORKSPACE_RELAY_URL)
+);
 
 const PRIVATE_IPV4_RANGES: ReadonlyArray<Readonly<{ prefix: string; nextOctetRange?: Readonly<[number, number]> }>> = [
   { prefix: "10." },
@@ -86,11 +95,31 @@ export type RelayListEntry = Readonly<{
 
 export const resolveDmTransportRelayUrls = (
   relays: ReadonlyArray<RelayListEntry>,
-): ReadonlyArray<string> => (
-  relays
+): ReadonlyArray<string> => {
+  const dmUrls = relays
     .filter((relay) => relay.enabled && isDmTransportRelayUrl(relay.url))
-    .map((relay) => relay.url)
-);
+    .map((relay) => relay.url);
+
+  if (!isExperimentOnlineEnabled()) {
+    return dmUrls;
+  }
+
+  const localDevRelay = relays.find(
+    (relay) => relay.enabled && isLocalDevWorkspaceRelayUrl(relay.url),
+  );
+  if (!localDevRelay) {
+    return dmUrls;
+  }
+
+  const withoutLocalDup = dmUrls.filter(
+    (url) => !workspaceRelayUrlsMatch(url, localDevRelay.url),
+  );
+  if (withoutLocalDup.length === 0) {
+    return [localDevRelay.url];
+  }
+  // Keep public DM relays primary when Docker relay is down; local dev stays in pool as fallback.
+  return [...withoutLocalDup, localDevRelay.url];
+};
 
 export const resolveCommunityCandidateRelayUrls = (
   relays: ReadonlyArray<RelayListEntry>,

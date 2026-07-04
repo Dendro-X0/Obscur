@@ -89,9 +89,29 @@ fn is_priority_obscur_folder(scan_root: &str) -> bool {
         || normalized.ends_with("profile-archives")
 }
 
+fn is_primary_obscur_data_root(scan_root: &str) -> bool {
+    let normalized = scan_root.replace('\\', "/").to_lowercase();
+    normalized.ends_with("/app.obscur.desktop")
+        || normalized.ends_with("app.obscur.desktop")
+        || normalized.ends_with("/obscur")
+}
+
+fn scan_root_priority(scan_root: &str) -> u8 {
+    if is_priority_obscur_folder(scan_root) {
+        return 0;
+    }
+    if is_primary_obscur_data_root(scan_root) {
+        return 1;
+    }
+    2
+}
+
 fn max_depth_for_root(root: &str, default: u32) -> u32 {
     if is_priority_obscur_folder(root) {
         return 0;
+    }
+    if is_primary_obscur_data_root(root) {
+        return 4.min(default);
     }
     let normalized = root.replace('\\', "/").to_lowercase();
     if normalized.contains("/downloads") || normalized.contains("/documents") {
@@ -208,6 +228,12 @@ fn extract_json_string_field(header: &str, field: &str) -> Option<String> {
     Some(inner.get(..end)?.to_string())
 }
 
+fn extract_json_string_field_any(header: &str, fields: &[&str]) -> Option<String> {
+    fields
+        .iter()
+        .find_map(|field| extract_json_string_field(header, field))
+}
+
 fn extract_json_number_field(header: &str, field: &str) -> Option<u64> {
     let needle = format!("\"{field}\":");
     let start = header.find(needle.as_str())? + needle.len();
@@ -216,6 +242,105 @@ fn extract_json_number_field(header: &str, field: &str) -> Option<u64> {
         .find(|character: char| !character.is_ascii_digit())
         .unwrap_or(slice.len());
     slice.get(..end)?.parse::<u64>().ok()
+}
+
+fn payload_kind_from_format(format: &str) -> Option<(String, String)> {
+    match format {
+        "obscur.unified_account_export.v1" => Some((
+            "unified_account_export".to_string(),
+            "obscur.unified_account_export.v1".to_string(),
+        )),
+        "obscur.portable_account_bundle.v1" => Some((
+            "portable_account_bundle".to_string(),
+            "obscur.portable_account_bundle.v1".to_string(),
+        )),
+        "obscur.encrypted_workspace_bundle.v1" => Some((
+            "workspace_bundle".to_string(),
+            "obscur.encrypted_workspace_bundle.v1".to_string(),
+        )),
+        _ => None,
+    }
+}
+
+fn read_json_string_field(value: &serde_json::Value, fields: &[&str]) -> Option<String> {
+    fields.iter().find_map(|field| {
+        value
+            .get(field)
+            .and_then(|entry| entry.as_str())
+            .map(|entry| entry.trim().to_string())
+    })
+}
+
+fn read_json_u64_field(value: &serde_json::Value, fields: &[&str]) -> Option<u64> {
+    fields.iter().find_map(|field| {
+        value.get(field).and_then(|entry| match entry {
+            serde_json::Value::Number(number) => number.as_u64(),
+            serde_json::Value::String(raw) => raw.parse::<u64>().ok(),
+            _ => None,
+        })
+    })
+}
+
+fn build_entry_from_payload_metadata(
+    path: &Path,
+    scan_root: &str,
+    public_key_hex: String,
+    profile_label: Option<String>,
+    exported_at_unix_ms: u64,
+    payload_kind: String,
+    payload_format: String,
+    payload_bytes: u64,
+    discovery: &str,
+) -> Option<LocalSaveLibraryEntry> {
+    let normalized_public_key = public_key_hex.trim().to_lowercase();
+    if normalized_public_key.len() != 64 {
+        return None;
+    }
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("save.json")
+        .to_string();
+    Some(LocalSaveLibraryEntry {
+        save_id: path.to_string_lossy().to_string(),
+        absolute_path: path.to_string_lossy().to_string(),
+        payload_absolute_path: path.to_string_lossy().to_string(),
+        file_name,
+        public_key_hex: normalized_public_key,
+        profile_label,
+        exported_at_unix_ms,
+        payload_kind,
+        payload_format,
+        payload_bytes,
+        modified_at_unix_ms: read_modified_ms(path),
+        scan_root: scan_root.to_string(),
+        discovery: discovery.to_string(),
+    })
+}
+
+fn parse_payload_full_json(path: &Path, scan_root: &str) -> Option<LocalSaveLibraryEntry> {
+    let bytes = fs::read(path).ok()?;
+    if bytes.len() > 512 * 1024 {
+        return None;
+    }
+    let value: serde_json::Value = serde_json::from_slice(&bytes).ok()?;
+    let format = read_json_string_field(&value, &["format"])?;
+    let (payload_kind, payload_format) = payload_kind_from_format(format.as_str())?;
+    let public_key_hex = read_json_string_field(&value, &["publicKeyHex", "public_key_hex"])?;
+    let exported_at_unix_ms = read_json_u64_field(&value, &["exportedAtUnixMs", "exported_at_unix_ms"])
+        .unwrap_or_else(|| read_modified_ms(path));
+    let profile_label = read_json_string_field(&value, &["profileLabel", "profile_label"]);
+    build_entry_from_payload_metadata(
+        path,
+        scan_root,
+        public_key_hex,
+        profile_label,
+        exported_at_unix_ms,
+        payload_kind,
+        payload_format,
+        bytes.len() as u64,
+        "payload_json",
+    )
 }
 
 fn parse_payload_header(path: &Path, scan_root: &str) -> Option<LocalSaveLibraryEntry> {
@@ -231,15 +356,16 @@ fn parse_payload_header(path: &Path, scan_root: &str) -> Option<LocalSaveLibrary
     {
         return None;
     }
-    let public_key_hex = extract_json_string_field(&header, "publicKeyHex")?
+    let public_key_hex = extract_json_string_field_any(&header, &["publicKeyHex", "public_key_hex"])?
         .trim()
         .to_lowercase();
     if public_key_hex.len() != 64 {
         return None;
     }
     let exported_at_unix_ms = extract_json_number_field(&header, "exportedAtUnixMs")
+        .or_else(|| extract_json_number_field(&header, "exported_at_unix_ms"))
         .unwrap_or_else(|| read_modified_ms(path));
-    let profile_label = extract_json_string_field(&header, "profileLabel");
+    let profile_label = extract_json_string_field_any(&header, &["profileLabel", "profile_label"]);
     let file_name = path
         .file_name()
         .and_then(|name| name.to_str())
@@ -276,6 +402,23 @@ fn parse_payload_header(path: &Path, scan_root: &str) -> Option<LocalSaveLibrary
         scan_root: scan_root.to_string(),
         discovery: "payload_header".to_string(),
     })
+}
+
+fn derive_payload_path_from_sidecar(path: &Path) -> Option<PathBuf> {
+    let file_name = path.file_name()?.to_str()?;
+    if !file_name.ends_with(SIDECAR_SUFFIX) {
+        return None;
+    }
+    let stem = file_name.trim_end_matches(SIDECAR_SUFFIX);
+    let parent = path.parent()?;
+    Some(parent.join(format!("{stem}.json")))
+}
+
+fn parse_payload_file(path: &Path, scan_root: &str) -> Option<LocalSaveLibraryEntry> {
+    if let Some(entry) = parse_payload_header(path, scan_root) {
+        return Some(entry);
+    }
+    parse_payload_full_json(path, scan_root)
 }
 
 fn scan_directory(
@@ -326,6 +469,16 @@ fn scan_directory(
                 if seen_payloads.insert(parsed.payload_absolute_path.clone()) {
                     entries.push(parsed);
                 }
+            } else if let Some(payload_path) = derive_payload_path_from_sidecar(&path) {
+                if payload_path.is_file() {
+                    let payload_key = payload_path.to_string_lossy().to_string();
+                    if !seen_payloads.contains(&payload_key) {
+                        if let Some(parsed) = parse_payload_file(&payload_path, scan_root) {
+                            seen_payloads.insert(payload_key);
+                            entries.push(parsed);
+                        }
+                    }
+                }
             }
             continue;
         }
@@ -334,7 +487,7 @@ fn scan_directory(
             if seen_payloads.contains(&payload_key) {
                 continue;
             }
-            if let Some(parsed) = parse_payload_header(&path, scan_root) {
+            if let Some(parsed) = parse_payload_file(&path, scan_root) {
                 seen_payloads.insert(payload_key);
                 entries.push(parsed);
             }
@@ -350,7 +503,14 @@ pub fn scan_local_saves(request: LocalSaveScanRequest) -> Result<LocalSaveScanRe
     let mut seen_payloads = HashSet::new();
     let mut truncated = false;
 
-    for root in &request.roots {
+    let mut ordered_roots = request.roots.clone();
+    ordered_roots.sort_by(|left, right| {
+        scan_root_priority(left)
+            .cmp(&scan_root_priority(right))
+            .then_with(|| left.cmp(right))
+    });
+
+    for root in &ordered_roots {
         if entries.len() >= max_results {
             truncated = true;
             break;
@@ -390,7 +550,7 @@ pub fn scan_local_saves(request: LocalSaveScanRequest) -> Result<LocalSaveScanRe
 
     Ok(LocalSaveScanResult {
         scanned_at_unix_ms: now_unix_ms(),
-        roots: request.roots,
+        roots: ordered_roots,
         entries,
         truncated,
         duration_ms: started.elapsed().as_millis() as u64,
@@ -447,8 +607,117 @@ mod tests {
     }
 
     #[test]
+    fn detects_unified_account_export_json_in_exports_folder() {
+        let exports = temp_scan_dir("unified-exports");
+        fs::create_dir_all(&exports).expect("create exports");
+        let public_key = "3db055b4".repeat(8);
+        let payload = format!(
+            r#"{{
+  "version": 1,
+  "format": "obscur.unified_account_export.v1",
+  "exportedAtUnixMs": 1718343540000,
+  "publicKeyHex": "{public_key}",
+  "profileLabel": "Tester1",
+  "portableAccountBundle": {{
+    "version": 1,
+    "format": "obscur.portable_account_bundle.v1",
+    "exportedAtUnixMs": 1718343540000,
+    "publicKeyHex": "{public_key}",
+    "ciphertext": "abc"
+  }},
+  "workspaceBundle": null,
+  "manifest": {{
+    "includesVaultMedia": false,
+    "portableEstimatedBytes": 100,
+    "workspaceEstimatedBytes": null
+  }}
+}}"#
+        );
+        fs::write(
+            exports.join("Tester1-account-export-2026-06-14_0539.obscur-account-export.json"),
+            payload,
+        )
+        .expect("write json");
+
+        let result = scan_local_saves(LocalSaveScanRequest {
+            roots: vec![exports.to_string_lossy().to_string()],
+            max_depth: Some(5),
+            max_results: Some(10),
+        })
+        .expect("scan");
+
+        assert_eq!(result.entries.len(), 1);
+        assert_eq!(result.entries[0].public_key_hex, public_key);
+        assert_eq!(result.entries[0].profile_label.as_deref(), Some("Tester1"));
+        assert_eq!(result.entries[0].payload_kind, "unified_account_export");
+        let _ = fs::remove_dir_all(exports);
+    }
+
+    #[test]
+    fn detects_unified_account_export_under_data_root_subfolder() {
+        let data_root = temp_scan_dir("data-root");
+        let exports = data_root.join("workspace-exports");
+        fs::create_dir_all(&exports).expect("create exports");
+        let public_key = "cafebabe".repeat(8);
+        let payload = format!(
+            r#"{{
+  "version": 1,
+  "format": "obscur.unified_account_export.v1",
+  "exportedAtUnixMs": 1718343540000,
+  "publicKeyHex": "{public_key}",
+  "profileLabel": "Tester1",
+  "portableAccountBundle": {{
+    "version": 1,
+    "format": "obscur.portable_account_bundle.v1",
+    "exportedAtUnixMs": 1718343540000,
+    "publicKeyHex": "{public_key}",
+    "ciphertext": "abc"
+  }},
+  "workspaceBundle": null,
+  "manifest": {{
+    "includesVaultMedia": false,
+    "portableEstimatedBytes": 100,
+    "workspaceEstimatedBytes": null
+  }}
+}}"#
+        );
+        fs::write(
+            exports.join("obscur-account-export-cafebabe-2026.obscur-account-export.json"),
+            payload,
+        )
+        .expect("write json");
+
+        let result = scan_local_saves(LocalSaveScanRequest {
+            roots: vec![data_root.to_string_lossy().to_string()],
+            max_depth: Some(5),
+            max_results: Some(10),
+        })
+        .expect("scan");
+
+        assert_eq!(result.entries.len(), 1);
+        assert_eq!(result.entries[0].public_key_hex, public_key);
+        let _ = fs::remove_dir_all(data_root);
+    }
+
+    #[test]
     fn portable_account_filename_is_candidate_outside_exports_folder() {
         let path = PathBuf::from("obscur-portable-account-deadbeef-2026.json");
         assert!(is_candidate_payload(&path));
+    }
+
+    #[test]
+    fn scan_root_priority_orders_obscur_roots_before_downloads() {
+        let mut roots = vec![
+            "C:/Users/test/Downloads".to_string(),
+            "E:/app.obscur.desktop".to_string(),
+            "E:/app.obscur.desktop/workspace-exports".to_string(),
+        ];
+        roots.sort_by(|left, right| {
+            scan_root_priority(left)
+                .cmp(&scan_root_priority(right))
+                .then_with(|| left.cmp(right))
+        });
+        assert_eq!(roots[0], "E:/app.obscur.desktop/workspace-exports");
+        assert_eq!(roots[1], "E:/app.obscur.desktop");
     }
 }

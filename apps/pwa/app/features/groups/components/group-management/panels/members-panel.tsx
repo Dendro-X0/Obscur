@@ -17,7 +17,7 @@ import { PresenceBadge } from "@/app/features/network/components/presence-indica
 import { CommunitySyncIndicator } from "../../community-sync-indicator";
 import { getPublicProfileHref } from "@/app/features/navigation/public-routes";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
-import { mgmtFieldClass, formatParticipantLabel } from "../constants";
+import { mgmtFieldClass } from "../constants";
 import type { summarizeCommunityOperatorHealth } from "../../../services/community-operator-health";
 import { CommunityMembershipEvidenceChip } from "../../community-membership-evidence-chip";
 import { resolveCommunityMemberEvidenceTier } from "../../../utils/community-member-evidence-tier";
@@ -90,9 +90,9 @@ export function GroupManagementMembersPanel({
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <p className="text-sm font-semibold text-zinc-900 dark:text-white">
-                        {formatParticipantLabel(visibleMemberPubkeys.length)}
+                        {t("groups.management.members.participantCount", { count: visibleMemberPubkeys.length })}
                     </p>
-                    <p className="text-xs text-zinc-500">{onlineMemberCount} online now</p>
+                    <p className="text-xs text-zinc-500">{t("groups.management.members.onlineNow", { count: onlineMemberCount })}</p>
                 </div>
                 <div className="flex flex-wrap items-center justify-end gap-2">
                     <CommunityMembershipEvidenceToolbar
@@ -107,7 +107,7 @@ export function GroupManagementMembersPanel({
                         className="gap-2 rounded-lg bg-violet-600 hover:bg-violet-500 disabled:opacity-50"
                     >
                         <UserPlus className="h-4 w-4" />
-                        Invite
+                        {t("groups.management.members.invite")}
                     </Button>
                 </div>
             </div>
@@ -117,7 +117,7 @@ export function GroupManagementMembersPanel({
                 <Input
                     value={memberSearchQuery}
                     onChange={(event) => setMemberSearchQuery(event.target.value)}
-                    placeholder="Search by name or pubkey"
+                    placeholder={t("groups.management.members.searchPlaceholder")}
                     className={`${mgmtFieldClass} pl-9`}
                 />
             </div>
@@ -148,12 +148,12 @@ export function GroupManagementMembersPanel({
                 <div className="rounded-xl border border-dashed border-zinc-300 px-6 py-10 text-center dark:border-zinc-700">
                     <Users className="mx-auto h-8 w-8 text-zinc-400 dark:text-zinc-600" />
                     <p className="mt-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                        {memberSearchQuery ? "No matching participants" : "No participants yet"}
+                        {memberSearchQuery ? t("groups.management.members.noMatching") : t("groups.management.members.noneYet")}
                     </p>
                     <p className="mt-1 text-xs text-zinc-500">
                         {memberSearchQuery
-                            ? "Try another search term."
-                            : "Invite someone or wait for membership sync from the relay."}
+                            ? t("groups.management.members.tryAnotherSearch")
+                            : t("groups.management.members.inviteOrWait")}
                     </p>
                 </div>
             ) : (
@@ -185,10 +185,10 @@ export function GroupManagementMembersPanel({
                                                     uiContext={membershipEvidenceUiContext}
                                                 />
                                                 {isMe ? (
-                                                    <span className="text-[10px] font-medium uppercase text-violet-400">You</span>
+                                                    <span className="text-[10px] font-medium uppercase text-violet-400">{t("groups.management.members.you")}</span>
                                                 ) : null}
                                                 {isMuted ? (
-                                                    <span className="text-[10px] font-medium text-rose-400">Muted</span>
+                                                    <span className="text-[10px] font-medium text-rose-400">{t("groups.management.members.muted")}</span>
                                                 ) : null}
                                                 <PresenceBadge publicKeyHex={pubkey} currentTime={currentTime} />
                                             </div>
@@ -204,7 +204,7 @@ export function GroupManagementMembersPanel({
                                             <DropdownMenuContent align="end" className="w-44">
                                                 <DropdownMenuItem onClick={() => onToggleMute(pubkey)}>
                                                     {isMuted ? <Bell className="mr-2 h-4 w-4" /> : <X className="mr-2 h-4 w-4" />}
-                                                    {isMuted ? "Unmute" : "Mute"}
+                                                    {isMuted ? t("groups.management.members.unmute") : t("groups.management.members.mute")}
                                                 </DropdownMenuItem>
                                                 {isAdmin ? (
                                                     <>
@@ -219,7 +219,7 @@ export function GroupManagementMembersPanel({
                                                             ) : (
                                                                 <UserMinus className="mr-2 h-4 w-4" />
                                                             )}
-                                                            Vote to remove
+                                                            {t("groups.management.members.voteToRemove")}
                                                         </DropdownMenuItem>
                                                     </>
                                                 ) : null}

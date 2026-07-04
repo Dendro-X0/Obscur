@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { useOptionalProfileRuntime } from "@/app/features/profiles/providers/profile-runtime-provider";
-import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store";
+import { messagingChatStateDurabilityPort } from "@/app/features/messaging/services/messaging-chat-state-durability-port";
 import {
   accountScopeKeysEqual,
   emitAccountScopeBoundaryChanged,
@@ -38,11 +38,11 @@ export function AccountScopeBoundaryOwner(): null {
       return;
     }
 
-    chatStateStoreService.flushAllPending();
+    messagingChatStateDurabilityPort.flushAllPending();
     if (nextScope) {
-      chatStateStoreService.purgeMemoryExcept(nextScope.profileId, nextScope.publicKeyHex);
+      messagingChatStateDurabilityPort.purgeMemoryExcept(nextScope.profileId, nextScope.publicKeyHex);
     } else {
-      chatStateStoreService.purgeAllMemory();
+      messagingChatStateDurabilityPort.purgeAllMemory();
     }
 
     emitAccountScopeBoundaryChanged({ previous: previousScope, next: nextScope });

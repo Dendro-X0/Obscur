@@ -1,6 +1,12 @@
 import type { Message, MessageStatus } from "../lib/message-queue";
 import { errorHandler, type MessageError, type NetworkState } from "../lib/error-handler";
-import type { QueueStatus } from "../lib/offline-queue-manager";
+
+export interface QueueStatus {
+  totalQueued: number;
+  oldestMessage?: Date;
+  newestMessage?: Date;
+  isProcessing: boolean;
+}
 
 /**
  * Nostr filter for subscriptions

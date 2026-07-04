@@ -1,11 +1,5 @@
 /**
- * @deprecated Native DM must use `features/dm-kernel/`. Web legacy only.
- * @see docs/program/obscur-v2-slim-kernel-manifest.md
- *
- * R1 — DM thread hydrate pipeline (orchestration owner).
- * Prepares delete tombstones, loads the IndexedDB / SQLite hydration window, merges persisted chat-state
- * fallback, runs `assembleDmHydrateThreadReadModel`, then optional sibling id-split diagnostics.
- * `use-conversation-messages` keeps React refs/state and invokes this module as the single hydrate boundary.
+ * DM thread hydrate pipeline (legacy web orchestration).
  */
 
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
@@ -16,33 +10,37 @@ import {
 } from "@/app/features/runtime/services/secondary-profile-window-reload-scheduler";
 import { runSecondaryProfileDmSoftRefresh } from "@/app/features/runtime/services/secondary-profile-dm-soft-refresh";
 import { logAppEvent } from "@/app/shared/log-app-event";
-import type { AccountProjectionRuntimeSnapshot } from "@/app/features/account-sync/account-event-contracts";
-import type { ProjectionReadAuthority } from "@/app/features/account-sync/services/account-projection-read-authority";
-import type { MessageDeleteTombstonesPersistencePort } from "@/app/features/profiles/types/storage-ports";
-import { fromPersistedMessagesByConversationId } from "../utils/persistence";
-import type { Message } from "../types";
-import { chatStateStoreService } from "./chat-state-store";
-import { toConversationIdDiagnosticLabel } from "@dweb/client-gateway/messaging-diagnostics";
+import { fromPersistedMessagesByConversationId } from "@/app/features/messaging/utils/persistence";
+import type { Message } from "@/app/features/messaging/types";
+import { messagingChatStateReadPort } from "@/app/features/messaging/services/messaging-chat-state-read-port";
 import {
-  assembleDmHydrateThreadReadModel,
-  getMessageDirectionCounts,
+  assembleLegacyDmHydrateThreadReadModel,
   type AssembleDmHydrateThreadReadModelResult,
-} from "./dm-conversation-hydrate-read-model";
-import { loadInitialDmHydrationIndexedWindow } from "./dm-conversation-hydrate-indexed-scan";
-import { mapIndexedConversationRowsForDisplayableScan } from "./dm-conversation-hydrate-indexed-map-rows";
-import { normalizeDmConversationMessageRow } from "./dm-conversation-normalize-message";
-import { isDisplayableDmConversationMessage } from "./dm-conversation-displayable-message";
-import { isMessageIdentityInSuppressedIdSet } from "./conversation-message-visibility";
+} from "@/app/features/messaging/services/thread-history/hydrate-read-model";
+import {
+  loadLegacyInitialDmHydrationIndexedWindow,
+  mapLegacyIndexedConversationRowsForDisplayableScan,
+} from "@/app/features/messaging/services/thread-history/hydrate-indexed-legacy-port";
+import { normalizeDmConversationMessageRow } from "@/app/features/messaging/services/dm-conversation-normalize-message";
+import { isDisplayableDmConversationMessage } from "@/app/features/messaging/services/dm-conversation-displayable-message";
+import { isMessageIdentityInSuppressedIdSet } from "@/app/features/messaging/services/conversation-message-visibility";
 import {
   dedupeMessagesByIdentity,
   filterMessagesByLocalRetention,
-} from "./dm-conversation-message-retention-dedupe";
-import { runDmHydrateSiblingIdSplitDiagnosticsIfNeeded } from "./dm-conversation-hydrate-sibling-diagnostics";
-import { prepareDmThreadSuppressionIds } from "./dm-thread-suppression-prepare";
-import { mergeDirectionGapFromSupplemental } from "./dm-thread-read-model";
+} from "@/app/features/messaging/services/dm-conversation-message-retention-dedupe";
+import { prepareDmThreadSuppressionIds } from "@/app/features/messaging/services/dm-thread-suppression-prepare";
+import { getMessageDirectionCounts, mergeDirectionGapFromSupplemental } from "@/app/features/messaging/services/dm-thread-read-model";
 import { requiresSqlitePersistence } from "@/app/features/runtime/native-persistence-policy";
 import { listAccountSharedSqliteProfileIds } from "@/app/features/profiles/services/account-shared-sqlite-profile-ids";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
+import type {
+  RunDmConversationHydrateReadModelPipelineParams,
+} from "@/app/features/messaging/services/thread-history/hydrate-pipeline-types";
+
+export type {
+  DmConversationHydratePipelineNumericConfig,
+  RunDmConversationHydrateReadModelPipelineParams,
+} from "@/app/features/messaging/services/thread-history/hydrate-pipeline-types";
 
 const loadPersistedConversationFallbackMessages = (params: Readonly<{
   myPublicKeyHex: PublicKeyHex;
@@ -58,7 +56,7 @@ const loadPersistedConversationFallbackMessages = (params: Readonly<{
 
   const mergedMessagesByConversationId: Record<string, ReadonlyArray<Message>> = {};
   profileIds.forEach((profileId) => {
-    const persistedState = chatStateStoreService.load(params.myPublicKeyHex, { profileId });
+    const persistedState = messagingChatStateReadPort.load(params.myPublicKeyHex, { profileId });
     if (!persistedState?.messagesByConversationId) {
       return;
     }
@@ -91,39 +89,7 @@ const loadPersistedConversationFallbackMessages = (params: Readonly<{
   ));
 };
 
-export type DmConversationHydratePipelineNumericConfig = Readonly<{
-  initialBatchSize: number;
-  initialHydrationVisibleTarget: number;
-  maxHydrationScanPasses: number;
-  liveWindowSoftLimit: number;
-}>;
-
-export type RunDmConversationHydrateReadModelPipelineParams = Readonly<{
-  conversationId: string;
-  conversationIds: ReadonlyArray<string>;
-  profileIdForTombstones: string | undefined;
-  messageDeleteTombstones: MessageDeleteTombstonesPersistencePort;
-  /** Mutated in place: durable + in-flight tombstone ids for this hydrate pass */
-  persistedDeletedIds: Set<string>;
-  publicKeyHex: PublicKeyHex | string | null;
-  normalizedPublicKeyHex: PublicKeyHex | null;
-  localMessageRetentionDays: number | undefined;
-  numeric: DmConversationHydratePipelineNumericConfig;
-  projectionMessagesSnapshot: ReadonlyArray<Message>;
-  projectionEvidenceMessagesSnapshot: ReadonlyArray<Message>;
-  projectionReadAuthoritySnapshot: ProjectionReadAuthority;
-  accountProjectionPhase: AccountProjectionRuntimeSnapshot["phase"];
-  accountProjection: AccountProjectionRuntimeSnapshot["projection"];
-  accountProjectionReady: AccountProjectionRuntimeSnapshot["accountProjectionReady"];
-  liveMessages: ReadonlyArray<Message>;
-  expandedHistory: boolean;
-  /** When set, hydrate telemetry logs only on authority key change. */
-  previousAuthorityDiagnosticKey?: string | null;
-  /** When true, hydrate uses sqlite/indexed authority even if projection read cutover is enabled. */
-  preferIndexedAuthority?: boolean;
-}>;
-
-export async function runDmConversationHydrateReadModelPipeline(
+export async function runLegacyDmConversationHydrateReadModelPipeline(
   params: RunDmConversationHydrateReadModelPipelineParams,
 ): Promise<AssembleDmHydrateThreadReadModelResult> {
   const {
@@ -166,7 +132,7 @@ export async function runDmConversationHydrateReadModelPipeline(
   preparedSuppressionIds.forEach((id) => persistedDeletedIds.add(id));
 
   const mapRowsToDisplayableMessages = (rows: ReadonlyArray<any>): ReadonlyArray<Message> => (
-    mapIndexedConversationRowsForDisplayableScan({
+    mapLegacyIndexedConversationRowsForDisplayableScan({
       pipeline: "initial_hydrate",
       rows,
       normalizeRow: (m: any) => normalizeDmConversationMessageRow(m, {
@@ -179,7 +145,7 @@ export async function runDmConversationHydrateReadModelPipeline(
     })
   );
 
-  const indexedHydration = await loadInitialDmHydrationIndexedWindow({
+  const indexedHydration = await loadLegacyInitialDmHydrationIndexedWindow({
     conversationIds,
     initialBatchSize: numeric.initialBatchSize,
     mapRows: mapRowsToDisplayableMessages,
@@ -211,7 +177,7 @@ export async function runDmConversationHydrateReadModelPipeline(
     })
     : [];
 
-  const assembled = assembleDmHydrateThreadReadModel({
+  const assembled = assembleLegacyDmHydrateThreadReadModel({
     conversationId: cid,
     conversationIds,
     retentionFilteredMapped: indexedHydration.retentionFilteredMapped,
@@ -282,20 +248,6 @@ export async function runDmConversationHydrateReadModelPipeline(
     ...assembled,
     finalMessages: mergedFinalMessages,
   };
-
-  if (normalizedPublicKeyHex) {
-    await runDmHydrateSiblingIdSplitDiagnosticsIfNeeded({
-      conversationId: cid,
-      normalizedPublicKeyHex,
-      mappedDirectionCounts: assembled.mappedDirectionCounts,
-      initialBatchSize: numeric.initialBatchSize,
-      projectionReadAuthoritySnapshot,
-      normalizeIndexedRowToMessage: (entry: any, siblingConversationId) => normalizeDmConversationMessageRow(entry, {
-        conversationId: siblingConversationId,
-        myPublicKeyHex: normalizedPublicKeyHex,
-      }),
-    });
-  }
 
   logDmHydrateReadModelTelemetry({
     previousAuthorityDiagnosticKey: params.previousAuthorityDiagnosticKey ?? null,

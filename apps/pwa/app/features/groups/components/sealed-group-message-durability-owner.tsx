@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store";
+import { messagingChatStateDurabilityPort } from "@/app/features/messaging/services/messaging-chat-state-durability-port";
 import {
   backfillSealedGroupMessagesToSqliteFromAllAccountChatStates,
   flushPendingSealedGroupSqliteWrites,
@@ -20,7 +20,7 @@ export function SealedGroupMessageDurabilityOwner(): null {
       return;
     }
     const flushPending = (): void => {
-      chatStateStoreService.flushAllPending();
+      messagingChatStateDurabilityPort.flushAllPending();
       void (async () => {
         if (isTauri()) {
           const profileId = readActiveDesktopProfileId().trim();

@@ -1,0 +1,18 @@
+{
+  "name": "@obscur/engine-host",
+  "version": "1.9.10",
+  "private": true,
+  "type": "module",
+  "description": "Tauri and in-process HostEnginePort adapters — sole bridge from host to engine_invoke.",
+  "dependencies": {
+    "@dweb/auth": "workspace:*",
+    "@obscur/engine-contracts": "workspace:*",
+    "@tauri-apps/api": "^2.10.1"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./tauri": "./src/tauri-engine-host.ts",
+    "./memory": "./src/memory-engine-host.ts",
+    "./subprocess": "./src/subprocess-engine-host.ts"
+  }
+}

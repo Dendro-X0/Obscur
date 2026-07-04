@@ -1,3 +1,4 @@
+/** AUTH-K0 scatter — do not expand restore owners here. Migrate to @dweb/auth ports (AUTH-K1+). */
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 import type { IdentityRecord } from "@dweb/core/identity-record";
 import { derivePublicKeyHex } from "@dweb/crypto/derive-public-key-hex";
@@ -16,6 +17,7 @@ import { getStoredIdentity } from "../utils/get-stored-identity";
 import { saveStoredIdentity } from "../utils/save-stored-identity";
 import {
   ensureIdentityProfileBinding,
+  findStoredIdentityBindingByPublicKey,
   recoverStoredIdentityProfile,
   recoverSingleStoredIdentityProfile,
 } from "../utils/identity-profile-binding";
@@ -25,37 +27,65 @@ import { recordIdentityActivationRisk } from "@/app/shared/sybil-risk-signals";
 import { clearPresenceSelfSession } from "@/app/features/network/services/presence-self-session-persistence";
 import { PROFILE_CHANGED_EVENT } from "@/app/features/profiles/services/profile-registry-service";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
+import { resolveIdentityScopeProfileId } from "@/app/features/profiles/services/read-active-desktop-profile-id";
+import { resolveStoredIdentityRecord, resolvePasswordProtectedIdentityRecord } from "@/app/features/profiles/services/data-root-identity-repair";
+import {
+  collectPasswordProtectedIdentityCandidates,
+  tryUnlockIdentityWithPassphrase,
+} from "@/app/features/profiles/services/identity-passphrase-unlock";
 import {
   AccountActiveInOtherProfileWindowError,
-  assertAccountNotActiveInOtherProfileWindow,
+  assertAccountNotActiveInOtherProfileWindowAsync,
+  clearActiveSessionLeasesForPageReload,
 } from "@/app/features/profiles/services/cross-profile-active-session-lease";
+import { resolveCurrentDesktopWindowLabel } from "@/app/features/profiles/services/desktop-window-boot-payload";
 import { resolveAccountImportEvidence } from "../services/account-import-evidence";
 import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
-import { NATIVE_SECURE_SESSION_RESTORE_ENABLED } from "@/app/features/auth/services/session-credential-policy";
 import {
-  isDeviceSessionRestoreAllowed,
-  resolveStaySignedIn,
-} from "@/app/features/auth/services/device-session-consent";
+  waitForAuthKernelBootRestore,
+} from "@/app/features/auth-kernel/auth-kernel-boot-owner";
+import { isAuthKernelBootRestoreEnabled } from "@/app/features/auth-kernel/auth-kernel-policy";
 import { accountSyncStatusStore } from "@/app/features/account-sync/services/account-sync-status-store";
 import { emitAccountSyncMutation } from "@/app/shared/account-sync-mutation-signal";
 import { resolveActivePrivateKeyHex } from "@/app/features/auth/services/resolve-active-private-key-hex";
 import { SessionApi } from "@/app/features/auth/services/session-api";
 import { isRememberMeEnabledForProfile } from "@/app/features/auth/services/session-bootstrap-contracts";
 import {
-  reportNativeSessionPersistFailure,
-  reportNativeSessionPersistSuccess,
-} from "@/app/features/auth/services/native-session-persist-feedback";
+  isDesktopOsSessionRestoreAvailable,
+} from "@/app/features/auth/services/session-credential-policy";
+import {
+  activateNativeStorageAtRestUnlock,
+  finalizeNativeStorageAtRestLock,
+} from "@/app/features/storage/services/native-storage-at-rest-service";
 import {
   clearInMemoryNativeSessionBestEffort,
   endNativeDeviceSignInBestEffort,
 } from "@/app/features/auth/services/native-device-session-lifecycle";
 import {
+  reportNativeSessionPersistFailure,
+  reportNativeSessionPersistSuccess,
+} from "@/app/features/auth/services/native-session-persist-feedback";
+import {
   createMismatchStartupAuthState,
+  createNativeRestorableStartupAuthState,
   createPendingStartupAuthState,
+  createStoredLockedStartupAuthState,
   deriveStartupAuthStateFromIdentityState,
   type StartupAuthMismatchReason,
   type StartupAuthState,
 } from "@/app/features/auth/services/startup-auth-state-contracts";
+import { resetAutoLockOverlayState } from "@/app/features/settings/services/auto-lock-session-state";
+import {
+  clearAuthKernelManualLock,
+  isAuthKernelManualLockActive,
+  markAuthKernelManualLock,
+} from "@/app/features/auth-kernel/auth-kernel-manual-lock-state";
+import { readAuthKernelKeychainPresent } from "@/app/features/auth-kernel/auth-kernel-keychain-presence";
+import { runAuthKernelSignOutCleanup } from "@/app/features/auth-kernel/auth-kernel-sign-out-cleanup";
+import { reconcileWindowRuntimeBinding } from "@/app/features/runtime/services/window-runtime-binding";
+import { desktopProfileRuntime } from "@/app/features/profiles/services/desktop-profile-runtime";
+import { isPageReloadNavigation } from "@/app/features/profiles/services/auth-public-routes";
+import { resolveStaySignedIn } from "@/app/features/auth/services/device-session-consent";
 
 export type IdentityState = Readonly<{
   status: "loading" | "locked" | "unlocked" | "error";
@@ -301,7 +331,12 @@ const applyNativeSessionPersistence = async (params: Readonly<{
   context: "create" | "import" | "unlock" | "raw_unlock";
 }>): Promise<void> => {
   if (!params.staySignedIn) {
-    await clearNativeSecureSessionBestEffort();
+    // Login without stay-signed-in: skip OS persistence but do not run sign-out keychain deletion mid-unlock.
+    if (hasNativeRuntime() && isDesktopOsSessionRestoreAvailable()) {
+      await clearInMemoryNativeSessionBestEffort();
+    } else {
+      await clearNativeSecureSessionBestEffort();
+    }
     return;
   }
   await syncNativeSessionInBackground({
@@ -323,7 +358,12 @@ const syncNativeSessionInBackground = async (params: Readonly<{
     return;
   }
   try {
+    await bindNativeWindowProfileBestEffort();
     await cs.initNativeSession(params.privateKeyHex);
+    const verified = await SessionApi.forceSessionRestore(params.publicKeyHex);
+    if (!verified.isActive) {
+      throw new Error("Native session did not persist to OS secure storage");
+    }
     const current = getIdentitySnapshot();
     if (current.status === "unlocked" && current.stored?.publicKeyHex === params.publicKeyHex) {
       setIdentityState(createUnlockedState({
@@ -335,6 +375,24 @@ const syncNativeSessionInBackground = async (params: Readonly<{
       context: params.context,
     });
   } catch (error) {
+    const sessionStatus = await SessionApi.getSessionStatus().catch(() => null);
+    if (
+      sessionStatus?.isActive
+      && sessionStatus.npub
+      && normalizePublicKeyHex(sessionStatus.npub) === normalizePublicKeyHex(params.publicKeyHex)
+    ) {
+      const current = getIdentitySnapshot();
+      if (current.status === "unlocked" && current.stored?.publicKeyHex === params.publicKeyHex) {
+        setIdentityState(createUnlockedState({
+          stored: params.stored,
+          privateKeyHex: NATIVE_KEY_SENTINEL,
+        }));
+      }
+      reportNativeSessionPersistSuccess({
+        context: params.context,
+      });
+      return;
+    }
     reportNativeSessionPersistFailure({
       context: params.context,
       error,
@@ -365,35 +423,177 @@ const setIdentityDiagnostics = (next: IdentityDiagnostics): void => {
   notifyListeners();
 };
 
+const setLockedAwaitingNativeRestore = (stored: IdentityRecord): void => {
+  identityState = createLockedState(stored);
+  identityDiagnostics = {
+    status: "locked",
+    startupState: createNativeRestorableStartupAuthState({
+      storedPublicKeyHex: stored.publicKeyHex,
+      nativeSessionPublicKeyHex: identityDiagnostics.nativeSessionPublicKeyHex ?? null,
+    }),
+    storedPublicKeyHex: stored.publicKeyHex,
+    nativeSessionPublicKeyHex: identityDiagnostics.nativeSessionPublicKeyHex ?? null,
+  };
+  notifyListeners();
+};
+
+const setStoredLockedIdentityStartup = (stored: IdentityRecord): void => {
+  identityState = createLockedState(stored);
+  identityDiagnostics = {
+    status: "locked",
+    startupState: createStoredLockedStartupAuthState({
+      storedPublicKeyHex: stored.publicKeyHex,
+    }),
+    storedPublicKeyHex: stored.publicKeyHex,
+    nativeSessionPublicKeyHex: null,
+  };
+  notifyListeners();
+};
+
 export const getIdentityDiagnosticsSnapshot = (): IdentityDiagnostics => identityDiagnostics;
+
+const bindNativeWindowProfileBestEffort = async (): Promise<void> => {
+  if (!hasNativeRuntime()) {
+    return;
+  }
+  const profileId = resolveIdentityScopeProfileId().trim();
+  if (!profileId) {
+    return;
+  }
+  try {
+    await desktopProfileRuntime.bindCurrentWindowProfile(profileId);
+  } catch {
+    // Best-effort: align Rust registry before keychain/session probes.
+  }
+};
+
+const resolveStoredRecordForNativePubkey = async (
+  nativePublicKeyHex: PublicKeyHex,
+  fallback?: IdentityRecord,
+): Promise<IdentityRecord | null> => {
+  const normalizedNative = normalizePublicKeyHex(nativePublicKeyHex);
+  if (!normalizedNative) {
+    return null;
+  }
+  if (fallback && normalizePublicKeyHex(fallback.publicKeyHex) === normalizedNative) {
+    return fallback;
+  }
+  const binding = await findStoredIdentityBindingByPublicKey(normalizedNative);
+  if (!binding) {
+    return null;
+  }
+  if (hasNativeRuntime()) {
+    try {
+      await desktopProfileRuntime.bindCurrentWindowProfile(binding.profileId);
+    } catch {
+      // Best-effort realign before unlock.
+    }
+  }
+  return binding.record;
+};
+
+const probeNativeSessionForRestore = async (
+  storedHint?: IdentityRecord,
+): Promise<Readonly<{ stored: IdentityRecord; nativePublicKeyHex: PublicKeyHex }> | null> => {
+  if (storedHint?.publicKeyHex) {
+    const targeted = await SessionApi.forceSessionRestore(storedHint.publicKeyHex);
+    const targetedPubkey = normalizePublicKeyHex(targeted.npub ?? undefined);
+    if (targeted.isActive && targetedPubkey) {
+      const stored = await resolveStoredRecordForNativePubkey(targetedPubkey, storedHint);
+      if (stored) {
+        return { stored, nativePublicKeyHex: targetedPubkey };
+      }
+    }
+  }
+
+  const anyProfile = await SessionApi.forceSessionRestore(undefined);
+  const anyPubkey = normalizePublicKeyHex(anyProfile.npub ?? undefined);
+  if (!anyProfile.isActive || !anyPubkey) {
+    return null;
+  }
+  const stored = await resolveStoredRecordForNativePubkey(anyPubkey, storedHint);
+  if (!stored) {
+    return null;
+  }
+  return { stored, nativePublicKeyHex: anyPubkey };
+};
 
 const tryNativeSessionUnlock = async (params: Readonly<{
   stored: IdentityRecord;
   context: "bootstrap" | "retry";
 }>): Promise<"unlocked" | "mismatch" | "inactive" | "unavailable"> => {
+  if (getIdentitySnapshot().status === "unlocked") {
+    return "unlocked";
+  }
   if (!canUseNativeSession()) {
     return "unavailable";
   }
   try {
-    const status = await SessionApi.getSessionStatus();
-    const normalizedNativeNpub = normalizePublicKeyHex(status.npub ?? undefined);
-    if (!status.isActive || !normalizedNativeNpub) {
-      return "inactive";
+    await bindNativeWindowProfileBestEffort();
+
+    const probed = await probeNativeSessionForRestore(params.stored);
+    if (!probed) {
+      const status = await SessionApi.getSessionStatus();
+      const fallbackPubkey = normalizePublicKeyHex(status.npub ?? undefined);
+      if (!status.isActive || !fallbackPubkey) {
+        return "inactive";
+      }
+      const normalizedStored = normalizePublicKeyHex(params.stored.publicKeyHex);
+      if (normalizedStored && fallbackPubkey !== normalizedStored) {
+        setIdentityState(createLockedState(params.stored));
+        setIdentityDiagnostics({
+          status: "locked",
+          startupState: createMismatchStartupAuthState({
+            storedPublicKeyHex: params.stored.publicKeyHex,
+            nativeSessionPublicKeyHex: fallbackPubkey,
+            mismatchReason: "native_mismatch",
+            message: "Secure storage belonged to another account. Native auto-unlock was skipped. Unlock with your password/private key or reset secure storage.",
+          }),
+          storedPublicKeyHex: params.stored.publicKeyHex,
+          nativeSessionPublicKeyHex: fallbackPubkey,
+          mismatchReason: "native_mismatch",
+          message: "Secure storage belonged to another account. Native auto-unlock was skipped. Unlock with your password/private key or reset secure storage.",
+        });
+        return "mismatch";
+      }
+      const stored = await resolveStoredRecordForNativePubkey(fallbackPubkey, params.stored);
+      if (!stored) {
+        return "inactive";
+      }
+      recordIdentityActivationRisk(stored.publicKeyHex);
+      setIdentityDiagnostics({
+        status: "unlocked",
+        startupState: deriveStartupAuthStateFromIdentityState({
+          identityStatus: "unlocked",
+          storedPublicKeyHex: stored.publicKeyHex,
+          unlockedPublicKeyHex: stored.publicKeyHex,
+          nativeSessionPublicKeyHex: fallbackPubkey,
+        }),
+        storedPublicKeyHex: stored.publicKeyHex,
+        nativeSessionPublicKeyHex: fallbackPubkey,
+      });
+      setIdentityState(createUnlockedState({ stored, privateKeyHex: NATIVE_KEY_SENTINEL }));
+      resetAutoLockOverlayState();
+      clearAuthKernelManualLock(resolveIdentityScopeProfileId());
+      reconcileWindowRuntimeBinding();
+      return "unlocked";
     }
-    if (normalizedNativeNpub !== params.stored.publicKeyHex) {
-      setIdentityState(createLockedState(params.stored));
+
+    const { stored, nativePublicKeyHex } = probed;
+    if (normalizePublicKeyHex(stored.publicKeyHex) !== nativePublicKeyHex) {
+      setIdentityState(createLockedState(stored));
       setIdentityDiagnostics({
         status: "locked",
         startupState: createMismatchStartupAuthState({
-          storedPublicKeyHex: params.stored.publicKeyHex,
-          nativeSessionPublicKeyHex: normalizedNativeNpub,
+          storedPublicKeyHex: stored.publicKeyHex,
+          nativeSessionPublicKeyHex: nativePublicKeyHex,
           mismatchReason: "native_mismatch",
           message: "Secure storage belonged to another account. Native auto-unlock was skipped. Unlock with your password/private key or reset secure storage.",
         }),
-        storedPublicKeyHex: params.stored.publicKeyHex,
-        nativeSessionPublicKeyHex: normalizedNativeNpub,
+        storedPublicKeyHex: stored.publicKeyHex,
+        nativeSessionPublicKeyHex: nativePublicKeyHex,
         mismatchReason: "native_mismatch",
-        message: "Secure storage belonged to another account. Native auto-unlock was skipped. Unlock with your password/private key or reset secure storage."
+        message: "Secure storage belonged to another account. Native auto-unlock was skipped. Unlock with your password/private key or reset secure storage.",
       });
       return "mismatch";
     }
@@ -401,26 +601,32 @@ const tryNativeSessionUnlock = async (params: Readonly<{
       status: "unlocked",
       startupState: deriveStartupAuthStateFromIdentityState({
         identityStatus: "unlocked",
-        storedPublicKeyHex: params.stored.publicKeyHex,
-        unlockedPublicKeyHex: params.stored.publicKeyHex,
-        nativeSessionPublicKeyHex: normalizedNativeNpub,
+        storedPublicKeyHex: stored.publicKeyHex,
+        unlockedPublicKeyHex: stored.publicKeyHex,
+        nativeSessionPublicKeyHex: nativePublicKeyHex,
       }),
-      storedPublicKeyHex: params.stored.publicKeyHex,
-      nativeSessionPublicKeyHex: normalizedNativeNpub,
+      storedPublicKeyHex: stored.publicKeyHex,
+      nativeSessionPublicKeyHex: nativePublicKeyHex,
     });
     try {
-      assertAccountNotActiveInOtherProfileWindow({
-        incomingPublicKeyHex: params.stored.publicKeyHex,
-        currentProfileId: getResolvedProfileId(),
-      });
+      if (!isPageReloadNavigation()) {
+        await assertAccountNotActiveInOtherProfileWindowAsync({
+          incomingPublicKeyHex: stored.publicKeyHex,
+          currentProfileId: resolveIdentityScopeProfileId(),
+          currentWindowLabel: resolveCurrentDesktopWindowLabel(),
+        });
+      }
     } catch (error) {
       if (error instanceof AccountActiveInOtherProfileWindowError) {
         return "inactive";
       }
       throw error;
     }
-    recordIdentityActivationRisk(params.stored.publicKeyHex);
-    setIdentityState(createUnlockedState({ stored: params.stored, privateKeyHex: NATIVE_KEY_SENTINEL }));
+    recordIdentityActivationRisk(stored.publicKeyHex);
+    setIdentityState(createUnlockedState({ stored, privateKeyHex: NATIVE_KEY_SENTINEL }));
+    resetAutoLockOverlayState();
+    clearAuthKernelManualLock(resolveIdentityScopeProfileId());
+    reconcileWindowRuntimeBinding();
     return "unlocked";
   } catch (error) {
     if (error instanceof AccountActiveInOtherProfileWindowError) {
@@ -436,8 +642,7 @@ const rehydrateIdentityForActiveProfile = async (): Promise<void> => {
     return;
   }
   const current = getIdentitySnapshot();
-  // Profile switches during import/create must not downgrade a live unlock (race with PROFILE_CHANGED).
-  if (current.status === "unlocked" && current.privateKeyHex && current.stored?.publicKeyHex) {
+  if (current.status === "unlocked") {
     return;
   }
   try {
@@ -450,18 +655,10 @@ const rehydrateIdentityForActiveProfile = async (): Promise<void> => {
         stored = recoveredSingle?.record;
       }
     }
-    if (
-      stored
-      && current.status === "unlocked"
-      && current.privateKeyHex
-      && current.stored?.publicKeyHex === stored.publicKeyHex
-    ) {
-      setIdentityState(createUnlockedState({
-        stored,
-        privateKeyHex: current.privateKeyHex,
-      }));
-      return;
-    }
+    stored = await resolveStoredIdentityRecord({
+      profileId: resolveIdentityScopeProfileId(),
+      current: stored,
+    });
     setIdentityState(createLockedState(stored));
   } catch {
     setIdentityState(createLockedState(undefined));
@@ -475,12 +672,42 @@ const ensureInitialized = async (): Promise<void> => {
   hasInitialized = true;
   let stored: IdentityRecord | undefined;
   try {
-    const recoveredBinding = await recoverStoredIdentityProfile()
-      ?? await recoverSingleStoredIdentityProfile();
-    stored = recoveredBinding?.record;
-    if (!stored) {
-      stored = (await getStoredIdentity()).record;
+    if (isPageReloadNavigation() && hasNativeRuntime()) {
+      clearActiveSessionLeasesForPageReload();
     }
+
+    if (hasNativeRuntime()) {
+      stored = (await getStoredIdentity()).record;
+      if (!stored) {
+        const recoveredBinding = await recoverStoredIdentityProfile()
+          ?? await recoverSingleStoredIdentityProfile();
+        if (recoveredBinding) {
+          stored = recoveredBinding.record;
+          try {
+            await desktopProfileRuntime.bindCurrentWindowProfile(recoveredBinding.profileId);
+          } catch {
+            // Best-effort profile realignment before session restore.
+          }
+        }
+      }
+      if (!stored && isPageReloadNavigation()) {
+        const keychainProbe = await probeNativeSessionForRestore(undefined);
+        if (keychainProbe) {
+          stored = keychainProbe.stored;
+        }
+      }
+    } else {
+      const recoveredBinding = await recoverStoredIdentityProfile()
+        ?? await recoverSingleStoredIdentityProfile();
+      stored = recoveredBinding?.record;
+      if (!stored) {
+        stored = (await getStoredIdentity()).record;
+      }
+    }
+    stored = await resolveStoredIdentityRecord({
+      profileId: resolveIdentityScopeProfileId(),
+      current: stored,
+    });
     if (stored) {
       const normalizedStored = normalizeStoredIdentityRecord(stored);
       if (normalizedStored.publicKeyHex !== stored.publicKeyHex) {
@@ -493,20 +720,46 @@ const ensureInitialized = async (): Promise<void> => {
       stored = normalizedStored;
     }
 
-    // Native: restore unlocked session from OS secure storage (no web passphrase tokens).
-    if (
-      stored
-      && canUseNativeSession()
-      && NATIVE_SECURE_SESSION_RESTORE_ENABLED
-      && isDeviceSessionRestoreAllowed(getResolvedProfileId())
-    ) {
-      const nativeSessionStatusResult = await tryNativeSessionUnlock({
-        stored,
-        context: "bootstrap",
+    // Native: auth-kernel boot owner restores session on desktop reload — no duplicate probe here.
+    const activeProfileId = resolveIdentityScopeProfileId();
+    const manualLockActive = isAuthKernelManualLockActive(activeProfileId);
+    const bootRestoreEnabled = isAuthKernelBootRestoreEnabled(activeProfileId);
+    if (stored && canUseNativeSession() && manualLockActive) {
+      if (isPageReloadNavigation() && bootRestoreEnabled) {
+        await waitForAuthKernelBootRestore(8_000);
+      }
+      const keychainPresent = await readAuthKernelKeychainPresent({
+        profileId: activeProfileId,
+        expectedPublicKeyHex: stored.publicKeyHex,
       });
-      if (nativeSessionStatusResult === "unlocked" || nativeSessionStatusResult === "mismatch") {
+      if (keychainPresent) {
+        setLockedAwaitingNativeRestore(stored);
+      } else {
+        setStoredLockedIdentityStartup(stored);
+      }
+      return;
+    }
+    if (stored && canUseNativeSession() && bootRestoreEnabled) {
+      if (isPageReloadNavigation()) {
+        await waitForAuthKernelBootRestore(8_000);
+      }
+      if (getIdentitySnapshot().status === "unlocked") {
         return;
       }
+      const diagnostics = getIdentityDiagnosticsSnapshot();
+      if (diagnostics.startupState.kind === "mismatch") {
+        return;
+      }
+      const keychainPresent = await readAuthKernelKeychainPresent({
+        profileId: activeProfileId,
+        expectedPublicKeyHex: stored.publicKeyHex,
+      });
+      if (keychainPresent) {
+        setLockedAwaitingNativeRestore(stored);
+        return;
+      }
+      setStoredLockedIdentityStartup(stored);
+      return;
     }
     setIdentityState(createLockedState(stored));
   } catch (error: unknown) {
@@ -627,7 +880,16 @@ const importIdentityAction = async (params: Readonly<{ privateKeyHex: PrivateKey
       message: "Found your account",
     });
     const encryptedPrivateKey: string = params.passphrase.trim().length === 0
-      ? PASSWORDLESS_NATIVE_ONLY_SENTINEL
+      ? await (async (): Promise<string> => {
+        const preserved = await resolvePasswordProtectedIdentityRecord({
+          profileId: resolveIdentityScopeProfileId(),
+          expectedPublicKeyHex: publicKeyHex,
+        });
+        if (preserved?.encryptedPrivateKey && !isPasswordlessNativeOnlyRecord(preserved)) {
+          return preserved.encryptedPrivateKey;
+        }
+        return PASSWORDLESS_NATIVE_ONLY_SENTINEL;
+      })()
       : await encryptPrivateKeyHex({
         privateKeyHex,
         passphrase: params.passphrase
@@ -686,19 +948,42 @@ const unlockIdentityAction = async (params: Readonly<{ passphrase: Passphrase; s
   if (!identityState.stored) {
     throw new Error("No local identity is loaded for this profile window.");
   }
-  const storedIdentity = identityState.stored;
+  const priorStoredIdentity = identityState.stored;
+  beginIdentityMutation();
   try {
-    if (isPasswordlessNativeOnlyRecord(storedIdentity)) {
-      throw new Error("This profile was imported without a local password. Import the private key again or rely on native session restore.");
-    }
-    const decryptedPrivateKeyHex: PrivateKeyHex = await decryptPrivateKeyHex({ payload: storedIdentity.encryptedPrivateKey, passphrase: params.passphrase });
-    const { privateKeyHex } = assertIdentityKeyPair({
-      privateKeyHex: decryptedPrivateKeyHex,
-      expectedPublicKeyHex: storedIdentity.publicKeyHex
+    const unlockMatch = await tryUnlockIdentityWithPassphrase({
+      profileId: resolveIdentityScopeProfileId(),
+      publicKeyHex: priorStoredIdentity.publicKeyHex,
+      passphrase: params.passphrase,
+      activeRecord: priorStoredIdentity,
     });
+    if (!unlockMatch) {
+      const candidates = await collectPasswordProtectedIdentityCandidates({
+        profileId: resolveIdentityScopeProfileId(),
+        publicKeyHex: priorStoredIdentity.publicKeyHex,
+      });
+      if (candidates.length === 0) {
+        throw new Error(
+          "No device password unlock is saved for this profile on this device. Use Import Key, or restore from a workspace backup.",
+        );
+      }
+      throw new Error("Incorrect password");
+    }
+
+    const storedIdentity = unlockMatch.record;
+    const { privateKeyHex } = unlockMatch;
+    if (
+      isPasswordlessNativeOnlyRecord(priorStoredIdentity)
+      || priorStoredIdentity.encryptedPrivateKey !== storedIdentity.encryptedPrivateKey
+    ) {
+      await saveStoredIdentity({ record: storedIdentity });
+    }
 
     setIdentityState(createUnlockedState({ stored: storedIdentity, privateKeyHex }));
     recordIdentityActivationRisk(storedIdentity.publicKeyHex);
+    resetAutoLockOverlayState();
+    clearAuthKernelManualLock(resolveIdentityScopeProfileId());
+    reconcileWindowRuntimeBinding();
     await applyNativeSessionPersistence({
       staySignedIn: resolveStaySignedIn(params),
       publicKeyHex: storedIdentity.publicKeyHex,
@@ -706,26 +991,37 @@ const unlockIdentityAction = async (params: Readonly<{ passphrase: Passphrase; s
       stored: storedIdentity,
       context: "unlock",
     });
+    reconcileWindowRuntimeBinding();
+    try {
+      await activateNativeStorageAtRestUnlock({
+        profileId: resolveIdentityScopeProfileId(),
+        passphrase: params.passphrase,
+      });
+    } catch (error) {
+      console.warn("[Identity] Storage-at-rest unlock failed after auth unlock (session remains unlocked):", error);
+    }
   } catch (error: unknown) {
     const message: string = error instanceof Error ? error.message : "Unlock failed";
     if (message.includes("does not match stored identity")) {
-      setIdentityState(createLockedState(storedIdentity));
+      setIdentityState(createLockedState(priorStoredIdentity));
       setIdentityDiagnostics({
         status: "locked",
         startupState: createMismatchStartupAuthState({
-          storedPublicKeyHex: storedIdentity.publicKeyHex,
+          storedPublicKeyHex: priorStoredIdentity.publicKeyHex,
           mismatchReason: "private_key_mismatch",
           message,
         }),
-        storedPublicKeyHex: storedIdentity.publicKeyHex,
+        storedPublicKeyHex: priorStoredIdentity.publicKeyHex,
         mismatchReason: "private_key_mismatch",
         message
       });
       throw error;
     }
     // Failed unlock attempts should keep auth flow recoverable instead of escalating runtime to fatal.
-    setIdentityState(createLockedState(storedIdentity));
+    setIdentityState(createLockedState(priorStoredIdentity));
     throw error;
+  } finally {
+    endIdentityMutation();
   }
 };
 
@@ -741,6 +1037,7 @@ const unlockWithPrivateKeyHexAction = async (params: Readonly<{ privateKeyHex: P
     });
     setIdentityState(createUnlockedState({ stored: storedIdentity, privateKeyHex }));
     recordIdentityActivationRisk(storedIdentity.publicKeyHex);
+    clearAuthKernelManualLock(resolveIdentityScopeProfileId());
     await applyNativeSessionPersistence({
       staySignedIn: resolveStaySignedIn(params),
       publicKeyHex: storedIdentity.publicKeyHex,
@@ -837,6 +1134,10 @@ const resetPassphraseWithPrivateKeyAction = async (params: Readonly<{ privateKey
 };
 
 const lockIdentityAction = (): void => {
+  void finalizeNativeStorageAtRestLock();
+  const profileId = resolveIdentityScopeProfileId();
+  void clearInMemoryNativeSessionBestEffort();
+  markAuthKernelManualLock(profileId);
   setIdentityState(createLockedState(identityState.stored));
 };
 
@@ -855,6 +1156,7 @@ const forgetIdentityAction = async (): Promise<void> => {
       await cs.deleteNativeKey();
     }
 
+    await runAuthKernelSignOutCleanup(resolveIdentityScopeProfileId());
     setIdentityState(createLockedState(undefined));
   } catch (error: unknown) {
     const message: string = error instanceof Error ? error.message : "Unknown error";
@@ -864,6 +1166,8 @@ const forgetIdentityAction = async (): Promise<void> => {
 
 const resetNativeSecureStorageAction = async (): Promise<void> => {
   try {
+    const profileId = resolveIdentityScopeProfileId();
+    await runAuthKernelSignOutCleanup(profileId);
     await endNativeDeviceSignInBestEffort();
     setIdentityDiagnostics({
       status: identityState.stored ? "locked" : "loading",
@@ -889,7 +1193,15 @@ const resetNativeSecureStorageAction = async (): Promise<void> => {
 };
 
 const retryNativeSessionUnlockAction = async (): Promise<boolean> => {
-  const stored = identityState.stored;
+  const profileId = resolveIdentityScopeProfileId();
+  if (isAuthKernelManualLockActive(profileId)) {
+    return false;
+  }
+  const current = getIdentitySnapshot();
+  if (!current.stored?.publicKeyHex) {
+    await rehydrateIdentityForActiveProfile();
+  }
+  const stored = getIdentitySnapshot().stored;
   if (!stored) {
     return false;
   }
@@ -922,3 +1234,11 @@ export const useIdentityInternals = {
     listeners.clear();
   },
 };
+
+/** AUTH-K1 bridge — canonical identity mutations for auth-kernel adapters only. */
+export const authKernelIdentityActions = {
+  createIdentity: createIdentityAction,
+  importIdentity: importIdentityAction,
+  unlockIdentity: unlockIdentityAction,
+  unlockWithPrivateKeyHex: unlockWithPrivateKeyHexAction,
+} as const;

@@ -1,44 +1,51 @@
 # Obscur Website
 
-The website app is the planned public-facing surface for Obscur release distribution and product presentation.
+Public release surface for Obscur — download links, limitations, and changelog grounded in repo truth.
 
-Intended responsibilities:
-
-- publish feature overviews and product positioning,
-- surface production GIF demos sourced from `docs/assets/gifs/`,
-- present changelog and release-note summaries grounded in `CHANGELOG.md`,
-- link users to downloadable release artifacts published through GitHub
-  Releases,
-- stay aligned with the canonical engineering docs under `docs/`.
-
-## Getting Started
-
-Run the development server:
+## Local development
 
 ```bash
-pnpm dev
+pnpm -C apps/website dev
 ```
 
-Open `http://localhost:3000`.
+Open `http://localhost:3000`. Smoke routes: `/`, `/download`, `/limitations`, `/changelog`.
 
-## Build
+## Production build
 
 ```bash
-pnpm build
-pnpm start
+pnpm -C apps/website build
+pnpm -C apps/website start
 ```
 
-## Content Sources
+## Deploy (maintainer)
 
-- Product and release summary: `README.md`
-- Canonical changelog: `CHANGELOG.md`
-- Engineering docs index: `docs/README.md`
-- Release evidence and demo assets: `docs/assets/demo/`
-- Production GIF library: `docs/assets/gifs/`
+**PAUSED (2026-07-04):** Do not deploy publicly until Obscur runtime repair band exits. Maintainer policy: fix product issues before release preparation.
 
-## Notes
+When un-paused, typical paths:
 
-- Keep website copy aligned with canonical docs rather than inventing a
-  second product narrative.
-- Do not claim a release flow works on the website unless the corresponding
-  GitHub release artifacts and runtime evidence exist.
+1. **Vercel** — import monorepo, set root directory to `apps/website`, build command `pnpm build`, output default.
+2. **Static export** — not configured today; app uses server components + `headers()` on `/download` for platform hint only.
+
+After deploy, verify:
+
+- `/download` shows Windows artifact from `release-assets/manifest.json`
+- SHA-256 on page matches local manifest
+- `/limitations` loads without placeholder copy
+
+## Content sources
+
+| Source | Use |
+|--------|-----|
+| `release-assets/manifest.json` | Download URLs, checksums, version |
+| `CHANGELOG.md` | Release highlights |
+| `docs/program/obscur-v2-known-limitations.md` | Limitations sheet (linked + summarized) |
+| `docs/program/obscur-v2-phase3-signing-policy.md` | Unsigned installer copy |
+| `docs/program/obscur-v2-install-build-guide.md` | Build-from-source links |
+
+Charter: [obscur-v2-phase4-website-charter.md](../docs/program/obscur-v2-phase4-website-charter.md)
+
+## Rules
+
+- Do not claim Play Store, App Store, or signed installers unless manifest + policy say so.
+- Android debug APK is **local build output** — document checksum, not a hosted download.
+- Keep copy aligned with canonical docs; this site is not a second product narrative.

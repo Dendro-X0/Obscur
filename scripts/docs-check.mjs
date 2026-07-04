@@ -27,17 +27,52 @@ const exists = async (targetPath) => {
   }
 };
 
+const SKIP_DOC_PREFIXES = [
+  "archive/",
+  "releases/",
+  "assets/",
+  "exploration/",
+  "future/",
+  "history/",
+  "incidents/",
+  "architecture/",
+  "research/",
+  "trust/",
+  "communities/",
+  "design/",
+  "gateway/",
+  "messaging/",
+  "protocols/",
+  "encyclopedia/",
+];
+
+const shouldSkipDocFile = (relFromDocsRoot) => {
+  if (SKIP_DOC_PREFIXES.some((prefix) => relFromDocsRoot.startsWith(prefix))) {
+    return true;
+  }
+  if (
+    relFromDocsRoot.startsWith("handoffs/")
+    && relFromDocsRoot !== "handoffs/current-session.md"
+    && relFromDocsRoot !== "handoffs/README.md"
+  ) {
+    return true;
+  }
+  return false;
+};
+
 const walkMarkdownFiles = async (dir) => {
   const out = [];
   const entries = await fs.readdir(dir, { withFileTypes: true });
   for (const entry of entries) {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
-      if (entry.name === "archive") continue; // legacy docs are informational only
+      if (entry.name === "archive") continue;
       out.push(...(await walkMarkdownFiles(full)));
       continue;
     }
     if (entry.isFile() && entry.name.endsWith(".md")) {
+      const relFromDocs = path.relative(docsRoot, full).replaceAll("\\", "/");
+      if (shouldSkipDocFile(relFromDocs)) continue;
       out.push(full);
     }
   }

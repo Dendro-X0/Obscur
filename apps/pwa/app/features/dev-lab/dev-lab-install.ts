@@ -16,6 +16,10 @@ import {
   type DevLabMembershipScopeSnapshot,
 } from "./dev-lab-membership-scope-probe";
 import {
+  probeDevLabMembershipGraph,
+  type DevLabMembershipGraphProbeResult,
+} from "./dev-lab-membership-graph-probe";
+import {
   createDevLabZombiePersona,
   listDevLabPersonas,
   resolveDevLabPersona,
@@ -132,6 +136,7 @@ export type DevLabApi = Readonly<{
   probeGroupSendStub: () => Promise<DevLabGroupStubProbeResult>;
   probeJoinerMembershipRepair: () => DevLabJoinerMembershipRepairProbeResult;
   probeMembershipScope: () => DevLabMembershipScopeSnapshot;
+  probeMembershipGraph: (params?: Readonly<{ peerPublicKeyHex?: string }>) => DevLabMembershipGraphProbeResult;
   clearDmTrustThreadForPeer: (params: Readonly<{
     peerPublicKeyHex: string;
   }>) => Readonly<{ cleared: boolean; conversationId: string | null }>;
@@ -311,6 +316,13 @@ export const installDevLab = (): void => {
       const publicKeyHex = messagingHandlers?.getMyPublicKeyHex() ?? "";
       return probeDevLabMembershipScope({
         publicKeyHex: publicKeyHex as import("@dweb/crypto/public-key-hex").PublicKeyHex,
+      });
+    },
+    probeMembershipGraph: (params) => {
+      const publicKeyHex = messagingHandlers?.getMyPublicKeyHex() ?? "";
+      return probeDevLabMembershipGraph({
+        actorPublicKeyHex: publicKeyHex,
+        peerPublicKeyHex: params?.peerPublicKeyHex,
       });
     },
     clearDmTrustThreadForPeer: (params) => {

@@ -12,19 +12,19 @@ export const PORTABILITY_EXPORT_NAMING_PRESETS: ReadonlyArray<Readonly<{
   description: string;
 }>> = [
   {
-    id: "pubkey_prefix_date",
-    label: "Account prefix + date",
-    description: "obscur-portable-account-{pubkey8}-{date}.json",
+    id: "profile_label_date",
+    label: "Profile name + date (recommended)",
+    description: "{profileLabel}-account-export-{date}.obscur-account-export.json",
   },
   {
-    id: "profile_label_date",
-    label: "Profile label + date",
-    description: "{profileLabel}-workspace-{date}.obscur-bundle",
+    id: "pubkey_prefix_date",
+    label: "Account prefix + date",
+    description: "obscur-account-export-{pubkey8}-{date}.obscur-account-export.json",
   },
   {
     id: "timestamp_only",
     label: "Timestamp only",
-    description: "obscur-export-{timestamp}.{ext}",
+    description: "obscur-export-{timestamp}.obscur-account-export.json",
   },
 ];
 
@@ -42,20 +42,28 @@ const sanitizeLabel = (value: string | undefined): string => {
     .slice(0, 48) || "profile";
 };
 
-const formatExportTimestamp = (exportedAtUnixMs: number): string => (
-  new Date(exportedAtUnixMs).toISOString().replace(/[:.]/g, "-")
-);
-
-export const loadPortabilityExportNamingPreset = (profileId?: string): PortabilityExportNamingPreset => {
-  if (typeof window === "undefined") {
-    return "pubkey_prefix_date";
-  }
-  const raw = window.localStorage.getItem(getScopedStorageKey(STORAGE_KEY, profileId ?? getResolvedProfileId()));
-  if (raw === "profile_label_date" || raw === "timestamp_only" || raw === "pubkey_prefix_date") {
-    return raw;
-  }
-  return "pubkey_prefix_date";
+const formatExportTimestamp = (exportedAtUnixMs: number): string => {
+  const date = new Date(exportedAtUnixMs);
+  const pad = (value: number): string => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}_${pad(date.getHours())}${pad(date.getMinutes())}`;
 };
+
+export const resolvePortabilityExportNamingPreset = (params?: Readonly<{
+  profileLabel?: string;
+  profileId?: string;
+}>): PortabilityExportNamingPreset => {
+  const stored = typeof window !== "undefined"
+    ? window.localStorage.getItem(getScopedStorageKey(STORAGE_KEY, params?.profileId ?? getResolvedProfileId()))
+    : null;
+  if (stored === "profile_label_date" || stored === "timestamp_only" || stored === "pubkey_prefix_date") {
+    return stored;
+  }
+  return params?.profileLabel?.trim() ? "profile_label_date" : "pubkey_prefix_date";
+};
+
+export const loadPortabilityExportNamingPreset = (profileId?: string): PortabilityExportNamingPreset => (
+  resolvePortabilityExportNamingPreset({ profileId })
+);
 
 export const savePortabilityExportNamingPreset = (
   preset: PortabilityExportNamingPreset,
@@ -76,7 +84,9 @@ export const buildPortableAccountExportFileName = (params: Readonly<{
   exportedAtUnixMs: number;
   preset?: PortabilityExportNamingPreset;
 }>): string => {
-  const preset = params.preset ?? "pubkey_prefix_date";
+  const preset = params.preset ?? resolvePortabilityExportNamingPreset({
+    profileLabel: params.profileLabel,
+  });
   const dateToken = formatExportTimestamp(params.exportedAtUnixMs);
   if (preset === "timestamp_only") {
     return `obscur-export-${params.exportedAtUnixMs}.json`;
@@ -93,7 +103,9 @@ export const buildUnifiedAccountExportFileName = (params: Readonly<{
   exportedAtUnixMs: number;
   preset?: PortabilityExportNamingPreset;
 }>): string => {
-  const preset = params.preset ?? "pubkey_prefix_date";
+  const preset = params.preset ?? resolvePortabilityExportNamingPreset({
+    profileLabel: params.profileLabel,
+  });
   const dateToken = formatExportTimestamp(params.exportedAtUnixMs);
   if (preset === "timestamp_only") {
     return `obscur-export-${params.exportedAtUnixMs}.obscur-account-export.json`;
@@ -103,6 +115,20 @@ export const buildUnifiedAccountExportFileName = (params: Readonly<{
   }
   return `obscur-account-export-${params.publicKeyHex.slice(0, 8)}-${dateToken}.obscur-account-export.json`;
 };
+
+export const buildUnifiedAccountExportFileNamePreview = (params: Readonly<{
+  publicKeyHex: string;
+  profileLabel?: string;
+  exportedAtUnixMs?: number;
+  preset?: PortabilityExportNamingPreset;
+}>): string => (
+  buildUnifiedAccountExportFileName({
+    publicKeyHex: params.publicKeyHex,
+    profileLabel: params.profileLabel,
+    exportedAtUnixMs: params.exportedAtUnixMs ?? Date.now(),
+    preset: params.preset,
+  })
+);
 
 export const buildWorkspaceBundleExportFileName = (params: Readonly<{
   profileId: string;

@@ -2,6 +2,7 @@
 
 import type React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "@dweb/ui-kit";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
@@ -52,6 +53,7 @@ const pendingImportFileFromRecord = (pending: PendingProfileImport): File => (
 );
 
 export function useUnifiedImportFlow(options: UseUnifiedImportFlowOptions): UseUnifiedImportFlowResult {
+  const { t } = useTranslation();
   const profileId = getResolvedProfileId();
   const pendingImportFileRef = useRef<File | null>(null);
   const resumeAttemptedForPublicKeyRef = useRef<string | null>(null);
@@ -74,14 +76,14 @@ export function useUnifiedImportFlow(options: UseUnifiedImportFlowOptions): UseU
 
   const applyImport = useCallback(async (file: File): Promise<void> => {
     if (!options.publicKeyHex) {
-      toast.error("Sign in with the account from this backup in this profile window, then import again.");
+      toast.error(t("profiles.portability.quickActions.signInThenImport"));
       return;
     }
     setIsImporting(true);
     try {
       const privateKeyHex = await options.resolveActivePrivateKeyHex();
       if (!privateKeyHex) {
-        throw new Error("Unlock the account before importing.");
+        throw new Error(t("profiles.portability.quickActions.unlockBeforeImport"));
       }
       await importUnifiedAccountBundle({
         raw: JSON.parse(await file.text()),
@@ -91,15 +93,15 @@ export function useUnifiedImportFlow(options: UseUnifiedImportFlowOptions): UseU
       });
       clearPendingProfileImport(profileId);
       refreshPendingImport();
-      toast.success("Backup imported. Reloading this profile window…");
+      toast.success(t("profiles.portability.quickActions.backupImported"));
       window.location.reload();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Import failed.");
+      toast.error(error instanceof Error ? error.message : t("profiles.portability.quickActions.importFailed"));
     } finally {
       setIsImporting(false);
       closePreflightDialog();
     }
-  }, [closePreflightDialog, options, profileId, refreshPendingImport]);
+  }, [closePreflightDialog, options, profileId, refreshPendingImport, t]);
 
   const stageImport = useCallback(async (file: File, preflight: PortabilityImportPreflight): Promise<void> => {
     try {
@@ -113,13 +115,13 @@ export function useUnifiedImportFlow(options: UseUnifiedImportFlowOptions): UseU
       closePreflightDialog();
       const accountPrefix = preflight.bundlePublicKeyHex
         ? pendingImportAccountPrefix(preflight.bundlePublicKeyHex)
-        : "this backup";
-      toast.success(`Backup saved. Sign in with account ${accountPrefix}, then confirm import.`);
+        : t("profiles.portability.quickActions.thisBackup");
+      toast.success(t("profiles.portability.quickActions.backupSavedSignIn", { prefix: accountPrefix }));
       options.onStagedForSignIn?.();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not stage backup.");
+      toast.error(error instanceof Error ? error.message : t("profiles.portability.quickActions.couldNotStage"));
     }
-  }, [closePreflightDialog, options, profileId]);
+  }, [closePreflightDialog, options, profileId, t]);
 
   const openPreflightForFile = useCallback(async (file: File): Promise<void> => {
     const preflight = await preflightUnifiedAccountImport({
@@ -146,7 +148,7 @@ export function useUnifiedImportFlow(options: UseUnifiedImportFlowOptions): UseU
   const clearPendingImport = useCallback((): void => {
     clearPendingProfileImport(profileId);
     refreshPendingImport();
-    toast.info("Staged backup cleared.");
+    toast.info(t("profiles.portability.quickActions.stagedBackupCleared"));
   }, [profileId, refreshPendingImport]);
 
   const resumePendingImport = useCallback(async (): Promise<void> => {
@@ -155,9 +157,9 @@ export function useUnifiedImportFlow(options: UseUnifiedImportFlowOptions): UseU
       return;
     }
     if (pending.bundlePublicKeyHex.trim().toLowerCase() !== options.publicKeyHex.trim().toLowerCase()) {
-      toast.error(
-        `Staged backup belongs to account ${pendingImportAccountPrefix(pending.bundlePublicKeyHex)}. Sign in with that account or clear the staged backup.`,
-      );
+      toast.error(t("profiles.portability.quickActions.stagedBackupMismatch", {
+        prefix: pendingImportAccountPrefix(pending.bundlePublicKeyHex),
+      }));
       return;
     }
     await openPreflightForFile(pendingImportFileFromRecord(pending));

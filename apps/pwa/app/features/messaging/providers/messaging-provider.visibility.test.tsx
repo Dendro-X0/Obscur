@@ -30,7 +30,7 @@ vi.mock("@/app/features/account-sync/services/account-projection-read-authority"
   }),
 }));
 
-vi.mock("../services/chat-state-store", () => ({
+vi.mock("@/app/features/messaging/services/chat-state-store-legacy", () => ({
   CHAT_STATE_REPLACED_EVENT: "obscur:chat-state-replaced",
   chatStateStoreService: {
     load: vi.fn(() => null),
@@ -54,6 +54,7 @@ vi.mock("../services/message-persistence-service", () => ({
 vi.mock("../services/message-bus", () => ({
   messageBus: {
     emit: vi.fn(),
+    subscribe: vi.fn(() => () => undefined),
   },
 }));
 

@@ -44,8 +44,8 @@ vi.mock("@dweb/ui-kit", () => ({
   },
 }));
 
-vi.mock("../../messaging/hooks/use-conversation-messages", () => ({
-  useConversationMessages: () => ({
+vi.mock("../../messaging/hooks/use-thread-messages", () => ({
+  useThreadMessages: () => ({
     messages: messagesFixture,
     isLoading: false,
     hasEarlier: false,

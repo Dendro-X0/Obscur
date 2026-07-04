@@ -15,7 +15,6 @@ const replacements = [
     { from: /from "\.\.\/lib\/use-relay-list"/g, to: 'from "@/app/features/relays/hooks/use-relay-list"' },
     { from: /from "\.\.\/lib\/use-relay-pool"/g, to: 'from "@/app/features/relays/hooks/use-relay-pool"' },
     { from: /from "\.\.\/lib\/use-conversations"/g, to: 'from "@/app/features/messaging/hooks/use-conversations"' },
-    { from: /from "\.\.\/lib\/use-dm-controller"/g, to: 'from "@/app/features/messaging/hooks/use-dm-controller"' },
     { from: /from "\.\.\/lib\/use-enhanced-dm-controller"/g, to: 'from "@/app/features/messaging/hooks/use-enhanced-dm-controller"' },
     { from: /from "\.\.\/lib\/use-requests-inbox"/g, to: 'from "@/app/features/messaging/hooks/use-requests-inbox"' },
     { from: /from "\.\.\/lib\/use-nav-badges"/g, to: 'from "@/app/features/main-shell/hooks/use-nav-badges"' },

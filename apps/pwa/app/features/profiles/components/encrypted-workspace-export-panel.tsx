@@ -192,13 +192,10 @@ export function EncryptedWorkspaceExportPanel(props: Props): React.JSX.Element {
       <PortabilityLastExportCard refreshToken={exportHistoryToken} />
       <div className="space-y-1">
         <Label className="font-semibold text-base">
-          {props.t("settings.storage.workspaceBundleTitle", "Encrypted Workspace Export")}
+          {props.t("settings.storage.workspaceBundleTitle")}
         </Label>
         <p className="text-xs text-zinc-500">
-          {props.t(
-            "settings.storage.workspaceBundleDesc",
-            "Export profile, settings, network data, and optional vault media into a compressed, encrypted .obscur-bundle file. Only your account key can decrypt it.",
-          )}
+          {props.t("settings.storage.workspaceBundleDesc")}
         </p>
         <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
           For cross-device account migration only, use{" "}
@@ -213,7 +210,7 @@ export function EncryptedWorkspaceExportPanel(props: Props): React.JSX.Element {
         title="Workspace export preview"
       />
       <div className="flex items-center justify-between gap-3 rounded-xl border border-black/5 p-4 dark:border-white/5">
-        <span className="text-sm font-medium">{props.t("settings.storage.includeVaultMedia", "Include vault media files")}</span>
+        <span className="text-sm font-medium">{props.t("settings.storage.includeVaultMedia")}</span>
         <SettingsToggle checked={includeVaultMedia} onChange={setIncludeVaultMedia} />
       </div>
       <PortabilityExportNamingSelect value={namingPreset} onChange={setNamingPreset} />

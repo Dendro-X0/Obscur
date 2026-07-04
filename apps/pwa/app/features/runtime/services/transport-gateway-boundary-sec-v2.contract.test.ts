@@ -24,7 +24,7 @@ describe("transport and gateway boundary SEC-V2 contract (checklist §3 V3-1–V
   });
 
   it("V3-3: membership ledger writes route through mutation owner, not parallel importers", () => {
-    const groupProvider = read("app/features/groups/providers/group-provider.tsx");
+    const groupProvider = read("app/features/groups/providers/group-provider-legacy.tsx");
     const workspacePort = read("app/features/workspace-kernel/workspace-kernel-membership-port.ts");
     const messagingOps = read("app/features/messaging/services/messaging-client-operations.ts");
 

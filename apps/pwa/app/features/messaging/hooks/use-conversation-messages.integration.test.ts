@@ -1,8 +1,8 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { messageBus } from "../services/message-bus";
-import { useConversationMessages } from "./use-conversation-messages";
-import * as dmConversationHydrateIndexedScan from "../services/dm-conversation-hydrate-indexed-scan";
+import { useLegacyConversationMessages } from "./conversation-messages-legacy-port";
+import * as dmConversationHydrateIndexedScan from "@/app/features/messaging/services/thread-history/dm-thread-history-legacy-port";
 import type { Message } from "../types";
 import { PrivacySettingsService, defaultPrivacySettings } from "../../settings/services/privacy-settings-service";
 import { performanceMonitor } from "../lib/performance-monitor";
@@ -160,7 +160,7 @@ vi.mock("@/app/features/account-sync/services/account-sync-migration-policy", ()
     }),
 }));
 
-vi.mock("../services/chat-state-store", () => ({
+vi.mock("@/app/features/messaging/services/chat-state-store-legacy", () => ({
     CHAT_STATE_REPLACED_EVENT: "obscur:chat-state-replaced",
     chatStateStoreService: chatStateStoreMocks,
 }));
@@ -221,7 +221,7 @@ const createMessage = (params: Readonly<{ id: string; timestampMs: number; conte
     ...(params.eventId ? { eventId: params.eventId } : {}),
 });
 
-describe("useConversationMessages integration (perf mode)", () => {
+describe("useLegacyConversationMessages integration (perf mode)", () => {
     beforeEach(() => {
         vi.spyOn(PrivacySettingsService, "getSettings").mockReturnValue({
             ...defaultPrivacySettings,
@@ -297,7 +297,7 @@ describe("useConversationMessages integration (perf mode)", () => {
     });
 
     it("batches a DM burst of 100 incoming events into one frame-applied state update", async () => {
-        const { result, unmount } = renderHook(() => useConversationMessages("c-burst", null));
+        const { result, unmount } = renderHook(() => useLegacyConversationMessages("c-burst", null));
         await waitFor(() => expect(result.current.isLoading).toBe(false));
 
         act(() => {
@@ -313,7 +313,7 @@ describe("useConversationMessages integration (perf mode)", () => {
     });
 
     it("applies mixed new/update/delete for same ids correctly within one flush window", async () => {
-        const { result, unmount } = renderHook(() => useConversationMessages("c-mixed", null));
+        const { result, unmount } = renderHook(() => useLegacyConversationMessages("c-mixed", null));
         await waitFor(() => expect(result.current.isLoading).toBe(false));
 
         act(() => {
@@ -330,7 +330,7 @@ describe("useConversationMessages integration (perf mode)", () => {
     });
 
     it("enforces 200 live-window cap during heavy incoming flow", async () => {
-        const { result, unmount } = renderHook(() => useConversationMessages("c-window", null));
+        const { result, unmount } = renderHook(() => useLegacyConversationMessages("c-window", null));
         await waitFor(() => expect(result.current.isLoading).toBe(false));
 
         act(() => {
@@ -346,7 +346,7 @@ describe("useConversationMessages integration (perf mode)", () => {
     });
 
     it("prevents deleted messages from reappearing when a stale upsert arrives later", async () => {
-        const { result, unmount } = renderHook(() => useConversationMessages("c-tombstone", null));
+        const { result, unmount } = renderHook(() => useLegacyConversationMessages("c-tombstone", null));
         await waitFor(() => expect(result.current.isLoading).toBe(false));
 
         act(() => {
@@ -370,7 +370,7 @@ describe("useConversationMessages integration (perf mode)", () => {
     });
 
     it("suppresses stale replays that return under an alternate event id after deletion", async () => {
-        const { result, unmount } = renderHook(() => useConversationMessages("c-alias-tombstone", null));
+        const { result, unmount } = renderHook(() => useLegacyConversationMessages("c-alias-tombstone", null));
         await waitFor(() => expect(result.current.isLoading).toBe(false));
 
         act(() => {
@@ -436,7 +436,7 @@ describe("useConversationMessages integration (perf mode)", () => {
             updatedAtUnixMs: 10_000,
         };
 
-        const { result, unmount } = renderHook(() => useConversationMessages("c-projection", "a".repeat(64)));
+        const { result, unmount } = renderHook(() => useLegacyConversationMessages("c-projection", "a".repeat(64)));
         await waitFor(() => expect(result.current.isLoading).toBe(false));
 
         expect(result.current.messages).toHaveLength(1);
@@ -491,7 +491,7 @@ describe("useConversationMessages integration (perf mode)", () => {
             updatedAtUnixMs: 11_000,
         };
 
-        const { result, rerender, unmount } = renderHook(() => useConversationMessages(conversationId, myPublicKeyHex));
+        const { result, rerender, unmount } = renderHook(() => useLegacyConversationMessages(conversationId, myPublicKeyHex));
         await waitFor(() => expect(result.current.isLoading).toBe(false));
         await waitFor(() => expect(result.current.messages.some((message) => message.id === "projection-1")).toBe(true));
         const initialIndexedReadCallCount = vi.mocked(messagingDB.getAllByIndex).mock.calls.length;
@@ -559,7 +559,7 @@ describe("useConversationMessages integration (perf mode)", () => {
             updatedAtUnixMs: 10_000,
         };
 
-        const first = renderHook(() => useConversationMessages("c-projection-delete", "a".repeat(64)));
+        const first = renderHook(() => useLegacyConversationMessages("c-projection-delete", "a".repeat(64)));
         await waitFor(() => expect(first.result.current.isLoading).toBe(false));
         expect(first.result.current.messages).toHaveLength(1);
 
@@ -570,7 +570,7 @@ describe("useConversationMessages integration (perf mode)", () => {
         integrationSuppressedMessageIds.add("p-delete-1");
         first.unmount();
 
-        const second = renderHook(() => useConversationMessages("c-projection-delete", "a".repeat(64)));
+        const second = renderHook(() => useLegacyConversationMessages("c-projection-delete", "a".repeat(64)));
         await waitFor(() => expect(second.result.current.isLoading).toBe(false));
         await waitFor(() => expect(second.result.current.messages).toHaveLength(0), { timeout: 3_000 });
         second.unmount();
@@ -604,7 +604,7 @@ describe("useConversationMessages integration (perf mode)", () => {
             updatedAtUnixMs: 10_000,
         };
 
-        const { result, unmount } = renderHook(() => useConversationMessages("c-projection-media", "a".repeat(64)));
+        const { result, unmount } = renderHook(() => useLegacyConversationMessages("c-projection-media", "a".repeat(64)));
         await waitFor(() => expect(result.current.isLoading).toBe(false));
 
         expect(result.current.messages).toHaveLength(1);
@@ -641,7 +641,7 @@ describe("useConversationMessages integration (perf mode)", () => {
             },
         ] as any);
 
-        const { result, unmount } = renderHook(() => useConversationMessages(conversationId, myPublicKeyHex));
+        const { result, unmount } = renderHook(() => useLegacyConversationMessages(conversationId, myPublicKeyHex));
         await waitFor(() => expect(result.current.isLoading).toBe(false));
         await waitFor(() => expect(result.current.messages.length).toBe(2), { timeout: 3_000 });
 
@@ -669,7 +669,7 @@ describe("useConversationMessages integration (perf mode)", () => {
             },
         ] as any);
 
-        const { result, unmount } = renderHook(() => useConversationMessages(conversationId, myPublicKeyHex));
+        const { result, unmount } = renderHook(() => useLegacyConversationMessages(conversationId, myPublicKeyHex));
         await waitFor(() => expect(result.current.isLoading).toBe(false));
         await waitFor(() => expect(result.current.messages).toHaveLength(1));
 
@@ -724,7 +724,7 @@ describe("useConversationMessages integration (perf mode)", () => {
             updatedAtUnixMs: 30_000,
         };
 
-        const { result, unmount } = renderHook(() => useConversationMessages(conversationId, myPublicKeyHex));
+        const { result, unmount } = renderHook(() => useLegacyConversationMessages(conversationId, myPublicKeyHex));
         await waitFor(() => expect(result.current.isLoading).toBe(false));
         await waitFor(() => expect(result.current.messages.length).toBe(1));
         expect(result.current.messages[0]?.id).toBe("projection-extra-1");
@@ -783,7 +783,7 @@ describe("useConversationMessages integration (perf mode)", () => {
         });
 
         const sparseViewerPubkey = "a".repeat(64);
-        const { result, unmount } = renderHook(() => useConversationMessages(conversationId, sparseViewerPubkey));
+        const { result, unmount } = renderHook(() => useLegacyConversationMessages(conversationId, sparseViewerPubkey));
         await waitFor(() => expect(result.current.isLoading).toBe(false));
         await waitFor(() => expect(result.current.messages.length).toBe(200), { timeout: 3_000 });
 
@@ -845,7 +845,7 @@ describe("useConversationMessages integration (perf mode)", () => {
         });
 
         const sparseViewerPubkey = "a".repeat(64);
-        const { result, unmount } = renderHook(() => useConversationMessages(conversationId, sparseViewerPubkey));
+        const { result, unmount } = renderHook(() => useLegacyConversationMessages(conversationId, sparseViewerPubkey));
         await waitFor(() => expect(result.current.isLoading).toBe(false));
         await waitFor(() => expect(result.current.messages.length).toBeGreaterThan(1), { timeout: 3_000 });
 
@@ -900,7 +900,7 @@ describe("useConversationMessages integration (perf mode)", () => {
         });
 
         const sparseViewerPubkey = "a".repeat(64);
-        const { result, unmount } = renderHook(() => useConversationMessages(conversationId, sparseViewerPubkey));
+        const { result, unmount } = renderHook(() => useLegacyConversationMessages(conversationId, sparseViewerPubkey));
         await waitFor(() => expect(result.current.isLoading).toBe(false));
         await waitFor(() => expect(result.current.messages.length).toBe(12), { timeout: 3_000 });
 
@@ -949,7 +949,7 @@ describe("useConversationMessages integration (perf mode)", () => {
             updatedAtUnixMs: 900_000,
         };
 
-        const { result, unmount } = renderHook(() => useConversationMessages(conversationId, myPublicKeyHex));
+        const { result, unmount } = renderHook(() => useLegacyConversationMessages(conversationId, myPublicKeyHex));
         await waitFor(() => expect(result.current.isLoading).toBe(false));
         await waitFor(() => expect(result.current.messages.length).toBe(200));
         expect(result.current.hasEarlier).toBe(false);
@@ -961,7 +961,7 @@ describe("useConversationMessages integration (perf mode)", () => {
         const peerPublicKeyHex = "b".repeat(64);
         const legacyConversationId = peerPublicKeyHex;
         const canonicalConversationId = [myPublicKeyHex, peerPublicKeyHex].sort().join(":");
-        const { result, unmount } = renderHook(() => useConversationMessages(legacyConversationId, myPublicKeyHex));
+        const { result, unmount } = renderHook(() => useLegacyConversationMessages(legacyConversationId, myPublicKeyHex));
         await waitFor(() => expect(result.current.isLoading).toBe(false));
 
         act(() => {
@@ -1007,7 +1007,7 @@ describe("useConversationMessages integration (perf mode)", () => {
             return [];
         });
 
-        const { result, unmount } = renderHook(() => useConversationMessages(legacyConversationId, myPublicKeyHex));
+        const { result, unmount } = renderHook(() => useLegacyConversationMessages(legacyConversationId, myPublicKeyHex));
         await waitFor(() => expect(result.current.isLoading).toBe(false));
         await waitFor(
             () => expect(result.current.messages.some((message) => message.id === "alias-hydrated-1")).toBe(true),
@@ -1050,7 +1050,7 @@ describe("useConversationMessages integration (perf mode)", () => {
             }] as any;
         });
 
-        const { result, unmount } = renderHook(() => useConversationMessages(conversationId, myPublicKeyHex));
+        const { result, unmount } = renderHook(() => useLegacyConversationMessages(conversationId, myPublicKeyHex));
         await waitFor(() => expect(result.current.isLoading).toBe(false));
         expect(result.current.messages).toHaveLength(0);
 
@@ -1104,7 +1104,7 @@ describe("useConversationMessages integration (perf mode)", () => {
         } as any);
         vi.mocked(messagingDB.getAllByIndex).mockResolvedValue([] as any);
 
-        const { result, unmount } = renderHook(() => useConversationMessages(conversationId, myPublicKeyHex));
+        const { result, unmount } = renderHook(() => useLegacyConversationMessages(conversationId, myPublicKeyHex));
         await waitFor(() => expect(result.current.isLoading).toBe(false));
         await waitFor(() => expect(result.current.messages).toHaveLength(1));
         expect(result.current.messages[0]?.id).toBe("persisted-fallback-1");
@@ -1166,7 +1166,7 @@ describe("useConversationMessages integration (perf mode)", () => {
             updatedAtUnixMs: 62_000,
         };
 
-        const { result, rerender, unmount } = renderHook(() => useConversationMessages(conversationId, myPublicKeyHex));
+        const { result, rerender, unmount } = renderHook(() => useLegacyConversationMessages(conversationId, myPublicKeyHex));
         await waitFor(() => expect(result.current.isLoading).toBe(false));
         await waitFor(() => expect(result.current.messages.some((message) => message.id === "projection-cutover-1")).toBe(true), { timeout: 3_000 });
 
@@ -1230,7 +1230,7 @@ describe("useConversationMessages integration (perf mode)", () => {
             },
         ]);
 
-        const { result, rerender, unmount } = renderHook(() => useConversationMessages(conversationId, myPublicKeyHex));
+        const { result, rerender, unmount } = renderHook(() => useLegacyConversationMessages(conversationId, myPublicKeyHex));
         await waitFor(() => expect(result.current.isLoading).toBe(false));
         await waitFor(() => expect(result.current.messages.some((m) => m.id === "indexed-self-boot-1")).toBe(true));
 
@@ -1335,7 +1335,7 @@ describe("useConversationMessages integration (perf mode)", () => {
             },
         ]);
 
-        const { result, unmount } = renderHook(() => useConversationMessages(conversationId, myPublicKeyHex));
+        const { result, unmount } = renderHook(() => useLegacyConversationMessages(conversationId, myPublicKeyHex));
         await waitFor(() => expect(result.current.isLoading).toBe(false));
         await waitFor(() => expect(result.current.messages.length).toBe(2), { timeout: 3_000 });
 
@@ -1424,7 +1424,7 @@ describe("useConversationMessages integration (perf mode)", () => {
                 shouldCapHydratedHistoryWindow: false,
             });
 
-        const { result, unmount } = renderHook(() => useConversationMessages(conversationId, myPublicKeyHex));
+        const { result, unmount } = renderHook(() => useLegacyConversationMessages(conversationId, myPublicKeyHex));
         await waitFor(() => expect(result.current.isLoading).toBe(false));
         await waitFor(() => {
             expect(result.current.messages.some((m) => m.id === "indexed-self-lag-1")).toBe(true);
@@ -1493,7 +1493,7 @@ describe("useConversationMessages integration (perf mode)", () => {
             },
         ]);
 
-        const { result, unmount } = renderHook(() => useConversationMessages(conversationId, myPublicKeyHex));
+        const { result, unmount } = renderHook(() => useLegacyConversationMessages(conversationId, myPublicKeyHex));
         await waitFor(() => expect(result.current.isLoading).toBe(false));
         await waitFor(() => expect(result.current.messages.length).toBe(2), { timeout: 3_000 });
 
@@ -1563,7 +1563,7 @@ describe("useConversationMessages integration (perf mode)", () => {
             },
         ]);
 
-        const { result, unmount } = renderHook(() => useConversationMessages(conversationId, myPublicKeyHex));
+        const { result, unmount } = renderHook(() => useLegacyConversationMessages(conversationId, myPublicKeyHex));
         await waitFor(() => expect(result.current.isLoading).toBe(false));
         await waitFor(() => expect(result.current.messages.length).toBe(2), { timeout: 3_000 });
 
@@ -1649,7 +1649,7 @@ describe("useConversationMessages integration (perf mode)", () => {
             return [] as any;
         });
 
-        const { result, unmount } = renderHook(() => useConversationMessages(legacyConversationId, myPublicKeyHex));
+        const { result, unmount } = renderHook(() => useLegacyConversationMessages(legacyConversationId, myPublicKeyHex));
         await waitFor(() => expect(result.current.isLoading).toBe(false));
         await waitFor(() => expect(result.current.messages.length).toBe(2), { timeout: 3_000 });
 
@@ -1750,7 +1750,7 @@ describe("useConversationMessages integration (perf mode)", () => {
             updatedAtUnixMs: 100_000,
         };
 
-        const { result, unmount } = renderHook(() => useConversationMessages(conversationId, myPublicKeyHex));
+        const { result, unmount } = renderHook(() => useLegacyConversationMessages(conversationId, myPublicKeyHex));
         await waitFor(() => expect(result.current.isLoading).toBe(false));
         await waitFor(() => expect(result.current.messages.length).toBe(1), { timeout: 3_000 });
 
@@ -1837,7 +1837,7 @@ describe("useConversationMessages integration (perf mode)", () => {
             updatedAtUnixMs: 111_000,
         };
 
-        const { result, unmount } = renderHook(() => useConversationMessages(conversationId, myPublicKeyHex));
+        const { result, unmount } = renderHook(() => useLegacyConversationMessages(conversationId, myPublicKeyHex));
         await waitFor(() => expect(result.current.isLoading).toBe(false));
         await waitFor(() => expect(result.current.messages.length).toBe(1), { timeout: 3_000 });
 
@@ -1914,7 +1914,7 @@ describe("useConversationMessages integration (perf mode)", () => {
             },
         ]);
 
-        const { result, unmount } = renderHook(() => useConversationMessages(conversationId, myPublicKeyHex));
+        const { result, unmount } = renderHook(() => useLegacyConversationMessages(conversationId, myPublicKeyHex));
         await waitFor(() => expect(result.current.isLoading).toBe(false));
         await waitFor(() => expect(result.current.messages.length).toBe(2), { timeout: 3_000 });
 
@@ -2007,7 +2007,7 @@ describe("useConversationMessages integration (perf mode)", () => {
             updatedAtUnixMs: 141_000,
         };
 
-        const { result, unmount } = renderHook(() => useConversationMessages(conversationId, myPublicKeyHex));
+        const { result, unmount } = renderHook(() => useLegacyConversationMessages(conversationId, myPublicKeyHex));
         await waitFor(() => expect(result.current.isLoading).toBe(false));
         await waitFor(() => expect(result.current.messages.length).toBe(2), { timeout: 3_000 });
 
@@ -2096,7 +2096,7 @@ describe("useConversationMessages integration (perf mode)", () => {
             updatedAtUnixMs: 131_000,
         };
 
-        const { result, unmount } = renderHook(() => useConversationMessages(conversationId, myPublicKeyHex));
+        const { result, unmount } = renderHook(() => useLegacyConversationMessages(conversationId, myPublicKeyHex));
         await waitFor(() => expect(result.current.isLoading).toBe(false));
         await waitFor(() => expect(result.current.messages.length).toBe(1), { timeout: 3_000 });
 
@@ -2173,7 +2173,7 @@ describe("useConversationMessages integration (perf mode)", () => {
             },
         ] as any);
 
-        const { result, unmount } = renderHook(() => useConversationMessages(conversationId, myPublicKeyHex));
+        const { result, unmount } = renderHook(() => useLegacyConversationMessages(conversationId, myPublicKeyHex));
         await waitFor(() => expect(result.current.isLoading).toBe(false));
         await waitFor(() => expect(result.current.messages.length).toBe(1), { timeout: 3_000 });
 
@@ -2274,7 +2274,7 @@ describe("useConversationMessages integration (perf mode)", () => {
             },
         ] as any);
 
-        const { result, unmount } = renderHook(() => useConversationMessages(conversationId, myPublicKeyHex));
+        const { result, unmount } = renderHook(() => useLegacyConversationMessages(conversationId, myPublicKeyHex));
         await waitFor(() => expect(result.current.isLoading).toBe(false));
         await waitFor(() => expect(result.current.messages.length).toBe(4), { timeout: 3_000 });
 

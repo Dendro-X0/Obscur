@@ -2,11 +2,11 @@
 
 **Status:** Active checklist — **destination** for v2.0.0; **daily queue** is active v1.9.x scope doc + handoff  
 **Execution:** [v1.9.x-execution-contract.md](./v1.9.x-execution-contract.md) — v1.9.x until in-scope rows restored; v2.0.0 **delayed**  
-**Last updated:** 2026-06-04  
-**North star:** [obscur-2.0-milestone-roadmap.md](./obscur-2.0-milestone-roadmap.md)  
-**Production demo:** [v2.0-production-demo-path.md](./v2.0-production-demo-path.md)  
-**Release trains:** [v1.8.x-release-train.md](./v1.8.x-release-train.md) · [v1.9.x-release-train.md](./v1.9.x-release-train.md)  
-**v2.0 release prep (after v1.9.x exit):** [v2.0-release-pipeline.md](./v2.0-release-pipeline.md)
+**Last updated:** 2026-07-04 (Phase 1D row 1 lane closure)  
+**North star:** [obscur-2.0-milestone-roadmap.md](../archive/program/inactive-2026-06/obscur-2.0-milestone-roadmap.md)  
+**Production demo:** [v2.0-production-demo-path.md](../archive/program/inactive-2026-06/v2.0-production-demo-path.md)  
+**Release trains:** [v1.8.x-release-train.md](../archive/program/inactive-2026-06/v1.8.x-release-train.md) · [v1.9.x-release-train.md](./v1.9.x-release-train.md)  
+**v2.0 release prep (after v1.9.x exit):** [v2.0-release-pipeline.md](../archive/program/inactive-2026-06/v2.0-release-pipeline.md)
 
 This document defines **what must be implemented and verified** before the **v2.0.0 production demo**. Semver tags record milestones; **this file is the scope checklist** agents and maintainers use to answer “are we done yet?”
 
@@ -29,12 +29,12 @@ v2.0.0   Production demo gate — all in-scope lanes verified or accepted-with-c
 
 | Band | Owns | Canonical detail |
 |------|------|------------------|
-| **v1.7.x** | Online experiment closeout, v1.7 demo matrix | [obscur-2.0-milestone-roadmap.md](./obscur-2.0-milestone-roadmap.md) § v1.7.x |
-| **v1.8.x** | Lanes **C, T, X, P** (partial) | [v1.8.x-release-train.md](./v1.8.x-release-train.md) · [community-system-overhaul-phased-roadmap.md](./community-system-overhaul-phased-roadmap.md) |
+| **v1.7.x** | Online experiment closeout, v1.7 demo matrix | [obscur-2.0-milestone-roadmap.md](../archive/program/inactive-2026-06/obscur-2.0-milestone-roadmap.md) § v1.7.x |
+| **v1.8.x** | Lanes **C, T, X, P** (partial) | [v1.8.x-release-train.md](../archive/program/inactive-2026-06/v1.8.x-release-train.md) · [community-system-overhaul-phased-roadmap.md](../archive/program/inactive-2026-06/community-system-overhaul-phased-roadmap.md) |
 | **v1.9.x** | Lane **K** + trust/X/SQLite tags + **v1.9.4+** demo/platform | [v1.9.x-release-train.md](./v1.9.x-release-train.md) |
 | **v2.0.0** | Full gate + demo kit + public-facing install story | This doc § v2.0.0 exit |
 
-**Policy:** [maintainer-distribution-policy.md](./maintainer-distribution-policy.md) — user-visible tags only; ZIP/clone + local package; promotion after v2.0.0.
+**Policy:** [maintainer-distribution-policy.md](../archive/program/inactive-2026-06/maintainer-distribution-policy.md) — user-visible tags only; ZIP/clone + local package; promotion after v2.0.0.
 
 ---
 
@@ -62,12 +62,12 @@ Legend: **I** = implemented on `main` · **V** = verified · **A** = accepted li
 |----|-------------|---|---|-------|
 | K1 | TransportPort; Nostr adapter only at boundary | ✓ | ✓ | `transport:boundaries:check` |
 | K2 | Single membership write path per `profileId` | ✓ | ✓ | Port + tests |
-| K3 | Coordination leave → B sees Excluded (K-M1–K-M2) | ✓ | ◐ | Maintainer desktop Pass 2026-06-01; formal A/B matrix optional detail |
-| K4 | Sovereign / nostr_only honest copy (K-M3–K-M4) | ✓ | ◐ | Copy audit + tests; matrix Pass recorded |
-| K5 | R1/R2 read models (K-M5–K-M6) | ✓ | ◐ | Engineering exit; ACC-01/02 remain **A** |
+| K3 | Coordination leave → B sees Excluded (K-M1–K-M2) | ✓ | **A** | Phase 1C: coordination `leave`/`join` deltas **t3/t4** (`n6`/`n7`); excluded roster UI on observer **not** shown — COM-RUN-01 / ACC-02 |
+| K4 | Sovereign / nostr_only honest copy (K-M3–K-M4) | ✓ | **V** | Invite cards + membership toasts honest about relay/coordination lag (rounds 25–30) |
+| K5 | R1/R2 read models (K-M5–K-M6) | ✓ | **A** | ACC-01 delete-for-me · ACC-02 roster read owner; ledger/coordination reads exercised Phase 1C |
 | K6 | `release:test-pack` + community invariants | ✓ | ✓ | 2026-06-01 |
 
-Refs: [v1.9.0-kernel-backend-roadmap.md](./v1.9.0-kernel-backend-roadmap.md) · [v1.9.0-gate.md](../releases/v1.9.0-gate.md)
+Refs: [v1.9.0-kernel-backend-roadmap.md](../archive/program/inactive-2026-06/v1.9.0-kernel-backend-roadmap.md) · [v1.9.0-gate.md](../releases/v1.9.0-gate.md)
 
 ---
 
@@ -75,11 +75,11 @@ Refs: [v1.9.0-kernel-backend-roadmap.md](./v1.9.0-kernel-backend-roadmap.md) · 
 
 | ID | Requirement | I | V | Notes |
 |----|-------------|---|---|-------|
-| C-4.1 | Mode-aware create + managed-workspace gate | ✓ | ◐ | [v1.8.1-scope.md](./v1.8.1-scope.md); full A/B matrix deferred |
-| C-4.2 | Tabbed manage hub; home vs manage split | ✓ | ◐ | [v1.8.2-scope.md](./v1.8.2-scope.md) |
+| C-4.1 | Mode-aware create + managed-workspace gate | ✓ | **V** | NewTest 2 managed workspace + coordination gate exercised Phase 1C (rounds 25–30) |
+| C-4.2 | Tabbed manage hub; home vs manage split | ✓ | **V** | Group home · Participants · Enter chat · Manage path exercised Phase 1C |
 | C-4.3 | P4 optional (hybrid steward+vote, etc.) | — | — | **Record accept/defer** in v2.0 gate |
 
-Ref: [community-system-overhaul-phased-roadmap.md](./community-system-overhaul-phased-roadmap.md) Phase 4
+Ref: [community-system-overhaul-phased-roadmap.md](../archive/program/inactive-2026-06/community-system-overhaul-phased-roadmap.md) Phase 4
 
 ---
 
@@ -87,23 +87,23 @@ Ref: [community-system-overhaul-phased-roadmap.md](./community-system-overhaul-p
 
 | ID | Theme | I | V | Notes |
 |----|-------|---|---|-------|
-| REL-001 | Ledger precedence (left beats stale joined) | ✓ | ◐ | Shipped 2026-06-03; queue doc **stale** |
-| REL-002 | Restore live boundary | ✓ | ◐ | Shipped |
-| REL-003 | Profile scope isolation | ✓ | ◐ | Shipped |
-| REL-004 | Leave outbox durability | ✓ | ◐ | Shipped v1.8.x batch |
-| REL-005 | Mutation owner convergence | ◐ | ◐ | Partial; no single matrix row |
-| MEM-002 | Cross-surface membership | ✓ | ◐ | Shipped |
-| MEM-003 | Invite member pubkeys / thin roster | ✓ | ◐ | Shipped |
-| MEM-004 | Invite-response-only ledger | ✓ | ◐ | Shipped |
-| MEM-005 | Terminal invite clears inviter roster | ✓ | ◐ | Shipped v1.8.14 batch |
-| MEM-006 | Empty groups re-hydrate | ✓ | ◐ | Shipped |
+| REL-001 | Ledger precedence (left beats stale joined) | ✓ | **V** | Coordination head seq 3 `leave` after seq 2 `join` (round 29) |
+| REL-002 | Restore live boundary | ✓ | **A** | Not re-soaked Phase 1C; prior ship + backup_publish on membership change (console) |
+| REL-003 | Profile scope isolation | ✓ | **V** | Dual-profile CDP t4 — Tester1/Tester2 isolated sessions (rounds 25–30) |
+| REL-004 | Leave outbox durability | ✓ | **V** | T2 leave → coordination `leave` published seq 3 (rounds 28–29) |
+| REL-005 | Mutation owner convergence | ✓ | **A** | Write funnel accepted 2026-07-03; read roster (COM-RUN-07) deferred |
+| MEM-002 | Cross-surface membership | ✓ | **A** | Chat header vs participants diverge on leave (COM-RUN-01); coordination path OK |
+| MEM-003 | Invite member pubkeys / thin roster | ✓ | **V** | COM-RUN-11 invite matrix — Cancel / Accept / Decline (round 28) |
+| MEM-004 | Invite-response-only ledger | ✓ | **V** | Accept recorded in DM + coord `join` seq 4 (round 30) |
+| MEM-005 | Terminal invite clears inviter roster | ✓ | **A** | Post-leave inviter participants still Tester1-only (round 29) — COM-RUN-01 |
+| MEM-006 | Empty groups re-hydrate | ✓ | **A** | Relay backup rehydrates fixture after purge (round 25 charter gap) |
 | MEM-001 | Roster architecture | — | **A** | Display-layer R2; accepted |
 | DM-001 | Delete-for-me durability | ◐ | **A** | R1 port; ACC-01 |
 | DM-002–007 | DM cross-device / delete paths | ◐ | — | **Out of v2.0 gate** unless re-chartered |
-| MED-001 | Restore media relink | ✓ | ◐ | v1.9.1 band |
-| MED-002 | Ghost voice quarantine | ✓ | ◐ | v1.9.1 band |
+| MED-001 | Restore media relink | ✓ | **A** | v1.9.1 band; not re-run Phase 1C — Phase 1D row 3 soak optional |
+| MED-002 | Ghost voice quarantine | ✓ | **A** | v1.9.1 band; not re-run Phase 1C — Phase 1D row 3 soak optional |
 
-**Verify source:** Re-run [unified-verification-matrix.md](./unified-verification-matrix.md) §1–§7 before v2.0; sync register. Do **not** trust status column in [v1.5.0-known-issues-and-investigation-queue.md](./v1.5.0-known-issues-and-investigation-queue.md) (last updated 2026-05-15).
+**Verify source:** Re-run [unified-verification-matrix.md](./unified-verification-matrix.md) §1–§7 before v2.0; sync register. Do **not** trust status column in [v1.5.0-known-issues-and-investigation-queue.md](../archive/program/inactive-2026-06/v1.5.0-known-issues-and-investigation-queue.md) (last updated 2026-05-15).
 
 ---
 
@@ -122,13 +122,13 @@ Ref: [community-system-overhaul-phased-roadmap.md](./community-system-overhaul-p
 
 | ID | Deliverable | I | V | Notes |
 |----|-------------|---|---|-------|
-| P1 | Android install path + local signing | ◐ | — | [android-p1-signing-runbook.md](./android-p1-signing-runbook.md); Tier 1 smoke **pending** |
+| P1 | Android install path + local signing | ◐ | — | [android-p1-signing-runbook.md](../archive/program/inactive-2026-06/android-p1-signing-runbook.md); Tier 1 smoke **pending** |
 | P2 | Mobile native components (push, background) | — | — | **v2.0 minimum:** document defer or MVP in gate |
-| P3a–c | DM + projection SQLite convergence | ◐ | ◐ | Desktop DM native path largely done |
-| P3d | Community group list + sealed messages SQLite | ✓ | ◐ | v1.9.3 code; restart soak **Pass** @ maintainer client verification 2026-06-11 |
+| P3a–c | DM + projection SQLite convergence | ✓ | **V** | `verify:phase2` + P3b cold restart t3/t4 (Phase 1C O-2 + 1D n8) |
+| P3d | Community group list + sealed messages SQLite | ✓ | **V** | Cold-restart soak 2026-07-04 · NewTest 2 history + member count (`n8`) |
 | P3 gaps | Remaining domains per [obscur-native-sqlite-policy.md](./obscur-native-sqlite-policy.md) | ✓ | — | P4-5 owner matrix **done** (2026-06-01); subtraction queue in policy doc |
 | P4 | PWA/web production parity vs desktop | ◐ | — | Production web disabled; parity = policy + spot check |
-| P-sign | Local self-signing (desktop minisign + Android JKS) | — | — | **Deferred** to v2.0 Phase 3 — [local-signing-strategy.md](./local-signing-strategy.md) |
+| P-sign | Local self-signing (desktop minisign + Android JKS) | ✓ | **A** | **Unsigned accepted** @ P3-2 2026-07-04 — [obscur-v2-phase3-signing-policy.md](./obscur-v2-phase3-signing-policy.md) |
 | P-demo | Installers + website download + demo assets | ◐ | — | Desktop package **done**; website/GIFs → v2.0 Phases 4–5 |
 
 ---
@@ -137,16 +137,19 @@ Ref: [community-system-overhaul-phased-roadmap.md](./community-system-overhaul-p
 
 | ID | Requirement | I | V | Notes |
 |----|-------------|---|---|-------|
-| SEC-F1 | dm-kernel trust assessment port (recipient-local tiers) | ◐ | — | [v1.9.5-scope.md](./v1.9.5-scope.md) SEC-F |
+| SEC-F1 | dm-kernel trust assessment port (recipient-local tiers) | ◐ | — | [v1.9.5-scope.md](./v1.9.10-scope.md) SEC-F |
 | SEC-F2 | Cold-contact financial signal bundle (`BUNDLE_FIN_COLD`) | ◐ | — | Greenfield [02-warning-and-trust-model.md](../archive/greenfield/02-warning-and-trust-model.md) |
 | SEC-F3 | DM thread warning UI (delivery invariant) | ◐ | — | Dismiss/snooze per thread |
 | SEC-B1 | Inbound bot rate limits + allowlist hardening | ◐ | — | B2 steward path |
 | SEC-B2 | Spam-shape signals (`msg.rate`, `invite.fanout`) | ◐ | — | Feeds assessment port |
 | SEC-R1 | Operator relay + coordination trust audit | ◐ | — | Managed workspace tier |
-| SEC-V1 | Internal E2EE / no-upload validation | ◐ | — | [v1.9.5-security-validation-checklist.md](./v1.9.5-security-validation-checklist.md) |
-| SEC-V2 | Transport + gateway boundary re-verify | ✓ | ◐ | Automated scripts exist; sign-off @ v1.9.5 exit |
+| SEC-V1 | Internal E2EE / no-upload validation | ✓ | **V** | `verify-e2ee-boundaries.mjs` + SEC-V1 contracts (2026-07-04) |
+| SEC-V2 | Transport + gateway boundary re-verify | ✓ | **V** | Transport allowlist + gateway boundaries (2026-07-04) |
+| SEC-V3 | Profile / community scope isolation | ✓ | **V** | `verify:sec-v3-v1.9.5` + Phase 1C dual-profile t4 |
+| SEC-V4 | AB-15 / COM-10 restore leak boundary | ✓ | **A** | 3× `community-ab-restore-historical` drift @ REL-002 |
+| SEC-V5 | Maintainer sign-off + exit contract | ✓ | **V** | Checklist §1–§5 signed 2026-07-04 |
 
-Ref: [v1.9.5-scope.md](./v1.9.5-scope.md) · Blocks v2.0 pipeline Phase 1 until Phase B–C exit
+Ref: [v1.9.5-scope.md](./v1.9.10-scope.md) · Blocks v2.0 pipeline Phase 1 until Phase B–C exit
 
 ---
 
@@ -168,8 +171,8 @@ Ref: [v1.9.5-scope.md](./v1.9.5-scope.md) · Blocks v2.0 pipeline Phase 1 until 
 
 | Tag | Scope | Exit (Implement + Verify) |
 |-----|-------|---------------------------|
-| **v1.9.4** | Platform + community verification | [v1.9.4-scope.md](./v1.9.4-scope.md) — Phase C exit @ `7a49e339`; client community Pass |
-| **v1.9.5** | Trust, anti-fraud/bot, security validation | [v1.9.5-scope.md](./v1.9.5-scope.md) — **blocks v2.0 prep** |
+| **v1.9.4** | Platform + community verification | [v1.9.4-scope.md](../archive/program/inactive-2026-06/v1.9.4-scope.md) — Phase C exit @ `7a49e339`; client community Pass |
+| **v1.9.5** | Trust, anti-fraud/bot, security validation | [v1.9.5-scope.md](./v1.9.10-scope.md) — **blocks v2.0 prep** |
 | **v2.0.0** | Production demo | All § v2.0.0 exit rows below; v2.0 gate doc at closeout under `docs/releases/`; CHANGELOG; major bump |
 
 ---
@@ -182,7 +185,7 @@ Ship **v2.0.0** only when **all** are true:
 
 1. **v1.8.x** batch + Lane C/T/X rows in this doc are **I** and **V** or **A** in register.
 2. **v1.9.x** Lane K K1–K6 **V** (or **A** with copy) on desktop A/B for applicable demo rows.
-3. **v1.9.5** Lane SEC **V** (or **A** with copy) — trust/abuse/security validation complete per [v1.9.5-scope.md](./v1.9.5-scope.md).
+3. **v1.9.5** Lane SEC **V** (or **A** with copy) — trust/abuse/security validation complete per [v1.9.5-scope.md](./v1.9.10-scope.md).
 4. **Phase 4.3** recorded (accept or implement).
 
 ### B — Platform + distribution
@@ -225,16 +228,16 @@ Ship **v2.0.0** only when **all** are true:
 
 | Topic | Doc |
 |-------|-----|
-| 2.0 north star | [obscur-2.0-milestone-roadmap.md](./obscur-2.0-milestone-roadmap.md) |
-| Demo stages | [v2.0-production-demo-path.md](./v2.0-production-demo-path.md) |
-| **Release pipeline (order)** | [v2.0-release-pipeline.md](./v2.0-release-pipeline.md) |
+| 2.0 north star | [obscur-2.0-milestone-roadmap.md](../archive/program/inactive-2026-06/obscur-2.0-milestone-roadmap.md) |
+| Demo stages | [v2.0-production-demo-path.md](../archive/program/inactive-2026-06/v2.0-production-demo-path.md) |
+| **Release pipeline (order)** | [v2.0-release-pipeline.md](../archive/program/inactive-2026-06/v2.0-release-pipeline.md) |
 | Verify pass | [unified-verification-matrix.md](./unified-verification-matrix.md) |
 | Honest failures | [unified-verification-issues-register.md](./unified-verification-issues-register.md) |
-| Community phases | [community-system-overhaul-phased-roadmap.md](./community-system-overhaul-phased-roadmap.md) |
-| Kernel band | [v1.9.0-kernel-backend-roadmap.md](./v1.9.0-kernel-backend-roadmap.md) |
-| Android | [android-p1-smoke-checklist.md](./android-p1-smoke-checklist.md) |
-| Desktop package | [local-desktop-packaging.md](./local-desktop-packaging.md) |
-| Signing | [local-signing-strategy.md](./local-signing-strategy.md) |
+| Community phases | [community-system-overhaul-phased-roadmap.md](../archive/program/inactive-2026-06/community-system-overhaul-phased-roadmap.md) |
+| Kernel band | [v1.9.0-kernel-backend-roadmap.md](../archive/program/inactive-2026-06/v1.9.0-kernel-backend-roadmap.md) |
+| Android | [android-p1-smoke-checklist.md](../archive/program/inactive-2026-06/android-p1-smoke-checklist.md) |
+| Desktop package | [local-desktop-packaging.md](../archive/program/inactive-2026-06/local-desktop-packaging.md) |
+| Signing | [local-signing-strategy.md](../archive/program/inactive-2026-06/local-signing-strategy.md) |
 
 ---
 
@@ -242,5 +245,6 @@ Ship **v2.0.0** only when **all** are true:
 
 | Date | Change |
 |------|--------|
+| 2026-07-04 | Phase 1D row 1 — Lane K/C/T closure; K3/MEM-002/MEM-005 **A** @ COM-RUN-01; C-4.1/4.2 + invite path **V** |
 | 2026-06-04 | Execution via v1.9.x contract; v2.0 delayed; full scope checklist restored |
 | 2026-06-01 | Initial scope — I/V/A model; master checklist; v1.9.4→v2.0 plan; stale-queue warning |

@@ -2,7 +2,7 @@
 
 > **Active (2026-05).** Obscur development has resumed in this repository. Greenfield has been discontinued as a separate execution track; its archived design goals remain available for reference in [docs/archive/greenfield/README.md](docs/archive/greenfield/README.md).
 
-[![Version](https://img.shields.io/badge/version-1.9.3-blue)](https://github.com/Dendro-X0/Obscur/blob/main/version.json)
+[![Version](https://img.shields.io/badge/version-1.9.10-blue)](https://github.com/Dendro-X0/Obscur/blob/main/version.json)
 [![Platform](https://img.shields.io/badge/platform-PWA%20%7C%20Desktop%20%7C%20Mobile-0ea5e9)](#platform-coverage)
 [![Architecture](https://img.shields.io/badge/architecture-decentralized-22c55e)](#core-positioning)
 [![Security](https://img.shields.io/badge/security-E2EE-ef4444)](#core-positioning)
@@ -10,7 +10,9 @@
 
 Obscur is a cross-platform, decentralized, end-to-end encrypted (E2EE) communication app focused on user privacy, ownership, and self-custody identity.
 
-Project phase: **v1.9.x** — restore features on `main`; **v2.0.0 delayed** ([execution contract](docs/program/v1.9.x-execution-contract.md))
+Project phase: **v1.9.x** on `main`; **v2.0.0 delayed** until runtime repair band exits ([execution contract](docs/program/v1.9.x-execution-contract.md))
+
+**Current status (2026-07-04):** Phases 1–3 **EXIT** (verification + installers). **Runtime repair band ACTIVE** — R1 group room-key health **VERIFIED t4**; **R2** cold auth/unlock is next. Website (`apps/website`) built but **not deployed**. See [docs/CURRENT.md](docs/CURRENT.md) and [handoff](docs/handoffs/current-session.md).
 
 **Current version:** [`version.json`](version.json) on **`main`**. GitHub **Releases is disabled** for this repo (Settings → Features) — do not use `/releases` or **Latest**.
 
@@ -146,10 +148,10 @@ The `/docs` tree is the project encyclopedia. **Only** [docs/README.md](docs/REA
 | Shelf | Entry |
 |-------|--------|
 | Navigation | [docs/README.md](docs/README.md) |
-| **Current release train** | [docs/program/v1.9.x-release-train.md](docs/program/v1.9.x-release-train.md) · **v1.9.4+** active |
+| **Current release train** | [docs/program/v1.9.x-release-train.md](docs/program/v1.9.x-release-train.md) · **1.9.10** on `main` |
 | **Execution contract** | [docs/program/v1.9.x-execution-contract.md](docs/program/v1.9.x-execution-contract.md) |
 | **Design goals** | [docs/program/design-goals-and-constraints.md](docs/program/design-goals-and-constraints.md) |
-| **Latest tags** | v1.9.0–v1.9.3 · [v1.9.3 release](docs/releases/v1.9.3-release.md) |
+| **Latest release notes** | [v1.9.10 recovery](docs/releases/v1.9.10-release.md) · Git tags v1.9.0–v1.9.3 |
 | Program | [docs/program/PROGRAM.md](docs/program/PROGRAM.md) |
 | Changelog | [CHANGELOG.md](CHANGELOG.md) |
 | Maintainer | [docs/encyclopedia/08-maintainer-playbook.md](docs/encyclopedia/08-maintainer-playbook.md) |

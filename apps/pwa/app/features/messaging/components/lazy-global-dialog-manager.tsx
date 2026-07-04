@@ -3,7 +3,7 @@
 import type React from "react";
 import dynamic from "next/dynamic";
 import { useMessaging } from "@/app/features/messaging/providers/messaging-provider";
-import { useGroups } from "@/app/features/groups/providers/group-provider";
+import { useGroups } from "@/app/features/groups/providers/group-provider-port";
 
 const GlobalDialogManager = dynamic(
   () =>

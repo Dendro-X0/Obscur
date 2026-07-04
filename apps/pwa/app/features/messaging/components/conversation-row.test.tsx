@@ -3,15 +3,28 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { ConversationRow } from "./conversation-row";
 import type { Conversation } from "../types";
+import en from "@/app/lib/i18n/locales/en.json";
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
-    t: (key: string, fallback?: string) => fallback ?? key,
+    t: (key: string, options?: Record<string, unknown>) => {
+      const template = (en.translation as Record<string, string | undefined>)[key] ?? key;
+      return template.replace(/\{\{\s*([^\s}]+)\s*\}\}/g, (_match, token: string) => String(options?.[token] ?? ""));
+    },
   }),
 }));
 
 vi.mock("../../profile/hooks/use-resolved-profile-metadata", () => ({
   useResolvedProfileMetadata: () => null,
+}));
+
+vi.mock("@/app/features/auth/hooks/use-identity", () => ({
+  useIdentity: () => ({
+    state: {
+      publicKeyHex: "b".repeat(64),
+      stored: null,
+    },
+  }),
 }));
 
 let mockMobileCompactLayout = false;
@@ -70,7 +83,7 @@ describe("ConversationRow", () => {
         lastViewedLabel=""
       />,
     );
-    expect(screen.getByText("messaging.noMessagesYet")).toBeInTheDocument();
+    expect(screen.getByText("No messages yet")).toBeInTheDocument();
     expect(screen.queryByText(/voice-call-signal/i)).not.toBeInTheDocument();
   });
 
@@ -95,7 +108,7 @@ describe("ConversationRow", () => {
         lastViewedLabel=""
       />,
     );
-    expect(screen.getByText("messaging.noMessagesYet")).toBeInTheDocument();
+    expect(screen.getByText("No messages yet")).toBeInTheDocument();
     expect(screen.queryByText(/voice-call-signal/i)).not.toBeInTheDocument();
   });
 
@@ -119,7 +132,7 @@ describe("ConversationRow", () => {
         lastViewedLabel=""
       />,
     );
-    expect(screen.getByText("messaging.noMessagesYet")).toBeInTheDocument();
+    expect(screen.getByText("No messages yet")).toBeInTheDocument();
     expect(screen.queryByText(/voice-call-signal/i)).not.toBeInTheDocument();
   });
 

@@ -8,22 +8,24 @@ import {
   sealedGroupMessagePersistenceInternals,
 } from "./sealed-group-message-persistence";
 
-const appendMock = vi.fn(async () => ({ status: "persisted" as const, eventId: "evt-1" }));
-const loadPageMock = vi.fn(async () => ({
-  messages: [{
-    id: "evt-1",
-    eventId: "evt-1",
-    kind: "user" as const,
-    content: "hello",
-    timestamp: new Date(1_000),
-    isOutgoing: true,
-    status: "delivered" as const,
-    senderPubkey: "a".repeat(64),
-    conversationId: "community:test",
-  }],
-  hasEarlier: false,
-  didExpandHistory: false,
-  nextCursor: null,
+const { appendMock, loadPageMock } = vi.hoisted(() => ({
+  appendMock: vi.fn(async () => ({ status: "persisted" as const, eventId: "evt-1" })),
+  loadPageMock: vi.fn(async () => ({
+    messages: [{
+      id: "evt-1",
+      eventId: "evt-1",
+      kind: "user" as const,
+      content: "hello",
+      timestamp: new Date(1_000),
+      isOutgoing: true,
+      status: "delivered" as const,
+      senderPubkey: "a".repeat(64),
+      conversationId: "community:test",
+    }],
+    hasEarlier: false,
+    didExpandHistory: false,
+    nextCursor: null,
+  })),
 }));
 
 vi.mock("@/app/features/messaging/services/thread-history/group-thread-append", () => ({

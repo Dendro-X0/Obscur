@@ -34,7 +34,7 @@ vi.mock("@/app/features/network/hooks/use-peer-trust", () => ({
   },
 }));
 
-vi.mock("@/app/features/messaging/services/chat-state-store", () => ({
+vi.mock("@/app/features/messaging/services/chat-state-store-legacy", () => ({
   chatStateStoreService: {
     load: driftMocks.chatStateLoad,
   },

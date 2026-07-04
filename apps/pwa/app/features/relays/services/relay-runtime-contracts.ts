@@ -1,7 +1,7 @@
 import type {
   RelayRecoveryReasonCode,
   RelayRecoverySnapshot,
-} from "./relay-recovery-policy";
+} from "./relay-recovery-types";
 
 export type RelayRuntimePhase =
   | "booting"
@@ -44,6 +44,15 @@ export type RelayRuntimeSnapshot = Readonly<{
   phase: RelayRuntimePhase;
   recoveryStage?: RelayRecoveryStage;
   enabledRelayUrls: ReadonlyArray<string>;
+  /** Relay URLs from transport-engine persistence (groups + checkpoints). */
+  engineConfiguredRelayUrls: ReadonlyArray<string>;
+  /** User settings + engine URLs merged for supervisor failover. */
+  supervisorRelayUrlCandidates: ReadonlyArray<string>;
+  /** Engine-persisted relays not present in user relay settings. */
+  engineOnlyRelayUrls: ReadonlyArray<string>;
+  /** Relay URLs with persisted sync checkpoint evidence. */
+  engineCheckpointRelayUrls: ReadonlyArray<string>;
+  engineRelayCheckpointCount: number;
   writableRelayCount: number;
   subscribableRelayCount: number;
   activeSubscriptionCount: number;
@@ -98,6 +107,11 @@ export const createDefaultRelayRuntimeSnapshot = (params?: Readonly<{
     transportRoutingMode: "direct",
     phase: "booting",
     enabledRelayUrls: [],
+    engineConfiguredRelayUrls: [],
+    supervisorRelayUrlCandidates: [],
+    engineOnlyRelayUrls: [],
+    engineCheckpointRelayUrls: [],
+    engineRelayCheckpointCount: 0,
     writableRelayCount: 0,
     subscribableRelayCount: 0,
     activeSubscriptionCount: 0,

@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { GroupDiscovery } from "./group-discovery";
 import { getPublicGroupHref } from "@/app/features/navigation/public-routes";
 import { toGroupConversationId } from "../utils/group-conversation-id";
+import en from "@/app/lib/i18n/locales/en.json";
 
 const DEFAULT_DISCOVERY_RELAY = "wss://relay.nostr.band";
 
@@ -38,7 +39,10 @@ const stableRelayPool = {
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
-    t: (_key: string, fallback?: string) => fallback ?? _key,
+    t: (key: string, options?: Record<string, unknown>) => {
+      const template = (en.translation as Record<string, string | undefined>)[key] ?? key;
+      return template.replace(/\{\{(\w+)\}\}/g, (_, token: string) => String(options?.[token] ?? ""));
+    },
   }),
 }));
 
@@ -84,7 +88,7 @@ vi.mock("@/app/features/relays/providers/relay-provider", () => ({
   }),
 }));
 
-vi.mock("../providers/group-provider", () => ({
+vi.mock("@/app/features/groups/providers/group-provider-port", () => ({
   useGroups: () => ({
     createdGroups: groupDiscoveryMocks.createdGroups,
   }),

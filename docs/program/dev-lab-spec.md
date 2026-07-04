@@ -1,7 +1,7 @@
 # Dev Lab — in-app testing module
 
 **Status:** Phase 1 — scenario catalog + benchmark runner  
-**Parent:** [testing-and-issue-tracking-spec.md](./testing-and-issue-tracking-spec.md)  
+**Parent:** [testing-and-issue-tracking-spec.md](../archive/program/inactive-2026-06/testing-and-issue-tracking-spec.md)  
 **API surface:** `window.obscurDevLab` (dev / `NEXT_PUBLIC_OBSCUR_DEV_LAB=1` only)
 
 ---
@@ -25,7 +25,7 @@ Dev Lab is Obscur's **continuous benchmark module** — an integrated dev-only l
 
 **Do not** run the full manual matrix during iteration — L4 matrix is milestone truth only.
 
-Issue promotion map: [dev-lab-issue-backlog.md](./dev-lab-issue-backlog.md)
+Issue promotion map: [dev-lab-issue-backlog.md](../archive/program/inactive-2026-06/dev-lab-issue-backlog.md)
 
 ```bash
 # Terminal A
@@ -175,7 +175,7 @@ Dev Lab is **disabled in production** unless `NEXT_PUBLIC_OBSCUR_DEV_LAB=1`. Dis
 
 ## Related
 
-- [runtime-capture-e2e.md](./runtime-capture-e2e.md)  
-- [dev-lab-phase-2-charter.md](./dev-lab-phase-2-charter.md)  
-- [ui-render-loop-systemic-program.md](./ui-render-loop-systemic-program.md)  
+- [runtime-capture-e2e.md](../archive/program/inactive-2026-06/runtime-capture-e2e.md)  
+- [dev-lab-phase-2-charter.md](../archive/program/inactive-2026-06/dev-lab-phase-2-charter.md)  
+- [ui-render-loop-systemic-program.md](../archive/program/inactive-2026-06/ui-render-loop-systemic-program.md)  
 - Implementation: `apps/pwa/app/features/dev-lab/`

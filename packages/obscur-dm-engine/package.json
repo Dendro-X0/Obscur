@@ -1,0 +1,14 @@
+{
+  "name": "@obscur/dm-engine",
+  "version": "1.9.10",
+  "private": true,
+  "type": "module",
+  "description": "DM engine — thread and conversation reads via HostEnginePort only.",
+  "dependencies": {
+    "@dweb/db": "workspace:*",
+    "@obscur/engine-contracts": "workspace:*"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

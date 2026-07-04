@@ -7,6 +7,7 @@ import {
   buildEncryptedWorkspaceBundlePayload,
 } from "./encrypted-workspace-bundle-service";
 import type { EncryptedWorkspaceBundleExportOptions } from "./encrypted-workspace-bundle-contracts";
+import { summarizeCommunityMembershipLedger } from "@/app/features/groups/services/community-membership-ledger";
 
 export type PortabilityExportManifestItem = Readonly<{
   label: string;
@@ -62,6 +63,13 @@ export const buildPortableAccountExportManifest = async (
   const chatDiagnostics = summarizePersistedChatStateMessages(payload.chatState, publicKeyHex);
   const enabledRelays = payload.relayList.filter((relay: { enabled: boolean }) => relay.enabled).length;
   const serialized = JSON.stringify(payload);
+  const membershipSummary = summarizeCommunityMembershipLedger(payload.communityMembershipLedger ?? []);
+  const communitiesValue = membershipSummary.archivedCount > 0
+    ? `${membershipSummary.joinedCount} active`
+    : `${membershipSummary.joinedCount} memberships`;
+  const communitiesDetail = membershipSummary.archivedCount > 0
+    ? `${membershipSummary.archivedCount} archived (${membershipSummary.totalCount} stored)`
+    : undefined;
   return {
     kind: "portable_account",
     generatedAtUnixMs: Date.now(),
@@ -81,7 +89,8 @@ export const buildPortableAccountExportManifest = async (
       },
       {
         label: "Communities",
-        value: `${payload.communityMembershipLedger?.length ?? 0} memberships`,
+        value: communitiesValue,
+        detail: communitiesDetail,
       },
       {
         label: "Contacts & trust",
@@ -119,9 +128,17 @@ export const buildWorkspaceBundleExportManifest = async (
     ? (payload.workspaceArchive as { localStorageEntries: unknown[] }).localStorageEntries.length
     : 0;
   const serializedEstimate = JSON.stringify(payload).length + vaultEstimate.totalBytes;
-  const membershipCount = payload.networkSnapshot.membershipLedgerJson
-    ? (JSON.parse(payload.networkSnapshot.membershipLedgerJson) as unknown[]).length
-    : 0;
+  const membershipSummary = summarizeCommunityMembershipLedger(
+    payload.networkSnapshot.membershipLedgerJson
+      ? JSON.parse(payload.networkSnapshot.membershipLedgerJson) as Parameters<typeof summarizeCommunityMembershipLedger>[0]
+      : [],
+  );
+  const communitiesValue = membershipSummary.archivedCount > 0
+    ? `${membershipSummary.joinedCount} active`
+    : `${membershipSummary.joinedCount} memberships`;
+  const communitiesDetail = membershipSummary.archivedCount > 0
+    ? `${membershipSummary.archivedCount} archived (${membershipSummary.totalCount} stored)`
+    : undefined;
 
   return {
     kind: "workspace_bundle",
@@ -140,7 +157,7 @@ export const buildWorkspaceBundleExportManifest = async (
         value: `${chatDiagnostics.groupMessageCount} messages`,
         detail: `${chatDiagnostics.groupConversationCount} conversations`,
       },
-      { label: "Communities", value: `${membershipCount} memberships` },
+      { label: "Communities", value: communitiesValue, detail: communitiesDetail },
       {
         label: "Settings",
         value: "Theme, privacy, UI, vault config",

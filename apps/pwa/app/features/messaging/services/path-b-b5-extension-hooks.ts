@@ -3,6 +3,8 @@
  * Safety, M10 shared intel, and invite economics delegate here; no new chat-state paths.
  */
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
+import { recordPeerConnectionRequest } from "@/app/features/dm-kernel/dm-kernel-trust-peer-state";
 import { canSendConnectionRequest } from "@/app/features/invites/utils/security-enhancements";
 import {
   evaluateIncomingRequestAntiAbuse,
@@ -40,6 +42,18 @@ export const evaluatePathBIncomingDmSafetyGate = (
 export const evaluatePathBConnectionRequestEconomicsGate = (
   accountPublicKeyHex: PublicKeyHex | string,
 ): boolean => canSendConnectionRequest(accountPublicKeyHex);
+
+/** Canonical fanout counter — call when a connection request is allowed through anti-abuse. */
+export const observePathBIncomingConnectionRequest = (params: Readonly<{
+  peerPublicKeyHex: PublicKeyHex;
+  observedAtUnixMs?: number;
+}>): void => {
+  recordPeerConnectionRequest(
+    getResolvedProfileId(),
+    params.peerPublicKeyHex,
+    params.observedAtUnixMs ?? Date.now(),
+  );
+};
 
 export type PathBM10StrictGateInput = Readonly<{
   safetyProfile?: AttackModeSafetyProfile;

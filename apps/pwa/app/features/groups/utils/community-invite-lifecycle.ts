@@ -1,6 +1,7 @@
 import type { Message } from "@/app/features/messaging/types";
 import type { InviteResponseStatus } from "@/app/features/messaging/components/message-list-render-meta";
 import { parseInvitePayloadFromMessageContent } from "../services/community-dm-invite-pipeline";
+import { buildCommunityInviteResponseStatusByMessageId } from "./community-invite-resolution";
 
 /** Unanswered community DM invites stop being actionable after this window. */
 export const COMMUNITY_INVITE_PENDING_TTL_MS = 72 * 60 * 60 * 1000;
@@ -110,7 +111,11 @@ export const resolveCommunityInviteCardStatus = (
         return params.responseStatus ?? "pending";
     }
 
-    const linkedStatus = params.responseStatus;
+    const linkedStatus = params.responseStatus
+        ?? buildCommunityInviteResponseStatusByMessageId(
+            messages,
+            message.conversationId?.trim() || undefined,
+        ).get(message.id);
     if (linkedStatus && linkedStatus !== "pending") {
         return linkedStatus;
     }

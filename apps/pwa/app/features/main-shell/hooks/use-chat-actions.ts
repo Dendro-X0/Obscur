@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { toast } from "@dweb/ui-kit";
 import { useMessaging } from "@/app/features/messaging/providers/messaging-provider";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
@@ -24,8 +24,13 @@ import { shouldCacheAttachmentInVault } from "../../messaging/utils/attachment-s
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
 import { useRelayPoolRef } from "@/app/features/relays/hooks/use-relay-pool-ref";
 import { logAppEvent } from "@/app/shared/log-app-event";
+import { normalizeAttachmentUrl } from "@/app/shared/public-url";
+import { useRelayList } from "@/app/features/relays/hooks/use-relay-list";
+import { bootstrapCommunityRelayForChat } from "@/app/features/groups/services/community-relay-chat-bootstrap";
+import { isLocalWorkspaceRelayHost } from "@/app/features/groups/services/workspace-relay-url";
 import {
     assertRelayPublishSuccess,
+    LOCAL_COMMUNITY_RELAY_UNREACHABLE_MESSAGE,
     resolveUserFacingErrorMessage,
 } from "@/app/features/relays/services/relay-publish-user-copy";
 import { getUploadFailureUserMessageFromUnknown } from "../../messaging/lib/upload-user-copy";
@@ -154,25 +159,39 @@ export function useChatActions(dmController: UseDmControllerResult | null) {
     const { peerTrust, requestsInbox } = useNetwork();
     const { relayPool } = useRelay();
     const relayPoolRef = useRelayPoolRef(relayPool);
+    const relayList = useRelayList({ publicKeyHex: identity.state.publicKeyHex || null });
+    const relayListAddRelayRef = useRef(relayList.addRelay);
+    relayListAddRelayRef.current = relayList.addRelay;
     const recipientMetadata = useResolvedProfileMetadata(
         selectedConversation?.kind === "dm" ? selectedConversation.pubkey : null,
         { live: false }
     );
     const isDeletedRecipient = selectedConversation?.kind === "dm" && recipientMetadata.isDeleted;
-
-    // Pre-connect community relay as transient when a group conversation is selected.
-    // This ensures the relay socket is established before the user attempts to send,
-    // avoiding the "no scoped relays connected" failure that occurs when the community
-    // relay is only added at publish time with a tight timeout.
     const groupRelayUrl = selectedConversation?.kind === "group" ? selectedConversation.relayUrl : null;
+
+    // Pre-connect community relay (persist + pool) when a group conversation is selected.
     useEffect(() => {
-        if (!groupRelayUrl) return;
-        const scopedUrl = toScopedRelayUrl(groupRelayUrl);
-        if (!scopedUrl) return;
-        const pool = relayPoolRef.current;
-        if (typeof pool.addTransientRelay === "function") {
-            pool.addTransientRelay(scopedUrl);
+        if (!groupRelayUrl) {
+            return;
         }
+        let cancelled = false;
+        void (async () => {
+            await bootstrapCommunityRelayForChat({
+                rawRelayUrl: groupRelayUrl,
+                pool: relayPoolRef.current,
+                addRelay: (relayParams) => relayListAddRelayRef.current(relayParams),
+            });
+            if (cancelled) {
+                return;
+            }
+            const scopedUrl = toScopedRelayUrl(groupRelayUrl);
+            if (scopedUrl && typeof relayPoolRef.current.addTransientRelay === "function") {
+                relayPoolRef.current.addTransientRelay(scopedUrl);
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
     }, [groupRelayUrl, relayPoolRef]);
 
     const publishGroupEvent = useCallback(async (params: Readonly<{ relayUrl: string; event: Readonly<{ id: string }> }>): Promise<void> => {
@@ -181,6 +200,19 @@ export function useChatActions(dmController: UseDmControllerResult | null) {
         let activeRelayUrl = params.relayUrl;
         let scopedRelayUrl = toScopedRelayUrl(activeRelayUrl);
         let result: MultiRelayPublishResult;
+
+        const bootstrapRelayUrl = await bootstrapCommunityRelayForChat({
+            rawRelayUrl: params.relayUrl,
+            pool,
+            addRelay: (relayParams) => relayListAddRelayRef.current(relayParams),
+        });
+        if (!bootstrapRelayUrl && isLocalWorkspaceRelayHost(params.relayUrl)) {
+            throw new Error(LOCAL_COMMUNITY_RELAY_UNREACHABLE_MESSAGE);
+        }
+        if (bootstrapRelayUrl) {
+            activeRelayUrl = bootstrapRelayUrl;
+            scopedRelayUrl = toScopedRelayUrl(activeRelayUrl);
+        }
 
         const resolveScopedRelay = async (forceCalibration: boolean): Promise<string | null> => {
             const snapshot = typeof pool.getWritableRelaySnapshot === "function"
@@ -275,6 +307,9 @@ export function useChatActions(dmController: UseDmControllerResult | null) {
         }
 
         if (!result.success && shouldRetryPublishAfterWorkspaceCalibration(result.overallError)) {
+            if (!bootstrapRelayUrl && isLocalWorkspaceRelayHost(params.relayUrl)) {
+                throw new Error(LOCAL_COMMUNITY_RELAY_UNREACHABLE_MESSAGE);
+            }
             scopedRelayUrl = await resolveScopedRelay(true);
             const retriedWritable = typeof pool.getWritableRelaySnapshot === "function"
                 ? pool.getWritableRelaySnapshot(scopedRelayUrl ? [scopedRelayUrl] : undefined)
@@ -300,6 +335,7 @@ export function useChatActions(dmController: UseDmControllerResult | null) {
         assertRelayPublishSuccess(result, {
             operation: "Could not publish to community relays",
             fallback: "Failed to publish group event to relay scope.",
+            communityRelayUrl: params.relayUrl,
         });
     }, [relayPoolRef]);
 
@@ -383,7 +419,9 @@ export function useChatActions(dmController: UseDmControllerResult | null) {
                 }
 
                 // Append URLs to content using markdown links to preserve the original filenames
-                const urls = attachments.map(a => `[${a.fileName}](${a.url})`).join(" ");
+                const urls = attachments
+                    .map((attachment) => `[${attachment.fileName}](${normalizeAttachmentUrl(attachment.url)})`)
+                    .join(" ");
                 if (finalContent.trim()) {
                     finalContent += "\n\n" + urls;
                 } else {

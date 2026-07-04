@@ -306,15 +306,17 @@ export const buildMessageRenderCaches = (params: Readonly<{
     expandedRelayUrlsByMessageId: ReadonlySet<string>;
     conversationId?: string;
     profileId?: string;
+    inviteResponseStatusByMessageId?: ReadonlyMap<string, InviteResponseStatus>;
 }>): MessageRenderCaches => {
     const parsedPayloadByMessageId = new Map<string, ParsedMessagePayload | null>();
-    const inviteResponseStatusByMessageId = new Map<string, InviteResponseStatus>(
-        buildCommunityInviteResponseStatusByMessageId(
-            params.messages,
-            params.conversationId,
-            params.profileId,
-        ),
-    );
+    const inviteResponseStatusByMessageId = params.inviteResponseStatusByMessageId
+        ?? new Map<string, InviteResponseStatus>(
+            buildCommunityInviteResponseStatusByMessageId(
+                params.messages,
+                params.conversationId,
+                params.profileId,
+            ),
+        );
     const renderMetaByMessageId = new Map<string, MessageRenderMeta>();
     const voiceCallRoomAccumulatorByRoomId = new Map<string, MutableVoiceCallRoomAccumulator>();
 

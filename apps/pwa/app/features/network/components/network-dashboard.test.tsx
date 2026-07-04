@@ -2,6 +2,7 @@ import React from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NetworkDashboard } from "./network-dashboard";
+import en from "@/app/lib/i18n/locales/en.json";
 
 const networkDashboardMocks = vi.hoisted(() => ({
   push: vi.fn(),
@@ -14,15 +15,10 @@ const networkDashboardMocks = vi.hoisted(() => ({
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
-    t: (key: string, fallback?: string) => fallback ?? ({
-      "network.tabs.groups": "Groups",
-      "network.tabs.all": "All",
-      "network.tabs.invitations": "Invitations",
-      "network.noGroupsFound": "No groups",
-      "network.noGroupsDesc": "No groups yet",
-      "network.noRequestsFound": "No requests",
-      "network.noRequestsDesc": "No requests yet",
-    }[key] ?? key),
+    t: (key: string, options?: Record<string, unknown>) => {
+      const template = (en.translation as Record<string, string | undefined>)[key] ?? key;
+      return template.replace(/\{\{\s*([^\s}]+)\s*\}\}/g, (_match, token: string) => String(options?.[token] ?? ""));
+    },
   }),
 }));
 
@@ -95,7 +91,7 @@ vi.mock("../providers/network-provider", () => ({
   }),
 }));
 
-vi.mock("@/app/features/groups/providers/group-provider", () => ({
+vi.mock("@/app/features/groups/providers/group-provider-port", () => ({
   useGroups: () => networkDashboardMocks.useGroups(),
 }));
 
@@ -236,7 +232,7 @@ describe("NetworkDashboard recovery navigation", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /^Invites$/i }));
     await waitFor(() => {
-      expect(screen.getByText("No requests")).toBeInTheDocument();
+      expect(screen.getByText("No pending invitations")).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByRole("button", { name: /^Discover$/i }));

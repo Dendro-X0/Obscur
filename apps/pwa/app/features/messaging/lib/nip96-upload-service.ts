@@ -16,7 +16,7 @@ import { invokeNativeCommand } from "@/app/features/runtime/native-adapters";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import type { DeliveryReasonCode } from "@dweb/core/security-foundation-contracts";
-import { normalizePublicUrl } from "@/app/shared/public-url";
+import { normalizeAttachmentUrl } from "@/app/shared/public-url";
 import { reportDevRuntimeIssue } from "@/app/shared/dev-runtime-issue-reporter";
 import { logAppEvent } from "@/app/shared/log-app-event";
 
@@ -976,7 +976,7 @@ export class Nip96UploadService implements UploadService {
 
             return {
                 kind: getAttachmentKind(file),
-                url: normalizePublicUrl(result.url),
+                url: normalizeAttachmentUrl(result.url),
                 contentType: file.type,
                 fileName: file.name,
             };
@@ -1080,7 +1080,7 @@ export class Nip96UploadService implements UploadService {
 
             return {
                 kind: getAttachmentKind(file),
-                url: normalizePublicUrl(url),
+                url: normalizeAttachmentUrl(url),
                 contentType: file.type,
                 fileName: file.name,
             };
@@ -1125,7 +1125,7 @@ export class Nip96UploadService implements UploadService {
 
         return {
             kind: getAttachmentKind(file),
-            url: normalizePublicUrl(rawUrl),
+            url: normalizeAttachmentUrl(rawUrl),
             contentType,
             fileName: file.name,
         };

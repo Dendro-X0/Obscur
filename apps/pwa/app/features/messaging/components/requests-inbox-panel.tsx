@@ -30,6 +30,7 @@ type RequestItem = Readonly<{
 }>;
 
 interface RequestsInboxPanelProps {
+    variant?: "inbox" | "junk";
     requests: ReadonlyArray<RequestItem>;
     nowMs: number | null;
     onAccept: (pubkey: PublicKeyHex) => void;
@@ -40,8 +41,9 @@ interface RequestsInboxPanelProps {
     onClearHistory?: () => void;
 }
 
-export function RequestsInboxPanel({ requests, nowMs, onAccept, onIgnore, onBlock, onSelect, onFindSomeone, onClearHistory }: RequestsInboxPanelProps) {
+export function RequestsInboxPanel({ variant = "inbox", requests, nowMs, onAccept, onIgnore, onBlock, onSelect, onFindSomeone, onClearHistory }: RequestsInboxPanelProps) {
     const { t } = useTranslation();
+    const isJunk = variant === "junk";
     const [quarantineSummary, setQuarantineSummary] = React.useState<IncomingRequestQuarantineSummary>(() => (
         getIncomingRequestQuarantineSummary()
     ));
@@ -59,9 +61,13 @@ export function RequestsInboxPanel({ requests, nowMs, onAccept, onIgnore, onBloc
                 <div className="mb-4 rounded-full bg-zinc-100 p-4 ring-1 ring-black/5 dark:bg-zinc-800 dark:ring-white/5">
                     <MessageSquare className="h-8 w-8 text-zinc-400" />
                 </div>
-                <h3 className="text-sm font-black uppercase tracking-[0.18em] text-zinc-500 dark:text-zinc-300">No open invitations</h3>
+                <h3 className="text-sm font-black uppercase tracking-[0.18em] text-zinc-500 dark:text-zinc-300">
+                    {isJunk ? t("messaging.junkInboxEmptyTitle") : "No open invitations"}
+                </h3>
                 <p className="mt-3 max-w-[240px] text-sm leading-relaxed text-zinc-500 dark:text-zinc-400">
-                    When someone reaches out, their invitation will show up here with their note and clear actions.
+                    {isJunk
+                        ? t("messaging.junkInboxEmptyDesc")
+                        : "When someone reaches out, their invitation will show up here with their note and clear actions."}
                 </p>
                 {onFindSomeone && (
                     <Button
@@ -82,10 +88,14 @@ export function RequestsInboxPanel({ requests, nowMs, onAccept, onIgnore, onBloc
             <div className="p-4 border-b border-black/5 dark:border-white/5 bg-zinc-50/50 dark:bg-zinc-900/50 flex items-center justify-between">
                 <div>
                     <h2 className="text-xs font-black uppercase tracking-widest text-zinc-400">
-                        Invitations ({requests.length})
+                        {isJunk
+                            ? t("messaging.junkInboxTitle", { count: requests.length })
+                            : `Invitations (${requests.length})`}
                     </h2>
                     <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                        Obscur only lists invitations here after incoming relay evidence is received.
+                        {isJunk
+                            ? t("messaging.junkInboxDesc")
+                            : "Obscur only lists invitations here after incoming relay evidence is received."}
                     </p>
                     {quarantineSummary.totalSuppressed > 0 && (
                         <div className="mt-2 rounded-xl border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-700 dark:text-amber-300">
@@ -154,7 +164,9 @@ export function RequestsInboxPanel({ requests, nowMs, onAccept, onIgnore, onBloc
                     <div className="group relative">
                         <BadgeInfo className="h-4 w-4 text-zinc-400 cursor-help" />
                         <div className="absolute top-6 right-0 w-48 p-2 rounded-lg bg-white dark:bg-zinc-800 shadow-xl border border-black/5 dark:border-white/5 text-[10px] text-zinc-500 dark:text-zinc-400 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-10">
-                            Invitations appear here after the app has real incoming evidence, not just a sender-side claim.
+                            {isJunk
+                                ? t("messaging.junkInboxHelp")
+                                : "Invitations appear here after the app has real incoming evidence, not just a sender-side claim."}
                         </div>
                     </div>
                 </div>

@@ -1,6 +1,7 @@
 import { logAppEvent } from "@/app/shared/log-app-event";
 import { normalizePublicKeyHex } from "@/app/features/profile/utils/normalize-public-key-hex";
 import type { Message } from "@/app/features/messaging/types";
+import { isDmMessageThreadOneSided, countDmMessageDirections } from "@obscur/dm-engine";
 import { requestDmKernelRelayBackfill } from "./dm-kernel-repair";
 
 export type DmKernelDirectionCounts = Readonly<{
@@ -9,32 +10,29 @@ export type DmKernelDirectionCounts = Readonly<{
   total: number;
 }>;
 
+const toDirectionRows = (
+  messages: ReadonlyArray<Message>,
+): ReadonlyArray<Readonly<{ senderPubkey: string }>> => (
+  messages.flatMap((message) => {
+    const senderPubkey = normalizePublicKeyHex(message.senderPubkey) ?? message.senderPubkey;
+    return senderPubkey ? [{ senderPubkey }] : [];
+  })
+);
+
 export const countDmKernelDirections = (
   messages: ReadonlyArray<Message>,
   myPublicKeyHex: string,
 ): DmKernelDirectionCounts => {
-  const self = normalizePublicKeyHex(myPublicKeyHex);
-  let outgoing = 0;
-  let incoming = 0;
-
-  for (const message of messages) {
-    const sender = normalizePublicKeyHex(message.senderPubkey);
-    if (self && sender === self) {
-      outgoing += 1;
-    } else {
-      incoming += 1;
-    }
-  }
-
-  return { outgoing, incoming, total: messages.length };
+  const selfHex = normalizePublicKeyHex(myPublicKeyHex) ?? myPublicKeyHex;
+  return countDmMessageDirections(toDirectionRows(messages), selfHex);
 };
 
 export const isDmKernelOneSided = (
   messages: ReadonlyArray<Message>,
   myPublicKeyHex: string,
 ): boolean => {
-  const counts = countDmKernelDirections(messages, myPublicKeyHex);
-  return counts.total > 0 && (counts.outgoing === 0 || counts.incoming === 0);
+  const selfHex = normalizePublicKeyHex(myPublicKeyHex) ?? myPublicKeyHex;
+  return isDmMessageThreadOneSided(toDirectionRows(messages), selfHex);
 };
 
 export const logDmKernelOneSidedIfNeeded = (params: Readonly<{

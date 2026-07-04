@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { PersistedChatState } from "../types";
-import { chatStateStoreService } from "./chat-state-store";
+import { messagingChatStateReadPort } from "./messaging-chat-state-read-port";
 import { loadDmThreadSyncSeedCache } from "./dm-thread-sync-seed-loader";
 
 vi.mock("@/app/features/runtime/native-persistence-policy", () => ({
@@ -30,7 +30,7 @@ describe("dm-thread-sync-seed-loader", () => {
         }],
       },
     };
-    vi.spyOn(chatStateStoreService, "load").mockReturnValue(persistedState);
+    vi.spyOn(messagingChatStateReadPort, "load").mockReturnValue(persistedState);
   });
 
   it("loads profile-scoped chat-state seed on web builds", () => {
@@ -41,7 +41,7 @@ describe("dm-thread-sync-seed-loader", () => {
       persistentSuppressedMessageIds: new Set(),
       localMessageRetentionDays: undefined,
     });
-    expect(chatStateStoreService.load).toHaveBeenCalledWith(publicKeyHex, { profileId: "profile-a" });
+    expect(messagingChatStateReadPort.load).toHaveBeenCalledWith(publicKeyHex, { profileId: "profile-a" });
     expect(seed.map((row) => row.id)).toEqual(["seed-1"]);
   });
 
@@ -54,6 +54,6 @@ describe("dm-thread-sync-seed-loader", () => {
       localMessageRetentionDays: undefined,
     });
     expect(seed).toEqual([]);
-    expect(chatStateStoreService.load).not.toHaveBeenCalled();
+    expect(messagingChatStateReadPort.load).not.toHaveBeenCalled();
   });
 });

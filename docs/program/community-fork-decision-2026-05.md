@@ -1,7 +1,7 @@
 # Community fork decision (2026-05)
 
 **Status:** **Signed — Path B** (2026-06-02) · Platform pivot: [platform-pivot-private-trust-2026-05.md](./platform-pivot-private-trust-2026-05.md)  
-**Execution roadmap:** [back-online-modular-roadmap-2026-06.md](./back-online-modular-roadmap-2026-06.md)  
+**Execution roadmap:** [back-online-modular-roadmap-2026-06.md](../archive/program/inactive-2026-06/back-online-modular-roadmap-2026-06.md)  
 **Context:** Public-relay community membership is **infeasible**. **Path B** is the chosen product fork; Path A remains documented as the interim alternative if ops cannot be sustained.
 
 ---
@@ -23,7 +23,7 @@ This matches your stated goal: encrypted private messaging **plus** a secure int
 
 Important nuance: Path B does **not** require deleting all Nostr code tomorrow. It requires **re-owning truth**:
 
-1. **DM** — Keep current transport (NIP-17 / gift-wrap, profile-scoped gateway). “Decent Nostr client” remains valid ([strategic-direction.md](./strategic-direction.md)).
+1. **DM** — Keep current transport (NIP-17 / gift-wrap, profile-scoped gateway). “Decent Nostr client” remains valid ([strategic-direction.md](../archive/program/inactive-2026-06/strategic-direction.md)).
 2. **Community membership** — **Coordination directory is mandatory** when creating or joining a workspace community. Poll/apply deltas are the owner; relay lines are optional hints for chat delivery only.
 3. **Community relay** — **Trusted or private** relay URL only (`trusted_private` / `managed_intranet` tier in `community-mode-contract`). Refuse create/join when the only enabled relays are `public_default` hosts.
 4. **UI** — Remove or demote **Sovereign Room on public relays** from the default create flow; show Path A honesty only for legacy threads, not new workspaces.
@@ -97,7 +97,7 @@ Production Path B eventually needs: deployed coordination Worker (you already ha
 | **Chosen path** | ☑ **B — Internal network** · ☐ A — DM-only |
 | **Signed by** | Maintainer (product decision via session 2026-06-02) |
 | **Date (UTC)** | 2026-06-02 |
-| **Immediate next step** | **Band B0:** confirm coordination + relay-tier gates on create; then **Band B1** membership truth subtraction ([back-online-modular-roadmap-2026-06.md](./back-online-modular-roadmap-2026-06.md)) |
+| **Immediate next step** | **Band B0:** confirm coordination + relay-tier gates on create; then **Band B1** membership truth subtraction ([back-online-modular-roadmap-2026-06.md](../archive/program/inactive-2026-06/back-online-modular-roadmap-2026-06.md)) |
 | **Evidence base** | [exploration synthesis](../exploration/synthesis/as-built-architecture-and-fork-options.md) — modules 1–8 complete |
 
 ---
@@ -105,6 +105,6 @@ Production Path B eventually needs: deployed coordination Worker (you already ha
 ## References
 
 - [v1.9.0-kernel-backend-spec.md](./v1.9.0-kernel-backend-spec.md) §4.7 coordination API
-- [v1.9.2-scope.md](./v1.9.2-scope.md) — B2 exit criteria
+- [v1.9.2-scope.md](../archive/program/inactive-2026-06/v1.9.2-scope.md) — B2 exit criteria
 - [apps/coordination/README.md](../../apps/coordination/README.md) — local dev
 - [v1.9.0 demo matrix](../assets/demo/v1.9.0/README.md) — K-M1–K-M6

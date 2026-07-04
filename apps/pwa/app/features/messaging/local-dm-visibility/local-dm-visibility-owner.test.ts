@@ -43,7 +43,7 @@ vi.mock("@/app/features/profiles/services/profile-runtime-scope", () => ({
   getResolvedProfileId: () => "profile-1",
 }));
 
-vi.mock("../services/chat-state-store", () => ({
+vi.mock("@/app/features/messaging/services/chat-state-store-legacy", () => ({
   chatStateStoreService: {
     removeMessageIdentitiesFromAllActiveScopes: vi.fn(),
   },

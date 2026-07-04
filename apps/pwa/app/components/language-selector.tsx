@@ -15,6 +15,8 @@ const LANGUAGES = [
     { code: "en", label: "English" },
     { code: "zh", label: "中文 (Chinese)" },
     { code: "es", label: "Español (Spanish)" },
+    { code: "fr", label: "Français (French)" },
+    { code: "de", label: "Deutsch (German)" },
 ];
 
 export function LanguageSelector({ variant = "default" }: { variant?: "default" | "minimal" }) {
@@ -26,7 +28,7 @@ export function LanguageSelector({ variant = "default" }: { variant?: "default" 
         // but the detector usually handles 'localStorage' caching if configured. I configured it to cache in localStorage.
     };
 
-    const currentLang = LANGUAGES.find((l) => l.code === i18n.language) || LANGUAGES[0];
+    const currentLang = LANGUAGES.find((l) => i18n.language === l.code || i18n.language?.startsWith(`${l.code}-`)) || LANGUAGES[0];
 
     if (variant === "minimal") {
         return (
@@ -44,7 +46,7 @@ export function LanguageSelector({ variant = "default" }: { variant?: "default" 
                             onClick={() => handleLanguageChange(lang.code)}
                             className={cn(
                                 "rounded-xl py-2.5 px-3 text-sm font-medium transition-colors cursor-pointer",
-                                i18n.language === lang.code ? "bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-white" : "text-zinc-500 hover:bg-black/5 dark:hover:bg-white/5"
+                                i18n.language === lang.code || i18n.language?.startsWith(`${lang.code}-`) ? "bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-white" : "text-zinc-500 hover:bg-black/5 dark:hover:bg-white/5"
                             )}
                         >
                             {lang.label}
@@ -69,7 +71,7 @@ export function LanguageSelector({ variant = "default" }: { variant?: "default" 
                         <DropdownMenuItem
                             key={lang.code}
                             onClick={() => handleLanguageChange(lang.code)}
-                            className={i18n.language === lang.code ? "bg-zinc-100 font-medium dark:bg-zinc-800" : ""}
+                            className={i18n.language === lang.code || i18n.language?.startsWith(`${lang.code}-`) ? "bg-zinc-100 font-medium dark:bg-zinc-800" : ""}
                         >
                             {lang.label}
                         </DropdownMenuItem>

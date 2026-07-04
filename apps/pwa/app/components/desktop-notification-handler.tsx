@@ -29,7 +29,7 @@ import {
 } from "@/app/features/notifications/utils/notification-presentation";
 import { formatConversationMessagePreview } from "@/app/features/messaging/services/format-conversation-message-preview";
 import { isTauri } from "@/app/lib/notification-service";
-import { useGroupsSafe } from "@/app/features/groups/providers/group-provider";
+import { useGroupsSafe } from "@/app/features/groups/providers/group-provider-port";
 import { isGroupConversationId } from "@/app/features/groups/utils/group-conversation-id";
 import {
     dispatchVoiceCallOverlayAction,

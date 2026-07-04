@@ -37,7 +37,7 @@ describe("matchMembershipDirectoryPath", () => {
 
 describe("membership directory handlers", () => {
   it("returns empty head when community has no deltas", async () => {
-    const state = { heads: new Map(), deltas: [] };
+    const state = { heads: new Map(), deltas: [], wraps: [] };
     const env = { DB: createMockD1(state) };
     const response = await handleMembershipHead("workspace-1", env);
     const body = await readJson(response);
@@ -47,7 +47,7 @@ describe("membership directory handlers", () => {
   });
 
   it("appends signed join delta and advances head seq", async () => {
-    const state = { heads: new Map(), deltas: [] };
+    const state = { heads: new Map(), deltas: [], wraps: [] };
     const env = { DB: createMockD1(state) };
     const createdAtUnixMs = 1_700_000_000;
     const signature = await signMembershipDelta({
@@ -90,7 +90,7 @@ describe("membership directory handlers", () => {
   });
 
   it("rejects invalid signature on append", async () => {
-    const state = { heads: new Map(), deltas: [] };
+    const state = { heads: new Map(), deltas: [], wraps: [] };
     const env = { DB: createMockD1(state) };
     const response = await handleMembershipDeltaAppend(
       "workspace-1",
@@ -113,7 +113,7 @@ describe("membership directory handlers", () => {
   });
 
   it("rejects leave delta when actor is not subject (steward ACL)", async () => {
-    const state = { heads: new Map(), deltas: [] };
+    const state = { heads: new Map(), deltas: [], wraps: [] };
     const env = { DB: createMockD1(state) };
     const createdAtUnixMs = 1_700_000_000;
     const bootstrapSig = await signMembershipDelta({
@@ -192,7 +192,7 @@ describe("membership directory handlers", () => {
   });
 
   it("rejects expel from non-bootstrap steward (steward ACL)", async () => {
-    const state = { heads: new Map(), deltas: [] };
+    const state = { heads: new Map(), deltas: [], wraps: [] };
     const env = { DB: createMockD1(state) };
     const createdAtUnixMs = 1_700_000_000;
     const bootstrapSig = await signMembershipDelta({
@@ -271,7 +271,7 @@ describe("membership directory handlers", () => {
   });
 
   it("appends self leave delta after two-member join (K-M1 directory path)", async () => {
-    const state = { heads: new Map(), deltas: [] };
+    const state = { heads: new Map(), deltas: [], wraps: [] };
     const env = { DB: createMockD1(state) };
     const createdAtUnixMs = 1_700_000_000;
     const bootstrapSig = await signMembershipDelta({
@@ -355,7 +355,7 @@ describe("membership directory handlers", () => {
   });
 
   it("filters deltas since cursor", async () => {
-    const state = { heads: new Map(), deltas: [] };
+    const state = { heads: new Map(), deltas: [], wraps: [] };
     const env = { DB: createMockD1(state) };
     const joinAt = 1_700_000_001;
     const joinSig = await signMembershipDelta({

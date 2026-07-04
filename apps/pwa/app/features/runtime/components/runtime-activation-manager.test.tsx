@@ -1,7 +1,21 @@
 import { act, render } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createRelayRecoveryTestSnapshot } from "@/app/features/relays/services/relay-recovery-test-fixture";
+import type { RelayRecoverySnapshot } from "@/app/features/relays/services/relay-recovery-types";
 import { RuntimeActivationManager } from "./runtime-activation-manager";
+
+const createRelayRecoveryTestSnapshot = (
+  overrides: Partial<RelayRecoverySnapshot> = {},
+): RelayRecoverySnapshot => ({
+  readiness: "healthy",
+  writableRelayCount: 1,
+  fallbackWritableRelayCount: 0,
+  subscribableRelayCount: 1,
+  writeBlockedRelayCount: 0,
+  coolingDownRelayCount: 0,
+  recoveryAttemptCount: 0,
+  fallbackRelayUrls: [],
+  ...overrides,
+});
 
 const runtimeActivationMocks = vi.hoisted(() => ({
   runtime: {

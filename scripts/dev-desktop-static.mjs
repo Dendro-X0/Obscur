@@ -40,6 +40,11 @@ const env = mergePwaEnvLocal({
   NEXT_PUBLIC_OBSCUR_EXPERIMENT_ONLINE: online ? "1" : (process.env.NEXT_PUBLIC_OBSCUR_EXPERIMENT_ONLINE ?? "0"),
   NEXT_PUBLIC_OBSCUR_DEV_LAB: "1",
 });
+// Per-window CDP is configured in Tauri WebviewWindowBuilder (OBSCUR_CDP_MAIN / OBSCUR_CDP_PROFILE).
+// Process-wide WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS prevents profile windows from binding :9231.
+delete env.WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS;
+env.OBSCUR_CDP_MAIN ??= "9230";
+env.OBSCUR_CDP_PROFILE ??= "9231";
 
 const log = (message) => console.log(`[desktop-static] ${message}`);
 

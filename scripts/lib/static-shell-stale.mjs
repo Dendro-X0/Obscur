@@ -106,6 +106,8 @@ export const isStaticShellStale = (repoRoot) => {
 
   const outMtime = statSync(outIndex).mtimeMs;
   const watchRoots = [
+    path.join(repoRoot, "apps", "pwa", "app", "features", "relays"),
+    path.join(repoRoot, "apps", "pwa", "app", "features", "transport-kernel"),
     path.join(repoRoot, "apps", "pwa", "app", "features", "auth"),
     path.join(repoRoot, "apps", "pwa", "app", "features", "profiles"),
     path.join(repoRoot, "apps", "pwa", "app", "profiles"),

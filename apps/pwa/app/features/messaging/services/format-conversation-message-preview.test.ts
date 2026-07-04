@@ -6,6 +6,24 @@ import {
 } from "./format-conversation-message-preview";
 
 describe("formatConversationMessagePreview", () => {
+  it("formats incoming community invite JSON with peer name and wire role authority", () => {
+    const viewerPk = "bb".repeat(32);
+    const peerPk = "aa".repeat(32);
+    const preview = formatConversationMessagePreview(JSON.stringify({
+      type: "community-invite",
+      groupId: "g1",
+      roomKey: "rk",
+      creatorPubkey: peerPk,
+      metadata: { id: "g1", name: "Test 8" },
+    }), {
+      peerDisplayName: "Tester2",
+      viewerPublicKeyHex: viewerPk,
+      peerPublicKeyHex: peerPk,
+      lastMessageIsOutgoing: true,
+    });
+    expect(preview).toBe("Tester2 invited you to Test 8");
+  });
+
   it("formats incoming community invite JSON with peer name", () => {
     const preview = formatConversationMessagePreview(JSON.stringify({
       type: "community-invite",

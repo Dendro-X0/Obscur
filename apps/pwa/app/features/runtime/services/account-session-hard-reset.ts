@@ -1,4 +1,4 @@
-import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store";
+import { messagingChatStateDurabilityPort } from "@/app/features/messaging/services/messaging-chat-state-durability-port";
 import { useProfileInternals } from "@/app/features/profile/hooks/use-profile";
 import { logAppEvent } from "@/app/shared/log-app-event";
 
@@ -38,8 +38,8 @@ export const performAccountSessionHardReset = (params: Readonly<{
   });
 
   try {
-    chatStateStoreService.flushAllPending();
-    chatStateStoreService.purgeAllMemory();
+    messagingChatStateDurabilityPort.flushAllPending();
+    messagingChatStateDurabilityPort.purgeAllMemory();
     useProfileInternals.resetForTests();
   } catch {
     // Continue to reload even if purge fails.

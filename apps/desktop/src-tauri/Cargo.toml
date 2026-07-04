@@ -49,6 +49,7 @@ tauri-plugin-store = "2"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 notify-rust = "4.11.7"
+winreg = "0.55"
 
 [features]
 custom-protocol = ["tauri/custom-protocol"]

@@ -8,7 +8,7 @@ const readSource = (relativePath: string): string => (
 
 describe("REL-004 leave path audit", () => {
   it("GroupProvider.leaveGroup commits only after relayConfirmed in authoritative mode", () => {
-    const source = readSource("app/features/groups/providers/group-provider.tsx");
+    const source = readSource("app/features/groups/providers/group-provider-legacy.tsx");
     const leaveGroupBlock = source.slice(source.indexOf("const leaveGroup = useCallback"));
     expect(leaveGroupBlock).toContain("commitCommunityLeaveAfterRelayConfirmation");
     expect(leaveGroupBlock).toContain("relayConfirmed !== true");
@@ -26,7 +26,7 @@ describe("REL-004 leave path audit", () => {
   });
 
   it("use-sealed-community leaveGroup delegates to relay-confirmed publish", () => {
-    const source = readSource("app/features/groups/hooks/use-sealed-community.ts");
+    const source = readSource("app/features/groups/hooks/use-sealed-community-legacy.ts");
     expect(source).toContain("publishRelayConfirmedCommunityLeave");
     expect(source).not.toContain("noopAsyncFalse");
   });

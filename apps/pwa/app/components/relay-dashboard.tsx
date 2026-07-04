@@ -6,7 +6,7 @@ import { Activity, Zap, ShieldAlert, WifiOff } from 'lucide-react';
 import { cn } from '@/app/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRelay } from '@/app/features/relays/providers/relay-provider';
-import type { EnhancedRelayPoolResult } from '@/app/features/relays/hooks/enhanced-relay-pool';
+import type { EnhancedRelayPoolResult } from '@/app/features/relays/hooks/enhanced-relay-pool-types';
 import { deriveRelayNodeStatus } from '@/app/features/relays/lib/relay-runtime-status';
 import type { RelayRuntimeSnapshot } from '@/app/features/relays/services/relay-runtime-contracts';
 import type { RelaySettingsCategory } from '@/app/features/relays/services/relay-settings-node-filter';

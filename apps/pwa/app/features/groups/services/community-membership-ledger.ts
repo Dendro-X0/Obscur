@@ -8,6 +8,7 @@ import { enrichWorkspaceGroupConversation } from "./community-workspace-r1-polic
 import { deriveCommunityId, pickPreferredCommunityId } from "../utils/community-identity";
 import { pickPreferredCommunityDisplayName } from "./community-display-name";
 import { toGroupConversationId } from "../utils/group-conversation-id";
+import { communityMembershipScopeMatches } from "./community-membership-scope-key";
 import {
   validateLedgerEntry,
   assertValidLedgerEntry,
@@ -16,7 +17,8 @@ import {
   CURRENT_LEDGER_VERSION,
   type ValidationResult,
 } from "./community-ledger-validator";
-import { migrateLedgerEntries } from "./community-ledger-migration";
+import { migrateLedgerEntry } from "./community-ledger-migration";
+import { messagingChatStateReadPort } from "@/app/features/messaging/services/messaging-chat-state-read-port";
 
 const MEMBERSHIP_LEDGER_STORAGE_PREFIX = "obscur.group.membership_ledger.v1";
 /** Pre-resolution scope used during fresh-device restore before profile rebind. */
@@ -30,6 +32,7 @@ export type CommunityMembershipLedgerUpdatedEventDetail = Readonly<{
   profileId?: string;
 }>;
 const ledgerLoadSignatureByScope = new Map<string, string>();
+const ledgerMigrationInFlightByScope = new Set<string>();
 export type { CommunityMembershipStatus } from "@dweb/core/community-projection-contracts";
 
 /**
@@ -171,6 +174,16 @@ const normalizeCommunityMembershipLedgerEntry = (value: unknown): CommunityMembe
   };
 };
 
+const ACTIVE_MEMBERSHIP_LEDGER_STATUSES = new Set<CommunityMembershipStatus>(["joined", "pending"]);
+
+const deriveFallbackLedgerDisplayName = (groupId: string): string => {
+  const trimmed = groupId.trim();
+  if (trimmed.length === 0) {
+    return "Community";
+  }
+  return trimmed.length <= 12 ? trimmed : `Community ${trimmed.slice(0, 8)}`;
+};
+
 const TERMINAL_LEDGER_STATUSES = new Set<CommunityMembershipStatus>(["left", "expelled"]);
 
 const isTerminalLedgerStatus = (status: CommunityMembershipStatus): boolean => (
@@ -269,20 +282,224 @@ export const selectJoinedCommunityMembershipLedgerEntries = (
   entries.filter((entry) => entry.status === "joined")
 );
 
-const readCommunityMembershipLedger = (
+const TERMINAL_MEMBERSHIP_LEDGER_STATUSES = new Set<CommunityMembershipStatus>(["left", "expelled"]);
+
+export const isTerminalCommunityMembershipLedgerEntry = (
+  entry: CommunityMembershipLedgerEntry,
+): boolean => TERMINAL_MEMBERSHIP_LEDGER_STATUSES.has(entry.status);
+
+export const summarizeCommunityMembershipLedger = (
+  entries: ReadonlyArray<CommunityMembershipLedgerEntry>,
+): Readonly<{ joinedCount: number; archivedCount: number; totalCount: number }> => {
+  let joinedCount = 0;
+  let archivedCount = 0;
+  for (const entry of entries) {
+    if (entry.status === "joined") {
+      joinedCount += 1;
+    } else if (isTerminalCommunityMembershipLedgerEntry(entry)) {
+      archivedCount += 1;
+    }
+  }
+  return {
+    joinedCount,
+    archivedCount,
+    totalCount: entries.length,
+  };
+};
+
+export const removeCommunityMembershipLedgerScopes = (
   publicKeyHex: string,
-  options?: Readonly<{ profileId?: string }>
+  scopes: ReadonlyArray<Readonly<{ groupId: string; relayUrl?: string }>>,
+  options?: Readonly<{ profileId?: string }>,
+): number => {
+  if (scopes.length === 0) {
+    return 0;
+  }
+  const current = readCommunityMembershipLedger(publicKeyHex, options);
+  const next = current.filter((entry) => !scopes.some((scope) => (
+    communityMembershipScopeMatches(
+      { groupId: entry.groupId, relayUrl: entry.relayUrl ?? "" },
+      { groupId: scope.groupId, relayUrl: scope.relayUrl ?? "" },
+    )
+  )));
+  if (next.length === current.length) {
+    return 0;
+  }
+  persistCommunityMembershipLedger(publicKeyHex, next, options);
+  return current.length - next.length;
+};
+
+const loadPersistedGroupsForLedgerMigration = (
+  publicKeyHex: string,
+  profileId: string,
+): ReadonlyArray<{
+  groupId: string;
+  displayName?: string;
+  memberPubkeys?: readonly string[];
+  adminPubkeys?: readonly string[];
+}> => {
+  const chatState = messagingChatStateReadPort.load(publicKeyHex, { profileId });
+  return (chatState?.createdGroups ?? [])
+    .map((group) => ({
+      groupId: typeof group.groupId === "string" ? group.groupId.trim() : "",
+      displayName: group.displayName,
+      memberPubkeys: group.memberPubkeys,
+      adminPubkeys: group.adminPubkeys,
+    }))
+    .filter((group) => group.groupId.length > 0);
+};
+
+const applyLedgerVersionMigrationOnLoad = (
+  publicKeyHex: string,
+  profileId: string,
+  entries: ReadonlyArray<CommunityMembershipLedgerEntry>,
+): ReadonlyArray<CommunityMembershipLedgerEntry> => {
+  const pendingMigrationCount = entries.filter((entry) => needsMigration(entry)).length;
+  if (pendingMigrationCount === 0) {
+    return entries;
+  }
+
+  const scopeKey = `${publicKeyHex}::${profileId}`;
+  if (ledgerMigrationInFlightByScope.has(scopeKey)) {
+    return entries;
+  }
+
+  const now = Date.now();
+  const persistedGroups = [...loadPersistedGroupsForLedgerMigration(publicKeyHex, profileId)];
+  const migrationContext = {
+    publicKeyHex,
+    persistedGroups,
+    now,
+  };
+
+  const migratedEntries = entries.map((entry) => (
+    needsMigration(entry) ? migrateLedgerEntry(entry, migrationContext) : entry
+  ));
+
+  const migrationChanged = migratedEntries.some((entry, index) => (
+    JSON.stringify(entry) !== JSON.stringify(entries[index])
+  ));
+
+  if (!migrationChanged) {
+    return migratedEntries;
+  }
+
+  ledgerMigrationInFlightByScope.add(scopeKey);
+  try {
+    persistCommunityMembershipLedger(publicKeyHex, migratedEntries, {
+      profileId,
+      replace: true,
+    });
+  } finally {
+    ledgerMigrationInFlightByScope.delete(scopeKey);
+  }
+
+  logAppEvent({
+    name: "groups.ledger_migration_applied",
+    level: "info",
+    scope: { feature: "groups", action: "ledger_load" },
+    context: {
+      publicKeySuffix: toPublicKeySuffix(publicKeyHex),
+      profileId,
+      pendingMigrationCount,
+      migratedEntryCount: migratedEntries.length,
+    },
+  });
+
+  return migratedEntries;
+};
+
+const repairIncompleteJoinedLedgerEntriesOnLoad = (
+  publicKeyHex: string,
+  profileId: string,
+  entries: ReadonlyArray<CommunityMembershipLedgerEntry>,
+): ReadonlyArray<CommunityMembershipLedgerEntry> => {
+  const persistedGroups = loadPersistedGroupsForLedgerMigration(publicKeyHex, profileId);
+  let changed = false;
+
+  const repaired = entries.map((entry) => {
+    if (!ACTIVE_MEMBERSHIP_LEDGER_STATUSES.has(entry.status)) {
+      return entry;
+    }
+
+    const groupId = entry.groupId?.trim() ?? "";
+    const persistedGroup = persistedGroups.find((group) => group.groupId === groupId);
+    const nextPublicKeyHex = entry.publicKeyHex?.trim() || publicKeyHex;
+    const nextMemberPubkeys = (
+      entry.memberPubkeys && entry.memberPubkeys.length > 0
+        ? entry.memberPubkeys
+        : persistedGroup?.memberPubkeys && persistedGroup.memberPubkeys.length > 0
+          ? persistedGroup.memberPubkeys
+          : [nextPublicKeyHex]
+    );
+    const nextAdminPubkeys = (
+      entry.adminPubkeys && entry.adminPubkeys.length > 0
+        ? entry.adminPubkeys
+        : persistedGroup?.adminPubkeys && persistedGroup.adminPubkeys.length > 0
+          ? persistedGroup.adminPubkeys
+          : [nextPublicKeyHex]
+    );
+    const nextDisplayName = entry.displayName?.trim()
+      || persistedGroup?.displayName?.trim()
+      || deriveFallbackLedgerDisplayName(groupId);
+    const now = Date.now();
+
+    const patched: CommunityMembershipLedgerEntry = {
+      ...entry,
+      publicKeyHex: nextPublicKeyHex,
+      memberPubkeys: [...nextMemberPubkeys],
+      adminPubkeys: [...nextAdminPubkeys],
+      displayName: nextDisplayName,
+      ledgerVersion: entry.ledgerVersion ?? CURRENT_LEDGER_VERSION,
+      createdAt: entry.createdAt ?? entry.updatedAtUnixMs ?? now,
+      updatedAt: now,
+      updatedAtUnixMs: entry.updatedAtUnixMs ?? now,
+    };
+
+    if (JSON.stringify(patched) !== JSON.stringify(entry)) {
+      changed = true;
+    }
+    return patched;
+  });
+
+  if (!changed) {
+    return entries;
+  }
+
+  const scopeKey = `${publicKeyHex}::${profileId}`;
+  ledgerMigrationInFlightByScope.add(scopeKey);
+  try {
+    persistCommunityMembershipLedger(publicKeyHex, repaired, {
+      profileId,
+      replace: true,
+    });
+  } finally {
+    ledgerMigrationInFlightByScope.delete(scopeKey);
+  }
+
+  logAppEvent({
+    name: "groups.ledger_field_repair_applied",
+    level: "info",
+    scope: { feature: "groups", action: "ledger_load" },
+    context: {
+      publicKeySuffix: toPublicKeySuffix(publicKeyHex),
+      profileId,
+      repairedEntryCount: repaired.length,
+    },
+  });
+
+  return repaired;
+};
+
+const readStoredCommunityMembershipLedger = (
+  publicKeyHex: string,
+  profileId: string,
 ): ReadonlyArray<CommunityMembershipLedgerEntry> => {
   if (typeof window === "undefined") {
     return [];
   }
-  const profileId = options?.profileId ?? getResolvedProfileId();
   try {
     const scopedRaw = window.localStorage.getItem(toStorageKey(publicKeyHex, profileId));
-    // AB-08: only read the legacy (unscoped) key for the default profile.
-    // Named profiles must not fall back to the shared legacy key — that key
-    // is a migration path for the default profile only and must not leak
-    // default-profile data into named-profile reads.
     const legacyRaw = profileId === getDefaultProfileId()
       ? window.localStorage.getItem(toLegacyStorageKey(publicKeyHex))
       : null;
@@ -294,7 +511,24 @@ const readCommunityMembershipLedger = (
       ? parseCommunityMembershipLedgerSnapshot(JSON.parse(legacyRaw))
       : [];
 
-    if (scopedEntries.length === 0 && legacyEntries.length === 0) {
+    return mergeCommunityMembershipLedgerEntries(scopedEntries, legacyEntries);
+  } catch {
+    return [];
+  }
+};
+
+const readCommunityMembershipLedger = (
+  publicKeyHex: string,
+  options?: Readonly<{ profileId?: string }>
+): ReadonlyArray<CommunityMembershipLedgerEntry> => {
+  if (typeof window === "undefined") {
+    return [];
+  }
+  const profileId = options?.profileId ?? getResolvedProfileId();
+  try {
+    const mergedEntries = readStoredCommunityMembershipLedger(publicKeyHex, profileId);
+
+    if (mergedEntries.length === 0) {
       const emptySignature = `profile:${profileId}|scoped:0|legacy:0|merged:0`;
       const scopeKey = `${publicKeyHex}::${profileId}`;
       if (ledgerLoadSignatureByScope.get(scopeKey) !== emptySignature) {
@@ -314,12 +548,17 @@ const readCommunityMembershipLedger = (
       }
       return [];
     }
-    const mergedEntries = mergeCommunityMembershipLedgerEntries(scopedEntries, legacyEntries);
+    const scopeKey = `${publicKeyHex}::${profileId}`;
+    if (ledgerMigrationInFlightByScope.has(scopeKey)) {
+      return mergedEntries;
+    }
+    const entriesAfterMigration = applyLedgerVersionMigrationOnLoad(publicKeyHex, profileId, mergedEntries);
+    const entriesAfterRepair = ledgerMigrationInFlightByScope.has(scopeKey)
+      ? entriesAfterMigration
+      : repairIncompleteJoinedLedgerEntriesOnLoad(publicKeyHex, profileId, entriesAfterMigration);
 
-    // Migration: Check for entries needing v1→v2 migration
-    const needsMigrationCount = mergedEntries.filter(e => needsMigration(e)).length;
+    const needsMigrationCount = entriesAfterRepair.filter((entry) => needsMigration(entry)).length;
     if (needsMigrationCount > 0) {
-      // Log migration need (actual migration happens async via migrateLedgerEntries)
       logAppEvent({
         name: "groups.ledger_migration_needed",
         level: "info",
@@ -334,7 +573,7 @@ const readCommunityMembershipLedger = (
     }
 
     // Validation: Check all entries for issues
-    const validationResults = validateLedgerEntries(mergedEntries, { allowLegacy: true });
+    const validationResults = validateLedgerEntries(entriesAfterRepair, { allowLegacy: true });
     if (validationResults.invalid > 0) {
       logAppEvent({
         name: "groups.ledger_validation_issues",
@@ -350,8 +589,7 @@ const readCommunityMembershipLedger = (
       });
     }
 
-    const signature = `profile:${profileId}|scoped:${scopedEntries.length}|legacy:${legacyEntries.length}|merged:${mergedEntries.length}|needsMigration:${needsMigrationCount}|invalid:${validationResults.invalid}`;
-    const scopeKey = `${publicKeyHex}::${profileId}`;
+    const signature = `profile:${profileId}|scoped:${mergedEntries.length}|legacy:0|merged:${entriesAfterRepair.length}|needsMigration:${needsMigrationCount}|invalid:${validationResults.invalid}`;
     if (ledgerLoadSignatureByScope.get(scopeKey) !== signature) {
       ledgerLoadSignatureByScope.set(scopeKey, signature);
       logAppEvent({
@@ -361,15 +599,15 @@ const readCommunityMembershipLedger = (
         context: {
           publicKeySuffix: toPublicKeySuffix(publicKeyHex),
           profileId,
-          scopedEntryCount: scopedEntries.length,
-          legacyEntryCount: legacyEntries.length,
-          mergedEntryCount: mergedEntries.length,
+          scopedEntryCount: mergedEntries.length,
+          legacyEntryCount: 0,
+          mergedEntryCount: entriesAfterRepair.length,
           needsMigrationCount,
           invalidEntries: validationResults.invalid,
         },
       });
     }
-    return mergedEntries;
+    return entriesAfterRepair;
   } catch {
     return [];
   }
@@ -395,7 +633,7 @@ const persistCommunityMembershipLedger = (
     // entry with the higher updatedAtUnixMs when two entries share the same
     // ledger key, which is the correct timestamp-precedence behaviour.
     const activeProfileId = options?.profileId ?? getResolvedProfileId();
-    const existingStored = readCommunityMembershipLedger(publicKeyHex, { profileId: activeProfileId });
+    const existingStored = readStoredCommunityMembershipLedger(publicKeyHex, activeProfileId);
     const normalizedEntries = options?.replace
       ? dedupeCommunityMembershipLedger([...entries])
       : dedupeCommunityMembershipLedger([...existingStored, ...entries]);

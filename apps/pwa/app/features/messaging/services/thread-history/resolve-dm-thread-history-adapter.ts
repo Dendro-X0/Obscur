@@ -1,3 +1,4 @@
+import { isObscurAllowLegacy } from "@/app/engine-lab/engine-lab-policy";
 import { isDmKernelAuthority } from "@/app/features/dm-kernel/dm-kernel-policy";
 import { dmKernelThreadHistoryStub } from "@/app/features/dm-kernel/dm-kernel-thread-history-stub";
 import type { ThreadHistoryPort } from "./port";
@@ -17,9 +18,9 @@ const resolveLegacyDmThreadHistoryAdapter = (): ThreadHistoryPort => {
   return dmThreadHistoryAdapter;
 };
 
-/** Single DM materialization entry — dm-kernel uses inert stub; web keeps R1 interim stack. */
+/** Single DM materialization entry — dm-kernel / strict stub; legacy hydrate opt-in only. */
 export const resolveDmThreadHistoryAdapter = (): ThreadHistoryPort => {
-  if (isDmKernelAuthority() || isDesktopDmKernelShipBuild()) {
+  if (isDmKernelAuthority() || isDesktopDmKernelShipBuild() || !isObscurAllowLegacy()) {
     return dmKernelThreadHistoryStub;
   }
   return resolveLegacyDmThreadHistoryAdapter();

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { encryptedAccountBackupServiceInternals } from "./encrypted-account-backup-service";
-import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store";
+import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store-legacy";
 import { peerTrustInternals } from "@/app/features/network/hooks/use-peer-trust";
 import { relayListInternals } from "@/app/features/relays/hooks/use-relay-list";
 import { requestFlowEvidenceStoreInternals } from "@/app/features/messaging/services/request-flow-evidence-store";

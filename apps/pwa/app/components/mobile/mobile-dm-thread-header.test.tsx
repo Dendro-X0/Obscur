@@ -2,14 +2,13 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { DmConversation } from "@/app/features/messaging/types";
 import { MobileDmThreadHeader } from "./mobile-dm-thread-header";
+import en from "@/app/lib/i18n/locales/en.json";
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
-    t: (_key: string, fallback?: string, options?: { count?: number }) => {
-      if (typeof options?.count === "number" && fallback?.includes("{{count}}")) {
-        return fallback.replace("{{count}}", String(options.count));
-      }
-      return fallback ?? _key;
+    t: (key: string, options?: Record<string, unknown>) => {
+      const template = (en.translation as Record<string, string | undefined>)[key] ?? key;
+      return template.replace(/\{\{(\w+)\}\}/g, (_, token: string) => String(options?.[token] ?? ""));
     },
   }),
 }));

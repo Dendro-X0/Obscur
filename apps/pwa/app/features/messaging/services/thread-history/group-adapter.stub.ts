@@ -1,5 +1,5 @@
 import type { Message } from "../../types";
-import type { AssembleDmHydrateThreadReadModelResult } from "../dm-conversation-hydrate-read-model";
+import type { AssembleDmHydrateThreadReadModelResult } from "./hydrate-read-model-types";
 import type { ThreadHistoryPort } from "./port";
 
 const emptyHydrateResult = (): AssembleDmHydrateThreadReadModelResult => ({

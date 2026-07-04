@@ -6,21 +6,59 @@ export type TrustWarningTier = "none" | "info" | "elevated" | "critical";
 export type TrustSignalId =
   | "contact.cold"
   | "thread.pivot_financial"
+  | "thread.financial_pressure"
   | "commerce.urgency_pressure"
+  | "link.suspicious_url"
+  | "link.lookalike_brand"
+  | "attachment.risky_filename"
+  | "connection.request_burst"
   | "msg.rate"
-  | "invite.fanout";
+  | "invite.fanout"
+  | "thread.credential_harvest"
+  | "thread.authority_impersonation"
+  | "thread.gift_card_scam"
+  | "thread.off_platform_redirect"
+  | "thread.advance_fee_scam"
+  | "thread.remote_access_tool"
+  | "thread.overpayment_refund"
+  | "thread.fake_escrow"
+  | "thread.hiring_trap"
+  | "thread.irreversible_payment_demand";
 
 export const BUNDLE_FIN_COLD = "BUNDLE_FIN_COLD";
+export const BUNDLE_PHISH_COLD = "BUNDLE_PHISH_COLD";
+export const BUNDLE_SE_COLD = "BUNDLE_SE_COLD";
+export const BUNDLE_CONN_BURST = "BUNDLE_CONN_BURST";
 export const BUNDLE_SPAM_COLD = "BUNDLE_SPAM_COLD";
 
 export const FINANCIAL_PIVOT_WINDOW_MS = 48 * 60 * 60 * 1000;
 
 export const TRUST_BANNER_DISMISS_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 
+import { detectConnectionRequestBurstSignal } from "./dm-kernel-trust-connection-signals";
+import type { IncomingRequestAntiAbusePeerSnapshot } from "@/app/features/messaging/services/incoming-request-anti-abuse";
+import { detectSuspiciousLink, detectLookalikeBrandLink } from "./dm-kernel-trust-link-signals";
+import { detectRiskyAttachmentFilenames } from "./dm-kernel-trust-attachment-signals";
 import {
-  detectInviteFanoutSignal,
-  detectMsgRateSignal,
-} from "./dm-kernel-trust-spam-signals";
+  detectAdvanceFeeScam,
+  detectAuthorityImpersonation,
+  detectCredentialHarvestRequest,
+  detectFakeEscrow,
+  detectGiftCardScam,
+  detectHiringTrap,
+  detectIrreversiblePaymentDemand,
+  detectOffPlatformRedirect,
+  detectOverpaymentScam,
+  detectRemoteAccessTool,
+} from "./dm-kernel-trust-social-engineering-signals";
+import {
+  applyContactTrustSensitivityToAssessment,
+  DEFAULT_CONTACT_TRUST_SENSITIVITY,
+  resolveContactTrustSensitivityPolicy,
+  resolveEffectiveColdContact,
+  type ContactTrustSensitivity,
+} from "./contact-trust-sensitivity";
+import { resolveTrustCopyKey } from "./dm-kernel-trust-copy-keys";
 
 export type AssessDmTrustInput = Readonly<{
   peerPublicKeyHex: PublicKeyHex | string;
@@ -29,9 +67,14 @@ export type AssessDmTrustInput = Readonly<{
   messageTimestampUnixMs: number;
   threadFirstPeerMessageAtUnixMs: number | null;
   dismissedUntilUnixMs: number | null;
+  /** Attachment filenames on the assessed inbound message (metadata only). */
+  messageAttachmentFileNames?: ReadonlyArray<string>;
   peerIncomingCountLastMinute?: number;
   peerConnectionRequestCountLastDay?: number;
+  connectionRequestBurstSnapshot?: IncomingRequestAntiAbusePeerSnapshot | null;
   nowUnixMs?: number;
+  /** Recipient-local defense posture — does not change connection accept/remove. */
+  contactTrustSensitivity?: ContactTrustSensitivity;
 }>;
 
 export type DmTrustAssessment = Readonly<{
@@ -62,18 +105,66 @@ export const detectUrgencyPressure = (content: string): boolean => (
   URGENCY_PATTERNS.some((pattern) => pattern.test(content))
 );
 
-const isContactCold = (input: AssessDmTrustInput): boolean => (
-  !input.isPeerAccepted
-  || input.threadFirstPeerMessageAtUnixMs === null
-);
-
-const isFinancialPivotInWindow = (input: AssessDmTrustInput, nowUnixMs: number): boolean => {
+const resolveFinancialSignals = (
+  input: AssessDmTrustInput,
+  nowUnixMs: number,
+  pivotWindowMs: number,
+  isContactCold: boolean,
+): ReadonlyArray<TrustSignalId> => {
   if (!detectFinancialMention(input.messageContent)) {
-    return false;
+    return [];
   }
   const anchor = input.threadFirstPeerMessageAtUnixMs ?? input.messageTimestampUnixMs;
-  return (nowUnixMs - anchor) <= FINANCIAL_PIVOT_WINDOW_MS;
+  if ((nowUnixMs - anchor) <= pivotWindowMs) {
+    return ["thread.pivot_financial"];
+  }
+  if (isContactCold) {
+    return ["thread.financial_pressure"];
+  }
+  return [];
 };
+
+const SE_CRITICAL_SIGNALS: ReadonlyArray<TrustSignalId> = [
+  "thread.credential_harvest",
+  "thread.remote_access_tool",
+  "thread.hiring_trap",
+  "thread.gift_card_scam",
+];
+
+const SE_BUNDLE_SIGNALS: ReadonlyArray<TrustSignalId> = [
+  "thread.credential_harvest",
+  "thread.authority_impersonation",
+  "thread.gift_card_scam",
+  "thread.off_platform_redirect",
+  "thread.advance_fee_scam",
+  "thread.remote_access_tool",
+  "thread.overpayment_refund",
+  "thread.fake_escrow",
+  "thread.hiring_trap",
+  "thread.irreversible_payment_demand",
+];
+
+const SE_STANDALONE_SIGNALS: ReadonlyArray<TrustSignalId> = [
+  "thread.credential_harvest",
+  "thread.authority_impersonation",
+  "thread.off_platform_redirect",
+  "thread.advance_fee_scam",
+  "thread.remote_access_tool",
+  "thread.overpayment_refund",
+  "thread.fake_escrow",
+  "thread.hiring_trap",
+  "thread.irreversible_payment_demand",
+];
+
+const includesAnySignal = (
+  signals: ReadonlyArray<TrustSignalId>,
+  candidates: ReadonlyArray<TrustSignalId>,
+): boolean => candidates.some((signal) => signals.includes(signal));
+
+const resolveSeCriticalTier = (signals: ReadonlyArray<TrustSignalId>): boolean => (
+  signals.includes("commerce.urgency_pressure")
+  || includesAnySignal(signals, SE_CRITICAL_SIGNALS)
+);
 
 const buildAssessment = (
   activeSignals: ReadonlyArray<TrustSignalId>,
@@ -86,31 +177,8 @@ const buildAssessment = (
   copyKey: resolveTrustCopyKey(activeSignals, bundleId, tier),
 });
 
-const resolveTrustCopyKey = (
-  activeSignals: ReadonlyArray<TrustSignalId>,
-  bundleId: string | null,
-  tier: TrustWarningTier,
-): string => {
-  if (bundleId === BUNDLE_FIN_COLD) {
-    return "messaging.trust.finCold";
-  }
-  if (bundleId === BUNDLE_SPAM_COLD) {
-    return "messaging.trust.spamCold";
-  }
-  if (activeSignals.includes("msg.rate")) {
-    return "messaging.trust.msgRate";
-  }
-  if (activeSignals.includes("invite.fanout")) {
-    return "messaging.trust.inviteFanout";
-  }
-  if (tier === "info") {
-    return "messaging.trust.info";
-  }
-  return "messaging.trust.none";
-};
-
 /**
- * Recipient-local DM trust assessment — deterministic from rule pack v1 (SEC-F2).
+ * Recipient-local DM trust assessment — deterministic rule pack (SEC-F2 + v2.0a phish).
  * Never notifies sender; never blocks delivery.
  */
 export const assessDmTrustWarning = (input: AssessDmTrustInput): DmTrustAssessment => {
@@ -119,51 +187,177 @@ export const assessDmTrustWarning = (input: AssessDmTrustInput): DmTrustAssessme
     return buildAssessment([], null, "none");
   }
 
+  const sensitivity = input.contactTrustSensitivity ?? DEFAULT_CONTACT_TRUST_SENSITIVITY;
+  const sensitivityPolicy = resolveContactTrustSensitivityPolicy(sensitivity);
+  const isContactCold = resolveEffectiveColdContact({
+    isPeerAccepted: input.isPeerAccepted,
+    threadFirstPeerMessageAtUnixMs: input.threadFirstPeerMessageAtUnixMs,
+    policy: sensitivityPolicy,
+  });
+
   const signals: TrustSignalId[] = [];
-  if (isContactCold(input)) {
+  if (isContactCold) {
     signals.push("contact.cold");
   }
-  if (isFinancialPivotInWindow(input, nowUnixMs)) {
-    signals.push("thread.pivot_financial");
+  for (const financialSignal of resolveFinancialSignals(
+    input,
+    nowUnixMs,
+    sensitivityPolicy.financialPivotWindowMs,
+    isContactCold,
+  )) {
+    signals.push(financialSignal);
   }
   if (detectUrgencyPressure(input.messageContent)) {
     signals.push("commerce.urgency_pressure");
   }
-  if (detectMsgRateSignal(input.peerIncomingCountLastMinute ?? 0)) {
+  if (detectSuspiciousLink(input.messageContent)) {
+    signals.push("link.suspicious_url");
+  }
+  if (detectLookalikeBrandLink(input.messageContent)) {
+    signals.push("link.lookalike_brand");
+  }
+  if (detectRiskyAttachmentFilenames(input.messageAttachmentFileNames ?? [])) {
+    signals.push("attachment.risky_filename");
+  }
+  if (detectCredentialHarvestRequest(input.messageContent)) {
+    signals.push("thread.credential_harvest");
+  }
+  if (detectAuthorityImpersonation(input.messageContent)) {
+    signals.push("thread.authority_impersonation");
+  }
+  if (detectGiftCardScam(input.messageContent)) {
+    signals.push("thread.gift_card_scam");
+  }
+  if (detectOffPlatformRedirect(input.messageContent)) {
+    signals.push("thread.off_platform_redirect");
+  }
+  if (detectAdvanceFeeScam(input.messageContent)) {
+    signals.push("thread.advance_fee_scam");
+  }
+  if (detectRemoteAccessTool(input.messageContent)) {
+    signals.push("thread.remote_access_tool");
+  }
+  if (detectOverpaymentScam(input.messageContent)) {
+    signals.push("thread.overpayment_refund");
+  }
+  if (detectFakeEscrow(input.messageContent)) {
+    signals.push("thread.fake_escrow");
+  }
+  if (detectHiringTrap(input.messageContent)) {
+    signals.push("thread.hiring_trap");
+  }
+  if (detectIrreversiblePaymentDemand(input.messageContent)) {
+    signals.push("thread.irreversible_payment_demand");
+  }
+  if (
+    input.connectionRequestBurstSnapshot
+    && detectConnectionRequestBurstSignal(input.connectionRequestBurstSnapshot)
+  ) {
+    signals.push("connection.request_burst");
+  }
+  if ((input.peerIncomingCountLastMinute ?? 0) > sensitivityPolicy.msgRateThreshold) {
     signals.push("msg.rate");
   }
-  if (detectInviteFanoutSignal(input.peerConnectionRequestCountLastDay ?? 0)) {
+  if ((input.peerConnectionRequestCountLastDay ?? 0) > sensitivityPolicy.inviteFanoutThreshold) {
     signals.push("invite.fanout");
   }
 
   const hasFinColdBundle = signals.includes("contact.cold")
-    && signals.includes("thread.pivot_financial");
+    && (
+      signals.includes("thread.pivot_financial")
+      || signals.includes("thread.financial_pressure")
+    );
+
+  const finalize = (assessment: DmTrustAssessment): DmTrustAssessment => (
+    applyContactTrustSensitivityToAssessment(assessment, sensitivityPolicy)
+  );
 
   if (hasFinColdBundle) {
     const tier: TrustWarningTier = signals.includes("commerce.urgency_pressure")
       ? "critical"
       : "elevated";
-    return buildAssessment(signals, BUNDLE_FIN_COLD, tier);
+    return finalize(buildAssessment(signals, BUNDLE_FIN_COLD, tier));
+  }
+
+  const hasPhishColdBundle = signals.includes("contact.cold")
+    && (
+      signals.includes("link.suspicious_url")
+      || signals.includes("link.lookalike_brand")
+      || signals.includes("attachment.risky_filename")
+    );
+
+  if (hasPhishColdBundle) {
+    const tier: TrustWarningTier = signals.includes("commerce.urgency_pressure")
+      ? "critical"
+      : "elevated";
+    return finalize(buildAssessment(signals, BUNDLE_PHISH_COLD, tier));
+  }
+
+  const hasSeColdBundle = signals.includes("contact.cold")
+    && includesAnySignal(signals, SE_BUNDLE_SIGNALS);
+
+  if (hasSeColdBundle) {
+    const tier: TrustWarningTier = resolveSeCriticalTier(signals)
+      ? "critical"
+      : "elevated";
+    return finalize(buildAssessment(signals, BUNDLE_SE_COLD, tier));
+  }
+
+  if (includesAnySignal(signals, SE_STANDALONE_SIGNALS)) {
+    const tier: TrustWarningTier = includesAnySignal(signals, SE_CRITICAL_SIGNALS)
+      ? "critical"
+      : "elevated";
+    return finalize(buildAssessment(signals, null, tier));
+  }
+
+  const hasConnBurstBundle = signals.includes("contact.cold")
+    && signals.includes("connection.request_burst");
+
+  if (hasConnBurstBundle) {
+    return finalize(buildAssessment(signals, BUNDLE_CONN_BURST, "elevated"));
   }
 
   const hasSpamColdBundle = signals.includes("contact.cold")
     && signals.includes("msg.rate");
 
   if (hasSpamColdBundle) {
-    return buildAssessment(signals, BUNDLE_SPAM_COLD, "elevated");
+    return finalize(buildAssessment(signals, BUNDLE_SPAM_COLD, "elevated"));
   }
 
   if (signals.includes("msg.rate") || signals.includes("invite.fanout")) {
-    return buildAssessment(signals, null, "elevated");
+    return finalize(buildAssessment(signals, null, "elevated"));
+  }
+
+  if (signals.includes("connection.request_burst")) {
+    return finalize(buildAssessment(signals, null, "elevated"));
+  }
+
+  if (
+    signals.includes("link.lookalike_brand")
+    || signals.includes("attachment.risky_filename")
+  ) {
+    return finalize(buildAssessment(signals, null, "elevated"));
   }
 
   if (signals.includes("thread.pivot_financial")) {
-    return buildAssessment(signals, null, "info");
+    return finalize(buildAssessment(signals, null, "info"));
+  }
+
+  if (signals.includes("thread.financial_pressure")) {
+    return finalize(buildAssessment(signals, null, "info"));
+  }
+
+  if (signals.includes("thread.gift_card_scam")) {
+    return finalize(buildAssessment(signals, null, "info"));
+  }
+
+  if (signals.includes("link.suspicious_url")) {
+    return finalize(buildAssessment(signals, null, "info"));
   }
 
   if (signals.includes("contact.cold")) {
-    return buildAssessment(["contact.cold"], null, "info");
+    return finalize(buildAssessment(["contact.cold"], null, "info"));
   }
 
-  return buildAssessment([], null, "none");
+  return finalize(buildAssessment([], null, "none"));
 };

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
-import { chatStateStoreService as chatStateStore } from "@/app/features/messaging/services/chat-state-store";
+import { messagingChatStateReadPort } from "@/app/features/messaging/services/messaging-chat-state-read-port";
 import type { PersistedChatState } from "@/app/features/messaging/types";
 import { normalizePublicKeyHex, normalizePublicKeyHexList } from "@/app/features/profile/utils/normalize-public-key-hex";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
@@ -197,7 +197,7 @@ export const usePeerTrust = (params: UsePeerTrustParams): UsePeerTrustResult => 
       if (prev.acceptedPeers.length > 0) {
         return prev;
       }
-      const persisted = chatStateStore.load(currentPublicKeyHex);
+      const persisted = messagingChatStateReadPort.load(currentPublicKeyHex);
       const acceptedFromChat: ReadonlyArray<PublicKeyHex> = extractAcceptedPeersFromPersistedChatState(persisted);
       if (acceptedFromChat.length === 0) {
         return prev;

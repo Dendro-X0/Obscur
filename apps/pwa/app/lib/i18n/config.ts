@@ -6,11 +6,15 @@ import LanguageDetector from "i18next-browser-languagedetector";
 import en from "./locales/en.json";
 import zh from "./locales/zh.json";
 import es from "./locales/es.json";
+import fr from "./locales/fr.json";
+import de from "./locales/de.json";
 
 const RESOURCES = {
   en,
   zh,
   es,
+  fr,
+  de,
 } as const;
 
 type TranslationResources = typeof en;
@@ -23,6 +27,7 @@ const createInstance = (): i18n => {
     .use(initReactI18next)
     .init({
       resources: RESOURCES,
+      supportedLngs: ["en", "zh", "es", "fr", "de"],
       fallbackLng: "en",
       interpolation: { escapeValue: false },
       returnNull: false,

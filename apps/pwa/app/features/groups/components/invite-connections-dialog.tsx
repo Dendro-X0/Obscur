@@ -14,6 +14,7 @@ import type { Message } from "../../messaging/types";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { GroupService } from "../services/group-service";
 import type { GroupMetadata } from "../types";
+import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { UserAvatar } from "../../profile/components/user-avatar";
 import { useResolvedProfileMetadata } from "../../profile/hooks/use-resolved-profile-metadata";
@@ -29,6 +30,11 @@ import { commitOutgoingCommunityInviteDm } from "../services/community-invite-dm
 import { upsertDmConversationInList } from "@/app/features/messaging/utils/dm-conversation-list-merge";
 import { createDmConversation } from "@/app/features/messaging/utils/create-dm-conversation";
 import { publishDmNostrEvent } from "@/app/features/messaging/services/publish-dm-nostr-event";
+import {
+  ensureRoomKeyHexForInviteDistribution,
+  publishStewardCoordinationRoomKeyWrapsForInvitees,
+} from "../services/community-coordination-room-key-owner";
+import { cryptoService } from "@/app/features/crypto/crypto-service";
 
 interface InviteConnectionsDialogProps {
     isOpen: boolean;
@@ -153,18 +159,31 @@ export function InviteConnectionsDialog({
 
     const handleSendInvites = async () => {
         if (!groupService.current || selectedPubkeys.size === 0) return;
-        const trimmedRoomKeyHex = roomKeyHex.trim();
-        if (!trimmedRoomKeyHex) {
-            toast.error("Community encryption is still loading. Wait a moment and try again.");
-            return;
-        }
-        if (!identityState.publicKeyHex) {
+        if (!identityState.publicKeyHex || !identityState.privateKeyHex) {
             toast.error("Unlock your identity before sending invites.");
             return;
         }
         setIsSending(true);
 
         try {
+            const { roomKeyHex: trimmedRoomKeyHex } = await ensureRoomKeyHexForInviteDistribution({
+                groupId,
+                communityId,
+                localPubkey: identityState.publicKeyHex as PublicKeyHex,
+                localPrivateKeyHex: identityState.privateKeyHex as PrivateKeyHex,
+                roomKeyHexHint: roomKeyHex,
+                generateRoomKey: () => cryptoService.generateRoomKey(),
+            });
+
+            await publishStewardCoordinationRoomKeyWrapsForInvitees({
+                communityId,
+                groupId,
+                roomKeyHex: trimmedRoomKeyHex,
+                stewardPubkey: identityState.publicKeyHex as PublicKeyHex,
+                stewardPrivateKeyHex: identityState.privateKeyHex as PrivateKeyHex,
+                inviteePubkeys: Array.from(selectedPubkeys) as PublicKeyHex[],
+            });
+
             const newMessages: Record<string, Message> = {};
             let anyDmPublishFailed = false;
 
@@ -353,7 +372,7 @@ export function InviteConnectionsDialog({
                         </span>
                         <Button
                             onClick={handleSendInvites}
-                            disabled={isSending || roomKeyHex.trim().length === 0}
+                            disabled={isSending}
                             className="h-12 rounded-[20px] bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500 px-6 font-black text-white shadow-[0_10px_24px_rgba(129,140,248,0.3)] transition-all hover:brightness-110 dark:shadow-[0_12px_30px_rgba(129,140,248,0.4)]"
                         >
                             {isSending ? (

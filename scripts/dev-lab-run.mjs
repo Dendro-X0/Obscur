@@ -41,6 +41,10 @@ import {
   stopStaticShellServer,
 } from "./lib/dev-lab-connection.mjs";
 import {
+  ensureComMem2InfraReady,
+  stopComMem2InfraSpawned,
+} from "./lib/dev-lab-com-mem-2-stack.mjs";
+import {
   formatDevLabShellRebuildMessage,
   readDevLabShellCapabilities,
 } from "./lib/dev-lab-playwright-capabilities.mjs";
@@ -140,13 +144,66 @@ async function runNodeOnlyCliScenario({ scenarioId, category, runScenario }) {
  *   chromium: typeof import('playwright').chromium;
  *   scenarioId: string;
  *   category: string;
+ *   requireComMem2Infra?: boolean;
  *   runScenario: (deps: Readonly<{ chromium: typeof import('playwright').chromium; appBase: string; log: (msg: string) => void }>) => Promise<{ passed: boolean }>;
  * }>} options
  */
-async function runDualBrowserCliScenario({ chromium, scenarioId, category, runScenario }) {
+async function runDualBrowserCliScenario({ chromium, scenarioId, category, runScenario, requireComMem2Infra = false }) {
   /** @type {import('node:child_process').ChildProcess | null} */
   let staticServerProc = null;
   try {
+    if (requireComMem2Infra) {
+      log("COM-MEM-2 infra preflight (coordination :8787 + relay :7000)…");
+      const infra = await ensureComMem2InfraReady({ repoRoot, log });
+      if (!infra.ok) {
+        const scenarioResult = {
+          id: scenarioId,
+          name: scenarioId,
+          category,
+          passed: false,
+          durationMs: 0,
+          steps: [{
+            id: "com_mem_2_infra",
+            passed: false,
+            message: infra.error === "relay_boot_timeout"
+              ? "Local relay did not start on ws://localhost:7000 (Docker required for auto-spawn)."
+              : "Coordination worker did not become healthy on http://127.0.0.1:8787/health.",
+            durationMs: 0,
+            context: infra,
+          }],
+        };
+        const report = {
+          schema: "obscur.dev-lab.benchmark.v1",
+          version: "obscur.dev-lab.v1",
+          generatedAtUnixMs: Date.now(),
+          suite: `scenario:${scenarioId}`,
+          surface: "playwright",
+          baseUrl: appBase,
+          passed: false,
+          scenarios: [scenarioResult],
+          summary: {
+            total: 1,
+            passed: 0,
+            failed: 1,
+            failedScenarioIds: [scenarioId],
+            categories: { [category]: { total: 1, passed: 0 } },
+          },
+          shellHealth: null,
+          capture: null,
+        };
+        writeJson("dev-lab-benchmark-latest.json", report);
+        writeJson("dev-lab-benchmark-summary.json", summarizeDevLabBenchmark(report));
+        log(`${scenarioId} passed=false`);
+        logFailedScenarioSteps(scenarioResult);
+        process.exit(1);
+      }
+      if (infra.spawned) {
+        log("COM-MEM-2 infra ready (spawned coordination/relay for this run).");
+      } else {
+        log("COM-MEM-2 infra ready (external stack).");
+      }
+    }
+
     const connection = await resolveDevLabConnection({
       repoRoot,
       appBase,
@@ -188,6 +245,9 @@ async function runDualBrowserCliScenario({ chromium, scenarioId, category, runSc
     }
   } finally {
     stopStaticShellServer(staticServerProc);
+    if (requireComMem2Infra) {
+      stopComMem2InfraSpawned();
+    }
   }
 }
 
@@ -371,6 +431,7 @@ async function main() {
       chromium,
       scenarioId: "membership-join-leave",
       category: "network",
+      requireComMem2Infra: true,
       runScenario: runMembershipJoinLeaveScenario,
     });
     return;
@@ -381,6 +442,7 @@ async function main() {
       chromium,
       scenarioId: "membership-leave-rejoin-live",
       category: "network",
+      requireComMem2Infra: true,
       runScenario: runMembershipLeaveRejoinLiveScenario,
     });
     return;

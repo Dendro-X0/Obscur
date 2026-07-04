@@ -4,32 +4,43 @@ import type React from "react";
 import { useState } from "react";
 import Image from "next/image";
 import { MoreHorizontal, Plus } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@dweb/ui-kit";
 import { UserAvatar } from "@/app/components/user-avatar";
+import { LanguageSelector } from "@/app/components/language-selector";
 import { cn } from "@/app/lib/utils";
 import type { DesktopProfileMenuEntry } from "@/app/features/profiles/services/desktop-profile-switcher-view";
+import { resolveDesktopProfileAccountPresenceLabelKey } from "@/app/features/profiles/services/desktop-profile-account-presence-label";
+import { resolveDesktopProfileCardDisplay } from "@/app/features/profiles/services/desktop-profile-card-display";
 import { ProfilePickerShowOnStartupFooter } from "./profile-picker-show-on-startup-footer";
+import { canRemoveDesktopProfileEntry } from "@/app/features/profiles/services/can-remove-desktop-profile";
 
 type Props = Readonly<{
   entries: ReadonlyArray<DesktopProfileMenuEntry>;
-  onSelectProfile: (profileId: string) => void;
-  onOpenInNewWindow: (profileId: string) => void;
+  onLaunchProfile: (profileId: string) => void;
   onSwitchHere: (profileId: string) => void;
+  onRemoveProfile: (profileId: string) => void;
   onAddProfile: () => void;
   onAdvancedManagement: () => void;
 }>;
 
 export function ProfilePickerCardGrid(props: Props): React.JSX.Element {
+  const { t } = useTranslation();
+
   return (
-    <div className="flex min-h-full flex-col items-center px-4 py-8 md:py-12">
+    <div className="relative flex min-h-full flex-col items-center px-4 py-8 md:py-12">
+      <div className="absolute top-6 right-6 z-[160]">
+        <LanguageSelector variant="minimal" />
+      </div>
+
       <div className="flex flex-col items-center text-center">
         <Image src="/obscur-logo-light.svg" alt="Obscur" width={48} height={48} className="dark:hidden" />
         <Image src="/obscur-logo-dark.svg" alt="Obscur" width={48} height={48} className="hidden dark:block" />
         <h1 className="mt-6 text-2xl font-black tracking-tight text-zinc-900 dark:text-zinc-50 md:text-3xl">
-          Who&apos;s using Obscur?
+          {t("profiles.picker.title")}
         </h1>
         <p className="mt-3 max-w-xl text-sm leading-6 text-zinc-500 dark:text-zinc-400">
-          Each profile is an isolated desktop window. Open any account side by side — windows do not depend on one another.
+          {t("profiles.picker.subtitle")}
         </p>
       </div>
 
@@ -39,13 +50,10 @@ export function ProfilePickerCardGrid(props: Props): React.JSX.Element {
             key={entry.profileId}
             entry={entry}
             onPrimaryAction={() => {
-              if (entry.isCurrentWindow) {
-                props.onSelectProfile(entry.profileId);
-                return;
-              }
-              props.onOpenInNewWindow(entry.profileId);
+              props.onLaunchProfile(entry.profileId);
             }}
             onSwitchHere={() => props.onSwitchHere(entry.profileId)}
+            onRemoveProfile={() => props.onRemoveProfile(entry.profileId)}
           />
         ))}
         <button
@@ -54,7 +62,7 @@ export function ProfilePickerCardGrid(props: Props): React.JSX.Element {
           onClick={props.onAddProfile}
         >
           <div className="flex w-full items-center justify-between text-xs font-semibold text-zinc-500 dark:text-zinc-400">
-            Add
+            {t("profiles.picker.add")}
           </div>
           <div className="mt-6 flex flex-1 flex-col items-center justify-center">
             <div className="flex h-20 w-20 items-center justify-center rounded-full bg-zinc-200/80 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-300">
@@ -62,14 +70,14 @@ export function ProfilePickerCardGrid(props: Props): React.JSX.Element {
             </div>
           </div>
           <div className="mt-4 w-full truncate text-center text-sm font-medium text-zinc-600 dark:text-zinc-300">
-            New profile
+            {t("profiles.picker.newProfile")}
           </div>
         </button>
       </div>
 
       <div className="mt-8">
         <Button type="button" variant="outline" size="sm" onClick={props.onAdvancedManagement}>
-          Advanced profile management
+          {t("profiles.picker.advancedManagement")}
         </Button>
       </div>
 
@@ -84,10 +92,16 @@ type CardProps = Readonly<{
   entry: DesktopProfileMenuEntry;
   onPrimaryAction: () => void;
   onSwitchHere: () => void;
+  onRemoveProfile: () => void;
 }>;
 
 function ProfilePickerCard(props: CardProps): React.JSX.Element {
+  const { t } = useTranslation();
   const [menuOpen, setMenuOpen] = useState(false);
+  const display = resolveDesktopProfileCardDisplay(props.entry);
+  const presenceLabel = t(resolveDesktopProfileAccountPresenceLabelKey(props.entry));
+  const canRemove = canRemoveDesktopProfileEntry(props.entry);
+  const showMenu = true;
 
   return (
     <div className="relative w-[10.5rem]">
@@ -95,17 +109,14 @@ function ProfilePickerCard(props: CardProps): React.JSX.Element {
         type="button"
         className={cn(
           "flex w-full flex-col rounded-2xl border bg-white/70 p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:bg-zinc-900/50",
-          props.entry.isCurrentWindow
-            ? "border-violet-400/60 ring-1 ring-violet-400/30"
+          props.entry.shouldFocusExistingWindow
+            ? "border-violet-400 ring-2 ring-violet-400/40 shadow-violet-500/10"
             : "border-black/10 dark:border-white/10",
         )}
         onClick={props.onPrimaryAction}
       >
-        <div className="flex w-full items-center justify-between gap-2">
-          <div className="truncate text-xs font-semibold text-zinc-600 dark:text-zinc-300">
-            {props.entry.label}
-          </div>
-          {!props.entry.isCurrentWindow ? (
+        <div className="flex w-full items-center justify-end gap-2 min-h-[1.25rem]">
+          {showMenu ? (
             <span
               role="button"
               tabIndex={0}
@@ -126,18 +137,24 @@ function ProfilePickerCard(props: CardProps): React.JSX.Element {
             </span>
           ) : null}
         </div>
-        <div className="mt-6 flex flex-1 items-center justify-center">
-          <UserAvatar username={props.entry.avatarName} avatarUrl={props.entry.avatarUrl} sizePx={80} />
+        <div className="mt-2 flex flex-1 items-center justify-center">
+          <UserAvatar username={display.avatarName} avatarUrl={display.avatarUrl} sizePx={80} />
         </div>
-        <div className="mt-4 truncate text-center text-sm font-medium text-zinc-800 dark:text-zinc-100">
-          {props.entry.avatarName}
-        </div>
+        {display.showAccountIdentity && display.displayName ? (
+          <div className="mt-4 truncate text-center text-sm font-medium text-zinc-800 dark:text-zinc-100">
+            {display.displayName}
+          </div>
+        ) : (
+          <div className="mt-4 text-center text-sm font-medium text-zinc-500 dark:text-zinc-400">
+            {t("profiles.picker.profileSlot")}
+          </div>
+        )}
         <div className="mt-1 truncate text-center text-[11px] text-zinc-400 dark:text-zinc-500">
-          {props.entry.isCurrentWindow ? "This window" : props.entry.hasStoredIdentity ? "Saved account" : "Needs setup"}
+          {presenceLabel}
         </div>
       </button>
-      {menuOpen && !props.entry.isCurrentWindow ? (
-        <div className="absolute right-0 top-10 z-20 min-w-[10rem] rounded-xl border border-black/10 bg-white p-1 shadow-lg dark:border-white/10 dark:bg-zinc-900">
+      {menuOpen && showMenu ? (
+        <div className="absolute right-0 top-10 z-20 min-w-[11rem] rounded-xl border border-black/10 bg-white p-1 shadow-lg dark:border-white/10 dark:bg-zinc-900">
           <button
             type="button"
             className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800"
@@ -146,8 +163,20 @@ function ProfilePickerCard(props: CardProps): React.JSX.Element {
               props.onSwitchHere();
             }}
           >
-            Use in this window
+            {t("profiles.picker.useInThisWindow")}
           </button>
+          {canRemove ? (
+            <button
+              type="button"
+              className="block w-full rounded-lg px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
+              onClick={() => {
+                setMenuOpen(false);
+                props.onRemoveProfile();
+              }}
+            >
+              {t("profiles.picker.removeProfile")}
+            </button>
+          ) : null}
         </div>
       ) : null}
     </div>

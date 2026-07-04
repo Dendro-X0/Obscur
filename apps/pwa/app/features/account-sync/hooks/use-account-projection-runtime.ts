@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { RelayPoolLike } from "@/app/features/relays/lib/nostr-core-relay";
-import type { RelayReadinessState } from "@/app/features/relays/services/relay-recovery-policy";
+import type { RelayReadinessState } from "@/app/features/relays/services/relay-recovery-types";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { accountProjectionRuntime } from "../services/account-projection-runtime";
 import { isExperimentOfflineStubEnabled } from "@/app/features/runtime/experiment-shell-policy";

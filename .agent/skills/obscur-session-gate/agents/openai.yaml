@@ -1,0 +1,5 @@
+version: 1
+interface:
+  display_name: Obscur Session Gate
+  short_description: Pre-diff gate — quote handoff, honor PAUSED bands, name proof before code.
+  default_prompt: Run the Obscur session gate before any code edit. Quote the handoff atomic step and refuse diffs that conflict with PAUSED or CANCELLED bands.

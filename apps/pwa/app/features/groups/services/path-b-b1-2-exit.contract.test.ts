@@ -39,7 +39,7 @@ describe("path B B1-2 exit contract", () => {
   });
 
   it("use-sealed-community documents relay membership subtraction", () => {
-    const sealed = read("app/features/groups/hooks/use-sealed-community.ts");
+    const sealed = read("app/features/groups/hooks/use-sealed-community-legacy.ts");
     expect(sealed).toContain("Path B B1-2");
     expect(sealed).toContain("useGroupThreadRelayIngest");
     expect(sealed).not.toContain("roster_seed");

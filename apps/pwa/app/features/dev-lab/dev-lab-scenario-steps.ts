@@ -21,8 +21,7 @@ import {
   teardownAllDevLabPersonas,
 } from "./dev-lab-persona";
 import { evaluateDevLabTrustFixturesScenario } from "./dev-lab-trust-fixtures";
-import { BUNDLE_FIN_COLD } from "@/app/features/dm-kernel/dm-kernel-trust-assessment-port";
-import { isDmKernelAuthority } from "@/app/features/dm-kernel/dm-kernel-policy";
+import { evaluateDevLabTrustMatrixScenario } from "./dev-lab-trust-matrix";
 import { derivePublicKeyHex } from "@dweb/crypto/derive-public-key-hex";
 import {
   evaluateDmContinuityDigestGate,
@@ -1170,6 +1169,43 @@ export const runTrustFixturesSteps = async (): Promise<ReadonlyArray<DevLabScena
   }
 };
 
+/** TRUST-1..6 + SPAM-1 matrix rows — scripted assessment port only (no stranger spam). */
+export const runTrustMatrixSteps = async (): Promise<ReadonlyArray<DevLabScenarioStepResult>> => {
+  const startedAt = Date.now();
+  const zombie = createDevLabZombiePersona({ label: "trust-matrix" });
+
+  try {
+    const scenario = evaluateDevLabTrustMatrixScenario(zombie.publicKeyHex);
+    const results: DevLabScenarioStepResult[] = [
+      step(
+        "trust_matrix_aggregate",
+        scenario.ok,
+        scenario.ok
+          ? `TRUST matrix passed (${scenario.rows.length} rows).`
+          : `TRUST matrix failed: ${scenario.rows.filter((row) => !row.passed).map((row) => row.matrixRowId).join(", ")}`,
+        startedAt,
+        { peerPublicKeyHex: scenario.peerPublicKeyHex, rows: scenario.rows },
+      ),
+    ];
+
+    for (const matrixRow of scenario.rows) {
+      results.push(step(
+        matrixRow.matrixRowId,
+        matrixRow.passed,
+        matrixRow.passed
+          ? `${matrixRow.matrixRowId}: tier=${matrixRow.assessment.tier} bundle=${matrixRow.assessment.bundleId ?? "none"}`
+          : matrixRow.issues.join("; "),
+        startedAt,
+        { assessment: matrixRow.assessment },
+      ));
+    }
+
+    return results;
+  } finally {
+    teardownAllDevLabPersonas();
+  }
+};
+
 const waitForDevLabMessagingReady = async (timeoutMs = 90_000): Promise<boolean> => {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -1180,167 +1216,6 @@ const waitForDevLabMessagingReady = async (timeoutMs = 90_000): Promise<boolean>
     await delay(500);
   }
   return false;
-};
-
-const waitForPeerMessage = async (
-  peerPublicKeyHex: string,
-  text: string,
-  timeoutMs = 45_000,
-): Promise<boolean> => {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const messages = window.obscurDevLab?.getMessagesForPeer?.(peerPublicKeyHex) ?? [];
-    if (messages.some((message) => message.content === text)) {
-      return true;
-    }
-    await delay(1000);
-  }
-  return false;
-};
-
-/**
- * TRUST-1 in-app — zombie stranger sends cold financial DM to current profile (Tester1).
- * Sends via relay using an in-memory zombie key while Tester1 stays unlocked (no slot swap).
- */
-export const runTrustColdDmBannerSteps = async (): Promise<ReadonlyArray<DevLabScenarioStepResult>> => {
-  const startedAt = Date.now();
-  const results: DevLabScenarioStepResult[] = [];
-  const lab = window.obscurDevLab;
-  const runId = Date.now();
-  const messageNeedle = `dev-lab-trust-cold-${runId}`;
-  const financialText = `${messageNeedle} send $250 wire transfer today`;
-  let zombiePublicKeyHex = "";
-
-  if (!lab?.sendSyntheticDmFromZombiePersona || !lab.getMessagesForPeer || !lab.getMyPublicKeyHex || !lab.createZombiePersona) {
-    return [step("trust_cold_bridge", false, "Dev Lab trust cold-DM bridge not ready.", startedAt)];
-  }
-
-  const recipientPublicKeyHex = lab.getMyPublicKeyHex() ?? "";
-  if (!recipientPublicKeyHex) {
-    return [step("trust_cold_recipient", false, "Recipient public key unavailable — unlock Tester1 first.", startedAt)];
-  }
-
-  const messagingReady = await waitForDevLabMessagingReady(30_000);
-  results.push(step(
-    "trust_cold_messaging",
-    messagingReady,
-    messagingReady ? "Tester1 messaging bridge ready." : "Messaging bridge not ready within 30s.",
-    startedAt,
-  ));
-  if (!messagingReady) {
-    return results;
-  }
-
-  results.push(step(
-    "trust_cold_recipient",
-    true,
-    `Recipient profile ready (${recipientPublicKeyHex.slice(0, 8)}…).`,
-    startedAt,
-    { recipientPublicKeyHex },
-  ));
-
-  try {
-    const zombie = lab.createZombiePersona({ label: "trust-cold-sender" });
-    zombiePublicKeyHex = zombie.publicKeyHex;
-
-    const sendResult = await lab.sendSyntheticDmFromZombiePersona({
-      personaId: zombie.id,
-      peerPublicKeyHex: recipientPublicKeyHex,
-      text: financialText,
-    });
-    const sendPassed = sendResult.success !== false && sendResult.deliveryStatus !== "failed";
-    results.push(step(
-      "trust_cold_zombie_send",
-      sendPassed,
-      sendPassed
-        ? "Zombie stranger sent cold financial DM."
-        : `Zombie send failed: ${sendResult.error ?? sendResult.deliveryStatus ?? "unknown"}`,
-      startedAt,
-      { sendResult, zombiePublicKeyHex, financialText },
-    ));
-    if (!sendPassed) {
-      return results;
-    }
-
-    await delay(2000);
-
-    const receivePassed = await waitForPeerMessage(zombiePublicKeyHex, financialText);
-    results.push(step(
-      "trust_cold_recipient_receive",
-      receivePassed,
-      receivePassed
-        ? "Tester1 received inbound stranger DM."
-        : "Tester1 did not observe inbound DM within 45s.",
-      startedAt,
-      { zombiePublicKeyHex },
-    ));
-    if (!receivePassed) {
-      return results;
-    }
-
-    lab.clearDmTrustThreadForPeer?.({ peerPublicKeyHex: zombiePublicKeyHex });
-
-    const openChat = await lab.openDmChatContainingText?.(messageNeedle) ?? { opened: false, pathname: "" };
-    results.push(step(
-      "trust_cold_open_chat",
-      openChat.opened,
-      openChat.opened
-        ? `Opened stranger DM thread (${openChat.pathname}).`
-        : "Failed to open stranger DM thread from sidebar.",
-      startedAt,
-      { openChat },
-    ));
-
-    let bannerProbe = lab.probeDmTrustBannerDom?.() ?? null;
-    const bannerDeadline = Date.now() + 15_000;
-    while (Date.now() < bannerDeadline) {
-      bannerProbe = lab.probeDmTrustBannerDom?.() ?? null;
-      if (bannerProbe?.visible && (bannerProbe.tier === "elevated" || bannerProbe.tier === "critical")) {
-        break;
-      }
-      await delay(500);
-    }
-
-    const assessmentProbe = lab.probeDmTrustAssessmentForPeer?.({
-      peerPublicKeyHex: zombiePublicKeyHex,
-      isPeerAccepted: false,
-    }) ?? null;
-
-    const domRequired = isDmKernelAuthority();
-    const bannerDomPassed = bannerProbe?.visible === true
-      && (bannerProbe.tier === "elevated" || bannerProbe.tier === "critical");
-    const assessmentPassed = assessmentProbe?.showBanner === true
-      && assessmentProbe.assessment?.bundleId === BUNDLE_FIN_COLD;
-    const bannerPassed = domRequired ? bannerDomPassed : assessmentPassed;
-
-    results.push(step(
-      "trust_cold_banner_dom",
-      bannerPassed,
-      domRequired
-        ? (bannerDomPassed
-          ? `Trust banner visible (tier=${bannerProbe?.tier}).`
-          : `Trust banner missing: ${JSON.stringify(bannerProbe)}`)
-        : (assessmentPassed
-          ? "Non-native shell: banner DOM skipped; assessment probe passed."
-          : `Assessment probe failed: ${JSON.stringify(assessmentProbe)}`),
-      startedAt,
-      { bannerProbe, assessmentProbe, domRequired },
-    ));
-
-    results.push(step(
-      "trust_cold_assessment",
-      assessmentPassed,
-      assessmentPassed
-        ? `Assessment shows ${BUNDLE_FIN_COLD} (tier=${assessmentProbe?.assessment?.tier}).`
-        : `Expected ${BUNDLE_FIN_COLD}: ${JSON.stringify(assessmentProbe)}`,
-      startedAt,
-      { assessmentProbe },
-    ));
-  } finally {
-    teardownAllDevLabPersonas();
-  }
-
-  return results;
 };
 
 export const runAuth4ScopeProbeSteps = async (): Promise<ReadonlyArray<DevLabScenarioStepResult>> => {

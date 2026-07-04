@@ -7,10 +7,10 @@ import { Button, toast } from "@dweb/ui-kit";
 import { AlertTriangle, ChevronDown, Lock, LogOut, RefreshCw, Settings2, UserPlus } from "lucide-react";
 import { UserAvatar } from "@/app/components/user-avatar";
 import { cn } from "@/app/lib/utils";
+import { useAppLockConfirm } from "@/app/features/auth/hooks/use-app-lock-confirm";
+import { AppLockConfirmDialog } from "@/app/features/auth/components/app-lock-confirm-dialog";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
-import { getAuthTokenStorageKey } from "@/app/features/auth/utils/auth-storage-keys";
-import { endNativeDeviceSignInBestEffort } from "@/app/features/auth/services/native-device-session-lifecycle";
-import { clearAuthSessionPersistence } from "@/app/features/auth/utils/clear-auth-session-persistence";
+import { useAuthKernelSurfaceActions } from "@/app/features/auth-kernel/hooks/use-auth-kernel-surface-actions";
 import { useTauri } from "@/app/features/desktop/hooks/use-tauri";
 import { useProfile } from "@/app/features/profile/hooks/use-profile";
 import { useDesktopProfileIsolationSnapshot } from "@/app/features/profiles/services/desktop-profile-runtime";
@@ -22,6 +22,7 @@ import {
   type DesktopProfilePreview,
 } from "@/app/features/profiles/services/desktop-profile-switcher-view";
 import { finalizeProfileWindowLogout } from "@/app/features/profiles/services/profile-session-lifecycle";
+import { isMainWindowLabel } from "@/app/features/profiles/services/desktop-profile-window-label";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 
 type Props = Readonly<{
@@ -31,6 +32,13 @@ type Props = Readonly<{
 export function TitleBarProfileSwitcher({ title }: Props): React.JSX.Element | null {
   const router = useRouter();
   const identity = useIdentity();
+  const authKernel = useAuthKernelSurfaceActions();
+  const {
+    isLockConfirmOpen,
+    openLockConfirm,
+    closeLockConfirm,
+    confirmLock,
+  } = useAppLockConfirm();
   const profile = useProfile();
   const snapshot = useDesktopProfileIsolationSnapshot();
   const { isDesktop, api } = useTauri();
@@ -46,7 +54,12 @@ export function TitleBarProfileSwitcher({ title }: Props): React.JSX.Element | n
 
   useEffect(() => {
     let cancelled = false;
-    void loadDesktopProfilePreviewMap(snapshot.profiles.map((profileSummary) => profileSummary.profileId))
+    void loadDesktopProfilePreviewMap(
+      snapshot.profiles.map((profileSummary) => ({
+        profileId: profileSummary.profileId,
+        label: profileSummary.label,
+      })),
+    )
       .then((previews) => {
         if (!cancelled) {
           setPreviewByProfileId(previews);
@@ -109,18 +122,13 @@ export function TitleBarProfileSwitcher({ title }: Props): React.JSX.Element | n
   const shouldRenderProfileChip = isUnlocked && Boolean(currentPublicKeyHex);
 
   const handleLock = (): void => {
-    localStorage.removeItem(getAuthTokenStorageKey(snapshot.currentWindow.profileId));
-    identity.lockIdentity();
     setOpen(false);
-    toast.success("Session locked. Stay signed in will restore after restart.");
-    router.replace("/");
+    openLockConfirm();
   };
 
   const handleLogout = async (): Promise<void> => {
     const profileId = snapshot.currentWindow.profileId;
-    clearAuthSessionPersistence({ profileId });
-    await endNativeDeviceSignInBestEffort();
-    identity.lockIdentity();
+    await authKernel.signOutBoundProfileWindow(profileId);
     setOpen(false);
     toast.success("Signed out. Device session cleared — sign in manually after restart.");
     await finalizeProfileWindowLogout({
@@ -131,22 +139,28 @@ export function TitleBarProfileSwitcher({ title }: Props): React.JSX.Element | n
 
   const handleLogoutAndClose = async (): Promise<void> => {
     const profileId = snapshot.currentWindow.profileId;
-    clearAuthSessionPersistence({ profileId });
-    await endNativeDeviceSignInBestEffort();
-    identity.lockIdentity();
+    const mainWindow = isMainWindowLabel(snapshot.currentWindow.windowLabel);
+    await authKernel.signOutBoundProfileWindow(profileId);
     setOpen(false);
-    toast.success("Signed out. Device session cleared.");
+    // Do not hard-reload — that leaves a signed-out shell in the same window.
     await finalizeProfileWindowLogout({
       profileId,
-      hardReload: snapshot.currentWindow.windowLabel === "main",
+      hardReload: false,
     });
-    if (isDesktop && snapshot.currentWindow.windowLabel !== "main") {
+    if (isDesktop) {
       try {
         await api.window.close();
+        toast.success(
+          mainWindow
+            ? "Signed out. Window hidden — reopen from the tray or taskbar."
+            : "Signed out. This profile window was closed.",
+        );
+        return;
       } catch {
-        router.replace("/");
+        router.replace("/profiles");
       }
     }
+    toast.success("Signed out.");
   };
 
   if (!shouldRenderProfileChip) {
@@ -200,7 +214,7 @@ export function TitleBarProfileSwitcher({ title }: Props): React.JSX.Element | n
               </span>
             </div>
             <p className="mt-2 text-[11px] text-zinc-500 dark:text-zinc-400">
-              One window equals one profile. Open another profile in a new window for side-by-side testing.
+              One window equals one profile. Every window has the same sign-out and close controls.
             </p>
           </div>
 
@@ -253,7 +267,7 @@ export function TitleBarProfileSwitcher({ title }: Props): React.JSX.Element | n
                 <LogOut className="h-3.5 w-3.5" />
                 Log Out
               </Button>
-              {snapshot.currentWindow.windowLabel !== "main" ? (
+              {isDesktop ? (
                 <Button type="button" variant="outline" onClick={handleLogoutAndClose}>
                   <LogOut className="h-3.5 w-3.5" />
                   Log Out & Close Window
@@ -263,6 +277,13 @@ export function TitleBarProfileSwitcher({ title }: Props): React.JSX.Element | n
           </div>
         </div>
       ) : null}
+      <AppLockConfirmDialog
+        isOpen={isLockConfirmOpen}
+        onClose={closeLockConfirm}
+        onConfirm={() => {
+          void confirmLock();
+        }}
+      />
     </div>
   );
 }

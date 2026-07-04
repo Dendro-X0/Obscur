@@ -2,6 +2,10 @@
 
 Use this checklist before and after changes to identity, auth, profiles, relays, requests, messaging, or account sync.
 
+**Run first:** [obscur-session-gate](../skills/obscur-session-gate/SKILL.md) · [plan-execution-checklist.md](./plan-execution-checklist.md) — handoff atomic step, PAUSED/CANCELLED bands, proof layers before "done."
+
+**Parallel paths:** [obscur-subtraction-change](../skills/obscur-subtraction-change/SKILL.md) — retire overlapping owners before adapters.
+
 ## Before Editing
 
 1. Name the canonical owner for the flow.

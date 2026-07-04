@@ -43,6 +43,11 @@ describe("relay-publish-user-copy", () => {
     })).toMatch(/No writable relays/i);
 
     expect(getRelayPublishFailureUserMessage({
+      reasonCode: "no_writable_relays",
+      communityRelayUrl: "ws://localhost:7000",
+    })).toMatch(/localhost:7000/i);
+
+    expect(getRelayPublishFailureUserMessage({
       reasonCode: "quorum_not_met",
       successCount: 1,
       totalRelays: 3,

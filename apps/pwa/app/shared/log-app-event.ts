@@ -481,6 +481,19 @@ const CROSS_DEVICE_DIGEST_EVENT_CONFIG: Readonly<Record<string, ReadonlyArray<st
     "senderPubkeySuffix",
     "knownGroupHintSample",
   ],
+  "groups.coordination_room_key_resolve": [
+    "communityId",
+    "groupId",
+    "source",
+    "owner",
+    "error",
+  ],
+  "groups.coordination_room_key_materialized": [
+    "communityId",
+    "groupId",
+    "wrapSeq",
+    "owner",
+  ],
   "messaging.chat_state_replaced": [
     "publicKeySuffix",
     "profileId",

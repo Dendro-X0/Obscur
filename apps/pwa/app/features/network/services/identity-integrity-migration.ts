@@ -1,6 +1,7 @@
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { IntegrityMigrationReport, PersistedChatState, PersistedConnectionRequest, PersistedDmConversation } from "@/app/features/messaging/types";
-import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store";
+import { messagingChatStateMessagePort } from "@/app/features/messaging/services/messaging-chat-state-message-port";
+import { messagingChatStateDurabilityPort } from "@/app/features/messaging/services/messaging-chat-state-durability-port";
 import { normalizePublicKeyHex, normalizePublicKeyHexList } from "@/app/features/profile/utils/normalize-public-key-hex";
 import { incrementAbuseMetric } from "@/app/shared/abuse-observability";
 import { toDmConversationIdUnsafe } from "@/app/features/messaging/utils/dm-conversation-id";
@@ -162,7 +163,7 @@ export const runIdentityIntegrityMigrationV085 = async (publicKeyHex: PublicKeyH
   let dedupedConnections = 0;
   let remappedConversationRefs = 0;
 
-  const loadedState = chatStateStoreService.load(publicKeyHex);
+  const loadedState = messagingChatStateMessagePort.load(publicKeyHex);
   if (loadedState) {
     const { requests: nextRequests, dedupedCount: requestDedupedCount } = dedupeConnectionRequests(loadedState.connectionRequests ?? []);
     dedupedConnectionRequests += requestDedupedCount;
@@ -189,8 +190,8 @@ export const runIdentityIntegrityMigrationV085 = async (publicKeyHex: PublicKeyH
       hiddenChatIds: hiddenRemap.remapped
     };
 
-    chatStateStoreService.update(publicKeyHex, () => nextState);
-    await chatStateStoreService.flush(publicKeyHex);
+    messagingChatStateMessagePort.update(publicKeyHex, () => nextState);
+    await messagingChatStateDurabilityPort.flush(publicKeyHex);
     remappedConversationRefs += await remapMessageConversationIds(remap);
   }
 

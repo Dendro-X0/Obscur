@@ -1,5 +1,8 @@
 import type { IdentityRecord } from "@dweb/core/identity-record";
-import { readActiveDesktopProfileId } from "@/app/features/profiles/services/read-active-desktop-profile-id";
+import { resolveIdentityScopeProfileId } from "@/app/features/profiles/services/read-active-desktop-profile-id";
+import {
+  resolveStoredIdentityRecord,
+} from "@/app/features/profiles/services/data-root-identity-repair";
 import { getIdentityDbKey } from "./identity-db-key";
 import { identityStoreName } from "./identity-store-name";
 import { openIdentityDb } from "./open-identity-db";
@@ -29,10 +32,10 @@ const readIdentityRecordFromMemoryDb = async (identityDbKey: string): Promise<Id
 };
 
 export const getStoredIdentity = async (): Promise<GetStoredIdentityResult> => {
-  const profileId = readActiveDesktopProfileId();
+  const profileId = resolveIdentityScopeProfileId();
   const identityDbKey = getIdentityDbKey();
 
-  const durableRecord = readIdentityRecordFromLocalStorage(profileId);
+  const durableRecord = await resolveStoredIdentityRecord({ profileId });
   if (durableRecord) {
     return { record: durableRecord };
   }
@@ -40,7 +43,11 @@ export const getStoredIdentity = async (): Promise<GetStoredIdentityResult> => {
   const sessionRecord = await readIdentityRecordFromMemoryDb(identityDbKey);
   if (sessionRecord) {
     writeIdentityRecordToLocalStorage({ profileId, record: sessionRecord });
-    return { record: sessionRecord };
+    const repairedSessionRecord = await resolveStoredIdentityRecord({
+      profileId,
+      current: sessionRecord,
+    });
+    return { record: repairedSessionRecord ?? sessionRecord };
   }
 
   return { record: undefined };

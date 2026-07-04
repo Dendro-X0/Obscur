@@ -5,31 +5,31 @@ export type GroupManagementTabId = "general" | "members" | "governance" | "setti
 
 export const GROUP_MANAGEMENT_TABS: ReadonlyArray<{
     id: GroupManagementTabId;
-    label: string;
+    labelKey: string;
     icon: LucideIcon;
 }> = [
-    { id: "general", label: "General", icon: SlidersHorizontal },
-    { id: "members", label: "Participants", icon: Users },
-    { id: "governance", label: "Governance", icon: Scale },
-    { id: "settings", label: "Safety", icon: Shield },
+    { id: "general", labelKey: "groups.management.tabs.general", icon: SlidersHorizontal },
+    { id: "members", labelKey: "groups.management.tabs.members", icon: Users },
+    { id: "governance", labelKey: "groups.management.tabs.governance", icon: Scale },
+    { id: "settings", labelKey: "groups.management.tabs.settings", icon: Shield },
 ] as const;
 
-export const GROUP_MANAGEMENT_TAB_COPY: Record<GroupManagementTabId, Readonly<{ title: string; description: string }>> = {
+export const GROUP_MANAGEMENT_TAB_COPY: Record<GroupManagementTabId, Readonly<{ titleKey: string; descriptionKey: string }>> = {
     general: {
-        title: "General",
-        description: "Community name, avatar, description, and discovery settings.",
+        titleKey: "groups.management.tabCopy.general.title",
+        descriptionKey: "groups.management.tabCopy.general.description",
     },
     members: {
-        title: "Participants",
-        description: "Active members can chat. Left or expelled members stay listed as history until they rejoin or post in the room again.",
+        titleKey: "groups.management.tabCopy.members.title",
+        descriptionKey: "groups.management.tabCopy.members.description",
     },
     governance: {
-        title: "Governance",
-        description: "Open votes on renames and member removals.",
+        titleKey: "groups.management.tabCopy.governance.title",
+        descriptionKey: "groups.management.tabCopy.governance.description",
     },
     settings: {
-        title: "Safety",
-        description: "Notifications, backup, keys, and leaving the community.",
+        titleKey: "groups.management.tabCopy.settings.title",
+        descriptionKey: "groups.management.tabCopy.settings.description",
     },
 };
 

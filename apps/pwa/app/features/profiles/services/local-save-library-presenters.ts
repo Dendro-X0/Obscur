@@ -27,14 +27,14 @@ export const formatPublicKeyAbbreviation = (publicKeyHex: string): string => (
   `${publicKeyHex.slice(0, 8)}…${publicKeyHex.slice(-4)}`
 );
 
-export const resolveLocalSaveTypeLabel = (entry: LocalSaveLibraryEntry): string => {
+export const resolveLocalSaveTypeLabelKey = (entry: LocalSaveLibraryEntry): string => {
   if (entry.payloadKind === "portable_account_bundle") {
-    return "Portable account";
+    return "profiles.portability.localSave.type.portableAccount";
   }
   if (entry.payloadKind === "workspace_bundle") {
-    return "Workspace bundle";
+    return "profiles.portability.localSave.type.workspaceBundle";
   }
-  return "Unified account";
+  return "profiles.portability.localSave.type.unifiedAccount";
 };
 
 const labelFromFileName = (fileName: string): string | null => {

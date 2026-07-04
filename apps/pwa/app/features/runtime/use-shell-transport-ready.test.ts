@@ -19,6 +19,28 @@ const supervisorMocks = vi.hoisted(() => {
   };
 });
 
+const identityMocks = vi.hoisted(() => ({
+  status: "locked" as "locked" | "unlocked",
+}));
+
+const policyMocks = vi.hoisted(() => ({
+  enabled: false,
+}));
+
+vi.mock("@/app/features/auth/hooks/use-identity", () => ({
+  getIdentitySnapshot: () => ({ status: identityMocks.status }),
+  subscribeIdentityStore: (listener: () => void) => {
+    const handler = (): void => listener();
+    return () => {
+      void handler;
+    };
+  },
+}));
+
+vi.mock("./runtime-transport-owner-policy", () => ({
+  isRuntimeTransportOwnerEnabled: () => policyMocks.enabled,
+}));
+
 vi.mock("./services/window-runtime-supervisor", () => ({
   windowRuntimeSupervisor: {
     subscribe: supervisorMocks.subscribe,
@@ -27,10 +49,19 @@ vi.mock("./services/window-runtime-supervisor", () => ({
 }));
 
 describe("useShellTransportReady", () => {
-  it("returns true only for ready or degraded shell phases", () => {
+  it("returns true for activating_runtime, ready, or degraded shell phases", () => {
+    identityMocks.status = "locked";
+    policyMocks.enabled = false;
     supervisorMocks.setPhase("auth_required");
     const { result, rerender } = renderHook(() => useShellTransportReady());
     expect(result.current).toBe(false);
+
+    act(() => {
+      supervisorMocks.setPhase("activating_runtime");
+    });
+    policyMocks.enabled = true;
+    rerender();
+    expect(result.current).toBe(true);
 
     act(() => {
       supervisorMocks.setPhase("ready");
@@ -45,9 +76,17 @@ describe("useShellTransportReady", () => {
     expect(result.current).toBe(true);
 
     act(() => {
-      supervisorMocks.setPhase("activating_runtime");
+      supervisorMocks.setPhase("unlocking");
     });
+    policyMocks.enabled = false;
     rerender();
     expect(result.current).toBe(false);
+  });
+
+  it("returns true when runtime transport owner policy enables unlocked shell", () => {
+    policyMocks.enabled = true;
+    supervisorMocks.setPhase("auth_required");
+    const { result } = renderHook(() => useShellTransportReady());
+    expect(result.current).toBe(true);
   });
 });

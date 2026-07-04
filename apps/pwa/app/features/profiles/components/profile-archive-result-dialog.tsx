@@ -1,6 +1,7 @@
 "use client";
 
 import type React from "react";
+import { useTranslation } from "react-i18next";
 import {
   Button,
   Dialog,
@@ -24,13 +25,14 @@ type Props = Readonly<{
 }>;
 
 export function ProfileArchiveResultDialog(props: Props): React.JSX.Element | null {
+  const { t } = useTranslation();
+
   if (!props.isOpen) {
     return null;
   }
 
-  const title = props.title ?? "Profile data exported";
-  const description = props.description
-    ?? "A workspace archive was saved before local data was removed. Use the actions below to open or copy paths.";
+  const title = props.title ?? t("profiles.portability.archive.profileDataExported");
+  const description = props.description ?? t("profiles.portability.archive.defaultDescription");
 
   return (
     <Dialog open onOpenChange={(open) => { if (!open) props.onClose(); }}>
@@ -46,7 +48,7 @@ export function ProfileArchiveResultDialog(props: Props): React.JSX.Element | nu
         />
         <DialogFooter>
           <Button type="button" onClick={props.onClose}>
-            Done
+            {t("profiles.portability.archive.done")}
           </Button>
         </DialogFooter>
       </DialogContent>

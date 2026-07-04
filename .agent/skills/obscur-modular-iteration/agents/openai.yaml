@@ -1,0 +1,5 @@
+version: 1
+interface:
+  display_name: Obscur Modular Iteration
+  short_description: Explore, spec, simulate, then implement — silo paused modules; integration study before re-merge.
+  default_prompt: Apply Obscur modular iteration. Explore relevant components, write or follow a spec, mentally simulate integration risks, then implement the smallest slice with named proof.

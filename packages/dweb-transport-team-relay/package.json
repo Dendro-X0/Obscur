@@ -1,6 +1,6 @@
 {
   "name": "@dweb/transport-team-relay",
-  "version": "1.9.3",
+  "version": "1.9.10",
   "private": true,
   "type": "module",
   "description": "Community-scoped relay transport — publish/subscribe on the operator relay URL only.",

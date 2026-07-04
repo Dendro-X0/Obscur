@@ -2,7 +2,7 @@
 
 import type React from "react";
 import { LazyGlobalDialogManager } from "@/app/features/messaging/components/lazy-global-dialog-manager";
-import { GroupProvider } from "@/app/features/groups/providers/group-provider";
+import { LegacyGroupProvider } from "@/app/features/groups/providers/group-provider-port";
 import { MessagingProvider } from "@/app/features/messaging/providers/messaging-provider";
 import { RuntimeMessagingTransportOwnerProvider } from "@/app/features/messaging/providers/runtime-messaging-transport-owner-provider";
 import { NetworkProvider } from "@/app/features/network/providers/network-provider";
@@ -11,11 +11,11 @@ import { usePathname } from "next/navigation";
 
 function NetworkDomainStack(props: Readonly<{ children: React.ReactNode }>): React.JSX.Element {
   return (
-    <GroupProvider>
+    <LegacyGroupProvider>
       <NetworkProvider>
         {props.children}
       </NetworkProvider>
-    </GroupProvider>
+    </LegacyGroupProvider>
   );
 }
 

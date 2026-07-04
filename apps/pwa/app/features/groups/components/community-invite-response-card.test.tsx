@@ -13,7 +13,7 @@ describe("CommunityInviteResponseCard", () => {
     render(
       <CommunityInviteResponseCard
         response={{ type: "community-invite-response", status: "accepted", groupId: "g1" }}
-        isOutgoing={false}
+        viewerRole="invitee"
         compact
       />,
     );

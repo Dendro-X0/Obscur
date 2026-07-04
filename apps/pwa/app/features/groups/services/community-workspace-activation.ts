@@ -381,7 +381,19 @@ export const summarizeWorkspaceActivation = (params: Readonly<{
   context: "create" | "join";
   displayName?: string;
 }>): WorkspaceActivationSummary => {
-  const relayOk = params.relay.status === "synced" || params.relay.status === "skipped";
+  const relayOk = (() => {
+    if (params.relay.status === "skipped") {
+      return true;
+    }
+    if (params.relay.status !== "synced") {
+      return false;
+    }
+    // R4 T-2: synced without publish targets is not activation success.
+    if (params.relay.publishTargets.length === 0) {
+      return false;
+    }
+    return true;
+  })();
   const coordinationOk = params.coordination.status === "synced" || params.coordination.status === "skipped";
 
   if (relayOk && coordinationOk) {

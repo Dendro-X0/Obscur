@@ -8,6 +8,7 @@ commands.allow = [
     "window_close",
     "window_show_and_focus",
     "window_reveal_current",
+    "desktop_agent_focus_window",
     "window_is_maximized",
     "window_set_fullscreen",
     "window_is_fullscreen",
@@ -24,8 +25,20 @@ commands.allow = [
     "desktop_list_profile_workspace_archives",
     "desktop_open_profile_archives_folder",
     "desktop_get_profile_archives_folder_path",
+    "desktop_find_active_session_lease",
+    "desktop_list_active_session_leases",
+    "desktop_claim_active_session_lease",
+    "desktop_touch_active_session_lease",
+    "desktop_release_active_session_lease",
     "desktop_get_obscur_data_root_config",
     "desktop_set_obscur_data_root",
+    "desktop_prepare_data_root_change",
+    "desktop_plan_obscur_data_root_change",
+    "desktop_preflight_obscur_data_root_migration",
+    "desktop_probe_obscur_data_root",
+    "desktop_reconnect_obscur_data_root",
+    "desktop_import_obscur_data_from_default",
+    "desktop_harvest_profile_web_storage",
     "desktop_write_workspace_bundle",
     "desktop_write_data_root_export",
     "desktop_reveal_path_in_file_manager",
@@ -92,6 +105,8 @@ commands.allow = [
     "logout_native",
     "init_native_session",
     "clear_native_session",
+    "desktop_storage_at_rest_unlock",
+    "desktop_storage_at_rest_lock",
     "encrypt_nip04",
     "decrypt_nip04",
     "encrypt_nip44",
@@ -99,7 +114,12 @@ commands.allow = [
     "encrypt_gift_wrap",
     "decrypt_gift_wrap",
     "get_session_nsec",
-    "get_session_status"
+    "get_session_status",
+    "desktop_force_session_restore",
+    "auth_boot_snapshot",
+    "auth_login_assist_read",
+    "auth_login_assist_write",
+    "auth_login_assist_delete"
 ]
 
 [[permission]]
@@ -128,7 +148,9 @@ commands.allow = [
     "db_get_relay_checkpoint",
     "db_get_relay_checkpoints",
     "db_search_messages",
-    "db_wipe_profile_local_data"
+    "db_wipe_profile_local_data",
+    "engine_invoke",
+    "engine_invoke_transport_publish_relay_event"
 ]
 
 [[permission]]

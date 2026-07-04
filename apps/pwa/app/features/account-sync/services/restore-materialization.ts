@@ -4,7 +4,7 @@ import { messagingDB } from "@dweb/storage/indexed-db";
 import { PrivacySettingsService } from "@/app/features/settings/services/privacy-settings-service";
 import { relayListInternals } from "@/app/features/relays/hooks/use-relay-list";
 import { logAppEvent } from "@/app/shared/log-app-event";
-import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store";
+import { accountSyncChatStatePort } from "./account-sync-chat-state-port";
 import { messagePersistenceService } from "@/app/features/messaging/services/message-persistence-service";
 import type { PersistedChatState } from "@/app/features/messaging/types";
 import { messagingClientOperations } from "@/app/features/messaging/services/messaging-client-operations";
@@ -141,7 +141,7 @@ export const applyNonV1RestoreMaterialization = async (params: Readonly<{
         restoredChatState,
         params.publicKeyHex,
       );
-      chatStateStoreService.replace(params.publicKeyHex, restoredChatState, {
+      accountSyncChatStatePort.replace(params.publicKeyHex, restoredChatState, {
         emitMutationSignal: false,
         profileId: params.profileId,
       });
@@ -163,7 +163,7 @@ export const applyNonV1RestoreMaterialization = async (params: Readonly<{
         Array.from(durableDeleteIds),
       );
       const storedChatStateDiagnostics = params.summarizeChatStateDiagnostics(
-        chatStateStoreService.load(params.publicKeyHex),
+        accountSyncChatStatePort.load(params.publicKeyHex),
         params.publicKeyHex,
       );
       params.emitRestoreHistoryRegression({
@@ -181,6 +181,7 @@ export const applyNonV1RestoreMaterialization = async (params: Readonly<{
           maxConcurrentFetches: 3,
         });
       }
+
     }
 
     logAppEvent({

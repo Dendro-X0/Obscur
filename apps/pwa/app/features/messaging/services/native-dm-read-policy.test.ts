@@ -4,10 +4,15 @@ vi.mock("@/app/features/runtime/native-persistence-policy", () => ({
   requiresSqlitePersistence: vi.fn(() => false),
 }));
 
+vi.mock("@/app/features/dm-kernel/dm-kernel-policy", () => ({
+  isDmKernelAuthority: vi.fn(() => false),
+}));
+
 import { requiresSqlitePersistence } from "@/app/features/runtime/native-persistence-policy";
+import { isDmKernelAuthority } from "@/app/features/dm-kernel/dm-kernel-policy";
 import { isNativeDmSqliteReadOwner } from "./native-dm-read-policy";
-import { resolveHydrationDmReadMessages, resolveLegacyHydrationAuthority } from "./dm-read-authority-contract";
-import { assembleDmHydrateThreadReadModel } from "./dm-conversation-hydrate-read-model";
+import { resolveHydrationDmReadMessages, resolveLegacyHydrationAuthority } from "@/app/features/messaging/services/dm-read-authority-port";
+import { assembleDmHydrateThreadReadModel } from "@/app/features/messaging/services/thread-history/dm-thread-history-legacy-port";
 import {
   buildHydrateSupplementalMessages,
   evaluateProjectionMergePolicy,
@@ -35,16 +40,18 @@ const mk = (id: string, isOutgoing = false): Message => ({
 describe("native DM R1 read policy", () => {
   beforeEach(() => {
     vi.mocked(requiresSqlitePersistence).mockReturnValue(false);
+    vi.mocked(isDmKernelAuthority).mockReturnValue(false);
   });
 
-  it("isNativeDmSqliteReadOwner tracks requiresSqlitePersistence", () => {
+  it("isNativeDmSqliteReadOwner tracks dm-kernel authority", () => {
     expect(isNativeDmSqliteReadOwner()).toBe(false);
-    vi.mocked(requiresSqlitePersistence).mockReturnValue(true);
+    vi.mocked(isDmKernelAuthority).mockReturnValue(true);
     expect(isNativeDmSqliteReadOwner()).toBe(true);
   });
 
   describe("when native", () => {
     beforeEach(() => {
+      vi.mocked(isDmKernelAuthority).mockReturnValue(true);
       vi.mocked(requiresSqlitePersistence).mockReturnValue(true);
     });
 

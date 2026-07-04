@@ -50,6 +50,7 @@ export type SiteContent = Readonly<{
   verificationItems: readonly VerificationItem[];
   docsLinks: readonly SiteLink[];
   latestRelease: ReleaseSnapshot | null;
+  releaseManifest: ReleaseManifestSnapshot | null;
 }>;
 
 export type ReleaseSnapshot = Readonly<{
@@ -59,6 +60,27 @@ export type ReleaseSnapshot = Readonly<{
   preferredDesktopDownload: Readonly<Record<DesktopPlatform, ReleaseDownloadTarget | null>>;
 }>;
 
+export type ManifestArtifact = Readonly<{
+  platform: string;
+  kind: string;
+  fileName: string;
+  path: string;
+  sizeBytes: number;
+  sha256: string;
+  href: string | null;
+  buildCommand?: string;
+  installHint?: string;
+}>;
+
+export type ReleaseManifestSnapshot = Readonly<{
+  version: string;
+  signingPolicy: string;
+  signingPolicyDocHref: string;
+  buildFromSourceDocHref: string;
+  limitationsDocHref: string;
+  artifacts: readonly ManifestArtifact[];
+}>;
+
 const RAW_GITHUB_BASE =
   "https://raw.githubusercontent.com/Dendro-X0/Obscur/main";
 const REPO_GITHUB_BASE = "https://github.com/Dendro-X0/Obscur";
@@ -66,6 +88,10 @@ const REPO_STABLE_POLICY_PATH =
   "apps/desktop/release/channel/stable/streaming-update-policy.json";
 const REPO_STABLE_POLICY_URL = `${RAW_GITHUB_BASE}/${REPO_STABLE_POLICY_PATH}`;
 const REPO_VERSION_JSON_URL = `${RAW_GITHUB_BASE}/version.json`;
+const RELEASE_MANIFEST_PATH = "release-assets/manifest.json";
+const LIMITATIONS_DOC_HREF = `${REPO_GITHUB_BASE}/blob/main/docs/program/obscur-v2-known-limitations.md`;
+const INSTALL_BUILD_GUIDE_HREF = `${REPO_GITHUB_BASE}/blob/main/docs/program/obscur-v2-install-build-guide.md`;
+const SIGNING_POLICY_HREF = `${REPO_GITHUB_BASE}/blob/main/docs/program/obscur-v2-phase3-signing-policy.md`;
 const RELEASE_SECTION_REGEX = /^## \[(v[^\]]+)\] - (\d{4}-\d{2}-\d{2})$/gm;
 
 const repoRoot = path.resolve(process.cwd(), "..", "..");
@@ -171,8 +197,137 @@ const policyArtifactsToReleaseAssets = (
   return out;
 };
 
+type RawManifestArtifact = {
+  platform?: unknown;
+  kind?: unknown;
+  path?: unknown;
+  fileName?: unknown;
+  sizeBytes?: unknown;
+  sha256?: unknown;
+  buildCommand?: unknown;
+  installHint?: unknown;
+};
+
+type RawReleaseManifest = {
+  version?: unknown;
+  signingPolicy?: unknown;
+  signingPolicyDoc?: unknown;
+  artifacts?: unknown;
+};
+
+const manifestArtifactHref = (repoRelativePath: string): string | null => {
+  if (repoRelativePath.startsWith("release-assets/")) {
+    return `${RAW_GITHUB_BASE}/${repoRelativePath}`;
+  }
+  return null;
+};
+
+const readReleaseAssetsManifest = async (): Promise<ReleaseManifestSnapshot | null> => {
+  try {
+    const manifestPath = path.join(repoRoot, RELEASE_MANIFEST_PATH);
+    const raw = await readFile(manifestPath, "utf8");
+    const parsed = JSON.parse(raw) as RawReleaseManifest;
+    const versionRaw = parsed.version;
+    const version = typeof versionRaw === "string" && versionRaw.trim().length > 0
+      ? versionRaw.trim()
+      : null;
+    if (!version || !Array.isArray(parsed.artifacts)) {
+      return null;
+    }
+
+    const artifacts: ManifestArtifact[] = [];
+    for (const entry of parsed.artifacts) {
+      if (!entry || typeof entry !== "object") {
+        continue;
+      }
+      const artifact = entry as RawManifestArtifact;
+      const fileName = typeof artifact.fileName === "string" ? artifact.fileName : "";
+      const repoPath = typeof artifact.path === "string" ? artifact.path : "";
+      const sha256 = typeof artifact.sha256 === "string" ? artifact.sha256 : "";
+      const sizeBytes = typeof artifact.sizeBytes === "number" ? artifact.sizeBytes : 0;
+      if (!fileName || !repoPath || !sha256) {
+        continue;
+      }
+      artifacts.push({
+        platform: typeof artifact.platform === "string" ? artifact.platform : "unknown",
+        kind: typeof artifact.kind === "string" ? artifact.kind : "artifact",
+        fileName,
+        path: repoPath,
+        sizeBytes,
+        sha256,
+        href: manifestArtifactHref(repoPath),
+        buildCommand: typeof artifact.buildCommand === "string" ? artifact.buildCommand : undefined,
+        installHint: typeof artifact.installHint === "string" ? artifact.installHint : undefined,
+      });
+    }
+
+    if (artifacts.length === 0) {
+      return null;
+    }
+
+    return {
+      version,
+      signingPolicy: typeof parsed.signingPolicy === "string" ? parsed.signingPolicy : "unsigned",
+      signingPolicyDocHref: SIGNING_POLICY_HREF,
+      buildFromSourceDocHref: INSTALL_BUILD_GUIDE_HREF,
+      limitationsDocHref: LIMITATIONS_DOC_HREF,
+      artifacts,
+    };
+  } catch {
+    return null;
+  }
+};
+
+const manifestToReleaseSnapshot = (
+  manifest: ReleaseManifestSnapshot,
+): ReleaseSnapshot | null => {
+  const downloadableAssets = filterDownloadableReleaseAssets(
+    manifest.artifacts
+      .filter((artifact) => artifact.href !== null)
+      .map((artifact) => ({
+        name: artifact.fileName,
+        browser_download_url: artifact.href as string,
+        size: artifact.sizeBytes,
+      })),
+  );
+
+  if (downloadableAssets.length === 0) {
+    return null;
+  }
+
+  const tag = manifest.version.startsWith("v") ? manifest.version : `v${manifest.version}`;
+  return {
+    tag,
+    htmlUrl: `${REPO_GITHUB_BASE}/blob/main/CHANGELOG.md`,
+    downloadableAssets,
+    preferredDesktopDownload: {
+      windows: toReleaseDownloadTarget(
+        pickPreferredDesktopAsset(downloadableAssets, "windows"),
+        "Windows installer",
+      ),
+      macos: toReleaseDownloadTarget(
+        pickPreferredDesktopAsset(downloadableAssets, "macos"),
+        "macOS installer",
+      ),
+      linux: toReleaseDownloadTarget(
+        pickPreferredDesktopAsset(downloadableAssets, "linux"),
+        "Linux package",
+      ),
+      unknown: null,
+    },
+  };
+};
+
 const readUnifiedReleaseSnapshot = async (): Promise<ReleaseSnapshot | null> => {
   try {
+    const manifest = await readReleaseAssetsManifest();
+    if (manifest) {
+      const fromManifest = manifestToReleaseSnapshot(manifest);
+      if (fromManifest) {
+        return fromManifest;
+      }
+    }
+
     let policy = await readLocalStablePolicy();
     if (!policy) {
       const response = await fetch(REPO_STABLE_POLICY_URL, {
@@ -228,9 +383,10 @@ const readUnifiedReleaseSnapshot = async (): Promise<ReleaseSnapshot | null> => 
 export const loadSiteContent = async (): Promise<SiteContent> => {
   const currentVersion = await readCanonicalVersion();
   const currentTag = currentVersion.startsWith("v") ? currentVersion : `v${currentVersion}`;
-  const [releaseHighlights, latestRelease] = await Promise.all([
+  const [releaseHighlights, latestRelease, releaseManifest] = await Promise.all([
     readReleaseHighlights(),
     readUnifiedReleaseSnapshot(),
+    readReleaseAssetsManifest(),
   ]);
 
   const resolvedReleaseHref = latestRelease?.htmlUrl ?? `${REPO_GITHUB_BASE}/blob/main/CHANGELOG.md`;
@@ -256,16 +412,16 @@ export const loadSiteContent = async (): Promise<SiteContent> => {
 
   const proofLinks: readonly SiteLink[] = [
     {
+      label: "Known limitations",
+      href: "/limitations",
+    },
+    {
       label: "Changelog",
       href: `${REPO_GITHUB_BASE}/blob/main/CHANGELOG.md`,
     },
     {
-      label: "Release Flow",
-      href: `${REPO_GITHUB_BASE}/blob/main/docs/encyclopedia/07-operations-and-release-flow.md`,
-    },
-    {
-      label: "Maintainer Playbook",
-      href: `${REPO_GITHUB_BASE}/blob/main/docs/encyclopedia/08-maintainer-playbook.md`,
+      label: "Install / build guide",
+      href: INSTALL_BUILD_GUIDE_HREF,
     },
     {
       label: "Docs Index",
@@ -341,29 +497,29 @@ export const loadSiteContent = async (): Promise<SiteContent> => {
 
   const verificationItems: readonly VerificationItem[] = [
     {
-      label: "Docs Contract",
+      label: "Phase 1 product truth",
       status: "pass",
-      note: "Canonical docs are checked with `pnpm docs:check`.",
+      note: "DM, group send/receive, and SQLite cold-restart soaks verified in maintainer matrix (2026-07-04).",
     },
     {
-      label: "Offline PWA Replay",
+      label: "Docs contract",
       status: "pass",
-      note: "The current evidence packet records offline control and reconnect success in production mode.",
+      note: "Canonical docs checked with `pnpm docs:check`.",
     },
     {
-      label: "Desktop Offline Replay",
-      status: "pending",
-      note: "Manual desktop degraded/offline replay remains open in the v1.3.8 packet.",
+      label: "Desktop installer",
+      status: "pass",
+      note: "Windows NSIS packaged @ v1.9.10 with SHA-256 in release-assets/manifest.json.",
     },
     {
-      label: "Updater Verification",
-      status: "pending",
-      note: "Success, failure, rollout-block, and min-safe updater replays are still pending.",
-    },
-    {
-      label: "Cross-Device DM Restore",
+      label: "Android debug APK",
       status: "partial",
-      note: "Focused suites are green, but live two-user replay is still required for the active recovery lane.",
+      note: "Debug build documented; sideload via local build — not a Play Store claim.",
+    },
+    {
+      label: "Accepted limitations",
+      status: "partial",
+      note: "Roster divergence (ACC-02) and restore boundaries documented — see /limitations.",
     },
   ];
 
@@ -406,6 +562,7 @@ export const loadSiteContent = async (): Promise<SiteContent> => {
     verificationItems,
     docsLinks,
     latestRelease,
+    releaseManifest,
   };
 };
 

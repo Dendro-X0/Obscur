@@ -1,7 +1,7 @@
 "use client";
 
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
-import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store";
+import { accountSyncChatStatePort } from "./account-sync-chat-state-port";
 import { messagingClientOperations } from "@/app/features/messaging/services/messaging-client-operations";
 import { peerTrustInternals } from "@/app/features/network/hooks/use-peer-trust";
 import { syncCheckpointInternals } from "@/app/features/messaging/lib/sync-checkpoints";
@@ -323,7 +323,7 @@ const collectFromChatState = (params: Readonly<{
   profileId: string;
   accountPublicKeyHex: PublicKeyHex;
   events: AccountEvent[];
-  chatState: ReturnType<typeof chatStateStoreService.load>;
+  chatState: ReturnType<typeof accountSyncChatStatePort.load>;
   source: AccountEventSource;
   idempotencyPrefix: string;
   historyResetCutoffUnixMs?: number | null;
@@ -602,11 +602,11 @@ export const buildBootstrapAccountEvents = async (params: Readonly<{
   const nativeSqliteBootstrap = requiresSqlitePersistence();
   await messagingClientOperations.hydrateDmTombstonesFromSqlite(params.profileId);
   if (!nativeSqliteBootstrap) {
-    await chatStateStoreService.hydrateMessages(params.accountPublicKeyHex);
+    await accountSyncChatStatePort.hydrateMessages(params.accountPublicKeyHex);
   }
   const events: AccountEvent[] = [];
   const peerTrust = peerTrustInternals.loadFromStorage(params.accountPublicKeyHex);
-  const chatState = nativeSqliteBootstrap ? null : chatStateStoreService.load(params.accountPublicKeyHex);
+  const chatState = nativeSqliteBootstrap ? null : accountSyncChatStatePort.load(params.accountPublicKeyHex);
   const checkpoints = Array.from(syncCheckpointInternals.loadPersistedCheckpointState(params.profileId).values());
   const durableDeleteIds = messagingClientOperations.loadDmSuppressedIdentityIds(params.profileId);
 

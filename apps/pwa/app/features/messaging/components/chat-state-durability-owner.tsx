@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store";
+import { messagingChatStateDurabilityPort } from "../services/messaging-chat-state-durability-port";
 
 /**
  * Ensures debounced chat-state writes (groups, conversations) land in localStorage
@@ -13,7 +13,7 @@ export function ChatStateDurabilityOwner(): null {
       return;
     }
     const flushPendingChatState = (): void => {
-      chatStateStoreService.flushAllPending();
+      messagingChatStateDurabilityPort.flushAllPending();
     };
     window.addEventListener("pagehide", flushPendingChatState);
     window.addEventListener("beforeunload", flushPendingChatState);

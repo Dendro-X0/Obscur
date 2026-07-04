@@ -1,4 +1,9 @@
 import { normalizeRelayUrl } from "@dweb/nostr/relay-utils";
+import {
+  expandWorkspaceRelayUrlCandidates,
+  workspaceRelayUrlsMatch,
+} from "./workspace-relay-url";
+import type { WorkspaceRelayPoolTransport } from "./workspace-relay-calibrator";
 
 const UNKNOWN_RELAY_SENTINELS = new Set(["unknown", "null", "undefined", "n/a", "none"]);
 
@@ -51,4 +56,20 @@ export const hasWritableCommunityRelayTransport = (relayUrl: string): boolean =>
     }
   }
   return true;
+};
+
+/** True when the relay pool reports a writable connection for the community URL (R4 pool evidence). */
+export const isCommunityRelayPoolWritable = (
+  relayUrl: string,
+  pool?: WorkspaceRelayPoolTransport | null,
+): boolean => {
+  if (!hasWritableCommunityRelayTransport(relayUrl)) {
+    return false;
+  }
+  const candidates = expandWorkspaceRelayUrlCandidates(relayUrl);
+  const snapshot = pool?.getWritableRelaySnapshot?.(candidates);
+  const writableRelayUrls = snapshot?.writableRelayUrls ?? [];
+  return writableRelayUrls.some((writableUrl) => (
+    candidates.some((candidate) => workspaceRelayUrlsMatch(candidate, writableUrl))
+  ));
 };

@@ -1,7 +1,6 @@
-
 import { useState, useRef } from "react";
 
-
+import type { MessagingSidebarTab } from "@/app/features/messaging/services/messaging-sidebar-tab";
 import type { Conversation, DmConversation, GroupConversation, UnreadByConversationId, ConnectionOverridesByConnectionId, ReplyTo } from "@/app/features/messaging/types";
 
 export function useMainShellState() {
@@ -49,7 +48,7 @@ export function useMainShellState() {
 
     const [isMediaGalleryOpen, setIsMediaGalleryOpen] = useState<boolean>(false);
     const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
-    const [sidebarTab, setSidebarTab] = useState<"chats" | "requests">("chats");
+    const [sidebarTab, setSidebarTab] = useState<MessagingSidebarTab>("chats");
 
     const [createdConnections, setCreatedConnections] = useState<ReadonlyArray<DmConversation>>([]);
     const [createdGroups, setCreatedGroups] = useState<ReadonlyArray<GroupConversation>>([]);

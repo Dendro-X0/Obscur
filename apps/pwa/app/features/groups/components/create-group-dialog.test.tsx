@@ -2,6 +2,7 @@ import React from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CreateGroupDialog } from "./create-group-dialog";
+import en from "@/app/lib/i18n/locales/en.json";
 
 const relayListMock = vi.hoisted(() => ({
     relays: [
@@ -11,11 +12,9 @@ const relayListMock = vi.hoisted(() => ({
 
 vi.mock("react-i18next", () => ({
     useTranslation: () => ({
-        t: (key: string, fallback?: string, options?: Record<string, unknown>) => {
-            if (!fallback) {
-                return key;
-            }
-            return fallback.replace(/\{\{(\w+)\}\}/g, (_, token: string) => String(options?.[token] ?? ""));
+        t: (key: string, options?: Record<string, unknown>) => {
+            const template = (en.translation as Record<string, string | undefined>)[key] ?? key;
+            return template.replace(/\{\{(\w+)\}\}/g, (_, token: string) => String(options?.[token] ?? ""));
         },
     }),
 }));

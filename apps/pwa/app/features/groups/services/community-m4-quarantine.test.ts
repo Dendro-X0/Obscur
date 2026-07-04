@@ -86,11 +86,11 @@ import {
   dispatchGroupInviteResponseAccepted,
   dispatchGroupMembershipConfirmed,
 } from "@/app/features/profiles/services/profile-bus-dispatch";
-import { GroupProvider, useGroups } from "../providers/group-provider";
-import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store";
+import { LegacyGroupProvider, useGroups } from "@/app/features/groups/providers/group-provider-port";
+import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store-legacy";
 
 const wrapper = ({ children }: { children: React.ReactNode }) =>
-  React.createElement(GroupProvider, null, children);
+  React.createElement(LegacyGroupProvider, null, children);
 
 // ---------------------------------------------------------------------------
 

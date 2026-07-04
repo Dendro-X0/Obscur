@@ -1,4 +1,6 @@
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
+import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import {
   evaluateIncomingRequestAttackModeGate,
   evaluateSignedSharedIntelRelayRisk,
@@ -44,7 +46,8 @@ type IncomingRequestAntiAbuseState = Readonly<{
   peerCooldownUntilUnixMsByPeer: ReadonlyMap<PublicKeyHex, number>;
 }>;
 
-const GLOBAL_STATE_KEY = "__obscur_incoming_request_anti_abuse_state__";
+const PROFILE_STATE_CACHE_KEY = "__obscur_incoming_request_anti_abuse_state_by_profile__";
+const STORAGE_KEY = "obscur.messaging.incoming_request_anti_abuse.v1";
 const WINDOW_MS = 2 * 60 * 1000;
 const PEER_COOLDOWN_MS = 2 * 60 * 1000;
 const PEER_LIMIT = 3;
@@ -56,20 +59,116 @@ const createDefaultState = (): IncomingRequestAntiAbuseState => ({
   peerCooldownUntilUnixMsByPeer: new Map<PublicKeyHex, number>(),
 });
 
-const getState = (): IncomingRequestAntiAbuseState => {
+type PersistedIncomingRequestAntiAbuseState = Readonly<{
+  version: "obscur.incoming_request_anti_abuse_state.v1";
+  updatedAtUnixMs: number;
+  globalEventUnixMs: ReadonlyArray<number>;
+  peerEventUnixMsByPeer: Readonly<Record<string, ReadonlyArray<number>>>;
+  peerCooldownUntilUnixMsByPeer: Readonly<Record<string, number>>;
+}>;
+
+const resolveProfileScope = (): string => getResolvedProfileId();
+
+const getStorageKey = (): string => getScopedStorageKey(STORAGE_KEY, resolveProfileScope());
+
+const getStateRoot = (): Map<string, IncomingRequestAntiAbuseState> => {
   const root = globalThis as Record<string, unknown>;
-  const existing = root[GLOBAL_STATE_KEY];
-  if (existing && typeof existing === "object") {
-    return existing as IncomingRequestAntiAbuseState;
+  const existing = root[PROFILE_STATE_CACHE_KEY];
+  if (existing instanceof Map) {
+    return existing as Map<string, IncomingRequestAntiAbuseState>;
   }
-  const created = createDefaultState();
-  root[GLOBAL_STATE_KEY] = created;
-  return created;
+  const next = new Map<string, IncomingRequestAntiAbuseState>();
+  root[PROFILE_STATE_CACHE_KEY] = next;
+  return next;
+};
+
+const readPersistedState = (): IncomingRequestAntiAbuseState => {
+  if (typeof window === "undefined") {
+    return createDefaultState();
+  }
+  try {
+    const raw = window.localStorage.getItem(getStorageKey());
+    if (!raw) {
+      return createDefaultState();
+    }
+    const parsed = JSON.parse(raw) as Partial<PersistedIncomingRequestAntiAbuseState>;
+    if (
+      parsed.version !== "obscur.incoming_request_anti_abuse_state.v1"
+      || !Array.isArray(parsed.globalEventUnixMs)
+      || !parsed.peerEventUnixMsByPeer
+      || typeof parsed.peerEventUnixMsByPeer !== "object"
+      || !parsed.peerCooldownUntilUnixMsByPeer
+      || typeof parsed.peerCooldownUntilUnixMsByPeer !== "object"
+    ) {
+      return createDefaultState();
+    }
+    const peerEventUnixMsByPeer = new Map<PublicKeyHex, ReadonlyArray<number>>();
+    Object.entries(parsed.peerEventUnixMsByPeer).forEach(([key, value]) => {
+      if (typeof key !== "string" || !Array.isArray(value)) {
+        return;
+      }
+      peerEventUnixMsByPeer.set(
+        key.toLowerCase() as PublicKeyHex,
+        value.filter((entry): entry is number => typeof entry === "number" && Number.isFinite(entry)),
+      );
+    });
+    const peerCooldownUntilUnixMsByPeer = new Map<PublicKeyHex, number>();
+    Object.entries(parsed.peerCooldownUntilUnixMsByPeer).forEach(([key, value]) => {
+      if (typeof key !== "string" || typeof value !== "number" || !Number.isFinite(value)) {
+        return;
+      }
+      peerCooldownUntilUnixMsByPeer.set(key.toLowerCase() as PublicKeyHex, Math.floor(value));
+    });
+    return {
+      globalEventUnixMs: parsed.globalEventUnixMs
+        .filter((entry): entry is number => typeof entry === "number" && Number.isFinite(entry))
+        .map((entry) => Math.floor(entry)),
+      peerEventUnixMsByPeer,
+      peerCooldownUntilUnixMsByPeer,
+    };
+  } catch {
+    return createDefaultState();
+  }
+};
+
+const writePersistedState = (state: IncomingRequestAntiAbuseState): void => {
+  if (typeof window === "undefined") {
+    return;
+  }
+  const peerEventUnixMsByPeer: Record<string, ReadonlyArray<number>> = {};
+  state.peerEventUnixMsByPeer.forEach((value, key) => {
+    peerEventUnixMsByPeer[key] = value;
+  });
+  const peerCooldownUntilUnixMsByPeer: Record<string, number> = {};
+  state.peerCooldownUntilUnixMsByPeer.forEach((value, key) => {
+    peerCooldownUntilUnixMsByPeer[key] = value;
+  });
+  const payload: PersistedIncomingRequestAntiAbuseState = {
+    version: "obscur.incoming_request_anti_abuse_state.v1",
+    updatedAtUnixMs: Date.now(),
+    globalEventUnixMs: state.globalEventUnixMs,
+    peerEventUnixMsByPeer,
+    peerCooldownUntilUnixMsByPeer,
+  };
+  window.localStorage.setItem(getStorageKey(), JSON.stringify(payload));
+};
+
+const getState = (): IncomingRequestAntiAbuseState => {
+  const scope = resolveProfileScope();
+  const root = getStateRoot();
+  const existing = root.get(scope);
+  if (existing) {
+    return existing;
+  }
+  const loaded = readPersistedState();
+  root.set(scope, loaded);
+  return loaded;
 };
 
 const setState = (next: IncomingRequestAntiAbuseState): void => {
-  const root = globalThis as Record<string, unknown>;
-  root[GLOBAL_STATE_KEY] = next;
+  const scope = resolveProfileScope();
+  getStateRoot().set(scope, next);
+  writePersistedState(next);
 };
 
 const pruneEventWindow = (eventUnixMs: ReadonlyArray<number>, nowUnixMs: number): ReadonlyArray<number> => (
@@ -292,7 +391,53 @@ export const evaluateIncomingRequestAntiAbuse = (params: Readonly<{
 };
 
 export const resetIncomingRequestAntiAbuseState = (): void => {
-  setState(createDefaultState());
+  const scope = resolveProfileScope();
+  getStateRoot().set(scope, createDefaultState());
+  if (typeof window !== "undefined") {
+    window.localStorage.removeItem(getStorageKey());
+  }
+};
+
+export type IncomingRequestAntiAbusePeerSnapshot = Readonly<{
+  peerWindowCount: number;
+  peerLimit: number;
+  globalWindowCount: number;
+  globalLimit: number;
+  windowMs: number;
+  cooldownActive: boolean;
+  cooldownRemainingMs: number | null;
+}>;
+
+/** Read-only peer snapshot for trust assessment — does not record events. */
+export const getIncomingRequestAntiAbusePeerSnapshot = (params: Readonly<{
+  peerPublicKeyHex: PublicKeyHex;
+  nowUnixMs?: number;
+}>): IncomingRequestAntiAbusePeerSnapshot => {
+  const nowUnixMs = params.nowUnixMs ?? Date.now();
+  const rawState = getState();
+  const state: IncomingRequestAntiAbuseState = {
+    globalEventUnixMs: pruneEventWindow(rawState.globalEventUnixMs, nowUnixMs),
+    peerEventUnixMsByPeer: rawState.peerEventUnixMsByPeer,
+    peerCooldownUntilUnixMsByPeer: pruneCooldownMap(rawState.peerCooldownUntilUnixMsByPeer, nowUnixMs),
+  };
+  const peerKey = params.peerPublicKeyHex.toLowerCase() as PublicKeyHex;
+  const peerWindowCount = pruneEventWindow(
+    state.peerEventUnixMsByPeer.get(peerKey) ?? [],
+    nowUnixMs,
+  ).length;
+  const cooldownUntilUnixMs = state.peerCooldownUntilUnixMsByPeer.get(peerKey) ?? null;
+  const cooldownActive = typeof cooldownUntilUnixMs === "number" && cooldownUntilUnixMs > nowUnixMs;
+  return {
+    peerWindowCount,
+    peerLimit: PEER_LIMIT,
+    globalWindowCount: state.globalEventUnixMs.length,
+    globalLimit: GLOBAL_LIMIT,
+    windowMs: WINDOW_MS,
+    cooldownActive,
+    cooldownRemainingMs: cooldownActive && cooldownUntilUnixMs !== null
+      ? Math.max(0, cooldownUntilUnixMs - nowUnixMs)
+      : null,
+  };
 };
 
 export const incomingRequestAntiAbuseInternals = {

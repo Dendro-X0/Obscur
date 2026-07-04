@@ -4,7 +4,7 @@ import { getResolvedProfileId } from "./profile-runtime-scope";
 import { desktopProfileRuntime } from "./desktop-profile-runtime";
 import {
   localSaveOccupancyIsBlocked,
-  localSaveOccupancyLabel,
+  localSaveOccupancyLabelKey,
   resolveLocalSaveAccountOccupancy,
   type LocalSaveAccountOccupancy,
 } from "./local-save-account-occupancy";
@@ -16,6 +16,10 @@ import {
 } from "./encrypted-workspace-bundle-service";
 import type { PortabilityExportKind } from "./portability-export-history";
 import { parsePortableOrUnifiedImportEnvelope } from "./unified-account-export-service";
+import {
+  parseCommunityMembershipLedgerSnapshot,
+  summarizeCommunityMembershipLedger,
+} from "@/app/features/groups/services/community-membership-ledger";
 
 export type PortabilityImportAccountMatch = "match" | "mismatch" | "unknown";
 
@@ -26,7 +30,7 @@ export type PortabilityImportPreflight = Readonly<{
   accountMatch: PortabilityImportAccountMatch;
   exportedAtUnixMs: number | null;
   bundleAgeLabel: string;
-  scopeItems: ReadonlyArray<Readonly<{ label: string; value: string }>>;
+  scopeItems: ReadonlyArray<Readonly<{ label: string; value: string; valueParams?: Readonly<Record<string, string>> }>>;
   warnings: ReadonlyArray<string>;
   canProceed: boolean;
   /** Valid backup selected before sign-in; can be staged until unlock. */
@@ -98,12 +102,14 @@ const resolveCanStageForSignIn = (params: Readonly<{
     || warning.includes("format is invalid")
     || warning.includes("different account in this window")
     || warning.includes("already has a different account")
+    || warning.includes("already unlocked in profile")
+    || warning.includes("already belongs to profile")
   ));
 };
 
 const appendProfileSlotOccupancyPreflight = async (
   warnings: string[],
-  scopeItems: Array<{ label: string; value: string }>,
+  scopeItems: Array<{ label: string; value: string; valueParams?: Readonly<Record<string, string>> }>,
   bundlePublicKeyHex: PublicKeyHex,
 ): Promise<LocalSaveAccountOccupancy> => {
   const profiles = await desktopProfileRuntime.listProfiles();
@@ -113,16 +119,23 @@ const appendProfileSlotOccupancyPreflight = async (
     profiles,
   });
   scopeItems.push({
-    label: "Local device status",
-    value: localSaveOccupancyLabel(occupancy),
+    label: "profiles.portability.preflight.localDeviceStatus",
+    value: localSaveOccupancyLabelKey(occupancy),
+    ...(occupancy.kind === "other_slot" || occupancy.kind === "active_in_other_window"
+      ? { valueParams: { profileLabel: occupancy.profileLabel } }
+      : {}),
   });
   if (occupancy.kind === "this_slot_conflict") {
     warnings.push(
       "This profile window already has a different account. Open another profile window, or export and reset this window before restoring this backup.",
     );
+  } else if (occupancy.kind === "active_in_other_window") {
+    warnings.push(
+      `This account is already unlocked in profile "${occupancy.profileLabel}". Sign out there first, or reset that window before restoring here.`,
+    );
   } else if (occupancy.kind === "other_slot") {
     warnings.push(
-      `This account is already active locally in profile "${occupancy.profileLabel}". You can restore here if this window is empty, or switch to that profile window instead.`,
+      `This account already belongs to profile "${occupancy.profileLabel}". Each profile window can hold one account — export and reset this window, or switch to that profile window.`,
     );
   } else if (occupancy.kind === "this_slot_match") {
     warnings.push("This account already exists on this device. Unlock with your credentials to import the backup.");
@@ -195,6 +208,15 @@ export const preflightPortableAccountImport = async (params: Readonly<{
         payload.chatState as Parameters<typeof summarizePersistedChatStateMessages>[0],
         params.activePublicKeyHex as PublicKeyHex,
       );
+      const membershipSummary = summarizeCommunityMembershipLedger(
+        parseCommunityMembershipLedgerSnapshot(payload.communityMembershipLedger),
+      );
+      const communitiesValue = membershipSummary.archivedCount > 0
+        ? `${membershipSummary.joinedCount} active`
+        : `${membershipSummary.joinedCount} memberships`;
+      const communitiesDetail = membershipSummary.archivedCount > 0
+        ? `${membershipSummary.archivedCount} archived (${membershipSummary.totalCount} stored)`
+        : undefined;
       scopeItems = [
         { label: "Profile", value: payload.profile?.username?.trim() || "Unnamed account" },
         {
@@ -207,7 +229,7 @@ export const preflightPortableAccountImport = async (params: Readonly<{
         },
         {
           label: "Communities",
-          value: `${payload.communityMembershipLedger?.length ?? 0} memberships`,
+          value: communitiesDetail ? `${communitiesValue} (${communitiesDetail})` : communitiesValue,
         },
       ];
     } catch {
@@ -420,16 +442,29 @@ export const preflightWorkspaceBundleImport = async (params: Readonly<{
         payload.networkSnapshot.chatStateJson ? JSON.parse(payload.networkSnapshot.chatStateJson) : null,
         params.activePublicKeyHex as PublicKeyHex,
       );
-      const membershipCount = payload.networkSnapshot.membershipLedgerJson
-        ? (JSON.parse(payload.networkSnapshot.membershipLedgerJson) as unknown[]).length
-        : 0;
+      const membershipSummary = summarizeCommunityMembershipLedger(
+        parseCommunityMembershipLedgerSnapshot(
+          payload.networkSnapshot.membershipLedgerJson
+            ? JSON.parse(payload.networkSnapshot.membershipLedgerJson)
+            : [],
+        ),
+      );
+      const communitiesValue = membershipSummary.archivedCount > 0
+        ? `${membershipSummary.joinedCount} active`
+        : `${membershipSummary.joinedCount} memberships`;
+      const communitiesDetail = membershipSummary.archivedCount > 0
+        ? `${membershipSummary.archivedCount} archived (${membershipSummary.totalCount} stored)`
+        : undefined;
       scopeItems = [
         { label: "Profile window", value: payload.profileLabel?.trim() || payload.profileId },
         {
           label: "Messages",
           value: `${chatDiagnostics.dmMessageCount + chatDiagnostics.groupMessageCount} total`,
         },
-        { label: "Communities", value: `${membershipCount} memberships` },
+        {
+          label: "Communities",
+          value: communitiesDetail ? `${communitiesValue} (${communitiesDetail})` : communitiesValue,
+        },
         {
           label: "Vault media",
           value: payload.includesVaultMedia ? `${payload.vaultMediaFiles?.length ?? 0} files` : "Excluded",

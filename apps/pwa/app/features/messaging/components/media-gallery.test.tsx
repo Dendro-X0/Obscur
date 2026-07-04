@@ -3,10 +3,14 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { MediaGallery } from "./media-gallery";
 import type { MediaItem } from "../types";
+import en from "@/app/lib/i18n/locales/en.json";
 
 vi.mock("react-i18next", () => ({
     useTranslation: () => ({
-        t: (_key: string, fallback?: string) => fallback ?? _key,
+        t: (key: string, options?: Record<string, unknown>) => {
+            const template = (en.translation as Record<string, string | undefined>)[key] ?? key;
+            return template.replace(/\{\{\s*([^\s}]+)\s*\}\}/g, (_match, token: string) => String(options?.[token] ?? ""));
+        },
     }),
 }));
 

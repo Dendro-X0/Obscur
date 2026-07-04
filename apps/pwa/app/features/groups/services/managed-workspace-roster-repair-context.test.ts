@@ -14,6 +14,10 @@ vi.mock("./community-membership-ledger", () => ({
   loadCommunityMembershipLedger: vi.fn(() => []),
 }));
 
+vi.mock("./community-known-participants-store", () => ({
+  loadCommunityKnownParticipantsEntries: vi.fn(() => []),
+}));
+
 vi.mock("@/app/features/workspace-kernel/workspace-kernel-policy", () => ({
   isWorkspaceKernelAuthority: vi.fn(() => true),
 }));
@@ -29,8 +33,11 @@ vi.mock("./strict-managed-workspace", () => ({
 }));
 
 import { buildManagedWorkspaceRosterRepairContext } from "./managed-workspace-roster-repair-context";
+import { loadCommunityKnownParticipantsEntries } from "./community-known-participants-store";
 
 const PK_A = "aa".repeat(32) as PublicKeyHex;
+
+const PK_B = "bb".repeat(32) as PublicKeyHex;
 
 const GROUP: GroupConversation = {
   kind: "group",
@@ -74,5 +81,22 @@ describe("buildManagedWorkspaceRosterRepairContext", () => {
 
     expect(context.resolvedCommunityId).toBe("v2_joined");
     expect(context.communityIdCandidates).toEqual(["v2_joined", "group-1:ws://localhost:7000"]);
+  });
+
+  it("merges known participant directory seeds into join-evidence repair pubkeys", () => {
+    vi.mocked(loadCommunityKnownParticipantsEntries).mockReturnValue([{
+      conversationId: GROUP.id,
+      groupId: GROUP.groupId,
+      relayUrl: GROUP.relayUrl,
+      participantPubkeys: [PK_A, PK_B],
+      updatedAtUnixMs: 1,
+    }]);
+
+    const context = buildManagedWorkspaceRosterRepairContext({
+      group: GROUP,
+      publicKeyHex: PK_A,
+    });
+
+    expect(context.joinEvidenceMemberPubkeys).toEqual(["aa".repeat(32), "bb".repeat(32)]);
   });
 });

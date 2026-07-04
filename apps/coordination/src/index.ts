@@ -5,6 +5,11 @@ import {
   handleMembershipHead,
   matchMembershipDirectoryPath,
 } from "./membership-directory";
+import {
+  handleRoomKeyWrapAppend,
+  handleRoomKeyWrapsSince,
+  matchMembershipRoomKeyWrapPath,
+} from "./membership-room-key-wrap";
 
 type Env = Readonly<{
   DB: D1Database;
@@ -376,6 +381,18 @@ export default {
       }
       if (membershipPath.resource === "delta" && request.method === "POST") {
         return await handleMembershipDeltaAppend(membershipPath.communityId, request, env);
+      }
+    }
+
+    const roomKeyWrapPath = matchMembershipRoomKeyWrapPath(path);
+    if (roomKeyWrapPath) {
+      if (roomKeyWrapPath.resource === "room-key-wraps" && request.method === "GET") {
+        const sinceRaw = url.searchParams.get("sinceSeq") ?? url.searchParams.get("since");
+        const since = sinceRaw ? Number.parseInt(sinceRaw, 10) : 0;
+        return await handleRoomKeyWrapsSince(roomKeyWrapPath.communityId, since, env);
+      }
+      if (roomKeyWrapPath.resource === "room-key-wrap" && request.method === "POST") {
+        return await handleRoomKeyWrapAppend(roomKeyWrapPath.communityId, request, env);
       }
     }
 

@@ -1,0 +1,14 @@
+{
+  "name": "@obscur/workspace-engine",
+  "version": "1.9.10",
+  "private": true,
+  "type": "module",
+  "description": "Workspace engine — managed workspace roster and SQLite group reads via HostEnginePort.",
+  "dependencies": {
+    "@dweb/db": "workspace:*",
+    "@obscur/engine-contracts": "workspace:*"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

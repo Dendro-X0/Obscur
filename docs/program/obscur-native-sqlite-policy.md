@@ -3,7 +3,7 @@
 **Status:** Active (2026-06-01) · **P4-5 owner matrix:** § [Owner matrix (native)](#owner-matrix-native-2026-06-01) below  
 **Design goals:** [design-goals-and-constraints.md](./design-goals-and-constraints.md) § persistence  
 **Truth map:** [12-core-architecture-truth-map.md](../encyclopedia/12-core-architecture-truth-map.md) — row 9 + R1 multiplicity; this doc is the **native persistence** detail for rows 0 and 9.  
-**Aligns with:** [obscur-2.0-milestone-roadmap.md](./obscur-2.0-milestone-roadmap.md) Lane P3, [greenfield/04-architecture-sketch.md](../archive/greenfield/04-architecture-sketch.md), [platform-pivot-private-trust-2026-05.md](./platform-pivot-private-trust-2026-05.md)
+**Aligns with:** [obscur-2.0-milestone-roadmap.md](../archive/program/inactive-2026-06/obscur-2.0-milestone-roadmap.md) Lane P3, [greenfield/04-architecture-sketch.md](../archive/greenfield/04-architecture-sketch.md), [platform-pivot-private-trust-2026-05.md](./platform-pivot-private-trust-2026-05.md)
 
 ---
 
@@ -78,9 +78,9 @@ SQLite fixes **local truth** and delete resurrection. **Roster join/leave across
 | Band | Deliverable | Pass |
 |------|-------------|------|
 | **P3a** | Conversation list + policy doc | Native always `sqlite` authority — **Done** |
-| **P3b** | DM hydrate native-only path | Delete-for-me survives restart (desktop) — **Done** (code); manual two-profile verify pending |
-| **P3c** | Account projection native bootstrap | **Done** — seal-only import (tombstones + peer trust); DM timeline stays in SQLite; manual verify pending |
-| **P3d** | Community tables native-only | Groups cache single owner — **Done** (code); manual restart verify pending |
+| **P3b** | DM hydrate native-only path | Delete-for-me survives restart (desktop) — **Verified** (Phase 1C O-2 t4 + Phase 1D cold restart `n8`) |
+| **P3c** | Account projection native bootstrap | **Verified** — seal-only import; projection replay clean on cold unlock digest |
+| **P3d** | Community tables native-only | **Verified** — NewTest 2 group list + sealed messages survive taskkill/relaunch (2026-07-04) |
 | **P4-5** | Owner matrix documented | This doc § Owner matrix — **Done** (2026-06-01) |
 
 ---
@@ -96,7 +96,7 @@ SQLite fixes **local truth** and delete resurrection. **Roster join/leave across
 | Label | Meaning |
 |-------|---------|
 | **SQLite** | Durable read/write truth on native |
-| **chat-state (mirror)** | Profile-scoped localStorage via [`chat-state-store.ts`](../../apps/pwa/app/features/messaging/services/chat-state-store.ts); may write or merge but **not** listed as read authority |
+| **chat-state (mirror)** | Profile-scoped localStorage via [`chat-state-store-legacy.ts`](../../apps/pwa/app/features/messaging/services/chat-state-store-legacy.ts); may write or merge but **not** listed as read authority |
 | **chat-state (web only)** | Skipped when `requiresSqlitePersistence()` |
 | **Repair shim** | Reads chat-state once to backfill SQLite; subtract when bus→sqlite is lossless |
 | **Not wired** | Contract exists; no canonical app owner |
@@ -105,14 +105,14 @@ SQLite fixes **local truth** and delete resurrection. **Roster join/leave across
 
 | Domain | SQLite commands | Canonical module(s) | Native read authority | Native write path | chat-state on native | Status |
 |--------|-----------------|---------------------|----------------------|-------------------|----------------------|--------|
-| **DM thread hydrate** | `dbGetMessages` | [`dm-conversation-hydrate-indexed-scan.ts`](../../apps/pwa/app/features/messaging/services/dm-conversation-hydrate-indexed-scan.ts) | **SQLite** | — | Fallback **off** ([`dm-conversation-hydrate-pipeline.ts`](../../apps/pwa/app/features/messaging/services/dm-conversation-hydrate-pipeline.ts) L201–211) | **P3b done** |
+| **DM thread hydrate** | `dbGetMessages` | [`thread-history/hydrate-indexed-scan.ts`](../../apps/pwa/app/features/messaging/services/thread-history/hydrate-indexed-scan.ts) | **SQLite** | — | Fallback **off** ([`dm-conversation-hydrate-pipeline.ts`](../../apps/pwa/app/features/messaging/services/dm-conversation-hydrate-pipeline.ts) L201–211) | **P3b done** |
 | **DM outgoing persist** | `dbInsertMessage`, `dbUpsertConversation` | [`message-persistence-service.ts`](../../apps/pwa/app/features/messaging/services/message-persistence-service.ts) | **SQLite** | Same + message bus | Mirror for repair only | **P3b done** |
 | **DM outgoing repair** | — | — (removed `02f1cb1b`) | **SQLite** | Bus → persistence service | — | **Removed** |
 | **DM invite repair** | — | — (removed `02f1cb1b`) | **SQLite** | `commitOutboundCommunityDmInvite` | — | **Removed** |
 | **DM conversation list** | `dbGetConversations` | [`messaging-provider.tsx`](../../apps/pwa/app/features/messaging/providers/messaging-provider.tsx) + [`conversation-list-authority.ts`](../../apps/pwa/app/features/messaging/services/conversation-list-authority.ts) | **SQLite** (`sqlite_native`) | `dbUpsertConversation` via persistence service | Merges metadata via `mergeDmConversationLists`; still **writes** connections/unread/pinned/hidden | **P3a done**; metadata mirror remains |
 | **DM sync seed (first paint)** | — | [`dm-thread-sync-seed-loader.ts`](../../apps/pwa/app/features/messaging/services/dm-thread-sync-seed-loader.ts) | — | — | **Skipped** on native (returns `[]`) | **Done** |
 | **DM delete tombstones** | `dbInsertTombstone`, `dbGetTombstones`, … | Client gateway `messageDeleteTombstones` port | **SQLite** (hydrate on unlock) | Gateway + persistence service | — | **P3b done** |
-| **Group list** | `dbGetGroups`, `dbUpsertGroup` | [`community-group-sqlite-store.ts`](../../apps/pwa/app/features/groups/services/community-group-sqlite-store.ts), [`group-provider.tsx`](../../apps/pwa/app/features/groups/providers/group-provider.tsx) | **SQLite** + merge | `syncGroupConversationsToSqlite` | `createdGroups` still updated for merge/UI | **P3d done** |
+| **Group list** | `dbGetGroups`, `dbUpsertGroup` | [`community-group-sqlite-store.ts`](../../apps/pwa/app/features/groups/services/community-group-sqlite-store.ts), [`group-provider-port.tsx`](../../apps/pwa/app/features/groups/providers/group-provider-port.tsx) | **SQLite** + merge | `syncGroupConversationsToSqlite` | `createdGroups` still updated for merge/UI | **P3d done** |
 | **Sealed group messages** | `dbGetGroupMessages` | [`sealed-group-message-persistence.ts`](../../apps/pwa/app/features/groups/services/sealed-group-message-persistence.ts) | **SQLite** first | `persistSealedGroupMessages` **no-op** on native | Read fallback only if sqlite empty (non-native path) | **P3d done** |
 | **Account bootstrap** | — | [`account-event-bootstrap-service.ts`](../../apps/pwa/app/features/account-sync/services/account-event-bootstrap-service.ts) | Seal/tombstones/trust only | — | No full DM import on native | **P3c done** |
 | **Account backup/restore** | Partial (`dbDeleteMessages` handling) | [`encrypted-account-backup-service.ts`](../../apps/pwa/app/features/account-sync/services/encrypted-account-backup-service.ts) | Mixed | Writes **chat-state** | High-risk dual path | **Audit** before claiming restore **V** |
@@ -129,7 +129,7 @@ SQLite fixes **local truth** and delete resurrection. **Roster join/leave across
 |------|--------------------------|------|
 | **List authority** | — | None on native — use `resolveConversationListAuthority` → `sqlite` |
 | **Hydrate authority** | — | Pipeline skips persisted message fallback when `requiresSqlitePersistence()` |
-| **UI mirror / writes** | `messaging-provider.tsx`, `group-provider.tsx`, `chat-state-durability-owner.tsx` | Allowed for pinned/hidden/unread/groups merge; do **not** add new message bodies here |
+| **UI mirror / writes** | `messaging-provider.tsx`, `group-provider-port.tsx`, `chat-state-durability-owner.tsx` | Allowed for pinned/hidden/unread/groups merge; do **not** add new message bodies here |
 | **Repair / drift** | `account-sync-drift-detector.ts` | Drift detector only; repair shims removed `02f1cb1b` |
 | **Backup / migration** | `encrypted-account-backup-service.ts`, `restore-materialization.ts`, `identity-integrity-migration.ts` | Must not resurrect deletes on native; test in Phase B |
 | **Dev-only** | `dev-panel.tsx` | Not product truth |
@@ -140,7 +140,7 @@ SQLite fixes **local truth** and delete resurrection. **Roster join/leave across
 |---------------|---------------------------|
 | **0 ClientGateway** | Tombstones + delete paths via gateway ports → SQLite on native |
 | **9 chat-state-store** | **Web:** durable owner. **Native:** UI mirror + repair shims only — not DM/group message read authority |
-| **R1 DM multiplicity** | Hydrate choke: `dm-conversation-hydrate-pipeline.ts` + `dm-read-authority-contract.ts`; SQLite window via `dm-conversation-hydrate-indexed-scan.ts` |
+| **R1 DM multiplicity** | Hydrate choke: `dm-conversation-hydrate-pipeline.ts` + `dm-read-authority-contract.ts`; SQLite window via `thread-history/hydrate-indexed-scan.ts` |
 | **R2 community** | Group list/messages: `community-group-sqlite-store.ts` + `sealed-group-message-persistence.ts`; roster still ledger/coordination |
 
 ### v1.9.x+ subtraction queue (do not expand chat-state on native)

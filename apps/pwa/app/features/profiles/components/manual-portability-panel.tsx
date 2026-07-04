@@ -18,6 +18,7 @@ import {
 import { recordPortabilityExport } from "@/app/features/profiles/services/portability-export-history";
 import {
   buildUnifiedAccountExportFileName,
+  buildUnifiedAccountExportFileNamePreview,
   loadPortabilityExportNamingPreset,
   type PortabilityExportNamingPreset,
 } from "@/app/features/profiles/services/portability-export-naming";
@@ -28,6 +29,7 @@ import {
 import {
   exportUnifiedAccountBundle,
   importUnifiedAccountBundle,
+  writeUnifiedAccountExportToDataRoot,
 } from "@/app/features/profiles/services/unified-account-export-service";
 import {
   PortabilityExportResultBanner,
@@ -164,8 +166,10 @@ export function ManualPortabilityPanel(props: Props): React.JSX.Element {
         exportedAtUnixMs: envelope.exportedAtUnixMs,
         preset: namingPreset,
       });
-      const { writeExportToDataRoot } = await import("@/app/features/profiles/services/data-root-export-service");
-      const writeResult = await writeExportToDataRoot(fileName, serialized);
+      const writeResult = await writeUnifiedAccountExportToDataRoot({
+        fileName,
+        envelope,
+      });
       recordPortabilityExport({
         kind: "unified_account",
         fileName: writeResult.fileName,
@@ -223,6 +227,18 @@ export function ManualPortabilityPanel(props: Props): React.JSX.Element {
           title="Export preview"
         />
         <PortabilityExportNamingSelect value={namingPreset} onChange={setNamingPreset} />
+        {props.publicKeyHex ? (
+          <p className="text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-400">
+            Saves to your export folder as{" "}
+            <span className="break-all font-mono text-zinc-700 dark:text-zinc-300">
+              {buildUnifiedAccountExportFileNamePreview({
+                publicKeyHex: props.publicKeyHex,
+                profileLabel: props.profileLabel,
+                preset: namingPreset,
+              })}
+            </span>
+          </p>
+        ) : null}
         <label className="flex items-center justify-between gap-3 rounded-xl border border-black/5 p-3 dark:border-white/10">
           <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
             Include workspace snapshot and vault media

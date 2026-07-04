@@ -2,6 +2,7 @@
 
 import type React from "react";
 import { useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@dweb/ui-kit";
 import { Loader2, Upload } from "lucide-react";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
@@ -15,6 +16,7 @@ type Props = Readonly<{
 }>;
 
 export function ProfileWindowImportPanel(props: Props): React.JSX.Element {
+  const { t } = useTranslation();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const importFlow = useUnifiedImportFlow({
     publicKeyHex: props.publicKeyHex,
@@ -30,15 +32,15 @@ export function ProfileWindowImportPanel(props: Props): React.JSX.Element {
     fileInputRef.current?.click();
   };
 
+  const fileExtension = t("profiles.portability.fileExtension.unifiedAccount");
+
   return (
     <div className="mt-3 rounded-xl border border-violet-500/20 bg-violet-500/5 px-3 py-3">
       <div className="text-xs font-bold uppercase tracking-wider text-violet-700 dark:text-violet-300">
-        Restore from backup
+        {t("profiles.portability.windowImport.title")}
       </div>
       <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
-        Fresh profile windows start empty. Sign in with your target account (or create it), then import a unified
-        <span className="font-semibold"> .obscur-account-export.json </span>
-        file from another device or an earlier export.
+        {t("profiles.portability.windowImport.desc", { fileExtension })}
       </p>
       <Button
         type="button"
@@ -51,12 +53,12 @@ export function ProfileWindowImportPanel(props: Props): React.JSX.Element {
         {importFlow.isImporting ? (
           <span className="inline-flex items-center gap-2">
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            Importing...
+            {t("profiles.portability.quickActions.importing")}
           </span>
         ) : (
           <span className="inline-flex items-center gap-2">
             <Upload className="h-3.5 w-3.5" />
-            Import unified backup
+            {t("profiles.portability.windowImport.importUnifiedBackup")}
           </span>
         )}
       </Button>

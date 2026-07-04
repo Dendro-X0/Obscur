@@ -20,7 +20,7 @@ describe("path B B3-1 exit contract", () => {
   });
 
   it("use-sealed-community sendMessage is subtracted (no-op)", () => {
-    const sealed = read("app/features/groups/hooks/use-sealed-community.ts");
+    const sealed = read("app/features/groups/hooks/use-sealed-community-legacy.ts");
     expect(sealed).toContain("Path B B3-1");
     expect(sealed).toContain("sendMessage: noopAsync");
     expect(sealed).not.toMatch(/sendMessage:[\s\S]*GroupService/);

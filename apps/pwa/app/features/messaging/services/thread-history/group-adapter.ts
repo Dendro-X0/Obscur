@@ -1,8 +1,8 @@
 import type { Message } from "../../types";
-import type { AssembleDmHydrateThreadReadModelResult } from "../dm-conversation-hydrate-read-model";
-import { getMessageDirectionCounts } from "../dm-conversation-hydrate-read-model";
-import type { RunDmConversationHydrateReadModelPipelineParams } from "../dm-conversation-hydrate-pipeline";
-import type { LoadEarlierDmConversationMessagesParams } from "../dm-conversation-materialization-load-earlier";
+import type { AssembleDmHydrateThreadReadModelResult } from "./hydrate-read-model-types";
+import { getMessageDirectionCounts } from "../dm-thread-read-model";
+import type { RunDmConversationHydrateReadModelPipelineParams } from "./hydrate-pipeline-types";
+import type { LoadEarlierDmConversationMessagesParams } from "./load-earlier-types";
 import { groupThreadHistoryAdapterStub } from "./group-adapter.stub";
 import {
   loadDmKernelGroupThreadEarlier,

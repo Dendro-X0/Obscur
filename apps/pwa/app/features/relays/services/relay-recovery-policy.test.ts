@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { classifyRelayRecoveryState } from "@/app/features/relays/services/relay-recovery-types";
 import {
-  classifyRelayRecoveryState,
-  createRelayRecoveryController,
+  createLegacyRelayRecoveryController,
   relayRecoveryInternals,
-} from "./relay-recovery-policy";
-import type { EnhancedRelayPoolResult } from "@/app/features/relays/hooks/enhanced-relay-pool";
+} from "@/app/features/relays/services/relay-recovery-port";
+import type { EnhancedRelayPoolResult } from "@/app/features/relays/hooks/enhanced-relay-pool-types";
 
 const createPool = (): EnhancedRelayPoolResult => ({
   connections: [],
@@ -101,7 +101,7 @@ describe("relay recovery policy", () => {
   });
 
   it("defers recovery when beforeRecovery handles primary failover", async () => {
-    const controller = createRelayRecoveryController();
+    const controller = createLegacyRelayRecoveryController();
     const pool = createPool();
     const beforeRecovery = vi.fn(() => true);
     controller.configure({
@@ -118,7 +118,7 @@ describe("relay recovery policy", () => {
   });
 
   it("triggers reconnect on the first recovery attempt", async () => {
-    const controller = createRelayRecoveryController();
+    const controller = createLegacyRelayRecoveryController();
     const pool = createPool();
     controller.configure({ pool, enabledRelayUrls: ["wss://relay.one"] });
 
@@ -128,7 +128,7 @@ describe("relay recovery policy", () => {
   });
 
   it("exhausts cyclic no_writable_relays recovery after two full cycles", async () => {
-    const controller = createRelayRecoveryController();
+    const controller = createLegacyRelayRecoveryController();
     const pool = createPool();
     controller.configure({ pool, enabledRelayUrls: ["wss://relay.one"] });
 
@@ -159,7 +159,7 @@ describe("relay recovery policy", () => {
   });
 
   it("escalates non-no_writable relays recoveries to reload_required when exhausted", async () => {
-    const controller = createRelayRecoveryController();
+    const controller = createLegacyRelayRecoveryController();
     const pool = createPool();
     controller.configure({ pool, enabledRelayUrls: [] });
 
@@ -176,7 +176,7 @@ describe("relay recovery policy", () => {
   });
 
   it("maps manual recovery to cyclic no_writable_relays until exhaustion", async () => {
-    const controller = createRelayRecoveryController();
+    const controller = createLegacyRelayRecoveryController();
     const pool = createPool();
     controller.configure({ pool, enabledRelayUrls: ["wss://relay.one"] });
 
@@ -200,8 +200,47 @@ describe("relay recovery policy", () => {
     expect(pool.reconnectAll).toHaveBeenCalledTimes(3);
   });
 
+  it("clears recovery_exhausted when a writable relay returns", () => {
+    const controller = createLegacyRelayRecoveryController();
+    const pool = createPool();
+    controller.configure({ pool, enabledRelayUrls: ["wss://relay.one"] });
+
+    const baseMs = new Date("2026-01-01T00:00:09.000Z").getTime();
+    for (let i = 1; i <= relayRecoveryInternals.MAX_CYCLIC_RECOVERY_TRIGGERS + 1; i += 1) {
+      vi.setSystemTime(new Date(baseMs + i * 9_000));
+      void controller.triggerRecovery("no_writable_relays");
+    }
+    expect(controller.getRecoverySnapshot().recoveryReasonCode).toBe("recovery_exhausted");
+    expect(controller.getRecoverySnapshot().readiness).toBe("offline");
+
+    vi.mocked(pool.getWritableRelaySnapshot).mockReturnValue({
+      atUnixMs: Date.now(),
+      configuredRelayUrls: ["ws://localhost:7000"],
+      writableRelayUrls: ["ws://localhost:7000"],
+      totalRelayCount: 1,
+      openRelayCount: 1,
+      relayCircuitStates: { "ws://localhost:7000": "healthy" },
+    });
+    vi.mocked(pool.getTransportActivitySnapshot).mockReturnValue({
+      lastInboundMessageAtUnixMs: Date.now(),
+      lastInboundEventAtUnixMs: Date.now(),
+      lastSuccessfulPublishAtUnixMs: undefined,
+      writableRelayCount: 1,
+      subscribableRelayCount: 1,
+      writeBlockedRelayCount: 0,
+      coolingDownRelayCount: 0,
+      fallbackRelayUrls: [],
+      fallbackWritableRelayCount: 0,
+    });
+
+    const recovered = controller.refreshSnapshot();
+    expect(recovered.recoveryReasonCode).toBeUndefined();
+    expect(recovered.readiness).toBe("healthy");
+    expect(recovered.recoveryAttemptCount).toBe(0);
+  });
+
   it("treats control chatter without event freshness as stale subscription risk", async () => {
-    const controller = createRelayRecoveryController();
+    const controller = createLegacyRelayRecoveryController();
     const pool = createPool();
     vi.mocked(pool.getWritableRelaySnapshot).mockReturnValue({
       atUnixMs: 1000,

@@ -1,1 +1,1 @@
-export * from "@dweb/ui-kit";
+export { Textarea } from "@dweb/ui-kit";

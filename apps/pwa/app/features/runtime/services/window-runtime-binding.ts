@@ -1,5 +1,6 @@
 import {
   getIdentityDiagnosticsSnapshot,
+  getIdentitySnapshot,
   subscribeIdentityStore,
 } from "@/app/features/auth/hooks/use-identity";
 import { desktopProfileRuntime } from "@/app/features/profiles/services/desktop-profile-runtime";
@@ -9,6 +10,10 @@ let reconcileScheduled = false;
 
 /** Single canonical reconcile path — identity + desktop profile → supervisor bind. */
 export function reconcileWindowRuntimeBinding(): void {
+  const identity = getIdentitySnapshot();
+  if (identity.status === "unlocked" && identity.publicKeyHex) {
+    windowRuntimeSupervisor.promoteUnlockedSession();
+  }
   const diagnostics = getIdentityDiagnosticsSnapshot();
   if (diagnostics?.startupState) {
     windowRuntimeSupervisor.syncIdentity({

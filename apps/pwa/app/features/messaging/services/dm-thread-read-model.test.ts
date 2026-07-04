@@ -5,7 +5,12 @@ vi.mock("@/app/features/runtime/native-persistence-policy", () => ({
   requiresSqlitePersistence: vi.fn(() => true),
 }));
 
+vi.mock("./native-dm-read-policy", () => ({
+  isNativeDmSqliteReadOwner: vi.fn(() => false),
+}));
+
 import { requiresSqlitePersistence } from "@/app/features/runtime/native-persistence-policy";
+import { isNativeDmSqliteReadOwner } from "./native-dm-read-policy";
 
 import {
   evaluateDirectionCoverage,
@@ -38,6 +43,11 @@ const baseMessage = (overrides: Partial<Message> & Pick<Message, "id" | "isOutgo
 });
 
 describe("dm-thread-read-model", () => {
+  beforeEach(() => {
+    vi.mocked(isNativeDmSqliteReadOwner).mockReturnValue(false);
+    vi.mocked(requiresSqlitePersistence).mockReturnValue(true);
+  });
+
   describe("evaluateDirectionCoverage", () => {
     it("detects partial coverage when only one direction exists", () => {
       const coverage = evaluateDirectionCoverage([
@@ -101,6 +111,7 @@ describe("dm-thread-read-model", () => {
     });
 
     it("does not paint display cache on native (sqlite-only R1)", () => {
+      vi.mocked(isNativeDmSqliteReadOwner).mockReturnValue(true);
       const bidirectional = [
         baseMessage({ id: "cache-in", isOutgoing: false }),
         baseMessage({ id: "cache-out", isOutgoing: true }),
@@ -178,6 +189,7 @@ describe("dm-thread-read-model", () => {
     describe("native sqlite owner", () => {
       beforeEach(() => {
         vi.mocked(requiresSqlitePersistence).mockReturnValue(true);
+        vi.mocked(isNativeDmSqliteReadOwner).mockReturnValue(true);
       });
 
       it("surfaces hydrate truth without retry or merge", () => {
@@ -280,6 +292,7 @@ describe("dm-thread-read-model", () => {
 
   describe("evaluateProjectionMergePolicy", () => {
     it("disables projection merge on native (R1 sqlite-only read owner)", () => {
+      vi.mocked(isNativeDmSqliteReadOwner).mockReturnValue(true);
       const previous = [
         baseMessage({ id: "out-1", isOutgoing: true }),
         baseMessage({ id: "in-1", isOutgoing: false }),
@@ -307,6 +320,7 @@ describe("dm-thread-read-model", () => {
     });
 
     it("never persists native display cache", () => {
+      vi.mocked(isNativeDmSqliteReadOwner).mockReturnValue(true);
       expect(shouldPersistDmThreadDisplayCache(
         [
           baseMessage({ id: "in-1", isOutgoing: false }),
@@ -339,6 +353,7 @@ describe("dm-thread-read-model", () => {
     });
 
     it("does not upgrade live thread from display cache on native", () => {
+      vi.mocked(isNativeDmSqliteReadOwner).mockReturnValue(true);
       const live = [baseMessage({ id: "live-out", isOutgoing: true })];
       const cache = [
         baseMessage({ id: "cache-out", isOutgoing: true }),
@@ -403,6 +418,7 @@ describe("dm-thread-read-model", () => {
 
   describe("evaluatePartialDirectionHydrateRetryPolicy", () => {
     it("does not schedule retry on native sqlite owner (relay backfill is the repair path)", () => {
+      vi.mocked(isNativeDmSqliteReadOwner).mockReturnValue(true);
       const policy = evaluatePartialDirectionHydrateRetryPolicy({
         messages: [baseMessage({ id: "in-only", isOutgoing: false })],
         myPublicKeyHex: myPublicKeyHex as Message["senderPubkey"] & string,

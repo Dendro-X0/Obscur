@@ -17,6 +17,9 @@ export function isObscurAppUrl(url) {
   if (u.includes("127.0.0.1:3340") || u.includes("localhost:3340")) {
     return true;
   }
+  if (u.includes("127.0.0.1:1430") || u.includes("localhost:1430")) {
+    return true;
+  }
   if (u.startsWith("tauri://")) {
     return true;
   }

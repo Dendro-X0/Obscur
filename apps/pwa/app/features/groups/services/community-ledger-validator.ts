@@ -16,6 +16,32 @@ export const MIN_LEDGER_VERSION = 1;
 /** Placeholder name that indicates data loss */
 export const PLACEHOLDER_GROUP_NAME = 'Private Group';
 
+/** Audit/history rows — not active membership contracts (RIW-1 validation split). */
+export const ARCHIVAL_LEDGER_STATUSES = ['historical', 'invited', 'unknown'] as const;
+
+/** Terminal membership rows may be thin evidence (groupId + status only). */
+export const THIN_VALIDATION_LEDGER_STATUSES = [
+  ...ARCHIVAL_LEDGER_STATUSES,
+  'left',
+  'expelled',
+] as const;
+
+export function isArchivalLedgerStatus(status: string | undefined): boolean {
+  return (
+    status === 'historical'
+    || status === 'invited'
+    || status === 'unknown'
+  );
+}
+
+export function isThinValidationLedgerStatus(status: string | undefined): boolean {
+  return (
+    isArchivalLedgerStatus(status)
+    || status === 'left'
+    || status === 'expelled'
+  );
+}
+
 /** Validation result with detailed error/warning messages */
 export interface ValidationResult {
   valid: boolean;
@@ -52,6 +78,30 @@ export function validateLedgerEntry(
   const errors: string[] = [];
   const warnings: string[] = [];
   const { strict = false, allowLegacy = true, context } = options;
+  const prefix = context ? `[${context}] ` : '';
+
+  // Archival rows are intentionally thin — validate identity only when allowLegacy.
+  if (allowLegacy && !strict && isThinValidationLedgerStatus(entry.status)) {
+    if (!entry.groupId || typeof entry.groupId !== 'string' || entry.groupId.length === 0) {
+      errors.push('Missing or invalid required field: groupId');
+    }
+    warnings.push(
+      `Thin ledger status "${entry.status}" — skipped strict active-membership validation`,
+    );
+    return {
+      valid: errors.length === 0,
+      errors: errors.map((error) => prefix + error),
+      warnings: warnings.map((warning) => prefix + warning),
+      details: {
+        hasRequiredFields: errors.length === 0,
+        hasValidMemberList: Array.isArray(entry.memberPubkeys) && (entry.memberPubkeys?.length ?? 0) > 0,
+        hasValidAdminList: true,
+        hasValidDisplayName: !!entry.displayName,
+        hasSchemaVersion: typeof entry.ledgerVersion === 'number',
+        hasTimestamps: !!entry.createdAt && !!entry.updatedAt,
+      },
+    };
+  }
 
   // Required identity fields
   if (!entry.groupId || typeof entry.groupId !== 'string' || entry.groupId.length === 0) {
@@ -148,9 +198,6 @@ export function validateLedgerEntry(
   // In strict mode, warnings become errors
   const finalErrors = strict ? [...errors, ...warnings] : errors;
   const finalWarnings = strict ? [] : warnings;
-
-  // Add context prefix if provided
-  const prefix = context ? `[${context}] ` : '';
 
   return {
     valid: finalErrors.length === 0,

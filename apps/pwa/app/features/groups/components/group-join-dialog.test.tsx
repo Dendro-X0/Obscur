@@ -28,8 +28,8 @@ vi.mock("../../relays/hooks/use-relay-pool-ref", () => ({
     useRelayPoolRef: (pool: unknown) => ({ current: pool }),
 }));
 
-vi.mock("../hooks/use-sealed-community", () => ({
-    useSealedCommunity: () => ({
+vi.mock("@/app/features/groups/hooks/sealed-community-port", () => ({
+    useLegacySealedCommunity: () => ({
         state: {
             metadata: {
                 name: "Test Room",
@@ -40,7 +40,7 @@ vi.mock("../hooks/use-sealed-community", () => ({
     }),
 }));
 
-vi.mock("../providers/group-provider", () => ({
+vi.mock("@/app/features/groups/providers/group-provider-port", () => ({
     useGroups: () => ({
         addGroup: vi.fn(),
     }),

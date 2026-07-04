@@ -6,6 +6,8 @@ import { accountProjectionRuntime } from "@/app/features/account-sync/services/a
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { wipeProfileWorkspaceCompletely } from "@/app/features/profiles/services/wipe-profile-workspace";
 import { writeExportToDataRoot } from "@/app/features/profiles/services/data-root-export-service";
+import { clearLocalSaveLibraryScanCache } from "@/app/features/profiles/services/local-save-library-service";
+import { startLocalSaveLibraryWindowBootstrap } from "@/app/features/profiles/services/local-save-library-scan-bootstrap";
 import {
   createEncryptedWorkspaceBundleEnvelope,
   importEncryptedWorkspaceBundle,
@@ -224,6 +226,8 @@ export const writeUnifiedAccountExportToDataRoot = async (params: Readonly<{
   }).catch(() => {
     // Export file is authoritative; sidecar is a scan hint only.
   });
+  clearLocalSaveLibraryScanCache();
+  void startLocalSaveLibraryWindowBootstrap();
   return writeResult;
 };
 
@@ -244,5 +248,7 @@ export const writePortableAccountExportToDataRoot = async (params: Readonly<{
   }).catch(() => {
     // Export file is authoritative; sidecar is a scan hint only.
   });
+  clearLocalSaveLibraryScanCache();
+  void startLocalSaveLibraryWindowBootstrap();
   return writeResult;
 };

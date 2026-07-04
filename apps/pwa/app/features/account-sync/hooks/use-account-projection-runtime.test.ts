@@ -51,7 +51,7 @@ vi.mock("../services/account-projection-runtime", () => ({
   },
 }));
 
-import type { RelayReadinessState } from "@/app/features/relays/services/relay-recovery-policy";
+import type { RelayReadinessState } from "@/app/features/relays/services/relay-recovery-types";
 import { useAccountProjectionRuntime } from "./use-account-projection-runtime";
 
 describe("useAccountProjectionRuntime", () => {

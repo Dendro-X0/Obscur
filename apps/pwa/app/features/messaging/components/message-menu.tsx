@@ -1,22 +1,19 @@
-
 import React from "react";
 import { createPortal } from "react-dom";
 import { cn } from "../../../lib/cn";
 import { useTranslation } from "react-i18next";
+import { HardDrive } from "lucide-react";
 import type { Message } from "../types";
 import { canDeleteMessageForEveryone, canDeleteMessageForMe } from "../services/message-delete-permissions";
-import {
-    DM_LOCAL_VISIBILITY_COPY,
-    DM_RECALL_FOR_EVERYONE_UI_ENABLED,
-} from "../config/dm-local-visibility-product";
+import { DM_LOCAL_VISIBILITY_COPY, DM_RECALL_FOR_EVERYONE_UI_ENABLED, } from "../config/dm-local-visibility-product";
 import { MANAGED_WORKSPACE_DELETE_COPY } from "@/app/features/groups/services/managed-workspace-delete-copy";
-
 interface MessageMenuProps {
     x: number;
     y: number;
     activeMessage: Message;
     onCopyText: () => void;
     onCopyAttachmentUrl: () => void;
+    onSaveToVault?: () => void;
     onReply: () => void;
     onStartMultiSelect: () => void;
     onDeleteForMe: () => void;
@@ -27,27 +24,11 @@ interface MessageMenuProps {
     onHoverChange?: (isHovered: boolean) => void;
     onRequestClose?: () => void;
 }
-
 const VIEWPORT_MARGIN_PX = 8;
 const MENU_GAP_PX = 8;
 const DEFAULT_MENU_WIDTH_PX = 224;
 const DEFAULT_MENU_HEIGHT_PX = 180;
-
-export function MessageMenu({
-    x,
-    y,
-    activeMessage,
-    onCopyText,
-    onCopyAttachmentUrl,
-    onReply,
-    onStartMultiSelect,
-    onDeleteForMe,
-    onDeleteForEveryone,
-    managedWorkspaceRemoteRemove = false,
-    menuRef,
-    onHoverChange,
-    onRequestClose,
-}: MessageMenuProps) {
+export function MessageMenu({ x, y, activeMessage, onCopyText, onCopyAttachmentUrl, onSaveToVault, onReply, onStartMultiSelect, onDeleteForMe, onDeleteForEveryone, managedWorkspaceRemoteRemove = false, menuRef, onHoverChange, onRequestClose, }: MessageMenuProps) {
     const { t } = useTranslation();
     const canDeleteForMe = canDeleteMessageForMe(activeMessage);
     const canRecallForEveryone = (managedWorkspaceRemoteRemove || DM_RECALL_FOR_EVERYONE_UI_ENABLED)
@@ -55,19 +36,23 @@ export function MessageMenu({
     const hasText: boolean = Boolean(activeMessage.content.trim());
     const hasAttachment: boolean = Boolean(activeMessage.attachments && activeMessage.attachments.length > 0);
     const [portalRoot, setPortalRoot] = React.useState<HTMLElement | null>(null);
-    const [position, setPosition] = React.useState<Readonly<{ left: number; top: number }>>({
+    const [position, setPosition] = React.useState<Readonly<{
+        left: number;
+        top: number;
+    }>>({
         left: x,
         top: y,
     });
-
     React.useEffect(() => {
         if (typeof document === "undefined") {
             return;
         }
         setPortalRoot(document.body);
     }, []);
-
-    const resolvePosition = React.useCallback((): Readonly<{ left: number; top: number }> => {
+    const resolvePosition = React.useCallback((): Readonly<{
+        left: number;
+        top: number;
+    }> => {
         if (typeof window === "undefined") {
             return {
                 left: x,
@@ -78,10 +63,8 @@ export function MessageMenu({
         const rect = panel?.getBoundingClientRect();
         const menuWidth = Math.max(rect?.width ?? 0, DEFAULT_MENU_WIDTH_PX);
         const menuHeight = Math.max(rect?.height ?? 0, DEFAULT_MENU_HEIGHT_PX);
-
         const maxLeft = Math.max(VIEWPORT_MARGIN_PX, window.innerWidth - menuWidth - VIEWPORT_MARGIN_PX);
         const maxTop = Math.max(VIEWPORT_MARGIN_PX, window.innerHeight - menuHeight - VIEWPORT_MARGIN_PX);
-
         const anchorElement = document.getElementById(`msg-${activeMessage.id}`);
         const anchorRect = anchorElement?.getBoundingClientRect();
         if (!anchorRect) {
@@ -94,30 +77,23 @@ export function MessageMenu({
             const fallbackTop = Math.min(Math.max(fallbackTopRaw, VIEWPORT_MARGIN_PX), maxTop);
             return { left: Math.round(fallbackLeft), top: Math.round(fallbackTop) };
         }
-
         const anchorCenterY = anchorRect.top + (anchorRect.height / 2);
-
         // Direction-first layout contract:
         // - left-side bubbles (incoming) open right
         // - right-side bubbles (outgoing) open left
         const placeRight = !activeMessage.isOutgoing;
-
         let nextLeft = placeRight
             ? (anchorRect.right + MENU_GAP_PX)
             : (anchorRect.left - menuWidth - MENU_GAP_PX);
         let nextTop = anchorCenterY - (menuHeight / 2);
-
         nextLeft = Math.min(Math.max(nextLeft, VIEWPORT_MARGIN_PX), maxLeft);
         nextTop = Math.min(Math.max(nextTop, VIEWPORT_MARGIN_PX), maxTop);
-
         return { left: Math.round(nextLeft), top: Math.round(nextTop) };
     }, [activeMessage.id, activeMessage.isOutgoing, menuRef, x, y]);
-
     React.useLayoutEffect(() => {
         const next = resolvePosition();
         setPosition(next);
     }, [resolvePosition]);
-
     React.useEffect(() => {
         const syncPosition = (): void => {
             const anchorElement = document.getElementById(`msg-${activeMessage.id}`);
@@ -126,11 +102,9 @@ export function MessageMenu({
                 return;
             }
             const next = resolvePosition();
-            setPosition((prev) => (
-                prev.left === next.left && prev.top === next.top
-                    ? prev
-                    : next
-            ));
+            setPosition((prev) => (prev.left === next.left && prev.top === next.top
+                ? prev
+                : next));
         };
         window.addEventListener("resize", syncPosition);
         window.addEventListener("scroll", syncPosition, true);
@@ -139,80 +113,35 @@ export function MessageMenu({
             window.removeEventListener("scroll", syncPosition, true);
         };
     }, [activeMessage.id, onRequestClose, resolvePosition]);
-
     if (!portalRoot) {
         return null;
     }
-
-    return createPortal(
-        <div
-            ref={menuRef}
-            data-escape-layer="open"
-            className="fixed z-[1200]"
-            style={{ left: position.left, top: position.top }}
-            onPointerDown={(e) => e.stopPropagation()}
-            onPointerEnter={() => onHoverChange?.(true)}
-            onPointerLeave={() => onHoverChange?.(false)}
-        >
+    return createPortal(<div ref={menuRef} data-escape-layer="open" className="fixed z-[1200]" style={{ left: position.left, top: position.top }} onPointerDown={(e) => e.stopPropagation()} onPointerEnter={() => onHoverChange?.(true)} onPointerLeave={() => onHoverChange?.(false)}>
             <div className="w-56 overflow-hidden rounded-xl border border-black/10 bg-white shadow-lg dark:border-white/10 dark:bg-zinc-950">
-                <button
-                    type="button"
-                    className={cn("w-full px-3 py-2 text-left text-sm hover:bg-black/5 dark:hover:bg-white/5", !hasText ? "opacity-50" : "")}
-                    disabled={!hasText}
-                    onClick={onCopyText}
-                >
+                <button type="button" className={cn("w-full px-3 py-2 text-left text-sm hover:bg-black/5 dark:hover:bg-white/5", !hasText ? "opacity-50" : "")} disabled={!hasText} onClick={onCopyText}>
                     {t("common.copyText")}
                 </button>
-                <button
-                    type="button"
-                    className={cn("w-full px-3 py-2 text-left text-sm hover:bg-black/5 dark:hover:bg-white/5", !hasAttachment ? "opacity-50" : "")}
-                    disabled={!hasAttachment}
-                    onClick={onCopyAttachmentUrl}
-                >
+                {onSaveToVault && hasAttachment ? (<button type="button" className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-black/5 dark:hover:bg-white/5" onClick={onSaveToVault}>
+                        <HardDrive className="h-3.5 w-3.5"/>
+                        {t("vault.saveFromChat")}
+                    </button>) : null}
+                <button type="button" className={cn("w-full px-3 py-2 text-left text-sm hover:bg-black/5 dark:hover:bg-white/5", !hasAttachment ? "opacity-50" : "")} disabled={!hasAttachment} onClick={onCopyAttachmentUrl}>
                     {t("common.copyAttachmentUrl")}
                 </button>
-                <button
-                    type="button"
-                    className="w-full px-3 py-2 text-left text-sm hover:bg-black/5 dark:hover:bg-white/5"
-                    onClick={onReply}
-                >
+                <button type="button" className="w-full px-3 py-2 text-left text-sm hover:bg-black/5 dark:hover:bg-white/5" onClick={onReply}>
                     {t("common.reply")}
                 </button>
-                <button
-                    type="button"
-                    className="w-full px-3 py-2 text-left text-sm hover:bg-black/5 dark:hover:bg-white/5"
-                    onClick={onStartMultiSelect}
-                >
-                    {t("messaging.selectMessages", "Select messages")}
+                <button type="button" className="w-full px-3 py-2 text-left text-sm hover:bg-black/5 dark:hover:bg-white/5" onClick={onStartMultiSelect}>
+                    {t("messaging.selectMessages")}
                 </button>
-                <button
-                    type="button"
-                    className={cn(
-                        "w-full px-3 py-2 text-left text-sm hover:bg-black/5 dark:hover:bg-white/5",
-                        !canDeleteForMe ? "opacity-50" : ""
-                    )}
-                    disabled={!canDeleteForMe}
-                    onClick={onDeleteForMe}
-                >
+                <button type="button" className={cn("w-full px-3 py-2 text-left text-sm hover:bg-black/5 dark:hover:bg-white/5", !canDeleteForMe ? "opacity-50" : "")} disabled={!canDeleteForMe} onClick={onDeleteForMe}>
                     {t("messaging.hideOnThisDevice", DM_LOCAL_VISIBILITY_COPY.hideOnThisDevice)}
                 </button>
-                {managedWorkspaceRemoteRemove || DM_RECALL_FOR_EVERYONE_UI_ENABLED ? (
-                    <button
-                        type="button"
-                        className={cn(
-                            "w-full px-3 py-2 text-left text-sm hover:bg-black/5 dark:hover:bg-white/5",
-                            !canRecallForEveryone ? "opacity-50" : "text-red-600 dark:text-red-400"
-                        )}
-                        disabled={!canRecallForEveryone}
-                        onClick={onDeleteForEveryone}
-                    >
+                {managedWorkspaceRemoteRemove || DM_RECALL_FOR_EVERYONE_UI_ENABLED ? (<button type="button" className={cn("w-full px-3 py-2 text-left text-sm hover:bg-black/5 dark:hover:bg-white/5", !canRecallForEveryone ? "opacity-50" : "text-red-600 dark:text-red-400")} disabled={!canRecallForEveryone} onClick={onDeleteForEveryone}>
                         {managedWorkspaceRemoteRemove
-                            ? t("messaging.removeFromWorkspace", MANAGED_WORKSPACE_DELETE_COPY.removeFromWorkspace)
-                            : t("messaging.recallForEveryone", DM_LOCAL_VISIBILITY_COPY.recallForEveryone)}
-                    </button>
-                ) : null}
+                ? t("messaging.removeFromWorkspace", MANAGED_WORKSPACE_DELETE_COPY.removeFromWorkspace)
+                : t("messaging.recallForEveryone", DM_LOCAL_VISIBILITY_COPY.recallForEveryone)}
+                    </button>) : null}
             </div>
-        </div>,
-        portalRoot
-    );
+        </div>, portalRoot);
 }

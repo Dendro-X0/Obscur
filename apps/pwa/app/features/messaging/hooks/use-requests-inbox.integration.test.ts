@@ -15,7 +15,7 @@ const inboxMocks = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("@/app/features/messaging/services/chat-state-store", () => ({
+vi.mock("@/app/features/messaging/services/chat-state-store-legacy", () => ({
   chatStateStoreService: inboxMocks.chatStateStore,
 }));
 

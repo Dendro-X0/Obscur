@@ -2,6 +2,7 @@
 
 import React from "react";
 import { Bell, Download, Loader2, LogOut, RotateCcw, Share2, Trash2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/lib/cn";
 import { useMobileCompactLayout } from "@/app/features/runtime/use-mobile-compact-layout";
@@ -83,14 +84,15 @@ export function GroupManagementSettingsPanel({
     managedWorkspaceActionsBlocked: boolean;
 }>): React.JSX.Element {
     const compact = useMobileCompactLayout();
+    const { t } = useTranslation();
 
     const rows = (
         <>
             <SettingRow
                 compact={compact}
                 icon={<Bell className="h-4 w-4" />}
-                title="Notifications"
-                description="Community activity alerts on this device."
+                title={t("groups.management.safety.notificationsTitle")}
+                description={t("groups.management.safety.notificationsDesc")}
                 action={
                     <SettingsToggle
                         checked={notificationsEnabled}
@@ -101,8 +103,8 @@ export function GroupManagementSettingsPanel({
             <SettingRow
                 compact={compact}
                 icon={<Share2 className="h-4 w-4" />}
-                title="Invite link"
-                description="QR code and link for others to join."
+                title={t("groups.management.safety.inviteTitle")}
+                description={t("groups.management.safety.inviteDesc")}
                 action={
                     <Button
                         type="button"
@@ -112,15 +114,15 @@ export function GroupManagementSettingsPanel({
                         onClick={onShareInvite}
                         disabled={managedWorkspaceActionsBlocked}
                     >
-                        Share
+                        {t("groups.management.safety.share")}
                     </Button>
                 }
             />
             <SettingRow
                 compact={compact}
                 icon={<RotateCcw className="h-4 w-4" />}
-                title="Rotate room key"
-                description="Distribute a new encryption key to active members."
+                title={t("groups.management.safety.rotateTitle")}
+                description={t("groups.management.safety.rotateDesc")}
                 action={
                     <Button
                         type="button"
@@ -130,15 +132,15 @@ export function GroupManagementSettingsPanel({
                         onClick={onRotateKey}
                         disabled={isRotatingKey || managedWorkspaceActionsBlocked}
                     >
-                        {isRotatingKey ? <Loader2 className="h-4 w-4 animate-spin" /> : "Rotate"}
+                        {isRotatingKey ? <Loader2 className="h-4 w-4 animate-spin" /> : t("groups.management.safety.rotate")}
                     </Button>
                 }
             />
             <SettingRow
                 compact={compact}
                 icon={<Download className="h-4 w-4" />}
-                title="Backup"
-                description="Download metadata and keys as JSON."
+                title={t("groups.management.safety.backupTitle")}
+                description={t("groups.management.safety.backupDesc")}
                 action={
                     <Button
                         type="button"
@@ -147,7 +149,7 @@ export function GroupManagementSettingsPanel({
                         className={compact ? "h-8 px-3 text-xs" : undefined}
                         onClick={onExport}
                     >
-                        Export
+                        {t("groups.management.safety.export")}
                     </Button>
                 }
             />
@@ -160,8 +162,8 @@ export function GroupManagementSettingsPanel({
                 compact={compact}
                 danger
                 icon={<LogOut className="h-4 w-4" />}
-                title="Leave community"
-                description="Remove yourself from this room. If you are the last member, the community disbands."
+                title={t("groups.management.safety.leaveTitle")}
+                description={t("groups.management.safety.leaveDesc")}
                 action={
                     <Button
                         type="button"
@@ -170,7 +172,7 @@ export function GroupManagementSettingsPanel({
                         className={compact ? "h-8 px-3 text-xs text-rose-400" : "text-rose-400"}
                         onClick={onLeave}
                     >
-                        Leave
+                        {t("groups.management.safety.leave")}
                     </Button>
                 }
             />
@@ -179,8 +181,8 @@ export function GroupManagementSettingsPanel({
                     compact={compact}
                     danger
                     icon={<Trash2 className="h-4 w-4" />}
-                    title="Delete community data"
-                    description="Irreversible purge on this device."
+                    title={t("groups.management.safety.purgeTitle")}
+                    description={t("groups.management.safety.purgeDesc")}
                     action={
                         <Button
                             type="button"
@@ -189,7 +191,7 @@ export function GroupManagementSettingsPanel({
                             className={compact ? "h-8 px-3 text-xs" : undefined}
                             onClick={onPurge}
                         >
-                            Purge
+                            {t("groups.management.safety.purge")}
                         </Button>
                     }
                 />
@@ -204,7 +206,7 @@ export function GroupManagementSettingsPanel({
                     {rows}
                 </div>
                 <div className="space-y-2">
-                    <p className="px-1 text-xs font-medium uppercase tracking-wide text-rose-400">Danger zone</p>
+                    <p className="px-1 text-xs font-medium uppercase tracking-wide text-rose-400">{t("groups.management.safety.dangerZone")}</p>
                     <div className={cn(mgmtCompactSectionClass, "divide-y divide-zinc-200 overflow-hidden p-0 dark:divide-zinc-800 dark:bg-zinc-900/80")}>
                         {dangerRows}
                     </div>
@@ -217,7 +219,7 @@ export function GroupManagementSettingsPanel({
         <div className="mx-auto max-w-2xl space-y-6">
             <div className="space-y-3">{rows}</div>
             <div className="space-y-3 border-t border-zinc-200 pt-5 dark:border-zinc-800">
-                <p className="text-xs font-medium uppercase tracking-wide text-rose-400">Danger zone</p>
+                <p className="text-xs font-medium uppercase tracking-wide text-rose-400">{t("groups.management.safety.dangerZone")}</p>
                 {dangerRows}
             </div>
         </div>

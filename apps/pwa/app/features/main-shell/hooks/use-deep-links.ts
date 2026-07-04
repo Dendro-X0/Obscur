@@ -5,7 +5,7 @@ import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { useRelayList } from "@/app/features/relays/hooks/use-relay-list";
 import { useMessaging } from "@/app/features/messaging/providers/messaging-provider";
-import { useGroups } from "@/app/features/groups/providers/group-provider";
+import { useGroups } from "@/app/features/groups/providers/group-provider-port";
 import { parsePublicKeyInput } from "@/app/features/profile/utils/parse-public-key-input";
 import { toDmConversationId } from "@/app/features/messaging/utils/dm-conversation-id";
 import { createDmConversation } from "@/app/features/messaging/utils/create-dm-conversation";

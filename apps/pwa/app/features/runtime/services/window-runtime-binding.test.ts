@@ -4,10 +4,12 @@ import { createPendingStartupAuthState } from "@/app/features/auth/services/star
 const supervisorMocks = vi.hoisted(() => ({
   syncIdentity: vi.fn(),
   bindProfile: vi.fn(),
+  promoteUnlockedSession: vi.fn(),
 }));
 
 const identityMocks = vi.hoisted(() => ({
   getIdentityDiagnosticsSnapshot: vi.fn(),
+  getIdentitySnapshot: vi.fn(() => ({ status: "locked" as const })),
   subscribeIdentityStore: vi.fn((_listener: () => void) => (): void => {}),
 }));
 
@@ -31,6 +33,7 @@ vi.mock("@/app/features/runtime/services/window-runtime-supervisor", () => ({
 
 vi.mock("@/app/features/auth/hooks/use-identity", () => ({
   getIdentityDiagnosticsSnapshot: identityMocks.getIdentityDiagnosticsSnapshot,
+  getIdentitySnapshot: identityMocks.getIdentitySnapshot,
   subscribeIdentityStore: identityMocks.subscribeIdentityStore,
 }));
 
@@ -61,8 +64,24 @@ describe("window-runtime-binding", () => {
 
     reconcileWindowRuntimeBinding();
 
+    expect(supervisorMocks.promoteUnlockedSession).not.toHaveBeenCalled();
     expect(supervisorMocks.syncIdentity).toHaveBeenCalledWith({ startupState });
     expect(supervisorMocks.bindProfile).toHaveBeenCalledWith(desktopMocks.getSnapshot());
+  });
+
+  it("promotes runtime when identity is already unlocked", () => {
+    identityMocks.getIdentitySnapshot.mockReturnValue({
+      status: "unlocked",
+      publicKeyHex: "abc",
+    } as never);
+    identityMocks.getIdentityDiagnosticsSnapshot.mockReturnValue({
+      status: "unlocked",
+      startupState: createPendingStartupAuthState(),
+    });
+
+    reconcileWindowRuntimeBinding();
+
+    expect(supervisorMocks.promoteUnlockedSession).toHaveBeenCalledTimes(1);
   });
 
   it("subscribes once and reconciles on start", async () => {

@@ -86,6 +86,15 @@ vi.mock("@/app/features/runtime/services/window-runtime-supervisor", () => ({
   }),
 }));
 
+vi.mock("@/app/features/runtime/runtime-transport-owner-policy", () => ({
+  isRuntimeTransportOwnerEnabled: () => (
+    runtimeState.phase === "activating_runtime"
+    || runtimeState.phase === "ready"
+    || runtimeState.phase === "degraded"
+    || identityState.status === "unlocked"
+  ),
+}));
+
 vi.mock("@/app/features/profiles/services/profile-runtime-scope", () => ({
   getResolvedProfileId: () => "default",
 }));
@@ -305,6 +314,7 @@ describe("RuntimeMessagingTransportOwnerProvider", () => {
 
   it("disables transport when runtime phase is not active", () => {
     runtimeState.phase = "booting";
+    identityState.status = "locked";
 
     render(
       <RuntimeMessagingTransportOwnerProvider>
@@ -318,8 +328,27 @@ describe("RuntimeMessagingTransportOwnerProvider", () => {
     }));
   });
 
+  it("enables transport when identity is unlocked even if window phase is still auth_required", () => {
+    runtimeState.phase = "auth_required";
+    identityState.status = "unlocked";
+
+    render(
+      <RuntimeMessagingTransportOwnerProvider>
+        <div>child</div>
+      </RuntimeMessagingTransportOwnerProvider>
+    );
+
+    expect(useDmController).toHaveBeenCalledWith(expect.objectContaining({
+      myPublicKeyHex: identityState.publicKeyHex,
+      myPrivateKeyHex: identityState.privateKeyHex,
+      enableIncomingTransport: true,
+      autoSubscribeIncoming: true,
+    }));
+  });
+
   it("disables transport when identity is not unlocked", () => {
     identityState.status = "locked";
+    runtimeState.phase = "ready";
 
     render(
       <RuntimeMessagingTransportOwnerProvider>

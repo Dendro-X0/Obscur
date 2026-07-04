@@ -6,7 +6,7 @@
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { messageBus } from "@/app/features/messaging/services/message-bus";
 import { MessageQueue, type Message as QueueMessage } from "@/app/features/messaging/lib/message-queue";
-import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store";
+import { messagingChatStateMessagePort } from "@/app/features/messaging/services/messaging-chat-state-message-port";
 import { messagePersistenceService } from "@/app/features/messaging/services/message-persistence-service";
 import type { Message, PersistedMessage } from "@/app/features/messaging/types";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
@@ -16,6 +16,7 @@ import { appendCanonicalDmEvent } from "@/app/features/account-sync/services/acc
 import { toAccountEventPlaintextPreview } from "@/app/features/account-sync/services/account-event-plaintext-preview";
 import { pinCommunityInviteMessageSnapshotForMessage } from "../utils/community-invite-message-snapshot";
 import { buildCommunityInviteResponseStatusByMessageId } from "../utils/community-invite-resolution";
+import type { InviteResponseStatus } from "@/app/features/messaging/components/message-list-render-meta";
 import { normalizeCommunityInvitePayload } from "../utils/community-invite-payload";
 import {
   buildCommunityInviteResponseWirePlaintext,
@@ -31,6 +32,8 @@ import {
 } from "./community-dm-invite-contract";
 import {
   findCommunityDmInviteLedgerEntry,
+  inferCommunityDmInviteLedgerWireParties,
+  isCommunityDmInviteLedgerInviterForViewer,
   listCommunityDmInviteLedgerForConversation,
   updateCommunityDmInviteLedgerStatus,
   upsertCommunityDmInviteLedgerEntry,
@@ -88,12 +91,12 @@ const persistInviteToChatState = (
     return;
   }
   const persistedMessage = toPersistedInviteMessage(message);
-  const chatState = chatStateStoreService.load(accountPublicKeyHex, { profileId });
+  const chatState = messagingChatStateMessagePort.load(accountPublicKeyHex, { profileId });
   const existing = chatState?.messagesByConversationId?.[conversationId] ?? [];
   if (existing.some((entry) => entry.id === persistedMessage.id)) {
     return;
   }
-  chatStateStoreService.updateMessages(accountPublicKeyHex, {
+  messagingChatStateMessagePort.updateMessages(accountPublicKeyHex, {
     [conversationId]: [...existing, persistedMessage],
   });
 };
@@ -182,6 +185,8 @@ export const commitOutboundCommunityDmInvite = async (
     inviteId: params.inviteId,
     conversationId,
     peerPubkey: recipientPubkey as PublicKeyHex,
+    inviterPubkey: params.accountPublicKeyHex,
+    inviteePubkey: recipientPubkey as PublicKeyHex,
     direction: "outbound",
     groupId: params.invitePayload.groupId,
     groupName: params.invitePayload.metadata.name,
@@ -192,7 +197,7 @@ export const commitOutboundCommunityDmInvite = async (
     sentAtUnixMs: canonicalMessage.timestamp.getTime(),
     updatedAtUnixMs: Date.now(),
     rumorEventId: canonicalMessage.eventId,
-  }, profileId);
+  }, profileId, params.accountPublicKeyHex);
 
   notifyLedgerChanged(conversationId, profileId);
 
@@ -261,14 +266,26 @@ export const recordCommunityDmInviteResponse = (params: Readonly<{
   direction: "outbound" | "inbound";
   invitePayload?: CommunityInviteWirePayload;
   profileId?: string;
+  accountPublicKeyHex?: PublicKeyHex | null;
 }>): CommunityDmInviteLedgerEntry | null => {
   const profileId = params.profileId?.trim() || getResolvedProfileId().trim();
-  let entry = findCommunityDmInviteLedgerEntry(params.inviteId, profileId);
+  let entry = findCommunityDmInviteLedgerEntry(params.inviteId, profileId, params.accountPublicKeyHex);
   if (!entry && params.invitePayload) {
+    const wireParties = inferCommunityDmInviteLedgerWireParties({
+      peerPubkey: params.peerPubkey,
+      direction: params.direction,
+      invitePayload: params.invitePayload,
+      accountPublicKeyHex: params.accountPublicKeyHex,
+    });
+    if (!wireParties) {
+      return null;
+    }
     upsertCommunityDmInviteLedgerEntry({
       inviteId: params.inviteId,
       conversationId: params.conversationId,
       peerPubkey: params.peerPubkey,
+      inviterPubkey: wireParties.inviterPubkey,
+      inviteePubkey: wireParties.inviteePubkey,
       direction: params.direction,
       groupId: params.invitePayload.groupId,
       groupName: params.invitePayload.metadata.name,
@@ -278,13 +295,14 @@ export const recordCommunityDmInviteResponse = (params: Readonly<{
       status: params.status,
       sentAtUnixMs: Date.now(),
       updatedAtUnixMs: Date.now(),
-    }, profileId);
-    entry = findCommunityDmInviteLedgerEntry(params.inviteId, profileId);
+    }, profileId, params.accountPublicKeyHex);
+    entry = findCommunityDmInviteLedgerEntry(params.inviteId, profileId, params.accountPublicKeyHex);
   }
   const updated = updateCommunityDmInviteLedgerStatus({
     inviteId: params.inviteId,
     status: params.status,
     profileId,
+    accountPublicKeyHex: params.accountPublicKeyHex,
   });
   notifyLedgerChanged(params.conversationId, profileId);
   return updated ?? entry;
@@ -296,6 +314,8 @@ export const applyInboundCommunityDmInviteResponse = (params: Readonly<{
   conversationId: string;
   peerPubkey: PublicKeyHex;
   profileId?: string;
+  accountPublicKeyHex?: PublicKeyHex | null;
+  invitePayload?: CommunityInviteWirePayload;
 }>): void => {
   recordCommunityDmInviteResponse({
     inviteId: params.responsePayload.inviteId,
@@ -303,8 +323,69 @@ export const applyInboundCommunityDmInviteResponse = (params: Readonly<{
     conversationId: params.conversationId,
     peerPubkey: params.peerPubkey,
     direction: "outbound",
+    invitePayload: params.invitePayload,
     profileId: params.profileId,
+    accountPublicKeyHex: params.accountPublicKeyHex,
   });
+};
+
+/** Invitee receives terminal response (e.g. cancel) — update inbound ledger row. */
+export const applyInboundCommunityDmInviteTerminalResponse = (params: Readonly<{
+  responsePayload: CommunityInviteResponseWirePayload;
+  conversationId: string;
+  peerPubkey: PublicKeyHex;
+  profileId?: string;
+  accountPublicKeyHex?: PublicKeyHex | null;
+  invitePayload?: CommunityInviteWirePayload;
+}>): void => {
+  recordCommunityDmInviteResponse({
+    inviteId: params.responsePayload.inviteId,
+    status: params.responsePayload.status,
+    conversationId: params.conversationId,
+    peerPubkey: params.peerPubkey,
+    direction: "inbound",
+    invitePayload: params.invitePayload,
+    profileId: params.profileId,
+    accountPublicKeyHex: params.accountPublicKeyHex,
+  });
+};
+
+/** Seed or update invite ledger when an inbound wire row arrives on the active DM thread. */
+export const syncCommunityDmInviteLedgerFromInboundMessage = (params: Readonly<{
+  message: Pick<Message, "content" | "senderPubkey" | "eventId">;
+  conversationId: string;
+  accountPublicKeyHex: PublicKeyHex;
+  profileId?: string;
+}>): void => {
+  const sender = params.message.senderPubkey?.trim();
+  if (!sender || sender === params.accountPublicKeyHex.trim()) {
+    return;
+  }
+  const peerPubkey = sender as PublicKeyHex;
+
+  const response = parseInviteResponsePayloadFromMessageContent(params.message.content ?? "");
+  if (response) {
+    applyInboundCommunityDmInviteTerminalResponse({
+      responsePayload: response,
+      conversationId: params.conversationId,
+      peerPubkey,
+      profileId: params.profileId,
+      accountPublicKeyHex: params.accountPublicKeyHex,
+    });
+    return;
+  }
+
+  const invite = parseInvitePayloadFromMessageContent(params.message.content ?? "");
+  if (invite) {
+    applyInboundCommunityDmInvite({
+      invitePayload: invite,
+      conversationId: params.conversationId,
+      peerPubkey,
+      accountPublicKeyHex: params.accountPublicKeyHex,
+      rumorEventId: params.message.eventId,
+      profileId: params.profileId,
+    });
+  }
 };
 
 /** Invitee receives invite DM — seed inbound ledger row. */
@@ -312,6 +393,7 @@ export const applyInboundCommunityDmInvite = (params: Readonly<{
   invitePayload: CommunityInviteWirePayload;
   conversationId: string;
   peerPubkey: PublicKeyHex;
+  accountPublicKeyHex: PublicKeyHex;
   rumorEventId?: string;
   profileId?: string;
 }>): void => {
@@ -320,6 +402,8 @@ export const applyInboundCommunityDmInvite = (params: Readonly<{
     inviteId: params.invitePayload.inviteId,
     conversationId: params.conversationId,
     peerPubkey: params.peerPubkey,
+    inviterPubkey: params.peerPubkey,
+    inviteePubkey: params.accountPublicKeyHex,
     direction: "inbound",
     groupId: params.invitePayload.groupId,
     groupName: params.invitePayload.metadata.name,
@@ -330,7 +414,7 @@ export const applyInboundCommunityDmInvite = (params: Readonly<{
     sentAtUnixMs: Date.now(),
     updatedAtUnixMs: Date.now(),
     rumorEventId: params.rumorEventId,
-  }, profileId);
+  }, profileId, params.accountPublicKeyHex);
   notifyLedgerChanged(params.conversationId, profileId);
 };
 
@@ -351,10 +435,11 @@ export const buildCommunityDmInviteStatusByInviteId = (
   messages: ReadonlyArray<Message>,
   conversationId: string,
   profileId?: string,
+  accountPublicKeyHex?: PublicKeyHex | null,
 ): ReadonlyMap<CommunityDmInviteId, CommunityInviteResolutionStatus> => {
   const statusByInviteId = new Map<CommunityDmInviteId, CommunityInviteResolutionStatus>();
 
-  listCommunityDmInviteLedgerForConversation(conversationId, profileId).forEach((entry) => {
+  listCommunityDmInviteLedgerForConversation(conversationId, profileId, accountPublicKeyHex).forEach((entry) => {
     statusByInviteId.set(entry.inviteId, entry.status);
   });
 
@@ -368,13 +453,13 @@ export const buildCommunityDmInviteStatusByInviteId = (
   return statusByInviteId;
 };
 
+/** @deprecated IRA-3 — display threads must not inject ledger rows; ledger drives status only. */
 export const buildSyntheticOutboundInviteMessages = (
   conversationId: string,
   existingMessages: ReadonlyArray<Message>,
   profileId?: string,
   accountPublicKeyHex?: PublicKeyHex | null,
 ): ReadonlyArray<Message> => {
-  const localSenderPubkey = accountPublicKeyHex?.trim() as PublicKeyHex | undefined;
   const existingInviteIds = new Set<CommunityDmInviteId>();
   existingMessages.forEach((message) => {
     const invite = parseInvitePayloadFromMessageContent(message.content);
@@ -384,8 +469,8 @@ export const buildSyntheticOutboundInviteMessages = (
   });
 
   const synthetic: Message[] = [];
-  listCommunityDmInviteLedgerForConversation(conversationId, profileId).forEach((entry) => {
-    if (entry.direction !== "outbound" || existingInviteIds.has(entry.inviteId)) {
+  listCommunityDmInviteLedgerForConversation(conversationId, profileId, accountPublicKeyHex).forEach((entry) => {
+    if (!isCommunityDmInviteLedgerInviterForViewer(entry, accountPublicKeyHex) || existingInviteIds.has(entry.inviteId)) {
       return;
     }
     synthetic.push({
@@ -397,8 +482,8 @@ export const buildSyntheticOutboundInviteMessages = (
       isOutgoing: true,
       status: "delivered",
       eventId: entry.rumorEventId ?? `ledger-invite:${entry.inviteId}`,
-      senderPubkey: localSenderPubkey,
-      recipientPubkey: entry.peerPubkey,
+      senderPubkey: entry.inviterPubkey,
+      recipientPubkey: entry.inviteePubkey,
     });
   });
 
@@ -412,6 +497,162 @@ const isLedgerSyntheticInviteMessage = (message: Message): boolean => (
 const toInviteMessageUnixMs = (message: Message): number => (
   message.eventCreatedAt?.getTime() ?? message.timestamp.getTime()
 );
+
+type CommunityInviteThreadIndex = Readonly<{
+  inviteByInviteId: ReadonlyMap<CommunityDmInviteId, Message>;
+  inviteByGroupId: ReadonlyMap<string, Message>;
+  inviteGroupIdByInviteId: ReadonlyMap<CommunityDmInviteId, string>;
+}>;
+
+const buildCommunityInviteThreadIndex = (
+  messages: ReadonlyArray<Message>,
+): CommunityInviteThreadIndex => {
+  const inviteByInviteId = new Map<CommunityDmInviteId, Message>();
+  const inviteByGroupId = new Map<string, Message>();
+  const inviteGroupIdByInviteId = new Map<CommunityDmInviteId, string>();
+
+  messages.forEach((message) => {
+    const invite = parseInvitePayloadFromMessageContent(message.content);
+    if (!invite?.groupId) {
+      return;
+    }
+    inviteByGroupId.set(invite.groupId, message);
+    inviteGroupIdByInviteId.set(invite.inviteId, invite.groupId);
+    if (!invite.inviteId.startsWith("legacy:")) {
+      inviteByInviteId.set(invite.inviteId, message);
+    }
+  });
+
+  return { inviteByInviteId, inviteByGroupId, inviteGroupIdByInviteId };
+};
+
+const resolveLinkedInviteForResponse = (
+  response: Readonly<{ inviteId: CommunityDmInviteId; groupId: string }>,
+  index: CommunityInviteThreadIndex,
+): Message | undefined => (
+  index.inviteByInviteId.get(response.inviteId)
+  ?? index.inviteByGroupId.get(response.groupId)
+);
+
+const isPeerAcceptDeclineResponse = (
+  status: string,
+): status is "accepted" | "declined" => status === "accepted" || status === "declined";
+
+/** Accept/decline direction must match invite role (inviter sees incoming; invitee sees outgoing). */
+export const filterMisdirectedCommunityInviteResponses = (
+  messages: ReadonlyArray<Message>,
+): ReadonlyArray<Message> => {
+  const index = buildCommunityInviteThreadIndex(messages);
+  return messages.filter((message) => {
+    const response = parseInviteResponsePayloadFromMessageContent(message.content);
+    if (!response || !isPeerAcceptDeclineResponse(response.status)) {
+      return true;
+    }
+    const linkedInvite = resolveLinkedInviteForResponse(response, index);
+    if (!linkedInvite) {
+      return true;
+    }
+    if (linkedInvite.isOutgoing) {
+      return message.isOutgoing !== true;
+    }
+    return message.isOutgoing === true;
+  });
+};
+
+const pickPreferredResponseDuplicate = (
+  candidate: Message,
+  incumbent: Message,
+  index: CommunityInviteThreadIndex,
+): Message => {
+  const candidateResponse = parseInviteResponsePayloadFromMessageContent(candidate.content);
+  const incumbentResponse = parseInviteResponsePayloadFromMessageContent(incumbent.content);
+  if (!candidateResponse || !incumbentResponse) {
+    return incumbent;
+  }
+  const linkedInvite = resolveLinkedInviteForResponse(candidateResponse, index);
+  if (!linkedInvite) {
+    return toInviteMessageUnixMs(candidate) >= toInviteMessageUnixMs(incumbent)
+      ? candidate
+      : incumbent;
+  }
+  const candidateCorrect = linkedInvite.isOutgoing
+    ? candidate.isOutgoing !== true
+    : candidate.isOutgoing === true;
+  const incumbentCorrect = linkedInvite.isOutgoing
+    ? incumbent.isOutgoing !== true
+    : incumbent.isOutgoing === true;
+  if (candidateCorrect !== incumbentCorrect) {
+    return candidateCorrect ? candidate : incumbent;
+  }
+  return toInviteMessageUnixMs(candidate) >= toInviteMessageUnixMs(incumbent)
+    ? candidate
+    : incumbent;
+};
+
+/** Collapse duplicate accept/decline rows that share groupId but mismatched inviteId aliases. */
+export const dedupeCommunityInviteResponseMessagesByGroupAndStatus = (
+  messages: ReadonlyArray<Message>,
+): ReadonlyArray<Message> => {
+  const index = buildCommunityInviteThreadIndex(messages);
+  const latestByGroupStatus = new Map<string, Message>();
+  messages.forEach((message) => {
+    const response = parseInviteResponsePayloadFromMessageContent(message.content);
+    if (!response || !isPeerAcceptDeclineResponse(response.status) || !response.groupId) {
+      return;
+    }
+    const key = `${response.groupId}:${response.status}`;
+    const existing = latestByGroupStatus.get(key);
+    if (!existing) {
+      latestByGroupStatus.set(key, message);
+      return;
+    }
+    latestByGroupStatus.set(
+      key,
+      pickPreferredResponseDuplicate(message, existing, index),
+    );
+  });
+  if (latestByGroupStatus.size === 0) {
+    return messages;
+  }
+  const keepIds = new Set(Array.from(latestByGroupStatus.values(), (entry) => entry.id));
+  return messages.filter((message) => {
+    const response = parseInviteResponsePayloadFromMessageContent(message.content);
+    if (!response || !isPeerAcceptDeclineResponse(response.status) || !response.groupId) {
+      return true;
+    }
+    return keepIds.has(message.id);
+  });
+};
+
+const responseMatchesTerminalInvite = (
+  response: Readonly<{ inviteId: CommunityDmInviteId; groupId: string }>,
+  terminalInviteIds: ReadonlySet<CommunityDmInviteId>,
+  inviteGroupIdByInviteId: ReadonlyMap<CommunityDmInviteId, string>,
+): boolean => {
+  if (terminalInviteIds.has(response.inviteId)) {
+    return true;
+  }
+  return Array.from(terminalInviteIds).some(
+    (inviteId) => inviteGroupIdByInviteId.get(inviteId) === response.groupId,
+  );
+};
+
+const responseOrphanedFromThreadInvites = (
+  response: Readonly<{ inviteId: CommunityDmInviteId; groupId: string }>,
+  inviteIdsInThread: ReadonlySet<CommunityDmInviteId>,
+  inviteGroupIdByInviteId: ReadonlyMap<CommunityDmInviteId, string>,
+): boolean => {
+  if (inviteIdsInThread.has(response.inviteId)) {
+    return false;
+  }
+  const responseGroupId = response.groupId;
+  if (!responseGroupId) {
+    return true;
+  }
+  return !Array.from(inviteIdsInThread).some(
+    (inviteId) => inviteGroupIdByInviteId.get(inviteId) === responseGroupId,
+  );
+};
 
 const pickPreferredInviteDuplicate = (candidate: Message, incumbent: Message): Message => {
   const candidateSynthetic = isLedgerSyntheticInviteMessage(candidate);
@@ -539,6 +780,7 @@ export const commitCommunityDmInviteResponseDm = async (
     direction: params.direction,
     invitePayload: params.invitePayload,
     profileId,
+    accountPublicKeyHex: params.accountPublicKeyHex,
   });
 
   return canonicalMessage;
@@ -565,17 +807,25 @@ export const normalizeCommunityInviteThreadSenderPubkeys = (
   });
 };
 
-export const augmentCommunityDmInviteThreadMessages = (
+export type CommunityInviteThreadDisplayBundle = Readonly<{
+  messages: ReadonlyArray<Message>;
+  inviteResponseStatusByMessageId: ReadonlyMap<string, InviteResponseStatus>;
+}>;
+
+const buildCommunityInviteThreadDisplayCore = (
   messages: ReadonlyArray<Message>,
   conversationId: string,
   profileId?: string,
   accountPublicKeyHex?: PublicKeyHex | null,
-): ReadonlyArray<Message> => {
+): CommunityInviteThreadDisplayBundle => {
   const normalizedMessages = normalizeCommunityInviteThreadSenderPubkeys(messages, accountPublicKeyHex);
   const dedupedMessages = dedupeCommunityInviteThreadMessagesByInviteId(normalizedMessages);
-  const dedupedResponses = dedupeCommunityInviteResponseMessagesByInviteId(dedupedMessages);
+  const dedupedResponsesByInviteId = dedupeCommunityInviteResponseMessagesByInviteId(dedupedMessages);
+  const dedupedResponses = dedupeCommunityInviteResponseMessagesByGroupAndStatus(dedupedResponsesByInviteId);
+  const roleFilteredResponses = filterMisdirectedCommunityInviteResponses(dedupedResponses);
+  const inviteIndex = buildCommunityInviteThreadIndex(roleFilteredResponses);
   const inviteIdsInThread = new Set<CommunityDmInviteId>();
-  dedupedResponses.forEach((message) => {
+  roleFilteredResponses.forEach((message) => {
     const invite = parseInvitePayloadFromMessageContent(message.content);
     if (invite) {
       inviteIdsInThread.add(invite.inviteId);
@@ -583,12 +833,13 @@ export const augmentCommunityDmInviteThreadMessages = (
   });
 
   const inviteStatusByMessageId = buildCommunityInviteResponseStatusByMessageId(
-    dedupedResponses,
+    roleFilteredResponses,
     conversationId,
     profileId,
+    accountPublicKeyHex,
   );
   const terminalInviteIds = new Set<CommunityDmInviteId>();
-  dedupedResponses.forEach((message) => {
+  roleFilteredResponses.forEach((message) => {
     const invite = parseInvitePayloadFromMessageContent(message.content);
     if (!invite) {
       return;
@@ -599,35 +850,42 @@ export const augmentCommunityDmInviteThreadMessages = (
     }
   });
 
-  const withoutLinkedResponses = dedupedResponses.filter((message) => {
+  const displayMessages = roleFilteredResponses.filter((message) => {
     const response = parseInviteResponsePayloadFromMessageContent(message.content);
     if (!response) {
       return true;
     }
-    if (terminalInviteIds.has(response.inviteId)) {
+    if (responseMatchesTerminalInvite(
+      response,
+      terminalInviteIds,
+      inviteIndex.inviteGroupIdByInviteId,
+    )) {
       return false;
     }
-    return !inviteIdsInThread.has(response.inviteId);
+    return responseOrphanedFromThreadInvites(
+      response,
+      inviteIdsInThread,
+      inviteIndex.inviteGroupIdByInviteId,
+    );
   });
 
-  const synthetic = buildSyntheticOutboundInviteMessages(
-    conversationId,
-    withoutLinkedResponses,
-    profileId,
-    accountPublicKeyHex,
-  );
-  if (synthetic.length === 0) {
-    return withoutLinkedResponses;
-  }
-
-  const existingIds = new Set(withoutLinkedResponses.map((message) => message.id));
-  const merged = [...withoutLinkedResponses];
-  synthetic.forEach((message) => {
-    if (!existingIds.has(message.id)) {
-      merged.push(message);
-    }
-  });
-  return merged.sort((left, right) => left.timestamp.getTime() - right.timestamp.getTime());
+  return {
+    messages: displayMessages,
+    inviteResponseStatusByMessageId: inviteStatusByMessageId,
+  };
 };
+
+/** Status overlay + display rows — exposes terminal status before response rows are hidden. */
+export const buildCommunityInviteThreadDisplayBundle = buildCommunityInviteThreadDisplayCore;
+
+/** Status overlay: dedupe invites/responses and hide terminal response rows bound to invite cards. */
+export const augmentCommunityDmInviteThreadMessages = (
+  messages: ReadonlyArray<Message>,
+  conversationId: string,
+  profileId?: string,
+  accountPublicKeyHex?: PublicKeyHex | null,
+): ReadonlyArray<Message> => (
+  buildCommunityInviteThreadDisplayCore(messages, conversationId, profileId, accountPublicKeyHex).messages
+);
 
 export { createCommunityDmInviteId };

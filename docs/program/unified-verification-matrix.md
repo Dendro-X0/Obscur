@@ -2,7 +2,7 @@
 
 **Status:** Active — run in **Phase B** after [concentrated-version-delivery.md](./concentrated-version-delivery.md) Phase A exits  
 **Design / process:** [design-goals-and-constraints.md](./design-goals-and-constraints.md) · [v1.9.x-execution-contract.md](./v1.9.x-execution-contract.md)  
-**Environment:** [manual-verification-environment.md](./manual-verification-environment.md) — Tester 1 (dark) + Tester 2 (light), two desktop windows  
+**Environment:** [manual-verification-environment.md](../archive/program/inactive-2026-06/manual-verification-environment.md) — Tester 1 (dark) + Tester 2 (light), two desktop windows  
 **Issues output:** [unified-verification-issues-register.md](./unified-verification-issues-register.md)
 
 **Legend:** `[ ]` not run · `[P]` pass · `[F]` fail · `[B]` blocked (env) · `[S]` skipped · `[A]` accepted limitation (document in register)
@@ -35,7 +35,7 @@ Row-level `[P]`/`[F]` marks in sections below remain optional detail; band exit 
 | Coordination URL | `http://127.0.0.1:8787` (managed workspace + BOT rows) |
 | Relay | `pnpm dev:relay:docker` or `[-]` coordination-only |
 | Phase A exit | SEC-F/B/R/V **done** — `pnpm verify:sec-v1.9.5` |
-| Manual focus | TRUST-*, BOT-*, AUTH-4, SEC-R1 — see [v1.9.5-phase-b-manual-matrix.md](./v1.9.5-phase-b-manual-matrix.md) |
+| Manual focus | TRUST-*, BOT-*, AUTH-4, SEC-R1 — see [v1.9.5-phase-b-manual-matrix.md](../archive/program/inactive-2026-06/v1.9.5-phase-b-manual-matrix.md) |
 | §0 automated | **Run** PB-AUTO-1/2 in v1.9.5 matrix before manual rows |
 
 ---
@@ -85,7 +85,7 @@ pnpm -C apps/pwa exec vitest run \
 
 ## Phase B run order (maintainer)
 
-**Prerequisites:** §0 all `[P]` · two profile windows · [manual-verification-environment.md](./manual-verification-environment.md) credentials.
+**Prerequisites:** §0 all `[P]` · two profile windows · [manual-verification-environment.md](../archive/program/inactive-2026-06/manual-verification-environment.md) credentials.
 
 ```bash
 # Terminal 1 (optional for §4 / live DM)
@@ -103,7 +103,7 @@ pnpm dev:desktop:online
 | 4 | DM + communities full | ~45 min | §2, §3 remaining |
 | 5 | Sync + UI + relay | ~30 min | §5–§7 |
 | 6 | Coordination (if env up) | ~20 min | §4 |
-| 7 | Android (if AVD) | ~30 min | §8 / [android-p1-smoke-checklist.md](./android-p1-smoke-checklist.md) |
+| 7 | Android (if AVD) | ~30 min | §8 / [android-p1-smoke-checklist.md](../archive/program/inactive-2026-06/android-p1-smoke-checklist.md) |
 
 Copy every `[F]` to [unified-verification-issues-register.md](./unified-verification-issues-register.md) before Phase C close.
 
@@ -170,6 +170,7 @@ Copy every `[F]` to [unified-verification-issues-register.md](./unified-verifica
 | COM-6 | Network vs chat status | Join/leave consistent on Network card vs chat shell | `[ ]` | MEM-002 |
 | COM-7 | Member modal count | Management modal count matches sealed/header | `[ ]` | |
 | COM-8 | Roster collapse | Reload group home; count ≠ 1 when multiple members | `[ ]` | MEM-001 |
+| COM-MEM-2 | Two-profile workspace soak | Create → invite → join → chat → restart → leave/re-invite (NewTest 2 fixture) | `[P]` partial (2026-06-25: send + delete e2e + home/chat; steps 3–4/7–8 open) | [community-verification-com-mem-2-spec-2026-06.md](../archive/program/inactive-2026-06/community-verification-com-mem-2-spec-2026-06.md) |
 | COM-9 | Restore historical | Restore backup; left community does not resurrect | `[ ]` | REL-002 |
 | COM-10 | Multi-profile restore | A left + B restore; no cross-profile leak | `[ ]` | AB-15 |
 | COM-11 | Inbound bot (optional) | Steward enables trigger; keyword reply if env ready | `[S]` | B2 |
@@ -230,7 +231,7 @@ Ref: [v1.9.0 demo matrix](../assets/demo/v1.9.0/README.md)
 | ID | Feature | Steps | Result | Notes |
 |----|---------|-------|--------|-------|
 | MOB-0 | APK install + cold start | `p12:android-smoke` with AVD running | `[S]` | Tier 0 |
-| MOB-1 | Auth + shell | P1-1 … P1-4 from [android-p1-smoke-checklist.md](./android-p1-smoke-checklist.md) | `[S]` | |
+| MOB-1 | Auth + shell | P1-1 … P1-4 from [android-p1-smoke-checklist.md](../archive/program/inactive-2026-06/android-p1-smoke-checklist.md) | `[S]` | |
 | MOB-2 | Layout dev check | `dev:mobile-shell:online` device toolbar | `[S]` | Not native Tier 1 |
 
 ---
@@ -247,7 +248,7 @@ Ref: [v1.9.0 demo matrix](../assets/demo/v1.9.0/README.md)
 
 ## §10 — v1.9.5 security band (Phase B focus)
 
-Full step-by-step: [v1.9.5-phase-b-manual-matrix.md](./v1.9.5-phase-b-manual-matrix.md)
+Full step-by-step: [v1.9.5-phase-b-manual-matrix.md](../archive/program/inactive-2026-06/v1.9.5-phase-b-manual-matrix.md)
 
 | ID | Feature | Steps (summary) | Result | Notes |
 |----|---------|-----------------|--------|-------|
@@ -288,7 +289,7 @@ Cross-ref §1 **AUTH-4** for profile isolation (SEC-V3).
 | DM-4 | DM-001 |
 | SYNC-2, SYNC-3 | MED-002, MED-001 |
 
-Full queue: [v1.5.0-known-issues-and-investigation-queue.md](./v1.5.0-known-issues-and-investigation-queue.md) — **status updates happen in Phase C**, not during Phase A.
+Full queue: [v1.5.0-known-issues-and-investigation-queue.md](../archive/program/inactive-2026-06/v1.5.0-known-issues-and-investigation-queue.md) — **status updates happen in Phase C**, not during Phase A.
 
 ---
 

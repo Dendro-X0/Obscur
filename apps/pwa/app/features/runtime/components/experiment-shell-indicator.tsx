@@ -25,7 +25,7 @@ export function ExperimentShellIndicator(): React.JSX.Element | null {
           : "bottom-2",
       )}
     >
-      {online ? `Build ${CLIENT_BUILD_STAMP} · online` : `Build ${CLIENT_BUILD_STAMP}`}
+      {online ? `Build ${CLIENT_BUILD_STAMP} · online` : `Build ${CLIENT_BUILD_STAMP} · offline-stub`}
     </div>
   );
 }

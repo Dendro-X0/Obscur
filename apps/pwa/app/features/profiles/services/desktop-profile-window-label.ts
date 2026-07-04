@@ -13,3 +13,7 @@ export const parseProfileIdFromWindowLabel = (windowLabel: string): string | nul
 export const isSecondaryProfileWindowLabel = (windowLabel: string): boolean => (
   parseProfileIdFromWindowLabel(windowLabel) !== null
 );
+
+export const isMainWindowLabel = (windowLabel: string): boolean => (
+  windowLabel.trim() === "main"
+);

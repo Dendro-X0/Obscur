@@ -21,7 +21,7 @@ import {
   runMembershipLeaveRejoinZombieSteps,
   runSecBotKeywordFloodSteps,
   runTrustFixturesSteps,
-  runTrustColdDmBannerSteps,
+  runTrustMatrixSteps,
   runAuth4ScopeProbeSteps,
 } from "./dev-lab-scenario-steps";
 import { DEV_LAB_SUITE_MANIFEST } from "./dev-lab-suite-manifest";
@@ -216,18 +216,18 @@ export const DEV_LAB_SCENARIOS: ReadonlyArray<DevLabScenarioDefinition> = [
     run: async () => runSecBotKeywordFloodSteps(),
   },
   {
+    id: "trust-matrix",
+    name: "TRUST-1..4 + SPAM-1 matrix (scripted assessment)",
+    category: "security",
+    tags: ["core", "security"],
+    run: async () => runTrustMatrixSteps(),
+  },
+  {
     id: "trust-fixtures",
-    name: "TRUST-1..3 synthetic assessment fixtures",
+    name: "TRUST threat corpus (expanded adversary fixtures)",
     category: "security",
     tags: ["full", "security"],
     run: async () => runTrustFixturesSteps(),
-  },
-  {
-    id: "trust-cold-dm-banner",
-    name: "TRUST-1 cold stranger DM + recipient banner (in-app)",
-    category: "security",
-    tags: ["full", "security"],
-    run: async () => runTrustColdDmBannerSteps(),
   },
   {
     id: "sec-bot-inbound-live",

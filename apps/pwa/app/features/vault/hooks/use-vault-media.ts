@@ -13,6 +13,7 @@ import {
 } from "../services/local-media-store";
 import {
     buildVaultMediaItemsFast,
+    buildStandaloneLocalVaultMediaItems,
     enrichVaultMediaItemsWithLocalUrls,
     sortVaultMediaItemsNewestFirst,
     VAULT_INITIAL_ENRICH_LIMIT,
@@ -68,12 +69,21 @@ export function useVaultMedia() {
                 return;
             }
             const fastItems = sortVaultMediaItemsNewestFirst(
-                buildVaultMediaItemsFast(candidates),
+                mergeStandaloneLocalVaultItems(buildVaultMediaItemsFast(candidates)),
             );
             setMediaItems(fastItems);
             setError(null);
             hasPaintedVaultRef.current = true;
             setIsLoading(false);
+        };
+
+        const mergeStandaloneLocalVaultItems = (messageItems: ReadonlyArray<VaultMediaItem>): VaultMediaItem[] => {
+            const existingUrls = new Set(messageItems.map((item) => item.remoteUrl));
+            const standalone = buildStandaloneLocalVaultMediaItems(existingUrls);
+            if (standalone.length === 0) {
+                return [...messageItems];
+            }
+            return sortVaultMediaItemsNewestFirst([...messageItems, ...standalone]);
         };
 
         try {
@@ -92,8 +102,10 @@ export function useVaultMedia() {
                 return;
             }
 
-            const fastItems = sortVaultMediaItemsNewestFirst(
-                buildVaultMediaItemsFast(accumulatedCandidates),
+            const fastItems = mergeStandaloneLocalVaultItems(
+                sortVaultMediaItemsNewestFirst(
+                    buildVaultMediaItemsFast(accumulatedCandidates),
+                ),
             );
             setMediaItems(fastItems);
             setError(null);

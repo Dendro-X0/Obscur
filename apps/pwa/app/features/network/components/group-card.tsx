@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Avatar, AvatarFallback } from "@dweb/ui-kit";
+import { Avatar, AvatarFallback, AvatarImage } from "@dweb/ui-kit";
 import { Users, Globe, ChevronRight } from "lucide-react";
 import { cn } from "@dweb/ui-kit";
 
@@ -47,7 +47,7 @@ export const GroupCard = ({
                 <div className="flex items-center gap-4 flex-1 min-w-0">
                     <Avatar className="h-10 w-10 rounded-xl bg-muted text-foreground shadow-sm border border-border overflow-hidden shrink-0">
                         {avatar ? (
-                            <img src={avatar} alt={displayName} className="h-full w-full object-cover" />
+                            <AvatarImage src={avatar} alt={displayName} className="h-full w-full object-cover" />
                         ) : (
                             <AvatarFallback className="bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 font-black text-sm tracking-tighter w-full h-full flex items-center justify-center text-white">
                                 {displayName.slice(0, 1).toUpperCase()}
@@ -102,7 +102,7 @@ export const GroupCard = ({
             <div className="flex items-start justify-between mb-5">
                 <Avatar className="h-14 w-14 rounded-2xl bg-muted text-foreground shadow-xl group-hover:scale-110 transition-transform duration-700 ease-out border border-border overflow-hidden">
                     {avatar ? (
-                        <img src={avatar} alt={displayName} className="h-full w-full object-cover" />
+                        <AvatarImage src={avatar} alt={displayName} className="h-full w-full object-cover" />
                     ) : (
                         <AvatarFallback className="bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 font-black text-xl tracking-tighter w-full h-full flex items-center justify-center text-white">
                             {displayName.slice(0, 1).toUpperCase()}

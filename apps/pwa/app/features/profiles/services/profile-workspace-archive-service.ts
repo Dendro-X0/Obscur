@@ -1,6 +1,11 @@
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { invokeNativeCommand } from "@/app/features/runtime/native-adapters";
 import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
+import { getProfileStorageKeyMaterial } from "@/app/features/storage/services/profile-storage-key-session";
+import {
+  encryptStorageEnvelopeV1,
+  serializeStorageEnvelopeV1,
+} from "@/app/features/storage/services/storage-envelope-v1";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import {
   PROFILE_WORKSPACE_ARCHIVE_FORMAT,
@@ -65,11 +70,13 @@ const sanitizeFileNameSegment = (value: string): string => (
 
 export const buildProfileWorkspaceArchiveFileName = (
   archive: ProfileWorkspaceArchive,
+  encrypted = false,
 ): string => {
   const stamp = new Date(archive.exportedAtUnixMs).toISOString().replace(/[:.]/g, "-");
   const profileSegment = sanitizeFileNameSegment(archive.profileId);
   const reasonSegment = sanitizeFileNameSegment(archive.reason);
-  return `${profileSegment}__${reasonSegment}__${stamp}.obscur-profile.json`;
+  const suffix = encrypted ? ".obscur-profile.enc.json" : ".obscur-profile.json";
+  return `${profileSegment}__${reasonSegment}__${stamp}${suffix}`;
 };
 
 const triggerBrowserDownload = (fileName: string, contents: string): void => {
@@ -86,8 +93,19 @@ const triggerBrowserDownload = (fileName: string, contents: string): void => {
 export const writeProfileWorkspaceArchive = async (
   archive: ProfileWorkspaceArchive,
 ): Promise<ProfileWorkspaceArchiveWriteResult> => {
-  const fileName = buildProfileWorkspaceArchiveFileName(archive);
-  const contents = JSON.stringify(archive, null, 2);
+  const keyMaterial = getProfileStorageKeyMaterial(archive.profileId);
+  const encrypted = Boolean(keyMaterial && hasNativeRuntime());
+  const fileName = buildProfileWorkspaceArchiveFileName(archive, encrypted);
+  let contents = JSON.stringify(archive, null, 2);
+  if (encrypted && keyMaterial) {
+    const envelope = await encryptStorageEnvelopeV1({
+      plaintext: new TextEncoder().encode(contents),
+      keyMaterial,
+      purpose: "profile-archive",
+      profileId: archive.profileId,
+    });
+    contents = serializeStorageEnvelopeV1(envelope);
+  }
 
   if (hasNativeRuntime()) {
     const result = await invokeNativeCommand<string>("desktop_write_profile_workspace_archive", {

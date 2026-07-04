@@ -13,6 +13,7 @@ import {
   filterActiveCommunityMemberPubkeys,
   resolveInviteEligibleMemberPubkeys,
 } from "./community-visible-members";
+import { buildCoordinationDirectoryRepairMemberPubkeys } from "./community-participant-display-read-model";
 import { isRelationshipSyncExperimentEnabled } from "@/app/features/relationship-sync/relationship-sync-policy";
 import { shouldUseCoordinationMembershipAuthority } from "./community-workspace-r1-policy";
 
@@ -38,6 +39,10 @@ export type ResolveCommunityInviteMemberBlocklistParams = Readonly<{
   coordinationDirectory: CoordinationMembershipMaterialization | null;
   hybridActiveMemberPubkeys: ReadonlyArray<PublicKeyHex>;
   joinEvidenceMemberPubkeys?: ReadonlyArray<PublicKeyHex>;
+  /** Persisted chat authors — blocks re-invite when coordination directory lags relay truth. */
+  participationAuthorPubkeys?: ReadonlyArray<PublicKeyHex>;
+  /** Durable known-participant OR-set for the conversation. */
+  knownParticipantPubkeys?: ReadonlyArray<PublicKeyHex>;
   leftMemberPubkeys?: ReadonlyArray<PublicKeyHex>;
   expelledMemberPubkeys?: ReadonlyArray<PublicKeyHex>;
 }>;
@@ -73,19 +78,24 @@ export const resolveCommunityInviteMemberBlocklist = (
       })
       : [];
     const directoryNorm = new Set(fromDirectory.map(normalizePubkey));
-    const joinEvidenceSource = (
+    const joinEvidenceOnly = (
       options?.joinEvidencePolicy === "directory_only"
       || (options?.joinEvidencePolicy !== "legacy" && isRelationshipSyncExperimentEnabled())
     )
       ? []
       : (params.joinEvidenceMemberPubkeys ?? []);
-    const joinEvidenceRepairs = joinEvidenceSource.filter((pubkey) => {
+    const repairCandidates = buildCoordinationDirectoryRepairMemberPubkeys({
+      joinEvidenceMemberPubkeys: joinEvidenceOnly,
+      knownParticipantPubkeys: params.knownParticipantPubkeys,
+      participationAuthorPubkeys: params.participationAuthorPubkeys,
+    });
+    const membershipRepairs = repairCandidates.filter((pubkey) => {
       const normalized = normalizePubkey(pubkey);
       return normalized.length > 0
         && !terminal.has(normalized)
         && !directoryNorm.has(normalized);
     });
-    return dedupePubkeys([...fromDirectory, ...joinEvidenceRepairs]);
+    return dedupePubkeys([...fromDirectory, ...membershipRepairs]);
   }
 
   return resolveInviteEligibleMemberPubkeys({

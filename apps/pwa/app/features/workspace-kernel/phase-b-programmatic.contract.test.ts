@@ -38,5 +38,7 @@ describe("v1.9.5 Phase B programmatic exit contract", () => {
     );
     expect(scenario).toContain("probeJoinerMembershipRepair");
     expect(scenario).toContain("tester1_joiner_membership_repair");
+    expect(scenario).toContain("probeMembershipGraph");
+    expect(scenario).toContain("membership_graph_summary");
   });
 });

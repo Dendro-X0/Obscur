@@ -65,19 +65,21 @@ const eslintConfig = defineConfig([
       "app/features/profiles/services/resolve-client-gateway.ts",
       "app/features/runtime/services/client-gateway-adapter.ts",
       "app/features/messaging/local-dm-visibility/**",
-      "app/features/messaging/services/dm-conversation-materialization-owner.ts",
       "app/features/messaging/services/thread-history/dm-adapter.ts",
       "app/features/messaging/services/thread-history/port.ts",
       "app/features/messaging/services/thread-history/group-adapter.ts",
-      "app/features/messaging/services/dm-conversation-materialization-load-earlier.ts",
+      "app/features/messaging/services/thread-history/materialization-load-earlier.ts",
+      "app/features/messaging/services/thread-history/materialization-realtime.ts",
       "app/features/messaging/services/dm-conversation-hydrate-pipeline.ts",
-      "app/features/messaging/services/dm-conversation-hydrate-read-model.ts",
+      "app/features/messaging/services/thread-history/hydrate-read-model.ts",
+      "app/features/messaging/services/thread-history/hydrate-indexed-scan.ts",
+      "app/features/messaging/services/thread-history/hydrate-indexed-map-rows.ts",
+      "app/features/messaging/services/thread-history/projection-evidence-messages.ts",
+      "app/features/messaging/services/thread-history/projection-live-merge.ts",
+      "app/features/messaging/services/thread-history/native-dm-thread-hydrate.ts",
+      "app/features/messaging/services/native-dm-conversation-hydrate-owner.ts",
+      "app/features/messaging/hooks/use-conversation-messages-legacy.ts",
       "app/features/messaging/services/dm-thread-read-model.ts",
-      "app/features/messaging/services/dm-conversation-hydrate-sibling-diagnostics.ts",
-      "app/features/messaging/services/dm-conversation-hydrate-indexed-scan.ts",
-      "app/features/messaging/services/dm-conversation-hydrate-indexed-map-rows.ts",
-      "app/features/messaging/services/dm-conversation-projection-evidence-messages.ts",
-      "app/features/messaging/services/dm-conversation-projection-live-merge.ts",
       "app/features/messaging/services/dm-conversation-delete-identity-ids.ts",
       "app/features/messaging/services/dm-conversation-message-list-equiv.ts",
       "app/features/groups/services/community-roster-materialization-owner.ts",
@@ -89,7 +91,6 @@ const eslintConfig = defineConfig([
       "app/features/groups/services/community-transport-owner.ts",
       "app/features/groups/services/community-membership-semantic-ingress.ts",
       "app/features/groups/services/community-membership-port-owner.ts",
-      "app/features/messaging/services/dm-conversation-materialization-realtime.ts",
     ],
     rules: {
       "no-restricted-imports": [
@@ -127,37 +128,37 @@ const eslintConfig = defineConfig([
             },
             {
               name: "@/app/features/messaging/services/dm-conversation-hydrate-pipeline",
-              importNames: ["runDmConversationHydrateReadModelPipeline", "logDmHydrateReadModelTelemetry"],
+              importNames: ["runLegacyDmConversationHydrateReadModelPipeline", "logDmHydrateReadModelTelemetry"],
               message:
                 "Route through getResolvedClientGateway().dmConversationMaterialization.hydrateThreadReadModel (R1).",
             },
             {
-              name: "@/app/features/messaging/services/dm-conversation-hydrate-read-model",
-              importNames: ["assembleDmHydrateThreadReadModel"],
+              name: "@/app/features/messaging/services/thread-history/hydrate-read-model",
+              importNames: ["assembleDmHydrateThreadReadModel", "assembleLegacyDmHydrateThreadReadModel"],
               message:
                 "Route through gateway hydrate pipeline owner (R1).",
             },
             {
-              name: "@/app/features/messaging/services/dm-conversation-materialization-load-earlier",
-              importNames: ["loadEarlierDmConversationMessages"],
+              name: "@/app/features/messaging/services/thread-history/materialization-load-earlier",
+              importNames: ["loadLegacyEarlierDmConversationMessages", "loadEarlierDmConversationMessages"],
               message:
                 "Route through getResolvedClientGateway().dmConversationMaterialization.loadEarlierMessages (R1).",
             },
             {
-              name: "@/app/features/messaging/services/dm-conversation-materialization-realtime",
-              importNames: ["applyRealtimeBufferedEvents", "applyBufferedEvents"],
+              name: "@/app/features/messaging/services/thread-history/materialization-realtime",
+              importNames: ["applyLegacyRealtimeBufferedEvents", "applyRealtimeBufferedEvents", "applyBufferedEvents"],
               message:
                 "Route through getResolvedClientGateway().dmConversationMaterialization.applyRealtimeBufferedEvents (R1).",
             },
             {
-              name: "@/app/features/messaging/services/dm-conversation-projection-evidence-messages",
-              importNames: ["buildProjectionEvidenceMessagesForConversation"],
+              name: "@/app/features/messaging/services/thread-history/projection-evidence-messages",
+              importNames: ["buildLegacyProjectionEvidenceMessagesForConversation", "buildProjectionEvidenceMessagesForConversation"],
               message:
                 "Route through getResolvedClientGateway().dmConversationMaterialization (R1).",
             },
             {
-              name: "@/app/features/messaging/services/dm-conversation-projection-live-merge",
-              importNames: ["mergeProjectionFirstWithLiveOverlayForDisplay"],
+              name: "@/app/features/messaging/services/thread-history/projection-live-merge",
+              importNames: ["mergeLegacyProjectionFirstWithLiveOverlayForDisplay", "mergeProjectionFirstWithLiveOverlayForDisplay"],
               message:
                 "Route through getResolvedClientGateway().dmConversationMaterialization (R1).",
             },
@@ -230,7 +231,11 @@ const eslintConfig = defineConfig([
               message: "dm-kernel must not import hydrate pipeline — use dm-kernel-thread-port / write-port only.",
             },
             {
-              name: "@/app/features/messaging/services/dm-conversation-hydrate-read-model",
+              name: "@/app/features/messaging/services/dm-read-authority-contract",
+              message: "dm-kernel must not import hydrate read model.",
+            },
+            {
+              name: "@/app/features/messaging/services/thread-history/hydrate-read-model",
               message: "dm-kernel must not import hydrate read model.",
             },
             {
@@ -238,7 +243,7 @@ const eslintConfig = defineConfig([
               message: "dm-kernel must not import projection/merge materialization.",
             },
             {
-              name: "@/app/features/messaging/hooks/use-conversation-messages",
+              name: "@/app/features/messaging/hooks/use-conversation-messages-legacy",
               message: "dm-kernel must not import legacy hydrate hook.",
             },
           ],
@@ -272,11 +277,11 @@ const eslintConfig = defineConfig([
         {
           paths: [
             {
-              name: "@/app/features/messaging/hooks/use-conversation-messages",
+              name: "@/app/features/messaging/hooks/use-conversation-messages-legacy",
               message: "P4 desktop shell — use use-thread-messages / dm-kernel only.",
             },
             {
-              name: "@/app/features/messaging/services/native-dm-thread-hydrate",
+              name: "@/app/features/messaging/services/thread-history/native-dm-thread-hydrate",
               message: "P4 desktop shell — hydrate quarantined; use dm-kernel-thread-port.",
             },
           ],
@@ -294,14 +299,12 @@ const eslintConfig = defineConfig([
     files: [
       "app/features/messaging/local-dm-visibility/**/*.{ts,tsx}",
       "app/features/messaging/services/messaging-client-operations.ts",
-      "app/features/messaging/services/dm-local-delete-persistence.ts",
       "app/features/messaging/services/dm-thread-suppression-prepare.ts",
       "app/features/messaging/services/dm-conversation-hydrate-pipeline.ts",
-      "app/features/messaging/services/dm-conversation-materialization-owner.ts",
       "app/features/messaging/services/message-delete-tombstone-store.ts",
-      "app/features/messaging/services/chat-state-store.ts",
+      "app/features/messaging/services/chat-state-store-legacy.ts",
       "app/features/groups/services/group-client-operations.ts",
-      "app/features/messaging/hooks/use-conversation-messages.ts",
+      "app/features/messaging/hooks/use-conversation-messages-legacy.ts",
       "app/features/account-sync/services/account-projection-selectors.ts",
       "app/features/account-sync/services/account-event-bootstrap-service.ts",
       "app/features/account-sync/services/account-event-reducer.ts",

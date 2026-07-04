@@ -1,22 +1,39 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Message } from "@/app/features/messaging/types";
 import {
+  buildStandaloneLocalVaultMediaItems,
   buildVaultMediaItemsFast,
   collectVaultMediaCandidates,
   enrichVaultMediaItemsWithLocalUrls,
   sortVaultMediaItemsNewestFirst,
 } from "./vault-media-aggregator";
+import { getLocalMediaIndexEntryByRemoteUrl } from "./local-media-store";
 
-vi.mock("./local-media-store", () => ({
-  getLocalMediaIndexEntryByRemoteUrl: vi.fn((url: string) => (
-    url === "https://cdn.example.com/cached.png"
-      ? { relativePath: "vault/cached.png", remoteUrl: url, savedAtUnixMs: 1, fileName: "cached.png", contentType: "image/png", size: 1 }
-      : null
-  )),
-  resolveLocalMediaUrl: vi.fn(async (url: string) => (
-    url === "https://cdn.example.com/cached.png" ? "asset://cached.png" : null
-  )),
-}));
+vi.mock("./local-media-store", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./local-media-store")>();
+  return {
+    ...actual,
+    getLocalMediaIndexEntryByRemoteUrl: vi.fn((url: string) => (
+      url === "https://cdn.example.com/cached.png"
+        ? { relativePath: "vault/cached.png", remoteUrl: url, savedAtUnixMs: 1, fileName: "cached.png", contentType: "image/png", size: 1 }
+        : null
+    )),
+    getLocalMediaIndexSnapshot: vi.fn(() => ({
+      "obscur://vault/local/deadbeef": {
+        remoteUrl: "obscur://vault/local/deadbeef",
+        relativePath: "vault-media/abc.obscurvault",
+        savedAtUnixMs: 1_700_000_000_000,
+        fileName: "notes.pdf",
+        contentType: "application/pdf",
+        size: 1024,
+      },
+    })),
+    isLocalVaultOnlyUrl: vi.fn((url: string) => url.startsWith("obscur://vault/local/")),
+    resolveLocalMediaUrl: vi.fn(async (url: string) => (
+      url === "https://cdn.example.com/cached.png" ? "asset://cached.png" : null
+    )),
+  };
+});
 
 const message = (overrides: Partial<Message> & Pick<Message, "id">): Message => ({
   conversationId: overrides.conversationId ?? "dm:a:b",
@@ -125,5 +142,40 @@ describe("vault-media-aggregator", () => {
     const enriched = await enrichVaultMediaItemsWithLocalUrls(items, { concurrency: 2 });
     expect(enriched[0]?.attachment.url).toBe("asset://cached.png");
     expect(enriched[0]?.isLocalCached).toBe(true);
+  });
+
+  it("builds standalone local vault items not already in chat scan", () => {
+    const existing = new Set(["https://cdn.example.com/cached.png"]);
+    const items = buildStandaloneLocalVaultMediaItems(existing);
+    expect(items).toHaveLength(1);
+    expect(items[0]?.remoteUrl).toBe("obscur://vault/local/deadbeef");
+    expect(items[0]?.attachment.fileName).toBe("notes.pdf");
+    expect(items[0]?.sourceConversationId).toBeNull();
+  });
+
+  it("uses message attachment names when index stores encrypted blob file names", () => {
+    const messages = [
+      message({
+        id: "m-encrypted-name",
+        attachments: [
+          {
+            kind: "image",
+            url: "https://cdn.example.com/storm.jpg",
+            contentType: "image/jpeg",
+            fileName: "storm-photo.jpg",
+          },
+        ],
+      }),
+    ];
+    vi.mocked(getLocalMediaIndexEntryByRemoteUrl).mockReturnValueOnce({
+      relativePath: "vault-media/bf2f9ab5d641772b682a1df5.obscurvault",
+      remoteUrl: "https://cdn.example.com/storm.jpg",
+      savedAtUnixMs: 1,
+      fileName: "bf2f9ab5d641772b682a1df5.obscurvault",
+      contentType: "image/jpeg",
+      size: 1,
+    });
+    const items = buildVaultMediaItemsFast(collectVaultMediaCandidates(messages));
+    expect(items[0]?.attachment.fileName).toBe("storm-photo.jpg");
   });
 });

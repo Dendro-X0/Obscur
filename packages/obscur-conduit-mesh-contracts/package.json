@@ -1,0 +1,19 @@
+{
+  "name": "@obscur/conduit-mesh-contracts",
+  "version": "1.9.10",
+  "private": true,
+  "type": "module",
+  "description": "Conduit Mesh contracts — envelopes, evidence, conduits, MeshPort. Types only; no wire drivers.",
+  "dependencies": {
+    "@obscur/engine-contracts": "workspace:*"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./envelope": "./src/envelope.ts",
+    "./evidence": "./src/evidence.ts",
+    "./conduit": "./src/conduit.ts",
+    "./mesh-snapshot": "./src/mesh-snapshot.ts",
+    "./mesh-port": "./src/mesh-port.ts",
+    "./custom-conduit-contract": "./src/custom-conduit-contract.ts"
+  }
+}

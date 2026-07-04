@@ -99,4 +99,96 @@ describe("normalizeDmConversationMessageRow", () => {
         });
         expect(out.attachments).toBeUndefined();
     });
+
+    it("normalizes scheme-less nostr.build markdown attachments from content", () => {
+        const out = normalizeDmConversationMessageRow({
+            id: "m1",
+            kind: "user",
+            content: "[photo.jpg](image.nostr.build/abc123.jpg)",
+            isOutgoing: true,
+            status: "delivered",
+            timestamp: new Date(1),
+        });
+        expect(out.attachments).toEqual([
+            expect.objectContaining({
+                kind: "image",
+                url: "https://image.nostr.build/abc123.jpg",
+                fileName: "photo.jpg",
+            }),
+        ]);
+    });
+
+    it("repairs stored attachment urls that look like mistaken local host paths", () => {
+        const out = normalizeDmConversationMessageRow({
+            id: "m1",
+            kind: "user",
+            content: "[photo.jpg](/image.nostr.build/abc123.jpg)",
+            attachments: [{
+                kind: "image",
+                url: "/image.nostr.build/abc123.jpg)",
+                contentType: "image/jpeg",
+                fileName: "photo.jpg",
+            }],
+            isOutgoing: true,
+            status: "delivered",
+            timestamp: new Date(1),
+        });
+        expect(out.attachments?.[0]?.url).toBe("https://image.nostr.build/abc123.jpg");
+    });
+
+    it("recomputes isOutgoing from wire sender when sqlite flag is stale (IRA-2)", () => {
+        const legacyId = `${myHex}:${peerHex}`;
+        const inviteContent = JSON.stringify({
+            type: "community-invite",
+            inviteId: "inv-1",
+            groupId: "g1",
+            roomKey: "rk",
+            metadata: { id: "g1", name: "NewTest 2", access: "invite-only" },
+            creatorPubkey: peerHex,
+        });
+        const out = normalizeDmConversationMessageRow(
+            {
+                id: "evt-invite",
+                kind: "user",
+                content: inviteContent,
+                conversationId: legacyId,
+                senderPubkey: peerHex,
+                recipientPubkey: myHex,
+                isOutgoing: true,
+                status: "delivered",
+                timestamp: new Date(1),
+            },
+            { myPublicKeyHex: myHex, conversationId: legacyId },
+        );
+        expect(out.isOutgoing).toBe(false);
+        expect(out.senderPubkey).toBe(peerHex);
+        expect(out.recipientPubkey).toBe(myHex);
+    });
+
+    it("uses invite creatorPubkey when sqlite sender is missing", () => {
+        const legacyId = `${myHex}:${peerHex}`;
+        const inviteContent = JSON.stringify({
+            type: "community-invite",
+            inviteId: "inv-2",
+            groupId: "g1",
+            roomKey: "rk",
+            metadata: { id: "g1", name: "NewTest 2", access: "invite-only" },
+            creatorPubkey: peerHex,
+        });
+        const out = normalizeDmConversationMessageRow(
+            {
+                id: "evt-invite-legacy",
+                kind: "user",
+                content: inviteContent,
+                conversationId: legacyId,
+                recipientPubkey: myHex,
+                isOutgoing: true,
+                status: "delivered",
+                timestamp: new Date(1),
+            },
+            { myPublicKeyHex: myHex, conversationId: legacyId },
+        );
+        expect(out.senderPubkey).toBe(peerHex);
+        expect(out.isOutgoing).toBe(false);
+    });
 });

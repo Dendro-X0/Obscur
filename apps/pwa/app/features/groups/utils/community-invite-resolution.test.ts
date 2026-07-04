@@ -51,22 +51,31 @@ describe("buildCommunityInviteResponseStatusByMessageId", () => {
         expect(map.get("gift-wrap-id")).toBe("declined");
     });
 
-    it("does not link response when replyTo points at a different invite", () => {
-        const invite = baseMessage({
+    it("does not link accept/decline when replyTo is missing and multiple invites exist for the group", () => {
+        const firstInvite = baseMessage({
             id: "invite-outgoing-id",
             eventId: "invite-outgoing-id",
             isOutgoing: true,
+            timestamp: new Date(1_700_000_000_000),
             content: JSON.stringify({ type: "community-invite", groupId: "g1", roomKey: "rk" }),
+        });
+        const secondInvite = baseMessage({
+            id: "invite-outgoing-id-2",
+            eventId: "invite-outgoing-id-2",
+            isOutgoing: true,
+            timestamp: new Date(1_700_000_200_000),
+            content: JSON.stringify({ type: "community-invite", groupId: "g1", roomKey: "rk2" }),
         });
         const response = baseMessage({
             id: "response-1",
             isOutgoing: false,
-            timestamp: new Date(1_700_000_100_000),
+            timestamp: new Date(1_700_000_300_000),
             content: JSON.stringify({ type: "community-invite-response", status: "declined", groupId: "g1" }),
             replyTo: { messageId: "wrong-rumor-id", previewText: "" },
         });
-        const map = buildCommunityInviteResponseStatusByMessageId([invite, response]);
+        const map = buildCommunityInviteResponseStatusByMessageId([firstInvite, secondInvite, response]);
         expect(map.get("invite-outgoing-id")).toBeUndefined();
+        expect(map.get("invite-outgoing-id-2")).toBeUndefined();
     });
 
     it("links groupId fallback only when replyTo is missing and the group has one invite", () => {
@@ -134,6 +143,120 @@ describe("buildCommunityInviteResponseStatusByMessageId", () => {
         const map = buildCommunityInviteResponseStatusByMessageId([oldInvite, oldResponse, newInvite]);
         expect(map.get("invite-old")).toBe("accepted");
         expect(map.get("invite-new")).toBeUndefined();
+    });
+
+    it("links canceled response to invitee incoming invite when both are from inviter", () => {
+        const inviteId = "inv-cancel-invitee";
+        const inviterPk = "a".repeat(64);
+        const inviteePk = "b".repeat(64);
+        const invite = baseMessage({
+            id: "invite-inbound",
+            isOutgoing: false,
+            timestamp: new Date(1_700_000_000_000),
+            senderPubkey: inviterPk as Message["senderPubkey"],
+            recipientPubkey: inviteePk as Message["recipientPubkey"],
+            content: JSON.stringify({
+                type: "community-invite",
+                inviteId,
+                groupId: "g1",
+                roomKey: "rk",
+                creatorPubkey: inviterPk,
+            }),
+        });
+        const cancel = baseMessage({
+            id: "cancel-inbound",
+            isOutgoing: false,
+            timestamp: new Date(1_700_000_500_000),
+            senderPubkey: inviterPk as Message["senderPubkey"],
+            recipientPubkey: inviteePk as Message["recipientPubkey"],
+            content: JSON.stringify({
+                type: "community-invite-response",
+                inviteId,
+                status: "canceled",
+                groupId: "g1",
+            }),
+            replyTo: { messageId: "invite-inbound", previewText: "" },
+        });
+        const map = buildCommunityInviteResponseStatusByMessageId([invite, cancel]);
+        expect(map.get("invite-inbound")).toBe("canceled");
+    });
+
+    it("links legacy cancel inviteId to wire invite when inviter cancels on invitee thread", () => {
+        const wireInviteId = "inv-wire-uuid";
+        const inviterPk = "a".repeat(64);
+        const invite = baseMessage({
+            id: "invite-inbound",
+            isOutgoing: false,
+            timestamp: new Date(1_700_000_000_000),
+            senderPubkey: inviterPk as Message["senderPubkey"],
+            content: JSON.stringify({
+                type: "community-invite",
+                inviteId: wireInviteId,
+                groupId: "g1",
+                roomKey: "rk",
+                creatorPubkey: inviterPk,
+            }),
+        });
+        const cancel = baseMessage({
+            id: "cancel-inbound",
+            isOutgoing: false,
+            timestamp: new Date(1_700_000_500_000),
+            senderPubkey: inviterPk as Message["senderPubkey"],
+            content: JSON.stringify({
+                type: "community-invite-response",
+                inviteId: "legacy:g1",
+                status: "canceled",
+                groupId: "g1",
+            }),
+        });
+        const map = buildCommunityInviteResponseStatusByMessageId([invite, cancel]);
+        expect(map.get("invite-inbound")).toBe("canceled");
+    });
+
+    it("links cancel to the latest re-invite when replyTo is stale and multiple invites share a group", () => {
+        const inviterPk = "a".repeat(64);
+        const oldInvite = baseMessage({
+            id: "invite-old",
+            isOutgoing: false,
+            timestamp: new Date(1_700_000_000_000),
+            senderPubkey: inviterPk as Message["senderPubkey"],
+            content: JSON.stringify({
+                type: "community-invite",
+                inviteId: "inv-old",
+                groupId: "g1",
+                roomKey: "rk",
+                creatorPubkey: inviterPk,
+            }),
+        });
+        const newInvite = baseMessage({
+            id: "invite-new",
+            isOutgoing: false,
+            timestamp: new Date(1_700_000_200_000),
+            senderPubkey: inviterPk as Message["senderPubkey"],
+            content: JSON.stringify({
+                type: "community-invite",
+                inviteId: "inv-new",
+                groupId: "g1",
+                roomKey: "rk2",
+                creatorPubkey: inviterPk,
+            }),
+        });
+        const cancel = baseMessage({
+            id: "cancel-inbound",
+            isOutgoing: false,
+            timestamp: new Date(1_700_000_500_000),
+            senderPubkey: inviterPk as Message["senderPubkey"],
+            content: JSON.stringify({
+                type: "community-invite-response",
+                inviteId: "legacy:g1",
+                status: "canceled",
+                groupId: "g1",
+            }),
+            replyTo: { messageId: "missing-rumor-id", previewText: "" },
+        });
+        const map = buildCommunityInviteResponseStatusByMessageId([oldInvite, newInvite, cancel]);
+        expect(map.get("invite-old")).toBeUndefined();
+        expect(map.get("invite-new")).toBe("canceled");
     });
 
     it("does not apply stale terminal status when inviteId is reused for a newer invite", () => {

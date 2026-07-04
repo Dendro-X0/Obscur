@@ -1,11 +1,22 @@
 "use client";
 
-import type { Attachment } from "../../messaging/types";
+import type { Attachment, AttachmentKind } from "../../messaging/types";
+import { getMediaKindForPolicy } from "../../messaging/lib/media-upload-policy";
 import { pruneLocalMediaIndexRetentionEntries } from "@/app/features/runtime/services/self-cleaning-retention-sweep-policy";
 import { logRuntimeEvent } from "@/app/shared/runtime-log-classification";
 import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { getObscurDataRootConfig } from "@/app/features/profiles/services/obscur-data-root-service";
 import { nativeLocalMediaAdapter } from "./native-local-media-adapter";
+import { resolveVaultStorageLayout, vaultUsesAbsolutePaths } from "./local-media-vault-path";
+import {
+  buildOpaqueVaultFileName,
+  decryptVaultFileBytesIfNeeded,
+  encryptVaultBytesIfAvailable,
+  isEncryptedVaultRelativePath,
+} from "@/app/features/storage/services/vault-at-rest";
+import { getProfileStorageKeyMaterial } from "@/app/features/storage/services/profile-storage-key-session";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 
 type LocalMediaIndexEntry = Readonly<{
     remoteUrl: string;
@@ -40,6 +51,32 @@ export type LocalMediaCacheItem = Readonly<{
 const STORAGE_CONFIG_KEY = "obscur.vault.local_media_storage_config";
 const STORAGE_INDEX_KEY = "obscur.vault.local_media_index";
 const DEFAULT_SUBDIR = "vault-media";
+
+export const LOCAL_VAULT_URL_PREFIX = "obscur://vault/local/" as const;
+
+export const isLocalVaultOnlyUrl = (url: string): boolean =>
+    url.trim().startsWith(LOCAL_VAULT_URL_PREFIX);
+
+export const buildLocalVaultOnlyUrl = (contentSha256Hex: string): string =>
+    `${LOCAL_VAULT_URL_PREFIX}${contentSha256Hex.trim().toLowerCase()}`;
+
+export type SaveFileToLocalVaultResult = Readonly<{
+    vaultUrl: string;
+    localUrl: string;
+    attachment: Attachment;
+}>;
+
+const inferAttachmentKindFromMeta = (fileName: string, contentType: string): AttachmentKind => {
+    const fakeFile = new File([], fileName, { type: contentType });
+    return getMediaKindForPolicy(fakeFile);
+};
+
+const sha256BytesHex = async (bytes: Uint8Array): Promise<string> => {
+    const digest = await crypto.subtle.digest("SHA-256", bytes as BufferSource);
+    return Array.from(new Uint8Array(digest))
+        .map((byte) => byte.toString(16).padStart(2, "0"))
+        .join("");
+};
 let localCacheWriteBlocked = false;
 let localCacheBlockedWarningEmitted = false;
 
@@ -51,11 +88,60 @@ export const DEFAULT_LOCAL_MEDIA_STORAGE_CONFIG: LocalMediaStorageConfig = {
     cacheReceivedFiles: true,
 };
 
+const isAbsoluteStoragePath = (path: string): boolean =>
+    /^[a-zA-Z]:[\\/]/.test(path) || path.startsWith("/") || path.startsWith("\\\\");
+
+type ResolvedVaultStorage = Readonly<{
+    absoluteStorageDir: string | null;
+    usesAbsolutePaths: boolean;
+    unifiedDataRootPath: string | null;
+}>;
+
+const resolveVaultStorage = async (): Promise<ResolvedVaultStorage> => {
+    const cfg = getLocalMediaStorageConfig();
+    const effectivePath = isTauriRuntime()
+        ? (await getObscurDataRootConfig()).effectivePath?.trim() || null
+        : null;
+    const layout = resolveVaultStorageLayout({
+        isNative: isTauriRuntime(),
+        dataRootEffectivePath: effectivePath,
+        config: cfg,
+    });
+    let absoluteStorageDir: string | null = null;
+    if (layout.mode === "unified_data_root" && effectivePath) {
+        absoluteStorageDir = await nativeLocalMediaAdapter.joinPaths(effectivePath, cfg.subdir);
+    } else if (layout.mode === "legacy_custom_root") {
+        absoluteStorageDir = await nativeLocalMediaAdapter.joinPaths(cfg.customRootPath, cfg.subdir);
+    }
+    return {
+        absoluteStorageDir,
+        usesAbsolutePaths: vaultUsesAbsolutePaths(layout),
+        unifiedDataRootPath: layout.mode === "unified_data_root" ? effectivePath : null,
+    };
+};
+
+const resolveEntryAbsolutePath = async (entryPath: string): Promise<string> => {
+    if (isAbsoluteStoragePath(entryPath)) {
+        return entryPath;
+    }
+    const storage = await resolveVaultStorage();
+    if (storage.unifiedDataRootPath) {
+        return nativeLocalMediaAdapter.joinPaths(storage.unifiedDataRootPath, entryPath);
+    }
+    return buildAbsolutePath(entryPath);
+};
+
 const isTauriRuntime = (): boolean => {
     return hasNativeRuntime();
 };
 
 const isBrowser = (): boolean => typeof window !== "undefined";
+
+const storageRefForEntryPath = (entryPath: string): Readonly<{ path: string; appDataRelative?: boolean }> => (
+    isAbsoluteStoragePath(entryPath)
+        ? { path: entryPath }
+        : { path: entryPath, appDataRelative: true }
+);
 const scopedConfigKey = (profileId?: string): string => getScopedStorageKey(STORAGE_CONFIG_KEY, profileId);
 const scopedIndexKey = (profileId?: string): string => getScopedStorageKey(STORAGE_INDEX_KEY, profileId);
 
@@ -71,6 +157,37 @@ const sanitizeFileName = (raw: string): string => {
 };
 
 const LEGACY_HASHED_CACHE_FILE_NAME_PATTERN = /^\d{10,}-[a-f0-9]{12,}-(.+)$/i;
+const ENCRYPTED_VAULT_BLOB_FILE_NAME_PATTERN = /^[a-f0-9]{24}\.obscurvault$/i;
+
+export const isEncryptedVaultStorageFileName = (value: string): boolean =>
+    ENCRYPTED_VAULT_BLOB_FILE_NAME_PATTERN.test(value.trim());
+
+export const resolveVaultDisplayFileName = (params: Readonly<{
+    attachmentFileName?: string;
+    indexFileName?: string;
+    relativePath?: string;
+}>): string => {
+    const candidates = [
+        params.attachmentFileName,
+        params.indexFileName,
+        params.relativePath?.split(/[\\/]/).pop(),
+    ];
+    for (const raw of candidates) {
+        if (typeof raw !== "string") {
+            continue;
+        }
+        const trimmed = raw.trim();
+        if (!trimmed || isEncryptedVaultStorageFileName(trimmed)) {
+            continue;
+        }
+        const normalized = normalizeLocalMediaDisplayFileName(trimmed);
+        if (!normalized || isEncryptedVaultStorageFileName(normalized)) {
+            continue;
+        }
+        return normalized;
+    }
+    return "file";
+};
 
 export const normalizeLocalMediaDisplayFileName = (value: string): string => {
     const sanitized = sanitizeFileName(value);
@@ -129,11 +246,21 @@ const buildPreferredLocalFileName = (attachment: Attachment): string => {
 const resolveUniqueLocalFileTarget = async (
     cfg: LocalMediaStorageConfig,
     preferredFileName: string,
-): Promise<Readonly<{ relativePath: string; fileName: string }>> => {
+    remoteUrl?: string,
+): Promise<Readonly<{ relativePath: string; fileName: string; encrypted: boolean }>> => {
+    const profileId = getResolvedProfileId();
+    const keyMaterialAvailable = Boolean(getProfileStorageKeyMaterial(profileId));
+    if (keyMaterialAvailable && remoteUrl?.trim()) {
+        const opaqueFileName = await buildOpaqueVaultFileName(remoteUrl, profileId);
+        const storage = await resolveVaultStorage();
+        const relativePath = storage.absoluteStorageDir
+            ? await nativeLocalMediaAdapter.joinPaths(storage.absoluteStorageDir, opaqueFileName)
+            : `${cfg.subdir}/${opaqueFileName}`;
+        return { relativePath, fileName: opaqueFileName, encrypted: true };
+    }
     const { stem, ext } = splitFileName(preferredFileName);
-    const absoluteRoot = cfg.customRootPath.trim().length > 0
-        ? await resolveStorageAbsolutePath()
-        : null;
+    const storage = await resolveVaultStorage();
+    const absoluteRoot = storage.absoluteStorageDir;
     for (let attempt = 0; attempt < 200; attempt += 1) {
         const fileName = attempt === 0 ? preferredFileName : withSuffix(stem, ext, attempt + 1);
         const relativePath = absoluteRoot
@@ -143,14 +270,14 @@ const resolveUniqueLocalFileTarget = async (
             ? await nativeLocalMediaAdapter.fileExists({ path: relativePath })
             : await nativeLocalMediaAdapter.fileExists({ path: relativePath, appDataRelative: true });
         if (!exists) {
-            return { relativePath, fileName };
+            return { relativePath, fileName, encrypted: false };
         }
     }
     const fallbackFileName = withSuffix(stem, ext, Date.now());
     const fallbackRelativePath = absoluteRoot
         ? await nativeLocalMediaAdapter.joinPaths(absoluteRoot, fallbackFileName)
         : `${cfg.subdir}/${fallbackFileName}`;
-    return { relativePath: fallbackRelativePath, fileName: fallbackFileName };
+    return { relativePath: fallbackRelativePath, fileName: fallbackFileName, encrypted: false };
 };
 
 const loadIndex = (): LocalMediaIndex => {
@@ -193,8 +320,13 @@ export const repairLocalMediaIndex = (): Readonly<{ repaired: number; removed: n
         const normalizedRemoteUrl = entry.remoteUrl.trim().length > 0 ? entry.remoteUrl.trim() : remoteUrl;
         const normalizedRelativePath = entry.relativePath.trim();
         const normalizedFileName = typeof entry.fileName === "string" && entry.fileName.trim().length > 0
-            ? normalizeLocalMediaDisplayFileName(entry.fileName)
-            : normalizeLocalMediaDisplayFileName(normalizedRelativePath.split(/[\\/]/).pop() ?? "file");
+            ? resolveVaultDisplayFileName({
+                indexFileName: entry.fileName,
+                relativePath: normalizedRelativePath,
+            })
+            : resolveVaultDisplayFileName({
+                relativePath: normalizedRelativePath,
+            });
         if (normalizedRemoteUrl !== entry.remoteUrl || normalizedRelativePath !== entry.relativePath) {
             repaired += 1;
         }
@@ -332,7 +464,7 @@ export const saveLocalMediaStorageConfig = (
     const normalized: LocalMediaStorageConfig = {
         enabled: config.enabled,
         subdir: sanitizeSubdir(config.subdir),
-        customRootPath: config.customRootPath.trim(),
+        customRootPath: isTauriRuntime() ? "" : config.customRootPath.trim(),
         cacheSentFiles: config.cacheSentFiles,
         cacheReceivedFiles: config.cacheReceivedFiles,
     };
@@ -355,20 +487,21 @@ const buildAbsolutePath = async (relativePath: string): Promise<string> => {
 };
 
 const resolveStorageAbsolutePath = async (): Promise<string> => {
-    const cfg = getLocalMediaStorageConfig();
-    if (cfg.customRootPath.trim().length > 0) {
-        return nativeLocalMediaAdapter.joinPaths(cfg.customRootPath, cfg.subdir);
+    const storage = await resolveVaultStorage();
+    if (storage.absoluteStorageDir) {
+        return storage.absoluteStorageDir;
     }
+    const cfg = getLocalMediaStorageConfig();
     return buildAbsolutePath(cfg.subdir);
 };
 
 const ensureStorageAbsoluteDir = async (): Promise<void> => {
-    const cfg = getLocalMediaStorageConfig();
-    if (cfg.customRootPath.trim().length > 0) {
-        const absolutePath = await resolveStorageAbsolutePath();
-        await nativeLocalMediaAdapter.ensureDirectory({ path: absolutePath });
+    const storage = await resolveVaultStorage();
+    if (storage.absoluteStorageDir) {
+        await nativeLocalMediaAdapter.ensureDirectory({ path: storage.absoluteStorageDir });
         return;
     }
+    const cfg = getLocalMediaStorageConfig();
     await ensureStorageDir(cfg.subdir);
 };
 
@@ -419,20 +552,23 @@ export const resolveLocalMediaUrl = async (remoteUrl: string): Promise<string | 
     if (!entry) return null;
     try {
         const cfg = getLocalMediaStorageConfig();
-        let hasFile = false;
-        if (cfg.customRootPath.trim().length > 0) {
-            hasFile = await nativeLocalMediaAdapter.fileExists({ path: entry.relativePath });
-        } else {
-            hasFile = await nativeLocalMediaAdapter.fileExists({ path: entry.relativePath, appDataRelative: true });
-        }
+        const entryRef = storageRefForEntryPath(entry.relativePath);
+        const hasFile = await nativeLocalMediaAdapter.fileExists(entryRef);
         if (!hasFile) {
             delete index[remoteUrl];
             saveIndex(index);
             return null;
         }
-        const absolutePath = cfg.customRootPath.trim().length > 0
-            ? entry.relativePath
-            : await buildAbsolutePath(entry.relativePath);
+        const absolutePath = await resolveEntryAbsolutePath(entry.relativePath);
+        if (isEncryptedVaultRelativePath(entry.relativePath)) {
+            const fileBytes = await nativeLocalMediaAdapter.readBytes(storageRefForEntryPath(entry.relativePath));
+            if (!fileBytes) {
+                return null;
+            }
+            const decrypted = await decryptVaultFileBytesIfNeeded({ fileBytes });
+            const blob = new Blob([decrypted.slice()], { type: entry.contentType || "application/octet-stream" });
+            return URL.createObjectURL(blob);
+        }
         return nativeLocalMediaAdapter.convertAbsolutePathToFileSrc(absolutePath);
     } catch {
         return null;
@@ -490,11 +626,16 @@ const fetchBytes = async (url: string, fileType?: string, attempt = 1): Promise<
 export const cacheAttachmentLocally = async (
     attachment: Attachment,
     mode: "sent" | "received",
-    localBytes?: Uint8Array
+    localBytes?: Uint8Array,
+    options?: Readonly<{ force?: boolean; messageEventId?: string }>,
 ): Promise<string | null> => {
     if (!isTauriRuntime()) return null;
     const cfg = getLocalMediaStorageConfig();
     if (!cfg.enabled) return null;
+    if (!options?.force) {
+        if (mode === "sent" && !cfg.cacheSentFiles) return null;
+        if (mode === "received" && !cfg.cacheReceivedFiles) return null;
+    }
     if (localCacheWriteBlocked) {
         if (!localCacheBlockedWarningEmitted) {
             localCacheBlockedWarningEmitted = true;
@@ -506,8 +647,6 @@ export const cacheAttachmentLocally = async (
         }
         return null;
     }
-    if (mode === "sent" && !cfg.cacheSentFiles) return null;
-    if (mode === "received" && !cfg.cacheReceivedFiles) return null;
 
     const existing = await resolveLocalMediaUrl(attachment.url);
     if (existing) return existing;
@@ -522,14 +661,20 @@ export const cacheAttachmentLocally = async (
         }
 
         const preferredFileName = buildPreferredLocalFileName(attachment);
-        const target = await resolveUniqueLocalFileTarget(cfg, preferredFileName);
-        const fileName = target.fileName;
+        const target = await resolveUniqueLocalFileTarget(cfg, preferredFileName, attachment.url);
         const relativePath = target.relativePath;
+        const displayFileName = resolveVaultDisplayFileName({
+            attachmentFileName: attachment.fileName,
+            indexFileName: preferredFileName,
+        });
+        const encryptedPayload = await encryptVaultBytesIfAvailable({ plaintext: bytes });
+        const payload = encryptedPayload.bytes;
 
-        if (cfg.customRootPath.trim().length > 0) {
-            await nativeLocalMediaAdapter.writeBytes({ path: relativePath, bytes });
+        const storage = await resolveVaultStorage();
+        if (storage.usesAbsolutePaths && storage.absoluteStorageDir) {
+            await nativeLocalMediaAdapter.writeBytes({ path: relativePath, bytes: payload });
         } else {
-            await nativeLocalMediaAdapter.writeBytes({ path: relativePath, appDataRelative: true, bytes });
+            await nativeLocalMediaAdapter.writeBytes({ path: relativePath, appDataRelative: true, bytes: payload });
         }
 
         // Reload index to avoid race conditions when uploading multiple files concurrently
@@ -538,9 +683,10 @@ export const cacheAttachmentLocally = async (
             remoteUrl: attachment.url,
             relativePath,
             savedAtUnixMs: Date.now(),
-            fileName,
+            fileName: displayFileName,
             contentType: attachment.contentType,
             size: bytes.byteLength,
+            ...(options?.messageEventId ? { messageEventId: options.messageEventId } : {}),
         };
         saveIndex(currentIndex);
         return resolveLocalMediaUrl(attachment.url);
@@ -572,6 +718,43 @@ export const cacheAttachmentLocally = async (
     }
 };
 
+/** Explicit user action — bypasses sent/received auto-cache settings. */
+export const persistAttachmentToLocalVault = async (
+    attachment: Attachment,
+    localBytes?: Uint8Array,
+): Promise<string | null> => (
+    cacheAttachmentLocally(attachment, "received", localBytes, { force: true })
+);
+
+export const saveFileToLocalVault = async (file: File): Promise<SaveFileToLocalVaultResult | null> => {
+    if (!isTauriRuntime()) {
+        return null;
+    }
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    if (bytes.byteLength === 0) {
+        throw new Error("Cannot save empty file (0 bytes)");
+    }
+    const contentType = file.type?.trim() || "application/octet-stream";
+    const fileName = file.name?.trim() || "file";
+    const contentHash = await sha256BytesHex(bytes);
+    const vaultUrl = buildLocalVaultOnlyUrl(contentHash);
+    const attachment: Attachment = {
+        kind: inferAttachmentKindFromMeta(fileName, contentType),
+        url: vaultUrl,
+        contentType,
+        fileName,
+    };
+    const existing = await resolveLocalMediaUrl(vaultUrl);
+    if (existing) {
+        return { vaultUrl, localUrl: existing, attachment };
+    }
+    const localUrl = await cacheAttachmentLocally(attachment, "sent", bytes, { force: true });
+    if (!localUrl) {
+        return null;
+    }
+    return { vaultUrl, localUrl, attachment };
+};
+
 export const purgeLocalMediaCache = async (): Promise<void> => {
     if (!isTauriRuntime()) return;
     localCacheWriteBlocked = false;
@@ -580,8 +763,9 @@ export const purgeLocalMediaCache = async (): Promise<void> => {
     const indexSnapshot = loadIndex();
     let removedByRoot = false;
     try {
-        if (cfg.customRootPath.trim().length > 0) {
-            await nativeLocalMediaAdapter.removePath({ path: await resolveStorageAbsolutePath(), recursive: true });
+        const storage = await resolveVaultStorage();
+        if (storage.absoluteStorageDir) {
+            await nativeLocalMediaAdapter.removePath({ path: storage.absoluteStorageDir, recursive: true });
         } else {
             await nativeLocalMediaAdapter.removePath({ path: cfg.subdir, appDataRelative: true, recursive: true });
         }
@@ -593,11 +777,7 @@ export const purgeLocalMediaCache = async (): Promise<void> => {
         const entries = Object.values(indexSnapshot);
         await Promise.all(entries.map(async (entry) => {
             try {
-                if (cfg.customRootPath.trim().length > 0) {
-                    await nativeLocalMediaAdapter.removePath({ path: entry.relativePath });
-                } else {
-                    await nativeLocalMediaAdapter.removePath({ path: entry.relativePath, appDataRelative: true });
-                }
+                await nativeLocalMediaAdapter.removePath(storageRefForEntryPath(entry.relativePath));
             } catch {
                 // Best-effort per-item deletion fallback.
             }
@@ -615,12 +795,7 @@ export const deleteLocalMediaCacheItem = async (remoteUrl: string): Promise<bool
     if (!entry) return false;
 
     try {
-        const cfg = getLocalMediaStorageConfig();
-        if (cfg.customRootPath.trim().length > 0) {
-            await nativeLocalMediaAdapter.removePath({ path: entry.relativePath });
-        } else {
-            await nativeLocalMediaAdapter.removePath({ path: entry.relativePath, appDataRelative: true });
-        }
+        await nativeLocalMediaAdapter.removePath(storageRefForEntryPath(entry.relativePath));
     } catch {
         // Ignore file removal failures; still clean stale index below.
     }

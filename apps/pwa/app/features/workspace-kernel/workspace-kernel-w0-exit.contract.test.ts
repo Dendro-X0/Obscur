@@ -14,14 +14,16 @@ describe("workspace-kernel W0 exit contract", () => {
     expect(pkg).toContain("verify:workspace-kernel-w0");
   });
 
-  it("handoff documents workspace-kernel strategy and W0 gate", () => {
-    const handoff = readFileSync(
-      path.join(repoRoot, "docs/handoffs/current-session.md"),
+  it("program manifest documents workspace-kernel strategy and W0 gate", () => {
+    const manifest = readFileSync(
+      path.join(repoRoot, "docs/program/workspace-kernel-manifest.md"),
       "utf8",
     );
-    expect(handoff).toContain("workspace-kernel");
-    expect(handoff).toMatch(/verify:workspace-kernel-w[0-4]/);
-    expect(handoff).toMatch(/W[0-4].*landed|workspace kernel.*complete/i);
+    const pkg = readFileSync(path.join(repoRoot, "package.json"), "utf8");
+    expect(manifest).toContain("workspace-kernel");
+    expect(manifest).toContain("verify:workspace-kernel-w0");
+    expect(pkg).toMatch(/verify:workspace-kernel-w[0-4]/);
+    expect(manifest).toMatch(/W[0-4].*landed|Workspace kernel W0.*Landed/i);
   });
 
   it("workspace-kernel module exports policy and port scaffolds", () => {

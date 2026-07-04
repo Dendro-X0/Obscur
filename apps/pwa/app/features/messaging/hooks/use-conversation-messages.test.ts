@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Message } from "../types";
 import type { MessageBusEvent } from "../services/message-bus";
-import { applyBufferedEvents } from "../services/dm-conversation-materialization-realtime";
+import { applyBufferedEvents } from "@/app/features/messaging/services/thread-history/dm-thread-history-legacy-port";
 
 const createMessage = (params: Readonly<{ id: string; timestampMs: number; content?: string }>): Message => ({
     id: params.id,

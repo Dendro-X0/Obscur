@@ -1,75 +1,32 @@
 /**
- * DM Read Authority Contract
- *
- * Defines the single canonical owner for DM conversation message reads.
- * Per AGENTS.md Rule 1: One owner per lifecycle/state/transport path — never add a second.
- *
- * Canonical Owner: Account Projection (via account-sync projection system)
- * Fallback Owners (diagnostics-only, to be deprecated):
- *   - IndexedDB message store (legacy, for recovery scenarios only)
- *   - chat-state-store persistence (legacy, compatibility mode only)
- *
- * Non-Goals:
- *   - Do NOT allow multiple sources to compete as truth in production.
- *   - Do NOT silently degrade from projection to legacy without explicit diagnostics.
- *
- * Hydration: {@link resolveHydrationDmReadMessages}; optional {@link logDmReadHydrationDiagnostics}
- * after resolve for `messaging.dm_read_authority_bridge_used` telemetry.
- * `resolveLegacyHydrationAuthority` / `resolveHydrationDmReadMessages` are the supported entry points.
- * Legacy count gates + thin-index repair predicates live in this module (formerly `conversation-history-authority-shared.ts`).
+ * DM read authority for legacy web hydrate — native uses dm-kernel SQLite reads.
  */
 
-import type { Message } from "../types";
+import type { Message } from "@/app/features/messaging/types";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import {
   filterMessagesBySuppressedIds,
   selectMessagesForConversationHistoryAuthority,
-} from "./conversation-message-materialization";
-import { persistedMessagesContainSuppressedIdentities } from "./dm-thread-suppression-set";
+} from "@/app/features/messaging/services/conversation-message-materialization";
+import { persistedMessagesContainSuppressedIdentities } from "@/app/features/messaging/services/dm-thread-suppression-set";
 import { requiresSqlitePersistence } from "@/app/features/runtime/native-persistence-policy";
-import { isNativeDmSqliteReadOwner } from "./native-dm-read-policy";
-import { dedupeMessagesByIdentity } from "./dm-conversation-message-retention-dedupe";
-import { collectMessageIdentityAliases } from "./message-identity-alias-contract";
+import { isNativeDmSqliteReadOwner } from "@/app/features/messaging/services/native-dm-read-policy";
+import { dedupeMessagesByIdentity } from "@/app/features/messaging/services/dm-conversation-message-retention-dedupe";
+import { collectMessageIdentityAliases } from "@/app/features/messaging/services/message-identity-alias-contract";
 import { normalizePublicKeyHex } from "@/app/features/profile/utils/normalize-public-key-hex";
-import { getMessageDirectionCounts } from "./dm-conversation-hydrate-read-model";
+import { getMessageDirectionCounts } from "@/app/features/messaging/services/dm-thread-read-model";
+import type {
+  ConversationHistoryAuthorityDecision,
+  ResolveConversationHistoryAuthorityParams,
+} from "@/app/features/messaging/services/thread-history/hydrate-authority-types";
 
-/** Legacy authority branch labels (materialization + hydrate diagnostics). */
-export type ConversationHistoryAuthority = "projection" | "indexed" | "persisted";
-
-/** Named reasons for {@link resolveLegacyHydrationAuthority}. */
-export type ConversationHistoryAuthorityReason =
-  | "projection_read_cutover"
-  | "persisted_recovery_indexed_missing_incoming"
-  | "persisted_recovery_indexed_missing_outgoing"
-  | "persisted_recovery_indexed_empty"
-  | "indexed_primary"
-  | "indexed_primary_projection_direction_incomplete";
-
-/** Input counts for {@link resolveLegacyHydrationAuthority}. */
-export type ResolveConversationHistoryAuthorityParams = Readonly<{
-  useProjectionReads: boolean;
-  projectionMessageCount: number;
-  projectionIncomingCount: number;
-  projectionOutgoingCount: number;
-  projectionBootstrapImportApplied: boolean;
-  projectionCanonicalEvidencePending: boolean;
-  projectionRestorePhaseActive: boolean;
-  indexedMessageCount: number;
-  indexedOutgoingCount: number;
-  indexedIncomingCount: number;
-  persistedMessageCount: number;
-  persistedOutgoingCount: number;
-  persistedIncomingCount: number;
-  /** When true, restore-phase persisted repair must not override indexed/projection (DM-001 / R1). */
-  blockPersistedRestoreRepair?: boolean;
-}>;
-
-/** Result of {@link resolveLegacyHydrationAuthority}. */
-export type ConversationHistoryAuthorityDecision = Readonly<{
-  authority: ConversationHistoryAuthority;
-  reason: ConversationHistoryAuthorityReason;
-}>;
+export type {
+  ConversationHistoryAuthority,
+  ConversationHistoryAuthorityReason,
+  ConversationHistoryAuthorityDecision,
+  ResolveConversationHistoryAuthorityParams,
+} from "@/app/features/messaging/services/thread-history/hydrate-authority-types";
 
 export const PERSISTED_INCOMING_REPAIR_INDEXED_MESSAGE_MAX = 3;
 

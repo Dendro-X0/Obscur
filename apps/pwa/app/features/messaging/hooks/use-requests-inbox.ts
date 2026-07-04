@@ -6,7 +6,7 @@ import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { ConnectionRequestStatusValue, RequestsInboxItem } from "@/app/features/messaging/types";
 
 
-import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store";
+import { messagingChatStateMessagePort } from "../services/messaging-chat-state-message-port";
 import { normalizePublicKeyHex } from "@/app/features/profile/utils/normalize-public-key-hex";
 import { emitAccountSyncMutation } from "@/app/shared/account-sync-mutation-signal";
 import { useAccountProjectionSnapshot } from "@/app/features/account-sync/hooks/use-account-projection-snapshot";
@@ -286,7 +286,7 @@ export const useRequestsInbox = (params: UseRequestsInboxParams): UseRequestsInb
       setStored(createDefaultState());
       return;
     }
-    const persisted = chatStateStoreService.load(params.publicKeyHex);
+    const persisted = messagingChatStateMessagePort.load(params.publicKeyHex);
     if (persisted && persisted.connectionRequests) {
       const hydratedItems = persisted.connectionRequests
         .map((item): RequestsInboxItem | undefined => {
@@ -325,7 +325,7 @@ export const useRequestsInbox = (params: UseRequestsInboxParams): UseRequestsInb
     }
     const pk = publicKeyHexRef.current;
     if (pk) {
-      chatStateStoreService.updateConnectionRequests(pk, next.items.map(item => ({
+      messagingChatStateMessagePort.updateConnectionRequests(pk, next.items.map(item => ({
         id: item.peerPublicKeyHex,
         status: item.status || 'pending',
         isOutgoing: item.isOutgoing ?? false,

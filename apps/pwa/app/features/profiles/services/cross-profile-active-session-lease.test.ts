@@ -29,11 +29,13 @@ describe("cross-profile-active-session-lease", () => {
     expect(() => assertAccountNotActiveInOtherProfileWindow({
       incomingPublicKeyHex: PK_A as any,
       currentProfileId: "profile-2",
+      currentWindowLabel: "profile-profile-2-1",
     })).toThrow(AccountActiveInOtherProfileWindowError);
 
     expect(findActiveSessionLeaseForAccount({
       publicKeyHex: PK_A as any,
       excludeProfileId: "profile-2",
+      excludeWindowLabel: "profile-profile-2-1",
     })).toMatchObject({ profileId: "default" });
   });
 
@@ -47,7 +49,22 @@ describe("cross-profile-active-session-lease", () => {
     expect(() => assertAccountNotActiveInOtherProfileWindow({
       incomingPublicKeyHex: PK_A as any,
       currentProfileId: "profile-2",
+      currentWindowLabel: "profile-profile-2-1",
     })).not.toThrow();
+  });
+
+  it("blocks unlock when the same account is already active in another window of the same profile", () => {
+    claimActiveSessionLease({
+      publicKeyHex: PK_A as any,
+      profileId: "default",
+      windowLabel: "profile-default-1",
+    });
+
+    expect(() => assertAccountNotActiveInOtherProfileWindow({
+      incomingPublicKeyHex: PK_A as any,
+      currentProfileId: "default",
+      currentWindowLabel: "profile-default-2",
+    })).toThrow(AccountActiveInOtherProfileWindowError);
   });
 
   it("releases lease on sign-out", () => {
@@ -61,6 +78,7 @@ describe("cross-profile-active-session-lease", () => {
     expect(findActiveSessionLeaseForAccount({
       publicKeyHex: PK_B as any,
       excludeProfileId: "profile-2",
+      excludeWindowLabel: "profile-profile-2-1",
     })).toBeNull();
   });
 });

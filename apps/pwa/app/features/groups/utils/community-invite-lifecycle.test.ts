@@ -81,25 +81,41 @@ describe("resolveCommunityInviteCardStatus", () => {
         })).toBe("superseded");
     });
 
-    it("stays pending when an unlinked terminal response exists for the same group", () => {
+    it("stays pending when cancel targets a different invite in the same group", () => {
         const oldInvite = baseMessage({
             id: "invite-old",
             isOutgoing: false,
             timestamp: new Date(1_700_000_000_000),
             content: JSON.stringify({ type: "community-invite", groupId: "g1", roomKey: "rk" }),
         });
+        const newInvite = baseMessage({
+            id: "invite-new",
+            isOutgoing: false,
+            timestamp: new Date(1_700_000_200_000),
+            content: JSON.stringify({ type: "community-invite", groupId: "g1", roomKey: "rk2" }),
+        });
         const cancel = baseMessage({
             id: "cancel-1",
-            isOutgoing: true,
+            isOutgoing: false,
             timestamp: new Date(1_700_000_300_000),
-            content: JSON.stringify({ type: "community-invite-response", status: "canceled", groupId: "g1" }),
+            content: JSON.stringify({
+                type: "community-invite-response",
+                inviteId: "legacy:g1",
+                status: "canceled",
+                groupId: "g1",
+            }),
             replyTo: { messageId: "invite-new", previewText: "" },
         });
         expect(resolveCommunityInviteCardStatus({
             message: oldInvite,
-            messages: [oldInvite, cancel],
+            messages: [oldInvite, newInvite, cancel],
             nowMs: 1_700_000_400_000,
-        })).toBe("pending");
+        })).toBe("superseded");
+        expect(resolveCommunityInviteCardStatus({
+            message: newInvite,
+            messages: [oldInvite, newInvite, cancel],
+            nowMs: 1_700_000_400_000,
+        })).toBe("canceled");
     });
 
     it("expires pending invite after TTL", () => {

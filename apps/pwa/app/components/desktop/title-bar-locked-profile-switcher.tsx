@@ -2,6 +2,7 @@
 
 import type React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { usePathname, useRouter } from "next/navigation";
 import { Button, toast } from "@dweb/ui-kit";
 import { ChevronDown, SquareArrowOutUpRight, Users } from "lucide-react";
@@ -17,8 +18,11 @@ import {
   type DesktopProfileMenuEntry,
   type DesktopProfilePreview,
 } from "@/app/features/profiles/services/desktop-profile-switcher-view";
+import { resolveDesktopProfileAccountPresenceLabelKey } from "@/app/features/profiles/services/desktop-profile-account-presence-label";
+import { resolveDesktopProfileCardDisplay } from "@/app/features/profiles/services/desktop-profile-card-display";
 
 export function TitleBarLockedProfileSwitcher(): React.JSX.Element | null {
+  const { t } = useTranslation();
   const router = useRouter();
   const pathname = usePathname();
   const identity = useIdentity();
@@ -33,7 +37,12 @@ export function TitleBarLockedProfileSwitcher(): React.JSX.Element | null {
 
   useEffect(() => {
     let cancelled = false;
-    void loadDesktopProfilePreviewMap(snapshot.profiles.map((profileSummary) => profileSummary.profileId))
+    void loadDesktopProfilePreviewMap(
+      snapshot.profiles.map((profileSummary) => ({
+        profileId: profileSummary.profileId,
+        label: profileSummary.label,
+      })),
+    )
       .then((previews) => {
         if (!cancelled) {
           setPreviewByProfileId(previews);
@@ -86,6 +95,7 @@ export function TitleBarLockedProfileSwitcher(): React.JSX.Element | null {
 
   const currentEntry = menuEntries.find((entry) => entry.isCurrentWindow) ?? menuEntries[0];
   const otherEntries = menuEntries.filter((entry) => !entry.isCurrentWindow);
+  const currentDisplay = currentEntry ? resolveDesktopProfileCardDisplay(currentEntry) : null;
 
   if (!isLocked || isPublicProfilePicker || !currentEntry) {
     return null;
@@ -127,13 +137,15 @@ export function TitleBarLockedProfileSwitcher(): React.JSX.Element | null {
         aria-expanded={open}
       >
         <UserAvatar
-          username={currentEntry.avatarName}
-          avatarUrl={currentEntry.avatarUrl}
+          username={currentDisplay?.avatarName ?? ""}
+          avatarUrl={currentDisplay?.avatarUrl ?? ""}
           sizePx={30}
         />
         <div className="min-w-0">
           <div className="truncate text-[11px] font-black uppercase tracking-[0.18em] text-zinc-900 dark:text-zinc-100">
-            {currentEntry.label}
+            {currentDisplay?.showAccountIdentity && currentDisplay.displayName
+              ? currentDisplay.displayName
+              : "Profile slot"}
           </div>
           <div className="truncate text-[10px] text-zinc-500 dark:text-zinc-400">
             Switch profile
@@ -154,17 +166,21 @@ export function TitleBarLockedProfileSwitcher(): React.JSX.Element | null {
           </div>
 
           <div className="max-h-56 overflow-y-auto p-2">
-            {otherEntries.map((entry) => (
+            {otherEntries.map((entry) => {
+              const display = resolveDesktopProfileCardDisplay(entry);
+              return (
               <div
                 key={entry.profileId}
                 className="rounded-xl border border-transparent px-2 py-2 hover:border-black/5 hover:bg-zinc-50 dark:hover:border-white/10 dark:hover:bg-zinc-900/60"
               >
                 <div className="flex items-center gap-3">
-                  <UserAvatar username={entry.avatarName} avatarUrl={entry.avatarUrl} sizePx={32} />
+                  <UserAvatar username={display.avatarName} avatarUrl={display.avatarUrl} sizePx={32} />
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">{entry.label}</div>
+                    <div className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                      {display.showAccountIdentity && display.displayName ? display.displayName : "Profile slot"}
+                    </div>
                     <div className="truncate text-[11px] text-zinc-500 dark:text-zinc-400">
-                      {entry.hasStoredIdentity ? "Saved account" : "Needs setup"}
+                      {t(resolveDesktopProfileAccountPresenceLabelKey(entry))}
                     </div>
                   </div>
                 </div>
@@ -178,7 +194,8 @@ export function TitleBarLockedProfileSwitcher(): React.JSX.Element | null {
                   </Button>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
 
           <div className="border-t border-black/10 p-3 dark:border-white/10">

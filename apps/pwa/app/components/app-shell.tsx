@@ -40,6 +40,7 @@ import {
 import { useNavigationWarmupOwner } from "./navigation-warmup-owner";
 import { prefetchRouteShell, prefetchSidebarRouteClientOnIntent } from "./route-navigation-warmup";
 import { SidebarPortalHost } from "./app-shell-sidebar-portal";
+import { MessagingSidebarRelayFooter } from "@/app/features/messaging/components/messaging-sidebar-relay-footer";
 
 type NavIcon = (props: Readonly<{ className?: string }>) => React.ReactNode;
 
@@ -640,11 +641,7 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
                 <div className="min-h-0 flex-1 overflow-y-auto">
                   <SidebarPortalHost variant="desktop" className="h-full min-h-[200px]" />
                 </div>
-                <div className="border-t border-black/5 p-4 dark:border-white/5 opacity-50">
-                  <div className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">
-                    {APP_FOOTER_TEXT}
-                  </div>
-                </div>
+                <MessagingSidebarRelayFooter footerLabel={APP_FOOTER_TEXT} />
               </div>
             </div>
           ) : null}

@@ -2,6 +2,8 @@ import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import {
   assessDmTrustWarning,
   BUNDLE_FIN_COLD,
+  BUNDLE_PHISH_COLD,
+  BUNDLE_SE_COLD,
   BUNDLE_SPAM_COLD,
   FINANCIAL_PIVOT_WINDOW_MS,
   TRUST_BANNER_DISMISS_COOLDOWN_MS,
@@ -19,6 +21,7 @@ export type TrustThreatCategory =
   | "benign"
   | "financial"
   | "phishing"
+  | "social_engineering"
   | "urgency"
   | "spam"
   | "coordination"
@@ -219,50 +222,292 @@ export const buildTrustThreatFixtureDefinitions = (
     expect: { tier: "elevated", bundleId: BUNDLE_FIN_COLD },
   },
 
-  // —— Phishing-shaped (rule-pack v1: URL-only stays below fin-cold) ——
+  // —— Phishing-shaped (rule-pack v2.0a: structural URL class) ——
   {
-    id: "phishing_wallet_verify_url_cold_info",
+    id: "phishing_wallet_verify_url_cold_elevated",
     category: "phishing",
-    note: "Documents v1 gap — credential URL without financial keywords",
+    note: "TRUST-4 cold DM + credential-path URL",
     input: coldThreadInput(
       peerPublicKeyHex,
       "Verify your wallet at https://obscur-wallet-security.example/login?session=abc",
     ),
     expect: {
-      tier: "info",
-      notBundleId: BUNDLE_FIN_COLD,
-      mustIncludeSignals: ["contact.cold"],
-      mustExcludeSignals: ["thread.pivot_financial"],
+      tier: "elevated",
+      bundleId: BUNDLE_PHISH_COLD,
+      mustIncludeSignals: ["contact.cold", "link.suspicious_url"],
+      copyKey: "messaging.trust.phishLookalikeCold",
     },
   },
   {
-    id: "phishing_bitly_support_cold_info",
+    id: "phishing_bitly_support_cold_elevated",
     category: "phishing",
     input: coldThreadInput(
       peerPublicKeyHex,
       "Support ticket — confirm identity: http://bit.ly/secure-account-reset",
     ),
-    expect: { tier: "info", notBundleId: BUNDLE_FIN_COLD },
+    expect: { tier: "elevated", bundleId: BUNDLE_PHISH_COLD },
   },
   {
-    id: "phishing_impersonation_support_cold_info",
-    category: "phishing",
+    id: "phishing_impersonation_support_cold_se",
+    category: "social_engineering",
+    note: "Support impersonation + recovery phrase on cold contact",
     input: coldThreadInput(
       peerPublicKeyHex,
       "This is Obscur Security — your relay certificate expired. Reply with your recovery phrase.",
     ),
-    expect: { tier: "info", notBundleId: BUNDLE_FIN_COLD },
+    expect: {
+      tier: "critical",
+      bundleId: BUNDLE_SE_COLD,
+      mustIncludeSignals: ["thread.credential_harvest", "thread.authority_impersonation"],
+    },
   },
   {
     id: "phishing_financial_plus_url_critical",
     category: "phishing",
-    note: "Financial pivot + urgency on phishing landing",
+    note: "Financial pivot takes precedence over phish bundle when both fire",
     input: coldThreadInput(
       peerPublicKeyHex,
       "Urgent: wire $500 immediately — https://pay-secure-portal.example/invoice",
       45_000,
     ),
     expect: { tier: "critical", bundleId: BUNDLE_FIN_COLD },
+  },
+  {
+    id: "phishing_benign_github_url_cold_info",
+    category: "phishing",
+    note: "Benign URL on cold contact — info only, no phish bundle",
+    input: coldThreadInput(
+      peerPublicKeyHex,
+      "Check out our repo: https://github.com/Dendro-X0/Obscur",
+    ),
+    expect: {
+      tier: "info",
+      notBundleId: BUNDLE_PHISH_COLD,
+      mustIncludeSignals: ["contact.cold"],
+      mustExcludeSignals: ["link.suspicious_url"],
+    },
+  },
+
+  {
+    id: "phishing_lookalike_brand_cold_elevated",
+    category: "phishing",
+    input: coldThreadInput(
+      peerPublicKeyHex,
+      "Verify wallet access: https://obscur-wallet-verify.example/start",
+    ),
+    expect: {
+      tier: "elevated",
+      bundleId: BUNDLE_PHISH_COLD,
+      mustIncludeSignals: ["link.lookalike_brand"],
+    },
+  },
+  {
+    id: "phishing_risky_attachment_cold_elevated",
+    category: "phishing",
+    input: coldThreadInput(peerPublicKeyHex, "Attached project brief for review.", 60_000, {
+      messageAttachmentFileNames: ["Scope-Document.pdf.exe"],
+    }),
+    expect: {
+      tier: "elevated",
+      bundleId: BUNDLE_PHISH_COLD,
+      mustIncludeSignals: ["attachment.risky_filename"],
+    },
+  },
+  {
+    id: "phishing_macro_attachment_accepted_elevated",
+    category: "phishing",
+    input: {
+      peerPublicKeyHex,
+      isPeerAccepted: true,
+      messageContent: "Please open the contract attachment.",
+      messageAttachmentFileNames: ["Agreement.docm"],
+      messageTimestampUnixMs: THREAT_CORPUS_BASE_MS + 120_000,
+      threadFirstPeerMessageAtUnixMs: THREAT_CORPUS_BASE_MS,
+      dismissedUntilUnixMs: null,
+      nowUnixMs: THREAT_CORPUS_BASE_MS + 120_000,
+    },
+    expect: {
+      tier: "elevated",
+      mustIncludeSignals: ["attachment.risky_filename"],
+      mustExcludeSignals: ["contact.cold"],
+    },
+  },
+
+  {
+    id: "financial_stale_cold_thread_wire_transfer",
+    category: "financial",
+    note: "Cold contact wire ask after pivot window — still fin-cold",
+    input: {
+      peerPublicKeyHex,
+      isPeerAccepted: false,
+      messageContent: "Hi — can you send $200 via wire transfer today?",
+      messageTimestampUnixMs: THREAT_CORPUS_BASE_MS + FINANCIAL_PIVOT_WINDOW_MS + 3_600_000,
+      threadFirstPeerMessageAtUnixMs: THREAT_CORPUS_BASE_MS,
+      dismissedUntilUnixMs: null,
+      nowUnixMs: THREAT_CORPUS_BASE_MS + FINANCIAL_PIVOT_WINDOW_MS + 3_600_000,
+    },
+    expect: {
+      tier: "elevated",
+      bundleId: BUNDLE_FIN_COLD,
+      mustIncludeSignals: ["thread.financial_pressure"],
+    },
+  },
+
+  // —— Social engineering (SEC-F refinement) ——
+  {
+    id: "se_gift_card_cold_elevated",
+    category: "social_engineering",
+    input: coldThreadInput(
+      peerPublicKeyHex,
+      "Buy Google Play gift cards and text the pin codes immediately.",
+    ),
+    expect: { tier: "critical", bundleId: BUNDLE_SE_COLD },
+  },
+  {
+    id: "se_credential_harvest_accepted_critical",
+    category: "social_engineering",
+    input: {
+      peerPublicKeyHex,
+      isPeerAccepted: true,
+      messageContent: "Send your 2FA code so we can verify the account transfer.",
+      messageTimestampUnixMs: THREAT_CORPUS_BASE_MS + 90_000,
+      threadFirstPeerMessageAtUnixMs: THREAT_CORPUS_BASE_MS,
+      dismissedUntilUnixMs: null,
+      nowUnixMs: THREAT_CORPUS_BASE_MS + 90_000,
+    },
+    expect: {
+      tier: "critical",
+      mustIncludeSignals: ["thread.credential_harvest"],
+      mustExcludeSignals: ["contact.cold"],
+    },
+  },
+
+  {
+    id: "se_off_platform_cold_elevated",
+    category: "social_engineering",
+    input: coldThreadInput(
+      peerPublicKeyHex,
+      "Let's continue this on Telegram — add me @recruiter_jobs",
+    ),
+    expect: {
+      tier: "elevated",
+      bundleId: BUNDLE_SE_COLD,
+      mustIncludeSignals: ["thread.off_platform_redirect"],
+    },
+  },
+  {
+    id: "se_advance_fee_cold_elevated",
+    category: "social_engineering",
+    input: coldThreadInput(
+      peerPublicKeyHex,
+      "Pay the registration fee upfront before we ship your starter kit.",
+    ),
+    expect: {
+      tier: "elevated",
+      bundleId: BUNDLE_SE_COLD,
+      mustIncludeSignals: ["thread.advance_fee_scam"],
+    },
+  },
+  {
+    id: "se_off_platform_accepted_elevated",
+    category: "social_engineering",
+    input: {
+      peerPublicKeyHex,
+      isPeerAccepted: true,
+      messageContent: "Move to WhatsApp so we can discuss payment details privately.",
+      messageTimestampUnixMs: THREAT_CORPUS_BASE_MS + 120_000,
+      threadFirstPeerMessageAtUnixMs: THREAT_CORPUS_BASE_MS,
+      dismissedUntilUnixMs: null,
+      nowUnixMs: THREAT_CORPUS_BASE_MS + 120_000,
+    },
+    expect: {
+      tier: "elevated",
+      mustIncludeSignals: ["thread.off_platform_redirect"],
+      mustExcludeSignals: ["contact.cold"],
+    },
+  },
+  {
+    id: "se_remote_access_cold_critical",
+    category: "social_engineering",
+    input: coldThreadInput(
+      peerPublicKeyHex,
+      "Download TeamViewer now so we can verify your workstation for the contract.",
+    ),
+    expect: {
+      tier: "critical",
+      bundleId: BUNDLE_SE_COLD,
+      mustIncludeSignals: ["thread.remote_access_tool"],
+    },
+  },
+  {
+    id: "se_overpayment_cold_elevated",
+    category: "social_engineering",
+    input: coldThreadInput(
+      peerPublicKeyHex,
+      "We accidentally overpaid — refund the excess amount today.",
+    ),
+    expect: {
+      tier: "elevated",
+      bundleId: BUNDLE_SE_COLD,
+      mustIncludeSignals: ["thread.overpayment_refund"],
+    },
+  },
+  {
+    id: "se_fake_escrow_cold_elevated",
+    category: "social_engineering",
+    input: coldThreadInput(
+      peerPublicKeyHex,
+      "Use our secure payment portal — pay outside the platform escrow link.",
+    ),
+    expect: {
+      tier: "elevated",
+      bundleId: BUNDLE_SE_COLD,
+      mustIncludeSignals: ["thread.fake_escrow"],
+    },
+  },
+  {
+    id: "se_hiring_trap_accepted_critical",
+    category: "social_engineering",
+    input: {
+      peerPublicKeyHex,
+      isPeerAccepted: true,
+      messageContent: "Run npm install on this repo for the technical assessment tool.",
+      messageTimestampUnixMs: THREAT_CORPUS_BASE_MS + 150_000,
+      threadFirstPeerMessageAtUnixMs: THREAT_CORPUS_BASE_MS,
+      dismissedUntilUnixMs: null,
+      nowUnixMs: THREAT_CORPUS_BASE_MS + 150_000,
+    },
+    expect: {
+      tier: "critical",
+      mustIncludeSignals: ["thread.hiring_trap"],
+      mustExcludeSignals: ["contact.cold"],
+    },
+  },
+  {
+    id: "se_irreversible_payment_cold_elevated",
+    category: "social_engineering",
+    input: coldThreadInput(
+      peerPublicKeyHex,
+      "Contract requires payment in crypto only — no other method accepted.",
+    ),
+    expect: {
+      tier: "elevated",
+      bundleId: BUNDLE_SE_COLD,
+      mustIncludeSignals: ["thread.irreversible_payment_demand"],
+    },
+  },
+  {
+    id: "se_ceo_impersonation_cold_critical",
+    category: "social_engineering",
+    input: coldThreadInput(
+      peerPublicKeyHex,
+      "I'm the CEO — urgent wire from the executive office today.",
+    ),
+    expect: {
+      tier: "critical",
+      bundleId: BUNDLE_SE_COLD,
+      mustIncludeSignals: ["thread.authority_impersonation", "commerce.urgency_pressure"],
+    },
   },
 
   // —— Urgency pressure escalations ——
@@ -375,7 +620,12 @@ export const buildTrustThreatFixtureDefinitions = (
       dismissedUntilUnixMs: null,
       nowUnixMs: THREAT_CORPUS_BASE_MS + FINANCIAL_PIVOT_WINDOW_MS + 1,
     },
-    expect: { tier: "info", notBundleId: BUNDLE_FIN_COLD },
+    expect: {
+      tier: "elevated",
+      bundleId: BUNDLE_FIN_COLD,
+      mustIncludeSignals: ["contact.cold", "thread.financial_pressure"],
+      mustExcludeSignals: ["thread.pivot_financial"],
+    },
   },
   {
     id: "edge_financial_at_pivot_window_boundary_inside",
@@ -466,6 +716,7 @@ export const evaluateTrustThreatCorpus = (
     benign: 0,
     financial: 0,
     phishing: 0,
+    social_engineering: 0,
     urgency: 0,
     spam: 0,
     coordination: 0,

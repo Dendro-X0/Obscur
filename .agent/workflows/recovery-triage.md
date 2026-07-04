@@ -1,6 +1,12 @@
 # Recovery Triage Workflow
 
-Use this workflow when a core user flow is broken but logs and tests are not enough.
+Use when a core user flow is broken but logs and tests are not enough.
+
+**Skill:** [obscur-foundation-recovery](../skills/obscur-foundation-recovery/SKILL.md)  
+**Pre-diff:** [obscur-session-gate](../skills/obscur-session-gate/SKILL.md)  
+**Parallel paths:** [obscur-subtraction-change](../skills/obscur-subtraction-change/SKILL.md)
+
+**Hard stop:** Community / `groups/**` membership patches while handoff marks band **PAUSED** — register and owner documentation only.
 
 ## Step 1: Classify the failure
 
@@ -26,7 +32,7 @@ For the broken user action, write:
 4. persistence boundary,
 5. UI projection boundary.
 
-If more than one canonical path appears, that is the bug class until proven otherwise.
+If more than one canonical path appears, apply **subtraction discipline** — that is the bug class until proven otherwise.
 
 ## Step 3: Add proof points
 
@@ -48,9 +54,14 @@ Prefer diagnostics that answer:
 
 ## Step 5: Leave a handoff
 
-If not fully fixed, write:
+If not fully fixed:
 
 - what changed,
 - what remains broken,
-- what the next maintainer should inspect first.
+- proof commands run vs needed,
+- what the next maintainer should inspect first,
+- one **next atomic step** in `docs/handoffs/current-session.md`.
 
+## Stuck loop
+
+≥3 failed iterations on the same band → feasibility review only ([rules/11](../../rules/11-feasibility-and-modular-safety.md)). No patch #4 without updated investigation spec.

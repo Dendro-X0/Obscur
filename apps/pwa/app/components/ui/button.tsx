@@ -1,1 +1,1 @@
-export * from "@dweb/ui-kit";
+export { Button } from "@dweb/ui-kit";

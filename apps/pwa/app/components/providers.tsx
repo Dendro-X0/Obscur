@@ -2,6 +2,7 @@
 
 import React, { useEffect } from "react";
 import { AuthGateway } from "@/app/features/auth/components/auth-gateway";
+import { AuthKernelProvider } from "@/app/features/auth-kernel/auth-kernel-provider";
 import { DesktopProfileBootstrap } from "@/app/features/profiles/components/desktop-profile-bootstrap";
 import { AppSessionShell } from "@/app/features/profiles/components/app-session-shell";
 import { ProfilePickerChromeHost } from "@/app/features/profiles/components/profile-picker-chrome-context";
@@ -11,6 +12,7 @@ import { StartupExperienceOverlay } from "@/app/features/runtime/components/star
 import { DevRuntimeIssueCapture } from "@/app/shared/dev-runtime-issue-capture";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import { installM0TriageCapture } from "@/app/shared/m0-triage-capture";
+import { installCodactrlAgentBridge } from "@/app/shared/codactrl-agent-bridge";
 import { installM4StabilizationCapture } from "@/app/shared/m4-stabilization-capture";
 import { installM6VoiceCapture } from "@/app/shared/m6-voice-capture";
 import { installM6VoiceReplayBridge } from "@/app/shared/m6-voice-replay-bridge";
@@ -27,6 +29,7 @@ import { markDevLabBootFlag } from "@/app/features/dev-lab/dev-lab-policy";
 import { installDevLab } from "@/app/features/dev-lab/dev-lab-install";
 import { ExperimentShellIndicator } from "@/app/features/runtime/components/experiment-shell-indicator";
 import { ClientSurfaceRevisionBadge } from "@/app/components/client-surface-revision-badge";
+import { DataRootUnavailableGate } from "@/app/features/profiles/components/data-root-unavailable-recovery";
 
 const BOOT_WATCHDOG_LAST_EVENT_STORAGE_KEY = "obscur.boot.watchdog.auto_recovery_last_event.v1";
 
@@ -44,6 +47,7 @@ export const AppProviders = ({ children }: { children: React.ReactNode }) => {
         installM8CommunityCapture();
         installM8CommunityReplayBridge();
         installM10TrustControlsBridge();
+        installCodactrlAgentBridge();
     }, []);
 
     useEffect(() => {
@@ -98,11 +102,15 @@ export const AppProviders = ({ children }: { children: React.ReactNode }) => {
                         </div>
                     ) : null}
                     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-                        <AuthGateway>
-                            <AppSessionShell>
-                                {children}
-                            </AppSessionShell>
-                        </AuthGateway>
+                        <DataRootUnavailableGate>
+                            <AuthKernelProvider>
+                                <AuthGateway>
+                                    <AppSessionShell>
+                                        {children}
+                                    </AppSessionShell>
+                                </AuthGateway>
+                            </AuthKernelProvider>
+                        </DataRootUnavailableGate>
                     </div>
                 </div>
             </ProfilePickerChromeHost>

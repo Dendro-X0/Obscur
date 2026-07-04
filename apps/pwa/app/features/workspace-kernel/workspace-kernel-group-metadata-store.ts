@@ -1,6 +1,6 @@
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { GroupConversation } from "@/app/features/messaging/types";
-import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store";
+import { messagingChatStateReadPort } from "@/app/features/messaging/services/messaging-chat-state-read-port";
 import {
   fromPersistedGroupConversation,
   toPersistedGroupConversation,
@@ -72,7 +72,7 @@ const migrateFromChatStateIfNeeded = (
   publicKeyHex: PublicKeyHex,
   profileId: string,
 ): ReadonlyArray<PersistedGroupConversation> => {
-  const persisted = chatStateStoreService.load(publicKeyHex, { profileId });
+  const persisted = messagingChatStateReadPort.load(publicKeyHex, { profileId });
   const ledger = loadCommunityMembershipLedger(publicKeyHex, { profileId });
   const migrated = (persisted?.createdGroups ?? []).filter((group) => {
     const groupId = typeof group.groupId === "string" ? group.groupId.trim() : "";

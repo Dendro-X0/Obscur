@@ -45,6 +45,7 @@ export const useCoordinationMembershipDirectory = (
     void refreshCoordinationMembershipDirectory({
       communityId: normalizedCommunityId,
       profileId: resolvedProfileId,
+      forceFull: true,
     }).then((next) => {
       if (next) {
         setMaterialization(next);

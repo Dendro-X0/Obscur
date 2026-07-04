@@ -1,6 +1,7 @@
 "use client";
 
 import type React from "react";
+import { useTranslation } from "react-i18next";
 import { Clock3, HardDrive, KeyRound, Loader2 } from "lucide-react";
 import { cn } from "@/app/lib/utils";
 import type { LocalSaveLibraryEntry } from "@/app/features/profiles/services/local-save-contracts";
@@ -10,11 +11,12 @@ import {
   formatLocalSaveSizeLabel,
   formatPublicKeyAbbreviation,
   resolveLocalSaveDisplayName,
-  resolveLocalSaveTypeLabel,
+  resolveLocalSaveTypeLabelKey,
 } from "@/app/features/profiles/services/local-save-library-presenters";
 import {
+  localSaveOccupancyDetailKey,
   localSaveOccupancyIsBlocked,
-  localSaveOccupancyLabel,
+  localSaveOccupancyLabelKey,
   type LocalSaveAccountOccupancy,
 } from "@/app/features/profiles/services/local-save-account-occupancy";
 
@@ -39,19 +41,35 @@ const occupancyBadgeClass = (occupancy: LocalSaveAccountOccupancy | undefined): 
       return "bg-rose-500/15 text-rose-700 dark:text-rose-300";
     case "other_slot":
       return "bg-amber-500/15 text-amber-800 dark:text-amber-300";
+    case "active_in_other_window":
+      return "bg-rose-500/15 text-rose-700 dark:text-rose-300";
     default:
       return "bg-sky-500/10 text-sky-700 dark:text-sky-300";
   }
 };
 
 export function LocalSaveLibraryRow(props: Props): React.JSX.Element {
+  const { t } = useTranslation();
   const displayName = resolveLocalSaveDisplayName(props.entry);
-  const typeLabel = resolveLocalSaveTypeLabel(props.entry);
+  const typeLabel = t(resolveLocalSaveTypeLabelKey(props.entry));
   const modifiedLabel = formatLocalSaveModifiedLabel(props.entry.modifiedAtUnixMs);
+  const modifiedDisplay = modifiedLabel === "Unknown date"
+    ? t("profiles.portability.localSave.unknownDate")
+    : t("profiles.portability.localSave.modified", { date: modifiedLabel });
   const ageLabel = formatLocalSaveAgeLabel(props.entry.modifiedAtUnixMs || props.entry.exportedAtUnixMs);
   const sizeLabel = formatLocalSaveSizeLabel(props.entry.payloadBytes);
+  const sizeDisplay = sizeLabel === "Unknown size"
+    ? t("profiles.portability.localSave.unknownSize")
+    : sizeLabel;
   const pubkeyLabel = formatPublicKeyAbbreviation(props.entry.publicKeyHex);
-  const occupancyLabel = props.occupancy ? localSaveOccupancyLabel(props.occupancy) : null;
+  const occupancyLabel = props.occupancy
+    ? (props.occupancy.kind === "other_slot" || props.occupancy.kind === "active_in_other_window"
+      ? t(localSaveOccupancyLabelKey(props.occupancy), { profileLabel: props.occupancy.profileLabel })
+      : t(localSaveOccupancyLabelKey(props.occupancy)))
+    : null;
+  const occupancyDetail = props.occupancy
+    ? localSaveOccupancyDetailKey(props.occupancy)
+    : null;
   const isBlocked = props.occupancy ? localSaveOccupancyIsBlocked(props.occupancy) : false;
 
   return (
@@ -60,13 +78,13 @@ export function LocalSaveLibraryRow(props: Props): React.JSX.Element {
       disabled={props.disabled || isBlocked}
       onClick={props.onSelect}
       className={cn(
-        "group relative w-full overflow-hidden rounded-2xl border px-4 py-3 text-left transition-all",
+        "group relative w-full rounded-2xl border px-4 py-3 text-left transition-[border-color,box-shadow,background-color] duration-200",
         isBlocked
-          ? "border-rose-500/40 bg-rose-500/5 opacity-80"
+          ? "border-rose-500/40 bg-rose-500/5"
           : props.isActive
             ? "border-emerald-500/50 bg-gradient-to-r from-emerald-500/15 to-sky-500/10 shadow-lg shadow-emerald-500/10"
-            : "border-black/10 bg-gradient-to-r from-white/70 to-white/40 hover:border-sky-500/30 hover:from-white hover:to-sky-500/5 dark:border-white/10 dark:from-zinc-900/80 dark:to-zinc-900/40 dark:hover:border-sky-500/30 dark:hover:from-zinc-900 dark:hover:to-sky-500/10",
-        props.disabled ? "cursor-not-allowed opacity-70" : isBlocked ? "cursor-not-allowed" : "hover:-translate-y-0.5 hover:shadow-md",
+            : "border-black/10 bg-gradient-to-r from-white/70 to-white/40 hover:border-sky-500/35 hover:shadow-md dark:border-white/10 dark:from-zinc-900/80 dark:to-zinc-900/40 dark:hover:border-sky-500/35 dark:hover:shadow-lg dark:hover:shadow-sky-500/5",
+        props.disabled ? "cursor-not-allowed opacity-70" : isBlocked ? "cursor-not-allowed" : "",
       )}
     >
       <div className="flex items-start gap-3">
@@ -103,6 +121,13 @@ export function LocalSaveLibraryRow(props: Props): React.JSX.Element {
                   </span>
                 ) : null}
               </div>
+              {isBlocked && occupancyDetail ? (
+                <p className="mt-2 text-[11px] leading-relaxed text-rose-700 dark:text-rose-300">
+                  {t(occupancyDetail, props.occupancy?.kind === "other_slot" || props.occupancy?.kind === "active_in_other_window"
+                    ? { profileLabel: props.occupancy.profileLabel }
+                    : undefined)}
+                </p>
+              ) : null}
             </div>
             {props.isSelecting ? (
               <Loader2 className="h-4 w-4 shrink-0 animate-spin text-sky-500" />
@@ -120,14 +145,14 @@ export function LocalSaveLibraryRow(props: Props): React.JSX.Element {
             </div>
             <div className="flex items-center gap-2 text-[11px] text-zinc-600 dark:text-zinc-300">
               <Clock3 className="h-3.5 w-3.5 shrink-0 text-zinc-400" />
-              <span>Modified {modifiedLabel}</span>
+              <span>{modifiedDisplay}</span>
             </div>
             <div className="flex items-center gap-2 text-[11px] text-zinc-600 dark:text-zinc-300 sm:col-span-2">
               <HardDrive className="h-3.5 w-3.5 shrink-0 text-zinc-400" />
               <span className="truncate" title={props.entry.fileName}>
                 {props.entry.fileName}
                 {" · "}
-                {sizeLabel}
+                {sizeDisplay}
               </span>
             </div>
           </div>

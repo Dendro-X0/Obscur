@@ -29,12 +29,6 @@ const collectSourceFiles = (dir: string, acc: string[] = []): string[] => {
 
 const runtimeAppSources = collectSourceFiles(APP_ROOT).filter((file) => {
   const rel = relative(APP_ROOT, file).replace(/\\/g, "/");
-  if (rel.endsWith("features/messaging/controllers/legacy/enhanced-dm-controller.ts")) {
-    return false;
-  }
-  if (rel.endsWith("features/messaging/controllers/legacy/incoming-dm-event-handler.ts")) {
-    return false;
-  }
   if (rel.includes("features/messaging/lib/__tests__/")) {
     return false;
   }
@@ -63,6 +57,24 @@ describe("native DM legacy path subtraction contracts", () => {
     expect(offenders.map((f) => relative(APP_ROOT, f))).toEqual([]);
   });
 
+  it("production app code does not import v1 outgoing-dm stack", () => {
+    const forbidden = [
+      "controllers/outgoing-dm-orchestrator",
+      "controllers/outgoing-dm-publisher",
+      "controllers/outgoing-dm-send-preparer",
+      "controllers/relay-ok-message-handler",
+      "controllers/recipient-discovery-service",
+      "controllers/dm-queue-orchestrator",
+    ];
+    const offenders = runtimeAppSources.filter((file) => {
+      const source = readFileSync(file, "utf8");
+      return forbidden.some((fragment) => (
+        new RegExp(`from\\s+["'][^"']*${fragment.replace(/\//g, "\\/")}["']`).test(source)
+      ));
+    });
+    expect(offenders.map((f) => relative(APP_ROOT, f))).toEqual([]);
+  });
+
   it("use-enhanced-dm-controller hook re-exports v2 dm-controller only", () => {
     const source = readSource("features/messaging/hooks/use-enhanced-dm-controller.ts");
     expect(source).toMatch(/from\s+["']\.\.\/controllers\/v2\/dm-controller["']/);
@@ -78,7 +90,7 @@ describe("native DM legacy path subtraction contracts", () => {
   });
 
   it("native-dm-thread-hydrate does not import interim hydrate authority stack", () => {
-    const source = readSource("features/messaging/services/native-dm-thread-hydrate.ts");
+    const source = readSource("features/messaging/services/thread-history/native-dm-thread-hydrate.ts");
     const forbidden = [
       "dm-read-authority-contract",
       "dm-conversation-hydrate-read-model",
@@ -99,12 +111,13 @@ describe("native DM legacy path subtraction contracts", () => {
     const source = readSource("features/messaging/services/thread-history/resolve-dm-thread-history-adapter.ts");
     expect(source).toContain("dmKernelThreadHistoryStub");
     expect(source).toContain("isDmKernelAuthority");
+    expect(source).toContain("isObscurAllowLegacy");
     expect(source).not.toMatch(/from\s+["']\.\/native-dm-adapter["']/);
   });
 
   it("use-conversation-messages delegates native hydrate to native-dm-conversation-hydrate-owner", () => {
-    const source = readSource("features/messaging/hooks/use-conversation-messages.ts");
-    expect(source).toContain("runNativeDmConversationHistoryHydrate");
+    const source = readSource("features/messaging/hooks/use-conversation-messages-legacy.ts");
+    expect(source).toContain("runLegacyNativeDmConversationHistoryHydrate");
     expect(source).toContain("shouldNativeDmSkipHydrateRetryTrigger");
   });
 

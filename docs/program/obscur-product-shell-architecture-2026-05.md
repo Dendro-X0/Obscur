@@ -112,7 +112,7 @@ Estimated: 2–4 weeks focused migration; not started until Phase A evidence.
 | Chrome / portal | `apps/pwa/app/components/app-chrome-registry.tsx`, `app-shell-sidebar-portal.tsx` |
 | Profile fail-open | `apps/pwa/app/features/profiles/components/desktop-profile-bootstrap.tsx` |
 | Tauri dev | `apps/desktop/src-tauri/tauri.conf.json` |
-| Perf harness | `scripts/obscur-shell-perf-baseline.mjs`, `docs/program/obscur-shell-perf-baseline-s0.md` |
+| Perf harness | `scripts/obscur-shell-perf-baseline.mjs`, [obscur-shell-perf-baseline-s0.md](../archive/program/inactive-2026-06/obscur-shell-perf-baseline-s0.md) |
 
 ---
 

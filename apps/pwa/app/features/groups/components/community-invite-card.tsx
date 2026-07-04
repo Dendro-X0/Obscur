@@ -1,5 +1,4 @@
 "use client";
-
 import React, { useState } from "react";
 import { Button } from "@dweb/ui-kit";
 import { ShieldCheck, Users, Clock, AlertTriangle } from "lucide-react";
@@ -13,7 +12,7 @@ import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
 import { useRelayList } from "@/app/features/relays/hooks/use-relay-list";
-import { useGroups } from "@/app/features/groups/providers/group-provider";
+import { useGroups } from "@/app/features/groups/providers/group-provider-port";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@dweb/ui-kit";
 import { cn } from "@dweb/ui-kit";
 import type { GroupConversation, Message, SendDirectMessageParams, SendDirectMessageResult } from "@/app/features/messaging/types";
@@ -23,65 +22,35 @@ import { deriveCommunityId } from "../utils/community-identity";
 import { dispatchGroupInviteReceived, dispatchGroupInviteResponseTerminal } from "@/app/features/profiles/services/profile-bus-dispatch";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { reinstateCommunityMemberTerminalEvidence } from "../services/community-terminal-membership-cache";
-import {
-    normalizeCommunityInvitePayload,
-    type InvitePayload,
-} from "../utils/community-invite-payload";
-import {
-    resolveCommunityInvitePayloadFromMessage,
-    resolveCommunityInviteReplyTargetId,
-    resolveCommunityInviteRoomKeyHex,
-    resolveCommunityInviteIdFromMessage,
-} from "../utils/community-invite-resolution";
+import { normalizeCommunityInvitePayload, type InvitePayload, } from "../utils/community-invite-payload";
+import { resolveCommunityInvitePayloadFromMessage, resolveCommunityInviteReplyTargetId, resolveCommunityInviteRoomKeyHex, resolveCommunityInviteIdFromMessage, } from "../utils/community-invite-resolution";
 import type { CommunityDmInviteId } from "../services/community-dm-invite-contract";
-import {
-    buildCommunityInviteResponseDmMessage,
-    commitCommunityDmInviteResponseDm,
-    parseInvitePayloadFromMessageContent,
-    recordCommunityDmInviteResponse,
-} from "../services/community-dm-invite-pipeline";
-import {
-    applyCommunityInviteMessageSnapshot,
-    COMMUNITY_INVITE_SNAPSHOT_PINNED_EVENT,
-} from "../utils/community-invite-message-snapshot";
-import {
-    PLACEHOLDER_GROUP_DISPLAY_NAME,
-    resolveCommunityDisplayName,
-} from "../services/community-display-name";
-import {
-    isCommunityInviteActionableStatus,
-    isCommunityInviteHistoricalStatus,
-    resolveCommunityInviteCardStatus,
-    type CommunityInviteCardStatus,
-} from "../utils/community-invite-lifecycle";
+import { buildCommunityInviteResponseDmMessage, parseInvitePayloadFromMessageContent, recordCommunityDmInviteResponse, } from "../services/community-dm-invite-pipeline";
+import { applyCommunityInviteMessageSnapshot, COMMUNITY_INVITE_SNAPSHOT_PINNED_EVENT, } from "../utils/community-invite-message-snapshot";
+import { PLACEHOLDER_GROUP_DISPLAY_NAME, resolveCommunityDisplayName, } from "../services/community-display-name";
+import { isCommunityInviteActionableStatus, isCommunityInviteHistoricalStatus, resolveCommunityInviteCardStatus, type CommunityInviteCardStatus, } from "../utils/community-invite-lifecycle";
 import { assessWorkspaceCommunityTrustAsync } from "../services/community-trust-policy";
-import {
-    ensureWorkspaceMembershipSyncMode,
-} from "../services/community-workspace-membership";
+import { ensureWorkspaceMembershipSyncMode, } from "../services/community-workspace-membership";
 import { applyCommunityMembershipRuntimeEvidence } from "../services/community-membership-mutation-owner";
 import { isRelayAuthoritativeMembershipEnforced } from "../services/community-relay-authoritative-membership-policy";
 import { loadCommunityMembershipLedger } from "../services/community-membership-ledger";
 import { loadGroupTombstones } from "../services/group-tombstone-store";
 import { refreshCoordinationMembershipDirectory } from "../services/community-coordination-membership-directory-store";
-import {
-    loadInviteRelayJoinState,
-    resolveRelayJoinStatusAfterManualRetry,
-    saveInviteRelayJoinState,
-    shouldShowInviteRelayJoinRetry,
-    type CommunityInviteRelayJoinStatus,
-} from "../services/community-invite-relay-join";
+import { loadInviteRelayJoinState, resolveRelayJoinStatusAfterManualRetry, saveInviteRelayJoinState, shouldShowInviteRelayJoinRetry, type CommunityInviteRelayJoinStatus, } from "../services/community-invite-relay-join";
 import { normalizeWorkspaceRelayUrl, toScopedRelayUrl } from "../services/sealed-community-relay-scope";
-import {
-    publishWorkspaceRelayJoinEvidence,
-    runWorkspaceMembershipActivation,
-} from "../services/community-workspace-activation";
+import { publishWorkspaceRelayJoinEvidence, runWorkspaceMembershipActivation, } from "../services/community-workspace-activation";
+import { isWorkspaceKernelAuthority } from "@/app/features/workspace-kernel/workspace-kernel-policy";
+import { joinManagedWorkspaceMembership } from "@/app/features/workspace-kernel/workspace-kernel-membership-port";
 import { resolveCommunityInvitePreJoinRosterCopy } from "../services/community-invite-prejoin-roster-copy";
-
+import {
+    isCommunityInviteActionPermitted,
+    resolveCommunityInviteStatusBannerIsOutgoing,
+    type CommunityInviteViewerRole,
+} from "../services/community-invite-role-authority";
 export type { InvitePayload };
-
 interface CommunityInviteCardProps {
     invite: InvitePayload;
-    isOutgoing: boolean;
+    viewerRole: CommunityInviteViewerRole;
     message?: Message;
     messages?: ReadonlyArray<Message>;
     responseStatus?: 'pending' | 'accepted' | 'declined' | 'canceled';
@@ -89,23 +58,21 @@ interface CommunityInviteCardProps {
     /** Narrow/mobile thread layout — less vertical chrome (P13-c). */
     compact?: boolean;
 }
-
-export const CommunityInviteCard = ({
-    invite: inviteProp,
-    isOutgoing,
-    message,
-    messages = [],
-    responseStatus,
-    onSendDirectMessage,
-    compact = false,
-}: CommunityInviteCardProps) => {
+export const CommunityInviteCard = ({ invite: inviteProp, viewerRole, message, messages = [], responseStatus, onSendDirectMessage, compact = false, }: CommunityInviteCardProps) => {
+    const isInviterPresentation = viewerRole === "inviter";
+    const canAccept = isCommunityInviteActionPermitted(viewerRole, "accept");
+    const canDecline = isCommunityInviteActionPermitted(viewerRole, "decline");
+    const canCancel = isCommunityInviteActionPermitted(viewerRole, "cancel");
+    const statusBannerIsOutgoing = resolveCommunityInviteStatusBannerIsOutgoing(viewerRole, "invite");
     const [inviteSnapshotTick, setInviteSnapshotTick] = React.useState(0);
     React.useEffect(() => {
         if (typeof window === "undefined" || !message?.id) {
             return;
         }
         const onPinned = (event: Event): void => {
-            const detail = (event as CustomEvent<{ messageId?: string }>).detail;
+            const detail = (event as CustomEvent<{
+                messageId?: string;
+            }>).detail;
             if (detail?.messageId === message.id) {
                 setInviteSnapshotTick((tick) => tick + 1);
             }
@@ -142,18 +109,12 @@ export const CommunityInviteCard = ({
     const { createdGroups, addGroup, recordMembershipLedgerAfterInviteDecline } = useGroups();
     const [isProcessing, setIsProcessing] = useState(false);
     const [isDetailsOpen, setIsDetailsOpen] = useState(false);
-    const [localResolutionStatus, setLocalResolutionStatus] = useState<
-        'accepted' | 'declined' | 'canceled' | null
-    >(null);
-    const inviteCardIdentity = React.useMemo(
-        () => `${message?.id ?? "no-message"}:${message?.eventId ?? "no-event"}:${invite.groupId}`,
-        [invite.groupId, message?.eventId, message?.id],
-    );
+    const [localResolutionStatus, setLocalResolutionStatus] = useState<'accepted' | 'declined' | 'canceled' | null>(null);
+    const inviteCardIdentity = React.useMemo(() => `${message?.id ?? "no-message"}:${message?.eventId ?? "no-event"}:${invite.groupId}`, [invite.groupId, message?.eventId, message?.id]);
     React.useEffect(() => {
         // Prevent status bleed when React reuses a card instance for a different invite row.
         setLocalResolutionStatus(null);
     }, [inviteCardIdentity]);
-
     const status = React.useMemo(() => {
         if (localResolutionStatus) {
             return localResolutionStatus;
@@ -169,72 +130,43 @@ export const CommunityInviteCard = ({
     }, [localResolutionStatus, message, messages, responseStatus]);
     const isHistorical = isCommunityInviteHistoricalStatus(status);
     const isActionable = isCommunityInviteActionableStatus(status);
-    const persistedGroup = React.useMemo(
-        () => createdGroups.find((group) => (
-            group.kind === "group"
-            && group.groupId === invite.groupId
-            && (!invite.relayUrl || group.relayUrl === invite.relayUrl)
-        )),
-        [createdGroups, invite.groupId, invite.relayUrl],
-    );
-    const inviteDisplayName = React.useMemo(
-        () => resolveCommunityDisplayName({
-            metadataName: invite.metadata.name,
-            persistedDisplayName: persistedGroup?.displayName,
-            groupId: invite.groupId,
-            communityId: invite.communityId,
-            fallback: PLACEHOLDER_GROUP_DISPLAY_NAME,
-        }),
-        [invite.communityId, invite.groupId, invite.metadata.name, persistedGroup?.displayName],
-    );
-    const invitePictureUrl = React.useMemo(
-        () => invite.metadata.picture?.trim() || persistedGroup?.avatar?.trim() || "",
-        [invite.metadata.picture, persistedGroup?.avatar],
-    );
-    const preJoinRosterCopy = React.useMemo(
-        () => resolveCommunityInvitePreJoinRosterCopy({
-            access: invite.metadata.access,
-            memberCount: invite.metadata.memberCount,
-        }),
-        [invite.metadata.access, invite.metadata.memberCount],
-    );
-    const resolvedInviteIdForRelay = React.useMemo(
-        () => resolveCommunityInviteIdFromMessage(message),
-        [message],
-    );
-    const [relayJoinState, setRelayJoinState] = React.useState(() => (
-        resolvedInviteIdForRelay
-            ? loadInviteRelayJoinState(resolvedInviteIdForRelay)
-            : { status: "not_attempted" as const, manualRetryCount: 0, updatedAtUnixMs: 0 }
-    ));
+    const persistedGroup = React.useMemo(() => createdGroups.find((group) => (group.kind === "group"
+        && group.groupId === invite.groupId
+        && (!invite.relayUrl || group.relayUrl === invite.relayUrl))), [createdGroups, invite.groupId, invite.relayUrl]);
+    const inviteDisplayName = React.useMemo(() => resolveCommunityDisplayName({
+        metadataName: invite.metadata.name,
+        persistedDisplayName: persistedGroup?.displayName,
+        groupId: invite.groupId,
+        communityId: invite.communityId,
+        fallback: PLACEHOLDER_GROUP_DISPLAY_NAME,
+    }), [invite.communityId, invite.groupId, invite.metadata.name, persistedGroup?.displayName]);
+    const invitePictureUrl = React.useMemo(() => invite.metadata.picture?.trim() || persistedGroup?.avatar?.trim() || "", [invite.metadata.picture, persistedGroup?.avatar]);
+    const preJoinRosterCopy = React.useMemo(() => resolveCommunityInvitePreJoinRosterCopy({
+        access: invite.metadata.access,
+        memberCount: invite.metadata.memberCount,
+    }), [invite.metadata.access, invite.metadata.memberCount]);
+    const resolvedInviteIdForRelay = React.useMemo(() => resolveCommunityInviteIdFromMessage(message), [message]);
+    const [relayJoinState, setRelayJoinState] = React.useState(() => (resolvedInviteIdForRelay
+        ? loadInviteRelayJoinState(resolvedInviteIdForRelay)
+        : { status: "not_attempted" as const, manualRetryCount: 0, updatedAtUnixMs: 0 }));
     React.useEffect(() => {
         if (resolvedInviteIdForRelay) {
             setRelayJoinState(loadInviteRelayJoinState(resolvedInviteIdForRelay));
         }
     }, [resolvedInviteIdForRelay, inviteSnapshotTick]);
-
-    const showRetryJoin = shouldShowInviteRelayJoinRetry(status, relayJoinState, isOutgoing);
-    const showRelayJoinTerminalFailed = (
-        !isOutgoing
+    const showRetryJoin = shouldShowInviteRelayJoinRetry(status, relayJoinState, isInviterPresentation);
+    const showRelayJoinTerminalFailed = (viewerRole === "invitee"
         && status === "accepted"
-        && relayJoinState.status === "terminal_failed"
-    );
-    const isInviteDefective = !isOutgoing && isActionable && roomKeyHex.length === 0;
+        && relayJoinState.status === "terminal_failed");
+    const showInviteKeyWarning = viewerRole === "invitee" && isActionable && roomKeyHex.length === 0;
     const normalizeRelayUrlForJoin = (raw: string): string => {
         const normalized = normalizeWorkspaceRelayUrl(raw);
         return toScopedRelayUrl(normalized) ?? normalized;
     };
-
-    const openRelayUrls = React.useMemo(
-        () => relayList.state.relays
-            .filter((relay) => relay.enabled)
-            .map((relay) => relay.url),
-        [relayList.state.relays],
-    );
-
-    const buildInviteJoinEvents = async (
-        roomKeyToUse: string,
-    ): Promise<Readonly<{
+    const openRelayUrls = React.useMemo(() => relayList.state.relays
+        .filter((relay) => relay.enabled)
+        .map((relay) => relay.url), [relayList.state.relays]);
+    const buildInviteJoinEvents = async (roomKeyToUse: string): Promise<Readonly<{
         nip29JoinJson: string;
         sealedJoinJson: string;
     }>> => {
@@ -242,10 +174,7 @@ export const CommunityInviteCard = ({
             throw new Error("identity_locked");
         }
         const GroupServiceModule = await import("../services/group-service");
-        const groupService = new GroupServiceModule.GroupService(
-            identityState.publicKeyHex,
-            identityState.privateKeyHex,
-        );
+        const groupService = new GroupServiceModule.GroupService(identityState.publicKeyHex, identityState.privateKeyHex);
         const nip29Join = await groupService.sendNip29Join({ groupId: invite.groupId });
         const sealedJoin = await groupService.sendSealedJoin({
             groupId: invite.groupId,
@@ -256,7 +185,6 @@ export const CommunityInviteCard = ({
             sealedJoinJson: JSON.stringify(["EVENT", sealedJoin]),
         };
     };
-
     const persistRelayJoinState = (relayStatus: CommunityInviteRelayJoinStatus): void => {
         if (!resolvedInviteIdForRelay) {
             return;
@@ -269,7 +197,6 @@ export const CommunityInviteCard = ({
         saveInviteRelayJoinState(resolvedInviteIdForRelay, nextState);
         setRelayJoinState(nextState);
     };
-
     const handleRelayJoinRetry = async (): Promise<void> => {
         if (!message || !showRetryJoin) {
             return;
@@ -279,10 +206,12 @@ export const CommunityInviteCard = ({
             roomKeyToUse = (await roomKeyStore.getRoomKey(invite.groupId))?.trim() ?? "";
         }
         if (!roomKeyToUse) {
-            toast.error(t("groups.inviteMissingRoomKey", "This invitation is missing encryption keys. Ask the sender to resend the invite."));
+            toast.error(t("groups.inviteMissingRoomKey"));
             return;
         }
-        const fallbackRelay = relayPool.connections.find((c: { url: string }) => c.url)?.url ?? "";
+        const fallbackRelay = relayPool.connections.find((c: {
+            url: string;
+        }) => c.url)?.url ?? "";
         const scopedRelayUrl = (invite.relayUrl || fallbackRelay).trim();
         try {
             setIsProcessing(true);
@@ -298,45 +227,36 @@ export const CommunityInviteCard = ({
             const publishSucceeded = activation.status === "synced";
             let nextState = relayJoinState;
             if (resolvedInviteIdForRelay) {
-                nextState = resolveRelayJoinStatusAfterManualRetry(
-                    publishSucceeded,
-                    relayJoinState,
-                );
+                nextState = resolveRelayJoinStatusAfterManualRetry(publishSucceeded, relayJoinState);
                 saveInviteRelayJoinState(resolvedInviteIdForRelay, nextState);
                 setRelayJoinState(nextState);
             }
             if (publishSucceeded) {
-                toast.success(t(
-                    "groups.inviteRelayJoinComplete",
-                    "Community relay join published. Open the group from Network when it appears.",
-                ));
-            } else if (nextState.status === "terminal_failed") {
-                toast.error(t(
-                    "groups.inviteRelayJoinTerminalFailed",
-                    "Relay join still failed after retries. Check Settings → Relays for {{relay}}.",
-                    { relay: activation.canonicalUrl || invite.relayUrl || "unknown" },
-                ));
-            } else {
-                toast.error(t(
-                    "groups.inviteRelayPublishFailedDetail",
-                    "{{detail}} Tap Complete join on relay to retry.",
-                    { detail: activation.lastError === "relay_not_connected"
-                        ? `Community relay is not writable (${activation.canonicalUrl}). Add it under Settings → Relays.`
-                        : `Relay join did not publish to ${activation.canonicalUrl}.` },
-                ));
+                toast.success(t("groups.inviteRelayJoinComplete"));
             }
-        } finally {
+            else if (nextState.status === "terminal_failed") {
+                toast.error(t("groups.inviteRelayJoinTerminalFailed", { relay: activation.canonicalUrl || invite.relayUrl || "unknown" }));
+            }
+            else {
+                toast.error(t("groups.inviteRelayPublishFailedDetail", { detail: activation.lastError === "relay_not_connected"
+                        ? `Community relay is not writable (${activation.canonicalUrl}). Add it under Settings → Relays.`
+                        : `Relay join did not publish to ${activation.canonicalUrl}.` }));
+            }
+        }
+        finally {
             setIsProcessing(false);
         }
     };
-
     const handleAccept = async () => {
-        if (!isActionable || !message || !onSendDirectMessage) return;
+        if (!canAccept || !isActionable || !message || !onSendDirectMessage)
+            return;
         if (!identityState.publicKeyHex?.trim() || !identityState.privateKeyHex?.trim()) {
-            toast.error(t("groups.inviteUnlockIdentity", "Unlock your identity before joining a community."));
+            toast.error(t("groups.inviteUnlockIdentity"));
             return;
         }
-        const fallbackRelay = relayPool.connections.find((c: { url: string }) => c.url)?.url ?? "";
+        const fallbackRelay = relayPool.connections.find((c: {
+            url: string;
+        }) => c.url)?.url ?? "";
         const scopedRelayUrl = (invite.relayUrl || fallbackRelay).trim();
         const trust = await assessWorkspaceCommunityTrustAsync({
             communityRelayUrl: scopedRelayUrl,
@@ -352,13 +272,11 @@ export const CommunityInviteCard = ({
             roomKeyToUse = (await roomKeyStore.getRoomKey(invite.groupId))?.trim() ?? "";
         }
         if (!roomKeyToUse) {
-            toast.error(t("groups.inviteMissingRoomKey", "This invitation is missing encryption keys. Ask the sender to resend the invite."));
+            toast.error(t("groups.inviteMissingRoomKey"));
             return;
         }
         try {
             setIsProcessing(true);
-            await roomKeyStore.saveRoomKey(invite.groupId, roomKeyToUse);
-
             const relayUrl = normalizeRelayUrlForJoin(scopedRelayUrl);
             const creatorPubkey = invite.creatorPubkey ?? message.senderPubkey;
             const genesisEventId = invite.genesisEventId ?? message.eventId ?? message.id;
@@ -369,74 +287,119 @@ export const CommunityInviteCard = ({
                 genesisEventId,
                 creatorPubkey
             });
-            const accessMode: GroupAccessMode =
-                invite.metadata.access === "discoverable"
-                    ? "discoverable"
-                    : invite.metadata.access === "invite-only" || invite.metadata.access === "private"
-                        ? "invite-only"
-                        : "open";
-
-            const newGroup: GroupConversation = {
-                kind: 'group',
-                id: toGroupConversationId({ groupId: invite.groupId, relayUrl, communityId }),
-                communityId,
-                creatorPubkey,
-                genesisEventId,
-                groupId: invite.groupId,
-                relayUrl: relayUrl,
-                displayName: inviteDisplayName,
-                memberPubkeys: [
-                    identityState.publicKeyHex || "",
-                    message.senderPubkey || ""
-                ].filter(Boolean) as string[],
-                adminPubkeys: [message.senderPubkey || ""],
-                lastMessage: t("groups.joined", "Joined private encrypted group"),
-                unreadCount: 1,
-                lastMessageTime: new Date(),
-                access: accessMode,
-                memberCount: 2,
-                avatar: invite.metadata.picture
-            };
-
+            const accessMode: GroupAccessMode = invite.metadata.access === "discoverable"
+                ? "discoverable"
+                : invite.metadata.access === "invite-only" || invite.metadata.access === "private"
+                    ? "invite-only"
+                    : "open";
             const joinEvents = await buildInviteJoinEvents(roomKeyToUse);
-            const activation = await runWorkspaceMembershipActivation({
-                context: "join",
-                displayName: inviteDisplayName,
-                communityId,
-                groupId: invite.groupId,
-                relayUrl: scopedRelayUrl,
-                memberPubkey: identityState.publicKeyHex as PublicKeyHex,
-                actorPubkey: identityState.publicKeyHex as PublicKeyHex,
-                actorPrivateKeyHex: identityState.privateKeyHex as PrivateKeyHex,
-                pool: relayPool,
-                addRelay: (relayParams) => relayList.addRelay(relayParams),
-                openRelayUrls,
-                nip29JoinJson: joinEvents.nip29JoinJson,
-                sealedJoinJson: joinEvents.sealedJoinJson,
-            });
-            const resolvedRelayUrl = activation.relay.canonicalUrl || relayUrl;
-            const resolvedGroup: GroupConversation = {
-                ...newGroup,
-                relayUrl: resolvedRelayUrl,
-                id: toGroupConversationId({
-                    groupId: invite.groupId,
-                    relayUrl: resolvedRelayUrl,
-                    communityId,
-                }),
-            };
-            persistRelayJoinState(activation.relay.status === "synced" ? "joined" : "retry_scheduled");
+            const workspaceKernelJoin = isWorkspaceKernelAuthority();
+            let activation: Awaited<ReturnType<typeof runWorkspaceMembershipActivation>>;
+            let resolvedGroup: GroupConversation;
 
+            if (workspaceKernelJoin) {
+                const joinResult = await joinManagedWorkspaceMembership({
+                    communityId,
+                    groupId: invite.groupId,
+                    relayUrl: scopedRelayUrl,
+                    displayName: inviteDisplayName,
+                    memberPubkey: identityState.publicKeyHex as PublicKeyHex,
+                    actorPubkey: identityState.publicKeyHex as PublicKeyHex,
+                    actorPrivateKeyHex: identityState.privateKeyHex as PrivateKeyHex,
+                    pool: relayPool,
+                    addRelay: (relayParams) => relayList.addRelay(relayParams),
+                    openRelayUrls,
+                    roomKeyHex: roomKeyToUse,
+                    nip29JoinJson: joinEvents.nip29JoinJson,
+                    sealedJoinJson: joinEvents.sealedJoinJson,
+                });
+                if (!joinResult.ok) {
+                    toast.error(joinResult.userFacingMessage ?? joinResult.errorMessage);
+                    return;
+                }
+                activation = joinResult.activation;
+                const resolvedRelayUrl = activation.relay.canonicalUrl || relayUrl;
+                resolvedGroup = {
+                    ...joinResult.group,
+                    communityId,
+                    creatorPubkey,
+                    genesisEventId,
+                    relayUrl: resolvedRelayUrl,
+                    id: toGroupConversationId({
+                        groupId: invite.groupId,
+                        relayUrl: resolvedRelayUrl,
+                        communityId,
+                    }),
+                    displayName: inviteDisplayName,
+                    memberPubkeys: [
+                        identityState.publicKeyHex || "",
+                        message.senderPubkey || "",
+                    ].filter(Boolean) as string[],
+                    adminPubkeys: [message.senderPubkey || ""],
+                    lastMessage: t("groups.joined"),
+                    unreadCount: 1,
+                    access: accessMode,
+                    memberCount: 2,
+                    avatar: invite.metadata.picture,
+                };
+            } else {
+                await roomKeyStore.saveRoomKey(invite.groupId, roomKeyToUse);
+                const newGroup: GroupConversation = {
+                    kind: 'group',
+                    id: toGroupConversationId({ groupId: invite.groupId, relayUrl, communityId }),
+                    communityId,
+                    creatorPubkey,
+                    genesisEventId,
+                    groupId: invite.groupId,
+                    relayUrl: relayUrl,
+                    displayName: inviteDisplayName,
+                    memberPubkeys: [
+                        identityState.publicKeyHex || "",
+                        message.senderPubkey || ""
+                    ].filter(Boolean) as string[],
+                    adminPubkeys: [message.senderPubkey || ""],
+                    lastMessage: t("groups.joined"),
+                    unreadCount: 1,
+                    lastMessageTime: new Date(),
+                    access: accessMode,
+                    memberCount: 2,
+                    avatar: invite.metadata.picture
+                };
+                activation = await runWorkspaceMembershipActivation({
+                    context: "join",
+                    displayName: inviteDisplayName,
+                    communityId,
+                    groupId: invite.groupId,
+                    relayUrl: scopedRelayUrl,
+                    memberPubkey: identityState.publicKeyHex as PublicKeyHex,
+                    actorPubkey: identityState.publicKeyHex as PublicKeyHex,
+                    actorPrivateKeyHex: identityState.privateKeyHex as PrivateKeyHex,
+                    pool: relayPool,
+                    addRelay: (relayParams) => relayList.addRelay(relayParams),
+                    openRelayUrls,
+                    nip29JoinJson: joinEvents.nip29JoinJson,
+                    sealedJoinJson: joinEvents.sealedJoinJson,
+                });
+                const resolvedRelayUrl = activation.relay.canonicalUrl || relayUrl;
+                resolvedGroup = {
+                    ...newGroup,
+                    relayUrl: resolvedRelayUrl,
+                    id: toGroupConversationId({
+                        groupId: invite.groupId,
+                        relayUrl: resolvedRelayUrl,
+                        communityId,
+                    }),
+                };
+            }
+            const resolvedRelayUrl = resolvedGroup.relayUrl;
+            persistRelayJoinState(activation.relay.status === "synced" ? "joined" : "retry_scheduled");
             if (isRelayAuthoritativeMembershipEnforced() && activation.relay.status !== "synced") {
-                toast.error(t(
-                    "groups.inviteRelayRequiredForJoin",
-                    "Relay did not confirm membership. Join was not recorded on this device.",
-                ));
+                toast.error(t("groups.inviteRelayRequiredForJoin"));
                 return;
             }
-
             const profileId = getResolvedProfileId();
             const localPublicKeyHex = identityState.publicKeyHex?.trim();
-            if (localPublicKeyHex) {
+            if (!workspaceKernelJoin && localPublicKeyHex) {
                 applyCommunityMembershipRuntimeEvidence({
                     publicKeyHex: localPublicKeyHex,
                     profileId,
@@ -456,7 +419,6 @@ export const CommunityInviteCard = ({
                 forceFull: true,
             });
             dispatchGroupInviteReceived(resolvedGroup);
-
             if (resolvedRelayUrl) {
                 reinstateCommunityMemberTerminalEvidence({
                     groupId: invite.groupId,
@@ -468,7 +430,6 @@ export const CommunityInviteCard = ({
                     profileId: getResolvedProfileId(),
                 });
             }
-
             const inviteId = resolveCommunityInviteIdFromMessage(message);
             const wireInvite = parseInvitePayloadFromMessageContent(message.content);
             const resolvedInviteId = inviteId ?? (`legacy:${invite.groupId}` as CommunityDmInviteId);
@@ -488,67 +449,52 @@ export const CommunityInviteCard = ({
                 content: responseMessage.content,
                 replyTo: resolveCommunityInviteReplyTargetId(message),
             });
-            if (sendResult.success && identityState.publicKeyHex?.trim()) {
-                await commitCommunityDmInviteResponseDm({
-                    responseMessage: sendResult.messageId
-                        ? { ...responseMessage, id: sendResult.messageId }
-                        : responseMessage,
-                    accountPublicKeyHex: identityState.publicKeyHex as PublicKeyHex,
-                    direction: "inbound",
-                    invitePayload: wireInvite ?? undefined,
-                });
-            } else if (inviteId && message.conversationId?.trim() && message.senderPubkey?.trim()) {
+            if (sendResult.success && message.conversationId?.trim() && message.senderPubkey?.trim()) {
                 recordCommunityDmInviteResponse({
-                    inviteId,
+                    inviteId: resolvedInviteId,
                     status: "accepted",
                     conversationId: message.conversationId.trim(),
                     peerPubkey: message.senderPubkey.trim() as PublicKeyHex,
                     direction: "inbound",
                     invitePayload: wireInvite ?? undefined,
+                    accountPublicKeyHex: identityState.publicKeyHex?.trim() as PublicKeyHex | undefined,
                 });
             }
-
             setLocalResolutionStatus("accepted");
             if (activation.summary.severity === "success") {
-                toast.success(t(
-                    "groups.inviteAcceptedRelayHonest",
-                    "Acceptance recorded for {{name}}. Relay-visible membership may still lag—verify participants when needed.",
-                    { name: inviteDisplayName },
-                ));
-            } else if (activation.summary.severity === "partial") {
+                toast.success(t("groups.inviteAcceptedRelayHonest", { name: inviteDisplayName }));
+            }
+            else if (activation.summary.severity === "partial") {
                 toast.warning(activation.summary.detail
                     ? `${activation.summary.title} ${activation.summary.detail}`
                     : activation.summary.title);
-            } else {
+            }
+            else {
                 toast.error(activation.summary.detail
                     ? `${activation.summary.title} ${activation.summary.detail}`
                     : activation.summary.title);
             }
-        } catch (error) {
+        }
+        catch (error) {
             console.error("Failed to accept invite:", error);
             const messageText = error instanceof Error ? error.message : String(error);
             if (messageText.includes("Could not publish community join")) {
-                toast.error(t(
-                    "groups.inviteRelayPublishFailed",
-                    "Could not reach the community relay ({{relay}}). Add it under Settings → Relays, then tap Complete join on relay.",
-                    { relay: invite.relayUrl || "unknown" },
-                ));
-            } else if (messageText.toLowerCase().includes("secret") || messageText.toLowerCase().includes("key")) {
-                toast.error(t("groups.inviteError", "Failed to join group. Secret key error."));
-            } else {
-                toast.error(t(
-                    "groups.inviteAcceptFailed",
-                    "Could not complete join: {{reason}}",
-                    { reason: messageText.slice(0, 120) },
-                ));
+                toast.error(t("groups.inviteRelayPublishFailed", { relay: invite.relayUrl || "unknown" }));
             }
-        } finally {
+            else if (messageText.toLowerCase().includes("secret") || messageText.toLowerCase().includes("key")) {
+                toast.error(t("groups.inviteError"));
+            }
+            else {
+                toast.error(t("groups.inviteAcceptFailed", { reason: messageText.slice(0, 120) }));
+            }
+        }
+        finally {
             setIsProcessing(false);
         }
     };
-
     const handleDecline = async () => {
-        if (!isActionable || !message || !onSendDirectMessage) return;
+        if (!canDecline || !isActionable || !message || !onSendDirectMessage)
+            return;
         try {
             setIsProcessing(true);
             const inviteId = resolveCommunityInviteIdFromMessage(message);
@@ -570,27 +516,20 @@ export const CommunityInviteCard = ({
                 content: responseMessage.content,
                 replyTo: resolveCommunityInviteReplyTargetId(message),
             });
-            if (sendResult.success && identityState.publicKeyHex?.trim()) {
-                await commitCommunityDmInviteResponseDm({
-                    responseMessage: sendResult.messageId
-                        ? { ...responseMessage, id: sendResult.messageId }
-                        : responseMessage,
-                    accountPublicKeyHex: identityState.publicKeyHex as PublicKeyHex,
-                    direction: "inbound",
-                    invitePayload: wireInvite ?? undefined,
-                });
-            } else if (inviteId && message.conversationId?.trim() && message.senderPubkey?.trim()) {
+            if (sendResult.success && message.conversationId?.trim() && message.senderPubkey?.trim()) {
                 recordCommunityDmInviteResponse({
-                    inviteId,
+                    inviteId: resolvedInviteId,
                     status: "declined",
                     conversationId: message.conversationId.trim(),
                     peerPubkey: message.senderPubkey.trim() as PublicKeyHex,
                     direction: "inbound",
                     invitePayload: wireInvite ?? undefined,
+                    accountPublicKeyHex: identityState.publicKeyHex?.trim() as PublicKeyHex | undefined,
                 });
             }
-
-            const fallbackRelay = relayPool.connections.find((c: { url: string }) => c.url)?.url ?? "";
+            const fallbackRelay = relayPool.connections.find((c: {
+                url: string;
+            }) => c.url)?.url ?? "";
             const relayUrl = (invite.relayUrl || fallbackRelay).trim();
             if (relayUrl.length > 0) {
                 const creatorPubkey = invite.creatorPubkey ?? message.senderPubkey;
@@ -602,12 +541,11 @@ export const CommunityInviteCard = ({
                     genesisEventId,
                     creatorPubkey,
                 });
-                const accessMode: GroupAccessMode =
-                    invite.metadata.access === "discoverable"
-                        ? "discoverable"
-                        : invite.metadata.access === "invite-only" || invite.metadata.access === "private"
-                            ? "invite-only"
-                            : "open";
+                const accessMode: GroupAccessMode = invite.metadata.access === "discoverable"
+                    ? "discoverable"
+                    : invite.metadata.access === "invite-only" || invite.metadata.access === "private"
+                        ? "invite-only"
+                        : "open";
                 recordMembershipLedgerAfterInviteDecline({
                     kind: "group",
                     id: toGroupConversationId({ groupId: invite.groupId, relayUrl, communityId }),
@@ -630,29 +568,28 @@ export const CommunityInviteCard = ({
                     avatar: invite.metadata.picture,
                 });
             }
-
             setLocalResolutionStatus("declined");
-            toast.info(t("groups.inviteDeclined", "You declined the invitation to {{name}}", { name: inviteDisplayName }));
-        } catch (error) {
+            toast.info(t("groups.inviteDeclined", { name: inviteDisplayName }));
+        }
+        catch (error) {
             console.error("Failed to decline invite:", error);
-            toast.error(t("groups.declineError", "Failed to send decline response."));
-        } finally {
+            toast.error(t("groups.declineError"));
+        }
+        finally {
             setIsProcessing(false);
         }
     };
-
     const handleCancel = async () => {
-        if (!isActionable || !message || !onSendDirectMessage) return;
+        if (!canCancel || !isActionable || !message || !onSendDirectMessage)
+            return;
         try {
             setIsProcessing(true);
-
             // For older messages that might lack recipientPubkey, infer it from conversationId
             let targetPubkey = message.recipientPubkey;
             if (!targetPubkey && message.conversationId && message.senderPubkey) {
                 const parts = message.conversationId.split(':');
                 targetPubkey = parts.find(p => p !== message.senderPubkey) as any;
             }
-
             // Sender cancels the invite by sending a response back to the intended recipient
             // Since it's an outgoing message, the recipient is message.recipientPubkey
             const inviteId = resolveCommunityInviteIdFromMessage(message);
@@ -674,16 +611,18 @@ export const CommunityInviteCard = ({
                 content: responseMessage.content,
                 replyTo: resolveCommunityInviteReplyTargetId(message),
             });
-            if (sendResult.success && identityState.publicKeyHex?.trim()) {
-                await commitCommunityDmInviteResponseDm({
-                    responseMessage: sendResult.messageId
-                        ? { ...responseMessage, id: sendResult.messageId }
-                        : responseMessage,
-                    accountPublicKeyHex: identityState.publicKeyHex as PublicKeyHex,
+            if (sendResult.success && message.conversationId?.trim() && targetPubkey?.trim()) {
+                recordCommunityDmInviteResponse({
+                    inviteId: resolvedInviteId,
+                    status: "canceled",
+                    conversationId: message.conversationId.trim(),
+                    peerPubkey: targetPubkey.trim() as PublicKeyHex,
                     direction: "outbound",
                     invitePayload: wireInvite ?? undefined,
+                    accountPublicKeyHex: identityState.publicKeyHex?.trim() as PublicKeyHex | undefined,
                 });
-            } else if (inviteId && message.conversationId?.trim() && targetPubkey?.trim()) {
+            }
+            else if (inviteId && message.conversationId?.trim() && targetPubkey?.trim()) {
                 recordCommunityDmInviteResponse({
                     inviteId,
                     status: "canceled",
@@ -691,6 +630,7 @@ export const CommunityInviteCard = ({
                     peerPubkey: targetPubkey.trim() as PublicKeyHex,
                     direction: "outbound",
                     invitePayload: wireInvite ?? undefined,
+                    accountPublicKeyHex: identityState.publicKeyHex?.trim() as PublicKeyHex | undefined,
                 });
             }
             // Phase 3 M3: inviter cancel withdraws invite to peer; clear relay-joined roster evidence for them.
@@ -705,254 +645,139 @@ export const CommunityInviteCard = ({
                 });
             }
             setLocalResolutionStatus("canceled");
-            toast.success(t("groups.inviteCanceled", "Invitation canceled successfully"));
-        } catch (error) {
+            toast.success(t("groups.inviteCanceled"));
+        }
+        catch (error) {
             console.error("Failed to cancel invite:", error);
-            toast.error(t("groups.cancelError", "Failed to cancel invitation."));
-        } finally {
+            toast.error(t("groups.cancelError"));
+        }
+        finally {
             setIsProcessing(false);
         }
     };
-
-    const inviteCardShellClass = cn(
-        "relative overflow-hidden transition-all group/invite w-full",
-        compact ? "max-w-[min(100%,320px)] rounded-2xl" : "max-w-[min(100%,320px)]",
-        compact ? "" : isOutgoing ? "rounded-[32px]" : "rounded-[28px]",
-        isHistorical
-            ? "cursor-default border-zinc-300/55 bg-white/95 text-zinc-700 opacity-95 shadow-sm ring-1 ring-zinc-200/70 dark:border-zinc-600/40 dark:bg-zinc-900/80 dark:text-zinc-400 dark:ring-0"
-            : cn(
-                "cursor-pointer border border-purple-300/55 bg-gradient-to-br from-purple-50 via-white to-indigo-50/90 text-foreground shadow-[0_10px_32px_rgba(88,28,135,0.14)] hover:border-purple-400/70 hover:shadow-[0_12px_36px_rgba(88,28,135,0.18)] dark:border-white/[0.07] dark:bg-gradient-to-br dark:from-zinc-950 dark:via-zinc-900 dark:to-zinc-900/95 dark:text-surface-contrast-primary dark:shadow-sm dark:shadow-black/25 dark:hover:border-purple-500/40",
-                isOutgoing && "dark:border-surface-contrast dark:bg-gradient-surface-contrast",
-            ),
-        isDetailsOpen && !isHistorical && "ring-2 ring-purple-500/35 border-purple-400/70 dark:ring-purple-500/30 dark:border-purple-500/50",
-    );
-
-    const inviteTitleClass = cn(
-        "text-sm font-black truncate text-zinc-900 group-hover/invite:text-purple-700 dark:text-white dark:group-hover/invite:text-purple-300",
-    );
-
-    const inviteDescriptionClass = cn(
-        "text-[10px] mt-0.5 leading-relaxed text-zinc-600 dark:text-white/90",
-        compact ? "line-clamp-1" : "line-clamp-2",
-    );
-
-    const inviteBadgeClass = cn(
-        "inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-purple-200/70 bg-purple-500/10 px-2.5 py-1 text-[9px] font-bold uppercase tracking-wide text-purple-900 dark:border-white/10 dark:bg-white/10 dark:text-white/85",
-    );
-
-    return (
-        <>
-            <div
-                data-testid="community-invite-card"
-                data-invite-direction={isOutgoing ? "outgoing" : "incoming"}
-                data-invite-lifecycle={isHistorical ? "historical" : isActionable ? "active" : "closed"}
-                data-invite-status={status}
-                onClick={() => setIsDetailsOpen(true)}
-                className={inviteCardShellClass}
-            >
-                {!isHistorical ? (
-                    <div
-                        aria-hidden
-                        className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-primary dark:hidden"
-                    />
-                ) : (
-                    <div
-                        aria-hidden
-                        className="pointer-events-none absolute inset-x-0 top-0 h-0.5 bg-zinc-300/70 dark:bg-zinc-600/50"
-                    />
-                )}
+    const inviteCardShellClass = cn("relative overflow-hidden transition-all group/invite w-full", compact ? "max-w-[min(100%,320px)] rounded-2xl" : "max-w-[min(100%,320px)]", compact ? "" : isInviterPresentation ? "rounded-[32px]" : "rounded-[28px]", isHistorical
+        ? "cursor-default border-zinc-300/55 bg-white/95 text-zinc-700 opacity-95 shadow-sm ring-1 ring-zinc-200/70 dark:border-zinc-600/40 dark:bg-zinc-900/80 dark:text-zinc-400 dark:ring-0"
+        : cn("cursor-pointer border border-purple-300/55 bg-gradient-to-br from-purple-50 via-white to-indigo-50/90 text-foreground shadow-[0_10px_32px_rgba(88,28,135,0.14)] hover:border-purple-400/70 hover:shadow-[0_12px_36px_rgba(88,28,135,0.18)] dark:border-white/[0.07] dark:bg-gradient-to-br dark:from-zinc-950 dark:via-zinc-900 dark:to-zinc-900/95 dark:text-surface-contrast-primary dark:shadow-sm dark:shadow-black/25 dark:hover:border-purple-500/40", isInviterPresentation && "dark:border-surface-contrast dark:bg-gradient-surface-contrast"), isDetailsOpen && !isHistorical && "ring-2 ring-purple-500/35 border-purple-400/70 dark:ring-purple-500/30 dark:border-purple-500/50");
+    const inviteTitleClass = cn("text-sm font-black truncate text-zinc-900 group-hover/invite:text-purple-700 dark:text-white dark:group-hover/invite:text-purple-300");
+    const inviteDescriptionClass = cn("text-[10px] mt-0.5 leading-relaxed text-zinc-600 dark:text-white/90", compact ? "line-clamp-1" : "line-clamp-2");
+    const inviteBadgeClass = cn("inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-purple-200/70 bg-purple-500/10 px-2.5 py-1 text-[9px] font-bold uppercase tracking-wide text-purple-900 dark:border-white/10 dark:bg-white/10 dark:text-white/85");
+    return (<>
+            <div data-testid="community-invite-card" data-invite-direction={isInviterPresentation ? "outgoing" : "incoming"} data-invite-viewer-role={viewerRole} data-invite-lifecycle={isHistorical ? "historical" : isActionable ? "active" : "closed"} data-invite-status={status} onClick={() => setIsDetailsOpen(true)} className={inviteCardShellClass}>
+                {!isHistorical ? (<div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-primary dark:hidden"/>) : (<div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-0.5 bg-zinc-300/70 dark:bg-zinc-600/50"/>)}
                 <div className={cn("flex flex-col", compact ? "gap-2 p-3" : "gap-4 p-4")}>
                     <div className="flex min-w-0 items-start gap-3">
-                        <CommunityInviteAvatar
-                            displayName={inviteDisplayName}
-                            pictureUrl={invitePictureUrl}
-                            compact={compact}
-                        />
+                        <CommunityInviteAvatar displayName={inviteDisplayName} pictureUrl={invitePictureUrl} compact={compact}/>
                         <div className="min-w-0 flex flex-1 flex-col gap-1">
-                            {!isOutgoing && isActionable && !compact ? (
-                                <span className="text-[9px] font-black uppercase tracking-[0.2em] text-purple-700 dark:text-purple-300">
-                                    {t("groups.newCommunityInvite", "New community invite")}
-                                </span>
-                            ) : null}
-                            {isOutgoing && isActionable && !compact ? (
-                                <span className="text-[9px] font-black uppercase tracking-[0.2em] text-indigo-700 dark:text-indigo-300">
-                                    {t("groups.sentCommunityInvite", "Invitation sent")}
-                                </span>
-                            ) : null}
+                            {!isInviterPresentation && isActionable && !compact ? (<span className="text-[9px] font-black uppercase tracking-[0.2em] text-purple-700 dark:text-purple-300">
+                                    {t("groups.newCommunityInvite")}
+                                </span>) : null}
+                            {isInviterPresentation && isActionable && !compact ? (<span className="text-[9px] font-black uppercase tracking-[0.2em] text-indigo-700 dark:text-indigo-300">
+                                    {t("groups.sentCommunityInvite")}
+                                </span>) : null}
                             <h4 className={inviteTitleClass}>
                                 {inviteDisplayName}
                             </h4>
                             <p className={inviteDescriptionClass}>
-                                {invite.metadata.about || t("groups.privateInviteDesc", "You've been invited to join this private encrypted community.")}
+                                {invite.metadata.about || t("groups.privateInviteDesc")}
                             </p>
                         </div>
                     </div>
 
-                    {compact ? (
-                        <p className="text-[10px] font-semibold leading-snug text-zinc-500 dark:text-white/75">
-                            {t("groups.privateEncryptedCompact", "Private · Encrypted")}
+                    {compact ? (<p className="text-[10px] font-semibold leading-snug text-zinc-500 dark:text-white/75">
+                            {t("groups.privateEncryptedCompact")}
                             {preJoinRosterCopy.showMemberCountBadge && preJoinRosterCopy.memberCount !== undefined
-                                ? ` · ${preJoinRosterCopy.memberCount} ${t("groups.members", "members")}`
-                                : ` · ${t("groups.inviteRosterPrivateShort", "Roster hidden until join")}`}
-                        </p>
-                    ) : (
-                    <div className="flex flex-col gap-2">
+                ? ` · ${preJoinRosterCopy.memberCount} ${t("groups.members")}`
+                : ` · ${t("groups.inviteRosterPrivateShort")}`}
+                        </p>) : (<div className="flex flex-col gap-2">
                         <div className="flex flex-wrap items-center gap-2">
                             <div className={inviteBadgeClass}>
-                                <ShieldCheck className="h-3 w-3 shrink-0" aria-hidden />
-                                {t("groups.encrypted", "Encrypted")}
+                                <ShieldCheck className="h-3 w-3 shrink-0" aria-hidden/>
+                                {t("groups.encrypted")}
                             </div>
                             <div className={inviteBadgeClass}>
-                                <Users className="h-3 w-3 shrink-0" aria-hidden />
-                                {t("groups.private", "Private")}
+                                <Users className="h-3 w-3 shrink-0" aria-hidden/>
+                                {t("groups.private")}
                             </div>
-                            {preJoinRosterCopy.showMemberCountBadge && preJoinRosterCopy.memberCount !== undefined ? (
-                                <div className={inviteBadgeClass}>
-                                    <Users className="h-3 w-3 shrink-0" aria-hidden />
-                                    {t("groups.inviteMemberCount", "{{count}} members", { count: preJoinRosterCopy.memberCount })}
-                                </div>
-                            ) : null}
+                            {preJoinRosterCopy.showMemberCountBadge && preJoinRosterCopy.memberCount !== undefined ? (<div className={inviteBadgeClass}>
+                                    <Users className="h-3 w-3 shrink-0" aria-hidden/>
+                                    {t("groups.inviteMemberCount", { count: preJoinRosterCopy.memberCount })}
+                                </div>) : null}
                         </div>
-                        {!preJoinRosterCopy.showMemberCountBadge ? (
-                            <p className="text-[10px] font-medium leading-snug text-zinc-500 dark:text-white/70">
-                                {t("groups.inviteRosterPrivateShort", "Roster hidden until join")}
-                            </p>
-                        ) : null}
-                    </div>
-                    )}
+                        {!preJoinRosterCopy.showMemberCountBadge ? (<p className="text-[10px] font-medium leading-snug text-zinc-500 dark:text-white/70">
+                                {t("groups.inviteRosterPrivateShort")}
+                            </p>) : null}
+                    </div>)}
 
                     <div className="flex flex-col gap-2 pt-1">
-                        {isInviteDefective ? (
-                            <div
-                                role="status"
-                                data-testid="community-invite-defective-banner"
-                                className={cn(
-                                    "flex w-full flex-col items-center justify-center gap-1 border border-amber-400/70 bg-gradient-to-r from-amber-50 via-white to-amber-50/80 text-center shadow-sm dark:border-amber-500/40 dark:from-amber-950/80 dark:via-zinc-950 dark:to-zinc-950",
-                                    compact ? "rounded-xl px-3 py-2" : "rounded-[22px] px-4 py-3",
-                                )}
-                            >
+                        {showInviteKeyWarning ? (<div role="status" data-testid="community-invite-defective-banner" className={cn("flex w-full flex-col items-center justify-center gap-1 border border-amber-400/70 bg-gradient-to-r from-amber-50 via-white to-amber-50/80 text-center shadow-sm dark:border-amber-500/40 dark:from-amber-950/80 dark:via-zinc-950 dark:to-zinc-950", compact ? "rounded-xl px-3 py-2" : "rounded-[22px] px-4 py-3")}>
                                 <div className="flex items-center justify-center gap-2 text-amber-900 dark:text-amber-200">
-                                    <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
+                                    <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden/>
                                     <span className="text-[10px] font-black uppercase tracking-[0.15em]">
-                                        {t("groups.inviteDefectiveTitle", "Invitation incomplete")}
+                                        {t("groups.inviteDefectiveTitle")}
                                     </span>
                                 </div>
                                 <p className="max-w-[28rem] text-[11px] font-medium leading-snug text-amber-800/90 dark:text-amber-200/90">
-                                    {t(
-                                        "groups.inviteDefectiveHint",
-                                        "This invite was sent without encryption keys. Ask {{name}} to send a new invitation from the community page.",
-                                        { name: inviteDisplayName },
-                                    )}
+                                    {t("groups.inviteDefectiveHint", { name: inviteDisplayName })}
                                 </p>
-                            </div>
-                        ) : null}
-                        {isActionable && !isInviteDefective ? (
-                            isOutgoing ? (
-                                <div className="flex flex-col gap-2">
+                            </div>) : null}
+                        {isActionable ? (canCancel ? (<div className="flex flex-col gap-2">
                                     <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-zinc-600 dark:text-white/80">
-                                        <Clock className="h-3 w-3" />
-                                        {t("groups.pending", "Pending Response")}
+                                        <Clock className="h-3 w-3"/>
+                                        {t("groups.pending")}
                                     </div>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        disabled={isProcessing}
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleCancel();
-                                        }}
-                                        className="h-9 rounded-xl text-[10px] uppercase font-black tracking-widest border border-zinc-300/80 bg-white text-zinc-800 hover:bg-zinc-50 dark:border-white/10 dark:bg-white/5 dark:text-zinc-100 dark:hover:bg-white/10 transition-colors"
-                                    >
-                                        {isProcessing ? t("common.processing", "Processing...") : t("common.cancelInvite", "Cancel Invitation")}
+                                    <Button variant="ghost" size="sm" disabled={isProcessing} onClick={(e) => {
+                e.stopPropagation();
+                handleCancel();
+            }} className="h-9 rounded-xl text-[10px] uppercase font-black tracking-widest border border-zinc-300/80 bg-white text-zinc-800 hover:bg-zinc-50 dark:border-white/10 dark:bg-white/5 dark:text-zinc-100 dark:hover:bg-white/10 transition-colors">
+                                        {isProcessing ? t("common.processing") : t("common.cancelInvite")}
                                     </Button>
-                                </div>
-                            ) : (
-                                <div className="flex gap-2">
-                                    <Button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleAccept();
-                                        }}
-                                        disabled={isProcessing}
-                                        className={cn(
-                                            "flex-1 bg-gradient-primary text-primary-foreground font-bold rounded-xl shadow-lg shadow-purple-600/25 transition-all hover:opacity-95 hover:scale-[1.02] active:scale-95",
-                                            compact ? "h-9 text-xs" : "h-10",
-                                        )}
-                                    >
-                                        {isProcessing ? t("common.processing", "Processing...") : t("common.accept", "Accept")}
+                                </div>) : canAccept && canDecline ? (<div className="flex gap-2">
+                                    <Button onClick={(e) => {
+                e.stopPropagation();
+                handleAccept();
+            }} disabled={isProcessing} className={cn("flex-1 bg-gradient-primary text-primary-foreground font-bold rounded-xl shadow-lg shadow-purple-600/25 transition-all hover:opacity-95 hover:scale-[1.02] active:scale-95", compact ? "h-9 text-xs" : "h-10")}>
+                                        {isProcessing ? t("common.processing") : t("common.accept")}
                                     </Button>
-                                    <Button
-                                        variant="outline"
-                                        className={cn(
-                                            "flex-1 font-bold rounded-xl border-zinc-300/80 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-white/10 dark:bg-white/5 dark:text-zinc-300 dark:hover:bg-white/10 transition-all active:scale-95",
-                                            compact ? "h-9 text-xs" : "h-10",
-                                        )}
-                                        disabled={isProcessing}
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleDecline();
-                                        }}
-                                    >
-                                        {t("common.decline", "Decline")}
+                                    <Button variant="outline" className={cn("flex-1 font-bold rounded-xl border-zinc-300/80 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-white/10 dark:bg-white/5 dark:text-zinc-300 dark:hover:bg-white/10 transition-all active:scale-95", compact ? "h-9 text-xs" : "h-10")} disabled={isProcessing} onClick={(e) => {
+                e.stopPropagation();
+                handleDecline();
+            }}>
+                                        {t("common.decline")}
                                     </Button>
-                                </div>
-                            )
-                        ) : !isActionable ? (
-                            <div className="flex flex-col gap-2">
-                                <CommunityInviteStatusBanner
-                                    status={status}
-                                    isOutgoing={isOutgoing}
-                                    compact={compact || status !== "accepted"}
-                                />
-                                {showRelayJoinTerminalFailed ? (
-                                    <p className="text-center text-[11px] font-medium leading-snug text-amber-700 dark:text-amber-200/90">
-                                        {t(
-                                            "groups.inviteRelayJoinTerminalFailed",
-                                            "Relay join still failed after retries. Check Settings → Relays for {{relay}}.",
-                                            { relay: invite.relayUrl || "unknown" },
-                                        )}
-                                    </p>
-                                ) : null}
-                                {showRetryJoin ? (
-                                    <Button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            void handleRelayJoinRetry();
-                                        }}
-                                        disabled={isProcessing}
-                                        className="h-10 w-full rounded-xl bg-gradient-primary font-bold text-primary-foreground shadow-lg shadow-purple-600/25"
-                                    >
+                                </div>) : null) : !isActionable ? (<div className="flex flex-col gap-2">
+                                <CommunityInviteStatusBanner status={status} isOutgoing={statusBannerIsOutgoing} compact={compact || status !== "accepted"}/>
+                                {showRelayJoinTerminalFailed ? (<p className="text-center text-[11px] font-medium leading-snug text-amber-700 dark:text-amber-200/90">
+                                        {t("groups.inviteRelayJoinTerminalFailed", { relay: invite.relayUrl || "unknown" })}
+                                    </p>) : null}
+                                {showRetryJoin ? (<Button onClick={(e) => {
+                    e.stopPropagation();
+                    void handleRelayJoinRetry();
+                }} disabled={isProcessing} className="h-10 w-full rounded-xl bg-gradient-primary font-bold text-primary-foreground shadow-lg shadow-purple-600/25">
                                         {isProcessing
-                                            ? t("common.processing", "Processing...")
-                                            : t("groups.inviteRetryJoin", "Complete join on relay")}
-                                    </Button>
-                                ) : null}
-                            </div>
-                        ) : null}
+                    ? t("common.processing")
+                    : t("groups.inviteRetryJoin")}
+                                    </Button>) : null}
+                            </div>) : null}
                     </div>
                 </div>
             </div>
 
             <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
                 <DialogContent className="sm:max-w-md bg-white dark:bg-zinc-900 border-zinc-200 dark:border-white/10 rounded-[28px] overflow-hidden p-0">
-                    <div className="h-1.5 w-full bg-gradient-to-r from-purple-600 via-indigo-500 to-violet-500" aria-hidden />
+                    <div className="h-1.5 w-full bg-gradient-to-r from-purple-600 via-indigo-500 to-violet-500" aria-hidden/>
                     <div className="pb-8 px-8 pt-8 space-y-6">
                         <DialogHeader className="space-y-2 text-left p-0">
                             <div className="flex items-start gap-4">
-                                <CommunityInviteAvatar
-                                    displayName={inviteDisplayName}
-                                    pictureUrl={invitePictureUrl}
-                                    className="h-14 w-14 rounded-2xl"
-                                />
+                                <CommunityInviteAvatar displayName={inviteDisplayName} pictureUrl={invitePictureUrl} className="h-14 w-14 rounded-2xl"/>
                                 <div className="min-w-0 space-y-2">
                                     <DialogTitle className="text-2xl font-black text-zinc-900 dark:text-white">
                                         {inviteDisplayName}
                                     </DialogTitle>
                                     <DialogDescription className="text-zinc-500 font-bold text-xs uppercase tracking-widest">
-                                        {preJoinRosterCopy.accessLabel} {t("groups.communityLabel", "Community")} •{" "}
+                                        {preJoinRosterCopy.accessLabel} {t("groups.communityLabel")} •{" "}
                                         {preJoinRosterCopy.showMemberCountBadge && preJoinRosterCopy.memberCount !== undefined
-                                            ? t("groups.inviteMemberCount", "{{count}} members", { count: preJoinRosterCopy.memberCount })
-                                            : t("groups.inviteRosterPrivate", "Roster private until you join")}
+            ? t("groups.inviteMemberCount", { count: preJoinRosterCopy.memberCount })
+            : t("groups.inviteRosterPrivate")}
                                     </DialogDescription>
                                 </div>
                             </div>
@@ -965,81 +790,59 @@ export const CommunityInviteCard = ({
                             </p>
                             <p className="text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
                                 {preJoinRosterCopy.showMemberCountBadge
-                                    ? t(
-                                        "groups.inviteRosterOpenHint",
-                                        "Accept to view the full member roster in this community.",
-                                    )
-                                    : t(
-                                        "groups.inviteRosterPrivacyHint",
-                                        "Member names and roster details stay private until you accept and join.",
-                                    )}
+            ? t("groups.inviteRosterOpenHint")
+            : t("groups.inviteRosterPrivacyHint")}
                             </p>
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
                             <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-white/5 border border-zinc-100 dark:border-white/5 text-center">
-                                <ShieldCheck className="h-6 w-6 text-emerald-500 mx-auto mb-2" />
+                                <ShieldCheck className="h-6 w-6 text-emerald-500 mx-auto mb-2"/>
                                 <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">End-to-End</span>
                                 <p className="text-xs font-bold text-zinc-900 dark:text-white">Encrypted</p>
                             </div>
                             <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-white/5 border border-zinc-100 dark:border-white/5 text-center">
-                                <Users className="h-6 w-6 text-purple-500 mx-auto mb-2" />
+                                <Users className="h-6 w-6 text-purple-500 mx-auto mb-2"/>
                                 <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Status</span>
                                 <p className="text-xs font-bold text-zinc-900 dark:text-white">Invitation Only</p>
                             </div>
                         </div>
 
-                        {isActionable && !isInviteDefective && (
-                            <div className="flex gap-3 pt-2">
-                                <Button
-                                    onClick={() => {
-                                        handleAccept();
-                                        setIsDetailsOpen(false);
-                                    }}
-                                    disabled={isProcessing}
-                                    className="flex-1 h-14 bg-purple-600 hover:bg-purple-700 text-white font-black rounded-2xl shadow-xl shadow-purple-600/20"
-                                >
-                                    {isProcessing ? t("common.processing", "Processing...") : t("common.accept", "Accept Invitation")}
+                        {isActionable && canCancel ? (<div className="flex gap-3 pt-2">
+                                <Button variant="ghost" className="flex-1 h-14 font-black rounded-2xl text-zinc-500 hover:bg-zinc-200 dark:hover:bg-white/5" disabled={isProcessing} onClick={() => {
+                handleCancel();
+                setIsDetailsOpen(false);
+            }}>
+                                    {isProcessing ? t("common.processing") : t("common.cancelInvite")}
                                 </Button>
-                                <Button
-                                    variant="ghost"
-                                    className="flex-1 h-14 font-black rounded-2xl text-zinc-500 hover:bg-zinc-200 dark:hover:bg-white/5"
-                                    disabled={isProcessing}
-                                    onClick={() => {
-                                        handleDecline();
-                                        setIsDetailsOpen(false);
-                                    }}
-                                >
-                                    {t("common.decline", "Decline")}
-                                </Button>
-                            </div>
-                        )}
+                            </div>) : null}
 
-                        {!isActionable && (
-                            <CommunityInviteStatusBanner
-                                status={status}
-                                isOutgoing={isOutgoing}
-                                compact
-                            />
-                        )}
-                        {status === "accepted" && showRetryJoin ? (
-                            <Button
-                                onClick={() => {
-                                    void handleRelayJoinRetry();
-                                    setIsDetailsOpen(false);
-                                }}
-                                disabled={isProcessing}
-                                className="h-12 w-full rounded-2xl bg-gradient-primary font-bold text-primary-foreground"
-                            >
+                        {isActionable && canAccept && canDecline ? (<div className="flex gap-3 pt-2">
+                                <Button onClick={() => {
+                handleAccept();
+                setIsDetailsOpen(false);
+            }} disabled={isProcessing} className="flex-1 h-14 bg-purple-600 hover:bg-purple-700 text-white font-black rounded-2xl shadow-xl shadow-purple-600/20">
+                                    {isProcessing ? t("common.processing") : t("common.accept")}
+                                </Button>
+                                <Button variant="ghost" className="flex-1 h-14 font-black rounded-2xl text-zinc-500 hover:bg-zinc-200 dark:hover:bg-white/5" disabled={isProcessing} onClick={() => {
+                handleDecline();
+                setIsDetailsOpen(false);
+            }}>
+                                    {t("common.decline")}
+                                </Button>
+                            </div>) : null}
+
+                        {!isActionable && (<CommunityInviteStatusBanner status={status} isOutgoing={statusBannerIsOutgoing} compact/>)}
+                        {status === "accepted" && showRetryJoin ? (<Button onClick={() => {
+                void handleRelayJoinRetry();
+                setIsDetailsOpen(false);
+            }} disabled={isProcessing} className="h-12 w-full rounded-2xl bg-gradient-primary font-bold text-primary-foreground">
                                 {isProcessing
-                                    ? t("common.processing", "Processing...")
-                                    : t("groups.inviteRetryJoin", "Complete join on relay")}
-                            </Button>
-                        ) : null}
+                ? t("common.processing")
+                : t("groups.inviteRetryJoin")}
+                            </Button>) : null}
                     </div>
                 </DialogContent>
             </Dialog>
-        </>
-    );
+        </>);
 };
-

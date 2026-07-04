@@ -139,7 +139,7 @@ pub struct PublishWithQuorumArgs {
 
 const DEFAULT_PUBLISH_ACK_TIMEOUT_MS: u64 = 12_000;
 
-fn parse_event_payload(payload: &str) -> Result<Value, String> {
+pub(crate) fn parse_event_payload(payload: &str) -> Result<Value, String> {
     let parsed: Value = serde_json::from_str(payload)
         .map_err(|_| "Malformed event payload: expected JSON payload".to_string())?;
     let Some(items) = parsed.as_array() else {
@@ -157,7 +157,7 @@ fn parse_event_payload(payload: &str) -> Result<Value, String> {
     Ok(event.clone())
 }
 
-fn normalize_relay_urls(relay_urls: &[String]) -> Vec<String> {
+pub(crate) fn normalize_relay_urls(relay_urls: &[String]) -> Vec<String> {
     let mut seen = HashSet::new();
     relay_urls
         .iter()

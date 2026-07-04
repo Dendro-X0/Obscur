@@ -42,10 +42,16 @@ export default async function Home() {
             product story.
           </p>
           <div className="hero-actions">
-            {primaryLinks.map((link) => (
+            <a
+              className="button button-primary"
+              href="/download"
+            >
+              Download {currentVersion}
+            </a>
+            {primaryLinks.filter((link) => !link.label.startsWith("Download")).map((link) => (
               <a
                 key={link.href}
-                className={link.label.startsWith("Download") ? "button button-primary" : "button button-secondary"}
+                className="button button-secondary"
                 href={link.href}
                 {...(link.href.startsWith("http") ? { target: "_blank", rel: "noreferrer" } : {})}
               >
@@ -69,7 +75,12 @@ export default async function Home() {
 
       <section className="proof-strip" aria-label="Source of truth links">
         {proofLinks.map((link) => (
-          <a key={link.href} className="proof-link" href={link.href} target="_blank" rel="noreferrer">
+          <a
+            key={link.href}
+            className="proof-link"
+            href={link.href}
+            {...(link.href.startsWith("http") ? { target: "_blank", rel: "noreferrer" } : {})}
+          >
             {link.label}
           </a>
         ))}
@@ -179,28 +190,18 @@ export default async function Home() {
         </article>
         <article className="cta-panel">
           <p className="eyebrow">Distribution</p>
-          <h2>GitHub Releases remains the live channel today.</h2>
+          <h2>Install from the download page — checksums included.</h2>
           <p>
-            The website is now ready to act as the public release surface, but it still points back
-            to the canonical release artifacts and evidence packets rather than claiming its own
-            publication workflow.
+            Windows NSIS @ {currentVersion} is linked from /download with SHA-256 from
+            release-assets/manifest.json. Android debug builds are documented as local-only sideload
+            paths — no store claims.
           </p>
           <div className="hero-actions">
-            <a
-              className="button button-primary"
-              href={currentReleaseHref}
-              target="_blank"
-              rel="noreferrer"
-            >
-              Open {currentVersion}
+            <a className="button button-primary" href="/download">
+              Download {currentVersion}
             </a>
-            <a
-              className="button button-secondary"
-              href="https://github.com/Dendro-X0/Obscur/tree/main/docs/assets/demo/v1.3.8"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Open Evidence Packet
+            <a className="button button-secondary" href="/limitations">
+              Known limitations
             </a>
           </div>
         </article>

@@ -1,6 +1,6 @@
 # 14 Module Owner Index
 
-_Last reviewed: 2026-05-15 (baseline commit 0406143c)._
+_Last reviewed: 2026-06-25 (AUTH-K-AUTHORITY — auth-kernel runtime owner)._
 
 ## Purpose
 
@@ -29,6 +29,7 @@ For relay foundation execution order and phase gates:
 | Domain | Canonical owner |
 | --- | --- |
 | **Client mutations / local read gates (R0)** | `getResolvedClientGateway()` — `packages/dweb-client-gateway`, `apps/pwa/app/features/runtime/services/client-gateway-adapter.ts`, `apps/pwa/app/features/profiles/services/resolve-client-gateway.ts`; installed by `ProfileRuntimeProvider` |
+| **Auth kernel (planes A–D, runtime authority)** | `packages/dweb-auth` (port contracts) + `apps/pwa/app/features/auth-kernel/` — policy: `auth-kernel-policy.ts`; ports: `auth-kernel-ports.ts`; boot restore: `auth-kernel-boot-owner.ts`; UI surface routing: `hooks/use-auth-kernel-surface-actions.ts`; bound-profile orchestration: `auth-kernel-bound-profile-auth.ts`; legacy bridge (single scatter import): `apps/pwa/app/features/auth/services/auth-kernel-legacy-delegates.ts`. Charter: `docs/program/obscur-auth-kernel-charter-2026-06.md`. Verify: `pnpm verify:auth-kernel-contracts`. |
 | Window lifecycle | `apps/pwa/app/features/runtime/services/window-runtime-supervisor.ts` |
 | Startup profile binding lifecycle | `apps/pwa/app/features/profiles/components/desktop-profile-bootstrap.tsx` |
 | Startup auth-shell recovery lifecycle | `apps/pwa/app/features/runtime/components/profile-bound-auth-shell.tsx` |
@@ -59,7 +60,8 @@ For relay foundation execution order and phase gates:
 
 | Feature root | Primary owner/entry files |
 | --- | --- |
-| `auth` | `apps/pwa/app/features/auth/components/auth-gateway.tsx`, `apps/pwa/app/features/auth/hooks/use-identity.ts` |
+| `auth` | **Runtime authority:** `apps/pwa/app/features/auth-kernel/` (`auth-kernel-boot-owner.ts`, `use-auth-kernel-surface-actions.ts`). **Legacy scatter (delegate only):** `auth-gateway.tsx`, `use-identity.ts` via `auth-kernel-legacy-delegates.ts`. **Auth screen / title-bar:** kernel ports via `useAuthKernelSurfaceActions`. |
+| `auth-kernel` | `apps/pwa/app/features/auth-kernel/auth-kernel-policy.ts`, `auth-kernel-ports.ts`, `auth-kernel-boot-owner.ts`, `auth-kernel-bound-profile-auth.ts`, `hooks/use-auth-kernel-surface-actions.ts` |
 | `runtime` | `apps/pwa/app/features/runtime/services/window-runtime-supervisor.ts`, `apps/pwa/app/features/runtime/components/unlocked-app-runtime-shell.tsx` |
 | `relays` | `apps/pwa/app/features/relays/providers/relay-provider.tsx`, `apps/pwa/app/features/relays/services/relay-recovery-policy.ts` |
 | `account-sync` | `apps/pwa/app/features/account-sync/hooks/use-account-sync.ts`, `apps/pwa/app/features/account-sync/services/account-rehydrate-service.ts` |
@@ -89,6 +91,7 @@ For relay foundation execution order and phase gates:
 | Native relay transport and ACK handling | `apps/desktop/src-tauri/src/relay.rs` |
 | Native network runtime (Tor/proxy path) | `apps/desktop/src-tauri/src/net.rs` |
 | Native protocol publish quorum command bridge | `apps/desktop/src-tauri/src/protocol.rs` |
+| Native auth boot snapshot (Plane D Rust owner) | `apps/desktop/src-tauri/src/commands/auth_boot.rs`, `apps/desktop/src-tauri/src/commands/session.rs` |
 | Shared Rust protocol runtime | `packages/libobscur/src/protocol/mod.rs` |
 | Shared protocol data contracts | `packages/libobscur/src/protocol/types.rs` |
 
@@ -97,6 +100,7 @@ For relay foundation execution order and phase gates:
 | Package | Anchor |
 | --- | --- |
 | `packages/dweb-core` | `packages/dweb-core/src/security-foundation-contracts.ts` |
+| `packages/dweb-auth` | `packages/dweb-auth/src/ports/` (identity root, registration policy, device unlock, runtime session, auth assistant) |
 | `packages/dweb-crypto` | `packages/dweb-crypto/src/derive-public-key-hex.ts` |
 | `packages/dweb-nostr` | `packages/dweb-nostr/src/create-nostr-event.ts` |
 | `packages/dweb-storage` | `packages/dweb-storage/src/indexed-db.ts` |

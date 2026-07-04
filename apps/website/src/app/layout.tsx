@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Fraunces, Space_Grotesk } from "next/font/google";
+import { SiteFooter, SiteNav } from "./site-nav";
 import "./globals.css";
 
 const headlineFont = Fraunces({
@@ -28,7 +29,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${headlineFont.variable} ${bodyFont.variable}`}>
+        <SiteNav />
         {children}
+        <SiteFooter />
       </body>
     </html>
   );

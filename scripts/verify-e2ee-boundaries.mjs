@@ -10,9 +10,9 @@ import { fileURLToPath } from "node:url";
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 const WIRE_PUBLISH_OWNER_PATHS = [
-  "apps/pwa/app/features/messaging/controllers/outgoing-dm-publisher.ts",
   "apps/pwa/app/features/messaging/controllers/v2/dm-send-pipeline.ts",
   "apps/pwa/app/features/messaging/controllers/v2/dm-relay-transport.ts",
+  "apps/pwa/app/features/messaging/controllers/v2/dm-send-with-retry.ts",
   "apps/pwa/app/features/messaging/services/publish-dm-nostr-event.ts",
   "apps/pwa/app/features/groups/services/community-team-relay-transport.ts",
   "apps/pwa/app/features/groups/services/sealed-community-relay-scope.ts",

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { NostrEvent } from "@dweb/nostr/nostr-event";
-import { hasCommunityBindingTag, isScopedRelayEvent, normalizeRelayUrl } from "./use-sealed-community";
+import { hasCommunityBindingTag, isScopedRelayEvent, normalizeRelayUrl } from "./use-sealed-community-types";
 
 const baseEvent = (tags: string[][]): NostrEvent => ({
     id: "event-id",

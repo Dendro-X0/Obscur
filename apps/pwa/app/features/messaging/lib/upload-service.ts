@@ -2,7 +2,7 @@ import { Attachment, AttachmentKind, UploadApiResponse, UploadError, UploadError
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { hasNativeRuntime, shouldAutoEnableDefaultUploadProviders } from "@/app/features/runtime/runtime-capabilities";
-import { normalizePublicUrl } from "@/app/shared/public-url";
+import { normalizeAttachmentUrl } from "@/app/shared/public-url";
 import { pickNativeFiles, readNativeFileBytes } from "@/app/features/runtime/native-host-adapter";
 import { parseVoiceNoteFileName } from "@/app/features/messaging/services/voice-note-metadata";
 
@@ -119,7 +119,7 @@ export class LocalUploadService implements UploadService {
 
         return {
             kind,
-            url: normalizePublicUrl(result.url),
+            url: normalizeAttachmentUrl(result.url),
             contentType: result.contentType,
             fileName: file.name,
         };

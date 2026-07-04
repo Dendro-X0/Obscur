@@ -3,9 +3,11 @@
  * SQLite hydrate + live bus only; projection paths are explicit no-ops.
  */
 
-import { applyRealtimeBufferedEvents } from "../dm-conversation-materialization-realtime";
-import { loadEarlierDmConversationMessages } from "../dm-conversation-materialization-load-earlier";
-import { runNativeDmThreadHydrateReadModel } from "../native-dm-thread-hydrate";
+import {
+  applyLegacyRealtimeBufferedEvents,
+  loadLegacyEarlierDmConversationMessages,
+  runLegacyNativeDmThreadHydrateReadModel,
+} from "./dm-thread-history-legacy-port";
 import { prepareDmThreadSuppressionIds } from "../dm-thread-suppression-prepare";
 import {
   filterMessagesBySuppressedIds,
@@ -15,7 +17,7 @@ import type { ThreadHistoryPort } from "./port";
 import type {
   MergeProjectionFirstWithLiveOverlayForDisplayParams,
   MergeProjectionFirstWithLiveOverlayForDisplayResult,
-} from "../dm-conversation-projection-live-merge";
+} from "./projection-live-merge-types";
 
 const noopProjectionMerge = (
   params: MergeProjectionFirstWithLiveOverlayForDisplayParams,
@@ -28,11 +30,11 @@ const noopProjectionMerge = (
 
 export const nativeDmThreadHistoryAdapter: ThreadHistoryPort = {
   prepareThreadSuppressionIds: prepareDmThreadSuppressionIds,
-  hydrateThreadReadModel: runNativeDmThreadHydrateReadModel,
+  hydrateThreadReadModel: runLegacyNativeDmThreadHydrateReadModel,
   buildProjectionEvidenceMessages: () => [],
   mergeProjectionWithLiveOverlay: noopProjectionMerge,
-  loadEarlierMessages: loadEarlierDmConversationMessages,
-  applyRealtimeBufferedEvents,
+  loadEarlierMessages: loadLegacyEarlierDmConversationMessages,
+  applyRealtimeBufferedEvents: applyLegacyRealtimeBufferedEvents,
   filterThreadMessagesBySuppression: filterMessagesBySuppressedIds,
   mergeHydratedBaseWithLiveOverlay: mergeHydratedBaseWithLiveOverlayMessages,
 };

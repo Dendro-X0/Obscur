@@ -23,7 +23,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "../../../co
 import { Badge } from "../../../components/ui/badge";
 import { cn } from "../../../lib/cn";
 import { toast } from "../../../components/ui/toast";
-import { useGroups } from "../providers/group-provider";
+import { useGroups } from "@/app/features/groups/providers/group-provider-port";
 import {
     checkAllGroupsIntegrity,
     attemptGroupRepair,

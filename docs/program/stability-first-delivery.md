@@ -1,6 +1,6 @@
 # Stability-first delivery (2026-05-26)
 
-**Decision:** **Desktop is the primary development surface.** Android builds are **wrap-up only**. **Manual verification is deferred** during batch implementation — see [deferred-manual-verification-checklist.md](./deferred-manual-verification-checklist.md) and [v1.8.x-batch-implementation-lane.md](./v1.8.x-batch-implementation-lane.md).
+**Decision:** **Desktop is the primary development surface.** Android builds are **wrap-up only**. **Manual verification is deferred** during batch implementation — see [deferred-manual-verification-checklist.md](../archive/program/inactive-2026-06/deferred-manual-verification-checklist.md) and [v1.8.x-batch-implementation-lane.md](../archive/program/inactive-2026-06/v1.8.x-batch-implementation-lane.md).
 
 Charter: [rules/11-feasibility-and-modular-safety.md](../../rules/11-feasibility-and-modular-safety.md) · Handoff: [current-session.md](../handoffs/current-session.md) · Order: [v1.9.x-execution-contract.md](./v1.9.x-execution-contract.md)
 
@@ -44,9 +44,9 @@ pnpm verify:dev-lab          # Dev Lab unit tests only
 pnpm verify:stability        # L2 stability (no :3340)
 ```
 
-Run **`pnpm verify:handoff`** (not the matrix) before merge claims on desktop UX, settings, relay, or messaging. See [dev-lab-issue-backlog.md](./dev-lab-issue-backlog.md).
+Run **`pnpm verify:handoff`** (not the matrix) before merge claims on desktop UX, settings, relay, or messaging. See [dev-lab-issue-backlog.md](../archive/program/inactive-2026-06/dev-lab-issue-backlog.md).
 
-**Focus:** production reliability (cold start, nav, DM persistence, relay/account sync, coordination when environment allows) per [phase1-desktop-shell-gate.md](./phase1-desktop-shell-gate.md) · [phase2-desktop-dm-persistence-gate.md](./phase2-desktop-dm-persistence-gate.md) · [phase3-desktop-online-gate.md](./phase3-desktop-online-gate.md).
+**Focus:** production reliability (cold start, nav, DM persistence, relay/account sync, coordination when environment allows) per [phase1-desktop-shell-gate.md](../archive/program/inactive-2026-06/phase1-desktop-shell-gate.md) · [phase2-desktop-dm-persistence-gate.md](../archive/program/inactive-2026-06/phase2-desktop-dm-persistence-gate.md) · [phase3-desktop-online-gate.md](../archive/program/inactive-2026-06/phase3-desktop-online-gate.md).
 
 ---
 
@@ -62,7 +62,7 @@ Run **`pnpm verify:handoff`** (not the matrix) before merge claims on desktop UX
 
 **Avoid:** `build:android:release` during active desktop development (4× Rust release targets, poor ROI).
 
-Pipeline artifacts: [android-p1-signing-runbook.md](./android-p1-signing-runbook.md).
+Pipeline artifacts: [android-p1-signing-runbook.md](../archive/program/inactive-2026-06/android-p1-signing-runbook.md).
 
 ---
 

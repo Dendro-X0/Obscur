@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { relayHealthMonitor } from "./relay-health-monitor";
-import { relayReliabilityInternals, shouldReuseRelaySocket, createEnhancedRelayPoolRuntime, type PublishResult } from "./enhanced-relay-pool";
+import {
+  createEnhancedRelayPoolRuntime,
+  relayReliabilityInternals,
+  shouldReuseRelaySocket,
+} from "@/app/features/relays/hooks/enhanced-relay-pool-legacy";
+import type { PublishResult } from "@/app/features/relays/hooks/enhanced-relay-pool-types";
 
 describe("enhanced-relay-pool reliability internals", () => {
   beforeEach(() => {

@@ -42,7 +42,7 @@ describe("path B B2-1 exit contract", () => {
   });
 
   it("enhanced relay pool exposes publishToUrl for team relay adapter", () => {
-    const pool = read("app/features/relays/hooks/enhanced-relay-pool.ts");
+    const pool = read("app/features/relays/hooks/enhanced-relay-pool-legacy.ts");
     expect(pool).toContain("publishToUrl");
     expect(pool).toContain("PublishResult");
   });

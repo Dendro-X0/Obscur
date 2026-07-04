@@ -18,7 +18,7 @@ vi.mock("@/app/features/messaging/providers/messaging-provider", () => ({
   }),
 }));
 
-vi.mock("@/app/features/groups/providers/group-provider", () => ({
+vi.mock("@/app/features/groups/providers/group-provider-port", () => ({
   useGroups: () => ({
     isNewGroupOpen: dialogState.isNewGroupOpen,
   }),

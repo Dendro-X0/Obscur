@@ -5,7 +5,11 @@ import fs from "node:fs";
 import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { probeCdpObscurPage } from "./cdp-app-page.mjs";
-import { probePwaDevReady, PWA_DEV_URL } from "./dev-stack-probes.mjs";
+import {
+  freePwaDevPort,
+  probePwaDevReady,
+  PWA_DEV_URL,
+} from "./dev-stack-probes.mjs";
 import {
   isStaticShellDevLabMismatch,
   isStaticShellExperimentModeMismatch,
@@ -116,6 +120,9 @@ export async function resolveDevLabConnection({
       }
     }
     const port = Number.parseInt(new URL(appBase).port || "3340", 10);
+    if (port === 3340) {
+      freePwaDevPort(repoRoot);
+    }
     log(`starting static shell on ${appBase} (pnpm dev:desktop:online uses Tauri, not Next :3340)`);
     const staticServerProc = startStaticShellServer(repoRoot, port);
     const ready = await waitForHttpReady(`${appBase}/`, 45_000);

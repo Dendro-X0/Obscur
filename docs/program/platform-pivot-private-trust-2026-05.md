@@ -143,6 +143,6 @@ Enough to prove roster shrink and leave propagation **before** production VPS.
 ## References
 
 - [v1.9.0-kernel-backend-spec.md](./v1.9.0-kernel-backend-spec.md) — TransportPort, coordination API  
-- [v1.9.2-scope.md](./v1.9.2-scope.md) — membership deltas  
+- [v1.9.2-scope.md](../archive/program/inactive-2026-06/v1.9.2-scope.md) — membership deltas  
 - [apps/coordination/README.md](../../apps/coordination/README.md)  
 - [01-kernel-transport-sketch.md](../future/01-kernel-transport-sketch.md)

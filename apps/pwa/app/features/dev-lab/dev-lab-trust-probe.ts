@@ -11,6 +11,7 @@ import {
 import {
   getPeerConnectionRequestCountLastDay,
 } from "@/app/features/dm-kernel/dm-kernel-trust-peer-state";
+import { getIncomingRequestAntiAbusePeerSnapshot } from "@/app/features/messaging/services/incoming-request-anti-abuse";
 import { MSG_RATE_WINDOW_MS } from "@/app/features/dm-kernel/dm-kernel-trust-spam-signals";
 import { toDmConversationId } from "@/app/features/messaging/utils/dm-conversation-id";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
@@ -99,6 +100,10 @@ export const probeDevLabDmTrustAssessmentForPeer = (params: Readonly<{
       params.peerPublicKeyHex,
       nowUnixMs,
     ),
+    connectionRequestBurstSnapshot: getIncomingRequestAntiAbusePeerSnapshot({
+      peerPublicKeyHex: params.peerPublicKeyHex as PublicKeyHex,
+      nowUnixMs,
+    }),
     nowUnixMs,
   });
 

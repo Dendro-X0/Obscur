@@ -4,9 +4,9 @@ import { useEffect } from "react";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import {
   ACTIVE_SESSION_LEASE_HEARTBEAT_MS,
-  claimActiveSessionLease,
-  releaseActiveSessionLease,
-  touchActiveSessionLease,
+  claimActiveSessionLeaseAsync,
+  releaseActiveSessionLeaseAsync,
+  touchActiveSessionLeaseAsync,
 } from "@/app/features/profiles/services/cross-profile-active-session-lease";
 import { useWindowRuntime } from "@/app/features/runtime/services/window-runtime-supervisor";
 
@@ -22,16 +22,16 @@ export function ActiveSessionLeaseOwner(): null {
     if (identity.state.status !== "unlocked" || !publicKeyHex) {
       return;
     }
-    claimActiveSessionLease({
+    void claimActiveSessionLeaseAsync({
       publicKeyHex,
       profileId,
       windowLabel,
     });
     const heartbeatId = window.setInterval(() => {
-      touchActiveSessionLease({ publicKeyHex, profileId });
+      void touchActiveSessionLeaseAsync({ publicKeyHex, profileId });
     }, ACTIVE_SESSION_LEASE_HEARTBEAT_MS);
     const release = (): void => {
-      releaseActiveSessionLease({ publicKeyHex, profileId });
+      void releaseActiveSessionLeaseAsync({ publicKeyHex, profileId });
     };
     window.addEventListener("pagehide", release);
     return (): void => {
@@ -45,7 +45,7 @@ export function ActiveSessionLeaseOwner(): null {
     if (identity.state.status !== "locked" || !publicKeyHex) {
       return;
     }
-    releaseActiveSessionLease({ publicKeyHex, profileId });
+    void releaseActiveSessionLeaseAsync({ publicKeyHex, profileId });
   }, [identity.state.status, profileId, publicKeyHex]);
 
   return null;

@@ -4,7 +4,7 @@
 **Daily order:** [v1.9.x-execution-contract.md](./v1.9.x-execution-contract.md) — this doc defines Phase A/B/C mechanics  
 **Supersedes for day-to-day gates:** per-slice manual Pass columns and “prove flawless before next feature” iteration.  
 **Still required:** automated CI (`pnpm release:test-pack`, Vitest, typecheck) on every push.  
-**North star:** [obscur-2.0-milestone-roadmap.md](./obscur-2.0-milestone-roadmap.md)
+**North star:** [obscur-2.0-milestone-roadmap.md](../archive/program/inactive-2026-06/obscur-2.0-milestone-roadmap.md)
 
 ---
 
@@ -36,7 +36,7 @@ Obscur has **many** open objectives before **v2.0.0**. Incremental “fix + manu
 | **Engineering SHA** | `37320382` |
 | **Client verification** | Maintainer desktop pass (Phase B) |
 | **Issues register** | No new `UV-*` failures; ACC-01/ACC-02 unchanged |
-| **Next unit** | **v1.9.4+** Phase A — [v1.9.4-scope.md](./v1.9.4-scope.md) → v2.0 production demo |
+| **Next unit** | **v1.9.4+** Phase A — [v1.9.4-scope.md](../archive/program/inactive-2026-06/v1.9.4-scope.md) → v2.0 production demo |
 
 ### v1.9.x — Phase A backlog (engineering only)
 
@@ -44,12 +44,12 @@ Complete remaining scope rows; **do not** block on manual matrix during Phase A.
 
 | Patch | Scope doc | Phase A remaining (if any) |
 |-------|-----------|----------------------------|
-| v1.9.0 B0 | [v1.9.0-scope.md](./v1.9.0-scope.md) | **Done** |
-| v1.9.1 B1 | [v1.9.1-scope.md](./v1.9.1-scope.md) | **Done** |
-| v1.9.2 B2 | [v1.9.2-scope.md](./v1.9.2-scope.md) | Code **done** — manual deferred to Phase B |
-| v1.9.3 B3 | [v1.9.3-scope.md](./v1.9.3-scope.md) | **Done** (engineering) — Vitest copy/policy suites |
-| v1.9.4 B4b | [v1.9.4-scope.md](./v1.9.4-scope.md) | **Done** (engineering) |
-| v1.9.5 B4a | [v1.9.5-scope.md](./v1.9.5-scope.md) | **Done** (engineering) |
+| v1.9.0 B0 | [v1.9.0-scope.md](../archive/program/inactive-2026-06/v1.9.0-scope.md) | **Done** |
+| v1.9.1 B1 | [v1.9.1-scope.md](../archive/program/inactive-2026-06/v1.9.1-scope.md) | **Done** |
+| v1.9.2 B2 | [v1.9.2-scope.md](../archive/program/inactive-2026-06/v1.9.2-scope.md) | Code **done** — manual deferred to Phase B |
+| v1.9.3 B3 | [v1.9.3-scope.md](../archive/program/inactive-2026-06/v1.9.3-scope.md) | **Done** (engineering) — Vitest copy/policy suites |
+| v1.9.4 B4b | [v1.9.4-scope.md](../archive/program/inactive-2026-06/v1.9.4-scope.md) | **Done** (engineering) |
+| v1.9.5 B4a | [v1.9.5-scope.md](./v1.9.10-scope.md) | **Done** (engineering) |
 
 **Phase A exit (v1.9.x):** **Met 2026-06-01** — `release:test-pack` green; Lane K Vitest + boundaries green.
 
@@ -75,7 +75,7 @@ Complete remaining scope rows; **do not** block on manual matrix during Phase A.
 |-----------|--------|
 | “Feature works” | Requires Phase B row **Pass** (or explicit **Accepted limitation** in register) |
 | “Implemented” | Phase A complete — may still Fail in Phase B |
-| “Release-ready” | Concentration unit Phase B–C complete + 2.0 gate rows ([obscur-2.0-milestone-roadmap.md](./obscur-2.0-milestone-roadmap.md)) |
+| “Release-ready” | Concentration unit Phase B–C complete + 2.0 gate rows ([obscur-2.0-milestone-roadmap.md](../archive/program/inactive-2026-06/obscur-2.0-milestone-roadmap.md)) |
 | DM-001 / MEM-001 | Remain **accepted limitations** unless unified pass proves otherwise — document in register, do not re-litigate in Phase A |
 
 ---
@@ -87,7 +87,7 @@ pnpm dev:desktop:online
 pnpm release:test-pack -- --skip-preflight   # local confidence
 ```
 
-Mobile: **postponed** for Phase B Tier M until wrap-up ([android-p1-smoke-checklist.md](./android-p1-smoke-checklist.md)).
+Mobile: **postponed** for Phase B Tier M until wrap-up ([android-p1-smoke-checklist.md](../archive/program/inactive-2026-06/android-p1-smoke-checklist.md)).
 
 ---
 

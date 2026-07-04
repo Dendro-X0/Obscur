@@ -5,8 +5,8 @@ import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import type { RelayStatusSummary } from "@/app/features/messaging/types";
 import { useRelayList } from "../hooks/use-relay-list";
 import { useRelayPrimarySelection } from "../hooks/use-relay-primary-selection";
-import type { EnhancedRelayPoolResult } from "../hooks/enhanced-relay-pool";
-import type { RelayRecoveryReasonCode } from "../services/relay-recovery-policy";
+import type { EnhancedRelayPoolResult } from "../hooks/enhanced-relay-pool-types";
+import type { RelayRecoveryReasonCode } from "../services/relay-recovery-types";
 import { createDefaultRelayRuntimeSnapshot } from "../services/relay-runtime-contracts";
 import {
   resolveCommunityCandidateRelayUrls,

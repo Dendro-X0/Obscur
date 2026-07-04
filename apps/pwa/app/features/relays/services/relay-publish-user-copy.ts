@@ -1,4 +1,8 @@
 import type { DeliveryReasonCode } from "@dweb/core/security-foundation-contracts";
+import { isLocalWorkspaceRelayHost } from "@/app/features/groups/services/workspace-relay-url";
+
+export const LOCAL_COMMUNITY_RELAY_UNREACHABLE_MESSAGE =
+  "Local community relay (ws://localhost:7000) is not running. Start it with pnpm dev:relay:docker, or use pnpm dev:desktop:online to start the full dev stack.";
 
 export type RelayPublishOutcomeContext = Readonly<{
   success: boolean;
@@ -46,6 +50,7 @@ export const getRelayPublishFailureUserMessage = (params: Readonly<{
   successCount?: number;
   totalRelays?: number;
   partialWireDelivery?: boolean;
+  communityRelayUrl?: string;
 }>): string => {
   if (params.partialWireDelivery) {
     return "Message left your device but relays have not confirmed delivery yet. Obscur will keep retrying in the background.";
@@ -53,6 +58,9 @@ export const getRelayPublishFailureUserMessage = (params: Readonly<{
 
   switch (params.reasonCode) {
     case "no_writable_relays":
+      if (params.communityRelayUrl && isLocalWorkspaceRelayHost(params.communityRelayUrl)) {
+        return LOCAL_COMMUNITY_RELAY_UNREACHABLE_MESSAGE;
+      }
       return "No writable relays are connected. Check network settings and try again.";
     case "quorum_not_met":
       return `Relay confirmation was partial (${params.successCount ?? 0}/${params.totalRelays ?? 0}). The message may not reach everyone yet.`;
@@ -89,6 +97,7 @@ export const formatRelayPublishFailureMessage = (
     fallback?: string;
     /** Short lead-in, e.g. "Could not publish governance vote" */
     operation?: string;
+    communityRelayUrl?: string;
   }>,
 ): string => {
   const reasonCode = inferRelayPublishReasonCode(outcome);
@@ -97,6 +106,7 @@ export const formatRelayPublishFailureMessage = (
     error: outcome.overallError,
     successCount: outcome.successCount,
     totalRelays: outcome.totalRelays,
+    communityRelayUrl: options?.communityRelayUrl,
   });
   const fallback = options?.fallback ?? DEFAULT_PUBLISH_FAILURE_FALLBACK;
   const message = body.trim().length > 0 ? body : fallback;
@@ -122,6 +132,7 @@ export const assertRelayPublishSuccess = (
   options?: Readonly<{
     fallback?: string;
     operation?: string;
+    communityRelayUrl?: string;
   }>,
 ): void => {
   if (!outcome.success) {

@@ -5,6 +5,7 @@ import type { ChatViewProps } from "./chat-view";
 import { ChatView } from "./chat-view";
 import type { Conversation, Message } from "../types";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
+import en from "@/app/lib/i18n/locales/en.json";
 
 type CapturedMessageListProps = Readonly<{
     selectedMessageIds?: Set<string>;
@@ -21,14 +22,17 @@ const messageMenuPropsRef = vi.hoisted(() => ({
     current: null as Record<string, unknown> | null,
 }));
 
-const searchMessagesMock = vi.hoisted(() => vi.fn());
+const searchConversationPersistedHistoryMock = vi.hoisted(() => vi.fn());
 const chatHeaderPropsRef = vi.hoisted(() => ({
     current: null as Record<string, unknown> | null,
 }));
 
 vi.mock("react-i18next", () => ({
     useTranslation: () => ({
-        t: (key: string, fallback?: string) => fallback ?? key,
+        t: (key: string, options?: Record<string, unknown>) => {
+            const template = (en.translation as Record<string, string | undefined>)[key] ?? key;
+            return template.replace(/\{\{\s*([^\s}]+)\s*\}\}/g, (_match, token: string) => String(options?.[token] ?? ""));
+        },
     }),
 }));
 
@@ -52,10 +56,8 @@ vi.mock("../../profile/hooks/use-resolved-profile-metadata", () => ({
     useResolvedProfileMetadata: () => null,
 }));
 
-vi.mock("../services/chat-state-store", () => ({
-    chatStateStoreService: {
-        searchMessages: searchMessagesMock,
-    },
+vi.mock("../services/conversation-history-persisted-search-port", () => ({
+    searchConversationPersistedHistory: searchConversationPersistedHistoryMock,
 }));
 
 vi.mock("./chat-header", () => ({
@@ -101,6 +103,10 @@ vi.mock("./message-list", () => ({
         messageListPropsRef.current = props;
         return <div data-testid="message-list" />;
     },
+}));
+
+vi.mock("@/app/features/runtime/use-prefer-native-touch-scroll", () => ({
+    usePreferNativeTouchScroll: () => false,
 }));
 
 const createConversation = (): Conversation => ({
@@ -187,14 +193,13 @@ const createBaseProps = (): ChatViewProps => ({
 
 describe("ChatView history search", () => {
     it("searches only in current conversation and forwards jump target to message list", async () => {
-        searchMessagesMock.mockResolvedValue([
+        searchConversationPersistedHistoryMock.mockResolvedValue([
             {
-                conversationId: "conv-a",
-                message: { id: "m-hit-a", content: "alpha keyword", timestampMs: 5_000 },
-            },
-            {
-                conversationId: "conv-b",
-                message: { id: "m-hit-b", content: "alpha keyword elsewhere", timestampMs: 6_000 },
+                messageId: "m-hit-a",
+                timestampMs: 5_000,
+                preview: "alpha keyword",
+                resultKind: "text",
+                voiceDurationLabel: null,
             },
         ]);
 
@@ -206,7 +211,7 @@ describe("ChatView history search", () => {
         });
 
         await waitFor(() => {
-            expect(searchMessagesMock).toHaveBeenCalledWith("alpha", 120);
+            expect(searchConversationPersistedHistoryMock).toHaveBeenCalledWith("conv-a", "alpha", 120);
         });
 
         expect(screen.getByText(/keyword/)).toBeInTheDocument();
@@ -237,19 +242,13 @@ describe("ChatView history search", () => {
     });
 
     it("renders voice-note metadata badge for attachment-only search hits", async () => {
-        searchMessagesMock.mockResolvedValue([
+        searchConversationPersistedHistoryMock.mockResolvedValue([
             {
-                conversationId: "conv-a",
-                message: {
-                    id: "m-voice-a",
-                    content: "",
-                    timestampMs: 7_000,
-                    attachments: [{
-                        kind: "audio",
-                        fileName: "voice-note-1774249000000-d64.webm",
-                        contentType: "audio/webm",
-                    }],
-                },
+                messageId: "m-voice-a",
+                timestampMs: 7_000,
+                preview: "Voice note",
+                resultKind: "voice_note",
+                voiceDurationLabel: "1:04",
             },
         ]);
 
@@ -261,7 +260,7 @@ describe("ChatView history search", () => {
         });
 
         await waitFor(() => {
-            expect(searchMessagesMock).toHaveBeenCalledWith("1:04", 120);
+            expect(searchConversationPersistedHistoryMock).toHaveBeenCalledWith("conv-a", "1:04", 120);
         });
 
         expect(screen.getByText("Voice Note 1:04")).toBeInTheDocument();
@@ -275,23 +274,20 @@ describe("ChatView history search", () => {
     });
 
     it("filters search results to voice notes when voice filter is selected", async () => {
-        searchMessagesMock.mockResolvedValue([
+        searchConversationPersistedHistoryMock.mockResolvedValue([
             {
-                conversationId: "conv-a",
-                message: { id: "m-text-a", content: "project update alpha", timestampMs: 8_000 },
+                messageId: "m-text-a",
+                timestampMs: 8_000,
+                preview: "project update alpha",
+                resultKind: "text",
+                voiceDurationLabel: null,
             },
             {
-                conversationId: "conv-a",
-                message: {
-                    id: "m-voice-b",
-                    content: "",
-                    timestampMs: 9_000,
-                    attachments: [{
-                        kind: "audio",
-                        fileName: "voice-note-1774249000000-d12.webm",
-                        contentType: "audio/webm",
-                    }],
-                },
+                messageId: "m-voice-b",
+                timestampMs: 9_000,
+                preview: "Voice note",
+                resultKind: "voice_note",
+                voiceDurationLabel: "0:12",
             },
         ]);
 
@@ -303,7 +299,7 @@ describe("ChatView history search", () => {
         });
 
         await waitFor(() => {
-            expect(searchMessagesMock).toHaveBeenCalledWith("voice", 120);
+            expect(searchConversationPersistedHistoryMock).toHaveBeenCalledWith("conv-a", "voice", 120);
         });
 
         expect(screen.getByText(/project update alpha/i)).toBeInTheDocument();
@@ -324,10 +320,13 @@ describe("ChatView history search", () => {
     });
 
     it("resolves persisted search hit ids to live message ids before jump", async () => {
-        searchMessagesMock.mockResolvedValue([
+        searchConversationPersistedHistoryMock.mockResolvedValue([
             {
-                conversationId: "conv-a",
-                message: { id: "evt-store-1", eventId: "evt-store-1", content: "test from store", timestampMs: 6_000 },
+                messageId: "evt-store-1",
+                timestampMs: 6_000,
+                preview: "test from store",
+                resultKind: "text",
+                voiceDurationLabel: null,
             },
         ]);
 
@@ -362,7 +361,7 @@ describe("ChatView history search", () => {
     });
 
     it("indexes live conversation messages when chat state store has no hits", async () => {
-        searchMessagesMock.mockResolvedValue([]);
+        searchConversationPersistedHistoryMock.mockResolvedValue([]);
 
         const props = createBaseProps();
         props.messages = [
@@ -391,10 +390,13 @@ describe("ChatView history search", () => {
     });
 
     it("does not render relative time labels when nowMs is null", async () => {
-        searchMessagesMock.mockResolvedValue([
+        searchConversationPersistedHistoryMock.mockResolvedValue([
             {
-                conversationId: "conv-a",
-                message: { id: "m-fresh", content: "fresh message", timestampMs: Date.now() },
+                messageId: "m-fresh",
+                timestampMs: Date.now(),
+                preview: "fresh message",
+                resultKind: "text",
+                voiceDurationLabel: null,
             },
         ]);
 
@@ -409,7 +411,7 @@ describe("ChatView history search", () => {
         });
 
         await waitFor(() => {
-            expect(searchMessagesMock).toHaveBeenCalledWith("fresh", 120);
+            expect(searchConversationPersistedHistoryMock).toHaveBeenCalledWith("conv-a", "fresh", 120);
         });
 
         expect(screen.getByRole("button", { name: /fresh message/i })).toBeInTheDocument();

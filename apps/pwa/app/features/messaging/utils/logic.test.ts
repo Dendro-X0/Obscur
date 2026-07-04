@@ -81,6 +81,27 @@ describe("messaging logic attachment inference", () => {
       }),
     ]);
   });
+
+  it("extracts adjacent markdown image links with scheme-less nostr.build urls", () => {
+    const content = [
+      "[dan-freeman-wAn4RfmXtxU-unsplash.jpg](image.nostr.build/6b5397c534f02d06ea2542ed52861e191bebbff169e3cee92c2d587118d68f38.jpg)",
+      "[garrett-parker-DlkF4-dbCOU-unsplash.jpg](image.nostr.build/b68455576647a2dc11a541f46d6ac1a648673a106e511a08d73c5a23ae5f0c4d.jpg)",
+    ].join(" ");
+
+    const extracted = extractAttachmentsFromContent(content);
+
+    expect(extracted).toHaveLength(2);
+    expect(extracted[0]).toEqual(expect.objectContaining({
+      kind: "image",
+      fileName: "dan-freeman-wAn4RfmXtxU-unsplash.jpg",
+      url: "https://image.nostr.build/6b5397c534f02d06ea2542ed52861e191bebbff169e3cee92c2d587118d68f38.jpg",
+    }));
+    expect(extracted[1]).toEqual(expect.objectContaining({
+      kind: "image",
+      fileName: "garrett-parker-DlkF4-dbCOU-unsplash.jpg",
+      url: "https://image.nostr.build/b68455576647a2dc11a541f46d6ac1a648673a106e511a08d73c5a23ae5f0c4d.jpg",
+    }));
+  });
 });
 
 describe("applyConnectionOverrides", () => {

@@ -1,40 +1,42 @@
 ---
 name: obscur-foundation-recovery
-description: Use when working on Obscur core recovery tasks involving identity, profile isolation, runtime lifecycle, relay transport, requests, messaging, or release-risk documentation. Focus on canonical owners, removing overlapping paths, and leaving evidence-backed outcomes.
+description: Obscur core-flow recovery triage. Use when identity, profile isolation, runtime lifecycle, relay transport, requests, DM, sync, or desktop Tauri flows are broken — logs and unit tests insufficient. Classifies failure, traces one user action, repairs lifecycle before UI. Requires obscur-session-gate and obscur-subtraction-change when parallel paths found. Do NOT use for community membership patches while band PAUSED or for UI-only polish.
 ---
 
 # Obscur Foundation Recovery
 
-Use this skill for core Obscur maintenance work where runtime drift is a real risk.
+Core maintenance when runtime drift is a real risk. **Community `groups/**` is PAUSED** — triage may document owners; no membership/reconcile patches unless handoff un-pauses.
 
-## When To Use
+## Procedure
 
-Trigger this skill when the task involves any of:
+1. Run [obscur-session-gate](../obscur-session-gate/SKILL.md) — post header before investigation diffs.
+2. Classify failure (pick one primary):
+   - identity/session ownership
+   - profile/window binding
+   - runtime lifecycle ordering
+   - relay transport/publish scope
+   - inbound routing/decrypt
+   - local persistence/sync checkpoint
+   - UI projection only (last — after transport ruled out)
+3. Trace **one user action** end to end: entry → canonical service → network → persistence → UI.
+4. If multiple canonical paths appear → apply [obscur-subtraction-change](../obscur-subtraction-change/SKILL.md); that is the bug class.
+5. Repair order: lifecycle → transport → persistence → UI projection.
+6. Validate: focused vitest + `pnpm exec tsc --noEmit`; L3/L4 if runtime claim.
+7. Close via [obscur-context-continuity](../obscur-context-continuity/SKILL.md).
 
-- identity import/unlock/restore,
-- profile/window isolation,
-- desktop multi-window ownership,
-- relay publish/subscribe behavior,
-- request or DM send/receive,
-- sync checkpoints or account rehydrate,
-- unreleased v0.9 recovery documentation.
+Detailed steps: [recovery-triage.md](../../workflows/recovery-triage.md).
 
-## Working Rules
+## Boot routing (do not read everything)
 
-1. Start by naming the canonical owner of the flow.
-2. Look for overlapping legacy/new paths before patching behavior.
-3. Treat sender-local UI state as provisional unless recipient/network evidence exists.
-4. Prefer contract tightening and path reduction over UI compensation.
-5. Leave behind one of:
-   - a test,
-   - a diagnostics surface,
-   - a doc update,
-   - a smaller boundary.
-6. Maintain continuity by updating `docs/handoffs/current-session.md` before ending each substantial thread.
+Start from [`docs/START-HERE.md`](../../../docs/START-HERE.md). Domain pointers:
 
-## Repository Hotspots
+| Domain | Read next |
+|--------|-----------|
+| Architecture owners | [12-core-architecture-truth-map.md](../../../docs/encyclopedia/12-core-architecture-truth-map.md) |
+| DM / messaging | [exploration/modules/02-messaging-dm.md](../../../docs/exploration/modules/02-messaging-dm.md) |
+| Community (paused) | [community-relay-technical-issues-register-2026-06.md](../../../docs/program/community-relay-technical-issues-register-2026-06.md) |
 
-Read only the relevant files first:
+## Hotspots (read only what the trace needs)
 
 - `apps/pwa/app/features/auth/*`
 - `apps/pwa/app/features/runtime/*`
@@ -42,29 +44,30 @@ Read only the relevant files first:
 - `apps/pwa/app/features/relays/*`
 - `apps/pwa/app/features/messaging/*`
 - `apps/pwa/app/features/account-sync/*`
+- `apps/pwa/app/features/workspace-kernel/*`
 - `apps/desktop/src-tauri/src/*`
-- `docs/37-v0.9x-foundation-recovery-roadmap.md`
-- `docs/39-v0.9-r0-architectural-drift-control.md`
-- `docs/40-v0.9.0-beta-status-and-recovery-handoff.md`
 
-## Default Execution Loop
+## Anti-rationalization
 
-1. Classify the bug:
-   - lifecycle,
-   - ownership,
-   - transport,
-   - sync,
-   - projection.
-2. Trace one user action end to end.
-3. Identify any duplicate mutation paths.
-4. Fix the earliest incorrect boundary.
-5. Validate with focused tests and `pnpm.cmd -C apps/pwa exec tsc --noEmit --pretty false`.
-6. Update docs/changelog if release truth changed.
+| Agent thought | Response |
+|---------------|----------|
+| "Start with the UI component" | Rule out lifecycle/transport first |
+| "Add logging everywhere" | Diagnostics at canonical boundary only |
+| "Sender state looks correct — ship it" | Recipient/network evidence required |
+| "Quick reconcile between ledger and directory" | PAUSED or subtract — no third owner |
 
-## Output Expectations
+## Output (partial work)
 
-When the work is partial, explicitly state:
+State explicitly:
 
-- what is now provably fixed,
-- what is still only inferred,
-- what still blocks release confidence.
+- what is provably fixed (with proof commands),
+- what is still inferred,
+- what blocks release confidence,
+- one next atomic step in handoff.
+
+## Working rules (inherited from project policy)
+
+1. Canonical owner named before patch.
+2. Sender-local UI state is provisional without recipient evidence.
+3. Leave behind: test, diagnostics surface, doc update, or smaller boundary.
+4. ≥3 failed iterations on same band → feasibility only ([rules/11](../../../rules/11-feasibility-and-modular-safety.md)).

@@ -1,8 +1,13 @@
 "use client";
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/app/lib/cn";
 import type { CommunityDirectoryMaterializationHonesty } from "../services/community-directory-materialization-policy";
+import {
+    resolveCommunityDirectoryHonestyDetail,
+    resolveCommunityDirectoryHonestySummary,
+} from "../utils/community-directory-honesty-copy";
 
 export function CommunityDirectoryHonestyNotice({
     honesty,
@@ -13,9 +18,13 @@ export function CommunityDirectoryHonestyNotice({
     className?: string;
     compact?: boolean;
 }>): React.JSX.Element | null {
+    const { t } = useTranslation();
     if (honesty.claimsAuthoritativeDirectory) {
         return null;
     }
+
+    const summary = resolveCommunityDirectoryHonestySummary(honesty, t);
+    const detail = resolveCommunityDirectoryHonestyDetail(honesty, t);
 
     if (compact) {
         return (
@@ -26,9 +35,9 @@ export function CommunityDirectoryHonestyNotice({
                 )}
                 role="status"
             >
-                <span className="font-medium text-zinc-300">{honesty.summary}.</span>
+                <span className="font-medium text-zinc-300">{summary}.</span>
                 {" "}
-                {honesty.detail}
+                {detail}
             </p>
         );
     }
@@ -41,8 +50,8 @@ export function CommunityDirectoryHonestyNotice({
             )}
             role="status"
         >
-            <p className="font-semibold text-sky-50">{honesty.summary}</p>
-            <p className="mt-1 text-xs text-sky-100/90">{honesty.detail}</p>
+            <p className="font-semibold text-sky-50">{summary}</p>
+            <p className="mt-1 text-xs text-sky-100/90">{detail}</p>
         </div>
     );
 }

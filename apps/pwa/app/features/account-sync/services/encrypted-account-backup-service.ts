@@ -7,7 +7,7 @@ import { cryptoService } from "@/app/features/crypto/crypto-service";
 import { roomKeyStore } from "@/app/features/crypto/room-key-store";
 import type { IdentityRecord } from "@dweb/core/identity-record";
 import { isTauri } from "@dweb/db";
-import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store";
+import { accountSyncChatStatePort } from "./account-sync-chat-state-port";
 import { messagePersistenceService } from "@/app/features/messaging/services/message-persistence-service";
 import { messagingClientOperations } from "@/app/features/messaging/services/messaging-client-operations";
 import { normalizeMessageDeleteTombstoneEntries } from "@dweb/storage-contracts/message-delete-tombstones";
@@ -554,7 +554,7 @@ const isExistingLocalPrivateState = (publicKeyHex: PublicKeyHex, profileId?: str
   const evidence = requestFlowEvidenceStoreInternals.readState(profileId);
   const outbox = contactRequestOutboxInternals.readState(profileId);
   const checkpoints = Array.from(syncCheckpointInternals.loadPersistedCheckpointState(profileId).values());
-  const chatState = chatStateStoreService.load(publicKeyHex);
+  const chatState = accountSyncChatStatePort.load(publicKeyHex);
   const relayList = relayListInternals.loadRelayListFromStorage(publicKeyHex, profileId);
   const profile = useProfileInternals.loadFromStorage().profile;
   const hasProfileDraft = profile.username.trim().length > 0
@@ -757,7 +757,7 @@ const buildBackupPayload = (
   const profileId = getResolvedProfileId();
   const messageDeleteTombstones = messagingClientOperations.loadDmTombstoneEntries(Date.now(), profileId);
   const chatState = sanitizePersistedChatStateMessagesByDeleteContract(
-    chatStateOverride ?? chatStateStoreService.load(publicKeyHex),
+    chatStateOverride ?? accountSyncChatStatePort.load(publicKeyHex),
     { durableDeleteIds: toMessageDeleteTombstoneIdSet(messageDeleteTombstones) }
   );
   const communityMembershipLedger = loadCommunityMembershipLedger(publicKeyHex);
@@ -798,11 +798,11 @@ const buildBackupPayloadWithHydratedChatState = async (publicKeyHex: PublicKeyHe
   }
   // Tauri DM truth lives in SQLite; merging IndexedDB chatState here resurrects deleted rows during restore.
   if (!isTauri()) {
-    await chatStateStoreService.hydrateMessages(publicKeyHex);
+    await accountSyncChatStatePort.hydrateMessages(publicKeyHex);
   }
   const hydratedChatState = await hydrateChatStateFromIndexedMessages(
     publicKeyHex,
-    chatStateStoreService.load(publicKeyHex)
+    accountSyncChatStatePort.load(publicKeyHex)
   );
   const localRoomKeys = await loadLocalRoomKeySnapshots();
   const reconstructedRoomKeys = reconstructRoomKeySnapshotsFromChatState(hydratedChatState);
@@ -1305,7 +1305,7 @@ const applyBackupPayload = async (
       : undefined;
     if (chatStateForNativeMirror) {
       // Backup restore should not immediately trigger mutation-driven backup publish.
-      chatStateStoreService.replace(publicKeyHex, chatStateForNativeMirror, {
+      accountSyncChatStatePort.replace(publicKeyHex, chatStateForNativeMirror, {
         emitMutationSignal: false,
         profileId,
       });
@@ -1317,7 +1317,7 @@ const applyBackupPayload = async (
         });
       }
       const restoredChatStateDiagnostics = summarizePersistedChatStateMessages(
-        chatStateStoreService.load(publicKeyHex),
+        accountSyncChatStatePort.load(publicKeyHex),
         publicKeyHex,
       );
       maybeEmitBackupRestoreHistoryRegression({
@@ -1760,7 +1760,7 @@ export const encryptedAccountBackupService = {
         restoreDmChatStateDomains: restoreOwnerSelection.restoreDmChatStateDomains,
       });
       const postApplyDiagnostics = summarizePersistedChatStateMessages(
-        chatStateStoreService.load(params.publicKeyHex),
+        accountSyncChatStatePort.load(params.publicKeyHex),
         params.publicKeyHex,
       );
       if (canonicalEvents.length > 0) {
@@ -1770,7 +1770,7 @@ export const encryptedAccountBackupService = {
           events: canonicalEvents,
         });
         const postCanonicalAppendDiagnostics = summarizePersistedChatStateMessages(
-          chatStateStoreService.load(params.publicKeyHex),
+          accountSyncChatStatePort.load(params.publicKeyHex),
           params.publicKeyHex,
         );
         maybeEmitBackupRestoreHistoryRegression({

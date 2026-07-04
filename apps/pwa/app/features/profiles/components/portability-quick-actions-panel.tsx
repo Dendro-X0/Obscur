@@ -3,6 +3,7 @@
 import type React from "react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslation } from "react-i18next";
 import { Button, toast } from "@dweb/ui-kit";
 import { Download, FolderOpen, Upload } from "lucide-react";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
@@ -16,6 +17,7 @@ import { openProfileArchivesFolderInFileManager } from "@/app/features/profiles/
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import {
   buildUnifiedAccountExportFileName,
+  buildUnifiedAccountExportFileNamePreview,
   loadPortabilityExportNamingPreset,
 } from "@/app/features/profiles/services/portability-export-naming";
 import { recordPortabilityExport } from "@/app/features/profiles/services/portability-export-history";
@@ -35,6 +37,7 @@ type Props = Readonly<{
 }>;
 
 export function PortabilityQuickActionsPanel(props: Props): React.JSX.Element {
+  const { t } = useTranslation();
   const router = useRouter();
   const isDesktop = hasNativeRuntime();
   const [isExporting, setIsExporting] = useState(false);
@@ -47,14 +50,14 @@ export function PortabilityQuickActionsPanel(props: Props): React.JSX.Element {
 
   const handleExport = async (): Promise<void> => {
     if (!props.publicKeyHex || isExporting) {
-      toast.error("Sign in to export a backup from this profile window.");
+      toast.error(t("profiles.portability.quickActions.signInToExport"));
       return;
     }
     setIsExporting(true);
     try {
       const privateKeyHex = await props.resolveActivePrivateKeyHex();
       if (!privateKeyHex) {
-        throw new Error("Unlock this account first.");
+        throw new Error(t("profiles.portability.quickActions.unlockFirst"));
       }
       const { envelope, serialized } = await exportUnifiedAccountBundle({
         publicKeyHex: props.publicKeyHex,
@@ -79,21 +82,23 @@ export function PortabilityQuickActionsPanel(props: Props): React.JSX.Element {
         absolutePath: writeResult.absolutePath,
         exportedAtUnixMs: envelope.exportedAtUnixMs,
         estimatedSizeBytes: serialized.length,
-        label: "Unified account export",
+        label: t("profiles.portability.quickActions.unifiedExportLabel"),
       });
       setLastExport({
         fileName: writeResult.fileName,
         absolutePath: writeResult.absolutePath,
         downloadTriggered: writeResult.downloadTriggered,
-        label: "Unified account export saved",
+        label: t("profiles.portability.quickActions.unifiedExportSaved"),
       });
       setExportRefreshToken((value) => value + 1);
-      toast.success(isDesktop ? "Backup saved to workspace-exports." : "Backup downloaded.");
+      toast.success(isDesktop
+        ? t("profiles.portability.quickActions.backupSavedDesktop")
+        : t("profiles.portability.quickActions.backupDownloaded"));
       if (writeResult.absolutePath) {
         await revealExportPathInFileManager(writeResult.absolutePath);
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Export failed.");
+      toast.error(error instanceof Error ? error.message : t("profiles.portability.quickActions.exportFailed"));
     } finally {
       setIsExporting(false);
     }
@@ -108,10 +113,10 @@ export function PortabilityQuickActionsPanel(props: Props): React.JSX.Element {
       {!props.compact ? (
         <div>
           <div className="text-xs font-black uppercase tracking-[0.18em] text-zinc-500 dark:text-zinc-400">
-            Backup &amp; restore
+            {t("profiles.portability.quickActions.title")}
           </div>
           <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">
-            One-tap export/import for this profile window. Desktop saves files under workspace-exports; mobile uses browser download.
+            {t("profiles.portability.quickActions.desc")}
           </p>
         </div>
       ) : null}
@@ -125,7 +130,7 @@ export function PortabilityQuickActionsPanel(props: Props): React.JSX.Element {
           onClick={() => void handleExport()}
         >
           <Download className="h-3.5 w-3.5" />
-          {isExporting ? "Exporting…" : "Export backup"}
+          {isExporting ? t("profiles.portability.quickActions.exporting") : t("profiles.portability.quickActions.exportBackup")}
         </Button>
         <Button
           type="button"
@@ -136,7 +141,7 @@ export function PortabilityQuickActionsPanel(props: Props): React.JSX.Element {
           onClick={() => void handleImport()}
         >
           <Upload className="h-3.5 w-3.5" />
-          {importFlow.isImporting ? "Importing…" : "Import backup"}
+          {importFlow.isImporting ? t("profiles.portability.quickActions.importing") : t("profiles.portability.quickActions.importBackup")}
         </Button>
         {isDesktop ? (
           <>
@@ -148,7 +153,7 @@ export function PortabilityQuickActionsPanel(props: Props): React.JSX.Element {
               onClick={() => void openExportsFolderInFileManager()}
             >
               <FolderOpen className="h-3.5 w-3.5" />
-              Exports folder
+              {t("profiles.portability.quickActions.exportsFolder")}
             </Button>
             <Button
               type="button"
@@ -158,7 +163,7 @@ export function PortabilityQuickActionsPanel(props: Props): React.JSX.Element {
               onClick={() => void openProfileArchivesFolderInFileManager()}
             >
               <FolderOpen className="h-3.5 w-3.5" />
-              Archives folder
+              {t("profiles.portability.quickActions.archivesFolder")}
             </Button>
           </>
         ) : null}
@@ -169,17 +174,29 @@ export function PortabilityQuickActionsPanel(props: Props): React.JSX.Element {
           className="h-9 text-xs"
           onClick={() => router.push("/settings?tab=profile#manual-portability")}
         >
-          Advanced options
+          {t("profiles.portability.quickActions.advancedOptions")}
         </Button>
       </div>
 
       <PortabilityLastExportCard kind="unified_account" refreshToken={exportRefreshToken} />
+      {props.publicKeyHex ? (
+        <p className="text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-400">
+          {t("profiles.portability.quickActions.exportFilenameHint", {
+            defaultValue: "Export saves as {{fileName}} in your Obscur export folder.",
+            fileName: buildUnifiedAccountExportFileNamePreview({
+              publicKeyHex: props.publicKeyHex,
+              profileLabel: props.profileLabel,
+              preset: loadPortabilityExportNamingPreset(),
+            }),
+          })}
+        </p>
+      ) : null}
       <PortabilityExportResultBanner result={lastExport} onDismiss={() => setLastExport(null)} />
       {importFlow.preflightDialog}
 
       {!props.publicKeyHex ? (
         <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
-          Sign in to this profile window to export or import account backups.
+          {t("profiles.portability.quickActions.signInHint")}
         </p>
       ) : null}
     </div>

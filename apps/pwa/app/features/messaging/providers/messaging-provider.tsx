@@ -17,17 +17,18 @@ import type {
     PersistedGroupMessage,
     PublicKeyHex
 } from "../types";
+import { messagingChatStateUiMirror } from "../services/messaging-chat-state-ui-mirror";
 import {
-    chatStateStoreService,
-    CHAT_STATE_REPLACED_EVENT,
-    type ChatStateReplacedEventDetail,
-} from "../services/chat-state-store";
+  CHAT_STATE_REPLACED_EVENT,
+  type ChatStateReplacedEventDetail,
+} from "@/app/features/messaging/services/chat-state-store-types";
 import { isGroupConversationId } from "@/app/features/groups/utils/group-conversation-id";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 import { useOptionalProfileMessageBus, useResolvedClientGateway } from "@/app/features/profiles/providers/profile-runtime-provider";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { subscribeChatStateReplacedDual } from "@/app/features/profiles/services/subscribe-chat-state-replaced-dual";
 import { subscribeMessagesIndexRebuiltDual } from "@/app/features/profiles/services/subscribe-messages-index-rebuilt-dual";
+import type { MessagingSidebarTab } from "../services/messaging-sidebar-tab";
 import { useAccountProjectionSnapshot } from "@/app/features/account-sync/hooks/use-account-projection-snapshot";
 import { resolveProjectionReadAuthority } from "@/app/features/account-sync/services/account-projection-read-authority";
 import { selectProjectionDmConversations } from "@/app/features/account-sync/services/account-projection-selectors";
@@ -121,8 +122,8 @@ interface MessagingContextType {
     hasHydrated: boolean;
 
     // UI State
-    sidebarTab: "chats" | "requests";
-    setSidebarTab: (tab: "chats" | "requests") => void;
+    sidebarTab: MessagingSidebarTab;
+    setSidebarTab: (tab: MessagingSidebarTab) => void;
     messageInput: string;
     setMessageInput: (input: string) => void;
     searchQuery: string;
@@ -286,7 +287,7 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         publicKeyHex: string;
         profileId: string;
     }>): void => {
-        const persisted = chatStateStoreService.load(params.publicKeyHex, { profileId: params.profileId });
+        const persisted = messagingChatStateUiMirror.load(params.publicKeyHex, { profileId: params.profileId });
         if (persisted) {
             if (!shouldNativeDmSkipChatStateSidebarConnectionHydrate()) {
                 const nextCreatedConnections = buildDmConnectionsFromPersistedChatState(
@@ -313,7 +314,7 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         publicKeyHex: string;
         profileId: string;
     }>): Promise<void> => {
-        const persisted = chatStateStoreService.load(params.publicKeyHex, { profileId: params.profileId });
+        const persisted = messagingChatStateUiMirror.load(params.publicKeyHex, { profileId: params.profileId });
         if (persisted) {
             if (!shouldNativeDmSkipChatStateSidebarConnectionHydrate()) {
                 const nextCreatedConnections = buildDmConnectionsFromPersistedChatState(
@@ -330,7 +331,7 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                 const sanitizedHiddenChatIds = removeGroupConversationIdsFromHidden(persisted.hiddenChatIds);
                 setHiddenChatIds(sanitizedHiddenChatIds);
                 if (sanitizedHiddenChatIds.length !== persisted.hiddenChatIds.length) {
-                    chatStateStoreService.updateHiddenChats(params.publicKeyHex, sanitizedHiddenChatIds);
+                    messagingChatStateUiMirror.updateHiddenChats(params.publicKeyHex, sanitizedHiddenChatIds);
                 }
             }
         }
@@ -352,7 +353,7 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const [mediaProcessingProgress, setMediaProcessingProgress] = useState<number>(0);
 
     // UI State
-    const [sidebarTab, setSidebarTab] = useState<"chats" | "requests">("chats");
+    const [sidebarTab, setSidebarTab] = useState<MessagingSidebarTab>("chats");
     const [messageInput, setMessageInput] = useState("");
     const [searchQuery, setSearchQuery] = useState("");
     const [isNewChatOpen, setIsNewChatOpen] = useState(false);
@@ -415,7 +416,7 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     };
 
     const clearHistory = (conversationId: string) => {
-        chatStateStoreService.deleteConversationMessages(conversationId);
+        messagingChatStateUiMirror.deleteConversationMessages(conversationId);
         messageBus.emit({ type: "message_deleted", conversationId, messageId: "all" });
         const next = createdConnectionsRef.current.map((connection) => (
             connection.id === conversationId
@@ -425,7 +426,7 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         createdConnectionsRef.current = next;
         setCreatedConnections(next);
         if (publicKeyHex) {
-            chatStateStoreService.updateConnections(publicKeyHex, next.map((connection) => toPersistedDmConversation(connection)));
+            messagingChatStateUiMirror.updateConnections(publicKeyHex, next.map((connection) => toPersistedDmConversation(connection)));
         }
     };
 
@@ -520,7 +521,7 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         if (!publicKeyHex || !hasHydrated) {
             return "idle";
         }
-        const persistedState = chatStateStoreService.load(publicKeyHex as PublicKeyHex, { profileId: activeProfileId });
+        const persistedState = messagingChatStateUiMirror.load(publicKeyHex as PublicKeyHex, { profileId: activeProfileId });
         return computePersistedMessageHistoryRevision(persistedState);
     }, [
         activeProfileId,
@@ -534,14 +535,14 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         if (!publicKeyHex || !hasHydrated) {
             return [] as ReadonlyArray<DmConversation>;
         }
-        const persistedState = chatStateStoreService.load(publicKeyHex as PublicKeyHex, { profileId: activeProfileId });
+        const persistedState = messagingChatStateUiMirror.load(publicKeyHex as PublicKeyHex, { profileId: activeProfileId });
         return buildDmConnectionsFromPersistedChatState(persistedState, publicKeyHex);
     }, [activeProfileId, publicKeyHex, hasHydrated, persistedMessageHistoryRevision]);
     const persistedDmConnectionMetadata = useMemo(() => {
         if (!publicKeyHex || !hasHydrated) {
             return [] as ReadonlyArray<DmConversation>;
         }
-        const persistedState = chatStateStoreService.load(publicKeyHex as PublicKeyHex, { profileId: activeProfileId });
+        const persistedState = messagingChatStateUiMirror.load(publicKeyHex as PublicKeyHex, { profileId: activeProfileId });
         return buildDmConnectionsFromPersistedCreatedConnections(persistedState);
     }, [activeProfileId, publicKeyHex, hasHydrated, persistedMessageHistoryRevision]);
     useEffect(() => {
@@ -755,7 +756,7 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             }
             unreadByConversationIdRef.current = isolated;
             setUnreadByConversationId(isolated);
-            if (publicKeyHex) chatStateStoreService.updateUnreadCounts(publicKeyHex, isolated);
+            if (publicKeyHex) messagingChatStateUiMirror.updateUnreadCounts(publicKeyHex, isolated);
         });
     }, [selectedConversation, unreadByConversationId, hasHydrated, publicKeyHex]);
 
@@ -767,7 +768,7 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         createdConnectionsRef.current = next;
         setCreatedConnections(next);
         if (publicKeyHex) {
-            chatStateStoreService.updateConnections(publicKeyHex, next.map(c => toPersistedDmConversation(c)));
+            messagingChatStateUiMirror.updateConnections(publicKeyHex, next.map(c => toPersistedDmConversation(c)));
         }
     }, [publicKeyHex]);
 
@@ -779,7 +780,7 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         unreadByConversationIdRef.current = next;
         setUnreadByConversationId(next);
         if (publicKeyHex) {
-            chatStateStoreService.updateUnreadCounts(publicKeyHex, next);
+            messagingChatStateUiMirror.updateUnreadCounts(publicKeyHex, next);
         }
     }, [publicKeyHex]);
 
@@ -791,7 +792,7 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         connectionOverridesByConnectionIdRef.current = next;
         setConnectionOverridesByConnectionId(next);
         if (publicKeyHex) {
-            chatStateStoreService.updateConnectionOverrides(publicKeyHex, toPersistedOverridesByConnectionId(next));
+            messagingChatStateUiMirror.updateConnectionOverrides(publicKeyHex, toPersistedOverridesByConnectionId(next));
         }
     }, [publicKeyHex]);
 
@@ -841,14 +842,14 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         if (!publicKeyHex) {
             return;
         }
-        chatStateStoreService.updatePinnedChats(publicKeyHex, pinnedChatIds);
+        messagingChatStateUiMirror.updatePinnedChats(publicKeyHex, pinnedChatIds);
     }, [pinnedChatIds, publicKeyHex]);
 
     useEffect(() => {
         if (!publicKeyHex) {
             return;
         }
-        chatStateStoreService.updateHiddenChats(publicKeyHex, hiddenChatIds);
+        messagingChatStateUiMirror.updateHiddenChats(publicKeyHex, hiddenChatIds);
     }, [hiddenChatIds, publicKeyHex]);
 
     // Removed: const updateMessagesByConversationId ...

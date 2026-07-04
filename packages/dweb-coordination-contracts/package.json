@@ -1,6 +1,6 @@
 {
   "name": "@dweb/coordination-contracts",
-  "version": "1.9.3",
+  "version": "1.9.10",
   "private": true,
   "type": "module",
   "description": "Shared coordination API contracts — membership delta signing.",
@@ -9,6 +9,7 @@
   },
   "exports": {
     ".": "./src/index.ts",
-    "./membership-delta": "./src/membership-delta.ts"
+    "./membership-delta": "./src/membership-delta.ts",
+    "./room-key-wrap": "./src/room-key-wrap.ts"
   }
 }

@@ -15,7 +15,7 @@ vi.mock("next/navigation", () => ({
     useSearchParams: () => new URLSearchParams(),
 }));
 
-vi.mock("@/app/features/groups/providers/group-provider", () => ({
+vi.mock("@/app/features/groups/providers/group-provider-port", () => ({
     useGroups: () => ({
         createdGroups: [{
             kind: "group",
@@ -96,9 +96,11 @@ vi.mock("@/app/features/network/providers/network-provider", () => ({
     }),
 }));
 
-vi.mock("@/app/features/groups/hooks/use-sealed-community", () => ({
+vi.mock("@/app/features/groups/hooks/use-sealed-community-types", () => ({
     toScopedRelayUrl: (value: string) => value,
-    useSealedCommunity: () => ({
+}));
+vi.mock("@/app/features/groups/hooks/sealed-community-port", () => ({
+    useLegacySealedCommunity: () => ({
         state: {
             metadata: { id: "testclub1", name: "Test Club", access: "invite-only" },
             membership: { status: "member", role: "member" },

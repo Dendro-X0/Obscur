@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getMessageDirectionCounts } from "../services/dm-conversation-hydrate-read-model";
+import { getMessageDirectionCounts } from "../services/dm-thread-read-model";
 import type { Message } from "../types";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 

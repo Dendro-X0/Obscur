@@ -3,6 +3,7 @@
 import React from "react";
 import Image from "next/image";
 import { X, type LucideIcon } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/app/lib/cn";
 import { useMobileCompactLayout } from "@/app/features/runtime/use-mobile-compact-layout";
 import {
@@ -44,6 +45,7 @@ export function GroupManagementShell({
     children: React.ReactNode;
 }>): React.JSX.Element | null {
     const compact = useMobileCompactLayout();
+    const { t } = useTranslation();
     if (!isOpen) {
         return null;
     }
@@ -106,7 +108,7 @@ export function GroupManagementShell({
                         type="button"
                         onClick={onClose}
                         className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white"
-                        aria-label="Close community settings"
+                        aria-label={t("groups.management.closeSettings")}
                     >
                         <X className="h-5 w-5" />
                     </button>
@@ -115,13 +117,13 @@ export function GroupManagementShell({
                 <div className="flex min-h-0 flex-1 flex-col sm:flex-row">
                     <nav
                         className="flex shrink-0 gap-1 overflow-x-auto border-b border-zinc-200 px-2 py-2 sm:w-52 sm:flex-col sm:border-b-0 sm:border-r sm:px-2 sm:py-3 dark:border-zinc-800"
-                        aria-label="Community settings sections"
+                        aria-label={t("groups.management.sectionsAria")}
                     >
                         {GROUP_MANAGEMENT_TABS.map((tab) => (
                             <NavButton
                                 key={tab.id}
                                 icon={tab.icon}
-                                label={tab.label}
+                                label={t(tab.labelKey)}
                                 isActive={activeTab === tab.id}
                                 badge={tab.id === "governance" ? governanceBadgeCount : 0}
                                 onClick={() => onTabChange(tab.id)}
@@ -135,9 +137,9 @@ export function GroupManagementShell({
                             compact ? "px-3 py-3" : "px-4 py-4 sm:px-5",
                         )}>
                             <div className="min-w-0">
-                                <h2 className="text-base font-semibold text-zinc-900 sm:text-lg dark:text-white">{tabCopy.title}</h2>
+                                <h2 className="text-base font-semibold text-zinc-900 sm:text-lg dark:text-white">{t(tabCopy.titleKey)}</h2>
                                 {!compact ? (
-                                    <p className="mt-0.5 text-sm text-zinc-500">{tabCopy.description}</p>
+                                    <p className="mt-0.5 text-sm text-zinc-500">{t(tabCopy.descriptionKey)}</p>
                                 ) : null}
                             </div>
                             {headerAction ? <div className="shrink-0">{headerAction}</div> : null}

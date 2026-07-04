@@ -5,7 +5,7 @@
 
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { appendCanonicalDmRemovedEvent } from "@/app/features/account-sync/services/account-event-ingest-bridge";
-import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store";
+import { messagingChatStateMessagePort } from "@/app/features/messaging/services/messaging-chat-state-message-port";
 import { messageBus } from "@/app/features/messaging/services/message-bus";
 import { getResolvedClientGateway } from "@/app/features/profiles/services/resolve-client-gateway";
 import type {
@@ -31,7 +31,7 @@ export const groupClientOperations = {
     messageIdentityIds: ReadonlyArray<string>;
     observedAtUnixMs: number;
   }>): void => {
-    chatStateStoreService.removeMessageIdentities(
+    messagingChatStateMessagePort.removeMessageIdentities(
       params.accountPublicKeyHex,
       params.conversationId,
       params.messageIdentityIds,

@@ -6,7 +6,7 @@ import { MessagePersistenceService } from "./message-persistence-service";
 import { PrivacySettingsService, defaultPrivacySettings } from "../../settings/services/privacy-settings-service";
 import { performanceMonitor } from "../lib/performance-monitor";
 import { messagingDB } from "@dweb/storage/indexed-db";
-import { CHAT_STATE_REPLACED_EVENT } from "./chat-state-store";
+import { CHAT_STATE_REPLACED_EVENT } from "@/app/features/messaging/services/chat-state-store-types";
 import { clearMessageDeleteTombstones, isMessageDeleteSuppressed } from "./message-delete-tombstone-store";
 
 vi.mock("@dweb/storage/indexed-db", () => ({
@@ -31,7 +31,7 @@ const profileScopeState = vi.hoisted(() => ({
     activeProfileId: "default",
 }));
 
-vi.mock("./chat-state-store", () => ({
+vi.mock("@/app/features/messaging/services/chat-state-store-legacy", () => ({
     CHAT_STATE_REPLACED_EVENT: "obscur:chat-state-replaced",
     chatStateStoreService: chatStateStoreMocks,
 }));

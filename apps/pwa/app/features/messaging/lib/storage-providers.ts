@@ -4,7 +4,21 @@ export interface StorageProvider {
     url: string;
     description: string;
     maxSize?: string;
+    localOnly?: boolean;
 }
+
+/** Sentinel URL — files stay encrypted on this device (profile unlock required). */
+export const LOCAL_VAULT_STORAGE_PROVIDER_URL = "obscur://vault/local-provider" as const;
+
+export const LOCAL_VAULT_STORAGE_PROVIDER: StorageProvider = {
+    name: "Obscur Local Vault",
+    url: LOCAL_VAULT_STORAGE_PROVIDER_URL,
+    description: "Encrypted on this device. Accessible only when this profile is unlocked.",
+    localOnly: true,
+};
+
+export const isLocalVaultStorageProvider = (provider: StorageProvider | null | undefined): boolean =>
+    provider?.localOnly === true || provider?.url === LOCAL_VAULT_STORAGE_PROVIDER_URL;
 
 export const RECOMMENDED_STORAGE_PROVIDERS: ReadonlyArray<StorageProvider> = [
     {

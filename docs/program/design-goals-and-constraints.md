@@ -5,7 +5,7 @@
 **Owner:** Maintainer  
 **Process (how to work):** [v1.9.x-execution-contract.md](./v1.9.x-execution-contract.md)
 
-This document answers **what Obscur is**, **what we are restoring in v1.9.x**, **what v2.0.0 means**, and **which rules must not be violated**. It does not replace the scope checklist ([version-roadmap-scope.md](./version-roadmap-scope.md)) or the active scope doc ([v1.9.4-scope.md](./v1.9.4-scope.md)).
+This document answers **what Obscur is**, **what we are restoring in v1.9.x**, **what v2.0.0 means**, and **which rules must not be violated**. It does not replace the scope checklist ([version-roadmap-scope.md](./version-roadmap-scope.md)) or the active scope doc ([v1.9.4-scope.md](../archive/program/inactive-2026-06/v1.9.4-scope.md)).
 
 ---
 
@@ -23,9 +23,9 @@ This document answers **what Obscur is**, **what we are restoring in v1.9.x**, *
 
 | Phase | Goal | Canonical docs |
 |-------|------|----------------|
-| **Now — v1.9.x** | Restore **in-scope features** to **I + V** (or **A** with copy) on desktop; kernel (Lane K) shipped in v1.9.0–v1.9.3 | [v1.9.x-release-train.md](./v1.9.x-release-train.md) · [v1.9.4-scope.md](./v1.9.4-scope.md) |
-| **Later — v2.0 prep** | Installers, website, demo kit, full scope verification pass | [v2.0-release-pipeline.md](./v2.0-release-pipeline.md) — **after** v1.9.x exit |
-| **v2.0.0 tag** | Production demo per full [version-roadmap-scope.md](./version-roadmap-scope.md) § exit | [obscur-2.0-milestone-roadmap.md](./obscur-2.0-milestone-roadmap.md) |
+| **Now — v1.9.x** | Restore **in-scope features** to **I + V** (or **A** with copy) on desktop; kernel (Lane K) shipped in v1.9.0–v1.9.3 | [v1.9.x-release-train.md](./v1.9.x-release-train.md) · [v1.9.4-scope.md](../archive/program/inactive-2026-06/v1.9.4-scope.md) |
+| **Later — v2.0 prep** | Installers, website, demo kit, full scope verification pass | [v2.0-release-pipeline.md](../archive/program/inactive-2026-06/v2.0-release-pipeline.md) — **after** v1.9.x exit |
+| **v2.0.0 tag** | Production demo per full [version-roadmap-scope.md](./version-roadmap-scope.md) § exit | [obscur-2.0-milestone-roadmap.md](../archive/program/inactive-2026-06/obscur-2.0-milestone-roadmap.md) |
 
 **v2.0.0 is delayed.** Do not shrink v2.0 scope silently; do not start v2.0 release prep while v1.9.x rows are still open without maintainer handoff note.
 
@@ -85,7 +85,7 @@ From [`rules/01-operating-principles.md`](../../rules/01-operating-principles.md
 
 **Reference only (not daily queue):** [radical-overhaul-v2-target.md](../architecture/radical-overhaul-v2-target.md) — long-term explicit-everything direction; implement **incrementally** via shell contract + owner subtraction during v1.9.x, not as a parallel rewrite program.
 
-**Archived alternate path:** [v2.0-resumption-charter.md](./v2.0-resumption-charter.md) (R-SHELL-first narrow v2.0) — do not execute unless maintainer re-charters in handoff.
+**Archived alternate path:** [v2.0-resumption-charter.md](../archive/program/inactive-2026-06/v2.0-resumption-charter.md) (R-SHELL-first narrow v2.0) — do not execute unless maintainer re-charters in handoff.
 
 ---
 
@@ -98,8 +98,8 @@ These are **not bugs to “fix” in v1.9.x** unless a scope row explicitly reop
 | ACC-01 | Delete-for-me durability across refresh/restore on open Nostr | [deletion-roster-limitations.md](../messaging/deletion-roster-limitations.md) |
 | ACC-02 | Roster multi-owner / MEM-001 on public relay | Same |
 | — | Cooperative “delete for everyone” UI | [cooperative-redaction-future.md](../messaging/cooperative-redaction-future.md) — v1.6+ |
-| ACC-03 | Cross-restart “stay signed in” / OAuth-style convenience | [auth-ux-redesign-future.md](./auth-ux-redesign-future.md) — self-custody; no centralized IdP; v1.9.6 keychain path **deferred** |
-| — | Public marketing / GitHub Releases promotion | After v2.0.0 — [maintainer-distribution-policy.md](./maintainer-distribution-policy.md) |
+| ACC-03 | Cross-restart “stay signed in” / OAuth-style convenience | **Cancelled on desktop** v1.9.10 — [v1.9.6-session-persistence-redesign.md](../archive/program/inactive-2026-06/v1.9.6-session-persistence-redesign.md) · manual unlock each session |
+| — | Public marketing / GitHub Releases promotion | After v2.0.0 — [maintainer-distribution-policy.md](../archive/program/inactive-2026-06/maintainer-distribution-policy.md) |
 
 Register: [unified-verification-issues-register.md](./unified-verification-issues-register.md)
 
@@ -107,14 +107,14 @@ Register: [unified-verification-issues-register.md](./unified-verification-issue
 
 ## 7. In scope for v1.9.5 (trust & security band)
 
-Work must trace to [v1.9.5-scope.md](./v1.9.5-scope.md) and Lane SEC in [version-roadmap-scope.md](./version-roadmap-scope.md):
+Work must trace to [v1.9.5-scope.md](./v1.9.10-scope.md) and Lane SEC in [version-roadmap-scope.md](./version-roadmap-scope.md):
 
 - **Anti-fraud (basic)** — recipient-local assessment on dm-kernel; cold-contact + financial signals; DM banner UI
 - **Anti-bot (basic)** — B2 inbound hardening, rate limits, steward disable
 - **Relay security** — operator trust bundle audit, relay trust scorer, private-trust setup docs
-- **Internal security validation** — [v1.9.5-security-validation-checklist.md](./v1.9.5-security-validation-checklist.md) signed before v2.0 prep
+- **Internal security validation** — [v1.9.5-security-validation-checklist.md](../archive/program/inactive-2026-06/v1.9.5-security-validation-checklist.md) signed before v2.0 prep
 
-**Product position:** B2Pro / private-trust deployment; assessments are **local and optional**, not platform moderation.
+**Product position:** B2Pro / private-trust deployment; assessments are **local and optional**, not platform moderation. Native defense is scoped to **information exchange** (DMs, group chats)—recipient-local after decrypt, **no** centralized scoring or private-data collection marketed as protection. Independent from [Anti-SE Shield](../archive/program/inactive-2026-06/anti-se-shield-mutual-reference.md) (design reference only).
 
 **Out of scope for v1.9.5:** v2.0 website/installers/demo kit, public promotion, full rule-pack CDN, iOS.
 
@@ -122,7 +122,7 @@ Work must trace to [v1.9.5-scope.md](./v1.9.5-scope.md) and Lane SEC in [version
 
 ## 8. In scope for v1.9.4 (closed)
 
-Historical — platform + community verification wrap-up. See [v1.9.4-scope.md](./v1.9.4-scope.md). Phase C exit @ `7a49e339`.
+Historical — platform + community verification wrap-up. See [v1.9.4-scope.md](../archive/program/inactive-2026-06/v1.9.4-scope.md). Phase C exit @ `7a49e339`.
 
 ---
 
@@ -137,9 +137,9 @@ When documents conflict, **higher number wins**:
 | 3 | [v1.9.x-execution-contract.md](./v1.9.x-execution-contract.md) |
 | 4 | [v1.9.x-release-train.md](./v1.9.x-release-train.md) + active scope doc |
 | 5 | [version-roadmap-scope.md](./version-roadmap-scope.md) |
-| 6 | [obscur-2.0-milestone-roadmap.md](./obscur-2.0-milestone-roadmap.md) (v2.0 destination) |
+| 6 | [obscur-2.0-milestone-roadmap.md](../archive/program/inactive-2026-06/obscur-2.0-milestone-roadmap.md) (v2.0 destination) |
 
-**Do not use as active queue:** [current-roadmap.md](./current-roadmap.md), [v2.0-resumption-charter.md](./v2.0-resumption-charter.md), [obscur-experiment-reset-2026-05.md](./obscur-experiment-reset-2026-05.md), `docs/archive/*` scope files unless handoff cites them for history.
+**Do not use as active queue:** [current-roadmap.md](../archive/program/inactive-2026-06/current-roadmap.md), [v2.0-resumption-charter.md](../archive/program/inactive-2026-06/v2.0-resumption-charter.md), [obscur-experiment-reset-2026-05.md](../archive/program/inactive-2026-06/obscur-experiment-reset-2026-05.md), `docs/archive/*` scope files unless handoff cites them for history.
 
 ---
 

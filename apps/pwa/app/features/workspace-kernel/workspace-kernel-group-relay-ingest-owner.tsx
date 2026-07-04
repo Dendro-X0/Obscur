@@ -6,7 +6,7 @@ import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { useOptionalProfileRuntime } from "@/app/features/profiles/providers/profile-runtime-provider";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
-import { useGroups } from "@/app/features/groups/providers/group-provider";
+import { useGroups } from "@/app/features/groups/providers/group-provider-port";
 import { isWorkspaceKernelAuthority } from "./workspace-kernel-policy";
 import {
   useWorkspaceKernelJoinedGroupsRelayIngest,

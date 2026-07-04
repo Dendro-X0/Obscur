@@ -101,6 +101,18 @@ vi.mock("@dweb/db", () => ({
   dbGetConversations: vi.fn(async () => nativeRuntimeMocks.sqliteConversations),
 }));
 
+vi.mock("@/app/features/dm-kernel/dm-kernel-sidebar-port", () => ({
+  loadDmKernelSidebar: vi.fn(async () => nativeRuntimeMocks.sqliteConversations.map((rec) => ({
+    kind: "dm" as const,
+    id: rec.id,
+    pubkey: rec.peer_pubkey,
+    displayName: rec.peer_pubkey,
+    lastMessage: rec.last_plaintext_preview ?? "",
+    unreadCount: rec.unread_count,
+    lastMessageTime: new Date(rec.last_message_at ?? 0),
+  }))),
+}));
+
 vi.mock("../../auth/hooks/use-identity", () => ({
   useIdentity: () => ({
     state: {
@@ -138,7 +150,7 @@ vi.mock("@/app/shared/log-app-event", () => ({
   logAppEvent: telemetryMocks.logAppEvent,
 }));
 
-vi.mock("../services/chat-state-store", () => ({
+vi.mock("@/app/features/messaging/services/chat-state-store-legacy", () => ({
   CHAT_STATE_REPLACED_EVENT: "obscur:chat-state-replaced",
   chatStateStoreService: chatStateStoreMocks,
 }));

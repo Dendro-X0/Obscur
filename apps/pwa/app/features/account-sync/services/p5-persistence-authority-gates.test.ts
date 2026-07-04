@@ -34,10 +34,10 @@ describe("P5 persistence authority gates", () => {
     expect(backupService).toContain("stripChatStateMessageBodiesForNativeMirror");
     expect(materialization).toContain("stripChatStateMessageBodiesForNativeMirror");
     expect(backupService).toMatch(
-      /isTauri\(\)\s*\?\s*stripChatStateMessageBodiesForNativeMirror[\s\S]*chatStateStoreService\.replace/,
+      /isTauri\(\)\s*\?\s*stripChatStateMessageBodiesForNativeMirror[\s\S]*accountSyncChatStatePort\.replace/,
     );
     expect(materialization).toMatch(
-      /if \(isTauri\(\)\) \{[\s\S]*stripChatStateMessageBodiesForNativeMirror[\s\S]*chatStateStoreService\.replace/,
+      /if \(isTauri\(\)\) \{[\s\S]*stripChatStateMessageBodiesForNativeMirror[\s\S]*accountSyncChatStatePort\.replace/,
     );
   });
 
@@ -69,7 +69,7 @@ describe("P5 persistence authority gates", () => {
     const sqliteStore = readSource("features/messaging/services/thread-history/group-thread-sqlite-store.ts");
     const appendOwner = readSource("features/messaging/services/thread-history/group-thread-append.ts");
     const chatActions = readSource("features/main-shell/hooks/use-chat-actions.ts");
-    const sealedCommunity = readSource("features/groups/hooks/use-sealed-community.ts");
+    const sealedCommunity = readSource("features/groups/hooks/use-sealed-community-legacy.ts");
 
     expect(persistence).toContain("resolveSealedGroupPersistenceProfileId");
     expect(persistence).toContain("loadGroupThreadPageFromSqlite");
@@ -86,14 +86,14 @@ describe("P5 persistence authority gates", () => {
 
   it("P5-SAF / B5: safety hooks registry wires receive gate, thread chrome, and invite economics", () => {
     const hooks = readSource("features/messaging/services/path-b-b5-extension-hooks.ts");
-    const handler = readSource("features/messaging/controllers/legacy/incoming-dm-event-handler.ts");
+    const receive = readSource("features/messaging/controllers/v2/dm-receive-pipeline.ts");
     const transport = readSource("features/messaging/services/request-transport-service.ts");
     const chatView = readSource("features/messaging/components/chat-view.tsx");
 
     expect(hooks).toContain("evaluatePathBIncomingDmSafetyGate");
     expect(hooks).toContain("evaluatePathBConnectionRequestEconomicsGate");
     expect(hooks).toContain("shouldShowPathBThreadWarningBanner");
-    expect(handler).toContain("evaluatePathBIncomingDmSafetyGate");
+    expect(receive).toContain("processIncomingEvent");
     expect(transport).toContain("evaluatePathBConnectionRequestEconomicsGate");
     expect(chatView).toContain("shouldShowPathBThreadWarningBanner");
   });
@@ -109,9 +109,9 @@ describe("P5 persistence authority gates", () => {
     expect(hits[0]).toContain("dm-relay-transport.ts");
 
     const hydrateSources = [
-      "features/messaging/services/dm-conversation-hydrate-indexed-scan.ts",
+      "features/messaging/services/thread-history/hydrate-indexed-scan.ts",
       "features/messaging/services/dm-conversation-hydrate-pipeline.ts",
-      "features/messaging/services/dm-conversation-hydrate-read-model.ts",
+      "features/messaging/services/thread-history/hydrate-read-model.ts",
     ];
     hydrateSources.forEach((relativePath) => {
       const source = readSource(relativePath);

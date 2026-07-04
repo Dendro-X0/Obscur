@@ -1,11 +1,23 @@
 import type { CommunityMode, RelayCapabilityTier } from "../types/community-mode";
 import type { MembershipSyncMode } from "./community-membership-sync-mode";
 
+export type CommunityDirectoryHonestyCopyVariant =
+    | "unconfigured"
+    | "public_default_managed"
+    | "public_default_coordination"
+    | "public_default_best_effort"
+    | "coordination_directory"
+    | "trusted_private_managed_partial"
+    | "trusted_private_sovereign"
+    | "intranet_managed"
+    | "intranet_sovereign";
+
 export type CommunityDirectoryMaterializationHonesty = Readonly<{
     /** When false, UI must not imply relay-backed full member directory truth. */
     claimsAuthoritativeDirectory: boolean;
     summary: string;
     detail: string;
+    copyVariant: CommunityDirectoryHonestyCopyVariant;
 }>;
 
 /**
@@ -26,6 +38,7 @@ export const resolveCommunityDirectoryMaterializationHonesty = (params: Readonly
             claimsAuthoritativeDirectory: false,
             summary: "Participant list is local evidence only",
             detail: "Enable relays in Settings before treating this roster as relay-backed directory truth.",
+            copyVariant: "unconfigured",
         };
     }
 
@@ -43,6 +56,11 @@ export const resolveCommunityDirectoryMaterializationHonesty = (params: Readonly
             detail: isManaged
                 ? "Switch to a trusted or private relay baseline to materialize workspace-grade directory claims."
                 : `Left/expelled members are applied on this device, but there is no exact live global roster on public relays.${coordinationDetail} Open Settings → Relays → Community membership sync for faster cross-device leave visibility when a coordination service is configured.`,
+            copyVariant: isManaged
+                ? "public_default_managed"
+                : coordinationPreferred
+                    ? "public_default_coordination"
+                    : "public_default_best_effort",
         };
     }
 
@@ -53,6 +71,7 @@ export const resolveCommunityDirectoryMaterializationHonesty = (params: Readonly
                 summary: "Coordination membership directory",
                 detail:
                     "Join and leave are applied from the Obscur coordination directory on this device. Relay roster lines are chat-delivery hints only.",
+                copyVariant: "coordination_directory",
             };
         }
         return {
@@ -63,6 +82,9 @@ export const resolveCommunityDirectoryMaterializationHonesty = (params: Readonly
             detail: isManaged
                 ? "Enable coordination in Settings → Relays for workspace-grade membership authority."
                 : "Custom relays improve discovery; exact live roster may still lag relay gossip.",
+            copyVariant: isManaged
+                ? "trusted_private_managed_partial"
+                : "trusted_private_sovereign",
         };
     }
 
@@ -72,6 +94,7 @@ export const resolveCommunityDirectoryMaterializationHonesty = (params: Readonly
             summary: "Coordination membership directory",
             detail:
                 "Join and leave are applied from the Obscur coordination directory on this device. Relay roster lines are chat-delivery hints only.",
+            copyVariant: "coordination_directory",
         };
     }
 
@@ -81,5 +104,8 @@ export const resolveCommunityDirectoryMaterializationHonesty = (params: Readonly
             ? "Intranet relay — directory materialization candidate"
             : "Private relay — stronger directory sync candidate",
         detail: "Roster counts reflect relay and participation evidence merged on this device.",
+        copyVariant: isManaged
+            ? "intranet_managed"
+            : "intranet_sovereign",
     };
 };

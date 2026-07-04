@@ -12,10 +12,25 @@ import {
   resolveNativeWindowLabel,
 } from "./desktop-profile-runtime";
 import { readDesktopWindowBootPayload } from "./desktop-window-boot-payload";
-import { retryNativeSessionBootstrapAfterProfileReady } from "@/app/features/auth/services/native-session-bootstrap-retry";
+import { startLocalSaveLibraryWindowBootstrap } from "./local-save-library-scan-bootstrap";
+import { runAuthKernelBootRestore } from "@/app/features/auth-kernel/auth-kernel-boot-owner";
+
+export const DESKTOP_PROFILE_BOOT_RECONCILED_EVENT = "obscur-desktop-profile-boot-reconciled";
 
 const WINDOW_LABEL_RESOLVE_TIMEOUT_MS = 250;
 const MAIN_WINDOW_LABEL = "main";
+
+let profileBootReconcileComplete = false;
+
+/** True after background profile bind + native refresh + deferred session restore on this page load. */
+export const isDesktopProfileBootReconcileComplete = (): boolean => profileBootReconcileComplete;
+
+const markDesktopProfileBootReconcileComplete = (): void => {
+  profileBootReconcileComplete = true;
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(DESKTOP_PROFILE_BOOT_RECONCILED_EVENT));
+  }
+};
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => {
   setTimeout(resolve, ms);
@@ -60,6 +75,7 @@ const applySynchronousProfileScope = (windowLabel: string): boolean => (
  */
 export const startDesktopWindowBoot = (): void => {
   resetDesktopProfileRefreshState();
+  profileBootReconcileComplete = false;
 
   if (!hasNativeRuntime()) {
     markDesktopShellBootReady();
@@ -75,6 +91,7 @@ export const startDesktopWindowBoot = (): void => {
   }
 
   markDesktopShellBootReady();
+  void startLocalSaveLibraryWindowBootstrap();
 
   void (async () => {
     const windowLabel = bootWindowLabel ?? await resolveWindowLabelWithTimeout();
@@ -91,11 +108,23 @@ export const startDesktopWindowBoot = (): void => {
       },
     });
 
-    void desktopProfileRuntime.refresh()
-      .then(() => retryNativeSessionBootstrapAfterProfileReady())
-      .catch(() => {
-        // Background reconcile only.
-      });
+    const bootProfileId = desktopProfileRuntime.getSnapshot().currentWindow.profileId;
+    if (bootProfileId) {
+      try {
+        await desktopProfileRuntime.bindCurrentWindowProfile(bootProfileId);
+      } catch {
+        // Best-effort: align Rust registry before session status checks.
+      }
+    }
+
+    try {
+      await desktopProfileRuntime.refresh();
+      await runAuthKernelBootRestore();
+    } catch {
+      // Background reconcile only.
+    } finally {
+      markDesktopProfileBootReconcileComplete();
+    }
 
     if (isSecondaryProfileWindowLabel(windowLabel)) {
       try {

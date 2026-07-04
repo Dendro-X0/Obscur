@@ -3,10 +3,15 @@ import type { Message } from "../types";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { ProjectionReadAuthority } from "@/app/features/account-sync/services/account-projection-read-authority";
 import { vi } from "vitest";
-import { assembleDmHydrateThreadReadModel, getMessageDirectionCounts } from "./dm-conversation-hydrate-read-model";
+import { assembleDmHydrateThreadReadModel } from "@/app/features/messaging/services/thread-history/dm-thread-history-legacy-port";
+import { getMessageDirectionCounts } from "./dm-thread-read-model";
 
 vi.mock("@/app/features/runtime/native-persistence-policy", () => ({
   requiresSqlitePersistence: vi.fn(() => false),
+}));
+
+vi.mock("./native-dm-read-policy", () => ({
+  isNativeDmSqliteReadOwner: vi.fn(() => false),
 }));
 
 import { requiresSqlitePersistence } from "@/app/features/runtime/native-persistence-policy";

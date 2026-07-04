@@ -36,7 +36,7 @@
 |-------|------|
 | `rules/` | Tool-agnostic agent policy (markdown modules) |
 | `AGENTS.md` | Short bootstrap every agent reads first |
-| `.cursor/rules/*.mdc` | Cursor-native scoping (`alwaysApply`, `globs`) |
+| `.cursor/rules/*.mdc` | Cursor-native always-on rules (`obscur-core`, `obscur-modular-iteration`, …) |
 | `.agent/skills/` | Task-specific playbooks (continuity, recovery, …) |
 | `.agent/workflows/` | Step-by-step procedures |
 | `docs/` | Product/architecture encyclopedia (not agent policy) |

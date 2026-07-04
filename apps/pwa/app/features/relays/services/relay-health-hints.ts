@@ -1,4 +1,4 @@
-import type { EnhancedRelayPoolResult } from "@/app/features/relays/hooks/enhanced-relay-pool";
+import type { EnhancedRelayPoolResult } from "@/app/features/relays/hooks/enhanced-relay-pool-types";
 import { relayHealthMonitor, type RelayHealthMetrics } from "@/app/features/relays/hooks/relay-health-monitor";
 import type { RelayHealthHint } from "./relay-primary-selector";
 

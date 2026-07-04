@@ -1,5 +1,38 @@
 import { describe, expect, it } from "vitest";
-import { normalizeLocalMediaDisplayFileName } from "./local-media-store";
+import {
+  buildLocalVaultOnlyUrl,
+  isEncryptedVaultStorageFileName,
+  isLocalVaultOnlyUrl,
+  normalizeLocalMediaDisplayFileName,
+  resolveVaultDisplayFileName,
+} from "./local-media-store";
+
+describe("local vault URL helpers", () => {
+  it("builds and detects local-only vault URLs", () => {
+    const url = buildLocalVaultOnlyUrl("abc123");
+    expect(url).toBe("obscur://vault/local/abc123");
+    expect(isLocalVaultOnlyUrl(url)).toBe(true);
+    expect(isLocalVaultOnlyUrl("https://image.nostr.build/x")).toBe(false);
+  });
+});
+
+describe("resolveVaultDisplayFileName", () => {
+  it("prefers attachment names over encrypted blob storage names", () => {
+    expect(resolveVaultDisplayFileName({
+      attachmentFileName: "storm-photo.jpg",
+      indexFileName: "bf2f9ab5d641772b682a1df5.obscurvault",
+      relativePath: "vault-media/bf2f9ab5d641772b682a1df5.obscurvault",
+    })).toBe("storm-photo.jpg");
+    expect(isEncryptedVaultStorageFileName("bf2f9ab5d641772b682a1df5.obscurvault")).toBe(true);
+  });
+
+  it("falls back to index file name when attachment name is missing", () => {
+    expect(resolveVaultDisplayFileName({
+      indexFileName: "meeting-notes.pdf",
+      relativePath: "vault-media/bf2f9ab5d641772b682a1df5.obscurvault",
+    })).toBe("meeting-notes.pdf");
+  });
+});
 
 describe("normalizeLocalMediaDisplayFileName", () => {
   it("strips legacy hashed cache prefixes", () => {

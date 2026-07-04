@@ -21,7 +21,7 @@ import {
   createRelayRuntimeSupervisor,
   useRelayRuntimeSnapshot,
 } from "../services/relay-runtime-supervisor";
-import type { RelayRecoveryReasonCode, RelayRecoverySnapshot } from "../services/relay-recovery-policy";
+import type { RelayRecoveryReasonCode, RelayRecoverySnapshot } from "../services/relay-recovery-types";
 import type { RelayRuntimeSnapshot } from "../services/relay-runtime-contracts";
 import { useDesktopProfileIsolationSnapshot } from "@/app/features/profiles/services/desktop-profile-runtime";
 import { useShellTransportReady } from "@/app/features/runtime/use-shell-transport-ready";
@@ -47,6 +47,14 @@ import { readOperatorWorkspaceRelayUrl } from "@/app/features/groups/services/op
 import { ExperimentRelayShell } from "./experiment-relay-shell";
 import { WorkspaceDevRelayBootstrapOwner } from "../components/workspace-dev-relay-bootstrap-owner";
 import { isExperimentOnlineEnabled } from "@/app/features/runtime/experiment-shell-policy";
+import { useTransportRelayPersistence } from "../hooks/use-transport-relay-persistence";
+import { mergeSupervisorRelayUrlCandidates } from "../services/transport-relay-supervisor-bootstrap";
+import {
+  resolveEffectiveDmTransportRelayUrls,
+  resolveEnginePoolHydrationRelayUrls,
+} from "../services/transport-relay-pool-hydration";
+import { useTransportEnginePoolSubscribe } from "../hooks/use-transport-engine-pool-subscribe";
+import { isTransportKernelAuthority } from "@/app/features/transport-kernel/transport-kernel-policy";
 
 interface RelayContextType {
   relayList: ReturnType<typeof useRelayList>;
@@ -98,7 +106,31 @@ const FullRelayProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 
   const shellReady = useShellTransportReady();
   const profileId = desktopSnapshot.currentWindow.profileId?.trim() || "default";
+  const windowLabel = desktopSnapshot.currentWindow.windowLabel;
+  const transportKernelAuthority = isTransportKernelAuthority();
   const [transportBootstrapReady, setTransportBootstrapReady] = useState(false);
+  const transportPersistence = useTransportRelayPersistence({
+    profileId,
+    windowLabel,
+    enabled: transportBootstrapReady && transportKernelAuthority,
+  });
+  const {
+    engineConfiguredRelayUrls,
+    engineCheckpointRelayUrls,
+    relayCheckpoints,
+  } = transportPersistence;
+  const engineConfiguredRelayUrlsKey = engineConfiguredRelayUrls.join("|");
+  const engineCheckpointRelayUrlsKey = engineCheckpointRelayUrls.join("|");
+
+  const engineOnlyRelayUrls = useMemo(() => {
+    const userRelaySet = new Set(
+      enabledRelayUrls.map((url) => url.trim()).filter((url) => url.length > 0),
+    );
+    return engineConfiguredRelayUrls
+      .map((url) => url.trim())
+      .filter((url) => url.length > 0 && !userRelaySet.has(url));
+  }, [enabledRelayUrlsKey, engineConfiguredRelayUrlsKey]);
+  const engineOnlyRelayUrlsKey = engineOnlyRelayUrls.join("|");
 
   useEffect(() => {
     if (!shellReady) {
@@ -124,37 +156,6 @@ const FullRelayProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 
   const relayPool = useRelayPool(transportBootstrapReady ? poolRelayUrls : []);
   const relayPoolRef = useRef(relayPool);
-
-  const { hints: relayHealthHints, hintsSignature, reconcileHintsSignature } = useRelayHealthHints({
-    orderedEnabledUrls: enabledRelayUrls,
-    pool: relayPool,
-    enabled: transportBootstrapReady,
-  });
-
-  const { selection: relaySelection, setPrimaryManual } = useRelayPrimarySelection(
-    enabledRelayUrls,
-    relayHealthHints,
-  );
-
-  const relaySelectionRef = useRef(relaySelection);
-  useEffect(() => {
-    relaySelectionRef.current = relaySelection;
-  }, [relaySelection]);
-
-  const activePoolRelayUrls = useMemo(() => (
-    resolveActivePoolRelayUrls({
-      mode: relayTransportMode,
-      orderedEnabledUrls: enabledRelayUrls,
-      selection: relaySelection,
-      hints: relayHealthHints,
-    })
-  ), [
-    relayTransportMode,
-    enabledRelayUrlsKey,
-    relaySelection.primaryUrl,
-    relaySelection.standbyUrls.join("|"),
-    reconcileHintsSignature,
-  ]);
 
   const [operatorWorkspaceRelayUrl, setOperatorWorkspaceRelayUrl] = useState<string | null>(
     () => (typeof window === "undefined" ? null : readOperatorWorkspaceRelayUrl()),
@@ -191,6 +192,62 @@ const FullRelayProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     })
   ), [communityCandidateRelayUrls.join("|"), operatorWorkspaceRelayUrl]);
 
+  const enginePoolHydrationRelayUrls = useMemo(() => (
+    transportKernelAuthority
+      ? resolveEnginePoolHydrationRelayUrls({
+        userEnabledRelayUrls: enabledRelayUrls,
+        customNodeRelayUrls,
+        engineConfiguredRelayUrls,
+        engineCheckpointRelayUrls,
+      })
+      : []
+  ), [
+    transportKernelAuthority,
+    enabledRelayUrlsKey,
+    customNodeRelayUrls.join("|"),
+    engineConfiguredRelayUrlsKey,
+    engineCheckpointRelayUrlsKey,
+  ]);
+
+  const effectiveDmTransportRelayUrls = useMemo(() => (
+    resolveEffectiveDmTransportRelayUrls({
+      userDmTransportRelayUrls: enabledRelayUrls,
+      enginePoolHydrationRelayUrls,
+    })
+  ), [enabledRelayUrlsKey, enginePoolHydrationRelayUrls.join("|")]);
+  const effectiveDmTransportRelayUrlsKey = effectiveDmTransportRelayUrls.join("|");
+
+  const { hints: relayHealthHints, hintsSignature, reconcileHintsSignature } = useRelayHealthHints({
+    orderedEnabledUrls: effectiveDmTransportRelayUrls,
+    pool: relayPool,
+    enabled: transportBootstrapReady,
+  });
+
+  const { selection: relaySelection, setPrimaryManual } = useRelayPrimarySelection(
+    effectiveDmTransportRelayUrls,
+    relayHealthHints,
+  );
+
+  const relaySelectionRef = useRef(relaySelection);
+  useEffect(() => {
+    relaySelectionRef.current = relaySelection;
+  }, [relaySelection]);
+
+  const activePoolRelayUrls = useMemo(() => (
+    resolveActivePoolRelayUrls({
+      mode: relayTransportMode,
+      orderedEnabledUrls: effectiveDmTransportRelayUrls,
+      selection: relaySelection,
+      hints: relayHealthHints,
+    })
+  ), [
+    relayTransportMode,
+    effectiveDmTransportRelayUrlsKey,
+    relaySelection.primaryUrl,
+    relaySelection.standbyUrls.join("|"),
+    reconcileHintsSignature,
+  ]);
+
   const poolConnectionRelayUrls = useMemo(() => (
     mergeNostrPoolWithCustomNodeRelayUrls({
       nostrActivePoolRelayUrls: activePoolRelayUrls,
@@ -199,14 +256,17 @@ const FullRelayProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   ), [activePoolRelayUrls.join("|"), customNodeRelayUrls.join("|")]);
 
   useEffect(() => {
-    if (enabledRelayUrls.length === 0 && customNodeRelayUrls.length === 0) {
+    const hasUserOrCustomRelays = enabledRelayUrls.length > 0 || customNodeRelayUrls.length > 0;
+    const hasEngineHydration = enginePoolHydrationRelayUrls.length > 0;
+    if (!hasUserOrCustomRelays && !hasEngineHydration) {
       setPoolRelayUrls([]);
       return;
     }
     if (!transportBootstrapReady) {
       const bootstrapUrl = poolConnectionRelayUrls[0]
-        ?? enabledRelayUrls[0]
-        ?? customNodeRelayUrls[0];
+        ?? effectiveDmTransportRelayUrls[0]
+        ?? customNodeRelayUrls[0]
+        ?? enginePoolHydrationRelayUrls[0];
       if (!bootstrapUrl) {
         setPoolRelayUrls([]);
         return;
@@ -216,22 +276,29 @@ const FullRelayProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       ));
       return;
     }
-    const nextKey = poolConnectionRelayUrls.join("|");
-    setPoolRelayUrls((previous) => (previous.join("|") === nextKey ? previous : poolConnectionRelayUrls));
+    const nextKey = poolConnectionRelayUrls.length > 0
+      ? poolConnectionRelayUrls.join("|")
+      : enginePoolHydrationRelayUrls.join("|");
+    const nextUrls = poolConnectionRelayUrls.length > 0
+      ? poolConnectionRelayUrls
+      : enginePoolHydrationRelayUrls;
+    setPoolRelayUrls((previous) => (previous.join("|") === nextKey ? previous : nextUrls));
   }, [
     enabledRelayUrlsKey,
     enabledRelayUrls,
     transportBootstrapReady,
     poolConnectionRelayUrls,
     customNodeRelayUrls.join("|"),
+    effectiveDmTransportRelayUrlsKey,
+    enginePoolHydrationRelayUrls.join("|"),
   ]);
 
   const standbyProbeUrls = useMemo(() => (
     resolveStandbyProbeUrls({
-      orderedEnabledUrls: enabledRelayUrls,
+      orderedEnabledUrls: effectiveDmTransportRelayUrls,
       activePoolUrls: activePoolRelayUrls,
     })
-  ), [enabledRelayUrlsKey, activePoolRelayUrls.join("|")]);
+  ), [effectiveDmTransportRelayUrlsKey, activePoolRelayUrls.join("|")]);
 
   const relayConnectionSignature = useMemo(
     () => relayPool.connections.map((connection) => `${connection.url}:${connection.status}`).join("|"),
@@ -325,17 +392,42 @@ const FullRelayProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 
   useStandbyLatencyProbe(transportBootstrapReady ? standbyProbeUrls : []);
 
+  const permanentPoolUrls = poolConnectionRelayUrls.length > 0
+    ? poolConnectionRelayUrls
+    : poolRelayUrls;
+  useTransportEnginePoolSubscribe({
+    enabled: transportBootstrapReady && transportKernelAuthority,
+    pool: relayPool,
+    permanentPoolUrls,
+    engineOnlyRelayUrls,
+    engineCheckpointRelayUrls,
+  });
+
   useEffect(() => {
     if (!transportBootstrapReady) {
       return;
     }
+    const supervisorActiveRelayUrls = poolConnectionRelayUrls.length > 0
+      ? poolConnectionRelayUrls
+      : activePoolRelayUrls.length > 0
+        ? activePoolRelayUrls
+        : effectiveDmTransportRelayUrls;
     relayRuntimeSupervisor.configure({
       pool: relayPoolRef.current,
-      enabledRelayUrls: activePoolRelayUrls,
-      allEnabledRelayUrls: enabledRelayUrlsRef.current,
+      enabledRelayUrls: supervisorActiveRelayUrls,
+      allEnabledRelayUrls: transportKernelAuthority
+        ? mergeSupervisorRelayUrlCandidates({
+          userEnabledRelayUrls: enabledRelayUrlsRef.current,
+          engineConfiguredRelayUrls,
+        })
+        : enabledRelayUrlsRef.current,
+      userEnabledRelayUrls: enabledRelayUrlsRef.current,
+      engineConfiguredRelayUrls: transportKernelAuthority ? engineConfiguredRelayUrls : [],
+      engineCheckpointRelayUrls: transportKernelAuthority ? engineCheckpointRelayUrls : [],
+      engineRelayCheckpointCount: transportKernelAuthority ? relayCheckpoints.length : 0,
       attemptPrimaryFailover: () => attemptPrimaryFailoverRef.current(),
       scope: {
-        windowLabel: desktopSnapshot.currentWindow.windowLabel,
+        windowLabel,
         profileId: desktopSnapshot.currentWindow.profileId,
         publicKeyHex,
         transportRoutingMode,
@@ -344,15 +436,21 @@ const FullRelayProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     });
   }, [
     transportBootstrapReady,
+    transportKernelAuthority,
     desktopSnapshot.currentWindow.profileId,
-    desktopSnapshot.currentWindow.windowLabel,
+    windowLabel,
     relaySelection.primaryUrl,
     enabledRelayUrlsKey,
+    engineConfiguredRelayUrlsKey,
+    engineCheckpointRelayUrlsKey,
+    relayCheckpoints.length,
     publicKeyHex,
     transportProxySummary,
     transportRoutingMode,
     relayRuntimeSupervisor,
     activePoolRelayUrls.join("|"),
+    poolConnectionRelayUrls.join("|"),
+    effectiveDmTransportRelayUrlsKey,
   ]);
 
   useEffect(() => {
@@ -449,13 +547,13 @@ const FullRelayProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     }
     const timerId = window.setTimeout(() => {
       if (!relayPoolRef.current.isConnected()) {
-        relayPoolRef.current.reconnectAll();
+        void relayRuntimeSupervisor.triggerRecovery("no_writable_relays");
       }
     }, 750);
     return () => {
       window.clearTimeout(timerId);
     };
-  }, [transportBootstrapReady, enabledRelayUrlsKey]);
+  }, [transportBootstrapReady, enabledRelayUrlsKey, relayRuntimeSupervisor]);
 
   const triggerRelayRecovery = useCallback((reason: RelayRecoveryReasonCode = "manual") => {
     return relayRuntimeSupervisor.triggerRecovery(reason);

@@ -1,4 +1,8 @@
 import { normalizeCommunityInvitePayload } from "@/app/features/groups/utils/community-invite-payload";
+import {
+  resolveCommunityInvitePreviewFromSelfForContent,
+  type CommunityInviteConversationPreviewContext,
+} from "@/app/features/groups/services/community-invite-display-boundary";
 import { stripVoiceCallControlPreview } from "./realtime-voice-signaling";
 
 /** @deprecated Legacy sidebar copy — remapped when {@link ConversationPreviewContext} is available. */
@@ -12,10 +16,7 @@ export const COMMUNITY_INVITE_RESPONSE_CANCELED_PREVIEW = "Community invite with
 /** @deprecated Legacy sidebar copy — remapped when {@link ConversationPreviewContext} is available. */
 export const COMMUNITY_INVITE_RESPONSE_GENERIC_PREVIEW = "Community invite update";
 
-export type ConversationPreviewContext = Readonly<{
-  peerDisplayName?: string;
-  isOutgoing?: boolean;
-}>;
+export type ConversationPreviewContext = CommunityInviteConversationPreviewContext;
 
 const PREVIEW_MAX_LENGTH = 140;
 
@@ -36,10 +37,11 @@ const peerLabel = (context?: ConversationPreviewContext): string => {
 
 const readInvitePreview = (
   metadataName: string | undefined,
+  fromSelf: boolean | undefined,
   context?: ConversationPreviewContext,
 ): string => {
   const communityName = metadataName?.trim();
-  if (context?.isOutgoing === true) {
+  if (fromSelf === true) {
     return communityName
       ? `You sent an invitation to ${communityName}`
       : "You sent an invitation";
@@ -49,13 +51,16 @@ const readInvitePreview = (
     : `${peerLabel(context)} sent you an invitation`;
 };
 
-const readInviteResponsePreview = (status: unknown, context?: ConversationPreviewContext): string => {
+const readInviteResponsePreview = (
+  status: unknown,
+  fromSelf: boolean | undefined,
+  context?: ConversationPreviewContext,
+): string => {
   const normalized = typeof status === "string" ? status.trim().toLowerCase() : "";
-  const fromYou = context?.isOutgoing === true;
-  const fromPeer = context?.isOutgoing === false;
+  const fromPeer = fromSelf === false;
 
   if (normalized === "accepted") {
-    if (fromYou) {
+    if (fromSelf === true) {
       return "You accepted the invitation";
     }
     if (fromPeer) {
@@ -64,7 +69,7 @@ const readInviteResponsePreview = (status: unknown, context?: ConversationPrevie
     return "Invitation accepted";
   }
   if (normalized === "declined" || normalized === "rejected") {
-    if (fromYou) {
+    if (fromSelf === true) {
       return "You declined the invitation";
     }
     if (fromPeer) {
@@ -73,7 +78,7 @@ const readInviteResponsePreview = (status: unknown, context?: ConversationPrevie
     return "Invitation declined";
   }
   if (normalized === "canceled" || normalized === "cancelled") {
-    if (fromYou) {
+    if (fromSelf === true) {
       return "You withdrew the invitation";
     }
     if (fromPeer) {
@@ -92,19 +97,36 @@ const remapLegacyInvitePreview = (
     const legacyName = normalized.startsWith("Community invite:")
       ? normalized.slice("Community invite:".length).trim()
       : undefined;
-    return readInvitePreview(legacyName, context);
+    const fromSelf = resolveCommunityInvitePreviewFromSelfForContent(normalized, context, "invite");
+    return readInvitePreview(legacyName, fromSelf, context);
   }
   if (normalized === COMMUNITY_INVITE_RESPONSE_ACCEPTED_PREVIEW) {
-    return readInviteResponsePreview("accepted", context);
+    return readInviteResponsePreview(
+      "accepted",
+      resolveCommunityInvitePreviewFromSelfForContent(normalized, context, "response", "accepted"),
+      context,
+    );
   }
   if (normalized === COMMUNITY_INVITE_RESPONSE_DECLINED_PREVIEW) {
-    return readInviteResponsePreview("declined", context);
+    return readInviteResponsePreview(
+      "declined",
+      resolveCommunityInvitePreviewFromSelfForContent(normalized, context, "response", "declined"),
+      context,
+    );
   }
   if (normalized === COMMUNITY_INVITE_RESPONSE_CANCELED_PREVIEW) {
-    return readInviteResponsePreview("canceled", context);
+    return readInviteResponsePreview(
+      "canceled",
+      resolveCommunityInvitePreviewFromSelfForContent(normalized, context, "response", "canceled"),
+      context,
+    );
   }
   if (normalized === COMMUNITY_INVITE_RESPONSE_GENERIC_PREVIEW) {
-    return readInviteResponsePreview("", context);
+    return readInviteResponsePreview(
+      "",
+      resolveCommunityInvitePreviewFromSelfForContent(normalized, context, "response"),
+      context,
+    );
   }
   return null;
 };
@@ -133,10 +155,25 @@ export const formatConversationMessagePreview = (
       const type = typeof parsed.type === "string" ? parsed.type.trim() : "";
       if (type === "community-invite") {
         const payload = normalizeCommunityInvitePayload(parsed);
-        return readInvitePreview(payload?.metadata?.name, context);
+        const fromSelf = resolveCommunityInvitePreviewFromSelfForContent(normalized, context, "invite");
+        return readInvitePreview(payload?.metadata?.name, fromSelf, context);
       }
       if (type === "community-invite-response") {
-        return readInviteResponsePreview(parsed.status, context);
+        const responseStatus = typeof parsed.status === "string"
+          ? parsed.status.trim().toLowerCase()
+          : "";
+        const normalizedStatus = responseStatus === "declined"
+          || responseStatus === "accepted"
+          || responseStatus === "canceled"
+          ? responseStatus
+          : undefined;
+        const fromSelf = resolveCommunityInvitePreviewFromSelfForContent(
+          normalized,
+          context,
+          "response",
+          normalizedStatus,
+        );
+        return readInviteResponsePreview(parsed.status, fromSelf, context);
       }
     } catch {
       // Fall through to plain-text preview.

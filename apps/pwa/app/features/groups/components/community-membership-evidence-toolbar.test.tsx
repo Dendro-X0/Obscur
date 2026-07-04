@@ -1,10 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { CommunityMembershipEvidenceToolbar } from "./community-membership-evidence-toolbar";
+import en from "@/app/lib/i18n/locales/en.json";
 
 vi.mock("react-i18next", () => ({
     useTranslation: () => ({
-        t: (_key: string, fallback: string) => fallback,
+        t: (key: string, options?: Record<string, unknown>) => {
+            const template = (en.translation as Record<string, string | undefined>)[key] ?? key;
+            return template.replace(/\{\{(\w+)\}\}/g, (_, token: string) => String(options?.[token] ?? ""));
+        },
     }),
 }));
 

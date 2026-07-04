@@ -3,8 +3,10 @@
  */
 
 import type { Message } from "../../types";
-import type { LoadEarlierDmConversationMessagesParams } from "../dm-conversation-materialization-load-earlier";
-import type { LoadEarlierDmConversationMessagesResult } from "../dm-conversation-materialization-load-earlier";
+import type {
+  LoadEarlierDmConversationMessagesParams,
+  LoadEarlierDmConversationMessagesResult,
+} from "./load-earlier-types";
 
 export type ThreadKind = "dm" | "group";
 

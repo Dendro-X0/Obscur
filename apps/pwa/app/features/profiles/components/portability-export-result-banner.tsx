@@ -1,6 +1,7 @@
 "use client";
 
 import type React from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@dweb/ui-kit";
 import { FolderOpen, FileSearch } from "lucide-react";
 import {
@@ -21,6 +22,7 @@ type Props = Readonly<{
 }>;
 
 export function PortabilityExportResultBanner(props: Props): React.JSX.Element | null {
+  const { t } = useTranslation();
   const { result } = props;
   if (!result) {
     return null;
@@ -36,7 +38,7 @@ export function PortabilityExportResultBanner(props: Props): React.JSX.Element |
       </div>
       {result.downloadTriggered ? (
         <p className="mt-1 text-[11px] text-emerald-800/80 dark:text-emerald-100/80">
-          Saved to your browser downloads folder.
+          {t("profiles.portability.exportResult.savedToDownloads")}
         </p>
       ) : null}
       <div className="mt-3 flex flex-wrap gap-2">
@@ -50,7 +52,7 @@ export function PortabilityExportResultBanner(props: Props): React.JSX.Element |
               onClick={() => void revealExportPathInFileManager(result.absolutePath!)}
             >
               <FileSearch className="h-3.5 w-3.5" />
-              Show File
+              {t("profiles.portability.exportResult.showFile")}
             </Button>
             <Button
               type="button"
@@ -60,7 +62,7 @@ export function PortabilityExportResultBanner(props: Props): React.JSX.Element |
               onClick={() => void openExportsFolderInFileManager()}
             >
               <FolderOpen className="h-3.5 w-3.5" />
-              Open Exports Folder
+              {t("profiles.portability.exportResult.openExportsFolder")}
             </Button>
           </>
         ) : null}
@@ -72,7 +74,7 @@ export function PortabilityExportResultBanner(props: Props): React.JSX.Element |
             className="h-8 text-xs"
             onClick={props.onDismiss}
           >
-            Dismiss
+            {t("profiles.portability.exportResult.dismiss")}
           </Button>
         ) : null}
       </div>

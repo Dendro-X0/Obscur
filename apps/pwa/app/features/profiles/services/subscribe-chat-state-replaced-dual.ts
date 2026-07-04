@@ -1,5 +1,5 @@
 import type { ProfileMessageBus } from "@dweb/core/profile-message-bus";
-import type { ChatStateReplacedEventDetail } from "@/app/features/messaging/services/chat-state-store";
+import type { ChatStateReplacedEventDetail } from "@/app/features/messaging/services/chat-state-store-types";
 
 export type ChatStateReplacedDetailPartial = Partial<ChatStateReplacedEventDetail>;
 

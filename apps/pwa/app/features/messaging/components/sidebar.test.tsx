@@ -99,6 +99,7 @@ const createBaseProps = (overrides: Partial<SidebarProps> = {}): SidebarProps =>
     activeTab: "chats",
     setActiveTab: vi.fn(),
     requests: [],
+    junkRequests: [],
     onAcceptRequest: vi.fn(),
     onIgnoreRequest: vi.fn(),
     onBlockRequest: vi.fn(),

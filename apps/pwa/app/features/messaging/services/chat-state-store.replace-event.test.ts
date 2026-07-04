@@ -5,7 +5,7 @@ import { emitAccountSyncMutation } from "@/app/shared/account-sync-mutation-sign
 import { createProfileMessageBus } from "@dweb/core/profile-message-bus";
 import { setProfileScopeOverride } from "@/app/features/profiles/services/profile-scope";
 import { setProfileRuntimeScope } from "@/app/features/profiles/services/profile-runtime-scope";
-import { chatStateStoreService } from "./chat-state-store";
+import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store-legacy";
 
 vi.mock("@/app/shared/account-sync-mutation-signal", () => ({
   emitAccountSyncMutation: vi.fn(),

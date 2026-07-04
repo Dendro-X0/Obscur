@@ -29,6 +29,32 @@ static LOGIN_ASSIST_CACHE: LazyLock<Mutex<HashMap<String, String>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 
 #[cfg(not(target_os = "android"))]
+static NSEC_CACHE: LazyLock<Mutex<HashMap<String, String>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+
+#[cfg(not(target_os = "android"))]
+fn remember_nsec_payload(profile_id: &str, nsec: &str) {
+    if let Ok(mut cache) = NSEC_CACHE.lock() {
+        cache.insert(profile_id.to_string(), nsec.to_string());
+    }
+}
+
+#[cfg(not(target_os = "android"))]
+fn cached_nsec_payload(profile_id: &str) -> Option<String> {
+    NSEC_CACHE
+        .lock()
+        .ok()
+        .and_then(|cache| cache.get(profile_id).cloned())
+}
+
+#[cfg(not(target_os = "android"))]
+fn forget_nsec_payload(profile_id: &str) {
+    if let Ok(mut cache) = NSEC_CACHE.lock() {
+        cache.remove(profile_id);
+    }
+}
+
+#[cfg(not(target_os = "android"))]
 fn remember_login_assist_payload(profile_id: &str, payload: &str) {
     if let Ok(mut cache) = LOGIN_ASSIST_CACHE.lock() {
         cache.insert(profile_id.to_string(), payload.to_string());
@@ -73,9 +99,15 @@ fn delete_entry(entry: &Entry) -> Result<(), keyring::Error> {
 /// Read nsec for `profile_id`, migrating a legacy keychain entry when found.
 #[cfg(not(target_os = "android"))]
 pub fn read_nsec_for_profile(profile_id: &str) -> Result<Option<String>, String> {
+    if let Some(cached) = cached_nsec_payload(profile_id) {
+        return Ok(Some(cached));
+    }
     let canonical = Entry::new(APP_SERVICE, &key_name_for_profile(profile_id)).map_err(|e| e.to_string())?;
     match read_password(&canonical) {
-        Ok(nsec) => return Ok(Some(nsec)),
+        Ok(nsec) => {
+            remember_nsec_payload(profile_id, &nsec);
+            return Ok(Some(nsec));
+        }
         Err(keyring::Error::NoEntry) => {}
         Err(e) => return Err(e.to_string()),
     }
@@ -86,6 +118,7 @@ pub fn read_nsec_for_profile(profile_id: &str) -> Result<Option<String>, String>
             let nsec_zero = Zeroizing::new(nsec);
             write_password(&canonical, &*nsec_zero).map_err(|e| e.to_string())?;
             let _ = delete_entry(&legacy);
+            remember_nsec_payload(profile_id, &nsec_zero);
             eprintln!(
                 "[SESSION] Migrated legacy keychain entry to canonical name for profile {}",
                 profile_id
@@ -110,7 +143,23 @@ pub fn write_nsec_for_profile(profile_id: &str, nsec: &str) -> Result<(), String
     if let Ok(legacy) = Entry::new(APP_SERVICE, &legacy_key_name_for_profile(profile_id)) {
         let _ = delete_entry(&legacy);
     }
-    Ok(())
+    match read_password(&canonical) {
+        Ok(stored) if stored == nsec => {
+            remember_nsec_payload(profile_id, nsec);
+            Ok(())
+        }
+        Ok(_) => Err("Keychain entry did not round-trip".to_string()),
+        Err(keyring::Error::NoEntry) => {
+            // Windows Credential Manager can lag between Entry instances; keep in-process cache.
+            remember_nsec_payload(profile_id, nsec);
+            eprintln!(
+                "[SESSION] Keychain read-back missed for profile {}; using in-process cache",
+                profile_id
+            );
+            Ok(())
+        }
+        Err(e) => Err(e.to_string()),
+    }
 }
 
 #[cfg(target_os = "android")]
@@ -120,6 +169,7 @@ pub fn write_nsec_for_profile(_profile_id: &str, _nsec: &str) -> Result<(), Stri
 
 #[cfg(not(target_os = "android"))]
 pub fn delete_nsec_for_profile(profile_id: &str) -> Result<(), String> {
+    forget_nsec_payload(profile_id);
     for key_name in [
         key_name_for_profile(profile_id),
         legacy_key_name_for_profile(profile_id),

@@ -7,6 +7,7 @@
  */
 
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
+import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import type { CommunityMode } from "../types";
 import {
   loadCoordinationMembershipDirectory,
@@ -169,6 +170,8 @@ export const refreshCommunityMembershipTruth = async (params: Readonly<{
   communityMode?: CommunityMode | null;
   profileId?: string;
   localMemberPubkey?: PublicKeyHex | null;
+  localPrivateKeyHex?: PrivateKeyHex | null;
+  groupId?: string;
   forceFull?: boolean;
 }>): Promise<CommunityMembershipTruthSnapshot> => {
   const communityId = params.communityId.trim();
@@ -176,10 +179,19 @@ export const refreshCommunityMembershipTruth = async (params: Readonly<{
     return readCommunityMembershipTruthSnapshot(params);
   }
 
+  const roomKeyMaterialization = params.localMemberPubkey?.trim() && params.localPrivateKeyHex
+    ? {
+      localPubkey: params.localMemberPubkey,
+      localPrivateKeyHex: params.localPrivateKeyHex,
+      ...(params.groupId?.trim() ? { groupId: params.groupId.trim() } : {}),
+    }
+    : undefined;
+
   const materialization = await refreshCoordinationMembershipDirectory({
     communityId,
     profileId: params.profileId,
     forceFull: params.forceFull === true,
+    roomKeyMaterialization,
   });
 
   if (!materialization) {

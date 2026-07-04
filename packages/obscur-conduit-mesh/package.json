@@ -1,0 +1,14 @@
+{
+  "name": "@obscur/conduit-mesh",
+  "version": "1.9.10",
+  "private": true,
+  "type": "module",
+  "description": "Conduit Mesh runtime — headless MeshPort, evidence ledger, lane switching.",
+  "dependencies": {
+    "@obscur/conduit-mesh-contracts": "workspace:*",
+    "@obscur/engine-contracts": "workspace:*"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

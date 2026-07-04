@@ -1,5 +1,4 @@
 "use client";
-
 import type React from "react";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { TextScale } from "@/app/features/settings/hooks/use-accessibility-preferences";
@@ -20,392 +19,97 @@ import { AutoLockSettingsPanel } from "@/app/features/settings/components/auto-l
 import { SecuritySettingsPanel } from "@/app/features/settings/components/security-settings-panel";
 import { SettingsActionStatus } from "@/app/features/settings/components/settings-action-status";
 import { ProfileSwitcherCard } from "@/app/features/profiles/components/profile-switcher-card";
-import {
-  SettingsToggle,
-  SettingsToggleCard,
-  toSettingsActionPhase,
-  validateProfileInput,
-  formatBytes,
-  formatRatioPercent,
-} from "../settings-tab-panel-shared";
+import { SettingsToggle, SettingsToggleCard, toSettingsActionPhase, validateProfileInput, formatBytes, formatRatioPercent, } from "../settings-tab-panel-shared";
 import { getApiBaseUrl } from "@/app/features/relays/utils/api-base-url";
 import { deriveRelayNodeStatus, deriveRelayRuntimeStatus } from "@/app/features/relays/lib/relay-runtime-status";
 import { checkStorageHealth, runStorageRecovery } from "@/app/features/messaging/services/storage-health-service";
 import { Loader2, Activity, ShieldAlert, Shield, Lock, Database, Copy, ChevronDown, Plus, ArrowUp, ArrowDown, Eye, EyeOff, Building2, Wifi, RefreshCcw, Check, X } from "lucide-react";
-
 import { SettingsCompactCard } from "@/app/features/settings/components/settings-compact-card";
 import { useMobileCompactLayout } from "@/app/features/runtime/use-mobile-compact-layout";
 import { useSettingsTabPanelModel } from "../settings-tab-panel-model-context";
-
 export default function NotificationsSettingsTabPanel(): React.JSX.Element {
-  const {
-    APP_VERSION,
-    DEFAULT_APP_LANGUAGE,
-    DEFAULT_STABLE_PRESET,
-    DEFAULT_THEME_PREFERENCE,
-    DELETE_ACCOUNT_CONFIRM_TEXT,
-    ENABLE_API_HEALTH_PROBE,
-    INVITE_CODE_PREFIX,
-    INVITE_CODE_SUFFIX_LENGTH,
-    RELAY_PRESETS,
-    TEXT_SCALE_OPTIONS,
-    accessibility,
-    accountSyncSnapshot,
-    activeTab,
-    apiHealth,
-    appearanceActionMessage,
-    appearanceActionPhase,
-    applyRelayPreset,
-    blocklist,
-    blocklistInput,
-    blocklistQuery,
-    challangePassword,
-    checkStorageHealth,
-    clearIndexedDbDatabases,
-    clearRuntimeCaches,
-    copyPrivateKey,
-    deleteAccountConfirmInput,
-    deleteAccountCountdown,
-    deriveRelayNodeStatus,
-    deriveRelayRuntimeStatus,
-    derivedPublicKeyHex,
-    displayPublicKeyHex,
-    exportPrivateKey,
-    filteredBlockedKeys,
-    getProfilePublishReportSnapshot,
-    handleAddBlockedKey,
-    handleAddRelay,
-    handleArmDeleteAccount,
-    handleCheckApi,
-    handleCheckProviderReachability,
-    handleClearData,
-    handleDeleteAccount,
-    handleDisableNotifications,
-    handleEnableNotifications,
-    handleExportPortableBundle,
-    handleLockNow,
-    handlePortableBundleFileSelected,
-    handleProfileSwitchLock,
-    handleRandomInviteCode,
-    handleRefreshRelayStatus,
-    handleRelayBulkCopyList,
-    handleRelayBulkDisableAllConfirm,
-    handleRelayBulkDisableAllRequest,
-    handleRelayBulkEnableAll,
-    handleRelayBulkRemoveDisabled,
-    handleResetAccessibility,
-    handleResetLanguage,
-    handleResetLocalHistory,
-    handleResetRelaySection,
-    handleResetStorageSection,
-    handleResetTheme,
-    handleRevealToggle,
-    handleSavePrivacy,
-    handleSaveProfile,
-    handleSendTestNotification,
-    handleToggleNotificationChannel,
-    handleUnblockAll,
-    handleVerifyChallenge,
-    handleVerifyNip05,
-    i18n,
-    identity,
-    identityDiagnostics,
-    identityIntegrityState,
-    identityStorageMode,
-    inviteCodeAvailabilityMessage,
-    inviteCodeAvailabilityStatus,
-    inviteCodeDraft,
-    inviteCodeDraftSuffix,
-    isChallenging,
-    isCheckingProviderReachability,
-    isCheckingStorageHealth,
-    isClearDataDialogOpen,
-    isDeleteAccountDialogOpen,
-    isDisableAllRelaysDialogOpen,
-    isInviteCodeDraftDirty,
-    isPortableBundleExporting,
-    isPortableBundleImporting,
-    isPrivateKeyVisible,
-    isPublishing,
-    isResetLocalHistoryDialogOpen,
-    isResolvingLocalPath,
-    isVerifyingNip05,
-    lastSyncLabel,
-    leaveJoinedCommunitiesBeforeAccountDeletion,
-    localMediaAbsolutePath,
-    localMediaConfig,
-    managedWorkspaceDefinition,
-    moderationActionMessage,
-    moderationActionPhase,
-    newRelayUrl,
-    nip96Config,
-    notificationActionMessage,
-    notificationActionPhase,
-    notificationPreference,
-    npubValue,
-    nsecKey,
-    persistedInviteCodeSuffix,
-    pool,
-    portableBundleFileInputRef,
-    privacySettings,
-    profile,
-    profilePreflightError,
-    profilePublishError,
-    profilePublishPhase,
-    profilePublishReport,
-    profileSaveActionMessage,
-    profileSaveActionPhase,
-    profileValidation,
-    providerReachabilityNote,
-    providerValidation,
-    publicKeyHex,
-    publishProfile,
-    publishScopedGroupEvent,
-    refreshLocalMediaAbsolutePath,
-    relayActionMessage,
-    relayActionPhase,
-    relayCapabilityAssessment,
-    relayConnectionMap,
-    relayHealthMetricsMap,
-    relayList,
-    relayQuickHealth,
-    relayResilienceBetaGate,
-    relayResiliencePerformanceGate,
-    relayResilienceSnapshot,
-    relayRuntime,
-    relayRuntimeStatus,
-    relaySelection,
-    reliabilityMetrics,
-    reliabilityRuntime,
-    reliabilityTick,
-    resolveActivePrivateKeyHex,
-    revealExpiresAtMs,
-    revealSecondsLeft,
-    rolloutPolicy,
-    runStorageRecovery,
-    saveLocalMediaConfig,
-    saveNip96Config,
-    securityActionMessage,
-    securityActionPhase,
-    securityCapabilityStates,
-    securityPosture,
-    setApiHealth,
-    setAppearanceActionMessage,
-    setAppearanceActionPhase,
-    setBlocklistInput,
-    setBlocklistQuery,
-    setChallengePassword,
-    setDeleteAccountConfirmInput,
-    setDeleteAccountCountdown,
-    setInviteCodeAvailabilityMessage,
-    setInviteCodeAvailabilityStatus,
-    setInviteCodeDraftSuffix,
-    setInviteCodeFromSuffix,
-    setIsChallenging,
-    setIsCheckingProviderReachability,
-    setIsCheckingStorageHealth,
-    setIsClearDataDialogOpen,
-    setIsDeleteAccountDialogOpen,
-    setIsDisableAllRelaysDialogOpen,
-    setIsInviteCodeDraftDirty,
-    setIsPortableBundleExporting,
-    setIsPortableBundleImporting,
-    setIsPrivateKeyVisible,
-    setIsResetLocalHistoryDialogOpen,
-    setIsResolvingLocalPath,
-    setIsVerifyingNip05,
-    setLocalMediaAbsolutePath,
-    setLocalMediaConfig,
-    setModerationActionMessage,
-    setModerationActionPhase,
-    setNewRelayUrl,
-    setNip96Config,
-    setNotificationActionMessage,
-    setNotificationActionPhase,
-    setNsecKey,
-    setPrivacySettings,
-    setProfilePreflightError,
-    setProfileSaveActionMessage,
-    setProfileSaveActionPhase,
-    setProviderReachabilityNote,
-    setRelayActionMessage,
-    setRelayActionPhase,
-    setReliabilityTick,
-    setRevealExpiresAtMs,
-    setRevealSecondsLeft,
-    setSecurityActionMessage,
-    setSecurityActionPhase,
-    setShowAdvancedRelays,
-    setStorageActionMessage,
-    setStorageActionPhase,
-    setStorageHealthState,
-    setStorageStatsTick,
-    showAdvancedRelays,
-    sovereignRoomDefinition,
-    startupState,
-    storageActionMessage,
-    storageActionPhase,
-    storageHealthState,
-    storageMode,
-    storageStats,
-    storageStatsTick,
-    t,
-    theme,
-    translatePermissionState,
-    translateRelayConfidenceLabel,
-    translateRelayNodeBadge,
-    translateRelayNodeDetail,
-    translateRelayNodeRole,
-    translateRelayPresetLabel,
-    translateRelayRuntimeText,
-    translateStorageMode,
-    triggerRelayRecovery,
-    userInviteCode,
-    verifyInviteCodeAvailability,
-    wipeLocalRuntimeData
-  } = useSettingsTabPanelModel() as Record<string, any>;
-
-  const compact = useMobileCompactLayout();
-  const permission = notificationPreference.state.permission;
-  const permissionSummary = t("settings.notifications.statusSummary", {
-    defaultValue: "Permission: {{permission}} · {{enabledState}}",
-    permission: translatePermissionState(permission),
-    enabledState: notificationPreference.state.enabled
-      ? t("settings.notifications.enabled", "enabled")
-      : t("settings.notifications.disabled", "disabled"),
-  });
-
-  return (
-    <>
-        <SettingsCompactCard
-          title={t("settings.notifications.title")}
-          description={t("settings.notifications.desc")}
-          className="w-full"
-        >
+    const { APP_VERSION, DEFAULT_APP_LANGUAGE, DEFAULT_STABLE_PRESET, DEFAULT_THEME_PREFERENCE, DELETE_ACCOUNT_CONFIRM_TEXT, ENABLE_API_HEALTH_PROBE, INVITE_CODE_PREFIX, INVITE_CODE_SUFFIX_LENGTH, RELAY_PRESETS, TEXT_SCALE_OPTIONS, accessibility, accountSyncSnapshot, activeTab, apiHealth, appearanceActionMessage, appearanceActionPhase, applyRelayPreset, blocklist, blocklistInput, blocklistQuery, challangePassword, checkStorageHealth, clearIndexedDbDatabases, clearRuntimeCaches, copyPrivateKey, deleteAccountConfirmInput, deleteAccountCountdown, deriveRelayNodeStatus, deriveRelayRuntimeStatus, derivedPublicKeyHex, displayPublicKeyHex, exportPrivateKey, filteredBlockedKeys, getProfilePublishReportSnapshot, handleAddBlockedKey, handleAddRelay, handleArmDeleteAccount, handleCheckApi, handleCheckProviderReachability, handleClearData, handleDeleteAccount, handleDisableNotifications, handleEnableNotifications, handleExportPortableBundle, handleLockNow, handlePortableBundleFileSelected, handleProfileSwitchLock, handleRandomInviteCode, handleRefreshRelayStatus, handleRelayBulkCopyList, handleRelayBulkDisableAllConfirm, handleRelayBulkDisableAllRequest, handleRelayBulkEnableAll, handleRelayBulkRemoveDisabled, handleResetAccessibility, handleResetLanguage, handleResetLocalHistory, handleResetRelaySection, handleResetStorageSection, handleResetTheme, handleRevealToggle, handleSavePrivacy, handleSaveProfile, handleSendTestNotification, handleToggleNotificationChannel, handleUnblockAll, handleVerifyChallenge, handleVerifyNip05, i18n, identity, identityDiagnostics, identityIntegrityState, identityStorageMode, inviteCodeAvailabilityMessage, inviteCodeAvailabilityStatus, inviteCodeDraft, inviteCodeDraftSuffix, isChallenging, isCheckingProviderReachability, isCheckingStorageHealth, isClearDataDialogOpen, isDeleteAccountDialogOpen, isDisableAllRelaysDialogOpen, isInviteCodeDraftDirty, isPortableBundleExporting, isPortableBundleImporting, isPrivateKeyVisible, isPublishing, isResetLocalHistoryDialogOpen, isResolvingLocalPath, isVerifyingNip05, lastSyncLabel, leaveJoinedCommunitiesBeforeAccountDeletion, localMediaAbsolutePath, localMediaConfig, managedWorkspaceDefinition, moderationActionMessage, moderationActionPhase, newRelayUrl, nip96Config, notificationActionMessage, notificationActionPhase, notificationPreference, npubValue, nsecKey, persistedInviteCodeSuffix, pool, portableBundleFileInputRef, privacySettings, profile, profilePreflightError, profilePublishError, profilePublishPhase, profilePublishReport, profileSaveActionMessage, profileSaveActionPhase, profileValidation, providerReachabilityNote, providerValidation, publicKeyHex, publishProfile, publishScopedGroupEvent, refreshLocalMediaAbsolutePath, relayActionMessage, relayActionPhase, relayCapabilityAssessment, relayConnectionMap, relayHealthMetricsMap, relayList, relayQuickHealth, relayResilienceBetaGate, relayResiliencePerformanceGate, relayResilienceSnapshot, relayRuntime, relayRuntimeStatus, relaySelection, reliabilityMetrics, reliabilityRuntime, reliabilityTick, resolveActivePrivateKeyHex, revealExpiresAtMs, revealSecondsLeft, rolloutPolicy, runStorageRecovery, saveLocalMediaConfig, saveNip96Config, securityActionMessage, securityActionPhase, securityCapabilityStates, securityPosture, setApiHealth, setAppearanceActionMessage, setAppearanceActionPhase, setBlocklistInput, setBlocklistQuery, setChallengePassword, setDeleteAccountConfirmInput, setDeleteAccountCountdown, setInviteCodeAvailabilityMessage, setInviteCodeAvailabilityStatus, setInviteCodeDraftSuffix, setInviteCodeFromSuffix, setIsChallenging, setIsCheckingProviderReachability, setIsCheckingStorageHealth, setIsClearDataDialogOpen, setIsDeleteAccountDialogOpen, setIsDisableAllRelaysDialogOpen, setIsInviteCodeDraftDirty, setIsPortableBundleExporting, setIsPortableBundleImporting, setIsPrivateKeyVisible, setIsResetLocalHistoryDialogOpen, setIsResolvingLocalPath, setIsVerifyingNip05, setLocalMediaAbsolutePath, setLocalMediaConfig, setModerationActionMessage, setModerationActionPhase, setNewRelayUrl, setNip96Config, setNotificationActionMessage, setNotificationActionPhase, setNsecKey, setPrivacySettings, setProfilePreflightError, setProfileSaveActionMessage, setProfileSaveActionPhase, setProviderReachabilityNote, setRelayActionMessage, setRelayActionPhase, setReliabilityTick, setRevealExpiresAtMs, setRevealSecondsLeft, setSecurityActionMessage, setSecurityActionPhase, setShowAdvancedRelays, setStorageActionMessage, setStorageActionPhase, setStorageHealthState, setStorageStatsTick, showAdvancedRelays, sovereignRoomDefinition, startupState, storageActionMessage, storageActionPhase, storageHealthState, storageMode, storageStats, storageStatsTick, t, theme, translatePermissionState, translateRelayConfidenceLabel, translateRelayNodeBadge, translateRelayNodeDetail, translateRelayNodeRole, translateRelayPresetLabel, translateRelayRuntimeText, translateStorageMode, triggerRelayRecovery, userInviteCode, verifyInviteCodeAvailability, wipeLocalRuntimeData } = useSettingsTabPanelModel() as Record<string, any>;
+    const compact = useMobileCompactLayout();
+    const permission = notificationPreference.state.permission;
+    const permissionSummary = t("settings.notifications.statusSummary", {
+        defaultValue: "Permission: {{permission}} · {{enabledState}}",
+        permission: translatePermissionState(permission),
+        enabledState: notificationPreference.state.enabled
+            ? t("settings.notifications.enabled")
+            : t("settings.notifications.disabled"),
+    });
+    return (<>
+        <SettingsCompactCard title={t("settings.notifications.title")} description={t("settings.notifications.desc")} className="w-full">
           <div className={compact ? "space-y-4" : "space-y-3"}>
-            {!compact ? (
-              <>
+            {!compact ? (<>
                 <div className="text-sm text-zinc-700 dark:text-zinc-300">
                   {t("settings.notifications.backgroundDesc")}
                 </div>
                 <div className="text-xs text-zinc-500 dark:text-zinc-400">
-                  {t("settings.notifications.perConversationDesc", "Tip: use the bell icon in each chat header to mute or unmute notifications for a specific user or group.")}
+                  {t("settings.notifications.perConversationDesc")}
                 </div>
-              </>
-            ) : null}
+              </>) : null}
 
-            {compact ? (
-              <p className="text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">{permissionSummary}</p>
-            ) : (
-              <div className="rounded-xl border border-black/5 bg-zinc-50 p-3 dark:border-white/10 dark:bg-zinc-900/50">
+            {compact ? (<p className="text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">{permissionSummary}</p>) : (<div className="rounded-xl border border-black/5 bg-zinc-50 p-3 dark:border-white/10 dark:bg-zinc-900/50">
                 <div className="text-sm font-semibold text-zinc-700 dark:text-zinc-200">
-                  {t("settings.notifications.permission", "Permission")}: {translatePermissionState(permission)}
+                  {t("settings.notifications.permission")}: {translatePermissionState(permission)}
                 </div>
                 <div className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
                   {permission === "granted"
-                    ? t("settings.notifications.permissionGrantedDesc", "Permission granted. Notifications can be delivered.")
-                    : permission === "denied"
-                      ? t("settings.notifications.permissionDeniedDesc", "Permission denied. Enable notifications from system/browser settings.")
-                      : permission === "default"
-                        ? t("settings.notifications.permissionDefaultDesc", "Permission not decided yet. Click Enable Notifications to request access.")
-                        : t("settings.notifications.permissionUnsupportedDesc", "This runtime does not support notifications.")}
+                ? t("settings.notifications.permissionGrantedDesc")
+                : permission === "denied"
+                    ? t("settings.notifications.permissionDeniedDesc")
+                    : permission === "default"
+                        ? t("settings.notifications.permissionDefaultDesc")
+                        : t("settings.notifications.permissionUnsupportedDesc")}
                 </div>
-              </div>
-            )}
+              </div>)}
 
             <div className={compact ? "flex flex-col gap-2" : "flex flex-wrap gap-2"}>
-              {(permission === "default" || permission === "unsupported") ? (
-                <Button
-                  type="button"
-                  className={compact ? "w-full" : undefined}
-                  onClick={handleEnableNotifications}
-                >
+              {(permission === "default" || permission === "unsupported") ? (<Button type="button" className={compact ? "w-full" : undefined} onClick={handleEnableNotifications}>
                   {t("settings.notifications.enable")}
-                </Button>
-              ) : null}
-              {permission === "granted" ? (
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className={compact ? "w-full" : undefined}
-                  onClick={handleDisableNotifications}
-                >
+                </Button>) : null}
+              {permission === "granted" ? (<Button type="button" variant="secondary" className={compact ? "w-full" : undefined} onClick={handleDisableNotifications}>
                   {t("settings.notifications.disable")}
-                </Button>
-              ) : null}
-              {!compact ? (
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={handleSendTestNotification}
-                >
-                  {t("settings.notifications.test", "Send Test Notification")}
-                </Button>
-              ) : permission === "granted" ? (
-                <button
-                  type="button"
-                  className="self-start text-xs font-semibold text-violet-400 hover:text-violet-300"
-                  onClick={handleSendTestNotification}
-                >
-                  {t("settings.notifications.test", "Send Test Notification")}
-                </button>
-              ) : null}
+                </Button>) : null}
+              {!compact ? (<Button type="button" variant="secondary" onClick={handleSendTestNotification}>
+                  {t("settings.notifications.test")}
+                </Button>) : permission === "granted" ? (<button type="button" className="self-start text-xs font-semibold text-violet-400 hover:text-violet-300" onClick={handleSendTestNotification}>
+                  {t("settings.notifications.test")}
+                </button>) : null}
             </div>
 
-            <div className={cn(
-              compact
-                ? "divide-y divide-black/5 overflow-hidden rounded-xl border border-black/5 dark:divide-white/10 dark:border-white/10"
-                : "space-y-3 rounded-xl border border-black/5 bg-zinc-50 p-3 dark:border-white/10 dark:bg-zinc-900/50",
-            )}>
+            <div className={cn(compact
+            ? "divide-y divide-black/5 overflow-hidden rounded-xl border border-black/5 dark:divide-white/10 dark:border-white/10"
+            : "space-y-3 rounded-xl border border-black/5 bg-zinc-50 p-3 dark:border-white/10 dark:bg-zinc-900/50")}>
               {([
-                {
-                  key: "dmMessages" as const,
-                  title: t("settings.notifications.channel.dm", "Direct messages"),
-                  desc: t("settings.notifications.channel.dmDesc", "Notify when you receive a new DM."),
-                },
-                {
-                  key: "mentionsReplies" as const,
-                  title: t("settings.notifications.channel.mentions", "Mentions and replies"),
-                  desc: t("settings.notifications.channel.mentionsDesc", "Notify when someone mentions or replies to you."),
-                },
-                {
-                  key: "invitesSystem" as const,
-                  title: t("settings.notifications.channel.invites", "Invites and system alerts"),
-                  desc: t("settings.notifications.channel.invitesDesc", "Notify for invites and important system notices."),
-                },
-              ]).map((channel) => (
-                <div
-                  key={channel.key}
-                  className={cn(
-                    "flex items-center justify-between gap-3",
-                    compact ? "px-3 py-3" : undefined,
-                  )}
-                >
+            {
+                key: "dmMessages" as const,
+                title: t("settings.notifications.channel.dm"),
+                desc: t("settings.notifications.channel.dmDesc"),
+            },
+            {
+                key: "mentionsReplies" as const,
+                title: t("settings.notifications.channel.mentions"),
+                desc: t("settings.notifications.channel.mentionsDesc"),
+            },
+            {
+                key: "invitesSystem" as const,
+                title: t("settings.notifications.channel.invites"),
+                desc: t("settings.notifications.channel.invitesDesc"),
+            },
+        ]).map((channel) => (<div key={channel.key} className={cn("flex items-center justify-between gap-3", compact ? "px-3 py-3" : undefined)}>
                   <div className="min-w-0">
                     <div className="text-sm font-semibold text-zinc-700 dark:text-zinc-200">{channel.title}</div>
-                    {!compact ? (
-                      <div className="text-xs text-zinc-500 dark:text-zinc-400">{channel.desc}</div>
-                    ) : null}
+                    {!compact ? (<div className="text-xs text-zinc-500 dark:text-zinc-400">{channel.desc}</div>) : null}
                   </div>
-                  <SettingsToggle
-                    checked={notificationPreference.state.channels[channel.key]}
-                    onChange={(checked) => handleToggleNotificationChannel(channel.key, checked)}
-                  />
-                </div>
-              ))}
+                  <SettingsToggle checked={notificationPreference.state.channels[channel.key]} onChange={(checked) => handleToggleNotificationChannel(channel.key, checked)}/>
+                </div>))}
             </div>
 
-            {(!compact || notificationActionPhase !== "idle" || notificationActionMessage) ? (
-              <SettingsActionStatus
-                title={t("settings.notifications.statusTitle", "Notification Setup")}
-                phase={notificationActionPhase}
-                message={notificationActionMessage || undefined}
-                summary={permissionSummary}
-              />
-            ) : null}
+            {(!compact || notificationActionPhase !== "idle" || notificationActionMessage) ? (<SettingsActionStatus title={t("settings.notifications.statusTitle")} phase={notificationActionPhase} message={notificationActionMessage || undefined} summary={permissionSummary}/>) : null}
           </div>
         </SettingsCompactCard>
 
-    </>
-  );
+    </>);
 }

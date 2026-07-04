@@ -3,6 +3,7 @@
 import React from "react";
 import Image from "next/image";
 import { Camera, Globe, Loader2, Lock, Users } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
 import { Textarea } from "@/app/components/ui/textarea";
@@ -72,12 +73,13 @@ export function GroupManagementGeneralPanel({
 }>): React.JSX.Element {
     const managedSettingsBlocked = isManagedWorkspaceRelayGateBlocking(managedWorkspaceRelayGate);
     const compact = useMobileCompactLayout();
+    const { t } = useTranslation();
     const sectionClass = compact ? mgmtCompactSectionClass : mgmtSectionClass;
 
     return (
         <div className={cn("mx-auto max-w-2xl", compact ? "space-y-3" : "space-y-5")}>
             <section className={sectionClass}>
-                <Label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Avatar</Label>
+                <Label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">{t("groups.management.general.avatar")}</Label>
                 <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:items-center">
                     <div className="relative shrink-0 self-start">
                         <div className="relative h-20 w-20 overflow-hidden rounded-xl border border-dashed border-zinc-300 bg-zinc-100 dark:border-zinc-600 dark:bg-zinc-800">
@@ -100,7 +102,7 @@ export function GroupManagementGeneralPanel({
                                 onClick={onPickAvatar}
                                 disabled={isUploading || managedSettingsBlocked}
                                 className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-lg bg-violet-600 text-white shadow-lg hover:bg-violet-500 disabled:opacity-50"
-                                aria-label="Upload community avatar"
+                                aria-label={t("groups.management.general.uploadAvatarAria")}
                             >
                                 <Camera className="h-4 w-4" />
                             </button>
@@ -108,7 +110,7 @@ export function GroupManagementGeneralPanel({
                     </div>
                     {!compact ? (
                         <p className="text-sm text-zinc-500">
-                            Shown in discovery and on your community home. Square image, at least 256×256, max 5&nbsp;MB.
+                            {t("groups.management.general.avatarHint")}
                         </p>
                     ) : null}
                 </div>
@@ -118,7 +120,7 @@ export function GroupManagementGeneralPanel({
                 <div className="space-y-4">
                     <div className="space-y-2">
                         <Label htmlFor="community-name" className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                            Community name
+                            {t("groups.management.general.communityName")}
                         </Label>
                         <Input
                             id="community-name"
@@ -126,19 +128,19 @@ export function GroupManagementGeneralPanel({
                             onChange={(event) => setEditName(event.target.value)}
                             disabled={!isAdmin || managedSettingsBlocked}
                             className={mgmtFieldClass}
-                            placeholder="My community"
+                            placeholder={t("groups.management.general.communityNamePlaceholder")}
                         />
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="community-about" className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                            About
+                            {t("groups.management.general.about")}
                         </Label>
                         <Textarea
                             id="community-about"
                             value={editAbout}
                             onChange={(event) => setEditAbout(event.target.value)}
                             disabled={!isAdmin || managedSettingsBlocked}
-                            placeholder="What is this community for?"
+                            placeholder={t("groups.management.general.aboutPlaceholder")}
                             className={mgmtTextareaClass}
                         />
                     </div>
@@ -146,7 +148,7 @@ export function GroupManagementGeneralPanel({
             </section>
 
             <section className={sectionClass}>
-                <Label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Who can find this community</Label>
+                <Label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">{t("groups.management.general.discoveryLabel")}</Label>
                 <div className={cn("mt-3 grid gap-2", compact ? "grid-cols-3" : "grid-cols-1 sm:grid-cols-3")}>
                     {(["open", "discoverable", "invite-only"] as const).map((mode) => (
                         <button
@@ -165,7 +167,13 @@ export function GroupManagementGeneralPanel({
                             {mode === "open" ? <Globe className="h-4 w-4" /> : null}
                             {mode === "discoverable" ? <Users className="h-4 w-4" /> : null}
                             {mode === "invite-only" ? <Lock className="h-4 w-4" /> : null}
-                            <span>{mode === "discoverable" ? "Listed" : mode === "invite-only" ? "Invite only" : "Open"}</span>
+                            <span>
+                                {mode === "discoverable"
+                                    ? t("groups.management.general.discoveryModeListed")
+                                    : mode === "invite-only"
+                                        ? t("groups.management.general.discoveryModeInviteOnly")
+                                        : t("groups.management.general.discoveryModeOpen")}
+                            </span>
                         </button>
                     ))}
                 </div>
@@ -191,18 +199,18 @@ export function GroupManagementGeneralPanel({
 
             {requiresMemberVote && isAdmin ? (
                 <p className="rounded-lg border border-amber-500/35 bg-amber-50 px-3 py-2 text-xs text-amber-950 sm:text-sm dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
-                    This community has multiple members. Saving will create a governance proposal instead of applying immediately.
+                    {t("groups.management.general.multiMemberGovernanceNotice")}
                 </p>
             ) : null}
             {communityMode === "managed_workspace" && stewardPolicy.isDesignatedSteward && isAdmin ? (
                 <p className="rounded-lg border border-emerald-500/35 bg-emerald-50 px-3 py-2 text-xs text-emerald-950 sm:text-sm dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-100">
-                    You are a designated steward — descriptor and member removal can apply without a community vote.
+                    {t("groups.management.general.designatedStewardNotice")}
                 </p>
             ) : null}
 
             <details className={cn(sectionClass, "px-4 py-3")}>
                 <summary className="cursor-pointer text-sm font-medium text-zinc-600 dark:text-zinc-400">
-                    {compact ? "Relay & protocol" : "Relay & protocol details"}
+                    {compact ? t("groups.management.general.relayProtocol") : t("groups.management.general.relayProtocolDetails")}
                 </summary>
                 <div className="mt-4 space-y-3">
                     {!compact ? (
@@ -222,13 +230,15 @@ export function GroupManagementGeneralPanel({
                         </>
                     ) : (
                         <p className="text-xs text-zinc-500 truncate" title={relayUrl}>
-                            Relay: {relayUrl.replace(/^wss?:\/\//, "")}
+                            {t("groups.management.general.relayHostPrefix", { host: relayUrl.replace(/^wss?:\/\//, "") })}
                         </p>
                     )}
                     {communityMode === "managed_workspace" ? (
                         <p className="text-xs text-zinc-500">
-                            Authority: {stewardPolicy.authorityMode.replace(/_/g, " ")}
-                            {stewardPolicy.isDesignatedSteward ? " · you are a steward" : ""}
+                            {t("groups.management.general.authorityPrefix", {
+                                mode: stewardPolicy.authorityMode.replace(/_/g, " "),
+                            })}
+                            {stewardPolicy.isDesignatedSteward ? ` ${t("groups.management.general.youAreSteward")}` : ""}
                         </p>
                     ) : null}
                 </div>

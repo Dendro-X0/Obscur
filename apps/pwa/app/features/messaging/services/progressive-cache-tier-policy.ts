@@ -4,7 +4,7 @@
  * Tiers:
  * 1. warm_display — in-memory LRU (`dm-thread-display-cache.ts`)
  * 2. sync_seed — profile-scoped chat-state seed (`dm-thread-sync-seed-loader.ts`)
- * 3. cold_hydrate — IndexedDB / SQLite full hydrate (`dm-conversation-hydrate-pipeline.ts`)
+ * 3. cold_hydrate — IndexedDB / SQLite full hydrate (`dm-conversation-hydrate-pipeline-port.ts`)
  *
  * Initial paint uses warm → sync seed; cold hydrate always follows when a thread opens.
  */

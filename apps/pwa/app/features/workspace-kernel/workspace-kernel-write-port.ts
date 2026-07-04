@@ -54,6 +54,7 @@ export const sendWorkspaceKernelGroupMessage = async (
   const event = await groupService.sendSealedMessage({
     groupId: params.groupId,
     content: params.plaintext,
+    communityId: params.communityId,
     replyTo: params.replyToMessageId,
   });
 

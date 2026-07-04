@@ -6,18 +6,18 @@ import type { Message } from "../../types";
 import type {
   DmConversationHydratePipelineNumericConfig,
   RunDmConversationHydrateReadModelPipelineParams,
-} from "../dm-conversation-hydrate-pipeline";
-import type { AssembleDmHydrateThreadReadModelResult } from "../dm-conversation-hydrate-read-model";
-import type { buildProjectionEvidenceMessagesForConversation } from "../dm-conversation-projection-evidence-messages";
+} from "./hydrate-pipeline-types";
+import type { AssembleDmHydrateThreadReadModelResult } from "./hydrate-read-model-types";
+import type { BuildProjectionEvidenceMessagesParams } from "./projection-evidence-types";
 import type {
   MergeProjectionFirstWithLiveOverlayForDisplayParams,
   MergeProjectionFirstWithLiveOverlayForDisplayResult,
-} from "../dm-conversation-projection-live-merge";
+} from "./projection-live-merge-types";
 import type {
   LoadEarlierDmConversationMessagesParams,
   LoadEarlierDmConversationMessagesResult,
-} from "../dm-conversation-materialization-load-earlier";
-import type { ApplyRealtimeBufferedEventsParams } from "../dm-conversation-materialization-realtime";
+} from "./load-earlier-types";
+import type { ApplyRealtimeBufferedEventsParams } from "./realtime-materialization-types";
 import type { PrepareDmThreadSuppressionParams } from "../dm-thread-suppression-prepare";
 import type {
   filterMessagesBySuppressedIds,
@@ -32,16 +32,30 @@ export const DM_CONVERSATION_MATERIALIZATION_OWNER_ID = THREAD_HISTORY_OWNER_ID;
 export type {
   DmConversationHydratePipelineNumericConfig,
   RunDmConversationHydrateReadModelPipelineParams,
-  AssembleDmHydrateThreadReadModelResult,
-  LoadEarlierDmConversationMessagesParams,
-  LoadEarlierDmConversationMessagesResult,
+} from "./hydrate-pipeline-types";
+
+export type {
+  ConversationHistoryAuthority,
+  ConversationHistoryAuthorityReason,
+  ConversationHistoryAuthorityDecision,
+  ResolveConversationHistoryAuthorityParams,
+} from "./hydrate-authority-types";
+
+export type { AssembleDmHydrateThreadReadModelResult } from "./hydrate-read-model-types";
+
+export type { BuildProjectionEvidenceMessagesParams } from "./projection-evidence-types";
+
+export type {
   MergeProjectionFirstWithLiveOverlayForDisplayParams,
   MergeProjectionFirstWithLiveOverlayForDisplayResult,
-};
+} from "./projection-live-merge-types";
 
-export type BuildProjectionEvidenceMessagesParams = Parameters<
-  typeof buildProjectionEvidenceMessagesForConversation
->[0];
+export type {
+  LoadEarlierDmConversationMessagesParams,
+  LoadEarlierDmConversationMessagesResult,
+} from "./load-earlier-types";
+
+export type { ApplyRealtimeBufferedEventsParams } from "./realtime-materialization-types";
 
 /** Canonical thread history port (DM today; group plugs in via adapter). */
 export type ThreadHistoryPort = Readonly<{
@@ -76,5 +90,3 @@ export type ThreadHistoryPort = Readonly<{
 
 /** @deprecated Alias — gateway bind name retained for R1 migration */
 export type DmConversationMaterializationPort = ThreadHistoryPort;
-
-export type { ApplyRealtimeBufferedEventsParams };

@@ -74,6 +74,9 @@ export const preferRicherThreadMessage = (existing: Message, incoming: Message):
     relayPublishedEventId: richer.relayPublishedEventId ?? existing.relayPublishedEventId,
     status: richer.status,
     content: richer.content,
+    attachments: (richer.attachments && richer.attachments.length > 0)
+      ? richer.attachments
+      : existing.attachments ?? richer.attachments,
   };
 };
 

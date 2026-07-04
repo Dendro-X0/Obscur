@@ -144,8 +144,33 @@ fn run_warmup_blocking(app: &AppHandle, profile_id: &str) -> WarmupStatusSnapsho
     let total_tasks = warmup_task_plan().len() as u32;
     let mut completed_tasks = Vec::new();
     let db_state = app.state::<DbState>();
-    let db = match db_state.db.lock() {
-        Ok(db) => db,
+    let warmup_result = match db_state.with_db(|db| {
+        let warmup_result = run_profile_warmup(db, profile_id, |task_id, completed_count, _| {
+            completed_tasks.push(task_id.to_string());
+            let snapshot = WarmupStatusSnapshot {
+                profile_id: profile_id.to_string(),
+                phase: WarmupPhase::Running,
+                completed_tasks: completed_tasks.clone(),
+                current_task: Some(task_id.to_string()),
+                completed_count,
+                total_tasks,
+                elapsed_ms: started.elapsed().as_millis() as u64,
+                conversation_count: None,
+                group_count: None,
+                tombstone_count: None,
+                relay_checkpoint_count: None,
+                dm_message_head_count: None,
+                group_message_head_count: None,
+                error: None,
+            };
+            if let Some(warmup_state) = app.try_state::<DesktopWarmupState>() {
+                let _ = warmup_state.upsert_snapshot(snapshot.clone());
+            }
+            emit_warmup_progress(app, &snapshot);
+        });
+        Ok(warmup_result)
+    }) {
+        Ok(result) => result,
         Err(error) => {
             return WarmupStatusSnapshot {
                 profile_id: profile_id.to_string(),
@@ -161,36 +186,10 @@ fn run_warmup_blocking(app: &AppHandle, profile_id: &str) -> WarmupStatusSnapsho
                 relay_checkpoint_count: None,
                 dm_message_head_count: None,
                 group_message_head_count: None,
-                error: Some(format!("database lock failed: {error}")),
+                error: Some(error),
             };
         }
     };
-
-    let warmup_result = run_profile_warmup(&db, profile_id, |task_id, completed_count, _| {
-        completed_tasks.push(task_id.to_string());
-        let snapshot = WarmupStatusSnapshot {
-            profile_id: profile_id.to_string(),
-            phase: WarmupPhase::Running,
-            completed_tasks: completed_tasks.clone(),
-            current_task: Some(task_id.to_string()),
-            completed_count,
-            total_tasks,
-            elapsed_ms: started.elapsed().as_millis() as u64,
-            conversation_count: None,
-            group_count: None,
-            tombstone_count: None,
-            relay_checkpoint_count: None,
-            dm_message_head_count: None,
-            group_message_head_count: None,
-            error: None,
-        };
-        if let Some(warmup_state) = app.try_state::<DesktopWarmupState>() {
-            let _ = warmup_state.upsert_snapshot(snapshot.clone());
-        }
-        emit_warmup_progress(app, &snapshot);
-    });
-
-    drop(db);
 
     if let Some(shell_path) = resolve_static_shell_path(app) {
         let _ = warmup_static_shell_readahead(&shell_path);

@@ -49,7 +49,7 @@ import {
   canProcessInvite
 } from './security-enhancements';
 import { logAppEvent } from '@/app/shared/log-app-event';
-import { publishToUrlsStandalone } from '../../relays/hooks/enhanced-relay-pool';
+import { publishToUrlsStandalone } from "@/app/features/relays/hooks/enhanced-relay-pool-port";
 import { loadEnabledRelayUrlsForIdentity } from '../../relays/services/relay-list-enabled-urls';
 
 type CoordinationInviteCreateResponse = Readonly<{

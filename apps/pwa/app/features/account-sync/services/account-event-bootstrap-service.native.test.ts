@@ -49,7 +49,7 @@ vi.mock("@dweb/db", () => ({
   ]),
 }));
 
-vi.mock("@/app/features/messaging/services/chat-state-store", () => ({
+vi.mock("@/app/features/messaging/services/chat-state-store-legacy", () => ({
   chatStateStoreService: {
     hydrateMessages: vi.fn(async () => undefined),
     load: vi.fn(() => ({ messagesByConversationId: { x: [{ id: "idb-resurrect" }] } })),
@@ -80,7 +80,7 @@ vi.mock("@/app/features/messaging/services/messaging-client-operations", () => (
   },
 }));
 
-import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store";
+import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store-legacy";
 import { buildBootstrapAccountEvents } from "./account-event-bootstrap-service";
 
 const PROFILE_ID = "profile-native";

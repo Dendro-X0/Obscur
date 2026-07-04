@@ -1,7 +1,21 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import type { RelayRecoverySnapshot } from "../services/relay-recovery-types";
 import { RelayStatusIndicator } from "./relay-status-indicator";
-import { createRelayRecoveryTestSnapshot } from "../services/relay-recovery-test-fixture";
+
+const createRelayRecoveryTestSnapshot = (
+  overrides: Partial<RelayRecoverySnapshot> = {},
+): RelayRecoverySnapshot => ({
+  readiness: "healthy",
+  writableRelayCount: 1,
+  fallbackWritableRelayCount: 0,
+  subscribableRelayCount: 1,
+  writeBlockedRelayCount: 0,
+  coolingDownRelayCount: 0,
+  recoveryAttemptCount: 0,
+  fallbackRelayUrls: [],
+  ...overrides,
+});
 
 vi.mock("../providers/relay-provider", () => ({
   useRelay: vi.fn(() => ({
@@ -15,6 +29,7 @@ vi.mock("../providers/relay-provider", () => ({
       writableRelayCount: 1,
       enabledRelayUrls: ["wss://relay.example"],
     },
+    enabledRelayUrls: ["wss://relay.example"],
     relayRecovery: createRelayRecoveryTestSnapshot(),
   })),
 }));
@@ -44,6 +59,7 @@ describe("RelayStatusIndicator", () => {
         writableRelayCount: 0,
         enabledRelayUrls: ["wss://relay.example"],
       },
+      enabledRelayUrls: ["wss://relay.example"],
       relayRecovery: createRelayRecoveryTestSnapshot({
         readiness: "offline",
         writableRelayCount: 0,

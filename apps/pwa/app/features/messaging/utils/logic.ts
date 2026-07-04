@@ -1,6 +1,7 @@
 
 import type { Conversation, ConnectionOverridesByConnectionId, Message, ReactionEmoji, ReactionsByEmoji, Attachment } from "../types";
 import { parseVoiceNoteFileName } from "@/app/features/messaging/services/voice-note-metadata";
+import { normalizeAttachmentUrl } from "@/app/shared/public-url";
 
 export const createEmptyReactions = (): Record<ReactionEmoji, number> => ({
     "👍": 0,
@@ -134,8 +135,8 @@ export const extractAttachmentsFromContent = (
     content: string,
     options?: Readonly<{ includeGenericLinksAsFiles?: boolean }>
 ): Attachment[] => {
-    // Match either [filename](url) or just url
-    const urlRegex = /(?:\[(.*?)\]\((https?:\/\/[^\s)]+|\/uploads\/[^\s)]+)\))|(https?:\/\/[^\s]+|\/uploads\/[^\s]+)/g;
+    // Match either [filename](url) or just url (absolute http(s), local uploads, or host-only CDN paths)
+    const urlRegex = /(?:\[(.*?)\]\((https?:\/\/[^\s)]+|\/uploads\/[^\s)]+|[a-z0-9.-]+\.[a-z]{2,}[^\s)]*)\))|(https?:\/\/[^\s]+|\/uploads\/[^\s]+|[a-z0-9.-]+\.[a-z]{2,}[^\s]*)/g;
     const matches = Array.from(content.matchAll(urlRegex));
 
     if (matches.length === 0) return [];
@@ -151,7 +152,10 @@ export const extractAttachmentsFromContent = (
         const isMarkdownLink = Boolean(match[1] && match[2]);
 
         // Clean trailing punctuation that might be captured in plain URLs
-        const cleanUrl = match[3] ? rawUrl.replace(/[.,;:!?)]+$/, '') : rawUrl;
+        const cleanUrl = normalizeAttachmentUrl(match[3] ? rawUrl.replace(/[.,;:!?)]+$/, "") : rawUrl);
+        if (!cleanUrl) {
+            continue;
+        }
         const lowerUrl = cleanUrl.toLowerCase();
         const fallbackName = cleanUrl.split('/').pop()?.split('?')[0] || 'file';
         const finalName = providedName || fallbackName;

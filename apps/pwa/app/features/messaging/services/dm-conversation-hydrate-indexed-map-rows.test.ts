@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Message } from "../types";
-import { mapIndexedConversationRowsForDisplayableScan } from "./dm-conversation-hydrate-indexed-map-rows";
+import { mapLegacyIndexedConversationRowsForDisplayableScan } from "@/app/features/messaging/services/thread-history/dm-thread-history-legacy-port";
 
 const mk = (partial: Readonly<{ id: string; kind?: Message["kind"]; ts?: number; content?: string }>): Message => ({
   id: partial.id,
@@ -13,7 +13,7 @@ const mk = (partial: Readonly<{ id: string; kind?: Message["kind"]; ts?: number;
 
 const isDisplayable = (m: Message): boolean => m.kind !== "command";
 
-describe("mapIndexedConversationRowsForDisplayableScan", () => {
+describe("mapLegacyIndexedConversationRowsForDisplayableScan", () => {
   it("initial_hydrate: applies tombstone then retention/dedupe then displayable filter", () => {
     const suppressed = new Set<string>(["gone"]);
     const rows = [
@@ -21,7 +21,7 @@ describe("mapIndexedConversationRowsForDisplayableScan", () => {
       { id: "keep", kind: "user", ts: 200, content: "b" },
       { id: "cmd", kind: "command", ts: 100, content: "{}" },
     ];
-    const out = mapIndexedConversationRowsForDisplayableScan({
+    const out = mapLegacyIndexedConversationRowsForDisplayableScan({
       pipeline: "initial_hydrate",
       rows,
       normalizeRow: (raw: any) => mk({
@@ -42,7 +42,7 @@ describe("mapIndexedConversationRowsForDisplayableScan", () => {
       { id: "u1", kind: "user", ts: 200, content: "x" },
       { id: "c1", kind: "command", ts: 100, content: "{}" },
     ];
-    const out = mapIndexedConversationRowsForDisplayableScan({
+    const out = mapLegacyIndexedConversationRowsForDisplayableScan({
       pipeline: "load_earlier",
       rows,
       normalizeRow: (raw: any) => mk({
@@ -64,7 +64,7 @@ describe("mapIndexedConversationRowsForDisplayableScan", () => {
       { id: "newer", kind: "user", ts: 200, content: "" },
     ];
     const order: string[] = [];
-    mapIndexedConversationRowsForDisplayableScan({
+    mapLegacyIndexedConversationRowsForDisplayableScan({
       pipeline: "initial_hydrate",
       rows,
       normalizeRow: (raw: any) => {

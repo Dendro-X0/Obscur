@@ -32,12 +32,22 @@ import {
 } from "@/app/features/groups/services/community-coordination-membership-directory-store";
 import type { CoordinationMembershipMaterialization } from "@/app/features/groups/services/community-coordination-membership-materializer";
 import { publishCoordinationMembershipDelta } from "@/app/features/groups/services/community-coordination-membership-client";
+import { publishSelfCoordinationRoomKeyWrapAfterJoin } from "@/app/features/groups/services/community-coordination-room-key-owner";
 import { isCoordinationConfigured } from "@/app/features/groups/services/community-membership-sync-mode";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import {
   toCommunityMembershipLedgerEntryFromGroup,
 } from "@/app/features/groups/services/community-membership-ledger";
 import { persistCommunityMembershipLedgerMutation } from "@/app/features/groups/services/community-membership-mutation-owner";
+import {
+  resolveCommunityMembershipHealth,
+  type CommunityMembershipHealth,
+} from "@/app/features/groups/services/community-membership-health";
+import {
+  isManagedWorkspaceJoinSuccessful,
+  rollbackJoinRoomKeyAttempt,
+} from "@/app/features/groups/services/community-membership-join-transaction";
+import { isPubkeyActiveInManagedWorkspace } from "./workspace-kernel-list-port";
 import { logWorkspaceKernelDiagnostic } from "./workspace-kernel-diagnostics";
 import { upsertWorkspaceGroupMetadata } from "./workspace-kernel-group-metadata-cache";
 import { isWorkspaceKernelAuthority } from "./workspace-kernel-policy";
@@ -89,8 +99,23 @@ export type JoinManagedWorkspaceMembershipParams = Readonly<{
   pool: WorkspaceRelayPublishPool & WorkspaceRelayPoolTransport;
   addRelay: (relayParams: Readonly<{ url: string }>) => void;
   openRelayUrls?: ReadonlyArray<string>;
+  /** Invite redemption must pass the room key before activation (R1 atomic join). */
+  roomKeyHex?: string;
   nip29JoinJson?: string;
   sealedJoinJson?: string;
+}>;
+
+export type JoinManagedWorkspaceMembershipResult = Readonly<{
+  ok: true;
+  group: GroupConversation;
+  activation: WorkspaceMembershipActivationResult;
+  health: CommunityMembershipHealth;
+}> | Readonly<{
+  ok: false;
+  errorMessage: string;
+  userFacingMessage?: string;
+  activation: WorkspaceMembershipActivationResult;
+  health: CommunityMembershipHealth;
 }>;
 
 /** W1 membership-port is ready when kernel authority is on and coordination is configured. */
@@ -311,7 +336,26 @@ export const createManagedWorkspaceMembership = async (
   };
 
   const profileId = getResolvedProfileId();
-  await refreshCoordinationMembershipDirectory({ communityId, forceFull: true, profileId });
+  await refreshCoordinationMembershipDirectory({
+    communityId,
+    forceFull: true,
+    profileId,
+    roomKeyMaterialization: {
+      localPubkey: myPublicKeyHex,
+      localPrivateKeyHex: myPrivateKeyHex,
+      groupId: info.groupId,
+    },
+  });
+  if (coordinationCreateConfirmed) {
+    await publishSelfCoordinationRoomKeyWrapAfterJoin({
+      communityId,
+      groupId: info.groupId,
+      memberPubkey: myPublicKeyHex,
+      actorPubkey: myPublicKeyHex,
+      actorPrivateKeyHex: myPrivateKeyHex,
+      roomKeyHex,
+    });
+  }
   persistCommunityMembershipLedgerMutation(
     myPublicKeyHex,
     {
@@ -326,34 +370,137 @@ export const createManagedWorkspaceMembership = async (
   return { ok: true, group: newGroup, activationSummary };
 };
 
+const buildJoinFailureResult = (params: Readonly<{
+  activation: WorkspaceMembershipActivationResult;
+  health: CommunityMembershipHealth;
+  errorMessage: string;
+  userFacingMessage?: string;
+}>): JoinManagedWorkspaceMembershipResult => ({
+  ok: false,
+  errorMessage: params.errorMessage,
+  userFacingMessage: params.userFacingMessage,
+  activation: params.activation,
+  health: params.health,
+});
+
+const buildJoinHealthSnapshot = (params: Readonly<{
+  communityId: string;
+  memberPubkey: PublicKeyHex;
+  relayUrl: string;
+  activation: WorkspaceMembershipActivationResult;
+  coordinationDirectory: CoordinationMembershipMaterialization | null;
+  roomKeyPresent: boolean;
+}>): CommunityMembershipHealth => (
+  resolveCommunityMembershipHealth({
+    communityId: params.communityId,
+    localMemberPubkey: params.memberPubkey,
+    coordinationDirectory: params.coordinationDirectory,
+    roomKeyPresent: params.roomKeyPresent,
+    relayTransportReady: hasWritableCommunityRelayTransport(
+      params.activation.relay.canonicalUrl || params.relayUrl,
+    ),
+    relayActivationSynced: params.activation.relay.status === "synced",
+    activationPending: params.activation.summary.severity === "partial",
+    devCoordinationOnly: isCoordinationOnlyWorkspaceDevMode(),
+  })
+);
+
 export const joinManagedWorkspaceMembership = async (
   params: JoinManagedWorkspaceMembershipParams,
-): Promise<WorkspaceMembershipActivationResult> => {
-  if (!isWorkspaceKernelMembershipPortReady()) {
-    return {
+): Promise<JoinManagedWorkspaceMembershipResult> => {
+  const failedActivation = (
+    errorMessage: string,
+    userFacingMessage: string,
+    lastError?: string,
+  ): JoinManagedWorkspaceMembershipResult => {
+    const activation: WorkspaceMembershipActivationResult = {
       relay: {
         status: "failed",
         canonicalUrl: params.relayUrl,
         publishTargets: [],
-        lastError: "workspace_kernel_membership_port_not_ready",
+        lastError: lastError ?? errorMessage,
       },
-      coordination: { status: "failed", lastError: "workspace_kernel_membership_port_not_ready" },
+      coordination: { status: "failed", lastError: errorMessage },
       summary: {
         severity: "failed",
         title: "Join failed",
-        detail: "Workspace kernel membership port is not ready.",
+        detail: userFacingMessage,
         recovery: ["start_coordination"],
       },
     };
+    return buildJoinFailureResult({
+      activation,
+      health: buildJoinHealthSnapshot({
+        communityId: params.communityId,
+        memberPubkey: params.memberPubkey,
+        relayUrl: params.relayUrl,
+        activation,
+        coordinationDirectory: null,
+        roomKeyPresent: false,
+      }),
+      errorMessage,
+      userFacingMessage,
+    });
+  };
+
+  if (!isWorkspaceKernelMembershipPortReady()) {
+    return failedActivation(
+      "workspace_kernel_membership_port_not_ready",
+      "Workspace kernel membership port is not ready.",
+    );
   }
 
   ensureWorkspaceMembershipSyncMode();
-  const result = await runWorkspaceMembershipActivation({
+  const profileId = getResolvedProfileId();
+  const priorRoomKeyHex = (await roomKeyStore.getRoomKey(params.groupId))?.trim() || null;
+  let roomKeySavedThisAttempt = false;
+
+  if (params.roomKeyHex?.trim()) {
+    await roomKeyStore.saveRoomKey(params.groupId, params.roomKeyHex.trim());
+    roomKeySavedThisAttempt = true;
+  }
+
+  const roomKeyPresent = Boolean((await roomKeyStore.getRoomKey(params.groupId))?.trim());
+  if (!roomKeyPresent) {
+    return failedActivation(
+      "room_key_missing",
+      "Community room key is required before join can complete.",
+    );
+  }
+
+  const relayUrl = params.relayUrl;
+  const relayTransportReady = hasWritableCommunityRelayTransport(relayUrl);
+  const devCoordinationOnly = isCoordinationOnlyWorkspaceDevMode();
+  let activationRelayUrl = relayUrl;
+
+  if (relayTransportReady) {
+    params.addRelay({ url: relayUrl });
+    if (typeof params.pool.addTransientRelay === "function") {
+      params.pool.addTransientRelay(relayUrl);
+    }
+  }
+
+  if (!devCoordinationOnly && relayTransportReady) {
+    const calibration = await ensureWorkspaceRelayTransportReady({
+      rawUrl: relayUrl,
+      pool: params.pool,
+      timeoutMs: 6000,
+    });
+    activationRelayUrl = calibration.canonicalUrl || relayUrl;
+    if (activationRelayUrl !== relayUrl) {
+      params.addRelay({ url: activationRelayUrl });
+      if (typeof params.pool.addTransientRelay === "function") {
+        params.pool.addTransientRelay(activationRelayUrl);
+      }
+    }
+  }
+
+  const activation = await runWorkspaceMembershipActivation({
     context: "join",
     displayName: params.displayName,
     communityId: params.communityId,
     groupId: params.groupId,
-    relayUrl: params.relayUrl,
+    relayUrl: activationRelayUrl,
     memberPubkey: params.memberPubkey,
     actorPubkey: params.actorPubkey,
     actorPrivateKeyHex: params.actorPrivateKeyHex,
@@ -365,44 +512,121 @@ export const joinManagedWorkspaceMembership = async (
     requireHealthyCoordination: true,
   });
 
-  const profileId = getResolvedProfileId();
-  const coordinationJoinConfirmed = result.coordination.status === "synced";
-  if (coordinationJoinConfirmed || result.summary.severity === "success") {
-    await refreshCoordinationMembershipDirectory({
-      communityId: params.communityId,
-      forceFull: true,
-      profileId,
-    });
-    const joinedGroup: GroupConversation = {
-      kind: "group",
-      id: toGroupConversationId({
-        groupId: params.groupId,
-        relayUrl: result.relay.canonicalUrl || params.relayUrl,
-        communityId: params.communityId,
-      }),
-      communityId: params.communityId,
+  let coordinationDirectory = await refreshCoordinationMembershipDirectory({
+    communityId: params.communityId,
+    forceFull: true,
+    profileId,
+    roomKeyMaterialization: {
+      localPubkey: params.memberPubkey,
+      localPrivateKeyHex: params.actorPrivateKeyHex,
       groupId: params.groupId,
-      relayUrl: result.relay.canonicalUrl || params.relayUrl,
-      displayName: params.displayName ?? params.groupId,
-      memberPubkeys: [params.memberPubkey],
-      lastMessage: "Joined workspace community",
-      unreadCount: 0,
-      lastMessageTime: new Date(),
-      access: "open",
-      memberCount: 1,
-      adminPubkeys: [],
-      communityMode: "managed_workspace",
-    };
-    persistCommunityMembershipLedgerMutation(
-      params.memberPubkey,
-      {
-        reason: "runtime_join_confirmed",
-        entry: toCommunityMembershipLedgerEntryFromGroup(joinedGroup, { status: "joined" }),
-      },
-      { profileId },
-    );
-    upsertWorkspaceGroupMetadata(params.memberPubkey, profileId, joinedGroup);
+    },
+  });
+  const coordinationSynced = activation.coordination.status === "synced";
+  const coordinationActorActive = coordinationDirectory
+    ? isPubkeyActiveInManagedWorkspace({
+      communityId: params.communityId,
+      materialization: coordinationDirectory,
+      updatedAtUnixMs: Date.now(),
+    }, params.memberPubkey)
+    : false;
+
+  const joinSuccessful = isManagedWorkspaceJoinSuccessful({
+    roomKeyPresent,
+    coordinationSynced,
+    coordinationActorActive,
+    activation,
+  });
+
+  const health = buildJoinHealthSnapshot({
+    communityId: params.communityId,
+    memberPubkey: params.memberPubkey,
+    relayUrl,
+    activation,
+    coordinationDirectory,
+    roomKeyPresent,
+  });
+
+  if (!joinSuccessful) {
+    if (roomKeySavedThisAttempt) {
+      await rollbackJoinRoomKeyAttempt(params.groupId, priorRoomKeyHex);
+    }
+    return buildJoinFailureResult({
+      activation,
+      health,
+      errorMessage: "activation_incomplete",
+      userFacingMessage: activation.summary.detail
+        ? `${activation.summary.title} ${activation.summary.detail}`
+        : activation.summary.title,
+    });
   }
 
-  return result;
+  coordinationDirectory = await refreshCoordinationMembershipDirectory({
+    communityId: params.communityId,
+    forceFull: true,
+    profileId,
+    roomKeyMaterialization: {
+      localPubkey: params.memberPubkey,
+      localPrivateKeyHex: params.actorPrivateKeyHex,
+      groupId: params.groupId,
+    },
+  });
+
+  if (coordinationSynced) {
+    await publishSelfCoordinationRoomKeyWrapAfterJoin({
+      communityId: params.communityId,
+      groupId: params.groupId,
+      memberPubkey: params.memberPubkey,
+      actorPubkey: params.actorPubkey,
+      actorPrivateKeyHex: params.actorPrivateKeyHex,
+      roomKeyHex: params.roomKeyHex,
+    });
+  }
+
+  const joinedGroup: GroupConversation = {
+    kind: "group",
+    id: toGroupConversationId({
+      groupId: params.groupId,
+      relayUrl: activation.relay.canonicalUrl || relayUrl,
+      communityId: params.communityId,
+    }),
+    communityId: params.communityId,
+    groupId: params.groupId,
+    relayUrl: activation.relay.canonicalUrl || relayUrl,
+    displayName: params.displayName ?? params.groupId,
+    memberPubkeys: [params.memberPubkey],
+    lastMessage: "Joined workspace community",
+    unreadCount: 0,
+    lastMessageTime: new Date(),
+    access: "open",
+    memberCount: 1,
+    adminPubkeys: [],
+    communityMode: "managed_workspace",
+  };
+
+  persistCommunityMembershipLedgerMutation(
+    params.memberPubkey,
+    {
+      reason: "runtime_join_confirmed",
+      entry: toCommunityMembershipLedgerEntryFromGroup(joinedGroup, { status: "joined" }),
+    },
+    { profileId },
+  );
+  upsertWorkspaceGroupMetadata(params.memberPubkey, profileId, joinedGroup);
+
+  const finalHealth = buildJoinHealthSnapshot({
+    communityId: params.communityId,
+    memberPubkey: params.memberPubkey,
+    relayUrl,
+    activation,
+    coordinationDirectory,
+    roomKeyPresent: true,
+  });
+
+  return {
+    ok: true,
+    group: joinedGroup,
+    activation,
+    health: finalHealth,
+  };
 };

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { EnhancedRelayPoolResult } from "./enhanced-relay-pool";
+import type { EnhancedRelayPoolResult } from "./enhanced-relay-pool-types";
 import { relayHealthMonitor } from "./relay-health-monitor";
 import {
   buildRelayHealthHints,

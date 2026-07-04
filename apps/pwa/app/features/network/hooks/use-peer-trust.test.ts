@@ -5,13 +5,12 @@ import type { PersistedChatState } from "@/app/features/messaging/types";
 import { setProfileRuntimeScope } from "@/app/features/profiles/services/profile-runtime-scope";
 import { peerTrustInternals, usePeerTrust } from "./use-peer-trust";
 
-const chatStateStoreMocks = vi.hoisted(() => ({
+const chatStateReadMocks = vi.hoisted(() => ({
   load: vi.fn(),
 }));
 
-vi.mock("@/app/features/messaging/services/chat-state-store", () => ({
-  CHAT_STATE_REPLACED_EVENT: "obscur:chat-state-replaced",
-  chatStateStoreService: chatStateStoreMocks,
+vi.mock("@/app/features/messaging/services/messaging-chat-state-read-port", () => ({
+  messagingChatStateReadPort: chatStateReadMocks,
 }));
 
 const peerTrustTestBus = vi.hoisted(() => {
@@ -60,6 +59,7 @@ vi.mock("@/app/features/account-sync/services/account-projection-selectors", () 
 
 vi.mock("@/app/features/profiles/services/profile-scope", () => ({
   readRegistryBackedActiveProfileId: () => "default",
+  getProfileScopeOverride: () => null,
   getScopedStorageKey: (key: string) => key,
 }));
 
@@ -97,7 +97,7 @@ const createPersistedChatState = (overrides?: Partial<PersistedChatState>): Pers
 
 describe("use-peer-trust internals", () => {
   beforeEach(() => {
-    chatStateStoreMocks.load.mockReset();
+    chatStateReadMocks.load.mockReset();
     localStorage.clear();
     setProfileRuntimeScope({ profileId: "default", bus: peerTrustTestBus });
   });
@@ -209,7 +209,7 @@ describe("use-peer-trust internals", () => {
     const myPublicKeyHex = "f".repeat(64) as PublicKeyHex;
     const peerPublicKeyHex = "e".repeat(64) as PublicKeyHex;
     let restoreApplied = false;
-    chatStateStoreMocks.load.mockImplementation(() => {
+    chatStateReadMocks.load.mockImplementation(() => {
       if (!restoreApplied) {
         return null;
       }

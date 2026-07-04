@@ -29,10 +29,11 @@ describe("path B B5 exit contract", () => {
     expect(chatView).not.toMatch(/conversation\.kind === ['"]dm['"] && props\.isPeerAccepted === false/);
   });
 
-  it("B5-2: DM receive pipeline routes incoming requests through Path B safety gate", () => {
-    const handler = read("app/features/messaging/controllers/legacy/incoming-dm-event-handler.ts");
-    expect(handler).toContain("evaluatePathBIncomingDmSafetyGate");
-    expect(handler).not.toContain("evaluateIncomingRequestAntiAbuse({");
+  it("B5-2: v2 DM receive pipeline is canonical (legacy incoming handler subtracted)", () => {
+    const receive = read("app/features/messaging/controllers/v2/dm-receive-pipeline.ts");
+    const hooks = read("app/features/messaging/services/path-b-b5-extension-hooks.ts");
+    expect(receive).toContain("processIncomingEvent");
+    expect(hooks).toContain("evaluatePathBIncomingDmSafetyGate");
   });
 
   it("B5-3: request transport send path checks invite economics before publish", () => {

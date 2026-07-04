@@ -1,7 +1,7 @@
 "use client";
 
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
-import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store";
+import { accountSyncChatStatePort } from "./account-sync-chat-state-port";
 import { peerTrustInternals } from "@/app/features/network/hooks/use-peer-trust";
 import { requiresSqlitePersistence } from "@/app/features/runtime/native-persistence-policy";
 import type { DriftReport, AccountProjectionSnapshot } from "../account-event-contracts";
@@ -33,7 +33,7 @@ const countProjectionMessages = (projection: AccountProjectionSnapshot): number 
 );
 
 const countLegacyMessages = (
-  legacyChatState: ReturnType<typeof chatStateStoreService.load>
+  legacyChatState: ReturnType<typeof accountSyncChatStatePort.load>
 ): number => (
   Object.values(legacyChatState?.messagesByConversationId ?? {})
     .reduce((total, entries) => total + entries.length, 0)
@@ -44,7 +44,7 @@ export const createDriftReport = (params: Readonly<{
   projection: AccountProjectionSnapshot;
 }>): DriftReport => {
   const legacyTrust = peerTrustInternals.loadFromStorage(params.publicKeyHex);
-  const legacyChatState = chatStateStoreService.load(params.publicKeyHex);
+  const legacyChatState = accountSyncChatStatePort.load(params.publicKeyHex);
   const legacyPendingCount = (legacyChatState?.connectionRequests ?? []).filter((entry) => entry.status === "pending").length;
   const legacyMessageCount = countLegacyMessages(legacyChatState);
 

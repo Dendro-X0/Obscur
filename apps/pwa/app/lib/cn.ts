@@ -1,1 +1,1 @@
-export { cn } from "@dweb/ui-kit";
+export { cn } from "@dweb/ui-kit/cn";

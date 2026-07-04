@@ -5,7 +5,7 @@ import {
   loadConversationWindow,
   loadConversationWindowAcrossAliases,
   loadInitialDmHydrationIndexedWindow,
-} from "./dm-conversation-hydrate-indexed-scan";
+} from "@/app/features/messaging/services/thread-history/dm-thread-history-legacy-port";
 
 vi.mock("@dweb/db", () => ({
   dbGetMessages: vi.fn(),

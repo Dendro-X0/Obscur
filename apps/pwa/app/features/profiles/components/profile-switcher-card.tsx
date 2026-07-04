@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@dweb/ui-kit";
 import { Input } from "@dweb/ui-kit";
 import { toast } from "@dweb/ui-kit";
@@ -19,6 +20,7 @@ type Props = Readonly<{
 const readState = (): ActiveProfileState => ProfileRegistryService.getState();
 
 export function ProfileSwitcherCard({ onBeforeSwitch }: Props): React.JSX.Element {
+  const { t } = useTranslation();
   const [state, setState] = useState<ActiveProfileState>(() => readState());
   const [newLabel, setNewLabel] = useState("");
   const [renameLabel, setRenameLabel] = useState("");
@@ -220,13 +222,13 @@ export function ProfileSwitcherCard({ onBeforeSwitch }: Props): React.JSX.Elemen
       result={removedProfileArchive}
       isOpen={isRemovedProfileArchiveDialogOpen}
       profileLabel={removedProfileLabel ?? undefined}
-      title="Profile removed"
-      description="Workspace data was archived before this profile was removed. Use the paths below to find your file."
+      title={t("profiles.portability.archive.profileRemoved")}
+      description={t("profiles.portability.archive.profileRemovedDesc")}
       onClose={() => {
         setIsRemovedProfileArchiveDialogOpen(false);
         setRemovedProfileArchive(null);
         setRemovedProfileLabel(null);
-        toast.success("Profile removed.");
+        toast.success(t("profiles.portability.remove.successToast"));
       }}
     />
     </>

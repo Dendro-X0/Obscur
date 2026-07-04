@@ -1,6 +1,7 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   evaluateIncomingRequestAntiAbuse,
+  getIncomingRequestAntiAbusePeerSnapshot,
   incomingRequestAntiAbuseInternals,
   resetIncomingRequestAntiAbuseState,
 } from "./incoming-request-anti-abuse";
@@ -166,5 +167,41 @@ describe("incoming-request-anti-abuse", () => {
     expect(decision.reasonCode).toBe("allowed");
     expect(decision.sharedIntelMatchedSignalCount).toBe(0);
     expect(decision.sharedIntelIgnoredSignalCount).toBe(1);
+  });
+
+  it("persists anti-abuse state across module reloads (new window bootstrap)", async () => {
+    const baseMs = 8_000;
+    evaluateIncomingRequestAntiAbuse({ peerPublicKeyHex: PEER_A, nowUnixMs: baseMs });
+    evaluateIncomingRequestAntiAbuse({ peerPublicKeyHex: PEER_A, nowUnixMs: baseMs + 100 });
+    evaluateIncomingRequestAntiAbuse({ peerPublicKeyHex: PEER_A, nowUnixMs: baseMs + 200 });
+
+    vi.resetModules();
+    const reloadedModule = await import("./incoming-request-anti-abuse");
+    const decision = reloadedModule.evaluateIncomingRequestAntiAbuse({
+      peerPublicKeyHex: PEER_A,
+      nowUnixMs: baseMs + 300,
+    });
+    expect(decision.allowed).toBe(false);
+    expect(decision.reasonCode).toBe("peer_rate_limited");
+  });
+
+  it("exposes read-only peer snapshot without recording a new event", () => {
+    const baseMs = 9_000;
+    evaluateIncomingRequestAntiAbuse({ peerPublicKeyHex: PEER_A, nowUnixMs: baseMs });
+    evaluateIncomingRequestAntiAbuse({ peerPublicKeyHex: PEER_A, nowUnixMs: baseMs + 100 });
+
+    const snapshot = getIncomingRequestAntiAbusePeerSnapshot({
+      peerPublicKeyHex: PEER_A,
+      nowUnixMs: baseMs + 150,
+    });
+    expect(snapshot.peerWindowCount).toBe(2);
+    expect(snapshot.cooldownActive).toBe(false);
+
+    const nextDecision = evaluateIncomingRequestAntiAbuse({
+      peerPublicKeyHex: PEER_A,
+      nowUnixMs: baseMs + 200,
+    });
+    expect(nextDecision.allowed).toBe(true);
+    expect(nextDecision.peerWindowCount).toBe(3);
   });
 });

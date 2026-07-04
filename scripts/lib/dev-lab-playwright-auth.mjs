@@ -11,6 +11,7 @@ export const TESTER2 = {
   password: "HT512#scE8",
   nsec: "nsec1gkv6kg9gyfvrg7h7q60usvaqtjq096dxewaw4vpk9y6krrlcglpqat96ta",
   privateKeyHex: "3db055b47e05bdfb9083efec0b7aecd2a045dbf7d865cf4d95d98817d946830f",
+  publicKeyHex: "3db055b47e05bdfb9083efec0b7aecd2a045dbf7d865cf4d95d98817d946830f",
 };
 
 const ACCOUNT_BY_ID = {
@@ -22,6 +23,16 @@ export async function applyDevOperatorBundle(page) {
   await page.evaluate(() => {
     localStorage.setItem("obscur.operator.coordination_url.v1", "http://127.0.0.1:8787");
     localStorage.setItem("obscur.dev.coordination_only_workspace.v1", "1");
+    localStorage.setItem("obscur.dev.assume_local_coordination.v1", "1");
+    localStorage.setItem("obscur.membership_sync_mode.v1", "coordination_preferred");
+  });
+}
+
+/** COM-MEM-2 requires full-stack profile — relay + coordination, not coordination-only dev mode. */
+export async function applyComMem2FullStackBundle(page) {
+  await page.evaluate(() => {
+    localStorage.setItem("obscur.operator.coordination_url.v1", "http://127.0.0.1:8787");
+    localStorage.removeItem("obscur.dev.coordination_only_workspace.v1");
     localStorage.setItem("obscur.dev.assume_local_coordination.v1", "1");
     localStorage.setItem("obscur.membership_sync_mode.v1", "coordination_preferred");
   });

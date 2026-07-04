@@ -2,6 +2,11 @@
 
 #[cfg(desktop)]
 use crate::models::window::{WindowState, MAIN_WINDOW_LABEL, PERSIST_WINDOW_STATE_IN_DEBUG};
+
+#[cfg(desktop)]
+fn is_main_window_label(label: &str) -> bool {
+    label == MAIN_WINDOW_LABEL
+}
 #[cfg(desktop)]
 use tauri::Manager;
 use tauri::{AppHandle, WebviewWindow, Window};
@@ -42,7 +47,7 @@ pub async fn window_unmaximize(window: Window) -> Result<(), String> {
     }
 }
 
-/// Close the window (hides on desktop for background mode)
+/// Close the window — main window hides (tray); profile windows are destroyed.
 #[tauri::command]
 pub async fn window_close(window: Window, app: AppHandle) -> Result<(), String> {
     #[cfg(desktop)]
@@ -52,7 +57,10 @@ pub async fn window_close(window: Window, app: AppHandle) -> Result<(), String> 
                 let _ = write_window_state(&app, webview_window.label(), &state);
             }
         }
-        return window.hide().map_err(|e| e.to_string());
+        if is_main_window_label(window.label()) {
+            return window.hide().map_err(|e| e.to_string());
+        }
+        return window.close().map_err(|e| e.to_string());
     }
     #[cfg(mobile)]
     {
@@ -83,6 +91,32 @@ pub async fn window_show_and_focus(window: Window, app: AppHandle) -> Result<(),
         let _ = window;
         let _ = app;
         Ok(())
+    }
+}
+
+/// Focus and show a window by label (dev agent bridge; native path bypasses webview ACL).
+#[tauri::command]
+#[cfg(desktop)]
+pub async fn desktop_agent_focus_window(app: AppHandle, label: String) -> Result<(), String> {
+    #[cfg(debug_assertions)]
+    {
+        let target_label = label.trim();
+        if target_label.is_empty() {
+            return Err("window label required".to_string());
+        }
+        let Some(window) = app.get_webview_window(target_label) else {
+            return Err(format!("no window with label {target_label}"));
+        };
+        window.unminimize().map_err(|e| e.to_string())?;
+        window.show().map_err(|e| e.to_string())?;
+        window.set_focus().map_err(|e| e.to_string())?;
+        return Ok(());
+    }
+    #[cfg(not(debug_assertions))]
+    {
+        let _ = app;
+        let _ = label;
+        Err("desktop_agent_focus_window is only available in debug builds".to_string())
     }
 }
 

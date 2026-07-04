@@ -80,5 +80,10 @@ describe("startup-auth-state-contracts", () => {
       startupState,
       isAutoLockLocked: false,
     })).toBe(true);
+    expect(shouldShowStoredIdentityLockScreen({
+      startupState,
+      isAutoLockLocked: false,
+      identityStatus: "unlocked",
+    })).toBe(false);
   });
 });

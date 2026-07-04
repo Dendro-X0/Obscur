@@ -8,6 +8,7 @@ vi.mock("../utils/get-stored-identity", () => ({
 
 vi.mock("../utils/identity-profile-binding", () => ({
   ensureIdentityProfileBinding: vi.fn(),
+  findStoredIdentityBindingByPublicKey: vi.fn(async () => null),
   recoverStoredIdentityProfile: vi.fn(),
   recoverSingleStoredIdentityProfile: vi.fn(),
 }));
@@ -38,7 +39,36 @@ vi.mock("../../crypto/crypto-service", () => ({
 vi.mock("../services/session-api", () => ({
   SessionApi: {
     getSessionStatus: vi.fn(async () => ({ isActive: false, npub: null, isNative: false })),
+    forceSessionRestore: vi.fn(async () => ({ isActive: false, npub: null, isNative: true })),
   },
+}));
+
+vi.mock("@/app/features/profiles/services/desktop-profile-runtime", () => ({
+  desktopProfileRuntime: {
+    bindCurrentWindowProfile: vi.fn(async () => ({})),
+  },
+}));
+
+vi.mock("@/app/features/profiles/services/auth-public-routes", () => ({
+  isPageReloadNavigation: vi.fn(() => false),
+}));
+
+vi.mock("@/app/features/auth-kernel/auth-kernel-boot-owner", () => ({
+  isAuthKernelBootRestoreSettled: vi.fn(() => true),
+  waitForAuthKernelBootRestore: vi.fn(async () => undefined),
+}));
+
+vi.mock("@/app/features/auth-kernel/auth-kernel-policy", () => ({
+  isAuthKernelBootRestoreEnabled: vi.fn(() => true),
+}));
+
+vi.mock("@/app/features/auth-kernel/auth-kernel-manual-lock-state", () => ({
+  isAuthKernelManualLockActive: vi.fn(() => false),
+  clearAuthKernelManualLock: vi.fn(),
+}));
+
+vi.mock("@/app/features/auth-kernel/auth-kernel-keychain-presence", () => ({
+  readAuthKernelKeychainPresent: vi.fn(async () => false),
 }));
 
 import { getStoredIdentity } from "../utils/get-stored-identity";
@@ -46,6 +76,7 @@ import { recoverStoredIdentityProfile } from "../utils/identity-profile-binding"
 import { recoverSingleStoredIdentityProfile } from "../utils/identity-profile-binding";
 import { hasNativeRuntime } from "../../runtime/runtime-capabilities";
 import { SessionApi } from "../services/session-api";
+import { readAuthKernelKeychainPresent } from "@/app/features/auth-kernel/auth-kernel-keychain-presence";
 import { useIdentityInternals } from "./use-identity";
 
 describe("useIdentity rehydrate", () => {
@@ -86,7 +117,7 @@ describe("useIdentity rehydrate", () => {
     expect(cryptoServiceMocks.getNativeNpub).not.toHaveBeenCalled();
   });
 
-  it("does not run a second native key probe after SessionApi reports no restorable session", async () => {
+  it("marks inactive native bootstrap as native_restorable when restore is allowed", async () => {
     const stored = {
       encryptedPrivateKey: "cipher",
       publicKeyHex: "f".repeat(64) as any,
@@ -99,8 +130,7 @@ describe("useIdentity rehydrate", () => {
       npub: null,
       isNative: true,
     });
-    cryptoServiceMocks.hasNativeKey.mockResolvedValue(true);
-    cryptoServiceMocks.getNativeNpub.mockResolvedValue(stored.publicKeyHex);
+    vi.mocked(readAuthKernelKeychainPresent).mockResolvedValue(true);
     window.localStorage.setItem(getRememberMeStorageKey("default"), "true");
 
     await useIdentityInternals.ensureInitialized();
@@ -113,12 +143,11 @@ describe("useIdentity rehydrate", () => {
     }));
     expect(useIdentityInternals.getIdentityDiagnosticsSnapshot()).toEqual(expect.objectContaining({
       startupState: expect.objectContaining({
-        kind: "stored_locked",
+        kind: "native_restorable",
         runtimePhaseHint: "auth_required",
       }),
     }));
-    expect(cryptoServiceMocks.hasNativeKey).not.toHaveBeenCalled();
-    expect(cryptoServiceMocks.getNativeNpub).not.toHaveBeenCalled();
+    expect(readAuthKernelKeychainPresent).toHaveBeenCalled();
   });
 
   it("preserves unlocked identity when profile change keeps the same pubkey", async () => {

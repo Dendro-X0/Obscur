@@ -2,6 +2,7 @@
 
 import type React from "react";
 import { useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@dweb/ui-kit";
 import { Loader2, Upload, X } from "lucide-react";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
@@ -19,6 +20,7 @@ type Props = Readonly<{
 }>;
 
 export function AuthScreenRestoreBanner(props: Props): React.JSX.Element | null {
+  const { t } = useTranslation();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const importFlow = useUnifiedImportFlow({
     publicKeyHex: props.publicKeyHex,
@@ -38,6 +40,7 @@ export function AuthScreenRestoreBanner(props: Props): React.JSX.Element | null 
   const pending = importFlow.pendingImport;
   const showRestoreActions = props.showRestoreActions !== false;
   const isAuthVariant = props.variant !== "inline";
+  const fileExtension = t("profiles.portability.fileExtension.unifiedAccount");
 
   if (!showRestoreActions && !pending) {
     return importFlow.preflightDialog;
@@ -53,17 +56,19 @@ export function AuthScreenRestoreBanner(props: Props): React.JSX.Element | null 
         }
       >
         <div className="text-xs font-bold uppercase tracking-wider text-violet-700 dark:text-violet-300">
-          {pending ? "Backup ready to import" : "Restore from backup"}
+          {pending ? t("profiles.portability.banner.backupReady") : t("profiles.portability.banner.restoreFromBackup")}
         </div>
         {pending ? (
           <div className="mt-2 space-y-2">
             <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">
               <span className="font-semibold">{pending.fileName}</span>
               {" · "}
-              account {pendingImportAccountPrefix(pending.bundlePublicKeyHex)}
+              {t("profiles.portability.banner.accountPrefix", {
+                prefix: pendingImportAccountPrefix(pending.bundlePublicKeyHex),
+              })}
             </p>
             <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">
-              Sign in with the matching private key or username/password, then confirm import when prompted.
+              {t("profiles.portability.banner.signInThenConfirm")}
             </p>
             <div className="flex flex-wrap gap-2 pt-1">
               <Button
@@ -74,16 +79,14 @@ export function AuthScreenRestoreBanner(props: Props): React.JSX.Element | null 
                 onClick={() => void importFlow.clearPendingImport()}
               >
                 <X className="h-3.5 w-3.5" />
-                Clear staged backup
+                {t("profiles.portability.banner.clearStagedBackup")}
               </Button>
             </div>
           </div>
         ) : showRestoreActions ? (
           <>
             <p className="mt-2 text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">
-              Pick a unified
-              <span className="font-semibold"> .obscur-account-export.json </span>
-              file before or right after sign-in. Without this backup, only your identity unlocks — not your full account data (messages, relays, settings).
+              {t("profiles.portability.banner.pickUnifiedDesc", { fileExtension })}
             </p>
             <Button
               type="button"
@@ -96,12 +99,12 @@ export function AuthScreenRestoreBanner(props: Props): React.JSX.Element | null 
               {importFlow.isImporting ? (
                 <span className="inline-flex items-center gap-2">
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  Checking backup…
+                  {t("profiles.portability.restore.checkingBackup")}
                 </span>
               ) : (
                 <span className="inline-flex items-center gap-2">
                   <Upload className="h-3.5 w-3.5" />
-                  Choose unified backup
+                  {t("profiles.portability.banner.chooseUnifiedBackup")}
                 </span>
               )}
             </Button>

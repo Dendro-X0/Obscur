@@ -7,7 +7,7 @@ import {
   type RelayPoolLike,
 } from "@/app/features/relays/lib/nostr-core-relay";
 import { logAppEvent } from "@/app/shared/log-app-event";
-import { toScopedRelayUrl } from "../hooks/use-sealed-community";
+import { toScopedRelayUrl } from "../hooks/use-sealed-community-types";
 import {
   getPendingCommunityLeaveOutboxItems,
   recordCommunityLeaveRelayPublishOutcome,

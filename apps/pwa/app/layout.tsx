@@ -2,28 +2,8 @@ import type React from "react"
 import type { Metadata } from "next"
 import "./globals.css"
 import "./styles/mobile-safe-area.css"
-import { ThemeController } from "./components/theme-controller"
-import { AccessibilityController } from "./components/accessibility-controller"
-import PwaServiceWorkerRegistrar from "./components/pwa-service-worker-registrar"
-import { ToastProvider } from "./components/toast-provider"
-import { DesktopUpdater } from "./components/desktop-updater"
-import { DesktopModeProvider } from "./components/desktop/desktop-mode-provider"
-import { OfflineIndicator } from "./components/desktop/offline-indicator"
-import { DeepLinkHandler } from "./components/desktop/deep-link-handler"
-import { I18nProvider } from "./components/i18n-provider"
-import { RootErrorBoundary } from "./components/root-error-boundary"
-import { Preloader } from "./components/preloader"
-import { StorageHealthBootstrap } from "./components/storage-health-bootstrap"
-import { ErrorPanel } from "./features/native/components/error-panel"
-import { NativeRuntimeGate } from "./components/native-runtime-gate"
-import { ProfileMigrationBootstrap } from "./components/profile-migration-bootstrap"
-import { DesktopWindowRootSurface } from "./components/desktop/desktop-window-root-surface"
-import { MobileModeProvider } from "./components/mobile/mobile-mode-provider"
+import { RootAppShell } from "./components/root-app-shell"
 import { CLIENT_BUILD_STAMP } from "@/app/shared/client-build-stamp"
-
-const MOBILE_SHELL_BUILD =
-  process.env.NEXT_PUBLIC_MOBILE_SHELL === "1" ||
-  process.env.NEXT_PUBLIC_MOBILE_SHELL === "true";
 
 const DESKTOP_SHELL_BUILD =
   process.env.NEXT_PUBLIC_DESKTOP_SHELL === "1" ||
@@ -106,16 +86,24 @@ export default function RootLayout({
                   if (!boot || !boot.profileId || !boot.windowLabel) {
                     return;
                   }
-                  var profileId = String(boot.profileId).trim();
+                  var bootProfileId = String(boot.profileId).trim();
                   var windowLabel = String(boot.windowLabel).trim();
-                  if (!profileId || !windowLabel) {
+                  if (!bootProfileId || !windowLabel) {
                     return;
                   }
-                  window.__OBSCUR_SYNC_PROFILE_SCOPE__ = profileId;
-                  localStorage.setItem(
-                    'obscur.desktop.window_profile.last_known.v1::' + windowLabel,
-                    profileId
-                  );
+                  var cacheKey = 'obscur.desktop.window_profile.last_known.v1::' + windowLabel;
+                  var cached = localStorage.getItem(cacheKey);
+                  var cachedTrimmed = cached && String(cached).trim();
+                  var resolvedProfileId;
+                  if (cachedTrimmed && cachedTrimmed !== 'default') {
+                    resolvedProfileId = cachedTrimmed;
+                  } else if (bootProfileId && bootProfileId !== 'default') {
+                    resolvedProfileId = bootProfileId;
+                  } else {
+                    resolvedProfileId = cachedTrimmed || bootProfileId;
+                  }
+                  window.__OBSCUR_SYNC_PROFILE_SCOPE__ = resolvedProfileId;
+                  localStorage.setItem(cacheKey, resolvedProfileId);
                 } catch (e) {}
               })();
             `,
@@ -463,13 +451,33 @@ export default function RootLayout({
                   card.style.boxShadow = "0 12px 36px rgba(2, 6, 23, 0.55)";
 
                   var title = document.createElement("h2");
-                  title.textContent = "Startup Is Taking Longer Than Expected";
+                  var storageIssue = null;
+                  var storageAvailable = true;
+                  var storageSlow = false;
+                  try {
+                    storageIssue = window.__obscurDataRootIssue || null;
+                    storageAvailable = window.__obscurDataRootAvailable !== false;
+                    storageSlow = window.__obscurDataRootSlow === true;
+                  } catch (e) {}
+                  if (!storageAvailable && storageIssue) {
+                    title.textContent = "Data Folder Unavailable";
+                  } else if (storageSlow) {
+                    title.textContent = "Startup Is Taking Longer Than Expected";
+                  } else {
+                    title.textContent = "Startup Is Taking Longer Than Expected";
+                  }
                   title.style.margin = "0 0 10px";
                   title.style.fontSize = "20px";
                   title.style.fontWeight = "700";
 
                   var detail = document.createElement("p");
-                  detail.textContent = "Obscur did not finish web bootstrap in time. You can reload, or run recovery that clears service worker/cache first.";
+                  if (!storageAvailable && storageIssue) {
+                    detail.textContent = storageIssue + " Reconnect the drive or open Storage settings after Obscur finishes loading.";
+                  } else if (storageSlow) {
+                    detail.textContent = "Your Obscur data folder is responding slowly. This is common on old USB installer sticks — a local SSD is recommended for daily use. You can reload, or run recovery that clears service worker/cache first.";
+                  } else {
+                    detail.textContent = "Obscur did not finish web bootstrap in time. You can reload, or run recovery that clears service worker/cache first.";
+                  }
                   detail.style.margin = "0 0 16px";
                   detail.style.fontSize = "14px";
                   detail.style.lineHeight = "1.5";
@@ -529,34 +537,7 @@ export default function RootLayout({
         />
       </head>
       <body className="font-sans antialiased bg-background text-foreground" suppressHydrationWarning>
-        <NativeRuntimeGate>
-          <Preloader />
-          <RootErrorBoundary>
-            <DesktopModeProvider>
-              <MobileModeProvider>
-              <ThemeController />
-              <AccessibilityController />
-              <StorageHealthBootstrap />
-              <ProfileMigrationBootstrap />
-              <I18nProvider>
-                <PwaServiceWorkerRegistrar />
-                <ToastProvider />
-                <ErrorPanel />
-                {!MOBILE_SHELL_BUILD ? <DesktopUpdater /> : null}
-                <OfflineIndicator />
-                <DeepLinkHandler />
-                  <div className="flex flex-col h-screen overflow-hidden desktop-mode:desktop-window-glow">
-                    <main className="flex-1 min-h-0 relative flex flex-col">
-                      <DesktopWindowRootSurface>
-                        {children}
-                      </DesktopWindowRootSurface>
-                    </main>
-                  </div>
-              </I18nProvider>
-              </MobileModeProvider>
-            </DesktopModeProvider>
-          </RootErrorBoundary>
-        </NativeRuntimeGate>
+        <RootAppShell>{children}</RootAppShell>
       </body>
     </html>
   )

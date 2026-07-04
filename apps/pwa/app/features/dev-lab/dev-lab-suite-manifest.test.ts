@@ -24,6 +24,7 @@ describe("dev-lab-suite-manifest", () => {
   it("keeps core messaging scenarios including dm-history-monotonic", () => {
     expect(DEV_LAB_SUITE_MANIFEST.suites.core).toContain("dm-history-monotonic");
     expect(DEV_LAB_SUITE_MANIFEST.suites.core).toContain("dm-reload-history");
+    expect(DEV_LAB_SUITE_MANIFEST.suites.core).toContain("trust-matrix");
   });
 
   it("marks cli-only and terminal scenarios", () => {
@@ -37,8 +38,9 @@ describe("dev-lab-suite-manifest", () => {
     expect(DEV_LAB_SUITE_MANIFEST.suites.full).toContain("vault-unlock");
     expect(DEV_LAB_SUITE_MANIFEST.suites.full).toContain("membership-leave-rejoin-zombie");
     expect(DEV_LAB_SUITE_MANIFEST.suites.full).toContain("sec-bot-keyword-flood");
+    expect(DEV_LAB_SUITE_MANIFEST.suites.full).toContain("trust-matrix");
     expect(DEV_LAB_SUITE_MANIFEST.suites.full).toContain("trust-fixtures");
-    expect(DEV_LAB_SUITE_MANIFEST.suites.full).toContain("trust-cold-dm-banner");
+    expect(DEV_LAB_SUITE_MANIFEST.suites.full).not.toContain("trust-cold-dm-banner");
     expect(DEV_LAB_SUITE_MANIFEST.suites.full).toContain("trust-live");
     expect(DEV_LAB_SUITE_MANIFEST.suites.full).toContain("sec-bot-inbound-live");
     expect(DEV_LAB_SUITE_MANIFEST.suites.full).toContain("auth4-scope-probe");

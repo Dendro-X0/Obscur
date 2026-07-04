@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { hasWritableCommunityRelayTransport } from "./community-relay-transport";
+import {
+  hasWritableCommunityRelayTransport,
+  isCommunityRelayPoolWritable,
+} from "./community-relay-transport";
 
 describe("hasWritableCommunityRelayTransport", () => {
   it("rejects host-only intranet labels", () => {
@@ -17,5 +20,22 @@ describe("hasWritableCommunityRelayTransport", () => {
 
   it("rejects loopback without a dedicated relay port", () => {
     expect(hasWritableCommunityRelayTransport("wss://127.0.0.1:8787")).toBe(false);
+  });
+
+  it("accepts local dev relay port on loopback", () => {
+    expect(hasWritableCommunityRelayTransport("ws://localhost:7000")).toBe(true);
+    expect(hasWritableCommunityRelayTransport("ws://127.0.0.1:7000")).toBe(true);
+  });
+
+  it("isCommunityRelayPoolWritable matches pool writable snapshot", () => {
+    const pool = {
+      getWritableRelaySnapshot: () => ({
+        writableRelayUrls: ["ws://127.0.0.1:7000"],
+      }),
+    };
+    expect(isCommunityRelayPoolWritable("ws://localhost:7000", pool)).toBe(true);
+    expect(isCommunityRelayPoolWritable("ws://localhost:7000", {
+      getWritableRelaySnapshot: () => ({ writableRelayUrls: [] }),
+    })).toBe(false);
   });
 });

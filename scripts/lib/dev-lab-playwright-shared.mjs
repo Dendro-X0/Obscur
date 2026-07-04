@@ -82,3 +82,24 @@ export const checkCoordinationHealth = async (page) => page.evaluate(async () =>
     };
   }
 });
+
+/** Node-side probe — matches scripts/coordination-health.mjs (no browser CORS / stack dependency). */
+export const probeCoordinationHealthFromNode = async () => {
+  try {
+    const response = await fetch("http://127.0.0.1:8787/health", {
+      signal: AbortSignal.timeout(5000),
+      cache: "no-store",
+    });
+    const json = await response.json().catch(() => null);
+    return {
+      ok: response.status === 200 && json?.ok === true,
+      status: response.status,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      status: 0,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+};

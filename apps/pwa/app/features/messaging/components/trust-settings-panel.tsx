@@ -1,5 +1,4 @@
 "use client";
-
 import React from "react";
 import { Card } from "../../../components/ui/card";
 import { Button } from "../../../components/ui/button";
@@ -16,10 +15,8 @@ import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { useResolvedProfileMetadata } from "../../profile/hooks/use-resolved-profile-metadata";
 import { UserAvatar } from "../../profile/components/user-avatar";
 import { useMobileCompactLayout } from "@/app/features/runtime/use-mobile-compact-layout";
-
 const PRIVATE_PEER_LABEL = "Unknown contact";
 const PRIVATE_PEER_IDENTITY_HINT = "Identity hidden";
-
 export function TrustSettingsPanel() {
     const { t } = useTranslation();
     const compact = useMobileCompactLayout();
@@ -27,24 +24,18 @@ export function TrustSettingsPanel() {
     const myPublicKeyHex = identity.state.publicKeyHex ?? null;
     const [searchQuery, setSearchQuery] = useState("");
     const [confirmUntrustPk, setConfirmUntrustPk] = useState<string | null>(null);
-
     const acceptedPeers = peerTrust.state.acceptedPeers;
     const mutedPeers = peerTrust.state.mutedPeers;
     const blockedPeers = blocklist.state.blockedPublicKeys;
-
     const filterByQuery = (pk: string) => pk.toLowerCase().includes(searchQuery.toLowerCase());
-
     const filteredAccepted = acceptedPeers.filter(filterByQuery);
     const filteredMuted = mutedPeers.filter(filterByQuery);
     const filteredBlocked = blockedPeers.filter(filterByQuery);
-
-    return (
-        <div className={compact ? "space-y-4" : "space-y-6"}>
-            {!compact ? (
-            <Card className="p-4 bg-zinc-50/60 dark:bg-zinc-900/40 border-zinc-200/80 dark:border-zinc-800 shadow-none">
+    return (<div className={compact ? "space-y-4" : "space-y-6"}>
+            {!compact ? (<Card className="p-4 bg-zinc-50/60 dark:bg-zinc-900/40 border-zinc-200/80 dark:border-zinc-800 shadow-none">
                 <div className="flex items-start gap-4">
                     <div className="h-10 w-10 shrink-0 rounded-xl bg-zinc-200/80 dark:bg-zinc-800 flex items-center justify-center">
-                        <Info className="h-5 w-5 text-zinc-700 dark:text-zinc-300" aria-hidden />
+                        <Info className="h-5 w-5 text-zinc-700 dark:text-zinc-300" aria-hidden/>
                     </div>
                     <div className="space-y-2 min-w-0">
                         <h4 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
@@ -61,14 +52,12 @@ export function TrustSettingsPanel() {
                         </p>
                     </div>
                 </div>
-            </Card>
-            ) : null}
+            </Card>) : null}
 
-            {!compact ? (
-            <Card className="p-4 bg-amber-500/5 border-amber-500/15 shadow-none">
+            {!compact ? (<Card className="p-4 bg-amber-500/5 border-amber-500/15 shadow-none">
                 <div className="flex items-start gap-4">
                     <div className="h-10 w-10 shrink-0 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
-                        <ShieldAlert className="h-5 w-5 text-amber-700 dark:text-amber-300" aria-hidden />
+                        <ShieldAlert className="h-5 w-5 text-amber-700 dark:text-amber-300" aria-hidden/>
                     </div>
                     <div className="space-y-2 min-w-0">
                         <h4 className="text-sm font-bold text-amber-950 dark:text-amber-100">
@@ -82,23 +71,11 @@ export function TrustSettingsPanel() {
                         </p>
                     </div>
                 </div>
-            </Card>
-            ) : null}
+            </Card>) : null}
 
             <div className="relative">
-                <Search className={cn(
-                    "absolute top-1/2 -translate-y-1/2 text-zinc-400",
-                    compact ? "left-3 h-4 w-4" : "left-3 h-5 w-5",
-                )} />
-                <Input
-                    placeholder={t("settings.security.searchPeers")}
-                    className={cn(
-                        "bg-zinc-50/50 dark:bg-zinc-900/50 border-zinc-200 dark:border-zinc-800 focus:ring-purple-500/20",
-                        compact ? "h-10 pl-9" : "h-11 pl-9",
-                    )}
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                />
+                <Search className={cn("absolute top-1/2 -translate-y-1/2 text-zinc-400", compact ? "left-3 h-4 w-4" : "left-3 h-5 w-5")}/>
+                <Input placeholder={t("settings.security.searchPeers")} className={cn("bg-zinc-50/50 dark:bg-zinc-900/50 border-zinc-200 dark:border-zinc-800 focus:ring-purple-500/20", compact ? "h-10 pl-9" : "h-11 pl-9")} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}/>
             </div>
 
             {/* Accepted Peers */}
@@ -108,84 +85,50 @@ export function TrustSettingsPanel() {
                         {t("settings.security.acceptedConnections")} ({acceptedPeers.length})
                     </h3>
                     <div className="flex items-center gap-1.5 text-[10px] text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-500/10 px-2 py-1 rounded-full uppercase tracking-tight">
-                        <ShieldCheck className="h-3 w-3" />
+                        <ShieldCheck className="h-3 w-3"/>
                         {t("invites.trusted")}
                     </div>
                 </div>
 
-                {filteredAccepted.length === 0 ? (
-                    <Card className="p-8 text-center text-zinc-400 bg-zinc-50/30 dark:bg-zinc-900/30 border-dashed border-zinc-200 dark:border-zinc-800">
+                {filteredAccepted.length === 0 ? (<Card className="p-8 text-center text-zinc-400 bg-zinc-50/30 dark:bg-zinc-900/30 border-dashed border-zinc-200 dark:border-zinc-800">
                         <p className="text-xs italic">{t("settings.security.noTrustedFound")}</p>
-                    </Card>
-                ) : (
-                    <div className="grid gap-2">
-                        {filteredAccepted.map((pk: string) => (
-                            <AcceptedPeerRow
-                                key={pk}
-                                pk={pk}
-                                t={t}
-                                onMute={() => peerTrust.mutePeer({ publicKeyHex: pk })}
-                                onUntrust={() => setConfirmUntrustPk(pk)}
-                            />
-                        ))}
-                    </div>
-                )}
+                    </Card>) : (<div className="grid gap-2">
+                        {filteredAccepted.map((pk: string) => (<AcceptedPeerRow key={pk} pk={pk} t={t} onMute={() => peerTrust.mutePeer({ publicKeyHex: pk })} onUntrust={() => setConfirmUntrustPk(pk)}/>))}
+                    </div>)}
             </section>
 
             {/* Muted Peers */}
-            {mutedPeers.length > 0 && (
-                <section className="space-y-3 pt-2">
+            {mutedPeers.length > 0 && (<section className="space-y-3 pt-2">
                     <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-500 px-1">
                         {t("settings.security.mutedPeers")} ({mutedPeers.length})
                     </h3>
 
                     <div className="grid gap-2">
-                        {filteredMuted.map((pk: string) => (
-                            <MutedPeerRow
-                                key={pk}
-                                pk={pk}
-                                t={t}
-                                onUnmute={() => peerTrust.unmutePeer({ publicKeyHex: pk })}
-                            />
-                        ))}
+                        {filteredMuted.map((pk: string) => (<MutedPeerRow key={pk} pk={pk} t={t} onUnmute={() => peerTrust.unmutePeer({ publicKeyHex: pk })}/>))}
                     </div>
-                </section>
-            )}
+                </section>)}
 
             {/* Blocked Peers */}
-            {(blockedPeers.length > 0 || filteredBlocked.length > 0) && (
-                <section className="space-y-3 pt-2">
+            {(blockedPeers.length > 0 || filteredBlocked.length > 0) && (<section className="space-y-3 pt-2">
                     <div className="flex items-center justify-between px-1">
                         <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-500">
                             {t("settings.blocklist.title")} ({blockedPeers.length})
                         </h3>
                         <div className="flex items-center gap-1.5 text-[10px] text-red-600 dark:text-red-400 font-bold bg-red-500/10 px-2 py-1 rounded-full uppercase tracking-tight">
-                            <EyeOff className="h-3 w-3" />
+                            <EyeOff className="h-3 w-3"/>
                             {t("settings.security.invisible")}
                         </div>
                     </div>
 
-                    {filteredBlocked.length === 0 && blockedPeers.length > 0 ? (
-                        <p className="text-[10px] italic text-zinc-400 text-center py-2">{t("settings.security.noBlockedFound")}</p>
-                    ) : (
-                        <div className="grid gap-2">
-                            {filteredBlocked.map((pk: string) => (
-                                <BlockedPeerRow
-                                    key={pk}
-                                    pk={pk}
-                                    t={t}
-                                    onUnblock={() => blocklist.removeBlocked({ publicKeyHex: pk as any })}
-                                />
-                            ))}
-                        </div>
-                    )}
-                </section>
-            )}
+                    {filteredBlocked.length === 0 && blockedPeers.length > 0 ? (<p className="text-[10px] italic text-zinc-400 text-center py-2">{t("settings.security.noBlockedFound")}</p>) : (<div className="grid gap-2">
+                            {filteredBlocked.map((pk: string) => (<BlockedPeerRow key={pk} pk={pk} t={t} onUnblock={() => blocklist.removeBlocked({ publicKeyHex: pk as any })}/>))}
+                        </div>)}
+                </section>)}
 
             <Card className="p-4 bg-purple-500/5 border-purple-500/10 shadow-none">
                 <div className="flex items-start gap-4">
                     <div className="h-10 w-10 shrink-0 rounded-xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
-                        <ShieldCheck className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                        <ShieldCheck className="h-5 w-5 text-purple-600 dark:text-purple-400"/>
                     </div>
                     <div className="space-y-1">
                         <h4 className="text-sm font-bold text-purple-900 dark:text-purple-300">{t("settings.security.guideTitle")}</h4>
@@ -198,32 +141,26 @@ export function TrustSettingsPanel() {
                 </div>
             </Card>
 
-            <ConfirmDialog
-                isOpen={!!confirmUntrustPk}
-                onClose={() => setConfirmUntrustPk(null)}
-                onConfirm={() => {
-                    if (confirmUntrustPk) {
-                        peerTrust.unacceptPeer({ publicKeyHex: confirmUntrustPk as PublicKeyHex });
-                        requestsInbox.remove({ peerPublicKeyHex: confirmUntrustPk as PublicKeyHex });
-                        setConfirmUntrustPk(null);
-                        toast.success(t("contacts.notifications.removed", "Contact removed"));
-                    }
-                }}
-                title={t("contacts.dialogs.removeTitle", "Remove Contact")}
-                description={t("contacts.dialogs.removeDesc", "Are you sure you want to remove this contact from your trusted list?")}
-                confirmLabel={t("contacts.actions.remove", "Remove")}
-                variant="danger"
-            />
-        </div>
-    );
+            <ConfirmDialog isOpen={!!confirmUntrustPk} onClose={() => setConfirmUntrustPk(null)} onConfirm={() => {
+            if (confirmUntrustPk) {
+                peerTrust.unacceptPeer({ publicKeyHex: confirmUntrustPk as PublicKeyHex });
+                requestsInbox.remove({ peerPublicKeyHex: confirmUntrustPk as PublicKeyHex });
+                setConfirmUntrustPk(null);
+                toast.success(t("contacts.notifications.removed"));
+            }
+        }} title={t("contacts.dialogs.removeTitle")} description={t("contacts.dialogs.removeDesc")} confirmLabel={t("contacts.actions.remove")} variant="danger"/>
+        </div>);
 }
-
-function AcceptedPeerRow({ pk, t, onMute, onUntrust }: { pk: string; t: any; onMute: () => void; onUntrust: () => void }) {
+function AcceptedPeerRow({ pk, t, onMute, onUntrust }: {
+    pk: string;
+    t: any;
+    onMute: () => void;
+    onUntrust: () => void;
+}) {
     const metadata = useResolvedProfileMetadata(pk);
-    return (
-        <div className="group flex items-center justify-between p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors shadow-sm">
+    return (<div className="group flex items-center justify-between p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors shadow-sm">
             <div className="flex items-center gap-3 min-w-0">
-                <UserAvatar pubkey={pk} size="md" showProfileOnClick={true} />
+                <UserAvatar pubkey={pk} size="md" showProfileOnClick={true}/>
                 <div className="min-w-0">
                     <p className="text-sm font-bold truncate text-zinc-900 dark:text-zinc-100">
                         {metadata?.displayName || PRIVATE_PEER_LABEL}
@@ -234,35 +171,24 @@ function AcceptedPeerRow({ pk, t, onMute, onUntrust }: { pk: string; t: any; onM
                 </div>
             </div>
             <div className="flex gap-1 shrink-0 ml-4">
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-10 w-10 p-0 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
-                    onClick={onMute}
-                    title={t("settings.security.mutePeer")}
-                >
-                    <VolumeX className="h-6 w-6" />
+                <Button variant="ghost" size="sm" className="h-10 w-10 p-0 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100" onClick={onMute} title={t("settings.security.mutePeer")}>
+                    <VolumeX className="h-6 w-6"/>
                 </Button>
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-10 w-10 p-0 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20"
-                    onClick={onUntrust}
-                    title={t("settings.security.revokeTrust")}
-                >
-                    <ShieldOff className="h-6 w-6" />
+                <Button variant="ghost" size="sm" className="h-10 w-10 p-0 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20" onClick={onUntrust} title={t("settings.security.revokeTrust")}>
+                    <ShieldOff className="h-6 w-6"/>
                 </Button>
             </div>
-        </div>
-    );
+        </div>);
 }
-
-function MutedPeerRow({ pk, t, onUnmute }: { pk: string; t: any; onUnmute: () => void }) {
+function MutedPeerRow({ pk, t, onUnmute }: {
+    pk: string;
+    t: any;
+    onUnmute: () => void;
+}) {
     const metadata = useResolvedProfileMetadata(pk);
-    return (
-        <div className="flex items-center justify-between p-3 rounded-xl border border-zinc-100 dark:border-white/5 bg-zinc-50/50 dark:bg-zinc-950/40 opacity-70">
+    return (<div className="flex items-center justify-between p-3 rounded-xl border border-zinc-100 dark:border-white/5 bg-zinc-50/50 dark:bg-zinc-950/40 opacity-70">
             <div className="flex items-center gap-3 min-w-0">
-                <UserAvatar pubkey={pk} size="md" showProfileOnClick={true} className="grayscale" />
+                <UserAvatar pubkey={pk} size="md" showProfileOnClick={true} className="grayscale"/>
                 <div className="min-w-0">
                     <p className="text-sm font-bold truncate text-zinc-500">
                         {metadata?.displayName || PRIVATE_PEER_LABEL}
@@ -273,27 +199,22 @@ function MutedPeerRow({ pk, t, onUnmute }: { pk: string; t: any; onUnmute: () =>
                 </div>
             </div>
             <div className="flex gap-1 shrink-0 ml-4">
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-10 w-10 p-0 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
-                    onClick={onUnmute}
-                    title={t("settings.security.unmutePeer")}
-                >
-                    <Volume2 className="h-6 w-6" />
+                <Button variant="ghost" size="sm" className="h-10 w-10 p-0 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100" onClick={onUnmute} title={t("settings.security.unmutePeer")}>
+                    <Volume2 className="h-6 w-6"/>
                 </Button>
             </div>
-        </div>
-    );
+        </div>);
 }
-
-function BlockedPeerRow({ pk, t, onUnblock }: { pk: string; t: any; onUnblock: () => void }) {
+function BlockedPeerRow({ pk, t, onUnblock }: {
+    pk: string;
+    t: any;
+    onUnblock: () => void;
+}) {
     const metadata = useResolvedProfileMetadata(pk);
-    return (
-        <div className="flex items-center justify-between p-3 rounded-xl border border-red-100 dark:border-red-900/20 bg-red-50/30 dark:bg-red-950/10">
+    return (<div className="flex items-center justify-between p-3 rounded-xl border border-red-100 dark:border-red-900/20 bg-red-50/30 dark:bg-red-950/10">
             <div className="flex items-center gap-3 min-w-0">
                 <div className="h-10 w-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center shrink-0">
-                    <ShieldAlert className="h-5 w-5 text-red-600 dark:text-red-400" />
+                    <ShieldAlert className="h-5 w-5 text-red-600 dark:text-red-400"/>
                 </div>
                 <div className="min-w-0">
                     <p className="text-sm font-bold truncate text-red-700 dark:text-red-400">
@@ -305,15 +226,9 @@ function BlockedPeerRow({ pk, t, onUnblock }: { pk: string; t: any; onUnblock: (
                 </div>
             </div>
             <div className="flex gap-1 shrink-0 ml-4">
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-[10px] font-bold text-red-600 hover:text-red-700 hover:bg-red-100 dark:hover:bg-red-900/30 px-3 h-8 rounded-lg transition-colors"
-                    onClick={onUnblock}
-                >
+                <Button variant="ghost" size="sm" className="text-[10px] font-bold text-red-600 hover:text-red-700 hover:bg-red-100 dark:hover:bg-red-900/30 px-3 h-8 rounded-lg transition-colors" onClick={onUnblock}>
                     {t("settings.blocklist.unblock")}
                 </Button>
             </div>
-        </div>
-    );
+        </div>);
 }

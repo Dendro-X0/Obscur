@@ -5,6 +5,13 @@ import type { Passphrase } from "@dweb/crypto/passphrase";
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import { derivePublicKeyHex } from "@dweb/crypto/derive-public-key-hex";
 import { useIdentity, getIdentitySnapshot, getIdentityDiagnosticsSnapshot } from "@/app/features/auth/hooks/use-identity";
+import { createAuthKernelPorts } from "@/app/features/auth-kernel/auth-kernel-ports";
+import {
+  runAuthKernelBoundProfileCreate,
+  runAuthKernelBoundProfileImport,
+  runAuthKernelBoundProfileUnlockWithPassphrase,
+  runAuthKernelBoundProfileUnlockWithPrivateKey,
+} from "@/app/features/auth-kernel/auth-kernel-bound-profile-auth";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { persistSessionUnlockAfterSuccess, revokeDeviceTrust } from "@/app/features/auth/services/device-trust-service";
 import { resolveStaySignedIn, type SessionUnlockOptions } from "@/app/features/auth/services/device-session-consent";
@@ -14,12 +21,8 @@ import {
   type StartupAuthState,
 } from "@/app/features/auth/services/startup-auth-state-contracts";
 import { desktopProfileRuntime } from "@/app/features/profiles/services/desktop-profile-runtime";
-import { claimActiveSessionLease } from "@/app/features/profiles/services/cross-profile-active-session-lease";
+import { claimActiveSessionLeaseAsync } from "@/app/features/profiles/services/cross-profile-active-session-lease";
 import { handleProfileWindowAccountUnlock } from "@/app/features/profiles/services/profile-session-lifecycle";
-import { assertAccountUnlockAllowed } from "@/app/features/profiles/services/profile-account-unlock-guard";
-import {
-  assertProfileSlotIsEmptyForNewIdentity,
-} from "@/app/features/profiles/services/profile-slot-login-guard";
 import type { ProfileIsolationSnapshot } from "@/app/features/profiles/services/profile-isolation-contracts";
 import {
   createDefaultRelayRuntimeSnapshot,
@@ -35,6 +38,7 @@ import {
   type WindowRuntimePhase,
   type WindowRuntimeSnapshot,
 } from "./window-runtime-contracts";
+import { reconcileWindowRuntimeBinding } from "@/app/features/runtime/services/window-runtime-binding";
 import { logAppEvent } from "@/app/shared/log-app-event";
 
 type Listener = () => void;
@@ -559,6 +563,14 @@ export const windowRuntimeSupervisor = {
       return;
     }
     if (params.startupState.runtimePhaseHint === "auth_required") {
+      if (getIdentitySnapshot().status === "unlocked") {
+        transitionTo("activating_runtime", {
+          degradedReason: "none",
+          lastError: undefined,
+          session: nextSession,
+        });
+        return;
+      }
       transitionTo("auth_required", {
         degradedReason: params.startupState.degradedReasonHint,
         lastError: params.startupState.message,
@@ -580,6 +592,12 @@ export const windowRuntimeSupervisor = {
     }
   },
   beginUnlock(mode: "create" | "import" | "unlock"): void {
+    if (getIdentitySnapshot().status === "unlocked") {
+      return;
+    }
+    if (["activating_runtime", "ready", "degraded"].includes(snapshot.phase)) {
+      return;
+    }
     transitionTo("unlocking", {
       degradedReason: "none",
       lastError: undefined,
@@ -606,7 +624,37 @@ export const windowRuntimeSupervisor = {
       lastError: error,
     }, error);
   },
+  promoteUnlockedSession(): void {
+    const identity = getIdentitySnapshot();
+    if (identity.status !== "unlocked" || !identity.publicKeyHex) {
+      return;
+    }
+    if (snapshot.phase === "ready" || snapshot.phase === "degraded") {
+      return;
+    }
+    const diagnostics = getIdentityDiagnosticsSnapshot();
+    const nextSession: ProfileBoundSessionSnapshot = {
+      ...snapshot.session,
+      identityStatus: "unlocked",
+      startupState: diagnostics.startupState,
+      storedPublicKeyHex: identity.stored?.publicKeyHex,
+      unlockedPublicKeyHex: identity.publicKeyHex,
+    };
+    transitionTo("activating_runtime", {
+      degradedReason: "none",
+      lastError: undefined,
+      session: nextSession,
+      relayRuntime: createDefaultRelayRuntimeSnapshot({
+        windowLabel: nextSession.windowLabel,
+        profileId: nextSession.profileId,
+        publicKeyHex: identity.publicKeyHex,
+      }),
+    });
+  },
   resetToAuthRequired(): void {
+    if (getIdentitySnapshot().status === "unlocked") {
+      return;
+    }
     transitionTo("auth_required", {
       degradedReason: "none",
       lastError: undefined,
@@ -645,11 +693,48 @@ const enforceProfileWindowAccountBinding = (
   }
   const normalized = publicKeyHex.trim().toLowerCase() as PublicKeyHex;
   handleProfileWindowAccountUnlock(profileId, normalized);
-  claimActiveSessionLease({
+  void claimActiveSessionLeaseAsync({
     publicKeyHex: normalized,
     profileId,
     windowLabel: windowLabel?.trim() || windowRuntimeSupervisor.getSnapshot().session.windowLabel,
   });
+};
+
+export type BoundProfileUnlockKind = "create" | "import" | "unlock";
+
+export const beginBoundProfileUnlock = (kind: BoundProfileUnlockKind): void => {
+  if (getIdentitySnapshot().status === "unlocked") {
+    return;
+  }
+  const phase = windowRuntimeSupervisor.getSnapshot().phase;
+  if (phase === "activating_runtime" || phase === "ready" || phase === "degraded") {
+    return;
+  }
+  windowRuntimeSupervisor.beginUnlock(kind);
+};
+
+export const finalizeBoundProfileUnlockSuccess = (params: Readonly<{
+  profileId: string;
+  passphrase?: Passphrase;
+  privateKeyHex?: PrivateKeyHex;
+  trusted: boolean;
+}>): void => {
+  windowRuntimeSupervisor.promoteUnlockedSession();
+  persistSessionUnlockAfterSuccess({
+    profileId: params.profileId,
+    passphrase: params.passphrase,
+    privateKeyHex: params.privateKeyHex,
+    trusted: params.trusted,
+  });
+  enforceProfileWindowAccountBinding(params.profileId, resolveIdentityPublicKeyHexForPersist());
+  reconcileWindowRuntimeBinding();
+};
+
+export const resetBoundProfileToAuthRequired = (): void => {
+  if (getIdentitySnapshot().status === "unlocked") {
+    return;
+  }
+  windowRuntimeSupervisor.resetToAuthRequired();
 };
 
 export const useWindowRuntime = () => {
@@ -660,101 +745,42 @@ export const useWindowRuntime = () => {
     snapshot: runtimeSnapshot,
     refreshWindowBinding: desktopProfileRuntime.refresh,
     createIdentityForBoundProfile: async (params: Readonly<{ passphrase: Passphrase; username?: string } & SessionUnlockOptions>): Promise<void> => {
-      const staySignedIn = resolveStaySignedIn(params);
-      windowRuntimeSupervisor.beginUnlock("create");
-      try {
-        assertProfileSlotIsEmptyForNewIdentity(runtimeSnapshot.session.profileId);
-        await identity.createIdentity({ ...params, staySignedIn });
-        persistSessionUnlockAfterSuccess({
-          profileId: runtimeSnapshot.session.profileId,
-          passphrase: params.passphrase,
-          trusted: staySignedIn,
-        });
-        enforceProfileWindowAccountBinding(runtimeSnapshot.session.profileId, resolveIdentityPublicKeyHexForPersist());
-        const diagnostics = identity.getIdentityDiagnostics?.();
-        if (diagnostics?.startupState) {
-          windowRuntimeSupervisor.syncIdentity({ startupState: diagnostics.startupState });
-        }
-      } catch (error) {
-        windowRuntimeSupervisor.resetToAuthRequired();
-        throw error;
-      }
+      const ports = createAuthKernelPorts();
+      await runAuthKernelBoundProfileCreate(ports, {
+        profileId: runtimeSnapshot.session.profileId,
+        ...params,
+      });
     },
     importIdentityForBoundProfile: async (params: Readonly<{ privateKeyHex: PrivateKeyHex; passphrase: Passphrase; username?: string } & SessionUnlockOptions>): Promise<void> => {
-      const staySignedIn = resolveStaySignedIn(params);
-      windowRuntimeSupervisor.beginUnlock("import");
-      try {
-        assertAccountUnlockAllowed({
-          profileId: runtimeSnapshot.session.profileId,
-          incomingPublicKeyHex: derivePublicKeyHex(params.privateKeyHex),
-        });
-        await identity.importIdentity({ ...params, staySignedIn });
-        persistSessionUnlockAfterSuccess({
-          profileId: runtimeSnapshot.session.profileId,
-          passphrase: params.passphrase,
-          privateKeyHex: params.privateKeyHex,
-          trusted: staySignedIn,
-        });
-        enforceProfileWindowAccountBinding(runtimeSnapshot.session.profileId, resolveIdentityPublicKeyHexForPersist());
-        const diagnostics = identity.getIdentityDiagnostics?.();
-        if (diagnostics?.startupState) {
-          windowRuntimeSupervisor.syncIdentity({ startupState: diagnostics.startupState });
-        }
-      } catch (error) {
-        windowRuntimeSupervisor.resetToAuthRequired();
-        throw error;
-      }
+      const ports = createAuthKernelPorts();
+      await runAuthKernelBoundProfileImport(ports, {
+        profileId: runtimeSnapshot.session.profileId,
+        ...params,
+      });
     },
     unlockBoundProfile: async (params: Readonly<{ passphrase: Passphrase } & SessionUnlockOptions>): Promise<void> => {
-      const staySignedIn = resolveStaySignedIn(params);
-      windowRuntimeSupervisor.beginUnlock("unlock");
-      try {
-        const storedPublicKeyHex = identity.state.stored?.publicKeyHex;
-        if (storedPublicKeyHex) {
-          assertAccountUnlockAllowed({
-            profileId: runtimeSnapshot.session.profileId,
-            incomingPublicKeyHex: storedPublicKeyHex,
-          });
-        }
-        await identity.unlockIdentity({ ...params, staySignedIn });
-        persistSessionUnlockAfterSuccess({
-          profileId: runtimeSnapshot.session.profileId,
-          passphrase: params.passphrase,
-          trusted: staySignedIn,
-        });
-        enforceProfileWindowAccountBinding(runtimeSnapshot.session.profileId, resolveIdentityPublicKeyHexForPersist());
-        const diagnostics = identity.getIdentityDiagnostics?.();
-        if (diagnostics?.startupState) {
-          windowRuntimeSupervisor.syncIdentity({ startupState: diagnostics.startupState });
-        }
-      } catch (error) {
-        windowRuntimeSupervisor.resetToAuthRequired();
-        throw error;
+      const storedPublicKeyHex = identity.state.stored?.publicKeyHex;
+      if (!storedPublicKeyHex) {
+        throw new Error("No local account is stored for this profile window.");
       }
+      const ports = createAuthKernelPorts();
+      await runAuthKernelBoundProfileUnlockWithPassphrase(ports, {
+        profileId: runtimeSnapshot.session.profileId,
+        passphrase: params.passphrase,
+        expectedPublicKeyHex: storedPublicKeyHex,
+        staySignedIn: params.staySignedIn,
+      });
     },
     unlockBoundProfileWithPrivateKeyHex: async (params: Readonly<{ privateKeyHex: PrivateKeyHex } & SessionUnlockOptions>): Promise<void> => {
-      const staySignedIn = resolveStaySignedIn(params);
-      windowRuntimeSupervisor.beginUnlock("unlock");
-      try {
-        assertAccountUnlockAllowed({
-          profileId: runtimeSnapshot.session.profileId,
-          incomingPublicKeyHex: derivePublicKeyHex(params.privateKeyHex),
-        });
-        await identity.unlockWithPrivateKeyHex({ ...params, staySignedIn });
-        persistSessionUnlockAfterSuccess({
-          profileId: runtimeSnapshot.session.profileId,
-          privateKeyHex: params.privateKeyHex,
-          trusted: staySignedIn,
-        });
-        enforceProfileWindowAccountBinding(runtimeSnapshot.session.profileId, resolveIdentityPublicKeyHexForPersist());
-        const diagnostics = identity.getIdentityDiagnostics?.();
-        if (diagnostics?.startupState) {
-          windowRuntimeSupervisor.syncIdentity({ startupState: diagnostics.startupState });
-        }
-      } catch (error) {
-        windowRuntimeSupervisor.resetToAuthRequired();
-        throw error;
-      }
+      const storedPublicKeyHex = identity.state.stored?.publicKeyHex;
+      const expectedPublicKeyHex = storedPublicKeyHex ?? derivePublicKeyHex(params.privateKeyHex);
+      const ports = createAuthKernelPorts();
+      await runAuthKernelBoundProfileUnlockWithPrivateKey(ports, {
+        profileId: runtimeSnapshot.session.profileId,
+        privateKeyHex: params.privateKeyHex,
+        expectedPublicKeyHex,
+        staySignedIn: params.staySignedIn,
+      });
     },
     logoutBoundProfile: async (): Promise<void> => {
       revokeDeviceTrust(runtimeSnapshot.session.profileId);

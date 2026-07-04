@@ -30,14 +30,5 @@
  * @packageDocumentation
  */
 
-// Re-export all CRDT modules for convenience
-export * from './vector-clock.js';
-export * from './or-set.js';
-export * from './lww-register.js';
-export * from './lww-element-set.js';
-export * from './g-counter.js';
-export * from './delta-state.js';
-export * from './nostr-event-adapter.js';
-
-// Version marker for compatibility checks
+// Version marker for compatibility checks — subpath imports are canonical (@dweb/crdt/or-set, etc.).
 export const DWEB_CRDT_VERSION = '1.3.16';

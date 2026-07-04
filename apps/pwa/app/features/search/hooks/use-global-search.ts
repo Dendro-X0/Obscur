@@ -18,7 +18,7 @@ import type {
     DiscoveryReasonCode,
     DiscoveryResult
 } from "@/app/features/search/types/discovery";
-import { useGroups } from "@/app/features/groups/providers/group-provider";
+import { useGroups } from "@/app/features/groups/providers/group-provider-port";
 
 export type SearchResult = DiscoveryResult;
 

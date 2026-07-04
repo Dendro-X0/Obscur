@@ -24,13 +24,15 @@ describe("workspace-kernel W4 exit contract", () => {
     expect(manifest).toMatch(/W4.*Landed/i);
   });
 
-  it("handoff documents W4 landed and workspace kernel complete", () => {
-    const handoff = readFileSync(
-      path.join(repoRoot, "docs/handoffs/current-session.md"),
+  it("program manifest documents W4 landed and workspace kernel complete", () => {
+    const manifest = readFileSync(
+      path.join(repoRoot, "docs/program/workspace-kernel-manifest.md"),
       "utf8",
     );
-    expect(handoff).toMatch(/verify:workspace-kernel-w4/);
-    expect(handoff).toMatch(/W4.*landed|workspace kernel.*complete/i);
+    const pkg = readFileSync(path.join(repoRoot, "package.json"), "utf8");
+    expect(manifest).toContain("verify:workspace-kernel-w4");
+    expect(manifest).toMatch(/Workspace kernel W1–W4.*Complete|W4.*Landed/i);
+    expect(pkg).toContain("verify:workspace-kernel");
   });
 
   it("backup-restore port delegates to Path B B4 native sqlite evidence", () => {

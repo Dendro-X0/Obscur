@@ -1,14 +1,22 @@
 # Handoff Docs
 
-This folder is the canonical continuity surface for Codex thread-to-thread progress.
+Canonical continuity for thread-to-thread progress.
+
+## Boot (read in order)
+
+1. [../START-HERE.md](../START-HERE.md) — five daily docs + project context
+2. [current-session.md](./current-session.md) — **next atomic step**
+3. [../program/v1.9.x-execution-contract.md](../program/v1.9.x-execution-contract.md) — if executing code
+
+Do **not** start from [../archive/](../archive/README.md) or the full [../encyclopedia/](../encyclopedia/).
 
 ## Files
 
-1. `docs/handoffs/current-session.md`: live handoff state for the active development thread.
-2. `docs/handoffs/session-template.md`: reset/template source for handoff shape.
+| File | Role |
+|------|------|
+| `current-session.md` | Live handoff — update every substantial session |
+| `session-template.md` | Shape template for new handoff entries |
 
-## Minimum Loop
+## End of session
 
-1. Start thread: read `AGENTS.md`, [design goals](../program/design-goals-and-constraints.md), [execution contract](../program/v1.9.x-execution-contract.md), `docs/encyclopedia/08-maintainer-playbook.md`, and `docs/handoffs/current-session.md`.
-2. During work: write checkpoints when decisions, evidence, or blockers change.
-3. End thread: update next atomic step and leave a final checkpoint.
+Update `current-session.md`: `Last Updated`, status table, next atomic step, blockers. See [../DOC-MAINTENANCE.md](../DOC-MAINTENANCE.md).

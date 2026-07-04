@@ -42,6 +42,17 @@ const writeStore = (profileId: string, store: StoredTrustStateByConversation): v
   }
 };
 
+export const resolveTrustThreadStateKey = (
+  conversationId: string,
+  conversationKind: "dm" | "group",
+  senderPublicKeyHex: string | undefined,
+): string => {
+  if (conversationKind === "group" && senderPublicKeyHex) {
+    return `${conversationId}#${senderPublicKeyHex}`;
+  }
+  return conversationId;
+};
+
 export const getDmTrustThreadState = (
   profileId: string,
   conversationId: string,

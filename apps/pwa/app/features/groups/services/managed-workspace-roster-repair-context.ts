@@ -7,6 +7,7 @@ import {
   resolveManagedWorkspaceCommunityId,
 } from "@/app/features/workspace-kernel/workspace-kernel-membership-scope";
 import { loadCommunityMembershipLedger } from "./community-membership-ledger";
+import { loadCommunityKnownParticipantsEntries } from "./community-known-participants-store";
 import { resolveEffectiveCommunityMode } from "./community-workspace-r1-policy";
 
 export type ManagedWorkspaceRosterRepairContext = Readonly<{
@@ -70,6 +71,17 @@ export const buildManagedWorkspaceRosterRepairContext = (params: Readonly<{
       relayUrl: group.relayUrl,
     });
     (ledgerEntry?.memberPubkeys ?? []).forEach((pubkey) => {
+      const trimmed = pubkey.trim();
+      if (trimmed) {
+        joinEvidence.add(trimmed);
+      }
+    });
+
+    const knownEntry = loadCommunityKnownParticipantsEntries(publicKeyHex, profileId).find((entry) => (
+      entry.conversationId === group.id
+      || (entry.groupId === group.groupId && entry.relayUrl === group.relayUrl)
+    ));
+    (knownEntry?.participantPubkeys ?? []).forEach((pubkey) => {
       const trimmed = pubkey.trim();
       if (trimmed) {
         joinEvidence.add(trimmed);

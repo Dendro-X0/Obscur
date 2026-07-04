@@ -1,8 +1,4 @@
-import { buildProjectionEvidenceMessagesForConversation } from "../dm-conversation-projection-evidence-messages";
-import { mergeProjectionFirstWithLiveOverlayForDisplay } from "../dm-conversation-projection-live-merge";
-import { runDmConversationHydrateReadModelPipeline } from "../dm-conversation-hydrate-pipeline";
-import { loadEarlierDmConversationMessages } from "../dm-conversation-materialization-load-earlier";
-import { applyRealtimeBufferedEvents } from "../dm-conversation-materialization-realtime";
+import { buildLegacyProjectionEvidenceMessagesForConversation, loadLegacyEarlierDmConversationMessages, mergeLegacyProjectionFirstWithLiveOverlayForDisplay, applyLegacyRealtimeBufferedEvents, runLegacyDmConversationHydrateReadModelPipeline, } from "./dm-thread-history-legacy-port";
 import { prepareDmThreadSuppressionIds } from "../dm-thread-suppression-prepare";
 import {
   filterMessagesBySuppressedIds,
@@ -13,11 +9,11 @@ import type { ThreadHistoryPort } from "./port";
 /** Live DM adapter for the thread history kernel. */
 export const dmThreadHistoryAdapter: ThreadHistoryPort = {
   prepareThreadSuppressionIds: prepareDmThreadSuppressionIds,
-  hydrateThreadReadModel: runDmConversationHydrateReadModelPipeline,
-  buildProjectionEvidenceMessages: buildProjectionEvidenceMessagesForConversation,
-  mergeProjectionWithLiveOverlay: mergeProjectionFirstWithLiveOverlayForDisplay,
-  loadEarlierMessages: loadEarlierDmConversationMessages,
-  applyRealtimeBufferedEvents,
+  hydrateThreadReadModel: runLegacyDmConversationHydrateReadModelPipeline,
+  buildProjectionEvidenceMessages: buildLegacyProjectionEvidenceMessagesForConversation,
+  mergeProjectionWithLiveOverlay: mergeLegacyProjectionFirstWithLiveOverlayForDisplay,
+  loadEarlierMessages: loadLegacyEarlierDmConversationMessages,
+  applyRealtimeBufferedEvents: applyLegacyRealtimeBufferedEvents,
   filterThreadMessagesBySuppression: filterMessagesBySuppressedIds,
   mergeHydratedBaseWithLiveOverlay: mergeHydratedBaseWithLiveOverlayMessages,
 };

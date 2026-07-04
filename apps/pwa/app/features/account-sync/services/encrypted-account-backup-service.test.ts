@@ -3,7 +3,7 @@ import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import { encryptedAccountBackupService, encryptedAccountBackupServiceInternals } from "./encrypted-account-backup-service";
 import { hasPortablePrivateStateEvidence } from "./restore-merge-policy";
-import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store";
+import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store-legacy";
 import { MessageQueue } from "@/app/features/messaging/lib/message-queue";
 import { requestFlowEvidenceStoreInternals } from "@/app/features/messaging/services/request-flow-evidence-store";
 import { syncCheckpointInternals } from "@/app/features/messaging/lib/sync-checkpoints";

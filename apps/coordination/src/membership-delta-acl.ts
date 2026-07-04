@@ -14,14 +14,16 @@ export type MembershipDeltaAclDecision = Readonly<
 
 const normalizePubkey = (pubkey: string): string => pubkey.trim().toLowerCase();
 
-const foldMembershipSets = (
-  deltas: ReadonlyArray<MembershipDeltaAclRow>,
-): Readonly<{
+export type MembershipMaterializedSets = Readonly<{
   active: Set<string>;
   left: Set<string>;
   expelled: Set<string>;
   bootstrapStewardPubkey: string | null;
-}> => {
+}>;
+
+export const materializeMembershipSetsFromDeltas = (
+  deltas: ReadonlyArray<MembershipDeltaAclRow>,
+): MembershipMaterializedSets => {
   const active = new Set<string>();
   const left = new Set<string>();
   const expelled = new Set<string>();
@@ -53,6 +55,10 @@ const foldMembershipSets = (
 
   return { active, left, expelled, bootstrapStewardPubkey };
 };
+
+const foldMembershipSets = (
+  deltas: ReadonlyArray<MembershipDeltaAclRow>,
+): MembershipMaterializedSets => materializeMembershipSetsFromDeltas(deltas);
 
 /**
  * Path B Band B1 steward ACL — who may append membership deltas per community.

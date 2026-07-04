@@ -15,7 +15,7 @@ vi.mock("@/app/features/profiles/services/default-storage-ports", () => ({
   }),
 }));
 
-vi.mock("@/app/features/messaging/services/chat-state-store", () => ({
+vi.mock("@/app/features/messaging/services/chat-state-store-legacy", () => ({
   chatStateStoreService: {
     hydrateMessages: vi.fn(async () => undefined),
     load: vi.fn(() => null),

@@ -2,6 +2,7 @@
 
 import type React from "react";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@dweb/ui-kit";
 import { FileSearch, FolderOpen } from "lucide-react";
 import {
@@ -30,6 +31,7 @@ const formatBytes = (bytes: number): string => {
 };
 
 export function PortabilityLastExportCard(props: Props): React.JSX.Element | null {
+  const { t } = useTranslation();
   const [entry, setEntry] = useState<PortabilityExportHistoryEntry | null>(null);
 
   useEffect(() => {
@@ -42,7 +44,9 @@ export function PortabilityLastExportCard(props: Props): React.JSX.Element | nul
 
   return (
     <div className="rounded-xl border border-black/10 bg-zinc-50 px-3 py-3 dark:border-white/10 dark:bg-zinc-950/60">
-      <div className="text-xs font-bold uppercase tracking-wider text-zinc-500">Last export</div>
+      <div className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+        {t("profiles.portability.exportResult.lastExport")}
+      </div>
       <div className="mt-1 text-xs font-semibold text-zinc-900 dark:text-zinc-100">{entry.label}</div>
       <div className="mt-1 truncate font-mono text-[11px] text-zinc-600 dark:text-zinc-400">
         {entry.absolutePath ?? entry.fileName}
@@ -60,7 +64,7 @@ export function PortabilityLastExportCard(props: Props): React.JSX.Element | nul
             onClick={() => void revealExportPathInFileManager(entry.absolutePath!)}
           >
             <FileSearch className="h-3.5 w-3.5" />
-            Show File
+            {t("profiles.portability.exportResult.showFile")}
           </Button>
         ) : null}
         <Button
@@ -71,7 +75,7 @@ export function PortabilityLastExportCard(props: Props): React.JSX.Element | nul
           onClick={() => void openExportsFolderInFileManager()}
         >
           <FolderOpen className="h-3.5 w-3.5" />
-          Open Exports Folder
+          {t("profiles.portability.exportResult.openExportsFolder")}
         </Button>
       </div>
     </div>

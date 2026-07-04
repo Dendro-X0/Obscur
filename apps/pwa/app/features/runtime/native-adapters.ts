@@ -8,6 +8,7 @@ export type InvokeNativeCommandOptions = Readonly<{
 
 const MIN_TIMEOUT_BY_COMMAND: Readonly<Record<string, number>> = {
   desktop_get_profile_isolation_snapshot: 25_000,
+  desktop_open_profile_window: 45_000,
   init_native_session: 20_000,
 };
 
@@ -56,4 +57,9 @@ export const invokeNativeCommand = async <T>(
   } catch (error) {
     return failedResult(error instanceof Error ? error.message : String(error));
   }
+};
+
+/** Relaunch the native desktop app (no-op on web). */
+export const requestNativeAppRestart = async (): Promise<AdapterResult<void>> => {
+  return invokeNativeCommand<void>("restart_app");
 };

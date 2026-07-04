@@ -13,10 +13,11 @@ import { Button, Card } from "@dweb/ui-kit";
 import { PageShell } from "@/app/components/page-shell";
 import { cn } from "@/app/lib/utils";
 import { useMobileCompactLayout } from "@/app/features/runtime/use-mobile-compact-layout";
-import { useGroups } from "@/app/features/groups/providers/group-provider";
+import { useGroups } from "@/app/features/groups/providers/group-provider-port";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
-import { useSealedCommunity, toScopedRelayUrl } from "@/app/features/groups/hooks/use-sealed-community";
+import { toScopedRelayUrl } from "@/app/features/groups/hooks/use-sealed-community-types";
+import { useLegacySealedCommunity } from "@/app/features/groups/hooks/sealed-community-port";
 import { resolveGroupConversationByToken } from "@/app/features/messaging/utils/conversation-target";
 import { resolveGroupRouteToken } from "@/app/features/groups/utils/group-route-token";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
@@ -144,7 +145,7 @@ export default function LeaveCommunityPage() {
         };
     }, [effectiveRelay, group, localMemberPubkey, resolvedGroupId]);
 
-    const { leaveGroup: leaveNip29Group } = useSealedCommunity({
+    const { leaveGroup: leaveNip29Group } = useLegacySealedCommunity({
         groupId: resolvedGroupId,
         relayUrl: effectiveRelay,
         ...(group?.communityId ? { communityId: group.communityId } : {}),

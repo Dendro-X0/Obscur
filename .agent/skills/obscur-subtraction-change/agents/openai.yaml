@@ -1,0 +1,5 @@
+version: 1
+interface:
+  display_name: Obscur Subtraction Change
+  short_description: Retire parallel owners before adding adapters — canonical path only.
+  default_prompt: Apply Obscur subtraction discipline. Name the canonical owner, list parallel mutation paths, and retire or quarantine one before adding code.

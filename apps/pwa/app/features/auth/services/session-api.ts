@@ -107,6 +107,23 @@ export class SessionApi {
     }
 
     /**
+     * Aggressive desktop restore: hydrate keychain for the window profile, optionally
+     * rebind to the profile that owns the expected pubkey, then return session status.
+     */
+    static async forceSessionRestore(expectedPublicKeyHex?: string): Promise<SessionStatus> {
+        if (!hasNativeRuntime()) {
+            return { isActive: false, npub: null, isNative: false };
+        }
+        const result = await invokeNativeCommand<SessionStatusWire>("desktop_force_session_restore", {
+            expectedPubkeyHex: expectedPublicKeyHex ?? null,
+        }, { timeoutMs: 5_000 });
+        if (!result.ok) {
+            return { isActive: false, npub: null, isNative: true };
+        }
+        return normalizeSessionStatus(result.value);
+    }
+
+    /**
      * Explicitly check if the app is running in a native environment.
      */
     static isNative(): boolean {

@@ -2,6 +2,7 @@ import React from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { InviteToGroupDialog } from "./invite-to-group-dialog";
+import en from "@/app/lib/i18n/locales/en.json";
 
 const mocks = vi.hoisted(() => ({
   onInvite: vi.fn(),
@@ -12,7 +13,10 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
-    t: (_key: string, fallback?: string) => fallback ?? _key,
+    t: (key: string, options?: Record<string, unknown>) => {
+      const template = (en.translation as Record<string, string | undefined>)[key] ?? key;
+      return template.replace(/\{\{\s*([^\s}]+)\s*\}\}/g, (_match, token: string) => String(options?.[token] ?? ""));
+    },
   }),
 }));
 
@@ -32,7 +36,7 @@ vi.mock("@/app/features/auth/hooks/use-identity", () => ({
   }),
 }));
 
-vi.mock("@/app/features/groups/providers/group-provider", () => ({
+vi.mock("@/app/features/groups/providers/group-provider-port", () => ({
   useGroups: () => mocks.useGroups(),
 }));
 

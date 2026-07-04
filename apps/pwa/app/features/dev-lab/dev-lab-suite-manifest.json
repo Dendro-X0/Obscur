@@ -16,7 +16,8 @@
       "dm-reload-history",
       "runtime-m0-apis",
       "runtime-digest-gates",
-      "digest-membership-gates"
+      "digest-membership-gates",
+      "trust-matrix"
     ],
     "full": [
       "auth-unlock",
@@ -37,8 +38,8 @@
       "vault-unlock",
       "membership-leave-rejoin-zombie",
       "sec-bot-keyword-flood",
+      "trust-matrix",
       "trust-fixtures",
-      "trust-cold-dm-banner",
       "auth4-scope-probe",
       "trust-live",
       "sec-bot-inbound-live"

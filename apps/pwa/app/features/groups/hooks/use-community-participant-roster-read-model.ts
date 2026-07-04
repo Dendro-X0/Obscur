@@ -5,8 +5,8 @@ import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import {
   CHAT_STATE_REPLACED_EVENT,
   type ChatStateReplacedEventDetail,
-  chatStateStoreService,
-} from "@/app/features/messaging/services/chat-state-store";
+} from "@/app/features/messaging/services/chat-state-store-types";
+import { messagingChatStateReadPort } from "@/app/features/messaging/services/messaging-chat-state-read-port";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { COMMUNITY_MEMBERSHIP_LEDGER_UPDATED_EVENT, loadCommunityMembershipLedger } from "../services/community-membership-ledger";
 import { collectGroupMessageAuthorPubkeys } from "../services/community-message-author-evidence";
@@ -84,7 +84,7 @@ export const useCommunityParticipantRosterReadModel = (
 
     const persistedMessageAuthorPubkeys = params.persistedEvidenceOwnerPubkey
       ? collectGroupMessageAuthorPubkeys({
-        chatState: chatStateStoreService.load(params.persistedEvidenceOwnerPubkey),
+        chatState: messagingChatStateReadPort.load(params.persistedEvidenceOwnerPubkey),
         conversationId: params.conversationId,
       })
       : (params.persistedMessageAuthorPubkeys ?? []);

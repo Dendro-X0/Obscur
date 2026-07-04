@@ -1,30 +1,19 @@
 "use client";
-
 import React, { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "@dweb/ui-kit";
 import { useMessaging } from "@/app/features/messaging/providers/messaging-provider";
-import { useGroups } from "@/app/features/groups/providers/group-provider";
+import { useGroups } from "@/app/features/groups/providers/group-provider-port";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
 import { useRelayPoolRef } from "@/app/features/relays/hooks/use-relay-pool-ref";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { useNetwork } from "@/app/features/network/providers/network-provider";
-import {
-    CreateGroupDialog,
-    type CommunityCreateWaitPhase,
-    type GroupCreateInfo,
-} from "@/app/features/groups/components/create-group-dialog";
+import { CreateGroupDialog, type CommunityCreateWaitPhase, type GroupCreateInfo, } from "@/app/features/groups/components/create-group-dialog";
 import { resolveInitialStewardPubkeysForCreate } from "@/app/features/groups/services/community-steward-policy";
-import {
-    isWorkspaceCommunityCreateAllowed,
-    WORKSPACE_KERNEL_CREATE_DEFERRED_MESSAGE,
-} from "@/app/features/workspace-kernel/workspace-kernel-sovereign-create-policy";
+import { isWorkspaceCommunityCreateAllowed, WORKSPACE_KERNEL_CREATE_DEFERRED_MESSAGE, } from "@/app/features/workspace-kernel/workspace-kernel-sovereign-create-policy";
 import { isWorkspaceKernelAuthority } from "@/app/features/workspace-kernel/workspace-kernel-policy";
 import { createManagedWorkspaceMembership } from "@/app/features/workspace-kernel/workspace-kernel-membership-port";
-import {
-    isManagedWorkspaceRelayGateBlocking,
-    resolveManagedWorkspaceRelayGate,
-} from "@/app/features/groups/services/community-mode-contract";
+import { isManagedWorkspaceRelayGateBlocking, resolveManagedWorkspaceRelayGate, } from "@/app/features/groups/services/community-mode-contract";
 import { useRelayList } from "@/app/features/relays/hooks/use-relay-list";
 import { NewChatDialog } from "@/app/features/messaging/components/new-chat-dialog";
 import { GroupService } from "@/app/features/groups/services/group-service";
@@ -44,22 +33,14 @@ import { describeCoordinationFetchError } from "@/app/features/groups/services/c
 import { resolveUserFacingErrorMessage } from "@/app/features/relays/services/relay-publish-user-copy";
 import { dispatchGroupInviteReceived } from "@/app/features/profiles/services/profile-bus-dispatch";
 import { assessWorkspaceCommunityTrustAsync } from "@/app/features/groups/services/community-trust-policy";
-import {
-    createWorkspaceActivationPublisher,
-    prepareWorkspaceActivationTransport,
-    publishWorkspaceCoordinationJoinEvidence,
-    summarizeWorkspaceActivation,
-    type WorkspaceActivationRelayEvidence,
-} from "@/app/features/groups/services/community-workspace-activation";
+import { createWorkspaceActivationPublisher, prepareWorkspaceActivationTransport, publishWorkspaceCoordinationJoinEvidence, summarizeWorkspaceActivation, type WorkspaceActivationRelayEvidence, } from "@/app/features/groups/services/community-workspace-activation";
 import { ensureWorkspaceMembershipSyncMode } from "@/app/features/groups/services/community-workspace-membership";
 import { hasWritableCommunityRelayTransport } from "@/app/features/groups/services/community-relay-transport";
 import { isCoordinationOnlyWorkspaceDevMode } from "@/app/features/groups/services/community-dev-flags";
 import { LOCAL_DEV_RELAY_URL } from "@/app/features/relays/hooks/use-relay-list";
 import { ensureWorkspaceRelayTransportReady } from "@/app/features/groups/services/workspace-relay-calibrator";
 import { isRelayAuthoritativeMembershipEnforced } from "@/app/features/groups/services/community-relay-authoritative-membership-policy";
-
 const DEFAULT_DM_DISPLAY_NAME = "Unknown contact";
-
 export function GlobalDialogManager() {
     const { t } = useTranslation();
     const identity = useIdentity();
@@ -67,27 +48,11 @@ export function GlobalDialogManager() {
     const { relayPool } = useRelay();
     const relayPoolRef = useRelayPoolRef(relayPool);
     const relayList = useRelayList({ publicKeyHex: identity.state.publicKeyHex || null });
-
-    const {
-        isNewChatOpen, setIsNewChatOpen,
-        newChatPubkey, setNewChatPubkey,
-        newChatDisplayName, setNewChatDisplayName,
-        createdConnections,
-        setCreatedConnections,
-        setSelectedConversation,
-        unhideConversation
-    } = useMessaging();
-
-    const {
-        isNewGroupOpen, setIsNewGroupOpen,
-        isCreatingGroup, setIsCreatingGroup,
-        addGroup
-    } = useGroups();
-
+    const { isNewChatOpen, setIsNewChatOpen, newChatPubkey, setNewChatPubkey, newChatDisplayName, setNewChatDisplayName, createdConnections, setCreatedConnections, setSelectedConversation, unhideConversation } = useMessaging();
+    const { isNewGroupOpen, setIsNewGroupOpen, isCreatingGroup, setIsCreatingGroup, addGroup } = useGroups();
     const myPublicKeyHex = identity.state.publicKeyHex || null;
     const myPrivateKeyHex = identity.state.privateKeyHex || null;
     const [createWaitPhase, setCreateWaitPhase] = useState<CommunityCreateWaitPhase | null>(null);
-
     const dmController = useEnhancedDmController({
         myPublicKeyHex,
         myPrivateKeyHex,
@@ -103,16 +68,11 @@ export function GlobalDialogManager() {
         peerTrust,
         requestsInbox,
     });
-
-    const { searchByName: searchProfilesByName } = useProfileSearchServiceRef(
-        relayPool,
-        myPublicKeyHex ?? undefined,
-    );
-
+    const { searchByName: searchProfilesByName } = useProfileSearchServiceRef(relayPool, myPublicKeyHex ?? undefined);
     const handleCreateChat = useCallback((explicitPubkey?: string) => {
         const targetPubkey = explicitPubkey || newChatPubkey;
-        if (!targetPubkey) return;
-
+        if (!targetPubkey)
+            return;
         if (myPublicKeyHex && !peerTrust.isAccepted({ publicKeyHex: targetPubkey as PublicKeyHex })) {
             requestsInbox.setStatus({
                 peerPublicKeyHex: targetPubkey as PublicKeyHex,
@@ -120,19 +80,17 @@ export function GlobalDialogManager() {
                 isOutgoing: true
             });
         }
-
         const existing = createdConnections.find(c => c.pubkey === targetPubkey);
         const newId = toDmConversationId({ myPublicKeyHex: myPublicKeyHex || "", peerPublicKeyHex: targetPubkey });
         if (!newId) {
             toast.error("Invalid conversation identity. Please verify the target public key.");
             return;
         }
-
         unhideConversation(newId); // Ensure it is unhidden if previously hidden
-
         if (existing) {
             setSelectedConversation(existing);
-        } else {
+        }
+        else {
             const newConv = createDmConversation({
                 myPublicKeyHex: myPublicKeyHex || "",
                 peerPublicKeyHex: targetPubkey as PublicKeyHex,
@@ -148,9 +106,8 @@ export function GlobalDialogManager() {
         setIsNewChatOpen(false);
         setNewChatPubkey("");
         setNewChatDisplayName("");
-        toast.success(t("messaging.chatCreated", "Conversation started"));
+        toast.success(t("messaging.chatCreated"));
     }, [newChatPubkey, newChatDisplayName, createdConnections, myPublicKeyHex, setCreatedConnections, setSelectedConversation, setIsNewChatOpen, setNewChatPubkey, setNewChatDisplayName, t, unhideConversation, requestsInbox, peerTrust]);
-
     const handleCreateGroup = useCallback(async (info: GroupCreateInfo) => {
         if (!isWorkspaceCommunityCreateAllowed()) {
             toast.error(WORKSPACE_KERNEL_CREATE_DEFERRED_MESSAGE);
@@ -183,10 +140,9 @@ export function GlobalDialogManager() {
                 dispatchGroupInviteReceived(result.group);
                 setSelectedConversation(result.group);
                 setIsNewGroupOpen(false);
-                toast.success(t("groups.created", "Workspace community created"));
+                toast.success(t("groups.created"));
                 return;
             }
-
             const { groupId, host, name, about, avatar, access, relayCapabilityTier } = info;
             const rawRelayInput = (() => {
                 const trimmedHost = host.trim();
@@ -203,7 +159,6 @@ export function GlobalDialogManager() {
             const relayUrl = calibration.canonicalUrl;
             const communityMode = "managed_workspace" as const;
             const creatorPubkey = myPublicKeyHex;
-
             const trust = await assessWorkspaceCommunityTrustAsync({
                 communityRelayUrl: relayUrl,
                 enabledRelayUrls: relayList.state.relays.map((relay) => relay.url),
@@ -212,7 +167,6 @@ export function GlobalDialogManager() {
                 toast.error(trust.userMessage);
                 return;
             }
-
             const relayTransportReady = hasWritableCommunityRelayTransport(relayUrl);
             ensureWorkspaceMembershipSyncMode();
             if (relayTransportReady) {
@@ -222,7 +176,6 @@ export function GlobalDialogManager() {
                     pool.addTransientRelay(relayUrl);
                 }
             }
-
             logAppEvent({
                 name: "groups.community_creation_mode_selected",
                 level: "info",
@@ -236,12 +189,10 @@ export function GlobalDialogManager() {
                     relayCapabilityTier,
                 },
             });
-
             // 1. Generate and store Room Key (Essential for ALL Sealed Communities)
             const roomKeyHex = await cryptoService.generateRoomKey();
             await roomKeyStore.saveRoomKey(groupId, roomKeyHex);
             setCreateWaitPhase("relay");
-
             const stewardPubkeys = resolveInitialStewardPubkeysForCreate({
                 communityMode,
                 creatorPublicKeyHex: creatorPubkey as PublicKeyHex,
@@ -256,14 +207,12 @@ export function GlobalDialogManager() {
                 relayCapabilityTier,
                 ...(stewardPubkeys.length > 0 ? { stewardPubkeys } : {}),
             } as const;
-
             const groupService = new GroupService(myPublicKeyHex, myPrivateKeyHex);
             const createdEvent = await groupService.sendSealedCommunityCreated({
                 groupId,
                 roomKeyHex,
                 metadata
             });
-
             const openRelayUrls = relayList.state.relays
                 .filter((relay) => relay.enabled)
                 .map((relay) => relay.url);
@@ -281,10 +230,7 @@ export function GlobalDialogManager() {
                     openRelayUrls,
                     timeoutMs: 8000,
                 });
-                const publish = createWorkspaceActivationPublisher(
-                    relayPoolRef.current,
-                    transport.publishTargets,
-                );
+                const publish = createWorkspaceActivationPublisher(relayPoolRef.current, transport.publishTargets);
                 const genesisResult = await publish(JSON.stringify(["EVENT", createdEvent]));
                 relayEvidence = {
                     status: genesisResult.success ? "synced" : "failed",
@@ -305,18 +251,16 @@ export function GlobalDialogManager() {
                     });
                 }
             }
-
             const genesisEventId = createdEvent.id;
             const resolvedRelayUrl = relayEvidence.canonicalUrl || relayUrl;
             const communityId = deriveCommunityId({ groupId, relayUrl: resolvedRelayUrl, genesisEventId, creatorPubkey });
-
             // 2. Discoverability (Kind 39000 Hint)
             // If not invite-only, we publish a hint so others know where to look.
             if (access !== "invite-only") {
                 // We publish the metadata as a public Kind 39000 but WITHOUT the room key.
                 // In the future (Phase 4), we might include a Room Key for "open" groups.
                 // For now, this just marks the community's presence on the relay.
-                const metadataEvent = await groupService.hideMessage({ // Reusing logic for now or adding a specific one
+                const metadataEvent = await groupService.hideMessage({
                     groupId,
                     eventId: "manifest",
                     reason: JSON.stringify({ name, about, picture: avatar, access })
@@ -324,7 +268,6 @@ export function GlobalDialogManager() {
                 // Note: We need a proper metadata state event in GroupService. 
                 // Since I removed the NIP-29 ones, I'll just skip this for Phase 1 as it's secondary.
             }
-
             const newGroup: GroupConversation = {
                 kind: 'group',
                 id: toGroupConversationId({ groupId, relayUrl: resolvedRelayUrl, communityId }),
@@ -345,9 +288,7 @@ export function GlobalDialogManager() {
                 communityMode,
                 relayCapabilityTier,
             };
-
             setCreateWaitPhase("directory");
-
             const coordination = await publishWorkspaceCoordinationJoinEvidence({
                 communityId,
                 memberPubkey: myPublicKeyHex as PublicKeyHex,
@@ -370,20 +311,21 @@ export function GlobalDialogManager() {
                     : activationSummary.title);
                 return;
             }
-
             addGroup(newGroup, { allowRevive: true, relayConfirmed: true });
             dispatchGroupInviteReceived(newGroup);
             setSelectedConversation(newGroup);
             setIsNewGroupOpen(false);
-            toast.success(t("groups.created", "Workspace community created"));
-        } catch (error: unknown) {
+            toast.success(t("groups.created"));
+        }
+        catch (error: unknown) {
             console.error("Community creation failed:", error);
             const rawMessage = error instanceof Error ? error.message.trim() : "";
             const fallback = rawMessage === "Failed to fetch"
                 ? describeCoordinationFetchError("coordination_unreachable")
                 : "Failed to create community. Verify relay host and try again.";
             toast.error(resolveUserFacingErrorMessage(error, fallback));
-        } finally {
+        }
+        finally {
             setIsCreatingGroup(false);
             setCreateWaitPhase(null);
         }
@@ -398,31 +340,8 @@ export function GlobalDialogManager() {
         setIsCreatingGroup,
         t,
     ]);
-
-    return (
-        <>
-            <NewChatDialog
-                isOpen={isNewChatOpen}
-                onClose={() => setIsNewChatOpen(false)}
-                pubkey={newChatPubkey}
-                setPubkey={setNewChatPubkey}
-                displayName={newChatDisplayName}
-                setDisplayName={setNewChatDisplayName}
-                onCreate={handleCreateChat}
-                verifyRecipient={dmController.verifyRecipient}
-                searchProfiles={searchProfilesByName}
-                isAccepted={(pk) => peerTrust.isAccepted({ publicKeyHex: pk })}
-                sendConnectionRequest={requestTransport.sendRequest}
-            />
-            {isNewGroupOpen ? (
-                <CreateGroupDialog
-                    isOpen
-                    onClose={() => setIsNewGroupOpen(false)}
-                    onCreate={handleCreateGroup}
-                    isCreating={isCreatingGroup}
-                    createWaitPhase={createWaitPhase}
-                />
-            ) : null}
-        </>
-    );
+    return (<>
+            <NewChatDialog isOpen={isNewChatOpen} onClose={() => setIsNewChatOpen(false)} pubkey={newChatPubkey} setPubkey={setNewChatPubkey} displayName={newChatDisplayName} setDisplayName={setNewChatDisplayName} onCreate={handleCreateChat} verifyRecipient={dmController.verifyRecipient} searchProfiles={searchProfilesByName} isAccepted={(pk) => peerTrust.isAccepted({ publicKeyHex: pk })} sendConnectionRequest={requestTransport.sendRequest}/>
+            {isNewGroupOpen ? (<CreateGroupDialog isOpen onClose={() => setIsNewGroupOpen(false)} onCreate={handleCreateGroup} isCreating={isCreatingGroup} createWaitPhase={createWaitPhase}/>) : null}
+        </>);
 }

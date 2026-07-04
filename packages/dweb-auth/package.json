@@ -1,0 +1,23 @@
+{
+  "name": "@dweb/auth",
+  "version": "1.9.10",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@dweb/core": "workspace:*",
+    "@dweb/crypto": "workspace:*"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./contracts/auth-boot-snapshot": "./src/contracts/auth-boot-snapshot.ts",
+    "./contracts/auth-unlock-options": "./src/contracts/auth-unlock-options.ts",
+    "./contracts/auth-sybil-policy": "./src/contracts/auth-sybil-policy.ts",
+    "./contracts/auth-diagnostic": "./src/contracts/auth-diagnostic.ts",
+    "./contracts/auth-result": "./src/contracts/auth-result.ts",
+    "./ports/identity-root-port": "./src/ports/identity-root-port.ts",
+    "./ports/registration-policy-port": "./src/ports/registration-policy-port.ts",
+    "./ports/device-unlock-port": "./src/ports/device-unlock-port.ts",
+    "./ports/runtime-session-port": "./src/ports/runtime-session-port.ts",
+    "./policy/session-credential-policy-contract": "./src/policy/session-credential-policy-contract.ts"
+  }
+}

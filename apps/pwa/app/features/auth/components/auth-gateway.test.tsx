@@ -77,10 +77,15 @@ vi.mock("@/app/features/auth/hooks/use-identity", () => ({
     state: authGatewayMocks.identityState,
     retryNativeSessionUnlock: authGatewayMocks.retryNativeSessionUnlock,
   }),
+  getIdentitySnapshot: () => authGatewayMocks.identityState,
 }));
 
 vi.mock("@/app/features/runtime/services/window-runtime-supervisor", () => ({
   useWindowRuntime: () => authGatewayMocks.runtime,
+  windowRuntimeSupervisor: {
+    getSnapshot: () => authGatewayMocks.runtime.snapshot,
+    promoteUnlockedSession: vi.fn(),
+  },
 }));
 
 vi.mock("@/app/features/runtime/runtime-capabilities", () => ({
@@ -112,6 +117,18 @@ vi.mock("@/app/features/auth/services/session-credential-policy", async (importO
   };
 });
 
+vi.mock("@/app/features/runtime/services/window-runtime-binding", () => ({
+  reconcileWindowRuntimeBinding: vi.fn(),
+}));
+
+vi.mock("@/app/features/auth/services/device-session-consent", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/app/features/auth/services/device-session-consent")>();
+  return {
+    ...actual,
+    isDeviceSessionRestoreAllowed: () => true,
+  };
+});
+
 vi.mock("@/app/features/runtime/components/profile-bound-auth-shell", () => ({
   ProfileBoundAuthShell: () => <div>Profile Bound Auth Shell</div>,
 }));
@@ -120,9 +137,36 @@ vi.mock("@/app/shared/log-app-event", () => ({
   logAppEvent: vi.fn(),
 }));
 
+const bootMocks = vi.hoisted(() => ({
+  profileBootReconcileComplete: true,
+}));
+
+vi.mock("@/app/features/profiles/services/desktop-window-boot", () => ({
+  DESKTOP_PROFILE_BOOT_RECONCILED_EVENT: "obscur-desktop-profile-boot-reconciled",
+  isDesktopProfileBootReconcileComplete: () => bootMocks.profileBootReconcileComplete,
+}));
+
+vi.mock("@/app/features/auth-kernel/auth-kernel-boot-owner", () => ({
+  isAuthKernelBootRestoreSettled: vi.fn(() => true),
+  waitForAuthKernelBootRestore: vi.fn(async () => undefined),
+}));
+
+const authKernelPolicyMocks = vi.hoisted(() => ({
+  isAuthKernelAuthority: true,
+}));
+
+vi.mock("@/app/features/auth-kernel/auth-kernel-policy", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/app/features/auth-kernel/auth-kernel-policy")>();
+  return {
+    ...actual,
+    isAuthKernelAuthority: () => authKernelPolicyMocks.isAuthKernelAuthority,
+  };
+});
+
 describe("AuthGateway", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    bootMocks.profileBootReconcileComplete = true;
     sessionPolicyMocks.SESSION_AUTO_UNLOCK_ENABLED = false;
     localStorage.clear();
     authGatewayMocks.hasNativeRuntime = false;
@@ -135,6 +179,7 @@ describe("AuthGateway", () => {
     authGatewayMocks.runtime.snapshot.session.startupState.identityStatus = "locked";
     authGatewayMocks.desktopProfileSnapshot.currentWindow.launchMode = "existing";
     authGatewayMocks.desktopProfileSnapshot.currentWindow.windowLabel = "main";
+    authKernelPolicyMocks.isAuthKernelAuthority = true;
   });
 
   it("does not auto-unlock when session credential policy disables it", () => {
@@ -156,6 +201,7 @@ describe("AuthGateway", () => {
 
   it("attempts auto-unlock once and falls back to auth shell when credentials fail", async () => {
     sessionPolicyMocks.SESSION_AUTO_UNLOCK_ENABLED = true;
+    authKernelPolicyMocks.isAuthKernelAuthority = false;
     localStorage.setItem("obscur_remember_me::default", "true");
     localStorage.setItem("obscur_auth_token::default", "secret-passphrase");
 
@@ -182,6 +228,7 @@ describe("AuthGateway", () => {
 
   it("auto-unlocks hex-key tokens with the private-key path", async () => {
     sessionPolicyMocks.SESSION_AUTO_UNLOCK_ENABLED = true;
+    authKernelPolicyMocks.isAuthKernelAuthority = false;
     const privateKeyHex = "b".repeat(64);
     localStorage.setItem("obscur_remember_me::default", "true");
     localStorage.setItem("obscur_auth_token::default", privateKeyHex);
@@ -230,9 +277,58 @@ describe("AuthGateway", () => {
     expect(authGatewayMocks.routerReplace).toHaveBeenCalledWith("/profiles");
   });
 
+  it("skips locked desktop home redirect on manual page reload", () => {
+    const getEntriesByType = vi.fn(() => [{ type: "reload" } as PerformanceNavigationTiming]);
+    vi.stubGlobal("performance", {
+      ...performance,
+      getEntriesByType,
+    });
+    authGatewayMocks.hasNativeRuntime = true;
+    authGatewayMocks.pathname = "/";
+    authGatewayMocks.runtime.snapshot.session.startupState.kind = "stored_locked";
+
+    render(
+      <AuthGateway>
+        <div>Runtime Children</div>
+      </AuthGateway>,
+    );
+
+    expect(authGatewayMocks.routerReplace).not.toHaveBeenCalled();
+    expect(getEntriesByType).toHaveBeenCalledWith("navigation");
+    vi.unstubAllGlobals();
+  });
+
+  it("defers auth shell on manual reload until profile boot reconcile completes", async () => {
+    bootMocks.profileBootReconcileComplete = false;
+    const getEntriesByType = vi.fn(() => [{ type: "reload" } as PerformanceNavigationTiming]);
+    vi.stubGlobal("performance", {
+      ...performance,
+      getEntriesByType,
+    });
+    authGatewayMocks.hasNativeRuntime = true;
+    authGatewayMocks.pathname = "/";
+    authGatewayMocks.runtime.snapshot.session.startupState.kind = "native_restorable";
+
+    render(
+      <AuthGateway>
+        <div>Runtime Children</div>
+      </AuthGateway>,
+    );
+
+    expect(screen.getByText("Restoring session…")).toBeInTheDocument();
+    expect(screen.queryByText("Profile Bound Auth Shell")).not.toBeInTheDocument();
+
+    window.dispatchEvent(new Event("obscur-desktop-profile-boot-reconciled"));
+    await vi.waitFor(() => {
+      expect(screen.getByText("Profile Bound Auth Shell")).toBeInTheDocument();
+    });
+    vi.unstubAllGlobals();
+  });
+
   it("redirects locked new profile windows to /sign-in", () => {
     authGatewayMocks.hasNativeRuntime = true;
     authGatewayMocks.pathname = "/";
+    authGatewayMocks.identityState.stored = undefined;
     authGatewayMocks.desktopProfileSnapshot.currentWindow.launchMode = "new_window";
     authGatewayMocks.desktopProfileSnapshot.currentWindow.windowLabel = "profile-tester2-1710000000000";
 
@@ -249,6 +345,8 @@ describe("AuthGateway", () => {
     authGatewayMocks.hasNativeRuntime = true;
     authGatewayMocks.pathname = "/sign-in";
     authGatewayMocks.identityState.status = "unlocked";
+    authGatewayMocks.identityState.stored = { publicKeyHex: "a".repeat(64) };
+    (authGatewayMocks.identityState as { publicKeyHex?: string }).publicKeyHex = "a".repeat(64);
     authGatewayMocks.runtime.snapshot.phase = "ready";
 
     render(
@@ -258,5 +356,23 @@ describe("AuthGateway", () => {
     );
 
     expect(authGatewayMocks.routerReplace).toHaveBeenCalledWith("/");
+  });
+
+  it("exits auth shell when identity unlocks even if runtime phase is still auth_required", () => {
+    authGatewayMocks.hasNativeRuntime = true;
+    authGatewayMocks.pathname = "/sign-in";
+    authGatewayMocks.identityState.status = "unlocked";
+    authGatewayMocks.identityState.stored = { publicKeyHex: "a".repeat(64) };
+    (authGatewayMocks.identityState as { publicKeyHex?: string }).publicKeyHex = "a".repeat(64);
+    authGatewayMocks.runtime.snapshot.phase = "auth_required";
+
+    render(
+      <AuthGateway>
+        <div>Runtime Children</div>
+      </AuthGateway>,
+    );
+
+    expect(screen.getByText("Runtime Children")).toBeInTheDocument();
+    expect(screen.queryByText("Profile Bound Auth Shell")).not.toBeInTheDocument();
   });
 });

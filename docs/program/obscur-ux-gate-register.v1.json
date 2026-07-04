@@ -1,0 +1,310 @@
+{
+  "schemaVersion": "1.0",
+  "investigationId": "obscur-ux-gate-2026-07",
+  "generatedAt": "2026-07-03T20:15:00Z",
+  "method": "static_repository_analysis",
+  "scope": ["apps/pwa", "apps/desktop", "packages"],
+  "summary": {
+    "totalFindings": 43,
+    "bySeverity": { "p0": 6, "p1": 18, "p2": 14, "p3": 5 },
+    "byPattern": {
+      "GATE": 16,
+      "HEALTH_MISMATCH": 7,
+      "OWNER_SPLIT": 12,
+      "TERMINAL_STATE": 5,
+      "UNWIRED_GUARD": 2,
+      "CONTRACT_DRIFT": 1
+    },
+    "reportDoc": "docs/program/obscur-ux-gate-investigation-2026-07.md"
+  },
+  "findings": [
+    {
+      "id": "UG-001",
+      "pattern": "HEALTH_MISMATCH",
+      "severity": "p0",
+      "domain": "community",
+      "file": "apps/pwa/app/features/groups/services/community-membership-health.ts",
+      "symbols": ["resolveCommunityMembershipHealth", "roomKeyPresent", "chatEnabled"],
+      "description": "chatEnabled requires local roomKeyPresent even when coordination shows member",
+      "actionClass": "subtract_or_redesign",
+      "trackerRef": "COM-RUN-02",
+      "status": "cancelled_band"
+    },
+    {
+      "id": "UG-002",
+      "pattern": "GATE",
+      "severity": "p0",
+      "domain": "community",
+      "file": "apps/pwa/app/features/workspace-kernel/workspace-kernel-membership-port.ts",
+      "symbols": ["joinManagedWorkspaceMembership", "room_key_missing"],
+      "description": "Join hard-fails when roomKeyStore empty",
+      "actionClass": "redesign_charter",
+      "trackerRef": "COM-RUN-02",
+      "status": "cancelled_band"
+    },
+    {
+      "id": "UG-003",
+      "pattern": "GATE",
+      "severity": "p0",
+      "domain": "community",
+      "file": "apps/pwa/app/features/groups/services/community-membership-join-transaction.ts",
+      "symbols": ["isManagedWorkspaceJoinSuccessful", "roomKeyPresent"],
+      "description": "Join success predicate requires local room key",
+      "actionClass": "redesign_charter",
+      "trackerRef": "COM-RUN-05",
+      "status": "open"
+    },
+    {
+      "id": "UG-004",
+      "pattern": "GATE",
+      "severity": "p0",
+      "domain": "community",
+      "file": "apps/pwa/app/features/groups/components/community-invite-card.tsx",
+      "symbols": ["isInviteDefective", "roomKeyHex"],
+      "description": "Invitee accept UI hidden when local/invite room key empty",
+      "actionClass": "subtract",
+      "trackerRef": "COM-RUN-11",
+      "status": "open"
+    },
+    {
+      "id": "UG-005",
+      "pattern": "GATE",
+      "severity": "p0",
+      "domain": "community",
+      "file": "apps/pwa/app/features/groups/components/invite-connections-dialog.tsx",
+      "symbols": ["disabled", "roomKeyHex"],
+      "description": "Send invites disabled when roomKeyHex empty; contradicts ui-action-policy subtraction",
+      "actionClass": "subtract",
+      "trackerRef": "COM-RUN-02",
+      "status": "partial_subtraction"
+    },
+    {
+      "id": "UG-006",
+      "pattern": "OWNER_SPLIT",
+      "severity": "p0",
+      "domain": "community",
+      "file": "apps/pwa/app/features/crypto/room-key-store.ts",
+      "symbols": ["RoomKeyStore", "getRoomKey"],
+      "description": "Profile localStorage is de facto crypto authority for managed communities",
+      "actionClass": "redesign_charter",
+      "trackerRef": "COM-RUN-02",
+      "status": "cancelled_band"
+    },
+    {
+      "id": "UG-010",
+      "pattern": "GATE",
+      "severity": "p0",
+      "domain": "community",
+      "file": "apps/pwa/app/features/groups/hooks/use-workspace-community-trust-gate.ts",
+      "symbols": ["coordinationHealthy ?? false", "blocked"],
+      "description": "Probe pending treated as unhealthy; join/create buttons start blocked",
+      "actionClass": "subtract",
+      "trackerRef": null,
+      "status": "open"
+    },
+    {
+      "id": "UG-011",
+      "pattern": "GATE",
+      "severity": "p1",
+      "domain": "community",
+      "file": "apps/pwa/app/groups/[...id]/group-home-page-client.tsx",
+      "symbols": ["guestJoinBlocked", "useWorkspaceCommunityTrustGate"],
+      "description": "Guest join inherits trust-gate pessimism",
+      "actionClass": "subtract",
+      "trackerRef": null,
+      "status": "open"
+    },
+    {
+      "id": "UG-020",
+      "pattern": "UNWIRED_GUARD",
+      "severity": "p1",
+      "domain": "community",
+      "file": "apps/pwa/app/features/groups/services/community-sendability-guard.ts",
+      "symbols": ["checkCommunitySendability"],
+      "description": "Full sendability model tested but not wired to composer or group thread",
+      "actionClass": "wire_or_delete",
+      "trackerRef": "O-4",
+      "status": "open"
+    },
+    {
+      "id": "UG-021",
+      "pattern": "GATE",
+      "severity": "p1",
+      "domain": "community",
+      "file": "apps/pwa/app/features/groups/services/group-service.ts",
+      "symbols": ["sendSealedMessage", "roomKeyStore"],
+      "description": "Send throws on missing local room key at action time while compose may be enabled",
+      "actionClass": "align_with_sendability",
+      "trackerRef": "O-4",
+      "status": "open"
+    },
+    {
+      "id": "UG-022",
+      "pattern": "CONTRACT_DRIFT",
+      "severity": "p1",
+      "domain": "community",
+      "file": "apps/pwa/app/features/groups/services/community-membership-ui-action-policy.ts",
+      "symbols": ["resolveCommunityChatActionDisabled", "resolveCommunityInviteActionDisabled"],
+      "description": "Policy never disables chat/invite; downstream modules still gate on room key",
+      "actionClass": "subtract_consumers",
+      "trackerRef": "COM-RUN-02",
+      "status": "partial_subtraction"
+    },
+    {
+      "id": "UG-023",
+      "pattern": "UNWIRED_GUARD",
+      "severity": "p3",
+      "domain": "community",
+      "file": "apps/pwa/app/features/groups/components/community-membership-health-banner.tsx",
+      "symbols": ["CommunityMembershipHealthBanner"],
+      "description": "Health banner component exported but never imported in app tree",
+      "actionClass": "wire_or_delete",
+      "trackerRef": null,
+      "status": "open"
+    },
+    {
+      "id": "UG-030",
+      "pattern": "OWNER_SPLIT",
+      "severity": "p1",
+      "domain": "community",
+      "file": "apps/pwa/app/features/groups/services/community-membership-truth.ts",
+      "symbols": ["readCommunityMembershipTruthSnapshot", "loadCommunityMembershipLedger"],
+      "description": "Declared single truth owner; falls back to ledger when coordination stale",
+      "actionClass": "consolidate_read",
+      "trackerRef": "COM-RUN-07",
+      "status": "open"
+    },
+    {
+      "id": "UG-031",
+      "pattern": "OWNER_SPLIT",
+      "severity": "p1",
+      "domain": "community",
+      "file": "apps/pwa/app/features/workspace-kernel/workspace-kernel-list-port.ts",
+      "symbols": ["resolveManagedWorkspaceGroupList", "loadGroupTombstones"],
+      "description": "Sidebar list uses tombstones + ledger, not coordination directory alone",
+      "actionClass": "consolidate_read",
+      "trackerRef": "COM-RUN-07",
+      "status": "open"
+    },
+    {
+      "id": "UG-034",
+      "pattern": "GATE",
+      "severity": "p1",
+      "domain": "community",
+      "file": "apps/pwa/app/features/groups/services/group-tombstone-store.ts",
+      "symbols": ["isGroupTombstoned", "loadGroupTombstones"],
+      "description": "Local tombstone permanently hides group from lists",
+      "actionClass": "add_reset_path",
+      "trackerRef": null,
+      "status": "open"
+    },
+    {
+      "id": "UG-040",
+      "pattern": "TERMINAL_STATE",
+      "severity": "p1",
+      "domain": "community",
+      "file": "apps/pwa/app/features/groups/services/community-membership-ledger.ts",
+      "symbols": ["validateLedgerEntry", "invalidEntries"],
+      "description": "Invalid ledger entries persisted; RIW-1 7/7 invalid on fixture",
+      "actionClass": "repair_on_load",
+      "trackerRef": "RIW-1",
+      "status": "partial_fix"
+    },
+    {
+      "id": "UG-041",
+      "pattern": "TERMINAL_STATE",
+      "severity": "p2",
+      "domain": "community",
+      "file": "apps/pwa/app/features/groups/services/community-invite-relay-join.ts",
+      "symbols": ["terminal_failed", "saveInviteRelayJoinState"],
+      "description": "Relay join terminal state in localStorage without clear on later success",
+      "actionClass": "add_reset_path",
+      "trackerRef": "COM-RUN-11",
+      "status": "open"
+    },
+    {
+      "id": "UG-042",
+      "pattern": "TERMINAL_STATE",
+      "severity": "p2",
+      "domain": "community",
+      "file": "apps/pwa/app/features/groups/utils/community-invite-lifecycle.ts",
+      "symbols": ["superseded", "isCommunityInviteActionableStatus"],
+      "description": "Superseded/expired invites non-actionable with no fresh invite path in UI",
+      "actionClass": "lifecycle_redesign",
+      "trackerRef": "COM-RUN-11",
+      "status": "open"
+    },
+    {
+      "id": "UG-050",
+      "pattern": "GATE",
+      "severity": "p1",
+      "domain": "messaging",
+      "file": "apps/pwa/app/features/messaging/components/composer.tsx",
+      "symbols": ["disableCompose", "isGated"],
+      "description": "DM compose disabled when peer not locally accepted",
+      "actionClass": "review_trust_model",
+      "trackerRef": null,
+      "status": "open"
+    },
+    {
+      "id": "UG-052",
+      "pattern": "OWNER_SPLIT",
+      "severity": "p1",
+      "domain": "account-sync",
+      "file": "apps/pwa/app/features/account-sync/hooks/use-account-projection-runtime.ts",
+      "symbols": ["projectionConversationCount", "sqliteConversationCount"],
+      "description": "Projection vs SQLite authority oscillation",
+      "actionClass": "consolidate_read",
+      "trackerRef": "RIW-2",
+      "status": "verified"
+    },
+    {
+      "id": "UG-060",
+      "pattern": "CONTRACT_DRIFT",
+      "severity": "p3",
+      "domain": "packages",
+      "file": "packages/dweb-core/src/community-projection-contracts.ts",
+      "symbols": ["localCacheState", "contentAvailabilityState"],
+      "description": "Contracts separate cache from key availability; apps collapse into single ready gate",
+      "actionClass": "implement_contract",
+      "trackerRef": null,
+      "status": "reference"
+    }
+  ],
+  "codactrlRulePack": {
+    "id": "obscur-ux-gate-v1",
+    "rules": [
+      {
+        "id": "RG-GATE-DISABLED-LOCAL",
+        "type": "static",
+        "pattern": "disabled=.*roomKey|disabled=.*Present|disabled=.*blocker",
+        "mapsTo": "GATE"
+      },
+      {
+        "id": "RG-UNWIRED-EXPORT",
+        "type": "static",
+        "pattern": "export_with_tests_zero_production_imports",
+        "mapsTo": "UNWIRED_GUARD"
+      },
+      {
+        "id": "RG-POLICY-CONSUMER-DRIFT",
+        "type": "static",
+        "pattern": "policy_constant_false_consumer_still_branches",
+        "mapsTo": "CONTRACT_DRIFT"
+      },
+      {
+        "id": "RT-HEALTH-UI-SPLIT",
+        "type": "runtime",
+        "pattern": "membership_health_snapshot.ready=1 AND ui_control_disabled",
+        "mapsTo": "HEALTH_MISMATCH"
+      },
+      {
+        "id": "RT-BLOCKER-MAP",
+        "type": "runtime",
+        "pattern": "blockers contains room_key_missing",
+        "symptomId": "group-room-key-missing",
+        "mapsTo": "HEALTH_MISMATCH"
+      }
+    ]
+  }
+}

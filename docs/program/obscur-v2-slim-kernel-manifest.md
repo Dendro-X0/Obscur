@@ -64,7 +64,7 @@ Two desktop profiles; 10 messages each direction; full quit; relaunch; **both se
 
 ## Performance (post-remake)
 
-Do not tune hydrate/merge paths. Plan: [obscur-v2-performance-optimization-plan.md](./obscur-v2-performance-optimization-plan.md) — baseline after proof gate, then navigation subtraction + bundle diet.
+Do not tune hydrate/merge paths. Plan: [obscur-v2-performance-optimization-plan.md](../archive/program/inactive-2026-06/obscur-v2-performance-optimization-plan.md) — baseline after proof gate, then navigation subtraction + bundle diet.
 
 ## Feature cuts accepted (v2 slim)
 

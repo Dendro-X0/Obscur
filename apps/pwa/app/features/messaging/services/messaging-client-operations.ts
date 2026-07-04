@@ -15,7 +15,7 @@ import type {
 import type { PersistLocalDmSuppressionParams } from "@dweb/client-gateway/local-dm-visibility";
 import type { Message } from "../types";
 import type { MessageDeleteTombstonesPersistencePort } from "@/app/features/profiles/types/storage-ports";
-import type { RunDmConversationHydrateReadModelPipelineParams } from "./dm-conversation-hydrate-pipeline";
+import type { RunDmConversationHydrateReadModelPipelineParams } from "./thread-history/hydrate-pipeline-types";
 import type { PrepareDmThreadSuppressionParams } from "./dm-thread-suppression-prepare";
 import type {
   BuildProjectionEvidenceMessagesParams,

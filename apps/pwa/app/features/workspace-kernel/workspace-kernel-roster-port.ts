@@ -2,6 +2,10 @@ import type { GroupConversation } from "@/app/features/messaging/types";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { CommunityRosterProjection } from "@/app/features/groups/services/community-member-roster-projection";
 import {
+  buildWorkspaceRosterProjection,
+  resolveWorkspaceActiveMemberPubkeys,
+} from "@obscur/workspace-engine";
+import {
   readCommunityMembershipTruthSnapshot,
   type CommunityMembershipTruthSnapshot,
 } from "@/app/features/groups/services/community-membership-truth";
@@ -34,17 +38,16 @@ export const readWorkspaceKernelMembershipTruth = (params: Readonly<{
 export const buildWorkspaceKernelRosterProjection = (
   group: GroupConversation,
   snapshot: CommunityMembershipTruthSnapshot,
-): CommunityRosterProjection => {
-  const activeMemberPubkeys = snapshot.activeMemberPubkeys;
-  return {
-    conversationId: group.id,
-    groupId: group.groupId,
-    relayUrl: group.relayUrl,
-    communityId: group.communityId,
-    activeMemberPubkeys,
-    memberCount: Math.max(activeMemberPubkeys.length, 1),
-  };
-};
+): CommunityRosterProjection => buildWorkspaceRosterProjection({
+  conversationId: group.id,
+  groupId: group.groupId,
+  relayUrl: group.relayUrl,
+  communityId: group.communityId ?? "",
+  snapshot: {
+    activeMemberPubkeys: snapshot.activeMemberPubkeys,
+    syncStatus: snapshot.syncStatus,
+  },
+});
 
 export const buildWorkspaceKernelRosterProjectionForGroup = (
   group: GroupConversation,
@@ -91,6 +94,13 @@ export const buildWorkspaceKernelRosterIndex = (
 
 export const resolveWorkspaceKernelActiveMemberPubkeys = (params: Readonly<{
   rosterProjection?: CommunityRosterProjection | null;
-}>): ReadonlyArray<PublicKeyHex> => (
-  params.rosterProjection?.activeMemberPubkeys ?? []
-);
+}>): ReadonlyArray<PublicKeyHex> => {
+  const projection = params.rosterProjection;
+  if (!projection) {
+    return [];
+  }
+  return resolveWorkspaceActiveMemberPubkeys({
+    ...projection,
+    communityId: projection.communityId ?? projection.groupId,
+  }) as ReadonlyArray<PublicKeyHex>;
+};

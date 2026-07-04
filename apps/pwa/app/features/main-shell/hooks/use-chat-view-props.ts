@@ -34,6 +34,7 @@ export function useChatViewProps({
 
     const {
         messages,
+        inviteResponseStatusByMessageId,
         isLoading,
         hasEarlier,
         loadEarlier,
@@ -86,6 +87,7 @@ export function useChatViewProps({
         handleCopyChatLink,
         conversationHasHydrated: hasHydrated,
         visibleMessages: messages,
+        inviteResponseStatusByMessageId,
         rawMessagesCount: messages.length,
         hasEarlierMessages: hasEarlier,
         selectedConversationMediaItems,

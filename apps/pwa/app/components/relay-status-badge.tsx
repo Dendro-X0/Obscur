@@ -4,7 +4,7 @@ import React, { useMemo, useState } from "react";
 import { AlertTriangle, Loader2, Radio, RotateCcw, Wifi, WifiOff } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
-import type { RelayRecoverySnapshot } from "@/app/features/relays/services/relay-recovery-policy";
+import type { RelayRecoverySnapshot } from "@/app/features/relays/services/relay-recovery-types";
 import { cn } from "@/app/lib/utils";
 
 type RelayStatusBadgeProps = Readonly<{

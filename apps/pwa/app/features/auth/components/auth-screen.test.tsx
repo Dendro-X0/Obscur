@@ -5,6 +5,9 @@ import { derivePublicKeyHex } from "@dweb/crypto/derive-public-key-hex";
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import { AuthScreen } from "./auth-screen";
 import { markRetiredIdentityPublicKey } from "../utils/retired-identity-registry";
+import { PASSWORDLESS_NATIVE_ONLY_SENTINEL } from "../services/passwordless-native-only-identity";
+import { hasPasswordProtectedUnlockOnDevice } from "@/app/features/profiles/services/identity-passphrase-unlock";
+import en from "@/app/lib/i18n/locales/en.json";
 
 const authScreenMocks = vi.hoisted(() => ({
   isNativeRuntime: false,
@@ -41,15 +44,35 @@ const authScreenMocks = vi.hoisted(() => ({
         },
       },
     },
+  },
+  authKernel: {
+    ports: {
+      authAssistant: {
+        readEntry: vi.fn(async () => ({ status: "ok", value: null })),
+        unlockWithAssistantGesture: vi.fn(async () => ({ status: "failed" })),
+        saveUnlockMaterial: vi.fn(async () => ({ status: "ok" })),
+      },
+    },
+    evaluateRegistrationGate: vi.fn(async () => ({
+      evaluation: { allowed: true, powRequired: false, inviteRequired: false, policy: {} },
+      powDifficulty: null,
+      throttled: false,
+      retryAfterMs: 0,
+    })),
     createIdentityForBoundProfile: vi.fn(async () => undefined),
-    unlockBoundProfile: vi.fn(async () => undefined),
+    unlockBoundProfileWithPassphrase: vi.fn(async () => undefined),
     importIdentityForBoundProfile: vi.fn(async () => undefined),
+    signOutBoundProfileWindow: vi.fn(async () => undefined),
+    lockBoundProfileWindow: vi.fn(async () => undefined),
   },
 }));
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
-    t: (key: string, fallback?: string) => fallback ?? key,
+    t: (key: string, options?: Record<string, unknown>) => {
+      const template = (en.translation as Record<string, string | undefined>)[key] ?? key;
+      return template.replace(/\{\{(.*?)\}\}/g, (_match, token: string) => String(options?.[token.trim()] ?? ""));
+    },
   }),
 }));
 
@@ -100,6 +123,10 @@ vi.mock("@dweb/ui-kit", () => {
   };
 });
 
+vi.mock("@/app/features/profiles/services/identity-passphrase-unlock", () => ({
+  hasPasswordProtectedUnlockOnDevice: vi.fn(async () => true),
+}));
+
 vi.mock("@/app/features/auth/hooks/use-identity", () => ({
   useIdentity: () => ({
     state: authScreenMocks.hasStoredIdentity
@@ -111,6 +138,13 @@ vi.mock("@/app/features/auth/hooks/use-identity", () => ({
     getIdentityDiagnostics: () => authScreenMocks.identityDiagnostics,
     resetNativeSecureStorage: authScreenMocks.resetNativeSecureStorage,
   }),
+  useIdentityInternals: {
+    rehydrateIdentityForActiveProfile: vi.fn(async () => undefined),
+  },
+}));
+
+vi.mock("@/app/features/auth-kernel/hooks/use-auth-kernel-surface-actions", () => ({
+  useAuthKernelSurfaceActions: () => authScreenMocks.authKernel,
 }));
 
 vi.mock("@/app/features/runtime/services/window-runtime-supervisor", () => ({
@@ -176,9 +210,9 @@ describe("AuthScreen mismatch recovery UX", () => {
     authScreenMocks.runtime.snapshot.session.startupState.kind = "stored_locked";
     authScreenMocks.runtime.snapshot.session.startupState.storedPublicKeyHex = "a".repeat(64);
     authScreenMocks.runtime.snapshot.session.startupState.mismatchReason = undefined;
-    authScreenMocks.runtime.createIdentityForBoundProfile.mockClear();
-    authScreenMocks.runtime.unlockBoundProfile.mockClear();
-    authScreenMocks.runtime.importIdentityForBoundProfile.mockClear();
+    authScreenMocks.authKernel.createIdentityForBoundProfile.mockClear();
+    authScreenMocks.authKernel.unlockBoundProfileWithPassphrase.mockClear();
+    authScreenMocks.authKernel.importIdentityForBoundProfile.mockClear();
   });
 
   it("renders native secure storage mismatch recovery card", async () => {
@@ -216,7 +250,7 @@ describe("AuthScreen mismatch recovery UX", () => {
     expect(screen.queryByLabelText("Stay signed in on this device")).not.toBeInTheDocument();
   });
 
-  it("shows stay signed in control on native desktop", async () => {
+  it("shows login help note on native desktop instead of a stay-signed-in checkbox", async () => {
     authScreenMocks.isNativeRuntime = true;
     authScreenMocks.identityDiagnostics.mismatchReason = undefined;
     authScreenMocks.identityDiagnostics.message = undefined;
@@ -224,7 +258,9 @@ describe("AuthScreen mismatch recovery UX", () => {
     authScreenMocks.runtime.snapshot.session.startupState.message = undefined;
     render(<AuthScreen />);
 
-    expect(await screen.findByText("Stay signed in on this device")).toBeInTheDocument();
+    expect(await screen.findByText("How sign-in works on this device")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Stay signed in on this device")).not.toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: /stay signed in/i })).not.toBeInTheDocument();
   });
 
   it("preserves device session consent on native auth screen mount", async () => {
@@ -331,7 +367,7 @@ describe("AuthScreen mismatch recovery UX", () => {
     fireEvent.click(screen.getByRole("button", { name: "Unlock" }));
 
     await waitFor(() => {
-      expect(authScreenMocks.runtime.importIdentityForBoundProfile).toHaveBeenCalledTimes(1);
+      expect(authScreenMocks.authKernel.importIdentityForBoundProfile).toHaveBeenCalledTimes(1);
     });
     expect(screen.queryByText("Secure Your Session")).not.toBeInTheDocument();
     expect(screen.queryByText("Skip Password")).not.toBeInTheDocument();
@@ -353,7 +389,25 @@ describe("AuthScreen mismatch recovery UX", () => {
     expect(continueButton).toBeDisabled();
 
     expect(screen.getByText(/reactivating it can restore prior identity links/i)).toBeInTheDocument();
-    expect(authScreenMocks.runtime.importIdentityForBoundProfile).not.toHaveBeenCalled();
+    expect(authScreenMocks.authKernel.importIdentityForBoundProfile).not.toHaveBeenCalled();
+  });
+
+  it("guides passwordless profiles without a saved device password through key-first setup", async () => {
+    vi.mocked(hasPasswordProtectedUnlockOnDevice).mockResolvedValueOnce(false);
+    authScreenMocks.identityState = {
+      status: "locked",
+      stored: {
+        publicKeyHex: "a".repeat(64),
+        encryptedPrivateKey: PASSWORDLESS_NATIVE_ONLY_SENTINEL,
+        username: "Tester2",
+      },
+    } as unknown as typeof authScreenMocks.identityState;
+
+    render(<AuthScreen />);
+
+    expect(await screen.findByText(/No device login password is saved/i)).toBeInTheDocument();
+    expect(screen.getByText(/Step 1: paste your private key/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Continue with private key/i })).toBeInTheDocument();
   });
 
 });

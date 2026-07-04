@@ -88,3 +88,22 @@ export type WindowRuntimeSnapshot = Readonly<{
   messagingTransportRuntime: MessagingTransportRuntimeSnapshot;
   traces: ReadonlyArray<WindowRuntimeTraceEntry>;
 }>;
+
+export const isUnlockedRuntimePhase = (phase: WindowRuntimePhase | string): boolean => (
+  phase === "activating_runtime" || phase === "ready" || phase === "degraded"
+);
+
+/** App shell may mount when runtime activated OR identity unlock evidence is present (password login). */
+export const isProfileWindowUnlockedForAppShell = (params: Readonly<{
+  identityStatus: ProfileBoundSessionSnapshot["identityStatus"];
+  publicKeyHex?: string | null;
+  runtimePhase: WindowRuntimePhase | string;
+}>): boolean => {
+  if (params.runtimePhase === "fatal") {
+    return false;
+  }
+  if (isUnlockedRuntimePhase(params.runtimePhase)) {
+    return true;
+  }
+  return params.identityStatus === "unlocked" && Boolean(params.publicKeyHex);
+};

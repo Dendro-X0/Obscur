@@ -2,6 +2,16 @@ import React from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { VoiceCallInviteCard } from "./voice-call-invite-card";
+import en from "@/app/lib/i18n/locales/en.json";
+
+vi.mock("react-i18next", () => ({
+  useTranslation: () => ({
+    t: (key: string, options?: Record<string, unknown>) => {
+      const template = (en.translation as Record<string, string | undefined>)[key] ?? key;
+      return template.replace(/\{\{\s*([^\s}]+)\s*\}\}/g, (_match, token: string) => String(options?.[token] ?? ""));
+    },
+  }),
+}));
 
 describe("VoiceCallInviteCard", () => {
   it("renders incoming invite metadata without exposing room identifiers", () => {

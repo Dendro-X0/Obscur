@@ -1,8 +1,7 @@
 "use client";
 
 import { useTranslation } from "react-i18next";
-import { toast } from "@dweb/ui-kit";
-import { useIdentity } from "@/app/features/auth/hooks/use-identity";
+import { useAppLockAction } from "@/app/features/auth/hooks/use-app-lock-action";
 import type { SettingsActionPhase } from "@/app/features/settings/components/settings-action-status";
 import type { SettingsTabPanelModel } from "../settings-tab-panel-model-context";
 import { usePrivacySettingsCore } from "./use-privacy-settings-model";
@@ -10,15 +9,15 @@ import { useSettingsDestructiveActionsModel } from "./use-settings-destructive-a
 
 export function useSecuritySettingsModel(): SettingsTabPanelModel {
   const { t } = useTranslation();
-  const identity = useIdentity();
+  const { lockApp } = useAppLockAction();
   const privacy = usePrivacySettingsCore();
   const destructive = useSettingsDestructiveActionsModel();
 
   const handleLockNow = (): void => {
-    identity.lockIdentity();
-    (destructive.setSecurityActionPhase as (phase: SettingsActionPhase) => void)("success");
-    (destructive.setSecurityActionMessage as (message: string) => void)("Session locked.");
-    toast.success("Session locked.");
+    void lockApp().then(() => {
+      (destructive.setSecurityActionPhase as (phase: SettingsActionPhase) => void)("success");
+      (destructive.setSecurityActionMessage as (message: string) => void)(t("settings.security.lockedToast"));
+    });
   };
 
   return {

@@ -60,6 +60,16 @@ describe("auth-public-routes", () => {
     })).toBeNull();
   });
 
+  it("skips locked desktop home redirect on manual page reload", () => {
+    expect(resolveLockedDesktopEntryRedirect({
+      pathname: "/",
+      isDesktopNative: true,
+      isUnlocked: false,
+      isPageReload: true,
+      showProfilePickerOnStartup: true,
+    })).toBeNull();
+  });
+
   it("routes unlocked sessions away from /sign-in to chat home", () => {
     expect(resolveUnlockedDesktopRouteRedirect({
       pathname: PROFILE_SIGN_IN_ROUTE,

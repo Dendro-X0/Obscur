@@ -11,14 +11,14 @@ describe("E2EE boundary SEC-V1 contract (checklist §1)", () => {
   it("V1-1: DM send encrypts before relay wire (gift-wrap / NIP-44)", () => {
     const builder = read("app/features/messaging/controllers/dm-event-builder.ts");
     const pipeline = read("app/features/messaging/controllers/v2/dm-send-pipeline.ts");
-    const publisher = read("app/features/messaging/controllers/outgoing-dm-publisher.ts");
+    const relayTransport = read("app/features/messaging/controllers/v2/dm-relay-transport.ts");
 
     expect(builder).toContain("encryptGiftWrap");
     expect(builder).toContain("encryptDM");
     expect(pipeline).toContain("encryptGiftWrap");
-    expect(publisher).toContain('JSON.stringify(["EVENT", signedEvent])');
-    expect(publisher).toContain('JSON.stringify(["EVENT", params.message.signedEvent])');
-    expect(publisher).not.toMatch(/JSON\.stringify\(\["EVENT",\s*params\.plaintext/);
+    expect(relayTransport).toContain('JSON.stringify(["EVENT", signedEvent])');
+    expect(pipeline).toContain('JSON.stringify(["EVENT", build.signedEvent])');
+    expect(relayTransport).not.toMatch(/JSON\.stringify\(\["EVENT",\s*params\.plaintext/);
   });
 
   it("V1-2: sealed group messages encrypt before publish", () => {

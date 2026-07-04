@@ -4,7 +4,6 @@ use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder}
 use tokio::sync::Mutex;
 use std::fs;
 
-#[cfg(not(target_os = "android"))]
 use crate::native_keychain;
 use crate::session::SessionState;
 use crate::data_root::{default_app_data_dir, resolve_effective_data_root};
@@ -12,6 +11,9 @@ use crate::data_root::{default_app_data_dir, resolve_effective_data_root};
 const REGISTRY_FILE: &str = "profiles_registry.json";
 const DEFAULT_PROFILE_ID: &str = "default";
 const DEFAULT_PROFILE_LABEL: &str = "Default";
+const MAIN_WINDOW_LABEL: &str = "main";
+/// Each profile window is a full WebView2 instance — cap live windows to protect RAM.
+const MAX_LIVE_PROFILE_WINDOWS: usize = 4;
 
 /// Clear the profile data directory containing WebView storage (IndexedDB, localStorage, etc.)
 /// This is best-effort and logs warnings on failure.
@@ -78,7 +80,6 @@ async fn clear_native_credentials_for_profile(app: &AppHandle, profile_id: &str,
     session.clear(Some(profile_id)).await;
     eprintln!("[PROFILES] Cleared session for profile {}", profile_id);
 
-    #[cfg(not(target_os = "android"))]
     match native_keychain::delete_nsec_for_profile(profile_id) {
         Ok(()) => eprintln!("[PROFILES] Cleared keychain for profile {}", profile_id),
         Err(e) => eprintln!("[PROFILES] Warning: Failed to clear keychain for profile {}: {}", profile_id, e),
@@ -91,7 +92,7 @@ async fn clear_native_credentials_for_profile(app: &AppHandle, profile_id: &str,
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum ProfileLaunchMode {
     Existing,
@@ -274,9 +275,7 @@ fn dir_has_webview_storage(path: &std::path::Path) -> bool {
 /// All windows for a profile must share one WebView data directory so localStorage,
 /// IndexedDB, and theme prefs survive "Open in New Window".
 fn shared_profile_data_dir(app: &AppHandle, profile_id: &str) -> Result<std::path::PathBuf, String> {
-    let app_dir = resolve_effective_data_root(app)?;
-    let profile_dir = app_dir.join("profiles").join(profile_id);
-    fs::create_dir_all(&profile_dir).map_err(|e| e.to_string())?;
+    let profile_dir = crate::data_root::resolve_webview_profile_workspace(app, profile_id)?;
     migrate_legacy_per_window_webview_data(&profile_dir)?;
     Ok(profile_dir)
 }
@@ -346,6 +345,20 @@ pub(crate) fn experiment_shell_boot_prefix() -> &'static str {
     }
 }
 
+pub(crate) fn resolve_main_window_profile_id_from_registry(app: &AppHandle) -> String {
+    load_registry(app)
+        .window_bindings
+        .into_iter()
+        .find(|binding| binding.window_label == "main")
+        .map(|binding| binding.profile_id)
+        .unwrap_or_else(|| DEFAULT_PROFILE_ID.to_string())
+}
+
+pub(crate) fn main_window_boot_init_script(app: &AppHandle) -> String {
+    let profile_id = resolve_main_window_profile_id_from_registry(app);
+    window_boot_init_script("main", &profile_id, ProfileLaunchMode::Existing)
+}
+
 fn window_boot_init_script(window_label: &str, profile_id: &str, launch_mode: ProfileLaunchMode) -> String {
     let launch_mode_json = match launch_mode {
         ProfileLaunchMode::Existing => "existing",
@@ -382,6 +395,49 @@ pub(crate) fn resolve_profile_window_url(app: &AppHandle) -> WebviewUrl {
     WebviewUrl::App("index.html".into())
 }
 
+const DEV_WEBVIEW_DEFAULT_BROWSER_ARGS: &str =
+    "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection";
+
+fn resolve_dev_cdp_port(env_key: &str, default_port: &str) -> String {
+    std::env::var(env_key)
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| default_port.to_string())
+}
+
+#[cfg(debug_assertions)]
+fn dev_webview_browser_args(port: &str) -> String {
+    format!("{DEV_WEBVIEW_DEFAULT_BROWSER_ARGS} --remote-debugging-port={port}")
+}
+
+/// Per-window CDP for main (debug). Do not rely on WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS — it
+/// applies process-wide and prevents a second port on profile WebView2 environments.
+pub(crate) fn main_window_additional_browser_args() -> Option<String> {
+    #[cfg(debug_assertions)]
+    {
+        let port = resolve_dev_cdp_port("OBSCUR_CDP_MAIN", "9230");
+        return Some(dev_webview_browser_args(&port));
+    }
+    #[cfg(not(debug_assertions))]
+    {
+        None
+    }
+}
+
+fn profile_window_additional_browser_args() -> Option<String> {
+    #[cfg(debug_assertions)]
+    {
+        let port = resolve_dev_cdp_port("OBSCUR_CDP_PROFILE", "9231");
+        let args = dev_webview_browser_args(&port);
+        eprintln!("[PROFILES] Profile window CDP args: {args}");
+        return Some(args);
+    }
+    #[cfg(not(debug_assertions))]
+    {
+        None
+    }
+}
+
 fn build_profile_window(app: &AppHandle, binding: &ProfileWindowBinding) -> Result<WebviewWindow, String> {
     if let Some(existing) = app.get_webview_window(&binding.window_label) {
         #[cfg(desktop)]
@@ -408,7 +464,7 @@ fn build_profile_window(app: &AppHandle, binding: &ProfileWindowBinding) -> Resu
 
     #[cfg(desktop)]
     {
-        let window = builder
+        let mut builder = builder
             .title(format!("Obscur - {}", binding.profile_label))
             .inner_size(1200.0, 800.0)
             .min_inner_size(800.0, 600.0)
@@ -416,11 +472,31 @@ fn build_profile_window(app: &AppHandle, binding: &ProfileWindowBinding) -> Resu
             .decorations(false)
             .shadow(true)
             .visible(false)
-            .data_directory(window_data_dir)
+            .data_directory(window_data_dir);
+        if let Some(browser_args) = profile_window_additional_browser_args() {
+            builder = builder.additional_browser_args(&browser_args);
+        }
+        #[cfg(debug_assertions)]
+        {
+            builder = builder.devtools(true);
+        }
+        let window = builder
             .build()
             .map_err(|e| e.to_string())?;
 
         let reveal_window = window.clone();
+        let app_handle = app.clone();
+        let window_label = binding.window_label.clone();
+        window.on_window_event(move |event| {
+            if matches!(event, tauri::WindowEvent::Destroyed) {
+                let app = app_handle.clone();
+                let label = window_label.clone();
+                tauri::async_runtime::spawn(async move {
+                    let profiles = app.state::<DesktopProfileState>();
+                    let _ = profiles.drop_window_binding(&app, &label).await;
+                });
+            }
+        });
         tauri::async_runtime::spawn(async move {
             tokio::time::sleep(std::time::Duration::from_secs(45)).await;
             if reveal_window.is_visible().unwrap_or(true) {
@@ -468,6 +544,9 @@ impl DesktopProfileState {
 
     pub async fn snapshot_for_window(&self, app: &AppHandle, window_label: &str) -> Result<ProfileIsolationSnapshot, String> {
         let mut state = self.inner.lock().await;
+        if prune_dead_window_bindings(app, &mut state) {
+            persist_registry(app, &state)?;
+        }
         let (binding, registry_changed) = ensure_window_binding(&mut state, window_label);
         if registry_changed {
             persist_registry(app, &state)?;
@@ -680,12 +759,24 @@ impl DesktopProfileState {
 
     pub async fn open_profile_window(&self, app: &AppHandle, profile_id: &str) -> Result<(), String> {
         let mut state = self.inner.lock().await;
+        if prune_dead_window_bindings(app, &mut state) {
+            persist_registry(app, &state)?;
+        }
         let profile = state
             .profiles
             .iter()
             .find(|profile| profile.profile_id == profile_id)
             .cloned()
             .ok_or_else(|| "Profile not found.".to_string())?;
+        if focus_existing_live_profile_window(app, profile_id, &state.window_bindings) {
+            return Ok(());
+        }
+        let live_window_count = live_non_main_window_count(app, &state.window_bindings);
+        if live_window_count >= MAX_LIVE_PROFILE_WINDOWS {
+            return Err(format!(
+                "Too many profile windows are open ({live_window_count}). Close one before opening another."
+            ));
+        }
         let binding = ProfileWindowBinding {
             window_label: format!("profile-{}-{}", profile.profile_id, now_unix_ms()),
             profile_id: profile.profile_id,
@@ -697,6 +788,19 @@ impl DesktopProfileState {
         drop(state);
         build_profile_window(app, &binding).map(|_| ())
     }
+
+    pub async fn drop_window_binding(&self, app: &AppHandle, window_label: &str) -> Result<(), String> {
+        if window_label == MAIN_WINDOW_LABEL {
+            return Ok(());
+        }
+        let mut state = self.inner.lock().await;
+        let before = state.window_bindings.len();
+        state.window_bindings.retain(|binding| binding.window_label != window_label);
+        if state.window_bindings.len() != before {
+            persist_registry(app, &state)?;
+        }
+        Ok(())
+    }
 }
 
 pub async fn resolve_profile_for_window(
@@ -707,10 +811,68 @@ pub async fn resolve_profile_for_window(
     profiles.resolve_window_profile(app, window.label()).await
 }
 
+fn live_non_main_window_count(app: &AppHandle, bindings: &[ProfileWindowBinding]) -> usize {
+    bindings
+        .iter()
+        .filter(|binding| {
+            binding.window_label != MAIN_WINDOW_LABEL
+                && app.get_webview_window(&binding.window_label).is_some()
+        })
+        .count()
+}
+
+fn prune_dead_window_bindings(app: &AppHandle, state: &mut PersistedProfileRegistry) -> bool {
+    let before = state.window_bindings.len();
+    state.window_bindings.retain(|binding| {
+        binding.window_label == MAIN_WINDOW_LABEL
+            || app.get_webview_window(&binding.window_label).is_some()
+    });
+    before != state.window_bindings.len()
+}
+
+fn focus_existing_live_profile_window(
+    app: &AppHandle,
+    profile_id: &str,
+    bindings: &[ProfileWindowBinding],
+) -> bool {
+    let mut candidates: Vec<&ProfileWindowBinding> = bindings
+        .iter()
+        .filter(|binding| binding.profile_id == profile_id)
+        .collect();
+    candidates.sort_by(|left, right| {
+        let left_is_main = left.window_label == "main";
+        let right_is_main = right.window_label == "main";
+        match (left_is_main, right_is_main) {
+            (true, false) => std::cmp::Ordering::Less,
+            (false, true) => std::cmp::Ordering::Greater,
+            _ => right.window_label.cmp(&left.window_label),
+        }
+    });
+    for binding in candidates {
+        let Some(window) = app.get_webview_window(&binding.window_label) else {
+            continue;
+        };
+        #[cfg(desktop)]
+        {
+            let _ = window.unminimize();
+            let _ = window.show();
+            let _ = window.set_focus();
+        }
+        let _ = window;
+        eprintln!(
+            "[PROFILES] Reused existing window '{}' for profile {}",
+            binding.window_label, profile_id
+        );
+        return true;
+    }
+    false
+}
+
 fn migrate_legacy_webview_data(app: &AppHandle) -> Result<(), String> {
     let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let data_root = resolve_effective_data_root(app).unwrap_or(app_data_dir.clone());
     let local_dir = app.path().local_data_dir().map_err(|e| e.to_string())?;
-    let default_profile_dir = app_data_dir.join("profiles").join(DEFAULT_PROFILE_ID);
+    let default_profile_dir = data_root.join("profiles").join(DEFAULT_PROFILE_ID);
     let target_eb_webview = default_profile_dir.join("EBWebView");
 
     if target_eb_webview.exists() && fs::read_dir(&target_eb_webview).map(|mut entries| entries.next().is_some()).unwrap_or(false) {

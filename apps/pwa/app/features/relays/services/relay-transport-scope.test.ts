@@ -1,4 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@/app/features/runtime/experiment-shell-policy", () => ({
+  isExperimentOnlineEnabled: vi.fn(() => false),
+}));
+
+import { isExperimentOnlineEnabled } from "@/app/features/runtime/experiment-shell-policy";
 import {
   applyRelayListScopeMigration,
   classifyRelayTransportScope,
@@ -29,12 +35,27 @@ describe("relay-transport-scope", () => {
   });
 
   it("resolves DM transport URLs from enabled list only", () => {
+    vi.mocked(isExperimentOnlineEnabled).mockReturnValue(false);
     const urls = resolveDmTransportRelayUrls([
       { url: "wss://relay.damus.io", enabled: true },
       { url: "ws://localhost:7000", enabled: true },
       { url: "wss://relay.damus.io", enabled: false },
     ]);
     expect(urls).toEqual(["wss://relay.damus.io"]);
+  });
+
+  it("appends enabled local dev relay after public DM relays when experiment online is set", () => {
+    vi.mocked(isExperimentOnlineEnabled).mockReturnValue(true);
+    const urls = resolveDmTransportRelayUrls([
+      { url: "wss://relay.damus.io", enabled: true },
+      { url: "ws://localhost:7000", enabled: true },
+      { url: "wss://nos.lol", enabled: true },
+    ]);
+    expect(urls).toEqual([
+      "wss://relay.damus.io",
+      "wss://nos.lol",
+      "ws://localhost:7000",
+    ]);
   });
 
   it("partitions relay list for settings UI", () => {

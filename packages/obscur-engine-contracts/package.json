@@ -1,0 +1,13 @@
+{
+  "name": "@obscur/engine-contracts",
+  "version": "1.9.10",
+  "private": true,
+  "type": "module",
+  "description": "Host ↔ engine boundary. UI imports only this package — never libobscur, relay pool, or hydrate internals.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./host-engine-port": "./src/host-engine-port.ts",
+    "./engine-ids": "./src/engine-ids.ts",
+    "./dm-engine-methods": "./src/dm-engine-methods.ts"
+  }
+}

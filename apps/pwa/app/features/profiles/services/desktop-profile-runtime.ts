@@ -10,6 +10,7 @@ import { parseProfileIdFromWindowLabel } from "./desktop-profile-window-label";
 import {
   mirrorDesktopWindowBootPayloadToSyncScope,
   readDesktopWindowBootPayload,
+  resolveDesktopWindowBootProfileId,
 } from "./desktop-window-boot-payload";
 import { resolveProfileLaunchMode } from "./resolve-profile-launch-mode";
 import type {
@@ -46,6 +47,7 @@ type ProfileCommandOptions = Readonly<{
 }>;
 
 const PROFILE_COMMAND_TIMEOUT_MS = 10_000;
+const PROFILE_OPEN_WINDOW_TIMEOUT_MS = 45_000;
 const PROFILE_SNAPSHOT_TIMEOUT_MS = 25_000;
 const LAST_KNOWN_WINDOW_PROFILE_ID_STORAGE_KEY = "obscur.desktop.window_profile.last_known.v1";
 const MAIN_WINDOW_LABEL = "main";
@@ -238,21 +240,23 @@ export const applyDesktopWindowBootPayload = (): boolean => {
   if (!payload) {
     return false;
   }
-  setLastKnownWindowProfileId(payload.windowLabel, payload.profileId);
+  const resolvedProfileId = resolveDesktopWindowBootProfileId(payload);
+  setLastKnownWindowProfileId(payload.windowLabel, resolvedProfileId);
   const launchMode = resolveProfileLaunchMode(payload.windowLabel, payload.launchMode);
   if (applyWindowLabelProfileScope(payload.windowLabel, launchMode)) {
     lastRefreshError = null;
     return true;
   }
   if (payload.windowLabel === MAIN_WINDOW_LABEL) {
+    const resolvedProfileId = resolveDesktopWindowBootProfileId(payload);
     const fallback = createFallbackSnapshot(MAIN_WINDOW_LABEL, launchMode);
     setSnapshot({
       ...fallback,
       currentWindow: {
         ...fallback.currentWindow,
         windowLabel: MAIN_WINDOW_LABEL,
-        profileId: payload.profileId,
-        profileLabel: fallback.currentWindow.profileLabel || payload.profileId,
+        profileId: resolvedProfileId,
+        profileLabel: fallback.currentWindow.profileLabel || resolvedProfileId,
         launchMode,
       },
     });
@@ -344,7 +348,9 @@ export const desktopProfileRuntime = {
     return snapshot;
   },
   async openProfileWindow(profileId: ProfileId): Promise<void> {
-    await invokeProfileCommand("desktop_open_profile_window", { profileId });
+    await invokeProfileCommand("desktop_open_profile_window", { profileId }, {
+      timeoutMs: PROFILE_OPEN_WINDOW_TIMEOUT_MS,
+    });
   },
   async removeProfile(profileId: ProfileId): Promise<ProfileIsolationSnapshot> {
     const snapshot = await invokeProfileCommand<ProfileIsolationSnapshot>("desktop_remove_profile", { profileId });
@@ -356,3 +362,12 @@ export const desktopProfileRuntime = {
 export const useDesktopProfileIsolationSnapshot = (): ProfileIsolationSnapshot => (
   useSyncExternalStore(desktopProfileRuntime.subscribe, desktopProfileRuntime.getSnapshot, desktopProfileRuntime.getSnapshot)
 );
+
+/** Run before React effects so identity bootstrap reads the correct window profile scope. */
+if (typeof window !== "undefined" && hasNativeRuntime()) {
+  try {
+    applyDesktopWindowBootPayload();
+  } catch {
+    // Best-effort only.
+  }
+}

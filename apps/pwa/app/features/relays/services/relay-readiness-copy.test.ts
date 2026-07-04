@@ -4,7 +4,7 @@ import {
   getRelayReadinessDetailCopy,
   getRelayTransportQueueHint,
 } from "./relay-readiness-copy";
-import type { RelayRecoverySnapshot } from "./relay-recovery-policy";
+import type { RelayRecoverySnapshot } from "./relay-recovery-types";
 
 const createSnapshot = (overrides: Partial<RelayRecoverySnapshot>): RelayRecoverySnapshot => ({
   readiness: "offline",

@@ -7,7 +7,7 @@ import type { ProfileIsolationSnapshot } from "./profile-isolation-contracts";
 
 const snapshot: ProfileIsolationSnapshot = {
   currentWindow: {
-    windowLabel: "main",
+    windowLabel: "profile-alpha-window",
     profileId: "alpha",
     profileLabel: "Alpha",
     launchMode: "existing",
@@ -16,7 +16,41 @@ const snapshot: ProfileIsolationSnapshot = {
     { profileId: "alpha", label: "Alpha", createdAtUnixMs: 1, lastUsedAtUnixMs: 1_000 },
     { profileId: "beta", label: "Beta", createdAtUnixMs: 1, lastUsedAtUnixMs: 2_000 },
   ],
-  windowBindings: [],
+  windowBindings: [
+    {
+      windowLabel: "main",
+      profileId: "default",
+      profileLabel: "Default",
+      launchMode: "existing",
+    },
+  ],
+};
+
+const crossWindowSnapshot: ProfileIsolationSnapshot = {
+  currentWindow: {
+    windowLabel: "profile-profile-2-1700000000000",
+    profileId: "profile-2",
+    profileLabel: "Tester2",
+    launchMode: "new_window",
+  },
+  profiles: [
+    { profileId: "default", label: "Default", createdAtUnixMs: 1, lastUsedAtUnixMs: 1_000 },
+    { profileId: "profile-2", label: "Tester2", createdAtUnixMs: 1, lastUsedAtUnixMs: 2_000 },
+  ],
+  windowBindings: [
+    {
+      windowLabel: "main",
+      profileId: "default",
+      profileLabel: "Default",
+      launchMode: "existing",
+    },
+    {
+      windowLabel: "profile-profile-2-1700000000000",
+      profileId: "profile-2",
+      profileLabel: "Tester2",
+      launchMode: "new_window",
+    },
+  ],
 };
 
 describe("desktop-profile-switcher-view", () => {
@@ -37,6 +71,7 @@ describe("desktop-profile-switcher-view", () => {
       profileId: "alpha",
       label: "Alice",
       hasStoredIdentity: true,
+      hasSavedAccountPresence: true,
       isCurrentWindow: true,
       canSwitchHere: false,
       subtitle: "aaaaaaaa...aaaaaaaa",
@@ -45,6 +80,7 @@ describe("desktop-profile-switcher-view", () => {
       profileId: "beta",
       label: "Beta",
       hasStoredIdentity: false,
+      hasSavedAccountPresence: false,
       isCurrentWindow: false,
       canSwitchHere: true,
       subtitle: "beta",
@@ -61,6 +97,62 @@ describe("desktop-profile-switcher-view", () => {
     });
 
     expect(entries[1]?.canSwitchHere).toBe(false);
+  });
+
+  it("marks profiles open in another window without local identity", () => {
+    const entries = buildDesktopProfileMenuEntries({
+      snapshot: crossWindowSnapshot,
+      previewByProfileId: {
+        "profile-2": { profileId: "profile-2", username: "Tester2", avatarUrl: "", publicKeyHex: "b".repeat(64) },
+      },
+      currentProfileUsername: "Tester2",
+      currentProfileAvatarUrl: "",
+      currentPublicKeyHex: "b".repeat(64),
+      sessionMismatch: false,
+    });
+
+    expect(entries[0]).toMatchObject({
+      profileId: "default",
+      hasStoredIdentity: false,
+      isCurrentWindow: false,
+      isOpenInAnotherWindow: true,
+      shouldFocusExistingWindow: true,
+      focusTargetProfileId: "default",
+    });
+    expect(entries[1]).toMatchObject({
+      profileId: "profile-2",
+      isCurrentWindow: true,
+      isOpenInAnotherWindow: false,
+      shouldFocusExistingWindow: false,
+    });
+  });
+
+  it("marks accounts with an active session lease in another profile for focus redirect", () => {
+    const pubkey = "c".repeat(64);
+    const entries = buildDesktopProfileMenuEntries({
+      snapshot: crossWindowSnapshot,
+      previewByProfileId: {
+        default: { profileId: "default", username: "Tester1", avatarUrl: "", publicKeyHex: pubkey },
+        "profile-2": { profileId: "profile-2", username: "Tester2", avatarUrl: "", publicKeyHex: pubkey },
+      },
+      currentProfileUsername: "Tester2",
+      currentProfileAvatarUrl: "",
+      currentPublicKeyHex: undefined,
+      sessionMismatch: false,
+      activeLeases: [{
+        publicKeyHex: pubkey,
+        profileId: "default",
+        profileLabel: "Default",
+        windowLabel: "main",
+        updatedAtUnixMs: Date.now(),
+      }],
+    });
+
+    expect(entries[1]).toMatchObject({
+      profileId: "profile-2",
+      shouldFocusExistingWindow: true,
+      focusTargetProfileId: "default",
+    });
   });
 
   it("detects a bound-profile versus unlocked-session mismatch", () => {

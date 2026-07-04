@@ -2,12 +2,14 @@
 
 import type React from "react";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   readShowProfilePickerOnStartup,
   writeShowProfilePickerOnStartup,
 } from "@/app/features/profiles/services/profile-picker-startup-policy";
 
 export function ProfilePickerShowOnStartupFooter(): React.JSX.Element {
+  const { t } = useTranslation();
   const [enabled, setEnabled] = useState(true);
 
   useEffect(() => {
@@ -27,7 +29,7 @@ export function ProfilePickerShowOnStartupFooter(): React.JSX.Element {
             writeShowProfilePickerOnStartup(next);
           }}
         />
-        Show on startup
+        {t("profiles.picker.showOnStartup")}
       </label>
     </footer>
   );

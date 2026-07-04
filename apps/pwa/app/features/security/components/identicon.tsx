@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Image from "next/image";
 import { generateIdenticonDataUrl } from "../services/identicon-service";
 import { cn } from "../../../lib/cn";
 import { Shield, ShieldCheck, ShieldAlert } from "lucide-react";
@@ -71,11 +72,12 @@ export const Identicon: React.FC<IdenticonProps> = ({
             style={{ width: size, height: size }}
           />
         ) : dataUrl ? (
-          <img
+          <Image
             src={dataUrl}
             alt={`Identity fingerprint for ${keyFragment}`}
             width={size}
             height={size}
+            unoptimized
             className="rounded-lg shadow-sm"
             style={{ imageRendering: "pixelated" }}
           />

@@ -5,7 +5,7 @@
 
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { requiresSqlitePersistence } from "@/app/features/runtime/native-persistence-policy";
-import { chatStateStoreService } from "./chat-state-store";
+import { messagingChatStateReadPort } from "./messaging-chat-state-read-port";
 import { fromPersistedMessagesByConversationId } from "../utils/persistence";
 import { isDisplayableDmConversationMessage } from "./dm-conversation-displayable-message";
 import { isMessageIdentityInSuppressedIdSet } from "./conversation-message-visibility";
@@ -31,7 +31,7 @@ export const loadDmThreadSyncSeedCache = (params: Readonly<{
   if (!audit.ok) {
     return [];
   }
-  const persistedState = chatStateStoreService.load(params.publicKeyHex, {
+  const persistedState = messagingChatStateReadPort.load(params.publicKeyHex, {
     profileId: params.profileId,
   });
   if (!persistedState?.messagesByConversationId) {

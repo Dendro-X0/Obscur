@@ -1,7 +1,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useConversationMessages } from "./use-conversation-messages";
-import * as dmConversationHydrateIndexedScan from "../services/dm-conversation-hydrate-indexed-scan";
+import { useLegacyConversationMessages } from "./conversation-messages-legacy-port";
+import * as dmConversationHydrateIndexedScan from "@/app/features/messaging/services/thread-history/dm-thread-history-legacy-port";
 import type { Message } from "../types";
 import { PrivacySettingsService, defaultPrivacySettings } from "../../settings/services/privacy-settings-service";
 import { performanceMonitor } from "../lib/performance-monitor";
@@ -64,7 +64,7 @@ vi.mock("@/app/features/account-sync/services/account-sync-migration-policy", ()
   }),
 }));
 
-vi.mock("../services/chat-state-store", () => ({
+vi.mock("@/app/features/messaging/services/chat-state-store-legacy", () => ({
   CHAT_STATE_REPLACED_EVENT: "obscur:chat-state-replaced",
   chatStateStoreService: { load: vi.fn(() => null) },
 }));
@@ -189,7 +189,7 @@ describe("useConversationMessages monotonic hydrate (Phase A)", () => {
     const cappedHydrated = Array.from({ length: 200 }, (_, index) => toMessage(201 + index));
     const hydrateSpy = vi.spyOn(dmConversationHydrateIndexedScan, "loadInitialDmHydrationIndexedWindow");
 
-    const { result, unmount } = renderHook(() => useConversationMessages(conversationId, myPublicKeyHex));
+    const { result, unmount } = renderHook(() => useLegacyConversationMessages(conversationId, myPublicKeyHex));
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     await waitFor(() => expect(result.current.messages.length).toBe(200), { timeout: 3_000 });
 

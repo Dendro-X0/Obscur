@@ -84,4 +84,15 @@ describe("relay primary selector", () => {
     });
     expect(pool).toEqual([urls[1]]);
   });
+
+  it("prefers public relays over local dev on cold start when all hints are disconnected", () => {
+    const hints = urls.map((url, listIndex) => ({
+      url,
+      isOpen: false,
+      isWritable: false,
+      listIndex,
+    }));
+    expect(pickBestRelayUrl(urls, hints)).toBe(urls[1]);
+    expect(resolveInitialRelaySelection(urls, hints).primaryUrl).toBe(urls[1]);
+  });
 });

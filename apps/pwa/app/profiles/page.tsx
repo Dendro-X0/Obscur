@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useRouter } from "next/navigation";
 import { Button, Input, toast } from "@dweb/ui-kit";
-import { ArrowLeft, LogIn, Plus, Settings2, SquareArrowOutUpRight, Trash2 } from "lucide-react";
+import { ArrowLeft, Plus, Settings2, SquareArrowOutUpRight, Trash2 } from "lucide-react";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import { PageShell } from "@/app/components/page-shell";
@@ -21,7 +22,6 @@ import { ProfileArchiveResultBanner } from "@/app/features/profiles/components/p
 import { PortabilityQuickActionsPanel } from "@/app/features/profiles/components/portability-quick-actions-panel";
 import { ProfileWindowImportPanel } from "@/app/features/profiles/components/profile-window-import-panel";
 import { ProfilePickerCardGrid } from "@/app/features/profiles/components/profile-picker-card-grid";
-import { PROFILE_SIGN_IN_ROUTE } from "@/app/features/profiles/services/auth-public-routes";
 import {
   buildDesktopProfileMenuEntries,
   deriveDesktopProfileSessionMismatch,
@@ -29,6 +29,15 @@ import {
   type DesktopProfileMenuEntry,
   type DesktopProfilePreview,
 } from "@/app/features/profiles/services/desktop-profile-switcher-view";
+import {
+  ACTIVE_SESSION_LEASE_HEARTBEAT_MS,
+  listActiveSessionLeasesAsync,
+  type ActiveSessionLeaseRecord,
+} from "@/app/features/profiles/services/cross-profile-active-session-lease";
+import { resolveDesktopProfileAccountPresenceLabelKey } from "@/app/features/profiles/services/desktop-profile-account-presence-label";
+import { PROFILE_SIGN_IN_ROUTE } from "@/app/features/profiles/services/auth-public-routes";
+import { resolveDesktopProfileCardDisplay } from "@/app/features/profiles/services/desktop-profile-card-display";
+import { canRemoveDesktopProfileEntry } from "@/app/features/profiles/services/can-remove-desktop-profile";
 
 const getDefaultNewProfileLabel = (count: number): string => `Profile ${count + 1}`;
 
@@ -37,6 +46,7 @@ const isUnlockedRuntimePhase = (phase: string): boolean => (
 );
 
 export default function ProfilesPage(): React.JSX.Element {
+  const { t } = useTranslation();
   const router = useRouter();
   const identity = useIdentity();
   const profile = useProfile();
@@ -52,6 +62,7 @@ export default function ProfilesPage(): React.JSX.Element {
   const [removeArchiveResult, setRemoveArchiveResult] = useState<ProfileWorkspaceArchiveWriteResult | null>(null);
 
   const [previewByProfileId, setPreviewByProfileId] = useState<Readonly<Record<string, DesktopProfilePreview | undefined>>>({});
+  const [activeLeases, setActiveLeases] = useState<ReadonlyArray<ActiveSessionLeaseRecord>>([]);
   const currentPublicKeyHex = identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex ?? undefined;
   const sessionMismatch = deriveDesktopProfileSessionMismatch({
     storedPublicKeyHex: identity.state.stored?.publicKeyHex,
@@ -68,7 +79,12 @@ export default function ProfilesPage(): React.JSX.Element {
 
   useEffect(() => {
     let cancelled = false;
-    void loadDesktopProfilePreviewMap(snapshot.profiles.map((profileSummary) => profileSummary.profileId))
+    void loadDesktopProfilePreviewMap(
+      snapshot.profiles.map((profileSummary) => ({
+        profileId: profileSummary.profileId,
+        label: profileSummary.label,
+      })),
+    )
       .then((previews) => {
         if (!cancelled) {
           setPreviewByProfileId(previews);
@@ -84,6 +100,32 @@ export default function ProfilesPage(): React.JSX.Element {
     };
   }, [snapshot.profiles]);
 
+  useEffect(() => {
+    if (!isPublicPickerMode) {
+      return;
+    }
+    let cancelled = false;
+    const refreshLeases = (): void => {
+      void listActiveSessionLeasesAsync()
+        .then((leases) => {
+          if (!cancelled) {
+            setActiveLeases(leases);
+          }
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setActiveLeases([]);
+          }
+        });
+    };
+    refreshLeases();
+    const intervalId = window.setInterval(refreshLeases, ACTIVE_SESSION_LEASE_HEARTBEAT_MS);
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [isPublicPickerMode, snapshot.currentWindow.profileId, snapshot.currentWindow.windowLabel]);
+
   const entries = useMemo((): ReadonlyArray<DesktopProfileMenuEntry> => {
     return buildDesktopProfileMenuEntries({
       snapshot,
@@ -92,18 +134,40 @@ export default function ProfilesPage(): React.JSX.Element {
       currentProfileAvatarUrl: profile.state.profile.avatarUrl,
       currentPublicKeyHex,
       sessionMismatch,
+      activeLeases: isPublicPickerMode ? activeLeases : undefined,
     });
-  }, [currentPublicKeyHex, previewByProfileId, profile.state.profile.avatarUrl, profile.state.profile.username, sessionMismatch, snapshot]);
+  }, [activeLeases, currentPublicKeyHex, isPublicPickerMode, previewByProfileId, profile.state.profile.avatarUrl, profile.state.profile.username, sessionMismatch, snapshot]);
 
   const currentWindowEntry = entries.find((entry) => entry.isCurrentWindow);
 
-  const handleOpenWindow = async (profileId: string): Promise<void> => {
+  const handleLaunchProfile = async (profileId: string): Promise<void> => {
+    const entry = entries.find((item) => item.profileId === profileId);
+    if (!entry) {
+      return;
+    }
+    if (entry.isCurrentWindow) {
+      router.push(PROFILE_SIGN_IN_ROUTE);
+      return;
+    }
+    if (entry.shouldFocusExistingWindow && entry.focusTargetProfileId) {
+      try {
+        await desktopProfileRuntime.openProfileWindow(entry.focusTargetProfileId);
+        toast.success(t("profiles.picker.focusedExistingWindow"));
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Failed to focus the existing profile window.");
+      }
+      return;
+    }
     try {
       await desktopProfileRuntime.openProfileWindow(profileId);
-      toast.success("Profile window opened.");
+      toast.success(t("profiles.picker.openedProfileWindow"));
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to open profile window.");
     }
+  };
+
+  const handleOpenWindow = async (profileId: string): Promise<void> => {
+    await handleLaunchProfile(profileId);
   };
 
   const handleSwitchHere = async (profileId: string): Promise<void> => {
@@ -145,22 +209,19 @@ export default function ProfilesPage(): React.JSX.Element {
     }
   };
 
-  const handleSignInHere = (): void => {
-    router.replace(PROFILE_SIGN_IN_ROUTE);
-  };
-
   const handleRemoveProfile = (profileId: string): void => {
-    if (profileId === snapshot.currentWindow.profileId) {
-      toast.error("Cannot remove the profile bound to this window.");
-      return;
-    }
-    if (profileId === "default") {
-      toast.error("The default profile cannot be removed.");
+    const entry = entries.find((item) => item.profileId === profileId);
+    if (!entry || !canRemoveDesktopProfileEntry(entry)) {
+      if (profileId === snapshot.currentWindow.profileId) {
+        toast.error("Cannot remove the profile bound to this window.");
+      } else if (profileId === "default") {
+        toast.error("The default profile cannot be removed.");
+      }
       return;
     }
 
-    const entry = entries.find((item) => item.profileId === profileId);
-    const label = entry?.label || profileId;
+    const display = resolveDesktopProfileCardDisplay(entry);
+    const label = display.displayName || entry.label || profileId;
     setRemoveStep("confirm");
     setRemoveArchiveResult(null);
     setRemoveTarget({ profileId, label });
@@ -221,26 +282,34 @@ export default function ProfilesPage(): React.JSX.Element {
           <section className="rounded-[28px] border border-black/10 bg-white/70 p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900/40">
             <div className="text-xs font-black uppercase tracking-[0.18em] text-zinc-500 dark:text-zinc-400">Saved Profiles</div>
             <div className="mt-4 space-y-3">
-              {entries.map((entry) => (
+              {entries.map((entry) => {
+                const display = resolveDesktopProfileCardDisplay(entry);
+                const presenceLabel = t(resolveDesktopProfileAccountPresenceLabelKey(entry));
+                return (
                 <div key={entry.profileId} className="rounded-2xl border border-black/10 bg-zinc-50/80 p-4 dark:border-white/10 dark:bg-black/20">
                   <div className="flex items-start gap-3">
-                    <UserAvatar username={entry.avatarName} avatarUrl={entry.avatarUrl} sizePx={44} />
+                    <UserAvatar username={display.avatarName} avatarUrl={display.avatarUrl} sizePx={44} />
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <div className="truncate text-base font-semibold text-zinc-900 dark:text-zinc-100">{entry.label}</div>
-                        {entry.isCurrentWindow ? (
-                          <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">This Window</span>
-                        ) : null}
+                        <div className="truncate text-base font-semibold text-zinc-900 dark:text-zinc-100">
+                          {display.showAccountIdentity && display.displayName
+                            ? display.displayName
+                            : t("profiles.picker.profileSlot")}
+                        </div>
                         <span className={cn(
                           "rounded-full px-2 py-0.5 text-[10px] font-semibold",
                           entry.hasStoredIdentity
                             ? "bg-blue-500/10 text-blue-600 dark:text-blue-400"
-                            : "bg-zinc-500/10 text-zinc-600 dark:text-zinc-400"
+                            : entry.shouldFocusExistingWindow
+                              ? "bg-violet-500/10 text-violet-600 dark:text-violet-400"
+                              : "bg-zinc-500/10 text-zinc-600 dark:text-zinc-400"
                         )}>
-                          {entry.hasStoredIdentity ? "Saved account" : "Needs setup"}
+                          {presenceLabel}
                         </span>
                       </div>
-                      <div className="mt-1 truncate text-xs text-zinc-500 dark:text-zinc-400">{entry.subtitle}</div>
+                      {display.showAccountIdentity ? (
+                        <div className="mt-1 truncate text-xs text-zinc-500 dark:text-zinc-400">{entry.subtitle}</div>
+                      ) : null}
                       <div className="mt-1 text-[11px] text-zinc-400 dark:text-zinc-500">Last used {entry.lastUsedLabel}</div>
                     </div>
                   </div>
@@ -249,12 +318,14 @@ export default function ProfilesPage(): React.JSX.Element {
                       <>
                         <Button size="sm" onClick={() => void handleOpenWindow(entry.profileId)}>
                           <SquareArrowOutUpRight className="h-3.5 w-3.5" />
-                          Open in New Window
+                          {entry.shouldFocusExistingWindow
+                            ? t("profiles.picker.goToActiveWindow")
+                            : t("profiles.picker.openInNewWindow")}
                         </Button>
                         <Button size="sm" variant="outline" disabled={!entry.canSwitchHere} onClick={() => void handleSwitchHere(entry.profileId)}>
                           Switch This Window
                         </Button>
-                        {entry.profileId !== "default" ? (
+                        {canRemoveDesktopProfileEntry(entry) ? (
                           <Button size="sm" variant="outline" onClick={() => handleRemoveProfile(entry.profileId)}>
                             <Trash2 className="h-3.5 w-3.5" />
                             Remove
@@ -262,9 +333,9 @@ export default function ProfilesPage(): React.JSX.Element {
                         ) : null}
                       </>
                     ) : isPublicPickerMode ? (
-                      <Button size="sm" onClick={handleSignInHere}>
-                        <LogIn className="h-3.5 w-3.5" />
-                        Sign in to This Profile
+                      <Button size="sm" onClick={() => void handleLaunchProfile(entry.profileId)}>
+                        <SquareArrowOutUpRight className="h-3.5 w-3.5" />
+                        Open Profile Window
                       </Button>
                     ) : (
                       <Button size="sm" variant="outline" disabled>
@@ -273,7 +344,8 @@ export default function ProfilesPage(): React.JSX.Element {
                     )}
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           </section>
 
@@ -322,19 +394,22 @@ export default function ProfilesPage(): React.JSX.Element {
                 <p>Opening a profile creates an isolated desktop window. In-memory state and account data are not shared across windows.</p>
                 <p>Profiles you log into stay listed here so you can reopen them later.</p>
                 <p>
-                  <span className="font-semibold">Lock</span> pauses your session but keeps stay signed in — restart restores from OS secure storage.
+                  <span className="font-semibold">Lock</span> pauses your in-memory session. You will need your password again after refresh or restart.
                 </p>
                 <p>
-                  <span className="font-semibold">Log out</span> clears the device session (keychain) but keeps this profile window&apos;s local data.
+                  <span className="font-semibold">Log out</span> clears the in-memory session but keeps this profile window open.
                 </p>
                 <p>
-                  <span className="font-semibold">Remove profile</span> (Profile 2 and above) exports a workspace archive (`.obscur-profile.json`) under
+                  <span className="font-semibold">Log out & close window</span> signs out and hides this desktop window. The main window reopens from the tray; other profile windows stay closed until you open them again from Manage Profiles.
+                </p>
+                <p>
+                  <span className="font-semibold">Remove profile</span> (non-default slots) exports a workspace archive (`.obscur-profile.json`) under
                   <span className="font-semibold"> profile-archives </span>
                   on desktop, then clears that slot. You will see where the file was saved.
                 </p>
                 {!isPublicPickerMode ? (
                   <p>
-                    To wipe the main profile window or clear data without removing the profile entry, use Settings → Identity → Local data management.
+                    To wipe local data for this window without removing the profile entry, use Settings → Identity → Local data management.
                   </p>
                 ) : null}
                 <p className="rounded-xl border border-orange-500/25 bg-orange-500/5 px-3 py-2 text-orange-900 dark:text-orange-100">
@@ -354,9 +429,9 @@ export default function ProfilesPage(): React.JSX.Element {
           <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl">
             {removeStep === "confirm" ? (
               <>
-                <h3 className="text-xl font-bold text-white">Remove profile</h3>
+                <h3 className="text-xl font-bold text-white">{t("profiles.portability.remove.title")}</h3>
                 <p className="mt-2 text-sm leading-6 text-zinc-300">
-                  Remove &quot;{removeTarget.label}&quot;? A workspace archive is saved to profile-archives first, then local data for that profile is cleared.
+                  {t("profiles.portability.remove.confirmDesc", { label: removeTarget.label })}
                 </p>
                 <div className="mt-6 flex gap-3">
                   <Button
@@ -365,7 +440,7 @@ export default function ProfilesPage(): React.JSX.Element {
                     onClick={closeRemoveFlow}
                     disabled={isRemovingProfile}
                   >
-                    Cancel
+                    {t("common.cancel")}
                   </Button>
                   <Button
                     variant="danger"
@@ -373,30 +448,30 @@ export default function ProfilesPage(): React.JSX.Element {
                     onClick={() => void confirmRemoveProfile()}
                     disabled={isRemovingProfile}
                   >
-                    {isRemovingProfile ? "Removing…" : "Remove profile"}
+                    {isRemovingProfile ? t("profiles.portability.remove.removing") : t("profiles.portability.remove.action")}
                   </Button>
                 </div>
               </>
             ) : (
               <>
-                <h3 className="text-xl font-bold text-white">Profile removed</h3>
+                <h3 className="text-xl font-bold text-white">{t("profiles.portability.archive.profileRemoved")}</h3>
                 <p className="mt-2 text-sm text-zinc-300">
-                  &quot;{removeTarget.label}&quot; was removed from this device. Your archive is below.
+                  {t("profiles.portability.archive.profileRemovedFromDevice", { label: removeTarget.label })}
                 </p>
                 <div className="mt-4">
                   <ProfileArchiveResultBanner
                     result={removeArchiveResult}
                     profileLabel={removeTarget.label}
-                    label="Workspace archive location"
+                    label={t("profiles.portability.archive.locationTitle")}
                   />
                 </div>
                 <div className="mt-6">
                   <Button className="w-full" onClick={() => {
                     closeRemoveFlow();
-                    toast.success("Profile removed.");
+                    toast.success(t("profiles.portability.remove.successToast"));
                   }}
                   >
-                    Done
+                    {t("profiles.portability.archive.done")}
                   </Button>
                 </div>
               </>
@@ -410,9 +485,9 @@ export default function ProfilesPage(): React.JSX.Element {
       <>
         <ProfilePickerCardGrid
           entries={entries}
-          onSelectProfile={handleSignInHere}
-          onOpenInNewWindow={(profileId) => void handleOpenWindow(profileId)}
+          onLaunchProfile={(profileId) => void handleLaunchProfile(profileId)}
           onSwitchHere={(profileId) => void handleSwitchHere(profileId)}
+          onRemoveProfile={handleRemoveProfile}
           onAddProfile={() => void handleCreateAndOpen()}
           onAdvancedManagement={() => setShowAdvancedManagement(true)}
         />
@@ -438,12 +513,12 @@ export default function ProfilesPage(): React.JSX.Element {
 
   return (
     <PageShell
-      title="Profiles"
+      title={t("profiles.picker.pageTitle")}
       navBadgeCounts={navBadges.navBadgeCounts}
       rightContent={(
         <Button type="button" variant="outline" size="sm" onClick={() => router.back()}>
           <ArrowLeft className="h-3.5 w-3.5" />
-          Back
+          {t("common.back")}
         </Button>
       )}
     >

@@ -31,7 +31,7 @@ import { processIncomingEvent, processDeleteEventDirect, createDedupSet, type In
 // deleteMessages replaced by new deletion coordinator
 import { subscribeToIncomingDMs, type SubscriptionHandle } from "./dm-relay-transport";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
-import { executeDmDeleteForMe } from "../../services/dm-local-delete-persistence";
+import { messagingClientOperations } from "../../services/messaging-client-operations";
 // Delete-for-everyone + remote ingest
 import {
   deleteMessageForEveryone,
@@ -45,7 +45,6 @@ import { checkDmDivergence, recordDmMessage, recordDmDelete } from "../../dm-led
 import { appendCanonicalDmEvent } from "@/app/features/account-sync/services/account-event-ingest-bridge";
 import { isDevLabSyntheticDmPlaintext } from "@/app/features/dm-kernel/dm-kernel-dev-lab-sidebar-policy";
 import { peerRelayEvidenceStore } from "../../services/peer-relay-evidence-store";
-import { messagingClientOperations } from "../../services/messaging-client-operations";
 import { collectMessageIdentityAliases } from "../../services/message-identity-alias-contract";
 import { toDmConversationId } from "../../utils/dm-conversation-id";
 import { normalizePublicKeyHex } from "@/app/features/profile/utils/normalize-public-key-hex";
@@ -173,6 +172,10 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
   const publishFeedbackShownRef = useRef<Set<string>>(new Set());
   messagesRef.current = messages;
   const poolRef = useRelayPoolRef(pool);
+  const relayOpenSignature = useMemo(
+    () => pool.connections.map((connection) => `${connection.url}:${connection.status}`).join("|"),
+    [pool.connections],
+  );
   const controllerInstanceIdRef = useRef(`v2_dm_${crypto.randomUUID().slice(0, 8)}`);
   const handleIncomingEventRef = useRef<(event: NostrEvent, relayUrl: string) => Promise<void>>(
     async () => {},
@@ -849,7 +852,7 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
     }
 
     if (mode === "for_me") {
-      await executeDmDeleteForMe({
+      await messagingClientOperations.deleteDmForMe({
         conversationId: canonicalConversationId,
         messageIdentityIds: messageIdentity.identityIds,
         accountPublicKeyHex: myPublicKeyHex,
@@ -1167,6 +1170,47 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
     transportOwnerId,
   ]);
 
+  // Arm DM subscription and relay catch-up once writable relays exist (pool may connect after unlock).
+  useEffect(() => {
+    if (!enableIncomingTransport || !myPublicKeyHex) {
+      return;
+    }
+    const hasOpenRelay = poolRef.current.connections.some((connection) => connection.status === "open");
+    if (!hasOpenRelay) {
+      return;
+    }
+    if (!subscribedRef.current) {
+      subscribe();
+    }
+    if (
+      !hasTriggeredInitialSyncRef.current
+      && !syncStateRef.current.isSyncing
+    ) {
+      if (initialSyncTimeoutRef.current) {
+        clearTimeout(initialSyncTimeoutRef.current);
+      }
+      initialSyncTimeoutRef.current = setTimeout(() => {
+        if (!hasTriggeredInitialSyncRef.current) {
+          hasTriggeredInitialSyncRef.current = true;
+          const lookbackMs = 7 * 24 * 60 * 60 * 1000;
+          void syncMissedMessages(new Date(Date.now() - lookbackMs));
+        }
+      }, 500);
+    }
+    return () => {
+      if (initialSyncTimeoutRef.current) {
+        clearTimeout(initialSyncTimeoutRef.current);
+        initialSyncTimeoutRef.current = null;
+      }
+    };
+  }, [
+    enableIncomingTransport,
+    myPublicKeyHex,
+    relayOpenSignature,
+    subscribe,
+    syncMissedMessages,
+  ]);
+
   useEffect(() => {
     if (!enableIncomingTransport || !myPublicKeyHex) {
       return;
@@ -1179,39 +1223,6 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
       }
     });
     return unsubscribe;
-  }, [enableIncomingTransport, myPublicKeyHex, syncMissedMessages]);
-
-  useEffect(() => {
-    if (!enableIncomingTransport || !myPublicKeyHex) {
-      if (initialSyncTimeoutRef.current) {
-        clearTimeout(initialSyncTimeoutRef.current);
-        initialSyncTimeoutRef.current = null;
-      }
-      return;
-    }
-    const hasOpenRelay = poolRef.current.connections.some((connection) => connection.status === "open");
-    if (
-      hasOpenRelay
-      && !syncStateRef.current.lastSyncAt
-      && !hasTriggeredInitialSyncRef.current
-      && !syncStateRef.current.isSyncing
-    ) {
-      if (initialSyncTimeoutRef.current) {
-        clearTimeout(initialSyncTimeoutRef.current);
-      }
-      initialSyncTimeoutRef.current = setTimeout(() => {
-        if (!hasTriggeredInitialSyncRef.current) {
-          hasTriggeredInitialSyncRef.current = true;
-          void syncMissedMessages();
-        }
-      }, 2000);
-    }
-    return () => {
-      if (initialSyncTimeoutRef.current) {
-        clearTimeout(initialSyncTimeoutRef.current);
-        initialSyncTimeoutRef.current = null;
-      }
-    };
   }, [enableIncomingTransport, myPublicKeyHex, syncMissedMessages]);
 
   const processOfflineQueue = useCallback(async () => {

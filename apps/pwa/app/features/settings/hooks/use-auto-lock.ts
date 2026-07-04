@@ -1,10 +1,16 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { PrivacySettingsService, type PrivacySettings } from "../services/privacy-settings-service";
+import { lockAppSession } from "@/app/features/auth/services/lock-app-session";
 import { getRuntimeCapabilities } from "@/app/features/runtime/runtime-capabilities";
+import { useWindowRuntime } from "@/app/features/runtime/services/window-runtime-supervisor";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { invokeNativeCommand } from "@/app/features/runtime/native-adapters";
 import { listenToNativeEvent } from "@/app/features/runtime/native-event-adapter";
+import {
+  AUTOLOCK_OVERLAY_RESET_EVENT,
+  resetAutoLockOverlayState,
+} from "../services/auto-lock-session-state";
 
 const AUTOLOCK_STORAGE_KEY: string = "obscur.autolock.lastActivity";
 const getAutolockStorageKey = (): string => getScopedStorageKey(AUTOLOCK_STORAGE_KEY, getResolvedProfileId());
@@ -23,6 +29,7 @@ type TorLogSnapshot = string[];
  * Requirement 1.4: Clipboard safety & session management
  */
 export function useAutoLock() {
+    const runtime = useWindowRuntime();
     const [settings, setSettings] = useState<PrivacySettings>(PrivacySettingsService.getSettings());
     const [isLocked, setIsLocked] = useState<boolean>(() => {
         if (typeof window === "undefined") return false;
@@ -52,8 +59,13 @@ export function useAutoLock() {
             const newSettings = PrivacySettingsService.getSettings();
             setSettings(newSettings);
         };
+        const handleOverlayReset = () => {
+            setIsLocked(false);
+            setLastActivityTime(Date.now());
+        };
 
         window.addEventListener('privacy-settings-changed', handleSettingsChange);
+        window.addEventListener(AUTOLOCK_OVERLAY_RESET_EVENT, handleOverlayReset);
 
         // Listen for Tor events if in Tauri
         let unlistenStatus: (() => void) | undefined;
@@ -107,6 +119,7 @@ export function useAutoLock() {
 
         return () => {
             window.removeEventListener('privacy-settings-changed', handleSettingsChange);
+            window.removeEventListener(AUTOLOCK_OVERLAY_RESET_EVENT, handleOverlayReset);
             if (unlistenStatus) unlistenStatus();
             if (unlistenLog) unlistenLog();
             if (unlistenError) unlistenError();
@@ -126,20 +139,6 @@ export function useAutoLock() {
         }
     }, [isTauri, settings.enableTorProxy, torStatus]);
 
-    // Clear clipboard if allowed and configured
-    const clearClipboard = useCallback(async () => {
-        if (!settings.clearClipboardOnLock) return;
-
-        try {
-            // Check if we have permission to write to clipboard
-            // Note: In some browsers/environments this might fail without user gesture
-            await navigator.clipboard.writeText('');
-            console.log('Clipboard cleared for security');
-        } catch (error) {
-            console.warn('Failed to clear clipboard:', error);
-        }
-    }, [settings.clearClipboardOnLock]);
-
     // Track user activity
     const recordActivity = useCallback(() => {
         setLastActivityTime(Date.now());
@@ -149,13 +148,13 @@ export function useAutoLock() {
     const lock = useCallback(() => {
         if (isLocked) return;
         setIsLocked(true);
-        void clearClipboard();
-    }, [isLocked, clearClipboard]);
+        void lockAppSession({ lockBoundProfile: runtime.lockBoundProfile });
+    }, [isLocked, runtime.lockBoundProfile]);
 
     // Unlock the app
     const unlock = useCallback(() => {
         setIsLocked(false);
-        setLastActivityTime(Date.now());
+        resetAutoLockOverlayState();
     }, []);
 
     // Set up activity listeners

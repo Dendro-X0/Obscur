@@ -1,11 +1,15 @@
 import {
   getRememberMeScopedStorageKeys,
 } from "@/app/features/auth/utils/auth-storage-keys";
-import { isNativeDeviceSessionConsentPersistenceEnabled } from "@/app/features/auth/services/session-credential-policy";
+import {
+  isNativeDeviceSessionConsentPersistenceEnabled,
+  NATIVE_SECURE_SESSION_RESTORE_ENABLED,
+  SESSION_CREDENTIAL_PERSISTENCE_ENABLED,
+} from "@/app/features/auth/services/session-credential-policy";
 
 /**
- * Per-profile "stay signed in on this device" consent (trust flag only on native desktop).
- * Absent keys default to true so cold-start restore matches Chrome-like expectations.
+ * Per-profile "stay signed in on this device" consent (mobile shell / mobile native only).
+ * Absent keys default to true when consent persistence is enabled.
  */
 export const readDeviceSessionConsent = (profileId: string): boolean => {
   if (typeof window === "undefined") {
@@ -28,6 +32,9 @@ export const readDeviceSessionConsent = (profileId: string): boolean => {
 };
 
 export const isDeviceSessionRestoreAllowed = (profileId: string): boolean => {
+  if (!NATIVE_SECURE_SESSION_RESTORE_ENABLED) {
+    return false;
+  }
   if (!isNativeDeviceSessionConsentPersistenceEnabled()) {
     return true;
   }
@@ -38,6 +45,11 @@ export type SessionUnlockOptions = Readonly<{
   staySignedIn?: boolean;
 }>;
 
-export const resolveStaySignedIn = (options?: SessionUnlockOptions): boolean => (
-  options?.staySignedIn !== false
-);
+export const resolveStaySignedIn = (options?: SessionUnlockOptions): boolean => {
+  const persistenceEnabled = isNativeDeviceSessionConsentPersistenceEnabled()
+    || SESSION_CREDENTIAL_PERSISTENCE_ENABLED;
+  if (!persistenceEnabled) {
+    return false;
+  }
+  return options?.staySignedIn !== false;
+};

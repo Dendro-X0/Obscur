@@ -60,6 +60,37 @@ describe("community-ledger-validator", () => {
       expect(result.errors.some(e => e.includes("Invalid status"))).toBe(true);
     });
 
+    it("should treat archival historical rows as valid when allowLegacy", () => {
+      const entry = {
+        groupId: "legacy-group",
+        status: "historical" as const,
+      };
+      const result = validateLedgerEntry(entry, { allowLegacy: true });
+      expect(result.valid).toBe(true);
+      expect(result.warnings.some((warning) => warning.includes("Thin ledger status"))).toBe(true);
+    });
+
+    it("should treat terminal left rows as valid when allowLegacy", () => {
+      const entry = {
+        groupId: "legacy-group",
+        status: "left" as const,
+        publicKeyHex: "abc",
+      };
+      const result = validateLedgerEntry(entry, { allowLegacy: true });
+      expect(result.valid).toBe(true);
+      expect(result.warnings.some((warning) => warning.includes("Thin ledger status"))).toBe(true);
+    });
+
+    it("should still reject archival rows without groupId", () => {
+      const entry = {
+        groupId: "",
+        status: "historical" as const,
+      };
+      const result = validateLedgerEntry(entry, { allowLegacy: true });
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((error) => error.includes("groupId"))).toBe(true);
+    });
+
     it("should reject entries without displayName", () => {
       const entry = { ...validEntry, displayName: "" };
       const result = validateLedgerEntry(entry);

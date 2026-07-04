@@ -3,6 +3,12 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { messageBus } from "@/app/features/messaging/services/message-bus";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
+import { DESKTOP_PROFILE_BOOT_RECONCILED_EVENT } from "@/app/features/profiles/services/desktop-window-boot";
+import { useOptionalProfileRuntime } from "@/app/features/profiles/providers/profile-runtime-provider";
+import {
+  NATIVE_DM_THREAD_STALE_EMPTY_HYDRATE_BASE_DELAY_MS,
+  NATIVE_DM_THREAD_STALE_EMPTY_HYDRATE_MAX_ATTEMPTS,
+} from "@/app/features/messaging/services/thread-history/read-model";
 import type { Message } from "@/app/features/messaging/types";
 import { normalizePublicKeyHex } from "@/app/features/profile/utils/normalize-public-key-hex";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
@@ -18,15 +24,24 @@ import {
   messagesAreEquivalentForThread,
   upsertDmKernelThreadMessage,
 } from "./dm-kernel-live-bus-match";
+import {
+  buildCommunityInviteThreadDisplayBundle,
+  COMMUNITY_DM_INVITE_LEDGER_CHANGED_EVENT,
+  syncCommunityDmInviteLedgerFromInboundMessage,
+} from "@/app/features/groups/services/community-dm-invite-pipeline";
+import type { InviteResponseStatus } from "@/app/features/messaging/components/message-list-render-meta";
 
 export type UseDmKernelThreadResult = Readonly<{
   messages: ReadonlyArray<Message>;
+  inviteResponseStatusByMessageId: ReadonlyMap<string, InviteResponseStatus>;
   isLoading: boolean;
   hasEarlier: boolean;
   loadEarlier: () => Promise<void>;
   pendingEventCount: number;
   hasHydrated: boolean;
 }>;
+
+const EMPTY_INVITE_STATUS_MAP: ReadonlyMap<string, InviteResponseStatus> = new Map();
 
 const EMPTY_MESSAGES: ReadonlyArray<Message> = [];
 
@@ -56,12 +71,16 @@ export function useDmKernelThread(
   const [isLoading, setIsLoading] = useState(false);
   const [hasEarlier, setHasEarlier] = useState(false);
   const [pendingEventCount, setPendingEventCount] = useState(0);
+  const [inviteLedgerEpoch, setInviteLedgerEpoch] = useState(0);
   const messageIdsRef = useRef(new Set<string>());
   const oldestReceivedAtRef = useRef<number | null>(null);
   const integrityCheckedRef = useRef(false);
   const loadedConversationIdRef = useRef<string | null>(null);
+  const staleEmptyHydrateAttemptRef = useRef(0);
+  const messagesRef = useRef<ReadonlyArray<Message>>(EMPTY_MESSAGES);
 
-  const profileId = getResolvedProfileId();
+  const optionalProfileRuntime = useOptionalProfileRuntime();
+  const profileId = optionalProfileRuntime?.profileId ?? getResolvedProfileId();
   const normalizedMyPublicKeyHex = useMemo((): PublicKeyHex | null => (
     myPublicKeyHex
       ? (normalizePublicKeyHex(myPublicKeyHex) ?? (myPublicKeyHex as PublicKeyHex))
@@ -128,11 +147,22 @@ export function useDmKernelThread(
     setMessages((current) => {
       const merged = mergeDmKernelThreadMessages(loaded, current);
       recordLoadedMessages(merged);
+      messagesRef.current = merged;
       logIntegrityOnce(merged);
+      if (conversationId?.trim() && normalizedMyPublicKeyHex) {
+        merged.forEach((message) => {
+          syncCommunityDmInviteLedgerFromInboundMessage({
+            message,
+            conversationId: conversationId.trim(),
+            accountPublicKeyHex: normalizedMyPublicKeyHex,
+            profileId,
+          });
+        });
+      }
       return merged;
     });
     setHasEarlier(loaded.length >= DM_KERNEL_PAGE_SIZE);
-  }, [conversationId, myPublicKeyHex, profileId]);
+  }, [conversationId, myPublicKeyHex, normalizedMyPublicKeyHex, profileId]);
 
   useEffect(() => {
     integrityCheckedRef.current = false;
@@ -150,8 +180,10 @@ export function useDmKernelThread(
     loadedConversationIdRef.current = conversationId;
     if (conversationChanged) {
       setMessages(EMPTY_MESSAGES);
+      messagesRef.current = EMPTY_MESSAGES;
       messageIdsRef.current = new Set();
       oldestReceivedAtRef.current = null;
+      staleEmptyHydrateAttemptRef.current = 0;
     }
 
     let cancelled = false;
@@ -166,6 +198,7 @@ export function useDmKernelThread(
       } catch {
         if (!cancelled) {
           setMessages(EMPTY_MESSAGES);
+          messagesRef.current = EMPTY_MESSAGES;
           recordLoadedMessages(EMPTY_MESSAGES);
           setHasEarlier(false);
         }
@@ -179,6 +212,43 @@ export function useDmKernelThread(
     return () => {
       cancelled = true;
     };
+  }, [conversationId, myPublicKeyHex, profileId, reloadThreadFromSqlite]);
+
+  useEffect(() => {
+    if (!conversationId || !myPublicKeyHex || isLoading) {
+      return;
+    }
+    if (messagesRef.current.length > 0) {
+      return;
+    }
+    if (staleEmptyHydrateAttemptRef.current >= NATIVE_DM_THREAD_STALE_EMPTY_HYDRATE_MAX_ATTEMPTS) {
+      return;
+    }
+    const delayMs = NATIVE_DM_THREAD_STALE_EMPTY_HYDRATE_BASE_DELAY_MS * (staleEmptyHydrateAttemptRef.current + 1);
+    const timer = window.setTimeout(() => {
+      staleEmptyHydrateAttemptRef.current += 1;
+      invalidateDmKernelThreadSessionCache(profileId, conversationId);
+      integrityCheckedRef.current = false;
+      void reloadThreadFromSqlite();
+    }, delayMs);
+    return () => window.clearTimeout(timer);
+  }, [conversationId, isLoading, messages.length, myPublicKeyHex, profileId, reloadThreadFromSqlite]);
+
+  useEffect(() => {
+    if (!conversationId || !myPublicKeyHex) {
+      return;
+    }
+    const onProfileBootReconciled = (): void => {
+      if (messagesRef.current.length > 0) {
+        return;
+      }
+      staleEmptyHydrateAttemptRef.current = 0;
+      invalidateDmKernelThreadSessionCache(profileId, conversationId);
+      integrityCheckedRef.current = false;
+      void reloadThreadFromSqlite();
+    };
+    window.addEventListener(DESKTOP_PROFILE_BOOT_RECONCILED_EVENT, onProfileBootReconciled);
+    return () => window.removeEventListener(DESKTOP_PROFILE_BOOT_RECONCILED_EVENT, onProfileBootReconciled);
   }, [conversationId, myPublicKeyHex, profileId, reloadThreadFromSqlite]);
 
   useEffect(() => {
@@ -244,9 +314,16 @@ export function useDmKernelThread(
             oldestReceivedAtRef.current = resolved.timestamp.getTime();
           }
           changed = true;
+          messagesRef.current = next;
           return next;
         });
         if (changed && event.type === "new_message") {
+          syncCommunityDmInviteLedgerFromInboundMessage({
+            message: event.message,
+            conversationId: ctx.conversationId,
+            accountPublicKeyHex: ctx.myPublicKeyHex as PublicKeyHex,
+            profileId,
+          });
           setPendingEventCount((count) => count + 1);
         }
         return;
@@ -265,11 +342,48 @@ export function useDmKernelThread(
           for (const id of deleteIds) {
             messageIdsRef.current.delete(id);
           }
+          messagesRef.current = next;
           return next;
         });
       }
     }, { profileId });
   }, [conversationId, normalizedMyPublicKeyHex, profileId]);
+
+  useEffect(() => {
+    if (!conversationId?.trim() || typeof window === "undefined") {
+      return;
+    }
+    const onLedgerChanged = (event: Event): void => {
+      const detail = (event as CustomEvent<{ conversationId?: string; profileId?: string }>).detail;
+      if (detail?.conversationId !== conversationId.trim()) {
+        return;
+      }
+      if (detail?.profileId && detail.profileId !== profileId) {
+        return;
+      }
+      setInviteLedgerEpoch((epoch) => epoch + 1);
+    };
+    window.addEventListener(COMMUNITY_DM_INVITE_LEDGER_CHANGED_EVENT, onLedgerChanged);
+    return () => window.removeEventListener(COMMUNITY_DM_INVITE_LEDGER_CHANGED_EVENT, onLedgerChanged);
+  }, [conversationId, profileId]);
+
+  const inviteThreadDisplay = useMemo(() => {
+    if (!conversationId?.trim()) {
+      return {
+        messages,
+        inviteResponseStatusByMessageId: EMPTY_INVITE_STATUS_MAP,
+      };
+    }
+    return buildCommunityInviteThreadDisplayBundle(
+      messages,
+      conversationId.trim(),
+      profileId || undefined,
+      normalizedMyPublicKeyHex,
+    );
+  }, [conversationId, inviteLedgerEpoch, messages, normalizedMyPublicKeyHex, profileId]);
+
+  const displayMessages = inviteThreadDisplay.messages;
+  const inviteResponseStatusByMessageId = inviteThreadDisplay.inviteResponseStatusByMessageId;
 
   const loadEarlier = useCallback(async () => {
     if (!conversationId || !myPublicKeyHex || oldestReceivedAtRef.current == null) {
@@ -295,13 +409,15 @@ export function useDmKernelThread(
       const merged = [...byId.values()]
         .sort((left, right) => left.timestamp.getTime() - right.timestamp.getTime());
       recordLoadedMessages(merged);
+      messagesRef.current = merged;
       return merged;
     });
     setHasEarlier(earlier.length >= DM_KERNEL_PAGE_SIZE);
   }, [conversationId, myPublicKeyHex, profileId]);
 
   return {
-    messages,
+    messages: displayMessages,
+    inviteResponseStatusByMessageId,
     isLoading,
     hasEarlier,
     loadEarlier,

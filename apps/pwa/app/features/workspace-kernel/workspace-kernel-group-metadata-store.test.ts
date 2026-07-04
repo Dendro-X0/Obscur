@@ -21,7 +21,7 @@ const loadCommunityMembershipLedgerMock = vi.hoisted(() => (
   vi.fn<(publicKeyHex: string, options?: { profileId?: string }) => ReadonlyArray<CommunityMembershipLedgerEntry>>(() => [])
 ));
 
-vi.mock("@/app/features/messaging/services/chat-state-store", () => ({
+vi.mock("@/app/features/messaging/services/chat-state-store-legacy", () => ({
   chatStateStoreService: {
     load: (profileId?: string) => chatStateLoad(profileId),
     replace: (

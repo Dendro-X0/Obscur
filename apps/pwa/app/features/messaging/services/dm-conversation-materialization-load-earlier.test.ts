@@ -2,19 +2,16 @@ import { describe, expect, it, vi } from "vitest";
 import type { Message } from "../types";
 
 const scanMocks = vi.hoisted(() => ({
-  loadConversationWindowAcrossAliases: vi.fn(async () => ({ rows: [], hasEarlier: false })),
-  scanDisplayableHistoryWindow: vi.fn(async () => ({ messages: [], hasEarlier: false })),
+  loadLegacyConversationWindowAcrossAliases: vi.fn(async () => ({ rows: [], hasEarlier: false })),
+  scanLegacyDisplayableHistoryWindow: vi.fn(async () => ({ messages: [], hasEarlier: false })),
+  mapLegacyIndexedConversationRowsForDisplayableScan: vi.fn(() => []),
 }));
 
-vi.mock("./dm-conversation-hydrate-indexed-scan", () => scanMocks);
+vi.mock("@/app/features/messaging/services/thread-history/hydrate-indexed-legacy-port", () => scanMocks);
 
-vi.mock("./dm-conversation-hydrate-indexed-map-rows", () => ({
-  mapIndexedConversationRowsForDisplayableScan: vi.fn(() => []),
-}));
+import { loadLegacyEarlierDmConversationMessages } from "@/app/features/messaging/services/thread-history/materialization-load-earlier";
 
-import { loadEarlierDmConversationMessages } from "./dm-conversation-materialization-load-earlier";
-
-describe("loadEarlierDmConversationMessages", () => {
+describe("loadLegacyEarlierDmConversationMessages", () => {
   it("returns existing messages when indexed window is empty", async () => {
     const existing: ReadonlyArray<Message> = [{
       id: "m1",
@@ -25,7 +22,7 @@ describe("loadEarlierDmConversationMessages", () => {
       isOutgoing: false,
     } as Message];
 
-    const result = await loadEarlierDmConversationMessages({
+    const result = await loadLegacyEarlierDmConversationMessages({
       conversationId: "conv",
       conversationAliasIds: ["conv"],
       earliestTimestampMs: 2_000,

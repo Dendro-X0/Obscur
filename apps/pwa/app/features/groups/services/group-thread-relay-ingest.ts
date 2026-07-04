@@ -13,8 +13,10 @@ import {
 } from "./sealed-community-relay-scope";
 import {
   SEALED_COMMUNITY_KIND_SEALED,
+  SEALED_COMMUNITY_KIND_DELETE,
 } from "./sealed-community-relay-kinds";
 import { resolveSealedCommunityRelaySubscribeKinds } from "./sealed-community-relay-membership-ingest-policy";
+import { suppressGroupThreadMessage } from "@/app/features/messaging/services/thread-history/group-thread-suppress";
 
 export type GroupThreadRelayIngestContext = Readonly<{
   groupId: string;
@@ -27,6 +29,7 @@ export type GroupThreadRelayIngestContext = Readonly<{
 
 export type GroupThreadRelayIngestResult = Readonly<
   | { status: "persisted"; eventId: string }
+  | { status: "suppressed"; eventId: string; targetEventIds: ReadonlyArray<string> }
   | { status: "ignored"; reason: string }
   | { status: "failed"; reason: string }
 >;
@@ -34,6 +37,63 @@ export type GroupThreadRelayIngestResult = Readonly<
 const isRecord = (value: unknown): value is Record<string, unknown> => (
   typeof value === "object" && value !== null
 );
+
+const extractDeleteTargetEventIds = (event: NostrEvent): ReadonlyArray<string> => {
+  const seen = new Set<string>();
+  const targets: string[] = [];
+  event.tags.forEach((tag) => {
+    if (tag[0] !== "e") {
+      return;
+    }
+    const targetId = tag[1]?.trim();
+    if (!targetId || seen.has(targetId)) {
+      return;
+    }
+    seen.add(targetId);
+    targets.push(targetId);
+  });
+  return targets;
+};
+
+const ingestSealedCommunityDeleteEvent = async (
+  event: NostrEvent,
+  context: GroupThreadRelayIngestContext,
+): Promise<GroupThreadRelayIngestResult> => {
+  const targetEventIds = extractDeleteTargetEventIds(event);
+  if (targetEventIds.length === 0) {
+    return { status: "ignored", reason: "missing_delete_target" };
+  }
+
+  const profileId = context.profileId?.trim() || getResolvedProfileId()?.trim() || undefined;
+  const observedAtUnixMs = event.created_at * 1000;
+  const suppressedTargets: string[] = [];
+
+  for (const targetEventId of targetEventIds) {
+    const result = await suppressGroupThreadMessage({
+      conversationId: context.conversationId,
+      groupId: context.groupId,
+      communityId: context.communityId,
+      primaryMessageId: targetEventId,
+      messageIdentityIds: [targetEventId],
+      deletedByPublicKeyHex: event.pubkey as PublicKeyHex,
+      profileId,
+      observedAtUnixMs,
+    });
+    if (result.status === "suppressed") {
+      suppressedTargets.push(targetEventId);
+    }
+  }
+
+  if (suppressedTargets.length === 0) {
+    return { status: "failed", reason: "suppress_suspended" };
+  }
+
+  return {
+    status: "suppressed",
+    eventId: event.id,
+    targetEventIds: suppressedTargets,
+  };
+};
 
 const isSealedControlPayload = (innerPayload: Record<string, unknown>): boolean => {
   const payloadType = innerPayload.type;
@@ -109,6 +169,9 @@ export const ingestSealedCommunityRelayEvent = async (
   }
   if (!hasCommunityBindingTag({ event, groupId: context.groupId })) {
     return { status: "ignored", reason: "community_binding_mismatch" };
+  }
+  if (event.kind === SEALED_COMMUNITY_KIND_DELETE) {
+    return ingestSealedCommunityDeleteEvent(event, context);
   }
   if (event.kind !== SEALED_COMMUNITY_KIND_SEALED) {
     return { status: "ignored", reason: "unsupported_kind" };

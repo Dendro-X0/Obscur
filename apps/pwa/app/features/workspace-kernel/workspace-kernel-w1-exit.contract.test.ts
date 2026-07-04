@@ -37,6 +37,7 @@ describe("workspace-kernel W1 exit contract", () => {
     const membershipPort = read("app/features/workspace-kernel/workspace-kernel-membership-port.ts");
     expect(membershipPort).toContain("refreshCoordinationMembershipDirectory");
     expect(membershipPort).toContain("publishWorkspaceCoordinationJoinEvidence");
+    expect(membershipPort).toContain("publishSelfCoordinationRoomKeyWrapAfterJoin");
     expect(membershipPort).not.toContain("use-sealed-community");
   });
 });

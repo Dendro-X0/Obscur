@@ -1,28 +1,22 @@
 /**
- * @deprecated Native DM must use `features/dm-kernel/`. Web legacy only.
- * @see docs/program/obscur-v2-slim-kernel-manifest.md
- *
  * R1 Pass A — native DM conversation hydrate owner.
- * Single SQLite hydrate + monotonic depth finalize + integrity diagnostics.
- * No projection supplemental, direction-coverage retry, or authority merge.
  */
 
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { MessageDeleteTombstonesPersistencePort } from "@/app/features/profiles/types/storage-ports";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import { toConversationIdDiagnosticLabel } from "@dweb/client-gateway/messaging-diagnostics";
-import type { Message } from "../types";
-import { dedupeMessagesByIdentity } from "./dm-conversation-message-retention-dedupe";
+import type { Message } from "@/app/features/messaging/types";
+import { dedupeMessagesByIdentity } from "@/app/features/messaging/services/dm-conversation-message-retention-dedupe";
 import {
   finalizeDmThreadHydrateRead,
   resolveExpandedHistoryAfterHydrate,
-} from "./thread-history/read-model";
-import { logNativeDmSqliteHydrateIntegrity } from "./native-dm-sqlite-integrity";
-import { messagingClientOperations } from "./messaging-client-operations";
+} from "@/app/features/messaging/services/thread-history/read-model";
+import { logNativeDmSqliteHydrateIntegrity } from "@/app/features/messaging/services/native-dm-sqlite-integrity";
+import { messagingClientOperations } from "@/app/features/messaging/services/messaging-client-operations";
 
 export const NATIVE_DM_SKIP_HYDRATE_RETRY_TRIGGERS = new Set<string>([
   "chat_route_active",
-  "stale_empty_retry",
   "partial_direction_retry",
 ]);
 
@@ -54,7 +48,7 @@ export type RunNativeDmConversationHistoryHydrateResult = Readonly<{
   expandedHistory: boolean;
 }>;
 
-export const runNativeDmConversationHistoryHydrate = async (
+export const runLegacyNativeDmConversationHistoryHydrate = async (
   params: RunNativeDmConversationHistoryHydrateParams,
 ): Promise<RunNativeDmConversationHistoryHydrateResult> => {
   const assembled = await messagingClientOperations.hydrateDmThreadReadModel({
@@ -139,3 +133,6 @@ export const runNativeDmConversationHistoryHydrate = async (
     expandedHistory,
   };
 };
+
+/** @deprecated Use runLegacyNativeDmConversationHistoryHydrate */
+export const runNativeDmConversationHistoryHydrate = runLegacyNativeDmConversationHistoryHydrate;

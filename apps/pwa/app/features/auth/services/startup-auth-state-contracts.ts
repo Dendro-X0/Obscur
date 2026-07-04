@@ -60,14 +60,18 @@ export const startupAuthStateHasPrivateKeyMismatch = (state: StartupAuthState): 
 export const shouldShowStoredIdentityLockScreen = (params: Readonly<{
   startupState: StartupAuthState;
   isAutoLockLocked: boolean;
-}>): boolean => (
-  startupAuthStateHasStoredIdentity(params.startupState)
+  identityStatus?: StartupAuthState["identityStatus"];
+}>): boolean => {
+  if (params.identityStatus === "unlocked") {
+    return params.isAutoLockLocked;
+  }
+  return startupAuthStateHasStoredIdentity(params.startupState)
   && (
     params.isAutoLockLocked
     || params.startupState.kind === "stored_locked"
     || params.startupState.kind === "mismatch"
-  )
-);
+  );
+};
 
 export const createPendingStartupAuthState = (params?: Readonly<{
   storedPublicKeyHex?: string;

@@ -6,7 +6,7 @@ import { getResolvedProfileId } from "@/app/features/profiles/services/profile-r
 import {
   CHAT_STATE_REPLACED_EVENT,
   type ChatStateReplacedEventDetail,
-} from "@/app/features/messaging/services/chat-state-store";
+} from "@/app/features/messaging/services/chat-state-store-types";
 import {
   COMMUNITY_MEMBERSHIP_LEDGER_UPDATED_EVENT,
 } from "@/app/features/groups/services/community-membership-ledger";

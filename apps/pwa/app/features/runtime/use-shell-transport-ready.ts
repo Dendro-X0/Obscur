@@ -7,17 +7,23 @@
  */
 
 import { useSyncExternalStore } from "react";
+import { subscribeIdentityStore } from "@/app/features/auth/hooks/use-identity";
+import { isRuntimeTransportOwnerEnabled } from "./runtime-transport-owner-policy";
 import { windowRuntimeSupervisor } from "./services/window-runtime-supervisor";
 
-const isShellTransportReady = (): boolean => {
-  const phase = windowRuntimeSupervisor.getSnapshot().phase;
-  return phase === "ready" || phase === "degraded";
+const subscribeShellTransportReady = (listener: () => void): (() => void) => {
+  const unsubscribeWindow = windowRuntimeSupervisor.subscribe(listener);
+  const unsubscribeIdentity = subscribeIdentityStore(listener);
+  return () => {
+    unsubscribeWindow();
+    unsubscribeIdentity();
+  };
 };
 
 export const useShellTransportReady = (): boolean => (
   useSyncExternalStore(
-    windowRuntimeSupervisor.subscribe,
-    isShellTransportReady,
+    subscribeShellTransportReady,
+    isRuntimeTransportOwnerEnabled,
     () => false,
   )
 );

@@ -1,5 +1,6 @@
 "use client";
-import { useEnhancedRelayPool, type EnhancedRelayPoolResult } from "./enhanced-relay-pool";
+import { useRelayPoolRuntime } from "./relay-pool-hook-port";
+import type { EnhancedRelayPoolResult } from "./enhanced-relay-pool-types";
 import { getMockPool } from "../../dev-tools/hooks/use-dev-mode";
 import { useMemo } from "react";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
@@ -13,7 +14,7 @@ const getDevModeStorageKey = (): string => getScopedStorageKey(DEV_MODE_KEY, get
  * Requirement 4.2: Multiple relay support for redundancy
  */
 export const useRelayPool = (urls: ReadonlyArray<string>): EnhancedRelayPoolResult => {
-    const realPool = useEnhancedRelayPool(urls);
+    const realPool = useRelayPoolRuntime(urls);
 
     // Check dev mode in a way that doesn't break SSR or initial hydration
     // Use true as default if we are in dev mode toggle? No, rely on localStorage

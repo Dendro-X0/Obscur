@@ -122,6 +122,28 @@ async fn generate_nip98_auth(_: &str, _: &[u8], _: &Keys) -> Option<String> {
 }
 
 /// Extract URL from NIP-96 response
+fn normalize_upload_url(url: &str) -> String {
+    let trimmed = url.trim().trim_end_matches([')', ']', ',', '.', ';']);
+    if trimmed.starts_with("http://") || trimmed.starts_with("https://") {
+        return trimmed.to_string();
+    }
+    if trimmed.starts_with("//") {
+        return format!("https:{trimmed}");
+    }
+    if trimmed.starts_with('/') {
+        if let Some(host_path) = trimmed.strip_prefix('/') {
+            if host_path.contains('.') && host_path.chars().next().map_or(false, |c| c.is_ascii_alphanumeric()) {
+                let looks_like_host = host_path.split('/').next().map_or(false, |segment| segment.contains('.'));
+                if looks_like_host {
+                    return format!("https://{host_path}");
+                }
+            }
+        }
+        return trimmed.to_string();
+    }
+    format!("https://{trimmed}")
+}
+
 fn extract_url_from_response(json: &serde_json::Value) -> Option<String> {
     // Try nip94_event.tags first
     if let Some(event) = json.get("nip94_event") {
@@ -129,7 +151,7 @@ fn extract_url_from_response(json: &serde_json::Value) -> Option<String> {
             for tag in tags {
                 if let Some(arr) = tag.as_array() {
                     if arr.len() >= 2 && arr[0].as_str() == Some("url") {
-                        return arr[1].as_str().map(|s| s.to_string());
+                        return arr[1].as_str().map(normalize_upload_url);
                     }
                 }
             }
@@ -138,7 +160,7 @@ fn extract_url_from_response(json: &serde_json::Value) -> Option<String> {
 
     // Try direct url field
     if let Some(url) = json.get("url").and_then(|u| u.as_str()) {
-        return Some(url.to_string());
+        return Some(normalize_upload_url(url));
     }
 
     // Try data field (some servers like nostr.build wrap it)
@@ -147,14 +169,14 @@ fn extract_url_from_response(json: &serde_json::Value) -> Option<String> {
         if let Some(arr) = data.as_array() {
             if let Some(first) = arr.first() {
                 if let Some(url) = first.get("url").and_then(|u| u.as_str()) {
-                    return Some(url.to_string());
+                    return Some(normalize_upload_url(url));
                 }
             }
         }
         // Handle data object
         if let Some(obj) = data.as_object() {
             if let Some(url) = obj.get("url").and_then(|u| u.as_str()) {
-                return Some(url.to_string());
+                return Some(normalize_upload_url(url));
             }
         }
     }

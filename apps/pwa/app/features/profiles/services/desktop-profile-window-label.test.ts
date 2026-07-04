@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  isMainWindowLabel,
   isSecondaryProfileWindowLabel,
   parseProfileIdFromWindowLabel,
 } from "./desktop-profile-window-label";
@@ -15,5 +16,10 @@ describe("desktop profile window label", () => {
     expect(parseProfileIdFromWindowLabel("profile-incomplete")).toBeNull();
     expect(isSecondaryProfileWindowLabel("main")).toBe(false);
     expect(isSecondaryProfileWindowLabel("profile-profile-2-1700000000000")).toBe(true);
+  });
+
+  it("detects the main window label", () => {
+    expect(isMainWindowLabel("main")).toBe(true);
+    expect(isMainWindowLabel("profile-profile-2-1700000000000")).toBe(false);
   });
 });

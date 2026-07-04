@@ -10,6 +10,7 @@ describe("dev-lab-scenario-catalog", () => {
     expect(DEV_LAB_SUITE_SCENARIOS.core).toContain("dm-history-monotonic");
     expect(DEV_LAB_SUITE_SCENARIOS.core).toContain("dm-reload-history");
     expect(DEV_LAB_SUITE_SCENARIOS.core).toContain("digest-membership-gates");
+    expect(DEV_LAB_SUITE_SCENARIOS.core).toContain("trust-matrix");
     expect(DEV_LAB_SUITE_SCENARIOS.core).not.toContain("search-profile-jump");
   });
 
@@ -20,7 +21,7 @@ describe("dev-lab-scenario-catalog", () => {
     expect(DEV_LAB_SUITE_SCENARIOS.full).toContain("membership-leave-rejoin-zombie");
     expect(DEV_LAB_SUITE_SCENARIOS.full).toContain("sec-bot-keyword-flood");
     expect(DEV_LAB_SUITE_SCENARIOS.full).toContain("trust-fixtures");
-    expect(DEV_LAB_SUITE_SCENARIOS.full).toContain("trust-cold-dm-banner");
+    expect(DEV_LAB_SUITE_SCENARIOS.full).not.toContain("trust-cold-dm-banner");
     expect(DEV_LAB_SUITE_SCENARIOS.full).toContain("auth4-scope-probe");
   });
 

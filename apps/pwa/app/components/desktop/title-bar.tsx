@@ -1,7 +1,10 @@
 "use client";
 
 import type React from "react";
+import Image from "next/image";
+import { useTranslation } from "react-i18next";
 import { WindowControls } from "./window-controls";
+import { TitleBarLockButton } from "./title-bar-lock-button";
 import { TitleBarProfileSwitcher } from "./title-bar-profile-switcher";
 import { TitleBarLockedProfileSwitcher } from "./title-bar-locked-profile-switcher";
 import { useProfilePickerChrome } from "@/app/features/profiles/components/profile-picker-chrome-context";
@@ -19,6 +22,7 @@ interface TitleBarProps {
  * Provides a draggable area and window controls
  */
 export function TitleBar({ title = "Obscur", showControls = true }: TitleBarProps): React.JSX.Element | null {
+  const { t } = useTranslation();
   const [hasMounted, setHasMounted] = useState(false);
   const isDesktop = useIsDesktop();
   const { isMinimalChrome } = useProfilePickerChrome();
@@ -45,11 +49,27 @@ export function TitleBar({ title = "Obscur", showControls = true }: TitleBarProp
 
       <div className="relative z-10 flex shrink-0 items-center gap-3 select-none" data-tauri-drag-region>
         <div className="flex items-center justify-center h-6 w-6" data-tauri-drag-region>
-          <img src="/obscur-logo-light.svg" className="h-full w-full dark:hidden" alt="Obscur" data-tauri-drag-region />
-          <img src="/obscur-logo-dark.svg" className="h-full w-full hidden dark:block" alt="Obscur" data-tauri-drag-region />
+          <Image
+            src="/obscur-logo-light.svg"
+            alt="Obscur"
+            width={24}
+            height={24}
+            unoptimized
+            className="h-full w-full dark:hidden"
+            data-tauri-drag-region
+          />
+          <Image
+            src="/obscur-logo-dark.svg"
+            alt="Obscur"
+            width={24}
+            height={24}
+            unoptimized
+            className="h-full w-full hidden dark:block"
+            data-tauri-drag-region
+          />
         </div>
         <span className="text-[11px] font-black uppercase tracking-[0.2em] text-zinc-900 dark:text-zinc-100 opacity-80" data-tauri-drag-region>
-          {isMinimalChrome ? "Profiles" : title}
+          {isMinimalChrome ? t("profiles.picker.pageTitle") : title}
         </span>
       </div>
 
@@ -60,6 +80,7 @@ export function TitleBar({ title = "Obscur", showControls = true }: TitleBarProp
       </div>
 
       <div className="relative z-10 flex shrink-0 items-center gap-3">
+        {!isMinimalChrome ? <TitleBarLockButton /> : null}
         {!isMinimalChrome ? <TitleBarLockedProfileSwitcher /> : null}
         {!isMinimalChrome ? <TitleBarProfileSwitcher title={title} /> : null}
         {showControls && <WindowControls />}

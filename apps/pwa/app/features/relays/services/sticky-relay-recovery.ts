@@ -1,6 +1,6 @@
 "use client";
 
-import type { RelayReadinessState, RelayRecoveryReasonCode } from "./relay-recovery-policy";
+import type { RelayReadinessState, RelayRecoveryReasonCode } from "./relay-recovery-types";
 import type { RelayTransportRoutingMode } from "./relay-runtime-contracts";
 import { isBrowserOffline } from "@/app/features/runtime/offline-runtime-policy";
 

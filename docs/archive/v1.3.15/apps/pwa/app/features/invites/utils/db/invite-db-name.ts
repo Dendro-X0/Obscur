@@ -1,1 +1,0 @@
-export const inviteDbName: string = "obscur-invites";

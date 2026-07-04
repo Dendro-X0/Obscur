@@ -1,6 +1,7 @@
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import {
   assertAccountNotActiveInOtherProfileWindow,
+  assertAccountNotActiveInOtherProfileWindowAsync,
 } from "./cross-profile-active-session-lease";
 import {
   assertProfileSlotAllowsLogin,
@@ -10,6 +11,7 @@ import {
 export const assertAccountUnlockAllowed = (params: Readonly<{
   profileId: string;
   incomingPublicKeyHex: PublicKeyHex;
+  currentWindowLabel?: string;
 }>): void => {
   assertProfileSlotAllowsLogin({
     profileId: params.profileId,
@@ -18,5 +20,22 @@ export const assertAccountUnlockAllowed = (params: Readonly<{
   assertAccountNotActiveInOtherProfileWindow({
     incomingPublicKeyHex: params.incomingPublicKeyHex,
     currentProfileId: params.profileId,
+    currentWindowLabel: params.currentWindowLabel,
+  });
+};
+
+export const assertAccountUnlockAllowedAsync = async (params: Readonly<{
+  profileId: string;
+  incomingPublicKeyHex: PublicKeyHex;
+  currentWindowLabel?: string;
+}>): Promise<void> => {
+  assertProfileSlotAllowsLogin({
+    profileId: params.profileId,
+    incomingPublicKeyHex: params.incomingPublicKeyHex,
+  });
+  await assertAccountNotActiveInOtherProfileWindowAsync({
+    incomingPublicKeyHex: params.incomingPublicKeyHex,
+    currentProfileId: params.profileId,
+    currentWindowLabel: params.currentWindowLabel,
   });
 };

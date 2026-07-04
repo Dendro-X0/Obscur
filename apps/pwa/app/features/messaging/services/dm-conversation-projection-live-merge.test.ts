@@ -1,10 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import type { Message } from "../types";
-import {
-    areMessageListsEquivalentById,
-    mergeProjectionFirstWithLiveOverlayForDisplay,
-} from "./dm-conversation-projection-live-merge";
+import { areMessageListsEquivalentById } from "./dm-conversation-message-list-equiv";
+import { mergeLegacyProjectionFirstWithLiveOverlayForDisplay } from "@/app/features/messaging/services/thread-history/dm-thread-history-legacy-port";
 
 const baseTime = new Date("2026-01-01T00:00:00.000Z");
 
@@ -31,7 +29,7 @@ describe("areMessageListsEquivalentById", () => {
     });
 });
 
-describe("mergeProjectionFirstWithLiveOverlayForDisplay", () => {
+describe("mergeLegacyProjectionFirstWithLiveOverlayForDisplay", () => {
     const aliasSet = new Set(["dm-a", "dm-b"]);
     const isDisplayable = (m: Message) => m.kind !== "command";
 
@@ -42,7 +40,7 @@ describe("mergeProjectionFirstWithLiveOverlayForDisplay", () => {
         const overlay = [
             makeMessage({ id: "o1", conversationId: "dm-a", timestamp: new Date(baseTime.getTime() + 2000) }),
         ];
-        const result = mergeProjectionFirstWithLiveOverlayForDisplay({
+        const result = mergeLegacyProjectionFirstWithLiveOverlayForDisplay({
             projectionMessages: projection,
             previousMessages: overlay,
             conversationAliasIdSet: aliasSet,
@@ -63,7 +61,7 @@ describe("mergeProjectionFirstWithLiveOverlayForDisplay", () => {
         const overlay = [
             makeMessage({ id: "o1", conversationId: "other", timestamp: new Date(baseTime.getTime() + 1000) }),
         ];
-        const result = mergeProjectionFirstWithLiveOverlayForDisplay({
+        const result = mergeLegacyProjectionFirstWithLiveOverlayForDisplay({
             projectionMessages: projection,
             previousMessages: overlay,
             conversationAliasIdSet: aliasSet,
@@ -82,7 +80,7 @@ describe("mergeProjectionFirstWithLiveOverlayForDisplay", () => {
             conversationId: "dm-a",
             timestamp: new Date(baseTime.getTime() + i * 1000),
         }));
-        const result = mergeProjectionFirstWithLiveOverlayForDisplay({
+        const result = mergeLegacyProjectionFirstWithLiveOverlayForDisplay({
             projectionMessages: projection,
             previousMessages: [],
             conversationAliasIdSet: aliasSet,
@@ -101,7 +99,7 @@ describe("mergeProjectionFirstWithLiveOverlayForDisplay", () => {
     it("filters suppressed ids after merge", () => {
         const projection = [makeMessage({ id: "p1", conversationId: "dm-a", timestamp: baseTime })];
         const overlay = [makeMessage({ id: "o1", conversationId: "dm-a", timestamp: new Date(baseTime.getTime() + 1000) })];
-        const result = mergeProjectionFirstWithLiveOverlayForDisplay({
+        const result = mergeLegacyProjectionFirstWithLiveOverlayForDisplay({
             projectionMessages: projection,
             previousMessages: overlay,
             conversationAliasIdSet: aliasSet,

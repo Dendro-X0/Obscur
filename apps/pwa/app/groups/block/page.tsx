@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { AlertTriangle, ArrowLeft, Ban, Loader2 } from "lucide-react";
 import { Button, Card } from "@dweb/ui-kit";
 import { PageShell } from "@/app/components/page-shell";
-import { useGroups } from "@/app/features/groups/providers/group-provider";
+import { useGroups } from "@/app/features/groups/providers/group-provider-port";
 import { useNetwork } from "@/app/features/network/providers/network-provider";
 import { resolveGroupConversationByToken } from "@/app/features/messaging/utils/conversation-target";
 import { resolveGroupRouteToken } from "@/app/features/groups/utils/group-route-token";

@@ -4,7 +4,7 @@ import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import {
   resolveHydrationDmReadMessages,
   resolveLegacyHydrationAuthority,
-} from "./dm-read-authority-contract";
+} from "@/app/features/messaging/services/dm-read-authority-port";
 
 vi.mock("@/app/features/runtime/native-persistence-policy", () => ({
   requiresSqlitePersistence: vi.fn(() => false),

@@ -23,6 +23,7 @@ export interface ConfirmDialogProps {
     cancelLabel?: string;
     variant?: "danger" | "primary";
     isLoading?: boolean;
+    children?: React.ReactNode;
 }
 
 export function ConfirmDialog({
@@ -35,6 +36,7 @@ export function ConfirmDialog({
     cancelLabel = "Cancel",
     variant = "primary",
     isLoading = false,
+    children,
 }: ConfirmDialogProps) {
     const handleConfirm = async () => {
         await onConfirm();
@@ -42,7 +44,7 @@ export function ConfirmDialog({
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => {
-            if (!open) {
+            if (!open && !isLoading) {
                 onClose();
             }
         }}>
@@ -74,6 +76,12 @@ export function ConfirmDialog({
                             {description}
                         </DialogDescription>
                     </DialogHeader>
+
+                    {children ? (
+                        <div className="relative px-8 pb-2">
+                            {children}
+                        </div>
+                    ) : null}
 
                     <DialogFooter className="flex-row gap-3 px-8 py-6 sm:justify-center">
                         <Button

@@ -22,12 +22,12 @@ import { toDmConversationId } from "@/app/features/messaging/utils/dm-conversati
 import { recordPeerLastActive } from "@/app/features/messaging/services/peer-interaction-store";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import { isExperimentOfflineStubEnabled } from "@/app/features/runtime/experiment-shell-policy";
+import { isRuntimeTransportOwnerEnabled } from "@/app/features/runtime/runtime-transport-owner-policy";
 import {
   subscribeNativeDmRelayBackfillRepair,
   type NativeDmSqliteRelayBackfillRepairDetail,
 } from "@/app/features/messaging/services/native-dm-sqlite-repair";
 
-const ACTIVE_OWNER_RUNTIME_PHASES = new Set(["activating_runtime", "ready", "degraded"]);
 const RUNTIME_TRANSPORT_OWNER_ID = "runtime_singleton_owner_v2";
 
 const RuntimeMessagingTransportOwnerContext = createContext<UseDmControllerResult | null>(null);
@@ -38,17 +38,19 @@ export function RuntimeMessagingTransportOwnerProvider(props: Readonly<{ childre
   const { relayPool } = useRelay();
   const { blocklist, peerTrust } = useNetwork();
   const activePublicKeyHex = identity.state.publicKeyHex ?? null;
-  const runtimePhaseAllowsOwner = ACTIVE_OWNER_RUNTIME_PHASES.has(runtimeSnapshot.phase);
+  const runtimeTransportOwnerEnabled = isRuntimeTransportOwnerEnabled();
   const ownerEnabled = (
     !isExperimentOfflineStubEnabled()
     && identity.state.status === "unlocked"
-    && runtimePhaseAllowsOwner
+    && runtimeTransportOwnerEnabled
   );
   const ownerGateReason = ownerEnabled
     ? "enabled"
     : identity.state.status !== "unlocked"
       ? `identity_${identity.state.status}`
-      : `runtime_phase_${runtimeSnapshot.phase}`;
+      : !runtimeTransportOwnerEnabled
+        ? `runtime_transport_owner_${runtimeSnapshot.phase}`
+        : "experiment_offline_stub";
   const ownerGateLogKeyRef = useRef<string | null>(null);
 
   useEffect(() => {

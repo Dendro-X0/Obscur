@@ -11,7 +11,7 @@ import type { ThreadHistoryPort } from "@/app/features/messaging/services/thread
 import type {
   MergeProjectionFirstWithLiveOverlayForDisplayParams,
   MergeProjectionFirstWithLiveOverlayForDisplayResult,
-} from "@/app/features/messaging/services/dm-conversation-projection-live-merge";
+} from "@/app/features/messaging/services/thread-history/projection-live-merge-types";
 
 const emptyHydrateResult = {
   finalMessages: [] as ReadonlyArray<Message>,

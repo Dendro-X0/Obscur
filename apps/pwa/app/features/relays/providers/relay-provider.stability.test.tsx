@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { EnhancedRelayPoolResult } from "@/app/features/relays/hooks/enhanced-relay-pool";
+import type { EnhancedRelayPoolResult } from "@/app/features/relays/hooks/enhanced-relay-pool-types";
 import { createRelayRuntimeSupervisor } from "@/app/features/relays/services/relay-runtime-supervisor";
 import { relayTransportJournal } from "@/app/features/relays/services/relay-transport-journal";
 import { relayResilienceObservability } from "@/app/features/relays/services/relay-resilience-observability";
@@ -79,6 +79,10 @@ describe("STAB-R1 relay/window decoupling", () => {
       pool: createPool(),
       enabledRelayUrls: ["wss://relay.one"],
       allEnabledRelayUrls: ["wss://relay.one", "wss://relay.two"],
+      userEnabledRelayUrls: ["wss://relay.one", "wss://relay.two"],
+      engineConfiguredRelayUrls: [],
+      engineCheckpointRelayUrls: [],
+      engineRelayCheckpointCount: 0,
       scope: {
         windowLabel: "main",
         profileId: "default",

@@ -7,7 +7,7 @@ import type { MessageProjection } from "@/app/features/account-sync/account-even
 import type { Message } from "../types";
 import { replayAccountEvents } from "@/app/features/account-sync/services/account-event-reducer";
 import type { AccountEvent } from "@/app/features/account-sync/account-event-contracts";
-import { dmConversationMaterializationOwner } from "./dm-conversation-materialization-owner";
+import { dmConversationMaterializationOwner } from "./thread-history/dm-adapter";
 import { messagingClientOperations } from "./messaging-client-operations";
 
 const PROFILE_ID = "profile-r1-reload";

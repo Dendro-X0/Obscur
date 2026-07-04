@@ -3,6 +3,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AutoLockSettingsPanel } from "./auto-lock-settings-panel";
 import { defaultPrivacySettings, type PrivacySettings } from "../services/privacy-settings-service";
+import en from "@/app/lib/i18n/locales/en.json";
 
 const settingsPanelMocks = vi.hoisted(() => ({
     settings: {} as PrivacySettings,
@@ -37,13 +38,8 @@ const createSignal = (signalId: string): Record<string, unknown> => ({
 
 vi.mock("react-i18next", () => ({
     useTranslation: () => ({
-        t: (
-            key: string,
-            fallbackOrOptions?: string | Record<string, unknown>,
-            maybeOptions?: Record<string, unknown>,
-        ) => {
-            const template = typeof fallbackOrOptions === "string" ? fallbackOrOptions : key;
-            const options = (typeof fallbackOrOptions === "object" ? fallbackOrOptions : maybeOptions) ?? {};
+        t: (key: string, options?: Record<string, unknown>) => {
+            const template = (en.translation as Record<string, string | undefined>)[key] ?? key;
             return template.replace(/\{\{\s*([^\s}]+)\s*\}\}/g, (_match, token: string) => String(options[token] ?? ""));
         },
     }),
@@ -62,6 +58,7 @@ vi.mock("../hooks/use-auto-lock", () => ({
 
 vi.mock("@/app/features/runtime/runtime-capabilities", () => ({
     getRuntimeCapabilities: () => ({ isNativeRuntime: false }),
+    hasNativeRuntime: () => false,
 }));
 
 vi.mock("@/app/features/runtime/native-adapters", () => ({

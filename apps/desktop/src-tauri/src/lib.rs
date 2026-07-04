@@ -18,6 +18,7 @@ mod net;
 mod native_keychain;
 mod protocol;
 mod profiles;
+mod active_session_leases;
 mod relay;
 mod session;
 mod upload;
@@ -26,11 +27,16 @@ mod models;
 mod commands;
 mod update_channel;
 mod data_root;
+mod profile_web_storage_harvest;
+mod storage_at_rest_state;
+mod data_root_bind;
+mod windows_junction;
 mod local_save_scan;
 mod warmup;
 mod services;
 
 use profiles::DesktopProfileState;
+use active_session_leases::ActiveSessionLeaseState;
 use session::SessionState;
 use commands::db::DbState;
 use commands::warmup::DesktopWarmupState;
@@ -118,23 +124,38 @@ pub fn run() {
             // Manage SessionState
             app.manage(SessionState::new());
             app.manage(DesktopProfileState::new(&app.handle()));
-
-            // Open primary SQLite database
-            let db_path = app
-                .path()
-                .app_data_dir()
-                .unwrap_or_else(|_| std::path::PathBuf::from("."))
-                .join("obscur.sqlite3");
-            match DbState::open(db_path) {
-                Ok(db_state) => { app.manage(db_state); }
-                Err(e) => { eprintln!("[obscur] Failed to open database: {e}"); }
+            match ActiveSessionLeaseState::new(&app.handle()) {
+                Ok(lease_state) => {
+                    app.manage(lease_state);
+                }
+                Err(error) => {
+                    eprintln!("[obscur] Failed to initialize active session leases: {error}");
+                }
             }
+            app.manage(storage_at_rest_state::StorageAtRestState::new());
+
+            let _ = crate::data_root::bootstrap_data_root_authority(&app.handle());
+
+            let db_path = crate::data_root::resolve_effective_data_root(&app.handle())
+                .unwrap_or_else(|_| {
+                    app.path()
+                        .app_data_dir()
+                        .unwrap_or_else(|_| std::path::PathBuf::from("."))
+                })
+                .join("obscur.sqlite3");
+            let db_state = commands::db::DbState::new_lazy(db_path);
+            if let Err(error) = commands::db::bootstrap_sqlite_storage(&app.handle(), &db_state) {
+                eprintln!("[obscur] Failed to bootstrap sqlite storage: {error}");
+            }
+            app.manage(db_state);
             app.manage(DesktopWarmupState::new());
 
-            let protocol_db_path = app
-                .path()
-                .app_data_dir()
-                .unwrap_or_else(|_| std::path::PathBuf::from("."))
+            let protocol_db_path = crate::data_root::resolve_effective_data_root(&app.handle())
+                .unwrap_or_else(|_| {
+                    app.path()
+                        .app_data_dir()
+                        .unwrap_or_else(|_| std::path::PathBuf::from("."))
+                })
                 .join("protocol_state.sqlite3");
             app.manage(protocol::ProtocolState::new(protocol_db_path));
 
@@ -156,20 +177,30 @@ pub fn run() {
             }
 
             // Create main window with proxy if enabled
-            let app_dir = app.path().app_data_dir().expect("Failed to get app data dir");
-            let main_data_dir = app_dir.join("profiles").join("default");
-            std::fs::create_dir_all(&main_data_dir).expect("Failed to create profile directory");
+            let app_data_dir = app.path().app_data_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+            let health = crate::data_root::assess_data_root_bind_health(&app_data_dir);
+            let main_data_dir = crate::data_root::resolve_webview_profile_workspace(
+                &app.handle(),
+                "default",
+            )
+            .unwrap_or_else(|error| {
+                eprintln!("[obscur] Failed to resolve webview profile workspace: {error}");
+                crate::data_root::recovery_webview_root(&app_data_dir)
+                    .join("profiles")
+                    .join("default")
+            });
 
             #[cfg(desktop)]
             let _window = {
-                let base_builder = tauri::WebviewWindowBuilder::new(
+                let mut base_builder = tauri::WebviewWindowBuilder::new(
                     app,
                     "main",
                     profiles::resolve_profile_window_url(&app.handle()),
                 )
                 .initialization_script(&format!(
-                    "{}window.__OBSCUR_WINDOW_BOOT__={{windowLabel:\"main\",profileId:\"default\",launchMode:\"existing\"}};",
-                    profiles::experiment_shell_boot_prefix(),
+                    "{}{}",
+                    profiles::main_window_boot_init_script(&app.handle()),
+                    crate::data_root::data_root_boot_hint_script(&health),
                 ))
                 .data_directory(main_data_dir)
                 .title("Obscur")
@@ -178,6 +209,11 @@ pub fn run() {
                 .resizable(true)
                 .decorations(false)
                 .shadow(true); // We keep window shadow but remove OS border decorations
+                #[cfg(debug_assertions)]
+                if let Some(browser_args) = profiles::main_window_additional_browser_args() {
+                    eprintln!("[obscur] Main window CDP args: {browser_args}");
+                    base_builder = base_builder.additional_browser_args(&browser_args);
+                }
                 #[cfg(debug_assertions)]
                 let window_builder = base_builder
                     .visible(true)
@@ -347,6 +383,7 @@ pub fn run() {
                     commands::window::window_close,
                     commands::window::window_show_and_focus,
                     commands::window::window_reveal_current,
+                    commands::window::desktop_agent_focus_window,
                     commands::window::window_is_maximized,
                     commands::window::window_set_fullscreen,
                     commands::window::window_is_fullscreen,
@@ -374,8 +411,20 @@ pub fn run() {
                     commands::profile::desktop_list_profile_workspace_archives,
                     commands::profile::desktop_open_profile_archives_folder,
                     commands::profile::desktop_get_profile_archives_folder_path,
+                    commands::profile::desktop_find_active_session_lease,
+                    commands::profile::desktop_list_active_session_leases,
+                    commands::profile::desktop_claim_active_session_lease,
+                    commands::profile::desktop_touch_active_session_lease,
+                    commands::profile::desktop_release_active_session_lease,
                     commands::data_root::desktop_get_obscur_data_root_config,
                     commands::data_root::desktop_set_obscur_data_root,
+                    commands::data_root::desktop_prepare_data_root_change,
+                    commands::data_root::desktop_import_obscur_data_from_default,
+                    commands::data_root::desktop_probe_obscur_data_root,
+                    commands::data_root::desktop_plan_obscur_data_root_change,
+                    commands::data_root::desktop_preflight_obscur_data_root_migration,
+                    commands::data_root::desktop_reconnect_obscur_data_root,
+                    commands::profile_storage::desktop_harvest_profile_web_storage,
                     commands::data_root::desktop_write_workspace_bundle,
                     commands::data_root::desktop_write_data_root_export,
                     commands::data_root::desktop_reveal_path_in_file_manager,
@@ -390,6 +439,13 @@ pub fn run() {
                     commands::session::init_native_session,
                     commands::session::clear_native_session,
                     commands::session::get_session_status,
+                    commands::session::desktop_force_session_restore,
+                    commands::auth_boot::auth_boot_snapshot,
+                    commands::login_assist::auth_login_assist_read,
+                    commands::login_assist::auth_login_assist_write,
+                    commands::login_assist::auth_login_assist_delete,
+                    commands::storage_at_rest::desktop_storage_at_rest_unlock,
+                    commands::storage_at_rest::desktop_storage_at_rest_lock,
                     upload::nip96_upload,
                     upload::nip96_upload_v2,
                     relay::connect_relay,
@@ -430,6 +486,8 @@ pub fn run() {
                     protocol::protocol_check_storage_health,
                     protocol::protocol_run_storage_recovery,
                     commands::db::db_insert_message,
+                    commands::engine::engine_invoke,
+                    commands::transport_engine::engine_invoke_transport_publish_relay_event,
                     commands::db::db_get_messages,
                     commands::db::db_delete_message,
                     commands::db::db_delete_messages,
@@ -482,8 +540,20 @@ pub fn run() {
                     commands::profile::desktop_list_profile_workspace_archives,
                     commands::profile::desktop_open_profile_archives_folder,
                     commands::profile::desktop_get_profile_archives_folder_path,
+                    commands::profile::desktop_find_active_session_lease,
+                    commands::profile::desktop_list_active_session_leases,
+                    commands::profile::desktop_claim_active_session_lease,
+                    commands::profile::desktop_touch_active_session_lease,
+                    commands::profile::desktop_release_active_session_lease,
                     commands::data_root::desktop_get_obscur_data_root_config,
                     commands::data_root::desktop_set_obscur_data_root,
+                    commands::data_root::desktop_prepare_data_root_change,
+                    commands::data_root::desktop_import_obscur_data_from_default,
+                    commands::data_root::desktop_probe_obscur_data_root,
+                    commands::data_root::desktop_plan_obscur_data_root_change,
+                    commands::data_root::desktop_preflight_obscur_data_root_migration,
+                    commands::data_root::desktop_reconnect_obscur_data_root,
+                    commands::profile_storage::desktop_harvest_profile_web_storage,
                     commands::data_root::desktop_write_workspace_bundle,
                     commands::data_root::desktop_write_data_root_export,
                     commands::data_root::desktop_reveal_path_in_file_manager,
@@ -498,6 +568,13 @@ pub fn run() {
                     commands::session::init_native_session,
                     commands::session::clear_native_session,
                     commands::session::get_session_status,
+                    commands::session::desktop_force_session_restore,
+                    commands::auth_boot::auth_boot_snapshot,
+                    commands::login_assist::auth_login_assist_read,
+                    commands::login_assist::auth_login_assist_write,
+                    commands::login_assist::auth_login_assist_delete,
+                    commands::storage_at_rest::desktop_storage_at_rest_unlock,
+                    commands::storage_at_rest::desktop_storage_at_rest_lock,
                     upload::nip96_upload,
                     upload::nip96_upload_v2,
                     relay::connect_relay,
@@ -538,6 +615,8 @@ pub fn run() {
                     protocol::protocol_check_storage_health,
                     protocol::protocol_run_storage_recovery,
                     commands::db::db_insert_message,
+                    commands::engine::engine_invoke,
+                    commands::transport_engine::engine_invoke_transport_publish_relay_event,
                     commands::db::db_get_messages,
                     commands::db::db_delete_message,
                     commands::db::db_delete_messages,

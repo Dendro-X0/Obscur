@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
-import { applyRelayListScopeMigration } from "../services/relay-transport-scope";
+import { applyRelayListScopeMigration, LOCAL_DEV_WORKSPACE_RELAY_URL } from "../services/relay-transport-scope";
 import { normalizeWorkspaceRelayUrl } from "@/app/features/groups/services/workspace-relay-url";
 import { dedupeRelayListByWorkspaceIdentity } from "@/app/features/groups/services/workspace-relay-calibrator";
 import { validateRelayUrl } from "./validate-relay-url";
@@ -50,7 +50,7 @@ const getE2eRelayOverride = (): ReadonlyArray<RelayListItem> | null => {
 };
 
 /** Matches `infra/docker-compose.nostr.yml` (host port 7000 → container 8080). */
-export const LOCAL_DEV_RELAY_URL = "ws://localhost:7000";
+export const LOCAL_DEV_RELAY_URL = LOCAL_DEV_WORKSPACE_RELAY_URL;
 
 const DEFAULT_RELAYS: ReadonlyArray<RelayListItem> = [
   { url: "wss://relay.damus.io", enabled: true },

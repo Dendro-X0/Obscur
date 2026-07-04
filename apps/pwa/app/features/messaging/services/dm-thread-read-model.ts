@@ -3,28 +3,47 @@
  *
  * Owns direction coverage, initial paint policy, post-hydrate reconciliation,
  * and projection-merge gating. Storage authority selection stays in
- * `dm-read-authority-contract.ts`; I/O orchestration stays in
- * `dm-conversation-hydrate-pipeline.ts`. This module is pure: given layer outputs,
+ * `dm-read-authority-port.ts`; I/O orchestration stays in
+ * `dm-thread-history-legacy-port.ts`. This module is pure: given layer outputs,
  * it decides what the thread should show and whether to reconcile.
  */
 
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
+import { normalizePublicKeyHex } from "@/app/features/profile/utils/normalize-public-key-hex";
 import { requiresSqlitePersistence } from "@/app/features/runtime/native-persistence-policy";
 import { isNativeDmSqliteReadOwner } from "./native-dm-read-policy";
 import type { Message } from "../types";
-import { getMessageDirectionCounts } from "./dm-conversation-hydrate-read-model";
 import { mergeHydratedBaseWithLiveOverlayMessages } from "./conversation-message-materialization";
 import { dedupeMessagesByIdentity } from "./dm-conversation-message-retention-dedupe";
 
+export const getMessageDirectionCounts = (
+  entries: ReadonlyArray<Message>,
+  myPublicKeyHex: PublicKeyHex | null,
+): Readonly<{ outgoing: number; incoming: number }> => {
+  let outgoing = 0;
+  let incoming = 0;
+  entries.forEach((entry) => {
+    const senderPubkey = normalizePublicKeyHex(entry.senderPubkey);
+    const isOutgoing = entry.isOutgoing === true || (!!myPublicKeyHex && senderPubkey === myPublicKeyHex);
+    if (isOutgoing) {
+      outgoing += 1;
+    } else {
+      incoming += 1;
+    }
+  });
+  return { outgoing, incoming };
+};
+
 export const DM_THREAD_STALE_EMPTY_HYDRATE_MAX_ATTEMPTS = 4;
 export const DM_THREAD_STALE_EMPTY_HYDRATE_BASE_DELAY_MS = 150;
+/** Native desktop boot can hydrate before profile bind + auth restore finish. */
+export const NATIVE_DM_THREAD_STALE_EMPTY_HYDRATE_MAX_ATTEMPTS = 8;
+export const NATIVE_DM_THREAD_STALE_EMPTY_HYDRATE_BASE_DELAY_MS = 400;
 export const DM_THREAD_DIRECTION_COVERAGE_HYDRATE_MAX_ATTEMPTS = 3;
 export const DM_THREAD_PARTIAL_DIRECTION_HYDRATE_MAX_ATTEMPTS = 5;
 export const DM_THREAD_PARTIAL_DIRECTION_HYDRATE_BASE_DELAY_MS = 200;
 /** Default visible window for initial DM thread paint (matches MESSAGE_PAGE_SIZE). */
 export const DM_THREAD_LIVE_WINDOW_SOFT_LIMIT = 200;
-
-export { getMessageDirectionCounts };
 
 export type DmThreadDirectionCoverage = Readonly<{
   outgoing: number;

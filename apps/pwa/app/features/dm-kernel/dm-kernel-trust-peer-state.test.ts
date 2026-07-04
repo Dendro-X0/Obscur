@@ -2,9 +2,11 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   getDmTrustPeerState,
   getPeerConnectionRequestCountLastDay,
+  getPeerIncomingCountLastMinute,
   recordPeerConnectionRequest,
+  recordPeerIncomingMessageAtPeerLevel,
 } from "./dm-kernel-trust-peer-state";
-import { INVITE_FANOUT_THRESHOLD } from "./dm-kernel-trust-spam-signals";
+import { INVITE_FANOUT_THRESHOLD, MSG_RATE_THRESHOLD } from "./dm-kernel-trust-spam-signals";
 
 const PROFILE = "profile-test";
 const PEER = "c".repeat(64);
@@ -29,5 +31,14 @@ describe("dm-kernel-trust-peer-state", () => {
     recordPeerConnectionRequest(PROFILE, PEER, baseMs);
     const state = getDmTrustPeerState(PROFILE, PEER, baseMs);
     expect(state.connectionRequestTimestampsUnixMs).toHaveLength(1);
+  });
+
+  it("tracks cross-thread incoming messages for msg.rate", () => {
+    for (let index = 0; index <= MSG_RATE_THRESHOLD; index += 1) {
+      recordPeerIncomingMessageAtPeerLevel(PROFILE, PEER, baseMs + index * 500);
+    }
+    expect(getPeerIncomingCountLastMinute(PROFILE, PEER, baseMs + 30_000)).toBe(
+      MSG_RATE_THRESHOLD + 1,
+    );
   });
 });

@@ -5,8 +5,8 @@ vi.mock("@/app/features/runtime/native-persistence-policy", () => ({
   requiresSqlitePersistence: vi.fn(() => true),
 }));
 
-vi.mock("./dm-conversation-hydrate-indexed-scan", () => ({
-  loadConversationWindowAcrossAliases: vi.fn(async () => ({
+vi.mock("@/app/features/messaging/services/thread-history/hydrate-indexed-legacy-port", () => ({
+  loadLegacyConversationWindowAcrossAliases: vi.fn(async () => ({
     rows: [
       {
         id: "evt-out",
@@ -31,6 +31,11 @@ vi.mock("./dm-conversation-hydrate-indexed-scan", () => ({
     ],
     hasEarlier: true,
   })),
+  mapLegacyIndexedConversationRowsForDisplayableScan: vi.fn(
+    ({ rows, normalizeRow }: { rows: ReadonlyArray<unknown>; normalizeRow: (row: unknown) => unknown }) => (
+      rows.map((row) => normalizeRow(row)).filter(Boolean)
+    ),
+  ),
 }));
 
 vi.mock("./dm-thread-suppression-prepare", () => ({
@@ -47,18 +52,18 @@ vi.mock("@/app/features/profiles/services/profile-runtime-scope", () => ({
   getResolvedProfileId: vi.fn(() => "profile-1"),
 }));
 
-import { runNativeDmThreadHydrateReadModel } from "./native-dm-thread-hydrate";
+import { runLegacyNativeDmThreadHydrateReadModel } from "@/app/features/messaging/services/thread-history/native-dm-thread-hydrate";
 
 const MY_KEY = "a".repeat(64) as PublicKeyHex;
 
-describe("runNativeDmThreadHydrateReadModel", () => {
+describe("runLegacyNativeDmThreadHydrateReadModel", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
   it("hydrates from a single sqlite window without projection fallback", async () => {
     const persistedDeletedIds = new Set<string>();
-    const result = await runNativeDmThreadHydrateReadModel({
+    const result = await runLegacyNativeDmThreadHydrateReadModel({
       conversationId: `${MY_KEY}:${"b".repeat(64)}`,
       conversationIds: ["conv-a"],
       profileIdForTombstones: "profile-1",

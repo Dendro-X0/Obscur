@@ -9,7 +9,7 @@
  */
 
 import type { Message } from "../types";
-import type { ConversationHistoryAuthorityDecision } from "./dm-read-authority-contract";
+import type { ConversationHistoryAuthorityDecision } from "./thread-history/hydrate-authority-types";
 import {
   filterMessagesBySuppressedIds,
   mergeHydratedBaseWithLiveOverlayMessages,

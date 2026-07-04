@@ -69,15 +69,15 @@ const resolveCoordinationActiveDisplayPubkeys = (params: Readonly<{
   return dedupePubkeys(active);
 };
 
-const mergeJoinEvidenceIntoCoordinationDisplay = (params: Readonly<{
+const mergeStaleDirectoryRepairIntoCoordinationDisplay = (params: Readonly<{
   coordinationDirectory: CoordinationMembershipMaterialization;
   coordinationActive: ReadonlyArray<PublicKeyHex>;
-  joinEvidenceMemberPubkeys?: ReadonlyArray<PublicKeyHex>;
+  repairMemberPubkeys?: ReadonlyArray<PublicKeyHex>;
   localLeftMemberPubkeys?: ReadonlyArray<PublicKeyHex>;
   localExpelledMemberPubkeys?: ReadonlyArray<PublicKeyHex>;
 }>): ReadonlyArray<PublicKeyHex> => {
-  const joinEvidence = params.joinEvidenceMemberPubkeys ?? [];
-  if (joinEvidence.length === 0) {
+  const repairCandidates = params.repairMemberPubkeys ?? [];
+  if (repairCandidates.length === 0) {
     return params.coordinationActive;
   }
   const terminal = new Set([
@@ -87,7 +87,7 @@ const mergeJoinEvidenceIntoCoordinationDisplay = (params: Readonly<{
     ...(params.localExpelledMemberPubkeys ?? []),
   ].map(normalizePubkey));
   const activeNorm = new Set(params.coordinationActive.map(normalizePubkey));
-  const repairPubkeys = joinEvidence.filter((pubkey) => {
+  const repairPubkeys = repairCandidates.filter((pubkey) => {
     const normalized = normalizePubkey(pubkey);
     return normalized.length > 0
       && !terminal.has(normalized)
@@ -99,6 +99,17 @@ const mergeJoinEvidenceIntoCoordinationDisplay = (params: Readonly<{
   return dedupePubkeys([...params.coordinationActive, ...repairPubkeys]);
 };
 
+/** Union durable widen-only repair seeds when coordination directory shrinks below local evidence. */
+export const buildCoordinationDirectoryRepairMemberPubkeys = (params: Readonly<{
+  joinEvidenceMemberPubkeys?: ReadonlyArray<PublicKeyHex>;
+  knownParticipantPubkeys?: ReadonlyArray<PublicKeyHex>;
+  participationAuthorPubkeys?: ReadonlyArray<PublicKeyHex>;
+}>): ReadonlyArray<PublicKeyHex> => dedupePubkeys([
+  ...(params.joinEvidenceMemberPubkeys ?? []),
+  ...(params.knownParticipantPubkeys ?? []),
+  ...(params.participationAuthorPubkeys ?? []),
+]);
+
 export const resolveCommunityParticipantDisplayPubkeys = (params: Readonly<{
   communityMode?: CommunityMode | null;
   relayUrl?: string | null;
@@ -106,6 +117,10 @@ export const resolveCommunityParticipantDisplayPubkeys = (params: Readonly<{
   monotonicDisplayPubkeys: ReadonlyArray<PublicKeyHex>;
   /** Explicit join/invite ledger seeds — repairs stale directory shrink without relay widen. */
   joinEvidenceMemberPubkeys?: ReadonlyArray<PublicKeyHex>;
+  /** Durable known-participant OR-set for the conversation (localStorage). */
+  knownParticipantPubkeys?: ReadonlyArray<PublicKeyHex>;
+  /** Sealed/persisted message authors — participation evidence for stale-directory repair. */
+  participationAuthorPubkeys?: ReadonlyArray<PublicKeyHex>;
   localMemberPubkey?: PublicKeyHex | null;
   localLeftMemberPubkeys?: ReadonlyArray<PublicKeyHex>;
   localExpelledMemberPubkeys?: ReadonlyArray<PublicKeyHex>;
@@ -114,6 +129,12 @@ export const resolveCommunityParticipantDisplayPubkeys = (params: Readonly<{
     return params.monotonicDisplayPubkeys;
   }
 
+  const repairMemberPubkeys = buildCoordinationDirectoryRepairMemberPubkeys({
+    joinEvidenceMemberPubkeys: params.joinEvidenceMemberPubkeys,
+    knownParticipantPubkeys: params.knownParticipantPubkeys,
+    participationAuthorPubkeys: params.participationAuthorPubkeys,
+  });
+
   if (params.coordinationDirectory) {
     const coordinationActive = resolveCoordinationActiveDisplayPubkeys({
       coordinationDirectory: params.coordinationDirectory,
@@ -121,13 +142,17 @@ export const resolveCommunityParticipantDisplayPubkeys = (params: Readonly<{
       localLeftMemberPubkeys: params.localLeftMemberPubkeys,
       localExpelledMemberPubkeys: params.localExpelledMemberPubkeys,
     });
-    return mergeJoinEvidenceIntoCoordinationDisplay({
+    return mergeStaleDirectoryRepairIntoCoordinationDisplay({
       coordinationDirectory: params.coordinationDirectory,
       coordinationActive,
-      joinEvidenceMemberPubkeys: params.joinEvidenceMemberPubkeys,
+      repairMemberPubkeys,
       localLeftMemberPubkeys: params.localLeftMemberPubkeys,
       localExpelledMemberPubkeys: params.localExpelledMemberPubkeys,
     });
+  }
+
+  if (repairMemberPubkeys.length > 0) {
+    return repairMemberPubkeys;
   }
 
   return [];

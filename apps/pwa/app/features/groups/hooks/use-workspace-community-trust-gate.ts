@@ -74,7 +74,7 @@ export function useWorkspaceCommunityTrustGate(params: Readonly<{
         () => assessWorkspaceCommunityTrust({
             communityRelayUrl: normalizeRelayUrl(relayUrl),
             enabledRelayUrls,
-            coordinationHealthy: coordinationHealthy ?? false,
+            coordinationHealthy: coordinationHealthy === null ? undefined : coordinationHealthy,
         }),
         [coordinationHealthy, enabledRelayUrls, relayUrl],
     );
@@ -88,11 +88,13 @@ export function useWorkspaceCommunityTrustGate(params: Readonly<{
         [coordinationHealthy, enabledRelayUrls, relayUrl],
     );
 
+    const coordinationProbePending = coordinationHealthy === null;
+
     return {
         trust,
         bundleAudit,
         coordinationHealthy,
-        blocked: !trust.allowed || !bundleAudit.allowed,
+        blocked: !coordinationProbePending && (!trust.allowed || !bundleAudit.allowed),
         refreshCoordinationHealth,
     };
 }

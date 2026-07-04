@@ -7,6 +7,7 @@
 
 import type { RelayTransportMode } from "./relay-transport-mode";
 import { REDUNDANCY_POOL_MAX_RELAYS } from "./relay-transport-mode";
+import { isLocalDevWorkspaceRelayUrl } from "./relay-transport-scope";
 
 export type RelayRole = "primary" | "standby" | "disabled";
 
@@ -125,6 +126,10 @@ export const pickBestRelayUrl = (
   const bestScored = scored.find((entry) => entry.score > 0);
   if (bestScored) {
     return bestScored.url;
+  }
+  const nonLocalDev = candidates.filter((url) => !isLocalDevWorkspaceRelayUrl(url));
+  if (nonLocalDev.length > 0) {
+    return nonLocalDev[0] ?? null;
   }
   return candidates[0] ?? null;
 };

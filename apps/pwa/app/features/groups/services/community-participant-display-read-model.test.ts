@@ -108,7 +108,53 @@ describe("community-participant-display-read-model", () => {
     expect(display).toEqual([PK_A, PK_B]);
   });
 
-  it("does not fall back to monotonic roster when coordination is configured but directory is missing", () => {
+  it("repairs stale directory shrink from known participants when join evidence is thin", () => {
+    const display = resolveCommunityParticipantDisplayPubkeys({
+      communityMode: "managed_workspace",
+      coordinationDirectory: {
+        activeMemberPubkeys: [PK_A],
+        leftMemberPubkeys: [],
+        expelledMemberPubkeys: [],
+        headSeq: 2,
+      },
+      monotonicDisplayPubkeys: [PK_A],
+      joinEvidenceMemberPubkeys: [PK_A],
+      knownParticipantPubkeys: [PK_A, PK_B],
+      localMemberPubkey: PK_A,
+    });
+    expect(display).toEqual([PK_A, PK_B]);
+  });
+
+  it("repairs stale directory shrink from participation author evidence", () => {
+    const display = resolveCommunityParticipantDisplayPubkeys({
+      communityMode: "managed_workspace",
+      coordinationDirectory: {
+        activeMemberPubkeys: [PK_A],
+        leftMemberPubkeys: [],
+        expelledMemberPubkeys: [],
+        headSeq: 2,
+      },
+      monotonicDisplayPubkeys: [PK_A],
+      joinEvidenceMemberPubkeys: [PK_A],
+      participationAuthorPubkeys: [PK_B],
+      localMemberPubkey: PK_A,
+    });
+    expect(display).toEqual([PK_A, PK_B]);
+  });
+
+  it("falls back to durable repair seeds when coordination directory is missing", () => {
+    const display = resolveCommunityParticipantDisplayPubkeys({
+      communityMode: "managed_workspace",
+      coordinationDirectory: null,
+      monotonicDisplayPubkeys: [PK_A, PK_B],
+      joinEvidenceMemberPubkeys: [PK_A],
+      knownParticipantPubkeys: [PK_B],
+      localMemberPubkey: PK_A,
+    });
+    expect(display).toEqual([PK_A, PK_B]);
+  });
+
+  it("does not fall back to monotonic roster when coordination is configured but directory and repair seeds are missing", () => {
     const display = resolveCommunityParticipantDisplayPubkeys({
       communityMode: "managed_workspace",
       coordinationDirectory: null,

@@ -2,15 +2,226 @@
 
 All notable changes to Obscur are documented here.
 
-**Source of truth:** Detailed release notes, demo matrices, and gate criteria for recent patches live under [`docs/releases/`](docs/releases/) and [`docs/program/v1.8.x-release-train.md`](docs/program/v1.8.x-release-train.md). Where inline changelog updates were missed during fast patch lanes, entries below were **recovered from `/docs`** at tag time.
+**Source of truth:** Release notes under [`docs/releases/`](docs/releases/) · train map [`docs/program/v1.9.x-release-train.md`](docs/program/v1.9.x-release-train.md). **Current version:** **1.9.10** ([recovery notes](docs/releases/v1.9.10-release.md)). Bands 1.9.4–1.9.9 were recovered into CHANGELOG on 2026-06-17 after landing on `main` without semver bump.
 
 ---
 
 ## [Unreleased]
 
-**Lane:** v1.9.4+ platform + demo prep — [v1.9.4-scope.md](docs/program/v1.9.4-scope.md).  
-**Policy:** [maintainer-distribution-policy.md](docs/program/maintainer-distribution-policy.md).  
-**North star:** [v2.0-production-demo-path.md](docs/program/v2.0-production-demo-path.md).
+### Fixed (Runtime repair — R1 `group-room-key-missing`)
+
+- **Membership health room-key owner** — `useCommunityMembershipHealth` resolves keys via `resolveRoomKeyHexForMembershipHealthPanel` (same path as group send: local store → coordination materialize).
+- **Health summary copy** — omits “Room key missing” when `ready && chatEnabled` (avoids stale diagnostic when send works).
+- **Evidence:** CodaCtrl t4 round `2026-07-04-r1-room-key-health-t4` · chain `chain-r1-room-key-health-2026-07-04` · message `R1-room-key-health-t4-070T1410`.
+
+### Verification (R1)
+
+```bash
+pnpm -C apps/pwa exec vitest run \
+  app/features/groups/services/community-coordination-room-key-owner.test.ts \
+  app/features/groups/utils/community-membership-health-copy.test.ts \
+  app/features/groups/services/community-membership-health.test.ts
+```
+
+CodaCtrl: stack preflight → `client_session_connect` `:9230` → NewTest 2 group → digest + send + cold restart. Export: `.codactrl/verify/issue-report/export-manifest.json`.
+
+### Open (runtime repair — not fixed in this slice)
+
+- **R2** — Cold restart: device password unlock fails; Import Key workaround required.
+- **R3** — Sidebar preview “No messages yet” while thread shows history.
+- **R4** — COM-RUN-01 roster divergence (accepted @ ACC-02).
+
+---
+
+### Added (Kernel UI — relay, DM, vault & chat media)
+
+- **Relay transport bootstrap** — `useShellTransportReady` and `RuntimeMessagingTransportOwnerProvider` arm when identity is unlocked, not only when window phase is `activating_runtime | ready | degraded`; fixes 0/N relays and DM receive while chat UI is already usable.
+- **DM catch-up** — first open relay triggers subscription + 7-day `syncMissedMessages` with explicit `since`.
+- **Local encrypted vault** — desktop **Obscur Local Vault** provider; NIP-96 upload failure fallback; files keyed under `obscur://vault/local/{sha256}` with profile-scoped encryption (`local-media-store.ts`, `vault-at-rest`).
+- **Save to vault from chat** — attachment context menu (desktop right-click / mobile long-press), message menu, media gallery, and lightbox (legacy + v0.8.3); shared handler in `save-chat-attachment-to-vault.ts`.
+- **Mobile long-press parity** — `getAttachmentContextMenuTriggerProps` (~420ms); message-bubble long-press opens message menu like right-click.
+- **Vault display names** — `resolveVaultDisplayFileName` shows original attachment names instead of `.obscurvault` blob names in grid and detail view.
+- **Lock confirm copy** — `settings.security.lockConfirmTitle|Desc|Action` in `en.json` for `AppLockConfirmDialog`.
+
+### Changed (Kernel UI)
+
+- **Vault tile actions** — kebab menu uses portaled `DropdownMenu` (no clip inside grid cells).
+- **Relay status badge** — writable denominator includes `enabledRelayUrls` (e.g. 2/5 not 0/0).
+- **Experiment shell** — offline-stub builds labeled explicitly in status indicator.
+- **i18n** — `nav.junk`, `messaging.lastActive`, `messaging.lastViewed`, vault save strings.
+
+### Fixed (Kernel UI)
+
+- `dm-controller.ts` — relay catch-up `useEffect` ordering (build blocker).
+- `local-media-store.ts` — `crypto.subtle.digest` `BufferSource` typing for Next static build.
+- `vault-media-grid.tsx` — removed stale `setOpenMenuItemId` after dropdown migration.
+
+### Fixed (Community — restart coordination recovery)
+
+- **Directory recovery unblocked** — CASCADE gate no longer blocks coordination directory refresh/self-heal while membership health is degraded.
+- **Server reset detection** — when local directory cache is ahead of coordination server head (common after dev restart), client rebuilds from seq 0 instead of keeping stale materialization.
+- **Auto self-heal** — group-home republishes join delta once when ledger says joined but directory omits local member (`coordination_missing_peer`).
+- **Hook refresh** — `useCoordinationMembershipDirectory` force-full refresh on mount after restart.
+
+### Fixed (Community — CASCADE-01 circuit breaker)
+
+- **Not in contacts** — Community Participants modal shows amber badge, summary line, and filter for visible members outside your contacts (`peerTrust` Layer 0); does not change roster sync.
+
+- **Group home cascade gate** — when managed-workspace membership health is not ready, group-home no longer mounts relay ingest, auto-reconcile, truth refresh, terminal overlay sync, or guest materialize side effects; logs `groups.page.cascade_gate_blocked` for diagnosis.
+- Policy: `community-group-home-cascade-policy.ts` · owner: `group-home-page-client.tsx`.
+
+### Verification (Kernel UI)
+
+```bash
+pnpm dev:desktop:online -- --rebuild
+pnpm -C apps/pwa exec vitest run \
+  app/features/vault/services/local-media-store.test.ts \
+  app/features/vault/services/vault-media-aggregator.test.ts \
+  app/features/messaging/components/attachment-context-menu.test.tsx \
+  app/features/messaging/components/attachment-context-menu-handlers.test.ts \
+  app/features/auth/components/app-lock-confirm-dialog.test.tsx
+```
+
+**Manual:** [obscur-kernel-ui-desktop-test-checklist.md](docs/program/obscur-kernel-ui-desktop-test-checklist.md) rows 4–5, 7–11 · [core-verification-media-and-vault-durability.md](docs/releases/core-verification-media-and-vault-durability.md).
+
+---
+
+### Added (ENGINE-LAB — transport standalone legacy subtraction prep, w55–w68)
+
+- **Prep band closure** — consolidated readiness via `evaluateStandaloneLegacySubtractionPrepBandClosure`; band **PAUSED** awaiting W53 smoke (`Decision: BLOCKED`).
+- **Deletion pipeline** — dry-run baseline, subtraction manifest, subtracted port, thin port template, existence-pin inventory, mechanical commit manifest, B5 exit criteria.
+- **Flat verify gate** — `scripts/verify-transport-engine.mjs` runs w0–w68 in one process; `verify:standalone-legacy-subtraction-prep` read-only maintainer report.
+- **Index** — [transport-engine-standalone-legacy-subtraction-index.md](docs/program/transport-engine-standalone-legacy-subtraction-index.md).
+
+### Changed
+
+- **`verify:engine-lab`** — transport slice now gates on `verify:transport-engine-w68` (was w62/w67 chain).
+- **Docs** — [CURRENT.md](docs/CURRENT.md), [program/README.md](docs/program/README.md), [obscur-backend-engine-roadmap.md](docs/program/obscur-backend-engine-roadmap.md) updated for post-B5 transport status.
+
+### Not done (maintainer-blocked)
+
+- Physical deletion of `transport-kernel-standalone-publish-legacy.ts` and facade — requires W53 smoke `PASS` + `NEXT_PUBLIC_OBSCUR_TRANSPORT_STANDALONE_LEGACY_DELETION_APPROVED=1`.
+
+### Verification
+
+```bash
+pnpm verify:transport-engine-w68
+pnpm verify:standalone-legacy-subtraction-prep
+pnpm verify:engine-lab
+```
+
+**Next:** v1.9.8 Phase 4 manual evidence (T1/T2 lock audit) → tag **v1.9.8** / **v1.9.9** when checklist passes · [v1.9.8-phase-4-manual-checklist.md](docs/archive/program/inactive-2026-06/v1.9.8-phase-4-manual-checklist.md).  
+**Train:** [v1.9.x-release-train.md](docs/program/v1.9.x-release-train.md) · **Handoff:** [current-session.md](docs/handoffs/current-session.md).
+
+---
+
+## [1.9.10] — 2026-06-17 (AUTH-SESSION-1 cancellation + version truth)
+
+**Release notes:** [v1.9.10-release.md](docs/releases/v1.9.10-release.md). **Scope:** [v1.9.6-session-persistence-redesign.md](docs/program/v1.9.6-session-persistence-redesign.md) § Cancellation.
+
+### Changed
+
+- **Desktop session policy** — `NATIVE_SECURE_SESSION_RESTORE_ENABLED` and `NATIVE_DEVICE_SESSION_CONSENT_ENABLED` disabled on desktop shell builds; manual unlock after F5/restart/lock is intentional product behavior.
+- **Consent gates** — `isDeviceSessionRestoreAllowed` and `resolveStaySignedIn` respect cancelled restore policy.
+- **UI honesty** — auth session policy notice, profile manager lock copy, device session settings panel hidden on desktop when restore is off.
+- **Version sync** — monorepo manifests, `version.json`, and program docs aligned to **1.9.10** (recovered bands 1.9.4–1.9.9 that shipped on `main` without semver bump).
+
+### Verification
+
+```bash
+pnpm verify:session-persistence-policy
+```
+
+---
+
+## [1.9.9] — 2026-06-15 (Storage resilience)
+
+**Release notes:** [v1.9.10-release.md](docs/releases/v1.9.10-release.md#v199). **Scope:** [v1.9.9-storage-resilience-scope.md](docs/program/v1.9.9-storage-resilience-scope.md).
+
+### Added
+
+- **Data root health probe** — detect missing/slow/unreachable custom data roots without infinite hang.
+- **Recovery UX** — reconnect folder, choose new folder, offline webview recovery gate.
+- **Junction bind resilience** — dead junction heal; bind to alternate path after USB disconnect.
+
+### Verification
+
+```bash
+pnpm verify:storage-resilience-v1.9.9
+```
+
+---
+
+## [1.9.8] — 2026-06-14 (Portable storage + encryption at rest)
+
+**Release notes:** [v1.9.10-release.md](docs/releases/v1.9.10-release.md#v198). **Scope:** [v1.9.8-portable-storage-and-encryption-charter.md](docs/program/v1.9.8-portable-storage-and-encryption-charter.md).
+
+### Added
+
+- **Custom data root** — junction bind, migration, conflict/overwrite dialogs, `obscur.json` manifest.
+- **Encryption at rest** — PDK from device password; SQLite `.obscur-enc` envelope; vault ciphertext; encrypted removal archives (`.obscur-profile.enc.json`).
+- **UX-3** — honest lock-screen and Settings → Storage copy while locked.
+
+### Verification
+
+```bash
+pnpm verify:storage-encryption-v1.9.8
+```
+
+**Manual gate pending:** Phase 4 T1/T2 lock audit — [v1.9.8-phase-4-manual-checklist.md](docs/archive/program/inactive-2026-06/v1.9.8-phase-4-manual-checklist.md).
+
+---
+
+## [1.9.7] — 2026-06-13 (Auth subtraction)
+
+**Release notes:** [v1.9.10-release.md](docs/releases/v1.9.10-release.md#v197). **Scope:** [v1.9.7-scope.md](docs/program/v1.9.7-scope.md). **Commit:** `4d000257`.
+
+### Changed
+
+- **Withdrawn local login assist** — removed Chrome-style autofill/save-prompt path (LLA charter withdrawn).
+- **Password-only return login** — device password unlock without username field on return visits.
+- **Device session diagnostics** — Settings panel for stay-signed-in / keychain status (mobile/native builds with restore enabled).
+- **Profile picker integration** — locked title bar switcher and auth gateway routing fixes.
+
+---
+
+## [1.9.6] — 2026-06-12 (Profile picker + session persistence)
+
+**Release notes:** [v1.9.10-release.md](docs/releases/v1.9.10-release.md#v196). **Scope:** [v1.9.6-profile-picker-charter.md](docs/program/v1.9.6-profile-picker-charter.md) · [v1.9.6-session-persistence-redesign.md](docs/program/v1.9.6-session-persistence-redesign.md).
+
+### Added
+
+- **Chrome-style profile picker** — `/profiles` public on desktop; card grid; show-on-startup preference; `pnpm verify:profile-picker`.
+- **Stay signed in (native)** — OS keychain consent flag, Lock vs Log out semantics, native session persist feedback.
+
+### Deferred / cancelled (2026-06-17)
+
+- Cold-boot / F5 keychain restore — **cancelled on desktop** in v1.9.10 (feasibility gate).
+
+---
+
+## [1.9.5] — 2026-06-11 (Trust, abuse resistance, security validation)
+
+**Release notes:** [v1.9.10-release.md](docs/releases/v1.9.10-release.md#v195). **Scope:** [v1.9.5-scope.md](docs/program/v1.9.5-scope.md). **Exit commit:** `6fa015fd`.
+
+### Added
+
+- **SEC-F** — recipient-local DM trust assessment port; financial/cold-contact rule pack; thread banner; trust settings copy.
+- **SEC-B** — B2 keyword flood rate limits; spam-shape signals; steward bot pause UX.
+- **SEC-R** — operator trust bundle audit; relay trust scorer; stack hardening doc; publish honesty gate.
+- **SEC-V** — programmatic security validation gates (`pnpm verify:sec-v1.9.5`, `pnpm verify:trust-v1.9.5`, `pnpm verify:relay-v1.9.5`).
+
+---
+
+## [1.9.4] — 2026-06-11 (Platform + community verification)
+
+**Release notes:** [v1.9.10-release.md](docs/releases/v1.9.10-release.md#v194). **Scope:** [v1.9.4-scope.md](docs/program/v1.9.4-scope.md). **Phase C exit:** `7a49e339`.
+
+### Changed
+
+- **Phase C exit** — client community verification Pass; programmatic platform kernels green.
+- **SQLite owner matrix** — documented in [obscur-native-sqlite-policy.md](docs/program/obscur-native-sqlite-policy.md).
+- **Shell stability** — STAB-R @ `2a1badf7`; `pnpm verify:stability`.
 
 ---
 

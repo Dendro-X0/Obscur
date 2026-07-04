@@ -12,12 +12,16 @@ import {
   runDevLabNativeGate,
 } from "./dev-lab-native-gate";
 
+const LISTENER_POLL_MS = 5_000;
+const MAX_LISTENER_PING_FAILURES = 3;
+
 /**
  * When `pnpm dev:lab:native-gate` is listening on :9876, auto-runs native gate in Tauri
  * (no CDP / WebView2 remote debugging required).
  */
 export const DevLabNativeGateListenerBridge = (): null => {
   const startedRef = useRef(false);
+  const pingFailuresRef = useRef(0);
 
   useEffect(() => {
     if (!isDevLabEnabled() || startedRef.current) {
@@ -27,7 +31,8 @@ export const DevLabNativeGateListenerBridge = (): null => {
     let cancelled = false;
 
     const run = async (): Promise<void> => {
-      const unlock = window.obscurDevLab?.unlock;
+      const lab = window.obscurDevLab;
+      const unlock = lab?.unlock;
       if (!unlock) {
         return;
       }
@@ -44,14 +49,23 @@ export const DevLabNativeGateListenerBridge = (): null => {
         return;
       }
 
-      const listenerAlive = await probeNativeGateListener(NATIVE_GATE_LISTENER_URL);
-      if (!listenerAlive || cancelled) {
+      const shellUnlocked = lab?.probeShellHealth?.().shellUnlocked === true;
+      if (!shellUnlocked) {
         return;
       }
 
-      const lab = window.obscurDevLab;
-      const shellUnlocked = lab?.probeShellHealth?.().shellUnlocked === true;
-      if (!shellUnlocked) {
+      if (pingFailuresRef.current >= MAX_LISTENER_PING_FAILURES) {
+        return;
+      }
+
+      const listenerAlive = await probeNativeGateListener(NATIVE_GATE_LISTENER_URL);
+      if (!listenerAlive) {
+        pingFailuresRef.current += 1;
+        return;
+      }
+      pingFailuresRef.current = 0;
+
+      if (cancelled) {
         return;
       }
 
@@ -70,11 +84,11 @@ export const DevLabNativeGateListenerBridge = (): null => {
       await postNativeGateReport(report, NATIVE_GATE_LISTENER_URL);
     };
 
-    const interval = window.setInterval(() => {
+    const intervalId = window.setInterval(() => {
       void run().catch((error) => {
         console.error("[DevLab] native gate failed:", error);
       });
-    }, 2000);
+    }, LISTENER_POLL_MS);
 
     void run().catch((error) => {
       console.error("[DevLab] native gate failed:", error);
@@ -82,7 +96,7 @@ export const DevLabNativeGateListenerBridge = (): null => {
 
     return () => {
       cancelled = true;
-      window.clearInterval(interval);
+      window.clearInterval(intervalId);
     };
   }, []);
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isSupportedPublicUrl, normalizePublicUrl, publicUrlInternals } from "./public-url";
+import { isSupportedPublicUrl, normalizeAttachmentUrl, normalizePublicUrl, publicUrlInternals } from "./public-url";
 
 describe("public-url", () => {
   it("keeps absolute http urls unchanged", () => {
@@ -21,5 +21,15 @@ describe("public-url", () => {
     expect(isSupportedPublicUrl("/uploads/avatar.png")).toBe(true);
     expect(isSupportedPublicUrl("https://cdn.example.com/avatar.png")).toBe(true);
     expect(isSupportedPublicUrl("blob:temp-preview")).toBe(false);
+  });
+
+  it("coerces host-only attachment urls to https", () => {
+    expect(normalizeAttachmentUrl("image.nostr.build/abc123.jpg")).toBe("https://image.nostr.build/abc123.jpg");
+    expect(normalizeAttachmentUrl("//image.nostr.build/abc123.jpg")).toBe("https://image.nostr.build/abc123.jpg");
+  });
+
+  it("repairs mistaken relative host paths and trailing punctuation", () => {
+    expect(normalizeAttachmentUrl("/image.nostr.build/abc123.jpg)")).toBe("https://image.nostr.build/abc123.jpg");
+    expect(normalizeAttachmentUrl("image.nostr.build/abc123.jpg,")).toBe("https://image.nostr.build/abc123.jpg");
   });
 });

@@ -1,4 +1,4 @@
-import type { RelayRecoveryReasonCode, RelayRecoverySnapshot } from "./relay-recovery-policy";
+import type { RelayRecoveryReasonCode, RelayRecoverySnapshot } from "./relay-recovery-types";
 
 const FAILOVER_ON_ZERO_WRITABLE_REASONS: ReadonlySet<RelayRecoveryReasonCode> = new Set([
   "no_writable_relays",

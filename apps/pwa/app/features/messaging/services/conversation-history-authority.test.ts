@@ -1,10 +1,14 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   PERSISTED_INCOMING_REPAIR_INDEXED_MESSAGE_MAX,
   hasIndexedThinnessEvidenceForPersistedIncomingRepair,
   isPersistedCompatibilityRestorePhaseIncomingRepairCandidate,
   resolveLegacyHydrationAuthority,
-} from "./dm-read-authority-contract";
+} from "@/app/features/messaging/services/dm-read-authority-port";
+
+vi.mock("@/app/features/messaging/services/native-dm-read-policy", () => ({
+  isNativeDmSqliteReadOwner: vi.fn(() => false),
+}));
 
 describe("resolveLegacyHydrationAuthority", () => {
   it("still prefers projection when indexed is outgoing-only and projection has incoming peer evidence", () => {

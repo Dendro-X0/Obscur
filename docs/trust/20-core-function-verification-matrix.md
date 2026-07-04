@@ -246,7 +246,8 @@ What must be true:
 1. message attachments remain visible after restore when they still exist,
 2. Vault follows active identity and source conversation ownership,
 3. local cache is not mistaken for remote durable truth,
-4. download/save flows behave deterministically by runtime.
+4. download/save flows behave deterministically by runtime,
+5. desktop **local encrypted vault** saves and chat **Save to vault** stay profile-scoped (unlock required to read).
 
 Canonical owners:
 
@@ -254,6 +255,7 @@ Canonical owners:
 2. `apps/pwa/app/features/account-sync/services/encrypted-account-backup-service.ts`
 3. `apps/pwa/app/features/vault/hooks/use-vault-media.ts`
 4. `apps/pwa/app/features/vault/services/local-media-store.ts`
+5. `apps/pwa/app/features/vault/services/save-chat-attachment-to-vault.ts`
 
 Minimum automated checks:
 
@@ -266,7 +268,8 @@ Manual replay:
 1. media upload/send,
 2. fresh-device restore,
 3. Vault visibility and source badge checks,
-4. file save/download replay.
+4. file save/download replay,
+5. local vault upload + save-from-chat (desktop right-click / mobile long-press).
 
 Execution packet:
 

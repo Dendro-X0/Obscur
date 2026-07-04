@@ -4,6 +4,10 @@ import React from "react";
 import { cn } from "@dweb/ui-kit";
 import { CommunityInviteStatusBanner } from "./community-invite-status-banner";
 import type { CommunityInviteResolutionStatus } from "./community-invite-status-banner";
+import {
+    resolveCommunityInviteStatusBannerIsOutgoing,
+    type CommunityInviteViewerRole,
+} from "../services/community-invite-role-authority";
 
 export interface CommunityInviteResponseContent {
     type: "community-invite-response";
@@ -13,22 +17,29 @@ export interface CommunityInviteResponseContent {
 
 interface CommunityInviteResponseCardProps {
     response: CommunityInviteResponseContent;
-    isOutgoing: boolean;
+    viewerRole: CommunityInviteViewerRole;
     compact?: boolean;
 }
 
 export const CommunityInviteResponseCard: React.FC<CommunityInviteResponseCardProps> = ({
     response,
-    isOutgoing,
+    viewerRole,
     compact = false,
 }) => {
+    const statusBannerIsOutgoing = resolveCommunityInviteStatusBannerIsOutgoing(
+        viewerRole,
+        "response",
+        response.status,
+    );
+
     return (
         <div
             data-testid="community-invite-response-card"
-            data-invite-direction={isOutgoing ? "outgoing" : "incoming"}
+            data-invite-direction={statusBannerIsOutgoing ? "outgoing" : "incoming"}
+            data-invite-viewer-role={viewerRole}
             className={cn(
                 "py-0.5",
-                isOutgoing ? "flex justify-end" : "flex justify-start",
+                statusBannerIsOutgoing ? "flex justify-end" : "flex justify-start",
             )}
         >
             <div
@@ -43,7 +54,7 @@ export const CommunityInviteResponseCard: React.FC<CommunityInviteResponseCardPr
             >
                 <CommunityInviteStatusBanner
                     status={response.status}
-                    isOutgoing={isOutgoing}
+                    isOutgoing={statusBannerIsOutgoing}
                     compact
                 />
             </div>

@@ -68,7 +68,7 @@ const normalizeEntry = (raw: Record<string, unknown>): LocalSaveLibraryEntry | n
     payloadBytes: readNumberField(raw, "payloadBytes", "payload_bytes") ?? 0,
     modifiedAtUnixMs: readNumberField(raw, "modifiedAtUnixMs", "modified_at_unix_ms") ?? 0,
     scanRoot,
-    discovery: discoveryRaw === "payload_header" ? "payload_header" : "sidecar",
+    discovery: discoveryRaw === "sidecar" ? "sidecar" : "payload_header",
   };
 };
 
@@ -108,6 +108,112 @@ const saveScanCache = (rootsKey: string, result: LocalSaveLibraryScanResult): vo
   window.sessionStorage.setItem(SCAN_CACHE_STORAGE_KEY, JSON.stringify(record));
 };
 
+export const clearLocalSaveLibraryScanCache = (): void => {
+  if (typeof window === "undefined") {
+    return;
+  }
+  window.sessionStorage.removeItem(SCAN_CACHE_STORAGE_KEY);
+};
+
+const runNativeScan = async (
+  roots: ReadonlyArray<string>,
+  params?: Readonly<{
+    maxDepth?: number;
+    maxResults?: number;
+  }>,
+): Promise<LocalSaveLibraryScanResult> => {
+  if (roots.length === 0) {
+    throw new Error("Could not resolve Obscur data folders to scan. Restart the desktop app and try again.");
+  }
+  const result = await invokeNativeCommand<LocalSaveLibraryScanResult>("desktop_scan_local_saves", {
+    roots,
+    maxDepth: params?.maxDepth ?? 5,
+    maxResults: params?.maxResults ?? 240,
+  });
+  if (!result.ok || !result.value) {
+    const message = !result.ok ? (result.message ?? "Local save scan failed.") : "Local save scan failed.";
+    if (/not found|unknown command|unsupported/i.test(message)) {
+      return {
+        scannedAtUnixMs: Date.now(),
+        roots,
+        entries: [],
+        truncated: false,
+        durationMs: 0,
+      };
+    }
+    throw new Error(message);
+  }
+  return {
+    ...result.value,
+    entries: result.value.entries
+      .map((entry) => normalizeEntry(entry as unknown as Record<string, unknown>))
+      .filter((entry): entry is LocalSaveLibraryEntry => entry !== null),
+  };
+};
+
+export const mergeLocalSaveLibraryScanResults = (
+  primary: LocalSaveLibraryScanResult,
+  secondary: LocalSaveLibraryScanResult,
+): LocalSaveLibraryScanResult => {
+  const byPayloadPath = new Map<string, LocalSaveLibraryEntry>();
+  const ingest = (entry: LocalSaveLibraryEntry): void => {
+    const key = entry.payloadAbsolutePath.trim().toLowerCase();
+    const existing = byPayloadPath.get(key);
+    if (!existing || entry.modifiedAtUnixMs >= existing.modifiedAtUnixMs) {
+      byPayloadPath.set(key, entry);
+    }
+  };
+  primary.entries.forEach(ingest);
+  secondary.entries.forEach(ingest);
+  const entries = Array.from(byPayloadPath.values()).sort(
+    (left, right) => right.modifiedAtUnixMs - left.modifiedAtUnixMs,
+  );
+  const roots = Array.from(new Set([...primary.roots, ...secondary.roots]));
+  return {
+    scannedAtUnixMs: Math.max(primary.scannedAtUnixMs, secondary.scannedAtUnixMs),
+    roots,
+    entries,
+    truncated: primary.truncated || secondary.truncated,
+    durationMs: primary.durationMs + secondary.durationMs,
+  };
+};
+
+export const scanLocalSaveLibraryAtRoots = async (
+  roots: ReadonlyArray<string>,
+  params?: Readonly<{
+    force?: boolean;
+    maxDepth?: number;
+    maxResults?: number;
+  }>,
+): Promise<LocalSaveLibraryScanResult> => {
+  const normalizedRoots = roots
+    .map((root) => root.trim())
+    .filter((root) => root.length > 0);
+  const rootsKey = normalizedRoots.join("|");
+  if (!params?.force) {
+    const cached = loadScanCache(rootsKey);
+    if (cached) {
+      return cached;
+    }
+  }
+
+  if (!hasNativeRuntime()) {
+    return {
+      scannedAtUnixMs: Date.now(),
+      roots: normalizedRoots,
+      entries: [],
+      truncated: false,
+      durationMs: 0,
+    };
+  }
+
+  const normalized = await runNativeScan(normalizedRoots, params);
+  if (normalized.entries.length > 0) {
+    saveScanCache(rootsKey, normalized);
+  }
+  return normalized;
+};
+
 export const readLocalSavePayloadText = async (absolutePath: string): Promise<string> => {
   if (hasNativeRuntime()) {
     const { readFile } = await import("@tauri-apps/plugin-fs");
@@ -132,36 +238,13 @@ export const scanLocalSaveLibrary = async (params?: Readonly<{
   }
 
   if (hasNativeRuntime()) {
-    const runScan = async (): Promise<LocalSaveLibraryScanResult> => {
-      const result = await invokeNativeCommand<LocalSaveLibraryScanResult>("desktop_scan_local_saves", {
-        roots,
-        maxDepth: params?.maxDepth ?? 5,
-        maxResults: params?.maxResults ?? 120,
-      });
-      if (!result.ok || !result.value) {
-        const message = !result.ok ? (result.message ?? "Local save scan failed.") : "Local save scan failed.";
-        if (/not found|unknown command|unsupported/i.test(message)) {
-          return {
-            scannedAtUnixMs: Date.now(),
-            roots,
-            entries: [],
-            truncated: false,
-            durationMs: 0,
-          };
-        }
-        throw new Error(message);
-      }
-      const normalized: LocalSaveLibraryScanResult = {
-        ...result.value,
-        entries: result.value.entries
-          .map((entry) => normalizeEntry(entry as unknown as Record<string, unknown>))
-          .filter((entry): entry is LocalSaveLibraryEntry => entry !== null),
-      };
-      if (normalized.entries.length > 0) {
-        saveScanCache(rootsKey, normalized);
-      }
-      return normalized;
-    };
+    const runScan = async (): Promise<LocalSaveLibraryScanResult> => (
+      scanLocalSaveLibraryAtRoots(roots, {
+        force: params?.force,
+        maxDepth: params?.maxDepth,
+        maxResults: params?.maxResults,
+      })
+    );
 
     if (roots.length === 0) {
       throw new Error("Could not resolve Obscur data folders to scan. Restart the desktop app and try again.");

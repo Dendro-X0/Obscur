@@ -1529,4 +1529,38 @@ mod tests {
             .unwrap();
         assert_eq!(profile_count, 0);
     }
+
+    /// Canonical DM read hot path — page budget for engine-lab B3 gate.
+    #[test]
+    fn test_dm_read_path_page_budget() {
+        use std::time::Instant;
+
+        let db = Database::new(None).unwrap();
+        seed_profile(&db, "bench_profile");
+        const MESSAGE_COUNT: usize = 500;
+        const PAGE_LIMIT: u32 = 200;
+        const BUDGET_MS: u128 = 500;
+
+        for i in 0..MESSAGE_COUNT {
+            db.insert_message(&make_message_at(
+                &format!("evt_{i}"),
+                "bench_profile",
+                "dm:aa:bb",
+                1_700_000_000_000 + i as i64,
+            ))
+            .unwrap();
+        }
+
+        let started = Instant::now();
+        let rows = db
+            .get_messages_by_conversation("bench_profile", "dm:aa:bb", PAGE_LIMIT, None)
+            .unwrap();
+        let elapsed_ms = started.elapsed().as_millis();
+
+        assert_eq!(rows.len(), PAGE_LIMIT as usize);
+        assert!(
+            elapsed_ms < BUDGET_MS,
+            "dm read page exceeded budget: {elapsed_ms}ms (limit {BUDGET_MS}ms)"
+        );
+    }
 }

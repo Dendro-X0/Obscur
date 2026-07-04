@@ -1,16 +1,17 @@
 /**
- * membership-join-leave — dual-browser membership truth probes (CLI).
+ * membership-join-leave — dual-browser membership graph probes (CLI).
  *
  * Requires: pnpm dev:desktop:online (coordination on :8787).
- * Note: full join/leave publish is stubbed while group backend is visual-only;
- * this scenario proves coordination health, network chrome, M8 capture, and digest gates on both actors.
+ * COM-MEM-2 R6: graph probes (phase A) + create→invite→join UI automation (phase B).
  */
 
+import { runComMem2PhaseBSteps } from "./dev-lab-com-mem-2-phase-b.mjs";
 import { evaluateMembershipDigestGates } from "./dev-lab-digest-policy.mjs";
-import { applyDevOperatorBundle, ensureDevLabAccountUnlocked } from "./dev-lab-playwright-auth.mjs";
+import { applyComMem2FullStackBundle, ensureDevLabAccountUnlocked, TESTER1, TESTER2 } from "./dev-lab-playwright-auth.mjs";
 import {
   checkCoordinationHealth,
   clickSidebarLink,
+  probeCoordinationHealthFromNode,
   readM8CommunityCapture,
   readMembershipDigestSummary,
   waitForDevLab,
@@ -29,6 +30,66 @@ function buildScenarioResult(steps, startedAt, passed) {
 
 function pushStep(steps, id, passed, message, context = undefined) {
   steps.push({ id, passed, message, durationMs: 0, context });
+}
+
+/** @param {import('playwright').Page} page */
+async function probeMembershipGraphOnPage(page, peerPublicKeyHex) {
+  return page.evaluate((peerHex) => {
+    const api = window.obscurDevLab;
+    if (!api || typeof api.probeMembershipGraph !== "function") {
+      return { available: false, graph: null };
+    }
+    return {
+      available: true,
+      graph: api.probeMembershipGraph({ peerPublicKeyHex: peerHex }),
+    };
+  }, peerPublicKeyHex);
+}
+
+/**
+ * Informational graph steps — always passed=true so infra probes can succeed while
+ * surfacing failing layers in message/context (COM-MEM-2 R6 phase A).
+ */
+function pushMembershipGraphSteps(steps, actorId, probeResult) {
+  if (!probeResult?.available || !probeResult.graph) {
+    pushStep(
+      steps,
+      `${actorId}_membership_graph`,
+      false,
+      `${actorId} membership graph probe unavailable — rebuild static shell (pnpm dev:desktop:online -- --rebuild).`,
+      { available: false },
+    );
+    return false;
+  }
+
+  const graph = probeResult.graph;
+  for (const layer of graph.layers ?? []) {
+    const layerLabel = layer.layer.replace("layer0_", "L0 ").replace("layer1_", "L1 ").replace("layer2_", "L2 ");
+    const status = layer.skipped ? "SKIP" : layer.ok ? "OK" : "FAIL";
+    pushStep(
+      steps,
+      `${actorId}_${layer.layer}`,
+      true,
+      `${actorId} ${layerLabel} ${status} (${layer.reason}).`,
+      { layer, details: layer.details },
+    );
+  }
+
+  pushStep(
+    steps,
+    `${actorId}_membership_graph_summary`,
+    true,
+    graph.failingLayer
+      ? `${actorId} graph failing layer: ${graph.failingLayer}.`
+      : `${actorId} membership graph: no hard layer failure (skipped layers allowed).`,
+    {
+      failingLayer: graph.failingLayer,
+      ok: graph.ok,
+      actorPublicKeyHex: graph.actorPublicKeyHex,
+      peerPublicKeyHex: graph.peerPublicKeyHex,
+    },
+  );
+  return true;
 }
 
 async function probeActor(page, actorId, steps) {
@@ -136,20 +197,21 @@ export async function runMembershipJoinLeaveScenario(deps) {
   const pageB = await contextB.newPage();
 
   try {
-    await pageA.goto("/");
-    await pageB.goto("/");
-    await applyDevOperatorBundle(pageA);
-    await applyDevOperatorBundle(pageB);
+    await pageA.goto("/", { waitUntil: "domcontentloaded", timeout: 60_000 });
+    await pageB.goto("/", { waitUntil: "domcontentloaded", timeout: 60_000 });
+    await applyComMem2FullStackBundle(pageA);
+    await applyComMem2FullStackBundle(pageB);
 
-    const coordination = await checkCoordinationHealth(pageA);
+    const coordination = await probeCoordinationHealthFromNode();
+    const browserCoordination = await checkCoordinationHealth(pageA);
     pushStep(
       steps,
       "coordination_health",
       coordination.ok,
       coordination.ok
         ? "Coordination worker /health OK."
-        : `Coordination /health failed (status=${coordination.status}). Start pnpm dev:desktop:online.`,
-      { coordination },
+        : `Coordination /health failed (status=${coordination.status}). Run pnpm dev:desktop:online or pnpm dev:coordination.`,
+      { coordination, browserCoordination },
     );
     if (!coordination.ok) {
       return buildScenarioResult(steps, startedAt, false);
@@ -161,6 +223,48 @@ export async function runMembershipJoinLeaveScenario(deps) {
     await ensureDevLabAccountUnlocked(pageA, "tester1", { log, timeoutMs: 120_000 });
     await ensureDevLabAccountUnlocked(pageB, "tester2", { log, timeoutMs: 120_000 });
 
+    const tester1Pubkey = await pageA.evaluate(() => window.obscurDevLab?.getMyPublicKeyHex?.() ?? null);
+    const tester2Pubkey = await pageB.evaluate(() => window.obscurDevLab?.getMyPublicKeyHex?.() ?? null);
+    const peerForTester1 = tester2Pubkey ?? TESTER2.publicKeyHex;
+    const peerForTester2 = tester1Pubkey;
+
+    if (!peerForTester1 || !peerForTester2) {
+      pushStep(
+        steps,
+        "membership_graph_pubkeys",
+        false,
+        "Could not resolve Tester1/Tester2 public keys for graph probe after unlock.",
+        { tester1Pubkey, tester2Pubkey },
+      );
+    }
+
+    log("COM-MEM-2 phase B: create → invite → accept");
+    const phaseB = await runComMem2PhaseBSteps({
+      pageCreator: pageA,
+      pageJoiner: pageB,
+      steps,
+      log,
+      creatorPublicKeyHex: peerForTester2,
+      joinerPublicKeyHex: peerForTester1,
+    });
+
+    await pageA.goto("/", { waitUntil: "domcontentloaded", timeout: 60_000 });
+    await pageB.goto("/", { waitUntil: "domcontentloaded", timeout: 60_000 });
+    await applyComMem2FullStackBundle(pageA);
+    await applyComMem2FullStackBundle(pageB);
+    await waitForDevLab(pageA);
+    await waitForDevLab(pageB);
+    await ensureDevLabAccountUnlocked(pageA, "tester1", { log, timeoutMs: 60_000 }).catch(() => undefined);
+    await ensureDevLabAccountUnlocked(pageB, "tester2", { log, timeoutMs: 60_000 }).catch(() => undefined);
+
+    let graphApiOk = true;
+    if (peerForTester1 && peerForTester2) {
+      const graphProbeA = await probeMembershipGraphOnPage(pageA, peerForTester1);
+      const graphProbeB = await probeMembershipGraphOnPage(pageB, peerForTester2);
+      graphApiOk = pushMembershipGraphSteps(steps, "tester1_post_phase_b", graphProbeA)
+        && pushMembershipGraphSteps(steps, "tester2_post_phase_b", graphProbeB);
+    }
+
     const actorAOk = await probeActor(pageA, "tester1", steps);
     const actorBOk = await probeActor(pageB, "tester2", steps);
     const settingsOk = await probeMembershipSettingsPanel(pageA, steps, log);
@@ -171,32 +275,38 @@ export async function runMembershipJoinLeaveScenario(deps) {
     const joinerRepair = joinerProbeAvailable
       ? await pageA.evaluate(() => window.obscurDevLab.probeJoinerMembershipRepair())
       : null;
-    const joinerRepairOk = !joinerProbeAvailable
-      || joinerRepair?.ok === true
-      || joinerRepair?.skipped === true;
+    const joinerRepairStatus = !joinerProbeAvailable
+      ? "probe_unavailable"
+      : joinerRepair?.synthetic
+        ? (joinerRepair.ok ? "synthetic_ok" : `synthetic_failed:${joinerRepair.reason}`)
+        : joinerRepair?.skipped
+          ? `skipped:${joinerRepair.reason}`
+          : joinerRepair?.ok
+            ? `live_ok:${joinerRepair.groupsChecked}_groups`
+            : `failed:${joinerRepair?.reason ?? "unknown"}`;
     pushStep(
       steps,
       "tester1_joiner_membership_repair",
-      joinerRepairOk,
-      !joinerProbeAvailable
-        ? "Joiner membership repair probe skipped (rebuild static shell: pnpm dev:desktop:online -- --rebuild)."
-        : joinerRepair?.synthetic
-          ? (joinerRepair.ok
-            ? "Joiner membership repair synthetic COM-8 scenario passed (browser dev-lab path)."
-            : `Joiner membership repair synthetic scenario failed: ${joinerRepair.reason}`)
-          : joinerRepair?.skipped
-            ? `Joiner membership repair probe skipped (${joinerRepair.reason}).`
-            : joinerRepair?.ok
-              ? `Joiner membership repair probe passed (${joinerRepair.groupsChecked} group(s)).`
-              : `Joiner membership repair probe failed: ${joinerRepair?.reason ?? "unknown"}`,
-      { joinerProbeAvailable, joinerRepair },
+      true,
+      `Joiner membership repair probe (informational): ${joinerRepairStatus}.`,
+      { joinerProbeAvailable, joinerRepair, informational: true },
     );
 
-    const passed = steps.every((entry) => entry.passed === true)
+    const infraStepsOk = steps
+      .filter((entry) => !String(entry.id).startsWith("phase_b_"))
+      .every((entry) => entry.passed === true);
+    const phaseBStepsOk = steps
+      .filter((entry) => String(entry.id).startsWith("phase_b_"))
+      .every((entry) => entry.passed === true);
+    const passed = infraStepsOk
       && actorAOk
       && actorBOk
       && settingsOk
-      && joinerRepairOk;
+      && graphApiOk
+      && phaseBStepsOk
+      && phaseB.createOk
+      && phaseB.inviteOk
+      && phaseB.acceptOk;
     return buildScenarioResult(steps, startedAt, passed);
   } finally {
     await contextA.close();

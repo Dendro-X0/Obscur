@@ -31,7 +31,7 @@ describe("Phase D — DM durability contract", () => {
 
   it("uses checkpoint-driven relay repair separate from hydrate read path", () => {
     const orchestrator = readSource("features/messaging/controllers/dm-sync-orchestrator.ts");
-    const hydrate = readSource("features/messaging/services/dm-conversation-hydrate-indexed-scan.ts");
+    const hydrate = readSource("features/messaging/services/thread-history/hydrate-indexed-scan.ts");
     expect(orchestrator).toContain("repairTimelineCheckpoint");
     expect(orchestrator).toContain("createBackfillRequest");
     expect(hydrate).not.toContain("DM_SUBSCRIBE_HISTORY_LOOKBACK_SECONDS");
@@ -45,8 +45,8 @@ describe("Phase D — DM durability contract", () => {
   it("uses sqlite-only native DM thread read owner (R1 subtraction)", () => {
     const policy = readSource("features/messaging/services/native-dm-read-policy.ts");
     const authority = readSource("features/messaging/services/dm-read-authority-contract.ts");
-    const hook = readSource("features/messaging/hooks/use-conversation-messages.ts");
-    const readModel = readSource("features/messaging/services/dm-conversation-hydrate-read-model.ts");
+    const hook = readSource("features/messaging/hooks/use-conversation-messages-legacy.ts");
+    const readModel = readSource("features/messaging/services/thread-history/hydrate-read-model.ts");
     const messageQueue = readSource("features/messaging/lib/message-queue.ts");
     expect(policy).toContain("isNativeDmSqliteReadOwner");
     expect(policy).toContain("nativeDmSkipsIndexedDbMessageQueue");

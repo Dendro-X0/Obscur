@@ -14,6 +14,8 @@ import {
   toGroupConversationFromMembershipLedgerEntry,
   type CommunityMembershipLedgerEntry,
 } from "./community-membership-ledger";
+import { validateLedgerEntries } from "./community-ledger-validator";
+import { messagingChatStateReadPort } from "@/app/features/messaging/services/messaging-chat-state-read-port";
 
 const PUBLIC_KEY = "a".repeat(64);
 const LEGACY_STORAGE_KEY = `obscur.group.membership_ledger.v1.${PUBLIC_KEY}`;
@@ -27,6 +29,12 @@ const BASE_ENTRY: CommunityMembershipLedgerEntry = {
   status: "joined",
   updatedAtUnixMs: 1_000,
   displayName: "Writers",
+  publicKeyHex: PUBLIC_KEY,
+  memberPubkeys: [PUBLIC_KEY],
+  adminPubkeys: [PUBLIC_KEY],
+  ledgerVersion: 2,
+  createdAt: 1_000,
+  updatedAt: 1_000,
 };
 
 describe("community-membership-ledger", () => {
@@ -265,5 +273,66 @@ describe("community-membership-ledger", () => {
     const firstEvent = listener.mock.calls[0]?.[0] as CustomEvent<{ reason: string }>;
     expect(firstEvent.detail.reason).toBe("community_membership_changed");
     window.removeEventListener(accountSyncMutationSignalInternals.ACCOUNT_SYNC_MUTATION_EVENT, listener as EventListener);
+  });
+
+  it("RIW-1: migrates v1 ledger rows on load and persists v2 snapshot", () => {
+    const legacyEntry = {
+      communityId: "group-1:wss://relay.example",
+      groupId: "group-1",
+      relayUrl: "wss://relay.example",
+      status: "joined",
+      updatedAtUnixMs: 1_000,
+      displayName: "Writers",
+    };
+    window.localStorage.setItem(SCOPED_STORAGE_KEY, JSON.stringify([legacyEntry]));
+
+    const loaded = loadCommunityMembershipLedger(PUBLIC_KEY);
+    expect(loaded).toHaveLength(1);
+    expect(loaded[0]?.ledgerVersion).toBe(2);
+    expect(loaded[0]?.publicKeyHex).toBe(PUBLIC_KEY);
+    expect(loaded[0]?.memberPubkeys?.length).toBeGreaterThan(0);
+
+    const persistedRaw = window.localStorage.getItem(SCOPED_STORAGE_KEY);
+    expect(persistedRaw).toContain("\"ledgerVersion\":2");
+  });
+
+  it("RIW-1: repairs joined v2 rows missing displayName on load (NewTest 2 class)", () => {
+    const newTest2GroupId = "b93f53e23d8c4456835afd3f4d3a627b";
+    const incompleteJoined: CommunityMembershipLedgerEntry = {
+      communityId: `group:${newTest2GroupId}:ws://localhost:7000`,
+      groupId: newTest2GroupId,
+      relayUrl: "ws://localhost:7000",
+      status: "joined",
+      updatedAtUnixMs: 1_000,
+      publicKeyHex: PUBLIC_KEY,
+      memberPubkeys: [PUBLIC_KEY],
+      adminPubkeys: [PUBLIC_KEY],
+      ledgerVersion: 2,
+    };
+    window.localStorage.setItem(SCOPED_STORAGE_KEY, JSON.stringify([incompleteJoined]));
+
+    vi.spyOn(messagingChatStateReadPort, "load").mockReturnValue(null);
+
+    const loaded = loadCommunityMembershipLedger(PUBLIC_KEY);
+    const validation = validateLedgerEntries(loaded, { allowLegacy: true });
+
+    expect(validation.invalid).toBe(0);
+    expect(loaded[0]?.displayName).toContain("b93f53e2");
+  });
+
+  it("RIW-1: archival historical rows stay valid without active-member fields", () => {
+    const historical: CommunityMembershipLedgerEntry = {
+      communityId: "group-legacy:ws://localhost:7000",
+      groupId: "legacy-group",
+      relayUrl: "ws://localhost:7000",
+      status: "historical",
+      updatedAtUnixMs: 1_000,
+    };
+    window.localStorage.setItem(SCOPED_STORAGE_KEY, JSON.stringify([historical]));
+
+    const loaded = loadCommunityMembershipLedger(PUBLIC_KEY);
+    const validation = validateLedgerEntries(loaded, { allowLegacy: true });
+
+    expect(validation.invalid).toBe(0);
   });
 });

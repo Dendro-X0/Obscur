@@ -6,10 +6,12 @@
 
 pub mod crypto;
 pub mod db;
+pub mod engine_invoke;
 pub mod net;
 pub mod keystore;
 pub mod ffi;
 pub mod protocol;
+pub mod storage_at_rest;
 
 uniffi::setup_scaffolding!("libobscur");
 

@@ -13,7 +13,7 @@
  */
 
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
-import { chatStateStoreService } from "@/app/features/messaging/services/chat-state-store";
+import { messagingChatStateReadPort } from "@/app/features/messaging/services/messaging-chat-state-read-port";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { logAppEvent } from "@/app/shared/log-app-event";
 
@@ -121,7 +121,7 @@ export const extractCasContentHashFromUrl = (url: string): string | null => {
 };
 
 const findMessagesWithAttachments = (publicKeyHex: PublicKeyHex): MessageWithAttachment[] => {
-  const chatState = chatStateStoreService.load(publicKeyHex);
+  const chatState = messagingChatStateReadPort.load(publicKeyHex);
   if (!chatState) return [];
 
   const messages: MessageWithAttachment[] = [];

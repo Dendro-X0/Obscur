@@ -115,7 +115,7 @@ vi.mock("@/app/features/profiles/services/profile-runtime-scope", () => ({
   getResolvedProfileId: () => PROFILE_ID,
 }));
 
-vi.mock("./chat-state-store", () => ({
+vi.mock("@/app/features/messaging/services/chat-state-store-legacy", () => ({
   chatStateStoreService: {
     removeMessageIdentitiesFromAllActiveScopes: vi.fn(),
   },
@@ -123,21 +123,6 @@ vi.mock("./chat-state-store", () => ({
 
 vi.mock("@dweb/storage/indexed-db", () => ({
   messagingDB: { delete: vi.fn(async () => undefined) },
-}));
-
-const reconcileMocks = vi.hoisted(() => ({
-  reconcileDmDeleteSuppressionWithEventLog: vi.fn(async () => {
-    const key = `${PROFILE_ID}::${ACCOUNT}`;
-    const list = partitionEvents.get(key) ?? [];
-    partitionEvents.set(key, list.filter((event) => (
-      event.type !== "DM_RECEIVED" && event.type !== "DM_SENT_CONFIRMED"
-    )));
-    return { redactedCount: 2, removedEventsAppended: 0 };
-  }),
-}));
-
-vi.mock("./dm-delete-event-log-reconciliation", () => ({
-  reconcileDmDeleteSuppressionWithEventLog: reconcileMocks.reconcileDmDeleteSuppressionWithEventLog,
 }));
 
 vi.mock("@/app/features/account-sync/services/account-projection-runtime", () => ({
@@ -180,7 +165,7 @@ vi.mock("@/app/shared/log-app-event", () => ({
 }));
 
 import { accountEventStore } from "@/app/features/account-sync/services/account-event-store";
-import { applyDmDeleteForMePersistence } from "./dm-local-delete-persistence";
+import { messagingClientOperations } from "./messaging-client-operations";
 
 const createDmReceived = (messageId: string): AccountEvent => ({
   type: "DM_RECEIVED",
@@ -211,7 +196,7 @@ describe("dm delete reload projection contract", () => {
       events: [createDmReceived("spam-1"), createDmReceived("spam-2")],
     });
 
-    await applyDmDeleteForMePersistence({
+    await messagingClientOperations.deleteDmForMe({
       conversationId: CONVERSATION_ID,
       messageIdentityIds: ["spam-1", "spam-2"],
       accountPublicKeyHex: ACCOUNT,

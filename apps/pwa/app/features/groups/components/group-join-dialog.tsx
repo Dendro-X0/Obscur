@@ -1,6 +1,6 @@
 "use client";
 
-import { useSealedCommunity } from "../hooks/use-sealed-community";
+import { useLegacySealedCommunity } from "@/app/features/groups/hooks/sealed-community-port";
 import { Button } from "@dweb/ui-kit";
 import { Avatar, AvatarImage, AvatarFallback } from "@dweb/ui-kit";
 import { Users, ShieldCheck, X } from "lucide-react";
@@ -9,7 +9,7 @@ import { useRouter } from "next/navigation";
 import { useRelay } from "../../relays/providers/relay-provider";
 import { useRelayPoolRef } from "../../relays/hooks/use-relay-pool-ref";
 import { useIdentity } from "../../auth/hooks/use-identity";
-import { useGroups } from "../providers/group-provider";
+import { useGroups } from "@/app/features/groups/providers/group-provider-port";
 import { toGroupConversationId } from "../utils/group-conversation-id";
 import { deriveCommunityId } from "../utils/community-identity";
 import { resolveManagedWorkspaceCommunityId } from "@/app/features/workspace-kernel/workspace-kernel-membership-scope";
@@ -23,6 +23,7 @@ import { ensureWorkspaceMembershipSyncMode } from "../services/community-workspa
 import { isWorkspaceKernelAuthority } from "@/app/features/workspace-kernel/workspace-kernel-policy";
 import { joinManagedWorkspaceMembership } from "@/app/features/workspace-kernel/workspace-kernel-membership-port";
 import { useRelayList } from "../../relays/hooks/use-relay-list";
+import type { GroupConversation } from "@/app/features/messaging/types";
 
 /**
  * Props for GroupJoinDialog
@@ -58,7 +59,7 @@ export const GroupJoinDialog = ({ open, onOpenChange, groupId, relayUrl, onSucce
         }
     }, [open, relayUrl, poolRef]);
 
-    const { state: groupState, requestJoin } = useSealedCommunity({
+    const { state: groupState, requestJoin } = useLegacySealedCommunity({
         pool: pool as any, // Cast to any to satisfy the local interface in use-sealed-community
         relayUrl,
         groupId,
@@ -80,14 +81,14 @@ export const GroupJoinDialog = ({ open, onOpenChange, groupId, relayUrl, onSucce
                 return;
             }
             ensureWorkspaceMembershipSyncMode();
-            let activation: Awaited<ReturnType<typeof joinManagedWorkspaceMembership>> | undefined;
+            let kernelJoinedGroup: GroupConversation | undefined;
             if (workspaceKernelJoin) {
                 if (!identityState.publicKeyHex || !identityState.privateKeyHex) {
                     setError("Identity must be unlocked to join a workspace community.");
                     return;
                 }
                 const communityId = deriveCommunityId({ groupId, relayUrl });
-                activation = await joinManagedWorkspaceMembership({
+                const joinResult = await joinManagedWorkspaceMembership({
                     communityId,
                     groupId,
                     relayUrl,
@@ -101,31 +102,30 @@ export const GroupJoinDialog = ({ open, onOpenChange, groupId, relayUrl, onSucce
                         .filter((relay) => relay.enabled)
                         .map((relay) => relay.url),
                 });
-                const coordinationJoinConfirmed = activation.coordination.status === "synced";
-                if (activation.summary.severity !== "success" && !coordinationJoinConfirmed) {
-                    setError(activation.summary.detail ?? activation.summary.title);
+                if (!joinResult.ok) {
+                    setError(joinResult.userFacingMessage ?? joinResult.errorMessage);
                     return;
                 }
+                kernelJoinedGroup = joinResult.group;
             } else {
                 await requestJoin();
             }
 
             // Add to local state for immediate UI update
-            const resolvedRelayUrl = workspaceKernelJoin
-                ? (activation?.relay.canonicalUrl || relayUrl)
-                : relayUrl;
-            const resolvedCommunityId = workspaceKernelJoin && identityState.publicKeyHex
-                ? resolveManagedWorkspaceCommunityId({
-                    group: {
-                        groupId,
-                        relayUrl: resolvedRelayUrl,
-                        communityId: deriveCommunityId({ groupId, relayUrl: resolvedRelayUrl }),
-                    },
-                    publicKeyHex: identityState.publicKeyHex,
-                    profileId: getResolvedProfileId(),
-                })
-                : deriveCommunityId({ groupId, relayUrl: resolvedRelayUrl });
-            const joinedGroup = {
+            const resolvedRelayUrl = kernelJoinedGroup?.relayUrl || relayUrl;
+            const resolvedCommunityId = kernelJoinedGroup?.communityId
+                ?? (workspaceKernelJoin && identityState.publicKeyHex
+                    ? resolveManagedWorkspaceCommunityId({
+                        group: {
+                            groupId,
+                            relayUrl: resolvedRelayUrl,
+                            communityId: deriveCommunityId({ groupId, relayUrl: resolvedRelayUrl }),
+                        },
+                        publicKeyHex: identityState.publicKeyHex,
+                        profileId: getResolvedProfileId(),
+                    })
+                    : deriveCommunityId({ groupId, relayUrl: resolvedRelayUrl }));
+            const joinedGroup = kernelJoinedGroup ?? {
                 kind: "group" as const,
                 id: toGroupConversationId({ groupId, relayUrl: resolvedRelayUrl, communityId: resolvedCommunityId }),
                 groupId,

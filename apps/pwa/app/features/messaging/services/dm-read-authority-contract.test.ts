@@ -7,12 +7,18 @@ import {
   isCanonicalDmReadPath,
   formatDmReadAuthorityForDiagnostics,
   type DmReadAuthorityParams,
-} from "./dm-read-authority-contract";
-import { requiresSqlitePersistence } from "@/app/features/runtime/native-persistence-policy";
+} from "@/app/features/messaging/services/dm-read-authority-port";
 
 vi.mock("@/app/features/runtime/native-persistence-policy", () => ({
   requiresSqlitePersistence: vi.fn(() => false),
 }));
+
+vi.mock("@/app/features/messaging/services/native-dm-read-policy", () => ({
+  isNativeDmSqliteReadOwner: vi.fn(() => false),
+}));
+
+import { requiresSqlitePersistence } from "@/app/features/runtime/native-persistence-policy";
+import { isNativeDmSqliteReadOwner } from "@/app/features/messaging/services/native-dm-read-policy";
 import type { Message } from "../types";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 
@@ -339,6 +345,7 @@ describe("dm-read-authority-contract", () => {
 
     it("selects indexed_primary on native regardless of projection shape", () => {
       vi.mocked(requiresSqlitePersistence).mockReturnValue(true);
+      vi.mocked(isNativeDmSqliteReadOwner).mockReturnValue(true);
       const decision = resolveLegacyHydrationAuthority({
         useProjectionReads: true,
         projectionMessageCount: 2,
@@ -360,10 +367,12 @@ describe("dm-read-authority-contract", () => {
         reason: "indexed_primary",
       });
       vi.mocked(requiresSqlitePersistence).mockReturnValue(false);
+      vi.mocked(isNativeDmSqliteReadOwner).mockReturnValue(false);
     });
 
     it("selects indexed_primary on native even when projection is incoming-only", () => {
       vi.mocked(requiresSqlitePersistence).mockReturnValue(true);
+      vi.mocked(isNativeDmSqliteReadOwner).mockReturnValue(true);
       const decision = resolveLegacyHydrationAuthority({
         useProjectionReads: true,
         projectionMessageCount: 2,
@@ -385,6 +394,7 @@ describe("dm-read-authority-contract", () => {
         reason: "indexed_primary",
       });
       vi.mocked(requiresSqlitePersistence).mockReturnValue(false);
+      vi.mocked(isNativeDmSqliteReadOwner).mockReturnValue(false);
     });
 
     it("selects indexed when legacy picks indexed", () => {

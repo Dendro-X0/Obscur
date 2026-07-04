@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRelayPoolRef } from "@/app/features/relays/hooks/use-relay-pool-ref";
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
-import type { EnhancedRelayPoolResult } from "@/app/features/relays/hooks/enhanced-relay-pool";
+import type { EnhancedRelayPoolResult } from "@/app/features/relays/hooks/enhanced-relay-pool-types";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { PrivacySettingsService } from "@/app/features/settings/services/privacy-settings-service";
 import { logAppEvent } from "@/app/shared/log-app-event";

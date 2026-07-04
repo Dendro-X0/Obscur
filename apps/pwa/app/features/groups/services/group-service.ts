@@ -11,6 +11,9 @@ import { loadCommunityMembershipLedger } from "./community-membership-ledger";
 
 import { roomKeyStore } from "../../crypto/room-key-store";
 import { deriveCommunityInviteRumorEventId } from "../utils/community-invite-dm-message";
+import { deriveCommunityId } from "../utils/community-identity";
+import { loadCoordinationMembershipDirectory } from "./community-coordination-membership-directory-store";
+import { resolveRoomKeyForCommunityAction } from "./community-coordination-room-key-owner";
 
 type GroupRoomKeyMissingReasonCode = Extract<
     CommunitySendBlockReasonCode,
@@ -37,6 +40,63 @@ export class GroupService {
             : groupId;
     }
 
+    private resolveCommunityIdForSend(params: Readonly<{
+        groupId: string;
+        communityId?: string;
+    }>): string | null {
+        const explicitCommunityId = params.communityId?.trim();
+        if (explicitCommunityId) {
+            return explicitCommunityId;
+        }
+        const profileId = getResolvedProfileId();
+        const membershipEntries = loadCommunityMembershipLedger(this.myPublicKeyHex, { profileId });
+        const joinedEntry = membershipEntries.find((entry) => (
+            entry.status === "joined" && entry.groupId.trim() === params.groupId.trim()
+        ));
+        if (!joinedEntry) {
+            return null;
+        }
+        return deriveCommunityId({
+            existingCommunityId: joinedEntry.communityId,
+            groupId: joinedEntry.groupId,
+            relayUrl: joinedEntry.relayUrl,
+        }).trim() || null;
+    }
+
+    private async resolveRoomKeyHexForSend(params: Readonly<{
+        groupId: string;
+        roomKeyHex?: string;
+        communityId?: string;
+    }>): Promise<string | null> {
+        const directRoomKeyHex = params.roomKeyHex?.trim();
+        if (directRoomKeyHex) {
+            return directRoomKeyHex;
+        }
+        const localRecord = await roomKeyStore.getRoomKeyRecord(params.groupId);
+        const localRoomKeyHex = localRecord?.roomKeyHex?.trim();
+        if (localRoomKeyHex) {
+            return localRoomKeyHex;
+        }
+
+        const communityId = this.resolveCommunityIdForSend({
+            groupId: params.groupId,
+            communityId: params.communityId,
+        });
+        if (!communityId) {
+            return null;
+        }
+
+        const coordinationDirectory = loadCoordinationMembershipDirectory(communityId);
+        const resolved = await resolveRoomKeyForCommunityAction({
+            groupId: params.groupId,
+            communityId,
+            localPubkey: this.myPublicKeyHex,
+            localPrivateKeyHex: this.myPrivateKeyHex,
+            activeMemberPubkeys: coordinationDirectory?.activeMemberPubkeys,
+        });
+        return resolved.roomKeyHex?.trim() || null;
+    }
+
     /**
      * Sends an encrypted message to the community.
      */
@@ -44,12 +104,14 @@ export class GroupService {
         groupId: string;
         content: string;
         roomKeyHex?: string;
+        communityId?: string;
         replyTo?: string;
     }): Promise<NostrEvent> {
-        const directRecord = params.roomKeyHex
-            ? null
-            : await roomKeyStore.getRoomKeyRecord(params.groupId);
-        const roomKeyHex = params.roomKeyHex || directRecord?.roomKeyHex || null;
+        const roomKeyHex = await this.resolveRoomKeyHexForSend({
+            groupId: params.groupId,
+            roomKeyHex: params.roomKeyHex,
+            communityId: params.communityId,
+        });
         if (!roomKeyHex) {
             let reasonCode: GroupRoomKeyMissingReasonCode = "no_local_room_keys";
             let localRoomKeyCount: number | null = null;

@@ -3,7 +3,7 @@ import type { LocalSaveLibraryEntry } from "./local-save-contracts";
 import {
   formatPublicKeyAbbreviation,
   resolveLocalSaveDisplayName,
-  resolveLocalSaveTypeLabel,
+  resolveLocalSaveTypeLabelKey,
 } from "./local-save-library-presenters";
 
 const entry = (overrides: Partial<LocalSaveLibraryEntry> = {}): LocalSaveLibraryEntry => ({
@@ -32,6 +32,6 @@ describe("local-save-library-presenters", () => {
   });
 
   it("labels portable account saves", () => {
-    expect(resolveLocalSaveTypeLabel(entry())).toBe("Portable account");
+    expect(resolveLocalSaveTypeLabelKey(entry())).toBe("profiles.portability.localSave.type.portableAccount");
   });
 });

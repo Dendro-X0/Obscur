@@ -4,7 +4,7 @@ import { PrivacySettingsService } from "../../settings/services/privacy-settings
 import { performanceMonitor } from "../lib/performance-monitor";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { normalizePublicKeyHex } from "../../profile/utils/normalize-public-key-hex";
-import { chatStateStoreService } from "./chat-state-store";
+import { messagingChatStateMessagePort } from "./messaging-chat-state-message-port";
 import { fromPersistedMessagesByConversationId } from "../utils/persistence";
 import { toDmConversationId } from "../utils/dm-conversation-id";
 import { isGroupConversationId } from "@/app/features/groups/utils/group-conversation-id";
@@ -15,7 +15,7 @@ import { logAppEvent } from "@/app/shared/log-app-event";
 import { getProfileRuntimeScope, getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import type { ProfileMessageBus } from "@dweb/core/profile-message-bus";
 import { isTauri, dbInsertMessage, dbInsertTombstone, dbDeleteMessages, dbUpsertConversation } from "@dweb/db";
-import { requiresSqlitePersistence } from "@/app/features/runtime/native-persistence-policy";
+import { isDmKernelChatStateMessageIoSuppressed } from "@/app/features/dm-kernel/dm-kernel-chat-state-io-policy";
 import {
   isDmKernelWriteOwner,
   writeDmKernelConversation,
@@ -23,7 +23,7 @@ import {
 } from "@/app/features/dm-kernel/dm-kernel-write-port";
 import { linkLocalMediaIndexToMessageEvent } from "@/app/features/vault/services/local-media-store";
 import type { MessageRecord, TombstoneRecord, ConversationRecord } from "@dweb/db";
-import type { ChatStateReplacedEventDetail } from "./chat-state-store";
+import type { ChatStateReplacedEventDetail } from "@/app/features/messaging/services/chat-state-store-types";
 import { createMicrotaskCoalescedHandler } from "@/app/features/profiles/services/profile-bus-coalesce";
 import { messagingClientOperations } from "./messaging-client-operations";
 import { toConversationIdDiagnosticLabel } from "@dweb/client-gateway/messaging-diagnostics";
@@ -115,7 +115,7 @@ const toPersistedChatStateMessage = (
 });
 
 const mirrorMessageToChatState = (conversationId: string, message: Message, canonicalId: string): void => {
-    if (requiresSqlitePersistence()) {
+    if (isDmKernelChatStateMessageIoSuppressed()) {
         return;
     }
     if (isGroupConversationId(conversationId)) {
@@ -130,7 +130,7 @@ const mirrorMessageToChatState = (conversationId: string, message: Message, cano
         myPublicKeyHex: accountPublicKeyHex,
     });
     const persistedMessage = toPersistedChatStateMessage(message, canonicalId);
-    chatStateStoreService.update(accountPublicKeyHex, (previous) => {
+    messagingChatStateMessagePort.update(accountPublicKeyHex, (previous) => {
         const existing = previous.messagesByConversationId[canonicalConversationId] ?? [];
         const merged = [...existing];
         const existingIndex = merged.findIndex((entry) => (

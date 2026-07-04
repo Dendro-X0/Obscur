@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Message } from "../types";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
-import { buildProjectionEvidenceMessagesForConversation } from "./dm-conversation-projection-evidence-messages";
+import { buildLegacyProjectionEvidenceMessagesForConversation } from "@/app/features/messaging/services/thread-history/dm-thread-history-legacy-port";
 
 const myHex = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" as PublicKeyHex;
 
@@ -20,14 +20,14 @@ vi.mock("@/app/features/account-sync/services/account-projection-selectors", () 
   selectProjectionConversationMessages: () => selectConversationMock(),
 }));
 
-describe("buildProjectionEvidenceMessagesForConversation", () => {
+describe("buildLegacyProjectionEvidenceMessagesForConversation", () => {
   beforeEach(() => {
     selectConversationMock.mockReset();
     selectConversationMock.mockReturnValue([]);
   });
 
   it("returns empty when conversation id is blank", () => {
-    expect(buildProjectionEvidenceMessagesForConversation({
+    expect(buildLegacyProjectionEvidenceMessagesForConversation({
       conversationId: "  ",
       publicKeyHex: myHex,
       projection: null,
@@ -40,7 +40,7 @@ describe("buildProjectionEvidenceMessagesForConversation", () => {
   });
 
   it("returns empty when public key is missing", () => {
-    expect(buildProjectionEvidenceMessagesForConversation({
+    expect(buildLegacyProjectionEvidenceMessagesForConversation({
       conversationId: "c1",
       publicKeyHex: null,
       projection: null,
@@ -54,7 +54,7 @@ describe("buildProjectionEvidenceMessagesForConversation", () => {
 
   it("applies suppression and retention after selection", () => {
     selectConversationMock.mockReturnValue([mk("a"), mk("b")]);
-    const out = buildProjectionEvidenceMessagesForConversation({
+    const out = buildLegacyProjectionEvidenceMessagesForConversation({
       conversationId: "c1",
       publicKeyHex: myHex,
       projection: {} as any,

@@ -223,10 +223,13 @@ export const listStoredIdentityBindings = async (): Promise<ReadonlyArray<Identi
 };
 
 export const findStoredIdentityBindingByPublicKey = async (
-  publicKeyHex: PublicKeyHex
+  publicKeyHex: PublicKeyHex,
 ): Promise<IdentityProfileBinding | null> => {
   const bindings = await listStoredIdentityBindings();
-  return bindings.find((binding) => binding.record.publicKeyHex === publicKeyHex) ?? null;
+  const normalizedTarget = publicKeyHex.trim().toLowerCase();
+  return bindings.find(
+    (binding) => binding.record.publicKeyHex.trim().toLowerCase() === normalizedTarget,
+  ) ?? null;
 };
 
 const migrateScopedStorageForAccount = (
