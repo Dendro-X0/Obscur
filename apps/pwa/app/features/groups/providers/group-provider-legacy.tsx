@@ -51,6 +51,8 @@ import {
 import { isWorkspaceKernelAuthority } from "@/app/features/workspace-kernel/workspace-kernel-policy";
 import { resolveManagedWorkspaceGroupList } from "@/app/features/workspace-kernel/workspace-kernel-list-port";
 import { repairGroupMetadataAfterStorageLoss } from "@/app/features/profiles/services/data-root-group-metadata-repair";
+import { hydrateGroupSidebarPreviewsFromSqlite } from "@/app/features/groups/services/group-sidebar-preview-sqlite-hydrate";
+import { subscribeGroupThreadMessagesChanged } from "@/app/features/messaging/services/thread-history/group-thread-messages-changed";
 import { hasTerminalLedgerScopeEvidence, listManagedWorkspaceCommunityIdCandidates } from "@/app/features/workspace-kernel/workspace-kernel-membership-scope";
 import { useWorkspaceKernelRosterIndex } from "@/app/features/workspace-kernel/use-workspace-kernel-roster-index";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
@@ -124,22 +126,6 @@ export const LegacyGroupProvider: React.FC<{ children: React.ReactNode }> = ({ c
     return next;
   }, [loadGroupMetadataCache, persistGroupMetadataCache, publicKeyHex, resolvedProfileId]);
 
-    useEffect(() => {
-    if (!publicKeyHex) {
-      setCreatedGroups([]);
-      setHasHydratedGroups(false);
-            return;
-        }
-    const metadataCache = loadGroupMetadataCache();
-    const groups = resolveManagedWorkspaceGroupList({
-      publicKeyHex,
-      profileId: resolvedProfileId,
-      persistedGroups: metadataCache,
-    });
-    setCreatedGroups(groups);
-    setHasHydratedGroups(true);
-  }, [loadGroupMetadataCache, publicKeyHex, resolvedProfileId]);
-
   const deriveDisplayGroupList = useCallback((metadataCache: ReadonlyArray<GroupConversation>): ReadonlyArray<GroupConversation> => {
     if (!publicKeyHex) {
       return metadataCache;
@@ -155,8 +141,64 @@ export const LegacyGroupProvider: React.FC<{ children: React.ReactNode }> = ({ c
     if (!publicKeyHex) {
       return;
     }
-    setCreatedGroups(deriveDisplayGroupList(loadGroupMetadataCache()));
-  }, [deriveDisplayGroupList, loadGroupMetadataCache, publicKeyHex]);
+    const baseGroups = deriveDisplayGroupList(loadGroupMetadataCache());
+    if (!isWorkspaceKernelAuthority()) {
+      setCreatedGroups(baseGroups);
+      return;
+    }
+    void hydrateGroupSidebarPreviewsFromSqlite({
+      groups: baseGroups,
+      publicKeyHex: publicKeyHex as PublicKeyHex,
+      profileId: resolvedProfileId,
+    }).then((hydrated) => {
+      setCreatedGroups(hydrated);
+    });
+  }, [deriveDisplayGroupList, loadGroupMetadataCache, publicKeyHex, resolvedProfileId]);
+
+  useEffect(() => {
+    if (!publicKeyHex) {
+      setCreatedGroups([]);
+      setHasHydratedGroups(false);
+      return;
+    }
+    let cancelled = false;
+    const metadataCache = loadGroupMetadataCache();
+    const baseGroups = resolveManagedWorkspaceGroupList({
+      publicKeyHex,
+      profileId: resolvedProfileId,
+      persistedGroups: metadataCache,
+    });
+    if (!isWorkspaceKernelAuthority()) {
+      setCreatedGroups(baseGroups);
+      setHasHydratedGroups(true);
+      return;
+    }
+    void hydrateGroupSidebarPreviewsFromSqlite({
+      groups: baseGroups,
+      publicKeyHex: publicKeyHex as PublicKeyHex,
+      profileId: resolvedProfileId,
+    }).then((hydrated) => {
+      if (!cancelled) {
+        setCreatedGroups(hydrated);
+        setHasHydratedGroups(true);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [loadGroupMetadataCache, publicKeyHex, resolvedProfileId]);
+
+  useEffect(() => {
+    if (!publicKeyHex || !hasHydratedGroups || !isWorkspaceKernelAuthority()) {
+      return;
+    }
+    return subscribeGroupThreadMessagesChanged((detail) => {
+      if (detail.profileId !== resolvedProfileId) {
+        return;
+      }
+      refreshDisplayFromMetadataCache();
+    });
+  }, [hasHydratedGroups, publicKeyHex, refreshDisplayFromMetadataCache, resolvedProfileId]);
 
   useEffect(() => {
     if (!publicKeyHex || !hasHydratedGroups) {

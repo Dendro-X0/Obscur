@@ -8,6 +8,20 @@ All notable changes to Obscur are documented here.
 
 ## [Unreleased]
 
+### Fixed (Runtime repair — R3 sidebar preview stale)
+
+- **List-time SQLite preview hydrate (Option B)** — `hydrateGroupSidebarPreviewsFromSqlite` backfills stale group `lastMessage` from latest SQLite thread row when workspace-kernel authority is active; re-runs on `group-thread-messages-changed`.
+- **Evidence:** L1 `group-sidebar-preview-sqlite-hydrate.test.ts` (5/5) · t4 pending (`chain-r3-sidebar-preview-2026-07-04`).
+
+### Verification (R3)
+
+```bash
+pnpm -C apps/pwa exec vitest run \
+  app/features/groups/services/group-sidebar-preview-sqlite-hydrate.test.ts
+```
+
+CodaCtrl: unlock → Group tab → NewTest 2 → `client_surface_probe` (sidebar preview non-empty when thread hydrated).
+
 ### Fixed (Runtime repair — R1 `group-room-key-missing`)
 
 - **Membership health room-key owner** — `useCommunityMembershipHealth` resolves keys via `resolveRoomKeyHexForMembershipHealthPanel` (same path as group send: local store → coordination materialize).

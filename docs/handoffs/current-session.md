@@ -1,17 +1,19 @@
 # Current Session Handoff — Obscur Engine Lab
 
-- Last Updated (UTC): 2026-07-04T16:35:00Z
+- Last Updated (UTC): 2026-07-04T16:58:00Z
 
 ## Next atomic step
 
-**R3 — Sidebar preview stale** (runtime repair queue)
+**R3 — implement complete · t4 surface probe** (sidebar preview stale · Option B)
 
 | Field | Value |
 |-------|--------|
-| Prior | R2 **VERIFIED t4** (2026-07-04 post-fix regression on rebuilt shell) |
-| R2 residual | Path A (passwordless skip-key-only) remains documented limitation — not claimed fixed |
-| Uncommitted | R1 room-key health fix only |
-| Next | R3 investigation or maintainer commit of R1+R2 fixes |
+| Investigation | [sidebar-preview-stale-r3-investigation-2026-07.md](../../specs/backend/sidebar-preview-stale-r3-investigation-2026-07.md) |
+| Design | [sidebar-preview-stale-r3-design-2026-07.md](../../specs/backend/sidebar-preview-stale-r3-design-2026-07.md) · **Option B** list-time SQLite hydrate |
+| Fix | `group-sidebar-preview-sqlite-hydrate.ts` · wired in `group-provider-legacy.tsx` |
+| L1 | **PASS** — `group-sidebar-preview-sqlite-hydrate.test.ts` (5/5) |
+| Next | t4 CodaCtrl on NewTest 2 · chain `chain-r3-sidebar-preview-2026-07-04` |
+| Uncommitted | R1 room-key health + R3 slice |
 
 **R2 — VERIFIED t4 (2026-07-04 post-fix regression)**
 
@@ -34,7 +36,7 @@ Repair queue:
 |----------|-----|--------|
 | R1 | `group-room-key-missing` | **VERIFIED t4** (uncommitted) |
 | R2 | `auth-keychain-restore-failed` | **VERIFIED t4** |
-| **R3** | Sidebar preview stale | **NEXT** |
+| **R3** | Sidebar preview stale | **IMPLEMENTED** · t4 next |
 | R4 | COM-RUN-01 roster | **A** @ ACC-02 |
 | R5 | O-4 ingest chrome | Partial |
 
