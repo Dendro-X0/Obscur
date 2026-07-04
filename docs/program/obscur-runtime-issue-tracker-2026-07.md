@@ -54,7 +54,7 @@ pnpm dev:desktop -- --online --skip-build
 
 # Terminal C — CodaCtrl daemon (from Obscur repo root)
 CLIENT_CAPTURE_MODE=playwright codactrld serve
-# Health: http://127.0.0.1:46231/health → repoRoot must match newstart
+# Health: http://127.0.0.1:46231/health → repoRoot must match `obscur` workspace path
 ```
 
 ### Capture sequence (MCP golden path)

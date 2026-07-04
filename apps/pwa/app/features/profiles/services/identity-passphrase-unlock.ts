@@ -8,11 +8,40 @@ import { isPasswordlessNativeOnlyIdentity } from "@/app/features/auth/services/p
 import {
   listIdentityRecordCandidatesFromLocalStorage,
   parseIdentityRecord,
+  readIdentityRecordFromLocalStorage,
 } from "@/app/features/auth/utils/identity-persistence";
 import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
+import {
+  resolvePasswordProtectedIdentityRecord,
+  shouldAttemptPasswordProtectedIdentityRepair,
+} from "./data-root-identity-repair";
 import { harvestProfileWebStorage } from "./profile-web-storage-harvest-service";
 
 const normalizePubkey = (value: string): string => value.trim().toLowerCase();
+
+/**
+ * R2 — align unlock probe with bootstrap repair: materialize password row from
+ * alias keys / LevelDB harvest before collecting passphrase candidates.
+ */
+export const materializePasswordProtectedIdentityBeforeUnlock = async (params: Readonly<{
+  profileId: string;
+  publicKeyHex: PublicKeyHex;
+}>): Promise<void> => {
+  const active = readIdentityRecordFromLocalStorage(params.profileId);
+  if (
+    active?.publicKeyHex
+    && normalizePubkey(active.publicKeyHex) !== normalizePubkey(params.publicKeyHex)
+  ) {
+    return;
+  }
+  if (!shouldAttemptPasswordProtectedIdentityRepair(active)) {
+    return;
+  }
+  await resolvePasswordProtectedIdentityRecord({
+    profileId: params.profileId,
+    expectedPublicKeyHex: params.publicKeyHex,
+  });
+};
 
 const dedupeIdentityRecords = (records: ReadonlyArray<IdentityRecord>): IdentityRecord[] => {
   const seen = new Set<string>();
@@ -35,6 +64,8 @@ export const collectPasswordProtectedIdentityCandidates = async (params: Readonl
   profileId: string;
   publicKeyHex: PublicKeyHex;
 }>): Promise<ReadonlyArray<IdentityRecord>> => {
+  await materializePasswordProtectedIdentityBeforeUnlock(params);
+
   const normalizedPubkey = normalizePubkey(params.publicKeyHex);
   const localMatches = listIdentityRecordCandidatesFromLocalStorage(params.profileId)
     .filter((record) => (

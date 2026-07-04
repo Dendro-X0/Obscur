@@ -11,14 +11,24 @@ const harvestMock = vi.fn();
 const listLocalMock = vi.fn();
 const decryptMock = vi.fn();
 const deriveMock = vi.fn();
+const repairMock = vi.fn();
+const readActiveMock = vi.fn();
 
 vi.mock("./profile-web-storage-harvest-service", () => ({
   harvestProfileWebStorage: (...args: unknown[]) => harvestMock(...args),
 }));
 
+vi.mock("./data-root-identity-repair", () => ({
+  resolvePasswordProtectedIdentityRecord: (...args: unknown[]) => repairMock(...args),
+  shouldAttemptPasswordProtectedIdentityRepair: (record?: { encryptedPrivateKey: string }) => (
+    !record || record.encryptedPrivateKey === PASSWORDLESS_NATIVE_ONLY_SENTINEL
+  ),
+}));
+
 vi.mock("@/app/features/auth/utils/identity-persistence", () => ({
   listIdentityRecordCandidatesFromLocalStorage: (...args: unknown[]) => listLocalMock(...args),
   parseIdentityRecord: (value: unknown) => value,
+  readIdentityRecordFromLocalStorage: (...args: unknown[]) => readActiveMock(...args),
 }));
 
 vi.mock("@/app/features/runtime/runtime-capabilities", () => ({
@@ -44,6 +54,10 @@ describe("identity-passphrase-unlock", () => {
     listLocalMock.mockReset();
     decryptMock.mockReset();
     deriveMock.mockReset();
+    repairMock.mockReset();
+    readActiveMock.mockReset();
+    repairMock.mockResolvedValue(undefined);
+    readActiveMock.mockReturnValue(undefined);
     listLocalMock.mockReturnValue([]);
     harvestMock.mockResolvedValue({ identities: [], scannedFileCount: 0, ledgers: [], directories: [] });
   });
@@ -130,5 +144,23 @@ describe("identity-passphrase-unlock", () => {
 
     expect(unlocked?.record.encryptedPrivateKey).toBe(ENCRYPTED_B);
     expect(unlocked?.privateKeyHex).toBe(PRIVATE_KEY);
+  });
+
+  it("materializes password-protected identity before collecting unlock candidates", async () => {
+    readActiveMock.mockReturnValue({
+      encryptedPrivateKey: PASSWORDLESS_NATIVE_ONLY_SENTINEL,
+      publicKeyHex: PUBLIC_KEY,
+      username: "Tester1",
+    });
+
+    await collectPasswordProtectedIdentityCandidates({
+      profileId: "default",
+      publicKeyHex: PUBLIC_KEY,
+    });
+
+    expect(repairMock).toHaveBeenCalledWith({
+      profileId: "default",
+      expectedPublicKeyHex: PUBLIC_KEY,
+    });
   });
 });

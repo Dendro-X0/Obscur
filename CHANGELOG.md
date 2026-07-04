@@ -25,9 +25,25 @@ pnpm -C apps/pwa exec vitest run \
 
 CodaCtrl: stack preflight → `client_session_connect` `:9230` → NewTest 2 group → digest + send + cold restart. Export: `.codactrl/verify/issue-report/export-manifest.json`.
 
+### Fixed (Runtime repair — R2 `auth-keychain-restore-failed`)
+
+- **Unlock-time identity materialization** — `materializePasswordProtectedIdentityBeforeUnlock` calls `resolvePasswordProtectedIdentityRecord` when the active row is passwordless-only, before passphrase candidate collection (covers cold boot password unlock without Import Key).
+- **Path C (device password set)** — cold `taskkill` → relaunch → password unlock reaches main shell without Import Key.
+- **Evidence:** chain `chain-r2-auth-cold-unlock-2026-07-04` · nodes n3–n4 post-fix t4 · sessions `csess-0452d809a249`, `csess-afc2304a45ec`.
+- **Not fixed (documented):** Path A — Import Key → “Skip — unlock with key only” still requires Import Key after cold restart.
+
+### Verification (R2)
+
+```bash
+pnpm -C apps/pwa exec vitest run \
+  app/features/profiles/services/identity-passphrase-unlock.test.ts \
+  app/features/profiles/services/data-root-identity-repair.test.ts
+```
+
+CodaCtrl: warm password unlock → `taskkill obscur_desktop_app.exe` → relaunch → password unlock only.
+
 ### Open (runtime repair — not fixed in this slice)
 
-- **R2** — Cold restart: device password unlock fails; Import Key workaround required.
 - **R3** — Sidebar preview “No messages yet” while thread shows history.
 - **R4** — COM-RUN-01 roster divergence (accepted @ ACC-02).
 

@@ -1,17 +1,30 @@
 # Current Session Handoff — Obscur Engine Lab
 
-- Last Updated (UTC): 2026-07-04T15:00:00Z
+- Last Updated (UTC): 2026-07-04T16:35:00Z
 
 ## Next atomic step
 
-**R2 — `auth-keychain-restore-failed` / cold unlock** (investigation spec in `specs/backend/` before code)
+**R3 — Sidebar preview stale** (runtime repair queue)
 
 | Field | Value |
 |-------|--------|
-| Symptom | After desktop restart, **password unlock fails**; user must **Import Key** |
-| Proof target | CodaCtrl t4 — `taskkill obscur_desktop_app.exe` → relaunch → **password unlock** without Import Key |
-| Modules | `auth-gateway.tsx` · `use-identity.ts` · `session-api.ts` · `startup-auth-state-contracts.ts` |
-| Prior analysis | [desktop-f5-session-restore-analysis.md](../archive/program/inactive-2026-06/desktop-f5-session-restore-analysis.md) |
+| Prior | R2 **VERIFIED t4** (2026-07-04 post-fix regression on rebuilt shell) |
+| R2 residual | Path A (passwordless skip-key-only) remains documented limitation — not claimed fixed |
+| Uncommitted | R1 room-key health fix only |
+| Next | R3 investigation or maintainer commit of R1+R2 fixes |
+
+**R2 — VERIFIED t4 (2026-07-04 post-fix regression)**
+
+| Field | Value |
+|-------|--------|
+| Investigation | [auth-keychain-restore-failed-r2-investigation-2026-07.md](../../specs/backend/auth-keychain-restore-failed-r2-investigation-2026-07.md) |
+| Design | [auth-keychain-restore-failed-r2-design-2026-07.md](../../specs/backend/auth-keychain-restore-failed-r2-design-2026-07.md) |
+| Fix | `materializePasswordProtectedIdentityBeforeUnlock` in `identity-passphrase-unlock.ts` |
+| L1 | **PASS** — identity-passphrase-unlock + data-root-identity-repair (7/7) |
+| Chain | `chain-r2-auth-cold-unlock-2026-07-04` · n0–n2 (pre-fix) · n3 warm post-fix · **n4 cold post-fix PASS** |
+| Cold | `taskkill` → relaunch rebuilt shell → password unlock → main shell + compose (no Import Key) |
+| Sessions | `csess-0452d809a249` (warm) · `csess-afc2304a45ec` (cold t4) |
+| Does not prove | Auto keychain unlock without password · passwordless skip path · packaged NSIS |
 
 **Maintainer policy (2026-07-04):** Runtime repair band **ACTIVE** · Release prep **PAUSED** (no website deploy, Phase 5/6, `v2.0.0` until rows exit with **V** or signed **A**).
 
@@ -19,9 +32,9 @@ Repair queue:
 
 | Priority | ID | Status |
 |----------|-----|--------|
-| R1 | `group-room-key-missing` | **VERIFIED t4** |
-| **R2** | `auth-keychain-restore-failed` | **NEXT** |
-| R3 | Sidebar preview stale | Open |
+| R1 | `group-room-key-missing` | **VERIFIED t4** (uncommitted) |
+| R2 | `auth-keychain-restore-failed` | **VERIFIED t4** |
+| **R3** | Sidebar preview stale | **NEXT** |
 | R4 | COM-RUN-01 roster | **A** @ ACC-02 |
 | R5 | O-4 ingest chrome | Partial |
 
