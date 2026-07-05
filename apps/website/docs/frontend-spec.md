@@ -46,6 +46,19 @@ Typography: Fraunces (headlines) + Space Grotesk (body).
 
 ---
 
+## CodaCtrl verification hooks (2026-07-04)
+
+Stable attributes for `client_web_surface_probe` and future perf lane:
+
+| Attribute | Example | Route |
+|-----------|---------|-------|
+| `data-codactrl-surface` | `download-checksums` | `/download` checksum section |
+| `data-codactrl-sha256` | full hex from manifest | each checksum `<code>` |
+
+Runbook: [codactrl-obscur-agent-runbook-2026-07.md](../../../docs/program/codactrl-obscur-agent-runbook-2026-07.md)
+
+---
+
 ## Motion rules
 
 | Allowed | Forbidden |

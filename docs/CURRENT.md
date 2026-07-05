@@ -16,11 +16,12 @@ _Last updated: 2026-07-04 · Version train: **1.9.10** · **Runtime repair band 
 | **Phase 4 website** | **Code done** · Vercel deploy **PAUSED** · [charter](./program/obscur-v2-phase4-website-charter.md) |
 | **Phase 5 demo kit** | **Local prep** — script draft · GIF capture **maintainer-later** |
 | **Runtime repair band** | **EXIT** — R1–R3 + R5 **VERIFIED t4** · R4 **A** |
-| **Phase 6 precheck** | **In progress** — gate draft · deps refreshed · tag **not yet** |
+| **Phase 6 precheck** | **Done** @ `ecbcf2eb` — gate draft · deps refreshed · engine lab PASS · tag **not yet** |
+| **CodaCtrl lane D** | **Obscur-side EXIT** — WEB-R2 hooks · RIW-8 draft mappings · runbook |
 | **Engine lab (B0–B5, Conduit Mesh C0–C6)** | **Landed** — `pnpm verify:engine-lab` (parallel, does not unblock release alone) |
 | **Community feature patches** | **PAUSED** — COM-RUN-01 accepted @ ACC-02 |
 
-**Next step:** [handoffs/current-session.md](./handoffs/current-session.md) → **Phase 6 precheck** (gate draft + deps refreshed; tag gated on Phase 4–5)
+**Next step:** [handoffs/current-session.md](./handoffs/current-session.md) → **CodaCtrl lane D** (Obscur mitigations shipped; daemon wiring external) · Phase 4–5 still gate v2 tag
 
 ---
 

@@ -159,7 +159,8 @@
           "route": "/groups/**/chat"
         }
       ],
-      "mapsToInvariants": ["INV-COMM-001"]
+      "mapsToInvariants": ["INV-COMM-001"],
+      "symptomId": "group-room-key-missing"
     },
     {
       "id": "RT-LEDGER-INVALID-PERSIST",
@@ -214,6 +215,39 @@
         }
       ],
       "mapsToInvariants": ["INV-COMM-005"]
+    }
+  ],
+  "signalExtractMappings": [
+    {
+      "id": "SX-ROOM-KEY-BLOCKER",
+      "description": "RIW-8 — map membership health blockers to group-room-key-missing",
+      "digestEvent": "groups.membership_health_snapshot",
+      "match": { "blockersContains": "room_key_missing" },
+      "symptomId": "group-room-key-missing"
+    },
+    {
+      "id": "SX-LEDGER-INVALID",
+      "description": "Promote ledger validation failures to groups-ledger-validation",
+      "digestEvent": "groups.ledger_validation_issues",
+      "match": { "invalidEntriesGt": 0 },
+      "symptomId": "groups-ledger-validation"
+    },
+    {
+      "id": "SX-LEDGER-LOAD-CLEAN",
+      "description": "Green signal when ledger load reports zero invalid entries",
+      "digestEvent": "groups.membership_ledger_load",
+      "match": { "invalidEntriesEq": 0 },
+      "symptomId": "groups-ledger-validation",
+      "verdict": "pass"
+    },
+    {
+      "id": "SX-WEB-DOWNLOAD-SHA",
+      "description": "Website lane — checksum row exposes SHA-256 for client_web_surface_probe",
+      "source": "dom",
+      "selector": "[data-codactrl-sha256]",
+      "match": { "attributePresent": "data-codactrl-sha256" },
+      "symptomId": "phase4-website-editorial",
+      "verdict": "pass"
     }
   ],
   "appropriateFailClosed": [

@@ -35,4 +35,5 @@ Studio Output Hub — materialized artifacts for IDE and agent navigation.
 - `.codectx/verify/` is machine truth (sessions, faults, chains, register). Keep local or gitignored in subject repos.
 - `.codactrl/verify/` mirrors agent navigation. Commit `issue-report/` per pass when sharing evidence with reviewers or agents.
 - Prefer agents read `issue-report/report-rollup.md` then `issues-register.summary.json`; avoid full `report.json` and `mcp-audit.jsonl` unless debugging.
+- **Agent runbook:** [docs/program/codactrl-obscur-agent-runbook-2026-07.md](../../docs/program/codactrl-obscur-agent-runbook-2026-07.md) — workspace alignment, website/desktop lanes, WEB-R1–R3.
 - Pass snapshots archive to `.codectx/verify/passes/<date>/` on each `verify.issues.report.export`.

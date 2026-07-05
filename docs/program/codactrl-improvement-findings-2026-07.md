@@ -948,8 +948,10 @@ CodaCtrl’s **desktop** lane (CDP `:9230`, investigation chains, digest pull, m
 | **WEB-4** | **PASS** | `client_web_surface_probe` — hero h1, nav count, download links on `/` and `/download` |
 | **WEB-5** | **PASS** | Tool descriptions document `playwright-chromium` + explicit `selector` |
 
-**Residual (WEB-R1):** Restart `codactrld` from Obscur repo root so `client_session_connect { provider, url }` passes workspace alignment.  
-**Residual (WEB-R2):** `downloadShaPresent: false` on `/download` despite SHA visible in snapshot — probe selector should match checksum paragraph (`d814ab21…`).
+**Residual (WEB-R1):** Restart `codactrld` from Obscur repo root — see [codactrl-obscur-agent-runbook-2026-07.md](./codactrl-obscur-agent-runbook-2026-07.md) § workspace alignment.  
+**Residual (WEB-R2):** **Mitigated in Obscur** — `/download` exposes `data-codactrl-sha256` on checksum rows; CodaCtrl probe should prefer `[data-codactrl-sha256]` over free-text search.
+
+**Obscur lane D (2026-07-04):** FLS `signalExtractMappings` draft · RT-BLOCKER-NAV-GATE `symptomId` · agent runbook · website DOM hooks.
 
 ---
 

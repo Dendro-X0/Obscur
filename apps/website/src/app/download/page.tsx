@@ -244,7 +244,12 @@ export default async function DownloadPage() {
                 {androidArtifact.installHint && (
                   <p className="platform-card-hint">{androidArtifact.installHint}</p>
                 )}
-                <code className="checksum-value checksum-value--compact">{androidArtifact.sha256}</code>
+                <code
+                  className="checksum-value checksum-value--compact"
+                  data-codactrl-sha256={androidArtifact.sha256}
+                >
+                  {androidArtifact.sha256}
+                </code>
                 <a className="text-link" href={buildGuideHref} target="_blank" rel="noreferrer">
                   Android build steps →
                 </a>
@@ -267,7 +272,10 @@ export default async function DownloadPage() {
       </section>
 
       {manifest && manifest.artifacts.length > 0 && (
-        <section className="section-grid editorial-band">
+        <section
+          className="section-grid editorial-band"
+          data-codactrl-surface="download-checksums"
+        >
           <div className="section-header section-header--wide">
             <p className="eyebrow">Verification</p>
             <h2>Checksums ({manifest.version})</h2>
@@ -309,7 +317,9 @@ export default async function DownloadPage() {
                     <span className="status-pill status-pending">Build output</span>
                   )}
                 </div>
-                <code className="checksum-value">{artifact.sha256}</code>
+                <code className="checksum-value" data-codactrl-sha256={artifact.sha256}>
+                  {artifact.sha256}
+                </code>
               </article>
             ))}
           </div>

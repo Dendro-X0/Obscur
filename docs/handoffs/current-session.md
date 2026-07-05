@@ -1,19 +1,20 @@
 # Current Session Handoff — Obscur Engine Lab
 
-- Last Updated (UTC): 2026-07-05T02:50:00Z
+- Last Updated (UTC): 2026-07-05T03:00:00Z
 
 ## Next atomic step
 
-**Phase 6 precheck** — v2.0.0 gate draft + dependency refresh (Node engine unchanged)
+**CodaCtrl lane D** — Obscur-side mitigations shipped · daemon wiring remains external
 
 | Field | Value |
 |-------|--------|
-| R6-1 | **Draft** — [v2.0.0-gate.md](../releases/v2.0.0-gate.md) phase snapshot |
-| R6-2 | **Unreleased** CHANGELOG maintenance slice |
-| Deps | **Done** — pnpm/Rust semver-safe bump · majors deferred (noble 2, TS 6, wrangler 4, …) |
-| Phase 4 | **PAUSED** — Vercel deploy |
-| Phase 5 | **Local prep** — demo script draft · GIF capture **maintainer-later** |
-| Next | Engine lab **PASS** @ `60f5a50f` post Vitest 4.1 fixes · Phase 4/5 EXIT when unblocked · tag **not yet** |
+| Runbook | [codactrl-obscur-agent-runbook-2026-07.md](../program/codactrl-obscur-agent-runbook-2026-07.md) |
+| WEB-R2 | **Mitigated** — `data-codactrl-sha256` hooks on `/download` |
+| RIW-8 | **Draft** — `signalExtractMappings` in FLS rule pack (CodaCtrl repo to consume) |
+| WEB-R1 / WEB-R3 | **Documented** — workspace alignment + probe routing in runbook |
+| Proof | `pnpm docs:check` · `pnpm -C apps/website build` PASS · DOM hooks verified on `localhost:3000/download` |
+| Probe note | `client_web_surface_probe` still `downloadShaPresent: false` — **CodaCtrl daemon** must read `[data-codactrl-sha256]` |
+| Phase 4–6 | Deploy PAUSED · GIF maintainer-later · tag **not yet** |
 
 **R5 — VERIFIED t4 (2026-07-04)**
 
