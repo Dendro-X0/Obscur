@@ -55,12 +55,8 @@ describe("legacy subtraction B5 exit — quarantine complete", () => {
 
   it("w14–w18 legacy implementations and type facades exist", () => {
     for (const entry of W14_W18_LEGACY_RELOCATIONS) {
-      if ("canonical" in entry) {
-        expect(existsSync(join(PWA_ROOT, entry.legacy)), entry.legacy).toBe(false);
-        expect(existsSync(join(PWA_ROOT, entry.canonical)), entry.canonical).toBe(true);
-      } else {
-        expect(existsSync(join(PWA_ROOT, entry.legacy)), entry.legacy).toBe(true);
-      }
+      expect(existsSync(join(PWA_ROOT, entry.legacy)), entry.legacy).toBe(false);
+      expect(existsSync(join(PWA_ROOT, entry.canonical)), entry.canonical).toBe(true);
       expect(existsSync(join(PWA_ROOT, entry.types)), entry.types).toBe(true);
       expect(existsSync(join(PWA_ROOT, entry.subtracted)), entry.subtracted).toBe(false);
     }

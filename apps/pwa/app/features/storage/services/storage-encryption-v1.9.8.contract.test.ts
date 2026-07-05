@@ -8,9 +8,11 @@ const packageJson = JSON.parse(
 ) as { scripts: Record<string, string> };
 import {
   buildProfileWorkspaceArchiveFileName,
-  type ProfileWorkspaceArchive,
 } from "@/app/features/profiles/services/profile-workspace-archive-service";
-import { PROFILE_WORKSPACE_ARCHIVE_FORMAT } from "@/app/features/profiles/services/profile-workspace-archive-contracts";
+import {
+  PROFILE_WORKSPACE_ARCHIVE_FORMAT,
+  type ProfileWorkspaceArchive,
+} from "@/app/features/profiles/services/profile-workspace-archive-contracts";
 import { VAULT_ENCRYPTED_FILE_EXTENSION } from "./vault-at-rest";
 
 describe("verify:storage-encryption-v1.9.8 contract", () => {

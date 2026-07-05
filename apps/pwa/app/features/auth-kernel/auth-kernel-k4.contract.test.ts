@@ -21,7 +21,7 @@ vi.mock("@/app/features/auth/services/auth-kernel-legacy-delegates", () => ({
 }));
 
 vi.mock("./auth-kernel-bound-profile-auth", () => ({
-  runAuthKernelBoundProfileUnlockWithPassphrase: (...args: unknown[]) => boundUnlockMock(...args),
+  runAuthKernelBoundProfileUnlockWithPassphrase: () => boundUnlockMock(),
 }));
 
 vi.mock("@/app/features/auth/services/device-session-consent", () => ({

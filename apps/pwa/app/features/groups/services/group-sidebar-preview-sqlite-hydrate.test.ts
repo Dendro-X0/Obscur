@@ -1,14 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { GroupConversation } from "@/app/features/messaging/types";
+import type { GroupConversation, Message } from "@/app/features/messaging/types";
+import type { ThreadHistoryPage } from "@/app/features/messaging/services/thread-history/contracts";
 import { LEDGER_ONLY_GROUP_PLACEHOLDER_MESSAGE } from "./community-membership-ledger";
 
+const emptyPage = (): ThreadHistoryPage<Message> => ({
+  messages: [],
+  hasEarlier: false,
+  didExpandHistory: false,
+  nextCursor: null,
+});
+
 const { loadGroupThreadPageFromSqliteMock } = vi.hoisted(() => ({
-  loadGroupThreadPageFromSqliteMock: vi.fn(async () => ({
-    messages: [],
-    hasEarlier: false,
-    didExpandHistory: false,
-    nextCursor: null,
-  })),
+  loadGroupThreadPageFromSqliteMock: vi.fn(async (): Promise<ThreadHistoryPage<Message>> => emptyPage()),
 }));
 
 vi.mock("@/app/features/messaging/services/thread-history/group-thread-sqlite-store", () => ({
@@ -36,7 +39,7 @@ const baseGroup = (lastMessage: string): GroupConversation => ({
   lastMessage,
   unreadCount: 0,
   lastMessageTime: new Date(0),
-  access: "private",
+  access: "invite-only",
   memberCount: 2,
   adminPubkeys: [],
 });
@@ -45,12 +48,7 @@ describe("group-sidebar-preview-sqlite-hydrate", () => {
   beforeEach(() => {
     vi.mocked(isWorkspaceKernelAuthority).mockReturnValue(true);
     loadGroupThreadPageFromSqliteMock.mockReset();
-    loadGroupThreadPageFromSqliteMock.mockResolvedValue({
-      messages: [],
-      hasEarlier: false,
-      didExpandHistory: false,
-      nextCursor: null,
-    });
+    loadGroupThreadPageFromSqliteMock.mockResolvedValue(emptyPage());
   });
 
   it("isStaleGroupSidebarPreview treats empty and ledger placeholder as stale", () => {

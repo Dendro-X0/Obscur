@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { TransportSnapshot } from "@obscur/transport-engine";
+import type { RelayPoolRuntime } from "@/app/features/relays/services/relay-pool-runtime-port";
 
 vi.mock("./transport-kernel-policy", () => ({
   isTransportKernelAuthority: vi.fn(() => false),
@@ -30,15 +31,6 @@ const transportSnapshot = (readiness: TransportSnapshot["recovery"]["readiness"]
   revision: 1,
   phase: readiness === "healthy" ? "healthy" : "connecting",
   enabledRelayUrls: ["wss://relay.one"],
-  metrics: {
-    enabledRelayCount: 1,
-    writableRelayCount: 1,
-    fallbackWritableRelayCount: 0,
-    subscribableRelayCount: 1,
-    writeBlockedRelayCount: 0,
-    coolingDownRelayCount: 0,
-    fallbackRelayUrls: [],
-  },
   recovery: {
     ...legacyRecovery,
     readiness,
@@ -71,7 +63,7 @@ describe("transport-kernel-recovery-port", () => {
       reconnectAll: vi.fn(),
       resubscribeAll: vi.fn(),
       recycle: vi.fn(async () => {}),
-    } as never;
+    } as unknown as RelayPoolRuntime;
 
     await executeTransportKernelPoolRecovery({ pool, reason: "stale_event_flow" });
     expect(pool.resubscribeAll).toHaveBeenCalledTimes(1);

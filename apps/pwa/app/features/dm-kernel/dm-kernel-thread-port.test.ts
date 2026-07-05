@@ -164,7 +164,7 @@ describe("loadDmKernelThread", () => {
     vi.mocked(dbGetMessages).mockResolvedValue([]);
     await loadDmKernelThread({ profileId, conversationId, myPublicKeyHex });
     await loadDmKernelThread({ profileId, conversationId, myPublicKeyHex });
-    expect(dbGetMessages.mock.calls.length).toBeGreaterThan(1);
+    expect(vi.mocked(dbGetMessages).mock.calls.length).toBeGreaterThan(1);
   });
 
   it("still invokes sqlite for pagination", async () => {
@@ -176,6 +176,6 @@ describe("loadDmKernelThread", () => {
       myPublicKeyHex,
       beforeReceivedAt: 500,
     });
-    expect(dbGetMessages.mock.calls.length).toBeGreaterThanOrEqual(2);
+    expect(vi.mocked(dbGetMessages).mock.calls.length).toBeGreaterThanOrEqual(2);
   });
 });

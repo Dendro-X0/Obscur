@@ -24,10 +24,10 @@ const sampleState = (): PersistedChatState => ({
   unreadByConversationId: {},
   connectionOverridesByConnectionId: {},
   messagesByConversationId: {
-    "dm:peer": [{ id: "m1", content: "hello", timestampMs: 1, senderPubkey: "aa" }],
+    "dm:peer": [{ id: "m1", content: "hello", timestampMs: 1, isOutgoing: true, status: "delivered", pubkey: "aa" }],
   },
   groupMessages: {
-    "group:1": [{ id: "g1", content: "group", timestampMs: 2, senderPubkey: "bb" }],
+    "group:1": [{ id: "g1", content: "group", created_at: 2, pubkey: "bb" }],
   },
   connectionRequests: [],
   pinnedChatIds: [],

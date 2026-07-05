@@ -43,14 +43,7 @@ describe("transport-kernel-engine-port", () => {
       evidence: {
         activePoolRelayUrls: ["wss://relay.one"],
         supervisorRelayUrlCandidates: ["wss://relay.one"],
-        engineConfiguredRelayUrls: [],
-        userEnabledRelayUrls: ["wss://relay.one"],
-        engineOnlyRelayUrls: [],
-        engineCheckpointRelayUrls: [],
-        engineRelayCheckpointCount: 0,
         supervisorCandidateRelayCount: 1,
-        hasEngineOnlyCandidates: false,
-        hasCheckpointEvidence: false,
       },
       metrics: {
         enabledRelayCount: 1,

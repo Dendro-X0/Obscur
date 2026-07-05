@@ -13,18 +13,15 @@ const transportSnapshot = (phase: TransportSnapshot["phase"]): TransportSnapshot
   revision: 1,
   phase,
   enabledRelayUrls: ["wss://relay.one"],
-  metrics: {
-    enabledRelayCount: 1,
+  recovery: {
+    readiness: "healthy",
     writableRelayCount: 1,
     fallbackWritableRelayCount: 0,
     subscribableRelayCount: 1,
     writeBlockedRelayCount: 0,
     coolingDownRelayCount: 0,
-    fallbackRelayUrls: [],
-  },
-  recovery: {
-    readiness: "healthy",
     recoveryAttemptCount: 0,
+    fallbackRelayUrls: [],
   },
   activeSubscriptionCount: 1,
   pendingOutboundCount: 0,

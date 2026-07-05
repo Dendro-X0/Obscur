@@ -82,6 +82,7 @@ vi.mock("@/app/features/desktop/hooks/use-desktop-layout", () => ({
 }));
 
 vi.mock("@/app/features/runtime/shell-contract", () => ({
+  isMobileShellBuild: () => appShellMocks.isMobileShellProduct,
   isMobileShellProduct: () => appShellMocks.isMobileShellProduct,
   isDesktopShellBuild: () => appShellMocks.isDesktop,
   isDesktopShellProduct: () => appShellMocks.isDesktop,
@@ -89,6 +90,10 @@ vi.mock("@/app/features/runtime/shell-contract", () => ({
 
 vi.mock("@/app/features/dm-kernel/dm-kernel-policy", () => ({
   isDmKernelAuthority: () => false,
+}));
+
+vi.mock("@/app/features/messaging/components/messaging-sidebar-relay-footer", () => ({
+  MessagingSidebarRelayFooter: () => null,
 }));
 
 vi.mock("./relay-status-badge", () => ({

@@ -2,11 +2,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 
+import { createEmptyCoordinationMembershipMaterialization } from "@/app/features/groups/services/community-coordination-membership-materializer";
+import type { CoordinationMembershipMaterialization } from "@/app/features/groups/services/community-coordination-membership-materializer";
+
 const memberPubkey = "bb".repeat(32) as PublicKeyHex;
 const actorPrivateKeyHex = "cc".repeat(32) as PrivateKeyHex;
 
 const persistLedger = vi.fn();
-const refreshDirectory = vi.fn(async () => null);
+const refreshDirectory = vi.fn<() => Promise<CoordinationMembershipMaterialization | null>>(async () => null);
 const runActivation = vi.fn();
 const getRoomKey = vi.fn(async () => null as string | null);
 const saveRoomKey = vi.fn(async () => undefined);
@@ -81,6 +84,7 @@ describe("joinManagedWorkspaceMembership atomic join (R1)", () => {
     vi.clearAllMocks();
     getRoomKey.mockResolvedValue(null);
     refreshDirectory.mockResolvedValue({
+      ...createEmptyCoordinationMembershipMaterialization(),
       activeMemberPubkeys: [],
       leftMemberPubkeys: [],
       expelledMemberPubkeys: [],
@@ -150,6 +154,7 @@ describe("joinManagedWorkspaceMembership atomic join (R1)", () => {
       },
     });
     refreshDirectory.mockResolvedValue({
+      ...createEmptyCoordinationMembershipMaterialization(),
       activeMemberPubkeys: [memberPubkey],
       leftMemberPubkeys: [],
       expelledMemberPubkeys: [],
@@ -193,6 +198,7 @@ describe("joinManagedWorkspaceMembership atomic join (R1)", () => {
       },
     });
     refreshDirectory.mockResolvedValue({
+      ...createEmptyCoordinationMembershipMaterialization(),
       activeMemberPubkeys: [],
       leftMemberPubkeys: [],
       expelledMemberPubkeys: [],

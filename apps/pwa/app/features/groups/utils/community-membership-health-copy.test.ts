@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
+import type { TFunction } from "i18next";
 import { resolveCommunityMembershipHealthSummary } from "./community-membership-health-copy";
 import type { CommunityMembershipHealth } from "../services/community-membership-health";
 
-const t = vi.fn((key: string) => key);
+const t = vi.fn((key: string) => key) as unknown as TFunction;
 
 describe("resolveCommunityMembershipHealthSummary", () => {
   it("omits room_key_missing suffix when ready and chat enabled", () => {

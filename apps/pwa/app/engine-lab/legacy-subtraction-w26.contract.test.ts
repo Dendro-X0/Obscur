@@ -9,7 +9,7 @@ const PWA_APP_ROOT = join(REPO_ROOT, "apps/pwa/app");
  * w26 — port-only importer graph for remaining `app/legacy/*`.
  * After w40 the deletion queue is empty and `app/legacy/` holds docs only.
  */
-const LEGACY_DELETION_QUEUE = [] as const;
+const LEGACY_DELETION_QUEUE: ReadonlyArray<{ legacy: string }> = [];
 
 const LEGACY_BASENAMES = LEGACY_DELETION_QUEUE.map((entry) => entry.legacy.replace(/\.tsx?$/, ""));
 

@@ -40,7 +40,7 @@ vi.mock("react-i18next", () => ({
     useTranslation: () => ({
         t: (key: string, options?: Record<string, unknown>) => {
             const template = (en.translation as Record<string, string | undefined>)[key] ?? key;
-            return template.replace(/\{\{\s*([^\s}]+)\s*\}\}/g, (_match, token: string) => String(options[token] ?? ""));
+            return template.replace(/\{\{\s*([^\s}]+)\s*\}\}/g, (_match, token: string) => String(options?.[token] ?? ""));
         },
     }),
 }));

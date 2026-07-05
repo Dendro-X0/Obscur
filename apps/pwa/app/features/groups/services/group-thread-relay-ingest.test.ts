@@ -25,7 +25,7 @@ const { appendMock, suppressMock, resolveRoomKeyForIngestMock } = vi.hoisted(() 
     status: "suppressed" as const,
     eventIds: ["target-event"],
   })),
-  resolveRoomKeyForIngestMock: vi.fn(async () => "room-key"),
+  resolveRoomKeyForIngestMock: vi.fn<() => Promise<string | null>>(async () => "room-key"),
 }));
 
 vi.mock("@/app/features/messaging/services/thread-history/group-thread-append", () => ({

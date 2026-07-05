@@ -18,6 +18,8 @@ const baseProps = {
     chatsUnreadTotal: 2,
     requestsUnreadTotal: 0,
     pendingRequestsCount: 0,
+    junkUnreadTotal: 0,
+    pendingJunkCount: 0,
     searchQuery: "",
     setSearchQuery: vi.fn(),
     searchInputRef: { current: null },
