@@ -1,0 +1,125 @@
+{
+  "schema": "client.session.steps@0.1.0",
+  "sessionId": "csess-19f7e24e61bd",
+  "updatedAt": "2026-07-01T03:58:18.786162800+00:00",
+  "stepCount": 11,
+  "steps": [
+    {
+      "index": 0,
+      "stepId": "step-f49e59513dc6",
+      "action": "snapshot",
+      "captureId": "cap-3523ec6fd7cf",
+      "manifestPath": ".codectx/verify/client-sessions/csess-19f7e24e61bd/captures/cap-3523ec6fd7cf/manifest.json",
+      "stepLabel": "connect-bootstrap",
+      "pass": true,
+      "at": "2026-07-01T03:57:00.865757400+00:00"
+    },
+    {
+      "index": 1,
+      "stepId": "step-280ece1c3708",
+      "action": "snapshot",
+      "captureId": "cap-df4d952a1f41",
+      "manifestPath": ".codectx/verify/client-sessions/csess-19f7e24e61bd/captures/cap-df4d952a1f41/manifest.json",
+      "pass": true,
+      "at": "2026-07-01T03:57:04.432778700+00:00"
+    },
+    {
+      "index": 2,
+      "stepId": "step-80ca233ca7e9",
+      "action": "click",
+      "captureId": "cap-df1838633ee4",
+      "manifestPath": ".codectx/verify/client-sessions/csess-19f7e24e61bd/captures/cap-df1838633ee4/manifest.json",
+      "stepLabel": "golden-click-tester1",
+      "selector": "button:has-text(\"Tester1\")",
+      "pass": true,
+      "at": "2026-07-01T03:57:10.411483300+00:00"
+    },
+    {
+      "index": 3,
+      "stepId": "step-563d3eaf7567",
+      "action": "type",
+      "captureId": "cap-d04432f15e3d",
+      "manifestPath": ".codectx/verify/client-sessions/csess-19f7e24e61bd/captures/cap-d04432f15e3d/manifest.json",
+      "stepLabel": "golden-type-password",
+      "selector": "input[type=\"password\"]",
+      "text": "SyI14^ew1E",
+      "pass": true,
+      "at": "2026-07-01T03:57:13.679633300+00:00"
+    },
+    {
+      "index": 4,
+      "stepId": "step-5e0267ed7a06",
+      "action": "click",
+      "captureId": "cap-d4e3f48bb976",
+      "manifestPath": ".codectx/verify/client-sessions/csess-19f7e24e61bd/captures/cap-d4e3f48bb976/manifest.json",
+      "stepLabel": "golden-log-in",
+      "selector": "button:has-text(\"Log In\") >> nth=0",
+      "pass": true,
+      "at": "2026-07-01T03:57:20.766386500+00:00"
+    },
+    {
+      "index": 5,
+      "stepId": "step-60f28eb93d78",
+      "action": "assert",
+      "captureId": "cap-5ad02d69dd30",
+      "manifestPath": ".codectx/verify/client-sessions/csess-19f7e24e61bd/captures/cap-5ad02d69dd30/manifest.json",
+      "text": "Tester2",
+      "assertKind": "textVisible",
+      "pass": false,
+      "message": "text not visible: Tester2",
+      "at": "2026-07-01T03:57:46.923042200+00:00"
+    },
+    {
+      "index": 6,
+      "stepId": "step-073870a001ed",
+      "action": "snapshot",
+      "captureId": "cap-5d0eb47018b9",
+      "manifestPath": ".codectx/verify/client-sessions/csess-19f7e24e61bd/captures/cap-5d0eb47018b9/manifest.json",
+      "pass": true,
+      "at": "2026-07-01T03:57:50.239594800+00:00"
+    },
+    {
+      "index": 7,
+      "stepId": "step-ba8c5c44bc21",
+      "action": "click",
+      "captureId": "cap-995dbbddddf4",
+      "manifestPath": ".codectx/verify/client-sessions/csess-19f7e24e61bd/captures/cap-995dbbddddf4/manifest.json",
+      "stepLabel": "golden-log-in-2",
+      "selector": "button >> internal:has-text=\"Log In\"i >> nth=1",
+      "pass": true,
+      "at": "2026-07-01T03:58:13.512975900+00:00"
+    },
+    {
+      "index": 8,
+      "stepId": "step-3f19967d1807",
+      "action": "assert",
+      "captureId": "cap-371ba9942047",
+      "manifestPath": ".codectx/verify/client-sessions/csess-19f7e24e61bd/captures/cap-371ba9942047/manifest.json",
+      "text": "Tester2",
+      "assertKind": "textVisible",
+      "pass": true,
+      "message": "text visible: Tester2",
+      "at": "2026-07-01T03:58:17.418030400+00:00"
+    },
+    {
+      "index": 9,
+      "stepId": "step-9fb1d74531",
+      "action": "digestPull",
+      "captureId": "cap-579fb1d74531",
+      "manifestPath": ".codectx/verify/client-sessions/csess-19f7e24e61bd/captures/cap-579fb1d74531/manifest.json",
+      "stepLabel": "mcp-retry-digest",
+      "pass": true,
+      "message": "runtime digest captured",
+      "at": "2026-07-01T03:58:18.493589600+00:00"
+    },
+    {
+      "index": 10,
+      "stepId": "step-0957aca6399b",
+      "action": "screenshot",
+      "captureId": "cap-938995a39f35",
+      "manifestPath": ".codectx/verify/client-sessions/csess-19f7e24e61bd/captures/cap-938995a39f35/manifest.json",
+      "pass": true,
+      "at": "2026-07-01T03:58:18.784892+00:00"
+    }
+  ]
+}

@@ -1,0 +1,46 @@
+{
+  "schema": "client.session.steps@0.1.0",
+  "sessionId": "csess-3128b0542400",
+  "updatedAt": "2026-07-04T05:55:22.571349500+00:00",
+  "stepCount": 4,
+  "steps": [
+    {
+      "index": 0,
+      "stepId": "step-d0fea36c9627",
+      "action": "snapshot",
+      "captureId": "cap-40181ab331b0",
+      "manifestPath": ".codectx/verify/client-sessions/csess-3128b0542400/captures/cap-40181ab331b0/manifest.json",
+      "stepLabel": "connect-bootstrap",
+      "pass": true,
+      "at": "2026-07-04T05:54:53.101307200+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-f8a4802513d5",
+      "action": "mcp.client.session.connect",
+      "manifestPath": ".codectx/verify/client-sessions/csess-3128b0542400/attach-latest.json",
+      "pass": true,
+      "at": "2026-07-04T05:54:57.607641200+00:00"
+    },
+    {
+      "index": 2,
+      "stepId": "step-4ec5598bf674",
+      "action": "snapshot",
+      "captureId": "cap-2e0ef4a1a37f",
+      "manifestPath": ".codectx/verify/client-sessions/csess-3128b0542400/captures/cap-2e0ef4a1a37f/manifest.json",
+      "stepLabel": "post-restart-smoke",
+      "pass": true,
+      "at": "2026-07-04T05:55:05.525504600+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-06983c32a8f9",
+      "action": "mcp.client.agent.bridgeCall.listWindows",
+      "captureId": "bcap-9cec151207af",
+      "manifestPath": ".codectx/verify/client-sessions/csess-3128b0542400/captures/bcap-9cec151207af/manifest.json",
+      "stepLabel": "listWindows",
+      "pass": true,
+      "at": "2026-07-04T05:55:22.571221800+00:00"
+    }
+  ]
+}

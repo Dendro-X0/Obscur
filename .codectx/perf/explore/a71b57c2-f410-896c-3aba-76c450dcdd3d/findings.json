@@ -1,0 +1,458 @@
+{
+  "exploreId": "a71b57c2-f410-896c-3aba-76c450dcdd3d",
+  "findings": [
+    {
+      "anchors": [
+        {
+          "content_hash": "sha256:44d1f59e4f9f4cd245123eb1f5f3d46c20c09eb6d2df80c049737a03b9345f92",
+          "line": 1,
+          "path": "packages/obscur-conduit-mesh/src/index.ts"
+        }
+      ],
+      "confidence": 0.8199999928474426,
+      "id": "perf:import:barrel-penalty:packages/obscur-conduit-mesh/src/index.ts",
+      "obligation": "Reduce barrel re-exports (27 wildcard re-exports, 1 hot-path importers in app/src tree) or lazy-load heavy subtree",
+      "oracle": "perf.explore.run: finding absent after barrel removal or hot-path import reduction",
+      "proofTier": "static",
+      "rankScore": 1288.8399658203125,
+      "rollupCount": 27,
+      "severity": "yellow",
+      "surfaceRefs": [
+        "barrel_exports:27",
+        "module:packages:obscur-conduit-mesh:src:index.ts",
+        "hot_path_imports:1",
+        "root_hot_path_imports:1",
+        "barrel_consumers:0"
+      ]
+    },
+    {
+      "anchors": [
+        {
+          "content_hash": "sha256:4c380f987f128943065c618b745e1e24d7742bae238e371dc34ffbc7e24c6c55",
+          "line": 1,
+          "path": "packages/ui-kit/src/index.ts"
+        }
+      ],
+      "confidence": 0.8199999928474426,
+      "id": "perf:import:barrel-penalty:packages/ui-kit/src/index.ts",
+      "obligation": "Reduce barrel re-exports (24 wildcard re-exports, 147 hot-path importers in app/src tree) — top affected routes include `/download` (+5 more)",
+      "oracle": "perf.explore.run: finding absent after barrel removal or hot-path import reduction",
+      "proofTier": "static",
+      "rankScore": 1222.8399658203125,
+      "rollupCount": 24,
+      "severity": "yellow",
+      "surfaceRefs": [
+        "barrel_exports:24",
+        "module:packages:ui-kit:src:index.ts",
+        "hot_path_imports:147",
+        "root_hot_path_imports:145",
+        "barrel_consumers:6",
+        "route_reach:/download",
+        "route_reach:/groups/block",
+        "route_reach:/groups/leave",
+        "route_reach:/groups/purge",
+        "route_reach:/invites"
+      ]
+    },
+    {
+      "anchors": [
+        {
+          "content_hash": "sha256:23d4f1d821979148b3f0026cb5a4d31f51a13ed2aed9e017d0596c29a043410b",
+          "line": 1,
+          "path": "packages/dweb-auth/src/index.ts"
+        }
+      ],
+      "confidence": 0.8199999928474426,
+      "id": "perf:import:barrel-penalty:packages/dweb-auth/src/index.ts",
+      "obligation": "Reduce barrel re-exports (13 wildcard re-exports, 22 hot-path importers in app/src tree) or lazy-load heavy subtree",
+      "oracle": "perf.explore.run: finding absent after barrel removal or hot-path import reduction",
+      "proofTier": "static",
+      "rankScore": 980.8400268554688,
+      "rollupCount": 13,
+      "severity": "yellow",
+      "surfaceRefs": [
+        "barrel_exports:13",
+        "module:packages:dweb-auth:src:index.ts",
+        "hot_path_imports:22",
+        "root_hot_path_imports:22",
+        "barrel_consumers:0"
+      ]
+    },
+    {
+      "anchors": [
+        {
+          "content_hash": "sha256:0d486a53a365396995c37e94f44277e8ea9dd18a4a3d99206b5a0ee16e841ca2",
+          "line": 1,
+          "path": "packages/obscur-engine-host/src/index.ts"
+        }
+      ],
+      "confidence": 0.8199999928474426,
+      "id": "perf:import:barrel-penalty:packages/obscur-engine-host/src/index.ts",
+      "obligation": "Reduce barrel re-exports (6 wildcard re-exports, 9 hot-path importers in app/src tree) or lazy-load heavy subtree",
+      "oracle": "perf.explore.run: finding absent after barrel removal or hot-path import reduction",
+      "proofTier": "static",
+      "rankScore": 826.8400268554688,
+      "rollupCount": 6,
+      "severity": "yellow",
+      "surfaceRefs": [
+        "barrel_exports:6",
+        "module:packages:obscur-engine-host:src:index.ts",
+        "hot_path_imports:9",
+        "root_hot_path_imports:6",
+        "barrel_consumers:0"
+      ]
+    },
+    {
+      "anchors": [
+        {
+          "content_hash": "sha256:db2d5549dfcff4c32ce73ecf9c6890c41fe6b464448b65622a6fae1485a07292",
+          "line": 1,
+          "path": "packages/obscur-conduit-mesh-contracts/src/index.ts"
+        }
+      ],
+      "confidence": 0.8199999928474426,
+      "id": "perf:import:barrel-penalty:packages/obscur-conduit-mesh-contracts/src/index.ts",
+      "obligation": "Reduce barrel re-exports (5 wildcard re-exports, 1 hot-path importers in app/src tree) or lazy-load heavy subtree",
+      "oracle": "perf.explore.run: finding absent after barrel removal or hot-path import reduction",
+      "proofTier": "static",
+      "rankScore": 804.8400268554688,
+      "rollupCount": 5,
+      "severity": "yellow",
+      "surfaceRefs": [
+        "barrel_exports:5",
+        "module:packages:obscur-conduit-mesh-contracts:src:index.ts",
+        "hot_path_imports:1",
+        "root_hot_path_imports:1",
+        "barrel_consumers:0"
+      ]
+    },
+    {
+      "anchors": [
+        {
+          "content_hash": "sha256:db2d5549dfcff4c32ce73ecf9c6890c41fe6b464448b65622a6fae1485a07292",
+          "line": 1,
+          "path": "packages/obscur-conduit-mesh-contracts/src/index.ts"
+        }
+      ],
+      "confidence": 0.8199999928474426,
+      "id": "perf:import:barrel-penalty:packages/obscur-conduit-mesh-contracts/src/index.ts",
+      "obligation": "Reduce barrel re-exports (5 wildcard re-exports, 1 hot-path importers in app/src tree) or lazy-load heavy subtree",
+      "oracle": "perf.explore.run: finding absent after barrel removal or hot-path import reduction",
+      "proofTier": "static",
+      "rankScore": 804.8400268554688,
+      "rollupCount": 5,
+      "severity": "yellow",
+      "surfaceRefs": [
+        "barrel_exports:5",
+        "module:packages:obscur-conduit-mesh-contracts:src:index.ts",
+        "hot_path_imports:1",
+        "root_hot_path_imports:1",
+        "barrel_consumers:0"
+      ]
+    },
+    {
+      "anchors": [
+        {
+          "content_hash": "sha256:6e2e807b31934f0f4504128cf86b9fc24a7ef5d442ecd41f42aabb8117943194",
+          "path": "apps/coordination/package.json"
+        },
+        {
+          "content_hash": "sha256:9c93d74e5748a283699a7deaf25bee7806bf27d2896c515fb047b0e052c5b6ca",
+          "path": "apps/pwa/package.json"
+        },
+        {
+          "content_hash": "sha256:fa401e5284ec448ebb127ab7fe6dd1abb4725f819333f1eacac3defc3fc09d55",
+          "path": "apps/relay-gateway/package.json"
+        },
+        {
+          "content_hash": "sha256:9c03447399bf1e42d56090c2e6eda06eda0e20c7c0473495fc308d024bf5af28",
+          "path": "apps/website/package.json"
+        },
+        {
+          "content_hash": "sha256:56027e356372b1d90fd98ec253e291b80e1507f47e4e3d66ce13e04f5a6d7844",
+          "path": "packages/db/package.json"
+        },
+        {
+          "content_hash": "sha256:90f6203147bd154d76b56e4fb560bc73f559ada38b06073beaf3ce2da2da04ec",
+          "path": "packages/dweb-auth/package.json"
+        },
+        {
+          "content_hash": "sha256:cf236f811b830cc286549dd829923a01065dd258553bbf74a51474bacbd547e6",
+          "path": "packages/dweb-client-gateway/package.json"
+        },
+        {
+          "content_hash": "sha256:98c36011a73cc82139d31de4dac8317c3552ef454395a12d29fe946480b0c48a",
+          "path": "packages/dweb-coordination-contracts/package.json"
+        }
+      ],
+      "confidence": 0.9599999785423279,
+      "id": "perf:topology:critical-path-scope:apps:relay-gateway",
+      "obligation": "Monorepo critical path: primary app `apps/relay-gateway` with 27 scoped packages (4 apps, 23 libs) — inferred backends: apps/coordination, apps/pwa, apps/website",
+      "oracle": "perf.explore.run: scope node matches workspace dependency closure",
+      "proofTier": "static",
+      "rankScore": 730.52001953125,
+      "rollupCount": 27,
+      "routePrefix": "apps/relay-gateway",
+      "severity": "info"
+    },
+    {
+      "anchors": [
+        {
+          "content_hash": "sha256:6e2e807b31934f0f4504128cf86b9fc24a7ef5d442ecd41f42aabb8117943194",
+          "path": "apps/coordination/package.json",
+          "symbol": "root"
+        },
+        {
+          "content_hash": "sha256:9c93d74e5748a283699a7deaf25bee7806bf27d2896c515fb047b0e052c5b6ca",
+          "path": "apps/pwa/package.json",
+          "symbol": "root"
+        },
+        {
+          "content_hash": "sha256:fa401e5284ec448ebb127ab7fe6dd1abb4725f819333f1eacac3defc3fc09d55",
+          "path": "apps/relay-gateway/package.json",
+          "symbol": "root"
+        },
+        {
+          "content_hash": "sha256:9c03447399bf1e42d56090c2e6eda06eda0e20c7c0473495fc308d024bf5af28",
+          "path": "apps/website/package.json",
+          "symbol": "root"
+        }
+      ],
+      "confidence": 0.9399999976158142,
+      "id": "perf:topology:architecture-layout:apps:relay-gateway",
+      "obligation": "Repository architecture fingerprinted — Layout: 5 app(s) under apps, 23 lib(s) under packages · markers: pnpm-workspace.yaml, package.json. Exploration roots: apps/coordination, apps/pwa, apps/relay-gateway, apps/website",
+      "oracle": "perf.explore.run: layout finding matches context.scan package topology",
+      "proofTier": "static",
+      "rankScore": 730.280029296875,
+      "rollupCount": 27,
+      "routePrefix": "apps/relay-gateway",
+      "severity": "info"
+    },
+    {
+      "anchors": [
+        {
+          "content_hash": "sha256:996aef631c5cbf0811ea0d5d16a9c88b4ac6f2d437d145852725131c87c18ca2",
+          "path": "packages/obscur-engine-contracts/package.json",
+          "symbol": "shared"
+        }
+      ],
+      "confidence": 0.800000011920929,
+      "id": "perf:topology:shared-fanout:packages:obscur-engine-contracts",
+      "obligation": "Shared package `@obscur/engine-contracts` is on the critical path with 8 inbound workspace deps — barrel/import cost here affects multiple apps",
+      "oracle": "perf.explore.run: fanout finding absent if package removed from path",
+      "proofTier": "static",
+      "rankScore": 310.6000061035156,
+      "rollupCount": 8,
+      "routePrefix": "packages/obscur-engine-contracts",
+      "severity": "info",
+      "surfaceRefs": [
+        "package:@obscur/engine-contracts"
+      ]
+    },
+    {
+      "anchors": [
+        {
+          "content_hash": "sha256:0e4bc49ff85b06a9c313d39470edfc453f831f352c65613d7bdafd965e730a05",
+          "path": "packages/dweb-crypto/package.json",
+          "symbol": "shared"
+        }
+      ],
+      "confidence": 0.800000011920929,
+      "id": "perf:topology:shared-fanout:packages:dweb-crypto",
+      "obligation": "Shared package `@dweb/crypto` is on the critical path with 6 inbound workspace deps — barrel/import cost here affects multiple apps",
+      "oracle": "perf.explore.run: fanout finding absent if package removed from path",
+      "proofTier": "static",
+      "rankScore": 266.6000061035156,
+      "rollupCount": 6,
+      "routePrefix": "packages/dweb-crypto",
+      "severity": "info",
+      "surfaceRefs": [
+        "package:@dweb/crypto"
+      ]
+    },
+    {
+      "anchors": [
+        {
+          "content_hash": "sha256:3665f9931af0527df0cea56f5289b19c15987d5ca0fa620de3972f5180841960",
+          "path": "packages/dweb-core/package.json",
+          "symbol": "shared"
+        }
+      ],
+      "confidence": 0.800000011920929,
+      "id": "perf:topology:shared-fanout:packages:dweb-core",
+      "obligation": "Shared package `@dweb/core` is on the critical path with 5 inbound workspace deps — barrel/import cost here affects multiple apps",
+      "oracle": "perf.explore.run: fanout finding absent if package removed from path",
+      "proofTier": "static",
+      "rankScore": 244.60000610351562,
+      "rollupCount": 5,
+      "routePrefix": "packages/dweb-core",
+      "severity": "info",
+      "surfaceRefs": [
+        "package:@dweb/core"
+      ]
+    },
+    {
+      "anchors": [
+        {
+          "content_hash": "sha256:c890ba6b3529fed1b6f5e276095e5f8881d3c4458bd4a812bb61644166954929",
+          "path": "packages/dweb-transport-contracts/package.json",
+          "symbol": "shared"
+        }
+      ],
+      "confidence": 0.800000011920929,
+      "id": "perf:topology:shared-fanout:packages:dweb-transport-contracts",
+      "obligation": "Shared package `@dweb/transport-contracts` is on the critical path with 5 inbound workspace deps — barrel/import cost here affects multiple apps",
+      "oracle": "perf.explore.run: fanout finding absent if package removed from path",
+      "proofTier": "static",
+      "rankScore": 244.60000610351562,
+      "rollupCount": 5,
+      "routePrefix": "packages/dweb-transport-contracts",
+      "severity": "info",
+      "surfaceRefs": [
+        "package:@dweb/transport-contracts"
+      ]
+    },
+    {
+      "anchors": [
+        {
+          "content_hash": "sha256:56027e356372b1d90fd98ec253e291b80e1507f47e4e3d66ce13e04f5a6d7844",
+          "path": "packages/db/package.json",
+          "symbol": "shared"
+        }
+      ],
+      "confidence": 0.800000011920929,
+      "id": "perf:topology:shared-fanout:packages:db",
+      "obligation": "Shared package `@dweb/db` is on the critical path with 4 inbound workspace deps — barrel/import cost here affects multiple apps",
+      "oracle": "perf.explore.run: fanout finding absent if package removed from path",
+      "proofTier": "static",
+      "rankScore": 222.60000610351562,
+      "rollupCount": 4,
+      "routePrefix": "packages/db",
+      "severity": "info",
+      "surfaceRefs": [
+        "package:@dweb/db"
+      ]
+    },
+    {
+      "anchors": [
+        {
+          "content_hash": "sha256:90f6203147bd154d76b56e4fb560bc73f559ada38b06073beaf3ce2da2da04ec",
+          "path": "packages/dweb-auth/package.json",
+          "symbol": "shared"
+        }
+      ],
+      "confidence": 0.800000011920929,
+      "id": "perf:topology:shared-fanout:packages:dweb-auth",
+      "obligation": "Shared package `@dweb/auth` is on the critical path with 3 inbound workspace deps — barrel/import cost here affects multiple apps",
+      "oracle": "perf.explore.run: fanout finding absent if package removed from path",
+      "proofTier": "static",
+      "rankScore": 200.60000610351562,
+      "rollupCount": 3,
+      "routePrefix": "packages/dweb-auth",
+      "severity": "info",
+      "surfaceRefs": [
+        "package:@dweb/auth"
+      ]
+    },
+    {
+      "anchors": [
+        {
+          "content_hash": "sha256:98c36011a73cc82139d31de4dac8317c3552ef454395a12d29fe946480b0c48a",
+          "path": "packages/dweb-coordination-contracts/package.json",
+          "symbol": "shared"
+        }
+      ],
+      "confidence": 0.800000011920929,
+      "id": "perf:topology:shared-fanout:packages:dweb-coordination-contracts",
+      "obligation": "Shared package `@dweb/coordination-contracts` is on the critical path with 3 inbound workspace deps — barrel/import cost here affects multiple apps",
+      "oracle": "perf.explore.run: fanout finding absent if package removed from path",
+      "proofTier": "static",
+      "rankScore": 200.60000610351562,
+      "rollupCount": 3,
+      "routePrefix": "packages/dweb-coordination-contracts",
+      "severity": "info",
+      "surfaceRefs": [
+        "package:@dweb/coordination-contracts"
+      ]
+    },
+    {
+      "anchors": [
+        {
+          "content_hash": "sha256:a88e8279dc706c5cd408802dd0b2f5aca370ec589a41551c1e836fcf63ded7b1",
+          "path": "packages/dweb-storage-contracts/package.json",
+          "symbol": "shared"
+        }
+      ],
+      "confidence": 0.800000011920929,
+      "id": "perf:topology:shared-fanout:packages:dweb-storage-contracts",
+      "obligation": "Shared package `@dweb/storage-contracts` is on the critical path with 3 inbound workspace deps — barrel/import cost here affects multiple apps",
+      "oracle": "perf.explore.run: fanout finding absent if package removed from path",
+      "proofTier": "static",
+      "rankScore": 200.60000610351562,
+      "rollupCount": 3,
+      "routePrefix": "packages/dweb-storage-contracts",
+      "severity": "info",
+      "surfaceRefs": [
+        "package:@dweb/storage-contracts"
+      ]
+    },
+    {
+      "anchors": [
+        {
+          "content_hash": "sha256:6715eae3db94e94e2e5e88f6c0a8d694086086330008c1b34cb0f3afeefe43e4",
+          "path": "packages/obscur-conduit-mesh-contracts/package.json",
+          "symbol": "shared"
+        }
+      ],
+      "confidence": 0.800000011920929,
+      "id": "perf:topology:shared-fanout:packages:obscur-conduit-mesh-contracts",
+      "obligation": "Shared package `@obscur/conduit-mesh-contracts` is on the critical path with 2 inbound workspace deps — barrel/import cost here affects multiple apps",
+      "oracle": "perf.explore.run: fanout finding absent if package removed from path",
+      "proofTier": "static",
+      "rankScore": 178.60000610351562,
+      "rollupCount": 2,
+      "routePrefix": "packages/obscur-conduit-mesh-contracts",
+      "severity": "info",
+      "surfaceRefs": [
+        "package:@obscur/conduit-mesh-contracts"
+      ]
+    },
+    {
+      "anchors": [
+        {
+          "content_hash": "sha256:9c93d74e5748a283699a7deaf25bee7806bf27d2896c515fb047b0e052c5b6ca",
+          "path": "apps/pwa/package.json"
+        }
+      ],
+      "confidence": 0.949999988079071,
+      "id": "perf:stack:next:apps/pwa",
+      "obligation": "Stack fingerprinted as next for performance surface extraction",
+      "oracle": "perf.explore.run: stack node present in graph",
+      "proofTier": "static",
+      "rankScore": 91.4000015258789,
+      "severity": "info",
+      "surfaceRefs": [
+        "package:pwa"
+      ]
+    },
+    {
+      "anchors": [
+        {
+          "content_hash": "sha256:9c03447399bf1e42d56090c2e6eda06eda0e20c7c0473495fc308d024bf5af28",
+          "path": "apps/website/package.json"
+        }
+      ],
+      "confidence": 0.949999988079071,
+      "id": "perf:stack:next:apps/website",
+      "obligation": "Stack fingerprinted as next for performance surface extraction",
+      "oracle": "perf.explore.run: stack node present in graph",
+      "proofTier": "static",
+      "rankScore": 91.4000015258789,
+      "severity": "info",
+      "surfaceRefs": [
+        "package:website"
+      ]
+    }
+  ],
+  "schema": "perf.findings@1.0.0"
+}

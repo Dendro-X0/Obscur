@@ -1,0 +1,54 @@
+- text: Key accepted. Restoring account data...
+- button "Dismiss notification"
+- main:
+  - text: Client release-v1.9.10-relay-recovery-20260617
+  - img "Obscur"
+  - text: Obscur
+  - button "desktop.titleBar.lock"
+  - button "Open desktop profile switcher": T Tester2 Obscur / 3db055b4...d946830f
+  - button "Minimize window"
+  - button "Maximize window"
+  - button "Close window"
+  - button "Offline"
+  - link "Chats":
+    - /url: /
+  - link "Network":
+    - /url: /network
+  - link "Vault":
+    - /url: /vault
+  - link "Search":
+    - /url: /search
+  - link "Settings":
+    - /url: /settings
+  - button "Open profile menu": T
+  - button "Sidebar Options"
+  - button "Chats"
+  - button "Requests"
+  - button "Junk"
+  - textbox "Search users and communities..."
+  - button "Chat"
+  - button "Group"
+  - button "New Chat"
+  - button "Direct Messages"
+  - button "View Profile Tester1 Tester1 invited you to NewTest 2 Online Active Just now Just now":
+    - button "View Profile":
+      - img "Tester1"
+    - text: Tester1
+    - paragraph: Tester1 invited you to NewTest 2
+    - button
+    - text: Online Active Just now Just now
+  - text: Offline 0/3 active relays Obscur Preview
+  - status:
+    - paragraph: Relay transport is offline. You can still read messages; sends are queued until relays return.
+  - main:
+    - text: Missing contacts or chat history?
+    - paragraph: If you do not see contacts or chat history yet, please wait a few minutes while loading and account data synchronization completes.
+    - button "Start a new conversation": +
+    - heading "Select a Conversation" [level=2]
+    - paragraph: Choose a chat from the sidebar or start a new one to begin messaging.
+    - heading "Share Profile" [level=3]
+    - paragraph: Share your public key with others to let them message you.
+    - button "Copy Public Key"
+    - button "Copy Chat Link"
+    - text: "Relays: 3/3 Online Public keys are safe to share!"
+- alert

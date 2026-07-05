@@ -1,0 +1,18 @@
+{
+  "schema": "client.session.steps@0.1.0",
+  "sessionId": "csess-e38e21393b3d",
+  "updatedAt": "2026-07-04T18:40:46.898825400+00:00",
+  "stepCount": 1,
+  "steps": [
+    {
+      "index": 0,
+      "stepId": "step-cb45b8bfeea6",
+      "action": "screenshot",
+      "captureId": "cap-625e9db7c033",
+      "manifestPath": ".codectx/verify/client-sessions/csess-e38e21393b3d/captures/cap-625e9db7c033/manifest.json",
+      "stepLabel": "website-home-screenshot",
+      "pass": true,
+      "at": "2026-07-04T18:40:46.898261+00:00"
+    }
+  ]
+}

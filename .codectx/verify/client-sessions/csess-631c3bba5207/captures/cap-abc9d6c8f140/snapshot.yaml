@@ -1,0 +1,169 @@
+- main:
+  - text: Client release-v1.9.10-relay-recovery-20260617
+  - img "Obscur"
+  - text: Obscur
+  - button "desktop.titleBar.lock"
+  - button "Open desktop profile switcher":
+    - img "Tester1"
+    - text: Tester1 Obscur / e07f67dc...c191ea56
+  - button "Minimize window"
+  - button "Restore window"
+  - button "Close window"
+  - button "Connected"
+  - link "Chats":
+    - /url: /
+  - link "Network":
+    - /url: /network
+  - link "Vault":
+    - /url: /vault
+  - link "Search":
+    - /url: /search
+  - link "Settings":
+    - /url: /settings
+  - button "Open profile menu":
+    - img "Tester1"
+  - button "Sidebar Options"
+  - button "Chats"
+  - button "Requests"
+  - button "Junk"
+  - textbox "Search users and communities..."
+  - button "Chat"
+  - button "Group"
+  - button "New Chat"
+  - button "Direct Messages"
+  - button "View Profile Tester2 O2-coldrestart-verify-071T0720 Offline Active 4d ago Viewed Just now 10h ago":
+    - button "View Profile": T
+    - text: Tester2
+    - paragraph: O2-coldrestart-verify-071T0720
+    - button
+    - text: Offline Active 4d ago Viewed Just now 10h ago
+  - text: Connected 2/6 active relays Obscur Preview
+  - main:
+    - button "View Profile": T
+    - heading "Tester2" [level=2]
+    - button "Disable notifications for this chat" [pressed]
+    - paragraph: Offline Last active 4d ago | Last viewed Just now
+    - button "Voice call"
+    - button "Media"
+    - button "Defense sensitivity for this contact": Relaxed
+    - status:
+      - paragraph: Trust notice
+      - paragraph: This contact is sending many messages in a short period. This can be normal in active chats — verify identity if anything feels off.
+      - button "Show details"
+      - button "Dismiss trust notice"
+    - button "Search Messages"
+    - text: TE Tester2
+    - button "Open reactions"
+    - button "Open message menu"
+    - text: Audio kornevmusic-epic-478847.mp3 video.nostr.build
+    - link "Open in new tab":
+      - /url: https://video.nostr.build/cb40877c9164d1dad068bdc7ffe4c609b9482d8c69667d52cfa84f035153c601.mp3
+    - button
+    - text: 0:00 2:00
+    - slider "Audio progress": "0"
+    - slider "Audio volume": "1"
+    - text: vol 100%
+    - button "Open Externally"
+    - button "Show relay URLs"
+    - text: 16d ago
+    - img "Tester1"
+    - text: You
+    - button "Open reactions"
+    - button "Open message menu"
+    - paragraph: Hi — can you send $200 via wire transfer today?
+    - text: 12d ago
+    - img "Tester1"
+    - text: You
+    - button "Open reactions"
+    - button "Open message menu"
+    - heading "NewTest 2" [level=4]
+    - paragraph: This resilient community is built on decentralized protocols. Privacy first, always.
+    - text: Encrypted Private
+    - paragraph: Roster hidden until join
+    - status:
+      - text: Invitation superseded
+      - paragraph: Recorded in chat history. This card cannot be used again.
+    - text: 8d ago TE Tester2
+    - button "Open reactions"
+    - button "Open message menu"
+    - paragraph: test
+    - text: 5d ago
+    - img "Tester1"
+    - text: You
+    - button "Open reactions"
+    - button "Open message menu"
+    - paragraph: tset
+    - text: 5d ago
+    - img "Tester1"
+    - text: You
+    - button "Open reactions"
+    - button "Open message menu"
+    - heading "NewTest 2" [level=4]
+    - paragraph: This resilient community is built on decentralized protocols. Privacy first, always.
+    - text: Encrypted Private
+    - paragraph: Roster hidden until join
+    - status:
+      - text: Invitation superseded
+      - paragraph: Recorded in chat history. This card cannot be used again.
+    - text: 4d ago
+    - img "Tester1"
+    - text: You
+    - button "Open reactions"
+    - button "Open message menu"
+    - heading "NewTest 2" [level=4]
+    - paragraph: This resilient community is built on decentralized protocols. Privacy first, always.
+    - text: Encrypted Private
+    - paragraph: Roster hidden until join
+    - status:
+      - text: Invitation canceled
+      - paragraph: Recorded in chat history. This card cannot be used again.
+    - text: 4d ago
+    - img "Tester1"
+    - text: You
+    - button "Open reactions"
+    - button "Open message menu"
+    - heading "NewTest 2" [level=4]
+    - paragraph: This resilient community is built on decentralized protocols. Privacy first, always.
+    - text: Encrypted Private
+    - paragraph: Roster hidden until join
+    - status:
+      - text: Invitation canceled
+      - paragraph: Recorded in chat history. This card cannot be used again.
+    - text: 4d ago
+    - img "Tester1"
+    - text: You
+    - button "Open reactions"
+    - button "Open message menu"
+    - heading "NewTest 2" [level=4]
+    - paragraph: This resilient community is built on decentralized protocols. Privacy first, always.
+    - text: Encrypted Private
+    - paragraph: Roster hidden until join
+    - status:
+      - text: Invitation canceled
+      - paragraph: Recorded in chat history. This card cannot be used again.
+    - text: 4d ago
+    - img "Tester1"
+    - text: You
+    - button "Open reactions"
+    - button "Open message menu"
+    - heading "NewTest 2" [level=4]
+    - paragraph: This resilient community is built on decentralized protocols. Privacy first, always.
+    - text: Encrypted Private
+    - paragraph: Roster hidden until join
+    - status:
+      - text: Invitation canceled
+      - paragraph: Recorded in chat history. This card cannot be used again.
+    - text: 4d ago
+    - img "Tester1"
+    - text: You
+    - button "Open reactions"
+    - button "Open message menu"
+    - paragraph: O2-coldrestart-verify-071T0720
+    - text: 10h ago
+    - button "Media"
+    - textbox "Type a message..."
+    - button "Search emojis..."
+    - button "Record Voice Note"
+    - button "Send" [disabled]
+    - text: Connected to Relays E2E Encrypted • Ver. 1.9.10
+- alert

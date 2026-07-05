@@ -1,0 +1,117 @@
+{
+  "schema": "client.session.steps@0.1.0",
+  "sessionId": "csess-727bef4fa87b",
+  "updatedAt": "2026-06-30T04:59:32.774357+00:00",
+  "stepCount": 10,
+  "steps": [
+    {
+      "index": 0,
+      "stepId": "step-4bcccf032dcb",
+      "action": "snapshot",
+      "captureId": "cap-2ba5cf38cff4",
+      "manifestPath": ".codectx/verify/client-sessions/csess-727bef4fa87b/captures/cap-2ba5cf38cff4/manifest.json",
+      "stepLabel": "connect-bootstrap",
+      "pass": true,
+      "at": "2026-06-30T04:56:14.229629900+00:00"
+    },
+    {
+      "index": 1,
+      "stepId": "step-e05f984d8982",
+      "action": "snapshot",
+      "captureId": "cap-969439e56fe6",
+      "manifestPath": ".codectx/verify/client-sessions/csess-727bef4fa87b/captures/cap-969439e56fe6/manifest.json",
+      "stepLabel": "initial-state",
+      "pass": true,
+      "at": "2026-06-30T04:56:19.544772400+00:00"
+    },
+    {
+      "index": 2,
+      "stepId": "step-b55f2fb46a41",
+      "action": "click",
+      "captureId": "cap-85bbcf586ae3",
+      "manifestPath": ".codectx/verify/client-sessions/csess-727bef4fa87b/captures/cap-85bbcf586ae3/manifest.json",
+      "stepLabel": "click-tester1",
+      "selector": "button:has-text(\"Tester1\")",
+      "pass": true,
+      "at": "2026-06-30T04:56:28.297662600+00:00"
+    },
+    {
+      "index": 3,
+      "stepId": "step-fe5e5cfb3e8e",
+      "action": "assert",
+      "captureId": "cap-4abef038c45f",
+      "manifestPath": ".codectx/verify/client-sessions/csess-727bef4fa87b/captures/cap-4abef038c45f/manifest.json",
+      "stepLabel": "assert-tester1-shell",
+      "text": "Chats",
+      "assertKind": "textVisible",
+      "pass": true,
+      "message": "text visible: Chats",
+      "at": "2026-06-30T04:56:36.091730300+00:00"
+    },
+    {
+      "index": 4,
+      "stepId": "step-9a872a273d94",
+      "action": "click",
+      "captureId": "cap-eb6b92be5054",
+      "manifestPath": ".codectx/verify/client-sessions/csess-727bef4fa87b/captures/cap-eb6b92be5054/manifest.json",
+      "stepLabel": "open-profile-switcher",
+      "selector": "[aria-label=\"Open desktop profile switcher\"]",
+      "pass": true,
+      "at": "2026-06-30T04:56:42.422526100+00:00"
+    },
+    {
+      "index": 5,
+      "stepId": "step-c89ebe92887f",
+      "action": "click",
+      "captureId": "cap-cde34aad7d20",
+      "manifestPath": ".codectx/verify/client-sessions/csess-727bef4fa87b/captures/cap-cde34aad7d20/manifest.json",
+      "stepLabel": "manage-profiles",
+      "selector": "button:has-text(\"Manage Profiles\")",
+      "pass": true,
+      "at": "2026-06-30T04:56:53.300014+00:00"
+    },
+    {
+      "index": 6,
+      "stepId": "step-739d85502cd9",
+      "action": "click",
+      "captureId": "cap-cf6722085eb4",
+      "manifestPath": ".codectx/verify/client-sessions/csess-727bef4fa87b/captures/cap-cf6722085eb4/manifest.json",
+      "stepLabel": "open-profile-slot-tester2",
+      "selector": "button:has-text(\"Needs setup\")",
+      "pass": true,
+      "at": "2026-06-30T04:57:00.205682800+00:00"
+    },
+    {
+      "index": 7,
+      "stepId": "step-73c7bfbe9ef4",
+      "action": "click",
+      "captureId": "cap-daa1cd2bb0c2",
+      "manifestPath": ".codectx/verify/client-sessions/csess-727bef4fa87b/captures/cap-daa1cd2bb0c2/manifest.json",
+      "stepLabel": "focus-secondary-window",
+      "selector": "button:has-text(\"Click to switch to open window\")",
+      "pass": true,
+      "at": "2026-06-30T04:57:10.982271100+00:00"
+    },
+    {
+      "index": 8,
+      "stepId": "step-1fec605e6bc0",
+      "action": "click",
+      "captureId": "cap-17084cee2ea9",
+      "manifestPath": ".codectx/verify/client-sessions/csess-727bef4fa87b/captures/cap-17084cee2ea9/manifest.json",
+      "stepLabel": "open-slot-menu",
+      "selector": "button:has-text(\"Needs setup\") span[role=\"button\"]",
+      "pass": true,
+      "at": "2026-06-30T04:58:18.293068100+00:00"
+    },
+    {
+      "index": 9,
+      "stepId": "step-7c28c99f8b1b",
+      "action": "snapshot",
+      "captureId": "cap-7d86a7545434",
+      "manifestPath": ".codectx/verify/client-sessions/csess-727bef4fa87b/captures/cap-7d86a7545434/manifest.json",
+      "stepLabel": "after-switch-attempt",
+      "pass": true,
+      "at": "2026-06-30T04:59:32.772223100+00:00"
+    }
+  ]
+}

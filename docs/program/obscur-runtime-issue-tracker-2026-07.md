@@ -1,7 +1,7 @@
 # Obscur runtime issue tracker — verification pass (2026-07)
 
 **Status:** Active — capture and verify; implementation only after investigation spec per row  
-**Last updated:** 2026-07-04 (UTC) — R1–R3 **landed** · **R5 next**  
+**Last updated:** 2026-07-04 (UTC) — repair queue **complete** (R1–R3 + R5 **VERIFIED t4** · R4 **A**)  
 **Audience:** Maintainer + CodaCtrl Studio / MCP operators  
 **Charter:** [runtime-issue-investigation-workflows-2026-06.md](./runtime-issue-investigation-workflows-2026-06.md) · [codactrl-improvement-findings-2026-07.md](./codactrl-improvement-findings-2026-07.md)  
 **Machine register:** `.codectx/verify/issues-register.json` (**15 triage rows** / 14 symptoms + unmapped bucket as of round10)  
@@ -33,9 +33,9 @@ Active band — see [current-session.md](../handoffs/current-session.md).
 | **R1** | `group-room-key-missing` — health chrome vs send | **VERIFIED t4** — `2026-07-04-r1-room-key-health-t4` · chain `chain-r1-room-key-health-2026-07-04` |
 | **R2** | `auth-keychain-restore-failed` — cold password unlock | **VERIFIED t4** — `1ab19204` |
 | **R3** | Sidebar preview stale | **VERIFIED t4** — `3cf79dbe` · `csess-264849283e3c` |
-| **R5** | O-4 ingest chrome | **IMPLEMENTED** · t4 next |
+| **R5** | O-4 ingest chrome | **VERIFIED t4** — `60c9bb3c` · `csess-58ce611e907b` / `csess-b7f42e294e5e` |
 
-**R1–R3 fix (landed):** R1 health hook · R2 unlock-time identity · R3 sidebar SQLite hydrate (t4 PASS). **R5** ingest room-key owner implemented · t4 pending.
+**Repair band:** R1 health hook · R2 unlock-time identity · R3 sidebar SQLite hydrate · R5 ingest room-key owner — all **VERIFIED t4**. R4 COM-RUN-01 roster **A** @ ACC-02. Maintainer gate: band EXIT → Phase 4 deploy.
 
 ---
 

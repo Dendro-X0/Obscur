@@ -1,0 +1,16 @@
+{
+  "ok": true,
+  "pass": false,
+  "method": "focusWindow",
+  "args": [
+    "profile-profile-2-1782986313621"
+  ],
+  "cdpPort": 9230,
+  "targetUrl": "http://127.0.0.1:1430/",
+  "result": {
+    "ok": false,
+    "label": "profile-profile-2-1782986313621",
+    "reason": "window.set_focus not allowed. Permissions associated with this command: core:window:allow-set-focus"
+  },
+  "message": "bridge call returned ok=false"
+}

@@ -1,7 +1,7 @@
 # Obscur v2 — Phase 4 website charter
 
-**Status:** PAUSED for public deploy (2026-07-04) — maintainer: runtime fixes before release prep  
-**Prerequisite:** Runtime repair band exits before deploy smoke  
+**Status:** Local deploy smoke PASS (2026-07-04) — Vercel preview gate for **EXIT**  
+**Prerequisite:** ~~Runtime repair band exits~~ **met** (R1–R5 VERIFIED t4 · R4 A)  
 **App:** `apps/website`  
 **Pipeline:** [v2.0-release-pipeline.md](../archive/program/inactive-2026-06/v2.0-release-pipeline.md) § Phase 4
 
@@ -21,7 +21,7 @@ Public-facing website: trustworthy download surface, honest limitations, no fals
 |----|-------------|--------|-------|
 | W4-1 | `/download` — Phase 3 manifest artifacts + build-from-source honesty | **Done** | Reads `release-assets/manifest.json` · checksum table |
 | W4-2 | Trust copy — unsigned policy, limitations, no Play/App Store claims | **Done** | `/limitations` · signing policy links |
-| W4-3 | Build/deploy path documented | **Done** · deploy **PAUSED** | [apps/website/README.md](../../apps/website/README.md) |
+| W4-3 | Build/deploy path documented | **Done** · local smoke PASS | [apps/website/README.md](../../apps/website/README.md) · `chain-phase4-website-2026-07-04` |
 | W4-4 | Nav: product, download, limitations, docs pointer | **Done** | `site-nav.tsx` in layout |
 
 ---
@@ -47,6 +47,10 @@ pnpm -C apps/website dev   # smoke: /, /download, /limitations
 
 Manual: Windows download link resolves to GitHub raw `release-assets/windows/Obscur_1.9.10_x64-setup.exe`; checksum matches manifest.
 
+**Local deploy smoke (2026-07-04):** `/`, `/download`, `/limitations` HTTP 200 · SHA in `/download` HTML · CodaCtrl `chain-phase4-website-2026-07-04` (t2).
+
+**EXIT gate:** Vercel preview URL smoke — stranger-facing install path without reading the repo.
+
 ---
 
 ## Out of scope (Phase 5+)
@@ -61,4 +65,4 @@ Manual: Windows download link resolves to GitHub raw `release-assets/windows/Obs
 
 | Date | Change |
 |------|--------|
-| 2026-07-04 | Charter opened; W4-1…W4-4 implemented |
+| 2026-07-04 | Local deploy smoke PASS · editorial P0 · design chain · Vercel preview = EXIT gate |

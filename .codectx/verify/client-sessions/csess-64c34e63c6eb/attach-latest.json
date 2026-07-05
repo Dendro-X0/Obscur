@@ -1,0 +1,21 @@
+{
+  "attachedTarget": {
+    "attachedAt": "2026-07-02T14:50:24.455873600+00:00",
+    "targetId": "AE60790163B73659CD0C44D66A63418F",
+    "url": "http://127.0.0.1:1430/sign-in",
+    "windowLabel": "profile-2"
+  },
+  "cdpEndpoint": "http://127.0.0.1:9231",
+  "cdpPort": 9231,
+  "doesNotProve": [
+    "Full OS-level automation",
+    "Long soak across machines"
+  ],
+  "proofTier": "t3",
+  "proves": [
+    "Real WebView CDP flows including native IPC surfaces"
+  ],
+  "provider": "webview2-cdp",
+  "schema": "client.cdp.attach@0.1.0",
+  "sessionId": "csess-64c34e63c6eb"
+}

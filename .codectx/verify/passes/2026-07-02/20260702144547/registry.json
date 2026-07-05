@@ -1,0 +1,36 @@
+{
+  "schema": "codactrl.investigation.chain.registry@0.1.0",
+  "updatedAt": "2026-07-02T14:45:48.421104800+00:00",
+  "chains": [
+    {
+      "chainId": "chain-dm-split-brain-2026-07-02",
+      "title": "RIW-9 DM temporal UI chain — split-brain + history transient",
+      "symptomClass": "dm-ui-split-brain",
+      "status": "open",
+      "nodeCount": 7,
+      "updatedAt": "2026-07-02T14:45:48.412510400+00:00",
+      "verdict": "partial_accepted",
+      "splitBrainObserved": false
+    },
+    {
+      "chainId": "chain-transport-soak-2026-07-02",
+      "title": "Step 8 — RIW-5/O-3 transport soak with coordination up",
+      "symptomClass": "relay-partial-stack-desktop-only",
+      "status": "open",
+      "nodeCount": 2,
+      "updatedAt": "2026-07-02T14:45:48.396591+00:00",
+      "verdict": "partial_accepted",
+      "splitBrainObserved": false
+    },
+    {
+      "chainId": "chain-o4-group-ingest-2026-07-02",
+      "title": "O-4 Step 7 — NewTest 2 group message relay round-trip",
+      "symptomClass": "group-thread-relay-ingest",
+      "status": "open",
+      "nodeCount": 23,
+      "updatedAt": "2026-07-02T14:45:48.394835100+00:00",
+      "verdict": "partial_accepted",
+      "splitBrainObserved": false
+    }
+  ]
+}

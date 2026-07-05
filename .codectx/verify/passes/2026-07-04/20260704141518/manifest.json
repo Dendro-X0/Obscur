@@ -1,0 +1,14 @@
+{
+  "archivedAt": "2026-07-04T14:15:18.761862900+00:00",
+  "files": [
+    ".codectx/verify/passes/2026-07-04/20260704141518/issues-register.json",
+    ".codectx/verify/passes/2026-07-04/20260704141518/issues-register.summary.json",
+    ".codectx/verify/passes/2026-07-04/20260704141518/registry.json",
+    ".codectx/verify/passes/2026-07-04/20260704141518/export-manifest.json",
+    ".codectx/verify/passes/2026-07-04/20260704141518/report-rollup.md",
+    ".codectx/verify/passes/2026-07-04/20260704141518/agent-handoff.md",
+    ".codectx/verify/passes/2026-07-04/20260704141518/report-lite.json",
+    ".codectx/verify/passes/2026-07-04/20260704141518/repro-recipe.json"
+  ],
+  "schema": "verify.pass.archive@0.1.0"
+}

@@ -1,0 +1,13 @@
+{
+  "keys": [
+    {
+      "key": "e549c31fb3817a3a6cf0e8bd6903bae3c191ea56",
+      "len": 7
+    },
+    {
+      "key": "3817a3a6cf0e8bd6903bae3c191ea56::default",
+      "len": 7
+    }
+  ],
+  "proofTier": "t3"
+}

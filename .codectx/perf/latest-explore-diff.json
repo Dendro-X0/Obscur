@@ -1,0 +1,138 @@
+{
+  "schema": "perf.explore.diff@1.1.0",
+  "generatedAt": "2026-06-30T10:42:27.423047400+00:00",
+  "step": {
+    "schema": "perf.baseline.diff@1.1.0",
+    "generatedAt": "2026-06-30T10:42:27.423047400+00:00",
+    "baseline": {
+      "exploreId": "bundle-20260630102628.395129500+0000",
+      "graphHash": "",
+      "findingCount": 68,
+      "severityCounts": {
+        "red": 0,
+        "yellow": 68,
+        "info": 0
+      }
+    },
+    "current": {
+      "exploreId": "bundle-20260630104227.423047400+0000",
+      "graphHash": "",
+      "findingCount": 38,
+      "severityCounts": {
+        "red": 0,
+        "yellow": 38,
+        "info": 0
+      }
+    },
+    "delta": {
+      "red": 0,
+      "yellow": -30,
+      "info": 0,
+      "total": -30
+    },
+    "resolvedFindingIds": [
+      "perf:import:barrel-penalty:packages/dweb-crdt/src/index.ts",
+      "perf:topology:duplicate-dependency:@dweb/db",
+      "perf:topology:duplicate-dependency:@types/react",
+      "perf:topology:duplicate-dependency:@types/react-dom",
+      "perf:topology:duplicate-dependency:typescript",
+      "perf:topology:duplicate-dependency:vitest"
+    ],
+    "newFindingIds": [],
+    "unchangedFindingIds": [
+      "perf:bundle:missing-optimize-imports:apps/website",
+      "perf:import:barrel-penalty:apps/pwa/app/features/desktop/utils/index.ts",
+      "perf:import:barrel-penalty:apps/pwa/app/features/invites/utils/index.ts",
+      "perf:import:barrel-penalty:apps/pwa/app/features/messaging/services/thread-history/index.ts",
+      "perf:import:barrel-penalty:apps/pwa/app/features/workspace-kernel/index.ts",
+      "perf:import:barrel-penalty:packages/dweb-auth/src/index.ts",
+      "perf:import:barrel-penalty:packages/obscur-conduit-mesh-contracts/src/index.ts",
+      "perf:import:barrel-penalty:packages/obscur-conduit-mesh/src/index.ts",
+      "perf:import:barrel-penalty:packages/obscur-engine-host/src/index.ts",
+      "perf:import:barrel-penalty:packages/ui-kit/src/index.ts",
+      "perf:route:missing-loading:apps/website/src/app/changelog/page.tsx",
+      "perf:route:missing-loading:apps/website/src/app/download/page.tsx",
+      "perf:route:missing-loading:apps/website/src/app/features/[slug]/page.tsx",
+      "perf:route:missing-loading:apps/website/src/app/page.tsx",
+      "perf:stack:next:apps/pwa",
+      "perf:stack:next:apps/website",
+      "perf:topology:architecture-layout:apps:coordination",
+      "perf:topology:architecture-layout:apps:desktop",
+      "perf:topology:architecture-layout:apps:pwa",
+      "perf:topology:architecture-layout:apps:relay-gateway",
+      "perf:topology:architecture-layout:apps:website",
+      "perf:topology:critical-path-scope:apps:coordination",
+      "perf:topology:critical-path-scope:apps:desktop",
+      "perf:topology:critical-path-scope:apps:pwa",
+      "perf:topology:critical-path-scope:apps:relay-gateway",
+      "perf:topology:critical-path-scope:apps:website",
+      "perf:topology:shared-fanout:packages:db",
+      "perf:topology:shared-fanout:packages:dweb-auth",
+      "perf:topology:shared-fanout:packages:dweb-coordination-contracts",
+      "perf:topology:shared-fanout:packages:dweb-core",
+      "perf:topology:shared-fanout:packages:dweb-crypto",
+      "perf:topology:shared-fanout:packages:dweb-storage-contracts",
+      "perf:topology:shared-fanout:packages:dweb-transport-contracts",
+      "perf:topology:shared-fanout:packages:obscur-conduit-mesh-contracts",
+      "perf:topology:shared-fanout:packages:obscur-engine-contracts"
+    ],
+    "severityChanges": [],
+    "improved": true,
+    "verification": {
+      "status": "improved",
+      "resolvedCount": 6,
+      "severityImprovementCount": 0,
+      "partialCount": 0,
+      "metricImprovements": [
+        {
+          "findingId": "perf:import:barrel-penalty:packages/dweb-crdt/src/index.ts",
+          "metric": "finding",
+          "from": 1,
+          "to": 0,
+          "verified": true,
+          "status": "resolved"
+        },
+        {
+          "findingId": "perf:topology:duplicate-dependency:@dweb/db",
+          "metric": "finding",
+          "from": 1,
+          "to": 0,
+          "verified": true,
+          "status": "resolved"
+        },
+        {
+          "findingId": "perf:topology:duplicate-dependency:@types/react",
+          "metric": "finding",
+          "from": 1,
+          "to": 0,
+          "verified": true,
+          "status": "resolved"
+        },
+        {
+          "findingId": "perf:topology:duplicate-dependency:@types/react-dom",
+          "metric": "finding",
+          "from": 1,
+          "to": 0,
+          "verified": true,
+          "status": "resolved"
+        },
+        {
+          "findingId": "perf:topology:duplicate-dependency:typescript",
+          "metric": "finding",
+          "from": 1,
+          "to": 0,
+          "verified": true,
+          "status": "resolved"
+        },
+        {
+          "findingId": "perf:topology:duplicate-dependency:vitest",
+          "metric": "finding",
+          "from": 1,
+          "to": 0,
+          "verified": true,
+          "status": "resolved"
+        }
+      ]
+    }
+  }
+}

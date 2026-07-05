@@ -1,0 +1,30 @@
+{
+  "schema": "codactrl.investigation.node@0.1.0",
+  "chainId": "chain-o4-group-ingest-2026-07-02",
+  "nodeId": "n23-round20-o4-send",
+  "trigger": "round20-o4-bubble-visible",
+  "at": "2026-07-02T16:11:52.763458600+00:00",
+  "sessionId": "csess-6f1a35b7762b",
+  "surfaces": {
+    "mainThreadMessageCount": 13,
+    "mainThreadSystemCards": 0,
+    "alertBannerCount": 1,
+    "splitBrainSuspected": false
+  },
+  "digestRef": "fault-4a0f5a41",
+  "signals": [
+    "dm-normalize-is-outgoing-mismatch",
+    "groups-ledger-validation"
+  ],
+  "signalsExtracted": [
+    "account_sync.backup_publish_attempt",
+    "account_sync.backup_publish_ordering",
+    "account_sync.backup_publish_result",
+    "groups.ledger_migration_needed",
+    "groups.ledger_validation_issues",
+    "messaging.delete_for_everyone_remote_result",
+    "messaging.dm_normalize_is_outgoing_mismatch",
+    "workspace.thread.hydrate"
+  ],
+  "hypothesis": "Round 20 O-4 group send with publishGroupEvent to :7000"
+}

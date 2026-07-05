@@ -1,0 +1,20 @@
+{
+  "schema": "codactrl.investigation.node@0.1.0",
+  "chainId": "chain-dm-split-brain-2026-07-02",
+  "nodeId": "n5-wait-30s-probe",
+  "trigger": "RIW-9 n5: 30s wait on Tester2 DM with O2 visible pre-wait",
+  "at": "2026-07-01T16:58:31.922724500+00:00",
+  "sessionId": "csess-631c3bba5207",
+  "surfaces": {
+    "mainThreadMessageCount": 11,
+    "mainThreadSystemCards": 12,
+    "alertBannerCount": 8,
+    "splitBrainSuspected": false
+  },
+  "screenshotRef": ".codectx/verify/client-sessions/csess-631c3bba5207/captures/cap-8b81b8ca793f/screenshot.png",
+  "hypothesis": "Post-wait surface stable on warm session",
+  "doesNotProve": [
+    "cold restart split-brain",
+    "transient vanish after 30s"
+  ]
+}

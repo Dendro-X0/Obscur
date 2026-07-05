@@ -1,0 +1,18 @@
+{
+  "artifactCount": 10,
+  "artifacts": [
+    "report.json",
+    "report-lite.json",
+    "report.md",
+    "report-rollup.md",
+    "meta-chain.json",
+    "agent-handoff.md",
+    "repro-recipe.json",
+    "repro-recipe.md",
+    "chain-integrity.json",
+    "export-manifest.json"
+  ],
+  "coherent": true,
+  "exportedAt": "2026-07-04T14:15:18.761862900+00:00",
+  "schema": "verify.export.bundle@1.0.0"
+}

@@ -1,0 +1,10 @@
+{
+  "schema": "studio.repo.explore.manifest@1.0.0",
+  "exploreId": "re-1536e0e04090",
+  "exploreSnapshotHash": "sha256:1536e0e04090590f549d2ccc152abb42542dbb4d634dccf2aebf58bb4eab6737",
+  "scanSnapshotHash": "sha256:ca5d8e82388b2801366a5f56f61da98a12a17a702f1a9b1e63979a521a16660b",
+  "engineVersion": "0.6.0",
+  "startedAt": "2026-07-03T05:47:32.561069300+00:00",
+  "finishedAt": "2026-07-03T05:47:32.650305800+00:00",
+  "status": "completed"
+}

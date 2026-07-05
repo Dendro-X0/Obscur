@@ -12,7 +12,7 @@ All notable changes to Obscur are documented here.
 
 - **Ingest decrypt alignment** — `resolveRoomKeyHexForGroupRelayIngest` uses same local → coordination materialize path as send/health; ingest hooks pass `localPrivateKeyHex` from identity.
 - **Dev ergonomics** — `apps/pwa/app/features/groups` added to static-shell stale watch roots.
-- **Evidence:** L1 `group-thread-relay-ingest.test.ts` + `community-coordination-room-key-owner.test.ts` (26/26) · t4 pending.
+- **Evidence:** L1 `group-thread-relay-ingest.test.ts` + `community-coordination-room-key-owner.test.ts` (26/26) · t4 **PASS** `csess-58ce611e907b` (warm send) · `csess-b7f42e294e5e` (cold restart).
 
 ### Verification (R5)
 
@@ -22,7 +22,7 @@ pnpm -C apps/pwa exec vitest run \
   app/features/groups/services/community-coordination-room-key-owner.test.ts
 ```
 
-CodaCtrl: full stack → Tester1 send → Tester2 background ingest without community-home visit.
+CodaCtrl: `chain-r5-o4-ingest-chrome-2026-07-04` · Tester1 send `R5-o4-ingest-t4-070T1746` · cold restart unlock · digest no `decrypt_failed`. Does not prove Tester2 `:9231` background ingest.
 
 ### Fixed (Runtime repair — R3 sidebar preview stale)
 

@@ -1,0 +1,79 @@
+- main:
+  - text: Client release-v1.9.10-relay-recovery-20260617
+  - img "Obscur"
+  - text: Obscur
+  - button "desktop.titleBar.lock"
+  - button "Open desktop profile switcher":
+    - img "Tester1"
+    - text: Tester1 Obscur / e07f67dc...c191ea56
+  - button "Minimize window"
+  - button "Restore window"
+  - button "Close window"
+  - button "Connected"
+  - link "Chats":
+    - /url: /
+  - link "Network":
+    - /url: /network
+  - link "Vault":
+    - /url: /vault
+  - link "Search":
+    - /url: /search
+  - link "Settings":
+    - /url: /settings
+  - button "Open profile menu":
+    - img "Tester1"
+  - button "Sidebar Options"
+  - button "Chats"
+  - button "Requests"
+  - button "Junk"
+  - textbox "Search users and communities..."
+  - button "Chat"
+  - button "Group"
+  - button "New Group"
+  - button "Communities"
+  - button "N NewTest 2 Group key unavailable on this device 20d ago":
+    - text: N NewTest 2
+    - paragraph: Group key unavailable on this device
+    - button
+    - text: 20d ago
+  - text: Connected 1/6 active relays Obscur Preview
+  - main:
+    - text: "N"
+    - heading "NewTest 2" [level=2]
+    - button "Disable notifications for this chat" [pressed]
+    - paragraph: 2 members· 1 online ·Last activity 20d ago
+    - button "Media"
+    - button "Info"
+    - status:
+      - paragraph: Trust notice
+      - paragraph: This contact is sending many messages in a short period. This can be normal in active chats — verify identity if anything feels off.
+      - button "Show details"
+      - button "Dismiss trust notice"
+    - button "Search Messages"
+    - text: TE Tester2
+    - button "Open reactions"
+    - button "Open message menu"
+    - paragraph: "Invoice for last month: $120 — thanks!"
+    - text: 17d ago
+    - img "Tester1"
+    - text: You
+    - button "Open reactions"
+    - button "Open message menu"
+    - paragraph: tset
+    - text: 8d ago TE Tester2
+    - button "Open reactions"
+    - button "Open message menu"
+    - paragraph: test
+    - text: 4d ago
+    - img "Tester1"
+    - text: You
+    - button "Open reactions"
+    - button "Open message menu"
+    - paragraph: test
+    - text: 4d ago
+    - button "Media"
+    - textbox "Type a message...": O4-round5-relay-blocked-071T1714
+    - button "Search emojis..."
+    - button "Send"
+    - text: Connected to Relays E2E Encrypted • Ver. 1.9.10
+- alert

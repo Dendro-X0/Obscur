@@ -1,0 +1,24 @@
+{
+  "schema": "client.capture@0.1.0",
+  "sessionId": "csess-7813dd567860",
+  "captureId": "cap-dd1ce202d7a4",
+  "action": "screenshot",
+  "provider": "playwright-chromium",
+  "proofTier": "t2",
+  "pass": true,
+  "stepLabel": "chain-n3-deploy-smoke",
+  "url": "http://localhost:3000/download",
+  "finalUrl": "http://localhost:3000/download",
+  "pageTitle": "Obscur | Private Communication With Release Evidence",
+  "artifactPath": ".codectx/verify/client-sessions/csess-7813dd567860/captures/cap-dd1ce202d7a4/screenshot.png",
+  "snapshotPath": null,
+  "capturedAt": "2026-07-04T23:59:58.756539800+00:00",
+  "proves": [
+    "Web flows against a live dev server"
+  ],
+  "doesNotProve": [
+    "Packaged desktop",
+    "WebView2-specific behavior",
+    "Multi-window focus"
+  ]
+}

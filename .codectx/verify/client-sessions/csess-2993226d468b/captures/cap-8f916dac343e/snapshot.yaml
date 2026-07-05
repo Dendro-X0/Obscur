@@ -1,0 +1,146 @@
+- banner:
+  - link "V Vectis Official marketplace client":
+    - /url: /marketplace
+    - text: V
+    - paragraph: Vectis
+    - paragraph: Official marketplace client
+  - navigation:
+    - link "Marketplace":
+      - /url: /marketplace
+    - link "Dashboard":
+      - /url: /dashboard
+    - link "Explore":
+      - /url: /explorer
+    - link "Settings":
+      - /url: /dashboard/settings
+  - 'button "Theme: system. Switch to light."'
+  - link "Operator":
+    - /url: /operator
+  - link "Sign in":
+    - /url: /sign-in
+- main:
+  - text: Viewing marketplace on http://127.0.0.1:7878 Credits are in-protocol coordination units — not fiat money. No ads. Ranking by alignment, not traffic games. Showcase listings — connect a node for live kernel data Freelance work & mutual aid on-protocol
+  - heading "Find aligned work. Settle with confidence." [level=1]
+  - paragraph: Browse services and community maintenance without ads or platform traffic games. Exchange value through escrow milestones and kernel-confirmed settlement — not traditional currency.
+  - link "Browse listings":
+    - /url: "#listings"
+  - link "Mutual aid":
+    - /url: /marketplace/mutual-aid
+  - paragraph: How this marketplace differs
+  - list:
+    - listitem: Matching by alignment between your needs and provider history — not promoted slots.
+    - listitem: Settlement rules live in the protocol kernel, not operator discretion.
+    - listitem: Guest browsing is open. Sign in with a local key to post offers and start exchanges.
+  - paragraph: "Kernel truth: Discovery rankings are informational scores from kernel replay. They are not payment guarantees or off-platform trust endorsements."
+  - text: fetch failed
+  - complementary:
+    - paragraph: Browse
+    - link "All listings":
+      - /url: /marketplace
+    - link "Mutual aid":
+      - /url: /marketplace/mutual-aid
+    - paragraph: Categories
+    - link "Software Fixes":
+      - /url: /marketplace/lanes/software-fixes
+    - link "Feature Work":
+      - /url: /marketplace/lanes/feature-work
+    - link "Documentation":
+      - /url: /marketplace/lanes/documentation
+    - link "Translation":
+      - /url: /marketplace/lanes/translation
+    - link "Testing":
+      - /url: /marketplace/lanes/testing
+    - link "Research":
+      - /url: /marketplace/lanes/research
+    - link "Project Maintenance Aid":
+      - /url: /marketplace/lanes/project-maintenance
+    - link "Compute Jobs":
+      - /url: /marketplace/lanes/compute-job
+  - heading "Listings" [level=2]
+  - paragraph: 6 services · alignment-based browse, no promoted slots
+  - textbox "Search listings":
+    - /placeholder: Search listings…
+  - combobox "Sort listings": newest
+  - button "Apply"
+  - text: Software Fixes Showcase Active
+  - heading "Fix failing CI on Rust crate" [level=3]
+  - paragraph: Bounded fix per issue · artifact delivery
+  - text: Price
+  - paragraph: 120 credits
+  - text: Fit score
+  - paragraph: "91"
+  - text: a09aa5…a4f0 · Rep 84
+  - link "View listing":
+    - /url: /marketplace/offers/showcase-software-fix
+  - link "Sign in to start":
+    - /url: /sign-in
+  - text: Documentation Showcase Active
+  - heading "API reference refresh for open-source SDK" [level=3]
+  - paragraph: Structured doc deliverable
+  - text: Price
+  - paragraph: 90 credits
+  - text: Fit score
+  - paragraph: "82"
+  - text: d04ab2…8737 · Rep 76
+  - link "View listing":
+    - /url: /marketplace/offers/showcase-documentation
+  - link "Sign in to start":
+    - /url: /sign-in
+  - text: Project Maintenance Showcase Active
+  - heading "Unblock stalled maintainer backlog" [level=3]
+  - paragraph: Mutual aid · maintenance continuation
+  - text: Price
+  - paragraph: 160 credits
+  - text: Fit score
+  - paragraph: "86"
+  - text: a09aa5…a4f0 · Rep 88
+  - link "View listing":
+    - /url: /marketplace/offers/showcase-maintenance
+  - link "Sign in to start":
+    - /url: /sign-in
+  - text: Research Showcase Active
+  - heading "Lane economics brief with hashed deliverable" [level=3]
+  - paragraph: Research brief artifact
+  - text: Price
+  - paragraph: 140 credits
+  - text: Fit score
+  - paragraph: "74"
+  - text: d04ab2…8737 · Rep 71
+  - link "View listing":
+    - /url: /marketplace/offers/showcase-research
+  - link "Sign in to start":
+    - /url: /sign-in
+  - text: Testing Showcase Active
+  - heading "Reproduction report for flaky integration suite" [level=3]
+  - paragraph: Verification report
+  - text: Price
+  - paragraph: 95 credits
+  - text: Fit score
+  - paragraph: "77"
+  - text: a09aa5…a4f0 · Rep 79
+  - link "View listing":
+    - /url: /marketplace/offers/showcase-testing
+  - link "Sign in to start":
+    - /url: /sign-in
+  - text: Compute Job Showcase Active
+  - heading "Deterministic batch transform with job receipt" [level=3]
+  - paragraph: Receipt-based compute delivery
+  - text: Price
+  - paragraph: 220 credits
+  - text: Fit score
+  - paragraph: "80"
+  - text: d04ab2…8737 · Rep 83
+  - link "View listing":
+    - /url: /marketplace/offers/showcase-compute
+  - link "Sign in to start":
+    - /url: /sign-in
+- contentinfo:
+  - paragraph: Vectis is an open coordination protocol. This official client is one marketplace on that protocol — communities can run their own stores and apps.
+  - link "Kernel explorer":
+    - /url: /explorer
+  - link "Operator tools":
+    - /url: /operator
+  - link "Sign in":
+    - /url: /sign-in
+  - link "Register":
+    - /url: /register

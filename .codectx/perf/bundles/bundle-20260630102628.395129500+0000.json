@@ -1,0 +1,192 @@
+{
+  "aggregate": {
+    "discoveryCount": 133,
+    "obligationCount": 68,
+    "obligationSeverityCounts": {
+      "info": 0,
+      "red": 0,
+      "total": 68,
+      "yellow": 68
+    },
+    "severityCounts": {
+      "info": 65,
+      "red": 0,
+      "total": 133,
+      "yellow": 68
+    },
+    "targetMetrics": [
+      {
+        "appRoot": "apps/coordination",
+        "discoveryCount": 25,
+        "obligationCount": 12,
+        "obligationSeverityCounts": {
+          "info": 0,
+          "red": 0,
+          "total": 12,
+          "yellow": 12
+        },
+        "severityCounts": {
+          "info": 13,
+          "red": 0,
+          "total": 25,
+          "yellow": 12
+        }
+      },
+      {
+        "appRoot": "apps/desktop",
+        "discoveryCount": 25,
+        "obligationCount": 12,
+        "obligationSeverityCounts": {
+          "info": 0,
+          "red": 0,
+          "total": 12,
+          "yellow": 12
+        },
+        "severityCounts": {
+          "info": 13,
+          "red": 0,
+          "total": 25,
+          "yellow": 12
+        }
+      },
+      {
+        "appRoot": "apps/pwa",
+        "discoveryCount": 28,
+        "obligationCount": 16,
+        "obligationSeverityCounts": {
+          "info": 0,
+          "red": 0,
+          "total": 16,
+          "yellow": 16
+        },
+        "severityCounts": {
+          "info": 12,
+          "red": 0,
+          "total": 28,
+          "yellow": 16
+        }
+      },
+      {
+        "appRoot": "apps/relay-gateway",
+        "discoveryCount": 25,
+        "obligationCount": 12,
+        "obligationSeverityCounts": {
+          "info": 0,
+          "red": 0,
+          "total": 12,
+          "yellow": 12
+        },
+        "severityCounts": {
+          "info": 13,
+          "red": 0,
+          "total": 25,
+          "yellow": 12
+        }
+      },
+      {
+        "appRoot": "apps/website",
+        "discoveryCount": 30,
+        "obligationCount": 16,
+        "obligationSeverityCounts": {
+          "info": 0,
+          "red": 0,
+          "total": 16,
+          "yellow": 16
+        },
+        "severityCounts": {
+          "info": 14,
+          "red": 0,
+          "total": 30,
+          "yellow": 16
+        }
+      }
+    ]
+  },
+  "bundleId": "bundle-20260630102628.395129500+0000",
+  "completedAt": "2026-06-30T10:26:28.395129500+00:00",
+  "exploreScope": "monorepo-critical-path",
+  "mode": "all-apps",
+  "schema": "perf.explore.bundle@1.0.0",
+  "targets": [
+    {
+      "appRoot": "apps/coordination",
+      "completedAt": "2026-06-30T10:25:09.681799400+00:00",
+      "discoveryCount": 25,
+      "exploreId": "22d571fc-205f-64fd-d229-76514559b54d",
+      "findingCount": 25,
+      "graphHash": "sha256:159fd65d8fa2292140cd132d25a0c0a49f3914cbc7e3b5ca16435a6ac07c5992",
+      "name": "@obscur/coordination-worker",
+      "obligationCount": 12,
+      "obligationSeverityCounts": {
+        "info": 0,
+        "red": 0,
+        "total": 12,
+        "yellow": 12
+      }
+    },
+    {
+      "appRoot": "apps/desktop",
+      "completedAt": "2026-06-30T10:25:40.587965200+00:00",
+      "discoveryCount": 25,
+      "exploreId": "f67f8b62-e82b-7ba0-6fc4-d4cffd308241",
+      "findingCount": 25,
+      "graphHash": "sha256:c60570335a54690cce8c44c9b7023edcf40cad476dd25e6ba09ca6e3bd796209",
+      "name": "@dweb/desktop",
+      "obligationCount": 12,
+      "obligationSeverityCounts": {
+        "info": 0,
+        "red": 0,
+        "total": 12,
+        "yellow": 12
+      }
+    },
+    {
+      "appRoot": "apps/pwa",
+      "completedAt": "2026-06-30T10:25:51.444085300+00:00",
+      "discoveryCount": 28,
+      "exploreId": "da6b7c53-35b7-07bd-fed2-4c230889f614",
+      "findingCount": 28,
+      "graphHash": "sha256:f469b27c07b7b238c60da9d3f07ac29f178089d43559de1fb231a99e968b35ac",
+      "name": "pwa",
+      "obligationCount": 16,
+      "obligationSeverityCounts": {
+        "info": 0,
+        "red": 0,
+        "total": 16,
+        "yellow": 16
+      }
+    },
+    {
+      "appRoot": "apps/relay-gateway",
+      "completedAt": "2026-06-30T10:26:07.310757100+00:00",
+      "discoveryCount": 25,
+      "exploreId": "1268342d-242d-5bd2-5d82-d9161c96cea2",
+      "findingCount": 25,
+      "graphHash": "sha256:ddf6cdc9c38e19371efc417a11bc3080c483c18451e66ef2b97061d8a6ee4cbf",
+      "name": "@obscur/relay-gateway",
+      "obligationCount": 12,
+      "obligationSeverityCounts": {
+        "info": 0,
+        "red": 0,
+        "total": 12,
+        "yellow": 12
+      }
+    },
+    {
+      "appRoot": "apps/website",
+      "completedAt": "2026-06-30T10:26:17.790258900+00:00",
+      "discoveryCount": 30,
+      "exploreId": "ed7616a3-f1d4-708f-d236-3d142d9d6815",
+      "findingCount": 30,
+      "graphHash": "sha256:cf78e44876ad7f1f787cb0df4f67eeac1a6780ad4dcb35f3321455c96e592ec1",
+      "name": "website",
+      "obligationCount": 16,
+      "obligationSeverityCounts": {
+        "info": 0,
+        "red": 0,
+        "total": 16,
+        "yellow": 16
+      }
+    }
+  ]
+}

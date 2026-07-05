@@ -1,0 +1,4 @@
+{"kind":"requestfailed","text":"net::ERR_INSUFFICIENT_RESOURCES","url":"http://127.0.0.1:1430/obscur-logo-light.svg","method":"GET","at":"2026-06-30T04:59:32.514Z"}
+{"kind":"console","type":"error","text":"Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES","location":{"url":"http://127.0.0.1:1430/obscur-logo-light.svg","line":0,"column":0,"lineNumber":0,"columnNumber":0},"at":"2026-06-30T04:59:32.520Z"}
+{"kind":"requestfailed","text":"net::ERR_INSUFFICIENT_RESOURCES","url":"http://127.0.0.1:1430/favicon.ico?favicon.164f0c3d.ico","method":"GET","at":"2026-06-30T04:59:32.574Z"}
+{"kind":"console","type":"error","text":"Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES","location":{"url":"http://127.0.0.1:1430/favicon.ico?favicon.164f0c3d.ico","line":0,"column":0,"lineNumber":0,"columnNumber":0},"at":"2026-06-30T04:59:32.575Z"}

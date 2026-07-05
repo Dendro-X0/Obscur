@@ -1,0 +1,19 @@
+{
+  "schema": "verify.run.manifest@1.0.0",
+  "runId": "vrun-e0247573",
+  "scenarioId": "obscur-profile-picker-flow",
+  "scenarioTitle": "Obscur profile picker CDP script (T3 adapter)",
+  "proofTier": "t3",
+  "status": "fail",
+  "proves": [
+    "Real WebView CDP flows including native IPC surfaces"
+  ],
+  "doesNotProve": [
+    "Full OS-level automation",
+    "Long soak across machines"
+  ],
+  "startedAt": "2026-06-30T04:57:19.264405700+00:00",
+  "finishedAt": "2026-06-30T04:57:49.277641700+00:00",
+  "repoRoot": "E:\\Web Projects\\experimental-workspace\\newstart",
+  "catalogPath": "verify.scenarios.yaml"
+}

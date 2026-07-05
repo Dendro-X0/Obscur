@@ -1,0 +1,9 @@
+{
+  "ok": true,
+  "proofTier": "t3",
+  "status": {
+    "identityStatus": "unlocked",
+    "profileId": "profile-2",
+    "runtimePhase": "auth_required"
+  }
+}

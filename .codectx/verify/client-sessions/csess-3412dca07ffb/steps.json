@@ -1,0 +1,26 @@
+{
+  "schema": "client.session.steps@0.1.0",
+  "sessionId": "csess-3412dca07ffb",
+  "updatedAt": "2026-07-04T17:44:27.491734700+00:00",
+  "stepCount": 2,
+  "steps": [
+    {
+      "index": 0,
+      "stepId": "step-174dd6f3ba3a",
+      "action": "snapshot",
+      "captureId": "cap-43c48d85a658",
+      "manifestPath": ".codectx/verify/client-sessions/csess-3412dca07ffb/captures/cap-43c48d85a658/manifest.json",
+      "stepLabel": "connect-bootstrap",
+      "pass": true,
+      "at": "2026-07-04T17:44:23.344533900+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-33a52a7462dc",
+      "action": "mcp.client.session.connect",
+      "manifestPath": ".codectx/verify/client-sessions/csess-3412dca07ffb/attach-latest.json",
+      "pass": true,
+      "at": "2026-07-04T17:44:27.483502100+00:00"
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "schema": "client.capture@0.1.0",
+  "sessionId": "csess-771798b72abc",
+  "captureId": "cap-10a0e3110045",
+  "action": "click",
+  "provider": "playwright-chromium",
+  "proofTier": "t2",
+  "pass": false,
+  "stepLabel": "offer-sign-in-cta",
+  "url": "http://localhost:3000/marketplace/offers/showcase-software-fix",
+  "finalUrl": "http://localhost:3000/marketplace/offers/showcase-software-fix",
+  "pageTitle": "",
+  "artifactPath": null,
+  "snapshotPath": ".codectx/verify/client-sessions/csess-771798b72abc/captures/cap-10a0e3110045/snapshot.yaml",
+  "consoleLogPath": ".codectx/verify/client-sessions/csess-771798b72abc/captures/cap-10a0e3110045/console.jsonl",
+  "capturedAt": "2026-07-03T07:08:05.468269+00:00",
+  "proves": [
+    "Web flows against a live dev server"
+  ],
+  "doesNotProve": [
+    "Packaged desktop",
+    "WebView2-specific behavior",
+    "Multi-window focus"
+  ]
+}

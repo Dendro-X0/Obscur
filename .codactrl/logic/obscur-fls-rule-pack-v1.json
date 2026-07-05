@@ -1,0 +1,234 @@
+{
+  "schemaVersion": "codactrl.functional.logic.rulepack@1.0.0",
+  "rulePackId": "obscur-community-v1",
+  "title": "Obscur community — static and runtime logic rules",
+  "generatedFrom": "obscur-ux-gate-investigation-2026-07",
+  "staticRules": [
+    {
+      "id": "RG-NO-UX-GATE-LOCAL-KEY",
+      "patternType": "GATE",
+      "description": "Product navigation must not use disabled= predicated on local room key",
+      "detector": "regex",
+      "expressions": [
+        "disabled=\\{[^}]*roomKey"
+      ],
+      "scopeGlobs": [
+        "apps/pwa/app/features/groups/components/**",
+        "apps/pwa/app/groups/**"
+      ],
+      "excludeGlobs": [
+        "**/*.test.ts",
+        "**/*.test.tsx"
+      ],
+      "exceptions": [
+        "group-service.ts",
+        "distributeRoomKey",
+        "sendSealedMessage"
+      ],
+      "mapsToInvariants": ["INV-COMM-001"]
+    },
+    {
+      "id": "RG-GATE-HARD-RETURN-KEY",
+      "patternType": "GATE",
+      "description": "Hard return or throw on room_key_missing before network/coordination evidence",
+      "detector": "regex",
+      "expressions": [
+        "room_key_missing",
+        "if \\(!roomKeyPresent\\)",
+        "Community room key is required"
+      ],
+      "scopeGlobs": [
+        "apps/pwa/app/features/workspace-kernel/**",
+        "apps/pwa/app/features/groups/services/**"
+      ],
+      "mapsToInvariants": ["INV-COMM-003"]
+    },
+    {
+      "id": "RG-UNWIRED-EXPORT",
+      "patternType": "UNWIRED_GUARD",
+      "description": "Exported function with unit tests but zero non-test production imports",
+      "detector": "import_graph",
+      "minTestFiles": 1,
+      "maxProductionImporters": 0,
+      "seedExports": [
+        "checkCommunitySendability",
+        "CommunityMembershipHealthBanner"
+      ],
+      "mapsToInvariants": ["INV-COMM-005"]
+    },
+    {
+      "id": "RG-POLICY-CONSUMER-DRIFT",
+      "patternType": "CONTRACT_DRIFT",
+      "description": "Policy module returns constant false for gate but consumers still branch",
+      "detector": "cross_file",
+      "policyModule": "community-membership-ui-action-policy.ts",
+      "policyReturnsFalse": [
+        "resolveCommunityChatActionDisabled",
+        "resolveCommunityInviteActionDisabled"
+      ],
+      "forbiddenConsumerPatterns": [
+        "roomKeyHex.trim().length === 0",
+        "inviteActionDisabled",
+        "!roomKeyPresent"
+      ],
+      "mapsToInvariants": ["INV-COMM-002"]
+    },
+    {
+      "id": "RG-PROBE-PESSIMISM",
+      "patternType": "GATE",
+      "description": "Nullable probe result coerced to false blocks UI",
+      "detector": "regex",
+      "expressions": [
+        "Healthy \\?\\? false",
+        "healthy \\?\\? false"
+      ],
+      "scopeGlobs": ["apps/pwa/app/features/**/hooks/**"],
+      "mapsToInvariants": ["INV-COMM-007"]
+    },
+    {
+      "id": "RG-TERMINAL-WITHOUT-RESET",
+      "patternType": "TERMINAL_STATE",
+      "description": "Writes terminal_failed without paired clear/reset function",
+      "detector": "ast_pair",
+      "writePattern": "terminal_failed",
+      "requireResetPattern": "clear|reset|reconcile",
+      "scopeGlobs": ["apps/pwa/app/features/**"],
+      "mapsToInvariants": ["INV-COMM-008"]
+    },
+    {
+      "id": "RG-OWNER-STORAGE-SPLIT",
+      "patternType": "OWNER_SPLIT",
+      "description": "Multiple modules write same profile localStorage key prefix",
+      "detector": "storage_key_graph",
+      "ownerGroups": {
+        "membership_ledger": [
+          "community-membership-ledger",
+          "persistCommunityMembershipLedger"
+        ],
+        "room_key": ["room-key-store", "obscur:room-keys"],
+        "coordination_directory": [
+          "coordination-membership-directory",
+          "COORDINATION_MEMBERSHIP_DIRECTORY"
+        ]
+      },
+      "maxWritersPerGroup": 1,
+      "mapsToInvariants": ["INV-COMM-009"]
+    },
+    {
+      "id": "RG-DEAD-COMPONENT",
+      "patternType": "UNWIRED_GUARD",
+      "description": "Exported React component never imported in app tree",
+      "detector": "import_graph",
+      "exportKind": "react_component",
+      "mapsToInvariants": ["INV-COMM-005"]
+    }
+  ],
+  "runtimeRules": [
+    {
+      "id": "RT-HEALTH-UI-SPLIT",
+      "patternType": "HEALTH_MISMATCH",
+      "description": "Health snapshot ready while UI control disabled",
+      "signals": [
+        {
+          "source": "digest",
+          "event": "groups.membership_health_snapshot",
+          "match": { "ready": 1 }
+        },
+        {
+          "source": "cdp",
+          "selector": "[data-testid=community-invite], [data-testid=enter-community-chat]",
+          "match": { "disabled": true }
+        }
+      ],
+      "verdict": "violated",
+      "mapsToInvariants": ["INV-COMM-004"],
+      "symptomId": "group-room-key-missing"
+    },
+    {
+      "id": "RT-BLOCKER-NAV-GATE",
+      "patternType": "GATE",
+      "description": "room_key_missing blocker while user on chat route",
+      "signals": [
+        {
+          "source": "digest",
+          "event": "groups.membership_health_snapshot",
+          "match": { "blockers": "room_key_missing" }
+        },
+        {
+          "source": "cdp",
+          "route": "/groups/**/chat"
+        }
+      ],
+      "mapsToInvariants": ["INV-COMM-001"]
+    },
+    {
+      "id": "RT-LEDGER-INVALID-PERSIST",
+      "patternType": "TERMINAL_STATE",
+      "description": "Invalid ledger count does not decrease across loads",
+      "signals": [
+        {
+          "source": "digest",
+          "event": "groups.ledger_validation_issues",
+          "field": "invalidEntries"
+        },
+        {
+          "source": "digest",
+          "event": "groups.membership_ledger_load",
+          "field": "invalidEntries"
+        }
+      ],
+      "assert": "monotonic_non_increasing_or_zero",
+      "mapsToInvariants": ["INV-COMM-006"],
+      "symptomId": "groups-ledger-validation"
+    },
+    {
+      "id": "RT-PROJECTION-SQLITE-SPLIT",
+      "patternType": "OWNER_SPLIT",
+      "description": "Projection and SQLite conversation counts diverge after replay",
+      "signals": [
+        {
+          "source": "digest",
+          "event": "account_projection.replay_complete"
+        },
+        {
+          "source": "digest",
+          "compare": ["projectionConversationCount", "sqliteConversationCount"]
+        }
+      ],
+      "mapsToInvariants": ["INV-COMM-009"],
+      "symptomId": "projection-sqlite-drift"
+    },
+    {
+      "id": "RT-SEND-COMPOSE-SILENT-FAIL",
+      "patternType": "UNWIRED_GUARD",
+      "description": "Compose enabled but send throws room key error",
+      "signals": [
+        {
+          "source": "cdp",
+          "selector": "composer",
+          "match": { "disabled": false }
+        },
+        {
+          "source": "console",
+          "pattern": "room key|room_key|no_room_key"
+        }
+      ],
+      "mapsToInvariants": ["INV-COMM-005"]
+    }
+  ],
+  "appropriateFailClosed": [
+    {
+      "scope": "packages/obscur-conduit-mesh/**",
+      "reason": "transport_publish_boundary"
+    },
+    {
+      "scope": "packages/obscur-engine-host/**",
+      "reason": "engine_invoke_boundary"
+    },
+    {
+      "scope": "apps/pwa/app/features/groups/services/group-service.ts",
+      "symbol": "sendSealedMessage",
+      "reason": "crypto_send_boundary"
+    }
+  ]
+}

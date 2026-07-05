@@ -1,0 +1,9 @@
+{
+  "schemaVersion": "codactrl.functional.logic.findings@1.0.0",
+  "rulePackId": "obscur-community-v1",
+  "workspaceRoot": "E:/Web Projects/experimental-workspace/obscur",
+  "evaluatedAt": "2026-07-04T04:29:40.685Z",
+  "navigationGateFindings": [],
+  "violatedCount": 0,
+  "deferredRuleHits": 10
+}

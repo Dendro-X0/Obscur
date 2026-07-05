@@ -1,0 +1,2198 @@
+{
+  "schema": "studio.repo.profile@1.0.0",
+  "exploreId": "re-c221a409dd3e",
+  "exploreSnapshotHash": "sha256:c221a409dd3e0a4241bbc9b2c493c2de3e52dff7f7312e216eaba731fae1ec7e",
+  "scanSnapshotHash": "sha256:25cf97dcc1b95b077d0648731abae7700ae252437bdd17b4a04bf3426969ea59",
+  "generatedAt": "2026-07-03T07:27:03.277334700+00:00",
+  "repoRoot": "E:/Web Projects/experimental-workspace/newstart",
+  "roots": {
+    "monorepoTool": "pnpm",
+    "workspaces": [
+      {
+        "id": "@obscur/coordination-worker",
+        "kind": "app",
+        "path": "apps/coordination",
+        "name": "@obscur/coordination-worker",
+        "language": "ts/js",
+        "stackHint": null
+      },
+      {
+        "id": "@dweb/desktop",
+        "kind": "app",
+        "path": "apps/desktop",
+        "name": "@dweb/desktop",
+        "language": "ts/js",
+        "stackHint": "tauri"
+      },
+      {
+        "id": "pwa",
+        "kind": "app",
+        "path": "apps/pwa",
+        "name": "pwa",
+        "language": "ts/js",
+        "stackHint": "next"
+      },
+      {
+        "id": "@obscur/relay-gateway",
+        "kind": "app",
+        "path": "apps/relay-gateway",
+        "name": "@obscur/relay-gateway",
+        "language": "ts/js",
+        "stackHint": null
+      },
+      {
+        "id": "website",
+        "kind": "app",
+        "path": "apps/website",
+        "name": "website",
+        "language": "ts/js",
+        "stackHint": "next"
+      },
+      {
+        "id": "@dweb/db",
+        "kind": "package",
+        "path": "packages/db",
+        "name": "@dweb/db",
+        "language": "ts/js",
+        "stackHint": "tauri"
+      },
+      {
+        "id": "@dweb/auth",
+        "kind": "package",
+        "path": "packages/dweb-auth",
+        "name": "@dweb/auth",
+        "language": "ts/js",
+        "stackHint": null
+      },
+      {
+        "id": "@dweb/client-gateway",
+        "kind": "package",
+        "path": "packages/dweb-client-gateway",
+        "name": "@dweb/client-gateway",
+        "language": "ts/js",
+        "stackHint": null
+      },
+      {
+        "id": "@dweb/coordination-contracts",
+        "kind": "package",
+        "path": "packages/dweb-coordination-contracts",
+        "name": "@dweb/coordination-contracts",
+        "language": "ts/js",
+        "stackHint": null
+      },
+      {
+        "id": "@dweb/core",
+        "kind": "package",
+        "path": "packages/dweb-core",
+        "name": "@dweb/core",
+        "language": "ts/js",
+        "stackHint": null
+      },
+      {
+        "id": "@dweb/crdt",
+        "kind": "package",
+        "path": "packages/dweb-crdt",
+        "name": "@dweb/crdt",
+        "language": "ts/js",
+        "stackHint": null
+      },
+      {
+        "id": "@dweb/crypto",
+        "kind": "package",
+        "path": "packages/dweb-crypto",
+        "name": "@dweb/crypto",
+        "language": "ts/js",
+        "stackHint": null
+      },
+      {
+        "id": "@dweb/nostr",
+        "kind": "package",
+        "path": "packages/dweb-nostr",
+        "name": "@dweb/nostr",
+        "language": "ts/js",
+        "stackHint": null
+      },
+      {
+        "id": "@dweb/storage",
+        "kind": "package",
+        "path": "packages/dweb-storage",
+        "name": "@dweb/storage",
+        "language": "ts/js",
+        "stackHint": null
+      },
+      {
+        "id": "@dweb/storage-contracts",
+        "kind": "package",
+        "path": "packages/dweb-storage-contracts",
+        "name": "@dweb/storage-contracts",
+        "language": "ts/js",
+        "stackHint": null
+      },
+      {
+        "id": "@dweb/transport-contracts",
+        "kind": "package",
+        "path": "packages/dweb-transport-contracts",
+        "name": "@dweb/transport-contracts",
+        "language": "ts/js",
+        "stackHint": null
+      },
+      {
+        "id": "@dweb/transport-coordination",
+        "kind": "package",
+        "path": "packages/dweb-transport-coordination",
+        "name": "@dweb/transport-coordination",
+        "language": "ts/js",
+        "stackHint": null
+      },
+      {
+        "id": "@dweb/transport-nostr",
+        "kind": "package",
+        "path": "packages/dweb-transport-nostr",
+        "name": "@dweb/transport-nostr",
+        "language": "ts/js",
+        "stackHint": null
+      },
+      {
+        "id": "@dweb/transport-team-relay",
+        "kind": "package",
+        "path": "packages/dweb-transport-team-relay",
+        "name": "@dweb/transport-team-relay",
+        "language": "ts/js",
+        "stackHint": null
+      },
+      {
+        "id": "@obscur/auth-engine",
+        "kind": "package",
+        "path": "packages/obscur-auth-engine",
+        "name": "@obscur/auth-engine",
+        "language": "ts/js",
+        "stackHint": null
+      },
+      {
+        "id": "@obscur/conduit-mesh",
+        "kind": "package",
+        "path": "packages/obscur-conduit-mesh",
+        "name": "@obscur/conduit-mesh",
+        "language": "ts/js",
+        "stackHint": null
+      },
+      {
+        "id": "@obscur/conduit-mesh-contracts",
+        "kind": "package",
+        "path": "packages/obscur-conduit-mesh-contracts",
+        "name": "@obscur/conduit-mesh-contracts",
+        "language": "ts/js",
+        "stackHint": null
+      },
+      {
+        "id": "@obscur/dm-engine",
+        "kind": "package",
+        "path": "packages/obscur-dm-engine",
+        "name": "@obscur/dm-engine",
+        "language": "ts/js",
+        "stackHint": null
+      },
+      {
+        "id": "@obscur/engine-contracts",
+        "kind": "package",
+        "path": "packages/obscur-engine-contracts",
+        "name": "@obscur/engine-contracts",
+        "language": "ts/js",
+        "stackHint": null
+      },
+      {
+        "id": "@obscur/engine-host",
+        "kind": "package",
+        "path": "packages/obscur-engine-host",
+        "name": "@obscur/engine-host",
+        "language": "ts/js",
+        "stackHint": "tauri"
+      },
+      {
+        "id": "@obscur/transport-engine",
+        "kind": "package",
+        "path": "packages/obscur-transport-engine",
+        "name": "@obscur/transport-engine",
+        "language": "ts/js",
+        "stackHint": null
+      },
+      {
+        "id": "@obscur/workspace-engine",
+        "kind": "package",
+        "path": "packages/obscur-workspace-engine",
+        "name": "@obscur/workspace-engine",
+        "language": "ts/js",
+        "stackHint": null
+      },
+      {
+        "id": "@dweb/ui-kit",
+        "kind": "package",
+        "path": "packages/ui-kit",
+        "name": "@dweb/ui-kit",
+        "language": "ts/js",
+        "stackHint": null
+      }
+    ]
+  },
+  "stack": {
+    "primaryFramework": "tauri",
+    "runtimes": [
+      "node"
+    ],
+    "signals": [
+      {
+        "id": "tauri",
+        "label": "tauri",
+        "path": "apps/desktop/package.json"
+      },
+      {
+        "id": "next",
+        "label": "next",
+        "path": "apps/pwa/package.json"
+      },
+      {
+        "id": "next",
+        "label": "next",
+        "path": "apps/website/package.json"
+      },
+      {
+        "id": "tauri",
+        "label": "tauri",
+        "path": "packages/db/package.json"
+      },
+      {
+        "id": "tauri",
+        "label": "tauri",
+        "path": "packages/obscur-engine-host/package.json"
+      }
+    ]
+  },
+  "dependencies": [
+    {
+      "name": "@playwright/mcp",
+      "version": "^0.0.70",
+      "resolvedVersion": "0.0.70",
+      "scope": "devDependencies",
+      "manager": "pnpm",
+      "packagePath": "."
+    },
+    {
+      "name": "@dweb/coordination-contracts",
+      "version": "workspace:*",
+      "resolvedVersion": null,
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/coordination"
+    },
+    {
+      "name": "@dweb/crypto",
+      "version": "workspace:*",
+      "resolvedVersion": null,
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/coordination"
+    },
+    {
+      "name": "@noble/curves",
+      "version": "^1.6.0",
+      "resolvedVersion": "1.9.7",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/coordination"
+    },
+    {
+      "name": "@cloudflare/workers-types",
+      "version": "^4.20260131.0",
+      "resolvedVersion": "4.20260131.0",
+      "scope": "devDependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/coordination"
+    },
+    {
+      "name": "typescript",
+      "version": "^5.6.3",
+      "resolvedVersion": "5.9.3",
+      "scope": "devDependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/coordination"
+    },
+    {
+      "name": "vitest",
+      "version": "^4.0.18",
+      "resolvedVersion": "4.0.18",
+      "scope": "devDependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/coordination"
+    },
+    {
+      "name": "wrangler",
+      "version": "^3.106.0",
+      "resolvedVersion": "3.114.17",
+      "scope": "devDependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/coordination"
+    },
+    {
+      "name": "@tauri-apps/plugin-dialog",
+      "version": "^2.6.0",
+      "resolvedVersion": "2.6.0",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/desktop"
+    },
+    {
+      "name": "@tauri-apps/plugin-http",
+      "version": "^2.5.7",
+      "resolvedVersion": "2.5.7",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/desktop"
+    },
+    {
+      "name": "@tauri-apps/cli",
+      "version": "^2.9.0",
+      "resolvedVersion": "2.11.2",
+      "scope": "devDependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/desktop"
+    },
+    {
+      "name": "cross-env",
+      "version": "^10.1.0",
+      "resolvedVersion": "10.1.0",
+      "scope": "devDependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/desktop"
+    },
+    {
+      "name": "@dweb/auth",
+      "version": "workspace:*",
+      "resolvedVersion": null,
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "@dweb/client-gateway",
+      "version": "workspace:*",
+      "resolvedVersion": null,
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "@dweb/coordination-contracts",
+      "version": "workspace:*",
+      "resolvedVersion": null,
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "@dweb/core",
+      "version": "workspace:*",
+      "resolvedVersion": null,
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "@dweb/crdt",
+      "version": "workspace:*",
+      "resolvedVersion": null,
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "@dweb/crypto",
+      "version": "workspace:*",
+      "resolvedVersion": null,
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "@dweb/db",
+      "version": "workspace:*",
+      "resolvedVersion": null,
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "@dweb/nostr",
+      "version": "workspace:*",
+      "resolvedVersion": null,
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "@dweb/storage",
+      "version": "workspace:*",
+      "resolvedVersion": null,
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "@dweb/storage-contracts",
+      "version": "workspace:*",
+      "resolvedVersion": null,
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "@dweb/transport-contracts",
+      "version": "workspace:*",
+      "resolvedVersion": null,
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "@dweb/transport-coordination",
+      "version": "workspace:*",
+      "resolvedVersion": null,
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "@dweb/transport-nostr",
+      "version": "workspace:*",
+      "resolvedVersion": null,
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "@dweb/transport-team-relay",
+      "version": "workspace:*",
+      "resolvedVersion": null,
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "@dweb/ui-kit",
+      "version": "workspace:*",
+      "resolvedVersion": null,
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "@ffmpeg/ffmpeg",
+      "version": "^0.12.15",
+      "resolvedVersion": "0.12.15",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "@ffmpeg/util",
+      "version": "^0.12.2",
+      "resolvedVersion": "0.12.2",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "@noble/curves",
+      "version": "^1.6.0",
+      "resolvedVersion": "1.9.7",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "@obscur/auth-engine",
+      "version": "workspace:*",
+      "resolvedVersion": null,
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "@obscur/conduit-mesh",
+      "version": "workspace:*",
+      "resolvedVersion": null,
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "@obscur/conduit-mesh-contracts",
+      "version": "workspace:*",
+      "resolvedVersion": null,
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "@obscur/dm-engine",
+      "version": "workspace:*",
+      "resolvedVersion": null,
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "@obscur/engine-contracts",
+      "version": "workspace:*",
+      "resolvedVersion": null,
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "@obscur/engine-host",
+      "version": "workspace:*",
+      "resolvedVersion": null,
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "@obscur/transport-engine",
+      "version": "workspace:*",
+      "resolvedVersion": null,
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "@obscur/workspace-engine",
+      "version": "workspace:*",
+      "resolvedVersion": null,
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "@radix-ui/react-avatar",
+      "version": "^1.1.11",
+      "resolvedVersion": "1.1.11",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "@radix-ui/react-checkbox",
+      "version": "^1.3.3",
+      "resolvedVersion": "1.3.3",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "@radix-ui/react-dropdown-menu",
+      "version": "^2.1.16",
+      "resolvedVersion": "2.1.16",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "@radix-ui/react-slot",
+      "version": "^1.2.4",
+      "resolvedVersion": "1.2.4",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "@tanstack/react-query",
+      "version": "^5.90.7",
+      "resolvedVersion": "5.90.21",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "@tanstack/react-virtual",
+      "version": "^3.13.18",
+      "resolvedVersion": "3.13.18",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "@tauri-apps/api",
+      "version": "^2.10.1",
+      "resolvedVersion": "2.10.1",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "@tauri-apps/plugin-dialog",
+      "version": "^2.6.0",
+      "resolvedVersion": "2.6.0",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "@tauri-apps/plugin-fs",
+      "version": "^2.4.5",
+      "resolvedVersion": "2.4.5",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "@tauri-apps/plugin-http",
+      "version": "^2.5.7",
+      "resolvedVersion": "2.5.7",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "@tauri-apps/plugin-notification",
+      "version": "^2.3.3",
+      "resolvedVersion": "2.3.3",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "@tauri-apps/plugin-shell",
+      "version": "^2.3.0",
+      "resolvedVersion": "2.3.5",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "@tauri-apps/plugin-upload",
+      "version": "^2.1.1",
+      "resolvedVersion": "2.4.0",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "@types/qrcode",
+      "version": "^1.5.6",
+      "resolvedVersion": "1.5.6",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "browser-image-compression",
+      "version": "^2.0.2",
+      "resolvedVersion": "2.0.2",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "class-variance-authority",
+      "version": "^0.7.1",
+      "resolvedVersion": "0.7.1",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "clsx",
+      "version": "^2.1.1",
+      "resolvedVersion": "2.1.1",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "comlink",
+      "version": "^4.4.2",
+      "resolvedVersion": "4.4.2",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "emoji-picker-react",
+      "version": "^4.17.4",
+      "resolvedVersion": "4.17.4",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "framer-motion",
+      "version": "^12.31.0",
+      "resolvedVersion": "12.31.0",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "hono",
+      "version": "^4.11.10",
+      "resolvedVersion": "4.11.10",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "i18next",
+      "version": "^25.8.0",
+      "resolvedVersion": "25.8.0",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "i18next-browser-languagedetector",
+      "version": "^8.2.0",
+      "resolvedVersion": "8.2.0",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "jsqr",
+      "version": "^1.4.0",
+      "resolvedVersion": "1.4.0",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "lucide-react",
+      "version": "^0.562.0",
+      "resolvedVersion": "0.562.0",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "next",
+      "version": "16.1.6",
+      "resolvedVersion": "16.1.6",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "nostr-tools",
+      "version": "^2.20.0",
+      "resolvedVersion": "2.20.0",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "qr-scanner",
+      "version": "^1.4.2",
+      "resolvedVersion": "1.4.2",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "qrcode",
+      "version": "^1.5.4",
+      "resolvedVersion": "1.5.4",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "radix-ui",
+      "version": "^1.4.3",
+      "resolvedVersion": "1.4.3",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "react",
+      "version": "19.2.3",
+      "resolvedVersion": "19.2.3",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "react-dom",
+      "version": "19.2.3",
+      "resolvedVersion": "19.2.3",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "react-i18next",
+      "version": "^16.5.3",
+      "resolvedVersion": "16.5.3",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "tailwind-merge",
+      "version": "^3.4.0",
+      "resolvedVersion": "3.4.0",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "uuid",
+      "version": "^13.0.0",
+      "resolvedVersion": "13.0.0",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "@ducanh2912/next-pwa",
+      "version": "^10.2.9",
+      "resolvedVersion": "10.2.9",
+      "scope": "devDependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "@playwright/test",
+      "version": "^1.57.0",
+      "resolvedVersion": "1.57.0",
+      "scope": "devDependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "@tailwindcss/postcss",
+      "version": "^4",
+      "resolvedVersion": "4.1.18",
+      "scope": "devDependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "@testing-library/jest-dom",
+      "version": "^6.9.1",
+      "resolvedVersion": "6.9.1",
+      "scope": "devDependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "@testing-library/react",
+      "version": "^16.3.1",
+      "resolvedVersion": "16.3.1",
+      "scope": "devDependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "@types/node",
+      "version": "^20.19.27",
+      "resolvedVersion": "20.19.27",
+      "scope": "devDependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "@types/react",
+      "version": "^19.0.0",
+      "resolvedVersion": "19.2.7",
+      "scope": "devDependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "@types/react-dom",
+      "version": "^19.0.0",
+      "resolvedVersion": "19.2.3",
+      "scope": "devDependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "@types/uuid",
+      "version": "^11.0.0",
+      "resolvedVersion": "11.0.0",
+      "scope": "devDependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "cross-env",
+      "version": "^10.1.0",
+      "resolvedVersion": "10.1.0",
+      "scope": "devDependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "eslint",
+      "version": "^9",
+      "resolvedVersion": "9.39.2",
+      "scope": "devDependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "eslint-config-next",
+      "version": "16.1.6",
+      "resolvedVersion": "16.1.6",
+      "scope": "devDependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "fast-check",
+      "version": "^4.5.3",
+      "resolvedVersion": "4.5.3",
+      "scope": "devDependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "jsdom",
+      "version": "^26.1.0",
+      "resolvedVersion": "26.1.0",
+      "scope": "devDependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "tailwindcss",
+      "version": "^4",
+      "resolvedVersion": "4.1.18",
+      "scope": "devDependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "typescript",
+      "version": "^5.6.3",
+      "resolvedVersion": "5.9.3",
+      "scope": "devDependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "vite",
+      "version": "^6.3.6",
+      "resolvedVersion": "6.4.1",
+      "scope": "devDependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "vitest",
+      "version": "^4.0.18",
+      "resolvedVersion": "4.0.18",
+      "scope": "devDependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/pwa"
+    },
+    {
+      "name": "dotenv",
+      "version": "^16.4.5",
+      "resolvedVersion": "16.6.1",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/relay-gateway"
+    },
+    {
+      "name": "ws",
+      "version": "^8.18.0",
+      "resolvedVersion": "8.19.0",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/relay-gateway"
+    },
+    {
+      "name": "@types/node",
+      "version": "^20.19.27",
+      "resolvedVersion": "20.19.27",
+      "scope": "devDependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/relay-gateway"
+    },
+    {
+      "name": "@types/ws",
+      "version": "^8.5.10",
+      "resolvedVersion": "8.18.1",
+      "scope": "devDependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/relay-gateway"
+    },
+    {
+      "name": "tsx",
+      "version": "^4.7.1",
+      "resolvedVersion": "4.21.0",
+      "scope": "devDependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/relay-gateway"
+    },
+    {
+      "name": "typescript",
+      "version": "^5.6.3",
+      "resolvedVersion": "5.9.3",
+      "scope": "devDependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/relay-gateway"
+    },
+    {
+      "name": "@dweb/core",
+      "version": "workspace:*",
+      "resolvedVersion": null,
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/website"
+    },
+    {
+      "name": "lucide-react",
+      "version": "^0.562.0",
+      "resolvedVersion": "0.562.0",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/website"
+    },
+    {
+      "name": "next",
+      "version": "16.1.6",
+      "resolvedVersion": "16.1.6",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/website"
+    },
+    {
+      "name": "react",
+      "version": "19.2.3",
+      "resolvedVersion": "19.2.3",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/website"
+    },
+    {
+      "name": "react-dom",
+      "version": "19.2.3",
+      "resolvedVersion": "19.2.3",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/website"
+    },
+    {
+      "name": "@tailwindcss/postcss",
+      "version": "^4",
+      "resolvedVersion": "4.1.18",
+      "scope": "devDependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/website"
+    },
+    {
+      "name": "@types/node",
+      "version": "^20.19.27",
+      "resolvedVersion": "20.19.27",
+      "scope": "devDependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/website"
+    },
+    {
+      "name": "@types/react",
+      "version": "^19.0.0",
+      "resolvedVersion": "19.2.7",
+      "scope": "devDependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/website"
+    },
+    {
+      "name": "@types/react-dom",
+      "version": "^19.0.0",
+      "resolvedVersion": "19.2.3",
+      "scope": "devDependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/website"
+    },
+    {
+      "name": "eslint",
+      "version": "^9",
+      "resolvedVersion": "9.39.2",
+      "scope": "devDependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/website"
+    },
+    {
+      "name": "eslint-config-next",
+      "version": "16.1.6",
+      "resolvedVersion": "16.1.6",
+      "scope": "devDependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/website"
+    },
+    {
+      "name": "tailwindcss",
+      "version": "^4",
+      "resolvedVersion": "4.1.18",
+      "scope": "devDependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/website"
+    },
+    {
+      "name": "typescript",
+      "version": "^5.6.3",
+      "resolvedVersion": "5.9.3",
+      "scope": "devDependencies",
+      "manager": "pnpm",
+      "packagePath": "apps/website"
+    },
+    {
+      "name": "@tauri-apps/api",
+      "version": "^2.10.1",
+      "resolvedVersion": "2.10.1",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "packages/db"
+    },
+    {
+      "name": "@dweb/core",
+      "version": "workspace:*",
+      "resolvedVersion": null,
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "packages/dweb-auth"
+    },
+    {
+      "name": "@dweb/crypto",
+      "version": "workspace:*",
+      "resolvedVersion": null,
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "packages/dweb-auth"
+    },
+    {
+      "name": "@dweb/core",
+      "version": "workspace:*",
+      "resolvedVersion": null,
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "packages/dweb-client-gateway"
+    },
+    {
+      "name": "@dweb/crypto",
+      "version": "workspace:*",
+      "resolvedVersion": null,
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "packages/dweb-client-gateway"
+    },
+    {
+      "name": "@dweb/storage-contracts",
+      "version": "workspace:*",
+      "resolvedVersion": null,
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "packages/dweb-client-gateway"
+    },
+    {
+      "name": "@dweb/transport-contracts",
+      "version": "workspace:*",
+      "resolvedVersion": null,
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "packages/dweb-client-gateway"
+    },
+    {
+      "name": "@noble/curves",
+      "version": "^1.6.0",
+      "resolvedVersion": "1.9.7",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "packages/dweb-coordination-contracts"
+    },
+    {
+      "name": "@dweb/crypto",
+      "version": "workspace:*",
+      "resolvedVersion": null,
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "packages/dweb-core"
+    },
+    {
+      "name": "vitest",
+      "version": "^4.0.18",
+      "resolvedVersion": "4.0.18",
+      "scope": "devDependencies",
+      "manager": "pnpm",
+      "packagePath": "packages/dweb-crdt"
+    },
+    {
+      "name": "@noble/secp256k1",
+      "version": "^2.2.3",
+      "resolvedVersion": "2.3.0",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "packages/dweb-crypto"
+    },
+    {
+      "name": "@dweb/core",
+      "version": "workspace:*",
+      "resolvedVersion": null,
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "packages/dweb-nostr"
+    },
+    {
+      "name": "@dweb/crypto",
+      "version": "workspace:*",
+      "resolvedVersion": null,
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "packages/dweb-nostr"
+    },
+    {
+      "name": "@noble/curves",
+      "version": "^1.6.0",
+      "resolvedVersion": "1.9.7",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "packages/dweb-nostr"
+    },
+    {
+      "name": "@noble/secp256k1",
+      "version": "^2.2.3",
+      "resolvedVersion": "2.3.0",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "packages/dweb-nostr"
+    },
+    {
+      "name": "@dweb/storage-contracts",
+      "version": "workspace:*",
+      "resolvedVersion": null,
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "packages/dweb-storage"
+    },
+    {
+      "name": "@dweb/coordination-contracts",
+      "version": "workspace:*",
+      "resolvedVersion": null,
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "packages/dweb-transport-coordination"
+    },
+    {
+      "name": "@dweb/transport-contracts",
+      "version": "workspace:*",
+      "resolvedVersion": null,
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "packages/dweb-transport-coordination"
+    },
+    {
+      "name": "@dweb/transport-contracts",
+      "version": "workspace:*",
+      "resolvedVersion": null,
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "packages/dweb-transport-nostr"
+    },
+    {
+      "name": "@dweb/transport-contracts",
+      "version": "workspace:*",
+      "resolvedVersion": null,
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "packages/dweb-transport-team-relay"
+    },
+    {
+      "name": "@dweb/auth",
+      "version": "workspace:*",
+      "resolvedVersion": null,
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "packages/obscur-auth-engine"
+    },
+    {
+      "name": "@obscur/engine-contracts",
+      "version": "workspace:*",
+      "resolvedVersion": null,
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "packages/obscur-auth-engine"
+    },
+    {
+      "name": "@obscur/conduit-mesh-contracts",
+      "version": "workspace:*",
+      "resolvedVersion": null,
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "packages/obscur-conduit-mesh"
+    },
+    {
+      "name": "@obscur/engine-contracts",
+      "version": "workspace:*",
+      "resolvedVersion": null,
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "packages/obscur-conduit-mesh"
+    },
+    {
+      "name": "@obscur/engine-contracts",
+      "version": "workspace:*",
+      "resolvedVersion": null,
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "packages/obscur-conduit-mesh-contracts"
+    },
+    {
+      "name": "@dweb/db",
+      "version": "workspace:*",
+      "resolvedVersion": null,
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "packages/obscur-dm-engine"
+    },
+    {
+      "name": "@obscur/engine-contracts",
+      "version": "workspace:*",
+      "resolvedVersion": null,
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "packages/obscur-dm-engine"
+    },
+    {
+      "name": "@dweb/auth",
+      "version": "workspace:*",
+      "resolvedVersion": null,
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "packages/obscur-engine-host"
+    },
+    {
+      "name": "@obscur/engine-contracts",
+      "version": "workspace:*",
+      "resolvedVersion": null,
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "packages/obscur-engine-host"
+    },
+    {
+      "name": "@tauri-apps/api",
+      "version": "^2.10.1",
+      "resolvedVersion": "2.10.1",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "packages/obscur-engine-host"
+    },
+    {
+      "name": "@dweb/db",
+      "version": "workspace:*",
+      "resolvedVersion": null,
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "packages/obscur-transport-engine"
+    },
+    {
+      "name": "@obscur/engine-contracts",
+      "version": "workspace:*",
+      "resolvedVersion": null,
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "packages/obscur-transport-engine"
+    },
+    {
+      "name": "@dweb/db",
+      "version": "workspace:*",
+      "resolvedVersion": null,
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "packages/obscur-workspace-engine"
+    },
+    {
+      "name": "@obscur/engine-contracts",
+      "version": "workspace:*",
+      "resolvedVersion": null,
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "packages/obscur-workspace-engine"
+    },
+    {
+      "name": "@radix-ui/react-avatar",
+      "version": "^1.1.11",
+      "resolvedVersion": "1.1.11",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "packages/ui-kit"
+    },
+    {
+      "name": "@radix-ui/react-checkbox",
+      "version": "^1.3.3",
+      "resolvedVersion": "1.3.3",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "packages/ui-kit"
+    },
+    {
+      "name": "@radix-ui/react-dropdown-menu",
+      "version": "^2.1.16",
+      "resolvedVersion": "2.1.16",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "packages/ui-kit"
+    },
+    {
+      "name": "@radix-ui/react-select",
+      "version": "^2.2.6",
+      "resolvedVersion": "2.2.6",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "packages/ui-kit"
+    },
+    {
+      "name": "@radix-ui/react-slot",
+      "version": "^1.2.4",
+      "resolvedVersion": "1.2.4",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "packages/ui-kit"
+    },
+    {
+      "name": "clsx",
+      "version": "^2.1.1",
+      "resolvedVersion": "2.1.1",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "packages/ui-kit"
+    },
+    {
+      "name": "framer-motion",
+      "version": "^12.31.0",
+      "resolvedVersion": "12.31.0",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "packages/ui-kit"
+    },
+    {
+      "name": "lucide-react",
+      "version": "^0.562.0",
+      "resolvedVersion": "0.562.0",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "packages/ui-kit"
+    },
+    {
+      "name": "radix-ui",
+      "version": "^1.4.3",
+      "resolvedVersion": "1.4.3",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "packages/ui-kit"
+    },
+    {
+      "name": "tailwind-merge",
+      "version": "^3.4.0",
+      "resolvedVersion": "3.4.0",
+      "scope": "dependencies",
+      "manager": "pnpm",
+      "packagePath": "packages/ui-kit"
+    },
+    {
+      "name": "@types/react",
+      "version": "^19.0.0",
+      "resolvedVersion": "19.2.7",
+      "scope": "devDependencies",
+      "manager": "pnpm",
+      "packagePath": "packages/ui-kit"
+    },
+    {
+      "name": "@types/react-dom",
+      "version": "^19.0.0",
+      "resolvedVersion": "19.2.3",
+      "scope": "devDependencies",
+      "manager": "pnpm",
+      "packagePath": "packages/ui-kit"
+    },
+    {
+      "name": "typescript",
+      "version": "^5.6.3",
+      "resolvedVersion": "5.9.3",
+      "scope": "devDependencies",
+      "manager": "pnpm",
+      "packagePath": "packages/ui-kit"
+    },
+    {
+      "name": "react",
+      "version": "^19.0.0",
+      "resolvedVersion": "19.2.3",
+      "scope": "peerDependencies",
+      "manager": "pnpm",
+      "packagePath": "packages/ui-kit"
+    },
+    {
+      "name": "react-dom",
+      "version": "^19.0.0",
+      "resolvedVersion": "19.2.3",
+      "scope": "peerDependencies",
+      "manager": "pnpm",
+      "packagePath": "packages/ui-kit"
+    }
+  ],
+  "entrypoints": [
+    {
+      "packageId": "@obscur/relay-gateway",
+      "path": "apps/relay-gateway/dist/index.js",
+      "source": "main"
+    },
+    {
+      "packageId": "@dweb/db",
+      "path": "packages/db/./src/index.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/db",
+      "path": "packages/db/./src/index.ts",
+      "source": "main"
+    },
+    {
+      "packageId": "@dweb/auth",
+      "path": "packages/dweb-auth/./src/contracts/auth-boot-snapshot.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/auth",
+      "path": "packages/dweb-auth/./src/contracts/auth-diagnostic.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/auth",
+      "path": "packages/dweb-auth/./src/contracts/auth-result.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/auth",
+      "path": "packages/dweb-auth/./src/contracts/auth-sybil-policy.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/auth",
+      "path": "packages/dweb-auth/./src/contracts/auth-unlock-options.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/auth",
+      "path": "packages/dweb-auth/./src/index.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/auth",
+      "path": "packages/dweb-auth/./src/policy/session-credential-policy-contract.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/auth",
+      "path": "packages/dweb-auth/./src/ports/device-unlock-port.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/auth",
+      "path": "packages/dweb-auth/./src/ports/identity-root-port.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/auth",
+      "path": "packages/dweb-auth/./src/ports/registration-policy-port.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/auth",
+      "path": "packages/dweb-auth/./src/ports/runtime-session-port.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/client-gateway",
+      "path": "packages/dweb-client-gateway/./src/app-client-gateway-extensions.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/client-gateway",
+      "path": "packages/dweb-client-gateway/./src/client-gateway.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/client-gateway",
+      "path": "packages/dweb-client-gateway/./src/client-platform.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/client-gateway",
+      "path": "packages/dweb-client-gateway/./src/community-membership-port-contract.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/client-gateway",
+      "path": "packages/dweb-client-gateway/./src/community-roster-port-contract.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/client-gateway",
+      "path": "packages/dweb-client-gateway/./src/community-transport-port-contract.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/client-gateway",
+      "path": "packages/dweb-client-gateway/./src/dm-materialization-port-contract.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/client-gateway",
+      "path": "packages/dweb-client-gateway/./src/index.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/client-gateway",
+      "path": "packages/dweb-client-gateway/./src/local-dm-visibility-port.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/client-gateway",
+      "path": "packages/dweb-client-gateway/./src/message-delete-tombstones-port.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/client-gateway",
+      "path": "packages/dweb-client-gateway/./src/messaging-diagnostics.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/coordination-contracts",
+      "path": "packages/dweb-coordination-contracts/./src/index.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/coordination-contracts",
+      "path": "packages/dweb-coordination-contracts/./src/membership-delta.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/core",
+      "path": "packages/dweb-core/./src/bootstrap-config.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/core",
+      "path": "packages/dweb-core/./src/community-bot-triggers-contracts.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/core",
+      "path": "packages/dweb-core/./src/community-content-contracts.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/core",
+      "path": "packages/dweb-core/./src/community-control-event-contracts.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/core",
+      "path": "packages/dweb-core/./src/community-descriptor-contracts.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/core",
+      "path": "packages/dweb-core/./src/community-media-descriptor-contracts.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/core",
+      "path": "packages/dweb-core/./src/community-projection-contracts.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/core",
+      "path": "packages/dweb-core/./src/community-runtime-contracts.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/core",
+      "path": "packages/dweb-core/./src/community-sendability-contracts.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/core",
+      "path": "packages/dweb-core/./src/identity-record.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/core",
+      "path": "packages/dweb-core/./src/profile-message-bus.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/core",
+      "path": "packages/dweb-core/./src/relay-url.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/core",
+      "path": "packages/dweb-core/./src/release-download-targets.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/core",
+      "path": "packages/dweb-core/./src/security-foundation-contracts.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/core",
+      "path": "packages/dweb-core/./src/user-id.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/crdt",
+      "path": "packages/dweb-crdt/./src/delta-state.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/crdt",
+      "path": "packages/dweb-crdt/./src/g-counter.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/crdt",
+      "path": "packages/dweb-crdt/./src/index.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/crdt",
+      "path": "packages/dweb-crdt/./src/lww-element-set.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/crdt",
+      "path": "packages/dweb-crdt/./src/lww-register.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/crdt",
+      "path": "packages/dweb-crdt/./src/nostr-event-adapter.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/crdt",
+      "path": "packages/dweb-crdt/./src/or-set.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/crdt",
+      "path": "packages/dweb-crdt/./src/vector-clock.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/crypto",
+      "path": "packages/dweb-crypto/./src/decrypt-private-key-hex.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/crypto",
+      "path": "packages/dweb-crypto/./src/derive-public-key-hex.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/crypto",
+      "path": "packages/dweb-crypto/./src/encrypt-private-key-hex.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/crypto",
+      "path": "packages/dweb-crypto/./src/encrypted-string.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/crypto",
+      "path": "packages/dweb-crypto/./src/from-base64.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/crypto",
+      "path": "packages/dweb-crypto/./src/generate-private-key-hex.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/crypto",
+      "path": "packages/dweb-crypto/./src/mine-pow.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/crypto",
+      "path": "packages/dweb-crypto/./src/passphrase.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/crypto",
+      "path": "packages/dweb-crypto/./src/pow-worker-wrapper.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/crypto",
+      "path": "packages/dweb-crypto/./src/pow.worker.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/crypto",
+      "path": "packages/dweb-crypto/./src/private-key-hex.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/crypto",
+      "path": "packages/dweb-crypto/./src/public-key-hex.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/crypto",
+      "path": "packages/dweb-crypto/./src/to-array-buffer.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/crypto",
+      "path": "packages/dweb-crypto/./src/to-base64.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/nostr",
+      "path": "packages/dweb-nostr/./src/create-nostr-dm-event.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/nostr",
+      "path": "packages/dweb-nostr/./src/create-nostr-event.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/nostr",
+      "path": "packages/dweb-nostr/./src/create-nostr-group-event.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/nostr",
+      "path": "packages/dweb-nostr/./src/nip04-decrypt.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/nostr",
+      "path": "packages/dweb-nostr/./src/nip04-encrypt.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/nostr",
+      "path": "packages/dweb-nostr/./src/nostr-event.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/nostr",
+      "path": "packages/dweb-nostr/./src/relay-set.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/nostr",
+      "path": "packages/dweb-nostr/./src/relay-utils.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/nostr",
+      "path": "packages/dweb-nostr/./src/verify-nostr-event-signature.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/storage-contracts",
+      "path": "packages/dweb-storage-contracts/./src/message-delete-tombstones.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/storage-contracts",
+      "path": "packages/dweb-storage-contracts/./src/migration-policy.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/storage-contracts",
+      "path": "packages/dweb-storage-contracts/./src/runtime-capabilities.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/storage-contracts",
+      "path": "packages/dweb-storage-contracts/./src/scoped-context.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/storage",
+      "path": "packages/dweb-storage/./src/indexed-db.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/storage",
+      "path": "packages/dweb-storage/./src/message-delete-tombstones-indexed-db.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/storage",
+      "path": "packages/dweb-storage/./src/storage-key.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/transport-contracts",
+      "path": "packages/dweb-transport-contracts/./src/index.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/transport-contracts",
+      "path": "packages/dweb-transport-contracts/./src/semantic-community-events.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/transport-contracts",
+      "path": "packages/dweb-transport-contracts/./src/transport-port.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/transport-coordination",
+      "path": "packages/dweb-transport-coordination/./src/index.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/transport-coordination",
+      "path": "packages/dweb-transport-coordination/./src/map-coordination-delta.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/transport-nostr",
+      "path": "packages/dweb-transport-nostr/./src/index.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/transport-nostr",
+      "path": "packages/dweb-transport-nostr/./src/map-sealed-control-payload.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/transport-nostr",
+      "path": "packages/dweb-transport-nostr/./src/nostr-transport-adapter.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/transport-team-relay",
+      "path": "packages/dweb-transport-team-relay/./src/index.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@obscur/auth-engine",
+      "path": "packages/obscur-auth-engine/./src/index.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@obscur/conduit-mesh-contracts",
+      "path": "packages/obscur-conduit-mesh-contracts/./src/conduit.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@obscur/conduit-mesh-contracts",
+      "path": "packages/obscur-conduit-mesh-contracts/./src/custom-conduit-contract.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@obscur/conduit-mesh-contracts",
+      "path": "packages/obscur-conduit-mesh-contracts/./src/envelope.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@obscur/conduit-mesh-contracts",
+      "path": "packages/obscur-conduit-mesh-contracts/./src/evidence.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@obscur/conduit-mesh-contracts",
+      "path": "packages/obscur-conduit-mesh-contracts/./src/index.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@obscur/conduit-mesh-contracts",
+      "path": "packages/obscur-conduit-mesh-contracts/./src/mesh-port.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@obscur/conduit-mesh-contracts",
+      "path": "packages/obscur-conduit-mesh-contracts/./src/mesh-snapshot.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@obscur/conduit-mesh",
+      "path": "packages/obscur-conduit-mesh/./src/index.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@obscur/dm-engine",
+      "path": "packages/obscur-dm-engine/./src/index.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@obscur/engine-contracts",
+      "path": "packages/obscur-engine-contracts/./src/dm-engine-methods.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@obscur/engine-contracts",
+      "path": "packages/obscur-engine-contracts/./src/engine-ids.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@obscur/engine-contracts",
+      "path": "packages/obscur-engine-contracts/./src/host-engine-port.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@obscur/engine-contracts",
+      "path": "packages/obscur-engine-contracts/./src/index.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@obscur/engine-host",
+      "path": "packages/obscur-engine-host/./src/index.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@obscur/engine-host",
+      "path": "packages/obscur-engine-host/./src/memory-engine-host.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@obscur/engine-host",
+      "path": "packages/obscur-engine-host/./src/subprocess-engine-host.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@obscur/engine-host",
+      "path": "packages/obscur-engine-host/./src/tauri-engine-host.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@obscur/transport-engine",
+      "path": "packages/obscur-transport-engine/./src/index.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@obscur/workspace-engine",
+      "path": "packages/obscur-workspace-engine/./src/index.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/ui-kit",
+      "path": "packages/ui-kit/./src/components/button.tsx",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/ui-kit",
+      "path": "packages/ui-kit/./src/components/skeleton.tsx",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/ui-kit",
+      "path": "packages/ui-kit/./src/components/toast.tsx",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/ui-kit",
+      "path": "packages/ui-kit/./src/index.ts",
+      "source": "exports"
+    },
+    {
+      "packageId": "@dweb/ui-kit",
+      "path": "packages/ui-kit/./src/index.ts",
+      "source": "main"
+    },
+    {
+      "packageId": "@dweb/ui-kit",
+      "path": "packages/ui-kit/./src/utils/cn.ts",
+      "source": "exports"
+    }
+  ],
+  "stats": {
+    "fileCount": 6643,
+    "dirCount": 1398,
+    "extensionCounts": [
+      {
+        "extension": "ts",
+        "count": 2439
+      },
+      {
+        "extension": "js",
+        "count": 796
+      },
+      {
+        "extension": "md",
+        "count": 562
+      },
+      {
+        "extension": "tsx",
+        "count": 461
+      },
+      {
+        "extension": "xml",
+        "count": 293
+      },
+      {
+        "extension": "flat",
+        "count": 278
+      },
+      {
+        "extension": "map",
+        "count": 257
+      },
+      {
+        "extension": "(none)",
+        "count": 232
+      },
+      {
+        "extension": "json",
+        "count": 215
+      },
+      {
+        "extension": "mjs",
+        "count": 163
+      },
+      {
+        "extension": "len",
+        "count": 117
+      },
+      {
+        "extension": "png",
+        "count": 109
+      }
+    ]
+  },
+  "lockfile": {
+    "manager": "pnpm",
+    "path": "pnpm-lock.yaml",
+    "resolvedDependencyCount": 106
+  },
+  "evidence": [
+    {
+      "claim": "fileCount=6643",
+      "path": ".codectx/index.json"
+    },
+    {
+      "claim": "lockfileResolved=106/pnpm",
+      "path": "pnpm-lock.yaml"
+    },
+    {
+      "claim": "monorepoTool=pnpm",
+      "path": "pnpm-workspace.yaml"
+    },
+    {
+      "claim": "primaryFramework=tauri",
+      "path": "apps/desktop/package.json"
+    }
+  ]
+}

@@ -1,0 +1,59 @@
+- banner:
+  - link "V Vectis Official marketplace client":
+    - /url: /marketplace
+    - text: V
+    - paragraph: Vectis
+    - paragraph: Official marketplace client
+  - navigation:
+    - link "Marketplace":
+      - /url: /marketplace
+    - link "Dashboard":
+      - /url: /dashboard
+    - link "Explore":
+      - /url: /explorer
+    - link "Settings":
+      - /url: /dashboard/settings
+  - 'button "Theme: system. Switch to light."'
+  - link "Operator":
+    - /url: /operator
+  - link "Sign in":
+    - /url: /sign-in
+- main:
+  - link "Back to marketplace":
+    - /url: /marketplace
+  - paragraph: "Kernel truth: Vectis credits are non-transferable protocol units, not fiat money. Off-platform payment is outside kernel enforcement — escrow and acceptance must stay in the event log."
+  - text: Showcase listing preview — connect a live node or ingest fixture data for kernel-backed terms. Software Fixes Showcase
+  - heading "Fix failing CI on Rust crate" [level=1]
+  - paragraph: Bounded fix per issue · artifact delivery
+  - heading "Scope & delivery" [level=3]
+  - paragraph: Delivery mode
+  - paragraph: artifact
+  - paragraph: Evidence formats
+  - paragraph: artifactHash
+  - paragraph: Offer expires
+  - paragraph: 2026-12-01T00:00:00Z
+  - heading "Provider" [level=3]
+  - paragraph: Public key
+  - paragraph: a09aa5…a4f0
+  - paragraph: Kernel reputation
+  - paragraph: Global 84 · Lane 72
+  - heading "Exchange terms" [level=3]
+  - text: Price
+  - paragraph: 120 credits
+  - paragraph: Escrow-funded milestones settle in-protocol. Credits are not fiat money.
+  - paragraph: Alignment signal
+  - paragraph: Discovery fit score 91 from kernel replay ranking — not a promoted placement.
+  - link "Sign in to start exchange":
+    - /url: /sign-in?next=%2Fmarketplace%2Foffers%2Fshowcase-software-fix
+  - link "Open in explorer":
+    - /url: /explorer/offers?id=showcase-software-fix
+- contentinfo:
+  - paragraph: Vectis is an open coordination protocol. This official client is one marketplace on that protocol — communities can run their own stores and apps.
+  - link "Kernel explorer":
+    - /url: /explorer
+  - link "Operator tools":
+    - /url: /operator
+  - link "Sign in":
+    - /url: /sign-in
+  - link "Register":
+    - /url: /register

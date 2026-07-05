@@ -1,0 +1,21 @@
+{
+  "schema": "codactrl.investigation.node@0.1.0",
+  "chainId": "chain-dm-split-brain-2026-07-02",
+  "nodeId": "n4-round2-warm-dm-probe",
+  "trigger": "Tester2 DM — O2-coldrestart-verify-071T0720 visible in main pane (11 msgs)",
+  "at": "2026-07-01T14:11:17.501154100+00:00",
+  "sessionId": "csess-510a62aba320",
+  "surfaces": {
+    "mainThreadMessageCount": 11,
+    "mainThreadSystemCards": 12,
+    "alertBannerCount": 8,
+    "splitBrainSuspected": false
+  },
+  "digestRef": "fault-317657e4",
+  "screenshotRef": ".codectx/verify/client-sessions/csess-510a62aba320/captures/cap-ea9f85f6b470/screenshot.png",
+  "hypothesis": "Warm session DM fully hydrated — O2 message in sidebar and main",
+  "doesNotProve": [
+    "cold restart t4",
+    "split-brain on cold path"
+  ]
+}

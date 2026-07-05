@@ -1,0 +1,93 @@
+{
+  "schema": "client.session.steps@0.1.0",
+  "sessionId": "csess-f2191e90e578",
+  "updatedAt": "2026-07-01T03:54:37.625548300+00:00",
+  "stepCount": 8,
+  "steps": [
+    {
+      "index": 0,
+      "stepId": "step-bb90dcd14b60",
+      "action": "snapshot",
+      "captureId": "cap-3004fcb07146",
+      "manifestPath": ".codectx/verify/client-sessions/csess-f2191e90e578/captures/cap-3004fcb07146/manifest.json",
+      "stepLabel": "connect-bootstrap",
+      "pass": true,
+      "at": "2026-07-01T02:12:20.660397700+00:00"
+    },
+    {
+      "index": 1,
+      "stepId": "step-1ca5d60ef755",
+      "action": "click",
+      "captureId": "cap-57fd25cfc8ba",
+      "manifestPath": ".codectx/verify/client-sessions/csess-f2191e90e578/captures/cap-57fd25cfc8ba/manifest.json",
+      "stepLabel": "riw-1-select-tester1",
+      "selector": "img[alt=\"Tester1\"]",
+      "pass": true,
+      "at": "2026-07-01T02:12:28.328487500+00:00"
+    },
+    {
+      "index": 2,
+      "stepId": "step-377d002d5934",
+      "action": "type",
+      "captureId": "cap-a9263dd1f2c6",
+      "manifestPath": ".codectx/verify/client-sessions/csess-f2191e90e578/captures/cap-a9263dd1f2c6/manifest.json",
+      "stepLabel": "riw-1-type-password",
+      "selector": "input[type=\"password\"]",
+      "text": "SyI14^ew1E",
+      "pass": true,
+      "at": "2026-07-01T02:12:32.029622500+00:00"
+    },
+    {
+      "index": 3,
+      "stepId": "step-2ad9a0068840",
+      "action": "click",
+      "captureId": "cap-fec5199c2177",
+      "manifestPath": ".codectx/verify/client-sessions/csess-f2191e90e578/captures/cap-fec5199c2177/manifest.json",
+      "stepLabel": "riw-1-unlock",
+      "selector": "form button[type=\"submit\"]",
+      "pass": true,
+      "at": "2026-07-01T02:12:43.379058200+00:00"
+    },
+    {
+      "index": 4,
+      "stepId": "step-0b18b57d6a",
+      "action": "digestPull",
+      "captureId": "cap-3f0b18b57d6a",
+      "manifestPath": ".codectx/verify/client-sessions/csess-f2191e90e578/captures/cap-3f0b18b57d6a/manifest.json",
+      "stepLabel": "riw-1-post-unlock-digest",
+      "pass": true,
+      "message": "runtime digest captured",
+      "at": "2026-07-01T02:12:50.298892100+00:00"
+    },
+    {
+      "index": 5,
+      "stepId": "step-7cabb76ae167",
+      "action": "screenshot",
+      "captureId": "cap-ed6cb6ba5840",
+      "manifestPath": ".codectx/verify/client-sessions/csess-f2191e90e578/captures/cap-ed6cb6ba5840/manifest.json",
+      "stepLabel": "riw-1-evidence-screenshot",
+      "pass": true,
+      "at": "2026-07-01T02:12:59.901130100+00:00"
+    },
+    {
+      "index": 6,
+      "stepId": "step-5458915015c8",
+      "action": "snapshot",
+      "captureId": "cap-2be5221c039c",
+      "manifestPath": ".codectx/verify/client-sessions/csess-f2191e90e578/captures/cap-2be5221c039c/manifest.json",
+      "pass": true,
+      "at": "2026-07-01T03:54:18.335168900+00:00"
+    },
+    {
+      "index": 7,
+      "stepId": "step-6f9c507795e7",
+      "action": "click",
+      "captureId": "cap-daa7427dc89a",
+      "manifestPath": ".codectx/verify/client-sessions/csess-f2191e90e578/captures/cap-daa7427dc89a/manifest.json",
+      "stepLabel": "mcp-retry-refresh",
+      "selector": "button:has-text(\"Refresh\")",
+      "pass": true,
+      "at": "2026-07-01T03:54:37.624579500+00:00"
+    }
+  ]
+}

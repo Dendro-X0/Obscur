@@ -1,0 +1,36 @@
+{
+  "schema": "codactrl.investigation.node@0.1.0",
+  "chainId": "chain-com-run-11-phase1c-2026-07-04",
+  "nodeId": "n3-dual-send-t4",
+  "trigger": "T1 sent COM-RUN-11-phase1c-round25-070T0540; T2 textVisible assert PASS; eventId e2cd1ced…a5d3f036",
+  "at": "2026-07-04T05:41:06.380236+00:00",
+  "sessionId": "csess-2d8d190be81a",
+  "surfaces": {
+    "mainThreadMessageCount": 14,
+    "mainThreadSystemCards": 0,
+    "alertBannerCount": 1,
+    "splitBrainSuspected": false
+  },
+  "digestRef": "fault-f46681b1",
+  "screenshotRef": ".codectx/verify/client-sessions/csess-2d8d190be81a/captures/cap-209bdaa23040/screenshot.png",
+  "signals": [
+    "dm-normalize-is-outgoing-mismatch"
+  ],
+  "signalsExtracted": [
+    "account_sync.backup_publish_attempt",
+    "groups.ledger_field_repair_applied",
+    "groups.membership_ledger_save",
+    "messaging.conversation_list_authority_selected",
+    "messaging.delete_for_everyone_remote_result",
+    "messaging.dm_normalize_is_outgoing_mismatch",
+    "network.peer_trust_read_authority_selected",
+    "workspace.thread.hydrate"
+  ],
+  "transportEvidence": [
+    {
+      "eventId": "8418cb4febb1e9c0",
+      "plaintextPrefix": "{"
+    }
+  ],
+  "hypothesis": "Post-accept dual-profile group send/receive passes when room key materialized on profile-2"
+}

@@ -1,0 +1,40 @@
+{
+  "digestPath": ".codectx/verify/faults/fault-b74a26e4.digest.json",
+  "fault": {
+    "artifactPath": ".codectx/verify/faults/fault-b74a26e4.json",
+    "faultId": "fault-b74a26e4",
+    "importedAt": "2026-07-04T05:41:02.309630800+00:00",
+    "kind": "runtime_digest",
+    "primarySymptomId": "dm-normalize-is-outgoing-mismatch",
+    "proofTier": "t3",
+    "schema": "obscur.m0.capture.v1",
+    "signalsExtract": [
+      {
+        "detail": "count=92",
+        "name": "messaging.dm_normalize_is_outgoing_mismatch"
+      },
+      {
+        "detail": "count=74",
+        "name": "messaging.delete_for_everyone_remote_result"
+      },
+      {
+        "detail": "count=31",
+        "name": "groups.membership_ledger_save"
+      },
+      {
+        "detail": "count=28",
+        "name": "groups.ledger_field_repair_applied"
+      },
+      {
+        "detail": "count=12",
+        "name": "workspace.thread.hydrate"
+      }
+    ],
+    "symptomIds": [
+      "dm-normalize-is-outgoing-mismatch"
+    ],
+    "title": "messaging.dm_normalize_is_outgoing_mismatch — count=92"
+  },
+  "schema": "verify.fault.import@0.1.0",
+  "sourcePath": ".codectx/verify/client-sessions/csess-2d8d190be81a/captures/cap-c829cb4b4ae5/digest.json"
+}

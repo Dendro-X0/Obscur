@@ -1,0 +1,19 @@
+{
+  "args": [],
+  "captureId": "bcap-9cec151207af",
+  "capturedAt": "2026-07-04T05:55:22.570258300+00:00",
+  "cdpPort": 9230,
+  "method": "listWindows",
+  "pass": true,
+  "result": [
+    {
+      "focused": false,
+      "label": "main",
+      "title": "Obscur",
+      "visible": true
+    }
+  ],
+  "schema": "client.agent.bridgeCall@0.1.0",
+  "sessionId": "csess-3128b0542400",
+  "targetUrl": "http://127.0.0.1:1430/profiles"
+}

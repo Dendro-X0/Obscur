@@ -1,0 +1,16 @@
+{
+  "schema": "verify.export.manifest@0.1.0",
+  "exportedAt": "2026-07-02T14:53:44.804206600+00:00",
+  "agentExportAt": "2026-07-02T14:45:47.775846600+00:00",
+  "operatorExportAt": "2026-07-02T14:53:44.804206600+00:00",
+  "roundLabel": "2026-07-02-codactrl-round19",
+  "authoritativeNotes": "Round19 dual-profile interactive: stack preflight all green; T1→T2 DM-round19-t1-072T1452; T2→T1 DM-round19-t2-072T1453; both visible on :9230+:9231; n7 chain node",
+  "confirmedBy": "agent-mcp-round19",
+  "promotionStage": "spec",
+  "repro": {
+    "chainId": "chain-dm-split-brain-2026-07-02",
+    "sessionId": "csess-6f1a35b7762b",
+    "cdpPort": 9230,
+    "workspacePath": "E:\\Web Projects\\experimental-workspace\\newstart"
+  }
+}

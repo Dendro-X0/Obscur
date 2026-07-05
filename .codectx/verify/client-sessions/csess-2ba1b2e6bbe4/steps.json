@@ -1,0 +1,126 @@
+{
+  "schema": "client.session.steps@0.1.0",
+  "sessionId": "csess-2ba1b2e6bbe4",
+  "updatedAt": "2026-06-30T04:14:25.042210800+00:00",
+  "stepCount": 11,
+  "steps": [
+    {
+      "index": 0,
+      "stepId": "step-679dcbdfb71e",
+      "action": "snapshot",
+      "captureId": "cap-0a8c7720d66c",
+      "manifestPath": ".codectx/verify/client-sessions/csess-2ba1b2e6bbe4/captures/cap-0a8c7720d66c/manifest.json",
+      "stepLabel": "connect-bootstrap",
+      "pass": true,
+      "at": "2026-06-30T04:10:43.360537300+00:00"
+    },
+    {
+      "index": 1,
+      "stepId": "step-b651edb9ba86",
+      "action": "snapshot",
+      "captureId": "cap-017ee18893c0",
+      "manifestPath": ".codectx/verify/client-sessions/csess-2ba1b2e6bbe4/captures/cap-017ee18893c0/manifest.json",
+      "stepLabel": "profile-picker-initial",
+      "pass": true,
+      "at": "2026-06-30T04:10:46.379515900+00:00"
+    },
+    {
+      "index": 2,
+      "stepId": "step-fb0bfd8723d8",
+      "action": "screenshot",
+      "captureId": "cap-6376dcf680bc",
+      "manifestPath": ".codectx/verify/client-sessions/csess-2ba1b2e6bbe4/captures/cap-6376dcf680bc/manifest.json",
+      "stepLabel": "profile-picker-initial",
+      "pass": true,
+      "at": "2026-06-30T04:10:47.190893300+00:00"
+    },
+    {
+      "index": 3,
+      "stepId": "step-117b18df9759",
+      "action": "click",
+      "captureId": "cap-08ae41232b44",
+      "manifestPath": ".codectx/verify/client-sessions/csess-2ba1b2e6bbe4/captures/cap-08ae41232b44/manifest.json",
+      "stepLabel": "click-tester1-card",
+      "selector": "button:has-text(\"Tester1\")",
+      "pass": true,
+      "at": "2026-06-30T04:11:08.468783600+00:00"
+    },
+    {
+      "index": 4,
+      "stepId": "step-70b6f79d6723",
+      "action": "type",
+      "captureId": "cap-58617a45fdce",
+      "manifestPath": ".codectx/verify/client-sessions/csess-2ba1b2e6bbe4/captures/cap-58617a45fdce/manifest.json",
+      "stepLabel": "type-tester1-password",
+      "selector": "input[type=\"password\"]",
+      "text": "SyI14^ew1E",
+      "pass": true,
+      "at": "2026-06-30T04:11:12.207773100+00:00"
+    },
+    {
+      "index": 5,
+      "stepId": "step-8d6c1276ec5b",
+      "action": "click",
+      "captureId": "cap-6b2799a55713",
+      "manifestPath": ".codectx/verify/client-sessions/csess-2ba1b2e6bbe4/captures/cap-6b2799a55713/manifest.json",
+      "stepLabel": "submit-tester1-login",
+      "selector": "button:has-text(\"Log In\") >> nth=1",
+      "pass": true,
+      "at": "2026-06-30T04:11:21.528795500+00:00"
+    },
+    {
+      "index": 6,
+      "stepId": "step-14ee12f6d4f8",
+      "action": "snapshot",
+      "captureId": "cap-81db3a18dabd",
+      "manifestPath": ".codectx/verify/client-sessions/csess-2ba1b2e6bbe4/captures/cap-81db3a18dabd/manifest.json",
+      "stepLabel": "after-unlock-state",
+      "pass": true,
+      "at": "2026-06-30T04:11:40.208915900+00:00"
+    },
+    {
+      "index": 7,
+      "stepId": "step-c01d993f4d76",
+      "action": "click",
+      "captureId": "cap-655ee70d2779",
+      "manifestPath": ".codectx/verify/client-sessions/csess-2ba1b2e6bbe4/captures/cap-655ee70d2779/manifest.json",
+      "stepLabel": "click-profile-slot-second-window",
+      "selector": "button:has-text(\"Profile slot\")",
+      "pass": true,
+      "at": "2026-06-30T04:13:11.384587300+00:00"
+    },
+    {
+      "index": 8,
+      "stepId": "step-269d3298b559",
+      "action": "click",
+      "captureId": "cap-7b4f8e2e44ab",
+      "manifestPath": ".codectx/verify/client-sessions/csess-2ba1b2e6bbe4/captures/cap-7b4f8e2e44ab/manifest.json",
+      "stepLabel": "focus-second-window",
+      "selector": "button:has-text(\"Click to switch to open window\")",
+      "pass": true,
+      "at": "2026-06-30T04:13:24.525996100+00:00"
+    },
+    {
+      "index": 9,
+      "stepId": "step-12153ee2bc0e",
+      "action": "click",
+      "captureId": "cap-d440e1fc12b0",
+      "manifestPath": ".codectx/verify/client-sessions/csess-2ba1b2e6bbe4/captures/cap-d440e1fc12b0/manifest.json",
+      "stepLabel": "add-new-profile",
+      "selector": "button:has-text(\"New profile\")",
+      "pass": true,
+      "at": "2026-06-30T04:13:56.383591+00:00"
+    },
+    {
+      "index": 10,
+      "stepId": "step-978f88e74010",
+      "action": "click",
+      "captureId": "cap-ccb010cbc6a2",
+      "manifestPath": ".codectx/verify/client-sessions/csess-2ba1b2e6bbe4/captures/cap-ccb010cbc6a2/manifest.json",
+      "stepLabel": "open-profile-slot-needs-setup",
+      "selector": "button:has-text(\"Needs setup\")",
+      "pass": true,
+      "at": "2026-06-30T04:14:25.040750500+00:00"
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "schema": "studio.output.hub.config@1.0.0",
+  "updatedAt": "2026-06-29T18:21:24.421423800+00:00",
+  "modules": {
+    "design": {
+      "enabled": true
+    },
+    "perf": {
+      "enabled": true
+    },
+    "specs": {
+      "enabled": false
+    },
+    "technical": {
+      "enabled": true
+    },
+    "verify": {
+      "enabled": true
+    }
+  },
+  "functionalLogic": {
+    "enabled": true,
+    "specPaths": [".codactrl/logic/obscur-community-membership.v1.json"],
+    "rulePacks": [".codactrl/logic/obscur-fls-rule-pack-v1.json"],
+    "enforceOn": [],
+    "failCiOn": ["navigation_gate"]
+  }
+}

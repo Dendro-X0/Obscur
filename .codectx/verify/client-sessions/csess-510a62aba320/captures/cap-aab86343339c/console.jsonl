@@ -1,0 +1,1 @@
+{"kind":"console","type":"error","text":"WebSocket connection to 'ws://localhost:7000/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED","location":{"url":"http://127.0.0.1:1430/_next/static/chunks/5f7b9ab3eb5d5615.js","line":0,"column":0,"lineNumber":0,"columnNumber":0},"at":"2026-07-01T14:09:47.694Z"}

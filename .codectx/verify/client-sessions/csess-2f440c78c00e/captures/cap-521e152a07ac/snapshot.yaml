@@ -1,0 +1,65 @@
+- complementary:
+  - link "V Vectis Workspace":
+    - /url: /marketplace
+    - text: V
+    - paragraph: Vectis
+    - paragraph: Workspace
+  - navigation:
+    - paragraph: Workspace
+    - link "Overview":
+      - /url: /dashboard
+    - link "Settings":
+      - /url: /dashboard/settings
+  - link "Back to marketplace":
+    - /url: /marketplace
+- banner:
+  - paragraph: Workspace
+  - heading "Overview" [level=1]
+  - 'button "Theme: system. Switch to light."'
+  - link "Sign in":
+    - /url: /sign-in
+- main:
+  - paragraph: Coordination metrics from kernel replay — credits, not fiat.
+  - paragraph:
+    - link "Sign in":
+      - /url: /sign-in
+    - text: to personalize this workspace.
+  - text: Showcase data · sign in + connect a node for live stats
+  - heading "Completed projects" [level=3]
+  - paragraph: "7"
+  - paragraph: +2 this month
+  - paragraph: Settled exchanges on-protocol
+  - heading "Active exchanges" [level=3]
+  - paragraph: "2"
+  - paragraph: 1 awaiting delivery
+  - paragraph: Orders in progress
+  - heading "Open offers" [level=3]
+  - paragraph: "3"
+  - paragraph: Across 2 lanes
+  - paragraph: Live marketplace listings
+  - heading "Lead interactions" [level=3]
+  - paragraph: "12"
+  - paragraph: +3 this week
+  - paragraph: Inbound orders on your offers
+  - heading "Work by lane" [level=3]
+  - paragraph: Completed projects grouped by service type
+  - text: Software fixes 4 Feature work 3 Mutual aid 2 Documentation 1
+  - heading "Recent activity" [level=3]
+  - paragraph: Latest exchange events
+  - paragraph: Delivery submitted
+  - paragraph: Project maintenance — milestone 2
+  - text: 2h ago
+  - paragraph: Inbound order
+  - paragraph: New lead on Feature work offer
+  - text: Yesterday
+  - paragraph: Exchange settled
+  - paragraph: Mutual aid documentation pass
+  - text: 3 days ago
+  - paragraph: Reputation updated
+  - paragraph: Lane score refresh from kernel replay
+  - text: Last week
+  - paragraph: My exchanges
+  - paragraph: Place orders from marketplace listings, fund escrow on the order page, then track progress here as the loop matures.
+  - link "Browse marketplace":
+    - /url: /marketplace
+- alert

@@ -1,0 +1,23 @@
+{
+  "schema": "client.capture@0.1.0",
+  "sessionId": "csess-d39f4ab009ee",
+  "captureId": "cap-b088a2897aae",
+  "action": "screenshot",
+  "provider": "webview2-cdp",
+  "proofTier": "t3",
+  "pass": true,
+  "stepLabel": "chain-n18-round15-profile-cdp-attach",
+  "url": "http://127.0.0.1:1430/profiles",
+  "finalUrl": "http://127.0.0.1:1430/",
+  "pageTitle": "Obscur",
+  "artifactPath": ".codectx/verify/client-sessions/csess-d39f4ab009ee/captures/cap-b088a2897aae/screenshot.png",
+  "snapshotPath": null,
+  "capturedAt": "2026-07-02T11:14:56.918609800+00:00",
+  "proves": [
+    "Real WebView CDP flows including native IPC surfaces"
+  ],
+  "doesNotProve": [
+    "Full OS-level automation",
+    "Long soak across machines"
+  ]
+}

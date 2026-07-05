@@ -1,0 +1,98 @@
+- main:
+  - text: Client release-v1.9.10-relay-recovery-20260617
+  - img "Obscur"
+  - text: Obscur
+  - button "desktop.titleBar.lock"
+  - button "Open desktop profile switcher": T Tester2 Obscur / 3db055b4...d946830f
+  - button "Minimize window"
+  - button "Maximize window"
+  - button "Close window"
+  - button "Connected"
+  - link "Chats":
+    - /url: /
+  - link "Network":
+    - /url: /network
+  - link "Vault":
+    - /url: /vault
+  - link "Search":
+    - /url: /search
+  - link "Settings":
+    - /url: /settings
+  - button "Open profile menu": T
+  - text: Settings
+  - main:
+    - complementary:
+      - textbox "Search settings":
+        - /placeholder: Search settings…
+      - navigation:
+        - heading "General" [level=3]
+        - button "Profile"
+        - button "Appearance"
+        - button "Notifications"
+        - heading "Account" [level=3]
+        - button "Identity"
+        - button "Security"
+        - heading "Network" [level=3]
+        - button "Relays"
+        - button "Storage"
+        - heading "Moderation" [level=3]
+        - button "Blocklist"
+        - button "Privacy"
+        - heading "System" [level=3]
+        - button "Updates"
+    - main:
+      - text: Relay Connections Manage your connections to Nostr relays. API Status Endpoint http://127.0.0.1:1430/api
+      - button "Show Advisory"
+      - text: Relay Connectivity
+      - paragraph: DM and profile events use enabled public relays in the active transport pool. Workspace communities use per-group relay URLs plus coordination for membership — not the global DM pool. Enabled 3 of 5 total.
+      - paragraph: "DM transport: 2 enabled · Workspace candidates: 1 enabled (1 configured). Unreachable intranet relays stay out of the DM pool until you enable them here."
+      - paragraph: "Nostr active transport: relay.damus.io · publish-ready 1 · subscribable 4 · 3 enabled in list"
+      - button "Advanced Settings"
+      - text: Redundancy pool
+      - paragraph: Connect up to three enabled relays in the active pool. Basic mode uses one primary relay only.
+      - switch
+      - text: Active transport relay.damus.io Avg Latency 610ms
+      - paragraph: Configured relays are writable and this window is seeing recent relay events.
+      - text: Presets
+      - button "Default Stable"
+      - button "High Redundancy"
+      - button "Low Latency"
+      - button "Refresh Status"
+      - button "Reset Relay Section"
+      - text: Relay communication healthy Configured relays are writable and this window is seeing recent relay events. Operator setup (private trust)
+      - paragraph: Bundle coordination membership directory and a private workspace relay. DM may still use public Nostr relays; workspace communities require this stack.
+      - paragraph: "Build default: http://127.0.0.1:8787"
+      - text: Coordination URL
+      - textbox "http://127.0.0.1:8787"
+      - text: Workspace relay
+      - textbox "ws://localhost:7000"
+      - checkbox "Trust local coordination (curl verified) Use when terminal curl http://127.0.0.1:8787/health works but the desktop app probe fails. Unblocks create UI; membership publish still needs a working path to coordination."
+      - text: Trust local coordination (curl verified) Use when terminal curl http://127.0.0.1:8787/health works but the desktop app probe fails. Unblocks create UI; membership publish still needs a working path to coordination.
+      - checkbox "Test without local Nostr relay No VPS or Docker required. Membership uses coordination only; encrypted community chat stays on-device until you run pnpm dev:relay later."
+      - text: Test without local Nostr relay No VPS or Docker required. Membership uses coordination only; encrypted community chat stays on-device until you run pnpm dev:relay later.
+      - button "Apply operator bundle"
+      - button "Clear device overrides"
+      - text: Community Modes
+      - paragraph: Relay settings are the transport baseline for honest community guarantees.
+      - text: Trusted Relay Candidate
+      - paragraph: The relay baseline includes custom relays beyond the public defaults, which can justify an advanced managed-workspace path when operators are trusted.
+      - paragraph: Treat Managed Workspace as opt-in only for teams that intentionally configured these relays and accept the extra operational assumptions.
+      - text: Sovereign Room
+      - paragraph: Private room defaults that stay honest on public or mixed relay setups.
+      - paragraph: Does not promise an exact live member roster or workspace-grade directory controls.
+      - text: Managed Workspace
+      - paragraph: Advanced team coordination mode for trusted or operator-controlled relay environments.
+      - paragraph: This baseline can expose the advanced workspace path, but only for technical users who intentionally configured trusted/private relays.
+      - text: Community membership sync
+      - paragraph: Workspace communities (R1) always use the coordination directory for join/leave. Nostr relays carry encrypted chat only—not roster authority.
+      - paragraph: Coordination preferred is required for new workspace communities.
+      - button "Nostr only Relay-backed roster hints only. No coordination directory polling." [disabled]:
+        - text: Nostr only
+        - paragraph: Relay-backed roster hints only. No coordination directory polling.
+      - button "Coordination preferred Poll the Obscur coordination membership directory when online." [pressed]:
+        - text: Coordination preferred
+        - paragraph: Poll the Obscur coordination membership directory when online.
+      - paragraph: "Coordination endpoint: http://127.0.0.1:8787"
+      - paragraph: "Location: Settings → Relays tab (this panel)."
+      - text: Relay Actions idle Publish-ready 1 of 3 · Open sockets 3 of 3
+- alert

@@ -1,0 +1,14 @@
+{
+  "schema": "codactrl.investigation.node@0.1.0",
+  "chainId": "chain-o4-group-ingest-2026-07-02",
+  "nodeId": "n7-round7-stack-preflight",
+  "trigger": "Round7 preflight: Docker infra-nostr-relay-1 Up; coordination :8787 Ready; desktop CDP :9230",
+  "at": "2026-07-01T17:33:18.720950700+00:00",
+  "sessionId": "csess-631c3bba5207",
+  "digestRef": "fault-1a2cb746",
+  "hypothesis": "Full stack preflight reproducible with Docker+coordination restart",
+  "doesNotProve": [
+    "Tester2 ingest",
+    "O-4 fixed on partial stack"
+  ]
+}

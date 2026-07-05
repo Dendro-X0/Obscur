@@ -1,0 +1,156 @@
+{
+  "schema": "client.session.steps@0.1.0",
+  "sessionId": "csess-abe4b5ce9374",
+  "updatedAt": "2026-07-04T07:49:29.442343700+00:00",
+  "stepCount": 15,
+  "steps": [
+    {
+      "index": 0,
+      "stepId": "step-4a5237a3b3c7",
+      "action": "snapshot",
+      "captureId": "cap-ba261cf9cb17",
+      "manifestPath": ".codectx/verify/client-sessions/csess-abe4b5ce9374/captures/cap-ba261cf9cb17/manifest.json",
+      "stepLabel": "connect-bootstrap",
+      "pass": true,
+      "at": "2026-07-04T07:47:13.904772+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-32bd0e30feae",
+      "action": "mcp.client.session.connect",
+      "manifestPath": ".codectx/verify/client-sessions/csess-abe4b5ce9374/attach-latest.json",
+      "pass": true,
+      "at": "2026-07-04T07:47:17.491459100+00:00"
+    },
+    {
+      "index": 2,
+      "stepId": "step-69a09dc9482a",
+      "action": "click",
+      "captureId": "cap-fb1ae7499498",
+      "manifestPath": ".codectx/verify/client-sessions/csess-abe4b5ce9374/captures/cap-fb1ae7499498/manifest.json",
+      "selector": "button >> internal:has-text=\"N NewTest 2\"i",
+      "pass": false,
+      "message": "locator.click: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('button').filter({ hasText: 'N NewTest 2' })\u001b[22m\n",
+      "at": "2026-07-04T07:47:59.668097700+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-d0451df6865d",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-fb1ae7499498",
+      "manifestPath": ".codectx/verify/client-sessions/csess-abe4b5ce9374/captures/cap-fb1ae7499498/manifest.json",
+      "pass": false,
+      "message": "locator.click: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('button').filter({ hasText: 'N NewTest 2' })\u001b[22m\n",
+      "at": "2026-07-04T07:47:59.669840100+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-a4fed1c63d55",
+      "action": "mcp.client.agent.bridgeCall.focusWindow",
+      "captureId": "bcap-3ce21f963d19",
+      "manifestPath": ".codectx/verify/client-sessions/csess-abe4b5ce9374/captures/bcap-3ce21f963d19/manifest.json",
+      "stepLabel": "focusWindow",
+      "pass": true,
+      "at": "2026-07-04T07:48:06.550679400+00:00"
+    },
+    {
+      "index": 5,
+      "stepId": "step-9ee4c4f7ed5d",
+      "action": "click",
+      "captureId": "cap-0d5351de3797",
+      "manifestPath": ".codectx/verify/client-sessions/csess-abe4b5ce9374/captures/cap-0d5351de3797/manifest.json",
+      "selector": "button:has-text(\"Group 1\")",
+      "pass": false,
+      "message": "locator.click: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('button:has-text(\"Group 1\")')\u001b[22m\n",
+      "at": "2026-07-04T07:48:23.255175700+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-a00a680a663a",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-0d5351de3797",
+      "manifestPath": ".codectx/verify/client-sessions/csess-abe4b5ce9374/captures/cap-0d5351de3797/manifest.json",
+      "pass": false,
+      "message": "locator.click: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('button:has-text(\"Group 1\")')\u001b[22m\n",
+      "at": "2026-07-04T07:48:23.257658100+00:00"
+    },
+    {
+      "index": 7,
+      "stepId": "step-e0a0186f0948",
+      "action": "surfaceProbe",
+      "captureId": "cap-b119647a3485",
+      "manifestPath": ".codectx/verify/client-sessions/csess-abe4b5ce9374/captures/cap-b119647a3485/manifest.json",
+      "stepLabel": "surface-probe",
+      "pass": true,
+      "message": "surface probe captured",
+      "at": "2026-07-04T07:48:30.098227800+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-e1306874955a",
+      "action": "mcp.client.surface.probe",
+      "pass": true,
+      "at": "2026-07-04T07:48:30.100442100+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-3ae358363a99",
+      "action": "mcp.client.agent.bridgeCall.listWindows",
+      "captureId": "bcap-f9d329d6c686",
+      "manifestPath": ".codectx/verify/client-sessions/csess-abe4b5ce9374/captures/bcap-f9d329d6c686/manifest.json",
+      "stepLabel": "listWindows",
+      "pass": true,
+      "at": "2026-07-04T07:48:51.357838100+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-cdb5e74e9652",
+      "action": "mcp.client.agent.bridgeCall.focusWindow",
+      "captureId": "bcap-ae48242eabc5",
+      "manifestPath": ".codectx/verify/client-sessions/csess-abe4b5ce9374/captures/bcap-ae48242eabc5/manifest.json",
+      "stepLabel": "focusWindow",
+      "pass": true,
+      "at": "2026-07-04T07:49:11.534824100+00:00"
+    },
+    {
+      "index": 11,
+      "stepId": "step-5051548a39cd",
+      "action": "assert",
+      "captureId": "cap-4c6782ab6716",
+      "manifestPath": ".codectx/verify/client-sessions/csess-abe4b5ce9374/captures/cap-4c6782ab6716/manifest.json",
+      "text": "COM-RUN-11-phase1c-rejoin-070T0746",
+      "assertKind": "textVisible",
+      "pass": true,
+      "message": "text visible (aria): COM-RUN-11-phase1c-rejoin-070T0746",
+      "at": "2026-07-04T07:49:26.375386800+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-a37ac6a64c19",
+      "action": "mcp.client.validate.assert",
+      "captureId": "cap-4c6782ab6716",
+      "manifestPath": ".codectx/verify/client-sessions/csess-abe4b5ce9374/captures/cap-4c6782ab6716/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T07:49:26.377057500+00:00"
+    },
+    {
+      "index": 13,
+      "stepId": "step-417795fd87f4",
+      "action": "click",
+      "captureId": "cap-1e3650862063",
+      "manifestPath": ".codectx/verify/client-sessions/csess-abe4b5ce9374/captures/cap-1e3650862063/manifest.json",
+      "selector": "[role=\"button\"]:has-text(\"NewTest 2\")",
+      "pass": true,
+      "at": "2026-07-04T07:49:29.427984900+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-3fd1781ebb18",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-1e3650862063",
+      "manifestPath": ".codectx/verify/client-sessions/csess-abe4b5ce9374/captures/cap-1e3650862063/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T07:49:29.430232400+00:00"
+    }
+  ]
+}

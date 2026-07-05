@@ -1,0 +1,110 @@
+{
+  "schema": "client.session.steps@0.1.0",
+  "sessionId": "csess-322a4af06321",
+  "updatedAt": "2026-07-01T16:55:00.578441800+00:00",
+  "stepCount": 10,
+  "steps": [
+    {
+      "index": 0,
+      "stepId": "step-26eb4e31b951",
+      "action": "snapshot",
+      "captureId": "cap-c0800195ef5a",
+      "manifestPath": ".codectx/verify/client-sessions/csess-322a4af06321/captures/cap-c0800195ef5a/manifest.json",
+      "stepLabel": "connect-bootstrap",
+      "pass": true,
+      "at": "2026-07-01T16:54:10.779475+00:00"
+    },
+    {
+      "index": 1,
+      "stepId": "step-4d55cade6421",
+      "action": "snapshot",
+      "captureId": "cap-2e9a8ff18670",
+      "manifestPath": ".codectx/verify/client-sessions/csess-322a4af06321/captures/cap-2e9a8ff18670/manifest.json",
+      "pass": true,
+      "at": "2026-07-01T16:54:20.535869700+00:00"
+    },
+    {
+      "index": 2,
+      "stepId": "step-61138e7ad57a",
+      "action": "click",
+      "captureId": "cap-237fa5117c78",
+      "manifestPath": ".codectx/verify/client-sessions/csess-322a4af06321/captures/cap-237fa5117c78/manifest.json",
+      "selector": "role=button[name=\"Participants\"]",
+      "pass": true,
+      "at": "2026-07-01T16:54:26.416351900+00:00"
+    },
+    {
+      "index": 3,
+      "stepId": "step-be1638f04b5a",
+      "action": "click",
+      "captureId": "cap-7cde771aa7ee",
+      "manifestPath": ".codectx/verify/client-sessions/csess-322a4af06321/captures/cap-7cde771aa7ee/manifest.json",
+      "selector": "role=button[name=\"Close community settings\"]",
+      "pass": true,
+      "at": "2026-07-01T16:54:32.886595400+00:00"
+    },
+    {
+      "index": 4,
+      "stepId": "step-9a0bd6c5f346",
+      "action": "click",
+      "captureId": "cap-04df8f72b5ef",
+      "manifestPath": ".codectx/verify/client-sessions/csess-322a4af06321/captures/cap-04df8f72b5ef/manifest.json",
+      "selector": "role=button[name=\"Enter Community Chat\"]",
+      "pass": true,
+      "at": "2026-07-01T16:54:38.306984700+00:00"
+    },
+    {
+      "index": 5,
+      "stepId": "step-6b3cee302991",
+      "action": "type",
+      "captureId": "cap-6d61bec6a1f6",
+      "manifestPath": ".codectx/verify/client-sessions/csess-322a4af06321/captures/cap-6d61bec6a1f6/manifest.json",
+      "selector": "role=textbox[name=\"Type a message...\"]",
+      "text": "O4-round3-codactrl-071T1654",
+      "pass": true,
+      "at": "2026-07-01T16:54:45.164617800+00:00"
+    },
+    {
+      "index": 6,
+      "stepId": "step-031a90626723",
+      "action": "click",
+      "captureId": "cap-ee514cac8fed",
+      "manifestPath": ".codectx/verify/client-sessions/csess-322a4af06321/captures/cap-ee514cac8fed/manifest.json",
+      "selector": "role=button[name=\"Send\"]",
+      "pass": true,
+      "at": "2026-07-01T16:54:51.440395100+00:00"
+    },
+    {
+      "index": 7,
+      "stepId": "step-9ec3365e9496",
+      "action": "surfaceProbe",
+      "captureId": "cap-abbdd97c308d",
+      "manifestPath": ".codectx/verify/client-sessions/csess-322a4af06321/captures/cap-abbdd97c308d/manifest.json",
+      "stepLabel": "surface-probe",
+      "pass": true,
+      "message": "surface probe captured",
+      "at": "2026-07-01T16:54:58.583869600+00:00"
+    },
+    {
+      "index": 8,
+      "stepId": "step-cb73577e2e",
+      "action": "digestPull",
+      "captureId": "cap-93cb73577e2e",
+      "manifestPath": ".codectx/verify/client-sessions/csess-322a4af06321/captures/cap-93cb73577e2e/manifest.json",
+      "stepLabel": "chain-chain-o4-group-ingest-2026-07-02-n3-round3-send-blocked",
+      "pass": true,
+      "message": "runtime digest captured",
+      "at": "2026-07-01T16:54:59.570561200+00:00"
+    },
+    {
+      "index": 9,
+      "stepId": "step-01e8529de1bd",
+      "action": "screenshot",
+      "captureId": "cap-9227d123c8bf",
+      "manifestPath": ".codectx/verify/client-sessions/csess-322a4af06321/captures/cap-9227d123c8bf/manifest.json",
+      "stepLabel": "chain-n3-round3-send-blocked",
+      "pass": true,
+      "at": "2026-07-01T16:55:00.577343400+00:00"
+    }
+  ]
+}

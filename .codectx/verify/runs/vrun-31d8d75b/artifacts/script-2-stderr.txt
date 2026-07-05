@@ -1,0 +1,3 @@
+[profile-picker-verify] FAIL Profile picker grid not shown. URL=http://127.0.0.1:3341/profiles body=BUILD RELEASE-V1.9.10-RELAY-RECOVERY-20260617 · ONLINE
+CLIENT RELEASE-V1.9.10-RELAY-RECOVERY-20260617
+PROFILES

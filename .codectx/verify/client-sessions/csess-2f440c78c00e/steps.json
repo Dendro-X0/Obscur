@@ -1,0 +1,76 @@
+{
+  "schema": "client.session.steps@0.1.0",
+  "sessionId": "csess-2f440c78c00e",
+  "updatedAt": "2026-07-03T07:07:30.507539400+00:00",
+  "stepCount": 7,
+  "steps": [
+    {
+      "index": 0,
+      "stepId": "step-2bc4440a4c3b",
+      "action": "snapshot",
+      "captureId": "cap-00a6abfcc156",
+      "manifestPath": ".codectx/verify/client-sessions/csess-2f440c78c00e/captures/cap-00a6abfcc156/manifest.json",
+      "stepLabel": "vectis-marketplace-landing",
+      "pass": true,
+      "at": "2026-07-03T07:06:50.838708800+00:00"
+    },
+    {
+      "index": 1,
+      "stepId": "step-1629de5f253a",
+      "action": "click",
+      "captureId": "cap-521e152a07ac",
+      "manifestPath": ".codectx/verify/client-sessions/csess-2f440c78c00e/captures/cap-521e152a07ac/manifest.json",
+      "stepLabel": "nav-dashboard",
+      "selector": "a[href=\"/dashboard\"]",
+      "pass": true,
+      "at": "2026-07-03T07:06:59.298873300+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-422db514a6e7",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-521e152a07ac",
+      "manifestPath": ".codectx/verify/client-sessions/csess-2f440c78c00e/captures/cap-521e152a07ac/manifest.json",
+      "pass": true,
+      "at": "2026-07-03T07:06:59.303590700+00:00"
+    },
+    {
+      "index": 3,
+      "stepId": "step-78e595d9b9fb",
+      "action": "click",
+      "captureId": "cap-49b0046a8911",
+      "manifestPath": ".codectx/verify/client-sessions/csess-2f440c78c00e/captures/cap-49b0046a8911/manifest.json",
+      "stepLabel": "back-to-marketplace",
+      "selector": "a[href=\"/marketplace\"]",
+      "pass": false,
+      "message": "locator.click: Error: strict mode violation: locator('a[href=\"/marketplace\"]') resolved to 3 elements:\n    1) <a href=\"/marketplace\" class=\"flex items-center gap-2.5\">…</a> aka getByRole('link', { name: 'V Vectis Workspace' })\n    2) <a href=\"/marketplace\" class=\"flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-muted-foreground transition hover:bg-accent hover:text-foreground\">…</a> aka getByRole('link', { name: 'Back to marketplace' })\n    3) <a href=\"/marketplace\" class=\"inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline\">…</a> aka getByRole('link', { name: 'Browse marketplace' })\n\nCall log:\n\u001b[2m  - waiting for locator('a[href=\"/marketplace\"]')\u001b[22m\n",
+      "at": "2026-07-03T07:07:09.258031900+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-696774d0ec8a",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-49b0046a8911",
+      "manifestPath": ".codectx/verify/client-sessions/csess-2f440c78c00e/captures/cap-49b0046a8911/manifest.json",
+      "pass": false,
+      "message": "locator.click: Error: strict mode violation: locator('a[href=\"/marketplace\"]') resolved to 3 elements:\n    1) <a href=\"/marketplace\" class=\"flex items-center gap-2.5\">…</a> aka getByRole('link', { name: 'V Vectis Workspace' })\n    2) <a href=\"/marketplace\" class=\"flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-muted-foreground transition hover:bg-accent hover:text-foreground\">…</a> aka getByRole('link', { name: 'Back to marketplace' })\n    3) <a href=\"/marketplace\" class=\"inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline\">…</a> aka getByRole('link', { name: 'Browse marketplace' })\n\nCall log:\n\u001b[2m  - waiting for locator('a[href=\"/marketplace\"]')\u001b[22m\n",
+      "at": "2026-07-03T07:07:09.260274300+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-064c7123e632",
+      "action": "mcp.client.interact.click",
+      "pass": false,
+      "message": "locator.click: Error: strict mode violation: locator('a[href=\"/marketplace\"]') resolved to 3 elements:\n    1) <a href=\"/marketplace\" class=\"flex items-center gap-2.5\">…</a> aka getByRole('link', { name: 'V Vectis Workspace' })\n    2) <a href=\"/marketplace\" class=\"flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-muted-foreground transition hover:bg-accent hover:text-foreground\">…</a> aka getByRole('link', { name: 'Back to marketplace' })\n    3) <a href=\"/marketplace\" class=\"inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline\">…</a> aka getByRole('link', { name: 'Browse marketplace' })\n\nCall log:\n\u001b[2m  - waiting for locator('a[href=\"/marketplace\"]')\u001b[22m\n",
+      "at": "2026-07-03T07:07:16.105275+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-50f327976c4c",
+      "action": "mcp.client.navigate",
+      "pass": false,
+      "message": "locator.click: Error: strict mode violation: locator('a[href=\"/marketplace\"]') resolved to 3 elements:\n    1) <a href=\"/marketplace\" class=\"flex items-center gap-2.5\">…</a> aka getByRole('link', { name: 'V Vectis Workspace' })\n    2) <a href=\"/marketplace\" class=\"flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-muted-foreground transition hover:bg-accent hover:text-foreground\">…</a> aka getByRole('link', { name: 'Back to marketplace' })\n    3) <a href=\"/marketplace\" class=\"inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline\">…</a> aka getByRole('link', { name: 'Browse marketplace' })\n\nCall log:\n\u001b[2m  - waiting for locator('a[href=\"/marketplace\"]')\u001b[22m\n",
+      "at": "2026-07-03T07:07:30.507140100+00:00"
+    }
+  ]
+}

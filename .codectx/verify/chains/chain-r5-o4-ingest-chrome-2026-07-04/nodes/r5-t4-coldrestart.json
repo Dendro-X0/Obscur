@@ -1,0 +1,30 @@
+{
+  "schema": "codactrl.investigation.node@0.1.0",
+  "chainId": "chain-r5-o4-ingest-chrome-2026-07-04",
+  "nodeId": "r5-t4-coldrestart",
+  "trigger": "r5-t4-coldrestart-unlock",
+  "at": "2026-07-04T17:53:45.785581600+00:00",
+  "sessionId": "csess-b7f42e294e5e",
+  "surfaces": {
+    "mainThreadMessageCount": 12,
+    "mainThreadSystemCards": 0,
+    "alertBannerCount": 2,
+    "splitBrainSuspected": false
+  },
+  "digestRef": "fault-4ce5736c",
+  "signalsExtracted": [
+    "account_projection.replay_complete",
+    "account_sync.backup_publish_mutation_suppressed_restore_in_flight",
+    "groups.ledger_field_repair_applied",
+    "groups.membership_ledger_save",
+    "messaging.conversation_list_authority_selected",
+    "network.peer_trust_read_authority_selected",
+    "workspace.membership.load",
+    "workspace.thread.hydrate"
+  ],
+  "hypothesis": "Cold restart unlock restores group thread + sidebar preview with R5 marker; digest has no decrypt_failed",
+  "doesNotProve": [
+    "Tester2 background ingest on :9231 without community-home visit",
+    "Relay-only receive path with coordination-only room key"
+  ]
+}

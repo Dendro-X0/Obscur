@@ -1,0 +1,83 @@
+{
+  "schema": "perf.explore.diff@1.1.0",
+  "generatedAt": "2026-07-01T05:00:20.772665700+00:00",
+  "step": {
+    "schema": "perf.explore.diff@1.1.0",
+    "generatedAt": "2026-07-01T05:00:20.772665700+00:00",
+    "baseline": {
+      "exploreId": "6b557dff-bbe9-3ec3-8185-163db1c38819",
+      "graphHash": "sha256:69848be9c490f5bf90bbb3c5f83786b8236a6fe9d8fab5f99fd973bde03953b3",
+      "findingCount": 22,
+      "severityCounts": {
+        "red": 0,
+        "yellow": 10,
+        "info": 12
+      }
+    },
+    "current": {
+      "exploreId": "cfc1e3b6-4627-b191-db15-0282fe514aa2",
+      "graphHash": "sha256:e0e414868d7572c32702d5b8546e2d5b8aa9df8d51102c353eb54cbda0f79db9",
+      "findingCount": 22,
+      "severityCounts": {
+        "red": 0,
+        "yellow": 10,
+        "info": 12
+      }
+    },
+    "delta": {
+      "red": 0,
+      "yellow": 0,
+      "info": 0,
+      "total": 0
+    },
+    "resolvedFindingIds": [],
+    "newFindingIds": [],
+    "unchangedFindingIds": [
+      "perf:import:barrel-penalty:apps/pwa/app/features/desktop/utils/index.ts",
+      "perf:import:barrel-penalty:apps/pwa/app/features/invites/utils/index.ts",
+      "perf:import:barrel-penalty:apps/pwa/app/features/messaging/services/thread-history/index.ts",
+      "perf:import:barrel-penalty:apps/pwa/app/features/workspace-kernel/index.ts",
+      "perf:import:barrel-penalty:packages/dweb-auth/src/index.ts",
+      "perf:import:barrel-penalty:packages/obscur-conduit-mesh-contracts/src/index.ts",
+      "perf:import:barrel-penalty:packages/obscur-conduit-mesh-contracts/src/index.ts",
+      "perf:import:barrel-penalty:packages/obscur-conduit-mesh/src/index.ts",
+      "perf:import:barrel-penalty:packages/obscur-engine-host/src/index.ts",
+      "perf:import:barrel-penalty:packages/ui-kit/src/index.ts",
+      "perf:stack:next:apps/pwa",
+      "perf:topology:architecture-layout:apps:pwa",
+      "perf:topology:critical-path-scope:apps:pwa",
+      "perf:topology:shared-fanout:packages:db",
+      "perf:topology:shared-fanout:packages:dweb-auth",
+      "perf:topology:shared-fanout:packages:dweb-coordination-contracts",
+      "perf:topology:shared-fanout:packages:dweb-core",
+      "perf:topology:shared-fanout:packages:dweb-crypto",
+      "perf:topology:shared-fanout:packages:dweb-storage-contracts",
+      "perf:topology:shared-fanout:packages:dweb-transport-contracts",
+      "perf:topology:shared-fanout:packages:obscur-conduit-mesh-contracts",
+      "perf:topology:shared-fanout:packages:obscur-engine-contracts"
+    ],
+    "severityChanges": [],
+    "improved": false,
+    "verification": {
+      "status": "unchanged",
+      "resolvedCount": 0,
+      "severityImprovementCount": 0,
+      "partialCount": 0,
+      "metricImprovements": []
+    },
+    "bucketDelta": {
+      "navBlockers": {
+        "from": 10,
+        "to": 10
+      },
+      "actionItems": {
+        "from": 0,
+        "to": 0
+      },
+      "infoInventory": {
+        "from": 12,
+        "to": 12
+      }
+    }
+  }
+}

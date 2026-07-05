@@ -1,0 +1,52 @@
+{
+  "schema": "codactrl.investigation.node@0.1.0",
+  "chainId": "chain-r1-room-key-health-2026-07-04",
+  "nodeId": "n1-post-restart-hydrate",
+  "trigger": "r1-t4-cold-restart",
+  "at": "2026-07-04T14:15:27.599689700+00:00",
+  "sessionId": "csess-3b202577b4d1",
+  "surfaces": {
+    "mainThreadMessageCount": 12,
+    "mainThreadSystemCards": 0,
+    "alertBannerCount": 2,
+    "splitBrainSuspected": false
+  },
+  "digestRef": "fault-58357786",
+  "screenshotRef": ".codectx/verify/client-sessions/csess-3b202577b4d1/captures/cap-9d0256be4054/screenshot.png",
+  "signalsExtracted": [
+    "account_projection.append_events",
+    "account_sync.backup_publish_mutation_deferred_until_ready",
+    "groups.ledger_field_repair_applied",
+    "groups.membership_ledger_save",
+    "messaging.conversation_list_authority_selected",
+    "messaging.delete_for_everyone_remote_result",
+    "network.peer_trust_read_authority_selected",
+    "workspace.thread.hydrate"
+  ],
+  "transportEvidence": [
+    {
+      "eventId": "58fbac8bb655f0b8",
+      "plaintextPrefix": "O2-coldrestart-verify-071T0720"
+    },
+    {
+      "eventId": "0233e4f475442c26",
+      "plaintextPrefix": "{"
+    },
+    {
+      "eventId": "62e44490a4d06f36",
+      "plaintextPrefix": "{"
+    },
+    {
+      "eventId": "534d1b59ad9bcfd5",
+      "plaintextPrefix": "{"
+    },
+    {
+      "eventId": "87f418dd57dbe66c30015b90fb4ee0ca4d3795c56e3549634b3051502b7da2a4"
+    }
+  ],
+  "hypothesis": "Post cold restart: group thread hydrates, no room_key_missing chrome, send path still viable",
+  "doesNotProve": [
+    "R3 sidebar preview",
+    "Password cold unlock without Import Key"
+  ]
+}

@@ -1,0 +1,108 @@
+{
+  "schema": "client.session.steps@0.1.0",
+  "sessionId": "csess-a256b15c946e",
+  "updatedAt": "2026-07-02T12:47:43.001961800+00:00",
+  "stepCount": 10,
+  "steps": [
+    {
+      "index": 0,
+      "stepId": "step-3bb42a61f902",
+      "action": "snapshot",
+      "captureId": "cap-d21850854ee2",
+      "manifestPath": ".codectx/verify/client-sessions/csess-a256b15c946e/captures/cap-d21850854ee2/manifest.json",
+      "stepLabel": "connect-bootstrap",
+      "pass": true,
+      "at": "2026-07-02T12:46:50.396486+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-de0dd8aee557",
+      "action": "mcp.client.session.connect",
+      "manifestPath": ".codectx/verify/client-sessions/csess-a256b15c946e/attach-latest.json",
+      "pass": true,
+      "at": "2026-07-02T12:46:54.665351900+00:00"
+    },
+    {
+      "index": 2,
+      "stepId": "step-61cd465bf5d7",
+      "action": "type",
+      "captureId": "cap-f58684e8b62d",
+      "manifestPath": ".codectx/verify/client-sessions/csess-a256b15c946e/captures/cap-f58684e8b62d/manifest.json",
+      "stepLabel": "round17-tester2-password",
+      "selector": "input[type=\"password\"]",
+      "text": "HT512#scE8",
+      "pass": true,
+      "at": "2026-07-02T12:47:05.282109700+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-10f4119e91d7",
+      "action": "mcp.client.interact.type",
+      "captureId": "cap-f58684e8b62d",
+      "manifestPath": ".codectx/verify/client-sessions/csess-a256b15c946e/captures/cap-f58684e8b62d/manifest.json",
+      "pass": true,
+      "at": "2026-07-02T12:47:05.283825700+00:00"
+    },
+    {
+      "index": 4,
+      "stepId": "step-1d2d71a4f674",
+      "action": "click",
+      "captureId": "cap-b288cff7332b",
+      "manifestPath": ".codectx/verify/client-sessions/csess-a256b15c946e/captures/cap-b288cff7332b/manifest.json",
+      "stepLabel": "round17-tester2-login",
+      "selector": "form button[type=\"submit\"]",
+      "pass": true,
+      "at": "2026-07-02T12:47:17.053953400+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-08a5876e645a",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-b288cff7332b",
+      "manifestPath": ".codectx/verify/client-sessions/csess-a256b15c946e/captures/cap-b288cff7332b/manifest.json",
+      "pass": true,
+      "at": "2026-07-02T12:47:17.056999700+00:00"
+    },
+    {
+      "index": 6,
+      "stepId": "step-5d21cdb7f859",
+      "action": "type",
+      "captureId": "cap-6a891f20cc89",
+      "manifestPath": ".codectx/verify/client-sessions/csess-a256b15c946e/captures/cap-6a891f20cc89/manifest.json",
+      "stepLabel": "round17-tester2-compose",
+      "selector": "textarea[placeholder=\"Type a message...\"], input[placeholder=\"Type a message...\"]",
+      "text": "O4-round17-profile2-072T1247",
+      "pass": true,
+      "at": "2026-07-02T12:47:25.393019300+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-c7702f0d3f4d",
+      "action": "mcp.client.interact.type",
+      "captureId": "cap-6a891f20cc89",
+      "manifestPath": ".codectx/verify/client-sessions/csess-a256b15c946e/captures/cap-6a891f20cc89/manifest.json",
+      "pass": true,
+      "at": "2026-07-02T12:47:25.395702600+00:00"
+    },
+    {
+      "index": 8,
+      "stepId": "step-7e1dda042008",
+      "action": "click",
+      "captureId": "cap-0ae49e548b25",
+      "manifestPath": ".codectx/verify/client-sessions/csess-a256b15c946e/captures/cap-0ae49e548b25/manifest.json",
+      "stepLabel": "round17-tester2-send",
+      "selector": "button[aria-label=\"Send\"]",
+      "pass": true,
+      "at": "2026-07-02T12:47:42.986062700+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-36d1414ea80d",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-0ae49e548b25",
+      "manifestPath": ".codectx/verify/client-sessions/csess-a256b15c946e/captures/cap-0ae49e548b25/manifest.json",
+      "pass": true,
+      "at": "2026-07-02T12:47:42.989697900+00:00"
+    }
+  ]
+}

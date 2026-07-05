@@ -1,0 +1,137 @@
+{
+  "schema": "client.session.steps@0.1.0",
+  "sessionId": "csess-df1e06c91dc0",
+  "updatedAt": "2026-07-04T16:13:45.173861900+00:00",
+  "stepCount": 13,
+  "steps": [
+    {
+      "index": 0,
+      "stepId": "step-454f99e7d7e9",
+      "action": "snapshot",
+      "captureId": "cap-5f3551aa6ebd",
+      "manifestPath": ".codectx/verify/client-sessions/csess-df1e06c91dc0/captures/cap-5f3551aa6ebd/manifest.json",
+      "stepLabel": "connect-bootstrap",
+      "pass": true,
+      "at": "2026-07-04T16:12:50.991116800+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-2baae7ef8d79",
+      "action": "mcp.client.session.connect",
+      "manifestPath": ".codectx/verify/client-sessions/csess-df1e06c91dc0/attach-latest.json",
+      "pass": true,
+      "at": "2026-07-04T16:12:55.615467100+00:00"
+    },
+    {
+      "index": 2,
+      "stepId": "step-2020520216fe",
+      "action": "click",
+      "captureId": "cap-ee5df5e76f65",
+      "manifestPath": ".codectx/verify/client-sessions/csess-df1e06c91dc0/captures/cap-ee5df5e76f65/manifest.json",
+      "selector": "img[alt=\"Tester1\"]",
+      "pass": true,
+      "at": "2026-07-04T16:13:02.047190900+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-6fd94b40c83f",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-ee5df5e76f65",
+      "manifestPath": ".codectx/verify/client-sessions/csess-df1e06c91dc0/captures/cap-ee5df5e76f65/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T16:13:02.301211900+00:00"
+    },
+    {
+      "index": 4,
+      "stepId": "step-3a4b5faf510e",
+      "action": "type",
+      "captureId": "cap-1548da00cb46",
+      "manifestPath": ".codectx/verify/client-sessions/csess-df1e06c91dc0/captures/cap-1548da00cb46/manifest.json",
+      "selector": "input[placeholder*=\"Enter your password\"]",
+      "text": "SyI14^ew1E",
+      "pass": true,
+      "at": "2026-07-04T16:13:08.513171900+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-86938fa38907",
+      "action": "mcp.client.interact.type",
+      "captureId": "cap-1548da00cb46",
+      "manifestPath": ".codectx/verify/client-sessions/csess-df1e06c91dc0/captures/cap-1548da00cb46/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T16:13:08.514608600+00:00"
+    },
+    {
+      "index": 6,
+      "stepId": "step-feb79d77f1",
+      "action": "digestPull",
+      "captureId": "cap-37feb79d77f1",
+      "manifestPath": ".codectx/verify/client-sessions/csess-df1e06c91dc0/captures/cap-37feb79d77f1/manifest.json",
+      "stepLabel": "r2-post-kill-pre-unlock",
+      "pass": true,
+      "message": "runtime digest captured",
+      "at": "2026-07-04T16:13:08.622348800+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-4bdae4d5d92c",
+      "action": "mcp.client.runtime.digestPull",
+      "captureId": "cap-37feb79d77f1",
+      "manifestPath": ".codectx/verify/client-sessions/csess-df1e06c91dc0/captures/cap-37feb79d77f1/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T16:13:13.288052600+00:00"
+    },
+    {
+      "index": 8,
+      "stepId": "step-6409665a74cd",
+      "action": "click",
+      "captureId": "cap-fd039db0ec63",
+      "manifestPath": ".codectx/verify/client-sessions/csess-df1e06c91dc0/captures/cap-fd039db0ec63/manifest.json",
+      "stepLabel": "unlock-submit",
+      "selector": "form button[type=\"submit\"]",
+      "pass": true,
+      "at": "2026-07-04T16:13:23.328642300+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-a74d52f6414d",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-fd039db0ec63",
+      "manifestPath": ".codectx/verify/client-sessions/csess-df1e06c91dc0/captures/cap-fd039db0ec63/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T16:13:23.330820100+00:00"
+    },
+    {
+      "index": 10,
+      "stepId": "step-21de3de94f72",
+      "action": "surfaceProbe",
+      "captureId": "cap-0820b2aa1c8b",
+      "manifestPath": ".codectx/verify/client-sessions/csess-df1e06c91dc0/captures/cap-0820b2aa1c8b/manifest.json",
+      "stepLabel": "surface-probe",
+      "pass": true,
+      "message": "surface probe captured",
+      "at": "2026-07-04T16:13:37.658337300+00:00"
+    },
+    {
+      "index": 11,
+      "stepId": "step-e38ca94a6f",
+      "action": "digestPull",
+      "captureId": "cap-94e38ca94a6f",
+      "manifestPath": ".codectx/verify/client-sessions/csess-df1e06c91dc0/captures/cap-94e38ca94a6f/manifest.json",
+      "stepLabel": "chain-chain-r2-auth-cold-unlock-2026-07-04-n2-cold-password-unlock-pass",
+      "pass": true,
+      "message": "runtime digest captured",
+      "at": "2026-07-04T16:13:43.614737100+00:00"
+    },
+    {
+      "index": 12,
+      "stepId": "step-59a593646a0d",
+      "action": "screenshot",
+      "captureId": "cap-3fd5ba130ca0",
+      "manifestPath": ".codectx/verify/client-sessions/csess-df1e06c91dc0/captures/cap-3fd5ba130ca0/manifest.json",
+      "stepLabel": "chain-n2-cold-password-unlock-pass",
+      "pass": true,
+      "at": "2026-07-04T16:13:45.173164400+00:00"
+    }
+  ]
+}

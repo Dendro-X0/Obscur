@@ -1,0 +1,89 @@
+{
+  "schema": "perf.explore.diff@1.1.0",
+  "generatedAt": "2026-06-30T09:53:45.817883700+00:00",
+  "step": {
+    "schema": "perf.explore.diff@1.1.0",
+    "generatedAt": "2026-06-30T09:53:45.817883700+00:00",
+    "baseline": {
+      "exploreId": "4376537e-b7ae-7c4f-5d8b-6008c1664845",
+      "graphHash": "sha256:ae9214daa9333c4cf72a1ca539c9a7a90befd0c23af807fb757f02f58d78553d",
+      "findingCount": 28,
+      "severityCounts": {
+        "red": 0,
+        "yellow": 15,
+        "info": 13
+      }
+    },
+    "current": {
+      "exploreId": "19dad515-ea67-f586-ba17-b899ee4789fe",
+      "graphHash": "sha256:6e8fd02943f597ba474b3a8dcffe89f7c6d70294b735eb591b7d0eeb97f2d4e2",
+      "findingCount": 28,
+      "severityCounts": {
+        "red": 0,
+        "yellow": 15,
+        "info": 13
+      }
+    },
+    "delta": {
+      "red": 0,
+      "yellow": 0,
+      "info": 0,
+      "total": 0
+    },
+    "resolvedFindingIds": [],
+    "newFindingIds": [],
+    "unchangedFindingIds": [
+      "perf:import:barrel-penalty:packages/dweb-auth/src/index.ts",
+      "perf:import:barrel-penalty:packages/dweb-crdt/src/index.ts",
+      "perf:import:barrel-penalty:packages/obscur-conduit-mesh-contracts/src/index.ts",
+      "perf:import:barrel-penalty:packages/obscur-conduit-mesh-contracts/src/index.ts",
+      "perf:import:barrel-penalty:packages/obscur-conduit-mesh/src/index.ts",
+      "perf:import:barrel-penalty:packages/obscur-engine-host/src/index.ts",
+      "perf:import:barrel-penalty:packages/ui-kit/src/index.ts",
+      "perf:stack:next:apps/pwa",
+      "perf:stack:next:apps/website",
+      "perf:topology:architecture-layout:apps:coordination",
+      "perf:topology:critical-path-scope:apps:coordination",
+      "perf:topology:duplicate-dependency:@dweb/db",
+      "perf:topology:duplicate-dependency:@tauri-apps/api",
+      "perf:topology:duplicate-dependency:@types/node",
+      "perf:topology:duplicate-dependency:@types/react",
+      "perf:topology:duplicate-dependency:@types/react-dom",
+      "perf:topology:duplicate-dependency:lucide-react",
+      "perf:topology:duplicate-dependency:typescript",
+      "perf:topology:duplicate-dependency:vitest",
+      "perf:topology:shared-fanout:packages:db",
+      "perf:topology:shared-fanout:packages:dweb-auth",
+      "perf:topology:shared-fanout:packages:dweb-coordination-contracts",
+      "perf:topology:shared-fanout:packages:dweb-core",
+      "perf:topology:shared-fanout:packages:dweb-crypto",
+      "perf:topology:shared-fanout:packages:dweb-storage-contracts",
+      "perf:topology:shared-fanout:packages:dweb-transport-contracts",
+      "perf:topology:shared-fanout:packages:obscur-conduit-mesh-contracts",
+      "perf:topology:shared-fanout:packages:obscur-engine-contracts"
+    ],
+    "severityChanges": [],
+    "improved": false,
+    "verification": {
+      "status": "unchanged",
+      "resolvedCount": 0,
+      "severityImprovementCount": 0,
+      "partialCount": 0,
+      "metricImprovements": []
+    },
+    "bucketDelta": {
+      "navBlockers": {
+        "from": 7,
+        "to": 7
+      },
+      "actionItems": {
+        "from": 8,
+        "to": 8
+      },
+      "infoInventory": {
+        "from": 13,
+        "to": 13
+      }
+    }
+  }
+}

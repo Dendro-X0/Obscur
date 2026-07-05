@@ -1,0 +1,30 @@
+{
+  "schema": "codactrl.investigation.node@0.1.0",
+  "chainId": "chain-dm-split-brain-2026-07-02",
+  "nodeId": "n8-round20-dual-dm-roundtrip",
+  "trigger": "round20-dm-assert-pass",
+  "at": "2026-07-02T16:11:52.419691800+00:00",
+  "sessionId": "csess-6f1a35b7762b",
+  "surfaces": {
+    "mainThreadMessageCount": 13,
+    "mainThreadSystemCards": 0,
+    "alertBannerCount": 1,
+    "splitBrainSuspected": false
+  },
+  "digestRef": "fault-83e3683e",
+  "signals": [
+    "dm-normalize-is-outgoing-mismatch",
+    "groups-ledger-validation"
+  ],
+  "signalsExtracted": [
+    "account_sync.backup_publish_attempt",
+    "account_sync.backup_publish_ordering",
+    "account_sync.backup_publish_result",
+    "groups.ledger_migration_needed",
+    "groups.ledger_validation_issues",
+    "messaging.delete_for_everyone_remote_result",
+    "messaging.dm_normalize_is_outgoing_mismatch",
+    "workspace.thread.hydrate"
+  ],
+  "hypothesis": "Round 20 dual DM round-trip via selector pack stepLabels"
+}

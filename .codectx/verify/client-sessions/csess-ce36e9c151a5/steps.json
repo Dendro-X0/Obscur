@@ -1,0 +1,85 @@
+{
+  "schema": "client.session.steps@0.1.0",
+  "sessionId": "csess-ce36e9c151a5",
+  "updatedAt": "2026-07-04T07:18:13.185898700+00:00",
+  "stepCount": 8,
+  "steps": [
+    {
+      "index": 0,
+      "stepId": "step-fd2035ff7cd0",
+      "action": "snapshot",
+      "captureId": "cap-3619f58f40ea",
+      "manifestPath": ".codectx/verify/client-sessions/csess-ce36e9c151a5/captures/cap-3619f58f40ea/manifest.json",
+      "stepLabel": "connect-bootstrap",
+      "pass": true,
+      "at": "2026-07-04T07:17:45.211105800+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-556d3644132c",
+      "action": "mcp.client.session.connect",
+      "manifestPath": ".codectx/verify/client-sessions/csess-ce36e9c151a5/attach-latest.json",
+      "pass": true,
+      "at": "2026-07-04T07:17:48.782596+00:00"
+    },
+    {
+      "index": 2,
+      "stepId": "step-34e2146d4f24",
+      "action": "click",
+      "captureId": "cap-68dc53fe70af",
+      "manifestPath": ".codectx/verify/client-sessions/csess-ce36e9c151a5/captures/cap-68dc53fe70af/manifest.json",
+      "selector": "role=link[name=\"Chats\"]",
+      "pass": true,
+      "at": "2026-07-04T07:18:01.608437500+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-ebb3cf8a0973",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-68dc53fe70af",
+      "manifestPath": ".codectx/verify/client-sessions/csess-ce36e9c151a5/captures/cap-68dc53fe70af/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T07:18:01.611654800+00:00"
+    },
+    {
+      "index": 4,
+      "stepId": "step-e219caa235d5",
+      "action": "type",
+      "captureId": "cap-61d116ad3697",
+      "manifestPath": ".codectx/verify/client-sessions/csess-ce36e9c151a5/captures/cap-61d116ad3697/manifest.json",
+      "stepLabel": "docker-relay-send",
+      "selector": "role=textbox[name=\"Type a message...\"]",
+      "text": "COM-RUN-11-phase1c-docker-070T0717",
+      "pass": true,
+      "at": "2026-07-04T07:18:06.152015700+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-3962c32101e2",
+      "action": "mcp.client.interact.type",
+      "captureId": "cap-61d116ad3697",
+      "manifestPath": ".codectx/verify/client-sessions/csess-ce36e9c151a5/captures/cap-61d116ad3697/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T07:18:06.162249200+00:00"
+    },
+    {
+      "index": 6,
+      "stepId": "step-871acdcf62d2",
+      "action": "click",
+      "captureId": "cap-50890868b11a",
+      "manifestPath": ".codectx/verify/client-sessions/csess-ce36e9c151a5/captures/cap-50890868b11a/manifest.json",
+      "selector": "role=button[name=\"Send\"]",
+      "pass": true,
+      "at": "2026-07-04T07:18:13.173481900+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-9940e5b449e7",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-50890868b11a",
+      "manifestPath": ".codectx/verify/client-sessions/csess-ce36e9c151a5/captures/cap-50890868b11a/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T07:18:13.177197500+00:00"
+    }
+  ]
+}

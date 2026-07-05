@@ -1,0 +1,25 @@
+{
+  "schema": "codactrl.investigation.chain@0.1.0",
+  "chainId": "chain-r5-o4-ingest-chrome-2026-07-04",
+  "symptomClass": "group-thread-relay-ingest",
+  "title": "R5 O-4 ingest room-key owner t4",
+  "status": "open",
+  "createdAt": "2026-07-04T17:40:31.932719400+00:00",
+  "updatedAt": "2026-07-04T17:53:45.786132500+00:00",
+  "nodeIds": [
+    "r5-t4-thread-send",
+    "r5-t4-coldrestart"
+  ],
+  "edges": [
+    {
+      "from": "r5-t4-thread-send",
+      "to": "r5-t4-coldrestart",
+      "label": "cold-restart"
+    }
+  ],
+  "summary": {
+    "verdict": "verified",
+    "nodesCaptured": 2,
+    "splitBrainObserved": false
+  }
+}

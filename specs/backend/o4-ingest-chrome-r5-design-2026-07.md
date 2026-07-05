@@ -1,6 +1,6 @@
 # Design — R5 O-4 ingest room-key owner alignment
 
-**Status:** Approved · **implemented** (2026-07-04) · t4 pending  
+**Status:** Approved · **implemented** (2026-07-04) · **VERIFIED t4** (2026-07-04)  
 **Investigation:** [o4-ingest-chrome-r5-investigation-2026-07.md](./o4-ingest-chrome-r5-investigation-2026-07.md)  
 **Chain:** `chain-r5-o4-ingest-chrome-2026-07-04` (or append `chain-o4-group-ingest-2026-07-02`)
 

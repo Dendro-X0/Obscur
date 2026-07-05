@@ -1,0 +1,80 @@
+{
+  "schema": "perf.explore.diff@1.1.0",
+  "generatedAt": "2026-07-01T05:00:03.668969800+00:00",
+  "step": {
+    "schema": "perf.explore.diff@1.1.0",
+    "generatedAt": "2026-07-01T05:00:03.668969800+00:00",
+    "baseline": {
+      "exploreId": "8e9dffd8-8701-0067-bdda-27ee29e4c2ab",
+      "graphHash": "sha256:4568c05354f8c91bc4ab439af5cc23fd8d0353269503fca980b2105915a4b24e",
+      "findingCount": 19,
+      "severityCounts": {
+        "red": 0,
+        "yellow": 6,
+        "info": 13
+      }
+    },
+    "current": {
+      "exploreId": "028eee2e-8450-aa3b-55dd-a04696f5740c",
+      "graphHash": "sha256:35a1e23156a95f607ae6ed897e9708c8b310a8e7cccc264dc156a842e19fc681",
+      "findingCount": 19,
+      "severityCounts": {
+        "red": 0,
+        "yellow": 6,
+        "info": 13
+      }
+    },
+    "delta": {
+      "red": 0,
+      "yellow": 0,
+      "info": 0,
+      "total": 0
+    },
+    "resolvedFindingIds": [],
+    "newFindingIds": [],
+    "unchangedFindingIds": [
+      "perf:import:barrel-penalty:packages/dweb-auth/src/index.ts",
+      "perf:import:barrel-penalty:packages/obscur-conduit-mesh-contracts/src/index.ts",
+      "perf:import:barrel-penalty:packages/obscur-conduit-mesh-contracts/src/index.ts",
+      "perf:import:barrel-penalty:packages/obscur-conduit-mesh/src/index.ts",
+      "perf:import:barrel-penalty:packages/obscur-engine-host/src/index.ts",
+      "perf:import:barrel-penalty:packages/ui-kit/src/index.ts",
+      "perf:stack:next:apps/pwa",
+      "perf:stack:next:apps/website",
+      "perf:topology:architecture-layout:apps:coordination",
+      "perf:topology:critical-path-scope:apps:coordination",
+      "perf:topology:shared-fanout:packages:db",
+      "perf:topology:shared-fanout:packages:dweb-auth",
+      "perf:topology:shared-fanout:packages:dweb-coordination-contracts",
+      "perf:topology:shared-fanout:packages:dweb-core",
+      "perf:topology:shared-fanout:packages:dweb-crypto",
+      "perf:topology:shared-fanout:packages:dweb-storage-contracts",
+      "perf:topology:shared-fanout:packages:dweb-transport-contracts",
+      "perf:topology:shared-fanout:packages:obscur-conduit-mesh-contracts",
+      "perf:topology:shared-fanout:packages:obscur-engine-contracts"
+    ],
+    "severityChanges": [],
+    "improved": false,
+    "verification": {
+      "status": "unchanged",
+      "resolvedCount": 0,
+      "severityImprovementCount": 0,
+      "partialCount": 0,
+      "metricImprovements": []
+    },
+    "bucketDelta": {
+      "navBlockers": {
+        "from": 6,
+        "to": 6
+      },
+      "actionItems": {
+        "from": 0,
+        "to": 0
+      },
+      "infoInventory": {
+        "from": 13,
+        "to": 13
+      }
+    }
+  }
+}

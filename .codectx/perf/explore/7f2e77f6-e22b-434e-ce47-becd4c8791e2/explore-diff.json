@@ -1,0 +1,94 @@
+{
+  "schema": "perf.explore.diff@1.1.0",
+  "generatedAt": "2026-06-30T09:44:44.888622900+00:00",
+  "step": {
+    "schema": "perf.explore.diff@1.1.0",
+    "generatedAt": "2026-06-30T09:44:44.888622900+00:00",
+    "baseline": {
+      "exploreId": "93a57660-7fb3-474b-1939-9247709fdad8",
+      "graphHash": "sha256:630d6f3727fe9366547704b79124ce0742ac7a88be02598e37638aac20a06071",
+      "findingCount": 33,
+      "severityCounts": {
+        "red": 0,
+        "yellow": 19,
+        "info": 14
+      }
+    },
+    "current": {
+      "exploreId": "7f2e77f6-e22b-434e-ce47-becd4c8791e2",
+      "graphHash": "sha256:2f24b1131007b94ea2c19004488c1c4d92d820bbfdf0f01c6aaad88c82db630b",
+      "findingCount": 33,
+      "severityCounts": {
+        "red": 0,
+        "yellow": 19,
+        "info": 14
+      }
+    },
+    "delta": {
+      "red": 0,
+      "yellow": 0,
+      "info": 0,
+      "total": 0
+    },
+    "resolvedFindingIds": [],
+    "newFindingIds": [],
+    "unchangedFindingIds": [
+      "perf:bundle:missing-optimize-imports:apps/website",
+      "perf:import:barrel-penalty:packages/dweb-auth/src/index.ts",
+      "perf:import:barrel-penalty:packages/dweb-crdt/src/index.ts",
+      "perf:import:barrel-penalty:packages/obscur-conduit-mesh-contracts/src/index.ts",
+      "perf:import:barrel-penalty:packages/obscur-conduit-mesh-contracts/src/index.ts",
+      "perf:import:barrel-penalty:packages/obscur-conduit-mesh/src/index.ts",
+      "perf:import:barrel-penalty:packages/obscur-engine-host/src/index.ts",
+      "perf:import:barrel-penalty:packages/ui-kit/src/index.ts",
+      "perf:route:missing-loading:apps/website/src/app/changelog/page.tsx",
+      "perf:route:missing-loading:apps/website/src/app/download/page.tsx",
+      "perf:route:missing-loading:apps/website/src/app/features/[slug]/page.tsx",
+      "perf:route:missing-loading:apps/website/src/app/page.tsx",
+      "perf:stack:next:apps/pwa",
+      "perf:stack:next:apps/website",
+      "perf:topology:architecture-layout:apps:website",
+      "perf:topology:critical-path-scope:apps:website",
+      "perf:topology:duplicate-dependency:@dweb/db",
+      "perf:topology:duplicate-dependency:@tauri-apps/api",
+      "perf:topology:duplicate-dependency:@types/node",
+      "perf:topology:duplicate-dependency:@types/react",
+      "perf:topology:duplicate-dependency:@types/react-dom",
+      "perf:topology:duplicate-dependency:lucide-react",
+      "perf:topology:duplicate-dependency:typescript",
+      "perf:topology:duplicate-dependency:vitest",
+      "perf:topology:shared-fanout:packages:db",
+      "perf:topology:shared-fanout:packages:dweb-auth",
+      "perf:topology:shared-fanout:packages:dweb-coordination-contracts",
+      "perf:topology:shared-fanout:packages:dweb-core",
+      "perf:topology:shared-fanout:packages:dweb-crypto",
+      "perf:topology:shared-fanout:packages:dweb-storage-contracts",
+      "perf:topology:shared-fanout:packages:dweb-transport-contracts",
+      "perf:topology:shared-fanout:packages:obscur-conduit-mesh-contracts",
+      "perf:topology:shared-fanout:packages:obscur-engine-contracts"
+    ],
+    "severityChanges": [],
+    "improved": false,
+    "verification": {
+      "status": "unchanged",
+      "resolvedCount": 0,
+      "severityImprovementCount": 0,
+      "partialCount": 0,
+      "metricImprovements": []
+    },
+    "bucketDelta": {
+      "navBlockers": {
+        "from": 11,
+        "to": 11
+      },
+      "actionItems": {
+        "from": 8,
+        "to": 8
+      },
+      "infoInventory": {
+        "from": 14,
+        "to": 14
+      }
+    }
+  }
+}

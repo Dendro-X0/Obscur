@@ -1,0 +1,9 @@
+{
+  "schema": "client.session@0.1.0",
+  "sessionId": "csess-013368f339f3",
+  "provider": "playwright-chromium",
+  "proofTier": "t2",
+  "createdAt": "2026-07-01T03:54:00.563940800+00:00",
+  "repoRoot": "E:\\Web Projects\\experimental-workspace\\newstart",
+  "url": "http://127.0.0.1:3341/profiles"
+}

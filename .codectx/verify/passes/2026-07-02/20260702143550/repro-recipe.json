@@ -1,0 +1,105 @@
+{
+  "context": {
+    "cdpPort": 9230,
+    "sessionId": "csess-8abe3d68a490",
+    "workspacePath": "E:\\Web Projects\\experimental-workspace\\newstart"
+  },
+  "exportedAt": "2026-07-02T14:35:50.282272200+00:00",
+  "goldenPath": [
+    {
+      "action": "client.runtime.health",
+      "label": "Scan",
+      "mcpTool": "client_runtime_health",
+      "step": 1
+    },
+    {
+      "action": "daemon restart from workspace root",
+      "label": "Align",
+      "step": 2
+    },
+    {
+      "action": "client.stack.preflight",
+      "label": "Preflight",
+      "mcpTool": "client_stack_preflight",
+      "step": 2
+    },
+    {
+      "action": "client.session.connect",
+      "label": "Connect",
+      "mcpTool": "client_session_connect",
+      "step": 3
+    },
+    {
+      "action": "client.surface.probe",
+      "label": "Probe",
+      "mcpTool": "client_surface_probe",
+      "step": 4
+    },
+    {
+      "action": "client.capture",
+      "label": "Capture",
+      "mcpTool": "client_capture",
+      "step": 5
+    },
+    {
+      "action": "client.runtime.digestPull",
+      "label": "Digest",
+      "mcpTool": "client_runtime_digest_pull",
+      "step": 6
+    },
+    {
+      "action": "client.investigation.chain.append + verify.issues.report.export",
+      "label": "Confirm",
+      "mcpTool": "verify_issues_report_export",
+      "step": 7
+    }
+  ],
+  "multiWindowStretch": [
+    {
+      "action": "client.multiwindow.status (probeBridge: true)",
+      "label": "MW status",
+      "mcpTool": "client_multiwindow_status",
+      "step": 1
+    },
+    {
+      "action": "client.agent.bridgeCall listWindows / openProfileSlot",
+      "label": "Bridge",
+      "mcpTool": "client_agent_bridge_call",
+      "step": 2
+    },
+    {
+      "action": "client.multiwindow.switch (windowLabel)",
+      "label": "Switch",
+      "mcpTool": "client_multiwindow_switch",
+      "step": 3
+    },
+    {
+      "action": "client.multiwindow.capture (bcap-* manifest)",
+      "label": "Capture",
+      "mcpTool": "client_multiwindow_capture",
+      "step": 4
+    },
+    {
+      "action": "client.session.connect { cdpPort: 9230, windowLabel: main }",
+      "label": "Connect main",
+      "mcpTool": "client_session_connect",
+      "step": 5
+    },
+    {
+      "action": "client.session.connect { cdpPort: 9231, windowLabel: profile-2, alwaysNewSession: true }",
+      "label": "Connect profile",
+      "mcpTool": "client_session_connect",
+      "step": 6
+    }
+  ],
+  "operator": null,
+  "replayHints": [
+    "Open workspace as Studio subject repo; ensure codactrld indexes same repo root.",
+    "Run client_stack_preflight before connect — blocks bad-stack false starts.",
+    "Attach CDP on configured port before probe/capture/digest.",
+    "Use investigation chain id to append nodes without collapsing to a single root cause.",
+    "For COM-RUN-11: run multiWindowStretch before claiming Tester2 dual-window proof."
+  ],
+  "repoRoot": "E:\\Web Projects\\experimental-workspace\\newstart",
+  "schema": "verify.repro.recipe@1"
+}

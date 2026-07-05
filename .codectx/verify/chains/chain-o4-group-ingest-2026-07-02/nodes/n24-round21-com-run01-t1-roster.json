@@ -1,0 +1,30 @@
+{
+  "schema": "codactrl.investigation.node@0.1.0",
+  "chainId": "chain-o4-group-ingest-2026-07-02",
+  "nodeId": "n24-round21-com-run01-t1-roster",
+  "trigger": "round21-participants-modal-open",
+  "at": "2026-07-02T16:20:42.273092300+00:00",
+  "sessionId": "csess-6f1a35b7762b",
+  "surfaces": {
+    "mainThreadMessageCount": 0,
+    "mainThreadSystemCards": 0,
+    "alertBannerCount": 1,
+    "splitBrainSuspected": false
+  },
+  "digestRef": "fault-e91b9aa7",
+  "screenshotRef": ".codectx/verify/client-sessions/csess-6f1a35b7762b/captures/cap-c39ff2a4e593/screenshot.png",
+  "signals": [
+    "groups-ledger-validation"
+  ],
+  "signalsExtracted": [
+    "account_sync.backup_publish_attempt",
+    "account_sync.backup_publish_ordering",
+    "account_sync.backup_publish_result",
+    "groups.ledger_migration_needed",
+    "groups.ledger_validation_issues",
+    "messaging.conversation_list_authority_selected",
+    "network.peer_trust_read_authority_selected",
+    "workspace.thread.hydrate"
+  ],
+  "hypothesis": "COM-RUN-01 t4: T1 participants shows Tester1 only; participant_projection_state knownParticipantCount=0"
+}

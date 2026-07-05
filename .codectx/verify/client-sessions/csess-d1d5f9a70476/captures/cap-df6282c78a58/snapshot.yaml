@@ -1,0 +1,29 @@
+- main:
+  - text: Client release-v1.9.10-relay-recovery-20260617
+  - img "Obscur"
+  - text: Obscur
+  - button "Switch profile before sign-in":
+    - img "Tester1"
+    - text: Tester1 Switch profile
+  - button "Minimize window"
+  - button "Maximize window"
+  - button "Close window"
+  - button "Change Language"
+  - button
+  - heading "Welcome Back" [level=2]
+  - paragraph: Enter your existing device login password to unlock Tester1. Import Key is available if password unlock fails.
+  - button "Log In"
+  - button "Import Key"
+  - paragraph: No device login password is saved for this profile on this device. Go to Import Key, unlock with your private key, then choose whether to set a new password or continue with key-only sign-in.
+  - heading "Set a device login password?" [level=3]
+  - paragraph: Your key is verified. Add a password to use the Log In tab next time, or skip and keep unlocking with your private key.
+  - text: New device login password
+  - textbox "Set to enable username login": SyI14^ew1E
+  - button
+  - text: Confirm password
+  - textbox
+  - button "Set password and unlock"
+  - button "Skip — unlock with key only"
+  - button "Back to private key"
+  - text: Self-Custody Anonymous
+- alert

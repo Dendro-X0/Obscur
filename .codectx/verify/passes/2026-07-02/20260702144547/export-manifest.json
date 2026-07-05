@@ -1,0 +1,16 @@
+{
+  "schema": "verify.export.manifest@0.1.0",
+  "exportedAt": "2026-07-02T14:45:47.775846600+00:00",
+  "agentExportAt": "2026-07-02T14:45:47.775846600+00:00",
+  "operatorExportAt": "2026-07-02T14:45:47.775846600+00:00",
+  "roundLabel": "2026-07-02-codactrl-round18",
+  "authoritativeNotes": "Round18 post CodaCtrl upgrade: O4 O4-round18-codactrl-072T1445 send success; Docker :7000; coord cold-start blocked preflight; skipStackPreflight; profile-2 on :9231; n22 chain node",
+  "confirmedBy": "agent-mcp-round18",
+  "promotionStage": "spec",
+  "repro": {
+    "chainId": "chain-o4-group-ingest-2026-07-02",
+    "sessionId": "csess-6f1a35b7762b",
+    "cdpPort": 9230,
+    "workspacePath": "E:\\Web Projects\\experimental-workspace\\newstart"
+  }
+}

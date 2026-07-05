@@ -1,0 +1,41 @@
+{
+  "digestPath": ".codectx/verify/faults/fault-32b01a0e.digest.json",
+  "fault": {
+    "artifactPath": ".codectx/verify/faults/fault-32b01a0e.json",
+    "faultId": "fault-32b01a0e",
+    "importedAt": "2026-07-02T16:11:48.927206500+00:00",
+    "kind": "runtime_digest",
+    "primarySymptomId": "groups-ledger-validation",
+    "proofTier": "t3",
+    "schema": "obscur.m0.capture.v1",
+    "signalsExtract": [
+      {
+        "detail": "count=97",
+        "name": "groups.ledger_migration_needed"
+      },
+      {
+        "detail": "count=97",
+        "name": "groups.ledger_validation_issues"
+      },
+      {
+        "detail": "count=40",
+        "name": "messaging.dm_normalize_is_outgoing_mismatch"
+      },
+      {
+        "detail": "count=13",
+        "name": "workspace.thread.hydrate"
+      },
+      {
+        "detail": "count=10",
+        "name": "messaging.delete_for_everyone_remote_result"
+      }
+    ],
+    "symptomIds": [
+      "groups-ledger-validation",
+      "dm-normalize-is-outgoing-mismatch"
+    ],
+    "title": "groups.ledger_migration_needed — count=97"
+  },
+  "schema": "verify.fault.import@0.1.0",
+  "sourcePath": ".codectx/verify/client-sessions/csess-6f1a35b7762b/captures/cap-16a0df5d6723/digest.json"
+}

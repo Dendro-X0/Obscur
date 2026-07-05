@@ -1,0 +1,103 @@
+{
+  "schema": "client.session.steps@0.1.0",
+  "sessionId": "csess-1462fcbd345e",
+  "updatedAt": "2026-07-02T11:18:52.525344400+00:00",
+  "stepCount": 10,
+  "steps": [
+    {
+      "index": 0,
+      "stepId": "step-625974dd2a12",
+      "action": "snapshot",
+      "captureId": "cap-9e577b2742de",
+      "manifestPath": ".codectx/verify/client-sessions/csess-1462fcbd345e/captures/cap-9e577b2742de/manifest.json",
+      "stepLabel": "connect-bootstrap",
+      "pass": true,
+      "at": "2026-07-02T11:16:40.835539700+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-402802eb966d",
+      "action": "mcp.client.session.connect",
+      "manifestPath": ".codectx/verify/client-sessions/csess-1462fcbd345e/attach-latest.json",
+      "pass": true,
+      "at": "2026-07-02T11:16:44.324676600+00:00"
+    },
+    {
+      "index": 2,
+      "stepId": "step-500b5d4eed7f",
+      "action": "snapshot",
+      "captureId": "cap-a119dc260774",
+      "manifestPath": ".codectx/verify/client-sessions/csess-1462fcbd345e/captures/cap-a119dc260774/manifest.json",
+      "stepLabel": "round16-main-state",
+      "pass": true,
+      "at": "2026-07-02T11:16:54.382484200+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-143dd85fc1c9",
+      "action": "mcp.client.agent.bridgeCall.listWindows",
+      "captureId": "bcap-ecd6c49f89eb",
+      "manifestPath": ".codectx/verify/client-sessions/csess-1462fcbd345e/captures/bcap-ecd6c49f89eb/manifest.json",
+      "stepLabel": "listWindows",
+      "pass": true,
+      "at": "2026-07-02T11:16:55.576317800+00:00"
+    },
+    {
+      "index": 4,
+      "stepId": "step-a3856052802b",
+      "action": "type",
+      "captureId": "cap-8c9f20823aa2",
+      "manifestPath": ".codectx/verify/client-sessions/csess-1462fcbd345e/captures/cap-8c9f20823aa2/manifest.json",
+      "stepLabel": "round16-tester1-compose",
+      "selector": "textarea[placeholder=\"Type a message...\"], input[placeholder=\"Type a message...\"]",
+      "text": "O4-round16-dual-profile-072T1117",
+      "pass": true,
+      "at": "2026-07-02T11:18:00.687530800+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-e9e1bcaaa644",
+      "action": "mcp.client.interact.type",
+      "captureId": "cap-8c9f20823aa2",
+      "manifestPath": ".codectx/verify/client-sessions/csess-1462fcbd345e/captures/cap-8c9f20823aa2/manifest.json",
+      "pass": true,
+      "at": "2026-07-02T11:18:00.690139300+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-44f29a0da6a1",
+      "action": "mcp.client.interact.click",
+      "pass": false,
+      "message": "locator.click: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('button:enabled:near(textbox[placeholder=\"Type a message...\"])')\u001b[22m\n",
+      "at": "2026-07-02T11:18:18.576087800+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-c9e5c5be98b2",
+      "action": "mcp.client.interact.click",
+      "pass": false,
+      "message": "locator.click: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-testid=\"send-message-button\"]')\u001b[22m\n",
+      "at": "2026-07-02T11:18:37.357474100+00:00"
+    },
+    {
+      "index": 8,
+      "stepId": "step-3577a9fbae48",
+      "action": "click",
+      "captureId": "cap-f183d60b8b14",
+      "manifestPath": ".codectx/verify/client-sessions/csess-1462fcbd345e/captures/cap-f183d60b8b14/manifest.json",
+      "stepLabel": "round16-tester1-send",
+      "selector": "button[aria-label=\"Send\"]",
+      "pass": true,
+      "at": "2026-07-02T11:18:52.489466300+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-d0457b106082",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-f183d60b8b14",
+      "manifestPath": ".codectx/verify/client-sessions/csess-1462fcbd345e/captures/cap-f183d60b8b14/manifest.json",
+      "pass": true,
+      "at": "2026-07-02T11:18:52.511974100+00:00"
+    }
+  ]
+}

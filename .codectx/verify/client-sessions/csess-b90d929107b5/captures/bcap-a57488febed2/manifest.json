@@ -1,0 +1,17 @@
+{
+  "args": [
+    2
+  ],
+  "captureId": "bcap-a57488febed2",
+  "capturedAt": "2026-07-02T08:55:51.000851100+00:00",
+  "cdpPort": 9230,
+  "method": "openProfileSlot",
+  "pass": false,
+  "result": {
+    "error": "window.__codactrlAgentBridge.openProfileSlot missing — install subject agent bridge",
+    "ok": false
+  },
+  "schema": "client.agent.bridgeCall@0.1.0",
+  "sessionId": "csess-b90d929107b5",
+  "targetUrl": "http://127.0.0.1:1430/"
+}

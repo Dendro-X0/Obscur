@@ -1,0 +1,115 @@
+{
+  "schema": "perf.explore.diff@1.1.0",
+  "generatedAt": "2026-06-30T10:25:09.681799400+00:00",
+  "step": {
+    "schema": "perf.explore.diff@1.1.0",
+    "generatedAt": "2026-06-30T10:25:09.681799400+00:00",
+    "baseline": {
+      "exploreId": "19dad515-ea67-f586-ba17-b899ee4789fe",
+      "graphHash": "sha256:6e8fd02943f597ba474b3a8dcffe89f7c6d70294b735eb591b7d0eeb97f2d4e2",
+      "findingCount": 28,
+      "severityCounts": {
+        "red": 0,
+        "yellow": 15,
+        "info": 13
+      }
+    },
+    "current": {
+      "exploreId": "22d571fc-205f-64fd-d229-76514559b54d",
+      "graphHash": "sha256:159fd65d8fa2292140cd132d25a0c0a49f3914cbc7e3b5ca16435a6ac07c5992",
+      "findingCount": 25,
+      "severityCounts": {
+        "red": 0,
+        "yellow": 12,
+        "info": 13
+      }
+    },
+    "delta": {
+      "red": 0,
+      "yellow": -3,
+      "info": 0,
+      "total": -3
+    },
+    "resolvedFindingIds": [
+      "perf:topology:duplicate-dependency:@tauri-apps/api",
+      "perf:topology:duplicate-dependency:@types/node",
+      "perf:topology:duplicate-dependency:lucide-react"
+    ],
+    "newFindingIds": [],
+    "unchangedFindingIds": [
+      "perf:import:barrel-penalty:packages/dweb-auth/src/index.ts",
+      "perf:import:barrel-penalty:packages/dweb-crdt/src/index.ts",
+      "perf:import:barrel-penalty:packages/obscur-conduit-mesh-contracts/src/index.ts",
+      "perf:import:barrel-penalty:packages/obscur-conduit-mesh-contracts/src/index.ts",
+      "perf:import:barrel-penalty:packages/obscur-conduit-mesh/src/index.ts",
+      "perf:import:barrel-penalty:packages/obscur-engine-host/src/index.ts",
+      "perf:import:barrel-penalty:packages/ui-kit/src/index.ts",
+      "perf:stack:next:apps/pwa",
+      "perf:stack:next:apps/website",
+      "perf:topology:architecture-layout:apps:coordination",
+      "perf:topology:critical-path-scope:apps:coordination",
+      "perf:topology:duplicate-dependency:@dweb/db",
+      "perf:topology:duplicate-dependency:@types/react",
+      "perf:topology:duplicate-dependency:@types/react-dom",
+      "perf:topology:duplicate-dependency:typescript",
+      "perf:topology:duplicate-dependency:vitest",
+      "perf:topology:shared-fanout:packages:db",
+      "perf:topology:shared-fanout:packages:dweb-auth",
+      "perf:topology:shared-fanout:packages:dweb-coordination-contracts",
+      "perf:topology:shared-fanout:packages:dweb-core",
+      "perf:topology:shared-fanout:packages:dweb-crypto",
+      "perf:topology:shared-fanout:packages:dweb-storage-contracts",
+      "perf:topology:shared-fanout:packages:dweb-transport-contracts",
+      "perf:topology:shared-fanout:packages:obscur-conduit-mesh-contracts",
+      "perf:topology:shared-fanout:packages:obscur-engine-contracts"
+    ],
+    "severityChanges": [],
+    "improved": true,
+    "verification": {
+      "status": "improved",
+      "resolvedCount": 3,
+      "severityImprovementCount": 0,
+      "partialCount": 0,
+      "metricImprovements": [
+        {
+          "findingId": "perf:topology:duplicate-dependency:@tauri-apps/api",
+          "metric": "finding",
+          "from": 1,
+          "to": 0,
+          "verified": true,
+          "status": "resolved"
+        },
+        {
+          "findingId": "perf:topology:duplicate-dependency:@types/node",
+          "metric": "finding",
+          "from": 1,
+          "to": 0,
+          "verified": true,
+          "status": "resolved"
+        },
+        {
+          "findingId": "perf:topology:duplicate-dependency:lucide-react",
+          "metric": "finding",
+          "from": 1,
+          "to": 0,
+          "verified": true,
+          "status": "resolved"
+        }
+      ]
+    },
+    "bucketDelta": {
+      "navBlockers": {
+        "from": 7,
+        "to": 7
+      },
+      "actionItems": {
+        "from": 8,
+        "to": 5
+      },
+      "infoInventory": {
+        "from": 13,
+        "to": 13
+      }
+    }
+  }
+}

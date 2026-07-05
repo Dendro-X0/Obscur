@@ -1,0 +1,25 @@
+{
+  "schema": "codactrl.investigation.chain@0.1.0",
+  "chainId": "chain-o2-cold-restart-phase1c-2026-07-04",
+  "symptomClass": "dm-vanishes-cold-restart",
+  "title": "Phase 1C O-2 t4 re-verify post Phase 1B exit",
+  "status": "open",
+  "createdAt": "2026-07-04T04:58:22.525670100+00:00",
+  "updatedAt": "2026-07-04T14:15:19.274216700+00:00",
+  "nodeIds": [
+    "n0-pre-restart-send",
+    "n1-post-restart-hydrate"
+  ],
+  "edges": [
+    {
+      "from": "n0-pre-restart-send",
+      "to": "n1-post-restart-hydrate",
+      "label": "cold_kill_taskkill"
+    }
+  ],
+  "summary": {
+    "verdict": "partial_accepted",
+    "nodesCaptured": 2,
+    "splitBrainObserved": false
+  }
+}

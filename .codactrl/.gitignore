@@ -1,0 +1,16 @@
+# CodaCtrl Studio Output Hub — default ignore template
+# Generated once; edit to commit specific outputs (use `git add -f` to override).
+#
+# Mirrored artifacts regenerate from .codectx/ via studio.output.sync.
+# See README.md in this folder for navigation.
+
+# Machine index (regenerated each sync)
+index.json
+
+# Synced mirrors — delete a line below to track that module in git
+technical/
+perf/
+design/
+
+# Spec pointers are lightweight; uncomment to ignore
+# specs/

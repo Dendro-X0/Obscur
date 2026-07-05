@@ -1,0 +1,9 @@
+{
+  "schema": "verify.false_green.scan@1.0.0",
+  "repoRoot": "E:\\Web Projects\\experimental-workspace\\obscur",
+  "catalogPath": null,
+  "catalogMaxTier": null,
+  "hasCiVerifyScript": false,
+  "findingCount": 0,
+  "findings": []
+}

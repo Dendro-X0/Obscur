@@ -1,0 +1,152 @@
+- main:
+  - text: Client release-v1.9.10-relay-recovery-20260617
+  - img "Obscur"
+  - text: Obscur
+  - button "desktop.titleBar.lock"
+  - button "Open desktop profile switcher": T Tester2 Obscur / 3db055b4...d946830f
+  - button "Minimize window"
+  - button "Maximize window"
+  - button "Close window"
+  - button "Connected"
+  - link "Chats":
+    - /url: /
+  - link "Network":
+    - /url: /network
+  - link "Vault":
+    - /url: /vault
+  - link "Search":
+    - /url: /search
+  - link "Settings":
+    - /url: /settings
+  - button "Open profile menu": T
+  - button "Sidebar Options"
+  - button "Chats"
+  - button "Requests"
+  - button "Junk"
+  - textbox "Search users and communities..."
+  - button "Chat"
+  - button "Group"
+  - button "New Chat"
+  - button "Direct Messages"
+  - button "View Profile Tester1 Tester1 withdrew the invitation Online Active 1d ago Viewed Just now 4d ago":
+    - button "View Profile":
+      - img "Tester1"
+    - text: Tester1
+    - paragraph: Tester1 withdrew the invitation
+    - button
+    - text: Online Active 1d ago Viewed Just now 4d ago
+  - text: Connected 1/5 active relays Obscur Preview
+  - main:
+    - button "View Profile":
+      - img "Tester1"
+    - heading "Tester1" [level=2]
+    - button "Disable notifications for this chat" [pressed]
+    - paragraph: Online Last active 1d ago | Last viewed Just now
+    - button "Voice call"
+    - button "Media"
+    - button "Defense sensitivity for this contact": Relaxed
+    - button "Search Messages"
+    - img "Tester1"
+    - text: Tester1
+    - button "Open reactions"
+    - button "Open message menu"
+    - paragraph: Hi — can you send $200 via wire transfer today?
+    - text: 13d ago
+    - img "Tester1"
+    - text: Tester1
+    - button "Open reactions"
+    - button "Open message menu"
+    - heading "NewTest 2" [level=4]
+    - paragraph: This resilient community is built on decentralized protocols. Privacy first, always.
+    - text: Encrypted Private
+    - paragraph: Roster hidden until join
+    - status:
+      - text: Invitation superseded
+      - paragraph: Recorded in chat history. This card cannot be used again.
+    - text: 9d ago TE You
+    - button "Open reactions"
+    - button "Open message menu"
+    - paragraph: test
+    - text: 6d ago
+    - img "Tester1"
+    - text: Tester1
+    - button "Open reactions"
+    - button "Open message menu"
+    - paragraph: tset
+    - text: 6d ago
+    - img "Tester1"
+    - text: Tester1
+    - button "Open reactions"
+    - button "Open message menu"
+    - heading "NewTest 2" [level=4]
+    - paragraph: This resilient community is built on decentralized protocols. Privacy first, always.
+    - text: Encrypted Private
+    - paragraph: Roster hidden until join
+    - status:
+      - text: Invitation superseded
+      - paragraph: Recorded in chat history. This card cannot be used again.
+    - text: 5d ago
+    - img "Tester1"
+    - text: Tester1
+    - button "Open reactions"
+    - button "Open message menu"
+    - heading "NewTest 2" [level=4]
+    - paragraph: This resilient community is built on decentralized protocols. Privacy first, always.
+    - text: Encrypted Private
+    - paragraph: Roster hidden until join
+    - status:
+      - text: Invitation superseded
+      - paragraph: Recorded in chat history. This card cannot be used again.
+    - text: 5d ago
+    - img "Tester1"
+    - text: Tester1
+    - button "Open reactions"
+    - button "Open message menu"
+    - heading "NewTest 2" [level=4]
+    - paragraph: This resilient community is built on decentralized protocols. Privacy first, always.
+    - text: Encrypted Private
+    - paragraph: Roster hidden until join
+    - status:
+      - text: Invitation superseded
+      - paragraph: Recorded in chat history. This card cannot be used again.
+    - text: 4d ago
+    - img "Tester1"
+    - text: Tester1
+    - button "Open reactions"
+    - button "Open message menu"
+    - heading "NewTest 2" [level=4]
+    - paragraph: This resilient community is built on decentralized protocols. Privacy first, always.
+    - text: Encrypted Private
+    - paragraph: Roster hidden until join
+    - status:
+      - text: Invitation superseded
+      - paragraph: Recorded in chat history. This card cannot be used again.
+    - text: 4d ago
+    - img "Tester1"
+    - text: Tester1
+    - button "Open reactions"
+    - button "Open message menu"
+    - heading "NewTest 2" [level=4]
+    - paragraph: This resilient community is built on decentralized protocols. Privacy first, always.
+    - text: Encrypted Private
+    - paragraph: Roster hidden until join
+    - status:
+      - text: Invitation expired
+      - paragraph: Recorded in chat history. This card cannot be used again.
+    - text: 4d ago
+    - img "Tester1"
+    - text: Tester1
+    - button "Open reactions"
+    - button "Open message menu"
+    - paragraph: O2-coldrestart-verify-071T0720
+    - text: 1d ago TE You
+    - button "Open reactions"
+    - button "Open message menu"
+    - paragraph: O4-round16-profile2-072T1118
+    - text: 1h ago
+    - button "Media"
+    - textbox "Type a message...": O4-round17-profile2-072T1247
+    - button "Search emojis..."
+    - button "Send"
+    - text: Connected to Relays E2E Encrypted • Ver. 1.9.10
+- alert

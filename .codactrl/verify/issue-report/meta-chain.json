@@ -1,0 +1,279 @@
+{
+  "schema": "verify.meta.chain@0.2.0",
+  "exportedAt": "2026-07-04T14:15:18.761862900+00:00",
+  "nodeCount": 16,
+  "edgeCount": 18,
+  "rootBand": [
+    "RIW-8",
+    "COM-RUN-11",
+    "groups-ledger-validation",
+    "auth-keychain-restore-failed",
+    "community-roster-divergence",
+    "coordination-membership-deltas-unreachable",
+    "dm-normalize-is-outgoing-mismatch",
+    "dm-normalize-outgoing-mismatch",
+    "dm-ui-split-brain",
+    "dm-vanishes-cold-restart",
+    "group-room-key-missing",
+    "group-thread-relay-ingest"
+  ],
+  "nodes": [
+    {
+      "id": "COM-RUN-11",
+      "label": "COM-RUN-11 round23: Tester2 DM shows only superseded/canceled NewTest 2 invite cards — no live invite",
+      "severity": "p0",
+      "chainIds": [
+        "chain-o4-group-ingest-2026-07-02"
+      ],
+      "issueCount": 1
+    },
+    {
+      "id": "RIW-8",
+      "label": "Unmapped runtime capture digests (×25)",
+      "severity": "p2",
+      "issueCount": 1,
+      "riwId": "RIW-8"
+    },
+    {
+      "id": "auth-keychain-restore-failed",
+      "label": "RIW-9 chain blocked: cold boot lands on /sign-in; auth.kernel_boot_restore_no_keychain; native auto-unlock absent",
+      "severity": "p2",
+      "issueCount": 1
+    },
+    {
+      "id": "community-roster-divergence",
+      "label": "COM-RUN-01 round21: Tester2 Group sidebar empty — NewTest 2 not listed while T1 has community",
+      "severity": "p0",
+      "chainIds": [
+        "chain-o4-group-ingest-2026-07-02"
+      ],
+      "issueCount": 1
+    },
+    {
+      "id": "coordination-membership-deltas-unreachable",
+      "label": "RIW-4 re-verify 2026-07-01: curl CORS OK; browser 0× REFUSED/CORS with 8787 up; desktop-only REFUSED still valid dev gap",
+      "severity": "p2",
+      "issueCount": 1
+    },
+    {
+      "id": "dm-normalize-is-outgoing-mismatch",
+      "label": "messaging.dm_normalize_is_outgoing_mismatch — count=92",
+      "severity": "p1",
+      "issueCount": 1
+    },
+    {
+      "id": "dm-normalize-outgoing-mismatch",
+      "label": "RIW-3 re-verify 2026-07-01: 36 dm_normalize mismatches when locked; 0 after unlock with empty DM thread (RIW-2 mask)",
+      "severity": "p2",
+      "issueCount": 1
+    },
+    {
+      "id": "dm-ui-split-brain",
+      "label": "RIW-9 round2: warm Tester1 — Tester2 DM 11 msgs, O2 visible, splitBrainSuspected=false",
+      "severity": "p2",
+      "chainIds": [
+        "chain-dm-split-brain-2026-07-02"
+      ],
+      "issueCount": 1
+    },
+    {
+      "id": "dm-vanishes-cold-restart",
+      "label": "O-2 Phase1C t4 VERIFIED: O2-phase1c-coldrestart-070T0559 persists after taskkill + password unlock (eventId 168d95740472995d)",
+      "severity": "p0",
+      "chainIds": [
+        "chain-o2-cold-restart-phase1c-2026-07-04"
+      ],
+      "issueCount": 1
+    },
+    {
+      "id": "group-room-key-missing",
+      "label": "Client assert failed: textVisible — text not visible: Room key missing",
+      "severity": "p0",
+      "chainIds": [
+        "chain-r1-room-key-health-2026-07-04"
+      ],
+      "issueCount": 1,
+      "riwId": "COM-RUN-02"
+    },
+    {
+      "id": "group-thread-relay-ingest",
+      "label": "O-4 round14 t3: send O4-round14-acl-cdp-072T1102 visible; full stack :7000+:8787; post ACL/CDP rebuild",
+      "severity": "p0",
+      "chainIds": [
+        "chain-o4-group-ingest-2026-07-02"
+      ],
+      "issueCount": 1
+    },
+    {
+      "id": "groups-ledger-validation",
+      "label": "RIW-1 round23 pre-rebuild: ledger invalidEntries=7/7 on warm Tester1; shell rebuild in progress",
+      "severity": "p1",
+      "chainIds": [
+        "chain-o4-group-ingest-2026-07-02"
+      ],
+      "issueCount": 1
+    },
+    {
+      "id": "groups.room_key_missing_send_blocked",
+      "label": "COM-RUN-11 Phase 1C: profile-2 missing room key blocks dual-profile group send/receive",
+      "severity": "p1",
+      "chainIds": [
+        "chain-com-run-11-phase1c-2026-07-04"
+      ],
+      "issueCount": 1
+    },
+    {
+      "id": "invite-role-ecosystem",
+      "label": "Phase 1C COM-RUN-11 t4 dual-profile invite matrix",
+      "chainIds": [
+        "chain-com-run-11-phase1c-2026-07-04"
+      ],
+      "issueCount": 0
+    },
+    {
+      "id": "projection-authority-not-ready",
+      "label": "RIW-2 re-verify 2026-07-01: authority oscillates projection_not_ready↔cutover; projection/sqlite count split; DM thread empty despite sidebar listing",
+      "severity": "p2",
+      "issueCount": 1
+    },
+    {
+      "id": "relay-partial-stack-desktop-only",
+      "label": "Step 8 RIW-5 re-verify: relay healthy on public relays (writable 1/ subscribable 4); :7000 still down; O-3 offline flash NOT seen on Chats↔Network nav; coordination :8787 up",
+      "severity": "p3",
+      "chainIds": [
+        "chain-transport-soak-2026-07-02"
+      ],
+      "issueCount": 1
+    }
+  ],
+  "edges": [
+    {
+      "from": "COM-RUN-11",
+      "to": "group-thread-relay-ingest",
+      "kind": "chain-link",
+      "label": "chain-o4-group-ingest-2026-07-02"
+    },
+    {
+      "from": "groups.room_key_missing_send_blocked",
+      "to": "invite-role-ecosystem",
+      "kind": "chain-link",
+      "label": "chain-com-run-11-phase1c-2026-07-04"
+    },
+    {
+      "from": "groups-ledger-validation",
+      "to": "group-thread-relay-ingest",
+      "kind": "chain-link",
+      "label": "chain-o4-group-ingest-2026-07-02"
+    },
+    {
+      "from": "community-roster-divergence",
+      "to": "group-thread-relay-ingest",
+      "kind": "chain-link",
+      "label": "chain-o4-group-ingest-2026-07-02"
+    },
+    {
+      "from": "COM-RUN-11",
+      "to": "community-roster-divergence",
+      "kind": "shared-chain"
+    },
+    {
+      "from": "community-roster-divergence",
+      "to": "group-thread-relay-ingest",
+      "kind": "shared-chain"
+    },
+    {
+      "from": "group-thread-relay-ingest",
+      "to": "groups-ledger-validation",
+      "kind": "shared-chain"
+    },
+    {
+      "from": "RIW-8",
+      "to": "COM-RUN-11",
+      "kind": "meta-band",
+      "label": "root symptom band"
+    },
+    {
+      "from": "COM-RUN-11",
+      "to": "groups-ledger-validation",
+      "kind": "meta-band",
+      "label": "root symptom band"
+    },
+    {
+      "from": "groups-ledger-validation",
+      "to": "auth-keychain-restore-failed",
+      "kind": "meta-band",
+      "label": "root symptom band"
+    },
+    {
+      "from": "auth-keychain-restore-failed",
+      "to": "community-roster-divergence",
+      "kind": "meta-band",
+      "label": "root symptom band"
+    },
+    {
+      "from": "community-roster-divergence",
+      "to": "coordination-membership-deltas-unreachable",
+      "kind": "meta-band",
+      "label": "root symptom band"
+    },
+    {
+      "from": "coordination-membership-deltas-unreachable",
+      "to": "dm-normalize-is-outgoing-mismatch",
+      "kind": "meta-band",
+      "label": "root symptom band"
+    },
+    {
+      "from": "dm-normalize-is-outgoing-mismatch",
+      "to": "dm-normalize-outgoing-mismatch",
+      "kind": "meta-band",
+      "label": "root symptom band"
+    },
+    {
+      "from": "dm-normalize-outgoing-mismatch",
+      "to": "dm-ui-split-brain",
+      "kind": "meta-band",
+      "label": "root symptom band"
+    },
+    {
+      "from": "dm-ui-split-brain",
+      "to": "dm-vanishes-cold-restart",
+      "kind": "meta-band",
+      "label": "root symptom band"
+    },
+    {
+      "from": "dm-vanishes-cold-restart",
+      "to": "group-room-key-missing",
+      "kind": "meta-band",
+      "label": "root symptom band"
+    },
+    {
+      "from": "group-room-key-missing",
+      "to": "group-thread-relay-ingest",
+      "kind": "meta-band",
+      "label": "root symptom band"
+    }
+  ],
+  "edgeLegend": [
+    {
+      "kind": "meta-band",
+      "causalQuality": "adjacency",
+      "description": "Priority band ordering — not causal. Do not use for RCA."
+    },
+    {
+      "kind": "chain-link",
+      "causalQuality": "co-investigation",
+      "description": "Symptom shares an investigation chain — weak link, not root cause."
+    },
+    {
+      "kind": "shared-chain",
+      "causalQuality": "co-investigation",
+      "description": "Symptoms observed on the same investigation chain."
+    },
+    {
+      "kind": "same-fingerprint",
+      "causalQuality": "duplicate",
+      "description": "Duplicate register fingerprint cluster."
+    }
+  ],
+  "readOrderNote": "Use investigation chain nodes + bcap-* bridge manifests + priorChapters for causal timelines — not meta-band edges."
+}

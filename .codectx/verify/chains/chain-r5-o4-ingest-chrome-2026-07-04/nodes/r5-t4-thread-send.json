@@ -1,0 +1,27 @@
+{
+  "schema": "codactrl.investigation.node@0.1.0",
+  "chainId": "chain-r5-o4-ingest-chrome-2026-07-04",
+  "nodeId": "r5-t4-thread-send",
+  "trigger": "r5-t4-send-complete",
+  "at": "2026-07-04T17:47:58.711268600+00:00",
+  "sessionId": "csess-58ce611e907b",
+  "surfaces": {
+    "mainThreadMessageCount": 12,
+    "mainThreadSystemCards": 0,
+    "alertBannerCount": 2,
+    "splitBrainSuspected": false
+  },
+  "digestRef": "fault-ddc3994e",
+  "signalsExtracted": [
+    "account_sync.backup_publish_mutation_suppressed_restore_in_flight",
+    "groups.ledger_field_repair_applied",
+    "groups.membership_ledger_save",
+    "workspace.membership.load",
+    "workspace.thread.hydrate"
+  ],
+  "hypothesis": "R5 fix: ingest decrypt uses coordination room-key owner; send persists plaintext not decrypt_failed chrome",
+  "doesNotProve": [
+    "Tester2 background ingest without visiting community home",
+    "Dual-window :9231 profile slot"
+  ]
+}

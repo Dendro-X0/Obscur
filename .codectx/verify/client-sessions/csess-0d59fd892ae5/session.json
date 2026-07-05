@@ -1,0 +1,9 @@
+{
+  "schema": "client.session@0.1.0",
+  "sessionId": "csess-0d59fd892ae5",
+  "provider": "playwright-chromium",
+  "proofTier": "t2",
+  "createdAt": "2026-07-03T09:00:45.458929300+00:00",
+  "repoRoot": "E:\\Web Projects\\experimental-workspace\\newstart",
+  "url": "http://localhost:3000/marketplace"
+}

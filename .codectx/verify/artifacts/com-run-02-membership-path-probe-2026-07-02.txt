@@ -1,0 +1,43 @@
+COM-RUN-02 membership path probe — 2026-07-02 (updated round9)
+Stack: coordination :8787 up, Docker infra-nostr-relay-1 up, desktop session csess-87ec64010847
+Community: v2_c32217ec6a10145ff4bb1109b78b73923f2f226ceb7c5f85afac773b0d2cf84f
+GroupId: b93f53e23d8c4456835afd3f4d3a627b
+
+## curl (no auth) — round9
+
+GET /communities/{id}/membership/deltas?since=0 → HTTP 200 (ok, deltas returned)
+GET /communities/{id}/membership/head → HTTP 200
+GET /communities/{id}/membership/delta (singular) → HTTP 404 not_found (POST-only route)
+POST /communities/{id}/membership/delta (empty body) → HTTP 400 invalid_body
+
+Client source:
+- GET poll: community-coordination-membership-client.ts fetchCoordinationMembershipDeltasSince → /membership/deltas
+- POST publish: publishCoordinationMembershipDelta → /membership/delta
+
+Round4 browser 403 on GET singular path ≠ primary poll failure; likely wrong method/path or authed probe.
+
+## Health cascade (round9 cap-3111586f0844, Info → community home)
+
+1. warn: ready=0 chatEnabled=0 blockers=room_key_missing recovery=invite_redemption
+2. info:  ready=1 chatEnabled=1 blockers="" (~50ms later)
+
+Relay UI on community home: Connected & optimized · ws://localhost:7000
+
+## Sidebar vs health (round9 cap-77153b4f0307, cap-29d052b53b74)
+
+After health ready=1: sidebar still "Group key unavailable on this device"
+Thread: 7 msgs including O4-round6/7/8 sends; compose Send disabled until text entered
+
+Code owner for sidebar string: LEDGER_ONLY_GROUP_PLACEHOLDER_MESSAGE (community-membership-ledger.ts)
+
+## Send outcomes (round6–8 summary)
+
+round6: O4-round6-docker-up-071T1728 — publishGroupEvent ws://localhost:7000
+round7: O4-round7-fullstack-071T1733
+round8: O4-round8-coldstart-071T1746 — cold kill desktop, no Info visit, send still OK
+
+## Investigation spec
+
+specs/backend/com-run-02-membership-health-sidebar-investigation.md
+
+Does not prove: client path bug fixed; Tester2 ingest; sidebar fix implemented.

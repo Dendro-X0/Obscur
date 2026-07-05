@@ -1,0 +1,506 @@
+{
+  "entryCount": 1000,
+  "exportedAt": "2026-07-01T14:25:06.999148700+00:00",
+  "readOrder": [
+    {
+      "path": "index.json",
+      "purpose": "Export manifest and agent read order"
+    },
+    {
+      "path": "summary.json",
+      "purpose": "Merged session rows and recent MCP RPC audit"
+    },
+    {
+      "path": "audit.jsonl",
+      "purpose": "Full append-only verify/client RPC audit log"
+    }
+  ],
+  "recentEntries": [
+    {
+      "at": "2026-07-01T14:25:03.137715300+00:00",
+      "channel": "daemon-rpc",
+      "durationMs": 3887,
+      "id": "mcp-audit-6124ac37e55a",
+      "method": "verify.issues.report.export",
+      "ok": true,
+      "schema": "verify.mcp.audit@1"
+    },
+    {
+      "at": "2026-07-01T14:13:46.712237300+00:00",
+      "channel": "daemon-rpc",
+      "durationMs": 3978,
+      "id": "mcp-audit-d98499aa2a37",
+      "method": "verify.issues.report.export",
+      "ok": true,
+      "schema": "verify.mcp.audit@1",
+      "sessionId": "csess-6b9fe53b4ded"
+    },
+    {
+      "artifactRefs": [
+        ".codectx/verify/issues-register.json"
+      ],
+      "at": "2026-07-01T14:13:40.922200700+00:00",
+      "channel": "daemon-rpc",
+      "durationMs": 82,
+      "id": "mcp-audit-b2e38fdf14ba",
+      "method": "client.issue.create",
+      "ok": true,
+      "schema": "verify.mcp.audit@1"
+    },
+    {
+      "artifactRefs": [
+        ".codectx/verify/client-sessions/csess-6b9fe53b4ded/captures/cap-f828c0c18f4e/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-6b9fe53b4ded/session.json"
+      ],
+      "at": "2026-07-01T14:13:40.232705300+00:00",
+      "channel": "daemon-rpc",
+      "durationMs": 1528,
+      "id": "mcp-audit-6fff7167b150",
+      "method": "client.surface.probe",
+      "ok": true,
+      "schema": "verify.mcp.audit@1",
+      "sessionId": "csess-6b9fe53b4ded"
+    },
+    {
+      "artifactRefs": [
+        ".codectx/verify/client-sessions/csess-6b9fe53b4ded/captures/cap-921a04f7d166/console.jsonl",
+        ".codectx/verify/client-sessions/csess-6b9fe53b4ded/captures/cap-921a04f7d166/manifest.json",
+        ".codectx/verify/client-sessions/csess-6b9fe53b4ded/captures/cap-921a04f7d166/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-6b9fe53b4ded/session.json",
+        ".codectx/verify/client-sessions/csess-6b9fe53b4ded/steps.json"
+      ],
+      "at": "2026-07-01T14:13:33.062921500+00:00",
+      "channel": "daemon-rpc",
+      "durationMs": 7891,
+      "id": "mcp-audit-c4efe2c9efdb",
+      "method": "client.interact.click",
+      "ok": true,
+      "schema": "verify.mcp.audit@1",
+      "sessionId": "csess-6b9fe53b4ded"
+    },
+    {
+      "artifactRefs": [
+        ".codectx/verify/client-sessions/csess-6b9fe53b4ded/captures/cap-ccd972565458/manifest.json",
+        ".codectx/verify/client-sessions/csess-6b9fe53b4ded/captures/cap-ccd972565458/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-6b9fe53b4ded/session.json",
+        ".codectx/verify/client-sessions/csess-6b9fe53b4ded/steps.json"
+      ],
+      "at": "2026-07-01T14:13:22.233089200+00:00",
+      "channel": "daemon-rpc",
+      "durationMs": 799,
+      "id": "mcp-audit-e0dddbdf3cf8",
+      "method": "client.interact.type",
+      "ok": true,
+      "schema": "verify.mcp.audit@1",
+      "sessionId": "csess-6b9fe53b4ded"
+    },
+    {
+      "artifactRefs": [
+        ".codectx/verify/client-sessions/csess-6b9fe53b4ded/captures/cap-6d74380b50bf/console.jsonl",
+        ".codectx/verify/client-sessions/csess-6b9fe53b4ded/captures/cap-6d74380b50bf/manifest.json",
+        ".codectx/verify/client-sessions/csess-6b9fe53b4ded/captures/cap-6d74380b50bf/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-6b9fe53b4ded/session.json",
+        ".codectx/verify/client-sessions/csess-6b9fe53b4ded/steps.json"
+      ],
+      "at": "2026-07-01T14:13:18.520062800+00:00",
+      "channel": "daemon-rpc",
+      "durationMs": 3264,
+      "id": "mcp-audit-85a279c7917e",
+      "method": "client.interact.click",
+      "ok": true,
+      "schema": "verify.mcp.audit@1",
+      "sessionId": "csess-6b9fe53b4ded"
+    },
+    {
+      "artifactRefs": [
+        ".codectx/verify/client-sessions/csess-6b9fe53b4ded/attach-latest.json",
+        ".codectx/verify/client-sessions/csess-6b9fe53b4ded/session.json"
+      ],
+      "at": "2026-07-01T14:13:03.419518700+00:00",
+      "channel": "daemon-rpc",
+      "durationMs": 4022,
+      "expectedRepoRoot": "E:/Web Projects/experimental-workspace/newstart",
+      "id": "mcp-audit-4ab8c652fade",
+      "method": "client.session.connect",
+      "ok": true,
+      "schema": "verify.mcp.audit@1",
+      "sessionId": "csess-6b9fe53b4ded"
+    },
+    {
+      "artifactRefs": [
+        ".codectx/verify/issues-register.json"
+      ],
+      "at": "2026-07-01T14:11:18.528833400+00:00",
+      "channel": "daemon-rpc",
+      "durationMs": 50,
+      "id": "mcp-audit-6593919a1722",
+      "method": "client.issue.create",
+      "ok": true,
+      "schema": "verify.mcp.audit@1"
+    },
+    {
+      "artifactRefs": [
+        ".codectx/verify/chains/chain-dm-split-brain-2026-07-02/manifest.json"
+      ],
+      "at": "2026-07-01T14:11:17.513988600+00:00",
+      "channel": "daemon-rpc",
+      "durationMs": 3940,
+      "expectedRepoRoot": "E:/Web Projects/experimental-workspace/newstart",
+      "id": "mcp-audit-6726a9679bdf",
+      "method": "client.investigation.chain.append",
+      "ok": true,
+      "schema": "verify.mcp.audit@1",
+      "sessionId": "csess-510a62aba320"
+    },
+    {
+      "artifactRefs": [
+        ".codectx/verify/issues-register.json"
+      ],
+      "at": "2026-07-01T14:11:16.496144500+00:00",
+      "channel": "daemon-rpc",
+      "durationMs": 60,
+      "id": "mcp-audit-2a5e448878a2",
+      "method": "client.issue.create",
+      "ok": true,
+      "schema": "verify.mcp.audit@1"
+    },
+    {
+      "artifactRefs": [
+        ".codectx/verify/client-sessions/csess-510a62aba320/captures/cap-a0f23740196e/console.jsonl",
+        ".codectx/verify/client-sessions/csess-510a62aba320/captures/cap-a0f23740196e/manifest.json",
+        ".codectx/verify/client-sessions/csess-510a62aba320/captures/cap-a0f23740196e/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-510a62aba320/session.json",
+        ".codectx/verify/client-sessions/csess-510a62aba320/steps.json"
+      ],
+      "at": "2026-07-01T14:11:08.371226600+00:00",
+      "channel": "daemon-rpc",
+      "durationMs": 3527,
+      "id": "mcp-audit-2334bd1ba7df",
+      "method": "client.interact.click",
+      "ok": true,
+      "schema": "verify.mcp.audit@1",
+      "sessionId": "csess-510a62aba320"
+    },
+    {
+      "at": "2026-07-01T14:10:50.480127300+00:00",
+      "channel": "daemon-rpc",
+      "durationMs": 10709,
+      "error": "locator.click: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('role=button[name*=\"O2-coldrestart\"]')\u001b[22m\n",
+      "id": "mcp-audit-4fdc720c821d",
+      "method": "client.interact.click",
+      "ok": false,
+      "schema": "verify.mcp.audit@1",
+      "sessionId": "csess-510a62aba320"
+    },
+    {
+      "artifactRefs": [
+        ".codectx/verify/client-sessions/csess-510a62aba320/captures/cap-c924091ddff6/console.jsonl",
+        ".codectx/verify/client-sessions/csess-510a62aba320/captures/cap-c924091ddff6/manifest.json",
+        ".codectx/verify/client-sessions/csess-510a62aba320/captures/cap-c924091ddff6/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-510a62aba320/session.json",
+        ".codectx/verify/client-sessions/csess-510a62aba320/steps.json"
+      ],
+      "at": "2026-07-01T14:10:19.824980900+00:00",
+      "channel": "daemon-rpc",
+      "durationMs": 2907,
+      "id": "mcp-audit-b68168c107c8",
+      "method": "client.interact.click",
+      "ok": true,
+      "schema": "verify.mcp.audit@1",
+      "sessionId": "csess-510a62aba320"
+    },
+    {
+      "at": "2026-07-01T14:10:11.997787500+00:00",
+      "channel": "daemon-rpc",
+      "durationMs": 722,
+      "error": "locator.click: Error: Unknown attribute \"exact\", must be one of \"checked\", \"description\", \"disabled\", \"expanded\", \"include-hidden\", \"level\", \"name\", \"pressed\", \"selected\".\n    at validateAttributes (<anonymous>:4979:15)\n    at Object.queryAll (<anonymous>:5048:23)\n    at InjectedScript._queryEngineAll (<anonymous>:6730:49)\n    at InjectedScript.querySelectorAll (<anonymous>:6717:30)\n    at eval (eval at evaluate (:302:30), <anonymous>:2:39)\n    at UtilityScript.evaluate (<anonymous>:304:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)\nCall log:\n\u001b[2m  - waiting for locator('role=button[name=\"Chat\"][exact=true]')\u001b[22m\n",
+      "id": "mcp-audit-d16084ed2c84",
+      "method": "client.interact.click",
+      "ok": false,
+      "schema": "verify.mcp.audit@1",
+      "sessionId": "csess-510a62aba320"
+    },
+    {
+      "artifactRefs": [
+        ".codectx/verify/chains/chain-o4-group-ingest-2026-07-02/manifest.json"
+      ],
+      "at": "2026-07-01T14:09:47.929223800+00:00",
+      "channel": "daemon-rpc",
+      "durationMs": 6501,
+      "expectedRepoRoot": "E:/Web Projects/experimental-workspace/newstart",
+      "id": "mcp-audit-3968c76f4201",
+      "method": "client.investigation.chain.append",
+      "ok": true,
+      "schema": "verify.mcp.audit@1",
+      "sessionId": "csess-510a62aba320"
+    },
+    {
+      "artifactRefs": [
+        ".codectx/verify/client-sessions/csess-510a62aba320/captures/cap-c5ae0cb316fa/manifest.json",
+        ".codectx/verify/client-sessions/csess-510a62aba320/captures/cap-c5ae0cb316fa/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-510a62aba320/session.json",
+        ".codectx/verify/client-sessions/csess-510a62aba320/steps.json"
+      ],
+      "at": "2026-07-01T14:09:36.835726400+00:00",
+      "channel": "daemon-rpc",
+      "durationMs": 2980,
+      "id": "mcp-audit-675f5cc196fe",
+      "method": "client.interact.click",
+      "ok": true,
+      "schema": "verify.mcp.audit@1",
+      "sessionId": "csess-510a62aba320"
+    },
+    {
+      "artifactRefs": [
+        ".codectx/verify/client-sessions/csess-510a62aba320/captures/cap-8ca447d229a7/manifest.json",
+        ".codectx/verify/client-sessions/csess-510a62aba320/captures/cap-8ca447d229a7/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-510a62aba320/session.json",
+        ".codectx/verify/client-sessions/csess-510a62aba320/steps.json"
+      ],
+      "at": "2026-07-01T14:09:28.079462500+00:00",
+      "channel": "daemon-rpc",
+      "durationMs": 797,
+      "id": "mcp-audit-e450618f21e0",
+      "method": "client.interact.type",
+      "ok": true,
+      "schema": "verify.mcp.audit@1",
+      "sessionId": "csess-510a62aba320"
+    },
+    {
+      "artifactRefs": [
+        ".codectx/verify/client-sessions/csess-510a62aba320/captures/cap-7216b6aab2f3/console.jsonl",
+        ".codectx/verify/client-sessions/csess-510a62aba320/captures/cap-7216b6aab2f3/manifest.json",
+        ".codectx/verify/client-sessions/csess-510a62aba320/captures/cap-7216b6aab2f3/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-510a62aba320/session.json",
+        ".codectx/verify/client-sessions/csess-510a62aba320/steps.json"
+      ],
+      "at": "2026-07-01T14:09:23.005956800+00:00",
+      "channel": "daemon-rpc",
+      "durationMs": 2834,
+      "id": "mcp-audit-83f738261a24",
+      "method": "client.interact.click",
+      "ok": true,
+      "schema": "verify.mcp.audit@1",
+      "sessionId": "csess-510a62aba320"
+    },
+    {
+      "artifactRefs": [
+        ".codectx/verify/client-sessions/csess-510a62aba320/captures/cap-55167c973397/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-510a62aba320/session.json"
+      ],
+      "at": "2026-07-01T14:09:13.520071+00:00",
+      "channel": "daemon-rpc",
+      "durationMs": 1303,
+      "id": "mcp-audit-9c8e005cd835",
+      "method": "client.surface.probe",
+      "ok": true,
+      "schema": "verify.mcp.audit@1",
+      "sessionId": "csess-510a62aba320"
+    },
+    {
+      "artifactRefs": [
+        ".codectx/verify/client-sessions/csess-510a62aba320/attach-latest.json",
+        ".codectx/verify/client-sessions/csess-510a62aba320/session.json"
+      ],
+      "at": "2026-07-01T14:08:58.225151200+00:00",
+      "channel": "daemon-rpc",
+      "durationMs": 4090,
+      "expectedRepoRoot": "E:/Web Projects/experimental-workspace/newstart",
+      "id": "mcp-audit-9d4aae8919da",
+      "method": "client.session.connect",
+      "ok": true,
+      "schema": "verify.mcp.audit@1",
+      "sessionId": "csess-510a62aba320"
+    },
+    {
+      "at": "2026-07-01T14:08:35.978309900+00:00",
+      "channel": "daemon-rpc",
+      "durationMs": 3936,
+      "id": "mcp-audit-c40683c89727",
+      "method": "verify.issues.report.export",
+      "ok": true,
+      "schema": "verify.mcp.audit@1"
+    },
+    {
+      "artifactRefs": [
+        ".codectx/verify/issues-register.json"
+      ],
+      "at": "2026-07-01T11:57:43.182265300+00:00",
+      "channel": "daemon-rpc",
+      "durationMs": 43,
+      "id": "mcp-audit-5567c06bfa22",
+      "method": "client.issue.create",
+      "ok": true,
+      "schema": "verify.mcp.audit@1"
+    },
+    {
+      "artifactRefs": [
+        ".codectx/verify/chains/chain-transport-soak-2026-07-02/manifest.json"
+      ],
+      "at": "2026-07-01T11:57:35.299277200+00:00",
+      "channel": "daemon-rpc",
+      "durationMs": 2638,
+      "expectedRepoRoot": "E:/Web Projects/experimental-workspace/newstart",
+      "id": "mcp-audit-69763e5e98ec",
+      "method": "client.investigation.chain.append",
+      "ok": true,
+      "schema": "verify.mcp.audit@1",
+      "sessionId": "csess-ac2da4ea9b5c"
+    },
+    {
+      "artifactRefs": [
+        ".codectx/verify/chains/chain-transport-soak-2026-07-02/manifest.json"
+      ],
+      "at": "2026-07-01T11:57:31.440397800+00:00",
+      "channel": "daemon-rpc",
+      "durationMs": 2,
+      "id": "mcp-audit-1ddab934ccae",
+      "method": "client.investigation.chain.create",
+      "ok": true,
+      "schema": "verify.mcp.audit@1"
+    }
+  ],
+  "repoRoot": "E:\\Web Projects\\experimental-workspace\\newstart",
+  "schema": "verify.mcp.export@1",
+  "sessionCount": 14,
+  "sessions": [
+    {
+      "auditEventCount": 7,
+      "cdpPort": 9230,
+      "lastAuditAt": "2026-07-01T14:13:46.712237300+00:00",
+      "lastMethod": "verify.issues.report.export",
+      "provider": "webview2-cdp",
+      "sessionId": "csess-6b9fe53b4ded",
+      "updatedAt": "2026-07-01T14:13:03.415959600+00:00",
+      "url": "http://127.0.0.1:1430/profiles",
+      "windowLabel": "profile-picker"
+    },
+    {
+      "auditEventCount": 19,
+      "cdpPort": 9230,
+      "lastAuditAt": "2026-07-01T14:11:17.513988600+00:00",
+      "lastMethod": "client.investigation.chain.append",
+      "provider": "webview2-cdp",
+      "sessionId": "csess-510a62aba320",
+      "updatedAt": "2026-07-01T14:08:58.217780900+00:00",
+      "url": "http://127.0.0.1:1430/",
+      "windowLabel": "main"
+    },
+    {
+      "auditEventCount": 9,
+      "cdpPort": 9230,
+      "lastAuditAt": "2026-07-01T11:57:35.299277200+00:00",
+      "lastMethod": "client.investigation.chain.append",
+      "provider": "webview2-cdp",
+      "sessionId": "csess-ac2da4ea9b5c",
+      "updatedAt": "2026-07-01T11:56:39.047162600+00:00",
+      "url": "http://127.0.0.1:1430/",
+      "windowLabel": "main"
+    },
+    {
+      "auditEventCount": 11,
+      "cdpPort": 9230,
+      "lastAuditAt": "2026-07-01T11:28:35.074220100+00:00",
+      "lastMethod": "client.investigation.chain.append",
+      "provider": "webview2-cdp",
+      "sessionId": "csess-6461739df98d",
+      "updatedAt": "2026-07-01T11:27:15.461198600+00:00",
+      "url": "http://127.0.0.1:1430/",
+      "windowLabel": "main"
+    },
+    {
+      "auditEventCount": 5,
+      "cdpPort": 9230,
+      "lastAuditAt": "2026-07-01T11:24:02.245170800+00:00",
+      "lastMethod": "client.investigation.chain.append",
+      "provider": "webview2-cdp",
+      "sessionId": "csess-5f10d872d481",
+      "updatedAt": "2026-07-01T11:22:45.667231800+00:00",
+      "url": "http://127.0.0.1:1430/sign-in",
+      "windowLabel": "main"
+    },
+    {
+      "auditEventCount": 5,
+      "cdpPort": 9230,
+      "lastAuditAt": "2026-07-01T10:33:40.357066400+00:00",
+      "lastMethod": "client.investigation.chain.append",
+      "provider": "webview2-cdp",
+      "sessionId": "csess-169c06e92cf1",
+      "updatedAt": "2026-07-01T10:33:06.808275600+00:00",
+      "url": "http://127.0.0.1:1430/profiles",
+      "windowLabel": "profile-picker"
+    },
+    {
+      "auditEventCount": 0,
+      "cdpPort": 9230,
+      "provider": "webview2-cdp",
+      "sessionId": "csess-56331621b1d9",
+      "updatedAt": "2026-07-01T07:23:30.455386500+00:00",
+      "url": "http://127.0.0.1:1430/profiles",
+      "windowLabel": "profile-picker"
+    },
+    {
+      "auditEventCount": 0,
+      "cdpPort": 9230,
+      "provider": "webview2-cdp",
+      "sessionId": "csess-19f7e24e61bd",
+      "updatedAt": "2026-07-01T03:57:00.950444500+00:00",
+      "url": "http://127.0.0.1:1430/profiles",
+      "windowLabel": "profile-picker"
+    },
+    {
+      "auditEventCount": 0,
+      "cdpPort": 9230,
+      "provider": "webview2-cdp",
+      "sessionId": "csess-f2191e90e578",
+      "updatedAt": "2026-07-01T03:54:15.063460300+00:00",
+      "url": "http://127.0.0.1:3341/profiles",
+      "windowLabel": "profile-picker"
+    },
+    {
+      "auditEventCount": 0,
+      "cdpPort": 9230,
+      "provider": "webview2-cdp",
+      "sessionId": "csess-d0e975bc8b08",
+      "updatedAt": "2026-07-01T02:21:41.099942700+00:00",
+      "url": "http://127.0.0.1:1430/",
+      "windowLabel": "main"
+    },
+    {
+      "auditEventCount": 0,
+      "cdpPort": 9230,
+      "provider": "webview2-cdp",
+      "sessionId": "csess-cffcc729029a",
+      "updatedAt": "2026-06-30T16:11:59.166450800+00:00",
+      "url": "http://127.0.0.1:1430/profiles",
+      "windowLabel": "profile-picker"
+    },
+    {
+      "auditEventCount": 0,
+      "cdpPort": 9230,
+      "provider": "webview2-cdp",
+      "sessionId": "csess-5c26475ea529",
+      "updatedAt": "2026-06-30T16:10:58.077141200+00:00",
+      "url": "http://127.0.0.1:1430/profiles",
+      "windowLabel": "profile-picker"
+    },
+    {
+      "auditEventCount": 0,
+      "cdpPort": 9230,
+      "provider": "webview2-cdp",
+      "sessionId": "csess-dcc5e03743a9",
+      "updatedAt": "2026-06-30T15:42:16.137482500+00:00",
+      "url": "http://127.0.0.1:1430/profiles",
+      "windowLabel": "profile-picker"
+    },
+    {
+      "auditEventCount": 0,
+      "cdpPort": 9230,
+      "provider": "webview2-cdp",
+      "sessionId": "csess-1e07ce0a71cc",
+      "updatedAt": "2026-06-30T15:39:17.521577200+00:00",
+      "url": "http://127.0.0.1:1430/settings",
+      "windowLabel": "main"
+    }
+  ]
+}

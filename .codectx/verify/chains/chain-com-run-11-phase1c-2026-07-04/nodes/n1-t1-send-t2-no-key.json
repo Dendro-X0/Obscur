@@ -1,0 +1,20 @@
+{
+  "schema": "codactrl.investigation.node@0.1.0",
+  "chainId": "chain-com-run-11-phase1c-2026-07-04",
+  "nodeId": "n1-t1-send-t2-no-key",
+  "trigger": "dual-profile group send COM-RUN-11-phase1c-070T0522",
+  "at": "2026-07-04T05:25:57.563242400+00:00",
+  "sessionId": "csess-59def28c0bce",
+  "digestRef": "fault-90f591d2",
+  "signalsExtracted": [
+    "account_sync.backup_publish_attempt",
+    "account_sync.backup_publish_mutation_suppressed_restore_in_flight",
+    "account_sync.backup_publish_ordering",
+    "account_sync.backup_publish_result",
+    "groups.ledger_field_repair_applied",
+    "groups.membership_ledger_save",
+    "messaging.delete_for_everyone_remote_result",
+    "workspace.thread.hydrate"
+  ],
+  "hypothesis": "Tester1 group send succeeded; Tester2 profile-2 missing room key (wrap_not_found, localRoomKeyCount=0). Steward wrap blocked: coordination join/wrap pubkey mismatch vs live profile-2 identity."
+}

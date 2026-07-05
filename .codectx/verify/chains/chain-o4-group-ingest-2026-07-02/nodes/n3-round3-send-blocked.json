@@ -1,0 +1,21 @@
+{
+  "schema": "codactrl.investigation.node@0.1.0",
+  "chainId": "chain-o4-group-ingest-2026-07-02",
+  "nodeId": "n3-round3-send-blocked",
+  "trigger": "Round 3 O4-round3-codactrl-071T1654 — send click, composer empty, 4 msgs unchanged",
+  "at": "2026-07-01T16:55:00.579077600+00:00",
+  "sessionId": "csess-322a4af06321",
+  "surfaces": {
+    "mainThreadMessageCount": 4,
+    "mainThreadSystemCards": 0,
+    "alertBannerCount": 2,
+    "splitBrainSuspected": false
+  },
+  "digestRef": "fault-4a171a35",
+  "screenshotRef": ".codectx/verify/client-sessions/csess-322a4af06321/captures/cap-9227d123c8bf/screenshot.png",
+  "hypothesis": "Group key unavailable persists; send clears composer without bubble",
+  "doesNotProve": [
+    ":7000 docker relay",
+    "Tester2 ingest"
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "digestPath": ".codectx/verify/faults/fault-5f618e64.digest.json",
+  "fault": {
+    "artifactPath": ".codectx/verify/faults/fault-5f618e64.json",
+    "faultId": "fault-5f618e64",
+    "importedAt": "2026-07-04T08:42:01.540596200+00:00",
+    "kind": "runtime_digest",
+    "proofTier": "t3",
+    "schema": "obscur.m0.capture.v1",
+    "signalsExtract": [
+      {
+        "detail": "count=153",
+        "name": "messaging.delete_for_everyone_remote_result"
+      },
+      {
+        "detail": "count=27",
+        "name": "workspace.thread.hydrate"
+      },
+      {
+        "detail": "count=15",
+        "name": "messaging.conversation_list_authority_selected"
+      },
+      {
+        "detail": "count=13",
+        "name": "network.peer_trust_read_authority_selected"
+      },
+      {
+        "detail": "count=9",
+        "name": "account_sync.backup_publish_mutation_deferred_until_ready"
+      }
+    ],
+    "symptomIds": [],
+    "title": "messaging.delete_for_everyone_remote_result — count=153"
+  },
+  "schema": "verify.fault.import@0.1.0",
+  "sourcePath": ".codectx/verify/client-sessions/csess-44f67ea7565d/captures/cap-b7c63c624c80/digest.json"
+}

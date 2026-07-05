@@ -1,0 +1,59 @@
+- complementary:
+  - link "V Vectis Workspace":
+    - /url: /marketplace
+    - text: V
+    - paragraph: Vectis
+    - paragraph: Workspace
+  - navigation:
+    - paragraph: Workspace
+    - link "Overview":
+      - /url: /dashboard
+    - link "Settings":
+      - /url: /dashboard/settings
+  - link "Back to marketplace":
+    - /url: /marketplace
+- banner:
+  - paragraph: Workspace
+  - heading "Settings" [level=1]
+  - 'button "Theme: dark. Switch to system."'
+  - link "Sign in":
+    - /url: /sign-in
+- main:
+  - paragraph: App preferences and profile details for your workspace identity.
+  - heading "App preferences" [level=3]
+  - paragraph: Appearance
+  - paragraph: Choose light, dark, or follow your system setting.
+  - button "Light"
+  - button "Dark" [pressed]
+  - button "System"
+  - paragraph: "Current: Dark"
+  - heading "Profile" [level=3]
+  - paragraph:
+    - text: Sign in to edit your profile.
+    - link "Sign in":
+      - /url: /sign-in
+  - heading "Active session" [level=3]
+  - paragraph:
+    - text: No unlocked key in this browser.
+    - link "Sign in":
+      - /url: /sign-in
+    - text: or
+    - link "register":
+      - /url: /register
+    - text: .
+  - heading "Passkey vault" [level=3]
+  - paragraph: Passkey vault (R7-D4 web fallback)
+  - paragraph: Wrap your Ed25519 key behind a platform passkey. When WebAuthn PRF is available, unlock derives encryption locally — no plaintext key in storage.
+  - paragraph: "WebAuthn: yes · PRF: yes"
+  - paragraph: Create passkey vault
+  - paragraph: Sign in first to wrap your current key with a passkey.
+  - heading "Encrypted key backup" [level=3]
+  - paragraph: Backups use PBKDF2 (210000 iterations) + AES-GCM. Store the backup file and password separately.
+  - paragraph: Import encrypted backup
+  - text: Backup file
+  - button "Backup file"
+  - text: Backup password
+  - textbox "Backup password":
+    - /placeholder: Password used when exporting
+  - button "Decrypt backup"
+- alert

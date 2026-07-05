@@ -1,0 +1,293 @@
+{
+  "schema": "client.session.steps@0.1.0",
+  "sessionId": "csess-59def28c0bce",
+  "updatedAt": "2026-07-04T05:25:57.529971300+00:00",
+  "stepCount": 29,
+  "steps": [
+    {
+      "index": 0,
+      "stepId": "step-cc5510ebea88",
+      "action": "snapshot",
+      "captureId": "cap-c3a957dc165c",
+      "manifestPath": ".codectx/verify/client-sessions/csess-59def28c0bce/captures/cap-c3a957dc165c/manifest.json",
+      "stepLabel": "connect-bootstrap",
+      "pass": true,
+      "at": "2026-07-04T05:20:27.282544300+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-7f3f73171209",
+      "action": "mcp.client.session.connect",
+      "manifestPath": ".codectx/verify/client-sessions/csess-59def28c0bce/attach-latest.json",
+      "pass": true,
+      "at": "2026-07-04T05:20:31.786964400+00:00"
+    },
+    {
+      "index": 2,
+      "stepId": "step-1a4f080f97e6",
+      "action": "snapshot",
+      "captureId": "cap-2da634d85460",
+      "manifestPath": ".codectx/verify/client-sessions/csess-59def28c0bce/captures/cap-2da634d85460/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T05:20:42.199478300+00:00"
+    },
+    {
+      "index": 3,
+      "stepId": "step-dd9c5469c22d",
+      "action": "type",
+      "captureId": "cap-49c2f0b28569",
+      "manifestPath": ".codectx/verify/client-sessions/csess-59def28c0bce/captures/cap-49c2f0b28569/manifest.json",
+      "selector": "input[type='password']",
+      "text": "HT512#scE8",
+      "pass": true,
+      "at": "2026-07-04T05:20:49.217031200+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-ab17c791e2fc",
+      "action": "mcp.client.interact.type",
+      "captureId": "cap-49c2f0b28569",
+      "manifestPath": ".codectx/verify/client-sessions/csess-59def28c0bce/captures/cap-49c2f0b28569/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T05:20:49.218908800+00:00"
+    },
+    {
+      "index": 5,
+      "stepId": "step-a24eb7972888",
+      "action": "click",
+      "captureId": "cap-9bf7e784f458",
+      "manifestPath": ".codectx/verify/client-sessions/csess-59def28c0bce/captures/cap-9bf7e784f458/manifest.json",
+      "stepLabel": "unlock-submit",
+      "selector": "form button[type=\"submit\"]",
+      "pass": true,
+      "at": "2026-07-04T05:21:02.776575100+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-5a67ead73fbc",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-9bf7e784f458",
+      "manifestPath": ".codectx/verify/client-sessions/csess-59def28c0bce/captures/cap-9bf7e784f458/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T05:21:02.779063500+00:00"
+    },
+    {
+      "index": 7,
+      "stepId": "step-cc13b1270bf8",
+      "action": "click",
+      "captureId": "cap-f350933c4899",
+      "manifestPath": ".codectx/verify/client-sessions/csess-59def28c0bce/captures/cap-f350933c4899/manifest.json",
+      "selector": "text=COM-RUN-11-phase1c-070T0522",
+      "pass": false,
+      "message": "locator.click: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('text=COM-RUN-11-phase1c-070T0522')\u001b[22m\n",
+      "at": "2026-07-04T05:22:33.767324500+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-1005024b896c",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-f350933c4899",
+      "manifestPath": ".codectx/verify/client-sessions/csess-59def28c0bce/captures/cap-f350933c4899/manifest.json",
+      "pass": false,
+      "message": "locator.click: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('text=COM-RUN-11-phase1c-070T0522')\u001b[22m\n",
+      "at": "2026-07-04T05:22:33.769146900+00:00"
+    },
+    {
+      "index": 9,
+      "stepId": "step-112c67be89f5",
+      "action": "snapshot",
+      "captureId": "cap-8d07753eb65e",
+      "manifestPath": ".codectx/verify/client-sessions/csess-59def28c0bce/captures/cap-8d07753eb65e/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T05:22:41.365284600+00:00"
+    },
+    {
+      "index": 10,
+      "stepId": "step-323b2501edbc",
+      "action": "click",
+      "captureId": "cap-2fb0b4c432c7",
+      "manifestPath": ".codectx/verify/client-sessions/csess-59def28c0bce/captures/cap-2fb0b4c432c7/manifest.json",
+      "selector": "role=button[name=\"N NewTest 2 No messages yet 22d ago\"]",
+      "pass": true,
+      "at": "2026-07-04T05:22:49.103852600+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-6b524abe2185",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-2fb0b4c432c7",
+      "manifestPath": ".codectx/verify/client-sessions/csess-59def28c0bce/captures/cap-2fb0b4c432c7/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T05:22:49.105584800+00:00"
+    },
+    {
+      "index": 12,
+      "stepId": "step-872edb233c",
+      "action": "digestPull",
+      "captureId": "cap-4c872edb233c",
+      "manifestPath": ".codectx/verify/client-sessions/csess-59def28c0bce/captures/cap-4c872edb233c/manifest.json",
+      "pass": true,
+      "message": "runtime digest captured",
+      "at": "2026-07-04T05:22:59.487653700+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-598fd3837d62",
+      "action": "mcp.client.runtime.digestPull",
+      "captureId": "cap-4c872edb233c",
+      "manifestPath": ".codectx/verify/client-sessions/csess-59def28c0bce/captures/cap-4c872edb233c/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T05:23:03.454635200+00:00"
+    },
+    {
+      "index": 14,
+      "stepId": "step-61f430c4dc3c",
+      "action": "assert",
+      "captureId": "cap-b76346445178",
+      "manifestPath": ".codectx/verify/client-sessions/csess-59def28c0bce/captures/cap-b76346445178/manifest.json",
+      "text": "COM-RUN-11-phase1c-070T0522",
+      "assertKind": "textVisible",
+      "pass": false,
+      "message": "text not visible: COM-RUN-11-phase1c-070T0522",
+      "at": "2026-07-04T05:23:09.594842800+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-e86e919ff161",
+      "action": "mcp.client.validate.assert",
+      "captureId": "cap-b76346445178",
+      "manifestPath": ".codectx/verify/client-sessions/csess-59def28c0bce/captures/cap-b76346445178/manifest.json",
+      "pass": false,
+      "message": "text not visible: COM-RUN-11-phase1c-070T0522",
+      "at": "2026-07-04T05:23:09.596228700+00:00"
+    },
+    {
+      "index": 16,
+      "stepId": "step-f10de65abfdd",
+      "action": "click",
+      "captureId": "cap-366b86007f9e",
+      "manifestPath": ".codectx/verify/client-sessions/csess-59def28c0bce/captures/cap-366b86007f9e/manifest.json",
+      "selector": "role=link[name=\"Chats\"]",
+      "pass": true,
+      "at": "2026-07-04T05:23:20.626241400+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-46a1d3aa2cf6",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-366b86007f9e",
+      "manifestPath": ".codectx/verify/client-sessions/csess-59def28c0bce/captures/cap-366b86007f9e/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T05:23:20.627595500+00:00"
+    },
+    {
+      "index": 18,
+      "stepId": "step-7189989345c0",
+      "action": "click",
+      "captureId": "cap-e0d36027855c",
+      "manifestPath": ".codectx/verify/client-sessions/csess-59def28c0bce/captures/cap-e0d36027855c/manifest.json",
+      "selector": "role=button[name=\"Group\"]",
+      "pass": true,
+      "at": "2026-07-04T05:23:36.445430200+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-ecc9c25e148d",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-e0d36027855c",
+      "manifestPath": ".codectx/verify/client-sessions/csess-59def28c0bce/captures/cap-e0d36027855c/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T05:23:36.446979500+00:00"
+    },
+    {
+      "index": 20,
+      "stepId": "step-0f22892c275b",
+      "action": "click",
+      "captureId": "cap-ac7a26293ebd",
+      "manifestPath": ".codectx/verify/client-sessions/csess-59def28c0bce/captures/cap-ac7a26293ebd/manifest.json",
+      "selector": "role=button[name=\"N NewTest 2 No messages yet 22d ago\"]",
+      "pass": true,
+      "at": "2026-07-04T05:24:09.679955600+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-b1521b926e38",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-ac7a26293ebd",
+      "manifestPath": ".codectx/verify/client-sessions/csess-59def28c0bce/captures/cap-ac7a26293ebd/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T05:24:09.681500300+00:00"
+    },
+    {
+      "index": 22,
+      "stepId": "step-1e6ef38379a0",
+      "action": "click",
+      "captureId": "cap-4ec58c6627b1",
+      "manifestPath": ".codectx/verify/client-sessions/csess-59def28c0bce/captures/cap-4ec58c6627b1/manifest.json",
+      "stepLabel": "dm-compose",
+      "selector": "textarea, [contenteditable=\"true\"], input[placeholder*=\"message\" i]",
+      "pass": true,
+      "at": "2026-07-04T05:24:16.619751400+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-619d44a29e79",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-4ec58c6627b1",
+      "manifestPath": ".codectx/verify/client-sessions/csess-59def28c0bce/captures/cap-4ec58c6627b1/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T05:24:16.621135+00:00"
+    },
+    {
+      "index": 24,
+      "stepId": "step-caf877fbae9e",
+      "action": "type",
+      "captureId": "cap-f6a300233b50",
+      "manifestPath": ".codectx/verify/client-sessions/csess-59def28c0bce/captures/cap-f6a300233b50/manifest.json",
+      "stepLabel": "dm-compose",
+      "selector": "textarea, [contenteditable=\"true\"], input[placeholder*=\"message\" i]",
+      "text": "COM-RUN-11-phase1c-t2-070T0524",
+      "pass": true,
+      "at": "2026-07-04T05:24:21.667882800+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-3f84ad39dc9e",
+      "action": "mcp.client.interact.type",
+      "captureId": "cap-f6a300233b50",
+      "manifestPath": ".codectx/verify/client-sessions/csess-59def28c0bce/captures/cap-f6a300233b50/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T05:24:21.669849300+00:00"
+    },
+    {
+      "index": 26,
+      "stepId": "step-14831a0701a3",
+      "action": "click",
+      "captureId": "cap-858d228fcbca",
+      "manifestPath": ".codectx/verify/client-sessions/csess-59def28c0bce/captures/cap-858d228fcbca/manifest.json",
+      "selector": "role=button[name=\"Send\"]",
+      "pass": true,
+      "at": "2026-07-04T05:24:33.910711+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-2825df8be9af",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-858d228fcbca",
+      "manifestPath": ".codectx/verify/client-sessions/csess-59def28c0bce/captures/cap-858d228fcbca/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T05:24:33.916227700+00:00"
+    },
+    {
+      "index": 28,
+      "stepId": "step-f66f82b2e6",
+      "action": "digestPull",
+      "captureId": "cap-91f66f82b2e6",
+      "manifestPath": ".codectx/verify/client-sessions/csess-59def28c0bce/captures/cap-91f66f82b2e6/manifest.json",
+      "stepLabel": "chain-chain-com-run-11-phase1c-2026-07-04-n1-t1-send-t2-no-key",
+      "pass": true,
+      "message": "runtime digest captured",
+      "at": "2026-07-04T05:25:57.349879200+00:00"
+    }
+  ]
+}

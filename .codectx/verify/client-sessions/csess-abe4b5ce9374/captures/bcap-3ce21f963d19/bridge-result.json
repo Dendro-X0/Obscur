@@ -1,0 +1,16 @@
+{
+  "ok": true,
+  "pass": true,
+  "method": "focusWindow",
+  "args": [
+    "profile-2"
+  ],
+  "cdpPort": 9231,
+  "targetUrl": "http://127.0.0.1:1430/",
+  "result": {
+    "ok": true,
+    "label": "profile-2",
+    "invoked": "desktop_agent_focus_window"
+  },
+  "message": "bridge call ok"
+}

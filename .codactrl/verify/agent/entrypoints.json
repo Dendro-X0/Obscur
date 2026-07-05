@@ -1,0 +1,64 @@
+{
+  "avoidForAgents": [
+    "issue-report/report.json",
+    "mcp-history/audit.jsonl",
+    "mcp-history/summary.json",
+    "latest-run.json"
+  ],
+  "readOrder": [
+    {
+      "path": "../issue-report/export-manifest.json",
+      "purpose": "Authoritative export timestamps, exportGeneration, and round metadata"
+    },
+    {
+      "path": "../issue-report/export-bundle-coherence.json",
+      "purpose": "Atomic bundle coherence — single exportedAt across artifacts"
+    },
+    {
+      "path": "../issue-report/report-rollup.md",
+      "purpose": "Token-efficient symptom + chain rollup (<500 tokens)"
+    },
+    {
+      "path": "../issue-report/report-lite.json",
+      "purpose": "Agent JSON summaries + pointers"
+    },
+    {
+      "path": "../issue-report/meta-chain.json",
+      "purpose": "Symptom adjacency graph for orientation"
+    },
+    {
+      "path": "../issue-report/agent-handoff.md",
+      "purpose": "Interactive round handoff for observing agents"
+    },
+    {
+      "path": "../issue-report/report.md",
+      "purpose": "Human issue report summary"
+    },
+    {
+      "path": "issues-register.summary.json",
+      "purpose": "Top N deduped issues for agents"
+    },
+    {
+      "path": "latest-pass.json",
+      "purpose": "Latest operator export pass archive pointer"
+    },
+    {
+      "path": "../chains/registry.json",
+      "purpose": "Investigation chain registry"
+    },
+    {
+      "path": "agent/false-green.json",
+      "purpose": "Open runtime gaps vs CI static proof"
+    }
+  ],
+  "schema": "verify.agent.entrypoints@1.1.0",
+  "workflow": {
+    "catalog": "verify.scenario.catalog",
+    "export": "verify.issues.report.export",
+    "issues": "verify.issues.latest",
+    "resolve": "verify.target.resolve",
+    "run": "verify.scenario.run",
+    "scan": "verify.false_green.scan",
+    "sync": "studio.output.sync modules=[verify]"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "ok": true,
+  "pass": false,
+  "method": "openProfileSlot",
+  "args": [
+    2
+  ],
+  "cdpPort": 9230,
+  "targetUrl": "http://127.0.0.1:1430/",
+  "result": {
+    "ok": false,
+    "error": "window.__codactrlAgentBridge.openProfileSlot missing — install subject agent bridge"
+  },
+  "message": "bridge call returned ok=false"
+}

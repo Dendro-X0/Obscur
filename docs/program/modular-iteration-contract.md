@@ -3,7 +3,7 @@
 **Purpose:** How Obscur maintains original functional goals across a large monorepo while pausing, siloing, redesigning, and re-integrating modules without patch-debug drift.
 
 _Last updated: 2026-06-18_  
-**Always-on rule:** [`.cursor/rules/obscur-modular-iteration.mdc`](../../.cursor/rules/obscur-modular-iteration.mdc)  
+**Always-on rule:** [`.agent/skills/obscur-modular-iteration/SKILL.md`](../../.agent/skills/obscur-modular-iteration/SKILL.md) (Cursor IDE mirror: `.cursor/rules/obscur-modular-iteration.mdc` — local only, not in CI checkout)
 **Agent skill:** [`.agent/skills/obscur-modular-iteration/SKILL.md`](../../.agent/skills/obscur-modular-iteration/SKILL.md)
 
 ---

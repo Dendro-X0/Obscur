@@ -1,0 +1,15 @@
+{
+  "schema": "codactrl.investigation.node@0.1.0",
+  "chainId": "chain-o4-group-ingest-2026-07-02",
+  "nodeId": "n4-room-key-health-snapshot",
+  "trigger": "Info→community home: membership_health blockers room_key_missing,coordination_missing_peer,relay_not_connected; chatEnabled=0",
+  "at": "2026-07-01T16:57:27.117840900+00:00",
+  "sessionId": "csess-631c3bba5207",
+  "digestRef": "fault-fc0c8590",
+  "screenshotRef": ".codectx/verify/client-sessions/csess-631c3bba5207/captures/cap-dc3e1df76466/screenshot.png",
+  "hypothesis": "COM-RUN-02: room_key_missing + relay_not_connected + coordination 403 block send despite hydrated history",
+  "doesNotProve": [
+    "room key repair",
+    "invite redemption success"
+  ]
+}

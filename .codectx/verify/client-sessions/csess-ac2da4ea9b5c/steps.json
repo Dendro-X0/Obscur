@@ -1,0 +1,114 @@
+{
+  "schema": "client.session.steps@0.1.0",
+  "sessionId": "csess-ac2da4ea9b5c",
+  "updatedAt": "2026-07-01T11:57:35.296055100+00:00",
+  "stepCount": 10,
+  "steps": [
+    {
+      "index": 0,
+      "stepId": "step-57ba1df96fd3",
+      "action": "snapshot",
+      "captureId": "cap-609c06d0e8c4",
+      "manifestPath": ".codectx/verify/client-sessions/csess-ac2da4ea9b5c/captures/cap-609c06d0e8c4/manifest.json",
+      "stepLabel": "connect-bootstrap",
+      "pass": true,
+      "at": "2026-07-01T11:56:38.961920100+00:00"
+    },
+    {
+      "index": 1,
+      "stepId": "step-87ad069a818b",
+      "action": "click",
+      "captureId": "cap-b3a73eab1ebe",
+      "manifestPath": ".codectx/verify/client-sessions/csess-ac2da4ea9b5c/captures/cap-b3a73eab1ebe/manifest.json",
+      "stepLabel": "step8-network-relay-view",
+      "selector": "role=link[name=\"Network\"]",
+      "pass": true,
+      "at": "2026-07-01T11:56:53.937943+00:00"
+    },
+    {
+      "index": 2,
+      "stepId": "step-01fd245a9e",
+      "action": "digestPull",
+      "captureId": "cap-a801fd245a9e",
+      "manifestPath": ".codectx/verify/client-sessions/csess-ac2da4ea9b5c/captures/cap-a801fd245a9e/manifest.json",
+      "pass": true,
+      "message": "runtime digest captured",
+      "at": "2026-07-01T11:57:11.208228700+00:00"
+    },
+    {
+      "index": 3,
+      "stepId": "step-315c7ee8d814",
+      "action": "click",
+      "captureId": "cap-80eb09d53b0e",
+      "manifestPath": ".codectx/verify/client-sessions/csess-ac2da4ea9b5c/captures/cap-80eb09d53b0e/manifest.json",
+      "stepLabel": "step8-return-chats-o3-refresh",
+      "selector": "role=link[name=\"Chats\"]",
+      "pass": true,
+      "at": "2026-07-01T11:57:14.355579500+00:00"
+    },
+    {
+      "index": 4,
+      "stepId": "step-3d27a6e4b96b",
+      "action": "surfaceProbe",
+      "captureId": "cap-8be094448faa",
+      "manifestPath": ".codectx/verify/client-sessions/csess-ac2da4ea9b5c/captures/cap-8be094448faa/manifest.json",
+      "stepLabel": "surface-probe",
+      "pass": true,
+      "message": "surface probe captured",
+      "at": "2026-07-01T11:57:22.903247300+00:00"
+    },
+    {
+      "index": 5,
+      "stepId": "step-ddafc1cf2eb7",
+      "action": "surfaceProbe",
+      "captureId": "cap-8125a6662fb4",
+      "manifestPath": ".codectx/verify/client-sessions/csess-ac2da4ea9b5c/captures/cap-8125a6662fb4/manifest.json",
+      "stepLabel": "surface-probe",
+      "pass": true,
+      "message": "surface probe captured",
+      "at": "2026-07-01T11:57:25.240370200+00:00"
+    },
+    {
+      "index": 6,
+      "stepId": "step-35472269ce",
+      "action": "digestPull",
+      "captureId": "cap-5335472269ce",
+      "manifestPath": ".codectx/verify/client-sessions/csess-ac2da4ea9b5c/captures/cap-5335472269ce/manifest.json",
+      "stepLabel": "chain-chain-dm-split-brain-2026-07-02-n2-tester2-dm-hydrated-warm",
+      "pass": true,
+      "message": "runtime digest captured",
+      "at": "2026-07-01T11:57:26.272187900+00:00"
+    },
+    {
+      "index": 7,
+      "stepId": "step-342574f6d032",
+      "action": "screenshot",
+      "captureId": "cap-281ddaa2d8cd",
+      "manifestPath": ".codectx/verify/client-sessions/csess-ac2da4ea9b5c/captures/cap-281ddaa2d8cd/manifest.json",
+      "stepLabel": "chain-n2-tester2-dm-hydrated-warm",
+      "pass": true,
+      "at": "2026-07-01T11:57:27.338603800+00:00"
+    },
+    {
+      "index": 8,
+      "stepId": "step-b6bfc34d40",
+      "action": "digestPull",
+      "captureId": "cap-f8b6bfc34d40",
+      "manifestPath": ".codectx/verify/client-sessions/csess-ac2da4ea9b5c/captures/cap-f8b6bfc34d40/manifest.json",
+      "stepLabel": "chain-chain-transport-soak-2026-07-02-n0-network-digest",
+      "pass": true,
+      "message": "runtime digest captured",
+      "at": "2026-07-01T11:57:34.101264800+00:00"
+    },
+    {
+      "index": 9,
+      "stepId": "step-5962e87aaf1a",
+      "action": "screenshot",
+      "captureId": "cap-dea131808525",
+      "manifestPath": ".codectx/verify/client-sessions/csess-ac2da4ea9b5c/captures/cap-dea131808525/manifest.json",
+      "stepLabel": "chain-n0-network-digest",
+      "pass": true,
+      "at": "2026-07-01T11:57:35.294682+00:00"
+    }
+  ]
+}

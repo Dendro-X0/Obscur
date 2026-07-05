@@ -1,0 +1,15 @@
+{
+  "schema": "codactrl.investigation.node@0.1.0",
+  "chainId": "chain-o4-group-ingest-2026-07-02",
+  "nodeId": "n16-round14-send-success",
+  "trigger": "round14-o4-send",
+  "at": "2026-07-02T11:03:30.384799700+00:00",
+  "sessionId": "csess-c9e4cc0c3649",
+  "digestRef": "fault-a8d78552",
+  "screenshotRef": ".codectx/verify/client-sessions/csess-c9e4cc0c3649/captures/cap-5a9f222c2fc1/screenshot.png",
+  "hypothesis": "round14 send O4-round14-acl-cdp-072T1102 visible; full stack Docker :7000 + coordination :8787",
+  "doesNotProve": [
+    "Tester2 ingest on second window",
+    "Relay round-trip to remote peer"
+  ]
+}

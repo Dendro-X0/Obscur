@@ -1,0 +1,245 @@
+{
+  "schema": "client.session.steps@0.1.0",
+  "sessionId": "csess-937c30f83699",
+  "updatedAt": "2026-07-02T09:59:15.884875100+00:00",
+  "stepCount": 24,
+  "steps": [
+    {
+      "index": 0,
+      "stepId": "step-01bd9c311647",
+      "action": "snapshot",
+      "captureId": "cap-983a2238feb7",
+      "manifestPath": ".codectx/verify/client-sessions/csess-937c30f83699/captures/cap-983a2238feb7/manifest.json",
+      "stepLabel": "connect-bootstrap",
+      "pass": true,
+      "at": "2026-07-02T09:57:05.972436700+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-bda851bae8b7",
+      "action": "mcp.client.session.connect",
+      "manifestPath": ".codectx/verify/client-sessions/csess-937c30f83699/attach-latest.json",
+      "pass": true,
+      "at": "2026-07-02T09:57:10.530070400+00:00"
+    },
+    {
+      "index": 2,
+      "stepId": "step-3a04a0c50fb8",
+      "action": "snapshot",
+      "captureId": "cap-bf5855853552",
+      "manifestPath": ".codectx/verify/client-sessions/csess-937c30f83699/captures/cap-bf5855853552/manifest.json",
+      "pass": true,
+      "at": "2026-07-02T09:57:28.770899100+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-3f28c3d29b52",
+      "action": "mcp.client.agent.bridgeCall.listWindows",
+      "captureId": "bcap-05889789ab99",
+      "manifestPath": ".codectx/verify/client-sessions/csess-937c30f83699/captures/bcap-05889789ab99/manifest.json",
+      "stepLabel": "listWindows",
+      "pass": true,
+      "at": "2026-07-02T09:57:29.448973500+00:00"
+    },
+    {
+      "index": 4,
+      "stepId": "step-5ebc1c85a955",
+      "action": "click",
+      "captureId": "cap-231ed8a2d4f3",
+      "manifestPath": ".codectx/verify/client-sessions/csess-937c30f83699/captures/cap-231ed8a2d4f3/manifest.json",
+      "stepLabel": "unlock-tester1",
+      "selector": "role=button[name=\"Avatar for Tester1 Tester1 Sign in here\"]",
+      "pass": true,
+      "at": "2026-07-02T09:57:42.161910800+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-44f664196709",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-231ed8a2d4f3",
+      "manifestPath": ".codectx/verify/client-sessions/csess-937c30f83699/captures/cap-231ed8a2d4f3/manifest.json",
+      "pass": true,
+      "at": "2026-07-02T09:57:42.164642400+00:00"
+    },
+    {
+      "index": 6,
+      "stepId": "step-028e4e8a651d",
+      "action": "type",
+      "captureId": "cap-e38c7a4d32dd",
+      "manifestPath": ".codectx/verify/client-sessions/csess-937c30f83699/captures/cap-e38c7a4d32dd/manifest.json",
+      "stepLabel": "tester1-password",
+      "selector": "role=textbox[name=\"Enter your password\"]",
+      "text": "SyI14^ew1E",
+      "pass": true,
+      "at": "2026-07-02T09:57:50.165968800+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-89dc0cea5b34",
+      "action": "mcp.client.interact.type",
+      "captureId": "cap-e38c7a4d32dd",
+      "manifestPath": ".codectx/verify/client-sessions/csess-937c30f83699/captures/cap-e38c7a4d32dd/manifest.json",
+      "pass": true,
+      "at": "2026-07-02T09:57:50.439610+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-b5cff2a4c8f2",
+      "action": "mcp.client.interact.click",
+      "pass": false,
+      "message": "locator.click: Error: strict mode violation: locator('role=button[name=\"Log In\"]') resolved to 2 elements:\n    1) <button type=\"button\" class=\"flex-1 py-2.5 text-sm font-bold rounded-xl transition-all bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow shadow-black/5\">Log In</button> aka getByRole('button', { name: 'Log In' }).first()\n    2) <button type=\"submit\" class=\"btn-enhanced inline-flex items-center justify-center gap-2 transition-all active:scale-95 min-h-10 px-4 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/50 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-black disabled:pointer-events-none disabled:opacity-40 hover:shadow-lg hover:shadow-purple-500/30 dark:shadow-purple-900/40 w-full h-12 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white tex…>Log In</button> aka locator('form').getByRole('button', { name: 'Log In' })\n\nCall log:\n\u001b[2m  - waiting for locator('role=button[name=\"Log In\"]')\u001b[22m\n",
+      "at": "2026-07-02T09:57:51.724310100+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-2836f29037f8",
+      "action": "mcp.client.interact.click",
+      "pass": false,
+      "message": "locator.click: Error: strict mode violation: locator('role=main').locator('role=button[name=\"Log In\"]') resolved to 2 elements:\n    1) <button type=\"button\" class=\"flex-1 py-2.5 text-sm font-bold rounded-xl transition-all bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow shadow-black/5\">Log In</button> aka getByRole('button', { name: 'Log In' }).first()\n    2) <button type=\"submit\" class=\"btn-enhanced inline-flex items-center justify-center gap-2 transition-all active:scale-95 min-h-10 px-4 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/50 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-black disabled:pointer-events-none disabled:opacity-40 hover:shadow-lg hover:shadow-purple-500/30 dark:shadow-purple-900/40 w-full h-12 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white tex…>Log In</button> aka locator('form').getByRole('button', { name: 'Log In' })\n\nCall log:\n\u001b[2m  - waiting for locator('role=main').locator('role=button[name=\"Log In\"]')\u001b[22m\n",
+      "at": "2026-07-02T09:58:03.897596400+00:00"
+    },
+    {
+      "index": 10,
+      "stepId": "step-8fccac1b3c02",
+      "action": "click",
+      "captureId": "cap-0619ebcd6750",
+      "manifestPath": ".codectx/verify/client-sessions/csess-937c30f83699/captures/cap-0619ebcd6750/manifest.json",
+      "stepLabel": "tester1-login-submit",
+      "selector": "form button[type=\"submit\"]",
+      "pass": true,
+      "at": "2026-07-02T09:58:19.978538400+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-98c17a26e5f1",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-0619ebcd6750",
+      "manifestPath": ".codectx/verify/client-sessions/csess-937c30f83699/captures/cap-0619ebcd6750/manifest.json",
+      "pass": true,
+      "at": "2026-07-02T09:58:19.981781200+00:00"
+    },
+    {
+      "index": 12,
+      "stepId": "step-d98352017e46",
+      "action": "type",
+      "captureId": "cap-40a96368d115",
+      "manifestPath": ".codectx/verify/client-sessions/csess-937c30f83699/captures/cap-40a96368d115/manifest.json",
+      "stepLabel": "o4-compose",
+      "selector": "role=textbox[name=\"Type a message...\"]",
+      "text": "O4-round13-rebuild-072T0958",
+      "pass": true,
+      "at": "2026-07-02T09:58:32.687765400+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-b280282752b0",
+      "action": "mcp.client.interact.type",
+      "captureId": "cap-40a96368d115",
+      "manifestPath": ".codectx/verify/client-sessions/csess-937c30f83699/captures/cap-40a96368d115/manifest.json",
+      "pass": true,
+      "at": "2026-07-02T09:58:32.689905800+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-00f5d19228df",
+      "action": "mcp.client.agent.bridgeCall.openProfileSlot",
+      "captureId": "bcap-8dbf5f14c6a5",
+      "manifestPath": ".codectx/verify/client-sessions/csess-937c30f83699/captures/bcap-8dbf5f14c6a5/manifest.json",
+      "stepLabel": "openProfileSlot",
+      "pass": true,
+      "at": "2026-07-02T09:58:33.665999300+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-413a60a67f34",
+      "action": "mcp.client.agent.bridgeCall.listWindows",
+      "captureId": "bcap-7bfef91bf08c",
+      "manifestPath": ".codectx/verify/client-sessions/csess-937c30f83699/captures/bcap-7bfef91bf08c/manifest.json",
+      "stepLabel": "listWindows",
+      "pass": true,
+      "at": "2026-07-02T09:58:41.124463400+00:00"
+    },
+    {
+      "index": 16,
+      "stepId": "step-6800436bdfb9",
+      "action": "click",
+      "captureId": "cap-66f4f4361d4c",
+      "manifestPath": ".codectx/verify/client-sessions/csess-937c30f83699/captures/cap-66f4f4361d4c/manifest.json",
+      "stepLabel": "o4-send-round13",
+      "selector": "role=main >> role=button[name=\"Send\"]",
+      "pass": true,
+      "at": "2026-07-02T09:58:41.554992+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-e8dc090aa4f1",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-66f4f4361d4c",
+      "manifestPath": ".codectx/verify/client-sessions/csess-937c30f83699/captures/cap-66f4f4361d4c/manifest.json",
+      "pass": true,
+      "at": "2026-07-02T09:58:41.563391+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-8d4f6929be03",
+      "action": "mcp.client.agent.bridgeCall.focusWindow",
+      "captureId": "bcap-402b11eaec87",
+      "manifestPath": ".codectx/verify/client-sessions/csess-937c30f83699/captures/bcap-402b11eaec87/manifest.json",
+      "stepLabel": "focusWindow",
+      "pass": false,
+      "message": "window.set_focus not allowed. Permissions associated with this command: core:window:allow-set-focus",
+      "at": "2026-07-02T09:58:49.004245200+00:00"
+    },
+    {
+      "index": 19,
+      "stepId": "step-3fb2c2006ab7",
+      "action": "click",
+      "captureId": "cap-0ad870b18e42",
+      "manifestPath": ".codectx/verify/client-sessions/csess-937c30f83699/captures/cap-0ad870b18e42/manifest.json",
+      "stepLabel": "com-run-01-info",
+      "selector": "role=button[name=\"Info\"]",
+      "pass": true,
+      "at": "2026-07-02T09:58:56.394045100+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-fcec701a3421",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-0ad870b18e42",
+      "manifestPath": ".codectx/verify/client-sessions/csess-937c30f83699/captures/cap-0ad870b18e42/manifest.json",
+      "pass": true,
+      "at": "2026-07-02T09:58:56.398846700+00:00"
+    },
+    {
+      "index": 21,
+      "stepId": "step-f0c79dc5c0",
+      "action": "digestPull",
+      "captureId": "cap-70f0c79dc5c0",
+      "manifestPath": ".codectx/verify/client-sessions/csess-937c30f83699/captures/cap-70f0c79dc5c0/manifest.json",
+      "stepLabel": "chain-chain-o4-group-ingest-2026-07-02-n14-round13-rebuild-send-success",
+      "pass": true,
+      "message": "runtime digest captured",
+      "at": "2026-07-02T09:59:13.607766400+00:00"
+    },
+    {
+      "index": 22,
+      "stepId": "step-3268ea84b876",
+      "action": "screenshot",
+      "captureId": "cap-07829433fe1f",
+      "manifestPath": ".codectx/verify/client-sessions/csess-937c30f83699/captures/cap-07829433fe1f/manifest.json",
+      "stepLabel": "chain-n14-round13-rebuild-send-success",
+      "pass": true,
+      "at": "2026-07-02T09:59:14.827499600+00:00"
+    },
+    {
+      "index": 23,
+      "stepId": "step-2031388ad405",
+      "action": "screenshot",
+      "captureId": "cap-93f18a92b97b",
+      "manifestPath": ".codectx/verify/client-sessions/csess-937c30f83699/captures/cap-93f18a92b97b/manifest.json",
+      "stepLabel": "chain-n15-round13-bridge-multiwindow-partial",
+      "pass": true,
+      "at": "2026-07-02T09:59:15.883072900+00:00"
+    }
+  ]
+}

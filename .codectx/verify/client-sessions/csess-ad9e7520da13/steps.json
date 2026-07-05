@@ -1,0 +1,99 @@
+{
+  "schema": "client.session.steps@0.1.0",
+  "sessionId": "csess-ad9e7520da13",
+  "updatedAt": "2026-07-02T08:45:46.020283+00:00",
+  "stepCount": 9,
+  "steps": [
+    {
+      "index": 0,
+      "stepId": "step-5654b47d2685",
+      "action": "snapshot",
+      "captureId": "cap-394d4b19d31d",
+      "manifestPath": ".codectx/verify/client-sessions/csess-ad9e7520da13/captures/cap-394d4b19d31d/manifest.json",
+      "stepLabel": "connect-bootstrap",
+      "pass": true,
+      "at": "2026-07-02T08:43:41.796945300+00:00"
+    },
+    {
+      "index": 1,
+      "stepId": "step-8ee231a84311",
+      "action": "snapshot",
+      "captureId": "cap-df684776a8be",
+      "manifestPath": ".codectx/verify/client-sessions/csess-ad9e7520da13/captures/cap-df684776a8be/manifest.json",
+      "pass": true,
+      "at": "2026-07-02T08:44:26.953955700+00:00"
+    },
+    {
+      "index": 2,
+      "stepId": "step-e245d9b358",
+      "action": "digestPull",
+      "captureId": "cap-69e245d9b358",
+      "manifestPath": ".codectx/verify/client-sessions/csess-ad9e7520da13/captures/cap-69e245d9b358/manifest.json",
+      "pass": true,
+      "message": "runtime digest captured",
+      "at": "2026-07-02T08:44:28.141263300+00:00"
+    },
+    {
+      "index": 3,
+      "stepId": "step-9c898d0940e8",
+      "action": "click",
+      "captureId": "cap-96c8e8071d2d",
+      "manifestPath": ".codectx/verify/client-sessions/csess-ad9e7520da13/captures/cap-96c8e8071d2d/manifest.json",
+      "selector": "role=main >> role=button[name=\"Send\"]",
+      "pass": true,
+      "at": "2026-07-02T08:44:39.431940100+00:00"
+    },
+    {
+      "index": 4,
+      "stepId": "step-b35c4af6aa49",
+      "action": "click",
+      "captureId": "cap-d28f7427165c",
+      "manifestPath": ".codectx/verify/client-sessions/csess-ad9e7520da13/captures/cap-d28f7427165c/manifest.json",
+      "selector": "button:has-text(\"Info\")",
+      "pass": true,
+      "at": "2026-07-02T08:44:52.327156300+00:00"
+    },
+    {
+      "index": 5,
+      "stepId": "step-cc87da3b4c50",
+      "action": "surfaceProbe",
+      "captureId": "cap-f16de07e83e8",
+      "manifestPath": ".codectx/verify/client-sessions/csess-ad9e7520da13/captures/cap-f16de07e83e8/manifest.json",
+      "stepLabel": "surface-probe",
+      "pass": true,
+      "message": "surface probe captured",
+      "at": "2026-07-02T08:44:52.779956800+00:00"
+    },
+    {
+      "index": 6,
+      "stepId": "step-ccfea85fa7",
+      "action": "digestPull",
+      "captureId": "cap-efccfea85fa7",
+      "manifestPath": ".codectx/verify/client-sessions/csess-ad9e7520da13/captures/cap-efccfea85fa7/manifest.json",
+      "stepLabel": "chain-chain-o4-group-ingest-2026-07-02-n13-round12-fullstack-send-success",
+      "pass": true,
+      "message": "runtime digest captured",
+      "at": "2026-07-02T08:44:53.851662400+00:00"
+    },
+    {
+      "index": 7,
+      "stepId": "step-29e3529f3200",
+      "action": "screenshot",
+      "captureId": "cap-d14308dc4b9b",
+      "manifestPath": ".codectx/verify/client-sessions/csess-ad9e7520da13/captures/cap-d14308dc4b9b/manifest.json",
+      "stepLabel": "chain-n13-round12-fullstack-send-success",
+      "pass": true,
+      "at": "2026-07-02T08:44:54.941627600+00:00"
+    },
+    {
+      "index": 8,
+      "stepId": "step-28338a10cb7d",
+      "action": "click",
+      "captureId": "cap-fdc8e52f9e22",
+      "manifestPath": ".codectx/verify/client-sessions/csess-ad9e7520da13/captures/cap-fdc8e52f9e22/manifest.json",
+      "selector": "button:has-text(\"Open Participants\")",
+      "pass": true,
+      "at": "2026-07-02T08:45:46.018908100+00:00"
+    }
+  ]
+}

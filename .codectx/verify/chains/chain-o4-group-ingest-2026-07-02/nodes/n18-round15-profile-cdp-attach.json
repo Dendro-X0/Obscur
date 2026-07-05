@@ -1,0 +1,13 @@
+{
+  "schema": "codactrl.investigation.node@0.1.0",
+  "chainId": "chain-o4-group-ingest-2026-07-02",
+  "nodeId": "n18-round15-profile-cdp-attach",
+  "trigger": "round15-profile-cdp",
+  "at": "2026-07-02T11:14:56.920072200+00:00",
+  "sessionId": "csess-d39f4ab009ee",
+  "screenshotRef": ".codectx/verify/client-sessions/csess-d39f4ab009ee/captures/cap-b088a2897aae/screenshot.png",
+  "hypothesis": "round15 :9231 listening after openProfileSlot(2); MCP client_session_connect @9231 attaches profile sign-in target",
+  "doesNotProve": [
+    "Tester2 unlocked and sending on profile-2"
+  ]
+}

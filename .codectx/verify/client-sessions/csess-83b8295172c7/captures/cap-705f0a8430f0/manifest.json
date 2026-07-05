@@ -1,0 +1,24 @@
+{
+  "schema": "client.capture@0.1.0",
+  "sessionId": "csess-83b8295172c7",
+  "captureId": "cap-705f0a8430f0",
+  "action": "screenshot",
+  "provider": "playwright-chromium",
+  "proofTier": "t2",
+  "pass": true,
+  "stepLabel": "settings-dark-mode",
+  "url": "http://localhost:3000/dashboard/settings",
+  "finalUrl": "http://localhost:3000/dashboard/settings",
+  "pageTitle": "Vectis — Marketplace",
+  "artifactPath": ".codectx/verify/client-sessions/csess-83b8295172c7/captures/cap-705f0a8430f0/screenshot.png",
+  "snapshotPath": null,
+  "capturedAt": "2026-07-03T07:08:42.126658200+00:00",
+  "proves": [
+    "Web flows against a live dev server"
+  ],
+  "doesNotProve": [
+    "Packaged desktop",
+    "WebView2-specific behavior",
+    "Multi-window focus"
+  ]
+}

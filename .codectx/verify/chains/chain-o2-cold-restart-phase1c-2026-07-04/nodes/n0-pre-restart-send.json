@@ -1,0 +1,23 @@
+{
+  "schema": "codactrl.investigation.node@0.1.0",
+  "chainId": "chain-o2-cold-restart-phase1c-2026-07-04",
+  "nodeId": "n0-pre-restart-send",
+  "trigger": "O2-phase1c-coldrestart-070T0559 sent and visible before cold kill",
+  "at": "2026-07-04T05:00:41.632775800+00:00",
+  "sessionId": "csess-877010a1c38f",
+  "digestRef": "fault-f6ffae1c",
+  "screenshotRef": ".codectx/verify/client-sessions/csess-877010a1c38f/captures/cap-ad30095ea330/screenshot.png",
+  "signalsExtracted": [
+    "account_sync.backup_publish_attempt",
+    "account_sync.backup_publish_ordering",
+    "account_sync.backup_publish_result",
+    "groups.ledger_field_repair_applied",
+    "groups.membership_ledger_save"
+  ],
+  "transportEvidence": [
+    {
+      "eventId": "168d95740472995d",
+      "plaintextPrefix": "O2-phase1c-coldrestart-070T0559"
+    }
+  ]
+}

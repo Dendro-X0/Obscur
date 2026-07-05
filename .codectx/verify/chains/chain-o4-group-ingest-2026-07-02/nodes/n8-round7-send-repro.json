@@ -1,0 +1,21 @@
+{
+  "schema": "codactrl.investigation.node@0.1.0",
+  "chainId": "chain-o4-group-ingest-2026-07-02",
+  "nodeId": "n8-round7-send-repro",
+  "trigger": "Round7 repro: coordination restarted + Docker up; O4-round7-fullstack-071T1733 visible; publishGroupEvent 2d1a9735...0cdc31cf",
+  "at": "2026-07-01T17:33:57.251900900+00:00",
+  "sessionId": "csess-631c3bba5207",
+  "surfaces": {
+    "mainThreadMessageCount": 6,
+    "mainThreadSystemCards": 0,
+    "alertBannerCount": 2,
+    "splitBrainSuspected": false
+  },
+  "digestRef": "fault-7f9100c4",
+  "screenshotRef": ".codectx/verify/client-sessions/csess-631c3bba5207/captures/cap-2c5583d148e5/screenshot.png",
+  "hypothesis": "Warm full stack send reproducible without re-running Info health gate",
+  "doesNotProve": [
+    "Tester2 ingest",
+    "cold-start send without Info cascade"
+  ]
+}

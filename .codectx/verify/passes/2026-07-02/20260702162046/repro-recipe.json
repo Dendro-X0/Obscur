@@ -1,0 +1,322 @@
+{
+  "context": {
+    "cdpPort": 9230,
+    "chainId": "chain-dm-split-brain-2026-07-02",
+    "multiActorRound": true,
+    "sessionId": "csess-6f1a35b7762b",
+    "sessions": [
+      {
+        "cdpPort": 9230,
+        "role": "Tester1",
+        "sessionId": "csess-1462fcbd345e",
+        "windowLabel": "main"
+      },
+      {
+        "cdpPort": 9230,
+        "role": "profile-picker",
+        "sessionId": "csess-169c06e92cf1",
+        "windowLabel": "profile-picker"
+      },
+      {
+        "cdpPort": 9230,
+        "role": "Tester1",
+        "sessionId": "csess-510a62aba320",
+        "windowLabel": "main"
+      },
+      {
+        "cdpPort": 9230,
+        "role": "Tester1",
+        "sessionId": "csess-631c3bba5207",
+        "windowLabel": "main"
+      },
+      {
+        "cdpPort": 9230,
+        "role": "Tester1",
+        "sessionId": "csess-6f1a35b7762b",
+        "windowLabel": "main"
+      },
+      {
+        "cdpPort": 9230,
+        "role": "Tester1",
+        "sessionId": "csess-8abe3d68a490",
+        "windowLabel": "main"
+      },
+      {
+        "cdpPort": 9230,
+        "role": "profile-picker",
+        "sessionId": "csess-937c30f83699",
+        "windowLabel": "profile-picker"
+      },
+      {
+        "cdpPort": 9230,
+        "role": "Tester1",
+        "sessionId": "csess-ac2da4ea9b5c",
+        "windowLabel": "main"
+      },
+      {
+        "cdpPort": 9230,
+        "role": "profile-picker",
+        "sessionId": "csess-c9e4cc0c3649",
+        "windowLabel": "profile-picker"
+      },
+      {
+        "cdpPort": 9230,
+        "role": "profile-picker",
+        "sessionId": "csess-d39f4ab009ee",
+        "windowLabel": "profile-picker"
+      },
+      {
+        "cdpPort": 9231,
+        "role": "Tester2",
+        "sessionId": "csess-624f7d067178",
+        "windowLabel": "profile-2"
+      },
+      {
+        "cdpPort": 9231,
+        "role": "Tester2",
+        "sessionId": "csess-64c34e63c6eb",
+        "windowLabel": "profile-2"
+      },
+      {
+        "cdpPort": 9231,
+        "role": "Tester1",
+        "sessionId": "csess-9530bb91b194",
+        "windowLabel": "main"
+      },
+      {
+        "cdpPort": 9231,
+        "role": "Tester2",
+        "sessionId": "csess-a256b15c946e",
+        "windowLabel": "profile-2"
+      },
+      {
+        "cdpPort": 9231,
+        "role": "Tester2",
+        "sessionId": "csess-b91e16538053",
+        "windowLabel": "profile-2"
+      },
+      {
+        "cdpPort": 9231,
+        "role": "Tester1",
+        "sessionId": "csess-e440bdda1773",
+        "windowLabel": "main"
+      }
+    ],
+    "workspacePath": "E:\\Web Projects\\experimental-workspace\\newstart"
+  },
+  "exportedAt": "2026-07-02T16:20:46.702791700+00:00",
+  "goldenPath": [
+    {
+      "action": "client.runtime.health",
+      "label": "Scan",
+      "mcpTool": "client_runtime_health",
+      "step": 1
+    },
+    {
+      "action": "daemon restart from workspace root",
+      "label": "Align",
+      "step": 2
+    },
+    {
+      "action": "client.stack.preflight",
+      "label": "Preflight",
+      "mcpTool": "client_stack_preflight",
+      "step": 3
+    },
+    {
+      "action": "client.session.connect",
+      "label": "Connect",
+      "mcpTool": "client_session_connect",
+      "step": 4
+    },
+    {
+      "action": "client.surface.probe",
+      "label": "Probe",
+      "mcpTool": "client_surface_probe",
+      "step": 5
+    },
+    {
+      "action": "client.capture",
+      "label": "Capture",
+      "mcpTool": "client_capture",
+      "step": 6
+    },
+    {
+      "action": "client.runtime.digestPull",
+      "label": "Digest",
+      "mcpTool": "client_runtime_digest_pull",
+      "step": 7
+    },
+    {
+      "action": "client.investigation.chain.append + verify.issues.report.export",
+      "label": "Confirm",
+      "mcpTool": "verify_issues_report_export",
+      "step": 8
+    }
+  ],
+  "interactRecipe": {
+    "schema": "studio.client.interact.recipe@1.0.0",
+    "selectorPack": {
+      "chatTab": "button >> internal:has-text=\"Chat\" >> nth=1",
+      "chatsSidebarLink": "a[href=\"/\"]",
+      "lockConfirm": "[role=\"dialog\"] >> button >> text=\"Lock\"",
+      "notes": "Round 17–19 workarounds — avoid generic :has-text and img[alt] sidebar selectors.",
+      "openDmThread": "text={threadPreview}",
+      "schema": "studio.client.mcp.obscur-selectors@1.1.0",
+      "sendMessage": "button[aria-label=\"Send\"]",
+      "unlockPassword": "input[type=\"password\"]",
+      "unlockSubmit": "form button[type=\"submit\"]"
+    },
+    "stepSelectors": [
+      {
+        "note": "Password gate on cold restart",
+        "selector": "input[type=\"password\"]",
+        "stepLabel": "unlock-password"
+      },
+      {
+        "avoid": "button:has-text(\"Log In\")",
+        "note": "Prefer over button:has-text(\"Log In\") — strict mode matches two buttons",
+        "selector": "form button[type=\"submit\"]",
+        "stepLabel": "unlock-submit"
+      },
+      {
+        "note": "Return to Chats after profile picker detour",
+        "selector": "a[href=\"/\"]",
+        "stepLabel": "chats-tab"
+      },
+      {
+        "avoid": "button:has-text(\"Chat\")",
+        "note": "COM-RUN-11 / group thread tab — avoids strict mode on duplicate Chat buttons",
+        "selector": "button >> internal:has-text=\"Chat\" >> nth=1",
+        "stepLabel": "chat-tab"
+      },
+      {
+        "note": "DM / group compose send",
+        "selector": "button[aria-label=\"Send\"]",
+        "stepLabel": "send-message"
+      },
+      {
+        "note": "Focus compose before client_interact_type",
+        "selector": "textarea, [contenteditable=\"true\"], input[placeholder*=\"message\" i]",
+        "stepLabel": "dm-compose"
+      },
+      {
+        "note": "Confirm lock dialog",
+        "selector": "[role=\"dialog\"] >> button >> text=\"Lock\"",
+        "stepLabel": "lock-confirm"
+      },
+      {
+        "avoid": "img[alt=\"Tester2\"]",
+        "note": "Replace {threadPreview} with sidebar preview substring (e.g. O4-round17-profile2-…). Prefer over img[alt=\"Tester2\"] which often times out.",
+        "selector": "text={threadPreview}",
+        "stepLabel": "open-dm-thread"
+      }
+    ],
+    "strictModeHints": [
+      "When client_interact_click fails with strictModeViolation, pick a candidate index or use the stepSelectors avoid/fallback selector.",
+      "Pass stepLabel (unlock-submit, chat-tab, send-message) to auto-resolve curated selectors."
+    ]
+  },
+  "multiWindowStretch": [
+    {
+      "action": "client.multiwindow.status (probeBridge: true)",
+      "label": "MW status",
+      "mcpTool": "client_multiwindow_status",
+      "step": 1
+    },
+    {
+      "action": "client.agent.bridgeCall listWindows / openProfileSlot",
+      "label": "Bridge",
+      "mcpTool": "client_agent_bridge_call",
+      "step": 2
+    },
+    {
+      "action": "client.multiwindow.switch (windowLabel)",
+      "label": "Switch",
+      "mcpTool": "client_multiwindow_switch",
+      "step": 3
+    },
+    {
+      "action": "client.multiwindow.capture (bcap-* manifest)",
+      "label": "Capture",
+      "mcpTool": "client_multiwindow_capture",
+      "step": 4
+    },
+    {
+      "action": "client.session.connect { cdpPort: 9230, windowLabel: main }",
+      "label": "Connect main",
+      "mcpTool": "client_session_connect",
+      "step": 5
+    },
+    {
+      "action": "client.session.connect { cdpPort: 9231, windowLabel: profile-2, alwaysNewSession: true }",
+      "label": "Connect profile",
+      "mcpTool": "client_session_connect",
+      "step": 6
+    }
+  ],
+  "operator": {
+    "confirmedBy": "codactrl-round21-agent",
+    "doesNotProve": [
+      "COM-RUN-11 live invite matrix",
+      "Roster after fixture purge",
+      "Ledger migration fix"
+    ],
+    "notes": "Round21 issue-tracking pass: full stack preflight green. COM-RUN-01 t4 dual-window — T1 participants Tester1-only (knownParticipantCount=0); T2 Group sidebar empty. group-room-key-missing sidebar vs O4 send. COM-RUN-11 blocked (historical invite cards). Chain nodes n24/n25/n27 on chain-o4-group-ingest. Issues: 8fc30833846c694c, 64baee5012722dfa, e10f184afe997a07, ac194ae60fbc0bd2.",
+    "roundLabel": "2026-07-02-codactrl-round21"
+  },
+  "replayHints": [
+    "Open workspace as Studio subject repo; ensure codactrld indexes same repo root.",
+    "Run client_stack_preflight { requireDualWindow: true } before dual connect.",
+    "Run multiWindowStretch before golden-path connect for dual-profile rounds.",
+    "Attach CDP on both :9230 and :9231 before probe/capture/digest.",
+    "Use investigation chain id to append nodes without collapsing to a single root cause."
+  ],
+  "repoRoot": "E:\\Web Projects\\experimental-workspace\\newstart",
+  "scenarioTemplates": {
+    "schema": "studio.client.scenario.template.catalog@1.0.0",
+    "templates": [
+      {
+        "doesNotProve": [
+          "COM-RUN-11 invite"
+        ],
+        "id": "scenario.dual-dm-roundtrip@1",
+        "proves": "T1 send → T2 recv → T2 reply → T1 verify",
+        "requireDualWindow": true,
+        "stepCount": 16,
+        "title": "Dual-profile DM round-trip"
+      },
+      {
+        "doesNotProve": [
+          "COM-RUN-01 roster"
+        ],
+        "id": "scenario.o4-group-send@1",
+        "proves": "NewTest 2 compose + bubble",
+        "requireDualWindow": false,
+        "stepCount": 10,
+        "title": "O-4 group compose + bubble"
+      },
+      {
+        "doesNotProve": [
+          "Requires fresh fixture"
+        ],
+        "id": "scenario.invite-accept-matrix@1",
+        "proves": "Accept/Cancel UX",
+        "requireDualWindow": false,
+        "stepCount": 9,
+        "title": "Invite accept / cancel UX matrix"
+      },
+      {
+        "doesNotProve": [
+          "Password gate documented"
+        ],
+        "id": "scenario.cold-restart-dm@1",
+        "proves": "Post-kill hydrate",
+        "requireDualWindow": false,
+        "stepCount": 12,
+        "title": "Cold-restart DM hydrate"
+      }
+    ]
+  },
+  "schema": "verify.repro.recipe@1"
+}

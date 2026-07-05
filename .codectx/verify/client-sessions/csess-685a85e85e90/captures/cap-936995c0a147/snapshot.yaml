@@ -1,0 +1,46 @@
+- text: Left community.
+- button "Dismiss notification"
+- main:
+  - text: Client release-v1.9.10-relay-recovery-20260617
+  - img "Obscur"
+  - text: Obscur
+  - button "desktop.titleBar.lock"
+  - button "Open desktop profile switcher": T Tester2 Obscur / 3db055b4...d946830f
+  - button "Minimize window"
+  - button "Maximize window"
+  - button "Close window"
+  - button "Connected"
+  - link "Chats":
+    - /url: /
+  - link "Network":
+    - /url: /network
+  - link "Vault":
+    - /url: /vault
+  - link "Search":
+    - /url: /search
+  - link "Settings":
+    - /url: /settings
+  - button "Open profile menu": T
+  - text: Network
+  - main:
+    - textbox "Search network..."
+    - button:
+      - img
+    - button:
+      - img
+    - button "Add"
+    - button "Create Group"
+    - heading "Directory" [level=2]
+    - button "All People": All People 1
+    - button "Groups"
+    - button "Discovery"
+    - button "Invitations"
+    - button "Blocked"
+    - button "Manage"
+    - heading "Connections" [level=3]
+    - text: "1"
+    - img "Tester1"
+    - heading "Tester1" [level=4]
+    - paragraph: Identity hidden
+    - text: Online Trusted
+- alert

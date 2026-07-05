@@ -1,0 +1,47 @@
+{
+  "schema": "client.session.steps@0.1.0",
+  "sessionId": "csess-83b8295172c7",
+  "updatedAt": "2026-07-03T07:08:42.127740200+00:00",
+  "stepCount": 4,
+  "steps": [
+    {
+      "index": 0,
+      "stepId": "step-1d346e385217",
+      "action": "snapshot",
+      "captureId": "cap-644e9ead81fd",
+      "manifestPath": ".codectx/verify/client-sessions/csess-83b8295172c7/captures/cap-644e9ead81fd/manifest.json",
+      "stepLabel": "dashboard-settings",
+      "pass": true,
+      "at": "2026-07-03T07:08:16.376992500+00:00"
+    },
+    {
+      "index": 1,
+      "stepId": "step-c798b7b8a6b7",
+      "action": "click",
+      "captureId": "cap-bd220d68aa92",
+      "manifestPath": ".codectx/verify/client-sessions/csess-83b8295172c7/captures/cap-bd220d68aa92/manifest.json",
+      "selector": "button:has-text(\"Dark\")",
+      "pass": true,
+      "at": "2026-07-03T07:08:23.025393200+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-f49ed821c8fb",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-bd220d68aa92",
+      "manifestPath": ".codectx/verify/client-sessions/csess-83b8295172c7/captures/cap-bd220d68aa92/manifest.json",
+      "pass": true,
+      "at": "2026-07-03T07:08:23.027968+00:00"
+    },
+    {
+      "index": 3,
+      "stepId": "step-194d36a907a9",
+      "action": "screenshot",
+      "captureId": "cap-705f0a8430f0",
+      "manifestPath": ".codectx/verify/client-sessions/csess-83b8295172c7/captures/cap-705f0a8430f0/manifest.json",
+      "stepLabel": "settings-dark-mode",
+      "pass": true,
+      "at": "2026-07-03T07:08:42.126658200+00:00"
+    }
+  ]
+}

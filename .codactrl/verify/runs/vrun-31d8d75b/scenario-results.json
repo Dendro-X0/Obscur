@@ -1,0 +1,25 @@
+[
+  {
+    "index": 0,
+    "kind": "fileExists",
+    "path": "scripts/verify-profile-picker-flow.mjs",
+    "ok": true
+  },
+  {
+    "index": 1,
+    "kind": "fileContains",
+    "path": "scripts/verify-profile-picker-flow.mjs",
+    "ok": true
+  },
+  {
+    "index": 2,
+    "kind": "scriptInvoke",
+    "path": "scripts/verify-profile-picker-flow.mjs",
+    "ok": false,
+    "message": "script exited with code 1",
+    "exitCode": 1,
+    "stdout": "[profile-picker-verify] CDP unavailable — running mocked static-shell checks\n[profile-picker-verify] using HTTP shell at http://127.0.0.1:3341\n[profile-picker-verify] done — 0 passed, 1 failed\n",
+    "stderr": "[profile-picker-verify] FAIL Profile picker grid not shown. URL=http://127.0.0.1:3341/profiles body=BUILD RELEASE-V1.9.10-RELAY-RECOVERY-20260617 · ONLINE\nCLIENT RELEASE-V1.9.10-RELAY-RECOVERY-20260617\nPROFILES\n",
+    "timedOut": false
+  }
+]

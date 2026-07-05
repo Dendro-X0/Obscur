@@ -1,0 +1,15 @@
+{
+  "schema": "codactrl.investigation.node@0.1.0",
+  "chainId": "chain-transport-soak-2026-07-02",
+  "nodeId": "n0-network-digest",
+  "trigger": "Network page + digest pull; coordination :8787 up; UI Connected 1/6",
+  "at": "2026-07-01T11:57:35.297064300+00:00",
+  "sessionId": "csess-ac2da4ea9b5c",
+  "digestRef": "fault-ede55760",
+  "screenshotRef": ".codectx/verify/client-sessions/csess-ac2da4ea9b5c/captures/cap-dea131808525/screenshot.png",
+  "doesNotProve": [
+    "O-3 offline flash reproduced",
+    "O-1 notification storm",
+    ":7000 local relay up"
+  ]
+}

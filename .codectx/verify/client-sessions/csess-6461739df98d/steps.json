@@ -1,0 +1,135 @@
+{
+  "schema": "client.session.steps@0.1.0",
+  "sessionId": "csess-6461739df98d",
+  "updatedAt": "2026-07-01T11:28:35.071324400+00:00",
+  "stepCount": 12,
+  "steps": [
+    {
+      "index": 0,
+      "stepId": "step-8fd66ebcad8d",
+      "action": "snapshot",
+      "captureId": "cap-e71a22f1f03b",
+      "manifestPath": ".codectx/verify/client-sessions/csess-6461739df98d/captures/cap-e71a22f1f03b/manifest.json",
+      "stepLabel": "connect-bootstrap",
+      "pass": true,
+      "at": "2026-07-01T11:27:15.369424300+00:00"
+    },
+    {
+      "index": 1,
+      "stepId": "step-0a2d4d5922d6",
+      "action": "snapshot",
+      "captureId": "cap-3258aef7f456",
+      "manifestPath": ".codectx/verify/client-sessions/csess-6461739df98d/captures/cap-3258aef7f456/manifest.json",
+      "pass": true,
+      "at": "2026-07-01T11:27:25.932171500+00:00"
+    },
+    {
+      "index": 2,
+      "stepId": "step-8a3a1062da93",
+      "action": "click",
+      "captureId": "cap-03413ccb44b8",
+      "manifestPath": ".codectx/verify/client-sessions/csess-6461739df98d/captures/cap-03413ccb44b8/manifest.json",
+      "stepLabel": "o4-switch-group-tab",
+      "selector": "button:has-text(\"Group\")",
+      "pass": true,
+      "at": "2026-07-01T11:27:46.852574+00:00"
+    },
+    {
+      "index": 3,
+      "stepId": "step-704b420f2277",
+      "action": "click",
+      "captureId": "cap-4f8d28c37aae",
+      "manifestPath": ".codectx/verify/client-sessions/csess-6461739df98d/captures/cap-4f8d28c37aae/manifest.json",
+      "stepLabel": "o4-open-newtest2-sidebar",
+      "selector": "role=button[name*=\"NewTest 2\"]",
+      "pass": true,
+      "at": "2026-07-01T11:28:02.471900900+00:00"
+    },
+    {
+      "index": 4,
+      "stepId": "step-69e1ba0d57bd",
+      "action": "type",
+      "captureId": "cap-cc7904dbe29d",
+      "manifestPath": ".codectx/verify/client-sessions/csess-6461739df98d/captures/cap-cc7904dbe29d/manifest.json",
+      "stepLabel": "o4-type-group-msg",
+      "selector": "role=textbox[name=\"Type a message...\"]",
+      "text": "O4-group-relay-verify-071T1128",
+      "pass": true,
+      "at": "2026-07-01T11:28:06.922261500+00:00"
+    },
+    {
+      "index": 5,
+      "stepId": "step-be9ec58b0c56",
+      "action": "click",
+      "captureId": "cap-fd26d468c55b",
+      "manifestPath": ".codectx/verify/client-sessions/csess-6461739df98d/captures/cap-fd26d468c55b/manifest.json",
+      "stepLabel": "o4-send-group-msg",
+      "selector": "role=button[name=\"Send\"]",
+      "pass": true,
+      "at": "2026-07-01T11:28:12.291573+00:00"
+    },
+    {
+      "index": 6,
+      "stepId": "step-f57a3328e5",
+      "action": "digestPull",
+      "captureId": "cap-07f57a3328e5",
+      "manifestPath": ".codectx/verify/client-sessions/csess-6461739df98d/captures/cap-07f57a3328e5/manifest.json",
+      "pass": true,
+      "message": "runtime digest captured",
+      "at": "2026-07-01T11:28:17.813734900+00:00"
+    },
+    {
+      "index": 7,
+      "stepId": "step-1d34ba0ed563",
+      "action": "screenshot",
+      "captureId": "cap-f95b1440ae6f",
+      "manifestPath": ".codectx/verify/client-sessions/csess-6461739df98d/captures/cap-f95b1440ae6f/manifest.json",
+      "stepLabel": "o4-post-send-screenshot",
+      "pass": true,
+      "at": "2026-07-01T11:28:21.508019200+00:00"
+    },
+    {
+      "index": 8,
+      "stepId": "step-d68e46d591d1",
+      "action": "surfaceProbe",
+      "captureId": "cap-86daa718972c",
+      "manifestPath": ".codectx/verify/client-sessions/csess-6461739df98d/captures/cap-86daa718972c/manifest.json",
+      "stepLabel": "surface-probe",
+      "pass": true,
+      "message": "surface probe captured",
+      "at": "2026-07-01T11:28:21.746172100+00:00"
+    },
+    {
+      "index": 9,
+      "stepId": "step-69390289aec4",
+      "action": "surfaceProbe",
+      "captureId": "cap-2e6dff62d4ea",
+      "manifestPath": ".codectx/verify/client-sessions/csess-6461739df98d/captures/cap-2e6dff62d4ea/manifest.json",
+      "stepLabel": "surface-probe",
+      "pass": true,
+      "message": "surface probe captured",
+      "at": "2026-07-01T11:28:32.899337800+00:00"
+    },
+    {
+      "index": 10,
+      "stepId": "step-41e78f3b04",
+      "action": "digestPull",
+      "captureId": "cap-2841e78f3b04",
+      "manifestPath": ".codectx/verify/client-sessions/csess-6461739df98d/captures/cap-2841e78f3b04/manifest.json",
+      "stepLabel": "chain-chain-o4-group-ingest-2026-07-02-n1-send-blocked-group-key",
+      "pass": true,
+      "message": "runtime digest captured",
+      "at": "2026-07-01T11:28:34.000842600+00:00"
+    },
+    {
+      "index": 11,
+      "stepId": "step-645b4dc96576",
+      "action": "screenshot",
+      "captureId": "cap-2213f5ef81f0",
+      "manifestPath": ".codectx/verify/client-sessions/csess-6461739df98d/captures/cap-2213f5ef81f0/manifest.json",
+      "stepLabel": "chain-n1-send-blocked-group-key",
+      "pass": true,
+      "at": "2026-07-01T11:28:35.070154400+00:00"
+    }
+  ]
+}

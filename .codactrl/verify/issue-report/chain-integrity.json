@@ -1,0 +1,43 @@
+{
+  "schema": "verify.chain.integrity@1.0.0",
+  "exportedAt": "2026-07-04T14:15:24.315596300+00:00",
+  "coherent": false,
+  "chains": [
+    {
+      "schema": "verify.chain.integrity@1.0.0",
+      "chainId": "chain-transport-soak-2026-07-02",
+      "coherent": true
+    },
+    {
+      "schema": "verify.chain.integrity@1.0.0",
+      "chainId": "chain-dm-split-brain-2026-07-02",
+      "coherent": false,
+      "danglingEdges": [
+        {
+          "from": "n6-round16-dual-profile-dm",
+          "to": "n7-round19-dual-dm-roundtrip"
+        }
+      ]
+    },
+    {
+      "schema": "verify.chain.integrity@1.0.0",
+      "chainId": "chain-o4-group-ingest-2026-07-02",
+      "coherent": true
+    },
+    {
+      "schema": "verify.chain.integrity@1.0.0",
+      "chainId": "chain-o2-cold-restart-phase1c-2026-07-04",
+      "coherent": true
+    },
+    {
+      "schema": "verify.chain.integrity@1.0.0",
+      "chainId": "chain-com-run-11-phase1c-2026-07-04",
+      "coherent": true
+    },
+    {
+      "schema": "verify.chain.integrity@1.0.0",
+      "chainId": "chain-r1-room-key-health-2026-07-04",
+      "coherent": true
+    }
+  ]
+}

@@ -1,0 +1,1 @@
+{"kind":"console","type":"error","text":"WebSocket connection to 'wss://nos.lol/' failed: Error in connection establishment: net::ERR_SSL_UNRECOGNIZED_NAME_ALERT","location":{"url":"http://127.0.0.1:1430/_next/static/chunks/a4681f0033ea2468.js","line":11,"column":0,"lineNumber":11,"columnNumber":0},"at":"2026-06-30T15:43:30.469Z"}

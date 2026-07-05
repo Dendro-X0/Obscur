@@ -1,0 +1,21 @@
+{
+  "schema": "codactrl.investigation.node@0.1.0",
+  "chainId": "chain-o4-group-ingest-2026-07-02",
+  "nodeId": "n21-round17b-docker-send-success",
+  "trigger": "round17b-docker-retry",
+  "at": "2026-07-02T13:30:58.924520300+00:00",
+  "sessionId": "csess-6f1a35b7762b",
+  "surfaces": {
+    "mainThreadMessageCount": 12,
+    "mainThreadSystemCards": 0,
+    "alertBannerCount": 2,
+    "splitBrainSuspected": false
+  },
+  "digestRef": "fault-da76af2d",
+  "screenshotRef": ".codectx/verify/client-sessions/csess-6f1a35b7762b/captures/cap-11af3adb8200/screenshot.png",
+  "hypothesis": "With Docker :7000 + stack preflight green, O-4 send O4-round17b-docker-072T1323 visible; publishGroupEvent localhost:7000",
+  "doesNotProve": [
+    "COM-RUN-11 invite UX",
+    "COM-RUN-01 roster parity"
+  ]
+}

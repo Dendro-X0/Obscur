@@ -1,0 +1,118 @@
+{
+  "schema": "client.session.steps@0.1.0",
+  "sessionId": "csess-a5a05cf05cca",
+  "updatedAt": "2026-07-02T08:35:55.259895+00:00",
+  "stepCount": 11,
+  "steps": [
+    {
+      "index": 0,
+      "stepId": "step-2b965f2472bd",
+      "action": "snapshot",
+      "captureId": "cap-4cee2b0ecd78",
+      "manifestPath": ".codectx/verify/client-sessions/csess-a5a05cf05cca/captures/cap-4cee2b0ecd78/manifest.json",
+      "stepLabel": "connect-bootstrap",
+      "pass": true,
+      "at": "2026-07-02T08:34:15.111640700+00:00"
+    },
+    {
+      "index": 1,
+      "stepId": "step-11c3fd576b32",
+      "action": "snapshot",
+      "captureId": "cap-03ab6c37ae36",
+      "manifestPath": ".codectx/verify/client-sessions/csess-a5a05cf05cca/captures/cap-03ab6c37ae36/manifest.json",
+      "pass": true,
+      "at": "2026-07-02T08:34:35.953955600+00:00"
+    },
+    {
+      "index": 2,
+      "stepId": "step-adb3ae631075",
+      "action": "click",
+      "captureId": "cap-7bba21d05be9",
+      "manifestPath": ".codectx/verify/client-sessions/csess-a5a05cf05cca/captures/cap-7bba21d05be9/manifest.json",
+      "selector": "button:has-text(\"Sign in here\")",
+      "pass": true,
+      "at": "2026-07-02T08:34:57.581670600+00:00"
+    },
+    {
+      "index": 3,
+      "stepId": "step-653a74149ffe",
+      "action": "type",
+      "captureId": "cap-52b34108c5be",
+      "manifestPath": ".codectx/verify/client-sessions/csess-a5a05cf05cca/captures/cap-52b34108c5be/manifest.json",
+      "selector": "role=textbox[name=\"Enter your password\"]",
+      "text": "SyI14^ew1E",
+      "pass": true,
+      "at": "2026-07-02T08:35:09.416388500+00:00"
+    },
+    {
+      "index": 4,
+      "stepId": "step-b26471c892f4",
+      "action": "click",
+      "captureId": "cap-fbdf2cc0cc42",
+      "manifestPath": ".codectx/verify/client-sessions/csess-a5a05cf05cca/captures/cap-fbdf2cc0cc42/manifest.json",
+      "selector": "form button[type=\"submit\"]",
+      "pass": true,
+      "at": "2026-07-02T08:35:24.564122100+00:00"
+    },
+    {
+      "index": 5,
+      "stepId": "step-9b58223c39",
+      "action": "digestPull",
+      "captureId": "cap-e79b58223c39",
+      "manifestPath": ".codectx/verify/client-sessions/csess-a5a05cf05cca/captures/cap-e79b58223c39/manifest.json",
+      "pass": true,
+      "message": "runtime digest captured",
+      "at": "2026-07-02T08:35:32.592157200+00:00"
+    },
+    {
+      "index": 6,
+      "stepId": "step-07eecb2bdb17",
+      "action": "click",
+      "captureId": "cap-bf3d80145364",
+      "manifestPath": ".codectx/verify/client-sessions/csess-a5a05cf05cca/captures/cap-bf3d80145364/manifest.json",
+      "selector": "button:has-text(\"Info\")",
+      "pass": true,
+      "at": "2026-07-02T08:35:35.851804800+00:00"
+    },
+    {
+      "index": 7,
+      "stepId": "step-7360f68bbd4b",
+      "action": "snapshot",
+      "captureId": "cap-e34349c9bccf",
+      "manifestPath": ".codectx/verify/client-sessions/csess-a5a05cf05cca/captures/cap-e34349c9bccf/manifest.json",
+      "pass": true,
+      "at": "2026-07-02T08:35:44.817692400+00:00"
+    },
+    {
+      "index": 8,
+      "stepId": "step-e2c040d780d0",
+      "action": "click",
+      "captureId": "cap-86a9eea1028d",
+      "manifestPath": ".codectx/verify/client-sessions/csess-a5a05cf05cca/captures/cap-86a9eea1028d/manifest.json",
+      "selector": "button:has-text(\"Open Participants\")",
+      "pass": true,
+      "at": "2026-07-02T08:35:46.803664400+00:00"
+    },
+    {
+      "index": 9,
+      "stepId": "step-e817f26c1459",
+      "action": "type",
+      "captureId": "cap-16c38ddb9e09",
+      "manifestPath": ".codectx/verify/client-sessions/csess-a5a05cf05cca/captures/cap-16c38ddb9e09/manifest.json",
+      "selector": "role=textbox[name=\"Type a message...\"]",
+      "text": "O4-round12-partial-072T0836",
+      "pass": true,
+      "at": "2026-07-02T08:35:53.546437900+00:00"
+    },
+    {
+      "index": 10,
+      "stepId": "step-9d83815d4b01",
+      "action": "click",
+      "captureId": "cap-4fae800dc1e1",
+      "manifestPath": ".codectx/verify/client-sessions/csess-a5a05cf05cca/captures/cap-4fae800dc1e1/manifest.json",
+      "selector": "role=link[name=\"Chats\"]",
+      "pass": true,
+      "at": "2026-07-02T08:35:55.258616500+00:00"
+    }
+  ]
+}

@@ -1,0 +1,122 @@
+{
+  "schema": "verify.export.manifest@0.1.0",
+  "exportedAt": "2026-07-02T16:11:59.722218600+00:00",
+  "agentExportAt": "2026-07-02T16:11:59.722218600+00:00",
+  "operatorExportAt": "2026-07-02T16:11:59.722218600+00:00",
+  "roundLabel": "2026-07-02-codactrl-round20",
+  "authoritativeNotes": "Dual-profile round 20: csess-6f1a35b7762b (T1 :9230) + csess-b91e16538053 (T2 :9231). DM-round20-codactrl-t1/t2-072T1609 round-trip asserted. O4-round20-codactrl-072T1611 visible + publishGroupEvent :7000. Coordination intermittently refused during unlock.",
+  "confirmedBy": "codactrl-round20-agent",
+  "promotionStage": "spec",
+  "exportGeneration": 1,
+  "repro": {
+    "chainId": "chain-dm-split-brain-2026-07-02",
+    "sessionId": "csess-6f1a35b7762b",
+    "cdpPort": 9230,
+    "workspacePath": "E:\\Web Projects\\experimental-workspace\\newstart",
+    "multiActorRound": true,
+    "sessions": [
+      {
+        "sessionId": "csess-1462fcbd345e",
+        "cdpPort": 9230,
+        "windowLabel": "main",
+        "role": "Tester1"
+      },
+      {
+        "sessionId": "csess-169c06e92cf1",
+        "cdpPort": 9230,
+        "windowLabel": "profile-picker",
+        "role": "profile-picker"
+      },
+      {
+        "sessionId": "csess-510a62aba320",
+        "cdpPort": 9230,
+        "windowLabel": "main",
+        "role": "Tester1"
+      },
+      {
+        "sessionId": "csess-631c3bba5207",
+        "cdpPort": 9230,
+        "windowLabel": "main",
+        "role": "Tester1"
+      },
+      {
+        "sessionId": "csess-6f1a35b7762b",
+        "cdpPort": 9230,
+        "windowLabel": "main",
+        "role": "Tester1"
+      },
+      {
+        "sessionId": "csess-8abe3d68a490",
+        "cdpPort": 9230,
+        "windowLabel": "main",
+        "role": "Tester1"
+      },
+      {
+        "sessionId": "csess-937c30f83699",
+        "cdpPort": 9230,
+        "windowLabel": "profile-picker",
+        "role": "profile-picker"
+      },
+      {
+        "sessionId": "csess-ac2da4ea9b5c",
+        "cdpPort": 9230,
+        "windowLabel": "main",
+        "role": "Tester1"
+      },
+      {
+        "sessionId": "csess-b90d929107b5",
+        "cdpPort": 9230,
+        "windowLabel": "main",
+        "role": "Tester1"
+      },
+      {
+        "sessionId": "csess-c9e4cc0c3649",
+        "cdpPort": 9230,
+        "windowLabel": "profile-picker",
+        "role": "profile-picker"
+      },
+      {
+        "sessionId": "csess-d39f4ab009ee",
+        "cdpPort": 9230,
+        "windowLabel": "profile-picker",
+        "role": "profile-picker"
+      },
+      {
+        "sessionId": "csess-624f7d067178",
+        "cdpPort": 9231,
+        "windowLabel": "profile-2",
+        "role": "Tester2"
+      },
+      {
+        "sessionId": "csess-64c34e63c6eb",
+        "cdpPort": 9231,
+        "windowLabel": "profile-2",
+        "role": "Tester2"
+      },
+      {
+        "sessionId": "csess-9530bb91b194",
+        "cdpPort": 9231,
+        "windowLabel": "main",
+        "role": "Tester1"
+      },
+      {
+        "sessionId": "csess-a256b15c946e",
+        "cdpPort": 9231,
+        "windowLabel": "profile-2",
+        "role": "Tester2"
+      },
+      {
+        "sessionId": "csess-b91e16538053",
+        "cdpPort": 9231,
+        "windowLabel": "profile-2",
+        "role": "Tester2"
+      },
+      {
+        "sessionId": "csess-e440bdda1773",
+        "cdpPort": 9231,
+        "windowLabel": "main",
+        "role": "Tester1"
+      }
+    ]
+  }
+}

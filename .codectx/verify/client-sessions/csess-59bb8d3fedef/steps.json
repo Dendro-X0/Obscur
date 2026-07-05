@@ -1,0 +1,60 @@
+{
+  "schema": "client.session.steps@0.1.0",
+  "sessionId": "csess-59bb8d3fedef",
+  "updatedAt": "2026-07-04T23:59:37.137772500+00:00",
+  "stepCount": 5,
+  "steps": [
+    {
+      "index": 0,
+      "stepId": "step-47edaa629dee",
+      "action": "snapshot",
+      "captureId": "cap-6e3af2b17fe5",
+      "manifestPath": ".codectx/verify/client-sessions/csess-59bb8d3fedef/captures/cap-6e3af2b17fe5/manifest.json",
+      "stepLabel": "hero-refinement-fold-check",
+      "pass": true,
+      "at": "2026-07-04T23:41:53.531696100+00:00"
+    },
+    {
+      "index": 1,
+      "stepId": "step-8d6a9edd21b0",
+      "action": "screenshot",
+      "captureId": "cap-d77af692ce98",
+      "manifestPath": ".codectx/verify/client-sessions/csess-59bb8d3fedef/captures/cap-d77af692ce98/manifest.json",
+      "stepLabel": "hero-refinement-after-fold",
+      "pass": true,
+      "at": "2026-07-04T23:42:01.544199500+00:00"
+    },
+    {
+      "index": 2,
+      "stepId": "step-696b49839774",
+      "action": "webSurfaceProbe",
+      "captureId": "cap-a68647eda898",
+      "manifestPath": ".codectx/verify/client-sessions/csess-59bb8d3fedef/captures/cap-a68647eda898/manifest.json",
+      "stepLabel": "web-surface-probe",
+      "pass": true,
+      "message": "web surface probe captured",
+      "at": "2026-07-04T23:42:06.772885300+00:00"
+    },
+    {
+      "index": 3,
+      "stepId": "step-bbcc25080803",
+      "action": "surfaceProbe",
+      "captureId": "cap-13bb70fe80e1",
+      "manifestPath": ".codectx/verify/client-sessions/csess-59bb8d3fedef/captures/cap-13bb70fe80e1/manifest.json",
+      "stepLabel": "surface-probe",
+      "pass": true,
+      "message": "split-brain suspected: sidebar preview with empty main thread",
+      "at": "2026-07-04T23:59:30.761293400+00:00"
+    },
+    {
+      "index": 4,
+      "stepId": "step-99dbc4e8bfd0",
+      "action": "screenshot",
+      "captureId": "cap-a73d1c794d27",
+      "manifestPath": ".codectx/verify/client-sessions/csess-59bb8d3fedef/captures/cap-a73d1c794d27/manifest.json",
+      "stepLabel": "chain-n1-hero-after",
+      "pass": true,
+      "at": "2026-07-04T23:59:37.137193400+00:00"
+    }
+  ]
+}

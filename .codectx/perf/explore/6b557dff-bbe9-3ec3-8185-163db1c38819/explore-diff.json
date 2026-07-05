@@ -1,0 +1,155 @@
+{
+  "schema": "perf.explore.diff@1.1.0",
+  "generatedAt": "2026-06-30T10:41:55.955220500+00:00",
+  "step": {
+    "schema": "perf.explore.diff@1.1.0",
+    "generatedAt": "2026-06-30T10:41:55.955220500+00:00",
+    "baseline": {
+      "exploreId": "da6b7c53-35b7-07bd-fed2-4c230889f614",
+      "graphHash": "sha256:f469b27c07b7b238c60da9d3f07ac29f178089d43559de1fb231a99e968b35ac",
+      "findingCount": 28,
+      "severityCounts": {
+        "red": 0,
+        "yellow": 16,
+        "info": 12
+      }
+    },
+    "current": {
+      "exploreId": "6b557dff-bbe9-3ec3-8185-163db1c38819",
+      "graphHash": "sha256:69848be9c490f5bf90bbb3c5f83786b8236a6fe9d8fab5f99fd973bde03953b3",
+      "findingCount": 22,
+      "severityCounts": {
+        "red": 0,
+        "yellow": 10,
+        "info": 12
+      }
+    },
+    "delta": {
+      "red": 0,
+      "yellow": -6,
+      "info": 0,
+      "total": -6
+    },
+    "resolvedFindingIds": [
+      "perf:import:barrel-penalty:packages/dweb-crdt/src/index.ts",
+      "perf:topology:duplicate-dependency:@dweb/db",
+      "perf:topology:duplicate-dependency:@types/react",
+      "perf:topology:duplicate-dependency:@types/react-dom",
+      "perf:topology:duplicate-dependency:typescript",
+      "perf:topology:duplicate-dependency:vitest"
+    ],
+    "newFindingIds": [],
+    "unchangedFindingIds": [
+      "perf:import:barrel-penalty:apps/pwa/app/features/desktop/utils/index.ts",
+      "perf:import:barrel-penalty:apps/pwa/app/features/invites/utils/index.ts",
+      "perf:import:barrel-penalty:apps/pwa/app/features/messaging/services/thread-history/index.ts",
+      "perf:import:barrel-penalty:apps/pwa/app/features/workspace-kernel/index.ts",
+      "perf:import:barrel-penalty:packages/dweb-auth/src/index.ts",
+      "perf:import:barrel-penalty:packages/obscur-conduit-mesh-contracts/src/index.ts",
+      "perf:import:barrel-penalty:packages/obscur-conduit-mesh-contracts/src/index.ts",
+      "perf:import:barrel-penalty:packages/obscur-conduit-mesh/src/index.ts",
+      "perf:import:barrel-penalty:packages/obscur-engine-host/src/index.ts",
+      "perf:import:barrel-penalty:packages/ui-kit/src/index.ts",
+      "perf:stack:next:apps/pwa",
+      "perf:topology:architecture-layout:apps:pwa",
+      "perf:topology:critical-path-scope:apps:pwa",
+      "perf:topology:shared-fanout:packages:db",
+      "perf:topology:shared-fanout:packages:dweb-auth",
+      "perf:topology:shared-fanout:packages:dweb-coordination-contracts",
+      "perf:topology:shared-fanout:packages:dweb-core",
+      "perf:topology:shared-fanout:packages:dweb-crypto",
+      "perf:topology:shared-fanout:packages:dweb-storage-contracts",
+      "perf:topology:shared-fanout:packages:dweb-transport-contracts",
+      "perf:topology:shared-fanout:packages:obscur-conduit-mesh-contracts",
+      "perf:topology:shared-fanout:packages:obscur-engine-contracts"
+    ],
+    "severityChanges": [],
+    "improved": true,
+    "verification": {
+      "status": "improved",
+      "resolvedCount": 6,
+      "severityImprovementCount": 0,
+      "partialCount": 0,
+      "metricImprovements": [
+        {
+          "findingId": "perf:import:barrel-penalty:apps/pwa/app/features/messaging/services/thread-history/index.ts",
+          "metric": "barrelExportCount",
+          "from": 8,
+          "to": 7,
+          "verified": false,
+          "status": "stale"
+        },
+        {
+          "findingId": "perf:import:barrel-penalty:packages/dweb-crdt/src/index.ts",
+          "metric": "finding",
+          "from": 1,
+          "to": 0,
+          "verified": true,
+          "status": "resolved"
+        },
+        {
+          "findingId": "perf:import:barrel-penalty:packages/ui-kit/src/index.ts",
+          "metric": "barrelExportCount",
+          "from": 22,
+          "to": 24,
+          "verified": false,
+          "status": "regressed"
+        },
+        {
+          "findingId": "perf:topology:duplicate-dependency:@dweb/db",
+          "metric": "finding",
+          "from": 1,
+          "to": 0,
+          "verified": true,
+          "status": "resolved"
+        },
+        {
+          "findingId": "perf:topology:duplicate-dependency:@types/react",
+          "metric": "finding",
+          "from": 1,
+          "to": 0,
+          "verified": true,
+          "status": "resolved"
+        },
+        {
+          "findingId": "perf:topology:duplicate-dependency:@types/react-dom",
+          "metric": "finding",
+          "from": 1,
+          "to": 0,
+          "verified": true,
+          "status": "resolved"
+        },
+        {
+          "findingId": "perf:topology:duplicate-dependency:typescript",
+          "metric": "finding",
+          "from": 1,
+          "to": 0,
+          "verified": true,
+          "status": "resolved"
+        },
+        {
+          "findingId": "perf:topology:duplicate-dependency:vitest",
+          "metric": "finding",
+          "from": 1,
+          "to": 0,
+          "verified": true,
+          "status": "resolved"
+        }
+      ]
+    },
+    "bucketDelta": {
+      "navBlockers": {
+        "from": 11,
+        "to": 10
+      },
+      "actionItems": {
+        "from": 5,
+        "to": 0
+      },
+      "infoInventory": {
+        "from": 12,
+        "to": 12
+      }
+    }
+  }
+}

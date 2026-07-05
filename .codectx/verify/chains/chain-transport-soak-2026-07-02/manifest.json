@@ -1,0 +1,28 @@
+{
+  "schema": "codactrl.investigation.chain@0.1.0",
+  "chainId": "chain-transport-soak-2026-07-02",
+  "symptomClass": "relay-partial-stack-desktop-only",
+  "title": "Step 8 — RIW-5/O-3 transport soak with coordination up",
+  "status": "open",
+  "createdAt": "2026-07-01T11:57:31.437911700+00:00",
+  "updatedAt": "2026-07-04T14:15:19.336381900+00:00",
+  "nodeIds": [
+    "n0-network-digest",
+    "n2-full-stack-round7"
+  ],
+  "edges": [
+    {
+      "from": "n0-network-digest",
+      "to": "n2-full-stack-round7"
+    }
+  ],
+  "summary": {
+    "verdict": "partial_accepted",
+    "nodesCaptured": 2,
+    "splitBrainObserved": false,
+    "nonCoverage": [
+      "Tester2 relay path",
+      "O-3 on F5"
+    ]
+  }
+}

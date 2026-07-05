@@ -1,0 +1,14 @@
+{
+  "schema": "codactrl.investigation.node@0.1.0",
+  "chainId": "chain-phase4-website-2026-07-04",
+  "nodeId": "n0-hero-before",
+  "trigger": "hero-refine-before",
+  "at": "2026-07-04T23:59:21.322411500+00:00",
+  "sessionId": "csess-7b4bb623967a",
+  "screenshotRef": ".codectx/verify/client-sessions/csess-7b4bb623967a/captures/cap-d2d8de2db666/screenshot.png",
+  "hypothesis": "Pre-fold hero: clipped h1 (9ch max-width), separate proof strip gap, 4 secondary CTAs — thesis+download require scroll on desktop",
+  "doesNotProve": [
+    "Production Vercel deploy",
+    "Mobile viewport fold"
+  ]
+}

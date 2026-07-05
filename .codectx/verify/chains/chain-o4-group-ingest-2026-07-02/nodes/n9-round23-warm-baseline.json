@@ -1,0 +1,25 @@
+{
+  "schema": "codactrl.investigation.node@0.1.0",
+  "chainId": "chain-o4-group-ingest-2026-07-02",
+  "nodeId": "n9-round23-warm-baseline",
+  "trigger": "round23 baseline digest + Tester1 unlock warm session",
+  "at": "2026-07-03T07:06:08.825138300+00:00",
+  "sessionId": "csess-aa3a9eab9c36",
+  "digestRef": "fault-0d2c0823",
+  "screenshotRef": ".codectx/verify/client-sessions/csess-aa3a9eab9c36/captures/cap-64faf4f1a64f/screenshot.png",
+  "signals": [
+    "dm-normalize-is-outgoing-mismatch",
+    "groups-ledger-validation"
+  ],
+  "signalsExtracted": [
+    "account_projection.append_events",
+    "account_projection.replay_complete",
+    "groups.ledger_validation_issues",
+    "messaging.conversation_list_authority_selected",
+    "messaging.delete_for_everyone_remote_result",
+    "messaging.dm_normalize_is_outgoing_mismatch",
+    "navigation.intelligent_warmup_phase_completed",
+    "network.peer_trust_read_authority_selected"
+  ],
+  "hypothesis": "Round23 warm Tester1: ledger load 7/7 invalid pre-fix shell; DMs+O2 visible; COM-RUN-11 superseded invites only; NewTest 2 in group sidebar before Communities collapse"
+}

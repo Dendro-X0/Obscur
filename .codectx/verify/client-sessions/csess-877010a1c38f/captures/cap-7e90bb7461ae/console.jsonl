@@ -1,0 +1,1 @@
+{"kind":"console","type":"verbose","text":"[DOM] Password forms should have (optionally hidden) username fields for accessibility: (More info: https://www.chromium.org/developers/design-documents/create-amazing-password-forms) %o","location":{"url":"http://127.0.0.1:1430/sign-in","line":0,"column":0,"lineNumber":0,"columnNumber":0},"at":"2026-07-04T04:58:37.839Z"}

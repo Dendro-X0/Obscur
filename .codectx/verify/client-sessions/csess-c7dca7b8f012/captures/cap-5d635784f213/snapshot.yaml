@@ -1,0 +1,119 @@
+- main:
+  - text: Client release-v1.9.10-relay-recovery-20260617
+  - img "Obscur"
+  - text: Obscur
+  - button "desktop.titleBar.lock"
+  - button "Open desktop profile switcher": T Tester2 Obscur / 3db055b4...d946830f
+  - button "Minimize window"
+  - button "Maximize window"
+  - button "Close window"
+  - button "Connected"
+  - link "Chats":
+    - /url: /
+    - text: "1"
+  - link "Network":
+    - /url: /network
+  - link "Vault":
+    - /url: /vault
+  - link "Search":
+    - /url: /search
+  - link "Settings":
+    - /url: /settings
+  - button "Open profile menu": T
+  - button "Sidebar Options"
+  - button "Chats 1"
+  - button "Requests"
+  - button "Junk"
+  - textbox "Search users and communities..."
+  - button "Chat"
+  - button "Group 1"
+  - button "New Group"
+  - button "Communities"
+  - button "N NewTest 2 Joined private encrypted group 1 Just now":
+    - text: N NewTest 2
+    - paragraph: Joined private encrypted group
+    - text: "1"
+    - button
+    - text: Just now
+  - text: Connected 2/6 active relays Obscur Preview
+  - main:
+    - button "View Profile":
+      - img "Tester1"
+    - heading "Tester1" [level=2]
+    - button "Disable notifications for this chat" [pressed]
+    - paragraph: Online Last active 13m ago | Last viewed 12m ago
+    - button "Voice call"
+    - button "Media"
+    - button "Defense sensitivity for this contact": Standard
+    - button "Search Messages"
+    - img "Tester1"
+    - text: Tester1
+    - button "Open reactions"
+    - button "Open message menu"
+    - paragraph: O2-coldrestart-verify-071T0720
+    - text: 3d ago TE You
+    - button "Open reactions"
+    - button "Open message menu"
+    - paragraph: O4-round16-profile2-072T1118
+    - text: 1d ago TE You
+    - button "Open reactions"
+    - button "Open message menu"
+    - paragraph: O4-round17-profile2-072T1247
+    - text: 1d ago
+    - img "Tester1"
+    - text: Tester1
+    - button "Open reactions"
+    - button "Open message menu"
+    - paragraph: DM-round19-t1-072T1452
+    - text: 1d ago TE You
+    - button "Open reactions"
+    - button "Open message menu"
+    - paragraph: DM-round19-t2-072T1453
+    - text: 1d ago
+    - img "Tester1"
+    - text: Tester1
+    - button "Open reactions"
+    - button "Open message menu"
+    - paragraph: DM-round20-codactrl-t1-072T1609
+    - text: 1d ago TE You
+    - button "Open reactions"
+    - button "Open message menu"
+    - paragraph: DM-round20-codactrl-t2-072T1609
+    - text: 1d ago
+    - img "Tester1"
+    - text: Tester1
+    - button "Open reactions"
+    - button "Open message menu"
+    - paragraph: O2-phase1c-coldrestart-070T0559
+    - text: 2h ago
+    - img "Tester1"
+    - text: Tester1
+    - button "Open reactions"
+    - button "Open message menu"
+    - heading "NewTest 2" [level=4]
+    - paragraph: This resilient community is built on decentralized protocols. Privacy first, always.
+    - text: Encrypted Private
+    - paragraph: Roster hidden until join
+    - status:
+      - text: Invitation superseded
+      - paragraph: Recorded in chat history. This card cannot be used again.
+    - text: 2h ago
+    - img "Tester1"
+    - text: Tester1
+    - button "Open reactions"
+    - button "Open message menu"
+    - heading "NewTest 2" [level=4]
+    - paragraph: This resilient community is built on decentralized protocols. Privacy first, always.
+    - text: Encrypted Private
+    - paragraph: Roster hidden until join
+    - status:
+      - text: Acceptance recorded
+      - paragraph: Your Accept reply was sent in chat. Relay-backed membership can lag or fail—it is not guaranteed by this card.
+    - text: 13m ago
+    - button "Media"
+    - textbox "Type a message..."
+    - button "Search emojis..."
+    - button "Record Voice Note"
+    - button "Send" [disabled]
+    - text: Connected to Relays E2E Encrypted • Ver. 1.9.10
+- alert

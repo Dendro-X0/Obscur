@@ -1,0 +1,116 @@
+{
+  "schema": "verify.export.manifest@0.1.0",
+  "exportedAt": "2026-07-02T16:20:46.702791700+00:00",
+  "agentExportAt": "2026-07-02T16:20:46.702791700+00:00",
+  "operatorExportAt": "2026-07-02T16:20:46.702791700+00:00",
+  "roundLabel": "2026-07-02-codactrl-round21",
+  "authoritativeNotes": "Round21 issue-tracking pass: full stack preflight green. COM-RUN-01 t4 dual-window — T1 participants Tester1-only (knownParticipantCount=0); T2 Group sidebar empty. group-room-key-missing sidebar vs O4 send. COM-RUN-11 blocked (historical invite cards). Chain nodes n24/n25/n27 on chain-o4-group-ingest. Issues: 8fc30833846c694c, 64baee5012722dfa, e10f184afe997a07, ac194ae60fbc0bd2.",
+  "confirmedBy": "codactrl-round21-agent",
+  "promotionStage": "spec",
+  "exportGeneration": 2,
+  "repro": {
+    "chainId": "chain-dm-split-brain-2026-07-02",
+    "sessionId": "csess-6f1a35b7762b",
+    "cdpPort": 9230,
+    "workspacePath": "E:\\Web Projects\\experimental-workspace\\newstart",
+    "multiActorRound": true,
+    "sessions": [
+      {
+        "sessionId": "csess-1462fcbd345e",
+        "cdpPort": 9230,
+        "windowLabel": "main",
+        "role": "Tester1"
+      },
+      {
+        "sessionId": "csess-169c06e92cf1",
+        "cdpPort": 9230,
+        "windowLabel": "profile-picker",
+        "role": "profile-picker"
+      },
+      {
+        "sessionId": "csess-510a62aba320",
+        "cdpPort": 9230,
+        "windowLabel": "main",
+        "role": "Tester1"
+      },
+      {
+        "sessionId": "csess-631c3bba5207",
+        "cdpPort": 9230,
+        "windowLabel": "main",
+        "role": "Tester1"
+      },
+      {
+        "sessionId": "csess-6f1a35b7762b",
+        "cdpPort": 9230,
+        "windowLabel": "main",
+        "role": "Tester1"
+      },
+      {
+        "sessionId": "csess-8abe3d68a490",
+        "cdpPort": 9230,
+        "windowLabel": "main",
+        "role": "Tester1"
+      },
+      {
+        "sessionId": "csess-937c30f83699",
+        "cdpPort": 9230,
+        "windowLabel": "profile-picker",
+        "role": "profile-picker"
+      },
+      {
+        "sessionId": "csess-ac2da4ea9b5c",
+        "cdpPort": 9230,
+        "windowLabel": "main",
+        "role": "Tester1"
+      },
+      {
+        "sessionId": "csess-c9e4cc0c3649",
+        "cdpPort": 9230,
+        "windowLabel": "profile-picker",
+        "role": "profile-picker"
+      },
+      {
+        "sessionId": "csess-d39f4ab009ee",
+        "cdpPort": 9230,
+        "windowLabel": "profile-picker",
+        "role": "profile-picker"
+      },
+      {
+        "sessionId": "csess-624f7d067178",
+        "cdpPort": 9231,
+        "windowLabel": "profile-2",
+        "role": "Tester2"
+      },
+      {
+        "sessionId": "csess-64c34e63c6eb",
+        "cdpPort": 9231,
+        "windowLabel": "profile-2",
+        "role": "Tester2"
+      },
+      {
+        "sessionId": "csess-9530bb91b194",
+        "cdpPort": 9231,
+        "windowLabel": "main",
+        "role": "Tester1"
+      },
+      {
+        "sessionId": "csess-a256b15c946e",
+        "cdpPort": 9231,
+        "windowLabel": "profile-2",
+        "role": "Tester2"
+      },
+      {
+        "sessionId": "csess-b91e16538053",
+        "cdpPort": 9231,
+        "windowLabel": "profile-2",
+        "role": "Tester2"
+      },
+      {
+        "sessionId": "csess-e440bdda1773",
+        "cdpPort": 9231,
+        "windowLabel": "main",
+        "role": "Tester1"
+      }
+    ]
+  }
+}

@@ -1,0 +1,178 @@
+{
+  "schema": "client.session.steps@0.1.0",
+  "sessionId": "csess-af73d0bd5b5c",
+  "updatedAt": "2026-07-01T22:37:34.878779300+00:00",
+  "stepCount": 17,
+  "steps": [
+    {
+      "index": 0,
+      "stepId": "step-9cad201f4afb",
+      "action": "snapshot",
+      "captureId": "cap-df63d43efbe7",
+      "manifestPath": ".codectx/verify/client-sessions/csess-af73d0bd5b5c/captures/cap-df63d43efbe7/manifest.json",
+      "stepLabel": "connect-bootstrap",
+      "pass": true,
+      "at": "2026-07-01T22:33:20.743103500+00:00"
+    },
+    {
+      "index": 1,
+      "stepId": "step-8dc34903a943",
+      "action": "snapshot",
+      "captureId": "cap-7d4483c6ca1d",
+      "manifestPath": ".codectx/verify/client-sessions/csess-af73d0bd5b5c/captures/cap-7d4483c6ca1d/manifest.json",
+      "pass": true,
+      "at": "2026-07-01T22:33:28.806648100+00:00"
+    },
+    {
+      "index": 2,
+      "stepId": "step-394223ca46",
+      "action": "digestPull",
+      "captureId": "cap-f5394223ca46",
+      "manifestPath": ".codectx/verify/client-sessions/csess-af73d0bd5b5c/captures/cap-f5394223ca46/manifest.json",
+      "pass": true,
+      "message": "runtime digest captured",
+      "at": "2026-07-01T22:33:29.828855300+00:00"
+    },
+    {
+      "index": 3,
+      "stepId": "step-59009274805f",
+      "action": "click",
+      "captureId": "cap-487259ef58a6",
+      "manifestPath": ".codectx/verify/client-sessions/csess-af73d0bd5b5c/captures/cap-487259ef58a6/manifest.json",
+      "selector": "button[aria-label=\"Open desktop profile switcher\"], button:has-text(\"Open desktop profile switcher\")",
+      "pass": true,
+      "at": "2026-07-01T22:33:53.218919800+00:00"
+    },
+    {
+      "index": 4,
+      "stepId": "step-2fc4f8cffdd5",
+      "action": "click",
+      "captureId": "cap-a477544701ab",
+      "manifestPath": ".codectx/verify/client-sessions/csess-af73d0bd5b5c/captures/cap-a477544701ab/manifest.json",
+      "selector": "button:has-text(\"Manage Profiles\")",
+      "pass": true,
+      "at": "2026-07-01T22:34:02.606877600+00:00"
+    },
+    {
+      "index": 5,
+      "stepId": "step-c173d4bea2b1",
+      "action": "snapshot",
+      "captureId": "cap-c48e4072514a",
+      "manifestPath": ".codectx/verify/client-sessions/csess-af73d0bd5b5c/captures/cap-c48e4072514a/manifest.json",
+      "pass": true,
+      "at": "2026-07-01T22:34:20.826951800+00:00"
+    },
+    {
+      "index": 6,
+      "stepId": "step-4f64491ca72c",
+      "action": "click",
+      "captureId": "cap-d401890323b9",
+      "manifestPath": ".codectx/verify/client-sessions/csess-af73d0bd5b5c/captures/cap-d401890323b9/manifest.json",
+      "selector": "button:has-text(\"Needs setup\")",
+      "pass": true,
+      "at": "2026-07-01T22:34:39.849179900+00:00"
+    },
+    {
+      "index": 7,
+      "stepId": "step-051895c7fa75",
+      "action": "snapshot",
+      "captureId": "cap-ef3da033f477",
+      "manifestPath": ".codectx/verify/client-sessions/csess-af73d0bd5b5c/captures/cap-ef3da033f477/manifest.json",
+      "pass": true,
+      "at": "2026-07-01T22:35:22.770197300+00:00"
+    },
+    {
+      "index": 8,
+      "stepId": "step-488de54c208c",
+      "action": "click",
+      "captureId": "cap-e6f480abc228",
+      "manifestPath": ".codectx/verify/client-sessions/csess-af73d0bd5b5c/captures/cap-e6f480abc228/manifest.json",
+      "selector": "role=link[name=\"Chats\"]",
+      "pass": true,
+      "at": "2026-07-01T22:35:51.641001+00:00"
+    },
+    {
+      "index": 9,
+      "stepId": "step-3683bc4c6413",
+      "action": "surfaceProbe",
+      "captureId": "cap-c39edcb7d5b1",
+      "manifestPath": ".codectx/verify/client-sessions/csess-af73d0bd5b5c/captures/cap-c39edcb7d5b1/manifest.json",
+      "stepLabel": "surface-probe",
+      "pass": true,
+      "message": "surface probe captured",
+      "at": "2026-07-01T22:36:05.337216600+00:00"
+    },
+    {
+      "index": 10,
+      "stepId": "step-5bb5de637aec",
+      "action": "click",
+      "captureId": "cap-fdefcbc1051a",
+      "manifestPath": ".codectx/verify/client-sessions/csess-af73d0bd5b5c/captures/cap-fdefcbc1051a/manifest.json",
+      "selector": "button:has-text(\"Info\")",
+      "pass": true,
+      "at": "2026-07-01T22:36:05.720577900+00:00"
+    },
+    {
+      "index": 11,
+      "stepId": "step-eebebd33d2",
+      "action": "digestPull",
+      "captureId": "cap-fceebebd33d2",
+      "manifestPath": ".codectx/verify/client-sessions/csess-af73d0bd5b5c/captures/cap-fceebebd33d2/manifest.json",
+      "stepLabel": "chain-chain-o4-group-ingest-2026-07-02-n12-round11-multiwindow-partial-stack",
+      "pass": true,
+      "message": "runtime digest captured",
+      "at": "2026-07-01T22:36:06.834815500+00:00"
+    },
+    {
+      "index": 12,
+      "stepId": "step-8cf82c6914e5",
+      "action": "screenshot",
+      "captureId": "cap-b1585777b8eb",
+      "manifestPath": ".codectx/verify/client-sessions/csess-af73d0bd5b5c/captures/cap-b1585777b8eb/manifest.json",
+      "stepLabel": "chain-n12-round11-multiwindow-partial-stack",
+      "pass": true,
+      "at": "2026-07-01T22:36:07.762112300+00:00"
+    },
+    {
+      "index": 13,
+      "stepId": "step-ab93b8dc6858",
+      "action": "click",
+      "captureId": "cap-a614c67a47d4",
+      "manifestPath": ".codectx/verify/client-sessions/csess-af73d0bd5b5c/captures/cap-a614c67a47d4/manifest.json",
+      "selector": "button:has-text(\"Open Participants\")",
+      "pass": true,
+      "at": "2026-07-01T22:36:14.857106200+00:00"
+    },
+    {
+      "index": 14,
+      "stepId": "step-80984f372fa8",
+      "action": "click",
+      "captureId": "cap-00bf9d10d4da",
+      "manifestPath": ".codectx/verify/client-sessions/csess-af73d0bd5b5c/captures/cap-00bf9d10d4da/manifest.json",
+      "selector": "role=link[name=\"Chats\"]",
+      "pass": true,
+      "at": "2026-07-01T22:36:36.588995700+00:00"
+    },
+    {
+      "index": 15,
+      "stepId": "step-a4c481eee5d3",
+      "action": "type",
+      "captureId": "cap-620c9ab4f3b5",
+      "manifestPath": ".codectx/verify/client-sessions/csess-af73d0bd5b5c/captures/cap-620c9ab4f3b5/manifest.json",
+      "selector": "role=textbox[name=\"Type a message...\"]",
+      "text": "O4-round11-partial-071T2237",
+      "pass": true,
+      "at": "2026-07-01T22:36:59.895828900+00:00"
+    },
+    {
+      "index": 16,
+      "stepId": "step-92e52337f8df",
+      "action": "click",
+      "captureId": "cap-6d09421a034a",
+      "manifestPath": ".codectx/verify/client-sessions/csess-af73d0bd5b5c/captures/cap-6d09421a034a/manifest.json",
+      "selector": "role=main >> role=button[name=\"Send\"]",
+      "pass": true,
+      "at": "2026-07-01T22:37:34.877778800+00:00"
+    }
+  ]
+}

@@ -1,0 +1,319 @@
+{
+  "schema": "client.session.steps@0.1.0",
+  "sessionId": "csess-877010a1c38f",
+  "updatedAt": "2026-07-04T05:00:41.604418800+00:00",
+  "stepCount": 31,
+  "steps": [
+    {
+      "index": 0,
+      "stepId": "step-fdbd0714236a",
+      "action": "snapshot",
+      "captureId": "cap-ff4147c2dc16",
+      "manifestPath": ".codectx/verify/client-sessions/csess-877010a1c38f/captures/cap-ff4147c2dc16/manifest.json",
+      "stepLabel": "connect-bootstrap",
+      "pass": true,
+      "at": "2026-07-04T04:58:28.825937600+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-a293f932448a",
+      "action": "mcp.client.session.connect",
+      "manifestPath": ".codectx/verify/client-sessions/csess-877010a1c38f/attach-latest.json",
+      "pass": true,
+      "at": "2026-07-04T04:58:33.506743100+00:00"
+    },
+    {
+      "index": 2,
+      "stepId": "step-9d5458a9fcc7",
+      "action": "click",
+      "captureId": "cap-7e90bb7461ae",
+      "manifestPath": ".codectx/verify/client-sessions/csess-877010a1c38f/captures/cap-7e90bb7461ae/manifest.json",
+      "selector": "button:has-text('Tester1')",
+      "pass": true,
+      "at": "2026-07-04T04:58:39.314340+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-cae2988593ed",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-7e90bb7461ae",
+      "manifestPath": ".codectx/verify/client-sessions/csess-877010a1c38f/captures/cap-7e90bb7461ae/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T04:58:39.316748400+00:00"
+    },
+    {
+      "index": 4,
+      "stepId": "step-f171f686da4b",
+      "action": "type",
+      "captureId": "cap-2b4d87371799",
+      "manifestPath": ".codectx/verify/client-sessions/csess-877010a1c38f/captures/cap-2b4d87371799/manifest.json",
+      "selector": "input[type='password']",
+      "text": "SyI14^ew1E",
+      "pass": true,
+      "at": "2026-07-04T04:58:46.134545900+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-e8b4aaca87af",
+      "action": "mcp.client.interact.type",
+      "captureId": "cap-2b4d87371799",
+      "manifestPath": ".codectx/verify/client-sessions/csess-877010a1c38f/captures/cap-2b4d87371799/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T04:58:46.136550100+00:00"
+    },
+    {
+      "index": 6,
+      "stepId": "step-556e6a088726",
+      "action": "click",
+      "captureId": "cap-abe304438ba0",
+      "manifestPath": ".codectx/verify/client-sessions/csess-877010a1c38f/captures/cap-abe304438ba0/manifest.json",
+      "stepLabel": "unlock-submit",
+      "selector": "form button[type=\"submit\"]",
+      "pass": true,
+      "at": "2026-07-04T04:58:55.712932700+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-11f7bafec39b",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-abe304438ba0",
+      "manifestPath": ".codectx/verify/client-sessions/csess-877010a1c38f/captures/cap-abe304438ba0/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T04:58:55.715680900+00:00"
+    },
+    {
+      "index": 8,
+      "stepId": "step-a6bbc57f0e1e",
+      "action": "click",
+      "captureId": "cap-cfb4b9e711c8",
+      "manifestPath": ".codectx/verify/client-sessions/csess-877010a1c38f/captures/cap-cfb4b9e711c8/manifest.json",
+      "stepLabel": "chats-tab",
+      "selector": "a[href=\"/\"]",
+      "pass": true,
+      "at": "2026-07-04T04:59:02.282162100+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-48aa715aa620",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-cfb4b9e711c8",
+      "manifestPath": ".codectx/verify/client-sessions/csess-877010a1c38f/captures/cap-cfb4b9e711c8/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T04:59:02.284216200+00:00"
+    },
+    {
+      "index": 10,
+      "stepId": "step-4febf8a5dbab",
+      "action": "click",
+      "captureId": "cap-97e6bfe65389",
+      "manifestPath": ".codectx/verify/client-sessions/csess-877010a1c38f/captures/cap-97e6bfe65389/manifest.json",
+      "selector": "button:has-text('Chat'):not(:has-text('Chats'))",
+      "pass": true,
+      "at": "2026-07-04T04:59:17.550449600+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-c7cf60032aba",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-97e6bfe65389",
+      "manifestPath": ".codectx/verify/client-sessions/csess-877010a1c38f/captures/cap-97e6bfe65389/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T04:59:17.552219900+00:00"
+    },
+    {
+      "index": 12,
+      "stepId": "step-e0e68be8430b",
+      "action": "click",
+      "captureId": "cap-ee2d3d0a7249",
+      "manifestPath": ".codectx/verify/client-sessions/csess-877010a1c38f/captures/cap-ee2d3d0a7249/manifest.json",
+      "selector": "button:has-text('Tester2')",
+      "pass": false,
+      "message": "locator.click: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('button:has-text(\\'Tester2\\')')\u001b[22m\n",
+      "at": "2026-07-04T04:59:31.436719600+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-c683285caf41",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-ee2d3d0a7249",
+      "manifestPath": ".codectx/verify/client-sessions/csess-877010a1c38f/captures/cap-ee2d3d0a7249/manifest.json",
+      "pass": false,
+      "message": "locator.click: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('button:has-text(\\'Tester2\\')')\u001b[22m\n",
+      "at": "2026-07-04T04:59:31.439220800+00:00"
+    },
+    {
+      "index": 14,
+      "stepId": "step-31b078f6831c",
+      "action": "click",
+      "captureId": "cap-5ccf7d7d9d98",
+      "manifestPath": ".codectx/verify/client-sessions/csess-877010a1c38f/captures/cap-5ccf7d7d9d98/manifest.json",
+      "stepLabel": "open-dm-thread",
+      "selector": "text={threadPreview}",
+      "pass": false,
+      "message": "locator.click: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('text={threadPreview}')\u001b[22m\n",
+      "at": "2026-07-04T04:59:48.765107200+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-7707583c3a37",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-5ccf7d7d9d98",
+      "manifestPath": ".codectx/verify/client-sessions/csess-877010a1c38f/captures/cap-5ccf7d7d9d98/manifest.json",
+      "pass": false,
+      "message": "locator.click: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('text={threadPreview}')\u001b[22m\n",
+      "at": "2026-07-04T04:59:48.768045800+00:00"
+    },
+    {
+      "index": 16,
+      "stepId": "step-a88ab40791f5",
+      "action": "snapshot",
+      "captureId": "cap-c365bc9476e6",
+      "manifestPath": ".codectx/verify/client-sessions/csess-877010a1c38f/captures/cap-c365bc9476e6/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T04:59:52.365359200+00:00"
+    },
+    {
+      "index": 17,
+      "stepId": "step-95ed75ec6129",
+      "action": "click",
+      "captureId": "cap-a8b651896eda",
+      "manifestPath": ".codectx/verify/client-sessions/csess-877010a1c38f/captures/cap-a8b651896eda/manifest.json",
+      "selector": "button:has(p:text('DM-round20-codactrl-t1-072T1609'))",
+      "pass": false,
+      "message": "locator.click: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('button:has(p:text(\\'DM-round20-codactrl-t1-072T1609\\'))')\u001b[22m\n",
+      "at": "2026-07-04T05:00:05.635447500+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-d223a2dc6db0",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-a8b651896eda",
+      "manifestPath": ".codectx/verify/client-sessions/csess-877010a1c38f/captures/cap-a8b651896eda/manifest.json",
+      "pass": false,
+      "message": "locator.click: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('button:has(p:text(\\'DM-round20-codactrl-t1-072T1609\\'))')\u001b[22m\n",
+      "at": "2026-07-04T05:00:05.636997+00:00"
+    },
+    {
+      "index": 19,
+      "stepId": "step-d38dafdc6d69",
+      "action": "click",
+      "captureId": "cap-14844b9638ce",
+      "manifestPath": ".codectx/verify/client-sessions/csess-877010a1c38f/captures/cap-14844b9638ce/manifest.json",
+      "selector": "text=DM-round20-codactrl-t1-072T1609",
+      "pass": true,
+      "at": "2026-07-04T05:00:16.121870300+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-73d252778253",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-14844b9638ce",
+      "manifestPath": ".codectx/verify/client-sessions/csess-877010a1c38f/captures/cap-14844b9638ce/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T05:00:16.125135100+00:00"
+    },
+    {
+      "index": 21,
+      "stepId": "step-1f45fb3eaad7",
+      "action": "click",
+      "captureId": "cap-102e18ef05b7",
+      "manifestPath": ".codectx/verify/client-sessions/csess-877010a1c38f/captures/cap-102e18ef05b7/manifest.json",
+      "stepLabel": "dm-compose",
+      "selector": "textarea, [contenteditable=\"true\"], input[placeholder*=\"message\" i]",
+      "pass": true,
+      "at": "2026-07-04T05:00:25.724694200+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-15d4e87554cd",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-102e18ef05b7",
+      "manifestPath": ".codectx/verify/client-sessions/csess-877010a1c38f/captures/cap-102e18ef05b7/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T05:00:25.727039500+00:00"
+    },
+    {
+      "index": 23,
+      "stepId": "step-3f984d4a2d12",
+      "action": "type",
+      "captureId": "cap-46c3860498e2",
+      "manifestPath": ".codectx/verify/client-sessions/csess-877010a1c38f/captures/cap-46c3860498e2/manifest.json",
+      "stepLabel": "dm-compose",
+      "selector": "textarea, [contenteditable=\"true\"], input[placeholder*=\"message\" i]",
+      "text": "O2-phase1c-coldrestart-070T0559",
+      "pass": true,
+      "at": "2026-07-04T05:00:29.079882500+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-233f5dd83903",
+      "action": "mcp.client.interact.type",
+      "captureId": "cap-46c3860498e2",
+      "manifestPath": ".codectx/verify/client-sessions/csess-877010a1c38f/captures/cap-46c3860498e2/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T05:00:29.088368500+00:00"
+    },
+    {
+      "index": 25,
+      "stepId": "step-7a11c5bda6cf",
+      "action": "click",
+      "captureId": "cap-f7f930a26234",
+      "manifestPath": ".codectx/verify/client-sessions/csess-877010a1c38f/captures/cap-f7f930a26234/manifest.json",
+      "stepLabel": "send-message",
+      "selector": "button[aria-label=\"Send\"]",
+      "pass": true,
+      "at": "2026-07-04T05:00:33.658956100+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-523b508884e4",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-f7f930a26234",
+      "manifestPath": ".codectx/verify/client-sessions/csess-877010a1c38f/captures/cap-f7f930a26234/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T05:00:33.661005+00:00"
+    },
+    {
+      "index": 27,
+      "stepId": "step-311ca4f43f0d",
+      "action": "assert",
+      "captureId": "cap-55443354cea1",
+      "manifestPath": ".codectx/verify/client-sessions/csess-877010a1c38f/captures/cap-55443354cea1/manifest.json",
+      "text": "O2-phase1c-coldrestart-070T0559",
+      "assertKind": "textVisible",
+      "pass": true,
+      "message": "text visible: O2-phase1c-coldrestart-070T0559",
+      "at": "2026-07-04T05:00:38.218276800+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-6e5f1b836273",
+      "action": "mcp.client.validate.assert",
+      "captureId": "cap-55443354cea1",
+      "manifestPath": ".codectx/verify/client-sessions/csess-877010a1c38f/captures/cap-55443354cea1/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T05:00:38.221013400+00:00"
+    },
+    {
+      "index": 29,
+      "stepId": "step-e5ed91d702",
+      "action": "digestPull",
+      "captureId": "cap-4ce5ed91d702",
+      "manifestPath": ".codectx/verify/client-sessions/csess-877010a1c38f/captures/cap-4ce5ed91d702/manifest.json",
+      "stepLabel": "chain-chain-o2-cold-restart-phase1c-2026-07-04-n0-pre-restart-send",
+      "pass": true,
+      "message": "runtime digest captured",
+      "at": "2026-07-04T05:00:39.493944600+00:00"
+    },
+    {
+      "index": 30,
+      "stepId": "step-ca5121776ce3",
+      "action": "screenshot",
+      "captureId": "cap-ad30095ea330",
+      "manifestPath": ".codectx/verify/client-sessions/csess-877010a1c38f/captures/cap-ad30095ea330/manifest.json",
+      "stepLabel": "chain-n0-pre-restart-send",
+      "pass": true,
+      "at": "2026-07-04T05:00:41.603717200+00:00"
+    }
+  ]
+}

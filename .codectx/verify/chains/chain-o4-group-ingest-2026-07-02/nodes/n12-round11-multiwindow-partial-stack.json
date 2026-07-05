@@ -1,0 +1,22 @@
+{
+  "schema": "codactrl.investigation.node@0.1.0",
+  "chainId": "chain-o4-group-ingest-2026-07-02",
+  "nodeId": "n12-round11-multiwindow-partial-stack",
+  "trigger": "round11 CodaCtrl update pass; opened profile slot window; CDP 9231 down; coordination :8787 up; Docker down",
+  "at": "2026-07-01T22:36:07.763708100+00:00",
+  "sessionId": "csess-af73d0bd5b5c",
+  "surfaces": {
+    "mainThreadMessageCount": 0,
+    "mainThreadSystemCards": 0,
+    "alertBannerCount": 1,
+    "splitBrainSuspected": false
+  },
+  "digestRef": "fault-0dd352c0",
+  "screenshotRef": ".codectx/verify/client-sessions/csess-af73d0bd5b5c/captures/cap-b1585777b8eb/screenshot.png",
+  "hypothesis": "Second native window opens but CDP remains single-target on :9230; send still blocked without :7000",
+  "doesNotProve": [
+    "Second window CDP attach",
+    "Tester2 profile setup",
+    "Docker relay up"
+  ]
+}

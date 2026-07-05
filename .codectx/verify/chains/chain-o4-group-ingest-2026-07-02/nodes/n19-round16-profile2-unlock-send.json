@@ -1,0 +1,22 @@
+{
+  "schema": "codactrl.investigation.node@0.1.0",
+  "chainId": "chain-o4-group-ingest-2026-07-02",
+  "nodeId": "n19-round16-profile2-unlock-send",
+  "trigger": "round16-dual-profile-harness",
+  "at": "2026-07-02T11:19:08.125985100+00:00",
+  "sessionId": "csess-e440bdda1773",
+  "surfaces": {
+    "mainThreadMessageCount": 11,
+    "mainThreadSystemCards": 12,
+    "alertBannerCount": 7,
+    "splitBrainSuspected": false
+  },
+  "digestRef": "fault-0f46250f",
+  "screenshotRef": ".codectx/verify/client-sessions/csess-e440bdda1773/captures/cap-4556338e2526/screenshot.png",
+  "hypothesis": "Profile-2 CDP session can unlock Tester2 and send messages independently of main window",
+  "doesNotProve": [
+    "COM-RUN-11 invite Accept/Cancel matrix",
+    "Tester2 community sidebar membership",
+    "COM-RUN-01 roster parity"
+  ]
+}

@@ -1,0 +1,5 @@
+- dialog "Lock Obscur?":
+  - heading "Lock Obscur?" [level=2]
+  - paragraph: Your account stays on this device, but messages and vault files are encrypted until you unlock again.
+  - button "Cancel"
+  - button "Lock"

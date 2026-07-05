@@ -1,0 +1,14 @@
+{
+  "schema": "codactrl.investigation.node@0.1.0",
+  "chainId": "chain-o4-group-ingest-2026-07-02",
+  "nodeId": "n15-round13-bridge-multiwindow-partial",
+  "trigger": "round13-multiwindow-bridge",
+  "at": "2026-07-02T09:59:15.886281200+00:00",
+  "sessionId": "csess-937c30f83699",
+  "screenshotRef": ".codectx/verify/client-sessions/csess-937c30f83699/captures/cap-93f18a92b97b/screenshot.png",
+  "hypothesis": "agent bridge listWindows shows main + profile-profile-2-*; openProfileSlot(2) ok; focusWindow ACL denied; CDP still 1 target",
+  "doesNotProve": [
+    "CDP attach to profile window",
+    "Tester2 UI automation"
+  ]
+}

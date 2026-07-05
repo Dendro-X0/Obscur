@@ -1,0 +1,25 @@
+{
+  "schema": "codactrl.investigation.node@0.1.0",
+  "chainId": "chain-o4-group-ingest-2026-07-02",
+  "nodeId": "n10-round23-post-rebuild-ledger",
+  "trigger": "post-rebuild Tester1 unlock via obscurDevLab",
+  "at": "2026-07-03T07:20:13.929419+00:00",
+  "sessionId": "csess-a2718d3b966a",
+  "digestRef": "fault-8080269f",
+  "screenshotRef": ".codectx/verify/client-sessions/csess-a2718d3b966a/captures/cap-42cdbbeca87b/screenshot.png",
+  "signals": [
+    "dm-normalize-is-outgoing-mismatch",
+    "groups-ledger-validation"
+  ],
+  "signalsExtracted": [
+    "account_projection.append_events",
+    "account_projection.replay_complete",
+    "groups.ledger_validation_issues",
+    "messaging.conversation_list_authority_selected",
+    "messaging.delete_for_everyone_remote_result",
+    "messaging.dm_normalize_is_outgoing_mismatch",
+    "navigation.intelligent_warmup_phase_completed",
+    "network.peer_trust_read_authority_selected"
+  ],
+  "hypothesis": "Post-rebuild unlock: invalidEntries still 7/7 — v2-labelled incomplete rows (6 left thin, 1 joined missing publicKeyHex); extended repair landed same session"
+}

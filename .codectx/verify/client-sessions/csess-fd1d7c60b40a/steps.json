@@ -1,0 +1,60 @@
+{
+  "schema": "client.session.steps@0.1.0",
+  "sessionId": "csess-fd1d7c60b40a",
+  "updatedAt": "2026-07-04T23:59:44.615198700+00:00",
+  "stepCount": 5,
+  "steps": [
+    {
+      "index": 0,
+      "stepId": "step-351acaca74a0",
+      "action": "snapshot",
+      "captureId": "cap-44d532d7e10a",
+      "manifestPath": ".codectx/verify/client-sessions/csess-fd1d7c60b40a/captures/cap-44d532d7e10a/manifest.json",
+      "stepLabel": "download-editorial-pass",
+      "pass": true,
+      "at": "2026-07-04T23:57:35.443414600+00:00"
+    },
+    {
+      "index": 1,
+      "stepId": "step-0df11fb55b98",
+      "action": "screenshot",
+      "captureId": "cap-d87b7ccd0c2c",
+      "manifestPath": ".codectx/verify/client-sessions/csess-fd1d7c60b40a/captures/cap-d87b7ccd0c2c/manifest.json",
+      "stepLabel": "download-editorial-after",
+      "pass": true,
+      "at": "2026-07-04T23:57:39.081473700+00:00"
+    },
+    {
+      "index": 2,
+      "stepId": "step-70e319b883df",
+      "action": "webSurfaceProbe",
+      "captureId": "cap-c090d4223f05",
+      "manifestPath": ".codectx/verify/client-sessions/csess-fd1d7c60b40a/captures/cap-c090d4223f05/manifest.json",
+      "stepLabel": "web-surface-probe",
+      "pass": true,
+      "message": "web surface probe captured",
+      "at": "2026-07-04T23:57:40.800082+00:00"
+    },
+    {
+      "index": 3,
+      "stepId": "step-d5d68da6b976",
+      "action": "surfaceProbe",
+      "captureId": "cap-ae46cba93926",
+      "manifestPath": ".codectx/verify/client-sessions/csess-fd1d7c60b40a/captures/cap-ae46cba93926/manifest.json",
+      "stepLabel": "surface-probe",
+      "pass": true,
+      "message": "split-brain suspected: sidebar preview with empty main thread",
+      "at": "2026-07-04T23:59:42.300089800+00:00"
+    },
+    {
+      "index": 4,
+      "stepId": "step-2e3aab5394a1",
+      "action": "screenshot",
+      "captureId": "cap-4131ea89f8d9",
+      "manifestPath": ".codectx/verify/client-sessions/csess-fd1d7c60b40a/captures/cap-4131ea89f8d9/manifest.json",
+      "stepLabel": "chain-n2-download-after",
+      "pass": true,
+      "at": "2026-07-04T23:59:44.601939900+00:00"
+    }
+  ]
+}

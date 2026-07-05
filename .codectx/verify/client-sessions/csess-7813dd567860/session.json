@@ -1,0 +1,9 @@
+{
+  "schema": "client.session@0.1.0",
+  "sessionId": "csess-7813dd567860",
+  "provider": "playwright-chromium",
+  "proofTier": "t2",
+  "createdAt": "2026-07-04T23:59:44.633514500+00:00",
+  "repoRoot": "E:\\Web Projects\\experimental-workspace\\obscur",
+  "url": "http://localhost:3000/download"
+}

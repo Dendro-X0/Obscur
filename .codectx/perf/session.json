@@ -1,0 +1,308 @@
+{
+  "activeAppRoot": "apps/coordination",
+  "exploreError": null,
+  "exploreScope": "monorepo-critical-path",
+  "lastBundleId": "bundle-20260701050052.374227600+0000",
+  "lastExploreId": "028eee2e-8450-aa3b-55dd-a04696f5740c",
+  "operationalMode": "monorepo-audit",
+  "phase": "configured",
+  "profile": {
+    "appRoles": [
+      {
+        "appRoot": "apps/website",
+        "name": "website",
+        "role": "primary-web",
+        "stack": "next"
+      },
+      {
+        "appRoot": "apps/desktop",
+        "name": "@dweb/desktop",
+        "role": "desktop-shell",
+        "stack": "tauri"
+      },
+      {
+        "appRoot": "apps/pwa",
+        "name": "pwa",
+        "role": "app",
+        "stack": "next"
+      },
+      {
+        "appRoot": "apps/coordination",
+        "name": "@obscur/coordination-worker",
+        "role": "app",
+        "stack": null
+      },
+      {
+        "appRoot": "apps/relay-gateway",
+        "name": "@obscur/relay-gateway",
+        "role": "app",
+        "stack": null
+      }
+    ],
+    "generatedAt": "2026-07-04T03:59:44.789677100+00:00",
+    "recommendedDefaults": {
+      "appRoot": "apps/website",
+      "exploreScope": "monorepo-critical-path",
+      "operationalMode": "monorepo-audit"
+    },
+    "scanSnapshotHash": "sha256:19cd49bf1888046751c8cfd46b28a6d7c08297734ca546ffe09f6ec10cf553e7",
+    "schema": "perf.profile@1.0.0",
+    "suggestedOperationalModes": [
+      {
+        "confidence": 0.84,
+        "mode": "monorepo-audit",
+        "reason": "5 app packages — audit all deployable surfaces"
+      },
+      {
+        "confidence": 0.71,
+        "mode": "single-app",
+        "reason": "Focus one app target for a narrower obligation set"
+      }
+    ],
+    "workspaceProfile": {
+      "architecture": {
+        "appCount": 5,
+        "appRoots": [
+          "apps"
+        ],
+        "crateCount": 0,
+        "crateRoots": [],
+        "libCount": 23,
+        "libRoots": [
+          "packages"
+        ],
+        "workspaceMarkers": [
+          "pnpm-workspace.yaml",
+          "package.json"
+        ]
+      },
+      "confidence": 0.9399999976158142,
+      "previewScopedPackages": [
+        "apps/coordination",
+        "apps/pwa",
+        "apps/website",
+        "packages/db",
+        "packages/dweb-auth",
+        "packages/dweb-client-gateway",
+        "packages/dweb-coordination-contracts",
+        "packages/dweb-core",
+        "packages/dweb-crdt",
+        "packages/dweb-crypto",
+        "packages/dweb-nostr",
+        "packages/dweb-storage",
+        "packages/dweb-storage-contracts",
+        "packages/dweb-transport-contracts",
+        "packages/dweb-transport-coordination",
+        "packages/dweb-transport-nostr",
+        "packages/dweb-transport-team-relay",
+        "packages/obscur-auth-engine",
+        "packages/obscur-conduit-mesh",
+        "packages/obscur-conduit-mesh-contracts",
+        "packages/obscur-dm-engine",
+        "packages/obscur-engine-contracts",
+        "packages/obscur-engine-host",
+        "packages/obscur-transport-engine",
+        "packages/obscur-workspace-engine",
+        "packages/ui-kit"
+      ],
+      "primaryStack": "tauri",
+      "projectFamily": "node-monorepo",
+      "projectTypeLabel": "Node monorepo · tauri · pnpm",
+      "recommendedAppRoot": "apps/website",
+      "recommendedExploreScope": "monorepo-critical-path",
+      "rootMarkers": [
+        {
+          "kind": "manifest",
+          "path": "package.json",
+          "signal": "Node.js package manifest"
+        },
+        {
+          "kind": "lockfile",
+          "path": "pnpm-lock.yaml",
+          "signal": "pnpm lockfile"
+        },
+        {
+          "kind": "monorepo-tool",
+          "path": "pnpm-workspace.yaml",
+          "signal": "pnpm workspace"
+        },
+        {
+          "kind": "framework",
+          "path": "next.config.*",
+          "signal": "Next.js app router"
+        }
+      ],
+      "runtimeSignals": [
+        "Next.js app router",
+        "app:apps/coordination",
+        "app:apps/desktop",
+        "app:apps/pwa",
+        "app:apps/relay-gateway",
+        "app:apps/website",
+        "framework:tauri",
+        "monorepo:pnpm"
+      ],
+      "setupReady": true
+    }
+  },
+  "repoRoot": "E:\\Web Projects\\experimental-workspace\\newstart",
+  "resumeLastSession": false,
+  "runConfirmedAt": "2026-07-01T05:00:02.795155700+00:00",
+  "runHistory": [
+    {
+      "bundleId": "bundle-20260701050052.374227600+0000",
+      "completedAt": "2026-07-01T05:00:02.795155700+00:00",
+      "exploreId": "38888747-2399-37fc-557b-10df93b98528",
+      "kind": "monorepo-audit",
+      "obligation": {
+        "info": 0,
+        "red": 0,
+        "total": 38,
+        "yellow": 38
+      },
+      "previousBundleId": "bundle-20260630104227.423047400+0000",
+      "runId": "bundle-20260701050052.374227600+0000",
+      "scanSnapshotHash": "sha256:c74ff6696729e4efc2c56d8b341c48041e1fe4955d07297304c6d74ab9677428",
+      "stepChurn": {
+        "flatCounts": false,
+        "new": 0,
+        "resolved": 6,
+        "severityDelta": {
+          "red": 0,
+          "total": -30,
+          "yellow": -30
+        },
+        "unchanged": 35
+      }
+    },
+    {
+      "bundleId": "bundle-20260630104227.423047400+0000",
+      "completedAt": "2026-06-30T10:41:36.901452+00:00",
+      "exploreId": "ecd051b0-2db2-3ed9-1ea2-161159f7660f",
+      "kind": "monorepo-audit",
+      "obligation": {
+        "info": 0,
+        "red": 0,
+        "total": 38,
+        "yellow": 38
+      },
+      "previousBundleId": "bundle-20260630102628.395129500+0000",
+      "runId": "bundle-20260630104227.423047400+0000",
+      "scanSnapshotHash": "sha256:cfe9969aec7ff87086a6a14112c38cabb1db7b9b04a8cc55a2b60aec8cf7ca14",
+      "stepChurn": {
+        "flatCounts": false,
+        "new": 0,
+        "resolved": 6,
+        "severityDelta": {
+          "red": 0,
+          "total": -30,
+          "yellow": -30
+        },
+        "unchanged": 35
+      }
+    },
+    {
+      "bundleId": "bundle-20260630102628.395129500+0000",
+      "completedAt": "2026-06-30T10:25:06.648486800+00:00",
+      "exploreId": "ed7616a3-f1d4-708f-d236-3d142d9d6815",
+      "kind": "monorepo-audit",
+      "obligation": {
+        "info": 0,
+        "red": 0,
+        "total": 68,
+        "yellow": 68
+      },
+      "previousBundleId": "bundle-20260630095506.087588800+0000",
+      "runId": "bundle-20260630102628.395129500+0000",
+      "scanSnapshotHash": "sha256:0557ab065b3d4898dc7cb4086f51ac1e23ce24591b44fb444467ed57133b2af8",
+      "stepChurn": {
+        "flatCounts": false,
+        "new": 0,
+        "resolved": 23,
+        "severityDelta": {
+          "red": 0,
+          "total": -35,
+          "yellow": -35
+        },
+        "unchanged": 41
+      }
+    },
+    {
+      "bundleId": "bundle-20260630095506.087588800+0000",
+      "completedAt": "2026-06-30T09:53:44.811210700+00:00",
+      "exploreId": "7dcefa9a-45ea-1d08-3f26-eb16e01c0d6b",
+      "kind": "monorepo-audit",
+      "obligation": {
+        "info": 0,
+        "red": 0,
+        "total": 103,
+        "yellow": 103
+      },
+      "previousBundleId": "bundle-20260630094457.227723100+0000",
+      "runId": "bundle-20260630095506.087588800+0000",
+      "scanSnapshotHash": "sha256:b153e6b78f7cac264362b5615c47ac20e482c6cc6341c97e27dd4fca84c37000"
+    },
+    {
+      "bundleId": "bundle-20260630094457.227723100+0000",
+      "completedAt": "2026-06-30T09:43:46.413978+00:00",
+      "exploreId": "7f2e77f6-e22b-434e-ce47-becd4c8791e2",
+      "kind": "monorepo-audit",
+      "obligation": {
+        "info": 0,
+        "red": 0,
+        "total": 103,
+        "yellow": 103
+      },
+      "previousBundleId": "bundle-20260630092316.734848800+0000",
+      "runId": "bundle-20260630094457.227723100+0000",
+      "scanSnapshotHash": "sha256:4f2d7c0db67399b71d25b6a67b2f627e3c8ea1fa18c91365ac4d5bab4cee863e"
+    },
+    {
+      "bundleId": "bundle-20260630092316.734848800+0000",
+      "completedAt": "2026-06-30T09:21:53.126299900+00:00",
+      "exploreId": "93a57660-7fb3-474b-1939-9247709fdad8",
+      "kind": "monorepo-audit",
+      "obligation": {
+        "info": 0,
+        "red": 0,
+        "total": 103,
+        "yellow": 103
+      },
+      "previousBundleId": "bundle-20260630092148.662374600+0000",
+      "runId": "bundle-20260630092316.734848800+0000",
+      "scanSnapshotHash": "sha256:c155e9b4c71191b3648b4da698400c2fa9a55a33042d10a968ec9511cd974a03"
+    },
+    {
+      "bundleId": "bundle-20260630092148.662374600+0000",
+      "completedAt": "2026-06-30T09:20:30.704106600+00:00",
+      "exploreId": "93a57660-7fb3-474b-1939-9247709fdad8",
+      "kind": "monorepo-audit",
+      "obligation": {
+        "info": 0,
+        "red": 0,
+        "total": 103,
+        "yellow": 103
+      },
+      "previousBundleId": "bundle-20260630092020.627392500+0000",
+      "runId": "bundle-20260630092148.662374600+0000",
+      "scanSnapshotHash": "sha256:c155e9b4c71191b3648b4da698400c2fa9a55a33042d10a968ec9511cd974a03"
+    },
+    {
+      "bundleId": "bundle-20260630092020.627392500+0000",
+      "completedAt": "2026-06-30T09:19:01.666108700+00:00",
+      "exploreId": "146a8983-cd68-9863-8512-9c5e426ba3da",
+      "kind": "monorepo-audit",
+      "obligation": {
+        "info": 0,
+        "red": 0,
+        "total": 103,
+        "yellow": 103
+      },
+      "runId": "bundle-20260630092020.627392500+0000",
+      "scanSnapshotHash": "sha256:c155e9b4c71191b3648b4da698400c2fa9a55a33042d10a968ec9511cd974a03"
+    }
+  ],
+  "schema": "perf.session@2.0.0",
+  "updatedAt": "2026-07-04T03:59:44.790215400+00:00",
+  "viewMode": "clearing"
+}

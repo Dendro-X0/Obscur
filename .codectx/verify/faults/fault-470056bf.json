@@ -1,0 +1,40 @@
+{
+  "digestPath": ".codectx/verify/faults/fault-470056bf.digest.json",
+  "fault": {
+    "artifactPath": ".codectx/verify/faults/fault-470056bf.json",
+    "faultId": "fault-470056bf",
+    "importedAt": "2026-07-03T03:50:45.322559400+00:00",
+    "kind": "runtime_digest",
+    "primarySymptomId": "groups-ledger-validation",
+    "proofTier": "t3",
+    "schema": "obscur.m0.capture.v1",
+    "signalsExtract": [
+      {
+        "detail": "count=213",
+        "name": "messaging.delete_for_everyone_remote_result"
+      },
+      {
+        "detail": "count=15",
+        "name": "groups.ledger_validation_issues"
+      },
+      {
+        "detail": "count=14",
+        "name": "account_projection.append_events"
+      },
+      {
+        "detail": "count=8",
+        "name": "desktop_warmup_progress"
+      },
+      {
+        "detail": "count=8",
+        "name": "messaging.conversation_list_authority_selected"
+      }
+    ],
+    "symptomIds": [
+      "groups-ledger-validation"
+    ],
+    "title": "messaging.delete_for_everyone_remote_result — count=213"
+  },
+  "schema": "verify.fault.import@0.1.0",
+  "sourcePath": ".codectx/verify/client-sessions/csess-7143ef3a3a02/captures/cap-81e6979933ae/digest.json"
+}

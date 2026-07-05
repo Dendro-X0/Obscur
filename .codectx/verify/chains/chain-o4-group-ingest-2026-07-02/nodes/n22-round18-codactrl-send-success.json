@@ -1,0 +1,21 @@
+{
+  "schema": "codactrl.investigation.node@0.1.0",
+  "chainId": "chain-o4-group-ingest-2026-07-02",
+  "nodeId": "n22-round18-codactrl-send-success",
+  "trigger": "round18-codactrl-upgrade",
+  "at": "2026-07-02T14:45:29.058692700+00:00",
+  "sessionId": "csess-6f1a35b7762b",
+  "surfaces": {
+    "mainThreadMessageCount": 12,
+    "mainThreadSystemCards": 0,
+    "alertBannerCount": 2,
+    "splitBrainSuspected": false
+  },
+  "digestRef": "fault-d730591d",
+  "screenshotRef": ".codectx/verify/client-sessions/csess-6f1a35b7762b/captures/cap-a45dd4eacd8f/screenshot.png",
+  "hypothesis": "Round18 post-upgrade: O4 send O4-round18-codactrl-072T1445 visible; Docker :7000; skipStackPreflight used (coord cold); validates CC-EVAL-25/04/17 export fixes",
+  "doesNotProve": [
+    "COM-RUN-11 invite UX",
+    "COM-RUN-01 roster parity"
+  ]
+}

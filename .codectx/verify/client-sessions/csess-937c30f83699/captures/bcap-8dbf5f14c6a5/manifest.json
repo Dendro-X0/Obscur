@@ -1,0 +1,21 @@
+{
+  "args": [
+    2
+  ],
+  "captureId": "bcap-8dbf5f14c6a5",
+  "capturedAt": "2026-07-02T09:58:33.664746600+00:00",
+  "cdpPort": 9230,
+  "method": "openProfileSlot",
+  "pass": true,
+  "result": {
+    "invoked": "desktop_open_profile_window",
+    "label": "main",
+    "ok": true,
+    "profileId": "profile-2",
+    "profileLabel": "Profile 2",
+    "slot": 2
+  },
+  "schema": "client.agent.bridgeCall@0.1.0",
+  "sessionId": "csess-937c30f83699",
+  "targetUrl": "http://127.0.0.1:1430/"
+}

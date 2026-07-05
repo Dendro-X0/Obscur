@@ -1,0 +1,44 @@
+{
+  "schema": "verify.export.manifest@0.1.0",
+  "exportedAt": "2026-07-04T14:15:18.761862900+00:00",
+  "agentExportAt": "2026-07-04T14:15:18.761862900+00:00",
+  "operatorExportAt": "2026-07-04T14:15:18.761862900+00:00",
+  "roundLabel": "2026-07-04-r1-room-key-health-t4",
+  "authoritativeNotes": "R1 health hook uses resolveRoomKeyHexForMembershipHealthPanel; warm send + cold restart on NewTest 2",
+  "confirmedBy": "agent",
+  "promotionStage": "spec",
+  "exportGeneration": 3,
+  "repro": {
+    "chainId": "chain-r1-room-key-health-2026-07-04",
+    "sessionId": "csess-3b202577b4d1",
+    "cdpPort": 9230,
+    "workspacePath": "E:/Web Projects/experimental-workspace/newstart",
+    "multiActorRound": true,
+    "sessions": [
+      {
+        "sessionId": "csess-3b202577b4d1",
+        "cdpPort": 9230,
+        "windowLabel": "main",
+        "role": "Tester1"
+      },
+      {
+        "sessionId": "csess-44f67ea7565d",
+        "cdpPort": 9230,
+        "windowLabel": "main",
+        "role": "Tester1"
+      },
+      {
+        "sessionId": "csess-4c4583330873",
+        "cdpPort": 9230,
+        "windowLabel": "main",
+        "role": "Tester1"
+      },
+      {
+        "sessionId": "csess-94f4ca6d3332",
+        "cdpPort": 9230,
+        "windowLabel": "main",
+        "role": "Tester1"
+      }
+    ]
+  }
+}

@@ -1,0 +1,7 @@
+[profile-picker-verify] using live Tauri CDP at http://127.0.0.1:9230
+[profile-picker-verify] CDP: not on profile picker — navigating to /profiles
+[profile-picker-verify] FAIL page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:3341/profiles
+Call log:
+  - navigating to "http://127.0.0.1:3341/profiles", waiting until "domcontentloaded"
+
+[profile-picker-verify] done — 0 passed, 1 failed

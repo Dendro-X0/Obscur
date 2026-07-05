@@ -1,0 +1,97 @@
+- main:
+  - text: Client release-v1.9.10-relay-recovery-20260617
+  - img "Obscur"
+  - text: Obscur
+  - button "desktop.titleBar.lock"
+  - button "Open desktop profile switcher":
+    - img "Tester1"
+    - text: Tester1 Obscur / e07f67dc...c191ea56
+  - button "Minimize window"
+  - button "Maximize window"
+  - button "Close window"
+  - button "Connected"
+  - link "Chats":
+    - /url: /
+  - link "Network":
+    - /url: /network
+  - link "Vault":
+    - /url: /vault
+  - link "Search":
+    - /url: /search
+  - link "Settings":
+    - /url: /settings
+  - button "Open profile menu":
+    - img "Tester1"
+  - text: NewTest 2
+  - main:
+    - button "Back to Network"
+    - text: "N"
+    - heading "NewTest 2" [level=1]
+    - text: ws://localhost:7000
+    - paragraph: This resilient community is built on decentralized protocols. Privacy first, always.
+    - button "Enter Community Chat"
+    - button "Invite"
+    - button "Manage"
+    - button "Disable notifications"
+    - button "Copy discovery link"
+    - button "Leave community"
+    - button "Participants Community Access Open the encrypted chat, invite peers, and browse active members with leave and expulsion applied. Active membership evidence Tester1 Open Participants":
+      - text: Participants
+      - heading "Community Access" [level=3]
+      - paragraph: Open the encrypted chat, invite peers, and browse active members with leave and expulsion applied.
+      - paragraph: Active membership evidence
+      - img "Tester1"
+      - text: Open Participants
+    - heading "Registry & Privacy" [level=3]
+    - paragraph: Visibility is open. This community is public and listed in the decentralized registry.
+    - text: Encrypted Storage
+    - heading "Relay Infrastructure" [level=3]
+    - paragraph: ws://localhost:7000
+    - paragraph: Status
+    - paragraph: Connected & optimized
+    - paragraph: All scoped events are flowing normally
+    - heading "Personal controls" [level=3]
+    - paragraph: Block, delete, or unblock this community on your device. Open Manage for members, governance, relay settings, and invites.
+    - button "Block community Hide this community from your inbox and stop notifications":
+      - paragraph: Block community
+      - paragraph: Hide this community from your inbox and stop notifications
+    - button "Delete community Open the leave page to confirm removal of all local data for Default (keeps your account).":
+      - paragraph: Delete community
+      - paragraph: Open the leave page to confirm removal of all local data for Default (keeps your account).
+    - dialog "NewTest 2":
+      - text: "N"
+      - paragraph: NewTest 2
+      - text: Managed Workspace ws://localhost:7000
+      - button "Close community settings"
+      - navigation "Community settings sections":
+        - button "General"
+        - button "Participants"
+        - button "Governance"
+        - button "Safety"
+      - heading "General" [level=2]
+      - paragraph: Community name, avatar, description, and discovery settings.
+      - button "Share invite"
+      - text: Avatar
+      - button "Upload community avatar"
+      - paragraph: Shown in discovery and on your community home. Square image, at least 256×256, max 5 MB.
+      - text: Community name
+      - textbox "Community name":
+        - /placeholder: My community
+        - text: NewTest 2
+      - text: About
+      - textbox "About":
+        - /placeholder: What is this community for?
+      - text: Who can find this community
+      - button "Open"
+      - button "Listed"
+      - button "Invite only"
+      - text: Outbound bots (B1)
+      - paragraph: Register bot npubs allowed to publish announcements on this managed workspace. Unlisted authors are not shown when at least one bot is registered. Changes apply after members approve the governance proposal (Propose changes).
+      - paragraph: No bots registered — all members can post (legacy permissive mode).
+      - textbox "Bot public key (hex)"
+      - button "Add bot" [disabled]
+      - paragraph: This community has multiple members. Saving will create a governance proposal instead of applying immediately.
+      - group: Relay & protocol details
+      - button "Cancel"
+      - button "Propose changes"
+- alert

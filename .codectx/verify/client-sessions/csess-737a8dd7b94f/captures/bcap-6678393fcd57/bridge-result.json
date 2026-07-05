@@ -1,0 +1,23 @@
+{
+  "ok": true,
+  "pass": true,
+  "method": "listWindows",
+  "args": [],
+  "cdpPort": 9230,
+  "targetUrl": "http://127.0.0.1:1430/",
+  "result": [
+    {
+      "label": "main",
+      "focused": false,
+      "visible": true,
+      "title": "Obscur"
+    },
+    {
+      "label": "profile-profile-2-1783142390724",
+      "focused": false,
+      "visible": true,
+      "title": "Obscur - Profile 2"
+    }
+  ],
+  "message": "bridge call ok"
+}

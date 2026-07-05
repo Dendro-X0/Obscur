@@ -1,0 +1,21 @@
+{
+  "schema": "codactrl.investigation.node@0.1.0",
+  "chainId": "chain-o4-group-ingest-2026-07-02",
+  "nodeId": "n0-stack-preflight",
+  "trigger": "Step 7 preflight: coordination:8787 up, relay:7000 started, desktop /sign-in gate",
+  "at": "2026-07-01T11:24:02.243280200+00:00",
+  "sessionId": "csess-5f10d872d481",
+  "surfaces": {
+    "mainThreadMessageCount": 0,
+    "mainThreadSystemCards": 0,
+    "alertBannerCount": 1,
+    "splitBrainSuspected": false
+  },
+  "digestRef": "fault-0196a614",
+  "screenshotRef": ".codectx/verify/client-sessions/csess-5f10d872d481/captures/cap-979ff3b81230/screenshot.png",
+  "doesNotProve": [
+    "group message sent",
+    "relay ingest",
+    "second profile receive"
+  ]
+}

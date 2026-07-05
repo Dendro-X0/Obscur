@@ -1,0 +1,27 @@
+- text: This device has no saved password for this profile. Unlock with your private key on the Import Key tab, then choose whether to set a device login password.
+- button "Dismiss notification"
+- main:
+  - text: Client release-v1.9.10-relay-recovery-20260617
+  - img "Obscur"
+  - text: Obscur
+  - button "Switch profile before sign-in":
+    - img "Tester1"
+    - text: Tester1 Switch profile
+  - button "Minimize window"
+  - button "Maximize window"
+  - button "Close window"
+  - button "Change Language"
+  - button
+  - heading "Welcome Back" [level=2]
+  - paragraph: Enter your existing device login password to unlock Tester1. Import Key is available if password unlock fails.
+  - button "Log In"
+  - button "Import Key"
+  - paragraph: No device login password is saved for this profile on this device. Go to Import Key, unlock with your private key, then choose whether to set a new password or continue with key-only sign-in.
+  - text: Private Key
+  - textbox "nsec1..."
+  - text: How sign-in works on this device
+  - paragraph: Enter your device login password to unlock this profile. After a successful unlock, Obscur stores your session in OS secure storage so you can reopen the app without signing in again. Your password is never saved in the browser.
+  - paragraph: "Step 1: paste your private key and continue. Step 2: set a new device password or skip."
+  - button "Continue with private key" [disabled]
+  - text: Self-Custody Anonymous
+- alert

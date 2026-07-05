@@ -1,0 +1,56 @@
+{
+  "schema": "client.session.steps@0.1.0",
+  "sessionId": "csess-09a8c99c6615",
+  "updatedAt": "2026-07-03T09:01:32.096080100+00:00",
+  "stepCount": 5,
+  "steps": [
+    {
+      "index": 0,
+      "stepId": "step-8e945f7bb2bb",
+      "action": "snapshot",
+      "captureId": "cap-794f31dceb14",
+      "manifestPath": ".codectx/verify/client-sessions/csess-09a8c99c6615/captures/cap-794f31dceb14/manifest.json",
+      "pass": true,
+      "at": "2026-07-03T09:01:13.259647600+00:00"
+    },
+    {
+      "index": 1,
+      "stepId": "step-60d1fbf1af05",
+      "action": "click",
+      "captureId": "cap-5725749b126c",
+      "manifestPath": ".codectx/verify/client-sessions/csess-09a8c99c6615/captures/cap-5725749b126c/manifest.json",
+      "selector": "main button:has-text(\"Dark\")",
+      "pass": true,
+      "at": "2026-07-03T09:01:23.775991400+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-b086dedf85be",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-5725749b126c",
+      "manifestPath": ".codectx/verify/client-sessions/csess-09a8c99c6615/captures/cap-5725749b126c/manifest.json",
+      "pass": true,
+      "at": "2026-07-03T09:01:23.778928200+00:00"
+    },
+    {
+      "index": 3,
+      "stepId": "step-37bc23e8e4e3",
+      "action": "click",
+      "captureId": "cap-927ae6b4ea3c",
+      "manifestPath": ".codectx/verify/client-sessions/csess-09a8c99c6615/captures/cap-927ae6b4ea3c/manifest.json",
+      "stepLabel": "theme-dark",
+      "selector": "main button:has-text(\"Dark\"):not([disabled])",
+      "pass": true,
+      "at": "2026-07-03T09:01:32.081449+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-d119bf7c1e02",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-927ae6b4ea3c",
+      "manifestPath": ".codectx/verify/client-sessions/csess-09a8c99c6615/captures/cap-927ae6b4ea3c/manifest.json",
+      "pass": true,
+      "at": "2026-07-03T09:01:32.084017200+00:00"
+    }
+  ]
+}

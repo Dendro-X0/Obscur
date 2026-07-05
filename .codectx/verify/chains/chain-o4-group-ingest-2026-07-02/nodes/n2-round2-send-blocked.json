@@ -1,0 +1,22 @@
+{
+  "schema": "codactrl.investigation.node@0.1.0",
+  "chainId": "chain-o4-group-ingest-2026-07-02",
+  "nodeId": "n2-round2-send-blocked",
+  "trigger": "Send O4-round2-codactrl-071T1409 — composer cleared, no new bubble, sidebar group-key warning persists",
+  "at": "2026-07-01T14:09:47.918531500+00:00",
+  "sessionId": "csess-510a62aba320",
+  "surfaces": {
+    "mainThreadMessageCount": 4,
+    "mainThreadSystemCards": 0,
+    "alertBannerCount": 2,
+    "splitBrainSuspected": false
+  },
+  "digestRef": "fault-d91cd690",
+  "screenshotRef": ".codectx/verify/client-sessions/csess-510a62aba320/captures/cap-aab86343339c/screenshot.png",
+  "hypothesis": "Group key unavailable blocks send despite hydrated history",
+  "doesNotProve": [
+    "Tester2 receive path",
+    "Docker relay :7000",
+    "cold restart"
+  ]
+}

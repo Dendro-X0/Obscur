@@ -1,0 +1,36 @@
+{
+  "schema": "codactrl.investigation.node@0.1.0",
+  "chainId": "chain-com-run-11-phase1c-2026-07-04",
+  "nodeId": "n2-fresh-invite-accept",
+  "trigger": "Tester2 accepted invite b4683d19-65d8-441f-94b7-dcce668f5b90; Group 1 badge; roomKey in wrap payload",
+  "at": "2026-07-04T05:41:03.919938100+00:00",
+  "sessionId": "csess-2d8d190be81a",
+  "surfaces": {
+    "mainThreadMessageCount": 14,
+    "mainThreadSystemCards": 0,
+    "alertBannerCount": 1,
+    "splitBrainSuspected": false
+  },
+  "digestRef": "fault-b74a26e4",
+  "screenshotRef": ".codectx/verify/client-sessions/csess-2d8d190be81a/captures/cap-e3d7b73197a8/screenshot.png",
+  "signals": [
+    "dm-normalize-is-outgoing-mismatch"
+  ],
+  "signalsExtracted": [
+    "account_sync.backup_publish_attempt",
+    "groups.ledger_field_repair_applied",
+    "groups.membership_ledger_save",
+    "messaging.conversation_list_authority_selected",
+    "messaging.delete_for_everyone_remote_result",
+    "messaging.dm_normalize_is_outgoing_mismatch",
+    "network.peer_trust_read_authority_selected",
+    "workspace.thread.hydrate"
+  ],
+  "transportEvidence": [
+    {
+      "eventId": "8418cb4febb1e9c0",
+      "plaintextPrefix": "{"
+    }
+  ],
+  "hypothesis": "Fresh invite with roomKey in DM gift-wrap unblocks T2 membership; accept distributes ledger entry"
+}

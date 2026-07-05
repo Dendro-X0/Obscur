@@ -1,0 +1,257 @@
+{
+  "schemaVersion": "codactrl.functional.logic@1.0.0",
+  "specId": "obscur-community-membership",
+  "title": "Obscur community membership — functional logic",
+  "version": "1.0.0",
+  "generatedFrom": "obscur-ux-gate-investigation-2026-07",
+  "subjectRepo": "experimental-workspace/obscur",
+  "maintainerNotes": "COM-RUN-02 room-key restore CANCELLED 2026-07-03. Invariants INV-COMM-001–004 flag reintroduction of local-key navigation gates.",
+  "truthLayers": [
+    {
+      "id": "coordination",
+      "label": "Coordination membership directory",
+      "authority": "network",
+      "canonicalRead": "apps/pwa/app/features/groups/services/community-coordination-membership-directory-store.ts",
+      "persistence": "profile_localStorage_cache"
+    },
+    {
+      "id": "ledger",
+      "label": "Community membership ledger",
+      "authority": "local_intent",
+      "canonicalWrite": "apps/pwa/app/features/groups/services/community-membership-mutation-owner.ts",
+      "persistence": "profile_localStorage"
+    },
+    {
+      "id": "room_key",
+      "label": "Room key store",
+      "authority": "local_crypto",
+      "canonicalRead": "apps/pwa/app/features/crypto/room-key-store.ts",
+      "persistence": "profile_localStorage",
+      "mayGateSend": true,
+      "mayGateNavigation": false
+    },
+    {
+      "id": "relay_transport",
+      "label": "Writable relay transport",
+      "authority": "network",
+      "mayGateSend": true,
+      "mayGateNavigation": false
+    }
+  ],
+  "gatePolicy": {
+    "productNavigation": {
+      "forbidPredicates": ["local_room_key_absent", "ledger_invalid", "probe_pending_as_false"],
+      "description": "Enter community, open invite dialog, accept invite navigation"
+    },
+    "productSend": {
+      "allowPredicates": ["room_key_required", "relay_required", "membership_joined"],
+      "description": "Encrypted send and distributeRoomKey may fail-closed"
+    },
+    "transportPublish": {
+      "allowFailClosed": true,
+      "scope": ["packages/obscur-conduit-mesh/**", "packages/obscur-transport-engine/**"]
+    }
+  },
+  "owners": [
+    {
+      "concern": "membership_ledger_mutation",
+      "canonical": "apps/pwa/app/features/groups/services/community-membership-mutation-owner.ts",
+      "forbiddenParallelWriters": [
+        "apps/pwa/app/features/groups/providers/group-provider-legacy.tsx"
+      ]
+    },
+    {
+      "concern": "managed_workspace_join",
+      "canonical": "apps/pwa/app/features/workspace-kernel/workspace-kernel-membership-port.ts",
+      "relatedReaders": [
+        "apps/pwa/app/features/groups/services/community-membership-truth.ts",
+        "apps/pwa/app/features/workspace-kernel/workspace-kernel-list-port.ts"
+      ]
+    },
+    {
+      "concern": "community_ui_action_policy",
+      "canonical": "apps/pwa/app/features/groups/services/community-membership-ui-action-policy.ts",
+      "consumersMustHonor": true
+    }
+  ],
+  "invariants": [
+    {
+      "id": "INV-COMM-001",
+      "title": "Community navigation not disabled on local room key absence",
+      "kind": "static",
+      "severity": "p0",
+      "pattern": "GATE",
+      "ruleRef": "RG-NO-UX-GATE-LOCAL-KEY",
+      "scope": [
+        "apps/pwa/app/features/groups/components/**",
+        "apps/pwa/app/groups/**"
+      ],
+      "forbid": [
+        "disabled=.*roomKey",
+        "isInviteDefective"
+      ],
+      "exceptions": [
+        "apps/pwa/app/features/groups/services/group-service.ts",
+        "distributeRoomKey"
+      ],
+      "obscurFindingIds": ["UG-004", "UG-005"],
+      "status": "violated"
+    },
+    {
+      "id": "INV-COMM-002",
+      "title": "UI action policy and consumers agree on invite/chat gates",
+      "kind": "cross",
+      "severity": "p0",
+      "pattern": "CONTRACT_DRIFT",
+      "ruleRef": "RG-POLICY-CONSUMER-DRIFT",
+      "static": {
+        "policyModule": "apps/pwa/app/features/groups/services/community-membership-ui-action-policy.ts",
+        "policyExports": [
+          "resolveCommunityChatActionDisabled",
+          "resolveCommunityInviteActionDisabled"
+        ],
+        "expectedReturn": false
+      },
+      "forbidInConsumers": [
+        "roomKeyHex.trim().length === 0",
+        "inviteMissingRoomKey"
+      ],
+      "obscurFindingIds": ["UG-022"],
+      "status": "partial_violation"
+    },
+    {
+      "id": "INV-COMM-003",
+      "title": "Join must not hard-fail solely on empty local room key when member in coordination",
+      "kind": "static",
+      "severity": "p0",
+      "pattern": "GATE",
+      "ruleRef": "RG-GATE-HARD-RETURN-KEY",
+      "scope": [
+        "apps/pwa/app/features/workspace-kernel/workspace-kernel-membership-port.ts",
+        "apps/pwa/app/features/groups/services/community-membership-join-transaction.ts"
+      ],
+      "forbid": ["room_key_missing", "if (!roomKeyPresent)"],
+      "maintainerStatus": "cancelled_band_redesign_required",
+      "obscurFindingIds": ["UG-002", "UG-003"],
+      "status": "violated"
+    },
+    {
+      "id": "INV-COMM-004",
+      "title": "Health chatEnabled must align with UI policy when policy disables gating",
+      "kind": "cross",
+      "severity": "p1",
+      "pattern": "HEALTH_MISMATCH",
+      "when": {
+        "policy": "resolveCommunityChatActionDisabled returns false"
+      },
+      "forbid": {
+        "healthModel": "chatEnabled requires roomKeyPresent only"
+      },
+      "obscurFindingIds": ["UG-001"],
+      "status": "violated"
+    },
+    {
+      "id": "INV-COMM-005",
+      "title": "Sendability guard wired to composer or removed",
+      "kind": "static",
+      "severity": "p1",
+      "pattern": "UNWIRED_GUARD",
+      "ruleRef": "RG-UNWIRED-EXPORT",
+      "export": "checkCommunitySendability",
+      "module": "apps/pwa/app/features/groups/services/community-sendability-guard.ts",
+      "requiredImporters": [
+        "apps/pwa/app/features/messaging/components/composer.tsx",
+        "apps/pwa/app/features/groups/**/group-thread*.tsx"
+      ],
+      "obscurFindingIds": ["UG-020", "UG-021"],
+      "status": "violated"
+    },
+    {
+      "id": "INV-COMM-006",
+      "title": "Invalid ledger entries must not persist after validation",
+      "kind": "runtime",
+      "severity": "p1",
+      "pattern": "TERMINAL_STATE",
+      "ruleRef": "RT-LEDGER-INVALID-PERSIST",
+      "signals": {
+        "invalidEvent": "groups.ledger_validation_issues",
+        "loadEvent": "groups.membership_ledger_load"
+      },
+      "assert": "invalidEntries decreases after repair or load rejects persist",
+      "obscurFindingIds": ["UG-040"],
+      "trackerRef": "RIW-1",
+      "status": "violated"
+    },
+    {
+      "id": "INV-COMM-007",
+      "title": "Trust/coordination probe pending is not unhealthy",
+      "kind": "static",
+      "severity": "p0",
+      "pattern": "GATE",
+      "ruleRef": "RG-PROBE-PESSIMISM",
+      "scope": [
+        "apps/pwa/app/features/groups/hooks/use-workspace-community-trust-gate.ts"
+      ],
+      "forbid": ["coordinationHealthy ?? false"],
+      "prefer": ["coordinationHealthy === null", "unknown", "pending"],
+      "obscurFindingIds": ["UG-010", "UG-011"],
+      "status": "violated"
+    },
+    {
+      "id": "INV-COMM-008",
+      "title": "Terminal invite relay join clears on later publish success",
+      "kind": "runtime",
+      "severity": "p2",
+      "pattern": "TERMINAL_STATE",
+      "ruleRef": "RG-TERMINAL-WITHOUT-RESET",
+      "module": "apps/pwa/app/features/groups/services/community-invite-relay-join.ts",
+      "require": "reset API or auto-clear on relay publish success",
+      "obscurFindingIds": ["UG-041"],
+      "status": "violated"
+    },
+    {
+      "id": "INV-COMM-009",
+      "title": "Single roster read projection for managed_workspace sidebar",
+      "kind": "owner",
+      "severity": "p1",
+      "pattern": "OWNER_SPLIT",
+      "ruleRef": "RG-OWNER-STORAGE-SPLIT",
+      "ownerGroup": "membership_roster_read",
+      "maxCanonicalReaders": 1,
+      "obscurFindingIds": ["UG-030", "UG-031", "UG-034"],
+      "trackerRef": "COM-RUN-07",
+      "status": "violated"
+    },
+    {
+      "id": "INV-COMM-010",
+      "title": "Transport fail-closed does not justify product navigation gates",
+      "kind": "contract",
+      "severity": "p3",
+      "pattern": "CONTRACT_DRIFT",
+      "contractPackage": "packages/dweb-core/src/community-projection-contracts.ts",
+      "assert": "localCacheState orthogonal to contentAvailabilityState in UX gates",
+      "obscurFindingIds": ["UG-060"],
+      "status": "reference"
+    }
+  ],
+  "recovery": [
+    {
+      "terminalState": "ledger_invalid",
+      "storage": "community-membership-ledger localStorage",
+      "required": "repair_on_load or user-facing reset",
+      "invariantRef": "INV-COMM-006"
+    },
+    {
+      "terminalState": "invite_relay_join_terminal_failed",
+      "storage": "community-invite-relay-join localStorage",
+      "required": "clear on successful publish",
+      "invariantRef": "INV-COMM-008"
+    },
+    {
+      "terminalState": "group_tombstone",
+      "storage": "group-tombstone-store localStorage",
+      "required": "explicit user untombstone or settings reset",
+      "invariantRef": "INV-COMM-009"
+    }
+  ]
+}

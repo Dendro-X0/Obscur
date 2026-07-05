@@ -1,0 +1,20 @@
+{
+  "schema": "codactrl.investigation.node@0.1.0",
+  "chainId": "chain-dm-split-brain-2026-07-02",
+  "nodeId": "n1-sign-in-gate",
+  "trigger": "img[alt=Tester1] click → /sign-in password gate",
+  "at": "2026-07-01T10:33:40.355500400+00:00",
+  "sessionId": "csess-169c06e92cf1",
+  "surfaces": {
+    "mainThreadMessageCount": 0,
+    "mainThreadSystemCards": 0,
+    "alertBannerCount": 1,
+    "splitBrainSuspected": false
+  },
+  "digestRef": "fault-2d269213",
+  "screenshotRef": ".codectx/verify/client-sessions/csess-169c06e92cf1/captures/cap-60328be9334e/screenshot.png",
+  "doesNotProve": [
+    "authenticated session",
+    "DM state"
+  ]
+}

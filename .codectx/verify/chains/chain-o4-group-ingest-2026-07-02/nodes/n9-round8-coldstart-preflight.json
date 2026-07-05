@@ -1,0 +1,22 @@
+{
+  "schema": "codactrl.investigation.node@0.1.0",
+  "chainId": "chain-o4-group-ingest-2026-07-02",
+  "nodeId": "n9-round8-coldstart-preflight",
+  "trigger": "taskkill obscur_desktop_app.exe → pnpm dev:desktop --online --skip-build; Docker :7000 + coordination :8787 already up; MCP unlock; landed NewTest 2 without Info visit; Send initially disabled",
+  "at": "2026-07-01T17:47:26.104051100+00:00",
+  "sessionId": "csess-b20deab2382f",
+  "surfaces": {
+    "mainThreadMessageCount": 7,
+    "mainThreadSystemCards": 0,
+    "alertBannerCount": 2,
+    "splitBrainSuspected": false
+  },
+  "digestRef": "fault-aca31c9d",
+  "screenshotRef": ".codectx/verify/client-sessions/csess-b20deab2382f/captures/cap-b5788ac04664/screenshot.png",
+  "hypothesis": "Cold-start send blocked without prior Info health cascade",
+  "doesNotProve": [
+    "Info health cascade visited",
+    "Tester2 ingest",
+    "Sidebar group-key label sync"
+  ]
+}

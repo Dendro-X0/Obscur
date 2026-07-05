@@ -1,0 +1,14 @@
+{
+  "schema": "codactrl.investigation.node@0.1.0",
+  "chainId": "chain-o4-group-ingest-2026-07-02",
+  "nodeId": "n14-round13-rebuild-send-success",
+  "trigger": "round13-o4-send",
+  "at": "2026-07-02T09:59:14.830657400+00:00",
+  "sessionId": "csess-937c30f83699",
+  "digestRef": "fault-52dd9177",
+  "screenshotRef": ".codectx/verify/client-sessions/csess-937c30f83699/captures/cap-07829433fe1f/screenshot.png",
+  "hypothesis": "round13 post-rebuild full stack send O4-round13-rebuild-072T0958; publishGroupEvent 9a615480 @ :7000",
+  "doesNotProve": [
+    "Tester2 ingest on second window"
+  ]
+}

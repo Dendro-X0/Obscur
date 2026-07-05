@@ -1,0 +1,215 @@
+{
+  "schema": "client.session.steps@0.1.0",
+  "sessionId": "csess-264849283e3c",
+  "updatedAt": "2026-07-04T17:20:34.774457700+00:00",
+  "stepCount": 21,
+  "steps": [
+    {
+      "index": 0,
+      "stepId": "step-c1a85f9bd2ea",
+      "action": "snapshot",
+      "captureId": "cap-c83b2c5eed08",
+      "manifestPath": ".codectx/verify/client-sessions/csess-264849283e3c/captures/cap-c83b2c5eed08/manifest.json",
+      "stepLabel": "connect-bootstrap",
+      "pass": true,
+      "at": "2026-07-04T17:18:21.649787400+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-5843023a1bbd",
+      "action": "mcp.client.session.connect",
+      "manifestPath": ".codectx/verify/client-sessions/csess-264849283e3c/attach-latest.json",
+      "pass": true,
+      "at": "2026-07-04T17:18:25.636905500+00:00"
+    },
+    {
+      "index": 2,
+      "stepId": "step-415a07b3efaf",
+      "action": "snapshot",
+      "captureId": "cap-301228a0e10b",
+      "manifestPath": ".codectx/verify/client-sessions/csess-264849283e3c/captures/cap-301228a0e10b/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T17:18:35.561405800+00:00"
+    },
+    {
+      "index": 3,
+      "stepId": "step-52372eaa909d",
+      "action": "click",
+      "captureId": "cap-bc95662c738b",
+      "manifestPath": ".codectx/verify/client-sessions/csess-264849283e3c/captures/cap-bc95662c738b/manifest.json",
+      "selector": "button:has-text(\"Tester1\")",
+      "pass": true,
+      "at": "2026-07-04T17:18:42.714630500+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-a70b054c0ce9",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-bc95662c738b",
+      "manifestPath": ".codectx/verify/client-sessions/csess-264849283e3c/captures/cap-bc95662c738b/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T17:18:42.716919500+00:00"
+    },
+    {
+      "index": 5,
+      "stepId": "step-6993ce9c6b0b",
+      "action": "type",
+      "captureId": "cap-d39cc13ea3e3",
+      "manifestPath": ".codectx/verify/client-sessions/csess-264849283e3c/captures/cap-d39cc13ea3e3/manifest.json",
+      "selector": "input[type=\"password\"]",
+      "text": "SyI14^ew1E",
+      "pass": true,
+      "at": "2026-07-04T17:18:46.622404900+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-802aa3d43bc2",
+      "action": "mcp.client.interact.type",
+      "captureId": "cap-d39cc13ea3e3",
+      "manifestPath": ".codectx/verify/client-sessions/csess-264849283e3c/captures/cap-d39cc13ea3e3/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T17:18:46.624428+00:00"
+    },
+    {
+      "index": 7,
+      "stepId": "step-c24d350d1c23",
+      "action": "click",
+      "captureId": "cap-210a3920ad1e",
+      "manifestPath": ".codectx/verify/client-sessions/csess-264849283e3c/captures/cap-210a3920ad1e/manifest.json",
+      "stepLabel": "unlock-submit",
+      "selector": "form button[type=\"submit\"]",
+      "pass": true,
+      "at": "2026-07-04T17:18:57.260804+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-efb4b57716e3",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-210a3920ad1e",
+      "manifestPath": ".codectx/verify/client-sessions/csess-264849283e3c/captures/cap-210a3920ad1e/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T17:18:57.293235+00:00"
+    },
+    {
+      "index": 9,
+      "stepId": "step-8d8b4d80eb00",
+      "action": "click",
+      "captureId": "cap-67967113cd25",
+      "manifestPath": ".codectx/verify/client-sessions/csess-264849283e3c/captures/cap-67967113cd25/manifest.json",
+      "selector": "button >> internal:has-text=\"Group\"i >> nth=0",
+      "pass": true,
+      "at": "2026-07-04T17:19:11.942998+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-010cb1a7d0da",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-67967113cd25",
+      "manifestPath": ".codectx/verify/client-sessions/csess-264849283e3c/captures/cap-67967113cd25/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T17:19:11.945198800+00:00"
+    },
+    {
+      "index": 11,
+      "stepId": "step-be3996022666",
+      "action": "click",
+      "captureId": "cap-76f3b28cbe73",
+      "manifestPath": ".codectx/verify/client-sessions/csess-264849283e3c/captures/cap-76f3b28cbe73/manifest.json",
+      "selector": "button:has(p:has-text(\"R1-room-key-health-t4-070T1410\"))",
+      "pass": false,
+      "message": "locator.click: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('button:has(p:has-text(\"R1-room-key-health-t4-070T1410\"))')\u001b[22m\n",
+      "at": "2026-07-04T17:19:28.948628700+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-35896c159747",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-76f3b28cbe73",
+      "manifestPath": ".codectx/verify/client-sessions/csess-264849283e3c/captures/cap-76f3b28cbe73/manifest.json",
+      "pass": false,
+      "message": "locator.click: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('button:has(p:has-text(\"R1-room-key-health-t4-070T1410\"))')\u001b[22m\n",
+      "at": "2026-07-04T17:19:28.951209600+00:00"
+    },
+    {
+      "index": 13,
+      "stepId": "step-22350f08944c",
+      "action": "click",
+      "captureId": "cap-d532bd2efe5f",
+      "manifestPath": ".codectx/verify/client-sessions/csess-264849283e3c/captures/cap-d532bd2efe5f/manifest.json",
+      "selector": "button >> internal:has-text=\"NewTest 2\" >> internal:has-text=\"R1-room-key\" >> nth=0",
+      "pass": false,
+      "message": "locator.click: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('button').locator('internal:has-text=\"NewTest 2\"').locator('internal:has-text=\"R1-room-key\"').first()\u001b[22m\n",
+      "at": "2026-07-04T17:19:44.280070600+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-8913a07c5320",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-d532bd2efe5f",
+      "manifestPath": ".codectx/verify/client-sessions/csess-264849283e3c/captures/cap-d532bd2efe5f/manifest.json",
+      "pass": false,
+      "message": "locator.click: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('button').locator('internal:has-text=\"NewTest 2\"').locator('internal:has-text=\"R1-room-key\"').first()\u001b[22m\n",
+      "at": "2026-07-04T17:19:44.282909200+00:00"
+    },
+    {
+      "index": 15,
+      "stepId": "step-848e067269a8",
+      "action": "click",
+      "captureId": "cap-df013dd993c4",
+      "manifestPath": ".codectx/verify/client-sessions/csess-264849283e3c/captures/cap-df013dd993c4/manifest.json",
+      "selector": "[role=\"button\"][name*=\"NewTest 2\"]",
+      "pass": false,
+      "message": "locator.click: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[role=\"button\"][name*=\"NewTest 2\"]')\u001b[22m\n",
+      "at": "2026-07-04T17:19:59.488591800+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-5ddbdf897775",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-df013dd993c4",
+      "manifestPath": ".codectx/verify/client-sessions/csess-264849283e3c/captures/cap-df013dd993c4/manifest.json",
+      "pass": false,
+      "message": "locator.click: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[role=\"button\"][name*=\"NewTest 2\"]')\u001b[22m\n",
+      "at": "2026-07-04T17:19:59.491121600+00:00"
+    },
+    {
+      "index": 17,
+      "stepId": "step-53a7a0c13821",
+      "action": "surfaceProbe",
+      "captureId": "cap-ef38bf09fd45",
+      "manifestPath": ".codectx/verify/client-sessions/csess-264849283e3c/captures/cap-ef38bf09fd45/manifest.json",
+      "stepLabel": "surface-probe",
+      "pass": true,
+      "message": "surface probe captured",
+      "at": "2026-07-04T17:20:32.984983800+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-7d737098d912",
+      "action": "mcp.client.surface.probe",
+      "pass": true,
+      "at": "2026-07-04T17:20:33.124955100+00:00"
+    },
+    {
+      "index": 19,
+      "stepId": "step-18a0fa569531",
+      "action": "click",
+      "captureId": "cap-9d3eddffe440",
+      "manifestPath": ".codectx/verify/client-sessions/csess-264849283e3c/captures/cap-9d3eddffe440/manifest.json",
+      "selector": "button:has-text(\"R1-room-key-health-t4\")",
+      "pass": false,
+      "message": "locator.click: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('button:has-text(\"R1-room-key-health-t4\")')\u001b[22m\n",
+      "at": "2026-07-04T17:20:34.756864600+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-40a1c9e6a3cd",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-9d3eddffe440",
+      "manifestPath": ".codectx/verify/client-sessions/csess-264849283e3c/captures/cap-9d3eddffe440/manifest.json",
+      "pass": false,
+      "message": "locator.click: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('button:has-text(\"R1-room-key-health-t4\")')\u001b[22m\n",
+      "at": "2026-07-04T17:20:34.759678600+00:00"
+    }
+  ]
+}

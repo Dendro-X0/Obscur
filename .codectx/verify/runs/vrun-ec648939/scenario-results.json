@@ -1,0 +1,20 @@
+[
+  {
+    "index": 0,
+    "kind": "fileExists",
+    "path": "scripts/verify-profile-picker-flow.mjs",
+    "ok": true
+  },
+  {
+    "index": 1,
+    "kind": "fileContains",
+    "path": "scripts/verify-profile-picker-flow.mjs",
+    "ok": true
+  },
+  {
+    "index": 2,
+    "kind": "scriptInvoke",
+    "path": "scripts/verify-profile-picker-flow.mjs",
+    "ok": true
+  }
+]

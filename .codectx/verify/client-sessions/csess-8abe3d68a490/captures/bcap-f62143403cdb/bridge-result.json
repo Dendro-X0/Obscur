@@ -1,0 +1,19 @@
+{
+  "ok": true,
+  "pass": true,
+  "method": "openProfileSlot",
+  "args": [
+    2
+  ],
+  "cdpPort": 9230,
+  "targetUrl": "http://127.0.0.1:1430/sign-in",
+  "result": {
+    "ok": true,
+    "slot": 2,
+    "profileId": "profile-2",
+    "profileLabel": "Profile 2",
+    "label": "main",
+    "invoked": "desktop_open_profile_window"
+  },
+  "message": "bridge call ok"
+}

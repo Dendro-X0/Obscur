@@ -19,9 +19,9 @@ pnpm -C apps/website start
 
 ## Deploy (maintainer)
 
-**PAUSED (2026-07-04):** Do not deploy publicly until Obscur runtime repair band exits. Maintainer policy: fix product issues before release preparation.
+**Unpaused (2026-07-04):** Runtime repair band exited (R1–R5 VERIFIED t4). Deploy **preview smoke** first; production only after maintainer sign-off.
 
-When un-paused, typical paths:
+Typical paths:
 
 1. **Vercel** — import monorepo, set root directory to `apps/website`, build command `pnpm build`, output default.
 2. **Static export** — not configured today; app uses server components + `headers()` on `/download` for platform hint only.
@@ -42,7 +42,8 @@ After deploy, verify:
 | `docs/program/obscur-v2-phase3-signing-policy.md` | Unsigned installer copy |
 | `docs/program/obscur-v2-install-build-guide.md` | Build-from-source links |
 
-Charter: [obscur-v2-phase4-website-charter.md](../docs/program/obscur-v2-phase4-website-charter.md)
+Charter: [obscur-v2-phase4-website-charter.md](../docs/program/obscur-v2-phase4-website-charter.md)  
+Frontend spec: [docs/frontend-spec.md](./docs/frontend-spec.md)
 
 ## Rules
 

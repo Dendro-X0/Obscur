@@ -1,0 +1,774 @@
+{
+  "schema": "client.session.registry@1.0.0",
+  "updatedAt": "2026-07-04T23:59:58.758305100+00:00",
+  "sessions": [
+    {
+      "sessionId": "csess-7813dd567860",
+      "url": "http://localhost:3000/download",
+      "provider": "playwright-chromium",
+      "proofTier": "t2",
+      "updatedAt": "2026-07-04T23:59:58.758002800+00:00"
+    },
+    {
+      "sessionId": "csess-fd1d7c60b40a",
+      "url": "http://localhost:3000/download",
+      "provider": "playwright-chromium",
+      "proofTier": "t2",
+      "updatedAt": "2026-07-04T23:59:44.615829600+00:00"
+    },
+    {
+      "sessionId": "csess-59bb8d3fedef",
+      "url": "http://localhost:3000/",
+      "provider": "playwright-chromium",
+      "proofTier": "t2",
+      "updatedAt": "2026-07-04T23:59:37.138376+00:00"
+    },
+    {
+      "sessionId": "csess-7b4bb623967a",
+      "url": "http://localhost:3000/",
+      "provider": "playwright-chromium",
+      "proofTier": "t2",
+      "updatedAt": "2026-07-04T23:40:54.685631700+00:00"
+    },
+    {
+      "sessionId": "csess-675769c36e27",
+      "windowLabel": "main",
+      "targetId": "59C993AC396BC3D7A3BAF04F8FFE436D",
+      "cdpPort": 9230,
+      "url": "http://127.0.0.1:1430/profiles",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-04T18:02:27.084626+00:00"
+    },
+    {
+      "sessionId": "csess-b7f42e294e5e",
+      "windowLabel": "main",
+      "targetId": "947ADFE1072777A1E9B8131269107C23",
+      "cdpPort": 9230,
+      "url": "http://127.0.0.1:1430/profiles",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-04T17:52:50.487334400+00:00"
+    },
+    {
+      "sessionId": "csess-58ce611e907b",
+      "windowLabel": "main",
+      "targetId": "3B03CF27D2B1202C999B87FDCBF98102",
+      "cdpPort": 9230,
+      "url": "http://127.0.0.1:1430/",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-04T17:46:29.800146800+00:00"
+    },
+    {
+      "sessionId": "csess-3412dca07ffb",
+      "windowLabel": "main",
+      "targetId": "3B03CF27D2B1202C999B87FDCBF98102",
+      "cdpPort": 9230,
+      "url": "http://127.0.0.1:1430/profiles",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-04T17:44:23.591869400+00:00"
+    },
+    {
+      "sessionId": "csess-264849283e3c",
+      "windowLabel": "main",
+      "targetId": "F9DA1E1B41CE2BDEE86D6F886D692548",
+      "cdpPort": 9230,
+      "url": "http://127.0.0.1:1430/profiles",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-04T17:18:21.795035800+00:00"
+    },
+    {
+      "sessionId": "csess-ed26dee5bc7e",
+      "windowLabel": "main",
+      "targetId": "7CA56784B6FD73EA233B5F8CBB9DC7BF",
+      "cdpPort": 9230,
+      "url": "http://127.0.0.1:1430/",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-04T17:13:14.268060900+00:00"
+    },
+    {
+      "sessionId": "csess-afc2304a45ec",
+      "windowLabel": "main",
+      "targetId": "60906C34E718312A1AD6CE0CA84FEE8E",
+      "cdpPort": 9230,
+      "url": "http://127.0.0.1:1430/profiles",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-04T16:32:20.860425200+00:00"
+    },
+    {
+      "sessionId": "csess-0452d809a249",
+      "windowLabel": "main",
+      "targetId": "66166F14A1DE17DDA24A8C27B7036C08",
+      "cdpPort": 9230,
+      "url": "http://127.0.0.1:1430/profiles",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-04T16:30:28.822291800+00:00"
+    },
+    {
+      "sessionId": "csess-df1e06c91dc0",
+      "windowLabel": "main",
+      "targetId": "213D4DBEBD5A048E317FA88E730CB2B6",
+      "cdpPort": 9230,
+      "url": "http://127.0.0.1:1430/profiles",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-04T16:12:51.111097700+00:00"
+    },
+    {
+      "sessionId": "csess-d1d5f9a70476",
+      "windowLabel": "main",
+      "targetId": "0A8EF305B05F63FC06975DD91FA8DB31",
+      "cdpPort": 9230,
+      "url": "http://127.0.0.1:1430/profiles",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-04T16:10:56.597867400+00:00"
+    },
+    {
+      "sessionId": "csess-3b202577b4d1",
+      "windowLabel": "main",
+      "targetId": "16C5163E8776BC8EB633EC8CAE0F2A88",
+      "cdpPort": 9230,
+      "url": "http://127.0.0.1:1430/profiles",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-04T14:14:35.264896800+00:00"
+    },
+    {
+      "sessionId": "csess-94f4ca6d3332",
+      "windowLabel": "main",
+      "targetId": "F5498D1022121B2D0E6E608CB091E005",
+      "cdpPort": 9230,
+      "url": "http://127.0.0.1:1430/profiles",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-04T14:08:40.437692300+00:00"
+    },
+    {
+      "sessionId": "csess-44f67ea7565d",
+      "windowLabel": "main",
+      "targetId": "399B10D2BA237334897E46343FD44D95",
+      "cdpPort": 9230,
+      "url": "http://127.0.0.1:1430/profiles",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-04T08:37:44.347143100+00:00"
+    },
+    {
+      "sessionId": "csess-4c4583330873",
+      "windowLabel": "main",
+      "targetId": "72822E04C33A33E112461D8BE63BE6B3",
+      "cdpPort": 9230,
+      "url": "http://127.0.0.1:1430/",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-04T08:32:00.312117700+00:00"
+    },
+    {
+      "sessionId": "csess-abe4b5ce9374",
+      "windowLabel": "profile-2",
+      "targetId": "73A4CE36AD564199A6B3BA3F0EDC1FC3",
+      "cdpPort": 9231,
+      "url": "http://127.0.0.1:1430/",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-04T07:47:14.104405500+00:00"
+    },
+    {
+      "sessionId": "csess-5810c264fdbf",
+      "windowLabel": "main",
+      "targetId": "72822E04C33A33E112461D8BE63BE6B3",
+      "cdpPort": 9230,
+      "url": "http://127.0.0.1:1430/groups/view?id=b93f53e23d8c4456835afd3f4d3a627b&relay=ws%3A%2F%2Flocalhost%3A7000",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-04T07:44:32.335103500+00:00"
+    },
+    {
+      "sessionId": "csess-c7dca7b8f012",
+      "windowLabel": "profile-2",
+      "targetId": "73A4CE36AD564199A6B3BA3F0EDC1FC3",
+      "cdpPort": 9231,
+      "url": "http://127.0.0.1:1430/",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-04T07:44:32.333024200+00:00"
+    },
+    {
+      "sessionId": "csess-6223e8d73a45",
+      "windowLabel": "main",
+      "targetId": "72822E04C33A33E112461D8BE63BE6B3",
+      "cdpPort": 9230,
+      "url": "http://127.0.0.1:1430/",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-04T07:39:16.968054100+00:00"
+    },
+    {
+      "sessionId": "csess-685a85e85e90",
+      "windowLabel": "profile-2",
+      "targetId": "73A4CE36AD564199A6B3BA3F0EDC1FC3",
+      "cdpPort": 9231,
+      "url": "http://127.0.0.1:1430/",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-04T07:28:58.214820800+00:00"
+    },
+    {
+      "sessionId": "csess-4a147db51e8b",
+      "windowLabel": "main",
+      "targetId": "72822E04C33A33E112461D8BE63BE6B3",
+      "cdpPort": 9230,
+      "url": "http://127.0.0.1:1430/",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-04T07:28:56.121577800+00:00"
+    },
+    {
+      "sessionId": "csess-7328977f0823",
+      "windowLabel": "profile-2",
+      "targetId": "73A4CE36AD564199A6B3BA3F0EDC1FC3",
+      "cdpPort": 9231,
+      "url": "http://127.0.0.1:1430/",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-04T07:17:48.009543600+00:00"
+    },
+    {
+      "sessionId": "csess-ce36e9c151a5",
+      "windowLabel": "main",
+      "targetId": "72822E04C33A33E112461D8BE63BE6B3",
+      "cdpPort": 9230,
+      "url": "http://127.0.0.1:1430/groups/view?id=b93f53e23d8c4456835afd3f4d3a627b&relay=ws%3A%2F%2Flocalhost%3A7000",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-04T07:17:45.307433100+00:00"
+    },
+    {
+      "sessionId": "csess-ac468cf3b5ba",
+      "windowLabel": "profile-2",
+      "targetId": "73A4CE36AD564199A6B3BA3F0EDC1FC3",
+      "cdpPort": 9231,
+      "url": "http://127.0.0.1:1430/sign-in",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-04T06:44:43.897489500+00:00"
+    },
+    {
+      "sessionId": "csess-5112701db153",
+      "windowLabel": "main",
+      "targetId": "72822E04C33A33E112461D8BE63BE6B3",
+      "cdpPort": 9230,
+      "url": "http://127.0.0.1:1430/profiles",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-04T06:43:40.092182+00:00"
+    },
+    {
+      "sessionId": "csess-3128b0542400",
+      "windowLabel": "main",
+      "targetId": "6A60EACDF9779152789CF2BC07A8AB44",
+      "cdpPort": 9230,
+      "url": "http://127.0.0.1:1430/profiles",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-04T05:54:53.245778600+00:00"
+    },
+    {
+      "sessionId": "csess-2d8d190be81a",
+      "windowLabel": "profile-2",
+      "targetId": "05F2E91B91EB372194EB57EF2D7CD564",
+      "cdpPort": 9231,
+      "url": "http://127.0.0.1:1430/sign-in",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-04T05:39:04.702706500+00:00"
+    },
+    {
+      "sessionId": "csess-4a42b6bfd9c0",
+      "windowLabel": "main",
+      "targetId": "77CB500A09173013DDCBCBFFC68CAC40",
+      "cdpPort": 9230,
+      "url": "http://127.0.0.1:1430/profiles",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-04T05:37:14.346739100+00:00"
+    },
+    {
+      "sessionId": "csess-641bbf13bf06",
+      "windowLabel": "main",
+      "targetId": "733754500D060BF8DCAB57E4DEA8A54B",
+      "cdpPort": 9230,
+      "url": "http://127.0.0.1:1430/profiles",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-04T05:34:49.883719700+00:00"
+    },
+    {
+      "sessionId": "csess-59def28c0bce",
+      "windowLabel": "profile-2",
+      "targetId": "6B4EC6427BD238E557245BFF0372278F",
+      "cdpPort": 9231,
+      "url": "http://127.0.0.1:1430/sign-in",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-04T05:20:27.476004300+00:00"
+    },
+    {
+      "sessionId": "csess-737a8dd7b94f",
+      "windowLabel": "main",
+      "targetId": "34C3FEC4C6C24E4526F9ED93A306F509",
+      "cdpPort": 9230,
+      "url": "http://127.0.0.1:1430/",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-04T05:19:33.580026800+00:00"
+    },
+    {
+      "sessionId": "csess-9c729dc6d96b",
+      "windowLabel": "main",
+      "targetId": "34C3FEC4C6C24E4526F9ED93A306F509",
+      "cdpPort": 9230,
+      "url": "http://127.0.0.1:1430/profiles",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-04T05:03:33.541637300+00:00"
+    },
+    {
+      "sessionId": "csess-877010a1c38f",
+      "windowLabel": "main",
+      "targetId": "97FD20755F05EF651D7312E25101D70C",
+      "cdpPort": 9230,
+      "url": "http://127.0.0.1:1430/profiles",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-04T04:58:29.000963400+00:00"
+    },
+    {
+      "sessionId": "csess-2527774254b5",
+      "windowLabel": "main",
+      "targetId": "5E15C91B2255C1BCCF49E55519867465",
+      "cdpPort": 9230,
+      "url": "http://127.0.0.1:1430/profiles",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-04T04:49:13.147001+00:00"
+    },
+    {
+      "sessionId": "csess-2cfbf85fcbef",
+      "windowLabel": "profile-2",
+      "targetId": "F80254557C04F543EAF76DDC3CEC98F9",
+      "cdpPort": 9231,
+      "url": "http://127.0.0.1:1430/",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-03T16:01:19.803185500+00:00"
+    },
+    {
+      "sessionId": "csess-a2718d3b966a",
+      "windowLabel": "main",
+      "targetId": "8A89C29B2BF51F9AE8C95E8ECA8B6BF4",
+      "cdpPort": 9230,
+      "url": "http://127.0.0.1:1430/profiles",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-03T15:58:31.455364+00:00"
+    },
+    {
+      "sessionId": "csess-aa3a9eab9c36",
+      "windowLabel": "main",
+      "targetId": "8DEE46ECC15F0350811D5AFBAB46C799",
+      "cdpPort": 9230,
+      "url": "http://127.0.0.1:1430/",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-03T07:03:31.715799100+00:00"
+    },
+    {
+      "sessionId": "csess-93dc3356e8f2",
+      "windowLabel": "main",
+      "targetId": "CCC5119082D9F6EFB865930C56BF6D8C",
+      "cdpPort": 9230,
+      "url": "http://127.0.0.1:1430/",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-03T06:17:19.297369300+00:00"
+    },
+    {
+      "sessionId": "csess-7143ef3a3a02",
+      "windowLabel": "profile-2",
+      "targetId": "71BA9DD36BA01DC787519743EE9A15D9",
+      "cdpPort": 9231,
+      "url": "http://127.0.0.1:1430/sign-in",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-03T03:50:26.268880900+00:00"
+    },
+    {
+      "sessionId": "csess-adab2c8b2543",
+      "windowLabel": "main",
+      "targetId": "BD3639398F239678866FBEEEA677ED9B",
+      "cdpPort": 9230,
+      "url": "http://127.0.0.1:1430/profiles",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-03T03:49:27.353354900+00:00"
+    },
+    {
+      "sessionId": "csess-b91e16538053",
+      "windowLabel": "profile-2",
+      "targetId": "BB8BD46FD256FEB92675C3567323D114",
+      "cdpPort": 9231,
+      "url": "http://127.0.0.1:1430/",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-02T16:19:48.244723200+00:00"
+    },
+    {
+      "sessionId": "csess-6f1a35b7762b",
+      "windowLabel": "main",
+      "targetId": "D6A213BC27B34A4F3314DB72D2E5F852",
+      "cdpPort": 9230,
+      "url": "http://127.0.0.1:1430/",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-02T16:19:47.848266600+00:00"
+    },
+    {
+      "sessionId": "csess-64c34e63c6eb",
+      "windowLabel": "profile-2",
+      "targetId": "AE60790163B73659CD0C44D66A63418F",
+      "cdpPort": 9231,
+      "url": "http://127.0.0.1:1430/sign-in",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-02T14:50:24.455873600+00:00"
+    },
+    {
+      "sessionId": "csess-624f7d067178",
+      "windowLabel": "profile-2",
+      "targetId": "AE60790163B73659CD0C44D66A63418F",
+      "cdpPort": 9231,
+      "url": "http://127.0.0.1:1430/sign-in",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-02T14:45:39.185365+00:00"
+    },
+    {
+      "sessionId": "csess-a256b15c946e",
+      "windowLabel": "profile-2",
+      "targetId": "EAC5E8D0D8C04A8FA9CCF162C0DDC755",
+      "cdpPort": 9231,
+      "url": "http://127.0.0.1:1430/sign-in",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-02T12:46:50.517096500+00:00"
+    },
+    {
+      "sessionId": "csess-8abe3d68a490",
+      "windowLabel": "main",
+      "targetId": "939F44E5E07D5F2104F4365F67F2CBD8",
+      "cdpPort": 9230,
+      "url": "http://127.0.0.1:1430/profiles",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-02T12:45:54.828916300+00:00"
+    },
+    {
+      "sessionId": "csess-e440bdda1773",
+      "windowLabel": "main",
+      "targetId": "C1C4C725CFC307A9E6D3F8D049FDD1F4",
+      "cdpPort": 9231,
+      "url": "http://127.0.0.1:1430/sign-in",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-02T11:16:45.727306100+00:00"
+    },
+    {
+      "sessionId": "csess-1462fcbd345e",
+      "windowLabel": "main",
+      "targetId": "9ED4CE3FE132D7B9D0A5590F9844BABA",
+      "cdpPort": 9230,
+      "url": "http://127.0.0.1:1430/",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-02T11:16:40.935846100+00:00"
+    },
+    {
+      "sessionId": "csess-9530bb91b194",
+      "windowLabel": "main",
+      "targetId": "C1C4C725CFC307A9E6D3F8D049FDD1F4",
+      "cdpPort": 9231,
+      "url": "http://127.0.0.1:1430/sign-in",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-02T11:14:47.814576100+00:00"
+    },
+    {
+      "sessionId": "csess-d39f4ab009ee",
+      "windowLabel": "profile-picker",
+      "targetId": "9ED4CE3FE132D7B9D0A5590F9844BABA",
+      "cdpPort": 9230,
+      "url": "http://127.0.0.1:1430/profiles",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-02T11:13:26.654284300+00:00"
+    },
+    {
+      "sessionId": "csess-c9e4cc0c3649",
+      "windowLabel": "profile-picker",
+      "targetId": "F8964CA4F20F72BD0FE7778B4E83BA1F",
+      "cdpPort": 9230,
+      "url": "http://127.0.0.1:1430/profiles",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-02T11:01:46.357001100+00:00"
+    },
+    {
+      "sessionId": "csess-937c30f83699",
+      "windowLabel": "profile-picker",
+      "targetId": "9CE484647E629FB9479C62EDA5C670F4",
+      "cdpPort": 9230,
+      "url": "http://127.0.0.1:1430/profiles",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-02T09:57:06.059721800+00:00"
+    },
+    {
+      "sessionId": "csess-b90d929107b5",
+      "windowLabel": "main",
+      "targetId": "968050204973AA24CE8C29AEE97BF04F",
+      "cdpPort": 9230,
+      "url": "http://127.0.0.1:1430/",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-02T08:55:15.021317+00:00"
+    },
+    {
+      "sessionId": "csess-ad9e7520da13",
+      "windowLabel": "main",
+      "targetId": "968050204973AA24CE8C29AEE97BF04F",
+      "cdpPort": 9230,
+      "url": "http://127.0.0.1:1430/",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-02T08:43:41.902986400+00:00"
+    },
+    {
+      "sessionId": "csess-a5a05cf05cca",
+      "windowLabel": "profile-picker",
+      "targetId": "968050204973AA24CE8C29AEE97BF04F",
+      "cdpPort": 9230,
+      "url": "http://127.0.0.1:1430/profiles",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-02T08:34:15.226595700+00:00"
+    },
+    {
+      "sessionId": "csess-af73d0bd5b5c",
+      "windowLabel": "profile-picker",
+      "targetId": "AFD237CC895EBC475ABA9B74425B6474",
+      "cdpPort": 9230,
+      "url": "http://127.0.0.1:1430/profiles",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-01T22:35:00.413775800+00:00"
+    },
+    {
+      "sessionId": "csess-ad3b3e90aa04",
+      "windowLabel": "profile-picker",
+      "targetId": "AFD237CC895EBC475ABA9B74425B6474",
+      "cdpPort": 9230,
+      "url": "http://127.0.0.1:1430/profiles",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-01T22:04:45.966134100+00:00"
+    },
+    {
+      "sessionId": "csess-87ec64010847",
+      "windowLabel": "main",
+      "targetId": "6411A3BD918B1F7EE72643AD2442DACD",
+      "cdpPort": 9230,
+      "url": "http://127.0.0.1:1430/",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-01T18:00:19.073986700+00:00"
+    },
+    {
+      "sessionId": "csess-b20deab2382f",
+      "windowLabel": "profile-picker",
+      "targetId": "6411A3BD918B1F7EE72643AD2442DACD",
+      "cdpPort": 9230,
+      "url": "http://127.0.0.1:1430/profiles",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-01T17:45:57.772682900+00:00"
+    },
+    {
+      "sessionId": "csess-631c3bba5207",
+      "windowLabel": "main",
+      "targetId": "386FA372B9AB844E2D35EA71A29B0CAD",
+      "cdpPort": 9230,
+      "url": "http://127.0.0.1:1430/",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-01T17:33:02.709480400+00:00"
+    },
+    {
+      "sessionId": "csess-322a4af06321",
+      "windowLabel": "main",
+      "targetId": "386FA372B9AB844E2D35EA71A29B0CAD",
+      "cdpPort": 9230,
+      "url": "http://127.0.0.1:1430/groups/view?id=community%3Av2_c32217ec6a10145ff4bb1109b78b73923f2f226ceb7c5f85afac773b0d2cf84f",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-01T16:54:10.889551400+00:00"
+    },
+    {
+      "sessionId": "csess-6b9fe53b4ded",
+      "windowLabel": "profile-picker",
+      "targetId": "386FA372B9AB844E2D35EA71A29B0CAD",
+      "cdpPort": 9230,
+      "url": "http://127.0.0.1:1430/profiles",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-01T14:13:03.415959600+00:00"
+    },
+    {
+      "sessionId": "csess-510a62aba320",
+      "windowLabel": "main",
+      "targetId": "A7CC0356388027825FDEE49CBA7EF7E1",
+      "cdpPort": 9230,
+      "url": "http://127.0.0.1:1430/",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-01T14:08:58.217780900+00:00"
+    },
+    {
+      "sessionId": "csess-ac2da4ea9b5c",
+      "windowLabel": "main",
+      "targetId": "A7CC0356388027825FDEE49CBA7EF7E1",
+      "cdpPort": 9230,
+      "url": "http://127.0.0.1:1430/",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-01T11:56:39.047162600+00:00"
+    },
+    {
+      "sessionId": "csess-6461739df98d",
+      "windowLabel": "main",
+      "targetId": "A7CC0356388027825FDEE49CBA7EF7E1",
+      "cdpPort": 9230,
+      "url": "http://127.0.0.1:1430/",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-01T11:27:15.461198600+00:00"
+    },
+    {
+      "sessionId": "csess-5f10d872d481",
+      "windowLabel": "main",
+      "targetId": "A7CC0356388027825FDEE49CBA7EF7E1",
+      "cdpPort": 9230,
+      "url": "http://127.0.0.1:1430/sign-in",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-01T11:22:45.667231800+00:00"
+    },
+    {
+      "sessionId": "csess-169c06e92cf1",
+      "windowLabel": "profile-picker",
+      "targetId": "A7CC0356388027825FDEE49CBA7EF7E1",
+      "cdpPort": 9230,
+      "url": "http://127.0.0.1:1430/profiles",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-01T10:33:06.808275600+00:00"
+    },
+    {
+      "sessionId": "csess-56331621b1d9",
+      "windowLabel": "profile-picker",
+      "targetId": "FA77B9C7630764FF4B446497F83A117E",
+      "cdpPort": 9230,
+      "url": "http://127.0.0.1:1430/profiles",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-01T07:23:30.455386500+00:00"
+    },
+    {
+      "sessionId": "csess-19f7e24e61bd",
+      "windowLabel": "profile-picker",
+      "targetId": "0021BBF3C12AD6208DE2C875A949EF35",
+      "cdpPort": 9230,
+      "url": "http://127.0.0.1:1430/profiles",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-01T03:57:00.950444500+00:00"
+    },
+    {
+      "sessionId": "csess-f2191e90e578",
+      "windowLabel": "profile-picker",
+      "targetId": "FFCD12D181B97F3B5FA00EDEE5A1F201",
+      "cdpPort": 9230,
+      "url": "http://127.0.0.1:3341/profiles",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-01T03:54:15.063460300+00:00"
+    },
+    {
+      "sessionId": "csess-d0e975bc8b08",
+      "windowLabel": "main",
+      "targetId": "FFCD12D181B97F3B5FA00EDEE5A1F201",
+      "cdpPort": 9230,
+      "url": "http://127.0.0.1:1430/",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-01T02:21:41.099942700+00:00"
+    },
+    {
+      "sessionId": "csess-cffcc729029a",
+      "windowLabel": "profile-picker",
+      "targetId": "8924A69935A9EA9327BEB135B1BFDAA2",
+      "cdpPort": 9230,
+      "url": "http://127.0.0.1:1430/profiles",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-06-30T16:11:59.166450800+00:00"
+    },
+    {
+      "sessionId": "csess-5c26475ea529",
+      "windowLabel": "profile-picker",
+      "targetId": "8924A69935A9EA9327BEB135B1BFDAA2",
+      "cdpPort": 9230,
+      "url": "http://127.0.0.1:1430/profiles",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-06-30T16:10:58.077141200+00:00"
+    },
+    {
+      "sessionId": "csess-dcc5e03743a9",
+      "windowLabel": "profile-picker",
+      "targetId": "1F145866FF8BCB420849D558AFD776FA",
+      "cdpPort": 9230,
+      "url": "http://127.0.0.1:1430/profiles",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-06-30T15:42:16.137482500+00:00"
+    },
+    {
+      "sessionId": "csess-1e07ce0a71cc",
+      "windowLabel": "main",
+      "targetId": "1F145866FF8BCB420849D558AFD776FA",
+      "cdpPort": 9230,
+      "url": "http://127.0.0.1:1430/settings",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-06-30T15:39:17.521577200+00:00"
+    }
+  ]
+}

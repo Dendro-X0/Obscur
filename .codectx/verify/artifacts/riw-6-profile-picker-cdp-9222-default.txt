@@ -1,0 +1,3 @@
+[profile-picker-verify] using live Tauri CDP at http://127.0.0.1:9222
+[profile-picker-verify] FAIL No Obscur page on CDP http://127.0.0.1:9222. Launch with WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9222
+[profile-picker-verify] done — 0 passed, 1 failed

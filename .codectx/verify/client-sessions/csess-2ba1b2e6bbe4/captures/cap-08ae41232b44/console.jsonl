@@ -1,0 +1,3 @@
+{"kind":"console","type":"verbose","text":"[DOM] Password forms should have (optionally hidden) username fields for accessibility: (More info: https://www.chromium.org/developers/design-documents/create-amazing-password-forms) %o","location":{"url":"http://127.0.0.1:1430/sign-in","line":0,"column":0,"lineNumber":0,"columnNumber":0},"at":"2026-06-30T04:11:06.395Z"}
+{"kind":"requestfailed","text":"net::ERR_CONNECTION_REFUSED","url":"http://127.0.0.1:9876/ping","method":"GET","at":"2026-06-30T04:11:07.760Z"}
+{"kind":"console","type":"error","text":"Failed to load resource: net::ERR_CONNECTION_REFUSED","location":{"url":"http://127.0.0.1:9876/ping","line":0,"column":0,"lineNumber":0,"columnNumber":0},"at":"2026-06-30T04:11:07.760Z"}

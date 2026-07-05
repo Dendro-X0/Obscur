@@ -1,0 +1,7 @@
+{
+  "schema": "perf.explore.progress@1.0.0",
+  "startedAt": "2026-07-01T05:00:53.271200600+00:00",
+  "step": "scan",
+  "task": "Scanning workspace…",
+  "updatedAt": "2026-07-04T03:59:50.226402200+00:00"
+}

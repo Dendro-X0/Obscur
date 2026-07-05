@@ -1,0 +1,58 @@
+{
+  "schema": "client.session.steps@0.1.0",
+  "sessionId": "csess-7813dd567860",
+  "updatedAt": "2026-07-04T23:59:58.757284+00:00",
+  "stepCount": 5,
+  "steps": [
+    {
+      "index": 0,
+      "stepId": "step-1b2a20057a09",
+      "action": "snapshot",
+      "captureId": "cap-79a0ff5709fa",
+      "manifestPath": ".codectx/verify/client-sessions/csess-7813dd567860/captures/cap-79a0ff5709fa/manifest.json",
+      "stepLabel": "deploy-smoke-home",
+      "pass": true,
+      "at": "2026-07-04T23:59:46.716245300+00:00"
+    },
+    {
+      "index": 1,
+      "stepId": "step-e955cd16e1ae",
+      "action": "navigate",
+      "captureId": "cap-f0fffe256bfb",
+      "manifestPath": ".codectx/verify/client-sessions/csess-7813dd567860/captures/cap-f0fffe256bfb/manifest.json",
+      "stepLabel": "deploy-smoke-download",
+      "pass": true,
+      "at": "2026-07-04T23:59:51.889567900+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-acefe78de3a5",
+      "action": "mcp.client.navigate",
+      "captureId": "cap-f0fffe256bfb",
+      "manifestPath": ".codectx/verify/client-sessions/csess-7813dd567860/captures/cap-f0fffe256bfb/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T23:59:51.913451+00:00"
+    },
+    {
+      "index": 3,
+      "stepId": "step-de387382e690",
+      "action": "surfaceProbe",
+      "captureId": "cap-d793c60ebd53",
+      "manifestPath": ".codectx/verify/client-sessions/csess-7813dd567860/captures/cap-d793c60ebd53/manifest.json",
+      "stepLabel": "surface-probe",
+      "pass": true,
+      "message": "split-brain suspected: sidebar preview with empty main thread",
+      "at": "2026-07-04T23:59:56.739140600+00:00"
+    },
+    {
+      "index": 4,
+      "stepId": "step-ece136618e8a",
+      "action": "screenshot",
+      "captureId": "cap-dd1ce202d7a4",
+      "manifestPath": ".codectx/verify/client-sessions/csess-7813dd567860/captures/cap-dd1ce202d7a4/manifest.json",
+      "stepLabel": "chain-n3-deploy-smoke",
+      "pass": true,
+      "at": "2026-07-04T23:59:58.756539800+00:00"
+    }
+  ]
+}

@@ -117,7 +117,7 @@ Phase 2  Documentation structure  ← EXIT 2026-07-04
     │
 Phase 3  Production installers      ← EXIT 2026-07-04
     │
-Phase 4  Official website           ← PAUSED (no deploy until runtime fixes)
+Phase 4  Official website           ← deploy smoke (runtime band EXIT)
     │
 Phase 5  Demo kit
     │
@@ -198,20 +198,21 @@ Charter: [obscur-v2-phase2-docs-charter.md](./obscur-v2-phase2-docs-charter.md)
 | P3-2 | Signing policy — minisign or **unsigned accepted** | **Done** 2026-07-04 — [obscur-v2-phase3-signing-policy.md](./obscur-v2-phase3-signing-policy.md) |
 | P3-3 | Android APK path + checksum in manifest | **Done** 2026-07-04 — `app-universal-debug.apk` @ [manifest.json](../../release-assets/manifest.json) |
 
-#### Phase 4 — Official website **PAUSED**
+#### Phase 4 — Official website **Vercel preview gate**
 
-Deploy and public release blocked until runtime repair band. Code complete (W4-1…W4-4); no Vercel launch.
+Runtime repair band **EXIT** (2026-07-04). W4-1…W4-4 done; local deploy smoke PASS; Vercel preview for **EXIT**.
 
 | # | Deliverable | Proof |
 |---|-------------|-------|
-| W4-1 | `/download` — manifest artifacts + build-from-source | **Done** (not deployed) |
+| W4-1 | `/download` — manifest artifacts + build-from-source | **Done** · editorial pass |
 | W4-2 | Trust copy — limitations, unsigned policy | **Done** |
-| W4-3 | Build/deploy documented | **Done** · deploy **PAUSED** |
+| W4-3 | Build/deploy documented | **Done** · local smoke PASS · `chain-phase4-website-2026-07-04` |
 | W4-4 | Nav structure | **Done** |
+| — | Vercel preview deploy | **Pending** — maintainer gate |
 
 Charter: [obscur-v2-phase4-website-charter.md](./obscur-v2-phase4-website-charter.md)
 
-**Current band:** Runtime repair — see [current-session.md](../handoffs/current-session.md)
+**Current band:** Phase 4 Vercel preview — see [current-session.md](../handoffs/current-session.md)
 
 ---
 

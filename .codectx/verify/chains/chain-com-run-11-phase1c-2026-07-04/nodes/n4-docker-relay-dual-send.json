@@ -1,0 +1,31 @@
+{
+  "schema": "codactrl.investigation.node@0.1.0",
+  "chainId": "chain-com-run-11-phase1c-2026-07-04",
+  "nodeId": "n4-docker-relay-dual-send",
+  "trigger": "COM-RUN-11-phase1c-docker-070T0717 received on Tester2 via local docker relay",
+  "at": "2026-07-04T07:19:33.804498200+00:00",
+  "sessionId": "csess-7328977f0823",
+  "transportEvidence": [
+    {
+      "eventId": "1ecd0a7409f819b6",
+      "plaintextPrefix": "DM-round19-t2-072T1453"
+    },
+    {
+      "eventId": "656fa94646ee5423",
+      "plaintextPrefix": "O4-round16-profile2-072T1118"
+    },
+    {
+      "eventId": "b2a33e74035a3cfb",
+      "plaintextPrefix": "{"
+    },
+    {
+      "eventId": "cef22b7bc2051e3a",
+      "plaintextPrefix": "{"
+    },
+    {
+      "eventId": "2f6ab991ccf36639",
+      "plaintextPrefix": "{"
+    }
+  ],
+  "hypothesis": "Docker relay ws://localhost:7000 delivers group messages to dual-profile after operator bundle on T2"
+}

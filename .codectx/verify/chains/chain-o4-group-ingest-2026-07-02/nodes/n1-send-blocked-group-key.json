@@ -1,0 +1,22 @@
+{
+  "schema": "codactrl.investigation.node@0.1.0",
+  "chainId": "chain-o4-group-ingest-2026-07-02",
+  "nodeId": "n1-send-blocked-group-key",
+  "trigger": "Send O4-group-relay-verify-071T1128 — text remained in composer; sidebar Group key unavailable",
+  "at": "2026-07-01T11:28:35.072036400+00:00",
+  "sessionId": "csess-6461739df98d",
+  "surfaces": {
+    "mainThreadMessageCount": 4,
+    "mainThreadSystemCards": 0,
+    "alertBannerCount": 2,
+    "splitBrainSuspected": false
+  },
+  "digestRef": "fault-579ab524",
+  "screenshotRef": ".codectx/verify/client-sessions/csess-6461739df98d/captures/cap-2213f5ef81f0/screenshot.png",
+  "hypothesis": "COM-RUN-02 room key missing blocks group send despite hydrated history",
+  "doesNotProve": [
+    "relay round-trip",
+    "Tester2 ingest",
+    "O-4 fixed"
+  ]
+}

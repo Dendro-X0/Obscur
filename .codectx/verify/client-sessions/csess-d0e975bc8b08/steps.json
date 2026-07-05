@@ -1,0 +1,133 @@
+{
+  "schema": "client.session.steps@0.1.0",
+  "sessionId": "csess-d0e975bc8b08",
+  "updatedAt": "2026-07-01T02:24:06.051343700+00:00",
+  "stepCount": 12,
+  "steps": [
+    {
+      "index": 0,
+      "stepId": "step-c19619d798c1",
+      "action": "snapshot",
+      "captureId": "cap-a2a4ddff66c9",
+      "manifestPath": ".codectx/verify/client-sessions/csess-d0e975bc8b08/captures/cap-a2a4ddff66c9/manifest.json",
+      "stepLabel": "connect-bootstrap",
+      "pass": true,
+      "at": "2026-07-01T02:21:41.013474+00:00"
+    },
+    {
+      "index": 1,
+      "stepId": "step-ee15028a9fbd",
+      "action": "snapshot",
+      "captureId": "cap-19da7cd81592",
+      "manifestPath": ".codectx/verify/client-sessions/csess-d0e975bc8b08/captures/cap-19da7cd81592/manifest.json",
+      "pass": true,
+      "at": "2026-07-01T02:21:46.652136500+00:00"
+    },
+    {
+      "index": 2,
+      "stepId": "step-5f600a6ce6a3",
+      "action": "click",
+      "captureId": "cap-30448f831cfd",
+      "manifestPath": ".codectx/verify/client-sessions/csess-d0e975bc8b08/captures/cap-30448f831cfd/manifest.json",
+      "stepLabel": "riw-2-open-switcher",
+      "selector": "[aria-label=\"Open desktop profile switcher\"]",
+      "pass": true,
+      "at": "2026-07-01T02:21:53.328231400+00:00"
+    },
+    {
+      "index": 3,
+      "stepId": "step-b3ff692dd5c3",
+      "action": "click",
+      "captureId": "cap-27d2c282bedf",
+      "manifestPath": ".codectx/verify/client-sessions/csess-d0e975bc8b08/captures/cap-27d2c282bedf/manifest.json",
+      "stepLabel": "riw-2-lock",
+      "selector": "button:has-text(\"Lock\")",
+      "pass": true,
+      "at": "2026-07-01T02:21:58.487022400+00:00"
+    },
+    {
+      "index": 4,
+      "stepId": "step-4b3f8bcb4461",
+      "action": "snapshot",
+      "captureId": "cap-76d35e162836",
+      "manifestPath": ".codectx/verify/client-sessions/csess-d0e975bc8b08/captures/cap-76d35e162836/manifest.json",
+      "pass": true,
+      "at": "2026-07-01T02:22:14.510516100+00:00"
+    },
+    {
+      "index": 5,
+      "stepId": "step-9a9c34af7ac4",
+      "action": "click",
+      "captureId": "cap-442af65e3c02",
+      "manifestPath": ".codectx/verify/client-sessions/csess-d0e975bc8b08/captures/cap-442af65e3c02/manifest.json",
+      "stepLabel": "riw-2-lock-confirm-retry",
+      "selector": "[role=\"dialog\"] >> button >> text=\"Lock\"",
+      "pass": true,
+      "at": "2026-07-01T02:22:23.920443200+00:00"
+    },
+    {
+      "index": 6,
+      "stepId": "step-3cb0f44f5c72",
+      "action": "click",
+      "captureId": "cap-0ed2d2c7bfd0",
+      "manifestPath": ".codectx/verify/client-sessions/csess-d0e975bc8b08/captures/cap-0ed2d2c7bfd0/manifest.json",
+      "stepLabel": "riw-2-titlebar-lock",
+      "selector": "[aria-label=\"desktop.titleBar.lock\"]",
+      "pass": true,
+      "at": "2026-07-01T02:22:31.602106500+00:00"
+    },
+    {
+      "index": 7,
+      "stepId": "step-60307290c4ca",
+      "action": "click",
+      "captureId": "cap-70c5bf6e9992",
+      "manifestPath": ".codectx/verify/client-sessions/csess-d0e975bc8b08/captures/cap-70c5bf6e9992/manifest.json",
+      "stepLabel": "riw-2-lock-confirm-2",
+      "selector": "[role=\"dialog\"] >> button >> text=\"Lock\"",
+      "pass": true,
+      "at": "2026-07-01T02:22:36.774195100+00:00"
+    },
+    {
+      "index": 8,
+      "stepId": "step-6d688a532f",
+      "action": "digestPull",
+      "captureId": "cap-e96d688a532f",
+      "manifestPath": ".codectx/verify/client-sessions/csess-d0e975bc8b08/captures/cap-e96d688a532f/manifest.json",
+      "stepLabel": "riw-2-projection-authority",
+      "pass": true,
+      "message": "runtime digest captured",
+      "at": "2026-07-01T02:22:43.411876600+00:00"
+    },
+    {
+      "index": 9,
+      "stepId": "step-2e9fec817277",
+      "action": "click",
+      "captureId": "cap-c85f075035a6",
+      "manifestPath": ".codectx/verify/client-sessions/csess-d0e975bc8b08/captures/cap-c85f075035a6/manifest.json",
+      "stepLabel": "riw-2-unlock-open-switcher",
+      "selector": "[aria-label=\"Open desktop profile switcher\"]",
+      "pass": true,
+      "at": "2026-07-01T02:22:55.244471300+00:00"
+    },
+    {
+      "index": 10,
+      "stepId": "step-81f51fb21f85",
+      "action": "click",
+      "captureId": "cap-2d005053c0c9",
+      "manifestPath": ".codectx/verify/client-sessions/csess-d0e975bc8b08/captures/cap-2d005053c0c9/manifest.json",
+      "stepLabel": "riw-2-select-tester1",
+      "selector": "text=Tester1 >> nth=0",
+      "pass": true,
+      "at": "2026-07-01T02:23:01.827464500+00:00"
+    },
+    {
+      "index": 11,
+      "stepId": "step-aaf7349c8163",
+      "action": "screenshot",
+      "captureId": "cap-500c39b33caf",
+      "manifestPath": ".codectx/verify/client-sessions/csess-d0e975bc8b08/captures/cap-500c39b33caf/manifest.json",
+      "pass": true,
+      "at": "2026-07-01T02:24:06.050345900+00:00"
+    }
+  ]
+}

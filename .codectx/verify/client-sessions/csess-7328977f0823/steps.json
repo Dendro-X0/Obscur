@@ -1,0 +1,204 @@
+{
+  "schema": "client.session.steps@0.1.0",
+  "sessionId": "csess-7328977f0823",
+  "updatedAt": "2026-07-04T07:19:30.131501700+00:00",
+  "stepCount": 20,
+  "steps": [
+    {
+      "index": 0,
+      "stepId": "step-7b0ccbd05d78",
+      "action": "snapshot",
+      "captureId": "cap-51347b951e47",
+      "manifestPath": ".codectx/verify/client-sessions/csess-7328977f0823/captures/cap-51347b951e47/manifest.json",
+      "stepLabel": "connect-bootstrap",
+      "pass": true,
+      "at": "2026-07-04T07:17:47.885801400+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-b035b9a5c700",
+      "action": "mcp.client.session.connect",
+      "manifestPath": ".codectx/verify/client-sessions/csess-7328977f0823/attach-latest.json",
+      "pass": true,
+      "at": "2026-07-04T07:17:51.405363200+00:00"
+    },
+    {
+      "index": 2,
+      "stepId": "step-4647551de2fa",
+      "action": "click",
+      "captureId": "cap-c94b112e29b6",
+      "manifestPath": ".codectx/verify/client-sessions/csess-7328977f0823/captures/cap-c94b112e29b6/manifest.json",
+      "selector": "role=button[name=\"N NewTest 2 Joined private encrypted group 1h ago\"]",
+      "pass": true,
+      "at": "2026-07-04T07:18:00.929944100+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-173c9cd8fb6e",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-c94b112e29b6",
+      "manifestPath": ".codectx/verify/client-sessions/csess-7328977f0823/captures/cap-c94b112e29b6/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T07:18:00.931682700+00:00"
+    },
+    {
+      "index": 4,
+      "stepId": "step-d9cf7cf14ac4",
+      "action": "assert",
+      "captureId": "cap-39a71c9dbc37",
+      "manifestPath": ".codectx/verify/client-sessions/csess-7328977f0823/captures/cap-39a71c9dbc37/manifest.json",
+      "stepLabel": "docker-relay-receive",
+      "text": "COM-RUN-11-phase1c-docker-070T0717",
+      "assertKind": "textVisible",
+      "pass": false,
+      "message": "text not visible: COM-RUN-11-phase1c-docker-070T0717",
+      "at": "2026-07-04T07:18:25.349725600+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-23f44a212c4b",
+      "action": "mcp.client.validate.assert",
+      "captureId": "cap-39a71c9dbc37",
+      "manifestPath": ".codectx/verify/client-sessions/csess-7328977f0823/captures/cap-39a71c9dbc37/manifest.json",
+      "pass": false,
+      "message": "text not visible: COM-RUN-11-phase1c-docker-070T0717",
+      "at": "2026-07-04T07:18:25.351160200+00:00"
+    },
+    {
+      "index": 6,
+      "stepId": "step-dca643984a89",
+      "action": "click",
+      "captureId": "cap-323019cd8004",
+      "manifestPath": ".codectx/verify/client-sessions/csess-7328977f0823/captures/cap-323019cd8004/manifest.json",
+      "selector": "role=button[name=\"N NewTest 2\"]",
+      "pass": false,
+      "message": "locator.click: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('role=button[name=\"N NewTest 2\"]')\u001b[22m\n",
+      "at": "2026-07-04T07:18:40.098747300+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-e5cb848c84c8",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-323019cd8004",
+      "manifestPath": ".codectx/verify/client-sessions/csess-7328977f0823/captures/cap-323019cd8004/manifest.json",
+      "pass": false,
+      "message": "locator.click: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('role=button[name=\"N NewTest 2\"]')\u001b[22m\n",
+      "at": "2026-07-04T07:18:40.100180800+00:00"
+    },
+    {
+      "index": 8,
+      "stepId": "step-57a02d35fdc1",
+      "action": "snapshot",
+      "captureId": "cap-c86d61fc4756",
+      "manifestPath": ".codectx/verify/client-sessions/csess-7328977f0823/captures/cap-c86d61fc4756/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T07:18:49.050730800+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-eb08ab8314c5",
+      "action": "mcp.client.navigate",
+      "pass": false,
+      "message": "client_navigate rejected for webview2-cdp on SPA dev URL (http://127.0.0.1:1430/network) — full reload drops CDP attach. Use client_interact_click on in-app links (e.g. a[href=\"/\"] for Chats) instead.",
+      "at": "2026-07-04T07:18:54.021978100+00:00"
+    },
+    {
+      "index": 10,
+      "stepId": "step-388183315309",
+      "action": "click",
+      "captureId": "cap-a21376d29097",
+      "manifestPath": ".codectx/verify/client-sessions/csess-7328977f0823/captures/cap-a21376d29097/manifest.json",
+      "selector": "role=link[name=\"Network\"]",
+      "pass": true,
+      "at": "2026-07-04T07:18:59.819235600+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-62aa158a14e0",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-a21376d29097",
+      "manifestPath": ".codectx/verify/client-sessions/csess-7328977f0823/captures/cap-a21376d29097/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T07:18:59.822529100+00:00"
+    },
+    {
+      "index": 12,
+      "stepId": "step-13d5621cf5e8",
+      "action": "click",
+      "captureId": "cap-8df1b12f879e",
+      "manifestPath": ".codectx/verify/client-sessions/csess-7328977f0823/captures/cap-8df1b12f879e/manifest.json",
+      "selector": "role=button[name=\"Connected\"]",
+      "pass": true,
+      "at": "2026-07-04T07:19:09.584273200+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-7263890a7fa2",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-8df1b12f879e",
+      "manifestPath": ".codectx/verify/client-sessions/csess-7328977f0823/captures/cap-8df1b12f879e/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T07:19:09.587435400+00:00"
+    },
+    {
+      "index": 14,
+      "stepId": "step-cfede85c2623",
+      "action": "click",
+      "captureId": "cap-7e7269cd6558",
+      "manifestPath": ".codectx/verify/client-sessions/csess-7328977f0823/captures/cap-7e7269cd6558/manifest.json",
+      "selector": "role=button[name=\"Apply operator bundle\"]",
+      "pass": true,
+      "at": "2026-07-04T07:19:18.790655800+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-b0863aab8a38",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-7e7269cd6558",
+      "manifestPath": ".codectx/verify/client-sessions/csess-7328977f0823/captures/cap-7e7269cd6558/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T07:19:18.805703100+00:00"
+    },
+    {
+      "index": 16,
+      "stepId": "step-3ebd04c16cd3",
+      "action": "click",
+      "captureId": "cap-586ee32658dd",
+      "manifestPath": ".codectx/verify/client-sessions/csess-7328977f0823/captures/cap-586ee32658dd/manifest.json",
+      "selector": "role=link[name=\"Chats\"]",
+      "pass": true,
+      "at": "2026-07-04T07:19:25.827732+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-41398dd4ddc1",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-586ee32658dd",
+      "manifestPath": ".codectx/verify/client-sessions/csess-7328977f0823/captures/cap-586ee32658dd/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T07:19:25.830678400+00:00"
+    },
+    {
+      "index": 18,
+      "stepId": "step-76a906a035f9",
+      "action": "assert",
+      "captureId": "cap-cef90daf5c88",
+      "manifestPath": ".codectx/verify/client-sessions/csess-7328977f0823/captures/cap-cef90daf5c88/manifest.json",
+      "stepLabel": "docker-relay-receive-t4",
+      "text": "COM-RUN-11-phase1c-docker-070T0717",
+      "assertKind": "textVisible",
+      "pass": true,
+      "message": "text visible: COM-RUN-11-phase1c-docker-070T0717",
+      "at": "2026-07-04T07:19:30.100301600+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-fa1804e1cd2c",
+      "action": "mcp.client.validate.assert",
+      "captureId": "cap-cef90daf5c88",
+      "manifestPath": ".codectx/verify/client-sessions/csess-7328977f0823/captures/cap-cef90daf5c88/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T07:19:30.117248+00:00"
+    }
+  ]
+}

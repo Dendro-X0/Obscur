@@ -1,0 +1,231 @@
+{
+  "schema": "client.session.steps@0.1.0",
+  "sessionId": "csess-5810c264fdbf",
+  "updatedAt": "2026-07-04T07:48:30.176335200+00:00",
+  "stepCount": 23,
+  "steps": [
+    {
+      "index": 0,
+      "stepId": "step-8205185ae0a6",
+      "action": "snapshot",
+      "captureId": "cap-bdd431decc22",
+      "manifestPath": ".codectx/verify/client-sessions/csess-5810c264fdbf/captures/cap-bdd431decc22/manifest.json",
+      "stepLabel": "connect-bootstrap",
+      "pass": true,
+      "at": "2026-07-04T07:44:32.200026900+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-db0bffc25d13",
+      "action": "mcp.client.session.connect",
+      "manifestPath": ".codectx/verify/client-sessions/csess-5810c264fdbf/attach-latest.json",
+      "pass": true,
+      "at": "2026-07-04T07:44:35.876381900+00:00"
+    },
+    {
+      "index": 2,
+      "stepId": "step-c10de9e1b9d2",
+      "action": "surfaceProbe",
+      "captureId": "cap-113648698a24",
+      "manifestPath": ".codectx/verify/client-sessions/csess-5810c264fdbf/captures/cap-113648698a24/manifest.json",
+      "stepLabel": "surface-probe",
+      "pass": true,
+      "message": "surface probe captured",
+      "at": "2026-07-04T07:44:44.284283800+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-30da9d202fb7",
+      "action": "mcp.client.surface.probe",
+      "pass": true,
+      "at": "2026-07-04T07:44:44.288227300+00:00"
+    },
+    {
+      "index": 4,
+      "stepId": "step-6ee62bafef9d",
+      "action": "click",
+      "captureId": "cap-e9bb0b2bbe1e",
+      "manifestPath": ".codectx/verify/client-sessions/csess-5810c264fdbf/captures/cap-e9bb0b2bbe1e/manifest.json",
+      "selector": "button[aria-label*=\"Close\"], button:has-text(\"Close\")",
+      "pass": true,
+      "at": "2026-07-04T07:45:15.751430800+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-bc4d546c16e1",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-e9bb0b2bbe1e",
+      "manifestPath": ".codectx/verify/client-sessions/csess-5810c264fdbf/captures/cap-e9bb0b2bbe1e/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T07:45:15.753246900+00:00"
+    },
+    {
+      "index": 6,
+      "stepId": "step-b5d20bfbb5f8",
+      "action": "click",
+      "captureId": "cap-26ba960a7496",
+      "manifestPath": ".codectx/verify/client-sessions/csess-5810c264fdbf/captures/cap-26ba960a7496/manifest.json",
+      "selector": "button:has-text(\"Enter Community Chat\")",
+      "pass": false,
+      "message": "locator.click: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('button:has-text(\"Enter Community Chat\")')\u001b[22m\n\u001b[2m    - locator resolved to <button class=\"btn-enhanced inline-flex items-center justify-center min-h-10 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/50 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-black disabled:pointer-events-none disabled:opacity-40 hover:shadow-lg hover:shadow-purple-500/30 border border-zinc-300 bg-white text-zinc-950 hover:bg-zinc-100 font-black shadow-lg shadow-zinc-900/5 transition-all hover:scale-[1.02] active:scale-95 d…>…</button>\u001b[22m\n\u001b[2m  - attempting click action\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is visible, enabled and stable\u001b[22m\n\u001b[2m      - scrolling into view if needed\u001b[22m\n\u001b[2m      - done scrolling\u001b[22m\n\u001b[2m      - <div class=\"space-y-3 rounded-2xl border border-emerald-500/20 bg-gradient-to-b from-emerald-500/[0.08] via-emerald-500/[0.03] to-transparent p-3\">…</div> from <div class=\"fixed inset-0 z-[140] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4\">…</div> subtree intercepts pointer events\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m    - waiting 20ms\u001b[22m\n\u001b[2m    - waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m    - element is visible, enabled and stable\u001b[22m\n\u001b[2m    - scrolling into view if needed\u001b[22m\n\u001b[2m    - done scrolling\u001b[22m\n\u001b[2m    - <div class=\"border-b border-black/10 p-6 dark:border-white/10\">…</div> from <div class=\"fixed inset-0 z-[140] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4\">…</div> subtree intercepts pointer events\u001b[22m\n\u001b[2m  2 × retrying click action\u001b[22m\n\u001b[2m      - waiting 100ms\u001b[22m\n\u001b[2m      - waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is visible, enabled and stable\u001b[22m\n\u001b[2m      - scrolling into view if needed\u001b[22m\n\u001b[2m      - done scrolling\u001b[22m\n\u001b[2m      - <div class=\"fixed inset-0 z-[140] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4\">…</div> intercepts pointer events\u001b[22m\n\u001b[2m  4 × retrying click action\u001b[22m\n\u001b[2m      - waiting 500ms\u001b[22m\n\u001b[2m      - waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is visible, enabled and stable\u001b[22m\n\u001b[2m      - scrolling into view if needed\u001b[22m\n\u001b[2m      - done scrolling\u001b[22m\n\u001b[2m      - <div class=\"space-y-3 rounded-2xl border border-emerald-500/20 bg-gradient-to-b from-emerald-500/[0.08] via-emerald-500/[0.03] to-transparent p-3\">…</div> from <div class=\"fixed inset-0 z-[140] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4\">…</div> subtree intercepts pointer events\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m      - waiting 500ms\u001b[22m\n\u001b[2m      - waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is visible, enabled and stable\u001b[22m\n\u001b[2m      - scrolling into view if needed\u001b[22m\n\u001b[2m      - done scrolling\u001b[22m\n\u001b[2m      - <div class=\"border-b border-black/10 p-6 dark:border-white/10\">…</div> from <div class=\"fixed inset-0 z-[140] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4\">…</div> subtree intercepts pointer events\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m      - waiting 500ms\u001b[22m\n\u001b[2m      - waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is visible, enabled and stable\u001b[22m\n\u001b[2m      - scrolling into view if needed\u001b[22m\n\u001b[2m      - done scrolling\u001b[22m\n\u001b[2m      - <div class=\"fixed inset-0 z-[140] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4\">…</div> intercepts pointer events\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m      - waiting 500ms\u001b[22m\n\u001b[2m      - waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is visible, enabled and stable\u001b[22m\n\u001b[2m      - scrolling into view if needed\u001b[22m\n\u001b[2m      - done scrolling\u001b[22m\n\u001b[2m      - <div class=\"fixed inset-0 z-[140] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4\">…</div> intercepts pointer events\u001b[22m\n\u001b[2m  - retrying click action\u001b[22m\n\u001b[2m    - waiting 500ms\u001b[22m\n\u001b[2m    - waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m    - element is visible, enabled and stable\u001b[22m\n\u001b[2m    - scrolling into view if needed\u001b[22m\n\u001b[2m    - done scrolling\u001b[22m\n\u001b[2m    - <div class=\"space-y-3 rounded-2xl border border-emerald-500/20 bg-gradient-to-b from-emerald-500/[0.08] via-emerald-500/[0.03] to-transparent p-3\">…</div> from <div class=\"fixed inset-0 z-[140] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4\">…</div> subtree intercepts pointer events\u001b[22m\n\u001b[2m  - retrying click action\u001b[22m\n\u001b[2m    - waiting 500ms\u001b[22m\n\u001b[2m    - waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m    - element is visible, enabled and stable\u001b[22m\n\u001b[2m    - scrolling into view if needed\u001b[22m\n\u001b[2m    - done scrolling\u001b[22m\n\u001b[2m    - <div class=\"border-b border-black/10 p-6 dark:border-white/10\">…</div> from <div class=\"fixed inset-0 z-[140] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4\">…</div> subtree intercepts pointer events\u001b[22m\n\u001b[2m  - retrying click action\u001b[22m\n\u001b[2m    - waiting 500ms\u001b[22m\n",
+      "at": "2026-07-04T07:45:41.904729500+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-b955d44719fc",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-26ba960a7496",
+      "manifestPath": ".codectx/verify/client-sessions/csess-5810c264fdbf/captures/cap-26ba960a7496/manifest.json",
+      "pass": false,
+      "message": "locator.click: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('button:has-text(\"Enter Community Chat\")')\u001b[22m\n\u001b[2m    - locator resolved to <button class=\"btn-enhanced inline-flex items-center justify-center min-h-10 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/50 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-black disabled:pointer-events-none disabled:opacity-40 hover:shadow-lg hover:shadow-purple-500/30 border border-zinc-300 bg-white text-zinc-950 hover:bg-zinc-100 font-black shadow-lg shadow-zinc-900/5 transition-all hover:scale-[1.02] active:scale-95 d…>…</button>\u001b[22m\n\u001b[2m  - attempting click action\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is visible, enabled and stable\u001b[22m\n\u001b[2m      - scrolling into view if needed\u001b[22m\n\u001b[2m      - done scrolling\u001b[22m\n\u001b[2m      - <div class=\"space-y-3 rounded-2xl border border-emerald-500/20 bg-gradient-to-b from-emerald-500/[0.08] via-emerald-500/[0.03] to-transparent p-3\">…</div> from <div class=\"fixed inset-0 z-[140] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4\">…</div> subtree intercepts pointer events\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m    - waiting 20ms\u001b[22m\n\u001b[2m    - waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m    - element is visible, enabled and stable\u001b[22m\n\u001b[2m    - scrolling into view if needed\u001b[22m\n\u001b[2m    - done scrolling\u001b[22m\n\u001b[2m    - <div class=\"border-b border-black/10 p-6 dark:border-white/10\">…</div> from <div class=\"fixed inset-0 z-[140] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4\">…</div> subtree intercepts pointer events\u001b[22m\n\u001b[2m  2 × retrying click action\u001b[22m\n\u001b[2m      - waiting 100ms\u001b[22m\n\u001b[2m      - waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is visible, enabled and stable\u001b[22m\n\u001b[2m      - scrolling into view if needed\u001b[22m\n\u001b[2m      - done scrolling\u001b[22m\n\u001b[2m      - <div class=\"fixed inset-0 z-[140] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4\">…</div> intercepts pointer events\u001b[22m\n\u001b[2m  4 × retrying click action\u001b[22m\n\u001b[2m      - waiting 500ms\u001b[22m\n\u001b[2m      - waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is visible, enabled and stable\u001b[22m\n\u001b[2m      - scrolling into view if needed\u001b[22m\n\u001b[2m      - done scrolling\u001b[22m\n\u001b[2m      - <div class=\"space-y-3 rounded-2xl border border-emerald-500/20 bg-gradient-to-b from-emerald-500/[0.08] via-emerald-500/[0.03] to-transparent p-3\">…</div> from <div class=\"fixed inset-0 z-[140] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4\">…</div> subtree intercepts pointer events\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m      - waiting 500ms\u001b[22m\n\u001b[2m      - waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is visible, enabled and stable\u001b[22m\n\u001b[2m      - scrolling into view if needed\u001b[22m\n\u001b[2m      - done scrolling\u001b[22m\n\u001b[2m      - <div class=\"border-b border-black/10 p-6 dark:border-white/10\">…</div> from <div class=\"fixed inset-0 z-[140] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4\">…</div> subtree intercepts pointer events\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m      - waiting 500ms\u001b[22m\n\u001b[2m      - waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is visible, enabled and stable\u001b[22m\n\u001b[2m      - scrolling into view if needed\u001b[22m\n\u001b[2m      - done scrolling\u001b[22m\n\u001b[2m      - <div class=\"fixed inset-0 z-[140] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4\">…</div> intercepts pointer events\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m      - waiting 500ms\u001b[22m\n\u001b[2m      - waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is visible, enabled and stable\u001b[22m\n\u001b[2m      - scrolling into view if needed\u001b[22m\n\u001b[2m      - done scrolling\u001b[22m\n\u001b[2m      - <div class=\"fixed inset-0 z-[140] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4\">…</div> intercepts pointer events\u001b[22m\n\u001b[2m  - retrying click action\u001b[22m\n\u001b[2m    - waiting 500ms\u001b[22m\n\u001b[2m    - waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m    - element is visible, enabled and stable\u001b[22m\n\u001b[2m    - scrolling into view if needed\u001b[22m\n\u001b[2m    - done scrolling\u001b[22m\n\u001b[2m    - <div class=\"space-y-3 rounded-2xl border border-emerald-500/20 bg-gradient-to-b from-emerald-500/[0.08] via-emerald-500/[0.03] to-transparent p-3\">…</div> from <div class=\"fixed inset-0 z-[140] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4\">…</div> subtree intercepts pointer events\u001b[22m\n\u001b[2m  - retrying click action\u001b[22m\n\u001b[2m    - waiting 500ms\u001b[22m\n\u001b[2m    - waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m    - element is visible, enabled and stable\u001b[22m\n\u001b[2m    - scrolling into view if needed\u001b[22m\n\u001b[2m    - done scrolling\u001b[22m\n\u001b[2m    - <div class=\"border-b border-black/10 p-6 dark:border-white/10\">…</div> from <div class=\"fixed inset-0 z-[140] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4\">…</div> subtree intercepts pointer events\u001b[22m\n\u001b[2m  - retrying click action\u001b[22m\n\u001b[2m    - waiting 500ms\u001b[22m\n",
+      "at": "2026-07-04T07:45:41.917549500+00:00"
+    },
+    {
+      "index": 8,
+      "stepId": "step-98f549fced82",
+      "action": "surfaceProbe",
+      "captureId": "cap-0b6d5dfca3d9",
+      "manifestPath": ".codectx/verify/client-sessions/csess-5810c264fdbf/captures/cap-0b6d5dfca3d9/manifest.json",
+      "stepLabel": "surface-probe",
+      "pass": true,
+      "message": "surface probe captured",
+      "at": "2026-07-04T07:45:46.919222800+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-d929a172e59f",
+      "action": "mcp.client.surface.probe",
+      "pass": true,
+      "at": "2026-07-04T07:45:46.920751700+00:00"
+    },
+    {
+      "index": 10,
+      "stepId": "step-bacf39d67776",
+      "action": "click",
+      "captureId": "cap-cee54cf94573",
+      "manifestPath": ".codectx/verify/client-sessions/csess-5810c264fdbf/captures/cap-cee54cf94573/manifest.json",
+      "selector": ".fixed.inset-0.z-\\[140\\] button:not(:has-text(\"Reconcile\")):not(:has-text(\"Tester\"))",
+      "pass": true,
+      "at": "2026-07-04T07:46:03.455749200+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-16d4a71c90af",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-cee54cf94573",
+      "manifestPath": ".codectx/verify/client-sessions/csess-5810c264fdbf/captures/cap-cee54cf94573/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T07:46:03.458346+00:00"
+    },
+    {
+      "index": 12,
+      "stepId": "step-b2348c8de0e6",
+      "action": "click",
+      "captureId": "cap-cae38febf033",
+      "manifestPath": ".codectx/verify/client-sessions/csess-5810c264fdbf/captures/cap-cae38febf033/manifest.json",
+      "selector": "button:has-text(\"Enter Community Chat\")",
+      "pass": true,
+      "at": "2026-07-04T07:46:23.648398400+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-77ac2eb5561e",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-cae38febf033",
+      "manifestPath": ".codectx/verify/client-sessions/csess-5810c264fdbf/captures/cap-cae38febf033/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T07:46:23.650430600+00:00"
+    },
+    {
+      "index": 14,
+      "stepId": "step-bc3cc9ebd228",
+      "action": "type",
+      "captureId": "cap-a0e62c518e7c",
+      "manifestPath": ".codectx/verify/client-sessions/csess-5810c264fdbf/captures/cap-a0e62c518e7c/manifest.json",
+      "selector": "textbox[placeholder*=\"Type a message\"]",
+      "text": "COM-RUN-11-phase1c-rejoin-070T0746",
+      "pass": false,
+      "message": "locator.fill: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('textbox[placeholder*=\"Type a message\"]')\u001b[22m\n",
+      "at": "2026-07-04T07:46:41.296064+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-a9b43c7ac2a1",
+      "action": "mcp.client.interact.type",
+      "captureId": "cap-a0e62c518e7c",
+      "manifestPath": ".codectx/verify/client-sessions/csess-5810c264fdbf/captures/cap-a0e62c518e7c/manifest.json",
+      "pass": false,
+      "message": "locator.fill: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('textbox[placeholder*=\"Type a message\"]')\u001b[22m\n",
+      "at": "2026-07-04T07:46:41.297366100+00:00"
+    },
+    {
+      "index": 16,
+      "stepId": "step-89d8a9b6dab8",
+      "action": "type",
+      "captureId": "cap-e09e4e958ce5",
+      "manifestPath": ".codectx/verify/client-sessions/csess-5810c264fdbf/captures/cap-e09e4e958ce5/manifest.json",
+      "selector": "[contenteditable=\"true\"], textarea, input[placeholder*=\"message\" i]",
+      "text": "COM-RUN-11-phase1c-rejoin-070T0746",
+      "pass": true,
+      "at": "2026-07-04T07:46:47.119154200+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-4eb8fe556b4b",
+      "action": "mcp.client.interact.type",
+      "captureId": "cap-e09e4e958ce5",
+      "manifestPath": ".codectx/verify/client-sessions/csess-5810c264fdbf/captures/cap-e09e4e958ce5/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T07:46:47.121134100+00:00"
+    },
+    {
+      "index": 18,
+      "stepId": "step-ac6ef8e01a67",
+      "action": "click",
+      "captureId": "cap-d0dd6d9a75fe",
+      "manifestPath": ".codectx/verify/client-sessions/csess-5810c264fdbf/captures/cap-d0dd6d9a75fe/manifest.json",
+      "selector": "button:has-text(\"Send\")",
+      "pass": false,
+      "message": "locator.click: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('button:has-text(\"Send\")')\u001b[22m\n",
+      "at": "2026-07-04T07:47:12.121646400+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-a9ee53b64e87",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-d0dd6d9a75fe",
+      "manifestPath": ".codectx/verify/client-sessions/csess-5810c264fdbf/captures/cap-d0dd6d9a75fe/manifest.json",
+      "pass": false,
+      "message": "locator.click: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('button:has-text(\"Send\")')\u001b[22m\n",
+      "at": "2026-07-04T07:47:12.123428700+00:00"
+    },
+    {
+      "index": 20,
+      "stepId": "step-8df1ccbe3b2e",
+      "action": "click",
+      "captureId": "cap-4d9a1b952e18",
+      "manifestPath": ".codectx/verify/client-sessions/csess-5810c264fdbf/captures/cap-4d9a1b952e18/manifest.json",
+      "stepLabel": "send-message",
+      "selector": "button[aria-label=\"Send\"]",
+      "pass": true,
+      "at": "2026-07-04T07:47:50.691613800+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-dba41323d2c2",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-4d9a1b952e18",
+      "manifestPath": ".codectx/verify/client-sessions/csess-5810c264fdbf/captures/cap-4d9a1b952e18/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T07:47:50.693827600+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-9c09b0191ff2",
+      "action": "mcp.client.multiwindow.capture",
+      "pass": false,
+      "message": "no client target for windowLabel: profile-2",
+      "at": "2026-07-04T07:48:30.175609100+00:00"
+    }
+  ]
+}

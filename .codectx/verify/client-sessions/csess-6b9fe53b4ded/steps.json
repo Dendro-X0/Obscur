@@ -1,0 +1,69 @@
+{
+  "schema": "client.session.steps@0.1.0",
+  "sessionId": "csess-6b9fe53b4ded",
+  "updatedAt": "2026-07-01T14:13:40.231738300+00:00",
+  "stepCount": 6,
+  "steps": [
+    {
+      "index": 0,
+      "stepId": "step-562228f46d37",
+      "action": "snapshot",
+      "captureId": "cap-cf43455c37d8",
+      "manifestPath": ".codectx/verify/client-sessions/csess-6b9fe53b4ded/captures/cap-cf43455c37d8/manifest.json",
+      "stepLabel": "connect-bootstrap",
+      "pass": true,
+      "at": "2026-07-01T14:13:03.323293600+00:00"
+    },
+    {
+      "index": 1,
+      "stepId": "step-c12f634facb7",
+      "action": "snapshot",
+      "captureId": "cap-8ffd80fc630b",
+      "manifestPath": ".codectx/verify/client-sessions/csess-6b9fe53b4ded/captures/cap-8ffd80fc630b/manifest.json",
+      "pass": true,
+      "at": "2026-07-01T14:13:12.176768300+00:00"
+    },
+    {
+      "index": 2,
+      "stepId": "step-592c3437213d",
+      "action": "click",
+      "captureId": "cap-6d74380b50bf",
+      "manifestPath": ".codectx/verify/client-sessions/csess-6b9fe53b4ded/captures/cap-6d74380b50bf/manifest.json",
+      "selector": "img[alt=\"Tester1\"]",
+      "pass": true,
+      "at": "2026-07-01T14:13:18.510854200+00:00"
+    },
+    {
+      "index": 3,
+      "stepId": "step-0b7a6a4c1b9b",
+      "action": "type",
+      "captureId": "cap-ccd972565458",
+      "manifestPath": ".codectx/verify/client-sessions/csess-6b9fe53b4ded/captures/cap-ccd972565458/manifest.json",
+      "selector": "role=textbox[name=\"Enter your password\"]",
+      "text": "SyI14^ew1E",
+      "pass": true,
+      "at": "2026-07-01T14:13:22.231622600+00:00"
+    },
+    {
+      "index": 4,
+      "stepId": "step-aa6d78b195e8",
+      "action": "click",
+      "captureId": "cap-921a04f7d166",
+      "manifestPath": ".codectx/verify/client-sessions/csess-6b9fe53b4ded/captures/cap-921a04f7d166/manifest.json",
+      "selector": "role=button[name=\"Log In\"] >> nth=1",
+      "pass": true,
+      "at": "2026-07-01T14:13:33.060667500+00:00"
+    },
+    {
+      "index": 5,
+      "stepId": "step-e12b9ed76949",
+      "action": "surfaceProbe",
+      "captureId": "cap-f828c0c18f4e",
+      "manifestPath": ".codectx/verify/client-sessions/csess-6b9fe53b4ded/captures/cap-f828c0c18f4e/manifest.json",
+      "stepLabel": "surface-probe",
+      "pass": true,
+      "message": "surface probe captured",
+      "at": "2026-07-01T14:13:40.229676+00:00"
+    }
+  ]
+}

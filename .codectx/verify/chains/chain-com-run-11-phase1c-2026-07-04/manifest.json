@@ -1,0 +1,60 @@
+{
+  "schema": "codactrl.investigation.chain@0.1.0",
+  "chainId": "chain-com-run-11-phase1c-2026-07-04",
+  "symptomClass": "invite-role-ecosystem",
+  "title": "Phase 1C COM-RUN-11 t4 dual-profile invite matrix",
+  "status": "open",
+  "createdAt": "2026-07-04T05:19:43.312836700+00:00",
+  "updatedAt": "2026-07-04T14:15:19.249734200+00:00",
+  "nodeIds": [
+    "n1-t1-send-t2-no-key",
+    "n2-fresh-invite-accept",
+    "n3-dual-send-t4",
+    "n4-docker-relay-dual-send",
+    "n5-com-run11-invite-matrix",
+    "n6-k-m1-leave-partial",
+    "n7-k-m2-rejoin-t4",
+    "n8-phase1d-p3-coldrestart-t3"
+  ],
+  "edges": [
+    {
+      "from": "n1-t1-send-t2-no-key",
+      "to": "n3-dual-send-t4",
+      "label": "round25-dual-send-t4"
+    },
+    {
+      "from": "n1-t1-send-t2-no-key",
+      "to": "n2-fresh-invite-accept"
+    },
+    {
+      "from": "n3-dual-send-t4",
+      "to": "n4-docker-relay-dual-send",
+      "label": "docker-relay-dual-send"
+    },
+    {
+      "from": "n4-docker-relay-dual-send",
+      "to": "n5-com-run11-invite-matrix",
+      "label": "invite-role-matrix"
+    },
+    {
+      "from": "n5-com-run11-invite-matrix",
+      "to": "n6-k-m1-leave-partial",
+      "label": "k-m1-leave-roster"
+    },
+    {
+      "from": "n6-k-m1-leave-partial",
+      "to": "n7-k-m2-rejoin-t4",
+      "label": "reinvite-accept-dual-send"
+    },
+    {
+      "from": "n7-k-m2-rejoin-t4",
+      "to": "n8-phase1d-p3-coldrestart-t3",
+      "label": "phase1d-p3-cold-restart"
+    }
+  ],
+  "summary": {
+    "verdict": "partial_accepted",
+    "nodesCaptured": 8,
+    "splitBrainObserved": false
+  }
+}

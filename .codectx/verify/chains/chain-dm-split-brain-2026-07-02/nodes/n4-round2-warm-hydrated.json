@@ -1,0 +1,20 @@
+{
+  "schema": "codactrl.investigation.node@0.1.0",
+  "chainId": "chain-dm-split-brain-2026-07-02",
+  "nodeId": "n4-round2-warm-hydrated",
+  "trigger": "Round 2 boot-artifacts pass — Tester2 DM before group nav",
+  "at": "2026-07-01T14:09:46.511701300+00:00",
+  "sessionId": "csess-510a62aba320",
+  "surfaces": {
+    "mainThreadMessageCount": 4,
+    "mainThreadSystemCards": 0,
+    "alertBannerCount": 2,
+    "splitBrainSuspected": false
+  },
+  "screenshotRef": ".codectx/verify/client-sessions/csess-510a62aba320/captures/cap-8d4ccc1c68c5/screenshot.png",
+  "hypothesis": "Warm Tester1 session — DM hydrated, no split-brain",
+  "doesNotProve": [
+    "cold restart split-brain",
+    "t4 multi-window"
+  ]
+}

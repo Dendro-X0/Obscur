@@ -1,0 +1,48 @@
+- main:
+  - text: Client release-v1.9.10-relay-recovery-20260617
+  - img "Obscur"
+  - text: Obscur
+  - button "desktop.titleBar.lock"
+  - button "Open desktop profile switcher": T Tester2 Obscur / 3db055b4...d946830f
+  - button "Minimize window"
+  - button "Maximize window"
+  - button "Close window"
+  - button "Connected"
+  - link "Chats":
+    - /url: /
+  - link "Network":
+    - /url: /network
+  - link "Vault":
+    - /url: /vault
+  - link "Search":
+    - /url: /search
+  - link "Settings":
+    - /url: /settings
+  - button "Open profile menu": T
+  - button "Sidebar Options"
+  - button "Chats"
+  - button "Requests"
+  - button "Junk"
+  - textbox "Search users and communities..."
+  - button "Chat"
+  - button "Group"
+  - button "New Group"
+  - button "Communities"
+  - button "N NewTest 2 No messages yet 21d ago":
+    - text: N NewTest 2
+    - paragraph: No messages yet
+    - button
+    - text: 21d ago
+  - text: Connected 2/5 active relays Obscur Preview
+  - main:
+    - text: Missing contacts or chat history?
+    - paragraph: If you do not see contacts or chat history yet, please wait a few minutes while loading and account data synchronization completes.
+    - button "Start a new conversation": +
+    - heading "Select a Conversation" [level=2]
+    - paragraph: Choose a chat from the sidebar or start a new one to begin messaging.
+    - heading "Share Profile" [level=3]
+    - paragraph: Share your public key with others to let them message you.
+    - button "Copy Public Key"
+    - button "Copy Chat Link"
+    - text: "Relays: 5/5 Online Public keys are safe to share!"
+- alert

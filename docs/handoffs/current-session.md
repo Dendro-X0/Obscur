@@ -1,18 +1,34 @@
 # Current Session Handoff — Obscur Engine Lab
 
-- Last Updated (UTC): 2026-07-04T17:05:00Z
+- Last Updated (UTC): 2026-07-05T00:02:00Z
 
 ## Next atomic step
 
-**R5 — O-4 ingest chrome** (runtime repair · **implemented** · t4 next)
+**Phase 4 — Vercel preview deploy** (local deploy smoke **PASS** · runtime repair band **EXIT**)
 
 | Field | Value |
 |-------|--------|
+| Prerequisite | R1–R5 **VERIFIED t4** · R4 **A** @ ACC-02 |
+| L1 | **PASS** — `pnpm -C apps/website build` (2026-07-04) |
+| Local smoke | **PASS** — `/`, `/download`, `/limitations` HTTP 200 · SHA-256 matches `release-assets/manifest.json` |
+| Editorial P0 | **Done** — hero fold · `/download` utilitarian pass · [frontend-spec.md](../../apps/website/docs/frontend-spec.md) |
+| CodaCtrl chain | `chain-phase4-website-2026-07-04` · n0–n3 · deploy smoke t2 (`csess-7813dd567860`) |
+| Next | **Vercel preview** (maintainer `vercel login` + deploy from `apps/website`) · then Phase 4 **EXIT** sign-off → Phase 5 demo kit |
+| Blocked | `npx vercel whoami` hangs (npm lock) · codactrld workspace misalignment for `client_session_connect` (WEB-R1) |
+| Charter | [obscur-v2-phase4-website-charter.md](../program/obscur-v2-phase4-website-charter.md) |
+
+**R5 — VERIFIED t4 (2026-07-04)**
+
+| Field | Value |
+|-------|--------|
+| Commit | `60c9bb3c` — `resolveRoomKeyHexForGroupRelayIngest` · ingest hooks pass `localPrivateKeyHex` |
 | Investigation | [o4-ingest-chrome-r5-investigation-2026-07.md](../../specs/backend/o4-ingest-chrome-r5-investigation-2026-07.md) |
 | Design | [o4-ingest-chrome-r5-design-2026-07.md](../../specs/backend/o4-ingest-chrome-r5-design-2026-07.md) |
-| Fix | `resolveRoomKeyHexForGroupRelayIngest` · ingest hooks pass `localPrivateKeyHex` |
 | L1 | **PASS** — ingest + room-key-owner (26/26) |
-| Next | t4 dual-profile background ingest · chain `chain-r5-o4-ingest-chrome-2026-07-04` |
+| Warm t4 | `csess-58ce611e907b` · send `R5-o4-ingest-t4-070T1746` · thread + sidebar preview · digest no `decrypt_failed` · `mainThreadSystemCards: 0` |
+| Cold t4 | `csess-b7f42e294e5e` · post-`taskkill` unlock · marker visible in thread + sidebar |
+| Chain | `chain-r5-o4-ingest-chrome-2026-07-04` · `r5-t4-thread-send` · `r5-t4-coldrestart` |
+| Does not prove | Tester2 background ingest on `:9231` without community-home visit |
 
 **R3 — committed (2026-07-04 · Option B)**
 
@@ -37,7 +53,7 @@
 | Sessions | `csess-0452d809a249` (warm) · `csess-afc2304a45ec` (cold t4) |
 | Does not prove | Auto keychain unlock without password · passwordless skip path · packaged NSIS |
 
-**Maintainer policy (2026-07-04):** Runtime repair band **ACTIVE** · Release prep **PAUSED** (no website deploy, Phase 5/6, `v2.0.0` until rows exit with **V** or signed **A**).
+**Maintainer policy (2026-07-04):** Runtime repair band **EXIT** (R1–R3 + R5 **VERIFIED t4** · R4 **A**) · Phase 4 deploy **unpaused for maintainer smoke** · release prep (`v2.0.0` tag, demo kit) still gated on Phase 4 sign-off.
 
 Repair queue:
 
@@ -46,7 +62,7 @@ Repair queue:
 | R1 | `group-room-key-missing` | **VERIFIED t4** |
 | R2 | `auth-keychain-restore-failed` | **VERIFIED t4** |
 | **R3** | Sidebar preview stale | **VERIFIED t4** (`csess-264849283e3c` · `3cf79dbe`) |
-| **R5** | O-4 ingest chrome | **IMPLEMENTED** · t4 next |
+| **R5** | O-4 ingest chrome | **VERIFIED t4** (`60c9bb3c` · `csess-58ce611e907b` / `csess-b7f42e294e5e`) |
 | R4 | COM-RUN-01 roster | **A** @ ACC-02 |
 
 Protocol: [obscur-runtime-issue-tracker-2026-07.md](../program/obscur-runtime-issue-tracker-2026-07.md) · register `.codectx/verify/issues-register.summary.json`
@@ -69,9 +85,9 @@ Protocol: [obscur-runtime-issue-tracker-2026-07.md](../program/obscur-runtime-is
 | Field | Value |
 |-------|--------|
 | Phase 2 | **EXIT** 2026-07-04 |
-| Phase 3 | **EXIT** (installers recorded) · **no further packaging** until runtime band |
-| Phase 4 | **PAUSED** — code landed · **no deploy** until runtime band |
-| Release prep | **PAUSED** — website, demo kit, v2.0.0 tag gated on runtime fixes |
+| Phase 3 | **EXIT** (installers recorded) |
+| Phase 4 | **Local smoke PASS** — Vercel preview gate · then **EXIT** |
+| Release prep | **PAUSED** — website public deploy, demo kit, `v2.0.0` tag after Phase 4 smoke |
 | Phase 1D row 3 | **DONE** — P3a–d SQLite restart soaks (2026-07-04) |
 | Phase 1D row 2 | **DONE (partial)** — SEC §1–§5 signed @ SHA `4d000257` · SEC-V4 **A** @ REL-002 |
 | Phase 1D row 1 | **DONE** — lane closure (2026-07-04) |
@@ -91,17 +107,20 @@ Protocol: [obscur-runtime-issue-tracker-2026-07.md](../program/obscur-runtime-is
 
 ## Session status
 
-**Maintainer policy (2026-07-04):** Fix Obscur **runtime** issues before any release preparation (website deploy, demo kit, v2.0.0 tag). PWA remains out of production scope; native desktop/mobile only when feasible.
+**Maintainer policy (2026-07-04):** Runtime repair band **EXIT**. Phase 4 website deploy smoke is next; full release prep remains gated on Phase 4 sign-off. PWA remains out of production scope; native desktop/mobile only when feasible.
 
-**Phase 4 — PAUSED for deploy**
+**Phase 4 — local smoke PASS · Vercel preview gate**
 
 | Row | Status |
 |-----|--------|
-| W4-1…W4-4 | Code **done** · L1 build PASS · **do not deploy publicly** |
+| W4-1…W4-4 | **Done** · L1 build PASS · local HTTP smoke PASS |
+| Editorial P0 | **Done** — `/`, `/download`, `/limitations` editorial lane |
+| Deploy smoke | **PASS (local t2)** — `chain-phase4-website-2026-07-04` |
+| Vercel preview | **Pending** — maintainer deploy + public URL smoke |
 
-Charter: [obscur-v2-phase4-website-charter.md](../program/obscur-v2-phase4-website-charter.md) — deploy row **PAUSED**
+Charter: [obscur-v2-phase4-website-charter.md](../program/obscur-v2-phase4-website-charter.md) — prerequisite **met** (runtime band exit)
 
-**Phase 3 — EXIT (2026-07-04)** · packaging frozen until runtime band
+**Phase 3 — EXIT (2026-07-04)** · packaging frozen until Phase 4 / release gate
 
 | Row | Result |
 |-----|--------|
@@ -109,7 +128,7 @@ Charter: [obscur-v2-phase4-website-charter.md](../program/obscur-v2-phase4-websi
 | P3-2 | Unsigned accepted @ [obscur-v2-phase3-signing-policy.md](../program/obscur-v2-phase3-signing-policy.md) |
 | P3-3 | Android debug APK built · SHA `04afc48f…` · 292,511,220 bytes · path in [manifest.json](../../release-assets/manifest.json) |
 
-**P3-3 build (2026-07-04):** `pnpm build:android:debug:emulator` (CARGO_BUILD_JOBS=2, Gradle workers=2) · output `apps/desktop/src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk` · compile fixes: mobile gate on `read_portable_sidecar`, `native_keychain` stubs on Android (**uncommitted**).
+**P3-3 build (2026-07-04):** `pnpm build:android:debug:emulator` (CARGO_BUILD_JOBS=2, Gradle workers=2) · output path in [install/build guide](../program/obscur-v2-install-build-guide.md) · compile fixes: mobile gate on `read_portable_sidecar`, `native_keychain` stubs on Android (**uncommitted**).
 
 **Phase 3 — P3-2 signing policy DONE (2026-07-04)**
 

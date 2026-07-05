@@ -1,0 +1,168 @@
+{
+  "schema": "codactrl.investigation.chain@0.1.0",
+  "chainId": "chain-o4-group-ingest-2026-07-02",
+  "symptomClass": "group-thread-relay-ingest",
+  "title": "O-4 Step 7 — NewTest 2 group message relay round-trip",
+  "status": "open",
+  "createdAt": "2026-07-01T11:23:57.025792100+00:00",
+  "updatedAt": "2026-07-04T14:15:19.317045900+00:00",
+  "nodeIds": [
+    "n0-stack-preflight",
+    "n1-send-blocked-group-key",
+    "n2-round2-send-blocked",
+    "n3-round3-send-blocked",
+    "n4-room-key-health-snapshot",
+    "n5-round5-send-blocked-no-docker",
+    "n6-round6-health-recovered-docker",
+    "n7-round7-stack-preflight",
+    "n8-round7-send-repro",
+    "n9-round8-coldstart-preflight",
+    "n10-round8-coldstart-send-repro",
+    "n11-round10-no-docker-send-blocked",
+    "n12-round11-multiwindow-partial-stack",
+    "n13-round12-fullstack-send-success",
+    "n14-round13-rebuild-send-success",
+    "n15-round13-bridge-multiwindow-partial",
+    "n16-round14-send-success",
+    "n17-round14-bridge-focus-ipc",
+    "n18-round15-profile-cdp-attach",
+    "n19-round16-profile2-unlock-send",
+    "n20-round17-stack-preflight-dual",
+    "n21-round17b-docker-send-success",
+    "n22-round18-codactrl-send-success",
+    "n23-round20-o4-send",
+    "n27-round21-com-run11-blocked",
+    "n24-round21-com-run01-t1-roster",
+    "n25-round21-com-run01-t2-absent",
+    "n9-round23-warm-baseline",
+    "n10-round23-post-rebuild-ledger"
+  ],
+  "edges": [
+    {
+      "from": "n0-stack-preflight",
+      "to": "n1-send-blocked-group-key"
+    },
+    {
+      "from": "n1-send-blocked-group-key",
+      "to": "n2-round2-send-blocked"
+    },
+    {
+      "from": "n2-round2-send-blocked",
+      "to": "n3-round3-send-blocked"
+    },
+    {
+      "from": "n3-round3-send-blocked",
+      "to": "n4-room-key-health-snapshot"
+    },
+    {
+      "from": "n4-room-key-health-snapshot",
+      "to": "n5-round5-send-blocked-no-docker"
+    },
+    {
+      "from": "n5-round5-send-blocked-no-docker",
+      "to": "n6-round6-health-recovered-docker"
+    },
+    {
+      "from": "n6-round6-health-recovered-docker",
+      "to": "n7-round7-stack-preflight"
+    },
+    {
+      "from": "n7-round7-stack-preflight",
+      "to": "n8-round7-send-repro"
+    },
+    {
+      "from": "n8-round7-send-repro",
+      "to": "n9-round8-coldstart-preflight"
+    },
+    {
+      "from": "n9-round8-coldstart-preflight",
+      "to": "n10-round8-coldstart-send-repro"
+    },
+    {
+      "from": "n10-round8-coldstart-send-repro",
+      "to": "n11-round10-no-docker-send-blocked"
+    },
+    {
+      "from": "n11-round10-no-docker-send-blocked",
+      "to": "n12-round11-multiwindow-partial-stack"
+    },
+    {
+      "from": "n12-round11-multiwindow-partial-stack",
+      "to": "n13-round12-fullstack-send-success"
+    },
+    {
+      "from": "n13-round12-fullstack-send-success",
+      "to": "n14-round13-rebuild-send-success"
+    },
+    {
+      "from": "n14-round13-rebuild-send-success",
+      "to": "n15-round13-bridge-multiwindow-partial"
+    },
+    {
+      "from": "n15-round13-bridge-multiwindow-partial",
+      "to": "n16-round14-send-success"
+    },
+    {
+      "from": "n16-round14-send-success",
+      "to": "n17-round14-bridge-focus-ipc",
+      "label": "openProfileSlot(2) + focusWindow via desktop_agent_focus_window"
+    },
+    {
+      "from": "n17-round14-bridge-focus-ipc",
+      "to": "n18-round15-profile-cdp-attach",
+      "label": "per-window CDP args; unset global WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"
+    },
+    {
+      "from": "n18-round15-profile-cdp-attach",
+      "to": "n19-round16-profile2-unlock-send",
+      "label": "tester2_unlock_and_send_on_9231"
+    },
+    {
+      "from": "n19-round16-profile2-unlock-send",
+      "to": "n20-round17-stack-preflight-dual",
+      "label": "round17_stack_preflight"
+    },
+    {
+      "from": "n20-round17-stack-preflight-dual",
+      "to": "n21-round17b-docker-send-success",
+      "label": "docker_up_full_stack_send"
+    },
+    {
+      "from": "n21-round17b-docker-send-success",
+      "to": "n22-round18-codactrl-send-success",
+      "label": "round18_export_coherence_test"
+    },
+    {
+      "from": "n22-round18-codactrl-send-success",
+      "to": "n23-round20-o4-send",
+      "label": "round20-o4-send"
+    },
+    {
+      "from": "n23-round20-o4-send",
+      "to": "n25-round21-com-run01-t2-absent",
+      "label": "com-run01-t2-sidebar-empty"
+    },
+    {
+      "from": "n23-round20-o4-send",
+      "to": "n27-round21-com-run11-blocked"
+    },
+    {
+      "from": "n27-round21-com-run11-blocked",
+      "to": "n24-round21-com-run01-t1-roster"
+    },
+    {
+      "from": "n25-round21-com-run01-t2-absent",
+      "to": "n9-round23-warm-baseline"
+    },
+    {
+      "from": "n9-round23-warm-baseline",
+      "to": "n10-round23-post-rebuild-ledger",
+      "label": "shell-rebuild"
+    }
+  ],
+  "summary": {
+    "verdict": "partial_accepted",
+    "nodesCaptured": 29,
+    "splitBrainObserved": false
+  }
+}

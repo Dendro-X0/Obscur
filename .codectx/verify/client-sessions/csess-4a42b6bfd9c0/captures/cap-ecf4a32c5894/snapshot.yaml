@@ -1,0 +1,63 @@
+- text: Invites sent securely to 1 connections
+- button "Dismiss notification"
+- main:
+  - text: Client release-v1.9.10-relay-recovery-20260617
+  - img "Obscur"
+  - text: Obscur
+  - button "desktop.titleBar.lock"
+  - button "Open desktop profile switcher":
+    - img "Tester1"
+    - text: Tester1 Obscur / e07f67dc...c191ea56
+  - button "Minimize window"
+  - button "Maximize window"
+  - button "Close window"
+  - button "Connected"
+  - link "Chats":
+    - /url: /
+  - link "Network":
+    - /url: /network
+  - link "Vault":
+    - /url: /vault
+  - link "Search":
+    - /url: /search
+  - link "Settings":
+    - /url: /settings
+  - button "Open profile menu":
+    - img "Tester1"
+  - text: NewTest 2
+  - main:
+    - button "Back to Network"
+    - text: "N"
+    - heading "NewTest 2" [level=1]
+    - text: ws://localhost:7000
+    - paragraph: This resilient community is built on decentralized protocols. Privacy first, always.
+    - button "Enter Community Chat"
+    - button "Invite"
+    - button "Manage"
+    - button "Disable notifications"
+    - button "Copy discovery link"
+    - button "Leave community"
+    - button "Participants Community Access Open the encrypted chat, invite peers, and browse active members with leave and expulsion applied. Active membership evidence Tester1 Open Participants":
+      - text: Participants
+      - heading "Community Access" [level=3]
+      - paragraph: Open the encrypted chat, invite peers, and browse active members with leave and expulsion applied.
+      - paragraph: Active membership evidence
+      - img "Tester1"
+      - text: Open Participants
+    - heading "Registry & Privacy" [level=3]
+    - paragraph: Visibility is open. This community is public and listed in the decentralized registry.
+    - text: Encrypted Storage
+    - heading "Relay Infrastructure" [level=3]
+    - paragraph: ws://localhost:7000
+    - paragraph: Status
+    - paragraph: Connected & optimized
+    - paragraph: All scoped events are flowing normally
+    - heading "Personal controls" [level=3]
+    - paragraph: Block, delete, or unblock this community on your device. Open Manage for members, governance, relay settings, and invites.
+    - button "Block community Hide this community from your inbox and stop notifications":
+      - paragraph: Block community
+      - paragraph: Hide this community from your inbox and stop notifications
+    - button "Delete community Open the leave page to confirm removal of all local data for Account e07f67dc (keeps your account).":
+      - paragraph: Delete community
+      - paragraph: Open the leave page to confirm removal of all local data for Account e07f67dc (keeps your account).
+- alert

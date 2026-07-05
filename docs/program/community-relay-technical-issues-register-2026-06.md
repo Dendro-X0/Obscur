@@ -258,7 +258,7 @@ Roster and membership truth fragmented across:
 
 ### Config
 
-`NEXT_PUBLIC_DEV_COORDINATION_ONLY_WORKSPACE=true` in `apps/pwa/.env.local`.
+`NEXT_PUBLIC_DEV_COORDINATION_ONLY_WORKSPACE=true` in `apps/pwa/.env.example` (copy to `.env.local` locally).
 
 ### Effect
 

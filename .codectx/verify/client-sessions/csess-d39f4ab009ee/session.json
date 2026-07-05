@@ -1,0 +1,15 @@
+{
+  "schema": "client.session@0.1.0",
+  "sessionId": "csess-d39f4ab009ee",
+  "provider": "webview2-cdp",
+  "proofTier": "t3",
+  "createdAt": "2026-07-02T11:13:22.891877500+00:00",
+  "repoRoot": "E:\\Web Projects\\experimental-workspace\\newstart",
+  "url": "http://127.0.0.1:1430/profiles",
+  "attachedTarget": {
+    "targetId": "9ED4CE3FE132D7B9D0A5590F9844BABA",
+    "windowLabel": "profile-picker",
+    "url": "http://127.0.0.1:1430/profiles",
+    "attachedAt": "2026-07-02T11:13:26.654284300+00:00"
+  }
+}

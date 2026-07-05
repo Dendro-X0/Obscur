@@ -1,0 +1,9 @@
+{
+  "schema": "codactrl.investigation.node@0.1.0",
+  "chainId": "chain-com-run-11-phase1c-2026-07-04",
+  "nodeId": "n7-k-m2-rejoin-t4",
+  "trigger": "Round 30: T2 Accept on pending invite; coord seq 4 join; T1 send COM-RUN-11-phase1c-rejoin-070T0746; T2 receive assert PASS; 2 members 2 online",
+  "at": "2026-07-04T07:49:38.078635+00:00",
+  "sessionId": "csess-abe4b5ce9374",
+  "hypothesis": "T2 accepts re-invite after leave; coordination join seq 4; dual send/receive restores 2-member chat"
+}

@@ -1,0 +1,64 @@
+{
+  "schema": "client.session.steps@0.1.0",
+  "sessionId": "csess-7b430df8af44",
+  "updatedAt": "2026-07-04T18:41:08.255371300+00:00",
+  "stepCount": 6,
+  "steps": [
+    {
+      "index": 0,
+      "stepId": "step-9c9284f23b0c",
+      "action": "snapshot",
+      "captureId": "cap-a407c2befb7e",
+      "manifestPath": ".codectx/verify/client-sessions/csess-7b430df8af44/captures/cap-a407c2befb7e/manifest.json",
+      "stepLabel": "website-home-baseline",
+      "pass": true,
+      "at": "2026-07-04T18:40:45.752029800+00:00"
+    },
+    {
+      "index": 1,
+      "stepId": "step-0c6aef6976f4",
+      "action": "click",
+      "captureId": "cap-0cc8cf9d2a6a",
+      "manifestPath": ".codectx/verify/client-sessions/csess-7b430df8af44/captures/cap-0cc8cf9d2a6a/manifest.json",
+      "stepLabel": "nav-download",
+      "selector": "role=link[name=\"Download\"]",
+      "pass": false,
+      "message": "locator.click: Error: strict mode violation: locator('role=link[name=\"Download\"]') resolved to 2 elements:\n    1) <a href=\"/download\" class=\"site-nav-link\">Download</a> aka getByLabel('Primary').getByRole('link', { name: 'Download' })\n    2) <a href=\"/download\">Download</a> aka getByRole('contentinfo').getByRole('link', { name: 'Download' })\n\nCall log:\n\u001b[2m  - waiting for locator('role=link[name=\"Download\"]')\u001b[22m\n",
+      "at": "2026-07-04T18:40:51.173761600+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-c54d9b007b73",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-0cc8cf9d2a6a",
+      "manifestPath": ".codectx/verify/client-sessions/csess-7b430df8af44/captures/cap-0cc8cf9d2a6a/manifest.json",
+      "pass": false,
+      "message": "locator.click: Error: strict mode violation: locator('role=link[name=\"Download\"]') resolved to 2 elements:\n    1) <a href=\"/download\" class=\"site-nav-link\">Download</a> aka getByLabel('Primary').getByRole('link', { name: 'Download' })\n    2) <a href=\"/download\">Download</a> aka getByRole('contentinfo').getByRole('link', { name: 'Download' })\n\nCall log:\n\u001b[2m  - waiting for locator('role=link[name=\"Download\"]')\u001b[22m\n",
+      "at": "2026-07-04T18:40:51.176900600+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-b1f62b3db12f",
+      "action": "mcp.client.interact.click",
+      "pass": false,
+      "message": "locator.click: Error: strict mode violation: locator('role=link[name=\"Download\"]') resolved to 2 elements:\n    1) <a href=\"/download\" class=\"site-nav-link\">Download</a> aka getByLabel('Primary').getByRole('link', { name: 'Download' })\n    2) <a href=\"/download\">Download</a> aka getByRole('contentinfo').getByRole('link', { name: 'Download' })\n\nCall log:\n\u001b[2m  - waiting for locator('role=link[name=\"Download\"]')\u001b[22m\n",
+      "at": "2026-07-04T18:40:56.132610700+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-4b7923ec147f",
+      "action": "mcp.client.interact.click",
+      "pass": false,
+      "message": "locator.click: Error: strict mode violation: locator('role=link[name=\"Download\"]') resolved to 2 elements:\n    1) <a href=\"/download\" class=\"site-nav-link\">Download</a> aka getByLabel('Primary').getByRole('link', { name: 'Download' })\n    2) <a href=\"/download\">Download</a> aka getByRole('contentinfo').getByRole('link', { name: 'Download' })\n\nCall log:\n\u001b[2m  - waiting for locator('role=link[name=\"Download\"]')\u001b[22m\n",
+      "at": "2026-07-04T18:41:00.360035200+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-fd5b6d7b94d9",
+      "action": "mcp.client.navigate",
+      "pass": false,
+      "message": "locator.click: Error: strict mode violation: locator('role=link[name=\"Download\"]') resolved to 4 elements:\n    1) <a href=\"/download\" class=\"site-nav-link\">Download</a> aka getByLabel('Primary').getByRole('link', { name: 'Download' })\n    2) <a target=\"_blank\" rel=\"noreferrer\" href=\"https://raw.githubusercontent.com/Dendro-X0/Obscur/main/release-assets/windows/Obscur_1.9.10_x64-setup.exe\" class=\"inline-flex items-center gap-x-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 transition-colors\">…</a> aka getByRole('link', { name: 'Download' }).nth(2)\n    3) <a target=\"_blank\" rel=\"noreferrer\" class=\"shrink-0 text-sm text-blue-400 hover:text-blue-300\" href=\"https://raw.githubusercontent.com/Dendro-X0/Obscur/main/release-assets/windows/Obscur_1.9.10_x64-setup.exe\">Download</a> aka getByRole('link', { name: 'Download' }).nth(3)\n    4) <a href=\"/download\">Download</a> aka getByRole('contentinfo').getByRole('link', { name: 'Download' })\n\nCall log:\n\u001b[2m  - waiting for locator('role=link[name=\"Download\"]')\u001b[22m\n",
+      "at": "2026-07-04T18:41:08.255197900+00:00"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+- main:
+  - main:
+    - status:
+      - paragraph: Trust notice
+      - paragraph: This contact is sending many messages in a short period. This can be normal in active chats — verify identity if anything feels off.
+      - button "Show details"
+      - button "Dismiss trust notice"
+- dialog "Lock Obscur?":
+  - heading "Lock Obscur?" [level=2]
+  - paragraph: Your account stays on this device, but messages and vault files are encrypted until you unlock again.
+  - button "Cancel"
+  - button "Lock"

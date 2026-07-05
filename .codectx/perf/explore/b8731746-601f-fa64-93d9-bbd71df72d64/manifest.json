@@ -1,0 +1,94 @@
+{
+  "schema": "perf.explore.manifest@1.1.0",
+  "exploreId": "b8731746-601f-fa64-93d9-bbd71df72d64",
+  "target": {
+    "repoRoot": "E:\\Web Projects\\experimental-workspace\\newstart",
+    "appRoot": "apps/relay-gateway",
+    "stack": "next",
+    "exploreScope": "monorepo-critical-path",
+    "scopedPackages": [
+      "apps/coordination",
+      "apps/pwa",
+      "apps/relay-gateway",
+      "apps/website",
+      "packages/db",
+      "packages/dweb-auth",
+      "packages/dweb-client-gateway",
+      "packages/dweb-coordination-contracts",
+      "packages/dweb-core",
+      "packages/dweb-crdt",
+      "packages/dweb-crypto",
+      "packages/dweb-nostr",
+      "packages/dweb-storage",
+      "packages/dweb-storage-contracts",
+      "packages/dweb-transport-contracts",
+      "packages/dweb-transport-coordination",
+      "packages/dweb-transport-nostr",
+      "packages/dweb-transport-team-relay",
+      "packages/obscur-auth-engine",
+      "packages/obscur-conduit-mesh",
+      "packages/obscur-conduit-mesh-contracts",
+      "packages/obscur-dm-engine",
+      "packages/obscur-engine-contracts",
+      "packages/obscur-engine-host",
+      "packages/obscur-transport-engine",
+      "packages/obscur-workspace-engine",
+      "packages/ui-kit"
+    ],
+    "primaryAppRoot": "apps/relay-gateway",
+    "inferredAppRoots": [
+      "apps/coordination",
+      "apps/pwa",
+      "apps/website"
+    ],
+    "authRouteProfile": {
+      "middlewarePath": null,
+      "sessionProviders": [],
+      "authGatedPrefixes": [
+        "/account",
+        "/admin",
+        "/billing",
+        "/dashboard",
+        "/org",
+        "/settings",
+        "/user"
+      ],
+      "publicPrefixes": [
+        "/",
+        "/about",
+        "/auth",
+        "/blog",
+        "/docs",
+        "/login",
+        "/marketing",
+        "/pricing",
+        "/register",
+        "/signup"
+      ],
+      "broadMatcher": false
+    },
+    "devServerPort": 3000
+  },
+  "scanSnapshotHash": "sha256:b153e6b78f7cac264362b5615c47ac20e482c6cc6341c97e27dd4fca84c37000",
+  "graphHash": "sha256:470f216f2f01e45ca0974ffa26c12e3b8903965e89af752e922b0c3f483a4e24",
+  "engineVersion": "0.1.0",
+  "startedAt": "2026-06-30T09:54:42.741780400+00:00",
+  "finishedAt": "2026-06-30T09:54:42.741789300+00:00",
+  "status": "completed",
+  "nonCoverage": "Static explore identifies transition risk factors (client-heavy routes, missing loading, StrictMode). Navigation latency and UI interaction lag require perf.confirm.run with interaction-probe (attachMode=dev for SaaS template dev sluggishness). Route-probe measures TTFB only.",
+  "environmentProfile": {
+    "analysisMode": "static",
+    "runtimeMeasured": false,
+    "devOverheadNote": "Findings describe code shape — not measured navigation latency. Next.js/Vite dev adds compile/HMR overhead; use interaction-probe (dev attach) for route transition + long-task evidence.",
+    "confirmTierAvailable": [
+      "serve-oracle",
+      "http-health",
+      "route-probe",
+      "interaction-probe"
+    ],
+    "recommendedAttachMode": "dev",
+    "recommendedConfirmMode": "dev",
+    "confirmAttachNote": "Use interaction-probe attachMode=dev against running dev server to measure sluggish page switches. Use route-probe attachMode=production for TTFB on prod-shaped builds."
+  },
+  "detectorCatalogHash": "sha256:13e2c2691e7ed46f9cc4073baa19d80cfb1c01ce37a7c97db347a272f3cd3a21"
+}

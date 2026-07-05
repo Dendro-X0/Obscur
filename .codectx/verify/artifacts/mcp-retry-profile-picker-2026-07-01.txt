@@ -1,0 +1,4 @@
+[profile-picker-verify] using live Tauri CDP at http://127.0.0.1:9230
+[profile-picker-verify] CDP: not on profile picker — navigating to /profiles
+[profile-picker-verify] FAIL Expected /sign-in after clicking current-window profile, got /profiles
+[profile-picker-verify] done — 0 passed, 1 failed

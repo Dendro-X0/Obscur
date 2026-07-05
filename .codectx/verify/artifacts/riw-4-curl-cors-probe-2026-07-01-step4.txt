@@ -1,0 +1,31 @@
+RIW-4 Step 4 re-verify — coordination CORS probe — 2026-07-01T06:59Z
+Stack: pnpm dev:coordination (wrangler :8787 up) + pnpm dev:desktop --online --skip-build (:1430)
+Origin: http://127.0.0.1:1430
+
+GET sample deltas URL:
+$ curl -sI -H "Origin: http://127.0.0.1:1430" \
+  "http://127.0.0.1:8787/communities/v2_5c5c722fe815a3ceaac65ad88ff298bbac8682110dea195740229155440c7896/membership/deltas?since=0"
+
+HTTP/1.1 404 Not Found
+Content-Type: application/json; charset=utf-8
+Access-Control-Allow-Origin: *
+access-control-allow-headers: content-type, authorization, x-requested-with
+access-control-allow-methods: GET,POST,OPTIONS
+
+OPTIONS preflight (same URL):
+HTTP/1.1 204 No Content
+Access-Control-Allow-Origin: *
+access-control-allow-headers: content-type, authorization, x-requested-with
+access-control-allow-methods: GET,POST,OPTIONS
+
+Desktop root: HTTP 200 @ :1430
+Coordination root: HTTP 404 @ :8787 (listener up)
+
+Browser session csess-56331621b1d9 (full stack, coordination up entire session):
+- 0× requestfailed @ :8787 (no REFUSED, no CORS console errors)
+- client_runtime_health_scan: healthy; no coordination-not-running finding
+- Note: successful 404 delta responses do not surface as requestfailed in CDP console capture
+
+Prior contrasts:
+- csess-f2191e90e578 (desktop-only): 19× ERR_CONNECTION_REFUSED @ :8787
+- csess-5c26475ea529 (2026-06-30, wrangler up): 28× browser CORS blocks — NOT reproduced this pass

@@ -1,0 +1,156 @@
+{
+  "schema": "client.session.steps@0.1.0",
+  "sessionId": "csess-3b202577b4d1",
+  "updatedAt": "2026-07-04T14:15:27.592915100+00:00",
+  "stepCount": 15,
+  "steps": [
+    {
+      "index": 0,
+      "stepId": "step-453ba3aa263a",
+      "action": "snapshot",
+      "captureId": "cap-4d0260142671",
+      "manifestPath": ".codectx/verify/client-sessions/csess-3b202577b4d1/captures/cap-4d0260142671/manifest.json",
+      "stepLabel": "connect-bootstrap",
+      "pass": true,
+      "at": "2026-07-04T14:14:35.078617300+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-4b8c54b17549",
+      "action": "mcp.client.session.connect",
+      "manifestPath": ".codectx/verify/client-sessions/csess-3b202577b4d1/attach-latest.json",
+      "pass": true,
+      "at": "2026-07-04T14:14:39.726317500+00:00"
+    },
+    {
+      "index": 2,
+      "stepId": "step-5cec0eda99df",
+      "action": "click",
+      "captureId": "cap-c6102a82736f",
+      "manifestPath": ".codectx/verify/client-sessions/csess-3b202577b4d1/captures/cap-c6102a82736f/manifest.json",
+      "selector": "button:has-text(\"Tester1\")",
+      "pass": true,
+      "at": "2026-07-04T14:14:48.907497200+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-3dfc1abce80a",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-c6102a82736f",
+      "manifestPath": ".codectx/verify/client-sessions/csess-3b202577b4d1/captures/cap-c6102a82736f/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T14:14:48.921788700+00:00"
+    },
+    {
+      "index": 4,
+      "stepId": "step-edd42bdf7a80",
+      "action": "type",
+      "captureId": "cap-fa9909a38db6",
+      "manifestPath": ".codectx/verify/client-sessions/csess-3b202577b4d1/captures/cap-fa9909a38db6/manifest.json",
+      "selector": "input[placeholder*=\"nsec\"]",
+      "text": "c09832d637eb265d90b29c12eb8dfcfffe165b8fb34094af75236d5be4d97884",
+      "pass": true,
+      "at": "2026-07-04T14:14:53.112466300+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-7ff3f4c3e04e",
+      "action": "mcp.client.interact.type",
+      "captureId": "cap-fa9909a38db6",
+      "manifestPath": ".codectx/verify/client-sessions/csess-3b202577b4d1/captures/cap-fa9909a38db6/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T14:14:53.114255200+00:00"
+    },
+    {
+      "index": 6,
+      "stepId": "step-1f2554e2eaf3",
+      "action": "click",
+      "captureId": "cap-4308818b7afe",
+      "manifestPath": ".codectx/verify/client-sessions/csess-3b202577b4d1/captures/cap-4308818b7afe/manifest.json",
+      "selector": "button:has-text(\"Continue with private key\")",
+      "pass": true,
+      "at": "2026-07-04T14:14:58.284302700+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-c9abddf6bd81",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-4308818b7afe",
+      "manifestPath": ".codectx/verify/client-sessions/csess-3b202577b4d1/captures/cap-4308818b7afe/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T14:14:58.290316+00:00"
+    },
+    {
+      "index": 8,
+      "stepId": "step-699b761c187a",
+      "action": "click",
+      "captureId": "cap-da0008fbf139",
+      "manifestPath": ".codectx/verify/client-sessions/csess-3b202577b4d1/captures/cap-da0008fbf139/manifest.json",
+      "selector": "button:has-text(\"Skip\")",
+      "pass": true,
+      "at": "2026-07-04T14:15:08.271684400+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-6afdda260349",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-da0008fbf139",
+      "manifestPath": ".codectx/verify/client-sessions/csess-3b202577b4d1/captures/cap-da0008fbf139/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T14:15:08.273793600+00:00"
+    },
+    {
+      "index": 10,
+      "stepId": "step-9385a8aee911",
+      "action": "assert",
+      "captureId": "cap-817eb1dd24b9",
+      "manifestPath": ".codectx/verify/client-sessions/csess-3b202577b4d1/captures/cap-817eb1dd24b9/manifest.json",
+      "text": "R1-room-key-health-t4-070T1410",
+      "assertKind": "textVisible",
+      "pass": true,
+      "message": "text visible: R1-room-key-health-t4-070T1410",
+      "at": "2026-07-04T14:15:18.741437900+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-d3915f506ce9",
+      "action": "mcp.client.validate.assert",
+      "captureId": "cap-817eb1dd24b9",
+      "manifestPath": ".codectx/verify/client-sessions/csess-3b202577b4d1/captures/cap-817eb1dd24b9/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T14:15:18.743052400+00:00"
+    },
+    {
+      "index": 12,
+      "stepId": "step-745e68fd2482",
+      "action": "surfaceProbe",
+      "captureId": "cap-a344ef74db70",
+      "manifestPath": ".codectx/verify/client-sessions/csess-3b202577b4d1/captures/cap-a344ef74db70/manifest.json",
+      "stepLabel": "surface-probe",
+      "pass": true,
+      "message": "surface probe captured",
+      "at": "2026-07-04T14:15:23.635977800+00:00"
+    },
+    {
+      "index": 13,
+      "stepId": "step-1332a70c21",
+      "action": "digestPull",
+      "captureId": "cap-6e1332a70c21",
+      "manifestPath": ".codectx/verify/client-sessions/csess-3b202577b4d1/captures/cap-6e1332a70c21/manifest.json",
+      "stepLabel": "chain-chain-r1-room-key-health-2026-07-04-n1-post-restart-hydrate",
+      "pass": true,
+      "message": "runtime digest captured",
+      "at": "2026-07-04T14:15:25.498381400+00:00"
+    },
+    {
+      "index": 14,
+      "stepId": "step-412bd47eec11",
+      "action": "screenshot",
+      "captureId": "cap-9d0256be4054",
+      "manifestPath": ".codectx/verify/client-sessions/csess-3b202577b4d1/captures/cap-9d0256be4054/manifest.json",
+      "stepLabel": "chain-n1-post-restart-hydrate",
+      "pass": true,
+      "at": "2026-07-04T14:15:27.590924200+00:00"
+    }
+  ]
+}

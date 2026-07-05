@@ -1,0 +1,29 @@
+{
+  "schema": "codactrl.investigation.chain@0.1.0",
+  "chainId": "chain-r1-room-key-health-2026-07-04",
+  "symptomClass": "group-room-key-missing",
+  "title": "R1 room-key health aligned to send owner",
+  "status": "open",
+  "createdAt": "2026-07-04T14:11:19.359779100+00:00",
+  "updatedAt": "2026-07-04T14:15:27.600359900+00:00",
+  "nodeIds": [
+    "n0-r1-health-send-pass",
+    "n1-post-restart-hydrate"
+  ],
+  "edges": [
+    {
+      "from": "n0-r1-health-send-pass",
+      "to": "n1-post-restart-hydrate",
+      "label": "taskkill+restart"
+    }
+  ],
+  "summary": {
+    "verdict": "partial_accepted",
+    "nodesCaptured": 2,
+    "splitBrainObserved": false,
+    "nonCoverage": [
+      "R3 sidebar preview",
+      "Password cold unlock without Import Key"
+    ]
+  }
+}

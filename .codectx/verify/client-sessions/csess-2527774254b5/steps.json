@@ -1,0 +1,233 @@
+{
+  "schema": "client.session.steps@0.1.0",
+  "sessionId": "csess-2527774254b5",
+  "updatedAt": "2026-07-04T04:50:23.860955300+00:00",
+  "stepCount": 23,
+  "steps": [
+    {
+      "index": 0,
+      "stepId": "step-71231638ea83",
+      "action": "snapshot",
+      "captureId": "cap-c0e07c656941",
+      "manifestPath": ".codectx/verify/client-sessions/csess-2527774254b5/captures/cap-c0e07c656941/manifest.json",
+      "stepLabel": "connect-bootstrap",
+      "pass": true,
+      "at": "2026-07-03T16:20:44.018651200+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-c049e508bcf0",
+      "action": "mcp.client.session.connect",
+      "manifestPath": ".codectx/verify/client-sessions/csess-2527774254b5/attach-latest.json",
+      "pass": true,
+      "at": "2026-07-03T16:20:48.468471500+00:00"
+    },
+    {
+      "index": 2,
+      "stepId": "step-5676f192aa5f",
+      "action": "snapshot",
+      "captureId": "cap-f5aa8cce854b",
+      "manifestPath": ".codectx/verify/client-sessions/csess-2527774254b5/captures/cap-f5aa8cce854b/manifest.json",
+      "pass": true,
+      "at": "2026-07-03T16:20:51.640468600+00:00"
+    },
+    {
+      "index": 3,
+      "stepId": "step-ed67882684b1",
+      "action": "click",
+      "captureId": "cap-81224f0e0c0f",
+      "manifestPath": ".codectx/verify/client-sessions/csess-2527774254b5/captures/cap-81224f0e0c0f/manifest.json",
+      "stepLabel": "open-tester1-profile",
+      "selector": "button:has-text('Tester1')",
+      "pass": true,
+      "at": "2026-07-03T16:20:56.871727700+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-f28766d2be63",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-81224f0e0c0f",
+      "manifestPath": ".codectx/verify/client-sessions/csess-2527774254b5/captures/cap-81224f0e0c0f/manifest.json",
+      "pass": true,
+      "at": "2026-07-03T16:20:56.875293700+00:00"
+    },
+    {
+      "index": 5,
+      "stepId": "step-e50b01d8ccb6",
+      "action": "type",
+      "captureId": "cap-6edfa500321f",
+      "manifestPath": ".codectx/verify/client-sessions/csess-2527774254b5/captures/cap-6edfa500321f/manifest.json",
+      "stepLabel": "unlock-password",
+      "selector": "input[type=\"password\"]",
+      "text": "SyI14^ew1E",
+      "pass": true,
+      "at": "2026-07-03T16:21:00.116230500+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-21e736a93a19",
+      "action": "mcp.client.interact.type",
+      "captureId": "cap-6edfa500321f",
+      "manifestPath": ".codectx/verify/client-sessions/csess-2527774254b5/captures/cap-6edfa500321f/manifest.json",
+      "pass": true,
+      "at": "2026-07-03T16:21:00.117821+00:00"
+    },
+    {
+      "index": 7,
+      "stepId": "step-1131cb882c9a",
+      "action": "click",
+      "captureId": "cap-615f556943d0",
+      "manifestPath": ".codectx/verify/client-sessions/csess-2527774254b5/captures/cap-615f556943d0/manifest.json",
+      "stepLabel": "unlock-submit",
+      "selector": "form button[type=\"submit\"]",
+      "pass": true,
+      "at": "2026-07-03T16:21:07.768172+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-3b06c18bc86a",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-615f556943d0",
+      "manifestPath": ".codectx/verify/client-sessions/csess-2527774254b5/captures/cap-615f556943d0/manifest.json",
+      "pass": true,
+      "at": "2026-07-03T16:21:07.770126700+00:00"
+    },
+    {
+      "index": 9,
+      "stepId": "step-d63b85da6b",
+      "action": "digestPull",
+      "captureId": "cap-36d63b85da6b",
+      "manifestPath": ".codectx/verify/client-sessions/csess-2527774254b5/captures/cap-36d63b85da6b/manifest.json",
+      "stepLabel": "L3-digest-post-unlock-phase1a",
+      "pass": true,
+      "message": "runtime digest captured",
+      "at": "2026-07-03T16:21:16.502521+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-4135ad363eee",
+      "action": "mcp.client.runtime.digestPull",
+      "captureId": "cap-36d63b85da6b",
+      "manifestPath": ".codectx/verify/client-sessions/csess-2527774254b5/captures/cap-36d63b85da6b/manifest.json",
+      "pass": true,
+      "at": "2026-07-03T16:21:23.708791+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-81861beea2ec",
+      "action": "mcp.client.session.connect",
+      "manifestPath": ".codectx/verify/client-sessions/csess-2527774254b5/attach-latest.json",
+      "pass": true,
+      "at": "2026-07-04T04:49:17.343973700+00:00"
+    },
+    {
+      "index": 12,
+      "stepId": "step-5a56077768af",
+      "action": "snapshot",
+      "captureId": "cap-ddff54ba5032",
+      "manifestPath": ".codectx/verify/client-sessions/csess-2527774254b5/captures/cap-ddff54ba5032/manifest.json",
+      "stepLabel": "phase1c-baseline-snapshot",
+      "pass": true,
+      "at": "2026-07-04T04:49:24.203273800+00:00"
+    },
+    {
+      "index": 13,
+      "stepId": "step-27199e32b5",
+      "action": "digestPull",
+      "captureId": "cap-bd27199e32b5",
+      "manifestPath": ".codectx/verify/client-sessions/csess-2527774254b5/captures/cap-bd27199e32b5/manifest.json",
+      "stepLabel": "phase1c-post-1b-baseline",
+      "pass": true,
+      "message": "runtime digest captured",
+      "at": "2026-07-04T04:49:23.659745700+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-4f1bb8caa71d",
+      "action": "mcp.client.runtime.digestPull",
+      "captureId": "cap-bd27199e32b5",
+      "manifestPath": ".codectx/verify/client-sessions/csess-2527774254b5/captures/cap-bd27199e32b5/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T04:49:28.365377300+00:00"
+    },
+    {
+      "index": 15,
+      "stepId": "step-df05f13db15c",
+      "action": "click",
+      "captureId": "cap-d87b0cdeecd3",
+      "manifestPath": ".codectx/verify/client-sessions/csess-2527774254b5/captures/cap-d87b0cdeecd3/manifest.json",
+      "selector": "button:has-text('Tester1')",
+      "pass": true,
+      "at": "2026-07-04T04:49:48.273680500+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-6a42d439c31d",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-d87b0cdeecd3",
+      "manifestPath": ".codectx/verify/client-sessions/csess-2527774254b5/captures/cap-d87b0cdeecd3/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T04:49:48.296088+00:00"
+    },
+    {
+      "index": 17,
+      "stepId": "step-4fbdc1d8be0e",
+      "action": "type",
+      "captureId": "cap-a9da417f4f1b",
+      "manifestPath": ".codectx/verify/client-sessions/csess-2527774254b5/captures/cap-a9da417f4f1b/manifest.json",
+      "selector": "input[type='password']",
+      "text": "SyI14^ew1E",
+      "pass": true,
+      "at": "2026-07-04T04:49:58.972004100+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-78f6bad6e101",
+      "action": "mcp.client.interact.type",
+      "captureId": "cap-a9da417f4f1b",
+      "manifestPath": ".codectx/verify/client-sessions/csess-2527774254b5/captures/cap-a9da417f4f1b/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T04:49:58.974002400+00:00"
+    },
+    {
+      "index": 19,
+      "stepId": "step-595cc3d743c6",
+      "action": "click",
+      "captureId": "cap-f4e04c801d41",
+      "manifestPath": ".codectx/verify/client-sessions/csess-2527774254b5/captures/cap-f4e04c801d41/manifest.json",
+      "stepLabel": "unlock-submit",
+      "selector": "form button[type=\"submit\"]",
+      "pass": true,
+      "at": "2026-07-04T04:50:09.222845300+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-f49bc568bb62",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-f4e04c801d41",
+      "manifestPath": ".codectx/verify/client-sessions/csess-2527774254b5/captures/cap-f4e04c801d41/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T04:50:09.227992500+00:00"
+    },
+    {
+      "index": 21,
+      "stepId": "step-4102222a10",
+      "action": "digestPull",
+      "captureId": "cap-944102222a10",
+      "manifestPath": ".codectx/verify/client-sessions/csess-2527774254b5/captures/cap-944102222a10/manifest.json",
+      "stepLabel": "phase1c-unlock-baseline-ledger",
+      "pass": true,
+      "message": "runtime digest captured",
+      "at": "2026-07-04T04:50:19.569370800+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-9b60b113aafb",
+      "action": "mcp.client.runtime.digestPull",
+      "captureId": "cap-944102222a10",
+      "manifestPath": ".codectx/verify/client-sessions/csess-2527774254b5/captures/cap-944102222a10/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T04:50:23.860786500+00:00"
+    }
+  ]
+}

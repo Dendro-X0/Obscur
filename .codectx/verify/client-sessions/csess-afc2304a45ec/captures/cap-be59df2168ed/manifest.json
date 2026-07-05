@@ -1,0 +1,25 @@
+{
+  "schema": "client.capture@0.1.0",
+  "sessionId": "csess-afc2304a45ec",
+  "captureId": "cap-be59df2168ed",
+  "action": "snapshot",
+  "provider": "playwright-chromium",
+  "proofTier": "t2",
+  "pass": true,
+  "stepLabel": "connect-bootstrap",
+  "url": "http://127.0.0.1:1430/profiles",
+  "finalUrl": "http://127.0.0.1:1430/profiles",
+  "pageTitle": "Obscur",
+  "artifactPath": null,
+  "snapshotPath": ".codectx/verify/client-sessions/csess-afc2304a45ec/captures/cap-be59df2168ed/snapshot.yaml",
+  "consoleLogPath": ".codectx/verify/client-sessions/csess-afc2304a45ec/captures/cap-be59df2168ed/console.jsonl",
+  "capturedAt": "2026-07-04T16:32:20.714121200+00:00",
+  "proves": [
+    "Web flows against a live dev server"
+  ],
+  "doesNotProve": [
+    "Packaged desktop",
+    "WebView2-specific behavior",
+    "Multi-window focus"
+  ]
+}

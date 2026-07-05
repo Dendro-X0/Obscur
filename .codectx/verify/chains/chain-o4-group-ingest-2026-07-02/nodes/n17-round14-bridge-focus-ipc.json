@@ -1,0 +1,14 @@
+{
+  "schema": "codactrl.investigation.node@0.1.0",
+  "chainId": "chain-o4-group-ingest-2026-07-02",
+  "nodeId": "n17-round14-bridge-focus-ipc",
+  "trigger": "round14-multiwindow-bridge",
+  "at": "2026-07-02T11:03:32.780698800+00:00",
+  "sessionId": "csess-c9e4cc0c3649",
+  "screenshotRef": ".codectx/verify/client-sessions/csess-c9e4cc0c3649/captures/cap-79fc144050cb/screenshot.png",
+  "hypothesis": "round14 bridge listWindows=2; openProfileSlot ok; focusWindow ok via IPC; CDP :9231 still down",
+  "doesNotProve": [
+    "CDP attach to profile window on :9231",
+    "Tester2 UI automation in profile-2 webview"
+  ]
+}

@@ -1,0 +1,1 @@
+{"approvalId":null,"evidenceId":"evd_89604bee480b","inputHash":"sha256:0","kind":"runtime_digest","outputRefs":[".codectx/verify/faults/fault-cebc13ad.json",".codectx/verify/issues-register.json"],"policySnapshotHash":"sha256:0","runId":"","stepId":"","taskId":"verify:fault:fault-cebc13ad","timestamp":"2026-07-01T22:35:29.920353800+00:00"}

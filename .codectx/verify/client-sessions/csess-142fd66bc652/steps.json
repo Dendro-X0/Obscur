@@ -1,0 +1,18 @@
+{
+  "schema": "client.session.steps@0.1.0",
+  "sessionId": "csess-142fd66bc652",
+  "updatedAt": "2026-07-03T06:28:55.030275200+00:00",
+  "stepCount": 1,
+  "steps": [
+    {
+      "index": 0,
+      "stepId": "step-690da1a5634d",
+      "action": "snapshot",
+      "captureId": "cap-e0339b608760",
+      "manifestPath": ".codectx/verify/client-sessions/csess-142fd66bc652/captures/cap-e0339b608760/manifest.json",
+      "stepLabel": "offer-detail-fresh",
+      "pass": true,
+      "at": "2026-07-03T06:28:55.029454800+00:00"
+    }
+  ]
+}

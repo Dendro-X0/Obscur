@@ -60,7 +60,7 @@ Round label: `2026-07-02-codactrl-round4` · Session `csess-631c3bba5207` · Exp
 
 **UX-gate audit (2026-07-03 — static, no CodaCtrl):** Full investigation [obscur-ux-gate-investigation-2026-07.md](./obscur-ux-gate-investigation-2026-07.md) · register [obscur-ux-gate-register.v1.json](./obscur-ux-gate-register.v1.json). Proposes future lane `verify:ux-gate-audit` with rule pack `obscur-ux-gate-v1` (§10).
 
-**FLS feature case study (2026-07-03 — filed in CodaCtrl repo):** [fls-obscur-case-study-2026-07.md](E:/Experimental projects/codactrl/docs/studio/evidence/fls-obscur-case-study-2026-07.md) · spec [functional-logic-specification.md](E:/Experimental projects/codactrl/docs/specs/functional-logic-specification.md) · fixtures `codactrl/docs/studio/evidence/fixtures/obscur-fls-*.json`. Proposes **FLS0–FLS3** band: declarative functional logic → static scan + runtime monitoring → contradiction register.
+**FLS feature case study (2026-07-03 — filed in CodaCtrl repo):** `codactrl/docs/studio/evidence/fls-obscur-case-study-2026-07.md` · `codactrl/docs/specs/functional-logic-specification.md` · fixtures `codactrl/docs/studio/evidence/fixtures/obscur-fls-*.json` (external repo paths — not resolvable in Obscur CI). Proposes **FLS0–FLS3** band: declarative functional logic → static scan + runtime monitoring → contradiction register.
 
 ## Round 5 note (2026-07-02 — O-4 relay retry blocked)
 
@@ -882,8 +882,80 @@ CLIENT_CAPTURE_MODE=playwright codactrld serve
 
 ---
 
+## Website lane — Playwright parity gaps (2026-07-04)
+
+**Context:** Phase 4 `apps/website` editorial redesign · subject `http://localhost:3000` · sessions `csess-7b430df8af44`, `csess-e38e21393b3d`
+
+CodaCtrl’s **desktop** lane (CDP `:9230`, investigation chains, digest pull, multi-window) remains the differentiator. The **website** lane via `playwright-chromium` works for observe-only flows; interact parity with Playwright MCP is not there yet.
+
+### What works today
+
+| Tool | Provider | Result |
+|------|----------|--------|
+| `client_snapshot` | `playwright-chromium` + `url` | **PASS** — full ARIA tree, auto session |
+| `client_screenshot_capture` | `playwright-chromium` + `url` | **PASS** — PNG under `.codectx/verify/...` |
+| `client_session_providers` | — | Lists `playwright-chromium` as **t2** “Web flows against live dev server” |
+| `client_interact_click` | `webview2-cdp` | **PASS** on Obscur desktop (Obscur-specific step labels) |
+
+### Gaps observed (priority order)
+
+| ID | Gap | Impact | Suggested fix |
+|----|-----|--------|----------------|
+| **WEB-1** | `client_session_connect` schema omits `playwright-chromium` — no explicit “connect to URL” bootstrap | Agents must discover snapshot-as-bootstrap | Add `{ provider: "playwright-chromium", url: "http://localhost:3000" }` to connect; persist browser context for interact |
+| **WEB-2** | `client_interact_click` on Playwright session ignored custom `selector` — always resolved `role=link[name="Download"]` | Strict-mode failures; cannot drive marketing sites with duplicate link text | Pass `selector` through to Playwright locator unchanged; return `strictModeViolation` with candidate list (desktop already does) |
+| **WEB-3** | `client_navigate` on Playwright session appeared to trigger click, not `page.goto` | Cannot multi-page website flows in one session | Route navigate by provider: Playwright → `goto`; CDP desktop → blocked SPA reload doc stays |
+| **WEB-4** | No `client_surface_probe` / digest equivalent for static website | Website proof is screenshot-only; no structured “section visible” matrix | Optional `client_web_surface_probe` — hero h1 text, download SHA present, nav links count |
+| **WEB-5** | Provider choice undocumented in MCP tool descriptions | Agents default to CDP and fail on `:3000` | `client_interact_*` descriptions: “For `apps/website` dev server use `playwright-chromium`; bootstrap via snapshot or connect+url” |
+| **WEB-6** | Perf module not wired to website LCP/CLS in Verify lane | Missed opportunity vs Playwright trace | `Perf` explore on `localhost:3000` → ranked findings JSON linked to investigation chain (Design/Verify handoff) |
+
+### Recommended agent workflow until WEB-1/2 ship
+
+1. `pnpm -C apps/website dev` (or `start` after build)
+2. `client_screenshot_capture` `{ url, provider: "playwright-chromium", stepLabel }` — visual diff loop
+3. `client_snapshot` — assert copy/structure in ARIA output
+4. `client_validate_assert` `{ assertKind: "textVisible", text }` when session exists
+5. Reserve `webview2-cdp` for Obscur desktop t3/t4 only
+
+### What not to copy from Playwright MCP
+
+- Obscur desktop should **keep** step labels (`dm-compose`, profile unlock) — they encode product knowledge Playwright MCP lacks
+- Investigation chains + fault import remain website-agnostic assets — link website captures with `chainId: "chain-phase4-website-2026-07-04"` when doing deploy smoke
+
+### Chain `chain-phase4-website-2026-07-04` (2026-07-04)
+
+**Title:** Phase 4 website editorial design pass · **symptomClass:** `phase4-website-editorial`
+
+| Node | Trigger | Session | Screenshot |
+|------|---------|---------|------------|
+| `n0-hero-before` | `hero-refine-before` | `csess-7b4bb623967a` | `cap-d2d8de2db666` |
+| `n1-hero-after` | `hero-refinement-after-fold` | `csess-59bb8d3fedef` | `cap-a73d1c794d27` (also `cap-d77af692ce98`) |
+| `n2-download-after` | `download-editorial-after` | `csess-fd1d7c60b40a` | `cap-4131ea89f8d9` (also `cap-d87b7ccd0c2c`) |
+| `n3-deploy-smoke` | `phase4-deploy-smoke-t2` | `csess-7813dd567860` | `cap-dd1ce202d7a4` · attachment: `apps/website/docs/frontend-spec.md` |
+
+**Edges:** `n0 → n1` (hero-fold-pass) → `n2` (download-editorial-pass) → `n3` (deploy-smoke)
+
+**doesNotProve (chain-level):** Vercel preview; pre-pass #2 download dark-template screenshot; changelog/features pages still on dark Tailwind shell.
+
+**Residual (WEB-R3):** `runSurfaceProbe` on `playwright-chromium` chain append returns desktop digest fields (`splitBrainSuspected`) — probe should branch by provider for website sessions.
+
+### Validated after CodaCtrl upgrade (2026-07-04)
+
+| ID | Status | Evidence |
+|----|--------|----------|
+| **WEB-1** | **Partial** | `client_snapshot` bootstraps `playwright-chromium` session (`csess-be87cd580854`); explicit `client_session_connect` blocked when codactrld indexes wrong repo root |
+| **WEB-2** | **PASS** | `client_interact_click` with `nav[aria-label="Primary"] a.site-nav-link` selector — no strict-mode false positive |
+| **WEB-3** | **PASS** | `client_navigate` → `http://localhost:3000/download` · `finalUrl` correct |
+| **WEB-4** | **PASS** | `client_web_surface_probe` — hero h1, nav count, download links on `/` and `/download` |
+| **WEB-5** | **PASS** | Tool descriptions document `playwright-chromium` + explicit `selector` |
+
+**Residual (WEB-R1):** Restart `codactrld` from Obscur repo root so `client_session_connect { provider, url }` passes workspace alignment.  
+**Residual (WEB-R2):** `downloadShaPresent: false` on `/download` despite SHA visible in snapshot — probe selector should match checksum paragraph (`d814ab21…`).
+
+---
+
 ## Revision history
 
 | Date | Change |
 |------|--------|
 | 2026-07-01 | Initial compile from RIW-1–8 capture charter + issues register + artifacts |
+| 2026-07-04 | Website lane WEB-1–WEB-6 — Playwright parity gaps from Phase 4 editorial pass |

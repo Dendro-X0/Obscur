@@ -1,0 +1,17 @@
+{
+  "entries": [
+    {
+      "exitCode": 124,
+      "kind": "scriptInvoke",
+      "ok": false,
+      "path": "scripts/verify-profile-picker-flow.mjs",
+      "stderrArtifact": ".codectx/verify/runs/vrun-acd02d38/artifacts/script-2-stderr.txt",
+      "stdoutArtifact": ".codectx/verify/runs/vrun-acd02d38/artifacts/script-2-stdout.txt",
+      "stepIndex": 2,
+      "timedOut": true
+    }
+  ],
+  "proofTier": "t3",
+  "runId": "vrun-acd02d38",
+  "schema": "verify.run.trace@0.1.0"
+}

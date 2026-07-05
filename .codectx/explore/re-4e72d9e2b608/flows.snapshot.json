@@ -1,0 +1,2968 @@
+{
+  "schema": "studio.repo.flows.snapshot@1.0.0",
+  "exploreId": "re-4e72d9e2b608",
+  "scanSnapshotHash": "sha256:e514c2d03b6d2f33600f93cc1a0f0526dd87808a983480852e17909ebefa9f66",
+  "snapshotHash": "sha256:5dbcd97c9fdf829c246f93ef979600825d018f416baf79633a156a36fd7662eb",
+  "generatedAt": "2026-07-03T03:46:59.275431600+00:00",
+  "summary": {
+    "ciFlowCount": 6,
+    "scriptFlowCount": 7,
+    "stepCount": 353
+  },
+  "flows": [
+    {
+      "id": "ci:build-android",
+      "kind": "ci",
+      "name": "Build Android (Manual)",
+      "sourcePath": ".github/workflows/build-android.yml",
+      "packagePath": null,
+      "trigger": "workflow_dispatch, inputs, publish_mobile_preview",
+      "steps": [
+        {
+          "order": 1,
+          "id": "build-android",
+          "name": "build-android",
+          "kind": "job",
+          "command": "sdkmanager \"ndk;25.2.9519653\" && | && pnpm install --frozen-lockfile && | && | && | && node scripts/build-pwa-shell.mjs && | && | && |",
+          "evidencePath": ".github/workflows/build-android.yml"
+        }
+      ]
+    },
+    {
+      "id": "ci:build-ios",
+      "kind": "ci",
+      "name": "Build iOS (Manual)",
+      "sourcePath": ".github/workflows/build-ios.yml",
+      "packagePath": null,
+      "trigger": "workflow_dispatch",
+      "steps": [
+        {
+          "order": 1,
+          "id": "ios-precheck",
+          "name": "ios-precheck",
+          "kind": "job",
+          "command": "|",
+          "evidencePath": ".github/workflows/build-ios.yml"
+        },
+        {
+          "order": 2,
+          "id": "build-ios",
+          "name": "build-ios",
+          "kind": "job",
+          "command": "pnpm install --frozen-lockfile && pnpm -C apps/desktop tauri ios build --ci",
+          "evidencePath": ".github/workflows/build-ios.yml"
+        }
+      ]
+    },
+    {
+      "id": "ci:docs-check",
+      "kind": "ci",
+      "name": "docs-check",
+      "sourcePath": ".github/workflows/docs-check.yml",
+      "packagePath": null,
+      "trigger": "pull_request, paths, push, paths",
+      "steps": [
+        {
+          "order": 1,
+          "id": "docs-check",
+          "name": "docs-check",
+          "kind": "job",
+          "command": "pnpm install --frozen-lockfile && pnpm docs:check",
+          "evidencePath": ".github/workflows/docs-check.yml"
+        }
+      ]
+    },
+    {
+      "id": "ci:release",
+      "kind": "ci",
+      "name": "Obscur Full Release (retired — do not use)",
+      "sourcePath": ".github/workflows/release.yml",
+      "packagePath": null,
+      "trigger": "workflow_dispatch, inputs, publish_release, release_tag",
+      "steps": [
+        {
+          "order": 1,
+          "id": "resolve-release-version",
+          "name": "resolve-release-version",
+          "kind": "job",
+          "command": "|",
+          "evidencePath": ".github/workflows/release.yml"
+        },
+        {
+          "order": 2,
+          "id": "relay-runtime-smoke",
+          "name": "relay-runtime-smoke",
+          "kind": "job",
+          "command": "| && node scripts/relay-runtime-smoke.mjs --relay ws://127.0.0.1:7000 --timeout-ms 7000 --skip-nip11",
+          "evidencePath": ".github/workflows/release.yml"
+        },
+        {
+          "order": 3,
+          "id": "preflight-checks",
+          "name": "preflight-checks",
+          "kind": "job",
+          "command": "pnpm install --frozen-lockfile && pnpm release:integrity-check && pnpm version:check && pnpm docs:check",
+          "evidencePath": ".github/workflows/release.yml"
+        },
+        {
+          "order": 4,
+          "id": "build-desktop",
+          "name": "build-desktop",
+          "kind": "job",
+          "command": "| && pnpm install --frozen-lockfile && pnpm version:sync && | && | && | && | && | && | && node scripts/verify-desktop-bundle-filenames.mjs --dir ./bundle-artifacts && | && node scripts/verify-desktop-bundle-filenames.mjs --dir ./bundle-artifacts && | && node scripts/verify-desktop-bundle-filenames.mjs --dir ./bundle-artifacts",
+          "evidencePath": ".github/workflows/release.yml"
+        },
+        {
+          "order": 5,
+          "id": "build-web-pwa",
+          "name": "build-web-pwa",
+          "kind": "job",
+          "command": "pnpm install --frozen-lockfile && | && pnpm -C apps/pwa build && |",
+          "evidencePath": ".github/workflows/release.yml"
+        },
+        {
+          "order": 6,
+          "id": "build-android",
+          "name": "build-android",
+          "kind": "job",
+          "command": "sdkmanager \"ndk;25.2.9519653\" && | && pnpm install --frozen-lockfile && pnpm version:sync && | && | && | && | && | && node scripts/build-pwa-shell.mjs && | && | && |",
+          "evidencePath": ".github/workflows/release.yml"
+        },
+        {
+          "order": 7,
+          "id": "ios-precheck",
+          "name": "ios-precheck",
+          "kind": "job",
+          "command": "|",
+          "evidencePath": ".github/workflows/release.yml"
+        },
+        {
+          "order": 8,
+          "id": "build-ios",
+          "name": "build-ios",
+          "kind": "job",
+          "command": "| && pnpm install --frozen-lockfile && pnpm -C apps/desktop tauri ios build --ci && |",
+          "evidencePath": ".github/workflows/release.yml"
+        },
+        {
+          "order": 9,
+          "id": "verify-artifacts",
+          "name": "verify-artifacts",
+          "kind": "job",
+          "command": "pnpm install --frozen-lockfile && | && | && |",
+          "evidencePath": ".github/workflows/release.yml"
+        },
+        {
+          "order": 10,
+          "id": "publish-release",
+          "name": "publish-release",
+          "kind": "job",
+          "command": "pnpm install --frozen-lockfile && |",
+          "evidencePath": ".github/workflows/release.yml"
+        }
+      ]
+    },
+    {
+      "id": "ci:reliability-gates",
+      "kind": "ci",
+      "name": "reliability-gates",
+      "sourcePath": ".github/workflows/reliability-gates.yml",
+      "packagePath": null,
+      "trigger": "pull_request, push, branches",
+      "steps": [
+        {
+          "order": 1,
+          "id": "relay-runtime-smoke",
+          "name": "relay-runtime-smoke",
+          "kind": "job",
+          "command": "pnpm install --frozen-lockfile && | && node scripts/relay-runtime-smoke.mjs --relay ws://127.0.0.1:7000 --timeout-ms 7000 --skip-nip11 && node scripts/community-relay-hide-suppress-smoke.mjs && node scripts/community-relay-hide-registry-persist-smoke.mjs && node --test scripts/operator-relay-storage-compact.test.mjs && node scripts/community-bot-descriptor-contract-smoke.mjs && node --test scripts/community-outbound-bot.test.mjs",
+          "evidencePath": ".github/workflows/reliability-gates.yml"
+        },
+        {
+          "order": 2,
+          "id": "release-test-pack",
+          "name": "release-test-pack",
+          "kind": "job",
+          "command": "pnpm install --frozen-lockfile && pnpm release:test-pack -- --skip-preflight && echo \"No reliability-scope changes detected; release:test-pack gate skipped for this run.\"",
+          "evidencePath": ".github/workflows/reliability-gates.yml"
+        }
+      ]
+    },
+    {
+      "id": "ci:version-check",
+      "kind": "ci",
+      "name": "version-check",
+      "sourcePath": ".github/workflows/version-check.yml",
+      "packagePath": null,
+      "trigger": "pull_request, paths, push, paths",
+      "steps": [
+        {
+          "order": 1,
+          "id": "version-check",
+          "name": "version-check",
+          "kind": "job",
+          "command": "pnpm install --frozen-lockfile && pnpm version:check",
+          "evidencePath": ".github/workflows/version-check.yml"
+        }
+      ]
+    },
+    {
+      "id": "script:apps/coordination",
+      "kind": "script",
+      "name": "@obscur/coordination-worker scripts",
+      "sourcePath": "apps/coordination/package.json",
+      "packagePath": "apps/coordination",
+      "trigger": null,
+      "steps": [
+        {
+          "order": 1,
+          "id": "db:migrate",
+          "name": "db:migrate",
+          "kind": "script",
+          "command": "node ../../scripts/coordination-dev.mjs --migrate-only",
+          "evidencePath": "apps/coordination/package.json"
+        },
+        {
+          "order": 2,
+          "id": "db:purge-membership",
+          "name": "db:purge-membership",
+          "kind": "script",
+          "command": "node ../../scripts/coordination-dev.mjs --migrate-only --file ./scripts/purge-membership-directory.sql",
+          "evidencePath": "apps/coordination/package.json"
+        },
+        {
+          "order": 3,
+          "id": "deploy",
+          "name": "deploy",
+          "kind": "script",
+          "command": "wrangler deploy",
+          "evidencePath": "apps/coordination/package.json"
+        },
+        {
+          "order": 4,
+          "id": "dev",
+          "name": "dev",
+          "kind": "script",
+          "command": "node ../../scripts/coordination-dev.mjs",
+          "evidencePath": "apps/coordination/package.json"
+        },
+        {
+          "order": 5,
+          "id": "test",
+          "name": "test",
+          "kind": "script",
+          "command": "vitest run",
+          "evidencePath": "apps/coordination/package.json"
+        },
+        {
+          "order": 6,
+          "id": "test:watch",
+          "name": "test:watch",
+          "kind": "script",
+          "command": "vitest",
+          "evidencePath": "apps/coordination/package.json"
+        }
+      ]
+    },
+    {
+      "id": "script:apps/desktop",
+      "kind": "script",
+      "name": "@dweb/desktop scripts",
+      "sourcePath": "apps/desktop/package.json",
+      "packagePath": "apps/desktop",
+      "trigger": null,
+      "steps": [
+        {
+          "order": 1,
+          "id": "build",
+          "name": "build",
+          "kind": "script",
+          "command": "tauri build",
+          "evidencePath": "apps/desktop/package.json"
+        },
+        {
+          "order": 2,
+          "id": "build:android:debug",
+          "name": "build:android:debug",
+          "kind": "script",
+          "command": "node scripts/run-android-build.mjs --apk --debug",
+          "evidencePath": "apps/desktop/package.json"
+        },
+        {
+          "order": 3,
+          "id": "build:android:debug:emulator",
+          "name": "build:android:debug:emulator",
+          "kind": "script",
+          "command": "cross-env GRADLE_ABI_LIST=x86_64 node scripts/run-android-build.mjs --apk --debug",
+          "evidencePath": "apps/desktop/package.json"
+        },
+        {
+          "order": 4,
+          "id": "build:android:release",
+          "name": "build:android:release",
+          "kind": "script",
+          "command": "node scripts/run-android-build.mjs --apk --aab",
+          "evidencePath": "apps/desktop/package.json"
+        },
+        {
+          "order": 5,
+          "id": "build:pwa-shell",
+          "name": "build:pwa-shell",
+          "kind": "script",
+          "command": "node scripts/run-build-pwa-shell.mjs",
+          "evidencePath": "apps/desktop/package.json"
+        },
+        {
+          "order": 6,
+          "id": "dev",
+          "name": "dev",
+          "kind": "script",
+          "command": "tauri dev --config src-tauri/tauri.dev.conf.json",
+          "evidencePath": "apps/desktop/package.json"
+        },
+        {
+          "order": 7,
+          "id": "dev:live",
+          "name": "dev:live",
+          "kind": "script",
+          "command": "tauri dev --config src-tauri/tauri.live.dev.conf.json",
+          "evidencePath": "apps/desktop/package.json"
+        },
+        {
+          "order": 8,
+          "id": "prebuild",
+          "name": "prebuild",
+          "kind": "script",
+          "command": "node ../../scripts/cleanup-tauri-sidecars.mjs && node ../../scripts/setup-tor.mjs",
+          "evidencePath": "apps/desktop/package.json"
+        },
+        {
+          "order": 9,
+          "id": "predev",
+          "name": "predev",
+          "kind": "script",
+          "command": "node ../../scripts/cleanup-tauri-sidecars.mjs && node ../../scripts/repair-tauri-permission-cache.mjs && node ../../scripts/setup-tor.mjs",
+          "evidencePath": "apps/desktop/package.json"
+        },
+        {
+          "order": 10,
+          "id": "repair",
+          "name": "repair",
+          "kind": "script",
+          "command": "node ../../scripts/repair-tauri-permission-cache.mjs --force",
+          "evidencePath": "apps/desktop/package.json"
+        },
+        {
+          "order": 11,
+          "id": "tauri",
+          "name": "tauri",
+          "kind": "script",
+          "command": "tauri",
+          "evidencePath": "apps/desktop/package.json"
+        }
+      ]
+    },
+    {
+      "id": "script:apps/pwa",
+      "kind": "script",
+      "name": "pwa scripts",
+      "sourcePath": "apps/pwa/package.json",
+      "packagePath": "apps/pwa",
+      "trigger": null,
+      "steps": [
+        {
+          "order": 1,
+          "id": "build",
+          "name": "build",
+          "kind": "script",
+          "command": "next build",
+          "evidencePath": "apps/pwa/package.json"
+        },
+        {
+          "order": 2,
+          "id": "build:static",
+          "name": "build:static",
+          "kind": "script",
+          "command": "node scripts/toggle-api.js hide && next build && node scripts/toggle-api.js show",
+          "evidencePath": "apps/pwa/package.json"
+        },
+        {
+          "order": 3,
+          "id": "dev",
+          "name": "dev",
+          "kind": "script",
+          "command": "next dev --turbopack --hostname 127.0.0.1 --port 3340",
+          "evidencePath": "apps/pwa/package.json"
+        },
+        {
+          "order": 4,
+          "id": "dev:turbo",
+          "name": "dev:turbo",
+          "kind": "script",
+          "command": "next dev --turbopack --hostname 127.0.0.1 --port 3340",
+          "evidencePath": "apps/pwa/package.json"
+        },
+        {
+          "order": 5,
+          "id": "dev:webpack",
+          "name": "dev:webpack",
+          "kind": "script",
+          "command": "next dev --webpack --hostname 127.0.0.1 --port 3340",
+          "evidencePath": "apps/pwa/package.json"
+        },
+        {
+          "order": 6,
+          "id": "i18n:bootstrap-chunks",
+          "name": "i18n:bootstrap-chunks",
+          "kind": "script",
+          "command": "node scripts/i18n/bootstrap-locale-chunks.mjs",
+          "evidencePath": "apps/pwa/package.json"
+        },
+        {
+          "order": 7,
+          "id": "i18n:merge-chunks",
+          "name": "i18n:merge-chunks",
+          "kind": "script",
+          "command": "node scripts/i18n/merge-locale-chunks.mjs",
+          "evidencePath": "apps/pwa/package.json"
+        },
+        {
+          "order": 8,
+          "id": "i18n:prepare-chunks",
+          "name": "i18n:prepare-chunks",
+          "kind": "script",
+          "command": "node scripts/i18n/prepare-locale-chunks.mjs",
+          "evidencePath": "apps/pwa/package.json"
+        },
+        {
+          "order": 9,
+          "id": "i18n:remove-inline-fallbacks",
+          "name": "i18n:remove-inline-fallbacks",
+          "kind": "script",
+          "command": "node scripts/i18n/remove-inline-fallbacks.mjs",
+          "evidencePath": "apps/pwa/package.json"
+        },
+        {
+          "order": 10,
+          "id": "i18n:split-chunks",
+          "name": "i18n:split-chunks",
+          "kind": "script",
+          "command": "node scripts/i18n/split-locale-chunks.mjs",
+          "evidencePath": "apps/pwa/package.json"
+        },
+        {
+          "order": 11,
+          "id": "i18n:sync-en-template",
+          "name": "i18n:sync-en-template",
+          "kind": "script",
+          "command": "node scripts/i18n/sync-en-template.mjs",
+          "evidencePath": "apps/pwa/package.json"
+        },
+        {
+          "order": 12,
+          "id": "lint",
+          "name": "lint",
+          "kind": "script",
+          "command": "eslint",
+          "evidencePath": "apps/pwa/package.json"
+        },
+        {
+          "order": 13,
+          "id": "start",
+          "name": "start",
+          "kind": "script",
+          "command": "next start",
+          "evidencePath": "apps/pwa/package.json"
+        },
+        {
+          "order": 14,
+          "id": "test",
+          "name": "test",
+          "kind": "script",
+          "command": "cross-env NODE_OPTIONS=--max-old-space-size=4096 vitest",
+          "evidencePath": "apps/pwa/package.json"
+        },
+        {
+          "order": 15,
+          "id": "test:community-invariants",
+          "name": "test:community-invariants",
+          "kind": "script",
+          "command": "cross-env NODE_OPTIONS=--max-old-space-size=4096 vitest run app/features/groups/services/community-relay-evidence-policy.test.ts app/features/groups/services/community-participant-roster-read-model.test.ts app/features/groups/services/community-participant-display-read-model.test.ts app/features/groups/services/community-visible-members.test.ts app/features/groups/services/community-membership-semantic-ingress.test.ts app/features/groups/services/community-membership-port.test.ts app/features/groups/services/community-coordination-membership-client.test.ts app/features/groups/services/community-coordination-membership-reconcile.test.ts app/features/groups/services/community-coordination-fetch.test.ts app/features/groups/services/community-coordination-health.test.ts app/features/groups/services/community-trust-policy.test.ts app/features/groups/services/community-invite-eligibility-read-model.test.ts app/features/groups/services/community-joiner-membership-repair.test.ts app/features/groups/services/community-joiner-membership-repair-scenario.ts app/features/groups/services/managed-workspace-roster-repair-context.test.ts app/features/groups/services/community-workspace-r1-policy.test.ts app/features/groups/services/community-workspace-membership-reconcile.test.ts app/features/profiles/services/resolve-client-gateway.test.ts app/features/groups/services/community-governance-projection.test.ts app/features/groups/services/community-governance-mutation-owner.test.ts app/features/groups/services/community-descriptor-mutation-owner.test.ts app/features/groups/services/community-mode-contract.test.ts app/features/groups/services/community-steward-policy.test.ts app/features/groups/services/community-directory-materialization-policy.test.ts app/features/groups/utils/community-membership-participation-evidence.test.ts app/features/groups/components/group-management-mount-policy.test.ts app/features/dev-lab/dev-lab-joiner-membership-probe.test.ts",
+          "evidencePath": "apps/pwa/package.json"
+        },
+        {
+          "order": 16,
+          "id": "test:e2e",
+          "name": "test:e2e",
+          "kind": "script",
+          "command": "playwright test",
+          "evidencePath": "apps/pwa/package.json"
+        },
+        {
+          "order": 17,
+          "id": "test:legacy:messaging",
+          "name": "test:legacy:messaging",
+          "kind": "script",
+          "command": "cross-env NODE_OPTIONS=--max-old-space-size=4096 vitest run app/features/messaging/lib/__tests__/checkpoint-basic-sending.test.ts app/features/messaging/lib/__tests__/enhanced-dm-controller.test.ts app/features/messaging/lib/__tests__/integration-complete-flows.test.ts app/features/messaging/lib/__tests__/integration-multi-relay-failover.test.ts app/features/messaging/lib/__tests__/integration-offline-online.test.ts app/features/messaging/lib/__tests__/message-receiving.test.ts app/features/messaging/lib/__tests__/message-sync.test.ts",
+          "evidencePath": "apps/pwa/package.json"
+        },
+        {
+          "order": 18,
+          "id": "test:legacy:stability",
+          "name": "test:legacy:stability",
+          "kind": "script",
+          "command": "cross-env NODE_OPTIONS=--max-old-space-size=4096 vitest run app/features/messaging/lib/__tests__/checkpoint-basic-sending.test.ts app/features/messaging/lib/__tests__/checkpoint-9-core-messaging-complete.test.ts app/features/messaging/lib/__tests__/enhanced-dm-controller.test.ts app/features/messaging/lib/__tests__/integration-complete-flows.test.ts app/features/messaging/lib/__tests__/integration-multi-relay-failover.test.ts app/features/messaging/lib/__tests__/integration-offline-online.test.ts app/features/messaging/lib/__tests__/message-receiving.test.ts app/features/messaging/lib/__tests__/message-sync.test.ts app/features/messaging/lib/retry-manager.test.ts app/features/messaging/lib/message-ordering.test.ts app/features/messaging/utils/persistence.group-migration.test.ts app/features/invites/utils/__tests__/cross-platform-compatibility.test.ts app/features/invites/utils/__tests__/qr-generator.test.ts app/features/invites/utils/__tests__/system-e2e.test.ts app/features/crypto/__tests__/crypto-service.test.ts app/components/invites/__tests__/connection-list.test.tsx app/components/invites/__tests__/connection-import-export.test.tsx tests/e2e/messaging-flow.spec.ts tests/e2e/navigation.spec.ts tests/e2e/routes.spec.ts tests/e2e/search.spec.ts tests/e2e/smoke.spec.ts tests/e2e/theme.spec.ts",
+          "evidencePath": "apps/pwa/package.json"
+        },
+        {
+          "order": 19,
+          "id": "test:run",
+          "name": "test:run",
+          "kind": "script",
+          "command": "cross-env NODE_OPTIONS=--max-old-space-size=4096 vitest run",
+          "evidencePath": "apps/pwa/package.json"
+        },
+        {
+          "order": 20,
+          "id": "test:shell-invariants",
+          "name": "test:shell-invariants",
+          "kind": "script",
+          "command": "cross-env NODE_OPTIONS=--max-old-space-size=4096 vitest run app/features/settings/services/ui-preferences-persistence.test.ts app/features/runtime/components/startup-experience-overlay.test.tsx",
+          "evidencePath": "apps/pwa/package.json"
+        },
+        {
+          "order": 21,
+          "id": "typecheck",
+          "name": "typecheck",
+          "kind": "script",
+          "command": "tsc --noEmit --pretty false",
+          "evidencePath": "apps/pwa/package.json"
+        }
+      ]
+    },
+    {
+      "id": "script:apps/relay-gateway",
+      "kind": "script",
+      "name": "@obscur/relay-gateway scripts",
+      "sourcePath": "apps/relay-gateway/package.json",
+      "packagePath": "apps/relay-gateway",
+      "trigger": null,
+      "steps": [
+        {
+          "order": 1,
+          "id": "build",
+          "name": "build",
+          "kind": "script",
+          "command": "tsc",
+          "evidencePath": "apps/relay-gateway/package.json"
+        },
+        {
+          "order": 2,
+          "id": "dev",
+          "name": "dev",
+          "kind": "script",
+          "command": "tsx src/index.ts",
+          "evidencePath": "apps/relay-gateway/package.json"
+        },
+        {
+          "order": 3,
+          "id": "start",
+          "name": "start",
+          "kind": "script",
+          "command": "node dist/index.js",
+          "evidencePath": "apps/relay-gateway/package.json"
+        }
+      ]
+    },
+    {
+      "id": "script:apps/website",
+      "kind": "script",
+      "name": "website scripts",
+      "sourcePath": "apps/website/package.json",
+      "packagePath": "apps/website",
+      "trigger": null,
+      "steps": [
+        {
+          "order": 1,
+          "id": "build",
+          "name": "build",
+          "kind": "script",
+          "command": "next build",
+          "evidencePath": "apps/website/package.json"
+        },
+        {
+          "order": 2,
+          "id": "dev",
+          "name": "dev",
+          "kind": "script",
+          "command": "next dev",
+          "evidencePath": "apps/website/package.json"
+        },
+        {
+          "order": 3,
+          "id": "lint",
+          "name": "lint",
+          "kind": "script",
+          "command": "eslint",
+          "evidencePath": "apps/website/package.json"
+        },
+        {
+          "order": 4,
+          "id": "start",
+          "name": "start",
+          "kind": "script",
+          "command": "next start",
+          "evidencePath": "apps/website/package.json"
+        }
+      ]
+    },
+    {
+      "id": "script:root",
+      "kind": "script",
+      "name": "dweb-messenger scripts",
+      "sourcePath": "package.json",
+      "packagePath": null,
+      "trigger": null,
+      "steps": [
+        {
+          "order": 1,
+          "id": "agent:bridge-call",
+          "name": "agent:bridge-call",
+          "kind": "script",
+          "command": "node scripts/agent-bridge-call.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 2,
+          "id": "agent:multiwindow-preflight",
+          "name": "agent:multiwindow-preflight",
+          "kind": "script",
+          "command": "node scripts/agent-multiwindow-preflight.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 3,
+          "id": "agent:window-probe",
+          "name": "agent:window-probe",
+          "kind": "script",
+          "command": "node scripts/agent-window-probe.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 4,
+          "id": "build:android:debug",
+          "name": "build:android:debug",
+          "kind": "script",
+          "command": "pnpm version:sync && pnpm verify:android-prerequisites && pnpm -C apps/desktop build:android:debug",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 5,
+          "id": "build:android:debug:emulator",
+          "name": "build:android:debug:emulator",
+          "kind": "script",
+          "command": "pnpm version:sync && pnpm verify:android-prerequisites && pnpm -C apps/desktop build:android:debug:emulator",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 6,
+          "id": "build:android:release",
+          "name": "build:android:release",
+          "kind": "script",
+          "command": "pnpm version:sync && pnpm verify:android-prerequisites && pnpm -C apps/desktop build:android:release",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 7,
+          "id": "build:api",
+          "name": "build:api",
+          "kind": "script",
+          "command": "pnpm -C apps/api build",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 8,
+          "id": "build:desktop",
+          "name": "build:desktop",
+          "kind": "script",
+          "command": "pnpm -C apps/desktop build",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 9,
+          "id": "build:pwa",
+          "name": "build:pwa",
+          "kind": "script",
+          "command": "pnpm -C apps/pwa build",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 10,
+          "id": "build:pwa-shell",
+          "name": "build:pwa-shell",
+          "kind": "script",
+          "command": "node scripts/build-pwa-shell.mjs desktop",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 11,
+          "id": "cache:clear",
+          "name": "cache:clear",
+          "kind": "script",
+          "command": "node scripts/clear-dev-cache.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 12,
+          "id": "capture:runtime",
+          "name": "capture:runtime",
+          "kind": "script",
+          "command": "node scripts/runtime-capture-e2e.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 13,
+          "id": "capture:runtime:cdp",
+          "name": "capture:runtime:cdp",
+          "kind": "script",
+          "command": "node scripts/runtime-capture-cdp.mjs --require-native",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 14,
+          "id": "capture:runtime:dm-kernel",
+          "name": "capture:runtime:dm-kernel",
+          "kind": "script",
+          "command": "node scripts/dev-lab-native-gate.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 15,
+          "id": "capture:runtime:native",
+          "name": "capture:runtime:native",
+          "kind": "script",
+          "command": "node scripts/runtime-capture-cdp.mjs --require-native",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 16,
+          "id": "ci:community-bot-descriptor-smoke",
+          "name": "ci:community-bot-descriptor-smoke",
+          "kind": "script",
+          "command": "node scripts/community-bot-descriptor-contract-smoke.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 17,
+          "id": "ci:community-relay-hide-smoke",
+          "name": "ci:community-relay-hide-smoke",
+          "kind": "script",
+          "command": "node scripts/community-relay-hide-suppress-smoke.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 18,
+          "id": "ci:hide-registry-persist-smoke",
+          "name": "ci:hide-registry-persist-smoke",
+          "kind": "script",
+          "command": "node scripts/community-relay-hide-registry-persist-smoke.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 19,
+          "id": "ci:local",
+          "name": "ci:local",
+          "kind": "script",
+          "command": "powershell -ExecutionPolicy Bypass -File scripts/local-ci.ps1",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 20,
+          "id": "ci:relay-runtime-smoke",
+          "name": "ci:relay-runtime-smoke",
+          "kind": "script",
+          "command": "node scripts/relay-runtime-smoke.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 21,
+          "id": "ci:scan:pwa",
+          "name": "ci:scan:pwa",
+          "kind": "script",
+          "command": "node scripts/pwa-ci-scan.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 22,
+          "id": "ci:scan:pwa:head",
+          "name": "ci:scan:pwa:head",
+          "kind": "script",
+          "command": "node scripts/pwa-ci-scan-head.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 23,
+          "id": "closeout:v130:check",
+          "name": "closeout:v130:check",
+          "kind": "script",
+          "command": "node scripts/check-v130-closeout-readiness.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 24,
+          "id": "closeout:v130:check:manual",
+          "name": "closeout:v130:check:manual",
+          "kind": "script",
+          "command": "node scripts/check-v130-closeout-readiness.mjs --strict-manual-packet",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 25,
+          "id": "closeout:v130:check:refresh-status",
+          "name": "closeout:v130:check:refresh-status",
+          "kind": "script",
+          "command": "node scripts/check-v130-closeout-readiness.mjs --refresh-rc-status",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 26,
+          "id": "closeout:v130:check:release-ready",
+          "name": "closeout:v130:check:release-ready",
+          "kind": "script",
+          "command": "node scripts/check-v130-closeout-readiness.mjs --strict-manual-packet --include-preflight --tag v1.3.0",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 27,
+          "id": "closeout:v130:check:with-preflight",
+          "name": "closeout:v130:check:with-preflight",
+          "kind": "script",
+          "command": "node scripts/check-v130-closeout-readiness.mjs --include-preflight --tag v1.3.0",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 28,
+          "id": "community-bot:generate-key",
+          "name": "community-bot:generate-key",
+          "kind": "script",
+          "command": "node scripts/generate-community-bot-key.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 29,
+          "id": "community-inbound-bot",
+          "name": "community-inbound-bot",
+          "kind": "script",
+          "command": "node scripts/community-inbound-bot.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 30,
+          "id": "community-outbound-bot",
+          "name": "community-outbound-bot",
+          "kind": "script",
+          "command": "node scripts/community-outbound-bot.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 31,
+          "id": "context:checkpoint",
+          "name": "context:checkpoint",
+          "kind": "script",
+          "command": "node scripts/context-handoff.mjs checkpoint",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 32,
+          "id": "context:handoff:init",
+          "name": "context:handoff:init",
+          "kind": "script",
+          "command": "node scripts/context-handoff.mjs init",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 33,
+          "id": "context:handoff:show",
+          "name": "context:handoff:show",
+          "kind": "script",
+          "command": "node scripts/context-handoff.mjs show",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 34,
+          "id": "context:rescue",
+          "name": "context:rescue",
+          "kind": "script",
+          "command": "node scripts/context-rescue.mjs snapshot",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 35,
+          "id": "context:rescue:latest",
+          "name": "context:rescue:latest",
+          "kind": "script",
+          "command": "node scripts/context-rescue.mjs latest",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 36,
+          "id": "coordination:health",
+          "name": "coordination:health",
+          "kind": "script",
+          "command": "node scripts/coordination-health.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 37,
+          "id": "coordination:migrate",
+          "name": "coordination:migrate",
+          "kind": "script",
+          "command": "pnpm -C apps/coordination db:migrate",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 38,
+          "id": "demo:m10:check",
+          "name": "demo:m10:check",
+          "kind": "script",
+          "command": "node scripts/check-m10-demo-assets.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 39,
+          "id": "demo:m10:check:structure",
+          "name": "demo:m10:check:structure",
+          "kind": "script",
+          "command": "node scripts/check-m10-demo-assets.mjs --structure-only",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 40,
+          "id": "demo:m10:init",
+          "name": "demo:m10:init",
+          "kind": "script",
+          "command": "node scripts/init-m10-demo-assets.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 41,
+          "id": "demo:m10:materialize",
+          "name": "demo:m10:materialize",
+          "kind": "script",
+          "command": "node scripts/materialize-m10-demo-assets.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 42,
+          "id": "demo:m10:rc:check",
+          "name": "demo:m10:rc:check",
+          "kind": "script",
+          "command": "node scripts/check-m10-release-candidate-assets.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 43,
+          "id": "demo:m10:rc:check:structure",
+          "name": "demo:m10:rc:check:structure",
+          "kind": "script",
+          "command": "node scripts/check-m10-release-candidate-assets.mjs --structure-only",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 44,
+          "id": "demo:m10:rc:init",
+          "name": "demo:m10:rc:init",
+          "kind": "script",
+          "command": "node scripts/init-m10-release-candidate-assets.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 45,
+          "id": "demo:m10:rc:materialize",
+          "name": "demo:m10:rc:materialize",
+          "kind": "script",
+          "command": "node scripts/materialize-m10-release-candidate-assets.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 46,
+          "id": "demo:m10:rc:next",
+          "name": "demo:m10:rc:next",
+          "kind": "script",
+          "command": "node scripts/next-m10-release-candidate-actions.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 47,
+          "id": "demo:m10:rc:refresh",
+          "name": "demo:m10:rc:refresh",
+          "kind": "script",
+          "command": "node scripts/refresh-m10-release-candidate-flow.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 48,
+          "id": "demo:m10:rc:status",
+          "name": "demo:m10:rc:status",
+          "kind": "script",
+          "command": "node scripts/check-m10-release-candidate-assets.mjs --report",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 49,
+          "id": "demo:m10:rc:status:structure",
+          "name": "demo:m10:rc:status:structure",
+          "kind": "script",
+          "command": "node scripts/check-m10-release-candidate-assets.mjs --structure-only --report",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 50,
+          "id": "demo:m10:status",
+          "name": "demo:m10:status",
+          "kind": "script",
+          "command": "node scripts/check-m10-demo-assets.mjs --structure-only --report",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 51,
+          "id": "demo:v130:check",
+          "name": "demo:v130:check",
+          "kind": "script",
+          "command": "node scripts/check-v130-manual-evidence-packet.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 52,
+          "id": "demo:v130:check:strict",
+          "name": "demo:v130:check:strict",
+          "kind": "script",
+          "command": "node scripts/check-v130-manual-evidence-packet.mjs --strict",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 53,
+          "id": "demo:v130:init",
+          "name": "demo:v130:init",
+          "kind": "script",
+          "command": "node scripts/init-v130-closeout-assets.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 54,
+          "id": "desktop:ensure-nsis",
+          "name": "desktop:ensure-nsis",
+          "kind": "script",
+          "command": "node scripts/ensure-tauri-nsis-windows.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 55,
+          "id": "desktop:package",
+          "name": "desktop:package",
+          "kind": "script",
+          "command": "node scripts/package-desktop-local.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 56,
+          "id": "desktop:repair",
+          "name": "desktop:repair",
+          "kind": "script",
+          "command": "pnpm -C apps/desktop repair",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 57,
+          "id": "desktop:update-channel:publish",
+          "name": "desktop:update-channel:publish",
+          "kind": "script",
+          "command": "node scripts/publish-desktop-update-channel.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 58,
+          "id": "dev",
+          "name": "dev",
+          "kind": "script",
+          "command": "node scripts/dev-workspace-stack.mjs --online",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 59,
+          "id": "dev:api",
+          "name": "dev:api",
+          "kind": "script",
+          "command": "pnpm -C apps/api dev",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 60,
+          "id": "dev:coordination",
+          "name": "dev:coordination",
+          "kind": "script",
+          "command": "pnpm -C apps/coordination dev",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 61,
+          "id": "dev:desktop",
+          "name": "dev:desktop",
+          "kind": "script",
+          "command": "node scripts/dev-desktop-static.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 62,
+          "id": "dev:desktop:browser",
+          "name": "dev:desktop:browser",
+          "kind": "script",
+          "command": "node scripts/dev-pwa-tauri.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 63,
+          "id": "dev:desktop:fast",
+          "name": "dev:desktop:fast",
+          "kind": "script",
+          "command": "node scripts/dev-desktop-fast.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 64,
+          "id": "dev:desktop:live",
+          "name": "dev:desktop:live",
+          "kind": "script",
+          "command": "node scripts/dev-desktop-fast.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 65,
+          "id": "dev:desktop:no-coord",
+          "name": "dev:desktop:no-coord",
+          "kind": "script",
+          "command": "node scripts/dev-workspace-stack.mjs --online --skip-coordination",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 66,
+          "id": "dev:desktop:offline",
+          "name": "dev:desktop:offline",
+          "kind": "script",
+          "command": "node scripts/dev-desktop.mjs --offline",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 67,
+          "id": "dev:desktop:online",
+          "name": "dev:desktop:online",
+          "kind": "script",
+          "command": "node scripts/dev-workspace-stack.mjs --online",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 68,
+          "id": "dev:desktop:online:live",
+          "name": "dev:desktop:online:live",
+          "kind": "script",
+          "command": "node scripts/dev-workspace-stack.mjs --online --live",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 69,
+          "id": "dev:desktop:shell",
+          "name": "dev:desktop:shell",
+          "kind": "script",
+          "command": "pnpm -C apps/desktop dev",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 70,
+          "id": "dev:desktop:stack",
+          "name": "dev:desktop:stack",
+          "kind": "script",
+          "command": "node scripts/dev-workspace-stack.mjs --online --stack-only",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 71,
+          "id": "dev:desktop:static",
+          "name": "dev:desktop:static",
+          "kind": "script",
+          "command": "node scripts/dev-desktop-static.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 72,
+          "id": "dev:desktop:transport-smoke",
+          "name": "dev:desktop:transport-smoke",
+          "kind": "script",
+          "command": "node scripts/dev-desktop-transport-smoke.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 73,
+          "id": "dev:desktop:webpack",
+          "name": "dev:desktop:webpack",
+          "kind": "script",
+          "command": "node scripts/dev-desktop.mjs --webpack",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 74,
+          "id": "dev:lab:benchmark",
+          "name": "dev:lab:benchmark",
+          "kind": "script",
+          "command": "node scripts/dev-lab-run.mjs --suite core --cold-reload",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 75,
+          "id": "dev:lab:full",
+          "name": "dev:lab:full",
+          "kind": "script",
+          "command": "node scripts/dev-lab-run.mjs --suite full --cold-reload",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 76,
+          "id": "dev:lab:native-gate",
+          "name": "dev:lab:native-gate",
+          "kind": "script",
+          "command": "node scripts/dev-lab-native-gate.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 77,
+          "id": "dev:lab:run",
+          "name": "dev:lab:run",
+          "kind": "script",
+          "command": "node scripts/dev-lab-run.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 78,
+          "id": "dev:lab:smoke",
+          "name": "dev:lab:smoke",
+          "kind": "script",
+          "command": "node scripts/dev-lab-run.mjs --suite smoke",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 79,
+          "id": "dev:mobile-shell:offline",
+          "name": "dev:mobile-shell:offline",
+          "kind": "script",
+          "command": "node scripts/dev-mobile-shell.mjs --offline",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 80,
+          "id": "dev:mobile-shell:online",
+          "name": "dev:mobile-shell:online",
+          "kind": "script",
+          "command": "node scripts/dev-mobile-shell.mjs --online",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 81,
+          "id": "dev:pwa",
+          "name": "dev:pwa",
+          "kind": "script",
+          "command": "pnpm -C apps/pwa dev",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 82,
+          "id": "dev:pwa:webpack",
+          "name": "dev:pwa:webpack",
+          "kind": "script",
+          "command": "pnpm -C apps/pwa run dev:webpack",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 83,
+          "id": "dev:relay",
+          "name": "dev:relay",
+          "kind": "script",
+          "command": "node scripts/dev-relay.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 84,
+          "id": "dev:relay:docker",
+          "name": "dev:relay:docker",
+          "kind": "script",
+          "command": "node scripts/dev-relay-docker.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 85,
+          "id": "dev:relay:down",
+          "name": "dev:relay:down",
+          "kind": "script",
+          "command": "node scripts/dev-relay-down.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 86,
+          "id": "dev:relay:gateway:docker",
+          "name": "dev:relay:gateway:docker",
+          "kind": "script",
+          "command": "docker compose -f infra/docker-compose.nostr-gateway.yml up",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 87,
+          "id": "docs:check",
+          "name": "docs:check",
+          "kind": "script",
+          "command": "node scripts/docs-check.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 88,
+          "id": "gateway:boundaries:check",
+          "name": "gateway:boundaries:check",
+          "kind": "script",
+          "command": "node scripts/verify-client-gateway-boundaries.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 89,
+          "id": "github:releases:retire",
+          "name": "github:releases:retire",
+          "kind": "script",
+          "command": "node scripts/retire-github-releases.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 90,
+          "id": "icons:regenerate",
+          "name": "icons:regenerate",
+          "kind": "script",
+          "command": "node scripts/regenerate-app-icons.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 91,
+          "id": "kill:dev-stack",
+          "name": "kill:dev-stack",
+          "kind": "script",
+          "command": "node scripts/kill-obscur-dev-stack.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 92,
+          "id": "lint:pwa",
+          "name": "lint:pwa",
+          "kind": "script",
+          "command": "pnpm -C apps/pwa lint",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 93,
+          "id": "mcp:playwright",
+          "name": "mcp:playwright",
+          "kind": "script",
+          "command": "playwright-mcp --headless --isolated",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 94,
+          "id": "mcp:playwright:headed",
+          "name": "mcp:playwright:headed",
+          "kind": "script",
+          "command": "playwright-mcp --isolated",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 95,
+          "id": "mcp:playwright:sse",
+          "name": "mcp:playwright:sse",
+          "kind": "script",
+          "command": "playwright-mcp --headless --isolated --host 127.0.0.1 --port 8931",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 96,
+          "id": "offline:asset-policy:check",
+          "name": "offline:asset-policy:check",
+          "kind": "script",
+          "command": "node scripts/check-offline-ui-asset-policy.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 97,
+          "id": "operator-relay:compact",
+          "name": "operator-relay:compact",
+          "kind": "script",
+          "command": "node scripts/operator-relay-storage-compact.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 98,
+          "id": "p12:android-smoke",
+          "name": "p12:android-smoke",
+          "kind": "script",
+          "command": "node scripts/p12-android-smoke.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 99,
+          "id": "perf:shell:s0:compare",
+          "name": "perf:shell:s0:compare",
+          "kind": "script",
+          "command": "node scripts/obscur-shell-perf-baseline.mjs compare docs/assets/perf/s0-dev.json docs/assets/perf/s0-prod.json",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 100,
+          "id": "perf:shell:s0:dev",
+          "name": "perf:shell:s0:dev",
+          "kind": "script",
+          "command": "node scripts/obscur-shell-perf-baseline.mjs dev",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 101,
+          "id": "perf:shell:s0:prod",
+          "name": "perf:shell:s0:prod",
+          "kind": "script",
+          "command": "node scripts/obscur-shell-perf-baseline.mjs prod",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 102,
+          "id": "perf:shell:s0:test",
+          "name": "perf:shell:s0:test",
+          "kind": "script",
+          "command": "node --test scripts/obscur-shell-perf-baseline-lib.test.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 103,
+          "id": "perf:v2:baseline:compare",
+          "name": "perf:v2:baseline:compare",
+          "kind": "script",
+          "command": "node scripts/obscur-shell-perf-baseline.mjs compare docs/assets/perf/v2-dev-webpack.json docs/assets/perf/v2-static-prod.json --out docs/assets/perf/v2-comparison.json",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 104,
+          "id": "perf:v2:baseline:dev-webpack",
+          "name": "perf:v2:baseline:dev-webpack",
+          "kind": "script",
+          "command": "node scripts/obscur-shell-perf-baseline.mjs dev --base-url http://127.0.0.1:3340 --out docs/assets/perf/v2-dev-webpack.json --unlock --rapid",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 105,
+          "id": "perf:v2:baseline:record",
+          "name": "perf:v2:baseline:record",
+          "kind": "script",
+          "command": "node scripts/v2-perf-baseline-record.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 106,
+          "id": "perf:v2:baseline:record-compare",
+          "name": "perf:v2:baseline:record-compare",
+          "kind": "script",
+          "command": "node scripts/v2-perf-baseline-compare-record.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 107,
+          "id": "perf:v2:baseline:static",
+          "name": "perf:v2:baseline:static",
+          "kind": "script",
+          "command": "node scripts/obscur-shell-perf-baseline.mjs prod --out docs/assets/perf/v2-static-prod.json",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 108,
+          "id": "perf:v2:release-budget",
+          "name": "perf:v2:release-budget",
+          "kind": "script",
+          "command": "node scripts/v2-perf-release-budget.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 109,
+          "id": "probe:relay-nip",
+          "name": "probe:relay-nip",
+          "kind": "script",
+          "command": "node scripts/relay-nip-probe.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 110,
+          "id": "purge:workspace",
+          "name": "purge:workspace",
+          "kind": "script",
+          "command": "node scripts/purge-workspace-communities.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 111,
+          "id": "purge:workspace:all",
+          "name": "purge:workspace:all",
+          "kind": "script",
+          "command": "node scripts/purge-workspace-communities.mjs --all-groups",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 112,
+          "id": "release:artifact-matrix-check",
+          "name": "release:artifact-matrix-check",
+          "kind": "script",
+          "command": "node scripts/check-release-artifact-matrix.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 113,
+          "id": "release:artifact-version-contract-check",
+          "name": "release:artifact-version-contract-check",
+          "kind": "script",
+          "command": "node scripts/check-release-artifact-version-contract.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 114,
+          "id": "release:artifact-version-parity",
+          "name": "release:artifact-version-parity",
+          "kind": "script",
+          "command": "node scripts/check-release-artifact-version-parity.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 115,
+          "id": "release:ci-signal-check",
+          "name": "release:ci-signal-check",
+          "kind": "script",
+          "command": "node scripts/check-release-ci-signals.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 116,
+          "id": "release:integrity-check",
+          "name": "release:integrity-check",
+          "kind": "script",
+          "command": "node scripts/check-release-source-integrity.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 117,
+          "id": "release:preflight",
+          "name": "release:preflight",
+          "kind": "script",
+          "command": "node scripts/release-preflight.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 118,
+          "id": "release:streaming-update-contract:check",
+          "name": "release:streaming-update-contract:check",
+          "kind": "script",
+          "command": "node scripts/check-streaming-update-contract.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 119,
+          "id": "release:streaming-update-manifest:build",
+          "name": "release:streaming-update-manifest:build",
+          "kind": "script",
+          "command": "node scripts/build-streaming-update-manifest.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 120,
+          "id": "release:tauri-updater-feed:build",
+          "name": "release:tauri-updater-feed:build",
+          "kind": "script",
+          "command": "node scripts/build-tauri-updater-feed.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 121,
+          "id": "release:test-pack",
+          "name": "release:test-pack",
+          "kind": "script",
+          "command": "node scripts/run-release-test-pack.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 122,
+          "id": "release:verify-tag",
+          "name": "release:verify-tag",
+          "kind": "script",
+          "command": "node scripts/verify-release-tag.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 123,
+          "id": "release:workflow-status",
+          "name": "release:workflow-status",
+          "kind": "script",
+          "command": "node scripts/check-release-workflow-status.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 124,
+          "id": "security:audit",
+          "name": "security:audit",
+          "kind": "script",
+          "command": "pnpm audit",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 125,
+          "id": "signing:env",
+          "name": "signing:env",
+          "kind": "script",
+          "command": "node scripts/load-maintainer-signing-env.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 126,
+          "id": "stability:core",
+          "name": "stability:core",
+          "kind": "script",
+          "command": "node scripts/check-core-stability.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 127,
+          "id": "test:community-bot-descriptor",
+          "name": "test:community-bot-descriptor",
+          "kind": "script",
+          "command": "pnpm -C apps/pwa exec vitest run app/features/groups/services/community-bot-policy.test.ts app/features/groups/services/community-bot-message-policy.test.ts app/features/groups/services/community-bot-triggers-policy.test.ts",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 128,
+          "id": "test:community-inbound-bot",
+          "name": "test:community-inbound-bot",
+          "kind": "script",
+          "command": "node --test scripts/community-inbound-bot.test.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 129,
+          "id": "test:community-invariants",
+          "name": "test:community-invariants",
+          "kind": "script",
+          "command": "pnpm -C apps/pwa test:community-invariants",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 130,
+          "id": "test:community-outbound-bot",
+          "name": "test:community-outbound-bot",
+          "kind": "script",
+          "command": "node --test scripts/community-outbound-bot.test.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 131,
+          "id": "test:coordination-worker",
+          "name": "test:coordination-worker",
+          "kind": "script",
+          "command": "pnpm -C apps/coordination test",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 132,
+          "id": "test:dev-stack-probes",
+          "name": "test:dev-stack-probes",
+          "kind": "script",
+          "command": "node --test scripts/lib/dev-stack-probes.test.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 133,
+          "id": "test:operator-relay-compact",
+          "name": "test:operator-relay-compact",
+          "kind": "script",
+          "command": "node --test scripts/operator-relay-storage-compact.test.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 134,
+          "id": "test:release-artifact-version-parity",
+          "name": "test:release-artifact-version-parity",
+          "kind": "script",
+          "command": "node --test scripts/check-release-artifact-version-parity.test.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 135,
+          "id": "test:shell-invariants",
+          "name": "test:shell-invariants",
+          "kind": "script",
+          "command": "pnpm -C apps/pwa test:shell-invariants",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 136,
+          "id": "test:workspace-membership",
+          "name": "test:workspace-membership",
+          "kind": "script",
+          "command": "pnpm test:coordination-worker && pnpm -C apps/pwa test:community-invariants",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 137,
+          "id": "transport:boundaries:check",
+          "name": "transport:boundaries:check",
+          "kind": "script",
+          "command": "node scripts/verify-transport-boundaries.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 138,
+          "id": "verify:android-prerequisites",
+          "name": "verify:android-prerequisites",
+          "kind": "script",
+          "command": "node scripts/verify-android-prerequisites.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 139,
+          "id": "verify:auth-kernel-contracts",
+          "name": "verify:auth-kernel-contracts",
+          "kind": "script",
+          "command": "node scripts/verify-auth-kernel-boundaries.mjs && pnpm -C apps/pwa exec vitest run ../../packages/dweb-auth/src/auth-kernel.contract.test.ts ../../packages/dweb-auth/src/policy/registration-policy-engine.test.ts ../../packages/dweb-auth/src/policy/auth-assistant-vault-codec.test.ts app/features/auth-kernel/auth-kernel.contract.test.ts app/features/auth-kernel/auth-kernel-authority-parity.contract.test.ts app/features/auth-kernel/auth-kernel-surface-routing.contract.test.ts app/features/auth-kernel/auth-kernel-k1.contract.test.ts app/features/auth-kernel/auth-kernel-k2.contract.test.ts app/features/auth-kernel/auth-kernel-k3.contract.test.ts app/features/auth-kernel/auth-kernel-k4.contract.test.ts app/features/auth-kernel/auth-kernel-kern-1.contract.test.ts app/features/auth-kernel/auth-kernel-kern-2.contract.test.ts app/features/auth-kernel/auth-kernel-kern-3.contract.test.ts app/features/auth-kernel/auth-kernel-kern-4.contract.test.ts app/features/auth-kernel/auth-kernel-kern-5.contract.test.ts app/features/auth-kernel/auth-kernel-manual-lock-state.test.ts app/features/auth-kernel/auth-kernel-profile-scope.test.ts app/features/auth-kernel/auth-kernel-registration-throttle.test.ts app/features/auth-kernel/auth-kernel-sign-out-cleanup.test.ts app/features/auth/services/auth-kernel-legacy-delegates.test.ts",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 140,
+          "id": "verify:com-mem-2",
+          "name": "verify:com-mem-2",
+          "kind": "script",
+          "command": "pnpm verify:com-mem-2:contracts",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 141,
+          "id": "verify:com-mem-2:contracts",
+          "name": "verify:com-mem-2:contracts",
+          "kind": "script",
+          "command": "pnpm verify:workspace-kernel-w3 && pnpm verify:path-b-membership",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 142,
+          "id": "verify:com-mem-2:scenario",
+          "name": "verify:com-mem-2:scenario",
+          "kind": "script",
+          "command": "node scripts/dev-lab-run.mjs -- --scenario membership-join-leave",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 143,
+          "id": "verify:conduit-mesh-c1",
+          "name": "verify:conduit-mesh-c1",
+          "kind": "script",
+          "command": "pnpm -C apps/pwa exec vitest run ../../packages/obscur-conduit-mesh-contracts/src/conduit-mesh-contracts.contract.test.ts app/engine-lab/conduit-mesh-c1.contract.test.ts",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 144,
+          "id": "verify:conduit-mesh-c2",
+          "name": "verify:conduit-mesh-c2",
+          "kind": "script",
+          "command": "pnpm verify:conduit-mesh-c1 && pnpm -C apps/pwa exec vitest run ../../packages/obscur-conduit-mesh/src/conduit-mesh.headless.test.ts app/engine-lab/conduit-mesh-c2.contract.test.ts",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 145,
+          "id": "verify:conduit-mesh-c3",
+          "name": "verify:conduit-mesh-c3",
+          "kind": "script",
+          "command": "pnpm verify:conduit-mesh-c2 && pnpm -C apps/pwa exec vitest run ../../packages/obscur-conduit-mesh-contracts/src/tor-policy.contract.test.ts ../../packages/obscur-conduit-mesh/src/conduit-mesh.tor-policy.test.ts app/engine-lab/conduit-mesh-c3.contract.test.ts",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 146,
+          "id": "verify:conduit-mesh-c4",
+          "name": "verify:conduit-mesh-c4",
+          "kind": "script",
+          "command": "pnpm verify:conduit-mesh-c3 && pnpm -C apps/pwa exec vitest run ../../packages/obscur-conduit-mesh/src/conduit-mesh.c4.integration.test.ts app/engine-lab/conduit-mesh-c4.contract.test.ts",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 147,
+          "id": "verify:conduit-mesh-c5",
+          "name": "verify:conduit-mesh-c5",
+          "kind": "script",
+          "command": "pnpm verify:conduit-mesh-c4 && pnpm -C apps/pwa exec vitest run ../../packages/obscur-conduit-mesh/src/w53-smoke-parity.harness.test.ts ../../packages/obscur-conduit-mesh/src/conduit-mesh-relay-pool-runtime.test.ts app/engine-lab/conduit-mesh-c5.contract.test.ts app/features/transport-kernel/conduit-mesh-pool-hook-port.test.ts",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 148,
+          "id": "verify:conduit-mesh-c6",
+          "name": "verify:conduit-mesh-c6",
+          "kind": "script",
+          "command": "pnpm verify:conduit-mesh-c5 && pnpm -C apps/pwa exec vitest run ../../packages/obscur-conduit-mesh-contracts/src/nostr-ws-wire-contract.contract.test.ts ../../packages/obscur-conduit-mesh/src/conduit-mesh.c6.integration.test.ts app/engine-lab/conduit-mesh-c6.contract.test.ts",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 149,
+          "id": "verify:dev-lab",
+          "name": "verify:dev-lab",
+          "kind": "script",
+          "command": "node --test scripts/lib/dev-lab-benchmark-lib.test.mjs scripts/lib/dev-lab-digest-policy.test.mjs scripts/lib/dev-lab-bot-inbound-live.test.mjs && pnpm -C apps/pwa exec vitest run app/features/dev-lab/",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 150,
+          "id": "verify:dm-engine-b3",
+          "name": "verify:dm-engine-b3",
+          "kind": "script",
+          "command": "pnpm -C apps/pwa exec vitest run app/engine-lab/dm-engine-b3.contract.test.ts app/features/dm-kernel/p3-runtime-data-path.contract.test.ts app/features/dm-kernel/dm-kernel-repair.test.ts ../../packages/obscur-dm-engine/src/dm-engine-b3.test.ts && cd packages/libobscur && cargo test test_dm_read_path_page_budget -- --nocapture",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 151,
+          "id": "verify:dm-engine-w0",
+          "name": "verify:dm-engine-w0",
+          "kind": "script",
+          "command": "pnpm -C apps/pwa exec vitest run app/engine-lab/dm-engine-w0.contract.test.ts app/engine-lab/packages-boundary.contract.test.ts app/features/dm-kernel/dm-kernel-thread-port.test.ts",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 152,
+          "id": "verify:dm-kernel",
+          "name": "verify:dm-kernel",
+          "kind": "script",
+          "command": "pnpm -C apps/pwa exec vitest run app/features/dm-kernel/dm-kernel.contract.test.ts app/features/dm-kernel/dm-kernel-chat-state-io-policy.test.ts app/features/dm-kernel/dm-kernel-chat-state-io.contract.test.ts app/features/dm-kernel/dm-kernel-thread-port.test.ts app/features/messaging/hooks/use-thread-messages.test.ts",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 153,
+          "id": "verify:dm-redaction",
+          "name": "verify:dm-redaction",
+          "kind": "script",
+          "command": "pnpm -C apps/pwa test:run app/features/messaging/controllers/v2/dm-receive-pipeline.test.ts app/features/messaging/controllers/v2/dm-send-pipeline.test.ts app/features/messaging/lib/resolve-dm-hybrid-relay-targets.test.ts app/features/messaging/deletion/message-deletion-coordinator.test.ts app/features/messaging/utils/extract-http-url-hosts.test.ts",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 154,
+          "id": "verify:engine-b4-w0",
+          "name": "verify:engine-b4-w0",
+          "kind": "script",
+          "command": "pnpm -C apps/pwa exec vitest run app/engine-lab/engine-b4.contract.test.ts app/features/workspace-kernel/workspace-kernel.contract.test.ts app/features/auth-kernel/auth-kernel-authority-parity.contract.test.ts ../../packages/obscur-workspace-engine/src/workspace-roster.test.ts ../../packages/obscur-auth-engine/src/auth-engine-policy.test.ts && cd apps/desktop/src-tauri && cargo build",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 155,
+          "id": "verify:engine-host-headless-w0",
+          "name": "verify:engine-host-headless-w0",
+          "kind": "script",
+          "command": "node scripts/verify-engine-host-headless.mjs && pnpm -C apps/pwa exec vitest run app/engine-lab/engine-host-headless-w0.contract.test.ts ../../packages/obscur-engine-host/src/memory-engine-host.headless.test.ts",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 156,
+          "id": "verify:engine-lab",
+          "name": "verify:engine-lab",
+          "kind": "script",
+          "command": "pnpm -C apps/pwa exec vitest run app/engine-lab/engine-lab-strict-quarantine.contract.test.ts app/engine-lab/ui-archive-boundary.contract.test.ts app/engine-lab/packages-boundary.contract.test.ts && pnpm verify:legacy-subtraction && pnpm verify:engine-host-headless-w0 && pnpm verify:dm-engine-w0 && pnpm verify:dm-engine-b3 && pnpm verify:engine-b4-w0 && pnpm verify:transport-engine-w68 && pnpm verify:auth-kernel-contracts && pnpm verify:v2-slim && pnpm verify:workspace-kernel",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 157,
+          "id": "verify:handoff",
+          "name": "verify:handoff",
+          "kind": "script",
+          "command": "node scripts/verify-handoff.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 158,
+          "id": "verify:legacy-subtraction",
+          "name": "verify:legacy-subtraction",
+          "kind": "script",
+          "command": "node scripts/verify-legacy-subtraction.mjs && pnpm -C apps/pwa exec vitest run app/engine-lab/legacy-subtraction.contract.test.ts app/engine-lab/legacy-subtraction-b5-exit.contract.test.ts app/engine-lab/legacy-subtraction-w22.contract.test.ts app/engine-lab/legacy-subtraction-w23.contract.test.ts app/engine-lab/legacy-subtraction-w24.contract.test.ts app/engine-lab/legacy-subtraction-w25.contract.test.ts app/engine-lab/legacy-subtraction-w26.contract.test.ts app/engine-lab/legacy-subtraction-w27.contract.test.ts app/engine-lab/legacy-subtraction-w28.contract.test.ts app/engine-lab/legacy-subtraction-w29.contract.test.ts app/engine-lab/legacy-subtraction-w30.contract.test.ts app/engine-lab/legacy-subtraction-w31.contract.test.ts app/engine-lab/legacy-subtraction-w32.contract.test.ts app/engine-lab/legacy-subtraction-w33.contract.test.ts app/engine-lab/legacy-subtraction-w34.contract.test.ts app/engine-lab/legacy-subtraction-w35.contract.test.ts app/engine-lab/legacy-subtraction-w36.contract.test.ts app/engine-lab/legacy-subtraction-w37.contract.test.ts app/engine-lab/legacy-subtraction-w38.contract.test.ts app/engine-lab/legacy-subtraction-w39.contract.test.ts app/engine-lab/legacy-subtraction-w40.contract.test.ts app/features/messaging/services/messaging-chat-state-ports.contract.test.ts app/features/dm-kernel/legacy-deletion-queue.test.ts app/features/messaging/services/native-dm-legacy-path.contract.test.ts",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 159,
+          "id": "verify:p2-navigation",
+          "name": "verify:p2-navigation",
+          "kind": "script",
+          "command": "pnpm perf:shell:s0:test && pnpm -C apps/pwa exec vitest run app/features/runtime/p2-navigation-subtraction.contract.test.ts app/features/runtime/components/chat-route-main-shell.test.tsx app/components/navigation-performance-coordinator.test.ts app/components/app-shell.test.tsx",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 160,
+          "id": "verify:p3-dm-kernel",
+          "name": "verify:p3-dm-kernel",
+          "kind": "script",
+          "command": "pnpm -C apps/pwa exec vitest run app/features/dm-kernel/p3-runtime-data-path.contract.test.ts app/features/dm-kernel/dm-kernel-invoke-audit.test.ts app/features/dm-kernel/dm-kernel-thread-port.test.ts",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 161,
+          "id": "verify:p4-bundle",
+          "name": "verify:p4-bundle",
+          "kind": "script",
+          "command": "pnpm perf:shell:s0:test && pnpm -C apps/pwa exec vitest run app/features/dm-kernel/p4-bundle-diet.contract.test.ts app/features/dm-kernel/v2-slim-native-quarantine.test.ts app/features/dm-kernel/tier-4-complete.contract.test.ts",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 162,
+          "id": "verify:p5-expansion",
+          "name": "verify:p5-expansion",
+          "kind": "script",
+          "command": "pnpm -C apps/pwa exec vitest run app/features/dm-kernel/p5-expansion.contract.test.ts app/features/dm-kernel/dm-kernel-cold-start-repair.test.ts app/features/messaging/services/thread-history/group-phase-e-contract.test.ts",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 163,
+          "id": "verify:p5-persistence",
+          "name": "verify:p5-persistence",
+          "kind": "script",
+          "command": "pnpm -C apps/pwa exec vitest run app/features/messaging/services/dm-conversation-hydrate-indexed-scan.test.ts app/features/messaging/services/message-persistence-service.test.ts app/features/messaging/services/relay-checkpoint-sqlite-store.test.ts app/features/messaging/services/call-record-sqlite-store.test.ts app/features/messaging/services/call-state-runtime.native-persist.test.ts app/features/messaging/lib/sync-checkpoints.test.ts app/features/messaging/lib/sync-checkpoints.native.test.ts app/features/groups/services/community-leave-recovery.test.ts app/features/groups/services/community-auto-disband-policy.test.ts app/features/groups/services/community-group-sqlite-store.test.ts app/features/groups/services/sealed-group-message-persistence.test.ts app/features/account-sync/services/encrypted-account-backup-service.native-restore.test.ts app/features/account-sync/services/p5-persistence-authority-gates.test.ts app/features/account-sync/services/restore-merge-chat-state.native.test.ts",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 164,
+          "id": "verify:p5-safety",
+          "name": "verify:p5-safety",
+          "kind": "script",
+          "command": "pnpm -C apps/pwa exec vitest run app/features/messaging/services/p5-safety-gate.test.ts app/features/messaging/services/path-b-b5-extension-hooks.test.ts app/features/messaging/services/incoming-request-anti-abuse.test.ts app/features/messaging/services/m10-shared-intel-policy.test.ts",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 165,
+          "id": "verify:path-b",
+          "name": "verify:path-b",
+          "kind": "script",
+          "command": "pnpm verify:path-b-b0 && pnpm verify:path-b-membership && pnpm verify:path-b-b2 && pnpm verify:path-b-b3 && pnpm verify:path-b-b4 && pnpm verify:path-b-b5",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 166,
+          "id": "verify:path-b-b0",
+          "name": "verify:path-b-b0",
+          "kind": "script",
+          "command": "pnpm -C apps/pwa exec vitest run app/features/groups/services/path-b-b0-exit.contract.test.ts app/features/groups/services/community-dev-flags.test.ts app/features/groups/services/community-trust-policy.test.ts app/features/groups/services/path-b-b0-workspace-gates.test.ts app/features/groups/services/community-mode-contract.test.ts app/features/groups/services/community-invite-redemption-policy.test.ts app/features/groups/components/create-group-dialog.test.tsx",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 167,
+          "id": "verify:path-b-b1",
+          "name": "verify:path-b-b1",
+          "kind": "script",
+          "command": "pnpm -C apps/pwa exec vitest run app/features/groups/services/path-b-b1-exit.contract.test.ts app/features/groups/services/path-b-b1-membership-truth.test.ts app/features/groups/services/community-membership-truth.test.ts app/features/groups/services/community-workspace-r1-policy.test.ts app/features/groups/services/community-participant-display-read-model.test.ts app/features/groups/services/community-invite-eligibility-read-model.test.ts",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 168,
+          "id": "verify:path-b-b1-2",
+          "name": "verify:path-b-b1-2",
+          "kind": "script",
+          "command": "pnpm -C apps/pwa exec vitest run app/features/groups/services/path-b-b1-2-exit.contract.test.ts app/features/groups/services/sealed-community-relay-membership-ingest-policy.test.ts app/features/groups/services/group-thread-relay-ingest.test.ts app/features/groups/hooks/use-sealed-community.path-b.test.ts",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 169,
+          "id": "verify:path-b-b1-3",
+          "name": "verify:path-b-b1-3",
+          "kind": "script",
+          "command": "pnpm -C apps/pwa exec vitest run app/features/groups/services/path-b-b1-3-exit.contract.test.ts app/features/groups/services/sealed-community-instance-policy.test.ts",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 170,
+          "id": "verify:path-b-b1-4",
+          "name": "verify:path-b-b1-4",
+          "kind": "script",
+          "command": "pnpm -C apps/coordination exec vitest run src/path-b-b1-4-exit.contract.test.ts src/membership-delta-acl.test.ts src/membership-directory.test.ts",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 171,
+          "id": "verify:path-b-b2",
+          "name": "verify:path-b-b2",
+          "kind": "script",
+          "command": "pnpm verify:path-b-b2-1 && pnpm verify:path-b-b2-2 && pnpm verify:path-b-b2-3",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 172,
+          "id": "verify:path-b-b2-1",
+          "name": "verify:path-b-b2-1",
+          "kind": "script",
+          "command": "pnpm -C apps/pwa exec vitest run app/features/groups/services/path-b-b2-1-exit.contract.test.ts app/features/groups/services/community-team-relay-wire.test.ts app/features/groups/services/community-team-relay-transport.test.ts",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 173,
+          "id": "verify:path-b-b2-2",
+          "name": "verify:path-b-b2-2",
+          "kind": "script",
+          "command": "pnpm -C apps/pwa exec vitest run app/features/invites/utils/path-b-b2-2-exit.contract.test.ts app/features/relays/services/relay-list-enabled-urls.test.ts",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 174,
+          "id": "verify:path-b-b2-3",
+          "name": "verify:path-b-b2-3",
+          "kind": "script",
+          "command": "pnpm -C apps/pwa exec vitest run app/features/groups/services/path-b-b2-3-exit.contract.test.ts app/features/groups/hooks/use-community-member-display-names.test.ts",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 175,
+          "id": "verify:path-b-b3",
+          "name": "verify:path-b-b3",
+          "kind": "script",
+          "command": "pnpm verify:path-b-b3-1 && pnpm verify:path-b-b3-2 && pnpm verify:path-b-b3-3 && pnpm -C apps/pwa exec vitest run app/features/groups/services/group-thread-relay-ingest.test.ts",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 176,
+          "id": "verify:path-b-b3-1",
+          "name": "verify:path-b-b3-1",
+          "kind": "script",
+          "command": "pnpm -C apps/pwa exec vitest run app/features/groups/services/path-b-b3-1-exit.contract.test.ts app/features/account-sync/services/p5-persistence-authority-gates.test.ts",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 177,
+          "id": "verify:path-b-b3-2",
+          "name": "verify:path-b-b3-2",
+          "kind": "script",
+          "command": "pnpm -C apps/pwa exec vitest run app/features/groups/services/path-b-b3-2-exit.contract.test.ts app/features/groups/services/sealed-group-message-persistence.test.ts app/features/account-sync/services/p5-persistence-authority-gates.test.ts",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 178,
+          "id": "verify:path-b-b3-3",
+          "name": "verify:path-b-b3-3",
+          "kind": "script",
+          "command": "pnpm -C apps/pwa exec vitest run app/features/groups/services/path-b-b3-3-exit.contract.test.ts app/features/messaging/services/thread-history/group-thread-sqlite-store.test.ts app/features/groups/services/sealed-group-message-persistence.test.ts app/features/account-sync/services/p5-persistence-authority-gates.test.ts",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 179,
+          "id": "verify:path-b-b4",
+          "name": "verify:path-b-b4",
+          "kind": "script",
+          "command": "pnpm -C apps/pwa exec vitest run app/features/account-sync/services/path-b-b4-exit.contract.test.ts app/features/account-sync/services/native-sqlite-backup-evidence.test.ts app/features/account-sync/services/encrypted-account-backup-service.native-restore.test.ts app/features/groups/services/community-group-sqlite-store.test.ts app/features/account-sync/services/p5-persistence-authority-gates.test.ts",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 180,
+          "id": "verify:path-b-b5",
+          "name": "verify:path-b-b5",
+          "kind": "script",
+          "command": "pnpm -C apps/pwa exec vitest run app/features/messaging/services/path-b-b5-exit.contract.test.ts app/features/messaging/services/path-b-b5-extension-hooks.test.ts app/features/messaging/services/p5-safety-gate.test.ts app/features/messaging/services/incoming-request-anti-abuse.test.ts app/features/messaging/services/m10-shared-intel-policy.test.ts app/features/messaging/services/request-transport-service.test.ts app/features/account-sync/services/p5-persistence-authority-gates.test.ts",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 181,
+          "id": "verify:path-b-membership",
+          "name": "verify:path-b-membership",
+          "kind": "script",
+          "command": "pnpm verify:path-b-b1 && pnpm verify:path-b-b1-2 && pnpm verify:path-b-b1-3 && pnpm verify:path-b-b1-4 && pnpm -C apps/pwa exec vitest run app/features/groups/services/community-coordination-membership-reconcile.test.ts",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 182,
+          "id": "verify:phase-b-full",
+          "name": "verify:phase-b-full",
+          "kind": "script",
+          "command": "pnpm verify:phase-b-programmatic && pnpm verify:path-b",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 183,
+          "id": "verify:phase-b-programmatic",
+          "name": "verify:phase-b-programmatic",
+          "kind": "script",
+          "command": "pnpm verify:platform-kernels && pnpm test:community-invariants && pnpm -C apps/pwa exec vitest run app/features/workspace-kernel/phase-b-programmatic.contract.test.ts",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 184,
+          "id": "verify:phase1",
+          "name": "verify:phase1",
+          "kind": "script",
+          "command": "pnpm test:shell-invariants && pnpm -C apps/pwa exec vitest run app/features/runtime/experiment-shell-policy.test.ts app/features/runtime/components/runtime-activation-manager.test.tsx app/features/runtime/services/window-runtime-supervisor.test.ts app/features/runtime/native-persistence-policy.test.ts",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 185,
+          "id": "verify:phase2",
+          "name": "verify:phase2",
+          "kind": "script",
+          "command": "pnpm verify:phase1 && pnpm -C apps/pwa exec vitest run app/features/messaging/services/conversation-list-authority.test.ts app/features/messaging/services/message-persistence-service.test.ts app/features/messaging/services/dm-conversation-hydrate-indexed-scan.test.ts app/features/messaging/services/dm-read-authority-contract.test.ts app/features/messaging/services/dm-delete-reload-projection.test.ts app/features/messaging/providers/messaging-provider.hydration-scope.test.tsx",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 186,
+          "id": "verify:phase3",
+          "name": "verify:phase3",
+          "kind": "script",
+          "command": "pnpm verify:phase2 && pnpm test:coordination-worker && pnpm -C apps/pwa exec vitest run app/features/runtime/transport-connection-problem.test.ts app/features/relays/hooks/use-relay-list.test.ts app/features/relays/providers/relay-provider.experiment-shell.test.tsx app/features/groups/services/community-coordination-health.test.ts app/features/groups/services/community-relay-transport.test.ts app/features/search/hooks/use-debounced-profile-search.test.ts app/features/search/hooks/use-identity-resolver.test.ts app/features/messaging/components/sidebar-user-search.test.tsx",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 187,
+          "id": "verify:platform-kernels",
+          "name": "verify:platform-kernels",
+          "kind": "script",
+          "command": "pnpm verify:v2-slim && pnpm verify:workspace-kernel && pnpm -C apps/pwa exec vitest run app/features/workspace-kernel/workspace-kernel-complete.contract.test.ts",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 188,
+          "id": "verify:profile-picker",
+          "name": "verify:profile-picker",
+          "kind": "script",
+          "command": "pnpm -C apps/pwa exec vitest run app/features/profiles/services/auth-public-routes.test.ts app/features/profiles/services/profile-picker-startup-policy.test.ts app/features/profiles/services/resolve-profile-launch-mode.test.ts app/features/profiles/profile-picker.contract.test.ts app/features/auth/components/auth-gateway.test.tsx",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 189,
+          "id": "verify:relationship-sync-experiment",
+          "name": "verify:relationship-sync-experiment",
+          "kind": "script",
+          "command": "pnpm -C apps/pwa exec vitest run app/features/relationship-sync/relationship-sync-experiment.test.ts app/features/relationship-sync/relationship-sync-experiment.contract.test.ts app/features/relationship-sync/relationship-sync-directory-sidebar.test.ts app/features/relationship-sync/relationship-sync-directory-sidebar-policy.test.ts app/features/network/services/peer-trust-read-authority.test.ts",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 190,
+          "id": "verify:relay-v1.9.5",
+          "name": "verify:relay-v1.9.5",
+          "kind": "script",
+          "command": "pnpm -C apps/pwa exec vitest run app/features/groups/services/operator-trust-bundle-audit.test.ts app/features/groups/services/operator-trust-bundle-sec-r1.contract.test.ts app/features/groups/services/community-trust-policy.test.ts app/features/groups/services/operator-trust-config.test.ts app/features/security/services/relay-trust-scorer.test.ts app/features/relays/services/relay-add-trust-assessment.test.ts app/features/relays/services/relay-trust-scorer-sec-r2.contract.test.ts app/features/relays/services/private-trust-local-setup-sec-r3.contract.test.ts app/features/relays/services/relay-publish-user-copy.test.ts app/features/relays/lib/relay-publish-chaos.test.ts app/features/relays/services/relay-publish-sec-r4.contract.test.ts",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 191,
+          "id": "verify:runtime-capture",
+          "name": "verify:runtime-capture",
+          "kind": "script",
+          "command": "node --test scripts/lib/runtime-capture-lib.test.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 192,
+          "id": "verify:runtime-capture:e2e",
+          "name": "verify:runtime-capture:e2e",
+          "kind": "script",
+          "command": "node --test scripts/lib/runtime-capture-lib.test.mjs && node scripts/runtime-capture-e2e.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 193,
+          "id": "verify:sec-v1-v1.9.5",
+          "name": "verify:sec-v1-v1.9.5",
+          "kind": "script",
+          "command": "node scripts/verify-e2ee-boundaries.mjs && pnpm -C apps/pwa exec vitest run app/features/dm-kernel/e2ee-boundary-sec-v1.contract.test.ts app/features/dm-kernel/dm-kernel-trust-assessment.contract.test.ts",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 194,
+          "id": "verify:sec-v1.9.5",
+          "name": "verify:sec-v1.9.5",
+          "kind": "script",
+          "command": "pnpm verify:sec-v1-v1.9.5 && pnpm verify:sec-v2-v1.9.5 && pnpm verify:sec-v3-v1.9.5 && pnpm verify:sec-v4-v1.9.5 && pnpm verify:relay-v1.9.5 && pnpm verify:trust-v1.9.5 && pnpm -C apps/pwa exec vitest run app/features/profiles/services/sec-v5-security-exit.contract.test.ts",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 195,
+          "id": "verify:sec-v2-v1.9.5",
+          "name": "verify:sec-v2-v1.9.5",
+          "kind": "script",
+          "command": "pnpm transport:boundaries:check && pnpm gateway:boundaries:check && pnpm -C apps/pwa exec vitest run app/features/runtime/services/transport-gateway-boundary-sec-v2.contract.test.ts",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 196,
+          "id": "verify:sec-v3-v1.9.5",
+          "name": "verify:sec-v3-v1.9.5",
+          "kind": "script",
+          "command": "pnpm -C apps/pwa exec vitest run app/features/profiles/services/profile-isolation-sec-v3.contract.test.ts app/features/groups/services/community-scope-isolation.test.ts app/features/groups/services/community-membership-ledger.test.ts app/features/profiles/services/single-process-profile-isolation.test.ts app/features/messaging/services/message-bus.profile-isolation.test.ts app/features/messaging/providers/messaging-provider.hydration-scope.test.tsx app/features/groups/hooks/use-community-membership-read-model-index.test.tsx app/features/messaging/services/chat-state-store.replace-event.test.ts app/features/groups/services/community-sync-service.test.ts app/features/groups/utils/community-invite-message-snapshot.test.ts",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 197,
+          "id": "verify:sec-v4-v1.9.5",
+          "name": "verify:sec-v4-v1.9.5",
+          "kind": "script",
+          "command": "pnpm -C apps/pwa exec vitest run app/features/profiles/services/cross-profile-leak-sec-v4.contract.test.ts app/features/groups/services/community-ab-restore-historical.test.ts app/shared/account-sync-mutation-signal.profile-isolation.test.ts app/features/profiles/services/cross-profile-active-session-lease.test.ts app/features/account-sync/services/native-sqlite-backup-evidence.test.ts",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 198,
+          "id": "verify:session-persistence-policy",
+          "name": "verify:session-persistence-policy",
+          "kind": "script",
+          "command": "pnpm -C apps/pwa exec vitest run app/features/auth/services/session-credential-policy.test.ts app/features/auth/services/device-session-consent.test.ts app/features/auth/services/device-trust-service.test.ts app/features/auth/services/session-persistence.contract.test.ts app/features/auth/services/native-session-persist-feedback.test.ts app/features/auth/services/device-session-diagnostic-service.test.ts app/features/auth/services/native-device-session-lifecycle.test.ts app/features/auth/services/session-sign-out-semantics.contract.test.ts",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 199,
+          "id": "verify:stability",
+          "name": "verify:stability",
+          "kind": "script",
+          "command": "pnpm verify:phase3 && pnpm -C apps/pwa exec vitest run app/features/groups/services/community-radical-truth-recovery.test.ts app/features/runtime/services/window-runtime-binding.test.ts app/features/relays/providers/relay-provider.stability.test.tsx app/features/runtime/services/window-runtime-supervisor.test.ts app/features/runtime/components/runtime-activation-manager.test.tsx app/settings/settings-tab-panel-models/use-profile-settings-model.stability.test.tsx app/settings/settings-tab-panel-models/settings-tab-panel-mount.stability.test.tsx && node scripts/verify-react-stability.mjs && pnpm gateway:boundaries:check && pnpm transport:boundaries:check",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 200,
+          "id": "verify:standalone-legacy-subtraction-prep",
+          "name": "verify:standalone-legacy-subtraction-prep",
+          "kind": "script",
+          "command": "node scripts/verify-standalone-legacy-subtraction-prep.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 201,
+          "id": "verify:storage-encryption-v1.9.8",
+          "name": "verify:storage-encryption-v1.9.8",
+          "kind": "script",
+          "command": "pnpm -C apps/pwa exec vitest run app/features/storage/services/storage-at-rest-v1.9.8.test.ts app/features/storage/services/storage-encryption-v1.9.8.contract.test.ts && cd apps/desktop/src-tauri && cargo build",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 202,
+          "id": "verify:storage-resilience-v1.9.9",
+          "name": "verify:storage-resilience-v1.9.9",
+          "kind": "script",
+          "command": "pnpm -C apps/pwa exec vitest run app/features/profiles/services/obscur-data-root-path-resolution.test.ts app/features/profiles/components/data-root-unavailable-recovery.test.tsx app/features/profiles/services/storage-resilience-v1.9.9.contract.test.ts && cd apps/desktop/src-tauri && cargo test data_root::tests -- --nocapture",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 203,
+          "id": "verify:thread-history",
+          "name": "verify:thread-history",
+          "kind": "script",
+          "command": "pnpm -C apps/pwa exec vitest run app/features/messaging/services/thread-history/thread-history-port.contract.test.ts app/features/messaging/services/thread-history/dm-durability-contract.test.ts app/features/messaging/services/thread-history/group-phase-e-contract.test.ts app/features/messaging/services/thread-history/group-thread-append.test.ts app/features/messaging/services/thread-history/group-thread-sqlite-store.test.ts app/features/messaging/services/thread-history/group-adapter.test.ts app/features/groups/services/sealed-group-message-persistence.test.ts app/features/groups/services/group-thread-relay-ingest.test.ts app/features/messaging/services/dm-thread-read-model.test.ts app/features/messaging/services/message-persistence-service.test.ts app/features/messaging/hooks/use-conversation-messages.monotonic-hydrate.integration.test.ts app/features/messaging/hooks/use-group-thread-messages.test.tsx app/features/messaging/hooks/use-thread-messages.test.ts app/features/main-shell/hooks/use-chat-view-props.dm-ownership.test.ts app/features/runtime/services/client-gateway-contract-satisfaction.test.ts",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 204,
+          "id": "verify:tier3",
+          "name": "verify:tier3",
+          "kind": "script",
+          "command": "pnpm dev:lab:benchmark",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 205,
+          "id": "verify:tier3:full",
+          "name": "verify:tier3:full",
+          "kind": "script",
+          "command": "pnpm dev:lab:full",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 206,
+          "id": "verify:transport-engine",
+          "name": "verify:transport-engine",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 207,
+          "id": "verify:transport-engine-w0",
+          "name": "verify:transport-engine-w0",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 208,
+          "id": "verify:transport-engine-w1",
+          "name": "verify:transport-engine-w1",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 209,
+          "id": "verify:transport-engine-w10",
+          "name": "verify:transport-engine-w10",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 210,
+          "id": "verify:transport-engine-w11",
+          "name": "verify:transport-engine-w11",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 211,
+          "id": "verify:transport-engine-w12",
+          "name": "verify:transport-engine-w12",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 212,
+          "id": "verify:transport-engine-w13",
+          "name": "verify:transport-engine-w13",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 213,
+          "id": "verify:transport-engine-w14",
+          "name": "verify:transport-engine-w14",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 214,
+          "id": "verify:transport-engine-w15",
+          "name": "verify:transport-engine-w15",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 215,
+          "id": "verify:transport-engine-w16",
+          "name": "verify:transport-engine-w16",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 216,
+          "id": "verify:transport-engine-w17",
+          "name": "verify:transport-engine-w17",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 217,
+          "id": "verify:transport-engine-w18",
+          "name": "verify:transport-engine-w18",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 218,
+          "id": "verify:transport-engine-w19",
+          "name": "verify:transport-engine-w19",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 219,
+          "id": "verify:transport-engine-w2",
+          "name": "verify:transport-engine-w2",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 220,
+          "id": "verify:transport-engine-w20",
+          "name": "verify:transport-engine-w20",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 221,
+          "id": "verify:transport-engine-w21",
+          "name": "verify:transport-engine-w21",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 222,
+          "id": "verify:transport-engine-w22",
+          "name": "verify:transport-engine-w22",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 223,
+          "id": "verify:transport-engine-w23",
+          "name": "verify:transport-engine-w23",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 224,
+          "id": "verify:transport-engine-w24",
+          "name": "verify:transport-engine-w24",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 225,
+          "id": "verify:transport-engine-w25",
+          "name": "verify:transport-engine-w25",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 226,
+          "id": "verify:transport-engine-w26",
+          "name": "verify:transport-engine-w26",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 227,
+          "id": "verify:transport-engine-w27",
+          "name": "verify:transport-engine-w27",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 228,
+          "id": "verify:transport-engine-w28",
+          "name": "verify:transport-engine-w28",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 229,
+          "id": "verify:transport-engine-w29",
+          "name": "verify:transport-engine-w29",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 230,
+          "id": "verify:transport-engine-w3",
+          "name": "verify:transport-engine-w3",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 231,
+          "id": "verify:transport-engine-w30",
+          "name": "verify:transport-engine-w30",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 232,
+          "id": "verify:transport-engine-w31",
+          "name": "verify:transport-engine-w31",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 233,
+          "id": "verify:transport-engine-w32",
+          "name": "verify:transport-engine-w32",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 234,
+          "id": "verify:transport-engine-w33",
+          "name": "verify:transport-engine-w33",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 235,
+          "id": "verify:transport-engine-w34",
+          "name": "verify:transport-engine-w34",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 236,
+          "id": "verify:transport-engine-w35",
+          "name": "verify:transport-engine-w35",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 237,
+          "id": "verify:transport-engine-w36",
+          "name": "verify:transport-engine-w36",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 238,
+          "id": "verify:transport-engine-w37",
+          "name": "verify:transport-engine-w37",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 239,
+          "id": "verify:transport-engine-w38",
+          "name": "verify:transport-engine-w38",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 240,
+          "id": "verify:transport-engine-w39",
+          "name": "verify:transport-engine-w39",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 241,
+          "id": "verify:transport-engine-w4",
+          "name": "verify:transport-engine-w4",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 242,
+          "id": "verify:transport-engine-w40",
+          "name": "verify:transport-engine-w40",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 243,
+          "id": "verify:transport-engine-w41",
+          "name": "verify:transport-engine-w41",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 244,
+          "id": "verify:transport-engine-w42",
+          "name": "verify:transport-engine-w42",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 245,
+          "id": "verify:transport-engine-w43",
+          "name": "verify:transport-engine-w43",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 246,
+          "id": "verify:transport-engine-w44",
+          "name": "verify:transport-engine-w44",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 247,
+          "id": "verify:transport-engine-w45",
+          "name": "verify:transport-engine-w45",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 248,
+          "id": "verify:transport-engine-w46",
+          "name": "verify:transport-engine-w46",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 249,
+          "id": "verify:transport-engine-w47",
+          "name": "verify:transport-engine-w47",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 250,
+          "id": "verify:transport-engine-w48",
+          "name": "verify:transport-engine-w48",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 251,
+          "id": "verify:transport-engine-w49",
+          "name": "verify:transport-engine-w49",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 252,
+          "id": "verify:transport-engine-w5",
+          "name": "verify:transport-engine-w5",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 253,
+          "id": "verify:transport-engine-w50",
+          "name": "verify:transport-engine-w50",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 254,
+          "id": "verify:transport-engine-w51",
+          "name": "verify:transport-engine-w51",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 255,
+          "id": "verify:transport-engine-w52",
+          "name": "verify:transport-engine-w52",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 256,
+          "id": "verify:transport-engine-w53",
+          "name": "verify:transport-engine-w53",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 257,
+          "id": "verify:transport-engine-w54",
+          "name": "verify:transport-engine-w54",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 258,
+          "id": "verify:transport-engine-w55",
+          "name": "verify:transport-engine-w55",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 259,
+          "id": "verify:transport-engine-w56",
+          "name": "verify:transport-engine-w56",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 260,
+          "id": "verify:transport-engine-w57",
+          "name": "verify:transport-engine-w57",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 261,
+          "id": "verify:transport-engine-w58",
+          "name": "verify:transport-engine-w58",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 262,
+          "id": "verify:transport-engine-w59",
+          "name": "verify:transport-engine-w59",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 263,
+          "id": "verify:transport-engine-w6",
+          "name": "verify:transport-engine-w6",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 264,
+          "id": "verify:transport-engine-w60",
+          "name": "verify:transport-engine-w60",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 265,
+          "id": "verify:transport-engine-w61",
+          "name": "verify:transport-engine-w61",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 266,
+          "id": "verify:transport-engine-w62",
+          "name": "verify:transport-engine-w62",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 267,
+          "id": "verify:transport-engine-w63",
+          "name": "verify:transport-engine-w63",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 268,
+          "id": "verify:transport-engine-w64",
+          "name": "verify:transport-engine-w64",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 269,
+          "id": "verify:transport-engine-w65",
+          "name": "verify:transport-engine-w65",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 270,
+          "id": "verify:transport-engine-w66",
+          "name": "verify:transport-engine-w66",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 271,
+          "id": "verify:transport-engine-w67",
+          "name": "verify:transport-engine-w67",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 272,
+          "id": "verify:transport-engine-w68",
+          "name": "verify:transport-engine-w68",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 273,
+          "id": "verify:transport-engine-w7",
+          "name": "verify:transport-engine-w7",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 274,
+          "id": "verify:transport-engine-w8",
+          "name": "verify:transport-engine-w8",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 275,
+          "id": "verify:transport-engine-w9",
+          "name": "verify:transport-engine-w9",
+          "kind": "script",
+          "command": "node scripts/verify-transport-engine.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 276,
+          "id": "verify:trust-v1.9.5",
+          "name": "verify:trust-v1.9.5",
+          "kind": "script",
+          "command": "pnpm -C apps/pwa exec vitest run app/features/dm-kernel/dm-kernel-trust-assessment.test.ts app/features/dm-kernel/dm-kernel-trust-social-engineering-signals.test.ts app/features/dm-kernel/contact-trust-sensitivity.test.ts app/features/dm-kernel/dm-kernel-trust-assessment.contract.test.ts app/features/dm-kernel/dm-kernel-trust-threat-corpus.test.ts app/features/dm-kernel/dm-kernel-trust-link-signals.test.ts app/features/dm-kernel/dm-kernel-trust-link-domain-signals.test.ts app/features/dm-kernel/dm-kernel-trust-attachment-signals.test.ts app/features/dm-kernel/dm-kernel-trust-copy-keys.test.ts app/features/dm-kernel/dm-kernel-trust-thread-state.test.ts app/features/dm-kernel/resolve-latest-incoming-for-trust.test.ts app/features/dm-kernel/dm-kernel-trust-connection-convergence.test.ts app/features/dm-kernel/dm-kernel-trust-spam-signals.test.ts app/features/dm-kernel/dm-kernel-trust-peer-state.test.ts app/features/dev-lab/dev-lab-trust-matrix.test.ts app/features/groups/services/community-bot-triggers-sec-b3.test.ts app/features/dev-lab/dev-lab-trust-fixtures.test.ts && node --test scripts/community-inbound-bot-sec-b.contract.test.mjs scripts/community-inbound-bot-sec-b4.test.mjs && pnpm test:community-inbound-bot",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 277,
+          "id": "verify:ui-archive",
+          "name": "verify:ui-archive",
+          "kind": "script",
+          "command": "pnpm -C apps/pwa exec vitest run app/engine-lab/ui-archive-boundary.contract.test.ts",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 278,
+          "id": "verify:v2-exit",
+          "name": "verify:v2-exit",
+          "kind": "script",
+          "command": "pnpm verify:v2-slim && pnpm verify:p5-expansion && pnpm gateway:boundaries:check && pnpm dev:lab:smoke",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 279,
+          "id": "verify:v2-slim",
+          "name": "verify:v2-slim",
+          "kind": "script",
+          "command": "pnpm verify:dm-kernel && pnpm verify:p3-dm-kernel && pnpm verify:p4-bundle && pnpm verify:runtime-capture && pnpm -C apps/pwa exec vitest run app/features/dm-kernel/legacy-deletion-queue.test.ts app/features/dm-kernel/dm-kernel-write-port.test.ts app/features/dm-kernel/dm-kernel-repair.test.ts app/features/dm-kernel/dm-kernel-bidirectional-gate.test.ts app/features/messaging/services/native-dm-sqlite-write-probe.test.ts",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 280,
+          "id": "verify:workspace-kernel",
+          "name": "verify:workspace-kernel",
+          "kind": "script",
+          "command": "pnpm verify:workspace-kernel-w4",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 281,
+          "id": "verify:workspace-kernel-w0",
+          "name": "verify:workspace-kernel-w0",
+          "kind": "script",
+          "command": "pnpm -C apps/pwa exec vitest run app/features/workspace-kernel/workspace-kernel.contract.test.ts app/features/workspace-kernel/workspace-kernel-w0-quarantine.contract.test.ts app/features/workspace-kernel/workspace-kernel-w0-exit.contract.test.ts",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 282,
+          "id": "verify:workspace-kernel-w1",
+          "name": "verify:workspace-kernel-w1",
+          "kind": "script",
+          "command": "pnpm verify:workspace-kernel-w0 && pnpm -C apps/pwa exec vitest run app/features/workspace-kernel/workspace-kernel-w1-membership.test.ts app/features/workspace-kernel/workspace-kernel-w1-exit.contract.test.ts",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 283,
+          "id": "verify:workspace-kernel-w2",
+          "name": "verify:workspace-kernel-w2",
+          "kind": "script",
+          "command": "pnpm verify:workspace-kernel-w1 && pnpm -C apps/pwa exec vitest run app/features/workspace-kernel/workspace-kernel-w2-thread-write.test.ts app/features/workspace-kernel/workspace-kernel-w2-exit.contract.test.ts app/features/messaging/services/thread-history/group-phase-e-contract.test.ts",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 284,
+          "id": "verify:workspace-kernel-w3",
+          "name": "verify:workspace-kernel-w3",
+          "kind": "script",
+          "command": "pnpm verify:workspace-kernel-w2 && pnpm -C apps/pwa exec vitest run app/features/workspace-kernel/workspace-kernel-w3-roster.test.ts app/features/workspace-kernel/workspace-kernel-w3-exit.contract.test.ts",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 285,
+          "id": "verify:workspace-kernel-w4",
+          "name": "verify:workspace-kernel-w4",
+          "kind": "script",
+          "command": "pnpm verify:workspace-kernel-w3 && pnpm -C apps/pwa exec vitest run app/features/workspace-kernel/workspace-kernel-w4-backup-restore.test.ts app/features/workspace-kernel/workspace-kernel-w4-exit.contract.test.ts",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 286,
+          "id": "version:bump",
+          "name": "version:bump",
+          "kind": "script",
+          "command": "node scripts/bump-version.js",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 287,
+          "id": "version:check",
+          "name": "version:check",
+          "kind": "script",
+          "command": "node scripts/check-version-alignment.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 288,
+          "id": "version:plan",
+          "name": "version:plan",
+          "kind": "script",
+          "command": "node scripts/version-plan.mjs",
+          "evidencePath": "package.json"
+        },
+        {
+          "order": 289,
+          "id": "version:sync",
+          "name": "version:sync",
+          "kind": "script",
+          "command": "node scripts/sync-versions.mjs",
+          "evidencePath": "package.json"
+        }
+      ]
+    },
+    {
+      "id": "script:packages/dweb-crdt",
+      "kind": "script",
+      "name": "@dweb/crdt scripts",
+      "sourcePath": "packages/dweb-crdt/package.json",
+      "packagePath": "packages/dweb-crdt",
+      "trigger": null,
+      "steps": [
+        {
+          "order": 1,
+          "id": "test",
+          "name": "test",
+          "kind": "script",
+          "command": "vitest run",
+          "evidencePath": "packages/dweb-crdt/package.json"
+        },
+        {
+          "order": 2,
+          "id": "test:watch",
+          "name": "test:watch",
+          "kind": "script",
+          "command": "vitest",
+          "evidencePath": "packages/dweb-crdt/package.json"
+        }
+      ]
+    }
+  ]
+}

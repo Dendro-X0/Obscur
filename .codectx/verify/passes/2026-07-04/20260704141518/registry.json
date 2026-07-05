@@ -1,0 +1,66 @@
+{
+  "schema": "codactrl.investigation.chain.registry@0.1.0",
+  "updatedAt": "2026-07-04T14:15:19.346204400+00:00",
+  "chains": [
+    {
+      "chainId": "chain-transport-soak-2026-07-02",
+      "title": "Step 8 — RIW-5/O-3 transport soak with coordination up",
+      "symptomClass": "relay-partial-stack-desktop-only",
+      "status": "open",
+      "nodeCount": 2,
+      "updatedAt": "2026-07-04T14:15:19.336381900+00:00",
+      "verdict": "partial_accepted",
+      "splitBrainObserved": false
+    },
+    {
+      "chainId": "chain-dm-split-brain-2026-07-02",
+      "title": "RIW-9 DM temporal UI chain — split-brain + history transient",
+      "symptomClass": "dm-ui-split-brain",
+      "status": "open",
+      "nodeCount": 9,
+      "updatedAt": "2026-07-04T14:15:19.325898200+00:00",
+      "verdict": "partial_accepted",
+      "splitBrainObserved": false
+    },
+    {
+      "chainId": "chain-o4-group-ingest-2026-07-02",
+      "title": "O-4 Step 7 — NewTest 2 group message relay round-trip",
+      "symptomClass": "group-thread-relay-ingest",
+      "status": "open",
+      "nodeCount": 29,
+      "updatedAt": "2026-07-04T14:15:19.317045900+00:00",
+      "verdict": "partial_accepted",
+      "splitBrainObserved": false
+    },
+    {
+      "chainId": "chain-o2-cold-restart-phase1c-2026-07-04",
+      "title": "Phase 1C O-2 t4 re-verify post Phase 1B exit",
+      "symptomClass": "dm-vanishes-cold-restart",
+      "status": "open",
+      "nodeCount": 2,
+      "updatedAt": "2026-07-04T14:15:19.274216700+00:00",
+      "verdict": "partial_accepted",
+      "splitBrainObserved": false
+    },
+    {
+      "chainId": "chain-com-run-11-phase1c-2026-07-04",
+      "title": "Phase 1C COM-RUN-11 t4 dual-profile invite matrix",
+      "symptomClass": "invite-role-ecosystem",
+      "status": "open",
+      "nodeCount": 8,
+      "updatedAt": "2026-07-04T14:15:19.249734200+00:00",
+      "verdict": "partial_accepted",
+      "splitBrainObserved": false
+    },
+    {
+      "chainId": "chain-r1-room-key-health-2026-07-04",
+      "title": "R1 room-key health aligned to send owner",
+      "symptomClass": "group-room-key-missing",
+      "status": "open",
+      "nodeCount": 1,
+      "updatedAt": "2026-07-04T14:15:19.242078200+00:00",
+      "verdict": "partial_accepted",
+      "splitBrainObserved": false
+    }
+  ]
+}

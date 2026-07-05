@@ -1,0 +1,21 @@
+{
+  "schema": "codactrl.investigation.node@0.1.0",
+  "chainId": "chain-o4-group-ingest-2026-07-02",
+  "nodeId": "n10-round8-coldstart-send-repro",
+  "trigger": "O4-round8-coldstart-071T1746 sent Just now; publishGroupEvent eventIdHint 8b138f20...307752d5 → ws://localhost:7000; sidebar still Group key unavailable",
+  "at": "2026-07-01T17:47:31.067871900+00:00",
+  "sessionId": "csess-b20deab2382f",
+  "surfaces": {
+    "mainThreadMessageCount": 7,
+    "mainThreadSystemCards": 0,
+    "alertBannerCount": 2,
+    "splitBrainSuspected": false
+  },
+  "screenshotRef": ".codectx/verify/client-sessions/csess-b20deab2382f/captures/cap-0d84c9e2ab72/screenshot.png",
+  "hypothesis": "Full stack cold-start send succeeds without Info health cascade",
+  "doesNotProve": [
+    "Tester2 ingest",
+    "O-4 fixed on partial stack",
+    "Sidebar group-key warning cleared"
+  ]
+}

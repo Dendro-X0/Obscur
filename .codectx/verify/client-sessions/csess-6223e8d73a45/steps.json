@@ -1,0 +1,278 @@
+{
+  "schema": "client.session.steps@0.1.0",
+  "sessionId": "csess-6223e8d73a45",
+  "updatedAt": "2026-07-04T07:42:18.100820700+00:00",
+  "stepCount": 27,
+  "steps": [
+    {
+      "index": 0,
+      "stepId": "step-ba3b31565f8e",
+      "action": "snapshot",
+      "captureId": "cap-2f272fd2a67a",
+      "manifestPath": ".codectx/verify/client-sessions/csess-6223e8d73a45/captures/cap-2f272fd2a67a/manifest.json",
+      "stepLabel": "connect-bootstrap",
+      "pass": true,
+      "at": "2026-07-04T07:39:16.857418100+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-75fb38341d10",
+      "action": "mcp.client.session.connect",
+      "manifestPath": ".codectx/verify/client-sessions/csess-6223e8d73a45/attach-latest.json",
+      "pass": true,
+      "at": "2026-07-04T07:39:20.318245400+00:00"
+    },
+    {
+      "index": 2,
+      "stepId": "step-4844fe309b91",
+      "action": "click",
+      "captureId": "cap-69b023c0b11c",
+      "manifestPath": ".codectx/verify/client-sessions/csess-6223e8d73a45/captures/cap-69b023c0b11c/manifest.json",
+      "selector": "role=button[name*=\"NewTest 2\"]",
+      "pass": true,
+      "at": "2026-07-04T07:39:26.662499300+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-77efef7796ee",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-69b023c0b11c",
+      "manifestPath": ".codectx/verify/client-sessions/csess-6223e8d73a45/captures/cap-69b023c0b11c/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T07:39:26.663863900+00:00"
+    },
+    {
+      "index": 4,
+      "stepId": "step-e48dadb88d4e",
+      "action": "click",
+      "captureId": "cap-8af6cd3f0487",
+      "manifestPath": ".codectx/verify/client-sessions/csess-6223e8d73a45/captures/cap-8af6cd3f0487/manifest.json",
+      "selector": "role=button[name=\"Group\"]",
+      "pass": true,
+      "at": "2026-07-04T07:39:32.825631800+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-d122b4bde2b7",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-8af6cd3f0487",
+      "manifestPath": ".codectx/verify/client-sessions/csess-6223e8d73a45/captures/cap-8af6cd3f0487/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T07:39:32.827900500+00:00"
+    },
+    {
+      "index": 6,
+      "stepId": "step-3c37e3430e28",
+      "action": "click",
+      "captureId": "cap-fcac9ea94967",
+      "manifestPath": ".codectx/verify/client-sessions/csess-6223e8d73a45/captures/cap-fcac9ea94967/manifest.json",
+      "selector": "role=button[name=\"N NewTest 2 No messages yet 22d ago\"]",
+      "pass": true,
+      "at": "2026-07-04T07:39:43.460120300+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-89f28bc8d450",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-fcac9ea94967",
+      "manifestPath": ".codectx/verify/client-sessions/csess-6223e8d73a45/captures/cap-fcac9ea94967/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T07:39:43.463469200+00:00"
+    },
+    {
+      "index": 8,
+      "stepId": "step-630c7b6c3aee",
+      "action": "click",
+      "captureId": "cap-2bcf2cfd7c27",
+      "manifestPath": ".codectx/verify/client-sessions/csess-6223e8d73a45/captures/cap-2bcf2cfd7c27/manifest.json",
+      "selector": "role=button[name=\"Info\"]",
+      "pass": true,
+      "at": "2026-07-04T07:39:53.185757+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-20f6a9cf8cd0",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-2bcf2cfd7c27",
+      "manifestPath": ".codectx/verify/client-sessions/csess-6223e8d73a45/captures/cap-2bcf2cfd7c27/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T07:39:53.187744700+00:00"
+    },
+    {
+      "index": 10,
+      "stepId": "step-1c7b1606de85",
+      "action": "click",
+      "captureId": "cap-c37b874d7393",
+      "manifestPath": ".codectx/verify/client-sessions/csess-6223e8d73a45/captures/cap-c37b874d7393/manifest.json",
+      "selector": "role=button[name=\"Open Participants\"]",
+      "pass": false,
+      "message": "locator.click: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('role=button[name=\"Open Participants\"]')\u001b[22m\n",
+      "at": "2026-07-04T07:40:07.619665100+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-af138c4ed1d5",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-c37b874d7393",
+      "manifestPath": ".codectx/verify/client-sessions/csess-6223e8d73a45/captures/cap-c37b874d7393/manifest.json",
+      "pass": false,
+      "message": "locator.click: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('role=button[name=\"Open Participants\"]')\u001b[22m\n",
+      "at": "2026-07-04T07:40:07.622045400+00:00"
+    },
+    {
+      "index": 12,
+      "stepId": "step-66d5b4308db3",
+      "action": "click",
+      "captureId": "cap-e88ab266984a",
+      "manifestPath": ".codectx/verify/client-sessions/csess-6223e8d73a45/captures/cap-e88ab266984a/manifest.json",
+      "selector": "role=button[name*=\"Open Participants\"]",
+      "pass": true,
+      "at": "2026-07-04T07:40:15.448927800+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-0eca19ce092a",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-e88ab266984a",
+      "manifestPath": ".codectx/verify/client-sessions/csess-6223e8d73a45/captures/cap-e88ab266984a/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T07:40:15.451062600+00:00"
+    },
+    {
+      "index": 14,
+      "stepId": "step-649c836da05f",
+      "action": "click",
+      "captureId": "cap-b96788c569e6",
+      "manifestPath": ".codectx/verify/client-sessions/csess-6223e8d73a45/captures/cap-b96788c569e6/manifest.json",
+      "selector": "role=button[name=\"Reconcile membership\"]",
+      "pass": true,
+      "at": "2026-07-04T07:40:23.444374400+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-b266a8975be7",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-b96788c569e6",
+      "manifestPath": ".codectx/verify/client-sessions/csess-6223e8d73a45/captures/cap-b96788c569e6/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T07:40:23.446696400+00:00"
+    },
+    {
+      "index": 16,
+      "stepId": "step-bc6fa81eaddb",
+      "action": "assert",
+      "captureId": "cap-9cd8b8df6aea",
+      "manifestPath": ".codectx/verify/client-sessions/csess-6223e8d73a45/captures/cap-9cd8b8df6aea/manifest.json",
+      "stepLabel": "k-m1-excluded-tester2",
+      "text": "Excluded",
+      "assertKind": "textVisible",
+      "pass": false,
+      "message": "text not visible: Excluded",
+      "at": "2026-07-04T07:40:38.469422500+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-dcdacdaefc8d",
+      "action": "mcp.client.validate.assert",
+      "captureId": "cap-9cd8b8df6aea",
+      "manifestPath": ".codectx/verify/client-sessions/csess-6223e8d73a45/captures/cap-9cd8b8df6aea/manifest.json",
+      "pass": false,
+      "message": "text not visible: Excluded",
+      "at": "2026-07-04T07:40:38.626302900+00:00"
+    },
+    {
+      "index": 18,
+      "stepId": "step-feb9f0042e2a",
+      "action": "snapshot",
+      "captureId": "cap-5754b6129676",
+      "manifestPath": ".codectx/verify/client-sessions/csess-6223e8d73a45/captures/cap-5754b6129676/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T07:41:10.634986500+00:00"
+    },
+    {
+      "index": 19,
+      "stepId": "step-73b3c61a1b15",
+      "action": "click",
+      "captureId": "cap-dfbede682636",
+      "manifestPath": ".codectx/verify/client-sessions/csess-6223e8d73a45/captures/cap-dfbede682636/manifest.json",
+      "selector": "role=button[name=\"Manage\"]",
+      "pass": false,
+      "message": "locator.click: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('role=button[name=\"Manage\"]')\u001b[22m\n\u001b[2m    - locator resolved to <button class=\"btn-enhanced inline-flex items-center justify-center min-h-10 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/50 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-black disabled:pointer-events-none disabled:opacity-40 h-14 gap-2 rounded-2xl border border-zinc-300 bg-white px-6 font-bold text-zinc-900 transition-all hover:bg-zinc-50 active:scale-95 dark:border-white/15 dark:bg-transparent dark:text-white …>…</button>\u001b[22m\n\u001b[2m  - attempting click action\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is visible, enabled and stable\u001b[22m\n\u001b[2m      - scrolling into view if needed\u001b[22m\n\u001b[2m      - done scrolling\u001b[22m\n\u001b[2m      - <div class=\"fixed inset-0 z-[140] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4\">…</div> intercepts pointer events\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m    - waiting 20ms\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is visible, enabled and stable\u001b[22m\n\u001b[2m      - scrolling into view if needed\u001b[22m\n\u001b[2m      - done scrolling\u001b[22m\n\u001b[2m      - <div class=\"fixed inset-0 z-[140] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4\">…</div> intercepts pointer events\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m      - waiting 100ms\u001b[22m\n\u001b[2m    19 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m       - element is visible, enabled and stable\u001b[22m\n\u001b[2m       - scrolling into view if needed\u001b[22m\n\u001b[2m       - done scrolling\u001b[22m\n\u001b[2m       - <div class=\"fixed inset-0 z-[140] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4\">…</div> intercepts pointer events\u001b[22m\n\u001b[2m     - retrying click action\u001b[22m\n\u001b[2m       - waiting 500ms\u001b[22m\n",
+      "at": "2026-07-04T07:41:31.096601600+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-181ea4ecb23d",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-dfbede682636",
+      "manifestPath": ".codectx/verify/client-sessions/csess-6223e8d73a45/captures/cap-dfbede682636/manifest.json",
+      "pass": false,
+      "message": "locator.click: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('role=button[name=\"Manage\"]')\u001b[22m\n\u001b[2m    - locator resolved to <button class=\"btn-enhanced inline-flex items-center justify-center min-h-10 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/50 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-black disabled:pointer-events-none disabled:opacity-40 h-14 gap-2 rounded-2xl border border-zinc-300 bg-white px-6 font-bold text-zinc-900 transition-all hover:bg-zinc-50 active:scale-95 dark:border-white/15 dark:bg-transparent dark:text-white …>…</button>\u001b[22m\n\u001b[2m  - attempting click action\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is visible, enabled and stable\u001b[22m\n\u001b[2m      - scrolling into view if needed\u001b[22m\n\u001b[2m      - done scrolling\u001b[22m\n\u001b[2m      - <div class=\"fixed inset-0 z-[140] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4\">…</div> intercepts pointer events\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m    - waiting 20ms\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is visible, enabled and stable\u001b[22m\n\u001b[2m      - scrolling into view if needed\u001b[22m\n\u001b[2m      - done scrolling\u001b[22m\n\u001b[2m      - <div class=\"fixed inset-0 z-[140] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4\">…</div> intercepts pointer events\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m      - waiting 100ms\u001b[22m\n\u001b[2m    19 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m       - element is visible, enabled and stable\u001b[22m\n\u001b[2m       - scrolling into view if needed\u001b[22m\n\u001b[2m       - done scrolling\u001b[22m\n\u001b[2m       - <div class=\"fixed inset-0 z-[140] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4\">…</div> intercepts pointer events\u001b[22m\n\u001b[2m     - retrying click action\u001b[22m\n\u001b[2m       - waiting 500ms\u001b[22m\n",
+      "at": "2026-07-04T07:41:31.098665600+00:00"
+    },
+    {
+      "index": 21,
+      "stepId": "step-362d24eeafc5",
+      "action": "click",
+      "captureId": "cap-e76099722fc9",
+      "manifestPath": ".codectx/verify/client-sessions/csess-6223e8d73a45/captures/cap-e76099722fc9/manifest.json",
+      "selector": "role=button[name=\"Back to Network\"]",
+      "pass": false,
+      "message": "locator.click: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('role=button[name=\"Back to Network\"]')\u001b[22m\n\u001b[2m    - locator resolved to <button class=\"group flex items-center gap-2 text-zinc-600 transition-colors hover:text-zinc-900 dark:text-zinc-500 dark:hover:text-white\">…</button>\u001b[22m\n\u001b[2m  - attempting click action\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is visible, enabled and stable\u001b[22m\n\u001b[2m      - scrolling into view if needed\u001b[22m\n\u001b[2m      - done scrolling\u001b[22m\n\u001b[2m      - <div class=\"fixed inset-0 z-[140] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4\">…</div> intercepts pointer events\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m    - waiting 20ms\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is visible, enabled and stable\u001b[22m\n\u001b[2m      - scrolling into view if needed\u001b[22m\n\u001b[2m      - done scrolling\u001b[22m\n\u001b[2m      - <div class=\"fixed inset-0 z-[140] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4\">…</div> intercepts pointer events\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m      - waiting 100ms\u001b[22m\n\u001b[2m    19 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m       - element is visible, enabled and stable\u001b[22m\n\u001b[2m       - scrolling into view if needed\u001b[22m\n\u001b[2m       - done scrolling\u001b[22m\n\u001b[2m       - <div class=\"fixed inset-0 z-[140] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4\">…</div> intercepts pointer events\u001b[22m\n\u001b[2m     - retrying click action\u001b[22m\n\u001b[2m       - waiting 500ms\u001b[22m\n",
+      "at": "2026-07-04T07:41:54.474242200+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-926b7fd16cf4",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-e76099722fc9",
+      "manifestPath": ".codectx/verify/client-sessions/csess-6223e8d73a45/captures/cap-e76099722fc9/manifest.json",
+      "pass": false,
+      "message": "locator.click: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('role=button[name=\"Back to Network\"]')\u001b[22m\n\u001b[2m    - locator resolved to <button class=\"group flex items-center gap-2 text-zinc-600 transition-colors hover:text-zinc-900 dark:text-zinc-500 dark:hover:text-white\">…</button>\u001b[22m\n\u001b[2m  - attempting click action\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is visible, enabled and stable\u001b[22m\n\u001b[2m      - scrolling into view if needed\u001b[22m\n\u001b[2m      - done scrolling\u001b[22m\n\u001b[2m      - <div class=\"fixed inset-0 z-[140] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4\">…</div> intercepts pointer events\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m    - waiting 20ms\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is visible, enabled and stable\u001b[22m\n\u001b[2m      - scrolling into view if needed\u001b[22m\n\u001b[2m      - done scrolling\u001b[22m\n\u001b[2m      - <div class=\"fixed inset-0 z-[140] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4\">…</div> intercepts pointer events\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m      - waiting 100ms\u001b[22m\n\u001b[2m    19 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m       - element is visible, enabled and stable\u001b[22m\n\u001b[2m       - scrolling into view if needed\u001b[22m\n\u001b[2m       - done scrolling\u001b[22m\n\u001b[2m       - <div class=\"fixed inset-0 z-[140] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4\">…</div> intercepts pointer events\u001b[22m\n\u001b[2m     - retrying click action\u001b[22m\n\u001b[2m       - waiting 500ms\u001b[22m\n",
+      "at": "2026-07-04T07:41:54.476816600+00:00"
+    },
+    {
+      "index": 23,
+      "stepId": "step-25aad81c92",
+      "action": "digestPull",
+      "captureId": "cap-0925aad81c92",
+      "manifestPath": ".codectx/verify/client-sessions/csess-6223e8d73a45/captures/cap-0925aad81c92/manifest.json",
+      "stepLabel": "k-m1-post-leave-digest",
+      "pass": true,
+      "message": "runtime digest captured",
+      "at": "2026-07-04T07:42:10.271783100+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-bd9ecb5703e8",
+      "action": "mcp.client.runtime.digestPull",
+      "captureId": "cap-0925aad81c92",
+      "manifestPath": ".codectx/verify/client-sessions/csess-6223e8d73a45/captures/cap-0925aad81c92/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T07:42:13.722283+00:00"
+    },
+    {
+      "index": 25,
+      "stepId": "step-ce8044f32c80",
+      "action": "assert",
+      "captureId": "cap-7af96be47a2a",
+      "manifestPath": ".codectx/verify/client-sessions/csess-6223e8d73a45/captures/cap-7af96be47a2a/manifest.json",
+      "stepLabel": "k-m1-excluded-roster-section",
+      "text": "Excluded from active roster",
+      "assertKind": "textVisible",
+      "pass": false,
+      "message": "text not visible: Excluded from active roster",
+      "at": "2026-07-04T07:42:18.087215+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-69d29c79f439",
+      "action": "mcp.client.validate.assert",
+      "captureId": "cap-7af96be47a2a",
+      "manifestPath": ".codectx/verify/client-sessions/csess-6223e8d73a45/captures/cap-7af96be47a2a/manifest.json",
+      "pass": false,
+      "message": "text not visible: Excluded from active roster",
+      "at": "2026-07-04T07:42:18.088678900+00:00"
+    }
+  ]
+}

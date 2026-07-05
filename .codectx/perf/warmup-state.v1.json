@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "running": false,
+  "lastRunId": "wup_00d9b91c0762",
+  "client": "desktop",
+  "reason": "startup",
+  "startedAt": "2026-07-04T18:45:47.848857400+00:00",
+  "completedAt": "2026-07-04T18:45:47.849119400+00:00",
+  "totalDurationMs": 0,
+  "snapshotHash": "sha256:e1cdd98959d7211f02cadda6eb1c66127e0c4bbb53bc05a5a81003d51bddfdb4",
+  "stages": [
+    {
+      "stageId": "transport_health",
+      "status": "ok",
+      "durationMs": 0,
+      "detail": "repoRootExists=true,codectxExists=true,perfExists=true",
+      "snapshotHash": "sha256:137060bb07875199daf937ef06f01fb48f8dcd5af5b758b1d41547e18ed986db"
+    },
+    {
+      "stageId": "capabilities",
+      "status": "ok",
+      "durationMs": 0,
+      "detail": "requiredMethods=5",
+      "snapshotHash": "sha256:6f319506b4f19cb9a02d05de35695d3b9bd6b8e3f35f9d8494bbf9c5faa00d92"
+    },
+    {
+      "stageId": "policy_snapshots",
+      "status": "ok",
+      "durationMs": 0,
+      "detail": "loadedSnapshots=0",
+      "snapshotHash": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+    },
+    {
+      "stageId": "high_frequency_read_models",
+      "status": "ok",
+      "durationMs": 0,
+      "detail": "approvals=0,goals=0,runs=0,subagents=0,tasks=0",
+      "snapshotHash": "sha256:fca4cce06fb0d15cff7e979302b2376fced7097af4c7334955899817ecce240b"
+    }
+  ]
+}

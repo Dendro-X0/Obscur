@@ -1,0 +1,1 @@
+{"kind":"console","type":"error","text":"Failed to load resource: net::ERR_CONNECTION_REFUSED","location":{"url":"http://127.0.0.1:9876/ping","line":0,"column":0,"lineNumber":0,"columnNumber":0},"at":"2026-06-30T04:11:39.993Z"}

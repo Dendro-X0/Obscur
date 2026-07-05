@@ -1,0 +1,25 @@
+- main:
+  - text: Client release-v1.9.10-relay-recovery-20260617
+  - img "Obscur"
+  - text: Obscur
+  - button "Switch profile before sign-in": "? Profile slot Switch profile"
+  - button "Minimize window"
+  - button "Maximize window"
+  - button "Close window"
+  - button "Change Language"
+  - button
+  - heading "Welcome Back" [level=2]
+  - paragraph: Unlock on this device. Import a unified backup first if you need your full account data restored.
+  - button "Log In"
+  - button "Import Key"
+  - paragraph:
+    - text: Username/password unlock is device-local. Import your private key once on this device to enable it.
+    - button "Restore from backup"
+  - text: Private Key
+  - paragraph: Import Key restores an existing account only. If this key has no local or relay-backed account evidence, use Create Account instead.
+  - textbox "nsec1...": nsec1gkv6kg9gyfvrg7h7q60usvaqtjq096dxewaw4vpk9y6krrlcglpqat96ta
+  - text: How sign-in works on this device
+  - paragraph: Enter your device login password to unlock this profile. After a successful unlock, Obscur stores your session in OS secure storage so you can reopen the app without signing in again. Your password is never saved in the browser.
+  - button "Continue"
+  - text: Self-Custody Anonymous
+- alert

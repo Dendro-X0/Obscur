@@ -1,0 +1,28 @@
+{
+  "schema": "codactrl.investigation.node@0.1.0",
+  "chainId": "chain-o4-group-ingest-2026-07-02",
+  "nodeId": "n27-round21-com-run11-blocked",
+  "trigger": "round21-com-run11-no-live-invite",
+  "at": "2026-07-02T16:20:40.708507700+00:00",
+  "sessionId": "csess-b91e16538053",
+  "surfaces": {
+    "mainThreadMessageCount": 13,
+    "mainThreadSystemCards": 10,
+    "alertBannerCount": 6,
+    "splitBrainSuspected": false
+  },
+  "screenshotRef": ".codectx/verify/client-sessions/csess-b91e16538053/captures/cap-47224b55c651/screenshot.png",
+  "transportEvidence": [
+    {
+      "eventId": "a206b9e1048434bbe07597b2d1faef954f7430d55629475dfa2f536a8c9d86f5"
+    },
+    {
+      "eventId": "8611060a988c58d8",
+      "plaintextPrefix": "DM-round20-codactrl-t2-072T1609"
+    },
+    {
+      "eventId": "4b086e9016936e432f6a8af0cc78f5be464ce895127ce3421a91b203acb89541"
+    }
+  ],
+  "hypothesis": "COM-RUN-11 blocked: fixture has no live invite — historical superseded cards only in DM thread"
+}

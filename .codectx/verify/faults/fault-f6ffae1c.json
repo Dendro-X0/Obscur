@@ -1,0 +1,37 @@
+{
+  "digestPath": ".codectx/verify/faults/fault-f6ffae1c.digest.json",
+  "fault": {
+    "artifactPath": ".codectx/verify/faults/fault-f6ffae1c.json",
+    "faultId": "fault-f6ffae1c",
+    "importedAt": "2026-07-04T05:00:39.494354800+00:00",
+    "kind": "runtime_digest",
+    "proofTier": "t3",
+    "schema": "obscur.m0.capture.v1",
+    "signalsExtract": [
+      {
+        "detail": "count=110",
+        "name": "groups.ledger_field_repair_applied"
+      },
+      {
+        "detail": "count=109",
+        "name": "groups.membership_ledger_save"
+      },
+      {
+        "detail": "count=27",
+        "name": "account_sync.backup_publish_ordering"
+      },
+      {
+        "detail": "count=27",
+        "name": "account_sync.backup_publish_result"
+      },
+      {
+        "detail": "count=27",
+        "name": "account_sync.backup_publish_attempt"
+      }
+    ],
+    "symptomIds": [],
+    "title": "groups.ledger_field_repair_applied — count=110"
+  },
+  "schema": "verify.fault.import@0.1.0",
+  "sourcePath": ".codectx/verify/client-sessions/csess-877010a1c38f/captures/cap-4ce5ed91d702/digest.json"
+}

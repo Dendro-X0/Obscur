@@ -1,0 +1,56 @@
+{
+  "entryCount": 7,
+  "proofTier": "t3",
+  "rows": [
+    {
+      "gid": "b93f53e2",
+      "members": 1,
+      "name": "NewTest 2",
+      "pk": false,
+      "status": "joined",
+      "v": 2
+    },
+    {
+      "gid": "f83e5449",
+      "members": null,
+      "pk": true,
+      "status": "left",
+      "v": 2
+    },
+    {
+      "gid": "36bf027e",
+      "members": null,
+      "pk": true,
+      "status": "left",
+      "v": 2
+    },
+    {
+      "gid": "c9b0055f",
+      "members": null,
+      "pk": true,
+      "status": "left",
+      "v": 2
+    },
+    {
+      "gid": "46818fc0",
+      "members": null,
+      "pk": true,
+      "status": "left",
+      "v": 2
+    },
+    {
+      "gid": "fcf156aa",
+      "members": null,
+      "pk": true,
+      "status": "left",
+      "v": 2
+    },
+    {
+      "gid": "3fc9feb3",
+      "members": null,
+      "pk": true,
+      "status": "left",
+      "v": 2
+    }
+  ]
+}

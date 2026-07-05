@@ -1,0 +1,133 @@
+{
+  "schema": "client.session.steps@0.1.0",
+  "sessionId": "csess-b90d929107b5",
+  "updatedAt": "2026-07-02T08:56:40.786085500+00:00",
+  "stepCount": 12,
+  "steps": [
+    {
+      "index": 0,
+      "stepId": "step-a24504d69696",
+      "action": "snapshot",
+      "captureId": "cap-4cdd79ce0c49",
+      "manifestPath": ".codectx/verify/client-sessions/csess-b90d929107b5/captures/cap-4cdd79ce0c49/manifest.json",
+      "stepLabel": "connect-bootstrap",
+      "pass": true,
+      "at": "2026-07-02T08:51:09.462446300+00:00"
+    },
+    {
+      "index": 1,
+      "stepId": "step-107ac803ea27",
+      "action": "click",
+      "captureId": "cap-20d651af92cd",
+      "manifestPath": ".codectx/verify/client-sessions/csess-b90d929107b5/captures/cap-20d651af92cd/manifest.json",
+      "selector": "button[aria-label=\"Open desktop profile switcher\"]",
+      "pass": true,
+      "at": "2026-07-02T08:51:19.906312100+00:00"
+    },
+    {
+      "index": 2,
+      "stepId": "step-4c419d40fb58",
+      "action": "click",
+      "captureId": "cap-26de4bc421e5",
+      "manifestPath": ".codectx/verify/client-sessions/csess-b90d929107b5/captures/cap-26de4bc421e5/manifest.json",
+      "selector": "button:has-text(\"Manage Profiles\")",
+      "pass": true,
+      "at": "2026-07-02T08:51:31.356457900+00:00"
+    },
+    {
+      "index": 3,
+      "stepId": "step-1ba877ea9a85",
+      "action": "click",
+      "captureId": "cap-d3b66e9ae15a",
+      "manifestPath": ".codectx/verify/client-sessions/csess-b90d929107b5/captures/cap-d3b66e9ae15a/manifest.json",
+      "selector": "button:has-text(\"Needs setup\")",
+      "pass": true,
+      "at": "2026-07-02T08:51:41.666263+00:00"
+    },
+    {
+      "index": 4,
+      "stepId": "step-c0ab69b89ee3",
+      "action": "surfaceProbe",
+      "captureId": "cap-bc4a24f6c602",
+      "manifestPath": ".codectx/verify/client-sessions/csess-b90d929107b5/captures/cap-bc4a24f6c602/manifest.json",
+      "stepLabel": "surface-probe",
+      "pass": true,
+      "message": "surface probe captured",
+      "at": "2026-07-02T08:52:55.228351200+00:00"
+    },
+    {
+      "index": 5,
+      "stepId": "step-6d5e1452c52b",
+      "action": "snapshot",
+      "captureId": "cap-e85b6283d330",
+      "manifestPath": ".codectx/verify/client-sessions/csess-b90d929107b5/captures/cap-e85b6283d330/manifest.json",
+      "pass": true,
+      "at": "2026-07-02T08:53:00.135535300+00:00"
+    },
+    {
+      "index": 6,
+      "stepId": "step-edb7f453cf30",
+      "action": "click",
+      "captureId": "cap-cca1c5f6c879",
+      "manifestPath": ".codectx/verify/client-sessions/csess-b90d929107b5/captures/cap-cca1c5f6c879/manifest.json",
+      "stepLabel": "open-second-profile-window-retry",
+      "selector": "role=button[name=\"Avatar Profile slot Needs setup\"]",
+      "pass": true,
+      "at": "2026-07-02T08:53:23.096397800+00:00"
+    },
+    {
+      "index": 7,
+      "stepId": "step-e012b96994a6",
+      "action": "click",
+      "captureId": "cap-17c3cb7a91aa",
+      "manifestPath": ".codectx/verify/client-sessions/csess-b90d929107b5/captures/cap-17c3cb7a91aa/manifest.json",
+      "stepLabel": "switch-to-tester1-main-window",
+      "selector": "role=button[name=\"Avatar for Tester1 Tester1 Sign in here\"]",
+      "pass": true,
+      "at": "2026-07-02T08:55:10.632224600+00:00"
+    },
+    {
+      "index": 8,
+      "stepId": "step-d352a0b12448",
+      "action": "screenshot",
+      "captureId": "cap-e9260cf8980a",
+      "manifestPath": ".codectx/verify/client-sessions/csess-b90d929107b5/captures/cap-e9260cf8980a/manifest.json",
+      "stepLabel": "main-window-after-second-open",
+      "pass": true,
+      "at": "2026-07-02T08:55:16.694080400+00:00"
+    },
+    {
+      "index": 9,
+      "stepId": "step-244c1a45dd00",
+      "action": "click",
+      "captureId": "cap-96c4d0134d55",
+      "manifestPath": ".codectx/verify/client-sessions/csess-b90d929107b5/captures/cap-96c4d0134d55/manifest.json",
+      "stepLabel": "open-profile-switcher",
+      "selector": "role=button[name=\"Open desktop profile switcher\"]",
+      "pass": true,
+      "at": "2026-07-02T08:55:32.593507700+00:00"
+    },
+    {
+      "index": 10,
+      "stepId": "step-7cad1e16cdc2",
+      "action": "click",
+      "captureId": "cap-b5f837df1779",
+      "manifestPath": ".codectx/verify/client-sessions/csess-b90d929107b5/captures/cap-b5f837df1779/manifest.json",
+      "stepLabel": "manage-profiles-from-switcher",
+      "selector": "role=button[name=\"Manage Profiles\"]",
+      "pass": true,
+      "at": "2026-07-02T08:56:13.891077+00:00"
+    },
+    {
+      "index": 11,
+      "stepId": "step-59df13aa48bf",
+      "action": "click",
+      "captureId": "cap-d74d942ad14f",
+      "manifestPath": ".codectx/verify/client-sessions/csess-b90d929107b5/captures/cap-d74d942ad14f/manifest.json",
+      "stepLabel": "open-second-window-final-attempt",
+      "selector": "role=button[name=\"Avatar Profile slot Needs setup\"]",
+      "pass": true,
+      "at": "2026-07-02T08:56:40.784799900+00:00"
+    }
+  ]
+}

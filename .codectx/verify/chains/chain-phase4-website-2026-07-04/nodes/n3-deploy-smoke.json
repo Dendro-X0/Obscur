@@ -1,0 +1,29 @@
+{
+  "schema": "codactrl.investigation.node@0.1.0",
+  "chainId": "chain-phase4-website-2026-07-04",
+  "nodeId": "n3-deploy-smoke",
+  "trigger": "phase4-deploy-smoke-t2",
+  "at": "2026-07-04T23:59:58.781944400+00:00",
+  "sessionId": "csess-7813dd567860",
+  "surfaces": {
+    "sidebarPreview": "No account required to download; identity stays on your device.",
+    "mainThreadMessageCount": 0,
+    "mainThreadSystemCards": 0,
+    "alertBannerCount": 1,
+    "splitBrainSuspected": true,
+    "suggestedSymptomClass": "dm-ui-split-brain"
+  },
+  "screenshotRef": ".codectx/verify/client-sessions/csess-7813dd567860/captures/cap-dd1ce202d7a4/screenshot.png",
+  "attachments": [
+    {
+      "path": "apps/website/docs/frontend-spec.md",
+      "label": "frontend-spec editorial lane",
+      "attachedAt": "2026-07-04T23:59:58.812249900+00:00"
+    }
+  ],
+  "hypothesis": "Phase 4 deploy smoke: /limitations → /download multi-page Playwright session; SHA in HTML; editorial palette on P0 routes",
+  "doesNotProve": [
+    "Vercel preview deploy",
+    "Changelog/features dark pages"
+  ]
+}

@@ -1,0 +1,921 @@
+{
+  "schema": "verify.issues.register@0.3.0",
+  "updatedAt": "2026-07-02T14:53:44.804206600+00:00",
+  "repoRoot": "E:\\Web Projects\\experimental-workspace\\newstart",
+  "issueCount": 15,
+  "issues": [
+    {
+      "id": "verify:issue:agent:2990ecfa08aadc32",
+      "symptomId": "community-roster-divergence",
+      "severity": "p0",
+      "status": "triaged",
+      "title": "COM-RUN-01 round14: Manage Participants shows Tester1 only; chat header 2 members; health ready:1 after Info",
+      "source": "agent",
+      "evidenceRefs": [
+        ".codectx/verify/client-sessions/csess-322a4af06321/captures/cap-237fa5117c78/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-56331621b1d9/captures/cap-06d82f269d28/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-56331621b1d9/captures/cap-2e28ddad53c0/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-56331621b1d9/captures/cap-4ab4ca7b11c4/console.jsonl",
+        ".codectx/verify/client-sessions/csess-56331621b1d9/captures/cap-ce884f7cf1a7/digest.json",
+        ".codectx/verify/client-sessions/csess-56331621b1d9/captures/cap-e0750287c64a/screenshot.png",
+        ".codectx/verify/client-sessions/csess-631c3bba5207/captures/cap-bbb265056f1a/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-631c3bba5207/captures/cap-ef00fb31b908/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-ad3b3e90aa04/captures/cap-7913551e561a/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-ad3b3e90aa04/captures/cap-dbea12186664/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-ad3b3e90aa04/captures/cap-f3a8ce60fe80/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-ad9e7520da13/captures/cap-fdc8e52f9e22/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-af73d0bd5b5c/captures/cap-a614c67a47d4/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-af73d0bd5b5c/captures/cap-fdefcbc1051a/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-c9e4cc0c3649/captures/cap-2f4dee77faa9/snapshot.yaml",
+        ".codectx/verify/faults/fault-27f72a5e.json"
+      ],
+      "proofTier": "t3",
+      "doesNotProve": [
+        "Tester2 window roster parity",
+        "Live invite Accept/Cancel matrix",
+        "COM-MEM-2 two-user soak",
+        "Roster after :7000 relay up"
+      ],
+      "ingestedAt": "2026-07-02T11:03:37.845691200+00:00",
+      "findingId": "cap-2e28ddad53c0",
+      "fingerprint": "symptom:community-roster-divergence",
+      "occurrenceCount": 8,
+      "relatedIds": [
+        "verify:issue:agent:dce6997472383346",
+        "verify:issue:agent:6ff2b79a949767b3",
+        "verify:issue:agent:160130f274c53ad5",
+        "verify:issue:agent:3d6e95773575f422",
+        "verify:issue:agent:45467cd4d3b00f21",
+        "verify:issue:agent:2884361320a7595f",
+        "verify:issue:agent:2990ecfa08aadc32"
+      ],
+      "trackerStep": 5,
+      "symptomClass": "community-roster-divergence",
+      "priorChapters": [
+        {
+          "id": "verify:issue:agent:e19043148dd92abb",
+          "title": "COM-RUN-01 re-verify 2026-07-01: Tester1 NewTest 2 participants shows only self; Tester2 absent; header claims 2 members",
+          "ingestedAt": "2026-07-01T07:10:18.854746100+00:00"
+        },
+        {
+          "id": "verify:issue:agent:dce6997472383346",
+          "title": "COM-RUN-01 round3: Manage Participants lists Tester1+Tester2 (2 online claim) but community home card shows Tester1 only",
+          "ingestedAt": "2026-07-01T16:54:58.336216500+00:00"
+        },
+        {
+          "id": "verify:issue:agent:6ff2b79a949767b3",
+          "title": "COM-RUN-01 round7: Manage Participants shows 1 (Tester1 only) while group chat header claims 2 members; home card still Tester1 only",
+          "ingestedAt": "2026-07-01T17:34:38.991137500+00:00"
+        },
+        {
+          "id": "verify:issue:agent:160130f274c53ad5",
+          "title": "COM-RUN-01 round10: Manage Participants=1 (Tester1); chat header=2 members; home card Tester1 only — unchanged",
+          "ingestedAt": "2026-07-01T22:06:19.228753300+00:00"
+        },
+        {
+          "id": "verify:issue:agent:3d6e95773575f422",
+          "title": "COM-RUN-01 round11: Manage Participants=1 (Tester1 only); chat header=2 members; health relay_not_connected",
+          "ingestedAt": "2026-07-01T22:37:42.079982300+00:00"
+        },
+        {
+          "id": "verify:issue:agent:45467cd4d3b00f21",
+          "title": "COM-RUN-01 round12: Manage Participants=1 (Tester1); chat header=2 members; full stack unchanged",
+          "ingestedAt": "2026-07-02T08:47:45.891206100+00:00"
+        },
+        {
+          "id": "verify:issue:agent:2884361320a7595f",
+          "title": "COM-RUN-01 round13: Manage Participants evidence Tester1 only; chat header 2 members; health ready:1 after Info",
+          "ingestedAt": "2026-07-02T09:59:19.367132800+00:00"
+        }
+      ]
+    },
+    {
+      "id": "verify:issue:agent:39938a676576819d",
+      "symptomId": "dm-ui-split-brain",
+      "severity": "p2",
+      "status": "triaged",
+      "title": "RIW-9 round2: warm Tester1 — Tester2 DM 11 msgs, O2 visible, splitBrainSuspected=false",
+      "source": "agent",
+      "evidenceRefs": [
+        ".codectx/verify/chains/chain-dm-split-brain-2026-07-02/nodes/n2-tester2-dm-hydrated-warm.json",
+        ".codectx/verify/chains/chain-dm-split-brain-2026-07-02/nodes/n4-round2-warm-dm-probe.json",
+        ".codectx/verify/client-sessions/csess-6f1a35b7762b/captures/cap-e64ce0b26e3d/screenshot.png",
+        ".codectx/verify/client-sessions/csess-ac2da4ea9b5c/captures/cap-281ddaa2d8cd/screenshot.png",
+        ".codectx/verify/faults/fault-447bafd6.json",
+        ".codectx/verify/faults/fault-c4a2d149.json"
+      ],
+      "proofTier": "t3",
+      "doesNotProve": [
+        "split-brain root cause",
+        "cold restart path"
+      ],
+      "ingestedAt": "2026-07-01T14:11:18.478187700+00:00",
+      "findingId": "cap-281ddaa2d8cd",
+      "fingerprint": "symptom:dm-ui-split-brain",
+      "occurrenceCount": 3,
+      "relatedIds": [
+        "verify:issue:agent:39938a676576819d"
+      ],
+      "trackerStep": 6,
+      "chainId": "chain-dm-split-brain-2026-07-02",
+      "chainNodeId": "n7-round19-dual-dm-roundtrip",
+      "symptomClass": "dm-ui-split-brain",
+      "priorChapters": [
+        {
+          "id": "verify:issue:agent:2bda5e2e8cf72fd5",
+          "title": "RIW-9 n2: warm Tester1 session — Tester2 DM hydrated (11 msgs); splitBrainSuspected=false; O2 message visible",
+          "ingestedAt": "2026-07-01T11:57:43.138677500+00:00"
+        },
+        {
+          "id": "chain-dm-split-brain-2026-07-02-n7-round19-dual-dm-roundtrip",
+          "title": "Round19 interactive dual-profile: T1 DM-round19-t1-072T1452 → T2; T2 DM-round19-t2-072T1453 reply; both threads show round-trip on :9230 and :9231; stack preflight green",
+          "ingestedAt": "2026-07-02T14:53:44.804206600+00:00"
+        }
+      ]
+    },
+    {
+      "id": "verify:issue:agent:3998a202591a45aa",
+      "symptomId": "coordination-membership-deltas-unreachable",
+      "severity": "p2",
+      "status": "triaged",
+      "title": "RIW-4 re-verify 2026-07-01: curl CORS OK; browser 0× REFUSED/CORS with 8787 up; desktop-only REFUSED still valid dev gap",
+      "source": "agent",
+      "evidenceRefs": [
+        ".codectx/verify/artifacts/riw-4-curl-cors-probe-2026-07-01-step4.txt",
+        ".codectx/verify/client-sessions/csess-56331621b1d9/captures/cap-43dc28edcd6e/console.jsonl",
+        ".codectx/verify/client-sessions/csess-56331621b1d9/captures/cap-e557cdac9c04/screenshot.png",
+        ".codectx/verify/client-sessions/csess-56331621b1d9/captures/cap-e58fe94923c0/digest.json",
+        ".codectx/verify/client-sessions/csess-5c26475ea529/console.jsonl",
+        ".codectx/verify/client-sessions/csess-f2191e90e578/console.jsonl",
+        ".codectx/verify/faults/fault-3c69d3a8.json",
+        "riw-4-curl-cors-probe-2026-07-01.txt"
+      ],
+      "proofTier": "t2",
+      "doesNotProve": [],
+      "ingestedAt": "2026-07-01T07:02:21.586987200+00:00",
+      "findingId": "cap-d359a934bdfe",
+      "fingerprint": "symptom:coordination-membership-deltas-unreachable",
+      "occurrenceCount": 2,
+      "relatedIds": [
+        "verify:issue:agent:3998a202591a45aa"
+      ],
+      "priorChapters": [
+        {
+          "id": "verify:issue:agent:fe1556fff6a7792e",
+          "title": "Coordination membership/deltas: CONNECTION_REFUSED desktop-only; CORS in prior full-stack session; curl shows ACAO * when wrangler up",
+          "ingestedAt": "2026-07-01T02:26:49.288034200+00:00"
+        }
+      ]
+    },
+    {
+      "id": "verify:issue:agent:41aeddb8d5f42614",
+      "symptomId": "group-thread-relay-ingest",
+      "severity": "p0",
+      "status": "triaged",
+      "title": "O-4 round14 t3: send O4-round14-acl-cdp-072T1102 visible; full stack :7000+:8787; post ACL/CDP rebuild",
+      "source": "agent",
+      "evidenceRefs": [
+        ".codectx/verify/chains/chain-o4-group-ingest-2026-07-02/manifest.json",
+        ".codectx/verify/chains/chain-o4-group-ingest-2026-07-02/nodes/n0-stack-preflight.json",
+        ".codectx/verify/chains/chain-o4-group-ingest-2026-07-02/nodes/n1-send-blocked-group-key.json",
+        ".codectx/verify/chains/chain-o4-group-ingest-2026-07-02/nodes/n10-round8-coldstart-send-repro.json",
+        ".codectx/verify/chains/chain-o4-group-ingest-2026-07-02/nodes/n11-round10-no-docker-send-blocked.json",
+        ".codectx/verify/chains/chain-o4-group-ingest-2026-07-02/nodes/n12-round11-multiwindow-partial-stack.json",
+        ".codectx/verify/chains/chain-o4-group-ingest-2026-07-02/nodes/n13-round12-fullstack-send-success.json",
+        ".codectx/verify/chains/chain-o4-group-ingest-2026-07-02/nodes/n2-round2-send-blocked.json",
+        ".codectx/verify/chains/chain-o4-group-ingest-2026-07-02/nodes/n5-round5-send-blocked-no-docker.json",
+        ".codectx/verify/chains/chain-o4-group-ingest-2026-07-02/nodes/n6-round6-health-recovered-docker.json",
+        ".codectx/verify/chains/chain-o4-group-ingest-2026-07-02/nodes/n8-round7-send-repro.json",
+        ".codectx/verify/chains/chain-o4-group-ingest-2026-07-02/nodes/n9-round8-coldstart-preflight.json",
+        ".codectx/verify/client-sessions/csess-322a4af06321/captures/cap-237fa5117c78/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-322a4af06321/captures/cap-ee514cac8fed/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-510a62aba320/captures/cap-aab86343339c/screenshot.png",
+        ".codectx/verify/client-sessions/csess-5f10d872d481/captures/cap-7ca9fc190c3a/screenshot.png",
+        ".codectx/verify/client-sessions/csess-5f10d872d481/captures/cap-979ff3b81230/screenshot.png",
+        ".codectx/verify/client-sessions/csess-631c3bba5207/captures/cap-0c94d7f5639f/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-631c3bba5207/captures/cap-3d7848b51782/console.jsonl",
+        ".codectx/verify/client-sessions/csess-631c3bba5207/captures/cap-861e5d8e4f70/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-631c3bba5207/captures/cap-f2c1cc180673/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-6461739df98d/captures/cap-2213f5ef81f0/screenshot.png",
+        ".codectx/verify/client-sessions/csess-6461739df98d/captures/cap-4f8d28c37aae/console.jsonl",
+        ".codectx/verify/client-sessions/csess-6f1a35b7762b/captures/cap-a45dd4eacd8f/screenshot.png",
+        ".codectx/verify/client-sessions/csess-ad3b3e90aa04/captures/cap-6ee65f818fb7/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-ad9e7520da13/captures/cap-96c8e8071d2d/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-af73d0bd5b5c/captures/cap-6d09421a034a/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-af73d0bd5b5c/captures/cap-a614c67a47d4/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-b20deab2382f/captures/cap-051b8597f1bc/console.jsonl",
+        ".codectx/verify/client-sessions/csess-b20deab2382f/captures/cap-051b8597f1bc/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-b20deab2382f/captures/cap-72600d819cec/digest.json",
+        ".codectx/verify/client-sessions/csess-c9e4cc0c3649/captures/cap-3b9283b9eb83/snapshot.yaml",
+        ".codectx/verify/faults/fault-0196a614.json",
+        ".codectx/verify/faults/fault-1285de34.json",
+        ".codectx/verify/faults/fault-579ab524.json",
+        ".codectx/verify/faults/fault-7f9100c4.json",
+        ".codectx/verify/faults/fault-bf3a84e1.json",
+        ".codectx/verify/faults/fault-bfbf96a4.json",
+        ".codectx/verify/faults/fault-d3266449.json",
+        ".codectx/verify/faults/fault-d730591d.json",
+        ".codectx/verify/faults/fault-d91cd690.json",
+        "docs/program/obscur-dev-test-accounts.md"
+      ],
+      "proofTier": "t3",
+      "doesNotProve": [
+        "group message visible",
+        "relay round-trip",
+        "second profile ingest",
+        "O-4 confirmed or fixed"
+      ],
+      "ingestedAt": "2026-07-02T11:03:36.313360100+00:00",
+      "findingId": "cap-979ff3b81230",
+      "fingerprint": "symptom:group-thread-relay-ingest",
+      "occurrenceCount": 14,
+      "relatedIds": [
+        "verify:issue:agent:7830537bf84fba67",
+        "verify:issue:agent:310fbc54fc6305c5",
+        "verify:issue:agent:54e729aec49eeda1",
+        "verify:issue:agent:bf6c693835f7e2c3",
+        "verify:issue:agent:5c5e1b25c17e9dca",
+        "verify:issue:agent:13f19914b4ba6366",
+        "verify:issue:agent:f21d04768c6b0594",
+        "verify:issue:agent:e1447144f354579c",
+        "verify:issue:agent:efa90322468050a8",
+        "verify:issue:agent:58b1f5e0e01e5316",
+        "verify:issue:agent:b24bb36ac9f8c8e4",
+        "verify:issue:agent:41aeddb8d5f42614"
+      ],
+      "trackerStep": 7,
+      "chainId": "chain-o4-group-ingest-2026-07-02",
+      "chainNodeId": "n22-round18-codactrl-send-success",
+      "symptomClass": "group-thread-relay-ingest",
+      "priorChapters": [
+        {
+          "id": "verify:issue:agent:264c88e73e9428fd",
+          "title": "O-4 Step 7 BLOCKED: full stack preflight OK except auth gate; cannot open NewTest 2 or send group message via MCP",
+          "ingestedAt": "2026-07-01T11:24:13.664140200+00:00"
+        },
+        {
+          "id": "verify:issue:agent:7830537bf84fba67",
+          "title": "O-4 Step 7 PARTIAL: NewTest 2 history hydrates but send blocked — Group key unavailable; O4-group-relay-verify-071T1128 stuck in composer; :7000 REFUSED",
+          "ingestedAt": "2026-07-01T11:28:54.898768100+00:00"
+        },
+        {
+          "id": "verify:issue:agent:310fbc54fc6305c5",
+          "title": "O-4 round2: group send O4-round2-codactrl-071T1409 blocked — composer clears, no bubble; sidebar group-key warning",
+          "ingestedAt": "2026-07-01T14:11:16.436589500+00:00"
+        },
+        {
+          "id": "verify:issue:agent:54e729aec49eeda1",
+          "title": "O-4 round3: group send blocked — group key unavailable; Manage Participants shows Tester1+Tester2 (2) but home card shows Tester1 only",
+          "ingestedAt": "2026-07-01T16:54:57.230410500+00:00"
+        },
+        {
+          "id": "verify:issue:agent:bf6c693835f7e2c3",
+          "title": "O-4 round5: group send blocked — Docker relay unavailable; composer clears, no bubble; group-key warning persists",
+          "ingestedAt": "2026-07-01T17:14:03.992917+00:00"
+        },
+        {
+          "id": "verify:issue:agent:5c5e1b25c17e9dca",
+          "title": "O-4 round6 t3: Docker :7000 + coordination health cascade → send O4-round6-docker-up-071T1728 visible; publishGroupEvent localhost:7000; sidebar key warning stale",
+          "ingestedAt": "2026-07-01T17:29:03.267712700+00:00"
+        },
+        {
+          "id": "verify:issue:agent:13f19914b4ba6366",
+          "title": "O-4 round7 t3 repro: second full-stack send O4-round7-fullstack-071T1733; health ready:1; main=6 msgs; publishGroupEvent 2d1a9735",
+          "ingestedAt": "2026-07-01T17:34:36.672937200+00:00"
+        },
+        {
+          "id": "verify:issue:agent:f21d04768c6b0594",
+          "title": "O-4 round8 t4 cold-start: send O4-round8-coldstart-071T1746 without Info visit; publishGroupEvent 8b138f20; sidebar still group-key unavailable",
+          "ingestedAt": "2026-07-01T17:47:31.083306200+00:00"
+        },
+        {
+          "id": "verify:issue:agent:e1447144f354579c",
+          "title": "O-4 round10: send O4-round10-no-docker blocked — composer clears, no bubble; :7000 REFUSED; coordination up",
+          "ingestedAt": "2026-07-01T22:06:19.023996300+00:00"
+        },
+        {
+          "id": "verify:issue:agent:efa90322468050a8",
+          "title": "O-4 round11: send O4-round11-partial blocked — composer clears, no bubble; :7000 REFUSED; multi-window CDP still single-target",
+          "ingestedAt": "2026-07-01T22:37:40.000391100+00:00"
+        },
+        {
+          "id": "verify:issue:agent:58b1f5e0e01e5316",
+          "title": "O-4 round12 t3: full stack send O4-round12-partial-072T0836 visible; publishGroupEvent 37b6a5b9 @ :7000; sidebar key warning stale",
+          "ingestedAt": "2026-07-02T08:45:55.304189700+00:00"
+        },
+        {
+          "id": "verify:issue:agent:b24bb36ac9f8c8e4",
+          "title": "O-4 round13 t3: post-rebuild send O4-round13-rebuild-072T0958 visible; publishGroupEvent 9a615480 @ :7000; bridge multiwindow partial",
+          "ingestedAt": "2026-07-02T09:59:16.555526800+00:00"
+        },
+        {
+          "id": "chain-o4-group-ingest-2026-07-02-n22-round18-codactrl-send-success",
+          "title": "Round18 post-upgrade: O4 send O4-round18-codactrl-072T1445 visible; Docker :7000; skipStackPreflight used (coord cold); validates CC-EVAL-25/04/17 export fixes",
+          "ingestedAt": "2026-07-02T14:53:44.804206600+00:00"
+        }
+      ]
+    },
+    {
+      "id": "verify:issue:agent:5304ff4749f613a0",
+      "symptomId": "dm-vanishes-cold-restart",
+      "severity": "p0",
+      "status": "triaged",
+      "title": "O-2 round2 t4: cold kill → profile picker → password unlock → O2-coldrestart-verify-071T0720 visible (event 58fbac8bb655f0b8)",
+      "source": "agent",
+      "evidenceRefs": [
+        ".codectx/verify/artifacts/o2-cold-restart-verify-2026-07-01.txt",
+        ".codectx/verify/client-sessions/csess-56331621b1d9/captures/cap-4d18726a2701/screenshot.png",
+        ".codectx/verify/client-sessions/csess-56331621b1d9/captures/cap-6735413a9978/screenshot.png",
+        ".codectx/verify/client-sessions/csess-56331621b1d9/captures/cap-9a461df9ff30/digest.json",
+        ".codectx/verify/client-sessions/csess-56331621b1d9/captures/cap-a321f957a618/console.jsonl",
+        ".codectx/verify/client-sessions/csess-6b9fe53b4ded/captures/cap-6d74380b50bf/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-6b9fe53b4ded/captures/cap-921a04f7d166/snapshot.yaml"
+      ],
+      "proofTier": "t4",
+      "doesNotProve": [
+        "Post-restart message visible",
+        "Packaged release build",
+        "Cold restart without password gate"
+      ],
+      "ingestedAt": "2026-07-01T14:13:40.839897600+00:00",
+      "findingId": "cap-a321f957a618",
+      "fingerprint": "symptom:dm-vanishes-cold-restart",
+      "occurrenceCount": 2,
+      "relatedIds": [
+        "verify:issue:agent:5304ff4749f613a0"
+      ],
+      "trackerStep": 6,
+      "symptomClass": "dm-vanishes-cold-restart",
+      "priorChapters": [
+        {
+          "id": "verify:issue:agent:554d0f00c74b6610",
+          "title": "O-2 Step 6 partial: DM sent+visible pre-restart; cold kill→sign-in gate blocks post-hydrate assert (event 58fbac8bb655f0b8)",
+          "ingestedAt": "2026-07-01T07:24:49.466731200+00:00"
+        }
+      ]
+    },
+    {
+      "id": "verify:issue:agent:65689a26d16d5fd0",
+      "symptomId": "auth-keychain-restore-failed",
+      "severity": "p2",
+      "status": "triaged",
+      "title": "RIW-9 chain blocked: cold boot lands on /sign-in; auth.kernel_boot_restore_no_keychain; native auto-unlock absent",
+      "source": "agent",
+      "evidenceRefs": [
+        ".codectx/verify/chains/chain-dm-split-brain-2026-07-02/manifest.json",
+        ".codectx/verify/chains/chain-dm-split-brain-2026-07-02/nodes/n1-sign-in-gate.json",
+        ".codectx/verify/faults/fault-9aa0f2d7.json",
+        ".codectx/verify/client-sessions/csess-169c06e92cf1/captures/cap-60328be9334e/screenshot.png"
+      ],
+      "proofTier": "t3",
+      "doesNotProve": [
+        "dm-ui-split-brain reproduced",
+        "message persistence",
+        "root cause"
+      ],
+      "ingestedAt": "2026-07-01T10:34:01.933421200+00:00",
+      "findingId": "cap-60328be9334e",
+      "fingerprint": "symptom:auth-keychain-restore-failed",
+      "occurrenceCount": 1
+    },
+    {
+      "id": "verify:issue:agent:915034dcac55e53d",
+      "symptomId": "COM-RUN-11",
+      "severity": "p0",
+      "status": "open",
+      "title": "COM-RUN-11 round15: :9231 CDP attach works after per-window browser args; profile sign-in target csess-9530bb91b194",
+      "source": "agent",
+      "evidenceRefs": [
+        ".codectx/verify/client-sessions/csess-56331621b1d9/captures/cap-06d82f269d28/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-56331621b1d9/captures/cap-58397cc1043e/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-5c26475ea529/captures/cap-3c321a8aeb25/manifest.json",
+        ".codectx/verify/client-sessions/csess-5c26475ea529/captures/cap-3c321a8aeb25/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-5c26475ea529/captures/cap-51ee8eb2ecdd/screenshot.png",
+        ".codectx/verify/client-sessions/csess-5c26475ea529/steps.json",
+        ".codectx/verify/client-sessions/csess-937c30f83699/captures/bcap-402b11eaec87/manifest.json",
+        ".codectx/verify/client-sessions/csess-9530bb91b194/attach-latest.json",
+        ".codectx/verify/client-sessions/csess-af73d0bd5b5c/captures/cap-d401890323b9/manifest.json",
+        ".codectx/verify/client-sessions/csess-af73d0bd5b5c/captures/cap-d401890323b9/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-c9e4cc0c3649/captures/bcap-b56d14af46e8/bridge-result.json",
+        ".codectx/verify/client-sessions/csess-c9e4cc0c3649/captures/bcap-dd2fa5076a2f/bridge-result.json",
+        ".codectx/verify/client-sessions/csess-d39f4ab009ee/captures/bcap-82d3ad04daf9/bridge-result.json",
+        ".codectx/verify/client-sessions/registry.json",
+        ".codectx/verify/issues-register.json"
+      ],
+      "proofTier": "t3",
+      "doesNotProve": [
+        "Independent control of second native window",
+        "Packaged release without WebDriver plugin",
+        "OS-level window focus switching"
+      ],
+      "ingestedAt": "2026-07-02T11:14:56.934881500+00:00",
+      "findingId": "cap-3c321a8aeb25",
+      "fingerprint": "symptom:COM-RUN-11",
+      "occurrenceCount": 7,
+      "relatedIds": [
+        "verify:issue:agent:bc1423936905096b",
+        "verify:issue:agent:28409ff90609b8c9",
+        "verify:issue:agent:fb8acdfb80f8b94e",
+        "verify:issue:agent:76b14118afac2838",
+        "verify:issue:agent:3e93540c9bc415ab",
+        "verify:issue:agent:915034dcac55e53d"
+      ],
+      "trackerStep": 5,
+      "chainId": "chain-o4-group-ingest-2026-07-02",
+      "symptomClass": "COM_RUN_11",
+      "priorChapters": [
+        {
+          "id": "verify:issue:agent:ea000f3b3f41603b",
+          "title": "Obscur: second profile window opens natively but is not independently drivable via MCP CDP",
+          "ingestedAt": "2026-06-30T16:12:17.850683300+00:00"
+        },
+        {
+          "id": "verify:issue:agent:bc1423936905096b",
+          "title": "COM-RUN-11 Step 5 blocked: single CDP target + Tester2 profile not configured; historical invite cards superseded/canceled only",
+          "ingestedAt": "2026-07-01T07:10:20.899494800+00:00"
+        },
+        {
+          "id": "verify:issue:agent:28409ff90609b8c9",
+          "title": "COM-RUN-11 round11: profile slot window opened natively; CDP :9231 not listening; list_targets still 1 page on :9230",
+          "ingestedAt": "2026-07-01T22:37:41.268378900+00:00"
+        },
+        {
+          "id": "verify:issue:agent:fb8acdfb80f8b94e",
+          "title": "COM-RUN-11 multiwindow retry: native second window opens; CDP :9231 down; agent-bridge missing; client_multiwindow_switch main/profile-picker only",
+          "ingestedAt": "2026-07-02T08:55:54.343323700+00:00"
+        },
+        {
+          "id": "verify:issue:agent:76b14118afac2838",
+          "title": "COM-RUN-11 round13: bridge listWindows=2 (main+profile-2); openProfileSlot ok; focusWindow ACL denied; CDP :9231 down",
+          "ingestedAt": "2026-07-02T09:59:18.278302+00:00"
+        },
+        {
+          "id": "verify:issue:agent:3e93540c9bc415ab",
+          "title": "COM-RUN-11 round14: focusWindow ok via desktop_agent_focus_window IPC; listWindows=2; CDP :9231 still down — dual attach blocked",
+          "ingestedAt": "2026-07-02T11:03:37.278195700+00:00"
+        }
+      ]
+    },
+    {
+      "id": "verify:issue:agent:b208fd14aa0d3b45",
+      "symptomId": "dm-normalize-outgoing-mismatch",
+      "severity": "p2",
+      "status": "triaged",
+      "title": "RIW-3 re-verify 2026-07-01: 36 dm_normalize mismatches when locked; 0 after unlock with empty DM thread (RIW-2 mask)",
+      "source": "agent",
+      "evidenceRefs": [
+        ".codectx/verify/client-sessions/csess-56331621b1d9/captures/cap-11bde9168440/console.jsonl",
+        ".codectx/verify/client-sessions/csess-56331621b1d9/captures/cap-38ea3448efc7/digest.json",
+        ".codectx/verify/client-sessions/csess-56331621b1d9/captures/cap-a5d9a7ed157c/digest.json",
+        ".codectx/verify/client-sessions/csess-56331621b1d9/captures/cap-c516dc13d587/screenshot.png",
+        ".codectx/verify/client-sessions/csess-d0e975bc8b08/captures/cap-500c39b33caf/screenshot.png",
+        ".codectx/verify/client-sessions/csess-f2191e90e578/captures/cap-3f0b18b57d6a/digest.json",
+        ".codectx/verify/client-sessions/csess-f2191e90e578/console.jsonl",
+        ".codectx/verify/faults/fault-e55e54d5.json"
+      ],
+      "proofTier": "t3",
+      "doesNotProve": [],
+      "ingestedAt": "2026-07-01T06:51:47.796175700+00:00",
+      "findingId": "cap-500c39b33caf",
+      "fingerprint": "symptom:dm-normalize-outgoing-mismatch",
+      "occurrenceCount": 2,
+      "relatedIds": [
+        "verify:issue:agent:b208fd14aa0d3b45"
+      ],
+      "priorChapters": [
+        {
+          "id": "verify:issue:agent:df96c6996e0512a9",
+          "title": "DM normalize direction mismatch: 36 events, 6 unique messages on Tester2 thread",
+          "ingestedAt": "2026-07-01T02:24:11.532856900+00:00"
+        }
+      ]
+    },
+    {
+      "id": "verify:issue:agent:d6aaccca65754776",
+      "symptomId": "group-room-key-missing",
+      "severity": "p0",
+      "status": "investigating",
+      "title": "COM-RUN-02 round9: health ready:1 after Info but sidebar ledger placeholder persists; coordination GET delta=404 POST-only",
+      "source": "agent",
+      "evidenceRefs": [
+        ".codectx/verify/artifacts/com-run-02-membership-path-probe-2026-07-02.txt",
+        ".codectx/verify/chains/chain-o4-group-ingest-2026-07-02/nodes/n4-room-key-health-snapshot.json",
+        ".codectx/verify/client-sessions/csess-631c3bba5207/captures/cap-e38e482a6206/console.jsonl",
+        ".codectx/verify/client-sessions/csess-87ec64010847/captures/cap-29d052b53b74/screenshot.png",
+        ".codectx/verify/client-sessions/csess-87ec64010847/captures/cap-3111586f0844/console.jsonl",
+        ".codectx/verify/client-sessions/csess-87ec64010847/captures/cap-77153b4f0307/snapshot.yaml",
+        ".codectx/verify/faults/fault-4720432c.json",
+        ".codectx/verify/faults/fault-fc0c8590.json",
+        "specs/backend/com-run-02-membership-health-sidebar-investigation.md"
+      ],
+      "proofTier": "t3",
+      "doesNotProve": [
+        "fix verified",
+        "Tester2 room key path"
+      ],
+      "ingestedAt": "2026-07-01T18:01:32.120829400+00:00",
+      "fingerprint": "symptom:group-room-key-missing",
+      "occurrenceCount": 2,
+      "relatedIds": [
+        "verify:issue:agent:d6aaccca65754776"
+      ],
+      "trackerStep": 7,
+      "riwId": "COM-RUN-02",
+      "chainId": "chain-o4-group-ingest-2026-07-02",
+      "chainNodeId": "n4-room-key-health-snapshot",
+      "symptomClass": "group-room-key-missing",
+      "priorChapters": [
+        {
+          "id": "verify:issue:agent:43cde0c4b744b301",
+          "title": "COM-RUN-02 round4: room_key_missing + relay_not_connected; chatEnabled=0; coordination /membership/delta 403 (deltas curl 200)",
+          "ingestedAt": "2026-07-01T16:57:35.319631300+00:00"
+        }
+      ],
+      "promotionStage": "spec"
+    },
+    {
+      "id": "verify:issue:agent:e4a1ecdcaab37c63",
+      "symptomId": "relay-partial-stack-desktop-only",
+      "severity": "p3",
+      "status": "open",
+      "title": "Step 8 RIW-5 re-verify: relay healthy on public relays (writable 1/ subscribable 4); :7000 still down; O-3 offline flash NOT seen on Chats↔Network nav; coordination :8787 up",
+      "source": "agent",
+      "evidenceRefs": [
+        ".codectx/verify/chains/chain-transport-soak-2026-07-02/manifest.json",
+        ".codectx/verify/client-sessions/csess-56331621b1d9/captures/cap-38ea3448efc7/digest.json",
+        ".codectx/verify/client-sessions/csess-631c3bba5207/captures/cap-b4cccc4d194f/screenshot.png",
+        ".codectx/verify/client-sessions/csess-ac2da4ea9b5c/captures/cap-80eb09d53b0e/console.jsonl",
+        ".codectx/verify/client-sessions/csess-ac2da4ea9b5c/captures/cap-b3a73eab1ebe/console.jsonl",
+        ".codectx/verify/client-sessions/csess-f2191e90e578/console.jsonl",
+        ".codectx/verify/faults/fault-3e59bd74.json",
+        ".codectx/verify/faults/fault-527da80b.json",
+        ".codectx/verify/faults/fault-ede55760.json",
+        ".codectx/verify/faults/fault-f9cb9bcd.json"
+      ],
+      "proofTier": "t3",
+      "doesNotProve": [
+        "Tester2 relay path",
+        "O-3 on F5"
+      ],
+      "ingestedAt": "2026-07-01T11:57:41.132128500+00:00",
+      "findingId": "cap-38ea3448efc7",
+      "fingerprint": "symptom:relay-partial-stack-desktop-only",
+      "occurrenceCount": 3,
+      "relatedIds": [
+        "verify:issue:agent:e4a1ecdcaab37c63"
+      ],
+      "chainId": "chain-transport-soak-2026-07-02",
+      "chainNodeId": "n2-full-stack-round7",
+      "symptomClass": "relay-partial-stack-desktop-only",
+      "priorChapters": [
+        {
+          "id": "verify:issue:agent:fd6bb614119ce9f2",
+          "title": "Desktop-only dev: ws://localhost:7000 + wss://relay.internal fail; DM sync still completes via public relays",
+          "ingestedAt": "2026-07-01T02:26:48.122901+00:00"
+        },
+        {
+          "id": "chain-transport-soak-2026-07-02-n2-full-stack-round7",
+          "title": "Full stack: Docker :7000 + coordination :8787 + 2/6 relays",
+          "ingestedAt": "2026-07-02T14:53:44.804206600+00:00"
+        }
+      ]
+    },
+    {
+      "id": "verify:issue:agent:f6847ce03827c2e2",
+      "symptomId": "projection-authority-not-ready",
+      "severity": "p2",
+      "status": "triaged",
+      "title": "RIW-2 re-verify 2026-07-01: authority oscillates projection_not_ready↔cutover; projection/sqlite count split; DM thread empty despite sidebar listing",
+      "source": "agent",
+      "evidenceRefs": [
+        ".codectx/verify/client-sessions/csess-56331621b1d9/captures/cap-79638f1e8a34/digest.json",
+        ".codectx/verify/client-sessions/csess-56331621b1d9/captures/cap-803e0ee2f572/console.jsonl",
+        ".codectx/verify/client-sessions/csess-56331621b1d9/captures/cap-efd1b97f101b/screenshot.png",
+        ".codectx/verify/client-sessions/csess-d0e975bc8b08/captures/cap-e96d688a532f/digest.json",
+        ".codectx/verify/client-sessions/csess-f2191e90e578/captures/cap-3f0b18b57d6a/digest.json",
+        ".codectx/verify/client-sessions/csess-f2191e90e578/console.jsonl",
+        ".codectx/verify/faults/fault-6e8f7e13.json",
+        ".codectx/verify/faults/fault-991005c2.json"
+      ],
+      "proofTier": "t3",
+      "doesNotProve": [],
+      "ingestedAt": "2026-07-01T06:32:38.544462900+00:00",
+      "findingId": "cap-e96d688a532f",
+      "fingerprint": "symptom:projection-authority-not-ready",
+      "occurrenceCount": 2,
+      "relatedIds": [
+        "verify:issue:agent:f6847ce03827c2e2"
+      ],
+      "priorChapters": [
+        {
+          "id": "verify:issue:agent:7a3d72a85a8e1c35",
+          "title": "Projection authority stuck: projectionConversationCount=0, driftStatus=drifted, legacy_hold",
+          "ingestedAt": "2026-07-01T02:23:31.690273200+00:00"
+        }
+      ]
+    },
+    {
+      "id": "verify:issue:assert:cap-5ad02d69dd30",
+      "severity": "p1",
+      "status": "open",
+      "title": "Client assert failed: textVisible — text not visible: Tester2",
+      "source": "client_assert",
+      "evidenceRefs": [
+        ".codectx/verify/client-sessions/csess-19f7e24e61bd/captures/cap-5ad02d69dd30/manifest.json",
+        ".codectx/verify/client-sessions/csess-19f7e24e61bd/steps.json"
+      ],
+      "proofTier": "t3",
+      "doesNotProve": [
+        "Full OS-level automation",
+        "Long soak across machines"
+      ],
+      "ingestedAt": "2026-07-01T03:57:46.925683500+00:00",
+      "findingId": "cap-5ad02d69dd30",
+      "fingerprint": "finding:cap-5ad02d69dd30:client_assert",
+      "occurrenceCount": 1
+    },
+    {
+      "id": "verify:issue:fault:fault-91576178",
+      "symptomId": "groups-ledger-validation",
+      "severity": "p1",
+      "status": "triaged",
+      "title": "messaging.delete_for_everyone_remote_result — count=149",
+      "source": "agent",
+      "evidenceRefs": [
+        ".codectx/verify/client-sessions/csess-56331621b1d9/captures/cap-21d585b2704b/screenshot.png",
+        ".codectx/verify/client-sessions/csess-56331621b1d9/captures/cap-c4a8209553e9/console.jsonl",
+        ".codectx/verify/client-sessions/csess-56331621b1d9/captures/cap-f563ba111c51/digest.json",
+        ".codectx/verify/client-sessions/csess-f2191e90e578/captures/cap-3f0b18b57d6a/digest.json",
+        ".codectx/verify/client-sessions/csess-f2191e90e578/captures/cap-ed6cb6ba5840/screenshot.png",
+        ".codectx/verify/client-sessions/csess-f2191e90e578/captures/cap-fec5199c2177/console.jsonl",
+        ".codectx/verify/client-sessions/csess-f2191e90e578/steps.json",
+        ".codectx/verify/faults/fault-0dd352c0.json",
+        ".codectx/verify/faults/fault-1285de34.json",
+        ".codectx/verify/faults/fault-1a2cb746.json",
+        ".codectx/verify/faults/fault-1df0fe98.json",
+        ".codectx/verify/faults/fault-317657e4.json",
+        ".codectx/verify/faults/fault-4720432c.json",
+        ".codectx/verify/faults/fault-4a171a35.json",
+        ".codectx/verify/faults/fault-5100471d.json",
+        ".codectx/verify/faults/fault-52dd9177.json",
+        ".codectx/verify/faults/fault-6a3f1d6c.json",
+        ".codectx/verify/faults/fault-7f9100c4.json",
+        ".codectx/verify/faults/fault-91576178.json",
+        ".codectx/verify/faults/fault-a017a981.json",
+        ".codectx/verify/faults/fault-a8d78552.json",
+        ".codectx/verify/faults/fault-aca31c9d.json",
+        ".codectx/verify/faults/fault-b72efd02.json",
+        ".codectx/verify/faults/fault-bf3a84e1.json",
+        ".codectx/verify/faults/fault-bfbf96a4.json",
+        ".codectx/verify/faults/fault-c2485378.json",
+        ".codectx/verify/faults/fault-c957c88f.json",
+        ".codectx/verify/faults/fault-cebc13ad.json",
+        ".codectx/verify/faults/fault-d3266449.json",
+        ".codectx/verify/faults/fault-d730591d.json",
+        ".codectx/verify/faults/fault-d91cd690.json",
+        ".codectx/verify/faults/fault-da76af2d.json",
+        ".codectx/verify/faults/fault-f9cb9bcd.json",
+        ".codectx/verify/faults/fault-fc0c8590.json",
+        ".codectx/verify/faults/fault-fc9c865f.json"
+      ],
+      "proofTier": "t3",
+      "doesNotProve": [
+        "Migration fix verified",
+        "Clean fixture after purge",
+        "Packaged release build"
+      ],
+      "ingestedAt": "2026-07-02T14:53:26.447302+00:00",
+      "findingId": "cap-fec5199c2177",
+      "fingerprint": "symptom:groups-ledger-validation",
+      "occurrenceCount": 28,
+      "relatedIds": [
+        "verify:issue:agent:289e783f035b6129",
+        "verify:issue:fault:fault-d91cd690",
+        "verify:issue:fault:fault-317657e4",
+        "verify:issue:fault:fault-4a171a35",
+        "verify:issue:fault:fault-fc0c8590",
+        "verify:issue:fault:fault-bf3a84e1",
+        "verify:issue:fault:fault-1285de34",
+        "verify:issue:fault:fault-1a2cb746",
+        "verify:issue:fault:fault-7f9100c4",
+        "verify:issue:fault:fault-f9cb9bcd",
+        "verify:issue:fault:fault-d3266449",
+        "verify:issue:fault:fault-aca31c9d",
+        "verify:issue:fault:fault-4720432c",
+        "verify:issue:fault:fault-5100471d",
+        "verify:issue:fault:fault-bfbf96a4",
+        "verify:issue:fault:fault-a017a981",
+        "verify:issue:fault:fault-cebc13ad",
+        "verify:issue:fault:fault-0dd352c0",
+        "verify:issue:fault:fault-fc9c865f",
+        "verify:issue:fault:fault-1df0fe98",
+        "verify:issue:fault:fault-c2485378",
+        "verify:issue:fault:fault-52dd9177",
+        "verify:issue:fault:fault-a8d78552",
+        "verify:issue:fault:fault-b72efd02",
+        "verify:issue:fault:fault-da76af2d",
+        "verify:issue:fault:fault-d730591d",
+        "verify:issue:fault:fault-91576178"
+      ],
+      "symptomClass": "groups_ledger_validation",
+      "priorChapters": [
+        {
+          "id": "verify:issue:agent:0c914a5d3cb0912d",
+          "title": "Tester1 unlock: 18/20 membership ledger entries invalid; async migration does not clear validation band",
+          "ingestedAt": "2026-07-01T02:13:07.069795200+00:00"
+        },
+        {
+          "id": "verify:issue:agent:289e783f035b6129",
+          "title": "RIW-1 re-verify 2026-07-01: 18/20 ledger invalid unchanged; migration stall; dm_kernel.sqlite_write_failed x12 on profile nav",
+          "ingestedAt": "2026-07-01T06:18:04.046860+00:00"
+        },
+        {
+          "id": "verify:issue:fault:fault-d91cd690",
+          "title": "groups.ledger_migration_needed — count=117",
+          "ingestedAt": "2026-07-01T14:09:46.841767900+00:00"
+        },
+        {
+          "id": "verify:issue:fault:fault-317657e4",
+          "title": "groups.ledger_validation_issues — count=111",
+          "ingestedAt": "2026-07-01T14:11:16.163370100+00:00"
+        },
+        {
+          "id": "verify:issue:fault:fault-4a171a35",
+          "title": "groups.ledger_migration_needed — count=137",
+          "ingestedAt": "2026-07-01T16:54:59.571036600+00:00"
+        },
+        {
+          "id": "verify:issue:fault:fault-fc0c8590",
+          "title": "groups.ledger_validation_issues — count=123",
+          "ingestedAt": "2026-07-01T16:57:25.982901900+00:00"
+        },
+        {
+          "id": "verify:issue:fault:fault-bf3a84e1",
+          "title": "groups.ledger_migration_needed — count=101",
+          "ingestedAt": "2026-07-01T17:13:59.827276300+00:00"
+        },
+        {
+          "id": "verify:issue:fault:fault-1285de34",
+          "title": "groups.ledger_migration_needed — count=94",
+          "ingestedAt": "2026-07-01T17:28:48.023176700+00:00"
+        },
+        {
+          "id": "verify:issue:fault:fault-1a2cb746",
+          "title": "groups.ledger_migration_needed — count=122",
+          "ingestedAt": "2026-07-01T17:33:18.484745200+00:00"
+        },
+        {
+          "id": "verify:issue:fault:fault-7f9100c4",
+          "title": "groups.ledger_validation_issues — count=118",
+          "ingestedAt": "2026-07-01T17:33:55.763225600+00:00"
+        },
+        {
+          "id": "verify:issue:fault:fault-f9cb9bcd",
+          "title": "groups.ledger_validation_issues — count=127",
+          "ingestedAt": "2026-07-01T17:34:38.526594100+00:00"
+        },
+        {
+          "id": "verify:issue:fault:fault-d3266449",
+          "title": "workspace.thread.hydrate — count=109",
+          "ingestedAt": "2026-07-01T17:46:43.979538400+00:00"
+        },
+        {
+          "id": "verify:issue:fault:fault-aca31c9d",
+          "title": "workspace.thread.hydrate — count=120",
+          "ingestedAt": "2026-07-01T17:47:24.919557+00:00"
+        },
+        {
+          "id": "verify:issue:fault:fault-4720432c",
+          "title": "groups.ledger_migration_needed — count=63",
+          "ingestedAt": "2026-07-01T18:00:36.797852800+00:00"
+        },
+        {
+          "id": "verify:issue:fault:fault-5100471d",
+          "title": "groups.ledger_migration_needed — count=51",
+          "ingestedAt": "2026-07-01T22:05:27.534353500+00:00"
+        },
+        {
+          "id": "verify:issue:fault:fault-bfbf96a4",
+          "title": "groups.ledger_migration_needed — count=85",
+          "ingestedAt": "2026-07-01T22:06:09.732414300+00:00"
+        },
+        {
+          "id": "verify:issue:fault:fault-a017a981",
+          "title": "groups.ledger_migration_needed — count=42",
+          "ingestedAt": "2026-07-01T22:33:29.829256900+00:00"
+        },
+        {
+          "id": "verify:issue:fault:fault-cebc13ad",
+          "title": "groups.ledger_migration_needed — count=42",
+          "ingestedAt": "2026-07-01T22:35:29.823804500+00:00"
+        },
+        {
+          "id": "verify:issue:fault:fault-0dd352c0",
+          "title": "groups.ledger_migration_needed — count=80",
+          "ingestedAt": "2026-07-01T22:36:06.835279600+00:00"
+        },
+        {
+          "id": "verify:issue:fault:fault-fc9c865f",
+          "title": "messaging.delete_for_everyone_remote_result — count=50",
+          "ingestedAt": "2026-07-02T08:35:32.592667700+00:00"
+        },
+        {
+          "id": "verify:issue:fault:fault-1df0fe98",
+          "title": "relay.transport_engine_pool_subscribe — count=67",
+          "ingestedAt": "2026-07-02T08:44:28.141642200+00:00"
+        },
+        {
+          "id": "verify:issue:fault:fault-c2485378",
+          "title": "workspace.thread.hydrate — count=84",
+          "ingestedAt": "2026-07-02T08:44:53.852083700+00:00"
+        },
+        {
+          "id": "verify:issue:fault:fault-52dd9177",
+          "title": "messaging.delete_for_everyone_remote_result — count=95",
+          "ingestedAt": "2026-07-02T09:59:13.608201900+00:00"
+        },
+        {
+          "id": "verify:issue:fault:fault-a8d78552",
+          "title": "groups.ledger_migration_needed — count=63",
+          "ingestedAt": "2026-07-02T11:03:28.797505400+00:00"
+        },
+        {
+          "id": "verify:issue:fault:fault-b72efd02",
+          "title": "messaging.delete_for_everyone_remote_result — count=94",
+          "ingestedAt": "2026-07-02T12:47:47.363478+00:00"
+        },
+        {
+          "id": "verify:issue:fault:fault-da76af2d",
+          "title": "groups.ledger_migration_needed — count=36",
+          "ingestedAt": "2026-07-02T13:23:46.605540400+00:00"
+        },
+        {
+          "id": "verify:issue:fault:fault-d730591d",
+          "title": "messaging.delete_for_everyone_remote_result — count=107",
+          "ingestedAt": "2026-07-02T14:45:27.500610900+00:00"
+        }
+      ]
+    },
+    {
+      "id": "verify:issue:fault:fault-c4a2d149",
+      "symptomId": "dm-normalize-is-outgoing-mismatch",
+      "severity": "p1",
+      "status": "open",
+      "title": "workspace.thread.hydrate — count=40",
+      "source": "runtime_digest",
+      "evidenceRefs": [
+        ".codectx/verify/faults/fault-0f46250f.json",
+        ".codectx/verify/faults/fault-78374bee.json",
+        ".codectx/verify/faults/fault-c4a2d149.json"
+      ],
+      "doesNotProve": [
+        "Imported digest proves runtime observation at capture time only"
+      ],
+      "ingestedAt": "2026-07-02T14:53:37.031476600+00:00",
+      "findingId": "fault-0f46250f",
+      "fingerprint": "symptom:dm-normalize-is-outgoing-mismatch",
+      "occurrenceCount": 3,
+      "relatedIds": [
+        "verify:issue:fault:fault-78374bee",
+        "verify:issue:fault:fault-c4a2d149"
+      ],
+      "symptomClass": "dm_normalize_is_outgoing_mismatch",
+      "priorChapters": [
+        {
+          "id": "verify:issue:fault:fault-0f46250f",
+          "title": "messaging.delete_for_everyone_remote_result — count=136",
+          "ingestedAt": "2026-07-02T11:19:06.590603900+00:00"
+        },
+        {
+          "id": "verify:issue:fault:fault-78374bee",
+          "title": "workspace.thread.hydrate — count=40",
+          "ingestedAt": "2026-07-02T14:53:21.730431200+00:00"
+        }
+      ]
+    },
+    {
+      "id": "verify:issue:unmapped-captures",
+      "severity": "p2",
+      "status": "captured",
+      "title": "Unmapped runtime capture digests (×19)",
+      "source": "unmapped_capture",
+      "evidenceRefs": [
+        ".codectx/verify/faults/fault-6a3f1d6c.json",
+        ".codectx/verify/faults/fault-6e8f7e13.json",
+        ".codectx/verify/faults/fault-527da80b.json",
+        ".codectx/verify/faults/fault-986a4f3f.json",
+        ".codectx/verify/faults/fault-c957c88f.json"
+      ],
+      "doesNotProve": [
+        "Digest capture without symptom mapping or signal extract (RIW-8)"
+      ],
+      "ingestedAt": "2026-07-02T14:53:44.838125400+00:00",
+      "fingerprint": "unmapped:capture-digest",
+      "occurrenceCount": 19,
+      "riwId": "RIW-8"
+    }
+  ],
+  "triageIssueCount": 14,
+  "unmappedCaptureCount": 19,
+  "quarantinedScenarioRunId": "vrun-31d8d75b"
+}

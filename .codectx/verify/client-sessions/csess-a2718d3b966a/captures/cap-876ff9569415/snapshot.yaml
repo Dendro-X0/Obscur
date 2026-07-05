@@ -1,0 +1,28 @@
+- text: Please enter your password
+- button "Dismiss notification"
+- main:
+  - text: Client release-v1.9.10-relay-recovery-20260617
+  - img "Obscur"
+  - text: Obscur
+  - button "Switch profile before sign-in":
+    - img "Tester1"
+    - text: Tester1 Switch profile
+  - button "Minimize window"
+  - button "Maximize window"
+  - button "Close window"
+  - button "Change Language"
+  - button
+  - heading "Welcome Back" [level=2]
+  - paragraph: Enter your device login password to unlock Tester1.
+  - button "Log In"
+  - button "Import Key"
+  - text: Device login password
+  - textbox "Enter your password"
+  - button
+  - text: How sign-in works on this device
+  - paragraph: Enter your device login password to unlock this profile. After a successful unlock, Obscur stores your session in OS secure storage so you can reopen the app without signing in again. Your password is never saved in the browser.
+  - button "Log In"
+  - paragraph: Please enter your password
+  - button
+  - text: Self-Custody Anonymous
+- alert

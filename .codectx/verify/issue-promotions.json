@@ -1,0 +1,14 @@
+{
+  "schema": "verify.issue.promotions@0.1.0",
+  "updatedAt": "2026-07-01T22:06:19.742674300+00:00",
+  "promotions": {
+    "symptom:group-room-key-missing": {
+      "fingerprint": "symptom:group-room-key-missing",
+      "issueId": "verify:issue:agent:d6aaccca65754776",
+      "status": "investigating",
+      "stage": "spec",
+      "promotedAt": "2026-07-01T22:06:19.742674300+00:00",
+      "notes": "Investigation spec filed: specs/backend/com-run-02-membership-health-sidebar-investigation.md"
+    }
+  }
+}

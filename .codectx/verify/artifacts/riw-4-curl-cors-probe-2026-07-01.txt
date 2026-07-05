@@ -1,0 +1,24 @@
+RIW-4 coordination CORS probe — 2026-07-01
+Stack: pnpm dev:coordination (wrangler Ready on http://127.0.0.1:8787)
+Origin: http://127.0.0.1:1430
+
+GET sample deltas URL:
+$ curl -sI -H "Origin: http://127.0.0.1:1430" "http://127.0.0.1:8787/communities/v2_c32217ec6a10145ff4bb1109b78b73923f2f226ceb7c5f85afac773b0d2cf84f/membership/deltas?since=0"
+
+HTTP/1.1 404 Not Found
+Content-Type: application/json; charset=utf-8
+Access-Control-Allow-Origin: *
+access-control-allow-headers: content-type, authorization, x-requested-with
+access-control-allow-methods: GET,POST,OPTIONS
+
+OPTIONS preflight:
+$ curl -sI -X OPTIONS -H "Origin: http://127.0.0.1:1430" -H "Access-Control-Request-Method: GET" "<same URL>"
+
+HTTP/1.1 204 No Content
+Access-Control-Allow-Origin: *
+access-control-allow-headers: content-type, authorization, x-requested-with
+access-control-allow-methods: GET,POST,OPTIONS
+
+Prior session csess-5c26475ea529 (2026-06-30, wrangler listening): 28× browser CORS policy blocks (no ACAO) on same host:8787 deltas URLs — needs re-repro with live browser fetch while coordination up.
+
+Desktop-only session csess-f2191e90e578: 19× net::ERR_CONNECTION_REFUSED (8787 not listening).

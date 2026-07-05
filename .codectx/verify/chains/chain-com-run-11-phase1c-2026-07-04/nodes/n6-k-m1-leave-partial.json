@@ -1,0 +1,9 @@
+{
+  "schema": "codactrl.investigation.node@0.1.0",
+  "chainId": "chain-com-run-11-phase1c-2026-07-04",
+  "nodeId": "n6-k-m1-leave-partial",
+  "trigger": "K-M1 post-T2-leave: coordination leave seq 3 OK; T1 participants UI shows Tester1 only — excluded band absent",
+  "at": "2026-07-04T07:42:27.430273500+00:00",
+  "sessionId": "csess-6223e8d73a45",
+  "hypothesis": "T2 leave publishes coordination delta; T1 participants shows Tester2 under Excluded from active roster"
+}

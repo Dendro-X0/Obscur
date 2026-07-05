@@ -1,0 +1,18 @@
+{
+  "schema": "client.session.steps@0.1.0",
+  "sessionId": "csess-7b4bb623967a",
+  "updatedAt": "2026-07-04T23:40:54.684592400+00:00",
+  "stepCount": 1,
+  "steps": [
+    {
+      "index": 0,
+      "stepId": "step-a7dd3bf5781e",
+      "action": "screenshot",
+      "captureId": "cap-d2d8de2db666",
+      "manifestPath": ".codectx/verify/client-sessions/csess-7b4bb623967a/captures/cap-d2d8de2db666/manifest.json",
+      "stepLabel": "hero-refine-before",
+      "pass": true,
+      "at": "2026-07-04T23:40:54.669928600+00:00"
+    }
+  ]
+}

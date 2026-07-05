@@ -1,0 +1,48 @@
+{
+  "schema": "codactrl.investigation.chain@0.1.0",
+  "chainId": "chain-r2-auth-cold-unlock-2026-07-04",
+  "symptomClass": "auth-keychain-restore-failed",
+  "title": "R2 cold password unlock t4",
+  "status": "open",
+  "createdAt": "2026-07-04T16:07:11.091345700+00:00",
+  "updatedAt": "2026-07-04T16:33:07.201324300+00:00",
+  "nodeIds": [
+    "n0-sign-in-gate-fresh-boot",
+    "n1-warm-password-unlock",
+    "n2-cold-password-unlock-pass",
+    "n3-warm-post-fix-rebuild",
+    "n4-cold-post-fix-password-unlock-pass"
+  ],
+  "edges": [
+    {
+      "from": "n0-sign-in-gate-fresh-boot",
+      "to": "n1-warm-password-unlock",
+      "label": "set-password-unlock"
+    },
+    {
+      "from": "n1-warm-password-unlock",
+      "to": "n2-cold-password-unlock-pass",
+      "label": "taskkill-relaunch"
+    },
+    {
+      "from": "n2-cold-password-unlock-pass",
+      "to": "n3-warm-post-fix-rebuild",
+      "label": "post-fix-regression"
+    },
+    {
+      "from": "n3-warm-post-fix-rebuild",
+      "to": "n4-cold-post-fix-password-unlock-pass",
+      "label": "cold-kill-relaunch"
+    }
+  ],
+  "summary": {
+    "verdict": "partial_accepted",
+    "nodesCaptured": 5,
+    "splitBrainObserved": false,
+    "nonCoverage": [
+      "Auto keychain unlock without password",
+      "Packaged NSIS build",
+      "Passwordless skip path"
+    ]
+  }
+}

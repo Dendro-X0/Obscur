@@ -1,0 +1,11 @@
+{
+  "schema": "verify.export.manifest@0.1.0",
+  "exportedAt": "2026-07-02T14:35:50.282272200+00:00",
+  "operatorExportAt": "2026-07-02T14:35:50.282272200+00:00",
+  "promotionStage": "spec",
+  "repro": {
+    "sessionId": "csess-8abe3d68a490",
+    "cdpPort": 9230,
+    "workspacePath": "E:\\Web Projects\\experimental-workspace\\newstart"
+  }
+}

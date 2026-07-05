@@ -29,35 +29,33 @@ export default async function Home() {
     verificationItems,
   } = await loadSiteContent();
 
+  const docsHref =
+    primaryLinks.find((link) => link.label.startsWith("Read"))?.href ??
+    "https://github.com/Dendro-X0/Obscur/tree/main/docs";
+
   return (
-    <main className="site-shell">
-      <section className="hero">
+    <main className="site-shell site-shell--home">
+      <section className="hero hero-fold">
         <div className="hero-copy">
           <p className="eyebrow">Obscur official website</p>
-          <h1>Privacy-first communication, shipped with evidence instead of hype.</h1>
+          <h1>
+            Privacy-first communication,{" "}
+            <span className="hero-h1-accent">shipped with evidence</span> instead of hype.
+          </h1>
           <p className="hero-summary">
-            Obscur is a cross-platform, decentralized, end-to-end encrypted communication app
-            built around local ownership, explicit runtime contracts, and auditable release
-            artifacts. This website mirrors canonical repo truth rather than inventing a second
-            product story.
+            End-to-end encrypted, decentralized messaging with local ownership and auditable
+            releases. This site mirrors repo truth — not a second product story.
           </p>
           <div className="hero-actions">
-            <a
-              className="button button-primary"
-              href="/download"
-            >
+            <a className="button button-primary" href="/download">
               Download {currentVersion}
             </a>
-            {primaryLinks.filter((link) => !link.label.startsWith("Download")).map((link) => (
-              <a
-                key={link.href}
-                className="button button-secondary"
-                href={link.href}
-                {...(link.href.startsWith("http") ? { target: "_blank", rel: "noreferrer" } : {})}
-              >
-                {link.label}
-              </a>
-            ))}
+            <a className="button button-secondary" href="/limitations">
+              Known limitations
+            </a>
+            <a className="button button-secondary" href={docsHref} target="_blank" rel="noreferrer">
+              Read the docs
+            </a>
           </div>
         </div>
         <aside className="hero-panel">
@@ -65,28 +63,26 @@ export default async function Home() {
           <a className="release-chip release-chip-link" href={currentReleaseHref} target="_blank" rel="noreferrer">
             {currentVersion}
           </a>
-          <ul className="hero-points">
-            <li>Direct messaging, communities, media transfer, voice notes, and realtime call flow.</li>
-            <li>Public source, auditable changelog, and GitHub release distribution.</li>
-            <li>Active recovery lane still focused on cross-device messaging truth, not marketing polish.</li>
+          <ul className="hero-points hero-points--compact">
+            <li>DM, communities, media, voice — desktop and mobile runtimes.</li>
+            <li>Unsigned installers with SHA-256 checksums; scope documented honestly.</li>
           </ul>
         </aside>
+        <div className="hero-proof proof-strip" aria-label="Source of truth links">
+          {proofLinks.map((link) => (
+            <a
+              key={link.href}
+              className="proof-link"
+              href={link.href}
+              {...(link.href.startsWith("http") ? { target: "_blank", rel: "noreferrer" } : {})}
+            >
+              {link.label}
+            </a>
+          ))}
+        </div>
       </section>
 
-      <section className="proof-strip" aria-label="Source of truth links">
-        {proofLinks.map((link) => (
-          <a
-            key={link.href}
-            className="proof-link"
-            href={link.href}
-            {...(link.href.startsWith("http") ? { target: "_blank", rel: "noreferrer" } : {})}
-          >
-            {link.label}
-          </a>
-        ))}
-      </section>
-
-      <section className="section-grid">
+      <section className="section-grid editorial-band">
         <div className="section-header">
           <p className="eyebrow">Release snapshot</p>
           <h2>What is actually shipping right now</h2>
@@ -108,10 +104,14 @@ export default async function Home() {
         </div>
       </section>
 
-      <section className="section-grid">
-        <div className="section-header">
+      <section className="section-grid editorial-band editorial-band--gallery">
+        <div className="section-header section-header--wide">
           <p className="eyebrow">Feature evidence</p>
           <h2>Captured product surfaces from the canonical demo library</h2>
+          <p className="section-lead">
+            Real GIF captures from maintainer verification — not mockups. Each surface maps to a
+            shipped runtime band in the repo.
+          </p>
         </div>
         <div className="feature-grid">
           {featureCards.map((feature, index) => (
@@ -138,7 +138,7 @@ export default async function Home() {
         </div>
       </section>
 
-      <section className="split-section">
+      <section className="split-section editorial-band">
         <div className="section-header">
           <p className="eyebrow">Platform coverage</p>
           <h2>One product, explicit runtime boundaries</h2>
@@ -154,10 +154,14 @@ export default async function Home() {
         </div>
       </section>
 
-      <section className="split-section">
-        <div className="section-header">
+      <section className="split-section editorial-band editorial-band--proof">
+        <div className="section-header section-header--wide">
           <p className="eyebrow">Verification status</p>
           <h2>Release truth stays tied to evidence</h2>
+          <p className="section-lead">
+            Maintainer matrix outcomes — verified, in progress, and accepted limitations — surfaced
+            honestly instead of buried in issue trackers.
+          </p>
         </div>
         <div className="status-grid">
           {verificationItems.map((item) => (
@@ -174,7 +178,7 @@ export default async function Home() {
         </div>
       </section>
 
-      <section className="split-layout">
+      <section className="split-layout editorial-band">
         <article className="docs-panel">
           <div className="section-header">
             <p className="eyebrow">Documentation</p>

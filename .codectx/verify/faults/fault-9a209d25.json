@@ -1,0 +1,37 @@
+{
+  "digestPath": ".codectx/verify/faults/fault-9a209d25.digest.json",
+  "fault": {
+    "artifactPath": ".codectx/verify/faults/fault-9a209d25.json",
+    "faultId": "fault-9a209d25",
+    "importedAt": "2026-07-04T16:32:35.406572200+00:00",
+    "kind": "runtime_digest",
+    "proofTier": "t3",
+    "schema": "obscur.m0.capture.v1",
+    "signalsExtract": [
+      {
+        "detail": "count=2",
+        "name": "runtime.profile_binding_refresh_completed"
+      },
+      {
+        "detail": "count=1",
+        "name": "runtime.desktop_window_boot_ready"
+      },
+      {
+        "detail": "count=1",
+        "name": "runtime.startup_auth_state_transition"
+      },
+      {
+        "detail": "count=1",
+        "name": "profiles.local_save_scan_fast_complete"
+      },
+      {
+        "detail": "count=1",
+        "name": "profiles.local_save_scan_deep_complete"
+      }
+    ],
+    "symptomIds": [],
+    "title": "runtime.profile_binding_refresh_completed — count=2"
+  },
+  "schema": "verify.fault.import@0.1.0",
+  "sourcePath": ".codectx/verify/client-sessions/csess-afc2304a45ec/captures/cap-2a2c7673ed64/digest.json"
+}

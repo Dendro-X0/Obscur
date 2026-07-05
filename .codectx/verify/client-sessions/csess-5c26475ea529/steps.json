@@ -1,0 +1,104 @@
+{
+  "schema": "client.session.steps@0.1.0",
+  "sessionId": "csess-5c26475ea529",
+  "updatedAt": "2026-06-30T16:12:07.301252400+00:00",
+  "stepCount": 9,
+  "steps": [
+    {
+      "index": 0,
+      "stepId": "step-8a21594275d7",
+      "action": "snapshot",
+      "captureId": "cap-b0a985e0fcf0",
+      "manifestPath": ".codectx/verify/client-sessions/csess-5c26475ea529/captures/cap-b0a985e0fcf0/manifest.json",
+      "stepLabel": "connect-bootstrap",
+      "pass": true,
+      "at": "2026-06-30T16:10:57.985486100+00:00"
+    },
+    {
+      "index": 1,
+      "stepId": "step-17ad9236524c",
+      "action": "snapshot",
+      "captureId": "cap-9403e4beb4e4",
+      "manifestPath": ".codectx/verify/client-sessions/csess-5c26475ea529/captures/cap-9403e4beb4e4/manifest.json",
+      "pass": true,
+      "at": "2026-06-30T16:11:01.971418900+00:00"
+    },
+    {
+      "index": 2,
+      "stepId": "step-50b4fb19d0c7",
+      "action": "click",
+      "captureId": "cap-7946c51d9fb9",
+      "manifestPath": ".codectx/verify/client-sessions/csess-5c26475ea529/captures/cap-7946c51d9fb9/manifest.json",
+      "stepLabel": "golden-select-tester1",
+      "selector": "img[alt=\"Tester1\"]",
+      "pass": true,
+      "at": "2026-06-30T16:11:12.720866500+00:00"
+    },
+    {
+      "index": 3,
+      "stepId": "step-ed177acc25aa",
+      "action": "type",
+      "captureId": "cap-a5dc1421bd0f",
+      "manifestPath": ".codectx/verify/client-sessions/csess-5c26475ea529/captures/cap-a5dc1421bd0f/manifest.json",
+      "stepLabel": "golden-type-password",
+      "selector": "input[type=\"password\"]",
+      "text": "SyI14^ew1E",
+      "pass": true,
+      "at": "2026-06-30T16:11:18.793430800+00:00"
+    },
+    {
+      "index": 4,
+      "stepId": "step-402d368980a0",
+      "action": "click",
+      "captureId": "cap-83a996e971bf",
+      "manifestPath": ".codectx/verify/client-sessions/csess-5c26475ea529/captures/cap-83a996e971bf/manifest.json",
+      "stepLabel": "golden-unlock-tester1",
+      "selector": "form button[type=\"submit\"]",
+      "pass": true,
+      "at": "2026-06-30T16:11:29.119600400+00:00"
+    },
+    {
+      "index": 5,
+      "stepId": "step-cc6263b18bdc",
+      "action": "click",
+      "captureId": "cap-223568caec85",
+      "manifestPath": ".codectx/verify/client-sessions/csess-5c26475ea529/captures/cap-223568caec85/manifest.json",
+      "stepLabel": "multi-open-switcher",
+      "selector": "[aria-label=\"Open desktop profile switcher\"]",
+      "pass": true,
+      "at": "2026-06-30T16:11:35.179627200+00:00"
+    },
+    {
+      "index": 6,
+      "stepId": "step-fb790e126e4b",
+      "action": "click",
+      "captureId": "cap-b28c00ac98f9",
+      "manifestPath": ".codectx/verify/client-sessions/csess-5c26475ea529/captures/cap-b28c00ac98f9/manifest.json",
+      "stepLabel": "multi-manage-profiles",
+      "selector": "button:has-text(\"Manage Profiles\")",
+      "pass": true,
+      "at": "2026-06-30T16:11:44.761373800+00:00"
+    },
+    {
+      "index": 7,
+      "stepId": "step-d45d90cdd692",
+      "action": "click",
+      "captureId": "cap-3c321a8aeb25",
+      "manifestPath": ".codectx/verify/client-sessions/csess-5c26475ea529/captures/cap-3c321a8aeb25/manifest.json",
+      "stepLabel": "multi-open-slot2",
+      "selector": "button:has-text(\"Needs setup\")",
+      "pass": true,
+      "at": "2026-06-30T16:11:53.421825600+00:00"
+    },
+    {
+      "index": 8,
+      "stepId": "step-13597d55a46b",
+      "action": "screenshot",
+      "captureId": "cap-51ee8eb2ecdd",
+      "manifestPath": ".codectx/verify/client-sessions/csess-5c26475ea529/captures/cap-51ee8eb2ecdd/manifest.json",
+      "stepLabel": "multi-window-evidence-screenshot",
+      "pass": true,
+      "at": "2026-06-30T16:12:07.299373100+00:00"
+    }
+  ]
+}

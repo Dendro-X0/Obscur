@@ -1,0 +1,18 @@
+{
+  "args": [
+    "profile-profile-2-1782986313621"
+  ],
+  "captureId": "bcap-402b11eaec87",
+  "capturedAt": "2026-07-02T09:58:48.769225600+00:00",
+  "cdpPort": 9230,
+  "method": "focusWindow",
+  "pass": false,
+  "result": {
+    "label": "profile-profile-2-1782986313621",
+    "ok": false,
+    "reason": "window.set_focus not allowed. Permissions associated with this command: core:window:allow-set-focus"
+  },
+  "schema": "client.agent.bridgeCall@0.1.0",
+  "sessionId": "csess-937c30f83699",
+  "targetUrl": "http://127.0.0.1:1430/"
+}

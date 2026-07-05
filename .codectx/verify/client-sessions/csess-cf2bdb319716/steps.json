@@ -1,0 +1,29 @@
+{
+  "schema": "client.session.steps@0.1.0",
+  "sessionId": "csess-cf2bdb319716",
+  "updatedAt": "2026-06-30T05:01:24.702559400+00:00",
+  "stepCount": 2,
+  "steps": [
+    {
+      "index": 0,
+      "stepId": "step-2d0666a9806e",
+      "action": "snapshot",
+      "captureId": "cap-cc37886a53e1",
+      "manifestPath": ".codectx/verify/client-sessions/csess-cf2bdb319716/captures/cap-cc37886a53e1/manifest.json",
+      "stepLabel": "connect-bootstrap",
+      "pass": true,
+      "at": "2026-06-30T05:00:40.639168300+00:00"
+    },
+    {
+      "index": 1,
+      "stepId": "step-e7c6cde9470e",
+      "action": "click",
+      "captureId": "cap-165e2bc4a190",
+      "manifestPath": ".codectx/verify/client-sessions/csess-cf2bdb319716/captures/cap-165e2bc4a190/manifest.json",
+      "stepLabel": "add-fresh-profile-slot",
+      "selector": "button:has-text(\"New profile\")",
+      "pass": true,
+      "at": "2026-06-30T05:01:24.698705900+00:00"
+    }
+  ]
+}

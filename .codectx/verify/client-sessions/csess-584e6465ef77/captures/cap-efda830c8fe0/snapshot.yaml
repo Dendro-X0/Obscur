@@ -1,0 +1,42 @@
+- text: CodaCtrl Studio Perf
+- button "AI"
+- button "Switch tool"
+- button "Minimize"
+- button "Maximize"
+- button "Close"
+- dialog "Choose a tool":
+  - paragraph: G2 operator path (~15 min)
+  - paragraph: Real BYOK + Path A. Record results in docs/studio/evidence/g2-operator-golden-path.md.
+  - button
+  - list:
+    - listitem: AI Studio (title bar AI) — Save Planning + Execution keys; confirm Connected — N models.
+    - listitem: Design — Plans → Deploy → Connect (C) → Edit flows — adjust one orchestration field → Export Specs → Context Package (ZIP).
+    - listitem: "Deliver — Jobs → Design → Deliver: Browse the ZIP, Import (daemon must be running)."
+    - listitem: OP-1 — name one Planning task (graph/export) and one Deliver task (implementation_order[0] or service id).
+    - listitem: Optional — Explore handoff pack → Runs Start; ⌘/Ctrl+K workflow presets.
+  - text: CodaCtrl Studio
+  - heading "Choose a tool" [level=1]
+  - paragraph: Project
+  - paragraph: Loading project…
+  - button "Open folder…"
+  - paragraph: Opened folders appear here for quick switching.
+  - paragraph: Four studio modules share one shell. Deliver runs execution; Design exports specs; Perf explores performance surfaces; Verify runs tiered behavioral scenarios with explicit proof labels.
+  - button "Deliver Jobs, runs, diffs, and execution."
+  - button "Design 3D architecture studio (in-process)."
+  - button "Perf Explore surfaces, ranked findings, optional confirm."
+  - button "Verify Scenario catalog, proof tiers, behavioral evidence (VE0)."
+- complementary:
+  - navigation "Perf navigation":
+    - button "Overview" [disabled]
+    - button "Findings" [disabled]
+    - button "History" [disabled]
+    - button "Reports" [disabled]
+- banner:
+  - text: "Perf Mode: developer"
+  - button "Hide Advanced"
+  - text: ⌘/Ctrl+F sections · ⌘/Ctrl+K palette
+- main:
+  - complementary:
+    - strong: Daemon offline.
+    - text: Deliver tasks and fatigue metrics need codactrld. Build once with cargo build -p codactrld, then run pnpm dev:studio from the repo root (auto-starts the daemon) or reload if it was already running.
+- contentinfo: Daemon offline | Perf | Ready Perf lane | 0 jobs running

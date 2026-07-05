@@ -1,0 +1,24 @@
+O-2 Step 6 cold-restart verification — 2026-07-01T07:24Z
+Session: csess-56331621b1d9
+Fixture: Tester1 → Tester2 DM thread
+
+=== Pre-restart (PASS) ===
+Message: O2-coldrestart-verify-071T0720
+eventId: 58fbac8bb655f0b8
+UI: message visible in thread + sidebar preview (cap-a321f957a618, cap-4d18726a2701)
+Console: account_sync.backup_publish_result reason=dm_history_changed result=ok
+Digest: cap-9a461df9ff30 / fault-089ccd5e
+
+=== Cold restart (EXECUTED) ===
+taskkill //F //IM obscur_desktop_app.exe (PID 28292)
+pnpm dev:desktop -- --online --skip-build (WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9230)
+New CDP target: FA77B9C7630764FF4B446497F83A117E
+
+=== Post-restart (BLOCKED) ===
+Boot URL: http://127.0.0.1:1430/profiles → /sign-in
+UI: "Enter your device login password to unlock Tester1" (cap-f1c409f8c4fc)
+Native auto-unlock: did NOT fire (contrast warm session Steps 1–5)
+Hydration assert: NOT RUN — password gate blocks MCP without maintainer unlock
+
+=== Verdict ===
+PARTIAL t4 — send + pre-restart retention confirmed; post-restart DM visibility unproven due to sign-in gate

@@ -1,0 +1,104 @@
+{
+  "schema": "client.session.steps@0.1.0",
+  "sessionId": "csess-d39f4ab009ee",
+  "updatedAt": "2026-07-02T11:14:56.919492100+00:00",
+  "stepCount": 10,
+  "steps": [
+    {
+      "index": 0,
+      "stepId": "step-7193a70ba9b0",
+      "action": "snapshot",
+      "captureId": "cap-c47f8c346a15",
+      "manifestPath": ".codectx/verify/client-sessions/csess-d39f4ab009ee/captures/cap-c47f8c346a15/manifest.json",
+      "stepLabel": "connect-bootstrap",
+      "pass": true,
+      "at": "2026-07-02T11:13:26.565285100+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-d0b7e7822de8",
+      "action": "mcp.client.session.connect",
+      "manifestPath": ".codectx/verify/client-sessions/csess-d39f4ab009ee/attach-latest.json",
+      "pass": true,
+      "at": "2026-07-02T11:13:30.407082800+00:00"
+    },
+    {
+      "index": 2,
+      "stepId": "step-bb61f236ed1a",
+      "action": "click",
+      "captureId": "cap-5b7eae022242",
+      "manifestPath": ".codectx/verify/client-sessions/csess-d39f4ab009ee/captures/cap-5b7eae022242/manifest.json",
+      "selector": "role=button[name=\"Avatar for Tester1 Tester1 Sign in here\"]",
+      "pass": true,
+      "at": "2026-07-02T11:13:39.335501600+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-4245b45352b1",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-5b7eae022242",
+      "manifestPath": ".codectx/verify/client-sessions/csess-d39f4ab009ee/captures/cap-5b7eae022242/manifest.json",
+      "pass": true,
+      "at": "2026-07-02T11:13:39.349632300+00:00"
+    },
+    {
+      "index": 4,
+      "stepId": "step-cc199d43850d",
+      "action": "type",
+      "captureId": "cap-9c335fe9077b",
+      "manifestPath": ".codectx/verify/client-sessions/csess-d39f4ab009ee/captures/cap-9c335fe9077b/manifest.json",
+      "selector": "role=textbox[name=\"Enter your password\"]",
+      "text": "SyI14^ew1E",
+      "pass": true,
+      "at": "2026-07-02T11:13:48.971401+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-84ee8f4f5cc3",
+      "action": "mcp.client.interact.type",
+      "captureId": "cap-9c335fe9077b",
+      "manifestPath": ".codectx/verify/client-sessions/csess-d39f4ab009ee/captures/cap-9c335fe9077b/manifest.json",
+      "pass": true,
+      "at": "2026-07-02T11:13:48.973226500+00:00"
+    },
+    {
+      "index": 6,
+      "stepId": "step-e06505fd8ae1",
+      "action": "click",
+      "captureId": "cap-1134d2e0246c",
+      "manifestPath": ".codectx/verify/client-sessions/csess-d39f4ab009ee/captures/cap-1134d2e0246c/manifest.json",
+      "selector": "role=button[name=\"Log In\"] >> nth=1",
+      "pass": true,
+      "at": "2026-07-02T11:14:02.330252600+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-e75fbfb3df15",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-1134d2e0246c",
+      "manifestPath": ".codectx/verify/client-sessions/csess-d39f4ab009ee/captures/cap-1134d2e0246c/manifest.json",
+      "pass": true,
+      "at": "2026-07-02T11:14:02.333658400+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-66c2436d4645",
+      "action": "mcp.client.agent.bridgeCall.openProfileSlot",
+      "captureId": "bcap-82d3ad04daf9",
+      "manifestPath": ".codectx/verify/client-sessions/csess-d39f4ab009ee/captures/bcap-82d3ad04daf9/manifest.json",
+      "stepLabel": "openProfileSlot",
+      "pass": true,
+      "at": "2026-07-02T11:14:10.905068+00:00"
+    },
+    {
+      "index": 9,
+      "stepId": "step-3549edc320cd",
+      "action": "screenshot",
+      "captureId": "cap-b088a2897aae",
+      "manifestPath": ".codectx/verify/client-sessions/csess-d39f4ab009ee/captures/cap-b088a2897aae/manifest.json",
+      "stepLabel": "chain-n18-round15-profile-cdp-attach",
+      "pass": true,
+      "at": "2026-07-02T11:14:56.918609800+00:00"
+    }
+  ]
+}

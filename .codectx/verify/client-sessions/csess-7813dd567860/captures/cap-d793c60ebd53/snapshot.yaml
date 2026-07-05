@@ -1,0 +1,119 @@
+- banner:
+  - link "Obscur":
+    - /url: /
+  - navigation "Primary":
+    - link "Product":
+      - /url: /
+    - link "Download":
+      - /url: /download
+    - link "Limitations":
+      - /url: /limitations
+    - link "Changelog":
+      - /url: /changelog
+    - link "Docs":
+      - /url: https://github.com/Dendro-X0/Obscur/tree/main/docs
+- main:
+  - paragraph: Install surface
+  - heading "Download Obscur" [level=1]
+  - paragraph: Privacy-first messaging for desktop. Installers are unsigned — verify SHA-256 checksums below before sideloading.
+  - link "Download for Windows installer":
+    - /url: https://raw.githubusercontent.com/Dendro-X0/Obscur/main/release-assets/windows/Obscur_1.9.10_x64-setup.exe
+  - link "Known limitations":
+    - /url: /limitations
+  - paragraph: Obscur_1.9.10_x64-setup.exe · 8.6 MB
+  - link "Build from source":
+    - /url: https://github.com/Dendro-X0/Obscur/blob/main/docs/program/obscur-v2-install-build-guide.md
+  - link "Signing policy":
+    - /url: https://github.com/Dendro-X0/Obscur/blob/main/docs/program/obscur-v2-phase3-signing-policy.md
+  - link "release-assets/manifest.json":
+    - /url: https://github.com/Dendro-X0/Obscur/blob/main/release-assets/manifest.json
+  - complementary:
+    - paragraph: Release v1.9.10
+    - link "v1.9.10":
+      - /url: https://github.com/Dendro-X0/Obscur/blob/main/CHANGELOG.md
+    - list:
+      - listitem: End-to-end encrypted messaging with local-first storage.
+      - listitem: Open source — verify checksums before running unsigned installers.
+      - listitem: No account required to download; identity stays on your device.
+  - region "Unsigned installer notice":
+    - paragraph: Unsigned installer (expected)
+    - paragraph: Windows SmartScreen may warn about an unknown publisher. Verify the SHA-256 checksum before running. Signing is deferred per maintainer policy.
+    - link "Read signing policy →":
+      - /url: https://github.com/Dendro-X0/Obscur/blob/main/docs/program/obscur-v2-phase3-signing-policy.md
+  - paragraph: Desktop
+  - heading "Platform installers" [level=2]
+  - paragraph: Windows installer available for v1.9.10. macOS and Linux builds are build-from-source until packaged artifacts land in the manifest.
+  - article:
+    - heading "Windows installer" [level=3]
+    - text: Ready
+    - paragraph: Obscur_1.9.10_x64-setup.exe
+    - text: 8.6 MB
+    - link "Download":
+      - /url: https://raw.githubusercontent.com/Dendro-X0/Obscur/main/release-assets/windows/Obscur_1.9.10_x64-setup.exe
+  - article:
+    - heading "macOS" [level=3]
+    - text: Build locally
+    - paragraph: See install/build guide for platform commands.
+    - link "Build guide →":
+      - /url: https://github.com/Dendro-X0/Obscur/blob/main/docs/program/obscur-v2-install-build-guide.md
+  - article:
+    - heading "Linux" [level=3]
+    - text: Build locally
+    - paragraph: See install/build guide for platform commands.
+    - link "Build guide →":
+      - /url: https://github.com/Dendro-X0/Obscur/blob/main/docs/program/obscur-v2-install-build-guide.md
+  - paragraph: Mobile
+  - heading "Android debug · iOS out of scope" [level=2]
+  - paragraph: Android debug APK is produced locally — not distributed via Play Store. iOS is not in the v2 installer scope.
+  - article:
+    - heading "Android (debug)" [level=3]
+    - text: Local build
+    - paragraph:
+      - text: "Build:"
+      - code: pnpm build:android:debug:emulator
+    - paragraph: 279.0 MB universal debug · sideload after local build
+    - paragraph: adb install -r apps/desktop/src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk
+    - code: 04afc48f28d22f38e8be840bb60974b3644c0bdd4eff35883a1e07904ab7d29c
+    - link "Android build steps →":
+      - /url: https://github.com/Dendro-X0/Obscur/blob/main/docs/program/obscur-v2-install-build-guide.md
+  - article:
+    - heading "iOS" [level=3]
+    - text: Not in scope
+    - paragraph: Not in v2.0.0 installer scope. No App Store or TestFlight claim on this site.
+  - paragraph: Verification
+  - heading "Checksums (1.9.10)" [level=2]
+  - paragraph:
+    - text: Verify downloads against
+    - link "release-assets/manifest.json":
+      - /url: https://github.com/Dendro-X0/Obscur/blob/main/release-assets/manifest.json
+    - text: . Copy the full SHA-256 before running any installer.
+  - article:
+    - paragraph: Obscur_1.9.10_x64-setup.exe
+    - paragraph: Windows · 8.6 MB · hosted in repo
+    - link "Download":
+      - /url: https://raw.githubusercontent.com/Dendro-X0/Obscur/main/release-assets/windows/Obscur_1.9.10_x64-setup.exe
+    - code: d814ab21c9b927644ec567c9e305bde482a53c1b1b9069b357aa10bdc990813f
+  - article:
+    - paragraph: app-universal-debug.apk
+    - paragraph: Android · 279.0 MB · local build output
+    - text: Build output
+    - code: 04afc48f28d22f38e8be840bb60974b3644c0bdd4eff35883a1e07904ab7d29c
+  - article:
+    - paragraph: Before you install
+    - heading "Read limitations so demos stay honest" [level=2]
+    - paragraph: Obscur is privacy-first desktop software with verified Phase 1 paths and documented gaps. Read the limitations sheet so demo hosts do not over-promise roster sync, restore, or delete-for-me behavior.
+    - link "Known limitations":
+      - /url: /limitations
+    - link "Back to product":
+      - /url: /
+- contentinfo:
+  - paragraph: Obscur ships with evidence-backed release notes, unsigned installers by default, and honest scope copy.
+  - link "Download":
+    - /url: /download
+  - link "Known limitations":
+    - /url: /limitations
+  - link "Signing policy":
+    - /url: https://github.com/Dendro-X0/Obscur/blob/main/docs/program/obscur-v2-phase3-signing-policy.md
+  - link "Build from source":
+    - /url: https://github.com/Dendro-X0/Obscur/blob/main/docs/program/obscur-v2-install-build-guide.md
+- alert

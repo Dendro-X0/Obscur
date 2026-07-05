@@ -1,0 +1,112 @@
+{
+  "schema": "perf.explore.diff@1.1.0",
+  "generatedAt": "2026-06-30T09:54:21.562280100+00:00",
+  "step": {
+    "schema": "perf.explore.diff@1.1.0",
+    "generatedAt": "2026-06-30T09:54:21.562280100+00:00",
+    "baseline": {
+      "exploreId": "72e08559-3d3b-e171-3c6c-6f17242b0349",
+      "graphHash": "sha256:bd9f7bb4d25f43b376242e1acdaf40c13df29cc7ffa016b8d36d946d7e9023e1",
+      "findingCount": 51,
+      "severityCounts": {
+        "red": 0,
+        "yellow": 39,
+        "info": 12
+      }
+    },
+    "current": {
+      "exploreId": "1c00357a-2dc6-e8d4-de60-fe39ae952afe",
+      "graphHash": "sha256:3a2d1dabc4fa6144f776aced6fa9040663d1d2098fc5a567175bc9295b8846df",
+      "findingCount": 51,
+      "severityCounts": {
+        "red": 0,
+        "yellow": 39,
+        "info": 12
+      }
+    },
+    "delta": {
+      "red": 0,
+      "yellow": 0,
+      "info": 0,
+      "total": 0
+    },
+    "resolvedFindingIds": [],
+    "newFindingIds": [],
+    "unchangedFindingIds": [
+      "perf:asset:oversized:apps/pwa/public/uploads/file-14c6d501-094a-4d6f-b6c3-e4db267f2c83.bin",
+      "perf:asset:oversized:apps/pwa/public/uploads/file-1b23a6e3-2d92-4c5b-aeaf-634a713d40c3.bin",
+      "perf:asset:oversized:apps/pwa/public/uploads/file-33ee6526-a9dc-4080-bfec-10e3460b0ab3.bin",
+      "perf:asset:oversized:apps/pwa/public/uploads/file-60a16582-2f54-4348-bf2f-f57e6e78c39e.bin",
+      "perf:asset:oversized:apps/pwa/public/uploads/file-6d3e2398-929c-478b-8181-eea08d71ede2.bin",
+      "perf:asset:oversized:apps/pwa/public/uploads/file-6e956cf3-3663-47f8-a507-a1c0195cbdfd.bin",
+      "perf:asset:oversized:apps/pwa/public/uploads/file-715bcbd9-3c5e-4cc0-bd00-b8f0a992c026.bin",
+      "perf:asset:oversized:apps/pwa/public/uploads/file-9a74e736-ef66-4cea-a722-98c03b2c2a78.bin",
+      "perf:asset:oversized:apps/pwa/public/uploads/file-c724392e-86c4-4b53-a5e1-329e1aa06b76.bin",
+      "perf:asset:oversized:apps/pwa/public/uploads/file-cebf6532-686e-4e59-a83f-640166fc961e.bin",
+      "perf:asset:raw-img:apps/pwa/app/components/avatar-upload.tsx",
+      "perf:asset:raw-img:apps/pwa/app/components/desktop/title-bar.tsx",
+      "perf:asset:raw-img:apps/pwa/app/features/network/components/group-card.tsx",
+      "perf:asset:raw-img:apps/pwa/app/features/security/components/identicon.tsx",
+      "perf:asset:raw-img:apps/pwa/app/features/vault/components/vault-media-grid.tsx",
+      "perf:asset:raw-img:apps/pwa/app/search/search-page-client.tsx",
+      "perf:import:barrel-penalty:apps/pwa/app/features/desktop/utils/index.ts",
+      "perf:import:barrel-penalty:apps/pwa/app/features/invites/utils/index.ts",
+      "perf:import:barrel-penalty:apps/pwa/app/features/messaging/services/thread-history/index.ts",
+      "perf:import:barrel-penalty:apps/pwa/app/features/workspace-kernel/index.ts",
+      "perf:import:barrel-penalty:packages/dweb-auth/src/index.ts",
+      "perf:import:barrel-penalty:packages/dweb-crdt/src/index.ts",
+      "perf:import:barrel-penalty:packages/obscur-conduit-mesh-contracts/src/index.ts",
+      "perf:import:barrel-penalty:packages/obscur-conduit-mesh-contracts/src/index.ts",
+      "perf:import:barrel-penalty:packages/obscur-conduit-mesh/src/index.ts",
+      "perf:import:barrel-penalty:packages/obscur-engine-host/src/index.ts",
+      "perf:import:barrel-penalty:packages/ui-kit/src/index.ts",
+      "perf:route:layout-client-fanout:apps/pwa/app/layout.tsx",
+      "perf:route:missing-loading-rollup:apps/pwa/app/groups",
+      "perf:route:missing-loading:apps/pwa/app/network/[pubkey]/page.tsx",
+      "perf:route:missing-loading:apps/pwa/app/network/profile/page.tsx",
+      "perf:stack:next:apps/pwa",
+      "perf:topology:architecture-layout:apps:pwa",
+      "perf:topology:critical-path-scope:apps:pwa",
+      "perf:topology:duplicate-dependency:@dweb/db",
+      "perf:topology:duplicate-dependency:@tauri-apps/api",
+      "perf:topology:duplicate-dependency:@types/node",
+      "perf:topology:duplicate-dependency:@types/react",
+      "perf:topology:duplicate-dependency:@types/react-dom",
+      "perf:topology:duplicate-dependency:lucide-react",
+      "perf:topology:duplicate-dependency:typescript",
+      "perf:topology:duplicate-dependency:vitest",
+      "perf:topology:shared-fanout:packages:db",
+      "perf:topology:shared-fanout:packages:dweb-auth",
+      "perf:topology:shared-fanout:packages:dweb-coordination-contracts",
+      "perf:topology:shared-fanout:packages:dweb-core",
+      "perf:topology:shared-fanout:packages:dweb-crypto",
+      "perf:topology:shared-fanout:packages:dweb-storage-contracts",
+      "perf:topology:shared-fanout:packages:dweb-transport-contracts",
+      "perf:topology:shared-fanout:packages:obscur-conduit-mesh-contracts",
+      "perf:topology:shared-fanout:packages:obscur-engine-contracts"
+    ],
+    "severityChanges": [],
+    "improved": false,
+    "verification": {
+      "status": "unchanged",
+      "resolvedCount": 0,
+      "severityImprovementCount": 0,
+      "partialCount": 0,
+      "metricImprovements": []
+    },
+    "bucketDelta": {
+      "navBlockers": {
+        "from": 15,
+        "to": 15
+      },
+      "actionItems": {
+        "from": 24,
+        "to": 24
+      },
+      "infoInventory": {
+        "from": 12,
+        "to": 12
+      }
+    }
+  }
+}

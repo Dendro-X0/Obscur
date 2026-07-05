@@ -1,0 +1,42 @@
+{
+  "schema": "codactrl.investigation.node@0.1.0",
+  "chainId": "chain-o2-cold-restart-phase1c-2026-07-04",
+  "nodeId": "n1-post-restart-hydrate",
+  "trigger": "Post-restart password unlock — O2-phase1c-coldrestart-070T0559 visible in Tester2 thread",
+  "at": "2026-07-04T05:04:14.586485+00:00",
+  "sessionId": "csess-9c729dc6d96b",
+  "digestRef": "fault-2e9ceb7a",
+  "screenshotRef": ".codectx/verify/client-sessions/csess-9c729dc6d96b/captures/cap-0e44f5aea39e/screenshot.png",
+  "signalsExtracted": [
+    "account_sync.backup_publish_attempt",
+    "account_sync.backup_publish_mutation_suppressed_restore_in_flight",
+    "account_sync.backup_publish_ordering",
+    "account_sync.backup_publish_result",
+    "groups.ledger_field_repair_applied",
+    "groups.membership_ledger_save",
+    "messaging.transport.sync_pass_complete",
+    "relay.transport_engine_pool_subscribe"
+  ],
+  "transportEvidence": [
+    {
+      "eventId": "0233e4f475442c26",
+      "plaintextPrefix": "{"
+    },
+    {
+      "eventId": "62e44490a4d06f36",
+      "plaintextPrefix": "{"
+    },
+    {
+      "eventId": "534d1b59ad9bcfd5",
+      "plaintextPrefix": "{"
+    },
+    {
+      "eventId": "57144386042917e3",
+      "plaintextPrefix": "{"
+    },
+    {
+      "eventId": "168d95740472995d",
+      "plaintextPrefix": "O2-phase1c-coldrestart-070T0559"
+    }
+  ]
+}

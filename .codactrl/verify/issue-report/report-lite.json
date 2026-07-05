@@ -1,0 +1,3139 @@
+{
+  "chains": {
+    "chainCount": 6,
+    "chains": [
+      {
+        "chainId": "chain-transport-soak-2026-07-02",
+        "nodeCount": 2,
+        "splitBrainObserved": false,
+        "status": "open",
+        "symptomClass": "relay-partial-stack-desktop-only",
+        "title": "Step 8 — RIW-5/O-3 transport soak with coordination up",
+        "updatedAt": "2026-07-04T14:15:19.336381900+00:00",
+        "verdict": "partial_accepted"
+      },
+      {
+        "chainId": "chain-dm-split-brain-2026-07-02",
+        "nodeCount": 9,
+        "splitBrainObserved": false,
+        "status": "open",
+        "symptomClass": "dm-ui-split-brain",
+        "title": "RIW-9 DM temporal UI chain — split-brain + history transient",
+        "updatedAt": "2026-07-04T14:15:19.325898200+00:00",
+        "verdict": "partial_accepted"
+      },
+      {
+        "chainId": "chain-o4-group-ingest-2026-07-02",
+        "nodeCount": 29,
+        "splitBrainObserved": false,
+        "status": "open",
+        "symptomClass": "group-thread-relay-ingest",
+        "title": "O-4 Step 7 — NewTest 2 group message relay round-trip",
+        "updatedAt": "2026-07-04T14:15:19.317045900+00:00",
+        "verdict": "partial_accepted"
+      },
+      {
+        "chainId": "chain-o2-cold-restart-phase1c-2026-07-04",
+        "nodeCount": 2,
+        "splitBrainObserved": false,
+        "status": "open",
+        "symptomClass": "dm-vanishes-cold-restart",
+        "title": "Phase 1C O-2 t4 re-verify post Phase 1B exit",
+        "updatedAt": "2026-07-04T14:15:19.274216700+00:00",
+        "verdict": "partial_accepted"
+      },
+      {
+        "chainId": "chain-com-run-11-phase1c-2026-07-04",
+        "nodeCount": 8,
+        "splitBrainObserved": false,
+        "status": "open",
+        "symptomClass": "invite-role-ecosystem",
+        "title": "Phase 1C COM-RUN-11 t4 dual-profile invite matrix",
+        "updatedAt": "2026-07-04T14:15:19.249734200+00:00",
+        "verdict": "partial_accepted"
+      },
+      {
+        "chainId": "chain-r1-room-key-health-2026-07-04",
+        "nodeCount": 1,
+        "splitBrainObserved": false,
+        "status": "open",
+        "symptomClass": "group-room-key-missing",
+        "title": "R1 room-key health aligned to send owner",
+        "updatedAt": "2026-07-04T14:15:19.242078200+00:00",
+        "verdict": "partial_accepted"
+      }
+    ],
+    "registryPath": ".codectx/verify/chains/registry.json",
+    "schema": "codactrl.investigation.chain.registry@0.1.0"
+  },
+  "counts": {
+    "chains": 6,
+    "faults": 87,
+    "issues": 35,
+    "mcpAuditEntries": 500
+  },
+  "exportedAt": "2026-07-04T14:15:18.761862900+00:00",
+  "faultStubs": [
+    {
+      "artifactPath": ".codectx/verify/faults/fault-d91cd690.json",
+      "faultId": "fault-d91cd690",
+      "signalsExtract": [
+        {
+          "detail": "count=117",
+          "name": "groups.ledger_migration_needed"
+        },
+        {
+          "detail": "count=117",
+          "name": "groups.ledger_validation_issues"
+        },
+        {
+          "detail": "count=9",
+          "name": "relay.transport_engine_pool_subscribe"
+        },
+        {
+          "detail": "count=6",
+          "name": "messaging.conversation_list_authority_selected"
+        },
+        {
+          "detail": "count=6",
+          "name": "network.peer_trust_read_authority_selected"
+        }
+      ],
+      "symptomIds": [
+        "groups-ledger-validation"
+      ],
+      "title": "groups.ledger_migration_needed — count=117"
+    },
+    {
+      "artifactPath": ".codectx/verify/faults/fault-317657e4.json",
+      "faultId": "fault-317657e4",
+      "signalsExtract": [
+        {
+          "detail": "count=111",
+          "name": "groups.ledger_validation_issues"
+        },
+        {
+          "detail": "count=110",
+          "name": "groups.ledger_migration_needed"
+        },
+        {
+          "detail": "count=8",
+          "name": "messaging.conversation_list_authority_selected"
+        },
+        {
+          "detail": "count=8",
+          "name": "network.peer_trust_read_authority_selected"
+        },
+        {
+          "detail": "count=6",
+          "name": "account_sync.backup_publish_mutation_suppressed_restore_in_flight"
+        }
+      ],
+      "symptomIds": [
+        "groups-ledger-validation"
+      ],
+      "title": "groups.ledger_validation_issues — count=111"
+    },
+    {
+      "artifactPath": ".codectx/verify/faults/fault-4a171a35.json",
+      "faultId": "fault-4a171a35",
+      "signalsExtract": [
+        {
+          "detail": "count=137",
+          "name": "groups.ledger_migration_needed"
+        },
+        {
+          "detail": "count=137",
+          "name": "groups.ledger_validation_issues"
+        },
+        {
+          "detail": "count=2",
+          "name": "messaging.conversation_list_authority_selected"
+        },
+        {
+          "detail": "count=2",
+          "name": "network.peer_trust_read_authority_selected"
+        },
+        {
+          "detail": "count=2",
+          "name": "relay.transport_engine_pool_subscribe"
+        }
+      ],
+      "symptomIds": [
+        "groups-ledger-validation"
+      ],
+      "title": "groups.ledger_migration_needed — count=137"
+    },
+    {
+      "artifactPath": ".codectx/verify/faults/fault-fc0c8590.json",
+      "faultId": "fault-fc0c8590",
+      "signalsExtract": [
+        {
+          "detail": "count=123",
+          "name": "groups.ledger_validation_issues"
+        },
+        {
+          "detail": "count=122",
+          "name": "groups.ledger_migration_needed"
+        },
+        {
+          "detail": "count=6",
+          "name": "relay.transport_engine_pool_subscribe"
+        },
+        {
+          "detail": "count=4",
+          "name": "messaging.conversation_list_authority_selected"
+        },
+        {
+          "detail": "count=4",
+          "name": "network.peer_trust_read_authority_selected"
+        }
+      ],
+      "symptomIds": [
+        "groups-ledger-validation",
+        "group-room-key-missing"
+      ],
+      "title": "groups.ledger_validation_issues — count=123"
+    },
+    {
+      "artifactPath": ".codectx/verify/faults/fault-bf3a84e1.json",
+      "faultId": "fault-bf3a84e1",
+      "signalsExtract": [
+        {
+          "detail": "count=101",
+          "name": "groups.ledger_migration_needed"
+        },
+        {
+          "detail": "count=101",
+          "name": "groups.ledger_validation_issues"
+        },
+        {
+          "detail": "count=34",
+          "name": "messaging.delete_for_everyone_remote_result"
+        },
+        {
+          "detail": "count=8",
+          "name": "relay.transport_engine_pool_subscribe"
+        },
+        {
+          "detail": "count=6",
+          "name": "messaging.conversation_list_authority_selected"
+        }
+      ],
+      "symptomIds": [
+        "groups-ledger-validation"
+      ],
+      "title": "groups.ledger_migration_needed — count=101"
+    },
+    {
+      "artifactPath": ".codectx/verify/faults/fault-1285de34.json",
+      "faultId": "fault-1285de34",
+      "signalsExtract": [
+        {
+          "detail": "count=94",
+          "name": "groups.ledger_migration_needed"
+        },
+        {
+          "detail": "count=94",
+          "name": "groups.ledger_validation_issues"
+        },
+        {
+          "detail": "count=50",
+          "name": "workspace.thread.hydrate"
+        },
+        {
+          "detail": "count=18",
+          "name": "messaging.delete_for_everyone_remote_result"
+        },
+        {
+          "detail": "count=6",
+          "name": "account_sync.backup_publish_attempt"
+        }
+      ],
+      "symptomIds": [
+        "groups-ledger-validation"
+      ],
+      "title": "groups.ledger_migration_needed — count=94"
+    },
+    {
+      "artifactPath": ".codectx/verify/faults/fault-1a2cb746.json",
+      "faultId": "fault-1a2cb746",
+      "signalsExtract": [
+        {
+          "detail": "count=122",
+          "name": "groups.ledger_migration_needed"
+        },
+        {
+          "detail": "count=122",
+          "name": "groups.ledger_validation_issues"
+        },
+        {
+          "detail": "count=10",
+          "name": "workspace.thread.hydrate"
+        },
+        {
+          "detail": "count=4",
+          "name": "account_sync.backup_publish_ordering"
+        },
+        {
+          "detail": "count=4",
+          "name": "account_sync.backup_publish_result"
+        }
+      ],
+      "symptomIds": [
+        "groups-ledger-validation"
+      ],
+      "title": "groups.ledger_migration_needed — count=122"
+    },
+    {
+      "artifactPath": ".codectx/verify/faults/fault-7f9100c4.json",
+      "faultId": "fault-7f9100c4",
+      "signalsExtract": [
+        {
+          "detail": "count=118",
+          "name": "groups.ledger_validation_issues"
+        },
+        {
+          "detail": "count=117",
+          "name": "groups.ledger_migration_needed"
+        },
+        {
+          "detail": "count=12",
+          "name": "workspace.thread.hydrate"
+        },
+        {
+          "detail": "count=5",
+          "name": "messaging.conversation_list_authority_selected"
+        },
+        {
+          "detail": "count=5",
+          "name": "network.peer_trust_read_authority_selected"
+        }
+      ],
+      "symptomIds": [
+        "groups-ledger-validation"
+      ],
+      "title": "groups.ledger_validation_issues — count=118"
+    },
+    {
+      "artifactPath": ".codectx/verify/faults/fault-f9cb9bcd.json",
+      "faultId": "fault-f9cb9bcd",
+      "signalsExtract": [
+        {
+          "detail": "count=127",
+          "name": "groups.ledger_validation_issues"
+        },
+        {
+          "detail": "count=126",
+          "name": "groups.ledger_migration_needed"
+        },
+        {
+          "detail": "count=12",
+          "name": "workspace.thread.hydrate"
+        },
+        {
+          "detail": "count=3",
+          "name": "account_sync.backup_publish_attempt"
+        },
+        {
+          "detail": "count=3",
+          "name": "account_sync.backup_publish_ordering"
+        }
+      ],
+      "symptomIds": [
+        "groups-ledger-validation",
+        "group-room-key-missing"
+      ],
+      "title": "groups.ledger_validation_issues — count=127"
+    },
+    {
+      "artifactPath": ".codectx/verify/faults/fault-d3266449.json",
+      "faultId": "fault-d3266449",
+      "signalsExtract": [
+        {
+          "detail": "count=109",
+          "name": "workspace.thread.hydrate"
+        },
+        {
+          "detail": "count=105",
+          "name": "messaging.delete_for_everyone_remote_result"
+        },
+        {
+          "detail": "count=16",
+          "name": "account_sync.backup_publish_mutation_suppressed_restore_in_flight"
+        },
+        {
+          "detail": "count=12",
+          "name": "relay.transport_engine_pool_subscribe"
+        },
+        {
+          "detail": "count=8",
+          "name": "groups.ledger_migration_needed"
+        }
+      ],
+      "symptomIds": [
+        "groups-ledger-validation"
+      ],
+      "title": "workspace.thread.hydrate — count=109"
+    },
+    {
+      "artifactPath": ".codectx/verify/faults/fault-aca31c9d.json",
+      "faultId": "fault-aca31c9d",
+      "signalsExtract": [
+        {
+          "detail": "count=120",
+          "name": "workspace.thread.hydrate"
+        },
+        {
+          "detail": "count=81",
+          "name": "messaging.delete_for_everyone_remote_result"
+        },
+        {
+          "detail": "count=26",
+          "name": "account_sync.backup_publish_mutation_suppressed_restore_in_flight"
+        },
+        {
+          "detail": "count=13",
+          "name": "relay.transport_engine_pool_subscribe"
+        },
+        {
+          "detail": "count=7",
+          "name": "messaging.conversation_list_authority_selected"
+        }
+      ],
+      "symptomIds": [
+        "groups-ledger-validation"
+      ],
+      "title": "workspace.thread.hydrate — count=120"
+    },
+    {
+      "artifactPath": ".codectx/verify/faults/fault-4720432c.json",
+      "faultId": "fault-4720432c",
+      "signalsExtract": [
+        {
+          "detail": "count=63",
+          "name": "groups.ledger_migration_needed"
+        },
+        {
+          "detail": "count=63",
+          "name": "groups.ledger_validation_issues"
+        },
+        {
+          "detail": "count=27",
+          "name": "workspace.thread.hydrate"
+        },
+        {
+          "detail": "count=15",
+          "name": "messaging.conversation_list_authority_selected"
+        },
+        {
+          "detail": "count=15",
+          "name": "network.peer_trust_read_authority_selected"
+        }
+      ],
+      "symptomIds": [
+        "groups-ledger-validation"
+      ],
+      "title": "groups.ledger_migration_needed — count=63"
+    },
+    {
+      "artifactPath": ".codectx/verify/faults/fault-5100471d.json",
+      "faultId": "fault-5100471d",
+      "signalsExtract": [
+        {
+          "detail": "count=51",
+          "name": "groups.ledger_migration_needed"
+        },
+        {
+          "detail": "count=51",
+          "name": "groups.ledger_validation_issues"
+        },
+        {
+          "detail": "count=48",
+          "name": "messaging.delete_for_everyone_remote_result"
+        },
+        {
+          "detail": "count=18",
+          "name": "relay.transport_engine_pool_subscribe"
+        },
+        {
+          "detail": "count=14",
+          "name": "messaging.conversation_list_authority_selected"
+        }
+      ],
+      "symptomIds": [
+        "groups-ledger-validation"
+      ],
+      "title": "groups.ledger_migration_needed — count=51"
+    },
+    {
+      "artifactPath": ".codectx/verify/faults/fault-bfbf96a4.json",
+      "faultId": "fault-bfbf96a4",
+      "signalsExtract": [
+        {
+          "detail": "count=85",
+          "name": "groups.ledger_migration_needed"
+        },
+        {
+          "detail": "count=85",
+          "name": "groups.ledger_validation_issues"
+        },
+        {
+          "detail": "count=35",
+          "name": "messaging.delete_for_everyone_remote_result"
+        },
+        {
+          "detail": "count=25",
+          "name": "relay.transport_engine_pool_subscribe"
+        },
+        {
+          "detail": "count=10",
+          "name": "messaging.conversation_list_authority_selected"
+        }
+      ],
+      "symptomIds": [
+        "groups-ledger-validation"
+      ],
+      "title": "groups.ledger_migration_needed — count=85"
+    },
+    {
+      "artifactPath": ".codectx/verify/faults/fault-a017a981.json",
+      "faultId": "fault-a017a981",
+      "signalsExtract": [
+        {
+          "detail": "count=42",
+          "name": "groups.ledger_migration_needed"
+        },
+        {
+          "detail": "count=42",
+          "name": "groups.ledger_validation_issues"
+        },
+        {
+          "detail": "count=26",
+          "name": "network.peer_trust_read_authority_selected"
+        },
+        {
+          "detail": "count=25",
+          "name": "messaging.conversation_list_authority_selected"
+        },
+        {
+          "detail": "count=13",
+          "name": "account_projection.replay_complete"
+        }
+      ],
+      "symptomIds": [
+        "groups-ledger-validation"
+      ],
+      "title": "groups.ledger_migration_needed — count=42"
+    },
+    {
+      "artifactPath": ".codectx/verify/faults/fault-cebc13ad.json",
+      "faultId": "fault-cebc13ad",
+      "signalsExtract": [
+        {
+          "detail": "count=42",
+          "name": "groups.ledger_migration_needed"
+        },
+        {
+          "detail": "count=42",
+          "name": "groups.ledger_validation_issues"
+        },
+        {
+          "detail": "count=26",
+          "name": "network.peer_trust_read_authority_selected"
+        },
+        {
+          "detail": "count=25",
+          "name": "messaging.conversation_list_authority_selected"
+        },
+        {
+          "detail": "count=13",
+          "name": "account_projection.replay_complete"
+        }
+      ],
+      "symptomIds": [
+        "groups-ledger-validation"
+      ],
+      "title": "groups.ledger_migration_needed — count=42"
+    },
+    {
+      "artifactPath": ".codectx/verify/faults/fault-0dd352c0.json",
+      "faultId": "fault-0dd352c0",
+      "signalsExtract": [
+        {
+          "detail": "count=80",
+          "name": "groups.ledger_migration_needed"
+        },
+        {
+          "detail": "count=80",
+          "name": "groups.ledger_validation_issues"
+        },
+        {
+          "detail": "count=28",
+          "name": "relay.transport_engine_pool_subscribe"
+        },
+        {
+          "detail": "count=26",
+          "name": "messaging.delete_for_everyone_remote_result"
+        },
+        {
+          "detail": "count=11",
+          "name": "account_sync.backup_publish_mutation_deferred_until_ready"
+        }
+      ],
+      "symptomIds": [
+        "groups-ledger-validation"
+      ],
+      "title": "groups.ledger_migration_needed — count=80"
+    },
+    {
+      "artifactPath": ".codectx/verify/faults/fault-fc9c865f.json",
+      "faultId": "fault-fc9c865f",
+      "signalsExtract": [
+        {
+          "detail": "count=50",
+          "name": "messaging.delete_for_everyone_remote_result"
+        },
+        {
+          "detail": "count=46",
+          "name": "groups.ledger_migration_needed"
+        },
+        {
+          "detail": "count=46",
+          "name": "groups.ledger_validation_issues"
+        },
+        {
+          "detail": "count=16",
+          "name": "account_sync.backup_publish_mutation_deferred_until_ready"
+        },
+        {
+          "detail": "count=12",
+          "name": "relay.transport_engine_pool_subscribe"
+        }
+      ],
+      "symptomIds": [
+        "groups-ledger-validation"
+      ],
+      "title": "messaging.delete_for_everyone_remote_result — count=50"
+    },
+    {
+      "artifactPath": ".codectx/verify/faults/fault-1df0fe98.json",
+      "faultId": "fault-1df0fe98",
+      "signalsExtract": [
+        {
+          "detail": "count=67",
+          "name": "relay.transport_engine_pool_subscribe"
+        },
+        {
+          "detail": "count=55",
+          "name": "workspace.thread.hydrate"
+        },
+        {
+          "detail": "count=36",
+          "name": "groups.ledger_migration_needed"
+        },
+        {
+          "detail": "count=36",
+          "name": "groups.ledger_validation_issues"
+        },
+        {
+          "detail": "count=18",
+          "name": "messaging.delete_for_everyone_remote_result"
+        }
+      ],
+      "symptomIds": [
+        "groups-ledger-validation"
+      ],
+      "title": "relay.transport_engine_pool_subscribe — count=67"
+    },
+    {
+      "artifactPath": ".codectx/verify/faults/fault-c2485378.json",
+      "faultId": "fault-c2485378",
+      "signalsExtract": [
+        {
+          "detail": "count=84",
+          "name": "workspace.thread.hydrate"
+        },
+        {
+          "detail": "count=65",
+          "name": "groups.ledger_migration_needed"
+        },
+        {
+          "detail": "count=65",
+          "name": "groups.ledger_validation_issues"
+        },
+        {
+          "detail": "count=32",
+          "name": "relay.transport_engine_pool_subscribe"
+        },
+        {
+          "detail": "count=18",
+          "name": "messaging.delete_for_everyone_remote_result"
+        }
+      ],
+      "symptomIds": [
+        "groups-ledger-validation"
+      ],
+      "title": "workspace.thread.hydrate — count=84"
+    },
+    {
+      "artifactPath": ".codectx/verify/faults/fault-52dd9177.json",
+      "faultId": "fault-52dd9177",
+      "signalsExtract": [
+        {
+          "detail": "count=95",
+          "name": "messaging.delete_for_everyone_remote_result"
+        },
+        {
+          "detail": "count=48",
+          "name": "workspace.thread.hydrate"
+        },
+        {
+          "detail": "count=41",
+          "name": "groups.ledger_migration_needed"
+        },
+        {
+          "detail": "count=41",
+          "name": "groups.ledger_validation_issues"
+        },
+        {
+          "detail": "count=7",
+          "name": "messaging.conversation_list_authority_selected"
+        }
+      ],
+      "symptomIds": [
+        "groups-ledger-validation"
+      ],
+      "title": "messaging.delete_for_everyone_remote_result — count=95"
+    },
+    {
+      "artifactPath": ".codectx/verify/faults/fault-a8d78552.json",
+      "faultId": "fault-a8d78552",
+      "signalsExtract": [
+        {
+          "detail": "count=63",
+          "name": "groups.ledger_migration_needed"
+        },
+        {
+          "detail": "count=63",
+          "name": "groups.ledger_validation_issues"
+        },
+        {
+          "detail": "count=61",
+          "name": "workspace.thread.hydrate"
+        },
+        {
+          "detail": "count=26",
+          "name": "account_sync.backup_publish_mutation_suppressed_restore_in_flight"
+        },
+        {
+          "detail": "count=22",
+          "name": "messaging.delete_for_everyone_remote_result"
+        }
+      ],
+      "symptomIds": [
+        "groups-ledger-validation"
+      ],
+      "title": "groups.ledger_migration_needed — count=63"
+    },
+    {
+      "artifactPath": ".codectx/verify/faults/fault-0f46250f.json",
+      "faultId": "fault-0f46250f",
+      "signalsExtract": [
+        {
+          "detail": "count=136",
+          "name": "messaging.delete_for_everyone_remote_result"
+        },
+        {
+          "detail": "count=42",
+          "name": "messaging.dm_normalize_is_outgoing_mismatch"
+        },
+        {
+          "detail": "count=33",
+          "name": "groups.ledger_validation_issues"
+        },
+        {
+          "detail": "count=15",
+          "name": "account_projection.append_events"
+        },
+        {
+          "detail": "count=14",
+          "name": "messaging.conversation_list_authority_selected"
+        }
+      ],
+      "symptomIds": [
+        "dm-normalize-is-outgoing-mismatch",
+        "groups-ledger-validation"
+      ],
+      "title": "messaging.delete_for_everyone_remote_result — count=136"
+    },
+    {
+      "artifactPath": ".codectx/verify/faults/fault-b72efd02.json",
+      "faultId": "fault-b72efd02",
+      "signalsExtract": [
+        {
+          "detail": "count=94",
+          "name": "messaging.delete_for_everyone_remote_result"
+        },
+        {
+          "detail": "count=47",
+          "name": "groups.ledger_validation_issues"
+        },
+        {
+          "detail": "count=46",
+          "name": "groups.ledger_migration_needed"
+        },
+        {
+          "detail": "count=22",
+          "name": "relay.transport_engine_pool_subscribe"
+        },
+        {
+          "detail": "count=13",
+          "name": "messaging.conversation_list_authority_selected"
+        }
+      ],
+      "symptomIds": [
+        "groups-ledger-validation"
+      ],
+      "title": "messaging.delete_for_everyone_remote_result — count=94"
+    },
+    {
+      "artifactPath": ".codectx/verify/faults/fault-da76af2d.json",
+      "faultId": "fault-da76af2d",
+      "signalsExtract": [
+        {
+          "detail": "count=36",
+          "name": "groups.ledger_migration_needed"
+        },
+        {
+          "detail": "count=36",
+          "name": "groups.ledger_validation_issues"
+        },
+        {
+          "detail": "count=23",
+          "name": "network.peer_trust_read_authority_selected"
+        },
+        {
+          "detail": "count=22",
+          "name": "messaging.conversation_list_authority_selected"
+        },
+        {
+          "detail": "count=21",
+          "name": "workspace.thread.hydrate"
+        }
+      ],
+      "symptomIds": [
+        "groups-ledger-validation"
+      ],
+      "title": "groups.ledger_migration_needed — count=36"
+    },
+    {
+      "artifactPath": ".codectx/verify/faults/fault-d730591d.json",
+      "faultId": "fault-d730591d",
+      "signalsExtract": [
+        {
+          "detail": "count=107",
+          "name": "messaging.delete_for_everyone_remote_result"
+        },
+        {
+          "detail": "count=93",
+          "name": "workspace.thread.hydrate"
+        },
+        {
+          "detail": "count=11",
+          "name": "relay.transport_engine_pool_subscribe"
+        },
+        {
+          "detail": "count=10",
+          "name": "account_sync.backup_publish_mutation_suppressed_restore_in_flight"
+        },
+        {
+          "detail": "count=9",
+          "name": "messaging.conversation_list_authority_selected"
+        }
+      ],
+      "symptomIds": [
+        "groups-ledger-validation"
+      ],
+      "title": "messaging.delete_for_everyone_remote_result — count=107"
+    },
+    {
+      "artifactPath": ".codectx/verify/faults/fault-78374bee.json",
+      "faultId": "fault-78374bee",
+      "signalsExtract": [
+        {
+          "detail": "count=40",
+          "name": "workspace.thread.hydrate"
+        },
+        {
+          "detail": "count=38",
+          "name": "messaging.dm_normalize_is_outgoing_mismatch"
+        },
+        {
+          "detail": "count=37",
+          "name": "groups.ledger_migration_needed"
+        },
+        {
+          "detail": "count=37",
+          "name": "groups.ledger_validation_issues"
+        },
+        {
+          "detail": "count=17",
+          "name": "messaging.conversation_list_authority_selected"
+        }
+      ],
+      "symptomIds": [
+        "dm-normalize-is-outgoing-mismatch",
+        "groups-ledger-validation"
+      ],
+      "title": "workspace.thread.hydrate — count=40"
+    },
+    {
+      "artifactPath": ".codectx/verify/faults/fault-91576178.json",
+      "faultId": "fault-91576178",
+      "signalsExtract": [
+        {
+          "detail": "count=149",
+          "name": "messaging.delete_for_everyone_remote_result"
+        },
+        {
+          "detail": "count=25",
+          "name": "groups.ledger_validation_issues"
+        },
+        {
+          "detail": "count=24",
+          "name": "messaging.conversation_list_authority_selected"
+        },
+        {
+          "detail": "count=19",
+          "name": "network.peer_trust_read_authority_selected"
+        },
+        {
+          "detail": "count=16",
+          "name": "account_projection.append_events"
+        }
+      ],
+      "symptomIds": [
+        "groups-ledger-validation"
+      ],
+      "title": "messaging.delete_for_everyone_remote_result — count=149"
+    },
+    {
+      "artifactPath": ".codectx/verify/faults/fault-c4a2d149.json",
+      "faultId": "fault-c4a2d149",
+      "signalsExtract": [
+        {
+          "detail": "count=40",
+          "name": "workspace.thread.hydrate"
+        },
+        {
+          "detail": "count=38",
+          "name": "messaging.dm_normalize_is_outgoing_mismatch"
+        },
+        {
+          "detail": "count=37",
+          "name": "groups.ledger_migration_needed"
+        },
+        {
+          "detail": "count=37",
+          "name": "groups.ledger_validation_issues"
+        },
+        {
+          "detail": "count=17",
+          "name": "messaging.conversation_list_authority_selected"
+        }
+      ],
+      "symptomIds": [
+        "dm-normalize-is-outgoing-mismatch",
+        "groups-ledger-validation"
+      ],
+      "title": "workspace.thread.hydrate — count=40"
+    },
+    {
+      "artifactPath": ".codectx/verify/faults/fault-32b01a0e.json",
+      "faultId": "fault-32b01a0e",
+      "signalsExtract": [
+        {
+          "detail": "count=97",
+          "name": "groups.ledger_migration_needed"
+        },
+        {
+          "detail": "count=97",
+          "name": "groups.ledger_validation_issues"
+        },
+        {
+          "detail": "count=40",
+          "name": "messaging.dm_normalize_is_outgoing_mismatch"
+        },
+        {
+          "detail": "count=13",
+          "name": "workspace.thread.hydrate"
+        },
+        {
+          "detail": "count=10",
+          "name": "messaging.delete_for_everyone_remote_result"
+        }
+      ],
+      "symptomIds": [
+        "groups-ledger-validation",
+        "dm-normalize-is-outgoing-mismatch"
+      ],
+      "title": "groups.ledger_migration_needed — count=97"
+    },
+    {
+      "artifactPath": ".codectx/verify/faults/fault-a1b215ab.json",
+      "faultId": "fault-a1b215ab",
+      "signalsExtract": [
+        {
+          "detail": "count=145",
+          "name": "messaging.delete_for_everyone_remote_result"
+        },
+        {
+          "detail": "count=54",
+          "name": "groups.ledger_validation_issues"
+        },
+        {
+          "detail": "count=22",
+          "name": "messaging.conversation_list_authority_selected"
+        },
+        {
+          "detail": "count=17",
+          "name": "network.peer_trust_read_authority_selected"
+        },
+        {
+          "detail": "count=9",
+          "name": "account_projection.replay_complete"
+        }
+      ],
+      "symptomIds": [
+        "groups-ledger-validation"
+      ],
+      "title": "messaging.delete_for_everyone_remote_result — count=145"
+    },
+    {
+      "artifactPath": ".codectx/verify/faults/fault-83e3683e.json",
+      "faultId": "fault-83e3683e",
+      "signalsExtract": [
+        {
+          "detail": "count=97",
+          "name": "groups.ledger_migration_needed"
+        },
+        {
+          "detail": "count=97",
+          "name": "groups.ledger_validation_issues"
+        },
+        {
+          "detail": "count=40",
+          "name": "messaging.dm_normalize_is_outgoing_mismatch"
+        },
+        {
+          "detail": "count=13",
+          "name": "workspace.thread.hydrate"
+        },
+        {
+          "detail": "count=10",
+          "name": "messaging.delete_for_everyone_remote_result"
+        }
+      ],
+      "symptomIds": [
+        "groups-ledger-validation",
+        "dm-normalize-is-outgoing-mismatch"
+      ],
+      "title": "groups.ledger_migration_needed — count=97"
+    },
+    {
+      "artifactPath": ".codectx/verify/faults/fault-4a0f5a41.json",
+      "faultId": "fault-4a0f5a41",
+      "signalsExtract": [
+        {
+          "detail": "count=97",
+          "name": "groups.ledger_migration_needed"
+        },
+        {
+          "detail": "count=97",
+          "name": "groups.ledger_validation_issues"
+        },
+        {
+          "detail": "count=40",
+          "name": "messaging.dm_normalize_is_outgoing_mismatch"
+        },
+        {
+          "detail": "count=13",
+          "name": "workspace.thread.hydrate"
+        },
+        {
+          "detail": "count=10",
+          "name": "messaging.delete_for_everyone_remote_result"
+        }
+      ],
+      "symptomIds": [
+        "groups-ledger-validation",
+        "dm-normalize-is-outgoing-mismatch"
+      ],
+      "title": "groups.ledger_migration_needed — count=97"
+    },
+    {
+      "artifactPath": ".codectx/verify/faults/fault-887ce425.json",
+      "faultId": "fault-887ce425",
+      "signalsExtract": [
+        {
+          "detail": "count=87",
+          "name": "messaging.delete_for_everyone_remote_result"
+        },
+        {
+          "detail": "count=60",
+          "name": "groups.ledger_validation_issues"
+        },
+        {
+          "detail": "count=24",
+          "name": "messaging.conversation_list_authority_selected"
+        },
+        {
+          "detail": "count=20",
+          "name": "network.peer_trust_read_authority_selected"
+        },
+        {
+          "detail": "count=11",
+          "name": "account_sync.backup_restore_selection"
+        }
+      ],
+      "symptomIds": [
+        "groups-ledger-validation"
+      ],
+      "title": "messaging.delete_for_everyone_remote_result — count=87"
+    },
+    {
+      "artifactPath": ".codectx/verify/faults/fault-5e069e8a.json",
+      "faultId": "fault-5e069e8a",
+      "signalsExtract": [
+        {
+          "detail": "count=113",
+          "name": "groups.ledger_migration_needed"
+        },
+        {
+          "detail": "count=113",
+          "name": "groups.ledger_validation_issues"
+        },
+        {
+          "detail": "count=9",
+          "name": "workspace.thread.hydrate"
+        },
+        {
+          "detail": "count=6",
+          "name": "messaging.conversation_list_authority_selected"
+        },
+        {
+          "detail": "count=6",
+          "name": "network.peer_trust_read_authority_selected"
+        }
+      ],
+      "symptomIds": [
+        "groups-ledger-validation"
+      ],
+      "title": "groups.ledger_migration_needed — count=113"
+    },
+    {
+      "artifactPath": ".codectx/verify/faults/fault-e91b9aa7.json",
+      "faultId": "fault-e91b9aa7",
+      "signalsExtract": [
+        {
+          "detail": "count=118",
+          "name": "groups.ledger_migration_needed"
+        },
+        {
+          "detail": "count=118",
+          "name": "groups.ledger_validation_issues"
+        },
+        {
+          "detail": "count=7",
+          "name": "workspace.thread.hydrate"
+        },
+        {
+          "detail": "count=4",
+          "name": "account_sync.backup_publish_attempt"
+        },
+        {
+          "detail": "count=4",
+          "name": "account_sync.backup_publish_ordering"
+        }
+      ],
+      "symptomIds": [
+        "groups-ledger-validation"
+      ],
+      "title": "groups.ledger_migration_needed — count=118"
+    },
+    {
+      "artifactPath": ".codectx/verify/faults/fault-aeac8782.json",
+      "faultId": "fault-aeac8782",
+      "signalsExtract": [
+        {
+          "detail": "count=87",
+          "name": "messaging.delete_for_everyone_remote_result"
+        },
+        {
+          "detail": "count=60",
+          "name": "groups.ledger_validation_issues"
+        },
+        {
+          "detail": "count=24",
+          "name": "messaging.conversation_list_authority_selected"
+        },
+        {
+          "detail": "count=20",
+          "name": "network.peer_trust_read_authority_selected"
+        },
+        {
+          "detail": "count=11",
+          "name": "account_sync.backup_restore_selection"
+        }
+      ],
+      "symptomIds": [
+        "groups-ledger-validation"
+      ],
+      "title": "messaging.delete_for_everyone_remote_result — count=87"
+    },
+    {
+      "artifactPath": ".codectx/verify/faults/fault-d65998e5.json",
+      "faultId": "fault-d65998e5",
+      "signalsExtract": [
+        {
+          "detail": "count=169",
+          "name": "messaging.delete_for_everyone_remote_result"
+        },
+        {
+          "detail": "count=18",
+          "name": "groups.ledger_validation_issues"
+        },
+        {
+          "detail": "count=11",
+          "name": "messaging.conversation_list_authority_selected"
+        },
+        {
+          "detail": "count=11",
+          "name": "network.peer_trust_read_authority_selected"
+        },
+        {
+          "detail": "count=10",
+          "name": "desktop_warmup_progress"
+        }
+      ],
+      "symptomIds": [
+        "groups-ledger-validation"
+      ],
+      "title": "messaging.delete_for_everyone_remote_result — count=169"
+    },
+    {
+      "artifactPath": ".codectx/verify/faults/fault-470056bf.json",
+      "faultId": "fault-470056bf",
+      "signalsExtract": [
+        {
+          "detail": "count=213",
+          "name": "messaging.delete_for_everyone_remote_result"
+        },
+        {
+          "detail": "count=15",
+          "name": "groups.ledger_validation_issues"
+        },
+        {
+          "detail": "count=14",
+          "name": "account_projection.append_events"
+        },
+        {
+          "detail": "count=8",
+          "name": "desktop_warmup_progress"
+        },
+        {
+          "detail": "count=8",
+          "name": "messaging.conversation_list_authority_selected"
+        }
+      ],
+      "symptomIds": [
+        "groups-ledger-validation"
+      ],
+      "title": "messaging.delete_for_everyone_remote_result — count=213"
+    },
+    {
+      "artifactPath": ".codectx/verify/faults/fault-4ae5509f.json",
+      "faultId": "fault-4ae5509f",
+      "signalsExtract": [
+        {
+          "detail": "count=174",
+          "name": "messaging.delete_for_everyone_remote_result"
+        },
+        {
+          "detail": "count=34",
+          "name": "messaging.dm_normalize_is_outgoing_mismatch"
+        },
+        {
+          "detail": "count=18",
+          "name": "groups.ledger_validation_issues"
+        },
+        {
+          "detail": "count=10",
+          "name": "account_projection.append_events"
+        },
+        {
+          "detail": "count=9",
+          "name": "messaging.conversation_list_authority_selected"
+        }
+      ],
+      "symptomIds": [
+        "dm-normalize-is-outgoing-mismatch",
+        "groups-ledger-validation"
+      ],
+      "title": "messaging.delete_for_everyone_remote_result — count=174"
+    },
+    {
+      "artifactPath": ".codectx/verify/faults/fault-0d2c0823.json",
+      "faultId": "fault-0d2c0823",
+      "signalsExtract": [
+        {
+          "detail": "count=174",
+          "name": "messaging.delete_for_everyone_remote_result"
+        },
+        {
+          "detail": "count=21",
+          "name": "groups.ledger_validation_issues"
+        },
+        {
+          "detail": "count=11",
+          "name": "messaging.dm_normalize_is_outgoing_mismatch"
+        },
+        {
+          "detail": "count=11",
+          "name": "messaging.conversation_list_authority_selected"
+        },
+        {
+          "detail": "count=11",
+          "name": "network.peer_trust_read_authority_selected"
+        }
+      ],
+      "symptomIds": [
+        "groups-ledger-validation",
+        "dm-normalize-is-outgoing-mismatch"
+      ],
+      "title": "messaging.delete_for_everyone_remote_result — count=174"
+    },
+    {
+      "artifactPath": ".codectx/verify/faults/fault-55a11699.json",
+      "faultId": "fault-55a11699",
+      "signalsExtract": [
+        {
+          "detail": "count=158",
+          "name": "messaging.delete_for_everyone_remote_result"
+        },
+        {
+          "detail": "count=40",
+          "name": "messaging.dm_normalize_is_outgoing_mismatch"
+        },
+        {
+          "detail": "count=38",
+          "name": "groups.ledger_validation_issues"
+        },
+        {
+          "detail": "count=10",
+          "name": "desktop_warmup_progress"
+        },
+        {
+          "detail": "count=8",
+          "name": "account_projection.append_events"
+        }
+      ],
+      "symptomIds": [
+        "dm-normalize-is-outgoing-mismatch",
+        "groups-ledger-validation"
+      ],
+      "title": "messaging.delete_for_everyone_remote_result — count=158"
+    },
+    {
+      "artifactPath": ".codectx/verify/faults/fault-8080269f.json",
+      "faultId": "fault-8080269f",
+      "signalsExtract": [
+        {
+          "detail": "count=157",
+          "name": "messaging.delete_for_everyone_remote_result"
+        },
+        {
+          "detail": "count=38",
+          "name": "messaging.dm_normalize_is_outgoing_mismatch"
+        },
+        {
+          "detail": "count=20",
+          "name": "groups.ledger_validation_issues"
+        },
+        {
+          "detail": "count=11",
+          "name": "account_projection.append_events"
+        },
+        {
+          "detail": "count=9",
+          "name": "messaging.conversation_list_authority_selected"
+        }
+      ],
+      "symptomIds": [
+        "dm-normalize-is-outgoing-mismatch",
+        "groups-ledger-validation"
+      ],
+      "title": "messaging.delete_for_everyone_remote_result — count=157"
+    },
+    {
+      "artifactPath": ".codectx/verify/faults/fault-2a1b0868.json",
+      "faultId": "fault-2a1b0868",
+      "signalsExtract": [
+        {
+          "detail": "count=84",
+          "name": "groups.ledger_field_repair_applied"
+        },
+        {
+          "detail": "count=83",
+          "name": "groups.membership_ledger_save"
+        },
+        {
+          "detail": "count=59",
+          "name": "account_sync.backup_publish_mutation_suppressed_restore_in_flight"
+        },
+        {
+          "detail": "count=12",
+          "name": "account_sync.backup_publish_ordering"
+        },
+        {
+          "detail": "count=12",
+          "name": "account_sync.backup_publish_result"
+        }
+      ],
+      "symptomIds": [],
+      "title": "groups.ledger_field_repair_applied — count=84"
+    },
+    {
+      "artifactPath": ".codectx/verify/faults/fault-ff028f72.json",
+      "faultId": "fault-ff028f72",
+      "signalsExtract": [
+        {
+          "detail": "count=176",
+          "name": "messaging.delete_for_everyone_remote_result"
+        },
+        {
+          "detail": "count=40",
+          "name": "workspace.thread.hydrate"
+        },
+        {
+          "detail": "count=19",
+          "name": "account_sync.backup_publish_mutation_deferred_until_ready"
+        },
+        {
+          "detail": "count=10",
+          "name": "groups.membership_ledger_save"
+        },
+        {
+          "detail": "count=10",
+          "name": "groups.ledger_field_repair_applied"
+        }
+      ],
+      "symptomIds": [],
+      "title": "messaging.delete_for_everyone_remote_result — count=176"
+    },
+    {
+      "artifactPath": ".codectx/verify/faults/fault-f493d43a.json",
+      "faultId": "fault-f493d43a",
+      "signalsExtract": [
+        {
+          "detail": "count=2",
+          "name": "runtime.profile_binding_refresh_completed"
+        },
+        {
+          "detail": "count=1",
+          "name": "runtime.desktop_window_boot_ready"
+        },
+        {
+          "detail": "count=1",
+          "name": "runtime.startup_auth_state_transition"
+        },
+        {
+          "detail": "count=1",
+          "name": "profiles.local_save_scan_fast_complete"
+        },
+        {
+          "detail": "count=1",
+          "name": "profiles.local_save_scan_deep_complete"
+        }
+      ],
+      "symptomIds": [],
+      "title": "runtime.profile_binding_refresh_completed — count=2"
+    },
+    {
+      "artifactPath": ".codectx/verify/faults/fault-dbc61eef.json",
+      "faultId": "fault-dbc61eef",
+      "signalsExtract": [
+        {
+          "detail": "count=149",
+          "name": "messaging.delete_for_everyone_remote_result"
+        },
+        {
+          "detail": "count=91",
+          "name": "workspace.thread.hydrate"
+        },
+        {
+          "detail": "count=56",
+          "name": "groups.membership_ledger_save"
+        },
+        {
+          "detail": "count=56",
+          "name": "groups.ledger_field_repair_applied"
+        },
+        {
+          "detail": "count=51",
+          "name": "account_sync.backup_publish_mutation_deferred_until_ready"
+        }
+      ],
+      "symptomIds": [],
+      "title": "messaging.delete_for_everyone_remote_result — count=149"
+    },
+    {
+      "artifactPath": ".codectx/verify/faults/fault-f6ffae1c.json",
+      "faultId": "fault-f6ffae1c",
+      "signalsExtract": [
+        {
+          "detail": "count=110",
+          "name": "groups.ledger_field_repair_applied"
+        },
+        {
+          "detail": "count=109",
+          "name": "groups.membership_ledger_save"
+        },
+        {
+          "detail": "count=27",
+          "name": "account_sync.backup_publish_ordering"
+        },
+        {
+          "detail": "count=27",
+          "name": "account_sync.backup_publish_result"
+        },
+        {
+          "detail": "count=27",
+          "name": "account_sync.backup_publish_attempt"
+        }
+      ],
+      "symptomIds": [],
+      "title": "groups.ledger_field_repair_applied — count=110"
+    },
+    {
+      "artifactPath": ".codectx/verify/faults/fault-2e9ceb7a.json",
+      "faultId": "fault-2e9ceb7a",
+      "signalsExtract": [
+        {
+          "detail": "count=114",
+          "name": "groups.membership_ledger_save"
+        },
+        {
+          "detail": "count=114",
+          "name": "groups.ledger_field_repair_applied"
+        },
+        {
+          "detail": "count=54",
+          "name": "account_sync.backup_publish_mutation_suppressed_restore_in_flight"
+        },
+        {
+          "detail": "count=6",
+          "name": "relay.transport_engine_pool_subscribe"
+        },
+        {
+          "detail": "count=2",
+          "name": "account_sync.backup_publish_ordering"
+        }
+      ],
+      "symptomIds": [],
+      "title": "groups.membership_ledger_save — count=114"
+    },
+    {
+      "artifactPath": ".codectx/verify/faults/fault-6f961537.json",
+      "faultId": "fault-6f961537",
+      "signalsExtract": [
+        {
+          "detail": "count=157",
+          "name": "messaging.delete_for_everyone_remote_result"
+        },
+        {
+          "detail": "count=56",
+          "name": "workspace.thread.hydrate"
+        },
+        {
+          "detail": "count=9",
+          "name": "messaging.conversation_list_authority_selected"
+        },
+        {
+          "detail": "count=8",
+          "name": "groups.membership_ledger_save"
+        },
+        {
+          "detail": "count=8",
+          "name": "groups.ledger_field_repair_applied"
+        }
+      ],
+      "symptomIds": [],
+      "title": "messaging.delete_for_everyone_remote_result — count=157"
+    },
+    {
+      "artifactPath": ".codectx/verify/faults/fault-f05dbc35.json",
+      "faultId": "fault-f05dbc35",
+      "signalsExtract": [
+        {
+          "detail": "count=89",
+          "name": "groups.membership_ledger_save"
+        },
+        {
+          "detail": "count=89",
+          "name": "groups.ledger_field_repair_applied"
+        },
+        {
+          "detail": "count=31",
+          "name": "workspace.thread.hydrate"
+        },
+        {
+          "detail": "count=24",
+          "name": "account_sync.backup_publish_ordering"
+        },
+        {
+          "detail": "count=24",
+          "name": "account_sync.backup_publish_result"
+        }
+      ],
+      "symptomIds": [],
+      "title": "groups.membership_ledger_save — count=89"
+    },
+    {
+      "artifactPath": ".codectx/verify/faults/fault-90f591d2.json",
+      "faultId": "fault-90f591d2",
+      "signalsExtract": [
+        {
+          "detail": "count=62",
+          "name": "messaging.delete_for_everyone_remote_result"
+        },
+        {
+          "detail": "count=52",
+          "name": "groups.membership_ledger_save"
+        },
+        {
+          "detail": "count=52",
+          "name": "groups.ledger_field_repair_applied"
+        },
+        {
+          "detail": "count=32",
+          "name": "workspace.thread.hydrate"
+        },
+        {
+          "detail": "count=10",
+          "name": "account_sync.backup_publish_attempt"
+        }
+      ],
+      "symptomIds": [],
+      "title": "messaging.delete_for_everyone_remote_result — count=62"
+    },
+    {
+      "artifactPath": ".codectx/verify/faults/fault-b2bb9bad.json",
+      "faultId": "fault-b2bb9bad",
+      "signalsExtract": [
+        {
+          "detail": "count=97",
+          "name": "messaging.delete_for_everyone_remote_result"
+        },
+        {
+          "detail": "count=22",
+          "name": "groups.membership_ledger_save"
+        },
+        {
+          "detail": "count=20",
+          "name": "groups.ledger_field_repair_applied"
+        },
+        {
+          "detail": "count=19",
+          "name": "account_sync.backup_publish_mutation_deferred_until_ready"
+        },
+        {
+          "detail": "count=17",
+          "name": "messaging.conversation_list_authority_selected"
+        }
+      ],
+      "symptomIds": [],
+      "title": "messaging.delete_for_everyone_remote_result — count=97"
+    },
+    {
+      "artifactPath": ".codectx/verify/faults/fault-b74a26e4.json",
+      "faultId": "fault-b74a26e4",
+      "signalsExtract": [
+        {
+          "detail": "count=92",
+          "name": "messaging.dm_normalize_is_outgoing_mismatch"
+        },
+        {
+          "detail": "count=74",
+          "name": "messaging.delete_for_everyone_remote_result"
+        },
+        {
+          "detail": "count=31",
+          "name": "groups.membership_ledger_save"
+        },
+        {
+          "detail": "count=28",
+          "name": "groups.ledger_field_repair_applied"
+        },
+        {
+          "detail": "count=12",
+          "name": "workspace.thread.hydrate"
+        }
+      ],
+      "symptomIds": [
+        "dm-normalize-is-outgoing-mismatch"
+      ],
+      "title": "messaging.dm_normalize_is_outgoing_mismatch — count=92"
+    },
+    {
+      "artifactPath": ".codectx/verify/faults/fault-f46681b1.json",
+      "faultId": "fault-f46681b1",
+      "signalsExtract": [
+        {
+          "detail": "count=92",
+          "name": "messaging.dm_normalize_is_outgoing_mismatch"
+        },
+        {
+          "detail": "count=74",
+          "name": "messaging.delete_for_everyone_remote_result"
+        },
+        {
+          "detail": "count=31",
+          "name": "groups.membership_ledger_save"
+        },
+        {
+          "detail": "count=28",
+          "name": "groups.ledger_field_repair_applied"
+        },
+        {
+          "detail": "count=12",
+          "name": "workspace.thread.hydrate"
+        }
+      ],
+      "symptomIds": [
+        "dm-normalize-is-outgoing-mismatch"
+      ],
+      "title": "messaging.dm_normalize_is_outgoing_mismatch — count=92"
+    },
+    {
+      "artifactPath": ".codectx/verify/faults/fault-0e1f7ecd.json",
+      "faultId": "fault-0e1f7ecd",
+      "signalsExtract": [
+        {
+          "detail": "count=91",
+          "name": "groups.membership_ledger_save"
+        },
+        {
+          "detail": "count=91",
+          "name": "groups.ledger_field_repair_applied"
+        },
+        {
+          "detail": "count=30",
+          "name": "account_sync.backup_publish_ordering"
+        },
+        {
+          "detail": "count=30",
+          "name": "account_sync.backup_publish_result"
+        },
+        {
+          "detail": "count=29",
+          "name": "account_sync.backup_publish_attempt"
+        }
+      ],
+      "symptomIds": [],
+      "title": "groups.membership_ledger_save — count=91"
+    },
+    {
+      "artifactPath": ".codectx/verify/faults/fault-b240536d.json",
+      "faultId": "fault-b240536d",
+      "signalsExtract": [
+        {
+          "detail": "count=34",
+          "name": "groups.membership_ledger_save"
+        },
+        {
+          "detail": "count=34",
+          "name": "groups.ledger_field_repair_applied"
+        },
+        {
+          "detail": "count=33",
+          "name": "account_sync.backup_publish_mutation_suppressed_restore_in_flight"
+        },
+        {
+          "detail": "count=24",
+          "name": "messaging.conversation_list_authority_selected"
+        },
+        {
+          "detail": "count=24",
+          "name": "network.peer_trust_read_authority_selected"
+        }
+      ],
+      "symptomIds": [],
+      "title": "groups.membership_ledger_save — count=34"
+    },
+    {
+      "artifactPath": ".codectx/verify/faults/fault-5f618e64.json",
+      "faultId": "fault-5f618e64",
+      "signalsExtract": [
+        {
+          "detail": "count=153",
+          "name": "messaging.delete_for_everyone_remote_result"
+        },
+        {
+          "detail": "count=27",
+          "name": "workspace.thread.hydrate"
+        },
+        {
+          "detail": "count=15",
+          "name": "messaging.conversation_list_authority_selected"
+        },
+        {
+          "detail": "count=13",
+          "name": "network.peer_trust_read_authority_selected"
+        },
+        {
+          "detail": "count=9",
+          "name": "account_sync.backup_publish_mutation_deferred_until_ready"
+        }
+      ],
+      "symptomIds": [],
+      "title": "messaging.delete_for_everyone_remote_result — count=153"
+    },
+    {
+      "artifactPath": ".codectx/verify/faults/fault-7be52e18.json",
+      "faultId": "fault-7be52e18",
+      "signalsExtract": [
+        {
+          "detail": "count=72",
+          "name": "messaging.delete_for_everyone_remote_result"
+        },
+        {
+          "detail": "count=53",
+          "name": "groups.membership_ledger_save"
+        },
+        {
+          "detail": "count=52",
+          "name": "groups.ledger_field_repair_applied"
+        },
+        {
+          "detail": "count=37",
+          "name": "workspace.thread.hydrate"
+        },
+        {
+          "detail": "count=21",
+          "name": "account_sync.backup_publish_mutation_suppressed_restore_in_flight"
+        }
+      ],
+      "symptomIds": [],
+      "title": "messaging.delete_for_everyone_remote_result — count=72"
+    },
+    {
+      "artifactPath": ".codectx/verify/faults/fault-e45873e1.json",
+      "faultId": "fault-e45873e1",
+      "signalsExtract": [
+        {
+          "detail": "count=64",
+          "name": "messaging.delete_for_everyone_remote_result"
+        },
+        {
+          "detail": "count=54",
+          "name": "groups.membership_ledger_save"
+        },
+        {
+          "detail": "count=53",
+          "name": "groups.ledger_field_repair_applied"
+        },
+        {
+          "detail": "count=40",
+          "name": "workspace.thread.hydrate"
+        },
+        {
+          "detail": "count=21",
+          "name": "account_sync.backup_publish_mutation_suppressed_restore_in_flight"
+        }
+      ],
+      "symptomIds": [],
+      "title": "messaging.delete_for_everyone_remote_result — count=64"
+    },
+    {
+      "artifactPath": ".codectx/verify/faults/fault-dff9f60a.json",
+      "faultId": "fault-dff9f60a",
+      "signalsExtract": [
+        {
+          "detail": "count=64",
+          "name": "messaging.delete_for_everyone_remote_result"
+        },
+        {
+          "detail": "count=54",
+          "name": "groups.membership_ledger_save"
+        },
+        {
+          "detail": "count=53",
+          "name": "groups.ledger_field_repair_applied"
+        },
+        {
+          "detail": "count=40",
+          "name": "workspace.thread.hydrate"
+        },
+        {
+          "detail": "count=21",
+          "name": "account_sync.backup_publish_mutation_suppressed_restore_in_flight"
+        }
+      ],
+      "symptomIds": [],
+      "title": "messaging.delete_for_everyone_remote_result — count=64"
+    },
+    {
+      "artifactPath": ".codectx/verify/faults/fault-557a133d.json",
+      "faultId": "fault-557a133d",
+      "signalsExtract": [
+        {
+          "detail": "count=64",
+          "name": "messaging.delete_for_everyone_remote_result"
+        },
+        {
+          "detail": "count=54",
+          "name": "groups.membership_ledger_save"
+        },
+        {
+          "detail": "count=53",
+          "name": "groups.ledger_field_repair_applied"
+        },
+        {
+          "detail": "count=40",
+          "name": "workspace.thread.hydrate"
+        },
+        {
+          "detail": "count=21",
+          "name": "account_sync.backup_publish_mutation_suppressed_restore_in_flight"
+        }
+      ],
+      "symptomIds": [],
+      "title": "messaging.delete_for_everyone_remote_result — count=64"
+    }
+  ],
+  "issuesSummary": {
+    "issueCount": 35,
+    "schema": "verify.issues.register.summary@0.2.0",
+    "topIssues": [
+      {
+        "canonicalTitle": "O-4 round14 t3: send O4-round14-acl-cdp-072T1102 visible; full stack :7000+:8787; post ACL/CDP rebuild",
+        "chainId": "chain-o4-group-ingest-2026-07-02",
+        "chapterCount": 13,
+        "fingerprint": "symptom:group-thread-relay-ingest",
+        "id": "verify:issue:agent:41aeddb8d5f42614",
+        "occurrenceCount": 13,
+        "primaryEvidenceRef": ".codectx/verify/client-sessions/csess-c9e4cc0c3649/captures/cap-3b9283b9eb83/snapshot.yaml",
+        "priorChapters": [
+          {
+            "id": "verify:issue:agent:264c88e73e9428fd",
+            "ingestedAt": "2026-07-01T11:24:13.664140200+00:00",
+            "title": "O-4 Step 7 BLOCKED: full stack preflight OK except auth gate; cannot open NewTest 2 or send group message via MCP"
+          },
+          {
+            "id": "verify:issue:agent:7830537bf84fba67",
+            "ingestedAt": "2026-07-01T11:28:54.898768100+00:00",
+            "title": "O-4 Step 7 PARTIAL: NewTest 2 history hydrates but send blocked — Group key unavailable; O4-group-relay-verify-071T1128 stuck in composer; :7000 REFUSED"
+          },
+          {
+            "id": "verify:issue:agent:310fbc54fc6305c5",
+            "ingestedAt": "2026-07-01T14:11:16.436589500+00:00",
+            "title": "O-4 round2: group send O4-round2-codactrl-071T1409 blocked — composer clears, no bubble; sidebar group-key warning"
+          },
+          {
+            "id": "verify:issue:agent:54e729aec49eeda1",
+            "ingestedAt": "2026-07-01T16:54:57.230410500+00:00",
+            "title": "O-4 round3: group send blocked — group key unavailable; Manage Participants shows Tester1+Tester2 (2) but home card shows Tester1 only"
+          },
+          {
+            "id": "verify:issue:agent:bf6c693835f7e2c3",
+            "ingestedAt": "2026-07-01T17:14:03.992917+00:00",
+            "title": "O-4 round5: group send blocked — Docker relay unavailable; composer clears, no bubble; group-key warning persists"
+          },
+          {
+            "id": "verify:issue:agent:5c5e1b25c17e9dca",
+            "ingestedAt": "2026-07-01T17:29:03.267712700+00:00",
+            "title": "O-4 round6 t3: Docker :7000 + coordination health cascade → send O4-round6-docker-up-071T1728 visible; publishGroupEvent localhost:7000; sidebar key warning stale"
+          },
+          {
+            "id": "verify:issue:agent:13f19914b4ba6366",
+            "ingestedAt": "2026-07-01T17:34:36.672937200+00:00",
+            "title": "O-4 round7 t3 repro: second full-stack send O4-round7-fullstack-071T1733; health ready:1; main=6 msgs; publishGroupEvent 2d1a9735"
+          },
+          {
+            "id": "verify:issue:agent:f21d04768c6b0594",
+            "ingestedAt": "2026-07-01T17:47:31.083306200+00:00",
+            "title": "O-4 round8 t4 cold-start: send O4-round8-coldstart-071T1746 without Info visit; publishGroupEvent 8b138f20; sidebar still group-key unavailable"
+          },
+          {
+            "id": "verify:issue:agent:e1447144f354579c",
+            "ingestedAt": "2026-07-01T22:06:19.023996300+00:00",
+            "title": "O-4 round10: send O4-round10-no-docker blocked — composer clears, no bubble; :7000 REFUSED; coordination up"
+          },
+          {
+            "id": "verify:issue:agent:efa90322468050a8",
+            "ingestedAt": "2026-07-01T22:37:40.000391100+00:00",
+            "title": "O-4 round11: send O4-round11-partial blocked — composer clears, no bubble; :7000 REFUSED; multi-window CDP still single-target"
+          },
+          {
+            "id": "verify:issue:agent:58b1f5e0e01e5316",
+            "ingestedAt": "2026-07-02T08:45:55.304189700+00:00",
+            "title": "O-4 round12 t3: full stack send O4-round12-partial-072T0836 visible; publishGroupEvent 37b6a5b9 @ :7000; sidebar key warning stale"
+          },
+          {
+            "id": "verify:issue:agent:b24bb36ac9f8c8e4",
+            "ingestedAt": "2026-07-02T09:59:16.555526800+00:00",
+            "title": "O-4 round13 t3: post-rebuild send O4-round13-rebuild-072T0958 visible; publishGroupEvent 9a615480 @ :7000; bridge multiwindow partial"
+          }
+        ],
+        "severity": "p0",
+        "source": "agent",
+        "symptomClass": "group-thread-relay-ingest",
+        "symptomId": "group-thread-relay-ingest",
+        "title": "O-4 round14 t3: send O4-round14-acl-cdp-072T1102 visible; full stack :7000+:8787; post ACL/CDP rebuild",
+        "trackerStep": 7
+      },
+      {
+        "canonicalTitle": "COM-RUN-11 round23: Tester2 DM shows only superseded/canceled NewTest 2 invite cards — no live invite",
+        "chainId": "chain-o4-group-ingest-2026-07-02",
+        "chapterCount": 10,
+        "fingerprint": "symptom:COM-RUN-11",
+        "id": "verify:issue:agent:1591f00d1d6bb8eb",
+        "occurrenceCount": 10,
+        "primaryEvidenceRef": ".codectx/verify/client-sessions/csess-d39f4ab009ee/captures/bcap-82d3ad04daf9/bridge-result.json",
+        "priorChapters": [
+          {
+            "id": "verify:issue:agent:ea000f3b3f41603b",
+            "ingestedAt": "2026-06-30T16:12:17.850683300+00:00",
+            "title": "Obscur: second profile window opens natively but is not independently drivable via MCP CDP"
+          },
+          {
+            "id": "verify:issue:agent:bc1423936905096b",
+            "ingestedAt": "2026-07-01T07:10:20.899494800+00:00",
+            "title": "COM-RUN-11 Step 5 blocked: single CDP target + Tester2 profile not configured; historical invite cards superseded/canceled only"
+          },
+          {
+            "id": "verify:issue:agent:28409ff90609b8c9",
+            "ingestedAt": "2026-07-01T22:37:41.268378900+00:00",
+            "title": "COM-RUN-11 round11: profile slot window opened natively; CDP :9231 not listening; list_targets still 1 page on :9230"
+          },
+          {
+            "id": "verify:issue:agent:fb8acdfb80f8b94e",
+            "ingestedAt": "2026-07-02T08:55:54.343323700+00:00",
+            "title": "COM-RUN-11 multiwindow retry: native second window opens; CDP :9231 down; agent-bridge missing; client_multiwindow_switch main/profile-picker only"
+          },
+          {
+            "id": "verify:issue:agent:76b14118afac2838",
+            "ingestedAt": "2026-07-02T09:59:18.278302+00:00",
+            "title": "COM-RUN-11 round13: bridge listWindows=2 (main+profile-2); openProfileSlot ok; focusWindow ACL denied; CDP :9231 down"
+          },
+          {
+            "id": "verify:issue:agent:3e93540c9bc415ab",
+            "ingestedAt": "2026-07-02T11:03:37.278195700+00:00",
+            "title": "COM-RUN-11 round14: focusWindow ok via desktop_agent_focus_window IPC; listWindows=2; CDP :9231 still down — dual attach blocked"
+          },
+          {
+            "id": "verify:issue:agent:915034dcac55e53d",
+            "ingestedAt": "2026-07-02T11:14:56.934881500+00:00",
+            "title": "COM-RUN-11 round15: :9231 CDP attach works after per-window browser args; profile sign-in target csess-9530bb91b194"
+          },
+          {
+            "id": "verify:issue:agent:ac194ae60fbc0bd2",
+            "ingestedAt": "2026-07-02T16:20:30.677371900+00:00",
+            "title": "COM-RUN-11 round21 blocked: no live invite card — only superseded/expired historical cards in DM"
+          },
+          {
+            "id": "chain-o4-group-ingest-2026-07-02-n10-round23-post-rebuild-ledger",
+            "ingestedAt": "2026-07-04T14:15:18.761862900+00:00",
+            "title": "Post-rebuild unlock: invalidEntries still 7/7 — v2-labelled incomplete rows (6 left thin, 1 joined missing publicKeyHex); extended repair landed same session"
+          }
+        ],
+        "severity": "p0",
+        "source": "agent",
+        "symptomClass": "COM_RUN_11",
+        "symptomId": "COM-RUN-11",
+        "title": "COM-RUN-11 round23: Tester2 DM shows only superseded/canceled NewTest 2 invite cards — no live invite",
+        "trackerStep": 5
+      },
+      {
+        "canonicalTitle": "COM-RUN-01 round21: Tester2 Group sidebar empty — NewTest 2 not listed while T1 has community",
+        "chainId": "chain-o4-group-ingest-2026-07-02",
+        "chapterCount": 10,
+        "fingerprint": "symptom:community-roster-divergence",
+        "id": "verify:issue:agent:64baee5012722dfa",
+        "occurrenceCount": 10,
+        "primaryEvidenceRef": ".codectx/verify/client-sessions/csess-b91e16538053/captures/cap-fac2a764d545/snapshot.yaml",
+        "priorChapters": [
+          {
+            "id": "verify:issue:agent:e19043148dd92abb",
+            "ingestedAt": "2026-07-01T07:10:18.854746100+00:00",
+            "title": "COM-RUN-01 re-verify 2026-07-01: Tester1 NewTest 2 participants shows only self; Tester2 absent; header claims 2 members"
+          },
+          {
+            "id": "verify:issue:agent:dce6997472383346",
+            "ingestedAt": "2026-07-01T16:54:58.336216500+00:00",
+            "title": "COM-RUN-01 round3: Manage Participants lists Tester1+Tester2 (2 online claim) but community home card shows Tester1 only"
+          },
+          {
+            "id": "verify:issue:agent:6ff2b79a949767b3",
+            "ingestedAt": "2026-07-01T17:34:38.991137500+00:00",
+            "title": "COM-RUN-01 round7: Manage Participants shows 1 (Tester1 only) while group chat header claims 2 members; home card still Tester1 only"
+          },
+          {
+            "id": "verify:issue:agent:160130f274c53ad5",
+            "ingestedAt": "2026-07-01T22:06:19.228753300+00:00",
+            "title": "COM-RUN-01 round10: Manage Participants=1 (Tester1); chat header=2 members; home card Tester1 only — unchanged"
+          },
+          {
+            "id": "verify:issue:agent:3d6e95773575f422",
+            "ingestedAt": "2026-07-01T22:37:42.079982300+00:00",
+            "title": "COM-RUN-01 round11: Manage Participants=1 (Tester1 only); chat header=2 members; health relay_not_connected"
+          },
+          {
+            "id": "verify:issue:agent:45467cd4d3b00f21",
+            "ingestedAt": "2026-07-02T08:47:45.891206100+00:00",
+            "title": "COM-RUN-01 round12: Manage Participants=1 (Tester1); chat header=2 members; full stack unchanged"
+          },
+          {
+            "id": "verify:issue:agent:2884361320a7595f",
+            "ingestedAt": "2026-07-02T09:59:19.367132800+00:00",
+            "title": "COM-RUN-01 round13: Manage Participants evidence Tester1 only; chat header 2 members; health ready:1 after Info"
+          },
+          {
+            "id": "verify:issue:agent:2990ecfa08aadc32",
+            "ingestedAt": "2026-07-02T11:03:37.845691200+00:00",
+            "title": "COM-RUN-01 round14: Manage Participants shows Tester1 only; chat header 2 members; health ready:1 after Info"
+          },
+          {
+            "id": "verify:issue:agent:8fc30833846c694c",
+            "ingestedAt": "2026-07-02T16:20:28.128518600+00:00",
+            "title": "COM-RUN-01 round21: T1 participants modal shows Tester1 only (knownParticipantCount=0, rosterProjectionCount=1)"
+          }
+        ],
+        "severity": "p0",
+        "source": "agent",
+        "symptomClass": "community-roster-divergence",
+        "symptomId": "community-roster-divergence",
+        "title": "COM-RUN-01 round21: Tester2 Group sidebar empty — NewTest 2 not listed while T1 has community",
+        "trackerStep": 5
+      },
+      {
+        "canonicalTitle": "Client assert failed: textVisible — text not visible: Room key missing",
+        "chainId": "chain-r1-room-key-health-2026-07-04",
+        "chapterCount": 5,
+        "fingerprint": "symptom:group-room-key-missing",
+        "id": "verify:issue:assert:cap-8ec91475da6b",
+        "occurrenceCount": 5,
+        "primaryEvidenceRef": ".codectx/verify/client-sessions/csess-94f4ca6d3332/captures/cap-9742f5be6992/screenshot.png",
+        "priorChapters": [
+          {
+            "id": "verify:issue:agent:43cde0c4b744b301",
+            "ingestedAt": "2026-07-01T16:57:35.319631300+00:00",
+            "title": "COM-RUN-02 round4: room_key_missing + relay_not_connected; chatEnabled=0; coordination /membership/delta 403 (deltas curl 200)"
+          },
+          {
+            "id": "verify:issue:agent:d6aaccca65754776",
+            "ingestedAt": "2026-07-01T18:01:32.120829400+00:00",
+            "title": "COM-RUN-02 round9: health ready:1 after Info but sidebar ledger placeholder persists; coordination GET delta=404 POST-only"
+          },
+          {
+            "id": "verify:issue:agent:e10f184afe997a07",
+            "ingestedAt": "2026-07-02T16:20:29.722085100+00:00",
+            "title": "group-room-key-missing round21: sidebar warns unavailable while O4-round20 send succeeded"
+          },
+          {
+            "id": "chain-r1-room-key-health-2026-07-04-n0-r1-health-send-pass",
+            "ingestedAt": "2026-07-04T14:15:18.761862900+00:00",
+            "title": "After R1 fix: no room_key_missing UI while group send succeeds; digest shows empty room_key_missing_send_blocked"
+          }
+        ],
+        "severity": "p0",
+        "source": "agent",
+        "symptomClass": "group-room-key-missing",
+        "symptomId": "group-room-key-missing",
+        "title": "Client assert failed: textVisible — text not visible: Room key missing",
+        "trackerStep": 7
+      },
+      {
+        "canonicalTitle": "O-2 Phase1C t4 VERIFIED: O2-phase1c-coldrestart-070T0559 persists after taskkill + password unlock (eventId 168d95740472995d)",
+        "chainId": "chain-o2-cold-restart-phase1c-2026-07-04",
+        "chapterCount": 4,
+        "fingerprint": "symptom:dm-vanishes-cold-restart",
+        "id": "verify:issue:agent:10ae33ad355320dc",
+        "occurrenceCount": 4,
+        "primaryEvidenceRef": ".codectx/verify/client-sessions/csess-9c729dc6d96b/captures/cap-0e44f5aea39e/screenshot.png",
+        "priorChapters": [
+          {
+            "id": "verify:issue:agent:554d0f00c74b6610",
+            "ingestedAt": "2026-07-01T07:24:49.466731200+00:00",
+            "title": "O-2 Step 6 partial: DM sent+visible pre-restart; cold kill→sign-in gate blocks post-hydrate assert (event 58fbac8bb655f0b8)"
+          },
+          {
+            "id": "verify:issue:agent:5304ff4749f613a0",
+            "ingestedAt": "2026-07-01T14:13:40.839897600+00:00",
+            "title": "O-2 round2 t4: cold kill → profile picker → password unlock → O2-coldrestart-verify-071T0720 visible (event 58fbac8bb655f0b8)"
+          },
+          {
+            "id": "chain-o2-cold-restart-phase1c-2026-07-04-n1-post-restart-hydrate",
+            "ingestedAt": "2026-07-04T14:15:18.761862900+00:00",
+            "title": "Chain success n1-post-restart-hydrate"
+          }
+        ],
+        "severity": "p0",
+        "source": "agent",
+        "symptomClass": "dm-vanishes-cold-restart",
+        "symptomId": "dm-vanishes-cold-restart",
+        "title": "O-2 Phase1C t4 VERIFIED: O2-phase1c-coldrestart-070T0559 persists after taskkill + password unlock (eventId 168d95740472995d)",
+        "trackerStep": 6
+      },
+      {
+        "canonicalTitle": "RIW-1 round23 pre-rebuild: ledger invalidEntries=7/7 on warm Tester1; shell rebuild in progress",
+        "chainId": "chain-o4-group-ingest-2026-07-02",
+        "chapterCount": 40,
+        "fingerprint": "symptom:groups-ledger-validation",
+        "id": "verify:issue:agent:56d6ef6f5831f080",
+        "occurrenceCount": 40,
+        "primaryEvidenceRef": ".codectx/verify/client-sessions/csess-aa3a9eab9c36/captures/cap-cfae3752ba87/digest.json",
+        "priorChapters": [
+          {
+            "id": "verify:issue:agent:0c914a5d3cb0912d",
+            "ingestedAt": "2026-07-01T02:13:07.069795200+00:00",
+            "title": "Tester1 unlock: 18/20 membership ledger entries invalid; async migration does not clear validation band"
+          },
+          {
+            "id": "verify:issue:agent:289e783f035b6129",
+            "ingestedAt": "2026-07-01T06:18:04.046860+00:00",
+            "title": "RIW-1 re-verify 2026-07-01: 18/20 ledger invalid unchanged; migration stall; dm_kernel.sqlite_write_failed x12 on profile nav"
+          },
+          {
+            "id": "verify:issue:fault:fault-d91cd690",
+            "ingestedAt": "2026-07-01T14:09:46.841767900+00:00",
+            "title": "groups.ledger_migration_needed — count=117"
+          },
+          {
+            "id": "verify:issue:fault:fault-317657e4",
+            "ingestedAt": "2026-07-01T14:11:16.163370100+00:00",
+            "title": "groups.ledger_validation_issues — count=111"
+          },
+          {
+            "id": "verify:issue:fault:fault-4a171a35",
+            "ingestedAt": "2026-07-01T16:54:59.571036600+00:00",
+            "title": "groups.ledger_migration_needed — count=137"
+          },
+          {
+            "id": "verify:issue:fault:fault-fc0c8590",
+            "ingestedAt": "2026-07-01T16:57:25.982901900+00:00",
+            "title": "groups.ledger_validation_issues — count=123"
+          },
+          {
+            "id": "verify:issue:fault:fault-bf3a84e1",
+            "ingestedAt": "2026-07-01T17:13:59.827276300+00:00",
+            "title": "groups.ledger_migration_needed — count=101"
+          },
+          {
+            "id": "verify:issue:fault:fault-1285de34",
+            "ingestedAt": "2026-07-01T17:28:48.023176700+00:00",
+            "title": "groups.ledger_migration_needed — count=94"
+          },
+          {
+            "id": "verify:issue:fault:fault-1a2cb746",
+            "ingestedAt": "2026-07-01T17:33:18.484745200+00:00",
+            "title": "groups.ledger_migration_needed — count=122"
+          },
+          {
+            "id": "verify:issue:fault:fault-7f9100c4",
+            "ingestedAt": "2026-07-01T17:33:55.763225600+00:00",
+            "title": "groups.ledger_validation_issues — count=118"
+          },
+          {
+            "id": "verify:issue:fault:fault-f9cb9bcd",
+            "ingestedAt": "2026-07-01T17:34:38.526594100+00:00",
+            "title": "groups.ledger_validation_issues — count=127"
+          },
+          {
+            "id": "verify:issue:fault:fault-d3266449",
+            "ingestedAt": "2026-07-01T17:46:43.979538400+00:00",
+            "title": "workspace.thread.hydrate — count=109"
+          },
+          {
+            "id": "verify:issue:fault:fault-aca31c9d",
+            "ingestedAt": "2026-07-01T17:47:24.919557+00:00",
+            "title": "workspace.thread.hydrate — count=120"
+          },
+          {
+            "id": "verify:issue:fault:fault-4720432c",
+            "ingestedAt": "2026-07-01T18:00:36.797852800+00:00",
+            "title": "groups.ledger_migration_needed — count=63"
+          },
+          {
+            "id": "verify:issue:fault:fault-5100471d",
+            "ingestedAt": "2026-07-01T22:05:27.534353500+00:00",
+            "title": "groups.ledger_migration_needed — count=51"
+          },
+          {
+            "id": "verify:issue:fault:fault-bfbf96a4",
+            "ingestedAt": "2026-07-01T22:06:09.732414300+00:00",
+            "title": "groups.ledger_migration_needed — count=85"
+          },
+          {
+            "id": "verify:issue:fault:fault-a017a981",
+            "ingestedAt": "2026-07-01T22:33:29.829256900+00:00",
+            "title": "groups.ledger_migration_needed — count=42"
+          },
+          {
+            "id": "verify:issue:fault:fault-cebc13ad",
+            "ingestedAt": "2026-07-01T22:35:29.823804500+00:00",
+            "title": "groups.ledger_migration_needed — count=42"
+          },
+          {
+            "id": "verify:issue:fault:fault-0dd352c0",
+            "ingestedAt": "2026-07-01T22:36:06.835279600+00:00",
+            "title": "groups.ledger_migration_needed — count=80"
+          },
+          {
+            "id": "verify:issue:fault:fault-fc9c865f",
+            "ingestedAt": "2026-07-02T08:35:32.592667700+00:00",
+            "title": "messaging.delete_for_everyone_remote_result — count=50"
+          },
+          {
+            "id": "verify:issue:fault:fault-1df0fe98",
+            "ingestedAt": "2026-07-02T08:44:28.141642200+00:00",
+            "title": "relay.transport_engine_pool_subscribe — count=67"
+          },
+          {
+            "id": "verify:issue:fault:fault-c2485378",
+            "ingestedAt": "2026-07-02T08:44:53.852083700+00:00",
+            "title": "workspace.thread.hydrate — count=84"
+          },
+          {
+            "id": "verify:issue:fault:fault-52dd9177",
+            "ingestedAt": "2026-07-02T09:59:13.608201900+00:00",
+            "title": "messaging.delete_for_everyone_remote_result — count=95"
+          },
+          {
+            "id": "verify:issue:fault:fault-a8d78552",
+            "ingestedAt": "2026-07-02T11:03:28.797505400+00:00",
+            "title": "groups.ledger_migration_needed — count=63"
+          },
+          {
+            "id": "verify:issue:fault:fault-b72efd02",
+            "ingestedAt": "2026-07-02T12:47:47.363478+00:00",
+            "title": "messaging.delete_for_everyone_remote_result — count=94"
+          },
+          {
+            "id": "verify:issue:fault:fault-da76af2d",
+            "ingestedAt": "2026-07-02T13:23:46.605540400+00:00",
+            "title": "groups.ledger_migration_needed — count=36"
+          },
+          {
+            "id": "verify:issue:fault:fault-d730591d",
+            "ingestedAt": "2026-07-02T14:45:27.500610900+00:00",
+            "title": "messaging.delete_for_everyone_remote_result — count=107"
+          },
+          {
+            "id": "verify:issue:fault:fault-91576178",
+            "ingestedAt": "2026-07-02T14:53:26.447302+00:00",
+            "title": "messaging.delete_for_everyone_remote_result — count=149"
+          },
+          {
+            "id": "verify:issue:fault:fault-32b01a0e",
+            "ingestedAt": "2026-07-02T16:11:48.927206500+00:00",
+            "title": "groups.ledger_migration_needed — count=97"
+          },
+          {
+            "id": "verify:issue:fault:fault-a1b215ab",
+            "ingestedAt": "2026-07-02T16:11:50.300766400+00:00",
+            "title": "messaging.delete_for_everyone_remote_result — count=145"
+          },
+          {
+            "id": "verify:issue:fault:fault-83e3683e",
+            "ingestedAt": "2026-07-02T16:11:52.129291+00:00",
+            "title": "groups.ledger_migration_needed — count=97"
+          },
+          {
+            "id": "verify:issue:fault:fault-4a0f5a41",
+            "ingestedAt": "2026-07-02T16:11:52.441615600+00:00",
+            "title": "groups.ledger_migration_needed — count=97"
+          },
+          {
+            "id": "verify:issue:fault:fault-887ce425",
+            "ingestedAt": "2026-07-02T16:20:19.111246900+00:00",
+            "title": "messaging.delete_for_everyone_remote_result — count=87"
+          },
+          {
+            "id": "verify:issue:fault:fault-5e069e8a",
+            "ingestedAt": "2026-07-02T16:20:19.125881200+00:00",
+            "title": "groups.ledger_migration_needed — count=113"
+          },
+          {
+            "id": "verify:issue:fault:fault-e91b9aa7",
+            "ingestedAt": "2026-07-02T16:20:40.133826700+00:00",
+            "title": "groups.ledger_migration_needed — count=118"
+          },
+          {
+            "id": "verify:issue:fault:fault-aeac8782",
+            "ingestedAt": "2026-07-02T16:20:40.657009200+00:00",
+            "title": "messaging.delete_for_everyone_remote_result — count=87"
+          },
+          {
+            "id": "verify:issue:fault:fault-d65998e5",
+            "ingestedAt": "2026-07-03T03:50:18.931174200+00:00",
+            "title": "messaging.delete_for_everyone_remote_result — count=169"
+          },
+          {
+            "id": "verify:issue:fault:fault-470056bf",
+            "ingestedAt": "2026-07-03T03:50:45.322559400+00:00",
+            "title": "messaging.delete_for_everyone_remote_result — count=213"
+          },
+          {
+            "id": "verify:issue:fault:fault-0d2c0823",
+            "ingestedAt": "2026-07-03T07:06:06.621194600+00:00",
+            "title": "messaging.delete_for_everyone_remote_result — count=174"
+          }
+        ],
+        "severity": "p1",
+        "source": "agent",
+        "symptomClass": "groups_ledger_validation",
+        "symptomId": "groups-ledger-validation",
+        "title": "RIW-1 round23 pre-rebuild: ledger invalidEntries=7/7 on warm Tester1; shell rebuild in progress",
+        "trackerStep": 1
+      },
+      {
+        "canonicalTitle": "messaging.dm_normalize_is_outgoing_mismatch — count=92",
+        "chapterCount": 8,
+        "fingerprint": "symptom:dm-normalize-is-outgoing-mismatch",
+        "id": "verify:issue:fault:fault-f46681b1",
+        "occurrenceCount": 8,
+        "primaryEvidenceRef": ".codectx/verify/faults/fault-f46681b1.json",
+        "priorChapters": [
+          {
+            "id": "verify:issue:fault:fault-0f46250f",
+            "ingestedAt": "2026-07-02T11:19:06.590603900+00:00",
+            "title": "messaging.delete_for_everyone_remote_result — count=136"
+          },
+          {
+            "id": "verify:issue:fault:fault-78374bee",
+            "ingestedAt": "2026-07-02T14:53:21.730431200+00:00",
+            "title": "workspace.thread.hydrate — count=40"
+          },
+          {
+            "id": "verify:issue:fault:fault-c4a2d149",
+            "ingestedAt": "2026-07-02T14:53:37.031476600+00:00",
+            "title": "workspace.thread.hydrate — count=40"
+          },
+          {
+            "id": "verify:issue:fault:fault-4ae5509f",
+            "ingestedAt": "2026-07-03T07:03:41.153586300+00:00",
+            "title": "messaging.delete_for_everyone_remote_result — count=174"
+          },
+          {
+            "id": "verify:issue:fault:fault-55a11699",
+            "ingestedAt": "2026-07-03T07:16:24.661683+00:00",
+            "title": "messaging.delete_for_everyone_remote_result — count=158"
+          },
+          {
+            "id": "verify:issue:fault:fault-8080269f",
+            "ingestedAt": "2026-07-03T07:20:05.478270500+00:00",
+            "title": "messaging.delete_for_everyone_remote_result — count=157"
+          },
+          {
+            "id": "verify:issue:fault:fault-b74a26e4",
+            "ingestedAt": "2026-07-04T05:41:02.309630800+00:00",
+            "title": "messaging.dm_normalize_is_outgoing_mismatch — count=92"
+          }
+        ],
+        "severity": "p1",
+        "source": "runtime_digest",
+        "symptomClass": "dm_normalize_is_outgoing_mismatch",
+        "symptomId": "dm-normalize-is-outgoing-mismatch",
+        "title": "messaging.dm_normalize_is_outgoing_mismatch — count=92"
+      },
+      {
+        "canonicalTitle": "COM-RUN-11 Phase 1C: profile-2 missing room key blocks dual-profile group send/receive",
+        "chainId": "chain-com-run-11-phase1c-2026-07-04",
+        "chapterCount": 2,
+        "fingerprint": "symptom:groups.room_key_missing_send_blocked",
+        "id": "verify:issue:agent:3aa8584ac1e8095f",
+        "occurrenceCount": 2,
+        "primaryEvidenceRef": ".codectx/verify/client-sessions/csess-44f67ea7565d/captures/cap-dc365d49f13c/screenshot.png",
+        "priorChapters": [
+          {
+            "id": "chain-com-run-11-phase1c-2026-07-04-n8-phase1d-p3-coldrestart-t3",
+            "ingestedAt": "2026-07-04T14:15:18.761862900+00:00",
+            "title": "P3b/P3d SQLite survives taskkill + relaunch on Tester1"
+          }
+        ],
+        "severity": "p1",
+        "source": "agent",
+        "symptomClass": "group-room-key-missing-dual-profile",
+        "symptomId": "groups.room_key_missing_send_blocked",
+        "title": "COM-RUN-11 Phase 1C: profile-2 missing room key blocks dual-profile group send/receive"
+      },
+      {
+        "canonicalTitle": "Client assert failed: textVisible — text not visible: Tester2",
+        "chapterCount": 1,
+        "fingerprint": "finding:cap-5ad02d69dd30:client_assert",
+        "id": "verify:issue:assert:cap-5ad02d69dd30",
+        "occurrenceCount": 1,
+        "primaryEvidenceRef": ".codectx/verify/client-sessions/csess-19f7e24e61bd/captures/cap-5ad02d69dd30/manifest.json",
+        "severity": "p1",
+        "source": "client_assert",
+        "title": "Client assert failed: textVisible — text not visible: Tester2"
+      },
+      {
+        "canonicalTitle": "Client assert failed: textVisible — text not visible: Excluded",
+        "chapterCount": 1,
+        "fingerprint": "finding:cap-9cd8b8df6aea:client_assert",
+        "id": "verify:issue:assert:cap-9cd8b8df6aea",
+        "occurrenceCount": 1,
+        "primaryEvidenceRef": ".codectx/verify/client-sessions/csess-6223e8d73a45/captures/cap-9cd8b8df6aea/manifest.json",
+        "severity": "p1",
+        "source": "client_assert",
+        "title": "Client assert failed: textVisible — text not visible: Excluded"
+      },
+      {
+        "canonicalTitle": "Client assert failed: textVisible — text not visible: O2-phase1c-coldrestart-070T0559",
+        "chapterCount": 1,
+        "fingerprint": "finding:cap-e9215a92a21b:client_assert",
+        "id": "verify:issue:assert:cap-e9215a92a21b",
+        "occurrenceCount": 1,
+        "primaryEvidenceRef": ".codectx/verify/client-sessions/csess-4c4583330873/captures/cap-e9215a92a21b/manifest.json",
+        "severity": "p1",
+        "source": "client_assert",
+        "title": "Client assert failed: textVisible — text not visible: O2-phase1c-coldrestart-070T0559"
+      },
+      {
+        "canonicalTitle": "groups.membership_ledger_save — count=91",
+        "chapterCount": 1,
+        "fingerprint": "finding:fault-0e1f7ecd:runtime_digest",
+        "id": "verify:issue:fault:fault-0e1f7ecd",
+        "occurrenceCount": 1,
+        "primaryEvidenceRef": ".codectx/verify/faults/fault-0e1f7ecd.json",
+        "severity": "p1",
+        "source": "runtime_digest",
+        "title": "groups.membership_ledger_save — count=91"
+      },
+      {
+        "canonicalTitle": "groups.ledger_field_repair_applied — count=84",
+        "chapterCount": 1,
+        "fingerprint": "finding:fault-2a1b0868:runtime_digest",
+        "id": "verify:issue:fault:fault-2a1b0868",
+        "occurrenceCount": 1,
+        "primaryEvidenceRef": ".codectx/verify/faults/fault-2a1b0868.json",
+        "severity": "p1",
+        "source": "runtime_digest",
+        "title": "groups.ledger_field_repair_applied — count=84"
+      },
+      {
+        "canonicalTitle": "groups.membership_ledger_save — count=114",
+        "chapterCount": 1,
+        "fingerprint": "finding:fault-2e9ceb7a:runtime_digest",
+        "id": "verify:issue:fault:fault-2e9ceb7a",
+        "occurrenceCount": 1,
+        "primaryEvidenceRef": ".codectx/verify/faults/fault-2e9ceb7a.json",
+        "severity": "p1",
+        "source": "runtime_digest",
+        "title": "groups.membership_ledger_save — count=114"
+      },
+      {
+        "canonicalTitle": "messaging.delete_for_everyone_remote_result — count=64",
+        "chapterCount": 1,
+        "fingerprint": "finding:fault-557a133d:runtime_digest",
+        "id": "verify:issue:fault:fault-557a133d",
+        "occurrenceCount": 1,
+        "primaryEvidenceRef": ".codectx/verify/faults/fault-557a133d.json",
+        "severity": "p1",
+        "source": "runtime_digest",
+        "title": "messaging.delete_for_everyone_remote_result — count=64"
+      },
+      {
+        "canonicalTitle": "messaging.delete_for_everyone_remote_result — count=153",
+        "chapterCount": 1,
+        "fingerprint": "finding:fault-5f618e64:runtime_digest",
+        "id": "verify:issue:fault:fault-5f618e64",
+        "occurrenceCount": 1,
+        "primaryEvidenceRef": ".codectx/verify/faults/fault-5f618e64.json",
+        "severity": "p1",
+        "source": "runtime_digest",
+        "title": "messaging.delete_for_everyone_remote_result — count=153"
+      },
+      {
+        "canonicalTitle": "messaging.delete_for_everyone_remote_result — count=157",
+        "chapterCount": 1,
+        "fingerprint": "finding:fault-6f961537:runtime_digest",
+        "id": "verify:issue:fault:fault-6f961537",
+        "occurrenceCount": 1,
+        "primaryEvidenceRef": ".codectx/verify/faults/fault-6f961537.json",
+        "severity": "p1",
+        "source": "runtime_digest",
+        "title": "messaging.delete_for_everyone_remote_result — count=157"
+      },
+      {
+        "canonicalTitle": "messaging.delete_for_everyone_remote_result — count=72",
+        "chapterCount": 1,
+        "fingerprint": "finding:fault-7be52e18:runtime_digest",
+        "id": "verify:issue:fault:fault-7be52e18",
+        "occurrenceCount": 1,
+        "primaryEvidenceRef": ".codectx/verify/faults/fault-7be52e18.json",
+        "severity": "p1",
+        "source": "runtime_digest",
+        "title": "messaging.delete_for_everyone_remote_result — count=72"
+      },
+      {
+        "canonicalTitle": "messaging.delete_for_everyone_remote_result — count=62",
+        "chapterCount": 1,
+        "fingerprint": "finding:fault-90f591d2:runtime_digest",
+        "id": "verify:issue:fault:fault-90f591d2",
+        "occurrenceCount": 1,
+        "primaryEvidenceRef": ".codectx/verify/faults/fault-90f591d2.json",
+        "severity": "p1",
+        "source": "runtime_digest",
+        "title": "messaging.delete_for_everyone_remote_result — count=62"
+      },
+      {
+        "canonicalTitle": "groups.membership_ledger_save — count=34",
+        "chapterCount": 1,
+        "fingerprint": "finding:fault-b240536d:runtime_digest",
+        "id": "verify:issue:fault:fault-b240536d",
+        "occurrenceCount": 1,
+        "primaryEvidenceRef": ".codectx/verify/faults/fault-b240536d.json",
+        "severity": "p1",
+        "source": "runtime_digest",
+        "title": "groups.membership_ledger_save — count=34"
+      },
+      {
+        "canonicalTitle": "messaging.delete_for_everyone_remote_result — count=97",
+        "chapterCount": 1,
+        "fingerprint": "finding:fault-b2bb9bad:runtime_digest",
+        "id": "verify:issue:fault:fault-b2bb9bad",
+        "occurrenceCount": 1,
+        "primaryEvidenceRef": ".codectx/verify/faults/fault-b2bb9bad.json",
+        "severity": "p1",
+        "source": "runtime_digest",
+        "title": "messaging.delete_for_everyone_remote_result — count=97"
+      },
+      {
+        "canonicalTitle": "messaging.delete_for_everyone_remote_result — count=149",
+        "chapterCount": 1,
+        "fingerprint": "finding:fault-dbc61eef:runtime_digest",
+        "id": "verify:issue:fault:fault-dbc61eef",
+        "occurrenceCount": 1,
+        "primaryEvidenceRef": ".codectx/verify/faults/fault-dbc61eef.json",
+        "severity": "p1",
+        "source": "runtime_digest",
+        "title": "messaging.delete_for_everyone_remote_result — count=149"
+      },
+      {
+        "canonicalTitle": "messaging.delete_for_everyone_remote_result — count=64",
+        "chapterCount": 1,
+        "fingerprint": "finding:fault-dff9f60a:runtime_digest",
+        "id": "verify:issue:fault:fault-dff9f60a",
+        "occurrenceCount": 1,
+        "primaryEvidenceRef": ".codectx/verify/faults/fault-dff9f60a.json",
+        "severity": "p1",
+        "source": "runtime_digest",
+        "title": "messaging.delete_for_everyone_remote_result — count=64"
+      },
+      {
+        "canonicalTitle": "messaging.delete_for_everyone_remote_result — count=64",
+        "chapterCount": 1,
+        "fingerprint": "finding:fault-e45873e1:runtime_digest",
+        "id": "verify:issue:fault:fault-e45873e1",
+        "occurrenceCount": 1,
+        "primaryEvidenceRef": ".codectx/verify/faults/fault-e45873e1.json",
+        "severity": "p1",
+        "source": "runtime_digest",
+        "title": "messaging.delete_for_everyone_remote_result — count=64"
+      },
+      {
+        "canonicalTitle": "groups.membership_ledger_save — count=89",
+        "chapterCount": 1,
+        "fingerprint": "finding:fault-f05dbc35:runtime_digest",
+        "id": "verify:issue:fault:fault-f05dbc35",
+        "occurrenceCount": 1,
+        "primaryEvidenceRef": ".codectx/verify/faults/fault-f05dbc35.json",
+        "severity": "p1",
+        "source": "runtime_digest",
+        "title": "groups.membership_ledger_save — count=89"
+      }
+    ],
+    "triageIssueCount": 34,
+    "unmappedCaptureCount": 25,
+    "updatedAt": "2026-07-04T14:15:18.761862900+00:00"
+  },
+  "mcpActionRows": [
+    {
+      "artifactRefs": [
+        ".codectx/verify/client-sessions/csess-3b202577b4d1/captures/cap-da0008fbf139/console.jsonl",
+        ".codectx/verify/client-sessions/csess-3b202577b4d1/captures/cap-da0008fbf139/manifest.json",
+        ".codectx/verify/client-sessions/csess-3b202577b4d1/captures/cap-da0008fbf139/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-3b202577b4d1/session.json",
+        ".codectx/verify/client-sessions/csess-3b202577b4d1/steps.json",
+        "cap-da0008fbf139"
+      ],
+      "at": "2026-07-04T14:15:08.273384100+00:00",
+      "channel": "daemon-rpc",
+      "durationMs": 7878,
+      "id": "mcp-audit-aaaab7c4237a",
+      "method": "client.interact.click",
+      "ok": true,
+      "schema": "verify.mcp.audit@1",
+      "sessionId": "csess-3b202577b4d1"
+    },
+    {
+      "artifactRefs": [
+        ".codectx/verify/client-sessions/csess-3b202577b4d1/captures/cap-fa9909a38db6/manifest.json",
+        ".codectx/verify/client-sessions/csess-3b202577b4d1/captures/cap-fa9909a38db6/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-3b202577b4d1/session.json",
+        ".codectx/verify/client-sessions/csess-3b202577b4d1/steps.json",
+        "cap-fa9909a38db6"
+      ],
+      "at": "2026-07-04T14:14:53.113603800+00:00",
+      "channel": "daemon-rpc",
+      "durationMs": 1672,
+      "id": "mcp-audit-343216a657ab",
+      "method": "client.interact.type",
+      "ok": true,
+      "schema": "verify.mcp.audit@1",
+      "sessionId": "csess-3b202577b4d1"
+    },
+    {
+      "artifactRefs": [
+        ".codectx/verify/client-sessions/csess-3b202577b4d1/captures/cap-c6102a82736f/console.jsonl",
+        ".codectx/verify/client-sessions/csess-3b202577b4d1/captures/cap-c6102a82736f/manifest.json",
+        ".codectx/verify/client-sessions/csess-3b202577b4d1/captures/cap-c6102a82736f/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-3b202577b4d1/session.json",
+        ".codectx/verify/client-sessions/csess-3b202577b4d1/steps.json",
+        "cap-c6102a82736f"
+      ],
+      "at": "2026-07-04T14:14:48.921474+00:00",
+      "channel": "daemon-rpc",
+      "durationMs": 4438,
+      "id": "mcp-audit-238b125ed912",
+      "method": "client.interact.click",
+      "ok": true,
+      "schema": "verify.mcp.audit@1",
+      "sessionId": "csess-3b202577b4d1"
+    },
+    {
+      "artifactRefs": [
+        ".codectx/verify/client-sessions/csess-3b202577b4d1/attach-latest.json",
+        ".codectx/verify/client-sessions/csess-3b202577b4d1/session.json"
+      ],
+      "at": "2026-07-04T14:14:35.266473500+00:00",
+      "channel": "daemon-rpc",
+      "durationMs": 9740,
+      "expectedRepoRoot": "E:/Web Projects/experimental-workspace/newstart",
+      "id": "mcp-audit-9639188e408c",
+      "method": "client.session.connect",
+      "ok": true,
+      "schema": "verify.mcp.audit@1",
+      "sessionId": "csess-3b202577b4d1"
+    },
+    {
+      "artifactRefs": [
+        ".codectx/verify/client-sessions/csess-94f4ca6d3332/captures/cap-96f34e7aa3fa/digest.json",
+        ".codectx/verify/client-sessions/csess-94f4ca6d3332/captures/cap-96f34e7aa3fa/manifest.json",
+        ".codectx/verify/client-sessions/csess-94f4ca6d3332/session.json",
+        ".codectx/verify/client-sessions/csess-94f4ca6d3332/steps.json",
+        ".codectx/verify/faults/fault-557a133d.json",
+        ".codectx/verify/issues-register.json",
+        "cap-96f34e7aa3fa"
+      ],
+      "at": "2026-07-04T14:11:45.583495300+00:00",
+      "channel": "daemon-rpc",
+      "durationMs": 1379,
+      "expectedRepoRoot": "E:/Web Projects/experimental-workspace/newstart",
+      "faultId": "fault-557a133d",
+      "id": "mcp-audit-cc3550d44b55",
+      "method": "client.runtime.digestPull",
+      "ok": true,
+      "schema": "verify.mcp.audit@1",
+      "sessionId": "csess-94f4ca6d3332"
+    },
+    {
+      "artifactRefs": [
+        ".codectx/verify/chains/chain-r1-room-key-health-2026-07-04/manifest.json"
+      ],
+      "at": "2026-07-04T14:11:36.455180500+00:00",
+      "channel": "daemon-rpc",
+      "durationMs": 6100,
+      "expectedRepoRoot": "E:/Web Projects/experimental-workspace/newstart",
+      "id": "mcp-audit-a7208f61e7ab",
+      "method": "client.investigation.chain.append",
+      "ok": true,
+      "schema": "verify.mcp.audit@1",
+      "sessionId": "csess-94f4ca6d3332"
+    },
+    {
+      "artifactRefs": [
+        ".codectx/verify/chains/chain-r1-room-key-health-2026-07-04/manifest.json"
+      ],
+      "at": "2026-07-04T14:11:19.363778200+00:00",
+      "channel": "daemon-rpc",
+      "durationMs": 5,
+      "id": "mcp-audit-8241f367aa9c",
+      "method": "client.investigation.chain.create",
+      "ok": true,
+      "schema": "verify.mcp.audit@1"
+    },
+    {
+      "at": "2026-07-04T14:11:11.346860100+00:00",
+      "channel": "daemon-rpc",
+      "durationMs": 2010,
+      "error": "read chain manifest: The system cannot find the path specified. (os error 3)",
+      "expectedRepoRoot": "E:/Web Projects/experimental-workspace/newstart",
+      "id": "mcp-audit-6a03ed5b96b7",
+      "method": "client.investigation.chain.append",
+      "ok": false,
+      "schema": "verify.mcp.audit@1",
+      "sessionId": "csess-94f4ca6d3332"
+    },
+    {
+      "artifactRefs": [
+        ".codectx/verify/client-sessions/csess-94f4ca6d3332/captures/cap-2652b0cabacb/digest.json",
+        ".codectx/verify/client-sessions/csess-94f4ca6d3332/captures/cap-2652b0cabacb/manifest.json",
+        ".codectx/verify/client-sessions/csess-94f4ca6d3332/session.json",
+        ".codectx/verify/client-sessions/csess-94f4ca6d3332/steps.json",
+        ".codectx/verify/faults/fault-e45873e1.json",
+        ".codectx/verify/issues-register.json",
+        "cap-2652b0cabacb"
+      ],
+      "at": "2026-07-04T14:11:04.884414200+00:00",
+      "channel": "daemon-rpc",
+      "durationMs": 1384,
+      "expectedRepoRoot": "E:/Web Projects/experimental-workspace/newstart",
+      "faultId": "fault-e45873e1",
+      "id": "mcp-audit-24cd045d6c85",
+      "method": "client.runtime.digestPull",
+      "ok": true,
+      "schema": "verify.mcp.audit@1",
+      "sessionId": "csess-94f4ca6d3332"
+    },
+    {
+      "artifactRefs": [
+        ".codectx/verify/client-sessions/csess-94f4ca6d3332/captures/cap-63f103325745/console.jsonl",
+        ".codectx/verify/client-sessions/csess-94f4ca6d3332/captures/cap-63f103325745/manifest.json",
+        ".codectx/verify/client-sessions/csess-94f4ca6d3332/captures/cap-63f103325745/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-94f4ca6d3332/session.json",
+        ".codectx/verify/client-sessions/csess-94f4ca6d3332/steps.json",
+        "cap-63f103325745"
+      ],
+      "at": "2026-07-04T14:10:52.924318+00:00",
+      "channel": "daemon-rpc",
+      "durationMs": 2986,
+      "id": "mcp-audit-3a7ffd98e539",
+      "method": "client.interact.click",
+      "ok": true,
+      "schema": "verify.mcp.audit@1",
+      "sessionId": "csess-94f4ca6d3332"
+    },
+    {
+      "artifactRefs": [
+        ".codectx/verify/client-sessions/csess-94f4ca6d3332/captures/cap-1378d7e30d7e/manifest.json",
+        ".codectx/verify/client-sessions/csess-94f4ca6d3332/captures/cap-1378d7e30d7e/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-94f4ca6d3332/session.json",
+        ".codectx/verify/client-sessions/csess-94f4ca6d3332/steps.json",
+        "cap-1378d7e30d7e"
+      ],
+      "at": "2026-07-04T14:10:41.761447700+00:00",
+      "channel": "daemon-rpc",
+      "durationMs": 1172,
+      "id": "mcp-audit-6889a3185147",
+      "method": "client.interact.type",
+      "ok": true,
+      "schema": "verify.mcp.audit@1",
+      "sessionId": "csess-94f4ca6d3332"
+    },
+    {
+      "artifactRefs": [
+        ".codectx/verify/client-sessions/csess-94f4ca6d3332/captures/cap-a1bded93b973/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-94f4ca6d3332/session.json"
+      ],
+      "at": "2026-07-04T14:10:23.680654400+00:00",
+      "channel": "daemon-rpc",
+      "durationMs": 1302,
+      "id": "mcp-audit-dae5060185df",
+      "method": "client.surface.probe",
+      "ok": true,
+      "schema": "verify.mcp.audit@1",
+      "sessionId": "csess-94f4ca6d3332"
+    },
+    {
+      "artifactRefs": [
+        ".codectx/verify/client-sessions/csess-94f4ca6d3332/captures/cap-679565a97fe5/digest.json",
+        ".codectx/verify/client-sessions/csess-94f4ca6d3332/captures/cap-679565a97fe5/manifest.json",
+        ".codectx/verify/client-sessions/csess-94f4ca6d3332/session.json",
+        ".codectx/verify/client-sessions/csess-94f4ca6d3332/steps.json",
+        ".codectx/verify/faults/fault-7be52e18.json",
+        ".codectx/verify/issues-register.json",
+        "cap-679565a97fe5"
+      ],
+      "at": "2026-07-04T14:10:17.899078800+00:00",
+      "channel": "daemon-rpc",
+      "durationMs": 1549,
+      "expectedRepoRoot": "E:/Web Projects/experimental-workspace/newstart",
+      "faultId": "fault-7be52e18",
+      "id": "mcp-audit-2ba2b1b34525",
+      "method": "client.runtime.digestPull",
+      "ok": true,
+      "schema": "verify.mcp.audit@1",
+      "sessionId": "csess-94f4ca6d3332"
+    },
+    {
+      "artifactRefs": [
+        ".codectx/verify/client-sessions/csess-94f4ca6d3332/captures/cap-21fd58d39a72/console.jsonl",
+        ".codectx/verify/client-sessions/csess-94f4ca6d3332/captures/cap-21fd58d39a72/manifest.json",
+        ".codectx/verify/client-sessions/csess-94f4ca6d3332/captures/cap-21fd58d39a72/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-94f4ca6d3332/session.json",
+        ".codectx/verify/client-sessions/csess-94f4ca6d3332/steps.json",
+        "cap-21fd58d39a72"
+      ],
+      "at": "2026-07-04T14:10:12.359188400+00:00",
+      "channel": "daemon-rpc",
+      "durationMs": 6490,
+      "id": "mcp-audit-12742a5430be",
+      "method": "client.interact.click",
+      "ok": true,
+      "schema": "verify.mcp.audit@1",
+      "sessionId": "csess-94f4ca6d3332"
+    },
+    {
+      "artifactRefs": [
+        ".codectx/verify/client-sessions/csess-94f4ca6d3332/captures/cap-b339bb5304bf/manifest.json",
+        ".codectx/verify/client-sessions/csess-94f4ca6d3332/captures/cap-b339bb5304bf/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-94f4ca6d3332/session.json",
+        ".codectx/verify/client-sessions/csess-94f4ca6d3332/steps.json",
+        "cap-b339bb5304bf"
+      ],
+      "at": "2026-07-04T14:09:36.076496100+00:00",
+      "channel": "daemon-rpc",
+      "durationMs": 1159,
+      "id": "mcp-audit-b2bdc5776db2",
+      "method": "client.interact.type",
+      "ok": true,
+      "schema": "verify.mcp.audit@1",
+      "sessionId": "csess-94f4ca6d3332"
+    },
+    {
+      "artifactRefs": [
+        ".codectx/verify/client-sessions/csess-94f4ca6d3332/captures/cap-e93b4e4637a7/manifest.json",
+        ".codectx/verify/client-sessions/csess-94f4ca6d3332/captures/cap-e93b4e4637a7/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-94f4ca6d3332/session.json",
+        ".codectx/verify/client-sessions/csess-94f4ca6d3332/steps.json",
+        "cap-e93b4e4637a7"
+      ],
+      "at": "2026-07-04T14:09:29.969756400+00:00",
+      "channel": "daemon-rpc",
+      "durationMs": 2831,
+      "id": "mcp-audit-511e46326c61",
+      "method": "client.interact.click",
+      "ok": true,
+      "schema": "verify.mcp.audit@1",
+      "sessionId": "csess-94f4ca6d3332"
+    },
+    {
+      "artifactRefs": [
+        ".codectx/verify/client-sessions/csess-94f4ca6d3332/captures/cap-be99fbea6907/manifest.json",
+        ".codectx/verify/client-sessions/csess-94f4ca6d3332/captures/cap-be99fbea6907/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-94f4ca6d3332/session.json",
+        ".codectx/verify/client-sessions/csess-94f4ca6d3332/steps.json",
+        "cap-be99fbea6907"
+      ],
+      "at": "2026-07-04T14:09:18.393207200+00:00",
+      "channel": "daemon-rpc",
+      "durationMs": 1237,
+      "id": "mcp-audit-3765476ef961",
+      "method": "client.interact.type",
+      "ok": true,
+      "schema": "verify.mcp.audit@1",
+      "sessionId": "csess-94f4ca6d3332"
+    },
+    {
+      "artifactRefs": [
+        ".codectx/verify/client-sessions/csess-94f4ca6d3332/captures/cap-626705e81826/console.jsonl",
+        ".codectx/verify/client-sessions/csess-94f4ca6d3332/captures/cap-626705e81826/manifest.json",
+        ".codectx/verify/client-sessions/csess-94f4ca6d3332/captures/cap-626705e81826/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-94f4ca6d3332/session.json",
+        ".codectx/verify/client-sessions/csess-94f4ca6d3332/steps.json",
+        "cap-626705e81826"
+      ],
+      "at": "2026-07-04T14:09:14.480184100+00:00",
+      "channel": "daemon-rpc",
+      "durationMs": 3127,
+      "id": "mcp-audit-a6e156846662",
+      "method": "client.interact.click",
+      "ok": true,
+      "schema": "verify.mcp.audit@1",
+      "sessionId": "csess-94f4ca6d3332"
+    },
+    {
+      "artifactRefs": [
+        ".codectx/verify/client-sessions/csess-94f4ca6d3332/attach-latest.json",
+        ".codectx/verify/client-sessions/csess-94f4ca6d3332/session.json"
+      ],
+      "at": "2026-07-04T14:08:40.439195500+00:00",
+      "channel": "daemon-rpc",
+      "durationMs": 10148,
+      "expectedRepoRoot": "E:/Web Projects/experimental-workspace/newstart",
+      "id": "mcp-audit-66bd3cca908d",
+      "method": "client.session.connect",
+      "ok": true,
+      "schema": "verify.mcp.audit@1",
+      "sessionId": "csess-94f4ca6d3332"
+    },
+    {
+      "artifactRefs": [
+        ".codectx/verify/chains/chain-com-run-11-phase1c-2026-07-04/manifest.json"
+      ],
+      "at": "2026-07-04T08:42:03.462773500+00:00",
+      "channel": "daemon-rpc",
+      "durationMs": 4644,
+      "expectedRepoRoot": "E:/Web Projects/experimental-workspace/newstart",
+      "id": "mcp-audit-645db688fd7a",
+      "method": "client.investigation.chain.append",
+      "ok": true,
+      "schema": "verify.mcp.audit@1",
+      "sessionId": "csess-44f67ea7565d"
+    },
+    {
+      "artifactRefs": [
+        ".codectx/verify/client-sessions/csess-44f67ea7565d/captures/cap-d3b4465bd59c/manifest.json",
+        ".codectx/verify/client-sessions/csess-44f67ea7565d/captures/cap-d3b4465bd59c/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-44f67ea7565d/session.json",
+        ".codectx/verify/client-sessions/csess-44f67ea7565d/steps.json",
+        "cap-d3b4465bd59c"
+      ],
+      "at": "2026-07-04T08:41:39.805543400+00:00",
+      "channel": "daemon-rpc",
+      "durationMs": 10876,
+      "error": "locator.click: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('button:has-text(\"Tester2 accepted the invitation\")')\u001b[22m\n",
+      "id": "mcp-audit-9cb7ce180233",
+      "method": "client.interact.click",
+      "ok": false,
+      "schema": "verify.mcp.audit@1",
+      "sessionId": "csess-44f67ea7565d"
+    },
+    {
+      "artifactRefs": [
+        ".codectx/verify/client-sessions/csess-44f67ea7565d/captures/cap-1b101a27882f/manifest.json",
+        ".codectx/verify/client-sessions/csess-44f67ea7565d/captures/cap-1b101a27882f/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-44f67ea7565d/session.json",
+        ".codectx/verify/client-sessions/csess-44f67ea7565d/steps.json",
+        "cap-1b101a27882f"
+      ],
+      "at": "2026-07-04T08:40:23.860581100+00:00",
+      "channel": "daemon-rpc",
+      "durationMs": 2547,
+      "id": "mcp-audit-58c126bf5b2b",
+      "method": "client.interact.click",
+      "ok": true,
+      "schema": "verify.mcp.audit@1",
+      "sessionId": "csess-44f67ea7565d"
+    },
+    {
+      "artifactRefs": [
+        ".codectx/verify/client-sessions/csess-44f67ea7565d/captures/cap-a21e97456c84/manifest.json",
+        ".codectx/verify/client-sessions/csess-44f67ea7565d/captures/cap-a21e97456c84/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-44f67ea7565d/session.json",
+        ".codectx/verify/client-sessions/csess-44f67ea7565d/steps.json",
+        "cap-a21e97456c84"
+      ],
+      "at": "2026-07-04T08:39:46.127755500+00:00",
+      "channel": "daemon-rpc",
+      "durationMs": 817,
+      "id": "mcp-audit-b84f34976d77",
+      "method": "client.interact.type",
+      "ok": true,
+      "schema": "verify.mcp.audit@1",
+      "sessionId": "csess-44f67ea7565d"
+    },
+    {
+      "artifactRefs": [
+        ".codectx/verify/client-sessions/csess-44f67ea7565d/captures/cap-0a7d31dd85d3/manifest.json",
+        ".codectx/verify/client-sessions/csess-44f67ea7565d/captures/cap-0a7d31dd85d3/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-44f67ea7565d/session.json",
+        ".codectx/verify/client-sessions/csess-44f67ea7565d/steps.json",
+        "cap-0a7d31dd85d3"
+      ],
+      "at": "2026-07-04T08:39:36.404697200+00:00",
+      "channel": "daemon-rpc",
+      "durationMs": 10946,
+      "error": "locator.fill: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('textarea, input:not([type=\"password\"])')\u001b[22m\n",
+      "id": "mcp-audit-14bbaed3b7ab",
+      "method": "client.interact.type",
+      "ok": false,
+      "schema": "verify.mcp.audit@1",
+      "sessionId": "csess-44f67ea7565d"
+    },
+    {
+      "artifactRefs": [
+        ".codectx/verify/client-sessions/csess-44f67ea7565d/captures/cap-ad9068996e8b/manifest.json",
+        ".codectx/verify/client-sessions/csess-44f67ea7565d/captures/cap-ad9068996e8b/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-44f67ea7565d/session.json",
+        ".codectx/verify/client-sessions/csess-44f67ea7565d/steps.json",
+        "cap-ad9068996e8b"
+      ],
+      "at": "2026-07-04T08:39:07.291613100+00:00",
+      "channel": "daemon-rpc",
+      "durationMs": 2746,
+      "id": "mcp-audit-c2c7cb1bf20a",
+      "method": "client.interact.click",
+      "ok": true,
+      "schema": "verify.mcp.audit@1",
+      "sessionId": "csess-44f67ea7565d"
+    }
+  ],
+  "operator": {
+    "confirmedBy": "agent",
+    "doesNotProve": [
+      "R3 sidebar stale preview",
+      "Dual-profile",
+      "Password-only cold unlock"
+    ],
+    "notes": "R1 health hook uses resolveRoomKeyHexForMembershipHealthPanel; warm send + cold restart on NewTest 2",
+    "roundLabel": "2026-07-04-r1-room-key-health-t4"
+  },
+  "pointers": {
+    "chainsRoot": ".codectx/verify/chains",
+    "faultsDir": ".codectx/verify/faults",
+    "issuesRegisterPath": ".codectx/verify/issues-register.json",
+    "issuesRegisterSummaryPath": ".codectx/verify/issues-register.summary.json",
+    "mcpAuditPath": ".codectx/verify/mcp-audit.jsonl",
+    "metaChainPath": ".codactrl/verify/issue-report/meta-chain.json"
+  },
+  "promotionStage": "spec",
+  "readOrder": [
+    {
+      "path": "export-manifest.json",
+      "purpose": "Authoritative export timestamps, exportGeneration, and round metadata"
+    },
+    {
+      "path": "export-bundle-coherence.json",
+      "purpose": "Atomic bundle coherence — single exportedAt across artifacts"
+    },
+    {
+      "path": "report-rollup.md",
+      "purpose": "Token-efficient symptom + chain rollup"
+    },
+    {
+      "path": "report-lite.json",
+      "purpose": "Agent JSON summaries + pointers"
+    },
+    {
+      "path": "meta-chain.json",
+      "purpose": "Symptom adjacency graph (root band + chain links)"
+    },
+    {
+      "path": "../.codectx/verify/issues-register.summary.json",
+      "purpose": "Top-N deduped issues"
+    },
+    {
+      "path": "../.codectx/verify/chains/registry.json",
+      "purpose": "Chain registry with verdict"
+    }
+  ],
+  "schema": "verify.issue.report.lite@1",
+  "unmappedFaultCount": 25
+}

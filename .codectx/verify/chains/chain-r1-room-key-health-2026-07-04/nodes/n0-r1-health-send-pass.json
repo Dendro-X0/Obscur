@@ -1,0 +1,37 @@
+{
+  "schema": "codactrl.investigation.node@0.1.0",
+  "chainId": "chain-r1-room-key-health-2026-07-04",
+  "nodeId": "n0-r1-health-send-pass",
+  "trigger": "r1-t4-warm-pass",
+  "at": "2026-07-04T14:11:36.435450500+00:00",
+  "sessionId": "csess-94f4ca6d3332",
+  "surfaces": {
+    "mainThreadMessageCount": 12,
+    "mainThreadSystemCards": 0,
+    "alertBannerCount": 2,
+    "splitBrainSuspected": false
+  },
+  "digestRef": "fault-dff9f60a",
+  "screenshotRef": ".codectx/verify/client-sessions/csess-94f4ca6d3332/captures/cap-9742f5be6992/screenshot.png",
+  "signalsExtracted": [
+    "account_sync.backup_publish_mutation_suppressed_restore_in_flight",
+    "account_sync.backup_publish_ordering",
+    "account_sync.backup_publish_result",
+    "groups.ledger_field_repair_applied",
+    "groups.membership_ledger_save",
+    "messaging.conversation_list_authority_selected",
+    "messaging.delete_for_everyone_remote_result",
+    "workspace.thread.hydrate"
+  ],
+  "transportEvidence": [
+    {
+      "eventId": "0cf1f9d20e7bb2bcbe9809d831c166a53c9d5437a2febb53b2fe106b139b154b"
+    }
+  ],
+  "hypothesis": "After R1 fix: no room_key_missing UI while group send succeeds; digest shows empty room_key_missing_send_blocked",
+  "doesNotProve": [
+    "R3 sidebar preview stale",
+    "Dual-profile window",
+    "Group key unavailable ledger placeholder"
+  ]
+}

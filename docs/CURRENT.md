@@ -2,7 +2,7 @@
 
 **Read this first.** Snapshot for maintainers and agents (2026-07-04).
 
-_Last updated: 2026-07-04 · Version train: **1.9.10** · **Runtime repair band ACTIVE**_
+_Last updated: 2026-07-04 · Version train: **1.9.10** · **Runtime repair band EXIT** (maintainer gate)_
 
 ---
 
@@ -13,13 +13,13 @@ _Last updated: 2026-07-04 · Version train: **1.9.10** · **Runtime repair band 
 | **v2 product verification (Phase 1)** | **EXIT** 2026-07-04 — [version-roadmap-scope.md](./program/version-roadmap-scope.md) |
 | **v2 documentation (Phase 2)** | **EXIT** 2026-07-04 |
 | **v2 installers (Phase 3)** | **EXIT** 2026-07-04 — [release-assets/manifest.json](../release-assets/manifest.json) |
-| **v2 website (Phase 4)** | **Code done** · **deploy PAUSED** until runtime band exits |
-| **Runtime repair band** | **ACTIVE** — R1–R3 **landed** · **R5 next** |
-| **Release prep (Phase 5–6)** | **PAUSED** — no `v2.0.0` tag, no public website until runtime rows exit |
+| **Phase 4 website** | **Local smoke PASS** · Vercel preview gate · [charter](./program/obscur-v2-phase4-website-charter.md) |
+| **Runtime repair band** | **EXIT** — R1–R3 + R5 **VERIFIED t4** · R4 **A** · maintainer gate Phase 4 |
+| **Release prep (Phase 5–6)** | **PAUSED** — gated on Phase 4 **EXIT** (Vercel preview) |
 | **Engine lab (B0–B5, Conduit Mesh C0–C6)** | **Landed** — `pnpm verify:engine-lab` (parallel, does not unblock release alone) |
 | **Community feature patches** | **PAUSED** — COM-RUN-01 accepted @ ACC-02 |
 
-**Next step:** [handoffs/current-session.md](./handoffs/current-session.md) → **R5** (`O-4 ingest chrome` / `group-thread-relay-ingest` residual)
+**Next step:** [handoffs/current-session.md](./handoffs/current-session.md) → **Phase 4** Vercel preview deploy (local smoke PASS)
 
 ---
 
@@ -31,7 +31,7 @@ _Last updated: 2026-07-04 · Version train: **1.9.10** · **Runtime repair band 
 | R2 | `auth-keychain-restore-failed` / cold unlock | **VERIFIED t4** — `1ab19204` |
 | R3 | Sidebar preview stale | **VERIFIED t4** (`csess-264849283e3c` · `3cf79dbe`) |
 | R4 | COM-RUN-01 roster divergence | **A** @ ACC-02 |
-| **R5** | O-4 ingest chrome | **IMPLEMENTED** · t4 next |
+| **R5** | O-4 ingest chrome | **VERIFIED t4** (`60c9bb3c`) |
 
 Protocol: [program/obscur-runtime-issue-tracker-2026-07.md](./program/obscur-runtime-issue-tracker-2026-07.md) · CodaCtrl export `.codactrl/verify/issue-report/`
 

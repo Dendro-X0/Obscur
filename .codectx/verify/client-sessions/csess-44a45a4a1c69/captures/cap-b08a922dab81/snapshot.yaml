@@ -1,0 +1,42 @@
+- main:
+  - 'button "Theme: system. Switch to light."'
+  - link "Back to marketplace":
+    - /url: /marketplace
+  - link "V Vectis":
+    - /url: /marketplace
+  - text: Don't have an identity?
+  - link "Register":
+    - /url: /register
+  - heading "Welcome back" [level=1]
+  - paragraph: Unlock your local Ed25519 key, passkey vault, or encrypted backup.
+  - button "Use saved key"
+  - button "Paste from clipboard"
+  - separator "Or import key"
+  - text: Secret key (hex)
+  - textbox "Secret key (hex)":
+    - /placeholder: 64-character Ed25519 secret key
+  - paragraph: No email or password. Your local key unlocks signing for marketplace actions.
+  - checkbox "Remember key in this browser" [checked]
+  - text: Remember key in this browser
+  - button "Sign in"
+  - separator "Or restore backup file"
+  - paragraph: Backups use PBKDF2 (210000 iterations) + AES-GCM. Store the backup file and password separately.
+  - paragraph: Import encrypted backup
+  - text: Backup file
+  - button "Backup file"
+  - text: Backup password
+  - textbox "Backup password":
+    - /placeholder: Password used when exporting
+  - button "Decrypt backup"
+  - paragraph: Lost your key? Vectis cannot recover it — restore from an encrypted backup or create a new identity.
+  - paragraph:
+    - text: Prefer browsing without signing?
+    - link "Continue as guest":
+      - /url: /marketplace
+  - heading "More than a marketplace shell" [level=2]
+  - paragraph: Protocol
+  - paragraph: Settlement without fiat rails or platform override
+  - button "Go to slide 1"
+  - button "Go to slide 2"
+  - button "Go to slide 3"
+  - button "Go to slide 4"

@@ -1,0 +1,39 @@
+- main:
+  - text: Client release-v1.9.10-relay-recovery-20260617
+  - img "Obscur"
+  - text: Obscur
+  - button "desktop.titleBar.lock"
+  - button "Open desktop profile switcher":
+    - img "Tester1"
+    - text: Tester1 Obscur / e07f67dc...c191ea56
+  - button "Minimize window"
+  - button "Restore window"
+  - button "Close window"
+  - button "Connected"
+  - link "Chats":
+    - /url: /
+  - link "Network":
+    - /url: /network
+  - link "Vault":
+    - /url: /vault
+  - link "Search":
+    - /url: /search
+  - link "Settings":
+    - /url: /settings
+  - button "Open profile menu":
+    - img "Tester1"
+  - text: Discovery
+  - main:
+    - paragraph: Discovery
+    - heading "One search box for your network" [level=1]
+    - paragraph: Find people and communities, then open their public profile or switch to direct add when you already have a private contact token.
+    - textbox "Search people, communities, npubs, nip-05 handles, or public keys"
+    - button "Search" [disabled]
+    - button "Everything"
+    - button "Add Friend"
+    - button "Communities"
+    - text: Search idle People Communities Source Status local:idle relay:idle index:idle
+    - heading "Start with a global search" [level=4]
+    - paragraph: Look up people and communities from one place, then open a profile, send an invitation, or switch to direct add when someone shares a private contact token.
+    - text: People Communities Direct add when needed
+- alert

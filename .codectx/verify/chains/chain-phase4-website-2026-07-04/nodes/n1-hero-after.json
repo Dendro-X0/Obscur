@@ -1,0 +1,22 @@
+{
+  "schema": "codactrl.investigation.node@0.1.0",
+  "chainId": "chain-phase4-website-2026-07-04",
+  "nodeId": "n1-hero-after",
+  "trigger": "hero-refinement-after-fold",
+  "at": "2026-07-04T23:59:37.139449+00:00",
+  "sessionId": "csess-59bb8d3fedef",
+  "surfaces": {
+    "sidebarPreview": "Unsigned installers with SHA-256 checksums; scope documented honestly.",
+    "mainThreadMessageCount": 0,
+    "mainThreadSystemCards": 0,
+    "alertBannerCount": 1,
+    "splitBrainSuspected": true,
+    "suggestedSymptomClass": "dm-ui-split-brain"
+  },
+  "screenshotRef": ".codectx/verify/client-sessions/csess-59bb8d3fedef/captures/cap-a73d1c794d27/screenshot.png",
+  "hypothesis": "Post-fold hero: integrated proof strip, 3 CTAs, compact panel — thesis + Download visible without scroll on desktop",
+  "doesNotProve": [
+    "Production Vercel deploy",
+    "Changelog page editorial pass"
+  ]
+}

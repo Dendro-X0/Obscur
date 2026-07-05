@@ -1,0 +1,22 @@
+{
+  "schema": "codactrl.investigation.node@0.1.0",
+  "chainId": "chain-o4-group-ingest-2026-07-02",
+  "nodeId": "n6-round6-health-recovered-docker",
+  "trigger": "Round6: dev:relay:docker up; Info health ready:1 chatEnabled:1; send O4-round6-docker-up-071T1728 visible Just now; publishGroupEvent ws://localhost:7000",
+  "at": "2026-07-01T17:28:49.487638200+00:00",
+  "sessionId": "csess-631c3bba5207",
+  "surfaces": {
+    "mainThreadMessageCount": 5,
+    "mainThreadSystemCards": 0,
+    "alertBannerCount": 2,
+    "splitBrainSuspected": false
+  },
+  "digestRef": "fault-1285de34",
+  "screenshotRef": ".codectx/verify/client-sessions/csess-631c3bba5207/captures/cap-0a2390370883/screenshot.png",
+  "hypothesis": "Docker :7000 + coordination health cascade clears send block; sidebar label stale",
+  "doesNotProve": [
+    "Tester2 ingest",
+    "sidebar warning cleared",
+    "O-4 fully fixed"
+  ]
+}

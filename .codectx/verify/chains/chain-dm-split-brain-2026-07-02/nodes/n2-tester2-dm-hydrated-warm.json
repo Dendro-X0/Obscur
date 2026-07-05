@@ -1,0 +1,22 @@
+{
+  "schema": "codactrl.investigation.node@0.1.0",
+  "chainId": "chain-dm-split-brain-2026-07-02",
+  "nodeId": "n2-tester2-dm-hydrated-warm",
+  "trigger": "Chats link return → Tester2 thread shows O2-coldrestart-verify + history",
+  "at": "2026-07-01T11:57:27.339895600+00:00",
+  "sessionId": "csess-ac2da4ea9b5c",
+  "surfaces": {
+    "sidebarPreview": "T",
+    "mainThreadMessageCount": 11,
+    "mainThreadSystemCards": 12,
+    "alertBannerCount": 8,
+    "splitBrainSuspected": false
+  },
+  "digestRef": "fault-447bafd6",
+  "screenshotRef": ".codectx/verify/client-sessions/csess-ac2da4ea9b5c/captures/cap-281ddaa2d8cd/screenshot.png",
+  "hypothesis": "split-brain NOT reproduced when session warm; sidebar preview matches main thread",
+  "doesNotProve": [
+    "cold restart retention",
+    "transient vanish on wait"
+  ]
+}

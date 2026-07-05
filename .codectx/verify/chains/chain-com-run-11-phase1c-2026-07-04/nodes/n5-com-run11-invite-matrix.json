@@ -1,0 +1,9 @@
+{
+  "schema": "codactrl.investigation.node@0.1.0",
+  "chainId": "chain-com-run-11-phase1c-2026-07-04",
+  "nodeId": "n5-com-run11-invite-matrix",
+  "trigger": "round28 leave-reinvite pending invite matrix before accept",
+  "at": "2026-07-04T07:32:22.447581200+00:00",
+  "sessionId": "csess-4a147db51e8b",
+  "hypothesis": "COM-RUN-11 role matrix: T1 Cancel Invitation + T2 Accept/Decline on fresh pending invite"
+}

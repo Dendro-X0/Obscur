@@ -1,0 +1,3 @@
+[profile-picker-verify] CDP unavailable — running mocked static-shell checks
+[profile-picker-verify] using HTTP shell at http://127.0.0.1:3341
+[profile-picker-verify] done — 0 passed, 1 failed

@@ -1,0 +1,86 @@
+- banner:
+  - link "Obscur":
+    - /url: /
+  - navigation "Primary":
+    - link "Product":
+      - /url: /
+    - link "Download":
+      - /url: /download
+    - link "Limitations":
+      - /url: /limitations
+    - link "Changelog":
+      - /url: /changelog
+    - link "Docs":
+      - /url: https://github.com/Dendro-X0/Obscur/tree/main/docs
+- main:
+  - paragraph: Honest product scope
+  - heading "Known limitations" [level=1]
+  - paragraph: Obscur v2 verification closed Phase 1 product truth with explicit accepts. This page summarizes what demo hosts and installers should not over-promise. Full maintainer detail lives in the repo limitations sheet.
+  - link "Download":
+    - /url: /download
+  - link "Full limitations doc":
+    - /url: https://github.com/Dendro-X0/Obscur/blob/main/docs/program/obscur-v2-known-limitations.md
+  - paragraph: Verified (Phase 1 summary)
+  - heading "What we tested before packaging" [level=2]
+  - article:
+    - heading "Native DM + group SQLite" [level=3]
+    - text: Verified
+    - paragraph: Cold-restart soaks and persistence authority gates passed on maintainer matrix.
+  - article:
+    - heading "Dual-profile group send/receive" [level=3]
+    - text: Verified
+    - paragraph: COM-RUN-11 invite lifecycle exercised on managed dev stack.
+  - article:
+    - heading "SEC V1–V3, V5" [level=3]
+    - text: Pass
+    - paragraph: Maintainer security checklist signed partial @ Phase 1D.
+  - paragraph: Accepted limitations
+  - heading "Do not claim these are fixed" [level=2]
+  - article:
+    - heading "ACC-01 — Delete-for-me" [level=3]
+    - paragraph: "Delete-for-me may not survive account restore or web/desktop parity the same way as native SQLite cold restart. Prefer honest copy: hide on this device."
+  - article:
+    - heading "ACC-02 — Roster divergence" [level=3]
+    - paragraph: Creator and joiner can show different member lists on the same community. Accepted — integration study band; no patch until charter completes.
+  - article:
+    - heading "SEC-V4 — Restore leak boundary" [level=3]
+    - paragraph: Accepted @ REL-002. Contract drift documented in restore historical tests.
+  - article:
+    - heading "Display-only symptoms" [level=3]
+    - paragraph: Sidebar preview may show stale text while thread hydrate is intact. Post cold-restart unlock may require Import Key on some paths.
+  - paragraph: Paused bands
+  - heading "No agent patches without charter" [level=2]
+  - article:
+    - heading "COM-RUN-01 roster" [level=3]
+    - paragraph: Integration study — do not patch roster display as low priority.
+  - article:
+    - heading "COM-RUN-02" [level=3]
+    - paragraph: Room-key repair cancelled — membership redesign charter supersedes.
+  - paragraph: Demo language
+  - heading "Suggested presenter copy" [level=2]
+  - list:
+    - listitem: Obscur is privacy-first desktop software; production web is disabled.
+    - listitem: Group messaging works on managed workspace + relay stacks we verify in dev — roster display between profiles may disagree (known, accepted).
+    - listitem: Native message history survives restart on desktop SQLite paths we tested; account restore and delete-for-me have documented limits.
+  - article:
+    - paragraph: Install
+    - heading "Ready to try Obscur?" [level=2]
+    - paragraph: Windows installer is available with published SHA-256. Android debug builds are local-only. Read signing policy before sideloading unsigned NSIS.
+    - link "Go to download":
+      - /url: /download
+    - link "Maintainer sheet":
+      - /url: https://github.com/Dendro-X0/Obscur/blob/main/docs/program/obscur-v2-known-limitations.md
+  - article:
+    - heading "Installer honesty" [level=3]
+    - paragraph: Unsigned Windows NSIS is expected. No Play Store or App Store claims on this website. Verify checksums on the download page.
+- contentinfo:
+  - paragraph: Obscur ships with evidence-backed release notes, unsigned installers by default, and honest scope copy.
+  - link "Download":
+    - /url: /download
+  - link "Known limitations":
+    - /url: /limitations
+  - link "Signing policy":
+    - /url: https://github.com/Dendro-X0/Obscur/blob/main/docs/program/obscur-v2-phase3-signing-policy.md
+  - link "Build from source":
+    - /url: https://github.com/Dendro-X0/Obscur/blob/main/docs/program/obscur-v2-install-build-guide.md
+- alert

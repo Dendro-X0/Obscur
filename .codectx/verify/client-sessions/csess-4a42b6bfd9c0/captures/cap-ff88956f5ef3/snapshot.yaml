@@ -1,0 +1,29 @@
+- main:
+  - text: Client release-v1.9.10-relay-recovery-20260617
+  - img "Obscur"
+  - text: Profiles
+  - button "Minimize window"
+  - button "Maximize window"
+  - button "Close window"
+  - main:
+    - button "Back to profile picker"
+    - text: Manage Profiles Each window is independent. Open any profile in its own window or sign in here — no window depends on another having launched first. Saved Profiles ? Profile slot This window Last used just now
+    - button "Open Profile Window"
+    - text: "? Profile slot Needs setup Last used 16m ago"
+    - button "Open in new window"
+    - button "Switch This Window"
+    - button "Remove"
+    - complementary:
+      - text: Add Profile Create a fresh profile shell and launch it in a separate window. You can create a new account or log in with another key there.
+      - textbox "Profile 3"
+      - button "Add Profile in New Window"
+      - text: How this works
+      - paragraph: Each profile is a separate local workspace on this device.
+      - paragraph: Opening a profile creates an isolated desktop window. In-memory state and account data are not shared across windows.
+      - paragraph: Profiles you log into stay listed here so you can reopen them later.
+      - paragraph: Lock pauses your in-memory session. You will need your password again after refresh or restart.
+      - paragraph: Log out clears the in-memory session but keeps this profile window open.
+      - paragraph: Log out & close window signs out and hides this desktop window. The main window reopens from the tray; other profile windows stay closed until you open them again from Manage Profiles.
+      - paragraph: "Remove profile (non-default slots) exports a workspace archive (`.obscur-profile.json`) under profile-archives on desktop, then clears that slot. You will see where the file was saved."
+      - paragraph: "Desktop: unified account export/import in Settings → Profile. Mobile (PWA): use browser download/import; keep one account per browser profile. Full backup + vault export is desktop-first today."
+- alert

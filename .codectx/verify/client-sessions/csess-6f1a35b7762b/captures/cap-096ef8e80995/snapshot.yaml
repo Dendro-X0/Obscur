@@ -1,0 +1,130 @@
+- main:
+  - text: Client release-v1.9.10-relay-recovery-20260617
+  - img "Obscur"
+  - text: Obscur
+  - button "desktop.titleBar.lock"
+  - button "Open desktop profile switcher":
+    - img "Tester1"
+    - text: Tester1 Obscur / e07f67dc...c191ea56
+  - button "Minimize window"
+  - button "Maximize window"
+  - button "Close window"
+  - button "Connected"
+  - link "Chats":
+    - /url: /
+    - text: "2"
+  - link "Network":
+    - /url: /network
+  - link "Vault":
+    - /url: /vault
+  - link "Search":
+    - /url: /search
+  - link "Settings":
+    - /url: /settings
+  - button "Open profile menu":
+    - img "Tester1"
+  - button "Sidebar Options"
+  - button "Chats 2"
+  - button "Requests"
+  - button "Junk"
+  - textbox "Search users and communities..."
+  - button "Chat 2"
+  - button "Group"
+  - button "New Group"
+  - button "Communities"
+  - button "N NewTest 2 Group key unavailable on this device 21d ago":
+    - text: N NewTest 2
+    - paragraph: Group key unavailable on this device
+    - button
+    - text: 21d ago
+  - text: Connected 2/7 active relays Obscur Preview
+  - main:
+    - text: "N"
+    - heading "NewTest 2" [level=2]
+    - button "Disable notifications for this chat" [pressed]
+    - paragraph: 2 members· 1 online ·Last activity 21d ago
+    - button "Media"
+    - button "Info"
+    - status:
+      - paragraph: Trust notice
+      - paragraph: This contact is sending many messages in a short period. This can be normal in active chats — verify identity if anything feels off.
+      - button "Show details"
+      - button "Dismiss trust notice"
+    - button "Search Messages"
+    - img "Tester1"
+    - text: You
+    - button "Open reactions"
+    - button "Open message menu"
+    - paragraph: tset
+    - text: 9d ago TE Tester2
+    - button "Open reactions"
+    - button "Open message menu"
+    - paragraph: test
+    - text: 5d ago
+    - img "Tester1"
+    - text: You
+    - button "Open reactions"
+    - button "Open message menu"
+    - paragraph: test
+    - text: 5d ago
+    - img "Tester1"
+    - text: You
+    - button "Open reactions"
+    - button "Open message menu"
+    - paragraph: O4-round6-docker-up-071T1728
+    - text: 21h ago
+    - img "Tester1"
+    - text: You
+    - button "Open reactions"
+    - button "Open message menu"
+    - paragraph: O4-round7-fullstack-071T1733
+    - text: 21h ago
+    - img "Tester1"
+    - text: You
+    - button "Open reactions"
+    - button "Open message menu"
+    - paragraph: O4-round8-coldstart-071T1746
+    - text: 21h ago
+    - img "Tester1"
+    - text: You
+    - button "Open reactions"
+    - button "Open message menu"
+    - paragraph: O4-round12-partial-072T0836
+    - text: 6h ago
+    - img "Tester1"
+    - text: You
+    - button "Open reactions"
+    - button "Open message menu"
+    - paragraph: O4-round13-rebuild-072T0958
+    - text: 4h ago
+    - img "Tester1"
+    - text: You
+    - button "Open reactions"
+    - button "Open message menu"
+    - paragraph: O4-round14-acl-cdp-072T1102
+    - text: 3h ago
+    - img "Tester1"
+    - text: You
+    - button "Open reactions"
+    - button "Open message menu"
+    - paragraph: O4-round16-dual-profile-072T1117
+    - text: 3h ago
+    - img "Tester1"
+    - text: You
+    - button "Open reactions"
+    - button "Open message menu"
+    - paragraph: O4-round17b-docker-072T1323
+    - text: 1h ago
+    - img "Tester1"
+    - text: You
+    - button "Open reactions"
+    - button "Open message menu"
+    - paragraph: O4-round18-codactrl-072T1445
+    - text: 5m ago
+    - button "Media"
+    - textbox "Type a message..."
+    - button "Search emojis..."
+    - button "Record Voice Note"
+    - button "Send" [disabled]
+    - text: Connected to Relays E2E Encrypted • Ver. 1.9.10
+- alert

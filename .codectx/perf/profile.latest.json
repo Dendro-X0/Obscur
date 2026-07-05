@@ -1,0 +1,139 @@
+{
+  "appRoles": [
+    {
+      "appRoot": "apps/website",
+      "name": "website",
+      "role": "primary-web",
+      "stack": "next"
+    },
+    {
+      "appRoot": "apps/desktop",
+      "name": "@dweb/desktop",
+      "role": "desktop-shell",
+      "stack": "tauri"
+    },
+    {
+      "appRoot": "apps/pwa",
+      "name": "pwa",
+      "role": "app",
+      "stack": "next"
+    },
+    {
+      "appRoot": "apps/coordination",
+      "name": "@obscur/coordination-worker",
+      "role": "app",
+      "stack": null
+    },
+    {
+      "appRoot": "apps/relay-gateway",
+      "name": "@obscur/relay-gateway",
+      "role": "app",
+      "stack": null
+    }
+  ],
+  "generatedAt": "2026-07-04T03:59:44.789677100+00:00",
+  "recommendedDefaults": {
+    "appRoot": "apps/website",
+    "exploreScope": "monorepo-critical-path",
+    "operationalMode": "monorepo-audit"
+  },
+  "scanSnapshotHash": "sha256:19cd49bf1888046751c8cfd46b28a6d7c08297734ca546ffe09f6ec10cf553e7",
+  "schema": "perf.profile@1.0.0",
+  "suggestedOperationalModes": [
+    {
+      "confidence": 0.84,
+      "mode": "monorepo-audit",
+      "reason": "5 app packages — audit all deployable surfaces"
+    },
+    {
+      "confidence": 0.71,
+      "mode": "single-app",
+      "reason": "Focus one app target for a narrower obligation set"
+    }
+  ],
+  "workspaceProfile": {
+    "architecture": {
+      "appCount": 5,
+      "appRoots": [
+        "apps"
+      ],
+      "crateCount": 0,
+      "crateRoots": [],
+      "libCount": 23,
+      "libRoots": [
+        "packages"
+      ],
+      "workspaceMarkers": [
+        "pnpm-workspace.yaml",
+        "package.json"
+      ]
+    },
+    "confidence": 0.9399999976158142,
+    "previewScopedPackages": [
+      "apps/coordination",
+      "apps/pwa",
+      "apps/website",
+      "packages/db",
+      "packages/dweb-auth",
+      "packages/dweb-client-gateway",
+      "packages/dweb-coordination-contracts",
+      "packages/dweb-core",
+      "packages/dweb-crdt",
+      "packages/dweb-crypto",
+      "packages/dweb-nostr",
+      "packages/dweb-storage",
+      "packages/dweb-storage-contracts",
+      "packages/dweb-transport-contracts",
+      "packages/dweb-transport-coordination",
+      "packages/dweb-transport-nostr",
+      "packages/dweb-transport-team-relay",
+      "packages/obscur-auth-engine",
+      "packages/obscur-conduit-mesh",
+      "packages/obscur-conduit-mesh-contracts",
+      "packages/obscur-dm-engine",
+      "packages/obscur-engine-contracts",
+      "packages/obscur-engine-host",
+      "packages/obscur-transport-engine",
+      "packages/obscur-workspace-engine",
+      "packages/ui-kit"
+    ],
+    "primaryStack": "tauri",
+    "projectFamily": "node-monorepo",
+    "projectTypeLabel": "Node monorepo · tauri · pnpm",
+    "recommendedAppRoot": "apps/website",
+    "recommendedExploreScope": "monorepo-critical-path",
+    "rootMarkers": [
+      {
+        "kind": "manifest",
+        "path": "package.json",
+        "signal": "Node.js package manifest"
+      },
+      {
+        "kind": "lockfile",
+        "path": "pnpm-lock.yaml",
+        "signal": "pnpm lockfile"
+      },
+      {
+        "kind": "monorepo-tool",
+        "path": "pnpm-workspace.yaml",
+        "signal": "pnpm workspace"
+      },
+      {
+        "kind": "framework",
+        "path": "next.config.*",
+        "signal": "Next.js app router"
+      }
+    ],
+    "runtimeSignals": [
+      "Next.js app router",
+      "app:apps/coordination",
+      "app:apps/desktop",
+      "app:apps/pwa",
+      "app:apps/relay-gateway",
+      "app:apps/website",
+      "framework:tauri",
+      "monorepo:pnpm"
+    ],
+    "setupReady": true
+  }
+}

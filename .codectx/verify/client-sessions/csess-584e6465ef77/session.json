@@ -1,0 +1,15 @@
+{
+  "schema": "client.session@0.1.0",
+  "sessionId": "csess-584e6465ef77",
+  "provider": "webview2-cdp",
+  "proofTier": "t3",
+  "createdAt": "2026-06-30T11:05:46.692077600+00:00",
+  "repoRoot": "E:\\Web Projects\\experimental-workspace\\newstart",
+  "url": "http://127.0.0.1:5173/perf/reports",
+  "attachedTarget": {
+    "targetId": "080BF6B8D1CB346232CA4918775A4643",
+    "windowLabel": "main",
+    "url": "http://127.0.0.1:5173/perf/reports",
+    "attachedAt": "2026-06-30T11:05:49.880372+00:00"
+  }
+}

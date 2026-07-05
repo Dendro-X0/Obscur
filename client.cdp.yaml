@@ -1,0 +1,39 @@
+# Obscur Tauri desktop — MCP / CodaCtrl CDP profile (see codactrl docs/templates/client.cdp.yaml)
+schema: client.cdp.profile@0.1.0
+
+# Subject app before Studio (:9222) when both run locally.
+probePorts: [9230, 9231, 9229, 9333]
+
+# One remote-debugging port per WebView2 profile (main + profile-2).
+profileCdpPorts: [9230, 9231, 9229]
+
+# Dev stack listeners used by client_stack_preflight.
+devServerPorts: [1430, 8787, 7000]
+
+# Studio Vite — never attach as subject app.
+excludeProbePorts: [9222]
+
+preferUrlIncludes:
+  - ":1430"
+  - asset.localhost
+  - tauri.localhost
+  - /profiles
+
+excludeUrlIncludes:
+  - ":5173"
+  - localhost:5173
+  - 127.0.0.1:5173
+
+preferTitleIncludes:
+  - Obscur
+
+windowLabelRules:
+  - windowLabel: profile-2
+    urlIncludes: []
+    titleIncludes: []
+  - windowLabel: profile-picker
+    urlIncludes: ["/profiles", profile]
+    titleIncludes: [profile]
+  - windowLabel: main
+    urlIncludes: [":1430", asset.localhost]
+    titleIncludes: []

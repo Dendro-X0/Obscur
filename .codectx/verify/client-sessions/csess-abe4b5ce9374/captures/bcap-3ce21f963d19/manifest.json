@@ -1,0 +1,18 @@
+{
+  "args": [
+    "profile-2"
+  ],
+  "captureId": "bcap-3ce21f963d19",
+  "capturedAt": "2026-07-04T07:48:06.549876600+00:00",
+  "cdpPort": 9231,
+  "method": "focusWindow",
+  "pass": true,
+  "result": {
+    "invoked": "desktop_agent_focus_window",
+    "label": "profile-2",
+    "ok": true
+  },
+  "schema": "client.agent.bridgeCall@0.1.0",
+  "sessionId": "csess-abe4b5ce9374",
+  "targetUrl": "http://127.0.0.1:1430/"
+}

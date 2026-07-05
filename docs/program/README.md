@@ -2,7 +2,7 @@
 
 **~30 files.** For project context read [../CURRENT.md](../CURRENT.md) first.
 
-_Last updated: 2026-07-04 · **Runtime repair band ACTIVE** (R1 VERIFIED t4 · R2 next) · Phases 1–3 EXIT · Phase 4 deploy PAUSED_
+_Last updated: 2026-07-04 · **Runtime repair band EXIT** (R1–R5 **VERIFIED t4**) · Phases 1–3 EXIT · Phase 4 deploy smoke next_
 
 ---
 

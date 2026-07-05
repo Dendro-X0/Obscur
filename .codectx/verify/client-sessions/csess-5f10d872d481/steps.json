@@ -1,0 +1,79 @@
+{
+  "schema": "client.session.steps@0.1.0",
+  "sessionId": "csess-5f10d872d481",
+  "updatedAt": "2026-07-01T11:24:02.242591300+00:00",
+  "stepCount": 7,
+  "steps": [
+    {
+      "index": 0,
+      "stepId": "step-28f964952909",
+      "action": "snapshot",
+      "captureId": "cap-ec5230bca9ba",
+      "manifestPath": ".codectx/verify/client-sessions/csess-5f10d872d481/captures/cap-ec5230bca9ba/manifest.json",
+      "stepLabel": "connect-bootstrap",
+      "pass": true,
+      "at": "2026-07-01T11:22:45.491690300+00:00"
+    },
+    {
+      "index": 1,
+      "stepId": "step-760c011d70d7",
+      "action": "snapshot",
+      "captureId": "cap-dae2dc9d6ab8",
+      "manifestPath": ".codectx/verify/client-sessions/csess-5f10d872d481/captures/cap-dae2dc9d6ab8/manifest.json",
+      "pass": true,
+      "at": "2026-07-01T11:23:12.876870500+00:00"
+    },
+    {
+      "index": 2,
+      "stepId": "step-976520f86090",
+      "action": "screenshot",
+      "captureId": "cap-7ca9fc190c3a",
+      "manifestPath": ".codectx/verify/client-sessions/csess-5f10d872d481/captures/cap-7ca9fc190c3a/manifest.json",
+      "stepLabel": "o4-step7-preflight-signin",
+      "pass": true,
+      "at": "2026-07-01T11:23:29.860788500+00:00"
+    },
+    {
+      "index": 3,
+      "stepId": "step-ffbcaca5c1",
+      "action": "digestPull",
+      "captureId": "cap-a5ffbcaca5c1",
+      "manifestPath": ".codectx/verify/client-sessions/csess-5f10d872d481/captures/cap-a5ffbcaca5c1/manifest.json",
+      "pass": true,
+      "message": "runtime digest captured",
+      "at": "2026-07-01T11:23:30.896371800+00:00"
+    },
+    {
+      "index": 4,
+      "stepId": "step-eb5010899de7",
+      "action": "surfaceProbe",
+      "captureId": "cap-2597e546949e",
+      "manifestPath": ".codectx/verify/client-sessions/csess-5f10d872d481/captures/cap-2597e546949e/manifest.json",
+      "stepLabel": "surface-probe",
+      "pass": true,
+      "message": "surface probe captured",
+      "at": "2026-07-01T11:24:00.188257700+00:00"
+    },
+    {
+      "index": 5,
+      "stepId": "step-161ead59a2",
+      "action": "digestPull",
+      "captureId": "cap-f8161ead59a2",
+      "manifestPath": ".codectx/verify/client-sessions/csess-5f10d872d481/captures/cap-f8161ead59a2/manifest.json",
+      "stepLabel": "chain-chain-o4-group-ingest-2026-07-02-n0-stack-preflight",
+      "pass": true,
+      "message": "runtime digest captured",
+      "at": "2026-07-01T11:24:01.398287900+00:00"
+    },
+    {
+      "index": 6,
+      "stepId": "step-64fe163ea620",
+      "action": "screenshot",
+      "captureId": "cap-979ff3b81230",
+      "manifestPath": ".codectx/verify/client-sessions/csess-5f10d872d481/captures/cap-979ff3b81230/manifest.json",
+      "stepLabel": "chain-n0-stack-preflight",
+      "pass": true,
+      "at": "2026-07-01T11:24:02.241664100+00:00"
+    }
+  ]
+}

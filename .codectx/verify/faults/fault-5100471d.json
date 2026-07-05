@@ -1,0 +1,14 @@
+{
+  "digestPath": ".codectx/verify/faults/fault-5100471d.digest.json",
+  "fault": {
+    "artifactPath": ".codectx/verify/faults/fault-5100471d.json",
+    "faultId": "fault-5100471d",
+    "importedAt": "2026-07-01T22:05:27.534353500+00:00",
+    "kind": "runtime_digest",
+    "schema": "obscur.m0.capture.v1",
+    "symptomIds": [],
+    "title": "Imported runtime capture digest"
+  },
+  "schema": "verify.fault.import@0.1.0",
+  "sourcePath": ".codectx/verify/client-sessions/csess-ad3b3e90aa04/captures/cap-0e8a706752d9/digest.json"
+}

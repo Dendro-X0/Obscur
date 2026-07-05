@@ -1,0 +1,25 @@
+{
+  "schema": "codactrl.investigation.node@0.1.0",
+  "chainId": "chain-r2-auth-cold-unlock-2026-07-04",
+  "nodeId": "n0-sign-in-gate-fresh-boot",
+  "trigger": "r2-fresh-boot-sign-in",
+  "at": "2026-07-04T16:11:33.877689+00:00",
+  "sessionId": "csess-d1d5f9a70476",
+  "surfaces": {
+    "mainThreadMessageCount": 0,
+    "mainThreadSystemCards": 0,
+    "alertBannerCount": 1,
+    "splitBrainSuspected": false
+  },
+  "digestRef": "fault-1bfb48bc",
+  "screenshotRef": ".codectx/verify/client-sessions/csess-d1d5f9a70476/captures/cap-5414cdbe07c5/screenshot.png",
+  "signalsExtracted": [
+    "auth.kernel_boot_restore_no_keychain",
+    "profiles.local_save_scan_deep_complete",
+    "profiles.local_save_scan_fast_complete",
+    "runtime.desktop_window_boot_ready",
+    "runtime.profile_binding_refresh_completed",
+    "runtime.startup_auth_state_transition"
+  ],
+  "hypothesis": "H1 passwordless-only — no device password on disk"
+}

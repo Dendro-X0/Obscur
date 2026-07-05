@@ -1,0 +1,224 @@
+{
+  "schema": "client.session.steps@0.1.0",
+  "sessionId": "csess-685a85e85e90",
+  "updatedAt": "2026-07-04T07:32:21.465935800+00:00",
+  "stepCount": 22,
+  "steps": [
+    {
+      "index": 0,
+      "stepId": "step-db10cdaabc66",
+      "action": "snapshot",
+      "captureId": "cap-fdf09a2bc549",
+      "manifestPath": ".codectx/verify/client-sessions/csess-685a85e85e90/captures/cap-fdf09a2bc549/manifest.json",
+      "stepLabel": "connect-bootstrap",
+      "pass": true,
+      "at": "2026-07-04T07:28:58.094771400+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-cd91e178e86f",
+      "action": "mcp.client.session.connect",
+      "manifestPath": ".codectx/verify/client-sessions/csess-685a85e85e90/attach-latest.json",
+      "pass": true,
+      "at": "2026-07-04T07:29:01.641567100+00:00"
+    },
+    {
+      "index": 2,
+      "stepId": "step-a648a881f37a",
+      "action": "click",
+      "captureId": "cap-3083610620a9",
+      "manifestPath": ".codectx/verify/client-sessions/csess-685a85e85e90/captures/cap-3083610620a9/manifest.json",
+      "selector": "role=button[name*=\"NewTest 2\"]",
+      "pass": true,
+      "at": "2026-07-04T07:29:52.185517800+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-faa6e1a90e5d",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-3083610620a9",
+      "manifestPath": ".codectx/verify/client-sessions/csess-685a85e85e90/captures/cap-3083610620a9/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T07:29:52.188065500+00:00"
+    },
+    {
+      "index": 4,
+      "stepId": "step-4694852572d2",
+      "action": "click",
+      "captureId": "cap-79861ac35aa8",
+      "manifestPath": ".codectx/verify/client-sessions/csess-685a85e85e90/captures/cap-79861ac35aa8/manifest.json",
+      "selector": "role=button[name=\"Info\"]",
+      "pass": true,
+      "at": "2026-07-04T07:30:00.489851800+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-a48f5414de8a",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-79861ac35aa8",
+      "manifestPath": ".codectx/verify/client-sessions/csess-685a85e85e90/captures/cap-79861ac35aa8/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T07:30:00.491761500+00:00"
+    },
+    {
+      "index": 6,
+      "stepId": "step-6b74e6af15a8",
+      "action": "click",
+      "captureId": "cap-fc94d55e86ca",
+      "manifestPath": ".codectx/verify/client-sessions/csess-685a85e85e90/captures/cap-fc94d55e86ca/manifest.json",
+      "selector": "role=button[name=\"Leave community\"]",
+      "pass": true,
+      "at": "2026-07-04T07:30:06.326558200+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-6843b8ac1b96",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-fc94d55e86ca",
+      "manifestPath": ".codectx/verify/client-sessions/csess-685a85e85e90/captures/cap-fc94d55e86ca/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T07:30:06.328657300+00:00"
+    },
+    {
+      "index": 8,
+      "stepId": "step-cfeb72743bf6",
+      "action": "click",
+      "captureId": "cap-936995c0a147",
+      "manifestPath": ".codectx/verify/client-sessions/csess-685a85e85e90/captures/cap-936995c0a147/manifest.json",
+      "selector": "role=button[name=\"Leave Community\"]",
+      "pass": true,
+      "at": "2026-07-04T07:30:13.765636900+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-39ae0f0cfb69",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-936995c0a147",
+      "manifestPath": ".codectx/verify/client-sessions/csess-685a85e85e90/captures/cap-936995c0a147/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T07:30:13.768279700+00:00"
+    },
+    {
+      "index": 10,
+      "stepId": "step-ddf4e9af6531",
+      "action": "click",
+      "captureId": "cap-7822d9301d8b",
+      "manifestPath": ".codectx/verify/client-sessions/csess-685a85e85e90/captures/cap-7822d9301d8b/manifest.json",
+      "selector": "role=button[name=\"Requests\"]",
+      "pass": false,
+      "message": "locator.click: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('role=button[name=\"Requests\"]')\u001b[22m\n",
+      "at": "2026-07-04T07:31:37.316950800+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-8b05e57d77d4",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-7822d9301d8b",
+      "manifestPath": ".codectx/verify/client-sessions/csess-685a85e85e90/captures/cap-7822d9301d8b/manifest.json",
+      "pass": false,
+      "message": "locator.click: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('role=button[name=\"Requests\"]')\u001b[22m\n",
+      "at": "2026-07-04T07:31:37.318787400+00:00"
+    },
+    {
+      "index": 12,
+      "stepId": "step-bb1120ef0e65",
+      "action": "click",
+      "captureId": "cap-78581c9d8aea",
+      "manifestPath": ".codectx/verify/client-sessions/csess-685a85e85e90/captures/cap-78581c9d8aea/manifest.json",
+      "selector": "role=link[name=\"Chats\"]",
+      "pass": true,
+      "at": "2026-07-04T07:31:49.424018800+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-06ef1c4a212e",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-78581c9d8aea",
+      "manifestPath": ".codectx/verify/client-sessions/csess-685a85e85e90/captures/cap-78581c9d8aea/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T07:31:49.426256300+00:00"
+    },
+    {
+      "index": 14,
+      "stepId": "step-0fdb7a2b588a",
+      "action": "click",
+      "captureId": "cap-602c1b59f718",
+      "manifestPath": ".codectx/verify/client-sessions/csess-685a85e85e90/captures/cap-602c1b59f718/manifest.json",
+      "selector": "role=button[name=\"Chat\"]",
+      "pass": true,
+      "at": "2026-07-04T07:32:06.997886400+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-77b948b7df13",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-602c1b59f718",
+      "manifestPath": ".codectx/verify/client-sessions/csess-685a85e85e90/captures/cap-602c1b59f718/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T07:32:06.999115600+00:00"
+    },
+    {
+      "index": 16,
+      "stepId": "step-27427c55f508",
+      "action": "click",
+      "captureId": "cap-fa7c4c1a6c4f",
+      "manifestPath": ".codectx/verify/client-sessions/csess-685a85e85e90/captures/cap-fa7c4c1a6c4f/manifest.json",
+      "selector": "role=button[name*=\"Tester1 invited\"]",
+      "pass": true,
+      "at": "2026-07-04T07:32:14.488468500+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-7a860bdadb6e",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-fa7c4c1a6c4f",
+      "manifestPath": ".codectx/verify/client-sessions/csess-685a85e85e90/captures/cap-fa7c4c1a6c4f/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T07:32:14.490260600+00:00"
+    },
+    {
+      "index": 18,
+      "stepId": "step-e1cfee732981",
+      "action": "assert",
+      "captureId": "cap-33003c21753b",
+      "manifestPath": ".codectx/verify/client-sessions/csess-685a85e85e90/captures/cap-33003c21753b/manifest.json",
+      "stepLabel": "com-run11-t2-accept",
+      "text": "Accept",
+      "assertKind": "textVisible",
+      "pass": true,
+      "message": "text visible: Accept",
+      "at": "2026-07-04T07:32:20.067169700+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-9696f4ca7109",
+      "action": "mcp.client.validate.assert",
+      "captureId": "cap-33003c21753b",
+      "manifestPath": ".codectx/verify/client-sessions/csess-685a85e85e90/captures/cap-33003c21753b/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T07:32:20.068817500+00:00"
+    },
+    {
+      "index": 20,
+      "stepId": "step-263e37602e7b",
+      "action": "assert",
+      "captureId": "cap-1e2f851cbb16",
+      "manifestPath": ".codectx/verify/client-sessions/csess-685a85e85e90/captures/cap-1e2f851cbb16/manifest.json",
+      "stepLabel": "com-run11-t2-decline",
+      "text": "Decline",
+      "assertKind": "textVisible",
+      "pass": true,
+      "message": "text visible: Decline",
+      "at": "2026-07-04T07:32:21.454124600+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-1271fe4a42fc",
+      "action": "mcp.client.validate.assert",
+      "captureId": "cap-1e2f851cbb16",
+      "manifestPath": ".codectx/verify/client-sessions/csess-685a85e85e90/captures/cap-1e2f851cbb16/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T07:32:21.455623400+00:00"
+    }
+  ]
+}

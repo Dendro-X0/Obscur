@@ -1,0 +1,22 @@
+{
+  "schema": "codactrl.investigation.node@0.1.0",
+  "chainId": "chain-o4-group-ingest-2026-07-02",
+  "nodeId": "n5-round5-send-blocked-no-docker",
+  "trigger": "O-4 round5: pnpm dev:relay:docker failed (Docker Desktop down); send O4-round5-relay-blocked-071T1714 clears composer, no bubble; sidebar group-key warning",
+  "at": "2026-07-01T17:14:00.835872100+00:00",
+  "sessionId": "csess-631c3bba5207",
+  "surfaces": {
+    "mainThreadMessageCount": 4,
+    "mainThreadSystemCards": 0,
+    "alertBannerCount": 2,
+    "splitBrainSuspected": false
+  },
+  "digestRef": "fault-bf3a84e1",
+  "screenshotRef": ".codectx/verify/client-sessions/csess-631c3bba5207/captures/cap-7422491e5e36/screenshot.png",
+  "hypothesis": "Send blocked without Docker relay; room_key_missing band unchanged",
+  "doesNotProve": [
+    "O-4 fixed",
+    "relay round-trip with :7000",
+    "room key repair"
+  ]
+}

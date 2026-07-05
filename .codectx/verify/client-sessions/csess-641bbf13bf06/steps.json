@@ -1,0 +1,94 @@
+{
+  "schema": "client.session.steps@0.1.0",
+  "sessionId": "csess-641bbf13bf06",
+  "updatedAt": "2026-07-04T05:35:23.976418+00:00",
+  "stepCount": 9,
+  "steps": [
+    {
+      "index": 0,
+      "stepId": "step-e28abb5fd0ef",
+      "action": "snapshot",
+      "captureId": "cap-de50de93ab9d",
+      "manifestPath": ".codectx/verify/client-sessions/csess-641bbf13bf06/captures/cap-de50de93ab9d/manifest.json",
+      "stepLabel": "connect-bootstrap",
+      "pass": true,
+      "at": "2026-07-04T05:34:49.782117500+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-6fb6ddf90207",
+      "action": "mcp.client.session.connect",
+      "manifestPath": ".codectx/verify/client-sessions/csess-641bbf13bf06/attach-latest.json",
+      "pass": true,
+      "at": "2026-07-04T05:34:54.052762400+00:00"
+    },
+    {
+      "index": 2,
+      "stepId": "step-04983be9107b",
+      "action": "snapshot",
+      "captureId": "cap-43019b9a4641",
+      "manifestPath": ".codectx/verify/client-sessions/csess-641bbf13bf06/captures/cap-43019b9a4641/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T05:34:59.352949+00:00"
+    },
+    {
+      "index": 3,
+      "stepId": "step-09c0a5ad9a3a",
+      "action": "click",
+      "captureId": "cap-272a5006bb38",
+      "manifestPath": ".codectx/verify/client-sessions/csess-641bbf13bf06/captures/cap-272a5006bb38/manifest.json",
+      "selector": "role=button[name=\"Avatar for Tester1 Tester1 Sign in here\"]",
+      "pass": true,
+      "at": "2026-07-04T05:35:08.327208500+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-6bbd2ef29248",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-272a5006bb38",
+      "manifestPath": ".codectx/verify/client-sessions/csess-641bbf13bf06/captures/cap-272a5006bb38/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T05:35:08.329008300+00:00"
+    },
+    {
+      "index": 5,
+      "stepId": "step-ab9fa5aca5c6",
+      "action": "type",
+      "captureId": "cap-2879e5acd6a6",
+      "manifestPath": ".codectx/verify/client-sessions/csess-641bbf13bf06/captures/cap-2879e5acd6a6/manifest.json",
+      "selector": "role=textbox[name=\"Enter your password\"]",
+      "text": "SyI14^ew1E",
+      "pass": true,
+      "at": "2026-07-04T05:35:12.416737300+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-1aa6c0ff32d0",
+      "action": "mcp.client.interact.type",
+      "captureId": "cap-2879e5acd6a6",
+      "manifestPath": ".codectx/verify/client-sessions/csess-641bbf13bf06/captures/cap-2879e5acd6a6/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T05:35:12.418203400+00:00"
+    },
+    {
+      "index": 7,
+      "stepId": "step-033394782dd8",
+      "action": "click",
+      "captureId": "cap-1b2eb6e272d3",
+      "manifestPath": ".codectx/verify/client-sessions/csess-641bbf13bf06/captures/cap-1b2eb6e272d3/manifest.json",
+      "stepLabel": "unlock-submit",
+      "selector": "form button[type=\"submit\"]",
+      "pass": true,
+      "at": "2026-07-04T05:35:23.964334600+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-2a513e0043b6",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-1b2eb6e272d3",
+      "manifestPath": ".codectx/verify/client-sessions/csess-641bbf13bf06/captures/cap-1b2eb6e272d3/manifest.json",
+      "pass": true,
+      "at": "2026-07-04T05:35:23.966320500+00:00"
+    }
+  ]
+}

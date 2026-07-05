@@ -1,0 +1,1526 @@
+{
+  "checks": {
+    "requiredApis": {
+      "appEvents": true,
+      "relayRuntime": true,
+      "relayTransportJournal": true,
+      "windowRuntime": true
+    }
+  },
+  "events": {
+    "crossDeviceDigest": {
+      "events": {
+        "account_sync.backup_payload_hydration_diagnostics": [],
+        "account_sync.backup_payload_projection_fallback": [],
+        "account_sync.backup_publish_result": [
+          {
+            "atUnixMs": 1783008596179,
+            "context": {
+              "guardEnabled": false,
+              "reason": "dm_history_changed",
+              "result": "ok"
+            },
+            "level": "info"
+          },
+          {
+            "atUnixMs": 1783008621407,
+            "context": {
+              "guardEnabled": false,
+              "reason": "message_delete_tombstones_changed",
+              "result": "ok"
+            },
+            "level": "info"
+          },
+          {
+            "atUnixMs": 1783008658053,
+            "context": {
+              "guardEnabled": false,
+              "reason": "message_delete_tombstones_changed",
+              "result": "ok"
+            },
+            "level": "info"
+          },
+          {
+            "atUnixMs": 1783008689576,
+            "context": {
+              "guardEnabled": false,
+              "reason": "message_delete_tombstones_changed",
+              "result": "ok"
+            },
+            "level": "info"
+          },
+          {
+            "atUnixMs": 1783008701631,
+            "context": {
+              "guardEnabled": false,
+              "reason": "mutation",
+              "result": "ok"
+            },
+            "level": "info"
+          }
+        ],
+        "account_sync.backup_restore_apply_diagnostics": [
+          {
+            "atUnixMs": 1783008685181,
+            "context": {
+              "appliedDmAttachmentCount": 0,
+              "appliedDmIncomingCount": 0,
+              "appliedDmMessageCount": 0,
+              "appliedDmOutgoingCount": 0,
+              "appliedGroupAttachmentCount": 0,
+              "appliedGroupConversationCount": 0,
+              "appliedGroupMessageCount": 0,
+              "appliedGroupSelfAuthoredCount": 0,
+              "publicKeySuffix": "c191ea56",
+              "restoreChatStateDomains": true,
+              "restorePath": "non_v1_domains"
+            },
+            "level": "info"
+          }
+        ],
+        "account_sync.backup_restore_history_regression": [],
+        "account_sync.backup_restore_merge_diagnostics": [
+          {
+            "atUnixMs": 1783008685027,
+            "context": {
+              "freshDevice": false,
+              "includeHydratedLocalMessages": true,
+              "incomingDmAttachmentCount": 0,
+              "incomingDmOutgoingCount": 0,
+              "incomingGroupAttachmentCount": 0,
+              "incomingGroupConversationCount": 0,
+              "incomingLedgerEntryCount": 20,
+              "localDmAttachmentCount": 0,
+              "localDmOutgoingCount": 0,
+              "localGroupAttachmentCount": 0,
+              "localGroupConversationCount": 0,
+              "localLedgerEntryCount": 20,
+              "localPayloadMerged": true,
+              "mergedDmAttachmentCount": 0,
+              "mergedDmOutgoingCount": 0,
+              "mergedGroupAttachmentCount": 0,
+              "mergedGroupConversationCount": 0,
+              "mergedLedgerEntryCount": 20,
+              "publicKeySuffix": "c191ea56"
+            },
+            "level": "info"
+          }
+        ],
+        "account_sync.backup_restore_profile_scope_mismatch": [],
+        "account_sync.backup_restore_result": [
+          {
+            "atUnixMs": 1783008685909,
+            "context": {
+              "convergenceLatencyMs": null,
+              "guardEnabled": false,
+              "reason": "interval",
+              "result": "applied"
+            },
+            "level": "info"
+          }
+        ],
+        "auth.auto_unlock_scope_drift_detected": [],
+        "groups.membership_ledger_load": [],
+        "groups.membership_recovery_hydrate": [],
+        "groups.room_key_missing_send_blocked": [],
+        "messaging.chat_state_groups_update": [],
+        "messaging.chat_state_replaced": [
+          {
+            "atUnixMs": 1783008685030,
+            "context": {
+              "createdConnectionCount": 2,
+              "createdGroupCount": 1,
+              "dmConversationCount": 0,
+              "groupConversationCount": 0,
+              "profileId": "default",
+              "publicKeySuffix": "c191ea56"
+            },
+            "level": "info"
+          }
+        ],
+        "messaging.conversation_history_authority_selected": [],
+        "messaging.conversation_hydration_diagnostics": [],
+        "messaging.conversation_hydration_id_split_detected": [],
+        "messaging.conversation_list_authority_selected": [
+          {
+            "atUnixMs": 1783008599772,
+            "context": {
+              "criticalDriftCount": 0,
+              "persistedConversationCount": 2,
+              "profileId": "default",
+              "projectionConversationCount": 1,
+              "projectionReadAuthorityReason": "projection_not_ready",
+              "publicKeySuffix": "c191ea56",
+              "selectedAuthority": "sqlite",
+              "selectedAuthorityReason": "sqlite_native"
+            },
+            "level": "warn"
+          },
+          {
+            "atUnixMs": 1783008600006,
+            "context": {
+              "criticalDriftCount": 0,
+              "persistedConversationCount": 2,
+              "profileId": "default",
+              "projectionConversationCount": 1,
+              "projectionReadAuthorityReason": "read_cutover_enabled",
+              "publicKeySuffix": "c191ea56",
+              "selectedAuthority": "sqlite",
+              "selectedAuthorityReason": "sqlite_native"
+            },
+            "level": "warn"
+          },
+          {
+            "atUnixMs": 1783008685530,
+            "context": {
+              "criticalDriftCount": 0,
+              "persistedConversationCount": 2,
+              "profileId": "default",
+              "projectionConversationCount": 1,
+              "projectionReadAuthorityReason": "projection_not_ready",
+              "publicKeySuffix": "c191ea56",
+              "selectedAuthority": "sqlite",
+              "selectedAuthorityReason": "sqlite_native"
+            },
+            "level": "warn"
+          },
+          {
+            "atUnixMs": 1783008685724,
+            "context": {
+              "criticalDriftCount": 0,
+              "persistedConversationCount": 2,
+              "profileId": "default",
+              "projectionConversationCount": 1,
+              "projectionReadAuthorityReason": "read_cutover_enabled",
+              "publicKeySuffix": "c191ea56",
+              "selectedAuthority": "sqlite",
+              "selectedAuthorityReason": "sqlite_native"
+            },
+            "level": "warn"
+          }
+        ],
+        "messaging.delete_for_everyone_local_applied": [],
+        "messaging.delete_for_everyone_rejected": [],
+        "messaging.delete_for_everyone_remote_result": [
+          {
+            "atUnixMs": 1783008599698,
+            "context": {
+              "channel": "dm_receive_plaintext_classified",
+              "conversationIdHint": "3db055b47e05bdfb9083efec0b7aecd2",
+              "conversationKind": "dm",
+              "deleteTargetCount": 0,
+              "deliveryStatus": "received",
+              "isOutgoing": false,
+              "messageIdHint": "8611060a988c58d8",
+              "reasonCode": null,
+              "remoteMessageIdHint": "8611060a988c58d8",
+              "resultCode": "normal_plaintext"
+            },
+            "level": "debug"
+          },
+          {
+            "atUnixMs": 1783008599699,
+            "context": {
+              "channel": "dm_process_result",
+              "conversationIdHint": "3db055b47e05bdfb9083efec0b7aecd2",
+              "conversationKind": "dm",
+              "deleteTargetCount": 0,
+              "deliveryStatus": "received",
+              "isOutgoing": false,
+              "messageIdHint": "8611060a988c58d8",
+              "reasonCode": null,
+              "remoteMessageIdHint": "8611060a988c58d8",
+              "resultCode": "message"
+            },
+            "level": "info"
+          },
+          {
+            "atUnixMs": 1783008599909,
+            "context": {
+              "channel": "v2_subscription_event_received",
+              "conversationIdHint": null,
+              "conversationKind": "dm",
+              "deleteTargetCount": 0,
+              "deliveryStatus": "received",
+              "isOutgoing": false,
+              "messageIdHint": "8611060a988c58d8",
+              "reasonCode": null,
+              "remoteMessageIdHint": "8611060a988c58d8",
+              "resultCode": "received"
+            },
+            "level": "debug"
+          },
+          {
+            "atUnixMs": 1783008599970,
+            "context": {
+              "channel": "v2_subscription_event_received",
+              "conversationIdHint": null,
+              "conversationKind": "dm",
+              "deleteTargetCount": 0,
+              "deliveryStatus": "received",
+              "isOutgoing": false,
+              "messageIdHint": "8611060a988c58d8",
+              "reasonCode": null,
+              "remoteMessageIdHint": "8611060a988c58d8",
+              "resultCode": "received"
+            },
+            "level": "debug"
+          },
+          {
+            "atUnixMs": 1783008600007,
+            "context": {
+              "channel": "dm_process_result",
+              "conversationIdHint": null,
+              "conversationKind": "dm",
+              "deleteTargetCount": 0,
+              "deliveryStatus": "received",
+              "isOutgoing": false,
+              "messageIdHint": null,
+              "reasonCode": "dedup",
+              "remoteMessageIdHint": "8611060a988c58d8",
+              "resultCode": "skipped"
+            },
+            "level": "warn"
+          },
+          {
+            "atUnixMs": 1783008600008,
+            "context": {
+              "channel": "dm_process_result",
+              "conversationIdHint": null,
+              "conversationKind": "dm",
+              "deleteTargetCount": 0,
+              "deliveryStatus": "received",
+              "isOutgoing": false,
+              "messageIdHint": null,
+              "reasonCode": "dedup",
+              "remoteMessageIdHint": "8611060a988c58d8",
+              "resultCode": "skipped"
+            },
+            "level": "warn"
+          }
+        ],
+        "messaging.delete_for_everyone_requested": [],
+        "messaging.legacy_migration_diagnostics": [],
+        "messaging.m10.cp2_stability_gate": [],
+        "messaging.m10.cp3_readiness_gate": [],
+        "messaging.m10.cp3_suite_gate": [],
+        "messaging.m10.cp4_closeout_gate": [],
+        "messaging.m10.v130_closeout_gate": [],
+        "messaging.m10.v130_evidence_gate": [],
+        "messaging.realtime_voice.connect_timeout_diagnostics": [],
+        "messaging.realtime_voice.connecting_watchdog_gate": [],
+        "messaging.realtime_voice.connecting_watchdog_incident_bundle": [],
+        "messaging.realtime_voice.connecting_watchdog_incident_gate": [],
+        "messaging.realtime_voice.connecting_watchdog_incident_gate_closeout": [],
+        "messaging.realtime_voice.connecting_watchdog_incident_gate_closeout_self_test": [],
+        "messaging.realtime_voice.connecting_watchdog_incident_gate_evidence": [],
+        "messaging.realtime_voice.connecting_watchdog_incident_gate_self_test": [],
+        "messaging.realtime_voice.connecting_watchdog_self_test": [],
+        "messaging.realtime_voice.cp4_checkpoint_gate": [],
+        "messaging.realtime_voice.cp4_release_evidence_gate": [],
+        "messaging.realtime_voice.cp4_release_readiness_gate": [],
+        "messaging.realtime_voice.invite_join_attempt": [],
+        "messaging.realtime_voice.invite_join_result": [],
+        "messaging.realtime_voice.invite_send_attempt": [],
+        "messaging.realtime_voice.invite_send_result": [],
+        "messaging.realtime_voice.long_session_gate": [],
+        "messaging.realtime_voice.media_access_failed": [],
+        "messaging.realtime_voice.rtc_state": [],
+        "messaging.realtime_voice.session_event_ignored": [],
+        "messaging.realtime_voice.session_transition": [],
+        "messaging.realtime_voice.signal_received": [],
+        "messaging.realtime_voice.signal_send_result": [],
+        "messaging.realtime_voice.v120_closeout_gate": [],
+        "messaging.request.incoming_quarantined": [],
+        "messaging.search_jump_requested": [],
+        "messaging.search_jump_resolved": [],
+        "messaging.search_jump_unresolved": [],
+        "messaging.voice_note.recording_complete": [],
+        "messaging.voice_note.recording_empty": [],
+        "messaging.voice_note.recording_start_failed": [],
+        "messaging.voice_note.recording_unsupported": [],
+        "navigation.page_transition_effects_disabled": [],
+        "navigation.page_transition_watchdog_timeout": [],
+        "navigation.route_mount_performance_guard_enabled": [],
+        "navigation.route_mount_probe_settled": [],
+        "navigation.route_mount_probe_slow": [],
+        "navigation.route_request": [],
+        "navigation.route_settled": [],
+        "navigation.route_stall_hard_fallback": [],
+        "runtime.activation.degraded": [],
+        "runtime.activation.profile_scope_mismatch": [],
+        "runtime.activation.timeout": [],
+        "runtime.profile_boot_stall_timeout": [],
+        "runtime.startup_auth_state_transition": []
+      },
+      "generatedAtUnixMs": 1783008708857,
+      "recentWarnOrError": [
+        {
+          "atUnixMs": 1783008689008,
+          "level": "warn",
+          "message": null,
+          "name": "messaging.dm_normalize_is_outgoing_mismatch",
+          "reasonCode": null
+        },
+        {
+          "atUnixMs": 1783008689008,
+          "level": "warn",
+          "message": null,
+          "name": "messaging.dm_normalize_is_outgoing_mismatch",
+          "reasonCode": null
+        },
+        {
+          "atUnixMs": 1783008689008,
+          "level": "warn",
+          "message": null,
+          "name": "messaging.dm_normalize_is_outgoing_mismatch",
+          "reasonCode": null
+        },
+        {
+          "atUnixMs": 1783008689008,
+          "level": "warn",
+          "message": null,
+          "name": "messaging.dm_normalize_is_outgoing_mismatch",
+          "reasonCode": null
+        },
+        {
+          "atUnixMs": 1783008689009,
+          "level": "warn",
+          "message": null,
+          "name": "messaging.dm_normalize_is_outgoing_mismatch",
+          "reasonCode": null
+        },
+        {
+          "atUnixMs": 1783008689009,
+          "level": "warn",
+          "message": null,
+          "name": "messaging.dm_normalize_is_outgoing_mismatch",
+          "reasonCode": null
+        },
+        {
+          "atUnixMs": 1783008689009,
+          "level": "warn",
+          "message": null,
+          "name": "messaging.dm_normalize_is_outgoing_mismatch",
+          "reasonCode": null
+        },
+        {
+          "atUnixMs": 1783008689009,
+          "level": "warn",
+          "message": null,
+          "name": "messaging.dm_normalize_is_outgoing_mismatch",
+          "reasonCode": null
+        },
+        {
+          "atUnixMs": 1783008689009,
+          "level": "warn",
+          "message": null,
+          "name": "messaging.dm_normalize_is_outgoing_mismatch",
+          "reasonCode": null
+        },
+        {
+          "atUnixMs": 1783008689009,
+          "level": "warn",
+          "message": null,
+          "name": "messaging.dm_normalize_is_outgoing_mismatch",
+          "reasonCode": null
+        },
+        {
+          "atUnixMs": 1783008689479,
+          "level": "warn",
+          "message": null,
+          "name": "groups.ledger_validation_issues",
+          "reasonCode": null
+        },
+        {
+          "atUnixMs": 1783008701449,
+          "level": "warn",
+          "message": null,
+          "name": "groups.ledger_validation_issues",
+          "reasonCode": null
+        }
+      ],
+      "summary": {
+        "accountSwitchScopeConvergence": {
+          "autoUnlockScopeDriftDetectedCount": 0,
+          "backupRestoreProfileScopeMismatchCount": 0,
+          "latestAutoUnlockReasonCode": null,
+          "latestBackupRestoreReasonCode": null,
+          "latestRuntimeActivationReasonCode": null,
+          "riskLevel": "none",
+          "runtimeActivationProfileScopeMismatchCount": 0
+        },
+        "asyncVoiceNote": {
+          "latestReasonCode": null,
+          "recordingCompleteCount": 0,
+          "recordingEmptyCount": 0,
+          "recordingStartFailedCount": 0,
+          "recordingUnsupportedCount": 0,
+          "riskLevel": "none"
+        },
+        "communityLifecycleConvergence": {
+          "latestHiddenByLedgerStatusCount": null,
+          "latestHydratedFromLedgerOnlyCount": null,
+          "latestHydratedFromPersistedFallbackCount": null,
+          "latestHydratedFromPersistedWithLedgerCount": null,
+          "latestLocalMemberBackfillCount": null,
+          "latestMissingLedgerCoverageCount": null,
+          "latestPersistedDuplicateMergeCount": null,
+          "latestPersistedGroupCount": null,
+          "latestPlaceholderDisplayNameRecoveredCount": null,
+          "recoveryRepairSignalCount": 0,
+          "riskLevel": "none"
+        },
+        "deleteConvergence": {
+          "latestChannel": "dm_process_result",
+          "latestReasonCode": "dedup",
+          "latestResultCode": "skipped",
+          "localAppliedCount": 0,
+          "rejectedCount": 0,
+          "remoteConfirmedCount": 0,
+          "remoteFailedCount": 0,
+          "remoteQueuedCount": 0,
+          "requestedCount": 0,
+          "riskLevel": "none"
+        },
+        "incomingRequestAntiAbuse": {
+          "globalRateLimitedCount": 0,
+          "latestCooldownRemainingMs": null,
+          "latestPeerPubkeyPrefix": null,
+          "latestReasonCode": null,
+          "peerCooldownActiveCount": 0,
+          "peerRateLimitedCount": 0,
+          "quarantinedCount": 0,
+          "riskLevel": "none",
+          "uniquePeerPrefixCount": 0
+        },
+        "m10TrustControls": {
+          "cp2StabilityGateCount": 0,
+          "cp2StabilityGateFailCount": 0,
+          "cp2StabilityGatePassCount": 0,
+          "cp2StabilityGateUnexpectedFailCount": 0,
+          "cp3ReadinessGateCount": 0,
+          "cp3ReadinessGateFailCount": 0,
+          "cp3ReadinessGatePassCount": 0,
+          "cp3ReadinessGateUnexpectedFailCount": 0,
+          "cp3SuiteGateCount": 0,
+          "cp3SuiteGateFailCount": 0,
+          "cp3SuiteGatePassCount": 0,
+          "cp3SuiteGateUnexpectedFailCount": 0,
+          "cp4CloseoutGateCount": 0,
+          "cp4CloseoutGateFailCount": 0,
+          "cp4CloseoutGatePassCount": 0,
+          "cp4CloseoutGateUnexpectedFailCount": 0,
+          "latestCp3ExpectedStable": null,
+          "latestCp3FailedCheckSample": null,
+          "latestCp3Pass": null,
+          "latestCp3SuiteExpectedStable": null,
+          "latestCp3SuiteFailedCheckSample": null,
+          "latestCp3SuitePass": null,
+          "latestCp4CloseoutExpectedStable": null,
+          "latestCp4CloseoutFailedCheckSample": null,
+          "latestCp4CloseoutPass": null,
+          "latestExpectedStable": null,
+          "latestFailedCheckSample": null,
+          "latestPass": null,
+          "latestV130CloseoutExpectedStable": null,
+          "latestV130CloseoutFailedCheckSample": null,
+          "latestV130CloseoutPass": null,
+          "latestV130EvidenceExpectedStable": null,
+          "latestV130EvidenceFailedCheckSample": null,
+          "latestV130EvidencePass": null,
+          "riskLevel": "none",
+          "v130CloseoutGateCount": 0,
+          "v130CloseoutGateFailCount": 0,
+          "v130CloseoutGatePassCount": 0,
+          "v130CloseoutGateUnexpectedFailCount": 0,
+          "v130EvidenceGateCount": 0,
+          "v130EvidenceGateFailCount": 0,
+          "v130EvidenceGatePassCount": 0,
+          "v130EvidenceGateUnexpectedFailCount": 0
+        },
+        "mediaHydrationParity": {
+          "attachmentDropRegressionCount": 0,
+          "criticalHydrationDriftCount": 0,
+          "latestAppliedDmAttachmentCount": 0,
+          "latestAppliedGroupAttachmentCount": 0,
+          "latestHydratedDmAttachmentCount": null,
+          "latestHydratedGroupAttachmentCount": null,
+          "latestMergedDmAttachmentCount": 0,
+          "latestMergedGroupAttachmentCount": 0,
+          "riskLevel": "none"
+        },
+        "membershipSendability": {
+          "joinedMembershipRoomKeyMismatchCount": 0,
+          "latestChatStateGroupCount": null,
+          "latestReasonCode": null,
+          "latestVisibleGroupCount": null,
+          "localProfileScopeRoomKeyMissingCount": 0,
+          "noLocalRoomKeysCount": 0,
+          "riskLevel": "none",
+          "roomKeyMissingSendBlockedCount": 0
+        },
+        "realtimeVoiceSession": {
+          "checkpointGateCount": 0,
+          "checkpointGateFailCount": 0,
+          "checkpointGatePassCount": 0,
+          "closeoutGateCount": 0,
+          "closeoutGateFailCount": 0,
+          "closeoutGatePassCount": 0,
+          "connectTimeoutDiagnosticsCount": 0,
+          "connectTimeoutNoOpenRelayCount": 0,
+          "connectingWatchdogGateCount": 0,
+          "connectingWatchdogGateFailCount": 0,
+          "connectingWatchdogGatePassCount": 0,
+          "connectingWatchdogIncidentBundleCount": 0,
+          "connectingWatchdogIncidentBundleFailCount": 0,
+          "connectingWatchdogIncidentBundlePassCount": 0,
+          "connectingWatchdogIncidentGateCloseoutCount": 0,
+          "connectingWatchdogIncidentGateCloseoutFailCount": 0,
+          "connectingWatchdogIncidentGateCloseoutPassCount": 0,
+          "connectingWatchdogIncidentGateCloseoutSelfTestCount": 0,
+          "connectingWatchdogIncidentGateCloseoutSelfTestFailCount": 0,
+          "connectingWatchdogIncidentGateCloseoutSelfTestPassCount": 0,
+          "connectingWatchdogIncidentGateCount": 0,
+          "connectingWatchdogIncidentGateEvidenceCount": 0,
+          "connectingWatchdogIncidentGateEvidenceFailCount": 0,
+          "connectingWatchdogIncidentGateEvidencePassCount": 0,
+          "connectingWatchdogIncidentGateFailCount": 0,
+          "connectingWatchdogIncidentGatePassCount": 0,
+          "connectingWatchdogIncidentGateSelfTestCount": 0,
+          "connectingWatchdogIncidentGateSelfTestFailCount": 0,
+          "connectingWatchdogIncidentGateSelfTestPassCount": 0,
+          "connectingWatchdogSelfTestCount": 0,
+          "connectingWatchdogSelfTestFailCount": 0,
+          "connectingWatchdogSelfTestPassCount": 0,
+          "degradedCount": 0,
+          "latestCheckpointGateFailedCheckSample": null,
+          "latestCheckpointGatePass": null,
+          "latestCloseoutGateFailedCheckSample": null,
+          "latestCloseoutGatePass": null,
+          "latestConnectTimeoutOpenRelayCount": null,
+          "latestConnectTimeoutRtcConnectionState": null,
+          "latestConnectingWatchdogGateFailedCheckSample": null,
+          "latestConnectingWatchdogGatePass": null,
+          "latestConnectingWatchdogIncidentBundleFailedCheckSample": null,
+          "latestConnectingWatchdogIncidentBundlePass": null,
+          "latestConnectingWatchdogIncidentGateCloseoutFailedCheckSample": null,
+          "latestConnectingWatchdogIncidentGateCloseoutPass": null,
+          "latestConnectingWatchdogIncidentGateCloseoutSelfTestFailedCheckSample": null,
+          "latestConnectingWatchdogIncidentGateCloseoutSelfTestPass": null,
+          "latestConnectingWatchdogIncidentGateEvidenceFailedCheckSample": null,
+          "latestConnectingWatchdogIncidentGateEvidencePass": null,
+          "latestConnectingWatchdogIncidentGateFailedCheckSample": null,
+          "latestConnectingWatchdogIncidentGatePass": null,
+          "latestConnectingWatchdogIncidentGateSelfTestFailedCheckSample": null,
+          "latestConnectingWatchdogIncidentGateSelfTestPass": null,
+          "latestConnectingWatchdogSelfTestFailedCheckSample": null,
+          "latestConnectingWatchdogSelfTestPass": null,
+          "latestIgnoredReasonCode": null,
+          "latestLongSessionGateFailedCheckSample": null,
+          "latestLongSessionGatePass": null,
+          "latestReasonCode": null,
+          "latestReleaseEvidenceGateFailedCheckSample": null,
+          "latestReleaseEvidenceGatePass": null,
+          "latestReleaseReadinessGateFailedCheckSample": null,
+          "latestReleaseReadinessGatePass": null,
+          "latestToPhase": null,
+          "longSessionGateCount": 0,
+          "longSessionGateFailCount": 0,
+          "longSessionGatePassCount": 0,
+          "recoveryExhaustedCount": 0,
+          "releaseEvidenceGateCount": 0,
+          "releaseEvidenceGateFailCount": 0,
+          "releaseEvidenceGatePassCount": 0,
+          "releaseReadinessGateCount": 0,
+          "releaseReadinessGateFailCount": 0,
+          "releaseReadinessGatePassCount": 0,
+          "riskLevel": "none",
+          "staleEventIgnoredCount": 0,
+          "transitionCount": 0,
+          "unexpectedCheckpointGateFailCount": 0,
+          "unexpectedCloseoutGateFailCount": 0,
+          "unexpectedConnectingWatchdogGateFailCount": 0,
+          "unexpectedConnectingWatchdogIncidentBundleFailCount": 0,
+          "unexpectedConnectingWatchdogIncidentGateCloseoutFailCount": 0,
+          "unexpectedConnectingWatchdogIncidentGateCloseoutSelfTestFailCount": 0,
+          "unexpectedConnectingWatchdogIncidentGateEvidenceFailCount": 0,
+          "unexpectedConnectingWatchdogIncidentGateFailCount": 0,
+          "unexpectedConnectingWatchdogIncidentGateSelfTestFailCount": 0,
+          "unexpectedConnectingWatchdogSelfTestFailCount": 0,
+          "unexpectedLongSessionGateFailCount": 0,
+          "unexpectedReleaseEvidenceGateFailCount": 0,
+          "unexpectedReleaseReadinessGateFailCount": 0,
+          "unsupportedCount": 0
+        },
+        "searchJumpNavigation": {
+          "domUnresolvedCount": 0,
+          "latestResolutionMode": null,
+          "latestUnresolvedReasonCode": null,
+          "loadExhaustedUnresolvedCount": 0,
+          "requestedCount": 0,
+          "resolvedCount": 0,
+          "riskLevel": "none",
+          "timestampFallbackResolvedCount": 0,
+          "unresolvedCount": 0
+        },
+        "selfAuthoredDmContinuity": {
+          "idSplitDetectedCount": 0,
+          "latestHistoryAuthority": null,
+          "latestHistoryAuthorityReason": null,
+          "latestHydratedOutgoingCount": null,
+          "latestMergedOutgoingCount": 0,
+          "persistedRecoveryIndexedEmptyCount": 0,
+          "persistedRecoveryIndexedMissingIncomingCount": 0,
+          "persistedRecoveryIndexedMissingOutgoingCount": 0,
+          "riskLevel": "none",
+          "sparseOutgoingEvidence": null
+        },
+        "uiResponsiveness": {
+          "latestPageTransitionWatchdogElapsedMs": null,
+          "latestRouteMountProbeElapsedMs": null,
+          "latestRouteStallElapsedMs": null,
+          "latestRouteSurface": null,
+          "latestStartupProfileBootPhase": null,
+          "pageTransitionEffectsDisabledCount": 0,
+          "pageTransitionWatchdogTimeoutCount": 0,
+          "riskLevel": "none",
+          "routeMountPerformanceGuardEnabledCount": 0,
+          "routeMountProbeSettledWarnCount": 0,
+          "routeMountProbeSlowCount": 0,
+          "routeRequestCount": 0,
+          "routeSettledCount": 0,
+          "routeStallHardFallbackCount": 0,
+          "startupProfileBootStallTimeoutCount": 0
+        }
+      },
+      "totalBufferedEvents": 500,
+      "windowSize": 300
+    },
+    "digest": {
+      "byLevel": {
+        "debug": 5,
+        "error": 0,
+        "info": 149,
+        "warn": 146
+      },
+      "recentErrors": [],
+      "topNames": [
+        {
+          "count": 97,
+          "name": "groups.ledger_migration_needed"
+        },
+        {
+          "count": 97,
+          "name": "groups.ledger_validation_issues"
+        },
+        {
+          "count": 40,
+          "name": "messaging.dm_normalize_is_outgoing_mismatch"
+        },
+        {
+          "count": 13,
+          "name": "workspace.thread.hydrate"
+        },
+        {
+          "count": 10,
+          "name": "messaging.delete_for_everyone_remote_result"
+        },
+        {
+          "count": 5,
+          "name": "account_sync.backup_publish_attempt"
+        },
+        {
+          "count": 5,
+          "name": "account_sync.backup_publish_ordering"
+        },
+        {
+          "count": 5,
+          "name": "account_sync.backup_publish_result"
+        }
+      ],
+      "total": 500,
+      "warmUpSummary": [],
+      "windowSize": 300
+    },
+    "focusedByCategory": {
+      "media_hydration": [
+        {
+          "atUnixMs": 1783008595765,
+          "context": {
+            "criticalDriftCount": 0,
+            "persistedConversationCount": 2,
+            "persistedDmThreadCount": 1,
+            "profileId": "default",
+            "projectionConversationCount": 1,
+            "projectionReadAuthorityReason": "projection_not_ready",
+            "publicKeySuffix": "c191ea56",
+            "selectedAuthority": "sqlite",
+            "selectedAuthorityReason": "sqlite_native",
+            "sqliteConversationCount": 2
+          },
+          "level": "warn",
+          "name": "messaging.conversation_list_authority_selected",
+          "scope": {
+            "action": "conversation_list_authority",
+            "feature": "messaging"
+          }
+        },
+        {
+          "atUnixMs": 1783008596063,
+          "context": {
+            "criticalDriftCount": 0,
+            "persistedConversationCount": 2,
+            "persistedDmThreadCount": 1,
+            "profileId": "default",
+            "projectionConversationCount": 1,
+            "projectionReadAuthorityReason": "read_cutover_enabled",
+            "publicKeySuffix": "c191ea56",
+            "selectedAuthority": "sqlite",
+            "selectedAuthorityReason": "sqlite_native",
+            "sqliteConversationCount": 2
+          },
+          "level": "warn",
+          "name": "messaging.conversation_list_authority_selected",
+          "scope": {
+            "action": "conversation_list_authority",
+            "feature": "messaging"
+          }
+        },
+        {
+          "atUnixMs": 1783008599772,
+          "context": {
+            "criticalDriftCount": 0,
+            "persistedConversationCount": 2,
+            "persistedDmThreadCount": 1,
+            "profileId": "default",
+            "projectionConversationCount": 1,
+            "projectionReadAuthorityReason": "projection_not_ready",
+            "publicKeySuffix": "c191ea56",
+            "selectedAuthority": "sqlite",
+            "selectedAuthorityReason": "sqlite_native",
+            "sqliteConversationCount": 2
+          },
+          "level": "warn",
+          "name": "messaging.conversation_list_authority_selected",
+          "scope": {
+            "action": "conversation_list_authority",
+            "feature": "messaging"
+          }
+        },
+        {
+          "atUnixMs": 1783008600006,
+          "context": {
+            "criticalDriftCount": 0,
+            "persistedConversationCount": 2,
+            "persistedDmThreadCount": 1,
+            "profileId": "default",
+            "projectionConversationCount": 1,
+            "projectionReadAuthorityReason": "read_cutover_enabled",
+            "publicKeySuffix": "c191ea56",
+            "selectedAuthority": "sqlite",
+            "selectedAuthorityReason": "sqlite_native",
+            "sqliteConversationCount": 2
+          },
+          "level": "warn",
+          "name": "messaging.conversation_list_authority_selected",
+          "scope": {
+            "action": "conversation_list_authority",
+            "feature": "messaging"
+          }
+        },
+        {
+          "atUnixMs": 1783008685530,
+          "context": {
+            "criticalDriftCount": 0,
+            "persistedConversationCount": 2,
+            "persistedDmThreadCount": 1,
+            "profileId": "default",
+            "projectionConversationCount": 1,
+            "projectionReadAuthorityReason": "projection_not_ready",
+            "publicKeySuffix": "c191ea56",
+            "selectedAuthority": "sqlite",
+            "selectedAuthorityReason": "sqlite_native",
+            "sqliteConversationCount": 2
+          },
+          "level": "warn",
+          "name": "messaging.conversation_list_authority_selected",
+          "scope": {
+            "action": "conversation_list_authority",
+            "feature": "messaging"
+          }
+        },
+        {
+          "atUnixMs": 1783008685724,
+          "context": {
+            "criticalDriftCount": 0,
+            "persistedConversationCount": 2,
+            "persistedDmThreadCount": 1,
+            "profileId": "default",
+            "projectionConversationCount": 1,
+            "projectionReadAuthorityReason": "read_cutover_enabled",
+            "publicKeySuffix": "c191ea56",
+            "selectedAuthority": "sqlite",
+            "selectedAuthorityReason": "sqlite_native",
+            "sqliteConversationCount": 2
+          },
+          "level": "warn",
+          "name": "messaging.conversation_list_authority_selected",
+          "scope": {
+            "action": "conversation_list_authority",
+            "feature": "messaging"
+          }
+        }
+      ],
+      "navigation": [],
+      "startup": [],
+      "sync_restore": [
+        {
+          "atUnixMs": 1783008583657,
+          "context": {
+            "canTrustIncomingPortableState": true,
+            "freshDevice": false,
+            "hasExplicitLocalLedgerEvidence": true,
+            "hasExplicitLocalMessageDeleteEvidence": true,
+            "hasExplicitLocalRoomKeyEvidence": true,
+            "hasHydratedLocalReplayableHistory": false,
+            "includeHydratedLocalMessages": true,
+            "incomingDmAttachmentCount": 0,
+            "incomingDmCanonicalCollisionCount": 0,
+            "incomingDmCanonicalCollisionSample": null,
+            "incomingDmCanonicalConversationCount": 0,
+            "incomingDmCanonicalConversationIdMismatchCount": 0,
+            "incomingDmConversationCount": 0,
+            "incomingDmIncomingCount": 0,
+            "incomingDmIncomingOnlyConversationCount": 0,
+            "incomingDmMessageCount": 0,
+            "incomingDmMessageWithAttachmentsCount": 0,
+            "incomingDmOutgoingCount": 0,
+            "incomingDmOutgoingOnlyConversationCount": 0,
+            "incomingGroupAttachmentCount": 0,
+            "incomingGroupConversationCount": 0,
+            "incomingGroupMessageCount": 0,
+            "incomingGroupMessageWithAttachmentsCount": 0,
+            "incomingGroupSelfAuthoredCount": 0,
+            "incomingLedgerEntryCount": 20,
+            "incomingLedgerJoinPromotionCount": 0,
+            "incomingLedgerReconciledEntryCount": 20,
+            "incomingMessageDeleteTombstoneCount": 47,
+            "incomingRoomKeyCount": 1,
+            "localDmAttachmentCount": 0,
+            "localDmCanonicalCollisionCount": 0,
+            "localDmCanonicalCollisionSample": null,
+            "localDmCanonicalConversationCount": 0,
+            "localDmCanonicalConversationIdMismatchCount": 0,
+            "localDmConversationCount": 0,
+            "localDmIncomingCount": 0,
+            "localDmIncomingOnlyConversationCount": 0,
+            "localDmMessageCount": 0,
+            "localDmMessageWithAttachmentsCount": 0,
+            "localDmOutgoingCount": 0,
+            "localDmOutgoingOnlyConversationCount": 0,
+            "localGroupAttachmentCount": 0,
+            "localGroupConversationCount": 0,
+            "localGroupMessageCount": 0,
+            "localGroupMessageWithAttachmentsCount": 0,
+            "localGroupSelfAuthoredCount": 0,
+            "localLedgerEntryCount": 20,
+            "localMessageDeleteTombstoneCount": 47,
+            "localPayloadMerged": true,
+            "localRoomKeyCount": 1,
+            "mergedChatReconstructedLedgerEntryCount": 1,
+            "mergedDmAttachmentCount": 0,
+            "mergedDmCanonicalCollisionCount": 0,
+            "mergedDmCanonicalCollisionSample": null,
+            "mergedDmCanonicalConversationCount": 0,
+            "mergedDmCanonicalConversationIdMismatchCount": 0,
+            "mergedDmConversationCount": 0,
+            "mergedDmIncomingCount": 0,
+            "mergedDmIncomingOnlyConversationCount": 0,
+            "mergedDmMessageCount": 0,
+            "mergedDmMessageWithAttachmentsCount": 0,
+            "mergedDmOutgoingCount": 0,
+            "mergedDmOutgoingOnlyConversationCount": 0,
+            "mergedExplicitRoomKeyCount": 1,
+            "mergedGroupAttachmentCount": 0,
+            "mergedGroupConversationCount": 0,
+            "mergedGroupMessageCount": 0,
+            "mergedGroupMessageWithAttachmentsCount": 0,
+            "mergedGroupSelfAuthoredCount": 0,
+            "mergedLedgerEntryCount": 20,
+            "mergedMessageDeleteTombstoneCount": 47,
+            "mergedReconstructedRoomKeyCount": 0,
+            "mergedRoomKeyCount": 1,
+            "publicKeySuffix": "c191ea56",
+            "recoverySnapshotAvailable": true,
+            "recoverySnapshotHasExplicitLedgerEvidence": true,
+            "recoverySnapshotHasExplicitRoomKeyEvidence": true,
+            "recoverySnapshotHasReplayableHistory": false,
+            "recoverySnapshotUsed": false,
+            "shouldHydrateLocalMessages": true
+          },
+          "level": "info",
+          "name": "account_sync.backup_restore_merge_diagnostics",
+          "scope": {
+            "action": "backup_restore",
+            "feature": "account_sync"
+          }
+        },
+        {
+          "atUnixMs": 1783008685027,
+          "context": {
+            "canTrustIncomingPortableState": true,
+            "freshDevice": false,
+            "hasExplicitLocalLedgerEvidence": true,
+            "hasExplicitLocalMessageDeleteEvidence": true,
+            "hasExplicitLocalRoomKeyEvidence": true,
+            "hasHydratedLocalReplayableHistory": false,
+            "includeHydratedLocalMessages": true,
+            "incomingDmAttachmentCount": 0,
+            "incomingDmCanonicalCollisionCount": 0,
+            "incomingDmCanonicalCollisionSample": null,
+            "incomingDmCanonicalConversationCount": 0,
+            "incomingDmCanonicalConversationIdMismatchCount": 0,
+            "incomingDmConversationCount": 0,
+            "incomingDmIncomingCount": 0,
+            "incomingDmIncomingOnlyConversationCount": 0,
+            "incomingDmMessageCount": 0,
+            "incomingDmMessageWithAttachmentsCount": 0,
+            "incomingDmOutgoingCount": 0,
+            "incomingDmOutgoingOnlyConversationCount": 0,
+            "incomingGroupAttachmentCount": 0,
+            "incomingGroupConversationCount": 0,
+            "incomingGroupMessageCount": 0,
+            "incomingGroupMessageWithAttachmentsCount": 0,
+            "incomingGroupSelfAuthoredCount": 0,
+            "incomingLedgerEntryCount": 20,
+            "incomingLedgerJoinPromotionCount": 0,
+            "incomingLedgerReconciledEntryCount": 20,
+            "incomingMessageDeleteTombstoneCount": 47,
+            "incomingRoomKeyCount": 1,
+            "localDmAttachmentCount": 0,
+            "localDmCanonicalCollisionCount": 0,
+            "localDmCanonicalCollisionSample": null,
+            "localDmCanonicalConversationCount": 0,
+            "localDmCanonicalConversationIdMismatchCount": 0,
+            "localDmConversationCount": 0,
+            "localDmIncomingCount": 0,
+            "localDmIncomingOnlyConversationCount": 0,
+            "localDmMessageCount": 0,
+            "localDmMessageWithAttachmentsCount": 0,
+            "localDmOutgoingCount": 0,
+            "localDmOutgoingOnlyConversationCount": 0,
+            "localGroupAttachmentCount": 0,
+            "localGroupConversationCount": 0,
+            "localGroupMessageCount": 0,
+            "localGroupMessageWithAttachmentsCount": 0,
+            "localGroupSelfAuthoredCount": 0,
+            "localLedgerEntryCount": 20,
+            "localMessageDeleteTombstoneCount": 47,
+            "localPayloadMerged": true,
+            "localRoomKeyCount": 1,
+            "mergedChatReconstructedLedgerEntryCount": 1,
+            "mergedDmAttachmentCount": 0,
+            "mergedDmCanonicalCollisionCount": 0,
+            "mergedDmCanonicalCollisionSample": null,
+            "mergedDmCanonicalConversationCount": 0,
+            "mergedDmCanonicalConversationIdMismatchCount": 0,
+            "mergedDmConversationCount": 0,
+            "mergedDmIncomingCount": 0,
+            "mergedDmIncomingOnlyConversationCount": 0,
+            "mergedDmMessageCount": 0,
+            "mergedDmMessageWithAttachmentsCount": 0,
+            "mergedDmOutgoingCount": 0,
+            "mergedDmOutgoingOnlyConversationCount": 0,
+            "mergedExplicitRoomKeyCount": 1,
+            "mergedGroupAttachmentCount": 0,
+            "mergedGroupConversationCount": 0,
+            "mergedGroupMessageCount": 0,
+            "mergedGroupMessageWithAttachmentsCount": 0,
+            "mergedGroupSelfAuthoredCount": 0,
+            "mergedLedgerEntryCount": 20,
+            "mergedMessageDeleteTombstoneCount": 47,
+            "mergedReconstructedRoomKeyCount": 0,
+            "mergedRoomKeyCount": 1,
+            "publicKeySuffix": "c191ea56",
+            "recoverySnapshotAvailable": true,
+            "recoverySnapshotHasExplicitLedgerEvidence": true,
+            "recoverySnapshotHasExplicitRoomKeyEvidence": true,
+            "recoverySnapshotHasReplayableHistory": false,
+            "recoverySnapshotUsed": false,
+            "shouldHydrateLocalMessages": true
+          },
+          "level": "info",
+          "name": "account_sync.backup_restore_merge_diagnostics",
+          "scope": {
+            "action": "backup_restore",
+            "feature": "account_sync"
+          }
+        },
+        {
+          "atUnixMs": 1783008584058,
+          "context": {
+            "appliedDmAttachmentCount": 0,
+            "appliedDmCanonicalCollisionCount": 0,
+            "appliedDmCanonicalCollisionSample": null,
+            "appliedDmCanonicalConversationCount": 0,
+            "appliedDmCanonicalConversationIdMismatchCount": 0,
+            "appliedDmConversationCount": 0,
+            "appliedDmIncomingCount": 0,
+            "appliedDmIncomingOnlyConversationCount": 0,
+            "appliedDmMessageCount": 0,
+            "appliedDmMessageWithAttachmentsCount": 0,
+            "appliedDmOutgoingCount": 0,
+            "appliedDmOutgoingOnlyConversationCount": 0,
+            "appliedGroupAttachmentCount": 0,
+            "appliedGroupConversationCount": 0,
+            "appliedGroupMessageCount": 0,
+            "appliedGroupMessageWithAttachmentsCount": 0,
+            "appliedGroupSelfAuthoredCount": 0,
+            "appliedMessageDeleteTombstoneCount": 47,
+            "appliedRoomKeyCount": 1,
+            "mergedDmAttachmentCount": 0,
+            "mergedDmCanonicalCollisionCount": 0,
+            "mergedDmCanonicalCollisionSample": null,
+            "mergedDmCanonicalConversationCount": 0,
+            "mergedDmCanonicalConversationIdMismatchCount": 0,
+            "mergedDmConversationCount": 0,
+            "mergedDmIncomingCount": 0,
+            "mergedDmIncomingOnlyConversationCount": 0,
+            "mergedDmMessageCount": 0,
+            "mergedDmMessageWithAttachmentsCount": 0,
+            "mergedDmOutgoingCount": 0,
+            "mergedDmOutgoingOnlyConversationCount": 0,
+            "mergedGroupAttachmentCount": 0,
+            "mergedGroupConversationCount": 0,
+            "mergedGroupMessageCount": 0,
+            "mergedGroupMessageWithAttachmentsCount": 0,
+            "mergedGroupSelfAuthoredCount": 0,
+            "publicKeySuffix": "c191ea56",
+            "restoreChatStateDomains": true,
+            "restoreDmChatStateDomains": false,
+            "restorePath": "non_v1_domains"
+          },
+          "level": "info",
+          "name": "account_sync.backup_restore_apply_diagnostics",
+          "scope": {
+            "action": "backup_restore",
+            "feature": "account_sync"
+          }
+        },
+        {
+          "atUnixMs": 1783008685181,
+          "context": {
+            "appliedDmAttachmentCount": 0,
+            "appliedDmCanonicalCollisionCount": 0,
+            "appliedDmCanonicalCollisionSample": null,
+            "appliedDmCanonicalConversationCount": 0,
+            "appliedDmCanonicalConversationIdMismatchCount": 0,
+            "appliedDmConversationCount": 0,
+            "appliedDmIncomingCount": 0,
+            "appliedDmIncomingOnlyConversationCount": 0,
+            "appliedDmMessageCount": 0,
+            "appliedDmMessageWithAttachmentsCount": 0,
+            "appliedDmOutgoingCount": 0,
+            "appliedDmOutgoingOnlyConversationCount": 0,
+            "appliedGroupAttachmentCount": 0,
+            "appliedGroupConversationCount": 0,
+            "appliedGroupMessageCount": 0,
+            "appliedGroupMessageWithAttachmentsCount": 0,
+            "appliedGroupSelfAuthoredCount": 0,
+            "appliedMessageDeleteTombstoneCount": 47,
+            "appliedRoomKeyCount": 1,
+            "mergedDmAttachmentCount": 0,
+            "mergedDmCanonicalCollisionCount": 0,
+            "mergedDmCanonicalCollisionSample": null,
+            "mergedDmCanonicalConversationCount": 0,
+            "mergedDmCanonicalConversationIdMismatchCount": 0,
+            "mergedDmConversationCount": 0,
+            "mergedDmIncomingCount": 0,
+            "mergedDmIncomingOnlyConversationCount": 0,
+            "mergedDmMessageCount": 0,
+            "mergedDmMessageWithAttachmentsCount": 0,
+            "mergedDmOutgoingCount": 0,
+            "mergedDmOutgoingOnlyConversationCount": 0,
+            "mergedGroupAttachmentCount": 0,
+            "mergedGroupConversationCount": 0,
+            "mergedGroupMessageCount": 0,
+            "mergedGroupMessageWithAttachmentsCount": 0,
+            "mergedGroupSelfAuthoredCount": 0,
+            "publicKeySuffix": "c191ea56",
+            "restoreChatStateDomains": true,
+            "restoreDmChatStateDomains": false,
+            "restorePath": "non_v1_domains"
+          },
+          "level": "info",
+          "name": "account_sync.backup_restore_apply_diagnostics",
+          "scope": {
+            "action": "backup_restore",
+            "feature": "account_sync"
+          }
+        },
+        {
+          "atUnixMs": 1783008585329,
+          "context": {
+            "convergenceLatencyMs": null,
+            "guardEnabled": false,
+            "reason": "follow_up",
+            "result": "applied"
+          },
+          "level": "info",
+          "name": "account_sync.backup_restore_result",
+          "scope": {
+            "action": "backup_restore",
+            "feature": "account_sync"
+          }
+        },
+        {
+          "atUnixMs": 1783008685909,
+          "context": {
+            "convergenceLatencyMs": null,
+            "guardEnabled": false,
+            "reason": "interval",
+            "result": "applied"
+          },
+          "level": "info",
+          "name": "account_sync.backup_restore_result",
+          "scope": {
+            "action": "backup_restore",
+            "feature": "account_sync"
+          }
+        }
+      ],
+      "voice_realtime": [
+        {
+          "atUnixMs": 1783008599698,
+          "context": {
+            "channel": "dm_receive_plaintext_classified",
+            "conversationIdHint": "3db055b47e05bdfb9083efec0b7aecd2",
+            "conversationKind": "dm",
+            "deleteTargetCount": 0,
+            "deliveryStatus": "received",
+            "isOutgoing": false,
+            "messageIdHint": "8611060a988c58d8",
+            "reasonCode": null,
+            "remoteMessageIdHint": "8611060a988c58d8",
+            "resultCode": "normal_plaintext"
+          },
+          "level": "debug",
+          "name": "messaging.delete_for_everyone_remote_result",
+          "scope": {
+            "action": "delete_for_everyone",
+            "feature": "messaging"
+          }
+        },
+        {
+          "atUnixMs": 1783008599699,
+          "context": {
+            "channel": "dm_process_result",
+            "conversationIdHint": "3db055b47e05bdfb9083efec0b7aecd2",
+            "conversationKind": "dm",
+            "deleteTargetCount": 0,
+            "deliveryStatus": "received",
+            "isOutgoing": false,
+            "messageIdHint": "8611060a988c58d8",
+            "reasonCode": null,
+            "remoteMessageIdHint": "8611060a988c58d8",
+            "resultCode": "message"
+          },
+          "level": "info",
+          "name": "messaging.delete_for_everyone_remote_result",
+          "scope": {
+            "action": "delete_for_everyone",
+            "feature": "messaging"
+          }
+        },
+        {
+          "atUnixMs": 1783008599909,
+          "context": {
+            "channel": "v2_subscription_event_received",
+            "conversationIdHint": null,
+            "conversationKind": "dm",
+            "deleteTargetCount": 0,
+            "deliveryStatus": "received",
+            "isOutgoing": false,
+            "messageIdHint": "8611060a988c58d8",
+            "reasonCode": null,
+            "remoteMessageIdHint": "8611060a988c58d8",
+            "resultCode": "received"
+          },
+          "level": "debug",
+          "name": "messaging.delete_for_everyone_remote_result",
+          "scope": {
+            "action": "delete_for_everyone",
+            "feature": "messaging"
+          }
+        },
+        {
+          "atUnixMs": 1783008599970,
+          "context": {
+            "channel": "v2_subscription_event_received",
+            "conversationIdHint": null,
+            "conversationKind": "dm",
+            "deleteTargetCount": 0,
+            "deliveryStatus": "received",
+            "isOutgoing": false,
+            "messageIdHint": "8611060a988c58d8",
+            "reasonCode": null,
+            "remoteMessageIdHint": "8611060a988c58d8",
+            "resultCode": "received"
+          },
+          "level": "debug",
+          "name": "messaging.delete_for_everyone_remote_result",
+          "scope": {
+            "action": "delete_for_everyone",
+            "feature": "messaging"
+          }
+        },
+        {
+          "atUnixMs": 1783008600007,
+          "context": {
+            "channel": "dm_process_result",
+            "conversationIdHint": null,
+            "conversationKind": "dm",
+            "deleteTargetCount": 0,
+            "deliveryStatus": "received",
+            "isOutgoing": false,
+            "messageIdHint": null,
+            "reasonCode": "dedup",
+            "remoteMessageIdHint": "8611060a988c58d8",
+            "resultCode": "skipped"
+          },
+          "level": "warn",
+          "name": "messaging.delete_for_everyone_remote_result",
+          "scope": {
+            "action": "delete_for_everyone",
+            "feature": "messaging"
+          }
+        },
+        {
+          "atUnixMs": 1783008600008,
+          "context": {
+            "channel": "dm_process_result",
+            "conversationIdHint": null,
+            "conversationKind": "dm",
+            "deleteTargetCount": 0,
+            "deliveryStatus": "received",
+            "isOutgoing": false,
+            "messageIdHint": null,
+            "reasonCode": "dedup",
+            "remoteMessageIdHint": "8611060a988c58d8",
+            "resultCode": "skipped"
+          },
+          "level": "warn",
+          "name": "messaging.delete_for_everyone_remote_result",
+          "scope": {
+            "action": "delete_for_everyone",
+            "feature": "messaging"
+          }
+        }
+      ]
+    }
+  },
+  "generatedAtUnixMs": 1783008708855,
+  "proofTier": "t3",
+  "snapshots": {
+    "relayRuntime": {
+      "activeSubscriptionCount": 5,
+      "enabledRelayUrls": [
+        "wss://relay.damus.io",
+        "ws://localhost:7000",
+        "wss://relay.internal"
+      ],
+      "engineCheckpointRelayUrls": [
+        "ws://localhost:7000",
+        "wss://nos.lol",
+        "wss://relay.damus.io",
+        "wss://relay.primal.net"
+      ],
+      "engineConfiguredRelayUrls": [
+        "ws://localhost:7000",
+        "wss://nos.lol",
+        "wss://relay.damus.io",
+        "wss://relay.primal.net"
+      ],
+      "engineOnlyRelayUrls": [
+        "wss://relay.primal.net"
+      ],
+      "engineRelayCheckpointCount": 4,
+      "fallbackRelayUrls": [],
+      "instanceId": "8928d6fd-b83e-4530-aa2f-1cb1a441449c",
+      "lastInboundEventAtUnixMs": 1783008701367,
+      "lastInboundMessageAtUnixMs": 1783008701368,
+      "lastSubscriptionReplayAttemptAtUnixMs": 1783008561756,
+      "lastSubscriptionReplayDetail": "url=wss://relay.damus.io;sent=11;failed=0;skipped_empty=0",
+      "lastSubscriptionReplayReasonCode": "relay_open",
+      "lastSubscriptionReplayResult": "ok",
+      "lastSubscriptionReplayResultAtUnixMs": 1783008561757,
+      "lastSuccessfulPublishAtUnixMs": 1783008701368,
+      "pendingOutboundCount": 0,
+      "pendingSubscriptionBatchCount": 0,
+      "phase": "healthy",
+      "profileId": "default",
+      "publicKeyHexSummary": "e07f67dcb8a5",
+      "recovery": {
+        "coolingDownRelayCount": 1,
+        "fallbackRelayUrls": [],
+        "fallbackWritableRelayCount": 0,
+        "lastInboundEventAtUnixMs": 1783008701367,
+        "lastInboundMessageAtUnixMs": 1783008701368,
+        "lastSuccessfulPublishAtUnixMs": 1783008701368,
+        "readiness": "healthy",
+        "recoveryAttemptCount": 0,
+        "subscribableRelayCount": 5,
+        "writableRelayCount": 2,
+        "writeBlockedRelayCount": 0
+      },
+      "recoveryAttemptCount": 0,
+      "subscribableRelayCount": 5,
+      "supervisorRelayUrlCandidates": [
+        "wss://relay.damus.io",
+        "wss://nos.lol",
+        "ws://localhost:7000",
+        "wss://relay.primal.net"
+      ],
+      "transportRoutingMode": "direct",
+      "updatedAtUnixMs": 1783008701618,
+      "windowLabel": "main",
+      "writableRelayCount": 2
+    },
+    "relayTransportJournal": {
+      "desiredSubscriptionCount": 5,
+      "lastSubscriptionReplayAttemptAtUnixMs": 1783008561756,
+      "lastSubscriptionReplayDetail": "url=wss://relay.damus.io;sent=11;failed=0;skipped_empty=0",
+      "lastSubscriptionReplayReasonCode": "relay_open",
+      "lastSubscriptionReplayResult": "ok",
+      "lastSubscriptionReplayResultAtUnixMs": 1783008561757,
+      "pendingOutboundBySource": {},
+      "pendingOutboundCount": 0,
+      "pendingSubscriptionBatchCount": 0,
+      "updatedAtUnixMs": 1783008701512
+    },
+    "routeMountDiagnostics": {
+      "consecutiveSlowSampleCount": 0,
+      "lastSlowAtUnixMs": null,
+      "recentSamples": [],
+      "slowSampleCount": 0,
+      "worstElapsedMs": 0
+    },
+    "uiResponsiveness": null,
+    "windowRuntime": {
+      "degradedReason": "none",
+      "messagingTransportRuntime": {
+        "activeIncomingOwnerCount": 0,
+        "activeQueueProcessorCount": 0,
+        "updatedAtUnixMs": 1783008458620
+      },
+      "phase": "auth_required",
+      "phaseEnteredAtUnixMs": 1783008559722,
+      "relationshipRuntime": {
+        "acceptedPeerCount": 0,
+        "pendingIncomingCount": 0,
+        "pendingOutgoingCount": 0,
+        "updatedAtUnixMs": 1783008458620
+      },
+      "relayRuntime": {
+        "activeSubscriptionCount": 0,
+        "enabledRelayUrls": [],
+        "engineCheckpointRelayUrls": [],
+        "engineConfiguredRelayUrls": [],
+        "engineOnlyRelayUrls": [],
+        "engineRelayCheckpointCount": 0,
+        "fallbackRelayUrls": [],
+        "instanceId": "relay-runtime",
+        "pendingOutboundCount": 0,
+        "pendingSubscriptionBatchCount": 0,
+        "phase": "booting",
+        "profileId": "default",
+        "recovery": {
+          "coolingDownRelayCount": 0,
+          "fallbackRelayUrls": [],
+          "fallbackWritableRelayCount": 0,
+          "readiness": "offline",
+          "recoveryAttemptCount": 0,
+          "subscribableRelayCount": 0,
+          "writableRelayCount": 0,
+          "writeBlockedRelayCount": 0
+        },
+        "recoveryAttemptCount": 0,
+        "subscribableRelayCount": 0,
+        "supervisorRelayUrlCandidates": [],
+        "transportRoutingMode": "direct",
+        "updatedAtUnixMs": 1783008559722,
+        "windowLabel": "main",
+        "writableRelayCount": 0
+      },
+      "session": {
+        "identityStatus": "locked",
+        "profileId": "default",
+        "profileLabel": "Default",
+        "startupState": {
+          "degradedReasonHint": "none",
+          "identityStatus": "locked",
+          "kind": "stored_locked",
+          "recoveryActions": [
+            "login",
+            "unlock_with_private_key"
+          ],
+          "runtimePhaseHint": "auth_required",
+          "storedPublicKeyHex": "e07f67dcb8a58f53b13fd15ae549c31fb3817a3a6cf0e8bd6903bae3c191ea56"
+        },
+        "storedPublicKeyHex": "e07f67dcb8a58f53b13fd15ae549c31fb3817a3a6cf0e8bd6903bae3c191ea56",
+        "windowLabel": "main"
+      },
+      "traces": [
+        {
+          "completedAtUnixMs": 1783008458717,
+          "durationMs": 97,
+          "enteredAtUnixMs": 1783008458620,
+          "outcome": "completed",
+          "phase": "booting"
+        },
+        {
+          "completedAtUnixMs": 1783008458793,
+          "durationMs": 76,
+          "enteredAtUnixMs": 1783008458717,
+          "outcome": "completed",
+          "phase": "binding_profile"
+        },
+        {
+          "completedAtUnixMs": 1783008558737,
+          "durationMs": 99944,
+          "enteredAtUnixMs": 1783008458793,
+          "outcome": "failed",
+          "phase": "auth_required",
+          "reason": "unlock"
+        },
+        {
+          "completedAtUnixMs": 1783008559722,
+          "durationMs": 985,
+          "enteredAtUnixMs": 1783008558737,
+          "outcome": "completed",
+          "phase": "unlocking",
+          "reason": "unlock"
+        },
+        {
+          "enteredAtUnixMs": 1783008559722,
+          "outcome": "entered",
+          "phase": "auth_required"
+        }
+      ],
+      "transportQueue": {
+        "pendingCount": 0,
+        "updatedAtUnixMs": 1783008458620
+      }
+    }
+  },
+  "source": {
+    "locationHref": "http://127.0.0.1:1430/",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0"
+  },
+  "symptomIds": [
+    "groups-ledger-validation",
+    "dm-normalize-is-outgoing-mismatch"
+  ],
+  "version": "obscur.m0.capture.v1"
+}

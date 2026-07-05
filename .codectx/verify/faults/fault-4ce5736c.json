@@ -1,0 +1,37 @@
+{
+  "digestPath": ".codectx/verify/faults/fault-4ce5736c.digest.json",
+  "fault": {
+    "artifactPath": ".codectx/verify/faults/fault-4ce5736c.json",
+    "faultId": "fault-4ce5736c",
+    "importedAt": "2026-07-04T17:53:45.671412900+00:00",
+    "kind": "runtime_digest",
+    "proofTier": "t3",
+    "schema": "obscur.m0.capture.v1",
+    "signalsExtract": [
+      {
+        "detail": "count=92",
+        "name": "account_sync.backup_publish_mutation_suppressed_restore_in_flight"
+      },
+      {
+        "detail": "count=82",
+        "name": "groups.membership_ledger_save"
+      },
+      {
+        "detail": "count=82",
+        "name": "groups.ledger_field_repair_applied"
+      },
+      {
+        "detail": "count=29",
+        "name": "workspace.thread.hydrate"
+      },
+      {
+        "detail": "count=8",
+        "name": "workspace.membership.load"
+      }
+    ],
+    "symptomIds": [],
+    "title": "account_sync.backup_publish_mutation_suppressed_restore_in_flight — count=92"
+  },
+  "schema": "verify.fault.import@0.1.0",
+  "sourcePath": ".codectx/verify/client-sessions/csess-b7f42e294e5e/captures/cap-3af4080ea13f/digest.json"
+}

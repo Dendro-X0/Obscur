@@ -1,0 +1,37 @@
+{
+  "digestPath": ".codectx/verify/faults/fault-fc82c518.digest.json",
+  "fault": {
+    "artifactPath": ".codectx/verify/faults/fault-fc82c518.json",
+    "faultId": "fault-fc82c518",
+    "importedAt": "2026-07-04T17:53:35.342944+00:00",
+    "kind": "runtime_digest",
+    "proofTier": "t3",
+    "schema": "obscur.m0.capture.v1",
+    "signalsExtract": [
+      {
+        "detail": "count=90",
+        "name": "account_sync.backup_publish_mutation_suppressed_restore_in_flight"
+      },
+      {
+        "detail": "count=85",
+        "name": "groups.ledger_field_repair_applied"
+      },
+      {
+        "detail": "count=84",
+        "name": "groups.membership_ledger_save"
+      },
+      {
+        "detail": "count=32",
+        "name": "workspace.thread.hydrate"
+      },
+      {
+        "detail": "count=9",
+        "name": "workspace.membership.load"
+      }
+    ],
+    "symptomIds": [],
+    "title": "account_sync.backup_publish_mutation_suppressed_restore_in_flight — count=90"
+  },
+  "schema": "verify.fault.import@0.1.0",
+  "sourcePath": ".codectx/verify/client-sessions/csess-b7f42e294e5e/captures/cap-45b737cc9ade/digest.json"
+}

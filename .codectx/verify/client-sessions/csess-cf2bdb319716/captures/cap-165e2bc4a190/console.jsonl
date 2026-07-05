@@ -1,0 +1,16 @@
+{"kind":"requestfailed","text":"net::ERR_INSUFFICIENT_RESOURCES","url":"http://127.0.0.1:1430/obscur-logo-light.svg","method":"GET","at":"2026-06-30T05:00:49.616Z"}
+{"kind":"console","type":"error","text":"Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES","location":{"url":"http://127.0.0.1:1430/obscur-logo-light.svg","line":0,"column":0,"lineNumber":0,"columnNumber":0},"at":"2026-06-30T05:00:49.618Z"}
+{"kind":"requestfailed","text":"net::ERR_INSUFFICIENT_RESOURCES","url":"http://127.0.0.1:1430/favicon.ico?favicon.164f0c3d.ico","method":"GET","at":"2026-06-30T05:00:49.669Z"}
+{"kind":"console","type":"error","text":"Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES","location":{"url":"http://127.0.0.1:1430/favicon.ico?favicon.164f0c3d.ico","line":0,"column":0,"lineNumber":0,"columnNumber":0},"at":"2026-06-30T05:00:49.669Z"}
+{"kind":"requestfailed","text":"net::ERR_INSUFFICIENT_RESOURCES","url":"http://127.0.0.1:9876/ping","method":"GET","at":"2026-06-30T05:00:49.734Z"}
+{"kind":"console","type":"error","text":"Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES","location":{"url":"http://127.0.0.1:9876/ping","line":0,"column":0,"lineNumber":0,"columnNumber":0},"at":"2026-06-30T05:00:49.734Z"}
+{"kind":"requestfailed","text":"net::ERR_INSUFFICIENT_RESOURCES","url":"http://127.0.0.1:9876/ping","method":"GET","at":"2026-06-30T05:00:53.740Z"}
+{"kind":"console","type":"error","text":"Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES","location":{"url":"http://127.0.0.1:9876/ping","line":0,"column":0,"lineNumber":0,"columnNumber":0},"at":"2026-06-30T05:00:53.741Z"}
+{"kind":"requestfailed","text":"net::ERR_INSUFFICIENT_RESOURCES","url":"http://127.0.0.1:9876/ping","method":"GET","at":"2026-06-30T05:00:57.329Z"}
+{"kind":"console","type":"error","text":"Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES","location":{"url":"http://127.0.0.1:9876/ping","line":0,"column":0,"lineNumber":0,"columnNumber":0},"at":"2026-06-30T05:00:57.329Z"}
+{"kind":"requestfailed","text":"net::ERR_INSUFFICIENT_RESOURCES","url":"http://127.0.0.1:9876/ping","method":"GET","at":"2026-06-30T05:00:57.441Z"}
+{"kind":"console","type":"error","text":"Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES","location":{"url":"http://127.0.0.1:9876/ping","line":0,"column":0,"lineNumber":0,"columnNumber":0},"at":"2026-06-30T05:00:57.441Z"}
+{"kind":"requestfailed","text":"net::ERR_INSUFFICIENT_RESOURCES","url":"http://127.0.0.1:9876/ping","method":"GET","at":"2026-06-30T05:00:59.747Z"}
+{"kind":"console","type":"error","text":"Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES","location":{"url":"http://127.0.0.1:9876/ping","line":0,"column":0,"lineNumber":0,"columnNumber":0},"at":"2026-06-30T05:00:59.747Z"}
+{"kind":"requestfailed","text":"net::ERR_INSUFFICIENT_RESOURCES","url":"http://127.0.0.1:9876/ping","method":"GET","at":"2026-06-30T05:01:01.147Z"}
+{"kind":"console","type":"error","text":"Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES","location":{"url":"http://127.0.0.1:9876/ping","line":0,"column":0,"lineNumber":0,"columnNumber":0},"at":"2026-06-30T05:01:01.147Z"}

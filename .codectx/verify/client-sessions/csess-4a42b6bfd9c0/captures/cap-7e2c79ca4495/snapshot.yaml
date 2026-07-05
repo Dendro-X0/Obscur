@@ -1,0 +1,132 @@
+- main:
+  - text: Client release-v1.9.10-relay-recovery-20260617
+  - img "Obscur"
+  - text: Obscur
+  - button "desktop.titleBar.lock"
+  - button "Open desktop profile switcher":
+    - img "Tester1"
+    - text: Tester1 Obscur / e07f67dc...c191ea56
+  - button "Minimize window"
+  - button "Maximize window"
+  - button "Close window"
+  - button "Connected"
+  - link "Chats":
+    - /url: /
+  - link "Network":
+    - /url: /network
+  - link "Vault":
+    - /url: /vault
+  - link "Search":
+    - /url: /search
+  - link "Settings":
+    - /url: /settings
+  - button "Open profile menu":
+    - img "Tester1"
+  - button "Sidebar Options"
+  - button "Chats"
+  - button "Requests"
+  - button "Junk"
+  - textbox "Search users and communities..."
+  - button "Chat"
+  - button "Group"
+  - button "New Group"
+  - button "Communities"
+  - button "N NewTest 2 No messages yet 22d ago":
+    - text: N NewTest 2
+    - paragraph: No messages yet
+    - button
+    - text: 22d ago
+  - text: Connected 2/5 active relays Obscur Preview
+  - main:
+    - text: "N"
+    - heading "NewTest 2" [level=2]
+    - button "Disable notifications for this chat" [pressed]
+    - paragraph: 1 members· 0 online ·Last activity 22d ago
+    - button "Media"
+    - button "Info"
+    - button "Search Messages"
+    - img "Tester1"
+    - text: You
+    - button "Open reactions"
+    - button "Open message menu"
+    - paragraph: O4-round12-partial-072T0836
+    - text: 1d ago
+    - img "Tester1"
+    - text: You
+    - button "Open reactions"
+    - button "Open message menu"
+    - paragraph: O4-round13-rebuild-072T0958
+    - text: 1d ago
+    - img "Tester1"
+    - text: You
+    - button "Open reactions"
+    - button "Open message menu"
+    - paragraph: O4-round14-acl-cdp-072T1102
+    - text: 1d ago
+    - img "Tester1"
+    - text: You
+    - button "Open reactions"
+    - button "Open message menu"
+    - paragraph: O4-round16-dual-profile-072T1117
+    - text: 1d ago
+    - img "Tester1"
+    - text: You
+    - button "Open reactions"
+    - button "Open message menu"
+    - paragraph: O4-round17b-docker-072T1323
+    - text: 1d ago
+    - img "Tester1"
+    - text: You
+    - button "Open reactions"
+    - button "Open message menu"
+    - paragraph: O4-round18-codactrl-072T1445
+    - text: 1d ago
+    - img "Tester1"
+    - text: You
+    - button "Open reactions"
+    - button "Open message menu"
+    - paragraph: O4-round20-codactrl-072T1611
+    - text: 1d ago
+    - img "Tester1"
+    - text: You
+    - button "Open reactions"
+    - button "Open message menu"
+    - paragraph: phase1b-slice-c-l3-1783101384058
+    - text: 11h ago
+    - img "Tester1"
+    - text: You
+    - button "Open reactions"
+    - button "Open message menu"
+    - paragraph: phase1b-slice-c-l3-1783101489058
+    - text: 11h ago
+    - img "Tester1"
+    - text: You
+    - button "Open reactions"
+    - button "Open message menu"
+    - paragraph: phase1b-slice-c-l3-1783139053134
+    - text: 1h ago
+    - img "Tester1"
+    - text: You
+    - button "Open reactions"
+    - button "Open message menu"
+    - paragraph: phase1b-slice-c-l3-1783139166017
+    - text: 1h ago
+    - img "Tester1"
+    - text: You
+    - button "Open reactions"
+    - button "Open message menu"
+    - paragraph: phase1b-slice-c-l3-1783139264061
+    - text: 1h ago
+    - img "Tester1"
+    - text: You
+    - button "Open reactions"
+    - button "Open message menu"
+    - paragraph: COM-RUN-11-phase1c-070T0522
+    - text: 15m ago
+    - button "Media"
+    - textbox "Type a message..."
+    - button "Search emojis..."
+    - button "Record Voice Note"
+    - button "Send" [disabled]
+    - text: Connected to Relays E2E Encrypted • Ver. 1.9.10
+- alert

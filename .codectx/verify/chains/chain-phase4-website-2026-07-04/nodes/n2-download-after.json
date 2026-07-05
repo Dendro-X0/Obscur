@@ -1,0 +1,22 @@
+{
+  "schema": "codactrl.investigation.node@0.1.0",
+  "chainId": "chain-phase4-website-2026-07-04",
+  "nodeId": "n2-download-after",
+  "trigger": "download-editorial-after",
+  "at": "2026-07-04T23:59:44.616735400+00:00",
+  "sessionId": "csess-fd1d7c60b40a",
+  "surfaces": {
+    "sidebarPreview": "No account required to download; identity stays on your device.",
+    "mainThreadMessageCount": 0,
+    "mainThreadSystemCards": 0,
+    "alertBannerCount": 1,
+    "splitBrainSuspected": true,
+    "suggestedSymptomClass": "dm-ui-split-brain"
+  },
+  "screenshotRef": ".codectx/verify/client-sessions/csess-fd1d7c60b40a/captures/cap-4131ea89f8d9/screenshot.png",
+  "hypothesis": "Download page migrated from dark blue Tailwind shell to editorial site-shell — SHA-256 checksum rows, teal CTAs, unsigned callout",
+  "doesNotProve": [
+    "Pre-pass #2 download screenshot (dark SaaS template not captured)",
+    "Production CDN"
+  ]
+}

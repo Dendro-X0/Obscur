@@ -1,0 +1,58 @@
+- main:
+  - text: Client release-v1.9.10-relay-recovery-20260617
+  - img "Obscur"
+  - text: Obscur
+  - button "desktop.titleBar.lock"
+  - button "Open desktop profile switcher":
+    - img "Tester1"
+    - text: Tester1 Obscur / e07f67dc...c191ea56
+  - button "Minimize window"
+  - button "Maximize window"
+  - button "Close window"
+  - button "Connected"
+  - link "Chats":
+    - /url: /
+  - link "Network":
+    - /url: /network
+  - link "Vault":
+    - /url: /vault
+  - link "Search":
+    - /url: /search
+  - link "Settings":
+    - /url: /settings
+  - button "Open profile menu":
+    - img "Tester1"
+  - button "Sidebar Options"
+  - button "Chats"
+  - button "Requests"
+  - button "Junk"
+  - textbox "Search users and communities..."
+  - button "Chat"
+  - button "Group"
+  - button "New Chat"
+  - button "Direct Messages"
+  - button "View Profile Tester2 You withdrew the invitation Offline Active 3d ago Viewed 10m ago 3d ago":
+    - button "View Profile": T
+    - text: Tester2
+    - paragraph: You withdrew the invitation
+    - button
+    - text: Offline Active 3d ago Viewed 10m ago 3d ago
+  - text: Connected 1/6 active relays Obscur Preview
+  - main:
+    - text: "N"
+    - heading "NewTest 2" [level=2]
+    - button "Disable notifications for this chat" [pressed]
+    - paragraph: 2 members· 1 online ·Last activity 19d ago
+    - button "Media"
+    - button "Info"
+    - button "Search Messages"
+    - text: "N"
+    - heading "NewTest 2" [level=2]
+    - paragraph: This is the start of your encrypted conversation.
+    - button "Media"
+    - textbox "Type a message..."
+    - button "Search emojis..."
+    - button "Record Voice Note"
+    - button "Send" [disabled]
+    - text: Connected to Relays E2E Encrypted • Ver. 1.9.10
+- alert

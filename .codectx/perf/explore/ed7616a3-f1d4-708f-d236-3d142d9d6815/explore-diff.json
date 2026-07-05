@@ -1,0 +1,120 @@
+{
+  "schema": "perf.explore.diff@1.1.0",
+  "generatedAt": "2026-06-30T10:26:17.790258900+00:00",
+  "step": {
+    "schema": "perf.explore.diff@1.1.0",
+    "generatedAt": "2026-06-30T10:26:17.790258900+00:00",
+    "baseline": {
+      "exploreId": "7dcefa9a-45ea-1d08-3f26-eb16e01c0d6b",
+      "graphHash": "sha256:4e519f6c0b9f47876a76d0f7f9990e8d358c64fa66d30eeaef4c0bfa2be77ab5",
+      "findingCount": 33,
+      "severityCounts": {
+        "red": 0,
+        "yellow": 19,
+        "info": 14
+      }
+    },
+    "current": {
+      "exploreId": "ed7616a3-f1d4-708f-d236-3d142d9d6815",
+      "graphHash": "sha256:cf78e44876ad7f1f787cb0df4f67eeac1a6780ad4dcb35f3321455c96e592ec1",
+      "findingCount": 30,
+      "severityCounts": {
+        "red": 0,
+        "yellow": 16,
+        "info": 14
+      }
+    },
+    "delta": {
+      "red": 0,
+      "yellow": -3,
+      "info": 0,
+      "total": -3
+    },
+    "resolvedFindingIds": [
+      "perf:topology:duplicate-dependency:@tauri-apps/api",
+      "perf:topology:duplicate-dependency:@types/node",
+      "perf:topology:duplicate-dependency:lucide-react"
+    ],
+    "newFindingIds": [],
+    "unchangedFindingIds": [
+      "perf:bundle:missing-optimize-imports:apps/website",
+      "perf:import:barrel-penalty:packages/dweb-auth/src/index.ts",
+      "perf:import:barrel-penalty:packages/dweb-crdt/src/index.ts",
+      "perf:import:barrel-penalty:packages/obscur-conduit-mesh-contracts/src/index.ts",
+      "perf:import:barrel-penalty:packages/obscur-conduit-mesh-contracts/src/index.ts",
+      "perf:import:barrel-penalty:packages/obscur-conduit-mesh/src/index.ts",
+      "perf:import:barrel-penalty:packages/obscur-engine-host/src/index.ts",
+      "perf:import:barrel-penalty:packages/ui-kit/src/index.ts",
+      "perf:route:missing-loading:apps/website/src/app/changelog/page.tsx",
+      "perf:route:missing-loading:apps/website/src/app/download/page.tsx",
+      "perf:route:missing-loading:apps/website/src/app/features/[slug]/page.tsx",
+      "perf:route:missing-loading:apps/website/src/app/page.tsx",
+      "perf:stack:next:apps/pwa",
+      "perf:stack:next:apps/website",
+      "perf:topology:architecture-layout:apps:website",
+      "perf:topology:critical-path-scope:apps:website",
+      "perf:topology:duplicate-dependency:@dweb/db",
+      "perf:topology:duplicate-dependency:@types/react",
+      "perf:topology:duplicate-dependency:@types/react-dom",
+      "perf:topology:duplicate-dependency:typescript",
+      "perf:topology:duplicate-dependency:vitest",
+      "perf:topology:shared-fanout:packages:db",
+      "perf:topology:shared-fanout:packages:dweb-auth",
+      "perf:topology:shared-fanout:packages:dweb-coordination-contracts",
+      "perf:topology:shared-fanout:packages:dweb-core",
+      "perf:topology:shared-fanout:packages:dweb-crypto",
+      "perf:topology:shared-fanout:packages:dweb-storage-contracts",
+      "perf:topology:shared-fanout:packages:dweb-transport-contracts",
+      "perf:topology:shared-fanout:packages:obscur-conduit-mesh-contracts",
+      "perf:topology:shared-fanout:packages:obscur-engine-contracts"
+    ],
+    "severityChanges": [],
+    "improved": true,
+    "verification": {
+      "status": "improved",
+      "resolvedCount": 3,
+      "severityImprovementCount": 0,
+      "partialCount": 0,
+      "metricImprovements": [
+        {
+          "findingId": "perf:topology:duplicate-dependency:@tauri-apps/api",
+          "metric": "finding",
+          "from": 1,
+          "to": 0,
+          "verified": true,
+          "status": "resolved"
+        },
+        {
+          "findingId": "perf:topology:duplicate-dependency:@types/node",
+          "metric": "finding",
+          "from": 1,
+          "to": 0,
+          "verified": true,
+          "status": "resolved"
+        },
+        {
+          "findingId": "perf:topology:duplicate-dependency:lucide-react",
+          "metric": "finding",
+          "from": 1,
+          "to": 0,
+          "verified": true,
+          "status": "resolved"
+        }
+      ]
+    },
+    "bucketDelta": {
+      "navBlockers": {
+        "from": 11,
+        "to": 11
+      },
+      "actionItems": {
+        "from": 8,
+        "to": 5
+      },
+      "infoInventory": {
+        "from": 14,
+        "to": 14
+      }
+    }
+  }
+}

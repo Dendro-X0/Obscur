@@ -1,0 +1,67 @@
+{
+  "schema": "codactrl.investigation.chain@0.1.0",
+  "chainId": "chain-dm-split-brain-2026-07-02",
+  "symptomClass": "dm-ui-split-brain",
+  "title": "RIW-9 DM temporal UI chain — split-brain + history transient",
+  "status": "open",
+  "createdAt": "2026-07-01T10:33:10.488640600+00:00",
+  "updatedAt": "2026-07-04T14:15:19.325898200+00:00",
+  "nodeIds": [
+    "n0-profile-picker-boot",
+    "n1-sign-in-gate",
+    "n2-tester2-dm-hydrated-warm",
+    "n4-round2-warm-hydrated",
+    "n4-round2-warm-dm-probe",
+    "n5-wait-30s-probe",
+    "n6-reopen-thread-probe",
+    "n7-round19-dual-dm-roundtrip",
+    "n8-round20-dual-dm-roundtrip"
+  ],
+  "edges": [
+    {
+      "from": "n0-profile-picker-boot",
+      "to": "n1-sign-in-gate",
+      "label": "click Tester1 → sign-in gate"
+    },
+    {
+      "from": "n1-sign-in-gate",
+      "to": "n2-tester2-dm-hydrated-warm",
+      "label": "maintainer unlock → Tester2 DM hydrated"
+    },
+    {
+      "from": "n2-tester2-dm-hydrated-warm",
+      "to": "n4-round2-warm-hydrated"
+    },
+    {
+      "from": "n4-round2-warm-hydrated",
+      "to": "n4-round2-warm-dm-probe"
+    },
+    {
+      "from": "n4-round2-warm-dm-probe",
+      "to": "n5-wait-30s-probe"
+    },
+    {
+      "from": "n5-wait-30s-probe",
+      "to": "n6-reopen-thread-probe"
+    },
+    {
+      "from": "n6-round16-dual-profile-dm",
+      "to": "n7-round19-dual-dm-roundtrip",
+      "label": "round19_dual_dm_roundtrip"
+    },
+    {
+      "from": "n7-round19-dual-dm-roundtrip",
+      "to": "n8-round20-dual-dm-roundtrip",
+      "label": "round20-dual-dm"
+    }
+  ],
+  "summary": {
+    "verdict": "partial_accepted",
+    "nodesCaptured": 9,
+    "splitBrainObserved": false,
+    "nonCoverage": [
+      "COM-RUN-11 invite Accept/Cancel",
+      "cold-restart DM retention"
+    ]
+  }
+}

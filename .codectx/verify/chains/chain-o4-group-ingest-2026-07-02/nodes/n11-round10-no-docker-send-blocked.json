@@ -1,0 +1,21 @@
+{
+  "schema": "codactrl.investigation.node@0.1.0",
+  "chainId": "chain-o4-group-ingest-2026-07-02",
+  "nodeId": "n11-round10-no-docker-send-blocked",
+  "trigger": "round10 CodaCtrl update pass; coordination :8787 up; Docker down; health relay_not_connected; Manage=1 vs header=2; ledger 18/20 invalid",
+  "at": "2026-07-01T22:06:10.771224900+00:00",
+  "sessionId": "csess-ad3b3e90aa04",
+  "surfaces": {
+    "mainThreadMessageCount": 7,
+    "mainThreadSystemCards": 0,
+    "alertBannerCount": 2,
+    "splitBrainSuspected": false
+  },
+  "digestRef": "fault-bfbf96a4",
+  "screenshotRef": ".codectx/verify/client-sessions/csess-ad3b3e90aa04/captures/cap-e225b5a3a495/screenshot.png",
+  "hypothesis": "Send blocked when :7000 down despite coordination up",
+  "doesNotProve": [
+    "Docker relay up",
+    "Tester2 ingest"
+  ]
+}

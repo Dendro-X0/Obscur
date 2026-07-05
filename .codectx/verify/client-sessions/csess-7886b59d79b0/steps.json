@@ -1,0 +1,170 @@
+{
+  "schema": "client.session.steps@0.1.0",
+  "sessionId": "csess-7886b59d79b0",
+  "updatedAt": "2026-06-30T11:08:44.136792200+00:00",
+  "stepCount": 15,
+  "steps": [
+    {
+      "index": 0,
+      "stepId": "step-75c398897b41",
+      "action": "snapshot",
+      "captureId": "cap-7647673afea0",
+      "manifestPath": ".codectx/verify/client-sessions/csess-7886b59d79b0/captures/cap-7647673afea0/manifest.json",
+      "stepLabel": "connect-bootstrap",
+      "pass": true,
+      "at": "2026-06-30T11:06:59.510868+00:00"
+    },
+    {
+      "index": 1,
+      "stepId": "step-33de2a85ea3b",
+      "action": "snapshot",
+      "captureId": "cap-cae8feb8ba5b",
+      "manifestPath": ".codectx/verify/client-sessions/csess-7886b59d79b0/captures/cap-cae8feb8ba5b/manifest.json",
+      "pass": true,
+      "at": "2026-06-30T11:07:09.194957100+00:00"
+    },
+    {
+      "index": 2,
+      "stepId": "step-3f88846ed08b",
+      "action": "click",
+      "captureId": "cap-eced05320226",
+      "manifestPath": ".codectx/verify/client-sessions/csess-7886b59d79b0/captures/cap-eced05320226/manifest.json",
+      "stepLabel": "click-tester1",
+      "selector": "button:has-text(\"Tester1\")",
+      "pass": true,
+      "at": "2026-06-30T11:07:12.073839300+00:00"
+    },
+    {
+      "index": 3,
+      "stepId": "step-a465bcdb65ca",
+      "action": "type",
+      "captureId": "cap-ee6d5ee69eaf",
+      "manifestPath": ".codectx/verify/client-sessions/csess-7886b59d79b0/captures/cap-ee6d5ee69eaf/manifest.json",
+      "stepLabel": "tester1-password",
+      "selector": "input[type=\"password\"]",
+      "text": "SyI14^ew1E",
+      "pass": true,
+      "at": "2026-06-30T11:07:17.598120500+00:00"
+    },
+    {
+      "index": 4,
+      "stepId": "step-d7c86e834b17",
+      "action": "click",
+      "captureId": "cap-c093b16759ac",
+      "manifestPath": ".codectx/verify/client-sessions/csess-7886b59d79b0/captures/cap-c093b16759ac/manifest.json",
+      "stepLabel": "tester1-login-submit",
+      "selector": "form button[type=\"submit\"]",
+      "pass": true,
+      "at": "2026-06-30T11:07:34.318601400+00:00"
+    },
+    {
+      "index": 5,
+      "stepId": "step-b2f658411239",
+      "action": "assert",
+      "captureId": "cap-03c6f25eb360",
+      "manifestPath": ".codectx/verify/client-sessions/csess-7886b59d79b0/captures/cap-03c6f25eb360/manifest.json",
+      "stepLabel": "assert-chats",
+      "text": "Direct Messages",
+      "assertKind": "textVisible",
+      "pass": true,
+      "message": "text visible (aria): Direct Messages",
+      "at": "2026-06-30T11:07:45.137938700+00:00"
+    },
+    {
+      "index": 6,
+      "stepId": "step-507903cd793b",
+      "action": "click",
+      "captureId": "cap-e2d63db2530a",
+      "manifestPath": ".codectx/verify/client-sessions/csess-7886b59d79b0/captures/cap-e2d63db2530a/manifest.json",
+      "stepLabel": "open-profile-switcher",
+      "selector": "[aria-label=\"Open desktop profile switcher\"]",
+      "pass": true,
+      "at": "2026-06-30T11:07:47.749379100+00:00"
+    },
+    {
+      "index": 7,
+      "stepId": "step-d6e351248a7a",
+      "action": "click",
+      "captureId": "cap-78e7bf185d9d",
+      "manifestPath": ".codectx/verify/client-sessions/csess-7886b59d79b0/captures/cap-78e7bf185d9d/manifest.json",
+      "stepLabel": "manage-profiles",
+      "selector": "button:has-text(\"Manage Profiles\")",
+      "pass": true,
+      "at": "2026-06-30T11:07:53.281208200+00:00"
+    },
+    {
+      "index": 8,
+      "stepId": "step-8c5fb7fa52f0",
+      "action": "snapshot",
+      "captureId": "cap-015b73413e93",
+      "manifestPath": ".codectx/verify/client-sessions/csess-7886b59d79b0/captures/cap-015b73413e93/manifest.json",
+      "pass": true,
+      "at": "2026-06-30T11:08:00.291193300+00:00"
+    },
+    {
+      "index": 9,
+      "stepId": "step-878ab0dbb1bf",
+      "action": "click",
+      "captureId": "cap-4ab90d70a82a",
+      "manifestPath": ".codectx/verify/client-sessions/csess-7886b59d79b0/captures/cap-4ab90d70a82a/manifest.json",
+      "stepLabel": "open-profile-slot-2",
+      "selector": "div.relative >> button >> nth=1",
+      "pass": true,
+      "at": "2026-06-30T11:08:03.199478900+00:00"
+    },
+    {
+      "index": 10,
+      "stepId": "step-04374f8768fa",
+      "action": "click",
+      "captureId": "cap-a3a7fc2ce9da",
+      "manifestPath": ".codectx/verify/client-sessions/csess-7886b59d79b0/captures/cap-a3a7fc2ce9da/manifest.json",
+      "stepLabel": "open-profile-slot-2-needs-setup",
+      "selector": "button:has-text(\"Needs setup\")",
+      "pass": true,
+      "at": "2026-06-30T11:08:15.894346700+00:00"
+    },
+    {
+      "index": 11,
+      "stepId": "step-54ad35570326",
+      "action": "click",
+      "captureId": "cap-ce407dee3da7",
+      "manifestPath": ".codectx/verify/client-sessions/csess-7886b59d79b0/captures/cap-ce407dee3da7/manifest.json",
+      "stepLabel": "nav-network",
+      "selector": "role=link[name=\"Network\"]",
+      "pass": true,
+      "at": "2026-06-30T11:08:35.000123700+00:00"
+    },
+    {
+      "index": 12,
+      "stepId": "step-7eafa117646f",
+      "action": "click",
+      "captureId": "cap-d392e73cb2ae",
+      "manifestPath": ".codectx/verify/client-sessions/csess-7886b59d79b0/captures/cap-d392e73cb2ae/manifest.json",
+      "stepLabel": "nav-settings",
+      "selector": "role=link[name=\"Settings\"]",
+      "pass": true,
+      "at": "2026-06-30T11:08:38.585980700+00:00"
+    },
+    {
+      "index": 13,
+      "stepId": "step-156931981e29",
+      "action": "click",
+      "captureId": "cap-6669581caf89",
+      "manifestPath": ".codectx/verify/client-sessions/csess-7886b59d79b0/captures/cap-6669581caf89/manifest.json",
+      "stepLabel": "nav-chats",
+      "selector": "role=link[name=\"Chats\"]",
+      "pass": true,
+      "at": "2026-06-30T11:08:42.939444500+00:00"
+    },
+    {
+      "index": 14,
+      "stepId": "step-0d61e48f7f4a",
+      "action": "snapshot",
+      "captureId": "cap-355730031b03",
+      "manifestPath": ".codectx/verify/client-sessions/csess-7886b59d79b0/captures/cap-355730031b03/manifest.json",
+      "stepLabel": "final-state",
+      "pass": true,
+      "at": "2026-06-30T11:08:44.128493200+00:00"
+    }
+  ]
+}

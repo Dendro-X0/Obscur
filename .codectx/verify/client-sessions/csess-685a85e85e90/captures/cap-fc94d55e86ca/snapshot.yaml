@@ -1,0 +1,37 @@
+- main:
+  - text: Client release-v1.9.10-relay-recovery-20260617
+  - img "Obscur"
+  - text: Obscur
+  - button "desktop.titleBar.lock"
+  - button "Open desktop profile switcher": T Tester2 Obscur / 3db055b4...d946830f
+  - button "Minimize window"
+  - button "Maximize window"
+  - button "Close window"
+  - button "Connected"
+  - link "Chats":
+    - /url: /
+  - link "Network":
+    - /url: /network
+  - link "Vault":
+    - /url: /vault
+  - link "Search":
+    - /url: /search
+  - link "Settings":
+    - /url: /settings
+  - button "Open profile menu": T
+  - text: Leave Community
+  - main:
+    - button "Back to Community"
+    - text: Exit Community
+    - heading "Leave NewTest 2" [level=1]
+    - paragraph: This action will disconnect you from this community space. You will stop receiving future messages, roster updates, and shared room-key changes unless you are invited back later.
+    - text: What happens next
+    - list:
+      - listitem: You will leave the current community instance on relay scope ws://localhost:7000.
+      - listitem: Your local room key and active participation state will be cleared for this community.
+      - listitem: You can still return later if you receive a fresh invite or the community is shared with you again.
+    - text: Confirm Exit If you are sure, continue below. Coordination confirms leave for workspace communities; relay proof is best-effort.
+    - button "Stay in Community"
+    - button "Leave Community"
+    - button "Delete all local data"
+- alert

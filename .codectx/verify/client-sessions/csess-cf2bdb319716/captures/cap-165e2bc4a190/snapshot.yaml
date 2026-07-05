@@ -1,0 +1,29 @@
+- text: Native command desktop_create_profile timed out after 10000ms
+- button "Dismiss notification"
+- main:
+  - text: Client release-v1.9.10-relay-recovery-20260617
+  - img "Obscur"
+  - text: Profiles
+  - button "Minimize window"
+  - button "Maximize window"
+  - button "Close window"
+  - main:
+    - button "Change Language"
+    - img "Obscur"
+    - heading "Who's using Obscur?" [level=1]
+    - paragraph: Each profile is an isolated desktop window. Open any account side by side — windows do not depend on one another.
+    - button "Avatar for Tester1 Tester1 Sign in here":
+      - button
+      - img "Tester1"
+      - text: Tester1 Sign in here
+    - button "Avatar Profile slot Click to switch to open window":
+      - button
+      - text: "? Profile slot Click to switch to open window"
+    - button "Avatar Profile slot Click to switch to open window":
+      - button
+      - text: "? Profile slot Click to switch to open window"
+    - button "Add New profile"
+    - button "Advanced profile management"
+    - checkbox "Show on startup" [checked]
+    - text: Show on startup
+- alert

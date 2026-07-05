@@ -1,0 +1,156 @@
+- banner:
+  - link "Obscur":
+    - /url: /
+  - navigation "Primary":
+    - link "Product":
+      - /url: /
+    - link "Download":
+      - /url: /download
+    - link "Limitations":
+      - /url: /limitations
+    - link "Changelog":
+      - /url: /changelog
+    - link "Docs":
+      - /url: https://github.com/Dendro-X0/Obscur/tree/main/docs
+- main:
+  - paragraph: Obscur official website
+  - heading "Privacy-first communication, shipped with evidence instead of hype." [level=1]
+  - paragraph: Obscur is a cross-platform, decentralized, end-to-end encrypted communication app built around local ownership, explicit runtime contracts, and auditable release artifacts. This website mirrors canonical repo truth rather than inventing a second product story.
+  - link "Download v1.9.10":
+    - /url: /download
+  - link "Changelog":
+    - /url: https://github.com/Dendro-X0/Obscur/blob/main/CHANGELOG.md
+  - link "Version source":
+    - /url: https://github.com/Dendro-X0/Obscur/blob/main/docs/program/unified-version-source.md
+  - link "Read The Docs":
+    - /url: https://github.com/Dendro-X0/Obscur/tree/main/docs
+  - complementary:
+    - paragraph: Current public release
+    - link "v1.9.10":
+      - /url: https://github.com/Dendro-X0/Obscur/blob/main/CHANGELOG.md
+    - list:
+      - listitem: Direct messaging, communities, media transfer, voice notes, and realtime call flow.
+      - listitem: Public source, auditable changelog, and GitHub release distribution.
+      - listitem: Active recovery lane still focused on cross-device messaging truth, not marketing polish.
+  - region "Source of truth links":
+    - link "Known limitations":
+      - /url: /limitations
+    - link "Changelog":
+      - /url: https://github.com/Dendro-X0/Obscur/blob/main/CHANGELOG.md
+    - link "Install / build guide":
+      - /url: https://github.com/Dendro-X0/Obscur/blob/main/docs/program/obscur-v2-install-build-guide.md
+    - link "Docs Index":
+      - /url: https://github.com/Dendro-X0/Obscur/blob/main/docs/README.md
+  - paragraph: Release snapshot
+  - heading "What is actually shipping right now" [level=2]
+  - article:
+    - text: v1.8.5May 26, 2026
+    - list:
+      - listitem: "**CI** — `docs-check`, `release:test-pack` (AppShell relay banner mock, storage-health IDB policy, message-queue in-memory reset, standby latency timer jitter)."
+      - listitem: "**Dev setup** — `apps/pwa/.env.example` for coordination URL (copy to `.env.local`)."
+      - listitem: "Greenfield planning docs moved to `docs/archive/greenfield/` (reference only)."
+  - article:
+    - text: v1.4.6April 29, 2026
+    - list:
+      - listitem: "**Key Verification**: Visual fingerprint/identicon for cross-device identity verification"
+      - listitem: "**Key Change Detection**: Security alerts for unexpected identity key changes"
+      - listitem: "**Relay Trust Scoring**: Dynamic relay reputation system"
+  - article:
+    - text: v1.4.5April 28, 2026
+    - list:
+      - listitem: "**Android/mobile build compilation error** in profile isolation code:"
+  - paragraph: Feature evidence
+  - heading "Captured product surfaces from the canonical demo library" [level=2]
+  - article:
+    - img "Obscur login and onboarding flow"
+    - heading "Auth And Onboarding" [level=3]
+    - paragraph: Local-first account creation, unlock, and recovery flows grounded in explicit identity ownership.
+  - article:
+    - img "Obscur direct messaging interface"
+    - heading "Direct Messaging" [level=3]
+    - paragraph: Encrypted chat UI with conversation ownership, delivery diagnostics, and deterministic history recovery work.
+  - article:
+    - img "Obscur settings and configuration surfaces"
+    - heading "Settings And Profiles" [level=3]
+    - paragraph: Security controls, relay/runtime settings, and profile-scoped configuration for multi-persona use.
+  - article:
+    - img "Obscur multi-profile management demo"
+    - heading "Multi-Profile Workflows" [level=3]
+    - paragraph: Window/profile isolation and account-bound state recovery for people managing multiple identities.
+  - article:
+    - img "Obscur multimedia upload and transfer demo"
+    - heading "Media Transfer" [level=3]
+    - paragraph: Image, video, audio, and file messaging with Vault aggregation and guarded upload behavior.
+  - article:
+    - img "Obscur voice notes and calls demo"
+    - heading "Voice Notes And Calls" [level=3]
+    - paragraph: Voice-note messaging and realtime voice call flows with runtime diagnostics and timeout hardening.
+  - paragraph: Platform coverage
+  - heading "One product, explicit runtime boundaries" [level=2]
+  - article:
+    - heading "Web / PWA" [level=3]
+    - paragraph: Primary cross-platform runtime with local-first shell ownership, relay transport, and recovery tooling.
+    - text: apps/pwa
+  - article:
+    - heading "Desktop" [level=3]
+    - paragraph: Tauri runtime with native storage, updater, and installer flows validated against release contracts.
+    - text: apps/desktop
+  - article:
+    - heading "Shared Packages" [level=3]
+    - paragraph: Reusable crypto, storage, nostr, and UI primitives under typed package boundaries.
+    - text: packages/dweb-*
+  - paragraph: Verification status
+  - heading "Release truth stays tied to evidence" [level=2]
+  - article:
+    - heading "Phase 1 product truth" [level=3]
+    - text: Verified
+    - paragraph: DM, group send/receive, and SQLite cold-restart soaks verified in maintainer matrix (2026-07-04).
+  - article:
+    - heading "Docs contract" [level=3]
+    - text: Verified
+    - paragraph: "Canonical docs checked with `pnpm docs:check`."
+  - article:
+    - heading "Desktop installer" [level=3]
+    - text: Verified
+    - paragraph: Windows NSIS packaged @ v1.9.10 with SHA-256 in release-assets/manifest.json.
+  - article:
+    - heading "Android debug APK" [level=3]
+    - text: In Progress
+    - paragraph: Debug build documented; sideload via local build — not a Play Store claim.
+  - article:
+    - heading "Accepted limitations" [level=3]
+    - text: In Progress
+    - paragraph: Roster divergence (ACC-02) and restore boundaries documented — see /limitations.
+  - article:
+    - paragraph: Documentation
+    - heading "Canonical engineering entry points" [level=2]
+    - link "Project Overview":
+      - /url: https://github.com/Dendro-X0/Obscur/blob/main/docs/encyclopedia/01-project-overview.md
+    - link "Runtime Architecture":
+      - /url: https://github.com/Dendro-X0/Obscur/blob/main/docs/encyclopedia/03-runtime-architecture.md
+    - link "Messaging And Groups":
+      - /url: https://github.com/Dendro-X0/Obscur/blob/main/docs/encyclopedia/04-messaging-and-groups.md
+    - link "Testing And Quality Gates":
+      - /url: https://github.com/Dendro-X0/Obscur/blob/main/docs/encyclopedia/06-testing-and-quality-gates.md
+    - link "Program Overview":
+      - /url: https://github.com/Dendro-X0/Obscur/blob/main/docs/program/PROGRAM.md
+    - link "Release Evidence Packet":
+      - /url: https://github.com/Dendro-X0/Obscur/tree/main/docs/assets/demo/v1.3.8
+  - article:
+    - paragraph: Distribution
+    - heading "Install from the download page — checksums included." [level=2]
+    - paragraph: Windows NSIS @ v1.9.10 is linked from /download with SHA-256 from release-assets/manifest.json. Android debug builds are documented as local-only sideload paths — no store claims.
+    - link "Download v1.9.10":
+      - /url: /download
+    - link "Known limitations":
+      - /url: /limitations
+- contentinfo:
+  - paragraph: Obscur ships with evidence-backed release notes, unsigned installers by default, and honest scope copy.
+  - link "Download":
+    - /url: /download
+  - link "Known limitations":
+    - /url: /limitations
+  - link "Signing policy":
+    - /url: https://github.com/Dendro-X0/Obscur/blob/main/docs/program/obscur-v2-phase3-signing-policy.md
+  - link "Build from source":
+    - /url: https://github.com/Dendro-X0/Obscur/blob/main/docs/program/obscur-v2-install-build-guide.md

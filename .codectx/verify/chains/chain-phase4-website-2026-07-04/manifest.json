@@ -1,0 +1,40 @@
+{
+  "schema": "codactrl.investigation.chain@0.1.0",
+  "chainId": "chain-phase4-website-2026-07-04",
+  "symptomClass": "phase4-website-editorial",
+  "title": "Phase 4 website editorial design pass",
+  "status": "open",
+  "createdAt": "2026-07-04T23:59:18.670210100+00:00",
+  "updatedAt": "2026-07-04T23:59:58.783050400+00:00",
+  "nodeIds": [
+    "n0-hero-before",
+    "n1-hero-after",
+    "n2-download-after",
+    "n3-deploy-smoke"
+  ],
+  "edges": [
+    {
+      "from": "n0-hero-before",
+      "to": "n1-hero-after",
+      "label": "hero-fold-pass"
+    },
+    {
+      "from": "n1-hero-after",
+      "to": "n2-download-after",
+      "label": "download-editorial-pass"
+    },
+    {
+      "from": "n2-download-after",
+      "to": "n3-deploy-smoke",
+      "label": "deploy-smoke"
+    }
+  ],
+  "summary": {
+    "verdict": "partial_accepted",
+    "nodesCaptured": 4,
+    "splitBrainObserved": true,
+    "blockers": [
+      "main-thread-empty-with-sidebar-preview"
+    ]
+  }
+}

@@ -1,0 +1,143 @@
+{
+  "schema": "client.session.steps@0.1.0",
+  "sessionId": "csess-adab2c8b2543",
+  "updatedAt": "2026-07-03T03:50:22.712153900+00:00",
+  "stepCount": 14,
+  "steps": [
+    {
+      "index": 0,
+      "stepId": "step-85be22352b0b",
+      "action": "snapshot",
+      "captureId": "cap-ef86988979bf",
+      "manifestPath": ".codectx/verify/client-sessions/csess-adab2c8b2543/captures/cap-ef86988979bf/manifest.json",
+      "stepLabel": "connect-bootstrap",
+      "pass": true,
+      "at": "2026-07-03T03:49:27.180630700+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-9338a151a04e",
+      "action": "mcp.client.session.connect",
+      "manifestPath": ".codectx/verify/client-sessions/csess-adab2c8b2543/attach-latest.json",
+      "pass": true,
+      "at": "2026-07-03T03:49:31.147795800+00:00"
+    },
+    {
+      "index": 2,
+      "stepId": "step-ea343aafce55",
+      "action": "snapshot",
+      "captureId": "cap-c7de7cb5ff87",
+      "manifestPath": ".codectx/verify/client-sessions/csess-adab2c8b2543/captures/cap-c7de7cb5ff87/manifest.json",
+      "stepLabel": "profile-picker-snapshot",
+      "pass": true,
+      "at": "2026-07-03T03:49:35.637645100+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-de42c8e3f25a",
+      "action": "mcp.client.agent.bridgeCall.listWindows",
+      "captureId": "bcap-d8caa61f5061",
+      "manifestPath": ".codectx/verify/client-sessions/csess-adab2c8b2543/captures/bcap-d8caa61f5061/manifest.json",
+      "stepLabel": "listWindows",
+      "pass": true,
+      "at": "2026-07-03T03:49:36.514566800+00:00"
+    },
+    {
+      "index": 4,
+      "stepId": "step-cf71b34d928c",
+      "action": "click",
+      "captureId": "cap-1278336b9d02",
+      "manifestPath": ".codectx/verify/client-sessions/csess-adab2c8b2543/captures/cap-1278336b9d02/manifest.json",
+      "selector": "button:has-text('Profile slot'):has-text('This window')",
+      "pass": true,
+      "at": "2026-07-03T03:49:43.754274600+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-23891b96f2a5",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-1278336b9d02",
+      "manifestPath": ".codectx/verify/client-sessions/csess-adab2c8b2543/captures/cap-1278336b9d02/manifest.json",
+      "pass": true,
+      "at": "2026-07-03T03:49:43.761902200+00:00"
+    },
+    {
+      "index": 6,
+      "stepId": "step-15ee7db154",
+      "action": "digestPull",
+      "captureId": "cap-4415ee7db154",
+      "manifestPath": ".codectx/verify/client-sessions/csess-adab2c8b2543/captures/cap-4415ee7db154/manifest.json",
+      "stepLabel": "dev-lab-unlock-tester1",
+      "pass": true,
+      "message": "runtime digest captured",
+      "at": "2026-07-03T03:49:48.586333100+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-6c04a5c7b51d",
+      "action": "mcp.client.runtime.digestPull",
+      "captureId": "cap-4415ee7db154",
+      "manifestPath": ".codectx/verify/client-sessions/csess-adab2c8b2543/captures/cap-4415ee7db154/manifest.json",
+      "pass": true,
+      "at": "2026-07-03T03:49:52.786031100+00:00"
+    },
+    {
+      "index": 8,
+      "stepId": "step-f5d4ed552779",
+      "action": "snapshot",
+      "captureId": "cap-428ce31683c4",
+      "manifestPath": ".codectx/verify/client-sessions/csess-adab2c8b2543/captures/cap-428ce31683c4/manifest.json",
+      "pass": true,
+      "at": "2026-07-03T03:50:01.552013300+00:00"
+    },
+    {
+      "index": 9,
+      "stepId": "step-f64f6b6c18b2",
+      "action": "click",
+      "captureId": "cap-ae120cbe62c1",
+      "manifestPath": ".codectx/verify/client-sessions/csess-adab2c8b2543/captures/cap-ae120cbe62c1/manifest.json",
+      "selector": "button:has-text('Group')",
+      "pass": true,
+      "at": "2026-07-03T03:50:13.830770500+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-4b0a8aabe2a9",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-ae120cbe62c1",
+      "manifestPath": ".codectx/verify/client-sessions/csess-adab2c8b2543/captures/cap-ae120cbe62c1/manifest.json",
+      "pass": true,
+      "at": "2026-07-03T03:50:13.834004700+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-df77ec4a41c3",
+      "action": "mcp.client.agent.bridgeCall.openProfileSlot",
+      "captureId": "bcap-52a69ee56617",
+      "manifestPath": ".codectx/verify/client-sessions/csess-adab2c8b2543/captures/bcap-52a69ee56617/manifest.json",
+      "stepLabel": "openProfileSlot",
+      "pass": true,
+      "at": "2026-07-03T03:50:14.660228400+00:00"
+    },
+    {
+      "index": 12,
+      "stepId": "step-9b15009a05",
+      "action": "digestPull",
+      "captureId": "cap-349b15009a05",
+      "manifestPath": ".codectx/verify/client-sessions/csess-adab2c8b2543/captures/cap-349b15009a05/manifest.json",
+      "stepLabel": "post-recovery-digest",
+      "pass": true,
+      "message": "runtime digest captured",
+      "at": "2026-07-03T03:50:18.925887300+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-7e695d58b61c",
+      "action": "mcp.client.runtime.digestPull",
+      "captureId": "cap-349b15009a05",
+      "manifestPath": ".codectx/verify/client-sessions/csess-adab2c8b2543/captures/cap-349b15009a05/manifest.json",
+      "pass": true,
+      "at": "2026-07-03T03:50:22.711948300+00:00"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "schema": "codactrl.investigation.node@0.1.0",
+  "chainId": "chain-o4-group-ingest-2026-07-02",
+  "nodeId": "n13-round12-fullstack-send-success",
+  "trigger": "round12 CodaCtrl v1.4 trace desk; Docker :7000 + coordination :8787; send O4-round12-partial-072T0836 visible",
+  "at": "2026-07-02T08:44:54.943565700+00:00",
+  "sessionId": "csess-ad9e7520da13",
+  "surfaces": {
+    "mainThreadMessageCount": 0,
+    "mainThreadSystemCards": 0,
+    "alertBannerCount": 1,
+    "splitBrainSuspected": false
+  },
+  "digestRef": "fault-c2485378",
+  "screenshotRef": ".codectx/verify/client-sessions/csess-ad9e7520da13/captures/cap-d14308dc4b9b/screenshot.png",
+  "hypothesis": "Full stack send reproduces rounds 6-8; publishGroupEvent :7000",
+  "doesNotProve": [
+    "Tester2 ingest",
+    "Second window CDP"
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "schema": "verify.run.manifest@1.0.0",
+  "runId": "vrun-ec648939",
+  "scenarioId": "obscur-profile-picker-flow",
+  "scenarioTitle": "Obscur profile picker CDP script (T3 adapter)",
+  "proofTier": "t0",
+  "status": "pass",
+  "proves": [
+    "Source wiring for routes, redirects, and scenario definitions"
+  ],
+  "doesNotProve": [
+    "Runtime behavior",
+    "Packaged desktop",
+    "Cross-window focus"
+  ],
+  "startedAt": "2026-06-29T18:20:50.442823600+00:00",
+  "finishedAt": "2026-06-29T18:20:50.443044+00:00",
+  "repoRoot": "E:\\Web Projects\\experimental-workspace\\newstart",
+  "catalogPath": "verify.scenarios.yaml"
+}

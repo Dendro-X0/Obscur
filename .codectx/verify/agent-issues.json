@@ -1,0 +1,1199 @@
+{
+  "schema": "verify.agent.issues@0.1.0",
+  "updatedAt": "2026-07-04T14:10:37.532271700+00:00",
+  "issueCount": 57,
+  "issues": [
+    {
+      "id": "verify:issue:agent:ea000f3b3f41603b",
+      "symptomId": "multi-window-single-cdp-target",
+      "severity": "p2",
+      "status": "open",
+      "title": "Obscur: second profile window opens natively but is not independently drivable via MCP CDP",
+      "source": "agent",
+      "evidenceRefs": [
+        ".codectx/verify/client-sessions/csess-5c26475ea529/captures/cap-3c321a8aeb25/manifest.json",
+        ".codectx/verify/client-sessions/csess-5c26475ea529/captures/cap-3c321a8aeb25/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-5c26475ea529/captures/cap-51ee8eb2ecdd/screenshot.png",
+        ".codectx/verify/client-sessions/csess-5c26475ea529/steps.json",
+        ".codectx/verify/client-sessions/csess-937c30f83699/captures/bcap-402b11eaec87/manifest.json",
+        ".codectx/verify/client-sessions/registry.json"
+      ],
+      "proofTier": "t3",
+      "doesNotProve": [
+        "Independent control of second native window",
+        "Packaged release without WebDriver plugin",
+        "OS-level window focus switching"
+      ],
+      "ingestedAt": "2026-06-30T16:12:17.850683300+00:00",
+      "findingId": "cap-3c321a8aeb25"
+    },
+    {
+      "id": "verify:issue:agent:0c914a5d3cb0912d",
+      "symptomId": "groups-ledger-validation",
+      "severity": "p1",
+      "status": "triaged",
+      "title": "Tester1 unlock: 18/20 membership ledger entries invalid; async migration does not clear validation band",
+      "source": "agent",
+      "evidenceRefs": [
+        ".codectx/verify/client-sessions/csess-f2191e90e578/captures/cap-fec5199c2177/console.jsonl",
+        ".codectx/verify/client-sessions/csess-f2191e90e578/captures/cap-3f0b18b57d6a/digest.json",
+        ".codectx/verify/faults/fault-6a3f1d6c.json",
+        ".codectx/verify/client-sessions/csess-f2191e90e578/captures/cap-ed6cb6ba5840/screenshot.png",
+        ".codectx/verify/client-sessions/csess-f2191e90e578/steps.json"
+      ],
+      "proofTier": "t3",
+      "doesNotProve": [
+        "Migration fix verified",
+        "Clean fixture after purge",
+        "Packaged release build"
+      ],
+      "ingestedAt": "2026-07-01T02:13:07.069795200+00:00",
+      "findingId": "cap-fec5199c2177"
+    },
+    {
+      "id": "verify:issue:agent:7a3d72a85a8e1c35",
+      "symptomId": "projection-authority-not-ready",
+      "severity": "p2",
+      "status": "triaged",
+      "title": "Projection authority stuck: projectionConversationCount=0, driftStatus=drifted, legacy_hold",
+      "source": "agent",
+      "evidenceRefs": [
+        ".codectx/verify/client-sessions/csess-f2191e90e578/console.jsonl",
+        ".codectx/verify/client-sessions/csess-f2191e90e578/captures/cap-3f0b18b57d6a/digest.json",
+        ".codectx/verify/faults/fault-6e8f7e13.json",
+        ".codectx/verify/client-sessions/csess-d0e975bc8b08/captures/cap-e96d688a532f/digest.json"
+      ],
+      "proofTier": "t3",
+      "doesNotProve": [],
+      "ingestedAt": "2026-07-01T02:23:31.690273200+00:00",
+      "findingId": "cap-e96d688a532f"
+    },
+    {
+      "id": "verify:issue:agent:df96c6996e0512a9",
+      "symptomId": "dm-normalize-outgoing-mismatch",
+      "severity": "p2",
+      "status": "triaged",
+      "title": "DM normalize direction mismatch: 36 events, 6 unique messages on Tester2 thread",
+      "source": "agent",
+      "evidenceRefs": [
+        ".codectx/verify/client-sessions/csess-f2191e90e578/console.jsonl",
+        ".codectx/verify/client-sessions/csess-f2191e90e578/captures/cap-3f0b18b57d6a/digest.json",
+        ".codectx/verify/client-sessions/csess-d0e975bc8b08/captures/cap-500c39b33caf/screenshot.png"
+      ],
+      "proofTier": "t3",
+      "doesNotProve": [],
+      "ingestedAt": "2026-07-01T02:24:11.532856900+00:00",
+      "findingId": "cap-500c39b33caf"
+    },
+    {
+      "id": "verify:issue:agent:fd6bb614119ce9f2",
+      "symptomId": "relay-partial-stack-desktop-only",
+      "severity": "p3",
+      "status": "open",
+      "title": "Desktop-only dev: ws://localhost:7000 + wss://relay.internal fail; DM sync still completes via public relays",
+      "source": "agent",
+      "evidenceRefs": [
+        ".codectx/verify/client-sessions/csess-f2191e90e578/console.jsonl",
+        ".codectx/verify/faults/fault-527da80b.json",
+        ".codectx/verify/client-sessions/csess-56331621b1d9/captures/cap-38ea3448efc7/digest.json"
+      ],
+      "proofTier": "t3",
+      "doesNotProve": [],
+      "ingestedAt": "2026-07-01T02:26:48.122901+00:00",
+      "findingId": "cap-38ea3448efc7"
+    },
+    {
+      "id": "verify:issue:agent:fe1556fff6a7792e",
+      "symptomId": "coordination-membership-deltas-unreachable",
+      "severity": "p2",
+      "status": "triaged",
+      "title": "Coordination membership/deltas: CONNECTION_REFUSED desktop-only; CORS in prior full-stack session; curl shows ACAO * when wrangler up",
+      "source": "agent",
+      "evidenceRefs": [
+        ".codectx/verify/client-sessions/csess-f2191e90e578/console.jsonl",
+        ".codectx/verify/client-sessions/csess-5c26475ea529/console.jsonl",
+        "riw-4-curl-cors-probe-2026-07-01.txt"
+      ],
+      "proofTier": "t2",
+      "doesNotProve": [],
+      "ingestedAt": "2026-07-01T02:26:49.288034200+00:00",
+      "findingId": "cap-d359a934bdfe"
+    },
+    {
+      "id": "verify:issue:assert:cap-5ad02d69dd30",
+      "severity": "p1",
+      "status": "open",
+      "title": "Client assert failed: textVisible — text not visible: Tester2",
+      "source": "client_assert",
+      "evidenceRefs": [
+        ".codectx/verify/client-sessions/csess-19f7e24e61bd/captures/cap-5ad02d69dd30/manifest.json",
+        ".codectx/verify/client-sessions/csess-19f7e24e61bd/steps.json"
+      ],
+      "proofTier": "t3",
+      "doesNotProve": [
+        "Full OS-level automation",
+        "Long soak across machines"
+      ],
+      "ingestedAt": "2026-07-01T03:57:46.925683500+00:00",
+      "findingId": "cap-5ad02d69dd30"
+    },
+    {
+      "id": "verify:issue:agent:289e783f035b6129",
+      "symptomId": "groups-ledger-validation",
+      "severity": "p1",
+      "status": "triaged",
+      "title": "RIW-1 re-verify 2026-07-01: 18/20 ledger invalid unchanged; migration stall; dm_kernel.sqlite_write_failed x12 on profile nav",
+      "source": "agent",
+      "evidenceRefs": [
+        ".codectx/verify/client-sessions/csess-56331621b1d9/captures/cap-c4a8209553e9/console.jsonl",
+        ".codectx/verify/client-sessions/csess-56331621b1d9/captures/cap-f563ba111c51/digest.json",
+        ".codectx/verify/faults/fault-c957c88f.json",
+        ".codectx/verify/client-sessions/csess-56331621b1d9/captures/cap-21d585b2704b/screenshot.png"
+      ],
+      "proofTier": "t3",
+      "doesNotProve": [
+        "Migration fix verified",
+        "Purge retest",
+        "Packaged release build"
+      ],
+      "ingestedAt": "2026-07-01T06:18:04.046860+00:00",
+      "findingId": "cap-f563ba111c51"
+    },
+    {
+      "id": "verify:issue:agent:f6847ce03827c2e2",
+      "symptomId": "projection-authority-not-ready",
+      "severity": "p2",
+      "status": "triaged",
+      "title": "RIW-2 re-verify 2026-07-01: authority oscillates projection_not_ready↔cutover; projection/sqlite count split; DM thread empty despite sidebar listing",
+      "source": "agent",
+      "evidenceRefs": [
+        ".codectx/verify/client-sessions/csess-56331621b1d9/captures/cap-803e0ee2f572/console.jsonl",
+        ".codectx/verify/client-sessions/csess-56331621b1d9/captures/cap-79638f1e8a34/digest.json",
+        ".codectx/verify/faults/fault-991005c2.json",
+        ".codectx/verify/client-sessions/csess-56331621b1d9/captures/cap-efd1b97f101b/screenshot.png"
+      ],
+      "proofTier": "t3",
+      "doesNotProve": [
+        "Cold unlock with password",
+        "Packaged build",
+        "driftStatus drifted on every boot"
+      ],
+      "ingestedAt": "2026-07-01T06:32:38.544462900+00:00",
+      "findingId": "cap-79638f1e8a34"
+    },
+    {
+      "id": "verify:issue:agent:b208fd14aa0d3b45",
+      "symptomId": "dm-normalize-outgoing-mismatch",
+      "severity": "p2",
+      "status": "triaged",
+      "title": "RIW-3 re-verify 2026-07-01: 36 dm_normalize mismatches when locked; 0 after unlock with empty DM thread (RIW-2 mask)",
+      "source": "agent",
+      "evidenceRefs": [
+        ".codectx/verify/client-sessions/csess-56331621b1d9/captures/cap-38ea3448efc7/digest.json",
+        ".codectx/verify/client-sessions/csess-56331621b1d9/captures/cap-a5d9a7ed157c/digest.json",
+        ".codectx/verify/faults/fault-e55e54d5.json",
+        ".codectx/verify/client-sessions/csess-56331621b1d9/captures/cap-c516dc13d587/screenshot.png",
+        ".codectx/verify/client-sessions/csess-56331621b1d9/captures/cap-11bde9168440/console.jsonl"
+      ],
+      "proofTier": "t3",
+      "doesNotProve": [
+        "Direction owner fix",
+        "Hydrated thread message count this pass",
+        "Cold-restart DM retention"
+      ],
+      "ingestedAt": "2026-07-01T06:51:47.796175700+00:00",
+      "findingId": "cap-a5d9a7ed157c"
+    },
+    {
+      "id": "verify:issue:agent:3998a202591a45aa",
+      "symptomId": "coordination-membership-deltas-unreachable",
+      "severity": "p2",
+      "status": "triaged",
+      "title": "RIW-4 re-verify 2026-07-01: curl CORS OK; browser 0× REFUSED/CORS with 8787 up; desktop-only REFUSED still valid dev gap",
+      "source": "agent",
+      "evidenceRefs": [
+        ".codectx/verify/artifacts/riw-4-curl-cors-probe-2026-07-01-step4.txt",
+        ".codectx/verify/client-sessions/csess-56331621b1d9/captures/cap-43dc28edcd6e/console.jsonl",
+        ".codectx/verify/client-sessions/csess-56331621b1d9/captures/cap-e58fe94923c0/digest.json",
+        ".codectx/verify/faults/fault-3c69d3a8.json",
+        ".codectx/verify/client-sessions/csess-56331621b1d9/captures/cap-e557cdac9c04/screenshot.png"
+      ],
+      "proofTier": "t3",
+      "doesNotProve": [
+        "COM-RUN-01 roster parity",
+        "NewTest 2 community home navigation",
+        "Silent 404 delta poll count"
+      ],
+      "ingestedAt": "2026-07-01T07:02:21.586987200+00:00",
+      "findingId": "cap-e58fe94923c0"
+    },
+    {
+      "id": "verify:issue:agent:e19043148dd92abb",
+      "symptomId": "community-roster-divergence",
+      "severity": "p0",
+      "status": "triaged",
+      "title": "COM-RUN-01 re-verify 2026-07-01: Tester1 NewTest 2 participants shows only self; Tester2 absent; header claims 2 members",
+      "source": "agent",
+      "evidenceRefs": [
+        ".codectx/verify/client-sessions/csess-56331621b1d9/captures/cap-2e28ddad53c0/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-56331621b1d9/captures/cap-e0750287c64a/screenshot.png",
+        ".codectx/verify/client-sessions/csess-56331621b1d9/captures/cap-4ab4ca7b11c4/console.jsonl",
+        ".codectx/verify/client-sessions/csess-56331621b1d9/captures/cap-ce884f7cf1a7/digest.json",
+        ".codectx/verify/faults/fault-27f72a5e.json",
+        ".codectx/verify/client-sessions/csess-56331621b1d9/captures/cap-06d82f269d28/snapshot.yaml"
+      ],
+      "proofTier": "t3",
+      "doesNotProve": [
+        "Tester2 window roster parity",
+        "Live invite Accept/Cancel matrix",
+        "COM-MEM-2 two-user soak",
+        "Roster after :7000 relay up"
+      ],
+      "ingestedAt": "2026-07-01T07:10:18.854746100+00:00",
+      "findingId": "cap-2e28ddad53c0"
+    },
+    {
+      "id": "verify:issue:agent:bc1423936905096b",
+      "symptomId": "invite-role-ecosystem-collapse",
+      "severity": "p0",
+      "status": "open",
+      "title": "COM-RUN-11 Step 5 blocked: single CDP target + Tester2 profile not configured; historical invite cards superseded/canceled only",
+      "source": "agent",
+      "evidenceRefs": [
+        ".codectx/verify/client-sessions/csess-56331621b1d9/captures/cap-06d82f269d28/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-56331621b1d9/captures/cap-58397cc1043e/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-937c30f83699/captures/bcap-402b11eaec87/manifest.json",
+        ".codectx/verify/issues-register.json"
+      ],
+      "proofTier": "t3",
+      "doesNotProve": [
+        "Dual-profile role comparison",
+        "Fresh invite send/accept flow",
+        "IRA-6 ledger v3 retest"
+      ],
+      "ingestedAt": "2026-07-01T07:10:20.899494800+00:00",
+      "findingId": "cap-58397cc1043e"
+    },
+    {
+      "id": "verify:issue:agent:554d0f00c74b6610",
+      "symptomId": "dm-vanishes-cold-restart",
+      "severity": "p0",
+      "status": "triaged",
+      "title": "O-2 Step 6 partial: DM sent+visible pre-restart; cold kill→sign-in gate blocks post-hydrate assert (event 58fbac8bb655f0b8)",
+      "source": "agent",
+      "evidenceRefs": [
+        ".codectx/verify/artifacts/o2-cold-restart-verify-2026-07-01.txt",
+        ".codectx/verify/client-sessions/csess-56331621b1d9/captures/cap-4d18726a2701/screenshot.png",
+        ".codectx/verify/client-sessions/csess-56331621b1d9/captures/cap-a321f957a618/console.jsonl",
+        ".codectx/verify/client-sessions/csess-56331621b1d9/captures/cap-9a461df9ff30/digest.json",
+        ".codectx/verify/client-sessions/csess-56331621b1d9/captures/cap-6735413a9978/screenshot.png"
+      ],
+      "proofTier": "t4",
+      "doesNotProve": [
+        "Post-restart message visible",
+        "Packaged release build",
+        "Cold restart without password gate"
+      ],
+      "ingestedAt": "2026-07-01T07:24:49.466731200+00:00",
+      "findingId": "cap-a321f957a618"
+    },
+    {
+      "id": "verify:issue:agent:65689a26d16d5fd0",
+      "symptomId": "auth-keychain-restore-failed",
+      "severity": "p2",
+      "status": "triaged",
+      "title": "RIW-9 chain blocked: cold boot lands on /sign-in; auth.kernel_boot_restore_no_keychain; native auto-unlock absent",
+      "source": "agent",
+      "evidenceRefs": [
+        ".codectx/verify/chains/chain-dm-split-brain-2026-07-02/manifest.json",
+        ".codectx/verify/chains/chain-dm-split-brain-2026-07-02/nodes/n1-sign-in-gate.json",
+        ".codectx/verify/faults/fault-9aa0f2d7.json",
+        ".codectx/verify/client-sessions/csess-169c06e92cf1/captures/cap-60328be9334e/screenshot.png"
+      ],
+      "proofTier": "t3",
+      "doesNotProve": [
+        "dm-ui-split-brain reproduced",
+        "message persistence",
+        "root cause"
+      ],
+      "ingestedAt": "2026-07-01T10:34:01.933421200+00:00",
+      "findingId": "cap-60328be9334e"
+    },
+    {
+      "id": "verify:issue:agent:264c88e73e9428fd",
+      "symptomId": "group-thread-relay-ingest",
+      "severity": "p0",
+      "status": "triaged",
+      "title": "O-4 Step 7 BLOCKED: full stack preflight OK except auth gate; cannot open NewTest 2 or send group message via MCP",
+      "source": "agent",
+      "evidenceRefs": [
+        ".codectx/verify/chains/chain-o4-group-ingest-2026-07-02/manifest.json",
+        ".codectx/verify/chains/chain-o4-group-ingest-2026-07-02/nodes/n0-stack-preflight.json",
+        ".codectx/verify/faults/fault-0196a614.json",
+        ".codectx/verify/client-sessions/csess-5f10d872d481/captures/cap-979ff3b81230/screenshot.png",
+        ".codectx/verify/client-sessions/csess-5f10d872d481/captures/cap-7ca9fc190c3a/screenshot.png"
+      ],
+      "proofTier": "t3",
+      "doesNotProve": [
+        "group message visible",
+        "relay round-trip",
+        "second profile ingest",
+        "O-4 confirmed or fixed"
+      ],
+      "ingestedAt": "2026-07-01T11:24:13.664140200+00:00",
+      "findingId": "cap-979ff3b81230"
+    },
+    {
+      "id": "verify:issue:agent:7830537bf84fba67",
+      "symptomId": "group-thread-relay-ingest",
+      "severity": "p0",
+      "status": "triaged",
+      "title": "O-4 Step 7 PARTIAL: NewTest 2 history hydrates but send blocked — Group key unavailable; O4-group-relay-verify-071T1128 stuck in composer; :7000 REFUSED",
+      "source": "agent",
+      "evidenceRefs": [
+        ".codectx/verify/chains/chain-o4-group-ingest-2026-07-02/nodes/n1-send-blocked-group-key.json",
+        ".codectx/verify/faults/fault-579ab524.json",
+        ".codectx/verify/client-sessions/csess-6461739df98d/captures/cap-2213f5ef81f0/screenshot.png",
+        ".codectx/verify/client-sessions/csess-6461739df98d/captures/cap-4f8d28c37aae/console.jsonl",
+        "docs/program/obscur-dev-test-accounts.md"
+      ],
+      "proofTier": "t3",
+      "doesNotProve": [
+        "Tester2 profile ingest",
+        "ws://localhost:7000 round-trip",
+        "O-4 fixed"
+      ],
+      "ingestedAt": "2026-07-01T11:28:54.898768100+00:00",
+      "findingId": "cap-2213f5ef81f0"
+    },
+    {
+      "id": "verify:issue:agent:e4a1ecdcaab37c63",
+      "symptomId": "relay-partial-stack-desktop-only",
+      "severity": "p3",
+      "status": "triaged",
+      "title": "Step 8 RIW-5 re-verify: relay healthy on public relays (writable 1/ subscribable 4); :7000 still down; O-3 offline flash NOT seen on Chats↔Network nav; coordination :8787 up",
+      "source": "agent",
+      "evidenceRefs": [
+        ".codectx/verify/chains/chain-transport-soak-2026-07-02/manifest.json",
+        ".codectx/verify/faults/fault-3e59bd74.json",
+        ".codectx/verify/faults/fault-ede55760.json",
+        ".codectx/verify/client-sessions/csess-ac2da4ea9b5c/captures/cap-80eb09d53b0e/console.jsonl",
+        ".codectx/verify/client-sessions/csess-ac2da4ea9b5c/captures/cap-b3a73eab1ebe/console.jsonl"
+      ],
+      "proofTier": "t3",
+      "doesNotProve": [
+        "O-3 offline flash on every refresh",
+        "O-1 notification storm",
+        ":7000 team relay ingest",
+        "Full stack relay recovery"
+      ],
+      "ingestedAt": "2026-07-01T11:57:41.132128500+00:00",
+      "findingId": "cap-b3a73eab1ebe"
+    },
+    {
+      "id": "verify:issue:agent:2bda5e2e8cf72fd5",
+      "symptomId": "dm-ui-split-brain",
+      "severity": "p2",
+      "status": "triaged",
+      "title": "RIW-9 n2: warm Tester1 session — Tester2 DM hydrated (11 msgs); splitBrainSuspected=false; O2 message visible",
+      "source": "agent",
+      "evidenceRefs": [
+        ".codectx/verify/chains/chain-dm-split-brain-2026-07-02/nodes/n2-tester2-dm-hydrated-warm.json",
+        ".codectx/verify/client-sessions/csess-ac2da4ea9b5c/captures/cap-281ddaa2d8cd/screenshot.png",
+        ".codectx/verify/faults/fault-447bafd6.json"
+      ],
+      "proofTier": "t3",
+      "doesNotProve": [
+        "split-brain root cause",
+        "cold restart path"
+      ],
+      "ingestedAt": "2026-07-01T11:57:43.138677500+00:00",
+      "findingId": "cap-281ddaa2d8cd"
+    },
+    {
+      "id": "verify:issue:agent:310fbc54fc6305c5",
+      "symptomId": "group-thread-relay-ingest",
+      "severity": "p0",
+      "status": "triaged",
+      "title": "O-4 round2: group send O4-round2-codactrl-071T1409 blocked — composer clears, no bubble; sidebar group-key warning",
+      "source": "agent",
+      "evidenceRefs": [
+        ".codectx/verify/chains/chain-o4-group-ingest-2026-07-02/nodes/n2-round2-send-blocked.json",
+        ".codectx/verify/faults/fault-d91cd690.json",
+        ".codectx/verify/client-sessions/csess-510a62aba320/captures/cap-aab86343339c/screenshot.png"
+      ],
+      "proofTier": "t3",
+      "doesNotProve": [
+        "relay round-trip",
+        "COM-RUN-02 room key fix"
+      ],
+      "ingestedAt": "2026-07-01T14:11:16.436589500+00:00",
+      "trackerStep": 7,
+      "chainId": "chain-o4-group-ingest-2026-07-02",
+      "chainNodeId": "n2-round2-send-blocked",
+      "symptomClass": "group-thread-relay-ingest"
+    },
+    {
+      "id": "verify:issue:agent:39938a676576819d",
+      "symptomId": "dm-ui-split-brain",
+      "severity": "p2",
+      "status": "triaged",
+      "title": "RIW-9 round2: warm Tester1 — Tester2 DM 11 msgs, O2 visible, splitBrainSuspected=false",
+      "source": "agent",
+      "evidenceRefs": [
+        ".codectx/verify/chains/chain-dm-split-brain-2026-07-02/nodes/n4-round2-warm-dm-probe.json"
+      ],
+      "proofTier": "t3",
+      "doesNotProve": [
+        "cold restart",
+        "timed wait split-brain"
+      ],
+      "ingestedAt": "2026-07-01T14:11:18.478187700+00:00",
+      "trackerStep": 6,
+      "riwId": "RIW-9",
+      "chainId": "chain-dm-split-brain-2026-07-02",
+      "chainNodeId": "n4-round2-warm-dm-probe",
+      "symptomClass": "dm-ui-split-brain"
+    },
+    {
+      "id": "verify:issue:agent:5304ff4749f613a0",
+      "symptomId": "dm-vanishes-cold-restart",
+      "severity": "p0",
+      "status": "triaged",
+      "title": "O-2 round2 t4: cold kill → profile picker → password unlock → O2-coldrestart-verify-071T0720 visible (event 58fbac8bb655f0b8)",
+      "source": "agent",
+      "evidenceRefs": [
+        ".codectx/verify/client-sessions/csess-6b9fe53b4ded/captures/cap-921a04f7d166/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-6b9fe53b4ded/captures/cap-6d74380b50bf/snapshot.yaml"
+      ],
+      "proofTier": "t4",
+      "doesNotProve": [
+        "native keychain auto-unlock",
+        "packaged build"
+      ],
+      "ingestedAt": "2026-07-01T14:13:40.839897600+00:00",
+      "trackerStep": 6,
+      "symptomClass": "dm-vanishes-cold-restart"
+    },
+    {
+      "id": "verify:issue:agent:54e729aec49eeda1",
+      "symptomId": "group-thread-relay-ingest",
+      "severity": "p0",
+      "status": "triaged",
+      "title": "O-4 round3: group send blocked — group key unavailable; Manage Participants shows Tester1+Tester2 (2) but home card shows Tester1 only",
+      "source": "agent",
+      "evidenceRefs": [
+        ".codectx/verify/client-sessions/csess-322a4af06321/captures/cap-237fa5117c78/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-322a4af06321/captures/cap-ee514cac8fed/snapshot.yaml"
+      ],
+      "proofTier": "t3",
+      "doesNotProve": [
+        "room key fix",
+        "relay round-trip"
+      ],
+      "ingestedAt": "2026-07-01T16:54:57.230410500+00:00",
+      "trackerStep": 7,
+      "chainId": "chain-o4-group-ingest-2026-07-02",
+      "chainNodeId": "n3-round3-send-blocked",
+      "symptomClass": "group-thread-relay-ingest"
+    },
+    {
+      "id": "verify:issue:agent:dce6997472383346",
+      "symptomId": "community-roster-divergence",
+      "severity": "p0",
+      "status": "triaged",
+      "title": "COM-RUN-01 round3: Manage Participants lists Tester1+Tester2 (2 online claim) but community home card shows Tester1 only",
+      "source": "agent",
+      "evidenceRefs": [
+        ".codectx/verify/client-sessions/csess-322a4af06321/captures/cap-237fa5117c78/snapshot.yaml"
+      ],
+      "proofTier": "t3",
+      "doesNotProve": [
+        "two-window parity",
+        "Tester2 profile CDP"
+      ],
+      "ingestedAt": "2026-07-01T16:54:58.336216500+00:00",
+      "trackerStep": 5,
+      "symptomClass": "community-roster-divergence"
+    },
+    {
+      "id": "verify:issue:agent:43cde0c4b744b301",
+      "symptomId": "group-room-key-missing",
+      "severity": "p0",
+      "status": "triaged",
+      "title": "COM-RUN-02 round4: room_key_missing + relay_not_connected; chatEnabled=0; coordination /membership/delta 403 (deltas curl 200)",
+      "source": "agent",
+      "evidenceRefs": [
+        ".codectx/verify/chains/chain-o4-group-ingest-2026-07-02/nodes/n4-room-key-health-snapshot.json",
+        ".codectx/verify/client-sessions/csess-631c3bba5207/captures/cap-e38e482a6206/console.jsonl",
+        ".codectx/verify/faults/fault-fc0c8590.json"
+      ],
+      "proofTier": "t3",
+      "doesNotProve": [
+        "fix verified",
+        "Tester2 room key path"
+      ],
+      "ingestedAt": "2026-07-01T16:57:35.319631300+00:00",
+      "trackerStep": 7,
+      "riwId": "COM-RUN-02",
+      "chainId": "chain-o4-group-ingest-2026-07-02",
+      "chainNodeId": "n4-room-key-health-snapshot",
+      "symptomClass": "group-room-key-missing"
+    },
+    {
+      "id": "verify:issue:agent:bf6c693835f7e2c3",
+      "symptomId": "group-thread-relay-ingest",
+      "severity": "p0",
+      "status": "open",
+      "title": "O-4 round5: group send blocked — Docker relay unavailable; composer clears, no bubble; group-key warning persists",
+      "source": "agent",
+      "evidenceRefs": [
+        ".codectx/verify/chains/chain-o4-group-ingest-2026-07-02/nodes/n5-round5-send-blocked-no-docker.json",
+        ".codectx/verify/client-sessions/csess-631c3bba5207/captures/cap-0c94d7f5639f/snapshot.yaml",
+        ".codectx/verify/faults/fault-bf3a84e1.json"
+      ],
+      "proofTier": "t3",
+      "doesNotProve": [
+        "O-4 fixed",
+        "relay round-trip with :7000",
+        "room key repair with Docker up"
+      ],
+      "ingestedAt": "2026-07-01T17:14:03.992917+00:00",
+      "findingId": "cap-0c94d7f5639f",
+      "trackerStep": 7,
+      "chainId": "chain-o4-group-ingest-2026-07-02",
+      "chainNodeId": "n5-round5-send-blocked-no-docker",
+      "symptomClass": "group-thread-relay-ingest"
+    },
+    {
+      "id": "verify:issue:agent:5c5e1b25c17e9dca",
+      "symptomId": "group-thread-relay-ingest",
+      "severity": "p0",
+      "status": "open",
+      "title": "O-4 round6 t3: Docker :7000 + coordination health cascade → send O4-round6-docker-up-071T1728 visible; publishGroupEvent localhost:7000; sidebar key warning stale",
+      "source": "agent",
+      "evidenceRefs": [
+        ".codectx/verify/chains/chain-o4-group-ingest-2026-07-02/nodes/n6-round6-health-recovered-docker.json",
+        ".codectx/verify/client-sessions/csess-631c3bba5207/captures/cap-f2c1cc180673/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-631c3bba5207/captures/cap-3d7848b51782/console.jsonl",
+        ".codectx/verify/faults/fault-1285de34.json"
+      ],
+      "proofTier": "t3",
+      "doesNotProve": [
+        "Tester2 ingest",
+        "O-4 fixed without full stack",
+        "sidebar warning sync"
+      ],
+      "ingestedAt": "2026-07-01T17:29:03.267712700+00:00",
+      "findingId": "cap-f2c1cc180673",
+      "trackerStep": 7,
+      "chainId": "chain-o4-group-ingest-2026-07-02",
+      "chainNodeId": "n6-round6-health-recovered-docker",
+      "symptomClass": "group-thread-relay-ingest"
+    },
+    {
+      "id": "verify:issue:agent:13f19914b4ba6366",
+      "symptomId": "group-thread-relay-ingest",
+      "severity": "p0",
+      "status": "open",
+      "title": "O-4 round7 t3 repro: second full-stack send O4-round7-fullstack-071T1733; health ready:1; main=6 msgs; publishGroupEvent 2d1a9735",
+      "source": "agent",
+      "evidenceRefs": [
+        ".codectx/verify/chains/chain-o4-group-ingest-2026-07-02/nodes/n8-round7-send-repro.json",
+        ".codectx/verify/client-sessions/csess-631c3bba5207/captures/cap-861e5d8e4f70/snapshot.yaml",
+        ".codectx/verify/faults/fault-7f9100c4.json"
+      ],
+      "proofTier": "t3",
+      "doesNotProve": [
+        "Tester2 ingest",
+        "O-4 on partial stack"
+      ],
+      "ingestedAt": "2026-07-01T17:34:36.672937200+00:00",
+      "findingId": "cap-861e5d8e4f70",
+      "trackerStep": 7,
+      "chainId": "chain-o4-group-ingest-2026-07-02",
+      "chainNodeId": "n8-round7-send-repro",
+      "symptomClass": "group-thread-relay-ingest"
+    },
+    {
+      "id": "verify:issue:agent:6ff2b79a949767b3",
+      "symptomId": "community-roster-divergence",
+      "severity": "p0",
+      "status": "open",
+      "title": "COM-RUN-01 round7: Manage Participants shows 1 (Tester1 only) while group chat header claims 2 members; home card still Tester1 only",
+      "source": "agent",
+      "evidenceRefs": [
+        ".codectx/verify/client-sessions/csess-631c3bba5207/captures/cap-ef00fb31b908/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-631c3bba5207/captures/cap-bbb265056f1a/snapshot.yaml"
+      ],
+      "proofTier": "t3",
+      "doesNotProve": [
+        "Tester2 roster visibility",
+        "two-profile verify"
+      ],
+      "ingestedAt": "2026-07-01T17:34:38.991137500+00:00",
+      "findingId": "cap-ef00fb31b908",
+      "trackerStep": 5,
+      "symptomClass": "community-roster-divergence"
+    },
+    {
+      "id": "verify:issue:agent:f21d04768c6b0594",
+      "symptomId": "group-thread-relay-ingest",
+      "severity": "p0",
+      "status": "triaged",
+      "title": "O-4 round8 t4 cold-start: send O4-round8-coldstart-071T1746 without Info visit; publishGroupEvent 8b138f20; sidebar still group-key unavailable",
+      "source": "agent",
+      "evidenceRefs": [
+        ".codectx/verify/chains/chain-o4-group-ingest-2026-07-02/nodes/n9-round8-coldstart-preflight.json",
+        ".codectx/verify/chains/chain-o4-group-ingest-2026-07-02/nodes/n10-round8-coldstart-send-repro.json",
+        ".codectx/verify/client-sessions/csess-b20deab2382f/captures/cap-051b8597f1bc/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-b20deab2382f/captures/cap-051b8597f1bc/console.jsonl",
+        ".codectx/verify/client-sessions/csess-b20deab2382f/captures/cap-72600d819cec/digest.json",
+        ".codectx/verify/faults/fault-d3266449.json"
+      ],
+      "proofTier": "t4",
+      "doesNotProve": [
+        "Tester2 ingest",
+        "O-4 fixed on desktop-only stack",
+        "Sidebar group-key label sync",
+        "Info health cascade required for send"
+      ],
+      "ingestedAt": "2026-07-01T17:47:31.083306200+00:00",
+      "findingId": "cap-051b8597f1bc",
+      "trackerStep": 7,
+      "chainId": "chain-o4-group-ingest-2026-07-02",
+      "chainNodeId": "n10-round8-coldstart-send-repro",
+      "symptomClass": "group-thread-relay-ingest"
+    },
+    {
+      "id": "verify:issue:agent:d6aaccca65754776",
+      "symptomId": "group-room-key-missing",
+      "severity": "p0",
+      "status": "triaged",
+      "title": "COM-RUN-02 round9: health ready:1 after Info but sidebar ledger placeholder persists; coordination GET delta=404 POST-only",
+      "source": "agent",
+      "evidenceRefs": [
+        ".codectx/verify/artifacts/com-run-02-membership-path-probe-2026-07-02.txt",
+        "specs/backend/com-run-02-membership-health-sidebar-investigation.md",
+        ".codectx/verify/client-sessions/csess-87ec64010847/captures/cap-3111586f0844/console.jsonl",
+        ".codectx/verify/client-sessions/csess-87ec64010847/captures/cap-77153b4f0307/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-87ec64010847/captures/cap-29d052b53b74/screenshot.png",
+        ".codectx/verify/faults/fault-4720432c.json"
+      ],
+      "proofTier": "t3",
+      "doesNotProve": [
+        "Sidebar fix implemented",
+        "Tester2 joiner path",
+        "Coordination POST 403 root cause"
+      ],
+      "ingestedAt": "2026-07-01T18:01:32.120829400+00:00",
+      "findingId": "cap-29d052b53b74",
+      "trackerStep": 7,
+      "symptomClass": "group-room-key-missing"
+    },
+    {
+      "id": "verify:issue:agent:e1447144f354579c",
+      "symptomId": "group-thread-relay-ingest",
+      "severity": "p0",
+      "status": "triaged",
+      "title": "O-4 round10: send O4-round10-no-docker blocked — composer clears, no bubble; :7000 REFUSED; coordination up",
+      "source": "agent",
+      "evidenceRefs": [
+        ".codectx/verify/chains/chain-o4-group-ingest-2026-07-02/nodes/n11-round10-no-docker-send-blocked.json",
+        ".codectx/verify/client-sessions/csess-ad3b3e90aa04/captures/cap-6ee65f818fb7/snapshot.yaml",
+        ".codectx/verify/faults/fault-bfbf96a4.json"
+      ],
+      "proofTier": "t3",
+      "doesNotProve": [
+        "O-4 fixed",
+        "Docker-independent send"
+      ],
+      "ingestedAt": "2026-07-01T22:06:19.023996300+00:00",
+      "findingId": "cap-6ee65f818fb7",
+      "trackerStep": 7,
+      "chainId": "chain-o4-group-ingest-2026-07-02",
+      "chainNodeId": "n11-round10-no-docker-send-blocked",
+      "symptomClass": "group-thread-relay-ingest"
+    },
+    {
+      "id": "verify:issue:agent:160130f274c53ad5",
+      "symptomId": "community-roster-divergence",
+      "severity": "p0",
+      "status": "triaged",
+      "title": "COM-RUN-01 round10: Manage Participants=1 (Tester1); chat header=2 members; home card Tester1 only — unchanged",
+      "source": "agent",
+      "evidenceRefs": [
+        ".codectx/verify/client-sessions/csess-ad3b3e90aa04/captures/cap-dbea12186664/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-ad3b3e90aa04/captures/cap-7913551e561a/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-ad3b3e90aa04/captures/cap-f3a8ce60fe80/snapshot.yaml"
+      ],
+      "proofTier": "t3",
+      "doesNotProve": [
+        "Roster fixed",
+        "Tester2 visible in Manage"
+      ],
+      "ingestedAt": "2026-07-01T22:06:19.228753300+00:00",
+      "findingId": "cap-dbea12186664",
+      "trackerStep": 5,
+      "symptomClass": "community-roster-divergence"
+    },
+    {
+      "id": "verify:issue:agent:efa90322468050a8",
+      "symptomId": "group-thread-relay-ingest",
+      "severity": "p0",
+      "status": "triaged",
+      "title": "O-4 round11: send O4-round11-partial blocked — composer clears, no bubble; :7000 REFUSED; multi-window CDP still single-target",
+      "source": "agent",
+      "evidenceRefs": [
+        ".codectx/verify/client-sessions/csess-af73d0bd5b5c/captures/cap-6d09421a034a/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-af73d0bd5b5c/captures/cap-a614c67a47d4/snapshot.yaml",
+        ".codectx/verify/chains/chain-o4-group-ingest-2026-07-02/nodes/n12-round11-multiwindow-partial-stack.json"
+      ],
+      "proofTier": "t3",
+      "doesNotProve": [
+        "Docker relay up",
+        "Tester2 ingest",
+        "Second window CDP"
+      ],
+      "ingestedAt": "2026-07-01T22:37:40.000391100+00:00",
+      "findingId": "cap-6d09421a034a",
+      "trackerStep": 7,
+      "chainId": "chain-o4-group-ingest-2026-07-02",
+      "symptomClass": "group-thread-relay-ingest"
+    },
+    {
+      "id": "verify:issue:agent:28409ff90609b8c9",
+      "symptomId": "multi-window-single-cdp-target",
+      "severity": "p2",
+      "status": "open",
+      "title": "COM-RUN-11 round11: profile slot window opened natively; CDP :9231 not listening; list_targets still 1 page on :9230",
+      "source": "agent",
+      "evidenceRefs": [
+        ".codectx/verify/client-sessions/csess-937c30f83699/captures/bcap-402b11eaec87/manifest.json",
+        ".codectx/verify/client-sessions/csess-af73d0bd5b5c/captures/cap-d401890323b9/manifest.json",
+        ".codectx/verify/client-sessions/csess-af73d0bd5b5c/captures/cap-d401890323b9/snapshot.yaml"
+      ],
+      "proofTier": "t3",
+      "doesNotProve": [
+        "Tester2 profile configured",
+        "Independent second-window automation"
+      ],
+      "ingestedAt": "2026-07-01T22:37:41.268378900+00:00",
+      "findingId": "cap-d401890323b9"
+    },
+    {
+      "id": "verify:issue:agent:3d6e95773575f422",
+      "symptomId": "community-roster-divergence",
+      "severity": "p0",
+      "status": "triaged",
+      "title": "COM-RUN-01 round11: Manage Participants=1 (Tester1 only); chat header=2 members; health relay_not_connected",
+      "source": "agent",
+      "evidenceRefs": [
+        ".codectx/verify/client-sessions/csess-af73d0bd5b5c/captures/cap-a614c67a47d4/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-af73d0bd5b5c/captures/cap-fdefcbc1051a/snapshot.yaml"
+      ],
+      "proofTier": "t3",
+      "doesNotProve": [
+        "Tester2 roster visible",
+        "Roster fix verified"
+      ],
+      "ingestedAt": "2026-07-01T22:37:42.079982300+00:00",
+      "findingId": "cap-a614c67a47d4",
+      "trackerStep": 5,
+      "symptomClass": "community-roster-divergence"
+    },
+    {
+      "id": "verify:issue:agent:58b1f5e0e01e5316",
+      "symptomId": "group-thread-relay-ingest",
+      "severity": "p0",
+      "status": "triaged",
+      "title": "O-4 round12 t3: full stack send O4-round12-partial-072T0836 visible; publishGroupEvent 37b6a5b9 @ :7000; sidebar key warning stale",
+      "source": "agent",
+      "evidenceRefs": [
+        ".codectx/verify/client-sessions/csess-ad9e7520da13/captures/cap-96c8e8071d2d/snapshot.yaml",
+        ".codectx/verify/chains/chain-o4-group-ingest-2026-07-02/nodes/n13-round12-fullstack-send-success.json"
+      ],
+      "proofTier": "t3",
+      "doesNotProve": [
+        "Tester2 ingest",
+        "Relay round-trip to second profile"
+      ],
+      "ingestedAt": "2026-07-02T08:45:55.304189700+00:00",
+      "findingId": "cap-96c8e8071d2d",
+      "trackerStep": 7,
+      "chainId": "chain-o4-group-ingest-2026-07-02",
+      "symptomClass": "group-thread-relay-ingest"
+    },
+    {
+      "id": "verify:issue:agent:45467cd4d3b00f21",
+      "symptomId": "community-roster-divergence",
+      "severity": "p0",
+      "status": "triaged",
+      "title": "COM-RUN-01 round12: Manage Participants=1 (Tester1); chat header=2 members; full stack unchanged",
+      "source": "agent",
+      "evidenceRefs": [
+        ".codectx/verify/client-sessions/csess-ad9e7520da13/captures/cap-fdc8e52f9e22/snapshot.yaml"
+      ],
+      "proofTier": "t3",
+      "doesNotProve": [
+        "Tester2 visible",
+        "Roster fix"
+      ],
+      "ingestedAt": "2026-07-02T08:47:45.891206100+00:00",
+      "findingId": "cap-fdc8e52f9e22",
+      "trackerStep": 5,
+      "symptomClass": "community-roster-divergence"
+    },
+    {
+      "id": "verify:issue:agent:fb8acdfb80f8b94e",
+      "symptomId": "COM-RUN-11",
+      "severity": "p1",
+      "status": "open",
+      "title": "COM-RUN-11 multiwindow retry: native second window opens; CDP :9231 down; agent-bridge missing; client_multiwindow_switch main/profile-picker only",
+      "source": "agent",
+      "evidenceRefs": [
+        ".codectx/verify/client-sessions/csess-937c30f83699/captures/bcap-402b11eaec87/manifest.json"
+      ],
+      "proofTier": "t3",
+      "doesNotProve": [],
+      "ingestedAt": "2026-07-02T08:55:54.343323700+00:00",
+      "findingId": "cap-cca1c5f6c879"
+    },
+    {
+      "id": "verify:issue:agent:b24bb36ac9f8c8e4",
+      "symptomId": "group-thread-relay-ingest",
+      "severity": "p0",
+      "status": "open",
+      "title": "O-4 round13 t3: post-rebuild send O4-round13-rebuild-072T0958 visible; publishGroupEvent 9a615480 @ :7000; bridge multiwindow partial",
+      "source": "agent",
+      "evidenceRefs": [],
+      "proofTier": "t3",
+      "doesNotProve": [],
+      "ingestedAt": "2026-07-02T09:59:16.555526800+00:00",
+      "findingId": "cap-66f4f4361d4c",
+      "trackerStep": 7,
+      "chainId": "chain-o4-group-ingest-2026-07-02"
+    },
+    {
+      "id": "verify:issue:agent:76b14118afac2838",
+      "symptomId": "multi-window-single-cdp-target",
+      "severity": "p1",
+      "status": "open",
+      "title": "COM-RUN-11 round13: bridge listWindows=2 (main+profile-2); openProfileSlot ok; focusWindow ACL denied; CDP :9231 down",
+      "source": "agent",
+      "evidenceRefs": [],
+      "proofTier": "t3",
+      "doesNotProve": [],
+      "ingestedAt": "2026-07-02T09:59:18.278302+00:00",
+      "findingId": "bcap-7bfef91bf08c",
+      "chainId": "chain-o4-group-ingest-2026-07-02"
+    },
+    {
+      "id": "verify:issue:agent:2884361320a7595f",
+      "symptomId": "community-roster-divergence",
+      "severity": "p0",
+      "status": "open",
+      "title": "COM-RUN-01 round13: Manage Participants evidence Tester1 only; chat header 2 members; health ready:1 after Info",
+      "source": "agent",
+      "evidenceRefs": [],
+      "proofTier": "t3",
+      "doesNotProve": [],
+      "ingestedAt": "2026-07-02T09:59:19.367132800+00:00",
+      "findingId": "cap-0ad870b18e42",
+      "trackerStep": 5
+    },
+    {
+      "id": "verify:issue:agent:41aeddb8d5f42614",
+      "symptomId": "group-thread-relay-ingest",
+      "severity": "p0",
+      "status": "open",
+      "title": "O-4 round14 t3: send O4-round14-acl-cdp-072T1102 visible; full stack :7000+:8787; post ACL/CDP rebuild",
+      "source": "agent",
+      "evidenceRefs": [
+        ".codectx/verify/client-sessions/csess-c9e4cc0c3649/captures/cap-3b9283b9eb83/snapshot.yaml"
+      ],
+      "doesNotProve": [],
+      "ingestedAt": "2026-07-02T11:03:36.313360100+00:00",
+      "trackerStep": 7,
+      "chainId": "chain-o4-group-ingest-2026-07-02",
+      "chainNodeId": "n16-round14-send-success",
+      "symptomClass": "group-thread-relay-ingest"
+    },
+    {
+      "id": "verify:issue:agent:3e93540c9bc415ab",
+      "symptomId": "COM-RUN-11",
+      "severity": "p0",
+      "status": "open",
+      "title": "COM-RUN-11 round14: focusWindow ok via desktop_agent_focus_window IPC; listWindows=2; CDP :9231 still down — dual attach blocked",
+      "source": "agent",
+      "evidenceRefs": [
+        ".codectx/verify/client-sessions/csess-c9e4cc0c3649/captures/bcap-dd2fa5076a2f/bridge-result.json",
+        ".codectx/verify/client-sessions/csess-c9e4cc0c3649/captures/bcap-b56d14af46e8/bridge-result.json"
+      ],
+      "doesNotProve": [],
+      "ingestedAt": "2026-07-02T11:03:37.278195700+00:00",
+      "trackerStep": 5,
+      "chainId": "chain-o4-group-ingest-2026-07-02",
+      "chainNodeId": "n17-round14-bridge-focus-ipc",
+      "symptomClass": "COM_RUN_11"
+    },
+    {
+      "id": "verify:issue:agent:2990ecfa08aadc32",
+      "symptomId": "community-roster-divergence",
+      "severity": "p0",
+      "status": "open",
+      "title": "COM-RUN-01 round14: Manage Participants shows Tester1 only; chat header 2 members; health ready:1 after Info",
+      "source": "agent",
+      "evidenceRefs": [
+        ".codectx/verify/client-sessions/csess-c9e4cc0c3649/captures/cap-2f4dee77faa9/snapshot.yaml"
+      ],
+      "doesNotProve": [],
+      "ingestedAt": "2026-07-02T11:03:37.845691200+00:00",
+      "trackerStep": 5,
+      "symptomClass": "community-roster-divergence"
+    },
+    {
+      "id": "verify:issue:agent:915034dcac55e53d",
+      "symptomId": "COM-RUN-11",
+      "severity": "p0",
+      "status": "open",
+      "title": "COM-RUN-11 round15: :9231 CDP attach works after per-window browser args; profile sign-in target csess-9530bb91b194",
+      "source": "agent",
+      "evidenceRefs": [
+        ".codectx/verify/client-sessions/csess-9530bb91b194/attach-latest.json",
+        ".codectx/verify/client-sessions/csess-d39f4ab009ee/captures/bcap-82d3ad04daf9/bridge-result.json"
+      ],
+      "doesNotProve": [],
+      "ingestedAt": "2026-07-02T11:14:56.934881500+00:00",
+      "trackerStep": 5,
+      "chainId": "chain-o4-group-ingest-2026-07-02",
+      "chainNodeId": "n18-round15-profile-cdp-attach",
+      "symptomClass": "COM_RUN_11"
+    },
+    {
+      "id": "verify:issue:agent:8fc30833846c694c",
+      "symptomId": "community-roster-divergence",
+      "severity": "p0",
+      "status": "triaged",
+      "title": "COM-RUN-01 round21: T1 participants modal shows Tester1 only (knownParticipantCount=0, rosterProjectionCount=1)",
+      "source": "agent",
+      "evidenceRefs": [
+        ".codectx/verify/client-sessions/csess-6f1a35b7762b/captures/cap-c3591296fce0/snapshot.yaml",
+        ".codectx/verify/faults/fault-5e069e8a.json"
+      ],
+      "proofTier": "t4",
+      "doesNotProve": [
+        "Fresh invite COM-RUN-11 matrix",
+        "Roster after ledger purge"
+      ],
+      "ingestedAt": "2026-07-02T16:20:28.128518600+00:00",
+      "findingId": "cap-c3591296fce0",
+      "trackerStep": 5,
+      "chainId": "chain-o4-group-ingest-2026-07-02",
+      "chainNodeId": "n24-round21-com-run01-t1-roster",
+      "symptomClass": "community-roster-divergence"
+    },
+    {
+      "id": "verify:issue:agent:64baee5012722dfa",
+      "symptomId": "community-roster-divergence",
+      "severity": "p0",
+      "status": "triaged",
+      "title": "COM-RUN-01 round21: Tester2 Group sidebar empty — NewTest 2 not listed while T1 has community",
+      "source": "agent",
+      "evidenceRefs": [
+        ".codectx/verify/client-sessions/csess-b91e16538053/captures/cap-fac2a764d545/snapshot.yaml",
+        ".codectx/verify/faults/fault-887ce425.json"
+      ],
+      "proofTier": "t4",
+      "doesNotProve": [
+        "Tester2 community join path",
+        "Live invite Accept/Cancel"
+      ],
+      "ingestedAt": "2026-07-02T16:20:28.896058900+00:00",
+      "findingId": "cap-fac2a764d545",
+      "trackerStep": 5,
+      "chainId": "chain-o4-group-ingest-2026-07-02",
+      "chainNodeId": "n25-round21-com-run01-t2-absent",
+      "symptomClass": "community-roster-divergence"
+    },
+    {
+      "id": "verify:issue:agent:e10f184afe997a07",
+      "symptomId": "group-room-key-missing",
+      "severity": "p0",
+      "status": "triaged",
+      "title": "group-room-key-missing round21: sidebar warns unavailable while O4-round20 send succeeded",
+      "source": "agent",
+      "evidenceRefs": [
+        ".codectx/verify/client-sessions/csess-6f1a35b7762b/captures/cap-7a4dcea3b585/snapshot.yaml"
+      ],
+      "proofTier": "t3",
+      "doesNotProve": [
+        "Send blocked",
+        "Room key recovery path"
+      ],
+      "ingestedAt": "2026-07-02T16:20:29.722085100+00:00",
+      "findingId": "cap-7a4dcea3b585",
+      "trackerStep": 7,
+      "chainId": "chain-o4-group-ingest-2026-07-02",
+      "chainNodeId": "n26-round21-group-key-sidebar",
+      "symptomClass": "group-room-key-missing"
+    },
+    {
+      "id": "verify:issue:agent:ac194ae60fbc0bd2",
+      "symptomId": "COM-RUN-11",
+      "severity": "p0",
+      "status": "open",
+      "title": "COM-RUN-11 round21 blocked: no live invite card — only superseded/expired historical cards in DM",
+      "source": "agent",
+      "evidenceRefs": [
+        ".codectx/verify/client-sessions/csess-b91e16538053/captures/cap-d6616105b1d0/snapshot.yaml"
+      ],
+      "proofTier": "t4",
+      "doesNotProve": [
+        "Invite role matrix",
+        "Accept/Cancel UX"
+      ],
+      "ingestedAt": "2026-07-02T16:20:30.677371900+00:00",
+      "findingId": "cap-d6616105b1d0",
+      "trackerStep": 5,
+      "chainId": "chain-o4-group-ingest-2026-07-02",
+      "chainNodeId": "n27-round21-com-run11-blocked",
+      "symptomClass": "COM-RUN-11"
+    },
+    {
+      "id": "verify:issue:agent:1591f00d1d6bb8eb",
+      "symptomId": "COM-RUN-11",
+      "severity": "p0",
+      "status": "open",
+      "title": "COM-RUN-11 round23: Tester2 DM shows only superseded/canceled NewTest 2 invite cards — no live invite",
+      "source": "agent",
+      "evidenceRefs": [
+        ".codectx/verify/client-sessions/csess-aa3a9eab9c36/captures/cap-e05a0b0a513a/snapshot.yaml"
+      ],
+      "proofTier": "t3",
+      "doesNotProve": [
+        "Fresh invite t4 matrix",
+        "Dual-window COM-RUN-11"
+      ],
+      "ingestedAt": "2026-07-03T07:06:35.567011300+00:00",
+      "findingId": "cap-e05a0b0a513a",
+      "trackerStep": 5,
+      "chainId": "chain-o4-group-ingest-2026-07-02",
+      "symptomClass": "COM_RUN_11"
+    },
+    {
+      "id": "verify:issue:agent:56d6ef6f5831f080",
+      "symptomId": "groups-ledger-validation",
+      "severity": "p1",
+      "status": "triaged",
+      "title": "RIW-1 round23 pre-rebuild: ledger invalidEntries=7/7 on warm Tester1; shell rebuild in progress",
+      "source": "agent",
+      "evidenceRefs": [
+        ".codectx/verify/client-sessions/csess-aa3a9eab9c36/captures/cap-cfae3752ba87/digest.json"
+      ],
+      "proofTier": "t3",
+      "doesNotProve": [
+        "Post-rebuild ledger migration",
+        "COM-RUN-02 chat enter"
+      ],
+      "ingestedAt": "2026-07-03T07:09:18.349351300+00:00",
+      "findingId": "cap-cfae3752ba87",
+      "trackerStep": 1,
+      "riwId": "RIW-1",
+      "chainId": "chain-o4-group-ingest-2026-07-02",
+      "chainNodeId": "n9-round23-warm-baseline",
+      "symptomClass": "groups_ledger_validation"
+    },
+    {
+      "id": "verify:issue:agent:10ae33ad355320dc",
+      "symptomId": "dm-vanishes-cold-restart",
+      "severity": "p2",
+      "status": "fixed",
+      "title": "O-2 Phase1C t4 VERIFIED: O2-phase1c-coldrestart-070T0559 persists after taskkill + password unlock (eventId 168d95740472995d)",
+      "source": "agent",
+      "evidenceRefs": [
+        ".codectx/verify/chains/chain-o2-cold-restart-phase1c-2026-07-04/nodes/n0-pre-restart-send.json",
+        ".codectx/verify/chains/chain-o2-cold-restart-phase1c-2026-07-04/nodes/n1-post-restart-hydrate.json",
+        ".codectx/verify/client-sessions/csess-877010a1c38f/captures/cap-ad30095ea330/screenshot.png",
+        ".codectx/verify/client-sessions/csess-9c729dc6d96b/captures/cap-0e44f5aea39e/screenshot.png"
+      ],
+      "proofTier": "t4",
+      "doesNotProve": [],
+      "ingestedAt": "2026-07-04T05:04:21.489953200+00:00",
+      "trackerStep": 6,
+      "chainId": "chain-o2-cold-restart-phase1c-2026-07-04",
+      "chainNodeId": "n1-post-restart-hydrate",
+      "symptomClass": "dm-vanishes-cold-restart"
+    },
+    {
+      "id": "verify:issue:agent:3aa8584ac1e8095f",
+      "symptomId": "groups.room_key_missing_send_blocked",
+      "severity": "p1",
+      "status": "fixed",
+      "title": "COM-RUN-11 Phase 1C: profile-2 missing room key blocks dual-profile group send/receive",
+      "source": "agent",
+      "evidenceRefs": [],
+      "proofTier": "t3",
+      "doesNotProve": [],
+      "ingestedAt": "2026-07-04T05:25:57.580282200+00:00",
+      "findingId": "cap-858d228fcbca",
+      "chainId": "chain-com-run-11-phase1c-2026-07-04",
+      "symptomClass": "group-room-key-missing-dual-profile"
+    },
+    {
+      "id": "verify:issue:assert:cap-9cd8b8df6aea",
+      "severity": "p1",
+      "status": "open",
+      "title": "Client assert failed: textVisible — text not visible: Excluded",
+      "source": "client_assert",
+      "evidenceRefs": [
+        ".codectx/verify/client-sessions/csess-6223e8d73a45/captures/cap-9cd8b8df6aea/manifest.json",
+        ".codectx/verify/client-sessions/csess-6223e8d73a45/steps.json"
+      ],
+      "proofTier": "t3",
+      "doesNotProve": [
+        "Full OS-level automation",
+        "Long soak across machines"
+      ],
+      "ingestedAt": "2026-07-04T07:40:38.470510600+00:00",
+      "findingId": "cap-9cd8b8df6aea"
+    },
+    {
+      "id": "verify:issue:assert:cap-e9215a92a21b",
+      "severity": "p1",
+      "status": "open",
+      "title": "Client assert failed: textVisible — text not visible: O2-phase1c-coldrestart-070T0559",
+      "source": "client_assert",
+      "evidenceRefs": [
+        ".codectx/verify/client-sessions/csess-4c4583330873/captures/cap-e9215a92a21b/manifest.json",
+        ".codectx/verify/client-sessions/csess-4c4583330873/steps.json"
+      ],
+      "proofTier": "t3",
+      "doesNotProve": [
+        "Full OS-level automation",
+        "Long soak across machines"
+      ],
+      "ingestedAt": "2026-07-04T08:27:22.466198800+00:00",
+      "findingId": "cap-e9215a92a21b"
+    },
+    {
+      "id": "verify:issue:assert:cap-8ec91475da6b",
+      "symptomId": "group-room-key-missing",
+      "severity": "p1",
+      "status": "open",
+      "title": "Client assert failed: textVisible — text not visible: Room key missing",
+      "source": "client_assert",
+      "evidenceRefs": [
+        ".codectx/verify/client-sessions/csess-94f4ca6d3332/captures/cap-8ec91475da6b/manifest.json",
+        ".codectx/verify/client-sessions/csess-94f4ca6d3332/steps.json"
+      ],
+      "proofTier": "t3",
+      "doesNotProve": [
+        "Full OS-level automation",
+        "Long soak across machines"
+      ],
+      "ingestedAt": "2026-07-04T14:10:37.531844+00:00",
+      "findingId": "cap-8ec91475da6b"
+    }
+  ]
+}

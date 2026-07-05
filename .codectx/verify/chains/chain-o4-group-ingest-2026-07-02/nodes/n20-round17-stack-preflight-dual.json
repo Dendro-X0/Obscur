@@ -1,0 +1,14 @@
+{
+  "schema": "codactrl.investigation.node@0.1.0",
+  "chainId": "chain-o4-group-ingest-2026-07-02",
+  "nodeId": "n20-round17-stack-preflight-dual",
+  "trigger": "round17-codactrl-update",
+  "at": "2026-07-02T12:52:50.963733800+00:00",
+  "sessionId": "csess-8abe3d68a490",
+  "screenshotRef": ".codectx/verify/client-sessions/csess-8abe3d68a490/captures/cap-bf1f351a1225/screenshot.png",
+  "hypothesis": "client_stack_preflight blocks until :7000; skipStackPreflight enables dual harness; windowLabel profile-2 on :9231",
+  "doesNotProve": [
+    "O-4 group send without Docker :7000",
+    "COM-RUN-11 invite UX"
+  ]
+}

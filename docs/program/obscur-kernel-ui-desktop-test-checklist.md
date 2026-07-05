@@ -27,7 +27,7 @@ Prep report: `prepBandComplete: true` (expected before smoke).
 pnpm dev:desktop:transport-smoke
 ```
 
-Requires `apps/pwa/.env.local` with `NEXT_PUBLIC_COORDINATION_URL=http://127.0.0.1:8787` (see `.env.example`).
+Requires `apps/pwa/.env.example` copied to `.env.local` with `NEXT_PUBLIC_COORDINATION_URL=http://127.0.0.1:8787`.
 
 **Optional (Conduit Mesh C5):** add `NEXT_PUBLIC_OBSCUR_CONDUIT_MESH_POOL=1` to route the relay pool hook through mesh instead of `enhanced-relay-pool-legacy` (requires transport-kernel authority; Nostr subscribe remains unwired).
 

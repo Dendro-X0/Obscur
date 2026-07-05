@@ -1,0 +1,102 @@
+{
+  "schema": "client.session.steps@0.1.0",
+  "sessionId": "csess-169c06e92cf1",
+  "updatedAt": "2026-07-01T10:33:40.355001500+00:00",
+  "stepCount": 9,
+  "steps": [
+    {
+      "index": 0,
+      "stepId": "step-832796d15919",
+      "action": "snapshot",
+      "captureId": "cap-3df7d8dbd5ba",
+      "manifestPath": ".codectx/verify/client-sessions/csess-169c06e92cf1/captures/cap-3df7d8dbd5ba/manifest.json",
+      "stepLabel": "connect-bootstrap",
+      "pass": true,
+      "at": "2026-07-01T10:33:06.722633600+00:00"
+    },
+    {
+      "index": 1,
+      "stepId": "step-9bf65ddab12a",
+      "action": "surfaceProbe",
+      "captureId": "cap-1cf5fc79bace",
+      "manifestPath": ".codectx/verify/client-sessions/csess-169c06e92cf1/captures/cap-1cf5fc79bace/manifest.json",
+      "stepLabel": "surface-probe",
+      "pass": true,
+      "message": "surface probe captured",
+      "at": "2026-07-01T10:33:18.813261+00:00"
+    },
+    {
+      "index": 2,
+      "stepId": "step-2564fe37db",
+      "action": "digestPull",
+      "captureId": "cap-4b2564fe37db",
+      "manifestPath": ".codectx/verify/client-sessions/csess-169c06e92cf1/captures/cap-4b2564fe37db/manifest.json",
+      "stepLabel": "chain-chain-dm-split-brain-2026-07-02-n0-profile-picker-boot",
+      "pass": true,
+      "message": "runtime digest captured",
+      "at": "2026-07-01T10:33:19.817114+00:00"
+    },
+    {
+      "index": 3,
+      "stepId": "step-2048ca842a04",
+      "action": "screenshot",
+      "captureId": "cap-c7f926f6acc1",
+      "manifestPath": ".codectx/verify/client-sessions/csess-169c06e92cf1/captures/cap-c7f926f6acc1/manifest.json",
+      "stepLabel": "chain-n0-profile-picker-boot",
+      "pass": true,
+      "at": "2026-07-01T10:33:20.514922700+00:00"
+    },
+    {
+      "index": 4,
+      "stepId": "step-b05631765666",
+      "action": "snapshot",
+      "captureId": "cap-bafb0e40bed2",
+      "manifestPath": ".codectx/verify/client-sessions/csess-169c06e92cf1/captures/cap-bafb0e40bed2/manifest.json",
+      "pass": true,
+      "at": "2026-07-01T10:33:21.042367700+00:00"
+    },
+    {
+      "index": 5,
+      "stepId": "step-0d04bc0e1a87",
+      "action": "click",
+      "captureId": "cap-e11cbb325698",
+      "manifestPath": ".codectx/verify/client-sessions/csess-169c06e92cf1/captures/cap-e11cbb325698/manifest.json",
+      "stepLabel": "unlock-tester1-picker",
+      "selector": "img[alt=\"Tester1\"]",
+      "pass": true,
+      "at": "2026-07-01T10:33:29.300666100+00:00"
+    },
+    {
+      "index": 6,
+      "stepId": "step-8fabb93ff69f",
+      "action": "surfaceProbe",
+      "captureId": "cap-d6901b6ea296",
+      "manifestPath": ".codectx/verify/client-sessions/csess-169c06e92cf1/captures/cap-d6901b6ea296/manifest.json",
+      "stepLabel": "surface-probe",
+      "pass": true,
+      "message": "surface probe captured",
+      "at": "2026-07-01T10:33:38.530380800+00:00"
+    },
+    {
+      "index": 7,
+      "stepId": "step-fc5784e597",
+      "action": "digestPull",
+      "captureId": "cap-48fc5784e597",
+      "manifestPath": ".codectx/verify/client-sessions/csess-169c06e92cf1/captures/cap-48fc5784e597/manifest.json",
+      "stepLabel": "chain-chain-dm-split-brain-2026-07-02-n1-sign-in-gate",
+      "pass": true,
+      "message": "runtime digest captured",
+      "at": "2026-07-01T10:33:39.558633100+00:00"
+    },
+    {
+      "index": 8,
+      "stepId": "step-b8574f5bfe8a",
+      "action": "screenshot",
+      "captureId": "cap-60328be9334e",
+      "manifestPath": ".codectx/verify/client-sessions/csess-169c06e92cf1/captures/cap-60328be9334e/manifest.json",
+      "stepLabel": "chain-n1-sign-in-gate",
+      "pass": true,
+      "at": "2026-07-01T10:33:40.354186400+00:00"
+    }
+  ]
+}

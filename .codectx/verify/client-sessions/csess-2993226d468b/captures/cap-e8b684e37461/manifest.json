@@ -1,0 +1,24 @@
+{
+  "schema": "client.capture@0.1.0",
+  "sessionId": "csess-2993226d468b",
+  "captureId": "cap-e8b684e37461",
+  "action": "click",
+  "provider": "playwright-chromium",
+  "proofTier": "t2",
+  "pass": false,
+  "stepLabel": "back-to-marketplace",
+  "url": "http://localhost:3000/marketplace",
+  "finalUrl": "http://localhost:3000/dashboard",
+  "pageTitle": "",
+  "artifactPath": null,
+  "snapshotPath": ".codectx/verify/client-sessions/csess-2993226d468b/captures/cap-e8b684e37461/snapshot.yaml",
+  "capturedAt": "2026-07-03T06:28:09.784451500+00:00",
+  "proves": [
+    "Web flows against a live dev server"
+  ],
+  "doesNotProve": [
+    "Packaged desktop",
+    "WebView2-specific behavior",
+    "Multi-window focus"
+  ]
+}
