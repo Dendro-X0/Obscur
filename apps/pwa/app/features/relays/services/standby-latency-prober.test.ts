@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { probeStandbyRelayLatency } from "./standby-latency-prober";
 
 type WsHandlers = {
@@ -21,7 +21,12 @@ const fakeEvent = {} as Event;
 const fakeMessageEvent = {} as MessageEvent;
 
 describe("probeStandbyRelayLatency", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("resolves with latency when a message frame arrives", async () => {
+    vi.useFakeTimers();
     const factory = (): WebSocket => {
       const ws = makeWsFake();
       setTimeout(() => {
@@ -31,12 +36,16 @@ describe("probeStandbyRelayLatency", () => {
       return ws as unknown as WebSocket;
     };
 
-    const result = await probeStandbyRelayLatency("wss://relay.test", 2000, factory);
+    const promise = probeStandbyRelayLatency("wss://relay.test", 2000, factory);
+    await vi.advanceTimersByTimeAsync(5);
+    await vi.runAllTimersAsync();
+    const result = await promise;
     expect(result.ok).toBe(true);
-    expect(result.latencyMs).toBeGreaterThan(0);
+    expect(result.latencyMs).toBe(5);
   });
 
   it("resolves ok=true after frame-timeout (open but no frame)", async () => {
+    vi.useFakeTimers();
     const frameTimeoutMs = 50;
     const factory = (): WebSocket => {
       const ws = makeWsFake();
@@ -44,26 +53,33 @@ describe("probeStandbyRelayLatency", () => {
       return ws as unknown as WebSocket;
     };
 
-    const result = await probeStandbyRelayLatency("wss://relay.test", frameTimeoutMs, factory);
+    const promise = probeStandbyRelayLatency("wss://relay.test", frameTimeoutMs, factory);
+    await vi.advanceTimersByTimeAsync(5);
+    await vi.advanceTimersByTimeAsync(frameTimeoutMs);
+    await vi.runAllTimersAsync();
+    const result = await promise;
     expect(result.ok).toBe(true);
-    // Timer scheduling can undershoot on busy CI runners; assert near-timeout, not exact ms.
-    expect(result.latencyMs).toBeGreaterThanOrEqual(Math.floor(frameTimeoutMs * 0.75));
-    expect(result.latencyMs).toBeLessThanOrEqual(frameTimeoutMs + 25);
+    expect(result.latencyMs).toBe(frameTimeoutMs);
   });
 
   it("resolves ok=false when socket errors", async () => {
+    vi.useFakeTimers();
     const factory = (): WebSocket => {
       const ws = makeWsFake();
       setTimeout(() => { ws.onerror?.(fakeEvent); }, 5);
       return ws as unknown as WebSocket;
     };
 
-    const result = await probeStandbyRelayLatency("wss://relay.test", 2000, factory);
+    const promise = probeStandbyRelayLatency("wss://relay.test", 2000, factory);
+    await vi.advanceTimersByTimeAsync(5);
+    await vi.runAllTimersAsync();
+    const result = await promise;
     expect(result.ok).toBe(false);
     expect(result.latencyMs).toBe(0);
   });
 
   it("resolves ok=false when socket closes before frame", async () => {
+    vi.useFakeTimers();
     const factory = (): WebSocket => {
       const ws = makeWsFake();
       setTimeout(() => {
@@ -73,7 +89,10 @@ describe("probeStandbyRelayLatency", () => {
       return ws as unknown as WebSocket;
     };
 
-    const result = await probeStandbyRelayLatency("wss://relay.test", 2000, factory);
+    const promise = probeStandbyRelayLatency("wss://relay.test", 2000, factory);
+    await vi.advanceTimersByTimeAsync(5);
+    await vi.runAllTimersAsync();
+    const result = await promise;
     expect(result.ok).toBe(false);
     expect(result.errorMessage).toContain("server closed");
   });
