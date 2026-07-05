@@ -6,7 +6,7 @@ import {
 
 const mockInvoke = vi.hoisted(() => vi.fn());
 
-vi.mock("@obscur/engine-host", () => ({
+vi.mock("@obscur/engine-host/tauri", () => ({
   isTauriEngineHostAvailable: () => true,
   createTauriEngineHost: () => ({
     invoke: mockInvoke,

@@ -14,6 +14,12 @@ All notable changes to Obscur are documented here.
 - **Deferred majors** — `@noble/curves` 2.x · `@noble/secp256k1` 3.x · TypeScript 6 · ESLint 10 · Vite 8 · Wrangler 4 · i18next 26 · `lucide-react` 1.x (crypto/tooling breaking bands).
 - **Phase 6 precheck** — [v2.0.0-gate.md](docs/releases/v2.0.0-gate.md) expanded with phase snapshot + dependency policy.
 
+### Fixed (Engine lab — Vitest 4.1 harness)
+
+- **Transport parity harness** — mock `@obscur/engine-host/tauri` (subpath import); normalize relay result field order in network publish parity assert.
+- **Auth K4 contract** — bound-profile unlock mock forwards invoke arguments under Vitest 4.1.
+- **Proof:** `pnpm verify:engine-lab` · `pnpm verify:conduit-mesh-c6` · `pnpm verify:legacy-subtraction`.
+
 ### Fixed (Runtime repair — R5 O-4 ingest room-key owner)
 
 - **Ingest decrypt alignment** — `resolveRoomKeyHexForGroupRelayIngest` uses same local → coordination materialize path as send/health; ingest hooks pass `localPrivateKeyHex` from identity.

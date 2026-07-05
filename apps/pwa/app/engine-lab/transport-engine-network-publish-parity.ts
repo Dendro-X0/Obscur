@@ -121,15 +121,30 @@ export const assertNetworkPublishParity = (
     }
   };
 
+  const normalizeRelayResult = (
+    entry: Readonly<{ relayUrl: string; success: boolean; error?: string; latency?: number }>,
+  ): { relayUrl: string; success: boolean; error?: string; latency?: number } => ({
+    relayUrl: entry.relayUrl,
+    success: entry.success,
+    ...(entry.error !== undefined ? { error: entry.error } : {}),
+    ...(entry.latency !== undefined ? { latency: entry.latency } : {}),
+  });
+
+  const normalizeResults = (
+    results: ReadonlyArray<{ relayUrl: string; success: boolean; error?: string; latency?: number }>,
+  ): Array<{ relayUrl: string; success: boolean; error?: string; latency?: number }> => (
+    results.map(normalizeRelayResult)
+  );
+
   assertEq("quorumRequired", standalone.quorumRequired, host.quorumRequired);
   assertEq("metQuorum", standalone.metQuorum, host.metQuorum);
   assertEq("success", standalone.success, host.success);
   assertEq("successCount", standalone.successCount, host.successCount);
   assertEq("totalRelays", standalone.totalRelays, host.totalRelays);
-  if (JSON.stringify(standalone.results) !== JSON.stringify(host.results)) {
+  if (JSON.stringify(normalizeResults(standalone.results)) !== JSON.stringify(normalizeResults(host.results))) {
     throw new Error("network publish parity mismatch (results)");
   }
-  if (JSON.stringify(standalone.failures) !== JSON.stringify(host.failures)) {
+  if (JSON.stringify(normalizeResults(standalone.failures)) !== JSON.stringify(normalizeResults(host.failures))) {
     throw new Error("network publish parity mismatch (failures)");
   }
   assertEq("mapped.status", standaloneMapped.status, hostMapped.status);
