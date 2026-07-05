@@ -4,7 +4,7 @@ import { createAuthKernelAssistantPort } from "./auth-kernel-assistant-adapter";
 import { createAuthKernelPorts } from "./auth-kernel-ports";
 
 const invokeMock = vi.hoisted(() => vi.fn());
-const boundUnlockMock = vi.hoisted(() => vi.fn(async () => undefined));
+const boundUnlockMock = vi.hoisted(() => vi.fn(async (_ports: unknown, _params: unknown) => undefined));
 const consentMock = vi.hoisted(() => vi.fn());
 const publicKeyHex = vi.hoisted(() => "aa".repeat(32) as PublicKeyHex);
 
@@ -21,7 +21,7 @@ vi.mock("@/app/features/auth/services/auth-kernel-legacy-delegates", () => ({
 }));
 
 vi.mock("./auth-kernel-bound-profile-auth", () => ({
-  runAuthKernelBoundProfileUnlockWithPassphrase: (...args: unknown[]) => boundUnlockMock(...args),
+  runAuthKernelBoundProfileUnlockWithPassphrase: boundUnlockMock,
 }));
 
 vi.mock("@/app/features/auth/services/device-session-consent", () => ({
