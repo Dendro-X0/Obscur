@@ -144,7 +144,10 @@ export const assertNetworkPublishParity = (
   if (JSON.stringify(normalizeResults(standalone.results)) !== JSON.stringify(normalizeResults(host.results))) {
     throw new Error("network publish parity mismatch (results)");
   }
-  if (JSON.stringify(normalizeResults(standalone.failures)) !== JSON.stringify(normalizeResults(host.failures))) {
+  if (
+    JSON.stringify(normalizeResults(standalone.failures ?? []))
+    !== JSON.stringify(normalizeResults(host.failures ?? []))
+  ) {
     throw new Error("network publish parity mismatch (failures)");
   }
   assertEq("mapped.status", standaloneMapped.status, hostMapped.status);
