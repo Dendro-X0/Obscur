@@ -8,6 +8,12 @@ All notable changes to Obscur are documented here.
 
 ## [Unreleased]
 
+### Maintenance (v2.0.0 precheck — 2026-07-04)
+
+- **Dependency refresh** — Semver-safe npm/pnpm/Rust updates across monorepo; Node engine unchanged (`>=20.11.0`). Next.js 16.2.10 · React 19.2.7 · Tauri plugins/CLI · Tailwind 4.3 · Vitest 4.1 · pnpm 9.15.9 · `cargo update` on `libobscur` + desktop.
+- **Deferred majors** — `@noble/curves` 2.x · `@noble/secp256k1` 3.x · TypeScript 6 · ESLint 10 · Vite 8 · Wrangler 4 · i18next 26 · `lucide-react` 1.x (crypto/tooling breaking bands).
+- **Phase 6 precheck** — [v2.0.0-gate.md](docs/releases/v2.0.0-gate.md) expanded with phase snapshot + dependency policy.
+
 ### Fixed (Runtime repair — R5 O-4 ingest room-key owner)
 
 - **Ingest decrypt alignment** — `resolveRoomKeyHexForGroupRelayIngest` uses same local → coordination materialize path as send/health; ingest hooks pass `localPrivateKeyHex` from identity.

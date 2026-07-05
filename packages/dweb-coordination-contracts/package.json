@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Shared coordination API contracts — membership delta signing.",
   "dependencies": {
-    "@noble/curves": "^1.6.0"
+    "@noble/curves": "^1.9.7"
   },
   "exports": {
     ".": "./src/index.ts",

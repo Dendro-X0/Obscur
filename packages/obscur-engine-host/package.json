@@ -7,7 +7,7 @@
   "dependencies": {
     "@dweb/auth": "workspace:*",
     "@obscur/engine-contracts": "workspace:*",
-    "@tauri-apps/api": "^2.10.1"
+    "@tauri-apps/api": "^2.11.1"
   },
   "exports": {
     ".": "./src/index.ts",

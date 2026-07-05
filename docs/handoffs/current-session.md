@@ -1,21 +1,19 @@
 # Current Session Handoff — Obscur Engine Lab
 
-- Last Updated (UTC): 2026-07-05T00:02:00Z
+- Last Updated (UTC): 2026-07-05T02:00:00Z
 
 ## Next atomic step
 
-**Phase 4 — Vercel preview deploy** (local deploy smoke **PASS** · runtime repair band **EXIT**)
+**Phase 6 precheck** — v2.0.0 gate draft + dependency refresh (Node engine unchanged)
 
 | Field | Value |
 |-------|--------|
-| Prerequisite | R1–R5 **VERIFIED t4** · R4 **A** @ ACC-02 |
-| L1 | **PASS** — `pnpm -C apps/website build` (2026-07-04) |
-| Local smoke | **PASS** — `/`, `/download`, `/limitations` HTTP 200 · SHA-256 matches `release-assets/manifest.json` |
-| Editorial P0 | **Done** — hero fold · `/download` utilitarian pass · [frontend-spec.md](../../apps/website/docs/frontend-spec.md) |
-| CodaCtrl chain | `chain-phase4-website-2026-07-04` · n0–n3 · deploy smoke t2 (`csess-7813dd567860`) |
-| Next | **Vercel preview** (maintainer `vercel login` + deploy from `apps/website`) · then Phase 4 **EXIT** sign-off → Phase 5 demo kit |
-| Blocked | `npx vercel whoami` hangs (npm lock) · codactrld workspace misalignment for `client_session_connect` (WEB-R1) |
-| Charter | [obscur-v2-phase4-website-charter.md](../program/obscur-v2-phase4-website-charter.md) |
+| R6-1 | **Draft** — [v2.0.0-gate.md](../releases/v2.0.0-gate.md) phase snapshot |
+| R6-2 | **Unreleased** CHANGELOG maintenance slice |
+| Deps | **Done** — pnpm/Rust semver-safe bump · majors deferred (noble 2, TS 6, wrangler 4, …) |
+| Phase 4 | **PAUSED** — Vercel deploy |
+| Phase 5 | **Local prep** — demo script draft · GIF capture **maintainer-later** |
+| Next | `pnpm release:test-pack` on dep bump commit · Phase 4/5 EXIT when unblocked · tag **not yet** |
 
 **R5 — VERIFIED t4 (2026-07-04)**
 

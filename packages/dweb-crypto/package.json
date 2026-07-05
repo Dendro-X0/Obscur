@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@noble/secp256k1": "^2.2.3"
+    "@noble/secp256k1": "^2.3.0"
   },
   "exports": {
     "./encrypted-string": "./src/encrypted-string.ts",

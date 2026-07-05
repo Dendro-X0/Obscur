@@ -13,13 +13,14 @@ _Last updated: 2026-07-04 · Version train: **1.9.10** · **Runtime repair band 
 | **v2 product verification (Phase 1)** | **EXIT** 2026-07-04 — [version-roadmap-scope.md](./program/version-roadmap-scope.md) |
 | **v2 documentation (Phase 2)** | **EXIT** 2026-07-04 |
 | **v2 installers (Phase 3)** | **EXIT** 2026-07-04 — [release-assets/manifest.json](../release-assets/manifest.json) |
-| **Phase 4 website** | **Local smoke PASS** · Vercel preview gate · [charter](./program/obscur-v2-phase4-website-charter.md) |
-| **Runtime repair band** | **EXIT** — R1–R3 + R5 **VERIFIED t4** · R4 **A** · maintainer gate Phase 4 |
-| **Release prep (Phase 5–6)** | **PAUSED** — gated on Phase 4 **EXIT** (Vercel preview) |
+| **Phase 4 website** | **Code done** · Vercel deploy **PAUSED** · [charter](./program/obscur-v2-phase4-website-charter.md) |
+| **Phase 5 demo kit** | **Local prep** — script draft · GIF capture **maintainer-later** |
+| **Runtime repair band** | **EXIT** — R1–R3 + R5 **VERIFIED t4** · R4 **A** |
+| **Phase 6 precheck** | **In progress** — gate draft · deps refreshed · tag **not yet** |
 | **Engine lab (B0–B5, Conduit Mesh C0–C6)** | **Landed** — `pnpm verify:engine-lab` (parallel, does not unblock release alone) |
 | **Community feature patches** | **PAUSED** — COM-RUN-01 accepted @ ACC-02 |
 
-**Next step:** [handoffs/current-session.md](./handoffs/current-session.md) → **Phase 4** Vercel preview deploy (local smoke PASS)
+**Next step:** [handoffs/current-session.md](./handoffs/current-session.md) → **Phase 6 precheck** (gate draft + deps refreshed; tag gated on Phase 4–5)
 
 ---
 

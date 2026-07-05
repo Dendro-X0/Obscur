@@ -17,11 +17,11 @@
     "build:android:release": "node scripts/run-android-build.mjs --apk --aab"
   },
   "dependencies": {
-    "@tauri-apps/plugin-dialog": "^2.6.0",
-    "@tauri-apps/plugin-http": "^2.5.7"
+    "@tauri-apps/plugin-dialog": "^2.7.1",
+    "@tauri-apps/plugin-http": "^2.5.9"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2.9.0",
+    "@tauri-apps/cli": "^2.11.4",
     "cross-env": "^10.1.0"
   }
 }
