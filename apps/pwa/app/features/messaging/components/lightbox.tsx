@@ -158,6 +158,14 @@ function LegacyLightbox({ item, onClose }: LightboxProps) {
       window.removeEventListener("resize", updateConstraints);
     };
   }, [zoom, x, y, item?.attachment.url]);
+  React.useEffect(() => {
+    const attachmentUrl = item?.attachment.url;
+    return () => {
+      if (attachmentUrl?.startsWith("blob:")) {
+        URL.revokeObjectURL(attachmentUrl);
+      }
+    };
+  }, [item?.attachment.url]);
     const onDownload = async (event: React.MouseEvent) => {
         event.stopPropagation();
         const downloaded = await downloadAttachmentToUserPath({
@@ -166,6 +174,10 @@ function LegacyLightbox({ item, onClose }: LightboxProps) {
         });
         if (!downloaded) {
             toast.error(t("vault.saveFromChatFailed"));
+            return;
+        }
+        if (item.attachment.url?.startsWith("blob:")) {
+            toast.success(t("vault.exportDecryptedCopySuccess"));
         }
     };
     const onSaveToVault = async (event: React.MouseEvent) => {
@@ -200,7 +212,7 @@ function LegacyLightbox({ item, onClose }: LightboxProps) {
           {canSaveChatAttachmentsToLocalVault() ? (<button type="button" className="media-viewer-control" onClick={(event) => void onSaveToVault(event)} disabled={isSavingToVault} aria-label={t("vault.saveFromChat")} title={isSavedToVault ? t("vault.alreadyInVault") : t("vault.saveFromChat")}>
             <HardDrive className="h-4 w-4"/>
           </button>) : null}
-          <button type="button" className="media-viewer-control" onClick={(event) => { void onDownload(event); }} aria-label={t("common.download")}>
+          <button type="button" className="media-viewer-control" onClick={(event) => { void onDownload(event); }} aria-label={t("vault.actions.exportDecryptedCopy", "Export decrypted copy…")}>
             <Download className="h-4 w-4"/>
           </button>
           <button type="button" aria-label={t("common.close")} title={t("common.close")} onClick={onClose} className="media-viewer-control">
@@ -313,6 +325,14 @@ function V083Lightbox({ item, onClose, onPrev, onNext, hasPrev, hasNext, activeI
         };
     }, [zoom, x, y, item?.attachment.url]);
     React.useEffect(() => {
+        const attachmentUrl = item?.attachment.url;
+        return () => {
+            if (attachmentUrl?.startsWith("blob:")) {
+                URL.revokeObjectURL(attachmentUrl);
+            }
+        };
+    }, [item?.attachment.url]);
+    React.useEffect(() => {
         const onKeyDown = (event: KeyboardEvent) => {
             if (event.key === "Escape")
                 onClose();
@@ -336,6 +356,10 @@ function V083Lightbox({ item, onClose, onPrev, onNext, hasPrev, hasNext, activeI
         });
         if (!downloaded) {
             toast.error(t("vault.saveFromChatFailed"));
+            return;
+        }
+        if (item!.attachment.url?.startsWith("blob:")) {
+            toast.success(t("vault.exportDecryptedCopySuccess"));
         }
     };
     const onSaveToVault = async (event: React.MouseEvent) => {
@@ -385,7 +409,7 @@ function V083Lightbox({ item, onClose, onPrev, onNext, hasPrev, hasNext, activeI
           {canSaveChatAttachmentsToLocalVault() ? (<button type="button" className="media-viewer-control" onClick={(event) => void onSaveToVault(event)} disabled={isSavingToVault} aria-label={t("vault.saveFromChat")} title={isSavedToVault ? t("vault.alreadyInVault") : t("vault.saveFromChat")}>
             <HardDrive className="h-4 w-4"/>
           </button>) : null}
-          <button type="button" className="media-viewer-control" onClick={(event) => { void onDownload(event); }} aria-label={t("common.download")}>
+          <button type="button" className="media-viewer-control" onClick={(event) => { void onDownload(event); }} aria-label={t("vault.actions.exportDecryptedCopy", "Export decrypted copy…")}>
             <Download className="h-4 w-4"/>
           </button>
           <button type="button" className="media-viewer-control" onClick={onClose} aria-label={t("common.close")}>

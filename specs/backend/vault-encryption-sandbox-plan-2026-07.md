@@ -184,6 +184,8 @@ Obscur Vault becomes an **encryption sandbox**: media bytes under the user data 
 
 **Proof:** L3 manual script-injection checklist (§6).
 
+**Status (2026-07-09):** **Implemented** — export labeling, folder-only reveal, `vault-media-blob-lifecycle.ts`, lock/refresh revoke
+
 ---
 
 ### Phase 5 — Layout alignment (charter Phase 2 completion)

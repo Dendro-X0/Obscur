@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useMemo } from "react";
+import { toast } from "@dweb/ui-kit";
+import { useTranslation } from "react-i18next";
 import { useOptionalProfileMessageBus } from "../../profiles/providers/profile-runtime-provider";
 import { getResolvedProfileId } from "../../profiles/services/profile-runtime-scope";
 import { subscribeChatStateReplacedDual } from "../../profiles/services/subscribe-chat-state-replaced-dual";
@@ -12,6 +14,7 @@ import {
     downloadAttachmentToUserPath,
     revealLocalMediaItemPath,
     subscribeLocalMediaIndexChanged,
+    revokeAllVaultMediaBlobUrls,
 } from "../services/local-media-store";
 import {
     buildVaultMediaItemsFast,
@@ -34,6 +37,7 @@ export type { VaultMediaItem } from "../types/vault-media-item";
  * This is the core data provider for "The Vault".
  */
 export function useVaultMedia() {
+    const { t } = useTranslation();
     const identity = useIdentity();
     const optionalProfileBus = useOptionalProfileMessageBus();
     const publicKeyHex = identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex ?? null;
@@ -59,6 +63,7 @@ export function useVaultMedia() {
 
         const generation = refreshGenerationRef.current + 1;
         refreshGenerationRef.current = generation;
+        revokeAllVaultMediaBlobUrls();
         const showBlockingLoader = !hasPaintedVaultRef.current;
         if (showBlockingLoader) {
             setIsLoading(true);
@@ -150,6 +155,7 @@ export function useVaultMedia() {
         return () => {
             deferredEnrichCancelRef.current?.();
             deferredEnrichCancelRef.current = undefined;
+            revokeAllVaultMediaBlobUrls();
         };
     }, [publicKeyHex, refresh]);
 
@@ -199,10 +205,14 @@ export function useVaultMedia() {
         error,
         refresh,
         downloadToLocalPath: async (item: VaultMediaItem) => {
-            return downloadAttachmentToUserPath({
+            const exported = await downloadAttachmentToUserPath({
                 attachment: item.attachment,
-                sourceUrl: item.attachment.url || item.remoteUrl,
+                sourceUrl: item.remoteUrl,
             });
+            if (exported) {
+                toast.success(t("vault.exportDecryptedCopySuccess"));
+            }
+            return exported;
         },
         deleteLocalCopy: async (remoteUrl: string) => {
             await deleteLocalMediaCacheItem(remoteUrl);

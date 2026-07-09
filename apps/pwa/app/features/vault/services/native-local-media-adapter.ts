@@ -113,6 +113,16 @@ const readBytes = async (params: NativeMediaPathRef): Promise<Uint8Array | null>
   }
 };
 
+const parentPath = async (absolutePath: string): Promise<string | null> => {
+  if (!isSupported()) return null;
+  try {
+    const { dirname } = await import("@tauri-apps/api/path");
+    return dirname(absolutePath);
+  } catch {
+    return null;
+  }
+};
+
 export const nativeLocalMediaAdapter = {
   isSupported,
   joinPaths,
@@ -126,4 +136,5 @@ export const nativeLocalMediaAdapter = {
   convertAbsolutePathToFileSrc,
   pickDirectory,
   pickSavePath,
+  parentPath,
 };

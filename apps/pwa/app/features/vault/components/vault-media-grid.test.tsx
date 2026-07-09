@@ -4,9 +4,23 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { VaultMediaGrid } from "./vault-media-grid";
 import type { VaultMediaItem } from "../hooks/use-vault-media";
 
+const vaultGridTranslations: Record<string, string> = {
+  "vault.origin.direct": "Direct message",
+  "vault.origin.community": "Community",
+  "vault.origin.chat": "Chat",
+  "vault.origin.directSource": "Direct message source",
+  "vault.origin.communitySource": "Community source",
+  "vault.origin.chatSource": "Chat source",
+  "vault.actions.openDirectMessage": "Open Direct Message",
+  "vault.actions.openCommunity": "Open Community",
+  "vault.actions.openSourceChat": "Open Source Chat",
+  "vault.actions.exportDecryptedCopy": "Export decrypted copy…",
+  "vault.actions.openVaultFolder": "Open vault folder",
+};
+
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
-    t: (_key: string, fallback?: string) => fallback ?? _key,
+    t: (key: string, fallback?: string) => vaultGridTranslations[key] ?? fallback ?? key,
   }),
 }));
 
@@ -14,6 +28,34 @@ vi.mock("@dweb/ui-kit", () => ({
   Button: ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
     <button {...props}>{children}</button>
   ),
+  toast: {
+    success: vi.fn(),
+    error: vi.fn(),
+  },
+  DropdownMenu: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  DropdownMenuTrigger: ({ children, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
+    <div {...props}>{children}</div>
+  ),
+  DropdownMenuContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  DropdownMenuItem: ({
+    children,
+    onSelect,
+    ...props
+  }: React.ButtonHTMLAttributes<HTMLButtonElement> & { onSelect?: () => void }) => (
+    <button type="button" {...props} onClick={() => onSelect?.()}>
+      {children}
+    </button>
+  ),
+  DropdownMenuSeparator: () => <hr />,
+}));
+
+vi.mock("next/image", () => ({
+  default: (props: React.ImgHTMLAttributes<HTMLImageElement>) => <img {...props} alt={props.alt ?? ""} />,
+}));
+
+vi.mock("@/app/components/app-overlay-layer", () => ({
+  APP_OVERLAY_BACKDROP_CLASS: "overlay-backdrop",
+  AppOverlayPortal: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
 vi.mock("@/app/lib/utils", () => ({
@@ -227,12 +269,12 @@ describe("VaultMediaGrid management actions", () => {
     fireEvent.keyDown(tile!, { key: "Enter" });
 
     await waitFor(() => {
-      expect(screen.getByText("Open Direct Message")).toBeInTheDocument();
+      expect(screen.getAllByText("Open Direct Message").length).toBeGreaterThan(0);
     });
     expect(screen.getAllByText("Direct message source").length).toBeGreaterThan(0);
   });
 
-  it("downloads a Vault item from the action menu", async () => {
+  it("exports a Vault item from the action menu", async () => {
     const item = createMediaItem();
     const downloadToLocalPath = vi.fn(async () => true);
 
@@ -248,7 +290,7 @@ describe("VaultMediaGrid management actions", () => {
     );
 
     fireEvent.click(screen.getByLabelText(`Vault item actions for ${item.attachment.fileName}`));
-    fireEvent.click(screen.getByText("Download"));
+    fireEvent.click(screen.getByText("Export decrypted copy…"));
 
     await waitFor(() => {
       expect(downloadToLocalPath).toHaveBeenCalledWith(expect.objectContaining({ id: item.id }));

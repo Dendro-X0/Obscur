@@ -12,6 +12,7 @@ import type { VaultMediaItem } from "../hooks/use-vault-media";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { logRuntimeEvent } from "@/app/shared/runtime-log-classification";
+import { revokeVaultMediaBlobUrl } from "../services/vault-media-blob-lifecycle";
 import { isGroupConversationId } from "@/app/features/groups/utils/group-conversation-id";
 import { useMobileCompactLayout } from "@/app/features/runtime/use-mobile-compact-layout";
 import { APP_OVERLAY_BACKDROP_CLASS, AppOverlayPortal } from "@/app/components/app-overlay-layer";
@@ -299,8 +300,22 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
             toast.error(t("vault.openLocalFileFailed", "Could not open local file location."));
             return;
         }
-        toast.success(t("vault.openLocalFileSuccess", "Opened local file location."));
+        toast.success(t("vault.openVaultFolderSuccess", "Opened the folder containing encrypted vault files."));
     }, [props.openLocalFileLocation, t]);
+    const closePreview = React.useCallback(() => {
+        if (selectedItem?.remoteUrl) {
+            revokeVaultMediaBlobUrl(selectedItem.remoteUrl);
+        }
+        setSelectedItem(null);
+    }, [selectedItem]);
+    React.useEffect(() => {
+        const remoteUrl = selectedItem?.remoteUrl;
+        return () => {
+            if (remoteUrl) {
+                revokeVaultMediaBlobUrl(remoteUrl);
+            }
+        };
+    }, [selectedItem?.remoteUrl]);
     const getSourceLabel = React.useCallback((item: VaultMediaItem): string => {
         const sourceKind = resolveVaultSourceKind(item);
         if (sourceKind === "community") {
@@ -354,7 +369,7 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
                 if (selectedItem) {
                     event.preventDefault();
                     event.stopPropagation();
-                    setSelectedItem(null);
+                    closePreview();
                     return;
                 }
                 return;
@@ -384,7 +399,7 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
         return () => {
             window.removeEventListener("keydown", handleKeyboardControls);
         };
-    }, [hasPreviewNext, hasPreviewPrevious, selectedItem, selectedItemIndex, visibleItems]);
+    }, [closePreview, hasPreviewNext, hasPreviewPrevious, selectedItem, selectedItemIndex, visibleItems]);
     if (props.isLoading && props.mediaItems.length === 0) {
         return (<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-6">
                 {Array.from({ length: 8 }).map((_, i) => (<div key={i} className="aspect-square rounded-[24px] bg-muted animate-pulse border border-border/50 overflow-hidden relative">
@@ -613,11 +628,11 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
                                                     </DropdownMenuItem>)}
                                                 <DropdownMenuItem className={vaultActionMenuItemClass} onSelect={() => { void props.downloadToLocalPath(item); }}>
                                                     <Download className="h-3.5 w-3.5"/>
-                                                    Download
+                                                    {t("vault.actions.exportDecryptedCopy", "Export decrypted copy…")}
                                                 </DropdownMenuItem>
                                                 <DropdownMenuItem className={vaultActionMenuItemClass} disabled={!item.isLocalCached || !props.openLocalFileLocation} onSelect={() => { void openLocalFileLocation(item); }}>
                                                     <FolderOpen className="h-3.5 w-3.5"/>
-                                                    {t("vault.actions.openLocalFileLocation", "Open Local File")}
+                                                    {t("vault.actions.openVaultFolder", "Open vault folder")}
                                                 </DropdownMenuItem>
                                                 <DropdownMenuItem className={vaultActionMenuItemClass} onSelect={() => { setSelectionMode(true); setSelected(item.id, true); }}>
                                                     <CheckSquare className="h-3.5 w-3.5"/>
@@ -682,7 +697,7 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
                                         {selectedItem.isLocalCached ? "Locally Synchronized" : "Decentralized Relay"} - {getSourceDescription(selectedItem)} - {selectedItem.timestamp.toLocaleString()}
                                     </p>
                                 </div>
-                                <button onClick={() => setSelectedItem(null)} aria-label={t("common.close")} className={cn("rounded-full bg-white/85 text-zinc-900 hover:bg-white border border-zinc-300/80 dark:bg-white/10 dark:text-white dark:hover:bg-white/20 dark:border-white/10 flex items-center justify-center transition-all group active:scale-90 shrink-0", compact ? "h-12 w-12" : "h-14 w-14")}>
+                                <button onClick={closePreview} aria-label={t("common.close")} className={cn("rounded-full bg-white/85 text-zinc-900 hover:bg-white border border-zinc-300/80 dark:bg-white/10 dark:text-white dark:hover:bg-white/20 dark:border-white/10 flex items-center justify-center transition-all group active:scale-90 shrink-0", compact ? "h-12 w-12" : "h-14 w-14")}>
                                     <X className="h-6 w-6 group-hover:rotate-90 transition-transform duration-500"/>
                                 </button>
                             </motion.div>
@@ -699,10 +714,10 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
                                                 <Button title={getOpenSourceLabel(selectedItem)} variant="ghost" onClick={() => openSourceConversation(selectedItem)} disabled={!selectedItem.sourceConversationId} className="h-10 w-10 justify-center rounded-xl p-0 text-white hover:bg-white/10 disabled:opacity-30">
                                                     <ExternalLink className="h-4 w-4 shrink-0"/>
                                                 </Button>
-                                                <Button title="Download" variant="ghost" onClick={async () => { await props.downloadToLocalPath(selectedItem); }} className="h-10 w-10 justify-center rounded-xl p-0 text-white hover:bg-white/10">
+                                                <Button title={t("vault.actions.exportDecryptedCopy", "Export decrypted copy…")} variant="ghost" onClick={async () => { await props.downloadToLocalPath(selectedItem); }} className="h-10 w-10 justify-center rounded-xl p-0 text-white hover:bg-white/10">
                                                     <Download className="h-4 w-4 shrink-0"/>
                                                 </Button>
-                                                {selectedItem.isLocalCached ? (<Button title={t("vault.actions.openLocalFileLocation", "Open Local File")} variant="ghost" onClick={async () => { await openLocalFileLocation(selectedItem); }} className="h-10 w-10 justify-center rounded-xl p-0 text-white hover:bg-white/10">
+                                                {selectedItem.isLocalCached ? (<Button title={t("vault.actions.openVaultFolder", "Open vault folder")} variant="ghost" onClick={async () => { await openLocalFileLocation(selectedItem); }} className="h-10 w-10 justify-center rounded-xl p-0 text-white hover:bg-white/10">
                                                         <FolderOpen className="h-4 w-4 shrink-0"/>
                                                     </Button>) : null}
                                                 <Button title="Source URL" variant="ghost" onClick={() => window.open(selectedItem.remoteUrl, "_blank")} className="h-10 w-10 justify-center rounded-xl p-0 text-white hover:bg-white/10">
@@ -713,7 +728,7 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
                                 : undefined)}>
                                                     <Star className={cn("h-4 w-4 shrink-0", favorites.has(selectedItem.remoteUrl) && "fill-current")}/>
                                                 </Button>
-                                                {selectedItem.isLocalCached ? (<Button title="Flush Cache" variant="ghost" onClick={async () => { await props.deleteLocalCopy(selectedItem.remoteUrl); setSelectedItem(null); }} className="h-10 w-10 justify-center rounded-xl p-0 text-rose-400 hover:bg-rose-500/15">
+                                                {selectedItem.isLocalCached ? (<Button title="Flush Cache" variant="ghost" onClick={async () => { await props.deleteLocalCopy(selectedItem.remoteUrl); closePreview(); }} className="h-10 w-10 justify-center rounded-xl p-0 text-rose-400 hover:bg-rose-500/15">
                                                         <Trash2 className="h-4 w-4 shrink-0"/>
                                                     </Button>) : null}
                                             </div>
@@ -740,13 +755,13 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
                                     <div className={previewToolbarDividerClass}/>
                                     <Button variant="ghost" onClick={async () => { await props.downloadToLocalPath(selectedItem); }} className={previewToolbarButtonClass}>
                                         <Download className="h-4 w-4 mr-3"/>
-                                        Download
+                                        {t("vault.actions.exportDecryptedCopy", "Export decrypted copy…")}
                                     </Button>
                                     {selectedItem.isLocalCached ? (<>
                                             <div className={previewToolbarDividerClass}/>
                                             <Button variant="ghost" onClick={async () => { await openLocalFileLocation(selectedItem); }} className={previewToolbarButtonClass}>
                                                 <FolderOpen className="h-4 w-4 mr-3"/>
-                                                {t("vault.actions.openLocalFileLocation", "Open Local File")}
+                                                {t("vault.actions.openVaultFolder", "Open vault folder")}
                                             </Button>
                                         </>) : null}
                                     <div className={previewToolbarDividerClass}/>
@@ -763,7 +778,7 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
                                     </Button>
                                     {selectedItem.isLocalCached && (<>
                                             <div className={previewToolbarDividerClass}/>
-                                            <Button variant="ghost" onClick={async () => { await props.deleteLocalCopy(selectedItem.remoteUrl); setSelectedItem(null); }} className={cn(previewToolbarButtonClass, "text-rose-600 dark:text-rose-500 hover:bg-rose-500/10")}>
+                                            <Button variant="ghost" onClick={async () => { await props.deleteLocalCopy(selectedItem.remoteUrl); closePreview(); }} className={cn(previewToolbarButtonClass, "text-rose-600 dark:text-rose-500 hover:bg-rose-500/10")}>
                                                 <Trash2 className="h-4 w-4 mr-3"/>
                                                 Flush Cache
                                             </Button>
@@ -886,7 +901,7 @@ function MediaStage({ item, videoMobileLayoutEnabled, onVideoMobileLayoutToggle 
             </div>
             <Button onClick={() => window.open(item.attachment.url, "_blank")} className="w-full bg-amber-500 hover:bg-amber-600 text-black font-black rounded-3xl h-16 text-base tracking-tight shadow-[0_20px_40px_-10px_rgba(245,158,11,0.3)] transition-all hover:-translate-y-1">
                 <Download className="h-5 w-5 mr-3"/>
-                Download Asset
+                {t("vault.actions.exportDecryptedCopy", "Export decrypted copy…")}
             </Button>
         </div>);
 }

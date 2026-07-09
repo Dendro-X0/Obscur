@@ -28,6 +28,11 @@ import {
   persistVaultMediaIndexSnapshotToSqlite,
   usesSqliteVaultMediaIndex,
 } from "./vault-media-index-sqlite-store";
+import {
+  registerVaultMediaBlobUrl,
+  revokeAllVaultMediaBlobUrls,
+  revokeVaultMediaBlobUrl,
+} from "./vault-media-blob-lifecycle";
 
 export type { LocalMediaIndexEntry, LocalMediaIndex } from "./vault-media-index-contract";
 
@@ -179,6 +184,7 @@ export const resetVaultMediaIndexCache = (): void => {
   vaultIndexCache = {};
   vaultIndexCacheHydrated = false;
   vaultIndexCacheProfileId = null;
+  revokeAllVaultMediaBlobUrls();
 };
 
 export const hydrateVaultMediaIndexCacheFromSqlite = async (profileId?: string): Promise<void> => {
@@ -623,13 +629,19 @@ export const revealLocalMediaItemPath = async (remoteUrl: string): Promise<boole
             return false;
         }
         const absolutePath = await resolveEntryAbsolutePath(entry.relativePath);
+        const revealTarget = isEncryptedVaultRelativePath(entry.relativePath)
+            ? (await nativeLocalMediaAdapter.parentPath(absolutePath)) ?? absolutePath
+            : absolutePath;
         const revealResult = await invokeNativeCommand<void>("desktop_reveal_path_in_file_manager", {
-            path: absolutePath,
+            path: revealTarget,
         });
         if (revealResult.ok) {
             return true;
         }
-        return nativeLocalMediaAdapter.openPath(absolutePath);
+        if (!isEncryptedVaultRelativePath(entry.relativePath)) {
+            return nativeLocalMediaAdapter.openPath(absolutePath);
+        }
+        return false;
     } catch {
         return false;
     }
@@ -657,7 +669,7 @@ export const resolveLocalMediaUrl = async (remoteUrl: string): Promise<string | 
             }
             const decrypted = await decryptVaultFileBytesIfNeeded({ fileBytes });
             const blob = new Blob([decrypted.slice()], { type: entry.contentType || "application/octet-stream" });
-            return URL.createObjectURL(blob);
+            return registerVaultMediaBlobUrl(remoteUrl, URL.createObjectURL(blob));
         }
         return nativeLocalMediaAdapter.convertAbsolutePathToFileSrc(absolutePath);
     } catch {
@@ -1101,6 +1113,7 @@ export const deleteLocalMediaCacheItem = async (remoteUrl: string): Promise<bool
     }
 
     delete index[remoteUrl];
+    revokeVaultMediaBlobUrl(remoteUrl);
     saveIndex(index);
     return true;
 };
@@ -1162,6 +1175,11 @@ export const downloadAttachmentToUserPath = async (params: Readonly<{
     document.body.removeChild(anchor);
     return true;
 };
+
+/** Explicit plaintext exit for encrypted sandbox policy. */
+export const exportDecryptedVaultAttachmentToUserPath = downloadAttachmentToUserPath;
+
+export { revokeAllVaultMediaBlobUrls, revokeVaultMediaBlobUrl } from "./vault-media-blob-lifecycle";
 
 export const pickLocalMediaStorageRootPath = async (): Promise<string | null> => {
     if (!isTauriRuntime()) return null;
