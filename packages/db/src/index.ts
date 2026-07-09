@@ -1,7 +1,7 @@
 export type {
   MessageRecord, TombstoneRecord, ConversationRecord,
   GroupRecord, GroupMessageRecord, GroupTombstoneRecord, CallRecord,
-  RelayCheckpointRecord, MessageSearchResult,
+  RelayCheckpointRecord, VaultMediaIndexRecord, MessageSearchResult,
 } from "./types";
 export {
   isTauri,
@@ -26,6 +26,10 @@ export {
   dbUpsertRelayCheckpoint,
   dbGetRelayCheckpoint,
   dbGetRelayCheckpoints,
+  dbUpsertVaultMediaIndex,
+  dbGetVaultMediaIndexForProfile,
+  dbDeleteVaultMediaIndex,
+  dbDeleteAllVaultMediaIndexForProfile,
   dbSearchMessages,
   dbWipeProfileLocalData,
 } from "./client";

@@ -1,5 +1,5 @@
 /// Current schema version. Increment when adding new migrations.
-pub const SCHEMA_VERSION: u32 = 3;
+pub const SCHEMA_VERSION: u32 = 4;
 
 /// Version tracking table — always created first.
 pub const SCHEMA_VERSION_TABLE: &str = r#"
@@ -259,4 +259,23 @@ AFTER UPDATE ON group_messages BEGIN
     VALUES (new.rowid, new.event_id, new.group_id, new.profile_id,
             new.sender_pubkey, new.plaintext, new.created_at);
 END;
+"#;
+
+/// V4: Vault local media index (metadata for encrypted vault blobs).
+pub const SCHEMA_V4: &str = r#"
+CREATE TABLE IF NOT EXISTS vault_media_index (
+    remote_url         TEXT    NOT NULL,
+    profile_id         TEXT    NOT NULL REFERENCES profiles(id),
+    relative_path      TEXT    NOT NULL,
+    saved_at_unix_ms   INTEGER NOT NULL,
+    file_name          TEXT    NOT NULL,
+    content_type       TEXT    NOT NULL DEFAULT 'application/octet-stream',
+    size_bytes         INTEGER NOT NULL DEFAULT 0,
+    message_event_id   TEXT,
+    explicit_chat_save INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (remote_url, profile_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_vault_media_index_profile_saved
+    ON vault_media_index(profile_id, saved_at_unix_ms DESC);
 "#;

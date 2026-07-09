@@ -20,19 +20,16 @@ import {
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { invokeNativeCommand } from "@/app/features/runtime/native-adapters";
 import { normalizeAttachmentUrl } from "@/app/shared/public-url";
+import type { LocalMediaIndex, LocalMediaIndexEntry } from "./vault-media-index-contract";
+import {
+  deleteAllVaultMediaIndexEntriesFromSqlite,
+  deleteVaultMediaIndexEntryFromSqlite,
+  loadVaultMediaIndexMapFromSqlite,
+  persistVaultMediaIndexSnapshotToSqlite,
+  usesSqliteVaultMediaIndex,
+} from "./vault-media-index-sqlite-store";
 
-type LocalMediaIndexEntry = Readonly<{
-    remoteUrl: string;
-    relativePath: string;
-    savedAtUnixMs: number;
-    fileName: string;
-    contentType: string;
-    size: number;
-    messageEventId?: string;
-    explicitChatSave?: boolean;
-}>;
-
-type LocalMediaIndex = Record<string, LocalMediaIndexEntry>;
+export type { LocalMediaIndexEntry, LocalMediaIndex } from "./vault-media-index-contract";
 
 export type LocalMediaStorageConfig = Readonly<{
     enabled: boolean;
@@ -84,6 +81,9 @@ const sha256BytesHex = async (bytes: Uint8Array): Promise<string> => {
 };
 let localCacheWriteBlocked = false;
 let localCacheBlockedWarningEmitted = false;
+let vaultIndexCache: LocalMediaIndex = {};
+let vaultIndexCacheHydrated = false;
+let vaultIndexCacheProfileId: string | null = null;
 
 const LOCAL_MEDIA_INDEX_CHANGED_EVENT = "obscur:local-media-index-changed";
 
@@ -172,6 +172,28 @@ const storageRefForEntryPath = (entryPath: string): Readonly<{ path: string; app
 );
 const scopedConfigKey = (profileId?: string): string => getScopedStorageKey(STORAGE_CONFIG_KEY, profileId);
 const scopedIndexKey = (profileId?: string): string => getScopedStorageKey(STORAGE_INDEX_KEY, profileId);
+
+export const getVaultMediaIndexLocalStorageKey = (profileId?: string): string => scopedIndexKey(profileId);
+
+export const resetVaultMediaIndexCache = (): void => {
+  vaultIndexCache = {};
+  vaultIndexCacheHydrated = false;
+  vaultIndexCacheProfileId = null;
+};
+
+export const hydrateVaultMediaIndexCacheFromSqlite = async (profileId?: string): Promise<void> => {
+  if (!usesSqliteVaultMediaIndex()) {
+    return;
+  }
+  const resolvedProfileId = (profileId ?? getResolvedProfileId()).trim();
+  if (!resolvedProfileId) {
+    return;
+  }
+  vaultIndexCache = await loadVaultMediaIndexMapFromSqlite(resolvedProfileId);
+  vaultIndexCacheHydrated = true;
+  vaultIndexCacheProfileId = resolvedProfileId;
+  emitLocalMediaIndexChanged();
+};
 
 const sanitizeSubdir = (raw: string): string => {
     const clean = raw.trim().replace(/\\/g, "/").replace(/^\/+|\/+$/g, "");
@@ -275,6 +297,13 @@ const resolveUniqueLocalFileTarget = async (
 
 const loadIndex = (): LocalMediaIndex => {
     if (!isBrowser()) return {};
+    if (usesSqliteVaultMediaIndex()) {
+        const profileId = getResolvedProfileId().trim();
+        if (!vaultIndexCacheHydrated || vaultIndexCacheProfileId !== profileId) {
+            return {};
+        }
+        return vaultIndexCache;
+    }
     try {
         const raw = localStorage.getItem(scopedIndexKey());
         if (!raw) return {};
@@ -290,6 +319,26 @@ export const getLocalMediaIndexSnapshot = (): LocalMediaIndex => loadIndex();
 
 const saveIndex = (index: LocalMediaIndex): void => {
     if (!isBrowser()) return;
+    if (usesSqliteVaultMediaIndex()) {
+        const profileId = getResolvedProfileId().trim();
+        if (!profileId) {
+            return;
+        }
+        const previous = vaultIndexCache;
+        const removedUrls = Object.keys(previous).filter((url) => !(url in index));
+        vaultIndexCache = { ...index };
+        vaultIndexCacheHydrated = true;
+        vaultIndexCacheProfileId = profileId;
+        void persistVaultMediaIndexSnapshotToSqlite(index, profileId);
+        if (removedUrls.length > 0) {
+            void Promise.all(
+                removedUrls.map((remoteUrl) =>
+                    deleteVaultMediaIndexEntryFromSqlite(remoteUrl, profileId).catch(() => undefined),
+                ),
+            );
+        }
+        return;
+    }
     localStorage.setItem(scopedIndexKey(), JSON.stringify(index));
 };
 
@@ -349,17 +398,24 @@ export const pruneLocalMediaIndexRetention = (
     if (!isBrowser()) {
         return { removedByAge: 0, removedByCap: 0, remaining: 0 };
     }
+    const resolvedProfileId = (profileId ?? getResolvedProfileId()).trim();
     let index: LocalMediaIndex = {};
-    try {
-        const raw = localStorage.getItem(scopedIndexKey(profileId));
-        if (raw) {
-            const parsed = JSON.parse(raw) as unknown;
-            if (parsed && typeof parsed === "object") {
-                index = parsed as LocalMediaIndex;
-            }
+    if (usesSqliteVaultMediaIndex()) {
+        if (resolvedProfileId && vaultIndexCacheProfileId === resolvedProfileId) {
+            index = { ...vaultIndexCache };
         }
-    } catch {
-        index = {};
+    } else {
+        try {
+            const raw = localStorage.getItem(scopedIndexKey(profileId));
+            if (raw) {
+                const parsed = JSON.parse(raw) as unknown;
+                if (parsed && typeof parsed === "object") {
+                    index = parsed as LocalMediaIndex;
+                }
+            }
+        } catch {
+            index = {};
+        }
     }
     const entries = Object.entries(index).map(([remoteUrl, entry]) => ({
         remoteUrl: (typeof entry?.remoteUrl === "string" && entry.remoteUrl.trim().length > 0)
@@ -378,7 +434,18 @@ export const pruneLocalMediaIndexRetention = (
             next[normalizedUrl] = entry;
         }
     });
-    localStorage.setItem(scopedIndexKey(profileId), JSON.stringify(next));
+    if (usesSqliteVaultMediaIndex()) {
+        if (!resolvedProfileId || vaultIndexCacheProfileId !== resolvedProfileId) {
+            return {
+                removedByAge: plan.removedByAge,
+                removedByCap: plan.removedByCap,
+                remaining: plan.keptRemoteUrls.length,
+            };
+        }
+        saveIndex(next);
+    } else {
+        localStorage.setItem(scopedIndexKey(profileId), JSON.stringify(next));
+    }
     return {
         removedByAge: plan.removedByAge,
         removedByCap: plan.removedByCap,
@@ -1008,7 +1075,16 @@ export const purgeLocalMediaCache = async (): Promise<void> => {
         }));
     }
     if (isBrowser()) {
-        localStorage.removeItem(scopedIndexKey());
+        if (usesSqliteVaultMediaIndex()) {
+            const profileId = getResolvedProfileId().trim();
+            if (profileId) {
+                await deleteAllVaultMediaIndexEntriesFromSqlite(profileId);
+            }
+            resetVaultMediaIndexCache();
+            emitLocalMediaIndexChanged();
+        } else {
+            localStorage.removeItem(scopedIndexKey());
+        }
     }
 };
 

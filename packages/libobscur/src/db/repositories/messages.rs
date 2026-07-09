@@ -46,6 +46,19 @@ pub struct RelayCheckpointRecord {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VaultMediaIndexRecord {
+    pub remote_url: String,
+    pub profile_id: String,
+    pub relative_path: String,
+    pub saved_at_unix_ms: i64,
+    pub file_name: String,
+    pub content_type: String,
+    pub size_bytes: i64,
+    pub message_event_id: Option<String>,
+    pub explicit_chat_save: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GroupRecord {
     pub id: String,
     pub profile_id: String,
@@ -751,6 +764,86 @@ impl Database {
         Ok(results)
     }
 
+    // -----------------------------------------------------------------------
+    // Vault media index
+    // -----------------------------------------------------------------------
+
+    pub fn upsert_vault_media_index(&self, record: &VaultMediaIndexRecord) -> Result<()> {
+        self.conn.execute(
+            "INSERT INTO vault_media_index (
+                remote_url, profile_id, relative_path, saved_at_unix_ms,
+                file_name, content_type, size_bytes, message_event_id, explicit_chat_save
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+             ON CONFLICT(remote_url, profile_id) DO UPDATE SET
+               relative_path = excluded.relative_path,
+               saved_at_unix_ms = excluded.saved_at_unix_ms,
+               file_name = excluded.file_name,
+               content_type = excluded.content_type,
+               size_bytes = excluded.size_bytes,
+               message_event_id = excluded.message_event_id,
+               explicit_chat_save = excluded.explicit_chat_save",
+            params![
+                record.remote_url,
+                record.profile_id,
+                record.relative_path,
+                record.saved_at_unix_ms,
+                record.file_name,
+                record.content_type,
+                record.size_bytes,
+                record.message_event_id,
+                if record.explicit_chat_save { 1 } else { 0 },
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn get_vault_media_index_for_profile(
+        &self,
+        profile_id: &str,
+    ) -> Result<Vec<VaultMediaIndexRecord>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT remote_url, profile_id, relative_path, saved_at_unix_ms,
+                    file_name, content_type, size_bytes, message_event_id, explicit_chat_save
+             FROM vault_media_index
+             WHERE profile_id = ?1
+             ORDER BY saved_at_unix_ms DESC",
+        )?;
+        let rows = stmt.query_map(params![profile_id], |row| {
+            Ok(VaultMediaIndexRecord {
+                remote_url: row.get(0)?,
+                profile_id: row.get(1)?,
+                relative_path: row.get(2)?,
+                saved_at_unix_ms: row.get(3)?,
+                file_name: row.get(4)?,
+                content_type: row.get(5)?,
+                size_bytes: row.get(6)?,
+                message_event_id: row.get(7)?,
+                explicit_chat_save: row.get::<_, i64>(8)? != 0,
+            })
+        })?;
+        rows.collect()
+    }
+
+    pub fn delete_vault_media_index(
+        &self,
+        profile_id: &str,
+        remote_url: &str,
+    ) -> Result<()> {
+        self.conn.execute(
+            "DELETE FROM vault_media_index WHERE profile_id = ?1 AND remote_url = ?2",
+            params![profile_id, remote_url],
+        )?;
+        Ok(())
+    }
+
+    pub fn delete_all_vault_media_index_for_profile(&self, profile_id: &str) -> Result<u64> {
+        let count = self.conn.execute(
+            "DELETE FROM vault_media_index WHERE profile_id = ?1",
+            params![profile_id],
+        )?;
+        Ok(count as u64)
+    }
+
     /// Remove all durable SQLite rows for a profile slot (messages, groups, checkpoints, etc.).
     /// When `remove_profile_row` is false the `profiles` row is kept (cache reset while signed in).
     pub fn wipe_profile_local_data(
@@ -769,6 +862,7 @@ impl Database {
             "group_tombstones",
             "call_records",
             "relay_checkpoints",
+            "vault_media_index",
         ];
 
         let mut rows_deleted: u64 = 0;
@@ -1279,6 +1373,44 @@ mod tests {
         assert_eq!(records[0].status, "ended");
         assert_eq!(records[0].ended_at, Some(5000));
         assert_eq!(records[0].duration_ms, Some(4000));
+    }
+
+    // -----------------------------------------------------------------------
+    // Vault media index
+    // -----------------------------------------------------------------------
+
+    fn make_vault_media_index(
+        profile_id: &str,
+        remote_url: &str,
+        relative_path: &str,
+    ) -> VaultMediaIndexRecord {
+        VaultMediaIndexRecord {
+            remote_url: remote_url.to_string(),
+            profile_id: profile_id.to_string(),
+            relative_path: relative_path.to_string(),
+            saved_at_unix_ms: 1_700_000_000_000,
+            file_name: "photo.jpg".to_string(),
+            content_type: "image/jpeg".to_string(),
+            size_bytes: 1024,
+            message_event_id: None,
+            explicit_chat_save: true,
+        }
+    }
+
+    #[test]
+    fn test_vault_media_index_upsert_and_list() {
+        let db = Database::new(None).unwrap();
+        seed_profile(&db, "p");
+        db.upsert_vault_media_index(&make_vault_media_index(
+            "p",
+            "obscur://vault/local/abc",
+            "vault-media/abc.obscurvault",
+        ))
+        .unwrap();
+        let rows = db.get_vault_media_index_for_profile("p").unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].remote_url, "obscur://vault/local/abc");
+        assert!(rows[0].explicit_chat_save);
     }
 
     // -----------------------------------------------------------------------

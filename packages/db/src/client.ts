@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { MessageRecord, TombstoneRecord, ConversationRecord, GroupRecord, GroupMessageRecord, GroupTombstoneRecord, CallRecord, RelayCheckpointRecord, MessageSearchResult } from "./types";
+import type { MessageRecord, TombstoneRecord, ConversationRecord, GroupRecord, GroupMessageRecord, GroupTombstoneRecord, CallRecord, RelayCheckpointRecord, VaultMediaIndexRecord, MessageSearchResult } from "./types";
 
 /**
  * Returns true when running inside Tauri (desktop).
@@ -154,6 +154,22 @@ export async function dbGetRelayCheckpoint(
 
 export async function dbGetRelayCheckpoints(profileId: string): Promise<RelayCheckpointRecord[]> {
   return invoke<RelayCheckpointRecord[]>("db_get_relay_checkpoints", { profileId });
+}
+
+export async function dbUpsertVaultMediaIndex(record: VaultMediaIndexRecord): Promise<void> {
+  await invoke<void>("db_upsert_vault_media_index", { record });
+}
+
+export async function dbGetVaultMediaIndexForProfile(profileId: string): Promise<VaultMediaIndexRecord[]> {
+  return invoke<VaultMediaIndexRecord[]>("db_get_vault_media_index_for_profile", { profileId });
+}
+
+export async function dbDeleteVaultMediaIndex(profileId: string, remoteUrl: string): Promise<void> {
+  await invoke<void>("db_delete_vault_media_index", { profileId, remoteUrl });
+}
+
+export async function dbDeleteAllVaultMediaIndexForProfile(profileId: string): Promise<number> {
+  return invoke<number>("db_delete_all_vault_media_index_for_profile", { profileId });
 }
 
 // ---------------------------------------------------------------------------

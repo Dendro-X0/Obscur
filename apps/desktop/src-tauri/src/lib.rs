@@ -38,7 +38,6 @@ mod services;
 use profiles::DesktopProfileState;
 use active_session_leases::ActiveSessionLeaseState;
 use session::SessionState;
-use commands::db::DbState;
 use commands::warmup::DesktopWarmupState;
 use commands::tor::{load_tor_settings, start_tor};
 #[cfg(desktop)]
@@ -192,7 +191,7 @@ pub fn run() {
 
             #[cfg(desktop)]
             let _window = {
-                let mut base_builder = tauri::WebviewWindowBuilder::new(
+                let base_builder = tauri::WebviewWindowBuilder::new(
                     app,
                     "main",
                     profiles::resolve_profile_window_url(&app.handle()),
@@ -210,10 +209,12 @@ pub fn run() {
                 .decorations(false)
                 .shadow(true); // We keep window shadow but remove OS border decorations
                 #[cfg(debug_assertions)]
-                if let Some(browser_args) = profiles::main_window_additional_browser_args() {
+                let base_builder = if let Some(browser_args) = profiles::main_window_additional_browser_args() {
                     eprintln!("[obscur] Main window CDP args: {browser_args}");
-                    base_builder = base_builder.additional_browser_args(&browser_args);
-                }
+                    base_builder.additional_browser_args(&browser_args)
+                } else {
+                    base_builder
+                };
                 #[cfg(debug_assertions)]
                 let window_builder = base_builder
                     .visible(true)
@@ -393,6 +394,7 @@ pub fn run() {
                     commands::tray::desktop_get_incoming_call_state,
                     commands::tray::desktop_incoming_call_action,
                     commands::system::fetch_remote_text,
+                    commands::system::fetch_remote_bytes,
                     commands::system::check_for_updates,
                     commands::system::install_update,
                     commands::system::reset_app_storage,
@@ -406,6 +408,7 @@ pub fn run() {
                     commands::profile::desktop_open_profile_window,
                     commands::profile::desktop_bind_window_profile,
                     commands::profile::desktop_remove_profile,
+                    commands::profile::desktop_broadcast_profile_isolation_changed,
                     commands::profile::desktop_clear_profile_webview_data,
                     commands::profile::desktop_write_profile_workspace_archive,
                     commands::profile::desktop_list_profile_workspace_archives,
@@ -508,6 +511,10 @@ pub fn run() {
                     commands::db::db_upsert_relay_checkpoint,
                     commands::db::db_get_relay_checkpoint,
                     commands::db::db_get_relay_checkpoints,
+                    commands::db::db_upsert_vault_media_index,
+                    commands::db::db_get_vault_media_index_for_profile,
+                    commands::db::db_delete_vault_media_index,
+                    commands::db::db_delete_all_vault_media_index_for_profile,
                     commands::db::db_search_messages,
                     commands::db::db_wipe_profile_local_data,
                     commands::warmup::desktop_start_warmup,
@@ -522,6 +529,7 @@ pub fn run() {
                     commands::tray::desktop_get_incoming_call_state,
                     commands::tray::desktop_incoming_call_action,
                     commands::system::fetch_remote_text,
+                    commands::system::fetch_remote_bytes,
                     commands::system::check_for_updates,
                     commands::system::install_update,
                     commands::system::reset_app_storage,
@@ -535,6 +543,7 @@ pub fn run() {
                     commands::profile::desktop_open_profile_window,
                     commands::profile::desktop_bind_window_profile,
                     commands::profile::desktop_remove_profile,
+                    commands::profile::desktop_broadcast_profile_isolation_changed,
                     commands::profile::desktop_clear_profile_webview_data,
                     commands::profile::desktop_write_profile_workspace_archive,
                     commands::profile::desktop_list_profile_workspace_archives,
@@ -637,6 +646,10 @@ pub fn run() {
                     commands::db::db_upsert_relay_checkpoint,
                     commands::db::db_get_relay_checkpoint,
                     commands::db::db_get_relay_checkpoints,
+                    commands::db::db_upsert_vault_media_index,
+                    commands::db::db_get_vault_media_index_for_profile,
+                    commands::db::db_delete_vault_media_index,
+                    commands::db::db_delete_all_vault_media_index_for_profile,
                     commands::db::db_search_messages,
                     commands::db::db_wipe_profile_local_data,
                     commands::warmup::desktop_start_warmup,

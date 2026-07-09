@@ -161,6 +161,8 @@ Obscur Vault becomes an **encryption sandbox**: media bytes under the user data 
 | 3.2 | Read path: merge aggregator uses DB index; localStorage read deprecated |
 | 3.3 | One-time import from localStorage on unlock |
 
+**Status (2026-07-09):** **Implemented** — SCHEMA_V4, sqlite store + unlock import + in-memory cache
+
 **Owner:** `local-media-store.ts` + `@dweb/db` schema migration
 
 **Proof:** L1 aggregator tests; L3 lock → copy data root → no readable vault filenames in any JSON under root.

@@ -86,6 +86,21 @@ export interface RelayCheckpointRecord {
 }
 
 /**
+ * Mirror of libobscur VaultMediaIndexRecord (Rust).
+ */
+export interface VaultMediaIndexRecord {
+  remote_url: string;
+  profile_id: string;
+  relative_path: string;
+  saved_at_unix_ms: number;
+  file_name: string;
+  content_type: string;
+  size_bytes: number;
+  message_event_id?: string | null;
+  explicit_chat_save: boolean;
+}
+
+/**
  * Mirror of libobscur MessageSearchResult (Rust).
  * Returned by db_search_messages — unified FTS5 result over DM + group messages.
  */

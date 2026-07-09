@@ -32,10 +32,10 @@ export const activateNativeStorageAtRestUnlock = async (params: Readonly<{
     profileId,
     keyMaterialB64: profileDataKeyMaterialToBase64(keyMaterial),
   });
-  const { scheduleVaultLegacyPlaintextMigrationOnUnlock } = await import(
-    "@/app/features/vault/services/vault-legacy-migration"
+  const { scheduleVaultUnlockMaintenance } = await import(
+    "@/app/features/vault/services/vault-media-index-sqlite-migration"
   );
-  scheduleVaultLegacyPlaintextMigrationOnUnlock();
+  scheduleVaultUnlockMaintenance();
 };
 
 export const finalizeNativeStorageAtRestLock = async (params?: Readonly<{ profileId?: string }>): Promise<void> => {
@@ -44,4 +44,6 @@ export const finalizeNativeStorageAtRestLock = async (params?: Readonly<{ profil
     await invokeNativeCommand("desktop_storage_at_rest_lock", { profileId });
   }
   clearProfileStorageKeySession(profileId || undefined);
+  const { resetVaultMediaIndexCache } = await import("@/app/features/vault/services/local-media-store");
+  resetVaultMediaIndexCache();
 };

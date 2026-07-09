@@ -62,6 +62,14 @@ impl Database {
             )?;
         }
 
+        if current < 4 {
+            self.conn.execute_batch(schema::SCHEMA_V4)?;
+            self.conn.execute(
+                "INSERT INTO schema_version (version) VALUES (?1)",
+                rusqlite::params![4u32],
+            )?;
+        }
+
         Ok(())
     }
 }

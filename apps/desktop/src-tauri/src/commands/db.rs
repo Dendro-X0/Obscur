@@ -106,7 +106,7 @@ use tauri::State;
 use libobscur::db::repositories::{
     MessageRecord, TombstoneRecord, ConversationRecord,
     GroupRecord, GroupMessageRecord, GroupTombstoneRecord, CallRecord,
-    RelayCheckpointRecord, MessageSearchResult, WipeProfileLocalDataReport,
+    RelayCheckpointRecord, VaultMediaIndexRecord, MessageSearchResult, WipeProfileLocalDataReport,
 };
 
 #[tauri::command]
@@ -296,6 +296,48 @@ pub fn db_get_relay_checkpoints(
     profile_id: String,
 ) -> Result<Vec<RelayCheckpointRecord>, String> {
     state.with_db(|db| db.get_relay_checkpoints(&profile_id).map_err(|e| e.to_string()))
+}
+
+#[tauri::command]
+pub fn db_upsert_vault_media_index(
+    state: State<'_, DbState>,
+    record: VaultMediaIndexRecord,
+) -> Result<(), String> {
+    state.with_db(|db| db.upsert_vault_media_index(&record).map_err(|e| e.to_string()))
+}
+
+#[tauri::command]
+pub fn db_get_vault_media_index_for_profile(
+    state: State<'_, DbState>,
+    profile_id: String,
+) -> Result<Vec<VaultMediaIndexRecord>, String> {
+    state.with_db(|db| {
+        db.get_vault_media_index_for_profile(&profile_id)
+            .map_err(|e| e.to_string())
+    })
+}
+
+#[tauri::command]
+pub fn db_delete_vault_media_index(
+    state: State<'_, DbState>,
+    profile_id: String,
+    remote_url: String,
+) -> Result<(), String> {
+    state.with_db(|db| {
+        db.delete_vault_media_index(&profile_id, &remote_url)
+            .map_err(|e| e.to_string())
+    })
+}
+
+#[tauri::command]
+pub fn db_delete_all_vault_media_index_for_profile(
+    state: State<'_, DbState>,
+    profile_id: String,
+) -> Result<u64, String> {
+    state.with_db(|db| {
+        db.delete_all_vault_media_index_for_profile(&profile_id)
+            .map_err(|e| e.to_string())
+    })
 }
 
 #[tauri::command]
