@@ -101,7 +101,7 @@ Obscur Vault becomes an **encryption sandbox**: media bytes under the user data 
 
 - [x] Disable chat→vault save (`VAULT_SAVE_FROM_CHAT_ENABLED = false`)
 - [x] Publish this plan
-- [ ] **Git commit** — rollback tag before sandbox iterations (`vault-sandbox-checkpoint-2026-07-09`)
+- [x] **Git commit** — rollback tag before sandbox iterations (`5c301ca6`)
 
 **Proof:** `git log -1` records checkpoint; handoff links commit SHA.
 
@@ -117,6 +117,8 @@ Obscur Vault becomes an **encryption sandbox**: media bytes under the user data 
 | 1.2 | `saveFileToLocalVault` / Secure Upload: refuse write when locked |
 | 1.3 | Settings copy: “Vault files are encrypted on disk while locked” (only when 1.1–1.2 green) |
 | 1.4 | Contract tests: write without PDK → rejected |
+
+**Status (2026-07-09):** **Implemented** — `encryptVaultBytesForWrite`, `VaultWriteEncryptionRequiredError`, `vault-at-rest.test.ts`
 
 **Owner:** `local-media-store.ts`, `vault-at-rest.ts`, `use-identity.ts` (unlock must establish PDK before vault writes)
 

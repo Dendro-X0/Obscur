@@ -697,9 +697,14 @@ export default function StorageSettingsTabPanel(): React.JSX.Element {
                   <div className="space-y-3">
                     <Label className="text-sm font-semibold">Storage Location</Label>
 
-                    {isNativeDesktop ? (<p className="text-xs text-zinc-500 dark:text-zinc-400">
+                    {isNativeDesktop ? (<div className="space-y-1">
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400">
                         {t("settings.storage.vaultUnderDataFolderNote")}
-                      </p>) : null}
+                      </p>
+                        <p className="text-xs text-emerald-700/90 dark:text-emerald-300/90">
+                        {t("settings.storage.vaultEncryptedSandboxNote")}
+                      </p>
+                      </div>) : null}
 
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl bg-zinc-50 dark:bg-zinc-900 border border-black/5 dark:border-white/5">
                       <div className="space-y-1 overflow-hidden">
@@ -749,6 +754,36 @@ export default function StorageSettingsTabPanel(): React.JSX.Element {
                         </Button>
                       </div>) : null}
                   </div>
+
+                  {/* Download destination */}
+                  {isNativeDesktop ? (<div className="space-y-3">
+                      <Label className="text-sm font-semibold">Download Destination</Label>
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl bg-zinc-50 dark:bg-zinc-900 border border-black/5 dark:border-white/5">
+                        <div className="space-y-1 overflow-hidden">
+                          <div className="text-xs font-semibold text-zinc-500 uppercase tracking-widest">Default Folder</div>
+                          <div className="text-sm font-mono text-zinc-800 dark:text-zinc-200 truncate">
+                            {localMediaConfig.downloadRootPath?.trim().length ? localMediaConfig.downloadRootPath : "Ask every time"}
+                          </div>
+                        </div>
+                        <div className="flex shrink-0 gap-2">
+                          <Button type="button" variant="ghost" size="sm" onClick={async () => {
+                              const selected = await pickLocalMediaStorageRootPath();
+                  if (!selected)
+                      return;
+                              saveLocalMediaConfig({ ...localMediaConfig, downloadRootPath: selected });
+                              toast.success("Default download folder saved.");
+                          }}>
+                            Choose Folder
+                          </Button>
+                          <Button type="button" variant="secondary" size="sm" onClick={() => {
+                              saveLocalMediaConfig({ ...localMediaConfig, downloadRootPath: "" });
+                              toast.success("Download folder reset. Obscur will ask where to save each file.");
+                          }}>
+                            Reset
+                          </Button>
+                        </div>
+                      </div>
+                    </div>) : null}
 
                   {/* Cache Rules */}
                   <div className="space-y-3">

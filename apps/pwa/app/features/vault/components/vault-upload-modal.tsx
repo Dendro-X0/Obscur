@@ -13,6 +13,7 @@ import { useIdentity } from "../../auth/hooks/use-identity";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import { cacheAttachmentLocally, saveFileToLocalVault } from "../services/local-media-store";
+import { VaultWriteEncryptionRequiredError } from "@/app/features/storage/services/vault-at-rest";
 import { getUploadFailureUserMessageFromUnknown } from "../../messaging/lib/upload-user-copy";
 import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
 
@@ -56,6 +57,9 @@ export function VaultUploadModal({ isOpen, onClose, onUploadComplete }: VaultUpl
                 successCount += 1;
                 onUploadComplete?.(result.vaultUrl);
             } catch (err) {
+                if (err instanceof VaultWriteEncryptionRequiredError) {
+                    throw err;
+                }
                 console.error("[VaultUpload] Failed to save file locally:", file.name, err);
             }
         }
@@ -90,7 +94,11 @@ export function VaultUploadModal({ isOpen, onClose, onUploadComplete }: VaultUpl
                 }
             } catch (err: unknown) {
                 console.error("[VaultUpload] Local save failed:", err);
-                setError(err instanceof Error ? err.message : t("vault.localSaveFailed"));
+                if (err instanceof VaultWriteEncryptionRequiredError) {
+                    setError(t("vault.localSaveUnlockRequired"));
+                } else {
+                    setError(err instanceof Error ? err.message : t("vault.localSaveFailed"));
+                }
             } finally {
                 setIsUploading(false);
             }

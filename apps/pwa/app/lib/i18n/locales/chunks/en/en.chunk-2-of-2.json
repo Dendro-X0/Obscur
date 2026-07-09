@@ -48,6 +48,7 @@
         "settings.storage.dataFolderArchivesLabel": "Removal snapshots",
         "settings.storage.dataFolderVaultLabel": "Vault cache",
         "settings.storage.vaultUnderDataFolderNote": "Vault media is stored inside your Obscur data folder. Change the data folder above to relocate Vault cache.",
+        "settings.storage.vaultEncryptedSandboxNote": "New vault uploads are saved as encrypted .obscurvault files on disk. Preview inside Obscur; use Download or Export for a decrypted copy.",
         "settings.storage.workspaceBundleTitle": "Encrypted backup (.obscur-bundle)",
         "settings.storage.workspaceBundleDesc": "Export profile, settings, network data, and optional Vault media into a compressed, encrypted backup. Only your account key can decrypt it.",
         "auth.keyOwnershipReminder": "You own your private key. Obscur cannot recover accounts for lost keys or forgotten passwords.",

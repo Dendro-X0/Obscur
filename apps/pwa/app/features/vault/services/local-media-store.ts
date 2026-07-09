@@ -12,10 +12,11 @@ import { resolveVaultStorageLayout, vaultUsesAbsolutePaths } from "./local-media
 import {
   buildOpaqueVaultFileName,
   decryptVaultFileBytesIfNeeded,
-  encryptVaultBytesIfAvailable,
+  encryptVaultBytesForWrite,
   isEncryptedVaultRelativePath,
+  isVaultWriteEncryptionReady,
+  VaultWriteEncryptionRequiredError,
 } from "@/app/features/storage/services/vault-at-rest";
-import { getProfileStorageKeyMaterial } from "@/app/features/storage/services/profile-storage-key-session";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { invokeNativeCommand } from "@/app/features/runtime/native-adapters";
 import { normalizeAttachmentUrl } from "@/app/shared/public-url";
@@ -238,25 +239,6 @@ const inferExtension = (attachment: Attachment): string => {
     return "bin";
 };
 
-const splitFileName = (fileName: string): Readonly<{ stem: string; ext: string | null }> => {
-    const dotIndex = fileName.lastIndexOf(".");
-    if (dotIndex <= 0 || dotIndex >= fileName.length - 1) {
-        return { stem: fileName, ext: null };
-    }
-    const ext = fileName.slice(dotIndex + 1);
-    if (!/^[a-z0-9]{1,8}$/i.test(ext)) {
-        return { stem: fileName, ext: null };
-    }
-    return {
-        stem: fileName.slice(0, dotIndex),
-        ext,
-    };
-};
-
-const withSuffix = (stem: string, ext: string | null, suffix: number): string => (
-    ext ? `${stem}-${suffix}.${ext}` : `${stem}-${suffix}`
-);
-
 const withExtension = (fileName: string, ext: string): string => {
     if (/\.[a-z0-9]{1,8}$/i.test(fileName)) {
         return fileName;
@@ -276,35 +258,19 @@ const resolveUniqueLocalFileTarget = async (
     remoteUrl?: string,
 ): Promise<Readonly<{ relativePath: string; fileName: string; encrypted: boolean }>> => {
     const profileId = getResolvedProfileId();
-    const keyMaterialAvailable = Boolean(getProfileStorageKeyMaterial(profileId));
-    if (keyMaterialAvailable && remoteUrl?.trim()) {
-        const opaqueFileName = await buildOpaqueVaultFileName(remoteUrl, profileId);
-        const storage = await resolveVaultStorage();
-        const relativePath = storage.absoluteStorageDir
-            ? await nativeLocalMediaAdapter.joinPaths(storage.absoluteStorageDir, opaqueFileName)
-            : `${cfg.subdir}/${opaqueFileName}`;
-        return { relativePath, fileName: opaqueFileName, encrypted: true };
+    if (!isVaultWriteEncryptionReady(profileId)) {
+        throw new VaultWriteEncryptionRequiredError();
     }
-    const { stem, ext } = splitFileName(preferredFileName);
+    const normalizedRemoteUrl = remoteUrl?.trim();
+    if (!normalizedRemoteUrl) {
+        throw new Error("Vault write requires a stable media URL for encrypted storage.");
+    }
+    const opaqueFileName = await buildOpaqueVaultFileName(normalizedRemoteUrl, profileId);
     const storage = await resolveVaultStorage();
-    const absoluteRoot = storage.absoluteStorageDir;
-    for (let attempt = 0; attempt < 200; attempt += 1) {
-        const fileName = attempt === 0 ? preferredFileName : withSuffix(stem, ext, attempt + 1);
-        const relativePath = absoluteRoot
-            ? await nativeLocalMediaAdapter.joinPaths(absoluteRoot, fileName)
-            : `${cfg.subdir}/${fileName}`;
-        const exists = absoluteRoot
-            ? await nativeLocalMediaAdapter.fileExists({ path: relativePath })
-            : await nativeLocalMediaAdapter.fileExists({ path: relativePath, appDataRelative: true });
-        if (!exists) {
-            return { relativePath, fileName, encrypted: false };
-        }
-    }
-    const fallbackFileName = withSuffix(stem, ext, Date.now());
-    const fallbackRelativePath = absoluteRoot
-        ? await nativeLocalMediaAdapter.joinPaths(absoluteRoot, fallbackFileName)
-        : `${cfg.subdir}/${fallbackFileName}`;
-    return { relativePath: fallbackRelativePath, fileName: fallbackFileName, encrypted: false };
+    const relativePath = storage.absoluteStorageDir
+        ? await nativeLocalMediaAdapter.joinPaths(storage.absoluteStorageDir, opaqueFileName)
+        : `${cfg.subdir}/${opaqueFileName}`;
+    return { relativePath, fileName: opaqueFileName, encrypted: true };
 };
 
 const loadIndex = (): LocalMediaIndex => {
@@ -883,6 +849,13 @@ export const cacheAttachmentLocally = async (
         return existing;
     }
 
+    if (!isVaultWriteEncryptionReady()) {
+        if (options?.force) {
+            throw new VaultWriteEncryptionRequiredError();
+        }
+        return null;
+    }
+
     try {
         await ensureStorageAbsoluteDir();
         const bytes = localBytes ?? await fetchBytes(attachment.url, attachment.contentType);
@@ -899,7 +872,7 @@ export const cacheAttachmentLocally = async (
             attachmentFileName: attachment.fileName,
             indexFileName: preferredFileName,
         });
-        const encryptedPayload = await encryptVaultBytesIfAvailable({ plaintext: bytes });
+        const encryptedPayload = await encryptVaultBytesForWrite({ plaintext: bytes });
         const payload = encryptedPayload.bytes;
 
         const storage = await resolveVaultStorage();
@@ -925,6 +898,9 @@ export const cacheAttachmentLocally = async (
         emitLocalMediaIndexChanged();
         return resolveLocalMediaUrl(attachment.url);
     } catch (error) {
+        if (error instanceof VaultWriteEncryptionRequiredError) {
+            throw error;
+        }
         const message = error instanceof Error ? error.message : String(error);
         if (message.toLowerCase().includes("forbidden path")) {
             localCacheWriteBlocked = true;
@@ -969,9 +945,14 @@ export const persistAttachmentToLocalVault = async (
     );
 };
 
+export const isVaultEncryptionSessionReady = (): boolean => isVaultWriteEncryptionReady();
+
 export const saveFileToLocalVault = async (file: File): Promise<SaveFileToLocalVaultResult | null> => {
     if (!isTauriRuntime()) {
         return null;
+    }
+    if (!isVaultWriteEncryptionReady()) {
+        throw new VaultWriteEncryptionRequiredError();
     }
     const bytes = new Uint8Array(await file.arrayBuffer());
     if (bytes.byteLength === 0) {

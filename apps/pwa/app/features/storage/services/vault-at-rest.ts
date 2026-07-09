@@ -11,20 +11,50 @@ import {
 
 export const VAULT_ENCRYPTED_FILE_EXTENSION = ".obscurvault" as const;
 
+export class VaultWriteEncryptionRequiredError extends Error {
+  readonly code = "VAULT_WRITE_ENCRYPTION_REQUIRED" as const;
+
+  constructor() {
+    super("Unlock this profile to save encrypted vault files.");
+    this.name = "VaultWriteEncryptionRequiredError";
+  }
+}
+
+export const isVaultWriteEncryptionReady = (profileId?: string): boolean => {
+  const resolvedProfileId = (profileId ?? getResolvedProfileId()).trim() || "default";
+  return Boolean(getProfileStorageKeyMaterial(resolvedProfileId));
+};
+
 export const buildOpaqueVaultFileName = async (remoteUrl: string, profileId?: string): Promise<string> => {
   const resolvedProfileId = (profileId ?? getResolvedProfileId()).trim() || "default";
   const digest = await sha256Hex(`${resolvedProfileId}|${remoteUrl.trim()}`);
   return `${digest.slice(0, 24)}${VAULT_ENCRYPTED_FILE_EXTENSION}`;
 };
 
+/** @deprecated Prefer {@link encryptVaultBytesForWrite} for vault writes — no plaintext fallback. */
 export const encryptVaultBytesIfAvailable = async (params: Readonly<{
   plaintext: Uint8Array;
   profileId?: string;
 }>): Promise<Readonly<{ bytes: Uint8Array; encrypted: boolean; fileNameSuffix: string }>> => {
-  const profileId = (params.profileId ?? getResolvedProfileId()).trim();
+  try {
+    const encrypted = await encryptVaultBytesForWrite(params);
+    return encrypted;
+  } catch (error) {
+    if (error instanceof VaultWriteEncryptionRequiredError) {
+      return { bytes: params.plaintext, encrypted: false, fileNameSuffix: "" };
+    }
+    throw error;
+  }
+};
+
+export const encryptVaultBytesForWrite = async (params: Readonly<{
+  plaintext: Uint8Array;
+  profileId?: string;
+}>): Promise<Readonly<{ bytes: Uint8Array; encrypted: true; fileNameSuffix: string }>> => {
+  const profileId = (params.profileId ?? getResolvedProfileId()).trim() || "default";
   const keyMaterial = getProfileStorageKeyMaterial(profileId);
   if (!keyMaterial) {
-    return { bytes: params.plaintext, encrypted: false, fileNameSuffix: "" };
+    throw new VaultWriteEncryptionRequiredError();
   }
   const envelope = await encryptStorageEnvelopeV1({
     plaintext: params.plaintext,

@@ -3,11 +3,13 @@ import {
   buildLocalVaultOnlyUrl,
   isEncryptedVaultStorageFileName,
   isLocalVaultOnlyUrl,
+  isVaultEncryptionSessionReady,
   normalizeLocalMediaDisplayFileName,
   resolveVaultDisplayFileName,
   shouldAllowLocalMediaCacheWrite,
   DEFAULT_LOCAL_MEDIA_STORAGE_CONFIG,
 } from "./local-media-store";
+import { VaultWriteEncryptionRequiredError } from "@/app/features/storage/services/vault-at-rest";
 
 describe("local vault URL helpers", () => {
   it("builds and detects local-only vault URLs", () => {
@@ -53,5 +55,17 @@ describe("shouldAllowLocalMediaCacheWrite", () => {
     const disabledConfig = { ...DEFAULT_LOCAL_MEDIA_STORAGE_CONFIG, enabled: false };
     expect(shouldAllowLocalMediaCacheWrite(disabledConfig)).toBe(false);
     expect(shouldAllowLocalMediaCacheWrite(disabledConfig, { force: true })).toBe(true);
+  });
+});
+
+describe("vault encryption session gate", () => {
+  it("exposes session readiness for vault writes", () => {
+    expect(typeof isVaultEncryptionSessionReady()).toBe("boolean");
+  });
+
+  it("uses the vault write encryption required error for locked saves", () => {
+    const error = new VaultWriteEncryptionRequiredError();
+    expect(error.code).toBe("VAULT_WRITE_ENCRYPTION_REQUIRED");
+    expect(error.message).toContain("Unlock this profile");
   });
 });

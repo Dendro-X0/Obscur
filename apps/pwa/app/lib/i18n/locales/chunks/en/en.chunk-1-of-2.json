@@ -975,6 +975,7 @@
         "vault.localSuccessDesc": "Your file is encrypted and saved on this device. Unlock this profile to access it.",
         "vault.saveLocallyInstead": "Save to local encrypted vault",
         "vault.localSaveFailed": "Could not save to local encrypted vault. Check storage settings and free disk space.",
+        "vault.localSaveUnlockRequired": "Unlock this profile to save encrypted vault files.",
         "vault.localSaveRetryNoFiles": "Choose a file again, then save locally.",
         "vault.partialLocalSave": "Saved {{saved}} of {{total}} files to local encrypted vault.",
         "vault.saveFromChat": "Save to vault",
