@@ -49,14 +49,24 @@ const inferKindFromIndexEntry = (fileName: string, contentType: string): VaultMe
   return kind;
 };
 
-/** Local-only vault uploads (no chat message) keyed under obscur://vault/local/{hash}. */
+/**
+ * Standalone vault rows when an attachment is locally cached but not present in
+ * the current chat-media scan:
+ * - local-only vault uploads (`obscur://vault/local/...`)
+ * - explicit chat saves recorded in local index (`messageEventId` or `explicitChatSave`)
+ */
 export const buildStandaloneLocalVaultMediaItems = (
   existingRemoteUrls: ReadonlySet<string>,
 ): VaultMediaItem[] => {
   const index = getLocalMediaIndexSnapshot();
   const items: VaultMediaItem[] = [];
   Object.entries(index).forEach(([remoteUrl, entry]) => {
-    if (!isLocalVaultOnlyUrl(remoteUrl)) {
+    const isLocalVaultOnly = isLocalVaultOnlyUrl(remoteUrl);
+    const isExplicitChatSave = (
+      (typeof entry?.messageEventId === "string" && entry.messageEventId.trim().length > 0)
+      || entry?.explicitChatSave === true
+    );
+    if (!isLocalVaultOnly && !isExplicitChatSave) {
       return;
     }
     if (existingRemoteUrls.has(remoteUrl)) {

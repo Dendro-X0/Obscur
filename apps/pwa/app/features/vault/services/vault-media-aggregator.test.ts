@@ -27,6 +27,15 @@ vi.mock("./local-media-store", async (importOriginal) => {
         contentType: "application/pdf",
         size: 1024,
       },
+      "https://cdn.example.com/chat-saved.jpg": {
+        remoteUrl: "https://cdn.example.com/chat-saved.jpg",
+        relativePath: "vault-media/chat-saved.obscurvault",
+        savedAtUnixMs: 1_700_000_100_000,
+        fileName: "chat-saved.jpg",
+        contentType: "image/jpeg",
+        size: 2048,
+        messageEventId: "event-chat-save",
+      },
     })),
     isLocalVaultOnlyUrl: vi.fn((url: string) => url.startsWith("obscur://vault/local/")),
     resolveLocalMediaUrl: vi.fn(async (url: string) => (
@@ -147,10 +156,14 @@ describe("vault-media-aggregator", () => {
   it("builds standalone local vault items not already in chat scan", () => {
     const existing = new Set(["https://cdn.example.com/cached.png"]);
     const items = buildStandaloneLocalVaultMediaItems(existing);
-    expect(items).toHaveLength(1);
-    expect(items[0]?.remoteUrl).toBe("obscur://vault/local/deadbeef");
-    expect(items[0]?.attachment.fileName).toBe("notes.pdf");
-    expect(items[0]?.sourceConversationId).toBeNull();
+    expect(items).toHaveLength(2);
+    expect(items.map((item) => item.remoteUrl)).toEqual(expect.arrayContaining([
+      "obscur://vault/local/deadbeef",
+      "https://cdn.example.com/chat-saved.jpg",
+    ]));
+    const chatSaved = items.find((item) => item.remoteUrl === "https://cdn.example.com/chat-saved.jpg");
+    expect(chatSaved?.attachment.fileName).toBe("chat-saved.jpg");
+    expect(chatSaved?.sourceConversationId).toBeNull();
   });
 
   it("uses message attachment names when index stores encrypted blob file names", () => {

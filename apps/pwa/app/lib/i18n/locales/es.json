@@ -156,6 +156,11 @@
     "messaging.messageResults": "Resultados de mensajes",
     "messaging.noPendingRequests": "Sin solicitudes pendientes",
     "messaging.noPendingRequestsDesc": "Las nuevas conversaciones de personas que aún no has aceptado aparecerán aquí.",
+    "messaging.junkInboxEmptyTitle": "No hay invitaciones en correo no deseado",
+    "messaging.junkInboxEmptyDesc": "Las invitaciones marcadas por señales de confianza inusuales aparecerán aquí para que las revises antes de aceptarlas o eliminarlas.",
+    "messaging.junkInboxTitle": "Correo no deseado ({{count}})",
+    "messaging.junkInboxDesc": "Estas invitaciones se enviaron aquí después de que Obscur detectó señales elevadas de confianza o abuso.",
+    "messaging.junkInboxHelp": "El correo no deseado guarda invitaciones con señales de confianza elevadas para que puedas revisarlas aparte de tu bandeja principal.",
     "messaging.pendingRequests": "Solicitudes pendientes",
     "messaging.pendingRequestsHelp": "Las solicitudes son mensajes de usuarios que aún no has aprobado. No pueden ver tu estado en línea hasta que aceptes.",
     "messaging.newConnection": "Nueva conexión",
@@ -2164,6 +2169,11 @@
     "profile.identityLinkCopied": "Enlace de identidad compartible copiado.",
     "messaging.lastActive": "Última actividad {{time}}",
     "messaging.lastViewed": "Última vista {{time}}",
-    "messaging.noRecentActivity": "Sin actividad reciente"
+    "messaging.noRecentActivity": "Sin actividad reciente",
+    "settings.security.lockNowDesc": "Bloquea de inmediato sin cerrar sesión. Tu cuenta permanece en este dispositivo hasta que vuelvas a desbloquear.",
+    "settings.security.lockedToast": "Obscur bloqueado.",
+    "vault.saveFromChatLocalVaultOnly": "Este archivo ya está en tu Vault local cifrado.",
+    "vault.saveFromChatBlockedHost": "Por seguridad, Obscur no guardará archivos desde URLs de red local o privada.",
+    "vault.saveFromChatUnsupportedUrl": "No se puede guardar esta URL adjunta en el Vault. Descárgala primero de forma local y luego usa Carga segura."
   }
 }

@@ -1,6 +1,7 @@
 import React from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { AppOverlayRoot, APP_OVERLAY_ROOT_ID } from "@/app/components/app-overlay-layer";
 import { Lightbox } from "./lightbox";
 import type { MediaItem } from "../types";
 import en from "@/app/lib/i18n/locales/en.json";
@@ -49,46 +50,70 @@ const pdfItem: MediaItem = {
 };
 
 describe("Lightbox preview navigation", () => {
+  it("renders through the app overlay root above the app shell stacking context", () => {
+    render(
+      <>
+        <AppOverlayRoot />
+        <Lightbox
+          item={pdfItem}
+          onClose={() => undefined}
+        />
+      </>,
+    );
+
+    const overlayRoot = document.getElementById(APP_OVERLAY_ROOT_ID);
+    const backdrop = overlayRoot?.querySelector('[data-escape-layer="open"]');
+    expect(backdrop).not.toBeNull();
+    expect(backdrop?.className).toContain("z-[10100]");
+    expect(backdrop?.className).toContain("bg-black/75");
+  });
+
   it("renders a PDF preview and navigation controls when adjacent previewable items exist", () => {
     const onPrev = vi.fn();
     const onNext = vi.fn();
 
     render(
-      <Lightbox
-        item={pdfItem}
-        onClose={() => undefined}
-        onPrev={onPrev}
-        onNext={onNext}
-        hasPrev={true}
-        hasNext={true}
-        activeIndex={1}
-        totalItems={3}
-      />,
+      <>
+        <AppOverlayRoot />
+        <Lightbox
+          item={pdfItem}
+          onClose={() => undefined}
+          onPrev={onPrev}
+          onNext={onNext}
+          hasPrev={true}
+          hasNext={true}
+          activeIndex={1}
+          totalItems={3}
+        />
+      </>,
     );
 
     expect(screen.getByTitle("PDF preview: doc.pdf")).toBeInTheDocument();
     expect(screen.getAllByText("2 / 3")).not.toHaveLength(0);
-    fireEvent.click(screen.getByRole("button", { name: "Previous" }));
-    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    fireEvent.click(screen.getByRole("button", { name: "Previous", hidden: true }));
+    fireEvent.click(screen.getByRole("button", { name: "Next", hidden: true }));
     expect(onPrev).toHaveBeenCalledTimes(1);
     expect(onNext).toHaveBeenCalledTimes(1);
   });
 
   it("keeps the sequence controls visible and disables unavailable directions", () => {
     render(
-      <Lightbox
-        item={pdfItem}
-        onClose={() => undefined}
-        onNext={() => undefined}
-        hasPrev={false}
-        hasNext={true}
-        activeIndex={0}
-        totalItems={2}
-      />,
+      <>
+        <AppOverlayRoot />
+        <Lightbox
+          item={pdfItem}
+          onClose={() => undefined}
+          onNext={() => undefined}
+          hasPrev={false}
+          hasNext={true}
+          activeIndex={0}
+          totalItems={2}
+        />
+      </>,
     );
 
-    expect(screen.getByRole("button", { name: "Previous" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Next" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Previous", hidden: true })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Next", hidden: true })).toBeEnabled();
     expect(screen.getAllByText("1 / 2")).not.toHaveLength(0);
   });
 });

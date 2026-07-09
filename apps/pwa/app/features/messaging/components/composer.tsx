@@ -237,12 +237,20 @@ export function Composer({ messageInput, setMessageInput, handleSendMessage, isU
                     <div className="flex gap-3 overflow-x-auto pb-2 -mx-2 px-2 scrollbar-hide">
                         {pendingAttachments.map((file, index) => (<div key={index} className="relative shrink-0 w-32 group animate-in zoom-in-95 duration-200">
                                 <div className="relative rounded-xl overflow-hidden aspect-square border border-black/5 dark:border-white/5 bg-black/5">
-                                    {file.type.startsWith("image/") ? (<Image src={pendingAttachmentPreviewUrls[index]} alt={file.name} fill unoptimized className="object-cover transition-transform group-hover:scale-110 duration-500"/>) : file.type.startsWith("video/") ? (<div className="relative h-full w-full flex flex-col items-center justify-center bg-zinc-900 text-white">
-                                            {pendingAttachmentPreviewUrls[index].startsWith("data:image") ? (<Image src={pendingAttachmentPreviewUrls[index]} alt={file.name} fill unoptimized className="object-cover opacity-60"/>) : null}
-                                            <div className="relative h-10 w-10 flex items-center justify-center rounded-full bg-white/10 backdrop-blur-md">
-                                                <Play className="h-5 w-5 fill-current"/>
+                                    {file.type.startsWith("image/") ? (<Image src={pendingAttachmentPreviewUrls[index]} alt={file.name} fill unoptimized className="object-cover transition-transform group-hover:scale-110 duration-500"/>) : file.type.startsWith("video/") ? (<div className="relative h-full w-full bg-black">
+                                            <video
+                                                src={pendingAttachmentPreviewUrls[index]}
+                                                className="h-full w-full object-cover"
+                                                playsInline
+                                                muted
+                                                preload="metadata"
+                                            />
+                                            <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center bg-black/20 text-white">
+                                                <div className="relative h-10 w-10 flex items-center justify-center rounded-full bg-white/10 backdrop-blur-md shadow-lg">
+                                                    <Play className="h-5 w-5 fill-current"/>
+                                                </div>
+                                                <span className="mt-2 text-[8px] font-black uppercase tracking-widest opacity-90 shadow-sm">{t("common.video")}</span>
                                             </div>
-                                            <span className="mt-2 text-[8px] font-black uppercase tracking-widest opacity-80 shadow-sm">{t("common.video")}</span>
                                         </div>) : file.type.startsWith("audio/") ? (<div className="h-full w-full flex flex-col items-center justify-center bg-purple-600 text-white">
                                             <div className="relative h-10 w-10 flex items-center justify-center rounded-full bg-white/20">
                                                 <div className="flex gap-0.5 items-end h-4">

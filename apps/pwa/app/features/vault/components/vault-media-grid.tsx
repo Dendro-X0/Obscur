@@ -2,8 +2,8 @@
 import React from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Button } from "@dweb/ui-kit";
-import { LoaderIcon, ImageIcon, VideoIcon, Music2, ExternalLink, RefreshCw, Trash2, HardDrive, X, MoreVertical, Star, CheckSquare, Square, FileIcon, FileText, Download, ChevronLeft, ChevronRight, ChevronDown, EyeOff, Search, ZoomIn, ZoomOut, RotateCcw, Maximize2 } from "lucide-react";
+import { Button, toast } from "@dweb/ui-kit";
+import { LoaderIcon, ImageIcon, VideoIcon, Music2, ExternalLink, RefreshCw, Trash2, HardDrive, X, MoreVertical, Star, CheckSquare, Square, FileIcon, FileText, Download, ChevronLeft, ChevronRight, ChevronDown, EyeOff, Search, ZoomIn, ZoomOut, RotateCcw, Maximize2, Smartphone, FolderOpen } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, } from "@/app/components/ui/dropdown-menu";
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from "framer-motion";
 import { useTranslation } from "react-i18next";
@@ -14,6 +14,7 @@ import { getResolvedProfileId } from "@/app/features/profiles/services/profile-r
 import { logRuntimeEvent } from "@/app/shared/runtime-log-classification";
 import { isGroupConversationId } from "@/app/features/groups/utils/group-conversation-id";
 import { useMobileCompactLayout } from "@/app/features/runtime/use-mobile-compact-layout";
+import { APP_OVERLAY_BACKDROP_CLASS, AppOverlayPortal } from "@/app/components/app-overlay-layer";
 type VaultMediaGridProps = Readonly<{
     mediaItems: ReadonlyArray<VaultMediaItem>;
     isLoading: boolean;
@@ -27,6 +28,7 @@ type VaultMediaGridProps = Readonly<{
     refresh: () => void;
     downloadToLocalPath: (item: VaultMediaItem) => Promise<boolean>;
     deleteLocalCopy: (remoteUrl: string) => Promise<void>;
+    openLocalFileLocation?: (remoteUrl: string) => Promise<boolean>;
 }>;
 type VisibilityFilter = "all" | "local" | "remote" | "favorites" | "removed";
 type SortMode = "newest" | "oldest" | "file_name";
@@ -114,6 +116,7 @@ const buildVideoPreviewUrl = (sourceUrl: string): string => {
     }
     return `${sourceUrl}#t=0.1`;
 };
+const IMAGE_PAN_BOUNDARY_SLACK_PX = 48;
 const isPdfAttachment = (attachment: VaultMediaItem["attachment"]): boolean => {
     const contentType = (attachment.contentType ?? "").toLowerCase();
     if (contentType.includes("pdf"))
@@ -140,6 +143,7 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
     const previewToolbarButtonClass = cn("rounded-2xl px-6 text-[11px] font-black uppercase tracking-widest text-zinc-800 dark:text-zinc-100 transition-all hover:bg-zinc-200/80 dark:hover:bg-white/10 hover:text-zinc-900 dark:hover:text-white", compact ? "min-h-11 w-full sm:w-auto" : "h-12");
     const previewToolbarDividerClass = cn("mx-1 h-6 w-px bg-zinc-300 dark:bg-white/20", compact && "hidden sm:block");
     const [selectedItem, setSelectedItem] = React.useState<VaultMediaItem | null>(null);
+    const [previewVideoMobileLayout, setPreviewVideoMobileLayout] = React.useState(false);
     const [visibilityFilter, setVisibilityFilter] = React.useState<VisibilityFilter>(() => readFilterPreference());
     const [typeFilter, setTypeFilter] = React.useState<"all" | "image" | "video" | "audio" | "file">("all");
     const [favorites, setFavorites] = React.useState<ReadonlySet<string>>(() => readFavorites());
@@ -174,6 +178,9 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
         window.addEventListener("click", closeMenus);
         return () => window.removeEventListener("click", closeMenus);
     }, []);
+    React.useEffect(() => {
+        setPreviewVideoMobileLayout(false);
+    }, [selectedItem?.id]);
     const localCount = props.mediaItems.filter((item) => item.isLocalCached).length;
     const remoteCount = props.mediaItems.length - localCount;
     const favoritesCount = props.mediaItems.filter((item) => favorites.has(item.remoteUrl)).length;
@@ -283,6 +290,17 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
         }
         void router.push(`/?convId=${encodeURIComponent(item.sourceConversationId)}`);
     }, [router]);
+    const openLocalFileLocation = React.useCallback(async (item: VaultMediaItem): Promise<void> => {
+        if (!props.openLocalFileLocation || !item.isLocalCached) {
+            return;
+        }
+        const opened = await props.openLocalFileLocation(item.remoteUrl);
+        if (!opened) {
+            toast.error(t("vault.openLocalFileFailed", "Could not open local file location."));
+            return;
+        }
+        toast.success(t("vault.openLocalFileSuccess", "Opened local file location."));
+    }, [props.openLocalFileLocation, t]);
     const getSourceLabel = React.useCallback((item: VaultMediaItem): string => {
         const sourceKind = resolveVaultSourceKind(item);
         if (sourceKind === "community") {
@@ -597,6 +615,10 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
                                                     <Download className="h-3.5 w-3.5"/>
                                                     Download
                                                 </DropdownMenuItem>
+                                                <DropdownMenuItem className={vaultActionMenuItemClass} disabled={!item.isLocalCached || !props.openLocalFileLocation} onSelect={() => { void openLocalFileLocation(item); }}>
+                                                    <FolderOpen className="h-3.5 w-3.5"/>
+                                                    {t("vault.actions.openLocalFileLocation", "Open Local File")}
+                                                </DropdownMenuItem>
                                                 <DropdownMenuItem className={vaultActionMenuItemClass} onSelect={() => { setSelectionMode(true); setSelected(item.id, true); }}>
                                                     <CheckSquare className="h-3.5 w-3.5"/>
                                                     Select
@@ -639,7 +661,8 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
                 </div>)}
 
             <AnimatePresence>
-                {selectedItem && (<motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} data-escape-layer="open" className="media-preview-backdrop fixed inset-0 z-[120] flex flex-col items-center justify-center overflow-hidden backdrop-blur-xl">
+                {selectedItem && (<AppOverlayPortal>
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} data-escape-layer="open" className={cn(APP_OVERLAY_BACKDROP_CLASS, "media-preview-backdrop flex flex-col items-center justify-center overflow-hidden backdrop-blur-xl")}>
                         <div className="absolute inset-0 pointer-events-none overflow-hidden">
                             <div className="media-preview-depth-layer absolute inset-0"/>
                             <div className="absolute -top-[10%] -left-[10%] h-[40%] w-[40%] rounded-full bg-purple-300/25 blur-[120px] dark:bg-primary/10"/>
@@ -664,10 +687,45 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
                                 </button>
                             </motion.div>
 
+                            {selectedItem.attachment.kind === "video" && previewVideoMobileLayout ? (
+                                <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", damping: 25, stiffness: 200 }} className="mx-auto flex w-full max-w-5xl flex-1 items-center justify-center">
+                                    <div className={cn("group/stage relative flex w-full items-center justify-center overflow-hidden rounded-[40px] border px-4 py-6 md:px-6", "border-zinc-300/65 bg-[radial-gradient(circle_at_top,_rgba(148,163,184,0.3),_rgba(255,255,255,0.82)_52%,_rgba(226,232,240,0.94)_100%)] shadow-[0_20px_60px_rgba(15,23,42,0.2)] dark:border-white/10 dark:bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.18),_rgba(8,10,16,0.96)_52%,_rgba(0,0,0,0.99)_100%)] dark:shadow-[0_25px_70px_rgba(0,0,0,0.55)]")}>
+                                        <div className="pointer-events-none absolute inset-0 z-10 bg-[radial-gradient(ellipse_at_center,transparent_62%,rgba(0,0,0,0.18)_100%)] dark:bg-[radial-gradient(ellipse_at_center,transparent_58%,rgba(0,0,0,0.42)_100%)]"/>
+                                        <div className="relative z-20 flex items-stretch justify-center">
+                                            <div className="flex w-[58px] shrink-0 flex-col justify-center gap-1.5 rounded-l-[22px] border border-r-0 border-white/15 bg-black/55 px-1.5 py-3 backdrop-blur-xl dark:border-white/10">
+                                                <div className="mb-1 rounded-lg border border-white/10 bg-white/5 px-1 py-1 text-center text-[7px] font-black uppercase tracking-[0.16em] text-white/70">
+                                                    SRC
+                                                </div>
+                                                <Button title={getOpenSourceLabel(selectedItem)} variant="ghost" onClick={() => openSourceConversation(selectedItem)} disabled={!selectedItem.sourceConversationId} className="h-10 w-10 justify-center rounded-xl p-0 text-white hover:bg-white/10 disabled:opacity-30">
+                                                    <ExternalLink className="h-4 w-4 shrink-0"/>
+                                                </Button>
+                                                <Button title="Download" variant="ghost" onClick={async () => { await props.downloadToLocalPath(selectedItem); }} className="h-10 w-10 justify-center rounded-xl p-0 text-white hover:bg-white/10">
+                                                    <Download className="h-4 w-4 shrink-0"/>
+                                                </Button>
+                                                {selectedItem.isLocalCached ? (<Button title={t("vault.actions.openLocalFileLocation", "Open Local File")} variant="ghost" onClick={async () => { await openLocalFileLocation(selectedItem); }} className="h-10 w-10 justify-center rounded-xl p-0 text-white hover:bg-white/10">
+                                                        <FolderOpen className="h-4 w-4 shrink-0"/>
+                                                    </Button>) : null}
+                                                <Button title="Source URL" variant="ghost" onClick={() => window.open(selectedItem.remoteUrl, "_blank")} className="h-10 w-10 justify-center rounded-xl p-0 text-white hover:bg-white/10">
+                                                    <ExternalLink className="h-4 w-4 shrink-0"/>
+                                                </Button>
+                                                <Button title={favorites.has(selectedItem.remoteUrl) ? "Favorited" : "Favorite"} variant="ghost" onClick={() => toggleFavorite(selectedItem.remoteUrl)} className={cn("h-10 w-10 justify-center rounded-xl p-0 text-white hover:bg-white/10", favorites.has(selectedItem.remoteUrl)
+                                ? "bg-amber-400/18 text-amber-300 hover:bg-amber-400/30"
+                                : undefined)}>
+                                                    <Star className={cn("h-4 w-4 shrink-0", favorites.has(selectedItem.remoteUrl) && "fill-current")}/>
+                                                </Button>
+                                                {selectedItem.isLocalCached ? (<Button title="Flush Cache" variant="ghost" onClick={async () => { await props.deleteLocalCopy(selectedItem.remoteUrl); setSelectedItem(null); }} className="h-10 w-10 justify-center rounded-xl p-0 text-rose-400 hover:bg-rose-500/15">
+                                                        <Trash2 className="h-4 w-4 shrink-0"/>
+                                                    </Button>) : null}
+                                            </div>
+                                            <MediaStage item={selectedItem} videoMobileLayoutEnabled={previewVideoMobileLayout} onVideoMobileLayoutToggle={setPreviewVideoMobileLayout}/>
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            ) : (<>
                             <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", damping: 25, stiffness: 200 }} className={cn("group/stage relative mx-auto flex w-full max-w-7xl flex-1 items-center justify-center overflow-hidden rounded-[40px] border shadow-2xl", selectedItem.attachment.kind === "video"
                 ? "border-zinc-300/65 bg-[radial-gradient(circle_at_top,_rgba(148,163,184,0.3),_rgba(255,255,255,0.82)_52%,_rgba(226,232,240,0.94)_100%)] p-2 shadow-[0_30px_100px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.2),_rgba(8,10,16,0.95)_52%,_rgba(0,0,0,0.98)_100%)] dark:shadow-[0_35px_110px_rgba(0,0,0,0.62)] sm:p-3 md:p-4"
                 : "border-zinc-300/55 bg-white/52 shadow-[0_30px_100px_rgba(15,23,42,0.2)] dark:border-white/5 dark:bg-white/[0.02] dark:shadow-[0_35px_110px_rgba(0,0,0,0.62)]")}>
-                                <MediaStage item={selectedItem}/>
+                                <MediaStage item={selectedItem} videoMobileLayoutEnabled={previewVideoMobileLayout} onVideoMobileLayoutToggle={setPreviewVideoMobileLayout}/>
                             </motion.div>
 
                             <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.2 }} className="flex w-full flex-col items-center gap-3 pt-8 z-10">
@@ -684,6 +742,13 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
                                         <Download className="h-4 w-4 mr-3"/>
                                         Download
                                     </Button>
+                                    {selectedItem.isLocalCached ? (<>
+                                            <div className={previewToolbarDividerClass}/>
+                                            <Button variant="ghost" onClick={async () => { await openLocalFileLocation(selectedItem); }} className={previewToolbarButtonClass}>
+                                                <FolderOpen className="h-4 w-4 mr-3"/>
+                                                {t("vault.actions.openLocalFileLocation", "Open Local File")}
+                                            </Button>
+                                        </>) : null}
                                     <div className={previewToolbarDividerClass}/>
                                     <Button variant="ghost" onClick={() => window.open(selectedItem.remoteUrl, "_blank")} className={previewToolbarButtonClass}>
                                         <ExternalLink className="h-4 w-4 mr-3"/>
@@ -705,8 +770,10 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
                                         </>)}
                                 </div>
                             </motion.div>
+                            </>)}
                         </div>
-                    </motion.div>)}
+                    </motion.div>
+                </AppOverlayPortal>)}
             </AnimatePresence>
         </div>);
 }
@@ -792,14 +859,16 @@ function MediaUnavailableStage(props: Readonly<{
             <div className="mt-2 text-xs text-zinc-600 dark:text-white/60">{props.note}</div>
         </div>);
 }
-function MediaStage({ item }: {
+function MediaStage({ item, videoMobileLayoutEnabled, onVideoMobileLayoutToggle }: {
     item: VaultMediaItem;
+    videoMobileLayoutEnabled: boolean;
+    onVideoMobileLayoutToggle: React.Dispatch<React.SetStateAction<boolean>>;
 }) {
     if (item.attachment.kind === "image") {
         return <ImageStage primaryUrl={item.attachment.url} fallbackUrl={item.remoteUrl} name={item.attachment.fileName}/>;
     }
     if (item.attachment.kind === "video") {
-        return <VideoStage primaryUrl={item.attachment.url} fallbackUrl={item.remoteUrl} fileName={item.attachment.fileName}/>;
+        return <VideoStage primaryUrl={item.attachment.url} fallbackUrl={item.remoteUrl} fileName={item.attachment.fileName} mobileLayoutEnabled={videoMobileLayoutEnabled} onMobileLayoutToggle={onVideoMobileLayoutToggle}/>;
     }
     if (item.attachment.kind === "audio") {
         return <AudioStage primaryUrl={item.attachment.url} fallbackUrl={item.remoteUrl} fileName={item.attachment.fileName}/>;
@@ -853,20 +922,52 @@ function ImageStage({ primaryUrl, fallbackUrl, name }: {
             const cH = containerRef.current.offsetHeight;
             const dW = dragRef.current.offsetWidth;
             const dH = dragRef.current.offsetHeight;
-            const xBound = Math.max(0, (dW * scale - cW) / 2);
-            const yBound = Math.max(0, (dH * scale - cH) / 2);
-            setConstraints({
+            const xBound = Math.max(0, (dW * scale - cW) / 2) + IMAGE_PAN_BOUNDARY_SLACK_PX;
+            const yBound = Math.max(0, (dH * scale - cH) / 2) + IMAGE_PAN_BOUNDARY_SLACK_PX;
+            const next = {
                 left: -xBound,
                 right: xBound,
                 top: -yBound,
                 bottom: yBound,
-            });
+            };
+            setConstraints(next);
+            x.set(Math.min(Math.max(x.get(), next.left), next.right));
+            y.set(Math.min(Math.max(y.get(), next.top), next.bottom));
         };
         // Update aggressively initially to catch late-loading images
         updateConstraints();
         const timeout = setTimeout(updateConstraints, 100);
         return () => clearTimeout(timeout);
     }, [scale, currentUrl]);
+    React.useEffect(() => {
+        const handleZoomKey = (event: KeyboardEvent): void => {
+            if (event.key === "+" || event.key === "=") {
+                event.preventDefault();
+                setScale((prev) => Math.min(prev * 1.2, 8));
+                return;
+            }
+            if (event.key === "-") {
+                event.preventDefault();
+                setScale((prev) => {
+                    const next = Math.max(prev / 1.2, 1);
+                    if (next === 1) {
+                        x.set(0);
+                        y.set(0);
+                    }
+                    return next;
+                });
+                return;
+            }
+            if (event.key === "0") {
+                event.preventDefault();
+                setScale(1);
+                x.set(0);
+                y.set(0);
+            }
+        };
+        window.addEventListener("keydown", handleZoomKey);
+        return () => window.removeEventListener("keydown", handleZoomKey);
+    }, [x, y]);
     const handleWheel = (e: React.WheelEvent) => {
         if (e.ctrlKey || e.metaKey || e.deltaY) {
             e.preventDefault();
@@ -898,8 +999,22 @@ function ImageStage({ primaryUrl, fallbackUrl, name }: {
     if (failed) {
         return (<MediaUnavailableStage icon={<ImageIcon className="h-10 w-10 text-rose-300/70"/>} title="Image preview unavailable" note="This media could not be rendered from either local or remote source."/>);
     }
-    return (<div ref={containerRef} onWheel={handleWheel} className="w-full h-full flex items-center justify-center relative touch-none overflow-hidden">
-            <motion.div ref={dragRef} drag={scale > 1} dragConstraints={constraints} dragElastic={0.1} dragTransition={{ bounceStiffness: 600, bounceDamping: 20 }} style={{ x: springX, y: springY }} animate={{ scale }} transition={{ type: "spring", damping: 30, stiffness: 250 }} onDragEnd={handleDragEnd} className="relative cursor-grab active:cursor-grabbing flex items-center justify-center">
+    return (<div
+            ref={containerRef}
+            tabIndex={0}
+            onWheel={handleWheel}
+            onPointerDown={(event) => {
+            event.stopPropagation();
+            containerRef.current?.focus({ preventScroll: true });
+        }}
+            onMouseDown={(event) => {
+            event.preventDefault();
+        }}
+            className="w-full h-full flex items-center justify-center relative touch-none overflow-hidden outline-none">
+            <motion.div ref={dragRef} tabIndex={0} drag={scale > 1} dragConstraints={constraints} dragElastic={0} dragMomentum={false} style={{ x: springX, y: springY }} animate={{ scale }} transition={{ type: "spring", damping: 30, stiffness: 250 }} onDragEnd={handleDragEnd} onPointerDown={(event) => {
+            event.stopPropagation();
+            dragRef.current?.focus({ preventScroll: true });
+        }} className={cn("relative flex items-center justify-center outline-none", scale > 1 ? "cursor-grab active:cursor-grabbing" : "")}>
                 <Image
                     src={currentUrl}
                     alt={name}
@@ -910,13 +1025,14 @@ function ImageStage({ primaryUrl, fallbackUrl, name }: {
                     onError={handleImageError}
                     draggable={false}
                     className="max-h-[85vh] max-w-full w-auto h-auto object-contain pointer-events-none select-none rounded-sm"
+                    onDoubleClick={() => setScale((prev) => (prev === 1 ? 2 : 1))}
                 />
             </motion.div>
 
             <AnimatePresence>
                 {scale === 1 && (<motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className="absolute inset-0 pointer-events-none hidden group-hover/stage:flex items-center justify-center">
                         <div className="bg-black/60 backdrop-blur-xl px-5 py-2.5 rounded-full border border-white/10 text-[10px] font-black uppercase tracking-[0.2em] text-white shadow-2xl">
-                            Scroll to Zoom • Drag to Pan
+                            Scroll to Zoom • Drag within frame
                         </div>
                     </motion.div>)}
             </AnimatePresence>
@@ -939,16 +1055,20 @@ function ImageStage({ primaryUrl, fallbackUrl, name }: {
             </div>
         </div>);
 }
-function VideoStage({ primaryUrl, fallbackUrl, fileName }: {
+function VideoStage({ primaryUrl, fallbackUrl, fileName, mobileLayoutEnabled, onMobileLayoutToggle }: {
     primaryUrl: string;
     fallbackUrl: string;
     fileName: string;
+    mobileLayoutEnabled: boolean;
+    onMobileLayoutToggle: React.Dispatch<React.SetStateAction<boolean>>;
 }) {
     const [currentUrl, setCurrentUrl] = React.useState(primaryUrl);
     const [failed, setFailed] = React.useState(false);
+    const [rotationDeg, setRotationDeg] = React.useState(0);
     React.useEffect(() => {
         setCurrentUrl(primaryUrl);
         setFailed(false);
+        setRotationDeg(0);
     }, [primaryUrl, fallbackUrl]);
     const handleVideoError = (): void => {
         if (!sameMediaUrl(currentUrl, fallbackUrl)) {
@@ -961,9 +1081,84 @@ function VideoStage({ primaryUrl, fallbackUrl, fileName }: {
     if (failed) {
         return (<MediaUnavailableStage icon={<VideoIcon className="h-10 w-10 text-indigo-200/70"/>} title="Video playback unavailable" note={`Unable to render "${fileName}" from local or remote source.`}/>);
     }
-    return (<div className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-[28px] border border-white/10 bg-black">
+    const isDeviceLandscape = rotationDeg === 90 || rotationDeg === 270;
+    const videoElement = (
+        <video
+            src={currentUrl}
+            controls
+            autoPlay
+            playsInline
+            preload="metadata"
+            onError={handleVideoError}
+            className={cn(
+                "h-full w-full object-contain shadow-[0_0_100px_rgba(0,0,0,0.55)] transition-all duration-300",
+                mobileLayoutEnabled && "rounded-[18px] bg-black",
+            )}
+            style={mobileLayoutEnabled ? undefined : { transform: `rotate(${rotationDeg}deg)` }}
+        />
+    );
+    return (<div className={cn("relative flex items-center justify-center overflow-hidden border border-white/10 bg-black", mobileLayoutEnabled ? "h-full min-h-[320px] rounded-r-[22px] border-l-0" : "h-full w-full rounded-[28px]")}>
             <div className="pointer-events-none absolute inset-0 z-10 bg-gradient-to-t from-black/45 via-transparent to-black/20"/>
-            <video src={currentUrl} controls autoPlay playsInline preload="metadata" onError={handleVideoError} className="z-0 h-full w-full object-contain shadow-[0_0_100px_rgba(0,0,0,0.55)]"/>
+            <div className="absolute right-4 top-4 z-20 flex items-center gap-2">
+                <div className="flex h-11 items-center rounded-2xl border border-white/10 bg-black/45 p-1 backdrop-blur-xl">
+                    <button
+                        type="button"
+                        onClick={() => onMobileLayoutToggle(false)}
+                        className={cn(
+                            "h-9 rounded-xl px-3 text-[10px] font-black uppercase tracking-widest transition",
+                            !mobileLayoutEnabled
+                                ? "bg-white text-zinc-900"
+                                : "text-white hover:bg-white/10",
+                        )}
+                    >
+                        Desktop
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => onMobileLayoutToggle(true)}
+                        className={cn(
+                            "flex h-9 items-center gap-1.5 rounded-xl px-3 text-[10px] font-black uppercase tracking-widest transition",
+                            mobileLayoutEnabled
+                                ? "bg-purple-500 text-white"
+                                : "text-white hover:bg-white/10",
+                        )}
+                    >
+                        <Smartphone className="h-3.5 w-3.5"/>
+                        Mobile
+                    </button>
+                </div>
+                <button
+                    type="button"
+                    onClick={() => setRotationDeg((current) => (current + 90) % 360)}
+                    className="flex h-11 items-center gap-2 rounded-2xl border border-white/10 bg-black/45 px-4 text-[10px] font-black uppercase tracking-widest text-white backdrop-blur-xl transition hover:bg-black/60 active:scale-95"
+                    title={mobileLayoutEnabled ? "Rotate device orientation" : "Rotate video"}
+                >
+                    <RotateCcw className="h-3.5 w-3.5"/>
+                    {mobileLayoutEnabled ? (isDeviceLandscape ? "Landscape" : "Portrait") : "Rotate"}
+                </button>
+            </div>
+            {mobileLayoutEnabled ? (
+                <div className="z-0 flex h-full w-full items-center justify-center px-3 py-3 md:px-4 md:py-4">
+                    <div className={cn(
+                        "relative overflow-hidden rounded-[28px] border border-white/20 bg-gradient-to-b from-zinc-900 to-black p-2.5 shadow-[0_0_45px_rgba(0,0,0,0.7)] transition-all duration-300",
+                        isDeviceLandscape
+                            ? "h-[min(38vh,280px)] w-[min(72vw,640px)]"
+                            : "h-[min(72vh,760px)] w-[min(38vw,360px)]",
+                    )}>
+                        <div className={cn(
+                            "pointer-events-none absolute left-1/2 z-20 -translate-x-1/2 rounded-full bg-white/30",
+                            isDeviceLandscape ? "top-2 h-1 w-10" : "top-2 h-1.5 w-16",
+                        )}/>
+                        <div className="h-full w-full overflow-hidden rounded-[20px] border border-white/10 bg-black">
+                            {videoElement}
+                        </div>
+                    </div>
+                </div>
+            ) : (
+                <div className="z-0 flex h-full w-full items-center justify-center">
+                    {videoElement}
+                </div>
+            )}
         </div>);
 }
 function AudioStage({ primaryUrl, fallbackUrl, fileName }: {

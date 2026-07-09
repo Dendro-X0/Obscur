@@ -10,6 +10,8 @@ import { scheduleIdleWork } from "@/app/shared/schedule-idle-work";
 import {
     deleteLocalMediaCacheItem,
     downloadAttachmentToUserPath,
+    revealLocalMediaItemPath,
+    subscribeLocalMediaIndexChanged,
 } from "../services/local-media-store";
 import {
     buildVaultMediaItemsFast,
@@ -176,6 +178,13 @@ export function useVaultMedia() {
         };
     }, [optionalProfileBus, publicKeyHex, refresh]);
 
+    useEffect(() => {
+        const unsubscribe = subscribeLocalMediaIndexChanged(() => {
+            void refresh();
+        });
+        return unsubscribe;
+    }, [refresh]);
+
     const stats = useMemo(() => {
         const imageCount = mediaItems.filter(item => item.attachment.kind === "image").length;
         const videoCount = mediaItems.filter(item => item.attachment.kind === "video").length;
@@ -198,6 +207,9 @@ export function useVaultMedia() {
         deleteLocalCopy: async (remoteUrl: string) => {
             await deleteLocalMediaCacheItem(remoteUrl);
             await refresh();
+        },
+        openLocalFileLocation: async (remoteUrl: string) => {
+            return revealLocalMediaItemPath(remoteUrl);
         },
         stats
     };

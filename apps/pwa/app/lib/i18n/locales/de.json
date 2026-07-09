@@ -156,6 +156,11 @@
     "messaging.messageResults": "Nachrichtenergebnisse",
     "messaging.noPendingRequests": "Keine ausstehenden Anfragen",
     "messaging.noPendingRequestsDesc": "Neue Konversationen von Personen, die Sie noch nicht akzeptiert haben, werden hier angezeigt.",
+    "messaging.junkInboxEmptyTitle": "Keine Junk-Einladungen",
+    "messaging.junkInboxEmptyDesc": "Einladungen mit ungewöhnlichen Vertrauenssignalen erscheinen hier zur Prüfung, bevor Sie sie annehmen oder löschen.",
+    "messaging.junkInboxTitle": "Junk ({{count}})",
+    "messaging.junkInboxDesc": "Diese Einladungen wurden hierher verschoben, nachdem Obscur erhöhte Vertrauens- oder Missbrauchssignale erkannt hat.",
+    "messaging.junkInboxHelp": "Junk enthält Einladungen mit erhöhten Vertrauenssignalen, damit Sie sie getrennt von Ihrem Hauptposteingang prüfen können.",
     "messaging.pendingRequests": "Ausstehende Anfragen",
     "messaging.pendingRequestsHelp": "Anfragen sind Nachrichten von Benutzern, die Sie noch nicht freigegeben haben. Diese können Ihren Online-Status erst sehen, wenn Sie akzeptieren.",
     "messaging.newConnection": "Neue Verbindung",
@@ -2164,6 +2169,11 @@
     "messaging.lastActive": "Zuletzt aktiv {{time}}",
     "messaging.lastViewed": "Zuletzt angesehen {{time}}",
     "messaging.noRecentActivity": "Keine kürzliche Aktivität",
-    "profiles.picker.pageTitle": "Profile"
+    "profiles.picker.pageTitle": "Profile",
+    "settings.security.lockNowDesc": "Sofort sperren, ohne sich abzumelden. Ihr Konto bleibt auf diesem Gerät, bis Sie es erneut entsperren.",
+    "settings.security.lockedToast": "Obscur gesperrt.",
+    "vault.saveFromChatLocalVaultOnly": "Diese Datei befindet sich bereits in Ihrem verschluesselten lokalen Vault.",
+    "vault.saveFromChatBlockedHost": "Aus Sicherheitsgruenden speichert Obscur keine Dateien von lokalen oder privaten Netzwerk-URLs.",
+    "vault.saveFromChatUnsupportedUrl": "Diese Anhangs-URL kann nicht im Vault gespeichert werden. Laden Sie sie zuerst lokal herunter und verwenden Sie dann Sicheren Upload."
   }
 }

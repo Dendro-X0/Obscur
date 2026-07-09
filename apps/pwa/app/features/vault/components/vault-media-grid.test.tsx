@@ -66,6 +66,7 @@ const vaultGridRoutingMocks = vi.hoisted(() => ({
 
 vi.mock("@/app/features/runtime/use-mobile-compact-layout", () => ({
   useMobileCompactLayout: () => vaultGridRoutingMocks.compactLayout,
+  useTabletSecondaryLayout: () => false,
 }));
 
 vi.mock("next/navigation", () => ({

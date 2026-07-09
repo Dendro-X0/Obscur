@@ -1,6 +1,6 @@
 @import "tailwindcss";
 @source "../../../packages/ui-kit/src";
-@source inline("z-[5000] z-[5001] z-[5100] z-[5200]");
+@source inline("z-[5000] z-[5001] z-[5100] z-[5200] z-[10100]");
 
 @custom-variant dark (&:is(.dark *));
 @custom-variant desktop-mode (&:is(.desktop-mode *));
@@ -631,11 +631,20 @@
     pointer-events: none;
   }
 
-  /* Accessibility: user-selected reduced motion */
-  .desktop-safe-ui *,
+  /*
+   * Desktop performance mode softens decorative motion. Functional wait indicators
+   * stay animated via :not() so we do not fight Tailwind utilities layer order.
+   */
+  .desktop-safe-ui
+    *:not(.animate-spin):not(.obscur-indeterminate-spin):not(.obscur-community-action-orbit):not(.animate-pulse):not(
+      [class*="animate-pulse"]
+    ),
   .desktop-safe-ui *::before,
   .desktop-safe-ui *::after,
-  .reduce-motion *,
+  .reduce-motion
+    *:not(.animate-spin):not(.obscur-indeterminate-spin):not(.obscur-community-action-orbit):not(.animate-pulse):not(
+      [class*="animate-pulse"]
+    ),
   .reduce-motion *::before,
   .reduce-motion *::after {
     animation-duration: 0.01ms !important;
@@ -743,4 +752,46 @@
   outline-offset: 3px;
   border-radius: inherit;
   transition: outline-color 0.2s ease;
+}
+
+/*
+ * Functional wait motion (unlayered): beats @layer utilities desktop-safe rules.
+ * WebView2 needs inline-block on SVG for transform rotate animations.
+ */
+html.desktop-safe-ui .animate-spin,
+html.desktop-safe-ui .obscur-indeterminate-spin,
+html.desktop-safe-ui .obscur-community-action-orbit,
+html.reduce-motion .animate-spin,
+html.reduce-motion .obscur-indeterminate-spin,
+html.reduce-motion .obscur-community-action-orbit,
+html.desktop-safe-ui svg.animate-spin,
+html.reduce-motion svg.animate-spin {
+  animation-duration: 0.8s !important;
+  animation-iteration-count: infinite !important;
+  animation-timing-function: linear !important;
+  transform-origin: center;
+  display: inline-block;
+  will-change: transform;
+}
+
+html.desktop-safe-ui .obscur-community-action-orbit,
+html.reduce-motion .obscur-community-action-orbit {
+  animation-duration: 14s !important;
+}
+
+html.desktop-safe-ui .animate-spin,
+html.desktop-safe-ui svg.animate-spin,
+html.reduce-motion .animate-spin,
+html.reduce-motion svg.animate-spin {
+  animation-name: obscur-indeterminate-spin !important;
+}
+
+html.desktop-safe-ui .obscur-indeterminate-spin,
+html.reduce-motion .obscur-indeterminate-spin {
+  animation-name: obscur-indeterminate-spin !important;
+}
+
+html.desktop-safe-ui .obscur-community-action-orbit,
+html.reduce-motion .obscur-community-action-orbit {
+  animation-name: obscur-community-action-orbit !important;
 }

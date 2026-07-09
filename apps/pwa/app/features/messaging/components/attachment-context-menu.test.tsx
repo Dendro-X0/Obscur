@@ -11,7 +11,7 @@ vi.mock("react-i18next", () => ({
 }));
 
 vi.mock("@/app/features/vault/services/save-chat-attachment-to-vault", () => ({
-    canSaveChatAttachmentsToLocalVault: () => true,
+    canSaveChatAttachmentsToLocalVault: vi.fn(() => false),
     isChatAttachmentSavedToLocalVault: vi.fn(async () => false),
     saveChatAttachmentToLocalVault: vi.fn(async () => true),
 }));
@@ -24,7 +24,18 @@ const attachment: Attachment = {
 };
 
 describe("AttachmentContextMenu", () => {
-    it("surfaces save-to-vault as the first action", async () => {
+    it("hides save-to-vault when the feature is disabled", async () => {
+        const { canSaveChatAttachmentsToLocalVault } = await import("@/app/features/vault/services/save-chat-attachment-to-vault");
+        vi.mocked(canSaveChatAttachmentsToLocalVault).mockReturnValue(false);
+
+        render(<AttachmentContextMenu state={{ attachment, x: 120, y: 80 }} onClose={vi.fn()}/>);
+        expect(screen.queryByRole("button", { name: "vault.saveFromChat" })).toBeNull();
+    });
+
+    it("surfaces save-to-vault as the first action when enabled", async () => {
+        const { canSaveChatAttachmentsToLocalVault } = await import("@/app/features/vault/services/save-chat-attachment-to-vault");
+        vi.mocked(canSaveChatAttachmentsToLocalVault).mockReturnValue(true);
+
         render(<AttachmentContextMenu state={{ attachment, x: 120, y: 80 }} onClose={vi.fn()}/>);
         const saveButton = await screen.findByRole("button", { name: "vault.saveFromChat" });
         expect(saveButton).toBeEnabled();

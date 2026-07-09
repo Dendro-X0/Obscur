@@ -1,7 +1,7 @@
 "use client";
 import React from "react";
 import { OptimizedImage } from "../../../components/optimized-image";
-import { AlertTriangle, Check, CheckCheck, Clock, X, Reply, ChevronDown, RefreshCw, FileText, ExternalLink, Music2, ChevronLeft, ChevronRight, Smile, MoreHorizontal } from "lucide-react";
+import { AlertTriangle, Check, CheckCheck, Clock, X, Reply, ChevronDown, RefreshCw, FileText, ExternalLink, Music2, ChevronLeft, ChevronRight, Smile, MoreHorizontal, HardDrive } from "lucide-react";
 import { motion, useMotionValue, useTransform, AnimatePresence } from "framer-motion";
 import { Button } from "../../../components/ui/button";
 import { EmptyState } from "../../../components/ui/empty-state";
@@ -23,6 +23,7 @@ import { CommunityInviteResponseCard } from "../../groups/components/community-i
 import { resolveCommunityInviteDisplayViewerRoleFromMessage } from "../../groups/services/community-invite-display-boundary";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { getLocalMediaIndexSnapshot } from "@/app/features/vault/services/local-media-store";
+import { canSaveChatAttachmentsToLocalVault, saveChatAttachmentToLocalVault } from "@/app/features/vault/services/save-chat-attachment-to-vault";
 import { PrivacySettingsService } from "../../settings/services/privacy-settings-service";
 import { detectSwipeDirection, nextMediaIndex, prevMediaIndex } from "./media-viewer-interactions";
 import { canMessageListAutoScrollToBottom, isMessageListAwayFromBottom, isMessageListFastScroll, type MessageListScrollMode, isMessageListUserAwayFromBottom, shouldMessageListLockToUserHistoryOnUpwardScroll, shouldAutoScrollOnNewMessage, shouldMessageListAutoLoadEarlier, shouldPinMessageListToLatestDuringInitialLanding, } from "./message-list-scroll";
@@ -1601,8 +1602,10 @@ function MessageAttachmentLayout({ attachments, isOutgoing, localAttachmentUrlSe
     }), [attachments, fileLabel, localAttachmentFileNameByUrl]);
     const [activeVisualIndex, setActiveVisualIndex] = React.useState(0);
     const [attachmentContextMenu, setAttachmentContextMenu] = React.useState<AttachmentContextMenuState>(null);
+    const [savingAttachmentUrl, setSavingAttachmentUrl] = React.useState<string | null>(null);
     const touchStartXRef = React.useRef<number | null>(null);
     const skipNextVisualSwipeRef = React.useRef(false);
+    const canSaveToVault = canSaveChatAttachmentsToLocalVault();
     const openAttachmentContextMenu = React.useCallback((params: NonNullable<AttachmentContextMenuState>): void => {
         skipNextVisualSwipeRef.current = true;
         setAttachmentContextMenu(params);
@@ -1650,6 +1653,25 @@ function MessageAttachmentLayout({ attachments, isOutgoing, localAttachmentUrlSe
             ? "grid-cols-2"
             : "grid-cols-2 sm:grid-cols-3";
     const deriveDisplayFileName = (attachment: Attachment): string => displayNameByUrl[attachment.url] ?? fileLabel;
+    const handleQuickSaveToVault = React.useCallback(async (
+        event: React.MouseEvent<HTMLElement>,
+        attachment: Attachment,
+    ): Promise<void> => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (!canSaveToVault || localAttachmentUrlSet.has(attachment.url)) {
+            return;
+        }
+        if (savingAttachmentUrl === attachment.url) {
+            return;
+        }
+        setSavingAttachmentUrl(attachment.url);
+        try {
+            await saveChatAttachmentToLocalVault(attachment, t);
+        } finally {
+            setSavingAttachmentUrl((current) => (current === attachment.url ? null : current));
+        }
+    }, [canSaveToVault, localAttachmentUrlSet, savingAttachmentUrl, t]);
     return (<div className="mb-2 space-y-2 sm:mb-3 sm:space-y-3">
             {!chatUxV083Enabled && (<>
                     {imageMedia.length > 0 ? (<div className={cn("grid gap-1.5", imageGridClass)}>
@@ -1657,6 +1679,9 @@ function MessageAttachmentLayout({ attachments, isOutgoing, localAttachmentUrlSe
                                     {localAttachmentUrlSet.has(attachment.url) ? (<div className="absolute top-2 left-2 z-10 rounded-md px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest bg-emerald-500/90 text-black">
                                             Vault
                                         </div>) : null}
+                                    {canSaveToVault && !localAttachmentUrlSet.has(attachment.url) ? (<button type="button" className="absolute right-2 top-2 z-10 rounded-md border border-white/15 bg-black/55 p-1.5 text-white backdrop-blur-sm transition hover:bg-black/70 disabled:opacity-50" disabled={savingAttachmentUrl === attachment.url} onClick={(event) => { void handleQuickSaveToVault(event, attachment); }} title={t("vault.saveFromChat")} aria-label={t("vault.saveFromChat")}>
+                                            <HardDrive className="h-3.5 w-3.5"/>
+                                        </button>) : null}
                                     <OptimizedImage src={attachment.url} alt={attachment.fileName} containerClassName="h-full w-full" className="h-full w-full object-cover cursor-zoom-in hover:scale-[1.02] transition-transform duration-500" onClick={() => onImageClick?.(attachment.url)}/>
                                 </div>))}
                         </div>) : null}
@@ -1665,6 +1690,9 @@ function MessageAttachmentLayout({ attachments, isOutgoing, localAttachmentUrlSe
                                     {localAttachmentUrlSet.has(attachment.url) ? (<div className="absolute top-2 left-2 z-10 rounded-md px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest bg-emerald-500/90 text-black">
                                             Vault
                                         </div>) : null}
+                                    {canSaveToVault && !localAttachmentUrlSet.has(attachment.url) ? (<button type="button" className="absolute right-2 top-2 z-10 rounded-md border border-white/15 bg-black/55 p-1.5 text-white backdrop-blur-sm transition hover:bg-black/70 disabled:opacity-50" disabled={savingAttachmentUrl === attachment.url} onClick={(event) => { void handleQuickSaveToVault(event, attachment); }} title={t("vault.saveFromChat")} aria-label={t("vault.saveFromChat")}>
+                                            <HardDrive className="h-3.5 w-3.5"/>
+                                        </button>) : null}
                                     <VideoPlayer src={attachment.url} isOutgoing={isOutgoing} className="w-full rounded-xl aspect-[16/10] sm:aspect-video"/>
                                 </div>))}
                         </div>) : null}
@@ -1711,6 +1739,9 @@ function MessageAttachmentLayout({ attachments, isOutgoing, localAttachmentUrlSe
                                 Vault
                             </span>)}
                     </div>
+                    {canSaveToVault && !localAttachmentUrlSet.has(activeVisual.attachment.url) ? (<button type="button" className="absolute right-3 top-3 z-20 rounded-lg border border-white/15 bg-black/45 p-2 text-white backdrop-blur-md transition hover:bg-black/65 disabled:opacity-50" disabled={savingAttachmentUrl === activeVisual.attachment.url} onClick={(event) => { void handleQuickSaveToVault(event, activeVisual.attachment); }} title={t("vault.saveFromChat")} aria-label={t("vault.saveFromChat")}>
+                            <HardDrive className="h-4 w-4"/>
+                        </button>) : null}
 
                     {/* Navigation Overlays */}
                     {visualMedia.length > 1 && (<>

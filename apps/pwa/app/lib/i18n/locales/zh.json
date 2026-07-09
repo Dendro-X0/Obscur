@@ -156,6 +156,11 @@
     "messaging.messageResults": "消息结果",
     "messaging.noPendingRequests": "无待处理请求",
     "messaging.noPendingRequestsDesc": "来自您尚未接受的人的新对话将显示在这里。",
+    "messaging.junkInboxEmptyTitle": "暂无垃圾邀请",
+    "messaging.junkInboxEmptyDesc": "被标记为异常信任信号的邀请会显示在这里，供您在接受或清除前审阅。",
+    "messaging.junkInboxTitle": "垃圾邮件 ({{count}})",
+    "messaging.junkInboxDesc": "这些邀请因 Obscur 检测到较高的信任或滥用信号而被移至此列表。",
+    "messaging.junkInboxHelp": "垃圾邮件存放具有较高信任信号的邀请，便于您与主收件箱分开审阅。",
     "messaging.pendingRequests": "待处理请求",
     "messaging.pendingRequestsHelp": "请求是来自您尚未批准的用户的消息。在您接受之前，他们无法看到您的在线状态。",
     "messaging.newConnection": "新连接",
@@ -2168,6 +2173,11 @@
     "messaging.lastActive": "上次活跃 {{time}}",
     "messaging.lastViewed": "上次查看 {{time}}",
     "messaging.noRecentActivity": "无近期活动",
-    "profiles.picker.pageTitle": "个人资料"
+    "profiles.picker.pageTitle": "个人资料",
+    "settings.security.lockNowDesc": "立即锁定且不会退出登录。您的账户仍保留在此设备上，直到您再次解锁。",
+    "settings.security.lockedToast": "Obscur 已锁定。",
+    "vault.saveFromChatLocalVaultOnly": "此媒体已存在于您的加密本地 Vault 中。",
+    "vault.saveFromChatBlockedHost": "出于安全考虑，Obscur 不会从本地或私有网络 URL 保存媒体。",
+    "vault.saveFromChatUnsupportedUrl": "此附件 URL 无法保存到 Vault。请先下载到本地，再使用安全上传。"
   }
 }

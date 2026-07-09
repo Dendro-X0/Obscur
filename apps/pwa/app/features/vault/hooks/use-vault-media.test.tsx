@@ -53,11 +53,15 @@ vi.mock("../../auth/hooks/use-identity", () => ({
 
 vi.mock("../../profiles/services/profile-scope", () => ({
   readRegistryBackedActiveProfileId: () => profileScopeState.activeProfileId,
+  getProfileScopeOverride: () => null,
 }));
 
 vi.mock("../services/local-media-store", () => ({
   deleteLocalMediaCacheItem: vi.fn(async () => undefined),
   downloadAttachmentToUserPath: vi.fn(async () => true),
+  revealLocalMediaItemPath: vi.fn(async () => true),
+  subscribeLocalMediaIndexChanged: vi.fn(() => () => undefined),
+  getLocalMediaIndexSnapshot: vi.fn(() => ({})),
   getLocalMediaIndexEntryByRemoteUrl: vi.fn(() => null),
   resolveLocalMediaUrl: vi.fn(async () => null),
 }));

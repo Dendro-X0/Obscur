@@ -13,13 +13,11 @@ import { RelayOverlapBanner } from "./relay-overlap-banner";
 import type { ContactRelayOverlapResult } from "../hooks/use-contact-relay-overlap";
 import { MessageList } from "./message-list";
 import { Composer } from "./composer";
-import { MediaGallery } from "./media-gallery";
-import { Lightbox } from "./lightbox";
 import { MessageMenu } from "./message-menu";
 import { ReactionPicker } from "./reaction-picker";
 import { Loader2, Lock, Mic, Search, Trash2, UploadCloud, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import type { Conversation, Message, MediaItem, ReactionEmoji, ReplyTo, RelayStatusSummary, SendDirectMessageParams, SendDirectMessageResult, VoiceCallInvitePayload } from "../types";
+import type { Conversation, Message, ReactionEmoji, ReplyTo, RelayStatusSummary, SendDirectMessageParams, SendDirectMessageResult, VoiceCallInvitePayload } from "../types";
 import { resolveConversationMessageJumpTarget } from "./message-search-jump";
 import { mergeConversationHistorySearchResults, resolveHistorySearchResultsForLiveMessages, searchLiveConversationMessages, } from "../services/conversation-history-search";
 import { searchConversationPersistedHistory } from "../services/conversation-history-persisted-search-port";
@@ -33,6 +31,8 @@ import {
     canSaveChatAttachmentsToLocalVault,
     saveChatAttachmentsToLocalVault,
 } from "@/app/features/vault/services/save-chat-attachment-to-vault";
+import { useMessaging } from "../providers/messaging-provider";
+import { useMediaPreviewScope } from "../services/media-preview-scope";
 import { SEARCH_TARGET_FLASH_CLASS, SEARCH_TARGET_FLASH_MS } from "@/app/shared/search-target-highlight";
 import { applyBatchMessageSelectionToggle } from "../utils/batch-message-selection";
 import { isStrictManagedWorkspaceRelay } from "@/app/features/groups/services/strict-managed-workspace";
@@ -172,12 +172,6 @@ export interface ChatViewProps {
     onSendVoiceNote?: (file: File) => void;
     isProcessingMedia: boolean;
     mediaProcessingProgress: number;
-    // Media
-    isMediaGalleryOpen: boolean;
-    setIsMediaGalleryOpen: (val: boolean) => void;
-    selectedConversationMediaItems: ReadonlyArray<MediaItem>;
-    lightboxIndex: number | null;
-    setLightboxIndex: (val: number | null) => void;
     pendingEventCount?: number;
     recipientStatus?: 'idle' | 'found' | 'not_found' | 'verifying';
     isPeerAccepted?: boolean;
@@ -202,6 +196,15 @@ export interface ChatViewProps {
 }
 export function ChatView(props: ChatViewProps) {
     const { t } = useTranslation();
+    const {
+        isMediaGalleryOpen,
+        setIsMediaGalleryOpen,
+        lightboxIndex,
+        setLightboxIndex,
+        setMessageMenu,
+        setReactionPicker,
+    } = useMessaging();
+    const { items: selectedConversationMediaItems } = useMediaPreviewScope();
     const preferNativeTouchScroll = usePreferNativeTouchScroll();
     const hideDesktopChatHeader = props.hideDesktopChatHeader === true;
     const [isDragging, setIsDragging] = useState(false);
@@ -277,7 +280,7 @@ export function ChatView(props: ChatViewProps) {
             mediaQuery.removeListener(listener);
         };
     }, []);
-    const { isMediaGalleryOpen, lightboxIndex, selectedConversationMediaItems, setIsMediaGalleryOpen, setLightboxIndex, setMessageMenu, setReactionPicker, onDeleteMessageForMe, onDeleteMessageForEveryone, } = props;
+    const { onDeleteMessageForMe, onDeleteMessageForEveryone } = props;
     const managedWorkspaceRemoteRemove = React.useMemo(() => props.conversation.kind === "group"
         && isStrictManagedWorkspaceRelay(props.groupRelayUrl ?? null), [props.conversation.kind, props.groupRelayUrl]);
     const getMessageById = (messageId: string): Message | undefined => {
@@ -884,10 +887,6 @@ export function ChatView(props: ChatViewProps) {
                 }
                 props.setReactionPicker(null);
             }} pickerRef={props.reactionPickerRef} onRequestClose={() => props.setReactionPicker(null)}/>)}
-
-            <MediaGallery isOpen={props.isMediaGalleryOpen} onClose={() => props.setIsMediaGalleryOpen(false)} conversationDisplayName={resolvedName} mediaItems={props.selectedConversationMediaItems} onSelect={props.setLightboxIndex}/>
-
-            {props.lightboxIndex !== null && (<Lightbox item={props.selectedConversationMediaItems[props.lightboxIndex]} onClose={() => props.setLightboxIndex(null)} onPrev={() => props.setLightboxIndex(props.lightboxIndex! - 1)} onNext={() => props.setLightboxIndex(props.lightboxIndex! + 1)} hasPrev={props.lightboxIndex > 0} hasNext={props.lightboxIndex < props.selectedConversationMediaItems.length - 1} activeIndex={props.lightboxIndex} totalItems={props.selectedConversationMediaItems.length}/>)}
 
             {isDragging && (<div className="absolute inset-0 z-[100] bg-purple-600/10 backdrop-blur-sm flex items-center justify-center p-8 animate-in fade-in duration-200 pointer-events-none">
                     <div className="bg-white dark:bg-zinc-900 rounded-[32px] p-12 border-2 border-dashed border-purple-500 flex flex-col items-center gap-4 shadow-2xl scale-110 transition-transform">

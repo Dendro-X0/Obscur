@@ -5,6 +5,8 @@ import {
   isLocalVaultOnlyUrl,
   normalizeLocalMediaDisplayFileName,
   resolveVaultDisplayFileName,
+  shouldAllowLocalMediaCacheWrite,
+  DEFAULT_LOCAL_MEDIA_STORAGE_CONFIG,
 } from "./local-media-store";
 
 describe("local vault URL helpers", () => {
@@ -43,5 +45,13 @@ describe("normalizeLocalMediaDisplayFileName", () => {
 
   it("keeps regular file names unchanged", () => {
     expect(normalizeLocalMediaDisplayFileName("meeting-notes.pdf")).toBe("meeting-notes.pdf");
+  });
+});
+
+describe("shouldAllowLocalMediaCacheWrite", () => {
+  it("allows explicit vault saves even when automatic local caching is disabled", () => {
+    const disabledConfig = { ...DEFAULT_LOCAL_MEDIA_STORAGE_CONFIG, enabled: false };
+    expect(shouldAllowLocalMediaCacheWrite(disabledConfig)).toBe(false);
+    expect(shouldAllowLocalMediaCacheWrite(disabledConfig, { force: true })).toBe(true);
   });
 });

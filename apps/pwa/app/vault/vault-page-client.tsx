@@ -20,7 +20,7 @@ export default function VaultPageClient(): React.JSX.Element {
     const compact = useMobileCompactLayout();
     const tablet = useTabletSecondaryLayout();
     const identity = useIdentity();
-    const { mediaItems, isLoading, stats, refresh, downloadToLocalPath, deleteLocalCopy } = useVaultMedia();
+    const { mediaItems, isLoading, stats, refresh, downloadToLocalPath, deleteLocalCopy, openLocalFileLocation } = useVaultMedia();
     const [isUploadOpen, setIsUploadOpen] = useState(false);
     const publicKeyHex: string | null = identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex ?? null;
     const navBadges = useNavBadges({ publicKeyHex: (publicKeyHex as PublicKeyHex | null) ?? null });
@@ -72,7 +72,7 @@ export default function VaultPageClient(): React.JSX.Element {
                         <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">{t("vault.recentMedia")}</h3>
                     </div>
                     <div data-testid="vault-mobile-scroll-region" className={cn("min-h-0 flex-1", compact && "mobile-scroll-region overflow-y-auto")}>
-                        <VaultMediaGrid mediaItems={mediaItems} isLoading={isLoading} stats={stats} refresh={refresh} downloadToLocalPath={downloadToLocalPath} deleteLocalCopy={deleteLocalCopy}/>
+                        <VaultMediaGrid mediaItems={mediaItems} isLoading={isLoading} stats={stats} refresh={refresh} downloadToLocalPath={downloadToLocalPath} deleteLocalCopy={deleteLocalCopy} openLocalFileLocation={openLocalFileLocation}/>
                     </div>
                 </div>
             </div>

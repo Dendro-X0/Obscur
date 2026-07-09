@@ -156,6 +156,11 @@
     "messaging.messageResults": "Résultats des messages",
     "messaging.noPendingRequests": "Aucune demande en attente",
     "messaging.noPendingRequestsDesc": "Les nouvelles conversations provenant de personnes que vous n'avez pas encore acceptées apparaîtront ici.",
+    "messaging.junkInboxEmptyTitle": "Aucune invitation indésirable",
+    "messaging.junkInboxEmptyDesc": "Les invitations signalées pour des signaux de confiance inhabituels apparaîtront ici pour examen avant acceptation ou suppression.",
+    "messaging.junkInboxTitle": "Indésirables ({{count}})",
+    "messaging.junkInboxDesc": "Ces invitations ont été déplacées ici après que Obscur a détecté des signaux de confiance ou d'abus élevés.",
+    "messaging.junkInboxHelp": "Les indésirables regroupent les invitations à signaux de confiance élevés pour un examen séparé de votre boîte principale.",
     "messaging.pendingRequests": "Demandes en attente",
     "messaging.pendingRequestsHelp": "Les demandes sont des messages d'utilisateurs que vous n'avez pas encore approuvés. Ils ne peuvent pas voir votre statut en ligne tant que vous n'avez pas accepté.",
     "messaging.newConnection": "Nouvelle connexion",
@@ -2164,6 +2169,11 @@
     "messaging.lastActive": "Dernière activité {{time}}",
     "messaging.lastViewed": "Dernière consultation {{time}}",
     "messaging.noRecentActivity": "Aucune activité récente",
-    "profiles.picker.pageTitle": "Profils"
+    "profiles.picker.pageTitle": "Profils",
+    "settings.security.lockNowDesc": "Verrouillez immédiatement sans vous déconnecter. Votre compte reste sur cet appareil jusqu'au prochain déverrouillage.",
+    "settings.security.lockedToast": "Obscur verrouillé.",
+    "vault.saveFromChatLocalVaultOnly": "Ce média est deja stocke dans votre Vault local chiffre.",
+    "vault.saveFromChatBlockedHost": "Pour des raisons de securite, Obscur n'enregistre pas les medias provenant d'URL de reseau local ou prive.",
+    "vault.saveFromChatUnsupportedUrl": "Impossible d'enregistrer cette URL de piece jointe dans le Vault. Telechargez-la d'abord localement, puis utilisez Televersement securise."
   }
 }

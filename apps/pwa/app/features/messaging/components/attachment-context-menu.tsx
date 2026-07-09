@@ -8,7 +8,6 @@ import type { Attachment } from "../types";
 import { cn } from "@/app/lib/utils";
 import {
     canSaveChatAttachmentsToLocalVault,
-    isChatAttachmentSavedToLocalVault,
     saveChatAttachmentToLocalVault,
 } from "@/app/features/vault/services/save-chat-attachment-to-vault";
 
@@ -55,23 +54,6 @@ export function AttachmentContextMenu({ state, onClose, onCopyUrl }: AttachmentC
             top: Math.round(Math.min(Math.max(state.y, VIEWPORT_MARGIN_PX), maxTop)),
         });
     }, [state]);
-
-    React.useEffect(() => {
-        if (!state?.attachment.url) {
-            setIsSavedToVault(false);
-            return;
-        }
-        let cancelled = false;
-        void (async () => {
-            const saved = await isChatAttachmentSavedToLocalVault(state.attachment.url);
-            if (!cancelled) {
-                setIsSavedToVault(saved);
-            }
-        })();
-        return () => {
-            cancelled = true;
-        };
-    }, [state?.attachment.url]);
 
     React.useEffect(() => {
         if (!state) {
@@ -122,10 +104,10 @@ export function AttachmentContextMenu({ state, onClose, onCopyUrl }: AttachmentC
             </div>
             {canSaveToVault ? (<button
                     type="button"
-                    className={cn(itemClass, (isSaving || isSavedToVault) && "opacity-50")}
-                    disabled={isSaving || isSavedToVault}
+                    className={cn(itemClass, isSaving && "opacity-50")}
+                    disabled={isSaving}
                     onClick={() => {
-                        if (isSaving || isSavedToVault) {
+                        if (isSaving) {
                             return;
                         }
                         setIsSaving(true);
