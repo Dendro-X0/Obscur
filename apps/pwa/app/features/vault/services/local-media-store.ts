@@ -1095,3 +1095,90 @@ export const pickLocalMediaStorageRootPath = async (): Promise<string | null> =>
         return null;
     }
 };
+
+export type VaultLegacyMigrationEntryResult =
+    | "migrated"
+    | "already_encrypted"
+    | "missing_file"
+    | "failed";
+
+export const isLegacyPlaintextVaultIndexEntry = (entry: Readonly<{ relativePath: string }>): boolean =>
+    !isEncryptedVaultRelativePath(entry.relativePath);
+
+export const migrateLegacyPlaintextVaultIndexEntry = async (remoteUrl: string): Promise<VaultLegacyMigrationEntryResult> => {
+    if (!isTauriRuntime() || !isVaultWriteEncryptionReady()) {
+        return "failed";
+    }
+    const normalizedRemoteUrl = remoteUrl.trim();
+    if (!normalizedRemoteUrl) {
+        return "failed";
+    }
+
+    const index = loadIndex();
+    const entry = index[normalizedRemoteUrl];
+    if (!entry) {
+        return "missing_file";
+    }
+    if (!isLegacyPlaintextVaultIndexEntry(entry)) {
+        return "already_encrypted";
+    }
+
+    const legacyRef = storageRefForEntryPath(entry.relativePath);
+    const legacyExists = await nativeLocalMediaAdapter.fileExists(legacyRef);
+    if (!legacyExists) {
+        delete index[normalizedRemoteUrl];
+        saveIndex(index);
+        emitLocalMediaIndexChanged();
+        return "missing_file";
+    }
+
+    try {
+        const fileBytes = await nativeLocalMediaAdapter.readBytes(legacyRef);
+        if (!fileBytes || fileBytes.byteLength === 0) {
+            return "failed";
+        }
+        const plaintext = await decryptVaultFileBytesIfNeeded({ fileBytes });
+        const encryptedPayload = await encryptVaultBytesForWrite({ plaintext });
+        const cfg = getLocalMediaStorageConfig();
+        const target = await resolveUniqueLocalFileTarget(cfg, entry.fileName, normalizedRemoteUrl);
+        const targetRef = storageRefForEntryPath(target.relativePath);
+        const targetExists = await nativeLocalMediaAdapter.fileExists(targetRef);
+        if (!targetExists) {
+            const storage = await resolveVaultStorage();
+            if (storage.usesAbsolutePaths && storage.absoluteStorageDir) {
+                await nativeLocalMediaAdapter.writeBytes({ path: target.relativePath, bytes: encryptedPayload.bytes });
+            } else {
+                await nativeLocalMediaAdapter.writeBytes({
+                    path: target.relativePath,
+                    appDataRelative: true,
+                    bytes: encryptedPayload.bytes,
+                });
+            }
+        }
+
+        index[normalizedRemoteUrl] = {
+            ...entry,
+            relativePath: target.relativePath,
+            size: plaintext.byteLength,
+        };
+        saveIndex(index);
+        emitLocalMediaIndexChanged();
+
+        if (target.relativePath !== entry.relativePath) {
+            try {
+                await nativeLocalMediaAdapter.removePath(legacyRef);
+            } catch {
+                // Best-effort cleanup of legacy plaintext file.
+            }
+        }
+        return "migrated";
+    } catch (error) {
+        logRuntimeEvent(
+            "local_media_store.legacy_migration_failed",
+            "degraded",
+            ["[LocalMediaStore] Failed to migrate legacy plaintext vault entry:", normalizedRemoteUrl, error],
+            { windowMs: 15_000, maxPerWindow: 3 },
+        );
+        return "failed";
+    }
+};

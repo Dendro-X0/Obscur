@@ -976,6 +976,8 @@
         "vault.saveLocallyInstead": "Save to local encrypted vault",
         "vault.localSaveFailed": "Could not save to local encrypted vault. Check storage settings and free disk space.",
         "vault.localSaveUnlockRequired": "Unlock this profile to save encrypted vault files.",
+        "vault.legacyMigrationRunning": "Encrypting {{count}} legacy vault file(s) on this device…",
+        "vault.legacyMigrationFailed": "Could not encrypt {{count}} legacy vault file(s). Try unlocking again or re-upload from disk.",
         "vault.localSaveRetryNoFiles": "Choose a file again, then save locally.",
         "vault.partialLocalSave": "Saved {{saved}} of {{total}} files to local encrypted vault.",
         "vault.saveFromChat": "Save to vault",

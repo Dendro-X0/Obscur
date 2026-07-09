@@ -143,6 +143,8 @@ Obscur Vault becomes an **encryption sandbox**: media bytes under the user data 
 | 2.3 | Idempotent + resumable; log counts in diagnostics |
 | 2.4 | Vault UI banner while migration pending |
 
+**Status (2026-07-09):** **Implemented** — `vault-legacy-migration.ts`, unlock hook, Vault banner
+
 **Owner:** new `vault-legacy-migration.ts` called from `local-media-store.ts` on unlock
 
 **Proof:** L1 migration unit tests; L3 before/after USB copy — no plaintext media files.

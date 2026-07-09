@@ -32,6 +32,10 @@ export const activateNativeStorageAtRestUnlock = async (params: Readonly<{
     profileId,
     keyMaterialB64: profileDataKeyMaterialToBase64(keyMaterial),
   });
+  const { scheduleVaultLegacyPlaintextMigrationOnUnlock } = await import(
+    "@/app/features/vault/services/vault-legacy-migration"
+  );
+  scheduleVaultLegacyPlaintextMigrationOnUnlock();
 };
 
 export const finalizeNativeStorageAtRestLock = async (params?: Readonly<{ profileId?: string }>): Promise<void> => {

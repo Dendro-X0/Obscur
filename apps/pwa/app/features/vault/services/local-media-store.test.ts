@@ -4,6 +4,7 @@ import {
   isEncryptedVaultStorageFileName,
   isLocalVaultOnlyUrl,
   isVaultEncryptionSessionReady,
+  isLegacyPlaintextVaultIndexEntry,
   normalizeLocalMediaDisplayFileName,
   resolveVaultDisplayFileName,
   shouldAllowLocalMediaCacheWrite,
@@ -67,5 +68,12 @@ describe("vault encryption session gate", () => {
     const error = new VaultWriteEncryptionRequiredError();
     expect(error.code).toBe("VAULT_WRITE_ENCRYPTION_REQUIRED");
     expect(error.message).toContain("Unlock this profile");
+  });
+
+  it("detects legacy plaintext vault index entries", () => {
+    expect(isLegacyPlaintextVaultIndexEntry({ relativePath: "vault-media/photo.jpg" })).toBe(true);
+    expect(isLegacyPlaintextVaultIndexEntry({
+      relativePath: "vault-media/bf2f9ab5d641772b682a1df5.obscurvault",
+    })).toBe(false);
   });
 });

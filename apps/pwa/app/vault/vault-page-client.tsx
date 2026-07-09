@@ -11,6 +11,7 @@ import { IdentityCard } from "../components/identity-card";
 import { useTranslation } from "react-i18next";
 import { Lock, Upload, RefreshCw, Image as ImageIcon, Settings2 } from "lucide-react";
 import { VaultMediaGrid } from "../features/vault/components/vault-media-grid";
+import { VaultLegacyMigrationBanner } from "../features/vault/components/vault-legacy-migration-banner";
 import { VaultUploadModal } from "../features/vault/components/vault-upload-modal";
 import { useVaultMedia } from "../features/vault/hooks/use-vault-media";
 import { useMobileCompactLayout, useTabletSecondaryLayout } from "@/app/features/runtime/use-mobile-compact-layout";
@@ -67,6 +68,7 @@ export default function VaultPageClient(): React.JSX.Element {
                 </div>
 
                 <div className={cn("flex min-h-0 flex-1 flex-col", compact ? "space-y-4" : "space-y-8")}>
+                    <VaultLegacyMigrationBanner className="shrink-0"/>
                     <div className="flex shrink-0 items-center gap-2">
                         <ImageIcon className="h-4 w-4 text-primary"/>
                         <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">{t("vault.recentMedia")}</h3>
