@@ -1,6 +1,6 @@
 # Current Session Handoff — Obscur Engine Lab
 
-- Last Updated (UTC): 2026-07-09T15:50:00Z
+- Last Updated (UTC): 2026-07-10T05:40:09Z
 
 ## Next atomic step
 
@@ -11,18 +11,30 @@
 | Plan | [vault-encryption-sandbox-plan-2026-07.md](../specs/backend/vault-encryption-sandbox-plan-2026-07.md) |
 | L3/L4 runbook | [vault-sandbox-l3-verification-2026-07.md](../specs/backend/vault-sandbox-l3-verification-2026-07.md) |
 | Phase 6 | **DISABLED** — [investigation](../specs/backend/vault-chat-save-re-enable-investigation-2026-07.md) complete; no flag flip until G8 |
-| Rollback ladder | `5c301ca6` → `2a6dabea` → `5483b9e4` → `6acd1086` → `d0533def` → `a04c747d` → `3e0d9387` |
+| Rollback ladder | `5c301ca6` → `2a6dabea` → `5483b9e4` → `6acd1086` → `d0533def` → `a04c747d` → `3e0d9387` → `7bbaa010` |
 | L1 | `pnpm verify:vault-sandbox-l1` · `pnpm verify:storage-encryption-v1.9.8` |
 | G8 gap | Maintainer signs runbook §5 after L3 §3 + L4 §4 (desktop, non-default data root) |
 | Demo path | Vault → **Secure Upload** only — not chat→vault |
 
-**Parallel (not blocked):** CodaCtrl lane D below remains external-daemon wiring.
+---
+
+## EXIT — CodaCtrl lane D (Obscur-side)
+
+**Status:** **EXIT (Obscur)** — no further Obscur code expected unless CodaCtrl defines new hook requirements.
+
+| Field | Value |
+|-------|--------|
+| Runbook | [codactrl-obscur-agent-runbook-2026-07.md](../program/codactrl-obscur-agent-runbook-2026-07.md) |
+| WEB-R2 | **Mitigated** — `data-codactrl-sha256` hooks on `/download` |
+| RIW-8 | **Draft shipped** — `signalExtractMappings` in FLS rule pack; **CodaCtrl repo** must wire extractor |
+| WEB-R1 / WEB-R3 | **Documented** — workspace alignment + probe routing in runbook |
+| Proof (Obscur) | `pnpm docs:check` · `pnpm -C apps/website build` PASS · DOM hooks on `localhost:3000/download` |
+| External blocker | `client_web_surface_probe` `downloadShaPresent: false` until **CodaCtrl daemon** reads `[data-codactrl-sha256]` |
+| Release track | Phase 4 deploy **PAUSED** · Phase 5 GIF **maintainer-later** · `v2.0.0` tag **not yet** (separate from lane D) |
 
 ---
 
-## Prior atomic step — CodaCtrl lane D
-
-**CodaCtrl lane D** — Obscur-side mitigations shipped · daemon wiring remains external
+## Prior atomic step — CodaCtrl lane D (archive)
 
 | Field | Value |
 |-------|--------|
@@ -1154,3 +1166,15 @@ Prior: w38 (group provider), w37 (sealed community), w36 (conversation messages 
 - Transport recovery: web legacy controller quarantined in `relay-recovery-controller-legacy.ts`; native uses metrics refresher + transport-kernel pool recovery (`relay-recovery-port`, `transport-kernel-recovery-port`).
 - Transport engine w2–w36: boot URLs → supervisor evidence → pool hydration → transient subscribe → authority flip → snapshot owner → recovery snapshot subtraction → action orchestration subtraction → legacy controller quarantine → headless engine owner + pool runtime port → UI pool hook port → standalone publish port → journal-backed native standalone publish → dedicated transport-kernel publish owner → shared publish-outcome semantics → host-publish charter/defer decision → host publish contract slice → non-wired desktop/host invoke stub → parity verification charter pinned → publish result/evidence contract pinned → typed host adapter for publish results → Rust wiring charter pinned (still stubbed) → headless parity harness charter pinned → first executable parity harness slice → reason/status parity + invalid-shape rejection harness → mocked valid host-result acceptance path → mocked failure-mode paths → parity harness exit charter → owner migration charter → Rust payload validation → result assembly charter → port shim charter → shim policy gate → gated host shim wiring → dry-run assembly charter (design-only).
 - **0 legacy implementation files** in `app/legacy/`; feature production code imports legacy only through ports.
+
+---
+
+## Checkpoints
+
+<!-- CONTEXT_CHECKPOINTS_START -->
+### 2026-07-10T05:40:09Z checkpoint
+- Summary: Vault sandbox Phases 1-5 in evidence mode (G8); CodaCtrl lane D marked Obscur-side EXIT; docs/CURRENT synced
+- Evidence: pnpm verify:vault-sandbox-l1 31/31; verify:storage-encryption-v1.9.8 PASS; commit 7bbaa010
+- Uncertainty: not provided
+- Next: Maintainer L3/L4 vault-sandbox-l3-verification runbook sections 3-5; CodaCtrl daemon wiring is external
+<!-- CONTEXT_CHECKPOINTS_END -->
