@@ -14,6 +14,7 @@ import { ProfileMigrationBootstrap } from "./profile-migration-bootstrap";
 import { DesktopWindowRootSurface } from "./desktop/desktop-window-root-surface";
 import { MobileModeProvider } from "./mobile/mobile-mode-provider";
 import { NativeRuntimeGate } from "./native-runtime-gate";
+import { AppOverlayRoot } from "./app-overlay-layer";
 
 const PwaServiceWorkerRegistrar = dynamic(
   () => import("./pwa-service-worker-registrar"),
@@ -73,6 +74,7 @@ export function RootAppShell({ children }: RootAppShellProps): React.JSX.Element
                     {children}
                   </DesktopWindowRootSurface>
                 </main>
+                <AppOverlayRoot />
               </div>
             </I18nProvider>
           </MobileModeProvider>

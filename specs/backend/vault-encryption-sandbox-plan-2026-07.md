@@ -182,7 +182,7 @@ Obscur Vault becomes an **encryption sandbox**: media bytes under the user data 
 
 **Owner:** `vault-media-grid.tsx`, `lightbox.tsx`, `local-media-store.ts`, lock pipeline
 
-**Proof:** L3 manual script-injection checklist (§6).
+**Proof:** L3 manual script-injection checklist (§6). Runbook: [vault-sandbox-l3-verification-2026-07.md](./vault-sandbox-l3-verification-2026-07.md).
 
 **Status (2026-07-09):** **Implemented** — export labeling, folder-only reveal, `vault-media-blob-lifecycle.ts`, lock/refresh revoke
 
@@ -200,7 +200,7 @@ Obscur Vault becomes an **encryption sandbox**: media bytes under the user data 
 
 **Owner:** `data_root.rs`, `local-media-vault-path.ts`
 
-**Proof:** L3 portable USB soak (charter Phase 4 checklist).
+**Proof:** L3 portable USB soak (charter Phase 4 checklist). Runbook: [vault-sandbox-l3-verification-2026-07.md](./vault-sandbox-l3-verification-2026-07.md) §4.
 
 **Status (2026-07-09):** **Implemented** — `profiles/{profileId}/vault/` writes, layout migration on unlock, data-root profile vault dir
 
