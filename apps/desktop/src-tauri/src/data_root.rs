@@ -18,6 +18,7 @@ pub const DATA_ROOT_MANIFEST_FILE: &str = "obscur.json";
 pub const WORKSPACE_EXPORTS_DIR: &str = "workspace-exports";
 pub const PROFILE_ARCHIVES_DIR: &str = "profile-archives";
 pub const VAULT_MEDIA_DIR: &str = "vault-media";
+pub const PROFILE_VAULT_SUBDIR: &str = "vault";
 
 const MIGRATABLE_ROOT_FILES: &[&str] = &[
     "profiles_registry.json",
@@ -885,12 +886,14 @@ pub fn resolve_webview_profile_workspace(
             .join("profiles")
             .join(profile_id);
         fs::create_dir_all(&emergency).map_err(map_data_root_io_error)?;
+        let _ = fs::create_dir_all(emergency.join(PROFILE_VAULT_SUBDIR));
         eprintln!(
             "[obscur] offline webview workspace fell back to {}",
             emergency.display()
         );
         return Ok(emergency);
     }
+    let _ = fs::create_dir_all(profile_dir.join(PROFILE_VAULT_SUBDIR));
     Ok(profile_dir)
 }
 

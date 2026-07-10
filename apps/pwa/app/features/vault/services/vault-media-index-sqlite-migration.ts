@@ -97,6 +97,8 @@ export const scheduleVaultUnlockMaintenance = (): void => {
     await runVaultMediaIndexSqliteImportOnUnlock();
     const { scheduleVaultLegacyPlaintextMigrationOnUnlock } = await import("./vault-legacy-migration");
     scheduleVaultLegacyPlaintextMigrationOnUnlock();
+    const { scheduleVaultLayoutMigrationOnUnlock } = await import("./vault-layout-migration");
+    scheduleVaultLayoutMigrationOnUnlock();
   })().catch((error) => {
     logRuntimeEvent(
       "vault_unlock_maintenance.failed",

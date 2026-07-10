@@ -123,6 +123,17 @@ const parentPath = async (absolutePath: string): Promise<string | null> => {
   }
 };
 
+const movePath = async (params: Readonly<{ from: string; to: string }>): Promise<boolean> => {
+  if (!isSupported()) return false;
+  try {
+    const { rename } = await import("@tauri-apps/plugin-fs");
+    await rename(params.from, params.to);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 export const nativeLocalMediaAdapter = {
   isSupported,
   joinPaths,
@@ -137,4 +148,5 @@ export const nativeLocalMediaAdapter = {
   pickDirectory,
   pickSavePath,
   parentPath,
+  movePath,
 };

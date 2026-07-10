@@ -655,7 +655,7 @@ export default function StorageSettingsTabPanel(): React.JSX.Element {
                         {t("settings.storage.dataFolderVaultLabel")}
                       </div>
                       <div className="mt-1 font-mono truncate text-zinc-700 dark:text-zinc-300">
-                        {dataRootConfig.vaultMediaPath || localMediaAbsolutePath || "—"}
+                        {(isNativeDesktop ? localMediaAbsolutePath : (dataRootConfig?.vaultMediaPath || localMediaAbsolutePath)) || "—"}
                       </div>
                     </div>
                   </div>) : null}
@@ -710,7 +710,7 @@ export default function StorageSettingsTabPanel(): React.JSX.Element {
                       <div className="space-y-1 overflow-hidden">
                         <div className="text-xs font-semibold text-zinc-500 uppercase tracking-widest">Calculated Path</div>
                         <div className="text-sm font-mono text-zinc-800 dark:text-zinc-200 truncate">
-                          {isResolvingLocalPath ? "Resolving..." : (dataRootConfig?.vaultMediaPath || localMediaAbsolutePath || "Default App Data")}
+                          {isResolvingLocalPath ? "Resolving..." : ((isNativeDesktop ? localMediaAbsolutePath : (dataRootConfig?.vaultMediaPath || localMediaAbsolutePath)) || "Default App Data")}
                         </div>
                       </div>
 

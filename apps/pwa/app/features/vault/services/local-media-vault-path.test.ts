@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_LOCAL_MEDIA_STORAGE_CONFIG } from "./local-media-store";
-import { resolveVaultStorageLayout, vaultUsesAbsolutePaths } from "./local-media-vault-path";
+import {
+  buildProfileVaultRelativeDir,
+  buildProfileVaultRelativePath,
+  isLegacyFlatVaultRelativePath,
+  isLegacyVaultLayoutIndexEntry,
+  isProfileScopedVaultRelativePath,
+  resolveVaultStorageLayout,
+  vaultUsesAbsolutePaths,
+} from "./local-media-vault-path";
 
 describe("resolveVaultStorageLayout", () => {
   it("prefers unified data root on native desktop", () => {
@@ -30,5 +38,21 @@ describe("resolveVaultStorageLayout", () => {
     });
     expect(layout.mode).toBe("app_data_relative");
     expect(vaultUsesAbsolutePaths(layout)).toBe(false);
+  });
+});
+
+describe("profile vault relative paths", () => {
+  it("builds per-profile vault directories", () => {
+    expect(buildProfileVaultRelativeDir("default")).toBe("profiles/default/vault");
+    expect(buildProfileVaultRelativePath("alpha", "bf2f9ab5d641772b682a1df5.obscurvault"))
+      .toBe("profiles/alpha/vault/bf2f9ab5d641772b682a1df5.obscurvault");
+  });
+
+  it("detects legacy flat vault-media paths", () => {
+    expect(isLegacyFlatVaultRelativePath("vault-media/photo.obscurvault")).toBe(true);
+    expect(isLegacyFlatVaultRelativePath("D:/Obscur/vault-media/photo.obscurvault")).toBe(true);
+    expect(isProfileScopedVaultRelativePath("profiles/default/vault/photo.obscurvault")).toBe(true);
+    expect(isLegacyVaultLayoutIndexEntry({ relativePath: "vault-media/photo.obscurvault" })).toBe(true);
+    expect(isLegacyVaultLayoutIndexEntry({ relativePath: "profiles/default/vault/photo.obscurvault" })).toBe(false);
   });
 });

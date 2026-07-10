@@ -202,6 +202,8 @@ Obscur Vault becomes an **encryption sandbox**: media bytes under the user data 
 
 **Proof:** L3 portable USB soak (charter Phase 4 checklist).
 
+**Status (2026-07-09):** **Implemented** — `profiles/{profileId}/vault/` writes, layout migration on unlock, data-root profile vault dir
+
 ---
 
 ### Phase 6 — Chat→vault re-enable (optional, blocked on G6)

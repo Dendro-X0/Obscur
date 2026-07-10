@@ -8,7 +8,7 @@ import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 import { getObscurDataRootConfig } from "@/app/features/profiles/services/obscur-data-root-service";
 import { nativeLocalMediaAdapter } from "./native-local-media-adapter";
-import { resolveVaultStorageLayout, vaultUsesAbsolutePaths } from "./local-media-vault-path";
+import { resolveVaultStorageLayout, vaultUsesAbsolutePaths, buildProfileVaultRelativeDir, isDataRootRelativeVaultPath, isLegacyVaultLayoutIndexEntry, buildProfileVaultRelativePath, extractVaultBlobFileName } from "./local-media-vault-path";
 import {
   buildOpaqueVaultFileName,
   decryptVaultFileBytesIfNeeded,
@@ -128,10 +128,12 @@ type ResolvedVaultStorage = Readonly<{
     absoluteStorageDir: string | null;
     usesAbsolutePaths: boolean;
     unifiedDataRootPath: string | null;
+    profileVaultRelativeDir: string | null;
 }>;
 
 const resolveVaultStorage = async (): Promise<ResolvedVaultStorage> => {
     const cfg = getLocalMediaStorageConfig();
+    const profileId = getResolvedProfileId().trim() || "default";
     const effectivePath = isTauriRuntime()
         ? (await getObscurDataRootConfig()).effectivePath?.trim() || null
         : null;
@@ -141,8 +143,10 @@ const resolveVaultStorage = async (): Promise<ResolvedVaultStorage> => {
         config: cfg,
     });
     let absoluteStorageDir: string | null = null;
+    let profileVaultRelativeDir: string | null = null;
     if (layout.mode === "unified_data_root" && effectivePath) {
-        absoluteStorageDir = await nativeLocalMediaAdapter.joinPaths(effectivePath, cfg.subdir);
+        profileVaultRelativeDir = buildProfileVaultRelativeDir(profileId);
+        absoluteStorageDir = await nativeLocalMediaAdapter.joinPaths(effectivePath, profileVaultRelativeDir);
     } else if (layout.mode === "legacy_custom_root") {
         absoluteStorageDir = await nativeLocalMediaAdapter.joinPaths(cfg.customRootPath, cfg.subdir);
     }
@@ -150,6 +154,7 @@ const resolveVaultStorage = async (): Promise<ResolvedVaultStorage> => {
         absoluteStorageDir,
         usesAbsolutePaths: vaultUsesAbsolutePaths(layout),
         unifiedDataRootPath: layout.mode === "unified_data_root" ? effectivePath : null,
+        profileVaultRelativeDir,
     };
 };
 
@@ -158,10 +163,34 @@ const resolveEntryAbsolutePath = async (entryPath: string): Promise<string> => {
         return entryPath;
     }
     const storage = await resolveVaultStorage();
-    if (storage.unifiedDataRootPath) {
-        return nativeLocalMediaAdapter.joinPaths(storage.unifiedDataRootPath, entryPath);
+    if (storage.unifiedDataRootPath || isDataRootRelativeVaultPath(entryPath)) {
+        const root = storage.unifiedDataRootPath ?? await nativeLocalMediaAdapter.getAppDataDirPath();
+        if (!root) {
+            throw new Error("Native local media path is unavailable");
+        }
+        return nativeLocalMediaAdapter.joinPaths(root, entryPath);
     }
     return buildAbsolutePath(entryPath);
+};
+
+const resolveEntryStorageRef = async (entryPath: string): Promise<Readonly<{ path: string; appDataRelative?: boolean }>> => {
+    if (isAbsoluteStoragePath(entryPath)) {
+        return { path: entryPath };
+    }
+    const storage = await resolveVaultStorage();
+    if (storage.unifiedDataRootPath || isDataRootRelativeVaultPath(entryPath)) {
+        return { path: await resolveEntryAbsolutePath(entryPath) };
+    }
+    return { path: entryPath, appDataRelative: true };
+};
+
+const writeVaultBytesToEntryPath = async (entryPath: string, bytes: Uint8Array): Promise<void> => {
+    const target = await resolveEntryStorageRef(entryPath);
+    if (target.appDataRelative) {
+        await nativeLocalMediaAdapter.writeBytes({ path: target.path, appDataRelative: true, bytes });
+        return;
+    }
+    await nativeLocalMediaAdapter.writeBytes({ path: target.path, bytes });
 };
 
 const isTauriRuntime = (): boolean => {
@@ -170,11 +199,6 @@ const isTauriRuntime = (): boolean => {
 
 const isBrowser = (): boolean => typeof window !== "undefined";
 
-const storageRefForEntryPath = (entryPath: string): Readonly<{ path: string; appDataRelative?: boolean }> => (
-    isAbsoluteStoragePath(entryPath)
-        ? { path: entryPath }
-        : { path: entryPath, appDataRelative: true }
-);
 const scopedConfigKey = (profileId?: string): string => getScopedStorageKey(STORAGE_CONFIG_KEY, profileId);
 const scopedIndexKey = (profileId?: string): string => getScopedStorageKey(STORAGE_INDEX_KEY, profileId);
 
@@ -295,9 +319,11 @@ const resolveUniqueLocalFileTarget = async (
     }
     const opaqueFileName = await buildOpaqueVaultFileName(normalizedRemoteUrl, profileId);
     const storage = await resolveVaultStorage();
-    const relativePath = storage.absoluteStorageDir
-        ? await nativeLocalMediaAdapter.joinPaths(storage.absoluteStorageDir, opaqueFileName)
-        : `${cfg.subdir}/${opaqueFileName}`;
+    const relativePath = storage.profileVaultRelativeDir
+        ? buildProfileVaultRelativePath(profileId, opaqueFileName)
+        : storage.absoluteStorageDir
+            ? await nativeLocalMediaAdapter.joinPaths(storage.absoluteStorageDir, opaqueFileName)
+            : `${cfg.subdir}/${opaqueFileName}`;
     return { relativePath, fileName: opaqueFileName, encrypted: true };
 };
 
@@ -621,7 +647,7 @@ export const revealLocalMediaItemPath = async (remoteUrl: string): Promise<boole
     const entry = index[normalizedRemoteUrl];
     if (!entry?.relativePath) return false;
     try {
-        const entryRef = storageRefForEntryPath(entry.relativePath);
+        const entryRef = await resolveEntryStorageRef(entry.relativePath);
         const hasFile = await nativeLocalMediaAdapter.fileExists(entryRef);
         if (!hasFile) {
             delete index[normalizedRemoteUrl];
@@ -654,7 +680,7 @@ export const resolveLocalMediaUrl = async (remoteUrl: string): Promise<string | 
     if (!entry) return null;
     try {
         const cfg = getLocalMediaStorageConfig();
-        const entryRef = storageRefForEntryPath(entry.relativePath);
+        const entryRef = await resolveEntryStorageRef(entry.relativePath);
         const hasFile = await nativeLocalMediaAdapter.fileExists(entryRef);
         if (!hasFile) {
             delete index[remoteUrl];
@@ -663,7 +689,7 @@ export const resolveLocalMediaUrl = async (remoteUrl: string): Promise<string | 
         }
         const absolutePath = await resolveEntryAbsolutePath(entry.relativePath);
         if (isEncryptedVaultRelativePath(entry.relativePath)) {
-            const fileBytes = await nativeLocalMediaAdapter.readBytes(storageRefForEntryPath(entry.relativePath));
+            const fileBytes = await nativeLocalMediaAdapter.readBytes(await resolveEntryStorageRef(entry.relativePath));
             if (!fileBytes) {
                 return null;
             }
@@ -827,7 +853,7 @@ const readLocalAttachmentBytesForDownload = async (remoteUrl: string): Promise<U
     if (!entry?.relativePath) {
         return null;
     }
-    const fileBytes = await nativeLocalMediaAdapter.readBytes(storageRefForEntryPath(entry.relativePath));
+    const fileBytes = await nativeLocalMediaAdapter.readBytes(await resolveEntryStorageRef(entry.relativePath));
     if (!fileBytes || fileBytes.byteLength === 0) {
         return null;
     }
@@ -954,12 +980,7 @@ export const cacheAttachmentLocally = async (
         const encryptedPayload = await encryptVaultBytesForWrite({ plaintext: bytes });
         const payload = encryptedPayload.bytes;
 
-        const storage = await resolveVaultStorage();
-        if (storage.usesAbsolutePaths && storage.absoluteStorageDir) {
-            await nativeLocalMediaAdapter.writeBytes({ path: relativePath, bytes: payload });
-        } else {
-            await nativeLocalMediaAdapter.writeBytes({ path: relativePath, appDataRelative: true, bytes: payload });
-        }
+        await writeVaultBytesToEntryPath(relativePath, payload);
 
         // Reload index to avoid race conditions when uploading multiple files concurrently
         const currentIndex = loadIndex();
@@ -1080,7 +1101,7 @@ export const purgeLocalMediaCache = async (): Promise<void> => {
         const entries = Object.values(indexSnapshot);
         await Promise.all(entries.map(async (entry) => {
             try {
-                await nativeLocalMediaAdapter.removePath(storageRefForEntryPath(entry.relativePath));
+                await nativeLocalMediaAdapter.removePath(await resolveEntryStorageRef(entry.relativePath));
             } catch {
                 // Best-effort per-item deletion fallback.
             }
@@ -1107,7 +1128,7 @@ export const deleteLocalMediaCacheItem = async (remoteUrl: string): Promise<bool
     if (!entry) return false;
 
     try {
-        await nativeLocalMediaAdapter.removePath(storageRefForEntryPath(entry.relativePath));
+        await nativeLocalMediaAdapter.removePath(await resolveEntryStorageRef(entry.relativePath));
     } catch {
         // Ignore file removal failures; still clean stale index below.
     }
@@ -1217,7 +1238,7 @@ export const migrateLegacyPlaintextVaultIndexEntry = async (remoteUrl: string): 
         return "already_encrypted";
     }
 
-    const legacyRef = storageRefForEntryPath(entry.relativePath);
+    const legacyRef = await resolveEntryStorageRef(entry.relativePath);
     const legacyExists = await nativeLocalMediaAdapter.fileExists(legacyRef);
     if (!legacyExists) {
         delete index[normalizedRemoteUrl];
@@ -1235,19 +1256,10 @@ export const migrateLegacyPlaintextVaultIndexEntry = async (remoteUrl: string): 
         const encryptedPayload = await encryptVaultBytesForWrite({ plaintext });
         const cfg = getLocalMediaStorageConfig();
         const target = await resolveUniqueLocalFileTarget(cfg, entry.fileName, normalizedRemoteUrl);
-        const targetRef = storageRefForEntryPath(target.relativePath);
+        const targetRef = await resolveEntryStorageRef(target.relativePath);
         const targetExists = await nativeLocalMediaAdapter.fileExists(targetRef);
         if (!targetExists) {
-            const storage = await resolveVaultStorage();
-            if (storage.usesAbsolutePaths && storage.absoluteStorageDir) {
-                await nativeLocalMediaAdapter.writeBytes({ path: target.relativePath, bytes: encryptedPayload.bytes });
-            } else {
-                await nativeLocalMediaAdapter.writeBytes({
-                    path: target.relativePath,
-                    appDataRelative: true,
-                    bytes: encryptedPayload.bytes,
-                });
-            }
+            await writeVaultBytesToEntryPath(target.relativePath, encryptedPayload.bytes);
         }
 
         index[normalizedRemoteUrl] = {
@@ -1271,6 +1283,94 @@ export const migrateLegacyPlaintextVaultIndexEntry = async (remoteUrl: string): 
             "local_media_store.legacy_migration_failed",
             "degraded",
             ["[LocalMediaStore] Failed to migrate legacy plaintext vault entry:", normalizedRemoteUrl, error],
+            { windowMs: 15_000, maxPerWindow: 3 },
+        );
+        return "failed";
+    }
+};
+
+export type VaultLayoutMigrationEntryResult =
+    | "migrated"
+    | "already_migrated"
+    | "missing_file"
+    | "failed";
+
+export { isLegacyVaultLayoutIndexEntry } from "./local-media-vault-path";
+
+export const migrateLegacyVaultLayoutIndexEntry = async (remoteUrl: string): Promise<VaultLayoutMigrationEntryResult> => {
+    if (!isTauriRuntime() || !isVaultWriteEncryptionReady()) {
+        return "failed";
+    }
+    const normalizedRemoteUrl = remoteUrl.trim();
+    if (!normalizedRemoteUrl) {
+        return "failed";
+    }
+
+    const index = loadIndex();
+    const entry = index[normalizedRemoteUrl];
+    if (!entry) {
+        return "missing_file";
+    }
+    if (!isLegacyVaultLayoutIndexEntry(entry)) {
+        return "already_migrated";
+    }
+
+    const profileId = getResolvedProfileId().trim() || "default";
+    const sourceRef = await resolveEntryStorageRef(entry.relativePath);
+    const sourceExists = await nativeLocalMediaAdapter.fileExists(sourceRef);
+    if (!sourceExists) {
+        delete index[normalizedRemoteUrl];
+        saveIndex(index);
+        emitLocalMediaIndexChanged();
+        return "missing_file";
+    }
+
+    const blobFileName = extractVaultBlobFileName(entry.relativePath);
+    if (!blobFileName) {
+        return "failed";
+    }
+    const targetRelativePath = buildProfileVaultRelativePath(profileId, blobFileName);
+
+    try {
+        const sourceAbsolutePath = await resolveEntryAbsolutePath(entry.relativePath);
+        const targetAbsolutePath = await resolveEntryAbsolutePath(targetRelativePath);
+        if (sourceAbsolutePath === targetAbsolutePath) {
+            index[normalizedRemoteUrl] = { ...entry, relativePath: targetRelativePath };
+            saveIndex(index);
+            emitLocalMediaIndexChanged();
+            return "migrated";
+        }
+
+        const targetParent = await nativeLocalMediaAdapter.parentPath(targetAbsolutePath);
+        if (targetParent) {
+            await nativeLocalMediaAdapter.ensureDirectory({ path: targetParent });
+        }
+
+        const moved = await nativeLocalMediaAdapter.movePath({
+            from: sourceAbsolutePath,
+            to: targetAbsolutePath,
+        });
+        if (!moved) {
+            const fileBytes = await nativeLocalMediaAdapter.readBytes(sourceRef);
+            if (!fileBytes || fileBytes.byteLength === 0) {
+                return "failed";
+            }
+            await writeVaultBytesToEntryPath(targetRelativePath, fileBytes);
+            await nativeLocalMediaAdapter.removePath(sourceRef);
+        }
+
+        index[normalizedRemoteUrl] = {
+            ...entry,
+            relativePath: targetRelativePath,
+        };
+        saveIndex(index);
+        emitLocalMediaIndexChanged();
+        return "migrated";
+    } catch (error) {
+        logRuntimeEvent(
+            "local_media_store.layout_migration_failed",
+            "degraded",
+            ["[LocalMediaStore] Failed to migrate vault layout entry:", normalizedRemoteUrl, error],
             { windowMs: 15_000, maxPerWindow: 3 },
         );
         return "failed";
