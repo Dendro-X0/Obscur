@@ -3,7 +3,7 @@
 **Band:** `VAULT-SANDBOX-1`  
 **Parent plan:** [vault-encryption-sandbox-plan-2026-07.md](./vault-encryption-sandbox-plan-2026-07.md)  
 **Charter:** [v1.9.8-portable-storage-and-encryption-charter.md](../../docs/program/v1.9.8-portable-storage-and-encryption-charter.md)  
-**Status:** Ready for maintainer sign-off (Phases 1–5 implemented · `a04c747d`)
+**Status:** Ready for maintainer sign-off (Phases 1–5 implemented · `3e0d9387`)
 
 ---
 
@@ -31,15 +31,7 @@ Manual evidence required before claiming **“Vault stores media encrypted on di
 ### L1 gate (run first)
 
 ```bash
-pnpm -C apps/pwa exec vitest run \
-  app/features/storage/services/vault-at-rest.test.ts \
-  app/features/vault/services/local-media-store.test.ts \
-  app/features/vault/services/local-media-vault-path.test.ts \
-  app/features/vault/services/vault-layout-migration.test.ts \
-  app/features/vault/services/vault-legacy-migration.test.ts \
-  app/features/vault/services/vault-media-blob-lifecycle.test.ts \
-  app/features/vault/components/vault-media-grid.test.tsx
-
+pnpm verify:vault-sandbox-l1
 pnpm verify:storage-encryption-v1.9.8
 ```
 

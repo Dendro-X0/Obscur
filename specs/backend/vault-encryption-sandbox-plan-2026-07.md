@@ -216,7 +216,9 @@ Obscur Vault becomes an **encryption sandbox**: media bytes under the user data 
 | 6.2 | Flip `VAULT_SAVE_FROM_CHAT_ENABLED` only with chain proof |
 | 6.3 | No success toast without aggregator row visible |
 
-**Status:** **DISABLED** — do not schedule until maintainer unpause.
+**Investigation:** [vault-chat-save-re-enable-investigation-2026-07.md](./vault-chat-save-re-enable-investigation-2026-07.md)
+
+**Status:** **DISABLED** — do not schedule until maintainer unpause + G8 (L3/L4 sign-off).
 
 ---
 
@@ -294,5 +296,6 @@ Do **not** claim process isolation or malware immunity — only **filesystem-neu
 | Envelope | `apps/pwa/app/features/storage/services/vault-at-rest.ts` |
 | Aggregator | `apps/pwa/app/features/vault/services/vault-media-aggregator.ts` |
 | Chat save (disabled) | `apps/pwa/app/features/vault/services/save-chat-attachment-to-vault.ts` |
+| Phase 6 investigation | [vault-chat-save-re-enable-investigation-2026-07.md](./vault-chat-save-re-enable-investigation-2026-07.md) |
 | Verification matrix | `docs/releases/core-verification-media-and-vault-durability.md` |
 | Data root | `apps/desktop/src-tauri/src/data_root.rs` |

@@ -1,8 +1,26 @@
 # Current Session Handoff — Obscur Engine Lab
 
-- Last Updated (UTC): 2026-07-05T03:00:00Z
+- Last Updated (UTC): 2026-07-09T15:50:00Z
 
 ## Next atomic step
+
+**VAULT-SANDBOX-1** — Phases 1–5 implemented · **evidence mode** (G8 maintainer L3/L4)
+
+| Field | Value |
+|-------|--------|
+| Plan | [vault-encryption-sandbox-plan-2026-07.md](../specs/backend/vault-encryption-sandbox-plan-2026-07.md) |
+| L3/L4 runbook | [vault-sandbox-l3-verification-2026-07.md](../specs/backend/vault-sandbox-l3-verification-2026-07.md) |
+| Phase 6 | **DISABLED** — [investigation](../specs/backend/vault-chat-save-re-enable-investigation-2026-07.md) complete; no flag flip until G8 |
+| Rollback ladder | `5c301ca6` → `2a6dabea` → `5483b9e4` → `6acd1086` → `d0533def` → `a04c747d` → `3e0d9387` |
+| L1 | `pnpm verify:vault-sandbox-l1` · `pnpm verify:storage-encryption-v1.9.8` |
+| G8 gap | Maintainer signs runbook §5 after L3 §3 + L4 §4 (desktop, non-default data root) |
+| Demo path | Vault → **Secure Upload** only — not chat→vault |
+
+**Parallel (not blocked):** CodaCtrl lane D below remains external-daemon wiring.
+
+---
+
+## Prior atomic step — CodaCtrl lane D
 
 **CodaCtrl lane D** — Obscur-side mitigations shipped · daemon wiring remains external
 
