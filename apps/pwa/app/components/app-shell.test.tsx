@@ -2,7 +2,8 @@ import React from "react";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import AppShell from "./app-shell";
-import * as pageTransitionRecovery from "./page-transition-recovery";
+import * as routeStallRecovery from "./route-stall-recovery.client";
+import { ROUTE_MOUNT_PROBE_WARN_THRESHOLD_MS } from "./page-transition-recovery";
 import {
   NAVIGATION_QUIESCENCE_MS,
   resetNavigationPerformanceCoordinatorForTests,
@@ -263,21 +264,21 @@ describe("AppShell navigation", () => {
 
   it("hard-navigates when route transition stalls past watchdog timeout", async () => {
     vi.useFakeTimers();
-    const hardNavigateSpy = vi.spyOn(pageTransitionRecovery, "hardNavigate").mockImplementation(() => undefined);
+    const recoverSpy = vi.spyOn(routeStallRecovery, "recoverFromRouteStall").mockImplementation(() => undefined);
     try {
       await renderShell();
       const networkLink = screen.getByRole("link", { name: "nav.network" });
       act(() => {
         fireEvent.click(networkLink);
       });
-      expect(hardNavigateSpy).not.toHaveBeenCalled();
+      expect(recoverSpy).not.toHaveBeenCalled();
 
       act(() => {
         vi.advanceTimersByTime(4_600);
       });
-      expect(hardNavigateSpy).toHaveBeenCalledWith("/network");
+      expect(recoverSpy).toHaveBeenCalledWith("/network", expect.objectContaining({ push: expect.any(Function) }));
     } finally {
-      hardNavigateSpy.mockRestore();
+      recoverSpy.mockRestore();
       vi.useRealTimers();
     }
   });
@@ -364,7 +365,7 @@ describe("AppShell navigation", () => {
     try {
       await renderShell();
       act(() => {
-        vi.advanceTimersByTime(pageTransitionRecovery.ROUTE_MOUNT_PROBE_WARN_THRESHOLD_MS + 20);
+        vi.advanceTimersByTime(ROUTE_MOUNT_PROBE_WARN_THRESHOLD_MS + 20);
       });
       const slowProbeLogged = vi.mocked(logAppEvent).mock.calls.some(([event]) => (
         event.name === "navigation.route_mount_probe_slow"

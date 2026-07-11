@@ -1,6 +1,6 @@
 {
   "name": "@dweb/transport-coordination",
-  "version": "1.9.10",
+  "version": "1.9.11",
   "private": true,
   "type": "module",
   "description": "Coordination backend transport adapter — membership directory to semantic events.",

@@ -1,12 +1,25 @@
 import type { Passphrase } from "@dweb/crypto/passphrase";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
-import { deriveProfileDataKeyMaterial } from "./profile-data-key";
+import {
+  deriveProfileDataKeyMaterial,
+  deriveProfileDataKeyReadCandidates,
+} from "./profile-data-key";
 
-const sessions = new Map<string, Uint8Array>();
+type ProfileStorageKeySession = Readonly<{
+  writeKeyMaterial: Uint8Array;
+  readKeyMaterials: ReadonlyArray<Uint8Array>;
+}>;
+
+const sessions = new Map<string, ProfileStorageKeySession>();
 
 const zeroizeKeyMaterial = (keyMaterial: Uint8Array): void => {
   keyMaterial.fill(0);
+};
+
+const zeroizeSession = (session: ProfileStorageKeySession): void => {
+  zeroizeKeyMaterial(session.writeKeyMaterial);
+  session.readKeyMaterials.forEach((keyMaterial) => zeroizeKeyMaterial(keyMaterial));
 };
 
 export const establishProfileStorageKeySession = async (params: Readonly<{
@@ -22,13 +35,20 @@ export const establishProfileStorageKeySession = async (params: Readonly<{
   }
   const existing = sessions.get(profileId);
   if (existing) {
-    zeroizeKeyMaterial(existing);
+    zeroizeSession(existing);
   }
-  const keyMaterial = await deriveProfileDataKeyMaterial({
+  const readKeyMaterials = await deriveProfileDataKeyReadCandidates({
     passphrase: params.passphrase,
     profileId,
   });
-  sessions.set(profileId, keyMaterial);
+  const writeKeyMaterial = await deriveProfileDataKeyMaterial({
+    passphrase: params.passphrase,
+    profileId,
+  });
+  sessions.set(profileId, {
+    writeKeyMaterial,
+    readKeyMaterials,
+  });
 };
 
 export const getProfileStorageKeyMaterial = (profileId?: string): Uint8Array | null => {
@@ -36,20 +56,32 @@ export const getProfileStorageKeyMaterial = (profileId?: string): Uint8Array | n
   if (!resolved) {
     return null;
   }
-  const keyMaterial = sessions.get(resolved);
-  return keyMaterial ? new Uint8Array(keyMaterial) : null;
+  const session = sessions.get(resolved);
+  return session ? new Uint8Array(session.writeKeyMaterial) : null;
+};
+
+export const getProfileStorageKeyReadCandidates = (profileId?: string): ReadonlyArray<Uint8Array> => {
+  const resolved = (profileId ?? getResolvedProfileId()).trim();
+  if (!resolved) {
+    return [];
+  }
+  const session = sessions.get(resolved);
+  if (!session) {
+    return [];
+  }
+  return session.readKeyMaterials.map((keyMaterial) => new Uint8Array(keyMaterial));
 };
 
 export const clearProfileStorageKeySession = (profileId?: string): void => {
   if (profileId?.trim()) {
     const existing = sessions.get(profileId.trim());
     if (existing) {
-      zeroizeKeyMaterial(existing);
+      zeroizeSession(existing);
       sessions.delete(profileId.trim());
     }
     return;
   }
-  sessions.forEach((keyMaterial) => zeroizeKeyMaterial(keyMaterial));
+  sessions.forEach((session) => zeroizeSession(session));
   sessions.clear();
 };
 

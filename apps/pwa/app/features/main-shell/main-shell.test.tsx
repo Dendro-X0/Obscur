@@ -370,6 +370,9 @@ vi.mock("./hooks/use-chat-actions", () => ({
     showMessageOnDeviceAgain: vi.fn(),
     showAllHiddenMessagesOnDevice: vi.fn(),
     toggleReaction: testFns.toggleReactionAction,
+    sendCeremonyViewModel: null,
+    confirmSendCeremony: vi.fn(),
+    cancelSendCeremony: vi.fn(),
   }),
 }));
 

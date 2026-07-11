@@ -2,7 +2,7 @@ import React from "react";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MobileTabBar } from "./mobile-tab-bar";
-import * as pageTransitionRecovery from "./page-transition-recovery";
+import * as routeStallRecovery from "./route-stall-recovery.client";
 
 const mobileTabBarMocks = vi.hoisted(() => ({
     pathname: "/",
@@ -11,10 +11,13 @@ const mobileTabBarMocks = vi.hoisted(() => ({
     mobileShellProduct: false,
 }));
 
-vi.mock("@/app/features/runtime/shell-contract", () => ({
-    isMobileShellProduct: () => mobileTabBarMocks.mobileShellProduct,
-    isDesktopShellBuild: () => false,
-}));
+vi.mock("@/app/features/runtime/shell-contract", async (importOriginal) => {
+    const actual = await importOriginal<typeof import("@/app/features/runtime/shell-contract")>();
+    return {
+        ...actual,
+        isMobileShellProduct: () => mobileTabBarMocks.mobileShellProduct,
+    };
+});
 
 vi.mock("@/app/features/runtime/use-mobile-compact-layout", () => ({
     useSecondaryPageLayoutTier: () => mobileTabBarMocks.layoutTier,
@@ -94,21 +97,21 @@ describe("MobileTabBar navigation", () => {
 
     it("hard-navigates when mobile route transition stalls", async () => {
         vi.useFakeTimers();
-        const hardNavigateSpy = vi.spyOn(pageTransitionRecovery, "hardNavigate").mockImplementation(() => undefined);
+        const recoverSpy = vi.spyOn(routeStallRecovery, "recoverFromRouteStall").mockImplementation(() => undefined);
         try {
             render(<MobileTabBar navBadgeCounts={{}} />);
             const networkLink = screen.getByRole("link", { name: "nav.network" });
             act(() => {
                 fireEvent.click(networkLink);
             });
-            expect(hardNavigateSpy).not.toHaveBeenCalled();
+            expect(recoverSpy).not.toHaveBeenCalled();
 
             act(() => {
                 vi.advanceTimersByTime(4_600);
             });
-            expect(hardNavigateSpy).toHaveBeenCalledWith("/network");
+            expect(recoverSpy).toHaveBeenCalledWith("/network", expect.objectContaining({ push: expect.any(Function) }));
         } finally {
-            hardNavigateSpy.mockRestore();
+            recoverSpy.mockRestore();
             vi.useRealTimers();
         }
     });
@@ -134,7 +137,7 @@ describe("MobileTabBar navigation", () => {
 
     it("clears hard fallback when pathname settles to target", () => {
         vi.useFakeTimers();
-        const hardNavigateSpy = vi.spyOn(pageTransitionRecovery, "hardNavigate").mockImplementation(() => undefined);
+        const recoverSpy = vi.spyOn(routeStallRecovery, "recoverFromRouteStall").mockImplementation(() => undefined);
         try {
             const { rerender } = render(<MobileTabBar navBadgeCounts={{}} />);
             const networkLink = screen.getByRole("link", { name: "nav.network" });
@@ -148,9 +151,9 @@ describe("MobileTabBar navigation", () => {
             act(() => {
                 vi.advanceTimersByTime(4_600);
             });
-            expect(hardNavigateSpy).not.toHaveBeenCalled();
+            expect(recoverSpy).not.toHaveBeenCalled();
         } finally {
-            hardNavigateSpy.mockRestore();
+            recoverSpy.mockRestore();
             vi.useRealTimers();
         }
     });

@@ -6,6 +6,10 @@ import {
 } from "@dweb/auth";
 import { invokeNativeCommand } from "@/app/features/runtime/native-adapters";
 import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
+import {
+  DEFAULT_HARDWARE_UNLOCK_REASON,
+  requestHardwareUnlockVerification,
+} from "@/app/features/security/services/hardware-unlock-gate";
 
 export const readAuthAssistantVaultRaw = async (profileId: string): Promise<string | null> => {
   if (!hasNativeRuntime()) {
@@ -74,6 +78,5 @@ export const requestAuthAssistantBiometricGate = async (): Promise<boolean> => {
   if (!hasNativeRuntime()) {
     return false;
   }
-  const result = await invokeNativeCommand<boolean>("request_biometric_auth");
-  return result.ok && result.value === true;
+  return requestHardwareUnlockVerification(DEFAULT_HARDWARE_UNLOCK_REASON);
 };

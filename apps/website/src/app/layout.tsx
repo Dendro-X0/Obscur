@@ -19,6 +19,21 @@ export const metadata: Metadata = {
   title: "Obscur | Private Communication With Release Evidence",
   description:
     "Official Obscur website for release notes, architecture links, feature captures, and download artifacts.",
+  icons: {
+    icon: [
+      {
+        url: "/obscur-logo-light.svg",
+        type: "image/svg+xml",
+        media: "(prefers-color-scheme: light)",
+      },
+      {
+        url: "/obscur-logo-dark.svg",
+        type: "image/svg+xml",
+        media: "(prefers-color-scheme: dark)",
+      },
+    ],
+    apple: "/obscur-logo-light.svg",
+  },
 };
 
 export default function RootLayout({

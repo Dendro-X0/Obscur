@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import type React from "react";
 import { AUTH_CLIENT_REVISION } from "@/app/features/auth/services/auth-profile-local-evidence";
 
-/** Client-only badge — avoids SSR hydration mismatch. */
+/** Client-only badge — avoids SSR hydration mismatch. Hidden in production builds. */
 export function ClientSurfaceRevisionBadge(): React.JSX.Element | null {
   const [mounted, setMounted] = useState(false);
 
@@ -12,7 +12,7 @@ export function ClientSurfaceRevisionBadge(): React.JSX.Element | null {
     setMounted(true);
   }, []);
 
-  if (!mounted) {
+  if (process.env.NODE_ENV !== "development" || !mounted) {
     return null;
   }
 

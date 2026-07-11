@@ -20,6 +20,7 @@ import {
   supplementMembershipLedgerEntries,
 } from "@/app/features/groups/services/community-membership-reconstruction";
 import { downgradeInviteResponseOnlyJoinedLedgerEntries } from "@/app/features/groups/services/community-invite-response-only-ledger-policy";
+import { mergeProfileSnapshotsForRestore } from "./restore-profile-merge";
 import {
   enrichCommunityMembershipLedgerMemberPubkeysFromInviteEvidence,
   enrichPersistedCreatedGroupsMemberPubkeysFromInviteEvidence,
@@ -620,10 +621,10 @@ const buildMergeWithCurrentPayload = (params: Readonly<{
       currentPayload.identityUnlock,
       sanitizedIncomingPayload.identityUnlock,
     ),
-    profile: {
-      ...currentPayload.profile,
-      ...sanitizedIncomingPayload.profile,
-    },
+    profile: mergeProfileSnapshotsForRestore(
+      currentPayload.profile,
+      sanitizedIncomingPayload.profile,
+    ),
     peerTrust: mergePeerTrust(currentPayload.peerTrust, sanitizedIncomingPayload.peerTrust),
     requestFlowEvidence: mergeRequestFlowEvidence(currentPayload.requestFlowEvidence, sanitizedIncomingPayload.requestFlowEvidence),
     requestOutbox: mergeOutbox(currentPayload.requestOutbox, sanitizedIncomingPayload.requestOutbox),

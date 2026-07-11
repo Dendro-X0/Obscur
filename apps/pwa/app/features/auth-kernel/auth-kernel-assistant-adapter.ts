@@ -15,6 +15,7 @@ import {
   requestAuthAssistantBiometricGate,
   writeAuthAssistantVaultPayload,
 } from "./services/auth-assistant-vault-service";
+import { isHardwareUnlockGateRequired, probeBiometricCapability } from "@/app/features/security/services/hardware-unlock-gate";
 
 const mapAssistantError = (error: unknown): ReturnType<typeof authFailed> => {
   if (error instanceof AuthKernelProfileScopeError) {
@@ -70,12 +71,13 @@ export const createAuthKernelAssistantPort = (): AuthAssistantPort => ({
       if (!payload) {
         return authOk(null);
       }
+      const capability = await probeBiometricCapability();
       return authOk({
         profileId: profileId.trim(),
         username: payload.username,
         label: buildAssistantLabel(payload.username),
         hasSavedUnlock: true,
-        biometricGateAvailable: hasNativeRuntime(),
+        biometricGateAvailable: capability === "available",
       });
     } catch (error) {
       return mapAssistantError(error);
@@ -122,10 +124,13 @@ export const createAuthKernelAssistantPort = (): AuthAssistantPort => ({
         });
       }
 
-      if (params.requireBiometric !== false) {
+      if (isHardwareUnlockGateRequired()) {
         const gate = await requestAuthAssistantBiometricGate();
         if (!gate) {
-          // Desktop and unsupported platforms: best-effort tap unlock without OS biometric.
+          return authFailed({
+            reasonCode: "session_inactive",
+            message: "Biometric verification is required to unlock this profile.",
+          });
         }
       }
 

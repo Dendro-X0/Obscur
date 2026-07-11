@@ -29,7 +29,7 @@ import { buildOutgoingCommunityInviteDmMessage } from "../utils/community-invite
 import { commitOutgoingCommunityInviteDm } from "../services/community-invite-dm-orchestrator";
 import { upsertDmConversationInList } from "@/app/features/messaging/utils/dm-conversation-list-merge";
 import { createDmConversation } from "@/app/features/messaging/utils/create-dm-conversation";
-import { publishDmNostrEvent } from "@/app/features/messaging/services/publish-dm-nostr-event";
+import { publishDmNostrEvent, resolveCommunityInviteDmPublishRelayUrls } from "@/app/features/messaging/services/publish-dm-nostr-event";
 import {
   ensureRoomKeyHexForInviteDistribution,
   publishStewardCoordinationRoomKeyWrapsForInvitees,
@@ -199,9 +199,13 @@ export function InviteConnectionsDialog({
                     genesisEventId,
                     creatorPubkey
                 });
+                const publishRelayUrls = resolveCommunityInviteDmPublishRelayUrls(
+                    enabledRelayUrls,
+                    scopedRelayUrl,
+                );
                 const publishResult = await publishDmNostrEvent(
                     relayPool,
-                    enabledRelayUrls,
+                    publishRelayUrls,
                     giftWrapEvent,
                 );
                 if (!publishResult.success) {

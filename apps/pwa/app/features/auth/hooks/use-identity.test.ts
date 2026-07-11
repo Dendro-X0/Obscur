@@ -195,6 +195,17 @@ describe("useIdentity rehydrate", () => {
     expect(snapshot.privateKeyHex).toBe("a".repeat(64));
   });
 
+  it("skips profile rehydrate while create mutation is in flight", async () => {
+    useIdentityInternals.beginIdentityMutation();
+    try {
+      vi.mocked(getStoredIdentity).mockClear();
+      await useIdentityInternals.rehydrateIdentityForActiveProfile();
+      expect(getStoredIdentity).not.toHaveBeenCalled();
+    } finally {
+      useIdentityInternals.endIdentityMutation();
+    }
+  });
+
   it("preserves stored username on same-pubkey re-import when no username is provided", () => {
     const pubkey = "f".repeat(64) as any;
     const preserved = useIdentityInternals.resolveImportedIdentityUsername({

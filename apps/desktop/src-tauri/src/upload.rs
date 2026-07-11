@@ -21,7 +21,7 @@ use nostr::hashes::{sha256, Hash};
 use std::borrow::Cow;
 
 const BUILD_VERSION: &str = "2026-03-30-OPTION-C-V4-UPLOAD-TIMEOUT-HARDEN";
-const REQUEST_TIMEOUT_SECS: u64 = 45;
+const REQUEST_TIMEOUT_SECS: u64 = 120;
 // const APP_SERVICE: &str = "app.obscur.desktop";
 // const KEY_NAME: &str = "nsec";
 

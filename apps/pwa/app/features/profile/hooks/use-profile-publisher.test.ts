@@ -133,7 +133,8 @@ describe("profilePublisherInternals relay degradation classification", () => {
   });
 
   it("detects partial relay success", () => {
-    expect(profilePublisherInternals.isPartialRelaySuccess(1, 3)).toBe(true);
+    expect(profilePublisherInternals.isPartialRelaySuccess(1, 3, false)).toBe(true);
+    expect(profilePublisherInternals.isPartialRelaySuccess(1, 2, true)).toBe(false);
     expect(profilePublisherInternals.isPartialRelaySuccess(3, 3)).toBe(false);
     expect(profilePublisherInternals.isPartialRelaySuccess(0, 3)).toBe(false);
   });

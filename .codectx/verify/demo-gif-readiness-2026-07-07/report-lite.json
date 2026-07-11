@@ -1,0 +1,35 @@
+{
+  "at": "2026-07-07T17:42:19.424Z",
+  "segments": [
+    {
+      "id": "boot",
+      "status": "info",
+      "detail": "Obscur @ http://127.0.0.1:1430/"
+    },
+    {
+      "id": "S2",
+      "status": "pass",
+      "detail": "shell after unlock"
+    },
+    {
+      "id": "S4-nav",
+      "status": "pass",
+      "detail": "{\"pathname\":\"/settings\",\"welcomeBack\":false}"
+    },
+    {
+      "id": "S4-relay",
+      "status": "pass",
+      "detail": "1/5 active relays"
+    },
+    {
+      "id": "S3",
+      "status": "blocked",
+      "detail": "no compose — pick thread first"
+    },
+    {
+      "id": "S6",
+      "status": "blocked",
+      "detail": "no groups nav"
+    }
+  ]
+}

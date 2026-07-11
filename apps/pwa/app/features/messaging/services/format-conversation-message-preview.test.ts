@@ -87,4 +87,36 @@ describe("formatConversationMessagePreview", () => {
     expect(preview.endsWith("...")).toBe(true);
     expect(preview.length).toBe(143);
   });
+
+  it("formats video attachment markdown as a typed preview", () => {
+    const preview = formatConversationMessagePreview(
+      "[16166264_3840_2160_30fps.mp4](https://video.nostr.build/0573c24dad76da7e.mp4)",
+    );
+    expect(preview).toBe("Video (16166264_3840_2160_30fps.mp4)");
+  });
+
+  it("formats image and audio attachment previews", () => {
+    expect(formatConversationMessagePreview(
+      "[cover.jpg](https://image.nostr.build/abc123.jpg)",
+    )).toBe("Image (cover.jpg)");
+    expect(formatConversationMessagePreview(
+      "[track.mp3](https://nostr.build/i/track.mp3)",
+    )).toBe("Audio (track.mp3)");
+  });
+
+  it("formats pdf and generic file attachment previews", () => {
+    expect(formatConversationMessagePreview(
+      "[report.pdf](https://cdn.example.com/report.pdf)",
+    )).toBe("PDF (report.pdf)");
+    expect(formatConversationMessagePreview(
+      "[backup.zip](https://cdn.example.com/backup.zip)",
+    )).toBe(".zip backup.zip");
+  });
+
+  it("keeps leading text when attachments are present", () => {
+    const preview = formatConversationMessagePreview(
+      "Check this out [clip.mp4](https://video.nostr.build/clip.mp4)",
+    );
+    expect(preview).toBe("Check this out Video (clip.mp4)");
+  });
 });

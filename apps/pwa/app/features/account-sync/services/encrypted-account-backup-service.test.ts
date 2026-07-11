@@ -782,6 +782,203 @@ describe("encryptedAccountBackupService", () => {
     expect(hasEvidence).toBe(true);
   });
 
+  it("treats identity unlock snapshot as portable private-state evidence", () => {
+    const mockHasReplayableChatHistory = (): boolean => false;
+    const hasEvidence = hasPortablePrivateStateEvidence({
+      version: 1,
+      publicKeyHex,
+      createdAtUnixMs: Date.now(),
+      identityUnlock: {
+        encryptedPrivateKey: "encrypted-private-key-material",
+        username: "DemoUser",
+      },
+      profile: {
+        username: "",
+        about: "",
+        avatarUrl: "",
+        nip05: "",
+        inviteCode: "",
+      },
+      peerTrust: { acceptedPeers: [], mutedPeers: [] },
+      requestFlowEvidence: { byPeer: {} },
+      requestOutbox: { records: [] },
+      syncCheckpoints: [],
+      chatState: {
+        version: 2,
+        createdConnections: [],
+        createdGroups: [],
+        unreadByConversationId: {},
+        connectionOverridesByConnectionId: {},
+        messagesByConversationId: {},
+        groupMessages: {},
+        connectionRequests: [],
+        pinnedChatIds: [],
+        hiddenChatIds: [],
+      },
+      privacySettings: PrivacySettingsService.getSettings(),
+      relayList: relayListInternals.DEFAULT_RELAYS,
+    }, mockHasReplayableChatHistory);
+
+    expect(hasEvidence).toBe(true);
+  });
+
+  it("treats profile username as portable private-state evidence for greenfield accounts", () => {
+    const mockHasReplayableChatHistory = (): boolean => false;
+    const hasEvidence = hasPortablePrivateStateEvidence({
+      version: 1,
+      publicKeyHex,
+      createdAtUnixMs: Date.now(),
+      profile: {
+        username: "DemoUser",
+        about: "",
+        avatarUrl: "",
+        nip05: "",
+        inviteCode: "",
+      },
+      peerTrust: { acceptedPeers: [], mutedPeers: [] },
+      requestFlowEvidence: { byPeer: {} },
+      requestOutbox: { records: [] },
+      syncCheckpoints: [],
+      chatState: {
+        version: 2,
+        createdConnections: [],
+        createdGroups: [],
+        unreadByConversationId: {},
+        connectionOverridesByConnectionId: {},
+        messagesByConversationId: {},
+        groupMessages: {},
+        connectionRequests: [],
+        pinnedChatIds: [],
+        hiddenChatIds: [],
+      },
+      privacySettings: PrivacySettingsService.getSettings(),
+      relayList: relayListInternals.DEFAULT_RELAYS,
+    }, mockHasReplayableChatHistory);
+
+    expect(hasEvidence).toBe(true);
+  });
+
+  it("exports identity username into profile snapshot when profile storage is empty", async () => {
+    useProfileInternals.saveToStorage({
+      profile: {
+        username: "",
+        about: "",
+        avatarUrl: "",
+        nip05: "",
+        inviteCode: "",
+      },
+    });
+    const identitySpy = vi.spyOn(storedIdentityReader, "getStoredIdentity").mockResolvedValue({
+      record: {
+        publicKeyHex,
+        encryptedPrivateKey: "encrypted-private-key-material",
+        username: "Demouser",
+      },
+    });
+    const hydrateSpy = vi.spyOn(chatStateStoreService, "hydrateMessages").mockResolvedValue(undefined);
+    const loadSpy = vi.spyOn(chatStateStoreService, "load").mockReturnValue({
+      version: 2,
+      createdConnections: [],
+      createdGroups: [],
+      unreadByConversationId: {},
+      connectionOverridesByConnectionId: {},
+      messagesByConversationId: {},
+      groupMessages: {},
+      connectionRequests: [],
+      pinnedChatIds: [],
+      hiddenChatIds: [],
+    });
+    const getAllByIndexSpy = vi.spyOn(messagingDB, "getAllByIndex").mockResolvedValue([]);
+    const queueSpy = vi.spyOn(MessageQueue.prototype, "getAllMessages").mockResolvedValue([] as any);
+
+    const exported = await encryptedAccountBackupService.exportPortableAccountBundle({
+      publicKeyHex,
+      privateKeyHex,
+      profileLabel: "Demouser",
+    });
+
+    expect(exported.backupPayload.profile.username).toBe("Demouser");
+
+    const imported = await encryptedAccountBackupService.importPortableAccountBundle({
+      bundle: exported.bundle,
+      publicKeyHex,
+      privateKeyHex,
+      profileId: "fresh-profile-slot",
+      appendCanonicalEvents: vi.fn(async () => undefined),
+    });
+
+    expect(imported.payload.profile.username).toBe("Demouser");
+    expect(useProfileInternals.loadFromStorage().profile.username).toBe("Demouser");
+
+    identitySpy.mockRestore();
+    hydrateSpy.mockRestore();
+    loadSpy.mockRestore();
+    getAllByIndexSpy.mockRestore();
+    queueSpy.mockRestore();
+  });
+
+  it("exports portable bundle for a greenfield account with identity unlock only", async () => {
+    useProfileInternals.saveToStorage({
+      profile: {
+        username: "DemoUser",
+        about: "",
+        avatarUrl: "",
+        nip05: "",
+        inviteCode: "",
+      },
+    });
+    const identitySpy = vi.spyOn(storedIdentityReader, "getStoredIdentity").mockResolvedValue({
+      record: {
+        publicKeyHex,
+        encryptedPrivateKey: "encrypted-private-key-material",
+        username: "DemoUser",
+      },
+    });
+    const hydrateSpy = vi.spyOn(chatStateStoreService, "hydrateMessages").mockResolvedValue(undefined);
+    const loadSpy = vi.spyOn(chatStateStoreService, "load").mockReturnValue({
+      version: 2,
+      createdConnections: [],
+      createdGroups: [],
+      unreadByConversationId: {},
+      connectionOverridesByConnectionId: {},
+      messagesByConversationId: {},
+      groupMessages: {},
+      connectionRequests: [],
+      pinnedChatIds: [],
+      hiddenChatIds: [],
+    });
+    const getAllByIndexSpy = vi.spyOn(messagingDB, "getAllByIndex").mockResolvedValue([]);
+    const queueSpy = vi.spyOn(MessageQueue.prototype, "getAllMessages").mockResolvedValue([] as any);
+
+    const exported = await encryptedAccountBackupService.exportPortableAccountBundle({
+      publicKeyHex,
+      privateKeyHex,
+      profileLabel: "DemoUser",
+    });
+
+    expect(exported.bundle.publicKeyHex).toBe(publicKeyHex);
+    expect(exported.backupPayload.identityUnlock?.encryptedPrivateKey).toBe("encrypted-private-key-material");
+    expect(exported.backupPayload.profile.username).toBe("DemoUser");
+
+    const imported = await encryptedAccountBackupService.importPortableAccountBundle({
+      bundle: exported.bundle,
+      publicKeyHex,
+      privateKeyHex,
+      profileId: "fresh-profile-slot",
+      appendCanonicalEvents: vi.fn(async () => undefined),
+    });
+
+    expect(imported.payload.profile.username).toBe("DemoUser");
+    expect(imported.payload.identityUnlock?.encryptedPrivateKey).toBe("encrypted-private-key-material");
+    expect(useProfileInternals.loadFromStorage().profile.username).toBe("DemoUser");
+
+    identitySpy.mockRestore();
+    hydrateSpy.mockRestore();
+    loadSpy.mockRestore();
+    getAllByIndexSpy.mockRestore();
+    queueSpy.mockRestore();
+  });
+
   it("reconstructs membership ledger from backup chat-state groups when ledger snapshot is missing", async () => {
     await encryptedAccountBackupServiceInternals.applyBackupPayloadNonV1Domains(publicKeyHex, {
       version: 1,
@@ -1232,6 +1429,7 @@ describe("encryptedAccountBackupService", () => {
           enabled: false,
           subdir: "vault-media",
           customRootPath: "",
+          downloadRootPath: "",
           cacheSentFiles: false,
           cacheReceivedFiles: true,
         },

@@ -20,9 +20,13 @@ import { isMobileShellProduct } from "@/app/features/runtime/shell-contract";
 import { RouteLoadingFallback } from "./experience";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import {
+  hardNavigate,
+  recoverFromRouteStall,
+  shouldArmRouteStallWatchdog,
+} from "./route-stall-recovery.client";
+import {
   createRouteMountDiagnosticsState,
   getRouteSurfaceFromPathname,
-  hardNavigate,
   ROUTE_MOUNT_SLOW_DISABLE_THRESHOLD,
   ROUTE_MOUNT_PROBE_WARN_THRESHOLD_MS,
   ROUTE_NAVIGATION_STALL_HARD_FALLBACK_MS,
@@ -240,6 +244,9 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
     if (shouldDeferExperimentHeavyWork()) {
       return;
     }
+    if (!shouldArmRouteStallWatchdog()) {
+      return;
+    }
     if (!targetHref || targetHref === pathname) {
       clearRouteFallback();
       return;
@@ -291,9 +298,9 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
         enableNavigationFailOpen("route_stall_hard_fallback");
       }
       clearRouteFallback();
-      hardNavigate(targetHref);
+      recoverFromRouteStall(targetHref, router);
     }, ROUTE_NAVIGATION_STALL_HARD_FALLBACK_MS);
-  }, [activeRouteSurface, clearRouteFallback, enableNavigationFailOpen, pathname]);
+  }, [activeRouteSurface, clearRouteFallback, enableNavigationFailOpen, pathname, router]);
 
   const prefetchRouteOnIntent = useCallback((targetHref: string): void => {
     if (!targetHref || targetHref === pathname || isRapidNavigationMode()) {
@@ -600,7 +607,7 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
                       }
                       if (navigationFailOpenEnabledRef.current) {
                         event.preventDefault();
-                        hardNavigate(item.href);
+                        recoverFromRouteStall(item.href, router);
                         return;
                       }
                       recordNavigationIntent(item.href);

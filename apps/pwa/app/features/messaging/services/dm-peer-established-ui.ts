@@ -1,5 +1,4 @@
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
-import { normalizePublicKeyHex } from "@/app/features/profile/utils/normalize-public-key-hex";
 
 export type DmPeerRequestStatusSnapshot = Readonly<{
   status?: string;
@@ -10,52 +9,37 @@ export type ResolveDmPeerEstablishedForUiParams = Readonly<{
   peerPublicKeyHex: PublicKeyHex;
   isPeerAcceptedByTrust: boolean;
   requestStatus: DmPeerRequestStatusSnapshot;
-  /** Peers with an existing DM thread row (sidebar / SQLite / chat-state). */
-  establishedDmPeerPubkeys: ReadonlySet<string>;
 }>;
 
-/**
- * Avoid boot-time "unaccepted" UI when trust / request inbox hydrate after the conversation list.
- * An established DM thread is stronger evidence than a transient empty inbox snapshot.
- */
+/** Pending connection handshakes stay in Requests — not the Chats sidebar (ASE-1d-a). */
+export const isPendingContactHandshake = (
+  requestStatus: DmPeerRequestStatusSnapshot,
+): boolean => {
+  if (!requestStatus) {
+    return false;
+  }
+  const status = requestStatus.status ?? "pending";
+  return status === "pending";
+};
+
+/** Chats sidebar visibility — trust or relay-confirmed accept only (no legacy thread shortcut). */
 export const resolveDmPeerEstablishedForUi = (
   params: ResolveDmPeerEstablishedForUiParams,
 ): boolean => {
   if (params.isPeerAcceptedByTrust) {
     return true;
   }
-  const requestStatus = params.requestStatus;
-  if (requestStatus?.status === "accepted") {
-    return true;
-  }
-  if (requestStatus?.isOutgoing && (requestStatus.status === "pending" || !requestStatus.status)) {
-    return true;
-  }
-  const normalizedPeer = normalizePublicKeyHex(params.peerPublicKeyHex);
-  if (normalizedPeer && params.establishedDmPeerPubkeys.has(normalizedPeer)) {
-    return true;
-  }
-  return false;
+  return params.requestStatus?.status === "accepted";
 };
 
 export type ResolveDmPeerOutgoingWaitInitiatorForUiParams = Readonly<{
-  peerPublicKeyHex: PublicKeyHex;
   requestStatus: DmPeerRequestStatusSnapshot;
-  hasInboxItemForPeer: boolean;
-  establishedDmPeerPubkeys: ReadonlySet<string>;
 }>;
 
-/** "Waiting for acceptance" applies only to genuine outgoing-pending strangers, not restored threads. */
+/** Outgoing "waiting for acceptance" applies only to explicit outgoing-pending requests. */
 export const resolveDmPeerOutgoingWaitInitiatorForUi = (
   params: ResolveDmPeerOutgoingWaitInitiatorForUiParams,
-): boolean => {
-  const normalizedPeer = normalizePublicKeyHex(params.peerPublicKeyHex);
-  if (normalizedPeer && params.establishedDmPeerPubkeys.has(normalizedPeer)) {
-    return false;
-  }
-  const requestStatus = params.requestStatus;
-  if (requestStatus?.isOutgoing && (requestStatus.status === "pending" || !requestStatus.status)) {
-    return true;
-  }
-  return !params.hasInboxItemForPeer;
-};
+): boolean => (
+  params.requestStatus?.isOutgoing === true
+  && isPendingContactHandshake(params.requestStatus)
+);

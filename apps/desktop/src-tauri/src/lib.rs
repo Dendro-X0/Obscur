@@ -16,6 +16,7 @@ use tauri_plugin_deep_link::DeepLinkExt;
 // use tauri_plugin_shell::ShellExt;
 mod net;
 mod native_keychain;
+mod keychain_session_envelope;
 mod protocol;
 mod profiles;
 mod active_session_leases;
@@ -27,6 +28,7 @@ mod models;
 mod commands;
 mod update_channel;
 mod data_root;
+mod platform_biometric;
 mod profile_web_storage_harvest;
 mod storage_at_rest_state;
 mod data_root_bind;
@@ -477,6 +479,7 @@ pub fn run() {
                     commands::tor::get_tor_logs,
                     commands::tor::save_tor_settings,
                     commands::system::request_biometric_auth,
+                    commands::system::get_biometric_capability,
                     commands::system::mine_pow,
                     protocol::protocol_get_identity_root_state,
                     protocol::protocol_get_session_state,
@@ -612,6 +615,7 @@ pub fn run() {
                     commands::tor::get_tor_logs,
                     commands::tor::save_tor_settings,
                     commands::system::request_biometric_auth,
+                    commands::system::get_biometric_capability,
                     commands::system::mine_pow,
                     protocol::protocol_get_identity_root_state,
                     protocol::protocol_get_session_state,

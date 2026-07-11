@@ -15,13 +15,13 @@ describe("offline-runtime-policy", () => {
     expect(shouldSkipRelayNetworkBootstrap()).toBe(true);
   });
 
-  it("skips relay network bootstrap on native persistence", async () => {
+  it("runs relay network bootstrap on native persistence when online", async () => {
     vi.stubGlobal("navigator", { onLine: true });
     vi.doMock("@/app/features/runtime/native-persistence-policy", () => ({
       requiresSqlitePersistence: () => true,
     }));
     const { shouldSkipRelayNetworkBootstrap } = await import("./offline-runtime-policy");
-    expect(shouldSkipRelayNetworkBootstrap()).toBe(true);
+    expect(shouldSkipRelayNetworkBootstrap()).toBe(false);
   });
 
   it("treats transport publish as unavailable when offline or no writable relays", async () => {

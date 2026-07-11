@@ -1,11 +1,19 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   isAuthPublicProfileRoute,
+  isPageReloadNavigation,
+  isSessionRestoreDocumentNavigation,
   PROFILE_SIGN_IN_ROUTE,
   resolveLockedDesktopEntryRedirect,
+  resolveLockedSingleProfilePublicRouteRedirect,
   resolveUnlockedDesktopRouteRedirect,
   shouldRedirectLockedDesktopToProfilePicker,
 } from "./auth-public-routes";
+
+const twoProfiles = [
+  { profileId: "default", label: "Default", createdAtUnixMs: 1, lastUsedAtUnixMs: 1 },
+  { profileId: "profile-2", label: "Profile 2", createdAtUnixMs: 2, lastUsedAtUnixMs: 2 },
+] as const;
 
 describe("auth-public-routes", () => {
   it("treats /profiles as public", () => {
@@ -15,28 +23,54 @@ describe("auth-public-routes", () => {
     expect(isAuthPublicProfileRoute(PROFILE_SIGN_IN_ROUTE)).toBe(false);
   });
 
-  it("redirects locked desktop home to profile picker for existing windows", () => {
+  it("redirects locked desktop home to profile picker for existing windows with multiple profiles", () => {
     expect(shouldRedirectLockedDesktopToProfilePicker({
       pathname: "/",
       isDesktopNative: true,
       isUnlocked: false,
+      registeredProfileCount: twoProfiles.length,
     })).toBe(true);
     expect(shouldRedirectLockedDesktopToProfilePicker({
       pathname: "/",
       isDesktopNative: true,
       isUnlocked: false,
       showProfilePickerOnStartup: false,
+      registeredProfileCount: twoProfiles.length,
     })).toBe(false);
     expect(shouldRedirectLockedDesktopToProfilePicker({
       pathname: "/profiles",
       isDesktopNative: true,
       isUnlocked: false,
+      registeredProfileCount: twoProfiles.length,
     })).toBe(false);
     expect(shouldRedirectLockedDesktopToProfilePicker({
       pathname: "/",
       isDesktopNative: true,
       isUnlocked: true,
+      registeredProfileCount: twoProfiles.length,
     })).toBe(false);
+  });
+
+  it("keeps single-profile cold start on auth instead of the picker", () => {
+    expect(shouldRedirectLockedDesktopToProfilePicker({
+      pathname: "/",
+      isDesktopNative: true,
+      isUnlocked: false,
+      registeredProfileCount: 1,
+    })).toBe(false);
+    expect(resolveLockedDesktopEntryRedirect({
+      pathname: "/",
+      isDesktopNative: true,
+      isUnlocked: false,
+      registeredProfileCount: 1,
+      showProfilePickerOnStartup: true,
+    })).toBeNull();
+    expect(resolveLockedSingleProfilePublicRouteRedirect({
+      pathname: "/profiles",
+      isDesktopNative: true,
+      isUnlocked: false,
+      registeredProfileCount: 1,
+    })).toBe("/");
   });
 
   it("routes new profile windows to sign-in instead of the picker grid", () => {
@@ -45,18 +79,21 @@ describe("auth-public-routes", () => {
       isDesktopNative: true,
       isUnlocked: false,
       profileLaunchMode: "new_window",
+      registeredProfileCount: twoProfiles.length,
     })).toBe(PROFILE_SIGN_IN_ROUTE);
     expect(resolveLockedDesktopEntryRedirect({
       pathname: "/",
       isDesktopNative: true,
       isUnlocked: false,
       profileLaunchMode: "existing",
+      registeredProfileCount: twoProfiles.length,
     })).toBe("/profiles");
     expect(resolveLockedDesktopEntryRedirect({
       pathname: PROFILE_SIGN_IN_ROUTE,
       isDesktopNative: true,
       isUnlocked: false,
       profileLaunchMode: "existing",
+      registeredProfileCount: twoProfiles.length,
     })).toBeNull();
   });
 
@@ -67,6 +104,7 @@ describe("auth-public-routes", () => {
       isUnlocked: false,
       isPageReload: true,
       showProfilePickerOnStartup: true,
+      registeredProfileCount: twoProfiles.length,
     })).toBeNull();
   });
 
@@ -81,5 +119,16 @@ describe("auth-public-routes", () => {
       isDesktopNative: true,
       isUnlocked: true,
     })).toBeNull();
+  });
+
+  it("treats full document navigate loads as session-restore navigation", () => {
+    const getEntriesByType = vi.fn(() => [{ type: "navigate" } as PerformanceNavigationTiming]);
+    vi.stubGlobal("performance", {
+      ...performance,
+      getEntriesByType,
+    });
+    expect(isSessionRestoreDocumentNavigation()).toBe(true);
+    expect(isPageReloadNavigation()).toBe(false);
+    vi.unstubAllGlobals();
   });
 });

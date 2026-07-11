@@ -38,6 +38,7 @@ import {
   PROFILE_PUBLISH_UI_TIMEOUT_MS,
   NIP05_IDENTIFIER_PATTERN,
 } from "../settings-tab-panel-shared";
+import { syncLocalAccountSnapshotAfterProfileSave } from "@/app/features/profiles/services/profile-save-local-sync";
 
 export function useProfileSettingsModel(): SettingsTabPanelModel {
   const { t } = useTranslation();
@@ -52,7 +53,7 @@ export function useProfileSettingsModel(): SettingsTabPanelModel {
     lastReport: profilePublishReport,
     error: profilePublishError,
   } = useProfilePublisher();
-  const { relayPool: pool } = useRelay();
+  const { relayPool: pool, enabledRelayUrls } = useRelay();
   const poolRef = useRelayPoolRef(pool);
   const displayPublicKeyHex: string = identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex ?? "";
   const publicKeyHex: PublicKeyHex | null = (displayPublicKeyHex as PublicKeyHex | null) ?? null;
@@ -67,6 +68,25 @@ export function useProfileSettingsModel(): SettingsTabPanelModel {
   const [profilePreflightError, setProfilePreflightError] = useState<string | null>(null);
   const [inviteCodeAvailabilityStatus, setInviteCodeAvailabilityStatus] = useState<InviteCodeAvailabilityStatus>("idle");
   const [inviteCodeAvailabilityMessage, setInviteCodeAvailabilityMessage] = useState<string>("");
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  const setProfileSaveStatusIfMounted = useCallback((
+    phase: SettingsActionPhase,
+    message: string,
+  ): void => {
+    if (!isMountedRef.current) {
+      return;
+    }
+    setProfileSaveActionPhase(phase);
+    setProfileSaveActionMessage(message);
+  }, []);
 
   const persistedInviteCodeSuffix = useMemo(
     () => extractInviteCodeSuffix(profile.state.profile.inviteCode),
@@ -268,9 +288,17 @@ export function useProfileSettingsModel(): SettingsTabPanelModel {
         about: profile.state.profile.about?.trim() || undefined,
         nip05: profile.state.profile.nip05?.trim() || undefined,
       });
+      const privateKeyHex = await resolveActivePrivateKeyHex();
+      await syncLocalAccountSnapshotAfterProfileSave({
+        publicKeyHex,
+        privateKeyHex,
+        username: profile.state.profile.username.trim(),
+        relayPool: poolRef.current,
+        enabledRelayUrls,
+      });
     }
-    setProfileSaveActionPhase("working");
-    setProfileSaveActionMessage("Saving profile and publishing it to relays...");
+    setProfileSaveStatusIfMounted("working", "Saving profile and publishing it to relays...");
+    toast.info(t("settings.profileSavedLocally"));
     const timedOutMessage = "Save finished on this device, but relay publishing timed out. Obscur will keep your saved profile.";
     const publishOperation = publishProfile({
       username: profile.state.profile.username.trim(),
@@ -286,62 +314,62 @@ export function useProfileSettingsModel(): SettingsTabPanelModel {
     ).catch((error) => {
       const message = error instanceof Error ? error.message : "Failed to publish profile.";
       if (message === timedOutMessage) {
-        setProfileSaveActionPhase("working");
-        setProfileSaveActionMessage("Profile saved locally. Global publish is still running in the background.");
+        setProfileSaveStatusIfMounted(
+          "working",
+          "Profile saved locally. Global publish is still running in the background.",
+        );
         toast.info("Profile saved locally. Relay publish is still in progress.");
         return "timed_out" as const;
       }
-      setProfileSaveActionPhase("error");
-      setProfileSaveActionMessage(message);
+      setProfileSaveStatusIfMounted("error", message);
       toast.error(message);
       return false;
     });
 
     if (publishResult === "timed_out") {
       void publishOperation.then((finalSuccess) => {
+        if (!isMountedRef.current) {
+          return;
+        }
         if (finalSuccess) {
-          setProfileSaveActionPhase("success");
-          setProfileSaveActionMessage("Profile saved and published to the network.");
+          setProfileSaveStatusIfMounted("success", "Profile saved and published to the network.");
           toast.success(t("settings.profileSaved"));
           return;
         }
         const latestPublishReport = getProfilePublishReportSnapshot();
         if (latestPublishReport?.deliveryStatus === "queued") {
           const message = latestPublishReport.message || "Profile is saved on this device, but relay publishing needs a healthier connection.";
-          setProfileSaveActionPhase("error");
-          setProfileSaveActionMessage(message);
+          setProfileSaveStatusIfMounted("error", message);
           toast.warning(message);
           return;
         }
         const message = profilePublishError || "Profile publish failed.";
-        setProfileSaveActionPhase("error");
-        setProfileSaveActionMessage(message);
+        setProfileSaveStatusIfMounted("error", message);
         toast.error(t("settings.profilePublishFailed"));
       }).catch((error) => {
+        if (!isMountedRef.current) {
+          return;
+        }
         const message = error instanceof Error ? error.message : "Failed to publish profile.";
-        setProfileSaveActionPhase("error");
-        setProfileSaveActionMessage(message);
+        setProfileSaveStatusIfMounted("error", message);
         toast.error(message);
       });
       return;
     }
 
     if (publishResult) {
-      setProfileSaveActionPhase("success");
-      setProfileSaveActionMessage("Profile saved and published to the network.");
+      setProfileSaveStatusIfMounted("success", "Profile saved and published to the network.");
       toast.success(t("settings.profileSaved"));
       return;
     }
     const latestPublishReport = getProfilePublishReportSnapshot();
     if (latestPublishReport?.deliveryStatus === "queued") {
       const message = latestPublishReport.message || "Profile is saved on this device, but relay publishing needs a healthier connection.";
-      setProfileSaveActionPhase("error");
-      setProfileSaveActionMessage(message);
+      setProfileSaveStatusIfMounted("error", message);
       toast.warning(message);
       return;
     }
-    setProfileSaveActionPhase("error");
-    setProfileSaveActionMessage(profilePublishError || "Profile publish failed.");
+    setProfileSaveStatusIfMounted("error", profilePublishError || "Profile publish failed.");
     toast.error(t("settings.profilePublishFailed"));
   };
 

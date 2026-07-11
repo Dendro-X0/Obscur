@@ -14,8 +14,11 @@ fn normalize_public_key_hex(value: &str) -> Option<String> {
     nostr::PublicKey::parse(trimmed).ok().map(|pubkey| pubkey.to_string())
 }
 
-/// Keychain may hold bech32 nsec or hex secret key — desktop init has written both historically.
+/// Keychain may hold wrapped OBSCUR_KCV1 envelopes or legacy plaintext bech32/hex secrets.
 fn public_key_hex_from_keychain_secret(key_str: &str) -> Option<String> {
+    if let Some(pubkey) = native_keychain::pubkey_hex_from_stored_keychain_payload(key_str) {
+        return Some(pubkey);
+    }
     let trimmed = key_str.trim();
     if trimmed.is_empty() {
         return None;
@@ -63,10 +66,10 @@ async fn find_profile_id_with_matching_keychain_pubkey(
     let expected = normalize_public_key_hex(expected_pubkey_hex)
         .ok_or_else(|| "expected_pubkey_hex is invalid".to_string())?;
     for profile in profiles.list_profiles().await {
-        let Some(nsec) = native_keychain::read_nsec_for_profile(&profile.profile_id)? else {
+        let Some(stored) = read_raw_keychain_payload(&profile.profile_id)? else {
             continue;
         };
-        let Some(pubkey_hex) = public_key_hex_from_keychain_secret(&nsec) else {
+        let Some(pubkey_hex) = public_key_hex_from_keychain_secret(&stored) else {
             continue;
         };
         let normalized = normalize_public_key_hex(&pubkey_hex).unwrap_or(pubkey_hex);
@@ -74,6 +77,23 @@ async fn find_profile_id_with_matching_keychain_pubkey(
             return Ok(Some(profile.profile_id));
         }
     }
+    Ok(None)
+}
+
+#[cfg(not(target_os = "android"))]
+fn read_raw_keychain_payload(profile_id: &str) -> Result<Option<String>, String> {
+    use keyring::Entry;
+    let canonical = Entry::new(native_keychain::APP_SERVICE, &native_keychain::key_name_for_profile(profile_id))
+        .map_err(|e| e.to_string())?;
+    match canonical.get_password() {
+        Ok(payload) => Ok(Some(payload)),
+        Err(keyring::Error::NoEntry) => Ok(None),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+#[cfg(target_os = "android")]
+fn read_raw_keychain_payload(_profile_id: &str) -> Result<Option<String>, String> {
     Ok(None)
 }
 
@@ -232,10 +252,13 @@ mod tests {
     use super::public_key_hex_from_keychain_secret;
 
     #[test]
-    fn keychain_secret_pubkey_from_hex() {
+    fn keychain_secret_pubkey_from_wrapped_envelope() {
         let hex = "0000000000000000000000000000000000000000000000000000000000000001";
-        let pubkey = public_key_hex_from_keychain_secret(hex);
-        assert!(pubkey.is_some(), "hex private keys in keychain must resolve for restore scan");
+        let wrapped = crate::keychain_session_envelope::wrap_session_secret_for_keychain("default", hex)
+            .expect("wrap");
+        let pubkey = public_key_hex_from_keychain_secret(&wrapped);
+        assert!(pubkey.is_some(), "wrapped keychain payloads must expose pubkey hint for restore scan");
+        assert!(!wrapped.contains("nsec1"));
     }
 }
 

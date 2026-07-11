@@ -54,11 +54,11 @@ describe("privacy-settings-service", () => {
 
   it("defaults discovery feature flags to rollout baseline values", () => {
     const settings = PrivacySettingsService.getSettings();
-    expect(settings.discoveryInviteCodeV1).toBe(false);
+    expect(settings.discoveryInviteCodeV1).toBe(true);
     expect(settings.discoveryDeepLinkV1).toBe(true);
     expect(settings.discoverySuggestionsV1).toBe(true);
     expect(PrivacySettingsService.getDiscoveryFeatureFlags(settings)).toEqual({
-      inviteCodeV1: false,
+      inviteCodeV1: true,
       deepLinkV1: true,
       suggestionsV1: true,
     });

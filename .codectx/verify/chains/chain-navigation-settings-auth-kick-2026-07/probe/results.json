@@ -1,0 +1,33 @@
+{
+  "at": "2026-07-07T17:07:18.461Z",
+  "steps": [
+    {
+      "name": "initial",
+      "url": "http://127.0.0.1:1430/",
+      "title": "Obscur"
+    },
+    {
+      "name": "post-unlock",
+      "shell": true,
+      "auth": false,
+      "url": "http://127.0.0.1:1430/"
+    },
+    {
+      "name": "post-click-2s",
+      "shell": true,
+      "auth": false,
+      "url": "http://127.0.0.1:1430/settings"
+    },
+    {
+      "name": "post-click-20s",
+      "shell": true,
+      "auth": false,
+      "url": "http://127.0.0.1:1430/settings"
+    }
+  ],
+  "digest": {
+    "pathname": "/settings",
+    "welcomeBack": false,
+    "settingsNav": true
+  }
+}

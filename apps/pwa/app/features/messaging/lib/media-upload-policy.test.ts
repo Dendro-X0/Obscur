@@ -42,6 +42,23 @@ describe("media-upload-policy runtime safety", () => {
     expect(shouldPreferBrowserUploadForRuntimeSafety(largeAudio, false)).toBe(false);
   });
 
+  it("prefers browser upload for oversized native video files", () => {
+    const smallVideo = createFile({
+      name: "clip.mp4",
+      type: "video/mp4",
+      sizeBytes: 5 * 1024 * 1024,
+    });
+    const largeVideo = createFile({
+      name: "large-video.mp4",
+      type: "video/mp4",
+      sizeBytes: MEDIA_RUNTIME_SAFETY_LIMITS.nativeDirectUploadBytes + 1,
+    });
+
+    expect(shouldPreferBrowserUploadForRuntimeSafety(smallVideo, true)).toBe(false);
+    expect(shouldPreferBrowserUploadForRuntimeSafety(largeVideo, true)).toBe(true);
+    expect(shouldPreferBrowserUploadForRuntimeSafety(smallVideo, false)).toBe(false);
+  });
+
   it("rejects oversized attachment batches before processing begins", () => {
     const first = createFile({
       name: "archive-a.bin",
@@ -87,6 +104,22 @@ describe("media-upload-policy runtime safety", () => {
     });
 
     expect(shouldAvoidInMemoryAttachmentCaching(hugeFile)).toBe(true);
+  });
+
+  it("skips in-memory sent-file caching for video and audio attachments", () => {
+    const smallVideo = createFile({
+      name: "clip.mp4",
+      type: "video/mp4",
+      sizeBytes: 5 * 1024 * 1024,
+    });
+    const smallAudio = createFile({
+      name: "clip.mp3",
+      type: "audio/mpeg",
+      sizeBytes: 2 * 1024 * 1024,
+    });
+
+    expect(shouldAvoidInMemoryAttachmentCaching(smallVideo)).toBe(true);
+    expect(shouldAvoidInMemoryAttachmentCaching(smallAudio)).toBe(true);
   });
 
   it("skips local cache duplication for large non-image attachments", () => {

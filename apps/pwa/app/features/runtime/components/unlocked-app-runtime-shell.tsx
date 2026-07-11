@@ -22,6 +22,7 @@ import { ChatRouteMainShell, ChatRouteVoiceCallOverlay } from "./chat-route-main
 import { AccountScopeBoundaryOwner } from "@/app/features/runtime/components/account-scope-boundary-owner";
 import { DevLabMessagingBridge } from "@/app/features/dev-lab/dev-lab-messaging-bridge";
 import { DesktopNotificationHandler } from "@/app/components/desktop-notification-handler";
+import { AppMediaPreviewLayer } from "@/app/features/messaging/components/app-media-preview-layer";
 
 /**
  * Unlocked session tree. Providers stay mounted across sidebar navigation so global
@@ -47,6 +48,7 @@ export function UnlockedAppRuntimeShell(props: Readonly<{ children: React.ReactN
               <MessagingProvider>
                 <RuntimeMessagingTransportOwnerProvider>
                   <DesktopNotificationHandler />
+                  <AppMediaPreviewLayer />
                   <DevLabMessagingBridge />
                   <AppChromeProvider>
                     <LazyGlobalDialogManager />

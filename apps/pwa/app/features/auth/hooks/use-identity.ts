@@ -33,6 +33,7 @@ import {
   collectPasswordProtectedIdentityCandidates,
   tryUnlockIdentityWithPassphrase,
 } from "@/app/features/profiles/services/identity-passphrase-unlock";
+import { maybeUpgradeUnlockedIdentityRecord } from "@/app/features/profiles/services/identity-envelope-upgrade";
 import {
   AccountActiveInOtherProfileWindowError,
   assertAccountNotActiveInOtherProfileWindowAsync,
@@ -74,18 +75,29 @@ import {
   type StartupAuthMismatchReason,
   type StartupAuthState,
 } from "@/app/features/auth/services/startup-auth-state-contracts";
-import { resetAutoLockOverlayState } from "@/app/features/settings/services/auto-lock-session-state";
+import { assertIdentityPassphrasePolicy } from "@/app/features/security/services/identity-passphrase-policy";
+import {
+  assertUnlockRateLimit,
+  clearUnlockRateLimit,
+  recordUnlockFailure,
+} from "@/app/features/auth/services/unlock-attempt-rate-limit";
 import {
   clearAuthKernelManualLock,
   isAuthKernelManualLockActive,
   markAuthKernelManualLock,
 } from "@/app/features/auth-kernel/auth-kernel-manual-lock-state";
+import { resetAutoLockOverlayState } from "@/app/features/settings/services/auto-lock-session-state";
 import { readAuthKernelKeychainPresent } from "@/app/features/auth-kernel/auth-kernel-keychain-presence";
 import { runAuthKernelSignOutCleanup } from "@/app/features/auth-kernel/auth-kernel-sign-out-cleanup";
 import { reconcileWindowRuntimeBinding } from "@/app/features/runtime/services/window-runtime-binding";
 import { desktopProfileRuntime } from "@/app/features/profiles/services/desktop-profile-runtime";
 import { isPageReloadNavigation } from "@/app/features/profiles/services/auth-public-routes";
 import { resolveStaySignedIn } from "@/app/features/auth/services/device-session-consent";
+import {
+  clearDeviceTrustArtifacts,
+  revokeDeviceTrust,
+} from "@/app/features/auth/services/device-trust-service";
+import { clearNativeSessionPersistError } from "@/app/features/auth/services/native-session-persist-feedback";
 
 export type IdentityState = Readonly<{
   status: "loading" | "locked" | "unlocked" | "error";
@@ -108,6 +120,7 @@ type UseIdentityResult = Readonly<{
     passphrase: Passphrase;
     username?: string;
     difficulty?: PoWDifficulty;
+    staySignedIn?: boolean;
     onProgress?: (progress: CreateIdentityProgress) => void;
     signal?: AbortSignal;
   }>) => Promise<void>;
@@ -785,6 +798,8 @@ const ensureInitialized = async (): Promise<void> => {
 };
 
 const createIdentityAction = async (params: Readonly<{ passphrase: Passphrase; username?: string; staySignedIn?: boolean }>): Promise<void> => {
+  assertIdentityPassphrasePolicy(params.passphrase);
+  beginIdentityMutation();
   let record: IdentityRecord | undefined;
   try {
     record = await createNewIdentityRecord({ passphrase: params.passphrase, username: params.username });
@@ -819,9 +834,11 @@ const createPoWIdentityAction = async (params: Readonly<{
   passphrase: Passphrase;
   username?: string;
   difficulty?: PoWDifficulty;
+  staySignedIn?: boolean;
   onProgress?: (progress: CreateIdentityProgress) => void;
   signal?: AbortSignal;
 }>): Promise<void> => {
+  beginIdentityMutation();
   let record: IdentityRecord | undefined;
   try {
     const powResult = await generatePoWIdentity(
@@ -855,7 +872,7 @@ const createPoWIdentityAction = async (params: Readonly<{
     setIdentityState(createUnlockedState({ stored: record, privateKeyHex }));
     recordIdentityActivationRisk(record.publicKeyHex);
     await applyNativeSessionPersistence({
-      staySignedIn: true,
+      staySignedIn: resolveStaySignedIn(params),
       publicKeyHex: record.publicKeyHex,
       privateKeyHex,
       stored: record,
@@ -865,10 +882,15 @@ const createPoWIdentityAction = async (params: Readonly<{
     const message: string = error instanceof Error ? error.message : "Unknown error";
     setIdentityState(createErrorState(message, record));
     throw error;
+  } finally {
+    endIdentityMutation();
   }
 };
 
 const importIdentityAction = async (params: Readonly<{ privateKeyHex: PrivateKeyHex; passphrase: Passphrase; username?: string; staySignedIn?: boolean }>): Promise<void> => {
+  if (params.passphrase.trim().length > 0) {
+    assertIdentityPassphrasePolicy(params.passphrase);
+  }
   beginIdentityMutation();
   let record: IdentityRecord | undefined;
   try {
@@ -951,6 +973,8 @@ const unlockIdentityAction = async (params: Readonly<{ passphrase: Passphrase; s
   const priorStoredIdentity = identityState.stored;
   beginIdentityMutation();
   try {
+    const profileId = resolveIdentityScopeProfileId();
+    assertUnlockRateLimit(profileId);
     const unlockMatch = await tryUnlockIdentityWithPassphrase({
       profileId: resolveIdentityScopeProfileId(),
       publicKeyHex: priorStoredIdentity.publicKeyHex,
@@ -967,28 +991,35 @@ const unlockIdentityAction = async (params: Readonly<{ passphrase: Passphrase; s
           "No device password unlock is saved for this profile on this device. Use Import Key, or restore from a workspace backup.",
         );
       }
+      recordUnlockFailure(profileId);
       throw new Error("Incorrect password");
     }
 
+    clearUnlockRateLimit(profileId);
     const storedIdentity = unlockMatch.record;
     const { privateKeyHex } = unlockMatch;
+    const upgradedIdentity = await maybeUpgradeUnlockedIdentityRecord({
+      record: storedIdentity,
+      passphrase: params.passphrase,
+    });
+    const resolvedStoredIdentity = upgradedIdentity ?? storedIdentity;
     if (
       isPasswordlessNativeOnlyRecord(priorStoredIdentity)
-      || priorStoredIdentity.encryptedPrivateKey !== storedIdentity.encryptedPrivateKey
+      || priorStoredIdentity.encryptedPrivateKey !== resolvedStoredIdentity.encryptedPrivateKey
     ) {
-      await saveStoredIdentity({ record: storedIdentity });
+      await saveStoredIdentity({ record: resolvedStoredIdentity });
     }
 
-    setIdentityState(createUnlockedState({ stored: storedIdentity, privateKeyHex }));
-    recordIdentityActivationRisk(storedIdentity.publicKeyHex);
+    setIdentityState(createUnlockedState({ stored: resolvedStoredIdentity, privateKeyHex }));
+    recordIdentityActivationRisk(resolvedStoredIdentity.publicKeyHex);
     resetAutoLockOverlayState();
     clearAuthKernelManualLock(resolveIdentityScopeProfileId());
     reconcileWindowRuntimeBinding();
     await applyNativeSessionPersistence({
       staySignedIn: resolveStaySignedIn(params),
-      publicKeyHex: storedIdentity.publicKeyHex,
+      publicKeyHex: resolvedStoredIdentity.publicKeyHex,
       privateKeyHex,
-      stored: storedIdentity,
+      stored: resolvedStoredIdentity,
       context: "unlock",
     });
     reconcileWindowRuntimeBinding();
@@ -1072,6 +1103,7 @@ const changePassphraseAction = async (params: Readonly<{ oldPassphrase: Passphra
   if (!identityState.stored) {
     throw new Error("No identity stored");
   }
+  assertIdentityPassphrasePolicy(params.newPassphrase);
   try {
     const privateKeyHex: PrivateKeyHex = await decryptPrivateKeyHex({
       payload: identityState.stored.encryptedPrivateKey,
@@ -1101,6 +1133,7 @@ const resetPassphraseWithPrivateKeyAction = async (params: Readonly<{ privateKey
   if (!identityState.stored) {
     throw new Error("No identity stored");
   }
+  assertIdentityPassphrasePolicy(params.newPassphrase);
   try {
     const privateKeyHex = await resolveActivePrivateKeyHex({
       privateKeyHex: params.privateKeyHex,
@@ -1142,21 +1175,16 @@ const lockIdentityAction = (): void => {
 };
 
 const forgetIdentityAction = async (): Promise<void> => {
+  const profileId = resolveIdentityScopeProfileId();
+  const publicKeyHex = identityState.stored?.publicKeyHex ?? identityState.publicKeyHex;
   try {
-    const publicKeyHex = identityState.stored?.publicKeyHex ?? identityState.publicKeyHex;
+    await endNativeDeviceSignInBestEffort();
+    await runAuthKernelSignOutCleanup(profileId);
+    revokeDeviceTrust(profileId);
+    clearDeviceTrustArtifacts({ profileId, includeLegacy: true });
+    clearNativeSessionPersistError(profileId);
     await clearStoredIdentity();
     clearPresenceSelfSession(publicKeyHex);
-
-    // Cleanup native keychain
-    const cs: NativeCryptoSessionApi = cryptoService as unknown as NativeCryptoSessionApi;
-    if (canUseNativeSession() && hasFn(cs.clearNativeSession)) {
-      await cs.clearNativeSession();
-    }
-    if (canUseNativeSession() && hasFn(cs.deleteNativeKey)) {
-      await cs.deleteNativeKey();
-    }
-
-    await runAuthKernelSignOutCleanup(resolveIdentityScopeProfileId());
     setIdentityState(createLockedState(undefined));
   } catch (error: unknown) {
     const message: string = error instanceof Error ? error.message : "Unknown error";
@@ -1215,6 +1243,8 @@ const retryNativeSessionUnlockAction = async (): Promise<boolean> => {
 export const useIdentityInternals = {
   ensureInitialized,
   rehydrateIdentityForActiveProfile,
+  beginIdentityMutation,
+  endIdentityMutation,
   getIdentitySnapshot,
   getIdentityDiagnosticsSnapshot,
   setIdentityState,
@@ -1238,6 +1268,7 @@ export const useIdentityInternals = {
 /** AUTH-K1 bridge — canonical identity mutations for auth-kernel adapters only. */
 export const authKernelIdentityActions = {
   createIdentity: createIdentityAction,
+  createPoWIdentity: createPoWIdentityAction,
   importIdentity: importIdentityAction,
   unlockIdentity: unlockIdentityAction,
   unlockWithPrivateKeyHex: unlockWithPrivateKeyHexAction,

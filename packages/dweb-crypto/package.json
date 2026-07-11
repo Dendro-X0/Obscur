@@ -1,9 +1,10 @@
 {
   "name": "@dweb/crypto",
-  "version": "1.9.10",
+  "version": "1.9.11",
   "private": true,
   "type": "module",
   "dependencies": {
+    "@noble/hashes": "^2.2.0",
     "@noble/secp256k1": "^2.3.0"
   },
   "exports": {
@@ -14,8 +15,14 @@
     "./public-key-hex": "./src/public-key-hex.ts",
     "./generate-private-key-hex": "./src/generate-private-key-hex.ts",
     "./derive-public-key-hex": "./src/derive-public-key-hex.ts",
+    "./derive-aes-gcm-key": "./src/derive-aes-gcm-key.ts",
+    "./is-valid-private-key-hex": "./src/is-valid-private-key-hex.ts",
     "./encrypt-private-key-hex": "./src/encrypt-private-key-hex.ts",
     "./decrypt-private-key-hex": "./src/decrypt-private-key-hex.ts",
+    "./argon2id-kdf": "./src/argon2id-kdf.ts",
+    "./identity-envelope-kdf": "./src/identity-envelope-kdf.ts",
+    "./parse-identity-envelope": "./src/parse-identity-envelope.ts",
+    "./upgrade-encrypted-private-key-hex": "./src/upgrade-encrypted-private-key-hex.ts",
     "./to-array-buffer": "./src/to-array-buffer.ts",
     "./to-base64": "./src/to-base64.ts",
     "./mine-pow": "./src/mine-pow.ts",

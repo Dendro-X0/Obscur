@@ -6,9 +6,15 @@ import {
   resolveStaySignedIn,
   type SessionUnlockOptions,
 } from "@/app/features/auth/services/device-session-consent";
+import { runAuthKernelCreatePoWIdentity } from "@/app/features/auth/services/auth-kernel-legacy-delegates";
 import { assertAccountUnlockAllowedAsync } from "@/app/features/profiles/services/profile-account-unlock-guard";
 import { resolveCurrentDesktopWindowLabel } from "@/app/features/profiles/services/desktop-window-boot-payload";
-import { assertProfileSlotIsEmptyForNewIdentity } from "@/app/features/profiles/services/profile-slot-login-guard";
+import type { PoWDifficulty } from "@/app/features/auth/services/pow-key-generator";
+import { clearOrphanProfileSlotWorkspace } from "@/app/features/profiles/services/profile-slot-greenfield-workspace-prep";
+import {
+  assertProfileSlotIsEmptyForNewIdentity,
+  getProfileSlotOccupantPublicKeyHex,
+} from "@/app/features/profiles/services/profile-slot-login-guard";
 import { getIdentitySnapshot } from "@/app/features/auth/hooks/use-identity";
 import {
   beginBoundProfileUnlock,
@@ -36,6 +42,7 @@ export const runAuthKernelBoundProfileCreate = async (
   beginBoundProfileUnlock("create");
   try {
     assertProfileSlotIsEmptyForNewIdentity(profileId);
+    await clearOrphanProfileSlotWorkspace(profileId);
     const result = await ports.identityRoot.createIdentity({
       profileId,
       passphrase: params.passphrase,
@@ -44,6 +51,39 @@ export const runAuthKernelBoundProfileCreate = async (
     if (result.status === "failed" || !result.value) {
       throwPortFailure(result.message);
     }
+    finalizeBoundProfileUnlockSuccess({
+      profileId,
+      passphrase: params.passphrase,
+      trusted: staySignedIn,
+    });
+  } catch (error) {
+    resetBoundProfileToAuthRequiredUnlessUnlocked();
+    throw error;
+  }
+};
+
+export const runAuthKernelBoundProfileCreatePoW = async (
+  _ports: AuthKernelPorts,
+  params: Readonly<{
+    profileId: string;
+    passphrase: Passphrase;
+    username?: string;
+    difficulty: PoWDifficulty;
+  } & SessionUnlockOptions>,
+): Promise<void> => {
+  const profileId = params.profileId.trim();
+  const staySignedIn = resolveStaySignedIn(params);
+  beginBoundProfileUnlock("create");
+  try {
+    assertProfileSlotIsEmptyForNewIdentity(profileId);
+    await clearOrphanProfileSlotWorkspace(profileId);
+    await runAuthKernelCreatePoWIdentity({
+      profileId,
+      passphrase: params.passphrase,
+      username: params.username,
+      difficulty: params.difficulty,
+      staySignedIn: params.staySignedIn,
+    });
     finalizeBoundProfileUnlockSuccess({
       profileId,
       passphrase: params.passphrase,
@@ -73,6 +113,9 @@ export const runAuthKernelBoundProfileImport = async (
       incomingPublicKeyHex: derivePublicKeyHex(params.privateKeyHex),
       currentWindowLabel: resolveCurrentDesktopWindowLabel(),
     });
+    if (!getProfileSlotOccupantPublicKeyHex(profileId)) {
+      await clearOrphanProfileSlotWorkspace(profileId);
+    }
     const result = await ports.identityRoot.importIdentity({
       profileId,
       privateKeyHex: params.privateKeyHex,

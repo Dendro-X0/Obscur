@@ -56,17 +56,29 @@ import { useInviteRedemption } from "./hooks/use-invite-redemption";
 import { useDeepLinks } from "./hooks/use-deep-links";
 import { useCommandMessages } from "./hooks/use-command-messages";
 import { useChatActions } from "./hooks/use-chat-actions";
+import { SendCeremonyDialog } from "@/app/features/security/components/send-ceremony-dialog";
 import { useFilteredConversations } from "./hooks/use-filtered-conversations";
 import { useAttachmentHandler } from "./hooks/use-attachment-handler";
 import { useDmSync } from "./hooks/use-dm-sync";
 import { useChatViewProps } from "./hooks/use-chat-view-props";
+import { useSyncMediaPreviewScope } from "@/app/features/messaging/hooks/use-sync-media-preview-scope";
 import { installChatPerformanceDevTools } from "../messaging/dev/chat-performance-dev-tools";
 import { toDmConversationId } from "@/app/features/messaging/utils/dm-conversation-id";
 import { createDmConversation } from "@/app/features/messaging/utils/create-dm-conversation";
+import { upsertDmConversationInList } from "@/app/features/messaging/utils/dm-conversation-list-merge";
 import { resolveConversationByToken } from "@/app/features/messaging/utils/conversation-target";
-import { partitionIncomingRequestsByLane } from "@/app/features/messaging/services/request-inbox-view";
+import { getOpenPendingRequestCount, partitionOpenRequestsByLane } from "@/app/features/messaging/services/request-inbox-view";
 import type { MessagingSidebarTab } from "@/app/features/messaging/services/messaging-sidebar-tab";
-import { resolveDmPeerEstablishedForUi, resolveDmPeerOutgoingWaitInitiatorForUi, } from "@/app/features/messaging/services/dm-peer-established-ui";
+import { resolveDmPeerEstablishedForUi, resolveDmPeerOutgoingWaitInitiatorForUi, isPendingContactHandshake, } from "@/app/features/messaging/services/dm-peer-established-ui";
+import {
+    hasDmThreadRowForPeer,
+    resolveEffectiveContactRequestStatus,
+} from "@/app/features/messaging/services/contact-request-legacy-orphan";
+import {
+    readRequestsPendingBadgeDismissed,
+    writeRequestsPendingBadgeDismissed,
+} from "@/app/features/messaging/services/request-inbox-badge-preference";
+import { resolveContactRequestComposeMode } from "@/app/features/messaging/services/contact-request-sandbox-policy";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { useOptionalProfileMessageBus } from "@/app/features/profiles/providers/profile-runtime-provider";
@@ -164,7 +176,7 @@ function NostrMessengerContent() {
     const myPublicKeyHex = (identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex ?? null);
     const myPrivateKeyHex = identity.state.privateKeyHex || null;
     const { isLocked, unlock } = useAutoLock();
-    const { selectedConversation, setSelectedConversation, unreadByConversationId, setUnreadByConversationId, lastViewedByConversationId, connectionOverridesByConnectionId, visibleMessageCountByConversationId, setVisibleMessageCountByConversationId, replyTo, setReplyTo, pendingAttachments, pendingAttachmentPreviewUrls, isUploadingAttachment, uploadStage, attachmentError, hasHydrated, sidebarTab, setSidebarTab, messageInput, setMessageInput, isProcessingMedia, mediaProcessingProgress, searchQuery, setSearchQuery, isNewChatOpen, setIsNewChatOpen, isMediaGalleryOpen, setIsMediaGalleryOpen, lightboxIndex, setLightboxIndex, flashMessageId, messageMenu, setMessageMenu, reactionPicker, setReactionPicker, pinnedChatIds, togglePin, hiddenChatIds, hideConversation, clearHistory, unhideConversation, chatsUnreadCount, createdConnections, setCreatedConnections } = useMessaging();
+    const { selectedConversation, setSelectedConversation, unreadByConversationId, setUnreadByConversationId, lastViewedByConversationId, connectionOverridesByConnectionId, visibleMessageCountByConversationId, setVisibleMessageCountByConversationId, replyTo, setReplyTo, pendingAttachments, pendingAttachmentPreviewUrls, isUploadingAttachment, uploadStage, attachmentError, hasHydrated, sidebarTab, setSidebarTab, messageInput, setMessageInput, isProcessingMedia, mediaProcessingProgress, searchQuery, setSearchQuery, isNewChatOpen, setIsNewChatOpen, setIsMediaGalleryOpen, flashMessageId, messageMenu, setMessageMenu, reactionPicker, setReactionPicker, pinnedChatIds, togglePin, hiddenChatIds, hideConversation, clearHistory, unhideConversation, chatsUnreadCount, createdConnections, setCreatedConnections } = useMessaging();
     const optionalProfileBus = useOptionalProfileMessageBus();
     const { relayPool, relayList, relayStatus, enabledRelayUrls, relayRecovery } = useRelay();
     const accountSyncSnapshot = useAccountSyncSnapshot();
@@ -172,6 +184,9 @@ function NostrMessengerContent() {
     const { createdGroups, isNewGroupOpen, setIsNewGroupOpen, communityKnownParticipantDirectoryByConversationId, communityRosterByConversationId, } = useGroups();
     const [isUnlocking, setIsUnlocking] = useState(false);
     const [showWelcome] = useState(false);
+    const [pendingRequestsBadgeDismissed, setPendingRequestsBadgeDismissed] = useState(
+        () => readRequestsPendingBadgeDismissed(),
+    );
     useEffect(() => {
         installChatPerformanceDevTools();
     }, []);
@@ -238,7 +253,7 @@ function NostrMessengerContent() {
         enabled: groupThreadRelayIngestEnabled,
     });
     // Feature hooks
-    const { handleSendMessage, deleteMessageForMe, deleteMessageForEveryone, showMessageOnDeviceAgain, showAllHiddenMessagesOnDevice, toggleReaction, } = useChatActions(dmController);
+    const { handleSendMessage, deleteMessageForMe, deleteMessageForEveryone, showMessageOnDeviceAgain, showAllHiddenMessagesOnDevice, toggleReaction, sendCeremonyViewModel, confirmSendCeremony, cancelSendCeremony, } = useChatActions(dmController);
     const requestTransport = useRequestTransport({
         dmController,
         peerTrust,
@@ -358,7 +373,7 @@ function NostrMessengerContent() {
     const selectedDmConversationId = selectedConversation?.kind === "dm" ? selectedConversation.id : null;
     useDmSync(dmController.state.messages, selectedDmConversationId, setUnreadByConversationId, dmController.state.status === "ready", hasHydrated, lastViewedByConversationId);
     useCommandMessages(dmController.state.messages);
-    const establishedDmPeerPubkeys = useMemo((): ReadonlySet<string> => {
+    const dmThreadPeerPubkeys = useMemo((): ReadonlySet<string> => {
         const peers = new Set<string>();
         createdConnections.forEach((connection) => {
             const normalized = connection.pubkey.trim().toLowerCase();
@@ -366,20 +381,21 @@ function NostrMessengerContent() {
                 peers.add(normalized);
             }
         });
-        if (selectedConversation?.kind === "dm") {
-            const activePeer = selectedConversation.pubkey.trim().toLowerCase();
-            if (activePeer.length === 64) {
-                peers.add(activePeer);
-            }
-        }
         return peers;
-    }, [createdConnections, selectedConversation]);
+    }, [createdConnections]);
+    const resolveEffectiveRequestStatusForPeer = useCallback((peerPublicKeyHex: PublicKeyHex) => (
+        resolveEffectiveContactRequestStatus({
+            peerPublicKeyHex,
+            isPeerAcceptedByTrust: peerTrust.isAccepted({ publicKeyHex: peerPublicKeyHex }),
+            requestStatus: requestsInbox.getRequestStatus({ peerPublicKeyHex }),
+            hasDmThreadRow: hasDmThreadRowForPeer(peerPublicKeyHex, dmThreadPeerPubkeys),
+        })
+    ), [dmThreadPeerPubkeys, peerTrust, requestsInbox]);
     const resolvePeerEstablishedForUi = useCallback((peerPublicKeyHex: PublicKeyHex): boolean => (resolveDmPeerEstablishedForUi({
         peerPublicKeyHex,
         isPeerAcceptedByTrust: peerTrust.isAccepted({ publicKeyHex: peerPublicKeyHex }),
-        requestStatus: requestsInbox.getRequestStatus({ peerPublicKeyHex }),
-        establishedDmPeerPubkeys,
-    })), [establishedDmPeerPubkeys, peerTrust, requestsInbox]);
+        requestStatus: resolveEffectiveRequestStatusForPeer(peerPublicKeyHex),
+    })), [peerTrust, resolveEffectiveRequestStatusForPeer]);
     const { allConversations, filteredConversations } = useFilteredConversations(createdConnections, createdGroups, connectionOverridesByConnectionId, searchQuery, (params) => resolvePeerEstablishedForUi(params.publicKeyHex as PublicKeyHex), myPublicKeyHex);
     const { pickAttachments, handleFilesSelected, removePendingAttachment, clearPendingAttachments } = useAttachmentHandler();
     const [restoredChatId, setRestoredChatId] = useState<string | null>(null);
@@ -3258,25 +3274,111 @@ function NostrMessengerContent() {
         selectedConversation: selectedConversationView,
         myPublicKeyHex
     });
-    const updateSidebarTab = (tab: MessagingSidebarTab) => {
+    useSyncMediaPreviewScope({
+        conversationDisplayName: selectedConversationView?.displayName ?? "",
+        items: selectedConversationMediaItems,
+    });
+    const updateSidebarTab = useCallback((tab: MessagingSidebarTab) => {
+        if (tab === "chats" && selectedConversation?.kind === "dm") {
+            const requestStatus = resolveEffectiveRequestStatusForPeer(selectedConversation.pubkey);
+            if (isPendingContactHandshake(requestStatus)) {
+                setSelectedConversation(null);
+            }
+        }
         startTransition(() => setSidebarTab(tab));
         localStorage.setItem(getLastPageStorageKey(), JSON.stringify({ type: 'tab', id: tab }));
-    };
+    }, [resolveEffectiveRequestStatusForPeer, selectedConversation, setSelectedConversation, setSidebarTab]);
     const handleSelectConversation = useCallback((conversation: Conversation) => {
         setSelectedConversation(conversation);
         if (searchParams.get("convId")) {
             router.replace("/");
         }
     }, [router, searchParams, setSelectedConversation]);
+
+    const promoteAcceptedContactToChats = useCallback((pk: PublicKeyHex, displayName?: string) => {
+        const cid = toDmConversationId({ myPublicKeyHex: myPublicKeyHex || "", peerPublicKeyHex: pk });
+        if (!cid) {
+            return;
+        }
+        const existingDm = createdConnections.find((connection): connection is DmConversation => connection.kind === "dm" && connection.id === cid)
+            ?? allConversations.find((conversation): conversation is DmConversation => conversation.kind === "dm" && conversation.id === cid);
+        const acceptedConversation: DmConversation | null = existingDm ?? createDmConversation({
+            myPublicKeyHex: myPublicKeyHex || "",
+            peerPublicKeyHex: pk,
+            displayName: displayName || PRIVATE_CONTACT_DISPLAY_NAME,
+        });
+        if (!acceptedConversation) {
+            return;
+        }
+        if (!createdConnections.some((connection) => connection.id === cid)) {
+            setCreatedConnections((previous) => upsertDmConversationInList(previous, acceptedConversation));
+        }
+        setSelectedConversation(acceptedConversation);
+        updateSidebarTab("chats");
+    }, [allConversations, createdConnections, myPublicKeyHex, setCreatedConnections, setSelectedConversation]);
+
+    const handleAcceptContactRequest = useCallback(async (pk: PublicKeyHex) => {
+        const requestEventId = requestsInbox.state.items.find(
+            (item) => item.peerPublicKeyHex === pk && !item.isOutgoing,
+        )?.eventId;
+        const outcome = await requestTransport.acceptIncomingRequest({
+            peerPublicKeyHex: pk,
+            requestEventId,
+        });
+        if (outcome.status === "failed" || outcome.status === "queued") {
+            toast.warning("Request acceptance is pending relay confirmation.");
+            return;
+        }
+        toast.success("Request accepted.");
+        promoteAcceptedContactToChats(pk, dmDisplayNameByPubkey.get(pk) ?? PRIVATE_CONTACT_DISPLAY_NAME);
+    }, [dmDisplayNameByPubkey, promoteAcceptedContactToChats, requestTransport, requestsInbox.state.items]);
+
+    const handleDeclineContactRequest = useCallback(async (pk: PublicKeyHex) => {
+        const requestEventId = requestsInbox.state.items.find(
+            (item) => item.peerPublicKeyHex === pk && !item.isOutgoing,
+        )?.eventId;
+        const outcome = await requestTransport.declineIncomingRequest({
+            peerPublicKeyHex: pk,
+            requestEventId,
+        });
+        if (outcome.status === "failed") {
+            toast.error(outcome.message || "Failed to decline request.");
+            return;
+        }
+        toast.success("Request declined.");
+        setSelectedConversation(null);
+        updateSidebarTab("requests");
+    }, [requestTransport, requestsInbox.state.items, setSelectedConversation]);
+
+    const handleCancelOutgoingRequest = useCallback(async (pk: PublicKeyHex) => {
+        const requestEventId = requestsInbox.state.items.find(
+            (item) => item.peerPublicKeyHex === pk && item.isOutgoing,
+        )?.eventId;
+        const outcome = await requestTransport.cancelOutgoingRequest({
+            peerPublicKeyHex: pk,
+            requestEventId,
+        });
+        if (outcome.status === "failed") {
+            toast.error(outcome.message || "Failed to cancel request.");
+            return;
+        }
+        toast.success("Request canceled.");
+        setSelectedConversation(null);
+    }, [requestTransport, requestsInbox.state.items, setSelectedConversation]);
     // Clear unread marks when switching to invitations tab
     useEffect(() => {
         if ((sidebarTab === "requests" || sidebarTab === "junk") && requestsInbox.state.items.some(i => i.unreadCount > 0)) {
             requestsInbox.markAllRead();
         }
     }, [sidebarTab, requestsInbox.markAllRead, requestsInbox.state.items]);
+    const canonicalRequestsInboxItems = requestsInbox.state.items;
     const partitionedIncomingRequests = useMemo(() => (
-        partitionIncomingRequestsByLane(requestsInbox.state.items, { nowUnixMs: nowMs ?? Date.now() })
-    ), [nowMs, requestsInbox.state.items]);
+        partitionOpenRequestsByLane(canonicalRequestsInboxItems, { nowUnixMs: nowMs ?? Date.now() })
+    ), [canonicalRequestsInboxItems, nowMs]);
+    const handleDismissPendingRequestsBadge = useCallback(() => {
+        writeRequestsPendingBadgeDismissed(true);
+        setPendingRequestsBadgeDismissed(true);
+    }, []);
     const isIdentityUnlocked = identity.state.status === "unlocked";
     const startupState = identity.getIdentityDiagnostics?.()?.startupState ?? createPendingStartupAuthState({
         storedPublicKeyHex: identity.state.stored?.publicKeyHex,
@@ -3521,34 +3623,10 @@ function NostrMessengerContent() {
         </div>) : null}
     </>);
     const sidebarNode = isIdentityUnlocked ? (<Sidebar isNewChatOpen={isNewChatOpen} setIsNewChatOpen={setIsNewChatOpen} isNewGroupOpen={isNewGroupOpen} setIsNewGroupOpen={setIsNewGroupOpen} searchQuery={searchQuery} setSearchQuery={setSearchQuery} searchInputRef={searchInputRef} hasHydrated={hasHydrated} filteredConversations={filteredConversations} selectedConversation={selectedConversation} unreadByConversationId={unreadByConversationId} nowMs={nowMs} activeTab={sidebarTab} setActiveTab={updateSidebarTab} selectConversation={handleSelectConversation} interactionByConversationId={interactionByConversationId} requests={partitionedIncomingRequests.inbox} junkRequests={partitionedIncomingRequests.junk} pinnedChatIds={pinnedChatIds} togglePin={togglePin} hiddenChatIds={hiddenChatIds} hideConversation={hideConversation} clearHistory={clearHistory} onClearHistory={requestsInbox.clearHistory} isPeerOnline={isPeerOnlineByEvidence} showHistorySyncNotice={showHistorySyncNotice} onAcceptRequest={(pk) => {
-            const requestEventId = requestsInbox.state.items.find((item) => item.peerPublicKeyHex === (pk as PublicKeyHex) && !item.isOutgoing)?.eventId;
-            void requestTransport.acceptIncomingRequest({
-                peerPublicKeyHex: pk as PublicKeyHex,
-                requestEventId,
-            })
-                .then((outcome) => {
-                if (outcome.status === "failed" || outcome.status === "queued") {
-                    toast.warning("Request acceptance is pending relay confirmation.");
-                    return;
-                }
-                toast.success("Request accepted.");
-            });
-            const cid = toDmConversationId({ myPublicKeyHex: myPublicKeyHex || "", peerPublicKeyHex: pk });
-            if (!cid)
-                return;
-            const newConv: DmConversation = {
-                kind: 'dm',
-                id: cid,
-                pubkey: pk as PublicKeyHex,
-                displayName: PRIVATE_CONTACT_DISPLAY_NAME,
-                lastMessage: '',
-                unreadCount: 0,
-                lastMessageTime: new Date()
-            };
-            setSelectedConversation(newConv);
-            updateSidebarTab("chats");
-        }} onIgnoreRequest={(pk) => requestsInbox.remove({ peerPublicKeyHex: pk as PublicKeyHex })} onBlockRequest={(pk) => blocklist.addBlocked({ publicKeyInput: pk })} onSelectRequest={(pk) => {
+            void handleAcceptContactRequest(pk as PublicKeyHex);
+        }} onIgnoreRequest={(pk) => requestsInbox.remove({ peerPublicKeyHex: pk as PublicKeyHex })} onBlockRequest={(pk) => blocklist.addBlocked({ publicKeyInput: pk })} pendingRequestsBadgeDismissed={pendingRequestsBadgeDismissed} onDismissPendingRequestsBadge={handleDismissPendingRequestsBadge} pendingRequestsCount={getOpenPendingRequestCount(canonicalRequestsInboxItems)} onSelectRequest={(pk) => {
             requestsInbox.markRead({ peerPublicKeyHex: pk as PublicKeyHex });
+            updateSidebarTab("requests");
             const cid = toDmConversationId({ myPublicKeyHex: myPublicKeyHex || "", peerPublicKeyHex: pk });
             if (!cid)
                 return;
@@ -3556,7 +3634,7 @@ function NostrMessengerContent() {
                 kind: 'dm',
                 id: cid,
                 pubkey: pk as PublicKeyHex,
-                displayName: PRIVATE_CONTACT_DISPLAY_NAME,
+                displayName: dmDisplayNameByPubkey.get(pk as PublicKeyHex) || PRIVATE_CONTACT_DISPLAY_NAME,
                 lastMessage: '',
                 unreadCount: 0,
                 lastMessageTime: new Date()
@@ -3615,62 +3693,34 @@ function NostrMessengerContent() {
             return { success: false, messageId: '', relayResults: [], error: 'DM Controller not ready' };
         }} isUploadingAttachment={isUploadingAttachment} uploadStage={uploadStage} pendingAttachments={pendingAttachments} pendingAttachmentPreviewUrls={pendingAttachmentPreviewUrls} attachmentError={attachmentError} replyTo={replyTo} setReplyTo={setReplyTo} onPickAttachments={(files) => files && handleFilesSelected(files)} onSelectFiles={pickAttachments} onSendVoiceNote={(file) => {
             void handleFilesSelected([file]);
-        }} removePendingAttachment={removePendingAttachment} clearPendingAttachment={clearPendingAttachments} relayStatus={relayStatus} composerTextareaRef={composerTextareaRef} isProcessingMedia={isProcessingMedia} mediaProcessingProgress={mediaProcessingProgress} isMediaGalleryOpen={isMediaGalleryOpen} setIsMediaGalleryOpen={setIsMediaGalleryOpen} selectedConversationMediaItems={selectedConversationMediaItems} lightboxIndex={lightboxIndex} setLightboxIndex={setLightboxIndex} pendingEventCount={pendingEventCount} isPeerAccepted={(() => {
+        }} removePendingAttachment={removePendingAttachment} clearPendingAttachment={clearPendingAttachments} relayStatus={relayStatus} composerTextareaRef={composerTextareaRef} isProcessingMedia={isProcessingMedia} mediaProcessingProgress={mediaProcessingProgress} pendingEventCount={pendingEventCount} isPeerAccepted={(() => {
             if (selectedConversationView.kind !== 'dm')
                 return true;
             return resolvePeerEstablishedForUi(selectedConversationView.pubkey);
-        })()} isPublicKeyAccepted={(publicKeyHex) => peerTrust.isAccepted({ publicKeyHex: publicKeyHex as PublicKeyHex })} isInitiator={(() => {
+        })()} isPublicKeyAccepted={(publicKeyHex) => peerTrust.isAccepted({ publicKeyHex: publicKeyHex as PublicKeyHex })} contactRequestComposeMode={(() => {
+            if (selectedConversationView.kind !== "dm")
+                return "full" as const;
+            const pk = selectedConversationView.pubkey;
+            return resolveContactRequestComposeMode({
+                isPeerAcceptedByTrust: peerTrust.isAccepted({ publicKeyHex: pk }),
+                requestStatus: resolveEffectiveRequestStatusForPeer(pk),
+            });
+        })()} isInitiator={(() => {
             if (selectedConversationView.kind !== 'dm')
                 return false;
             const pk = selectedConversationView.pubkey;
-            const rs = requestsInbox.getRequestStatus({ peerPublicKeyHex: pk });
             return resolveDmPeerOutgoingWaitInitiatorForUi({
-                peerPublicKeyHex: pk,
-                requestStatus: rs,
-                hasInboxItemForPeer: requestsInbox.state.items.some((item) => item.peerPublicKeyHex === pk),
-                establishedDmPeerPubkeys,
+                requestStatus: resolveEffectiveRequestStatusForPeer(pk),
             });
-        })()} onAcceptPeer={() => {
-            if (selectedConversationView.kind === 'dm') {
-                const pk = selectedConversationView.pubkey;
-                const requestEventId = requestsInbox.state.items.find((item) => item.peerPublicKeyHex === pk && !item.isOutgoing)?.eventId;
-                const existingRequestState = requestsInbox.getRequestStatus({ peerPublicKeyHex: pk });
-                if (!peerTrust.isAccepted({ publicKeyHex: pk }) && existingRequestState?.status === "accepted") {
-                    peerTrust.acceptPeer({ publicKeyHex: pk });
-                }
-                if (peerTrust.isAccepted({ publicKeyHex: pk })) {
-                    updateSidebarTab("chats");
-                    return;
-                }
-                void requestTransport.acceptIncomingRequest({ peerPublicKeyHex: pk, requestEventId })
-                    .then((outcome) => {
-                    if (outcome.status === "failed" || outcome.status === "queued") {
-                        toast.warning("Request acceptance is pending relay confirmation.");
-                        return;
-                    }
-                    toast.success("Request accepted.");
-                });
-                updateSidebarTab("chats");
-                const cid = toDmConversationId({ myPublicKeyHex: myPublicKeyHex || "", peerPublicKeyHex: pk });
-                if (!cid)
-                    return;
-                const existing = allConversations.find(c => c.id === cid);
-                if (existing) {
-                    setSelectedConversation(existing);
-                }
-                else {
-                    setSelectedConversation({
-                        kind: 'dm',
-                        id: cid,
-                        pubkey: pk as PublicKeyHex,
-                        displayName: selectedConversationView.displayName || PRIVATE_CONTACT_DISPLAY_NAME,
-                        lastMessage: '',
-                        unreadCount: 0,
-                        lastMessageTime: new Date()
-                    });
-                }
-            }
-        }} onBlockPeer={() => selectedConversationView.kind === 'dm' && blocklist.addBlocked({ publicKeyInput: selectedConversationView.pubkey })} relayOverlap={selectedConversationView.kind === 'dm' ? contactRelayOverlap : undefined} deliveryRisk={selectedConversationView.kind === 'dm' ? contactRelayOverlap.status : null} onAddRelay={(url) => { relayList.addRelay({ url }); }} onNavigateToRelaySettings={() => { void router.push("/settings?tab=relays"); }} hideDesktopChatHeader={isMobileDmShell}/>) : null;
+        })()} requestEventId={selectedConversationView.kind === "dm"
+            ? requestsInbox.state.items.find((item) => item.peerPublicKeyHex === selectedConversationView.pubkey)?.eventId
+            : undefined} onAcceptPeer={selectedConversationView.kind === "dm"
+            ? () => handleAcceptContactRequest(selectedConversationView.pubkey)
+            : undefined} onDeclinePeer={selectedConversationView.kind === "dm"
+            ? () => handleDeclineContactRequest(selectedConversationView.pubkey)
+            : undefined} onCancelOutgoingRequest={selectedConversationView.kind === "dm"
+            ? () => handleCancelOutgoingRequest(selectedConversationView.pubkey)
+            : undefined} onBlockPeer={() => selectedConversationView.kind === 'dm' && blocklist.addBlocked({ publicKeyInput: selectedConversationView.pubkey })} relayOverlap={selectedConversationView.kind === 'dm' ? contactRelayOverlap : undefined} deliveryRisk={selectedConversationView.kind === 'dm' ? contactRelayOverlap.status : null} onAddRelay={(url) => { relayList.addRelay({ url }); }} onNavigateToRelaySettings={() => { void router.push("/settings?tab=relays"); }} hideDesktopChatHeader={isMobileDmShell}/>) : null;
     const syncStatusBannerNode = isMobileDmShell ? (<MobileShellStatusStrip items={mobileShellStatusItems} onOpenProfiles={() => {
             void router.push("/profiles");
         }}/>) : (syncStatusBanners);
@@ -3678,6 +3728,12 @@ function NostrMessengerContent() {
         return (<>
         {isIdentityUnlocked ? <ChatSidebarPortal>{sidebarNode}</ChatSidebarPortal> : null}
         {syncStatusBannerNode}
+        <SendCeremonyDialog
+          isOpen={Boolean(sendCeremonyViewModel)}
+          ceremony={sendCeremonyViewModel}
+          onClose={cancelSendCeremony}
+          onConfirm={confirmSendCeremony}
+        />
         <MobileDmShellLayout>
           {!selectedConversationView ? (<div className="flex min-h-0 flex-1 flex-col">
               {sidebarNode ?? (<EmptyConversationView onNewChat={() => setIsNewChatOpen(true)} showWelcome={showWelcome} myPublicKeyHex={myPublicKeyHex ?? ""} relayStatus={relayStatus} onCopyMyPubkey={handleCopyMyPubkey} onCopyChatLink={handleCopyChatLink} showHistorySyncNotice={showHistorySyncNotice}/>)}
@@ -3713,6 +3769,12 @@ function NostrMessengerContent() {
     return (<>
       {isIdentityUnlocked ? <ChatSidebarPortal>{sidebarNode}</ChatSidebarPortal> : null}
       {syncStatusBannerNode}
+      <SendCeremonyDialog
+        isOpen={Boolean(sendCeremonyViewModel)}
+        ceremony={sendCeremonyViewModel}
+        onClose={cancelSendCeremony}
+        onConfirm={confirmSendCeremony}
+      />
       <main className="flex flex-1 flex-col min-h-0 overflow-hidden bg-transparent">
         {!selectedConversationView ? (<EmptyConversationView onNewChat={() => setIsNewChatOpen(true)} showWelcome={showWelcome} myPublicKeyHex={myPublicKeyHex ?? ""} relayStatus={relayStatus} onCopyMyPubkey={handleCopyMyPubkey} onCopyChatLink={handleCopyChatLink} showHistorySyncNotice={showHistorySyncNotice}/>) : (activeChatView)}
       </main>

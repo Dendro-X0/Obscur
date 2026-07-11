@@ -9,7 +9,12 @@ import { cn } from "@/app/lib/utils";
 import { NAV_ITEMS } from "../lib/navigation/nav-items";
 import { useTranslation } from "react-i18next";
 import { logAppEvent } from "@/app/shared/log-app-event";
-import { hardNavigate, ROUTE_NAVIGATION_STALL_HARD_FALLBACK_MS } from "./page-transition-recovery";
+import {
+  hardNavigate,
+  recoverFromRouteStall,
+  shouldArmRouteStallWatchdog,
+} from "./route-stall-recovery.client";
+import { ROUTE_NAVIGATION_STALL_HARD_FALLBACK_MS } from "./page-transition-recovery";
 import { prefetchRouteShell, prefetchSidebarRouteClientOnIntent } from "./route-navigation-warmup";
 import { isMobileShellProduct } from "@/app/features/runtime/shell-contract";
 import { recordNavigationIntent } from "./navigation-performance-coordinator";
@@ -64,6 +69,9 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({ navBadgeCounts = {} 
     }, []);
 
     const armRouteHardFallback = React.useCallback((targetHref: string): void => {
+        if (!shouldArmRouteStallWatchdog()) {
+            return;
+        }
         if (!targetHref || targetHref === pathname) {
             clearRouteFallback();
             return;
@@ -106,9 +114,9 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({ navBadgeCounts = {} 
                 },
             });
             clearRouteFallback();
-            hardNavigate(targetHref);
+            recoverFromRouteStall(targetHref, router);
         }, ROUTE_NAVIGATION_STALL_HARD_FALLBACK_MS);
-    }, [clearRouteFallback, pathname]);
+    }, [clearRouteFallback, pathname, router]);
 
     React.useEffect((): void => {
         const pendingTarget = routePendingTargetRef.current;

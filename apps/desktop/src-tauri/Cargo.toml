@@ -39,6 +39,9 @@ tokio-socks = "0.5.2"
 rustls-native-certs = "0.8.1"
 rustls = { version = "0.23.23", default-features = false, features = ["std"] }
 libobscur = { path = "../../../packages/libobscur" }
+aes-gcm = "0.10.3"
+sha2 = "0.10.8"
+getrandom = "0.2.15"
 
 # Platform-specific dependencies
 [target.'cfg(not(target_os = "android"))'.dependencies]
@@ -50,6 +53,13 @@ tauri-plugin-store = "2"
 [target.'cfg(target_os = "windows")'.dependencies]
 notify-rust = "4.11.7"
 winreg = "0.55"
+windows = { version = "0.58", features = [
+  "Foundation",
+  "Security_Credentials_UI",
+] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+apple-localauthentication = "0.3"
 
 [features]
 custom-protocol = ["tauri/custom-protocol"]

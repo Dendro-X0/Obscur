@@ -13,7 +13,7 @@ import { cn } from "@/app/lib/utils";
 import useNavBadges from "@/app/features/main-shell/hooks/use-nav-badges";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { useProfile } from "@/app/features/profile/hooks/use-profile";
-import { desktopProfileRuntime, useDesktopProfileIsolationSnapshot } from "@/app/features/profiles/services/desktop-profile-runtime";
+import { broadcastProfileIsolationChanged, desktopProfileRuntime, useDesktopProfileIsolationSnapshot } from "@/app/features/profiles/services/desktop-profile-runtime";
 import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
 import { useWindowRuntime } from "@/app/features/runtime/services/window-runtime-supervisor";
 import { finalizeProfileWindowRemoval } from "@/app/features/profiles/services/profile-session-lifecycle";
@@ -125,6 +125,24 @@ export default function ProfilesPage(): React.JSX.Element {
       window.clearInterval(intervalId);
     };
   }, [isPublicPickerMode, snapshot.currentWindow.profileId, snapshot.currentWindow.windowLabel]);
+
+  useEffect(() => {
+    if (!hasNativeRuntime()) {
+      return;
+    }
+    const refreshSnapshot = (): void => {
+      void desktopProfileRuntime.refresh();
+    };
+    window.addEventListener("focus", refreshSnapshot);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") {
+        refreshSnapshot();
+      }
+    });
+    return () => {
+      window.removeEventListener("focus", refreshSnapshot);
+    };
+  }, []);
 
   const entries = useMemo((): ReadonlyArray<DesktopProfileMenuEntry> => {
     return buildDesktopProfileMenuEntries({
@@ -247,6 +265,7 @@ export default function ProfilesPage(): React.JSX.Element {
         publicKeyHex: removedPreview?.publicKeyHex as PublicKeyHex | undefined,
       });
       await desktopProfileRuntime.removeProfile(removeTarget.profileId);
+      await broadcastProfileIsolationChanged();
       setRemoveArchiveResult(archiveResult);
       setRemoveStep("complete");
     } catch (error) {
@@ -403,7 +422,7 @@ export default function ProfilesPage(): React.JSX.Element {
                   <span className="font-semibold">Log out & close window</span> signs out and hides this desktop window. The main window reopens from the tray; other profile windows stay closed until you open them again from Manage Profiles.
                 </p>
                 <p>
-                  <span className="font-semibold">Remove profile</span> (non-default slots) exports a workspace archive (`.obscur-profile.json`) under
+                  <span className="font-semibold">Remove profile</span> (non-default slots) exports an encrypted workspace archive (`.obscur-profile.enc.json`) under
                   <span className="font-semibold"> profile-archives </span>
                   on desktop, then clears that slot. You will see where the file was saved.
                 </p>

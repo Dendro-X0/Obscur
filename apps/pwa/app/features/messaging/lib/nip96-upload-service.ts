@@ -3,6 +3,7 @@ import { UploadService, getAttachmentKind, getMimeType } from "./upload-service"
 import { compressImage } from "./media-processor";
 import {
     BEST_EFFORT_STORAGE_NOTE,
+    getMediaKindForPolicy,
     shouldPreferBrowserUploadForRuntimeSafety,
     shouldCompressByPolicy,
     validateMediaFileForBestEffortUpload
@@ -56,6 +57,27 @@ const MIN_EXPECTED_UPLOAD_THROUGHPUT_BYTES_PER_SECOND = 300 * 1024;
 const MIN_UPLOAD_TIMEOUT_MS = 60_000;
 const MAX_UPLOAD_TIMEOUT_MS = 8 * 60 * 1000;
 const UPLOAD_TIMEOUT_OVERHEAD_MS = 20_000;
+
+const filePayloadHashCache = new WeakMap<File, Promise<string>>();
+
+const computeFilePayloadHashHex = async (file: File): Promise<string> => {
+    const cached = filePayloadHashCache.get(file);
+    if (cached) {
+        return cached;
+    }
+    const promise = (async (): Promise<string> => {
+        const rawBuffer = typeof file.arrayBuffer === "function"
+            ? await file.arrayBuffer()
+            : await new Response(file).arrayBuffer();
+        const payloadBytes = new Uint8Array(rawBuffer);
+        const digest = await crypto.subtle.digest("SHA-256", payloadBytes);
+        return Array.from(new Uint8Array(digest))
+            .map((byte) => byte.toString(16).padStart(2, "0"))
+            .join("");
+    })();
+    filePayloadHashCache.set(file, promise);
+    return promise;
+};
 
 type UploadOutcome = Readonly<{
     status: "failed";
@@ -217,7 +239,7 @@ export class Nip96UploadService implements UploadService {
         return getRuntimeHostInfo().isLocalDevelopment;
     }
 
-    private shouldAllowBrowserFallback(providerUrl: string): boolean {
+    private shouldAllowBrowserFallback(providerUrl: string, file?: File): boolean {
         if (!this.isTauri()) {
             return true;
         }
@@ -226,6 +248,10 @@ export class Nip96UploadService implements UploadService {
         }
         const isLocalDevHost = getRuntimeHostInfo().isLocalDevelopment;
         if (isLocalDevHost && !DEV_ALLOW_TAURI_BROWSER_FALLBACK) {
+            const kind = file ? getMediaKindForPolicy(file) : null;
+            if (kind === "video") {
+                return true;
+            }
             return false;
         }
         // If explicitly enabled, allow fallback even in tauri dev.
@@ -501,7 +527,7 @@ export class Nip96UploadService implements UploadService {
                 throw nativeError;
             }
 
-            if (!this.shouldAllowBrowserFallback(providerUrl)) {
+            if (!this.shouldAllowBrowserFallback(providerUrl, file)) {
                 if (nativeError.code === UploadErrorCode.NETWORK_ERROR) {
                     throw new UploadError(
                         UploadErrorCode.NETWORK_ERROR,
@@ -1006,14 +1032,14 @@ export class Nip96UploadService implements UploadService {
         // Keep it aligned with the native uploader retries.
         const fieldNames = ["file", "files[]", "files"] as const;
 
-        for (const fieldName of fieldNames) {
-            let authHeader: string;
-            try {
-                authHeader = await this.signNip98Header(providerUrl, "POST", signingPrivateKeyHex, file);
-            } catch (e) {
-                throw new UploadError(UploadErrorCode.AUTH_ERROR, `Failed to sign NIP-98 header: ${e}`);
-            }
+        let authHeader: string;
+        try {
+            authHeader = await this.signNip98Header(providerUrl, "POST", signingPrivateKeyHex, file);
+        } catch (e) {
+            throw new UploadError(UploadErrorCode.AUTH_ERROR, `Failed to sign NIP-98 header: ${e}`);
+        }
 
+        for (const fieldName of fieldNames) {
             const formData = new FormData();
             formData.append(fieldName, file);
             formData.append("caption", file.name);
@@ -1140,12 +1166,7 @@ export class Nip96UploadService implements UploadService {
         // Some NIP-96 servers require payload hashing for authorization,
         // and video uploads are more likely to trigger strict validation.
         if (file) {
-            const payloadBytes = new Uint8Array(await file.arrayBuffer());
-            const digest = await crypto.subtle.digest("SHA-256", payloadBytes);
-            const hashHex = Array.from(new Uint8Array(digest))
-                .map((b) => b.toString(16).padStart(2, "0"))
-                .join("");
-
+            const hashHex = await computeFilePayloadHashHex(file);
             const expirationUnix = Math.floor(Date.now() / 1000) + 120;
             tags.push(["payload", hashHex]);
             tags.push(["expiration", String(expirationUnix)]);
@@ -1165,6 +1186,7 @@ export class Nip96UploadService implements UploadService {
 export const nip96UploadInternals = {
     classifyUploadError,
     resolveUploadTimeoutMs,
+    computeFilePayloadHashHex,
     toRootUploadVariants: Nip96UploadService.toRootUploadVariants,
     wellKnownDiscoveryTimeoutMs: WELL_KNOWN_DISCOVERY_TIMEOUT_MS,
 };

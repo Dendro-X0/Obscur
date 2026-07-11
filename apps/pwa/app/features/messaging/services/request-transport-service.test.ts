@@ -172,6 +172,7 @@ describe("request-transport-service internals", () => {
 
   it("dual-writes canonical contact event when request send has relay evidence", async () => {
     const appendContactEvent = vi.spyOn(accountEventIngestBridge, "appendCanonicalContactEvent").mockResolvedValue();
+    const setStatus = vi.fn();
     const service = createRequestTransportService({
       accountPublicKeyHex: "a".repeat(64) as any,
       sendConnectionRequest: async () => ({
@@ -181,6 +182,7 @@ describe("request-transport-service internals", () => {
         relayResults: [{ relayUrl: "wss://relay.test", success: true }],
       }) as any,
       sendDm: vi.fn(),
+      requestsInbox: { getRequestStatus: vi.fn(), setStatus },
       evidenceStore: {
         get: () => ({ receiptAckSeen: false, acceptSeen: false }),
         markRequestPublished: vi.fn(),
@@ -195,6 +197,12 @@ describe("request-transport-service internals", () => {
       introMessage: "hello",
     });
 
+    expect(setStatus).toHaveBeenCalledWith({
+      peerPublicKeyHex: "b".repeat(64),
+      status: "pending",
+      isOutgoing: true,
+      lastMessagePreview: "hello",
+    });
     expect(appendContactEvent).toHaveBeenCalledWith(expect.objectContaining({
       accountPublicKeyHex: "a".repeat(64),
       peerPublicKeyHex: "b".repeat(64),
@@ -203,6 +211,30 @@ describe("request-transport-service internals", () => {
       requestEventId: "request-event-1",
     }));
     appendContactEvent.mockRestore();
+  });
+
+  it("sends sandbox Q&A with connection-qna tag", async () => {
+    const sendDm = vi.fn(async () => ({
+      success: true,
+      deliveryStatus: "sent_quorum",
+      messageId: "qna-1",
+      relayResults: [{ relayUrl: "wss://relay.test", success: true }],
+    }));
+    const service = createRequestTransportService({
+      sendConnectionRequest: vi.fn(),
+      sendDm: sendDm as any,
+    });
+
+    const outcome = await service.sendSandboxQna({
+      peerPublicKeyHex: "b".repeat(64) as any,
+      plaintext: "Who referred you?",
+    });
+
+    expect(outcome.status).toBe("ok");
+    expect(sendDm).toHaveBeenCalledWith(expect.objectContaining({
+      plaintext: "Who referred you?",
+      customTags: [["t", "connection-qna"]],
+    }));
   });
 
   it("derives convergence state from evidence + inbox + outbox", () => {

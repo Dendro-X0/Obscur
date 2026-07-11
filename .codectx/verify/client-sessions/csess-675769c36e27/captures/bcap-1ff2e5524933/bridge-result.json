@@ -1,0 +1,13 @@
+{
+  "ok": true,
+  "pass": false,
+  "method": "listWindows",
+  "args": [],
+  "cdpPort": 9230,
+  "targetUrl": "http://127.0.0.1:3340/",
+  "result": {
+    "ok": false,
+    "error": "window.__codactrlAgentBridge.listWindows missing — install subject agent bridge"
+  },
+  "message": "bridge call returned ok=false"
+}

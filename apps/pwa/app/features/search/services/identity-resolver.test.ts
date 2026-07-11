@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { derivePublicKeyHex } from "@dweb/crypto/derive-public-key-hex";
+import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import { resolveIdentity } from "./identity-resolver";
 import { createSignedContactCard, encodeContactCard } from "./contact-card";
 import { encodeFriendCodeV3 } from "./friend-code-v3";
@@ -94,6 +96,59 @@ describe("identity-resolver", () => {
     if (result.ok) {
       expect(result.identity.pubkey).toBe("d".repeat(64));
       expect(result.identity.source).toBe("friend_code_v3");
+    }
+  });
+
+  it("rejects private key hex when relay confirms derived pubkey profile", async () => {
+    const privateKeyHex = "095648f20fc8f90d4a0e8c0f7737fd6e18a5d57e1af2c8100caa6954484c367d" as PrivateKeyHex;
+    const derivedPublicKeyHex = derivePublicKeyHex(privateKeyHex);
+
+    let messageHandler: ((params: Readonly<{ url: string; message: string }>) => void) | null = null;
+    const pool: RelayQueryPool = {
+      broadcastEvent: async (payload: string) => {
+        const parsed = JSON.parse(payload) as ReadonlyArray<unknown>;
+        if (!Array.isArray(parsed) || parsed[0] !== "REQ" || typeof parsed[1] !== "string") {
+          return { success: false };
+        }
+        const subId = parsed[1];
+        const filters = parsed.slice(2) as ReadonlyArray<{ authors?: ReadonlyArray<string> }>;
+        const author = filters[0]?.authors?.[0];
+        if (author === derivedPublicKeyHex && messageHandler) {
+          setTimeout(() => {
+            messageHandler?.({
+              url: "wss://relay.example",
+              message: JSON.stringify([
+                "EVENT",
+                subId,
+                {
+                  kind: 0,
+                  pubkey: derivedPublicKeyHex,
+                  content: JSON.stringify({ name: "DemoUser", about: "Find me on Obscur" }),
+                  tags: [],
+                },
+              ]),
+            });
+          }, 5);
+        }
+        return { success: true };
+      },
+      sendToOpen: () => {},
+      subscribeToMessages: (handler) => {
+        messageHandler = handler;
+        return () => {
+          messageHandler = null;
+        };
+      },
+      waitForConnection: async () => true,
+    };
+
+    const result = await resolveIdentity({
+      query: privateKeyHex,
+      pool,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.reason).toBe("private_key_forbidden");
     }
   });
 

@@ -434,43 +434,43 @@ export const loadSiteContent = async (): Promise<SiteContent> => {
       title: "Auth And Onboarding",
       summary:
         "Local-first account creation, unlock, and recovery flows grounded in explicit identity ownership.",
-      gifUrl: `${RAW_GITHUB_BASE}/docs/assets/gifs/obscur_login_1.gif`,
-      gifAlt: "Obscur login and onboarding flow",
+      gifUrl: `${RAW_GITHUB_BASE}/docs/assets/gifs/auth_unlock_1.gif`,
+      gifAlt: "Obscur profile unlock flow",
     },
     {
       title: "Direct Messaging",
       summary:
         "Encrypted chat UI with conversation ownership, delivery diagnostics, and deterministic history recovery work.",
-      gifUrl: `${RAW_GITHUB_BASE}/docs/assets/gifs/obscur_chat_ui_1.gif`,
+      gifUrl: `${RAW_GITHUB_BASE}/docs/assets/gifs/e2e-dm-base_1.gif`,
       gifAlt: "Obscur direct messaging interface",
     },
     {
-      title: "Settings And Profiles",
+      title: "Communities",
       summary:
-        "Security controls, relay/runtime settings, and profile-scoped configuration for multi-persona use.",
-      gifUrl: `${RAW_GITHUB_BASE}/docs/assets/gifs/obscur_settings_panel_1.gif`,
-      gifAlt: "Obscur settings and configuration surfaces",
+        "Managed workspace creation, member invites, and encrypted group chat on relay-backed communities.",
+      gifUrl: `${RAW_GITHUB_BASE}/docs/assets/gifs/community_group_send_receive_1.gif`,
+      gifAlt: "Obscur community group chat demo",
+    },
+    {
+      title: "Relays And Settings",
+      summary:
+        "Relay overview, enable/disable controls, and profile-scoped runtime configuration for private-trust stacks.",
+      gifUrl: `${RAW_GITHUB_BASE}/docs/assets/gifs/relay_overview_1.gif`,
+      gifAlt: "Obscur relay and settings surfaces",
     },
     {
       title: "Multi-Profile Workflows",
       summary:
-        "Window/profile isolation and account-bound state recovery for people managing multiple identities.",
-      gifUrl: `${RAW_GITHUB_BASE}/docs/assets/gifs/multi_profile_management_1.gif`,
-      gifAlt: "Obscur multi-profile management demo",
+        "Export, import, and window/profile isolation for people managing multiple identities on one machine.",
+      gifUrl: `${RAW_GITHUB_BASE}/docs/assets/gifs/export_local_profile_1.gif`,
+      gifAlt: "Obscur multi-profile export demo",
     },
     {
-      title: "Media Transfer",
+      title: "Message Search",
       summary:
-        "Image, video, audio, and file messaging with Vault aggregation and guarded upload behavior.",
-      gifUrl: `${RAW_GITHUB_BASE}/docs/assets/gifs/multimedia_files_upload_and_transfer_1.gif`,
-      gifAlt: "Obscur multimedia upload and transfer demo",
-    },
-    {
-      title: "Voice Notes And Calls",
-      summary:
-        "Voice-note messaging and realtime voice call flows with runtime diagnostics and timeout hardening.",
-      gifUrl: `${RAW_GITHUB_BASE}/docs/assets/gifs/voice_notes_and_calls_1.gif`,
-      gifAlt: "Obscur voice notes and calls demo",
+        "Search message history and jump to results inside an active conversation thread.",
+      gifUrl: `${RAW_GITHUB_BASE}/docs/assets/gifs/search_message_history_1.gif`,
+      gifAlt: "Obscur message search and jump demo",
     },
   ];
 

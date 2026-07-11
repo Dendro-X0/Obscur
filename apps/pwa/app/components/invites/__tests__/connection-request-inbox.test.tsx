@@ -61,18 +61,20 @@ describe('ConnectionRequestInbox', () => {
     mocks.declineIncomingRequest.mockResolvedValue({ status: 'ok' });
   });
 
-  it('renders canonical pending requests from requestsInbox', async () => {
+  it('renders identity binding panel for pending requests', async () => {
     render(<ConnectionRequestInbox />);
 
-    expect(screen.getByText(/unknown contact/i)).toBeInTheDocument();
-    expect(screen.getByText(/identity hidden/i)).toBeInTheDocument();
+    expect(screen.getByTestId('identity-binding-panel')).toBeInTheDocument();
     expect(screen.getByText(/hello, let's connect!/i)).toBeInTheDocument();
   });
 
-  it('handles accept action via request transport', async () => {
+  it('requires binding confirmation before accept', async () => {
     render(<ConnectionRequestInbox />);
 
-    fireEvent.click(screen.getByRole('button', { name: /accept/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^accept$/i }));
+    expect(mocks.acceptIncomingRequest).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'security.identityBinding.accept.confirm' }));
 
     await waitFor(() => {
       expect(mocks.acceptIncomingRequest).toHaveBeenCalledWith({

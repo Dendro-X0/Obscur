@@ -15,11 +15,23 @@ import {
   DEFAULT_INVITATION_INTRO,
   type InvitationComposerValues,
 } from "@/app/features/messaging/services/invitation-composer";
+import {
+  assertNoBlockedSecretMaterial,
+  SECRET_INPUT_FIREWALL_MESSAGE,
+} from "@/app/features/security/services/secret-input-firewall";
+import {
+  buildIdentityBindingViewModel,
+  IdentityBindingPanel,
+  type IdentityBindingResolverSource,
+} from "@/app/features/security";
+import { toast } from "@dweb/ui-kit";
 
 type InvitationComposerDialogProps = Readonly<{
   isOpen: boolean;
   recipientName: string;
   recipientPubkey: string;
+  recipientResolverSource?: IdentityBindingResolverSource;
+  recipientFriendCode?: string | null;
   submitLabel?: string;
   deliveryHint?: string;
   defaults?: Partial<InvitationComposerValues>;
@@ -31,6 +43,8 @@ export function InvitationComposerDialog({
   isOpen,
   recipientName,
   recipientPubkey,
+  recipientResolverSource = "manual",
+  recipientFriendCode = null,
   submitLabel = "Send Invitation",
   deliveryHint = "Obscur only shows success after relay evidence comes back.",
   defaults,
@@ -47,6 +61,12 @@ export function InvitationComposerDialog({
   const submitButtonLabel = relayRecovery.writableRelayCount > 0
     ? submitLabel
     : "Queue Invitation";
+  const identityBinding = buildIdentityBindingViewModel({
+    publicKeyHex: recipientPubkey,
+    displayName: recipientName,
+    resolverSource: recipientResolverSource,
+    friendCode: recipientFriendCode,
+  });
   const formFieldClassName = "w-full rounded-2xl border border-slate-300/85 bg-white/90 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-400/45 focus:ring-offset-2 focus:ring-offset-slate-100 dark:border-indigo-300/20 dark:bg-slate-950/55 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:ring-indigo-300/50 dark:focus:ring-offset-slate-950";
 
   useEffect(() => {
@@ -59,6 +79,11 @@ export function InvitationComposerDialog({
   }, [defaults?.intro, defaults?.note, defaults?.secretCode, isOpen, recipientPubkey]);
 
   const handleSubmit = async () => {
+    const combined = [intro, note, secretCode].filter((part) => part.trim().length > 0).join("\n");
+    if (!assertNoBlockedSecretMaterial(combined, "message").ok) {
+      toast.error(SECRET_INPUT_FIREWALL_MESSAGE.messageBlocked);
+      return;
+    }
     setIsSubmitting(true);
     try {
       const shouldClose = await onSubmit({
@@ -114,10 +139,16 @@ export function InvitationComposerDialog({
               <X className="h-4 w-4" />
             </Button>
           </div>
-          <div className="mt-4 rounded-2xl border border-slate-200/90 bg-white/85 px-4 py-3 dark:border-white/10 dark:bg-black/20">
-            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Recipient</p>
-            <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">{recipientName}</p>
-            <p className="mt-1 break-all font-mono text-[11px] text-slate-600 dark:text-slate-400">{recipientPubkey}</p>
+          <div className="mt-4">
+            {identityBinding ? (
+              <IdentityBindingPanel binding={identityBinding} compact showLiteracyNote />
+            ) : (
+              <div className="rounded-2xl border border-slate-200/90 bg-white/85 px-4 py-3 dark:border-white/10 dark:bg-black/20">
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Recipient</p>
+                <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">{recipientName}</p>
+                <p className="mt-1 break-all font-mono text-[11px] text-slate-600 dark:text-slate-400">{recipientPubkey}</p>
+              </div>
+            )}
           </div>
         </div>
 

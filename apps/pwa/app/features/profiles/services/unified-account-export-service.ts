@@ -13,6 +13,7 @@ import {
   importEncryptedWorkspaceBundle,
   parseEncryptedWorkspaceBundleEnvelope,
 } from "./encrypted-workspace-bundle-service";
+import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
 import {
   UNIFIED_ACCOUNT_EXPORT_FORMAT,
   type UnifiedAccountExportEnvelope,
@@ -109,7 +110,7 @@ export const exportUnifiedAccountBundle = async (params: Readonly<{
     profileLabel: params.profileLabel,
   });
 
-  const includeVaultMedia = Boolean(params.includeVaultMedia);
+  const includeVaultMedia = params.includeVaultMedia ?? hasNativeRuntime();
   const workspaceBundle = includeVaultMedia
     ? await createEncryptedWorkspaceBundleEnvelope({
       profileId,

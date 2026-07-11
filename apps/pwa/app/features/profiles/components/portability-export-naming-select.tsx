@@ -1,6 +1,7 @@
 "use client";
 
 import type React from "react";
+import { SelectField } from "@/app/components/ui/select";
 import {
   PORTABILITY_EXPORT_NAMING_PRESETS,
   loadPortabilityExportNamingPreset,
@@ -17,26 +18,27 @@ export function PortabilityExportNamingSelect(props: Props): React.JSX.Element {
   const value = props.value ?? loadPortabilityExportNamingPreset();
 
   return (
-    <div className="space-y-1">
-      <label className="text-xs font-bold uppercase tracking-wider text-zinc-500" htmlFor="portability-export-naming">
+    <div className="space-y-1.5">
+      <label
+        className="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400"
+        htmlFor="portability-export-naming"
+      >
         Export filename
       </label>
-      <select
+      <SelectField
         id="portability-export-naming"
         value={value}
-        onChange={(event) => {
-          const next = event.target.value as PortabilityExportNamingPreset;
-          savePortabilityExportNamingPreset(next);
-          props.onChange?.(next);
+        onValueChange={(next) => {
+          const preset = next as PortabilityExportNamingPreset;
+          savePortabilityExportNamingPreset(preset);
+          props.onChange?.(preset);
         }}
-        className="h-9 w-full rounded-xl border border-black/10 bg-white px-3 text-xs font-medium text-zinc-900 outline-none dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-100"
-      >
-        {PORTABILITY_EXPORT_NAMING_PRESETS.map((preset) => (
-          <option key={preset.id} value={preset.id}>
-            {preset.label}
-          </option>
-        ))}
-      </select>
+        aria-label="Export filename format"
+        options={PORTABILITY_EXPORT_NAMING_PRESETS.map((preset) => ({
+          value: preset.id,
+          label: preset.label,
+        }))}
+      />
       <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
         {PORTABILITY_EXPORT_NAMING_PRESETS.find((preset) => preset.id === value)?.description}
       </p>

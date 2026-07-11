@@ -1,0 +1,34 @@
+{
+  "cookies": [],
+  "origins": [
+    {
+      "origin": "http://127.0.0.1:3340",
+      "localStorage": [
+        {
+          "name": "i18nextLng",
+          "value": "en"
+        },
+        {
+          "name": "obscur.migration.v088.profile.done",
+          "value": "1"
+        },
+        {
+          "name": "obscur.settings.privacy::default",
+          "value": "{\"encryptStorageAtRest\":true,\"clearClipboardOnLock\":true,\"enableTorProxy\":false,\"torProxyUrl\":\"socks5h://127.0.0.1:9050\",\"autoLockTimeout\":0,\"useModernDMs\":false,\"dmPrivacy\":\"everyone\",\"biometricLockEnabled\":false,\"chatPerformanceV2\":false,\"chatUxV083\":false,\"reliabilityCoreV087\":true,\"stabilityModeV090\":true,\"deterministicDiscoveryV090\":false,\"protocolCoreRustV090\":false,\"x3dhRatchetV090\":false,\"accountSyncConvergenceV091\":false,\"discoveryInviteCodeV1\":false,\"discoveryDeepLinkV1\":true,\"discoverySuggestionsV1\":true,\"tanstackQueryV1\":false,\"attackModeSafetyProfileV121\":\"standard\",\"localMessageRetentionDays\":0,\"showPublicKeyControlsInChat\":false}"
+        },
+        {
+          "name": "obscur.migration.v088.profile.report",
+          "value": "{\"backupCreated\":true,\"migratedIdentity\":false,\"migratedPrivacy\":true,\"migratedProfile\":false,\"skipped\":3,\"conflicted\":0,\"errors\":0,\"activeProfileId\":\"default\",\"snapshotKey\":\"obscur.migration.v088.snapshot.1783352503407\"}"
+        },
+        {
+          "name": "obscur.migration.v088.snapshot.1783352503407",
+          "value": "{\"takenAtUnixMs\":1783352503407,\"localStorage\":{}}"
+        },
+        {
+          "name": "obscur.profiles.registry.v1",
+          "value": "{\"version\":1,\"activeProfileId\":\"default\",\"profiles\":[{\"profileId\":\"default\",\"label\":\"Default\",\"createdAtUnixMs\":1783352502949,\"lastUsedAtUnixMs\":1783352502949,\"status\":\"active\"}]}"
+        }
+      ]
+    }
+  ]
+}

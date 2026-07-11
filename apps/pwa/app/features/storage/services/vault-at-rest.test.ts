@@ -5,6 +5,7 @@ Object.defineProperty(globalThis, "crypto", { value: webcrypto, configurable: tr
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   encryptVaultBytesForWrite,
+  encryptVaultBytesIfAvailable,
   isVaultWriteEncryptionReady,
   VaultWriteEncryptionRequiredError,
 } from "./vault-at-rest";
@@ -52,5 +53,11 @@ describe("vault-at-rest write hardening", () => {
     expect(result.encrypted).toBe(true);
     expect(result.fileNameSuffix).toBe(".obscurvault");
     expect(new TextDecoder().decode(result.bytes)).toContain("obscur-storage-envelope-v1");
+  });
+
+  it("encryptVaultBytesIfAvailable aliases hard write path without plaintext fallback", async () => {
+    await expect(
+      encryptVaultBytesIfAvailable({ plaintext: new TextEncoder().encode("secret-bytes") }),
+    ).rejects.toBeInstanceOf(VaultWriteEncryptionRequiredError);
   });
 });

@@ -36,6 +36,7 @@ num_cpus = "1.16"
 rusqlite = { version = "0.31.0", features = ["bundled"] }
 aes-gcm = "0.10.3"
 pbkdf2 = "0.12.2"
+argon2 = "0.5.3"
 getrandom = "0.2.15"
 tokio = { version = "1.37", features = ["full"] }
 tokio-tungstenite = { version = "0.21", default-features = false, features = ["connect", "rustls-tls-native-roots"] }

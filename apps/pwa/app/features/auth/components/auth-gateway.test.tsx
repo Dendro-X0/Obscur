@@ -67,10 +67,25 @@ const authGatewayMocks = vi.hoisted(() => ({
       profileLabel: "Default",
       launchMode: "existing",
     },
-    profiles: [],
-    windowBindings: [],
+  profiles: [],
+  windowBindings: [],
   } as MutableDesktopProfileSnapshot,
 }));
+
+const mockTwoDesktopProfiles: ProfileIsolationSnapshot["profiles"] = [
+  {
+    profileId: "default",
+    label: "Default",
+    createdAtUnixMs: 1,
+    lastUsedAtUnixMs: 1,
+  },
+  {
+    profileId: "profile-2",
+    label: "Profile 2",
+    createdAtUnixMs: 2,
+    lastUsedAtUnixMs: 2,
+  },
+];
 
 vi.mock("@/app/features/auth/hooks/use-identity", () => ({
   useIdentity: () => ({
@@ -179,6 +194,7 @@ describe("AuthGateway", () => {
     authGatewayMocks.runtime.snapshot.session.startupState.identityStatus = "locked";
     authGatewayMocks.desktopProfileSnapshot.currentWindow.launchMode = "existing";
     authGatewayMocks.desktopProfileSnapshot.currentWindow.windowLabel = "main";
+    authGatewayMocks.desktopProfileSnapshot.profiles = [];
     authKernelPolicyMocks.isAuthKernelAuthority = true;
   });
 
@@ -248,9 +264,10 @@ describe("AuthGateway", () => {
     expect(authGatewayMocks.runtime.unlockBoundProfile).not.toHaveBeenCalled();
   });
 
-  it("renders children on /profiles before unlock on desktop", () => {
+  it("renders children on /profiles before unlock on desktop when multiple profiles exist", () => {
     authGatewayMocks.hasNativeRuntime = true;
     authGatewayMocks.pathname = "/profiles";
+    authGatewayMocks.desktopProfileSnapshot.profiles = mockTwoDesktopProfiles;
 
     render(
       <AuthGateway>
@@ -262,9 +279,10 @@ describe("AuthGateway", () => {
     expect(screen.queryByText("Profile Bound Auth Shell")).not.toBeInTheDocument();
   });
 
-  it("redirects locked desktop home to /profiles", () => {
+  it("redirects locked desktop home to /profiles when multiple profiles exist", () => {
     authGatewayMocks.hasNativeRuntime = true;
     authGatewayMocks.pathname = "/";
+    authGatewayMocks.desktopProfileSnapshot.profiles = mockTwoDesktopProfiles;
     authGatewayMocks.desktopProfileSnapshot.currentWindow.launchMode = "existing";
     authGatewayMocks.desktopProfileSnapshot.currentWindow.windowLabel = "main";
 
@@ -275,6 +293,49 @@ describe("AuthGateway", () => {
     );
 
     expect(authGatewayMocks.routerReplace).toHaveBeenCalledWith("/profiles");
+  });
+
+  it("keeps single-profile cold start on auth instead of redirecting to /profiles", () => {
+    authGatewayMocks.hasNativeRuntime = true;
+    authGatewayMocks.pathname = "/";
+    authGatewayMocks.desktopProfileSnapshot.profiles = [
+      {
+        profileId: "default",
+        label: "Default",
+        createdAtUnixMs: 1,
+        lastUsedAtUnixMs: 1,
+      },
+    ];
+
+    render(
+      <AuthGateway>
+        <div>Runtime Children</div>
+      </AuthGateway>,
+    );
+
+    expect(authGatewayMocks.routerReplace).not.toHaveBeenCalledWith("/profiles");
+    expect(screen.getByText("Profile Bound Auth Shell")).toBeInTheDocument();
+  });
+
+  it("redirects locked /profiles to auth when only one profile slot exists", () => {
+    authGatewayMocks.hasNativeRuntime = true;
+    authGatewayMocks.pathname = "/profiles";
+    authGatewayMocks.desktopProfileSnapshot.profiles = [
+      {
+        profileId: "default",
+        label: "Default",
+        createdAtUnixMs: 1,
+        lastUsedAtUnixMs: 1,
+      },
+    ];
+
+    render(
+      <AuthGateway>
+        <div>Profile Picker</div>
+      </AuthGateway>,
+    );
+
+    expect(authGatewayMocks.routerReplace).toHaveBeenCalledWith("/");
   });
 
   it("skips locked desktop home redirect on manual page reload", () => {
@@ -298,7 +359,7 @@ describe("AuthGateway", () => {
     vi.unstubAllGlobals();
   });
 
-  it("defers auth shell on manual reload until profile boot reconcile completes", async () => {
+  it("shows restore overlay on manual reload while native restore is in flight", async () => {
     bootMocks.profileBootReconcileComplete = false;
     const getEntriesByType = vi.fn(() => [{ type: "reload" } as PerformanceNavigationTiming]);
     vi.stubGlobal("performance", {
@@ -317,11 +378,28 @@ describe("AuthGateway", () => {
 
     expect(screen.getByText("Restoring session…")).toBeInTheDocument();
     expect(screen.queryByText("Profile Bound Auth Shell")).not.toBeInTheDocument();
+    vi.unstubAllGlobals();
+  });
 
-    window.dispatchEvent(new Event("obscur-desktop-profile-boot-reconciled"));
-    await vi.waitFor(() => {
-      expect(screen.getByText("Profile Bound Auth Shell")).toBeInTheDocument();
+  it("does not defer auth shell on cold document navigate (only manual reload)", () => {
+    bootMocks.profileBootReconcileComplete = false;
+    const getEntriesByType = vi.fn(() => [{ type: "navigate" } as PerformanceNavigationTiming]);
+    vi.stubGlobal("performance", {
+      ...performance,
+      getEntriesByType,
     });
+    authGatewayMocks.hasNativeRuntime = true;
+    authGatewayMocks.pathname = "/settings";
+    authGatewayMocks.runtime.snapshot.session.startupState.kind = "native_restorable";
+
+    render(
+      <AuthGateway>
+        <div>Runtime Children</div>
+      </AuthGateway>,
+    );
+
+    expect(screen.queryByText("Restoring session…")).not.toBeInTheDocument();
+    expect(screen.getByText("Profile Bound Auth Shell")).toBeInTheDocument();
     vi.unstubAllGlobals();
   });
 

@@ -1,0 +1,18 @@
+{
+  "schema": "client.session@0.1.0",
+  "sessionId": "csess-2defbe3bd5b1",
+  "provider": "webview2-cdp",
+  "proofTier": "t3",
+  "createdAt": "2026-07-06T15:41:36.791184400+00:00",
+  "repoRoot": "E:\\Web Projects\\experimental-workspace\\obscur",
+  "url": "http://127.0.0.1:3340/",
+  "attachedTarget": {
+    "targetId": "CD6D270D0EFA96A49B1A3AD0308E1659",
+    "windowLabel": "main",
+    "url": "http://127.0.0.1:3340/",
+    "attachedAt": "2026-07-06T15:41:44.744434800+00:00"
+  },
+  "lastAuthSurface": "sign_in_password",
+  "lastAuthSurfaceAt": "2026-07-06T15:42:35.318448600+00:00",
+  "autoScreenshot": true
+}

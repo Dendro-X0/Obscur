@@ -48,7 +48,7 @@ const toHint = (level: PasswordStrengthLevel): string => {
     case "fair":
       return "Add more variety and length.";
     default:
-      return "Use 12+ chars with upper/lowercase, numbers, and symbols.";
+      return "Use 12+ characters or a four-word passphrase.";
   }
 };
 
@@ -59,7 +59,7 @@ export const evaluatePasswordStrength = (password: string): PasswordStrengthSnap
       maxScore: 5,
       level: "weak",
       label: "Weak",
-      hint: "Use 12+ chars with upper/lowercase, numbers, and symbols.",
+      hint: "Use 12+ characters or a four-word passphrase.",
     };
   }
 

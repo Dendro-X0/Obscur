@@ -1,0 +1,146 @@
+{
+  "schema": "client.session.steps@0.1.0",
+  "sessionId": "csess-2defbe3bd5b1",
+  "updatedAt": "2026-07-06T15:42:36.145372300+00:00",
+  "stepCount": 14,
+  "steps": [
+    {
+      "index": 0,
+      "stepId": "step-abe78c4fa298",
+      "action": "snapshot",
+      "captureId": "cap-d7efdf0af0c1",
+      "manifestPath": ".codectx/verify/client-sessions/csess-2defbe3bd5b1/captures/cap-d7efdf0af0c1/manifest.json",
+      "stepLabel": "connect-bootstrap",
+      "pass": true,
+      "at": "2026-07-06T15:41:44.606485900+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-049fbaf0b834",
+      "action": "mcp.client.session.connect",
+      "manifestPath": ".codectx/verify/client-sessions/csess-2defbe3bd5b1/attach-latest.json",
+      "pass": true,
+      "at": "2026-07-06T15:41:49.619192900+00:00"
+    },
+    {
+      "index": 2,
+      "stepId": "step-e8b4ccc40b9a",
+      "action": "authSurfaceProbe",
+      "captureId": "cap-0c453cd36603",
+      "manifestPath": ".codectx/verify/client-sessions/csess-2defbe3bd5b1/captures/cap-0c453cd36603/manifest.json",
+      "stepLabel": "auth-surface-probe",
+      "pass": true,
+      "message": "auth surface: sign_in_password",
+      "at": "2026-07-06T15:41:51.949957300+00:00"
+    },
+    {
+      "index": 3,
+      "stepId": "step-0c23b8fe9d",
+      "action": "digestPull",
+      "captureId": "cap-480c23b8fe9d",
+      "manifestPath": ".codectx/verify/client-sessions/csess-2defbe3bd5b1/captures/cap-480c23b8fe9d/manifest.json",
+      "pass": true,
+      "message": "runtime digest captured",
+      "at": "2026-07-06T15:41:53.220553900+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-d6082aefa1be",
+      "action": "mcp.client.runtime.digestPull",
+      "captureId": "cap-480c23b8fe9d",
+      "manifestPath": ".codectx/verify/client-sessions/csess-2defbe3bd5b1/captures/cap-480c23b8fe9d/manifest.json",
+      "pass": true,
+      "at": "2026-07-06T15:41:58.046859400+00:00"
+    },
+    {
+      "index": 5,
+      "stepId": "step-e1edcb1848",
+      "action": "digestPull",
+      "captureId": "cap-9fe1edcb1848",
+      "manifestPath": ".codectx/verify/client-sessions/csess-2defbe3bd5b1/captures/cap-9fe1edcb1848/manifest.json",
+      "pass": true,
+      "message": "runtime digest captured",
+      "at": "2026-07-06T15:41:59.209631700+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-935f37e58287",
+      "action": "mcp.client.runtime.digestPull",
+      "captureId": "cap-9fe1edcb1848",
+      "manifestPath": ".codectx/verify/client-sessions/csess-2defbe3bd5b1/captures/cap-9fe1edcb1848/manifest.json",
+      "pass": true,
+      "at": "2026-07-06T15:42:04.003101300+00:00"
+    },
+    {
+      "index": 7,
+      "stepId": "step-29f31fbac7cc",
+      "action": "assert",
+      "captureId": "cap-87dd74de1106",
+      "manifestPath": ".codectx/verify/client-sessions/csess-2defbe3bd5b1/captures/cap-87dd74de1106/manifest.json",
+      "text": "Restoring session",
+      "assertKind": "textVisible",
+      "pass": false,
+      "message": "text not visible: Restoring session",
+      "at": "2026-07-06T15:42:13.231958200+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-1b0c9bf620e8",
+      "action": "mcp.client.validate.assert",
+      "captureId": "cap-87dd74de1106",
+      "manifestPath": ".codectx/verify/client-sessions/csess-2defbe3bd5b1/captures/cap-87dd74de1106/manifest.json",
+      "pass": false,
+      "message": "text not visible: Restoring session",
+      "at": "2026-07-06T15:42:13.238585500+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-78d4faae8d6a",
+      "action": "mcp.client.interact.click",
+      "pass": false,
+      "message": "selector or known Obscur stepLabel is required",
+      "at": "2026-07-06T15:42:13.260261+00:00"
+    },
+    {
+      "index": 10,
+      "stepId": "step-157f0bafa454",
+      "action": "click",
+      "captureId": "cap-0be72d8ed901",
+      "manifestPath": ".codectx/verify/client-sessions/csess-2defbe3bd5b1/captures/cap-0be72d8ed901/manifest.json",
+      "selector": "a[href=\"/settings\"]",
+      "pass": false,
+      "message": "locator.click: Timeout 10000ms exceeded.\nCall log:\n  - waiting for locator('a[href=\"/settings\"]')\n",
+      "at": "2026-07-06T15:42:24.047810100+00:00"
+    },
+    {
+      "index": 0,
+      "stepId": "step-6f7fd13db5e5",
+      "action": "mcp.client.interact.click",
+      "captureId": "cap-0be72d8ed901",
+      "manifestPath": ".codectx/verify/client-sessions/csess-2defbe3bd5b1/captures/cap-0be72d8ed901/manifest.json",
+      "pass": false,
+      "message": "locator.click: Timeout 10000ms exceeded.\nCall log:\n  - waiting for locator('a[href=\"/settings\"]')\n",
+      "at": "2026-07-06T15:42:24.051841+00:00"
+    },
+    {
+      "index": 12,
+      "stepId": "step-67dc64d04567",
+      "action": "authSurfaceProbe",
+      "captureId": "cap-0217c0324ff3",
+      "manifestPath": ".codectx/verify/client-sessions/csess-2defbe3bd5b1/captures/cap-0217c0324ff3/manifest.json",
+      "stepLabel": "auth-surface-probe",
+      "pass": true,
+      "message": "auth surface: sign_in_password",
+      "at": "2026-07-06T15:42:35.316078+00:00"
+    },
+    {
+      "index": 13,
+      "stepId": "step-d291d74cc2cf",
+      "action": "snapshot",
+      "captureId": "cap-17a751fb8e3c",
+      "manifestPath": ".codectx/verify/client-sessions/csess-2defbe3bd5b1/captures/cap-17a751fb8e3c/manifest.json",
+      "pass": true,
+      "at": "2026-07-06T15:42:36.139635900+00:00"
+    }
+  ]
+}

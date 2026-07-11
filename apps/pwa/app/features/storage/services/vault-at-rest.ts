@@ -1,7 +1,7 @@
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
-import { getProfileStorageKeyMaterial } from "@/app/features/storage/services/profile-storage-key-session";
+import { getProfileStorageKeyMaterial, getProfileStorageKeyReadCandidates } from "@/app/features/storage/services/profile-storage-key-session";
 import {
-  decryptStorageEnvelopeV1,
+  decryptStorageEnvelopeV1WithKeyCandidates,
   encryptStorageEnvelopeV1,
   isStorageEnvelopeV1Payload,
   parseStorageEnvelopeV1,
@@ -31,22 +31,6 @@ export const buildOpaqueVaultFileName = async (remoteUrl: string, profileId?: st
   return `${digest.slice(0, 24)}${VAULT_ENCRYPTED_FILE_EXTENSION}`;
 };
 
-/** @deprecated Prefer {@link encryptVaultBytesForWrite} for vault writes — no plaintext fallback. */
-export const encryptVaultBytesIfAvailable = async (params: Readonly<{
-  plaintext: Uint8Array;
-  profileId?: string;
-}>): Promise<Readonly<{ bytes: Uint8Array; encrypted: boolean; fileNameSuffix: string }>> => {
-  try {
-    const encrypted = await encryptVaultBytesForWrite(params);
-    return encrypted;
-  } catch (error) {
-    if (error instanceof VaultWriteEncryptionRequiredError) {
-      return { bytes: params.plaintext, encrypted: false, fileNameSuffix: "" };
-    }
-    throw error;
-  }
-};
-
 export const encryptVaultBytesForWrite = async (params: Readonly<{
   plaintext: Uint8Array;
   profileId?: string;
@@ -69,6 +53,9 @@ export const encryptVaultBytesForWrite = async (params: Readonly<{
   };
 };
 
+/** @deprecated Use {@link encryptVaultBytesForWrite} — plaintext fallback removed (KEY-MOAT Phase 5). */
+export const encryptVaultBytesIfAvailable = encryptVaultBytesForWrite;
+
 export const decryptVaultFileBytesIfNeeded = async (params: Readonly<{
   fileBytes: Uint8Array;
   profileId?: string;
@@ -82,11 +69,11 @@ export const decryptVaultFileBytesIfNeeded = async (params: Readonly<{
     return params.fileBytes;
   }
   const profileId = (params.profileId ?? getResolvedProfileId()).trim();
-  const keyMaterial = getProfileStorageKeyMaterial(profileId);
-  if (!keyMaterial) {
+  const keyMaterials = getProfileStorageKeyReadCandidates(profileId);
+  if (keyMaterials.length === 0) {
     throw new Error("Vault media is encrypted. Unlock this profile to view it.");
   }
-  return decryptStorageEnvelopeV1({ envelope, keyMaterial });
+  return decryptStorageEnvelopeV1WithKeyCandidates({ envelope, keyMaterials });
 };
 
 export const isEncryptedVaultRelativePath = (relativePath: string): boolean =>

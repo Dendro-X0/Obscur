@@ -1,7 +1,7 @@
 {
   "schema": "verify.agent.issues@0.1.0",
-  "updatedAt": "2026-07-04T14:10:37.532271700+00:00",
-  "issueCount": 57,
+  "updatedAt": "2026-07-06T14:51:07.848571900+00:00",
+  "issueCount": 59,
   "issues": [
     {
       "id": "verify:issue:agent:ea000f3b3f41603b",
@@ -15,6 +15,7 @@
         ".codectx/verify/client-sessions/csess-5c26475ea529/captures/cap-3c321a8aeb25/snapshot.yaml",
         ".codectx/verify/client-sessions/csess-5c26475ea529/captures/cap-51ee8eb2ecdd/screenshot.png",
         ".codectx/verify/client-sessions/csess-5c26475ea529/steps.json",
+        ".codectx/verify/client-sessions/csess-675769c36e27/captures/bcap-1ff2e5524933/manifest.json",
         ".codectx/verify/client-sessions/csess-937c30f83699/captures/bcap-402b11eaec87/manifest.json",
         ".codectx/verify/client-sessions/registry.json"
       ],
@@ -262,6 +263,7 @@
       "evidenceRefs": [
         ".codectx/verify/client-sessions/csess-56331621b1d9/captures/cap-06d82f269d28/snapshot.yaml",
         ".codectx/verify/client-sessions/csess-56331621b1d9/captures/cap-58397cc1043e/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-675769c36e27/captures/bcap-1ff2e5524933/manifest.json",
         ".codectx/verify/client-sessions/csess-937c30f83699/captures/bcap-402b11eaec87/manifest.json",
         ".codectx/verify/issues-register.json"
       ],
@@ -769,6 +771,7 @@
       "title": "COM-RUN-11 round11: profile slot window opened natively; CDP :9231 not listening; list_targets still 1 page on :9230",
       "source": "agent",
       "evidenceRefs": [
+        ".codectx/verify/client-sessions/csess-675769c36e27/captures/bcap-1ff2e5524933/manifest.json",
         ".codectx/verify/client-sessions/csess-937c30f83699/captures/bcap-402b11eaec87/manifest.json",
         ".codectx/verify/client-sessions/csess-af73d0bd5b5c/captures/cap-d401890323b9/manifest.json",
         ".codectx/verify/client-sessions/csess-af73d0bd5b5c/captures/cap-d401890323b9/snapshot.yaml"
@@ -852,6 +855,7 @@
       "title": "COM-RUN-11 multiwindow retry: native second window opens; CDP :9231 down; agent-bridge missing; client_multiwindow_switch main/profile-picker only",
       "source": "agent",
       "evidenceRefs": [
+        ".codectx/verify/client-sessions/csess-675769c36e27/captures/bcap-1ff2e5524933/manifest.json",
         ".codectx/verify/client-sessions/csess-937c30f83699/captures/bcap-402b11eaec87/manifest.json"
       ],
       "proofTier": "t3",
@@ -881,7 +885,9 @@
       "status": "open",
       "title": "COM-RUN-11 round13: bridge listWindows=2 (main+profile-2); openProfileSlot ok; focusWindow ACL denied; CDP :9231 down",
       "source": "agent",
-      "evidenceRefs": [],
+      "evidenceRefs": [
+        ".codectx/verify/client-sessions/csess-675769c36e27/captures/bcap-1ff2e5524933/manifest.json"
+      ],
       "proofTier": "t3",
       "doesNotProve": [],
       "ingestedAt": "2026-07-02T09:59:18.278302+00:00",
@@ -927,8 +933,9 @@
       "title": "COM-RUN-11 round14: focusWindow ok via desktop_agent_focus_window IPC; listWindows=2; CDP :9231 still down — dual attach blocked",
       "source": "agent",
       "evidenceRefs": [
-        ".codectx/verify/client-sessions/csess-c9e4cc0c3649/captures/bcap-dd2fa5076a2f/bridge-result.json",
-        ".codectx/verify/client-sessions/csess-c9e4cc0c3649/captures/bcap-b56d14af46e8/bridge-result.json"
+        ".codectx/verify/client-sessions/csess-675769c36e27/captures/bcap-1ff2e5524933/manifest.json",
+        ".codectx/verify/client-sessions/csess-c9e4cc0c3649/captures/bcap-b56d14af46e8/bridge-result.json",
+        ".codectx/verify/client-sessions/csess-c9e4cc0c3649/captures/bcap-dd2fa5076a2f/bridge-result.json"
       ],
       "doesNotProve": [],
       "ingestedAt": "2026-07-02T11:03:37.278195700+00:00",
@@ -960,6 +967,7 @@
       "title": "COM-RUN-11 round15: :9231 CDP attach works after per-window browser args; profile sign-in target csess-9530bb91b194",
       "source": "agent",
       "evidenceRefs": [
+        ".codectx/verify/client-sessions/csess-675769c36e27/captures/bcap-1ff2e5524933/manifest.json",
         ".codectx/verify/client-sessions/csess-9530bb91b194/attach-latest.json",
         ".codectx/verify/client-sessions/csess-d39f4ab009ee/captures/bcap-82d3ad04daf9/bridge-result.json"
       ],
@@ -1046,6 +1054,7 @@
       "title": "COM-RUN-11 round21 blocked: no live invite card — only superseded/expired historical cards in DM",
       "source": "agent",
       "evidenceRefs": [
+        ".codectx/verify/client-sessions/csess-675769c36e27/captures/bcap-1ff2e5524933/manifest.json",
         ".codectx/verify/client-sessions/csess-b91e16538053/captures/cap-d6616105b1d0/snapshot.yaml"
       ],
       "proofTier": "t4",
@@ -1068,6 +1077,7 @@
       "title": "COM-RUN-11 round23: Tester2 DM shows only superseded/canceled NewTest 2 invite cards — no live invite",
       "source": "agent",
       "evidenceRefs": [
+        ".codectx/verify/client-sessions/csess-675769c36e27/captures/bcap-1ff2e5524933/manifest.json",
         ".codectx/verify/client-sessions/csess-aa3a9eab9c36/captures/cap-e05a0b0a513a/snapshot.yaml"
       ],
       "proofTier": "t3",
@@ -1194,6 +1204,36 @@
       ],
       "ingestedAt": "2026-07-04T14:10:37.531844+00:00",
       "findingId": "cap-8ec91475da6b"
+    },
+    {
+      "id": "verify:issue:assert:cap-bbb6a1d4038e",
+      "severity": "p1",
+      "status": "open",
+      "title": "Client assert failed: textVisible — text not visible: Restoring session",
+      "source": "client_assert",
+      "evidenceRefs": [
+        ".codectx/verify/client-sessions/csess-675769c36e27/captures/cap-bbb6a1d4038e/manifest.json",
+        ".codectx/verify/client-sessions/csess-675769c36e27/captures/cap-bbb6a1d4038e/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-675769c36e27/steps.json"
+      ],
+      "proofTier": "t3",
+      "doesNotProve": [
+        "Full OS-level automation",
+        "Long soak across machines"
+      ],
+      "ingestedAt": "2026-07-06T14:50:17.008938300+00:00",
+      "findingId": "cap-bbb6a1d4038e"
+    },
+    {
+      "id": "verify:issue:agent:58fba9ffbf278c6f",
+      "symptomId": "codactrl-missing-settings-step-label",
+      "severity": "p2",
+      "status": "open",
+      "title": "No settings-tab stepLabel in Obscur selector pack",
+      "source": "agent",
+      "evidenceRefs": [],
+      "doesNotProve": [],
+      "ingestedAt": "2026-07-06T14:51:07.847348200+00:00"
     }
   ]
 }

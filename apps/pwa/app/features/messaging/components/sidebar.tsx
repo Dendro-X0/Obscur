@@ -10,7 +10,7 @@ import { RequestsInboxPanel } from "./requests-inbox-panel";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { ConversationRow } from "./conversation-row";
 import { Pin, Users, User, ChevronDown, ChevronRight, } from "lucide-react";
-import { getIncomingPendingRequestCount, getIncomingUnreadRequestTotal } from "../services/request-inbox-view";
+import { getIncomingPendingRequestCount, getIncomingUnreadRequestTotal, getOpenPendingRequestCount } from "../services/request-inbox-view";
 import type { MessagingSidebarTab } from "../services/messaging-sidebar-tab";
 import { getPublicProfileHref } from "@/app/features/navigation/public-routes";
 import { isMobileShellProduct } from "@/app/features/runtime/shell-contract";
@@ -52,10 +52,13 @@ export interface SidebarProps {
     hideConversation: (conversationId: string) => void;
     clearHistory: (conversationId: string) => void;
     onClearHistory: () => void;
+    pendingRequestsCount?: number;
     isPeerOnline?: (publicKeyHex: PublicKeyHex) => boolean;
     showHistorySyncNotice?: boolean;
+    pendingRequestsBadgeDismissed?: boolean;
+    onDismissPendingRequestsBadge?: () => void;
 }
-export function Sidebar({ setIsNewChatOpen, setIsNewGroupOpen, searchQuery, setSearchQuery, searchInputRef, hasHydrated, filteredConversations, selectConversation, selectedConversation, unreadByConversationId, interactionByConversationId, nowMs, activeTab, setActiveTab, requests, junkRequests, onAcceptRequest, onIgnoreRequest, onBlockRequest, onSelectRequest, pinnedChatIds, togglePin, hiddenChatIds, hideConversation, onClearHistory, isPeerOnline, showHistorySyncNotice = false }: SidebarProps) {
+export function Sidebar({ setIsNewChatOpen, setIsNewGroupOpen, searchQuery, setSearchQuery, searchInputRef, hasHydrated, filteredConversations, selectConversation, selectedConversation, unreadByConversationId, interactionByConversationId, nowMs, activeTab, setActiveTab, requests, junkRequests, onAcceptRequest, onIgnoreRequest, onBlockRequest, onSelectRequest, pinnedChatIds, togglePin, hiddenChatIds, hideConversation, onClearHistory, isPeerOnline, showHistorySyncNotice = false, pendingRequestsBadgeDismissed = false, onDismissPendingRequestsBadge, pendingRequestsCount: pendingRequestsCountProp, }: SidebarProps) {
     const { t } = useTranslation();
     const router = useRouter();
     const resolvedNowMs = nowMs;
@@ -110,7 +113,7 @@ export function Sidebar({ setIsNewChatOpen, setIsNewGroupOpen, searchQuery, setS
     }, [conversationBuckets.unreadByConversationIdResolved]);
     const chatsUnreadTotal = conversationBuckets.chatsUnreadTotal;
     const requestsUnreadTotal = getIncomingUnreadRequestTotal(requests);
-    const pendingRequestsCount = getIncomingPendingRequestCount(requests);
+    const pendingRequestsCount = pendingRequestsCountProp ?? getOpenPendingRequestCount(requests);
     const junkUnreadTotal = getIncomingUnreadRequestTotal(junkRequests);
     const pendingJunkCount = getIncomingPendingRequestCount(junkRequests);
     const [isDmsExpanded, setIsDmsExpanded] = useState(true);
@@ -162,7 +165,7 @@ export function Sidebar({ setIsNewChatOpen, setIsNewGroupOpen, searchQuery, setS
             </Button>
         </div>) : null;
     return (<div className="flex h-full min-h-0 flex-col">
-            <SidebarListChrome variant={listChromeVariant} activeTab={activeTab} setActiveTab={setActiveTab} chatsUnreadTotal={chatsUnreadTotal} requestsUnreadTotal={requestsUnreadTotal} pendingRequestsCount={pendingRequestsCount} junkUnreadTotal={junkUnreadTotal} pendingJunkCount={pendingJunkCount} searchQuery={searchQuery} setSearchQuery={setSearchQuery} searchInputRef={searchInputRef} searchDismissSignal={searchDismissSignal} onUserSelect={() => {
+            <SidebarListChrome variant={listChromeVariant} activeTab={activeTab} setActiveTab={setActiveTab} chatsUnreadTotal={chatsUnreadTotal} requestsUnreadTotal={requestsUnreadTotal} pendingRequestsCount={pendingRequestsCount} pendingRequestsBadgeDismissed={pendingRequestsBadgeDismissed} onDismissPendingRequestsBadge={onDismissPendingRequestsBadge} junkUnreadTotal={junkUnreadTotal} pendingJunkCount={pendingJunkCount} searchQuery={searchQuery} setSearchQuery={setSearchQuery} searchInputRef={searchInputRef} searchDismissSignal={searchDismissSignal} onUserSelect={() => {
             setIsNewChatOpen(true);
         }} chatViewMode={chatViewMode} setChatViewMode={setChatViewMode} dmsUnread={dmsUnread} groupsUnread={groupsUnread} setIsNewChatOpen={setIsNewChatOpen} setIsNewGroupOpen={setIsNewGroupOpen} areChatSectionsExpanded={areChatSectionsExpanded} onToggleChatSectionsExpanded={() => {
             const nextExpanded = !areChatSectionsExpanded;
@@ -171,7 +174,7 @@ export function Sidebar({ setIsNewChatOpen, setIsNewGroupOpen, searchQuery, setS
         }} onClearRequestHistory={onClearHistory}/>
 
             <div className="mobile-scroll-region flex-1 min-h-0 overflow-y-auto">
-                {activeTab === "junk" ? (<RequestsInboxPanel variant="junk" requests={junkRequests} nowMs={resolvedNowMs} onAccept={onAcceptRequest} onIgnore={onIgnoreRequest} onBlock={onBlockRequest} onSelect={onSelectRequest} onFindSomeone={() => setIsNewChatOpen(true)} onClearHistory={onClearHistory}/>) : activeTab === "requests" ? (<RequestsInboxPanel requests={requests} nowMs={resolvedNowMs} onAccept={onAcceptRequest} onIgnore={onIgnoreRequest} onBlock={onBlockRequest} onSelect={onSelectRequest} onFindSomeone={() => setIsNewChatOpen(true)} onClearHistory={onClearHistory}/>) : (<>
+                {activeTab === "junk" ? (<RequestsInboxPanel variant="junk" requests={junkRequests} nowMs={resolvedNowMs} onSelect={onSelectRequest} onFindSomeone={() => setIsNewChatOpen(true)} onClearHistory={onClearHistory}/>) : activeTab === "requests" ? (<RequestsInboxPanel requests={requests} nowMs={resolvedNowMs} onSelect={onSelectRequest} onFindSomeone={() => setIsNewChatOpen(true)} onClearHistory={onClearHistory} onDismissPendingCount={onDismissPendingRequestsBadge} pendingCountDismissed={pendingRequestsBadgeDismissed}/>) : (<>
                         {!hasHydrated ? (<div className="space-y-2 p-3">
                                 {Array.from({ length: 6 }).map((_, i) => (<div key={i} className="flex items-start gap-4 p-3 h-20">
                                         <div className="h-12 w-12 shrink-0 rounded-full bg-zinc-100 dark:bg-zinc-800 animate-pulse"/>

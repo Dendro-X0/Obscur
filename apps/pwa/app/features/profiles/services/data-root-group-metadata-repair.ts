@@ -3,6 +3,7 @@ import type { GroupConversation } from "@/app/features/messaging/types";
 import { messagingChatStateMessagePort } from "@/app/features/messaging/services/messaging-chat-state-message-port";
 import { fromPersistedGroupConversation, toPersistedGroupConversation } from "@/app/features/messaging/utils/persistence";
 import { loadSqliteGroupPersistedRows } from "@/app/features/groups/services/community-group-sqlite-store";
+import { accountHasSqliteGroupMessageEvidence } from "@/app/features/groups/services/account-group-sqlite-evidence";
 import {
   loadCommunityMembershipLedger,
   mergeCommunityMembershipLedgerEntries,
@@ -236,15 +237,24 @@ export const repairGroupMetadataFromSqliteIfSparse = async (params: Readonly<{
   });
 
   const sqliteGroups = new Map<string, GroupConversation>();
-  await Promise.all(profileSlots.map(async (slotId) => {
+  for (const slotId of profileSlots) {
     const rows = await loadSqliteGroupPersistedRows(slotId, params.publicKeyHex);
-    rows.forEach((row) => {
+    for (const row of rows) {
+      const hasMemberEvidence = includesPubkey(row.memberPubkeys, params.publicKeyHex);
+      const hasMessageEvidence = hasMemberEvidence || await accountHasSqliteGroupMessageEvidence({
+        profileId: slotId,
+        groupId: row.groupId,
+        accountPublicKeyHex: params.publicKeyHex,
+      });
+      if (!hasMessageEvidence) {
+        continue;
+      }
       const group = fromPersistedGroupConversation(row);
       if (group) {
         sqliteGroups.set(groupScopeKey(group), group);
       }
-    });
-  }));
+    }
+  }
 
   if (sqliteGroups.size === 0 || existingGroups.length >= sqliteGroups.size) {
     return 0;

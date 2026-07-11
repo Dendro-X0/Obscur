@@ -2,12 +2,17 @@ use aes_gcm::{
     aead::{Aead, KeyInit},
     Aes256Gcm, Nonce,
 };
+use argon2::{Algorithm, Argon2, Params, Version};
 use sha2::{Digest, Sha256};
 use std::fs;
 use std::path::{Path, PathBuf};
 
 pub const PROFILE_DATA_KEY_CONTEXT: &str = "obscur.pdk.v1";
+pub const PROFILE_DATA_KEY_CONTEXT_V2: &str = "obscur.pdk.v2";
 pub const PROFILE_DATA_KEY_ITERATIONS: u32 = 200_000;
+pub const PROFILE_DATA_KEY_ARGON2_M_COST: u32 = 65_536;
+pub const PROFILE_DATA_KEY_ARGON2_T_COST: u32 = 3;
+pub const PROFILE_DATA_KEY_ARGON2_P_COST: u32 = 4;
 pub const SQLITE_AT_REST_SUFFIX: &str = ".obscur-enc";
 pub const STORAGE_FILE_MAGIC: &[u8; 8] = b"OBSCURST";
 
@@ -18,12 +23,35 @@ pub struct StorageAtRestEnvelope {
 }
 
 pub fn derive_profile_data_key(passphrase: &str, profile_id: &str) -> [u8; 32] {
+    derive_profile_data_key_v1(passphrase, profile_id)
+}
+
+pub fn derive_profile_data_key_v1(passphrase: &str, profile_id: &str) -> [u8; 32] {
     let context = format!("{PROFILE_DATA_KEY_CONTEXT}|{}", profile_id.trim());
     let hash = Sha256::digest(context.as_bytes());
     let salt = &hash[..16];
     let mut key = [0u8; 32];
     pbkdf2::pbkdf2_hmac::<Sha256>(passphrase.as_bytes(), salt, PROFILE_DATA_KEY_ITERATIONS, &mut key);
     key
+}
+
+pub fn derive_profile_data_key_v2(passphrase: &str, profile_id: &str) -> Result<[u8; 32], String> {
+    let context = format!("{PROFILE_DATA_KEY_CONTEXT_V2}|{}", profile_id.trim());
+    let hash = Sha256::digest(context.as_bytes());
+    let salt = &hash[..16];
+    let params = Params::new(
+        PROFILE_DATA_KEY_ARGON2_M_COST,
+        PROFILE_DATA_KEY_ARGON2_T_COST,
+        PROFILE_DATA_KEY_ARGON2_P_COST,
+        Some(32),
+    )
+    .map_err(|e| e.to_string())?;
+    let argon2 = Argon2::new(Algorithm::Argon2id, Version::V0x13, params);
+    let mut key = [0u8; 32];
+    argon2
+        .hash_password_into(passphrase.as_bytes(), salt, &mut key)
+        .map_err(|e| e.to_string())?;
+    Ok(key)
 }
 
 pub fn encrypt_storage_blob(key: &[u8; 32], plaintext: &[u8]) -> Result<StorageAtRestEnvelope, String> {
@@ -108,6 +136,13 @@ mod tests {
         let key = derive_profile_data_key("Obscur-Phase3-Test-Vector!", "default");
         let encoded = base64::engine::general_purpose::STANDARD.encode(key);
         assert_eq!(encoded, "lnGC7LuCyiiM3KdFYsC5vXnZfGI9bCDbcfcy4MqXWdY=");
+    }
+
+    #[test]
+    fn pdk_v2_vector_matches_typescript_fixture() {
+        let key = derive_profile_data_key_v2("Obscur-Phase3-Test-Vector!", "default").expect("derive v2");
+        let encoded = base64::engine::general_purpose::STANDARD.encode(key);
+        assert_eq!(encoded, "8hRUYJFEHcuVK957qfA6WhyUrS9mFCS5QMnjRtiN3Bc=");
     }
 
     #[test]

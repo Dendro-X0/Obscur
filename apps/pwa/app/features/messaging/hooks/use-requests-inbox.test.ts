@@ -38,7 +38,7 @@ describe("useRequestsInbox internals", () => {
     })).toBe(true);
   });
 
-  it("releases stale outgoing pending requests without receipt evidence", () => {
+  it("keeps outgoing pending requests visible until terminal handshake state", () => {
     const staleItem = {
       peerPublicKeyHex: "a".repeat(64),
       status: "pending",
@@ -49,6 +49,7 @@ describe("useRequestsInbox internals", () => {
     } as const;
 
     expect(requestsInboxInternals.shouldReleaseOutgoingPendingRequest(staleItem)).toBe(true);
+    expect(requestsInboxInternals.filterReleasedOutgoingPendingRequests([staleItem])).toHaveLength(0);
   });
 
   it("keeps fresh outgoing pending requests even before request-event evidence is restored", () => {

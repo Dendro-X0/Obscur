@@ -2,6 +2,9 @@
 
 import { isValidInviteCode } from "@/app/features/invites/utils/invite-parser";
 import { parsePublicKeyInput } from "@/app/features/profile/utils/parse-public-key-input";
+import { derivePublicKeyHex } from "@dweb/crypto/derive-public-key-hex";
+import { isValidPrivateKeyHex } from "@dweb/crypto/is-valid-private-key-hex";
+import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import type { RelayQueryPool } from "@/app/features/search/services/relay-discovery-query";
 import { queryRelayProfiles } from "@/app/features/search/services/relay-discovery-query";
 import { extractContactCardFromQuery, verifyContactCard } from "./contact-card";
@@ -16,6 +19,7 @@ type ResolveIdentityParams = Readonly<{
   indexBaseUrl?: string;
   signal?: AbortSignal;
   allowLegacyInviteCode?: boolean;
+  relayUrls?: ReadonlyArray<string>;
 }>;
 
 const withAbort = <T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> => {
@@ -39,6 +43,59 @@ const fail = (reason: ResolveFailureReason, message: string): ResolveResult => (
 });
 
 const looksLikeShortCode = (value: string): boolean => /^[A-Z0-9]{2,6}(?:-[A-Z0-9]{2,32}){1,5}$/i.test(value.trim());
+
+const disambiguateHexPrivateKeyPaste = async (
+  hex: string,
+  pool: RelayQueryPool,
+  relayUrls: ReadonlyArray<string> | undefined,
+  signal: AbortSignal | undefined,
+): Promise<ResolveResult | null> => {
+  if (!isValidPrivateKeyHex(hex)) {
+    return null;
+  }
+  let derivedPublicKeyHex: string;
+  try {
+    derivedPublicKeyHex = derivePublicKeyHex(hex as PrivateKeyHex);
+  } catch {
+    return null;
+  }
+  if (derivedPublicKeyHex.toLowerCase() === hex.toLowerCase()) {
+    return null;
+  }
+
+  const connected = await pool.waitForConnection(750);
+  if (!connected) {
+    return null;
+  }
+
+  const directRecords = await withAbort(queryRelayProfiles({
+    pool,
+    mode: "author",
+    query: hex,
+    timeoutMs: 1_500,
+    maxResults: 1,
+    relayUrls,
+  }), signal).catch(() => [] as const);
+  if (directRecords.length > 0) {
+    return null;
+  }
+
+  const derivedRecords = await withAbort(queryRelayProfiles({
+    pool,
+    mode: "author",
+    query: derivedPublicKeyHex,
+    timeoutMs: 1_500,
+    maxResults: 1,
+    relayUrls,
+  }), signal).catch(() => [] as const);
+  if (derivedRecords.length > 0) {
+    return fail(
+      "private_key_forbidden",
+      "This looks like a private key. Never paste private keys into search — use npub, a contact card, or a friend code instead.",
+    );
+  }
+  return null;
+};
 
 const resolveViaIndex = async (
   raw: string,
@@ -144,9 +201,26 @@ export const resolveIdentity = async (params: ResolveIdentityParams): Promise<Re
     return ok(identity);
   }
 
-  // 4) npub/hex pubkey
+  // 4) npub/hex pubkey (private keys rejected — wallet-grade safety)
   const parsedPubkey = parsePublicKeyInput(raw);
+  if (!parsedPubkey.ok && parsedPubkey.reason === "private_key_forbidden") {
+    return fail(
+      "private_key_forbidden",
+      "This looks like a private key. Never paste private keys into search — use npub, a contact card, or a friend code instead.",
+    );
+  }
   if (parsedPubkey.ok) {
+    if (parsedPubkey.format === "hex") {
+      const privateKeyBlock = await disambiguateHexPrivateKeyPaste(
+        parsedPubkey.publicKeyHex,
+        params.pool,
+        params.relayUrls,
+        params.signal,
+      );
+      if (privateKeyBlock) {
+        return privateKeyBlock;
+      }
+    }
     const cached = resolvedIdentityCache.getByPubkey(parsedPubkey.publicKeyHex);
     if (cached) {
       return ok({
@@ -186,6 +260,7 @@ export const resolveIdentity = async (params: ResolveIdentityParams): Promise<Re
         query: upper,
         timeoutMs: 4500,
         maxResults: 20,
+        relayUrls: params.relayUrls,
       }), params.signal);
       const matched = relayRecords.find((record) => (record.inviteCode ?? "").toUpperCase() === upper) ?? relayRecords[0];
       if (!matched) {

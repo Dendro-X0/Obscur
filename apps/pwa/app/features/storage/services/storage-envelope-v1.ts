@@ -68,6 +68,24 @@ export const decryptStorageEnvelopeV1 = async (params: Readonly<{
   return new Uint8Array(plaintextBuffer);
 };
 
+export const decryptStorageEnvelopeV1WithKeyCandidates = async (params: Readonly<{
+  envelope: StorageEnvelopeV1;
+  keyMaterials: ReadonlyArray<Uint8Array>;
+}>): Promise<Uint8Array> => {
+  let lastError: unknown;
+  for (const keyMaterial of params.keyMaterials) {
+    try {
+      return await decryptStorageEnvelopeV1({ envelope: params.envelope, keyMaterial });
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  if (lastError instanceof Error) {
+    throw lastError;
+  }
+  throw new Error("Unable to decrypt storage envelope.");
+};
+
 export const serializeStorageEnvelopeV1 = (envelope: StorageEnvelopeV1): string => (
   JSON.stringify(envelope)
 );

@@ -20,6 +20,7 @@ import {
 } from "@/app/features/profiles/services/desktop-profile-switcher-view";
 import { resolveDesktopProfileAccountPresenceLabelKey } from "@/app/features/profiles/services/desktop-profile-account-presence-label";
 import { resolveDesktopProfileCardDisplay } from "@/app/features/profiles/services/desktop-profile-card-display";
+import { hasMultipleDesktopProfileSlots } from "@/app/features/profiles/services/profile-picker-startup-policy";
 
 export function TitleBarLockedProfileSwitcher(): React.JSX.Element | null {
   const { t } = useTranslation();
@@ -97,7 +98,7 @@ export function TitleBarLockedProfileSwitcher(): React.JSX.Element | null {
   const otherEntries = menuEntries.filter((entry) => !entry.isCurrentWindow);
   const currentDisplay = currentEntry ? resolveDesktopProfileCardDisplay(currentEntry) : null;
 
-  if (!isLocked || isPublicProfilePicker || !currentEntry) {
+  if (!isLocked || isPublicProfilePicker || !currentEntry || !hasMultipleDesktopProfileSlots(snapshot.profiles.length)) {
     return null;
   }
 

@@ -2,8 +2,8 @@
   "activeAppRoot": "apps/coordination",
   "exploreError": null,
   "exploreScope": "monorepo-critical-path",
-  "lastBundleId": "bundle-20260701050052.374227600+0000",
-  "lastExploreId": "028eee2e-8450-aa3b-55dd-a04696f5740c",
+  "lastBundleId": "bundle-20260705054954.250820800+0000",
+  "lastExploreId": "ce3d3467-7ac3-36f5-68af-f74851c69f01",
   "operationalMode": "monorepo-audit",
   "phase": "configured",
   "profile": {
@@ -39,13 +39,13 @@
         "stack": null
       }
     ],
-    "generatedAt": "2026-07-04T03:59:44.789677100+00:00",
+    "generatedAt": "2026-07-05T05:51:34.829494+00:00",
     "recommendedDefaults": {
       "appRoot": "apps/website",
       "exploreScope": "monorepo-critical-path",
       "operationalMode": "monorepo-audit"
     },
-    "scanSnapshotHash": "sha256:19cd49bf1888046751c8cfd46b28a6d7c08297734ca546ffe09f6ec10cf553e7",
+    "scanSnapshotHash": "sha256:1a8e3cb6c71a027c2f2b8e32b504b0e1d2865ce853673ea8ab72a8dee6e62969",
     "schema": "perf.profile@1.0.0",
     "suggestedOperationalModes": [
       {
@@ -145,10 +145,36 @@
       "setupReady": true
     }
   },
-  "repoRoot": "E:\\Web Projects\\experimental-workspace\\newstart",
+  "repoRoot": "E:\\Web Projects\\experimental-workspace\\obscur",
   "resumeLastSession": false,
-  "runConfirmedAt": "2026-07-01T05:00:02.795155700+00:00",
+  "runConfirmedAt": "2026-07-05T05:49:17.330652300+00:00",
   "runHistory": [
+    {
+      "bundleId": "bundle-20260705054954.250820800+0000",
+      "completedAt": "2026-07-05T05:49:17.330652300+00:00",
+      "exploreId": "d69aa988-5c0a-11d0-65f9-2f7a303336b9",
+      "kind": "monorepo-audit",
+      "obligation": {
+        "info": 0,
+        "red": 0,
+        "total": 39,
+        "yellow": 39
+      },
+      "previousBundleId": "bundle-20260701050052.374227600+0000",
+      "runId": "bundle-20260705054954.250820800+0000",
+      "scanSnapshotHash": "sha256:1a8e3cb6c71a027c2f2b8e32b504b0e1d2865ce853673ea8ab72a8dee6e62969",
+      "stepChurn": {
+        "flatCounts": false,
+        "new": 1,
+        "resolved": 0,
+        "severityDelta": {
+          "red": 0,
+          "total": 1,
+          "yellow": 1
+        },
+        "unchanged": 35
+      }
+    },
     {
       "bundleId": "bundle-20260701050052.374227600+0000",
       "completedAt": "2026-07-01T05:00:02.795155700+00:00",
@@ -303,6 +329,6 @@
     }
   ],
   "schema": "perf.session@2.0.0",
-  "updatedAt": "2026-07-04T03:59:44.790215400+00:00",
+  "updatedAt": "2026-07-05T05:51:34.830319+00:00",
   "viewMode": "clearing"
 }

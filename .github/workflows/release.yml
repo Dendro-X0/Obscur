@@ -1,26 +1,24 @@
-name: Obscur Full Release (retired — do not use)
+name: Obscur Full Release
 
-# RETIRED 2026-06-02: Cross-platform publish moved to local packaging + repo update channel.
-# See docs/program/unified-version-source.md and docs/program/local-desktop-packaging.md
-#
-# Tag push trigger REMOVED — pushing v* no longer starts this workflow.
-# Manual dispatch only if you explicitly need a one-off remote build (not for shipping).
+# Build: tag push OR manual workflow_dispatch (re-run without burning a new tag).
+# Publish: manual workflow_dispatch with publish_release=true on a tag ref only.
+# Local fallback: pnpm desktop:package (see docs/program/obscur-v2-install-build-guide.md).
 
 on:
   workflow_dispatch:
     inputs:
       publish_release:
-        description: "DEPRECATED — do not publish GitHub Releases"
+        description: "Publish GitHub Release after verify (set release_tag when running from main)"
         required: false
         default: false
         type: boolean
       release_tag:
-        description: "Ignored for shipping; local pnpm desktop:package instead"
+        description: "Release tag (e.g. v1.9.10). Empty on tag push; on main dispatch uses package.json version."
         required: false
         type: string
-  # push:
-  #   tags:
-  #     - "v*"
+  push:
+    tags:
+      - "v*"
 
 permissions:
   contents: write

@@ -3,6 +3,7 @@ import { readIdentityRecordFromLocalStorage } from "@/app/features/auth/utils/id
 import { listStoredIdentityBindings } from "@/app/features/auth/utils/identity-profile-binding";
 import { isGenericProfileSlotLabel } from "./desktop-profile-card-display";
 import type { ProfileId } from "./profile-isolation-contracts";
+import { greenfieldAuthWindowLabel } from "./profile-slot-greenfield-auth-routing";
 import { getScopedStorageKey } from "./profile-scope";
 import { getLastBoundAccountPublicKeyHex } from "./profile-window-account-binding";
 import type { DesktopProfilePreview } from "./desktop-profile-switcher-view";
@@ -203,13 +204,22 @@ export const enrichDesktopProfilePreview = (
   };
 };
 
+const GREENFIELD_PROFILE_LABELS = new Set([
+  greenfieldAuthWindowLabel("create"),
+  greenfieldAuthWindowLabel("restore"),
+]);
+
 export const hasSavedAccountPickerPresence = (params: Readonly<{
   profileId: ProfileId;
   username: string;
   publicKeyHex?: string;
 }>): boolean => {
   const username = normalizeString(params.username);
-  if (username.length > 0 && !isGenericProfileSlotLabel(username, params.profileId)) {
+  if (
+    username.length > 0
+    && !isGenericProfileSlotLabel(username, params.profileId)
+    && !GREENFIELD_PROFILE_LABELS.has(username)
+  ) {
     return true;
   }
   return normalizeString(params.publicKeyHex).length === 64;

@@ -9,6 +9,7 @@ import { getVoiceNoteAttachmentMetadata } from "@/app/features/messaging/service
 import { cn } from "@/app/lib/utils";
 import { AttachmentContextMenu, type AttachmentContextMenuState } from "./attachment-context-menu";
 import { getAttachmentContextMenuTriggerProps } from "./attachment-context-menu-handlers";
+import { MESSAGING_OVERLAY_BACKDROP_CLASS, MessagingOverlayPortal } from "./messaging-overlay-portal";
 interface MediaGalleryProps {
     isOpen: boolean;
     onClose: () => void;
@@ -66,7 +67,8 @@ export function MediaGallery({ isOpen, onClose, conversationDisplayName, mediaIt
     }, [isOpen, onClose]);
     if (!isOpen)
         return null;
-    return (<div data-escape-layer="open" className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onPointerDown={onClose}>
+    return (<MessagingOverlayPortal>
+        <div data-escape-layer="open" className={cn(MESSAGING_OVERLAY_BACKDROP_CLASS, "flex items-center justify-center p-4")} onPointerDown={onClose}>
             <div className="w-full max-w-4xl rounded-2xl border border-black/10 bg-white shadow-xl dark:border-white/10 dark:bg-zinc-950" onPointerDown={(e) => e.stopPropagation()}>
                 <div className="flex items-center justify-between p-4 border-b border-black/10 dark:border-white/10">
                     <div>
@@ -135,5 +137,6 @@ export function MediaGallery({ isOpen, onClose, conversationDisplayName, mediaIt
                 state={attachmentContextMenu}
                 onClose={() => setAttachmentContextMenu(null)}
             />
-        </div>);
+        </div>
+    </MessagingOverlayPortal>);
 }

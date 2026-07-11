@@ -1,0 +1,60 @@
+{
+  "schema": "perf.explore.manifest@1.1.0",
+  "exploreId": "7ba7bb2b-50e3-1b44-e9b2-a5120928a81e",
+  "target": {
+    "repoRoot": "E:\\Web Projects\\experimental-workspace\\obscur",
+    "appRoot": "apps/coordination",
+    "exploreScope": "single-app",
+    "primaryAppRoot": "apps/coordination",
+    "authRouteProfile": {
+      "middlewarePath": null,
+      "sessionProviders": [],
+      "authGatedPrefixes": [
+        "/account",
+        "/admin",
+        "/billing",
+        "/dashboard",
+        "/org",
+        "/settings",
+        "/user"
+      ],
+      "publicPrefixes": [
+        "/",
+        "/about",
+        "/auth",
+        "/blog",
+        "/docs",
+        "/login",
+        "/marketing",
+        "/pricing",
+        "/register",
+        "/signup"
+      ],
+      "broadMatcher": false
+    },
+    "devServerPort": 3000
+  },
+  "scanSnapshotHash": "sha256:725512bbd7ca0efc648185ec9af934cf54ebdfda44a109843f148066ccead9b7",
+  "graphHash": "sha256:45dd800b2548f284865f8334f6a4604932b7ff76abffd887642662a31c8c0f9e",
+  "engineVersion": "0.1.0",
+  "startedAt": "2026-07-07T08:32:52.974515800+00:00",
+  "finishedAt": "2026-07-07T08:32:52.974521600+00:00",
+  "status": "completed",
+  "nonCoverage": "Static explore identifies transition risk factors (client-heavy routes, missing loading, StrictMode). Navigation latency and UI interaction lag require perf.confirm.run with interaction-probe (attachMode=dev for SaaS template dev sluggishness). Route-probe measures TTFB only.",
+  "environmentProfile": {
+    "analysisMode": "static",
+    "runtimeMeasured": false,
+    "devOverheadNote": "Findings describe code shape — not measured dev fluidity. Tauri+Vite shells can white-screen while CPU is idle; use studio-dev-probe (attachMode=dev, baseUrl=http://127.0.0.1:5173). Web apps: interaction-probe for route transitions.",
+    "confirmTierAvailable": [
+      "serve-oracle",
+      "http-health",
+      "route-probe",
+      "interaction-probe",
+      "studio-dev-probe"
+    ],
+    "recommendedAttachMode": "dev",
+    "recommendedConfirmMode": "dev",
+    "confirmAttachNote": "Studio/Tauri: studio-dev-probe while pnpm dev:studio is running. SaaS web: interaction-probe attachMode=dev. Production TTFB: route-probe attachMode=production."
+  },
+  "detectorCatalogHash": "sha256:143b59a14082a8aff778a9a43eaca476f5aa1cd4af77c92a72e328e3797f4627"
+}

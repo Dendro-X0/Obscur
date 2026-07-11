@@ -1,0 +1,16 @@
+{
+  "schema": "codactrl.investigation.chain@0.1.0",
+  "chainId": "chain-codactrl-settings-probe-2026-07-06",
+  "title": "Investigation chain",
+  "status": "open",
+  "createdAt": "2026-07-06T14:50:01.219944400+00:00",
+  "updatedAt": "2026-07-06T14:50:48.342456600+00:00",
+  "nodeIds": [
+    "n1-post-connect-baseline"
+  ],
+  "summary": {
+    "verdict": "partial_accepted",
+    "nodesCaptured": 1,
+    "splitBrainObserved": false
+  }
+}

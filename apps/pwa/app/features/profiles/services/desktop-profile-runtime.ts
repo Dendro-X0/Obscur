@@ -51,6 +51,7 @@ const PROFILE_OPEN_WINDOW_TIMEOUT_MS = 45_000;
 const PROFILE_SNAPSHOT_TIMEOUT_MS = 25_000;
 const LAST_KNOWN_WINDOW_PROFILE_ID_STORAGE_KEY = "obscur.desktop.window_profile.last_known.v1";
 const MAIN_WINDOW_LABEL = "main";
+const PROFILE_ISOLATION_CHANGED_EVENT = "profile-isolation-changed";
 
 const lastKnownWindowProfileIdStorageKey = (windowLabel: string): string => (
   `${LAST_KNOWN_WINDOW_PROFILE_ID_STORAGE_KEY}::${windowLabel.trim() || MAIN_WINDOW_LABEL}`
@@ -58,6 +59,31 @@ const lastKnownWindowProfileIdStorageKey = (windowLabel: string): string => (
 
 let refreshInFlightPromise: Promise<ProfileIsolationSnapshot> | null = null;
 let lastRefreshError: string | null = null;
+let profileIsolationListenerRegistered = false;
+
+const ensureProfileIsolationListener = (): void => {
+  if (profileIsolationListenerRegistered || !hasNativeRuntime() || typeof window === "undefined") {
+    return;
+  }
+  profileIsolationListenerRegistered = true;
+  void import("@tauri-apps/api/event").then(({ listen }) => {
+    void listen(PROFILE_ISOLATION_CHANGED_EVENT, () => {
+      void desktopProfileRuntime.refresh();
+    });
+  }).catch(() => {
+    profileIsolationListenerRegistered = false;
+  });
+};
+
+/** Refreshes this window and notifies other desktop windows to reload profile registry state. */
+export const broadcastProfileIsolationChanged = async (): Promise<void> => {
+  ensureProfileIsolationListener();
+  if (!hasNativeRuntime()) {
+    await desktopProfileRuntime.refresh();
+    return;
+  }
+  await invokeNativeCommand<void>("desktop_broadcast_profile_isolation_changed");
+};
 
 /** Clears in-flight native refresh state after a full window reload or logout. */
 export const resetDesktopProfileRefreshState = (): void => {
@@ -172,7 +198,7 @@ const setSnapshot = (snapshot: ProfileIsolationSnapshot): void => {
   if (profilesChanged) {
     syncNativeProfilesIntoRegistry(snapshot);
   }
-  if (profileChanged || profilesChanged) {
+  if (profileChanged) {
     cryptoService.invalidateCache?.();
   }
   if (profileChanged || profilesChanged) {
@@ -283,6 +309,7 @@ export const desktopProfileRuntime = {
   getLastRefreshError: (): string | null => lastRefreshError,
   subscribe,
   async refresh(): Promise<ProfileIsolationSnapshot> {
+    ensureProfileIsolationListener();
     if (!hasNativeRuntime()) {
       const fallback = createFallbackSnapshot(MAIN_WINDOW_LABEL);
       setSnapshot(fallback);
@@ -365,6 +392,7 @@ export const useDesktopProfileIsolationSnapshot = (): ProfileIsolationSnapshot =
 
 /** Run before React effects so identity bootstrap reads the correct window profile scope. */
 if (typeof window !== "undefined" && hasNativeRuntime()) {
+  ensureProfileIsolationListener();
   try {
     applyDesktopWindowBootPayload();
   } catch {

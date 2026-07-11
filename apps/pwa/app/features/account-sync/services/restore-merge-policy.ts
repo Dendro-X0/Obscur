@@ -23,6 +23,19 @@ const hasAcceptedConnectionRequest = (value: EncryptedAccountBackupPayload["chat
   Boolean(value?.connectionRequests?.some((request) => request.status === "accepted"))
 );
 
+const hasIdentityUnlockPortableEvidence = (payload: EncryptedAccountBackupPayload): boolean => {
+  const encryptedPrivateKey = payload.identityUnlock?.encryptedPrivateKey?.trim();
+  return typeof encryptedPrivateKey === "string" && encryptedPrivateKey.length > 0;
+};
+
+const hasPortableProfileDraftEvidence = (payload: EncryptedAccountBackupPayload): boolean => {
+  const profile = payload.profile;
+  return (profile?.username?.trim().length ?? 0) > 0
+    || (profile?.about?.trim().length ?? 0) > 0
+    || (profile?.avatarUrl?.trim().length ?? 0) > 0
+    || (profile?.nip05?.trim().length ?? 0) > 0;
+};
+
 export const hasPortablePrivateStateEvidence = (
   payload: EncryptedAccountBackupPayload,
   hasReplayableChatHistory: (chatState: EncryptedAccountBackupPayload["chatState"]) => boolean,
@@ -36,7 +49,9 @@ export const hasPortablePrivateStateEvidence = (
     || joinedCommunityCount > 0
     || hasAcceptedConnectionRequest(payload.chatState)
     || roomKeyCount > 0;
-  return payload.peerTrust.mutedPeers.length > 0
+  return hasIdentityUnlockPortableEvidence(payload)
+    || hasPortableProfileDraftEvidence(payload)
+    || payload.peerTrust.mutedPeers.length > 0
     || hasDurableAcceptanceState
     || hasReplayableChatHistory(payload.chatState);
 };

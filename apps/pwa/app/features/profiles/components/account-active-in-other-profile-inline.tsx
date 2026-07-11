@@ -1,6 +1,7 @@
 "use client";
 
 import type React from "react";
+import { useTranslation } from "react-i18next";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 
 type Props = Readonly<{
@@ -13,28 +14,29 @@ const accountPrefix = (publicKeyHex: PublicKeyHex): string => `${publicKeyHex.sl
 
 /** Blocks duplicate unlock of the same account across profile windows at auth time. */
 export function AccountActiveInOtherProfileInline(props: Props): React.JSX.Element {
+  const { t } = useTranslation();
+
   return (
     <div
       className="mt-4 w-full rounded-[24px] border border-rose-500/30 bg-rose-500/10 px-4 py-4 text-left shadow-lg"
       role="alert"
-      aria-label="Account already active"
+      aria-label={t("profiles.activeSession.title")}
     >
       <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-        Account already active
+        {t("profiles.activeSession.title")}
       </p>
       <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">
-        Account
-        <span className="font-semibold"> {accountPrefix(props.incomingPublicKeyHex)} </span>
-        is already unlocked in
-        <span className="font-semibold"> {props.activeProfileLabel}</span>.
-        Sign out there before signing in here.
+        {t("profiles.activeSession.body", {
+          accountPrefix: accountPrefix(props.incomingPublicKeyHex),
+          profileLabel: props.activeProfileLabel,
+        })}
       </p>
       <button
         type="button"
         className="mt-3 text-sm text-zinc-500 underline-offset-2 hover:underline dark:text-zinc-400"
         onClick={props.onClose}
       >
-        Dismiss
+        {t("profiles.activeSession.dismiss")}
       </button>
     </div>
   );

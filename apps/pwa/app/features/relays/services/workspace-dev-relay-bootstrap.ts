@@ -54,6 +54,30 @@ export const applyWorkspaceDevRelayBootstrap = (
   return { relays: next, workspaceRelayUrl, changed };
 };
 
+/** Disable local workspace relay when the dev stack is not listening. */
+export const pruneUnreachableLocalDevWorkspaceRelay = (
+  relays: ReadonlyArray<RelayListEntry>,
+  localRelayUrl: string = LOCAL_DEV_RELAY_URL,
+): WorkspaceDevRelayBootstrapResult | null => {
+  const workspaceRelayUrl = normalizeWorkspaceRelayUrl(localRelayUrl) || localRelayUrl;
+  const localEntry = relays.find((relay) => relayUrlsMatch(relay.url, workspaceRelayUrl));
+  if (!localEntry?.enabled) {
+    return null;
+  }
+
+  const next = relays.map((relay) => (
+    relayUrlsMatch(relay.url, workspaceRelayUrl)
+      ? { url: workspaceRelayUrl, enabled: false }
+      : relay
+  ));
+
+  return {
+    relays: next,
+    workspaceRelayUrl,
+    changed: true,
+  };
+};
+
 /** Best-effort probe for the local Docker/dev relay on ws://localhost:7000. */
 export const probeLocalDevWorkspaceRelay = (
   localRelayUrl: string = LOCAL_DEV_RELAY_URL,
@@ -93,19 +117,27 @@ export const probeLocalDevWorkspaceRelay = (
   });
 };
 
-export const bootstrapLocalDevWorkspaceRelay = async (params: Readonly<{
+export const reconcileLocalDevWorkspaceRelay = async (params: Readonly<{
   relays: ReadonlyArray<RelayListEntry>;
   localRelayUrl?: string;
 }>): Promise<WorkspaceDevRelayBootstrapResult | null> => {
   const localRelayUrl = params.localRelayUrl ?? LOCAL_DEV_RELAY_URL;
   const reachable = await probeLocalDevWorkspaceRelay(localRelayUrl);
-  if (!reachable) {
-    return null;
+  if (reachable) {
+    const result = applyWorkspaceDevRelayBootstrap(params.relays, localRelayUrl);
+    if (result.changed) {
+      writeOperatorWorkspaceRelayUrl(result.workspaceRelayUrl);
+    }
+    return result.changed ? result : null;
   }
 
-  const result = applyWorkspaceDevRelayBootstrap(params.relays, localRelayUrl);
-  if (result.changed) {
-    writeOperatorWorkspaceRelayUrl(result.workspaceRelayUrl);
-  }
+  return pruneUnreachableLocalDevWorkspaceRelay(params.relays, localRelayUrl);
+};
+
+export const bootstrapLocalDevWorkspaceRelay = async (params: Readonly<{
+  relays: ReadonlyArray<RelayListEntry>;
+  localRelayUrl?: string;
+}>): Promise<WorkspaceDevRelayBootstrapResult | null> => {
+  const result = await reconcileLocalDevWorkspaceRelay(params);
   return result;
 };

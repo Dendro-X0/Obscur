@@ -4,7 +4,9 @@ import type { MessageBusEvent } from "@/app/features/messaging/services/message-
 import {
   doesLiveDmBusEventBelongToThread,
   mergeDmKernelThreadMessages,
+  messagesAreEquivalentForThread,
   resolveLiveBusEventConversationId,
+  upsertDmKernelThreadMessage,
 } from "./dm-kernel-live-bus-match";
 import { buildDmSiblingConversationIds } from "@/app/features/messaging/utils/dm-conversation-sibling-ids";
 
@@ -90,6 +92,33 @@ describe("dm-kernel live bus match", () => {
     expect(merged[0]?.id).toBe(optimisticId);
     expect(merged[0]?.eventId).toBe(eventId);
     expect(merged[0]?.status).toBe("accepted");
+  });
+
+  it("treats reaction-only updates as thread changes", () => {
+    const base: Message = {
+      id: "msg-1",
+      kind: "user",
+      content: "hello",
+      timestamp: new Date(2_000),
+      isOutgoing: true,
+      status: "delivered",
+      senderPubkey: myPublicKeyHex,
+      conversationId: canonicalConversationId,
+    };
+    const reacted: Message = {
+      ...base,
+      reactions: {
+        "👍": 1,
+        "❤️": 0,
+        "😂": 0,
+        "🔥": 0,
+        "👏": 0,
+      },
+    };
+
+    expect(messagesAreEquivalentForThread(base, reacted)).toBe(false);
+    const merged = upsertDmKernelThreadMessage([base], reacted);
+    expect(merged[0]?.reactions?.["👍"]).toBe(1);
   });
 
   it("merges sqlite and live rows without dropping bus-only messages", () => {

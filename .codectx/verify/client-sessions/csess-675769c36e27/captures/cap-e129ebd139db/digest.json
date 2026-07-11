@@ -1,0 +1,5 @@
+{
+  "error": "ProfileSlotAccountConflictError: This profile window already has local data for account 87cb2c20…. Sign in with that account, open another profile window for e07f67dc…, or export and reset this window first.",
+  "ok": false,
+  "proofTier": "t3"
+}

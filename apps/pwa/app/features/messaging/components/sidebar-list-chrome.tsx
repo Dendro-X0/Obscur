@@ -17,6 +17,8 @@ type SidebarListChromeProps = Readonly<{
     chatsUnreadTotal: number;
     requestsUnreadTotal: number;
     pendingRequestsCount: number;
+    pendingRequestsBadgeDismissed?: boolean;
+    onDismissPendingRequestsBadge?: () => void;
     junkUnreadTotal: number;
     pendingJunkCount: number;
     searchQuery: string;
@@ -74,7 +76,15 @@ function MobileChatModePill({ active, label, unread, onClick, }: Readonly<{
 }
 export function SidebarListChrome(props: SidebarListChromeProps): React.JSX.Element {
     const { t } = useTranslation();
-    const { variant, activeTab, setActiveTab, chatsUnreadTotal, requestsUnreadTotal, pendingRequestsCount, junkUnreadTotal, pendingJunkCount, searchQuery, setSearchQuery, searchInputRef, searchDismissSignal, onUserSelect, chatViewMode, setChatViewMode, dmsUnread, groupsUnread, setIsNewChatOpen, setIsNewGroupOpen, areChatSectionsExpanded, onToggleChatSectionsExpanded, onClearRequestHistory, } = props;
+    const { variant, activeTab, setActiveTab, chatsUnreadTotal, requestsUnreadTotal, pendingRequestsCount, pendingRequestsBadgeDismissed = false, onDismissPendingRequestsBadge, junkUnreadTotal, pendingJunkCount, searchQuery, setSearchQuery, searchInputRef, searchDismissSignal, onUserSelect, chatViewMode, setChatViewMode, dmsUnread, groupsUnread, setIsNewChatOpen, setIsNewGroupOpen, areChatSectionsExpanded, onToggleChatSectionsExpanded, onClearRequestHistory, } = props;
+    const showPendingRequestsBadge = pendingRequestsCount > 0 && !pendingRequestsBadgeDismissed;
+    const requestsTabBadge = requestsUnreadTotal > 0
+        ? (<UnreadPill count={requestsUnreadTotal}/>)
+        : showPendingRequestsBadge
+            ? (<span className="inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-zinc-400 px-1 text-[9px] font-bold text-white dark:bg-zinc-600">
+                    {pendingRequestsCount}
+                </span>)
+            : null;
     if (variant === "mobile") {
         return (<div className="shrink-0 space-y-2 border-b border-black/[0.03] px-3 pb-2 pt-1 dark:border-white/[0.03]" data-testid="sidebar-mobile-chrome">
                 <div className="flex items-center gap-1.5">
@@ -92,9 +102,7 @@ export function SidebarListChrome(props: SidebarListChromeProps): React.JSX.Elem
 
                 <div className="flex border-b border-black/[0.04] dark:border-white/[0.06]" role="tablist">
                     <MobileUnderlineTab active={activeTab === "chats"} label={t("nav.chats")} badge={<UnreadPill count={chatsUnreadTotal}/>} onClick={() => setActiveTab("chats")}/>
-                    <MobileUnderlineTab active={activeTab === "requests"} label={t("nav.requests")} badge={requestsUnreadTotal > 0 ? (<UnreadPill count={requestsUnreadTotal}/>) : pendingRequestsCount > 0 ? (<span className="inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-zinc-400 px-1 text-[9px] font-bold text-white dark:bg-zinc-600">
-                                    {pendingRequestsCount}
-                                </span>) : null} onClick={() => setActiveTab("requests")}/>
+                    <MobileUnderlineTab active={activeTab === "requests"} label={t("nav.requests")} badge={requestsTabBadge} onClick={() => setActiveTab("requests")}/>
                     <MobileUnderlineTab active={activeTab === "junk"} label={t("nav.junk")} badge={junkUnreadTotal > 0 ? (<UnreadPill count={junkUnreadTotal}/>) : pendingJunkCount > 0 ? (<span className="inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-amber-500 px-1 text-[9px] font-bold text-white">
                                     {pendingJunkCount}
                                 </span>) : null} onClick={() => setActiveTab("junk")}/>
@@ -166,9 +174,7 @@ export function SidebarListChrome(props: SidebarListChromeProps): React.JSX.Elem
             ? "bg-white text-zinc-900 shadow-sm ring-1 ring-black/5 dark:bg-zinc-800 dark:text-white dark:ring-white/5"
             : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300")}>
                         {t("nav.requests")}
-                        {requestsUnreadTotal > 0 ? (<UnreadPill count={requestsUnreadTotal}/>) : pendingRequestsCount > 0 ? (<span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-zinc-400 px-1 text-[9px] text-white dark:bg-zinc-600">
-                                {pendingRequestsCount}
-                            </span>) : null}
+                        {requestsTabBadge}
                     </button>
                     <button type="button" onClick={() => setActiveTab("junk")} className={cn("z-10 flex flex-1 items-center justify-center gap-1 rounded-lg py-2 text-[10px] font-bold transition-all", activeTab === "junk"
             ? "bg-white text-zinc-900 shadow-sm ring-1 ring-black/5 dark:bg-zinc-800 dark:text-white dark:ring-white/5"

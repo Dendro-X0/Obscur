@@ -64,7 +64,8 @@ describe("community-group-sqlite-store (P3d)", () => {
     const persisted = sqliteGroupRecordToPersistedGroup(record, LOCAL);
     expect(persisted.groupId).toBe("g1");
     expect(persisted.displayName).toBe("From SQLite");
-    expect(persisted.memberPubkeys).toEqual([LOCAL]);
+    expect(persisted.memberPubkeys).toEqual([]);
+    expect(persisted.memberCount).toBe(0);
   });
 
   it("merges sqlite rows with richer chat-state rows", () => {

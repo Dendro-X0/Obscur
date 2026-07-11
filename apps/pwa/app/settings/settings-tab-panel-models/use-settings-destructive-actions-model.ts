@@ -18,6 +18,14 @@ import type { GroupConversation } from "@/app/features/messaging/types";
 import { resetLocalHistoryKeepingIdentity } from "@/app/features/messaging/services/local-history-reset-service";
 import { markRetiredIdentityPublicKey } from "@/app/features/auth/utils/retired-identity-registry";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
+import { getDefaultProfileId } from "@/app/features/profiles/services/profile-scope";
+import { desktopProfileRuntime, useDesktopProfileIsolationSnapshot } from "@/app/features/profiles/services/desktop-profile-runtime";
+import {
+  DELETE_PROFILE_WINDOW_CONFIRM_TEXT,
+  deleteCurrentProfileWindowCompletely,
+} from "@/app/features/profiles/services/delete-current-profile-window";
+import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
+import { performAccountSessionHardReset } from "@/app/features/runtime/services/account-session-hard-reset";
 import { archiveAndClearProfileLocalDataKeepingIdentity } from "@/app/features/profiles/services/profile-session-lifecycle";
 import { archiveProfileWorkspaceBeforeWipe } from "@/app/features/profiles/services/profile-workspace-archive-service";
 import { wipeProfileWorkspaceCompletely } from "@/app/features/profiles/services/wipe-profile-workspace";
@@ -47,7 +55,12 @@ export function useSettingsDestructiveActionsModel(): Record<string, unknown> {
     const [isDisableAllRelaysDialogOpen, setIsDisableAllRelaysDialogOpen] = useState(false);
     const [profileArchiveResult, setProfileArchiveResult] = useState<ProfileWorkspaceArchiveWriteResult | null>(null);
     const [isProfileArchiveDialogOpen, setIsProfileArchiveDialogOpen] = useState(false);
-    const [profileArchiveDialogMode, setProfileArchiveDialogMode] = useState<"clear_data" | "delete_account">("clear_data");
+    const [profileArchiveDialogMode, setProfileArchiveDialogMode] = useState<"clear_data" | "delete_account" | "delete_profile_window">("clear_data");
+    const [isDeleteProfileWindowDialogOpen, setIsDeleteProfileWindowDialogOpen] = useState(false);
+    const [deleteProfileWindowConfirmInput, setDeleteProfileWindowConfirmInput] = useState("");
+    const desktopSnapshot = useDesktopProfileIsolationSnapshot();
+    const resolvedProfileId = getResolvedProfileId();
+    const isDefaultProfileWindow = resolvedProfileId === getDefaultProfileId();
     const clearIndexedDbDatabases = async (): Promise<void> => {
         return;
     };
@@ -186,17 +199,29 @@ export function useSettingsDestructiveActionsModel(): Record<string, unknown> {
         }
         return { joinedCount: joinedEntries.length, leftPublishedCount, leftPublishFailureCount };
     }, [identity.state.privateKeyHex, publicKeyHex, publishScopedGroupEvent]);
-    const openProfileArchiveResultDialog = (archiveResult: ProfileWorkspaceArchiveWriteResult | null, mode: "clear_data" | "delete_account"): void => {
+    const openProfileArchiveResultDialog = (
+        archiveResult: ProfileWorkspaceArchiveWriteResult | null,
+        mode: "clear_data" | "delete_account" | "delete_profile_window",
+    ): void => {
         setProfileArchiveResult(archiveResult);
         setProfileArchiveDialogMode(mode);
         setIsProfileArchiveDialogOpen(true);
         setIsClearDataDialogOpen(false);
         setIsDeleteAccountDialogOpen(false);
+        setIsDeleteProfileWindowDialogOpen(false);
     };
     const handleProfileArchiveDialogClose = (): void => {
         setIsProfileArchiveDialogOpen(false);
         setProfileArchiveResult(null);
         if (typeof window !== "undefined") {
+            if (profileArchiveDialogMode === "delete_profile_window") {
+                performAccountSessionHardReset({
+                    reason: "profile_removed",
+                    profileId: getResolvedProfileId(),
+                    nextPublicKeySuffix: null,
+                });
+                return;
+            }
             window.location.reload();
         }
     };
@@ -314,6 +339,57 @@ export function useSettingsDestructiveActionsModel(): Record<string, unknown> {
         }
         setDeleteAccountCountdown(5);
     };
+    const handleOpenDeleteProfileWindowDialog = (): void => {
+        setDeleteProfileWindowConfirmInput("");
+        setIsDeleteProfileWindowDialogOpen(true);
+    };
+    const handleCloseDeleteProfileWindowDialog = (): void => {
+        if (securityActionPhase === "working") {
+            return;
+        }
+        setIsDeleteProfileWindowDialogOpen(false);
+        setDeleteProfileWindowConfirmInput("");
+    };
+    const handleDeleteProfileWindow = async (): Promise<void> => {
+        if (deleteProfileWindowConfirmInput.trim() !== DELETE_PROFILE_WINDOW_CONFIRM_TEXT) {
+            toast.error(t("settings.dialogs.deleteProfileWindowTypeConfirm", {
+                phrase: DELETE_PROFILE_WINDOW_CONFIRM_TEXT,
+            }));
+            return;
+        }
+        try {
+            setSecurityActionPhase("working");
+            setSecurityActionMessage(isDefaultProfileWindow
+                ? t("settings.dialogs.resetProfileWindowWorking")
+                : t("settings.dialogs.deleteProfileWindowWorking"));
+            const archiveResult = await deleteCurrentProfileWindowCompletely({
+                profileId: resolvedProfileId,
+                profileLabel: profile.state.profile.username.trim() || desktopSnapshot.currentWindow.profileLabel,
+                publicKeyHex,
+                syncInMemoryIdentity: async () => {
+                    try {
+                        await identity.forgetIdentity();
+                    } catch (identityError) {
+                        console.warn("In-memory identity sync after profile window purge:", identityError);
+                    }
+                },
+            });
+            setSecurityActionPhase("success");
+            setSecurityActionMessage(isDefaultProfileWindow
+                ? t("settings.dialogs.resetProfileWindowSuccess")
+                : t("settings.dialogs.deleteProfileWindowSuccess"));
+            setIsDeleteProfileWindowDialogOpen(false);
+            setDeleteProfileWindowConfirmInput("");
+            if (isDefaultProfileWindow || !hasNativeRuntime()) {
+                openProfileArchiveResultDialog(archiveResult, "delete_profile_window");
+            }
+        } catch (error) {
+            console.error(error);
+            setSecurityActionPhase("error");
+            setSecurityActionMessage(t("settings.dialogs.deleteProfileWindowFailed"));
+            toast.error(t("settings.dialogs.deleteProfileWindowFailed"));
+        }
+    };
     const handleRelayBulkDisableAllRequest = (): void => {
         if (relayList.state.relays.length === 0) {
             return;
@@ -344,9 +420,14 @@ export function useSettingsDestructiveActionsModel(): Record<string, unknown> {
     }, [deleteAccountConfirmInput, deleteAccountCountdown]);
     return {
         DELETE_ACCOUNT_CONFIRM_TEXT,
+        DELETE_PROFILE_WINDOW_CONFIRM_TEXT,
         deleteAccountConfirmInput,
         deleteAccountCountdown,
+        deleteProfileWindowConfirmInput,
         handleArmDeleteAccount,
+        handleCloseDeleteProfileWindowDialog,
+        handleDeleteProfileWindow,
+        handleOpenDeleteProfileWindowDialog,
         handleClearData,
         handleDeleteAccount,
         handleProfileArchiveDialogClose,
@@ -355,6 +436,8 @@ export function useSettingsDestructiveActionsModel(): Record<string, unknown> {
         handleResetLocalHistory,
         isClearDataDialogOpen,
         isDeleteAccountDialogOpen,
+        isDeleteProfileWindowDialogOpen,
+        isDefaultProfileWindow,
         isDisableAllRelaysDialogOpen,
         isProfileArchiveDialogOpen,
         isResetLocalHistoryDialogOpen,
@@ -364,6 +447,7 @@ export function useSettingsDestructiveActionsModel(): Record<string, unknown> {
         securityActionPhase,
         setDeleteAccountConfirmInput,
         setDeleteAccountCountdown,
+        setDeleteProfileWindowConfirmInput,
         setIsClearDataDialogOpen,
         setIsDeleteAccountDialogOpen,
         setIsDisableAllRelaysDialogOpen,

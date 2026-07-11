@@ -13,6 +13,7 @@ import {
 import { isWorkspaceKernelAuthority } from "@/app/features/workspace-kernel/workspace-kernel-policy";
 import { subscribeGroupThreadMessagesChanged } from "../services/thread-history/group-thread-messages-changed";
 import { messageBus } from "../services/message-bus";
+import { upsertDmKernelThreadMessage } from "@/app/features/dm-kernel/dm-kernel-live-bus-match";
 import { collectMessageIdentityAliases } from "../services/message-identity-alias-contract";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { DESKTOP_PROFILE_BOOT_RECONCILED_EVENT } from "@/app/features/profiles/services/desktop-window-boot";
@@ -129,7 +130,18 @@ export function useGroupThreadMessages(
     }
     const activeProfileId = getResolvedProfileId()?.trim();
     return messageBus.subscribe((event) => {
-      if (event.type !== "message_deleted" || event.conversationId !== conversationId) {
+      if (event.conversationId !== conversationId) {
+        return;
+      }
+      if (event.type === "message_updated") {
+        setMessages((current) => {
+          const next = upsertDmKernelThreadMessage(current, event.message);
+          messagesRef.current = next;
+          return next;
+        });
+        return;
+      }
+      if (event.type !== "message_deleted") {
         return;
       }
       if (event.messageId === "all") {

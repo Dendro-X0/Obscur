@@ -54,7 +54,12 @@ type RequestTransportDependencies = Readonly<{
   }>) => Promise<SendResult>;
   requestsInbox?: {
     getRequestStatus: (params: Readonly<{ peerPublicKeyHex: PublicKeyHex }>) => RequestInboxStatus;
-    setStatus: (params: Readonly<{ peerPublicKeyHex: PublicKeyHex; status: ConnectionRequestStatusValue; isOutgoing?: boolean }>) => void;
+    setStatus: (params: Readonly<{
+      peerPublicKeyHex: PublicKeyHex;
+      status: ConnectionRequestStatusValue;
+      isOutgoing?: boolean;
+      lastMessagePreview?: string;
+    }>) => void;
   };
   peerTrust?: {
     acceptPeer: (params: Readonly<{ publicKeyHex: PublicKeyHex }>) => void;
@@ -267,6 +272,33 @@ export const createRequestTransportService = (deps: RequestTransportDependencies
     }
     const status = mapSendResultToStatus(result);
     const evidence = evidenceStore.get(params.peerPublicKeyHex, evidenceProfileId);
+    if (status === "ok" || status === "partial" || status === "queued") {
+      deps.requestsInbox?.setStatus({
+        peerPublicKeyHex: params.peerPublicKeyHex,
+        status: "pending",
+        isOutgoing: true,
+        lastMessagePreview: params.introMessage,
+      });
+    }
+    return toRequestTransportOutcome({
+      status,
+      result,
+      evidence,
+      inboxStatus: resolveInboxStatus(deps.requestsInbox, params.peerPublicKeyHex),
+    });
+  };
+
+  const sendSandboxQna = async (params: Readonly<{
+    peerPublicKeyHex: PublicKeyHex;
+    plaintext: string;
+  }>): Promise<RequestTransportOutcome> => {
+    const result = await deps.sendDm({
+      peerPublicKeyInput: params.peerPublicKeyHex,
+      plaintext: params.plaintext,
+      customTags: [["t", "connection-qna"]],
+    });
+    const status = mapSendResultToStatus(result);
+    const evidence = evidenceStore.get(params.peerPublicKeyHex, evidenceProfileId);
     return toRequestTransportOutcome({
       status,
       result,
@@ -469,6 +501,7 @@ export const createRequestTransportService = (deps: RequestTransportDependencies
   return {
     sendConnectionRequestRaw,
     sendRequest,
+    sendSandboxQna,
     acceptIncomingRequest,
     declineIncomingRequest,
     cancelOutgoingRequest,

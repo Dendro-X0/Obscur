@@ -17,6 +17,10 @@ import { SendRequestDialog } from "../../network/components/send-request-dialog"
 import type { ProfileSearchResult } from "../../search/services/profile-search-service";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { RequestTransportOutcome } from "@/app/features/messaging/services/request-transport-service";
+import {
+  assertNoBlockedSecretMaterial,
+  SECRET_INPUT_FIREWALL_MESSAGE,
+} from "@/app/features/security/services/secret-input-firewall";
 type NostrProfileMetadata = Readonly<{
     name?: string;
     display_name?: string;
@@ -62,8 +66,12 @@ interface NewChatDialogProps {
         peerPublicKeyHex: PublicKeyHex;
         introMessage?: string;
     }) => Promise<RequestTransportOutcome>;
+    onRequestSent?: (params: Readonly<{
+        peerPublicKeyHex: PublicKeyHex;
+        displayName?: string;
+    }>) => void;
 }
-export function NewChatDialog({ isOpen, onClose, pubkey, setPubkey, displayName, setDisplayName, onCreate, verifyRecipient, searchProfiles, isAccepted, sendConnectionRequest }: NewChatDialogProps) {
+export function NewChatDialog({ isOpen, onClose, pubkey, setPubkey, displayName, setDisplayName, onCreate, verifyRecipient, searchProfiles, isAccepted, sendConnectionRequest, onRequestSent }: NewChatDialogProps) {
     const { t } = useTranslation();
     const [isSearching, setIsSearching] = useState(false);
     const [verificationStatus, setVerificationStatus] = useState<'idle' | 'found' | 'not_found'>('idle');
@@ -270,13 +278,19 @@ export function NewChatDialog({ isOpen, onClose, pubkey, setPubkey, displayName,
         if (!resolvedPubkeyHex) {
             return;
         }
+        if (!assertNoBlockedSecretMaterial(introMessage, "message").ok) {
+            toast.error(SECRET_INPUT_FIREWALL_MESSAGE.messageBlocked);
+            return;
+        }
         const result = await sendConnectionRequest({
             peerPublicKeyHex: resolvedPubkeyHex,
             introMessage
         });
         if (result.status === "ok" || result.status === "partial") {
-            // Also create the conversation locally so it appears in the sidebar using the resolved hex
-            onCreate(resolvedPubkeyHex);
+            onRequestSent?.({
+                peerPublicKeyHex: resolvedPubkeyHex,
+                displayName: displayName || getFoundProfileName(foundProfile),
+            });
             onClose();
             if (result.status === "ok") {
                 toast.success(t("network.notifications.requestSent"));

@@ -1,5 +1,5 @@
 import type { MessageBusEvent } from "@/app/features/messaging/services/message-bus";
-import type { Message } from "@/app/features/messaging/types";
+import type { Message, ReactionsByEmoji, Attachment } from "@/app/features/messaging/types";
 import { collectMessageIdentityAliases } from "@/app/features/messaging/services/message-identity-alias-contract";
 import { normalizePublicKeyHex } from "@/app/features/profile/utils/normalize-public-key-hex";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
@@ -54,11 +54,23 @@ const messageRichnessScore = (message: Message): number => {
   return score;
 };
 
+const reactionsAreEquivalentForThread = (
+  left: ReactionsByEmoji | undefined,
+  right: ReactionsByEmoji | undefined,
+): boolean => JSON.stringify(left ?? null) === JSON.stringify(right ?? null);
+
+const attachmentsAreEquivalentForThread = (
+  left: ReadonlyArray<Attachment> | undefined,
+  right: ReadonlyArray<Attachment> | undefined,
+): boolean => JSON.stringify(left ?? null) === JSON.stringify(right ?? null);
+
 export const messagesAreEquivalentForThread = (left: Message, right: Message): boolean => (
   left.id === right.id
   && left.eventId === right.eventId
   && left.status === right.status
   && left.content === right.content
+  && reactionsAreEquivalentForThread(left.reactions, right.reactions)
+  && attachmentsAreEquivalentForThread(left.attachments, right.attachments)
 );
 
 export const preferRicherThreadMessage = (existing: Message, incoming: Message): Message => {
@@ -77,6 +89,9 @@ export const preferRicherThreadMessage = (existing: Message, incoming: Message):
     attachments: (richer.attachments && richer.attachments.length > 0)
       ? richer.attachments
       : existing.attachments ?? richer.attachments,
+    reactions: incoming.reactions !== undefined
+      ? incoming.reactions
+      : existing.reactions ?? richer.reactions,
   };
 };
 

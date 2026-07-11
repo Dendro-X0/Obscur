@@ -68,7 +68,7 @@ export const inviteResolverInternals = {
 
 export const useInviteResolver = (params: { myPublicKeyHex: PublicKeyHex | null }) => {
     void params;
-    const { relayPool: pool } = useRelay();
+    const { relayPool: pool, enabledRelayUrls } = useRelay();
     const poolRef = useRelayPoolRef(pool);
     const [isResolving, setIsResolving] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -99,6 +99,7 @@ export const useInviteResolver = (params: { myPublicKeyHex: PublicKeyHex | null 
                 query: code,
                 timeoutMs: 7_000,
                 maxResults: 20,
+                relayUrls: enabledRelayUrls,
             });
             const matched = records.find((record) => (record.inviteCode ?? "").toUpperCase() === code.toUpperCase())
                 ?? records[0];
@@ -118,7 +119,7 @@ export const useInviteResolver = (params: { myPublicKeyHex: PublicKeyHex | null 
         } finally {
             setIsResolving(false);
         }
-    }, [poolRef]);
+    }, [enabledRelayUrls, poolRef]);
 
     return useMemo(() => ({
         resolveCode,

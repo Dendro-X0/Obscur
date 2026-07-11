@@ -2,7 +2,7 @@
 
 **Read this first.** Snapshot for maintainers and agents (2026-07-09).
 
-_Last updated: 2026-07-09 · Version train: **1.9.10** · **Runtime repair band EXIT** · **Vault sandbox evidence mode**_
+_Last updated: 2026-07-11 · Version train: **1.9.11** · **Vault sandbox Phases 1–5** · **Runtime repair band EXIT**_
 
 ---
 
@@ -17,12 +17,12 @@ _Last updated: 2026-07-09 · Version train: **1.9.10** · **Runtime repair band 
 | **Phase 5 demo kit** | **Local prep** — script draft · GIF capture **maintainer-later** |
 | **Runtime repair band** | **EXIT** — R1–R3 + R5 **VERIFIED t4** · R4 **A** |
 | **Phase 6 precheck** | **Done** @ `ecbcf2eb` — gate draft · deps refreshed · engine lab PASS · tag **not yet** |
-| **Vault sandbox (VAULT-SANDBOX-1)** | **Phases 1–5 implemented** · **G8 evidence mode** (maintainer L3/L4) · [plan](../specs/backend/vault-encryption-sandbox-plan-2026-07.md) |
+| **Vault sandbox (VAULT-SANDBOX-1)** | **Phases 1–5 shipped** @ **1.9.11** · **G8 L3/L4** maintainer · [plan](../specs/backend/vault-encryption-sandbox-plan-2026-07.md) |
 | **CodaCtrl lane D** | **Obscur-side EXIT** — WEB-R2 hooks · RIW-8 draft mappings · runbook · **daemon wiring external** |
 | **Engine lab (B0–B5, Conduit Mesh C0–C6)** | **Landed** — `pnpm verify:engine-lab` (parallel, does not unblock release alone) |
 | **Community feature patches** | **PAUSED** — COM-RUN-01 accepted @ ACC-02 |
 
-**Next step:** [handoffs/current-session.md](./handoffs/current-session.md) → **VAULT-SANDBOX-1 G8** (maintainer L3/L4 sign-off) · Phase 4–5 still gate v2 tag · CodaCtrl daemon wiring is **CodaCtrl repo**, not Obscur
+**Next step:** [handoffs/current-session.md](./handoffs/current-session.md) → **v1.9.11 release prep** (tag + installer) · **VAULT-SANDBOX-1 G8** (maintainer L3/L4 optional) · Phase 4–5 still gate `v2.0.0`
 
 ---
 

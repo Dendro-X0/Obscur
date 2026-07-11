@@ -11,6 +11,7 @@
 |-----|------|
 | [presenter-checklist.md](./presenter-checklist.md) | Cold-run setup + exit criteria |
 | [gif-inventory.md](./gif-inventory.md) | Visual evidence map + capture gaps |
+| [group-chat-gif-shot-list.md](./group-chat-gif-shot-list.md) | Group demo GIF sequence (Docker relay, invite, chat) |
 | [obscur-v2-known-limitations.md](../../../program/obscur-v2-known-limitations.md) | Hand to viewers — honest scope |
 | [obscur-v2-install-build-guide.md](../../../program/obscur-v2-install-build-guide.md) | Build-from-source fallback |
 | [private-trust-local-setup.md](../private-trust-local-setup.md) | Two-tester stack for live group segment |
@@ -52,7 +53,7 @@
 | 2.2 | Settings → identity / security surfaces | Passphrase path clear |
 | 2.3 | Mention cold restart | “After full process kill, password unlock works on verified paths; Import Key may appear on edge restore bands — see limitations.” |
 
-**GIF:** [`obscur_login_1.gif`](../../gifs/obscur_login_1.gif) — **stale UI risk** (2026-04 capture); prefer live unlock when possible.
+**GIF:** [`auth_unlock_1.gif`](../../gifs/auth_unlock_1.gif) · optional create: [`auth_create_1.gif`](../../gifs/auth_create_1.gif)
 
 **Verified (Phase 1):** R2 cold unlock **VERIFIED t4** · O-2 DM cold restart **VERIFIED t4**.
 
@@ -66,7 +67,7 @@
 | 3.2 | Optional: second profile or note dual-tester deferral | Receive path if two clients running |
 | 3.3 | Mention SQLite persistence | “Native history survives restart on paths we tested.” |
 
-**GIF:** [`obscur_chat_ui_1.gif`](../../gifs/obscur_chat_ui_1.gif)
+**GIF:** [`e2e-dm-base_1.gif`](../../gifs/e2e-dm-base_1.gif) · polish: [`search_message_history_1.gif`](../../gifs/search_message_history_1.gif)
 
 **Do not demo:** Delete-for-me as “gone forever” — ACC-01 accepted limitation.
 
@@ -80,7 +81,7 @@
 | 4.2 | Community membership sync mode | Coordination preferred when URL set |
 | 4.3 | One sentence on transport | “Relay carries ciphertext; coordination directory owns membership deltas on private-trust stacks.” |
 
-**GIF:** [`obscur_settings_panel_1.gif`](../../gifs/obscur_settings_panel_1.gif)
+**GIF:** [`relay_overview_1.gif`](../../gifs/relay_overview_1.gif) · [`relay_enable_disable_1.gif`](../../gifs/relay_enable_disable_1.gif) — **settings panel refresh pending:** `settings_panel_1.gif`
 
 **Live stack (if group segment follows):** See [private-trust-local-setup.md](../private-trust-local-setup.md) — coordination `:8787` · relay `ws://localhost:7000`.
 
@@ -93,7 +94,7 @@
 | 5.1 | Profile switcher or second window | Distinct profile chrome |
 | 5.2 | Same machine, isolated state | No ambient “current user” bleed in UI |
 
-**GIF:** [`multi_profile_management_1.gif`](../../gifs/multi_profile_management_1.gif)
+**GIF:** [`export_local_profile_1.gif`](../../gifs/export_local_profile_1.gif) · import · isolation GIFs in [inventory](./gif-inventory.md)
 
 ---
 
@@ -109,7 +110,7 @@ This segment proves Phase 1C **VERIFIED t4** (dual-profile send/receive). Requir
 | 6.4 | Tester2 | Same thread | Message visible — sidebar preview may lag thread (R3 **VERIFIED t4** post-fix; mention honestly if stale) |
 | 6.5 | Both | Participants modal | **Do not** claim roster parity — ACC-02 accepted |
 
-**GIF gap:** No community/group GIF in library — capture target: `community_group_send_receive_1.gif` (see [gif-inventory.md](./gif-inventory.md)).
+**GIFs:** [`community_group_send_receive_1.gif`](../../gifs/community_group_send_receive_1.gif) · full suite in [group-chat-gif-shot-list.md](./group-chat-gif-shot-list.md)
 
 **Short path (no live stack):** Show Phase 1C chain reference in handoff · skip live send · state limitation.
 
@@ -122,7 +123,7 @@ This segment proves Phase 1C **VERIFIED t4** (dual-profile send/receive). Requir
 | 7.1 | Attach image or file in DM | Upload progress + render |
 | 7.2 | Voice note or call surface | UI loads — do not claim full PSTN parity |
 
-**GIFs:** [`multimedia_files_upload_and_transfer_1.gif`](../../gifs/multimedia_files_upload_and_transfer_1.gif) · [`voice_notes_and_calls_1.gif`](../../gifs/voice_notes_and_calls_1.gif)
+**GIFs (pending):** `multimedia_files_upload_and_transfer_1.gif` · `voice_notes_1.gif` · `voice_calls_1.gif` — see [inventory](./gif-inventory.md)
 
 **Accepted:** MED-001 / MED-002 media relink — not re-run for v2 demo gate.
 

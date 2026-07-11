@@ -36,7 +36,7 @@ export function RuntimeMessagingTransportOwnerProvider(props: Readonly<{ childre
   const identity = useIdentity();
   const runtimeSnapshot = useWindowRuntimeSnapshot();
   const { relayPool } = useRelay();
-  const { blocklist, peerTrust } = useNetwork();
+  const { blocklist, peerTrust, requestsInbox } = useNetwork();
   const activePublicKeyHex = identity.state.publicKeyHex ?? null;
   const runtimeTransportOwnerEnabled = isRuntimeTransportOwnerEnabled();
   const ownerEnabled = (
@@ -152,6 +152,7 @@ export function RuntimeMessagingTransportOwnerProvider(props: Readonly<{ childre
     pool: relayPool,
     blocklist,
     peerTrust,
+    requestsInbox,
     onNewMessage: handleNewMessage,
     onMessageUpdated: handleMessageUpdated,
     onMessageDeleted: handleMessageDeleted,

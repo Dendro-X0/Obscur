@@ -3,6 +3,7 @@ import { invokeNativeCommand } from "@/app/features/runtime/native-adapters";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { isRememberMeEnabledForProfile } from "@/app/features/auth/services/session-bootstrap-contracts";
 import { SESSION_AUTO_UNLOCK_ENABLED, NATIVE_SECURE_SESSION_RESTORE_ENABLED } from "@/app/features/auth/services/session-credential-policy";
+import { requireHardwareUnlockGateIfEnabled } from "@/app/features/security/services/hardware-unlock-gate";
 
 export interface SessionStatus {
     isActive: boolean;
@@ -113,6 +114,10 @@ export class SessionApi {
     static async forceSessionRestore(expectedPublicKeyHex?: string): Promise<SessionStatus> {
         if (!hasNativeRuntime()) {
             return { isActive: false, npub: null, isNative: false };
+        }
+        const hardwareGate = await requireHardwareUnlockGateIfEnabled();
+        if (hardwareGate.required && !hardwareGate.passed) {
+            return { isActive: false, npub: null, isNative: true };
         }
         const result = await invokeNativeCommand<SessionStatusWire>("desktop_force_session_restore", {
             expectedPubkeyHex: expectedPublicKeyHex ?? null,

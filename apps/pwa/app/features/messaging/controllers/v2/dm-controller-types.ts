@@ -196,6 +196,16 @@ export type RequestsInboxContract = Readonly<{
     status: ConnectionRequestStatusValue;
     isOutgoing?: boolean;
   }>) => void;
+  upsertIncoming: (params: Readonly<{
+    peerPublicKeyHex: string;
+    plaintext: string;
+    createdAtUnixSeconds: number;
+    observedAtUnixSeconds?: number;
+    isRequest?: boolean;
+    status?: ConnectionRequestStatusValue;
+    eventId?: string;
+    ingestSource?: "relay_live" | "relay_sync";
+  }>) => void;
 }>;
 
 export type BlocklistContract = Readonly<{

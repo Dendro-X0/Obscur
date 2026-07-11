@@ -25,7 +25,7 @@ export const groupConversationToSqliteRecord = (
 
 export const sqliteGroupRecordToPersistedGroup = (
   record: GroupRecord,
-  localPublicKeyHex: PublicKeyHex,
+  _localPublicKeyHex: PublicKeyHex,
 ): PersistedGroupConversation => {
   const communityId = deriveCommunityId({
     groupId: record.id,
@@ -42,12 +42,12 @@ export const sqliteGroupRecordToPersistedGroup = (
     groupId: record.id,
     relayUrl: record.relay_url,
     displayName: record.name,
-    memberPubkeys: [localPublicKeyHex],
+    memberPubkeys: [],
     lastMessage: "",
     unreadCount: 0,
     lastMessageTimeMs: record.joined_at,
     access: record.kind === "public" ? "open" : "invite-only",
-    memberCount: 1,
+    memberCount: 0,
     adminPubkeys: [],
   };
 };
@@ -63,7 +63,9 @@ export const mergePersistedGroupRowsForNativeHydrate = (
   chatStateRows.forEach((row) => {
     const key = groupRowKey(row);
     const existing = merged.get(key);
-    if (!existing || (row.memberPubkeys?.length ?? 0) >= (existing.memberPubkeys?.length ?? 0)) {
+    const rowMembers = row.memberPubkeys?.length ?? 0;
+    const existingMembers = existing?.memberPubkeys?.length ?? 0;
+    if (!existing || rowMembers > existingMembers || (rowMembers > 0 && rowMembers === existingMembers)) {
       merged.set(key, row);
     }
   });

@@ -8,6 +8,7 @@ import { CommunityBotPausedBanner } from "@/app/features/groups/components/commu
 import type { CommunityBotTriggerSummary } from "@/app/features/groups/services/community-bot-triggers-policy";
 import { ChatHeader } from "./chat-header";
 import { StrangerWarningBanner } from "./stranger-warning-banner";
+import { ContactRequestThreadBanner } from "./contact-request-thread-banner";
 import { shouldShowPathBThreadWarningBanner } from "../services/path-b-b5-extension-hooks";
 import { RelayOverlapBanner } from "./relay-overlap-banner";
 import type { ContactRelayOverlapResult } from "../hooks/use-contact-relay-overlap";
@@ -177,7 +178,11 @@ export interface ChatViewProps {
     isPeerAccepted?: boolean;
     isPublicKeyAccepted?: (publicKeyHex: string) => boolean;
     isInitiator?: boolean;
-    onAcceptPeer?: () => void;
+    contactRequestComposeMode?: import("@/app/features/messaging/services/contact-request-sandbox-policy").ContactRequestComposeMode;
+    requestEventId?: string;
+    onAcceptPeer?: () => void | Promise<void>;
+    onDeclinePeer?: () => void | Promise<void>;
+    onCancelOutgoingRequest?: () => void | Promise<void>;
     onBlockPeer?: () => void;
     groupAdmins?: ReadonlyArray<Readonly<{
         pubkey: string;
@@ -655,17 +660,35 @@ export function ChatView(props: ChatViewProps) {
     return (<div className="group/chat-root flex flex-col flex-1 min-h-0 relative overflow-hidden" onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
             {!hideDesktopChatHeader ? (<ChatHeader conversation={props.conversation} groupMemberCount={props.groupMemberCount} groupOnlineMemberCount={props.groupOnlineMemberCount} groupLastActivityAtMs={props.groupLastActivityAtMs} isOnline={props.isPeerOnline} interactionStatus={props.interactionStatus} nowMs={props.nowMs} onCopyPubkey={props.onCopyPubkey} onOpenMedia={props.onOpenMedia} onToggleConversationNotifications={props.onToggleConversationNotifications} onOpenInfo={props.onOpenInfo} onOpenProfile={props.onOpenProfile} onSendVoiceCallInvite={props.onSendVoiceCallInvite} canSendVoiceCallInvite={isDeletedRecipient ? false : props.canSendVoiceCallInvite} isSendingVoiceCallInvite={props.isSendingVoiceCallInvite} activeVoiceCallState={props.activeVoiceCallState} voiceCallStatus={props.voiceCallStatus} onLeaveVoiceCall={props.onLeaveVoiceCall} onAcceptIncomingVoiceCall={props.onAcceptIncomingVoiceCall} onDeclineIncomingVoiceCall={props.onDeclineIncomingVoiceCall} contactTrustSensitivity={dmTrustSensitivityForHeader}/>) : null}
 
-            {shouldShowPathBThreadWarningBanner({
+            {props.conversation.kind === "dm"
+            && props.contactRequestComposeMode === "sandbox_text"
+            && dmPeerPublicKeyHex ? (
+              <ContactRequestThreadBanner
+                displayName={resolvedName}
+                peerPublicKeyHex={dmPeerPublicKeyHex}
+                isInitiator={props.isInitiator === true}
+                requestEventId={props.requestEventId}
+                onAcceptConfirm={async () => {
+                  await props.onAcceptPeer?.();
+                }}
+                onDecline={async () => {
+                  await props.onDeclinePeer?.();
+                }}
+                onCancelOutgoing={props.isInitiator ? async () => {
+                  await props.onCancelOutgoingRequest?.();
+                } : undefined}
+              />
+            ) : shouldShowPathBThreadWarningBanner({
             conversationKind: props.conversation.kind,
             isPeerAccepted: props.isPeerAccepted,
-        }) && (<StrangerWarningBanner displayName={resolvedName} isInitiator={props.isInitiator} onAccept={() => props.onAcceptPeer?.()} onIgnore={() => {
+        }) && props.contactRequestComposeMode !== "sandbox_text" && (<StrangerWarningBanner displayName={resolvedName} isInitiator={props.isInitiator} onAccept={() => props.onAcceptPeer?.()} onIgnore={() => {
                 // For ignore, we can just close the banner by setting a local state or 
                 // by treating it as a "soft ignore" - for now, just same as accept but don't persist trust?
                 // Actually, implementation plan says Ignore should just hide it.
                 // We'll pass it to props if we want persistence.
             }} onBlock={() => props.onBlockPeer?.()}/>)}
-            {dmKernelTrust.showBanner && dmKernelTrust.assessment ? (<DmKernelTrustBanner assessment={dmKernelTrust.assessment} expanded={dmKernelTrust.expanded} onToggleExpanded={() => dmKernelTrust.setExpanded(!dmKernelTrust.expanded)} onDismiss={dmKernelTrust.dismiss}/>) : null}
-            {dmKernelTrust.showInfoStrip && dmKernelTrust.assessment ? (<DmKernelTrustInfoStrip assessment={dmKernelTrust.assessment} onDismiss={dmKernelTrust.dismiss}/>) : null}
+            {dmKernelTrust.showBanner && dmKernelTrust.assessment && props.contactRequestComposeMode !== "sandbox_text" ? (<DmKernelTrustBanner assessment={dmKernelTrust.assessment} expanded={dmKernelTrust.expanded} onToggleExpanded={() => dmKernelTrust.setExpanded(!dmKernelTrust.expanded)} onDismiss={dmKernelTrust.dismiss}/>) : null}
+            {dmKernelTrust.showInfoStrip && dmKernelTrust.assessment && props.contactRequestComposeMode !== "sandbox_text" ? (<DmKernelTrustInfoStrip assessment={dmKernelTrust.assessment} onDismiss={dmKernelTrust.dismiss}/>) : null}
             {props.communityBotTriggerSummary ? (<CommunityBotPausedBanner summary={props.communityBotTriggerSummary}/>) : null}
             {props.conversation.kind === 'dm' && props.relayOverlap && props.relayOverlap.status !== 'overlap' && (<RelayOverlapBanner overlap={props.relayOverlap} contactDisplayName={resolvedName} onAddRelay={props.onAddRelay} onNavigateToRelaySettings={props.onNavigateToRelaySettings}/>)}
             {isDeletedRecipient && (<div className="mx-4 mt-3 rounded-2xl border border-amber-500/25 bg-amber-50/65 px-4 py-3 text-xs font-semibold text-amber-800 dark:border-amber-500/35 dark:bg-amber-900/20 dark:text-amber-200">
@@ -846,7 +869,7 @@ export function ChatView(props: ChatViewProps) {
                     </div>
                 </div>) : (<MessageList conversationId={props.conversation.id} key={props.conversation.id} hasHydrated={props.hasHydrated} messages={props.messages} renderMetaMessages={props.renderMetaMessages ?? props.messages} inviteResponseStatusByMessageId={props.inviteResponseStatusByMessageId} rawMessagesCount={props.rawMessagesCount} hasEarlierMessages={props.hasEarlierMessages} onLoadEarlier={props.onLoadEarlier} nowMs={props.nowMs} flashMessageId={effectiveFlashMessageId} jumpToMessageId={jumpToMessageId} jumpToMessageTimestampMs={jumpToMessageTimestampMs} onJumpToMessageHandled={handleJumpToMessageHandled} onOpenMessageMenu={handleOpenMessageMenu} openMessageMenuMessageId={props.messageMenu?.messageId ?? null} openReactionPickerMessageId={props.reactionPicker?.messageId ?? null} batchDeleteMode={isBatchDeleteMode} selectedMessageIds={selectedMessageIds} onToggleSelectMessage={handleToggleBatchMessageSelection} onMessageMenuAnchorHoverChange={handleMessageMenuAnchorHoverChange} onOpenReactionPicker={handleOpenReactionPicker} onToggleReaction={props.onToggleReaction} onRetryMessage={props.onRetryMessage} onComposerFocus={() => props.composerTextareaRef.current?.focus()} onReply={props.onReferenceMessage} onImageClick={handleImageClick} isGroup={props.conversation.kind === "group"} admins={props.groupAdmins} onSendDirectMessage={props.onSendDirectMessage} onJoinVoiceCallInvite={props.onJoinVoiceCallInvite} onRequestVoiceCallCallback={props.onRequestVoiceCallCallback} joiningVoiceCallInviteMessageId={props.joiningVoiceCallInviteMessageId} voiceCallStatus={props.voiceCallStatus} pendingEventCount={props.pendingEventCount ?? 0}/>)}
 
-            <Composer messageInput={props.messageInput} setMessageInput={props.setMessageInput} handleSendMessage={props.handleSendMessage} isUploadingAttachment={props.isUploadingAttachment} uploadStage={props.uploadStage} pendingAttachments={props.pendingAttachments} pendingAttachmentPreviewUrls={props.pendingAttachmentPreviewUrls} attachmentError={props.attachmentError} replyTo={props.replyTo} setReplyTo={props.setReplyTo} onPickAttachments={props.onPickAttachments} onSelectFiles={props.onSelectFiles} removePendingAttachment={props.removePendingAttachment} clearPendingAttachment={props.clearPendingAttachment} relayStatus={props.relayStatus} textareaRef={props.composerTextareaRef} recipientStatus={props.recipientStatus} isPeerAccepted={props.isPeerAccepted} isInitiator={props.isInitiator} recipientRemoved={isDeletedRecipient} onSendVoiceNote={props.onSendVoiceNote} isProcessingMedia={props.isProcessingMedia} mediaProcessingProgress={props.mediaProcessingProgress} deliveryRisk={props.deliveryRisk}/>
+            <Composer messageInput={props.messageInput} setMessageInput={props.setMessageInput} handleSendMessage={props.handleSendMessage} isUploadingAttachment={props.isUploadingAttachment} uploadStage={props.uploadStage} pendingAttachments={props.pendingAttachments} pendingAttachmentPreviewUrls={props.pendingAttachmentPreviewUrls} attachmentError={props.attachmentError} replyTo={props.replyTo} setReplyTo={props.setReplyTo} onPickAttachments={props.onPickAttachments} onSelectFiles={props.onSelectFiles} removePendingAttachment={props.removePendingAttachment} clearPendingAttachment={props.clearPendingAttachment} relayStatus={props.relayStatus} textareaRef={props.composerTextareaRef} recipientStatus={props.recipientStatus} isPeerAccepted={props.isPeerAccepted} isInitiator={props.isInitiator} contactRequestComposeMode={props.contactRequestComposeMode} recipientRemoved={isDeletedRecipient} onSendVoiceNote={props.onSendVoiceNote} isProcessingMedia={props.isProcessingMedia} mediaProcessingProgress={props.mediaProcessingProgress} deliveryRisk={props.deliveryRisk}/>
 
             {!isBatchDeleteMode && props.messageMenu && activeMessage && (<MessageMenu x={props.messageMenu.x} y={props.messageMenu.y} activeMessage={activeMessage} onCopyText={() => {
                 props.onCopyText(activeMessage.content);

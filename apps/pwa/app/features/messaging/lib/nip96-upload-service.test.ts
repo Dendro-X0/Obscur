@@ -63,7 +63,7 @@ describe("nip96-upload-service internals", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it("prefers browser upload for oversized native files to avoid byte-buffer pressure", async () => {
+  it("prefers browser upload for oversized native video files to avoid byte-buffer pressure", async () => {
     const service = new Nip96UploadService(["https://upload.example"], null, null);
     const uploadViaBrowser = vi.fn(async () => ({
       kind: "video" as const,
@@ -189,5 +189,17 @@ describe("nip96-upload-service internals", () => {
     await expect(uploadPromise).resolves.toMatchObject({
       url: "https://upload.example/clip.mp4",
     });
+  });
+
+  it("reuses the payload hash cache across repeated hash requests", async () => {
+    const file = new File([new Uint8Array([1, 2, 3, 4])], "clip.mp4", { type: "video/mp4" });
+    const digestSpy = vi.spyOn(crypto.subtle, "digest");
+
+    const first = await nip96UploadInternals.computeFilePayloadHashHex(file);
+    const second = await nip96UploadInternals.computeFilePayloadHashHex(file);
+
+    expect(first).toBe(second);
+    expect(digestSpy).toHaveBeenCalledTimes(1);
+    digestSpy.mockRestore();
   });
 });

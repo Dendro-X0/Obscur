@@ -17,7 +17,7 @@ type ResolveIdentityOptions = Readonly<{
 }>;
 
 export const useIdentityResolver = () => {
-  const { relayPool } = useRelay();
+  const { relayPool, enabledRelayUrls } = useRelay();
   const poolRef = useRelayPoolRef(relayPool);
   const tanstackQueryRuntime = useTanstackQueryRuntime();
   const [phase, setPhase] = useState<ResolverPhase>("idle");
@@ -66,6 +66,7 @@ export const useIdentityResolver = () => {
             indexBaseUrl: process.env.NEXT_PUBLIC_DISCOVERY_INDEX_URL,
             signal,
             allowLegacyInviteCode,
+            relayUrls: enabledRelayUrls,
           }),
         })
         : await resolveIdentity({
@@ -74,6 +75,7 @@ export const useIdentityResolver = () => {
           indexBaseUrl: process.env.NEXT_PUBLIC_DISCOVERY_INDEX_URL,
           signal: controller.signal,
           allowLegacyInviteCode: options?.allowLegacyInviteCode,
+          relayUrls: enabledRelayUrls,
         });
       setResult(resolved);
       setPhase(resolved.ok ? "resolved" : "failed");
@@ -92,7 +94,7 @@ export const useIdentityResolver = () => {
         abortRef.current = null;
       }
     }
-  }, [poolRef, tanstackQueryRuntime]);
+  }, [enabledRelayUrls, poolRef, tanstackQueryRuntime]);
 
   const reset = useCallback(() => {
     if (abortRef.current) {

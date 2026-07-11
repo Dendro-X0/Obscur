@@ -7,6 +7,7 @@ import type { Passphrase } from "@dweb/crypto/passphrase";
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { AuthUnlockOptions } from "@dweb/auth";
+import type { PoWDifficulty } from "@/app/features/auth/services/pow-key-generator";
 import {
   authKernelIdentityActions,
   getIdentitySnapshot,
@@ -79,6 +80,27 @@ export const runAuthKernelCreateIdentity = async (params: Readonly<{
   await authKernelIdentityActions.createIdentity({
     passphrase: params.passphrase,
     username: params.username,
+    staySignedIn: resolveStaySignedIn({ staySignedIn: params.staySignedIn }),
+  });
+  const snapshot = getIdentitySnapshot();
+  if (snapshot.status !== "unlocked" || !snapshot.stored) {
+    throw new Error("Identity create did not reach unlocked state");
+  }
+  return snapshot.stored;
+};
+
+export const runAuthKernelCreatePoWIdentity = async (params: Readonly<{
+  profileId: string;
+  passphrase: Passphrase;
+  username?: string;
+  difficulty: PoWDifficulty;
+  staySignedIn?: boolean;
+}>): Promise<IdentityRecord> => {
+  assertAuthKernelProfileScope(params.profileId);
+  await authKernelIdentityActions.createPoWIdentity({
+    passphrase: params.passphrase,
+    username: params.username,
+    difficulty: params.difficulty,
     staySignedIn: resolveStaySignedIn({ staySignedIn: params.staySignedIn }),
   });
   const snapshot = getIdentitySnapshot();

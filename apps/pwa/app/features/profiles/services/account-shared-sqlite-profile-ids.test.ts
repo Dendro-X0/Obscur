@@ -37,7 +37,7 @@ describe("listAccountSharedSqliteProfileIds", () => {
     })).toEqual(["profile-secondary"]);
   });
 
-  it("returns every registered profile slot when account key is known (cross-slot hydrate)", () => {
+  it("returns account-bound profile slots plus default when account key is known", () => {
     setLastBoundAccountPublicKeyHex("profile-secondary", SHARED_ACCOUNT);
 
     const profileIds = listAccountSharedSqliteProfileIds({
@@ -47,9 +47,23 @@ describe("listAccountSharedSqliteProfileIds", () => {
 
     expect([...profileIds].sort()).toEqual([
       "default",
-      "profile-other-account",
       "profile-secondary",
     ].sort());
+  });
+
+  it("does not scan registry slots bound to a different account", () => {
+    setLastBoundAccountPublicKeyHex("profile-secondary", SHARED_ACCOUNT);
+    setLastBoundAccountPublicKeyHex(
+      "profile-other-account",
+      "bb".repeat(32) as PublicKeyHex,
+    );
+
+    const profileIds = listAccountSharedSqliteProfileIds({
+      primaryProfileId: "profile-secondary",
+      accountPublicKeyHex: SHARED_ACCOUNT,
+    });
+
+    expect(profileIds).not.toContain("profile-other-account");
   });
 
   it("returns only the primary profile id on web persistence", () => {

@@ -20,9 +20,11 @@ import { SecuritySettingsPanel } from "@/app/features/settings/components/securi
 import { SettingsActionStatus } from "@/app/features/settings/components/settings-action-status";
 import { ProfileSwitcherCard } from "@/app/features/profiles/components/profile-switcher-card";
 import { ProfileArchiveResultDialog } from "@/app/features/profiles/components/profile-archive-result-dialog";
+import { DeleteProfileWindowDialog } from "@/app/features/profiles/components/delete-profile-window-dialog";
 import { PortabilityQuickActionsPanel } from "@/app/features/profiles/components/portability-quick-actions-panel";
 import { DeviceSessionSettingsPanel } from "@/app/features/settings/components/device-session-settings-panel";
-import { SettingsToggle, SettingsToggleCard, toSettingsActionPhase, validateProfileInput, formatBytes, formatRatioPercent, } from "../settings-tab-panel-shared";
+import { SettingsToggle, SettingsToggleCard, toSettingsActionPhase, validateProfileInput, formatBytes, formatRatioPercent, PRIVATE_KEY_EXPORT_CONFIRM_TEXT, } from "../settings-tab-panel-shared";
+import { SecurityLiteracyNote, isPrivateKeyExportConfirmed } from "@/app/features/security";
 import { getApiBaseUrl } from "@/app/features/relays/utils/api-base-url";
 import { deriveRelayNodeStatus, deriveRelayRuntimeStatus } from "@/app/features/relays/lib/relay-runtime-status";
 import { checkStorageHealth, runStorageRecovery } from "@/app/features/messaging/services/storage-health-service";
@@ -31,11 +33,14 @@ import { SettingsCompactCard } from "@/app/features/settings/components/settings
 import { useMobileCompactLayout } from "@/app/features/runtime/use-mobile-compact-layout";
 import { useSettingsTabPanelModel } from "../settings-tab-panel-model-context";
 export default function IdentitySettingsTabPanel(): React.JSX.Element {
-    const { APP_VERSION, DEFAULT_APP_LANGUAGE, DEFAULT_STABLE_PRESET, DEFAULT_THEME_PREFERENCE, DELETE_ACCOUNT_CONFIRM_TEXT, ENABLE_API_HEALTH_PROBE, INVITE_CODE_PREFIX, INVITE_CODE_SUFFIX_LENGTH, RELAY_PRESETS, TEXT_SCALE_OPTIONS, accessibility, accountSyncSnapshot, activeTab, apiHealth, appearanceActionMessage, appearanceActionPhase, applyRelayPreset, blocklist, blocklistInput, blocklistQuery, challangePassword, checkStorageHealth, clearIndexedDbDatabases, clearRuntimeCaches, copyPrivateKey, deleteAccountConfirmInput, deleteAccountCountdown, deriveRelayNodeStatus, deriveRelayRuntimeStatus, derivedPublicKeyHex, displayPublicKeyHex, exportPrivateKey, filteredBlockedKeys, getProfilePublishReportSnapshot, handleAddBlockedKey, handleAddRelay, handleArmDeleteAccount, handleCheckApi, handleCheckProviderReachability, handleClearData, handleDeleteAccount, handleProfileArchiveDialogClose, isProfileArchiveDialogOpen, profileArchiveDialogMode, profileArchiveResult, handleDisableNotifications, handleEnableNotifications, handleExportPortableBundle, handleLockNow, handlePortableBundleFileSelected, handleProfileSwitchLock, handleRandomInviteCode, handleRefreshRelayStatus, handleRelayBulkCopyList, handleRelayBulkDisableAllConfirm, handleRelayBulkDisableAllRequest, handleRelayBulkEnableAll, handleRelayBulkRemoveDisabled, handleResetAccessibility, handleResetLanguage, handleResetLocalHistory, handleResetRelaySection, handleResetStorageSection, handleResetTheme, handleRevealToggle, handleSavePrivacy, handleSaveProfile, handleSendTestNotification, handleToggleNotificationChannel, handleUnblockAll, handleVerifyChallenge, handleVerifyNip05, i18n, identity, identityDiagnostics, identityIntegrityState, identityStorageMode, inviteCodeAvailabilityMessage, inviteCodeAvailabilityStatus, inviteCodeDraft, inviteCodeDraftSuffix, isChallenging, isCheckingProviderReachability, isCheckingStorageHealth, isClearDataDialogOpen, isDeleteAccountDialogOpen, isDisableAllRelaysDialogOpen, isInviteCodeDraftDirty, isPortableBundleExporting, isPortableBundleImporting, isPrivateKeyVisible, isPublishing, isResetLocalHistoryDialogOpen, isResolvingLocalPath, isVerifyingNip05, lastSyncLabel, leaveJoinedCommunitiesBeforeAccountDeletion, localMediaAbsolutePath, localMediaConfig, managedWorkspaceDefinition, moderationActionMessage, moderationActionPhase, newRelayUrl, nip96Config, notificationActionMessage, notificationActionPhase, notificationPreference, npubValue, nsecKey, persistedInviteCodeSuffix, pool, portableBundleFileInputRef, privacySettings, profile, profilePreflightError, profilePublishError, profilePublishPhase, profilePublishReport, profileSaveActionMessage, profileSaveActionPhase, profileValidation, providerReachabilityNote, providerValidation, publicKeyHex, publishProfile, publishScopedGroupEvent, refreshLocalMediaAbsolutePath, relayActionMessage, relayActionPhase, relayCapabilityAssessment, relayConnectionMap, relayHealthMetricsMap, relayList, relayQuickHealth, relayResilienceBetaGate, relayResiliencePerformanceGate, relayResilienceSnapshot, relayRuntime, relayRuntimeStatus, relaySelection, reliabilityMetrics, reliabilityRuntime, reliabilityTick, resolveActivePrivateKeyHex, revealExpiresAtMs, revealSecondsLeft, rolloutPolicy, runStorageRecovery, saveLocalMediaConfig, saveNip96Config, securityActionMessage, securityActionPhase, securityCapabilityStates, securityPosture, setApiHealth, setAppearanceActionMessage, setAppearanceActionPhase, setBlocklistInput, setBlocklistQuery, setChallengePassword, setDeleteAccountConfirmInput, setDeleteAccountCountdown, setInviteCodeAvailabilityMessage, setInviteCodeAvailabilityStatus, setInviteCodeDraftSuffix, setInviteCodeFromSuffix, setIsChallenging, setIsCheckingProviderReachability, setIsCheckingStorageHealth, setIsClearDataDialogOpen, setIsDeleteAccountDialogOpen, setIsDisableAllRelaysDialogOpen, setIsInviteCodeDraftDirty, setIsPortableBundleExporting, setIsPortableBundleImporting, setIsPrivateKeyVisible, setIsResetLocalHistoryDialogOpen, setIsResolvingLocalPath, setIsVerifyingNip05, setLocalMediaAbsolutePath, setLocalMediaConfig, setModerationActionMessage, setModerationActionPhase, setNewRelayUrl, setNip96Config, setNotificationActionMessage, setNotificationActionPhase, setNsecKey, setPrivacySettings, setProfilePreflightError, setProfileSaveActionMessage, setProfileSaveActionPhase, setProviderReachabilityNote, setRelayActionMessage, setRelayActionPhase, setReliabilityTick, setRevealExpiresAtMs, setRevealSecondsLeft, setSecurityActionMessage, setSecurityActionPhase, setShowAdvancedRelays, setStorageActionMessage, setStorageActionPhase, setStorageHealthState, setStorageStatsTick, showAdvancedRelays, sovereignRoomDefinition, startupState, storageActionMessage, storageActionPhase, storageHealthState, storageMode, storageStats, storageStatsTick, t, theme, translatePermissionState, translateRelayConfidenceLabel, translateRelayNodeBadge, translateRelayNodeDetail, translateRelayNodeRole, translateRelayPresetLabel, translateRelayRuntimeText, translateStorageMode, triggerRelayRecovery, userInviteCode, verifyInviteCodeAvailability, wipeLocalRuntimeData } = useSettingsTabPanelModel() as Record<string, any>;
+    const { APP_VERSION, DEFAULT_APP_LANGUAGE, DEFAULT_STABLE_PRESET, DEFAULT_THEME_PREFERENCE, DELETE_ACCOUNT_CONFIRM_TEXT, ENABLE_API_HEALTH_PROBE, INVITE_CODE_PREFIX, INVITE_CODE_SUFFIX_LENGTH, RELAY_PRESETS, TEXT_SCALE_OPTIONS, accessibility, accountSyncSnapshot, activeTab, apiHealth, appearanceActionMessage, appearanceActionPhase, applyRelayPreset, blocklist, blocklistInput, blocklistQuery, challangePassword, checkStorageHealth, clearIndexedDbDatabases, clearRuntimeCaches, confirmExportPrivateKey, copyPrivateKey, deleteAccountConfirmInput, deleteAccountCountdown, deleteProfileWindowConfirmInput, deriveRelayNodeStatus, deriveRelayRuntimeStatus, derivedPublicKeyHex, displayPublicKeyHex, exportPrivateKey, exportPrivateKeyConfirmInput, filteredBlockedKeys, getProfilePublishReportSnapshot, handleAddBlockedKey, handleAddRelay, handleArmDeleteAccount, handleCheckApi, handleCheckProviderReachability, handleClearData, handleCloseDeleteProfileWindowDialog, handleDeleteAccount, handleDeleteProfileWindow, handleOpenDeleteProfileWindowDialog, handleProfileArchiveDialogClose, isProfileArchiveDialogOpen, profileArchiveDialogMode, profileArchiveResult, handleDisableNotifications, handleEnableNotifications, handleExportPortableBundle, handleLockNow, handlePortableBundleFileSelected, handleProfileSwitchLock, handleRandomInviteCode, handleRefreshRelayStatus, handleRelayBulkCopyList, handleRelayBulkDisableAllConfirm, handleRelayBulkDisableAllRequest, handleRelayBulkEnableAll, handleRelayBulkRemoveDisabled, handleResetAccessibility, handleResetLanguage, handleResetLocalHistory, handleResetRelaySection, handleResetStorageSection, handleResetTheme, handleRevealToggle, handleSavePrivacy, handleSaveProfile, handleSendTestNotification, handleToggleNotificationChannel, handleUnblockAll, handleVerifyChallenge, handleVerifyNip05, i18n, identity, identityDiagnostics, identityIntegrityState, identityStorageMode, inviteCodeAvailabilityMessage, inviteCodeAvailabilityStatus, inviteCodeDraft, inviteCodeDraftSuffix, isChallenging, isCheckingProviderReachability, isCheckingStorageHealth, isClearDataDialogOpen, isDeleteAccountDialogOpen, isDeleteProfileWindowDialogOpen, isDefaultProfileWindow, isDisableAllRelaysDialogOpen, isExportPrivateKeyDialogOpen, isInviteCodeDraftDirty, isPortableBundleExporting, isPortableBundleImporting, isPrivateKeyVisible, isPublishing, isResetLocalHistoryDialogOpen, isResolvingLocalPath, isVerifyingNip05, lastSyncLabel, leaveJoinedCommunitiesBeforeAccountDeletion, localMediaAbsolutePath, localMediaConfig, managedWorkspaceDefinition, moderationActionMessage, moderationActionPhase, newRelayUrl, nip96Config, notificationActionMessage, notificationActionPhase, notificationPreference, npubValue, nsecKey, persistedInviteCodeSuffix, pool, portableBundleFileInputRef, privacySettings, profile, profilePreflightError, profilePublishError, profilePublishPhase, profilePublishReport, profileSaveActionMessage, profileSaveActionPhase, profileValidation, providerReachabilityNote, providerValidation, publicKeyHex, publishProfile, publishScopedGroupEvent, refreshLocalMediaAbsolutePath, relayActionMessage, relayActionPhase, relayCapabilityAssessment, relayConnectionMap, relayHealthMetricsMap, relayList, relayQuickHealth, relayResilienceBetaGate, relayResiliencePerformanceGate, relayResilienceSnapshot, relayRuntime, relayRuntimeStatus, relaySelection, reliabilityMetrics, reliabilityRuntime, reliabilityTick, resolveActivePrivateKeyHex, revealExpiresAtMs, revealSecondsLeft, rolloutPolicy, runStorageRecovery, saveLocalMediaConfig, saveNip96Config, securityActionMessage, securityActionPhase, securityCapabilityStates, securityPosture, setApiHealth, setAppearanceActionMessage, setAppearanceActionPhase, setBlocklistInput, setBlocklistQuery, setChallengePassword, setDeleteAccountConfirmInput, setDeleteAccountCountdown, setDeleteProfileWindowConfirmInput, setExportPrivateKeyConfirmInput, setInviteCodeAvailabilityMessage, setInviteCodeAvailabilityStatus, setInviteCodeDraftSuffix, setInviteCodeFromSuffix, setIsChallenging, setIsCheckingProviderReachability, setIsCheckingStorageHealth, setIsClearDataDialogOpen, setIsDeleteAccountDialogOpen, setIsDisableAllRelaysDialogOpen, setIsExportPrivateKeyDialogOpen, setIsInviteCodeDraftDirty, setIsPortableBundleExporting, setIsPortableBundleImporting, setIsPrivateKeyVisible, setIsResetLocalHistoryDialogOpen, setIsResolvingLocalPath, setIsVerifyingNip05, setLocalMediaAbsolutePath, setLocalMediaConfig, setModerationActionMessage, setModerationActionPhase, setNewRelayUrl, setNip96Config, setNotificationActionMessage, setNotificationActionPhase, setNsecKey, setPrivacySettings, setProfilePreflightError, setProfileSaveActionMessage, setProfileSaveActionPhase, setProviderReachabilityNote, setRelayActionMessage, setRelayActionPhase, setReliabilityTick, setRevealExpiresAtMs, setRevealSecondsLeft, setSecurityActionMessage, setSecurityActionPhase, setShowAdvancedRelays, setStorageActionMessage, setStorageActionPhase, setStorageHealthState, setStorageStatsTick, showAdvancedRelays, sovereignRoomDefinition, startupState, storageActionMessage, storageActionPhase, storageHealthState, storageMode, storageStats, storageStatsTick, t, theme, translatePermissionState, translateRelayConfidenceLabel, translateRelayNodeBadge, translateRelayNodeDetail, translateRelayNodeRole, translateRelayPresetLabel, translateRelayRuntimeText, translateStorageMode, triggerRelayRecovery, userInviteCode, verifyInviteCodeAvailability, wipeLocalRuntimeData } = useSettingsTabPanelModel() as Record<string, any>;
     const compact = useMobileCompactLayout();
     return (<>
         <div className={compact ? "space-y-4" : "space-y-6"}>
           <ProfileSwitcherCard onBeforeSwitch={handleProfileSwitchLock}/>
+          <p className="text-xs leading-relaxed text-zinc-500 dark:text-zinc-400 px-1">
+            {t("settings.localData.singleSessionNote")}
+          </p>
           <DeviceSessionSettingsPanel />
           <SettingsCompactCard title={t("identity.title")} description={t("identity.description")} className="w-full">
             <div className={compact ? "space-y-4" : "space-y-6"}>
@@ -114,6 +119,7 @@ export default function IdentitySettingsTabPanel(): React.JSX.Element {
               </details>
 
               <div className="space-y-4">
+                <SecurityLiteracyNote compact />
                 <div className="flex flex-col gap-1">
                   <Label htmlFor="profile-nsec" className="text-xs font-black uppercase tracking-widest text-zinc-500">{t("identity.privateKey")}</Label>
                   <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Secret Cryptographic Key</p>
@@ -207,8 +213,55 @@ export default function IdentitySettingsTabPanel(): React.JSX.Element {
                 {isPublishing ? "Removing local profile data..." : t("settings.deleteAccount")}
               </Button>
             </div>
+
+            <div id="delete-profile-window" className={cn("mt-4 rounded-xl border border-red-300/60 bg-red-50/80 dark:border-red-900/40 dark:bg-red-950/20 space-y-3", compact ? "p-3" : "p-4")}>
+              <h3 className="text-sm font-semibold text-red-900 dark:text-red-200">{t("settings.localData.deleteProfileWindowSectionTitle")}</h3>
+              <p className="text-xs text-red-700 dark:text-red-300 font-medium leading-relaxed">
+                {isDefaultProfileWindow
+                  ? t("settings.localData.resetProfileWindowSectionDesc")
+                  : t("settings.localData.deleteProfileWindowSectionDesc")}
+              </p>
+              <p className="text-[10px] text-red-600/80 dark:text-red-400/80 leading-relaxed italic">
+                {t("settings.localData.deleteProfileWindowKeyNote")}
+              </p>
+              <Button type="button" variant="danger" className="mt-2" disabled={securityActionPhase === "working"} onClick={handleOpenDeleteProfileWindowDialog}>
+                {securityActionPhase === "working" ? <Loader2 className="h-4 w-4 animate-spin"/> : null}
+                {isDefaultProfileWindow
+                  ? t("settings.actions.resetProfileWindow")
+                  : t("settings.actions.deleteProfileWindow")}
+              </Button>
+            </div>
           </SettingsCompactCard>
         </div>
+      <ConfirmDialog
+        isOpen={isExportPrivateKeyDialogOpen}
+        onClose={() => {
+          setIsExportPrivateKeyDialogOpen(false);
+          setExportPrivateKeyConfirmInput("");
+        }}
+        onConfirm={() => { void confirmExportPrivateKey(); }}
+        title={t("security.export.dialogTitle")}
+        description={t("security.export.dialogDesc")}
+        confirmLabel={t("security.export.confirmAction")}
+        cancelLabel={t("common.cancel")}
+        variant="danger"
+        confirmDisabled={!isPrivateKeyExportConfirmed(exportPrivateKeyConfirmInput)}
+      >
+        <div className="space-y-2">
+          <Label htmlFor="export-private-key-confirm" className="text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+            {t("security.export.confirmLabel", { phrase: PRIVATE_KEY_EXPORT_CONFIRM_TEXT })}
+          </Label>
+          <Input
+            id="export-private-key-confirm"
+            value={exportPrivateKeyConfirmInput}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setExportPrivateKeyConfirmInput(e.target.value)}
+            placeholder={PRIVATE_KEY_EXPORT_CONFIRM_TEXT}
+            className="font-mono"
+            autoComplete="off"
+          />
+        </div>
+      </ConfirmDialog>
+
       <ConfirmDialog isOpen={isDisableAllRelaysDialogOpen} onClose={() => setIsDisableAllRelaysDialogOpen(false)} onConfirm={handleRelayBulkDisableAllConfirm} title={t("settings.relays.disableAllDialogTitle")} description={t("settings.relays.disableAllDialogDesc")} confirmLabel={t("settings.relays.disableAllConfirm")} cancelLabel={t("common.cancel")} variant="danger"/>
 
       <ConfirmDialog isOpen={isClearDataDialogOpen} onClose={() => setIsClearDataDialogOpen(false)} onConfirm={handleClearData} title={t("settings.dialogs.clearDataTitle")} description="Export a workspace archive to profile-archives, then clear chat history, sync checkpoints, and cached media for this profile window. Your sign-in and identity on this device are kept." confirmLabel={t("settings.actions.clear")} variant="danger"/>
@@ -217,8 +270,28 @@ export default function IdentitySettingsTabPanel(): React.JSX.Element {
 
       <ConfirmDialog isOpen={isDeleteAccountDialogOpen} onClose={() => setIsDeleteAccountDialogOpen(false)} onConfirm={handleDeleteAccount} title={t("settings.dialogs.deleteAccountTitle")} description="Export a workspace archive, publish a deleted-account marker on relays, leave communities, remove sign-in from this device, and wipe this profile window's local data. Your private key still exists mathematically and can be used on another device." confirmLabel={t("settings.actions.delete")} variant="danger"/>
 
-      <ProfileArchiveResultDialog result={profileArchiveResult} isOpen={isProfileArchiveDialogOpen} profileLabel={profile.state.profile.username} showExportsFolder title={profileArchiveDialogMode === "delete_account" ? "Local profile data removed" : "Local caches cleared"} description={profileArchiveDialogMode === "delete_account"
-            ? "A workspace archive was saved before local data was removed from this profile window."
-            : "A workspace archive was saved before caches and history were cleared. Your account remains signed in on this device."} onClose={handleProfileArchiveDialogClose}/>
+      <DeleteProfileWindowDialog
+        isOpen={isDeleteProfileWindowDialogOpen}
+        isDefaultProfileWindow={isDefaultProfileWindow}
+        isWorking={securityActionPhase === "working"}
+        confirmInput={deleteProfileWindowConfirmInput}
+        onConfirmInputChange={setDeleteProfileWindowConfirmInput}
+        onClose={handleCloseDeleteProfileWindowDialog}
+        onConfirmDelete={() => { void handleDeleteProfileWindow(); }}
+      />
+
+      <ProfileArchiveResultDialog result={profileArchiveResult} isOpen={isProfileArchiveDialogOpen} profileLabel={profile.state.profile.username} showExportsFolder title={profileArchiveDialogMode === "delete_account"
+            ? t("settings.dialogs.deleteAccountArchiveTitle")
+            : profileArchiveDialogMode === "delete_profile_window"
+              ? (isDefaultProfileWindow
+                ? t("settings.dialogs.resetProfileWindowArchiveTitle")
+                : t("settings.dialogs.deleteProfileWindowArchiveTitle"))
+              : t("settings.dialogs.clearDataArchiveTitle")} description={profileArchiveDialogMode === "delete_account"
+            ? t("settings.dialogs.deleteAccountArchiveDesc")
+            : profileArchiveDialogMode === "delete_profile_window"
+              ? (isDefaultProfileWindow
+                ? t("settings.dialogs.resetProfileWindowArchiveDesc")
+                : t("settings.dialogs.deleteProfileWindowArchiveDesc"))
+              : t("settings.dialogs.clearDataArchiveDesc")} onClose={handleProfileArchiveDialogClose}/>
     </>);
 }

@@ -72,5 +72,13 @@ describe("desktop-profile-preview-enrichment", () => {
       username: "",
       publicKeyHex: PK_B,
     })).toBe(true);
+    expect(hasSavedAccountPickerPresence({
+      profileId: "profile-4",
+      username: "Restore backup",
+    })).toBe(false);
+    expect(hasSavedAccountPickerPresence({
+      profileId: "profile-5",
+      username: "New identity",
+    })).toBe(false);
   });
 });

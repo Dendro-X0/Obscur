@@ -108,10 +108,13 @@ const main = async () => {
 
   const swPath = path.join(repoRoot, "apps/pwa/public/sw.js");
   const swText = await fs.readFile(swPath, "utf8");
-  if (!swText.includes("obscur-app-shell-")) {
-    errors.push("[service-worker-cache-owner] apps/pwa/public/sw.js (expected obscur-app-shell cache owner)");
+  const isWorkboxGeneratedSw = swText.includes("precacheAndRoute") && swText.includes("workbox");
+  const hasObscurShellCache = swText.includes("obscur-app-shell-");
+  const hasWorkboxPagesCache = swText.includes('cacheName:"pages"') || swText.includes("cacheName:'pages'");
+  if (!hasObscurShellCache && !isWorkboxGeneratedSw) {
+    errors.push("[service-worker-cache-owner] apps/pwa/public/sw.js (expected obscur-app-shell cache owner or workbox precache shell)");
   }
-  if (!swText.includes('request.mode === "navigate"')) {
+  if (!swText.includes('request.mode === "navigate"') && !hasWorkboxPagesCache) {
     errors.push("[service-worker-navigation-handler] apps/pwa/public/sw.js (expected navigation fetch handling)");
   }
 

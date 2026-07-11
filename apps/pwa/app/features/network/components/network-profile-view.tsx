@@ -30,7 +30,7 @@ import { commitOutgoingCommunityInviteDm } from "@/app/features/groups/services/
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { createDmConversation } from "@/app/features/messaging/utils/create-dm-conversation";
 import { upsertDmConversationInList } from "@/app/features/messaging/utils/dm-conversation-list-merge";
-import { publishDmNostrEvent } from "@/app/features/messaging/services/publish-dm-nostr-event";
+import { publishDmNostrEvent, resolveCommunityInviteDmPublishRelayUrls } from "@/app/features/messaging/services/publish-dm-nostr-event";
 import { getPublicProfileHref, toAbsoluteAppUrl } from "@/app/features/navigation/public-routes";
 import { ManagementControlCard, ManagementControlRow, ManagementSectionHeader, } from "@/app/components/ui/management-control-row";
 import { requestFlowEvidenceStore } from "@/app/features/messaging/services/request-flow-evidence-store";
@@ -306,7 +306,11 @@ export default function ConnectionProfileView() {
                 ...(group.access === "open" ? { memberCount } : {}),
             };
             const { giftWrapEvent, canonicalRumorEventId } = await inviteEventBuilder(groupService, group, roomKeyHex, metadata, pk as PublicKeyHex);
-            const publishResult = await publishDmNostrEvent(relayPool, enabledRelayUrls, giftWrapEvent);
+            const publishRelayUrls = resolveCommunityInviteDmPublishRelayUrls(
+                enabledRelayUrls,
+                group.relayUrl,
+            );
+            const publishResult = await publishDmNostrEvent(relayPool, publishRelayUrls, giftWrapEvent);
             const dmPublishOk = publishResult.success;
             if (!dmPublishOk) {
                 toast.error("Invitation could not reach any DM relay. Saved locally; it will still appear in chat as pending.");

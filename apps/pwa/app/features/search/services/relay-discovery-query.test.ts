@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { GLOBAL_DISCOVERY_RELAY_URLS, mergeRelaySets } from "@/app/features/relays/services/discovery-relay-set";
 import { relayDiscoveryQueryInternals } from "./relay-discovery-query";
 
 describe("relayDiscoveryQueryInternals", () => {
@@ -45,5 +46,14 @@ describe("relayDiscoveryQueryInternals", () => {
         });
         expect(record?.pubkey).toBe("b".repeat(64));
         expect(record?.inviteCode).toBe("OBSCUR-AZAJ5L");
+    });
+
+    it("merges scoped relay urls ahead of global discovery relays", () => {
+        expect(mergeRelaySets(["ws://localhost:7000"], GLOBAL_DISCOVERY_RELAY_URLS)).toEqual([
+            "ws://localhost:7000",
+            "wss://relay.damus.io",
+            "wss://nos.lol",
+            "wss://relay.primal.net",
+        ]);
     });
 });

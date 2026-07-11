@@ -18,6 +18,10 @@ import {
     getRelayPublishFailureUserMessage,
     inferRelayPublishReasonCode,
 } from "@/app/features/relays/services/relay-publish-user-copy";
+import {
+    resolveScopedPublishRelayUrls,
+    shouldWarnRelayPartialCoverage,
+} from "@/app/features/relays/services/relay-publish-scope";
 import { GLOBAL_DISCOVERY_RELAY_URLS, mergeRelaySets } from "@/app/features/relays/services/discovery-relay-set";
 import { discoveryCache } from "@/app/features/search/services/discovery-cache";
 import { seedProfileMetadataCache } from "./use-profile-metadata";
@@ -96,12 +100,11 @@ const isDegradedFailure = (message: string): boolean => (
     /timed out while publishing profile/i.test(message)
 );
 
-const isPartialRelaySuccess = (successCount?: number, totalRelays?: number): boolean => {
-    if (typeof successCount !== "number" || typeof totalRelays !== "number") {
-        return false;
-    }
-    return successCount > 0 && successCount < totalRelays;
-};
+const isPartialRelaySuccess = (
+    successCount?: number,
+    totalRelays?: number,
+    metQuorum?: boolean,
+): boolean => shouldWarnRelayPartialCoverage({ successCount, totalRelays, metQuorum });
 
 const toDeliveryStatus = (status: "ok" | "partial" | "queued" | "failed"): ProfilePublishReport["deliveryStatus"] => {
     if (status === "ok") return "sent_quorum";
@@ -135,19 +138,17 @@ const syncPublishedProfileCaches = (pubkey: string, params: PublishProfileParams
     });
 };
 
-const refreshEncryptedAccountBackup = (
+const refreshEncryptedAccountBackup = async (
     pubkey: string,
     privkey: string,
     pool: ReturnType<typeof useRelay>["relayPool"],
     enabledRelayUrls: ReadonlyArray<string>
-): void => {
-    void encryptedAccountBackupService.publishEncryptedAccountBackup({
+): Promise<void> => {
+    await encryptedAccountBackupService.publishEncryptedAccountBackup({
         publicKeyHex: pubkey as PublicKeyHex,
         privateKeyHex: privkey as PrivateKeyHex,
         pool,
         scopedRelayUrls: enabledRelayUrls,
-    }).catch(() => {
-        // Best-effort backup refresh after canonical profile save.
     });
 };
 
@@ -250,6 +251,10 @@ export const useProfilePublisher = (): UseProfilePublisherResult => {
                 });
                 return false;
             }
+            const publishRelayUrls = resolveScopedPublishRelayUrls({
+                relayUrls: enabledRelayUrls,
+                pool: relayPool,
+            });
             setPhase("preparing");
             setLastReport({
                 phase: "preparing",
@@ -328,9 +333,9 @@ export const useProfilePublisher = (): UseProfilePublisherResult => {
                     });
                     await relayPool.waitForConnection(3000);
 
-                    if (rolloutPolicy.protocolCoreEnabled && enabledRelayUrls.length > 0) {
+                    if (rolloutPolicy.protocolCoreEnabled && publishRelayUrls.length > 0) {
                         const protocolPublish = await withTimeout(
-                            protocolCoreAdapter.publishWithQuorum(payload, enabledRelayUrls),
+                            protocolCoreAdapter.publishWithQuorum(payload, publishRelayUrls),
                             PUBLISH_ATTEMPT_TIMEOUT_MS,
                             "Timed out while publishing profile via protocol core"
                         );
@@ -357,7 +362,11 @@ export const useProfilePublisher = (): UseProfilePublisherResult => {
                                         ? "Profile published with protocol quorum."
                                         : "Profile published with degraded relay coverage.",
                                 });
-                                if (isPartialRelaySuccess(report.successCount, report.totalRelays)) {
+                                if (isPartialRelaySuccess(
+                                    report.successCount,
+                                    report.totalRelays,
+                                    report.metQuorum,
+                                )) {
                                     toast.warning(formatRelayPublishPartialCoverageMessage(
                                         report.successCount,
                                         report.totalRelays,
@@ -368,7 +377,9 @@ export const useProfilePublisher = (): UseProfilePublisherResult => {
                                     payload,
                                     primaryRelayUrls: enabledRelayUrls,
                                 });
-                                refreshEncryptedAccountBackup(pubkey, privkey, relayPool, enabledRelayUrls);
+                                await refreshEncryptedAccountBackup(pubkey, privkey, relayPool, publishRelayUrls).catch(() => {
+                                    // Local profile save already succeeded; backup refresh is best-effort here.
+                                });
                                 return true;
                             }
                             lastError = "Protocol publish returned zero relay successes";
@@ -381,7 +392,7 @@ export const useProfilePublisher = (): UseProfilePublisherResult => {
                         publishViaRelayCore({
                             pool: relayPool,
                             payload,
-                            scopedRelayUrls: enabledRelayUrls,
+                            scopedRelayUrls: publishRelayUrls,
                             waitForConnectionMs: 3_000,
                         }),
                         PUBLISH_ATTEMPT_TIMEOUT_MS,
@@ -391,7 +402,7 @@ export const useProfilePublisher = (): UseProfilePublisherResult => {
                     if (relayCorePublish.status === "ok" || relayCorePublish.status === "partial") {
                         const report = relayCorePublish.value;
                         const successCount = report?.successCount ?? 0;
-                        const totalRelays = report?.totalRelays ?? enabledRelayUrls.length;
+                        const totalRelays = report?.totalRelays ?? publishRelayUrls.length;
                         if (successCount > 0) {
                             setPhase("success");
                             syncPublishedProfileCaches(pubkey, params);
@@ -412,15 +423,21 @@ export const useProfilePublisher = (): UseProfilePublisherResult => {
                                 totalRelays,
                                 message: relayCorePublish.message,
                             });
-                            if (relayCorePublish.status === "partial" || isPartialRelaySuccess(successCount, totalRelays)) {
+                            if (shouldWarnRelayPartialCoverage({
+                                successCount,
+                                totalRelays,
+                                metQuorum: relayCorePublish.value?.metQuorum,
+                            })) {
                                 toast.warning(formatRelayPublishPartialCoverageMessage(successCount, totalRelays));
                             }
                             mirrorProfileToGlobalDiscoveryRelays({
                                 pool: relayPool,
                                 payload,
-                                primaryRelayUrls: enabledRelayUrls,
+                                primaryRelayUrls: publishRelayUrls,
                             });
-                            refreshEncryptedAccountBackup(pubkey, privkey, relayPool, enabledRelayUrls);
+                            await refreshEncryptedAccountBackup(pubkey, privkey, relayPool, publishRelayUrls).catch(() => {
+                                // Local profile save already succeeded; backup refresh is best-effort here.
+                            });
                             return true;
                         }
                     }
@@ -434,7 +451,7 @@ export const useProfilePublisher = (): UseProfilePublisherResult => {
                             attempts: attempt,
                             message: lastError,
                             successCount: report?.successCount,
-                            totalRelays: report?.totalRelays ?? enabledRelayUrls.length,
+                            totalRelays: report?.totalRelays ?? publishRelayUrls.length,
                             updatedAtIso: new Date().toISOString()
                         });
                     } else if (relayPool.publishToAll) {
@@ -462,7 +479,11 @@ export const useProfilePublisher = (): UseProfilePublisherResult => {
                                 totalRelays: result.totalRelays,
                                 message: result.overallError,
                             });
-                            if (isPartialRelaySuccess(result.successCount, result.totalRelays)) {
+                            if (isPartialRelaySuccess(
+                                result.successCount,
+                                result.totalRelays,
+                                result.metQuorum,
+                            )) {
                                 toast.warning(formatRelayPublishPartialCoverageMessage(
                                     result.successCount,
                                     result.totalRelays,
@@ -471,9 +492,11 @@ export const useProfilePublisher = (): UseProfilePublisherResult => {
                             mirrorProfileToGlobalDiscoveryRelays({
                                 pool: relayPool,
                                 payload,
-                                primaryRelayUrls: enabledRelayUrls,
+                                primaryRelayUrls: publishRelayUrls,
                             });
-                            refreshEncryptedAccountBackup(pubkey, privkey, relayPool, enabledRelayUrls);
+                            await refreshEncryptedAccountBackup(pubkey, privkey, relayPool, publishRelayUrls).catch(() => {
+                                // Local profile save already succeeded; backup refresh is best-effort here.
+                            });
                             return true;
                         }
                         lastError = result.overallError || "Failed to publish to any relay";

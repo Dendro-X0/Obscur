@@ -27,6 +27,10 @@ import type {
 import { toast } from "@dweb/ui-kit";
 import { sendDm, sendConnectionRequest, type SendConfirmation } from "./dm-send-pipeline";
 import { getRelayPublishFailureUserMessage } from "@/app/features/relays/services/relay-publish-user-copy";
+import {
+  assertDmOutboundAllowed,
+  resolveContactRequestComposeMode,
+} from "../../services/contact-request-sandbox-policy";
 import { processIncomingEvent, processDeleteEventDirect, createDedupSet, type IncomingDmResult } from "./dm-receive-pipeline";
 // deleteMessages replaced by new deletion coordinator
 import { subscribeToIncomingDMs, type SubscriptionHandle } from "./dm-relay-transport";
@@ -58,6 +62,10 @@ import { MessageQueue } from "../../lib/message-queue";
 import { syncMissedMessages as syncMissedMessagesImpl } from "../dm-sync-orchestrator";
 import type { EnhancedDMControllerState } from "../dm-controller-state";
 import { errorHandler } from "../../lib/error-handler";
+import {
+  applyIncomingContactLifecycle,
+  applyIncomingContactWireEvidence,
+} from "../../services/contact-request-incoming-lifecycle";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -153,6 +161,7 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
     pool,
     blocklist,
     peerTrust,
+    requestsInbox,
     onNewMessage,
     onMessageUpdated,
     onMessageDeleted,
@@ -220,6 +229,8 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
   blocklistRef.current = blocklist;
   const peerTrustRef = useRef(peerTrust);
   peerTrustRef.current = peerTrust;
+  const requestsInboxRef = useRef(requestsInbox);
+  requestsInboxRef.current = requestsInbox;
   const onNewMessageRef = useRef(onNewMessage);
   onNewMessageRef.current = onNewMessage;
   const onMessageUpdatedRef = useRef(onMessageUpdated);
@@ -280,6 +291,7 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
       myPrivateKeyHex: myPrivateKeyHexRef.current ?? "",
       blocklist: blocklistRef.current,
       peerTrust: peerTrustRef.current,
+      requestsInbox: requestsInboxRef.current,
       dedupSet: dedupSetRef.current,
     });
 
@@ -436,6 +448,111 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
         break;
       }
 
+      case "contact_sandbox": {
+        const msg = result.message;
+        if (isDevLabSyntheticDmPlaintext(msg.content)) {
+          break;
+        }
+        const profileId = getResolvedProfileId();
+        const nowMs = Date.now();
+        if (messagingClientOperations.isDmMessageIdentitySuppressed(msg, profileId ?? undefined, nowMs)) {
+          break;
+        }
+        const peerPublicKeyHex = (result.isSelfAuthored ? msg.recipientPubkey : msg.senderPubkey) as PublicKeyHex | undefined;
+        if (!result.isSelfAuthored && peerPublicKeyHex) {
+          requestsInboxRef.current?.upsertIncoming({
+            peerPublicKeyHex,
+            plaintext: typeof msg.content === "string" ? msg.content : "",
+            createdAtUnixSeconds: Math.floor((msg.timestamp?.getTime() ?? Date.now()) / 1000),
+            isRequest: result.lifecycleTag === "connection-request",
+            status: "pending",
+            eventId: msg.eventId,
+            ingestSource: "relay_live",
+          });
+          peerRelayEvidenceStore.recordInboundRelay({
+            peerPublicKeyHex,
+            relayUrl,
+            profileId: getResolvedProfileId(),
+          });
+        }
+        const msgConversationId = msg.conversationId || [myPublicKeyHexRef.current, msg.senderPubkey].sort().join(":");
+        if (result.isSelfAuthored) {
+          let didUpdateEcho = false;
+          setMessages(prev => {
+            const existingIdx = prev.findIndex(m =>
+              m.eventId === msg.eventId || m.id === msg.id
+            );
+            if (existingIdx >= 0) {
+              const existing = prev[existingIdx];
+              if (existing.status === "delivered") {
+                return prev;
+              }
+              didUpdateEcho = true;
+              const updated = [...prev];
+              updated[existingIdx] = { ...existing, status: "delivered" };
+              return updated;
+            }
+            if (prev.some(m => m.eventId === msg.eventId || m.id === msg.id)) {
+              return prev;
+            }
+            didUpdateEcho = true;
+            return [msg, ...prev]
+              .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+              .slice(0, MAX_MESSAGES_IN_MEMORY);
+          });
+          if (didUpdateEcho && msg.conversationId && msg.eventId) {
+            onMessageUpdatedRef.current?.({
+              conversationId: msg.conversationId,
+              message: msg,
+            });
+          }
+          break;
+        }
+        setMessages(prev => {
+          if (prev.some(m => m.eventId === msg.eventId || m.id === msg.id)) {
+            return prev;
+          }
+          return [msg, ...prev]
+            .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+            .slice(0, MAX_MESSAGES_IN_MEMORY);
+        });
+        onNewMessageRef.current?.({
+          ...msg,
+          conversationId: msg.conversationId || msgConversationId,
+        });
+        break;
+      }
+
+      case "contact_lifecycle": {
+        if (!result.isSelfAuthored) {
+          void applyIncomingContactLifecycle(
+            {
+              accountPublicKeyHex: myPublicKeyHexRef.current,
+              peerTrust: peerTrustRef.current,
+              requestsInbox: requestsInboxRef.current,
+            },
+            {
+              lifecycleTag: result.lifecycleTag,
+              peerPublicKeyHex: result.peerPublicKeyHex as PublicKeyHex,
+              requestEventId: result.requestEventId,
+              isSelfAuthored: result.isSelfAuthored,
+            },
+          ).catch((err) => {
+            console.error("[dm-controller:v2] applyIncomingContactLifecycle failed", err);
+          });
+        }
+        break;
+      }
+
+      case "contact_wire_evidence": {
+        applyIncomingContactWireEvidence({
+          lifecycleTag: result.lifecycleTag,
+          peerPublicKeyHex: result.peerPublicKeyHex as PublicKeyHex,
+          requestEventId: result.requestEventId,
+        });
+        break;
+      }
+
       case "delete":
         await applyRemoteDelete(result, event);
         break;
@@ -533,6 +650,28 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
       };
     }
 
+    const peerPublicKeyHex = sendParams.peerPublicKeyInput.trim();
+    const composeMode = resolveContactRequestComposeMode({
+      isPeerAcceptedByTrust: peerTrustRef.current?.isAccepted({ publicKeyHex: peerPublicKeyHex }) ?? false,
+      requestStatus: requestsInboxRef.current?.getRequestStatus({ peerPublicKeyHex }) ?? null,
+    });
+    const outboundGate = assertDmOutboundAllowed({
+      composeMode,
+      plaintext: sendParams.plaintext,
+      attachmentCount: sendParams.attachments?.length ?? 0,
+      customTags: sendParams.customTags,
+    });
+    if (!outboundGate.ok) {
+      return {
+        success: false,
+        deliveryStatus: "failed",
+        messageId: "",
+        eventId: "",
+        relayResults: [],
+        error: outboundGate.message,
+      };
+    }
+
     // Optimistic message
     const optimisticId = crypto.randomUUID();
     const isCommand = sendParams.plaintext.startsWith("__dweb_cmd__");
@@ -540,6 +679,9 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
       myPublicKeyHex,
       peerPublicKeyHex: sendParams.peerPublicKeyInput,
     }) ?? [myPublicKeyHex, sendParams.peerPublicKeyInput].sort().join(":");
+    const outgoingAttachments = sendParams.attachments && sendParams.attachments.length > 0
+      ? sendParams.attachments
+      : undefined;
     const optimisticMessage: Message = {
       id: optimisticId,
       conversationId: optimisticConversationId,
@@ -550,6 +692,7 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
       status: "sending",
       senderPubkey: myPublicKeyHex,
       recipientPubkey: sendParams.peerPublicKeyInput,
+      ...(outgoingAttachments ? { attachments: outgoingAttachments } : {}),
     };
 
     // Add to state immediately (skip command messages - they should not appear in UI)

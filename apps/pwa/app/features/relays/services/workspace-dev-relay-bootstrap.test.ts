@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   applyWorkspaceDevRelayBootstrap,
+  pruneUnreachableLocalDevWorkspaceRelay,
 } from "./workspace-dev-relay-bootstrap";
 
 describe("workspace-dev-relay-bootstrap", () => {
@@ -37,5 +38,18 @@ describe("workspace-dev-relay-bootstrap", () => {
 
     expect(result.changed).toBe(false);
     expect(result.relays).toEqual(relays);
+  });
+
+  it("disables enabled localhost relay when dev stack is offline", () => {
+    const result = pruneUnreachableLocalDevWorkspaceRelay([
+      { url: "wss://relay.damus.io", enabled: true },
+      { url: "ws://localhost:7000", enabled: true },
+    ]);
+
+    expect(result?.changed).toBe(true);
+    expect(result?.relays).toEqual([
+      { url: "wss://relay.damus.io", enabled: true },
+      { url: "ws://localhost:7000", enabled: false },
+    ]);
   });
 });

@@ -1,22 +1,22 @@
 {
   "schema": "verify.issues.register.summary@0.2.0",
-  "updatedAt": "2026-07-04T17:53:45.673327200+00:00",
+  "updatedAt": "2026-07-06T14:51:07.851636500+00:00",
   "issueCount": 47,
   "topIssues": [
     {
-      "id": "verify:issue:agent:41aeddb8d5f42614",
+      "id": "verify:issue:fault:fault-90f591d2",
       "symptomId": "group-thread-relay-ingest",
-      "title": "O-4 round14 t3: send O4-round14-acl-cdp-072T1102 visible; full stack :7000+:8787; post ACL/CDP rebuild",
+      "title": "messaging.delete_for_everyone_remote_result — count=62",
       "severity": "p0",
       "source": "agent",
       "fingerprint": "symptom:group-thread-relay-ingest",
-      "occurrenceCount": 13,
+      "occurrenceCount": 15,
       "primaryEvidenceRef": ".codectx/verify/client-sessions/csess-c9e4cc0c3649/captures/cap-3b9283b9eb83/snapshot.yaml",
       "trackerStep": 7,
-      "chainId": "chain-o4-group-ingest-2026-07-02",
-      "symptomClass": "group-thread-relay-ingest",
-      "canonicalTitle": "O-4 round14 t3: send O4-round14-acl-cdp-072T1102 visible; full stack :7000+:8787; post ACL/CDP rebuild",
-      "chapterCount": 13,
+      "chainId": "chain-r5-o4-ingest-chrome-2026-07-04",
+      "symptomClass": "group_thread_relay_ingest",
+      "canonicalTitle": "messaging.delete_for_everyone_remote_result — count=62",
+      "chapterCount": 15,
       "priorChapters": [
         {
           "id": "verify:issue:agent:264c88e73e9428fd",
@@ -77,6 +77,16 @@
           "id": "verify:issue:agent:b24bb36ac9f8c8e4",
           "title": "O-4 round13 t3: post-rebuild send O4-round13-rebuild-072T0958 visible; publishGroupEvent 9a615480 @ :7000; bridge multiwindow partial",
           "ingestedAt": "2026-07-02T09:59:16.555526800+00:00"
+        },
+        {
+          "id": "verify:issue:agent:41aeddb8d5f42614",
+          "title": "O-4 round14 t3: send O4-round14-acl-cdp-072T1102 visible; full stack :7000+:8787; post ACL/CDP rebuild",
+          "ingestedAt": "2026-07-02T11:03:36.313360100+00:00"
+        },
+        {
+          "id": "verify:issue:fault:fault-2a1b0868",
+          "title": "groups.ledger_field_repair_applied — count=84",
+          "ingestedAt": "2026-07-03T16:00:30.022157700+00:00"
         }
       ]
     },
@@ -150,7 +160,7 @@
       "source": "agent",
       "fingerprint": "symptom:COM-RUN-11",
       "occurrenceCount": 9,
-      "primaryEvidenceRef": ".codectx/verify/client-sessions/csess-d39f4ab009ee/captures/bcap-82d3ad04daf9/bridge-result.json",
+      "primaryEvidenceRef": ".codectx/verify/client-sessions/csess-675769c36e27/captures/bcap-1ff2e5524933/manifest.json",
       "trackerStep": 5,
       "chainId": "chain-o4-group-ingest-2026-07-02",
       "symptomClass": "COM_RUN_11",
@@ -566,6 +576,17 @@
       "chapterCount": 1
     },
     {
+      "id": "verify:issue:assert:cap-bbb6a1d4038e",
+      "title": "Client assert failed: textVisible — text not visible: Restoring session",
+      "severity": "p1",
+      "source": "client_assert",
+      "fingerprint": "finding:cap-bbb6a1d4038e:client_assert",
+      "occurrenceCount": 1,
+      "primaryEvidenceRef": ".codectx/verify/client-sessions/csess-675769c36e27/captures/cap-bbb6a1d4038e/snapshot.yaml",
+      "canonicalTitle": "Client assert failed: textVisible — text not visible: Restoring session",
+      "chapterCount": 1
+    },
+    {
       "id": "verify:issue:assert:cap-e9215a92a21b",
       "title": "Client assert failed: textVisible — text not visible: O2-phase1c-coldrestart-070T0559",
       "severity": "p1",
@@ -596,17 +617,6 @@
       "occurrenceCount": 1,
       "primaryEvidenceRef": ".codectx/verify/faults/fault-1bfb48bc.json",
       "canonicalTitle": "runtime.profile_binding_refresh_completed — count=2",
-      "chapterCount": 1
-    },
-    {
-      "id": "verify:issue:fault:fault-2a1b0868",
-      "title": "groups.ledger_field_repair_applied — count=84",
-      "severity": "p1",
-      "source": "runtime_digest",
-      "fingerprint": "finding:fault-2a1b0868:runtime_digest",
-      "occurrenceCount": 1,
-      "primaryEvidenceRef": ".codectx/verify/faults/fault-2a1b0868.json",
-      "canonicalTitle": "groups.ledger_field_repair_applied — count=84",
       "chapterCount": 1
     },
     {

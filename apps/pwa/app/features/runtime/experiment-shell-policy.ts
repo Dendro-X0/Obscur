@@ -46,7 +46,7 @@ export const isExperimentShellEnabled = (): boolean => {
 /**
  * G6: Real relay pool + account sync/projection while keeping experiment loadability deferrals
  * (groups hydrate, messaging SQLite idle-deferred, navigation warmup) **only in offline-stub mode**.
- * Set `NEXT_PUBLIC_OBSCUR_EXPERIMENT_ONLINE=1` (`pnpm dev:desktop:online`).
+ * Set `NEXT_PUBLIC_OBSCUR_EXPERIMENT_ONLINE=1` (`pnpm dev:desktop:online` or production `build-pwa-shell`).
  *
  * G6-5: When online is set, deferrals are off — same heavy-work timing as non-experiment shell.
  */

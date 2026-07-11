@@ -47,8 +47,8 @@ Superseded program docs (~115 files) → [../archive/program/inactive-2026-06/](
 |----------|------|
 | [design-goals-and-constraints.md](./design-goals-and-constraints.md) | Product + architecture intent |
 | [v1.9.x-execution-contract.md](./v1.9.x-execution-contract.md) | Daily order; forbidden drift |
-| [v1.9.x-release-train.md](./v1.9.x-release-train.md) | Semver train (**1.9.10**) |
-| [v1.9.10-scope.md](./v1.9.10-scope.md) | Current concentration unit |
+| [v1.9.x-release-train.md](./v1.9.x-release-train.md) | Semver train (**1.9.11**) |
+| [v1.9.11-scope.md](./v1.9.11-scope.md) | Current concentration unit |
 | [obscur-v2-roadmap-2026-07.md](./obscur-v2-roadmap-2026-07.md) | **v2.0.0 phased queue** — consolidated issues + Phase 1A–1D (active) |
 | [version-roadmap-scope.md](./version-roadmap-scope.md) | Master I/V/A checklist |
 | [modular-iteration-contract.md](./modular-iteration-contract.md) | Silo / re-integration; agent discipline |
@@ -92,6 +92,8 @@ Superseded program docs (~115 files) → [../archive/program/inactive-2026-06/](
 | [obscur-native-sqlite-policy.md](./obscur-native-sqlite-policy.md) | Native persistence authority |
 | [obscur-data-root-bind-contract.md](./obscur-data-root-bind-contract.md) | Desktop data root |
 | [v1.9.8-portable-storage-and-encryption-charter.md](./v1.9.8-portable-storage-and-encryption-charter.md) | Portable export/import |
+| [antisocial-engineering-contract.md](./antisocial-engineering-contract.md) | Human-layer anti-phishing modules (ASE-1) |
+| [../../specs/backend/private-key-technical-moat-2026-07.md](../../specs/backend/private-key-technical-moat-2026-07.md) | Wallet-grade KDF + secret firewall (KEY-MOAT-1) |
 | [obscur-product-shell-architecture-2026-05.md](./obscur-product-shell-architecture-2026-05.md) | App shell contract |
 | [ui-effect-stability-policy.md](./ui-effect-stability-policy.md) | Render-loop / effect rules |
 

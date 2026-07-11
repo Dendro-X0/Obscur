@@ -21,8 +21,12 @@ import { getResolvedProfileId } from "@/app/features/profiles/services/profile-r
 import { revealExportPathInFileManager } from "@/app/features/profiles/services/data-root-export-service";
 import { invokeNativeCommand } from "@/app/features/runtime/native-adapters";
 import type { SettingsTabPanelModel } from "../settings-tab-panel-model-context";
-import { PRIVATE_KEY_REVEAL_WINDOW_MS } from "../settings-tab-panel-shared";
+import { PRIVATE_KEY_REVEAL_WINDOW_MS, PRIVATE_KEY_EXPORT_CONFIRM_TEXT } from "../settings-tab-panel-shared";
 import type { IdentityIntegrityState, IdentityStorageMode } from "../settings-tab-panel-shared";
+import {
+  isPrivateKeyExportConfirmed,
+  schedulePrivateKeyClipboardClear,
+} from "@/app/features/security/services/private-key-export-gate";
 import { usePrivacySettingsCore } from "./use-privacy-settings-model";
 import { useSettingsDestructiveActionsModel } from "./use-settings-destructive-actions-model";
 
@@ -46,7 +50,10 @@ export function useIdentitySettingsModel(): SettingsTabPanelModel {
   const [revealSecondsLeft, setRevealSecondsLeft] = useState<number>(0);
   const [isPortableBundleExporting, setIsPortableBundleExporting] = useState(false);
   const [isPortableBundleImporting, setIsPortableBundleImporting] = useState(false);
+  const [isExportPrivateKeyDialogOpen, setIsExportPrivateKeyDialogOpen] = useState(false);
+  const [exportPrivateKeyConfirmInput, setExportPrivateKeyConfirmInput] = useState("");
   const portableBundleFileInputRef = useRef<HTMLInputElement | null>(null);
+  const clipboardClearCancelRef = useRef<(() => void) | null>(null);
 
   const npubValue = useMemo(() => {
     try {
@@ -200,12 +207,15 @@ export function useIdentitySettingsModel(): SettingsTabPanelModel {
       }
     }
     if (keyToCopy) {
+      clipboardClearCancelRef.current?.();
       await navigator.clipboard.writeText(keyToCopy);
+      clipboardClearCancelRef.current = schedulePrivateKeyClipboardClear();
       toast.success(t("common.copied"));
+      toast.info(t("security.export.clipboardClearNotice"));
     }
   };
 
-  const exportPrivateKey = async (): Promise<void> => {
+  const performExportPrivateKey = async (): Promise<void> => {
     let key = nsecKey;
     if (!key && identity.state.privateKeyHex && identity.state.privateKeyHex !== NATIVE_KEY_SENTINEL) {
       const bytes = new Uint8Array(32);
@@ -215,7 +225,7 @@ export function useIdentitySettingsModel(): SettingsTabPanelModel {
       key = nip19.nsecEncode(bytes);
     }
     if (!key) {
-      toast.error("Private key is not currently available to export.");
+      toast.error(t("security.export.unavailable"));
       return;
     }
     const payload = `# Obscur Private Key Backup\n${key}\n`;
@@ -226,7 +236,26 @@ export function useIdentitySettingsModel(): SettingsTabPanelModel {
     anchor.download = "obscur-private-key-backup.txt";
     anchor.click();
     URL.revokeObjectURL(url);
-    toast.success("Private key exported.");
+    toast.success(t("security.export.exported"));
+  };
+
+  const requestExportPrivateKey = (): void => {
+    if (!isPrivateKeyVisible && !nsecKey) {
+      toast.error(t("security.export.revealRequired"));
+      return;
+    }
+    setExportPrivateKeyConfirmInput("");
+    setIsExportPrivateKeyDialogOpen(true);
+  };
+
+  const confirmExportPrivateKey = async (): Promise<void> => {
+    if (!isPrivateKeyExportConfirmed(exportPrivateKeyConfirmInput)) {
+      toast.error(t("security.export.confirmRequired", { phrase: PRIVATE_KEY_EXPORT_CONFIRM_TEXT }));
+      return;
+    }
+    await performExportPrivateKey();
+    setIsExportPrivateKeyDialogOpen(false);
+    setExportPrivateKeyConfirmInput("");
   };
 
   const handleExportPortableBundle = async (): Promise<void> => {
@@ -344,13 +373,22 @@ export function useIdentitySettingsModel(): SettingsTabPanelModel {
     }
   }, [isPrivateKeyVisible]);
 
+  useEffect(() => {
+    return () => {
+      clipboardClearCancelRef.current?.();
+    };
+  }, []);
+
   return {
     ...destructive,
     challangePassword,
+    confirmExportPrivateKey,
     copyPrivateKey,
     derivedPublicKeyHex,
     displayPublicKeyHex,
-    exportPrivateKey,
+    exportPrivateKeyConfirmInput,
+    exportPrivateKey: requestExportPrivateKey,
+    performExportPrivateKey,
     handleExportPortableBundle,
     handlePortableBundleFileSelected,
     handleProfileSwitchLock,
@@ -361,6 +399,7 @@ export function useIdentitySettingsModel(): SettingsTabPanelModel {
     identityIntegrityState,
     identityStorageMode,
     isChallenging,
+    isExportPrivateKeyDialogOpen,
     isPortableBundleExporting,
     isPortableBundleImporting,
     isPrivateKeyVisible,
@@ -376,6 +415,8 @@ export function useIdentitySettingsModel(): SettingsTabPanelModel {
     revealSecondsLeft,
     setChallengePassword,
     setIsChallenging,
+    setExportPrivateKeyConfirmInput,
+    setIsExportPrivateKeyDialogOpen,
     setIsDeleteAccountDialogOpen: destructive.setIsDeleteAccountDialogOpen,
     setIsPortableBundleExporting,
     setIsPortableBundleImporting,

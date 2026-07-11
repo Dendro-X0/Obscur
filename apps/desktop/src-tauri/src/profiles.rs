@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
+use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 use tokio::sync::Mutex;
 use std::fs;
 
@@ -12,6 +12,7 @@ const REGISTRY_FILE: &str = "profiles_registry.json";
 const DEFAULT_PROFILE_ID: &str = "default";
 const DEFAULT_PROFILE_LABEL: &str = "Default";
 const MAIN_WINDOW_LABEL: &str = "main";
+pub const PROFILE_ISOLATION_CHANGED_EVENT: &str = "profile-isolation-changed";
 /// Each profile window is a full WebView2 instance — cap live windows to protect RAM.
 const MAX_LIVE_PROFILE_WINDOWS: usize = 4;
 
@@ -36,7 +37,10 @@ pub fn clear_profile_webview_data_directory(app: &AppHandle, profile_id: &str) {
 
 /// Clear all shared WebView storage directories to ensure complete profile isolation.
 /// This includes IndexedDB, Service Worker, Cache, etc. that may persist across profiles.
-/// This is best-effort and logs warnings on failure.
+/// **Do not call while other profile windows are live** — each window uses its own
+/// `data_directory` under `profiles/{id}`; wiping the app-level shared dirs corrupts
+/// sibling windows (e.g. main stays unlocked but loses localStorage mid-session).
+#[allow(dead_code)]
 fn clear_shared_webview_storage(app: &AppHandle) {
     let app_dir = match default_app_data_dir(app) {
         Ok(dir) => dir,
@@ -180,10 +184,20 @@ fn load_registry(app: &AppHandle) -> PersistedProfileRegistry {
     serde_json::from_str::<PersistedProfileRegistry>(&raw).unwrap_or_else(|_| default_registry())
 }
 
+fn emit_profile_isolation_changed(app: &AppHandle) {
+    let _ = app.emit(PROFILE_ISOLATION_CHANGED_EVENT, ());
+}
+
+pub fn emit_profile_isolation_changed_public(app: &AppHandle) {
+    emit_profile_isolation_changed(app);
+}
+
 fn persist_registry(app: &AppHandle, state: &PersistedProfileRegistry) -> Result<(), String> {
     let path = registry_path(app)?;
     let payload = serde_json::to_string(state).map_err(|e| e.to_string())?;
-    std::fs::write(path, payload).map_err(|e| e.to_string())
+    std::fs::write(path, payload).map_err(|e| e.to_string())?;
+    emit_profile_isolation_changed(app);
+    Ok(())
 }
 
 fn sanitize_profile_id(input: &str) -> String {
@@ -395,9 +409,11 @@ pub(crate) fn resolve_profile_window_url(app: &AppHandle) -> WebviewUrl {
     WebviewUrl::App("index.html".into())
 }
 
+#[cfg(debug_assertions)]
 const DEV_WEBVIEW_DEFAULT_BROWSER_ARGS: &str =
     "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection";
 
+#[cfg(debug_assertions)]
 fn resolve_dev_cdp_port(env_key: &str, default_port: &str) -> String {
     std::env::var(env_key)
         .ok()
@@ -412,16 +428,10 @@ fn dev_webview_browser_args(port: &str) -> String {
 
 /// Per-window CDP for main (debug). Do not rely on WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS — it
 /// applies process-wide and prevents a second port on profile WebView2 environments.
+#[cfg(debug_assertions)]
 pub(crate) fn main_window_additional_browser_args() -> Option<String> {
-    #[cfg(debug_assertions)]
-    {
-        let port = resolve_dev_cdp_port("OBSCUR_CDP_MAIN", "9230");
-        return Some(dev_webview_browser_args(&port));
-    }
-    #[cfg(not(debug_assertions))]
-    {
-        None
-    }
+    let port = resolve_dev_cdp_port("OBSCUR_CDP_MAIN", "9230");
+    Some(dev_webview_browser_args(&port))
 }
 
 fn profile_window_additional_browser_args() -> Option<String> {
@@ -711,12 +721,9 @@ impl DesktopProfileState {
         // Drop the lock before async cleanup
         drop(state);
         
-        // Clear credentials and data
+        // Clear credentials and per-profile WebView data only. Do not wipe app-level
+        // shared WebView dirs here — other profile windows may still be running.
         clear_native_credentials_for_profile(app, profile_id, session).await;
-        
-        // Clear shared WebView storage (IndexedDB, Service Worker, etc.) to ensure
-        // a "fresh device" experience when creating a new profile window
-        clear_shared_webview_storage(app);
         
         eprintln!("[PROFILES] Profile {} removal complete. Windows closed: {}", profile_id, windows_to_close.len());
         

@@ -48,7 +48,7 @@ export function GlobalDialogManager() {
     const { relayPool } = useRelay();
     const relayPoolRef = useRelayPoolRef(relayPool);
     const relayList = useRelayList({ publicKeyHex: identity.state.publicKeyHex || null });
-    const { isNewChatOpen, setIsNewChatOpen, newChatPubkey, setNewChatPubkey, newChatDisplayName, setNewChatDisplayName, createdConnections, setCreatedConnections, setSelectedConversation, unhideConversation } = useMessaging();
+    const { isNewChatOpen, setIsNewChatOpen, newChatPubkey, setNewChatPubkey, newChatDisplayName, setNewChatDisplayName, createdConnections, setCreatedConnections, setSelectedConversation, unhideConversation, setSidebarTab } = useMessaging();
     const { isNewGroupOpen, setIsNewGroupOpen, isCreatingGroup, setIsCreatingGroup, addGroup } = useGroups();
     const myPublicKeyHex = identity.state.publicKeyHex || null;
     const myPrivateKeyHex = identity.state.privateKeyHex || null;
@@ -69,16 +69,39 @@ export function GlobalDialogManager() {
         requestsInbox,
     });
     const { searchByName: searchProfilesByName } = useProfileSearchServiceRef(relayPool, myPublicKeyHex ?? undefined);
+    const handleRequestSent = useCallback((params: Readonly<{
+        peerPublicKeyHex: PublicKeyHex;
+        displayName?: string;
+    }>) => {
+        setSidebarTab("requests");
+        const cid = toDmConversationId({
+            myPublicKeyHex: myPublicKeyHex || "",
+            peerPublicKeyHex: params.peerPublicKeyHex,
+        });
+        if (!cid) {
+            return;
+        }
+        setSelectedConversation({
+            kind: "dm",
+            id: cid,
+            pubkey: params.peerPublicKeyHex,
+            displayName: params.displayName || DEFAULT_DM_DISPLAY_NAME,
+            lastMessage: "",
+            unreadCount: 0,
+            lastMessageTime: new Date(),
+        });
+    }, [myPublicKeyHex, setSelectedConversation, setSidebarTab]);
     const handleCreateChat = useCallback((explicitPubkey?: string) => {
         const targetPubkey = explicitPubkey || newChatPubkey;
         if (!targetPubkey)
             return;
-        if (myPublicKeyHex && !peerTrust.isAccepted({ publicKeyHex: targetPubkey as PublicKeyHex })) {
-            requestsInbox.setStatus({
-                peerPublicKeyHex: targetPubkey as PublicKeyHex,
-                status: 'pending',
-                isOutgoing: true
-            });
+        const targetPublicKeyHex = targetPubkey as PublicKeyHex;
+        if (myPublicKeyHex && !peerTrust.isAccepted({ publicKeyHex: targetPublicKeyHex })) {
+            // ASE-1d-a: strangers belong in Requests until accepted — not the Chats sidebar.
+            setIsNewChatOpen(false);
+            setNewChatPubkey("");
+            setNewChatDisplayName("");
+            return;
         }
         const existing = createdConnections.find(c => c.pubkey === targetPubkey);
         const newId = toDmConversationId({ myPublicKeyHex: myPublicKeyHex || "", peerPublicKeyHex: targetPubkey });
@@ -107,7 +130,7 @@ export function GlobalDialogManager() {
         setNewChatPubkey("");
         setNewChatDisplayName("");
         toast.success(t("messaging.chatCreated"));
-    }, [newChatPubkey, newChatDisplayName, createdConnections, myPublicKeyHex, setCreatedConnections, setSelectedConversation, setIsNewChatOpen, setNewChatPubkey, setNewChatDisplayName, t, unhideConversation, requestsInbox, peerTrust]);
+    }, [newChatPubkey, newChatDisplayName, createdConnections, myPublicKeyHex, setCreatedConnections, setSelectedConversation, setIsNewChatOpen, setNewChatPubkey, setNewChatDisplayName, t, unhideConversation, peerTrust]);
     const handleCreateGroup = useCallback(async (info: GroupCreateInfo) => {
         if (!isWorkspaceCommunityCreateAllowed()) {
             toast.error(WORKSPACE_KERNEL_CREATE_DEFERRED_MESSAGE);
@@ -341,7 +364,7 @@ export function GlobalDialogManager() {
         t,
     ]);
     return (<>
-            <NewChatDialog isOpen={isNewChatOpen} onClose={() => setIsNewChatOpen(false)} pubkey={newChatPubkey} setPubkey={setNewChatPubkey} displayName={newChatDisplayName} setDisplayName={setNewChatDisplayName} onCreate={handleCreateChat} verifyRecipient={dmController.verifyRecipient} searchProfiles={searchProfilesByName} isAccepted={(pk) => peerTrust.isAccepted({ publicKeyHex: pk })} sendConnectionRequest={requestTransport.sendRequest}/>
+            <NewChatDialog isOpen={isNewChatOpen} onClose={() => setIsNewChatOpen(false)} pubkey={newChatPubkey} setPubkey={setNewChatPubkey} displayName={newChatDisplayName} setDisplayName={setNewChatDisplayName} onCreate={handleCreateChat} verifyRecipient={dmController.verifyRecipient} searchProfiles={searchProfilesByName} isAccepted={(pk) => peerTrust.isAccepted({ publicKeyHex: pk })} sendConnectionRequest={requestTransport.sendRequest} onRequestSent={handleRequestSent}/>
             {isNewGroupOpen ? (<CreateGroupDialog isOpen onClose={() => setIsNewGroupOpen(false)} onCreate={handleCreateGroup} isCreating={isCreatingGroup} createWaitPhase={createWaitPhase}/>) : null}
         </>);
 }

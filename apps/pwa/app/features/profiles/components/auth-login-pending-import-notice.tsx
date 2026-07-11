@@ -34,7 +34,7 @@ export function AuthLoginPendingImportNotice(): React.JSX.Element | null {
         account {pendingImportAccountPrefix(pending.bundlePublicKeyHex)}
       </p>
       <p className="mt-1 text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">
-        Sign in with the matching private key or username/password. Import confirms automatically after unlock.
+        Sign in with the matching private key or username/password. Import applies automatically after unlock.
       </p>
       <Button
         type="button"

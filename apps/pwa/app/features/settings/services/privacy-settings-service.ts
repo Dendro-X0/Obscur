@@ -45,7 +45,7 @@ export const defaultPrivacySettings: PrivacySettings = {
     protocolCoreRustV090: false,
     x3dhRatchetV090: false,
     accountSyncConvergenceV091: false,
-    discoveryInviteCodeV1: false,
+    discoveryInviteCodeV1: true,
     discoveryDeepLinkV1: true,
     discoverySuggestionsV1: true,
     tanstackQueryV1: false,

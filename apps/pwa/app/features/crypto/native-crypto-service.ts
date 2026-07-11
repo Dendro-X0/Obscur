@@ -71,14 +71,33 @@ export class NativeCryptoService extends CryptoServiceImpl implements CryptoServ
         this.hasNativeKeyCached = null;
     }
 
+    private async invokeTauriWithTimeout<T>(
+        command: string,
+        args?: any,
+        timeoutMs: number = DEFAULT_NATIVE_COMMAND_TIMEOUT_MS,
+    ): Promise<T> {
+        const { invoke } = await import("@tauri-apps/api/core");
+        let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+        const timeoutPromise = new Promise<T>((_, reject) => {
+            timeoutHandle = setTimeout(() => {
+                reject(new Error(`Native command ${command} timed out after ${timeoutMs}ms`));
+            }, timeoutMs);
+        });
+        try {
+            return await Promise.race([invoke<T>(command, args), timeoutPromise]);
+        } finally {
+            if (timeoutHandle) {
+                clearTimeout(timeoutHandle);
+            }
+        }
+    }
+
     private async invokeWithTimeout<T>(command: string, args?: any, timeoutMs: number = DEFAULT_NATIVE_COMMAND_TIMEOUT_MS): Promise<T> {
         const result = await invokeNativeCommand<T>(command, args, { timeoutMs });
         if (!result.ok) {
             // Compatibility fallback for mixed native payload envelopes while desktop runtime migrates.
             if ((result.message || "").includes("Version not found in payload")) {
-                const { invoke } = await import("@tauri-apps/api/core");
-                // Do not add a second timeout layer here; keep one canonical timeout contract.
-                return invoke<T>(command, args);
+                return this.invokeTauriWithTimeout<T>(command, args, timeoutMs);
             }
             throw new Error(result.message || `Native command ${command} failed`);
         }
@@ -89,8 +108,7 @@ export class NativeCryptoService extends CryptoServiceImpl implements CryptoServ
         const result = await invokeNativeCommand<T>(command, args);
         if (!result.ok) {
             if ((result.message || "").includes("Version not found in payload")) {
-                const { invoke } = await import("@tauri-apps/api/core");
-                return invoke<T>(command, args);
+                return this.invokeTauriWithTimeout<T>(command, args, DEFAULT_NATIVE_COMMAND_TIMEOUT_MS);
             }
             throw new Error(result.message || `Native command ${command} failed`);
         }

@@ -8,9 +8,11 @@ import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { clearAuthSessionPersistence } from "@/app/features/auth/utils/clear-auth-session-persistence";
 import { lockAppSession } from "@/app/features/auth/services/lock-app-session";
 import type { SessionUnlockOptions } from "@/app/features/auth/services/device-session-consent";
+import type { PoWDifficulty } from "@/app/features/auth/services/pow-key-generator";
 import { useWindowRuntime } from "@/app/features/runtime/services/window-runtime-supervisor";
 import {
   runAuthKernelBoundProfileCreate,
+  runAuthKernelBoundProfileCreatePoW,
   runAuthKernelBoundProfileImport,
   runAuthKernelBoundProfileLock,
   runAuthKernelBoundProfileSignOut,
@@ -27,6 +29,13 @@ export function useAuthKernelSurfaceActions(): Readonly<{
   evaluateRegistrationGate: (profileId: string) => Promise<AuthKernelRegistrationGateResult>;
   createIdentityForBoundProfile: (
     params: Readonly<{ passphrase: Passphrase; username?: string } & SessionUnlockOptions>,
+  ) => Promise<void>;
+  createPoWIdentityForBoundProfile: (
+    params: Readonly<{
+      passphrase: Passphrase;
+      username?: string;
+      difficulty: PoWDifficulty;
+    } & SessionUnlockOptions>,
   ) => Promise<void>;
   importIdentityForBoundProfile: (
     params: Readonly<{
@@ -55,6 +64,16 @@ export function useAuthKernelSurfaceActions(): Readonly<{
     params: Readonly<{ passphrase: Passphrase; username?: string } & SessionUnlockOptions>,
   ): Promise<void> => {
     await runAuthKernelBoundProfileCreate(ports, { profileId, ...params });
+  }, [ports, profileId]);
+
+  const createPoWIdentityForBoundProfile = useCallback(async (
+    params: Readonly<{
+      passphrase: Passphrase;
+      username?: string;
+      difficulty: PoWDifficulty;
+    } & SessionUnlockOptions>,
+  ): Promise<void> => {
+    await runAuthKernelBoundProfileCreatePoW(ports, { profileId, ...params });
   }, [ports, profileId]);
 
   const importIdentityForBoundProfile = useCallback(async (
@@ -97,6 +116,7 @@ export function useAuthKernelSurfaceActions(): Readonly<{
     ports,
     evaluateRegistrationGate,
     createIdentityForBoundProfile,
+    createPoWIdentityForBoundProfile,
     importIdentityForBoundProfile,
     unlockBoundProfileWithPassphrase,
     signOutBoundProfileWindow,
@@ -105,6 +125,7 @@ export function useAuthKernelSurfaceActions(): Readonly<{
     ports,
     evaluateRegistrationGate,
     createIdentityForBoundProfile,
+    createPoWIdentityForBoundProfile,
     importIdentityForBoundProfile,
     unlockBoundProfileWithPassphrase,
     signOutBoundProfileWindow,

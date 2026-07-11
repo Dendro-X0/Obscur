@@ -19,7 +19,7 @@ import type {
   DiscoverySourceStatus,
 } from "@/app/features/search/types/discovery";
 
-type DiscoveryQueryKind = "empty" | "invite_code" | "contact_card" | "pubkey" | "community_ref" | "text";
+type DiscoveryQueryKind = "empty" | "invite_code" | "contact_card" | "pubkey" | "community_ref" | "text" | "private_key";
 
 type CommunitySeed = Readonly<{
   communityId: string;
@@ -55,6 +55,7 @@ type RunDiscoveryParams = Readonly<{
   skipRelayLookup?: boolean;
   nowUnixMs?: number;
   signal?: AbortSignal;
+  relayUrls?: ReadonlyArray<string>;
   onProgress?: (state: DiscoveryQueryState, results: ReadonlyArray<DiscoveryResult>) => void;
 }>;
 
@@ -124,6 +125,13 @@ const classifyQuery = (intent: DiscoveryIntent, rawQuery: string): DiscoveryQuer
   }
 
   const parsedPublicKey = parsePublicKeyInput(normalizedQuery);
+  if (!parsedPublicKey.ok && parsedPublicKey.reason === "private_key_forbidden") {
+    return {
+      normalizedQuery,
+      queryKind: "private_key",
+      effectiveIntent: intent,
+    };
+  }
   if (parsedPublicKey.ok) {
     return {
       normalizedQuery,
@@ -382,6 +390,7 @@ const runRelayPeopleLookup = async (params: Readonly<{
   plan: DiscoveryQueryPlan;
   pool: RelayQueryPool;
   timeoutMs: number;
+  relayUrls?: ReadonlyArray<string>;
 }>): Promise<ReadonlyArray<DiscoveryProfileRecord>> => {
   if (params.plan.effectiveIntent === "search_communities") {
     return [];
@@ -403,6 +412,7 @@ const runRelayPeopleLookup = async (params: Readonly<{
     query: relayQuery,
     timeoutMs: params.timeoutMs,
     maxResults: params.plan.queryKind === "invite_code" ? 24 : 150,
+    relayUrls: params.relayUrls,
   });
 };
 
@@ -474,6 +484,13 @@ export const DiscoveryEngine = {
       return {
         results: [],
         state: emit("idle"),
+      };
+    }
+
+    if (plan.queryKind === "private_key") {
+      return {
+        results: [],
+        state: emit("complete", "private_key_forbidden"),
       };
     }
 
@@ -629,6 +646,7 @@ export const DiscoveryEngine = {
           plan,
           pool: params.pool,
           timeoutMs: relayTimeoutMs,
+          relayUrls: params.relayUrls,
         }), params.signal),
         withAbort(runRelayCommunityLookup({
           plan,

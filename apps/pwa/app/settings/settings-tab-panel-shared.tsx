@@ -21,6 +21,10 @@ import {
   normalizeInviteCodeSuffixInput,
 } from "@/app/features/invites/utils/invite-code-format";
 import { isSupportedPublicUrl, normalizePublicUrl } from "@/app/shared/public-url";
+import {
+  assertNoBlockedSecretMaterial,
+  SECRET_INPUT_FIREWALL_MESSAGE,
+} from "@/app/features/security/services/secret-input-firewall";
 
 
 export const APP_VERSION: string = process.env.NEXT_PUBLIC_APP_VERSION ?? "dev";
@@ -69,6 +73,7 @@ export const TEXT_SCALE_OPTIONS: ReadonlyArray<TextScale> = [90, 100, 110, 120];
 export const PRIVATE_KEY_REVEAL_WINDOW_MS = 20_000;
 export const PROFILE_PUBLISH_UI_TIMEOUT_MS = 20_000;
 export const DELETE_ACCOUNT_CONFIRM_TEXT = "WIPE ACCOUNT";
+export const PRIVATE_KEY_EXPORT_CONFIRM_TEXT = "EXPORT KEY";
 const ACCOUNT_DELETE_UNKNOWN_RELAY_SENTINELS = new Set(["unknown", "null", "undefined", "n/a", "none"]);
 
 const normalizeScopedRelayUrlForDelete = (relayUrl: string): string => relayUrl.trim().toLowerCase();
@@ -211,9 +216,13 @@ export const validateProfileInput = (profile: Readonly<{ username: string; about
     usernameError = "Username must be at least 3 characters.";
   } else if (username.length > 48) {
     usernameError = "Username is too long (max 48 characters).";
+  } else if (!assertNoBlockedSecretMaterial(username, "public_profile").ok) {
+    usernameError = SECRET_INPUT_FIREWALL_MESSAGE.publicProfileBlocked;
   }
   if (about.length > 280) {
     aboutError = "Description is too long (max 280 characters).";
+  } else if (!assertNoBlockedSecretMaterial(about, "public_profile").ok) {
+    aboutError = SECRET_INPUT_FIREWALL_MESSAGE.publicProfileBlocked;
   }
 
   if (nip05.length > 0 && !NIP05_IDENTIFIER_PATTERN.test(nip05)) {

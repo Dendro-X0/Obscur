@@ -8,7 +8,7 @@ import { isExperimentOnlineEnabled, isExperimentShellEnabled } from "../experime
 
 /** Dev-only badge so manual QA can confirm experiment mode is active. */
 export function ExperimentShellIndicator(): React.JSX.Element | null {
-  if (!isExperimentShellEnabled()) {
+  if (process.env.NODE_ENV !== "development" || !isExperimentShellEnabled()) {
     return null;
   }
   const online = isExperimentOnlineEnabled();

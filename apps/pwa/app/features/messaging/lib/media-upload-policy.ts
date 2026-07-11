@@ -89,9 +89,13 @@ export const shouldPreferBrowserUploadForRuntimeSafety = (file: File, isNativeRu
     );
 };
 
-export const shouldAvoidInMemoryAttachmentCaching = (file: File): boolean => (
-    file.size > MEDIA_RUNTIME_SAFETY_LIMITS.inMemorySentCacheBytes
-);
+export const shouldAvoidInMemoryAttachmentCaching = (file: File): boolean => {
+    const kind = getMediaKindForPolicy(file);
+    if (kind === "video" || kind === "audio") {
+        return true;
+    }
+    return file.size > MEDIA_RUNTIME_SAFETY_LIMITS.inMemorySentCacheBytes;
+};
 
 export const shouldSkipLocalAttachmentCachingForRuntimeSafety = (file: File): boolean => {
     const kind = getMediaKindForPolicy(file);

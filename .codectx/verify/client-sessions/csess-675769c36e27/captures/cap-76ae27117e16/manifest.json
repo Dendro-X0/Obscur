@@ -1,0 +1,23 @@
+{
+  "action": "digestPull",
+  "captureId": "cap-76ae27117e16",
+  "capturedAt": "2026-07-06T14:50:58.833111300+00:00",
+  "digestPath": ".codectx/verify/client-sessions/csess-675769c36e27/captures/cap-76ae27117e16/digest.json",
+  "doesNotProve": [
+    "Full OS-level automation",
+    "Long soak across machines"
+  ],
+  "finalUrl": "http://127.0.0.1:3340/",
+  "message": "runtime digest captured",
+  "pageTitle": "Obscur",
+  "pass": true,
+  "proofTier": "t3",
+  "proves": [
+    "Real WebView CDP flows including native IPC surfaces"
+  ],
+  "provider": "webview2-cdp",
+  "schema": "client.runtime.digestPull@0.1.0",
+  "sessionId": "csess-675769c36e27",
+  "stepLabel": null,
+  "url": "http://127.0.0.1:3340/"
+}

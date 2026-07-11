@@ -135,6 +135,12 @@ pub async fn desktop_list_profile_workspace_archives(
 }
 
 #[tauri::command]
+pub async fn desktop_broadcast_profile_isolation_changed(app: AppHandle) -> Result<(), String> {
+    crate::profiles::emit_profile_isolation_changed_public(&app);
+    Ok(())
+}
+
+#[tauri::command]
 pub async fn desktop_get_profile_archives_folder_path(app: AppHandle) -> Result<String, String> {
     Ok(profile_archives_dir(&app)?.to_string_lossy().to_string())
 }

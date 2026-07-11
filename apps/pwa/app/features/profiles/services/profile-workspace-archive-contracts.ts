@@ -10,6 +10,23 @@ export type ProfileWorkspaceArchiveReason =
   | "settings_clear_data"
   | "settings_delete_account";
 
+/** Native removal / wipe flows must write `.obscur-profile.enc.json` (KEY-MOAT Phase 5). */
+export const PROFILE_ARCHIVE_ENCRYPTION_REQUIRED_REASONS = [
+  "profile_removed",
+  "account_switch",
+  "settings_clear_data",
+  "settings_delete_account",
+] as const satisfies ReadonlyArray<ProfileWorkspaceArchiveReason>;
+
+export type ProfileArchiveEncryptionRequiredReason =
+  (typeof PROFILE_ARCHIVE_ENCRYPTION_REQUIRED_REASONS)[number];
+
+export const requiresEncryptedProfileArchiveWrite = (
+  reason: ProfileWorkspaceArchiveReason,
+): reason is ProfileArchiveEncryptionRequiredReason =>
+  (PROFILE_ARCHIVE_ENCRYPTION_REQUIRED_REASONS as ReadonlyArray<ProfileWorkspaceArchiveReason>)
+    .includes(reason);
+
 export type ProfileWorkspaceStorageEntry = Readonly<{
   key: string;
   value: string;

@@ -1,16 +1,28 @@
 /**
- * Detect when apps/pwa/out is older than v2 slim kernel sources or wrong experiment mode.
+ * Detect when apps/pwa/out is older than PWA app sources or wrong experiment mode.
  */
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 
 export const STATIC_SHELL_MANIFEST_FILE = "obscur-shell-manifest.json";
 
-export const buildStaticShellManifest = (env = process.env) => ({
+/** Roots scanned for staleness — entire app tree, not a hand-picked subset. */
+export const STATIC_SHELL_SOURCE_ROOTS = [
+  "apps/pwa/app",
+  "apps/pwa/next.config.ts",
+  "apps/pwa/package.json",
+];
+
+const SOURCE_FILE_PATTERN = /\.(ts|tsx|mjs|json|css)$/;
+const IGNORED_DIR_NAMES = new Set(["node_modules", ".next", "__tests__"]);
+
+export const buildStaticShellManifest = (env = process.env, sourceRevision = null) => ({
   experimentOnline: env.NEXT_PUBLIC_OBSCUR_EXPERIMENT_ONLINE === "1",
   desktopShell: env.NEXT_PUBLIC_DESKTOP_SHELL === "1",
   devLabEnabled: env.NEXT_PUBLIC_OBSCUR_DEV_LAB === "1",
   builtAt: new Date().toISOString(),
+  sourceRevision: sourceRevision ?? null,
+  clientBuildStamp: sourceRevision?.stamp ?? null,
 });
 
 export const readStaticShellManifest = (repoRoot) => {
@@ -56,46 +68,71 @@ export const isStaticShellDevLabMismatch = (repoRoot) => {
   return { mismatch: false, reason: "dev-lab enabled in static shell" };
 };
 
-const collectNewestMtime = (root, maxDepth = 6, depth = 0) => {
+const collectNewestSource = (root, maxDepth = 12, depth = 0) => {
   if (!existsSync(root)) {
-    return 0;
+    return { mtimeMs: 0, newestPath: null };
   }
 
-  let newest = statSync(root).mtimeMs;
+  const stat = statSync(root);
+  if (!stat.isDirectory()) {
+    return SOURCE_FILE_PATTERN.test(root)
+      ? { mtimeMs: stat.mtimeMs, newestPath: root }
+      : { mtimeMs: 0, newestPath: null };
+  }
+
   if (depth >= maxDepth) {
-    return newest;
+    return { mtimeMs: 0, newestPath: null };
   }
 
+  let best = { mtimeMs: 0, newestPath: null };
   for (const entry of readdirSync(root, { withFileTypes: true })) {
-    if (entry.name === "node_modules" || entry.name === ".next") {
+    if (IGNORED_DIR_NAMES.has(entry.name)) {
       continue;
     }
     const fullPath = path.join(root, entry.name);
     if (entry.isDirectory()) {
-      newest = Math.max(newest, collectNewestMtime(fullPath, maxDepth, depth + 1));
+      const nested = collectNewestSource(fullPath, maxDepth, depth + 1);
+      if (nested.mtimeMs > best.mtimeMs) {
+        best = nested;
+      }
       continue;
     }
-    if (/\.(ts|tsx|mjs|json)$/.test(entry.name)) {
-      newest = Math.max(newest, statSync(fullPath).mtimeMs);
+    if (!SOURCE_FILE_PATTERN.test(entry.name)) {
+      continue;
+    }
+    const fileMtime = statSync(fullPath).mtimeMs;
+    if (fileMtime > best.mtimeMs) {
+      best = { mtimeMs: fileMtime, newestPath: fullPath };
     }
   }
-  return newest;
+
+  return best;
 };
 
-const SOURCE_FILE_PATTERN = /\.(ts|tsx|mjs|json)$/;
+/**
+ * Newest source file under STATIC_SHELL_SOURCE_ROOTS.
+ * Used for manifest stamping and staleness checks.
+ */
+export const resolveStaticShellSourceRevision = (repoRoot) => {
+  let best = { mtimeMs: 0, newestPath: null };
+  for (const relativeRoot of STATIC_SHELL_SOURCE_ROOTS) {
+    const absoluteRoot = path.join(repoRoot, relativeRoot);
+    const candidate = collectNewestSource(absoluteRoot);
+    if (candidate.mtimeMs > best.mtimeMs) {
+      best = candidate;
+    }
+  }
 
-const resolveWatchPathNewestMtime = (watchPath, maxDepth = 5) => {
-  if (!existsSync(watchPath)) {
-    return 0;
-  }
-  const stat = statSync(watchPath);
-  if (stat.isFile()) {
-    return SOURCE_FILE_PATTERN.test(watchPath) ? stat.mtimeMs : 0;
-  }
-  if (stat.isDirectory()) {
-    return collectNewestMtime(watchPath, maxDepth, 0);
-  }
-  return 0;
+  const stamp = best.newestPath
+    ? `shell-${new Date(best.mtimeMs).toISOString().replace(/\.\d{3}Z$/, "Z")}`
+    : "shell-unknown";
+
+  return {
+    mtimeMs: best.mtimeMs,
+    newestPath: best.newestPath,
+    stamp,
+    relativeNewestPath: best.newestPath ? path.relative(repoRoot, best.newestPath) : null,
+  };
 };
 
 export const isStaticShellStale = (repoRoot) => {
@@ -105,35 +142,24 @@ export const isStaticShellStale = (repoRoot) => {
   }
 
   const outMtime = statSync(outIndex).mtimeMs;
-  const watchRoots = [
-    path.join(repoRoot, "apps", "pwa", "app", "features", "relays"),
-    path.join(repoRoot, "apps", "pwa", "app", "features", "transport-kernel"),
-    path.join(repoRoot, "apps", "pwa", "app", "features", "auth"),
-    path.join(repoRoot, "apps", "pwa", "app", "features", "profiles"),
-    path.join(repoRoot, "apps", "pwa", "app", "profiles"),
-    path.join(repoRoot, "apps", "pwa", "app", "sign-in"),
-    path.join(repoRoot, "apps", "pwa", "app", "features", "settings"),
-    path.join(repoRoot, "apps", "pwa", "app", "shared"),
-    path.join(repoRoot, "apps", "pwa", "app", "lib", "i18n"),
-    path.join(repoRoot, "apps", "pwa", "app", "features", "dev-lab"),
-    path.join(repoRoot, "apps", "pwa", "app", "features", "dm-kernel"),
-    path.join(repoRoot, "apps", "pwa", "app", "features", "workspace-kernel"),
-    path.join(repoRoot, "apps", "pwa", "app", "features", "groups"),
-    path.join(repoRoot, "apps", "pwa", "app", "features", "groups", "services", "community-joiner-membership-repair-scenario.ts"),
-    path.join(repoRoot, "apps", "pwa", "app", "features", "dev-lab", "dev-lab-joiner-membership-probe.ts"),
-    path.join(repoRoot, "apps", "pwa", "app", "features", "messaging", "hooks", "use-thread-messages.ts"),
-    path.join(repoRoot, "apps", "pwa", "app", "features", "messaging", "services", "native-dm-read-policy.ts"),
-  ];
+  const source = resolveStaticShellSourceRevision(repoRoot);
 
-  for (const watchRoot of watchRoots) {
-    const sourceMtime = resolveWatchPathNewestMtime(watchRoot);
-    if (sourceMtime > outMtime) {
-      return {
-        stale: true,
-        reason: `${path.relative(repoRoot, watchRoot)} changed after static export`,
-      };
-    }
+  if (source.mtimeMs > outMtime) {
+    return {
+      stale: true,
+      reason: source.relativeNewestPath
+        ? `${source.relativeNewestPath} changed after static export`
+        : "PWA sources changed after static export",
+    };
   }
 
   return { stale: false, reason: "out/index.html is current" };
 };
+
+export const formatStaticShellStaleHelp = (staleReason) => [
+  `[desktop-static] Static shell is STALE (${staleReason}).`,
+  "  Desktop dev serves pre-built files from apps/pwa/out — source edits do not apply until rebuild.",
+  "  Fix: pnpm dev:desktop:no-coord -- --rebuild",
+  "  Or:  pnpm dev:desktop:online:live  (webpack HMR — UI iteration only)",
+  "  Override (not recommended): OBSCUR_ALLOW_STALE_SHELL=1",
+].join("\n");

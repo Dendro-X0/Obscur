@@ -40,6 +40,11 @@ const myPubkey = "a".repeat(64);
 const myPrivkey = "b".repeat(64) as import("@dweb/crypto/private-key-hex").PrivateKeyHex;
 const peerPubkey = "c".repeat(64);
 
+const acceptedPeerTrust = {
+  isAccepted: () => true,
+  acceptPeer: vi.fn(),
+};
+
 const makeNip04Event = (overrides?: Partial<{ id: string; pubkey: string; content: string; created_at: number; tags: string[][] }>) => ({
   id: overrides?.id ?? "event-id-" + Math.random().toString(36).slice(2, 10),
   kind: 4,
@@ -74,6 +79,7 @@ describe("dm-receive-pipeline", () => {
       event,
       myPublicKeyHex: myPubkey,
       myPrivateKeyHex: myPrivkey,
+      peerTrust: acceptedPeerTrust,
       dedupSet,
     });
 
@@ -92,6 +98,7 @@ describe("dm-receive-pipeline", () => {
       event,
       myPublicKeyHex: myPubkey,
       myPrivateKeyHex: myPrivkey,
+      peerTrust: acceptedPeerTrust,
       dedupSet,
     });
 
@@ -108,12 +115,14 @@ describe("dm-receive-pipeline", () => {
       event,
       myPublicKeyHex: myPubkey,
       myPrivateKeyHex: myPrivkey,
+      peerTrust: acceptedPeerTrust,
       dedupSet,
     });
     const r2 = await processIncomingEvent({
       event,
       myPublicKeyHex: myPubkey,
       myPrivateKeyHex: myPrivkey,
+      peerTrust: acceptedPeerTrust,
       dedupSet,
     });
 
@@ -138,6 +147,7 @@ describe("dm-receive-pipeline", () => {
       event,
       myPublicKeyHex: myPubkey,
       myPrivateKeyHex: myPrivkey,
+      peerTrust: acceptedPeerTrust,
       dedupSet,
     });
 
@@ -348,6 +358,116 @@ describe("dm-receive-pipeline", () => {
     expect(result.action).toBe("skipped");
     if (result.action === "skipped") {
       expect(result.reason).toBe("tombstoned");
+    }
+  });
+
+  it("routes connection-request to contact_sandbox", async () => {
+    const event = makeNip04Event({
+      content: "encrypted:I'd like to connect",
+      tags: [["p", myPubkey], ["t", "connection-request"]],
+    });
+    const result = await processIncomingEvent({
+      event,
+      myPublicKeyHex: myPubkey,
+      myPrivateKeyHex: myPrivkey,
+      dedupSet,
+    });
+
+    expect(result.action).toBe("contact_sandbox");
+    if (result.action === "contact_sandbox") {
+      expect(result.lifecycleTag).toBe("connection-request");
+      expect(result.message.content).toBe("I'd like to connect");
+      expect(result.isSelfAuthored).toBe(false);
+    }
+  });
+
+  it("routes connection-qna to contact_sandbox while pending", async () => {
+    const event = makeNip04Event({
+      content: "encrypted:Who referred you?",
+      tags: [["p", myPubkey], ["t", "connection-qna"]],
+    });
+    const result = await processIncomingEvent({
+      event,
+      myPublicKeyHex: myPubkey,
+      myPrivateKeyHex: myPrivkey,
+      requestsInbox: {
+        getRequestStatus: () => ({ status: "pending", isOutgoing: false }),
+        setStatus: vi.fn(),
+        upsertIncoming: vi.fn(),
+      },
+      dedupSet,
+    });
+
+    expect(result.action).toBe("contact_sandbox");
+    if (result.action === "contact_sandbox") {
+      expect(result.lifecycleTag).toBe("connection-qna");
+    }
+  });
+
+  it("rejects connection-qna when handshake is not pending", async () => {
+    const event = makeNip04Event({
+      content: "encrypted:late qna",
+      tags: [["p", myPubkey], ["t", "connection-qna"]],
+    });
+    const result = await processIncomingEvent({
+      event,
+      myPublicKeyHex: myPubkey,
+      myPrivateKeyHex: myPrivkey,
+      requestsInbox: {
+        getRequestStatus: () => ({ status: "accepted", isOutgoing: false }),
+        setStatus: vi.fn(),
+        upsertIncoming: vi.fn(),
+      },
+      dedupSet,
+    });
+
+    expect(result.action).toBe("skipped");
+    if (result.action === "skipped") {
+      expect(result.reason).toBe("contact_qna_not_pending");
+    }
+  });
+
+  it("routes connection-accept to contact_lifecycle", async () => {
+    const event = makeNip04Event({
+      content: "encrypted:Accepted",
+      tags: [["p", myPubkey], ["t", "connection-accept"], ["e", "req-event-id"]],
+    });
+    const result = await processIncomingEvent({
+      event,
+      myPublicKeyHex: myPubkey,
+      myPrivateKeyHex: myPrivkey,
+      dedupSet,
+    });
+
+    expect(result.action).toBe("contact_lifecycle");
+    if (result.action === "contact_lifecycle") {
+      expect(result.lifecycleTag).toBe("connection-accept");
+      expect(result.requestEventId).toBe("req-event-id");
+      expect(result.peerPublicKeyHex).toBe(peerPubkey);
+    }
+  });
+
+  it("blocks untagged stranger DMs", async () => {
+    const event = makeNip04Event({ content: "encrypted:hey stranger" });
+    const result = await processIncomingEvent({
+      event,
+      myPublicKeyHex: myPubkey,
+      myPrivateKeyHex: myPrivkey,
+      peerTrust: {
+        isAccepted: () => false,
+        acceptPeer: vi.fn(),
+      },
+      requestsInbox: {
+        getRequestStatus: () => null,
+        setStatus: vi.fn(),
+        upsertIncoming: vi.fn(),
+      },
+      dedupSet,
+    });
+
+    expect(result.action).toBe("skipped");
+    if (result.action === "skipped") {
+      expect(result.reason).toBe("stranger_dm_blocked");
     }
   });
 });

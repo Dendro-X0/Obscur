@@ -1,6 +1,7 @@
 import React from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { AppOverlayRoot, APP_OVERLAY_ROOT_ID } from "@/app/components/app-overlay-layer";
 import { MediaGallery } from "./media-gallery";
 import type { MediaItem } from "../types";
 import en from "@/app/lib/i18n/locales/en.json";
@@ -33,6 +34,26 @@ const createMediaItem = (overrides: Partial<MediaItem>): MediaItem => ({
 });
 
 describe("MediaGallery", () => {
+    it("renders through the app overlay root above the app shell stacking context", () => {
+        render(
+            <>
+                <AppOverlayRoot />
+                <MediaGallery
+                    isOpen
+                    onClose={vi.fn()}
+                    conversationDisplayName="Test Chat"
+                    mediaItems={[]}
+                    onSelect={vi.fn()}
+                />
+            </>,
+        );
+
+        const overlayRoot = document.getElementById(APP_OVERLAY_ROOT_ID);
+        const backdrop = overlayRoot?.querySelector('[data-escape-layer="open"]');
+        expect(backdrop).not.toBeNull();
+        expect(backdrop?.className).toContain("z-[10100]");
+    });
+
     it("renders voice-note label and duration in audio tiles", () => {
         const voiceItem = createMediaItem({
             messageId: "m-voice",
@@ -45,13 +66,16 @@ describe("MediaGallery", () => {
         });
 
         render(
-            <MediaGallery
-                isOpen
-                onClose={vi.fn()}
-                conversationDisplayName="Test Chat"
-                mediaItems={[voiceItem]}
-                onSelect={vi.fn()}
-            />
+            <>
+                <AppOverlayRoot />
+                <MediaGallery
+                    isOpen
+                    onClose={vi.fn()}
+                    conversationDisplayName="Test Chat"
+                    mediaItems={[voiceItem]}
+                    onSelect={vi.fn()}
+                />
+            </>,
         );
 
         expect(screen.getByText("Voice Note")).toBeInTheDocument();
@@ -79,13 +103,16 @@ describe("MediaGallery", () => {
         });
 
         render(
-            <MediaGallery
-                isOpen
-                onClose={vi.fn()}
-                conversationDisplayName="Test Chat"
-                mediaItems={[imageItem, voiceItem]}
-                onSelect={vi.fn()}
-            />
+            <>
+                <AppOverlayRoot />
+                <MediaGallery
+                    isOpen
+                    onClose={vi.fn()}
+                    conversationDisplayName="Test Chat"
+                    mediaItems={[imageItem, voiceItem]}
+                    onSelect={vi.fn()}
+                />
+            </>,
         );
 
         expect(screen.getByAltText("image-1.png")).toBeInTheDocument();

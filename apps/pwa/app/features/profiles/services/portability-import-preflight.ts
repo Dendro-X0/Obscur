@@ -1,5 +1,6 @@
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
+import { NATIVE_KEY_SENTINEL } from "@/app/features/crypto/crypto-service";
 import { getResolvedProfileId } from "./profile-runtime-scope";
 import { desktopProfileRuntime } from "./desktop-profile-runtime";
 import {
@@ -189,7 +190,11 @@ export const preflightPortableAccountImport = async (params: Readonly<{
     warnings.push("Bundle belongs to a different account than the one unlocked in this window.");
   }
 
-  if (params.privateKeyHex && accountMatch === "match") {
+  if (
+    params.privateKeyHex
+    && params.privateKeyHex !== NATIVE_KEY_SENTINEL
+    && accountMatch === "match"
+  ) {
     try {
       const { encryptedAccountBackupService } = await import("@/app/features/account-sync/services/encrypted-account-backup-service");
       const { cryptoService } = await import("@/app/features/crypto/crypto-service");
@@ -323,7 +328,12 @@ export const preflightUnifiedAccountImport = async (params: Readonly<{
       ];
     }
 
-    if (params.privateKeyHex && accountMatch === "match" && parsed.kind === "unified") {
+    if (
+      params.privateKeyHex
+      && params.privateKeyHex !== NATIVE_KEY_SENTINEL
+      && accountMatch === "match"
+      && parsed.kind === "unified"
+    ) {
       const portablePreflight = await preflightPortableAccountImport({
         file: new File([JSON.stringify(parsed.envelope.portableAccountBundle)], "nested-portable.json"),
         activePublicKeyHex: params.activePublicKeyHex,
@@ -431,7 +441,11 @@ export const preflightWorkspaceBundleImport = async (params: Readonly<{
     { label: "Bundle account", value: `${envelope.publicKeyHex.slice(0, 8)}…` },
   ];
 
-  if (params.privateKeyHex && accountMatch === "match") {
+  if (
+    params.privateKeyHex
+    && params.privateKeyHex !== NATIVE_KEY_SENTINEL
+    && accountMatch === "match"
+  ) {
     try {
       const payload = await decryptEncryptedWorkspaceBundlePayload({
         envelope,

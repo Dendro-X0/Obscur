@@ -79,12 +79,22 @@ vi.mock("./composer", () => ({
     Composer: () => <div data-testid="composer" />,
 }));
 
-vi.mock("./media-gallery", () => ({
-    MediaGallery: () => null,
+vi.mock("../providers/messaging-provider", () => ({
+    useMessaging: () => ({
+        isMediaGalleryOpen: false,
+        setIsMediaGalleryOpen: vi.fn(),
+        lightboxIndex: null,
+        setLightboxIndex: vi.fn(),
+        setMessageMenu: vi.fn(),
+        setReactionPicker: vi.fn(),
+    }),
 }));
 
-vi.mock("./lightbox", () => ({
-    Lightbox: () => null,
+vi.mock("../services/media-preview-scope", () => ({
+    useMediaPreviewScope: () => ({
+        conversationDisplayName: "Alice",
+        items: [],
+    }),
 }));
 
 vi.mock("./message-menu", () => ({
@@ -177,11 +187,6 @@ const createBaseProps = (): ChatViewProps => ({
     onSendVoiceNote: vi.fn(),
     isProcessingMedia: false,
     mediaProcessingProgress: 0,
-    isMediaGalleryOpen: false,
-    setIsMediaGalleryOpen: vi.fn(),
-    selectedConversationMediaItems: [],
-    lightboxIndex: null,
-    setLightboxIndex: vi.fn(),
     pendingEventCount: 0,
     recipientStatus: "idle",
     isPeerAccepted: true,

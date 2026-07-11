@@ -9,6 +9,7 @@ import {
 import { logAppEvent } from "@/app/shared/log-app-event";
 import {
   PROFILE_WORKSPACE_ARCHIVE_FORMAT,
+  requiresEncryptedProfileArchiveWrite,
   type ProfileWorkspaceArchive,
   type ProfileWorkspaceArchiveReason,
   type ProfileWorkspaceArchiveWriteResult,
@@ -18,6 +19,15 @@ import { getScopedStorageKey } from "./profile-scope";
 import { getLastBoundAccountPublicKeyHex } from "./profile-window-account-binding";
 
 const SCOPED_SUFFIX_PREFIX = "::";
+
+export class ProfileWorkspaceArchiveEncryptionRequiredError extends Error {
+  readonly code = "PROFILE_ARCHIVE_ENCRYPTION_REQUIRED" as const;
+
+  constructor() {
+    super("Unlock this profile so the workspace archive can be encrypted before removal.");
+    this.name = "ProfileWorkspaceArchiveEncryptionRequiredError";
+  }
+}
 
 const collectScopedEntries = (storage: Storage, profileId: string): ReadonlyArray<ProfileWorkspaceStorageEntry> => {
   const suffix = `${SCOPED_SUFFIX_PREFIX}${profileId}`;
@@ -94,7 +104,15 @@ export const writeProfileWorkspaceArchive = async (
   archive: ProfileWorkspaceArchive,
 ): Promise<ProfileWorkspaceArchiveWriteResult> => {
   const keyMaterial = getProfileStorageKeyMaterial(archive.profileId);
-  const encrypted = Boolean(keyMaterial && hasNativeRuntime());
+  const archiveHasScopedStorage = archive.localStorageEntries.length > 0
+    || archive.sessionStorageEntries.length > 0;
+  const mustEncryptOnNative = hasNativeRuntime()
+    && requiresEncryptedProfileArchiveWrite(archive.reason)
+    && archiveHasScopedStorage;
+  if (mustEncryptOnNative && !keyMaterial) {
+    throw new ProfileWorkspaceArchiveEncryptionRequiredError();
+  }
+  const encrypted = Boolean(keyMaterial && (hasNativeRuntime() || mustEncryptOnNative));
   const fileName = buildProfileWorkspaceArchiveFileName(archive, encrypted);
   let contents = JSON.stringify(archive, null, 2);
   if (encrypted && keyMaterial) {

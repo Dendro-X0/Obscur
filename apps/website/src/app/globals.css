@@ -907,10 +907,37 @@ img {
 }
 
 .site-nav-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
   font-family: var(--font-headline), serif;
   font-size: 1.25rem;
   font-weight: 700;
   color: var(--ink);
+}
+
+.obscur-logo {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.obscur-logo-mark {
+  width: 32px;
+  height: 32px;
+}
+
+.obscur-logo-mark-dark {
+  display: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  .obscur-logo-mark-light {
+    display: none;
+  }
+
+  .obscur-logo-mark-dark {
+    display: block;
+  }
 }
 
 .site-nav-links {

@@ -1,7 +1,34 @@
 {
   "schema": "client.session.registry@1.0.0",
-  "updatedAt": "2026-07-04T23:59:58.758305100+00:00",
+  "updatedAt": "2026-07-06T15:41:44.746294+00:00",
   "sessions": [
+    {
+      "sessionId": "csess-2defbe3bd5b1",
+      "windowLabel": "main",
+      "targetId": "CD6D270D0EFA96A49B1A3AD0308E1659",
+      "cdpPort": 9230,
+      "url": "http://127.0.0.1:3340/",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-06T15:41:44.744434800+00:00"
+    },
+    {
+      "sessionId": "csess-675769c36e27",
+      "windowLabel": "main",
+      "targetId": "CD6D270D0EFA96A49B1A3AD0308E1659",
+      "cdpPort": 9230,
+      "url": "http://127.0.0.1:3340/",
+      "provider": "webview2-cdp",
+      "proofTier": "t3",
+      "updatedAt": "2026-07-06T15:40:49.850537+00:00"
+    },
+    {
+      "sessionId": "csess-ff67a881d079",
+      "url": "http://localhost:3000/download",
+      "provider": "playwright-chromium",
+      "proofTier": "t2",
+      "updatedAt": "2026-07-05T02:54:30.041088700+00:00"
+    },
     {
       "sessionId": "csess-7813dd567860",
       "url": "http://localhost:3000/download",
@@ -29,16 +56,6 @@
       "provider": "playwright-chromium",
       "proofTier": "t2",
       "updatedAt": "2026-07-04T23:40:54.685631700+00:00"
-    },
-    {
-      "sessionId": "csess-675769c36e27",
-      "windowLabel": "main",
-      "targetId": "59C993AC396BC3D7A3BAF04F8FFE436D",
-      "cdpPort": 9230,
-      "url": "http://127.0.0.1:1430/profiles",
-      "provider": "webview2-cdp",
-      "proofTier": "t3",
-      "updatedAt": "2026-07-04T18:02:27.084626+00:00"
     },
     {
       "sessionId": "csess-b7f42e294e5e",

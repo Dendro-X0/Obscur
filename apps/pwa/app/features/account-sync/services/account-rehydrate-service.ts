@@ -155,9 +155,9 @@ const applyRelayProfile = (profile: RelayRehydrateProfile): void => {
   const current = useProfileInternals.loadFromStorage().profile;
   const nextProfile: UserProfile = {
     username: profile.username || current.username,
-    about: profile.about || "",
-    avatarUrl: profile.avatarUrl || "",
-    nip05: profile.nip05 || "",
+    about: profile.about || current.about || "",
+    avatarUrl: profile.avatarUrl || current.avatarUrl || "",
+    nip05: profile.nip05 || current.nip05 || "",
     inviteCode: profile.inviteCode || current.inviteCode,
   };
   useProfileInternals.saveToStorage({ profile: nextProfile });

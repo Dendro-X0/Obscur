@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import { cn } from "@/app/lib/utils";
 import { useRelay } from "../providers/relay-provider";
@@ -12,14 +13,38 @@ type RelayReadinessInlineBannerProps = Readonly<{
   className?: string;
 }>;
 
+const OFFLINE_BANNER_GRACE_MS = 1200;
+
 /**
  * Conversation-level relay transport notice when publish path is degraded or offline.
  */
 export function RelayReadinessInlineBanner({ className }: RelayReadinessInlineBannerProps = {}) {
-  const { relayRecovery } = useRelay();
+  const { relayRecovery, relayRuntime } = useRelay();
+  const [offlineBannerVisible, setOfflineBannerVisible] = useState(false);
   const copy = getRelayReadinessBannerCopy(relayRecovery);
 
+  useEffect(() => {
+    if (relayRecovery.readiness !== "offline") {
+      setOfflineBannerVisible(false);
+      return;
+    }
+    if (relayRecovery.recoveryReasonCode === "startup_warmup" || relayRuntime.phase === "booting") {
+      setOfflineBannerVisible(false);
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      setOfflineBannerVisible(true);
+    }, OFFLINE_BANNER_GRACE_MS);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [relayRecovery.readiness, relayRecovery.recoveryReasonCode, relayRuntime.phase]);
+
   if (!copy || relayRecovery.readiness === "healthy") {
+    return null;
+  }
+
+  if (relayRecovery.readiness === "offline" && !offlineBannerVisible) {
     return null;
   }
 

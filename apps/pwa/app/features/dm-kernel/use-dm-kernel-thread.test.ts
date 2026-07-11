@@ -123,4 +123,67 @@ describe("useDmKernelThread", () => {
       expect(result.current.messages[0]?.content).toBe("sent");
     });
   });
+
+  it("infers image attachments from markdown-only new_message bus events", async () => {
+    const { result } = renderHook(() => useDmKernelThread(canonicalConversationId, myPublicKeyHex));
+
+    await waitFor(() => {
+      expect(result.current.hasHydrated).toBe(true);
+    });
+
+    act(() => {
+      messageBus.emitNewMessage(canonicalConversationId, createMessage({
+        id: "msg-media-1",
+        content: [
+          "[photo-a.jpg](https://image.nostr.build/abc123.jpg)",
+          "[photo-b.jpg](https://image.nostr.build/def456.jpg)",
+        ].join(" "),
+        isOutgoing: true,
+        status: "accepted",
+        senderPubkey: myPublicKeyHex,
+        recipientPubkey: peerPublicKeyHex,
+      }), { sourceProfileId: "profile-a" });
+    });
+
+    await waitFor(() => {
+      expect(result.current.messages).toHaveLength(1);
+      expect(result.current.messages[0]?.attachments).toHaveLength(2);
+      expect(result.current.messages[0]?.attachments?.[0]?.kind).toBe("image");
+    });
+  });
+
+  it("applies message_updated reaction changes for an existing row", async () => {
+    const existing = createMessage({
+      id: "msg-reaction-1",
+      content: "set",
+      isOutgoing: true,
+      status: "delivered",
+      senderPubkey: myPublicKeyHex,
+      recipientPubkey: peerPublicKeyHex,
+    });
+    loadDmKernelThreadMock.mockResolvedValueOnce([existing]);
+
+    const { result } = renderHook(() => useDmKernelThread(canonicalConversationId, myPublicKeyHex));
+
+    await waitFor(() => {
+      expect(result.current.messages).toHaveLength(1);
+    });
+
+    act(() => {
+      messageBus.emitMessageUpdated(canonicalConversationId, {
+        ...existing,
+        reactions: {
+          "👍": 1,
+          "❤️": 0,
+          "😂": 0,
+          "🔥": 0,
+          "👏": 0,
+        },
+      }, { sourceProfileId: "profile-a" });
+    });
+
+    await waitFor(() => {
+      expect(result.current.messages[0]?.reactions?.["👍"]).toBe(1);
+    });
+  });
 });

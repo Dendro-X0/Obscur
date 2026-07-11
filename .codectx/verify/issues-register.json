@@ -1,6 +1,6 @@
 {
   "schema": "verify.issues.register@0.3.0",
-  "updatedAt": "2026-07-04T17:53:45.673327200+00:00",
+  "updatedAt": "2026-07-06T14:51:07.851636500+00:00",
   "repoRoot": "E:\\Web Projects\\experimental-workspace\\obscur",
   "issueCount": 47,
   "issues": [
@@ -68,6 +68,7 @@
         ".codectx/verify/client-sessions/csess-5c26475ea529/captures/cap-3c321a8aeb25/snapshot.yaml",
         ".codectx/verify/client-sessions/csess-5c26475ea529/captures/cap-51ee8eb2ecdd/screenshot.png",
         ".codectx/verify/client-sessions/csess-5c26475ea529/steps.json",
+        ".codectx/verify/client-sessions/csess-675769c36e27/captures/bcap-1ff2e5524933/manifest.json",
         ".codectx/verify/client-sessions/csess-937c30f83699/captures/bcap-402b11eaec87/manifest.json",
         ".codectx/verify/client-sessions/csess-9530bb91b194/attach-latest.json",
         ".codectx/verify/client-sessions/csess-aa3a9eab9c36/captures/cap-e05a0b0a513a/snapshot.yaml",
@@ -232,146 +233,6 @@
       "occurrenceCount": 1,
       "chainId": "chain-com-run-11-phase1c-2026-07-04",
       "symptomClass": "group-room-key-missing-dual-profile"
-    },
-    {
-      "id": "verify:issue:agent:41aeddb8d5f42614",
-      "symptomId": "group-thread-relay-ingest",
-      "severity": "p0",
-      "status": "triaged",
-      "title": "O-4 round14 t3: send O4-round14-acl-cdp-072T1102 visible; full stack :7000+:8787; post ACL/CDP rebuild",
-      "source": "agent",
-      "evidenceRefs": [
-        ".codectx/verify/chains/chain-o4-group-ingest-2026-07-02/manifest.json",
-        ".codectx/verify/chains/chain-o4-group-ingest-2026-07-02/nodes/n0-stack-preflight.json",
-        ".codectx/verify/chains/chain-o4-group-ingest-2026-07-02/nodes/n1-send-blocked-group-key.json",
-        ".codectx/verify/chains/chain-o4-group-ingest-2026-07-02/nodes/n10-round8-coldstart-send-repro.json",
-        ".codectx/verify/chains/chain-o4-group-ingest-2026-07-02/nodes/n11-round10-no-docker-send-blocked.json",
-        ".codectx/verify/chains/chain-o4-group-ingest-2026-07-02/nodes/n12-round11-multiwindow-partial-stack.json",
-        ".codectx/verify/chains/chain-o4-group-ingest-2026-07-02/nodes/n13-round12-fullstack-send-success.json",
-        ".codectx/verify/chains/chain-o4-group-ingest-2026-07-02/nodes/n2-round2-send-blocked.json",
-        ".codectx/verify/chains/chain-o4-group-ingest-2026-07-02/nodes/n5-round5-send-blocked-no-docker.json",
-        ".codectx/verify/chains/chain-o4-group-ingest-2026-07-02/nodes/n6-round6-health-recovered-docker.json",
-        ".codectx/verify/chains/chain-o4-group-ingest-2026-07-02/nodes/n8-round7-send-repro.json",
-        ".codectx/verify/chains/chain-o4-group-ingest-2026-07-02/nodes/n9-round8-coldstart-preflight.json",
-        ".codectx/verify/client-sessions/csess-322a4af06321/captures/cap-237fa5117c78/snapshot.yaml",
-        ".codectx/verify/client-sessions/csess-322a4af06321/captures/cap-ee514cac8fed/snapshot.yaml",
-        ".codectx/verify/client-sessions/csess-510a62aba320/captures/cap-aab86343339c/screenshot.png",
-        ".codectx/verify/client-sessions/csess-5f10d872d481/captures/cap-7ca9fc190c3a/screenshot.png",
-        ".codectx/verify/client-sessions/csess-5f10d872d481/captures/cap-979ff3b81230/screenshot.png",
-        ".codectx/verify/client-sessions/csess-631c3bba5207/captures/cap-0c94d7f5639f/snapshot.yaml",
-        ".codectx/verify/client-sessions/csess-631c3bba5207/captures/cap-3d7848b51782/console.jsonl",
-        ".codectx/verify/client-sessions/csess-631c3bba5207/captures/cap-861e5d8e4f70/snapshot.yaml",
-        ".codectx/verify/client-sessions/csess-631c3bba5207/captures/cap-f2c1cc180673/snapshot.yaml",
-        ".codectx/verify/client-sessions/csess-6461739df98d/captures/cap-2213f5ef81f0/screenshot.png",
-        ".codectx/verify/client-sessions/csess-6461739df98d/captures/cap-4f8d28c37aae/console.jsonl",
-        ".codectx/verify/client-sessions/csess-ad3b3e90aa04/captures/cap-6ee65f818fb7/snapshot.yaml",
-        ".codectx/verify/client-sessions/csess-ad9e7520da13/captures/cap-96c8e8071d2d/snapshot.yaml",
-        ".codectx/verify/client-sessions/csess-af73d0bd5b5c/captures/cap-6d09421a034a/snapshot.yaml",
-        ".codectx/verify/client-sessions/csess-af73d0bd5b5c/captures/cap-a614c67a47d4/snapshot.yaml",
-        ".codectx/verify/client-sessions/csess-b20deab2382f/captures/cap-051b8597f1bc/console.jsonl",
-        ".codectx/verify/client-sessions/csess-b20deab2382f/captures/cap-051b8597f1bc/snapshot.yaml",
-        ".codectx/verify/client-sessions/csess-b20deab2382f/captures/cap-72600d819cec/digest.json",
-        ".codectx/verify/client-sessions/csess-c9e4cc0c3649/captures/cap-3b9283b9eb83/snapshot.yaml",
-        ".codectx/verify/faults/fault-0196a614.json",
-        ".codectx/verify/faults/fault-1285de34.json",
-        ".codectx/verify/faults/fault-579ab524.json",
-        ".codectx/verify/faults/fault-7f9100c4.json",
-        ".codectx/verify/faults/fault-bf3a84e1.json",
-        ".codectx/verify/faults/fault-bfbf96a4.json",
-        ".codectx/verify/faults/fault-d3266449.json",
-        ".codectx/verify/faults/fault-d91cd690.json",
-        "docs/program/obscur-dev-test-accounts.md"
-      ],
-      "proofTier": "t3",
-      "doesNotProve": [
-        "group message visible",
-        "relay round-trip",
-        "second profile ingest",
-        "O-4 confirmed or fixed"
-      ],
-      "ingestedAt": "2026-07-02T11:03:36.313360100+00:00",
-      "findingId": "cap-979ff3b81230",
-      "fingerprint": "symptom:group-thread-relay-ingest",
-      "occurrenceCount": 13,
-      "relatedIds": [
-        "verify:issue:agent:7830537bf84fba67",
-        "verify:issue:agent:310fbc54fc6305c5",
-        "verify:issue:agent:54e729aec49eeda1",
-        "verify:issue:agent:bf6c693835f7e2c3",
-        "verify:issue:agent:5c5e1b25c17e9dca",
-        "verify:issue:agent:13f19914b4ba6366",
-        "verify:issue:agent:f21d04768c6b0594",
-        "verify:issue:agent:e1447144f354579c",
-        "verify:issue:agent:efa90322468050a8",
-        "verify:issue:agent:58b1f5e0e01e5316",
-        "verify:issue:agent:b24bb36ac9f8c8e4",
-        "verify:issue:agent:41aeddb8d5f42614"
-      ],
-      "trackerStep": 7,
-      "chainId": "chain-o4-group-ingest-2026-07-02",
-      "symptomClass": "group-thread-relay-ingest",
-      "priorChapters": [
-        {
-          "id": "verify:issue:agent:264c88e73e9428fd",
-          "title": "O-4 Step 7 BLOCKED: full stack preflight OK except auth gate; cannot open NewTest 2 or send group message via MCP",
-          "ingestedAt": "2026-07-01T11:24:13.664140200+00:00"
-        },
-        {
-          "id": "verify:issue:agent:7830537bf84fba67",
-          "title": "O-4 Step 7 PARTIAL: NewTest 2 history hydrates but send blocked — Group key unavailable; O4-group-relay-verify-071T1128 stuck in composer; :7000 REFUSED",
-          "ingestedAt": "2026-07-01T11:28:54.898768100+00:00"
-        },
-        {
-          "id": "verify:issue:agent:310fbc54fc6305c5",
-          "title": "O-4 round2: group send O4-round2-codactrl-071T1409 blocked — composer clears, no bubble; sidebar group-key warning",
-          "ingestedAt": "2026-07-01T14:11:16.436589500+00:00"
-        },
-        {
-          "id": "verify:issue:agent:54e729aec49eeda1",
-          "title": "O-4 round3: group send blocked — group key unavailable; Manage Participants shows Tester1+Tester2 (2) but home card shows Tester1 only",
-          "ingestedAt": "2026-07-01T16:54:57.230410500+00:00"
-        },
-        {
-          "id": "verify:issue:agent:bf6c693835f7e2c3",
-          "title": "O-4 round5: group send blocked — Docker relay unavailable; composer clears, no bubble; group-key warning persists",
-          "ingestedAt": "2026-07-01T17:14:03.992917+00:00"
-        },
-        {
-          "id": "verify:issue:agent:5c5e1b25c17e9dca",
-          "title": "O-4 round6 t3: Docker :7000 + coordination health cascade → send O4-round6-docker-up-071T1728 visible; publishGroupEvent localhost:7000; sidebar key warning stale",
-          "ingestedAt": "2026-07-01T17:29:03.267712700+00:00"
-        },
-        {
-          "id": "verify:issue:agent:13f19914b4ba6366",
-          "title": "O-4 round7 t3 repro: second full-stack send O4-round7-fullstack-071T1733; health ready:1; main=6 msgs; publishGroupEvent 2d1a9735",
-          "ingestedAt": "2026-07-01T17:34:36.672937200+00:00"
-        },
-        {
-          "id": "verify:issue:agent:f21d04768c6b0594",
-          "title": "O-4 round8 t4 cold-start: send O4-round8-coldstart-071T1746 without Info visit; publishGroupEvent 8b138f20; sidebar still group-key unavailable",
-          "ingestedAt": "2026-07-01T17:47:31.083306200+00:00"
-        },
-        {
-          "id": "verify:issue:agent:e1447144f354579c",
-          "title": "O-4 round10: send O4-round10-no-docker blocked — composer clears, no bubble; :7000 REFUSED; coordination up",
-          "ingestedAt": "2026-07-01T22:06:19.023996300+00:00"
-        },
-        {
-          "id": "verify:issue:agent:efa90322468050a8",
-          "title": "O-4 round11: send O4-round11-partial blocked — composer clears, no bubble; :7000 REFUSED; multi-window CDP still single-target",
-          "ingestedAt": "2026-07-01T22:37:40.000391100+00:00"
-        },
-        {
-          "id": "verify:issue:agent:58b1f5e0e01e5316",
-          "title": "O-4 round12 t3: full stack send O4-round12-partial-072T0836 visible; publishGroupEvent 37b6a5b9 @ :7000; sidebar key warning stale",
-          "ingestedAt": "2026-07-02T08:45:55.304189700+00:00"
-        },
-        {
-          "id": "verify:issue:agent:b24bb36ac9f8c8e4",
-          "title": "O-4 round13 t3: post-rebuild send O4-round13-rebuild-072T0958 visible; publishGroupEvent 9a615480 @ :7000; bridge multiwindow partial",
-          "ingestedAt": "2026-07-02T09:59:16.555526800+00:00"
-        }
-      ]
     },
     {
       "id": "verify:issue:agent:56d6ef6f5831f080",
@@ -680,6 +541,19 @@
           "ingestedAt": "2026-07-03T07:06:06.621194600+00:00"
         }
       ]
+    },
+    {
+      "id": "verify:issue:agent:58fba9ffbf278c6f",
+      "symptomId": "codactrl-missing-settings-step-label",
+      "severity": "p2",
+      "status": "open",
+      "title": "No settings-tab stepLabel in Obscur selector pack",
+      "source": "agent",
+      "evidenceRefs": [],
+      "doesNotProve": [],
+      "ingestedAt": "2026-07-06T14:51:07.847348200+00:00",
+      "fingerprint": "symptom:codactrl-missing-settings-step-label",
+      "occurrenceCount": 1
     },
     {
       "id": "verify:issue:agent:64baee5012722dfa",
@@ -1012,6 +886,27 @@
       "occurrenceCount": 1
     },
     {
+      "id": "verify:issue:assert:cap-bbb6a1d4038e",
+      "severity": "p1",
+      "status": "open",
+      "title": "Client assert failed: textVisible — text not visible: Restoring session",
+      "source": "client_assert",
+      "evidenceRefs": [
+        ".codectx/verify/client-sessions/csess-675769c36e27/captures/cap-bbb6a1d4038e/manifest.json",
+        ".codectx/verify/client-sessions/csess-675769c36e27/captures/cap-bbb6a1d4038e/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-675769c36e27/steps.json"
+      ],
+      "proofTier": "t3",
+      "doesNotProve": [
+        "Full OS-level automation",
+        "Long soak across machines"
+      ],
+      "ingestedAt": "2026-07-06T14:50:17.008938300+00:00",
+      "findingId": "cap-bbb6a1d4038e",
+      "fingerprint": "finding:cap-bbb6a1d4038e:client_assert",
+      "occurrenceCount": 1
+    },
+    {
       "id": "verify:issue:assert:cap-e9215a92a21b",
       "severity": "p1",
       "status": "open",
@@ -1065,24 +960,6 @@
       "ingestedAt": "2026-07-04T16:11:32.714260200+00:00",
       "findingId": "fault-1bfb48bc",
       "fingerprint": "finding:fault-1bfb48bc:runtime_digest",
-      "occurrenceCount": 1
-    },
-    {
-      "id": "verify:issue:fault:fault-2a1b0868",
-      "severity": "p1",
-      "status": "open",
-      "title": "groups.ledger_field_repair_applied — count=84",
-      "source": "runtime_digest",
-      "evidenceRefs": [
-        ".codectx/verify/faults/fault-2a1b0868.json"
-      ],
-      "proofTier": "t3",
-      "doesNotProve": [
-        "Imported digest proves runtime observation at capture time only"
-      ],
-      "ingestedAt": "2026-07-03T16:00:30.022157700+00:00",
-      "findingId": "fault-2a1b0868",
-      "fingerprint": "finding:fault-2a1b0868:runtime_digest",
       "occurrenceCount": 1
     },
     {
@@ -1285,21 +1162,157 @@
     },
     {
       "id": "verify:issue:fault:fault-90f591d2",
-      "severity": "p1",
-      "status": "open",
+      "symptomId": "group-thread-relay-ingest",
+      "severity": "p0",
+      "status": "triaged",
       "title": "messaging.delete_for_everyone_remote_result — count=62",
-      "source": "runtime_digest",
+      "source": "agent",
       "evidenceRefs": [
-        ".codectx/verify/faults/fault-90f591d2.json"
+        ".codectx/verify/chains/chain-o4-group-ingest-2026-07-02/manifest.json",
+        ".codectx/verify/chains/chain-o4-group-ingest-2026-07-02/nodes/n0-stack-preflight.json",
+        ".codectx/verify/chains/chain-o4-group-ingest-2026-07-02/nodes/n1-send-blocked-group-key.json",
+        ".codectx/verify/chains/chain-o4-group-ingest-2026-07-02/nodes/n10-round8-coldstart-send-repro.json",
+        ".codectx/verify/chains/chain-o4-group-ingest-2026-07-02/nodes/n11-round10-no-docker-send-blocked.json",
+        ".codectx/verify/chains/chain-o4-group-ingest-2026-07-02/nodes/n12-round11-multiwindow-partial-stack.json",
+        ".codectx/verify/chains/chain-o4-group-ingest-2026-07-02/nodes/n13-round12-fullstack-send-success.json",
+        ".codectx/verify/chains/chain-o4-group-ingest-2026-07-02/nodes/n2-round2-send-blocked.json",
+        ".codectx/verify/chains/chain-o4-group-ingest-2026-07-02/nodes/n5-round5-send-blocked-no-docker.json",
+        ".codectx/verify/chains/chain-o4-group-ingest-2026-07-02/nodes/n6-round6-health-recovered-docker.json",
+        ".codectx/verify/chains/chain-o4-group-ingest-2026-07-02/nodes/n8-round7-send-repro.json",
+        ".codectx/verify/chains/chain-o4-group-ingest-2026-07-02/nodes/n9-round8-coldstart-preflight.json",
+        ".codectx/verify/client-sessions/csess-322a4af06321/captures/cap-237fa5117c78/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-322a4af06321/captures/cap-ee514cac8fed/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-510a62aba320/captures/cap-aab86343339c/screenshot.png",
+        ".codectx/verify/client-sessions/csess-5f10d872d481/captures/cap-7ca9fc190c3a/screenshot.png",
+        ".codectx/verify/client-sessions/csess-5f10d872d481/captures/cap-979ff3b81230/screenshot.png",
+        ".codectx/verify/client-sessions/csess-631c3bba5207/captures/cap-0c94d7f5639f/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-631c3bba5207/captures/cap-3d7848b51782/console.jsonl",
+        ".codectx/verify/client-sessions/csess-631c3bba5207/captures/cap-861e5d8e4f70/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-631c3bba5207/captures/cap-f2c1cc180673/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-6461739df98d/captures/cap-2213f5ef81f0/screenshot.png",
+        ".codectx/verify/client-sessions/csess-6461739df98d/captures/cap-4f8d28c37aae/console.jsonl",
+        ".codectx/verify/client-sessions/csess-ad3b3e90aa04/captures/cap-6ee65f818fb7/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-ad9e7520da13/captures/cap-96c8e8071d2d/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-af73d0bd5b5c/captures/cap-6d09421a034a/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-af73d0bd5b5c/captures/cap-a614c67a47d4/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-b20deab2382f/captures/cap-051b8597f1bc/console.jsonl",
+        ".codectx/verify/client-sessions/csess-b20deab2382f/captures/cap-051b8597f1bc/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-b20deab2382f/captures/cap-72600d819cec/digest.json",
+        ".codectx/verify/client-sessions/csess-c9e4cc0c3649/captures/cap-3b9283b9eb83/snapshot.yaml",
+        ".codectx/verify/faults/fault-0196a614.json",
+        ".codectx/verify/faults/fault-1285de34.json",
+        ".codectx/verify/faults/fault-2a1b0868.json",
+        ".codectx/verify/faults/fault-579ab524.json",
+        ".codectx/verify/faults/fault-7f9100c4.json",
+        ".codectx/verify/faults/fault-90f591d2.json",
+        ".codectx/verify/faults/fault-bf3a84e1.json",
+        ".codectx/verify/faults/fault-bfbf96a4.json",
+        ".codectx/verify/faults/fault-d3266449.json",
+        ".codectx/verify/faults/fault-d91cd690.json",
+        "docs/program/obscur-dev-test-accounts.md"
       ],
       "proofTier": "t3",
       "doesNotProve": [
-        "Imported digest proves runtime observation at capture time only"
+        "group message visible",
+        "relay round-trip",
+        "second profile ingest",
+        "O-4 confirmed or fixed"
       ],
       "ingestedAt": "2026-07-04T05:25:57.350299300+00:00",
-      "findingId": "fault-90f591d2",
-      "fingerprint": "finding:fault-90f591d2:runtime_digest",
-      "occurrenceCount": 1
+      "findingId": "cap-979ff3b81230",
+      "fingerprint": "symptom:group-thread-relay-ingest",
+      "occurrenceCount": 15,
+      "relatedIds": [
+        "verify:issue:agent:7830537bf84fba67",
+        "verify:issue:agent:310fbc54fc6305c5",
+        "verify:issue:agent:54e729aec49eeda1",
+        "verify:issue:agent:bf6c693835f7e2c3",
+        "verify:issue:agent:5c5e1b25c17e9dca",
+        "verify:issue:agent:13f19914b4ba6366",
+        "verify:issue:agent:f21d04768c6b0594",
+        "verify:issue:agent:e1447144f354579c",
+        "verify:issue:agent:efa90322468050a8",
+        "verify:issue:agent:58b1f5e0e01e5316",
+        "verify:issue:agent:b24bb36ac9f8c8e4",
+        "verify:issue:agent:41aeddb8d5f42614",
+        "verify:issue:fault:fault-2a1b0868",
+        "verify:issue:fault:fault-90f591d2"
+      ],
+      "trackerStep": 7,
+      "chainId": "chain-r5-o4-ingest-chrome-2026-07-04",
+      "symptomClass": "group_thread_relay_ingest",
+      "priorChapters": [
+        {
+          "id": "verify:issue:agent:264c88e73e9428fd",
+          "title": "O-4 Step 7 BLOCKED: full stack preflight OK except auth gate; cannot open NewTest 2 or send group message via MCP",
+          "ingestedAt": "2026-07-01T11:24:13.664140200+00:00"
+        },
+        {
+          "id": "verify:issue:agent:7830537bf84fba67",
+          "title": "O-4 Step 7 PARTIAL: NewTest 2 history hydrates but send blocked — Group key unavailable; O4-group-relay-verify-071T1128 stuck in composer; :7000 REFUSED",
+          "ingestedAt": "2026-07-01T11:28:54.898768100+00:00"
+        },
+        {
+          "id": "verify:issue:agent:310fbc54fc6305c5",
+          "title": "O-4 round2: group send O4-round2-codactrl-071T1409 blocked — composer clears, no bubble; sidebar group-key warning",
+          "ingestedAt": "2026-07-01T14:11:16.436589500+00:00"
+        },
+        {
+          "id": "verify:issue:agent:54e729aec49eeda1",
+          "title": "O-4 round3: group send blocked — group key unavailable; Manage Participants shows Tester1+Tester2 (2) but home card shows Tester1 only",
+          "ingestedAt": "2026-07-01T16:54:57.230410500+00:00"
+        },
+        {
+          "id": "verify:issue:agent:bf6c693835f7e2c3",
+          "title": "O-4 round5: group send blocked — Docker relay unavailable; composer clears, no bubble; group-key warning persists",
+          "ingestedAt": "2026-07-01T17:14:03.992917+00:00"
+        },
+        {
+          "id": "verify:issue:agent:5c5e1b25c17e9dca",
+          "title": "O-4 round6 t3: Docker :7000 + coordination health cascade → send O4-round6-docker-up-071T1728 visible; publishGroupEvent localhost:7000; sidebar key warning stale",
+          "ingestedAt": "2026-07-01T17:29:03.267712700+00:00"
+        },
+        {
+          "id": "verify:issue:agent:13f19914b4ba6366",
+          "title": "O-4 round7 t3 repro: second full-stack send O4-round7-fullstack-071T1733; health ready:1; main=6 msgs; publishGroupEvent 2d1a9735",
+          "ingestedAt": "2026-07-01T17:34:36.672937200+00:00"
+        },
+        {
+          "id": "verify:issue:agent:f21d04768c6b0594",
+          "title": "O-4 round8 t4 cold-start: send O4-round8-coldstart-071T1746 without Info visit; publishGroupEvent 8b138f20; sidebar still group-key unavailable",
+          "ingestedAt": "2026-07-01T17:47:31.083306200+00:00"
+        },
+        {
+          "id": "verify:issue:agent:e1447144f354579c",
+          "title": "O-4 round10: send O4-round10-no-docker blocked — composer clears, no bubble; :7000 REFUSED; coordination up",
+          "ingestedAt": "2026-07-01T22:06:19.023996300+00:00"
+        },
+        {
+          "id": "verify:issue:agent:efa90322468050a8",
+          "title": "O-4 round11: send O4-round11-partial blocked — composer clears, no bubble; :7000 REFUSED; multi-window CDP still single-target",
+          "ingestedAt": "2026-07-01T22:37:40.000391100+00:00"
+        },
+        {
+          "id": "verify:issue:agent:58b1f5e0e01e5316",
+          "title": "O-4 round12 t3: full stack send O4-round12-partial-072T0836 visible; publishGroupEvent 37b6a5b9 @ :7000; sidebar key warning stale",
+          "ingestedAt": "2026-07-02T08:45:55.304189700+00:00"
+        },
+        {
+          "id": "verify:issue:agent:b24bb36ac9f8c8e4",
+          "title": "O-4 round13 t3: post-rebuild send O4-round13-rebuild-072T0958 visible; publishGroupEvent 9a615480 @ :7000; bridge multiwindow partial",
+          "ingestedAt": "2026-07-02T09:59:16.555526800+00:00"
+        },
+        {
+          "id": "verify:issue:agent:41aeddb8d5f42614",
+          "title": "O-4 round14 t3: send O4-round14-acl-cdp-072T1102 visible; full stack :7000+:8787; post ACL/CDP rebuild",
+          "ingestedAt": "2026-07-02T11:03:36.313360100+00:00"
+        },
+        {
+          "id": "verify:issue:fault:fault-2a1b0868",
+          "title": "groups.ledger_field_repair_applied — count=84",
+          "ingestedAt": "2026-07-03T16:00:30.022157700+00:00"
+        }
+      ]
     },
     {
       "id": "verify:issue:fault:fault-9a209d25",
@@ -1655,7 +1668,7 @@
       "doesNotProve": [
         "Digest capture without symptom mapping or signal extract (RIW-8)"
       ],
-      "ingestedAt": "2026-07-04T17:53:45.673327200+00:00",
+      "ingestedAt": "2026-07-06T14:51:07.851636500+00:00",
       "fingerprint": "unmapped:capture-digest",
       "occurrenceCount": 25,
       "riwId": "RIW-8"

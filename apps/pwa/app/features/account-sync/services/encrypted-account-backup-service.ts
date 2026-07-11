@@ -11,6 +11,8 @@ import { accountSyncChatStatePort } from "./account-sync-chat-state-port";
 import { messagePersistenceService } from "@/app/features/messaging/services/message-persistence-service";
 import { messagingClientOperations } from "@/app/features/messaging/services/messaging-client-operations";
 import { normalizeMessageDeleteTombstoneEntries } from "@dweb/storage-contracts/message-delete-tombstones";
+import type { UserProfile } from "@/app/features/profile/hooks/use-profile";
+import { PROFILE_CHANGED_EVENT } from "@/app/features/profiles/services/profile-registry-service";
 import type { PersistedChatState } from "@/app/features/messaging/types";
 import { requestFlowEvidenceStoreInternals } from "@/app/features/messaging/services/request-flow-evidence-store";
 import { syncCheckpointInternals } from "@/app/features/messaging/lib/sync-checkpoints";
@@ -22,6 +24,7 @@ import type { ContactRequestRecord } from "@/app/features/search/types/discovery
 import { useProfileInternals } from "@/app/features/profile/hooks/use-profile";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
+import { readIdentityRecordFromLocalStorage } from "@/app/features/auth/utils/identity-persistence";
 import { publishViaRelayCore, type RelayPoolLike } from "@/app/features/relays/lib/nostr-core-relay";
 import {
   fetchLeaveProofFromRelay,
@@ -97,6 +100,12 @@ import {
   parseNativeSqliteBackupEvidence,
 } from "./native-sqlite-backup-evidence";
 import { applyNonV1RestoreMaterialization } from "./restore-materialization";
+import {
+  enrichProfileSnapshotForRestore,
+  mergeProfileSnapshotsForRestore,
+  resolveRestoredProfileSnapshot,
+} from "./restore-profile-merge";
+import { syncProfileDraftFromStoredIdentity } from "@/app/features/profiles/services/profile-identity-draft-sync";
 import {
   withAccountRestoreMaterializationEvents,
 } from "./restore-materialization-events";
@@ -582,13 +591,17 @@ const readLocalIdentityUnlockSnapshot = async (
 ): Promise<IdentityUnlockSnapshot | undefined> => {
   try {
     const stored = await getStoredIdentity();
-    if (!stored.record || stored.record.publicKeyHex !== publicKeyHex) {
-      return undefined;
+    if (stored.record && stored.record.publicKeyHex === publicKeyHex) {
+      return toIdentityUnlockSnapshot(stored.record);
     }
-    return toIdentityUnlockSnapshot(stored.record);
   } catch {
-    return undefined;
+    // Fall through to scoped localStorage read.
   }
+  const localRecord = readIdentityRecordFromLocalStorage(getResolvedProfileId());
+  if (localRecord?.publicKeyHex === publicKeyHex) {
+    return toIdentityUnlockSnapshot(localRecord);
+  }
+  return undefined;
 };
 
 const persistIdentityUnlockSnapshot = async (params: Readonly<{
@@ -749,6 +762,17 @@ const parseMessageDeleteTombstones = (
   );
 };
 
+const readProfileSnapshotForBackup = (): UserProfile => useProfileInternals.loadFromStorage().profile;
+
+const applyRestoredProfileSnapshot = (profile: UserProfile): void => {
+  useProfileInternals.saveToStorage({ profile });
+  useProfileInternals.setState({ profile });
+  useProfileInternals.notify();
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent(PROFILE_CHANGED_EVENT));
+  }
+};
+
 const buildBackupPayload = (
   publicKeyHex: PublicKeyHex,
   chatStateOverride?: EncryptedAccountBackupPayload["chatState"],
@@ -770,7 +794,7 @@ const buildBackupPayload = (
     version: 1,
     publicKeyHex,
     createdAtUnixMs: Date.now(),
-    profile: useProfileInternals.loadFromStorage().profile,
+    profile: readProfileSnapshotForBackup(),
     peerTrust: peerTrustInternals.loadFromStorage(publicKeyHex),
     requestFlowEvidence: requestFlowEvidenceStoreInternals.readState(profileId),
     requestOutbox: contactRequestOutboxInternals.readState(profileId),
@@ -809,6 +833,10 @@ const buildBackupPayloadWithHydratedChatState = async (publicKeyHex: PublicKeyHe
   const roomKeys = mergeRoomKeySnapshots(localRoomKeys, reconstructedRoomKeys);
   const basePayload = buildBackupPayload(publicKeyHex, hydratedChatState, roomKeys);
   const identityUnlock = await readLocalIdentityUnlockSnapshot(publicKeyHex);
+  const enrichedPayload: EncryptedAccountBackupPayload = {
+    ...basePayload,
+    profile: enrichProfileSnapshotForRestore(basePayload.profile, identityUnlock),
+  };
   const nativeSqliteEvidence = isTauri()
     ? await collectNativeSqliteBackupEvidence({
       publicKeyHex,
@@ -816,10 +844,10 @@ const buildBackupPayloadWithHydratedChatState = async (publicKeyHex: PublicKeyHe
     })
     : undefined;
   if (!identityUnlock && !nativeSqliteEvidence) {
-    return basePayload;
+    return enrichedPayload;
   }
   return {
-    ...basePayload,
+    ...enrichedPayload,
     ...(identityUnlock ? { identityUnlock } : {}),
     ...(nativeSqliteEvidence ? { nativeSqliteEvidence } : {}),
   };
@@ -1269,15 +1297,20 @@ const applyBackupPayload = async (
     profileId,
   });
 
+  const restoredProfile = resolveRestoredProfileSnapshot(
+    useProfileInternals.loadFromStorage().profile,
+    mergedPayload.profile,
+    mergedPayload.identityUnlock,
+  );
+
   await persistIdentityUnlockSnapshot({
     publicKeyHex,
     identityUnlock: mergedPayload.identityUnlock,
-    profileUsername: mergedPayload.profile.username,
+    profileUsername: restoredProfile.username,
   });
 
-  useProfileInternals.saveToStorage({ profile: mergedPayload.profile });
-  useProfileInternals.setState({ profile: mergedPayload.profile });
-  useProfileInternals.notify();
+  applyRestoredProfileSnapshot(restoredProfile);
+  void syncProfileDraftFromStoredIdentity({ publicKeyHex });
   peerTrustInternals.saveToStorage(publicKeyHex, mergedPayload.peerTrust);
   requestFlowEvidenceStoreInternals.writeState(mergedPayload.requestFlowEvidence, profileId);
   contactRequestOutboxInternals.writeState(mergedPayload.requestOutbox, profileId);
@@ -1356,14 +1389,18 @@ const applyBackupPayloadNonV1Domains = async (
     includeHydratedLocalMessages: options?.restoreChatStateDomains === true,
     profileId,
   });
+  const restoredProfile = resolveRestoredProfileSnapshot(
+    useProfileInternals.loadFromStorage().profile,
+    mergedPayload.profile,
+    mergedPayload.identityUnlock,
+  );
   await persistIdentityUnlockSnapshot({
     publicKeyHex,
     identityUnlock: mergedPayload.identityUnlock,
-    profileUsername: mergedPayload.profile.username,
+    profileUsername: restoredProfile.username,
   });
-  useProfileInternals.saveToStorage({ profile: mergedPayload.profile });
-  useProfileInternals.setState({ profile: mergedPayload.profile });
-  useProfileInternals.notify();
+  applyRestoredProfileSnapshot(restoredProfile);
+  void syncProfileDraftFromStoredIdentity({ publicKeyHex });
   await applyNonV1RestoreMaterialization({
     publicKeyHex,
     mergedPayload,
@@ -1395,16 +1432,24 @@ export const encryptedAccountBackupService = {
     backupPayload: EncryptedAccountBackupPayload;
   }>> {
     const backupPayload = await buildBackupPayloadWithHydratedChatState(params.publicKeyHex);
-    if (!hasPortablePrivateStateEvidence(backupPayload, hasReplayableChatHistory)) {
-      throw new Error("Portable bundle export skipped because private account state is empty.");
-    }
     const profileLabel = (
       params.profileLabel?.trim()
       || backupPayload.profile?.username?.trim()
       || backupPayload.identityUnlock?.username?.trim()
       || undefined
     );
-    const plaintext = JSON.stringify(backupPayload);
+    const exportReadyPayload: EncryptedAccountBackupPayload = {
+      ...backupPayload,
+      profile: enrichProfileSnapshotForRestore(
+        backupPayload.profile,
+        backupPayload.identityUnlock,
+        profileLabel,
+      ),
+    };
+    if (!hasPortablePrivateStateEvidence(exportReadyPayload, hasReplayableChatHistory)) {
+      throw new Error("Portable bundle export skipped because private account state is empty.");
+    }
+    const plaintext = JSON.stringify(exportReadyPayload);
     const ciphertext = await cryptoService.encryptDM(plaintext, params.publicKeyHex, params.privateKeyHex);
     const bundle: PortableAccountBundle = {
       version: 1,
@@ -1417,14 +1462,14 @@ export const encryptedAccountBackupService = {
     };
     emitPortableBundleExport({
       publicKeyHex: params.publicKeyHex,
-      payloadCreatedAtUnixMs: backupPayload.createdAtUnixMs,
+      payloadCreatedAtUnixMs: exportReadyPayload.createdAtUnixMs,
       exportedAtUnixMs: bundle.exportedAtUnixMs,
-      bundleChatDiagnostics: summarizePersistedChatStateMessages(backupPayload.chatState, params.publicKeyHex),
+      bundleChatDiagnostics: summarizePersistedChatStateMessages(exportReadyPayload.chatState, params.publicKeyHex),
       toPrefixedChatStateDiagnosticsContext,
     });
     return {
       bundle,
-      backupPayload,
+      backupPayload: exportReadyPayload,
     };
   },
   async importPortableAccountBundle(params: Readonly<{
@@ -1902,6 +1947,10 @@ export const encryptedAccountBackupServiceInternals = {
   hasReplayableChatHistory,
   parseBackupPayload,
   buildBackupPayloadWithHydratedChatState,
+  enrichProfileSnapshotForRestore,
+  mergeProfileSnapshotsForRestore,
+  readProfileSnapshotForBackup,
+  resolveRestoredProfileSnapshot,
   compareBackupEvents,
   parseBackupCreatedAtMsTag,
   toPersistedMessageFromIndexedRecord,

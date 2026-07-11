@@ -27,6 +27,7 @@ export type DiscoveryReasonCode =
   | "relay_degraded"
   | "index_unavailable"
   | "index_unavailable_fallback"
+  | "private_key_forbidden"
   | "canceled";
 
 export type DiscoverySourceStatus = Readonly<{

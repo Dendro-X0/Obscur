@@ -16,6 +16,10 @@
  *   Terminal 1: pnpm dev:coordination   (leave running between sessions)
  *   Terminal 2: pnpm dev:desktop:no-coord -- --rebuild
  *
+ * Source edits under apps/pwa/app require a static shell rebuild (auto-detected).
+ * --skip-build refuses when the shell is stale unless OBSCUR_ALLOW_STALE_SHELL=1.
+ * UI iteration without full rebuild: pnpm dev:desktop:online:live
+ *
  * Windows note: wrangler dev can take 2–4 minutes on a cold start. The stack waits for an
  * external coordination worker before spawning a duplicate when OBSCUR_COORDINATION_GRACE_MS
  * allows it (default 90s on Windows).

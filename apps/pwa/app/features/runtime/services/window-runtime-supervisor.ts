@@ -238,14 +238,7 @@ const bindProfile = (desktopSnapshot: ProfileIsolationSnapshot): void => {
       && snapshot.session.unlockedPublicKeyHex === identity.publicKeyHex
       && snapshot.session.identityStatus === "unlocked"
     );
-    if (
-      bindingUnchanged
-      && (
-        snapshot.phase === "ready"
-        || snapshot.phase === "degraded"
-        || snapshot.phase === "activating_runtime"
-      )
-    ) {
+    if (bindingUnchanged) {
       return;
     }
     emitStartupAuthStateTransition({

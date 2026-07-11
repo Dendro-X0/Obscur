@@ -411,70 +411,6 @@ export const DesktopNotificationHandler = () => {
         void applyDesktopUnreadTaskbarBadge(effectiveUnreadCount + unreadFromIncomingCall);
     }, [backgroundAlertCount, chatsUnreadCount, globalVoiceOverlay.status?.phase]);
 
-    useEffect((): void => {
-        const previousUnread = previousUnreadCountRef.current;
-        const currentUnread = Number.isFinite(chatsUnreadCount) ? Math.max(0, Math.floor(chatsUnreadCount)) : 0;
-        previousUnreadCountRef.current = currentUnread;
-        if (currentUnread <= previousUnread) {
-            return;
-        }
-        // CRITICAL FIX: Skip notifications when unread count increases from restore/initialization
-        // rather than from live message events. On fresh device login, restored unread counts
-        // would otherwise trigger false "new message" notifications for historical messages.
-        const isRestoreTimeInitialization = previousUnread === 0 && currentUnread > 5;
-        if (isRestoreTimeInitialization) {
-            console.log("[NotificationHandler] Skipping notification for restore-time unread initialization:", {
-                previousUnread,
-                currentUnread,
-                reason: "fresh_device_restore",
-            });
-            return;
-        }
-        // ADDITIONAL FIX: Skip notifications during account sync/restore
-        // This catches smaller unread increases (e.g., 0 -> 2) that slip through the threshold check above
-        if (accountSyncSnapshot.phase !== "ready") {
-            console.log("[NotificationHandler] Skipping unread notification during account sync:", {
-                previousUnread,
-                currentUnread,
-                phase: accountSyncSnapshot.phase,
-                reason: "sync_not_ready",
-            });
-            return;
-        }
-        // GRACE PERIOD: suppress sounds from sync flush after phase becomes ready
-        const msSinceSyncReady = syncReadyAtUnixMsRef.current > 0
-            ? Date.now() - syncReadyAtUnixMsRef.current
-            : Infinity;
-        if (msSinceSyncReady < POST_SYNC_READY_SOUND_GRACE_MS) {
-            return;
-        }
-        if (isForeground()) {
-            return;
-        }
-        const now = Date.now();
-        if ((now - lastMessageNotificationAtUnixMsRef.current) <= 2_500) {
-            return;
-        }
-        const unreadIncrease = Math.max(1, currentUnread - previousUnread);
-        lastMessageNotificationAtUnixMsRef.current = now;
-        setBackgroundAlertCount((current) => Math.min(999, current + unreadIncrease));
-        const forceBackgroundNotification = isTauri();
-        const title = unreadIncrease === 1 ? "New message" : `${unreadIncrease} new messages`;
-        void showNotification(
-            title,
-            "Open Obscur to view your conversations.",
-            "dmMessages",
-            {
-                onClick: () => {
-                    void router.push("/");
-                },
-                force: forceBackgroundNotification,
-                data: { href: "/" },
-            }
-        );
-        playSubtleMessageTone();
-    }, [chatsUnreadCount, playSubtleMessageTone, router, showNotification, accountSyncSnapshot.phase]);
-
     useEffect((): (() => void) => {
         if (typeof window === "undefined" || typeof document === "undefined") {
             return () => {};
@@ -519,21 +455,15 @@ export const DesktopNotificationHandler = () => {
                 href: payload.presentation.href,
             },
         };
-        if (enabled && channels.dmMessages) {
-            void showNotification(
-                title,
-                payload.presentation.body,
-                "dmMessages",
-                notificationOptions,
-            );
-        } else if (payload.forceBackgroundNotification) {
-            void showNotification(
-                title,
-                payload.presentation.body,
-                "dmMessages",
-                notificationOptions,
-            );
+        if (!enabled || !channels.dmMessages) {
+            return;
         }
+        void showNotification(
+            title,
+            payload.presentation.body,
+            "dmMessages",
+            notificationOptions,
+        );
         lastMessageNotificationAtUnixMsRef.current = Date.now();
         playSubtleMessageTone();
     };

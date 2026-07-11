@@ -1,0 +1,26 @@
+{
+  "schema": "codactrl.investigation.node@0.1.0",
+  "chainId": "chain-codactrl-settings-probe-2026-07-06",
+  "nodeId": "n1-post-connect-baseline",
+  "trigger": "post-connect-baseline",
+  "at": "2026-07-06T14:50:48.335380800+00:00",
+  "sessionId": "csess-675769c36e27",
+  "surfaces": {
+    "mainThreadMessageCount": 0,
+    "mainThreadSystemCards": 0,
+    "alertBannerCount": 1,
+    "splitBrainSuspected": false
+  },
+  "digestRef": ".codectx/verify/client-sessions/csess-675769c36e27/captures/cap-784f32eb1d50/digest.json",
+  "screenshotRef": ".codectx/verify/client-sessions/csess-675769c36e27/captures/cap-cc23d6e4bb51/screenshot.png",
+  "signalsExtracted": [
+    "auth.kernel_boot_restore_no_keychain",
+    "profiles.local_save_scan_deep_complete",
+    "profiles.local_save_scan_fast_complete",
+    "runtime.desktop_window_boot_ready",
+    "runtime.profile_binding_refresh_completed",
+    "runtime.startup_auth_state_transition"
+  ],
+  "authSurface": "sign_in_password",
+  "hypothesis": "Cold attach lands on Welcome Back (locked Default); digest shows auth.kernel_boot_restore_no_keychain; no Restoring session on fresh boot"
+}

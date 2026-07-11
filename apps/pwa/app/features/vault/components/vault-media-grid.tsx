@@ -879,6 +879,7 @@ function MediaStage({ item, videoMobileLayoutEnabled, onVideoMobileLayoutToggle 
     videoMobileLayoutEnabled: boolean;
     onVideoMobileLayoutToggle: React.Dispatch<React.SetStateAction<boolean>>;
 }) {
+    const { t } = useTranslation();
     if (item.attachment.kind === "image") {
         return <ImageStage primaryUrl={item.attachment.url} fallbackUrl={item.remoteUrl} name={item.attachment.fileName}/>;
     }

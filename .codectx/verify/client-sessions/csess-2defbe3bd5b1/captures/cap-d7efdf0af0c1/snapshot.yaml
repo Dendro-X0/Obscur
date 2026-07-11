@@ -1,0 +1,12 @@
+- main:
+  - text: Client release-v1.9.10-relay-recovery-20260617
+  - button "Change Language"
+  - img "Obscur Logo"
+  - heading "Obscur" [level=1]
+  - paragraph: The most private way to communicate. Decentralized & anonymous.
+  - button "Create New Identity"
+  - button "Log In with Key"
+  - button "Restore from backup"
+  - paragraph: End-to-End Encrypted Identity
+  - text: Self-Custody Anonymous
+- alert

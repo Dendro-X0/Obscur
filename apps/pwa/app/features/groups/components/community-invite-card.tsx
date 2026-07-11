@@ -655,7 +655,7 @@ export const CommunityInviteCard = ({ invite: inviteProp, viewerRole, message, m
             setIsProcessing(false);
         }
     };
-    const inviteCardShellClass = cn("relative overflow-hidden transition-all group/invite w-full", compact ? "max-w-[min(100%,320px)] rounded-2xl" : "max-w-[min(100%,320px)]", compact ? "" : isInviterPresentation ? "rounded-[32px]" : "rounded-[28px]", isHistorical
+    const inviteCardShellClass = cn("relative overflow-hidden transition-all group/invite w-full", compact ? "max-w-full rounded-2xl" : "min-w-[220px] max-w-[min(100%,320px)]", compact ? "" : isInviterPresentation ? "rounded-[32px]" : "rounded-[28px]", isHistorical
         ? "cursor-default border-zinc-300/55 bg-white/95 text-zinc-700 opacity-95 shadow-sm ring-1 ring-zinc-200/70 dark:border-zinc-600/40 dark:bg-zinc-900/80 dark:text-zinc-400 dark:ring-0"
         : cn("cursor-pointer border border-purple-300/55 bg-gradient-to-br from-purple-50 via-white to-indigo-50/90 text-foreground shadow-[0_10px_32px_rgba(88,28,135,0.14)] hover:border-purple-400/70 hover:shadow-[0_12px_36px_rgba(88,28,135,0.18)] dark:border-white/[0.07] dark:bg-gradient-to-br dark:from-zinc-950 dark:via-zinc-900 dark:to-zinc-900/95 dark:text-surface-contrast-primary dark:shadow-sm dark:shadow-black/25 dark:hover:border-purple-500/40", isInviterPresentation && "dark:border-surface-contrast dark:bg-gradient-surface-contrast"), isDetailsOpen && !isHistorical && "ring-2 ring-purple-500/35 border-purple-400/70 dark:ring-purple-500/30 dark:border-purple-500/50");
     const inviteTitleClass = cn("text-sm font-black truncate text-zinc-900 group-hover/invite:text-purple-700 dark:text-white dark:group-hover/invite:text-purple-300");

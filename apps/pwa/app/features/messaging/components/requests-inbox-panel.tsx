@@ -1,9 +1,8 @@
 "use client";
 
 import React from "react";
-import { Card } from "../../../components/ui/card";
 import { Button } from "../../../components/ui/button";
-import { MessageSquare, Check, X, ShieldAlert, BadgeInfo, UserPlus, Trash2 } from "lucide-react";
+import { MessageSquare, BadgeInfo, Trash2 } from "lucide-react";
 // Removed unused Avatar imports
 import { cn } from "@/app/lib/utils";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
@@ -33,15 +32,14 @@ interface RequestsInboxPanelProps {
     variant?: "inbox" | "junk";
     requests: ReadonlyArray<RequestItem>;
     nowMs: number | null;
-    onAccept: (pubkey: PublicKeyHex) => void;
-    onIgnore: (pubkey: PublicKeyHex) => void;
-    onBlock: (pubkey: PublicKeyHex) => void;
     onSelect: (pubkey: PublicKeyHex) => void;
     onFindSomeone?: () => void;
     onClearHistory?: () => void;
+    onDismissPendingCount?: () => void;
+    pendingCountDismissed?: boolean;
 }
 
-export function RequestsInboxPanel({ variant = "inbox", requests, nowMs, onAccept, onIgnore, onBlock, onSelect, onFindSomeone, onClearHistory }: RequestsInboxPanelProps) {
+export function RequestsInboxPanel({ variant = "inbox", requests, nowMs, onSelect, onFindSomeone, onClearHistory, onDismissPendingCount, pendingCountDismissed = false }: RequestsInboxPanelProps) {
     const { t } = useTranslation();
     const isJunk = variant === "junk";
     const [quarantineSummary, setQuarantineSummary] = React.useState<IncomingRequestQuarantineSummary>(() => (
@@ -62,12 +60,12 @@ export function RequestsInboxPanel({ variant = "inbox", requests, nowMs, onAccep
                     <MessageSquare className="h-8 w-8 text-zinc-400" />
                 </div>
                 <h3 className="text-sm font-black uppercase tracking-[0.18em] text-zinc-500 dark:text-zinc-300">
-                    {isJunk ? t("messaging.junkInboxEmptyTitle") : "No open invitations"}
+                    {isJunk ? t("messaging.junkInboxEmptyTitle") : "No open requests"}
                 </h3>
                 <p className="mt-3 max-w-[240px] text-sm leading-relaxed text-zinc-500 dark:text-zinc-400">
                     {isJunk
                         ? t("messaging.junkInboxEmptyDesc")
-                        : "When someone reaches out, their invitation will show up here with their note and clear actions."}
+                        : "Incoming invitations and outgoing requests waiting for a response appear here."}
                 </p>
                 {onFindSomeone && (
                     <Button
@@ -90,7 +88,7 @@ export function RequestsInboxPanel({ variant = "inbox", requests, nowMs, onAccep
                     <h2 className="text-xs font-black uppercase tracking-widest text-zinc-400">
                         {isJunk
                             ? t("messaging.junkInboxTitle", { count: requests.length })
-                            : `Invitations (${requests.length})`}
+                            : `Requests (${requests.length})`}
                     </h2>
                     <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
                         {isJunk
@@ -150,6 +148,16 @@ export function RequestsInboxPanel({ variant = "inbox", requests, nowMs, onAccep
                     )}
                 </div>
                 <div className="flex items-center gap-2">
+                    {onDismissPendingCount && requests.length > 0 && !pendingCountDismissed ? (
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-[10px] font-bold text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
+                            onClick={onDismissPendingCount}
+                        >
+                            Hide tab count
+                        </Button>
+                    ) : null}
                     {onClearHistory && (
                         <Button
                             variant="ghost"
@@ -179,9 +187,6 @@ export function RequestsInboxPanel({ variant = "inbox", requests, nowMs, onAccep
                         request={request}
                         quarantinePeerSignal={quarantineSummary.byPeerPrefix[request.peerPublicKeyHex.slice(0, 16).toLowerCase()] ?? null}
                         nowMs={nowMs}
-                        onAccept={onAccept}
-                        onIgnore={onIgnore}
-                        onBlock={onBlock}
                         onSelect={onSelect}
                     />
                 ))}
@@ -204,9 +209,6 @@ interface RequestItemRowProps {
         lastAtUnixMs: number;
     }> | null;
     nowMs: number | null;
-    onAccept: (pubkey: PublicKeyHex) => void;
-    onIgnore: (pubkey: PublicKeyHex) => void;
-    onBlock: (pubkey: PublicKeyHex) => void;
     onSelect: (pubkey: PublicKeyHex) => void;
 }
 
@@ -245,17 +247,24 @@ const quarantineReasonLabel = (
     return "global anti-spam limit";
 };
 
-function RequestItemRow({ request, quarantinePeerSignal, nowMs, onAccept, onIgnore, onBlock, onSelect }: RequestItemRowProps) {
+function RequestItemRow({ request, quarantinePeerSignal, nowMs, onSelect }: RequestItemRowProps) {
     const { t } = useTranslation();
     const metadata = useProfileMetadata(request.peerPublicKeyHex, { live: false });
     const isOutgoing = !!request.isOutgoing;
     const displayName = metadata?.displayName || (request.isRequest ? t("messaging.newConnection") : t("messaging.unknownPeer"));
     const invitationStatus = getInvitationInboxStatusCopy(request.status, isOutgoing);
     const preview = request.lastMessagePreview.trim();
+    const isPending = !request.status || request.status === "pending";
 
     return (
-        <Card className="border-black/5 bg-white p-4 dark:border-white/5 dark:bg-zinc-900">
-            <div className="flex items-start gap-3">
+        <button
+            type="button"
+            className={cn(
+                "w-full rounded-2xl border border-black/5 bg-white px-3 py-3 text-left transition-colors hover:bg-zinc-50 dark:border-white/5 dark:bg-zinc-900 dark:hover:bg-zinc-800/80",
+            )}
+            onClick={() => onSelect(request.peerPublicKeyHex)}
+        >
+            <div className="flex items-center gap-3">
                 <UserAvatar
                     pubkey={request.peerPublicKeyHex}
                     metadataLive={false}
@@ -264,108 +273,47 @@ function RequestItemRow({ request, quarantinePeerSignal, nowMs, onAccept, onIgno
                     showProfileOnClick={false}
                 />
 
-                <div className="flex-1 min-w-0" onClick={() => onSelect(request.peerPublicKeyHex)}>
+                <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2 overflow-hidden">
-                            <span className="text-sm font-bold text-zinc-900 dark:text-zinc-100 truncate">
+                        <div className="flex min-w-0 items-center gap-2">
+                            <span className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">
                                 {displayName}
                             </span>
-                            {request.isRequest && (
-                                <span className="shrink-0 flex items-center gap-1 rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-tight text-sky-700 dark:bg-sky-950/40 dark:text-sky-300">
-                                    <UserPlus className="h-3.5 w-3.5" />
-                                    Invitation
+                            {isPending && isOutgoing ? (
+                                <span className="shrink-0 rounded-full bg-purple-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-purple-700 dark:text-purple-300">
+                                    Sent
+                                </span>
+                            ) : isPending ? (
+                                <span className="shrink-0 rounded-full bg-sky-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-sky-700 dark:text-sky-300">
+                                    New
+                                </span>
+                            ) : (
+                                <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide", invitationToneClassName(invitationStatus.tone))}>
+                                    {invitationStatus.badge}
                                 </span>
                             )}
                         </div>
-                        <span className="text-[10px] text-zinc-400 whitespace-nowrap">
+                        <span className="shrink-0 text-[10px] text-zinc-400 whitespace-nowrap">
                             {formatTime(new Date(request.lastReceivedAtUnixSeconds * 1000), nowMs)}
                         </span>
                     </div>
-                    <div className={cn("mt-2 rounded-2xl border px-3 py-2", invitationToneClassName(invitationStatus.tone))}>
-                        <p className="text-[10px] font-black uppercase tracking-[0.18em]">{invitationStatus.badge}</p>
-                        <p className="mt-1 text-xs leading-relaxed">{invitationStatus.detail}</p>
-                    </div>
-                    {quarantinePeerSignal && (
-                        <div className="mt-2 rounded-xl border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-[10px] text-amber-700 dark:text-amber-300">
-                            <p className="font-black uppercase tracking-[0.14em]">Anti-spam signal</p>
-                            <p className="mt-1 leading-relaxed">
-                                Additional request attempts from this sender were blocked ({quarantineReasonLabel(quarantinePeerSignal.latestReasonCode)} x{quarantinePeerSignal.count}).
-                            </p>
-                        </div>
-                    )}
-                    <p className="mt-3 text-[10px] font-black uppercase tracking-[0.18em] text-zinc-400">
-                        {isOutgoing ? "Your note" : "Their note"}
+                    <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+                        {preview || (isOutgoing ? "Waiting for their response." : "Open to review their note and decide.")}
                     </p>
-                    <p className="mt-1 line-clamp-3 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
-                        {preview || "No note was included with this invitation."}
-                    </p>
-                    <p className="text-[10px] text-zinc-400 mt-1 uppercase tracking-[0.14em] opacity-70">
-                        Identity hidden
-                    </p>
+                    {quarantinePeerSignal ? (
+                        <p className="mt-1 text-[10px] font-medium text-amber-700 dark:text-amber-300">
+                            Anti-spam blocked {quarantinePeerSignal.count} extra attempt{quarantinePeerSignal.count === 1 ? "" : "s"}
+                        </p>
+                    ) : null}
                 </div>
 
                 {request.unreadCount > 0 ? (
-                    <div className="h-5 min-w-5 rounded-full bg-red-500 px-1.5 flex items-center justify-center">
+                    <div className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-red-500 px-1.5">
                         <span className="text-[10px] font-black text-white">{request.unreadCount}</span>
                     </div>
-                ) : (
-                    <div className="h-5 min-w-5 flex items-center justify-center">
-                        <div className="h-2 w-2 rounded-full bg-zinc-400 shadow-sm" />
-                    </div>
-                )}
+                ) : null}
             </div>
-
-            {request.status && request.status !== 'pending' ? (
-                <div className={cn(
-                    "mt-4 rounded-2xl border p-3 text-left",
-                    invitationToneClassName(invitationStatus.tone)
-                )}>
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em]">{invitationStatus.badge}</p>
-                    <p className="mt-1 text-sm font-semibold">{invitationStatus.title}</p>
-                    <p className="mt-1 text-xs leading-relaxed opacity-90">{invitationStatus.detail}</p>
-                </div>
-            ) : isOutgoing ? (
-                <div className={cn(
-                    "mt-4 rounded-2xl border p-3 text-left",
-                    invitationToneClassName(invitationStatus.tone)
-                )}>
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em]">{invitationStatus.badge}</p>
-                    <p className="mt-1 text-sm font-semibold">Waiting for their response</p>
-                    <p className="mt-1 text-xs leading-relaxed opacity-90">
-                        Obscur has already sent this invitation. You do not need to accept your own request.
-                    </p>
-                </div>
-            ) : (
-                <div className="mt-4 flex gap-2">
-                    <Button
-                        variant="secondary"
-                        size="sm"
-                        className="flex-1 h-11 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500 hover:text-white border-none text-[11px] font-bold rounded-xl"
-                        onClick={() => onAccept(request.peerPublicKeyHex)}
-                    >
-                        <Check className="mr-1.5 h-7 w-7" /> {t("common.accept")}
-                    </Button>
-                    <Button
-                        variant="secondary"
-                        size="sm"
-                        className="h-11 w-11 p-0 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 rounded-xl"
-                        onClick={() => onIgnore(request.peerPublicKeyHex)}
-                        title={t("common.ignore")}
-                    >
-                        <X className="h-7 w-7" />
-                    </Button>
-                    <Button
-                        variant="secondary"
-                        size="sm"
-                        className="h-11 w-11 p-0 text-zinc-400 hover:text-red-500 rounded-xl"
-                        onClick={() => onBlock(request.peerPublicKeyHex)}
-                        title={t("common.blockAndReport")}
-                    >
-                        <ShieldAlert className="h-7 w-7" />
-                    </Button>
-                </div>
-            )}
-        </Card>
+        </button>
     );
 }
 

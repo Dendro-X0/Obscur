@@ -1,0 +1,30 @@
+{
+  "exploreId": "7ba7bb2b-50e3-1b44-e9b2-a5120928a81e",
+  "findings": [
+    {
+      "anchors": [
+        {
+          "content_hash": "sha256:bd7e29e55b641856d7f0a9c4905cdfe777550ae02d8dda11b1d4412184e9d29c",
+          "path": "apps/desktop/src-tauri/Cargo.toml",
+          "symbol": "tauri"
+        },
+        {
+          "path": "apps/desktop/vite.config.ts",
+          "symbol": "vite"
+        }
+      ],
+      "confidence": 0.9200000166893005,
+      "id": "perf:dev:tauri-vite-shell:apps/desktop",
+      "obligation": "Tauri + Vite dev shell depends on localhost dev server — white window if Vite is down, IPv6/127.0.0.1 mismatch, or secondary window races daemon boot",
+      "oracle": "perf.confirm.run provider=studio-dev-probe attachMode=dev baseUrl=http://127.0.0.1:5173: measure paintMs and whiteScreen",
+      "probePath": "/jobs",
+      "proofTier": "static",
+      "rankScore": 641.0399780273438,
+      "severity": "yellow",
+      "surfaceRefs": [
+        "shell_surface:studio-vite"
+      ]
+    }
+  ],
+  "schema": "perf.findings@1.0.0"
+}

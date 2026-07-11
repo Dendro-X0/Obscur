@@ -1,6 +1,6 @@
 {
   "name": "pwa",
-  "version": "1.9.10",
+  "version": "1.9.11",
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack --hostname 127.0.0.1 --port 3340",
@@ -14,6 +14,7 @@
     "i18n:prepare-chunks": "node scripts/i18n/prepare-locale-chunks.mjs",
     "i18n:bootstrap-chunks": "node scripts/i18n/bootstrap-locale-chunks.mjs",
     "i18n:merge-chunks": "node scripts/i18n/merge-locale-chunks.mjs",
+    "i18n:add-locale-keys": "node scripts/i18n/add-locale-keys.mjs",
     "start": "next start",
     "lint": "eslint",
     "test": "cross-env NODE_OPTIONS=--max-old-space-size=4096 vitest",

@@ -1,7 +1,16 @@
 {
   "schema": "codactrl.investigation.chain.registry@0.1.0",
-  "updatedAt": "2026-07-04T23:59:58.802040200+00:00",
+  "updatedAt": "2026-07-06T14:50:48.356643+00:00",
   "chains": [
+    {
+      "chainId": "chain-codactrl-settings-probe-2026-07-06",
+      "title": "Investigation chain",
+      "status": "open",
+      "nodeCount": 1,
+      "updatedAt": "2026-07-06T14:50:48.342456600+00:00",
+      "verdict": "partial_accepted",
+      "splitBrainObserved": false
+    },
     {
       "chainId": "chain-phase4-website-2026-07-04",
       "title": "Phase 4 website editorial design pass",

@@ -7,6 +7,8 @@ import { AuthScreen } from "./auth-screen";
 import { markRetiredIdentityPublicKey } from "../utils/retired-identity-registry";
 import { PASSWORDLESS_NATIVE_ONLY_SENTINEL } from "../services/passwordless-native-only-identity";
 import { hasPasswordProtectedUnlockOnDevice } from "@/app/features/profiles/services/identity-passphrase-unlock";
+import { requiresFreshProfileWindowForGreenfieldAuth } from "@/app/features/profiles/services/profile-slot-greenfield-auth-routing";
+import { openFreshProfileWindowForSignIn } from "@/app/features/profiles/services/profile-slot-account-switch";
 import en from "@/app/lib/i18n/locales/en.json";
 
 const authScreenMocks = vi.hoisted(() => ({
@@ -60,6 +62,7 @@ const authScreenMocks = vi.hoisted(() => ({
       retryAfterMs: 0,
     })),
     createIdentityForBoundProfile: vi.fn(async () => undefined),
+    createPoWIdentityForBoundProfile: vi.fn(async () => undefined),
     unlockBoundProfileWithPassphrase: vi.fn(async () => undefined),
     importIdentityForBoundProfile: vi.fn(async () => undefined),
     signOutBoundProfileWindow: vi.fn(async () => undefined),
@@ -184,6 +187,21 @@ vi.mock("@/app/features/runtime/runtime-capabilities", () => ({
   hasNativeRuntime: () => authScreenMocks.isNativeRuntime,
 }));
 
+vi.mock("@/app/features/profiles/services/profile-slot-greenfield-auth-routing", async () => {
+  const actual = await vi.importActual<typeof import("@/app/features/profiles/services/profile-slot-greenfield-auth-routing")>(
+    "@/app/features/profiles/services/profile-slot-greenfield-auth-routing",
+  );
+  return {
+    ...actual,
+    requiresFreshProfileWindowForGreenfieldAuth: vi.fn(actual.requiresFreshProfileWindowForGreenfieldAuth),
+  };
+});
+
+vi.mock("@/app/features/profiles/services/profile-slot-account-switch", () => ({
+  openFreshProfileWindowForSignIn: vi.fn(async () => "demo-slot"),
+  clearProfileSlotForDifferentAccount: vi.fn(async () => null),
+}));
+
 describe("AuthScreen mismatch recovery UX", () => {
   beforeEach(() => {
     localStorage.clear();
@@ -213,6 +231,8 @@ describe("AuthScreen mismatch recovery UX", () => {
     authScreenMocks.authKernel.createIdentityForBoundProfile.mockClear();
     authScreenMocks.authKernel.unlockBoundProfileWithPassphrase.mockClear();
     authScreenMocks.authKernel.importIdentityForBoundProfile.mockClear();
+    vi.mocked(requiresFreshProfileWindowForGreenfieldAuth).mockReturnValue(false);
+    vi.mocked(openFreshProfileWindowForSignIn).mockClear();
   });
 
   it("renders native secure storage mismatch recovery card", async () => {
@@ -408,6 +428,87 @@ describe("AuthScreen mismatch recovery UX", () => {
     expect(await screen.findByText(/No device login password is saved/i)).toBeInTheDocument();
     expect(screen.getByText(/Step 1: paste your private key/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Continue with private key/i })).toBeInTheDocument();
+  });
+
+  it("returns to welcome from restore when back is pressed", async () => {
+    authScreenMocks.hasStoredIdentity = false;
+    authScreenMocks.identityState = {
+      status: "locked",
+      stored: undefined,
+    } as unknown as typeof authScreenMocks.identityState;
+    authScreenMocks.runtime.snapshot.session.startupState.kind = "no_identity";
+    authScreenMocks.runtime.snapshot.session.startupState.storedPublicKeyHex = undefined;
+
+    render(<AuthScreen />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Restore from backup" }));
+    expect(await screen.findByText("Restore account")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText("Back"));
+
+    expect(await screen.findByText("Create New Identity")).toBeInTheDocument();
+    expect(screen.queryByText("Restore account")).not.toBeInTheDocument();
+  });
+
+  it("opens a new profile window instead of in-window create when the desktop slot is occupied", async () => {
+    vi.mocked(requiresFreshProfileWindowForGreenfieldAuth).mockReturnValue(true);
+    authScreenMocks.isNativeRuntime = true;
+    authScreenMocks.hasStoredIdentity = false;
+    authScreenMocks.identityState = {
+      status: "locked",
+      stored: undefined,
+    } as unknown as typeof authScreenMocks.identityState;
+    authScreenMocks.runtime.snapshot.session.startupState.kind = "no_identity";
+    authScreenMocks.runtime.snapshot.session.startupState.storedPublicKeyHex = undefined;
+
+    render(<AuthScreen />);
+
+    fireEvent.click(await screen.findByText("Create New Identity"));
+
+    await waitFor(() => {
+      expect(openFreshProfileWindowForSignIn).toHaveBeenCalledWith("New identity");
+    });
+    expect(screen.queryByText("Pick a Name")).not.toBeInTheDocument();
+  });
+
+  it("opens a new profile window instead of in-window restore when the desktop slot is occupied", async () => {
+    vi.mocked(requiresFreshProfileWindowForGreenfieldAuth).mockReturnValue(true);
+    authScreenMocks.isNativeRuntime = true;
+    authScreenMocks.hasStoredIdentity = false;
+    authScreenMocks.identityState = {
+      status: "locked",
+      stored: undefined,
+    } as unknown as typeof authScreenMocks.identityState;
+    authScreenMocks.runtime.snapshot.session.startupState.kind = "no_identity";
+    authScreenMocks.runtime.snapshot.session.startupState.storedPublicKeyHex = undefined;
+
+    render(<AuthScreen />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Restore from backup" }));
+
+    await waitFor(() => {
+      expect(openFreshProfileWindowForSignIn).toHaveBeenCalledWith("Restore backup");
+    });
+    expect(screen.queryByText("Restore account")).not.toBeInTheDocument();
+  });
+
+  it("keeps create in the current window when the desktop slot is empty", async () => {
+    vi.mocked(requiresFreshProfileWindowForGreenfieldAuth).mockReturnValue(false);
+    authScreenMocks.isNativeRuntime = true;
+    authScreenMocks.hasStoredIdentity = false;
+    authScreenMocks.identityState = {
+      status: "locked",
+      stored: undefined,
+    } as unknown as typeof authScreenMocks.identityState;
+    authScreenMocks.runtime.snapshot.session.startupState.kind = "no_identity";
+    authScreenMocks.runtime.snapshot.session.startupState.storedPublicKeyHex = undefined;
+
+    render(<AuthScreen />);
+
+    fireEvent.click(await screen.findByText("Create New Identity"));
+
+    expect(await screen.findByText("Pick a Name")).toBeInTheDocument();
+    expect(openFreshProfileWindowForSignIn).not.toHaveBeenCalled();
   });
 
 });

@@ -1,0 +1,29 @@
+{
+  "schema": "client.session.steps@0.1.0",
+  "sessionId": "csess-ff67a881d079",
+  "updatedAt": "2026-07-05T02:54:30.040288900+00:00",
+  "stepCount": 2,
+  "steps": [
+    {
+      "index": 0,
+      "stepId": "step-b94ca469e384",
+      "action": "snapshot",
+      "captureId": "cap-fb9b5d305edc",
+      "manifestPath": ".codectx/verify/client-sessions/csess-ff67a881d079/captures/cap-fb9b5d305edc/manifest.json",
+      "stepLabel": "lane-d-download-hooks",
+      "pass": true,
+      "at": "2026-07-05T02:54:26.126163700+00:00"
+    },
+    {
+      "index": 1,
+      "stepId": "step-f0ee82790e71",
+      "action": "webSurfaceProbe",
+      "captureId": "cap-80da440b4f22",
+      "manifestPath": ".codectx/verify/client-sessions/csess-ff67a881d079/captures/cap-80da440b4f22/manifest.json",
+      "stepLabel": "web-surface-probe",
+      "pass": true,
+      "message": "web surface probe captured",
+      "at": "2026-07-05T02:54:30.039403900+00:00"
+    }
+  ]
+}

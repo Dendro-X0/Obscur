@@ -1,0 +1,153 @@
+{
+  "edges": [],
+  "exploreId": "7ba7bb2b-50e3-1b44-e9b2-a5120928a81e",
+  "nodes": [
+    {
+      "anchors": [
+        {
+          "content_hash": "sha256:bd7e29e55b641856d7f0a9c4905cdfe777550ae02d8dda11b1d4412184e9d29c",
+          "path": "apps/desktop/src-tauri/Cargo.toml",
+          "symbol": "tauri"
+        },
+        {
+          "path": "apps/desktop/vite.config.ts",
+          "symbol": "vite"
+        }
+      ],
+      "id": "finding:perf:dev:tauri-vite-shell:apps/desktop",
+      "kind": "finding",
+      "label": "perf:dev:tauri-vite-shell:apps/desktop"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/coordination/src/index.cors.test.ts"
+        }
+      ],
+      "id": "module:apps:coordination:src:index.cors.test.ts",
+      "kind": "module",
+      "label": "apps/coordination/src/index.cors.test.ts"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/coordination/src/index.ts"
+        }
+      ],
+      "id": "module:apps:coordination:src:index.ts",
+      "kind": "module",
+      "label": "apps/coordination/src/index.ts"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/coordination/src/membership-delta-acl.test.ts"
+        }
+      ],
+      "id": "module:apps:coordination:src:membership-delta-acl.test.ts",
+      "kind": "module",
+      "label": "apps/coordination/src/membership-delta-acl.test.ts"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/coordination/src/membership-delta-acl.ts"
+        }
+      ],
+      "id": "module:apps:coordination:src:membership-delta-acl.ts",
+      "kind": "module",
+      "label": "apps/coordination/src/membership-delta-acl.ts"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/coordination/src/membership-directory.test.ts"
+        }
+      ],
+      "id": "module:apps:coordination:src:membership-directory.test.ts",
+      "kind": "module",
+      "label": "apps/coordination/src/membership-directory.test.ts"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/coordination/src/membership-directory.ts"
+        }
+      ],
+      "id": "module:apps:coordination:src:membership-directory.ts",
+      "kind": "module",
+      "label": "apps/coordination/src/membership-directory.ts"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/coordination/src/membership-live.integration.test.ts"
+        }
+      ],
+      "id": "module:apps:coordination:src:membership-live.integration.test.ts",
+      "kind": "module",
+      "label": "apps/coordination/src/membership-live.integration.test.ts"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/coordination/src/membership-room-key-wrap-acl.ts"
+        }
+      ],
+      "id": "module:apps:coordination:src:membership-room-key-wrap-acl.ts",
+      "kind": "module",
+      "label": "apps/coordination/src/membership-room-key-wrap-acl.ts"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/coordination/src/membership-room-key-wrap.test.ts"
+        }
+      ],
+      "id": "module:apps:coordination:src:membership-room-key-wrap.test.ts",
+      "kind": "module",
+      "label": "apps/coordination/src/membership-room-key-wrap.test.ts"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/coordination/src/membership-room-key-wrap.ts"
+        }
+      ],
+      "id": "module:apps:coordination:src:membership-room-key-wrap.ts",
+      "kind": "module",
+      "label": "apps/coordination/src/membership-room-key-wrap.ts"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/coordination/src/path-b-b1-4-exit.contract.test.ts"
+        }
+      ],
+      "id": "module:apps:coordination:src:path-b-b1-4-exit.contract.test.ts",
+      "kind": "module",
+      "label": "apps/coordination/src/path-b-b1-4-exit.contract.test.ts"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/coordination/src/test-utils/mock-d1.ts"
+        }
+      ],
+      "id": "module:apps:coordination:src:test-utils:mock-d1.ts",
+      "kind": "module",
+      "label": "apps/coordination/src/test-utils/mock-d1.ts"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/coordination/package.json"
+        }
+      ],
+      "id": "package:@obscur/coordination-worker",
+      "kind": "package",
+      "label": "@obscur/coordination-worker"
+    }
+  ],
+  "schema": "perf.surface.graph@1.0.0"
+}

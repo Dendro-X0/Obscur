@@ -287,6 +287,7 @@ export const selectProjectionRequestsInboxItems = (
         unreadCount: 0,
         status,
         isOutgoing: contact.direction === "outgoing",
+        isRequest: status === "pending",
         eventId: contact.lastRequestEventId ?? contact.lastEventId,
       };
     })

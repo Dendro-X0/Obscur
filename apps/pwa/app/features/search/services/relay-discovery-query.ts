@@ -2,7 +2,7 @@
 
 import type { NostrFilter } from "@/app/features/relays/types/nostr-filter";
 import { INVITE_CODE_PREFIX } from "@/app/features/invites/utils/invite-code-format";
-import { GLOBAL_DISCOVERY_RELAY_URLS } from "@/app/features/relays/services/discovery-relay-set";
+import { GLOBAL_DISCOVERY_RELAY_URLS, mergeRelaySets } from "@/app/features/relays/services/discovery-relay-set";
 import { discoveryCache, type DiscoveryProfileRecord } from "./discovery-cache";
 
 type RelayMessageHandler = (params: Readonly<{ url: string; message: string }>) => void;
@@ -24,6 +24,8 @@ type QueryRelayProfilesParams = Readonly<{
     query: string;
     timeoutMs?: number;
     maxResults?: number;
+    /** Profile-enabled relays merged with global discovery relays for invite lookups. */
+    relayUrls?: ReadonlyArray<string>;
 }>;
 
 const QUERY_TIMEOUT_MS = 5_500;
@@ -150,12 +152,16 @@ const buildFilters = (mode: RelayDiscoveryMode, query: string): ReadonlyArray<No
     ];
 };
 
-const primeInviteLookupRelays = async (pool: RelayQueryPool): Promise<void> => {
-    for (const relayUrl of GLOBAL_DISCOVERY_RELAY_URLS) {
+const primeInviteLookupRelays = async (
+    pool: RelayQueryPool,
+    relayUrls: ReadonlyArray<string> = [],
+): Promise<void> => {
+    const lookupRelayUrls = mergeRelaySets(relayUrls, GLOBAL_DISCOVERY_RELAY_URLS);
+    for (const relayUrl of lookupRelayUrls) {
         pool.addTransientRelay?.(relayUrl);
     }
     if (typeof pool.waitForScopedConnection === "function") {
-        await pool.waitForScopedConnection(GLOBAL_DISCOVERY_RELAY_URLS, 2_500);
+        await pool.waitForScopedConnection(lookupRelayUrls, 2_500);
         return;
     }
     await pool.waitForConnection(2_500);
@@ -178,7 +184,7 @@ export const queryRelayProfiles = async (params: QueryRelayProfilesParams): Prom
     }
 
     if (params.mode === "invite") {
-        await primeInviteLookupRelays(params.pool);
+        await primeInviteLookupRelays(params.pool, params.relayUrls ?? []);
     } else {
         await params.pool.waitForConnection(2_500);
     }

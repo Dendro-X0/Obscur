@@ -14,6 +14,7 @@ import { appendCanonicalContactEvent } from "@/app/features/account-sync/service
 import { resolveProjectionReadAuthority } from "@/app/features/account-sync/services/account-projection-read-authority";
 import { selectProjectionRequestsInboxItems } from "@/app/features/account-sync/services/account-projection-selectors";
 import { shouldWriteLegacyContactsDm } from "@/app/features/account-sync/services/account-sync-migration-policy";
+import { filterCanonicalContactRequestInboxItems } from "../services/request-inbox-canonical-filter";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { clearRequestCooldown, setRequestCooldown } from "../services/request-anti-abuse";
 import { requestFlowEvidenceStore } from "../services/request-flow-evidence-store";
@@ -49,7 +50,12 @@ type UseRequestsInboxResult = Readonly<{
   markRead: (params: Readonly<{ peerPublicKeyHex: PublicKeyHex }>) => void;
   markAllRead: () => void;
   clearHistory: () => void;
-  setStatus: (params: Readonly<{ peerPublicKeyHex: PublicKeyHex; status: ConnectionRequestStatusValue; isOutgoing?: boolean }>) => void;
+  setStatus: (params: Readonly<{
+    peerPublicKeyHex: PublicKeyHex;
+    status: ConnectionRequestStatusValue;
+    isOutgoing?: boolean;
+    lastMessagePreview?: string;
+  }>) => void;
   getRequestStatus: (params: Readonly<{ peerPublicKeyHex: PublicKeyHex }>) => { status?: ConnectionRequestStatusValue; isOutgoing: boolean; lastReceivedAtUnixSeconds?: number } | null;
   hasHydrated: boolean;
 }>;
@@ -300,6 +306,7 @@ export const useRequestsInbox = (params: UseRequestsInboxParams): UseRequestsInb
             lastReceivedAtUnixSeconds: Math.floor((item.timestampMs || 0) / 1000),
             unreadCount: 0,
             eventId: item.eventId,
+            isRequest: !item.isOutgoing && item.status === "pending",
           } satisfies RequestsInboxItem;
         })
         .filter((item): item is RequestsInboxItem => item !== undefined);
@@ -335,21 +342,6 @@ export const useRequestsInbox = (params: UseRequestsInboxParams): UseRequestsInb
       })));
     }
   }, [shouldWriteLegacyContacts]);
-
-  useEffect(() => {
-    if (!hasHydrated) {
-      return;
-    }
-    setStored((prev: StoredRequestsInbox): StoredRequestsInbox => {
-      const filteredItems = filterReleasedOutgoingPendingRequests(prev.items);
-      if (filteredItems.length === prev.items.length) {
-        return prev;
-      }
-      const next = { items: filteredItems };
-      persistChange(next);
-      return next;
-    });
-  }, [hasHydrated, persistChange]);
 
   const upsertIncoming = useCallback((p: Readonly<{
     peerPublicKeyHex: PublicKeyHex;
@@ -541,10 +533,12 @@ export const useRequestsInbox = (params: UseRequestsInboxParams): UseRequestsInb
     });
   }, [persistChange, shouldWriteLegacyContacts]);
 
-  const setStatus = useCallback((p: Readonly<{ peerPublicKeyHex: PublicKeyHex; status: ConnectionRequestStatusValue; isOutgoing?: boolean }>): void => {
-    if (!shouldWriteLegacyContacts) {
-      return;
-    }
+  const setStatus = useCallback((p: Readonly<{
+    peerPublicKeyHex: PublicKeyHex;
+    status: ConnectionRequestStatusValue;
+    isOutgoing?: boolean;
+    lastMessagePreview?: string;
+  }>): void => {
     const normalizedPeer = normalizePublicKeyHex(p.peerPublicKeyHex);
     if (!normalizedPeer) return;
     setStored((prev: StoredRequestsInbox): StoredRequestsInbox => {
@@ -591,11 +585,12 @@ export const useRequestsInbox = (params: UseRequestsInboxParams): UseRequestsInb
 
         const newItem: RequestsInboxItem = {
           peerPublicKeyHex: normalizedPeer,
-          lastMessagePreview: "",
+          lastMessagePreview: p.lastMessagePreview?.trim() || "",
           lastReceivedAtUnixSeconds: Math.floor(Date.now() / 1000),
           unreadCount: 0,
           status: nextStatus,
-          isOutgoing: nextState.isOutgoing
+          isOutgoing: nextState.isOutgoing,
+          isRequest: !nextState.isOutgoing && nextStatus === "pending",
         };
         nextItems = [newItem, ...prev.items];
         didChange = true;
@@ -626,6 +621,7 @@ export const useRequestsInbox = (params: UseRequestsInboxParams): UseRequestsInb
             status: nextStatus,
             unreadCount: nextUnread,
             isOutgoing: nextState.isOutgoing,
+            lastMessagePreview: p.lastMessagePreview?.trim() || i.lastMessagePreview,
             lastReceivedAtUnixSeconds: Math.max(i.lastReceivedAtUnixSeconds, nowUnixSeconds),
           };
         });
@@ -635,17 +631,33 @@ export const useRequestsInbox = (params: UseRequestsInboxParams): UseRequestsInb
       }
 
       const next = { items: nextItems };
-      persistChange(next);
+      if (shouldWriteLegacyContacts) {
+        persistChange(next);
+      }
       emitAccountSyncMutation("requests_inbox_status_changed");
       return next;
     });
   }, [persistChange, shouldWriteLegacyContacts]);
 
   const state: RequestsInboxState = useMemo((): RequestsInboxState => {
+    const legacyItems = stored.items;
+    const rawItems = (() => {
+      if (!shouldUseProjectionReads) {
+        return legacyItems;
+      }
+      const byPeer = new Map<string, RequestsInboxItem>();
+      projectionItems.forEach((item) => {
+        byPeer.set(item.peerPublicKeyHex, item);
+      });
+      legacyItems.forEach((item) => {
+        if (!byPeer.has(item.peerPublicKeyHex)) {
+          byPeer.set(item.peerPublicKeyHex, item);
+        }
+      });
+      return Array.from(byPeer.values());
+    })();
     return {
-      items: shouldUseProjectionReads
-        ? projectionItems
-        : filterReleasedOutgoingPendingRequests(stored.items),
+      items: filterCanonicalContactRequestInboxItems(rawItems),
     };
   }, [projectionItems, shouldUseProjectionReads, stored.items]);
 
@@ -654,11 +666,8 @@ export const useRequestsInbox = (params: UseRequestsInboxParams): UseRequestsInb
     if (!normalizedPeer) return null;
     const item = state.items.find(i => i.peerPublicKeyHex === normalizedPeer);
     if (!item) return null;
-    if (!shouldUseProjectionReads && shouldReleaseOutgoingPendingRequest(item)) {
-      return null;
-    }
     return { status: item.status, isOutgoing: item.isOutgoing || false, lastReceivedAtUnixSeconds: item.lastReceivedAtUnixSeconds };
-  }, [shouldUseProjectionReads, state.items]);
+  }, [state.items]);
 
   return useMemo(
     () => ({ state, upsertIncoming, remove, markRead, markAllRead, clearHistory, setStatus, getRequestStatus, hasHydrated }),

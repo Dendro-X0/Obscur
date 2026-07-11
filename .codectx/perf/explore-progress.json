@@ -1,7 +1,10 @@
 {
+  "appIndex": 1,
+  "appName": "app",
+  "appTotal": 1,
   "schema": "perf.explore.progress@1.0.0",
-  "startedAt": "2026-07-01T05:00:53.271200600+00:00",
-  "step": "scan",
-  "task": "Scanning workspace…",
-  "updatedAt": "2026-07-04T03:59:50.226402200+00:00"
+  "startedAt": "2026-07-05T05:49:55.357334400+00:00",
+  "step": "explore",
+  "task": "Analyzing app…",
+  "updatedAt": "2026-07-07T08:32:52.764140500+00:00"
 }

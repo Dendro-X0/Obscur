@@ -1,6 +1,6 @@
 {
   "name": "@obscur/conduit-mesh",
-  "version": "1.9.10",
+  "version": "1.9.11",
   "private": true,
   "type": "module",
   "description": "Conduit Mesh runtime — headless MeshPort, evidence ledger, lane switching.",

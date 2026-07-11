@@ -1,6 +1,6 @@
 {
   "name": "@dweb/transport-nostr",
-  "version": "1.9.10",
+  "version": "1.9.11",
   "private": true,
   "type": "module",
   "description": "Nostr wire adapter — maps sealed control payloads to semantic community events.",

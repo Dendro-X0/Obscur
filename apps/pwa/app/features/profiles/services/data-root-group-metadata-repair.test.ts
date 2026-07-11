@@ -34,6 +34,10 @@ vi.mock("@/app/features/groups/services/community-group-sqlite-store", () => ({
   loadSqliteGroupPersistedRows: (...args: unknown[]) => loadSqliteGroupsMock(...args),
 }));
 
+vi.mock("@/app/features/groups/services/account-group-sqlite-evidence", () => ({
+  accountHasSqliteGroupMessageEvidence: vi.fn(async () => true),
+}));
+
 vi.mock("@/app/features/groups/services/community-membership-ledger", async () => {
   const actual = await vi.importActual<typeof import("@/app/features/groups/services/community-membership-ledger")>(
     "@/app/features/groups/services/community-membership-ledger",
@@ -62,6 +66,7 @@ import {
   repairGroupMetadataFromSiblingWebStorage,
   repairGroupMetadataFromSqliteIfSparse,
 } from "./data-root-group-metadata-repair";
+import { accountHasSqliteGroupMessageEvidence } from "@/app/features/groups/services/account-group-sqlite-evidence";
 
 describe("repairGroupMetadataFromSqliteIfSparse", () => {
   beforeEach(() => {
@@ -71,6 +76,7 @@ describe("repairGroupMetadataFromSqliteIfSparse", () => {
     loadLedgerMock.mockReset();
     saveLedgerMock.mockReset();
     harvestMock.mockReset();
+    vi.mocked(accountHasSqliteGroupMessageEvidence).mockResolvedValue(true);
     loadMock.mockReturnValue({ createdGroups: [] });
     loadLedgerMock.mockReturnValue([]);
     harvestMock.mockResolvedValue({ ledgers: [], directories: [], scannedFileCount: 0 });
@@ -104,6 +110,33 @@ describe("repairGroupMetadataFromSqliteIfSparse", () => {
     expect(restored).toBe(1);
     expect(updateMock).toHaveBeenCalled();
     expect(saveLedgerMock).toHaveBeenCalled();
+  });
+
+  it("skips orphan sqlite metadata without membership or message evidence", async () => {
+    vi.mocked(accountHasSqliteGroupMessageEvidence).mockResolvedValue(false);
+    loadSqliteGroupsMock.mockResolvedValue([{
+      id: "community:group-a:wss://relay",
+      communityId: "group-a:wss://relay",
+      groupId: "group-a",
+      relayUrl: "wss://relay",
+      displayName: "Orphan Group",
+      memberPubkeys: [],
+      lastMessage: "",
+      unreadCount: 0,
+      lastMessageTimeMs: 1,
+      access: "invite-only",
+      memberCount: 0,
+      adminPubkeys: [],
+    }]);
+
+    const restored = await repairGroupMetadataFromSqliteIfSparse({
+      publicKeyHex: PUBLIC_KEY,
+      profileId: "tester2",
+    });
+
+    expect(restored).toBe(0);
+    expect(updateMock).not.toHaveBeenCalled();
+    expect(saveLedgerMock).not.toHaveBeenCalled();
   });
 });
 

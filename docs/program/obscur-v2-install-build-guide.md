@@ -16,6 +16,7 @@ One page for **how to run**, **how to package**, and **what to expect** — no c
 | **Dual-profile MCP verify** | Same + open Tester2 window | CDP `:9231` · [obscur-dev-test-accounts.md](./obscur-dev-test-accounts.md) |
 | **Relay only (external stack)** | Terminal 1: `pnpm dev:relay:docker` · Terminal 2: `pnpm dev:coordination` · Terminal 3: `pnpm dev:desktop:no-coord -- --skip-build` | Faster restarts; cold-kill does not take down relay |
 | **Desktop installer (local)** | `pnpm desktop:package` | `release-assets/{windows,macos,linux}/` |
+| **Desktop/mobile installers (CI)** | Push `v*` tag **or** Actions → **Obscur Full Release** | Artifacts on workflow run; publish via dispatch + `publish_release=true` |
 | **Android debug APK (emulator)** | `pnpm build:android:debug:emulator` | Universal debug APK under `gen/android/.../debug/` |
 | **Android prereq check** | `pnpm verify:android-prerequisites` | Non-destructive SDK/JDK/Rust check |
 | **Release gates** | `pnpm release:test-pack` · `pnpm docs:check` | Before tag or Phase 3 sign-off |
@@ -63,6 +64,8 @@ pnpm desktop:package
 ```
 
 Runs `version:sync` → `build:desktop` → copies bundles to `release-assets/`.
+
+Production desktop shells embed **live relay transport** (`NEXT_PUBLIC_OBSCUR_EXPERIMENT_ONLINE=1` via `scripts/build-pwa-shell.mjs`). Offline-stub mode is dev-only (`pnpm dev:desktop` without `:online`).
 
 **Checksum manifest:** [release-assets/manifest.json](../../release-assets/manifest.json) (SHA-256 + commit + version).
 

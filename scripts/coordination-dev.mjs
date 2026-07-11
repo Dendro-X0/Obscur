@@ -2,7 +2,7 @@
 /**
  * Coordination worker dev entrypoint.
  *
- * Wrangler 3.x on Windows can hang after `d1 execute --local` succeeds (open handles).
+ * Wrangler on Windows can hang after `d1 execute --local` succeeds (open handles).
  * This script runs the migration when needed, force-terminates the stuck child, then
  * starts `wrangler dev`.
  */

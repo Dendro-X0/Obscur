@@ -15,11 +15,19 @@ import type { Message } from "../../types";
 import { parseCommandMessage } from "../../utils/commands";
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
-import type { BlocklistContract, PeerTrustContract } from "./dm-controller-types";
+import type { BlocklistContract, PeerTrustContract, RequestsInboxContract } from "./dm-controller-types";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { messagingClientOperations } from "../../services/messaging-client-operations";
 import { toDmConversationIdFromEvent } from "../../utils/dm-conversation-id";
 import { decodeDmDeleteCommandV1 } from "../../deletion/delete-command-codec";
+import {
+  resolveContactRequestReceiveRoute,
+  resolvePeerPublicKeyHexForIncomingEvent,
+  resolveRequestEventIdFromTags,
+  shouldAcceptSandboxQna,
+  shouldBlockUntaggedStrangerDm,
+  type ConnectionReceiveLifecycleTag,
+} from "../../services/contact-request-receive-classifier";
 
 // ---------------------------------------------------------------------------
 // Dedup: track processed event IDs to prevent double-processing
@@ -222,6 +230,9 @@ const parseDeleteCommand = (plaintext: string, tags?: ReadonlyArray<ReadonlyArra
 export type IncomingDmResult =
   | { action: "message"; message: Message }
   | { action: "self_echo"; message: Message }
+  | { action: "contact_sandbox"; lifecycleTag: "connection-request" | "connection-qna"; message: Message; isSelfAuthored: boolean }
+  | { action: "contact_lifecycle"; lifecycleTag: Extract<ConnectionReceiveLifecycleTag, "connection-accept" | "connection-decline" | "connection-cancel">; peerPublicKeyHex: string; requestEventId?: string; isSelfAuthored: boolean }
+  | { action: "contact_wire_evidence"; lifecycleTag: Extract<ConnectionReceiveLifecycleTag, "connection-received" | "connection-receipt">; peerPublicKeyHex: string; requestEventId?: string }
   | { action: "delete"; targetMessageIds: ReadonlyArray<string>; senderPubkey: string; conversationId: string; plaintext: string }
   | { action: "skipped"; reason: string };
 
@@ -231,9 +242,10 @@ export const processIncomingEvent = async (params: Readonly<{
   myPrivateKeyHex: PrivateKeyHex;
   blocklist?: BlocklistContract;
   peerTrust?: PeerTrustContract;
+  requestsInbox?: RequestsInboxContract;
   dedupSet: Set<string>;
 }>): Promise<IncomingDmResult> => {
-  const { event, myPublicKeyHex, myPrivateKeyHex, blocklist, dedupSet } = params;
+  const { event, myPublicKeyHex, myPrivateKeyHex, blocklist, peerTrust, requestsInbox, dedupSet } = params;
 
   console.log("[dm-receive] Processing incoming event", {
     eventId: event.id.slice(0, 16),
@@ -343,6 +355,76 @@ export const processIncomingEvent = async (params: Readonly<{
     return { action: "skipped", reason: "tombstoned" };
   }
 
+  const receiveRoute = resolveContactRequestReceiveRoute({ tags });
+  const peerPublicKeyHex = resolvePeerPublicKeyHexForIncomingEvent({
+    isSelfAuthored,
+    senderPubkey,
+    tags,
+  });
+  const requestStatus = peerPublicKeyHex
+    ? requestsInbox?.getRequestStatus({ peerPublicKeyHex })
+    : null;
+  const isPeerAcceptedByTrust = peerPublicKeyHex
+    ? (peerTrust?.isAccepted({ publicKeyHex: peerPublicKeyHex }) ?? false)
+    : false;
+
+  if (receiveRoute.kind === "lifecycle" && peerPublicKeyHex) {
+    console.log("[dm-receive] contact lifecycle", {
+      eventId: eventId.slice(0, 16),
+      lifecycleTag: receiveRoute.lifecycleTag,
+      peerPublicKeyHex: peerPublicKeyHex.slice(0, 16),
+      isSelfAuthored,
+    });
+    return {
+      action: "contact_lifecycle",
+      lifecycleTag: receiveRoute.lifecycleTag,
+      peerPublicKeyHex,
+      requestEventId: resolveRequestEventIdFromTags(tags),
+      isSelfAuthored,
+    };
+  }
+
+  if (receiveRoute.kind === "wire_evidence" && peerPublicKeyHex) {
+    console.log("[dm-receive] contact wire evidence", {
+      eventId: eventId.slice(0, 16),
+      lifecycleTag: receiveRoute.lifecycleTag,
+      peerPublicKeyHex: peerPublicKeyHex.slice(0, 16),
+    });
+    return {
+      action: "contact_wire_evidence",
+      lifecycleTag: receiveRoute.lifecycleTag,
+      peerPublicKeyHex,
+      requestEventId: resolveRequestEventIdFromTags(tags),
+    };
+  }
+
+  if (receiveRoute.kind === "sandbox_message") {
+    if (
+      receiveRoute.lifecycleTag === "connection-qna"
+      && !shouldAcceptSandboxQna({
+        lifecycleTag: "connection-qna",
+        isSelfAuthored,
+        requestStatus,
+      })
+    ) {
+      console.log("[dm-receive] sandbox Q&A rejected — handshake not pending", {
+        eventId: eventId.slice(0, 16),
+        peerPublicKeyHex: peerPublicKeyHex?.slice(0, 16),
+      });
+      return { action: "skipped", reason: "contact_qna_not_pending" };
+    }
+  } else if (shouldBlockUntaggedStrangerDm({
+    isSelfAuthored,
+    isPeerAcceptedByTrust,
+    requestStatus,
+  })) {
+    console.log("[dm-receive] blocked untagged stranger DM", {
+      eventId: eventId.slice(0, 16),
+      peerPublicKeyHex: peerPublicKeyHex?.slice(0, 16),
+    });
+    return { action: "skipped", reason: "stranger_dm_blocked" };
+  }
+
   // --- Build message ---
   const conversationId = toDmConversationIdFromEvent({
     myPublicKeyHex,
@@ -372,7 +454,17 @@ export const processIncomingEvent = async (params: Readonly<{
     sender: senderPubkey.slice(0, 16),
     isSelfAuthored,
     contentPreview: plaintext.slice(0, 30),
+    receiveRoute: receiveRoute.kind,
   });
+
+  if (receiveRoute.kind === "sandbox_message") {
+    return {
+      action: "contact_sandbox",
+      lifecycleTag: receiveRoute.lifecycleTag,
+      message,
+      isSelfAuthored,
+    };
+  }
 
   if (isSelfAuthored) {
     return { action: "self_echo", message };

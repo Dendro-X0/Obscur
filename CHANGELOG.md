@@ -2,7 +2,41 @@
 
 All notable changes to Obscur are documented here.
 
-**Source of truth:** Release notes under [`docs/releases/`](docs/releases/) · train map [`docs/program/v1.9.x-release-train.md`](docs/program/v1.9.x-release-train.md). **Current version:** **1.9.10** ([recovery notes](docs/releases/v1.9.10-release.md)). Bands 1.9.4–1.9.9 were recovered into CHANGELOG on 2026-06-17 after landing on `main` without semver bump.
+**Source of truth:** Release notes under [`docs/releases/`](docs/releases/) · train map [`docs/program/v1.9.x-release-train.md`](docs/program/v1.9.x-release-train.md). **Current version:** **1.9.11** ([release notes](docs/releases/v1.9.11-release.md)).
+
+---
+
+## [1.9.11] — 2026-07-11 (Vault encryption sandbox Phases 1–5)
+
+**Release notes:** [v1.9.11-release.md](docs/releases/v1.9.11-release.md). **Scope:** [v1.9.11-scope.md](docs/program/v1.9.11-scope.md).
+
+### Added (VAULT-SANDBOX-1)
+
+- **Phase 1 — Encrypt-on-write** — `encryptVaultBytesForWrite`, `VaultWriteEncryptionRequiredError`; refuse vault writes when PDK session absent.
+- **Phase 2 — Legacy migration** — migrate pre-v1.9.8 plaintext vault files to ciphertext on unlock.
+- **Phase 3 — Encrypted index** — vault metadata index in encrypted SQLite (replaces plaintext localStorage index for new layout).
+- **Phase 4 — Controlled decrypt surface** — export labeling, folder-only reveal, `vault-media-blob-lifecycle.ts` revoke on lock/preview close.
+- **Phase 5 — Per-profile layout** — `profiles/{profileId}/vault/` writes; layout migration; `data_root.rs` ensures profile vault dir.
+- **L3 runbook** — [vault-sandbox-l3-verification-2026-07.md](specs/backend/vault-sandbox-l3-verification-2026-07.md).
+
+### Changed
+
+- **Chat→vault save** — remains **disabled** (`VAULT_SAVE_FROM_CHAT_ENABLED = false`); Phase 6 investigation complete, no flag flip until G8.
+- **CodaCtrl lane D** — Obscur-side EXIT; download page `data-codactrl-sha256` hooks + agent runbook.
+
+### Fixed (CI / harness)
+
+- **Release gate** — Node 22 for Vitest 4.1 in CI.
+- **Vitest 4.1** — ESM config via `.mts`; transport parity + auth K4 mock stability.
+
+### Verification
+
+```bash
+pnpm verify:vault-sandbox-l1
+pnpm verify:storage-encryption-v1.9.8
+```
+
+Maintainer G8 (optional before marketing claim): L3/L4 sections in vault-sandbox runbook.
 
 ---
 

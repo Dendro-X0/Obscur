@@ -38,6 +38,20 @@ export const clearProfileSlotForDifferentAccount = async (params: Readonly<{
 
 /** Preferred path: open a fresh desktop profile window for the next sign-in. */
 export const openFreshProfileWindowForSignIn = async (label = "New profile window"): Promise<string> => {
+  if (hasNativeRuntime()) {
+    const beforeIds = new Set(desktopProfileRuntime.getSnapshot().profiles.map((profile) => profile.profileId));
+    const nextSnapshot = await desktopProfileRuntime.createProfile(label);
+    const created = nextSnapshot.profiles.find(
+      (profile) => !beforeIds.has(profile.profileId),
+    );
+    const profileId = created?.profileId;
+    if (!profileId) {
+      throw new Error("Could not resolve new profile window id.");
+    }
+    await desktopProfileRuntime.openProfileWindow(profileId);
+    return profileId;
+  }
+
   const before = ProfileRegistryService.getState();
   const created = ProfileRegistryService.createProfile(label);
   if (!created.ok) {
@@ -49,9 +63,6 @@ export const openFreshProfileWindowForSignIn = async (label = "New profile windo
   const profileId = newProfile?.profileId;
   if (!profileId) {
     throw new Error("Could not resolve new profile window id.");
-  }
-  if (hasNativeRuntime()) {
-    await desktopProfileRuntime.openProfileWindow(profileId);
   }
   return profileId;
 };

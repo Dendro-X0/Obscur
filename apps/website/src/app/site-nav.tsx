@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ObscurLogo } from "./obscur-logo";
 
 const navItems: ReadonlyArray<
   Readonly<{ label: string; href: string; external?: boolean }>
@@ -19,7 +20,8 @@ export function SiteNav() {
     <header className="site-nav">
       <div className="site-nav-inner">
         <Link href="/" className="site-nav-brand">
-          Obscur
+          <ObscurLogo size={32} priority />
+          <span>Obscur</span>
         </Link>
         <nav className="site-nav-links" aria-label="Primary">
           {navItems.map((item) =>

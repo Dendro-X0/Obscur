@@ -39,7 +39,17 @@ export type RouteMountDiagnosticsState = Readonly<{
 
 export const PAGE_TRANSITION_WATCHDOG_MS = 1800;
 export const PAGE_TRANSITION_TIMEOUT_DISABLE_THRESHOLD = 3;
-export const ROUTE_NAVIGATION_STALL_HARD_FALLBACK_MS = 4_500;
+import { isDesktopShellBuild } from "@/app/features/runtime/shell-contract";
+
+/** Live webpack + desktop shell can exceed 4.5s on first /settings visit. */
+export const ROUTE_NAVIGATION_STALL_HARD_FALLBACK_MS = (
+  typeof process !== "undefined" && (
+    process.env.NODE_ENV === "development"
+    || isDesktopShellBuild()
+  )
+    ? 15_000
+    : 4_500
+);
 export const ROUTE_MOUNT_PROBE_WARN_THRESHOLD_MS = 1_500;
 export const ROUTE_MOUNT_PROBE_MAX_SAMPLES = 24;
 export const ROUTE_MOUNT_SLOW_DISABLE_THRESHOLD = 3;
@@ -131,8 +141,4 @@ export const getRouteSurfaceFromPathname = (pathnameInput: string): RouteSurface
     return "download";
   }
   return "unknown";
-};
-
-export const hardNavigate = (href: string): void => {
-  window.location.assign(href);
 };

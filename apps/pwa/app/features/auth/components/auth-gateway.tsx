@@ -19,7 +19,9 @@ import { useWindowRuntime, windowRuntimeSupervisor } from "@/app/features/runtim
 import { logAppEvent } from "@/app/shared/log-app-event";
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
+import { resolvePortabilityPrivateKeyHex } from "@/app/features/auth/services/resolve-portability-private-key-hex";
 import { PendingProfileImportResume } from "@/app/features/profiles/components/pending-profile-import-resume";
+import { ProfileIdentityDraftSyncOwner } from "@/app/features/profiles/components/profile-identity-draft-sync-owner";
 import { AccountActiveInOtherProfileWindowError } from "@/app/features/profiles/services/cross-profile-active-session-lease";
 import { DevLabAuthBridge } from "@/app/features/dev-lab/dev-lab-auth-bridge";
 import {
@@ -27,6 +29,7 @@ import {
   isPageReloadNavigation,
   PROFILE_SIGN_IN_ROUTE,
   resolveLockedDesktopEntryRedirect,
+  resolveLockedSingleProfilePublicRouteRedirect,
   resolveUnlockedDesktopRouteRedirect,
 } from "@/app/features/profiles/services/auth-public-routes";
 import { readShowProfilePickerOnStartup } from "@/app/features/profiles/services/profile-picker-startup-policy";
@@ -46,6 +49,8 @@ interface AuthGatewayProps {
 
 const AUTO_UNLOCK_TRANSIENT_RETRY_DELAY_MS = 1500;
 const AUTO_UNLOCK_MAX_TRANSIENT_RETRIES = 8;
+const RELOAD_UNLOCKED_HINT_SESSION_KEY = "obscur.reload.was_unlocked.v1";
+const RELOAD_RESTORE_OVERLAY_MAX_MS = 12_000;
 type TransientRetryState = Readonly<{
   count: number;
   nextRetryAtUnixMs: number;
@@ -73,6 +78,7 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
   const identity = useIdentity();
   const runtime = useWindowRuntime();
   const desktopProfileSnapshot = useDesktopProfileIsolationSnapshot();
+  const [reloadRestoreOverlayUntilUnixMs, setReloadRestoreOverlayUntilUnixMs] = useState<number>(0);
   const isUnlocked = isProfileWindowUnlockedForAppShell({
     identityStatus: identity.state.status,
     publicKeyHex: identity.state.publicKeyHex,
@@ -89,6 +95,57 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
       windowRuntimeSupervisor.promoteUnlockedSession();
     }
   }, [identity.state.status, identity.state.publicKeyHex, runtime.snapshot.phase]);
+
+  // Persist a small hint so manual reload doesn't flash a locked login form for users
+  // who were already unlocked (native session restore typically completes quickly).
+  useEffect(() => {
+    if (typeof window === "undefined" || !hasNativeRuntime()) {
+      return;
+    }
+    if (identity.state.status !== "unlocked") {
+      return;
+    }
+    try {
+      window.sessionStorage.setItem(RELOAD_UNLOCKED_HINT_SESSION_KEY, "1");
+    } catch {
+      // best effort only
+    }
+  }, [identity.state.status]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !hasNativeRuntime()) {
+      return;
+    }
+    if (!isPageReloadNavigation()) {
+      return;
+    }
+    // Prefer the auth-kernel boot restore owner's settle signal over a fixed timer.
+    // This handles slow disk/network devices while still ensuring we don't hang forever.
+    if (isAuthKernelBootRestoreSettled() || identity.state.status === "unlocked") {
+      try {
+        window.sessionStorage.removeItem(RELOAD_UNLOCKED_HINT_SESSION_KEY);
+      } catch {
+        // best effort only
+      }
+      setReloadRestoreOverlayUntilUnixMs(0);
+      return;
+    }
+    // On reload, if we were previously unlocked, show a bounded restore overlay
+    // instead of briefly rendering the "Welcome back" password form.
+    if (reloadRestoreOverlayUntilUnixMs > 0) {
+      return;
+    }
+    let wasUnlocked = false;
+    try {
+      wasUnlocked = window.sessionStorage.getItem(RELOAD_UNLOCKED_HINT_SESSION_KEY) === "1";
+    } catch {
+      wasUnlocked = false;
+    }
+    if (!wasUnlocked) {
+      return;
+    }
+    setReloadRestoreOverlayUntilUnixMs(Date.now() + RELOAD_RESTORE_OVERLAY_MAX_MS);
+  }, [identity.state.status, reloadRestoreOverlayUntilUnixMs]);
   const attemptedAutoUnlockProfileIdsRef = useRef<Set<string>>(new Set());
   const transientRetryStateByProfileIdRef = useRef<Record<string, TransientRetryState>>({});
   const [attemptedAutoUnlockProfileIds, setAttemptedAutoUnlockProfileIds] = useState<ReadonlyArray<string>>([]);
@@ -152,30 +209,26 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
     && (!hasAttemptedForActiveProfile || isTransientRetryDue)
   );
   const bootRestoreEnabled = isAuthKernelBootRestoreEnabled(activeProfileId);
-  const deferAuthShellForReloadRestore = (
+  const isNativeReloadRestoreInFlight = (
     hasNativeRuntime()
     && isPageReloadNavigation()
-    && !isAuthKernelBootRestoreSettled()
-    && identity.state.status !== "unlocked"
-  ) || (
-    hasNativeRuntime()
-    && isPageReloadNavigation()
-    && !profileBootReconciled
-    && identity.state.status === "locked"
+    && (startupState.kind === "native_restorable" || startupState.kind === "pending")
     && Boolean(identity.state.stored?.publicKeyHex)
-    && bootRestoreEnabled
+    && identity.state.status !== "unlocked"
   );
 
   useEffect(() => {
     if (identity.state.status === "loading") {
       return;
     }
+    const registeredProfileCount = desktopProfileSnapshot.profiles.length;
     const redirectTarget = resolveLockedDesktopEntryRedirect({
       pathname,
       isDesktopNative: hasNativeRuntime(),
       isUnlocked,
       isPageReload: isPageReloadNavigation(),
       showProfilePickerOnStartup: readShowProfilePickerOnStartup(),
+      registeredProfileCount,
       profileLaunchMode: resolveProfileLaunchMode(
         desktopProfileSnapshot.currentWindow.windowLabel,
         desktopProfileSnapshot.currentWindow.launchMode,
@@ -188,6 +241,29 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
   }, [
     desktopProfileSnapshot.currentWindow.launchMode,
     desktopProfileSnapshot.currentWindow.windowLabel,
+    desktopProfileSnapshot.profiles.length,
+    isUnlocked,
+    pathname,
+    router,
+    identity.state.status,
+  ]);
+
+  useEffect(() => {
+    if (identity.state.status === "loading") {
+      return;
+    }
+    const redirectTarget = resolveLockedSingleProfilePublicRouteRedirect({
+      pathname,
+      isDesktopNative: hasNativeRuntime(),
+      isUnlocked,
+      registeredProfileCount: desktopProfileSnapshot.profiles.length,
+    });
+    if (!redirectTarget) {
+      return;
+    }
+    router.replace(redirectTarget);
+  }, [
+    desktopProfileSnapshot.profiles.length,
     isUnlocked,
     pathname,
     router,
@@ -460,12 +536,14 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
   }
 
   if (isUnlocked) {
-    const resolveActivePrivateKeyHex = async (): Promise<PrivateKeyHex | null> => {
-      if (identity.state.status !== "unlocked" || !identity.state.privateKeyHex) {
-        return null;
-      }
-      return identity.state.privateKeyHex as PrivateKeyHex;
-    };
+    const resolveActivePrivateKeyHex = async (): Promise<PrivateKeyHex | null> => (
+      resolvePortabilityPrivateKeyHex({
+        publicKeyHex: (identity.state.publicKeyHex as PublicKeyHex | null) ?? null,
+        privateKeyHex: identity.state.status === "unlocked"
+          ? (identity.state.privateKeyHex as PrivateKeyHex | null)
+          : null,
+      })
+    );
 
     return (
       <>
@@ -473,6 +551,9 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
         <PendingProfileImportResume
           publicKeyHex={(identity.state.publicKeyHex as PublicKeyHex | null) ?? null}
           resolveActivePrivateKeyHex={resolveActivePrivateKeyHex}
+        />
+        <ProfileIdentityDraftSyncOwner
+          publicKeyHex={(identity.state.publicKeyHex as PublicKeyHex | null) ?? null}
         />
         {children}
       </>
@@ -490,7 +571,9 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
     );
   }
 
-  if (deferAuthShellForReloadRestore) {
+  // Native reload restore: avoid flashing the locked login UI while the device/native
+  // session is still being reconciled (typically completes within ~1-2s).
+  if (isNativeReloadRestoreInFlight || (reloadRestoreOverlayUntilUnixMs > Date.now())) {
     return (
       <>
         <DevLabAuthBridge />

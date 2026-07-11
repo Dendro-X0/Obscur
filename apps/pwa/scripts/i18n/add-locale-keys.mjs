@@ -51,7 +51,10 @@ const supplemental = {
     "settings.security.capability.unavailable": "unavailable",
     "settings.security.sessionTitle": "Session Management",
     "settings.security.sessionDesc": "Security settings for your current session.",
+    "settings.security.lockNowDesc":
+      "Lock immediately without signing out. Your account stays on this device until you unlock again.",
     "settings.security.lockNow": "Lock Now",
+    "settings.security.lockedToast": "Obscur locked.",
     "settings.security.sessionActionsTitle": "Security Actions",
     "settings.security.sessionActionsSummary":
       "Use Lock Now for immediate protection; clear local data only when needed.",
@@ -128,7 +131,9 @@ const supplemental = {
     "settings.security.capability.unavailable": "不可用",
     "settings.security.sessionTitle": "会话管理",
     "settings.security.sessionDesc": "当前会话的安全设置。",
+    "settings.security.lockNowDesc": "立即锁定且不会退出登录。您的账户仍保留在此设备上，直到您再次解锁。",
     "settings.security.lockNow": "立即锁定",
+    "settings.security.lockedToast": "Obscur 已锁定。",
     "settings.security.sessionActionsTitle": "安全操作",
     "settings.security.sessionActionsSummary":
       "使用「立即锁定」进行即时保护；仅在需要时清除本地数据。",
@@ -208,7 +213,10 @@ const supplemental = {
     "settings.security.capability.unavailable": "indisponible",
     "settings.security.sessionTitle": "Gestion de session",
     "settings.security.sessionDesc": "Paramètres de sécurité pour votre session actuelle.",
+    "settings.security.lockNowDesc":
+      "Verrouillez immédiatement sans vous déconnecter. Votre compte reste sur cet appareil jusqu'au prochain déverrouillage.",
     "settings.security.lockNow": "Verrouiller maintenant",
+    "settings.security.lockedToast": "Obscur verrouillé.",
     "settings.security.sessionActionsTitle": "Actions de sécurité",
     "settings.security.sessionActionsSummary":
       "Utilisez Verrouiller maintenant pour une protection immédiate ; effacez les données locales uniquement si nécessaire.",
@@ -289,7 +297,10 @@ const supplemental = {
     "settings.security.capability.unavailable": "nicht verfügbar",
     "settings.security.sessionTitle": "Sitzungsverwaltung",
     "settings.security.sessionDesc": "Sicherheitseinstellungen für Ihre aktuelle Sitzung.",
+    "settings.security.lockNowDesc":
+      "Sofort sperren, ohne sich abzumelden. Ihr Konto bleibt auf diesem Gerät, bis Sie es erneut entsperren.",
     "settings.security.lockNow": "Jetzt sperren",
+    "settings.security.lockedToast": "Obscur gesperrt.",
     "settings.security.sessionActionsTitle": "Sicherheitsaktionen",
     "settings.security.sessionActionsSummary":
       "Verwenden Sie Jetzt sperren für sofortigen Schutz; lokale Daten nur bei Bedarf löschen.",
@@ -371,7 +382,10 @@ const supplemental = {
     "settings.security.capability.unavailable": "no disponible",
     "settings.security.sessionTitle": "Gestión de sesión",
     "settings.security.sessionDesc": "Ajustes de seguridad para tu sesión actual.",
+    "settings.security.lockNowDesc":
+      "Bloquea de inmediato sin cerrar sesión. Tu cuenta permanece en este dispositivo hasta que vuelvas a desbloquear.",
     "settings.security.lockNow": "Bloquear ahora",
+    "settings.security.lockedToast": "Obscur bloqueado.",
     "settings.security.sessionActionsTitle": "Acciones de seguridad",
     "settings.security.sessionActionsSummary":
       "Usa Bloquear ahora para protección inmediata; borra datos locales solo cuando sea necesario.",

@@ -6,7 +6,7 @@
  *   pnpm dev:desktop -- --rebuild    force static export rebuild
  *   pnpm dev:desktop -- --online       experiment-online env (still no coordination/relay)
  *   pnpm dev:desktop -- --build-only   build static shell only (used by workspace stack)
- *   pnpm dev:desktop -- --skip-build   start Tauri without rebuilding (shell already built)
+ *   pnpm dev:desktop -- --skip-build   start Tauri without rebuilding (refuses if shell is stale)
  *
  * Hot-reload UI iteration: pnpm dev:desktop:live
  * Online relays + smooth nav: pnpm dev:desktop:online (static shell + stack)
@@ -18,6 +18,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { mergePwaEnvLocal } from "./load-pwa-env-local.mjs";
 import {
+  formatStaticShellStaleHelp,
   isStaticShellDevLabMismatch,
   isStaticShellExperimentModeMismatch,
   isStaticShellStale,
@@ -66,26 +67,33 @@ const runBuild = () => new Promise((resolve, reject) => {
 });
 
 const run = async () => {
-  if (!skipBuild) {
-    const stale = isStaticShellStale(repoRoot);
-    const experimentMode = isStaticShellExperimentModeMismatch(repoRoot, online);
-    const devLabMode = isStaticShellDevLabMismatch(repoRoot);
-    if (forceRebuild || !existsSync(outIndex)) {
-      await runBuild();
-    } else if (experimentMode.mismatch) {
-      log(`static shell experiment mode mismatch (${experimentMode.reason}) — rebuilding…`);
-      await runBuild();
-    } else if (devLabMode.mismatch) {
-      log(`static shell dev-lab mismatch (${devLabMode.reason}) — rebuilding…`);
-      await runBuild();
-    } else if (stale.stale) {
-      log(`static shell stale (${stale.reason}) — rebuilding…`);
-      await runBuild();
-    } else {
-      log(`using current static shell (${outIndex}, experimentOnline=${online})`);
+  const stale = isStaticShellStale(repoRoot);
+  const experimentMode = isStaticShellExperimentModeMismatch(repoRoot, online);
+  const devLabMode = isStaticShellDevLabMismatch(repoRoot);
+
+  if (skipBuild) {
+    if (stale.stale && process.env.OBSCUR_ALLOW_STALE_SHELL !== "1") {
+      console.error(formatStaticShellStaleHelp(stale.reason));
+      process.exit(1);
     }
+    if (stale.stale) {
+      log(`WARNING: using stale static shell (${stale.reason}) — OBSCUR_ALLOW_STALE_SHELL=1`);
+    } else {
+      log("skipping static shell build (--skip-build)");
+    }
+  } else if (forceRebuild || !existsSync(outIndex)) {
+    await runBuild();
+  } else if (experimentMode.mismatch) {
+    log(`static shell experiment mode mismatch (${experimentMode.reason}) — rebuilding…`);
+    await runBuild();
+  } else if (devLabMode.mismatch) {
+    log(`static shell dev-lab mismatch (${devLabMode.reason}) — rebuilding…`);
+    await runBuild();
+  } else if (stale.stale) {
+    log(`static shell stale (${stale.reason}) — rebuilding…`);
+    await runBuild();
   } else {
-    log("skipping static shell build (--skip-build)");
+    log(`using current static shell (${outIndex}, experimentOnline=${online})`);
   }
 
   if (buildOnly) {

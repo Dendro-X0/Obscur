@@ -5,11 +5,14 @@
   "proofTier": "t3",
   "createdAt": "2026-07-04T18:02:23.895478600+00:00",
   "repoRoot": "E:\\Web Projects\\experimental-workspace\\obscur",
-  "url": "http://127.0.0.1:1430/profiles",
+  "url": "http://127.0.0.1:3340/",
   "attachedTarget": {
-    "targetId": "59C993AC396BC3D7A3BAF04F8FFE436D",
+    "targetId": "CD6D270D0EFA96A49B1A3AD0308E1659",
     "windowLabel": "main",
-    "url": "http://127.0.0.1:1430/profiles",
-    "attachedAt": "2026-07-04T18:02:27.084626+00:00"
-  }
+    "url": "http://127.0.0.1:3340/",
+    "attachedAt": "2026-07-06T15:40:49.850537+00:00"
+  },
+  "lastAuthSurface": "sign_in_password",
+  "lastAuthSurfaceAt": "2026-07-06T14:51:25.014434500+00:00",
+  "autoScreenshot": true
 }

@@ -1,8 +1,17 @@
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
+import { isForbiddenSecretInput } from "@/app/features/security/services/secret-input-firewall";
+import { nip19 } from "nostr-tools";
+
+export type ParsePublicKeyInputFailureReason =
+  | "empty"
+  | "invalid_format"
+  | "invalid_hex"
+  | "invalid_npub"
+  | "private_key_forbidden";
 
 type ParsePublicKeyInputResult =
   | Readonly<{ ok: true; publicKeyHex: PublicKeyHex; format: "hex" | "npub"; relays?: string[] }>
-  | Readonly<{ ok: false; reason: "empty" | "invalid_format" | "invalid_hex" | "invalid_npub" }>;
+  | Readonly<{ ok: false; reason: ParsePublicKeyInputFailureReason }>;
 
 const HEX_PUBLIC_KEY_LENGTH: number = 64;
 
@@ -128,7 +137,7 @@ const decodeNpubToPublicKeyHex = (npub: string): PublicKeyHex | null => {
   return toPublicKeyHex(hex);
 };
 
-import { nip19 } from "nostr-tools";
+const isForbiddenSecretBech32 = (input: string): boolean => isForbiddenSecretInput(input);
 
 export const parsePublicKeyInput = (value: string): ParsePublicKeyInputResult => {
   const input: string = value.trim();
@@ -136,6 +145,10 @@ export const parsePublicKeyInput = (value: string): ParsePublicKeyInputResult =>
     return { ok: false, reason: "empty" };
   }
   const lower: string = input.toLowerCase();
+
+  if (isForbiddenSecretBech32(lower)) {
+    return { ok: false, reason: "private_key_forbidden" };
+  }
 
   // Handle nprofile
   if (lower.startsWith("nprofile")) {
@@ -163,7 +176,7 @@ export const parsePublicKeyInput = (value: string): ParsePublicKeyInputResult =>
     return { ok: true, publicKeyHex: decoded, format: "npub" };
   }
 
-  // Handle hex
+  // Handle hex — private-key rejection is async in identity-resolver (relay disambiguation).
   const normalizedHex: string = lower.startsWith("0x") ? lower.slice(2) : lower;
   if (normalizedHex.length !== HEX_PUBLIC_KEY_LENGTH) {
     return { ok: false, reason: "invalid_hex" };

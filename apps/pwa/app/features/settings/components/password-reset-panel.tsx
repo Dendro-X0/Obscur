@@ -11,6 +11,10 @@ import { decodePrivateKey } from "@/app/features/auth/utils/decode-private-key";
 import { useTranslation } from "react-i18next";
 import { toast } from "@/app/components/ui/toast";
 import { PasswordStrengthIndicator } from "@/app/components/password-strength-indicator";
+import {
+  IdentityPassphrasePolicyError,
+  isIdentityPassphrasePolicyCompliant,
+} from "@/app/features/security/services/identity-passphrase-policy";
 /**
  * PasswordResetPanel provides a secure flow for users to reset their master password.
  * It supports verification via the current password or the private key.
@@ -89,8 +93,8 @@ function PasswordResetModal({ isOpen, onClose, t }: {
     };
     const handleCompleteReset = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (newPassword.length < 8) {
-            toast.error(t("settings.security.passwordTooShort"));
+        if (!isIdentityPassphrasePolicyCompliant(newPassword as never)) {
+            toast.error(t("security.passphrase.policy.too_short"));
             return;
         }
         if (newPassword !== confirmPassword) {
@@ -111,7 +115,12 @@ function PasswordResetModal({ isOpen, onClose, t }: {
             setStep("success");
         }
         catch (err) {
-            toast.error(t("settings.security.resetFailed"));
+            if (err instanceof IdentityPassphrasePolicyError) {
+                toast.error(t(`security.passphrase.policy.${err.reason}`));
+            }
+            else {
+                toast.error(t("settings.security.resetFailed"));
+            }
         }
         finally {
             setIsLoading(false);

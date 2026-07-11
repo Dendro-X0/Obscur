@@ -1,7 +1,9 @@
 import type { EncryptedString } from "./encrypted-string";
 import type { Passphrase } from "./passphrase";
 import type { PrivateKeyHex } from "./private-key-hex";
-import { deriveAesGcmKey } from "./derive-aes-gcm-key";
+import { IDENTITY_ARGON2ID_ALG } from "./argon2id-kdf";
+import { defaultIdentityEnvelopeWriteKdf } from "./identity-envelope-kdf";
+import { deriveIdentityEnvelopeAesGcmKey } from "./identity-envelope-kdf";
 import { toBase64 } from "./to-base64";
 import { toArrayBuffer } from "./to-array-buffer";
 
@@ -10,52 +12,45 @@ type EncryptPrivateKeyHexParams = Readonly<{
   passphrase: Passphrase;
 }>;
 
-type EncryptedPayload = Readonly<{
-  v: 1;
-  alg: "PBKDF2-SHA256/AES-256-GCM";
-  iterations: number;
-  saltB64: string;
-  ivB64: string;
-  ciphertextB64: string;
-}>;
+const SALT_BYTES = 16;
+const IV_BYTES = 12;
 
-const PBKDF2_ITERATIONS: number = 200_000;
-const SALT_BYTES: number = 16;
-const IV_BYTES: number = 12;
-
-const textEncoder: TextEncoder = new TextEncoder();
+const textEncoder = new TextEncoder();
 
 const createRandomBytes = (length: number): Uint8Array => {
-  const bytes: Uint8Array = new Uint8Array(length);
+  const bytes = new Uint8Array(length);
   crypto.getRandomValues(bytes);
   return bytes;
 };
 
 export const encryptPrivateKeyHex = async (params: EncryptPrivateKeyHexParams): Promise<EncryptedString> => {
-  const salt: Uint8Array = createRandomBytes(SALT_BYTES);
-  const iv: Uint8Array = createRandomBytes(IV_BYTES);
-  const key: CryptoKey = await deriveAesGcmKey({
+  const salt = createRandomBytes(SALT_BYTES);
+  const iv = createRandomBytes(IV_BYTES);
+  const kdf = defaultIdentityEnvelopeWriteKdf();
+  const key = await deriveIdentityEnvelopeAesGcmKey({
     passphrase: params.passphrase,
     salt,
-    iterations: PBKDF2_ITERATIONS
+    kdf,
   });
-  const plaintext: Uint8Array = textEncoder.encode(params.privateKeyHex);
-  const ciphertextBuffer: ArrayBuffer = await crypto.subtle.encrypt(
+  const plaintext = textEncoder.encode(params.privateKeyHex);
+  const ciphertextBuffer = await crypto.subtle.encrypt(
     {
       name: "AES-GCM",
-      iv: toArrayBuffer(iv)
+      iv: toArrayBuffer(iv),
     },
     key,
-    toArrayBuffer(plaintext)
+    toArrayBuffer(plaintext),
   );
-  const ciphertext: Uint8Array = new Uint8Array(ciphertextBuffer);
-  const payload: EncryptedPayload = {
-    v: 1,
-    alg: "PBKDF2-SHA256/AES-256-GCM",
-    iterations: PBKDF2_ITERATIONS,
+  const ciphertext = new Uint8Array(ciphertextBuffer);
+  const payload = {
+    v: 2 as const,
+    alg: IDENTITY_ARGON2ID_ALG,
+    m: kdf.kdf.m,
+    t: kdf.kdf.t,
+    p: kdf.kdf.p,
     saltB64: toBase64(salt),
     ivB64: toBase64(iv),
-    ciphertextB64: toBase64(ciphertext)
+    ciphertextB64: toBase64(ciphertext),
   };
   return JSON.stringify(payload);
 };

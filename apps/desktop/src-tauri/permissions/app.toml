@@ -20,6 +20,7 @@ commands.allow = [
     "desktop_open_profile_window",
     "desktop_bind_window_profile",
     "desktop_remove_profile",
+    "desktop_broadcast_profile_isolation_changed",
     "desktop_clear_profile_webview_data",
     "desktop_write_profile_workspace_archive",
     "desktop_list_profile_workspace_archives",
@@ -65,6 +66,7 @@ identifier = "allow-misc-commands"
 description = "Miscellaneous app commands"
 commands.allow = [
     "fetch_remote_text",
+    "fetch_remote_bytes",
     "check_for_updates",
     "install_update",
     "show_notification",

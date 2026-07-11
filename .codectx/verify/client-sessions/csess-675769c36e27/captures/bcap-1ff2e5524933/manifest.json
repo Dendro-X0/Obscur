@@ -1,0 +1,15 @@
+{
+  "args": [],
+  "captureId": "bcap-1ff2e5524933",
+  "capturedAt": "2026-07-06T14:49:23.373432900+00:00",
+  "cdpPort": 9230,
+  "method": "listWindows",
+  "pass": false,
+  "result": {
+    "error": "window.__codactrlAgentBridge.listWindows missing — install subject agent bridge",
+    "ok": false
+  },
+  "schema": "client.agent.bridgeCall@0.1.0",
+  "sessionId": "csess-675769c36e27",
+  "targetUrl": "http://127.0.0.1:3340/"
+}

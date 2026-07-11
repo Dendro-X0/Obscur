@@ -1,7 +1,22 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "@dweb/ui-kit";
+import {
+  assertNoBlockedSecretMaterial,
+  SECRET_INPUT_FIREWALL_MESSAGE,
+} from "@/app/features/security/services/secret-input-firewall";
+import {
+  acknowledgeSendCeremony,
+  buildSendCeremonyViewModel,
+  requiresFirstDmSendCeremony,
+  type SendCeremonyViewModel,
+} from "@/app/features/security/services/send-ceremony-gate";
+import {
+  assertSandboxOutboundAllowed,
+  resolveContactRequestComposeMode,
+} from "@/app/features/messaging/services/contact-request-sandbox-policy";
+import { useRequestTransport } from "@/app/features/messaging/hooks/use-request-transport";
 import { useMessaging } from "@/app/features/messaging/providers/messaging-provider";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { useNetwork } from "@/app/features/network/providers/network-provider";
@@ -157,6 +172,22 @@ export function useChatActions(dmController: UseDmControllerResult | null) {
     const identity = useIdentity();
     const uploadService = useUploadService();
     const { peerTrust, requestsInbox } = useNetwork();
+    const requestTransport = useRequestTransport({
+        dmController: (dmController ?? {
+            sendConnectionRequest: async () => ({
+                success: false,
+                messageId: "",
+                relayResults: [],
+            }),
+            sendDm: async () => ({
+                success: false,
+                messageId: "",
+                relayResults: [],
+            }),
+        }) as Parameters<typeof useRequestTransport>[0]["dmController"],
+        peerTrust,
+        requestsInbox,
+    });
     const { relayPool } = useRelay();
     const relayPoolRef = useRelayPoolRef(relayPool);
     const relayList = useRelayList({ publicKeyHex: identity.state.publicKeyHex || null });
@@ -168,6 +199,20 @@ export function useChatActions(dmController: UseDmControllerResult | null) {
     );
     const isDeletedRecipient = selectedConversation?.kind === "dm" && recipientMetadata.isDeleted;
     const groupRelayUrl = selectedConversation?.kind === "group" ? selectedConversation.relayUrl : null;
+    const [sendCeremonyViewModel, setSendCeremonyViewModel] = useState<SendCeremonyViewModel | null>(null);
+    const sendCeremonyResolverRef = useRef<((approved: boolean) => void) | null>(null);
+
+    const confirmSendCeremony = useCallback(() => {
+        sendCeremonyResolverRef.current?.(true);
+        sendCeremonyResolverRef.current = null;
+        setSendCeremonyViewModel(null);
+    }, []);
+
+    const cancelSendCeremony = useCallback(() => {
+        sendCeremonyResolverRef.current?.(false);
+        sendCeremonyResolverRef.current = null;
+        setSendCeremonyViewModel(null);
+    }, []);
 
     // Pre-connect community relay (persist + pool) when a group conversation is selected.
     useEffect(() => {
@@ -341,9 +386,112 @@ export function useChatActions(dmController: UseDmControllerResult | null) {
 
     const handleSendMessage = useCallback(async () => {
         if (!selectedConversation || (!messageInput.trim() && pendingAttachments.length === 0)) return;
+        const secretBlock = assertNoBlockedSecretMaterial(messageInput, "message");
+        if (!secretBlock.ok) {
+            toast.error(SECRET_INPUT_FIREWALL_MESSAGE.messageBlocked);
+            return;
+        }
         if (isDeletedRecipient) {
             toast.warning("This contact account has been removed. New messages cannot be delivered.");
             return;
+        }
+
+        if (selectedConversation?.kind === "dm") {
+            const peerPublicKeyHex = selectedConversation.pubkey as PublicKeyHex;
+            const dmComposeMode = resolveContactRequestComposeMode({
+                isPeerAcceptedByTrust: peerTrust.isAccepted({ publicKeyHex: peerPublicKeyHex }),
+                requestStatus: requestsInbox.getRequestStatus({ peerPublicKeyHex }),
+            });
+
+            if (dmComposeMode === "blocked") {
+                toast.error("Send a connection request before messaging this person.");
+                return;
+            }
+
+            if (dmComposeMode === "sandbox_text") {
+                const sandboxCheck = assertSandboxOutboundAllowed({
+                    plaintext: messageInput,
+                    attachmentCount: pendingAttachments.length,
+                });
+                if (!sandboxCheck.ok) {
+                    toast.error(sandboxCheck.message);
+                    return;
+                }
+                if (!dmController) {
+                    toast.error("Messaging is not ready yet. Try again in a moment.");
+                    return;
+                }
+                const currentInput = messageInput.trim();
+                setMessageInput("");
+                setPendingAttachments([]);
+                setPendingAttachmentPreviewUrls([]);
+                setReplyTo(null);
+                try {
+                    const outcome = await requestTransport.sendSandboxQna({
+                        peerPublicKeyHex,
+                        plaintext: currentInput,
+                    });
+                    if (outcome.status === "failed") {
+                        toast.error(outcome.message || "Could not send request reply.");
+                        setMessageInput(currentInput);
+                        return;
+                    }
+                    if (outcome.status === "queued") {
+                        toast.warning(outcome.message || "Request reply queued for retry.");
+                    }
+                    setConnectionOverridesByConnectionId((previous) => ({
+                        ...previous,
+                        [selectedConversation.id]: {
+                            lastMessage: currentInput.slice(0, 100),
+                            lastMessageTime: new Date(),
+                        },
+                    }));
+                } catch (error) {
+                    console.error("[useChatActions] Sandbox Q&A send failed:", error);
+                    toast.error(error instanceof Error ? error.message : "Could not send request reply.");
+                    setMessageInput(currentInput);
+                }
+                return;
+            }
+        }
+
+        if (
+            selectedConversation?.kind === "dm"
+            && identity.state.publicKeyHex
+            && dmController
+        ) {
+            const peerPublicKeyHex = selectedConversation.pubkey as PublicKeyHex;
+            const priorOutgoingUserMessageCount = dmController
+                .getMessagesForPeer(peerPublicKeyHex)
+                .filter((message) => message.isOutgoing && message.kind === "user")
+                .length;
+            const profileId = getResolvedProfileId();
+            if (requiresFirstDmSendCeremony({
+                profileId,
+                peerPublicKeyHex,
+                priorOutgoingUserMessageCount,
+            })) {
+                const ceremony = buildSendCeremonyViewModel({
+                    senderPublicKeyHex: identity.state.publicKeyHex as PublicKeyHex,
+                    recipientPublicKeyHex: peerPublicKeyHex,
+                    recipientDisplayName: recipientMetadata.displayName,
+                    plaintextPreview: messageInput.trim(),
+                });
+                if (!ceremony) {
+                    toast.error("Could not verify recipient identity before sending.");
+                    return;
+                }
+                const approved = await new Promise<boolean>((resolve) => {
+                    sendCeremonyResolverRef.current = resolve;
+                    setSendCeremonyViewModel(ceremony);
+                });
+                setSendCeremonyViewModel(null);
+                sendCeremonyResolverRef.current = null;
+                if (!approved) {
+                    return;
+                }
+                acknowledgeSendCeremony(profileId, peerPublicKeyHex);
+            }
         }
 
         // 1. Upload Attachments if any
@@ -494,13 +642,6 @@ export function useChatActions(dmController: UseDmControllerResult | null) {
                     replyTo: currentReplyTo?.messageId
                 });
 
-                const rs = requestsInbox.getRequestStatus({ peerPublicKeyHex: selectedConversation.pubkey });
-                const isOutgoingPending = !!(rs?.isOutgoing && (rs.status === 'pending' || !rs.status));
-                if (!isOutgoingPending) {
-                    // Auto-accept the peer since we are initiating/responding consciously
-                    peerTrust.acceptPeer({ publicKeyHex: selectedConversation.pubkey });
-                }
-
                 // Update connection overrides to show last message in sidebar
                 setConnectionOverridesByConnectionId(prev => ({
                     ...prev,
@@ -616,6 +757,7 @@ export function useChatActions(dmController: UseDmControllerResult | null) {
         uploadService,
         peerTrust,
         requestsInbox,
+        requestTransport,
         publishGroupEvent,
         isDeletedRecipient
     ]);
@@ -990,6 +1132,9 @@ export function useChatActions(dmController: UseDmControllerResult | null) {
         showMessageOnDeviceAgain,
         showAllHiddenMessagesOnDevice,
         toggleReaction,
+        sendCeremonyViewModel,
+        confirmSendCeremony,
+        cancelSendCeremony,
     };
 }
 

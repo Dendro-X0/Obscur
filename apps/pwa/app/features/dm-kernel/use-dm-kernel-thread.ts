@@ -24,6 +24,7 @@ import {
   messagesAreEquivalentForThread,
   upsertDmKernelThreadMessage,
 } from "./dm-kernel-live-bus-match";
+import { normalizeDmConversationMessageRow } from "@/app/features/messaging/services/dm-conversation-normalize-message";
 import {
   buildCommunityInviteThreadDisplayBundle,
   COMMUNITY_DM_INVITE_LEDGER_CHANGED_EVENT,
@@ -273,6 +274,14 @@ export function useDmKernelThread(
     });
   }, [conversationAliasIdSet, conversationId, profileId, reloadThreadFromSqlite]);
 
+  const normalizeLiveThreadMessage = useCallback((message: Message): Message => {
+    const ctx = threadContextRef.current;
+    return normalizeDmConversationMessageRow(message, {
+      conversationId: ctx.conversationId,
+      myPublicKeyHex: ctx.myPublicKeyHex,
+    });
+  }, []);
+
   useEffect(() => {
     if (!conversationId || !normalizedMyPublicKeyHex) {
       return;
@@ -293,11 +302,12 @@ export function useDmKernelThread(
       }
 
       if (event.type === "new_message" || event.type === "message_updated") {
+        const normalizedMessage = normalizeLiveThreadMessage(event.message);
         let changed = false;
         setMessages((previous) => {
-          const beforeIndex = findThreadMessageIndexByIdentity(previous, event.message);
-          const next = upsertDmKernelThreadMessage(previous, event.message);
-          const afterIndex = findThreadMessageIndexByIdentity(next, event.message);
+          const beforeIndex = findThreadMessageIndexByIdentity(previous, normalizedMessage);
+          const next = upsertDmKernelThreadMessage(previous, normalizedMessage);
+          const afterIndex = findThreadMessageIndexByIdentity(next, normalizedMessage);
           if (
             beforeIndex >= 0
             && afterIndex >= 0
@@ -308,7 +318,7 @@ export function useDmKernelThread(
           if (beforeIndex < 0 && afterIndex < 0) {
             return previous;
           }
-          const resolved = afterIndex >= 0 ? next[afterIndex]! : event.message;
+          const resolved = afterIndex >= 0 ? next[afterIndex]! : normalizedMessage;
           trackMessageIdentity(messageIdsRef.current, resolved);
           if (oldestReceivedAtRef.current == null || resolved.timestamp.getTime() < oldestReceivedAtRef.current) {
             oldestReceivedAtRef.current = resolved.timestamp.getTime();
@@ -319,7 +329,7 @@ export function useDmKernelThread(
         });
         if (changed && event.type === "new_message") {
           syncCommunityDmInviteLedgerFromInboundMessage({
-            message: event.message,
+            message: normalizedMessage,
             conversationId: ctx.conversationId,
             accountPublicKeyHex: ctx.myPublicKeyHex as PublicKeyHex,
             profileId,
@@ -347,7 +357,7 @@ export function useDmKernelThread(
         });
       }
     }, { profileId });
-  }, [conversationId, normalizedMyPublicKeyHex, profileId]);
+  }, [conversationId, normalizeLiveThreadMessage, normalizedMyPublicKeyHex, profileId]);
 
   useEffect(() => {
     if (!conversationId?.trim() || typeof window === "undefined") {

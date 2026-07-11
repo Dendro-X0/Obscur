@@ -3,6 +3,8 @@ import {
   resolveCommunityInvitePreviewFromSelfForContent,
   type CommunityInviteConversationPreviewContext,
 } from "@/app/features/groups/services/community-invite-display-boundary";
+import type { Attachment } from "../types";
+import { extractAttachmentsFromContent, inferAttachmentKind } from "../utils/logic";
 import { stripVoiceCallControlPreview } from "./realtime-voice-signaling";
 
 /** @deprecated Legacy sidebar copy — remapped when {@link ConversationPreviewContext} is available. */
@@ -19,6 +21,8 @@ export const COMMUNITY_INVITE_RESPONSE_GENERIC_PREVIEW = "Community invite updat
 export type ConversationPreviewContext = CommunityInviteConversationPreviewContext;
 
 const PREVIEW_MAX_LENGTH = 140;
+
+const MARKDOWN_ATTACHMENT_LINK_REGEX = /\[[^\]]*\]\([^)]+\)/g;
 
 const truncatePreview = (value: string): string => {
   if (value.length <= PREVIEW_MAX_LENGTH) {
@@ -87,6 +91,69 @@ const readInviteResponsePreview = (
     return "Invitation withdrawn";
   }
   return "Invitation updated";
+};
+
+const stripMarkdownAttachmentLinks = (value: string): string => (
+  value.replace(MARKDOWN_ATTACHMENT_LINK_REGEX, "").replace(/\s+/g, " ").trim()
+);
+
+const isPdfAttachment = (attachment: Attachment): boolean => {
+  const kind = inferAttachmentKind(attachment);
+  if (kind !== "file") {
+    return false;
+  }
+  const lowerFileName = attachment.fileName.toLowerCase();
+  const lowerContentType = attachment.contentType.toLowerCase();
+  const lowerUrl = attachment.url.toLowerCase();
+  return lowerFileName.endsWith(".pdf")
+    || lowerContentType.includes("pdf")
+    || lowerUrl.includes(".pdf");
+};
+
+const formatFileExtensionLabel = (fileName: string): string => {
+  const trimmed = fileName.trim();
+  const dotIndex = trimmed.lastIndexOf(".");
+  if (dotIndex <= 0 || dotIndex === trimmed.length - 1) {
+    return "File";
+  }
+  return `.${trimmed.slice(dotIndex + 1).toLowerCase()}`;
+};
+
+const formatSingleAttachmentPreview = (attachment: Attachment): string => {
+  const kind = inferAttachmentKind(attachment);
+  const fileName = attachment.fileName.trim() || "file";
+
+  if (kind === "image") {
+    return `Image (${fileName})`;
+  }
+  if (kind === "video") {
+    return `Video (${fileName})`;
+  }
+  if (kind === "audio") {
+    return `Audio (${fileName})`;
+  }
+  if (kind === "voice_note") {
+    return `Voice note (${fileName})`;
+  }
+  if (isPdfAttachment(attachment)) {
+    return `PDF (${fileName})`;
+  }
+
+  return `${formatFileExtensionLabel(fileName)} ${fileName}`;
+};
+
+const formatAttachmentMessagePreview = (value: string): string | null => {
+  const attachments = extractAttachmentsFromContent(value, { includeGenericLinksAsFiles: true });
+  if (attachments.length === 0) {
+    return null;
+  }
+
+  const attachmentPreview = attachments.map(formatSingleAttachmentPreview).join(", ");
+  const leadingText = stripMarkdownAttachmentLinks(value);
+  if (!leadingText) {
+    return attachmentPreview;
+  }
+  return `${leadingText} ${attachmentPreview}`;
 };
 
 const remapLegacyInvitePreview = (
@@ -181,5 +248,9 @@ export const formatConversationMessagePreview = (
   }
 
   const plain = stripVoiceCallControlPreview(normalized).trim();
+  const attachmentPreview = formatAttachmentMessagePreview(plain);
+  if (attachmentPreview) {
+    return truncatePreview(attachmentPreview);
+  }
   return truncatePreview(plain);
 };

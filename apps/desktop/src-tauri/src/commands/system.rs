@@ -2,9 +2,13 @@
 
 use serde_json::json;
 use serde_json::Value;
-use tauri::{AppHandle, Manager, WebviewWindow};
+use std::time::Duration;
+use tauri::{AppHandle, Manager, State, WebviewWindow};
 use crate::models::app::ResetAppStorageReport;
+use crate::net::NativeNetworkRuntime;
 use crate::update_channel;
+
+const REMOTE_BYTES_TIMEOUT_SECS: u64 = 300;
 
 /// Fetch remote text (manifests on raw.githubusercontent.com, etc.) without webview CORS limits.
 #[tauri::command]
@@ -36,6 +40,41 @@ pub async fn fetch_remote_text(url: String) -> Result<String, String> {
         .text()
         .await
         .map_err(|error| format!("Failed to read remote response: {error}"))
+}
+
+/// Fetch remote binary payloads (chat media, vault saves) without webview CORS limits.
+#[tauri::command]
+pub async fn fetch_remote_bytes(
+    net_runtime: State<'_, NativeNetworkRuntime>,
+    url: String,
+) -> Result<Vec<u8>, String> {
+    let trimmed = url.trim();
+    if trimmed.is_empty() {
+        return Err("URL is empty".to_string());
+    }
+    if !trimmed.starts_with("https://") {
+        return Err("Only https:// URLs are allowed".to_string());
+    }
+    let client = net_runtime
+        .build_reqwest_client()
+        .map_err(|error| format!("Failed to create HTTP client: {error}"))?;
+    let response = client
+        .get(trimmed)
+        .timeout(Duration::from_secs(REMOTE_BYTES_TIMEOUT_SECS))
+        .send()
+        .await
+        .map_err(|error| format!("Failed to fetch remote bytes: {error}"))?;
+    if !response.status().is_success() {
+        return Err(format!(
+            "Remote fetch failed with status {}",
+            response.status().as_u16()
+        ));
+    }
+    response
+        .bytes()
+        .await
+        .map_err(|error| format!("Failed to read remote response: {error}"))
+        .map(|bytes| bytes.to_vec())
 }
 
 /// Check for available updates (repo stable channel feed, in-app — no installer dialog).
@@ -85,18 +124,21 @@ pub async fn get_system_theme() -> Result<String, String> {
     }
 }
 
-/// Request biometric authentication (mobile primarily)
+/// Request OS biometric authentication (Windows Hello / Touch ID on desktop).
 #[tauri::command]
-pub async fn request_biometric_auth() -> Result<bool, String> {
-    #[cfg(mobile)]
-    {
-        // Would use tauri-plugin-biometric
-        Ok(false)
-    }
-    #[cfg(not(mobile))]
-    {
-        Ok(false)
-    }
+pub async fn request_biometric_auth(message: Option<String>) -> Result<bool, String> {
+    let prompt = message.unwrap_or_else(|| crate::platform_biometric::DEFAULT_BIOMETRIC_REASON.to_string());
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::platform_biometric::request_biometric_verification(&prompt)
+    })
+    .await
+    .map_err(|error| format!("Biometric task failed: {error}"))?
+}
+
+/// Probe whether OS biometrics can gate unlock on this device.
+#[tauri::command]
+pub fn get_biometric_capability() -> crate::platform_biometric::BiometricCapabilityStatus {
+    crate::platform_biometric::probe_biometric_capability()
 }
 
 /// Mine proof-of-work (stub for compatibility)

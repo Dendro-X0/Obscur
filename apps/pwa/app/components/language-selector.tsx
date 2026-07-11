@@ -13,10 +13,10 @@ import {
 
 const LANGUAGES = [
     { code: "en", label: "English" },
-    { code: "zh", label: "中文 (Chinese)" },
-    { code: "es", label: "Español (Spanish)" },
-    { code: "fr", label: "Français (French)" },
-    { code: "de", label: "Deutsch (German)" },
+    { code: "zh", label: "简体中文" },
+    { code: "es", label: "Español" },
+    { code: "fr", label: "Français" },
+    { code: "de", label: "Deutsch" },
 ];
 
 export function LanguageSelector({ variant = "default" }: { variant?: "default" | "minimal" }) {

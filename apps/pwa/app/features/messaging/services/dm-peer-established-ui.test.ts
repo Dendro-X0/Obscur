@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import {
+  isPendingContactHandshake,
   resolveDmPeerEstablishedForUi,
   resolveDmPeerOutgoingWaitInitiatorForUi,
 } from "./dm-peer-established-ui";
@@ -8,13 +9,12 @@ import {
 const PEER_A = "b".repeat(64) as PublicKeyHex;
 
 describe("dm-peer-established-ui", () => {
-  it("treats an established DM thread as accepted during trust/inbox hydration gap", () => {
+  it("does not treat legacy DM thread rows as established without trust or accept evidence", () => {
     expect(resolveDmPeerEstablishedForUi({
       peerPublicKeyHex: PEER_A,
       isPeerAcceptedByTrust: false,
       requestStatus: null,
-      establishedDmPeerPubkeys: new Set([PEER_A]),
-    })).toBe(true);
+    })).toBe(false);
   });
 
   it("does not treat unknown peers with empty inbox as established", () => {
@@ -22,25 +22,43 @@ describe("dm-peer-established-ui", () => {
       peerPublicKeyHex: PEER_A,
       isPeerAcceptedByTrust: false,
       requestStatus: null,
-      establishedDmPeerPubkeys: new Set(),
     })).toBe(false);
   });
 
-  it("suppresses outgoing-wait initiator banner for established DM threads", () => {
-    expect(resolveDmPeerOutgoingWaitInitiatorForUi({
+  it("keeps outgoing pending peers out of the Chats sidebar", () => {
+    expect(isPendingContactHandshake({ isOutgoing: true, status: "pending" })).toBe(true);
+    expect(resolveDmPeerEstablishedForUi({
       peerPublicKeyHex: PEER_A,
-      requestStatus: null,
-      hasInboxItemForPeer: false,
-      establishedDmPeerPubkeys: new Set([PEER_A]),
-    })).toBe(false);
-  });
-
-  it("keeps outgoing-wait initiator for genuine pending strangers", () => {
-    expect(resolveDmPeerOutgoingWaitInitiatorForUi({
-      peerPublicKeyHex: PEER_A,
+      isPeerAcceptedByTrust: false,
       requestStatus: { isOutgoing: true, status: "pending" },
-      hasInboxItemForPeer: true,
-      establishedDmPeerPubkeys: new Set(),
+    })).toBe(false);
+  });
+
+  it("keeps incoming pending peers out of the Chats sidebar", () => {
+    expect(resolveDmPeerEstablishedForUi({
+      peerPublicKeyHex: PEER_A,
+      isPeerAcceptedByTrust: false,
+      requestStatus: { isOutgoing: false, status: "pending" },
+    })).toBe(false);
+  });
+
+  it("promotes relay-confirmed accepted requests into Chats", () => {
+    expect(resolveDmPeerEstablishedForUi({
+      peerPublicKeyHex: PEER_A,
+      isPeerAcceptedByTrust: false,
+      requestStatus: { isOutgoing: false, status: "accepted" },
     })).toBe(true);
+  });
+
+  it("marks only explicit outgoing-pending requests as initiator wait state", () => {
+    expect(resolveDmPeerOutgoingWaitInitiatorForUi({
+      requestStatus: { isOutgoing: true, status: "pending" },
+    })).toBe(true);
+    expect(resolveDmPeerOutgoingWaitInitiatorForUi({
+      requestStatus: null,
+    })).toBe(false);
+    expect(resolveDmPeerOutgoingWaitInitiatorForUi({
+      requestStatus: { isOutgoing: false, status: "pending" },
+    })).toBe(false);
   });
 });

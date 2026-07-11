@@ -92,6 +92,8 @@ const reasonToMessage = (reasonCode: DiscoveryReasonCode | undefined): string | 
             return "Relay network is degraded. Results may be partial.";
         case "index_unavailable":
             return "Index service is unavailable.";
+        case "private_key_forbidden":
+            return "This looks like a private key. Never paste private keys into search.";
         case "canceled":
             return "Search canceled.";
         default:
@@ -102,7 +104,7 @@ const reasonToMessage = (reasonCode: DiscoveryReasonCode | undefined): string | 
 export function useGlobalSearch(options: UseGlobalSearchOptions) {
     const defaultIntent = options.intent ?? "add_friend";
     void options.myPublicKeyHex;
-    const { relayPool: pool, relayRecovery } = useRelay();
+    const { relayPool: pool, relayRecovery, enabledRelayUrls } = useRelay();
     const poolRef = useRelayPoolRef(pool);
     const tanstackQueryRuntime = useTanstackQueryRuntime();
     const { createdGroups } = useGroups();
@@ -173,6 +175,7 @@ export function useGlobalSearch(options: UseGlobalSearchOptions) {
                     query: trimmedQuery,
                     intent: effectiveIntent,
                     pool: poolRef.current,
+                    relayUrls: enabledRelayUrls,
                     relayTimeoutMs: SEARCH_TIMEOUT_MS,
                     signal,
                     localCommunities: createdGroups.map((group) => ({
@@ -256,7 +259,7 @@ export function useGlobalSearch(options: UseGlobalSearchOptions) {
                 searchAbortRef.current = null;
             }
         }
-    }, [poolRef, relayRecovery.writableRelayCount, invalidatePreviousSearches, clearResults, createdGroups, defaultIntent, options, tanstackQueryRuntime]);
+    }, [poolRef, enabledRelayUrls, relayRecovery.writableRelayCount, invalidatePreviousSearches, clearResults, createdGroups, defaultIntent, options, tanstackQueryRuntime]);
 
     const isSearching = queryState.phase === "running" || queryState.phase === "partial";
 

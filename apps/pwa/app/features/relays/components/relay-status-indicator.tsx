@@ -1,10 +1,13 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useRelay } from "../providers/relay-provider";
 import { cn } from "@/app/lib/utils";
 import { Radio } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { RelayReadinessState } from "../services/relay-recovery-types";
+
+const OFFLINE_STATUS_GRACE_MS = 1200;
 
 export const resolveRelayStatusPresentation = (params: Readonly<{
   readiness: RelayReadinessState;
@@ -49,17 +52,40 @@ export const resolveRelayStatusPresentation = (params: Readonly<{
 export function RelayStatusIndicator({ embedded = false }: Readonly<{ embedded?: boolean }>) {
   const { t } = useTranslation();
   const { relayPool: pool, relayRuntime, relayRecovery, enabledRelayUrls } = useRelay();
+  const [offlineStatusVisible, setOfflineStatusVisible] = useState(false);
 
   const totalCount = Math.max(
     pool.connections.length,
     enabledRelayUrls?.length ?? 0,
     relayRuntime.enabledRelayUrls.length,
   );
+  useEffect(() => {
+    if (relayRecovery.readiness !== "offline") {
+      setOfflineStatusVisible(false);
+      return;
+    }
+    if (relayRecovery.recoveryReasonCode === "startup_warmup" || relayRuntime.phase === "booting") {
+      setOfflineStatusVisible(false);
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      setOfflineStatusVisible(true);
+    }, OFFLINE_STATUS_GRACE_MS);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [relayRecovery.readiness, relayRecovery.recoveryReasonCode, relayRuntime.phase]);
+
+  const effectiveReadiness: RelayReadinessState = (
+    relayRecovery.readiness === "offline" && !offlineStatusVisible
+      ? "recovering"
+      : relayRecovery.readiness
+  );
   const isRecovering = relayRuntime.phase === "recovering"
     || relayRuntime.phase === "connecting"
-    || relayRecovery.readiness === "recovering";
+    || effectiveReadiness === "recovering";
   const presentation = resolveRelayStatusPresentation({
-    readiness: relayRecovery.readiness,
+    readiness: effectiveReadiness,
     phase: relayRuntime.phase,
     writableRelayCount: relayRuntime.writableRelayCount,
     isRecovering,

@@ -23,6 +23,7 @@ export interface ConfirmDialogProps {
     cancelLabel?: string;
     variant?: "danger" | "primary";
     isLoading?: boolean;
+    confirmDisabled?: boolean;
     children?: React.ReactNode;
 }
 
@@ -36,6 +37,7 @@ export function ConfirmDialog({
     cancelLabel = "Cancel",
     variant = "primary",
     isLoading = false,
+    confirmDisabled = false,
     children,
 }: ConfirmDialogProps) {
     const handleConfirm = async () => {
@@ -96,7 +98,7 @@ export function ConfirmDialog({
                             variant={variant === "danger" ? "danger" : "primary"}
                             className="h-12 min-w-[12rem] rounded-2xl gap-2 shadow-lg shadow-red-500/20"
                             onClick={handleConfirm}
-                            disabled={isLoading}
+                            disabled={isLoading || confirmDisabled}
                         >
                             {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                             {confirmLabel}

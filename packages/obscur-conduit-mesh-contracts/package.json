@@ -1,6 +1,6 @@
 {
   "name": "@obscur/conduit-mesh-contracts",
-  "version": "1.9.10",
+  "version": "1.9.11",
   "private": true,
   "type": "module",
   "description": "Conduit Mesh contracts — envelopes, evidence, conduits, MeshPort. Types only; no wire drivers.",

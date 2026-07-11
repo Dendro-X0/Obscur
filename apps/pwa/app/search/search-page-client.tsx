@@ -41,6 +41,7 @@ import { buildInvitationRequestMessage, DEFAULT_INVITATION_INTRO, type Invitatio
 import { getDirectInvitationStatusCopy, getDirectInvitationToastCopy, getInvitationOutboxStatusCopy, type InvitationTone, } from "@/app/features/messaging/services/invitation-presentation";
 import { parsePublicKeyInput } from "@/app/features/profile/utils/parse-public-key-input";
 import { PrivacySettingsService } from "@/app/features/settings/services/privacy-settings-service";
+import { buildIdentityBindingFromResolvedIdentity, IdentityBindingPanel } from "@/app/features/security";
 import { getV090RolloutPolicy } from "@/app/features/settings/services/v090-rollout-policy";
 import { normalizePublicUrl } from "@/app/shared/public-url";
 import { scheduleIdleWork } from "@/app/shared/schedule-idle-work";
@@ -88,6 +89,7 @@ const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number, timeoutMe
 const resolveStableIdentity = (input: string, messages: Readonly<{
     invalidInput: string;
     unsupportedToken: string;
+    privateKeyForbidden: string;
 }>): ResolveResult => {
     const trimmed = input.trim();
     if (!trimmed) {
@@ -108,6 +110,13 @@ const resolveStableIdentity = (input: string, messages: Readonly<{
         };
     }
     const parsedPubkey = parsePublicKeyInput(trimmed);
+    if (!parsedPubkey.ok && parsedPubkey.reason === "private_key_forbidden") {
+        return {
+            ok: false,
+            reason: "private_key_forbidden",
+            message: messages.privateKeyForbidden,
+        };
+    }
     if (parsedPubkey.ok) {
         return {
             ok: true,
@@ -378,6 +387,7 @@ export default function SearchPage() {
         return resolveStableIdentity(trimmed, {
             invalidInput: t("search.discovery.identity.invalidInput"),
             unsupportedToken: t("search.discovery.identity.unsupportedToken"),
+            privateKeyForbidden: t("search.discovery.reason.privateKeyForbidden"),
         });
     }, [inviteResolver, t]);
     const lastSearchedRef = useRef("");
@@ -693,6 +703,8 @@ export default function SearchPage() {
                 return t("search.discovery.reason.indexFallback");
             case "index_unavailable":
                 return t("search.discovery.reason.indexUnavailable");
+            case "private_key_forbidden":
+                return t("search.discovery.reason.privateKeyForbidden");
             default:
                 return null;
         }
@@ -1067,16 +1079,25 @@ export default function SearchPage() {
                         </div>
                       </div>
 
-                      <div className="mt-4 grid gap-3 md:grid-cols-2">
-                        <div className="rounded-2xl border border-border/50 bg-background/40 px-4 py-3">
-                          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">{t("search.discovery.preview.publicKey")}</p>
-                          <p className="mt-1 break-all font-mono text-xs text-foreground">{resolvedIdentity.pubkey}</p>
-                        </div>
-                        <div className="rounded-2xl border border-border/50 bg-background/40 px-4 py-3">
-                          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">{t("search.discovery.preview.resolverSource")}</p>
-                          <p className="mt-1 text-sm font-semibold text-foreground">{resolvedIdentity.source.replace("_", " ")}</p>
-                        </div>
-                      </div>
+                      {(() => {
+                        const binding = buildIdentityBindingFromResolvedIdentity(resolvedIdentity, {
+                          displayName: resolvedMetadata?.displayName || resolvedIdentity.display,
+                          avatarUrl: resolvedMetadata?.avatarUrl,
+                        });
+                        if (!binding) {
+                          return null;
+                        }
+                        return (
+                          <IdentityBindingPanel
+                            binding={binding}
+                            compact
+                            className="mt-4"
+                            showLiteracyNote={false}
+                            onCopyNpub={() => void copyText(binding.npub, t("search.discovery.copy.npub"))}
+                            onCopyHex={() => void copyText(binding.publicKeyHex, t("search.discovery.copy.pubkey"))}
+                          />
+                        );
+                      })()}
 
                       {!deterministicDiscoveryEnabled && directRequestMessage ? ((() => {
                     const invitationStatus = getDirectInvitationStatusCopy(directRequestPhase, {
@@ -1432,7 +1453,7 @@ export default function SearchPage() {
         </div>)}
       <InvitationComposerDialog isOpen={Boolean(invitationDialogTarget)} recipientName={invitationDialogTarget
             ? (resolvedMetadata?.displayName || invitationDialogTarget.display || unknownContactLabel)
-            : t("search.discovery.identity.thisPerson")} recipientPubkey={invitationDialogTarget?.pubkey || ""} submitLabel={deterministicDiscoveryEnabled
+            : t("search.discovery.identity.thisPerson")} recipientPubkey={invitationDialogTarget?.pubkey || ""} recipientResolverSource={invitationDialogTarget?.source} recipientFriendCode={invitationDialogTarget?.inviteCode ?? null} submitLabel={deterministicDiscoveryEnabled
             ? t("search.discovery.action.queueInvitation")
             : t("search.discovery.action.sendInvitation")} deliveryHint={deterministicDiscoveryEnabled
             ? t("search.discovery.invitation.queueHint")

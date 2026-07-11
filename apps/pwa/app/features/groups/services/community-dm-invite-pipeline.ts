@@ -4,6 +4,7 @@
  */
 
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
+import { logAppEvent } from "@/app/shared/log-app-event";
 import { messageBus } from "@/app/features/messaging/services/message-bus";
 import { MessageQueue, type Message as QueueMessage } from "@/app/features/messaging/lib/message-queue";
 import { messagingChatStateMessagePort } from "@/app/features/messaging/services/messaging-chat-state-message-port";
@@ -177,10 +178,6 @@ export const commitOutboundCommunityDmInvite = async (
   messageBus.emitNewMessage(conversationId, persistedMessage, { sourceProfileId: profileId });
   await messagePersistenceService.flushPendingNow();
 
-  if (isTauri() && profileId) {
-    await persistInviteToNativeSqlite(persistedMessage, profileId);
-  }
-
   upsertCommunityDmInviteLedgerEntry({
     inviteId: params.inviteId,
     conversationId,
@@ -201,7 +198,8 @@ export const commitOutboundCommunityDmInvite = async (
 
   notifyLedgerChanged(conversationId, profileId);
 
-  await appendCanonicalDmEvent({
+  // Best-effort projection evidence — must not block invite UX (matches dm-controller:v2).
+  void appendCanonicalDmEvent({
     profileId,
     accountPublicKeyHex: params.accountPublicKeyHex,
     peerPublicKeyHex: recipientPubkey as PublicKeyHex,
@@ -212,6 +210,17 @@ export const commitOutboundCommunityDmInvite = async (
     plaintextPreview: toAccountEventPlaintextPreview(canonicalMessage.content),
     idempotencySuffix: params.inviteId,
     source: "local_bootstrap",
+  }).catch((error) => {
+    logAppEvent({
+      name: "groups.community_invite_projection_append_failed",
+      level: "warn",
+      scope: { feature: "groups", action: "invite_dm_projection" },
+      context: {
+        conversationId,
+        inviteId: params.inviteId,
+        reason: error instanceof Error ? error.message : String(error),
+      },
+    });
   });
 
   return canonicalMessage;

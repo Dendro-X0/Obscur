@@ -22,6 +22,7 @@ import {
 } from "@/app/features/profiles/services/portability-export-naming";
 import { recordPortabilityExport } from "@/app/features/profiles/services/portability-export-history";
 import { exportUnifiedAccountBundle, writeUnifiedAccountExportToDataRoot } from "@/app/features/profiles/services/unified-account-export-service";
+import { resolvePortabilityPrivateKeyHex } from "@/app/features/auth/services/resolve-portability-private-key-hex";
 import { useUnifiedImportFlow } from "@/app/features/profiles/hooks/use-unified-import-flow";
 import { PortabilityLastExportCard } from "./portability-last-export-card";
 import { PortabilityExportResultBanner, type PortabilityExportResult } from "./portability-export-result-banner";
@@ -55,7 +56,10 @@ export function PortabilityQuickActionsPanel(props: Props): React.JSX.Element {
     }
     setIsExporting(true);
     try {
-      const privateKeyHex = await props.resolveActivePrivateKeyHex();
+      const privateKeyHex = await resolvePortabilityPrivateKeyHex({
+        publicKeyHex: props.publicKeyHex,
+        privateKeyHex: await props.resolveActivePrivateKeyHex(),
+      });
       if (!privateKeyHex) {
         throw new Error(t("profiles.portability.quickActions.unlockFirst"));
       }
@@ -64,7 +68,7 @@ export function PortabilityQuickActionsPanel(props: Props): React.JSX.Element {
         privateKeyHex,
         profileId: getResolvedProfileId(),
         profileLabel: props.profileLabel,
-        includeVaultMedia: props.includeVaultMedia ?? false,
+        includeVaultMedia: props.includeVaultMedia ?? hasNativeRuntime(),
       });
       const fileName = buildUnifiedAccountExportFileName({
         publicKeyHex: props.publicKeyHex,

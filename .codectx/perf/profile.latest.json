@@ -31,13 +31,13 @@
       "stack": null
     }
   ],
-  "generatedAt": "2026-07-04T03:59:44.789677100+00:00",
+  "generatedAt": "2026-07-05T05:51:34.829494+00:00",
   "recommendedDefaults": {
     "appRoot": "apps/website",
     "exploreScope": "monorepo-critical-path",
     "operationalMode": "monorepo-audit"
   },
-  "scanSnapshotHash": "sha256:19cd49bf1888046751c8cfd46b28a6d7c08297734ca546ffe09f6ec10cf553e7",
+  "scanSnapshotHash": "sha256:1a8e3cb6c71a027c2f2b8e32b504b0e1d2865ce853673ea8ab72a8dee6e62969",
   "schema": "perf.profile@1.0.0",
   "suggestedOperationalModes": [
     {

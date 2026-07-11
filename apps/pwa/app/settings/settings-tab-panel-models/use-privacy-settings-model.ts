@@ -1,10 +1,14 @@
 "use client";
 
-import { useMemo, useState, type Dispatch, type SetStateAction } from "react";
+import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import { useTranslation } from "react-i18next";
 import { PrivacySettingsService, type PrivacySettings } from "@/app/features/settings/services/privacy-settings-service";
 import { getV090RolloutPolicy, normalizeV090Flags } from "@/app/features/settings/services/v090-rollout-policy";
 import { getRuntimeCapabilities } from "@/app/features/runtime/runtime-capabilities";
+import {
+  mapBiometricCapabilityToUiState,
+  probeBiometricCapability,
+} from "@/app/features/security/services/hardware-unlock-gate";
 import type { SettingsTabPanelModel } from "../settings-tab-panel-model-context";
 import type {
   CapabilityState,
@@ -40,6 +44,25 @@ export function usePrivacySettingsCore(): Readonly<{
   );
   const rolloutPolicy = useMemo(() => getV090RolloutPolicy(privacySettings), [privacySettings]);
 
+  const [biometricCapability, setBiometricCapability] = useState<CapabilityState>("unavailable");
+
+  useEffect(() => {
+    const isTauriRuntime = getRuntimeCapabilities().isNativeRuntime;
+    if (!isTauriRuntime) {
+      setBiometricCapability("unavailable");
+      return;
+    }
+    let cancelled = false;
+    void probeBiometricCapability().then((status) => {
+      if (!cancelled) {
+        setBiometricCapability(mapBiometricCapabilityToUiState(status));
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const securityCapabilityStates = useMemo<Readonly<{
     clipboard: CapabilityState;
     biometric: CapabilityState;
@@ -52,10 +75,10 @@ export function usePrivacySettingsCore(): Readonly<{
       && typeof navigator.clipboard.writeText === "function";
     return {
       clipboard: clipboardSupported ? "supported" : "unavailable",
-      biometric: isTauriRuntime ? "supported" : "unavailable",
+      biometric: isTauriRuntime ? biometricCapability : "unavailable",
       tor: isTauriRuntime ? "supported" : "unavailable",
     };
-  }, []);
+  }, [biometricCapability]);
 
   const securityPosture = useMemo<SecurityPosture>(() => {
     const score = [

@@ -20,12 +20,21 @@ describe("profile-picker contract", () => {
       isDesktopNative: true,
       isUnlocked: false,
       showProfilePickerOnStartup: false,
+      registeredProfileCount: 2,
+    })).toBe(false);
+    expect(shouldRedirectLockedDesktopToProfilePicker({
+      pathname: "/",
+      isDesktopNative: true,
+      isUnlocked: false,
+      showProfilePickerOnStartup: true,
+      registeredProfileCount: 1,
     })).toBe(false);
     expect(resolveLockedDesktopEntryRedirect({
       pathname: PROFILE_SIGN_IN_ROUTE,
       isDesktopNative: true,
       isUnlocked: false,
       showProfilePickerOnStartup: true,
+      registeredProfileCount: 2,
     })).toBeNull();
   });
 });

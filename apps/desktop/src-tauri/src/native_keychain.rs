@@ -1,8 +1,10 @@
 //! Canonical OS keychain entry names for per-profile native sessions.
 //! `init_native_session` previously wrote a legacy entry (`nsec:: {profile_id}` with a space);
 //! restore paths read `nsec::{profile_id}`. Reads migrate legacy → canonical on success.
+//! KEY-MOAT Phase 3: new writes store `OBSCUR_KCV1` wrapped envelopes — never plaintext `nsec1`.
 
 #[cfg(not(target_os = "android"))]
+use crate::keychain_session_envelope;
 use keyring::Entry;
 #[cfg(not(target_os = "android"))]
 use zeroize::Zeroizing;
@@ -29,29 +31,60 @@ static LOGIN_ASSIST_CACHE: LazyLock<Mutex<HashMap<String, String>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 
 #[cfg(not(target_os = "android"))]
-static NSEC_CACHE: LazyLock<Mutex<HashMap<String, String>>> =
+static SESSION_SECRET_CACHE: LazyLock<Mutex<HashMap<String, String>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 
 #[cfg(not(target_os = "android"))]
-fn remember_nsec_payload(profile_id: &str, nsec: &str) {
-    if let Ok(mut cache) = NSEC_CACHE.lock() {
-        cache.insert(profile_id.to_string(), nsec.to_string());
+fn remember_session_secret_payload(profile_id: &str, secret: &str) {
+    if let Ok(mut cache) = SESSION_SECRET_CACHE.lock() {
+        cache.insert(profile_id.to_string(), secret.to_string());
     }
 }
 
 #[cfg(not(target_os = "android"))]
-fn cached_nsec_payload(profile_id: &str) -> Option<String> {
-    NSEC_CACHE
+fn cached_session_secret_payload(profile_id: &str) -> Option<String> {
+    SESSION_SECRET_CACHE
         .lock()
         .ok()
         .and_then(|cache| cache.get(profile_id).cloned())
 }
 
 #[cfg(not(target_os = "android"))]
-fn forget_nsec_payload(profile_id: &str) {
-    if let Ok(mut cache) = NSEC_CACHE.lock() {
+fn forget_session_secret_payload(profile_id: &str) {
+    if let Ok(mut cache) = SESSION_SECRET_CACHE.lock() {
         cache.remove(profile_id);
     }
+}
+
+#[cfg(not(target_os = "android"))]
+fn decode_stored_session_payload(profile_id: &str, stored: &str) -> Result<Option<String>, String> {
+    if keychain_session_envelope::is_wrapped_keychain_payload(stored) {
+        return keychain_session_envelope::unwrap_session_secret_from_keychain(profile_id, stored);
+    }
+    if keychain_session_envelope::is_legacy_plaintext_keychain_secret(stored) {
+        let secret_zero = Zeroizing::new(stored.trim().to_string());
+        let wrapped =
+            keychain_session_envelope::wrap_session_secret_for_keychain(profile_id, &secret_zero)?;
+        let canonical =
+            Entry::new(APP_SERVICE, &key_name_for_profile(profile_id)).map_err(|e| e.to_string())?;
+        write_password(&canonical, &wrapped).map_err(|e| e.to_string())?;
+        eprintln!(
+            "[SESSION] Migrated plaintext keychain entry to wrapped envelope for profile {}",
+            profile_id
+        );
+        return Ok(Some(secret_zero.to_string()));
+    }
+    Ok(None)
+}
+
+#[cfg(not(target_os = "android"))]
+pub fn pubkey_hex_from_stored_keychain_payload(payload: &str) -> Option<String> {
+    keychain_session_envelope::pubkey_hex_from_keychain_payload(payload)
+}
+
+#[cfg(target_os = "android")]
+pub fn pubkey_hex_from_stored_keychain_payload(_payload: &str) -> Option<String> {
+    None
 }
 
 #[cfg(not(target_os = "android"))]
@@ -99,14 +132,17 @@ fn delete_entry(entry: &Entry) -> Result<(), keyring::Error> {
 /// Read nsec for `profile_id`, migrating a legacy keychain entry when found.
 #[cfg(not(target_os = "android"))]
 pub fn read_nsec_for_profile(profile_id: &str) -> Result<Option<String>, String> {
-    if let Some(cached) = cached_nsec_payload(profile_id) {
+    if let Some(cached) = cached_session_secret_payload(profile_id) {
         return Ok(Some(cached));
     }
     let canonical = Entry::new(APP_SERVICE, &key_name_for_profile(profile_id)).map_err(|e| e.to_string())?;
     match read_password(&canonical) {
-        Ok(nsec) => {
-            remember_nsec_payload(profile_id, &nsec);
-            return Ok(Some(nsec));
+        Ok(stored) => {
+            let secret = decode_stored_session_payload(profile_id, &stored)?;
+            if let Some(secret) = secret {
+                remember_session_secret_payload(profile_id, &secret);
+                return Ok(Some(secret));
+            }
         }
         Err(keyring::Error::NoEntry) => {}
         Err(e) => return Err(e.to_string()),
@@ -114,16 +150,21 @@ pub fn read_nsec_for_profile(profile_id: &str) -> Result<Option<String>, String>
 
     let legacy = Entry::new(APP_SERVICE, &legacy_key_name_for_profile(profile_id)).map_err(|e| e.to_string())?;
     match read_password(&legacy) {
-        Ok(nsec) => {
-            let nsec_zero = Zeroizing::new(nsec);
-            write_password(&canonical, &*nsec_zero).map_err(|e| e.to_string())?;
+        Ok(stored) => {
+            let secret = decode_stored_session_payload(profile_id, &stored)?;
+            let Some(secret) = secret else {
+                return Ok(None);
+            };
+            let secret_zero = Zeroizing::new(secret);
+            let wrapped = keychain_session_envelope::wrap_session_secret_for_keychain(profile_id, &secret_zero)?;
+            write_password(&canonical, &wrapped).map_err(|e| e.to_string())?;
             let _ = delete_entry(&legacy);
-            remember_nsec_payload(profile_id, &nsec_zero);
+            remember_session_secret_payload(profile_id, &secret_zero);
             eprintln!(
-                "[SESSION] Migrated legacy keychain entry to canonical name for profile {}",
+                "[SESSION] Migrated legacy keychain entry to canonical wrapped envelope for profile {}",
                 profile_id
             );
-            Ok(Some(nsec_zero.to_string()))
+            Ok(Some(secret_zero.to_string()))
         }
         Err(keyring::Error::NoEntry) => Ok(None),
         Err(e) => Err(e.to_string()),
@@ -137,21 +178,22 @@ pub fn read_nsec_for_profile(_profile_id: &str) -> Result<Option<String>, String
 
 #[cfg(not(target_os = "android"))]
 pub fn write_nsec_for_profile(profile_id: &str, nsec: &str) -> Result<(), String> {
+    let wrapped = keychain_session_envelope::wrap_session_secret_for_keychain(profile_id, nsec)?;
     let canonical = Entry::new(APP_SERVICE, &key_name_for_profile(profile_id)).map_err(|e| e.to_string())?;
-    write_password(&canonical, nsec).map_err(|e| e.to_string())?;
+    write_password(&canonical, &wrapped).map_err(|e| e.to_string())?;
     // Best-effort cleanup of the legacy misnamed entry after a successful login/import.
     if let Ok(legacy) = Entry::new(APP_SERVICE, &legacy_key_name_for_profile(profile_id)) {
         let _ = delete_entry(&legacy);
     }
     match read_password(&canonical) {
-        Ok(stored) if stored == nsec => {
-            remember_nsec_payload(profile_id, nsec);
+        Ok(stored) if stored == wrapped => {
+            remember_session_secret_payload(profile_id, nsec);
             Ok(())
         }
         Ok(_) => Err("Keychain entry did not round-trip".to_string()),
         Err(keyring::Error::NoEntry) => {
             // Windows Credential Manager can lag between Entry instances; keep in-process cache.
-            remember_nsec_payload(profile_id, nsec);
+            remember_session_secret_payload(profile_id, nsec);
             eprintln!(
                 "[SESSION] Keychain read-back missed for profile {}; using in-process cache",
                 profile_id
@@ -169,7 +211,7 @@ pub fn write_nsec_for_profile(_profile_id: &str, _nsec: &str) -> Result<(), Stri
 
 #[cfg(not(target_os = "android"))]
 pub fn delete_nsec_for_profile(profile_id: &str) -> Result<(), String> {
-    forget_nsec_payload(profile_id);
+    forget_session_secret_payload(profile_id);
     for key_name in [
         key_name_for_profile(profile_id),
         legacy_key_name_for_profile(profile_id),

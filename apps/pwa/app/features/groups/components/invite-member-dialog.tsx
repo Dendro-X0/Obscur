@@ -27,7 +27,7 @@ import type { Message } from "../../messaging/types";
 import { toDmConversationId } from "../../messaging/utils/dm-conversation-id";
 import { buildOutgoingCommunityInviteDmMessage } from "../utils/community-invite-dm-message";
 import { commitOutgoingCommunityInviteDm } from "../services/community-invite-dm-orchestrator";
-import { publishDmNostrEvent } from "@/app/features/messaging/services/publish-dm-nostr-event";
+import { publishDmNostrEvent, resolveCommunityInviteDmPublishRelayUrls } from "@/app/features/messaging/services/publish-dm-nostr-event";
 
 interface InviteMemberDialogProps {
     isOpen: boolean;
@@ -131,7 +131,11 @@ export function InviteMemberDialog({
                 genesisEventId,
                 creatorPubkey
             });
-            const publishResult = await publishDmNostrEvent(pool, enabledRelayUrls, giftWrapEvent);
+            const publishRelayUrls = resolveCommunityInviteDmPublishRelayUrls(
+                enabledRelayUrls,
+                scopedRelayUrl,
+            );
+            const publishResult = await publishDmNostrEvent(pool, publishRelayUrls, giftWrapEvent);
             const dmPublishOk = publishResult.success;
             if (!dmPublishOk) {
                 // Preserve optimistic local invite evidence even when relays are degraded.

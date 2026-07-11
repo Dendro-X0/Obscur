@@ -25,6 +25,12 @@ import { readDeviceSessionConsent } from "../services/device-session-consent";
 import { AuthSessionPolicyNotice } from "./auth-session-policy-notice";
 import { DesktopAtRestEncryptionNotice } from "@/app/features/settings/components/desktop-at-rest-encryption-notice";
 import { AuthLoginHelpNote } from "./auth-login-help-note";
+import { SecurityLiteracyNote } from "@/app/features/security/components/security-literacy-note";
+import {
+  IdentityPassphrasePolicyError,
+  isIdentityPassphrasePolicyCompliant,
+} from "@/app/features/security/services/identity-passphrase-policy";
+import { UnlockRateLimitError } from "@/app/features/auth/services/unlock-attempt-rate-limit";
 import { useWindowRuntime } from "@/app/features/runtime/services/window-runtime-supervisor";
 import { shouldEnterLoginModeOnStartup, startupAuthStateHasPrivateKeyMismatch, startupAuthStateHasStoredIdentity, } from "@/app/features/auth/services/startup-auth-state-contracts";
 import { generateRandomInviteCode } from "@/app/features/invites/utils/invite-code-format";
@@ -37,6 +43,11 @@ import { AccountActiveInOtherProfileWindowError, } from "@/app/features/profiles
 import { AUTH_CLIENT_REVISION, profileWindowHasLocalAccountEvidence, } from "@/app/features/auth/services/auth-profile-local-evidence";
 import { clearProfileSlotForDifferentAccount, openFreshProfileWindowForSignIn, } from "@/app/features/profiles/services/profile-slot-account-switch";
 import { ProfileSlotAccountConflictError, type ProfileSlotLoginAttemptResult, } from "@/app/features/profiles/services/profile-slot-login-guard";
+import {
+  greenfieldAuthWindowLabel,
+  requiresFreshProfileWindowForGreenfieldAuth,
+  type GreenfieldAuthIntent,
+} from "@/app/features/profiles/services/profile-slot-greenfield-auth-routing";
 import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
 import { ProfileArchiveResultInline } from "@/app/features/profiles/components/profile-archive-result-inline";
 import { hasPasswordProtectedUnlockOnDevice } from "@/app/features/profiles/services/identity-passphrase-unlock";
@@ -46,6 +57,16 @@ import { AuthAssistantPanel } from "@/app/features/auth-kernel/components/auth-a
 import { AuthAssistantSavePrompt } from "@/app/features/auth-kernel/components/auth-assistant-save-prompt";
 import type { AuthAssistantEntry } from "@dweb/auth";
 const authPrimaryButtonClass = "w-full h-12 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white text-base font-bold shadow-lg shadow-purple-500/20";
+const resolveAuthSecurityErrorMessage = (error: unknown, t: (key: string, options?: Record<string, unknown>) => string): string | null => {
+    if (error instanceof UnlockRateLimitError) {
+        const seconds = Math.max(1, Math.ceil(error.retryAfterMs / 1000));
+        return t("security.unlock.rateLimited", { seconds });
+    }
+    if (error instanceof IdentityPassphrasePolicyError) {
+        return t(`security.passphrase.policy.${error.reason}`);
+    }
+    return null;
+};
 const authCompactInputClass = "px-11 h-12 rounded-2xl bg-white/50 dark:bg-zinc-900/50 border-black/5 dark:border-white/5 text-base transition-all";
 const authSecondaryPrimaryButtonClass = "h-16 w-full rounded-[24px] bg-purple-600 hover:bg-purple-700 text-white text-lg font-bold shadow-xl shadow-purple-500/20";
 const authInputFocusRingClass = "focus:ring-4 focus:ring-purple-500/10";
@@ -351,8 +372,8 @@ export function AuthScreen() {
             setAuthError(t("auth.error.retiredKeyRequiresAcknowledgement"));
             return;
         }
-        if (password.trim().length > 0 && password.trim().length < 8) {
-            setAuthError(t("auth.error.passwordTooShort"));
+        if (password.trim().length > 0 && !isIdentityPassphrasePolicyCompliant(password as Passphrase)) {
+            setAuthError(t("security.passphrase.policy.too_short"));
             return;
         }
         if (needsDevicePasswordSetupGuide
@@ -370,8 +391,8 @@ export function AuthScreen() {
             return;
         }
         if (importKeyGuideStep === "set_device_password") {
-            if (!password || password.length < 8) {
-                setAuthError(t("auth.error.passwordTooShort"));
+            if (!isIdentityPassphrasePolicyCompliant(password as Passphrase)) {
+                setAuthError(t("security.passphrase.policy.too_short"));
                 return;
             }
             if (password !== confirmPassword) {
@@ -403,10 +424,11 @@ export function AuthScreen() {
             throw new Error("New accounts require an invite on this network. Import an existing key instead.");
         }
         if (gate.powDifficulty) {
-            await identity.createPoWIdentity({
+            await authKernel.createPoWIdentityForBoundProfile({
                 passphrase: action.passphrase,
                 username: action.username,
                 difficulty: gate.powDifficulty,
+                ...sessionUnlockOptions,
             });
         }
         else {
@@ -459,14 +481,57 @@ export function AuthScreen() {
         setPendingAuthAction(pending);
         return true;
     };
+    const needsFreshProfileWindowForGreenfieldAuth = requiresFreshProfileWindowForGreenfieldAuth(boundProfileId);
+    const handleOpenFreshProfileWindowForGreenfieldAuth = async (intent: GreenfieldAuthIntent): Promise<void> => {
+        setIsConflictBusy(true);
+        try {
+            await openFreshProfileWindowForSignIn(greenfieldAuthWindowLabel(intent));
+            toast.success(intent === "create"
+                ? t("auth.toast.openedNewWindowForCreate")
+                : t("auth.toast.openedNewWindowForRestore"));
+            setAccountConflict(null);
+            setPendingAuthAction(null);
+        }
+        catch (error) {
+            setAuthError(error instanceof Error ? error.message : "Could not open another profile window.");
+        }
+        finally {
+            setIsConflictBusy(false);
+        }
+    };
+    const handleGreenfieldAuthEntry = (intent: GreenfieldAuthIntent): void => {
+        if (needsFreshProfileWindowForGreenfieldAuth) {
+            void handleOpenFreshProfileWindowForGreenfieldAuth(intent);
+            return;
+        }
+        resetForm();
+        setMode(intent);
+    };
+    const handleOpenAnotherProfileWindow = (): void => {
+        void handleOpenFreshProfileWindowForGreenfieldAuth("create");
+    };
+    React.useEffect(() => {
+        if (mode !== "create" && mode !== "restore") {
+            return;
+        }
+        if (!needsFreshProfileWindowForGreenfieldAuth) {
+            return;
+        }
+        setMode("welcome");
+        void handleOpenFreshProfileWindowForGreenfieldAuth(mode);
+    }, [boundProfileId, mode, needsFreshProfileWindowForGreenfieldAuth]);
     const handleCreateFinal = async (e?: React.FormEvent) => {
         e?.preventDefault();
+        if (needsFreshProfileWindowForGreenfieldAuth) {
+            void handleOpenFreshProfileWindowForGreenfieldAuth("create");
+            return;
+        }
         if (!password || password !== confirmPassword) {
             setAuthError(t("auth.error.passwordsDoNotMatch"));
             return;
         }
-        if (password.length < 8) {
-            setAuthError(t("auth.error.passwordTooShort"));
+        if (!isIdentityPassphrasePolicyCompliant(password as Passphrase)) {
+            setAuthError(t("security.passphrase.policy.too_short"));
             return;
         }
         const pending: PendingAuthAction = {
@@ -480,7 +545,8 @@ export function AuthScreen() {
         }
         catch (error) {
             if (!handleAccountConflictError(error, pending)) {
-                setAuthError(error instanceof Error ? error.message : t("auth.error.createAccountFailed"));
+                const securityMessage = resolveAuthSecurityErrorMessage(error, t);
+                setAuthError(securityMessage ?? (error instanceof Error ? error.message : t("auth.error.createAccountFailed")));
             }
         }
         finally {
@@ -546,9 +612,11 @@ export function AuthScreen() {
                     || err instanceof AccountActiveInOtherProfileWindowError) {
                     throw err;
                 }
-                const message = err instanceof Error && err.message.trim()
-                    ? err.message
-                    : t("auth.error.incorrectPassword");
+                const securityMessage = resolveAuthSecurityErrorMessage(err, t);
+                const message = securityMessage
+                    ?? (err instanceof Error && err.message.trim()
+                        ? err.message
+                        : t("auth.error.incorrectPassword"));
                 if (message.includes(NO_DEVICE_PASSWORD_UNLOCK_HINT)) {
                     guideToImportKeyForMissingDevicePassword();
                     setIsLoading(false);
@@ -672,21 +740,6 @@ export function AuthScreen() {
             setIsLoading(false);
         }
     };
-    const handleOpenAnotherProfileWindow = async (): Promise<void> => {
-        setIsConflictBusy(true);
-        try {
-            await openFreshProfileWindowForSignIn();
-            toast.success("Opened a new profile window. Sign in with the other account there.");
-            setAccountConflict(null);
-            setPendingAuthAction(null);
-        }
-        catch (error) {
-            setAuthError(error instanceof Error ? error.message : "Could not open another profile window.");
-        }
-        finally {
-            setIsConflictBusy(false);
-        }
-    };
     const variants = {
         enter: (direction: number) => ({
             x: direction > 0 ? 50 : -50,
@@ -774,7 +827,7 @@ export function AuthScreen() {
                             </div>
                         </div>)}
                     <AnimatePresence mode="wait">
-                        {mode !== "welcome" && (<motion.button key="back-button" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} onClick={handleBack} className="absolute top-8 left-8 p-3 rounded-2xl hover:bg-black/5 dark:hover:bg-white/5 transition-colors text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 group">
+                        {mode !== "welcome" && (<motion.button key="back-button" type="button" aria-label={t("common.back")} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} onClick={handleBack} className="absolute top-8 left-8 z-20 p-3 rounded-2xl hover:bg-black/5 dark:hover:bg-white/5 transition-colors text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 group">
                                 <ChevronLeft className="h-6 w-6 group-hover:-translate-x-0.5 transition-transform"/>
                             </motion.button>)}
                     </AnimatePresence>
@@ -817,12 +870,16 @@ export function AuthScreen() {
                 }} className="h-14 w-full rounded-[24px] border-black/10 dark:border-white/10 bg-white/50 hover:bg-black/5 dark:bg-zinc-900/50 dark:hover:bg-white/5 text-base font-bold">
                                                 {t("auth.welcome.returning.useKey")}
                                             </Button>
-                                            <button type="button" onClick={() => setMode("create")} className="w-full pt-2 text-xs font-semibold text-zinc-500 underline-offset-4 hover:text-zinc-700 hover:underline dark:text-zinc-400 dark:hover:text-zinc-200">
-                                                {t("auth.welcome.returning.createAnother")}
+                                            <button type="button" onClick={() => handleGreenfieldAuthEntry("create")} className="w-full pt-2 text-xs font-semibold text-zinc-500 underline-offset-4 hover:text-zinc-700 hover:underline dark:text-zinc-400 dark:hover:text-zinc-200">
+                                                {needsFreshProfileWindowForGreenfieldAuth
+                    ? t("auth.welcome.returning.openWindowToCreate")
+                    : t("auth.welcome.returning.createAnother")}
                                             </button>
-                                            <Button variant="outline" onClick={() => setMode("restore")} className="h-12 w-full rounded-[24px] border-black/10 dark:border-white/10 bg-white/50 hover:bg-black/5 dark:bg-zinc-900/50 dark:hover:bg-white/5 text-sm font-bold">
+                                            <Button variant="outline" onClick={() => handleGreenfieldAuthEntry("restore")} className="h-12 w-full rounded-[24px] border-black/10 dark:border-white/10 bg-white/50 hover:bg-black/5 dark:bg-zinc-900/50 dark:hover:bg-white/5 text-sm font-bold">
                                                 <ArchiveRestore className="h-4 w-4"/>
-                                                {t("auth.welcome.restoreBackup")}
+                                                {needsFreshProfileWindowForGreenfieldAuth
+                    ? t("auth.welcome.returning.openWindowToRestore")
+                    : t("auth.welcome.restoreBackup")}
                                             </Button>
                                         </div>
                                     </>) : (<>
@@ -836,7 +893,7 @@ export function AuthScreen() {
                                         </div>
 
                                         <div className="w-full grid grid-cols-1 gap-4 pt-4">
-                                            <Button onClick={() => setMode("create")} className="h-16 rounded-[24px] bg-zinc-900 hover:bg-black dark:bg-white dark:hover:bg-zinc-200 text-white dark:text-black text-lg font-bold group shadow-xl shadow-zinc-500/10">
+                                            <Button onClick={() => handleGreenfieldAuthEntry("create")} className="h-16 rounded-[24px] bg-zinc-900 hover:bg-black dark:bg-white dark:hover:bg-zinc-200 text-white dark:text-black text-lg font-bold group shadow-xl shadow-zinc-500/10">
                                                 {t("auth.welcome.createIdentity")}
                                                 <ArrowRight className="h-5 w-5 ml-2 group-hover:translate-x-1 transition-transform"/>
                                             </Button>
@@ -846,7 +903,7 @@ export function AuthScreen() {
                 }} className="h-16 rounded-[24px] border-black/10 dark:border-white/10 bg-white/50 hover:bg-black/5 dark:bg-zinc-900/50 dark:hover:bg-white/5 text-lg font-bold transition-all">
                                                 {t("auth.welcome.loginWithKey")}
                                             </Button>
-                                            <Button variant="outline" onClick={() => setMode("restore")} className="h-14 rounded-[24px] border-black/10 dark:border-white/10 bg-white/50 hover:bg-black/5 dark:bg-zinc-900/50 dark:hover:bg-white/5 text-base font-bold">
+                                            <Button variant="outline" onClick={() => handleGreenfieldAuthEntry("restore")} className="h-14 rounded-[24px] border-black/10 dark:border-white/10 bg-white/50 hover:bg-black/5 dark:bg-zinc-900/50 dark:hover:bg-white/5 text-base font-bold">
                                                 <ArchiveRestore className="h-4 w-4"/>
                                                 {t("auth.welcome.restoreBackup")}
                                             </Button>
@@ -942,7 +999,7 @@ export function AuthScreen() {
 
                                         <FlashMessage message={authError} onClose={() => setAuthError(null)} className="mt-4"/>
 
-                                        <Button type="submit" disabled={isLoading || password !== confirmPassword || password.length < 8 || !acknowledged} className="w-full h-16 rounded-[24px] bg-purple-600 hover:bg-purple-700 text-white text-lg font-bold shadow-xl shadow-purple-500/20 disabled:opacity-50 relative overflow-hidden group">
+                                        <Button type="submit" disabled={isLoading || password !== confirmPassword || !isIdentityPassphrasePolicyCompliant(password as Passphrase) || !acknowledged} className="w-full h-16 rounded-[24px] bg-purple-600 hover:bg-purple-700 text-white text-lg font-bold shadow-xl shadow-purple-500/20 disabled:opacity-50 relative overflow-hidden group">
                                             {isLoading ? (<div className="flex items-center gap-2">
                                                     <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }}>
                                                         <Sparkles className="h-5 w-5"/>
@@ -973,6 +1030,8 @@ export function AuthScreen() {
                                     </p>
                                 </div>
 
+                                <SecurityLiteracyNote className="mt-2" />
+
                                 <div className="space-y-4">
                                         <div className="flex bg-black/5 dark:bg-white/5 rounded-2xl p-1 relative z-10">
                                             <button type="button" onClick={() => setLoginTab("username")} className={cn("flex-1 py-2.5 text-sm font-bold rounded-xl transition-all", loginTab === "username"
@@ -988,7 +1047,7 @@ export function AuthScreen() {
                                         {!hasLocalAccountEvidence ? (<p className="px-1 text-xs text-zinc-500 dark:text-zinc-400">
                                                 {t("auth.login.deviceLocalHint")}
                                                 {" "}
-                                                <button type="button" onClick={() => setMode("restore")} className="font-semibold text-violet-600 underline underline-offset-2 dark:text-violet-300">
+                                                <button type="button" onClick={() => handleGreenfieldAuthEntry("restore")} className="font-semibold text-violet-600 underline underline-offset-2 dark:text-violet-300">
                                                     {t("auth.login.openRestorePage")}
                                                 </button>
                                             </p>) : null}
@@ -1066,6 +1125,7 @@ export function AuthScreen() {
                     }} className={cn("flex w-full border ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-50", authCompactInputClass, authInputFocusRingClass)}/>
                                                     </div>
                                                 </div>
+                                                <SecurityLiteracyNote compact className="mt-1" />
                                                 {hasStoredIdentity && !(needsDevicePasswordSetupGuide && importKeyGuideStep === "enter_key") ? (<div className="space-y-2">
                                                         <Label className="pl-1 text-[11px] font-black uppercase tracking-widest text-zinc-500">
                                                             {t("auth.login.optionalMasterPassword")}

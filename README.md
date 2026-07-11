@@ -2,7 +2,7 @@
 
 > **Active (2026-05).** Obscur development has resumed in this repository. Greenfield has been discontinued as a separate execution track; its archived design goals remain available for reference in [docs/archive/greenfield/README.md](docs/archive/greenfield/README.md).
 
-[![Version](https://img.shields.io/badge/version-1.9.10-blue)](https://github.com/Dendro-X0/Obscur/blob/main/version.json)
+[![Version](https://img.shields.io/badge/version-1.9.11-blue)](https://github.com/Dendro-X0/Obscur/blob/main/version.json)
 [![Platform](https://img.shields.io/badge/platform-PWA%20%7C%20Desktop%20%7C%20Mobile-0ea5e9)](#platform-coverage)
 [![Architecture](https://img.shields.io/badge/architecture-decentralized-22c55e)](#core-positioning)
 [![Security](https://img.shields.io/badge/security-E2EE-ef4444)](#core-positioning)
@@ -56,35 +56,59 @@ The project remains independently developed, community-maintained, privacy-first
 
 ## Feature GIF Previews
 
-Current production captures live in `docs/assets/gifs/` and are intended to be reused in the upcoming website surface.
+Current v1.9.10 captures live in `docs/assets/gifs/`. Legacy April 2026 six-pack files were removed 2026-07-10.
 
-### Login and onboarding
+### Auth and onboarding
 
-![Login demo](docs/assets/gifs/obscur_login_1.gif)
+![Unlock demo](docs/assets/gifs/auth_unlock_1.gif)
 
-### Chat UI
+![Create profile demo](docs/assets/gifs/auth_create_1.gif)
 
-![Chat UI demo](docs/assets/gifs/obscur_chat_ui_1.gif)
+### Direct messaging
 
-### Settings and configuration
+![DM demo](docs/assets/gifs/e2e-dm-base_1.gif)
 
-![Settings demo](docs/assets/gifs/obscur_settings_panel_1.gif)
+![Message search demo](docs/assets/gifs/search_message_history_1.gif)
+
+![Emoji picker demo](docs/assets/gifs/emoji_icons_1.gif)
+
+### Settings and relays
+
+![Relay overview demo](docs/assets/gifs/relay_overview_1.gif)
+
+![Relay enable/disable demo](docs/assets/gifs/relay_enable_disable_1.gif)
+
+**Pending:** `settings_panel_1.gif` — full settings navigation refresh (re-record).
 
 ### Multi-profile management
 
-![Multi-profile demo](docs/assets/gifs/multi_profile_management_1.gif)
+![Export profile demo](docs/assets/gifs/export_local_profile_1.gif)
 
-### Multimedia upload and transfer
+![Import profile demo](docs/assets/gifs/Import_local_profile_and_sync_account_data_1.gif)
 
-![Multimedia upload demo](docs/assets/gifs/multimedia_files_upload_and_transfer_1.gif)
+![Profile window isolation demo](docs/assets/gifs/delete_profile_window_isolation_1.gif)
 
-### Voice notes and calls
+### Communities (group chat)
 
-![Voice notes and calls demo](docs/assets/gifs/voice_notes_and_calls_1.gif)
+![Create group demo](docs/assets/gifs/group_create_managed_workspace_1.gif)
 
-### Communities
+![Invite member demo](docs/assets/gifs/group_invite_member_1.gif)
 
-Community/discovery production GIF capture is the next demo asset to add under `docs/assets/gifs/`.
+![Group send/receive demo](docs/assets/gifs/community_group_send_receive_1.gif)
+
+![Group participants demo](docs/assets/gifs/group_participants_settings_1.gif)
+
+### Still to record
+
+| Topic | Target filename | Notes |
+|-------|-----------------|-------|
+| Settings panel | `settings_panel_1.gif` | Settings nav + security surfaces |
+| Add contact | `add_contact_1.gif` | Network → add by key / QR |
+| Media upload | `multimedia_files_upload_and_transfer_1.gif` | DM attach + transfer |
+| Voice notes | `voice_notes_1.gif` | Record, send, playback in thread |
+| Voice calls | `voice_calls_1.gif` | Outgoing call + accept/join UI |
+
+Full inventory: [docs/assets/demo/v2.0.0/gif-inventory.md](docs/assets/demo/v2.0.0/gif-inventory.md)
 
 ## Platform Coverage
 
@@ -148,10 +172,10 @@ The `/docs` tree is the project encyclopedia. **Only** [docs/README.md](docs/REA
 | Shelf | Entry |
 |-------|--------|
 | Navigation | [docs/README.md](docs/README.md) |
-| **Current release train** | [docs/program/v1.9.x-release-train.md](docs/program/v1.9.x-release-train.md) · **1.9.10** on `main` |
+| **Current release train** | [docs/program/v1.9.x-release-train.md](docs/program/v1.9.x-release-train.md) · **1.9.11** on `main` |
 | **Execution contract** | [docs/program/v1.9.x-execution-contract.md](docs/program/v1.9.x-execution-contract.md) |
 | **Design goals** | [docs/program/design-goals-and-constraints.md](docs/program/design-goals-and-constraints.md) |
-| **Latest release notes** | [v1.9.10 recovery](docs/releases/v1.9.10-release.md) · Git tags v1.9.0–v1.9.3 |
+| **Latest release notes** | [v1.9.11](docs/releases/v1.9.11-release.md) · Git tags v1.9.0–v1.9.3 |
 | Program | [docs/program/PROGRAM.md](docs/program/PROGRAM.md) |
 | Changelog | [CHANGELOG.md](CHANGELOG.md) |
 | Maintainer | [docs/encyclopedia/08-maintainer-playbook.md](docs/encyclopedia/08-maintainer-playbook.md) |

@@ -7,6 +7,7 @@ import { Loader2 } from "lucide-react";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
+import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
 import {
   revealExportPathInFileManager,
 } from "@/app/features/profiles/services/data-root-export-service";
@@ -31,6 +32,9 @@ import {
   importUnifiedAccountBundle,
   writeUnifiedAccountExportToDataRoot,
 } from "@/app/features/profiles/services/unified-account-export-service";
+import { refreshShellAfterAccountImport } from "@/app/features/profiles/services/post-account-import-shell-refresh";
+import { resolvePortabilityPrivateKeyHex } from "@/app/features/auth/services/resolve-portability-private-key-hex";
+import { useIdentityInternals } from "@/app/features/auth/hooks/use-identity";
 import {
   PortabilityExportResultBanner,
   type PortabilityExportResult,
@@ -67,7 +71,7 @@ export function ManualPortabilityPanel(props: Props): React.JSX.Element {
   const [namingPreset, setNamingPreset] = useState<PortabilityExportNamingPreset>(() => loadPortabilityExportNamingPreset());
   const [importPreflight, setImportPreflight] = useState<PortabilityImportPreflight | null>(null);
   const [isImportPreflightOpen, setIsImportPreflightOpen] = useState(false);
-  const [includeVaultMedia, setIncludeVaultMedia] = useState(false);
+  const [includeVaultMedia, setIncludeVaultMedia] = useState(() => hasNativeRuntime());
 
   useEffect(() => {
     if (!props.publicKeyHex) {
@@ -97,14 +101,25 @@ export function ManualPortabilityPanel(props: Props): React.JSX.Element {
     };
   }, [props.publicKeyHex]);
 
+  const resolvePortabilityKey = async (): Promise<PrivateKeyHex | null> => {
+    if (!props.publicKeyHex) {
+      return null;
+    }
+    return resolvePortabilityPrivateKeyHex({
+      publicKeyHex: props.publicKeyHex,
+      privateKeyHex: await props.resolveActivePrivateKeyHex(),
+    });
+  };
+
   const applyUnifiedImport = async (file: File): Promise<void> => {
     if (!props.publicKeyHex) {
       toast.error("Sign in to the target account in this profile window first.");
       return;
     }
     setIsImporting(true);
+    useIdentityInternals.beginIdentityMutation();
     try {
-      const privateKeyHex = await props.resolveActivePrivateKeyHex();
+      const privateKeyHex = await resolvePortabilityKey();
       if (!privateKeyHex) {
         throw new Error("Unlock this account first so the export can be decrypted and restored.");
       }
@@ -115,15 +130,19 @@ export function ManualPortabilityPanel(props: Props): React.JSX.Element {
         privateKeyHex,
         profileId: getResolvedProfileId(),
       });
+      await refreshShellAfterAccountImport({
+        profileId: getResolvedProfileId(),
+        publicKeyHex: props.publicKeyHex,
+      });
       toast.success(
         result.importedWorkspace
           ? "Unified account export imported (account + workspace)."
           : "Account export imported.",
       );
-      window.location.reload();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Account export import failed.");
     } finally {
+      useIdentityInternals.endIdentityMutation();
       setIsImporting(false);
       pendingImportFileRef.current = null;
       setIsImportPreflightOpen(false);
@@ -132,7 +151,7 @@ export function ManualPortabilityPanel(props: Props): React.JSX.Element {
   };
 
   const beginImport = async (file: File): Promise<void> => {
-    const privateKeyHex = await props.resolveActivePrivateKeyHex();
+    const privateKeyHex = await resolvePortabilityKey();
     const preflight = await preflightUnifiedAccountImport({
       file,
       activePublicKeyHex: props.publicKeyHex,
@@ -149,7 +168,7 @@ export function ManualPortabilityPanel(props: Props): React.JSX.Element {
     }
     setIsExporting(true);
     try {
-      const privateKeyHex = await props.resolveActivePrivateKeyHex();
+      const privateKeyHex = await resolvePortabilityKey();
       if (!privateKeyHex) {
         throw new Error("Unlock this account first so private state can be exported.");
       }

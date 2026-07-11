@@ -16,17 +16,6 @@ pub fn junction_target(link_path: &Path) -> Option<PathBuf> {
     }
 }
 
-pub fn junction_points_to(link_path: &Path, dest: &Path) -> bool {
-    let Some(link_target) = junction_target(link_path) else {
-        return false;
-    };
-    let Ok(expected) = fs_canonicalize(dest) else {
-        return false;
-    };
-    let resolved = fs_canonicalize(&link_target).unwrap_or(link_target);
-    resolved.to_string_lossy().eq_ignore_ascii_case(&expected.to_string_lossy())
-}
-
 pub fn is_reparse_point(path: &Path) -> bool {
     junction_target(path).is_some()
 }

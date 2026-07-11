@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { publishDmNostrEvent } from "./publish-dm-nostr-event";
+import { publishDmNostrEvent, resolveCommunityInviteDmPublishRelayUrls } from "./publish-dm-nostr-event";
 
 describe("publishDmNostrEvent", () => {
     it("prefers DM-scoped publishToUrls over publishToAll", async () => {
@@ -31,5 +31,19 @@ describe("publishDmNostrEvent", () => {
         const event = { id: "evt-2" } as never;
         await publishDmNostrEvent({ publishToAll }, [], event);
         expect(publishToAll).toHaveBeenCalledTimes(1);
+    });
+
+    it("resolveCommunityInviteDmPublishRelayUrls prepends workspace relay when missing from DM scope", () => {
+        expect(resolveCommunityInviteDmPublishRelayUrls(
+            ["wss://relay.example"],
+            "ws://localhost:7000",
+        )).toEqual(["ws://localhost:7000", "wss://relay.example"]);
+    });
+
+    it("resolveCommunityInviteDmPublishRelayUrls dedupes workspace relay already in DM scope", () => {
+        expect(resolveCommunityInviteDmPublishRelayUrls(
+            ["ws://localhost:7000", "wss://relay.example"],
+            "ws://127.0.0.1:7000",
+        )).toEqual(["ws://localhost:7000", "wss://relay.example"]);
     });
 });

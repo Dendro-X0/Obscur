@@ -1400,7 +1400,7 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
                 </div>) : null}
 
             <SwipeReplyWrapper message={message} onReply={onReply} isOutgoing={message.isOutgoing} enableSwipeReply={!highLoadMode && !batchDeleteMode}>
-                <div className={cn("flex min-w-0 flex-col w-full", message.isOutgoing ? "items-end" : "items-start")}>
+                <div className={cn("flex min-w-0 flex-col", message.isOutgoing ? "items-end" : "items-start", compactThreadCards && isEmbeddedThreadCard ? "w-full" : isEmbeddedThreadCard ? "w-full max-w-[min(100%,420px)]" : "w-full")}>
                     {isGroupStart && (<div className={cn("flex items-center gap-2 mb-1 px-1", message.isOutgoing ? "flex-row-reverse" : "flex-row")}>
                             {!message.isOutgoing ? (<SenderName pubkey={message.senderPubkey!} admins={admins}/>) : (<span className="text-[10px] font-black uppercase tracking-widest opacity-40">
                                     {t("common.you")}
@@ -1433,7 +1433,12 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
             }
         }} onPointerDown={handleBubblePointerDown} onPointerMove={handleBubblePointerMove} onPointerUp={handleBubblePointerUp} onPointerCancel={handleBubblePointerUp} onPointerLeave={handleBubblePointerLeave} style={{ touchAction: preferNativeTouchScroll ? "manipulation" : undefined }} className={cn("relative min-w-0 group", highLoadMode ? "transition-none" : "transition-all duration-200", mobileCompact && actionDockPinned && "mb-11", compactThreadCards && isEmbeddedThreadCard
             ? "max-w-full w-full"
-            : "max-w-[90%] sm:max-w-[80%]", hasVisualAttachments && !(compactThreadCards && isEmbeddedThreadCard) && "min-w-[300px] sm:min-w-[420px] max-w-[95%] sm:max-w-[88%]", isEmbeddedThreadCard
+            : isEmbeddedThreadCard
+                ? cn(
+                    "w-full",
+                    message.isOutgoing ? "self-end" : "self-start",
+                )
+                : "max-w-[90%] sm:max-w-[80%]", hasVisualAttachments && !(compactThreadCards && isEmbeddedThreadCard) && "min-w-[300px] sm:min-w-[420px] max-w-[95%] sm:max-w-[88%]", isEmbeddedThreadCard
             ? "bg-transparent border-0 shadow-none text-inherit"
             : message.isOutgoing
                 ? "bg-gradient-to-tr from-purple-600 to-indigo-500 text-white shadow-md shadow-purple-500/20 dark:from-zinc-100 dark:to-zinc-200 dark:text-zinc-900 dark:shadow-none"
@@ -1442,7 +1447,9 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
             : cn("rounded-[20px]", isGroupStart && isGroupEnd ? "rounded-bl-md" : "", isGroupStart && !isGroupEnd ? "rounded-bl-md rounded-br-[20px]" : "", !isGroupStart && isGroupEnd ? "rounded-tl-md rounded-bl-md" : "", isMiddle ? "rounded-tl-md rounded-bl-md" : ""), isBatchSelected && "ring-2 ring-purple-400/45 dark:ring-purple-300/45", isFlashing && "ring-4 ring-purple-500/20 dark:ring-purple-400/20 animate-pulse")}>
                         {!batchDeleteMode ? (<div ref={actionDockRef} data-testid={`message-action-dock-${message.id}`} data-visible={actionDockPinned ? "true" : "false"} onMouseEnter={handleActionDockMouseEnter} onMouseLeave={handleActionDockMouseLeave} className={cn("absolute z-20 flex gap-1.5 transition-all duration-150", mobileCompact
                 ? cn("top-full mt-1.5 left-0 right-0 flex-row", message.isOutgoing ? "justify-end" : "justify-start")
-                : cn("top-1 flex-col", message.isOutgoing ? "-left-12" : "-right-12"), actionDockPinned
+                : isEmbeddedThreadCard
+                    ? cn("top-1 flex-col", message.isOutgoing ? "right-full mr-1.5" : "left-full ml-1.5")
+                    : cn("top-1 flex-col", message.isOutgoing ? "-left-12" : "-right-12"), actionDockPinned
                 ? "opacity-100 translate-y-0 pointer-events-auto"
                 : "opacity-0 translate-y-1 pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto")}>
                                 <Button variant="ghost" size="icon" aria-label={t("messaging.openReactionPicker")} className={cn("h-8 w-8 rounded-full bg-white/90 dark:bg-zinc-800/90 backdrop-blur-sm shadow-sm ring-1 ring-black/5 dark:ring-white/5 hover:scale-110 transition-transform", reactionAnchoredToThisMessage && "ring-2 ring-purple-500/50 bg-white dark:bg-zinc-900")} onClick={(e) => {
@@ -1866,10 +1873,8 @@ function SwipeReplyWrapper({ message, onReply, isOutgoing, enableSwipeReply, chi
             {enableSwipeReply ? (<motion.div className="absolute left-4 top-1/2 -translate-y-1/2 text-purple-600 dark:text-purple-400" style={{ opacity, scale }}>
                     <Reply className="h-6 w-6"/>
                 </motion.div>) : null}
-            <motion.div drag={enableSwipeReply ? "x" : false} dragConstraints={{ left: 0, right: 100 }} dragElastic={0.1} onDragEnd={enableSwipeReply ? handleDragEnd : undefined} style={{ x }} className="flex min-w-0 flex-1">
-                <div className="flex min-w-0 flex-1" style={{ justifyContent: isOutgoing ? 'flex-end' : 'flex-start' }}>
-                    {children}
-                </div>
+            <motion.div drag={enableSwipeReply ? "x" : false} dragConstraints={{ left: 0, right: 100 }} dragElastic={0.1} onDragEnd={enableSwipeReply ? handleDragEnd : undefined} style={{ x }} className={cn("flex min-w-0 w-full max-w-full", isOutgoing ? "justify-end" : "justify-start")}>
+                {children}
             </motion.div>
         </div>);
 }

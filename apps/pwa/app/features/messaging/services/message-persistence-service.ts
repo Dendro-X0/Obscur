@@ -325,6 +325,7 @@ export class MessagePersistenceService {
     private recentlyDeletedMessageIds = new Map<string, number>();
     private flushTimer: ReturnType<typeof setTimeout> | null = null;
     private isFlushing = false;
+    private activeFlush: Promise<void> | null = null;
     private batchedEventCount = 0;
     private currentBatchStartMs: number | null = null;
     private activeMessageStoreScopeKey: string | null = null;
@@ -452,7 +453,18 @@ export class MessagePersistenceService {
 
     /** Flush batched message bus writes immediately (native SQLite durability). */
     async flushPendingNow(): Promise<void> {
-        await this.flushQueue();
+        if (this.activeFlush) {
+            await this.activeFlush;
+            if (this.getQueuedOperationCount() === 0) {
+                return;
+            }
+        }
+        this.activeFlush = this.flushQueue();
+        try {
+            await this.activeFlush;
+        } finally {
+            this.activeFlush = null;
+        }
     }
 
     dispose(): void {
@@ -486,6 +498,7 @@ export class MessagePersistenceService {
         this.pruneDeleteTombstones();
         this.recentlyDeletedMessageIds.clear();
         this.isFlushing = false;
+        this.activeFlush = null;
         this.boundProfileId = null;
     }
 
